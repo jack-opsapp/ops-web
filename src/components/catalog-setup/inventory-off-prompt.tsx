@@ -58,13 +58,13 @@ export function InventoryOffPrompt({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[460px]" data-testid="inventory-off-prompt">
         <DialogHeader>
-          <DialogTitle className="font-cakemono text-[18px] font-light uppercase tracking-[0.02em] text-text">
-            <span aria-hidden className="mr-[8px] font-mono text-[15px] text-text-mute">
+          <DialogTitle className="font-cakemono text-cake-section font-light uppercase tracking-[0.02em] text-text">
+            <span aria-hidden className="mr-1 font-mono text-data-sm text-text-mute">
               {"//"}
             </span>
             {t("inventoryOff.title", "Track inventory")}
           </DialogTitle>
-          <DialogDescription className="font-mohave text-[14px] leading-relaxed text-text-2">
+          <DialogDescription className="font-mohave text-body-sm font-normal leading-relaxed text-text-2">
             {t("inventoryOff.lead", "You've added")}{" "}
             <span className="font-mono text-text" style={MONO_NUM}>
               {stockItemCount}

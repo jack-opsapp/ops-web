@@ -132,7 +132,7 @@ export function CatalogSetupLauncher({ onDismiss, className }: CatalogSetupLaunc
         <Link
           href="/catalog/setup"
           data-testid="catalog-setup-start"
-          className="group inline-flex items-center gap-2 rounded-[5px] border border-ops-accent px-6 py-2 font-cakemono text-[14px] font-light uppercase tracking-wide text-ops-accent transition-colors duration-150 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          className="group inline-flex items-center gap-2 rounded border border-ops-accent px-2 py-1 font-cakemono text-cake-button font-light uppercase tracking-wide text-ops-accent transition-colors duration-150 hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         >
           {t("firstRun.cta", "Start setup")}
           <ArrowRight aria-hidden className="h-[16px] w-[16px]" />

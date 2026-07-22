@@ -67,7 +67,7 @@ function dotKindFor(card: StagingCard): DotKind {
 const DOT_STYLES: Record<DotKind, { className: string; ariaKey: string }> = {
   accepted: { className: "bg-olive border-olive", ariaKey: "state.accepted" },
   review: { className: "bg-tan border-tan", ariaKey: "state.needsPrice" },
-  new: { className: "bg-transparent border-[rgba(255,255,255,0.30)]", ariaKey: "state.proposed" },
+  new: { className: "bg-transparent border-border-strong", ariaKey: "state.proposed" },
 };
 
 /** Source → dictionary tag key. Agent provenance shows SUGGESTED (lavender). */
@@ -167,10 +167,10 @@ function DataCell({
     tone === "cost" ? "text-rose" : tone === "margin" ? "text-olive" : "text-text";
   return (
     <div className="flex flex-col gap-[2px]">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-text-3">
+      <span className="font-mono text-micro-sm uppercase tracking-wider text-text-3">
         {label}
       </span>
-      <span className={cn("font-mono text-[13px]", toneClass)} style={MONO_NUM}>
+      <span className={cn("font-mono text-data-sm", toneClass)} style={MONO_NUM}>
         {value}
       </span>
     </div>
@@ -252,7 +252,7 @@ export function StagingCardView({
         // Agent provenance = lavender tint + border; everything else = glass + hairline.
         isAgent
           ? "border-agent-border bg-agent-bg"
-          : "border-glass-border bg-[rgba(255,255,255,0.02)]",
+          : "border-glass-border bg-surface-hover-subtle",
         className,
       )}
     >
@@ -274,7 +274,7 @@ export function StagingCardView({
           {/* Name (Mohave, sentence case) */}
           <p
             className={cn(
-              "truncate font-mohave text-[14px] leading-tight",
+              "truncate font-mohave text-body-sm font-normal leading-tight",
               isAgent ? "text-agent-text" : "text-text",
             )}
           >
@@ -286,7 +286,7 @@ export function StagingCardView({
             {chip ? (
               <span
                 data-testid="staging-card-config-chip"
-                className="rounded-chip border border-glass-border px-[6px] py-[1px] font-mono text-[11px] uppercase tracking-wider text-text-2"
+                className="rounded-chip border border-glass-border px-[6px] py-[1px] font-mono text-micro uppercase tracking-wider text-text-2"
                 style={MONO_NUM}
               >
                 {chip}
@@ -295,7 +295,7 @@ export function StagingCardView({
             <span
               data-testid="staging-card-source-tag"
               className={cn(
-                "rounded-chip px-[6px] py-[1px] font-mono text-[11px] uppercase tracking-wider",
+                "rounded-chip px-[6px] py-[1px] font-mono text-micro uppercase tracking-wider",
                 isAgent
                   ? "border border-agent-border bg-agent-bg-hi text-agent-text"
                   : "border border-glass-border text-text-3",
@@ -306,7 +306,7 @@ export function StagingCardView({
             {isDuplicate ? (
               <span
                 data-testid="staging-card-duplicate-tag"
-                className="rounded-chip border border-tan-line bg-tan-soft px-[6px] py-[1px] font-mono text-[11px] uppercase tracking-wider text-tan"
+                className="rounded-chip border border-tan-line bg-tan-soft px-[6px] py-[1px] font-mono text-micro uppercase tracking-wider text-tan"
               >
                 {t("state.duplicate", "duplicate")}
               </span>
@@ -322,7 +322,7 @@ export function StagingCardView({
             aria-label={t("action.reject", "REJECT")}
             onClick={() => onReject?.(card.id)}
             className={cn(
-              "flex h-[22px] w-[22px] items-center justify-center rounded-[5px] text-text-3 transition-colors hover:bg-surface-hover hover:text-text-2",
+              "flex h-[22px] w-[22px] items-center justify-center rounded text-text-3 transition-colors hover:bg-surface-hover hover:text-text-2",
               FOCUS_RING,
             )}
           >
@@ -334,7 +334,7 @@ export function StagingCardView({
             aria-label={t("action.edit", "EDIT")}
             onClick={() => onEdit?.(card.id)}
             className={cn(
-              "flex h-[22px] w-[22px] items-center justify-center rounded-[5px] text-text-3 transition-colors hover:bg-surface-hover hover:text-text-2",
+              "flex h-[22px] w-[22px] items-center justify-center rounded text-text-3 transition-colors hover:bg-surface-hover hover:text-text-2",
               FOCUS_RING,
             )}
           >
@@ -350,7 +350,7 @@ export function StagingCardView({
             variants={m.cardAccept}
             animate={isAccepted ? "accepted" : "idle"}
             className={cn(
-              "flex h-[22px] w-[22px] items-center justify-center rounded-[5px] border transition-colors",
+              "flex h-[22px] w-[22px] items-center justify-center rounded border transition-colors",
               FOCUS_RING,
               isAccepted
                 ? "border-olive-line bg-olive-soft text-olive"
@@ -383,10 +383,10 @@ export function StagingCardView({
           data-testid="staging-card-diff"
           className="flex flex-col gap-[6px] border-t border-tan-line pt-2"
         >
-          <span className="font-mono text-[10px] uppercase tracking-wider text-text-3">
+          <span className="font-mono text-micro-sm uppercase tracking-wider text-text-3">
             {t("dedupe.title", "// matched a row you already have")}
           </span>
-          <span className="font-mono text-[10px] tracking-wide text-text-3">
+          <span className="font-mono text-micro-sm tracking-wide text-text-3">
             {t("dedupe.fieldHint", "[ pick what to overwrite — the rest stays on file ]")}
           </span>
           {diff.map((d) => {
@@ -395,10 +395,10 @@ export function StagingCardView({
             return (
               <div
                 key={d.field}
-                className="flex items-center gap-2 font-mono text-[12px]"
+                className="flex items-center gap-2 font-mono text-data-sm"
                 style={MONO_NUM}
               >
-                <span className="w-[58px] shrink-0 text-[10px] uppercase tracking-wider text-text-3">
+                <span className="w-[58px] shrink-0 text-micro-sm uppercase tracking-wider text-text-3">
                   {d.label}
                 </span>
                 {/* The LIVE value (what commits) is always the un-struck one. */}
@@ -460,7 +460,7 @@ export function StagingCardView({
               data-testid="staging-card-keep"
               onClick={() => diff.forEach((d) => onToggleDiffField?.(card.id, d.field, false))}
               className={cn(
-                "rounded-chip border border-glass-border px-2 py-[2px] font-cakemono text-[11px] font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text",
+                "rounded-chip border border-glass-border px-2 py-[2px] font-cakemono text-cake-badge font-light uppercase text-text-2 transition-colors hover:bg-surface-hover hover:text-text",
                 FOCUS_RING,
               )}
             >
@@ -471,7 +471,7 @@ export function StagingCardView({
               data-testid="staging-card-merge"
               onClick={() => onMerge?.(card.id)}
               className={cn(
-                "rounded-chip border border-olive-line bg-olive-soft px-2 py-[2px] font-cakemono text-[11px] font-light uppercase text-olive transition-colors hover:bg-olive/[0.16]",
+                "rounded-chip border border-olive-line bg-olive-soft px-2 py-[2px] font-cakemono text-cake-badge font-light uppercase text-olive transition-colors hover:bg-olive/[0.16]",
                 FOCUS_RING,
               )}
             >
