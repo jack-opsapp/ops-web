@@ -5,6 +5,7 @@
 import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabase, runWithSupabase } from "@/lib/supabase/helpers";
+import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 import { EmailService } from "./email-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
@@ -28,7 +29,10 @@ import { matchPlatform, isFormSubmissionSubject } from "./known-platforms";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { reconcilePendingMailboxDraftsForConnection } from "./draft-reconciliation";
 import { maybeSuggestProject } from "./project-suggestion-service";
-import { EmailThreadService } from "./email-thread-service";
+import {
+  EmailThreadService,
+  EmailThreadParentConflictError,
+} from "./email-thread-service";
 import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
 import { resolveOutboundLearningActorId } from "@/lib/email/outbound-learning-actor";
 import { assignPersonalMailboxLead } from "@/lib/email/personal-mailbox-lead-assignment";
@@ -1499,6 +1503,59 @@ async function persistDeterministicEmailThreadState(
       });
     }
   } catch (err) {
+    if (err instanceof EmailThreadParentConflictError) {
+      // Two duplicate leads claim this one Gmail/M365 thread. This exact
+      // conflict — thrown from upsertFromEmail after the correspondence event
+      // was recorded but before its projection — killed every sync cycle at the
+      // same seam and froze the mailbox cursor for 20+ hours in the 2026-07-22
+      // outage. Quarantine the thread instead of rethrowing: skip only its
+      // cache refresh, raise a persistent operator alert, and let this message's
+      // projection and the provider cursor proceed. The thread cache simply
+      // stops refreshing until an operator merges the duplicate leads.
+      console.error(
+        "[sync-engine] email thread ownership conflict — thread-state refresh skipped, ingestion continues",
+        {
+          connectionId: connection.id,
+          providerThreadId: err.providerThreadId,
+          threadOwnerOpportunityId: err.threadOpportunityId,
+          routedOpportunityId: err.routedOpportunityId,
+        }
+      );
+
+      const operatorUserId = process.env.PMF_OPERATOR_USER_ID;
+      const operatorCompanyId = process.env.PMF_OPERATOR_COMPANY_ID;
+      if (operatorUserId && operatorCompanyId) {
+        try {
+          await getServiceRoleClient().rpc(
+            "create_notification_if_new_with_identity",
+            {
+              p_user_id: operatorUserId,
+              p_company_id: operatorCompanyId,
+              p_type: "system_alert",
+              p_title: "EMAIL THREAD OWNERSHIP CONFLICT",
+              p_body:
+                "Two leads claim one email conversation — ingestion continues, but this thread's cache is frozen until the duplicate leads are merged.",
+              p_persistent: true,
+              p_action_url: "/pipeline",
+              p_action_label: "REVIEW LEADS",
+              p_project_id: null,
+              p_deep_link_type: null,
+              p_dedupe_key: `email-thread-parent-conflict:${connection.id}:${email.threadId}`,
+            }
+          );
+        } catch (alertErr) {
+          console.error(
+            "[sync-engine] thread-parent conflict alert insert failed (non-fatal):",
+            alertErr instanceof Error ? alertErr.message : alertErr
+          );
+        }
+      } else {
+        console.error(
+          "[sync-engine] thread-parent conflict alert skipped — PMF_OPERATOR_USER_ID or PMF_OPERATOR_COMPANY_ID unset"
+        );
+      }
+      return;
+    }
     throw new Error(
       `[sync-engine] email_threads upsert failed: ${err instanceof Error ? err.message : "unknown error"}`
     );

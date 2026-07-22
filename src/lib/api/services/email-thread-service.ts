@@ -74,6 +74,35 @@ const EMAIL_THREAD_MAILBOX_BUSY = "EMAIL_THREAD_MAILBOX_BUSY";
 const EMAIL_THREAD_PROVIDER_AUTHORIZATION_REVOKED =
   "EMAIL_THREAD_PROVIDER_AUTHORIZATION_REVOKED";
 
+/**
+ * A Gmail/M365 thread's canonical parent (the `email_threads` cache row) is
+ * owned by a different opportunity than the one an inbound message routed to —
+ * the signature of two duplicate leads claiming one conversation. Carried as a
+ * typed error so `sync-engine` can quarantine just this thread (operator-rail
+ * alert) and let ingestion + the provider cursor keep moving, instead of the
+ * generic throw that froze the mailbox for 20+ hours in the 2026-07-22 outage.
+ */
+export class EmailThreadParentConflictError extends Error {
+  readonly providerThreadId: string;
+  /** Existing cache-row owner; null when the conflict is proven inside the DB. */
+  readonly threadOpportunityId: string | null;
+  readonly routedOpportunityId: string | null;
+
+  constructor(params: {
+    providerThreadId: string;
+    threadOpportunityId: string | null;
+    routedOpportunityId: string | null;
+  }) {
+    super(
+      "upsertFromEmail opportunity projection failed: email_thread_parent_conflict"
+    );
+    this.name = "EmailThreadParentConflictError";
+    this.providerThreadId = params.providerThreadId;
+    this.threadOpportunityId = params.threadOpportunityId;
+    this.routedOpportunityId = params.routedOpportunityId;
+  }
+}
+
 type AuthorizeThreadProviderMutation = (threadId: string) => Promise<boolean>;
 
 async function reloadClassificationWinner(input: {
@@ -1174,9 +1203,12 @@ export const EmailThreadService = {
         existing.opportunity_id &&
         existing.opportunity_id !== params.opportunityId
       ) {
-        throw new Error(
-          "upsertFromEmail opportunity projection failed: email_thread_parent_conflict"
-        );
+        throw new EmailThreadParentConflictError({
+          providerThreadId,
+          threadOpportunityId:
+            (existing.opportunity_id as string | null) ?? null,
+          routedOpportunityId: params.opportunityId,
+        });
       }
       if (params.opportunityId && !existing.opportunity_id) {
         const { data: projection, error: projectionError } = await supabase.rpc(
@@ -1189,6 +1221,19 @@ export const EmailThreadService = {
           }
         );
         if (projectionError) {
+          if (
+            projectionError.message?.includes("email_thread_parent_conflict") ||
+            projectionError.message?.includes("email_thread_client_conflict")
+          ) {
+            throw new EmailThreadParentConflictError({
+              providerThreadId,
+              // The cache row is unattached here; the conflicting owner is
+              // proven inside attach_email_thread_to_opportunity_as_system,
+              // not observable on `existing`.
+              threadOpportunityId: null,
+              routedOpportunityId: params.opportunityId,
+            });
+          }
           throw new Error(
             `upsertFromEmail opportunity projection failed: ${projectionError.message}`
           );

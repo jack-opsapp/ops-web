@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
-import { EmailThreadService } from "@/lib/api/services/email-thread-service";
+import {
+  EmailThreadService,
+  EmailThreadParentConflictError,
+} from "@/lib/api/services/email-thread-service";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 
 type Row = Record<string, unknown>;
@@ -515,6 +518,71 @@ describe("EmailThreadService.upsertFromEmail message idempotency", () => {
     );
     expect(state.projectionCalls).toEqual([]);
     expect(state.threadUpdates).toEqual([]);
+  });
+
+  it("raises a typed EmailThreadParentConflictError carrying both owners on a cached-parent mismatch", async () => {
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: threadRow({ opportunity_id: "opportunity-a" }),
+      activities: [activity({ opportunity_id: "opportunity-b" })],
+      threadUpdates: [],
+      projectionCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const error = await EmailThreadService.upsertFromEmail({
+      companyId: "company-1",
+      connectionId: "connection-1",
+      providerThreadId: "provider-thread-1",
+      email: email(),
+      direction: "inbound",
+      opportunityId: "opportunity-b",
+    }).then(
+      () => null,
+      (err) => err
+    );
+
+    // sync-engine keys its per-thread quarantine off this exact type, so the
+    // mismatch branch must throw it (not a bare Error) with both lead ids.
+    expect(error).toBeInstanceOf(EmailThreadParentConflictError);
+    expect(error).toMatchObject({
+      providerThreadId: "provider-thread-1",
+      threadOpportunityId: "opportunity-a",
+      routedOpportunityId: "opportunity-b",
+    });
+    expect(state.projectionCalls).toEqual([]);
+    expect(state.threadUpdates).toEqual([]);
+  });
+
+  it("raises a typed conflict with a null owner when the guarded attach RPC reports a parent conflict", async () => {
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: threadRow({ opportunity_id: null }),
+      activities: [activity({ opportunity_id: "opportunity-1" })],
+      projectionError: "email_thread_parent_conflict",
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const error = await EmailThreadService.upsertFromEmail({
+      companyId: "company-1",
+      connectionId: "connection-1",
+      providerThreadId: "provider-thread-1",
+      email: email(),
+      direction: "inbound",
+      opportunityId: "opportunity-1",
+    }).then(
+      () => null,
+      (err) => err
+    );
+
+    // The cache row is unattached, so the conflicting owner is unknowable here
+    // (proven inside the DB) — threadOpportunityId is null, not the routed lead.
+    expect(error).toBeInstanceOf(EmailThreadParentConflictError);
+    expect(error).toMatchObject({
+      providerThreadId: "provider-thread-1",
+      threadOpportunityId: null,
+      routedOpportunityId: "opportunity-1",
+    });
   });
 
   it("fails closed when the guarded projection receipt is not exact", async () => {
