@@ -32,11 +32,23 @@
  *    they'll never touch (step-machine buildStepPlan).
  *
  * ── MOTION (animation-architect → web-animations; EASE_SMOOTH, no spring) ─────
- *  • Left-pane swap (DriverPane ⇄ ItemEditor) is the TRANSITION beat — the panes
- *    crossfade/slide via AnimatePresence mode="wait". DriverPane and ItemEditor
- *    each own their own entry choreography + reduced-motion fallback; the shell
- *    only sequences them. Under reduced motion the swap is an opacity-only
- *    crossfade (the children already branch on useReducedMotion()).
+ *  • Left-pane swap (DriverPane ⇄ ItemEditor ⇄ Upload ⇄ QuickBooks) is the
+ *    TRANSITION beat — a SINGLE keyed mount: the outgoing pane unmounts
+ *    synchronously with the state change and the incoming pane fades in (each
+ *    pane owns its 200ms entry + reduced-motion fallback). Deliberately NO
+ *    AnimatePresence / exit choreography here: an exit-gated swap can wedge the
+ *    whole left column behind an unfinished exit animation (nested mode="wait"
+ *    did exactly that under load), and a first click that "does nothing" is a
+ *    worse failure than a hard cut. The entry fade alone carries the beat.
+ *
+ * ── LAYOUT (must hold at a 13" laptop — 689px of viewport) ────────────────────
+ *  • The header strip is two compact rows (section-tier title + inline subtitle,
+ *    then rail + actions sharing one row) — every vertical pixel of chrome here
+ *    is stolen from the working panes, so the strip stays under ~100px.
+ *  • ≥768px: the two-pane command deck, panes hard-bounded (internal scroll with
+ *    ScrollFade). <768px (half-screen windows, heavy zoom): normal document
+ *    flow — the body stacks and page-scrolls, no fixed-height chain, so nothing
+ *    can collapse to 0px or paint over a sibling.
  *  • The CTA fill is a 150ms color transition (hover), not a motion component —
  *    a button hover is Tier-1 CSS, no JS animation needed.
  *
@@ -46,7 +58,6 @@
  */
 
 import { useCallback, useMemo, useState } from "react";
-import { AnimatePresence } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import { useCatalogSetupStore } from "@/stores/catalog-setup-store";
@@ -201,6 +212,30 @@ export function SetupWizardShell({
   const startEditing = useCallback((id: string) => setEditingId(id), []);
   const stopEditing = useCallback(() => setEditingId(null), []);
 
+  // "Add it yourself" behaves exactly like the canvas's `+ add` affordance: seed
+  // a blank SELL row and open it straight in the editor. One lane, one behavior —
+  // the shell owns it because the shell owns the master-detail selection. The
+  // route's onPickSource still fires first (analytics / mode switching).
+  const seedManualRow = useCallback(() => {
+    const card = blankCard("sell");
+    dispatch({ type: "ADD_CARDS", cards: [card] });
+    startEditing(card.id);
+  }, [dispatch, startEditing]);
+
+  const handlePickSource = useCallback(
+    (source: SetupSource) => {
+      onPickSource?.(source);
+      if (source === "manual") seedManualRow();
+    },
+    [onPickSource, seedManualRow],
+  );
+
+  // The upload lane's can't-read escape lands in the same seeded editor.
+  const handleUploadAddManually = useCallback(() => {
+    onUploadAddManually?.();
+    seedManualRow();
+  }, [onUploadAddManually, seedManualRow]);
+
   const state: StagingState = useMemo(() => ({ cards }), [cards]);
   const byModule = useMemo(() => selectByModule(state), [state]);
   const totals = useMemo(() => selectRunningTotals(state), [state]);
@@ -235,8 +270,13 @@ export function SetupWizardShell({
       : null;
 
   // ── Master-detail: the card under edit (if any) drives the left pane swap ────
+  // A rejected card leaves the canvas, so editing it is over — the editor closes
+  // rather than orbiting a row that no longer exists on the right.
   const editingCard = useMemo(
-    () => (editingId ? cards.find((c) => c.id === editingId) ?? null : null),
+    () =>
+      editingId
+        ? cards.find((c) => c.id === editingId && c.state !== "rejected") ?? null
+        : null,
     [editingId, cards],
   );
 
@@ -248,152 +288,169 @@ export function SetupWizardShell({
         className,
       )}
     >
-      {/* ── HEADER STRIP — eyebrow, rail, + the two actions ─────────────────── */}
+      {/* ── HEADER STRIP — two compact rows; every pixel here costs the panes ── */}
       <header
         data-testid="wizard-header"
-        className="flex shrink-0 flex-col gap-4 border-b border-glass-border px-[44px] py-[28px]"
+        className="flex shrink-0 flex-col gap-1.5 border-b border-glass-border px-3 pb-1.5 pt-2"
       >
-        <div className="flex items-start justify-between gap-6">
-          {/* Eyebrow — Cake Mono display title + bracket subtitle */}
-          <div className="min-w-0">
-            <h1 className="font-cakemono text-[22px] font-light uppercase leading-none text-text">
-              <span aria-hidden className="mr-[8px] font-mono text-[18px] text-text-mute">
-                {"//"}
-              </span>
-              {t("title", "// your operating system").replace(/^\/\/\s*/, "")}
-            </h1>
-            <p className="mt-2 max-w-[60ch] font-mono text-micro tracking-wide text-text-3">
-              {t(
-                "subtitle",
-                "[everything you sell, stock, and schedule — built once, used everywhere]",
-              )}
-            </p>
-          </div>
+        {/* Row 1 — section-tier title + inline bracket subtitle (drops <md) */}
+        <div className="flex min-w-0 items-baseline gap-2">
+          <h1 className="shrink-0 font-cakemono text-cake-section font-light uppercase leading-none text-text">
+            <span aria-hidden className="mr-1 font-mono text-data-sm text-text-mute">
+              {"//"}
+            </span>
+            {t("title", "// your operating system").replace(/^\/\/\s*/, "")}
+          </h1>
+          <p className="hidden min-w-0 truncate font-mono text-micro tracking-wide text-text-3 md:block">
+            {t(
+              "subtitle",
+              "[everything you sell, stock, and schedule — built once, used everywhere]",
+            )}
+          </p>
+        </div>
 
-          {/* Actions — ghost exit (left of) the single primary CTA */}
-          <div className="flex shrink-0 items-center gap-4">
+        {/* Row 2 — rail (left) + actions (right) share the line. The rail keeps
+            its min-content width so a too-narrow window wraps the actions to a
+            second line instead of clipping segments. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
+          <ModuleRail
+            currentStep={currentStep}
+            context={railContext}
+            counts={counts}
+            className="flex-1"
+          />
+
+          {/* Actions — ghost exit · caption/reason · the single primary CTA */}
+          <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
               data-testid="wizard-setup-later"
               onClick={onSetupLater}
-              className="font-mono text-micro tracking-wide text-text-3 transition-colors duration-150 hover:text-text-2"
+              className="whitespace-nowrap font-mono text-micro tracking-wide text-text-3 transition-colors duration-150 hover:text-text-2"
             >
               {t("build.later", "[ set up later ]")}
             </button>
 
-            {/* The ONE ops-accent element on the screen. Outlined at rest →
-                fills bg-ops-accent text-black on hover. Disabled carries a
-                precise reason via title + aria-describedby. */}
-            <div className="flex flex-col items-end gap-1">
-              <button
-                type="button"
-                data-testid="wizard-build-it"
-                onClick={onBuild}
-                disabled={!canBuild}
-                aria-describedby={
-                  disabledReason ? "wizard-build-reason" : undefined
-                }
-                title={disabledReason ?? undefined}
+            {/* Caption / precise blocker reason — single line beside the CTA
+                (full text via title when truncated). Reason is mono `//` voice
+                (a system readout); the ready caption is bracket micro-text. */}
+            {disabledReason ? (
+              <span
+                id="wizard-build-reason"
+                data-testid="wizard-build-reason"
+                role="status"
+                title={disabledReason}
                 className={cn(
-                  "rounded-[5px] border px-6 py-2 font-cakemono text-[14px] font-light uppercase tracking-wide transition-colors duration-150",
-                  canBuild
-                    ? "border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                    : "cursor-not-allowed border-glass-border text-text-mute",
+                  "max-w-[26ch] truncate whitespace-nowrap font-mono text-micro tracking-wide",
+                  reason ? "text-tan" : "text-text-3",
                 )}
+                style={reason ? MONO_NUM : undefined}
               >
-                {t("build.cta", "BUILD IT")}
-              </button>
+                {disabledReason}
+              </span>
+            ) : (
+              <span
+                data-testid="wizard-build-caption"
+                title={t(
+                  "build.caption",
+                  "[adds {count} to your catalog — nothing goes live until you build]",
+                ).replace("{count}", String(totals.added))}
+                className="max-w-[26ch] truncate whitespace-nowrap font-mono text-micro tracking-wide text-text-3"
+                style={MONO_NUM}
+              >
+                {t(
+                  "build.caption",
+                  "[adds {count} to your catalog — nothing goes live until you build]",
+                ).replace("{count}", String(totals.added))}
+              </span>
+            )}
 
-              {/* Caption / precise blocker reason. Reason is mono `//` voice
-                  (a system readout); the ready caption is bracket micro-text. */}
-              {disabledReason ? (
-                <span
-                  id="wizard-build-reason"
-                  data-testid="wizard-build-reason"
-                  role="status"
-                  className={cn(
-                    "max-w-[28ch] text-right font-mono text-micro tracking-wide",
-                    reason ? "text-tan" : "text-text-3",
-                  )}
-                  style={reason ? MONO_NUM : undefined}
-                >
-                  {disabledReason}
-                </span>
-              ) : (
-                <span
-                  data-testid="wizard-build-caption"
-                  className="max-w-[28ch] text-right font-mono text-micro tracking-wide text-text-3"
-                  style={MONO_NUM}
-                >
-                  {t(
-                    "build.caption",
-                    "[adds {count} to your catalog — nothing goes live until you build]",
-                  ).replace("{count}", String(totals.added))}
-                </span>
+            {/* The ONE ops-accent element on the screen. Outlined at rest →
+                fills bg-ops-accent text-black on hover. Standard 36px button
+                tier (DESIGN.md §9). Disabled carries the precise reason via
+                title + aria-describedby. */}
+            <button
+              type="button"
+              data-testid="wizard-build-it"
+              onClick={onBuild}
+              disabled={!canBuild}
+              aria-describedby={disabledReason ? "wizard-build-reason" : undefined}
+              title={disabledReason ?? undefined}
+              className={cn(
+                "flex h-9 shrink-0 items-center rounded border px-2 font-cakemono text-cake-button font-light uppercase tracking-wide transition-colors duration-150",
+                canBuild
+                  ? "border-ops-accent text-ops-accent hover:bg-ops-accent hover:text-black focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                  : "cursor-not-allowed border-glass-border text-text-mute",
               )}
-            </div>
+            >
+              {t("build.cta", "BUILD IT")}
+            </button>
           </div>
         </div>
-
-        {/* Rail — neutral status line, STOCK state-aware */}
-        <ModuleRail currentStep={currentStep} context={railContext} counts={counts} />
       </header>
 
-      {/* ── BODY — left pane (driver | editor) + right pane (canvas) ─────────── */}
+      {/* ── BODY — left pane (driver | editor) + right pane (canvas) ──────────
+          ≥md: the two-column deck — panes hard-bounded, internal scroll only.
+          <md: a stacked document column that page-scrolls; `shrink-0` children
+          keep their natural height (nothing compresses toward 0px, nothing
+          paints over a sibling; flex props are inert once the grid kicks in). */}
       <div
         data-testid="wizard-body"
-        className="grid min-h-0 flex-1 grid-cols-1 gap-6 px-[44px] py-[28px] lg:grid-cols-[minmax(360px,420px)_1fr]"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-3 py-2 md:grid md:grid-cols-[minmax(300px,360px)_1fr] lg:grid-cols-[minmax(340px,400px)_1fr]"
       >
         {/* LEFT — master-detail. DriverPane by default; ItemEditor when a card
-            is selected for edit. AnimatePresence mode="wait" sequences the swap
-            (TRANSITION beat); each pane owns its reduced-motion fallback. */}
-        <div data-testid="wizard-left-pane" className="flex min-h-0 flex-col">
-          <AnimatePresence mode="wait" initial={false}>
-            {editingCard ? (
-              <ItemEditor
-                key={`editor-${editingCard.id}`}
-                card={editingCard}
-                onBack={stopEditing}
-                onDone={stopEditing}
-                onEditField={(fields) =>
-                  dispatch({ type: "EDIT_CARD", id: editingCard.id, fields })
-                }
-                className="min-h-0 flex-1"
-              />
-            ) : driverMode === "upload" ? (
-              <UploadPane
-                key="upload"
-                onUpload={onUpload ?? NOOP_UPLOAD}
-                onAddManually={onUploadAddManually}
-                onBack={onSwitchToGuided}
-                className="min-h-0 flex-1"
-              />
-            ) : driverMode === "quickbooks" ? (
-              <QuickBooksPane
-                key="quickbooks"
-                status={qbStatus ?? "ready"}
-                summary={qbSummary}
-                errorKind={qbErrorKind}
-                onPull={onPullQuickBooks}
-                onConnect={onConnectQuickBooks}
-                onBack={onSwitchToGuided}
-                className="min-h-0 flex-1"
-              />
-            ) : (
-              <DriverPane
-                key="driver"
-                mode={driverMode}
-                onPickSource={onPickSource}
-                onPickTrade={onPickTrade}
-                availableSources={availableSources}
-                onSwitchToGuided={onSwitchToGuided}
-                onSend={onSend}
-                busy={agentBusy}
-                turns={conversationTurns}
-                className="min-h-0 flex-1"
-              />
-            )}
-          </AnimatePresence>
+            is selected for edit. A SINGLE keyed mount swaps the pane: the old
+            pane unmounts with the state change, the new one fades in (each pane
+            owns its entry + reduced-motion fallback). No AnimatePresence — an
+            exit-gated swap can wedge the column behind an unfinished exit. */}
+        <div
+          data-testid="wizard-left-pane"
+          className="flex shrink-0 flex-col md:min-h-0"
+        >
+          {editingCard ? (
+            <ItemEditor
+              key={`editor-${editingCard.id}`}
+              card={editingCard}
+              onBack={stopEditing}
+              onDone={stopEditing}
+              onEditField={(fields) =>
+                dispatch({ type: "EDIT_CARD", id: editingCard.id, fields })
+              }
+              className="min-h-0 flex-1"
+            />
+          ) : driverMode === "upload" ? (
+            <UploadPane
+              key="upload"
+              onUpload={onUpload ?? NOOP_UPLOAD}
+              onAddManually={handleUploadAddManually}
+              onBack={onSwitchToGuided}
+              className="min-h-0 flex-1"
+            />
+          ) : driverMode === "quickbooks" ? (
+            <QuickBooksPane
+              key="quickbooks"
+              status={qbStatus ?? "ready"}
+              summary={qbSummary}
+              errorKind={qbErrorKind}
+              onPull={onPullQuickBooks}
+              onConnect={onConnectQuickBooks}
+              onBack={onSwitchToGuided}
+              className="min-h-0 flex-1"
+            />
+          ) : (
+            <DriverPane
+              key="driver"
+              mode={driverMode}
+              onPickSource={handlePickSource}
+              onPickTrade={onPickTrade}
+              availableSources={availableSources}
+              onSwitchToGuided={onSwitchToGuided}
+              onSend={onSend}
+              busy={agentBusy}
+              turns={conversationTurns}
+              className="min-h-0 flex-1"
+            />
+          )}
         </div>
 
         {/* RIGHT — the live-building canvas */}
@@ -427,7 +484,7 @@ export function SetupWizardShell({
             // Open the new blank row straight into the editor to fill it.
             startEditing(card.id);
           }}
-          className="min-h-0"
+          className="shrink-0 md:min-h-0"
         />
       </div>
     </div>

@@ -28,6 +28,7 @@ import { ArrowLeft } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { Surface } from "@/components/ui/surface";
+import { ScrollFade } from "@/components/dashboard/widgets/shared/scroll-fade";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import type {
@@ -110,7 +111,7 @@ function FieldInput({
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       className={cn(
-        "rounded-[5px] border border-line bg-surface-input px-3 py-2 text-text placeholder:text-text-3 outline-none transition-colors duration-150 focus:border-line-hi",
+        "rounded border border-line bg-surface-input px-1.5 py-1 text-text placeholder:text-text-3 outline-none transition-colors duration-150 focus:border-line-hi",
         mono ? "font-mono text-data-sm tabular-nums" : "font-mohave text-body-sm",
         className,
       )}
@@ -181,13 +182,13 @@ export function ItemEditor({
     >
       <Surface variant="default" className="flex h-full flex-col">
         {/* Header — back arrow + EDIT mono + item name (Mohave 500). */}
-        <header className="flex items-center gap-3 border-b border-line px-[30px] py-4">
+        <header className="flex items-center gap-1.5 border-b border-line px-2 py-1">
           <button
             type="button"
             onClick={onBack}
             data-testid="editor-back"
             aria-label={t("editor.back", "back")}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[5px] text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text"
           >
             <ArrowLeft size={18} strokeWidth={2} aria-hidden="true" />
           </button>
@@ -199,10 +200,11 @@ export function ItemEditor({
           </span>
         </header>
 
-        {/* Scrollable section stack. */}
-        <div className="flex-1 overflow-y-auto scrollbar-hide px-[30px] py-5">
+        {/* Scrollable section stack — ScrollFade so cut-off fields are always
+            discoverable (the fade cue), never a hidden-scrollbar cliff. */}
+        <ScrollFade className="px-2 py-2">
           {/* ── IDENTITY ─────────────────────────────────────────── */}
-          <section data-testid="editor-section-identity" className="flex flex-col gap-3">
+          <section data-testid="editor-section-identity" className="flex flex-col gap-2">
             <SectionTitle>{t("editor.section.identity", "// IDENTITY")}</SectionTitle>
 
             <FieldInput
@@ -240,7 +242,7 @@ export function ItemEditor({
           </section>
 
           {/* ── PRICING ──────────────────────────────────────────── */}
-          <section data-testid="editor-section-pricing" className="mt-7 flex flex-col gap-3">
+          <section data-testid="editor-section-pricing" className="mt-3 flex flex-col gap-2">
             <SectionTitle>{t("editor.section.pricing", "// PRICING")}</SectionTitle>
 
             {/* FLAT | BY OPTION segment toggle. NO accent — active = white text,
@@ -248,7 +250,7 @@ export function ItemEditor({
             <div
               role="group"
               aria-label={t("editor.section.pricing", "// PRICING")}
-              className="inline-flex w-fit rounded-[5px] border border-line p-0.5"
+              className="inline-flex w-fit rounded border border-line p-0.5"
             >
               <button
                 type="button"
@@ -256,7 +258,7 @@ export function ItemEditor({
                 aria-pressed={!byOption}
                 onClick={() => setByOption(false)}
                 className={cn(
-                  "rounded-[4px] px-3 py-1 font-mono text-micro uppercase tracking-wider transition-colors duration-150",
+                  "rounded-chip px-1.5 py-0.5 font-mono text-micro uppercase tracking-wider transition-colors duration-150",
                   !byOption
                     ? "border border-line-hi bg-surface-active text-text"
                     : "border border-transparent text-text-3 hover:bg-surface-hover-subtle hover:text-text-2",
@@ -270,7 +272,7 @@ export function ItemEditor({
                 aria-pressed={byOption}
                 onClick={() => setByOption(true)}
                 className={cn(
-                  "rounded-[4px] px-3 py-1 font-mono text-micro uppercase tracking-wider transition-colors duration-150",
+                  "rounded-chip px-1.5 py-0.5 font-mono text-micro uppercase tracking-wider transition-colors duration-150",
                   byOption
                     ? "border border-line-hi bg-surface-active text-text"
                     : "border border-transparent text-text-3 hover:bg-surface-hover-subtle hover:text-text-2",
@@ -400,7 +402,7 @@ export function ItemEditor({
                     <button
                       type="button"
                       data-testid="pricing-agent-set"
-                      className="self-start rounded-[5px] border border-agent-border bg-agent-bg px-2.5 py-1 font-mono text-micro tracking-wide text-agent-text transition-colors duration-150 hover:bg-agent-bg-hi"
+                      className="self-start rounded border border-agent-border bg-agent-bg px-1.5 py-0.5 font-mono text-micro tracking-wide text-agent-text transition-colors duration-150 hover:bg-agent-bg-hi"
                     >
                       {t("editor.pricing.agentSet", "let the agent set pricing")}
                     </button>
@@ -411,7 +413,7 @@ export function ItemEditor({
           </section>
 
           {/* ── RECIPE ───────────────────────────────────────────── */}
-          <section data-testid="editor-section-recipe" className="mt-7 flex flex-col gap-3">
+          <section data-testid="editor-section-recipe" className="mt-3 flex flex-col gap-2">
             <SectionTitle>{t("editor.section.recipe", "// RECIPE · draws down stock")}</SectionTitle>
 
             <div className="flex flex-col gap-2">
@@ -469,10 +471,10 @@ export function ItemEditor({
               {t("editor.recipe.addMaterial", "[ + add material ]")}
             </button>
           </section>
-        </div>
+        </ScrollFade>
 
         {/* Footer — Taxable toggle + DONE (default/secondary, NOT accent). */}
-        <footer className="flex items-center justify-between gap-3 border-t border-line px-[30px] py-4">
+        <footer className="flex items-center justify-between gap-2 border-t border-line px-2 py-1.5">
           <button
             type="button"
             data-testid="editor-taxable-toggle"
@@ -510,7 +512,7 @@ export function ItemEditor({
             type="button"
             data-testid="editor-done"
             onClick={onDone}
-            className="rounded-[5px] border border-line bg-[rgba(255,255,255,0.07)] px-4 py-1.5 font-mono text-micro uppercase tracking-wider text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text"
+            className="rounded border border-line bg-surface-active px-2 py-0.5 font-cakemono text-cake-button font-light uppercase tracking-wide text-text-2 transition-colors duration-150 hover:bg-surface-hover hover:text-text"
           >
             {t("editor.footer.done", "DONE")}
           </button>

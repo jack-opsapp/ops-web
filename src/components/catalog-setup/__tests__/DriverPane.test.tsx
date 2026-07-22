@@ -30,14 +30,14 @@ describe("DriverPane", () => {
     expect(screen.getByText(/guided assistant lands here/i)).toBeInTheDocument();
   });
 
-  it("renders a DISABLED message input (no agent backs it in Phase 1)", () => {
+  it("renders NO message input when no agent backs the conversation (never a dead input)", () => {
     render(<DriverPane />);
-    const input = screen.getByPlaceholderText("Describe what you sell");
-    expect(input).toBeDisabled();
+    expect(screen.queryByPlaceholderText("Describe what you sell")).toBeNull();
+    expect(screen.queryByTestId("driver-send")).toBeNull();
   });
 
-  it("renders the send glyph in text-2 (accent stays off non-CTA elements)", () => {
-    render(<DriverPane />);
+  it("renders the send glyph in text-2 when live (accent stays off non-CTA elements)", () => {
+    render(<DriverPane onSend={() => {}} />);
     const send = screen.getByTestId("driver-send");
     expect(send).toHaveClass("text-text-2");
   });
@@ -60,6 +60,14 @@ describe("DriverPane", () => {
     expect(screen.getByTestId("driver-bubble-user")).toBeInTheDocument();
     // never the word "AI" — provenance is "guided setup" / "suggested"
     expect(screen.queryByText(/\bAI\b/)).toBeNull();
+  });
+
+  it("picker mode carries no footer and no lead — the picker's question IS the lead", () => {
+    render(<DriverPane mode="picker" onSend={() => {}} onSwitchToGuided={() => {}} />);
+    // Even with a live agent wired, the input belongs to conversation mode only.
+    expect(screen.queryByTestId("driver-send")).toBeNull();
+    expect(screen.queryByTestId("driver-offline-switch")).toBeNull();
+    expect(screen.queryByText(/Tell me what you sell/i)).toBeNull();
   });
 
   it("renders the source picker with all five entry points in picker mode", () => {

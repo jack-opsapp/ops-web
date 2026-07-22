@@ -24,7 +24,8 @@
 //    a restrained ACHIEVEMENT (the staged readout — a stamp, the parade is the
 //    cards cascading onto the canvas). Drag-over is Tier-1 CSS (150ms color
 //    transition on the dropzone) — instant feedback, no JS animation. The result
-//    region crossfades via AnimatePresence. Reduced motion → opacity-only.
+//    region is a keyed mount-fade (no exit gating — see the shell's MOTION
+//    note). Reduced motion → opacity-only.
 //
 // VOICE: `//` mono slash titles, [brackets] for instructional micro-text, sentence
 // case content, UPPERCASE authority. Never "AI" (guided setup), never "contractor"
@@ -46,9 +47,10 @@ import {
   FileSpreadsheet,
   Loader2,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { Surface } from "@/components/ui/surface";
+import { ScrollFade } from "@/components/dashboard/widgets/shared/scroll-fade";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import type { UploadReadColumns } from "@/lib/catalog-setup/upload-stage";
@@ -155,16 +157,16 @@ export function UploadPane({
       transition={{ duration: reduced ? 0.15 : 0.2, ease: EASE_SMOOTH }}
       className={cn("flex h-full flex-col", className)}
     >
-      <Surface variant="default" className="flex h-full flex-col p-[30px]">
+      <Surface variant="default" className="flex min-h-0 flex-1 flex-col">
         {/* Header — panel title in mono, // slash in text-mute (decorative). */}
-        <header>
+        <header className="px-2 pb-1.5 pt-2">
           <h2 className="font-mono text-micro uppercase tracking-wider text-text-3">
             <span className="text-text-mute">{"//"}</span>
             <span className="ml-1.5">
               {t("upload.title", "// UPLOAD").replace(/^\/\/\s*/, "")}
             </span>
           </h2>
-          <p className="mt-4 max-w-[42ch] font-mohave text-body-sm text-text-2">
+          <p className="mt-1.5 max-w-[42ch] font-mohave text-body-sm text-text-2">
             {t(
               "upload.lead",
               "Hand over a price list — it lands on the canvas, and nothing saves until you build it.",
@@ -172,8 +174,9 @@ export function UploadPane({
           </p>
         </header>
 
-        {/* Body — dropzone OR result, crossfaded (TRANSITION beat). */}
-        <div className="mt-6 min-h-0 flex-1 overflow-y-auto scrollbar-hide">
+        {/* Body — dropzone OR result, a keyed mount (no exit gating; see the
+            shell's MOTION note), inside a ScrollFade for discoverable overflow. */}
+        <ScrollFade className="px-2 pb-2">
           <input
             ref={inputRef}
             type="file"
@@ -183,37 +186,35 @@ export function UploadPane({
             onChange={(e) => void handleFile(e.target.files?.[0])}
           />
 
-          <AnimatePresence mode="wait" initial={false}>
-            {phase === "result" && outcome ? (
-              <Result
-                key="result"
-                t={t}
-                reduced={!!reduced}
-                outcome={outcome}
-                onAnother={reset}
-                onAddManually={onAddManually}
-              />
-            ) : (
-              <Dropzone
-                key="dropzone"
-                t={t}
-                reduced={!!reduced}
-                working={phase === "working"}
-                dragActive={dragActive}
-                onBrowse={() => inputRef.current?.click()}
-                onDrop={onDrop}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (!dragActive) setDragActive(true);
-                }}
-                onDragLeave={() => setDragActive(false)}
-              />
-            )}
-          </AnimatePresence>
-        </div>
+          {phase === "result" && outcome ? (
+            <Result
+              key="result"
+              t={t}
+              reduced={!!reduced}
+              outcome={outcome}
+              onAnother={reset}
+              onAddManually={onAddManually}
+            />
+          ) : (
+            <Dropzone
+              key="dropzone"
+              t={t}
+              reduced={!!reduced}
+              working={phase === "working"}
+              dragActive={dragActive}
+              onBrowse={() => inputRef.current?.click()}
+              onDrop={onDrop}
+              onDragOver={(e) => {
+                e.preventDefault();
+                if (!dragActive) setDragActive(true);
+              }}
+              onDragLeave={() => setDragActive(false)}
+            />
+          )}
+        </ScrollFade>
 
         {/* Footer — back to the source picker. Bracket micro-text. */}
-        <footer className="mt-6">
+        <footer className="border-t border-glass-border px-2 py-1.5">
           <button
             type="button"
             onClick={onBack}
@@ -258,7 +259,6 @@ function Dropzone({
       data-testid="upload-dropzone-region"
       initial={reduced ? { opacity: 0 } : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={reduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
       transition={{ duration: 0.2, ease: EASE_SMOOTH }}
     >
       <button
@@ -273,14 +273,14 @@ function Dropzone({
         className={cn(
           // DISCOVERY beat: the border + tint brighten the instant a file is over
           // the zone — Tier-1 CSS, 150ms, no spring.
-          "flex w-full flex-col items-start gap-3 rounded-panel border border-dashed px-5 py-10 text-left transition-colors duration-150",
+          "flex w-full flex-col items-start gap-1.5 rounded-panel border border-dashed px-2 py-4 text-left transition-colors duration-150",
           dragActive
-            ? "border-[rgba(255,255,255,0.22)] bg-surface-hover"
-            : "border-glass-border bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.18)] hover:bg-surface-hover",
+            ? "border-border-strong bg-surface-hover"
+            : "border-glass-border bg-surface-hover-subtle hover:border-line-hi hover:bg-surface-hover",
           working && "cursor-wait opacity-70",
         )}
       >
-        <span className="flex h-10 w-10 items-center justify-center rounded-[6px] bg-[rgba(255,255,255,0.04)] text-text-3">
+        <span className="flex h-9 w-9 items-center justify-center rounded bg-surface-input text-text-3">
           {working ? (
             <Loader2 size={20} className="animate-spin" aria-hidden="true" />
           ) : dragActive ? (
@@ -324,7 +324,6 @@ function Result({
       data-testid="upload-result"
       initial={reduced ? { opacity: 0 } : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={reduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
       transition={{ duration: 0.2, ease: EASE_SMOOTH }}
       className="flex flex-col gap-4"
     >

@@ -7,15 +7,20 @@
 //                     start?" → Connect QuickBooks / Upload a file / Describe it /
 //                     Start from a template / Add it yourself. The owner never
 //                     picks a "lane" mid-import — they just hand over what they
-//                     have, and it all lands on the one canvas.
-//   "conversation"  — after a source is chosen, the guided-setup transcript: a
-//                     couple of static bubbles (agent + you). Agent mode is
-//                     generate-all in 1–2 turns, NOT a walkthrough (spec §10), so
-//                     the conversation is short by design.
-//   (always)        — a clearly-DISABLED message input + an offline → guided-setup
-//                     escape, and a visibly-marked `// DEFERRED(phase-4)` seam
-//                     where the LIVE agent stream mounts. This phase ships the
-//                     PRESENTATIONAL shell only — no model call, no network.
+//                     have, and it all lands on the one canvas. The picker's own
+//                     question IS the pane's lead — no doubled prose, and NO
+//                     message-input footer (the input belongs to the live agent
+//                     conversation alone; a dead input here was chrome that cost
+//                     the source options their room at 13" viewports).
+//   "conversation"  — the guided-setup transcript (the live agent lane). Agent
+//                     mode is generate-all in 1–2 turns, NOT a walkthrough
+//                     (spec §10), so the conversation is short by design. The
+//                     message input renders ONLY here, and only when a live
+//                     `onSend` backs it — never a disabled dead-end.
+//
+// LAYOUT: header / ScrollFade body / (conversation-only) footer. The body is the
+// single flexible region — at ≥md the pane is hard-bounded and the body scrolls
+// with fade cues; <md the pane takes its natural height and the page scrolls.
 //
 // FRAMING (OPS rule): never "AI". The agent is "guided setup" / "suggested".
 // Never "contractor" — the audience is the trades / owner-operators / crews.
@@ -38,9 +43,10 @@ import {
   Plus,
   type LucideIcon,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { Surface } from "@/components/ui/surface";
+import { ScrollFade } from "@/components/dashboard/widgets/shared/scroll-fade";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import {
@@ -153,109 +159,110 @@ export function DriverPane({
       transition={{ duration: reduced ? 0.15 : 0.2, ease: EASE_SMOOTH }}
       className={cn("flex h-full flex-col", className)}
     >
-      <Surface variant="default" className="flex h-full flex-col p-[30px]">
-        {/* Header — panel title in mono, // slash in text-mute (decorative). */}
-        <header>
+      <Surface variant="default" className="flex min-h-0 flex-1 flex-col">
+        {/* Header — panel title in mono, // slash in text-mute (decorative).
+            The guided lead frames ONLY the conversation; in picker mode the
+            picker's own question is the lead. */}
+        <header className="px-2 pb-1.5 pt-2">
           <h2 className="font-mono text-micro uppercase tracking-wider text-text-3">
             <span className="text-text-mute">{"//"}</span>
             <span className="ml-1.5">
               {t("driver.title", "// SETUP").replace(/^\/\/\s*/, "")}
             </span>
           </h2>
-          {/* Guided-prompt lead — sentence-case Mohave body. */}
-          <p className="mt-4 max-w-[42ch] font-mohave text-body-sm text-text-2">
-            {t(
-              "driver.lead",
-              "Tell me what you sell. Drop in a price list, pick your trade, or just type a line — it lands on the canvas as you go.",
-            )}
-          </p>
+          {mode === "conversation" ? (
+            <p className="mt-1.5 max-w-[42ch] font-mohave text-body-sm text-text-2">
+              {t(
+                "driver.lead",
+                "Tell me what you sell. Drop in a price list, pick your trade, or just type a line — it lands on the canvas as you go.",
+              )}
+            </p>
+          ) : null}
         </header>
 
-        {/* Body — source picker OR conversation, crossfaded (TRANSITION beat). */}
-        <div className="mt-6 min-h-0 flex-1 overflow-y-auto scrollbar-hide">
-          <AnimatePresence mode="wait" initial={false}>
-            {mode === "picker" ? (
-              <SourcePicker
-                key="picker"
-                t={t}
-                reduced={!!reduced}
-                onPickSource={onPickSource}
-                availableSources={availableSources}
-              />
-            ) : mode === "trade-picker" ? (
-              <TradePicker
-                key="trade-picker"
-                t={t}
-                reduced={!!reduced}
-                onPickTrade={onPickTrade}
-                onBack={onSwitchToGuided}
-              />
-            ) : (
-              <Conversation
-                key="conversation"
-                t={t}
-                reduced={!!reduced}
-                turns={turns}
-                busy={busy}
-              />
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Footer — disabled message input + offline/guided-setup escape. Hidden
-            in the trade-picker sub-flow, which carries its own back + confirm
-            (the agent input is irrelevant while picking a trade). */}
-        {mode !== "trade-picker" ? (
-        <footer className="mt-6 flex flex-col gap-3">
-          {/* Message input. LIVE when a send handler is wired (agent mode); the
-              send glyph stays text-2 (NOT accent). Disabled when no agent backs
-              it or while generating. */}
-          <form
-            onSubmit={handleSubmit}
-            className={cn(
-              "flex items-center gap-2 rounded-[5px] border border-line bg-surface-input px-3 py-2",
-              inputLive ? "" : "opacity-60",
-            )}
-            aria-disabled={!inputLive}
-          >
-            <input
-              type="text"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              disabled={!inputLive}
-              aria-label={t("driver.prompt.placeholder", "Describe what you sell")}
-              placeholder={t("driver.prompt.placeholder", "Describe what you sell")}
-              className={cn(
-                "flex-1 bg-transparent font-mohave text-body-sm text-text placeholder:text-text-3 outline-none",
-                inputLive ? "" : "cursor-not-allowed disabled:cursor-not-allowed",
-              )}
+        {/* Body — the one flexible region. Keyed sub-view mount (no exit gating;
+            see the shell's MOTION note) inside a ScrollFade so overflow is
+            always discoverable, never a hidden-scrollbar cliff. */}
+        <ScrollFade className="px-2 pb-2">
+          {mode === "picker" ? (
+            <SourcePicker
+              key="picker"
+              t={t}
+              reduced={!!reduced}
+              onPickSource={onPickSource}
+              availableSources={availableSources}
             />
-            <button
-              type="submit"
-              data-testid="driver-send"
-              aria-label={t("driver.prompt.send", "send")}
-              disabled={!inputLive || draft.trim().length === 0}
-              className="flex h-5 w-5 shrink-0 items-center justify-center text-text-2 transition-opacity duration-150 disabled:opacity-40"
-            >
-              {busy ? (
-                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-              ) : (
-                <ArrowUp size={16} strokeWidth={2} aria-hidden="true" />
-              )}
-            </button>
-          </form>
+          ) : mode === "trade-picker" ? (
+            <TradePicker
+              key="trade-picker"
+              t={t}
+              reduced={!!reduced}
+              onPickTrade={onPickTrade}
+              onBack={onSwitchToGuided}
+            />
+          ) : (
+            <Conversation
+              key="conversation"
+              t={t}
+              reduced={!!reduced}
+              turns={turns}
+              busy={busy}
+            />
+          )}
+        </ScrollFade>
 
-          {/* Offline → guided-setup affordance. Bracket micro-text, text-3,
-              brightens to text-2 on hover. A real button (keyboard + a11y). */}
-          <button
-            type="button"
-            onClick={onSwitchToGuided}
-            data-testid="driver-offline-switch"
-            className="self-start font-mono text-micro tracking-wide text-text-3 transition-colors duration-150 hover:text-text-2"
-          >
-            {t("driver.offline", "[ offline? switch to guided setup ]")}
-          </button>
-        </footer>
+        {/* Footer — conversation mode only: the live message input (only when an
+            agent actually backs it) + the offline/guided escape. Picker and
+            trade-picker carry no footer — their next moves live in their body. */}
+        {mode === "conversation" ? (
+          <footer className="flex flex-col gap-1.5 border-t border-glass-border px-2 py-1.5">
+            {onSend ? (
+              <form
+                onSubmit={handleSubmit}
+                className={cn(
+                  "flex items-center gap-2 rounded border border-line bg-surface-input px-1.5 py-1",
+                  inputLive ? "" : "opacity-60",
+                )}
+              >
+                <input
+                  type="text"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  disabled={!inputLive}
+                  aria-label={t("driver.prompt.placeholder", "Describe what you sell")}
+                  placeholder={t("driver.prompt.placeholder", "Describe what you sell")}
+                  className={cn(
+                    "flex-1 bg-transparent font-mohave text-body-sm text-text placeholder:text-text-3 outline-none",
+                    inputLive ? "" : "cursor-not-allowed disabled:cursor-not-allowed",
+                  )}
+                />
+                <button
+                  type="submit"
+                  data-testid="driver-send"
+                  aria-label={t("driver.prompt.send", "send")}
+                  disabled={!inputLive || draft.trim().length === 0}
+                  className="flex h-3 w-3 shrink-0 items-center justify-center text-text-2 transition-opacity duration-150 disabled:opacity-40"
+                >
+                  {busy ? (
+                    <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                  ) : (
+                    <ArrowUp size={16} strokeWidth={2} aria-hidden="true" />
+                  )}
+                </button>
+              </form>
+            ) : null}
+
+            {/* Offline → guided-setup affordance. Bracket micro-text, text-3,
+                brightens to text-2 on hover. A real button (keyboard + a11y). */}
+            <button
+              type="button"
+              onClick={onSwitchToGuided}
+              data-testid="driver-offline-switch"
+              className="self-start font-mono text-micro tracking-wide text-text-3 transition-colors duration-150 hover:text-text-2"
+            >
+              {t("driver.offline", "[ offline? switch to guided setup ]")}
+            </button>
+          </footer>
         ) : null}
       </Surface>
     </motion.aside>
@@ -331,11 +338,10 @@ function SourcePicker({
       data-testid="driver-source-picker"
       initial={reduced ? { opacity: 0 } : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={reduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
       transition={{ duration: 0.2, ease: EASE_SMOOTH }}
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-2"
     >
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-0.5">
         <h3 className="font-mohave text-body text-text">
           {t("driver.start.title", "How do you want to start?")}
         </h3>
@@ -344,16 +350,16 @@ function SourcePicker({
         </span>
       </div>
 
-      <ul className="flex flex-col gap-2" role="list">
+      <ul className="flex flex-col gap-1" role="list">
         {sources.map(({ key, icon: Icon, titleKey, titleFb, descKey }) => (
           <li key={key}>
             <button
               type="button"
               data-testid={`driver-source-${key}`}
               onClick={onPickSource ? () => onPickSource(key) : undefined}
-              className="group flex w-full items-center gap-3 rounded-panel border border-glass-border bg-[rgba(255,255,255,0.02)] px-3 py-3 text-left transition-colors duration-150 hover:border-[rgba(255,255,255,0.18)] hover:bg-surface-hover"
+              className="group flex w-full items-center gap-1.5 rounded-panel border border-glass-border bg-surface-hover-subtle px-1.5 py-1 text-left transition-colors duration-150 hover:border-line-hi hover:bg-surface-hover"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[6px] bg-[rgba(255,255,255,0.04)] text-text-3 transition-colors duration-150 group-hover:text-text-2">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded bg-surface-input text-text-3 transition-colors duration-150 group-hover:text-text-2">
                 <Icon size={18} strokeWidth={1.75} aria-hidden="true" />
               </span>
               <span className="flex min-w-0 flex-col">
@@ -404,12 +410,11 @@ function TradePicker({
       data-testid="driver-trade-picker"
       initial={reduced ? { opacity: 0 } : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={reduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
       transition={{ duration: 0.2, ease: EASE_SMOOTH }}
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-2"
     >
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center justify-between gap-2">
           <h3 className="font-mohave text-body text-text">
             {t("driver.trade.title", "Pick your trade")}
           </h3>
@@ -430,7 +435,7 @@ function TradePicker({
 
       {/* Two-column grid — single-select. Selected = olive (positive), never
           accent. Cake Mono Light UPPERCASE label per the trade-label tier. */}
-      <ul className="grid grid-cols-2 gap-2" role="list">
+      <ul className="grid grid-cols-2 gap-1" role="list">
         {WIZARD_TRADES.map((trade) => {
           const isSelected = selected === trade.id;
           return (
@@ -441,10 +446,10 @@ function TradePicker({
                 aria-pressed={isSelected}
                 onClick={() => setSelected(trade.id)}
                 className={cn(
-                  "flex w-full items-center rounded-chip border px-3 py-2 text-left font-cakemono text-[12px] font-light uppercase tracking-wide transition-colors duration-150",
+                  "flex w-full items-center rounded-chip border px-1.5 py-1 text-left font-cakemono text-cake-badge font-light uppercase tracking-wide transition-colors duration-150",
                   isSelected
                     ? "border-olive-line bg-olive-soft text-olive"
-                    : "border-glass-border bg-[rgba(255,255,255,0.02)] text-text-2 hover:border-[rgba(255,255,255,0.18)] hover:bg-surface-hover hover:text-text",
+                    : "border-glass-border bg-surface-hover-subtle text-text-2 hover:border-line-hi hover:bg-surface-hover hover:text-text",
                 )}
               >
                 <span className="truncate">{trade.label}</span>
@@ -454,40 +459,39 @@ function TradePicker({
         })}
       </ul>
 
-      {/* Preview + confirm — revealed once a trade is selected. The count is the
-          honest "this is what you'll get"; the confirm is SECONDARY (neutral
-          outline), never the accent — that belongs to BUILD IT alone. */}
-      <AnimatePresence initial={false}>
-        {selected && preview ? (
-          <motion.div
-            key="trade-confirm"
-            data-testid="driver-trade-confirm-row"
-            initial={reduced ? { opacity: 0 } : { opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduced ? { opacity: 0 } : { opacity: 0, y: 4 }}
-            transition={{ duration: 0.18, ease: EASE_SMOOTH }}
-            className="mt-1 flex items-center justify-between gap-3 border-t border-glass-border pt-3"
+      {/* Preview + confirm — revealed once a trade is selected (a selection can
+          change but never clear, so the reveal only ever enters — a keyed mount,
+          no exit choreography). The count is the honest "this is what you'll
+          get"; the confirm is SECONDARY (neutral outline), never the accent —
+          that belongs to BUILD IT alone. */}
+      {selected && preview ? (
+        <motion.div
+          key="trade-confirm"
+          data-testid="driver-trade-confirm-row"
+          initial={reduced ? { opacity: 0 } : { opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.18, ease: EASE_SMOOTH }}
+          className="mt-0.5 flex items-center justify-between gap-2 border-t border-glass-border pt-1.5"
+        >
+          <span
+            data-testid="driver-trade-preview"
+            className="font-mono text-micro tracking-wide text-text-2"
+            style={MONO_NUM}
           >
-            <span
-              data-testid="driver-trade-preview"
-              className="font-mono text-micro tracking-wide text-text-2"
-              style={MONO_NUM}
-            >
-              {t("driver.trade.preview", "{types} task types · {sell} starter lines")
-                .replace("{types}", String(preview.taskTypes))
-                .replace("{sell}", String(preview.sell))}
-            </span>
-            <button
-              type="button"
-              data-testid="driver-trade-confirm"
-              onClick={onPickTrade ? () => onPickTrade(selected) : undefined}
-              className="shrink-0 rounded-[5px] border border-glass-border px-4 py-2 font-cakemono text-[12px] font-light uppercase tracking-wide text-text-2 transition-colors duration-150 hover:border-[rgba(255,255,255,0.18)] hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-            >
-              {t("driver.trade.confirm", "USE THIS STARTER")}
-            </button>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+            {t("driver.trade.preview", "{types} task types · {sell} starter lines")
+              .replace("{types}", String(preview.taskTypes))
+              .replace("{sell}", String(preview.sell))}
+          </span>
+          <button
+            type="button"
+            data-testid="driver-trade-confirm"
+            onClick={onPickTrade ? () => onPickTrade(selected) : undefined}
+            className="shrink-0 rounded border border-glass-border px-2 py-1 font-cakemono text-cake-button font-light uppercase tracking-wide text-text-2 transition-colors duration-150 hover:border-line-hi hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          >
+            {t("driver.trade.confirm", "USE THIS STARTER")}
+          </button>
+        </motion.div>
+      ) : null}
     </motion.div>
   );
 }
@@ -513,9 +517,8 @@ function Conversation({
       data-testid="driver-conversation"
       initial={reduced ? { opacity: 0 } : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={reduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
       transition={{ duration: 0.2, ease: EASE_SMOOTH }}
-      className="flex flex-col gap-3"
+      className="flex flex-col gap-2"
     >
       {/* agent bubble — lavender provenance (guided setup wrote this) */}
       <Bubble who="agent">
@@ -581,10 +584,10 @@ function Bubble({
       ) : null}
       <div
         className={cn(
-          "max-w-[88%] rounded-panel border px-3 py-2 font-mohave text-body-sm leading-relaxed",
+          "max-w-[88%] rounded-panel border px-1.5 py-1 font-mohave text-body-sm leading-relaxed",
           isAgent
-            ? "rounded-tl-[3px] border-agent-border bg-agent-bg text-agent-text"
-            : "rounded-tr-[3px] border-glass-border bg-[rgba(255,255,255,0.05)] text-text",
+            ? "rounded-tl-chip border-agent-border bg-agent-bg text-agent-text"
+            : "rounded-tr-chip border-glass-border bg-surface-hover text-text",
         )}
       >
         {children}

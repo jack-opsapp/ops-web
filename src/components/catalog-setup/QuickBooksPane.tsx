@@ -22,8 +22,7 @@
 //    owner exactly the next move (reconnect / try again), inline.
 //
 // ── MOTION (animation-architect → web-animations; EASE_SMOOTH, no spring) ──────
-//  • Beats: ARRIVAL (pane lands), TRANSITION (state crossfade via AnimatePresence
-//    mode="wait"), DISCOVERY (the pull button responds instantly), restrained
+//  • Beats: ARRIVAL (pane lands), TRANSITION (keyed state mount), DISCOVERY (the pull button responds instantly), restrained
 //    ACHIEVEMENT (the pulled readout — a stamp; the parade is the cards cascading
 //    onto the canvas). EASE_SMOOTH throughout; reduced motion → opacity-only.
 //
@@ -38,9 +37,10 @@ import {
   Loader2,
   RefreshCw,
 } from "lucide-react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { Surface } from "@/components/ui/surface";
+import { ScrollFade } from "@/components/dashboard/widgets/shared/scroll-fade";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 
@@ -120,10 +120,10 @@ export function QuickBooksPane({
       transition={{ duration: reduced ? 0.15 : 0.2, ease: EASE_SMOOTH }}
       className={cn("flex h-full flex-col", className)}
     >
-      <Surface variant="default" className="flex h-full flex-col p-[30px]">
+      <Surface variant="default" className="flex min-h-0 flex-1 flex-col">
         {/* Header — panel title in mono, // slash in text-mute; compact live badge. */}
-        <header>
-          <div className="flex items-center justify-between gap-3">
+        <header className="px-2 pb-1.5 pt-2">
+          <div className="flex items-center justify-between gap-2">
             <h2 className="font-mono text-micro uppercase tracking-wider text-text-3">
               <span className="text-text-mute">{"//"}</span>
               <span className="ml-1.5">
@@ -133,14 +133,14 @@ export function QuickBooksPane({
             {connected ? (
               <span
                 data-testid="quickbooks-connected-badge"
-                className="flex items-center gap-1.5 rounded-chip border border-olive-line bg-olive-soft px-[6px] py-[2px] font-mono text-[10px] uppercase tracking-wider text-olive"
+                className="flex items-center gap-1.5 rounded-chip border border-olive-line bg-olive-soft px-[6px] py-[2px] font-mono text-micro-sm uppercase tracking-wider text-olive"
               >
                 <span className="h-[6px] w-[6px] rounded-full bg-olive" aria-hidden />
                 {t("qb.connected", "connected")}
               </span>
             ) : null}
           </div>
-          <p className="mt-4 max-w-[42ch] font-mohave text-body-sm text-text-2">
+          <p className="mt-1.5 max-w-[42ch] font-mohave text-body-sm text-text-2">
             {t(
               "qb.lead",
               "Pull your price book straight from QuickBooks. It lands on the canvas, and nothing saves until you build it.",
@@ -148,27 +148,26 @@ export function QuickBooksPane({
           </p>
         </header>
 
-        {/* Body — state crossfade (TRANSITION beat). */}
-        <div className="mt-6 min-h-0 flex-1 overflow-y-auto scrollbar-hide">
-          <AnimatePresence mode="wait" initial={false}>
-            {status === "checking" ? (
-              <Working key="checking" t={t} reduced={!!reduced} labelKey="qb.checking" fb="Checking your QuickBooks connection…" />
-            ) : status === "pulling" ? (
-              <Working key="pulling" t={t} reduced={!!reduced} labelKey="qb.pulling" fb="Reading your items…" />
-            ) : status === "result" ? (
-              <ResultState key="result" t={t} reduced={!!reduced} summary={summary ?? { pulled: 0, matched: 0 }} onPull={onPull} />
-            ) : status === "error" ? (
-              <ErrorState key="error" t={t} reduced={!!reduced} errorKind={errorKind} onPull={onPull} onConnect={onConnect} />
-            ) : status === "connect" ? (
-              <ConnectState key="connect" t={t} reduced={!!reduced} onConnect={onConnect} />
-            ) : (
-              <ReadyState key="ready" t={t} reduced={!!reduced} onPull={onPull} />
-            )}
-          </AnimatePresence>
-        </div>
+        {/* Body — keyed state mount (no exit gating; see the shell's MOTION
+            note), inside a ScrollFade for discoverable overflow. */}
+        <ScrollFade className="px-2 pb-2">
+          {status === "checking" ? (
+            <Working key="checking" t={t} reduced={!!reduced} labelKey="qb.checking" fb="Checking your QuickBooks connection…" />
+          ) : status === "pulling" ? (
+            <Working key="pulling" t={t} reduced={!!reduced} labelKey="qb.pulling" fb="Reading your items…" />
+          ) : status === "result" ? (
+            <ResultState key="result" t={t} reduced={!!reduced} summary={summary ?? { pulled: 0, matched: 0 }} onPull={onPull} />
+          ) : status === "error" ? (
+            <ErrorState key="error" t={t} reduced={!!reduced} errorKind={errorKind} onPull={onPull} onConnect={onConnect} />
+          ) : status === "connect" ? (
+            <ConnectState key="connect" t={t} reduced={!!reduced} onConnect={onConnect} />
+          ) : (
+            <ReadyState key="ready" t={t} reduced={!!reduced} onPull={onPull} />
+          )}
+        </ScrollFade>
 
         {/* Footer — back to the source picker. Bracket micro-text. */}
-        <footer className="mt-6">
+        <footer className="border-t border-glass-border px-2 py-1.5">
           <button
             type="button"
             onClick={onBack}
@@ -201,7 +200,6 @@ function StateShell({
       data-testid={testid}
       initial={reduced ? { opacity: 0 } : { opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={reduced ? { opacity: 0 } : { opacity: 0, y: -6 }}
       transition={{ duration: 0.2, ease: EASE_SMOOTH }}
       className="flex flex-col gap-4"
     >
@@ -227,7 +225,7 @@ function PaneAction({
       type="button"
       data-testid={testid}
       onClick={onClick}
-      className="flex items-center gap-2 self-start rounded-[5px] border border-glass-border px-4 py-2 font-cakemono text-[12px] font-light uppercase tracking-wide text-text-2 transition-colors duration-150 hover:border-[rgba(255,255,255,0.18)] hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+      className="flex items-center gap-1 self-start rounded border border-glass-border px-2 py-1 font-cakemono text-cake-button font-light uppercase tracking-wide text-text-2 transition-colors duration-150 hover:border-line-hi hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
     >
       {icon}
       {label}
@@ -250,7 +248,7 @@ function Working({
 }) {
   return (
     <StateShell testid="quickbooks-working" reduced={reduced}>
-      <div className="flex items-center gap-3 rounded-panel border border-glass-border bg-[rgba(255,255,255,0.02)] px-4 py-4">
+      <div className="flex items-center gap-3 rounded-panel border border-glass-border bg-surface-hover-subtle px-2 py-2">
         <Loader2 size={18} className="animate-spin text-text-3" aria-hidden="true" />
         <span className="font-mohave text-body-sm text-text-2">{t(labelKey, fb)}</span>
       </div>
@@ -311,7 +309,7 @@ function ResultState({
     <StateShell testid="quickbooks-result" reduced={reduced}>
       <div
         data-testid="quickbooks-pulled"
-        className="flex flex-col gap-2 rounded-panel border border-olive-line bg-olive-soft px-4 py-3"
+        className="flex flex-col gap-2 rounded-panel border border-olive-line bg-olive-soft px-2 py-1.5"
       >
         <div className="flex items-center gap-2">
           <Check size={15} strokeWidth={2} className="text-olive" aria-hidden="true" />
@@ -387,7 +385,7 @@ function ErrorState({
   const isReconnect = errorKind === "reconnect";
   return (
     <StateShell testid="quickbooks-error" reduced={reduced}>
-      <div className="flex items-start gap-2 rounded-panel border border-tan-line bg-tan-soft px-4 py-3">
+      <div className="flex items-start gap-2 rounded-panel border border-tan-line bg-tan-soft px-2 py-1.5">
         <AlertTriangle
           size={15}
           strokeWidth={1.75}

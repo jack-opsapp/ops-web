@@ -243,6 +243,7 @@ const config: Config = {
         // the legacy `font-light text-[Npx]` it replaces. Always pair with
         // `font-cakemono`; never use the weight-baked Mohave tokens for Cake.
         "cake-display": ["22px", { fontWeight: "300" }],
+        "cake-section": ["16px", { fontWeight: "300" }],
         "cake-button": ["14px", { fontWeight: "300" }],
         "cake-badge": ["11px", { fontWeight: "300" }],
       },

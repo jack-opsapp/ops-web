@@ -31,12 +31,23 @@ export function ScrollFade({ children, className, onScroll }: ScrollFadeProps) {
 
   useEffect(() => {
     check();
-    // Re-check when children change (data loads, list updates)
+    // Re-check when children change (data loads, list updates). Observing only
+    // the container misses content that grows/shrinks without resizing it
+    // (scrollHeight changes, clientHeight doesn't) — observe the children too.
     const el = ref.current;
     if (!el) return;
     const observer = new ResizeObserver(check);
     observer.observe(el);
-    return () => observer.disconnect();
+    for (const child of Array.from(el.children)) observer.observe(child);
+    const mutations = new MutationObserver(() => {
+      check();
+      for (const child of Array.from(el.children)) observer.observe(child);
+    });
+    mutations.observe(el, { childList: true });
+    return () => {
+      observer.disconnect();
+      mutations.disconnect();
+    };
   }, [check]);
 
   return (

@@ -82,7 +82,7 @@ export function ModuleRail({ currentStep, context, counts, className }: ModuleRa
   const progress = plan.length <= 1 ? 1 : currentIdx / (plan.length - 1);
 
   return (
-    <div data-testid="module-rail" className={cn("flex w-full flex-col gap-2", className)}>
+    <div data-testid="module-rail" className={cn("flex w-full flex-col gap-1", className)}>
       <div className="flex items-center">
         {plan.map((step, idx) => {
           const seg = segStateFor(step, currentStep, plan);
@@ -96,10 +96,10 @@ export function ModuleRail({ currentStep, context, counts, className }: ModuleRa
                 data-testid={`rail-segment-${step}`}
                 data-seg-state={seg}
                 className={cn(
-                  "flex items-center gap-[8px] rounded-[5px] px-[10px] py-[6px]",
+                  "flex items-center gap-1 rounded px-1 py-0.5",
                   // Active = surface-active pill (white label), NO accent.
                   seg === "active" &&
-                    "bg-surface-active border border-[rgba(255,255,255,0.18)]",
+                    "bg-surface-active border border-line-hi",
                 )}
               >
                 {/* Status glyph: olive check (done) / hollow count circle (else) */}
@@ -114,9 +114,9 @@ export function ModuleRail({ currentStep, context, counts, className }: ModuleRa
                   <span
                     aria-hidden
                     className={cn(
-                      "flex h-[18px] w-[18px] items-center justify-center rounded-full border font-mono text-[11px]",
+                      "flex h-[18px] w-[18px] items-center justify-center rounded-full border font-mono text-micro",
                       seg === "active"
-                        ? "border-[rgba(255,255,255,0.30)] text-text"
+                        ? "border-border-strong text-text"
                         : "border-glass-border text-text-3",
                     )}
                     style={MONO_NUM}
@@ -128,7 +128,7 @@ export function ModuleRail({ currentStep, context, counts, className }: ModuleRa
                 {/* Label — Cake Mono Light uppercase */}
                 <span
                   className={cn(
-                    "font-cakemono text-[12px] font-light uppercase leading-none",
+                    "font-cakemono text-cake-badge font-light uppercase leading-none",
                     seg === "active"
                       ? "text-text"
                       : seg === "done"
@@ -143,7 +143,7 @@ export function ModuleRail({ currentStep, context, counts, className }: ModuleRa
                 {isStock ? (
                   <span
                     data-testid="rail-tracked-tag"
-                    className="rounded-chip border border-glass-border px-[5px] py-[1px] font-mono text-[10px] uppercase tracking-wider text-text-3"
+                    className="rounded-chip border border-glass-border px-[5px] py-[1px] font-mono text-micro-sm uppercase tracking-wider text-text-3"
                   >
                     {t("state.tracked", "tracked")}
                   </span>
@@ -155,7 +155,7 @@ export function ModuleRail({ currentStep, context, counts, className }: ModuleRa
                 <span
                   data-testid="rail-connector"
                   aria-hidden
-                  className="mx-[4px] h-px w-[20px] bg-glass-border"
+                  className="mx-0.5 h-px w-2 bg-glass-border"
                 />
               ) : null}
             </div>
