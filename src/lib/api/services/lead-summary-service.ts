@@ -37,6 +37,7 @@ import { cleanMessageBody } from "./conversation-state/message-cleaner";
 import { extractCommercialDealPrices } from "@/lib/email/commercial-price";
 import { detectCommercialOutcome } from "@/lib/email/terminal-stage-decision";
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
+import { withSerializationRetry } from "@/lib/supabase/serialization-retry";
 
 // ─── Tuning constants ────────────────────────────────────────────────────────
 
@@ -1835,30 +1836,54 @@ async function commitLeadSummarySnapshot(input: {
   generatedAt: string;
 }): Promise<void> {
   const conversationSnapshot = leadSummaryConversationSnapshot(input.slices);
-  const { data, error } = await input.supabase.rpc(
-    "commit_lead_summary_snapshot",
+  // The guarded RPC raises 40001 while a meaningful correspondence event is
+  // mid-projection. Only the cheap commit is retried (never the model
+  // generation), with jittered backoff and a hard attempt cap — a stuck
+  // projection must park this lead for the next cycle, not hot-loop the
+  // worker (2026-07-22 outage). If projection completes mid-retry and the
+  // conversation grew, the RPC returns a snapshot-mismatch guard reason and
+  // the next cycle regenerates from the fuller conversation.
+  const data = await withSerializationRetry(
+    async () => {
+      const { data: rows, error } = await input.supabase.rpc(
+        "commit_lead_summary_snapshot",
+        {
+          p_company_id: input.companyId,
+          p_opportunity_id: input.opportunity.id,
+          p_summary: input.summary,
+          p_generated_at: input.generatedAt,
+          p_expected_prior_summary: input.opportunity.ai_summary,
+          p_expected_prior_summary_updated_at:
+            input.opportunity.ai_summary_updated_at,
+          p_expected_opportunity_updated_at: input.opportunity.updated_at,
+          p_expected_assignment_version: input.opportunity.assignment_version,
+          p_expected_correspondence_count:
+            input.opportunity.correspondence_count,
+          p_expected_meaningful_event_count:
+            conversationSnapshot.meaningfulEventCount,
+          p_expected_latest_meaningful_event_id:
+            conversationSnapshot.latestMeaningfulEventId,
+        }
+      );
+      if (error) {
+        throw Object.assign(
+          new Error(`summary write failed: ${error.message ?? "unknown error"}`),
+          // Preserve the PostgREST SQLSTATE so the retry classifier can
+          // recognize serialization failures after this re-wrap.
+          { code: (error as { code?: string }).code }
+        );
+      }
+      return rows;
+    },
     {
-      p_company_id: input.companyId,
-      p_opportunity_id: input.opportunity.id,
-      p_summary: input.summary,
-      p_generated_at: input.generatedAt,
-      p_expected_prior_summary: input.opportunity.ai_summary,
-      p_expected_prior_summary_updated_at:
-        input.opportunity.ai_summary_updated_at,
-      p_expected_opportunity_updated_at: input.opportunity.updated_at,
-      p_expected_assignment_version: input.opportunity.assignment_version,
-      p_expected_correspondence_count: input.opportunity.correspondence_count,
-      p_expected_meaningful_event_count:
-        conversationSnapshot.meaningfulEventCount,
-      p_expected_latest_meaningful_event_id:
-        conversationSnapshot.latestMeaningfulEventId,
+      label: `lead summary commit for opportunity ${input.opportunity.id}`,
+      onRetry: ({ attempt, maxAttempts, delayMs, error }) =>
+        console.warn(
+          `[lead-summary] serialization conflict committing summary for opportunity ${input.opportunity.id} (attempt ${attempt}/${maxAttempts}); retrying in ${delayMs}ms:`,
+          error instanceof Error ? error.message : error
+        ),
     }
   );
-  if (error) {
-    throw new Error(
-      `summary write failed: ${error.message ?? "unknown error"}`
-    );
-  }
   const row = (
     Array.isArray(data) ? data[0] : data
   ) as LeadSummaryCommitRow | null;

@@ -37,6 +37,7 @@ import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-clien
 import { createEmailOpportunityNotification } from "@/lib/email/email-opportunity-notification";
 import { createEmailSyncCompleteNotification } from "@/lib/email/email-sync-complete-notification";
 import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-health";
+import { withSerializationRetry } from "@/lib/supabase/serialization-retry";
 import { refreshLeadSummariesForOpportunities } from "./lead-summary-service";
 import {
   buildEmailOpportunityTitle,
@@ -1776,12 +1777,30 @@ async function maybeAutoAdvanceOnAccept(args: {
     // attachment worker. That worker re-evaluates acceptance after persisting a
     // cached signed-estimate result, so provider I/O can never pin this mailbox
     // cursor while the immediate text-only acceptance path remains intact.
-    const evaluation = await evaluateOpportunityAcceptance({
-      supabase,
-      providerThreadId,
-      opportunityId,
-      connection,
-    });
+    //
+    // A 40001 from the guarded RPCs usually means a meaningful correspondence
+    // event is mid-projection; the whole evaluation is retried (never the bare
+    // RPC) so each attempt re-derives its evidence high-water mark from the
+    // now-projected events. Attempts are jittered, capped, and then parked —
+    // the guard itself releases stuck rows after 60 seconds, so an exhausted
+    // park self-heals by the next cycle instead of hot-looping (2026-07-22).
+    const evaluation = await withSerializationRetry(
+      () =>
+        evaluateOpportunityAcceptance({
+          supabase,
+          providerThreadId,
+          opportunityId,
+          connection,
+        }),
+      {
+        label: `accept evaluation for opportunity ${opportunityId}`,
+        onRetry: ({ attempt, maxAttempts, delayMs, error }) =>
+          console.warn(
+            `[sync-engine] serialization conflict in accept evaluation for opportunity ${opportunityId} (attempt ${attempt}/${maxAttempts}); retrying in ${delayMs}ms:`,
+            error instanceof Error ? error.message : error
+          ),
+      }
+    );
     if (evaluation.stageChanged) result.stageChanges++;
   } catch (err) {
     throw new LifecyclePersistenceError(
@@ -3899,6 +3918,10 @@ export const SyncEngine = {
           // provider message, activity, correspondence projection, and thread
           // link in this cycle is durable. This single retry-safe boundary
           // covers new leads, existing leads, sent mail, and provider replays.
+          const acceptFailures: Array<{
+            opportunityId: string;
+            error: string;
+          }> = [];
           for (const [evaluationKey, target] of activeLeadTargets) {
             if (typeof target !== "string") continue;
             const opportunityId = opportunityByEvaluationKey.get(evaluationKey);
@@ -3907,12 +3930,34 @@ export const SyncEngine = {
                 `[sync-engine] commercial outcome identity ${evaluationKey} has no opportunity`
               );
             }
-            await maybeAutoAdvanceOnAccept({
-              providerThreadId: target,
-              opportunityId,
-              connection,
-              result,
-            });
+            // One wedged opportunity must not starve the rest of the batch
+            // (2026-07-22 outage): every other lead still gets its accept
+            // evaluation this cycle, then one aggregated persistence error
+            // holds the cursor so the idempotent cycle replays. Serialization
+            // retry pacing lives inside maybeAutoAdvanceOnAccept.
+            try {
+              await maybeAutoAdvanceOnAccept({
+                providerThreadId: target,
+                opportunityId,
+                connection,
+                result,
+              });
+            } catch (acceptError) {
+              acceptFailures.push({
+                opportunityId,
+                error:
+                  acceptError instanceof Error
+                    ? acceptError.message
+                    : "unknown error",
+              });
+            }
+          }
+          if (acceptFailures.length > 0) {
+            throw new LifecyclePersistenceError(
+              `[sync-engine] accept-to-project conversion failed before cursor advancement for ${acceptFailures.length} of ${activeLeadTargets.size} leads: ${acceptFailures
+                .map((failure) => `${failure.opportunityId}: ${failure.error}`)
+                .join("; ")}`
+            );
           }
 
           // Thread-scoped stage evaluation; the opportunity-wide summary runs
