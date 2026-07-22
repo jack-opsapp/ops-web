@@ -328,11 +328,16 @@ export async function seedCatalogWizardAuth(page: Page): Promise<void> {
   });
 
   await page.route("**/securetoken.googleapis.com/**", async (route) => {
+    // Full STS token-exchange shape — the SDK surfaces `auth/internal-error`
+    // on a partial response (access_token/token_type are required).
     await fulfillJson(route, {
-      id_token: AUTH_TOKEN,
-      refresh_token: "mock-refresh-token",
+      access_token: AUTH_TOKEN,
       expires_in: "3600",
+      token_type: "Bearer",
+      refresh_token: "mock-refresh-token",
+      id_token: AUTH_TOKEN,
       user_id: CURRENT_USER_ID,
+      project_id: "ops-ios-app",
     });
   });
 
@@ -434,6 +439,48 @@ export async function mockWizardRoutes(
     // Other inserts/rpc → benign empty success.
     if (method !== "GET") {
       await fulfillJson(route, []);
+      return;
+    }
+
+    // Canonical authority rows. The permission store (post role-name-gate
+    // retirement) re-reads the SELF users row, then the companies row it
+    // references, before deciding the admin master bypass — a fall-through to
+    // the empty catch-all reads as "Canonical permission user mismatch" and
+    // fails every permission closed (no nav, no /catalog, no takeover).
+    // `.single()` reads send `Accept: application/vnd.pgrst.object+json` and
+    // must get the BARE OBJECT back — an array maps to an id-less model.
+    const wantsSingle = (request.headers()["accept"] ?? "").includes(
+      "vnd.pgrst.object",
+    );
+    if (table === "users") {
+      const row = {
+        id: CURRENT_USER_ID,
+        company_id: COMPANY_ID,
+        email: "e2e-owner@ops.test",
+        first_name: "E2E",
+        last_name: "Owner",
+        role: "Admin",
+        is_company_admin: true,
+        employee_type: "Admin",
+        firebase_uid: CURRENT_USER_ID,
+        deleted_at: null,
+      };
+      if (wantsSingle) await fulfillJson(route, row);
+      else await fulfillRange(route, [row]);
+      return;
+    }
+
+    if (table === "companies") {
+      const row = {
+        id: COMPANY_ID,
+        name: "E2E Wrap Co",
+        admin_ids: [CURRENT_USER_ID],
+        account_holder_id: CURRENT_USER_ID,
+        subscription_status: "active",
+        deleted_at: null,
+      };
+      if (wantsSingle) await fulfillJson(route, row);
+      else await fulfillRange(route, [row]);
       return;
     }
 
