@@ -91,27 +91,16 @@ export type ConvertOpportunityParams =
         connection_id: string;
         email_thread_id: string;
         provider_thread_id: string;
-        decision: "auto_advance_won";
-      };
-    })
-  | (ConversionCommonParams & {
-      sourcePath: "email_likely_won";
-      decidedBy: null;
-      expectedAssignmentVersion: number;
-      evidence: {
-        connection_id: string;
-        provider_thread_id: string;
         provider_message_id: string;
-        decision: "likely_won";
+        decisive_event_id: string;
+        decisive_direction: "inbound" | "outbound";
+        evaluated_through_event_id: string;
+        signals: string[];
+        decision: "auto_advance_won";
       };
     });
 
-type HumanConversionParams = Extract<
-  ConvertOpportunityParams,
-  { decidedBy: string }
->;
-
-export type LinkOpportunityToProjectParams = HumanConversionParams & {
+export type LinkOpportunityToProjectParams = ConvertOpportunityParams & {
   /** Existing project to adopt — no NEW project is created. */
   linkToProjectId: string;
 };
@@ -311,6 +300,13 @@ async function runConversion(
   linkToProjectId: string | null
 ): Promise<ConvertOpportunityResult> {
   if (
+    !["won_dialog", "approval_queue", "email_accept"].includes(
+      params.sourcePath
+    )
+  ) {
+    throw new Error("Unsupported conversion source");
+  }
+  if (
     !Number.isSafeInteger(params.expectedAssignmentVersion) ||
     params.expectedAssignmentVersion < 0
   ) {
@@ -324,10 +320,7 @@ async function runConversion(
   const supabase = requireSupabase();
   const winOpportunity = params.sourcePath !== "approval_queue";
 
-  if (
-    params.sourcePath === "email_accept" ||
-    params.sourcePath === "email_likely_won"
-  ) {
+  if (params.sourcePath === "email_accept") {
     if (
       params.decidedBy !== null ||
       !Number.isSafeInteger(params.expectedAssignmentVersion) ||
@@ -339,15 +332,17 @@ async function runConversion(
       );
     }
     const keys = Object.keys(params.evidence).sort();
-    const expectedKeys =
-      params.sourcePath === "email_accept"
-        ? ["connection_id", "decision", "email_thread_id", "provider_thread_id"]
-        : [
-            "connection_id",
-            "decision",
-            "provider_message_id",
-            "provider_thread_id",
-          ];
+    const expectedKeys = [
+      "connection_id",
+      "decision",
+      "decisive_direction",
+      "decisive_event_id",
+      "email_thread_id",
+      "evaluated_through_event_id",
+      "provider_message_id",
+      "provider_thread_id",
+      "signals",
+    ];
     if (
       keys.length !== expectedKeys.length ||
       keys.some((key, index) => key !== expectedKeys[index])
@@ -358,13 +353,16 @@ async function runConversion(
     if (
       Object.entries(stringEvidence).some(
         ([key, value]) =>
-          key !== "decision" &&
+          key !== "signals" &&
           (typeof value !== "string" || value.trim().length === 0)
       ) ||
-      (params.sourcePath === "email_accept" &&
-        params.evidence.decision !== "auto_advance_won") ||
-      (params.sourcePath === "email_likely_won" &&
-        params.evidence.decision !== "likely_won")
+      params.evidence.decision !== "auto_advance_won" ||
+      !["inbound", "outbound"].includes(params.evidence.decisive_direction) ||
+      !Array.isArray(params.evidence.signals) ||
+      params.evidence.signals.length === 0 ||
+      params.evidence.signals.some(
+        (signal) => typeof signal !== "string" || !signal.trim()
+      )
     ) {
       throw new Error("Actorless email conversion evidence is invalid");
     }
@@ -399,7 +397,8 @@ async function runConversion(
     !result.converted &&
     (result.guard_reason === "snapshot_mismatch" ||
       result.guard_reason === "assignment_snapshot_mismatch" ||
-      result.guard_reason === "manual_stage_override")
+      result.guard_reason === "manual_stage_override" ||
+      result.guard_reason === "terminal_stage")
   ) {
     throw new ProjectConversionError(
       "conflict",
@@ -480,7 +479,9 @@ export const ProjectConversionService = {
    * one (the Won dialog's "link" branch / dedup candidate selection). The
    * target's status/title are untouched; only the link contract, estimate
    * relink, task/photo dedup, disposition, and immutable conversion event are
-   * written.
+   * written. Actorless email callers are accepted only because the database
+   * revalidates exact provider evidence plus the same-client/same-address
+   * unlinked target under lock.
    */
   async linkOpportunityToExistingProject(
     params: LinkOpportunityToProjectParams

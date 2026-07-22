@@ -1,52 +1,7 @@
 import { describe, expect, it } from "vitest";
-import {
-  detectTerminalStageFromMessages,
-  shouldAutoConvertLikelyWon,
-} from "@/lib/email/terminal-stage-decision";
+import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
 
 describe("terminal-stage-decision", () => {
-  it("auto-converts likely-won active opportunities", () => {
-    expect(
-      shouldAutoConvertLikelyWon({
-        terminalFlag: "likely_won",
-        currentStage: "quoted",
-        stageManuallySet: false,
-      })
-    ).toBe(true);
-  });
-
-  it("does not auto-convert likely-lost opportunities", () => {
-    expect(
-      shouldAutoConvertLikelyWon({
-        terminalFlag: "likely_lost",
-        currentStage: "quoted",
-        stageManuallySet: false,
-      })
-    ).toBe(false);
-  });
-
-  it("respects manually set stages", () => {
-    expect(
-      shouldAutoConvertLikelyWon({
-        terminalFlag: "likely_won",
-        currentStage: "quoted",
-        stageManuallySet: true,
-      })
-    ).toBe(false);
-  });
-
-  it("does not reconvert terminal opportunities", () => {
-    for (const stage of ["won", "lost", "discarded"]) {
-      expect(
-        shouldAutoConvertLikelyWon({
-          terminalFlag: "likely_won",
-          currentStage: stage,
-          stageManuallySet: false,
-        })
-      ).toBe(false);
-    }
-  });
-
   it("detects a client acceptance reply after an estimate as likely won", () => {
     expect(
       detectTerminalStageFromMessages([

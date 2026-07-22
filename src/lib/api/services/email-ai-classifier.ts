@@ -56,6 +56,66 @@ const VALID_STAGES = [
 ] as const;
 type ValidStage = (typeof VALID_STAGES)[number];
 
+const ACTIVE_OPPORTUNITY_STAGES = [
+  "new_lead",
+  "qualifying",
+  "quoting",
+  "quoted",
+  "follow_up",
+  "negotiation",
+] as const;
+export type AIClassifiedActiveStage =
+  (typeof ACTIVE_OPPORTUNITY_STAGES)[number];
+export type AITerminalReviewFlag = "likely_won" | "likely_lost";
+
+/**
+ * Model classifications are advisory at the opportunity-persistence boundary.
+ * Preserve every valid active stage, but hold terminal guesses at the nearest
+ * safe active stage until the durable, complete-conversation evaluator applies
+ * the guarded Won conversion or budget/timing deferral RPC.
+ */
+export function coerceAIStageForOpportunityPersistence(
+  rawStage: string | null | undefined,
+  rawTerminalFlag: string | null | undefined
+): {
+  stage: AIClassifiedActiveStage;
+  terminalFlag: AITerminalReviewFlag | null;
+} {
+  const normalizedStage = rawStage?.trim().toLowerCase() ?? null;
+  const normalizedFlag =
+    rawTerminalFlag === "likely_won" || rawTerminalFlag === "likely_lost"
+      ? rawTerminalFlag
+      : null;
+
+  // A terminal value in the stage field is the clearest statement of which
+  // terminal outcome the model guessed. It also resolves contradictory model
+  // output without ever granting that guess write authority.
+  const terminalFlag: AITerminalReviewFlag | null =
+    normalizedStage === "won" || normalizedStage === "likely_won"
+      ? "likely_won"
+      : normalizedStage === "lost" || normalizedStage === "likely_lost"
+        ? "likely_lost"
+        : normalizedFlag;
+
+  if (
+    normalizedStage &&
+    (ACTIVE_OPPORTUNITY_STAGES as readonly string[]).includes(normalizedStage)
+  ) {
+    return {
+      stage: normalizedStage as AIClassifiedActiveStage,
+      terminalFlag,
+    };
+  }
+
+  if (terminalFlag === "likely_won") {
+    return { stage: "negotiation", terminalFlag };
+  }
+  if (terminalFlag === "likely_lost") {
+    return { stage: "follow_up", terminalFlag };
+  }
+  return { stage: "new_lead", terminalFlag: null };
+}
+
 function isValidStage(stage: string): stage is ValidStage {
   return (VALID_STAGES as readonly string[]).includes(stage);
 }

@@ -1,11 +1,8 @@
 /**
  * P4-A — Phase C router uniform firing.
  *
- * Before P4-A, EmailThreadService.classifyAndUpdate early-returned on the
- * deterministic INTERNAL and CUSTOMER branches WITHOUT invoking the Phase C
- * autonomy router. For CUSTOMER (the only category Canpro enabled, at
- * auto_draft) this meant auto_draft was silently inert on first deterministic
- * classification.
+ * Deterministic CUSTOMER and INTERNAL classifications must preserve the same
+ * established, authorization-gated router behavior as the model path.
  *
  * These tests drive classifyAndUpdate down the deterministic CUSTOMER and
  * INTERNAL branches and assert the router fires for both. All heavy
@@ -194,8 +191,8 @@ afterEach(() => {
   setSupabaseOverride(null);
 });
 
-describe("P4-A — Phase C router uniform firing", () => {
-  it("fires the router on the deterministic CUSTOMER branch", async () => {
+describe("Phase C router deterministic classification boundary", () => {
+  it("preserves the authorized router path for deterministic CUSTOMER classification", async () => {
     detState.customer = {
       category: "CUSTOMER",
       confidence: 0.99,

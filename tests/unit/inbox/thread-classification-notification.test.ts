@@ -45,22 +45,38 @@ vi.mock("@/lib/api/services/deterministic-customer-reads", () => ({
     archivedAt: null,
   }),
 }));
+vi.mock("@/lib/api/services/thread-classifier-service", () => ({
+  ThreadClassifier: {
+    CLASSIFIER_VERSION: "thread-test-v1",
+    classifyThread: vi.fn(async () => ({
+      primaryCategory: "OTHER",
+      labels: [],
+      aiSummary: "Classification unavailable — review manually.",
+      confidence: 0,
+    })),
+  },
+}));
 
 // The assignment-aware notification helper is dynamically imported by
 // fireThreadNotifications. Its own focused tests cover the guarded RPC.
 const createClassifiedEmailThreadNotifications = vi.fn(async () => 0);
+const emailThreadUpdatePayloads: Array<Record<string, unknown>> = [];
 vi.mock("@/lib/email/email-opportunity-notification", () => ({
   createClassifiedEmailThreadNotifications,
 }));
 
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
+import { ThreadClassifier } from "@/lib/api/services/thread-classifier-service";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import type { EmailThread } from "@/lib/types/email-thread";
 
 // Minimal Supabase double. The email_threads UPDATE…select…single returns the
 // post-classification row (this is `next`); opportunityId on that row is what
 // drives the action_url joiner.
-function makeDouble(opts: { nextOpportunityId: string | null }) {
+function makeDouble(opts: {
+  nextOpportunityId: string | null;
+  activityBody?: string;
+}) {
   const updatedRow = {
     id: "thr-1",
     company_id: "co-1",
@@ -86,8 +102,9 @@ function makeDouble(opts: { nextOpportunityId: string | null }) {
       builder.lt = chain;
       builder.is = chain;
       builder.order = chain;
-      builder.update = () => {
+      builder.update = (payload: Record<string, unknown>) => {
         isUpdate = true;
+        if (table === "email_threads") emailThreadUpdatePayloads.push(payload);
         return builder;
       };
       builder.limit = async () => {
@@ -97,7 +114,7 @@ function makeDouble(opts: { nextOpportunityId: string | null }) {
               {
                 from_email: "client@acme.com",
                 direction: "inbound",
-                body_text: "Any update on the quote?",
+                body_text: opts.activityBody ?? "Any update on the quote?",
                 content: "",
                 subject: "Re: Quote",
                 created_at: new Date().toISOString(),
@@ -159,6 +176,7 @@ beforeEach(() => {
     classifierVersion: "det-customer-1",
   };
   createClassifiedEmailThreadNotifications.mockClear();
+  emailThreadUpdatePayloads.length = 0;
 });
 
 afterEach(() => {
@@ -189,6 +207,9 @@ describe("email-thread classification notification — guarded helper boundary",
       }),
       supabase: expect.anything(),
     });
+    expect(emailThreadUpdatePayloads).toContainEqual(
+      expect.objectContaining({ ai_summary: "Any update on the quote?" })
+    );
   });
 
   it("delegates an unlinked snapshot without inventing a connector recipient", async () => {
@@ -201,6 +222,127 @@ describe("email-thread classification notification — guarded helper boundary",
     expect(createClassifiedEmailThreadNotifications).toHaveBeenCalledWith(
       expect.objectContaining({
         next: expect.objectContaining({ opportunityId: null }),
+      })
+    );
+  });
+
+  it("replaces a generic classifier placeholder with the current message", async () => {
+    setSupabaseOverride(makeDouble({ nextOpportunityId: "opp-1" }) as never);
+
+    await EmailThreadService.classifyAndUpdate(
+      inputThread({ categoryManuallySet: true })
+    );
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(emailThreadUpdatePayloads).toContainEqual(
+      expect.objectContaining({
+        ai_summary: "Any update on the quote?",
+      })
+    );
+    expect(emailThreadUpdatePayloads).not.toContainEqual(
+      expect.objectContaining({
+        ai_summary: expect.stringMatching(/Classification unavailable/i),
+      })
+    );
+  });
+
+  it("replaces a vague ungrounded narrative with the newest cleaned message", async () => {
+    const activityBody =
+      "The revised quote is $8,450 for cedar railings with September installation.";
+    setSupabaseOverride(
+      makeDouble({ nextOpportunityId: "opp-1", activityBody }) as never
+    );
+    vi.mocked(ThreadClassifier.classifyThread).mockResolvedValueOnce({
+      threadId: "thr-1",
+      primaryCategory: "CUSTOMER",
+      labels: [],
+      ballInCourt: "operator",
+      aiSummary: "Customer is discussing the project; follow up.",
+      confidence: 0.8,
+      reasoning: "test",
+    });
+
+    await EmailThreadService.classifyAndUpdate(inputThread());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(emailThreadUpdatePayloads).toContainEqual(
+      expect.objectContaining({ ai_summary: activityBody })
+    );
+  });
+
+  it("keeps a grounded narrative for a legitimate sparse inquiry", async () => {
+    setSupabaseOverride(
+      makeDouble({
+        nextOpportunityId: "opp-1",
+        activityBody: "Could you quote cedar railings?",
+      }) as never
+    );
+    const grounded = "Customer requested an estimate for cedar railings.";
+    vi.mocked(ThreadClassifier.classifyThread).mockResolvedValueOnce({
+      threadId: "thr-1",
+      primaryCategory: "CUSTOMER",
+      labels: [],
+      ballInCourt: "operator",
+      aiSummary: grounded,
+      confidence: 0.8,
+      reasoning: "test",
+    });
+
+    await EmailThreadService.classifyAndUpdate(inputThread());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(emailThreadUpdatePayloads).toContainEqual(
+      expect.objectContaining({ ai_summary: grounded })
+    );
+  });
+
+  it("rejects a partly grounded narrative that invents a numeric fact", async () => {
+    const activityBody = "Could you quote cedar railings?";
+    setSupabaseOverride(
+      makeDouble({ nextOpportunityId: "opp-1", activityBody }) as never
+    );
+    vi.mocked(ThreadClassifier.classifyThread).mockResolvedValueOnce({
+      threadId: "thr-1",
+      primaryCategory: "CUSTOMER",
+      labels: [],
+      ballInCourt: "operator",
+      aiSummary: "Cedar railings were quoted at $9,999.",
+      confidence: 0.8,
+      reasoning: "test",
+    });
+
+    await EmailThreadService.classifyAndUpdate(inputThread());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(emailThreadUpdatePayloads).toContainEqual(
+      expect.objectContaining({ ai_summary: activityBody })
+    );
+  });
+
+  it("does not ground a model narrative in stripped quoted history", async () => {
+    setSupabaseOverride(
+      makeDouble({
+        nextOpportunityId: "opp-1",
+        activityBody:
+          "Current request is cedar railings.\n\nOn Monday, Canpro wrote:\n> The landscaping project is ready.",
+      }) as never
+    );
+    vi.mocked(ThreadClassifier.classifyThread).mockResolvedValueOnce({
+      threadId: "thr-1",
+      primaryCategory: "CUSTOMER",
+      labels: [],
+      ballInCourt: "operator",
+      aiSummary: "Customer says the landscaping project is ready.",
+      confidence: 0.8,
+      reasoning: "test",
+    });
+
+    await EmailThreadService.classifyAndUpdate(inputThread());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(emailThreadUpdatePayloads).toContainEqual(
+      expect.objectContaining({
+        ai_summary: "Current request is cedar railings.",
       })
     );
   });

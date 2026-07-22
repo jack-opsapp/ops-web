@@ -192,6 +192,11 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
         connection_id: "connection-1",
         email_thread_id: "thread-1",
         provider_thread_id: "provider-thread-1",
+        provider_message_id: "provider-message-1",
+        decisive_event_id: "11111111-1111-1111-1111-111111111111",
+        decisive_direction: "inbound",
+        evaluated_through_event_id: "11111111-1111-1111-1111-111111111111",
+        signals: ["explicit_acceptance"],
         decision: "auto_advance_won",
       },
     });
@@ -206,41 +211,37 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
         connection_id: "connection-1",
         email_thread_id: "thread-1",
         provider_thread_id: "provider-thread-1",
+        provider_message_id: "provider-message-1",
+        decisive_event_id: "11111111-1111-1111-1111-111111111111",
+        decisive_direction: "inbound",
+        evaluated_through_event_id: "11111111-1111-1111-1111-111111111111",
+        signals: ["explicit_acceptance"],
         decision: "auto_advance_won",
       },
     });
     expect(result.won).toBe(true);
   });
 
-  it("binds likely-won conversion to actorless provider-message evidence", async () => {
+  it("rejects the legacy model-only likely-won source before RPC", async () => {
     const fake = makeFakeSupabase();
     requireSupabaseMock.mockReturnValue(fake.client);
 
-    await ProjectConversionService.convertOpportunityToProject({
-      opportunityId: OPP,
-      companyId: COMPANY,
-      decidedBy: null,
-      sourcePath: "email_likely_won",
-      expectedAssignmentVersion: 9,
-      evidence: {
-        connection_id: "connection-1",
-        provider_thread_id: "provider-thread-1",
-        provider_message_id: "provider-message-1",
-        decision: "likely_won",
-      },
-    });
-
-    expect(fake.rpcCalls[0].args).toMatchObject({
-      p_decided_by: null,
-      p_source_path: "email_likely_won",
-      p_expected_assignment_version: 9,
-      p_evidence: {
-        connection_id: "connection-1",
-        provider_thread_id: "provider-thread-1",
-        provider_message_id: "provider-message-1",
-        decision: "likely_won",
-      },
-    });
+    await expect(
+      ProjectConversionService.convertOpportunityToProject({
+        opportunityId: OPP,
+        companyId: COMPANY,
+        decidedBy: null,
+        sourcePath: "email_likely_won",
+        expectedAssignmentVersion: 9,
+        evidence: {
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "provider-message-1",
+          decision: "likely_won",
+        },
+      } as never)
+    ).rejects.toThrow(/unsupported conversion source/i);
+    expect(fake.rpcCalls).toHaveLength(0);
   });
 
   it("fails closed before RPC when actorless email evidence is missing", async () => {
@@ -252,7 +253,7 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
         opportunityId: OPP,
         companyId: COMPANY,
         decidedBy: null,
-        sourcePath: "email_likely_won",
+        sourcePath: "email_accept",
         expectedAssignmentVersion: 9,
       } as unknown as Parameters<
         typeof ProjectConversionService.convertOpportunityToProject
@@ -446,13 +447,18 @@ describe("convertOpportunityToProject — idempotency + guards", () => {
         opportunityId: OPP,
         companyId: COMPANY,
         decidedBy: null,
-        sourcePath: "email_likely_won",
+        sourcePath: "email_accept",
         expectedAssignmentVersion: 4,
         evidence: {
           connection_id: "connection-1",
-          provider_thread_id: "thread-1",
+          email_thread_id: "thread-1",
+          provider_thread_id: "provider-thread-1",
           provider_message_id: "message-1",
-          decision: "likely_won",
+          decisive_event_id: "11111111-1111-1111-1111-111111111111",
+          decisive_direction: "inbound",
+          evaluated_through_event_id: "11111111-1111-1111-1111-111111111111",
+          signals: ["explicit_acceptance"],
+          decision: "auto_advance_won",
         },
       })
     ).rejects.toMatchObject({

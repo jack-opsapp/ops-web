@@ -12,6 +12,7 @@ const {
   shouldFilterMock,
   reviewUnmatchedEmailsMock,
   evaluateStagesWithSummaryMock,
+  refreshLeadSummariesForOpportunitiesMock,
   upsertFromEmailMock,
 } = vi.hoisted(() => ({
   getConnectionMock: vi.fn(),
@@ -22,6 +23,7 @@ const {
   shouldFilterMock: vi.fn(),
   reviewUnmatchedEmailsMock: vi.fn(),
   evaluateStagesWithSummaryMock: vi.fn(),
+  refreshLeadSummariesForOpportunitiesMock: vi.fn(),
   upsertFromEmailMock: vi.fn(),
 }));
 
@@ -58,6 +60,11 @@ vi.mock("@/lib/api/services/email-thread-service", () => ({
     upsertFromEmail: upsertFromEmailMock,
     classifyAndUpdate: vi.fn(),
   },
+}));
+
+vi.mock("@/lib/api/services/lead-summary-service", () => ({
+  refreshLeadSummariesForOpportunities:
+    refreshLeadSummariesForOpportunitiesMock,
 }));
 
 vi.mock("@/lib/api/services/autonomy-milestone-service", () => ({
@@ -124,6 +131,10 @@ function makeSupabaseDouble(state: SupabaseState) {
       return this;
     }
 
+    range() {
+      return this;
+    }
+
     insert(payload: Record<string, unknown>) {
       this.action = "insert";
       if (this.table === "clients") {
@@ -182,6 +193,18 @@ function makeSupabaseDouble(state: SupabaseState) {
     }
 
     async maybeSingle() {
+      if (this.table === "companies") {
+        return {
+          data: {
+            id: "company-1",
+            name: "Canpro Deck and Rail",
+            email: "canprojack@gmail.com",
+            phone: null,
+            address: null,
+          },
+          error: null,
+        };
+      }
       if (this.table === "clients") {
         const id = this.filters.get("id");
         const client = state.clients.find((row) => row.id === id) ?? null;
@@ -278,6 +301,7 @@ function makeSupabaseDouble(state: SupabaseState) {
                   outbound_count: 1,
                   stage: "qualifying",
                   stage_manually_set: false,
+                  assignment_version: 0,
                   last_message_direction: "out",
                   last_inbound_at: null,
                   last_outbound_at: "2026-05-25T23:05:00.000Z",
@@ -357,6 +381,13 @@ describe("SyncEngine live email opportunity title pattern", () => {
       newLeadsClassified: 0,
     });
     evaluateStagesWithSummaryMock.mockResolvedValue([]);
+    refreshLeadSummariesForOpportunitiesMock.mockReset();
+    refreshLeadSummariesForOpportunitiesMock.mockResolvedValue({
+      requested: 0,
+      written: 0,
+      skippedFeatureDisabled: false,
+      failed: [],
+    });
     upsertFromEmailMock.mockResolvedValue({
       isNew: false,
       threadRow: {

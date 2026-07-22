@@ -265,4 +265,78 @@ describe("applyCanonicalLeadEnrichment tenant and client authority", () => {
     expect(callsFor(calls, "lead_field_provenance")).toHaveLength(0);
     expect(callsFor(calls, "opportunities", "update")).toHaveLength(0);
   });
+
+  it("uses a canonical client_ref when the legacy client_id mirror is empty", async () => {
+    const { calls, supabase } = makeSupabaseDouble({
+      opportunity: {
+        company_id: "company-1",
+        client_id: null,
+        client_ref: "client-canonical",
+        contact_name: null,
+        contact_email: null,
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: null,
+        source: null,
+        source_email_id: null,
+        source_message_id: null,
+        source_metadata: null,
+      },
+      client: {
+        name: null,
+        email: null,
+        phone_number: null,
+        address: null,
+      },
+    });
+
+    await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-canonical",
+      clientId: "client-canonical",
+      companyId: "company-1",
+      facts: enrichmentFacts(),
+    });
+
+    expect(callsFor(calls, "clients", "select")).toEqual([
+      expect.objectContaining({
+        filters: [
+          ["id", "client-canonical"],
+          ["company_id", "company-1"],
+        ],
+      }),
+    ]);
+  });
+
+  it("fails closed when populated client mirrors disagree", async () => {
+    const { calls, supabase } = makeSupabaseDouble({
+      opportunity: {
+        company_id: "company-1",
+        client_id: "client-legacy",
+        client_ref: "client-canonical",
+      },
+      client: {
+        name: null,
+        email: null,
+        phone_number: null,
+        address: null,
+      },
+    });
+
+    await expect(
+      applyCanonicalLeadEnrichment({
+        supabase,
+        opportunityId: "opp-conflict",
+        clientId: "client-canonical",
+        companyId: "company-1",
+        facts: enrichmentFacts(),
+      })
+    ).rejects.toThrow("Opportunity client mirrors disagree");
+
+    expect(callsFor(calls, "clients")).toHaveLength(0);
+    expect(callsFor(calls, "lead_field_provenance")).toHaveLength(0);
+    expect(callsFor(calls, "opportunities", "update")).toHaveLength(0);
+  });
 });

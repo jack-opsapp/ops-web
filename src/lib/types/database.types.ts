@@ -406,6 +406,7 @@ export type Database = {
           attachment_ids: string[] | null
           attachments: string[] | null
           body_text: string | null
+          body_text_clean: string | null
           cc_emails: string[] | null
           classified_at: string | null
           classifier_version: string | null
@@ -443,6 +444,7 @@ export type Database = {
           attachment_ids?: string[] | null
           attachments?: string[] | null
           body_text?: string | null
+          body_text_clean?: string | null
           cc_emails?: string[] | null
           classified_at?: string | null
           classifier_version?: string | null
@@ -480,6 +482,7 @@ export type Database = {
           attachment_ids?: string[] | null
           attachments?: string[] | null
           body_text?: string | null
+          body_text_clean?: string | null
           cc_emails?: string[] | null
           classified_at?: string | null
           classifier_version?: string | null
@@ -8834,6 +8837,7 @@ export type Database = {
           ai_summary_updated_at: string | null
           archived_at: string | null
           assigned_to: string | null
+          assignment_version: number
           client_id: string | null
           client_ref: string | null
           company_id: string
@@ -8888,6 +8892,7 @@ export type Database = {
           ai_summary_updated_at?: string | null
           archived_at?: string | null
           assigned_to?: string | null
+          assignment_version?: number
           client_id?: string | null
           client_ref?: string | null
           company_id: string
@@ -8942,6 +8947,7 @@ export type Database = {
           ai_summary_updated_at?: string | null
           archived_at?: string | null
           assigned_to?: string | null
+          assignment_version?: number
           client_id?: string | null
           client_ref?: string | null
           company_id?: string
@@ -9169,6 +9175,7 @@ export type Database = {
           linked_contact_kind: string | null
           noise_reason: string | null
           occurred_at: string
+          opportunity_projection_applied: boolean
           opportunity_id: string
           party_role: string
           provider_message_id: string | null
@@ -9191,6 +9198,7 @@ export type Database = {
           linked_contact_kind?: string | null
           noise_reason?: string | null
           occurred_at: string
+          opportunity_projection_applied?: boolean
           opportunity_id: string
           party_role: string
           provider_message_id?: string | null
@@ -9213,6 +9221,7 @@ export type Database = {
           linked_contact_kind?: string | null
           noise_reason?: string | null
           occurred_at?: string
+          opportunity_projection_applied?: boolean
           opportunity_id?: string
           party_role?: string
           provider_message_id?: string | null
@@ -17262,6 +17271,26 @@ export type Database = {
         }
         Returns: Json
       }
+      commit_lead_summary_snapshot: {
+        Args: {
+          p_company_id: string
+          p_expected_assignment_version: number
+          p_expected_correspondence_count: number
+          p_expected_latest_meaningful_event_id: string | null
+          p_expected_meaningful_event_count: number
+          p_expected_opportunity_updated_at: string
+          p_expected_prior_summary: string | null
+          p_expected_prior_summary_updated_at: string | null
+          p_generated_at: string
+          p_opportunity_id: string
+          p_summary: string
+        }
+        Returns: {
+          changed: boolean
+          guard_reason: string | null
+          summary_updated_at: string | null
+        }[]
+      }
       consume_email_oauth_state: {
         Args: { p_nonce_hash: string; p_provider: string }
         Returns: {
@@ -17302,6 +17331,7 @@ export type Database = {
           p_company_id: string
           p_decided_by?: string
           p_evidence?: Json
+          p_expected_assignment_version?: number
           p_expected_stage?: string
           p_link_to_project_id?: string
           p_notes?: string
@@ -17932,6 +17962,7 @@ export type Database = {
           p_provider_message_id: string
         }
         Returns: {
+          assignment_version: number
           correspondence_count: number
           inbound_count: number
           last_inbound_at: string
@@ -17946,13 +17977,35 @@ export type Database = {
         Args: {
           p_ai_signal?: string
           p_company_id: string
+          p_expected_assignment_version: number
+          p_expected_stage: string
           p_opportunity_id: string
           p_to_stage: string
         }
         Returns: {
           changed: boolean
+          guard_reason: string | null
           stage: string
           stage_manually_set: boolean
+        }[]
+      }
+      apply_email_opportunity_deferred_disposition: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_evidence?: Json
+          p_expected_assignment_version: number
+          p_expected_stage: string
+          p_next_follow_up_at: string
+          p_opportunity_id: string
+          p_provider_message_id: string
+        }
+        Returns: {
+          changed: boolean
+          disposition_id: string | null
+          guard_reason: string | null
+          next_follow_up_at: string | null
+          stage: string
         }[]
       }
       increment_signup_count: {

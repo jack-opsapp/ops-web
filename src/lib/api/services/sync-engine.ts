@@ -9,8 +9,15 @@ import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 import { EmailService } from "./email-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
 import { EmailFilterService } from "./email-filter-service";
-import { StageEvaluator } from "./stage-evaluator";
+import {
+  StageEvaluator,
+  isAllowedAutomatedEmailStageTransition,
+} from "./stage-evaluator";
 import { AISyncReviewer } from "./ai-sync-reviewer";
+import {
+  coerceAIStageForOpportunityPersistence,
+  type AITerminalReviewFlag,
+} from "./email-ai-classifier";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { EmailOutboundLearningService } from "./email-outbound-learning-service";
 import {
@@ -26,10 +33,11 @@ import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
 import { resolveOutboundLearningActorId } from "@/lib/email/outbound-learning-actor";
 import { assignPersonalMailboxLead } from "@/lib/email/personal-mailbox-lead-assignment";
 import { resolveSyncEngineEmailActor } from "@/lib/email/sync-engine-email-actor";
+import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
 import { createEmailOpportunityNotification } from "@/lib/email/email-opportunity-notification";
 import { createEmailSyncCompleteNotification } from "@/lib/email/email-sync-complete-notification";
 import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-health";
-import { ProjectConversionService } from "./project-conversion-service";
+import { refreshLeadSummariesForOpportunities } from "./lead-summary-service";
 import {
   buildEmailOpportunityTitle,
   identityCandidateFromMailbox,
@@ -61,9 +69,9 @@ import {
 } from "@/lib/email/provider-email-ids";
 import {
   extractContactFormSubmission,
+  extractEmailAddress,
   type ContactFormSubmissionIdentity,
 } from "@/lib/utils/email-parsing";
-import { shouldAutoConvertLikelyWon } from "@/lib/email/terminal-stage-decision";
 import type {
   EmailConnection,
   SyncProfile,
@@ -94,7 +102,10 @@ import {
   assembleConversationState,
   type RawThreadMessage,
 } from "./conversation-state/conversation-state";
-import { evaluateOpportunityAcceptance } from "./conversation-state/acceptance-evaluation";
+import {
+  evaluateOpportunityAcceptance,
+  shouldEvaluateOpportunityCommercialOutcome,
+} from "./conversation-state/acceptance-evaluation";
 import { fetchOperatorIdentity } from "./conversation-state/operator-identity";
 import type {
   OperatorIdentity,
@@ -257,6 +268,11 @@ interface CreateOpportunityTitleOptions {
     connectionId: string;
     connectionOwnerId: string | null;
   };
+  /** Model-only terminal guesses are persisted as review provenance, not stage. */
+  aiStageReview?: {
+    terminalFlag: AITerminalReviewFlag | null;
+    confidence: number | null;
+  };
 }
 
 interface OpportunityResolution {
@@ -264,6 +280,27 @@ interface OpportunityResolution {
   /** The client attached to the persisted winner, including a source-key race. */
   clientId: string;
   created: boolean;
+}
+
+const AI_TERMINAL_REVIEW_SIGNAL_PREFIX = "model_classification:";
+
+function aiTerminalReviewProvenanceSignal(
+  terminalFlag: AITerminalReviewFlag
+): string {
+  return `${AI_TERMINAL_REVIEW_SIGNAL_PREFIX}${terminalFlag}`;
+}
+
+function persistedAIClassificationReviewSignals(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value.filter(
+        (signal): signal is string =>
+          typeof signal === "string" &&
+          signal.startsWith(AI_TERMINAL_REVIEW_SIGNAL_PREFIX)
+      )
+    ),
+  ];
 }
 
 function mailboxAssignmentContext(connection: EmailConnection) {
@@ -848,7 +885,24 @@ async function createOpportunity(
   titleOptions: CreateOpportunityTitleOptions = {}
 ): Promise<OpportunityResolution> {
   const supabase = requireSupabase();
-  const isOutbound = stage === "qualifying"; // sent folder leads start at qualifying
+  // This helper is a final persistence boundary, not just a convenience for
+  // the current reviewer. Even a future or mocked caller cannot create a
+  // terminal opportunity from model classification. Terminal state is applied
+  // only later by the complete-conversation guarded evaluator/RPC.
+  const safeStageReview = coerceAIStageForOpportunityPersistence(
+    stage,
+    titleOptions.aiStageReview?.terminalFlag
+  );
+  const persistedStage = safeStageReview.stage;
+  const reviewConfidence = titleOptions.aiStageReview?.confidence;
+  const persistedReviewConfidence =
+    typeof reviewConfidence === "number" &&
+    Number.isFinite(reviewConfidence) &&
+    reviewConfidence >= 0 &&
+    reviewConfidence <= 1
+      ? reviewConfidence
+      : null;
+  const isOutbound = persistedStage === "qualifying"; // sent folder leads start at qualifying
   const sourceKey = titleOptions.sourceKey ?? email.threadId ?? null;
   const startedAt = Date.now();
   const clientCandidate = await getClientOpportunityTitleCandidate(clientId);
@@ -875,7 +929,7 @@ async function createOpportunity(
         candidates,
         unsafe: titleOptions.unsafe,
       }),
-      stage,
+      stage: persistedStage,
       source: "email",
       // P0-A: dedupe key. UNIQUE (company_id, source_thread_key) makes a given
       // email thread spawn at most one opportunity, closing the sync race.
@@ -885,6 +939,16 @@ async function createOpportunity(
       // defaults. The immutable provider event below is the only authority
       // allowed to project counters, including after a create race or replay.
       tags: ["email-import"],
+      ...(safeStageReview.terminalFlag
+        ? {
+            ai_stage_signals: [
+              aiTerminalReviewProvenanceSignal(safeStageReview.terminalFlag),
+            ],
+            ...(persistedReviewConfidence == null
+              ? {}
+              : { ai_stage_confidence: persistedReviewConfidence }),
+          }
+        : {}),
     })
     .select("id, client_id, assigned_to, assignment_version")
     .single();
@@ -968,7 +1032,7 @@ async function createOpportunity(
     leadId: opportunityId,
     companyId,
     clientId,
-    stage,
+    stage: persistedStage,
     direction: isOutbound ? "out" : "in",
     msToCreate: Date.now() - startedAt,
   });
@@ -978,6 +1042,38 @@ async function createOpportunity(
     clientId: authoritativeClientId,
     created: true,
   };
+}
+
+async function persistAIStageReviewProvenance(params: {
+  opportunityId: string;
+  companyId: string;
+  terminalFlag: AITerminalReviewFlag | null;
+  confidence: number | null;
+}): Promise<void> {
+  if (!params.terminalFlag) return;
+
+  const normalizedConfidence =
+    typeof params.confidence === "number" &&
+    Number.isFinite(params.confidence) &&
+    params.confidence >= 0 &&
+    params.confidence <= 1
+      ? params.confidence
+      : null;
+  const { error } = await requireSupabase()
+    .from("opportunities")
+    .update({
+      ai_stage_signals: [aiTerminalReviewProvenanceSignal(params.terminalFlag)],
+      ...(normalizedConfidence == null
+        ? {}
+        : { ai_stage_confidence: normalizedConfidence }),
+    })
+    .eq("id", params.opportunityId)
+    .eq("company_id", params.companyId);
+  if (error) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] AI terminal review provenance failed for ${params.opportunityId}: ${error.message ?? "unknown error"}`
+    );
+  }
 }
 
 async function getOrCreateOpportunity(
@@ -1028,10 +1124,108 @@ async function getOrCreateOpportunity(
   return createOpportunity(email, clientId, companyId, stage, titleOptions);
 }
 
-function opportunityRelationshipFactsFromLeadEnrichment(
+function normalizedExternalParticipantEmails(
+  values: string[],
+  connection: EmailConnection,
+  profile: SyncProfile,
+  authoritativeOperator: OperatorIdentity
+): string[] {
+  const operatorEmails = authoritativeOperator.emails;
+  const companyDomains = authoritativeOperator.domains;
+  const platformSenders = new Set(
+    (profile.knownPlatformSenders ?? [])
+      .map((value) => extractEmailAddress(value).trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  return [
+    ...new Set(
+      values
+        .map((value) => extractEmailAddress(value).trim().toLowerCase())
+        .filter((email) => {
+          if (!email || !email.includes("@")) return false;
+          if (operatorEmails.has(email) || platformSenders.has(email))
+            return false;
+          const domain = email.split("@")[1] ?? "";
+          return !companyDomains.has(domain);
+        })
+    ),
+  ];
+}
+
+function emailWithAuthoritativeExternalRecipients(
+  email: NormalizedEmail,
+  connection: EmailConnection,
+  profile: SyncProfile,
+  operator: OperatorIdentity
+): NormalizedEmail {
+  const externalAddresses = new Set(
+    normalizedExternalParticipantEmails(
+      [...email.to, ...email.cc],
+      connection,
+      profile,
+      operator
+    )
+  );
+  const seen = new Set<string>();
+  const filterHeaders = (values: string[]) =>
+    values.filter((value) => {
+      const address = extractEmailAddress(value).trim().toLowerCase();
+      if (!externalAddresses.has(address) || seen.has(address)) return false;
+      seen.add(address);
+      return true;
+    });
+  return {
+    ...email,
+    to: filterHeaders(email.to),
+    cc: filterHeaders(email.cc),
+  };
+}
+
+/**
+ * Parse only canonical forwarded-message address headers. These values remain
+ * untrusted and are never sufficient to link on their own; the relationship
+ * matcher requires independent address evidence before using them.
+ */
+function strictForwardedParticipantEmails(
+  body: string | null | undefined
+): string[] {
+  const source = body ?? "";
+  const marker = source.search(
+    /(?:^|\n)\s*(?:Begin forwarded message:|[-]{2,}\s*Forwarded message\s*[-]{2,})/i
+  );
+  if (marker < 0) return [];
+  const headerBlock = source.slice(marker).split(/\n\s*\n/, 1)[0] ?? "";
+  const values: string[] = [];
+  for (const line of headerBlock.split(/\r?\n/)) {
+    const match = line.match(/^\s*(?:from|to|cc)\s*:\s*(.+)$/i);
+    if (!match) continue;
+    values.push(
+      ...(match[1].match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [])
+    );
+  }
+  return values;
+}
+
+export function opportunityRelationshipFactsFromLeadEnrichment(
   facts: LeadEnrichmentFacts,
-  email: NormalizedEmail
+  email: NormalizedEmail,
+  connection: EmailConnection,
+  profile: SyncProfile,
+  operator: OperatorIdentity
 ): OpportunityRelationshipFacts {
+  const participantEmails = normalizedExternalParticipantEmails(
+    [email.from, ...email.to, ...email.cc],
+    connection,
+    profile,
+    operator
+  );
+  const forwardedParticipantEmails = normalizedExternalParticipantEmails(
+    strictForwardedParticipantEmails(email.bodyText),
+    connection,
+    profile,
+    operator
+  );
   return {
     contactName: facts.contactName,
     contactEmail: facts.contactEmail,
@@ -1040,6 +1234,8 @@ function opportunityRelationshipFactsFromLeadEnrichment(
     description: facts.description ?? email.bodyText ?? email.snippet ?? null,
     subject: email.subject,
     providerThreadId: facts.providerThreadId,
+    participantEmails,
+    forwardedParticipantEmails,
     sourcePlatform: facts.sourcePlatform,
     phaseCEnabled: false,
   };
@@ -1139,7 +1335,7 @@ async function loadProviderThreadOpportunity(
 
   const { data: opportunityRows, error: opportunityError } = await supabase
     .from("opportunities")
-    .select("id, client_id")
+    .select("id, client_id, client_ref")
     .eq("id", opportunityId)
     .eq("company_id", connection.companyId)
     .is("deleted_at", null)
@@ -1157,7 +1353,10 @@ async function loadProviderThreadOpportunity(
 
   return {
     opportunityId: opportunityRows[0].id as string,
-    clientId: (opportunityRows[0].client_id as string | null) ?? null,
+    clientId: resolveGuardedOpportunityClientId({
+      clientId: opportunityRows[0].client_id as string | null,
+      clientRef: opportunityRows[0].client_ref as string | null,
+    }),
   };
 }
 
@@ -1359,7 +1558,9 @@ async function createActivity(
       subject: normalizedEmail.subject,
       content: normalizedEmail.snippet,
       body_text: normalizedEmail.bodyText || null,
-      body_text_clean: bodyTextClean || null,
+      // Empty is meaningful: it proves this is a quote-only/signature-only
+      // message. Persist it instead of falling back to the raw quoted chain.
+      body_text_clean: bodyTextClean,
       email_connection_id: connection.id,
       email_message_id: normalizedEmail.id,
       email_thread_id: normalizedEmail.threadId,
@@ -1449,6 +1650,12 @@ async function updateCorrespondenceCounts(
   const newOutboundCount = Number(row.outbound_count ?? 0);
   const currentStage = row.stage as string;
   const stageManuallySet = Boolean(row.stage_manually_set);
+  const assignmentVersion = Number(row.assignment_version);
+  if (!Number.isSafeInteger(assignmentVersion) || assignmentVersion < 0) {
+    throw new Error(
+      `[sync-engine] correspondence projection returned no assignment snapshot for ${opportunityId}`
+    );
+  }
   const lastInboundAt = row.last_inbound_at
     ? new Date(row.last_inbound_at as string)
     : null;
@@ -1480,6 +1687,8 @@ async function updateCorrespondenceCounts(
           p_company_id: connection.companyId,
           p_opportunity_id: opportunityId,
           p_to_stage: evaluation.stage,
+          p_expected_stage: currentStage,
+          p_expected_assignment_version: assignmentVersion,
         });
       if (stageUpdateError || !transitionRows) {
         throw new Error(
@@ -1526,7 +1735,9 @@ async function applyLabel(
  * opportunity, build the clean conversation state and let the deterministic
  * accept-detector decide: a clear "yes" auto-advances the lead to Won; a softer
  * verbal accept surfaces a one-tap "Mark Won" notification. Never overrides a
- * manual stage, a terminal lead, or a thread the router held for human review.
+ * manual stage, a final Won/discarded lead, or a thread the router held for
+ * human review. Engine-owned Lost deferrals remain eligible for a later,
+ * evidence-backed acceptance or re-deferral.
  * Non-fatal — a failure here must not break the sync loop. The cheap stage/manual
  * guard runs BEFORE the (heavier) state build to skip the common no-op case.
  */
@@ -1552,8 +1763,14 @@ async function maybeAutoAdvanceOnAccept(args: {
       );
     }
     if (!opp) return;
-    if (opp.stage_manually_set) return;
-    if (["won", "lost", "discarded"].includes(opp.stage as string)) return;
+    if (
+      !shouldEvaluateOpportunityCommercialOutcome(
+        opp.stage as string,
+        Boolean(opp.stage_manually_set)
+      )
+    ) {
+      return;
+    }
 
     // Attachment copying and cost-once inspection run only in the durable
     // attachment worker. That worker re-evaluates acceptance after persisting a
@@ -1600,109 +1817,6 @@ async function createTerminalFlagNotification(
         : "terminal_likely_lost",
     supabase: requireSupabase(),
   });
-}
-
-function numericOpportunityValue(value: unknown): number | null {
-  const amount = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(amount) && amount > 0 ? amount : null;
-}
-
-async function maybeAutoConvertLikelyWon(
-  stageResult: {
-    threadId: string;
-    terminalFlag: string | null;
-    summary?: string | null;
-  },
-  connection: EmailConnection,
-  opportunityId: string,
-  candidateProviderMessageIds: ReadonlySet<string>,
-  opportunity: {
-    stage?: string | null;
-    stage_manually_set?: boolean | null;
-    actual_value?: unknown;
-    detected_value?: unknown;
-    estimated_value?: unknown;
-    assignment_version?: unknown;
-  } | null
-): Promise<boolean> {
-  if (
-    !shouldAutoConvertLikelyWon({
-      terminalFlag: stageResult.terminalFlag,
-      currentStage: opportunity?.stage,
-      stageManuallySet: opportunity?.stage_manually_set,
-    })
-  ) {
-    return false;
-  }
-
-  try {
-    const assignmentSnapshot = {
-      expectedAssignmentVersion: opportunity?.assignment_version,
-    } as const;
-    const assignmentVersion = assignmentSnapshot.expectedAssignmentVersion;
-    if (
-      !Number.isSafeInteger(assignmentVersion) ||
-      (assignmentVersion as number) < 0
-    ) {
-      throw new Error("likely-won conversion has no assignment snapshot");
-    }
-    if (candidateProviderMessageIds.size === 0) {
-      return false;
-    }
-
-    // Bind conversion to the newest immutable, meaningful customer inbound
-    // among the exact provider messages evaluated in this cycle. Discovery
-    // buckets and map iteration order are not evidence; an unrelated outbound
-    // or historical message must never authorize actorless conversion.
-    const supabase = requireSupabase();
-    const { data: evidence, error: evidenceError } = await supabase
-      .from("opportunity_correspondence_events")
-      .select("id, provider_thread_id, provider_message_id")
-      .eq("company_id", connection.companyId)
-      .eq("opportunity_id", opportunityId)
-      .eq("connection_id", connection.id)
-      .eq("direction", "inbound")
-      .eq("party_role", "customer")
-      .eq("is_meaningful", true)
-      .in("provider_message_id", [...candidateProviderMessageIds])
-      .order("occurred_at", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (evidenceError) {
-      throw new Error(
-        `likely-won evidence lookup failed: ${evidenceError.message}`
-      );
-    }
-    if (!evidence?.provider_thread_id || !evidence.provider_message_id) {
-      return false;
-    }
-
-    await ProjectConversionService.convertOpportunityToProject({
-      opportunityId,
-      companyId: connection.companyId,
-      decidedBy: null,
-      sourcePath: "email_likely_won",
-      expectedAssignmentVersion: assignmentVersion as number,
-      evidence: {
-        connection_id: connection.id,
-        provider_thread_id: evidence.provider_thread_id,
-        provider_message_id: evidence.provider_message_id,
-        decision: "likely_won",
-      },
-      actualValue:
-        numericOpportunityValue(opportunity?.actual_value) ??
-        numericOpportunityValue(opportunity?.detected_value) ??
-        numericOpportunityValue(opportunity?.estimated_value),
-      expectedStage: opportunity?.stage ?? null,
-      notesSeed: stageResult.summary ?? null,
-    });
-    return true;
-  } catch (err) {
-    throw new LifecyclePersistenceError(
-      `[sync-engine] likely-won conversion failed before cursor advancement for opportunity ${opportunityId}: ${err instanceof Error ? err.message : "unknown error"}`
-    );
-  }
 }
 
 async function createSyncNotification(
@@ -2129,14 +2243,6 @@ async function processInboundEmail(
     result.activitiesCreated++;
     result.matched++;
 
-    // ── Phase 2: deterministic accept → stage (auto-Won / surface Mark Won) ──
-    await maybeAutoAdvanceOnAccept({
-      providerThreadId: email.threadId,
-      opportunityId: threadOpportunity.opportunityId,
-      connection,
-      result,
-    });
-
     // ── S2.3: Reschedule request detection (fire-and-forget) ───────────
     // Looks up the just-created activity row and runs the reschedule
     // classifier (phase_c gated + heuristic + GPT). Never blocks sync.
@@ -2192,7 +2298,10 @@ async function processInboundEmail(
       clientId: matchResult.clientId,
       facts: opportunityRelationshipFactsFromLeadEnrichment(
         inboundEnrichmentFacts,
-        effectiveEmail
+        effectiveEmail,
+        connection,
+        profile,
+        await getCachedOperatorIdentity(connection)
       ),
     });
     const relationshipDecisionRequiresNewOpportunity =
@@ -2257,14 +2366,6 @@ async function processInboundEmail(
       );
       result.matched++;
       result.activitiesCreated++;
-
-      // ── Phase 2: deterministic accept → stage ──
-      await maybeAutoAdvanceOnAccept({
-        providerThreadId: email.threadId,
-        opportunityId: oppId,
-        connection,
-        result,
-      });
 
       return null;
     }
@@ -2413,18 +2514,6 @@ async function processInboundEmail(
         result.matched++;
       }
       result.activitiesCreated++;
-
-      // ── Phase 2: accept→stage — only when reusing an existing opportunity
-      //    (a brand-new lead has nothing to accept yet). Phase C draft/send
-      //    routing is owned by the canonical email-thread classification hook. ──
-      if (!relationshipDecisionRequiresNewOpportunity) {
-        await maybeAutoAdvanceOnAccept({
-          providerThreadId: email.threadId,
-          opportunityId: oppId,
-          connection,
-          result,
-        });
-      }
     } else if (matchResult.action === "review") {
       const activityCreated = await createActivity(
         effectiveEmail,
@@ -2502,6 +2591,13 @@ async function processSentEmail(
   });
 
   const supabase = requireSupabase();
+  const operatorIdentity = await getCachedOperatorIdentity(connection);
+  const externalConversationEmail = emailWithAuthoritativeExternalRecipients(
+    email,
+    connection,
+    profile,
+    operatorIdentity
+  );
 
   // Dedup
   const existingActivity = await findExistingProviderActivity(
@@ -2535,7 +2631,7 @@ async function processSentEmail(
         supabase,
         opportunityId: existingActivity.opportunity_id,
         facts: leadEnrichmentFactsFromEmail({
-          email,
+          email: externalConversationEmail,
           direction: "outbound",
           connection,
           profile,
@@ -2582,7 +2678,7 @@ async function processSentEmail(
       opportunityId: threadOpportunity.opportunityId,
       clientId: threadOpportunity.clientId,
       facts: leadEnrichmentFactsFromEmail({
-        email,
+        email: externalConversationEmail,
         direction: "outbound",
         connection,
         profile,
@@ -2602,147 +2698,306 @@ async function processSentEmail(
     return;
   }
 
-  // Sent folder safety net: user sent to a NEW external address.
-  // Only process the FIRST external recipient per thread to avoid
-  // duplicate thread link constraint violations (#8).
-  let threadLinkedByThisEmail = false;
+  // Reconcile every external To/CC participant as one conversation. Choosing a
+  // recipient or the client's newest opportunity would split forwarded/grouped
+  // conversations and can attach a receipt to the wrong job.
+  const externalRecipients = [
+    ...externalConversationEmail.to,
+    ...externalConversationEmail.cc,
+  ];
+  if (externalRecipients.length === 0) return;
 
-  // Also check CC'd recipients alongside TO recipients (#11)
-  const allRecipients = [...email.to, ...email.cc];
+  const recipientCandidate = identityCandidateFromMailbox(
+    "outbound_recipient",
+    externalRecipients[0]
+  );
+  const recipientEmail =
+    recipientCandidate.email || extractSenderEmail(externalRecipients[0]);
+  const outboundEnrichmentFacts = leadEnrichmentFactsFromEmail({
+    email: externalConversationEmail,
+    direction: "outbound",
+    connection,
+    profile,
+  });
+  const matchResult = await EmailMatchingServiceV2.match(
+    connection.companyId,
+    recipientEmail,
+    {
+      threadId: email.threadId,
+      name: recipientCandidate.name ?? "",
+      connectionId: connection.id,
+    }
+  );
+  const relationshipDecision = await findOpportunityRelationshipMatch({
+    supabase,
+    companyId: connection.companyId,
+    connectionId: connection.id,
+    providerThreadId: email.threadId,
+    clientId: matchResult.clientId,
+    facts: opportunityRelationshipFactsFromLeadEnrichment(
+      outboundEnrichmentFacts,
+      externalConversationEmail,
+      connection,
+      profile,
+      operatorIdentity
+    ),
+  });
+  const normalizedSubject = email.subject
+    .replace(/^(re|fwd|fw)\s*:\s*/gi, "")
+    .trim();
+  const isEstimate = Boolean(
+    profile.estimateSubjectPatterns?.some((pattern) =>
+      normalizedSubject.toLowerCase().includes(pattern.toLowerCase())
+    )
+  );
 
-  for (const recipient of allRecipients) {
-    if (threadLinkedByThisEmail) break; // One thread link per email
-
-    const recipientCandidate = identityCandidateFromMailbox(
-      "outbound_recipient",
-      recipient
+  let opportunityId: string | null = null;
+  let opportunityClientId: string | null = null;
+  let createdOpportunity = false;
+  if (relationshipDecision.action === "link") {
+    opportunityId = relationshipDecision.opportunityId;
+    opportunityClientId = relationshipDecision.clientId;
+  } else if (isEstimate && matchResult.action !== "review") {
+    const effectiveRecipientEmail: NormalizedEmail = {
+      ...email,
+      from: recipientEmail,
+      fromName: recipientCandidate.name ?? recipientEmail.split("@")[0],
+    };
+    opportunityClientId =
+      matchResult.clientId ??
+      (await createClient(
+        effectiveRecipientEmail,
+        connection.companyId,
+        null,
+        outboundEnrichmentFacts
+      ));
+    const opportunity = await createOpportunity(
+      effectiveRecipientEmail,
+      opportunityClientId,
+      connection.companyId,
+      "qualifying",
+      {
+        kind: "estimate",
+        candidates: [recipientCandidate],
+        unsafe: syncTitleUnsafeIdentity(connection, profile),
+        enrichmentFacts: outboundEnrichmentFacts,
+        sourceKey: routingIdentity.sourceKey,
+        mailboxAssignment: mailboxAssignmentContext(connection),
+      }
     );
-    const recipientEmail =
-      recipientCandidate.email || extractSenderEmail(recipient);
-    const recipientDomain = recipientEmail.split("@")[1]?.toLowerCase();
+    opportunityId = opportunity.id;
+    opportunityClientId = opportunity.clientId;
+    createdOpportunity = opportunity.created;
+  }
 
-    // Skip internal/company emails
-    if (profile.companyDomains?.some((d) => recipientDomain === d)) continue;
-    if (recipientEmail === connection.email) continue;
-
-    // Check if subject matches estimate pattern
-    const normalizedSubject = email.subject
-      .replace(/^(re|fwd|fw)\s*:\s*/gi, "")
-      .trim();
-    const isEstimate = profile.estimateSubjectPatterns?.some((p) =>
-      normalizedSubject.toLowerCase().includes(p.toLowerCase())
+  if (!opportunityId) {
+    // Never drop operator-authored conversation history merely because the
+    // inbound side has not been classified yet. A post-classification pass
+    // below re-runs the relationship matcher and adopts this exact activity.
+    const activityCreated = await createActivity(
+      email,
+      connection,
+      null,
+      "outbound",
+      { matchNeedsReview: true, matchConfidence: "unlinked_outbound" }
     );
+    if (activityCreated) {
+      result.activitiesCreated++;
+      result.needsReview++;
+    }
+    return;
+  }
 
-    if (isEstimate) {
-      const outboundEnrichmentFacts = leadEnrichmentFactsFromEmail({
-        email: {
-          ...email,
-          to: [recipient],
-          cc: [],
-        },
-        direction: "outbound",
+  await applyCanonicalLeadEnrichment({
+    supabase,
+    opportunityId,
+    clientId: opportunityClientId,
+    facts: outboundEnrichmentFacts,
+    companyId: connection.companyId,
+  });
+  const linked = await linkThread(opportunityId, email.threadId, connection.id);
+  if (!linked) return;
+  const activityCreated = await createActivity(
+    email,
+    connection,
+    opportunityId,
+    "outbound",
+    {
+      matchConfidence:
+        relationshipDecision.action === "link"
+          ? relationshipDecision.confidence
+          : "estimate",
+    }
+  );
+  if (!activityCreated) return;
+  await updateCorrespondenceCounts(
+    opportunityId,
+    email,
+    connection,
+    followUpDaysCache,
+    result
+  );
+  if (createdOpportunity) {
+    await applyLabel(
+      email.threadId,
+      connection,
+      result,
+      providerLockCheckpoint
+    );
+    result.newLeads++;
+  } else {
+    result.matched++;
+  }
+  result.activitiesCreated++;
+}
+
+async function reconcileUnlinkedOutboundEmail(
+  email: NormalizedEmail,
+  connection: EmailConnection,
+  profile: SyncProfile,
+  followUpDaysCache: Map<string, number>,
+  result: SyncCycleResult
+): Promise<void> {
+  const supabase = requireSupabase();
+  const operatorIdentity = await getCachedOperatorIdentity(connection);
+  const externalConversationEmail = emailWithAuthoritativeExternalRecipients(
+    email,
+    connection,
+    profile,
+    operatorIdentity
+  );
+  const existingActivity = await findExistingProviderActivity(
+    supabase,
+    connection,
+    email.id,
+    email.threadId
+  );
+  if (!existingActivity || existingActivity.opportunity_id) return;
+  if (!existingActivity.id) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] unlinked outbound activity has no durable identity"
+    );
+  }
+
+  let threadOpportunity = await loadProviderThreadOpportunity(
+    supabase,
+    connection,
+    email.threadId
+  );
+  let matchConfidence = "provider_thread";
+  const enrichmentFacts = leadEnrichmentFactsFromEmail({
+    email: externalConversationEmail,
+    direction: "outbound",
+    connection,
+    profile,
+  });
+  if (!threadOpportunity) {
+    const externalRecipient = [
+      ...externalConversationEmail.to,
+      ...externalConversationEmail.cc,
+    ]
+      .map(extractSenderEmail)
+      .find(Boolean);
+    if (!externalRecipient) return;
+    const matchResult = await EmailMatchingServiceV2.match(
+      connection.companyId,
+      externalRecipient,
+      {
+        threadId: email.threadId,
+        name: "",
+        connectionId: connection.id,
+      }
+    );
+    const relationshipDecision = await findOpportunityRelationshipMatch({
+      supabase,
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      providerThreadId: email.threadId,
+      clientId: matchResult.clientId,
+      facts: opportunityRelationshipFactsFromLeadEnrichment(
+        enrichmentFacts,
+        externalConversationEmail,
         connection,
         profile,
-      });
-      const matchResult = await EmailMatchingServiceV2.match(
-        connection.companyId,
-        recipientEmail,
-        {
-          threadId: email.threadId,
-          name: "",
-          connectionId: connection.id,
-        }
-      );
+        operatorIdentity
+      ),
+    });
+    if (relationshipDecision.action !== "link") return;
+    const linked = await linkThread(
+      relationshipDecision.opportunityId,
+      email.threadId,
+      connection.id
+    );
+    if (!linked) return;
+    threadOpportunity = {
+      opportunityId: relationshipDecision.opportunityId,
+      clientId: relationshipDecision.clientId,
+    };
+    matchConfidence = relationshipDecision.confidence;
+  }
 
-      if (matchResult.action === "create_new") {
-        const effectiveRecipientEmail: NormalizedEmail = {
-          ...email,
-          from: recipientEmail,
-          fromName: recipientCandidate.name ?? recipientEmail.split("@")[0],
-        };
-        const clientId = await createClient(
-          effectiveRecipientEmail,
-          connection.companyId,
-          null,
-          outboundEnrichmentFacts
-        );
-        const opportunity = await createOpportunity(
-          effectiveRecipientEmail,
-          clientId,
-          connection.companyId,
-          "qualifying",
-          {
-            kind: "estimate",
-            candidates: [recipientCandidate],
-            unsafe: syncTitleUnsafeIdentity(connection, profile),
-            enrichmentFacts: outboundEnrichmentFacts,
-            sourceKey: routingIdentity.sourceKey,
-            mailboxAssignment: mailboxAssignmentContext(connection),
-          }
-        );
-        const oppId = opportunity.id;
-        const linked = await linkThread(oppId, email.threadId, connection.id);
-        if (!linked) return;
-        const activityCreated = await createActivity(
-          email,
-          connection,
-          oppId,
-          "outbound"
-        );
-        if (!activityCreated) return;
-        await updateCorrespondenceCounts(
-          oppId,
-          email,
-          connection,
-          followUpDaysCache,
-          result
-        );
-        await applyLabel(
-          email.threadId,
-          connection,
-          result,
-          providerLockCheckpoint
-        );
-        result.newLeads++;
-        result.activitiesCreated++;
-        threadLinkedByThisEmail = true;
-      } else if (matchResult.clientId) {
-        const opportunity = await getOrCreateOpportunity(
-          matchResult.clientId,
-          connection.companyId,
-          email,
-          {
-            kind: "estimate",
-            candidates: [recipientCandidate],
-            unsafe: syncTitleUnsafeIdentity(connection, profile),
-            enrichmentFacts: outboundEnrichmentFacts,
-            sourceKey: routingIdentity.sourceKey,
-            mailboxAssignment: mailboxAssignmentContext(connection),
-          }
-        );
-        const oppId = opportunity.id;
-        const linked = await linkThread(oppId, email.threadId, connection.id);
-        if (!linked) return;
-        const activityCreated = await createActivity(
-          email,
-          connection,
-          oppId,
-          "outbound"
-        );
-        if (!activityCreated) return;
-        await updateCorrespondenceCounts(
-          oppId,
-          email,
-          connection,
-          followUpDaysCache,
-          result
-        );
-        result.matched++;
-        result.activitiesCreated++;
-        threadLinkedByThisEmail = true;
-      }
+  const { data: claimedRows, error: claimError } = await supabase
+    .from("activities")
+    .update({
+      opportunity_id: threadOpportunity.opportunityId,
+      match_needs_review: false,
+      suggested_client_id: null,
+      match_confidence: matchConfidence,
+    })
+    .eq("id", existingActivity.id)
+    .eq("company_id", connection.companyId)
+    .is("opportunity_id", null)
+    .select("id");
+  if (claimError) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] unlinked outbound adoption failed: ${claimError.message ?? "unknown error"}`
+    );
+  }
+  if (!Array.isArray(claimedRows) || claimedRows.length !== 1) {
+    const concurrent = await findExistingProviderActivity(
+      supabase,
+      connection,
+      email.id,
+      email.threadId
+    );
+    if (concurrent?.opportunity_id !== threadOpportunity.opportunityId) {
+      throw new LifecyclePersistenceError(
+        "[sync-engine] unlinked outbound adoption lost a conflicting relationship race"
+      );
     }
   }
+
+  await recordActivityCorrespondenceEvent(
+    email,
+    connection,
+    threadOpportunity.opportunityId,
+    existingActivity.id,
+    "outbound"
+  );
+  await persistDeterministicEmailThreadState(
+    email,
+    connection,
+    threadOpportunity.opportunityId,
+    "outbound",
+    false,
+    false
+  );
+  await applyCanonicalLeadEnrichment({
+    supabase,
+    opportunityId: threadOpportunity.opportunityId,
+    clientId: threadOpportunity.clientId,
+    facts: enrichmentFacts,
+    companyId: connection.companyId,
+  });
+  await updateCorrespondenceCounts(
+    threadOpportunity.opportunityId,
+    email,
+    connection,
+    followUpDaysCache,
+    result
+  );
+  result.needsReview = Math.max(0, result.needsReview - 1);
+  result.matched++;
 }
 
 /**
@@ -3370,6 +3625,15 @@ export const SyncEngine = {
                 contactFormSubmitter,
                 enrichmentFacts: deterministicFacts,
               } = context;
+              // Defend the database boundary even if a mocked reviewer or a
+              // future classifier violates AISyncReviewer's active-stage
+              // contract. Model terminal output survives only as review
+              // provenance; it never becomes stage authority here.
+              const classifiedStageReview =
+                coerceAIStageForOpportunityPersistence(
+                  classified.stage,
+                  classified.terminalFlag
+                );
 
               const matchResult = await EmailMatchingServiceV2.match(
                 connection.companyId,
@@ -3418,7 +3682,10 @@ export const SyncEngine = {
                   clientId: matchResult.clientId,
                   facts: opportunityRelationshipFactsFromLeadEnrichment(
                     deterministicFacts,
-                    effectiveEmail
+                    effectiveEmail,
+                    connection,
+                    profile,
+                    await getCachedOperatorIdentity(connection)
                   ),
                 });
 
@@ -3428,6 +3695,7 @@ export const SyncEngine = {
                   ? matchResult.clientId!
                   : null;
               let oppId: string;
+              let opportunityCreated = false;
 
               if (relationshipDecision.action === "link") {
                 oppId = relationshipDecision.opportunityId;
@@ -3446,7 +3714,7 @@ export const SyncEngine = {
                   effectiveEmail,
                   clientId,
                   connection.companyId,
-                  classified.stage,
+                  classifiedStageReview.stage,
                   {
                     candidates: [
                       {
@@ -3459,10 +3727,28 @@ export const SyncEngine = {
                     enrichmentFacts: deterministicFacts,
                     sourceKey: routingIdentity.sourceKey,
                     mailboxAssignment: mailboxAssignmentContext(connection),
+                    aiStageReview: {
+                      terminalFlag: classifiedStageReview.terminalFlag,
+                      confidence: classified.confidence,
+                    },
                   }
                 );
                 oppId = opportunity.id;
                 clientId = opportunity.clientId;
+                opportunityCreated = opportunity.created;
+              }
+
+              // Linked opportunities and source-key race winners did not get
+              // this cycle's model review metadata through the insert. Persist
+              // the same idempotent snapshot without touching stage, manual
+              // overrides, assignment, or inbox authorization.
+              if (!opportunityCreated) {
+                await persistAIStageReviewProvenance({
+                  opportunityId: oppId,
+                  companyId: connection.companyId,
+                  terminalFlag: classifiedStageReview.terminalFlag,
+                  confidence: classified.confidence,
+                });
               }
 
               // Complete retryable semantic writes before publishing the
@@ -3551,16 +3837,26 @@ export const SyncEngine = {
           result.newLeads += aiResult.newLeadsClassified;
         }
 
+        // An outbound reply may arrive in provider chronology before its
+        // unmatched inbound thread has been classified and linked. Re-run the
+        // full relationship matcher after classification, then adopt the exact
+        // durable activity so payment/scheduling evidence cannot disappear.
+        for (const sentEmail of sentEmails) {
+          await reconcileUnlinkedOutboundEmail(
+            sentEmail,
+            connection,
+            profile,
+            followUpDaysCache,
+            result
+          );
+        }
+
         // Step 6: AI stage evaluation for threads that received new emails
         const activeLeadTargets = new Map<
           string,
           string | { threadId: string; messages: NormalizedEmail[] }
         >();
         const opportunityByEvaluationKey = new Map<string, string>();
-        const providerMessageIdsByEvaluationKey = new Map<
-          string,
-          Set<string>
-        >();
         for (const email of [...inboxEmails, ...sentEmails]) {
           const activity = await findExistingProviderActivity(
             supabase,
@@ -3586,14 +3882,6 @@ export const SyncEngine = {
             );
           }
           opportunityByEvaluationKey.set(evaluationKey, opportunityId);
-          const candidateMessageIds =
-            providerMessageIdsByEvaluationKey.get(evaluationKey) ??
-            new Set<string>();
-          candidateMessageIds.add(email.id);
-          providerMessageIdsByEvaluationKey.set(
-            evaluationKey,
-            candidateMessageIds
-          );
           if (!activeLeadTargets.has(evaluationKey)) {
             activeLeadTargets.set(
               evaluationKey,
@@ -3606,7 +3894,29 @@ export const SyncEngine = {
 
         if (activeLeadTargets.size > 0) {
           await renewSyncLeaseIfNeeded(true);
-          // Combined stage evaluation + opportunity summary in a single AI call
+
+          // Evaluate deterministic commercial outcomes only after every
+          // provider message, activity, correspondence projection, and thread
+          // link in this cycle is durable. This single retry-safe boundary
+          // covers new leads, existing leads, sent mail, and provider replays.
+          for (const [evaluationKey, target] of activeLeadTargets) {
+            if (typeof target !== "string") continue;
+            const opportunityId = opportunityByEvaluationKey.get(evaluationKey);
+            if (!opportunityId) {
+              throw new LifecyclePersistenceError(
+                `[sync-engine] commercial outcome identity ${evaluationKey} has no opportunity`
+              );
+            }
+            await maybeAutoAdvanceOnAccept({
+              providerThreadId: target,
+              opportunityId,
+              connection,
+              result,
+            });
+          }
+
+          // Thread-scoped stage evaluation; the opportunity-wide summary runs
+          // from all durable activity after every thread result is applied.
           const stageResults = await AISyncReviewer.evaluateStagesWithSummary(
             [...activeLeadTargets.values()],
             connection,
@@ -3628,7 +3938,7 @@ export const SyncEngine = {
               await supabase
                 .from("opportunities")
                 .select(
-                  "stage, stage_manually_set, actual_value, detected_value, estimated_value, assignment_version"
+                  "stage, stage_manually_set, actual_value, detected_value, estimated_value, assignment_version, ai_stage_signals"
                 )
                 .eq("id", oppId)
                 .single();
@@ -3638,54 +3948,49 @@ export const SyncEngine = {
               );
             }
 
-            let autoConvertedLikelyWon = false;
             const evaluationTarget = activeLeadTargets.get(sr.threadId);
             const providerThreadId =
               typeof evaluationTarget === "string"
                 ? evaluationTarget
                 : (evaluationTarget?.messages.at(-1)?.threadId ?? null);
-            if (sr.terminalFlag) {
-              autoConvertedLikelyWon = await maybeAutoConvertLikelyWon(
+            if (sr.terminalFlag && providerThreadId) {
+              // Model-only terminal classifications are review signals, never
+              // conversion authority. Deterministic, opportunity-wide evidence
+              // is committed earlier through evaluateOpportunityAcceptance.
+              await createTerminalFlagNotification(
                 sr,
                 connection,
                 oppId,
-                providerMessageIdsByEvaluationKey.get(sr.threadId) ??
-                  new Set<string>(),
-                oppData
+                providerThreadId,
+                oppData.assignment_version
               );
-
-              if (!autoConvertedLikelyWon && providerThreadId) {
-                // Manual stages, likely_lost, already-terminal opportunities,
-                // or conversion failures still surface for operator review.
-                await createTerminalFlagNotification(
-                  sr,
-                  connection,
-                  oppId,
-                  providerThreadId,
-                  oppData.assignment_version
-                );
-              }
             }
 
-            // Build update payload — always write summary if present
+            // Thread-scoped AI evidence can update stage signals, but the lead
+            // summary is written only from the complete opportunity context
+            // after all thread evaluations finish.
             const updates: Record<string, unknown> = {};
             let requestedStage: string | null = null;
 
-            if (sr.summary) {
-              updates.ai_summary = sr.summary;
-              updates.ai_summary_updated_at = new Date().toISOString();
-            }
             // The evidence describes the latest evaluated conversation, not
             // only the last transition. Refresh it even when the inferred
             // stage remains unchanged so the lead never displays stale proof.
-            updates.ai_stage_signals = [sr.terminalFlag || "ai_evaluated"];
+            updates.ai_stage_signals = [
+              ...persistedAIClassificationReviewSignals(
+                oppData.ai_stage_signals
+              ),
+              sr.terminalFlag || "ai_evaluated",
+            ];
 
             // Only write stage if it actually changed AND user hasn't manually set it
             if (
-              !autoConvertedLikelyWon &&
               sr.newStage &&
               !oppData?.stage_manually_set &&
-              sr.newStage !== oppData?.stage
+              sr.newStage !== oppData?.stage &&
+              isAllowedAutomatedEmailStageTransition(
+                oppData.stage as string,
+                sr.newStage
+              )
             ) {
               requestedStage = sr.newStage;
             }
@@ -3718,6 +4023,8 @@ export const SyncEngine = {
                   p_company_id: connection.companyId,
                   p_opportunity_id: oppId,
                   p_to_stage: requestedStage,
+                  p_expected_stage: oppData.stage,
+                  p_expected_assignment_version: oppData.assignment_version,
                   p_ai_signal: sr.terminalFlag || "ai_evaluated",
                 });
               if (transitionError || !transitionRows) {
@@ -3735,6 +4042,19 @@ export const SyncEngine = {
               }
               if (transition.changed) result.stageChanges++;
             }
+          }
+
+          const summaryRefresh = await refreshLeadSummariesForOpportunities({
+            supabase,
+            companyId: connection.companyId,
+            opportunityIds: [...new Set(opportunityByEvaluationKey.values())],
+          });
+          if (summaryRefresh.failed.length > 0) {
+            throw new LifecyclePersistenceError(
+              `[sync-engine] complete lead summary refresh failed before cursor advancement: ${summaryRefresh.failed
+                .map((failure) => `${failure.opportunityId}: ${failure.error}`)
+                .join("; ")}`
+            );
           }
         }
       } catch (aiErr) {
@@ -3806,7 +4126,7 @@ export const SyncEngine = {
     const { data: staleOpps } = await supabase
       .from("opportunities")
       .select(
-        "id, company_id, stage, stage_manually_set, correspondence_count, outbound_count, inbound_count, last_inbound_at, last_outbound_at, last_message_direction"
+        "id, company_id, stage, stage_manually_set, assignment_version, correspondence_count, outbound_count, inbound_count, last_inbound_at, last_outbound_at, last_message_direction"
       )
       .eq("last_message_direction", "out")
       .not("stage", "in", '("won","lost","follow_up")')
@@ -3841,14 +4161,24 @@ export const SyncEngine = {
       });
 
       if (evaluation.changed) {
-        await supabase
-          .from("opportunities")
-          .update({
-            stage: evaluation.stage,
-            stage_entered_at: new Date().toISOString(),
-          })
-          .eq("id", opp.id);
-        stageChanges++;
+        const { data: transitionRows, error: transitionError } =
+          await supabase.rpc("apply_email_opportunity_stage_transition", {
+            p_company_id: opp.company_id,
+            p_opportunity_id: opp.id,
+            p_to_stage: evaluation.stage,
+            p_expected_stage: opp.stage,
+            p_expected_assignment_version: opp.assignment_version,
+            p_ai_signal: null,
+          });
+        if (transitionError || !transitionRows) {
+          throw new LifecyclePersistenceError(
+            `[sync-engine] stale-stage transition failed for opportunity ${opp.id}: ${transitionError?.message ?? "RPC returned no rows"}`
+          );
+        }
+        const transition = Array.isArray(transitionRows)
+          ? transitionRows[0]
+          : transitionRows;
+        if (transition?.changed) stageChanges++;
       }
     }
 

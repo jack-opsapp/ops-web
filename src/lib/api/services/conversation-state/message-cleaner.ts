@@ -234,7 +234,7 @@ export function authoredMessageBody(
 
   // 1. Quote strip (provider-clean preferred).
   const quoteStripped =
-    opts.providerCleanBody != null && opts.providerCleanBody !== ""
+    opts.providerCleanBody != null
       ? opts.providerCleanBody
       : quoteStripRaw(rawBody, subject);
 

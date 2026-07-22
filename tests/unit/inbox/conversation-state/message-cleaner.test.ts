@@ -138,6 +138,14 @@ describe("cleanMessageBody", () => {
     );
   });
 
+  it("treats an explicit empty provider-clean body as authoritative", () => {
+    const raw = [
+      "On Mon, Jun 23, 2026 at 3:45 PM Canpro wrote:",
+      "> We accept the estimate. Please proceed.",
+    ].join("\n");
+    expect(cleanMessageBody(raw, { providerCleanBody: "" })).toBe("");
+  });
+
   it("strips cross-message overlap (a prior outbound body inlined verbatim into the reply)", () => {
     // The helper only fires when the inlined prior body lands in the LATTER
     // half of the reply (a real quoted chain sits below substantive new text),
@@ -158,7 +166,9 @@ describe("cleanMessageBody", () => {
       "<div>mike@example.com</div>",
       '<blockquote class="gmail_quote">On Mon Jun 23 Canpro wrote: Your quote is $3,200.</blockquote>',
     ].join("\n");
-    expect(cleanMessageBody(raw, {})).toBe("Yes, please proceed with the work.");
+    expect(cleanMessageBody(raw, {})).toBe(
+      "Yes, please proceed with the work."
+    );
   });
 
   it("returns empty string for empty input", () => {

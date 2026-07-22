@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
   evaluateOpportunityAcceptanceMock,
+  refreshLeadSummariesForOpportunitiesMock,
   getConnectionMock,
   getProviderMock,
   runWithEmailConnectionSyncLockMock,
@@ -9,6 +10,7 @@ const {
   runInspectionWorkerMock,
 } = vi.hoisted(() => ({
   evaluateOpportunityAcceptanceMock: vi.fn(),
+  refreshLeadSummariesForOpportunitiesMock: vi.fn(),
   getConnectionMock: vi.fn(),
   getProviderMock: vi.fn(),
   runWithEmailConnectionSyncLockMock: vi.fn(),
@@ -40,6 +42,11 @@ vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
 
 vi.mock("@/lib/api/services/conversation-state/acceptance-evaluation", () => ({
   evaluateOpportunityAcceptance: evaluateOpportunityAcceptanceMock,
+}));
+
+vi.mock("@/lib/api/services/lead-summary-service", () => ({
+  refreshLeadSummariesForOpportunities:
+    refreshLeadSummariesForOpportunitiesMock,
 }));
 
 vi.mock("@/lib/api/services/conversation-state/operator-identity", () => ({
@@ -86,6 +93,13 @@ const inspectionResult = {
 beforeEach(() => {
   evaluateOpportunityAcceptanceMock.mockReset();
   evaluateOpportunityAcceptanceMock.mockResolvedValue({ stageChanged: false });
+  refreshLeadSummariesForOpportunitiesMock.mockReset();
+  refreshLeadSummariesForOpportunitiesMock.mockResolvedValue({
+    requested: 1,
+    written: 1,
+    skippedFeatureDisabled: false,
+    failed: [],
+  });
   getConnectionMock.mockReset();
   getProviderMock.mockReset();
   runScanWorkerMock.mockReset();
@@ -309,6 +323,118 @@ describe("Supabase attachment runtime orchestration", () => {
       connection,
       providerThreadId: "provider-thread-1",
       opportunityId: "opportunity-1",
+    });
+    expect(refreshLeadSummariesForOpportunitiesMock).toHaveBeenCalledWith({
+      supabase,
+      companyId: "company-1",
+      opportunityIds: ["opportunity-1"],
+    });
+  });
+
+  it("retries the terminal summary after conversion already succeeded", async () => {
+    const connection = {
+      id: "connection-1",
+      companyId: "company-1",
+      userId: "user-1",
+      email: "ops@example.com",
+    } as never;
+    getConnectionMock.mockResolvedValue(connection);
+    evaluateOpportunityAcceptanceMock
+      .mockResolvedValueOnce({ stageChanged: true })
+      .mockResolvedValueOnce({ stageChanged: false });
+    refreshLeadSummariesForOpportunitiesMock
+      .mockResolvedValueOnce({
+        requested: 1,
+        written: 0,
+        skippedFeatureDisabled: false,
+        failed: [
+          {
+            opportunityId: "opportunity-1",
+            error: "summary write interrupted",
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        requested: 1,
+        written: 1,
+        skippedFeatureDisabled: false,
+        failed: [],
+      });
+
+    const attachmentQuery: Record<string, unknown> = {};
+    Object.assign(attachmentQuery, {
+      select: vi.fn(() => attachmentQuery),
+      eq: vi.fn(() => attachmentQuery),
+      maybeSingle: vi.fn(async () => ({
+        data: {
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          opportunity_id: "opportunity-1",
+          attribution_status: "attributed",
+        },
+        error: null,
+      })),
+    });
+    const inspectionQuery: Record<string, unknown> = {};
+    Object.assign(inspectionQuery, {
+      select: vi.fn(() => inspectionQuery),
+      eq: vi.fn(() => inspectionQuery),
+      limit: vi.fn(async () => ({
+        data: [{ id: "inspection-1" }],
+        error: null,
+      })),
+    });
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "email_attachments") return attachmentQuery;
+        if (table === "attachment_inspections") return inspectionQuery;
+        throw new Error(`Unexpected table: ${table}`);
+      }),
+    } as never;
+
+    runInspectionWorkerMock
+      .mockImplementationOnce(async ({ inspect }) => {
+        await expect(
+          inspect({
+            id: "inspection-job-1",
+            companyId: "company-1",
+            connectionId: "connection-1",
+            emailAttachmentId: "attachment-row-1",
+            generation: 1,
+            attempts: 1,
+          })
+        ).rejects.toThrow("summary write interrupted");
+        return { ...inspectionResult, retrying: 1 };
+      })
+      .mockImplementationOnce(async ({ inspect }) => {
+        await expect(
+          inspect({
+            id: "inspection-job-1",
+            companyId: "company-1",
+            connectionId: "connection-1",
+            emailAttachmentId: "attachment-row-1",
+            generation: 2,
+            attempts: 2,
+          })
+        ).resolves.toEqual({ outcome: "complete" });
+        return { ...inspectionResult, completed: 1, retrying: 0 };
+      });
+
+    await runSupabaseEmailAttachmentInspectionWorker(supabase, {
+      limit: 1,
+      concurrency: 1,
+    });
+    await runSupabaseEmailAttachmentInspectionWorker(supabase, {
+      limit: 1,
+      concurrency: 1,
+    });
+
+    expect(evaluateOpportunityAcceptanceMock).toHaveBeenCalledTimes(2);
+    expect(refreshLeadSummariesForOpportunitiesMock).toHaveBeenCalledTimes(2);
+    expect(refreshLeadSummariesForOpportunitiesMock).toHaveBeenLastCalledWith({
+      supabase,
+      companyId: "company-1",
+      opportunityIds: ["opportunity-1"],
     });
   });
 

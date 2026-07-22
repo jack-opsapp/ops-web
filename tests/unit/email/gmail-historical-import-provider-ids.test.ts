@@ -373,6 +373,7 @@ function makeSupabaseDouble(
             outbound_count: 0,
             stage: "new_lead",
             stage_manually_set: false,
+            assignment_version: 0,
             last_inbound_at: "2026-02-02T02:40:00.000Z",
             last_outbound_at: null,
             last_message_direction: "in",

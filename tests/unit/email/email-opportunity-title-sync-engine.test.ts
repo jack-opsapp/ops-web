@@ -19,6 +19,7 @@ const {
   evaluateStagesWithSummaryMock,
   upsertFromEmailMock,
   classifyAndUpdateMock,
+  refreshLeadSummariesForOpportunitiesMock,
   afterMock,
   enqueueIfEnabledMock,
 } = vi.hoisted(() => ({
@@ -32,6 +33,7 @@ const {
   evaluateStagesWithSummaryMock: vi.fn(),
   upsertFromEmailMock: vi.fn(),
   classifyAndUpdateMock: vi.fn(),
+  refreshLeadSummariesForOpportunitiesMock: vi.fn(),
   afterMock: vi.fn(),
   enqueueIfEnabledMock: vi.fn(async () => ({
     enqueued: true,
@@ -74,6 +76,11 @@ vi.mock("@/lib/api/services/email-thread-service", () => ({
   },
 }));
 
+vi.mock("@/lib/api/services/lead-summary-service", () => ({
+  refreshLeadSummariesForOpportunities:
+    refreshLeadSummariesForOpportunitiesMock,
+}));
+
 vi.mock("@/lib/api/services/autonomy-milestone-service", () => ({
   AutonomyMilestoneService: {
     checkMilestonesAfterSync: vi.fn(),
@@ -99,6 +106,7 @@ import { SyncEngine } from "@/lib/api/services/sync-engine";
 
 interface SupabaseState {
   clients: Array<Record<string, unknown>>;
+  operatorUsers?: Array<{ email: string; phone: string | null }>;
   subClients?: Array<Record<string, unknown>>;
   opportunities: Array<Record<string, unknown>>;
   projects?: Array<Record<string, unknown>>;
@@ -177,6 +185,13 @@ function makeSupabaseDouble(state: SupabaseState) {
     }
 
     limit() {
+      return this;
+    }
+
+    range() {
+      // This fixture never holds a full production page. Supporting the
+      // method models Supabase's paginated query chain; pagination boundaries
+      // themselves are covered by the focused relationship/summary fixtures.
       return this;
     }
 
@@ -498,11 +513,8 @@ function makeSupabaseDouble(state: SupabaseState) {
 
       if (this.table === "users" && this.action === "select") {
         return {
-          data: [
-            {
-              email: "jackson@canprodeckandrail.com",
-              phone: null,
-            },
+          data: state.operatorUsers ?? [
+            { email: "jackson@canprodeckandrail.com", phone: null },
           ],
           error: null,
         };
@@ -809,6 +821,7 @@ function makeSupabaseDouble(state: SupabaseState) {
             outbound_count: 0,
             stage: "new_lead",
             stage_manually_set: false,
+            assignment_version: 0,
             last_inbound_at: "2026-05-20T17:00:00.000Z",
             last_outbound_at: null,
             last_message_direction: "in",
@@ -917,6 +930,13 @@ describe("SyncEngine email opportunity title generation", () => {
       newLeadsClassified: 0,
     });
     evaluateStagesWithSummaryMock.mockResolvedValue([]);
+    refreshLeadSummariesForOpportunitiesMock.mockReset();
+    refreshLeadSummariesForOpportunitiesMock.mockResolvedValue({
+      requested: 0,
+      written: 0,
+      skippedFeatureDisabled: false,
+      failed: [],
+    });
     upsertFromEmailMock.mockReset();
     classifyAndUpdateMock.mockReset();
     classifyAndUpdateMock.mockImplementation(async (thread) => thread);
@@ -1035,6 +1055,327 @@ describe("SyncEngine email opportunity title generation", () => {
     expect(state.opportunities[0].title).not.toContain("Jackson Sweet");
   });
 
+  it("excludes every authoritative operator alias in outbound To and CC before choosing the customer", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      operatorUsers: [
+        { email: "jackson@canprodeckandrail.com", phone: null },
+        { email: "canprojack@gmail.com", phone: null },
+        { email: "bookings.canpro@gmail.com", phone: null },
+      ],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const connection = baseConnection({ id: "connection-operator-aliases" });
+    getConnectionMock.mockResolvedValue(connection);
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            to: [
+              "Canpro Jack <canprojack@gmail.com>",
+              "Kara Beach <kara.beach@example.com>",
+            ],
+            cc: ["Canpro Bookings <bookings.canpro@gmail.com>"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    await SyncEngine.runSync(connection.id);
+
+    expect(matchMock).toHaveBeenCalledWith(
+      "company-1",
+      "kara.beach@example.com",
+      expect.objectContaining({ connectionId: connection.id })
+    );
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.opportunities[0]).toMatchObject({
+      title: "Kara Beach — Estimate",
+      contact_email: "kara.beach@example.com",
+    });
+    expect(state.clients[0]).toMatchObject({
+      name: "Kara Beach",
+      email: "kara.beach@example.com",
+    });
+  });
+
+  it("does not let authoritative sender or forwarded aliases with committed projects outrank the outbound customer", async () => {
+    const opportunityBase = {
+      company_id: "company-1",
+      stage: "follow_up",
+      stage_manually_set: false,
+      archived_at: null,
+      deleted_at: null,
+      contact_phone: null,
+      address: null,
+      description: null,
+      source_email_id: null,
+      project_ref: null,
+      created_at: "2026-05-01T00:00:00.000Z",
+      updated_at: "2026-05-20T00:00:00.000Z",
+      correspondence_count: 0,
+      inbound_count: 0,
+      outbound_count: 0,
+      assignment_version: 0,
+    };
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-operator-alias",
+          company_id: "company-1",
+          name: "Canpro Jack",
+          email: "canprojack@gmail.com",
+          phone_number: null,
+          address: null,
+        },
+        {
+          id: "client-kara",
+          company_id: "company-1",
+          name: "Kara Beach",
+          email: "kara.beach@example.com",
+          phone_number: null,
+          address: null,
+        },
+        {
+          id: "client-bookings-alias",
+          company_id: "company-1",
+          name: "Canpro Bookings",
+          email: "bookings.canpro@gmail.com",
+          phone_number: null,
+          address: null,
+        },
+      ],
+      operatorUsers: [
+        { email: "jackson@canprodeckandrail.com", phone: null },
+        { email: "canprojack@gmail.com", phone: null },
+        { email: "bookings.canpro@gmail.com", phone: null },
+      ],
+      opportunities: [
+        {
+          ...opportunityBase,
+          id: "opp-operator-alias",
+          client_id: "client-operator-alias",
+          contact_email: "canprojack@gmail.com",
+          address: "18 Cedar Road, Victoria BC",
+          title: "Internal committed project",
+          project_id: "project-operator-alias",
+        },
+        {
+          ...opportunityBase,
+          id: "opp-kara",
+          client_id: "client-kara",
+          contact_email: "kara.beach@example.com",
+          address: "18 Cedar Road, Victoria BC",
+          title: "Kara Beach — Deck work",
+          project_id: null,
+        },
+        {
+          ...opportunityBase,
+          id: "opp-bookings-alias",
+          client_id: "client-bookings-alias",
+          contact_email: "bookings.canpro@gmail.com",
+          address: "18 Cedar Road, Victoria BC",
+          title: "Internal bookings project",
+          project_id: "project-bookings-alias",
+        },
+      ],
+      projects: [
+        {
+          id: "project-operator-alias",
+          company_id: "company-1",
+          client_id: "client-operator-alias",
+          opportunity_id: null,
+          opportunity_ref: null,
+          status: "accepted",
+          title: "Internal committed project",
+          description: null,
+          address: "18 Cedar Road, Victoria BC",
+          completed_at: null,
+          deleted_at: null,
+        },
+        {
+          id: "project-bookings-alias",
+          company_id: "company-1",
+          client_id: "client-bookings-alias",
+          opportunity_id: null,
+          opportunity_ref: null,
+          status: "accepted",
+          title: "Internal bookings project",
+          description: null,
+          address: "18 Cedar Road, Victoria BC",
+          completed_at: null,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const connection = baseConnection({
+      id: "connection-operator-project-alias",
+    });
+    const outbound = baseEmail({
+      id: "msg-kara-alias-sender",
+      threadId: "thread-kara-alias-sender",
+      from: "Canpro Jack <canprojack@gmail.com>",
+      fromName: "Canpro Jack",
+      to: ["Kara Beach <kara.beach@example.com>"],
+      cc: [],
+      subject: "Re: deck work",
+      bodyText: `Here are the next steps for 18 Cedar Road, Victoria BC.
+
+Begin forwarded message:
+From: Canpro Bookings <bookings.canpro@gmail.com>
+To: Kara Beach <kara.beach@example.com>`,
+      snippet: "Here are the next steps.",
+    });
+    getConnectionMock.mockResolvedValue(connection);
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [outbound],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "link", clientId: "client-kara" });
+
+    const result = await SyncEngine.runSync(connection.id);
+
+    expect(result.errors).toEqual([]);
+    expect(state.activities).toEqual([
+      expect.objectContaining({
+        email_message_id: outbound.id,
+        opportunity_id: "opp-kara",
+        direction: "outbound",
+        match_confidence: "exact_contact_email",
+      }),
+    ]);
+    expect(state.threadLinks).toContainEqual(
+      expect.objectContaining({
+        opportunity_id: "opp-kara",
+        thread_id: outbound.threadId,
+      })
+    );
+    expect(state.activities).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ opportunity_id: "opp-operator-alias" }),
+      ])
+    );
+  });
+
+  it("reconciles a same-cycle non-estimate outbound reply after its unmatched inbound creates the opportunity", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      correspondenceEvents: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const inbound = baseEmail({
+      id: "owen-inbound",
+      threadId: "owen-fragment",
+      from: "Owen Schellenberger <owen@example.com>",
+      fromName: "Owen Schellenberger",
+      to: ["jackson@canprodeckandrail.com"],
+      subject: "Fernwood project details",
+      bodyText: "Following up about the work at 2745 Fernwood Road.",
+      snippet: "Following up about the work at 2745 Fernwood Road.",
+      labelIds: ["INBOX"],
+      date: new Date("2026-05-20T17:00:00.000Z"),
+    });
+    const outbound = baseEmail({
+      id: "owen-outbound-receipt",
+      threadId: "owen-fragment",
+      to: ["Owen Schellenberger <owen@example.com>"],
+      subject: "Re: Fernwood project details",
+      bodyText: "Thank you Owen, received.",
+      snippet: "Thank you Owen, received.",
+      date: new Date("2026-05-20T18:00:00.000Z"),
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [inbound, outbound],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+    reviewUnmatchedEmailsMock.mockResolvedValue({
+      classifiedLeads: [
+        {
+          email: inbound,
+          clientName: "Owen Schellenberger",
+          clientEmail: "owen@example.com",
+          clientPhone: null,
+          address: "2745 Fernwood Road",
+          description: "Fernwood project details",
+          stage: "new_lead",
+          terminalFlag: null,
+          estimatedValue: null,
+          confidence: 0.95,
+        },
+      ],
+      newLeadsClassified: 1,
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(matchMock.mock.calls.map((call) => call[1])).toEqual([
+      "owen@example.com",
+      "owen@example.com",
+    ]);
+    expect(state.opportunities).toHaveLength(1);
+    expect(
+      state.activities.map((activity) => activity.email_message_id)
+    ).toEqual(["owen-outbound-receipt", "owen-inbound"]);
+    expect(state.activities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          email_message_id: "owen-inbound",
+          opportunity_id: "opp-1",
+          direction: "inbound",
+        }),
+        expect.objectContaining({
+          email_message_id: "owen-outbound-receipt",
+          opportunity_id: "opp-1",
+          direction: "outbound",
+          match_needs_review: false,
+        }),
+      ])
+    );
+    expect(state.correspondenceEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider_message_id: "owen-outbound-receipt",
+          opportunity_id: "opp-1",
+          direction: "outbound",
+        }),
+      ])
+    );
+  });
+
   it("persists a fresh AI-classified lead under the scoped source key and projects its first message exactly once", async () => {
     const state: SupabaseState = {
       clients: [],
@@ -1099,6 +1440,107 @@ describe("SyncEngine email opportunity title generation", () => {
     });
     expect(state.correspondenceProjectionApplications).toBe(1);
   });
+
+  it.each([
+    {
+      modelStage: "won",
+      expectedStage: "negotiation",
+      expectedSignal: "likely_won",
+    },
+    {
+      modelStage: "lost",
+      expectedStage: "follow_up",
+      expectedSignal: "likely_lost",
+    },
+  ])(
+    "never inserts a model-classified $modelStage opportunity before canonical evaluation",
+    async ({ modelStage, expectedStage, expectedSignal }) => {
+      const state: SupabaseState = {
+        clients: [],
+        opportunities: [],
+        projects: [],
+        threadLinks: [],
+        activities: [],
+        correspondenceEvents: [],
+        rpcCalls: [],
+      };
+      setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+      const aiEmail = baseEmail({
+        id: `msg-ai-${modelStage}`,
+        threadId: `thread-ai-${modelStage}`,
+        from: "Avery Stone <avery@example.com>",
+        fromName: "Avery Stone",
+        to: ["jackson@canprodeckandrail.com"],
+        subject: "Back deck question",
+        bodyText: "Could you share more information about your deck options?",
+        snippet: "Could you share more information about your deck options?",
+        labelIds: ["INBOX"],
+      });
+      getConnectionMock.mockResolvedValue(baseConnection());
+      getProviderMock.mockReturnValue({
+        providerType: "gmail",
+        fetchNewEmailsSince: vi.fn(async () => ({
+          emails: [aiEmail],
+          nextSyncToken: "sync-token-2",
+        })),
+        fetchSentEmailsSince: vi.fn(async () => ({
+          emails: [],
+          nextSyncToken: "sync-token-2",
+        })),
+      });
+      matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+      // Deliberately violate the reviewer contract. The sync persistence
+      // boundary must still refuse direct terminal insertion.
+      reviewUnmatchedEmailsMock.mockResolvedValue({
+        classifiedLeads: [
+          {
+            email: aiEmail,
+            clientName: "Avery Stone",
+            clientEmail: "avery@example.com",
+            clientPhone: null,
+            address: null,
+            description: "Back deck options",
+            stage: modelStage,
+            terminalFlag: null,
+            estimatedValue: null,
+            confidence: 0.97,
+          },
+        ],
+        newLeadsClassified: 1,
+      });
+      evaluateStagesWithSummaryMock.mockResolvedValue([
+        {
+          threadId: aiEmail.threadId,
+          newStage: null,
+          terminalFlag: null,
+          summary: "Client asked about deck options.",
+        },
+      ]);
+
+      const result = await SyncEngine.runSync("connection-1");
+
+      expect(result.errors).toEqual([]);
+      expect(state.opportunities).toHaveLength(1);
+      expect(state.opportunities[0]).toMatchObject({
+        stage: expectedStage,
+        ai_stage_signals: [
+          `model_classification:${expectedSignal}`,
+          "ai_evaluated",
+        ],
+        ai_stage_confidence: 0.97,
+      });
+      expect(state.projects).toEqual([]);
+      expect(
+        (state.rpcCalls ?? []).filter(
+          (call) =>
+            call.name === "apply_email_opportunity_stage_transition" &&
+            (call.params.p_to_stage === "won" ||
+              call.params.p_to_stage === "lost")
+        )
+      ).toEqual([]);
+    }
+  );
 
   it("keeps the provider cursor unchanged when AI classification is incomplete", async () => {
     const state: SupabaseState = {
@@ -1215,6 +1657,7 @@ describe("SyncEngine email opportunity title generation", () => {
           address: null,
           description: "Back deck timing",
           stage: "qualifying",
+          terminalFlag: "likely_won",
           estimatedValue: null,
           confidence: 0.91,
         },
@@ -1227,6 +1670,12 @@ describe("SyncEngine email opportunity title generation", () => {
     expect(result.errors).toEqual([]);
     expect(state.clients).toHaveLength(1);
     expect(state.opportunities).toHaveLength(1);
+    expect(state.opportunities[0]).toMatchObject({
+      id: "opp-existing",
+      stage: "new_lead",
+      ai_stage_signals: ["model_classification:likely_won"],
+      ai_stage_confidence: 0.91,
+    });
     expect(state.activities).toEqual([
       expect.objectContaining({
         opportunity_id: "opp-existing",
@@ -2270,11 +2719,94 @@ describe("SyncEngine email opportunity title generation", () => {
 
     expect(state.opportunities[0]).toMatchObject({
       stage: "qualifying",
-      ai_summary: "Customer supplied updated deck measurements.",
-      ai_summary_updated_at: expect.any(String),
+      ai_summary: "Old summary",
       ai_stage_signals: ["ai_evaluated"],
     });
+    expect(refreshLeadSummariesForOpportunitiesMock).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      companyId: "company-1",
+      opportunityIds: ["opp-stage-refresh"],
+    });
     expect(state.stageTransitions).toEqual([]);
+  });
+
+  it("keeps the provider cursor unchanged when the complete lead summary cannot be committed", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [
+        {
+          id: "opp-summary-retry",
+          company_id: "company-1",
+          client_id: null,
+          title: "Summary retry lead",
+          stage: "qualifying",
+          stage_manually_set: false,
+          archived_at: null,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [
+        {
+          opportunity_id: "opp-summary-retry",
+          thread_id: "thread-summary-retry",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+      stageTransitions: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const updateEmail = baseEmail({
+      id: "msg-summary-retry",
+      threadId: "thread-summary-retry",
+      from: "Kara Beach <kara.beach@example.com>",
+      fromName: "Kara Beach",
+      to: ["jackson@canprodeckandrail.com"],
+      subject: "Updated scope",
+      bodyText: "Use black aluminum railing and exclude removal.",
+      snippet: "Use black aluminum railing and exclude removal.",
+      labelIds: ["INBOX"],
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [updateEmail],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    evaluateStagesWithSummaryMock.mockResolvedValue([
+      {
+        threadId: "thread-summary-retry",
+        newStage: "qualifying",
+        terminalFlag: null,
+        summary: "Thread result that must not become the lead summary.",
+      },
+    ]);
+    refreshLeadSummariesForOpportunitiesMock.mockResolvedValueOnce({
+      requested: 1,
+      written: 0,
+      skippedFeatureDisabled: false,
+      failed: [
+        {
+          opportunityId: "opp-summary-retry",
+          error: "summary write unavailable",
+        },
+      ],
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors.join(" ")).toContain("summary write unavailable");
+    expect(state.opportunities[0].ai_summary).toBeUndefined();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
   });
 
   it("links a new provider thread to an existing active opportunity when parsed customer address matches", async () => {
@@ -2566,14 +3098,24 @@ describe("SyncEngine email opportunity title generation", () => {
     expect(updateConnectionMock).not.toHaveBeenCalled();
   });
 
-  it("continues valid linked-thread processing after provider id guardrails", async () => {
+  it("continues linked-thread processing through a canonical-only client_ref", async () => {
     const state: SupabaseState = {
-      clients: [],
+      clients: [
+        {
+          id: "client-canonical",
+          company_id: "company-1",
+          name: "Kara Beach",
+          email: "kara.beach@example.com",
+          phone_number: null,
+          address: null,
+        },
+      ],
       opportunities: [
         {
           id: "opp-linked",
           company_id: "company-1",
           client_id: null,
+          client_ref: "client-canonical",
           stage: "new_lead",
           correspondence_count: 0,
           inbound_count: 0,
@@ -3661,7 +4203,12 @@ describe("SyncEngine email opportunity title generation", () => {
     );
     expect(state.opportunities[0]).toMatchObject({
       stage: "qualifying",
-      ai_summary: "Marcel requested a roof deck renovation estimate.",
+    });
+    expect(state.opportunities[0].ai_summary).toBeUndefined();
+    expect(refreshLeadSummariesForOpportunitiesMock).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      companyId: "company-1",
+      opportunityIds: [state.opportunities[0].id],
     });
     expect(state.stageTransitions).toEqual([
       expect.objectContaining({
@@ -3690,6 +4237,13 @@ describe("SyncEngine Gmail history completeness", () => {
       newLeadsClassified: 0,
     });
     evaluateStagesWithSummaryMock.mockResolvedValue([]);
+    refreshLeadSummariesForOpportunitiesMock.mockReset();
+    refreshLeadSummariesForOpportunitiesMock.mockResolvedValue({
+      requested: 0,
+      written: 0,
+      skippedFeatureDisabled: false,
+      failed: [],
+    });
     upsertFromEmailMock.mockReset();
     enqueueIfEnabledMock.mockClear();
     enqueueIfEnabledMock.mockResolvedValue({

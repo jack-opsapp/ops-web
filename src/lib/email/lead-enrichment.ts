@@ -13,6 +13,7 @@ import {
   extractEstimatedValueFromBody,
   extractPhoneFromBody,
 } from "@/lib/utils/body-fact-extractors";
+import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
 
 type OpportunitySourceValue =
   | "referral"
@@ -55,6 +56,7 @@ export interface LeadEnrichmentFacts {
 export interface ExistingOpportunityForEnrichment {
   company_id?: string | null;
   client_id?: string | null;
+  client_ref?: string | null;
   contact_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
@@ -1076,6 +1078,7 @@ export async function applyCanonicalLeadEnrichment({
   const BASE_OPPORTUNITY_COLUMNS = [
     "company_id",
     "client_id",
+    "client_ref",
     "contact_name",
     "contact_email",
     "contact_phone",
@@ -1095,6 +1098,7 @@ export async function applyCanonicalLeadEnrichment({
         data:
           | (ExistingOpportunityForEnrichment & {
               client_id?: string | null;
+              client_ref?: string | null;
             })
           | null;
         error?: unknown;
@@ -1114,7 +1118,10 @@ export async function applyCanonicalLeadEnrichment({
   };
 
   let opportunityRow:
-    | (ExistingOpportunityForEnrichment & { client_id?: string | null })
+    | (ExistingOpportunityForEnrichment & {
+        client_id?: string | null;
+        client_ref?: string | null;
+      })
     | null = null;
   {
     const wide = await selectOpportunity([
@@ -1152,7 +1159,10 @@ export async function applyCanonicalLeadEnrichment({
     );
   }
 
-  const authoritativeClientId = opportunityRow.client_id ?? null;
+  const authoritativeClientId = resolveGuardedOpportunityClientId({
+    clientId: opportunityRow.client_id,
+    clientRef: opportunityRow.client_ref,
+  });
   if (clientId != null && clientId !== authoritativeClientId) {
     throw new Error(
       `Explicit client ${clientId} does not match opportunity ${opportunityId} client ${authoritativeClientId ?? "none"}`

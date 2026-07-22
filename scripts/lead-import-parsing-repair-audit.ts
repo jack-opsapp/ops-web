@@ -5,8 +5,8 @@
  * only a local markdown artifact. Apply mode is intentionally gated and only:
  * - fills/repairs customer contact fields when the replacement is extracted
  *   from non-internal inbound email body evidence;
- * - routes likely-won repairs through the unified conversion RPC so the normal
- *   won-to-project conversion contract stays intact;
+ * - reports likely-won signals for review but never treats the model-style
+ *   heuristic as conversion authority;
  * - reports duplicate clusters without merging them.
  *
  * Usage:
@@ -32,7 +32,6 @@ import {
 import { normalizeAddress } from "../src/lib/utils/name-normalization";
 import {
   detectTerminalStageFromMessages,
-  shouldAutoConvertLikelyWon,
   type TerminalStageMessage,
 } from "../src/lib/email/terminal-stage-decision";
 
@@ -926,11 +925,10 @@ function analyzeOpportunity(input: {
     input.companyAddressKeys
   );
   const terminal = detectTerminalStageFromMessages(facts.messages);
-  const terminalLikelyWon = shouldAutoConvertLikelyWon({
-    terminalFlag: terminal?.terminalFlag,
-    currentStage: input.opp.stage,
-    stageManuallySet: input.opp.stage_manually_set,
-  });
+  const terminalLikelyWon =
+    terminal?.terminalFlag === "likely_won" &&
+    !input.opp.stage_manually_set &&
+    !TERMINAL_STAGES.has(input.opp.stage.trim().toLowerCase());
   const extractedName = bestSafeName(
     input.opp,
     input.client,
@@ -975,7 +973,9 @@ function analyzeOpportunity(input: {
     );
   }
   if (terminalLikelyWon) {
-    suspiciousReasons.push("thread contains likely-won evidence");
+    suspiciousReasons.push(
+      "thread contains likely-won review evidence; deterministic lifecycle evaluation is required before conversion"
+    );
   }
   if (input.duplicateGroups.length > 0) {
     suspiciousReasons.push("possible duplicate opportunity cluster");
@@ -1087,20 +1087,6 @@ function analyzeOpportunity(input: {
       before: input.opp.contact_name,
       after: extractedName,
       reason: "replace email-local-part opportunity contact name",
-    });
-  }
-
-  if (terminalLikelyWon) {
-    plans.push({
-      kind: "likely_won_conversion",
-      table: "conversion",
-      rowId: input.opp.id,
-      field: "project_id/stage",
-      before: input.opp.project_id
-        ? `project:${input.opp.project_id}`
-        : input.opp.stage,
-      after: "convert_opportunity_to_project",
-      reason: "accepted/signed estimate or crew scheduling evidence in thread",
     });
   }
 

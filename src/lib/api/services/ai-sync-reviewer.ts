@@ -6,7 +6,12 @@
 // in a single API call to reduce cost and latency.
 
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
-import { EmailAIClassifier } from "./email-ai-classifier";
+import {
+  EmailAIClassifier,
+  coerceAIStageForOpportunityPersistence,
+  type AIClassifiedActiveStage,
+  type AITerminalReviewFlag,
+} from "./email-ai-classifier";
 import { EmailService } from "./email-service";
 import { getSyncOpenAI } from "./openai-clients";
 import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
@@ -29,7 +34,10 @@ export interface AIClassifiedLead {
   clientPhone: string | null;
   address: string | null;
   description: string;
-  stage: string;
+  /** Active advisory stage only; terminal model guesses are never authority. */
+  stage: AIClassifiedActiveStage;
+  /** Durable review provenance for a model-guessed terminal outcome. */
+  terminalFlag: AITerminalReviewFlag | null;
   estimatedValue: number | null;
   /** Model-reported classification confidence (0..1) for provenance. */
   confidence: number;
@@ -224,17 +232,24 @@ export const AISyncReviewer = {
     );
 
     // Build classified leads with their source emails for persistence
-    const classifiedLeads: AIClassifiedLead[] = leads.map((c) => ({
-      email: sourceEmailById.get(c.id)!,
-      clientName: c.client?.name ?? null,
-      clientEmail: c.client?.email ?? null,
-      clientPhone: c.client?.phone ?? null,
-      address: c.client?.address ?? null,
-      description: c.client?.description ?? "",
-      stage: c.stage || "new_lead",
-      estimatedValue: c.estimatedValue,
-      confidence: c.confidence,
-    }));
+    const classifiedLeads: AIClassifiedLead[] = leads.map((c) => {
+      const stageReview = coerceAIStageForOpportunityPersistence(
+        c.stage,
+        c.terminalFlag
+      );
+      return {
+        email: sourceEmailById.get(c.id)!,
+        clientName: c.client?.name ?? null,
+        clientEmail: c.client?.email ?? null,
+        clientPhone: c.client?.phone ?? null,
+        address: c.client?.address ?? null,
+        description: c.client?.description ?? "",
+        stage: stageReview.stage,
+        terminalFlag: stageReview.terminalFlag,
+        estimatedValue: c.estimatedValue,
+        confidence: c.confidence,
+      };
+    });
 
     return {
       newLeadsClassified: leads.length,

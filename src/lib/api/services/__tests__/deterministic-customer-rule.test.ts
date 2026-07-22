@@ -30,7 +30,7 @@ describe("tryDeterministicCustomer — matches every live stage", () => {
       );
       expect(result).not.toBeNull();
       expect(result!.category).toBe("CUSTOMER");
-      expect(result!.classifierVersion).toBe("customer-deterministic-v1");
+      expect(result!.classifierVersion).toBe("customer-deterministic-v2");
       expect(result!.confidence).toBe(1);
     });
   }
@@ -49,15 +49,15 @@ describe("tryDeterministicCustomer — matches every live stage", () => {
     expect(result).not.toBeNull();
   });
 
-  it("includes the subject and a humanized stage in the summary", () => {
+  it("uses the current subject as a non-placeholder fallback summary", () => {
     const result = tryDeterministicCustomer(
       baseInput({
         subject: "Canpro Deck and Rail Estimate",
         opportunityStage: "follow_up",
       })
     );
-    expect(result!.summary).toContain("follow up");
-    expect(result!.summary).toContain("Canpro Deck and Rail Estimate");
+    expect(result!.summary).toBe("Canpro Deck and Rail Estimate.");
+    expect(result!.summary).not.toMatch(/^Linked to/i);
   });
 
   it("uses submitted form content instead of a generic form-submission subject when available", () => {

@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   persistRoutingDecision: vi.fn(),
   decideAcceptStage: vi.fn(),
   convertOpportunityToProject: vi.fn(),
+  linkOpportunityToExistingProject: vi.fn(),
+  findUniqueExistingProjectForEmailConversion: vi.fn(),
 }));
 
 vi.mock("@/lib/api/services/conversation-state/conversation-state", () => ({
@@ -21,45 +23,134 @@ vi.mock("@/lib/api/services/conversation-state/accept-stage", () => ({
 }));
 
 vi.mock("@/lib/api/services/project-conversion-service", () => ({
+  ProjectConversionError: class ProjectConversionError extends Error {
+    guardReason = null;
+  },
   ProjectConversionService: {
     convertOpportunityToProject: mocks.convertOpportunityToProject,
+    linkOpportunityToExistingProject: mocks.linkOpportunityToExistingProject,
   },
 }));
 
-import { evaluateOpportunityAcceptance } from "@/lib/api/services/conversation-state/acceptance-evaluation";
+vi.mock("@/lib/email/opportunity-relationship-matching", () => ({
+  findUniqueExistingProjectForEmailConversion:
+    mocks.findUniqueExistingProjectForEmailConversion,
+}));
+
+import {
+  evaluateOpportunityAcceptance,
+  shouldEvaluateOpportunityCommercialOutcome,
+} from "@/lib/api/services/conversation-state/acceptance-evaluation";
 
 type Row = Record<string, unknown>;
 
 function makeSupabase(input: {
   opportunity?: Row | null;
   thread?: Row | null;
+  threads?: Row[];
   client?: Row | null;
+  subClients?: Row[];
+  events?: Row[];
+  activities?: Row[];
 }) {
   const filters: Array<{ table: string; column: string; value: unknown }> = [];
   const selects: Array<{ table: string; columns: string }> = [];
-  const rpc = vi.fn(async () => ({ data: null, error: null }));
+  const rpc = vi.fn(
+    async (
+      _name: string,
+      _params?: unknown
+    ): Promise<{ data: unknown; error: null }> => ({
+      data: null,
+      error: null,
+    })
+  );
 
   const from = vi.fn((table: string) => {
     const query: Record<string, unknown> = {};
+    const queryFilters = new Map<string, unknown>();
     query.select = (columns: string) => {
       selects.push({ table, columns });
       return query;
     };
     query.eq = (column: string, value: unknown) => {
       filters.push({ table, column, value });
+      queryFilters.set(column, value);
       return query;
     };
-    query.maybeSingle = async () => ({
-      data:
-        table === "opportunities"
-          ? (input.opportunity ?? null)
-          : table === "email_threads"
-            ? (input.thread ?? null)
-            : table === "clients"
-              ? (input.client ?? null)
-              : null,
-      error: null,
-    });
+    query.is = (column: string, value: unknown) => {
+      filters.push({ table, column, value });
+      queryFilters.set(column, value);
+      return query;
+    };
+    query.order = () => query;
+    query.range = async (fromIndex: number, toIndex: number) => {
+      const defaultEvents = [
+        {
+          id: "event-accept-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "message-accept-1",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-14T18:00:00.000Z",
+        },
+      ];
+      const defaultActivities = [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-accept-1",
+          subject: "Re: Estimate",
+          body_text: "We accept the estimate. Please proceed.",
+          body_text_clean: "We accept the estimate. Please proceed.",
+        },
+      ];
+      const rows =
+        table === "opportunity_correspondence_events"
+          ? (input.events ?? defaultEvents).map((event) => ({
+              ...event,
+              from_email:
+                event.from_email ??
+                (event.party_role === "customer"
+                  ? "customer@example.com"
+                  : "operator@example.com"),
+            }))
+          : table === "activities"
+            ? (input.activities ?? defaultActivities)
+            : table === "sub_clients"
+              ? (input.subClients ?? [])
+              : [];
+      return { data: rows.slice(fromIndex, toIndex + 1), error: null };
+    };
+    query.maybeSingle = async () => {
+      const emailThread = (
+        input.threads ?? [input.thread].filter(Boolean)
+      ).find((candidate) =>
+        [...queryFilters.entries()].every(
+          ([column, value]) =>
+            !Object.hasOwn(candidate as Row, column) ||
+            (candidate as Row)[column] === value
+        )
+      );
+      return {
+        data:
+          table === "opportunities"
+            ? input.opportunity
+              ? {
+                  contact_email: "customer@example.com",
+                  ...input.opportunity,
+                }
+              : null
+            : table === "email_threads"
+              ? (emailThread ?? null)
+              : table === "clients"
+                ? input.client
+                  ? { email: "customer@example.com", ...input.client }
+                  : null
+                : null,
+        error: null,
+      };
+    };
     return query;
   });
 
@@ -97,6 +188,7 @@ beforeEach(() => {
     accept: { detected: true, confidence: "high", basis: [] },
     stage: "quoted",
     routing: { decision: "draft" },
+    messages: [],
   });
   mocks.persistRoutingDecision.mockResolvedValue(undefined);
   mocks.decideAcceptStage.mockReturnValue({
@@ -104,9 +196,26 @@ beforeEach(() => {
     reason: "signed estimate",
   });
   mocks.convertOpportunityToProject.mockResolvedValue({ won: true });
+  mocks.linkOpportunityToExistingProject.mockResolvedValue({ won: true });
+  mocks.findUniqueExistingProjectForEmailConversion.mockResolvedValue(null);
 });
 
 describe("evaluateOpportunityAcceptance", () => {
+  it("keeps engine-deferred lost leads eligible for later decisive correspondence", () => {
+    expect(shouldEvaluateOpportunityCommercialOutcome("lost", false)).toBe(
+      true
+    );
+    expect(shouldEvaluateOpportunityCommercialOutcome("won", false)).toBe(
+      false
+    );
+    expect(shouldEvaluateOpportunityCommercialOutcome("discarded", false)).toBe(
+      false
+    );
+    expect(shouldEvaluateOpportunityCommercialOutcome("lost", true)).toBe(
+      false
+    );
+  });
+
   it("re-evaluates a signed attachment and converts the exact mailbox lead", async () => {
     const { client, filters, selects, rpc } = makeSupabase({
       opportunity: {
@@ -133,7 +242,8 @@ describe("evaluateOpportunityAcceptance", () => {
     });
     expect(selects).toContainEqual({
       table: "opportunities",
-      columns: "stage, stage_manually_set, client_id, assignment_version",
+      columns:
+        "stage, stage_manually_set, client_id, client_ref, contact_email, assignment_version, address",
     });
     expect(mocks.buildConversationState).toHaveBeenCalledWith("thread-1");
     expect(mocks.persistRoutingDecision).toHaveBeenCalledWith(
@@ -152,24 +262,153 @@ describe("evaluateOpportunityAcceptance", () => {
           connection_id: "connection-1",
           email_thread_id: "thread-1",
           provider_thread_id: "provider-thread-1",
+          provider_message_id: "message-accept-1",
+          decisive_event_id: "event-accept-1",
+          decisive_direction: "inbound",
+          evaluated_through_event_id: "event-accept-1",
+          signals: ["explicit_acceptance"],
           decision: "auto_advance_won",
         },
       })
     );
-    expect(rpc).toHaveBeenCalledWith(
+    expect(rpc).not.toHaveBeenCalledWith(
       "create_email_opportunity_notification_as_system",
-      {
-        p_opportunity_id: "opportunity-1",
-        p_connection_id: "connection-1",
-        p_provider_thread_id: "provider-thread-1",
-        p_expected_assignment_version: 7,
-        p_event_type: "accept_auto_won",
-      }
+      expect.objectContaining({ p_event_type: "accept_auto_won" })
     );
     expect(result).toEqual({ stageChanged: true });
   });
 
-  it("does not invent a human recipient for an unassigned shared mailbox", async () => {
+  it("uses a client_ref-only historical opportunity as the trusted customer identity", async () => {
+    const { client, filters } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: null,
+        client_ref: "client-ref-only",
+        assignment_version: 7,
+      },
+      thread: { id: "thread-1", provider_thread_id: "provider-thread-1" },
+      client: { email: "customer@example.com" },
+    });
+
+    await expect(
+      evaluateOpportunityAcceptance({
+        supabase: client as never,
+        providerThreadId: "provider-thread-1",
+        opportunityId: "opportunity-1",
+        connection,
+      })
+    ).resolves.toEqual({ stageChanged: true });
+
+    expect(filters).toContainEqual({
+      table: "clients",
+      column: "id",
+      value: "client-ref-only",
+    });
+    expect(
+      mocks.findUniqueExistingProjectForEmailConversion
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        clientId: null,
+        clientRef: "client-ref-only",
+      })
+    );
+  });
+
+  it("fails closed before reading conversation state when client mirrors disagree", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-a",
+        client_ref: "client-b",
+        assignment_version: 7,
+      },
+      thread: { id: "thread-1", provider_thread_id: "provider-thread-1" },
+    });
+
+    await expect(
+      evaluateOpportunityAcceptance({
+        supabase: client as never,
+        providerThreadId: "provider-thread-1",
+        opportunityId: "opportunity-1",
+        connection,
+      })
+    ).rejects.toThrow("Opportunity client mirrors disagree");
+    expect(mocks.buildConversationState).not.toHaveBeenCalled();
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+  });
+
+  it("authorizes an outbound schedule confirmation only with that decisive message's signals", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "negotiation",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 8,
+        address: "3277 Galloway Rd",
+      },
+      thread: { id: "thread-1", provider_thread_id: "provider-thread-1" },
+      events: [
+        {
+          id: "event-accept",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "message-accept",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-06-12T17:00:00.000Z",
+        },
+        {
+          id: "event-schedule",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "message-schedule",
+          direction: "outbound",
+          party_role: "ops",
+          occurred_at: "2026-06-13T17:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-accept",
+          subject: "Re: Installation",
+          body_text: "I'll take you up on the install offer for $1,200.",
+          body_text_clean: "I'll take you up on the install offer for $1,200.",
+        },
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-schedule",
+          subject: "Re: Installation",
+          body_text: "Sure thing. Tomorrow is good still!",
+          body_text_clean: "Sure thing. Tomorrow is good still!",
+        },
+      ],
+    });
+
+    await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "provider-thread-1",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actualValue: 1200,
+        evidence: expect.objectContaining({
+          provider_message_id: "message-schedule",
+          decisive_event_id: "event-schedule",
+          decisive_direction: "outbound",
+          evaluated_through_event_id: "event-schedule",
+          signals: ["schedule_confirmed"],
+        }),
+      })
+    );
+  });
+
+  it("relies on the canonical conversion outbox instead of an ad-hoc Won notification", async () => {
     const { client, rpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
@@ -187,21 +426,42 @@ describe("evaluateOpportunityAcceptance", () => {
       connection: { ...connection, userId: null },
     });
 
-    expect(rpc).toHaveBeenCalledWith(
+    expect(rpc).not.toHaveBeenCalledWith(
       "create_email_opportunity_notification_as_system",
-      expect.not.objectContaining({
-        p_recipient_user_id: expect.anything(),
-        p_company_id: expect.anything(),
-      })
+      expect.objectContaining({ p_event_type: "accept_auto_won" })
     );
   });
 
-  it("does not rebuild state for a manual or terminal lead", async () => {
+  it("does not rebuild state for an active manually overridden lead", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "negotiation",
+        stage_manually_set: true,
+        client_id: null,
+        assignment_version: 4,
+      },
+    });
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "provider-thread-1",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.buildConversationState).not.toHaveBeenCalled();
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: false });
+  });
+
+  it("does not rebuild state for a final Won lead", async () => {
     const { client } = makeSupabase({
       opportunity: {
         stage: "won",
-        stage_manually_set: true,
+        stage_manually_set: false,
         client_id: null,
+        assignment_version: 4,
       },
     });
 
@@ -215,5 +475,864 @@ describe("evaluateOpportunityAcceptance", () => {
     expect(mocks.buildConversationState).not.toHaveBeenCalled();
     expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
     expect(result).toEqual({ stageChanged: false });
+  });
+
+  it("commits an explicit budget-and-timing deferral through the guarded disposition RPC", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "new_lead",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 9,
+        address: "88 Example Rd",
+      },
+      thread: { id: "thread-1", provider_thread_id: "provider-thread-1" },
+      events: [
+        {
+          id: "event-deferral-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "erick-deferral-message",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-21T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "erick-deferral-message",
+          subject: "Re: Estimate",
+          body_text:
+            "The truck engine repairs consumed the funds, so I need to postpone this until next year.",
+          body_text_clean:
+            "The truck engine repairs consumed the funds, so I need to postpone this until next year.",
+        },
+      ],
+    });
+    rpc.mockImplementation(async (name: string) =>
+      name === "apply_email_opportunity_deferred_disposition"
+        ? { data: [{ changed: true }], error: null }
+        : { data: null, error: null }
+    );
+    mocks.buildConversationState.mockResolvedValue({
+      accept: { detected: false, confidence: "low", basis: [] },
+      stage: "new_lead",
+      routing: { decision: "update_lead_only" },
+      messages: [
+        {
+          providerMessageId: "erick-deferral-message",
+          sentAt: "2026-07-21T18:00:00.000Z",
+          direction: "inbound",
+          cleanBody:
+            "The truck engine repairs consumed the funds, so I need to postpone this until next year.",
+        },
+      ],
+    });
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "provider-thread-1",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "apply_email_opportunity_deferred_disposition",
+      expect.objectContaining({
+        p_company_id: "company-1",
+        p_opportunity_id: "opportunity-1",
+        p_connection_id: "connection-1",
+        p_provider_message_id: "erick-deferral-message",
+        p_expected_assignment_version: 9,
+        p_expected_stage: "new_lead",
+        p_evidence: expect.objectContaining({
+          reason_code: "budget_timing",
+          signals: expect.arrayContaining(["budget_timing_deferral"]),
+        }),
+      })
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: true });
+  });
+
+  it("uses the newest opportunity-wide decision across fragmented threads", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "negotiation",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 10,
+        address: "88 Example Rd",
+      },
+      thread: { id: "thread-accept", provider_thread_id: "thread-accept" },
+      events: [
+        {
+          id: "event-older-accept",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-accept",
+          provider_message_id: "message-older-accept",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-06-01T18:00:00.000Z",
+        },
+        {
+          id: "event-newer-deferral",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-deferral",
+          provider_message_id: "message-newer-deferral",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-01T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-older-accept",
+          subject: "Re: Estimate",
+          body_text: "We accept the estimate. Please proceed.",
+          body_text_clean: "We accept the estimate. Please proceed.",
+        },
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-newer-deferral",
+          subject: "Fwd: Project timing",
+          body_text:
+            "Truck repairs used the budget, so we need to postpone this until next year.",
+          body_text_clean:
+            "Truck repairs used the budget, so we need to postpone this until next year.",
+        },
+      ],
+    });
+    rpc.mockImplementation(async (name: string) =>
+      name === "apply_email_opportunity_deferred_disposition"
+        ? {
+            data: [{ changed: false, guard_reason: "follow_up_updated" }],
+            error: null,
+          }
+        : { data: null, error: null }
+    );
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "thread-accept",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "apply_email_opportunity_deferred_disposition",
+      expect.objectContaining({
+        p_provider_message_id: "message-newer-deferral",
+        p_evidence: expect.objectContaining({
+          evaluated_through_event_id: "event-newer-deferral",
+        }),
+      })
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: false });
+  });
+
+  it("converts from the decisive thread when the trigger thread is only a placeholder", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "new_lead",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 14,
+        address: "2745 Fernwood Rd",
+      },
+      threads: [
+        {
+          id: "thread-placeholder",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-placeholder",
+          opportunity_id: "opportunity-1",
+        },
+        {
+          id: "thread-decisive",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-decisive",
+          opportunity_id: "opportunity-1",
+        },
+      ],
+      events: [
+        {
+          id: "event-placeholder",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-placeholder",
+          provider_message_id: "message-placeholder",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-06-01T18:00:00.000Z",
+        },
+        {
+          id: "event-decisive",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-decisive",
+          provider_message_id: "message-decisive",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-01T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-placeholder",
+          subject: "Jennifer placeholder",
+          body_text: "Please send details for the Fernwood railing.",
+          body_text_clean: "Please send details for the Fernwood railing.",
+        },
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-decisive",
+          subject: "Re: 2745 Fernwood",
+          body_text: "We accept the estimate. Please proceed.",
+          body_text_clean: "We accept the estimate. Please proceed.",
+        },
+      ],
+    });
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "thread-placeholder",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedStage: "new_lead",
+        evidence: expect.objectContaining({
+          email_thread_id: "thread-decisive",
+          provider_thread_id: "thread-decisive",
+          provider_message_id: "message-decisive",
+          decisive_event_id: "event-decisive",
+        }),
+      })
+    );
+    expect(result).toEqual({ stageChanged: true });
+  });
+
+  it("lets a newer inspected signed estimate reopen an automatic budget deferral", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "lost",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 15,
+        address: "2745 Fernwood Rd",
+      },
+      thread: { id: "thread-signed", provider_thread_id: "thread-signed" },
+      events: [
+        {
+          id: "event-old-deferral",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-deferral",
+          provider_message_id: "message-old-deferral",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-06-01T18:00:00.000Z",
+        },
+        {
+          id: "event-new-signed",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-signed",
+          provider_message_id: "message-new-signed",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-01T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-old-deferral",
+          subject: "Re: Timing",
+          body_text:
+            "Truck repairs used the budget, so postpone this until next year.",
+          body_text_clean:
+            "Truck repairs used the budget, so postpone this until next year.",
+        },
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-new-signed",
+          subject: "Signed estimate",
+          body_text: "Attached.",
+          body_text_clean: "Attached.",
+        },
+      ],
+    });
+    mocks.buildConversationState.mockResolvedValue({
+      accept: {
+        detected: true,
+        confidence: "high",
+        basis: ["signed_estimate_attachment"],
+      },
+      stage: "lost",
+      routing: { decision: "draft" },
+      messages: [
+        {
+          providerMessageId: "message-new-signed",
+          fromEmail: "customer@example.com",
+          isRealCustomerInbound: true,
+          attachments: [{ inspection: { isSignedEstimate: true } }],
+        },
+      ],
+    });
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "thread-signed",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedStage: "lost",
+        expectedAssignmentVersion: 15,
+        evidence: expect.objectContaining({
+          provider_message_id: "message-new-signed",
+          decisive_event_id: "event-new-signed",
+          evaluated_through_event_id: "event-new-signed",
+          signals: ["signed_estimate"],
+        }),
+      })
+    );
+    expect(result).toEqual({ stageChanged: true });
+  });
+
+  it.each([
+    {
+      name: "payment reversal",
+      body: "The deposit was received and then refunded.",
+    },
+    {
+      name: "unresolved acceptance and deferral",
+      body: "We are ready to proceed and we also need to postpone until next year because the budget is tight.",
+    },
+  ])(
+    "does not let an older signed estimate override a newer $name",
+    async ({ body }) => {
+      const { client } = makeSupabase({
+        opportunity: {
+          stage: "quoted",
+          stage_manually_set: false,
+          client_id: "client-1",
+          assignment_version: 16,
+          address: "88 Example Rd",
+        },
+        thread: { id: "thread-signed", provider_thread_id: "thread-signed" },
+        events: [
+          {
+            id: "event-old-signed",
+            connection_id: "connection-1",
+            provider_thread_id: "thread-signed",
+            provider_message_id: "message-old-signed",
+            direction: "inbound",
+            party_role: "customer",
+            occurred_at: "2026-06-01T18:00:00.000Z",
+          },
+          {
+            id: "event-newer-unresolved",
+            connection_id: "connection-1",
+            provider_thread_id: "thread-newer",
+            provider_message_id: "message-newer-unresolved",
+            direction: "inbound",
+            party_role: "customer",
+            occurred_at: "2026-07-01T18:00:00.000Z",
+          },
+        ],
+        activities: [
+          {
+            email_connection_id: "connection-1",
+            email_message_id: "message-old-signed",
+            subject: "Signed estimate",
+            body_text: "Attached.",
+            body_text_clean: "Attached.",
+          },
+          {
+            email_connection_id: "connection-1",
+            email_message_id: "message-newer-unresolved",
+            subject: "Re: Estimate",
+            body_text: body,
+            body_text_clean: body,
+          },
+        ],
+      });
+      mocks.buildConversationState.mockResolvedValue({
+        accept: {
+          detected: true,
+          confidence: "high",
+          basis: ["signed_estimate_attachment"],
+        },
+        stage: "quoted",
+        routing: { decision: "draft" },
+        messages: [
+          {
+            providerMessageId: "message-old-signed",
+            fromEmail: "customer@example.com",
+            isRealCustomerInbound: true,
+            attachments: [{ inspection: { isSignedEstimate: true } }],
+          },
+        ],
+      });
+
+      const result = await evaluateOpportunityAcceptance({
+        supabase: client as never,
+        providerThreadId: "thread-signed",
+        opportunityId: "opportunity-1",
+        connection,
+      });
+
+      expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+      expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
+      expect(result).toEqual({ stageChanged: false });
+    }
+  );
+
+  it("does not replay quoted acceptance from a reply whose cleaned body is empty", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 16,
+        address: "88 Example Rd",
+      },
+      thread: {
+        id: "thread-quote-only",
+        provider_thread_id: "thread-quote-only",
+      },
+      events: [
+        {
+          id: "event-quote-only",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-quote-only",
+          provider_message_id: "message-quote-only",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-01T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-quote-only",
+          subject: "Re: Estimate",
+          body_text:
+            "On Jun 30, Customer wrote:\nWe accept the estimate. Please proceed.",
+          body_text_clean: "",
+        },
+      ],
+    });
+    mocks.buildConversationState.mockResolvedValue({
+      accept: {
+        detected: true,
+        confidence: "high",
+        basis: ["explicit_accept_language"],
+      },
+      stage: "quoted",
+      routing: { decision: "draft" },
+      messages: [],
+    });
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "thread-quote-only",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      "create_email_opportunity_notification_as_system",
+      expect.objectContaining({ p_event_type: "accept_review_won" })
+    );
+    expect(result).toEqual({ stageChanged: false });
+  });
+
+  it("reopens an automatically deferred cycle when newer customer acceptance wins", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "lost",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 12,
+        address: "88 Example Rd",
+      },
+      thread: { id: "thread-accept", provider_thread_id: "thread-accept" },
+      events: [
+        {
+          id: "event-older-deferral",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-deferral",
+          provider_message_id: "message-older-deferral",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-06-01T18:00:00.000Z",
+        },
+        {
+          id: "event-newer-accept",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-accept",
+          provider_message_id: "message-newer-accept",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-01T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-older-deferral",
+          subject: "Re: Estimate",
+          body_text:
+            "Truck repairs used the budget, so we need to postpone this until next year.",
+          body_text_clean:
+            "Truck repairs used the budget, so we need to postpone this until next year.",
+        },
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-newer-accept",
+          subject: "Re: Estimate",
+          body_text:
+            "The budget is ready now. We accept the estimate. Please proceed.",
+          body_text_clean:
+            "The budget is ready now. We accept the estimate. Please proceed.",
+        },
+      ],
+    });
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "thread-accept",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        expectedStage: "lost",
+        expectedAssignmentVersion: 12,
+        evidence: expect.objectContaining({
+          provider_message_id: "message-newer-accept",
+          decisive_event_id: "event-newer-accept",
+          evaluated_through_event_id: "event-newer-accept",
+        }),
+      })
+    );
+    expect(result).toEqual({ stageChanged: true });
+  });
+
+  it("commits a later budget re-deferral without treating lost as permanently inert", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "lost",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 13,
+        address: "88 Example Rd",
+      },
+      thread: { id: "thread-deferral", provider_thread_id: "thread-deferral" },
+      events: [
+        {
+          id: "event-older-deferral",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-deferral",
+          provider_message_id: "message-older-deferral",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-06-01T18:00:00.000Z",
+        },
+        {
+          id: "event-newer-redeferral",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-deferral",
+          provider_message_id: "message-newer-redeferral",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-01T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-older-deferral",
+          subject: "Re: Timing",
+          body_text:
+            "The repair budget means we need to postpone this until next year.",
+          body_text_clean:
+            "The repair budget means we need to postpone this until next year.",
+        },
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-newer-redeferral",
+          subject: "Re: Timing",
+          body_text:
+            "The truck repair budget is still tied up, so we need to postpone this until next year.",
+          body_text_clean:
+            "The truck repair budget is still tied up, so we need to postpone this until next year.",
+        },
+      ],
+    });
+    rpc.mockImplementation(async (name: string) =>
+      name === "apply_email_opportunity_deferred_disposition"
+        ? { data: [{ changed: true }], error: null }
+        : { data: null, error: null }
+    );
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "thread-deferral",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "apply_email_opportunity_deferred_disposition",
+      expect.objectContaining({
+        p_provider_message_id: "message-newer-redeferral",
+        p_expected_stage: "lost",
+        p_expected_assignment_version: 13,
+        p_evidence: expect.objectContaining({
+          evaluated_through_event_id: "event-newer-redeferral",
+        }),
+      })
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: true });
+  });
+
+  it("holds conversion when a trusted durable event has no activity body to evaluate", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 10,
+        address: "88 Example Rd",
+      },
+      thread: { id: "thread-1", provider_thread_id: "provider-thread-1" },
+      events: [
+        {
+          id: "event-without-activity",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "message-without-activity",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-21T18:00:00.000Z",
+        },
+      ],
+      activities: [],
+    });
+
+    await expect(
+      evaluateOpportunityAcceptance({
+        supabase: client as never,
+        providerThreadId: "provider-thread-1",
+        opportunityId: "opportunity-1",
+        connection,
+      })
+    ).rejects.toThrow(
+      "commercial evidence activity missing for event event-without-activity"
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
+  });
+
+  it("does not let an unrelated external participant authorize conversion on a linked thread", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        contact_email: "customer@example.com",
+        assignment_version: 10,
+        address: "88 Example Rd",
+      },
+      client: { email: "customer@example.com" },
+      thread: { id: "thread-1", provider_thread_id: "provider-thread-1" },
+      events: [
+        {
+          id: "event-vendor-acceptance",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "message-vendor-acceptance",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "vendor@example.net",
+          occurred_at: "2026-07-21T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-vendor-acceptance",
+          subject: "Re: Deposit",
+          body_text: "We accept. The deposit payment has been sent.",
+          body_text_clean: "We accept. The deposit payment has been sent.",
+        },
+      ],
+    });
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "provider-thread-1",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: false });
+  });
+
+  it("does not let an unrelated external participant's signed attachment authorize conversion", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        contact_email: "customer@example.com",
+        assignment_version: 10,
+        address: "88 Example Rd",
+      },
+      client: { email: "customer@example.com" },
+      thread: { id: "thread-1", provider_thread_id: "provider-thread-1" },
+      events: [
+        {
+          id: "event-vendor-signed",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "message-vendor-signed",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "vendor@example.net",
+          occurred_at: "2026-07-21T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-vendor-signed",
+          subject: "Signed estimate",
+          body_text: "Attached.",
+          body_text_clean: "Attached.",
+        },
+      ],
+    });
+    mocks.buildConversationState.mockResolvedValue({
+      accept: {
+        detected: true,
+        confidence: "high",
+        basis: ["signed_estimate_attachment"],
+      },
+      stage: "quoted",
+      routing: { decision: "draft" },
+      messages: [
+        {
+          providerMessageId: "message-vendor-signed",
+          fromEmail: "vendor@example.net",
+          isRealCustomerInbound: true,
+          attachments: [{ inspection: { isSignedEstimate: true } }],
+        },
+      ],
+    });
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "provider-thread-1",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: false });
+  });
+
+  it("links a unique same-client same-address project instead of creating a duplicate", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "new_lead",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 11,
+        address: "2745 Fernwood Rd",
+      },
+      thread: { id: "thread-1", provider_thread_id: "provider-thread-1" },
+      events: [
+        {
+          id: "event-owen-payment",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "owen-payment-message",
+          direction: "outbound",
+          party_role: "ops",
+          occurred_at: "2026-07-21T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "owen-payment-message",
+          subject: "Re: Deposit",
+          body_text: "We received and confirmed your 50% deposit payment.",
+          body_text_clean:
+            "We received and confirmed your 50% deposit payment.",
+        },
+      ],
+    });
+    mocks.findUniqueExistingProjectForEmailConversion.mockResolvedValue(
+      "project-1"
+    );
+    mocks.buildConversationState.mockResolvedValue({
+      accept: { detected: true, confidence: "high", basis: [] },
+      stage: "new_lead",
+      routing: { decision: "draft" },
+      messages: [
+        {
+          providerMessageId: "owen-payment-message",
+          sentAt: "2026-07-21T18:00:00.000Z",
+          direction: "outbound",
+          cleanBody: "We received and confirmed your 50% deposit payment.",
+        },
+      ],
+    });
+
+    const result = await evaluateOpportunityAcceptance({
+      supabase: client as never,
+      providerThreadId: "provider-thread-1",
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(
+      mocks.findUniqueExistingProjectForEmailConversion
+    ).toHaveBeenCalledWith({
+      supabase: client,
+      companyId: "company-1",
+      opportunityId: "opportunity-1",
+      clientId: "client-1",
+      clientRef: null,
+      opportunityAddress: "2745 Fernwood Rd",
+    });
+    expect(mocks.linkOpportunityToExistingProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opportunityId: "opportunity-1",
+        linkToProjectId: "project-1",
+        expectedAssignmentVersion: 11,
+      })
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: true });
   });
 });

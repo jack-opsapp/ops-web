@@ -19,7 +19,7 @@ export interface StageEvaluation {
   reason: string;
 }
 
-const TERMINAL_STAGES = ["won", "lost"];
+const TERMINAL_STAGES = ["won", "lost", "discarded"];
 
 const STAGE_ORDER = [
   "new_lead",
@@ -29,6 +29,23 @@ const STAGE_ORDER = [
   "follow_up",
   "negotiation",
 ];
+
+export function isAllowedAutomatedEmailStageTransition(
+  currentStage: string,
+  targetStage: string
+): boolean {
+  if (
+    !STAGE_ORDER.includes(currentStage) ||
+    !STAGE_ORDER.includes(targetStage)
+  ) {
+    return false;
+  }
+  // `new_lead` is an ingestion origin, never a later classification. The
+  // remaining active stages form real sales loops (revised quotes, dormant
+  // negotiations, re-engagement), so they are guarded by exact snapshots
+  // rather than a false total ordering.
+  return targetStage !== "new_lead" || currentStage === "new_lead";
+}
 
 // ─── Service ────────────────────────────────────────────────────────────────
 
@@ -54,7 +71,8 @@ export const StageEvaluator = {
       );
       if (
         daysSinceOutbound > state.autoFollowUpDays &&
-        state.currentStage !== "follow_up"
+        state.currentStage !== "follow_up" &&
+        isAllowedAutomatedEmailStageTransition(state.currentStage, "follow_up")
       ) {
         return {
           stage: "follow_up",
@@ -97,8 +115,11 @@ export const StageEvaluator = {
     // Only advance forward, never go backward (unless follow_up → negotiation above)
     const currentIndex = STAGE_ORDER.indexOf(state.currentStage);
     const suggestedIndex = STAGE_ORDER.indexOf(suggestedStage);
-
-    if (suggestedIndex > currentIndex) {
+    if (
+      suggestedStage !== state.currentStage &&
+      suggestedIndex > currentIndex &&
+      isAllowedAutomatedEmailStageTransition(state.currentStage, suggestedStage)
+    ) {
       return {
         stage: suggestedStage,
         changed: true,

@@ -23,9 +23,11 @@
  * When the rule fires, the thread is written with:
  *   - primary_category            = "CUSTOMER"
  *   - category_confidence         = 1
- *   - category_classifier_version = "customer-deterministic-v1"
- *   - ai_summary                  = "Linked to <stage> opportunity about <subject>."
- * and the classifier call is skipped entirely.
+ *   - category_classifier_version = "customer-deterministic-v2"
+ *   - ai_summary                  = a current-message fallback (the caller may
+ *                                   replace it with the classifier narrative)
+ * The caller may still use the classifier for the narrative and labels; its
+ * category output is ignored so relationship truth remains deterministic.
  *
  * The deterministic INTERNAL rule runs first in classifyAndUpdate; if every
  * participant is a company user, INTERNAL wins. This rule only fires for
@@ -51,15 +53,16 @@ export type CustomerOpportunityStage =
  * Excludes terminal-negative stages (`lost`, `discarded`) so dead deals don't
  * keep masquerading as customer threads.
  */
-export const LIVE_CUSTOMER_OPPORTUNITY_STAGES: readonly CustomerOpportunityStage[] = [
-  "new_lead",
-  "qualifying",
-  "quoting",
-  "quoted",
-  "negotiation",
-  "follow_up",
-  "won",
-] as const;
+export const LIVE_CUSTOMER_OPPORTUNITY_STAGES: readonly CustomerOpportunityStage[] =
+  [
+    "new_lead",
+    "qualifying",
+    "quoting",
+    "quoted",
+    "negotiation",
+    "follow_up",
+    "won",
+  ] as const;
 
 const LIVE_STAGE_SET = new Set<string>(LIVE_CUSTOMER_OPPORTUNITY_STAGES);
 
@@ -79,7 +82,7 @@ export interface DeterministicCustomerInput {
 export interface DeterministicCustomerResult {
   category: "CUSTOMER";
   summary: string;
-  classifierVersion: "customer-deterministic-v1";
+  classifierVersion: "customer-deterministic-v2";
   confidence: 1;
 }
 
@@ -97,23 +100,18 @@ export function tryDeterministicCustomer(
 
   return {
     category: "CUSTOMER",
-    summary: buildSummary(stage, input.subject, input.messagePreview),
-    classifierVersion: "customer-deterministic-v1",
+    summary: buildSummary(input.subject, input.messagePreview),
+    classifierVersion: "customer-deterministic-v2",
     confidence: 1,
   };
 }
 
 // ─── Summary template ────────────────────────────────────────────────────────
 
-function buildSummary(
-  stage: string,
-  subject: string,
-  messagePreview?: string | null
-): string {
+function buildSummary(subject: string, messagePreview?: string | null): string {
   const fallbackTopic = subject.trim() || "(no subject)";
   const topic = cleanMessagePreview(messagePreview) ?? fallbackTopic;
-  const stageLabel = stage.replace(/_/g, " ");
-  return `Linked to a ${stageLabel} opportunity — ${topic}.`;
+  return /[.!?]$/.test(topic) ? topic : `${topic}.`;
 }
 
 function cleanMessagePreview(messagePreview?: string | null): string | null {

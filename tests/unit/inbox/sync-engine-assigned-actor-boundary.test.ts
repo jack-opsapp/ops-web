@@ -54,16 +54,9 @@ describe("sync-engine assigned actor boundary", () => {
     );
   });
 
-  it("binds likely-won conversion to exact immutable inbound customer evidence", () => {
-    expect(syncEngineSource).toContain('sourcePath: "email_likely_won"');
-    expect(syncEngineSource).toContain("decidedBy: null");
-    expect(syncEngineSource).toContain("expectedAssignmentVersion:");
-    expect(syncEngineSource).toContain('.eq("direction", "inbound")');
-    expect(syncEngineSource).toContain('.eq("party_role", "customer")');
-    expect(syncEngineSource).toContain('.eq("is_meaningful", true)');
-    expect(syncEngineSource).toContain(
-      '.in("provider_message_id", [...candidateProviderMessageIds])'
-    );
+  it("keeps model-only likely-Won classifications review-only", () => {
+    expect(syncEngineSource).not.toContain('sourcePath: "email_likely_won"');
+    expect(syncEngineSource).toContain("createTerminalFlagNotification(");
   });
 
   it("keeps deterministic email acceptance actorless and snapshot-bound", () => {
@@ -72,9 +65,13 @@ describe("sync-engine assigned actor boundary", () => {
     expect(acceptanceSource).toContain(
       "expectedAssignmentVersion: assignmentVersion"
     );
-    expect(acceptanceSource).toContain("email_thread_id: internalThreadId");
+    expect(acceptanceSource).toContain("email_thread_id: conversionThread.id");
     expect(acceptanceSource).toContain(
-      "provider_thread_id: durableProviderThreadId"
+      "provider_thread_id: conversionEvent.provider_thread_id"
+    );
+    expect(acceptanceSource).toContain("decisive_event_id: conversionEvent.id");
+    expect(acceptanceSource).toContain(
+      "evaluated_through_event_id: completeEvidence.latestEventId"
     );
     expect(acceptanceSource).toContain('decision: "auto_advance_won"');
   });

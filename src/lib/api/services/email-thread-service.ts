@@ -219,6 +219,171 @@ function snippetFromMessage(
   return ((snippet ?? "").trim() || (bodyText ?? "").trim()).slice(0, 400);
 }
 
+function isGenericThreadSummary(value: string | null | undefined): boolean {
+  const summary = (value ?? "").trim();
+  if (!summary) return true;
+  return /^(?:Classification unavailable\b|Thread classified as\b|Linked to an? [a-z_ ]+ opportunity\s*[—-]\s*|Customer thread\.?$|No summary available\.?$)/i.test(
+    summary
+  );
+}
+
+const THREAD_SUMMARY_GENERIC_TOKENS = new Set([
+  "about",
+  "active",
+  "ask",
+  "client",
+  "current",
+  "customer",
+  "discuss",
+  "discussion",
+  "email",
+  "follow",
+  "lead",
+  "message",
+  "ongoing",
+  "open",
+  "opportunity",
+  "project",
+  "request",
+  "status",
+  "thread",
+  "work",
+]);
+
+const THREAD_SUMMARY_TOKEN_FAMILIES: ReadonlyArray<ReadonlySet<string>> = [
+  new Set([
+    "quote",
+    "estimate",
+    "estimat",
+    "proposal",
+    "pricing",
+    "pric",
+    "price",
+  ]),
+  new Set([
+    "schedule",
+    "schedul",
+    "booking",
+    "book",
+    "date",
+    "timeline",
+    "availability",
+  ]),
+  new Set(["deposit", "payment", "pay", "paid", "invoice"]),
+  new Set(["install", "installation"]),
+  new Set(["remove", "remov", "removal"]),
+  new Set(["reply", "respond", "response"]),
+  new Set(["call", "phone"]),
+  new Set(["update", "change", "chang"]),
+];
+
+function normalizeThreadSummaryToken(value: string): string {
+  if (value.length > 5 && value.endsWith("ies")) {
+    return `${value.slice(0, -3)}y`;
+  }
+  if (value.length > 6 && value.endsWith("ing")) {
+    return value.slice(0, -3);
+  }
+  if (value.length > 5 && value.endsWith("ed")) {
+    return value.slice(0, -2);
+  }
+  if (value.length > 4 && value.endsWith("s")) {
+    return value.slice(0, -1);
+  }
+  return value;
+}
+
+function canonicalThreadSummaryToken(value: string): string {
+  const normalized = normalizeThreadSummaryToken(value);
+  const familyIndex = THREAD_SUMMARY_TOKEN_FAMILIES.findIndex((family) =>
+    family.has(normalized)
+  );
+  return familyIndex >= 0 ? `family:${familyIndex}` : normalized;
+}
+
+function groundedThreadSummaryTokens(value: string): Set<string> {
+  const tokens = new Set<string>();
+  for (const rawToken of value.toLowerCase().match(/[a-z][a-z'-]*/g) ?? []) {
+    const normalized = normalizeThreadSummaryToken(rawToken.replace(/'/g, ""));
+    if (
+      normalized.length < 4 ||
+      THREAD_SUMMARY_GENERIC_TOKENS.has(normalized)
+    ) {
+      continue;
+    }
+    tokens.add(canonicalThreadSummaryToken(normalized));
+  }
+  return tokens;
+}
+
+function groundedThreadSummaryNumbers(value: string): Set<string> {
+  const numbers = new Set<string>();
+  for (const match of value.matchAll(/\b\d[\d,]*(?:\.\d+)?\b/g)) {
+    const parsed = Number(match[0].replace(/,/g, ""));
+    if (Number.isFinite(parsed)) numbers.add(String(parsed));
+  }
+  return numbers;
+}
+
+/**
+ * Accept narrative output only when it is grounded in the cleaned bodies used
+ * for this exact classification pass. Subjects, provider snippets, quoted
+ * reply chains, and model-authored numbers are not evidence. When grounding
+ * is absent, the newest cleaned-message fallback remains authoritative.
+ */
+function isGroundedThreadSummary(
+  candidate: string,
+  messages: ClassifyMessage[]
+): boolean {
+  const cleanedBodies = messages
+    .map((message) => message.bodyText.trim())
+    .filter(Boolean);
+  if (cleanedBodies.length === 0) return false;
+
+  const sourceText = cleanedBodies.join("\n");
+  const sourceNumbers = groundedThreadSummaryNumbers(sourceText);
+  const candidateNumbers = groundedThreadSummaryNumbers(candidate);
+  if ([...candidateNumbers].some((number) => !sourceNumbers.has(number))) {
+    return false;
+  }
+
+  const sourceTokens = groundedThreadSummaryTokens(sourceText);
+  const candidateTokens = groundedThreadSummaryTokens(candidate);
+  if (candidateTokens.size === 0) return false;
+  return [...candidateTokens].some((token) => sourceTokens.has(token));
+}
+
+function currentThreadSummary(input: {
+  subject: string;
+  latestSnippet?: string | null;
+  messages: ClassifyMessage[];
+}): string {
+  const latestMessage = [...input.messages]
+    .reverse()
+    .map((message) => snippetFromMessage(null, message.bodyText, input.subject))
+    .find(Boolean);
+  const current =
+    latestMessage ??
+    snippetFromMessage(input.latestSnippet, null, input.subject) ??
+    input.subject.trim();
+  const compact = current.replace(/\s+/g, " ").trim().slice(0, 400);
+  const factual =
+    compact || input.subject.trim() || "No readable message content.";
+  return /[.!?]$/.test(factual) ? factual : `${factual}.`;
+}
+
+function chooseThreadSummary(
+  candidate: string | null | undefined,
+  fallback: string,
+  messages: ClassifyMessage[]
+): string {
+  const trimmed = (candidate ?? "").trim();
+  return isGenericThreadSummary(trimmed) ||
+    !isGroundedThreadSummary(trimmed, messages)
+    ? fallback
+    : trimmed;
+}
+
 /**
  * Look up a canonical name for `senderEmail` in this company's directory.
  * Priority: clients → sub_clients → users. Returns "" (empty) when no row
@@ -1505,10 +1670,9 @@ export const EmailThreadService = {
 
     // ── Deterministic CUSTOMER classification ──────────────────────────
     // Threads linked to a non-terminal opportunity stage are — by definition
-    // — customer conversations. Skipping the LLM here also dodges the
-    // long-standing bug where the legacy prompt emitted LEAD/CLIENT (collapsed
-    // to CUSTOMER by migration 20260428061836) and the DB CHECK constraint
-    // rejected the UPDATE silently, leaving the thread frozen at OTHER.
+    // — customer conversations. Category is fixed before the narrative model
+    // runs, which avoids the legacy LEAD/CLIENT category drift while still
+    // producing a current, useful summary and ball-in-court labels.
     if (threadRow.opportunityId && !threadRow.categoryManuallySet) {
       const opp = await loadOpportunityForCustomerRule(threadRow.opportunityId);
       const messagePreview =
@@ -1535,9 +1699,52 @@ export const EmailThreadService = {
       });
 
       if (customer) {
+        const fallbackSummary = currentThreadSummary({
+          subject: threadRow.subject,
+          latestSnippet: threadRow.latestSnippet,
+          messages,
+        });
+        // The deterministic rule owns category truth, not narrative quality.
+        // Always begin from the newest cleaned message so a generic subject
+        // such as "Re: Estimate" cannot survive as the thread summary when the
+        // classifier is unavailable.
+        let narrativeSummary = fallbackSummary;
+        let narrativeLabels = threadRow.labels;
+        try {
+          // Category remains deterministic CUSTOMER; the model contributes only
+          // the current-state narrative and ball-in-court labels. Its category
+          // output is deliberately ignored, so legacy category drift cannot
+          // freeze the thread or weaken the relationship proof.
+          const narrative = await ThreadClassifier.classifyThread({
+            threadId: threadRow.id,
+            providerThreadId: threadRow.providerThreadId,
+            subject: threadRow.subject,
+            participants: threadRow.participants,
+            messageCount: threadRow.messageCount,
+            outboundCount: messages.filter(
+              (message) => message.direction === "outbound"
+            ).length,
+            messages,
+            learnedRulesForDomain: learned.forDomain,
+            learnedRulesForSender: learned.forSender,
+            senderIsNew,
+          });
+          narrativeSummary = chooseThreadSummary(
+            narrative.aiSummary,
+            narrativeSummary,
+            messages
+          );
+          narrativeLabels = narrative.labels;
+        } catch (error) {
+          console.warn(
+            "[email-thread] CUSTOMER narrative fallback",
+            threadRow.id,
+            error instanceof Error ? error.message : "unknown error"
+          );
+        }
         const custUpdate: Record<string, unknown> = {
-          labels: threadRow.labels, // preserve any existing labels
-          ai_summary: customer.summary,
+          labels: narrativeLabels,
+          ai_summary: narrativeSummary,
           category_classified_at: new Date().toISOString(),
           category_classifier_version: customer.classifierVersion,
           primary_category: customer.category,
@@ -1570,10 +1777,9 @@ export const EmailThreadService = {
 
         const mappedCustomer = mapEmailThreadFromDb(custUpdated);
 
-        // P4-A: run the Phase C router uniformly. CUSTOMER at `auto_draft`
-        // (the only level Canpro enabled) was silently inert here before —
-        // the deterministic branch always wins for opportunity-linked threads,
-        // so auto_draft never ran on first classification. Now it does.
+        // Preserve the established, authorization-gated Phase C behavior for
+        // deterministic customer threads. The router owns autonomy checks and
+        // idempotent draft creation; summary refresh must not bypass it.
         await runPhaseCRouter(mappedCustomer);
 
         // Notification hook — parity with the LLM path. Fires on CUSTOMER
@@ -1620,7 +1826,15 @@ export const EmailThreadService = {
 
     const update: Record<string, unknown> = {
       labels: mergedLabels,
-      ai_summary: result.aiSummary,
+      ai_summary: chooseThreadSummary(
+        result.aiSummary,
+        currentThreadSummary({
+          subject: threadRow.subject,
+          latestSnippet: threadRow.latestSnippet,
+          messages,
+        }),
+        messages
+      ),
       category_classified_at: new Date().toISOString(),
       category_classifier_version: ThreadClassifier.CLASSIFIER_VERSION,
     };

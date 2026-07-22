@@ -66,17 +66,14 @@ function unresolvedAttachments(input: RouteInput): AttachmentRef[] {
 }
 
 /**
- * Accept signals conflict when a HIGH-confidence accept was detected at the same
- * time the thread is still in an ambiguous follow-up posture (a soft/verbal basis
- * mixed in, or the stage itself signals an open negotiation/follow-up). We must
- * not silently advance a lead to Won on a contradictory read.
+ * Accept signals conflict only when HIGH evidence is mixed with a soft/verbal
+ * basis. Negotiation and follow-up are normal places for a customer to accept;
+ * the stage itself is never contradictory evidence.
  */
 function hasConflictingAccept(input: RouteInput): boolean {
-  const { accept, stage } = input;
+  const { accept } = input;
   if (!accept.detected || accept.confidence !== "high") return false;
-  const hasSoftBasis = accept.basis.includes("verbal_soft");
-  const ambiguousStage = stage === "follow_up" || stage === "negotiation";
-  return hasSoftBasis || ambiguousStage;
+  return accept.basis.includes("verbal_soft");
 }
 
 /**
@@ -87,7 +84,7 @@ function hasConflictingAccept(input: RouteInput): boolean {
 function customerAwaitsReply(input: RouteInput): boolean {
   if (input.messages.length === 0) return false;
   const latest = [...input.messages].sort((a, b) =>
-    a.sentAt < b.sentAt ? -1 : a.sentAt > b.sentAt ? 1 : 0,
+    a.sentAt < b.sentAt ? -1 : a.sentAt > b.sentAt ? 1 : 0
   )[input.messages.length - 1];
   return latest.direction === "inbound" && latest.isRealCustomerInbound;
 }
@@ -111,14 +108,16 @@ function contactCompleteness(input: RouteInput): number {
 /** Share of messages with a known (non-'unknown') party role. */
 function classifiedShare(input: RouteInput): number {
   if (input.messages.length === 0) return 0;
-  const classified = input.messages.filter((m) => m.partyRole !== "unknown").length;
+  const classified = input.messages.filter(
+    (m) => m.partyRole !== "unknown"
+  ).length;
   return classified / input.messages.length;
 }
 
 /** 1 when no attachment inspection is unresolved, else degrades by the share resolved. */
 function attachmentResolvedShare(input: RouteInput): number {
   const required = input.attachmentsRequiringInspection.filter(
-    (a) => a.requiresInspection,
+    (a) => a.requiresInspection
   );
   if (required.length === 0) return 1;
   const resolved = required.filter((a) => !isUnresolvedInspection(a)).length;
@@ -153,7 +152,7 @@ export function route(input: RouteInput): RouteResult {
   if (!hasActionableIdentity(input)) {
     mustReview = true;
     reasons.push(
-      "Contact identity is too weak to act on (no verified name, email, or phone).",
+      "Contact identity is too weak to act on (no verified name, email, or phone)."
     );
   }
 
@@ -164,14 +163,14 @@ export function route(input: RouteInput): RouteResult {
     reasons.push(
       `${blocked.length} attachment${blocked.length === 1 ? "" : "s"} require inspection but ${
         blocked.length === 1 ? "is" : "are"
-      } uninspected or failed (${names}).`,
+      } uninspected or failed (${names}).`
     );
   }
 
   if (hasConflictingAccept(input)) {
     mustReview = true;
     reasons.push(
-      "Accept signals conflict: a high-confidence acceptance coincides with an unresolved follow-up.",
+      "Accept signals conflict: a high-confidence acceptance coincides with an unresolved follow-up."
     );
   }
 
@@ -179,12 +178,16 @@ export function route(input: RouteInput): RouteResult {
   if (confidence < CONFIDENCE_FLOOR) {
     mustReview = true;
     reasons.push(
-      `Computed confidence ${confidence.toFixed(2)} is below the ${CONFIDENCE_FLOOR} review floor.`,
+      `Computed confidence ${confidence.toFixed(2)} is below the ${CONFIDENCE_FLOOR} review floor.`
     );
   }
 
   if (mustReview) {
-    return { routing: "require_human_review", routingReasons: reasons, confidence };
+    return {
+      routing: "require_human_review",
+      routingReasons: reasons,
+      confidence,
+    };
   }
 
   // Not held for review. If the customer is not awaiting a reply (operator spoke
@@ -192,13 +195,13 @@ export function route(input: RouteInput): RouteResult {
   // keep the lead's state fresh.
   if (!customerAwaitsReply(input)) {
     reasons.push(
-      "Customer thread with no inbound awaiting a reply — updating the lead without drafting.",
+      "Customer thread with no inbound awaiting a reply — updating the lead without drafting."
     );
     return { routing: "update_lead_only", routingReasons: reasons, confidence };
   }
 
   reasons.push(
-    "Customer is awaiting a reply with sufficient identity and no unresolved attachments — drafting.",
+    "Customer is awaiting a reply with sufficient identity and no unresolved attachments — drafting."
   );
   return { routing: "draft", routingReasons: reasons, confidence };
 }

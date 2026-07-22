@@ -16,6 +16,7 @@ import {
   type EmailProviderMailboxCheckpoint,
 } from "@/lib/api/services/email-provider-mailbox-operation";
 import { evaluateOpportunityAcceptance } from "@/lib/api/services/conversation-state/acceptance-evaluation";
+import { refreshLeadSummariesForOpportunities } from "@/lib/api/services/lead-summary-service";
 import {
   classifyInspectableAttachment,
   inspectImageContent,
@@ -709,6 +710,23 @@ async function reevaluateAcceptanceAfterCanonicalInspection(
     providerThreadId,
     opportunityId,
   });
+
+  // Inspection can make a previously neutral attachment decisive only after
+  // the normal sync summary has already run. Keep summary refresh inside the
+  // inspection job boundary and repeat it on retries even when conversion was
+  // idempotently applied by an earlier attempt.
+  const summaryRefresh = await refreshLeadSummariesForOpportunities({
+    supabase,
+    companyId: connection.companyId,
+    opportunityIds: [opportunityId],
+  });
+  if (summaryRefresh.failed.length > 0) {
+    throw new Error(
+      `Attachment acceptance summary refresh failed: ${summaryRefresh.failed
+        .map((failure) => `${failure.opportunityId}: ${failure.error}`)
+        .join("; ")}`
+    );
+  }
 }
 
 export class SupabaseAttachmentInspectionQueue implements AttachmentInspectionQueue {

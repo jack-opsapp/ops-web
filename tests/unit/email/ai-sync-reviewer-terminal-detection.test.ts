@@ -29,11 +29,19 @@ vi.mock("@/lib/api/services/email-service", () => ({
   },
 }));
 
-vi.mock("@/lib/api/services/email-ai-classifier", () => ({
-  EmailAIClassifier: {
-    classifyBatch: classifyBatchMock,
-  },
-}));
+vi.mock("@/lib/api/services/email-ai-classifier", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/lib/api/services/email-ai-classifier")
+    >();
+  return {
+    ...actual,
+    EmailAIClassifier: {
+      ...actual.EmailAIClassifier,
+      classifyBatch: classifyBatchMock,
+    },
+  };
+});
 
 const connection = {
   id: "connection-1",
@@ -701,6 +709,76 @@ describe("AISyncReviewer terminal stage guard", () => {
     );
 
     expect(classifyBatchMock.mock.calls[0][0][0].direction).toBe("inbound");
+  });
+
+  it.each([
+    {
+      modelStage: "won",
+      expectedStage: "negotiation",
+      expectedFlag: "likely_won",
+    },
+    {
+      modelStage: "lost",
+      expectedStage: "follow_up",
+      expectedFlag: "likely_lost",
+    },
+  ])(
+    "coerces an unmatched model $modelStage guess to $expectedStage with review provenance",
+    async ({ modelStage, expectedStage, expectedFlag }) => {
+      classifyBatchMock.mockResolvedValue([
+        {
+          id: "message-1",
+          verdict: "lead",
+          confidence: 0.96,
+          stage: modelStage,
+          estimatedValue: null,
+          client: null,
+          duplicateOf: [],
+          terminalFlag: null,
+        },
+      ]);
+
+      const result = await AISyncReviewer.reviewUnmatchedEmails(
+        [unmatchedEmail],
+        connection,
+        companyContext
+      );
+
+      expect(result.classifiedLeads).toEqual([
+        expect.objectContaining({
+          stage: expectedStage,
+          terminalFlag: expectedFlag,
+          confidence: 0.96,
+        }),
+      ]);
+    }
+  );
+
+  it("preserves a nonterminal classification while retaining its separate terminal review flag", async () => {
+    classifyBatchMock.mockResolvedValue([
+      {
+        id: "message-1",
+        verdict: "lead",
+        confidence: 0.93,
+        stage: "quoted",
+        estimatedValue: 4200,
+        client: null,
+        duplicateOf: [],
+        terminalFlag: "likely_won",
+      },
+    ]);
+
+    const result = await AISyncReviewer.reviewUnmatchedEmails(
+      [unmatchedEmail],
+      connection,
+      companyContext
+    );
+
+    expect(result.classifiedLeads[0]).toMatchObject({
+      stage: "quoted",
+      terminalFlag: "likely_won",
+      estimatedValue: 4200,
+    });
   });
 
   it("keeps a valid lead when the model omits client identity", async () => {
