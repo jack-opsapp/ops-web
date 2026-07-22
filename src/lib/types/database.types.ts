@@ -17973,6 +17973,42 @@ export type Database = {
           stage_manually_set: boolean
         }[]
       }
+      record_opportunity_correspondence_event: {
+        Args: {
+          p_activity_id: string
+          p_apply_opportunity_projection: boolean
+          p_cc_emails: string[]
+          p_company_id: string
+          p_connection_id: string
+          p_direction: string
+          p_from_email: string
+          p_is_meaningful: boolean
+          p_linked_contact_id: string
+          p_linked_contact_kind: string
+          p_noise_reason: string
+          p_occurred_at: string
+          p_opportunity_id: string
+          p_party_role: string
+          p_provider_message_id: string
+          p_provider_thread_id: string
+          p_source: string
+          p_subject: string
+          p_to_emails: string[]
+        }
+        Returns: {
+          assignment_version: number
+          correspondence_count: number
+          created: boolean
+          event_id: string
+          inbound_count: number
+          last_inbound_at: string
+          last_message_direction: string
+          last_outbound_at: string
+          outbound_count: number
+          stage: string
+          stage_manually_set: boolean
+        }[]
+      }
       apply_email_opportunity_stage_transition: {
         Args: {
           p_ai_signal?: string
