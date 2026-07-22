@@ -44,7 +44,6 @@ import { commitsHeld, resolveDriver } from "@/lib/catalog-setup/agent-fallback";
 import { buildStepPlan, type StepContext } from "@/lib/catalog-setup/step-machine";
 import { entryAllowed, isStepAccessible } from "@/lib/catalog-setup/step-gates";
 import { deriveBlockingPrerequisite } from "@/lib/catalog-setup/prerequisites";
-import { blankCard } from "@/lib/catalog-setup/blank-cards";
 import { selectTradeTemplate } from "@/lib/catalog-setup/trade-templates";
 import type { WizardTradeId } from "@/lib/catalog-setup/trade-list";
 import { parseCsv } from "@/lib/catalog-setup/csv-parse";
@@ -273,9 +272,10 @@ export function CatalogSetupRoute() {
     (source: SetupSource) => {
       analytics.trackStarted();
       if (source === "manual") {
-        dispatch({ type: "ADD_CARDS", cards: [blankCard("sell")] });
-        // Leave the picker — the canvas now holds a row to fill + accept.
-        setDriverMode("conversation");
+        // The SHELL seeds the blank row and opens it straight in the editor
+        // (identical to the canvas `+ add` affordance — one lane, one behavior).
+        // The picker stays underneath: closing the editor lands back on the
+        // sources, never on a dead no-agent transcript.
       } else if (source === "template") {
         // Open the per-trade TEMPLATE sub-flow (pick trade → starter cards). No
         // cards staged until the owner confirms a trade.
@@ -293,16 +293,17 @@ export function CatalogSetupRoute() {
         setDriverMode("conversation");
       }
     },
-    [dispatch, analytics],
+    [analytics],
   );
 
   // TEMPLATE lane confirm: stage the trade's starter cards (trade + task types +
-  // SELL seeds, all "proposed") onto the canvas, then drop into the live-building
-  // view so the owner trims/accepts like any other source (spec §7/§8/§9).
+  // SELL seeds, all "proposed") onto the canvas, then return to the sources —
+  // the canvas is the review surface, and the picker stays the honest "add more
+  // from anywhere" driver (sources compose onto one canvas, spec §7/§8/§9).
   const onPickTrade = useCallback(
     (trade: WizardTradeId) => {
       dispatch({ type: "ADD_CARDS", cards: selectTradeTemplate(trade) });
-      setDriverMode("conversation");
+      setDriverMode("picker");
     },
     [dispatch],
   );
@@ -351,12 +352,13 @@ export function CatalogSetupRoute() {
     [analytics, categories, units, liveRows, dispatch],
   );
 
-  // A can't-read file → seed a manual SELL row and drop into the canvas, so the
-  // lane is never a dead end (spec §16: every path has a next move).
+  // A can't-read file → the SHELL seeds a manual SELL row and opens it in the
+  // editor (spec §16: every path has a next move). The route just leaves the
+  // upload lane so closing that editor lands on the sources, not a stale
+  // can't-read result.
   const onUploadAddManually = useCallback(() => {
-    dispatch({ type: "ADD_CARDS", cards: [blankCard("sell")] });
-    setDriverMode("conversation");
-  }, [dispatch]);
+    setDriverMode("picker");
+  }, []);
 
   // QUICKBOOKS lane: read-only pull → map → dedupe-bind (server-side) → stage the
   // proposed/merge cards onto the canvas. A missing/inactive connection or stale
@@ -548,9 +550,9 @@ export function CatalogSetupRoute() {
     return (
       <div
         data-testid="catalog-setup-denied"
-        className="flex flex-col items-start px-[44px] py-12"
+        className="flex flex-col items-start px-3 py-6"
       >
-        <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
+        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
           <span className="text-text-mute">{"// "}</span>
           {t("denied", "NO ACCESS")}
         </span>
@@ -577,7 +579,7 @@ export function CatalogSetupRoute() {
       onReload={() => window.location.reload()}
       onExit={() => router.push("/catalog")}
     >
-      <OfflineBanner online={online} className="mx-[44px] mt-[20px]" />
+      <OfflineBanner online={online} className="mx-3 mt-2" />
       <SetupWizardShell
         context={context}
         inventoryTracked={tracked}

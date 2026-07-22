@@ -162,7 +162,7 @@ function SectionEmpty({ section }: { section: SectionKey }) {
   return (
     <p
       data-testid={`section-empty-${section}`}
-      className="rounded-panel border border-dashed border-glass-border px-3 py-4 font-mohave text-[13px] text-text-3"
+      className="rounded-panel border border-dashed border-glass-border px-1.5 py-2 font-mohave text-body-sm font-normal text-text-3"
     >
       {t(SECTION_EMPTY_KEY[section], SECTION_EMPTY_FALLBACK[section])}
     </p>
@@ -218,19 +218,19 @@ export function CanvasPane({
                 {/* Section header — `//` slash voice + a quiet manual add */}
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div className="flex items-baseline gap-2">
-                    <h3 className="font-cakemono text-[14px] font-light uppercase leading-none text-text">
+                    <h3 className="font-cakemono text-cake-button font-light uppercase leading-none text-text">
                       <span aria-hidden className="mr-[6px] font-mono text-text-mute">
                         {"//"}
                       </span>
                       {t(SECTION_TITLE_KEY[section], SECTION_TITLE_FALLBACK[section])}
                     </h3>
-                    <span className="font-mohave text-[12px] text-text-3">
+                    <span className="font-mohave text-caption-sm text-text-3">
                       {t(SECTION_CAPTION_KEY[section], SECTION_CAPTION_FALLBACK[section])}
                     </span>
                     {section === "stock" ? (
                       <span
                         data-testid="canvas-stock-tracked-tag"
-                        className="rounded-chip border border-glass-border px-[5px] py-[1px] font-mono text-[10px] uppercase tracking-wider text-text-3"
+                        className="rounded-chip border border-glass-border px-[5px] py-[1px] font-mono text-micro-sm uppercase tracking-wider text-text-3"
                       >
                         {t("state.tracked", "tracked")}
                       </span>
@@ -241,7 +241,7 @@ export function CanvasPane({
                       type="button"
                       data-testid={`canvas-add-${section}`}
                       onClick={() => onAddRow(section)}
-                      className="flex shrink-0 items-center gap-1 font-mono text-[11px] lowercase tracking-[0.04em] text-text-3 transition-colors duration-150 hover:text-text-2"
+                      className="flex shrink-0 items-center gap-1 font-mono text-micro lowercase tracking-[0.04em] text-text-3 transition-colors duration-150 hover:text-text-2"
                     >
                       <Plus className="h-3.5 w-3.5" aria-hidden />
                       {t(SECTION_ADD_KEY[section], SECTION_ADD_FALLBACK[section])}

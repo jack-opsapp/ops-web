@@ -41,7 +41,7 @@ export function OfflineBanner({ online, className }: OfflineBannerProps) {
       )}
     >
       <WifiOff aria-hidden className="h-[16px] w-[16px] shrink-0 text-tan" />
-      <span className="font-cakemono text-[14px] font-light uppercase tracking-wide text-text-2">
+      <span className="font-cakemono text-cake-button font-light uppercase tracking-wide text-text-2">
         {t("offline.title", "Offline")}
       </span>
       <span className="font-mono text-micro tracking-wide text-text-3">

@@ -214,6 +214,106 @@ function authCompanyPayload() {
 }
 
 /**
+ * Canonical `users` DB row (snake_case) — the SAME identity as
+ * `authUserPayload()`, in the shape `UserService.fetchUser`/`mapFromDb` reads.
+ *
+ * The permission store's canonical refresh WRITES this row back into the auth
+ * store (`useAuthStore.setState({ currentUser: canonicalUser })`), replacing
+ * the seeded user wholesale. Every gate-relevant column must therefore be
+ * present: a row without `onboarding_completed`/`setup_progress` maps to
+ * `onboardingCompleted: {}` → `useSetupGate.needsWebSetup` → the dashboard
+ * layout hard-navigates to /setup and the wizard specs never see /catalog
+ * (observed as a /setup ⇄ /dashboard loop, since the background syncUser mock
+ * restores the rich user and /setup bounces straight back).
+ */
+function dbUserRow() {
+  return {
+    id: CURRENT_USER_ID,
+    first_name: "E2E",
+    last_name: "Owner",
+    email: "e2e-owner@ops.test",
+    phone: null,
+    profile_image_url: null,
+    role: "admin",
+    company_id: COMPANY_ID,
+    user_type: "employee",
+    latitude: null,
+    longitude: null,
+    location_name: null,
+    home_address: null,
+    client_id: null,
+    is_active: true,
+    user_color: null,
+    dev_permission: true,
+    onboarding_completed: { web: true },
+    has_completed_tutorial: true,
+    is_company_admin: true,
+    special_permissions: [],
+    setup_progress: { steps: { identity: true, company: true } },
+    stripe_customer_id: null,
+    device_token: null,
+    fab_actions: null,
+    emergency_contact_name: null,
+    emergency_contact_phone: null,
+    emergency_contact_relationship: null,
+    firebase_uid: CURRENT_USER_ID,
+    deleted_at: null,
+  };
+}
+
+/**
+ * Canonical `companies` DB row (snake_case) — mirrors `authCompanyPayload()`
+ * through `CompanyService.fetchCompany`/`mapFromDb`. The canonical refresh also
+ * replaces the auth-store company with this row's mapping, so it carries the
+ * full column set (admin bypass identity, subscription state, scheduling
+ * defaults) rather than only the bypass fields.
+ */
+function dbCompanyRow() {
+  return {
+    id: COMPANY_ID,
+    name: "Maverick Projects",
+    logo_url: null,
+    external_id: null,
+    company_code: "E2E",
+    description: null,
+    address: null,
+    phone: null,
+    email: null,
+    website: null,
+    latitude: null,
+    longitude: null,
+    open_hour: null,
+    close_hour: null,
+    industries: [],
+    company_size: null,
+    company_age: null,
+    referral_method: null,
+    admin_ids: [CURRENT_USER_ID],
+    account_holder_id: CURRENT_USER_ID,
+    default_project_color: "#6F94B0",
+    subscription_status: "active",
+    subscription_plan: "team",
+    subscription_end: null,
+    subscription_period: null,
+    max_seats: 50,
+    seated_employee_ids: [CURRENT_USER_ID],
+    seat_grace_start_date: null,
+    trial_start_date: null,
+    trial_end_date: null,
+    has_priority_support: false,
+    data_setup_purchased: false,
+    data_setup_completed: false,
+    data_setup_scheduled: null,
+    stripe_customer_id: null,
+    precise_scheduling_enabled: true,
+    skip_weekends_in_auto_schedule: false,
+    default_work_start: "08:00",
+    default_work_end: "17:00",
+    deleted_at: null,
+  };
+}
+
+/**
  * Seed auth (cookies + localStorage + Firebase fallback) and install the
  * always-on route mocks the dashboard shell needs (sync-user, feature flags,
  * image proxy, geocoding). Call ONCE before goto, then mockWizardRoutes for the
@@ -328,11 +428,16 @@ export async function seedCatalogWizardAuth(page: Page): Promise<void> {
   });
 
   await page.route("**/securetoken.googleapis.com/**", async (route) => {
+    // Full STS token-exchange shape — the SDK surfaces `auth/internal-error`
+    // on a partial response (access_token/token_type are required).
     await fulfillJson(route, {
-      id_token: AUTH_TOKEN,
-      refresh_token: "mock-refresh-token",
+      access_token: AUTH_TOKEN,
       expires_in: "3600",
+      token_type: "Bearer",
+      refresh_token: "mock-refresh-token",
+      id_token: AUTH_TOKEN,
       user_id: CURRENT_USER_ID,
+      project_id: "ops-ios-app",
     });
   });
 
@@ -434,6 +539,30 @@ export async function mockWizardRoutes(
     // Other inserts/rpc → benign empty success.
     if (method !== "GET") {
       await fulfillJson(route, []);
+      return;
+    }
+
+    // Canonical authority rows. The permission store (post role-name-gate
+    // retirement) re-reads the SELF users row, then the companies row it
+    // references, before deciding the admin master bypass — a fall-through to
+    // the empty catch-all reads as "Canonical permission user mismatch" and
+    // fails every permission closed (no nav, no /catalog, no takeover).
+    // `.single()` reads send `Accept: application/vnd.pgrst.object+json` and
+    // must get the BARE OBJECT back — an array maps to an id-less model.
+    const wantsSingle = (request.headers()["accept"] ?? "").includes(
+      "vnd.pgrst.object",
+    );
+    if (table === "users") {
+      const row = dbUserRow();
+      if (wantsSingle) await fulfillJson(route, row);
+      else await fulfillRange(route, [row]);
+      return;
+    }
+
+    if (table === "companies") {
+      const row = dbCompanyRow();
+      if (wantsSingle) await fulfillJson(route, row);
+      else await fulfillRange(route, [row]);
       return;
     }
 

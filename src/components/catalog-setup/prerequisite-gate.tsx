@@ -125,7 +125,7 @@ export function GatePanel({ reason, onReload, onExit, className }: GatePanelProp
   return (
     <div
       className={cn(
-        "flex min-h-[60vh] items-center justify-start px-[44px] py-[48px]",
+        "flex min-h-[60vh] items-center justify-start px-3 py-6",
         className,
       )}
     >
@@ -159,19 +159,19 @@ export function GatePanel({ reason, onReload, onExit, className }: GatePanelProp
         </h1>
         <p
           id={bodyId}
-          className="mt-[10px] max-w-[44ch] font-mohave text-[14px] leading-relaxed text-text-2"
+          className="mt-[10px] max-w-[44ch] font-mohave text-body-sm font-normal leading-relaxed text-text-2"
         >
           {t(`gate.${reason}.body`, fb.body)}
         </p>
 
         {(showReload || showExit) && (
-          <div className="mt-[24px] flex items-center gap-[16px]">
+          <div className="mt-3 flex items-center gap-2">
             {showReload && (
               <button
                 type="button"
                 onClick={onReload}
                 data-testid="catalog-setup-gate-reload"
-                className="inline-flex items-center gap-[8px] rounded-md border border-line px-[14px] py-[8px] font-cakemono text-[13px] font-light uppercase tracking-[0.04em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
+                className="inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 font-cakemono text-cake-button font-light uppercase tracking-[0.04em] text-text-2 transition-colors hover:border-line-hi hover:text-text"
               >
                 <RotateCcw aria-hidden className="h-[16px] w-[16px]" />
                 {t("gate.reload", "RELOAD")}
@@ -182,7 +182,7 @@ export function GatePanel({ reason, onReload, onExit, className }: GatePanelProp
                 type="button"
                 onClick={onExit}
                 data-testid="catalog-setup-gate-exit"
-                className="inline-flex items-center gap-[6px] font-mohave text-[13px] text-text-3 transition-colors hover:text-text-2"
+                className="inline-flex items-center gap-[6px] font-mohave text-body-sm font-normal text-text-3 transition-colors hover:text-text-2"
               >
                 <ArrowLeft aria-hidden className="h-[16px] w-[16px]" />
                 {t("gate.exit", "Back to catalog")}

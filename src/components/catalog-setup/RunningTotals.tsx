@@ -36,13 +36,13 @@ export function RunningTotals({ totals, className }: RunningTotalsProps) {
   return (
     <p
       data-testid="running-totals"
-      className={cn("flex items-baseline gap-[6px] font-mono text-[12px]", className)}
+      className={cn("flex items-baseline gap-[6px] font-mono text-data-sm", className)}
       style={MONO_NUM}
     >
       <span data-testid="running-totals-proposed" className="text-text-2">
         {proposed}
       </span>
-      <span className="text-[11px] uppercase tracking-wider text-text-3">
+      <span className="text-micro uppercase tracking-wider text-text-3">
         {t("totals.proposed", "PROPOSED")}
       </span>
       <span aria-hidden className="text-text-mute">
@@ -51,7 +51,7 @@ export function RunningTotals({ totals, className }: RunningTotalsProps) {
       <span data-testid="running-totals-added" className="text-olive">
         {added}
       </span>
-      <span className="text-[11px] uppercase tracking-wider text-text-3">
+      <span className="text-micro uppercase tracking-wider text-text-3">
         {t("totals.added", "ADDED")}
       </span>
     </p>
