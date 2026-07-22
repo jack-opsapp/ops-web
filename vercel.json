@@ -185,6 +185,10 @@
       "schedule": "*/5 13-23,0-4 * * *"
     },
     {
+      "path": "/api/cron/email/projection-stuck-check",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/onboarding-drip",
       "schedule": "0 * * * *"
     },
