@@ -76,6 +76,9 @@ export interface EmailSendIntent {
   followUpDraftId: string | null;
   followUpSourceEventId: string | null;
   followUpRecipientEmail: string | null;
+  followUpOutcomeAppliedAt: string | null;
+  followUpComebackAt: string | null;
+  followUpNotificationId: string | null;
   learningAuthority: EmailSendLearningAuthority;
   actorNameSnapshot: string;
   actorEmailSnapshot: string;
@@ -182,6 +185,9 @@ function mapIntent(row: Record<string, unknown>): EmailSendIntent {
     followUpDraftId: nullableText(row.follow_up_draft_id),
     followUpSourceEventId: nullableText(row.follow_up_source_event_id),
     followUpRecipientEmail: nullableText(row.follow_up_recipient_email),
+    followUpOutcomeAppliedAt: nullableText(row.follow_up_outcome_applied_at),
+    followUpComebackAt: nullableText(row.follow_up_comeback_at),
+    followUpNotificationId: nullableText(row.follow_up_notification_id),
     learningAuthority: text(
       row.learning_authority
     ) as EmailSendLearningAuthority,
@@ -248,6 +254,25 @@ export function buildEmailSendRequestFingerprint(
 
 export class EmailSendIntentService {
   constructor(private readonly supabase: SupabaseClient) {}
+
+  async findByIdempotencyKey(input: {
+    companyId: string;
+    idempotencyKey: string;
+  }): Promise<EmailSendIntent | null> {
+    const { data, error } = await this.supabase
+      .from("email_send_intents")
+      .select("*")
+      .eq("company_id", input.companyId)
+      .eq("idempotency_key", input.idempotencyKey.trim())
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      throw new Error(
+        error.message || "EMAIL_SEND_INTENT_IDEMPOTENCY_LOOKUP_FAILED"
+      );
+    }
+    return data ? mapIntent(data as Record<string, unknown>) : null;
+  }
 
   private async requiredRpc(
     name: string,

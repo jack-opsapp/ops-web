@@ -138,6 +138,36 @@ describe("email send intent fingerprint", () => {
 });
 
 describe("EmailSendIntentService", () => {
+  it("finds an existing company-scoped idempotency record before rebuilding a request", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: row({ status: "reconciled" }),
+      error: null,
+    });
+    const limit = vi.fn(() => ({ maybeSingle }));
+    const secondEq = vi.fn(() => ({ limit }));
+    const firstEq = vi.fn(() => ({ eq: secondEq }));
+    const select = vi.fn(() => ({ eq: firstEq }));
+    const from = vi.fn(() => ({ select }));
+    const service = new EmailSendIntentService({ from } as never);
+
+    const intent = await service.findByIdempotencyKey({
+      companyId: BASE_INPUT.companyId,
+      idempotencyKey: BASE_INPUT.idempotencyKey,
+    });
+
+    expect(from).toHaveBeenCalledWith("email_send_intents");
+    expect(select).toHaveBeenCalledWith("*");
+    expect(firstEq).toHaveBeenCalledWith("company_id", BASE_INPUT.companyId);
+    expect(secondEq).toHaveBeenCalledWith(
+      "idempotency_key",
+      BASE_INPUT.idempotencyKey
+    );
+    expect(intent).toMatchObject({
+      id: "0ab9bcef-16e5-4451-8e4e-9dd4dbf72115",
+      status: "reconciled",
+    });
+  });
+
   it("prepares one durable intent with only canonical server-derived identities", async () => {
     const db = dbMock();
     db.rpc.mockResolvedValue({ data: row(), error: null });

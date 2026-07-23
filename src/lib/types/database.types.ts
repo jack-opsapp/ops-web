@@ -18686,6 +18686,16 @@ export type Database = {
         Args: { p_batch_id: string }
         Returns: number
       }
+      reconcile_operator_template_follow_up_send_as_system: {
+        Args: { p_intent_id: string }
+        Returns: {
+          applied_at: string
+          comeback_at: string | null
+          intent_id: string
+          notification_id: string
+          opportunity_id: string
+        }[]
+      }
       record_auto_bug:
         | {
             Args: {

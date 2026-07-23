@@ -19,6 +19,7 @@ const ALL_TYPES: NotificationType[] = [
   "leads_waiting",
   "lead_assigned",
   "lead_assignment_required",
+  "lead_follow_up_sent",
   "system",
   "project_assigned",
   "lead_converted",

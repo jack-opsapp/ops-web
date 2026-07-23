@@ -37,6 +37,7 @@ function getTypeColor(type: NotificationType): string {
       return WT.warning;
     case "pipeline_complete":
     case "gmail_sync":
+    case "lead_follow_up_sent":
       return WT.success;
     case "mention":
     case "role_needed":
@@ -59,6 +60,7 @@ function getTypeLabel(type: NotificationType): string {
     case "intel_available": return "Intel";
     case "setup_prompt": return "Setup";
     case "leads_waiting": return "Leads";
+    case "lead_follow_up_sent": return "Follow-up sent";
     case "system": return "System";
     case "project_assigned": return "Project";
     case "schedule_change": return "Schedule";

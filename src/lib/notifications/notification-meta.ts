@@ -55,6 +55,11 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
     icon: "user-plus",
     tone: "critical",
   },
+  lead_follow_up_sent: {
+    label: "FOLLOW UP",
+    icon: "check-circle-2",
+    tone: "ambient",
+  },
   system: { label: "SYS", icon: "activity", tone: "ambient" },
   project_assigned: { label: "PROJECT", icon: "briefcase", tone: "accent" },
   lead_converted: { label: "WON", icon: "folder-input", tone: "accent" },
