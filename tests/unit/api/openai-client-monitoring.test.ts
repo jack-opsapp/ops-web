@@ -17,6 +17,29 @@ const QUOTA_RESPONSE = {
   },
 };
 
+// 2026-07-22 outage shape: the org/billing quota 429 carried the signal in
+// `type` while `code` came back null. The old code-only detector never fired.
+const QUOTA_RESPONSE_TYPE_ONLY_NULL_CODE = {
+  error: {
+    message: "You exceeded your current quota.",
+    type: "insufficient_quota",
+    code: null,
+  },
+};
+
+// Same class of error with the `code` key omitted entirely.
+const QUOTA_RESPONSE_TYPE_ONLY_NO_CODE = {
+  error: {
+    message: "You exceeded your current quota.",
+    type: "insufficient_quota",
+  },
+};
+
+// A genuine throttle carries no insufficient_quota signal on either field.
+const RATE_LIMIT_RESPONSE = {
+  error: { type: "requests", code: "rate_limit_exceeded" },
+};
+
 function requestHeaders(retryCount = 0): Headers {
   return new Headers({ "X-Stainless-Retry-Count": String(retryCount) });
 }
@@ -36,7 +59,7 @@ afterEach(() => {
 });
 
 describe("createMonitoredOpenAIFetch", () => {
-  it("opens an incident only for the exact insufficient_quota provider code", async () => {
+  it("opens an incident only for the insufficient_quota provider code or type", async () => {
     const monitor = createMonitor();
     const fetchImpl = vi
       .fn<typeof fetch>()
@@ -80,7 +103,88 @@ describe("createMonitoredOpenAIFetch", () => {
     });
   });
 
-  it("uses the exact provider code rather than assuming a fixed HTTP status", async () => {
+  it("opens an incident when only error.type carries insufficient_quota (2026-07-22 outage shape)", async () => {
+    const monitor = createMonitor();
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        Response.json(QUOTA_RESPONSE_TYPE_ONLY_NULL_CODE, { status: 429 })
+      );
+    const monitoredFetch = createMonitoredOpenAIFetch({
+      fetchImpl,
+      keySource: "OPENAI_API_KEY_SYNC",
+      workload: "email_sync",
+      monitor,
+    });
+
+    await monitoredFetch("https://api.openai.com/v1/chat/completions", {
+      headers: requestHeaders(),
+    });
+
+    expect(monitor.reportOpenAIQuotaExhausted).toHaveBeenCalledTimes(1);
+    expect(monitor.reportOpenAIQuotaExhausted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        keySource: "OPENAI_API_KEY_SYNC",
+        workload: "email_sync",
+        errorMetadata: expect.objectContaining({
+          code: "insufficient_quota",
+          type: "insufficient_quota",
+          status: 429,
+        }),
+      })
+    );
+  });
+
+  it("opens an incident when the insufficient_quota code key is absent entirely", async () => {
+    const monitor = createMonitor();
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(
+        Response.json(QUOTA_RESPONSE_TYPE_ONLY_NO_CODE, { status: 429 })
+      );
+    const monitoredFetch = createMonitoredOpenAIFetch({
+      fetchImpl,
+      keySource: "OPENAI_API_KEY",
+      workload: "email_drafting",
+      monitor,
+    });
+
+    await monitoredFetch("https://api.openai.com/v1/chat/completions", {
+      headers: requestHeaders(),
+    });
+
+    expect(monitor.reportOpenAIQuotaExhausted).toHaveBeenCalledTimes(1);
+    expect(monitor.reportOpenAIQuotaExhausted).toHaveBeenCalledWith(
+      expect.objectContaining({
+        errorMetadata: expect.objectContaining({
+          code: "insufficient_quota",
+          type: "insufficient_quota",
+          status: 429,
+        }),
+      })
+    );
+  });
+
+  it("never opens an incident for a genuine rate limit carrying no quota signal", async () => {
+    const monitor = createMonitor();
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(RATE_LIMIT_RESPONSE, { status: 429 }));
+    const monitoredFetch = createMonitoredOpenAIFetch({
+      fetchImpl,
+      keySource: "OPENAI_API_KEY_SYNC",
+      workload: "email_sync",
+      monitor,
+    });
+
+    await monitoredFetch("https://api.openai.com/v1/chat/completions", {
+      headers: requestHeaders(),
+    });
+
+    expect(monitor.reportOpenAIQuotaExhausted).not.toHaveBeenCalled();
+  });
+
+  it("uses the provider code or type rather than assuming a fixed HTTP status", async () => {
     const monitor = createMonitor();
     const fetchImpl = vi
       .fn<typeof fetch>()
@@ -290,6 +394,25 @@ describe("isOpenAIInsufficientQuotaError", () => {
     expect(
       isOpenAIInsufficientQuotaError(new Error("429 too many requests"))
     ).toBe(false);
+  });
+
+  it("recognizes insufficient_quota carried by error.type when code is absent", () => {
+    expect(
+      isOpenAIInsufficientQuotaError({
+        status: 429,
+        type: "insufficient_quota",
+      })
+    ).toBe(true);
+    expect(
+      isOpenAIInsufficientQuotaError({ error: { type: "insufficient_quota" } })
+    ).toBe(true);
+    expect(
+      isOpenAIInsufficientQuotaError({
+        status: 429,
+        code: "rate_limit_exceeded",
+      })
+    ).toBe(false);
+    expect(isOpenAIInsufficientQuotaError(new Error("boom"))).toBe(false);
   });
 
   it("recognizes the exact code surfaced by the installed OpenAI SDK", () => {
