@@ -6472,6 +6472,7 @@ export type Database = {
           latest_sender_email: string | null
           latest_sender_name: string | null
           latest_snippet: string | null
+          lead_scan_pending_at: string | null
           message_count: number
           next_commitment_due_at: string | null
           opportunity_id: string | null
@@ -6509,6 +6510,7 @@ export type Database = {
           latest_sender_email?: string | null
           latest_sender_name?: string | null
           latest_snippet?: string | null
+          lead_scan_pending_at?: string | null
           message_count?: number
           next_commitment_due_at?: string | null
           opportunity_id?: string | null
@@ -6546,6 +6548,7 @@ export type Database = {
           latest_sender_email?: string | null
           latest_sender_name?: string | null
           latest_snippet?: string | null
+          lead_scan_pending_at?: string | null
           message_count?: number
           next_commitment_due_at?: string | null
           opportunity_id?: string | null
