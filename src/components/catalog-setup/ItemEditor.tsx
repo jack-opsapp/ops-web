@@ -202,7 +202,7 @@ export function ItemEditor({
 
         {/* Scrollable section stack — ScrollFade so cut-off fields are always
             discoverable (the fade cue), never a hidden-scrollbar cliff. */}
-        <ScrollFade className="px-2 py-2">
+        <ScrollFade className="px-2 pt-2 pb-6">
           {/* ── IDENTITY ─────────────────────────────────────────── */}
           <section data-testid="editor-section-identity" className="flex flex-col gap-2">
             <SectionTitle>{t("editor.section.identity", "// IDENTITY")}</SectionTitle>
