@@ -3624,6 +3624,31 @@ async function markUnmatchedThreadsPendingLeadScan(
   }
 }
 
+/**
+ * Clear the deferral marker on a single thread once its lead classification has
+ * been resolved (promoted here, matched by another path, or classified a
+ * non-lead). Scoped by primary key so it never disturbs another thread's marker.
+ * Unlike setting the marker, clearing is authoritative — a failure throws so the
+ * per-thread caller in retryPendingLeadScans records it and leaves the marker in
+ * place for idempotent retry on the next sweep.
+ */
+async function clearLeadScanPendingMarker(
+  supabase: ReturnType<typeof requireSupabase>,
+  threadId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("email_threads")
+    .update({ lead_scan_pending_at: null })
+    .eq("id", threadId);
+  if (error) {
+    throw new Error(
+      `[sync-engine] failed to clear lead_scan_pending_at for thread ${threadId}: ${
+        error.message ?? "unknown error"
+      }`
+    );
+  }
+}
+
 /** Best-effort extraction of the alert service's error-metadata shape from an
  * isolated provider error. Returns undefined unless the error is a record
  * carrying both a numeric `status` and a string `code` (the two required
@@ -4437,6 +4462,231 @@ export const SyncEngine = {
     }
 
     return result;
+  },
+
+  /**
+   * Drain the deferred lead-classification queue.
+   *
+   * When the OpenAI provider is down mid-cycle, Step 5 durably marks each
+   * unmatched thread `email_threads.lead_scan_pending_at` and lets the Gmail
+   * cursor advance (see markUnmatchedThreadsPendingLeadScan). This sweep — run
+   * from the email-sync cron beside sweepStaleLeads / retryDirtyClassifications —
+   * replays those threads through the exact live Step-5 classify→promote path
+   * once the provider may have recovered, then clears the marker.
+   *
+   * Bounded batch, oldest-marker-first (the partial index keeps the scan cheap
+   * outside an outage window). Grouped by connection so each connection's
+   * provider / profile / lease is rebuilt once, mirroring runSync's setup and
+   * reusing the same helpers — no divergent context-rebuild. Per thread: fetch
+   * the conversation, take the latest inbound message, run processInboundEmail;
+   * a returned UnmatchedInboundContext is classified by reviewUnmatchedEmails and
+   * promoted by promoteClassifiedUnmatchedLead — the same single promotion
+   * implementation the live cycle uses. The marker clears once the thread has an
+   * opportunity (promoted here or matched by a deterministic path) or the
+   * reviewer classified it a non-lead. A sweep-level provider outage leaves that
+   * connection's remaining markers in place (they retry next run) — the sweep
+   * never throws out of a provider outage.
+   */
+  async retryPendingLeadScans(options?: { limit?: number }): Promise<{
+    scanned: number;
+    promoted: number;
+    cleared: number;
+    errors: string[];
+  }> {
+    const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
+    const supabase = requireSupabase();
+    const outcome = {
+      scanned: 0,
+      promoted: 0,
+      cleared: 0,
+      errors: [] as string[],
+    };
+
+    // Oldest deferrals first. The partial index on
+    // (company_id, lead_scan_pending_at) WHERE lead_scan_pending_at IS NOT NULL
+    // AND opportunity_id IS NULL scopes this to the (near-empty) pending set.
+    const { data: pendingRows, error: pendingError } = await supabase
+      .from("email_threads")
+      .select("id, connection_id, provider_thread_id")
+      .not("lead_scan_pending_at", "is", null)
+      .is("opportunity_id", null)
+      .order("lead_scan_pending_at", { ascending: true })
+      .limit(limit);
+    if (pendingError) {
+      throw new Error(
+        `[sync-engine] retryPendingLeadScans query failed: ${pendingError.message}`
+      );
+    }
+
+    // Group by connection so provider/profile/lease is built once per connection.
+    const threadsByConnection = new Map<
+      string,
+      Array<{ id: string; providerThreadId: string }>
+    >();
+    for (const row of pendingRows ?? []) {
+      const connectionId = row.connection_id as string | null;
+      const providerThreadId = row.provider_thread_id as string | null;
+      if (!connectionId || !providerThreadId) continue;
+      const bucket = threadsByConnection.get(connectionId) ?? [];
+      bucket.push({ id: row.id as string, providerThreadId });
+      threadsByConnection.set(connectionId, bucket);
+    }
+
+    for (const [connectionId, threads] of threadsByConnection) {
+      // Rebuild exactly what runSync loads for a connection. The active-status
+      // guard mirrors runSync's own early return; an inactive or absent
+      // connection is skipped (its markers persist until it reactivates).
+      const connection = await EmailService.getConnection(connectionId);
+      if (!connection || connection.status !== "active") continue;
+
+      // Claim the per-connection sync lock so the drain never races a live sync
+      // on the same threads. If a sync already holds it, skip this connection —
+      // the next cron tick re-runs. Released in finally.
+      const syncLockOwner = await acquireEmailConnectionSyncLock(
+        connectionId,
+        SYNC_LOCK_CONTEXT
+      );
+      if (!syncLockOwner) continue;
+      const renewSyncLeaseIfNeeded = createEmailConnectionSyncLockRenewer({
+        connectionId,
+        ownerId: syncLockOwner,
+        context: SYNC_LOCK_CONTEXT,
+      });
+
+      const provider = EmailService.getProvider(connection);
+      const profile: SyncProfile = {
+        ...(connection.syncFilters as SyncProfile),
+      };
+      const followUpDaysCache = new Map<string, number>();
+      const directionIdentity = {
+        connectionEmail: connection.email,
+        userEmailAddresses: profile.userEmailAddresses ?? [],
+        companyDomains: profile.companyDomains ?? [],
+      };
+      // Throwaway accumulator sink for the shared ingest/promotion helpers; the
+      // sweep reports its own { scanned, promoted, cleared, errors } instead.
+      const result = emptyResult();
+
+      try {
+        const { data: company } = await supabase
+          .from("companies")
+          .select("name, industry")
+          .eq("id", connection.companyId)
+          .single();
+        const companyName = (company?.name as string) || "";
+        const companyIndustry = (company?.industry as string) || "trades";
+
+        for (const thread of threads) {
+          outcome.scanned += 1;
+          try {
+            await renewSyncLeaseIfNeeded();
+            const messages = await provider.fetchThread(
+              thread.providerThreadId
+            );
+            const latestInbound = messages
+              .filter(
+                (message) =>
+                  resolvePersistedEmailDirection(message, directionIdentity) ===
+                  "inbound"
+              )
+              .sort((left, right) => left.date.getTime() - right.date.getTime())
+              .at(-1);
+            if (!latestInbound) {
+              // No inbound message remains on the thread (deleted upstream); the
+              // deferred classification can never complete — drain the marker.
+              await clearLeadScanPendingMarker(supabase, thread.id);
+              outcome.cleared += 1;
+              continue;
+            }
+
+            // Re-drive the durable inbound message through the same deterministic
+            // ingestion. A null return means a deterministic branch (thread
+            // inheritance / relationship match) already claimed it — matched by
+            // another path; clear without invoking the AI reviewer.
+            const unmatchedContext = await processInboundEmail(
+              latestInbound,
+              connection,
+              profile,
+              followUpDaysCache,
+              result,
+              renewSyncLeaseIfNeeded
+            );
+            if (!unmatchedContext) {
+              await clearLeadScanPendingMarker(supabase, thread.id);
+              outcome.cleared += 1;
+              continue;
+            }
+
+            // Still unmatched → replay the exact Step-5 classify→promote path.
+            const unmatchedContextByIdentity = new Map([
+              [
+                `${unmatchedContext.email.threadId}\u0000${unmatchedContext.email.id}`,
+                unmatchedContext,
+              ],
+            ]);
+            const aiResult = await AISyncReviewer.reviewUnmatchedEmails(
+              [unmatchedContext.email],
+              connection,
+              {
+                name: companyName,
+                industry: companyIndustry,
+                domains: profile.companyDomains || [],
+              }
+            );
+            for (const classified of aiResult.classifiedLeads) {
+              await promoteClassifiedUnmatchedLead({
+                classified,
+                connection,
+                profile,
+                result,
+                unmatchedContextByIdentity,
+                supabase,
+                followUpDaysCache,
+                renewSyncLeaseIfNeeded,
+              });
+            }
+            outcome.promoted += aiResult.newLeadsClassified;
+            // Scanned to a decision (promoted as a lead or classified a
+            // non-lead): the deferral is resolved either way — clear the marker.
+            await clearLeadScanPendingMarker(supabase, thread.id);
+            outcome.cleared += 1;
+          } catch (threadError) {
+            if (isAIProviderUnavailableError(threadError)) {
+              // Provider still down: leave this connection's remaining markers in
+              // place (they retry next run) and move to the next connection. The
+              // sweep never throws on a provider outage.
+              outcome.errors.push(
+                `connection ${connectionId}: AI provider unavailable — ${
+                  threadError instanceof Error
+                    ? threadError.message
+                    : "unknown error"
+                }`
+              );
+              break;
+            }
+            // A genuine per-thread failure (persistence, provider fetch): leave
+            // the marker in place for idempotent retry, record it, and continue
+            // with the next thread.
+            outcome.errors.push(
+              `thread ${thread.providerThreadId}: ${
+                threadError instanceof Error
+                  ? threadError.message
+                  : "unknown error"
+              }`
+            );
+          }
+        }
+      } finally {
+        await renewSyncLeaseIfNeeded.stop().catch(() => {});
+        await releaseEmailConnectionSyncLock(
+          connectionId,
+          syncLockOwner,
+          SYNC_LOCK_CONTEXT
+        );
+      }
+    }
+
+    return outcome;
   },
 
   /**

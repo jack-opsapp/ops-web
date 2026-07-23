@@ -198,6 +198,33 @@ export async function GET(request: NextRequest) {
             : "Unknown thread classification retry error";
       }
 
+      // Drain the deferred lead-classification queue. Threads whose Step-5
+      // classification was skipped during a provider outage carry
+      // `email_threads.lead_scan_pending_at`; replay them now that the AI
+      // provider may have recovered. Its own try/catch — a drain failure never
+      // fails the whole cron cycle.
+      let pendingLeadScanSweep: {
+        scanned: number;
+        promoted: number;
+        cleared: number;
+        errors: string[];
+      } = { scanned: 0, promoted: 0, cleared: 0, errors: [] };
+      let pendingLeadScanSweepError: string | null = null;
+      try {
+        pendingLeadScanSweep = await SyncEngine.retryPendingLeadScans({
+          limit: 50,
+        });
+      } catch (sweepErr) {
+        console.error(
+          "[email-cron-sync] pending lead-scan sweep error:",
+          sweepErr
+        );
+        pendingLeadScanSweepError =
+          sweepErr instanceof Error
+            ? sweepErr.message
+            : "Unknown pending lead-scan sweep error";
+      }
+
       // Drain a small durable outbound-learning batch after mailbox sync. Model
       // work never runs on the irreversible send route; the worker persists its
       // prepared payload, then one database transaction applies evidence
@@ -242,6 +269,9 @@ export async function GET(request: NextRequest) {
         (threadClassificationRetry.errors > 0 || threadClassificationRetryError
           ? 1
           : 0) +
+        (pendingLeadScanSweep.errors.length > 0 || pendingLeadScanSweepError
+          ? 1
+          : 0) +
         (outboundLearning.terminalFailed > 0 ||
         outboundLearning.bookkeepingFailed > 0 ||
         outboundLearningError
@@ -259,6 +289,8 @@ export async function GET(request: NextRequest) {
           staleSweepError,
           threadClassificationRetry,
           threadClassificationRetryError,
+          pendingLeadScanSweep,
+          pendingLeadScanSweepError,
           outboundLearning,
           outboundLearningError,
           results,
