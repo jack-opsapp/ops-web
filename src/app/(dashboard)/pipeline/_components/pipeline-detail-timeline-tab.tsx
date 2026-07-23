@@ -59,6 +59,7 @@ function isSystemEvent(type: ActivityType): boolean {
 function getActivityIcon(type: ActivityType) {
   switch (type) {
     case ActivityType.Email:
+    case ActivityType.EmailCompose:
       return Mail;
     case ActivityType.Call:
       return Phone;

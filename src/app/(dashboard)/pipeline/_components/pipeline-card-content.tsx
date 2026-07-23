@@ -222,7 +222,9 @@ export const PipelineCardContent = memo(function PipelineCardContent({
     stage: opportunity.stage,
     lastMessageDirection: opportunity.lastMessageDirection,
     lastInboundAt: opportunity.lastInboundAt,
+    lastOutboundAt: opportunity.lastOutboundAt,
     handledAt: opportunity.handledAt,
+    operatorActionRequiredAt: opportunity.operatorActionRequiredAt,
   });
   const leadNeedsReply = leadChaseState === "your_move";
   const leadIsWaiting = leadChaseState === "waiting";

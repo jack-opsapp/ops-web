@@ -8862,6 +8862,7 @@ export type Database = {
           last_message_direction: string | null
           last_outbound_at: string | null
           handled_at: string | null
+          operator_action_required_at: string | null
           latitude: number | null
           longitude: number | null
           lost_notes: string | null
@@ -8917,6 +8918,7 @@ export type Database = {
           last_message_direction?: string | null
           last_outbound_at?: string | null
           handled_at?: string | null
+          operator_action_required_at?: string | null
           latitude?: number | null
           longitude?: number | null
           lost_notes?: string | null
@@ -8972,6 +8974,7 @@ export type Database = {
           last_message_direction?: string | null
           last_outbound_at?: string | null
           handled_at?: string | null
+          operator_action_required_at?: string | null
           latitude?: number | null
           longitude?: number | null
           lost_notes?: string | null
@@ -18189,6 +18192,15 @@ export type Database = {
         }
         Returns: Json
       }
+      log_opportunity_quick_touch: {
+        Args: {
+          p_opportunity_id: string
+          p_request_id: string
+          p_subject: string
+          p_type: string
+        }
+        Returns: Json
+      }
       lookup_company_by_code: {
         Args: { lookup_code: string }
         Returns: {
@@ -18323,6 +18335,7 @@ export type Database = {
           last_message_direction: string | null
           last_outbound_at: string | null
           handled_at: string | null
+          operator_action_required_at: string | null
           latitude: number | null
           longitude: number | null
           lost_notes: string | null
@@ -19055,6 +19068,19 @@ export type Database = {
           p_task_id: string
         }
         Returns: Json
+      }
+      undo_opportunity_quick_touch: {
+        Args: {
+          p_activity_id: string
+          p_opportunity_id: string
+        }
+        Returns: Database["public"]["Tables"]["opportunities"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "opportunities"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       users_with_permission: {
         Args: {

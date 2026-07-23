@@ -33,6 +33,7 @@ function makeUpdateSupabase() {
           title: "Deck rebuild",
           stage: "quoted",
           handled_at: "2026-07-19T12:00:00.000Z",
+          operator_action_required_at: "2026-07-19T13:00:00.000Z",
           next_follow_up_at: "2026-07-22T12:00:00.000Z",
           stage_entered_at: "2026-07-01T00:00:00.000Z",
           created_at: "2026-07-01T00:00:00.000Z",
@@ -56,7 +57,7 @@ describe("OpportunityService.markHandled", () => {
     const fake = makeUpdateSupabase();
     requireSupabaseMock.mockReturnValue(fake.client);
 
-    await OpportunityService.markHandled(
+    const updated = await OpportunityService.markHandled(
       "opp-1",
       null,
       new Date("2026-07-19T12:00:00.000Z")
@@ -68,6 +69,9 @@ describe("OpportunityService.markHandled", () => {
         next_follow_up_at: "2026-07-22T12:00:00.000Z",
       },
     ]);
+    expect(updated.operatorActionRequiredAt).toEqual(
+      new Date("2026-07-19T13:00:00.000Z")
+    );
   });
 
   it("preserves an earlier future follow-up in the same two-column write", async () => {

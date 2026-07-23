@@ -88,6 +88,7 @@ function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
     lastOutboundAt: null,
     lastMessageDirection: null,
     handledAt: null,
+    operatorActionRequiredAt: null,
     aiSummary: null,
     aiSummaryUpdatedAt: null,
     aiStageConfidence: null,
@@ -385,7 +386,9 @@ describe("mapOpportunityToTableRow", () => {
     const expectedCloseDate = daysAfterNow(14);
     const updatedAt = daysBeforeNow(1);
     const lastInboundAt = daysBeforeNow(3);
+    const lastOutboundAt = daysBeforeNow(4);
     const handledAt = daysBeforeNow(2);
+    const operatorActionRequiredAt = daysBeforeNow(1);
 
     const opp = makeOpportunity({
       id: "opp-42",
@@ -400,8 +403,10 @@ describe("mapOpportunityToTableRow", () => {
       priority: OpportunityPriority.High,
       correspondenceCount: 7,
       lastInboundAt,
+      lastOutboundAt,
       lastMessageDirection: "in",
       handledAt,
+      operatorActionRequiredAt,
       stageEnteredAt,
       lastActivityAt,
       nextFollowUpAt,
@@ -467,7 +472,11 @@ describe("mapOpportunityToTableRow", () => {
     expect(row.stageEnteredAt).toBe(stageEnteredAt.toISOString());
     expect(row.lastActivityAt).toBe(lastActivityAt.toISOString());
     expect(row.lastInboundAt).toBe(lastInboundAt.toISOString());
+    expect(row.lastOutboundAt).toBe(lastOutboundAt.toISOString());
     expect(row.handledAt).toBe(handledAt.toISOString());
+    expect(row.operatorActionRequiredAt).toBe(
+      operatorActionRequiredAt.toISOString()
+    );
     expect(row.nextFollowUpAt).toBe(nextFollowUpAt.toISOString());
     expect(row.expectedCloseDate).toBe(expectedCloseDate.toISOString());
     expect(row.updatedAt).toBe(updatedAt.toISOString());

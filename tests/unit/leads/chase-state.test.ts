@@ -3,117 +3,241 @@ import {
   computeHandledFollowUpAt,
   getLeadChaseState,
   isLeadYourMove,
+  type LeadChaseStateInput,
 } from "@/lib/leads/chase-state";
 
 const NOW = new Date("2026-07-19T12:00:00.000Z");
 const LAST_INBOUND = new Date("2026-07-19T11:00:00.000Z");
 
+function chase(
+  overrides: Partial<LeadChaseStateInput> = {}
+): LeadChaseStateInput {
+  return {
+    stage: "quoted",
+    lastMessageDirection: null,
+    lastInboundAt: null,
+    lastOutboundAt: null,
+    handledAt: null,
+    operatorActionRequiredAt: null,
+    ...overrides,
+  };
+}
+
 describe("lead chase state", () => {
-  it("requires an active inbound lead before declaring YOUR MOVE", () => {
+  it("preserves direction fallback only when no timestamped signal exists", () => {
     expect(
-      isLeadYourMove({
-        stage: "quoted",
-        lastMessageDirection: "in",
-        lastInboundAt: LAST_INBOUND,
-        handledAt: null,
-      })
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "in",
+        })
+      )
     ).toBe(true);
-
     expect(
-      isLeadYourMove({
-        stage: "new_lead",
-        lastMessageDirection: "in",
-        lastInboundAt: LAST_INBOUND,
-        handledAt: null,
-      })
-    ).toBe(false);
-    expect(
-      isLeadYourMove({
-        stage: "quoted",
-        lastMessageDirection: "out",
-        lastInboundAt: LAST_INBOUND,
-        handledAt: null,
-      })
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "out",
+        })
+      )
     ).toBe(false);
   });
 
-  it("stays WAITING after handling until a newer inbound re-arms the lead", () => {
+  it("keeps NEW leads out of ownership buckets", () => {
     expect(
-      isLeadYourMove({
-        stage: "quoted",
-        lastMessageDirection: "in",
-        lastInboundAt: LAST_INBOUND,
-        handledAt: LAST_INBOUND,
-      })
+      isLeadYourMove(
+        chase({
+          stage: "new_lead",
+          operatorActionRequiredAt: NOW,
+        })
+      )
     ).toBe(false);
     expect(
-      isLeadYourMove({
-        stage: "quoted",
-        lastMessageDirection: "in",
-        lastInboundAt: "2026-07-19T11:00:00.001Z",
-        handledAt: LAST_INBOUND,
-      })
+      getLeadChaseState(
+        chase({
+          stage: "new_lead",
+          operatorActionRequiredAt: NOW,
+        })
+      )
+    ).toBeNull();
+  });
+
+  it("moves outbound, directionless, and handled leads to YOUR MOVE", () => {
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "out",
+          lastOutboundAt: LAST_INBOUND,
+          operatorActionRequiredAt: NOW,
+        })
+      )
+    ).toBe(true);
+    expect(
+      isLeadYourMove(
+        chase({
+          operatorActionRequiredAt: NOW,
+        })
+      )
+    ).toBe(true);
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "in",
+          lastInboundAt: "2026-07-19T10:00:00.000Z",
+          handledAt: LAST_INBOUND,
+          operatorActionRequiredAt: NOW,
+        })
+      )
     ).toBe(true);
   });
 
-  it("keeps an unhandled inbound in YOUR MOVE even before its timestamp projects", () => {
+  it("lets later outbound and handled signals supersede a manual correction", () => {
     expect(
-      isLeadYourMove({
-        stage: "quoted",
-        lastMessageDirection: "in",
-        lastInboundAt: null,
-        handledAt: null,
-      })
-    ).toBe(true);
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "out",
+          lastOutboundAt: NOW,
+          operatorActionRequiredAt: LAST_INBOUND,
+        })
+      )
+    ).toBe(false);
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "in",
+          lastInboundAt: "2026-07-19T10:00:00.000Z",
+          handledAt: NOW,
+          operatorActionRequiredAt: LAST_INBOUND,
+        })
+      )
+    ).toBe(false);
   });
 
-  it("does not let malformed handled data suppress a valid inbound", () => {
+  it("uses timestamps even when the denormalized direction is stale", () => {
     expect(
-      isLeadYourMove({
-        stage: "quoted",
-        lastMessageDirection: "in",
-        lastInboundAt: LAST_INBOUND,
-        handledAt: "not-a-date",
-      })
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "out",
+          lastInboundAt: NOW,
+          lastOutboundAt: LAST_INBOUND,
+        })
+      )
     ).toBe(true);
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "in",
+          lastInboundAt: LAST_INBOUND,
+          lastOutboundAt: NOW,
+        })
+      )
+    ).toBe(false);
   });
 
-  it("requires a valid inbound timestamp only when comparing against HANDLED", () => {
+  it("resolves exact ties deterministically", () => {
     expect(
-      isLeadYourMove({
-        stage: "quoted",
-        lastMessageDirection: "in",
-        lastInboundAt: "not-a-date",
-        handledAt: NOW,
-      })
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "out",
+          lastOutboundAt: NOW,
+          handledAt: NOW,
+          operatorActionRequiredAt: NOW,
+        })
+      )
+    ).toBe(true);
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "in",
+          lastInboundAt: NOW,
+          handledAt: NOW,
+        })
+      )
+    ).toBe(false);
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "in",
+          lastInboundAt: NOW,
+          lastOutboundAt: NOW,
+        })
+      )
+    ).toBe(true);
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "out",
+          lastInboundAt: NOW,
+          lastOutboundAt: NOW,
+        })
+      )
+    ).toBe(false);
+  });
+
+  it("ignores malformed timestamps and falls back only without a valid signal", () => {
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "in",
+          lastInboundAt: LAST_INBOUND,
+          handledAt: "not-a-date",
+        })
+      )
+    ).toBe(true);
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "in",
+          lastInboundAt: "not-a-date",
+          handledAt: NOW,
+        })
+      )
+    ).toBe(false);
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "in",
+          lastInboundAt: "not-a-date",
+          handledAt: "not-a-date",
+        })
+      )
     ).toBe(true);
   });
 
   it("resolves the shared presentation state from the canonical predicate", () => {
     expect(
-      getLeadChaseState({
-        stage: "quoted",
-        lastMessageDirection: "in",
-        lastInboundAt: LAST_INBOUND,
-        handledAt: null,
-      })
+      getLeadChaseState(
+        chase({
+          operatorActionRequiredAt: NOW,
+        })
+      )
     ).toBe("your_move");
     expect(
-      getLeadChaseState({
-        stage: "quoted",
-        lastMessageDirection: "in",
-        lastInboundAt: LAST_INBOUND,
-        handledAt: NOW,
-      })
+      getLeadChaseState(
+        chase({
+          lastMessageDirection: "in",
+          lastInboundAt: LAST_INBOUND,
+          handledAt: NOW,
+        })
+      )
     ).toBe("waiting");
     expect(
-      getLeadChaseState({
-        stage: "quoted",
-        lastMessageDirection: "out",
-        lastInboundAt: LAST_INBOUND,
-        handledAt: NOW,
-      })
-    ).toBeNull();
+      getLeadChaseState(
+        chase({
+          lastMessageDirection: "out",
+          lastOutboundAt: NOW,
+        })
+      )
+    ).toBe("waiting");
+  });
+
+  it("keeps an unhandled inbound in YOUR MOVE", () => {
+    expect(
+      isLeadYourMove(
+        chase({
+          lastMessageDirection: "in",
+          lastInboundAt: LAST_INBOUND,
+        })
+      )
+    ).toBe(true);
   });
 });
 
