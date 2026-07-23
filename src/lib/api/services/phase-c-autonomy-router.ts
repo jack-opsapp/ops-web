@@ -254,7 +254,6 @@ async function placePhaseCMailboxDraft(
         refreshProviderIfMissing: true,
         providerLockCheckpoint: checkpoint,
       });
-      if (!signature) throw new Error("EMAIL_SIGNATURE_REQUIRED");
       const renderedDraft = renderMailboxDraftWithSignature(
         draft.draft,
         signature

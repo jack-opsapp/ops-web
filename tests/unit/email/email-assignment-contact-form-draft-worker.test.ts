@@ -120,8 +120,8 @@ function makeHarness(input?: {
     hash: "a".repeat(64),
     providerIdentity: null,
   }));
-  const renderDraft = vi.fn((body: string) => ({
-    body: `${body}\n\n— Jackson`,
+  const renderDraft = vi.fn((body: string, signature: unknown) => ({
+    body: signature ? `${body}\n\n— Jackson` : body,
     contentType: "text" as const,
   }));
   const beginProviderCreate = vi.fn(async () =>
@@ -525,7 +525,7 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     expect(harness.sendEmail).not.toHaveBeenCalled();
   });
 
-  it("keeps a missing signature retryable after canonical notification reconciliation", async () => {
+  it("places a review-only draft when the mailbox has no configured signature", async () => {
     const harness = makeHarness();
     harness.resolveSignature.mockResolvedValue(null);
 
@@ -538,11 +538,17 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
         refreshProviderIfMissing: true,
       })
     );
-    expect(harness.placeDraft).not.toHaveBeenCalled();
-    expect(harness.fail).toHaveBeenCalledWith(
-      expect.objectContaining({ error: "EMAIL_SIGNATURE_REQUIRED" })
+    expect(harness.renderDraft).toHaveBeenCalledWith(
+      expect.stringContaining("Thanks for reaching out"),
+      null
     );
-    expect(result.retrying).toBe(1);
+    expect(harness.placeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining("Thanks for reaching out"),
+      })
+    );
+    expect(harness.fail).not.toHaveBeenCalled();
+    expect(result.drafted).toBe(1);
   });
 
   it("uses the canonical new-inquiry subject when a valid contact-form message has no subject", async () => {
