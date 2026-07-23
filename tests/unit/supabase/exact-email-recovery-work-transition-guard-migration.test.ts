@@ -110,6 +110,11 @@ describe("exact email recovery work transition guard migration", () => {
     }
   });
 
+  it("parenthesizes CASE expressions inside PL/pgSQL IF conditions", () => {
+    expect(compact).not.toMatch(/is distinct from case when/);
+    expect(compact.match(/is distinct from \( case/g)).toHaveLength(2);
+  });
+
   it("allows only audited never-started abandonment and keeps it terminal", () => {
     expect(compact).toContain("if old.state = 'abandoned'");
     expect(compact).toContain("exact_recovery_abandoned_work_is_terminal");

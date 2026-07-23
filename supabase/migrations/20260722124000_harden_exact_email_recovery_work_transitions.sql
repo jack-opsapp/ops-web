@@ -373,12 +373,14 @@ begin
       raise exception 'exact_recovery_registered_identity_changed'
         using errcode = '40001';
     end if;
-    if new.state is distinct from case
-      when old.action = 'ingest' and old.draft_projection_required
-        then 'draft_projection_pending'
-      when old.action = 'ingest' then 'complete'
-      else 'attachment_scan_pending'
-    end then
+    if new.state is distinct from (
+      case
+        when old.action = 'ingest' and old.draft_projection_required
+          then 'draft_projection_pending'
+        when old.action = 'ingest' then 'complete'
+        else 'attachment_scan_pending'
+      end
+    ) then
       raise exception 'exact_recovery_mutation_state_invalid'
         using errcode = '23514';
     end if;
@@ -418,10 +420,12 @@ begin
         v_application.target_opportunity_id,
         v_application.attachment_scan_generation
       ) <> 'complete'
-      or new.state is distinct from case
-        when old.draft_projection_required then 'draft_projection_pending'
-        else 'complete'
-      end
+      or new.state is distinct from (
+        case
+          when old.draft_projection_required then 'draft_projection_pending'
+          else 'complete'
+        end
+      )
       or exists (
         select 1
         from public.opportunities opportunity
