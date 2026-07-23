@@ -4468,36 +4468,6 @@ export const SyncEngine = {
       });
       await renewSyncLeaseIfNeeded();
 
-      const profile: SyncProfile = {
-        ...(connection.syncFilters as SyncProfile),
-      };
-      const ingestionOperator = syncIngestionOperatorIdentity(
-        connection,
-        profile,
-        await getCachedOperatorIdentity(connection)
-      );
-      const routingIdentity = buildLeadRoutingIdentity(
-        input.message,
-        {
-          provider: connection.provider,
-          connectionId: connection.id,
-        },
-        ingestionOperator
-      );
-      if (routingIdentity.mayInheritProviderThread) {
-        const refreshedThread =
-          await EmailThreadService.refreshSummaryOnlyForProviderThread({
-            companyId: input.companyId,
-            connectionId: input.connectionId,
-            providerThreadId: input.entry.providerThreadId,
-          });
-        if (!refreshedThread) {
-          throw new LifecyclePersistenceError(
-            "[sync-engine] exact reparent thread summary refresh found no canonical thread"
-          );
-        }
-      }
-
       const summaryRefresh = await refreshLeadSummariesForOpportunities({
         supabase,
         companyId: input.companyId,

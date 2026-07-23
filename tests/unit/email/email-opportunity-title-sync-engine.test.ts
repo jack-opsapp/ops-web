@@ -3731,11 +3731,7 @@ To: Kara Beach <kara.beach@example.com>`,
       companyId: "company-1",
       opportunityIds: ["source-opportunity", "target-opportunity"],
     });
-    expect(refreshSummaryOnlyForProviderThreadMock).toHaveBeenCalledWith({
-      companyId: "company-1",
-      connectionId: "connection-1",
-      providerThreadId: "provider-thread-reparented",
-    });
+    expect(refreshSummaryOnlyForProviderThreadMock).not.toHaveBeenCalled();
     expect(
       state.rpcCalls?.filter(
         (call) => call.name === "authorize_opportunity_action_as_system"

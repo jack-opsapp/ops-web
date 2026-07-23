@@ -927,6 +927,35 @@ describe("lead-summary active current-fact model contract", () => {
     ).resolves.toBe(complete);
     expect(openAICreateMock).toHaveBeenCalledTimes(1);
   });
+
+  it("gives the bounded retry its trusted contract failure before accepting corrected current facts", async () => {
+    const bundle = negotiatingCompleteConversationBundle();
+    openAICreateMock
+      .mockResolvedValueOnce(
+        modelResponse(
+          "Customer is negotiating the $8,450 quote for the front entrance and upper landing; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday."
+        )
+      )
+      .mockResolvedValueOnce(modelResponse(complete));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle: bundle! })
+    ).resolves.toBe(complete);
+
+    const retryRequest = openAICreateMock.mock.calls[1]?.[0] as {
+      messages?: Array<{ role?: string; content?: string }>;
+    };
+    expect(
+      retryRequest.messages?.some(
+        (message) =>
+          message.role === "system" &&
+          message.content?.includes(
+            "Previous response failed trusted contract validation"
+          ) &&
+          message.content.includes("omitted the current commercial schedule")
+      )
+    ).toBe(true);
+  });
 });
 
 type TableName =
