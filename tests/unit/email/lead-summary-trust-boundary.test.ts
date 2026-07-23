@@ -839,7 +839,7 @@ function negotiatingCompleteConversationBundle() {
       },
       {
         direction: "outbound",
-        body: "The proposed installation window is September 14.",
+        body: "The installation window is September 14.",
       },
       {
         direction: "inbound",
@@ -939,7 +939,7 @@ describe("lead-summary active current-fact model contract", () => {
     bundle.current_fact_context!.schedule =
       "Hi Corinne, Friday morning would work- could we book 10:00?Jackson Sweet (250) 538-8994 Canpro Deck and Rail Victoria Inc.";
     const summary =
-      "Customer is negotiating the $8,450 quote for the front entrance and upper landing, booked for Friday at 10:00; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing and requested Friday morning at 10:00 for installation; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
     openAICreateMock.mockResolvedValue(modelResponse(summary));
 
     await expect(
@@ -1031,7 +1031,7 @@ describe("lead-summary active current-fact model contract", () => {
     },
     {
       schedule: "May I book Friday at 10:00?",
-      reported: "Friday at 10:00",
+      reported: "the customer asked to book Friday at 10:00",
     },
   ])(
     "accepts equivalent structured schedule $reported without requiring unrelated words",
@@ -1049,6 +1049,601 @@ describe("lead-summary active current-fact model contract", () => {
       expect(openAICreateMock).toHaveBeenCalledTimes(1);
     }
   );
+
+  it("accepts a confirmed relative-day schedule without requiring a generic schedule verb", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "Tomorrow is confirmed for installation.";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing; tomorrow is confirmed, loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "Customer is negotiating the $8,450 quote for the front entrance and upper landing and works from home tomorrow; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.",
+    "Customer is negotiating the $8,450 quote for the front entrance and upper landing; tomorrow, the customer works from home; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.",
+  ])(
+    "does not mistake a work-from-home note for the confirmed relative-day schedule",
+    async (summary) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule =
+        "Tomorrow is confirmed for installation.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).rejects.toThrow("omitted the current commercial schedule");
+      expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    }
+  );
+
+  it.each([
+    {
+      schedule: "Friday at 10:00",
+      reported:
+        "Customer is negotiating the $8,450 quote for the front entrance and upper landing; loading-bay access while occupied remains the objection. Next action is to call Friday at 10:00.",
+    },
+    {
+      schedule: "September 14 at 10:00",
+      reported:
+        "Customer is negotiating the $8,450 quote for the front entrance and upper landing; the customer emailed on September 14 at 10:00, loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.",
+    },
+  ])(
+    "does not accept a matching $schedule outside a schedule assertion",
+    async ({ schedule, reported }) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule = schedule;
+      openAICreateMock.mockResolvedValue(modelResponse(reported));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).rejects.toThrow("omitted the current commercial schedule");
+      expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    }
+  );
+
+  it("requires a month-only May schedule to remain explicit", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "May is confirmed for installation.";
+    const omitted =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing; installation is confirmed, loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(omitted));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).rejects.toThrow("omitted the current commercial schedule");
+    expect(openAICreateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts an explicit confirmed month-only May schedule", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "May is confirmed for installation.";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing; May is confirmed, loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "Tomorrow is confirmed",
+    "Confirmed for tomorrow",
+    "Tomorrow is still confirmed",
+    "Tomorrow has been confirmed",
+    "Confirmed tomorrow",
+  ])("accepts the equivalent relative-day assertion %s", async (reported) => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "Tomorrow is confirmed for installation.";
+    const summary =
+      `Customer is negotiating the $8,450 quote for the front entrance and upper landing; ${reported}, ` +
+      "loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores an unrelated prior site-visit day after the confirmed work day", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "Tomorrow is confirmed for installation.";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing; tomorrow is confirmed after the Monday site visit, loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps modal May out of a Friday schedule assertion", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "We may schedule installation for Friday.";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing, with installation that may be scheduled for Friday; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    {
+      schedule: "Installation is confirmed for Friday at 10:00.",
+      reported: "Installation is not scheduled for Friday at 10:00.",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Installation is not scheduled for Friday at 10:00.",
+    },
+    {
+      schedule: "Installation is confirmed for Friday at 10:00.",
+      reported:
+        "The customer asked whether installation Friday at 10:00 is possible.",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Installation could be scheduled for Friday at 10:00.",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "It could be scheduled for Friday at 10:00.",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Installation is provisionally booked for Friday at 10:00.",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Is installation Friday at 10:00?",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Can we schedule Friday at 10:00?",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Please schedule a call Friday at 10:00.",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Book a site visit Friday at 10:00.",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Installation remains unscheduled for Friday at 10:00.",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "No installation Friday at 10:00.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Installation was called off Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Installation can be scheduled Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Installation should be scheduled Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Book time to call Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Schedule a measurement visit Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Installation is no longer happening Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Installation is off Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Installation hasn't been scheduled Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Installation hasn’t been scheduled Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Installation is likely scheduled Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Installation is probably scheduled Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Measurement visit is scheduled Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Material delivery is scheduled Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Schedule measurements Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Book a walkthrough Friday.",
+    },
+    {
+      schedule: "Friday",
+      reported: "Schedule a quote Friday.",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Material pickup is scheduled Friday at 10:00.",
+    },
+    {
+      schedule: "Friday is confirmed for installation.",
+      reported: "We may schedule Friday.",
+    },
+    {
+      schedule: "Tomorrow is confirmed for installation.",
+      reported: "Tomorrow is available for a phone call.",
+    },
+  ])(
+    "rejects a negated, tentative, or unrelated assertion for confirmed schedule $schedule",
+    async ({ schedule, reported }) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule = schedule;
+      const summary =
+        `Customer is negotiating the $8,450 quote for the front entrance and upper landing; ${reported} ` +
+        "Loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).rejects.toThrow("omitted the current commercial schedule");
+      expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    }
+  );
+
+  it.each([
+    "Installation is confirmed for Friday at 10:00. It was later cancelled.",
+    "Installation is confirmed for Friday at 10:00; Monday is scheduled instead.",
+    "Installation is confirmed for Friday at 10:00. It was later rescheduled to Monday.",
+    "Installation is confirmed for Friday at 10:00. Monday instead.",
+    "Installation is confirmed for Friday at 10:00. The customer cancelled it.",
+    "Installation is confirmed for Friday at 10:00. Moved to Monday.",
+    "Installation is confirmed for Friday at 10:00. Delayed to Monday.",
+    "Installation is confirmed for Friday at 10:00. That was cancelled.",
+    "Installation is confirmed for Friday at 10:00. Friday was cancelled.",
+  ])("rejects a later schedule contradiction: %s", async (reported) => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule = "Friday at 10:00";
+    const summary =
+      `Customer is negotiating the $8,450 quote for the front entrance and upper landing; ${reported} ` +
+      "Loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).rejects.toThrow("omitted the current commercial schedule");
+    expect(openAICreateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not let an unrelated product question weaken a confirmed schedule", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "Installation is confirmed for Friday at 10:00.";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing; installation is confirmed for Friday at 10:00, and the customer asked whether black railing is possible; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "Friday at 10:00 is locked in",
+    "We are on for Friday at 10:00",
+    "Friday at 10:00 is confirmed, black is possible",
+    "Friday at 10:00 works",
+    "Agreed on Friday at 10:00",
+    "Friday at 10:00 is a go",
+  ])(
+    "accepts the concise definitive schedule assertion %s",
+    async (reported) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule = "Friday at 10:00";
+      const summary =
+        `Customer is negotiating the $8,450 quote for the front entrance and upper landing; ${reported}; ` +
+        "loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).resolves.toBe(summary);
+      expect(openAICreateMock).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it("does not treat an unrelated source question as schedule uncertainty", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "Installation is confirmed for Friday at 10:00. Do you prefer black railing?";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing; installation is confirmed for Friday at 10:00; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves tentative modality with an equivalent concise phrase", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule = "Could we book Friday?";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing; Friday could work for installation; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "Friday might work",
+    "Friday should work",
+    "Installation is pencilled in Friday",
+    "Installation is penciled in Friday",
+  ])(
+    "accepts the equivalent tentative schedule assertion %s",
+    async (reported) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule = "Could we book Friday?";
+      const summary =
+        `Customer is negotiating the $8,450 quote for the front entrance and upper landing; ${reported}; ` +
+        "loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).resolves.toBe(summary);
+      expect(openAICreateMock).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it("accepts noon and midday as the same schedule time", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule = "Friday at noon";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing; installation is scheduled Friday at midday; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    {
+      schedule: "Friday evening at 6",
+      reported: "Installation is scheduled Friday evening at 6pm",
+    },
+    {
+      schedule: "Friday at noon",
+      reported: "Installation is scheduled Friday at 12pm",
+    },
+    {
+      schedule: "September 2026",
+      reported: "Installation is scheduled 09/2026",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Installation appointment is scheduled Friday at 10:00",
+    },
+  ])(
+    "accepts equivalent structured schedule '$reported'",
+    async ({ schedule, reported }) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule = schedule;
+      const summary =
+        `Customer is negotiating the $8,450 quote for the front entrance and upper landing; ${reported}; ` +
+        "loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).resolves.toBe(summary);
+      expect(openAICreateMock).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it.each([
+    {
+      schedule: "Friday morning",
+      reported: "Installation is scheduled Friday evening.",
+    },
+    {
+      schedule: "Tomorrow morning",
+      reported: "Installation is scheduled tomorrow afternoon.",
+    },
+    {
+      schedule: "Friday evening at 6",
+      reported: "Installation is scheduled Friday at 6:00.",
+    },
+    {
+      schedule: "Friday the 14th",
+      reported: "Installation is scheduled Friday the 15th.",
+    },
+    {
+      schedule: "Next Friday",
+      reported: "Installation is scheduled Friday.",
+    },
+    {
+      schedule: "September 2026",
+      reported: "Installation is scheduled September 2027.",
+    },
+    {
+      schedule: "May 2026",
+      reported: "Installation is scheduled in 2026.",
+    },
+    {
+      schedule: "Friday AM",
+      reported: "Installation is scheduled Friday PM.",
+    },
+    {
+      schedule: "Installation tonight",
+      reported: "Installation is scheduled.",
+    },
+    {
+      schedule: "Coming Friday",
+      reported: "Installation is scheduled Friday.",
+    },
+    {
+      schedule: "Day after tomorrow",
+      reported: "Installation is scheduled tomorrow.",
+    },
+    {
+      schedule: "Friday the 14",
+      reported: "Installation is scheduled Friday the 15.",
+    },
+    {
+      schedule: "Sept 2026",
+      reported: "Installation is scheduled Sept 2027.",
+    },
+    {
+      schedule: "09/2026",
+      reported: "Installation is scheduled 09/2027.",
+    },
+  ])(
+    "rejects changed schedule precision from '$schedule'",
+    async ({ schedule, reported }) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule = schedule;
+      const summary =
+        `Customer is negotiating the $8,450 quote for the front entrance and upper landing; ${reported} ` +
+        "Loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).rejects.toThrow("omitted the current commercial schedule");
+      expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    }
+  );
+
+  it.each([
+    "May works for us",
+    "May is booked",
+    "May is scheduled",
+    "Confirmed May",
+    "Booked May",
+  ])(
+    "requires month-only schedule wording to retain May from '%s'",
+    async (schedule) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule = schedule;
+      const summary =
+        "Customer is negotiating the $8,450 quote for the front entrance and upper landing; installation is scheduled, loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).rejects.toThrow("omitted the current commercial schedule");
+      expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    }
+  );
+
+  it.each(["Removal remains unscheduled.", "Removal is not scheduled."])(
+    "does not treat unrelated removal status as a schedule contradiction: %s",
+    async (removalStatus) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule =
+        "Installation is confirmed for Friday.";
+      const summary =
+        `Customer is negotiating the $8,450 quote for the front entrance and upper landing; installation is confirmed for Friday. ${removalStatus} ` +
+        "Loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).resolves.toBe(summary);
+      expect(openAICreateMock).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it("keeps a valid schedule when unrelated removal status shares its clause", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "Installation is confirmed for Friday at 10:00.";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing; Friday at 10:00 is confirmed, while removal remains unscheduled; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["Removal was cancelled.", "Quote review was cancelled."])(
+    "does not treat unrelated cancellation as a schedule contradiction: %s",
+    async (unrelatedCancellation) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule =
+        "Installation is confirmed for Friday.";
+      const summary =
+        `Customer is negotiating the $8,450 quote for the front entrance and upper landing; Friday is confirmed. ${unrelatedCancellation} ` +
+        "Loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).resolves.toBe(summary);
+      expect(openAICreateMock).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it("does not mistake an unrelated unconfirmed fact for a schedule contradiction", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "Installation is confirmed for Friday at 10:00.";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing; installation is confirmed for Friday at 10:00. The deposit receipt is not yet confirmed; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
 
   it("gives the bounded retry its trusted contract failure before accepting corrected current facts", async () => {
     const bundle = negotiatingCompleteConversationBundle();
