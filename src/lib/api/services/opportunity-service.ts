@@ -107,6 +107,7 @@ function mapOpportunityFromDb(row: Record<string, unknown>): Opportunity {
     lastOutboundAt: parseDate(row.last_outbound_at),
     lastMessageDirection: (row.last_message_direction as "in" | "out") ?? null,
     handledAt: parseDate(row.handled_at),
+    operatorActionRequiredAt: parseDate(row.operator_action_required_at),
 
     // AI analysis
     aiSummary: (row.ai_summary as string) ?? null,

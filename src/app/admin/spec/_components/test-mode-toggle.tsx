@@ -1,42 +1,42 @@
 "use client";
 
-import { useTransition } from "react";
+import { useId, useTransition } from "react";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils/cn";
 import { toggleSpecTestMode } from "../_actions/toggle-test-mode";
 
 export function TestModeToggle({ enabled }: { enabled: boolean }) {
   const [pending, startTransition] = useTransition();
-  const next = !enabled;
+  const id = useId();
 
   return (
-    <form
-      action={(formData: FormData) => {
-        startTransition(() => {
-          toggleSpecTestMode(formData);
-        });
-      }}
-    >
-      <input type="hidden" name="enabled" value={next ? "1" : "0"} />
-      <button
-        type="submit"
-        disabled={pending}
-        aria-pressed={enabled}
-        className={`group inline-flex items-center gap-2 rounded border px-3 py-[5px] text-[12px] uppercase tracking-[0.12em] transition-colors duration-150 ease-smooth ${
-          enabled
-            ? "border-tan/40 bg-tan/12 text-tan"
-            : "border-white/[0.10] bg-transparent text-text-3 hover:bg-white/[0.05] hover:text-text"
-        } ${pending ? "opacity-50" : ""}`}
+    <div className="inline-flex items-center gap-2.5">
+      <span
+        aria-hidden="true"
+        className="font-mono text-[10px] tracking-[0.18em] text-text-mute"
       >
-        <span aria-hidden="true" className="font-mono text-[10px] tracking-[0.18em] text-current/70">
-          {"//"}
-        </span>
-        <span className="font-mono">TEST MODE</span>
-        <span
-          aria-hidden="true"
-          className={`inline-block h-[6px] w-[6px] rounded-full ${
-            enabled ? "bg-tan" : "bg-text-mute"
-          }`}
-        />
-      </button>
-    </form>
+        {"//"}
+      </span>
+      <label
+        htmlFor={id}
+        className={cn(
+          "font-mono text-[12px] uppercase tracking-[0.12em] transition-colors duration-150",
+          enabled ? "text-tan" : "text-text-3"
+        )}
+      >
+        TEST MODE
+      </label>
+      <Switch
+        id={id}
+        checked={enabled}
+        disabled={pending}
+        aria-label="Spec test mode"
+        onCheckedChange={(next) => {
+          const formData = new FormData();
+          formData.set("enabled", next ? "1" : "0");
+          startTransition(() => toggleSpecTestMode(formData));
+        }}
+      />
+    </div>
   );
 }

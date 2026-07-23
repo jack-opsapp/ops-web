@@ -27,6 +27,7 @@ import { useSignOutStore } from "@/stores/signout-store";
 import { OpsLockup, LogoLoader } from "@/components/brand";
 import { getIdToken } from "@/lib/firebase/auth";
 import { cn } from "@/lib/utils/cn";
+import { Switch } from "@/components/ui/switch";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -82,29 +83,12 @@ function OpsToggle({
   label: string;
 }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={enabled}
+    <Switch
+      checked={enabled}
+      onCheckedChange={onToggle}
       aria-label={label}
-      onClick={onToggle}
-      className={cn(
-        "w-[44px] h-[24px] rounded-full transition-colors duration-150 relative flex-shrink-0",
-        "border",
-        enabled
-          ? "border-[rgba(255,255,255,0.12)]"
-          : "border-[rgba(255,255,255,0.08)]"
-      )}
-    >
-      <div
-        className={cn(
-          "w-[18px] h-[18px] rounded-full absolute top-[2px] transition-all duration-150",
-          enabled
-            ? "translate-x-[21px] bg-text-primary"
-            : "translate-x-[2px] bg-text-disabled"
-        )}
-      />
-    </button>
+      className="flex-shrink-0"
+    />
   );
 }
 

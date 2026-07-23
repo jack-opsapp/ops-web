@@ -76,6 +76,7 @@ function makeOpportunity(
     lastOutboundAt: null,
     lastMessageDirection: null,
     handledAt: null,
+    operatorActionRequiredAt: null,
     aiSummary: null,
     aiSummaryUpdatedAt: null,
     aiStageConfidence: null,

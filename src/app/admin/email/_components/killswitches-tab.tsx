@@ -14,8 +14,7 @@
  */
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { motion, useReducedMotion } from "framer-motion";
-import { switchToggleVariants } from "@/lib/utils/motion";
+import { Switch } from "@/components/ui/switch";
 import { PauseConfirmationModal } from "./pause-confirmation-modal";
 
 type BucketScope =
@@ -61,7 +60,6 @@ interface PauseSwitchProps {
 }
 
 function PauseSwitch({ scope, state, onPause, onResume, busy }: PauseSwitchProps) {
-  const reduced = useReducedMotion();
   const isOn = !!state?.isPaused;
   return (
     <div
@@ -83,28 +81,13 @@ function PauseSwitch({ scope, state, onPause, onResume, busy }: PauseSwitchProps
           </div>
         )}
       </div>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={isOn}
-        aria-label={`${bucketLabel(scope)} pause toggle`}
+      <Switch
+        checked={isOn}
         disabled={busy}
-        onClick={() => (isOn ? onResume() : onPause())}
-        className="relative w-[42px] h-[24px] border transition-colors shrink-0 disabled:opacity-50"
-        style={{
-          background: isOn ? "rgba(111, 148, 176, 0.2)" : "transparent",
-          borderColor: isOn ? "#6F94B0" : "rgba(255,255,255,0.18)",
-          borderRadius: 12,
-        }}
-      >
-        <motion.div
-          className="absolute top-[2px] left-[2px] w-[18px] h-[18px]"
-          style={{ background: isOn ? "#6F94B0" : "#8A8A8A", borderRadius: 9 }}
-          variants={reduced ? undefined : switchToggleVariants}
-          animate={isOn ? "on" : "off"}
-          initial={false}
-        />
-      </button>
+        onCheckedChange={(next) => (next ? onPause() : onResume())}
+        aria-label={`${bucketLabel(scope)} pause toggle`}
+        className="shrink-0"
+      />
     </div>
   );
 }

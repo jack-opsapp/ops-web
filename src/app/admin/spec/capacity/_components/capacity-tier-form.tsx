@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils/cn";
 import type { CapacityEditRow, SpecTier } from "@/lib/admin/spec-types";
 import {
   saveCapacityAction,
@@ -373,24 +375,21 @@ function Toggle({
       <span className="block font-mono text-[10px] uppercase tracking-[0.18em] text-text-3">
         {label}
       </span>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-pressed={enabled}
-        className={`mt-1.5 inline-flex h-[34px] items-center justify-between gap-3 rounded border px-3 font-mono text-[11px] uppercase tracking-[0.14em] transition-colors duration-150 ease-smooth ${
-          enabled
-            ? "border-olive/40 bg-olive/8 text-olive"
-            : "border-brick/40 bg-brick/8 text-rose"
-        }`}
-      >
-        <span>{enabled ? "OPEN" : "CLOSED"}</span>
-        <span
-          aria-hidden="true"
-          className={`inline-block h-[8px] w-[8px] rounded-full ${
-            enabled ? "bg-olive" : "bg-rose"
-          }`}
+      <div className="mt-1.5 flex h-[34px] items-center gap-2.5">
+        <Switch
+          checked={enabled}
+          onCheckedChange={onToggle}
+          aria-label={label}
         />
-      </button>
+        <span
+          className={cn(
+            "font-mono text-[11px] uppercase tracking-[0.14em]",
+            enabled ? "text-olive" : "text-rose"
+          )}
+        >
+          {enabled ? "OPEN" : "CLOSED"}
+        </span>
+      </div>
     </div>
   );
 }

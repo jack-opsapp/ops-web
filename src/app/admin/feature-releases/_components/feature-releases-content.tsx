@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { ChevronDown, ChevronRight, Plus, Search, Trash2, X, Edit2, Check } from "lucide-react";
 import { PERMISSION_CATEGORIES } from "@/lib/types/permissions";
+import { Switch } from "@/components/ui/switch";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -713,21 +714,7 @@ function ToggleSwitch({
   checked: boolean;
   onChange: (val: boolean) => void;
 }) {
-  return (
-    <button
-      onClick={() => onChange(!checked)}
-      className={`relative w-[44px] h-[24px] rounded-full transition-colors ${
-        checked ? "bg-[#9DB582]" : "bg-white/[0.1]"
-      }`}
-    >
-      <div
-        className={`absolute top-[2px] w-[20px] h-[20px] rounded-full bg-white shadow transition-transform ${
-          checked ? "translate-x-[22px]" : "translate-x-[2px]"
-        }`}
-      />
-      <span className="sr-only">{checked ? "ON" : "OFF"}</span>
-    </button>
-  );
+  return <Switch checked={checked} onCheckedChange={onChange} />;
 }
 
 // ─── New Flag Form ───────────────────────────────────────────────────────────

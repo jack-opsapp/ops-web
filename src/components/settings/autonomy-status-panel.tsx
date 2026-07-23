@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils/cn";
+import { Switch } from "@/components/ui/switch";
 import { useDictionary } from "@/i18n/client";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { EmailCategoryAutonomy } from "./email-category-autonomy";
@@ -266,34 +267,12 @@ export function AutonomyStatusPanel({
             </span>
           </div>
 
-          {/* Toggle — 56dp tap area */}
-          <button
-            onClick={handleAutoDraftToggle}
+          <Switch
+            checked={data.autoDraftEnabled}
             disabled={saving || data.confidence <= 0.75}
-            className={cn(
-              "relative -m-[19px] flex h-[56px] w-[56px] items-center justify-center",
-              (saving || data.confidence <= 0.75) &&
-                "cursor-not-allowed opacity-50"
-            )}
-          >
-            <div
-              className={cn(
-                "relative h-[18px] w-[36px] rounded-full transition-colors",
-                data.autoDraftEnabled
-                  ? "bg-text-2"
-                  : "bg-[rgba(255,255,255,0.1)]"
-              )}
-            >
-              <div
-                className={cn(
-                  "absolute top-[2px] h-[14px] w-[14px] rounded-full bg-white transition-transform",
-                  data.autoDraftEnabled
-                    ? "translate-x-[20px]"
-                    : "translate-x-[2px]"
-                )}
-              />
-            </div>
-          </button>
+            onCheckedChange={handleAutoDraftToggle}
+            aria-label={t("autoDraft.title")}
+          />
         </div>
 
         <p className="font-mohave text-caption-sm text-text-mute">
