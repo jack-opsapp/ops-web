@@ -33,6 +33,7 @@
 
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { getSyncOpenAI } from "./openai-clients";
+import { isAIProviderUnavailableError } from "./openai-monitoring";
 import { cleanMessageBody } from "./conversation-state/message-cleaner";
 import { extractCommercialDealPrices } from "@/lib/email/commercial-price";
 import { detectCommercialOutcome } from "@/lib/email/terminal-stage-decision";
@@ -1901,7 +1902,19 @@ export interface TargetedLeadSummaryRefreshResult {
   requested: number;
   written: number;
   skippedFeatureDisabled: boolean;
+  /**
+   * Genuine per-opportunity failures — a persistence write error or an unusable
+   * model answer. The sync cycle treats a non-empty `failed` as cursor-holding
+   * so the work replays.
+   */
   failed: Array<{ opportunityId: string; error: string }>;
+  /**
+   * Per-opportunity summaries skipped because the AI provider was unavailable
+   * (quota / outage / transport). These are deferrable, not failures: the
+   * summary stays dirty and recovers on the next inbound message or refresh, and
+   * the sync cycle advances its cursor instead of freezing on a doomed replay.
+   */
+  deferred: Array<{ opportunityId: string; error: string }>;
 }
 
 /**
@@ -1922,6 +1935,7 @@ export async function refreshLeadSummariesForOpportunities(input: {
     written: 0,
     skippedFeatureDisabled: false,
     failed: [],
+    deferred: [],
   };
   if (opportunityIds.length === 0) return result;
 
@@ -1999,10 +2013,19 @@ export async function refreshLeadSummariesForOpportunities(input: {
         });
         result.written += 1;
       } catch (error) {
-        result.failed.push({
+        const entry = {
           opportunityId: opportunity.id,
           error: error instanceof Error ? error.message : "unknown error",
-        });
+        };
+        // An AI-provider outage (quota / 5xx / transport) is deferrable, not a
+        // data failure: bucket it separately so the sync cycle advances its
+        // cursor instead of holding it for a replay that cannot succeed until
+        // the provider recovers.
+        if (isAIProviderUnavailableError(error)) {
+          result.deferred.push(entry);
+        } else {
+          result.failed.push(entry);
+        }
       }
     }
   }
