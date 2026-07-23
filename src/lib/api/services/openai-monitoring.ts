@@ -167,6 +167,73 @@ export function isOpenAIInsufficientQuotaError(error: unknown): boolean {
   return isRecord(error.error) && hasInsufficientQuotaSignal(error.error);
 }
 
+const AI_PROVIDER_UNAVAILABLE_ERROR_NAMES = new Set([
+  "APIConnectionError",
+  "APIConnectionTimeoutError",
+]);
+
+const MAX_PROVIDER_CAUSE_DEPTH = 3;
+
+function isProviderOutageStatus(status: unknown): boolean {
+  if (typeof status !== "number") return false;
+  return (
+    status === 429 ||
+    status === 401 ||
+    status === 403 ||
+    (status >= 500 && status <= 599)
+  );
+}
+
+// `*ContractError` / `*RefusalError` mean the model answered but its answer was
+// unusable for one thread; `LifecyclePersistenceError` is our own DB write
+// failure. Neither is a provider outage — a node carrying such a name never
+// signals unavailability itself, but the walk continues so a genuine provider
+// error wrapped as its `.cause` is still surfaced.
+function isModelAnsweredOrPersistenceName(name: unknown): boolean {
+  return (
+    typeof name === "string" &&
+    (name === "LifecyclePersistenceError" ||
+      name.endsWith("ContractError") ||
+      name.endsWith("RefusalError"))
+  );
+}
+
+/**
+ * True when `error` — or a provider error up to three `.cause` links deep —
+ * means the OpenAI call did not complete for reasons outside our data:
+ * insufficient quota, a provider outage (HTTP 5xx), rate limiting past the SDK's
+ * own retries (429), a missing/rejected key (401/403), or an SDK transport
+ * failure (`APIConnectionError` / `APIConnectionTimeoutError`, matched by name
+ * because `instanceof` is unreliable across the SDK boundary). The sync cycle
+ * treats these as deferrable and lets the Gmail cursor advance.
+ *
+ * Returns false for our own `LifecyclePersistenceError` (a real persistence
+ * failure that must hold the cursor for idempotent replay) and for
+ * model-answered-but-unusable errors (`*ContractError` / `*RefusalError`). Those
+ * names gate a node out of the positive checks but do not stop the walk, so a
+ * contract error wrapping a genuine quota cause is still reported unavailable.
+ */
+export function isAIProviderUnavailableError(error: unknown): boolean {
+  let node: unknown = error;
+  for (let depth = 0; depth <= MAX_PROVIDER_CAUSE_DEPTH; depth += 1) {
+    if (!isRecord(node)) return false;
+
+    if (!isModelAnsweredOrPersistenceName(node.name)) {
+      if (isOpenAIInsufficientQuotaError(node)) return true;
+      if (isProviderOutageStatus(node.status)) return true;
+      if (
+        typeof node.name === "string" &&
+        AI_PROVIDER_UNAVAILABLE_ERROR_NAMES.has(node.name)
+      ) {
+        return true;
+      }
+    }
+
+    node = node.cause;
+  }
+  return false;
+}
+
 export function isOpenAIRetryableRateLimitError(error: unknown): boolean {
   if (isOpenAIInsufficientQuotaError(error)) return false;
   if (isRecord(error) && error.status === 429) return true;

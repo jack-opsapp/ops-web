@@ -1308,6 +1308,7 @@ describe("SyncEngine email opportunity title generation", () => {
         written: input.opportunityIds.length,
         skippedFeatureDisabled: false,
         failed: [],
+        deferred: [],
       })
     );
     evaluateOpportunityAcceptanceMock.mockReset();
@@ -3097,6 +3098,7 @@ To: Kara Beach <kara.beach@example.com>`,
       written: 0,
       skippedFeatureDisabled: true,
       failed: [],
+      deferred: [],
     });
 
     const result = await SyncEngine.ingestExactInboundMessageForRecovery({
@@ -3757,6 +3759,7 @@ To: Kara Beach <kara.beach@example.com>`,
       written: 0,
       skippedFeatureDisabled: true,
       failed: [],
+      deferred: [],
     });
     await expect(runRepair()).rejects.toThrow(
       "exact reparent summary refresh incomplete"
@@ -4164,6 +4167,7 @@ To: Kara Beach <kara.beach@example.com>`,
           error: "summary write unavailable",
         },
       ],
+      deferred: [],
     });
 
     const result = await SyncEngine.runSync("connection-1");
@@ -5606,6 +5610,7 @@ describe("SyncEngine Gmail history completeness", () => {
         written: input.opportunityIds.length,
         skippedFeatureDisabled: false,
         failed: [],
+        deferred: [],
       })
     );
     upsertFromEmailMock.mockReset();

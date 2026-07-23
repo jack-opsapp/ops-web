@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
@@ -695,5 +698,148 @@ describe("OpenAI quota alert service", () => {
     expect(sendPush).toHaveBeenCalledWith(
       expect.objectContaining({ idempotencyKey: NEXT_NOTIFICATION_ID })
     );
+  });
+
+  it("surfaces an unconfigured-identity alert distinctly instead of a delivery failure", async () => {
+    const db = createDbFixture();
+    const createNotifications = vi.fn();
+    const log = vi.fn();
+    const service = createOpenAIQuotaAlertService({
+      db: db.db,
+      env: {
+        OPS_PLATFORM_ALERT_USER_ID: "not-a-uuid",
+        OPS_PLATFORM_ALERT_COMPANY_ID: COMPANY_ID,
+      },
+      createNotifications,
+      sendPush: vi.fn(),
+      log,
+    });
+
+    await expect(
+      service.reportOpenAIQuotaExhausted({
+        keySource: "OPENAI_API_KEY_SYNC",
+        workload: "email_sync",
+      })
+    ).resolves.toBeUndefined();
+
+    expect(log).toHaveBeenCalledWith(
+      "openai_quota_alert_unconfigured",
+      expect.objectContaining({ reason: "identity_not_configured" })
+    );
+    const events = log.mock.calls.map((call) => call[0]);
+    expect(events).not.toContain("openai_quota_notification_failed");
+    // No recipient exists — the alert must never substitute a default one.
+    expect(createNotifications).not.toHaveBeenCalled();
+    expect(db.from).not.toHaveBeenCalled();
+  });
+
+  it("treats a fully unset alert identity as an unconfigured-identity diagnostic", async () => {
+    const db = createDbFixture();
+    const createNotifications = vi.fn();
+    const log = vi.fn();
+    const service = createOpenAIQuotaAlertService({
+      db: db.db,
+      env: {},
+      createNotifications,
+      sendPush: vi.fn(),
+      log,
+    });
+
+    await expect(
+      service.reportOpenAIQuotaExhausted({
+        keySource: "OPENAI_API_KEY_SYNC",
+        workload: "email_sync",
+      })
+    ).resolves.toBeUndefined();
+
+    expect(log).toHaveBeenCalledWith(
+      "openai_quota_alert_unconfigured",
+      expect.objectContaining({ reason: "identity_not_configured" })
+    );
+    expect(createNotifications).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an ineligible-recipient alert with the recipient_not_admin reason", async () => {
+    const db = createDbFixture({
+      user: {
+        id: USER_ID,
+        company_id: COMPANY_ID,
+        email: "ops-owner@example.com",
+        is_active: true,
+        is_company_admin: false,
+        deleted_at: null,
+      },
+      company: {
+        id: COMPANY_ID,
+        account_holder_id: "44444444-4444-4444-8444-444444444444",
+        admin_ids: [],
+        deleted_at: null,
+      },
+    });
+    const { service, createNotifications, log } = serviceFixture({ db });
+
+    await expect(
+      service.reportOpenAIQuotaExhausted({
+        keySource: "OPENAI_API_KEY_SYNC",
+        workload: "email_sync",
+      })
+    ).resolves.toBeUndefined();
+
+    expect(log).toHaveBeenCalledWith(
+      "openai_quota_alert_unconfigured",
+      expect.objectContaining({ reason: "recipient_not_admin" })
+    );
+    const events = log.mock.calls.map((call) => call[0]);
+    expect(events).not.toContain("openai_quota_notification_failed");
+    expect(createNotifications).not.toHaveBeenCalled();
+  });
+
+  it("keeps emitting the delivery-failure diagnostic when the durable write fails", async () => {
+    const createNotifications = vi
+      .fn()
+      .mockRejectedValue(new Error("notification insert failed"));
+    const { service, log } = serviceFixture({ createNotifications });
+
+    await expect(
+      service.reportOpenAIQuotaExhausted({
+        keySource: "OPENAI_API_KEY_SYNC",
+        workload: "email_sync",
+      })
+    ).resolves.toBeUndefined();
+
+    const events = log.mock.calls.map((call) => call[0]);
+    expect(events).toContain("openai_quota_notification_failed");
+    expect(events).not.toContain("openai_quota_alert_unconfigured");
+  });
+
+  it("never substitutes a hardcoded fallback recipient in source or at runtime", async () => {
+    const source = readFileSync(
+      join(
+        process.cwd(),
+        "src/lib/notifications/openai-quota-alert-service.ts"
+      ),
+      "utf8"
+    );
+    // A concrete UUID literal in the module would betray a hardcoded recipient.
+    expect(source).not.toMatch(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+    );
+
+    const db = createDbFixture();
+    const createNotifications = vi.fn();
+    const service = createOpenAIQuotaAlertService({
+      db: db.db,
+      env: {},
+      createNotifications,
+      sendPush: vi.fn(),
+      log: vi.fn(),
+    });
+    await service.reportOpenAIQuotaExhausted({
+      keySource: "OPENAI_API_KEY_SYNC",
+      workload: "email_sync",
+    });
+    // Unconfigured path resolves nothing and writes nothing — no default recipient.
+    expect(createNotifications).not.toHaveBeenCalled();
+    expect(db.from).not.toHaveBeenCalled();
   });
 });
