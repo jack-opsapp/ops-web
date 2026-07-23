@@ -79,6 +79,7 @@ function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
     lastOutboundAt: null,
     lastMessageDirection: "in",
     handledAt: null,
+    operatorActionRequiredAt: null,
     aiSummary: null,
     aiSummaryUpdatedAt: null,
     aiStageConfidence: null,
@@ -129,8 +130,10 @@ function makeTableRow(
     staleThresholdDays: null,
     winProbabilityIsFallback: false,
     lastInboundAt: INBOUND_AT.toISOString(),
+    lastOutboundAt: null,
     lastMessageDirection: "in",
     handledAt: null,
+    operatorActionRequiredAt: null,
     ...overrides,
   } as PipelineTableRowModel;
 }
@@ -255,6 +258,35 @@ beforeEach(() => {
 });
 
 describe("pipeline chase-state surface parity", () => {
+  it("propagates a manual YOUR MOVE correction through mobile and table rows", () => {
+    const { unmount } = renderMobileCard({
+      opportunity: makeOpportunity({
+        lastInboundAt: null,
+        lastOutboundAt: HANDLED_AT,
+        lastMessageDirection: "out",
+        handledAt: HANDLED_AT,
+        operatorActionRequiredAt: NEXT_FOLLOW_UP_AT,
+      }),
+      canManage: false,
+    });
+
+    expect(screen.getByText("YOUR MOVE")).toBeInTheDocument();
+    unmount();
+
+    renderTableRow({
+      row: makeTableRow({
+        lastInboundAt: null,
+        lastOutboundAt: HANDLED_AT.toISOString(),
+        lastMessageDirection: "out",
+        handledAt: HANDLED_AT.toISOString(),
+        operatorActionRequiredAt: NEXT_FOLLOW_UP_AT.toISOString(),
+      }),
+      canEdit: false,
+    });
+
+    expect(screen.getByText("YOUR MOVE")).toBeInTheDocument();
+  });
+
   it("renders YOUR MOVE on the mobile card and uses the atomic HANDLED mutation", async () => {
     const onToggleExpand = vi.fn();
     opportunityService.markHandled.mockResolvedValue(

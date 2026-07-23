@@ -109,6 +109,7 @@ export enum InvoiceStatus {
 export enum ActivityType {
   Note = "note",
   Email = "email",
+  EmailCompose = "email_compose",
   Call = "call",
   TextMessage = "text_message",
   Meeting = "meeting",
@@ -276,6 +277,7 @@ export const INVOICE_STATUS_COLORS: Record<InvoiceStatus, string> = {
 export const ACTIVITY_TYPE_COLORS: Record<ActivityType, string> = {
   [ActivityType.Note]: "#9CA3AF",
   [ActivityType.Email]: "#D99A3E",
+  [ActivityType.EmailCompose]: "#D99A3E",
   [ActivityType.Call]: "#9DB582",
   [ActivityType.TextMessage]: "#D99A3E",
   [ActivityType.Meeting]: "#4E4B48",
@@ -460,6 +462,7 @@ export interface Opportunity {
   lastOutboundAt: Date | null;
   lastMessageDirection: "in" | "out" | null;
   handledAt: Date | null;
+  operatorActionRequiredAt: Date | null;
 
   // AI analysis
   aiSummary: string | null;
@@ -1211,6 +1214,7 @@ export type CreateOpportunity = Omit<
   | "lastOutboundAt"
   | "lastMessageDirection"
   | "handledAt"
+  | "operatorActionRequiredAt"
   | "aiSummaryUpdatedAt"
   | "createdAt"
   | "updatedAt"

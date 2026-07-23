@@ -201,6 +201,7 @@
   "activity.more": "more",
   "activity.type.note": "Note",
   "activity.type.email": "Email",
+  "activity.type.email_compose": "Email",
   "activity.type.call": "Call",
   "activity.type.text_message": "Text",
   "activity.type.meeting": "Meeting",

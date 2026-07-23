@@ -8,7 +8,9 @@ export interface LeadChaseStateInput {
   stage: string;
   lastMessageDirection: "in" | "out" | null;
   lastInboundAt: DateLike;
+  lastOutboundAt: DateLike;
   handledAt: DateLike;
+  operatorActionRequiredAt: DateLike;
 }
 
 function toValidMillis(value: DateLike): number | null {
@@ -17,20 +19,43 @@ function toValidMillis(value: DateLike): number | null {
   return Number.isFinite(millis) ? millis : null;
 }
 
-/** Canonical cross-client YOUR MOVE rule for a pipeline opportunity. */
+/**
+ * Canonical cross-client YOUR MOVE rule for a pipeline opportunity.
+ *
+ * The newest valid event wins. Manual signals resolve exact ties before
+ * correspondence; the explicit action-required correction resolves a tie with
+ * handled. Inbound/outbound correspondence ties use the projected direction.
+ */
 export function isLeadYourMove(input: LeadChaseStateInput): boolean {
-  if (input.stage === "new_lead" || input.lastMessageDirection !== "in") {
-    return false;
+  if (input.stage === "new_lead") return false;
+
+  const lastInboundAt = toValidMillis(input.lastInboundAt);
+  const lastOutboundAt = toValidMillis(input.lastOutboundAt);
+  const handledAt = toValidMillis(input.handledAt);
+  const operatorActionRequiredAt = toValidMillis(
+    input.operatorActionRequiredAt
+  );
+  const validSignals = [
+    lastInboundAt,
+    lastOutboundAt,
+    handledAt,
+    operatorActionRequiredAt,
+  ].filter((value): value is number => value !== null);
+
+  if (validSignals.length === 0) {
+    return input.lastMessageDirection === "in";
   }
 
-  if (input.handledAt == null) return true;
+  const latest = Math.max(...validSignals);
+  if (operatorActionRequiredAt === latest) return true;
+  if (handledAt === latest) return false;
 
-  const handledAt = toValidMillis(input.handledAt);
-  const lastInboundAt = toValidMillis(input.lastInboundAt);
-  // Reply debt is fail-safe: malformed or temporarily incomplete projection
-  // data must never hide a customer's latest inbound from the operator.
-  if (handledAt === null || lastInboundAt === null) return true;
-  return lastInboundAt > handledAt;
+  const inboundIsLatest = lastInboundAt === latest;
+  const outboundIsLatest = lastOutboundAt === latest;
+  if (inboundIsLatest && outboundIsLatest) {
+    return input.lastMessageDirection === "in";
+  }
+  return inboundIsLatest;
 }
 
 /** Canonical presentation state shared by every lead scan surface. */
@@ -38,16 +63,7 @@ export function getLeadChaseState(
   input: LeadChaseStateInput
 ): LeadChaseState | null {
   if (isLeadYourMove(input)) return "your_move";
-
-  if (
-    input.stage !== "new_lead" &&
-    input.lastMessageDirection === "in" &&
-    input.handledAt != null
-  ) {
-    return "waiting";
-  }
-
-  return null;
+  return input.stage === "new_lead" ? null : "waiting";
 }
 
 /**
