@@ -1210,15 +1210,339 @@ const SCHEDULE_ANCHORS = new Set([
   "december",
 ]);
 
-function summaryCarriesSchedule(summary: string, schedule: string): boolean {
-  const scheduleTokens = normalizedFactTokens(schedule);
-  const anchors = scheduleTokens.filter(
-    (term) => SCHEDULE_ANCHORS.has(term) || /^\d{1,4}$/.test(term)
+const MONTH_SCHEDULE_ANCHORS = [
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
+] as const;
+
+const SCHEDULE_PHRASE_ANCHORS = ["next week", "this week", "week of"];
+
+type ScheduleDateAnchor =
+  | {
+      kind: "calendar";
+      year: number | null;
+      month: number;
+      day: number;
+    }
+  | {
+      kind: "ambiguous_numeric";
+      year: number | null;
+      first: number;
+      second: number;
+    };
+
+function namedScheduleAnchors(
+  value: string,
+  dates: ScheduleDateAnchor[]
+): Set<string> {
+  const normalized = value.toLowerCase();
+  const calendarMonths = new Set(
+    dates
+      .filter(
+        (
+          date
+        ): date is Extract<ScheduleDateAnchor, { kind: "calendar" }> =>
+          date.kind === "calendar"
+      )
+      .map((date) => date.month)
   );
-  if (anchors.length > 0) {
-    const summaryTokens = normalizedFactTokens(summary);
-    return anchors.every((anchor) =>
-      summaryTokens.some((candidate) => factTokenMatches(candidate, anchor))
+  const mayIsMonth =
+    normalized.trim() === "may" ||
+    /\b(?:in|by|during|until|through|from|starting|scheduled for|booked for)\s+may\b/.test(
+      normalized
+    ) ||
+    /\bmay\s+(?:availability|installation|schedule|booking|start)\b/.test(
+      normalized
+    );
+  const anchors = new Set<string>();
+  for (const term of normalized.match(/[a-z]+/g) ?? []) {
+    if (!SCHEDULE_ANCHORS.has(term)) continue;
+    const month =
+      MONTH_SCHEDULE_ANCHORS.indexOf(
+        term as (typeof MONTH_SCHEDULE_ANCHORS)[number]
+      ) + 1;
+    if (month > 0 && calendarMonths.has(month)) continue;
+    if (term === "may" && !mayIsMonth) continue;
+    anchors.add(term);
+  }
+  for (const phrase of SCHEDULE_PHRASE_ANCHORS) {
+    if (normalized.includes(phrase)) anchors.add(phrase);
+  }
+  return anchors;
+}
+
+function scheduleDateAnchors(value: string): ScheduleDateAnchor[] {
+  const anchors: ScheduleDateAnchor[] = [];
+  const monthPattern = MONTH_SCHEDULE_ANCHORS.join("|");
+  const pushCalendar = (
+    yearValue: string | undefined,
+    month: number,
+    dayValue: string | undefined
+  ) => {
+    const day = Number(dayValue);
+    const year = yearValue ? Number(yearValue) : null;
+    if (
+      !Number.isInteger(day) ||
+      day < 1 ||
+      day > 31 ||
+      (year !== null && (!Number.isInteger(year) || year < 1900 || year > 2200))
+    ) {
+      return;
+    }
+    anchors.push({ kind: "calendar", year, month, day });
+  };
+
+  for (const match of value.matchAll(
+    new RegExp(
+      `\\b(${monthPattern})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?\\b`,
+      "gi"
+    )
+  )) {
+    const month =
+      MONTH_SCHEDULE_ANCHORS.indexOf(
+        match[1]!.toLowerCase() as (typeof MONTH_SCHEDULE_ANCHORS)[number]
+      ) + 1;
+    pushCalendar(match[3], month, match[2]);
+  }
+  for (const match of value.matchAll(
+    new RegExp(
+      `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${monthPattern})(?:\\s*,?\\s*(\\d{4}))?\\b`,
+      "gi"
+    )
+  )) {
+    const month =
+      MONTH_SCHEDULE_ANCHORS.indexOf(
+        match[2]!.toLowerCase() as (typeof MONTH_SCHEDULE_ANCHORS)[number]
+      ) + 1;
+    pushCalendar(match[3], month, match[1]);
+  }
+  for (const match of value.matchAll(
+    /\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b/g
+  )) {
+    const month = Number(match[2]);
+    if (month >= 1 && month <= 12) {
+      pushCalendar(match[1], month, match[3]);
+    }
+  }
+  for (const match of value.matchAll(
+    /\b(\d{1,2})[-/](\d{1,2})[-/](\d{4})\b/g
+  )) {
+    const first = Number(match[1]);
+    const second = Number(match[2]);
+    const year = Number(match[3]);
+    if (
+      !Number.isInteger(year) ||
+      year < 1900 ||
+      year > 2200 ||
+      first < 1 ||
+      first > 31 ||
+      second < 1 ||
+      second > 31
+    ) {
+      continue;
+    }
+    if (first <= 12 && second > 12) {
+      pushCalendar(match[3], first, match[2]);
+    } else if (first > 12 && second <= 12) {
+      pushCalendar(match[3], second, match[1]);
+    } else if (first <= 12 && second <= 12) {
+      anchors.push({
+        kind: "ambiguous_numeric",
+        year,
+        first,
+        second,
+      });
+    }
+  }
+  for (const match of value.matchAll(
+    /(?<![\d/-])(\d{1,2})[-/](\d{1,2})(?![/-]\d)/g
+  )) {
+    const first = Number(match[1]);
+    const second = Number(match[2]);
+    if (
+      first < 1 ||
+      first > 31 ||
+      second < 1 ||
+      second > 31
+    ) {
+      continue;
+    }
+    if (first <= 12 && second > 12) {
+      pushCalendar(undefined, first, match[2]);
+    } else if (first > 12 && second <= 12) {
+      pushCalendar(undefined, second, match[1]);
+    } else if (first <= 12 && second <= 12) {
+      anchors.push({
+        kind: "ambiguous_numeric",
+        year: null,
+        first,
+        second,
+      });
+    }
+  }
+  return anchors;
+}
+
+function scheduleTimeAnchors(value: string): Set<number> {
+  const anchors = new Set<number>();
+  const toMinutes = (
+    hourValue: string | undefined,
+    minuteValue: string | undefined,
+    meridiemValue?: string
+  ): number | null => {
+    let hour = Number(hourValue);
+    const minute = Number(minuteValue ?? "0");
+    if (
+      !Number.isInteger(hour) ||
+      !Number.isInteger(minute) ||
+      minute < 0 ||
+      minute > 59
+    ) {
+      return null;
+    }
+    if (meridiemValue) {
+      if (hour < 1 || hour > 12) return null;
+      const meridiem = meridiemValue.toLowerCase().replaceAll(".", "");
+      if (hour === 12) hour = 0;
+      if (meridiem === "pm") hour += 12;
+    } else if (hour < 0 || hour > 23) {
+      return null;
+    }
+    return hour * 60 + minute;
+  };
+
+  for (const match of value.matchAll(
+    /\b([01]?\d|2[0-3]):([0-5]\d)\s*(a\.?m\.?|p\.?m\.?)?\b/gi
+  )) {
+    const minutes = toMinutes(match[1], match[2], match[3]);
+    if (minutes !== null) anchors.add(minutes);
+  }
+  for (const match of value.matchAll(
+    /\b([1-9]|1[0-2])\s*(a\.?m\.?|p\.?m\.?)\b/gi
+  )) {
+    const minutes = toMinutes(match[1], "0", match[2]);
+    if (minutes !== null) anchors.add(minutes);
+  }
+  for (const match of value.matchAll(
+    /\b(?:at|for|by)\s+([01]?\d|2[0-3])\b(?!\s*:)/gi
+  )) {
+    const minutes = toMinutes(match[1], "0");
+    if (minutes !== null) anchors.add(minutes);
+  }
+  return anchors;
+}
+
+function scheduleDateAnchorMatches(
+  expected: ScheduleDateAnchor,
+  candidates: ScheduleDateAnchor[]
+): boolean {
+  if (expected.kind === "ambiguous_numeric") {
+    return candidates.some(
+      (candidate) =>
+        candidate.kind === "ambiguous_numeric" &&
+        candidate.year === expected.year &&
+        candidate.first === expected.first &&
+        candidate.second === expected.second
+    );
+  }
+  return candidates.some(
+    (candidate) =>
+      candidate.kind === "calendar" &&
+      candidate.month === expected.month &&
+      candidate.day === expected.day &&
+      candidate.year === expected.year
+  );
+}
+
+function scheduleSummaryClauses(summary: string): string[] {
+  return summary
+    .replace(/\b(next action|next step)\b/gi, ";$1")
+    .split(/(?:[;!?]|\.(?=\s|$)|\n)+/)
+    .map((clause) => clause.trim())
+    .filter(Boolean);
+}
+
+function clauseCarriesStructuredSchedule(input: {
+  clause: string;
+  expectedNamed: Set<string>;
+  expectedDates: ScheduleDateAnchor[];
+  expectedTimes: Set<number>;
+}): boolean {
+  const candidateDates = scheduleDateAnchors(input.clause);
+  const candidateNamed = namedScheduleAnchors(
+    input.clause,
+    candidateDates
+  );
+  const candidateTimes = scheduleTimeAnchors(input.clause);
+  const scheduleLanguage =
+    /\b(?:schedule|scheduled|book|booked|booking|install|installation|start|starting|work|availability|available|appointment|meeting|morning|afternoon|evening|timeline|date|window|on|in)\b/i.test(
+      input.clause
+    );
+  if (
+    !scheduleLanguage &&
+    candidateDates.length === 0 &&
+    candidateTimes.size === 0
+  ) {
+    return false;
+  }
+
+  const carriesExpected =
+    [...input.expectedNamed].every((anchor) =>
+      candidateNamed.has(anchor)
+    ) &&
+    input.expectedDates.every((anchor) =>
+      scheduleDateAnchorMatches(anchor, candidateDates)
+    ) &&
+    [...input.expectedTimes].every((anchor) =>
+      candidateTimes.has(anchor)
+    );
+  if (!carriesExpected) return false;
+
+  const hasConflictingNamed = [...candidateNamed].some(
+    (anchor) => !input.expectedNamed.has(anchor)
+  );
+  const hasConflictingDate = candidateDates.some(
+    (candidate) =>
+      !input.expectedDates.some((expected) =>
+        scheduleDateAnchorMatches(expected, [candidate])
+      )
+  );
+  const hasConflictingTime = [...candidateTimes].some(
+    (anchor) => !input.expectedTimes.has(anchor)
+  );
+  return (
+    !hasConflictingNamed &&
+    !hasConflictingDate &&
+    !hasConflictingTime
+  );
+}
+
+function summaryCarriesSchedule(summary: string, schedule: string): boolean {
+  const expectedDates = scheduleDateAnchors(schedule);
+  const expectedNamed = namedScheduleAnchors(schedule, expectedDates);
+  const expectedTimes = scheduleTimeAnchors(schedule);
+  if (
+    expectedNamed.size > 0 ||
+    expectedDates.length > 0 ||
+    expectedTimes.size > 0
+  ) {
+    return scheduleSummaryClauses(summary).some((clause) =>
+      clauseCarriesStructuredSchedule({
+        clause,
+        expectedNamed,
+        expectedDates,
+        expectedTimes,
+      })
     );
   }
   return summaryCarriesSpecificFact(summary, schedule, 1);

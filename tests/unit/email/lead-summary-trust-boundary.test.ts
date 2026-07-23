@@ -893,6 +893,12 @@ describe("lead-summary active current-fact model contract", () => {
       error: "omitted the current commercial schedule",
     },
     {
+      field: "schedule date",
+      summary:
+        "Customer is negotiating the $8,450 quote for the front entrance and upper landing, scheduled for September; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.",
+      error: "omitted the current commercial schedule",
+    },
+    {
       field: "objection",
       summary:
         "Customer is negotiating the $8,450 quote for the front entrance and upper landing, scheduled for September 14; the next action is to confirm material selection by Friday.",
@@ -927,6 +933,122 @@ describe("lead-summary active current-fact model contract", () => {
     ).resolves.toBe(complete);
     expect(openAICreateMock).toHaveBeenCalledTimes(1);
   });
+
+  it("requires the commercial schedule without leaking signature phone numbers into the summary contract", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule =
+      "Hi Corinne, Friday morning would work- could we book 10:00?Jackson Sweet (250) 538-8994 Canpro Deck and Rail Victoria Inc.";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing, booked for Friday at 10:00; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a summary that changes a specific non-hour schedule time", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule = "September 14 at 10:30";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing, scheduled for September 14 at 10:00; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).rejects.toThrow("omitted the current commercial schedule");
+    expect(openAICreateMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    {
+      schedule: "14 September 2026 at 10:30",
+      reported: "September 14 at 10:30",
+    },
+    {
+      schedule: "09/14/2026 at 10:30",
+      reported: "10:30",
+    },
+    {
+      schedule: "September 14, 2026 at 10:30",
+      reported: "September 14 at 10:30",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Friday at 10:45",
+    },
+    {
+      schedule: "Friday at 10:00",
+      reported: "Monday at 10:00",
+    },
+    {
+      schedule: "May 14",
+      reported: "June 14",
+    },
+    {
+      schedule: "September 14",
+      reported: "September 14, 2037",
+    },
+    {
+      schedule: "09/14",
+      reported: "June 14",
+    },
+  ])(
+    "rejects a summary that changes or omits structured schedule $schedule",
+    async ({ schedule, reported }) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule = schedule;
+      const summary =
+        `Customer is negotiating the $8,450 quote for the front entrance and upper landing, scheduled for ${reported}; ` +
+        "loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).rejects.toThrow("omitted the current commercial schedule");
+      expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    }
+  );
+
+  it("accepts an exact leading-zero date and time without lexical mismatch", async () => {
+    const bundle = negotiatingCompleteConversationBundle()!;
+    bundle.current_fact_context!.schedule = "2026-09-04 at 09:30";
+    const summary =
+      "Customer is negotiating the $8,450 quote for the front entrance and upper landing, scheduled for 2026-09-04 at 09:30; loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    await expect(
+      generateLeadSummary({ companyName: "Canpro", bundle })
+    ).resolves.toBe(summary);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    {
+      schedule: "September 14, 2026 at 10:30",
+      reported: "2026-09-14 at 10:30",
+    },
+    {
+      schedule: "May I book Friday at 10:00?",
+      reported: "Friday at 10:00",
+    },
+  ])(
+    "accepts equivalent structured schedule $reported without requiring unrelated words",
+    async ({ schedule, reported }) => {
+      const bundle = negotiatingCompleteConversationBundle()!;
+      bundle.current_fact_context!.schedule = schedule;
+      const summary =
+        `Customer is negotiating the $8,450 quote for the front entrance and upper landing, booked for ${reported}; ` +
+        "loading-bay access while occupied remains the objection, and the next action is to confirm material selection by Friday.";
+      openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+      await expect(
+        generateLeadSummary({ companyName: "Canpro", bundle })
+      ).resolves.toBe(summary);
+      expect(openAICreateMock).toHaveBeenCalledTimes(1);
+    }
+  );
 
   it("gives the bounded retry its trusted contract failure before accepting corrected current facts", async () => {
     const bundle = negotiatingCompleteConversationBundle();
