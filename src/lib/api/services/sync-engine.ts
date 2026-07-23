@@ -381,10 +381,10 @@ function syncIngestionOperatorIdentity(
     connectionEmail: connection.email,
     userEmailAddresses: authoritative
       ? [...authoritative.emails]
-      : profile.userEmailAddresses ?? [],
+      : (profile.userEmailAddresses ?? []),
     companyDomains: authoritative
       ? [...authoritative.domains]
-      : profile.companyDomains ?? [],
+      : (profile.companyDomains ?? []),
     teamForwarders: profile.teamForwarders ?? [],
     knownPlatformSenders: profile.knownPlatformSenders ?? [],
   };
@@ -1781,7 +1781,7 @@ async function createOrAdoptInboundActivity(input: {
   });
 
   const { data, error } = await requireSupabase().rpc(
-    "adopt_orphan_email_activity_as_system",
+    "adopt_orphan_email_activity_with_payload_guard_as_system",
     {
       p_actor_user_id: input.recoveryActorUserId,
       p_company_id: input.connection.companyId,
@@ -1801,6 +1801,9 @@ async function createOrAdoptInboundActivity(input: {
       p_from_email: fromEmail,
       p_to_emails: toEmails,
       p_cc_emails: ccEmails,
+      p_content: input.existingOrphanActivity.content ?? null,
+      p_body_text: input.existingOrphanActivity.body_text ?? null,
+      p_body_text_clean: input.existingOrphanActivity.body_text_clean ?? null,
     }
   );
   if (error) {
@@ -1808,9 +1811,10 @@ async function createOrAdoptInboundActivity(input: {
       `[sync-engine] orphan inbound adoption failed: ${error.message ?? "unknown error"}`
     );
   }
-  const adoption = (Array.isArray(data) ? data[0] : data) as
-    | Record<string, unknown>
-    | null;
+  const adoption = (Array.isArray(data) ? data[0] : data) as Record<
+    string,
+    unknown
+  > | null;
   if (
     !adoption ||
     adoption.activity_id !== input.existingOrphanActivity.id ||
@@ -2159,8 +2163,20 @@ interface ExistingProviderActivity {
   opportunity_id?: string | null;
   email_connection_id?: string | null;
   email_thread_id?: string | null;
+  email_message_id?: string | null;
+  type?: string | null;
+  direction?: string | null;
   subject?: string | null;
+  content?: string | null;
   body_text?: string | null;
+  body_text_clean?: string | null;
+  from_email?: string | null;
+  to_emails?: string[] | null;
+  cc_emails?: string[] | null;
+  is_read?: boolean | null;
+  has_attachments?: boolean | null;
+  attachment_count?: number | null;
+  created_at?: string | null;
   draft_history_id?: string | null;
   created_by?: string | null;
 }
@@ -2238,12 +2254,13 @@ async function findExistingProviderActivity(
   supabase: SupabaseClient,
   connection: EmailConnection,
   providerMessageId: string,
-  providerThreadId: string
+  providerThreadId: string,
+  claimLegacyConnection = true
 ): Promise<ExistingProviderActivity | null> {
   const { data, error } = await supabase
     .from("activities")
     .select(
-      "id, opportunity_id, email_connection_id, email_thread_id, subject, body_text, draft_history_id, created_by"
+      "id, opportunity_id, email_connection_id, email_thread_id, email_message_id, type, direction, subject, content, body_text, body_text_clean, from_email, to_emails, cc_emails, is_read, has_attachments, attachment_count, created_at, draft_history_id, created_by"
     )
     .eq("company_id", connection.companyId)
     .eq("email_message_id", providerMessageId);
@@ -2287,6 +2304,7 @@ async function findExistingProviderActivity(
   }
   if (matchingLegacy[0]) {
     const legacyActivity = matchingLegacy[0];
+    if (!claimLegacyConnection) return legacyActivity;
     if (!legacyActivity.id) {
       throw new Error(
         `[sync-engine] proven legacy activity has no durable identity for ${providerMessageId}`
@@ -2322,6 +2340,243 @@ async function findExistingProviderActivity(
   return null;
 }
 
+function normalizeRecoveryMailbox(
+  value: string | null | undefined,
+  label: string
+): string {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (
+    !normalized ||
+    extractEmailAddress(normalized).trim().toLowerCase() !== normalized ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)
+  ) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] exact recovery persisted activity has invalid ${label}`
+    );
+  }
+  return normalized;
+}
+
+function normalizeRecoveryRecipients(
+  value: string[] | null | undefined,
+  label: string
+): string[] {
+  if (!Array.isArray(value)) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] exact recovery persisted activity has invalid ${label}`
+    );
+  }
+  return value.map((recipient, index) =>
+    normalizeRecoveryMailbox(recipient, `${label}[${index}]`)
+  );
+}
+
+function sameRecoveryRecipients(left: string[], right: string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((recipient, index) => recipient === right[index])
+  );
+}
+
+/**
+ * A read-only connector snapshot proves only immutable provider identity,
+ * timestamp, subject, and attachment absence. It deliberately cannot promote
+ * an internal forwarding wrapper without provider Authentication-Results.
+ * When OPS already persisted the exact canonical inbound activity, reuse that
+ * activity's effective customer identity/content instead of reinterpreting the
+ * untrusted visible From header.
+ */
+function persistedInboundRecoveryEmail(input: {
+  providerEmail: NormalizedEmail;
+  activity: ExistingProviderActivity;
+}): NormalizedEmail {
+  const { providerEmail, activity } = input;
+  if (
+    activity.type !== "email" ||
+    activity.direction !== "inbound" ||
+    activity.email_message_id !== providerEmail.id ||
+    activity.email_thread_id !== providerEmail.threadId ||
+    activity.subject !== providerEmail.subject
+  ) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] exact recovery persisted activity identity changed"
+    );
+  }
+  if (
+    providerEmail.hasAttachments ||
+    activity.has_attachments !== false ||
+    Number(activity.attachment_count ?? 0) !== 0
+  ) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] exact recovery persisted activity attachment state changed"
+    );
+  }
+
+  const from = normalizeRecoveryMailbox(activity.from_email, "from_email");
+  const to = normalizeRecoveryRecipients(activity.to_emails, "to_emails");
+  const cc = normalizeRecoveryRecipients(activity.cc_emails, "cc_emails");
+  const bodyText = activity.body_text ?? activity.content ?? "";
+  if (!bodyText.trim()) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] exact recovery persisted activity has no canonical body"
+    );
+  }
+
+  return {
+    ...providerEmail,
+    from,
+    fromName: from,
+    to,
+    cc,
+    subject: activity.subject,
+    snippet: activity.content ?? bodyText.slice(0, 500),
+    bodyText,
+    bodyTextClean: activity.body_text_clean ?? undefined,
+    // Never manufacture provider authentication from a visible From header.
+    authenticatedFromDomains: [],
+    isRead:
+      typeof activity.is_read === "boolean"
+        ? activity.is_read
+        : providerEmail.isRead,
+    hasAttachments: false,
+  };
+}
+
+async function assertPersistedInboundRecoveryEvidence(input: {
+  supabase: SupabaseClient;
+  connection: EmailConnection;
+  providerEmail: NormalizedEmail;
+  activity: ExistingProviderActivity;
+}): Promise<void> {
+  const { supabase, connection, providerEmail, activity } = input;
+  if (
+    !activity.id ||
+    (activity.email_connection_id !== null &&
+      activity.email_connection_id !== connection.id)
+  ) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] exact recovery persisted activity mailbox changed"
+    );
+  }
+
+  const { data, error } = await supabase
+    .from("opportunity_correspondence_events")
+    .select(
+      "id, activity_id, opportunity_id, connection_id, provider_thread_id, provider_message_id, direction, party_role, is_meaningful, opportunity_projection_applied, occurred_at, subject, from_email, to_emails, cc_emails"
+    )
+    .eq("company_id", connection.companyId)
+    .eq("connection_id", connection.id)
+    .eq("provider_thread_id", providerEmail.threadId)
+    .eq("provider_message_id", providerEmail.id)
+    .eq("activity_id", activity.id)
+    .limit(2);
+  if (error) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] exact recovery correspondence proof failed: ${error.message ?? "unknown error"}`
+    );
+  }
+
+  const events = (data ?? []) as Array<Record<string, unknown>>;
+  if (!activity.opportunity_id) {
+    if (events.length !== 0) {
+      throw new LifecyclePersistenceError(
+        "[sync-engine] exact recovery orphan has conflicting correspondence"
+      );
+    }
+    const createdAt = activity.created_at
+      ? new Date(activity.created_at)
+      : null;
+    if (
+      !createdAt ||
+      !Number.isFinite(createdAt.getTime()) ||
+      createdAt.getTime() !== providerEmail.date.getTime()
+    ) {
+      throw new LifecyclePersistenceError(
+        "[sync-engine] exact recovery orphan occurrence timestamp changed"
+      );
+    }
+    return;
+  }
+
+  if (events.length !== 1) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] exact recovery linked activity has no unique correspondence proof"
+    );
+  }
+  const event = events[0];
+  const eventOccurredAt =
+    typeof event.occurred_at === "string" ? new Date(event.occurred_at) : null;
+  const activityFrom = normalizeRecoveryMailbox(
+    activity.from_email,
+    "from_email"
+  );
+  const activityTo = normalizeRecoveryRecipients(
+    activity.to_emails,
+    "to_emails"
+  );
+  const activityCc = normalizeRecoveryRecipients(
+    activity.cc_emails,
+    "cc_emails"
+  );
+  const eventFrom = normalizeRecoveryMailbox(
+    event.from_email as string | null,
+    "event.from_email"
+  );
+  const eventTo = normalizeRecoveryRecipients(
+    event.to_emails as string[] | null,
+    "event.to_emails"
+  );
+  const eventCc = normalizeRecoveryRecipients(
+    event.cc_emails as string[] | null,
+    "event.cc_emails"
+  );
+  if (
+    event.activity_id !== activity.id ||
+    event.opportunity_id !== activity.opportunity_id ||
+    event.connection_id !== connection.id ||
+    event.provider_thread_id !== providerEmail.threadId ||
+    event.provider_message_id !== providerEmail.id ||
+    event.direction !== "inbound" ||
+    event.party_role !== "customer" ||
+    event.is_meaningful !== true ||
+    event.opportunity_projection_applied !== true ||
+    !eventOccurredAt ||
+    !Number.isFinite(eventOccurredAt.getTime()) ||
+    eventOccurredAt.getTime() !== providerEmail.date.getTime() ||
+    event.subject !== activity.subject ||
+    eventFrom !== activityFrom ||
+    !sameRecoveryRecipients(eventTo, activityTo) ||
+    !sameRecoveryRecipients(eventCc, activityCc)
+  ) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] exact recovery linked correspondence evidence changed"
+    );
+  }
+}
+
+function inboundRoutingIdentity(
+  email: NormalizedEmail,
+  connection: EmailConnection,
+  ingestionOperator: IngestionOperatorIdentity,
+  forceMessageScopedTransport: boolean
+): LeadRoutingIdentity {
+  const identity = buildLeadRoutingIdentity(
+    email,
+    {
+      provider: connection.provider,
+      connectionId: connection.id,
+    },
+    ingestionOperator
+  );
+  if (!forceMessageScopedTransport) return identity;
+  return {
+    ...identity,
+    sourceKey: `email:${connection.provider.trim().toLowerCase()}:${connection.id}:message:${email.id}`,
+    isMessageScopedTransport: true,
+    mayInheritProviderThread: false,
+  };
+}
+
 // ─── Inbound / Outbound Processors ─────────────────────────────────────────
 
 interface UnmatchedInboundContext {
@@ -2345,7 +2600,8 @@ async function processInboundEmail(
   ingestionOperator: IngestionOperatorIdentity,
   executionPolicy: EmailIngestionExecutionPolicy = NORMAL_EMAIL_INGESTION_POLICY,
   recoveryActorUserId: string | null = null,
-  syncLockOwner: string | null = null
+  syncLockOwner: string | null = null,
+  forceMessageScopedTransport = false
 ): Promise<UnmatchedInboundContext | null> {
   const normalizedEmail = normalizeProviderBackedEmailForSync(
     email,
@@ -2369,17 +2625,12 @@ async function processInboundEmail(
     const {
       email: effectiveExistingEmail,
       contactFormSubmitter: existingSubmitter,
-    } = applyInboundEffectiveSenderIdentity(
+    } = applyInboundEffectiveSenderIdentity(email, ingestionOperator);
+    const existingRoutingIdentity = inboundRoutingIdentity(
       email,
-      ingestionOperator
-    );
-    const existingRoutingIdentity = buildLeadRoutingIdentity(
-      email,
-      {
-        provider: connection.provider,
-        connectionId: connection.id,
-      },
-      ingestionOperator
+      connection,
+      ingestionOperator,
+      forceMessageScopedTransport
     );
     const existingEnrichmentFacts = leadEnrichmentFactsFromEmail({
       email,
@@ -2405,14 +2656,8 @@ async function processInboundEmail(
       );
     }
 
-    if (
-      existingRoutingIdentity.mayInheritProviderThread
-    ) {
-      await linkThread(
-        existingOpportunityId,
-        email.threadId,
-        connection.id
-      );
+    if (existingRoutingIdentity.mayInheritProviderThread) {
+      await linkThread(existingOpportunityId, email.threadId, connection.id);
     }
     await persistDeterministicEmailThreadState(
       effectiveExistingEmail,
@@ -2447,17 +2692,12 @@ async function processInboundEmail(
   }
 
   const { email: effectiveEmail, contactFormSubmitter } =
-    applyInboundEffectiveSenderIdentity(
-      email,
-      ingestionOperator
-    );
-  const routingIdentity = buildLeadRoutingIdentity(
+    applyInboundEffectiveSenderIdentity(email, ingestionOperator);
+  const routingIdentity = inboundRoutingIdentity(
     email,
-    {
-      provider: connection.provider,
-      connectionId: connection.id,
-    },
-    ingestionOperator
+    connection,
+    ingestionOperator,
+    forceMessageScopedTransport
   );
   const activityRoutingExtra = !routingIdentity.mayInheritProviderThread
     ? { skipThreadState: true }
@@ -2751,7 +2991,10 @@ async function processInboundEmail(
         unsafe: syncTitleUnsafeIdentity(connection, profile),
         enrichmentFacts: inboundEnrichmentFacts,
         sourceKey: routingIdentity.sourceKey,
-        mailboxAssignment: mailboxAssignmentContext(connection, executionPolicy),
+        mailboxAssignment: mailboxAssignmentContext(
+          connection,
+          executionPolicy
+        ),
       };
       const opportunity = relationshipDecisionRequiresNewOpportunity
         ? await createOpportunity(
@@ -3104,11 +3347,7 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       }
 
       const linked = routingIdentity.mayInheritProviderThread
-        ? await linkThread(
-            oppId,
-            classifiedEmail.threadId,
-            input.connection.id
-          )
+        ? await linkThread(oppId, classifiedEmail.threadId, input.connection.id)
         : true;
       if (!linked) continue;
       const activityPersistence = await createOrAdoptInboundActivity({
@@ -3869,15 +4108,60 @@ export const SyncEngine = {
         ...(await loadInternalPhonesForCompany(connection.companyId)),
       ];
 
-      const authoritativeOperator =
-        await getCachedOperatorIdentity(connection);
+      const authoritativeOperator = await getCachedOperatorIdentity(connection);
       const ingestionOperator = syncIngestionOperatorIdentity(
         connection,
         profile,
         authoritativeOperator
       );
+      const supabase = requireSupabase();
+      const unclaimedExistingActivity = await findExistingProviderActivity(
+        supabase,
+        connection,
+        input.email.id,
+        input.email.threadId,
+        false
+      );
+      let recoveryEmail = input.email;
+      let forceMessageScopedTransport = false;
+      let existingRecoveryActivity = unclaimedExistingActivity;
+      if (unclaimedExistingActivity) {
+        recoveryEmail = persistedInboundRecoveryEmail({
+          providerEmail: input.email,
+          activity: unclaimedExistingActivity,
+        });
+        await assertPersistedInboundRecoveryEvidence({
+          supabase,
+          connection,
+          providerEmail: input.email,
+          activity: unclaimedExistingActivity,
+        });
+        forceMessageScopedTransport = true;
+
+        // Claim a legacy NULL-mailbox row only after every immutable activity
+        // and correspondence proof above has passed.
+        if (!unclaimedExistingActivity.email_connection_id) {
+          const claimed = await findExistingProviderActivity(
+            supabase,
+            connection,
+            input.email.id,
+            input.email.threadId
+          );
+          if (
+            !claimed?.id ||
+            claimed.id !== unclaimedExistingActivity.id ||
+            claimed.email_connection_id !== connection.id
+          ) {
+            throw new LifecyclePersistenceError(
+              "[sync-engine] exact recovery persisted activity mailbox claim changed"
+            );
+          }
+          existingRecoveryActivity = claimed;
+        }
+      }
+
       const direction = resolvePersistedEmailDirection(
-        input.email,
+        recoveryEmail,
         ingestionOperator
       );
       if (direction !== "inbound") {
@@ -3890,7 +4174,7 @@ export const SyncEngine = {
         profile as unknown as GmailSyncFilters
       );
       const { email: effectiveFilterEmail } =
-        applyInboundEffectiveSenderIdentity(input.email, ingestionOperator);
+        applyInboundEffectiveSenderIdentity(recoveryEmail, ingestionOperator);
       if (
         EmailFilterService.shouldFilter(
           extractSenderEmail(effectiveFilterEmail.from),
@@ -3907,49 +4191,68 @@ export const SyncEngine = {
       }
 
       await renewSyncLeaseIfNeeded(true);
-      const unmatched = await processInboundEmail(
-        input.email,
-        connection,
-        profile,
-        followUpDaysCache,
-        result,
-        renewSyncLeaseIfNeeded,
-        ingestionOperator,
-        EXACT_MESSAGE_RECOVERY_POLICY,
-        input.actorUserId,
-        syncLockOwner
-      );
-      if (unmatched) {
-        const { data: company, error: companyError } = await requireSupabase()
-          .from("companies")
-          .select("name, industry")
-          .eq("id", connection.companyId)
-          .single();
-        if (companyError) {
-          throw new LifecyclePersistenceError(
-            `[sync-engine] exact recovery company context failed: ${companyError.message ?? "unknown error"}`
-          );
-        }
-        await persistAIClassifiedUnmatchedInbound({
-          contexts: [unmatched],
+      if (existingRecoveryActivity?.opportunity_id) {
+        await recordActivityCorrespondenceEvent(
+          recoveryEmail,
+          connection,
+          existingRecoveryActivity.opportunity_id,
+          existingRecoveryActivity.id ?? null,
+          "inbound"
+        );
+        await updateCorrespondenceCounts(
+          existingRecoveryActivity.opportunity_id,
+          recoveryEmail,
+          connection,
+          followUpDaysCache,
+          result
+        );
+        result.matched++;
+      } else {
+        const unmatched = await processInboundEmail(
+          recoveryEmail,
           connection,
           profile,
-          companyName: (company?.name as string) || "",
-          companyIndustry: (company?.industry as string) || "trades",
           followUpDaysCache,
           result,
-          providerLockCheckpoint: renewSyncLeaseIfNeeded,
-          executionPolicy: EXACT_MESSAGE_RECOVERY_POLICY,
-          recoveryActorUserId: input.actorUserId,
+          renewSyncLeaseIfNeeded,
+          ingestionOperator,
+          EXACT_MESSAGE_RECOVERY_POLICY,
+          input.actorUserId,
           syncLockOwner,
-        });
+          forceMessageScopedTransport
+        );
+        if (unmatched) {
+          const { data: company, error: companyError } = await requireSupabase()
+            .from("companies")
+            .select("name, industry")
+            .eq("id", connection.companyId)
+            .single();
+          if (companyError) {
+            throw new LifecyclePersistenceError(
+              `[sync-engine] exact recovery company context failed: ${companyError.message ?? "unknown error"}`
+            );
+          }
+          await persistAIClassifiedUnmatchedInbound({
+            contexts: [unmatched],
+            connection,
+            profile,
+            companyName: (company?.name as string) || "",
+            companyIndustry: (company?.industry as string) || "trades",
+            followUpDaysCache,
+            result,
+            providerLockCheckpoint: renewSyncLeaseIfNeeded,
+            executionPolicy: EXACT_MESSAGE_RECOVERY_POLICY,
+            recoveryActorUserId: input.actorUserId,
+            syncLockOwner,
+          });
+        }
       }
 
       const activity = await findExistingProviderActivity(
-        requireSupabase(),
+        supabase,
         connection,
-        input.email.id,
-        input.email.threadId
+        recoveryEmail.id,
+        recoveryEmail.threadId
       );
       if (!activity?.opportunity_id) {
         throw new LifecyclePersistenceError(
@@ -3957,17 +4260,15 @@ export const SyncEngine = {
         );
       }
 
-      const routingIdentity = buildLeadRoutingIdentity(
-        input.email,
-        {
-          provider: connection.provider,
-          connectionId: connection.id,
-        },
-        ingestionOperator
+      const routingIdentity = inboundRoutingIdentity(
+        recoveryEmail,
+        connection,
+        ingestionOperator,
+        forceMessageScopedTransport
       );
       if (routingIdentity.mayInheritProviderThread) {
         const { email: effectiveEmail } = applyInboundEffectiveSenderIdentity(
-          input.email,
+          recoveryEmail,
           ingestionOperator
         );
         // Recovery suppresses the normal background classifier/router, but a
@@ -3976,7 +4277,7 @@ export const SyncEngine = {
         const { threadRow } = await EmailThreadService.upsertFromEmail({
           companyId: connection.companyId,
           connectionId: connection.id,
-          providerThreadId: input.email.threadId,
+          providerThreadId: recoveryEmail.threadId,
           email: effectiveEmail,
           direction: "inbound",
           opportunityId: activity.opportunity_id,
@@ -3986,7 +4287,7 @@ export const SyncEngine = {
       }
       await maybeAutoAdvanceOnAccept({
         providerThreadId: routingIdentity.mayInheritProviderThread
-          ? input.email.threadId
+          ? recoveryEmail.threadId
           : null,
         opportunityId: activity.opportunity_id,
         connection,
@@ -3994,7 +4295,7 @@ export const SyncEngine = {
       });
 
       const summaryRefresh = await refreshLeadSummariesForOpportunities({
-        supabase: requireSupabase(),
+        supabase,
         companyId: connection.companyId,
         opportunityIds: [activity.opportunity_id],
       });
@@ -4109,35 +4410,37 @@ export const SyncEngine = {
 
     try {
       await renewSyncLeaseIfNeeded(true);
-      const [{ data: activity, error: activityError }, { data: event, error: eventError }] =
-        await Promise.all([
-          supabase
-            .from("activities")
-            .select(
-              "id, company_id, opportunity_id, email_connection_id, email_thread_id, email_message_id, direction"
-            )
-            .eq("id", input.activityId)
-            .eq("company_id", input.companyId)
-            .eq("opportunity_id", input.targetOpportunityId)
-            .eq("email_connection_id", input.connectionId)
-            .eq("email_thread_id", input.entry.providerThreadId)
-            .eq("email_message_id", input.entry.providerMessageId)
-            .eq("type", "email")
-            .maybeSingle(),
-          supabase
-            .from("opportunity_correspondence_events")
-            .select(
-              "id, company_id, opportunity_id, activity_id, connection_id, provider_thread_id, provider_message_id, direction, party_role, is_meaningful, opportunity_projection_applied"
-            )
-            .eq("id", input.correspondenceEventId)
-            .eq("company_id", input.companyId)
-            .eq("opportunity_id", input.targetOpportunityId)
-            .eq("activity_id", input.activityId)
-            .eq("connection_id", input.connectionId)
-            .eq("provider_thread_id", input.entry.providerThreadId)
-            .eq("provider_message_id", input.entry.providerMessageId)
-            .maybeSingle(),
-        ]);
+      const [
+        { data: activity, error: activityError },
+        { data: event, error: eventError },
+      ] = await Promise.all([
+        supabase
+          .from("activities")
+          .select(
+            "id, company_id, opportunity_id, email_connection_id, email_thread_id, email_message_id, direction"
+          )
+          .eq("id", input.activityId)
+          .eq("company_id", input.companyId)
+          .eq("opportunity_id", input.targetOpportunityId)
+          .eq("email_connection_id", input.connectionId)
+          .eq("email_thread_id", input.entry.providerThreadId)
+          .eq("email_message_id", input.entry.providerMessageId)
+          .eq("type", "email")
+          .maybeSingle(),
+        supabase
+          .from("opportunity_correspondence_events")
+          .select(
+            "id, company_id, opportunity_id, activity_id, connection_id, provider_thread_id, provider_message_id, direction, party_role, is_meaningful, opportunity_projection_applied"
+          )
+          .eq("id", input.correspondenceEventId)
+          .eq("company_id", input.companyId)
+          .eq("opportunity_id", input.targetOpportunityId)
+          .eq("activity_id", input.activityId)
+          .eq("connection_id", input.connectionId)
+          .eq("provider_thread_id", input.entry.providerThreadId)
+          .eq("provider_message_id", input.entry.providerMessageId)
+          .maybeSingle(),
+      ]);
       if (activityError || !activity) {
         throw new LifecyclePersistenceError(
           `[sync-engine] exact reparent repair activity changed: ${activityError?.message ?? "row not found"}`
@@ -4198,10 +4501,7 @@ export const SyncEngine = {
       const summaryRefresh = await refreshLeadSummariesForOpportunities({
         supabase,
         companyId: input.companyId,
-        opportunityIds: [
-          input.sourceOpportunityId,
-          input.targetOpportunityId,
-        ],
+        opportunityIds: [input.sourceOpportunityId, input.targetOpportunityId],
       });
       if (
         summaryRefresh.skippedFeatureDisabled ||
@@ -4430,8 +4730,7 @@ export const SyncEngine = {
         );
       }
       const discoveredEmails = [...discoveredByMessageId.values()];
-      const authoritativeOperator =
-        await getCachedOperatorIdentity(connection);
+      const authoritativeOperator = await getCachedOperatorIdentity(connection);
       const directionIdentity = syncIngestionOperatorIdentity(
         connection,
         profile,
@@ -4503,20 +4802,18 @@ export const SyncEngine = {
       const blocklist = await EmailFilterService.buildBlocklist(
         profile as unknown as GmailSyncFilters
       );
-      const inboxEmails = rawInboxEmails.filter(
-        (email) => {
-          const { email: effectiveFilterEmail } =
-            applyInboundEffectiveSenderIdentity(email, directionIdentity);
-          return !EmailFilterService.shouldFilter(
-            extractSenderEmail(effectiveFilterEmail.from),
-            effectiveFilterEmail.subject,
-            blocklist,
-            profile as unknown as GmailSyncFilters,
-            effectiveFilterEmail.labelIds,
-            effectiveFilterEmail.bodyText
-          );
-        }
-      );
+      const inboxEmails = rawInboxEmails.filter((email) => {
+        const { email: effectiveFilterEmail } =
+          applyInboundEffectiveSenderIdentity(email, directionIdentity);
+        return !EmailFilterService.shouldFilter(
+          extractSenderEmail(effectiveFilterEmail.from),
+          effectiveFilterEmail.subject,
+          blocklist,
+          profile as unknown as GmailSyncFilters,
+          effectiveFilterEmail.labelIds,
+          effectiveFilterEmail.bodyText
+        );
+      });
       // Sent mail is not filtered — user's own outbound is always relevant
       // to the pipeline (auto-linking, writing-profile learning).
       const sentEmails = rawSentEmails;
@@ -4638,13 +4935,12 @@ export const SyncEngine = {
           inboxEmails.map((email) => email.id)
         );
         for (const rawEmail of [...inboxEmails, ...sentEmails]) {
-          const isInboundEvaluationMessage =
-            inboundEvaluationMessageIds.has(rawEmail.id);
+          const isInboundEvaluationMessage = inboundEvaluationMessageIds.has(
+            rawEmail.id
+          );
           const email = isInboundEvaluationMessage
-            ? applyInboundEffectiveSenderIdentity(
-                rawEmail,
-                directionIdentity
-              ).email
+            ? applyInboundEffectiveSenderIdentity(rawEmail, directionIdentity)
+                .email
             : rawEmail;
           const activity = await findExistingProviderActivity(
             supabase,

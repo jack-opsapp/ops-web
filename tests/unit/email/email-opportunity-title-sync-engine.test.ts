@@ -93,15 +93,12 @@ vi.mock("@/lib/api/services/lead-summary-service", () => ({
     refreshLeadSummariesForOpportunitiesMock,
 }));
 
-vi.mock(
-  "@/lib/api/services/conversation-state/acceptance-evaluation",
-  () => ({
-    evaluateOpportunityAcceptance: evaluateOpportunityAcceptanceMock,
-    evaluateOpportunityCommercialOutcome:
-      evaluateOpportunityCommercialOutcomeMock,
-    shouldEvaluateOpportunityCommercialOutcome: vi.fn(() => true),
-  })
-);
+vi.mock("@/lib/api/services/conversation-state/acceptance-evaluation", () => ({
+  evaluateOpportunityAcceptance: evaluateOpportunityAcceptanceMock,
+  evaluateOpportunityCommercialOutcome:
+    evaluateOpportunityCommercialOutcomeMock,
+  shouldEvaluateOpportunityCommercialOutcome: vi.fn(() => true),
+}));
 
 vi.mock("@/lib/api/services/autonomy-milestone-service", () => ({
   AutonomyMilestoneService: {
@@ -795,7 +792,7 @@ function makeSupabaseDouble(state: SupabaseState) {
           error: null,
         };
       }
-      if (name === "adopt_orphan_email_activity_as_system") {
+      if (name === "adopt_orphan_email_activity_with_payload_guard_as_system") {
         state.rpcCalls?.push({ name, params });
         if (state.orphanAdoptionRpcError) {
           return {
@@ -832,6 +829,26 @@ function makeSupabaseDouble(state: SupabaseState) {
           return {
             data: null,
             error: { message: "orphan_email_activity_not_found" },
+          };
+        }
+        if (
+          activity.created_at !== params.p_occurred_at ||
+          activity.subject !== params.p_subject ||
+          activity.from_email !== params.p_from_email ||
+          JSON.stringify(activity.to_emails ?? []) !==
+            JSON.stringify(params.p_to_emails ?? []) ||
+          JSON.stringify(activity.cc_emails ?? []) !==
+            JSON.stringify(params.p_cc_emails ?? []) ||
+          (activity.content ?? null) !== params.p_content ||
+          (activity.body_text ?? null) !== params.p_body_text ||
+          (activity.body_text_clean ?? null) !== params.p_body_text_clean ||
+          (params.p_ingestion_source === "email_recovery" &&
+            (activity.has_attachments === true ||
+              Number(activity.attachment_count ?? 0) !== 0))
+        ) {
+          return {
+            data: null,
+            error: { message: "orphan_email_activity_payload_changed" },
           };
         }
         if (
@@ -888,6 +905,10 @@ function makeSupabaseDouble(state: SupabaseState) {
             is_meaningful: params.p_is_meaningful,
             noise_reason: params.p_noise_reason,
             occurred_at: params.p_occurred_at,
+            subject: params.p_subject,
+            from_email: params.p_from_email,
+            to_emails: params.p_to_emails,
+            cc_emails: params.p_cc_emails,
             opportunity_projection_applied: true,
           };
           state.correspondenceEvents.push(event);
@@ -1046,13 +1067,11 @@ function makeSupabaseDouble(state: SupabaseState) {
           opportunity.correspondence_count =
             Number(opportunity.correspondence_count) + 1;
           if (event.direction === "inbound") {
-            opportunity.inbound_count =
-              Number(opportunity.inbound_count) + 1;
+            opportunity.inbound_count = Number(opportunity.inbound_count) + 1;
             opportunity.last_inbound_at = event.occurred_at;
             opportunity.last_message_direction = "in";
           } else {
-            opportunity.outbound_count =
-              Number(opportunity.outbound_count) + 1;
+            opportunity.outbound_count = Number(opportunity.outbound_count) + 1;
             opportunity.last_outbound_at = event.occurred_at;
             opportunity.last_message_direction = "out";
           }
@@ -2839,8 +2858,7 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(state.threadLinks).toHaveLength(0);
     expect(evaluateStagesWithSummaryMock.mock.calls.at(-1)?.[0]).toEqual([
       {
-        threadId:
-          "email:gmail:connection-1:message:msg-forwarded-customer",
+        threadId: "email:gmail:connection-1:message:msg-forwarded-customer",
         messages: [
           expect.objectContaining({
             id: "msg-forwarded-customer",
@@ -3040,10 +3058,7 @@ To: Kara Beach <kara.beach@example.com>`,
         subject: "Fwd: Free Quote form got a new submission",
         bodyText: contactFormBody
           .replaceAll("Marcel Mercier", "Lauri Humeniuk")
-          .replaceAll(
-            "marcel.mercier@example.com",
-            "lhumeniuk@sd61.bc.ca"
-          )
+          .replaceAll("marcel.mercier@example.com", "lhumeniuk@sd61.bc.ca")
           .replaceAll("Mercier Holdings", "Lauri Humeniuk"),
         labelIds: ["INBOX"],
       }),
@@ -3223,7 +3238,10 @@ To: Kara Beach <kara.beach@example.com>`,
         "Please price cedar railings for our Fernwood home this August.",
       ].join("\n"),
       snippet: "Forwarded Victoria lead",
-      authenticatedFromDomains: ["canprodeckandrail.com"],
+      // A read-only connector snapshot cannot expose Gmail's
+      // Authentication-Results. Recovery must reuse the already-persisted
+      // canonical inbound activity rather than trusting this visible header.
+      authenticatedFromDomains: [],
       labelIds: ["INBOX"],
     });
     const state: SupabaseState = {
@@ -3240,9 +3258,18 @@ To: Kara Beach <kara.beach@example.com>`,
           email_message_id: forwarded.id,
           opportunity_id: null,
           direction: "inbound",
+          subject: forwarded.subject,
+          content: "Please price cedar railings for August.",
+          body_text:
+            "Please price cedar railings for our Fernwood home this August.",
+          body_text_clean:
+            "Please price cedar railings for our Fernwood home this August.",
           from_email: "taylor@example.com",
           to_emails: ["canprojack@gmail.com"],
           cc_emails: [],
+          is_read: false,
+          has_attachments: false,
+          attachment_count: 0,
           match_needs_review: true,
           suggested_client_id: "client-stale-suggestion",
           match_confidence: "low",
@@ -3322,7 +3349,9 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(state.threadLinks).toEqual([]);
     expect(
       state.rpcCalls?.filter(
-        (call) => call.name === "adopt_orphan_email_activity_as_system"
+        (call) =>
+          call.name ===
+          "adopt_orphan_email_activity_with_payload_guard_as_system"
       )
     ).toEqual([
       expect.objectContaining({
@@ -3409,13 +3438,7 @@ To: Kara Beach <kara.beach@example.com>`,
           deleted_at: null,
         },
       ],
-      threadLinks: [
-        {
-          opportunity_id: "opp-legacy-recovery",
-          thread_id: "thread-legacy-recovery",
-          connection_id: "connection-1",
-        },
-      ],
+      threadLinks: [],
       activities: [
         {
           id: "activity-legacy-recovery",
@@ -3426,9 +3449,16 @@ To: Kara Beach <kara.beach@example.com>`,
           email_message_id: "msg-legacy-recovery",
           opportunity_id: "opp-legacy-recovery",
           direction: "inbound",
+          subject: "Legacy recovery message",
+          content: "Please follow up on this request.",
+          body_text: "Please follow up on this request.",
+          body_text_clean: "Please follow up on this request.",
           from_email: "legacy@example.com",
           to_emails: ["jackson@canprodeckandrail.com"],
           cc_emails: [],
+          is_read: true,
+          has_attachments: false,
+          attachment_count: 0,
           created_at: "2026-05-20T17:00:00.000Z",
         },
       ],
@@ -3446,6 +3476,10 @@ To: Kara Beach <kara.beach@example.com>`,
           is_meaningful: true,
           opportunity_projection_applied: true,
           occurred_at: "2026-05-20T17:00:00.000Z",
+          subject: "Legacy recovery message",
+          from_email: "legacy@example.com",
+          to_emails: ["jackson@canprodeckandrail.com"],
+          cc_emails: [],
         },
       ],
       rpcCalls: [],
@@ -3460,9 +3494,18 @@ To: Kara Beach <kara.beach@example.com>`,
       email: baseEmail({
         id: "msg-legacy-recovery",
         threadId: "thread-legacy-recovery",
-        from: "Legacy Customer <legacy@example.com>",
-        fromName: "Legacy Customer",
-        to: ["jackson@canprodeckandrail.com"],
+        from: "Victoria Office <victoria@canprodeckandrail.com>",
+        fromName: "Victoria Office",
+        to: ["canprojack@gmail.com"],
+        subject: "Legacy recovery message",
+        bodyText: [
+          "---------- Forwarded message ---------",
+          "From: Legacy Customer <legacy@example.com>",
+          "",
+          "Please follow up on this request.",
+        ].join("\n"),
+        authenticatedFromDomains: [],
+        date: new Date("2026-05-20T17:00:00.000Z"),
         labelIds: ["INBOX"],
       }),
     });
@@ -3476,7 +3519,9 @@ To: Kara Beach <kara.beach@example.com>`,
       opportunity_id: "opp-legacy-recovery",
     });
     expect(state.correspondenceEvents).toHaveLength(1);
+    expect(state.threadLinks).toEqual([]);
     expect(getProviderMock).not.toHaveBeenCalled();
+    expect(upsertFromEmailMock).not.toHaveBeenCalled();
     expect(state.rpcCalls).toContainEqual({
       name: "claim_legacy_email_activity_connection_as_system",
       params: {
@@ -3525,9 +3570,16 @@ To: Kara Beach <kara.beach@example.com>`,
           email_message_id: "msg-legacy-collision",
           opportunity_id: "opp-legacy-collision",
           direction: "inbound",
+          subject: "Legacy collision message",
+          content: "Please follow up on this request.",
+          body_text: "Please follow up on this request.",
+          body_text_clean: "Please follow up on this request.",
           from_email: "legacy@example.com",
           to_emails: ["jackson@canprodeckandrail.com"],
           cc_emails: [],
+          is_read: true,
+          has_attachments: false,
+          attachment_count: 0,
           created_at: "2026-05-20T17:00:00.000Z",
         },
       ],
@@ -3541,10 +3593,17 @@ To: Kara Beach <kara.beach@example.com>`,
           provider_thread_id: "thread-legacy-collision",
           provider_message_id: "msg-legacy-collision",
           direction: "inbound",
+          party_role: "customer",
+          is_meaningful: true,
+          opportunity_projection_applied: true,
+          occurred_at: "2026-05-20T17:00:00.000Z",
+          subject: "Legacy collision message",
+          from_email: "legacy@example.com",
+          to_emails: ["jackson@canprodeckandrail.com"],
+          cc_emails: [],
         },
       ],
-      legacyActivityClaimRpcError:
-        "legacy_email_activity_connection_conflict",
+      legacyActivityClaimRpcError: "legacy_email_activity_connection_conflict",
       rpcCalls: [],
     };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
@@ -3560,6 +3619,9 @@ To: Kara Beach <kara.beach@example.com>`,
         from: "Legacy Customer <legacy@example.com>",
         fromName: "Legacy Customer",
         to: ["jackson@canprodeckandrail.com"],
+        subject: "Legacy collision message",
+        bodyText: "Please follow up on this request.",
+        date: new Date("2026-05-20T17:00:00.000Z"),
         labelIds: ["INBOX"],
       }),
     });
@@ -3613,49 +3675,49 @@ To: Kara Beach <kara.beach@example.com>`,
 
     const runRepair = () =>
       SyncEngine.repairExactReparentedMessageForRecovery({
-      actorUserId: "user-1",
-      companyId: "company-1",
-      connectionId: "connection-1",
-      entry: {
-        action: "reparent",
-        providerThreadId: "provider-thread-reparented",
-        providerMessageId: "provider-message-reparented",
-        providerOccurredAt: "2026-05-20T17:00:00.000Z",
+        actorUserId: "user-1",
+        companyId: "company-1",
+        connectionId: "connection-1",
+        entry: {
+          action: "reparent",
+          providerThreadId: "provider-thread-reparented",
+          providerMessageId: "provider-message-reparented",
+          providerOccurredAt: "2026-05-20T17:00:00.000Z",
+          sourceOpportunityId: "source-opportunity",
+          targetOpportunityId: "target-opportunity",
+          activityId: "activity-reparented",
+          correspondenceEventId: "event-reparented",
+          targetEmail: "customer@example.com",
+          sourceSnapshot: {
+            updatedAt: "2026-05-20T00:00:00.000Z",
+            stage: "new_lead",
+            stageManuallySet: false,
+            assignedTo: null,
+            assignmentVersion: 0,
+            projectId: null,
+          },
+          targetSnapshot: {
+            updatedAt: "2026-05-20T00:00:00.000Z",
+            stage: "new_lead",
+            stageManuallySet: false,
+            assignedTo: null,
+            assignmentVersion: 0,
+            projectId: null,
+          },
+        },
+        message: baseEmail({
+          id: "provider-message-reparented",
+          threadId: "provider-thread-reparented",
+          from: "Customer <customer@example.com>",
+          to: ["jackson@canprodeckandrail.com"],
+          labelIds: ["INBOX"],
+        }),
         sourceOpportunityId: "source-opportunity",
         targetOpportunityId: "target-opportunity",
         activityId: "activity-reparented",
         correspondenceEventId: "event-reparented",
-        targetEmail: "customer@example.com",
-        sourceSnapshot: {
-          updatedAt: "2026-05-20T00:00:00.000Z",
-          stage: "new_lead",
-          stageManuallySet: false,
-          assignedTo: null,
-          assignmentVersion: 0,
-          projectId: null,
-        },
-        targetSnapshot: {
-          updatedAt: "2026-05-20T00:00:00.000Z",
-          stage: "new_lead",
-          stageManuallySet: false,
-          assignedTo: null,
-          assignmentVersion: 0,
-          projectId: null,
-        },
-      },
-      message: baseEmail({
-        id: "provider-message-reparented",
-        threadId: "provider-thread-reparented",
-        from: "Customer <customer@example.com>",
-        to: ["jackson@canprodeckandrail.com"],
-        labelIds: ["INBOX"],
-      }),
-      sourceOpportunityId: "source-opportunity",
-      targetOpportunityId: "target-opportunity",
-      activityId: "activity-reparented",
-      correspondenceEventId: "event-reparented",
-      manifestSha256: "a".repeat(64),
-      entrySha256: "b".repeat(64),
+        manifestSha256: "a".repeat(64),
+        entrySha256: "b".repeat(64),
       });
     await runRepair();
 
