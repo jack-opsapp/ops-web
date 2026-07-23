@@ -24,7 +24,10 @@ import { MessageBubble, type BubbleAttachment } from "./message-bubble";
 import { PhotoBubble, type PhotoData } from "./photo-bubble";
 import { cn } from "@/lib/utils/cn";
 import type { MessageForGrouping } from "@/lib/inbox/message-grouping";
-import type { DraftSource } from "@/lib/types/email-thread";
+import type {
+  DraftSource,
+  FollowUpDraftOrigin,
+} from "@/lib/types/email-thread";
 import { InboxAvatar } from "./avatar";
 
 export interface RenderableMessage extends MessageForGrouping {
@@ -60,6 +63,14 @@ export interface RenderableDraft {
   body: string;
   fromEmail: string;
   updatedAt: string;
+  threadId?: string | null;
+  inboxThreadId?: string | null;
+  connectionId?: string | null;
+  opportunityId?: string | null;
+  origin?: FollowUpDraftOrigin | null;
+  recipientEmail?: string | null;
+  sourceEventId?: string | null;
+  sourceProviderMessageId?: string | null;
 }
 
 interface MessageListProps {

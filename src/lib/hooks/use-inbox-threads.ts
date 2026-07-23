@@ -1300,7 +1300,14 @@ export function useAnswerAgentQuestion() {
 export interface SendReplyArgs {
   /** Stable per-compose-attempt key. Reuse after transport uncertainty. */
   idempotencyKey: string;
+  /** Inbox thread whose UI state should refresh after the send. */
   threadId: string;
+  /**
+   * Canonical source thread for provider reply semantics. Explicit null starts
+   * a new provider thread while keeping threadId for local UI invalidation.
+   * Omit for the ordinary selected-thread reply path.
+   */
+  sourceEmailThreadId?: string | null;
   /** Explicit selected sender. Omit to stay pinned to the thread mailbox. */
   connectionId?: string | null;
   /** Switching sender starts a new provider thread on the same lead. */
@@ -1350,7 +1357,10 @@ export function useSendReply() {
         headers,
         body: JSON.stringify({
           idempotencyKey: args.payload.idempotencyKey,
-          emailThreadId: args.payload.threadId,
+          emailThreadId:
+            args.payload.sourceEmailThreadId === undefined
+              ? args.payload.threadId
+              : args.payload.sourceEmailThreadId,
           connectionId: args.payload.connectionId ?? null,
           senderSwitched: args.payload.senderSwitched ?? false,
           to: args.payload.to,
@@ -1378,6 +1388,15 @@ export function useSendReply() {
       return response;
     },
     onSuccess: (res, args) => {
+      if (args.payload.sourceEmailThreadId === null) {
+        qc.invalidateQueries({
+          queryKey: queryKeys.inbox.threadDetail(args.payload.threadId),
+        });
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.threadsAll() });
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("own") });
+        qc.invalidateQueries({ queryKey: queryKeys.inbox.drafts("company") });
+        return;
+      }
       if ((res.latestDirection ?? "outbound") !== "outbound") {
         qc.invalidateQueries({
           queryKey: queryKeys.inbox.threadDetail(args.payload.threadId),

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // The sync-engine harness introspects the file as source text (it never executes
-// the 165KB engine — see sync-engine-promotion-helper.test.ts and
+// the 165KB engine — see sync-engine-conversion-provenance.test.ts and
 // sync-engine-ai-provider-isolation.test.ts). These assertions guard the drain
 // sweep: when the AI provider recovers, `retryPendingLeadScans` must replay the
 // deferred (lead_scan_pending_at-marked) threads through the SAME classify→promote
@@ -73,19 +73,27 @@ describe("sync-engine pending-lead-scan drain sweep — bounded selection", () =
 });
 
 describe("sync-engine pending-lead-scan drain sweep — replays the live path", () => {
-  it("re-drives each thread through processInboundEmail then the shared promotion helper", () => {
+  it("re-drives each thread through processInboundEmail then the shared promotion path", () => {
     // Fetch the conversation and take its latest inbound message (mirrors
     // evaluateStagesWithSummary's provider.fetchThread + runSync's direction
     // partition) before deterministic ingestion.
     expect(methodBody).toContain("provider.fetchThread(");
     expect(methodBody).toContain("resolvePersistedEmailDirection(");
     expect(methodBody).toContain("processInboundEmail(");
-    // The classify→promote sequence is identical to runSync Step 5 — one
-    // reviewer call, then the ONE shared promotion implementation per lead.
-    expect(methodBody).toContain("AISyncReviewer.reviewUnmatchedEmails(");
-    expect(methodBody).toMatch(
-      /for \(const classified of aiResult\.classifiedLeads\) \{\s*await promoteClassifiedUnmatchedLead\(\{/
+    // The classify→promote step is the SAME implementation runSync Step 5 uses:
+    // persistAIClassifiedUnmatchedInbound runs the reviewer call and promotes
+    // each classified lead. The sweep drains one thread at a time with the exact
+    // live-path policy (NORMAL ingestion, null recovery actor) — one promotion
+    // implementation, no re-inlined reviewer loop.
+    expect(methodBody).toContain("persistAIClassifiedUnmatchedInbound({");
+    expect(methodBody).toContain("contexts: [unmatchedContext],");
+    expect(methodBody).toContain(
+      "executionPolicy: NORMAL_EMAIL_INGESTION_POLICY,"
     );
+    expect(methodBody).toContain("recoveryActorUserId: null,");
+    // No re-inlined reviewer call or bespoke promotion helper remains.
+    expect(methodBody).not.toContain("AISyncReviewer.reviewUnmatchedEmails(");
+    expect(methodBody).not.toContain("promoteClassifiedUnmatchedLead(");
   });
 });
 

@@ -112,7 +112,7 @@ describe("lifecycle draft send provenance", () => {
       profileTypeSnapshot: "client_followup",
     });
     expect(db.rpc).toHaveBeenCalledWith(
-      "prepare_email_send_intent",
+      "prepare_email_send_intent_guarded",
       expect.objectContaining({
         p_draft_history_id: "ai-draft-1",
         p_follow_up_draft_id: "follow-up-draft-1",

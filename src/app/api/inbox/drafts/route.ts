@@ -71,6 +71,12 @@ function parseScope(raw: string | null): InboxScope {
   return raw === "company" ? "company" : "own";
 }
 
+const LOCAL_FOLLOW_UP_DRAFT_ORIGINS = [
+  "template_follow_up",
+  "phase_c",
+  "system_handoff",
+] as const;
+
 function nonEmptyText(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
@@ -484,10 +490,10 @@ export async function GET(request: NextRequest) {
   let lifecycleQuery = supabase
     .from("opportunity_follow_up_drafts")
     .select(
-      "id, opportunity_id, connection_id, provider_thread_id, subject, original_body, current_body, edited_at, updated_at, created_at"
+      "id, opportunity_id, connection_id, provider_thread_id, recipient_email, recipient_name, source_event_id, origin, subject, original_body, current_body, edited_at, updated_at, created_at"
     )
     .eq("company_id", companyId)
-    .in("origin", ["template_follow_up", "phase_c"])
+    .in("origin", [...LOCAL_FOLLOW_UP_DRAFT_ORIGINS])
     .eq("status", "drafted")
     .order("updated_at", { ascending: false })
     .limit(200);
@@ -530,11 +536,54 @@ export async function GET(request: NextRequest) {
   )
     .filter((entry) => entry.allowed)
     .map((entry) => entry.row);
-  const providerThreadIds = Array.from(
+  const sourceEventIds = Array.from(
     new Set(
       scopedLifecycleRows
-        .map((row) => nonEmptyText(row.provider_thread_id))
+        .map((row) => nonEmptyText(row.source_event_id))
         .filter((value): value is string => value !== null)
+    )
+  );
+  const sourceEventById = new Map<
+    string,
+    {
+      connectionId: string | null;
+      providerThreadId: string | null;
+      providerMessageId: string | null;
+    }
+  >();
+  if (sourceEventIds.length > 0) {
+    const { data: sourceEventRows, error: sourceEventErr } = await supabase
+      .from("opportunity_correspondence_events")
+      .select("id, connection_id, provider_thread_id, provider_message_id")
+      .eq("company_id", companyId)
+      .in("id", sourceEventIds);
+    if (sourceEventErr) {
+      console.error(
+        "[/api/inbox/drafts] opportunity_correspondence_events query failed:",
+        sourceEventErr
+      );
+    } else {
+      for (const row of sourceEventRows ?? []) {
+        const id = nonEmptyText(row.id);
+        if (!id) continue;
+        sourceEventById.set(id, {
+          connectionId: nonEmptyText(row.connection_id),
+          providerThreadId: nonEmptyText(row.provider_thread_id),
+          providerMessageId: nonEmptyText(row.provider_message_id),
+        });
+      }
+    }
+  }
+  const providerThreadIds = Array.from(
+    new Set(
+      [
+        ...scopedLifecycleRows.map((row) =>
+          nonEmptyText(row.provider_thread_id)
+        ),
+        ...Array.from(sourceEventById.values()).map(
+          (event) => event.providerThreadId
+        ),
+      ].filter((value): value is string => value !== null)
     )
   );
 
@@ -568,18 +617,33 @@ export async function GET(request: NextRequest) {
   const lifecycleDrafts: InboxDraftRow[] = scopedLifecycleRows.map((row) => {
     const connectionId = nonEmptyText(row.connection_id);
     const providerThreadId = nonEmptyText(row.provider_thread_id);
+    const sourceEventId = nonEmptyText(row.source_event_id);
+    const sourceEvent = sourceEventId
+      ? (sourceEventById.get(sourceEventId) ?? null)
+      : null;
+    const navigationConnectionId = sourceEvent?.connectionId ?? connectionId;
+    const navigationProviderThreadId =
+      providerThreadId ?? sourceEvent?.providerThreadId ?? null;
+    const recipientEmail =
+      nonEmptyText(row.recipient_email)?.toLowerCase() ?? null;
     const conn = connectionId ? connectionById.get(connectionId) : null;
     return {
       source: "lifecycle",
       id: row.id as string,
       threadId: providerThreadId,
       inboxThreadId:
-        threadByProvider.get(threadMapKey(connectionId, providerThreadId)) ??
-        null,
+        threadByProvider.get(
+          threadMapKey(navigationConnectionId, navigationProviderThreadId)
+        ) ?? null,
       opportunityId: nonEmptyText(row.opportunity_id),
+      origin: nonEmptyText(row.origin) as InboxDraftRow["origin"],
+      recipientEmail,
+      recipientName: nonEmptyText(row.recipient_name),
+      sourceEventId,
+      sourceProviderMessageId: sourceEvent?.providerMessageId ?? null,
       connectionId,
       fromEmail: conn?.email ?? "",
-      to: [],
+      to: recipientEmail ? [recipientEmail] : [],
       cc: [],
       subject: nonEmptyText(row.subject) ?? DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT,
       bodyText:
@@ -714,14 +778,13 @@ export async function POST(request: NextRequest) {
 
     // P4-C: phase_c auto-drafts are editable through the same path as
     // template_follow_up drafts — both are local lifecycle drafts.
-    const LIFECYCLE_ORIGINS = ["template_follow_up", "phase_c"];
     const supabase = getServiceRoleClient();
     const { data: existing, error: existingErr } = await supabase
       .from("opportunity_follow_up_drafts")
       .select("id, opportunity_id, connection_id, provider_thread_id")
       .eq("id", draftId)
       .eq("company_id", companyId)
-      .in("origin", LIFECYCLE_ORIGINS)
+      .in("origin", [...LOCAL_FOLLOW_UP_DRAFT_ORIGINS])
       .eq("status", "drafted")
       .single();
     if (existingErr || !existing) {
@@ -753,7 +816,7 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", draftId)
       .eq("company_id", companyId)
-      .in("origin", LIFECYCLE_ORIGINS)
+      .in("origin", [...LOCAL_FOLLOW_UP_DRAFT_ORIGINS])
       .eq("status", "drafted");
 
     if (error) {
@@ -1028,14 +1091,13 @@ export async function DELETE(request: NextRequest) {
   if (source === "lifecycle") {
     // P4-C: phase_c auto-drafts are discardable through the same path as
     // template_follow_up drafts.
-    const LIFECYCLE_ORIGINS = ["template_follow_up", "phase_c"];
     const { data: row, error } = await supabase
       .from("opportunity_follow_up_drafts")
       .select(
         "id, company_id, opportunity_id, connection_id, provider_thread_id"
       )
       .eq("id", id)
-      .in("origin", LIFECYCLE_ORIGINS)
+      .in("origin", [...LOCAL_FOLLOW_UP_DRAFT_ORIGINS])
       .eq("status", "drafted")
       .single();
     if (error || !row) {
@@ -1070,7 +1132,7 @@ export async function DELETE(request: NextRequest) {
       })
       .eq("id", id)
       .eq("company_id", companyId)
-      .in("origin", LIFECYCLE_ORIGINS)
+      .in("origin", [...LOCAL_FOLLOW_UP_DRAFT_ORIGINS])
       .eq("status", "drafted");
     if (updErr) {
       console.error("[/api/inbox/drafts] lifecycle discard failed:", updErr);

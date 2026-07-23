@@ -76,6 +76,8 @@ function intent(overrides: Partial<EmailSendIntent> = {}): EmailSendIntent {
     contentType: "text",
     draftHistoryId: "draft-1",
     followUpDraftId: null,
+    followUpSourceEventId: null,
+    followUpRecipientEmail: null,
     learningAuthority: "operator_approved",
     actorNameSnapshot: "Jason Zavarella",
     actorEmailSnapshot: "jason-login@example.com",

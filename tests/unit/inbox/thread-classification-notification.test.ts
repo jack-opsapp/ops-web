@@ -13,14 +13,18 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const phaseCRouteMock = vi.hoisted(() =>
+  vi.fn(async () => ({
+    outcome: "auto_drafted",
+    category: "CUSTOMER",
+    effectiveLevel: "auto_draft",
+  }))
+);
+
 // Phase C router — capture only, never the real implementation.
 vi.mock("@/lib/api/services/phase-c-autonomy-router", () => ({
   PhaseCAutonomyRouter: {
-    route: vi.fn(async () => ({
-      outcome: "auto_drafted",
-      category: "CUSTOMER",
-      effectiveLevel: "auto_draft",
-    })),
+    route: phaseCRouteMock,
   },
 }));
 
@@ -76,6 +80,7 @@ import type { EmailThread } from "@/lib/types/email-thread";
 function makeDouble(opts: {
   nextOpportunityId: string | null;
   activityBody?: string;
+  summaryConflictsRemaining?: number;
 }) {
   const updatedRow = {
     id: "thr-1",
@@ -90,6 +95,9 @@ function makeDouble(opts: {
     opportunity_id: opts.nextOpportunityId,
     participants: ["client@acme.com"],
     labels: [],
+    message_count: 1,
+    last_message_at: new Date().toISOString(),
+    category_manually_set: false,
   };
   return {
     from(table: string) {
@@ -128,10 +136,20 @@ function makeDouble(opts: {
         }
         return { data: [], error: null };
       };
-      builder.maybeSingle = async () => ({
-        data: table === "email_threads" && isUpdate ? updatedRow : null,
-        error: null,
-      });
+      builder.maybeSingle = async () => {
+        if (
+          table === "email_threads" &&
+          isUpdate &&
+          (opts.summaryConflictsRemaining ?? 0) > 0
+        ) {
+          opts.summaryConflictsRemaining! -= 1;
+          return { data: null, error: null };
+        }
+        return {
+          data: table === "email_threads" ? updatedRow : null,
+          error: null,
+        };
+      };
       builder.single = async () => {
         if (table === "email_threads") return { data: updatedRow, error: null };
         return { data: null, error: null };
@@ -176,6 +194,7 @@ beforeEach(() => {
     classifierVersion: "det-customer-1",
   };
   createClassifiedEmailThreadNotifications.mockClear();
+  phaseCRouteMock.mockClear();
   emailThreadUpdatePayloads.length = 0;
 });
 
@@ -244,6 +263,43 @@ describe("email-thread classification notification — guarded helper boundary",
         ai_summary: expect.stringMatching(/Classification unavailable/i),
       })
     );
+  });
+
+  it("refreshes only the narrative without category, Phase C, or notification side effects", async () => {
+    setSupabaseOverride(makeDouble({ nextOpportunityId: "opp-1" }) as never);
+
+    await EmailThreadService.refreshSummaryOnly(
+      inputThread({
+        categoryManuallySet: true,
+        primaryCategory: "OTHER",
+      })
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(emailThreadUpdatePayloads).toHaveLength(1);
+    expect(emailThreadUpdatePayloads[0]).toEqual({
+      ai_summary: "Any update on the quote?",
+    });
+    expect(phaseCRouteMock).not.toHaveBeenCalled();
+    expect(createClassifiedEmailThreadNotifications).not.toHaveBeenCalled();
+  });
+
+  it("retries a summary-only CAS conflict instead of falsely reporting a stale winner", async () => {
+    setSupabaseOverride(
+      makeDouble({
+        nextOpportunityId: "opp-1",
+        summaryConflictsRemaining: 1,
+      }) as never
+    );
+
+    await EmailThreadService.refreshSummaryOnly(inputThread());
+
+    expect(emailThreadUpdatePayloads).toEqual([
+      { ai_summary: "Any update on the quote?" },
+      { ai_summary: "Any update on the quote?" },
+    ]);
+    expect(phaseCRouteMock).not.toHaveBeenCalled();
+    expect(createClassifiedEmailThreadNotifications).not.toHaveBeenCalled();
   });
 
   it("replaces a vague ungrounded narrative with the newest cleaned message", async () => {

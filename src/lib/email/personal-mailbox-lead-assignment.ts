@@ -8,7 +8,9 @@ export interface PersonalMailboxLeadAssignmentInput {
   expectedAssignmentVersion: number;
   expectedAssignedTo: string | null;
   providerThreadId: string | null;
-  ingestionSource?: "email_sync" | "email_import";
+  ingestionSource?: "email_sync" | "email_import" | "email_recovery";
+  /** Durable trigger fence for an exact provider-read-only recovery run. */
+  providerMutationsDisabled?: boolean;
 }
 
 export type PersonalMailboxLeadAssignmentResult =
@@ -86,6 +88,9 @@ export async function assignPersonalMailboxLead(
         connection_id: input.connectionId,
         provider_thread_id: input.providerThreadId,
         ingestion_source: input.ingestionSource ?? "email_sync",
+        ...(input.providerMutationsDisabled
+          ? { provider_mutations_disabled: true }
+          : {}),
       },
     }
   );

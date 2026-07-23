@@ -366,6 +366,73 @@ function makeImportSupabaseDouble(state: ImportState) {
       if (name === "enqueue_email_import_provider_operation_as_system") {
         return { data: true, error: null };
       }
+      if (name === "record_opportunity_correspondence_event") {
+        state.correspondenceProjectionCalls ??= [];
+        state.correspondenceProjectionCalls.push(args);
+        state.correspondenceEvents ??= [];
+        let event = state.correspondenceEvents.find(
+          (row) =>
+            row.company_id === args.p_company_id &&
+            row.connection_id === args.p_connection_id &&
+            row.provider_message_id === args.p_provider_message_id
+        );
+        let created = false;
+        let projected = false;
+        if (!event) {
+          event = {
+            id: `event-${state.correspondenceEvents.length + 1}`,
+            company_id: args.p_company_id,
+            opportunity_id: args.p_opportunity_id,
+            activity_id: args.p_activity_id,
+            connection_id: args.p_connection_id,
+            provider_thread_id: args.p_provider_thread_id,
+            provider_message_id: args.p_provider_message_id,
+            direction: args.p_direction,
+            party_role: args.p_party_role,
+            is_meaningful: args.p_is_meaningful,
+            noise_reason: args.p_noise_reason,
+            occurred_at: args.p_occurred_at,
+            source: args.p_source,
+            subject: args.p_subject,
+            from_email: args.p_from_email,
+            to_emails: args.p_to_emails,
+            cc_emails: args.p_cc_emails,
+            opportunity_projection_applied: true,
+          };
+          state.correspondenceEvents.push(event);
+          created = true;
+          projected = args.p_apply_opportunity_projection === true;
+        } else if (
+          args.p_apply_opportunity_projection === true &&
+          event.opportunity_projection_applied === false
+        ) {
+          event.opportunity_projection_applied = true;
+          projected = true;
+        }
+        if (projected) {
+          state.correspondenceProjectionIncrements =
+            (state.correspondenceProjectionIncrements ?? 0) + 1;
+        }
+        return {
+          data: [
+            {
+              created,
+              event_id: event.id,
+              correspondence_count: 1,
+              inbound_count: args.p_direction === "inbound" ? 1 : 0,
+              outbound_count: args.p_direction === "outbound" ? 1 : 0,
+              stage: "new_lead",
+              stage_manually_set: false,
+              assignment_version: 0,
+              last_inbound_at: null,
+              last_outbound_at: null,
+              last_message_direction:
+                args.p_direction === "outbound" ? "out" : "in",
+            },
+          ],
+          error: null,
+        };
+      }
       if (name === "apply_opportunity_correspondence_event") {
         state.correspondenceProjectionCalls ??= [];
         state.correspondenceProjectionCalls.push(args);

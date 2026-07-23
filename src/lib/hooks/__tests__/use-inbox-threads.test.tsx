@@ -527,4 +527,89 @@ describe("useSendReply", () => {
       new Error("Add your email signature in Settings before sending.")
     );
   });
+
+  it("sends a message-scoped handoff as a new thread without optimistically rewriting the wrapper thread", async () => {
+    const qc = makeQueryClient();
+    const listKey = queryKeys.inbox.threads({
+      scope: "own",
+      filter: "CLIENTS",
+      category: null,
+      search: null,
+      limit: null,
+    });
+    qc.setQueryData<{ pages: InboxThreadsPage[]; pageParams: unknown[] }>(
+      listKey,
+      {
+        pages: [
+          {
+            threads: [
+              makeThreadRow({
+                id: "forward-wrapper-thread",
+                latestDirection: "inbound",
+                latestSenderEmail: "victoria@example.com",
+              }),
+            ],
+            nextCursor: null,
+          },
+        ],
+        pageParams: [null],
+      }
+    );
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          ok: true,
+          delivered: true,
+          messageId: "new-message-1",
+          threadId: "new-provider-thread-1",
+          latestDirection: "outbound",
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+
+    const { result } = renderHook(() => useSendReply(), {
+      wrapper: wrapperFor(qc),
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        payload: {
+          idempotencyKey: "system-handoff-attempt-1",
+          threadId: "forward-wrapper-thread",
+          sourceEmailThreadId: null,
+          connectionId: "victoria-connection",
+          to: ["customer@example.com"],
+          subject: "Victoria deck inquiry",
+          body: "Thanks for reaching out.",
+          opportunityId: "opportunity-1",
+          followUpDraftId: "draft-1",
+        },
+      });
+    });
+
+    const requestBody = JSON.parse(
+      String((fetchSpy.mock.calls[0]?.[1] as RequestInit | undefined)?.body)
+    );
+    expect(requestBody).toMatchObject({
+      emailThreadId: null,
+      connectionId: "victoria-connection",
+      opportunityId: "opportunity-1",
+      to: ["customer@example.com"],
+      inReplyTo: null,
+      followUpDraftId: "draft-1",
+    });
+    const list = qc.getQueryData<{
+      pages: InboxThreadsPage[];
+      pageParams: unknown[];
+    }>(listKey);
+    expect(list?.pages[0]?.threads[0]).toMatchObject({
+      id: "forward-wrapper-thread",
+      latestDirection: "inbound",
+      latestSenderEmail: "victoria@example.com",
+    });
+  });
 });

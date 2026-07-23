@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  type ConvertOpportunityParams,
   ProjectConversionError,
   ProjectConversionService,
 } from "@/lib/api/services/project-conversion-service";
@@ -22,6 +23,7 @@ const COMMERCIAL_EVIDENCE_PAGE_SIZE = 500;
 
 interface CommercialEvidenceEvent {
   id: string;
+  activity_id: string | null;
   connection_id: string;
   provider_thread_id: string;
   provider_message_id: string;
@@ -32,6 +34,7 @@ interface CommercialEvidenceEvent {
 }
 
 interface CommercialEvidenceActivity {
+  id: string;
   email_connection_id: string;
   email_message_id: string;
   subject: string | null;
@@ -121,7 +124,7 @@ async function loadCompleteCommercialEvidence(input: {
     const { data, error } = await input.supabase
       .from("opportunity_correspondence_events")
       .select(
-        "id, connection_id, provider_thread_id, provider_message_id, direction, party_role, from_email, occurred_at"
+        "id, activity_id, connection_id, provider_thread_id, provider_message_id, direction, party_role, from_email, occurred_at"
       )
       .eq("company_id", input.companyId)
       .eq("opportunity_id", input.opportunityId)
@@ -144,7 +147,7 @@ async function loadCompleteCommercialEvidence(input: {
     const { data, error } = await input.supabase
       .from("activities")
       .select(
-        "email_connection_id, email_message_id, subject, body_text, body_text_clean"
+        "id, email_connection_id, email_message_id, subject, body_text, body_text_clean"
       )
       .eq("company_id", input.companyId)
       .eq("opportunity_id", input.opportunityId)
@@ -222,15 +225,36 @@ async function loadCompleteCommercialEvidence(input: {
   return {
     events,
     messages,
+    activityByMessage,
     latestEventId: events.at(-1)?.id ?? null,
   };
 }
 
-interface AcceptanceEvaluationInput {
+export interface OpportunityCommercialOutcomeEvaluationInput {
   supabase: SupabaseClient;
-  providerThreadId: string;
   opportunityId: string;
   connection: EmailConnection;
+  now?: Date;
+}
+
+interface AcceptanceEvaluationInput
+  extends OpportunityCommercialOutcomeEvaluationInput {
+  providerThreadId: string;
+}
+
+interface CommercialOutcomeOpportunity {
+  stage: string;
+  stage_manually_set: boolean | null;
+  client_id: string | null;
+  client_ref: string | null;
+  contact_email: string | null;
+  assignment_version: number | null;
+  address: string | null;
+}
+
+interface ThreadAcceptanceContext {
+  state: NonNullable<Awaited<ReturnType<typeof buildConversationState>>>;
+  durableProviderThreadId: string;
 }
 
 export function shouldEvaluateOpportunityCommercialOutcome(
@@ -243,19 +267,15 @@ export function shouldEvaluateOpportunityCommercialOutcome(
   return !stageManuallySet && !["won", "discarded"].includes(stage);
 }
 
-/**
- * Rebuild the exact mailbox thread after message or attachment facts change,
- * then apply the deterministic acceptance decision to its attributed lead.
- * The conversion and notifications are idempotent, so both sync-time and the
- * durable attachment-inspection worker can safely call this boundary.
- */
-export async function evaluateOpportunityAcceptance({
+async function loadCommercialOutcomeOpportunity({
   supabase,
-  providerThreadId,
   opportunityId,
   connection,
-}: AcceptanceEvaluationInput): Promise<{ stageChanged: boolean }> {
-  const { data: opportunity, error: opportunityError } = await supabase
+}: Pick<
+  OpportunityCommercialOutcomeEvaluationInput,
+  "supabase" | "opportunityId" | "connection"
+>): Promise<CommercialOutcomeOpportunity | null> {
+  const { data, error } = await supabase
     .from("opportunities")
     .select(
       "stage, stage_manually_set, client_id, client_ref, contact_email, assignment_version, address"
@@ -263,48 +283,29 @@ export async function evaluateOpportunityAcceptance({
     .eq("id", opportunityId)
     .eq("company_id", connection.companyId)
     .maybeSingle();
-  if (opportunityError) {
-    throw new Error(
-      `accept opportunity lookup failed: ${opportunityError.message}`
-    );
+  if (error) {
+    throw new Error(`accept opportunity lookup failed: ${error.message}`);
   }
-  if (!opportunity) return { stageChanged: false };
-  if (
-    !shouldEvaluateOpportunityCommercialOutcome(
-      opportunity.stage as string,
-      Boolean(opportunity.stage_manually_set)
-    )
-  ) {
-    return { stageChanged: false };
-  }
+  return (data as CommercialOutcomeOpportunity | null) ?? null;
+}
 
-  const opportunityClientId = resolveGuardedOpportunityClientId({
-    clientId: (opportunity.client_id as string | null) ?? null,
-    clientRef: (opportunity.client_ref as string | null) ?? null,
-  });
-
-  const { data: thread, error: threadError } = await supabase
-    .from("email_threads")
-    .select("id, provider_thread_id")
-    .eq("company_id", connection.companyId)
-    .eq("connection_id", connection.id)
-    .eq("provider_thread_id", providerThreadId)
-    .eq("opportunity_id", opportunityId)
-    .maybeSingle();
-  if (threadError) {
-    throw new Error(`accept thread lookup failed: ${threadError.message}`);
-  }
-  const internalThreadId = (thread?.id as string | undefined) ?? null;
-  const durableProviderThreadId =
-    (thread?.provider_thread_id as string | undefined) ?? null;
-  if (!internalThreadId || !durableProviderThreadId) {
-    return { stageChanged: false };
-  }
-
-  const state = await buildConversationState(internalThreadId);
-  if (!state) return { stageChanged: false };
-  await persistRoutingDecision(internalThreadId, state);
-
+async function evaluateLoadedOpportunityCommercialOutcome(input: {
+  supabase: SupabaseClient;
+  opportunityId: string;
+  connection: EmailConnection;
+  now?: Date;
+  opportunity: CommercialOutcomeOpportunity;
+  opportunityClientId: string | null;
+  threadContext: ThreadAcceptanceContext | null;
+}): Promise<{ stageChanged: boolean }> {
+  const {
+    supabase,
+    opportunityId,
+    connection,
+    opportunity,
+    opportunityClientId,
+    threadContext,
+  } = input;
   // `party_role = customer` intentionally remains broad enough for inbox
   // routing, but it is not conversion authority: any external CC/vendor can
   // receive that role. Actorless Won/deferred decisions require the exact
@@ -324,7 +325,7 @@ export async function evaluateOpportunityAcceptance({
     customerEmails,
   });
   const commercialOutcome = detectCommercialOutcome({
-    now: new Date(),
+    now: input.now ?? new Date(),
     messages: completeEvidence.messages,
   });
 
@@ -342,18 +343,18 @@ export async function evaluateOpportunityAcceptance({
     );
   }
 
-  const signedAcceptedMessage = [...state.messages]
-    .reverse()
-    .find((message) => {
-      const senderEmail = normalizedEmail(message.fromEmail);
-      return (
-        message.isRealCustomerInbound &&
-        Boolean(senderEmail && customerEmails.has(senderEmail)) &&
-        message.attachments.some(
-          (attachment) => attachment.inspection?.isSignedEstimate === true
-        )
-      );
-    });
+  const signedAcceptedMessage = threadContext
+    ? [...threadContext.state.messages].reverse().find((message) => {
+        const senderEmail = normalizedEmail(message.fromEmail);
+        return (
+          message.isRealCustomerInbound &&
+          Boolean(senderEmail && customerEmails.has(senderEmail)) &&
+          message.attachments.some(
+            (attachment) => attachment.inspection?.isSignedEstimate === true
+          )
+        );
+      })
+    : null;
   const signedAcceptanceSender = normalizedEmail(
     signedAcceptedMessage?.fromEmail
   );
@@ -450,11 +451,13 @@ export async function evaluateOpportunityAcceptance({
     return { stageChanged: Boolean(row.changed) };
   }
 
-  const threadLocalAction = decideAcceptStage(
-    state.accept,
-    state.stage,
-    state.routing
-  );
+  const threadLocalAction = threadContext
+    ? decideAcceptStage(
+        threadContext.state.accept,
+        threadContext.state.stage,
+        threadContext.state.routing
+      )
+    : ({ kind: "none" } as const);
   const action =
     signedAcceptanceIsNewer || commercialOutcome?.outcome === "won"
       ? ({ kind: "auto_advance_won" } as const)
@@ -485,31 +488,29 @@ export async function evaluateOpportunityAcceptance({
         "email acceptance has no durable decisive event or high-water mark"
       );
     }
-    const { data: conversionThread, error: conversionThreadError } =
-      await supabase
-        .from("email_threads")
-        .select("id")
-        .eq("company_id", connection.companyId)
-        .eq("connection_id", conversionEvent.connection_id)
-        .eq("provider_thread_id", conversionEvent.provider_thread_id)
-        .eq("opportunity_id", opportunityId)
-        .maybeSingle();
-    if (conversionThreadError || !conversionThread?.id) {
+    const { data: conversionThread, error: conversionThreadError } = await supabase
+      .from("email_threads")
+      .select("id")
+      .eq("company_id", connection.companyId)
+      .eq("connection_id", conversionEvent.connection_id)
+      .eq("provider_thread_id", conversionEvent.provider_thread_id)
+      .eq("opportunity_id", opportunityId)
+      .maybeSingle();
+    if (conversionThreadError) {
       throw new Error(
-        `email acceptance decisive thread lookup failed: ${conversionThreadError?.message ?? "row not found"}`
+        `email acceptance decisive thread lookup failed: ${conversionThreadError.message}`
       );
     }
     const decisionSignals: string[] = signedAcceptanceIsNewer
       ? ["signed_estimate"]
       : [...(commercialOutcome?.decisiveSignals ?? ["signed_estimate"])];
-    const conversionParams = {
-      opportunityId,
-      companyId: connection.companyId,
-      decidedBy: null,
-      sourcePath: "email_accept",
-      expectedStage: opportunity.stage as string,
-      expectedAssignmentVersion: assignmentVersion as number,
-      evidence: {
+    type EmailAcceptEvidence = Extract<
+      ConvertOpportunityParams,
+      { sourcePath: "email_accept" }
+    >["evidence"];
+    let evidence: EmailAcceptEvidence;
+    if (conversionThread?.id) {
+      evidence = {
         connection_id: conversionEvent.connection_id,
         email_thread_id: conversionThread.id,
         provider_thread_id: conversionEvent.provider_thread_id,
@@ -519,7 +520,44 @@ export async function evaluateOpportunityAcceptance({
         evaluated_through_event_id: completeEvidence.latestEventId,
         signals: decisionSignals,
         decision: "auto_advance_won",
-      },
+      };
+    } else {
+      const decisiveActivity = completeEvidence.activityByMessage.get(
+        mailboxMessageKey(
+          conversionEvent.connection_id,
+          conversionEvent.provider_message_id
+        )
+      );
+      if (
+        !conversionEvent.activity_id ||
+        !decisiveActivity?.id ||
+        decisiveActivity.id !== conversionEvent.activity_id
+      ) {
+        throw new Error(
+          "email acceptance decisive event has no exact durable activity"
+        );
+      }
+      evidence = {
+        connection_id: conversionEvent.connection_id,
+        conversation_scope: "message",
+        source_activity_id: conversionEvent.activity_id,
+        provider_thread_id: conversionEvent.provider_thread_id,
+        provider_message_id: conversionEvent.provider_message_id,
+        decisive_event_id: conversionEvent.id,
+        decisive_direction: conversionEvent.direction,
+        evaluated_through_event_id: completeEvidence.latestEventId,
+        signals: decisionSignals,
+        decision: "auto_advance_won",
+      };
+    }
+    const conversionParams = {
+      opportunityId,
+      companyId: connection.companyId,
+      decidedBy: null,
+      sourcePath: "email_accept",
+      expectedStage: opportunity.stage as string,
+      expectedAssignmentVersion: assignmentVersion as number,
+      evidence,
       actualValue: commercialOutcome?.facts.currentPrice ?? null,
     } as const;
     const existingProjectId = await findUniqueExistingProjectForEmailConversion(
@@ -567,17 +605,106 @@ export async function evaluateOpportunityAcceptance({
   }
 
   if (
+    threadContext &&
     Number.isSafeInteger(assignmentVersion) &&
     (assignmentVersion as number) >= 0
   ) {
     await createEmailOpportunityNotification({
       connectionId: connection.id,
       opportunityId,
-      providerThreadId: durableProviderThreadId,
+      providerThreadId: threadContext.durableProviderThreadId,
       expectedAssignmentVersion: assignmentVersion as number,
       eventType: "accept_review_won",
       supabase,
     });
   }
   return { stageChanged: false };
+}
+
+/**
+ * Evaluate complete durable correspondence for an opportunity. This boundary
+ * intentionally does not depend on an `email_threads` row, so trusted forwarded
+ * messages and form submissions can reach the same guarded deferred/Won paths
+ * without fabricating a shared provider thread.
+ */
+export async function evaluateOpportunityCommercialOutcome(
+  input: OpportunityCommercialOutcomeEvaluationInput
+): Promise<{ stageChanged: boolean }> {
+  const opportunity = await loadCommercialOutcomeOpportunity(input);
+  if (!opportunity) return { stageChanged: false };
+  if (
+    !shouldEvaluateOpportunityCommercialOutcome(
+      opportunity.stage,
+      Boolean(opportunity.stage_manually_set)
+    )
+  ) {
+    return { stageChanged: false };
+  }
+  const opportunityClientId = resolveGuardedOpportunityClientId({
+    clientId: opportunity.client_id,
+    clientRef: opportunity.client_ref,
+  });
+  return evaluateLoadedOpportunityCommercialOutcome({
+    ...input,
+    opportunity,
+    opportunityClientId,
+    threadContext: null,
+  });
+}
+
+/**
+ * Rebuild the exact mailbox thread after message or attachment facts change,
+ * then apply the opportunity-wide deterministic outcome. The conversion and
+ * notifications are idempotent, so both sync-time and the durable attachment
+ * inspection worker can safely call this boundary.
+ */
+export async function evaluateOpportunityAcceptance(
+  input: AcceptanceEvaluationInput
+): Promise<{ stageChanged: boolean }> {
+  const { supabase, providerThreadId, opportunityId, connection } = input;
+  const opportunity = await loadCommercialOutcomeOpportunity(input);
+  if (!opportunity) return { stageChanged: false };
+  if (
+    !shouldEvaluateOpportunityCommercialOutcome(
+      opportunity.stage,
+      Boolean(opportunity.stage_manually_set)
+    )
+  ) {
+    return { stageChanged: false };
+  }
+
+  // Resolve mirrored client identity before any thread state is read. A split
+  // identity must fail closed even when the triggering thread is missing.
+  const opportunityClientId = resolveGuardedOpportunityClientId({
+    clientId: opportunity.client_id,
+    clientRef: opportunity.client_ref,
+  });
+  const { data: thread, error: threadError } = await supabase
+    .from("email_threads")
+    .select("id, provider_thread_id")
+    .eq("company_id", connection.companyId)
+    .eq("connection_id", connection.id)
+    .eq("provider_thread_id", providerThreadId)
+    .eq("opportunity_id", opportunityId)
+    .maybeSingle();
+  if (threadError) {
+    throw new Error(`accept thread lookup failed: ${threadError.message}`);
+  }
+  const internalThreadId = (thread?.id as string | undefined) ?? null;
+  const durableProviderThreadId =
+    (thread?.provider_thread_id as string | undefined) ?? null;
+  if (!internalThreadId || !durableProviderThreadId) {
+    return { stageChanged: false };
+  }
+
+  const state = await buildConversationState(internalThreadId);
+  if (!state) return { stageChanged: false };
+  await persistRoutingDecision(internalThreadId, state);
+
+  return evaluateLoadedOpportunityCommercialOutcome({
+    ...input,
+    opportunity,
+    opportunityClientId,
+    threadContext: { state, durableProviderThreadId },
+  });
 }

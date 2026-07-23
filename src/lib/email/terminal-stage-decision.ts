@@ -128,7 +128,7 @@ const NEGATED_DEPOSIT_REQUEST_RE =
 const PREQUOTE_DEPOSIT_DETAILS_RE =
   /\b(?:send|provide|prepare|get|need|request)\b.{0,60}\b(?:a\s+|the\s+|your\s+)?(?:quote|estimate|proposal|bid|tender)\b.{0,100}\b(?:deposit|payment)\s+(?:details?|terms?|amount|requirements?|schedule)\b|\b(?:deposit|payment)\s+(?:details?|terms?|amount|requirements?|schedule)\b.{0,100}\b(?:for|with)\b.{0,30}\b(?:quote|estimate|proposal|bid|tender)\b/i;
 const COMPLETED_PAYMENT_FACT_RE =
-  /\b(?:deposit|payment)(?:\s+payment)?\s+(?:(?:was|is|has been|had been)\s+)?(?:paid|sent|received)\b|\b(?:paid|sent|received)(?:\s+and\s+confirmed)?\s+(?:(?:the|your|our|a)\s+)?(?:\d+(?:\.\d+)?\s*%\s+)?(?:deposit|payment)\b(?!\s+(?:confirmation|status|authorization|authentication|method|instructions?|details?|invoice|link|request|reminder))/i;
+  /\b(?:deposit|payment)(?:\s+payment)?\s+(?:(?:was|is|has been|had been)\s+)?(?:paid|sent|received)\b|\b(?:paid|sent|received)(?:\s+and\s+confirmed)?\s+(?:(?:(?:the|my|your|our|his|her|their|a)\s+|[a-z][a-z-]*(?:['’]s)\s+))?(?:\d+(?:\.\d+)?\s*%\s+)?(?:deposit|payment)\b(?!\s+(?:confirmation|status|authorization|authentication|method|instructions?|details?|invoice|link|request|reminder))/i;
 const PAYMENT_ADMINISTRATION_RE =
   /\b(?:deposit|payment)\b.{0,40}\b(?:instructions?|details?|invoice|link|request|reminder|receipt)\b|\b(?:instructions?|details?|invoice|link|request|reminder|receipt)\b.{0,40}\b(?:deposit|payment)\b/i;
 const NEGATED_PAYMENT_RE =
@@ -190,11 +190,11 @@ const NON_DEAL_ACCEPTANCE_OBJECT_RE =
 const EXPLICIT_SCOPE_EXCLUSION_RE =
   /\b(?:exclude(?:d|s|ing)?|not included|no longer included|remove(?:d)? from (?:the )?scope|without)\b/i;
 const SELF_PERFORMED_SCOPE_RE =
-  /\b(?:owner|customer|client|homeowner|husband|wife|we|i|they|he|she)\b.{0,100}\b(?:will|can|is going to|(?:'|’)ll)\b.{0,80}\b(?:handle|supply|provide|remove|complete|perform|do|take care of)\b/i;
+  /\b(?:owner|customer|client|homeowner|husband|wife|we|i|they|he|she)\b.{0,80}(?:\b(?:will|can|is going to)\b|(?:'|’)ll)\s+(?:(?:be able to|personally|just)\s+)*(?:handle|supply|provide|remove|complete|perform|do|take care of)\b/i;
 const THIRD_PARTY_SELF_PERFORMED_SCOPE_RE =
-  /\b(?:owner|customer|client|homeowner|husband|wife|they|he|she)\b.{0,100}\b(?:will|can|is going to|(?:'|’)ll)\b.{0,80}\b(?:handle|supply|provide|remove|complete|perform|do|take care of)\b/i;
-const SCOPE_STATEMENT_RE =
-  /\b(?:scope|work|project|job|install(?:ation|ing)?|supply|provide|replace|repair|build|construct|remove|complete|perform|include(?:d|s|ing)?|exclude(?:d|s|ing)?|revision|revised|addition|added)\b/i;
+  /\b(?:owner|customer|client|homeowner|husband|wife|they|he|she)\b.{0,80}(?:\b(?:will|can|is going to)\b|(?:'|’)ll)\s+(?:(?:be able to|personally|just)\s+)*(?:handle|supply|provide|remove|complete|perform|do|take care of)\b/i;
+const EXPLICIT_SCOPE_CONTEXT_RE =
+  /\b(?:scope(?: of work)?|materials?|finishes?|dimensions?|sizes?|colou?rs?|options?|revisions?|additions?)\b/i;
 const INTERROGATIVE_CLAUSE_OPEN_RE =
   /^\s*(?:who|what|when|where|why|how|is|are|was|were|has|have|had|can|could|would|will|should|do|does|did|may|might)\b/i;
 
@@ -439,6 +439,10 @@ function isExcludedScopeStatement(
   value: string
 ): boolean {
   if (EXPLICIT_SCOPE_EXCLUSION_RE.test(value)) return true;
+  // A customer asking whether OPS can help with work is not a declaration that
+  // the customer or another party will self-perform that scope.
+  if (value.includes("?")) return false;
+  if (/^\s*(?:if|unless|when|once)\b/i.test(value)) return false;
   if (!SELF_PERFORMED_SCOPE_RE.test(value)) return false;
   if (message.direction === "inbound" && message.authorRole === "customer") {
     return true;
@@ -448,6 +452,19 @@ function isExcludedScopeStatement(
     message.authorRole === "operator" &&
     THIRD_PARTY_SELF_PERFORMED_SCOPE_RE.test(value)
   );
+}
+
+function excludedScopeStatement(
+  message: CommercialOutcomeMessage
+): string | null {
+  const sentences = cleanBody(message.body).match(/[^.!?\n]+[.!?]?/g) ?? [];
+  for (let index = sentences.length - 1; index >= 0; index -= 1) {
+    const sentence = sentences[index].trim();
+    if (sentence && isExcludedScopeStatement(message, sentence)) {
+      return sentence;
+    }
+  }
+  return null;
 }
 
 function collectMessageSignals(
@@ -693,6 +710,12 @@ function scopeActionsOverlap(left: string, right: string): boolean {
   return [...scopeActionTerms(left)].some((term) => rightActions.has(term));
 }
 
+function isCurrentCommercialScopeStatement(value: string): boolean {
+  return (
+    scopeActionTerms(value).size > 0 || EXPLICIT_SCOPE_CONTEXT_RE.test(value)
+  );
+}
+
 function currentScopeStatement(
   messages: CommercialOutcomeMessage[],
   excludedScope: string | null
@@ -711,7 +734,7 @@ function currentScopeStatement(
       sentenceIndex -= 1
     ) {
       const sentence = sentences[sentenceIndex].trim();
-      if (!sentence || !SCOPE_STATEMENT_RE.test(sentence)) continue;
+      if (!sentence || !isCurrentCommercialScopeStatement(sentence)) continue;
       if (isExcludedScopeStatement(message, sentence)) continue;
       if (
         excludedScope &&
@@ -747,8 +770,9 @@ function currentMoney(messages: CommercialOutcomeMessage[]): number | null {
   // price instead of keeping the now-inapplicable add-on total.
   let latestExcludedScope: { index: number; body: string } | null = null;
   for (let index = 0; index < messages.length; index += 1) {
-    if (isExcludedScopeStatement(messages[index], messages[index].body)) {
-      latestExcludedScope = { index, body: messages[index].body };
+    const excludedScope = excludedScopeStatement(messages[index]);
+    if (excludedScope) {
+      latestExcludedScope = { index, body: excludedScope };
     }
   }
   if (
@@ -787,9 +811,8 @@ function lastExcludedScopeBody(
 ): string | null {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
-    if (isExcludedScopeStatement(message, cleanBody(message.body))) {
-      return cleanBody(message.body);
-    }
+    const excludedScope = excludedScopeStatement(message);
+    if (excludedScope) return excludedScope;
   }
   return null;
 }
@@ -813,6 +836,7 @@ function lastScheduleFactBody(
     ) {
       return null;
     }
+    if (CONDITIONAL_SCHEDULE_RE.test(body)) continue;
     if (SCHEDULE_FACT_RE.test(body) && SCHEDULE_FACT_CONTEXT_RE.test(body)) {
       return body;
     }
@@ -1212,10 +1236,10 @@ export function detectCommercialOutcome(input: {
       ? "Review the customer's cancellation and close or update the sales cycle."
       : deferred
         ? deferredTiming!.nextAction
-        : signals.includes("deposit_requested")
-          ? "Send deposit or payment instructions and convert the accepted work to a project."
-          : signals.includes("payment_confirmed")
-            ? "Convert or link the project and confirm the work schedule."
+        : signals.includes("payment_confirmed")
+          ? "Convert or link the project and confirm the work schedule."
+          : signals.includes("deposit_requested")
+            ? "Send deposit or payment instructions and convert the accepted work to a project."
             : "Convert the accepted work to a project and confirm the schedule.",
   };
   const base = {

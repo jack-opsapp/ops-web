@@ -58,6 +58,8 @@ function row(overrides: Record<string, unknown> = {}) {
     content_type: BASE_INPUT.contentType,
     draft_history_id: BASE_INPUT.draftHistoryId,
     follow_up_draft_id: null,
+    follow_up_source_event_id: null,
+    follow_up_recipient_email: null,
     learning_authority: BASE_INPUT.learningAuthority,
     actor_name_snapshot: "Jason Zavarella",
     actor_email_snapshot: "jason@ops-login.example",
@@ -143,7 +145,7 @@ describe("EmailSendIntentService", () => {
 
     const intent = await service.prepare(BASE_INPUT);
 
-    expect(db.rpc).toHaveBeenCalledWith("prepare_email_send_intent", {
+    expect(db.rpc).toHaveBeenCalledWith("prepare_email_send_intent_guarded", {
       p_idempotency_key: BASE_INPUT.idempotencyKey,
       p_request_fingerprint: buildEmailSendRequestFingerprint(BASE_INPUT),
       p_company_id: BASE_INPUT.companyId,

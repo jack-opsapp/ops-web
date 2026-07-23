@@ -111,6 +111,7 @@ type DraftRouteState = {
   ai_draft_history: Array<Record<string, unknown>>;
   email_connections?: Array<Record<string, unknown>>;
   email_threads: Array<Record<string, unknown>>;
+  opportunity_correspondence_events?: Array<Record<string, unknown>>;
   opportunity_follow_up_drafts: Array<Record<string, unknown>>;
 };
 
@@ -964,6 +965,148 @@ describe("/api/inbox/drafts lifecycle drafts", () => {
       subject: "Following up",
       bodyText: "Current body 1",
     });
+  });
+
+  it("surfaces a message-scoped system handoff with exact recipient and source-event navigation", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_threads: [
+        {
+          id: "thread-forward-wrapper",
+          company_id: "company-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-forward-wrapper",
+        },
+      ],
+      opportunity_correspondence_events: [
+        {
+          id: "source-event-1",
+          company_id: "company-1",
+          opportunity_id: "opp-1",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-forward-wrapper",
+          provider_message_id: "provider-forward-message-1",
+        },
+      ],
+      opportunity_follow_up_drafts: [
+        {
+          ...makeDraftRows(1)[0],
+          provider_thread_id: null,
+          origin: "system_handoff",
+          recipient_email: "customer@example.com",
+          recipient_name: "Customer One",
+          source_event_id: "source-event-1",
+        },
+      ],
+    };
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+
+    const response = await GET(
+      new NextRequest("http://test.local/api/inbox/drafts?scope=own")
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.drafts).toEqual([
+      expect.objectContaining({
+        source: "lifecycle",
+        id: "draft-1",
+        origin: "system_handoff",
+        connectionId: "connection-1",
+        opportunityId: "opp-1",
+        threadId: null,
+        inboxThreadId: "thread-forward-wrapper",
+        recipientEmail: "customer@example.com",
+        recipientName: "Customer One",
+        sourceEventId: "source-event-1",
+        sourceProviderMessageId: "provider-forward-message-1",
+        to: ["customer@example.com"],
+      }),
+    ]);
+  });
+
+  it("edits a system-handoff draft locally without creating or updating a provider draft", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_threads: [],
+      opportunity_follow_up_drafts: [
+        {
+          ...makeDraftRows(1)[0],
+          provider_thread_id: null,
+          origin: "system_handoff",
+          recipient_email: "customer@example.com",
+          source_event_id: "source-event-1",
+        },
+      ],
+    };
+    const provider = {
+      listDrafts: vi.fn().mockResolvedValue([]),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn(),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+
+    const response = await POST(
+      new NextRequest("http://test.local/api/inbox/drafts", {
+        method: "POST",
+        body: JSON.stringify({
+          source: "lifecycle",
+          draftId: "draft-1",
+          subject: "Victoria deck inquiry",
+          body: "Updated local reply copy",
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(state.opportunity_follow_up_drafts[0]).toMatchObject({
+      origin: "system_handoff",
+      current_body: "Updated local reply copy",
+      edited_by: "user-1",
+    });
+    expect(provider.createDraft).not.toHaveBeenCalled();
+    expect(provider.updateDraft).not.toHaveBeenCalled();
+  });
+
+  it("discards a system-handoff draft locally without deleting a provider draft", async () => {
+    const state: DraftRouteState = {
+      ai_draft_history: [],
+      email_threads: [],
+      opportunity_follow_up_drafts: [
+        {
+          ...makeDraftRows(1)[0],
+          provider_thread_id: null,
+          origin: "system_handoff",
+          recipient_email: "customer@example.com",
+          source_event_id: "source-event-1",
+        },
+      ],
+    };
+    const provider = {
+      listDrafts: vi.fn().mockResolvedValue([]),
+      createDraft: vi.fn(),
+      updateDraft: vi.fn(),
+      deleteDraft: vi.fn(),
+    };
+    getProviderMock.mockReturnValue(provider);
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+
+    const response = await DELETE(
+      new NextRequest(
+        "http://test.local/api/inbox/drafts?source=lifecycle&id=draft-1",
+        { method: "DELETE" }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(state.opportunity_follow_up_drafts[0]).toMatchObject({
+      origin: "system_handoff",
+      status: "discarded",
+      edited_by: "user-1",
+    });
+    expect(provider.deleteDraft).not.toHaveBeenCalled();
   });
 
   it("updates a local lifecycle draft subject and body without touching a provider draft", async () => {

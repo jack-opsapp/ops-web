@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 // The sync-engine harness introspects the file as source text (it never
-// executes the engine — see sync-engine-promotion-helper.test.ts and
+// executes the engine — see sync-engine-pending-lead-scan-sweep.test.ts and
 // sync-engine-conversion-provenance.test.ts). These assertions guard the
 // AI-provider failure-isolation contract: a provider outage in Steps 5–6 must
 // defer AI enrichment and still reach persistSyncCheckpoint (cursor advances),
@@ -51,36 +51,45 @@ describe("sync-engine AI-provider isolation — result shape", () => {
 });
 
 describe("sync-engine AI-provider isolation — Step 5", () => {
-  it("wraps reviewUnmatchedEmails and downgrades only provider errors", () => {
+  it("wraps the shared promotion path and downgrades only provider errors", () => {
+    // Step 5 delegates to persistAIClassifiedUnmatchedInbound — the ONE
+    // promotion implementation the exact-message-recovery flow and the drain
+    // sweep also use. The reviewer call lives inside it and throws before any
+    // promotion write, so wrapping that single call is a clean skip: a provider
+    // outage is downgraded to the flag, every other error still aborts.
     const step5 = aiBlock.slice(
-      aiBlock.indexOf("let aiResult = null;"),
-      aiBlock.indexOf("if (aiResult) {")
+      aiBlock.indexOf("await persistAIClassifiedUnmatchedInbound({"),
+      aiBlock.indexOf("for (const sentEmail of sentEmails)")
     );
-    expect(step5).toMatch(
-      /let aiResult = null;\s*try \{\s*aiResult = await AISyncReviewer\.reviewUnmatchedEmails\(/
-    );
+    // The live Step-5 call runs under NORMAL ingestion with no recovery actor.
+    expect(step5).toContain("executionPolicy: NORMAL_EMAIL_INGESTION_POLICY,");
+    expect(step5).toContain("recoveryActorUserId: null,");
+    // Wrapped so only provider-unavailability is downgraded to the flag.
     expect(step5).toContain("} catch (err) {");
     expect(step5).toContain("if (!isAIProviderUnavailableError(err)) throw err;");
     expect(step5).toContain("aiProviderOutage ??= err;");
   });
 
-  it("gates the classifiedLeads loop on a truthy aiResult and defers on outage", () => {
-    const handling = aiBlock.slice(
-      aiBlock.indexOf("if (aiResult) {"),
+  it("defers durably on a provider outage and counts the deferral", () => {
+    // On outage the catch durably marks the unmatched threads pending and
+    // records the count, then falls through so the cursor still advances.
+    const step5Catch = aiBlock.slice(
+      aiBlock.indexOf(
+        "} catch (err) {",
+        aiBlock.indexOf("await persistAIClassifiedUnmatchedInbound({")
+      ),
       aiBlock.indexOf("for (const sentEmail of sentEmails)")
     );
-    // Loop lives inside `if (aiResult)` — skipped entirely under an outage.
-    expect(handling).toMatch(
-      /if \(aiResult\) \{[\s\S]*for \(const classified of aiResult\.classifiedLeads\)/
+    expect(step5Catch).toContain(
+      "markUnmatchedThreadsPendingLeadScan(unmatchedContexts, connection);"
     );
-    // The outage branch durably defers and counts the deferral.
-    expect(handling).toContain("} else if (aiProviderOutage) {");
-    expect(handling).toContain("markUnmatchedThreadsPendingLeadScan(");
-    expect(handling).toContain(
+    expect(step5Catch).toContain(
       "result.leadScansDeferred += unmatchedContexts.length;"
     );
-    expect(handling.indexOf("aiResult.classifiedLeads")).toBeLessThan(
-      handling.indexOf("else if (aiProviderOutage)")
+    // The flag is set before the durable mark — the outage is downgraded, not
+    // thrown, so persistence deferral happens on the fall-through path.
+    expect(step5Catch.indexOf("aiProviderOutage ??= err;")).toBeLessThan(
+      step5Catch.indexOf("markUnmatchedThreadsPendingLeadScan(")
     );
   });
 });

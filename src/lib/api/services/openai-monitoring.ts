@@ -65,6 +65,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+// OpenAI populates `code` inconsistently for org/billing quota errors — the
+// stable signal is `type: "insufficient_quota"`. Match either field so a
+// real exhaustion is never missed (2026-07-22 outage: type-only, code null).
+function hasInsufficientQuotaSignal(
+  errorLike: Record<string, unknown>
+): boolean {
+  return (
+    errorLike.code === "insufficient_quota" ||
+    errorLike.type === "insufficient_quota"
+  );
+}
+
 function retryCount(init?: RequestInit): number {
   const raw = new Headers(init?.headers).get("x-stainless-retry-count");
   const parsed = raw === null ? 0 : Number.parseInt(raw, 10);
@@ -97,7 +109,7 @@ async function quotaMetadata(
   }
 
   if (!isRecord(payload) || !isRecord(payload.error)) return null;
-  if (payload.error.code !== "insufficient_quota") return null;
+  if (!hasInsufficientQuotaSignal(payload.error)) return null;
 
   return {
     status: response.status,
@@ -151,8 +163,8 @@ function forceNextRecoveryProbe(keySource: string): void {
 
 export function isOpenAIInsufficientQuotaError(error: unknown): boolean {
   if (!isRecord(error)) return false;
-  if (error.code === "insufficient_quota") return true;
-  return isRecord(error.error) && error.error.code === "insufficient_quota";
+  if (hasInsufficientQuotaSignal(error)) return true;
+  return isRecord(error.error) && hasInsufficientQuotaSignal(error.error);
 }
 
 const AI_PROVIDER_UNAVAILABLE_ERROR_NAMES = new Set([

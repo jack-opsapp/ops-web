@@ -34,7 +34,9 @@ describe("inbox deep-link canonical thread identity", () => {
 
   it("derives the current lead marker from authorized detail without a browser junction-table read", () => {
     const routeSource = source("src/components/ops/inbox/inbox-route.tsx");
-    const linkHookSource = source("src/lib/hooks/use-thread-opportunity-links.ts");
+    const linkHookSource = source(
+      "src/lib/hooks/use-thread-opportunity-links.ts"
+    );
 
     expect(routeSource).not.toContain("useThreadOpportunityLinks");
     expect(routeSource).toMatch(
@@ -80,6 +82,9 @@ describe("inbox deep-link canonical thread identity", () => {
   it("keeps fallback messages and contact context on the exact authorized lead and mailbox", () => {
     const hookSource = source("src/lib/hooks/use-inbox-threads.ts");
     const routeSource = source("src/components/ops/inbox/inbox-route.tsx");
+    const draftSendBindingSource = source(
+      "src/lib/inbox/draft-send-binding.ts"
+    );
     const apiSource = source("src/app/api/inbox/threads/[id]/route.ts");
     const getSource = apiSource.split("// ─── PATCH: action handler")[0];
 
@@ -92,8 +97,12 @@ describe("inbox deep-link canonical thread identity", () => {
     expect(routeSource).not.toContain("subClientCount");
     expect(getSource).toContain("email_message_id");
     expect(getSource).toContain("providerMessageId:");
+    expect(routeSource).toContain("resolveInboxDraftSendBinding({");
     expect(routeSource).toContain(
-      "inReplyTo: lastInbound?.providerMessageId ?? null"
+      "providerMessageId: lastInbound.providerMessageId ?? null"
+    );
+    expect(draftSendBindingSource).toContain(
+      "inReplyTo: normalized(input.lastInbound?.providerMessageId)"
     );
   });
 });

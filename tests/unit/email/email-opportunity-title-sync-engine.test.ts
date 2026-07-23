@@ -19,7 +19,11 @@ const {
   evaluateStagesWithSummaryMock,
   upsertFromEmailMock,
   classifyAndUpdateMock,
+  refreshSummaryOnlyMock,
+  refreshSummaryOnlyForProviderThreadMock,
   refreshLeadSummariesForOpportunitiesMock,
+  evaluateOpportunityAcceptanceMock,
+  evaluateOpportunityCommercialOutcomeMock,
   afterMock,
   enqueueIfEnabledMock,
 } = vi.hoisted(() => ({
@@ -33,7 +37,11 @@ const {
   evaluateStagesWithSummaryMock: vi.fn(),
   upsertFromEmailMock: vi.fn(),
   classifyAndUpdateMock: vi.fn(),
+  refreshSummaryOnlyMock: vi.fn(),
+  refreshSummaryOnlyForProviderThreadMock: vi.fn(),
   refreshLeadSummariesForOpportunitiesMock: vi.fn(),
+  evaluateOpportunityAcceptanceMock: vi.fn(),
+  evaluateOpportunityCommercialOutcomeMock: vi.fn(),
   afterMock: vi.fn(),
   enqueueIfEnabledMock: vi.fn(async () => ({
     enqueued: true,
@@ -70,15 +78,26 @@ vi.mock("@/lib/api/services/ai-sync-reviewer", () => ({
 }));
 
 vi.mock("@/lib/api/services/email-thread-service", () => ({
+  EmailThreadParentConflictError: class EmailThreadParentConflictError extends Error {},
   EmailThreadService: {
     upsertFromEmail: upsertFromEmailMock,
     classifyAndUpdate: classifyAndUpdateMock,
+    refreshSummaryOnly: refreshSummaryOnlyMock,
+    refreshSummaryOnlyForProviderThread:
+      refreshSummaryOnlyForProviderThreadMock,
   },
 }));
 
 vi.mock("@/lib/api/services/lead-summary-service", () => ({
   refreshLeadSummariesForOpportunities:
     refreshLeadSummariesForOpportunitiesMock,
+}));
+
+vi.mock("@/lib/api/services/conversation-state/acceptance-evaluation", () => ({
+  evaluateOpportunityAcceptance: evaluateOpportunityAcceptanceMock,
+  evaluateOpportunityCommercialOutcome:
+    evaluateOpportunityCommercialOutcomeMock,
+  shouldEvaluateOpportunityCommercialOutcome: vi.fn(() => true),
 }));
 
 vi.mock("@/lib/api/services/autonomy-milestone-service", () => ({
@@ -132,6 +151,11 @@ interface SupabaseState {
   threadClaimWinnerId?: string;
   estimatedValueUpdateFailuresRemaining?: number;
   provenanceUpserts?: Array<Record<string, unknown>>;
+  recoveryInboxAuthorized?: boolean;
+  recoveryIngestAuthorized?: boolean;
+  recoveryOpportunityAuthorized?: boolean;
+  legacyActivityClaimRpcError?: string;
+  orphanAdoptionRpcError?: string;
 }
 
 function makeSupabaseDouble(state: SupabaseState) {
@@ -385,6 +409,15 @@ function makeSupabaseDouble(state: SupabaseState) {
         return { data: client, error: null };
       }
       if (this.table === "opportunities") {
+        return {
+          data: (this.result().data as unknown[] | null)?.[0] ?? null,
+          error: null,
+        };
+      }
+      if (
+        this.table === "activities" ||
+        this.table === "opportunity_correspondence_events"
+      ) {
         return {
           data: (this.result().data as unknown[] | null)?.[0] ?? null,
           error: null,
@@ -694,6 +727,210 @@ function makeSupabaseDouble(state: SupabaseState) {
       return new Query(table);
     },
     rpc: vi.fn(async (name: string, params: Record<string, unknown>) => {
+      if (name === "claim_legacy_email_activity_connection_as_system") {
+        state.rpcCalls?.push({ name, params });
+        if (state.legacyActivityClaimRpcError) {
+          return {
+            data: null,
+            error: { message: state.legacyActivityClaimRpcError },
+          };
+        }
+        const activity = state.activities.find(
+          (row) =>
+            row.id === params.p_activity_id &&
+            row.company_id === params.p_company_id &&
+            row.email_thread_id === params.p_provider_thread_id &&
+            row.email_message_id === params.p_provider_message_id
+        );
+        const exactEvents = (state.correspondenceEvents ?? []).filter(
+          (event) =>
+            event.company_id === params.p_company_id &&
+            event.activity_id === params.p_activity_id &&
+            event.connection_id === params.p_connection_id &&
+            event.provider_thread_id === params.p_provider_thread_id &&
+            event.provider_message_id === params.p_provider_message_id &&
+            event.opportunity_id === activity?.opportunity_id
+        );
+        if (!activity || exactEvents.length !== 1) {
+          return {
+            data: null,
+            error: {
+              message: "legacy_email_activity_connection_unproven",
+            },
+          };
+        }
+        if (
+          activity.email_connection_id != null &&
+          activity.email_connection_id !== params.p_connection_id
+        ) {
+          return {
+            data: null,
+            error: { message: "legacy_email_activity_connection_conflict" },
+          };
+        }
+        activity.email_connection_id = params.p_connection_id;
+        return { data: true, error: null };
+      }
+      if (name === "authorize_email_exact_message_ingest_as_system") {
+        state.rpcCalls?.push({ name, params });
+        return {
+          data: state.recoveryIngestAuthorized ?? true,
+          error: null,
+        };
+      }
+      if (name === "authorize_email_inbox_action_as_system") {
+        state.rpcCalls?.push({ name, params });
+        return {
+          data: state.recoveryInboxAuthorized ?? true,
+          error: null,
+        };
+      }
+      if (name === "authorize_opportunity_action_as_system") {
+        state.rpcCalls?.push({ name, params });
+        return {
+          data: state.recoveryOpportunityAuthorized ?? true,
+          error: null,
+        };
+      }
+      if (name === "adopt_orphan_email_activity_with_payload_guard_as_system") {
+        state.rpcCalls?.push({ name, params });
+        if (state.orphanAdoptionRpcError) {
+          return {
+            data: null,
+            error: { message: state.orphanAdoptionRpcError },
+          };
+        }
+        if (
+          params.p_ingestion_source === "email_recovery" &&
+          (state.recoveryIngestAuthorized === false ||
+            state.recoveryOpportunityAuthorized === false)
+        ) {
+          return {
+            data: null,
+            error: { message: "orphan_email_activity_actor_unauthorized" },
+          };
+        }
+        const activity = state.activities.find(
+          (row) =>
+            row.id === params.p_activity_id &&
+            row.company_id === params.p_company_id &&
+            row.email_connection_id === params.p_connection_id &&
+            row.email_thread_id === params.p_provider_thread_id &&
+            row.email_message_id === params.p_provider_message_id &&
+            row.type === "email" &&
+            row.direction === "inbound"
+        );
+        const target = state.opportunities.find(
+          (row) =>
+            row.id === params.p_target_opportunity_id &&
+            row.company_id === params.p_company_id
+        );
+        if (!activity || !target) {
+          return {
+            data: null,
+            error: { message: "orphan_email_activity_not_found" },
+          };
+        }
+        if (
+          activity.created_at !== params.p_occurred_at ||
+          activity.subject !== params.p_subject ||
+          activity.from_email !== params.p_from_email ||
+          JSON.stringify(activity.to_emails ?? []) !==
+            JSON.stringify(params.p_to_emails ?? []) ||
+          JSON.stringify(activity.cc_emails ?? []) !==
+            JSON.stringify(params.p_cc_emails ?? []) ||
+          (activity.content ?? null) !== params.p_content ||
+          (activity.body_text ?? null) !== params.p_body_text ||
+          (activity.body_text_clean ?? null) !== params.p_body_text_clean ||
+          (params.p_ingestion_source === "email_recovery" &&
+            (activity.has_attachments === true ||
+              Number(activity.attachment_count ?? 0) !== 0))
+        ) {
+          return {
+            data: null,
+            error: { message: "orphan_email_activity_payload_changed" },
+          };
+        }
+        if (
+          activity.opportunity_id != null &&
+          activity.opportunity_id !== params.p_target_opportunity_id
+        ) {
+          return {
+            data: null,
+            error: { message: "orphan_email_activity_owner_conflict" },
+          };
+        }
+        state.correspondenceEvents ??= [];
+        let event = state.correspondenceEvents.find(
+          (row) =>
+            row.company_id === params.p_company_id &&
+            row.connection_id === params.p_connection_id &&
+            row.provider_message_id === params.p_provider_message_id
+        );
+        if (
+          event &&
+          (activity.opportunity_id == null ||
+            event.opportunity_id !== params.p_target_opportunity_id ||
+            event.activity_id !== params.p_activity_id ||
+            event.provider_thread_id !== params.p_provider_thread_id ||
+            event.direction !== "inbound")
+        ) {
+          return {
+            data: null,
+            error: {
+              message: "orphan_email_activity_correspondence_conflict",
+            },
+          };
+        }
+        const applied = activity.opportunity_id == null;
+        activity.opportunity_id = params.p_target_opportunity_id;
+        activity.match_needs_review = false;
+        activity.suggested_client_id = null;
+        activity.match_confidence = params.p_match_confidence;
+        activity.is_read = true;
+        activity.provider_mutations_disabled =
+          activity.provider_mutations_disabled === true ||
+          params.p_ingestion_source === "email_recovery";
+        if (!event) {
+          event = {
+            id: `event-${state.correspondenceEvents.length + 1}`,
+            company_id: params.p_company_id,
+            opportunity_id: params.p_target_opportunity_id,
+            activity_id: params.p_activity_id,
+            connection_id: params.p_connection_id,
+            provider_thread_id: params.p_provider_thread_id,
+            provider_message_id: params.p_provider_message_id,
+            direction: "inbound",
+            party_role: params.p_party_role,
+            is_meaningful: params.p_is_meaningful,
+            noise_reason: params.p_noise_reason,
+            occurred_at: params.p_occurred_at,
+            subject: params.p_subject,
+            from_email: params.p_from_email,
+            to_emails: params.p_to_emails,
+            cc_emails: params.p_cc_emails,
+            opportunity_projection_applied: true,
+          };
+          state.correspondenceEvents.push(event);
+          target.correspondence_count =
+            Number(target.correspondence_count ?? 0) + 1;
+          target.inbound_count = Number(target.inbound_count ?? 0) + 1;
+          target.last_inbound_at = params.p_occurred_at;
+          target.last_message_direction = "in";
+          state.correspondenceProjectionApplications =
+            (state.correspondenceProjectionApplications ?? 0) + 1;
+        }
+        return {
+          data: {
+            applied,
+            already_applied: !applied,
+            activity_id: params.p_activity_id,
+            opportunity_id: params.p_target_opportunity_id,
+            correspondence_event_id: event.id,
+          },
+          error: null,
+        };
+      }
       if (name === "acquire_email_connection_sync_lock_as_system") {
         if (state.syncLockError) {
           return { data: null, error: { message: state.syncLockError } };
@@ -732,6 +969,135 @@ function makeSupabaseDouble(state: SupabaseState) {
             : {}),
         });
         return { data: true, error: null };
+      }
+      if (name === "record_opportunity_correspondence_event") {
+        state.rpcCalls?.push({ name, params });
+        if (state.correspondenceEventInsertError) {
+          return {
+            data: null,
+            error: { message: state.correspondenceEventInsertError },
+          };
+        }
+        // The production RPC rolls insertion and counter projection back as
+        // one transaction. Model a projection failure before mutating either
+        // fixture collection so the retry cannot observe a stranded event.
+        if (state.correspondenceProjectionError) {
+          return {
+            data: null,
+            error: { message: state.correspondenceProjectionError },
+          };
+        }
+
+        state.correspondenceEvents ??= [];
+        let event = state.correspondenceEvents.find(
+          (row) =>
+            row.company_id === params.p_company_id &&
+            row.provider_message_id === params.p_provider_message_id &&
+            (params.p_connection_id == null ||
+              row.connection_id === params.p_connection_id)
+        );
+        let created = false;
+        let shouldProject = false;
+        if (!event) {
+          event = {
+            id: `event-${state.correspondenceEvents.length + 1}`,
+            company_id: params.p_company_id,
+            opportunity_id: params.p_opportunity_id,
+            activity_id: params.p_activity_id,
+            connection_id: params.p_connection_id,
+            provider_thread_id: params.p_provider_thread_id,
+            provider_message_id: params.p_provider_message_id,
+            direction: params.p_direction,
+            party_role: params.p_party_role,
+            is_meaningful: params.p_is_meaningful,
+            noise_reason: params.p_noise_reason,
+            occurred_at: params.p_occurred_at,
+            linked_contact_kind: params.p_linked_contact_kind,
+            linked_contact_id: params.p_linked_contact_id,
+            source: params.p_source,
+            subject: params.p_subject,
+            from_email: params.p_from_email,
+            to_emails: params.p_to_emails,
+            cc_emails: params.p_cc_emails,
+            opportunity_projection_applied: true,
+          };
+          state.correspondenceEvents.push(event);
+          created = true;
+          shouldProject = params.p_apply_opportunity_projection === true;
+        } else {
+          if (
+            event.opportunity_id !== params.p_opportunity_id ||
+            event.activity_id !== params.p_activity_id ||
+            event.connection_id !== params.p_connection_id ||
+            event.provider_thread_id !== params.p_provider_thread_id ||
+            event.direction !== params.p_direction
+          ) {
+            return {
+              data: null,
+              error: {
+                code: "23505",
+                message: "correspondence_provider_identity_conflict",
+              },
+            };
+          }
+          if (
+            params.p_apply_opportunity_projection === true &&
+            event.opportunity_projection_applied === false
+          ) {
+            event.opportunity_projection_applied = true;
+            shouldProject = true;
+          }
+        }
+
+        const opportunity = state.opportunities.find(
+          (row) => row.id === params.p_opportunity_id
+        );
+        if (!opportunity) {
+          return {
+            data: null,
+            error: { code: "P0002", message: "opportunity_not_found" },
+          };
+        }
+        opportunity.assignment_version ??= 0;
+        opportunity.stage_manually_set ??= false;
+        opportunity.correspondence_count ??= 0;
+        opportunity.inbound_count ??= 0;
+        opportunity.outbound_count ??= 0;
+        if (shouldProject) {
+          opportunity.correspondence_count =
+            Number(opportunity.correspondence_count) + 1;
+          if (event.direction === "inbound") {
+            opportunity.inbound_count = Number(opportunity.inbound_count) + 1;
+            opportunity.last_inbound_at = event.occurred_at;
+            opportunity.last_message_direction = "in";
+          } else {
+            opportunity.outbound_count = Number(opportunity.outbound_count) + 1;
+            opportunity.last_outbound_at = event.occurred_at;
+            opportunity.last_message_direction = "out";
+          }
+          state.correspondenceProjectionApplications =
+            (state.correspondenceProjectionApplications ?? 0) + 1;
+        }
+
+        return {
+          data: [
+            {
+              created,
+              event_id: event.id,
+              correspondence_count: opportunity.correspondence_count,
+              inbound_count: opportunity.inbound_count,
+              outbound_count: opportunity.outbound_count,
+              stage: opportunity.stage,
+              stage_manually_set: opportunity.stage_manually_set,
+              assignment_version: opportunity.assignment_version,
+              last_inbound_at: opportunity.last_inbound_at ?? null,
+              last_outbound_at: opportunity.last_outbound_at ?? null,
+              last_message_direction:
+                opportunity.last_message_direction ?? null,
+            },
+          ],
+          error: null,
+        };
       }
       state.rpcCalls?.push({ name, params });
       if (
@@ -879,6 +1245,11 @@ function baseEmail(overrides: Partial<NormalizedEmail> = {}): NormalizedEmail {
     subject: "Canpro Deck and Rail Estimate",
     snippet: "Estimate attached.",
     bodyText: "Estimate attached.",
+    authenticatedFromDomains: [
+      "canprodeckandrail.com",
+      "wix-forms.com",
+      "wix.com",
+    ],
     date: new Date("2026-05-20T17:00:00.000Z"),
     labelIds: ["SENT"],
     isRead: true,
@@ -931,15 +1302,32 @@ describe("SyncEngine email opportunity title generation", () => {
     });
     evaluateStagesWithSummaryMock.mockResolvedValue([]);
     refreshLeadSummariesForOpportunitiesMock.mockReset();
-    refreshLeadSummariesForOpportunitiesMock.mockResolvedValue({
-      requested: 0,
-      written: 0,
-      skippedFeatureDisabled: false,
-      failed: [],
+    refreshLeadSummariesForOpportunitiesMock.mockImplementation(
+      async (input: { opportunityIds: string[] }) => ({
+        requested: input.opportunityIds.length,
+        written: input.opportunityIds.length,
+        skippedFeatureDisabled: false,
+        failed: [],
+        deferred: [],
+      })
+    );
+    evaluateOpportunityAcceptanceMock.mockReset();
+    evaluateOpportunityAcceptanceMock.mockResolvedValue({
+      stageChanged: false,
+    });
+    evaluateOpportunityCommercialOutcomeMock.mockReset();
+    evaluateOpportunityCommercialOutcomeMock.mockResolvedValue({
+      stageChanged: false,
     });
     upsertFromEmailMock.mockReset();
     classifyAndUpdateMock.mockReset();
     classifyAndUpdateMock.mockImplementation(async (thread) => thread);
+    refreshSummaryOnlyMock.mockReset();
+    refreshSummaryOnlyMock.mockImplementation(async (thread) => thread);
+    refreshSummaryOnlyForProviderThreadMock.mockReset();
+    refreshSummaryOnlyForProviderThreadMock.mockResolvedValue({
+      id: "email-thread-1",
+    });
     afterMock.mockReset();
     enqueueIfEnabledMock.mockClear();
     enqueueIfEnabledMock.mockResolvedValue({
@@ -1449,7 +1837,7 @@ To: Kara Beach <kara.beach@example.com>`,
     },
     {
       modelStage: "lost",
-      expectedStage: "follow_up",
+      expectedStage: "negotiation",
       expectedSignal: "likely_lost",
     },
   ])(
@@ -2399,6 +2787,985 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(upsertFromEmailMock).not.toHaveBeenCalled();
   });
 
+  it("uses the nested customer identity for a generic office forward", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(
+      baseConnection({
+        email: "canprojack@gmail.com",
+        syncFilters: {
+          includeSentMail: true,
+          estimateSubjectPatterns: ["deck repair"],
+          companyDomains: ["canprodeckandrail.com"],
+          teamForwarders: ["victoria@canprodeckandrail.com"],
+        },
+      })
+    );
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-forwarded-customer",
+            threadId: "thread-forwarded-customer",
+            from: "Victoria Office <victoria@canprodeckandrail.com>",
+            fromName: "Victoria Office",
+            to: ["canprojack@gmail.com"],
+            subject: "Fwd: Deck repair at 10295 Sparling Place",
+            bodyText: [
+              "---------- Forwarded message ---------",
+              "From: Chris Sherwood <cesherwood@gmail.com>",
+              "To: Victoria Office <victoria@canprodeckandrail.com>",
+              "Subject: Deck repair at 10295 Sparling Place",
+              "",
+              "The deck needs repair and replacement vinyl.",
+            ].join("\n"),
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(matchMock).toHaveBeenCalledWith(
+      "company-1",
+      "cesherwood@gmail.com",
+      expect.not.objectContaining({
+        threadId: expect.anything(),
+      })
+    );
+    expect(state.clients[0]).toMatchObject({
+      email: "cesherwood@gmail.com",
+    });
+    expect(state.activities[0]).toMatchObject({
+      email_message_id: "msg-forwarded-customer",
+      from_email: "cesherwood@gmail.com",
+    });
+    expect(state.opportunities[0]?.title).not.toContain("Victoria");
+    expect(state.threadLinks).toHaveLength(0);
+    expect(evaluateStagesWithSummaryMock.mock.calls.at(-1)?.[0]).toEqual([
+      {
+        threadId: "email:gmail:connection-1:message:msg-forwarded-customer",
+        messages: [
+          expect.objectContaining({
+            id: "msg-forwarded-customer",
+            from: "cesherwood@gmail.com",
+          }),
+        ],
+      },
+    ]);
+  });
+
+  it("trusts an authenticated active company user forwarder even when wizard filters are stale", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      operatorUsers: [
+        { email: "jackson@canprodeckandrail.com", phone: null },
+        { email: "victoria@canprodeckandrail.com", phone: null },
+      ],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(
+      baseConnection({
+        id: "connection-authoritative-forwarder",
+        email: "canprojack@gmail.com",
+        syncFilters: {
+          includeSentMail: true,
+          estimateSubjectPatterns: ["deck repair"],
+          companyDomains: [],
+          teamForwarders: [],
+          userEmailAddresses: [],
+        },
+      })
+    );
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-authoritative-forwarder",
+            threadId: "thread-authoritative-forwarder",
+            from: "Victoria Office <victoria@canprodeckandrail.com>",
+            fromName: "Victoria Office",
+            to: ["canprojack@gmail.com"],
+            subject: "Fwd: Deck repair",
+            bodyText: [
+              "---------- Forwarded message ---------",
+              "From: Chris Sherwood <cesherwood@gmail.com>",
+              "Subject: Deck repair",
+              "",
+              "Please quote the repair.",
+            ].join("\n"),
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.runSync(
+      "connection-authoritative-forwarder"
+    );
+
+    expect(result.errors).toEqual([]);
+    expect(matchMock).toHaveBeenCalledWith(
+      "company-1",
+      "cesherwood@gmail.com",
+      expect.not.objectContaining({ threadId: expect.anything() })
+    );
+    expect(state.clients[0]?.email).toBe("cesherwood@gmail.com");
+  });
+
+  it("filters trusted forwards by the nested customer and keeps unrelated forwarded leads message-scoped", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(
+      baseConnection({
+        email: "canprojack@gmail.com",
+        syncFilters: {
+          includeSentMail: true,
+          estimateSubjectPatterns: ["quote"],
+          companyDomains: ["canprodeckandrail.com"],
+          teamForwarders: ["victoria@canprodeckandrail.com"],
+        },
+      })
+    );
+    const forwarded = (
+      id: string,
+      customerEmail: string,
+      customerName: string
+    ) =>
+      baseEmail({
+        id,
+        threadId: "thread-victoria-forward-batch",
+        from: "Victoria Office <victoria@canprodeckandrail.com>",
+        fromName: "Victoria Office",
+        to: ["canprojack@gmail.com"],
+        subject: "Fwd: Deck quote",
+        bodyText: [
+          "---------- Forwarded message ---------",
+          `From: ${customerName} <${customerEmail}>`,
+          "To: Victoria Office <victoria@canprodeckandrail.com>",
+          "Subject: Deck quote",
+          "",
+          "Please quote this deck.",
+        ].join("\n"),
+        labelIds: ["INBOX"],
+      });
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          forwarded("msg-forward-allowed", "allowed@example.com", "Allowed"),
+          forwarded("msg-forward-blocked", "blocked@example.com", "Blocked"),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    shouldFilterMock.mockImplementation(
+      (sender: string) => sender === "blocked@example.com"
+    );
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(shouldFilterMock).toHaveBeenCalledWith(
+      "allowed@example.com",
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything()
+    );
+    expect(shouldFilterMock).toHaveBeenCalledWith(
+      "blocked@example.com",
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything()
+    );
+    expect(state.clients.map((row) => row.email)).toEqual([
+      "allowed@example.com",
+    ]);
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.opportunities[0]?.source_thread_key).toBe(
+      "email:gmail:connection-1:message:msg-forward-allowed"
+    );
+    expect(state.threadLinks).toHaveLength(0);
+  });
+
+  it("ingests one exact recovery message without provider writes or cursor movement", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(
+      baseConnection({
+        email: "canprojack@gmail.com",
+        opsLabelId: "Label_1",
+      })
+    );
+    getProviderMock.mockReset();
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.ingestExactInboundMessageForRecovery({
+      actorUserId: "user-1",
+      companyId: "company-1",
+      connectionId: "connection-1",
+      email: baseEmail({
+        id: "msg-recovery-lauri",
+        threadId: "thread-recovery-shared-wix",
+        from: "Victoria Office <victoria@canprodeckandrail.com>",
+        fromName: "Victoria Office",
+        to: ["canprojack@gmail.com"],
+        subject: "Fwd: Free Quote form got a new submission",
+        bodyText: contactFormBody
+          .replaceAll("Marcel Mercier", "Lauri Humeniuk")
+          .replaceAll("marcel.mercier@example.com", "lhumeniuk@sd61.bc.ca")
+          .replaceAll("Mercier Holdings", "Lauri Humeniuk"),
+        labelIds: ["INBOX"],
+      }),
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.activitiesCreated).toBe(1);
+    expect(state.activities[0]).toMatchObject({
+      email_message_id: "msg-recovery-lauri",
+      from_email: "lhumeniuk@sd61.bc.ca",
+      provider_mutations_disabled: true,
+    });
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+    expect(upsertFromEmailMock).not.toHaveBeenCalled();
+    expect(evaluateOpportunityCommercialOutcomeMock).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      opportunityId: state.opportunities[0].id,
+      connection: expect.objectContaining({ id: "connection-1" }),
+    });
+    expect(evaluateOpportunityAcceptanceMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps exact recovery pending when its targeted lead summary is feature-disabled", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(baseConnection());
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+    refreshLeadSummariesForOpportunitiesMock.mockResolvedValueOnce({
+      requested: 1,
+      written: 0,
+      skippedFeatureDisabled: true,
+      failed: [],
+      deferred: [],
+    });
+
+    const result = await SyncEngine.ingestExactInboundMessageForRecovery({
+      actorUserId: "user-1",
+      companyId: "company-1",
+      connectionId: "connection-1",
+      email: baseEmail({
+        id: "msg-recovery-summary-disabled",
+        threadId: "thread-recovery-summary-disabled",
+        from: "Canpro Deck and Rail <notifications@wix-forms.com>",
+        fromName: "Canpro Deck and Rail",
+        to: ["jackson@canprodeckandrail.com"],
+        subject: "Contact Us 3 got a new submission",
+        bodyText: contactFormBody,
+        labelIds: ["INBOX"],
+      }),
+    });
+
+    expect(result.errors.join(" ")).toContain(
+      "exact recovery summary refresh incomplete"
+    );
+    expect(result.errors.join(" ")).toContain("feature_disabled=true");
+    expect(state.activities).toHaveLength(1);
+    expect(getProviderMock).not.toHaveBeenCalled();
+  });
+
+  it("classifies a trusted generic Victoria forward through the canonical unmatched path without inheriting its raw thread", async () => {
+    evaluateStagesWithSummaryMock.mockClear();
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      correspondenceEvents: [],
+      projects: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(
+      baseConnection({
+        email: "canprojack@gmail.com",
+        opsLabelId: "Label_1",
+        syncFilters: {
+          includeSentMail: true,
+          estimateSubjectPatterns: ["estimate"],
+          companyDomains: ["canprodeckandrail.com"],
+          teamForwarders: ["victoria@canprodeckandrail.com"],
+        },
+      })
+    );
+    getProviderMock.mockReset();
+    const forwarded = baseEmail({
+      id: "msg-victoria-generic-recovery",
+      threadId: "thread-victoria-office-shared",
+      from: "Victoria Office <victoria@canprodeckandrail.com>",
+      fromName: "Victoria Office",
+      to: ["canprojack@gmail.com"],
+      subject: "Fwd: New Victoria lead",
+      bodyText: [
+        "---------- Forwarded message ---------",
+        "From: Rowan Hart <rowan@example.com>",
+        "To: Victoria Office <victoria@canprodeckandrail.com>",
+        "Subject: New Victoria lead",
+        "",
+        "We need cedar railings supplied for our Fernwood home this August.",
+      ].join("\n"),
+      snippet: "Forwarded Victoria lead",
+      authenticatedFromDomains: ["canprodeckandrail.com"],
+      labelIds: ["INBOX"],
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+    reviewUnmatchedEmailsMock.mockResolvedValue({
+      classifiedLeads: [
+        {
+          email: forwarded,
+          clientName: "Rowan Hart",
+          clientEmail: "rowan@example.com",
+          clientPhone: null,
+          address: null,
+          description: "Cedar railing supply in August",
+          stage: "new_lead",
+          terminalFlag: null,
+          estimatedValue: null,
+          confidence: 0.96,
+        },
+      ],
+      newLeadsClassified: 1,
+    });
+
+    const result = await SyncEngine.ingestExactInboundMessageForRecovery({
+      actorUserId: "user-1",
+      companyId: "company-1",
+      connectionId: "connection-1",
+      email: forwarded,
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.newLeads).toBe(1);
+    expect(state.clients).toHaveLength(1);
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.opportunities[0]).toMatchObject({
+      contact_email: "rowan@example.com",
+      source_thread_key:
+        "email:gmail:connection-1:message:msg-victoria-generic-recovery",
+    });
+    expect(state.activities).toEqual([
+      expect.objectContaining({
+        email_message_id: "msg-victoria-generic-recovery",
+        opportunity_id: state.opportunities[0].id,
+        from_email: "rowan@example.com",
+        provider_mutations_disabled: true,
+      }),
+    ]);
+    expect(state.threadLinks).toEqual([]);
+    expect(state.projects).toEqual([]);
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+    expect(upsertFromEmailMock).not.toHaveBeenCalled();
+    expect(refreshSummaryOnlyMock).not.toHaveBeenCalled();
+    expect(refreshSummaryOnlyForProviderThreadMock).not.toHaveBeenCalled();
+    expect(evaluateStagesWithSummaryMock).not.toHaveBeenCalled();
+  });
+
+  it("atomically adopts one exact NULL-owner Victoria activity and remains idempotent on retry", async () => {
+    reviewUnmatchedEmailsMock.mockClear();
+    const forwarded = baseEmail({
+      id: "msg-victoria-orphan-recovery",
+      threadId: "thread-victoria-office-shared",
+      from: "Victoria Office <victoria@canprodeckandrail.com>",
+      fromName: "Victoria Office",
+      to: ["canprojack@gmail.com"],
+      subject: "Fwd: New Victoria lead",
+      bodyText: [
+        "---------- Forwarded message ---------",
+        "From: Taylor Reed <taylor@example.com>",
+        "To: Victoria Office <victoria@canprodeckandrail.com>",
+        "Subject: New Victoria lead",
+        "",
+        "Please price cedar railings for our Fernwood home this August.",
+      ].join("\n"),
+      snippet: "Forwarded Victoria lead",
+      // A read-only connector snapshot cannot expose Gmail's
+      // Authentication-Results. Recovery must reuse the already-persisted
+      // canonical inbound activity rather than trusting this visible header.
+      authenticatedFromDomains: [],
+      labelIds: ["INBOX"],
+    });
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [
+        {
+          id: "activity-victoria-orphan",
+          company_id: "company-1",
+          type: "email",
+          email_connection_id: "connection-1",
+          email_thread_id: forwarded.threadId,
+          email_message_id: forwarded.id,
+          opportunity_id: null,
+          direction: "inbound",
+          subject: forwarded.subject,
+          content: "Please price cedar railings for August.",
+          body_text:
+            "Please price cedar railings for our Fernwood home this August.",
+          body_text_clean:
+            "Please price cedar railings for our Fernwood home this August.",
+          from_email: "taylor@example.com",
+          to_emails: ["canprojack@gmail.com"],
+          cc_emails: [],
+          is_read: false,
+          has_attachments: false,
+          attachment_count: 0,
+          match_needs_review: true,
+          suggested_client_id: "client-stale-suggestion",
+          match_confidence: "low",
+          provider_mutations_disabled: false,
+          created_at: forwarded.date.toISOString(),
+        },
+      ],
+      correspondenceEvents: [],
+      correspondenceProjectionApplications: 0,
+      projects: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(
+      baseConnection({
+        email: "canprojack@gmail.com",
+        opsLabelId: "Label_1",
+        syncFilters: {
+          includeSentMail: true,
+          estimateSubjectPatterns: ["estimate"],
+          companyDomains: ["canprodeckandrail.com"],
+          teamForwarders: ["victoria@canprodeckandrail.com"],
+        },
+      })
+    );
+    getProviderMock.mockReset();
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+    reviewUnmatchedEmailsMock.mockResolvedValue({
+      classifiedLeads: [
+        {
+          email: forwarded,
+          clientName: "Taylor Reed",
+          clientEmail: "taylor@example.com",
+          clientPhone: null,
+          address: null,
+          description: "Cedar railing quote for August",
+          stage: "new_lead",
+          terminalFlag: null,
+          estimatedValue: null,
+          confidence: 0.97,
+        },
+      ],
+      newLeadsClassified: 1,
+    });
+
+    const first = await SyncEngine.ingestExactInboundMessageForRecovery({
+      actorUserId: "user-1",
+      companyId: "company-1",
+      connectionId: "connection-1",
+      email: forwarded,
+    });
+    const second = await SyncEngine.ingestExactInboundMessageForRecovery({
+      actorUserId: "user-1",
+      companyId: "company-1",
+      connectionId: "connection-1",
+      email: forwarded,
+    });
+
+    expect(first.errors).toEqual([]);
+    expect(second.errors).toEqual([]);
+    expect(first.activitiesCreated).toBe(0);
+    expect(second.activitiesCreated).toBe(0);
+    expect(state.clients).toHaveLength(1);
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.activities).toHaveLength(1);
+    expect(state.activities[0]).toMatchObject({
+      id: "activity-victoria-orphan",
+      opportunity_id: state.opportunities[0].id,
+      match_needs_review: false,
+      suggested_client_id: null,
+      match_confidence: "ai",
+      provider_mutations_disabled: true,
+    });
+    expect(state.correspondenceEvents).toHaveLength(1);
+    expect(state.correspondenceProjectionApplications).toBe(1);
+    expect(state.projects).toEqual([]);
+    expect(state.threadLinks).toEqual([]);
+    expect(
+      state.rpcCalls?.filter(
+        (call) =>
+          call.name ===
+          "adopt_orphan_email_activity_with_payload_guard_as_system"
+      )
+    ).toEqual([
+      expect.objectContaining({
+        params: expect.objectContaining({
+          p_actor_user_id: "user-1",
+          p_company_id: "company-1",
+          p_connection_id: "connection-1",
+          p_activity_id: "activity-victoria-orphan",
+          p_provider_thread_id: forwarded.threadId,
+          p_provider_message_id: forwarded.id,
+          p_ingestion_source: "email_recovery",
+        }),
+      }),
+    ]);
+    expect(reviewUnmatchedEmailsMock).toHaveBeenCalledTimes(1);
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects exact recovery before ingestion when mailbox or pipeline create/edit authority is missing", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      recoveryIngestAuthorized: false,
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(baseConnection());
+
+    const result = await SyncEngine.ingestExactInboundMessageForRecovery({
+      actorUserId: "user-without-access",
+      companyId: "company-1",
+      connectionId: "connection-1",
+      email: baseEmail({
+        id: "msg-recovery-denied",
+        threadId: "thread-recovery-denied",
+        from: "Customer <customer@example.com>",
+        fromName: "Customer",
+        to: ["jackson@canprodeckandrail.com"],
+        labelIds: ["INBOX"],
+      }),
+    });
+
+    expect(result.errors).toEqual([
+      "Recovery actor lacks mailbox or pipeline ingest authority",
+    ]);
+    expect(state.activities).toEqual([]);
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+    expect(state.rpcCalls).toContainEqual({
+      name: "authorize_email_exact_message_ingest_as_system",
+      params: {
+        p_actor_user_id: "user-without-access",
+        p_company_id: "company-1",
+        p_connection_id: "connection-1",
+      },
+    });
+  });
+
+  it("claims and reuses one event-proven legacy activity during exact recovery without creating a duplicate", async () => {
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-legacy-recovery",
+          company_id: "company-1",
+          name: "Legacy Customer",
+          email: "legacy@example.com",
+          phone_number: null,
+          deleted_at: null,
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-legacy-recovery",
+          company_id: "company-1",
+          client_id: "client-legacy-recovery",
+          client_ref: "client-legacy-recovery",
+          stage: "new_lead",
+          correspondence_count: 1,
+          inbound_count: 1,
+          outbound_count: 0,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [],
+      activities: [
+        {
+          id: "activity-legacy-recovery",
+          company_id: "company-1",
+          type: "email",
+          email_connection_id: null,
+          email_thread_id: "thread-legacy-recovery",
+          email_message_id: "msg-legacy-recovery",
+          opportunity_id: "opp-legacy-recovery",
+          direction: "inbound",
+          subject: "Legacy recovery message",
+          content: "Please follow up on this request.",
+          body_text: "Please follow up on this request.",
+          body_text_clean: "Please follow up on this request.",
+          from_email: "legacy@example.com",
+          to_emails: ["jackson@canprodeckandrail.com"],
+          cc_emails: [],
+          is_read: true,
+          has_attachments: false,
+          attachment_count: 0,
+          created_at: "2026-05-20T17:00:00.000Z",
+        },
+      ],
+      correspondenceEvents: [
+        {
+          id: "event-legacy-recovery",
+          company_id: "company-1",
+          opportunity_id: "opp-legacy-recovery",
+          activity_id: "activity-legacy-recovery",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-legacy-recovery",
+          provider_message_id: "msg-legacy-recovery",
+          direction: "inbound",
+          party_role: "customer",
+          is_meaningful: true,
+          opportunity_projection_applied: true,
+          occurred_at: "2026-05-20T17:00:00.000Z",
+          subject: "Legacy recovery message",
+          from_email: "legacy@example.com",
+          to_emails: ["jackson@canprodeckandrail.com"],
+          cc_emails: [],
+        },
+      ],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(baseConnection());
+
+    const result = await SyncEngine.ingestExactInboundMessageForRecovery({
+      actorUserId: "user-1",
+      companyId: "company-1",
+      connectionId: "connection-1",
+      email: baseEmail({
+        id: "msg-legacy-recovery",
+        threadId: "thread-legacy-recovery",
+        from: "Victoria Office <victoria@canprodeckandrail.com>",
+        fromName: "Victoria Office",
+        to: ["canprojack@gmail.com"],
+        subject: "Legacy recovery message",
+        bodyText: [
+          "---------- Forwarded message ---------",
+          "From: Legacy Customer <legacy@example.com>",
+          "",
+          "Please follow up on this request.",
+        ].join("\n"),
+        authenticatedFromDomains: [],
+        date: new Date("2026-05-20T17:00:00.000Z"),
+        labelIds: ["INBOX"],
+      }),
+    });
+
+    expect(result.errors).toEqual([]);
+    expect(result.activitiesCreated).toBe(0);
+    expect(state.activities).toHaveLength(1);
+    expect(state.activities[0]).toMatchObject({
+      id: "activity-legacy-recovery",
+      email_connection_id: "connection-1",
+      opportunity_id: "opp-legacy-recovery",
+    });
+    expect(state.correspondenceEvents).toHaveLength(1);
+    expect(state.threadLinks).toEqual([]);
+    expect(getProviderMock).not.toHaveBeenCalled();
+    expect(upsertFromEmailMock).not.toHaveBeenCalled();
+    expect(state.rpcCalls).toContainEqual({
+      name: "claim_legacy_email_activity_connection_as_system",
+      params: {
+        p_activity_id: "activity-legacy-recovery",
+        p_company_id: "company-1",
+        p_connection_id: "connection-1",
+        p_provider_message_id: "msg-legacy-recovery",
+        p_provider_thread_id: "thread-legacy-recovery",
+      },
+    });
+  });
+
+  it("fails closed without a duplicate when the locked legacy mailbox claim detects a collision", async () => {
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-legacy-collision",
+          company_id: "company-1",
+          name: "Legacy Customer",
+          email: "legacy@example.com",
+          phone_number: null,
+          deleted_at: null,
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-legacy-collision",
+          company_id: "company-1",
+          client_id: "client-legacy-collision",
+          client_ref: "client-legacy-collision",
+          stage: "new_lead",
+          correspondence_count: 1,
+          inbound_count: 1,
+          outbound_count: 0,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [],
+      activities: [
+        {
+          id: "activity-legacy-collision",
+          company_id: "company-1",
+          type: "email",
+          email_connection_id: null,
+          email_thread_id: "thread-legacy-collision",
+          email_message_id: "msg-legacy-collision",
+          opportunity_id: "opp-legacy-collision",
+          direction: "inbound",
+          subject: "Legacy collision message",
+          content: "Please follow up on this request.",
+          body_text: "Please follow up on this request.",
+          body_text_clean: "Please follow up on this request.",
+          from_email: "legacy@example.com",
+          to_emails: ["jackson@canprodeckandrail.com"],
+          cc_emails: [],
+          is_read: true,
+          has_attachments: false,
+          attachment_count: 0,
+          created_at: "2026-05-20T17:00:00.000Z",
+        },
+      ],
+      correspondenceEvents: [
+        {
+          id: "event-legacy-collision",
+          company_id: "company-1",
+          opportunity_id: "opp-legacy-collision",
+          activity_id: "activity-legacy-collision",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-legacy-collision",
+          provider_message_id: "msg-legacy-collision",
+          direction: "inbound",
+          party_role: "customer",
+          is_meaningful: true,
+          opportunity_projection_applied: true,
+          occurred_at: "2026-05-20T17:00:00.000Z",
+          subject: "Legacy collision message",
+          from_email: "legacy@example.com",
+          to_emails: ["jackson@canprodeckandrail.com"],
+          cc_emails: [],
+        },
+      ],
+      legacyActivityClaimRpcError: "legacy_email_activity_connection_conflict",
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(baseConnection());
+
+    const result = await SyncEngine.ingestExactInboundMessageForRecovery({
+      actorUserId: "user-1",
+      companyId: "company-1",
+      connectionId: "connection-1",
+      email: baseEmail({
+        id: "msg-legacy-collision",
+        threadId: "thread-legacy-collision",
+        from: "Legacy Customer <legacy@example.com>",
+        fromName: "Legacy Customer",
+        to: ["jackson@canprodeckandrail.com"],
+        subject: "Legacy collision message",
+        bodyText: "Please follow up on this request.",
+        date: new Date("2026-05-20T17:00:00.000Z"),
+        labelIds: ["INBOX"],
+      }),
+    });
+
+    expect(result.errors).toContain(
+      "[sync-engine] legacy activity connection claim failed: legacy_email_activity_connection_conflict"
+    );
+    expect(state.activities).toHaveLength(1);
+    expect(state.activities[0].email_connection_id).toBeNull();
+  });
+
+  it("repairs an exact reparent only after target ownership and both lead authorizations are proven", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [
+        { id: "source-opportunity", stage: "new_lead" },
+        { id: "target-opportunity", stage: "new_lead" },
+      ],
+      threadLinks: [],
+      activities: [
+        {
+          id: "activity-reparented",
+          company_id: "company-1",
+          opportunity_id: "target-opportunity",
+          email_connection_id: "connection-1",
+          email_thread_id: "provider-thread-reparented",
+          email_message_id: "provider-message-reparented",
+          type: "email",
+          direction: "inbound",
+        },
+      ],
+      correspondenceEvents: [
+        {
+          id: "event-reparented",
+          company_id: "company-1",
+          opportunity_id: "target-opportunity",
+          activity_id: "activity-reparented",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-reparented",
+          provider_message_id: "provider-message-reparented",
+          direction: "inbound",
+          party_role: "customer",
+          is_meaningful: true,
+          opportunity_projection_applied: true,
+        },
+      ],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(baseConnection());
+
+    const runRepair = () =>
+      SyncEngine.repairExactReparentedMessageForRecovery({
+        actorUserId: "user-1",
+        companyId: "company-1",
+        connectionId: "connection-1",
+        entry: {
+          action: "reparent",
+          providerThreadId: "provider-thread-reparented",
+          providerMessageId: "provider-message-reparented",
+          providerOccurredAt: "2026-05-20T17:00:00.000Z",
+          sourceOpportunityId: "source-opportunity",
+          targetOpportunityId: "target-opportunity",
+          activityId: "activity-reparented",
+          correspondenceEventId: "event-reparented",
+          targetEmail: "customer@example.com",
+          sourceSnapshot: {
+            updatedAt: "2026-05-20T00:00:00.000Z",
+            stage: "new_lead",
+            stageManuallySet: false,
+            assignedTo: null,
+            assignmentVersion: 0,
+            projectId: null,
+          },
+          targetSnapshot: {
+            updatedAt: "2026-05-20T00:00:00.000Z",
+            stage: "new_lead",
+            stageManuallySet: false,
+            assignedTo: null,
+            assignmentVersion: 0,
+            projectId: null,
+          },
+        },
+        message: baseEmail({
+          id: "provider-message-reparented",
+          threadId: "provider-thread-reparented",
+          from: "Customer <customer@example.com>",
+          to: ["jackson@canprodeckandrail.com"],
+          labelIds: ["INBOX"],
+        }),
+        sourceOpportunityId: "source-opportunity",
+        targetOpportunityId: "target-opportunity",
+        activityId: "activity-reparented",
+        correspondenceEventId: "event-reparented",
+        manifestSha256: "a".repeat(64),
+        entrySha256: "b".repeat(64),
+      });
+    await runRepair();
+
+    expect(evaluateOpportunityCommercialOutcomeMock).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      opportunityId: "target-opportunity",
+      connection: expect.objectContaining({ id: "connection-1" }),
+    });
+    expect(refreshLeadSummariesForOpportunitiesMock).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      companyId: "company-1",
+      opportunityIds: ["source-opportunity", "target-opportunity"],
+    });
+    expect(refreshSummaryOnlyForProviderThreadMock).not.toHaveBeenCalled();
+    expect(
+      state.rpcCalls?.filter(
+        (call) => call.name === "authorize_opportunity_action_as_system"
+      )
+    ).toEqual([
+      expect.objectContaining({
+        params: expect.objectContaining({
+          p_opportunity_id: "source-opportunity",
+          p_action: "edit",
+        }),
+      }),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          p_opportunity_id: "target-opportunity",
+          p_action: "edit",
+        }),
+      }),
+    ]);
+    expect(getProviderMock).not.toHaveBeenCalled();
+
+    refreshLeadSummariesForOpportunitiesMock.mockResolvedValueOnce({
+      requested: 2,
+      written: 0,
+      skippedFeatureDisabled: true,
+      failed: [],
+      deferred: [],
+    });
+    await expect(runRepair()).rejects.toThrow(
+      "exact reparent summary refresh incomplete"
+    );
+  });
+
   it("keeps distinct Wix submitters separate when Gmail reuses one provider thread", async () => {
     const state: SupabaseState = {
       clients: [],
@@ -2545,7 +3912,7 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(state.correspondenceEvents?.[0]?.direction).toBe("outbound");
     expect(fetchSentEmailsSince).not.toHaveBeenCalled();
     expect(state.rpcCalls).toContainEqual({
-      name: "apply_opportunity_correspondence_event",
+      name: "record_opportunity_correspondence_event",
       params: expect.objectContaining({
         p_opportunity_id: "opp-linked",
         p_provider_message_id: "msg-own-inbox",
@@ -2800,6 +4167,7 @@ To: Kara Beach <kara.beach@example.com>`,
           error: "summary write unavailable",
         },
       ],
+      deferred: [],
     });
 
     const result = await SyncEngine.runSync("connection-1");
@@ -2890,15 +4258,13 @@ To: Kara Beach <kara.beach@example.com>`,
       opportunity_id: "opp-john-active",
       from_email: "mary.carter@example.com",
     });
-    expect(state.rpcCalls).toEqual([
-      {
-        name: "apply_opportunity_correspondence_event",
-        params: expect.objectContaining({
-          p_opportunity_id: "opp-john-active",
-          p_provider_message_id: "msg-mary-address",
-        }),
-      },
-    ]);
+    expect(state.rpcCalls).toContainEqual({
+      name: "record_opportunity_correspondence_event",
+      params: expect.objectContaining({
+        p_opportunity_id: "opp-john-active",
+        p_provider_message_id: "msg-mary-address",
+      }),
+    });
   });
 
   it("creates a separate opportunity when P3 relationship matching rejects client-level reuse", async () => {
@@ -3180,15 +4546,13 @@ To: Kara Beach <kara.beach@example.com>`,
       email_thread_id: "thread-linked",
       opportunity_id: "opp-linked",
     });
-    expect(state.rpcCalls).toEqual([
-      {
-        name: "apply_opportunity_correspondence_event",
-        params: expect.objectContaining({
-          p_opportunity_id: "opp-linked",
-          p_provider_message_id: "msg-linked",
-        }),
-      },
-    ]);
+    expect(state.rpcCalls).toContainEqual({
+      name: "record_opportunity_correspondence_event",
+      params: expect.objectContaining({
+        p_opportunity_id: "opp-linked",
+        p_provider_message_id: "msg-linked",
+      }),
+    });
     expect(upsertFromEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({
         providerThreadId: "thread-linked",
@@ -3231,6 +4595,7 @@ To: Kara Beach <kara.beach@example.com>`,
           connection_id: "connection-1",
           provider_thread_id: "thread-imported",
           provider_message_id: "msg-imported-m1",
+          direction: "inbound",
           opportunity_projection_applied: true,
         },
       ],
@@ -3322,6 +4687,7 @@ To: Kara Beach <kara.beach@example.com>`,
           connection_id: "connection-1",
           provider_thread_id: "thread-wix-shared",
           provider_message_id: "msg-sandra",
+          direction: "inbound",
           opportunity_projection_applied: true,
         },
         {
@@ -3332,6 +4698,7 @@ To: Kara Beach <kara.beach@example.com>`,
           connection_id: "connection-1",
           provider_thread_id: "thread-wix-shared",
           provider_message_id: "msg-brad",
+          direction: "inbound",
           opportunity_projection_applied: true,
         },
       ],
@@ -3602,7 +4969,7 @@ To: Kara Beach <kara.beach@example.com>`,
     );
   });
 
-  it("projects a provider message exactly once after a failed counter write", async () => {
+  it("atomically rolls back a provider event when counter projection fails", async () => {
     const state: SupabaseState = {
       clients: [],
       opportunities: [{ id: "opp-linked", stage: "new_lead" }],
@@ -3647,10 +5014,7 @@ To: Kara Beach <kara.beach@example.com>`,
 
     expect(failed.errors.join(" ")).toContain("counter projection unavailable");
     expect(state.activities).toHaveLength(1);
-    expect(state.correspondenceEvents).toHaveLength(1);
-    expect(
-      state.correspondenceEvents?.[0]?.opportunity_projection_applied
-    ).toBe(false);
+    expect(state.correspondenceEvents).toHaveLength(0);
     expect(updateConnectionMock).not.toHaveBeenCalled();
 
     state.correspondenceProjectionError = undefined;
@@ -3665,7 +5029,7 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(
       state.rpcCalls?.filter(
         (call) =>
-          call.name === "apply_opportunity_correspondence_event" &&
+          call.name === "record_opportunity_correspondence_event" &&
           call.params.p_provider_message_id === "msg-projection-retry"
       )
     ).toHaveLength(2);
@@ -3722,12 +5086,7 @@ To: Kara Beach <kara.beach@example.com>`,
       outbound_count: 0,
     });
     expect(state.activities).toHaveLength(1);
-    expect(state.correspondenceEvents).toEqual([
-      expect.objectContaining({
-        provider_message_id: "msg-new-lead-projection",
-        opportunity_projection_applied: false,
-      }),
-    ]);
+    expect(state.correspondenceEvents).toEqual([]);
     expect(updateConnectionMock).not.toHaveBeenCalled();
 
     state.correspondenceProjectionError = undefined;
@@ -3751,7 +5110,7 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(
       state.rpcCalls?.filter(
         (call) =>
-          call.name === "apply_opportunity_correspondence_event" &&
+          call.name === "record_opportunity_correspondence_event" &&
           call.params.p_provider_message_id === "msg-new-lead-projection"
       )
     ).toHaveLength(3);
@@ -3821,13 +5180,7 @@ To: Kara Beach <kara.beach@example.com>`,
         email_message_id: "msg-source-key-race",
       }),
     ]);
-    expect(state.correspondenceEvents).toEqual([
-      expect.objectContaining({
-        opportunity_id: "opp-source-key-winner",
-        provider_message_id: "msg-source-key-race",
-        opportunity_projection_applied: false,
-      }),
-    ]);
+    expect(state.correspondenceEvents).toEqual([]);
     expect(updateConnectionMock).not.toHaveBeenCalled();
 
     state.correspondenceProjectionError = undefined;
@@ -4188,11 +5541,24 @@ To: Kara Beach <kara.beach@example.com>`,
 
     expect(result.errors).toEqual([]);
     expect(state.threadLinks).toEqual([]);
+    expect(evaluateOpportunityCommercialOutcomeMock).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      opportunityId: state.opportunities[0].id,
+      connection: expect.objectContaining({ id: "connection-1" }),
+    });
+    expect(evaluateOpportunityAcceptanceMock).not.toHaveBeenCalled();
     expect(evaluateStagesWithSummaryMock).toHaveBeenCalledWith(
       [
         {
           threadId: "email:gmail:connection-1:message:msg-form-stage",
-          messages: [formEmail],
+          messages: [
+            expect.objectContaining({
+              id: "msg-form-stage",
+              threadId: "reused-wix-thread",
+              from: "Marcel Mercier <marcel.mercier@example.com>",
+              fromName: "Marcel Mercier",
+            }),
+          ],
         },
       ],
       expect.objectContaining({ id: "connection-1" }),
@@ -4238,13 +5604,22 @@ describe("SyncEngine Gmail history completeness", () => {
     });
     evaluateStagesWithSummaryMock.mockResolvedValue([]);
     refreshLeadSummariesForOpportunitiesMock.mockReset();
-    refreshLeadSummariesForOpportunitiesMock.mockResolvedValue({
-      requested: 0,
-      written: 0,
-      skippedFeatureDisabled: false,
-      failed: [],
-    });
+    refreshLeadSummariesForOpportunitiesMock.mockImplementation(
+      async (input: { opportunityIds: string[] }) => ({
+        requested: input.opportunityIds.length,
+        written: input.opportunityIds.length,
+        skippedFeatureDisabled: false,
+        failed: [],
+        deferred: [],
+      })
+    );
     upsertFromEmailMock.mockReset();
+    refreshSummaryOnlyMock.mockReset();
+    refreshSummaryOnlyMock.mockImplementation(async (thread) => thread);
+    refreshSummaryOnlyForProviderThreadMock.mockReset();
+    refreshSummaryOnlyForProviderThreadMock.mockResolvedValue({
+      id: "email-thread-1",
+    });
     enqueueIfEnabledMock.mockClear();
     enqueueIfEnabledMock.mockResolvedValue({
       enqueued: true,

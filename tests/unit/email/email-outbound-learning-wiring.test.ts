@@ -50,6 +50,12 @@ describe("outbound learning producer and worker wiring", () => {
       "await learnFromOutboundEmail(email, connection, existingActivity)"
     );
     const replayBranch = sentProcessor.indexOf("if (existingActivity)");
+    const existingActivityLookup = syncSource.slice(
+      syncSource.indexOf("async function findExistingProviderActivity("),
+      syncSource.indexOf(
+        "async function assertPersistedInboundRecoveryEvidence"
+      )
+    );
 
     // Enqueue once before any ownership branch. This covers existing-activity
     // replay, linked sent mail, and unmatched sent mail without an early-return
@@ -67,8 +73,8 @@ describe("outbound learning producer and worker wiring", () => {
       "draftDeliveryChannel: existingActivity?.draft_history_id"
     );
     expect(syncSource).toContain('? "ops_send"');
-    expect(syncSource).toContain(
-      "subject, body_text, draft_history_id, created_by"
+    expect(existingActivityLookup).toMatch(
+      /\bsubject\b,[^"]*\bbody_text\b,[^"]*\bdraft_history_id\b,\s*created_by\b/
     );
     expect(syncSource).toContain("hasAuthenticatedOpsActivity");
     expect(syncSource).toContain(

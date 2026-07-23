@@ -22,7 +22,10 @@ describe("sync-engine Won conversion provenance", () => {
 
   it("selects deterministic persisted customer evidence, separate from synthetic evaluation keys", () => {
     expect(source).toMatch(
-      /evaluateOpportunityAcceptance\(\{[\s\S]*?providerThreadId:\s*target,[\s\S]*?opportunityId,[\s\S]*?connection/i
+      /providerThreadId:\s*typeof target === ["']string["']\s*\?\s*target\s*:\s*null,[\s\S]*?opportunityId,[\s\S]*?connection/i
+    );
+    expect(source).toMatch(
+      /exact reparent repair correspondence changed[\s\S]*?providerThreadId:\s*null,[\s\S]*?opportunityId:\s*input\.targetOpportunityId/i
     );
     expect(source).not.toMatch(
       /provider_thread_id:\s*(?:evaluationKey|sourceThreadId)/i

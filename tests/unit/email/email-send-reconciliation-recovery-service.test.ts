@@ -35,6 +35,8 @@ function leasedIntent(): EmailSendIntent {
     contentType: "text",
     draftHistoryId: "draft-1",
     followUpDraftId: null,
+    followUpSourceEventId: null,
+    followUpRecipientEmail: null,
     learningAuthority: "autonomous",
     actorNameSnapshot: "Alex Rivera",
     actorEmailSnapshot: "alex@ops.test",

@@ -224,21 +224,6 @@ export async function reconcileEmailSend(
     );
   }
 
-  const { data: projectionRows, error: projectionError } = await supabase.rpc(
-    "apply_opportunity_correspondence_event",
-    {
-      p_company_id: intent.companyId,
-      p_opportunity_id: intent.opportunityId,
-      p_connection_id: intent.connectionId,
-      p_provider_message_id: providerMessageId,
-    }
-  );
-  if (projectionError || !projectionRows) {
-    throw new Error(
-      `Sent email correspondence projection failed: ${projectionError?.message ?? "RPC returned no rows"}`
-    );
-  }
-
   const { threadRow } = await EmailThreadService.upsertFromEmail({
     companyId: intent.companyId,
     connectionId: intent.connectionId,

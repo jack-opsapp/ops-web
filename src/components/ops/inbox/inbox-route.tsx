@@ -34,6 +34,10 @@ import { useViewportBreakpoint } from "@/lib/hooks/use-viewport-breakpoint";
 import { isYourMove, type RailFilter } from "@/lib/inbox/rail-predicates";
 import { formatWaitClock } from "@/lib/inbox/format-wait";
 import { resolveTriageTone } from "@/lib/inbox/triage-tone-coordination";
+import {
+  resolveInboxDraftSendBinding,
+  type InboxDraftSendCandidate,
+} from "@/lib/inbox/draft-send-binding";
 import { useBreadcrumbStore } from "@/stores/breadcrumb-store";
 import { useInboxLayoutStore } from "@/stores/inbox-layout-store";
 import {
@@ -126,6 +130,19 @@ interface ArchiveTarget {
   opportunityId: string | null;
 }
 
+interface InboxSendAttempt {
+  key: string;
+  body: string;
+  subject: string;
+  recipient: string;
+  connectionId: string;
+  opportunityId: string | null;
+  sourceEmailThreadId: string | null;
+  inReplyTo: string | null;
+  draftHistoryId: string | null;
+  followUpDraftId: string | null;
+}
+
 function buildArchiveTargetFromRow(row: InboxThreadRow): ArchiveTarget {
   return {
     threadId: row.id,
@@ -157,18 +174,9 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     ? useCommunicationDraftStore.getState().drafts[initialCommunicationDraftKey]
     : null;
   const sendReply = useSendReply();
-  const sendAttemptRef = useRef<{
-    key: string;
-    body: string;
-    subject: string;
-    recipient: string;
-  } | null>(
-    (initialCommunicationDraft?.state.sendAttempt as {
-      key: string;
-      body: string;
-      subject: string;
-      recipient: string;
-    } | null) ?? null
+  const sendAttemptRef = useRef<InboxSendAttempt | null>(
+    (initialCommunicationDraft?.state.sendAttempt as InboxSendAttempt | null) ??
+      null
   );
   const autoSaveDraftOperationKeyRef = useRef<string | null>(
     (initialCommunicationDraft?.state.autoSaveDraftOperationKey as
@@ -472,12 +480,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     setComposerValue(restored?.body ?? "");
     setActiveDraftId((restored?.state.activeDraftId as string | null) ?? null);
     sendAttemptRef.current =
-      (restored?.state.sendAttempt as {
-        key: string;
-        body: string;
-        subject: string;
-        recipient: string;
-      } | null) ?? null;
+      (restored?.state.sendAttempt as InboxSendAttempt | null) ?? null;
     autoSaveDraftIdRef.current =
       (restored?.state.autoSaveDraftId as string | null) ?? null;
     autoSaveDraftOperationKeyRef.current =
@@ -750,6 +753,14 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         body: draft.bodyText,
         fromEmail: draft.fromEmail,
         updatedAt: draft.updatedAt,
+        threadId: draft.threadId,
+        inboxThreadId: draft.inboxThreadId,
+        connectionId: draft.connectionId,
+        opportunityId: draft.opportunityId,
+        origin: draft.origin,
+        recipientEmail: draft.recipientEmail,
+        sourceEventId: draft.sourceEventId,
+        sourceProviderMessageId: draft.sourceProviderMessageId,
       })),
     [threadDrafts]
   );
@@ -1232,7 +1243,7 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
     (
       value: string,
       currentDetail: NonNullable<typeof detail>,
-      draft: Pick<RenderableDraft, "id" | "source" | "subject"> | null
+      draft: InboxDraftSendCandidate | null
     ) => {
       if (!selectedThreadId) return;
       if (communicationSendPending) return;
@@ -1250,24 +1261,47 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
       const lastInbound = [...currentDetail.messages]
         .reverse()
         .find((m) => m.direction === "inbound");
-      const recipient = lastInbound?.from ?? null;
-      if (!recipient) {
+      const binding = resolveInboxDraftSendBinding({
+        selectedInboxThreadId: selectedThreadId,
+        selectedOpportunityId: currentDetail.thread.opportunityId,
+        selectedConnectionId: currentDetail.thread.connectionId,
+        selectedSubject: currentDetail.thread.subject,
+        lastInbound: lastInbound
+          ? {
+              from: lastInbound.from,
+              providerMessageId: lastInbound.providerMessageId ?? null,
+            }
+          : null,
+        draft,
+      });
+      if (!binding.ok) {
         setComposerError(
           t("composer.error.noRecipient", "Cannot resolve recipient address.")
         );
         return;
       }
-      const subjectBase = currentDetail.thread.subject ?? "";
-      const draftSubject = draft?.subject?.trim() ?? "";
-      const replySubject = normalizeReplySubject(
-        draftSubject || subjectBase || "(no subject)"
-      );
+      const {
+        connectionId,
+        opportunityId,
+        sourceEmailThreadId,
+        recipient,
+        inReplyTo,
+        subject: replySubject,
+      } = binding;
+      const draftHistoryId = draft?.source === "ai" ? draft.id : null;
+      const followUpDraftId = draft?.source === "lifecycle" ? draft.id : null;
       const priorAttempt = sendAttemptRef.current;
       const idempotencyKey =
         priorAttempt &&
         priorAttempt.body === value &&
         priorAttempt.subject === replySubject &&
-        priorAttempt.recipient === recipient
+        priorAttempt.recipient === recipient &&
+        priorAttempt.connectionId === connectionId &&
+        priorAttempt.opportunityId === opportunityId &&
+        priorAttempt.sourceEmailThreadId === sourceEmailThreadId &&
+        priorAttempt.inReplyTo === inReplyTo &&
+        priorAttempt.draftHistoryId === draftHistoryId &&
+        priorAttempt.followUpDraftId === followUpDraftId
           ? priorAttempt.key
           : globalThis.crypto.randomUUID();
       sendAttemptRef.current = {
@@ -1275,6 +1309,12 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
         body: value,
         subject: replySubject,
         recipient,
+        connectionId,
+        opportunityId,
+        sourceEmailThreadId,
+        inReplyTo,
+        draftHistoryId,
+        followUpDraftId,
       };
       if (currentCommunicationDraftKey && userId) {
         const priorState =
@@ -1307,13 +1347,15 @@ export function InboxRoute({ threadId: initialThreadId }: InboxRouteProps) {
           payload: {
             idempotencyKey,
             threadId: selectedThreadId,
+            sourceEmailThreadId,
+            connectionId,
             to: [recipient],
             subject: replySubject,
             body: value,
-            inReplyTo: lastInbound?.providerMessageId ?? null,
-            opportunityId: currentDetail.thread.opportunityId,
-            draftHistoryId: draft?.source === "ai" ? draft.id : null,
-            followUpDraftId: draft?.source === "lifecycle" ? draft.id : null,
+            inReplyTo,
+            opportunityId,
+            draftHistoryId,
+            followUpDraftId,
             format: "markdown",
           },
         })

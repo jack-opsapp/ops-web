@@ -215,20 +215,6 @@ async function reconcileOpportunity(input: {
     );
   }
 
-  const { error: projectionError } = await supabase.rpc(
-    "apply_opportunity_correspondence_event",
-    {
-      p_company_id: intent.companyId,
-      p_opportunity_id: intent.opportunityId,
-      p_connection_id: intent.connectionId,
-      p_provider_message_id: providerMessageId,
-    }
-  );
-  if (projectionError) {
-    throw new Error(
-      `APPROVED_ACTION_EMAIL_PROJECTION_FAILED: ${projectionError.message}`
-    );
-  }
 }
 
 async function applyPostSendFollowOn(input: {

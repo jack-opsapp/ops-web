@@ -108,6 +108,7 @@
     "recharts": "^2.15.0",
     "rrule": "^2.8.1",
     "sanitize-html": "2.13.0",
+    "server-only": "0.0.1",
     "sharp": "^0.34.5",
     "sonner": "^1.7.0",
     "stripe": "^20.4.1",

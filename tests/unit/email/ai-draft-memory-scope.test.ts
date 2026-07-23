@@ -180,4 +180,24 @@ describe("MemoryService actor-scoped draft context", () => {
       "memory-exact-pricing",
     ]);
   });
+
+  it("keeps bounded system-handoff context retrieval read-only", async () => {
+    const result = await MemoryService.getContextForDraft(
+      "company-1",
+      "jordan@example.com",
+      "Exact assigned inquiry",
+      {
+        actorUserId: "user-1",
+        exactSourceIds: ["provider-thread-canonical", "message-canonical"],
+        includeClientHistory: false,
+        recordAccess: false,
+      }
+    );
+
+    expect(result.relevantFacts.map((fact) => fact.id).sort()).toEqual([
+      "memory-exact-limitation",
+      "memory-exact-pricing",
+    ]);
+    expect(state.incrementedIds).toEqual([]);
+  });
 });
