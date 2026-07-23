@@ -143,11 +143,12 @@ describe("mailbox-wide provider read fan-out", () => {
       /reconcilePendingMailboxDraftsForConnection\([\s\S]{0,300}\.catch\(/
     );
 
+    const emptyCheckpointStart = source.indexOf(
+      "if (rawInboxEmails.length === 0 && rawSentEmails.length === 0)"
+    );
     const emptyCheckpointPath = source.slice(
-      source.indexOf(
-        "if (rawInboxEmails.length === 0 && rawSentEmails.length === 0)"
-      ),
-      source.indexOf("profile.internalPhones")
+      emptyCheckpointStart,
+      source.indexOf("profile.internalPhones", emptyCheckpointStart)
     );
     expect(
       emptyCheckpointPath.indexOf("reconcilePendingMailboxDraftsForConnection")

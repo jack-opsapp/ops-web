@@ -275,7 +275,7 @@ function makeSupabaseDouble(state: SupabaseState) {
     from(table: string) {
       return new Query(table);
     },
-    rpc: vi.fn(async (name: string) => {
+    rpc: vi.fn(async (name: string, params: Record<string, unknown> = {}) => {
       if (name === "acquire_email_connection_sync_lock_as_system") {
         return {
           data: "00000000-0000-4000-8000-000000000001",
@@ -289,6 +289,39 @@ function makeSupabaseDouble(state: SupabaseState) {
         name === "persist_email_connection_sync_completion_as_system"
       ) {
         return { data: true, error: null };
+      }
+      if (name === "record_opportunity_correspondence_event") {
+        const opportunity = state.opportunities.find(
+          (row) => row.id === params.p_opportunity_id
+        );
+        if (!opportunity) {
+          return {
+            data: null,
+            error: { code: "P0002", message: "opportunity_not_found" },
+          };
+        }
+        opportunity.assignment_version ??= 0;
+        opportunity.stage_manually_set ??= false;
+        opportunity.correspondence_count ??= 0;
+        opportunity.inbound_count ??= 0;
+        opportunity.outbound_count ??= 0;
+        if (params.p_apply_opportunity_projection === true) {
+          opportunity.correspondence_count =
+            Number(opportunity.correspondence_count) + 1;
+          if (params.p_direction === "inbound") {
+            opportunity.inbound_count = Number(opportunity.inbound_count) + 1;
+            opportunity.last_inbound_at = params.p_occurred_at;
+            opportunity.last_message_direction = "in";
+          } else {
+            opportunity.outbound_count = Number(opportunity.outbound_count) + 1;
+            opportunity.last_outbound_at = params.p_occurred_at;
+            opportunity.last_message_direction = "out";
+          }
+        }
+        return {
+          data: [{ created: true, event_id: "event-1" }],
+          error: null,
+        };
       }
       return {
         data:

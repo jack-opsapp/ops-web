@@ -48,9 +48,7 @@ describe("internal email send draft provenance", () => {
       '.eq("user_id", input.actorUserId)'
     );
     expect(connectionSelectionSource).toContain('type: "company"');
-    expect(connectionSelectionSource).toMatch(
-      /\.eq\("status",\s*"active"\)/
-    );
+    expect(connectionSelectionSource).toMatch(/\.eq\("status",\s*"active"\)/);
     expect(connectionSelectionSource).not.toContain("deleted_at");
     expect(connectionSelectionSource).not.toContain("is_active");
     expect(schedulingCommsSource).toContain(
@@ -110,10 +108,13 @@ describe("internal email send draft provenance", () => {
       "followUpDraftId: args.payload.followUpDraftId ?? null"
     );
     expect(sendThreadReply).toContain(
-      'draftHistoryId: draft?.source === "ai" ? draft.id : null'
+      'const draftHistoryId = draft?.source === "ai" ? draft.id : null'
+    );
+    expect(sendThreadReply).toContain(
+      'const followUpDraftId = draft?.source === "lifecycle" ? draft.id : null'
     );
     expect(sendThreadReply).toMatch(
-      /followUpDraftId:\s*draft\?\.source === "lifecycle" \? draft\.id : null/
+      /mutateAsync\(\{\s*payload:\s*\{[\s\S]*?\bdraftHistoryId,\s*\n\s*followUpDraftId,/
     );
   });
 });

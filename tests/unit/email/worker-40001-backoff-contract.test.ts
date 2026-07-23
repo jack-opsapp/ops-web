@@ -28,9 +28,9 @@ describe("sync-engine 40001 backoff and batch isolation", () => {
     );
   });
 
-  it("retries the whole accept evaluation under withSerializationRetry, never the bare RPC", () => {
+  it("retries the whole commercial-outcome evaluation under withSerializationRetry, never the bare RPC", () => {
     expect(acceptanceWrapper).toMatch(
-      /withSerializationRetry\(\s*\(\)\s*=>\s*evaluateOpportunityAcceptance\(\{/
+      /withSerializationRetry\(\s*\(\)\s*=>\s*providerThreadId\s*\?\s*evaluateOpportunityAcceptance\(\{[\s\S]*?\}\)\s*:\s*evaluateOpportunityCommercialOutcome\(\{/
     );
     // Evidence must be re-derived per attempt; a bare same-args RPC retry
     // would replay a stale high-water mark.
@@ -66,7 +66,9 @@ describe("lead-summary 40001 backoff", () => {
     expect(commitStart).toBeGreaterThan(-1);
     const commitBody = leadSummarySource.slice(
       commitStart,
-      leadSummarySource.indexOf("export interface TargetedLeadSummaryRefreshResult")
+      leadSummarySource.indexOf(
+        "export interface TargetedLeadSummaryRefreshResult"
+      )
     );
     expect(commitBody).toMatch(
       /withSerializationRetry\(\s*async \(\) => \{[\s\S]*?"commit_lead_summary_snapshot"/
@@ -76,7 +78,7 @@ describe("lead-summary 40001 backoff", () => {
 
   it("preserves the PostgREST SQLSTATE across the summary-write re-wrap", () => {
     expect(leadSummarySource).toMatch(
-      /Object\.assign\(\s*new Error\(`summary write failed:[\s\S]*?\{ code: \(error as \{ code\?: string \}\)\.code \}/
+      /Object\.assign\(\s*new Error\(\s*`summary write failed:[\s\S]*?\{ code: \(error as \{ code\?: string \}\)\.code \}/
     );
   });
 });
