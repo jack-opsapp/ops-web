@@ -3989,7 +3989,9 @@ async function reconcileUnlinkedOutboundEmail(
   connection: EmailConnection,
   profile: SyncProfile,
   followUpDaysCache: Map<string, number>,
-  result: SyncCycleResult
+  result: SyncCycleResult,
+  syncLockOwner: string,
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint
 ): Promise<void> {
   const supabase = requireSupabase();
   const operatorIdentity = await getCachedOperatorIdentity(connection);
@@ -4069,37 +4071,77 @@ async function reconcileUnlinkedOutboundEmail(
     matchConfidence = relationshipDecision.confidence;
   }
 
-  const { data: claimedRows, error: claimError } = await supabase
-    .from("activities")
-    .update({
-      opportunity_id: threadOpportunity.opportunityId,
-      match_needs_review: false,
-      suggested_client_id: null,
-      match_confidence: matchConfidence,
-    })
-    .eq("id", existingActivity.id)
-    .eq("company_id", connection.companyId)
-    .is("opportunity_id", null)
-    .select("id");
-  if (claimError) {
+  const fromEmail = extractSenderEmail(email.from);
+  const toEmails = email.to.map(extractSenderEmail);
+  const ccEmails = email.cc.map(extractSenderEmail);
+  const classification = classifyOpportunityCorrespondence({
+    direction: "outbound",
+    providerThreadId: email.threadId,
+    providerMessageId: email.id,
+    fromEmail,
+    fromName: email.fromName,
+    toEmails,
+    ccEmails,
+    subject: email.subject,
+    bodyText: email.bodyText,
+    labels: email.labelIds,
+    connectionEmail: connection.email,
+    companyDomains: profile.companyDomains ?? [],
+    userEmailAddresses: profile.userEmailAddresses ?? [],
+    knownPlatformSenders: profile.knownPlatformSenders ?? [],
+    existingProviderMessageIds: [],
+  });
+
+  await providerLockCheckpoint();
+  const { data: adoptionData, error: adoptionError } = await supabase.rpc(
+    "adopt_orphan_outbound_email_activity_guarded_as_system",
+    {
+      p_actor_user_id: null,
+      p_company_id: connection.companyId,
+      p_connection_id: connection.id,
+      p_sync_lock_owner: syncLockOwner,
+      p_activity_id: existingActivity.id,
+      p_target_opportunity_id: threadOpportunity.opportunityId,
+      p_provider_thread_id: email.threadId,
+      p_provider_message_id: email.id,
+      p_ingestion_source: "email_sync",
+      p_match_confidence: matchConfidence,
+      p_party_role: classification.partyRole,
+      p_is_meaningful: classification.isMeaningful,
+      p_noise_reason: classification.noiseReason,
+      p_occurred_at: email.date.toISOString(),
+      p_subject: email.subject,
+      p_from_email: fromEmail,
+      p_to_emails: toEmails,
+      p_cc_emails: ccEmails,
+      p_content: existingActivity.content ?? null,
+      p_body_text: existingActivity.body_text ?? null,
+      p_body_text_clean: existingActivity.body_text_clean ?? null,
+    }
+  );
+  if (adoptionError) {
     throw new LifecyclePersistenceError(
-      `[sync-engine] unlinked outbound adoption failed: ${claimError.message ?? "unknown error"}`
+      `[sync-engine] guarded unlinked outbound adoption failed: ${adoptionError.message ?? "unknown error"}`
     );
   }
-  if (!Array.isArray(claimedRows) || claimedRows.length !== 1) {
-    const concurrent = await findExistingProviderActivity(
-      supabase,
-      connection,
-      email.id,
-      email.threadId
+  const adoption = (
+    Array.isArray(adoptionData) ? adoptionData[0] : adoptionData
+  ) as Record<string, unknown> | null;
+  if (
+    !adoption ||
+    adoption.activity_id !== existingActivity.id ||
+    adoption.opportunity_id !== threadOpportunity.opportunityId ||
+    typeof adoption.correspondence_event_id !== "string" ||
+    !adoption.correspondence_event_id
+  ) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] guarded unlinked outbound adoption returned a conflicting identity"
     );
-    if (concurrent?.opportunity_id !== threadOpportunity.opportunityId) {
-      throw new LifecyclePersistenceError(
-        "[sync-engine] unlinked outbound adoption lost a conflicting relationship race"
-      );
-    }
   }
 
+  // The database RPC atomically owns the child CAS and first correspondence
+  // projection. Replay the canonical service to advance lifecycle high-water
+  // state; the exact provider identity keeps the event and counters idempotent.
   await recordActivityCorrespondenceEvent(
     email,
     connection,
@@ -5355,7 +5397,9 @@ export const SyncEngine = {
             connection,
             profile,
             followUpDaysCache,
-            result
+            result,
+            syncLockOwner,
+            renewSyncLeaseIfNeeded
           );
         }
 
