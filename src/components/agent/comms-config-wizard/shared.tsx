@@ -13,9 +13,10 @@
  * Every primitive respects prefers-reduced-motion via `motion-reduce:*`.
  */
 
-import { type ReactNode } from "react";
+import { type ReactNode, useId } from "react";
 import { Check, Lock } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { Switch } from "@/components/ui/switch";
 import { useDictionary } from "@/i18n/client";
 
 // ─── StepShell ──────────────────────────────────────────────────────────────
@@ -144,22 +145,16 @@ export function Toggle({
   checked: boolean;
   onChange: (value: boolean) => void;
 }) {
+  const id = useId();
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
+    <div
       className={cn(
         "w-full flex items-center justify-between gap-3 min-h-[36px] p-4 rounded",
         "border border-[rgba(255,255,255,0.08)]",
-        "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]",
-        "transition-colors duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]",
-        "hover:border-[rgba(255,255,255,0.16)]",
-        "motion-reduce:transition-none"
+        "bg-glass glass-surface backdrop-blur-[20px] backdrop-saturate-[1.2]"
       )}
     >
-      <div className="flex-1 min-w-0 text-left">
+      <label htmlFor={id} className="flex-1 min-w-0 text-left cursor-pointer">
         <div className="font-mohave text-[14px] text-text uppercase tracking-[0.04em]">
           {label}
         </div>
@@ -168,27 +163,14 @@ export function Toggle({
             [{caption}]
           </div>
         )}
-      </div>
-      <div
-        className={cn(
-          "relative w-[44px] h-[24px] rounded-full border transition-colors duration-150 shrink-0",
-          "motion-reduce:transition-none",
-          checked
-            ? "border-[rgba(255,255,255,0.24)] bg-[rgba(255,255,255,0.04)]"
-            : "border-[rgba(255,255,255,0.08)] bg-transparent"
-        )}
-      >
-        <span
-          className={cn(
-            "absolute top-[2px] w-[18px] h-[18px] rounded-full transition-transform duration-150",
-            "motion-reduce:transition-none",
-            checked
-              ? "bg-text-primary translate-x-[22px]"
-              : "bg-text-disabled translate-x-[2px]"
-          )}
-        />
-      </div>
-    </button>
+      </label>
+      <Switch
+        id={id}
+        checked={checked}
+        onCheckedChange={onChange}
+        className="shrink-0"
+      />
+    </div>
   );
 }
 

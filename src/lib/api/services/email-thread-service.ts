@@ -795,7 +795,9 @@ async function enrichWithOpportunityChaseState(
   const supabase = requireSupabase();
   const { data, error } = await supabase
     .from("opportunities")
-    .select("id, stage, last_message_direction, last_inbound_at, handled_at")
+    .select(
+      "id, stage, last_message_direction, last_inbound_at, last_outbound_at, handled_at, operator_action_required_at"
+    )
     .eq("company_id", threads[0].companyId)
     .in("id", opportunityIds);
 

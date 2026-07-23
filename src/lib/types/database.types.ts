@@ -8876,6 +8876,7 @@ export type Database = {
           last_message_direction: string | null
           last_outbound_at: string | null
           handled_at: string | null
+          operator_action_required_at: string | null
           latitude: number | null
           longitude: number | null
           lost_notes: string | null
@@ -8931,6 +8932,7 @@ export type Database = {
           last_message_direction?: string | null
           last_outbound_at?: string | null
           handled_at?: string | null
+          operator_action_required_at?: string | null
           latitude?: number | null
           longitude?: number | null
           lost_notes?: string | null
@@ -8986,6 +8988,7 @@ export type Database = {
           last_message_direction?: string | null
           last_outbound_at?: string | null
           handled_at?: string | null
+          operator_action_required_at?: string | null
           latitude?: number | null
           longitude?: number | null
           lost_notes?: string | null
@@ -18116,6 +18119,21 @@ export type Database = {
         }[]
       }
       expense_envelope_sweep: { Args: never; Returns: number }
+      file_share_photo_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_job_id: string
+          p_project_id: string
+          p_taken_at: string
+          p_url: string
+        }
+        Returns: {
+          attached: boolean
+          created: boolean
+          photo_id: string
+        }[]
+      }
       fire_due_task_reminders: { Args: never; Returns: number }
       generate_product_sku: {
         Args: { p_category: string; p_company_id: string; p_kind: string }
@@ -18369,6 +18387,15 @@ export type Database = {
         }
         Returns: Json
       }
+      log_opportunity_quick_touch: {
+        Args: {
+          p_opportunity_id: string
+          p_request_id: string
+          p_subject: string
+          p_type: string
+        }
+        Returns: Json
+      }
       lookup_company_by_code: {
         Args: { lookup_code: string }
         Returns: {
@@ -18503,6 +18530,7 @@ export type Database = {
           last_message_direction: string | null
           last_outbound_at: string | null
           handled_at: string | null
+          operator_action_required_at: string | null
           latitude: number | null
           longitude: number | null
           lost_notes: string | null
@@ -19235,6 +19263,19 @@ export type Database = {
           p_task_id: string
         }
         Returns: Json
+      }
+      undo_opportunity_quick_touch: {
+        Args: {
+          p_activity_id: string
+          p_opportunity_id: string
+        }
+        Returns: Database["public"]["Tables"]["opportunities"]["Row"][]
+        SetofOptions: {
+          from: "*"
+          to: "opportunities"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       users_with_permission: {
         Args: {

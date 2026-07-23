@@ -210,7 +210,7 @@ export function CanvasPane({
 
       {/* Scrollable section stack (ScrollFade — no hard cutoffs) */}
       <ScrollFade className="pt-3">
-        <div className="flex flex-col gap-6 px-1 pb-4">
+        <div className="flex flex-col gap-6 px-1 pb-6">
           {sections.map((section) => {
             const cards = byModule[section] ?? [];
             return (

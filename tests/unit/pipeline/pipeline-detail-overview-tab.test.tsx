@@ -176,6 +176,7 @@ function makeOpportunity(overrides: Partial<Opportunity> = {}): Opportunity {
     lastOutboundAt: null,
     lastMessageDirection: null,
     handledAt: null,
+    operatorActionRequiredAt: null,
     aiSummary: null,
     aiSummaryUpdatedAt: null,
     aiStageConfidence: null,

@@ -110,6 +110,7 @@ function useRecentActivities(companyId: string | undefined) {
 const ACTIVITY_TYPE_ICONS: Record<ActivityType, LucideIcon> = {
   [ActivityType.Note]: StickyNote,
   [ActivityType.Email]: Mail,
+  [ActivityType.EmailCompose]: Mail,
   [ActivityType.Call]: Phone,
   [ActivityType.TextMessage]: MessageSquare,
   [ActivityType.Meeting]: Video,

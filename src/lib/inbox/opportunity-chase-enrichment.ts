@@ -5,7 +5,9 @@ export interface OpportunityChaseRow {
   stage: string;
   last_message_direction: "in" | "out" | null;
   last_inbound_at: string | null;
+  last_outbound_at: string | null;
   handled_at: string | null;
+  operator_action_required_at: string | null;
 }
 
 type LinkedThread = {
@@ -33,7 +35,9 @@ export function applyOpportunityChaseState<T extends LinkedThread>(
             stage: opportunity.stage,
             lastMessageDirection: opportunity.last_message_direction,
             lastInboundAt: opportunity.last_inbound_at,
+            lastOutboundAt: opportunity.last_outbound_at,
             handledAt: opportunity.handled_at,
+            operatorActionRequiredAt: opportunity.operator_action_required_at,
           })
         : null,
     };

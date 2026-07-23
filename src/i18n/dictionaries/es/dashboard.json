@@ -200,6 +200,7 @@
   "activity.events": "eventos",
   "activity.type.note": "Nota",
   "activity.type.email": "Correo",
+  "activity.type.email_compose": "Correo",
   "activity.type.call": "Llamada",
   "activity.type.text_message": "Texto",
   "activity.type.meeting": "Reunión",

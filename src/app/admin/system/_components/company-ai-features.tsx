@@ -22,6 +22,7 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
+import { Switch } from "@/components/ui/switch";
 
 interface CompanyFeatureRow {
   id: string;
@@ -370,36 +371,17 @@ interface ToggleProps {
 }
 
 /**
- * Borders-only toggle matching the admin design system. Locks while the
- * PATCH is in-flight so a jittery admin can't double-click.
+ * The standardized app toggle. Locks while the PATCH is in-flight so a jittery
+ * admin can't double-click.
  */
 function Toggle({ enabled, disabled, onClick, label }: ToggleProps) {
   return (
-    <button
-      type="button"
-      aria-pressed={enabled}
-      aria-label={`Toggle ${label}`}
+    <Switch
+      checked={enabled}
       disabled={disabled}
-      onClick={onClick}
-      className={[
-        "relative inline-flex h-[24px] w-[44px] shrink-0 rounded-full border transition-colors",
-        enabled
-          ? "border-[#6F94B0] bg-ops-accent/20"
-          : "border-white/[0.12] bg-transparent",
-        disabled
-          ? "opacity-40 cursor-wait"
-          : "cursor-pointer hover:border-[#6F94B0]/60",
-      ].join(" ")}
-    >
-      <span
-        className={[
-          "inline-block h-[16px] w-[16px] rounded-full transition-transform duration-200",
-          enabled
-            ? "translate-x-[24px] bg-ops-accent"
-            : "translate-x-[4px] bg-[#6B6B6B]",
-        ].join(" ")}
-        style={{ marginTop: 3 }}
-      />
-    </button>
+      onCheckedChange={onClick}
+      aria-label={`Toggle ${label}`}
+      className="shrink-0"
+    />
   );
 }
