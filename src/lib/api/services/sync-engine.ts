@@ -43,6 +43,11 @@ import { createEmailSyncCompleteNotification } from "@/lib/email/email-sync-comp
 import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-health";
 import { withSerializationRetry } from "@/lib/supabase/serialization-retry";
 import { refreshLeadSummariesForOpportunities } from "./lead-summary-service";
+import { isAIProviderUnavailableError } from "./openai-monitoring";
+import {
+  reportOpenAIQuotaExhausted,
+  type OpenAIQuotaErrorMetadata,
+} from "@/lib/notifications/openai-quota-alert-service";
 import {
   buildEmailOpportunityTitle,
   identityCandidateFromMailbox,
@@ -125,6 +130,13 @@ export interface SyncCycleResult {
   stageChanges: number;
   labelsApplied: number;
   invalidProviderEmails: number;
+  /** An OpenAI-provider outage deferred AI enrichment this cycle (cursor still
+   * advanced). Observable in the cron result even when the operator rail is
+   * misconfigured. */
+  aiProviderDeferred: boolean;
+  /** Count of unmatched threads whose lead classification was durably deferred
+   * (marked `email_threads.lead_scan_pending_at`) due to a provider outage. */
+  leadScansDeferred: number;
   errors: string[];
 }
 
@@ -444,6 +456,8 @@ function emptyResult(): SyncCycleResult {
     stageChanges: 0,
     labelsApplied: 0,
     invalidProviderEmails: 0,
+    aiProviderDeferred: false,
+    leadScansDeferred: 0,
     errors: [],
   };
 }
@@ -3555,6 +3569,108 @@ async function promoteClassifiedUnmatchedLead(
   }
 }
 
+/**
+ * Durably defer Step-5 lead classification for unmatched threads when the
+ * OpenAI provider is down. Only non-contact-form contexts carry a durable
+ * `email_threads` row (routing `mayInheritProviderThread` === not a contact
+ * form), so only those can be marked; the marker is set only where
+ * `opportunity_id IS NULL` so a thread already promoted by another path is
+ * never overwritten. Contact-form contexts have no durable thread row and are
+ * logged as non-thread deferrals (they recover on the next inbound message or
+ * via the deterministic contact-form pipeline).
+ *
+ * Best-effort by contract: the entire body is wrapped so a marker-write failure
+ * is caught and logged, never thrown. Deferral degrades gracefully — even with
+ * no marker, the thread re-triggers Step-5 classification on its next inbound
+ * reply — so a failed deferral must never hold the Gmail cursor.
+ */
+async function markUnmatchedThreadsPendingLeadScan(
+  contexts: UnmatchedInboundContext[],
+  connection: EmailConnection
+): Promise<void> {
+  try {
+    const threadIds: string[] = [];
+    let contactFormDeferrals = 0;
+    for (const context of contexts) {
+      if (context.routingIdentity.isContactFormSubmission) {
+        contactFormDeferrals += 1;
+        continue;
+      }
+      threadIds.push(context.email.threadId);
+    }
+
+    if (contactFormDeferrals > 0) {
+      console.warn(
+        `[sync-engine] lead-scan-deferral :: ${contactFormDeferrals} contact-form context(s) have no durable thread row; deferred to next inbound message`
+      );
+    }
+
+    if (threadIds.length === 0) return;
+
+    const { error } = await requireSupabase()
+      .from("email_threads")
+      .update({ lead_scan_pending_at: new Date().toISOString() })
+      .eq("connection_id", connection.id)
+      .in("provider_thread_id", threadIds)
+      .is("opportunity_id", null);
+    if (error) {
+      throw new Error(error.message ?? "unknown error");
+    }
+  } catch (err) {
+    console.error(
+      "[sync-engine] failed to mark unmatched threads pending lead scan (non-fatal — recovers on next inbound reply):",
+      err instanceof Error ? err.message : err
+    );
+  }
+}
+
+/** Best-effort extraction of the alert service's error-metadata shape from an
+ * isolated provider error. Returns undefined unless the error is a record
+ * carrying both a numeric `status` and a string `code` (the two required
+ * fields); a bare deferred-summary error string yields undefined and the alert
+ * still fires with just keySource + workload. */
+function openAIProviderErrorMetadata(
+  err: unknown
+): OpenAIQuotaErrorMetadata | undefined {
+  if (typeof err !== "object" || err === null) return undefined;
+  const record = err as Record<string, unknown>;
+  if (typeof record.status !== "number" || typeof record.code !== "string") {
+    return undefined;
+  }
+  const metadata: OpenAIQuotaErrorMetadata = {
+    status: record.status,
+    code: record.code,
+  };
+  if (typeof record.requestId === "string") {
+    metadata.requestId = record.requestId;
+  }
+  return metadata;
+}
+
+/**
+ * Fire the operator-rail OpenAI-quota alert once per incident directly from the
+ * sync path (independent of the monitored-fetch side channel). The alert
+ * service's existing dedupe guarantees a single open ledger row per incident no
+ * matter how many connections or cycles hit the outage. Best-effort by
+ * contract: an alert failure must never affect the cycle or the cursor advance
+ * that follows, so the whole call is wrapped and never rethrows.
+ */
+async function reportAIProviderOutageOnce(err: unknown): Promise<void> {
+  try {
+    const errorMetadata = openAIProviderErrorMetadata(err);
+    await reportOpenAIQuotaExhausted({
+      keySource: "OPENAI_API_KEY_SYNC",
+      workload: "email_sync",
+      ...(errorMetadata ? { errorMetadata } : {}),
+    });
+  } catch (reportErr) {
+    console.error(
+      "[sync-engine] failed to report AI-provider outage to operator rail (non-fatal):",
+      reportErr instanceof Error ? reportErr.message : reportErr
+    );
+  }
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export const SyncEngine = {
@@ -3908,6 +4024,13 @@ export const SyncEngine = {
 
       // Step 5: AI classification for unmatched emails (feature-gated)
       // Step 6: AI stage evaluation for leads with new emails (feature-gated)
+      //
+      // A single OpenAI-provider outage anywhere in Steps 5–6 defers AI
+      // enrichment for the whole cycle instead of aborting it. Every
+      // deterministic write between the AI calls keeps its fail-closed
+      // (cursor-holding) semantics; only provider-unavailability is downgraded
+      // to this flag, which lets the cursor advance at the end of the cycle.
+      let aiProviderOutage: unknown | null = null;
       try {
         const supabase = requireSupabase();
 
@@ -3933,30 +4056,49 @@ export const SyncEngine = {
               context,
             ])
           );
-          const aiResult = await AISyncReviewer.reviewUnmatchedEmails(
-            unmatchedEmails,
-            connection,
-            {
-              name: companyName,
-              industry: companyIndustry,
-              domains: profile.companyDomains || [],
-            }
-          );
-
-          // Persist AI-classified leads as opportunities
-          for (const classified of aiResult.classifiedLeads) {
-            await promoteClassifiedUnmatchedLead({
-              classified,
+          // The OpenAI call is up front, before any Step-5 persistence, so a
+          // provider outage here means no partial writes — a clean skip. Real
+          // (non-provider) errors still propagate and abort the cycle.
+          let aiResult = null;
+          try {
+            aiResult = await AISyncReviewer.reviewUnmatchedEmails(
+              unmatchedEmails,
               connection,
-              profile,
-              result,
-              unmatchedContextByIdentity,
-              supabase,
-              followUpDaysCache,
-              renewSyncLeaseIfNeeded,
-            });
+              {
+                name: companyName,
+                industry: companyIndustry,
+                domains: profile.companyDomains || [],
+              }
+            );
+          } catch (err) {
+            if (!isAIProviderUnavailableError(err)) throw err;
+            aiProviderOutage ??= err;
           }
-          result.newLeads += aiResult.newLeadsClassified;
+
+          if (aiResult) {
+            // Persist AI-classified leads as opportunities
+            for (const classified of aiResult.classifiedLeads) {
+              await promoteClassifiedUnmatchedLead({
+                classified,
+                connection,
+                profile,
+                result,
+                unmatchedContextByIdentity,
+                supabase,
+                followUpDaysCache,
+                renewSyncLeaseIfNeeded,
+              });
+            }
+            result.newLeads += aiResult.newLeadsClassified;
+          } else if (aiProviderOutage) {
+            // Provider down: durably defer classification so the thread is
+            // re-scanned when AI recovers, then let the cursor advance.
+            await markUnmatchedThreadsPendingLeadScan(
+              unmatchedContexts,
+              connection
+            );
+            result.leadScansDeferred += unmatchedContexts.length;
+          }
         }
 
         // An outbound reply may arrive in provider chronology before its
@@ -4064,152 +4206,192 @@ export const SyncEngine = {
           }
 
           // Thread-scoped stage evaluation; the opportunity-wide summary runs
-          // from all durable activity after every thread result is applied.
-          const stageResults = await AISyncReviewer.evaluateStagesWithSummary(
-            [...activeLeadTargets.values()],
-            connection,
-            { name: companyName },
-            { providerLockCheckpoint: renewSyncLeaseIfNeeded }
-          );
-
-          for (const sr of stageResults) {
-            await renewSyncLeaseIfNeeded();
-            const oppId = opportunityByEvaluationKey.get(sr.threadId);
-            if (!oppId) {
-              throw new LifecyclePersistenceError(
-                `[sync-engine] stage evaluation returned unknown identity ${sr.threadId}`
-              );
-            }
-
-            // Check current stage + manual override flag
-            const { data: oppData, error: opportunityLookupError } =
-              await supabase
-                .from("opportunities")
-                .select(
-                  "stage, stage_manually_set, actual_value, detected_value, estimated_value, assignment_version, ai_stage_signals"
-                )
-                .eq("id", oppId)
-                .single();
-            if (opportunityLookupError || !oppData) {
-              throw new LifecyclePersistenceError(
-                `[sync-engine] stage evaluation opportunity lookup failed for ${oppId}: ${opportunityLookupError?.message ?? "row not found"}`
-              );
-            }
-
-            const evaluationTarget = activeLeadTargets.get(sr.threadId);
-            const providerThreadId =
-              typeof evaluationTarget === "string"
-                ? evaluationTarget
-                : (evaluationTarget?.messages.at(-1)?.threadId ?? null);
-            if (sr.terminalFlag && providerThreadId) {
-              // Model-only terminal classifications are review signals, never
-              // conversion authority. Deterministic, opportunity-wide evidence
-              // is committed earlier through evaluateOpportunityAcceptance.
-              await createTerminalFlagNotification(
-                sr,
+          // from all durable activity after every thread result is applied. If
+          // Step 5 already saw the provider go down, skip this doomed call and
+          // let stage/summary enrichment recover on the next inbound message
+          // rather than aborting the cursor. Provider-unavailability here is
+          // deferred; any non-provider error still aborts and holds the cursor.
+          let stageResults = null;
+          if (!aiProviderOutage) {
+            try {
+              stageResults = await AISyncReviewer.evaluateStagesWithSummary(
+                [...activeLeadTargets.values()],
                 connection,
-                oppId,
-                providerThreadId,
-                oppData.assignment_version
+                { name: companyName },
+                { providerLockCheckpoint: renewSyncLeaseIfNeeded }
               );
-            }
-
-            // Thread-scoped AI evidence can update stage signals, but the lead
-            // summary is written only from the complete opportunity context
-            // after all thread evaluations finish.
-            const updates: Record<string, unknown> = {};
-            let requestedStage: string | null = null;
-
-            // The evidence describes the latest evaluated conversation, not
-            // only the last transition. Refresh it even when the inferred
-            // stage remains unchanged so the lead never displays stale proof.
-            updates.ai_stage_signals = [
-              ...persistedAIClassificationReviewSignals(
-                oppData.ai_stage_signals
-              ),
-              sr.terminalFlag || "ai_evaluated",
-            ];
-
-            // Only write stage if it actually changed AND user hasn't manually set it
-            if (
-              sr.newStage &&
-              !oppData?.stage_manually_set &&
-              sr.newStage !== oppData?.stage &&
-              isAllowedAutomatedEmailStageTransition(
-                oppData.stage as string,
-                sr.newStage
-              )
-            ) {
-              requestedStage = sr.newStage;
-            }
-
-            if (Object.keys(updates).length > 0) {
-              try {
-                const { error: updateError } = await supabase
-                  .from("opportunities")
-                  .update(updates)
-                  .eq("id", oppId);
-
-                if (updateError) {
-                  throw new LifecyclePersistenceError(
-                    `[sync-engine] lifecycle update failed for opportunity ${oppId}: ${updateError.message ?? "unknown error"}`
-                  );
-                }
-              } catch (updateError) {
-                if (updateError instanceof LifecyclePersistenceError) {
-                  throw updateError;
-                }
-                throw new LifecyclePersistenceError(
-                  `[sync-engine] lifecycle update failed for opportunity ${oppId}: ${updateError instanceof Error ? updateError.message : "unknown error"}`
-                );
-              }
-            }
-
-            if (requestedStage) {
-              const { data: transitionRows, error: transitionError } =
-                await supabase.rpc("apply_email_opportunity_stage_transition", {
-                  p_company_id: connection.companyId,
-                  p_opportunity_id: oppId,
-                  p_to_stage: requestedStage,
-                  p_expected_stage: oppData.stage,
-                  p_expected_assignment_version: oppData.assignment_version,
-                  p_ai_signal: sr.terminalFlag || "ai_evaluated",
-                });
-              if (transitionError || !transitionRows) {
-                throw new LifecyclePersistenceError(
-                  `[sync-engine] AI stage transition failed for opportunity ${oppId}: ${transitionError?.message ?? "RPC returned no rows"}`
-                );
-              }
-              const transition = Array.isArray(transitionRows)
-                ? transitionRows[0]
-                : transitionRows;
-              if (!transition) {
-                throw new LifecyclePersistenceError(
-                  `[sync-engine] AI stage transition returned no opportunity for ${oppId}`
-                );
-              }
-              if (transition.changed) result.stageChanges++;
+            } catch (err) {
+              if (!isAIProviderUnavailableError(err)) throw err;
+              aiProviderOutage ??= err;
             }
           }
 
-          const summaryRefresh = await refreshLeadSummariesForOpportunities({
-            supabase,
-            companyId: connection.companyId,
-            opportunityIds: [...new Set(opportunityByEvaluationKey.values())],
-          });
-          if (summaryRefresh.failed.length > 0) {
-            throw new LifecyclePersistenceError(
-              `[sync-engine] complete lead summary refresh failed before cursor advancement: ${summaryRefresh.failed
-                .map((failure) => `${failure.opportunityId}: ${failure.error}`)
-                .join("; ")}`
-            );
+          if (stageResults) {
+            for (const sr of stageResults) {
+              await renewSyncLeaseIfNeeded();
+              const oppId = opportunityByEvaluationKey.get(sr.threadId);
+              if (!oppId) {
+                throw new LifecyclePersistenceError(
+                  `[sync-engine] stage evaluation returned unknown identity ${sr.threadId}`
+                );
+              }
+
+              // Check current stage + manual override flag
+              const { data: oppData, error: opportunityLookupError } =
+                await supabase
+                  .from("opportunities")
+                  .select(
+                    "stage, stage_manually_set, actual_value, detected_value, estimated_value, assignment_version, ai_stage_signals"
+                  )
+                  .eq("id", oppId)
+                  .single();
+              if (opportunityLookupError || !oppData) {
+                throw new LifecyclePersistenceError(
+                  `[sync-engine] stage evaluation opportunity lookup failed for ${oppId}: ${opportunityLookupError?.message ?? "row not found"}`
+                );
+              }
+
+              const evaluationTarget = activeLeadTargets.get(sr.threadId);
+              const providerThreadId =
+                typeof evaluationTarget === "string"
+                  ? evaluationTarget
+                  : (evaluationTarget?.messages.at(-1)?.threadId ?? null);
+              if (sr.terminalFlag && providerThreadId) {
+                // Model-only terminal classifications are review signals, never
+                // conversion authority. Deterministic, opportunity-wide evidence
+                // is committed earlier through evaluateOpportunityAcceptance.
+                await createTerminalFlagNotification(
+                  sr,
+                  connection,
+                  oppId,
+                  providerThreadId,
+                  oppData.assignment_version
+                );
+              }
+
+              // Thread-scoped AI evidence can update stage signals, but the lead
+              // summary is written only from the complete opportunity context
+              // after all thread evaluations finish.
+              const updates: Record<string, unknown> = {};
+              let requestedStage: string | null = null;
+
+              // The evidence describes the latest evaluated conversation, not
+              // only the last transition. Refresh it even when the inferred
+              // stage remains unchanged so the lead never displays stale proof.
+              updates.ai_stage_signals = [
+                ...persistedAIClassificationReviewSignals(
+                  oppData.ai_stage_signals
+                ),
+                sr.terminalFlag || "ai_evaluated",
+              ];
+
+              // Only write stage if it actually changed AND user hasn't manually set it
+              if (
+                sr.newStage &&
+                !oppData?.stage_manually_set &&
+                sr.newStage !== oppData?.stage &&
+                isAllowedAutomatedEmailStageTransition(
+                  oppData.stage as string,
+                  sr.newStage
+                )
+              ) {
+                requestedStage = sr.newStage;
+              }
+
+              if (Object.keys(updates).length > 0) {
+                try {
+                  const { error: updateError } = await supabase
+                    .from("opportunities")
+                    .update(updates)
+                    .eq("id", oppId);
+
+                  if (updateError) {
+                    throw new LifecyclePersistenceError(
+                      `[sync-engine] lifecycle update failed for opportunity ${oppId}: ${updateError.message ?? "unknown error"}`
+                    );
+                  }
+                } catch (updateError) {
+                  if (updateError instanceof LifecyclePersistenceError) {
+                    throw updateError;
+                  }
+                  throw new LifecyclePersistenceError(
+                    `[sync-engine] lifecycle update failed for opportunity ${oppId}: ${updateError instanceof Error ? updateError.message : "unknown error"}`
+                  );
+                }
+              }
+
+              if (requestedStage) {
+                const { data: transitionRows, error: transitionError } =
+                  await supabase.rpc(
+                    "apply_email_opportunity_stage_transition",
+                    {
+                      p_company_id: connection.companyId,
+                      p_opportunity_id: oppId,
+                      p_to_stage: requestedStage,
+                      p_expected_stage: oppData.stage,
+                      p_expected_assignment_version: oppData.assignment_version,
+                      p_ai_signal: sr.terminalFlag || "ai_evaluated",
+                    }
+                  );
+                if (transitionError || !transitionRows) {
+                  throw new LifecyclePersistenceError(
+                    `[sync-engine] AI stage transition failed for opportunity ${oppId}: ${transitionError?.message ?? "RPC returned no rows"}`
+                  );
+                }
+                const transition = Array.isArray(transitionRows)
+                  ? transitionRows[0]
+                  : transitionRows;
+                if (!transition) {
+                  throw new LifecyclePersistenceError(
+                    `[sync-engine] AI stage transition returned no opportunity for ${oppId}`
+                  );
+                }
+                if (transition.changed) result.stageChanges++;
+              }
+            }
+
+            const summaryRefresh = await refreshLeadSummariesForOpportunities({
+              supabase,
+              companyId: connection.companyId,
+              opportunityIds: [...new Set(opportunityByEvaluationKey.values())],
+            });
+            if (summaryRefresh.failed.length > 0) {
+              throw new LifecyclePersistenceError(
+                `[sync-engine] complete lead summary refresh failed before cursor advancement: ${summaryRefresh.failed
+                  .map((failure) => `${failure.opportunityId}: ${failure.error}`)
+                  .join("; ")}`
+              );
+            } else if (summaryRefresh.deferred.length > 0) {
+              // The model was reachable for stage eval but a later summary call
+              // hit the provider outage. Defer (do not hold the cursor): the
+              // summary stays dirty and recovers via the refresh cron or the
+              // opportunity's next inbound message.
+              aiProviderOutage ??= summaryRefresh.deferred[0].error;
+            }
           }
         }
       } catch (aiErr) {
+        // Safety net for a provider error that escaped an unguarded spot. Order
+        // is load-bearing: our own persistence failures (LifecyclePersistence-
+        // Error) always propagate first and hold the cursor for idempotent
+        // replay; a genuine provider outage is downgraded to the flag; anything
+        // else is still wrapped and fails closed (cursor holds).
         if (aiErr instanceof LifecyclePersistenceError) throw aiErr;
-        throw new LifecyclePersistenceError(
-          `[sync-engine] AI review failed before cursor advancement: ${aiErr instanceof Error ? aiErr.message : "unknown error"}`
-        );
+        if (isAIProviderUnavailableError(aiErr)) {
+          aiProviderOutage ??= aiErr;
+        } else {
+          throw new LifecyclePersistenceError(
+            `[sync-engine] AI review failed before cursor advancement: ${aiErr instanceof Error ? aiErr.message : "unknown error"}`
+          );
+        }
+      }
+
+      // An isolated provider outage surfaces once on the operator rail and as a
+      // machine-observable signal in the cron result, then the cycle falls
+      // through to persistSyncCheckpoint() below so the Gmail cursor advances.
+      if (aiProviderOutage) {
+        await reportAIProviderOutageOnce(aiProviderOutage);
+        result.aiProviderDeferred = true;
       }
 
       // Step 11: Notifications
