@@ -200,7 +200,7 @@ describe("unanswered-lead production dependency factory", () => {
             party_role: "customer",
             is_meaningful: true,
             noise_reason: null,
-            occurred_at: candidate.sourceOccurredAt,
+            occurred_at: "2026-07-22T16:00:00.000000+00:00",
             source: "sync_activity",
             subject: "Untrusted subject",
             from_email: "lauri@example.com",
@@ -245,6 +245,7 @@ describe("unanswered-lead production dependency factory", () => {
         noiseReason: null,
         responseDisposition: "reply_required",
         conversationScope: "message",
+        occurredAt: candidate.sourceOccurredAt,
       }),
     ]);
     const correspondenceSelect = supabase.calls.find(
@@ -253,6 +254,71 @@ describe("unanswered-lead production dependency factory", () => {
         call.method === "select"
     );
     expect(String(correspondenceSelect?.args[0])).not.toContain("body_text");
+  });
+
+  it("fails closed when database timestamp precision cannot be represented by the signed manifest", async () => {
+    const supabase = createSupabaseStub({
+      rows: {
+        opportunities: [
+          {
+            id: candidate.opportunityId,
+            title: "Lauri",
+            company_id: candidate.companyId,
+            stage: "new_lead",
+            stage_manually_set: false,
+            assignment_version: 7,
+            assigned_to: candidate.expectedAssignedTo,
+            archived_at: null,
+            deleted_at: null,
+            merged_into_opportunity_id: null,
+            project_id: null,
+            project_ref: null,
+            contact_name: "Lauri",
+            contact_email: "lauri@example.com",
+            tags: [],
+            source_metadata: null,
+          },
+        ],
+        opportunity_correspondence_events: [
+          {
+            id: candidate.sourceEventId,
+            company_id: candidate.companyId,
+            activity_id: candidate.sourceActivityId,
+            opportunity_id: candidate.opportunityId,
+            connection_id: candidate.sourceConnectionId,
+            provider_thread_id: candidate.sourceProviderThreadId,
+            provider_message_id: candidate.sourceProviderMessageId,
+            direction: "inbound",
+            party_role: "customer",
+            is_meaningful: true,
+            noise_reason: null,
+            occurred_at: "2026-07-22T16:00:00.000001+00:00",
+            source: "sync_activity",
+            subject: "Untrusted subject",
+            from_email: "lauri@example.com",
+          },
+        ],
+        email_threads: [],
+      },
+    });
+    const dependencies = createUnansweredLeadLocalDraftBackfillDependencies({
+      supabase: supabase.client,
+      resolveAccess: vi.fn(),
+      generateDraft: vi.fn(),
+    });
+
+    await expect(
+      dependencies.loadOpportunitySnapshots({
+        companyId: candidate.companyId,
+        window: {
+          timeZone: "America/Vancouver",
+          startInclusive: new Date("2026-07-15T07:00:00.000Z"),
+          endInclusive: new Date("2026-07-22T17:30:00.000Z"),
+        },
+      })
+    ).rejects.toThrow(
+      "unanswered lead correspondence timestamp precision is unsupported"
+    );
   });
 
   it("projects recovered Lauri, Chris, and Eleanor forwards from durable message fields without email_threads rows", async () => {

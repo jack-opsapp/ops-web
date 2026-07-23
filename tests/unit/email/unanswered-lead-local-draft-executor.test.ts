@@ -247,6 +247,33 @@ describe("approval-gated unanswered-lead local-draft executor", () => {
     expect(deps.persistLocalSystemHandoff).not.toHaveBeenCalled();
   });
 
+  it("fails closed before generation when the approved source instant changed", async () => {
+    const approved = manifest();
+    const current = snapshot({
+      events: [
+        {
+          ...snapshot().events[0]!,
+          occurredAt: "2026-07-22T16:00:00.001Z",
+        },
+      ],
+    });
+    const deps = dependencies(current);
+
+    await expect(
+      runApprovedUnansweredLeadLocalDraftBackfill({
+        manifest: approved,
+        dependencies: deps,
+        apply: true,
+        approvedManifestSha256: buildUnansweredLeadDraftManifestHash(approved),
+        now: NOW,
+      })
+    ).rejects.toThrow("approved draft candidate changed");
+
+    expect(deps.claimLocalGeneration).not.toHaveBeenCalled();
+    expect(deps.generateLocalCopy).not.toHaveBeenCalled();
+    expect(deps.persistLocalSystemHandoff).not.toHaveBeenCalled();
+  });
+
   it("fails the whole apply preflight when current authorization denies an approved entry", async () => {
     const approved = manifest();
     const deps = dependencies();

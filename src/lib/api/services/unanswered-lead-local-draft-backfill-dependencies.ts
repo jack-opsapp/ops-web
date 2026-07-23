@@ -284,6 +284,25 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
+function canonicalIsoTimestamp(value: string): string {
+  const fractionalSeconds = value.match(
+    /\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/i
+  )?.[1];
+  if (
+    fractionalSeconds &&
+    /[1-9]/.test(fractionalSeconds.slice(3))
+  ) {
+    throw new Error(
+      "unanswered lead correspondence timestamp precision is unsupported"
+    );
+  }
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) {
+    throw new Error("unanswered lead correspondence timestamp is invalid");
+  }
+  return parsed.toISOString();
+}
+
 function threadKey(
   connectionId: string | null,
   providerThreadId: string | null
@@ -515,7 +534,7 @@ function mapSnapshots(
             thread,
             projection
           ),
-          occurredAt: event.occurred_at,
+          occurredAt: canonicalIsoTimestamp(event.occurred_at),
           untrustedSubject: event.subject,
           untrustedBodyText: null,
         };
