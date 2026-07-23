@@ -34,10 +34,12 @@ const {
   getConnectionMock: vi.fn(),
   getProviderMock: vi.fn(),
   resolveEmailSignatureMock: vi.fn(),
-  renderMailboxDraftWithSignatureMock: vi.fn((body: string) => ({
-    body: `${body}\n\nOwner signature`,
-    contentType: "text" as const,
-  })),
+  renderMailboxDraftWithSignatureMock: vi.fn(
+    (body: string, signature: unknown) => ({
+      body: signature ? `${body}\n\nOwner signature` : body,
+      contentType: "text" as const,
+    })
+  ),
   runWithEmailConnectionSyncLockMock: vi.fn(),
   mailboxCheckpointMock: vi.fn(async () => undefined),
   mutationExecuteMock: vi.fn(),
@@ -604,7 +606,7 @@ describe("P4-C — phase_c provider mailbox draft", () => {
     expect(updateDraftMock).not.toHaveBeenCalled();
   });
 
-  it("does not place an autonomous mailbox draft when no effective signature exists", async () => {
+  it("places a review-only mailbox draft without blocking on an unconfigured signature", async () => {
     resolveEmailSignatureMock.mockResolvedValue(null);
     generateDraftMock.mockResolvedValue({
       available: true,
@@ -619,10 +621,19 @@ describe("P4-C — phase_c provider mailbox draft", () => {
       "auto_draft"
     );
 
-    expect(result.outcome).toBe("draft_placement_pending");
-    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(result.outcome).toBe("auto_drafted");
+    expect(renderMailboxDraftWithSignatureMock).toHaveBeenCalledWith(
+      "Generated body",
+      null
+    );
+    expect(createDraftMock).toHaveBeenCalledWith(
+      "client@acme.com",
+      "Re: Quote",
+      "Generated body",
+      "pt-1",
+      "text"
+    );
     expect(updateDraftMock).not.toHaveBeenCalled();
-    expect(renderMailboxDraftWithSignatureMock).not.toHaveBeenCalled();
   });
 
   it("does not write a provider draft after the lead is reassigned during generation", async () => {

@@ -156,6 +156,8 @@ interface SupabaseState {
   recoveryOpportunityAuthorized?: boolean;
   legacyActivityClaimRpcError?: string;
   orphanAdoptionRpcError?: string;
+  orphanOutboundAdoptionRpcError?: string;
+  rejectDirectActivityReparent?: boolean;
   companyMailboxDefaultOwnerId?: string | null;
   companyMailboxPromptCount?: number;
   companyMailboxAtomicCreateFailuresRemaining?: number;
@@ -454,6 +456,16 @@ function makeSupabaseDouble(state: SupabaseState) {
         });
         if (!row || state.activityClaimCasMiss) {
           return { data: [], error: null };
+        }
+        if (
+          state.rejectDirectActivityReparent &&
+          row.opportunity_id == null &&
+          this.payload?.opportunity_id != null
+        ) {
+          return {
+            data: null,
+            error: { code: "23514", message: "child_reparent_forbidden" },
+          };
         }
         if (this.payload) Object.assign(row, this.payload);
         return { data: [{ id: row.id, ...this.payload }], error: null };
@@ -1083,6 +1095,132 @@ function makeSupabaseDouble(state: SupabaseState) {
           target.inbound_count = Number(target.inbound_count ?? 0) + 1;
           target.last_inbound_at = params.p_occurred_at;
           target.last_message_direction = "in";
+          state.correspondenceProjectionApplications =
+            (state.correspondenceProjectionApplications ?? 0) + 1;
+        }
+        return {
+          data: {
+            applied,
+            already_applied: !applied,
+            activity_id: params.p_activity_id,
+            opportunity_id: params.p_target_opportunity_id,
+            correspondence_event_id: event.id,
+          },
+          error: null,
+        };
+      }
+      if (
+        name ===
+        "adopt_orphan_outbound_email_activity_guarded_as_system"
+      ) {
+        state.rpcCalls?.push({ name, params });
+        if (state.orphanOutboundAdoptionRpcError) {
+          return {
+            data: null,
+            error: { message: state.orphanOutboundAdoptionRpcError },
+          };
+        }
+        const activity = state.activities.find(
+          (row) =>
+            row.id === params.p_activity_id &&
+            row.company_id === params.p_company_id &&
+            row.email_connection_id === params.p_connection_id &&
+            row.email_thread_id === params.p_provider_thread_id &&
+            row.email_message_id === params.p_provider_message_id &&
+            row.type === "email" &&
+            row.direction === "outbound"
+        );
+        const target = state.opportunities.find(
+          (row) =>
+            row.id === params.p_target_opportunity_id &&
+            row.company_id === params.p_company_id
+        );
+        if (!activity || !target) {
+          return {
+            data: null,
+            error: { message: "orphan_outbound_email_activity_not_found" },
+          };
+        }
+        if (
+          activity.created_at !== params.p_occurred_at ||
+          activity.subject !== params.p_subject ||
+          activity.from_email !== params.p_from_email ||
+          JSON.stringify(activity.to_emails ?? []) !==
+            JSON.stringify(params.p_to_emails ?? []) ||
+          JSON.stringify(activity.cc_emails ?? []) !==
+            JSON.stringify(params.p_cc_emails ?? []) ||
+          (activity.content ?? null) !== params.p_content ||
+          (activity.body_text ?? null) !== params.p_body_text ||
+          (activity.body_text_clean ?? null) !== params.p_body_text_clean
+        ) {
+          return {
+            data: null,
+            error: { message: "orphan_outbound_email_activity_payload_changed" },
+          };
+        }
+        if (
+          activity.opportunity_id != null &&
+          activity.opportunity_id !== params.p_target_opportunity_id
+        ) {
+          return {
+            data: null,
+            error: { message: "orphan_outbound_email_activity_owner_conflict" },
+          };
+        }
+        state.correspondenceEvents ??= [];
+        let event = state.correspondenceEvents.find(
+          (row) =>
+            row.company_id === params.p_company_id &&
+            row.connection_id === params.p_connection_id &&
+            row.provider_message_id === params.p_provider_message_id
+        );
+        if (
+          event &&
+          (activity.opportunity_id == null ||
+            event.opportunity_id !== params.p_target_opportunity_id ||
+            event.activity_id !== params.p_activity_id ||
+            event.provider_thread_id !== params.p_provider_thread_id ||
+            event.direction !== "outbound")
+        ) {
+          return {
+            data: null,
+            error: {
+              message: "orphan_outbound_email_activity_correspondence_conflict",
+            },
+          };
+        }
+        const applied = activity.opportunity_id == null;
+        activity.opportunity_id = params.p_target_opportunity_id;
+        activity.match_needs_review = false;
+        activity.suggested_client_id = null;
+        activity.match_confidence = params.p_match_confidence;
+        activity.is_read = true;
+        if (!event) {
+          event = {
+            id: `event-${state.correspondenceEvents.length + 1}`,
+            company_id: params.p_company_id,
+            opportunity_id: params.p_target_opportunity_id,
+            activity_id: params.p_activity_id,
+            connection_id: params.p_connection_id,
+            provider_thread_id: params.p_provider_thread_id,
+            provider_message_id: params.p_provider_message_id,
+            direction: "outbound",
+            party_role: params.p_party_role,
+            is_meaningful: params.p_is_meaningful,
+            noise_reason: params.p_noise_reason,
+            occurred_at: params.p_occurred_at,
+            subject: params.p_subject,
+            from_email: params.p_from_email,
+            to_emails: params.p_to_emails,
+            cc_emails: params.p_cc_emails,
+            opportunity_projection_applied: true,
+          };
+          state.correspondenceEvents.push(event);
+          target.correspondence_count =
+            Number(target.correspondence_count ?? 0) + 1;
+          target.outbound_count = Number(target.outbound_count ?? 0) + 1;
+          target.last_outbound_at = params.p_occurred_at;
+          target.last_message_direction = "out";
           state.correspondenceProjectionApplications =
             (state.correspondenceProjectionApplications ?? 0) + 1;
         }
@@ -4406,6 +4544,179 @@ To: Kara Beach <kara.beach@example.com>`,
         p_provider_message_id: "msg-own-inbox",
       }),
     });
+  });
+
+  it("holds the cursor on guarded outbound adoption failure, then adopts and replays exactly once", async () => {
+    const occurredAt = "2026-07-22T21:27:00.000Z";
+    const sent = baseEmail({
+      id: "msg-unlinked-outbound-replay",
+      threadId: "thread-unlinked-outbound-replay",
+      from: "Canpro <canprojack@gmail.com>",
+      fromName: "Canpro",
+      to: ["customer@example.com"],
+      subject: "Re: Railing inquiry",
+      bodyText: "Thanks for reaching out. I can help with that railing.",
+      snippet: "Thanks for reaching out.",
+      date: new Date(occurredAt),
+      labelIds: ["SENT"],
+    });
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-outbound-replay",
+          company_id: "company-1",
+          name: "Customer",
+          email: "customer@example.com",
+          deleted_at: null,
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-outbound-replay",
+          company_id: "company-1",
+          client_id: "client-outbound-replay",
+          stage: "qualifying",
+          correspondence_count: 0,
+          inbound_count: 0,
+          outbound_count: 0,
+          archived_at: null,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [
+        {
+          opportunity_id: "opp-outbound-replay",
+          thread_id: sent.threadId,
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-unlinked-outbound-replay",
+          company_id: "company-1",
+          opportunity_id: null,
+          email_connection_id: "connection-1",
+          email_thread_id: sent.threadId,
+          email_message_id: sent.id,
+          type: "email",
+          direction: "outbound",
+          subject: sent.subject,
+          content: sent.bodyText,
+          body_text: sent.bodyText,
+          body_text_clean: sent.bodyText,
+          from_email: "canprojack@gmail.com",
+          to_emails: ["customer@example.com"],
+          cc_emails: [],
+          is_read: true,
+          has_attachments: false,
+          attachment_count: 0,
+          match_needs_review: true,
+          suggested_client_id: null,
+          match_confidence: "unlinked_outbound",
+          created_at: occurredAt,
+        },
+      ],
+      correspondenceEvents: [],
+      correspondenceProjectionApplications: 0,
+      rejectDirectActivityReparent: true,
+      orphanOutboundAdoptionRpcError: "outbound adoption unavailable",
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        // Gmail history is a unified mailbox stream; persisted direction
+        // classifies this exact provider message as outbound on replay.
+        emails: [sent],
+        nextSyncToken: "sync-token-outbound-replay",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-outbound-replay",
+      })),
+    });
+
+    const failed = await SyncEngine.runSync("connection-1");
+
+    expect(failed.errors.join(" ")).toContain(
+      "guarded unlinked outbound adoption failed: outbound adoption unavailable"
+    );
+    expect(state.activities[0]).toMatchObject({
+      id: "activity-unlinked-outbound-replay",
+      opportunity_id: null,
+      match_needs_review: true,
+      match_confidence: "unlinked_outbound",
+    });
+    expect(state.correspondenceEvents).toEqual([]);
+    expect(state.correspondenceProjectionApplications).toBe(0);
+    expect(updateConnectionMock).not.toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ historyId: "sync-token-outbound-replay" })
+    );
+
+    state.orphanOutboundAdoptionRpcError = undefined;
+    updateConnectionMock.mockClear();
+
+    const repaired = await SyncEngine.runSync("connection-1");
+    const replay = await SyncEngine.runSync("connection-1");
+
+    expect(repaired.errors).toEqual([]);
+    expect(replay.errors).toEqual([]);
+    expect(state.activities).toHaveLength(1);
+    expect(state.activities[0]).toMatchObject({
+      id: "activity-unlinked-outbound-replay",
+      opportunity_id: "opp-outbound-replay",
+      direction: "outbound",
+      match_needs_review: false,
+      match_confidence: "provider_thread",
+    });
+    expect(state.correspondenceEvents).toEqual([
+      expect.objectContaining({
+        opportunity_id: "opp-outbound-replay",
+        activity_id: "activity-unlinked-outbound-replay",
+        provider_message_id: sent.id,
+        direction: "outbound",
+      }),
+    ]);
+    expect(state.correspondenceProjectionApplications).toBe(1);
+    expect(
+      state.rpcCalls?.filter(
+        (call) =>
+          call.name ===
+          "adopt_orphan_outbound_email_activity_guarded_as_system"
+      )
+    ).toEqual([
+      expect.objectContaining({
+        params: expect.objectContaining({
+          p_actor_user_id: null,
+          p_company_id: "company-1",
+          p_connection_id: "connection-1",
+          p_activity_id: "activity-unlinked-outbound-replay",
+          p_target_opportunity_id: "opp-outbound-replay",
+          p_provider_thread_id: sent.threadId,
+          p_provider_message_id: sent.id,
+          p_ingestion_source: "email_sync",
+        }),
+      }),
+      expect.objectContaining({
+        params: expect.objectContaining({
+          p_actor_user_id: null,
+          p_company_id: "company-1",
+          p_connection_id: "connection-1",
+          p_activity_id: "activity-unlinked-outbound-replay",
+          p_target_opportunity_id: "opp-outbound-replay",
+          p_provider_thread_id: sent.threadId,
+          p_provider_message_id: sent.id,
+          p_ingestion_source: "email_sync",
+        }),
+      }),
+    ]);
+    expect(updateConnectionMock).toHaveBeenLastCalledWith(
+      "connection-1",
+      expect.objectContaining({ historyId: "sync-token-outbound-replay" })
+    );
   });
 
   it("replays a persisted inbound direction after teammate roster drift without starving later mail", async () => {

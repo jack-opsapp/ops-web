@@ -142,7 +142,7 @@ export interface EmailAssignmentContactFormDraftDependencies {
   }): Promise<EmailConnectionSyncLockRunResult<T>>;
   renderDraft(
     body: string,
-    signature: EffectiveEmailSignature
+    signature: EffectiveEmailSignature | null
   ): { body: string; contentType: "text" | "html" };
   getDraftTransport(connection: EmailConnection): ContactFormDraftTransport;
   placeDraft(input: {
@@ -479,7 +479,6 @@ export class EmailAssignmentContactFormDraftWorker {
               refreshProviderIfMissing: true,
               providerLockCheckpoint: checkpoint,
             });
-            if (!signature) throw new Error("EMAIL_SIGNATURE_REQUIRED");
             const rendered = this.dependencies.renderDraft(
               prepared.body,
               signature
