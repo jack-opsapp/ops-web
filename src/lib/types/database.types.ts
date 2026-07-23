@@ -17939,6 +17939,21 @@ export type Database = {
         }[]
       }
       expense_envelope_sweep: { Args: never; Returns: number }
+      file_share_photo_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_job_id: string
+          p_project_id: string
+          p_taken_at: string
+          p_url: string
+        }
+        Returns: {
+          attached: boolean
+          created: boolean
+          photo_id: string
+        }[]
+      }
       fire_due_task_reminders: { Args: never; Returns: number }
       generate_product_sku: {
         Args: { p_category: string; p_company_id: string; p_kind: string }
