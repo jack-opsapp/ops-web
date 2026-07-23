@@ -18,6 +18,10 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  buildEmailExactMessageRecoverySnapshotHash,
+  createEmailExactMessageRecoverySnapshotProvider,
+} from "../src/lib/api/services/email-exact-message-recovery-snapshot";
+import {
   buildEmailExactMessageRecoveryManifestHash,
   runEmailExactMessageRecovery,
   supersedeUnstartedEmailExactMessageRecoveryWork,
@@ -33,10 +37,18 @@ export interface EmailExactMessageRecoveryCliArgs {
   approvedManifestSha256: string | null;
   supersedePriorManifestPath: string | null;
   supersedeProviderMessageIds: string[];
+  providerSnapshotStdin: boolean;
+  approvedProviderSnapshotSha256: string | null;
   json: boolean;
 }
 
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
+const MAX_PROVIDER_SNAPSHOT_STDIN_BYTES = 64 * 1024 * 1024;
+
+export {
+  buildEmailExactMessageRecoverySnapshotHash,
+  createEmailExactMessageRecoverySnapshotProvider,
+};
 
 function configuredNodeConditions(
   execArgv: string[],
@@ -219,6 +231,8 @@ export function parseEmailExactMessageRecoveryCliArgs(
   let approvedManifestSha256: string | null = null;
   let supersedePriorManifestPath: string | null = null;
   const supersedeProviderMessageIds: string[] = [];
+  let providerSnapshotStdin = false;
+  let approvedProviderSnapshotSha256: string | null = null;
   let json = false;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -243,6 +257,13 @@ export function parseEmailExactMessageRecoveryCliArgs(
         supersedeProviderMessageIds.push(nextValue(argv, index, argument));
         index += 1;
         break;
+      case "--provider-snapshot-stdin":
+        providerSnapshotStdin = true;
+        break;
+      case "--approve-provider-snapshot-sha256":
+        approvedProviderSnapshotSha256 = nextValue(argv, index, argument);
+        index += 1;
+        break;
       case "--json":
         json = true;
         break;
@@ -262,6 +283,24 @@ export function parseEmailExactMessageRecoveryCliArgs(
   }
   if (!apply && approvedManifestSha256) {
     throw new Error("--approve-manifest-sha256 requires --apply");
+  }
+  if (
+    approvedProviderSnapshotSha256 &&
+    !SHA256_PATTERN.test(approvedProviderSnapshotSha256)
+  ) {
+    throw new Error(
+      "--approve-provider-snapshot-sha256 must be 64 lowercase hexadecimal characters"
+    );
+  }
+  if (apply && providerSnapshotStdin && !approvedProviderSnapshotSha256) {
+    throw new Error(
+      "--apply with --provider-snapshot-stdin requires --approve-provider-snapshot-sha256"
+    );
+  }
+  if (approvedProviderSnapshotSha256 && (!apply || !providerSnapshotStdin)) {
+    throw new Error(
+      "--approve-provider-snapshot-sha256 requires --apply with --provider-snapshot-stdin"
+    );
   }
   if (
     (supersedePriorManifestPath || supersedeProviderMessageIds.length > 0) &&
@@ -295,6 +334,8 @@ export function parseEmailExactMessageRecoveryCliArgs(
     approvedManifestSha256,
     supersedePriorManifestPath,
     supersedeProviderMessageIds,
+    providerSnapshotStdin,
+    approvedProviderSnapshotSha256,
     json,
   };
 }
@@ -312,6 +353,28 @@ function parseManifest(raw: string): EmailExactMessageRecoveryManifest {
   return parsed as EmailExactMessageRecoveryManifest;
 }
 
+async function readProviderSnapshotFromStdin(): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+  for await (const chunk of process.stdin) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    totalBytes += buffer.byteLength;
+    if (totalBytes > MAX_PROVIDER_SNAPSHOT_STDIN_BYTES) {
+      throw new Error("Provider snapshot stdin must be bounded JSON");
+    }
+    chunks.push(buffer);
+  }
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) {
+    throw new Error("--provider-snapshot-stdin received no JSON object");
+  }
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    throw new Error("Provider snapshot stdin is not valid JSON");
+  }
+}
+
 export async function runEmailExactMessageRecoveryCli(
   argv: string[]
 ): Promise<void> {
@@ -321,12 +384,33 @@ export async function runEmailExactMessageRecoveryCli(
   const priorManifest = args.supersedePriorManifestPath
     ? parseManifest(await readFile(args.supersedePriorManifestPath, "utf8"))
     : null;
+  const providerSnapshot = args.providerSnapshotStdin
+    ? await readProviderSnapshotFromStdin()
+    : null;
+  const snapshotProvider =
+    providerSnapshot === null
+      ? null
+      : createEmailExactMessageRecoverySnapshotProvider(
+          providerSnapshot,
+          manifest
+        );
+  const providerSnapshotSha256 =
+    providerSnapshot === null
+      ? null
+      : buildEmailExactMessageRecoverySnapshotHash(providerSnapshot);
   if (
     args.apply &&
     args.approvedManifestSha256 !==
       buildEmailExactMessageRecoveryManifestHash(manifest)
   ) {
     throw new Error("Approved manifest SHA-256 does not match");
+  }
+  if (
+    args.apply &&
+    providerSnapshotSha256 !== null &&
+    args.approvedProviderSnapshotSha256 !== providerSnapshotSha256
+  ) {
+    throw new Error("Approved provider snapshot SHA-256 does not match");
   }
 
   const { loadEnvConfig } = await import("@next/env");
@@ -382,8 +466,18 @@ export async function runEmailExactMessageRecoveryCli(
       });
     }
 
-    const fullProvider = EmailService.getProvider(connection);
     const store = new SupabaseEmailExactMessageRecoveryStore(supabase);
+    const provider =
+      snapshotProvider ??
+      (() => {
+        const fullProvider = EmailService.getProvider(connection);
+        return {
+          fetchThread: (
+            threadId: string,
+            readPolicy?: Parameters<typeof fullProvider.fetchThread>[1]
+          ) => fullProvider.fetchThread(threadId, readPolicy),
+        };
+      })();
 
     if (priorManifest) {
       await supersedeUnstartedEmailExactMessageRecoveryWork({
@@ -401,10 +495,7 @@ export async function runEmailExactMessageRecoveryCli(
       manifest,
       apply: args.apply,
       approvedManifestSha256: args.approvedManifestSha256,
-      provider: {
-        fetchThread: (threadId, readPolicy) =>
-          fullProvider.fetchThread(threadId, readPolicy),
-      },
+      provider,
       store,
       repairReparentedMessage: repairExactReparentedMessage
         ? async (input) => repairExactReparentedMessage(input)
@@ -486,13 +577,20 @@ export async function runEmailExactMessageRecoveryCli(
     });
   });
 
+  const renderedResult =
+    providerSnapshotSha256 === null
+      ? result
+      : { ...result, providerSnapshotSha256 };
   if (!args.json) {
     process.stdout.write(
       `${result.mode === "apply" ? "Apply" : "Dry-run"}: ${result.entries.length} exact message${result.entries.length === 1 ? "" : "s"}\n`
     );
     process.stdout.write(`Manifest: ${result.manifestSha256}\n`);
+    if (providerSnapshotSha256 !== null) {
+      process.stdout.write(`Provider snapshot: ${providerSnapshotSha256}\n`);
+    }
   }
-  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify(renderedResult, null, 2)}\n`);
 }
 
 const invokedPath = process.argv[1];

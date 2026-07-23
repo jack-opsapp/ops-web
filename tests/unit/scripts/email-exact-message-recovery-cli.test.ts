@@ -22,12 +22,59 @@ type RecoveryReactServerGuard = (
   nodeOptions?: string
 ) => void;
 
+type RecoverySnapshotProviderFactory = (
+  value: unknown,
+  manifest: {
+    connectionId: string;
+    entries: Array<{
+      providerThreadId: string;
+      providerMessageId: string;
+      providerOccurredAt: string;
+    }>;
+  }
+) => {
+  fetchThread(threadId: string): Promise<
+    Array<{
+      id: string;
+      threadId: string;
+      from: string;
+      fromName: string;
+      authenticatedFromDomains?: string[];
+      date: Date;
+      hasAttachments: boolean;
+      sizeEstimate: number;
+    }>
+  >;
+};
+
+type RecoverySnapshotHashBuilder = (value: unknown) => string;
+
 function recoveryReactServerGuard(): RecoveryReactServerGuard | undefined {
   return (
     recoveryCli as typeof recoveryCli & {
       requireEmailExactMessageRecoveryReactServerRuntime?: RecoveryReactServerGuard;
     }
   ).requireEmailExactMessageRecoveryReactServerRuntime;
+}
+
+function recoverySnapshotProviderFactory():
+  | RecoverySnapshotProviderFactory
+  | undefined {
+  return (
+    recoveryCli as typeof recoveryCli & {
+      createEmailExactMessageRecoverySnapshotProvider?: RecoverySnapshotProviderFactory;
+    }
+  ).createEmailExactMessageRecoverySnapshotProvider;
+}
+
+function recoverySnapshotHashBuilder():
+  | RecoverySnapshotHashBuilder
+  | undefined {
+  return (
+    recoveryCli as typeof recoveryCli & {
+      buildEmailExactMessageRecoverySnapshotHash?: RecoverySnapshotHashBuilder;
+    }
+  ).buildEmailExactMessageRecoverySnapshotHash;
 }
 
 describe("exact-message recovery CLI", () => {
@@ -43,8 +90,195 @@ describe("exact-message recovery CLI", () => {
       approvedManifestSha256: null,
       supersedePriorManifestPath: null,
       supersedeProviderMessageIds: [],
+      providerSnapshotStdin: false,
+      approvedProviderSnapshotSha256: null,
       json: false,
     });
+  });
+
+  it("accepts an explicit read-only provider snapshot from stdin", () => {
+    expect(
+      parseEmailExactMessageRecoveryCliArgs([
+        "--manifest",
+        "/tmp/exact-recovery.json",
+        "--provider-snapshot-stdin",
+      ])
+    ).toMatchObject({
+      apply: false,
+      providerSnapshotStdin: true,
+    });
+    expect(readFileSync(scriptPath, "utf8")).not.toContain(
+      "process.stdin.isTTY"
+    );
+    expect(readFileSync(scriptPath, "utf8")).toContain(
+      "for await (const chunk of process.stdin)"
+    );
+  });
+
+  it("builds an exact attachment-free recovery provider from a validated snapshot", async () => {
+    const factory = recoverySnapshotProviderFactory();
+    expect(factory).toBeTypeOf("function");
+    if (!factory) return;
+
+    const manifest = {
+      connectionId: "10000000-0000-4000-8000-000000000003",
+      entries: [
+        {
+          providerThreadId: "thread-victoria-forward",
+          providerMessageId: "message-victoria-forward",
+          providerOccurredAt: "2026-07-22T16:00:00.000Z",
+        },
+      ],
+    };
+    const provider = factory(
+      {
+        schemaVersion: 1,
+        connectionId: manifest.connectionId,
+        messages: [
+          {
+            id: "message-victoria-forward",
+            threadId: "thread-victoria-forward",
+            from: "victoria@canprodeckandrail.com",
+            fromName: "Office Victoria",
+            to: ["canprojack@gmail.com"],
+            cc: [],
+            subject: "Fwd: Free Quote form got a new submission",
+            snippet: "Untrusted provider snippet",
+            bodyText: "Untrusted provider body",
+            occurredAt: "2026-07-22T16:00:00.000Z",
+            labelIds: ["UNREAD", "INBOX"],
+            isRead: false,
+            hasAttachments: false,
+          },
+        ],
+      },
+      manifest
+    );
+
+    await expect(
+      provider.fetchThread("thread-victoria-forward")
+    ).resolves.toEqual([
+      expect.objectContaining({
+        id: "message-victoria-forward",
+        threadId: "thread-victoria-forward",
+        from: "victoria@canprodeckandrail.com",
+        fromName: "Office Victoria",
+        authenticatedFromDomains: [],
+        date: new Date("2026-07-22T16:00:00.000Z"),
+        hasAttachments: false,
+        sizeEstimate: expect.any(Number),
+      }),
+    ]);
+    await expect(provider.fetchThread("different-thread")).resolves.toEqual([]);
+  });
+
+  it("rejects snapshot identity drift, extra messages, and unsupported attachments", () => {
+    const factory = recoverySnapshotProviderFactory();
+    expect(factory).toBeTypeOf("function");
+    if (!factory) return;
+
+    const manifest = {
+      connectionId: "10000000-0000-4000-8000-000000000003",
+      entries: [
+        {
+          providerThreadId: "thread-victoria-forward",
+          providerMessageId: "message-victoria-forward",
+          providerOccurredAt: "2026-07-22T16:00:00.000Z",
+        },
+      ],
+    };
+    const message = {
+      id: "message-victoria-forward",
+      threadId: "thread-victoria-forward",
+      from: "victoria@canprodeckandrail.com",
+      fromName: "Office Victoria",
+      to: ["canprojack@gmail.com"],
+      cc: [],
+      subject: "Fwd: Free Quote form got a new submission",
+      snippet: "Untrusted provider snippet",
+      bodyText: "Untrusted provider body",
+      occurredAt: "2026-07-22T16:00:00.000Z",
+      labelIds: ["INBOX"],
+      isRead: true,
+      hasAttachments: false,
+    };
+
+    expect(() =>
+      factory(
+        {
+          schemaVersion: 1,
+          connectionId: manifest.connectionId,
+          messages: [{ ...message, occurredAt: "2026-07-22T16:00:01.000Z" }],
+        },
+        manifest
+      )
+    ).toThrow("snapshot message identity changed");
+    expect(() =>
+      factory(
+        {
+          schemaVersion: 1,
+          connectionId: manifest.connectionId,
+          messages: [message, { ...message, id: "unexpected-message" }],
+        },
+        manifest
+      )
+    ).toThrow("exactly the manifest messages");
+    expect(() =>
+      factory(
+        {
+          schemaVersion: 1,
+          connectionId: manifest.connectionId,
+          messages: [{ ...message, hasAttachments: true }],
+        },
+        manifest
+      )
+    ).toThrow("does not support attachments");
+  });
+
+  it("content-addresses the exact provider snapshot and requires that approval on apply", () => {
+    const hash = recoverySnapshotHashBuilder();
+    expect(hash).toBeTypeOf("function");
+    if (!hash) return;
+
+    expect(hash({ b: 2, a: { d: 4, c: 3 } })).toBe(
+      hash({ a: { c: 3, d: 4 }, b: 2 })
+    );
+    expect(() =>
+      parseEmailExactMessageRecoveryCliArgs([
+        "--manifest",
+        "/tmp/exact-recovery.json",
+        "--provider-snapshot-stdin",
+        "--apply",
+        "--approve-manifest-sha256",
+        "a".repeat(64),
+      ])
+    ).toThrow("--apply with --provider-snapshot-stdin requires");
+    expect(
+      parseEmailExactMessageRecoveryCliArgs([
+        "--manifest",
+        "/tmp/exact-recovery.json",
+        "--provider-snapshot-stdin",
+        "--apply",
+        "--approve-manifest-sha256",
+        "a".repeat(64),
+        "--approve-provider-snapshot-sha256",
+        "b".repeat(64),
+      ])
+    ).toMatchObject({
+      apply: true,
+      providerSnapshotStdin: true,
+      approvedProviderSnapshotSha256: "b".repeat(64),
+    });
+    expect(() =>
+      parseEmailExactMessageRecoveryCliArgs([
+        "--manifest",
+        "/tmp/exact-recovery.json",
+        "--approve-provider-snapshot-sha256",
+        "b".repeat(64),
+      ])
+    ).toThrow(
+      "--approve-provider-snapshot-sha256 requires --apply with --provider-snapshot-stdin"
+    );
   });
 
   it("requires content-addressed approval for apply", () => {
