@@ -168,7 +168,7 @@ export const SETTINGS_DOMAINS: SettingsDomain[] = [
     sections: [
       { id: "email", labelKey: "sections.email", permission: "settings.integrations", component: IntegrationsTab, legacyTabIds: ["integrations"] },
       { id: "templates", labelKey: "sections.emailTemplates", permission: "settings.integrations", component: EmailTemplatesTab, legacyTabIds: ["email-templates"] },
-      { id: "lifecycle", labelKey: "sections.lifecycle", permission: "settings.integrations", component: LifecycleSettingsTab, legacyTabIds: ["lifecycle", "ai"] },
+      { id: "lifecycle", labelKey: "sections.lifecycle", permission: "settings.company", component: LifecycleSettingsTab, legacyTabIds: ["lifecycle", "ai"] },
       { id: "portal", labelKey: "sections.portal", permission: "portal.manage_branding", component: PortalBrandingTab, legacyTabIds: ["portal"] },
       // Client Comms = the agent's outbound-autonomy face → Phase-C only (Canpro).
       { id: "client-comms", labelKey: "sections.clientComms", permission: "settings.integrations", flag: "phase_c", component: ClientCommsSettingsTab, legacyTabIds: ["client-comms"] },

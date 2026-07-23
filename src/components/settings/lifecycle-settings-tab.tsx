@@ -281,7 +281,7 @@ export function LifecycleSettingsTab() {
           label={t("lifecycle.templateLabel", "Template")}
           body={t(
             "lifecycle.templateBody",
-            "Local inbox draft only. No provider draft is created here."
+            "The body is used for one-tap follow-ups. The subject is used for local drafts. Saving sends nothing."
           )}
         />
         <Input
