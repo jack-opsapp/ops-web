@@ -14,7 +14,7 @@ import {
   StageEvaluator,
   isAllowedAutomatedEmailStageTransition,
 } from "./stage-evaluator";
-import { AISyncReviewer } from "./ai-sync-reviewer";
+import { AISyncReviewer, type AIClassifiedLead } from "./ai-sync-reviewer";
 import {
   coerceAIStageForOpportunityPersistence,
   type AITerminalReviewFlag,
@@ -3289,6 +3289,272 @@ async function maybeDetectRescheduleRequest(
   }
 }
 
+interface PromoteClassifiedUnmatchedLeadParams {
+  classified: AIClassifiedLead;
+  connection: EmailConnection;
+  profile: SyncProfile;
+  result: SyncCycleResult;
+  unmatchedContextByIdentity: Map<string, UnmatchedInboundContext>;
+  supabase: ReturnType<typeof requireSupabase>;
+  followUpDaysCache: Map<string, number>;
+  renewSyncLeaseIfNeeded: ReturnType<typeof createEmailConnectionSyncLockRenewer>;
+}
+
+/**
+ * Promote a single AI-classified unmatched email into a pipeline opportunity
+ * (or link it to an already-matched one). Extracted verbatim from the Step-5
+ * loop in SyncEngine.runSync so the live cycle and the deferred lead-scan drain
+ * sweep share exactly one promotion implementation. Control flow is unchanged: a
+ * persistence failure throws LifecyclePersistenceError to hold the Gmail cursor
+ * for idempotent replay, and the two early `return`s mirror the loop's original
+ * `continue` (skip this lead, keep processing the rest).
+ */
+async function promoteClassifiedUnmatchedLead(
+  params: PromoteClassifiedUnmatchedLeadParams
+): Promise<void> {
+  const {
+    classified,
+    connection,
+    profile,
+    result,
+    unmatchedContextByIdentity,
+    supabase,
+    followUpDaysCache,
+    renewSyncLeaseIfNeeded,
+  } = params;
+
+  await renewSyncLeaseIfNeeded();
+  try {
+    const classifiedEmail = normalizeProviderBackedEmailForSync(
+      classified.email,
+      connection,
+      result,
+      "sync_ai_classified_lead"
+    );
+    const context = unmatchedContextByIdentity.get(
+      `${classifiedEmail.threadId}\u0000${classifiedEmail.id}`
+    );
+    if (!context) {
+      throw new Error(
+        "AI reviewer returned a message outside the sanitized unmatched set"
+      );
+    }
+    const {
+      effectiveEmail,
+      routingIdentity,
+      contactFormSubmitter,
+      enrichmentFacts: deterministicFacts,
+    } = context;
+    // Defend the database boundary even if a mocked reviewer or a
+    // future classifier violates AISyncReviewer's active-stage
+    // contract. Model terminal output survives only as review
+    // provenance; it never becomes stage authority here.
+    const classifiedStageReview =
+      coerceAIStageForOpportunityPersistence(
+        classified.stage,
+        classified.terminalFlag
+      );
+
+    const matchResult = await EmailMatchingServiceV2.match(
+      connection.companyId,
+      deterministicFacts.contactEmail ?? "",
+      {
+        ...(routingIdentity.mayInheritProviderThread
+          ? {
+              threadId: routingIdentity.providerThreadId,
+              connectionId: connection.id,
+            }
+          : {}),
+        name: deterministicFacts.contactName ?? undefined,
+      }
+    );
+
+    // The model may classify the lead/stage and fill safe missing
+    // non-identity facts. Customer identity always comes from the
+    // deterministic operator-excluding context captured before AI.
+    const aiSupplementalFacts = leadEnrichmentFactsFromImport({
+      contactName: null,
+      contactEmail: null,
+      contactPhone: null,
+      address: null,
+      estimatedValue:
+        deterministicFacts.estimatedValue == null
+          ? classified.estimatedValue
+          : null,
+      description:
+        deterministicFacts.description == null
+          ? classified.description
+          : null,
+      providerThreadId: classifiedEmail.threadId,
+      providerMessageId: classifiedEmail.id,
+      extractionSource: "ai_classified",
+      aiConfidence: classified.confidence,
+    });
+
+    const relationshipDecision =
+      await findOpportunityRelationshipMatch({
+        supabase,
+        companyId: connection.companyId,
+        connectionId: connection.id,
+        providerThreadId: routingIdentity.mayInheritProviderThread
+          ? classifiedEmail.threadId
+          : null,
+        clientId: matchResult.clientId,
+        facts: opportunityRelationshipFactsFromLeadEnrichment(
+          deterministicFacts,
+          effectiveEmail,
+          connection,
+          profile,
+          await getCachedOperatorIdentity(connection)
+        ),
+      });
+
+    let clientId =
+      matchResult.action === "link" ||
+      matchResult.action === "create_subclient"
+        ? matchResult.clientId!
+        : null;
+    let oppId: string;
+    let opportunityCreated = false;
+
+    if (relationshipDecision.action === "link") {
+      oppId = relationshipDecision.opportunityId;
+      // The relationship winner is authoritative even when the
+      // opportunity legitimately has no client yet. Never fall back
+      // to a preliminary email/domain match for another customer.
+      clientId = relationshipDecision.clientId;
+    } else {
+      clientId ??= await createClient(
+        effectiveEmail,
+        connection.companyId,
+        contactFormSubmitter,
+        deterministicFacts
+      );
+      const opportunity = await createOpportunity(
+        effectiveEmail,
+        clientId,
+        connection.companyId,
+        classifiedStageReview.stage,
+        {
+          candidates: [
+            {
+              source: "contact",
+              name: deterministicFacts.contactName,
+              email: deterministicFacts.contactEmail,
+            },
+          ],
+          unsafe: syncTitleUnsafeIdentity(connection, profile),
+          enrichmentFacts: deterministicFacts,
+          sourceKey: routingIdentity.sourceKey,
+          mailboxAssignment: mailboxAssignmentContext(connection),
+          aiStageReview: {
+            terminalFlag: classifiedStageReview.terminalFlag,
+            confidence: classified.confidence,
+          },
+        }
+      );
+      oppId = opportunity.id;
+      clientId = opportunity.clientId;
+      opportunityCreated = opportunity.created;
+    }
+
+    // Linked opportunities and source-key race winners did not get
+    // this cycle's model review metadata through the insert. Persist
+    // the same idempotent snapshot without touching stage, manual
+    // overrides, assignment, or inbox authorization.
+    if (!opportunityCreated) {
+      await persistAIStageReviewProvenance({
+        opportunityId: oppId,
+        companyId: connection.companyId,
+        terminalFlag: classifiedStageReview.terminalFlag,
+        confidence: classified.confidence,
+      });
+    }
+
+    // Complete retryable semantic writes before publishing the
+    // durable thread/activity checkpoints. A failure now retries AI
+    // instead of being diverted by an already-created activity.
+    await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: oppId,
+      clientId,
+      facts: deterministicFacts,
+      companyId: connection.companyId,
+    });
+    if (
+      aiSupplementalFacts.estimatedValue != null ||
+      aiSupplementalFacts.description != null
+    ) {
+      await applyCanonicalLeadEnrichment({
+        supabase,
+        opportunityId: oppId,
+        clientId,
+        facts: aiSupplementalFacts,
+        companyId: connection.companyId,
+      });
+    }
+
+    const subClientIdentity =
+      subClientIdentityFromFacts(deterministicFacts);
+    if (
+      matchResult.action === "create_subclient" &&
+      clientId &&
+      matchResult.clientId === clientId &&
+      subClientIdentity
+    ) {
+      await createSubClient(
+        effectiveEmail,
+        clientId,
+        connection.companyId,
+        subClientIdentity
+      );
+    }
+
+    const linked = routingIdentity.mayInheritProviderThread
+      ? await linkThread(
+          oppId,
+          classifiedEmail.threadId,
+          connection.id
+        )
+      : true;
+    if (!linked) return;
+    const activityCreated = await createActivity(
+      effectiveEmail,
+      connection,
+      oppId,
+      "inbound",
+      {
+        matchConfidence:
+          relationshipDecision.action === "link"
+            ? relationshipDecision.confidence
+            : "ai",
+        ...(routingIdentity.isContactFormSubmission
+          ? { skipThreadState: true }
+          : {}),
+      }
+    );
+    if (!activityCreated) return;
+    await updateCorrespondenceCounts(
+      oppId,
+      effectiveEmail,
+      connection,
+      followUpDaysCache,
+      result
+    );
+    await applyLabel(
+      classifiedEmail.threadId,
+      connection,
+      result,
+      renewSyncLeaseIfNeeded
+    );
+    result.activitiesCreated++;
+  } catch (err) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] failed to persist AI-classified lead ${classified.clientEmail}: ${err instanceof Error ? err.message : "unknown error"}`
+    );
+  }
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export const SyncEngine = {
@@ -3679,236 +3945,16 @@ export const SyncEngine = {
 
           // Persist AI-classified leads as opportunities
           for (const classified of aiResult.classifiedLeads) {
-            await renewSyncLeaseIfNeeded();
-            try {
-              const classifiedEmail = normalizeProviderBackedEmailForSync(
-                classified.email,
-                connection,
-                result,
-                "sync_ai_classified_lead"
-              );
-              const context = unmatchedContextByIdentity.get(
-                `${classifiedEmail.threadId}\u0000${classifiedEmail.id}`
-              );
-              if (!context) {
-                throw new Error(
-                  "AI reviewer returned a message outside the sanitized unmatched set"
-                );
-              }
-              const {
-                effectiveEmail,
-                routingIdentity,
-                contactFormSubmitter,
-                enrichmentFacts: deterministicFacts,
-              } = context;
-              // Defend the database boundary even if a mocked reviewer or a
-              // future classifier violates AISyncReviewer's active-stage
-              // contract. Model terminal output survives only as review
-              // provenance; it never becomes stage authority here.
-              const classifiedStageReview =
-                coerceAIStageForOpportunityPersistence(
-                  classified.stage,
-                  classified.terminalFlag
-                );
-
-              const matchResult = await EmailMatchingServiceV2.match(
-                connection.companyId,
-                deterministicFacts.contactEmail ?? "",
-                {
-                  ...(routingIdentity.mayInheritProviderThread
-                    ? {
-                        threadId: routingIdentity.providerThreadId,
-                        connectionId: connection.id,
-                      }
-                    : {}),
-                  name: deterministicFacts.contactName ?? undefined,
-                }
-              );
-
-              // The model may classify the lead/stage and fill safe missing
-              // non-identity facts. Customer identity always comes from the
-              // deterministic operator-excluding context captured before AI.
-              const aiSupplementalFacts = leadEnrichmentFactsFromImport({
-                contactName: null,
-                contactEmail: null,
-                contactPhone: null,
-                address: null,
-                estimatedValue:
-                  deterministicFacts.estimatedValue == null
-                    ? classified.estimatedValue
-                    : null,
-                description:
-                  deterministicFacts.description == null
-                    ? classified.description
-                    : null,
-                providerThreadId: classifiedEmail.threadId,
-                providerMessageId: classifiedEmail.id,
-                extractionSource: "ai_classified",
-                aiConfidence: classified.confidence,
-              });
-
-              const relationshipDecision =
-                await findOpportunityRelationshipMatch({
-                  supabase,
-                  companyId: connection.companyId,
-                  connectionId: connection.id,
-                  providerThreadId: routingIdentity.mayInheritProviderThread
-                    ? classifiedEmail.threadId
-                    : null,
-                  clientId: matchResult.clientId,
-                  facts: opportunityRelationshipFactsFromLeadEnrichment(
-                    deterministicFacts,
-                    effectiveEmail,
-                    connection,
-                    profile,
-                    await getCachedOperatorIdentity(connection)
-                  ),
-                });
-
-              let clientId =
-                matchResult.action === "link" ||
-                matchResult.action === "create_subclient"
-                  ? matchResult.clientId!
-                  : null;
-              let oppId: string;
-              let opportunityCreated = false;
-
-              if (relationshipDecision.action === "link") {
-                oppId = relationshipDecision.opportunityId;
-                // The relationship winner is authoritative even when the
-                // opportunity legitimately has no client yet. Never fall back
-                // to a preliminary email/domain match for another customer.
-                clientId = relationshipDecision.clientId;
-              } else {
-                clientId ??= await createClient(
-                  effectiveEmail,
-                  connection.companyId,
-                  contactFormSubmitter,
-                  deterministicFacts
-                );
-                const opportunity = await createOpportunity(
-                  effectiveEmail,
-                  clientId,
-                  connection.companyId,
-                  classifiedStageReview.stage,
-                  {
-                    candidates: [
-                      {
-                        source: "contact",
-                        name: deterministicFacts.contactName,
-                        email: deterministicFacts.contactEmail,
-                      },
-                    ],
-                    unsafe: syncTitleUnsafeIdentity(connection, profile),
-                    enrichmentFacts: deterministicFacts,
-                    sourceKey: routingIdentity.sourceKey,
-                    mailboxAssignment: mailboxAssignmentContext(connection),
-                    aiStageReview: {
-                      terminalFlag: classifiedStageReview.terminalFlag,
-                      confidence: classified.confidence,
-                    },
-                  }
-                );
-                oppId = opportunity.id;
-                clientId = opportunity.clientId;
-                opportunityCreated = opportunity.created;
-              }
-
-              // Linked opportunities and source-key race winners did not get
-              // this cycle's model review metadata through the insert. Persist
-              // the same idempotent snapshot without touching stage, manual
-              // overrides, assignment, or inbox authorization.
-              if (!opportunityCreated) {
-                await persistAIStageReviewProvenance({
-                  opportunityId: oppId,
-                  companyId: connection.companyId,
-                  terminalFlag: classifiedStageReview.terminalFlag,
-                  confidence: classified.confidence,
-                });
-              }
-
-              // Complete retryable semantic writes before publishing the
-              // durable thread/activity checkpoints. A failure now retries AI
-              // instead of being diverted by an already-created activity.
-              await applyCanonicalLeadEnrichment({
-                supabase,
-                opportunityId: oppId,
-                clientId,
-                facts: deterministicFacts,
-                companyId: connection.companyId,
-              });
-              if (
-                aiSupplementalFacts.estimatedValue != null ||
-                aiSupplementalFacts.description != null
-              ) {
-                await applyCanonicalLeadEnrichment({
-                  supabase,
-                  opportunityId: oppId,
-                  clientId,
-                  facts: aiSupplementalFacts,
-                  companyId: connection.companyId,
-                });
-              }
-
-              const subClientIdentity =
-                subClientIdentityFromFacts(deterministicFacts);
-              if (
-                matchResult.action === "create_subclient" &&
-                clientId &&
-                matchResult.clientId === clientId &&
-                subClientIdentity
-              ) {
-                await createSubClient(
-                  effectiveEmail,
-                  clientId,
-                  connection.companyId,
-                  subClientIdentity
-                );
-              }
-
-              const linked = routingIdentity.mayInheritProviderThread
-                ? await linkThread(
-                    oppId,
-                    classifiedEmail.threadId,
-                    connection.id
-                  )
-                : true;
-              if (!linked) continue;
-              const activityCreated = await createActivity(
-                effectiveEmail,
-                connection,
-                oppId,
-                "inbound",
-                {
-                  matchConfidence:
-                    relationshipDecision.action === "link"
-                      ? relationshipDecision.confidence
-                      : "ai",
-                  ...(routingIdentity.isContactFormSubmission
-                    ? { skipThreadState: true }
-                    : {}),
-                }
-              );
-              if (!activityCreated) continue;
-              await updateCorrespondenceCounts(
-                oppId,
-                effectiveEmail,
-                connection,
-                followUpDaysCache,
-                result
-              );
-              await applyLabel(
-                classifiedEmail.threadId,
-                connection,
-                result,
-                renewSyncLeaseIfNeeded
-              );
-              result.activitiesCreated++;
-            } catch (err) {
-              throw new LifecyclePersistenceError(
-                `[sync-engine] failed to persist AI-classified lead ${classified.clientEmail}: ${err instanceof Error ? err.message : "unknown error"}`
-              );
-            }
+            await promoteClassifiedUnmatchedLead({
+              classified,
+              connection,
+              profile,
+              result,
+              unmatchedContextByIdentity,
+              supabase,
+              followUpDaysCache,
+              renewSyncLeaseIfNeeded,
+            });
           }
           result.newLeads += aiResult.newLeadsClassified;
         }
