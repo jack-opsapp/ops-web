@@ -7,6 +7,7 @@ const {
   getConnectionMock,
   getConnectionsMock,
   updateConnectionMock,
+  configureCompanyMailboxIntakeOwnerMock,
   deleteConnectionMock,
   disconnectPersonalConnectionMock,
 } = vi.hoisted(() => ({
@@ -15,6 +16,7 @@ const {
   getConnectionMock: vi.fn(),
   getConnectionsMock: vi.fn(),
   updateConnectionMock: vi.fn(),
+  configureCompanyMailboxIntakeOwnerMock: vi.fn(),
   deleteConnectionMock: vi.fn(),
   disconnectPersonalConnectionMock: vi.fn(),
 }));
@@ -42,6 +44,7 @@ vi.mock("@/lib/api/services/email-service", () => ({
     getConnection: getConnectionMock,
     getConnections: getConnectionsMock,
     updateConnection: updateConnectionMock,
+    configureCompanyMailboxIntakeOwner: configureCompanyMailboxIntakeOwnerMock,
     deleteConnection: deleteConnectionMock,
   },
 }));
@@ -63,6 +66,8 @@ import {
 
 const COMPANY_ID = "company-1";
 const ACTOR_ID = "user-1";
+const DEFAULT_OWNER_ID = "11111111-1111-4111-8111-111111111111";
+const NEXT_OWNER_ID = "22222222-2222-4222-8222-222222222222";
 
 function connection(
   overrides: Record<string, unknown> = {}
@@ -73,6 +78,7 @@ function connection(
     provider: "gmail",
     type: "company",
     userId: null,
+    defaultIntakeOwnerId: DEFAULT_OWNER_ID,
     email: "shared@canpro.test",
     accessToken: "secret-access-token",
     refreshToken: "secret-refresh-token",
@@ -137,6 +143,10 @@ beforeEach(() => {
     async (_id: string, data: Record<string, unknown>) =>
       connection({ ...data })
   );
+  configureCompanyMailboxIntakeOwnerMock.mockImplementation(
+    async ({ newOwnerId }: { newOwnerId: string | null }) =>
+      connection({ defaultIntakeOwnerId: newOwnerId })
+  );
   deleteConnectionMock.mockResolvedValue(undefined);
   disconnectPersonalConnectionMock.mockResolvedValue({
     state: "processed",
@@ -180,6 +190,7 @@ describe("authenticated email connection API", () => {
       type: "company",
       email: "shared@canpro.test",
       status: "active",
+      defaultIntakeOwnerId: null,
     });
     expectNoCredentialMaterial(body);
   });
@@ -236,7 +247,8 @@ describe("authenticated email connection API", () => {
     expect(updateConnectionMock).not.toHaveBeenCalled();
     expect(checkPermissionByIdMock).toHaveBeenCalledWith(
       ACTOR_ID,
-      "settings.integrations"
+      "settings.integrations",
+      "all"
     );
 
     checkPermissionByIdMock.mockResolvedValueOnce(true);
@@ -252,6 +264,153 @@ describe("authenticated email connection API", () => {
     expect(allowed.status).toBe(200);
     expect(updateConnectionMock).toHaveBeenCalledWith("connection-company", {
       syncEnabled: false,
+    });
+  });
+
+  it("guards company intake-owner changes with assignment authority and a stale-safe expectation", async () => {
+    getConnectionMock.mockResolvedValue(connection());
+    checkPermissionByIdMock.mockImplementation(
+      async (_userId: string, permission: string, scope?: string) =>
+        permission === "settings.integrations" && scope === "all"
+    );
+
+    const denied = await PATCH(
+      request("PATCH", {
+        body: {
+          connectionId: "connection-company",
+          expectedDefaultIntakeOwnerId: DEFAULT_OWNER_ID,
+          data: { defaultIntakeOwnerId: NEXT_OWNER_ID },
+        },
+      })
+    );
+
+    expect(denied.status).toBe(403);
+    expect(configureCompanyMailboxIntakeOwnerMock).not.toHaveBeenCalled();
+    expect(checkPermissionByIdMock).toHaveBeenCalledWith(
+      ACTOR_ID,
+      "pipeline.assign",
+      "all"
+    );
+
+    checkPermissionByIdMock.mockResolvedValue(true);
+    const allowed = await PATCH(
+      request("PATCH", {
+        body: {
+          connectionId: "connection-company",
+          expectedDefaultIntakeOwnerId: DEFAULT_OWNER_ID,
+          data: { defaultIntakeOwnerId: NEXT_OWNER_ID },
+        },
+      })
+    );
+
+    expect(allowed.status).toBe(200);
+    expect(configureCompanyMailboxIntakeOwnerMock).toHaveBeenCalledWith({
+      actorUserId: ACTOR_ID,
+      connectionId: "connection-company",
+      expectedOwnerId: DEFAULT_OWNER_ID,
+      newOwnerId: NEXT_OWNER_ID,
+    });
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+    expect(await allowed.json()).toMatchObject({
+      connection: { defaultIntakeOwnerId: NEXT_OWNER_ID },
+    });
+  });
+
+  it("rejects blind or personal-mailbox intake-owner changes", async () => {
+    checkPermissionByIdMock.mockResolvedValue(true);
+    getConnectionMock.mockResolvedValue(connection());
+
+    const missingExpectation = await PATCH(
+      request("PATCH", {
+        body: {
+          connectionId: "connection-company",
+          data: { defaultIntakeOwnerId: NEXT_OWNER_ID },
+        },
+      })
+    );
+    expect(missingExpectation.status).toBe(400);
+
+    getConnectionMock.mockResolvedValue(
+      connection({
+        id: "connection-mine",
+        type: "individual",
+        userId: ACTOR_ID,
+      })
+    );
+    const personal = await PATCH(
+      request("PATCH", {
+        body: {
+          connectionId: "connection-mine",
+          expectedDefaultIntakeOwnerId: DEFAULT_OWNER_ID,
+          data: { defaultIntakeOwnerId: NEXT_OWNER_ID },
+        },
+      })
+    );
+    expect(personal.status).toBe(400);
+    expect(configureCompanyMailboxIntakeOwnerMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid, mixed, and stale intake-owner configuration writes", async () => {
+    checkPermissionByIdMock.mockResolvedValue(true);
+    getConnectionMock.mockResolvedValue(connection());
+
+    const invalidOwner = await PATCH(
+      request("PATCH", {
+        body: {
+          connectionId: "connection-company",
+          expectedDefaultIntakeOwnerId: DEFAULT_OWNER_ID,
+          data: { defaultIntakeOwnerId: "not-a-user-id" },
+        },
+      })
+    );
+    expect(invalidOwner.status).toBe(400);
+
+    const mixedUpdate = await PATCH(
+      request("PATCH", {
+        body: {
+          connectionId: "connection-company",
+          expectedDefaultIntakeOwnerId: DEFAULT_OWNER_ID,
+          data: {
+            defaultIntakeOwnerId: NEXT_OWNER_ID,
+            syncEnabled: false,
+          },
+        },
+      })
+    );
+    expect(mixedUpdate.status).toBe(400);
+
+    const conflict = new Error("stale owner");
+    conflict.name = "CompanyMailboxIntakeOwnerConflictError";
+    configureCompanyMailboxIntakeOwnerMock.mockRejectedValueOnce(conflict);
+    const staleUpdate = await PATCH(
+      request("PATCH", {
+        body: {
+          connectionId: "connection-company",
+          expectedDefaultIntakeOwnerId: DEFAULT_OWNER_ID,
+          data: { defaultIntakeOwnerId: NEXT_OWNER_ID },
+        },
+      })
+    );
+    expect(staleUpdate.status).toBe(409);
+    expect(await staleUpdate.json()).toEqual({
+      error: "Connection changed. Refresh and try again.",
+    });
+
+    const ineligible = new Error("owner_ineligible");
+    ineligible.name = "CompanyMailboxIntakeOwnerValidationError";
+    configureCompanyMailboxIntakeOwnerMock.mockRejectedValueOnce(ineligible);
+    const rejectedOwner = await PATCH(
+      request("PATCH", {
+        body: {
+          connectionId: "connection-company",
+          expectedDefaultIntakeOwnerId: DEFAULT_OWNER_ID,
+          data: { defaultIntakeOwnerId: NEXT_OWNER_ID },
+        },
+      })
+    );
+    expect(rejectedOwner.status).toBe(400);
+    expect(await rejectedOwner.json()).toEqual({
+      error: "Choose an active teammate with lead and inbox access.",
     });
   });
 

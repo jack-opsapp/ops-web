@@ -122,6 +122,29 @@ async function bounded<T>(
   }
 }
 
+type AlertRecipientUnconfiguredReason =
+  | "identity_not_configured"
+  | "recipient_not_admin";
+
+/**
+ * Raised when the platform-alert recipient cannot be resolved for a
+ * *configuration* reason — the identity env is unset/invalid, or the resolved
+ * recipient is not an active company administrator — as distinct from a
+ * *delivery* failure (storage/push). Carries a greppable `reason` so the report
+ * path surfaces the P1-1-4 alert-identity misconfiguration distinctly instead
+ * of silently folding it into a generic delivery-failure log. Never triggers a
+ * fallback recipient — a missing recipient stays missing, loudly.
+ */
+class AlertRecipientUnconfiguredError extends Error {
+  readonly reason: AlertRecipientUnconfiguredReason;
+
+  constructor(reason: AlertRecipientUnconfiguredReason, message: string) {
+    super(message);
+    this.name = "AlertRecipientUnconfiguredError";
+    this.reason = reason;
+  }
+}
+
 function configuredIdentity(env: AlertEnvironment): {
   userId: string;
   companyId: string;
@@ -129,7 +152,10 @@ function configuredIdentity(env: AlertEnvironment): {
   const userId = env.OPS_PLATFORM_ALERT_USER_ID?.trim() ?? "";
   const companyId = env.OPS_PLATFORM_ALERT_COMPANY_ID?.trim() ?? "";
   if (!UUID_PATTERN.test(userId) || !UUID_PATTERN.test(companyId)) {
-    throw new Error("OPS platform alert identity is not configured");
+    throw new AlertRecipientUnconfiguredError(
+      "identity_not_configured",
+      "OPS platform alert identity is not configured"
+    );
   }
   return { userId, companyId };
 }
@@ -293,7 +319,10 @@ async function resolveConfiguredRecipient(
     company.account_holder_id === userId ||
     canonicalAdminIds(company.admin_ids).includes(userId);
   if (!isCompanyAdmin) {
-    throw new Error("configured recipient is not a company administrator");
+    throw new AlertRecipientUnconfiguredError(
+      "recipient_not_admin",
+      "configured recipient is not a company administrator"
+    );
   }
 
   return {
@@ -450,8 +479,17 @@ export function createOpenAIQuotaAlertService({
         } catch {
           emitOperationalLog("openai_quota_push_failed", operationalMetadata);
         }
-      } catch {
-        if (operationalMetadata) {
+      } catch (error) {
+        if (error instanceof AlertRecipientUnconfiguredError) {
+          // Configuration failure: there is no recipient to deliver to. Surface
+          // it as a distinct, greppable event (never the generic delivery
+          // failure) so a dead alert channel is diagnosable in the operational
+          // logs. No fallback recipient is substituted.
+          emitOperationalLog("openai_quota_alert_unconfigured", {
+            ...(operationalMetadata ?? {}),
+            reason: error.reason,
+          });
+        } else if (operationalMetadata) {
           emitOperationalLog(
             "openai_quota_notification_failed",
             operationalMetadata

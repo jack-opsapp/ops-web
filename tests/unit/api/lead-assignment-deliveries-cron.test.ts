@@ -5,6 +5,7 @@ import path from "node:path";
 
 const {
   processBatch,
+  processUnassignedLeadAssignments,
   processProjectLifecycle,
   processTaskAutomation,
   processConversionNotifications,
@@ -12,6 +13,7 @@ const {
   client,
 } = vi.hoisted(() => ({
   processBatch: vi.fn(),
+  processUnassignedLeadAssignments: vi.fn(),
   processProjectLifecycle: vi.fn(),
   processTaskAutomation: vi.fn(),
   processConversionNotifications: vi.fn(),
@@ -22,6 +24,14 @@ const {
 vi.mock("@/lib/api/services/lead-assignment-delivery-service", () => ({
   LeadAssignmentDeliveryService: { processBatch },
 }));
+vi.mock(
+  "@/lib/api/services/unassigned-lead-assignment-delivery-service",
+  () => ({
+    UnassignedLeadAssignmentDeliveryService: {
+      processBatch: processUnassignedLeadAssignments,
+    },
+  })
+);
 vi.mock("@/lib/api/services/project-status-lifecycle-outbox-service", () => ({
   ProjectStatusLifecycleOutboxService: {
     processBatch: processProjectLifecycle,
@@ -50,6 +60,16 @@ import { GET } from "@/app/api/cron/lead-assignment-deliveries/route";
 const successResult = {
   claimed: 2,
   consumed: 1,
+  delivered: 1,
+  pushed: 1,
+  pushSuppressed: 0,
+  requeued: 0,
+  terminalFailed: 0,
+  errors: [],
+};
+const unassignedLeadAssignmentResult = {
+  claimed: 1,
+  consumed: 0,
   delivered: 1,
   pushed: 1,
   pushSuppressed: 0,
@@ -102,6 +122,10 @@ describe("lead assignment deliveries cron", () => {
     getServiceRoleClient.mockReturnValue(client);
     processBatch.mockReset();
     processBatch.mockResolvedValue(successResult);
+    processUnassignedLeadAssignments.mockReset();
+    processUnassignedLeadAssignments.mockResolvedValue(
+      unassignedLeadAssignmentResult
+    );
     processProjectLifecycle.mockReset();
     processProjectLifecycle.mockResolvedValue(projectLifecycleResult);
     processTaskAutomation.mockReset();
@@ -149,6 +173,10 @@ describe("lead assignment deliveries cron", () => {
       limit: 50,
       leaseSeconds: 360,
     });
+    expect(processUnassignedLeadAssignments).toHaveBeenCalledWith(client, {
+      limit: 50,
+      leaseSeconds: 360,
+    });
     expect(processProjectLifecycle).toHaveBeenCalledWith(client, {
       limit: 25,
       leaseSeconds: 360,
@@ -165,6 +193,7 @@ describe("lead assignment deliveries cron", () => {
     expect(await response.json()).toEqual({
       ok: true,
       ...successResult,
+      unassignedLeadAssignments: unassignedLeadAssignmentResult,
       projectLifecycle: projectLifecycleResult,
       taskAutomation: taskAutomationResult,
       conversionNotifications: conversionNotificationResult,
@@ -184,6 +213,32 @@ describe("lead assignment deliveries cron", () => {
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ ok: false, requeued: 1 });
+  });
+
+  it("returns 503 and reports an unassigned-lead prompt retry", async () => {
+    processUnassignedLeadAssignments.mockResolvedValue({
+      ...unassignedLeadAssignmentResult,
+      delivered: 0,
+      pushed: 0,
+      requeued: 1,
+      errors: [
+        {
+          deliveryId: "unassigned-delivery-1",
+          message: "provider unavailable",
+        },
+      ],
+    });
+
+    const response = await GET(request("cron-secret"));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      unassignedLeadAssignments: {
+        requeued: 1,
+        errors: [{ deliveryId: "unassigned-delivery-1" }],
+      },
+    });
   });
 
   it("returns 503 when task automation terminalizes an exhausted event", async () => {

@@ -1993,9 +1993,7 @@ export const EmailThreadService = {
     if (data.length !== 1) {
       throw new Error("summary-only provider thread was not found uniquely");
     }
-    return EmailThreadService.refreshSummaryOnly(
-      mapEmailThreadFromDb(data[0])
-    );
+    return EmailThreadService.refreshSummaryOnly(mapEmailThreadFromDb(data[0]));
   },
 
   /**
@@ -2968,6 +2966,10 @@ function mapConnectionFromDb(row: Record<string, unknown>): EmailConnection {
     provider: row.provider as EmailConnection["provider"],
     type,
     userId: type === "individual" ? ((row.user_id as string) ?? null) : null,
+    defaultIntakeOwnerId:
+      type === "company"
+        ? ((row.default_intake_owner_id as string) ?? null)
+        : null,
     email: row.email as string,
     accessToken: row.access_token as string,
     refreshToken: row.refresh_token as string,

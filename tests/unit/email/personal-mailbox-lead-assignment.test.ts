@@ -19,7 +19,7 @@ const base = {
 };
 
 describe("assignPersonalMailboxLead", () => {
-  it("keeps company-mailbox leads unassigned", async () => {
+  it("keeps company-mailbox leads out of the split personal assignment path", async () => {
     const db = client({ data: null, error: null });
 
     await expect(

@@ -32,6 +32,7 @@ function connectionRow(overrides: Record<string, unknown> = {}) {
     provider: "gmail",
     type: "company",
     user_id: "legacy-company-connector",
+    default_intake_owner_id: null,
     email: "shared@ops.test",
     access_token: "access-token",
     refresh_token: "refresh-token",
@@ -74,6 +75,25 @@ function connectionServiceClient(row = connectionRow()) {
   return {
     client: { from: vi.fn(() => query) } as unknown as SupabaseClient,
     getInserted: () => inserted,
+  };
+}
+
+function intakeOwnerConfigurationClient(
+  row: Record<string, unknown>,
+  rpcResult: Record<string, unknown> = { ok: true, conflict: false }
+) {
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    single: vi.fn(async () => ({ data: row, error: null })),
+  };
+  const rpc = vi.fn(async () => ({ data: rpcResult, error: null }));
+  return {
+    client: {
+      from: vi.fn(() => query),
+      rpc,
+    } as unknown as SupabaseClient,
+    rpc,
   };
 }
 
@@ -143,6 +163,72 @@ describe("email connection OPS-user identity normalization", () => {
       await EmailConnectionService.getConnection(CONNECTION_ID);
 
     expect(connection?.userId).toBe(ACTOR_ID);
+    expect(connection?.defaultIntakeOwnerId).toBeNull();
+  });
+
+  it("configures a company intake owner only through the guarded CAS RPC", async () => {
+    const { client, rpc } = intakeOwnerConfigurationClient(
+      connectionRow({ default_intake_owner_id: ACTOR_ID })
+    );
+    setSupabaseOverride(client);
+
+    const connection =
+      await EmailConnectionService.configureCompanyMailboxIntakeOwner({
+        actorUserId: ACTOR_ID,
+        connectionId: CONNECTION_ID,
+        expectedOwnerId: null,
+        newOwnerId: ACTOR_ID,
+      });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "configure_company_mailbox_intake_owner_as_system",
+      {
+        p_actor_user_id: ACTOR_ID,
+        p_connection_id: CONNECTION_ID,
+        p_expected_owner_id: null,
+        p_new_owner_id: ACTOR_ID,
+      }
+    );
+    expect(connection.defaultIntakeOwnerId).toBe(ACTOR_ID);
+  });
+
+  it("surfaces a stale intake-owner expectation without reading a row", async () => {
+    const { client } = intakeOwnerConfigurationClient(connectionRow(), {
+      ok: false,
+      conflict: true,
+    });
+    setSupabaseOverride(client);
+
+    await expect(
+      EmailConnectionService.configureCompanyMailboxIntakeOwner({
+        actorUserId: ACTOR_ID,
+        connectionId: CONNECTION_ID,
+        expectedOwnerId: null,
+        newOwnerId: ACTOR_ID,
+      })
+    ).rejects.toMatchObject({
+      name: "CompanyMailboxIntakeOwnerConflictError",
+    });
+  });
+
+  it("rejects an ineligible intake owner without reading a row", async () => {
+    const { client } = intakeOwnerConfigurationClient(connectionRow(), {
+      ok: false,
+      conflict: false,
+      reason: "owner_ineligible",
+    });
+    setSupabaseOverride(client);
+
+    await expect(
+      EmailConnectionService.configureCompanyMailboxIntakeOwner({
+        actorUserId: ACTOR_ID,
+        connectionId: CONNECTION_ID,
+        expectedOwnerId: null,
+        newOwnerId: ACTOR_ID,
+      })
+    ).rejects.toMatchObject({
+      name: "CompanyMailboxIntakeOwnerValidationError",
+    });
   });
 
   it("stores a null owner when application code creates a company mailbox", async () => {

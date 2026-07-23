@@ -33,6 +33,7 @@ describe("mailbox-wide provider read fan-out", () => {
       provider: "gmail",
       type: "company",
       userId: null,
+      defaultIntakeOwnerId: null,
       email: "operator@example.com",
       accessToken: "access-token",
       refreshToken: "refresh-token",

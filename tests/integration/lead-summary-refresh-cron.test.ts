@@ -1180,6 +1180,134 @@ describe("refreshLeadSummariesForOpportunities", () => {
       },
     ]);
   });
+
+  it("routes an AI-provider quota outage into deferred rather than failed", async () => {
+    tables.opportunities = { rows: [opportunityRow()] };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+    const quotaError = Object.assign(
+      new Error("429 You exceeded your current quota."),
+      { status: 429, code: "insufficient_quota" }
+    );
+    openAICreateMock.mockReset();
+    openAICreateMock.mockRejectedValue(quotaError);
+
+    const result = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds: [OPP_A],
+      now: NOW,
+    });
+
+    expect(result.deferred).toEqual([
+      { opportunityId: OPP_A, error: "429 You exceeded your current quota." },
+    ]);
+    expect(result.failed).toEqual([]);
+    expect(result.written).toBe(0);
+    // Generation threw before the guarded write, so the cursor-holding commit
+    // path was never reached.
+    expect(supabaseRpcMock).not.toHaveBeenCalled();
+  });
+
+  it("routes a non-provider database write failure into failed rather than deferred", async () => {
+    tables.opportunities = { rows: [opportunityRow()] };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+    // Model generation succeeds (beforeEach default), the guarded snapshot RPC
+    // fails with a non-serialization Postgres error — a genuine persistence
+    // failure that must hold the cursor, never a deferrable provider outage.
+    supabaseRpcMock.mockReset();
+    supabaseRpcMock.mockResolvedValue({
+      data: null,
+      error: { message: "permission denied for table opportunities", code: "42501" },
+    });
+
+    const result = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds: [OPP_A],
+      now: NOW,
+    });
+
+    expect(result.failed).toEqual([
+      {
+        opportunityId: OPP_A,
+        error: "summary write failed: permission denied for table opportunities",
+      },
+    ]);
+    expect(result.deferred).toEqual([]);
+    expect(result.written).toBe(0);
+  });
+
+  it("routes a provider outage, a persistence failure, and a success into their own buckets", async () => {
+    const OPP_C = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+    tables.opportunities = {
+      rows: [
+        opportunityRow(),
+        opportunityRow({ id: OPP_B, title: "Second lead" }),
+        opportunityRow({ id: OPP_C, title: "Third lead" }),
+      ],
+    };
+    tables.activities = {
+      rows: [
+        noteActivity(OPP_A, "2026-07-21T18:00:00.000Z"),
+        noteActivity(OPP_B, "2026-07-21T18:00:00.000Z"),
+        noteActivity(OPP_C, "2026-07-21T18:00:00.000Z"),
+      ],
+    };
+    const quotaError = Object.assign(
+      new Error("429 You exceeded your current quota."),
+      { status: 429, code: "insufficient_quota" }
+    );
+    // Opportunities process in row order [A, B, C]. A's generation hits the
+    // provider outage (deferred); B and C generate, then B's guarded write
+    // fails (failed) and C's write succeeds (written).
+    openAICreateMock.mockReset();
+    openAICreateMock
+      .mockRejectedValueOnce(quotaError)
+      .mockResolvedValueOnce(modelResponse("Generated summary."))
+      .mockResolvedValueOnce(modelResponse("Generated summary."));
+    supabaseRpcMock.mockReset();
+    supabaseRpcMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          message: "permission denied for table opportunities",
+          code: "42501",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            changed: true,
+            guard_reason: null,
+            summary_updated_at: NOW.toISOString(),
+          },
+        ],
+        error: null,
+      });
+
+    const result = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds: [OPP_A, OPP_B, OPP_C],
+      now: NOW,
+    });
+
+    expect(result.requested).toBe(3);
+    expect(result.deferred).toEqual([
+      { opportunityId: OPP_A, error: "429 You exceeded your current quota." },
+    ]);
+    expect(result.failed).toEqual([
+      {
+        opportunityId: OPP_B,
+        error: "summary write failed: permission denied for table opportunities",
+      },
+    ]);
+    expect(result.written).toBe(1);
+  });
 });
 
 // ─── Route behaviour ────────────────────────────────────────────────────────

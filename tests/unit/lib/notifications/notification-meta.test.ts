@@ -13,10 +13,12 @@ const ALL_TYPES: NotificationType[] = [
   "pipeline_complete",
   "gmail_sync",
   "email_sync_complete",
+  "email_signature_required",
   "intel_available",
   "setup_prompt",
   "leads_waiting",
   "lead_assigned",
+  "lead_assignment_required",
   "system",
   "project_assigned",
   "lead_converted",
@@ -25,10 +27,12 @@ const ALL_TYPES: NotificationType[] = [
   "schedule_change",
   "expense_submitted",
   "expense_approved",
+  "expense_paid",
   "duplicates_found",
   "duplicates_merged",
   "data_review_resolved",
   "ai_milestone",
+  "ai_provider_quota",
   "agent_suggestion",
   "trial_expiry",
   "payment_review_stack",
@@ -41,6 +45,7 @@ const ALL_TYPES: NotificationType[] = [
 
 describe("notification-meta", () => {
   it("maps every NotificationType to a complete meta entry", () => {
+    expect(Object.keys(NOTIF_TYPE_META).sort()).toEqual([...ALL_TYPES].sort());
     for (const type of ALL_TYPES) {
       const meta = NOTIF_TYPE_META[type];
       expect(meta, `${type} should have meta`).toBeDefined();
@@ -48,6 +53,14 @@ describe("notification-meta", () => {
       expect(meta.icon).toMatch(/^[a-z0-9-]+$/);
       expect(["critical", "attn", "accent", "ambient"]).toContain(meta.tone);
     }
+  });
+
+  it("marks an ownerless lead as a critical assignment action", () => {
+    expect(NOTIF_TYPE_META.lead_assignment_required).toEqual({
+      label: "OWNER",
+      icon: "user-plus",
+      tone: "critical",
+    });
   });
 
   it("assigns role_needed, duplicates_found, trial_expiry, accounting_sync to critical tone", () => {

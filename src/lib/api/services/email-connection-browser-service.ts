@@ -30,6 +30,7 @@ function parseDescriptor(
     provider: descriptor.provider,
     type: descriptor.type,
     userId: descriptor.userId,
+    defaultIntakeOwnerId: descriptor.defaultIntakeOwnerId,
     email: descriptor.email,
     syncEnabled: descriptor.syncEnabled,
     lastSyncedAt: descriptor.lastSyncedAt
@@ -75,6 +76,31 @@ export const EmailConnectionBrowserService = {
     if (!response.ok) {
       throw new Error(
         await parseError(response, "Failed to update connection")
+      );
+    }
+    const body = (await response.json()) as {
+      connection: SerializedDescriptor;
+    };
+    return parseDescriptor(body.connection);
+  },
+
+  async configureCompanyMailboxIntakeOwner(
+    connectionId: string,
+    expectedDefaultIntakeOwnerId: string | null,
+    defaultIntakeOwnerId: string | null
+  ): Promise<EmailConnectionDescriptor> {
+    const response = await authedFetch("/api/integrations/email/connection", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        connectionId,
+        expectedDefaultIntakeOwnerId,
+        data: { defaultIntakeOwnerId },
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(
+        await parseError(response, "Failed to configure intake owner")
       );
     }
     const body = (await response.json()) as {

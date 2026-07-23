@@ -5,6 +5,7 @@ const {
   runSyncMock,
   sweepStaleLeadsMock,
   retryDirtyClassificationsMock,
+  retryPendingLeadScansMock,
   runWithSupabaseMock,
   setSupabaseOverrideMock,
   supabaseContext,
@@ -57,6 +58,7 @@ const {
     runSyncMock: vi.fn(),
     sweepStaleLeadsMock: vi.fn(),
     retryDirtyClassificationsMock: vi.fn(),
+    retryPendingLeadScansMock: vi.fn(),
     runWithSupabaseMock: vi.fn(),
     setSupabaseOverrideMock: vi.fn(),
     supabaseContext,
@@ -68,6 +70,7 @@ vi.mock("@/lib/api/services/sync-engine", () => ({
   SyncEngine: {
     runSync: runSyncMock,
     sweepStaleLeads: sweepStaleLeadsMock,
+    retryPendingLeadScans: retryPendingLeadScansMock,
   },
 }));
 
@@ -104,6 +107,7 @@ describe("email sync cron HTTP outcome", () => {
     runSyncMock.mockReset();
     sweepStaleLeadsMock.mockReset();
     retryDirtyClassificationsMock.mockReset();
+    retryPendingLeadScansMock.mockReset();
     runWithSupabaseMock.mockReset();
     runWithSupabaseMock.mockImplementation(
       async (client: unknown, work: () => Promise<unknown>) => {
@@ -122,6 +126,12 @@ describe("email sync cron HTTP outcome", () => {
       scanned: 0,
       classified: 0,
       errors: 0,
+    });
+    retryPendingLeadScansMock.mockResolvedValue({
+      scanned: 0,
+      promoted: 0,
+      cleared: 0,
+      errors: [],
     });
   });
 
@@ -240,5 +250,59 @@ describe("email sync cron HTTP outcome", () => {
         errors: 1,
       },
     });
+  });
+
+  it("drains deferred lead-classification scans and surfaces the summary", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      newLeads: 0,
+      errors: [],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(0);
+    retryPendingLeadScansMock.mockResolvedValue({
+      scanned: 3,
+      promoted: 2,
+      cleared: 3,
+      errors: [],
+    });
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(retryPendingLeadScansMock).toHaveBeenCalledWith({ limit: 50 });
+    expect(body.pendingLeadScanSweep).toEqual({
+      scanned: 3,
+      promoted: 2,
+      cleared: 3,
+      errors: [],
+    });
+    expect(body.pendingLeadScanSweepError).toBeNull();
+  });
+
+  it("counts a pending lead-scan sweep error in the failed tally", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      newLeads: 0,
+      errors: [],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(0);
+    retryPendingLeadScansMock.mockResolvedValue({
+      scanned: 2,
+      promoted: 0,
+      cleared: 1,
+      errors: ["connection conn-1: AI provider unavailable — insufficient_quota"],
+    });
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      ok: false,
+      failed: 1,
+      failedConnections: 0,
+    });
+    expect(body.pendingLeadScanSweep.errors).toHaveLength(1);
   });
 });

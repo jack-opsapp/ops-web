@@ -30,6 +30,10 @@ function mapFromDb(row: Record<string, unknown>): EmailConnection {
     // mailboxes. Legacy company rows may still contain the user who connected
     // the mailbox; that value is never an OPS actor or authorization source.
     userId: type === "individual" ? ((row.user_id as string) ?? null) : null,
+    defaultIntakeOwnerId:
+      type === "company"
+        ? ((row.default_intake_owner_id as string) ?? null)
+        : null,
     email: row.email as string,
     accessToken: row.access_token as string,
     refreshToken: row.refresh_token as string,
@@ -173,6 +177,74 @@ export const EmailConnectionService = {
 
     if (error) {
       throw new Error(`Failed to update email connection: ${error.message}`);
+    }
+    return mapFromDb(updated);
+  },
+
+  async configureCompanyMailboxIntakeOwner(input: {
+    actorUserId: string;
+    connectionId: string;
+    expectedOwnerId: string | null;
+    newOwnerId: string | null;
+  }): Promise<EmailConnection> {
+    const supabase = requireSupabase();
+    const { data, error } = await supabase.rpc(
+      "configure_company_mailbox_intake_owner_as_system",
+      {
+        p_actor_user_id: input.actorUserId,
+        p_connection_id: input.connectionId,
+        p_expected_owner_id: input.expectedOwnerId,
+        p_new_owner_id: input.newOwnerId,
+      }
+    );
+
+    if (error) {
+      const wrapped = new Error(
+        `Failed to configure company mailbox intake owner: ${error.message}`
+      );
+      if (error.code === "40001") {
+        wrapped.name = "CompanyMailboxIntakeOwnerConflictError";
+      }
+      throw wrapped;
+    }
+
+    const result = Array.isArray(data) && data.length === 1 ? data[0] : data;
+    if (
+      result &&
+      typeof result === "object" &&
+      !Array.isArray(result) &&
+      (result as Record<string, unknown>).conflict === true
+    ) {
+      const conflict = new Error(
+        "Company mailbox intake owner changed before this update completed"
+      );
+      conflict.name = "CompanyMailboxIntakeOwnerConflictError";
+      throw conflict;
+    }
+    if (
+      result &&
+      typeof result === "object" &&
+      !Array.isArray(result) &&
+      (result as Record<string, unknown>).ok !== true
+    ) {
+      const validation = new Error(
+        `Company mailbox intake owner was rejected: ${String(
+          (result as Record<string, unknown>).reason ?? "invalid_owner"
+        )}`
+      );
+      validation.name = "CompanyMailboxIntakeOwnerValidationError";
+      throw validation;
+    }
+
+    const { data: updated, error: readError } = await supabase
+      .from("email_connections")
+      .select("*")
+      .eq("id", input.connectionId)
+      .single();
+    if (readError) {
+      throw new Error(
+        `Failed to read configured company mailbox: ${readError.message}`
+      );
     }
     return mapFromDb(updated);
   },
