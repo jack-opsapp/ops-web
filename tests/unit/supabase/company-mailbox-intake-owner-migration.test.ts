@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = path.join(
   process.cwd(),
-  "supabase/migrations/20260723191000_company_mailbox_intake_owner.sql"
+  "supabase/migrations/20260723214524_company_mailbox_intake_owner.sql"
 );
 
 function sql(): string {

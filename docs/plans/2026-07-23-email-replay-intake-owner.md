@@ -34,7 +34,7 @@
 
 **Files:**
 
-- Create: `supabase/migrations/20260723191000_company_mailbox_intake_owner.sql`
+- Create: `supabase/migrations/20260723214524_company_mailbox_intake_owner.sql`
 - Modify: `src/lib/types/database.types.ts`
 - Modify: `src/lib/types/email-connection.ts`
 - Modify: `src/lib/api/services/email-connection-service.ts`
@@ -59,7 +59,7 @@
 
 **Files:**
 
-- Extend: `supabase/migrations/20260723191000_company_mailbox_intake_owner.sql`
+- Extend: `supabase/migrations/20260723214524_company_mailbox_intake_owner.sql`
 - Add: `src/lib/api/services/unassigned-lead-assignment-delivery-service.ts`
 - Modify: `src/app/api/cron/lead-assignment-deliveries/route.ts`
 - Modify: `src/lib/api/services/notification-service.ts`
