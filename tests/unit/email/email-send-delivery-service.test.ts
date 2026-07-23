@@ -69,6 +69,8 @@ function intent(
     contentType: PREPARE_INPUT.contentType,
     draftHistoryId: PREPARE_INPUT.draftHistoryId ?? null,
     followUpDraftId: null,
+    followUpSourceEventId: null,
+    followUpRecipientEmail: null,
     learningAuthority: PREPARE_INPUT.learningAuthority,
     actorNameSnapshot: "Jason Zavarella",
     actorEmailSnapshot: "jason@ops-login.example",
@@ -217,6 +219,38 @@ describe("EmailSendDeliveryService", () => {
       expect(intentStore.claimProviderDelivery).not.toHaveBeenCalled();
     }
   );
+
+  it.each(["provider_accepted", "reconciliation_failed"] as const)(
+    "reconciles an existing %s intent without another provider delivery",
+    async (status) => {
+      const { service, intentStore, provider, reconcile } = dependencies();
+      intentStore.prepare.mockResolvedValueOnce(
+        intent(status, {
+          providerMessageId: "sent-message-1",
+          acceptedProviderThreadId: "sent-thread-1",
+          providerAcceptedAt: "2026-07-15T18:01:00.000Z",
+        })
+      );
+
+      const result = await service.execute(PREPARE_INPUT);
+
+      expect(result.state).toBe("reconciled");
+      expect(provider.sendEmail).not.toHaveBeenCalled();
+      expect(intentStore.claimProviderDelivery).not.toHaveBeenCalled();
+      expect(reconcile).toHaveBeenCalled();
+    }
+  );
+
+  it("does not retry the same definitively rejected intent", async () => {
+    const { service, intentStore, provider } = dependencies();
+    intentStore.prepare.mockResolvedValueOnce(intent("provider_rejected"));
+
+    const result = await service.execute(PREPARE_INPUT);
+
+    expect(result).toMatchObject({ state: "rejected", delivered: false });
+    expect(provider.sendEmail).not.toHaveBeenCalled();
+    expect(intentStore.claimProviderDelivery).not.toHaveBeenCalled();
+  });
 
   it("fails busy before claiming or calling the provider", async () => {
     const { service, intentStore, provider, mailboxLeaseState } =

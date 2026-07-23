@@ -74,6 +74,8 @@ export interface EmailSendIntent {
   contentType: "text" | "html";
   draftHistoryId: string | null;
   followUpDraftId: string | null;
+  followUpSourceEventId: string | null;
+  followUpRecipientEmail: string | null;
   learningAuthority: EmailSendLearningAuthority;
   actorNameSnapshot: string;
   actorEmailSnapshot: string;
@@ -178,6 +180,8 @@ function mapIntent(row: Record<string, unknown>): EmailSendIntent {
     contentType: text(row.content_type) === "html" ? "html" : "text",
     draftHistoryId: nullableText(row.draft_history_id),
     followUpDraftId: nullableText(row.follow_up_draft_id),
+    followUpSourceEventId: nullableText(row.follow_up_source_event_id),
+    followUpRecipientEmail: nullableText(row.follow_up_recipient_email),
     learningAuthority: text(
       row.learning_authority
     ) as EmailSendLearningAuthority,
@@ -273,7 +277,7 @@ export class EmailSendIntentService {
   async prepare(input: PrepareEmailSendIntentInput): Promise<EmailSendIntent> {
     const toEmails = normalizeAddresses(input.toEmails);
     const ccEmails = normalizeAddresses(input.ccEmails);
-    return this.requiredRpc("prepare_email_send_intent", {
+    return this.requiredRpc("prepare_email_send_intent_guarded", {
       p_idempotency_key: input.idempotencyKey,
       p_request_fingerprint: buildEmailSendRequestFingerprint(input),
       p_company_id: input.companyId,

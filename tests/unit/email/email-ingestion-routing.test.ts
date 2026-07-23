@@ -18,6 +18,7 @@ function email(overrides: Partial<NormalizedEmail> = {}): NormalizedEmail {
     subject: "Deck estimate",
     snippet: "Can you quote this deck?",
     bodyText: "Can you quote this deck?",
+    authenticatedFromDomains: ["canprodeckandrail.com"],
     date: new Date("2026-07-13T12:00:00.000Z"),
     labelIds: ["INBOX"],
     isRead: false,
@@ -95,6 +96,69 @@ describe("resolvePersistedEmailDirection", () => {
     ).toBe("inbound");
   });
 
+  it("keeps a nested Victoria-to-Nanaimo-to-Jared Wix submission inbound", () => {
+    expect(
+      resolvePersistedEmailDirection(
+        email({
+          from: "Victoria Office <victoria@canprodeckandrail.com>",
+          fromName: "Victoria Office",
+          subject: "Fwd: Fwd: Free Quote form got a new submission",
+          bodyText: [
+            "---------- Forwarded message ---------",
+            "From: Nanaimo Office <nanaimo@canprodeckandrail.com>",
+            "To: Victoria Office <victoria@canprodeckandrail.com>",
+            "Subject: Fwd: Free Quote form got a new submission",
+            "",
+            "Begin forwarded message:",
+            "From: Jared Jerome <jared@canprodeckandrail.com>",
+            "To: Nanaimo Office <nanaimo@canprodeckandrail.com>",
+            "Subject: Free Quote form got a new submission",
+            "",
+            "Begin forwarded message:",
+            "From: Canpro Deck and Rail <notifications@wix-forms.com>",
+            'Reply-To: "Lauri Humeniuk" <lhumeniuk@sd61.bc.ca>',
+            "Subject: Free Quote form got a new submission",
+            "",
+            "Submission summary:",
+            "Full Name:",
+            "Lauri Humeniuk",
+            "Email:",
+            "lhumeniuk@sd61.bc.ca",
+            "Address:",
+            "4019 Grange Road",
+            "How can we help?:",
+            "Complete deck teardown and replacement.",
+          ].join("\n"),
+          labelIds: ["INBOX"],
+        }),
+        operator
+      )
+    ).toBe("inbound");
+  });
+
+  it("uses a strict forwarded external sender before the internal office wrapper", () => {
+    expect(
+      resolvePersistedEmailDirection(
+        email({
+          from: "Victoria Office <victoria@canprodeckandrail.com>",
+          fromName: "Victoria Office",
+          subject: "Fwd: Deck repair at 10295 Sparling Place",
+          bodyText: [
+            "---------- Forwarded message ---------",
+            "From: Chris Sherwood <cesherwood@gmail.com>",
+            "Date: Mon, Jul 20, 2026 at 2:54 PM",
+            "To: Victoria Office <victoria@canprodeckandrail.com>",
+            "Subject: Deck repair at 10295 Sparling Place",
+            "",
+            "The deck needs repair and replacement vinyl.",
+          ].join("\n"),
+          labelIds: ["INBOX"],
+        }),
+        operator
+      )
+    ).toBe("inbound");
+  });
+
   it("keeps a distinct external Gmail customer inbound", () => {
     expect(
       resolvePersistedEmailDirection(
@@ -142,11 +206,14 @@ describe("buildLeadRoutingIdentity", () => {
     const form = buildLeadRoutingIdentity(
       email({
         id: "message-sandra",
+        from: "Wix Forms <notifications@wix-forms.com>",
+        authenticatedFromDomains: ["wix-forms.com"],
         subject: "Free Quote form got a new submission",
         bodyText:
           "Name: Sandra Dunford\nEmail: sandra@example.com\nMessage: Quote",
       }),
-      { provider: "gmail", connectionId: "connection-1" }
+      { provider: "gmail", connectionId: "connection-1" },
+      operator
     );
     const otherMailbox = buildLeadRoutingIdentity(email(), {
       provider: "gmail",
@@ -166,17 +233,25 @@ describe("buildLeadRoutingIdentity", () => {
     const first = buildLeadRoutingIdentity(
       email({
         id: "message-sandra",
+        from: "Wix Forms <notifications@wix-forms.com>",
+        authenticatedFromDomains: ["wix-forms.com"],
         bodyText:
           "Name: Sandra Dunford\nEmail: sandra@example.com\nMessage: Quote",
         subject: "Free Quote form got a new submission",
-      })
+      }),
+      undefined,
+      operator
     );
     const second = buildLeadRoutingIdentity(
       email({
         id: "message-brad",
+        from: "Wix Forms <notifications@wix-forms.com>",
+        authenticatedFromDomains: ["wix-forms.com"],
         bodyText: "Name: Brad King\nEmail: brad@example.com\nMessage: Quote",
         subject: "Free Quote form got a new submission",
-      })
+      }),
+      undefined,
+      operator
     );
 
     expect(first.isContactFormSubmission).toBe(true);
@@ -188,12 +263,83 @@ describe("buildLeadRoutingIdentity", () => {
     expect(second.mayInheritProviderThread).toBe(false);
   });
 
+  it("gives two trusted generic forwards in one provider thread distinct message-scoped keys", () => {
+    const first = buildLeadRoutingIdentity(
+      email({
+        id: "message-chris",
+        from: "Victoria Office <victoria@canprodeckandrail.com>",
+        subject: "Fwd: Deck repair",
+        bodyText: [
+          "---------- Forwarded message ---------",
+          "From: Chris Sherwood <chris@example.com>",
+          "Subject: Deck repair",
+          "",
+          "Please quote the deck repair.",
+        ].join("\n"),
+      }),
+      { provider: "gmail", connectionId: "connection-1" },
+      operator
+    );
+    const second = buildLeadRoutingIdentity(
+      email({
+        id: "message-eleanor",
+        from: "Victoria Office <victoria@canprodeckandrail.com>",
+        subject: "Fwd: Railing quote",
+        bodyText: [
+          "---------- Forwarded message ---------",
+          "From: Eleanor Smith <eleanor@example.com>",
+          "Subject: Railing quote",
+          "",
+          "Please quote the new railing.",
+        ].join("\n"),
+      }),
+      { provider: "gmail", connectionId: "connection-1" },
+      operator
+    );
+
+    expect(first).toMatchObject({
+      sourceKey: "email:gmail:connection-1:message:message-chris",
+      isContactFormSubmission: false,
+      isMessageScopedTransport: true,
+      mayInheritProviderThread: false,
+    });
+    expect(second).toMatchObject({
+      sourceKey: "email:gmail:connection-1:message:message-eleanor",
+      isContactFormSubmission: false,
+      isMessageScopedTransport: true,
+      mayInheritProviderThread: false,
+    });
+    expect(first.sourceKey).not.toBe(second.sourceKey);
+    expect(first.providerThreadId).toBe("thread-shared");
+    expect(second.providerThreadId).toBe("thread-shared");
+  });
+
   it("keeps ordinary correspondence keyed and inherited by the raw provider thread", () => {
     expect(buildLeadRoutingIdentity(email())).toMatchObject({
       sourceKey: "thread-shared",
       providerThreadId: "thread-shared",
       providerMessageId: "message-1",
       isContactFormSubmission: false,
+      isMessageScopedTransport: false,
+      mayInheritProviderThread: true,
+    });
+  });
+
+  it("fails closed to ordinary thread routing when no operator trust context is supplied", () => {
+    const routing = buildLeadRoutingIdentity(
+      email({
+        id: "message-untrusted-form",
+        from: "Attacker <attacker@example.net>",
+        subject: "Free Quote form got a new submission",
+        bodyText:
+          "Name: Victim Customer\nEmail: victim@example.com\nMessage: Quote",
+      })
+    );
+
+    expect(routing).toMatchObject({
+      sourceKey: "thread-shared",
+      isContactFormSubmission: false,
+      isMessageScopedTransport: false,
       mayInheritProviderThread: true,
     });
   });
@@ -214,6 +360,7 @@ describe("buildLeadRoutingIdentity", () => {
     ).toMatchObject({
       sourceKey: "thread-shared",
       isContactFormSubmission: false,
+      isMessageScopedTransport: false,
       mayInheritProviderThread: true,
     });
   });

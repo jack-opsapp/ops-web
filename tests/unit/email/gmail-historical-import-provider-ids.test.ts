@@ -148,7 +148,6 @@ interface HistoricalImportOptions {
   nextPageToken?: string;
   listMessageIds?: string[];
   messageFetchStatusById?: Record<string, number>;
-  correspondenceProjectionError?: string;
   writeError?: { table: string; action: "update" | "upsert"; message: string };
   existingActivities?: Array<{
     id: string;
@@ -356,15 +355,6 @@ function makeSupabaseDouble(
     },
     rpc: vi.fn(async (name: string, params: Record<string, unknown>) => {
       state.rpcCalls.push({ name, params });
-      if (
-        name === "apply_opportunity_correspondence_event" &&
-        options.correspondenceProjectionError
-      ) {
-        return {
-          data: null,
-          error: { message: options.correspondenceProjectionError },
-        };
-      }
       return {
         data: [
           {
@@ -423,6 +413,11 @@ function makeFetchMock(
     if (url.includes("/gmail/v1/users/me/messages/")) {
       const message =
         messages.find((candidate) => url.includes(candidate.id)) ?? messages[0];
+      const fromHeader =
+        message.from ?? "Kara Beach <kara.beach@customer.example>";
+      const authenticatedDomain =
+        fromHeader.match(/@([A-Z0-9.-]+\.[A-Z]{2,})/i)?.[1] ??
+        "customer.example";
 
       const failedMessage = Object.entries(
         options.messageFetchStatusById ?? {}
@@ -442,7 +437,7 @@ function makeFetchMock(
           headers: [
             {
               name: "From",
-              value: message.from ?? "Kara Beach <kara.beach@customer.example>",
+              value: fromHeader,
             },
             {
               name: "To",
@@ -451,6 +446,10 @@ function makeFetchMock(
             {
               name: "Subject",
               value: message.subject ?? "Deck quote follow-up",
+            },
+            {
+              name: "Authentication-Results",
+              value: `mx.google.com; dmarc=pass header.from=${authenticatedDomain}`,
             },
           ],
           body: {
@@ -1182,11 +1181,13 @@ describe("Gmail historical import provider id guard", () => {
     });
   });
 
-  it("retries a pending historical correspondence projection before advancing the cursor", async () => {
+  it("retries a failed atomic historical correspondence write before advancing the cursor", async () => {
     const options: HistoricalImportOptions = {
       existingActivities: [],
-      correspondenceProjectionError: "counter projection unavailable",
     };
+    recordCorrespondenceMock.mockRejectedValueOnce(
+      new Error("atomic correspondence unavailable")
+    );
 
     const first = await runHistoricalImport(
       [
@@ -1210,17 +1211,7 @@ describe("Gmail historical import provider id guard", () => {
         applyOpportunityProjection: true,
       })
     );
-    expect(first.state.rpcCalls).toEqual([
-      {
-        name: "apply_opportunity_correspondence_event",
-        params: {
-          p_company_id: "company-1",
-          p_opportunity_id: "opp-1",
-          p_connection_id: "connection-1",
-          p_provider_message_id: "msg-projection-retry",
-        },
-      },
-    ]);
+    expect(first.state.rpcCalls).toEqual([]);
 
     options.existingActivities = [
       {
@@ -1229,7 +1220,6 @@ describe("Gmail historical import provider id guard", () => {
         client_id: "client-1",
       },
     ];
-    options.correspondenceProjectionError = undefined;
     const second = await runHistoricalImport(
       [
         {
@@ -1244,15 +1234,7 @@ describe("Gmail historical import provider id guard", () => {
     expect(second.response.status).toBe(200);
     expect(createActivityMock).toHaveBeenCalledTimes(1);
     expect(recordCorrespondenceMock).toHaveBeenCalledTimes(2);
-    expect(second.state.rpcCalls).toEqual([
-      {
-        name: "apply_opportunity_correspondence_event",
-        params: expect.objectContaining({
-          p_opportunity_id: "opp-1",
-          p_provider_message_id: "msg-projection-retry",
-        }),
-      },
-    ]);
+    expect(second.state.rpcCalls).toEqual([]);
     expect(second.state.connectionUpdates).toContainEqual({
       history_id: "history-boundary",
     });

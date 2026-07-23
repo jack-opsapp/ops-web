@@ -53,6 +53,43 @@ describe("atomic correspondence-event projection migration", () => {
     expect(insertIdx).toBeGreaterThan(lockIdx);
   });
 
+  it("serializes the company and re-proves a non-null activity before event work", () => {
+    const companyLockIdx = source.indexOf(
+      "perform private.lock_lead_assignment_company(p_company_id)"
+    );
+    const opportunityLockIdx = source.indexOf(
+      "from public.opportunities opportunity"
+    );
+    const activityGuardIdx = source.indexOf("if p_activity_id is not null then");
+    const activityLockIdx = source.indexOf("from public.activities activity");
+    const eventWorkIdx = source.indexOf(
+      "from public.opportunity_correspondence_events event"
+    );
+
+    expect(companyLockIdx).toBeGreaterThanOrEqual(0);
+    expect(opportunityLockIdx).toBeGreaterThan(companyLockIdx);
+    expect(activityGuardIdx).toBeGreaterThan(opportunityLockIdx);
+    expect(activityLockIdx).toBeGreaterThan(activityGuardIdx);
+    expect(eventWorkIdx).toBeGreaterThan(activityLockIdx);
+
+    const activityGuard = source.slice(activityGuardIdx, eventWorkIdx);
+    expect(activityGuard).toContain("activity.company_id = p_company_id");
+    expect(activityGuard).toContain("activity.opportunity_id = p_opportunity_id");
+    expect(activityGuard).toContain("activity.type = 'email'");
+    expect(activityGuard).toContain(
+      "activity.email_connection_id is not distinct from p_connection_id"
+    );
+    expect(activityGuard).toContain(
+      "activity.email_thread_id = p_provider_thread_id"
+    );
+    expect(activityGuard).toContain(
+      "activity.email_message_id is not distinct from p_provider_message_id"
+    );
+    expect(activityGuard).toContain("activity.direction = p_direction");
+    expect(activityGuard).toContain("for share");
+    expect(activityGuard).toContain("correspondence_activity_identity_conflict");
+  });
+
   it("mirrors the TS findProviderMessageEvent dedupe predicate", () => {
     expect(source).toContain("event.company_id = p_company_id");
     expect(source).toContain("event.provider_message_id = p_provider_message_id");

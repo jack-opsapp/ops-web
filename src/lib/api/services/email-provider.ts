@@ -110,6 +110,13 @@ export interface NormalizedEmail {
    *  renderer prefers this over running plain-text regex stripping. Omit or
    *  set null/empty when the provider cannot confidently strip. */
   bodyTextClean?: string;
+  /**
+   * Provider-verified visible-sender domains. This must come from the provider
+   * transport/authentication result, never from message body/header parsing.
+   * Body-derived forwarded identities are promoted only when the outer From
+   * domain appears here.
+   */
+  authenticatedFromDomains?: string[];
   date: Date;
   labelIds: string[];
   isRead: boolean;
@@ -130,6 +137,12 @@ export interface SyncResult {
 export interface ProviderReadPolicy {
   deadlineAt?: number;
   context?: string;
+  /**
+   * Normal reads refresh an expired OAuth token and persist the replacement.
+   * Recovery/audit reads use `current_only_no_persist`: the provider must use
+   * the current access token or fail before any OAuth or database write.
+   */
+  oauthTokenMode?: "refresh_and_persist" | "current_only_no_persist";
 }
 
 export interface WebhookSubscription {

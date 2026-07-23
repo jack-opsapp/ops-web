@@ -67,6 +67,29 @@ interface ConversionCommonParams {
   titleOverride?: string | null;
 }
 
+interface EmailAcceptEvidenceCommon {
+  connection_id: string;
+  provider_thread_id: string;
+  provider_message_id: string;
+  decisive_event_id: string;
+  decisive_direction: "inbound" | "outbound";
+  evaluated_through_event_id: string;
+  signals: string[];
+  decision: "auto_advance_won";
+}
+
+type EmailAcceptEvidence =
+  | (EmailAcceptEvidenceCommon & {
+      email_thread_id: string;
+      conversation_scope?: never;
+      source_activity_id?: never;
+    })
+  | (EmailAcceptEvidenceCommon & {
+      conversation_scope: "message";
+      source_activity_id: string;
+      email_thread_id?: never;
+    });
+
 export type ConvertOpportunityParams =
   | (ConversionCommonParams & {
       sourcePath: "won_dialog";
@@ -87,17 +110,7 @@ export type ConvertOpportunityParams =
       sourcePath: "email_accept";
       decidedBy: null;
       expectedAssignmentVersion: number;
-      evidence: {
-        connection_id: string;
-        email_thread_id: string;
-        provider_thread_id: string;
-        provider_message_id: string;
-        decisive_event_id: string;
-        decisive_direction: "inbound" | "outbound";
-        evaluated_through_event_id: string;
-        signals: string[];
-        decision: "auto_advance_won";
-      };
+      evidence: EmailAcceptEvidence;
     });
 
 export type LinkOpportunityToProjectParams = ConvertOpportunityParams & {
@@ -332,30 +345,50 @@ async function runConversion(
       );
     }
     const keys = Object.keys(params.evidence).sort();
-    const expectedKeys = [
-      "connection_id",
-      "decision",
-      "decisive_direction",
-      "decisive_event_id",
-      "email_thread_id",
-      "evaluated_through_event_id",
-      "provider_message_id",
-      "provider_thread_id",
-      "signals",
-    ];
+    const messageScoped =
+      Object.hasOwn(params.evidence, "conversation_scope") ||
+      Object.hasOwn(params.evidence, "source_activity_id");
+    const expectedKeys = messageScoped
+      ? [
+          "connection_id",
+          "conversation_scope",
+          "decision",
+          "decisive_direction",
+          "decisive_event_id",
+          "evaluated_through_event_id",
+          "provider_message_id",
+          "provider_thread_id",
+          "signals",
+          "source_activity_id",
+        ]
+      : [
+          "connection_id",
+          "decision",
+          "decisive_direction",
+          "decisive_event_id",
+          "email_thread_id",
+          "evaluated_through_event_id",
+          "provider_message_id",
+          "provider_thread_id",
+          "signals",
+        ];
     if (
       keys.length !== expectedKeys.length ||
       keys.some((key, index) => key !== expectedKeys[index])
     ) {
       throw new Error("Actorless email conversion evidence is invalid");
     }
-    const stringEvidence = params.evidence as Record<string, unknown>;
+    const stringEvidence = params.evidence as unknown as Record<
+      string,
+      unknown
+    >;
     if (
       Object.entries(stringEvidence).some(
         ([key, value]) =>
           key !== "signals" &&
           (typeof value !== "string" || value.trim().length === 0)
       ) ||
+      (messageScoped && params.evidence.conversation_scope !== "message") ||
       params.evidence.decision !== "auto_advance_won" ||
       !["inbound", "outbound"].includes(params.evidence.decisive_direction) ||
       !Array.isArray(params.evidence.signals) ||

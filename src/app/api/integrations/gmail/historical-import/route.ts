@@ -34,13 +34,14 @@ import {
   type ProviderEmailIdValidationResult,
 } from "@/lib/email/provider-email-ids";
 import {
+  applyInboundEffectiveSenderIdentity,
   buildLeadRoutingIdentity,
   canonicalizeProviderThreadId,
   resolvePersistedEmailDirection,
 } from "@/lib/email/email-ingestion-routing";
+import { gmailAuthenticatedFromDomains } from "@/lib/email/provider-authentication";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import {
-  extractContactFormSubmission,
   htmlToPlainText,
   isCommonEmailDomain,
   normalizeEmailAddress,
@@ -984,25 +985,46 @@ async function processMessage(
     subject,
     snippet: msg.snippet ?? "",
     bodyText,
+    authenticatedFromDomains: gmailAuthenticatedFromDomains(
+      msg.payload?.headers ?? []
+    ),
     date: occurredAt,
     labelIds: msg.labelIds ?? [],
     isRead: true,
     hasAttachments: false,
     sizeEstimate: 0,
   } satisfies NormalizedEmail;
-  const direction = resolvePersistedEmailDirection(normalizedEmail, {
+  const configuredRouting = syncFilters as unknown as {
+    teamForwarders?: string[];
+    knownPlatformSenders?: string[];
+  };
+  const ingestionOperator = {
     connectionEmail,
     companyDomains: operatorDomains,
     userEmailAddresses: operatorEmailAddresses,
-  });
-  const routingIdentity = buildLeadRoutingIdentity(normalizedEmail, {
-    provider: "gmail",
-    connectionId,
-  });
-  const submitter =
+    teamForwarders: configuredRouting.teamForwarders ?? [],
+    knownPlatformSenders: configuredRouting.knownPlatformSenders ?? [],
+  };
+  const direction = resolvePersistedEmailDirection(
+    normalizedEmail,
+    ingestionOperator
+  );
+  const inboundIdentity =
     direction === "inbound"
-      ? extractContactFormSubmission(subject, bodyText)
+      ? applyInboundEffectiveSenderIdentity(normalizedEmail, ingestionOperator)
       : null;
+  const effectiveEmail = inboundIdentity?.email ?? normalizedEmail;
+  const effectiveFromEmail = normalizeEmailAddress(effectiveEmail.from);
+  const effectiveFromName = effectiveEmail.fromName;
+  const routingIdentity = buildLeadRoutingIdentity(
+    normalizedEmail,
+    {
+      provider: "gmail",
+      connectionId,
+    },
+    ingestionOperator
+  );
+  const submitter = inboundIdentity?.contactFormSubmitter ?? null;
   const outboundRecipient =
     direction === "outbound"
       ? externalRecipient(
@@ -1013,10 +1035,14 @@ async function processMessage(
       : null;
   const customerEmail =
     submitter?.email ??
-    (direction === "outbound" ? (outboundRecipient?.email ?? "") : fromEmail);
+    (direction === "outbound"
+      ? (outboundRecipient?.email ?? "")
+      : effectiveFromEmail);
   const customerName =
     submitter?.name ??
-    (direction === "outbound" ? (outboundRecipient?.name ?? "") : fromName);
+    (direction === "outbound"
+      ? (outboundRecipient?.name ?? "")
+      : effectiveFromName);
   const customerDescription = submitter?.message || bodyText || null;
 
   // Noise filter: skip automated/marketing emails
@@ -1156,8 +1182,8 @@ async function processMessage(
         occurredAt,
         source: "gmail_historical_import",
         applyOpportunityProjection: true,
-        fromEmail: fromEmail || null,
-        fromName,
+        fromEmail: effectiveFromEmail || null,
+        fromName: effectiveFromName,
         toEmails: toMailboxes.map(normalizeEmailAddress).filter(Boolean),
         ccEmails: ccMailboxes.map(normalizeEmailAddress).filter(Boolean),
         subject,
@@ -1166,7 +1192,7 @@ async function processMessage(
         connectionEmail,
         companyDomains: operatorDomains,
         userEmailAddresses: operatorEmailAddresses,
-        knownPlatformSenders: [],
+        knownPlatformSenders: ingestionOperator.knownPlatformSenders,
         contactEmail: customerEmail || null,
       });
 
@@ -1178,24 +1204,6 @@ async function processMessage(
       throw new Error(
         `Historical correspondence event rejected: ${correspondence.reason}`
       );
-    }
-
-    if (opportunityId) {
-      const { data: projectionRows, error: projectionError } =
-        await supabase.rpc("apply_opportunity_correspondence_event", {
-          p_company_id: companyId,
-          p_opportunity_id: opportunityId,
-          p_connection_id: connectionId,
-          p_provider_message_id: providerMessageId,
-        });
-      const projectionRow = Array.isArray(projectionRows)
-        ? projectionRows[0]
-        : projectionRows;
-      if (projectionError || !projectionRow) {
-        throw new Error(
-          `Historical correspondence projection failed for ${opportunityId}: ${projectionError?.message ?? "RPC returned no rows"}`
-        );
-      }
     }
 
     const { error: activityMetadataError } = await supabase
@@ -1222,11 +1230,12 @@ async function processMessage(
     clientId: string | null;
     isRead: boolean;
   }): Promise<void> => {
+    if (!routingIdentity.mayInheritProviderThread) return;
     await EmailThreadService.upsertFromEmail({
       companyId,
       connectionId,
       providerThreadId,
-      email: { ...normalizedEmail, isRead },
+      email: { ...effectiveEmail, isRead },
       direction,
       opportunityId,
       clientId,
@@ -1362,7 +1371,7 @@ async function processMessage(
     emailMessageId: providerMessageId,
     emailConnectionId: connectionId,
     isRead: !!clientId,
-    fromEmail: fromEmail || null,
+    fromEmail: effectiveFromEmail || null,
     occurredAt,
     createdBy: null,
   });

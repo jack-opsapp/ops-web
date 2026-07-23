@@ -345,7 +345,7 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
           "owen-proceed",
           "2026-05-20T19:00:00.000Z",
           "inbound",
-          "We would like to proceed if you're still able to start us week of July 13. Can we connect to sort out paying the deposit?"
+          "We would like to proceed if you're still able to start us week of July 13. Can we connect to sort out paying the deposit? Could we ask your crew to help get some of the larger heavier items off the deck as I'm limited in how much weight I can do? If it goes up to a 2x6 we'll be whacking our heads on it even more than we do now. Looking forward to get going on this!"
         ),
         message(
           "owen-deposit-paid",
@@ -384,6 +384,80 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
         nextAction: expect.stringMatching(/convert|project|schedule/i),
       },
     });
+  });
+
+  it("treats Owen's possessive paid-deposit wording as confirmed payment without requiring a later duplicate payer", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "owen-proceed",
+          "2026-05-20T19:00:00.000Z",
+          "inbound",
+          "We would like to proceed if you're still able to start us week of July 13. Can we connect to sort out paying the deposit?"
+        ),
+        message(
+          "owen-deposit-paid",
+          "2026-05-21T19:00:00.000Z",
+          "inbound",
+          "Just paid Jackson's deposit."
+        ),
+        message(
+          "owen-deposit-receipt",
+          "2026-05-22T19:00:00.000Z",
+          "outbound",
+          "Thank you Owen, received!"
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "owen-deposit-paid",
+      signals: expect.arrayContaining(["payment_confirmed"]),
+      facts: {
+        excludedScope: null,
+        schedule: null,
+        nextAction: "Convert or link the project and confirm the work schedule.",
+      },
+    });
+    expect(result?.facts.nextAction).not.toMatch(/send deposit|instructions/i);
+  });
+
+  it("does not replace Camille's installation scope with availability chatter that happens to say work or job", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "camille-installation-quote",
+          "2026-06-10T17:00:00.000Z",
+          "outbound",
+          "I might be able to do $1,200 for the installation."
+        ),
+        message(
+          "camille-acceptance",
+          "2026-06-11T17:00:00.000Z",
+          "inbound",
+          "I'll take you up on the installation offer for $1,200."
+        ),
+        message(
+          "camille-availability",
+          "2026-06-12T17:00:00.000Z",
+          "inbound",
+          "I'm not in a rush, so feel free to piggyback with another job. I work from home tomorrow."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      facts: {
+        currentScope: expect.stringMatching(/installation offer/i),
+      },
+    });
+    expect(result?.facts.currentScope).not.toMatch(
+      /piggyback|another job|work from home/i
+    );
   });
 
   it("treats Erick's explicit budget and timing postponement as deferred with a 12-month follow-up", () => {

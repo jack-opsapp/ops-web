@@ -66,6 +66,7 @@ security definer
 set search_path to 'public', 'pg_temp'
 as $function$
 declare
+  v_activity public.activities%rowtype;
   v_dedupe_hit boolean := false;
   v_existing_event_id uuid;
   v_existing_opportunity_id uuid;
@@ -98,10 +99,17 @@ begin
       using errcode = '22023';
   end if;
 
-  -- Match merge/conversion lock order: opportunity first, child event second.
-  -- Taking the opportunity lock BEFORE the event work makes the insert and its
-  -- counter projection commit or roll back as one unit, and serializes this
-  -- ingestion against every commercial RPC that locks the same row.
+  -- Join the company-wide lead-assignment lock protocol before taking a parent
+  -- opportunity lock. Data-review reparenting takes the same advisory fence
+  -- before it locks email children, so neither workflow can form a
+  -- parent/child deadlock with the other.
+  perform private.lock_lead_assignment_company(p_company_id);
+
+  -- Match merge/conversion lock order: opportunity first, child rows second.
+  -- Taking the opportunity lock BEFORE the activity/event work makes the
+  -- insert and its counter projection commit or roll back as one unit, and
+  -- serializes this ingestion against every commercial RPC that locks the same
+  -- row.
   perform 1
   from public.opportunities opportunity
   where opportunity.id = p_opportunity_id
@@ -110,6 +118,30 @@ begin
   for update;
   if not found then
     raise exception 'opportunity_not_found' using errcode = 'P0002';
+  end if;
+
+  -- Activity creation and event projection are separate PostgREST requests.
+  -- Re-prove the optional activity under the shared company/opportunity lock so
+  -- a concurrent reparent cannot move it between those requests and leave this
+  -- event attached to a stale lead. Import-only callers intentionally pass a
+  -- null activity id and remain supported.
+  if p_activity_id is not null then
+    select activity.*
+      into v_activity
+      from public.activities activity
+     where activity.id = p_activity_id
+       and activity.company_id = p_company_id
+       and activity.opportunity_id = p_opportunity_id
+       and activity.type = 'email'
+       and activity.email_connection_id is not distinct from p_connection_id
+       and activity.email_thread_id = p_provider_thread_id
+       and activity.email_message_id is not distinct from p_provider_message_id
+       and activity.direction = p_direction
+     for share;
+    if not found then
+      raise exception 'correspondence_activity_identity_conflict'
+        using errcode = '23514';
+    end if;
   end if;
 
   -- Dedupe on the provider message identity, mirroring the TS

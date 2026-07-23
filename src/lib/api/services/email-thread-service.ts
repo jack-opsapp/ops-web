@@ -1583,8 +1583,32 @@ export const EmailThreadService = {
    * Classify a thread using Phase C's ThreadClassifier and persist results.
    * Respects `category_manually_set` — user overrides never get clobbered.
    */
-  async classifyAndUpdate(threadRow: EmailThread): Promise<EmailThread> {
+  async classifyAndUpdate(
+    threadRow: EmailThread,
+    options: { summaryOnly?: boolean; summaryConflictAttempt?: number } = {}
+  ): Promise<EmailThread> {
     const supabase = requireSupabase();
+    const summaryOnly = options.summaryOnly === true;
+    const summaryConflictAttempt = options.summaryConflictAttempt ?? 0;
+    const reloadOrRetrySummaryConflict = async (
+      context: string
+    ): Promise<EmailThread> => {
+      const winner = await reloadClassificationWinner({
+        supabase,
+        thread: threadRow,
+        context,
+      });
+      if (!summaryOnly) return winner;
+      if (summaryConflictAttempt >= 2) {
+        throw new Error(
+          `${context} summary-only CAS remained contested after 3 attempts`
+        );
+      }
+      return EmailThreadService.classifyAndUpdate(winner, {
+        summaryOnly: true,
+        summaryConflictAttempt: summaryConflictAttempt + 1,
+      });
+    };
 
     // Pull last 5 messages from activities for classification context
     const { data: msgs, error: msgError } = await supabase
@@ -1671,14 +1695,16 @@ export const EmailThreadService = {
     });
 
     if (deterministic) {
-      const detUpdate: Record<string, unknown> = {
-        labels: threadRow.labels, // preserve any existing labels
-        ai_summary: deterministic.summary,
-        category_classified_at: new Date().toISOString(),
-        category_classifier_version: deterministic.classifierVersion,
-        primary_category: deterministic.category,
-        category_confidence: deterministic.confidence,
-      };
+      const detUpdate: Record<string, unknown> = summaryOnly
+        ? { ai_summary: deterministic.summary }
+        : {
+            labels: threadRow.labels, // preserve any existing labels
+            ai_summary: deterministic.summary,
+            category_classified_at: new Date().toISOString(),
+            category_classifier_version: deterministic.classifierVersion,
+            primary_category: deterministic.category,
+            category_confidence: deterministic.confidence,
+          };
 
       const { data: detUpdated, error: detErr } = await supabase
         .from("email_threads")
@@ -1697,11 +1723,9 @@ export const EmailThreadService = {
         );
       }
       if (!detUpdated) {
-        return reloadClassificationWinner({
-          supabase,
-          thread: threadRow,
-          context: "classifyAndUpdate deterministic-internal update",
-        });
+        return reloadOrRetrySummaryConflict(
+          "classifyAndUpdate deterministic-internal update"
+        );
       }
       const mappedInternal = mapEmailThreadFromDb(detUpdated);
       // P4-A: run the Phase C router uniformly. INTERNAL is unmapped in the
@@ -1709,7 +1733,7 @@ export const EmailThreadService = {
       // the firing path uniform and future-proofs an INTERNAL autonomy level.
       // No notification on INTERNAL (fireThreadNotifications is LLM-path only
       // and INTERNAL never warrants a page).
-      await runPhaseCRouter(mappedInternal);
+      if (!summaryOnly) await runPhaseCRouter(mappedInternal);
       return mappedInternal;
     }
 
@@ -1787,14 +1811,16 @@ export const EmailThreadService = {
             error instanceof Error ? error.message : "unknown error"
           );
         }
-        const custUpdate: Record<string, unknown> = {
-          labels: narrativeLabels,
-          ai_summary: narrativeSummary,
-          category_classified_at: new Date().toISOString(),
-          category_classifier_version: customer.classifierVersion,
-          primary_category: customer.category,
-          category_confidence: customer.confidence,
-        };
+        const custUpdate: Record<string, unknown> = summaryOnly
+          ? { ai_summary: narrativeSummary }
+          : {
+              labels: narrativeLabels,
+              ai_summary: narrativeSummary,
+              category_classified_at: new Date().toISOString(),
+              category_classifier_version: customer.classifierVersion,
+              primary_category: customer.category,
+              category_confidence: customer.confidence,
+            };
 
         const { data: custUpdated, error: custErr } = await supabase
           .from("email_threads")
@@ -1813,11 +1839,9 @@ export const EmailThreadService = {
           );
         }
         if (!custUpdated) {
-          return reloadClassificationWinner({
-            supabase,
-            thread: threadRow,
-            context: "classifyAndUpdate deterministic-customer update",
-          });
+          return reloadOrRetrySummaryConflict(
+            "classifyAndUpdate deterministic-customer update"
+          );
         }
 
         const mappedCustomer = mapEmailThreadFromDb(custUpdated);
@@ -1825,13 +1849,15 @@ export const EmailThreadService = {
         // Preserve the established, authorization-gated Phase C behavior for
         // deterministic customer threads. The router owns autonomy checks and
         // idempotent draft creation; summary refresh must not bypass it.
-        await runPhaseCRouter(mappedCustomer);
+        if (!summaryOnly) await runPhaseCRouter(mappedCustomer);
 
         // Notification hook — parity with the LLM path. Fires on CUSTOMER
         // transitions for inbound threads (the "new lead landed" page).
-        fireThreadNotifications(threadRow, mappedCustomer).catch((err) =>
-          console.error("[thread-notify] hook failed (non-fatal):", err)
-        );
+        if (!summaryOnly) {
+          fireThreadNotifications(threadRow, mappedCustomer).catch((err) =>
+            console.error("[thread-notify] hook failed (non-fatal):", err)
+          );
+        }
 
         return mappedCustomer;
       }
@@ -1869,23 +1895,26 @@ export const EmailThreadService = {
       new Set([...result.labels, ...heuristicLabels])
     );
 
-    const update: Record<string, unknown> = {
-      labels: mergedLabels,
-      ai_summary: chooseThreadSummary(
-        result.aiSummary,
-        currentThreadSummary({
-          subject: threadRow.subject,
-          latestSnippet: threadRow.latestSnippet,
-          messages,
-        }),
-        messages
-      ),
-      category_classified_at: new Date().toISOString(),
-      category_classifier_version: ThreadClassifier.CLASSIFIER_VERSION,
-    };
+    const currentSummary = chooseThreadSummary(
+      result.aiSummary,
+      currentThreadSummary({
+        subject: threadRow.subject,
+        latestSnippet: threadRow.latestSnippet,
+        messages,
+      }),
+      messages
+    );
+    const update: Record<string, unknown> = summaryOnly
+      ? { ai_summary: currentSummary }
+      : {
+          labels: mergedLabels,
+          ai_summary: currentSummary,
+          category_classified_at: new Date().toISOString(),
+          category_classifier_version: ThreadClassifier.CLASSIFIER_VERSION,
+        };
 
     // Only update primary_category if not manually set
-    if (!threadRow.categoryManuallySet) {
+    if (!summaryOnly && !threadRow.categoryManuallySet) {
       update.primary_category = result.primaryCategory;
       update.category_confidence = result.confidence;
     }
@@ -1905,11 +1934,7 @@ export const EmailThreadService = {
       throw new Error(`classifyAndUpdate update failed: ${updError.message}`);
     }
     if (!updated) {
-      return reloadClassificationWinner({
-        supabase,
-        thread: threadRow,
-        context: "classifyAndUpdate update",
-      });
+      return reloadOrRetrySummaryConflict("classifyAndUpdate update");
     }
 
     const mappedUpdated = mapEmailThreadFromDb(updated);
@@ -1917,17 +1942,58 @@ export const EmailThreadService = {
     // P4-A: Phase C post-classification hook — awaited inside the existing
     // background `after()` sync job so mailbox draft placement is not abandoned
     // when the serverless callback resolves.
-    await runPhaseCRouter(mappedUpdated);
+    if (!summaryOnly) await runPhaseCRouter(mappedUpdated);
 
     // Notification hook — fire-and-forget. Only fires on category TRANSITIONS
     // (LEAD/PLATFORM_BID that wasn't LEAD/PLATFORM_BID before) or on a newly
     // surfaced URGENT label for an inbound thread. Defensive-by-default: any
     // error is logged, never thrown.
-    fireThreadNotifications(threadRow, mappedUpdated).catch((err) =>
-      console.error("[thread-notify] hook failed (non-fatal):", err)
-    );
+    if (!summaryOnly) {
+      fireThreadNotifications(threadRow, mappedUpdated).catch((err) =>
+        console.error("[thread-notify] hook failed (non-fatal):", err)
+      );
+    }
 
     return mappedUpdated;
+  },
+
+  /**
+   * Refresh only the current narrative. Recovery uses this path so stale or
+   * generic summaries are repaired without re-routing Phase C, creating a
+   * draft/action, firing a notification, or changing a manual category.
+   */
+  async refreshSummaryOnly(threadRow: EmailThread): Promise<EmailThread> {
+    return EmailThreadService.classifyAndUpdate(threadRow, {
+      summaryOnly: true,
+    });
+  },
+
+  /** Refresh an existing canonical provider thread without creating/relinking it. */
+  async refreshSummaryOnlyForProviderThread(params: {
+    companyId: string;
+    connectionId: string;
+    providerThreadId: string;
+  }): Promise<EmailThread | null> {
+    const supabase = requireSupabase();
+    const { data, error } = await supabase
+      .from("email_threads")
+      .select("*")
+      .eq("company_id", params.companyId)
+      .eq("connection_id", params.connectionId)
+      .eq("provider_thread_id", params.providerThreadId)
+      .limit(2);
+    if (error) {
+      throw new Error(
+        `summary-only provider thread lookup failed: ${error.message}`
+      );
+    }
+    if (!data || data.length === 0) return null;
+    if (data.length !== 1) {
+      throw new Error("summary-only provider thread was not found uniquely");
+    }
+    return EmailThreadService.refreshSummaryOnly(
+      mapEmailThreadFromDb(data[0])
+    );
   },
 
   /**

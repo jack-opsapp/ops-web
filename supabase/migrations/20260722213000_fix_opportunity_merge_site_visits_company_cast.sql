@@ -10,10 +10,12 @@
 --
 -- Fix: add an explicit `::text` cast to the parameter in the site_visits WHERE
 -- clause, mirroring the pattern the adjacent `projects` back-link already uses
--- for its own legacy text column. This is the ONLY hazard column the function
--- touches; a full prod audit confirmed all other referenced tables use uuid ids
--- and `projects` is already casted. CREATE OR REPLACE preserves the function's
--- existing ACLs (no grant/revoke changes).
+-- for its own legacy text column. The same final function definition also joins
+-- the canonical company lock and refuses a merge while either lead has an
+-- in-flight/uncertain provider delivery; moving its draft/event while the
+-- durable intent still points at the loser would strand reconciliation.
+-- CREATE OR REPLACE preserves the function's existing ACLs (no grant/revoke
+-- changes).
 
 begin;
 
@@ -71,6 +73,11 @@ begin
     raise exception 'merge key is required'
       using errcode = '22023';
   end if;
+
+  -- The public wrapper already holds this transaction-scoped fence. Re-enter
+  -- it here as well so the service-only internal function cannot bypass the
+  -- company -> opportunity -> child order when called directly.
+  perform private.lock_lead_assignment_company(p_company_id);
 
   -- ── Step 2b: lock both rows, ordered by id to avoid deadlock ──
   if p_winner_id < p_loser_id then
@@ -141,6 +148,28 @@ begin
       p_company_id, p_winner_id, p_loser_id, p_merge_key, p_review_id,
       p_field_fill, p_confirmed_overrides, p_resolved_by, p_run_id,
       'loser_deleted', 'Loser opportunity is already soft-deleted.');
+  end if;
+
+  -- A provider claim commits before the external send and reconciliation occur.
+  -- Moving the draft/event while that durable intent still targets the loser
+  -- would either strand acceptance or attribute it back to a deleted lead.
+  -- Lock and re-prove both opportunities' delivery-risk intents before any
+  -- child mutation. Prepared is safe (the claim fence will revalidate after
+  -- this merge); provider_rejected is definitively unsent; reconciled is fully
+  -- materialized and its children can be moved by the normal graph below.
+  perform 1
+    from public.email_send_intents intent
+   where intent.company_id = p_company_id
+     and intent.opportunity_id in (p_winner_id, p_loser_id)
+     and intent.status in ( 'sending', 'delivery_unknown', 'provider_accepted', 'reconciling', 'reconciliation_failed' )
+   order by intent.id
+   for share;
+  if found then
+    return public._record_opportunity_merge_skip(
+      p_company_id, p_winner_id, p_loser_id, p_merge_key, p_review_id,
+      p_field_fill, p_confirmed_overrides, p_resolved_by, p_run_id,
+      'email_delivery_in_flight',
+      'Winner or loser has email delivery awaiting a definitive reconciliation outcome.');
   end if;
 
   -- ── Step 4: snapshot guard ──

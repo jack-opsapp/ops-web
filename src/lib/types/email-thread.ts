@@ -120,6 +120,10 @@ import type { RoutingDecision } from "@/lib/api/services/conversation-state/type
 // record (provider API vs. ai_draft_history row).
 
 export type DraftSource = "provider" | "ai" | "lifecycle";
+export type FollowUpDraftOrigin =
+  | "template_follow_up"
+  | "phase_c"
+  | "system_handoff";
 
 export interface InboxDraftRow {
   source: DraftSource;
@@ -138,6 +142,16 @@ export interface InboxDraftRow {
   inboxThreadId?: string | null;
   /** Linked opportunity for local lifecycle drafts. */
   opportunityId?: string | null;
+  /** Durable local-draft origin. Present only for lifecycle drafts. */
+  origin?: FollowUpDraftOrigin | null;
+  /** Exact customer address bound to a source event for system handoffs. */
+  recipientEmail?: string | null;
+  /** Optional display name bound to recipientEmail. */
+  recipientName?: string | null;
+  /** Exact correspondence event that authorized this local draft. */
+  sourceEventId?: string | null;
+  /** Exact provider message represented by sourceEventId. */
+  sourceProviderMessageId?: string | null;
   /**
    * Connection id for provider drafts; AI drafts may also carry one when
    * the AI was scoped to a specific mailbox. Required by the discard path

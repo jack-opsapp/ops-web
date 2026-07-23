@@ -64,16 +64,18 @@ import {
   type OpportunityRelationshipFacts,
 } from "@/lib/email/opportunity-relationship-matching";
 import {
+  applyInboundEffectiveSenderIdentity,
   buildLeadRoutingIdentity,
   resolvePersistedEmailDirection,
+  type IngestionOperatorIdentity,
   type LeadRoutingIdentity,
 } from "@/lib/email/email-ingestion-routing";
 import {
   logInvalidProviderEmailIds,
   validateProviderEmailIds,
 } from "@/lib/email/provider-email-ids";
+import { classifyOpportunityCorrespondence } from "@/lib/email/opportunity-correspondence-classifier";
 import {
-  extractContactFormSubmission,
   extractEmailAddress,
   type ContactFormSubmissionIdentity,
 } from "@/lib/utils/email-parsing";
@@ -102,6 +104,7 @@ import {
   releaseEmailConnectionSyncLock,
 } from "./email-connection-sync-lock";
 import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-operation";
+import type { EmailExactMessageRecoveryReparentRepairInput } from "./email-exact-message-recovery-service";
 import { cleanMessageBody } from "./conversation-state/message-cleaner";
 import {
   assembleConversationState,
@@ -109,6 +112,7 @@ import {
 } from "./conversation-state/conversation-state";
 import {
   evaluateOpportunityAcceptance,
+  evaluateOpportunityCommercialOutcome,
   shouldEvaluateOpportunityCommercialOutcome,
 } from "./conversation-state/acceptance-evaluation";
 import { fetchOperatorIdentity } from "./conversation-state/operator-identity";
@@ -272,6 +276,8 @@ interface CreateOpportunityTitleOptions {
     connectionType: "company" | "individual";
     connectionId: string;
     connectionOwnerId: string | null;
+    ingestionSource: "email_sync" | "email_recovery";
+    providerMutationsDisabled: boolean;
   };
   /** Model-only terminal guesses are persisted as review provenance, not stage. */
   aiStageReview?: {
@@ -279,6 +285,26 @@ interface CreateOpportunityTitleOptions {
     confidence: number | null;
   };
 }
+
+interface EmailIngestionExecutionPolicy {
+  /** Provider writes are forbidden for exact, already-fetched recovery input. */
+  providerMutationsDisabled: boolean;
+  /** Recovery must not enqueue thread classification or downstream autonomy. */
+  suppressThreadState: boolean;
+  assignmentIngestionSource: "email_sync" | "email_recovery";
+}
+
+const NORMAL_EMAIL_INGESTION_POLICY: EmailIngestionExecutionPolicy = {
+  providerMutationsDisabled: false,
+  suppressThreadState: false,
+  assignmentIngestionSource: "email_sync",
+};
+
+const EXACT_MESSAGE_RECOVERY_POLICY: EmailIngestionExecutionPolicy = {
+  providerMutationsDisabled: true,
+  suppressThreadState: true,
+  assignmentIngestionSource: "email_recovery",
+};
 
 interface OpportunityResolution {
   id: string;
@@ -308,12 +334,17 @@ function persistedAIClassificationReviewSignals(value: unknown): string[] {
   ];
 }
 
-function mailboxAssignmentContext(connection: EmailConnection) {
+function mailboxAssignmentContext(
+  connection: EmailConnection,
+  executionPolicy: EmailIngestionExecutionPolicy = NORMAL_EMAIL_INGESTION_POLICY
+) {
   return {
     connectionType: connection.type,
     connectionId: connection.id,
     connectionOwnerId:
       connection.type === "individual" ? connection.userId : null,
+    ingestionSource: executionPolicy.assignmentIngestionSource,
+    providerMutationsDisabled: executionPolicy.providerMutationsDisabled,
   };
 }
 
@@ -341,29 +372,21 @@ function contactFormTitleCandidate(
   ];
 }
 
-function mailboxHeader(email: string, name: string | null | undefined): string {
-  const display = (name ?? "").trim();
-  if (!display) return email;
-  return `${display.replace(/"/g, "")} <${email}>`;
-}
-
-function applyContactFormSubmitterIdentity(email: NormalizedEmail): {
-  email: NormalizedEmail;
-  submitter: ContactFormSubmissionIdentity | null;
-} {
-  const submitter = extractContactFormSubmission(
-    email.subject,
-    email.bodyText || email.snippet || ""
-  );
-  if (!submitter) return { email, submitter: null };
-
+function syncIngestionOperatorIdentity(
+  connection: EmailConnection,
+  profile: SyncProfile,
+  authoritative?: OperatorIdentity
+): IngestionOperatorIdentity {
   return {
-    email: {
-      ...email,
-      from: mailboxHeader(submitter.email, submitter.name),
-      fromName: submitter.name ?? submitter.email,
-    },
-    submitter,
+    connectionEmail: connection.email,
+    userEmailAddresses: authoritative
+      ? [...authoritative.emails]
+      : profile.userEmailAddresses ?? [],
+    companyDomains: authoritative
+      ? [...authoritative.domains]
+      : profile.companyDomains ?? [],
+    teamForwarders: profile.teamForwarders ?? [],
+    knownPlatformSenders: profile.knownPlatformSenders ?? [],
   };
 }
 
@@ -862,6 +885,9 @@ async function applyPersonalMailboxAssignment(params: {
         expectedAssignmentVersion: params.assignmentVersion,
         expectedAssignedTo: params.assignedTo,
         providerThreadId: params.providerThreadId,
+        ingestionSource: params.mailboxAssignment.ingestionSource,
+        providerMutationsDisabled:
+          params.mailboxAssignment.providerMutationsDisabled,
       },
       requireSupabase()
     );
@@ -1443,9 +1469,10 @@ async function persistDeterministicEmailThreadState(
   opportunityId: string | null,
   direction: "inbound" | "outbound",
   skipThreadState = false,
-  messageIsNew = true
+  messageIsNew = true,
+  executionPolicy: EmailIngestionExecutionPolicy = NORMAL_EMAIL_INGESTION_POLICY
 ): Promise<void> {
-  if (skipThreadState) return;
+  if (skipThreadState || executionPolicy.suppressThreadState) return;
 
   try {
     const { threadRow, isNew } = await EmailThreadService.upsertFromEmail({
@@ -1567,7 +1594,8 @@ async function createActivity(
   connection: EmailConnection,
   opportunityId: string | null,
   direction: "inbound" | "outbound",
-  extra?: ActivityPersistenceOptions
+  extra?: ActivityPersistenceOptions,
+  executionPolicy: EmailIngestionExecutionPolicy = NORMAL_EMAIL_INGESTION_POLICY
 ): Promise<boolean> {
   const validation = validateProviderEmailIds({
     boundary: "sync_activity",
@@ -1624,6 +1652,7 @@ async function createActivity(
       email_thread_id: normalizedEmail.threadId,
       opportunity_id: opportunityId,
       direction,
+      provider_mutations_disabled: executionPolicy.providerMutationsDisabled,
       from_email: fromEmail,
       to_emails: toEmails,
       cc_emails: ccEmails,
@@ -1662,9 +1691,161 @@ async function createActivity(
     connection,
     opportunityId,
     direction,
-    extra?.skipThreadState
+    extra?.skipThreadState,
+    true,
+    executionPolicy
   );
   return true;
+}
+
+interface PersistInboundActivityResult {
+  persisted: boolean;
+  created: boolean;
+  activityId: string | null;
+}
+
+/**
+ * Create a new inbound activity or atomically adopt the exact scoped orphan
+ * left by a prior activity/event transaction seam. The guarded RPC owns the
+ * NULL -> target CAS and the first correspondence projection; the ordinary
+ * recorder is replayed afterwards to repair lifecycle high-water state.
+ */
+async function createOrAdoptInboundActivity(input: {
+  email: NormalizedEmail;
+  connection: EmailConnection;
+  opportunityId: string | null;
+  extra?: ActivityPersistenceOptions;
+  executionPolicy: EmailIngestionExecutionPolicy;
+  existingOrphanActivity: ExistingProviderActivity | null;
+  recoveryActorUserId: string | null;
+  syncLockOwner: string | null;
+}): Promise<PersistInboundActivityResult> {
+  if (!input.existingOrphanActivity) {
+    const created = await createActivity(
+      input.email,
+      input.connection,
+      input.opportunityId,
+      "inbound",
+      input.extra,
+      input.executionPolicy
+    );
+    if (!created) return { persisted: false, created: false, activityId: null };
+    const activity = await findExistingProviderActivity(
+      requireSupabase(),
+      input.connection,
+      input.email.id,
+      input.email.threadId
+    );
+    return {
+      persisted: true,
+      created: true,
+      activityId: activity?.id ?? null,
+    };
+  }
+
+  // A review/non-lead outcome deliberately leaves the durable orphan
+  // untouched. Never create a second activity for the same provider identity.
+  if (!input.opportunityId) {
+    return {
+      persisted: false,
+      created: false,
+      activityId: input.existingOrphanActivity.id ?? null,
+    };
+  }
+  if (!input.existingOrphanActivity.id || !input.syncLockOwner) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] exact orphan adoption identity is incomplete"
+    );
+  }
+
+  const profile = input.connection.syncFilters as Partial<SyncProfile> | null;
+  const fromEmail = extractSenderEmail(input.email.from);
+  const toEmails = input.email.to.map(extractSenderEmail);
+  const ccEmails = input.email.cc.map(extractSenderEmail);
+  const classification = classifyOpportunityCorrespondence({
+    direction: "inbound",
+    providerThreadId: input.email.threadId,
+    providerMessageId: input.email.id,
+    fromEmail,
+    fromName: input.email.fromName,
+    toEmails,
+    ccEmails,
+    subject: input.email.subject,
+    bodyText: input.email.bodyText,
+    labels: input.email.labelIds,
+    connectionEmail: input.connection.email,
+    companyDomains: profile?.companyDomains ?? [],
+    userEmailAddresses: profile?.userEmailAddresses ?? [],
+    knownPlatformSenders: profile?.knownPlatformSenders ?? [],
+    existingProviderMessageIds: [],
+  });
+
+  const { data, error } = await requireSupabase().rpc(
+    "adopt_orphan_email_activity_as_system",
+    {
+      p_actor_user_id: input.recoveryActorUserId,
+      p_company_id: input.connection.companyId,
+      p_connection_id: input.connection.id,
+      p_sync_lock_owner: input.syncLockOwner,
+      p_activity_id: input.existingOrphanActivity.id,
+      p_target_opportunity_id: input.opportunityId,
+      p_provider_thread_id: input.email.threadId,
+      p_provider_message_id: input.email.id,
+      p_ingestion_source: input.executionPolicy.assignmentIngestionSource,
+      p_match_confidence: input.extra?.matchConfidence ?? "ai",
+      p_party_role: classification.partyRole,
+      p_is_meaningful: classification.isMeaningful,
+      p_noise_reason: classification.noiseReason,
+      p_occurred_at: input.email.date.toISOString(),
+      p_subject: input.email.subject,
+      p_from_email: fromEmail,
+      p_to_emails: toEmails,
+      p_cc_emails: ccEmails,
+    }
+  );
+  if (error) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] orphan inbound adoption failed: ${error.message ?? "unknown error"}`
+    );
+  }
+  const adoption = (Array.isArray(data) ? data[0] : data) as
+    | Record<string, unknown>
+    | null;
+  if (
+    !adoption ||
+    adoption.activity_id !== input.existingOrphanActivity.id ||
+    adoption.opportunity_id !== input.opportunityId
+  ) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] orphan inbound adoption returned a conflicting identity"
+    );
+  }
+
+  // The adoption RPC inserted/projected the correspondence event in the same
+  // transaction. Replay the canonical service to idempotently advance the
+  // lifecycle high-water state that intentionally lives outside that RPC.
+  await recordActivityCorrespondenceEvent(
+    input.email,
+    input.connection,
+    input.opportunityId,
+    input.existingOrphanActivity.id,
+    "inbound"
+  );
+  await persistDeterministicEmailThreadState(
+    input.email,
+    input.connection,
+    input.opportunityId,
+    "inbound",
+    input.extra?.skipThreadState,
+    true,
+    input.executionPolicy
+  );
+
+  return {
+    persisted: true,
+    created: false,
+    activityId: input.existingOrphanActivity.id,
+  };
 }
 
 async function updateCorrespondenceCounts(
@@ -1676,30 +1857,25 @@ async function updateCorrespondenceCounts(
 ): Promise<void> {
   const supabase = requireSupabase();
 
-  // Apply the immutable provider event to the opportunity projection exactly
-  // once. The event row is the retry latch: if a later write fails, the same
-  // provider message can be replayed without skipping or double-incrementing.
-  const { data: updated, error: rpcError } = await supabase.rpc(
-    "apply_opportunity_correspondence_event",
-    {
-      p_company_id: connection.companyId,
-      p_opportunity_id: opportunityId,
-      p_connection_id: connection.id,
-      p_provider_message_id: email.id,
-    }
-  );
+  // recordActivityCorrespondenceEvent has already inserted the immutable event
+  // and projected its counters in one database transaction. Read the locked
+  // projection that transaction committed; never reopen the old two-RPC seam
+  // that could strand a durable event with pending counters. A retry records
+  // the same provider identity idempotently (and repairs any legacy pending
+  // row) before reaching this read again.
+  const { data: row, error: projectionReadError } = await supabase
+    .from("opportunities")
+    .select(
+      "correspondence_count, inbound_count, outbound_count, stage, stage_manually_set, assignment_version, last_inbound_at, last_outbound_at, last_message_direction"
+    )
+    .eq("id", opportunityId)
+    .eq("company_id", connection.companyId)
+    .is("deleted_at", null)
+    .maybeSingle();
 
-  if (rpcError || !updated) {
+  if (projectionReadError || !row) {
     throw new Error(
-      `[sync-engine] correspondence projection failed for ${opportunityId}: ${rpcError?.message ?? "RPC returned no rows"}`
-    );
-  }
-
-  // RPC returns a single-row table — Supabase shapes that as an array.
-  const row = Array.isArray(updated) ? updated[0] : updated;
-  if (!row) {
-    throw new Error(
-      `[sync-engine] correspondence projection returned no opportunity for ${opportunityId}`
+      `[sync-engine] correspondence projection read failed for ${opportunityId}: ${projectionReadError?.message ?? "opportunity not found"}`
     );
   }
 
@@ -1770,9 +1946,11 @@ async function applyLabel(
   threadId: string,
   connection: EmailConnection,
   result: SyncCycleResult,
-  providerLockCheckpoint: EmailProviderMailboxCheckpoint
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint,
+  executionPolicy: EmailIngestionExecutionPolicy = NORMAL_EMAIL_INGESTION_POLICY
 ): Promise<void> {
-  if (!connection.opsLabelId) return;
+  if (executionPolicy.providerMutationsDisabled || !connection.opsLabelId)
+    return;
   await providerLockCheckpoint();
   try {
     const provider = EmailService.getProvider(connection);
@@ -1800,7 +1978,7 @@ async function applyLabel(
  * guard runs BEFORE the (heavier) state build to skip the common no-op case.
  */
 async function maybeAutoAdvanceOnAccept(args: {
-  providerThreadId: string;
+  providerThreadId: string | null;
   opportunityId: string;
   connection: EmailConnection;
   result: SyncCycleResult;
@@ -1843,12 +2021,18 @@ async function maybeAutoAdvanceOnAccept(args: {
     // park self-heals by the next cycle instead of hot-looping (2026-07-22).
     const evaluation = await withSerializationRetry(
       () =>
-        evaluateOpportunityAcceptance({
-          supabase,
-          providerThreadId,
-          opportunityId,
-          connection,
-        }),
+        providerThreadId
+          ? evaluateOpportunityAcceptance({
+              supabase,
+              providerThreadId,
+              opportunityId,
+              connection,
+            })
+          : evaluateOpportunityCommercialOutcome({
+              supabase,
+              opportunityId,
+              connection,
+            }),
       {
         label: `accept evaluation for opportunity ${opportunityId}`,
         onRetry: ({ attempt, maxAttempts, delayMs, error }) =>
@@ -2079,9 +2263,10 @@ async function findExistingProviderActivity(
   }
   if (exact[0]) return exact[0];
 
-  // Legacy activities predate email_connection_id. Never infer ownership from
-  // a same-company opaque ID alone: require an immutable correspondence event,
-  // an opportunity-thread link, or the deterministic email_threads row.
+  // Legacy activities predate email_connection_id. Read-side thread evidence
+  // may identify a candidate, but it never authorizes the write: the guarded
+  // claim RPC below must lock the row and re-prove its exact correspondence
+  // event before assigning the mailbox identity.
   const legacy = rows.filter((row) => !row.email_connection_id);
   const matchingLegacy: ExistingProviderActivity[] = [];
   let hasUnknownLegacy = false;
@@ -2101,24 +2286,33 @@ async function findExistingProviderActivity(
     );
   }
   if (matchingLegacy[0]) {
-    const { data: claimedRows, error: claimError } = await supabase
-      .from("activities")
-      .update({ email_connection_id: connection.id })
-      .eq("id", matchingLegacy[0].id)
-      .eq("company_id", connection.companyId)
-      .is("email_connection_id", null)
-      .select("id, email_connection_id");
+    const legacyActivity = matchingLegacy[0];
+    if (!legacyActivity.id) {
+      throw new Error(
+        `[sync-engine] proven legacy activity has no durable identity for ${providerMessageId}`
+      );
+    }
+    const { data: claimed, error: claimError } = await supabase.rpc(
+      "claim_legacy_email_activity_connection_as_system",
+      {
+        p_company_id: connection.companyId,
+        p_connection_id: connection.id,
+        p_activity_id: legacyActivity.id,
+        p_provider_thread_id: providerThreadId,
+        p_provider_message_id: providerMessageId,
+      }
+    );
     if (claimError) {
       throw new Error(
         `[sync-engine] legacy activity connection claim failed: ${claimError.message ?? "unknown error"}`
       );
     }
-    if (!Array.isArray(claimedRows) || claimedRows.length !== 1) {
+    if (claimed !== true) {
       throw new Error(
         `[sync-engine] legacy activity connection claim lost a concurrent race for ${providerMessageId}`
       );
     }
-    return { ...matchingLegacy[0], email_connection_id: connection.id };
+    return { ...legacyActivity, email_connection_id: connection.id };
   }
   if (hasUnknownLegacy) {
     throw new Error(
@@ -2137,6 +2331,7 @@ interface UnmatchedInboundContext {
   contactFormSubmitter: ContactFormSubmissionIdentity | null;
   enrichmentFacts: LeadEnrichmentFacts;
   resolvedContact: ResolvedContact;
+  existingOrphanActivity: ExistingProviderActivity | null;
 }
 
 /** Returns the sanitized context only when no deterministic branch claimed it. */
@@ -2146,7 +2341,11 @@ async function processInboundEmail(
   profile: SyncProfile,
   followUpDaysCache: Map<string, number>,
   result: SyncCycleResult,
-  providerLockCheckpoint: EmailProviderMailboxCheckpoint
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint,
+  ingestionOperator: IngestionOperatorIdentity,
+  executionPolicy: EmailIngestionExecutionPolicy = NORMAL_EMAIL_INGESTION_POLICY,
+  recoveryActorUserId: string | null = null,
+  syncLockOwner: string | null = null
 ): Promise<UnmatchedInboundContext | null> {
   const normalizedEmail = normalizeProviderBackedEmailForSync(
     email,
@@ -2165,13 +2364,23 @@ async function processInboundEmail(
     email.id,
     email.threadId
   );
-  if (existingActivity) {
-    const { email: effectiveExistingEmail, submitter: existingSubmitter } =
-      applyContactFormSubmitterIdentity(email);
-    const existingRoutingIdentity = buildLeadRoutingIdentity(email, {
-      provider: connection.provider,
-      connectionId: connection.id,
-    });
+  if (existingActivity?.opportunity_id) {
+    const existingOpportunityId = existingActivity.opportunity_id;
+    const {
+      email: effectiveExistingEmail,
+      contactFormSubmitter: existingSubmitter,
+    } = applyInboundEffectiveSenderIdentity(
+      email,
+      ingestionOperator
+    );
+    const existingRoutingIdentity = buildLeadRoutingIdentity(
+      email,
+      {
+        provider: connection.provider,
+        connectionId: connection.id,
+      },
+      ingestionOperator
+    );
     const existingEnrichmentFacts = leadEnrichmentFactsFromEmail({
       email,
       direction: "inbound",
@@ -2197,11 +2406,10 @@ async function processInboundEmail(
     }
 
     if (
-      existingActivity.opportunity_id &&
       existingRoutingIdentity.mayInheritProviderThread
     ) {
       await linkThread(
-        existingActivity.opportunity_id,
+        existingOpportunityId,
         email.threadId,
         connection.id
       );
@@ -2209,51 +2417,56 @@ async function processInboundEmail(
     await persistDeterministicEmailThreadState(
       effectiveExistingEmail,
       connection,
-      existingActivity.opportunity_id ?? null,
+      existingOpportunityId,
       "inbound",
-      existingRoutingIdentity.isContactFormSubmission,
-      false
+      !existingRoutingIdentity.mayInheritProviderThread,
+      false,
+      executionPolicy
     );
-    if (existingActivity.opportunity_id) {
-      await applyCanonicalLeadEnrichment({
-        supabase,
-        opportunityId: existingActivity.opportunity_id,
-        facts: existingEnrichmentFacts,
-        companyId: connection.companyId,
-      });
-    }
+    await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: existingOpportunityId,
+      facts: existingEnrichmentFacts,
+      companyId: connection.companyId,
+    });
     await recordActivityCorrespondenceEvent(
       effectiveExistingEmail,
       connection,
-      existingActivity.opportunity_id ?? null,
+      existingOpportunityId,
       existingActivity.id ?? null,
       "inbound"
     );
-    if (existingActivity.opportunity_id) {
-      await updateCorrespondenceCounts(
-        existingActivity.opportunity_id,
-        effectiveExistingEmail,
-        connection,
-        followUpDaysCache,
-        result
-      );
-    }
+    await updateCorrespondenceCounts(
+      existingOpportunityId,
+      effectiveExistingEmail,
+      connection,
+      followUpDaysCache,
+      result
+    );
     return null;
   }
 
-  const { email: effectiveEmail, submitter: contactFormSubmitter } =
-    applyContactFormSubmitterIdentity(email);
-  const routingIdentity = buildLeadRoutingIdentity(email, {
-    provider: connection.provider,
-    connectionId: connection.id,
-  });
-  const activityRoutingExtra = routingIdentity.isContactFormSubmission
+  const { email: effectiveEmail, contactFormSubmitter } =
+    applyInboundEffectiveSenderIdentity(
+      email,
+      ingestionOperator
+    );
+  const routingIdentity = buildLeadRoutingIdentity(
+    email,
+    {
+      provider: connection.provider,
+      connectionId: connection.id,
+    },
+    ingestionOperator
+  );
+  const activityRoutingExtra = !routingIdentity.mayInheritProviderThread
     ? { skipThreadState: true }
     : undefined;
   const linkInboundThread = (opportunityId: string) =>
     routingIdentity.mayInheritProviderThread
       ? linkThread(opportunityId, email.threadId, connection.id)
       : Promise.resolve(true);
+  const existingOrphanActivity = existingActivity ?? null;
   const inboundEnrichmentFacts = leadEnrichmentFactsFromEmail({
     email,
     direction: "inbound",
@@ -2289,13 +2502,16 @@ async function processInboundEmail(
     : null;
 
   if (threadOpportunity) {
-    const activityCreated = await createActivity(
-      effectiveEmail,
+    const activityPersistence = await createOrAdoptInboundActivity({
+      email: effectiveEmail,
       connection,
-      threadOpportunity.opportunityId,
-      "inbound"
-    );
-    if (!activityCreated) return null;
+      opportunityId: threadOpportunity.opportunityId,
+      executionPolicy,
+      existingOrphanActivity,
+      recoveryActorUserId,
+      syncLockOwner,
+    });
+    if (!activityPersistence.persisted) return null;
     await applyCanonicalLeadEnrichment({
       supabase,
       opportunityId: threadOpportunity.opportunityId,
@@ -2314,24 +2530,27 @@ async function processInboundEmail(
       email.threadId,
       connection,
       result,
-      providerLockCheckpoint
+      providerLockCheckpoint,
+      executionPolicy
     );
-    result.activitiesCreated++;
+    if (activityPersistence.created) result.activitiesCreated++;
     result.matched++;
 
     // ── S2.3: Reschedule request detection (fire-and-forget) ───────────
     // Looks up the just-created activity row and runs the reschedule
     // classifier (phase_c gated + heuristic + GPT). Never blocks sync.
-    maybeDetectRescheduleRequest(
-      effectiveEmail,
-      connection,
-      threadOpportunity.opportunityId
-    ).catch((err) =>
-      console.error(
-        "[sync-engine] Reschedule detection error (non-fatal):",
-        err
-      )
-    );
+    if (!executionPolicy.providerMutationsDisabled) {
+      maybeDetectRescheduleRequest(
+        effectiveEmail,
+        connection,
+        threadOpportunity.opportunityId
+      ).catch((err) =>
+        console.error(
+          "[sync-engine] Reschedule detection error (non-fatal):",
+          err
+        )
+      );
+    }
 
     return null;
   }
@@ -2416,17 +2635,20 @@ async function processInboundEmail(
 
       const linked = await linkInboundThread(oppId);
       if (!linked) return null;
-      const activityCreated = await createActivity(
-        effectiveEmail,
+      const activityPersistence = await createOrAdoptInboundActivity({
+        email: effectiveEmail,
         connection,
-        oppId,
-        "inbound",
-        {
+        opportunityId: oppId,
+        extra: {
           matchConfidence: relationshipDecision.confidence,
           ...activityRoutingExtra,
-        }
-      );
-      if (!activityCreated) return null;
+        },
+        executionPolicy,
+        existingOrphanActivity,
+        recoveryActorUserId,
+        syncLockOwner,
+      });
+      if (!activityPersistence.persisted) return null;
       await updateCorrespondenceCounts(
         oppId,
         effectiveEmail,
@@ -2438,10 +2660,11 @@ async function processInboundEmail(
         email.threadId,
         connection,
         result,
-        providerLockCheckpoint
+        providerLockCheckpoint,
+        executionPolicy
       );
       result.matched++;
-      result.activitiesCreated++;
+      if (activityPersistence.created) result.activitiesCreated++;
 
       return null;
     }
@@ -2463,7 +2686,10 @@ async function processInboundEmail(
           unsafe: syncTitleUnsafeIdentity(connection, profile),
           enrichmentFacts: inboundEnrichmentFacts,
           sourceKey: routingIdentity.sourceKey,
-          mailboxAssignment: mailboxAssignmentContext(connection),
+          mailboxAssignment: mailboxAssignmentContext(
+            connection,
+            executionPolicy
+          ),
         }
       );
       const oppId = opportunity.id;
@@ -2471,14 +2697,17 @@ async function processInboundEmail(
 
       const linked = await linkInboundThread(oppId);
       if (!linked) return null;
-      const activityCreated = await createActivity(
-        effectiveEmail,
+      const activityPersistence = await createOrAdoptInboundActivity({
+        email: effectiveEmail,
         connection,
-        oppId,
-        "inbound",
-        activityRoutingExtra
-      );
-      if (!activityCreated) return null;
+        opportunityId: oppId,
+        extra: activityRoutingExtra,
+        executionPolicy,
+        existingOrphanActivity,
+        recoveryActorUserId,
+        syncLockOwner,
+      });
+      if (!activityPersistence.persisted) return null;
       await updateCorrespondenceCounts(
         oppId,
         effectiveEmail,
@@ -2490,25 +2719,28 @@ async function processInboundEmail(
         email.threadId,
         connection,
         result,
-        providerLockCheckpoint
+        providerLockCheckpoint,
+        executionPolicy
       );
       result.newLeads++;
-      result.activitiesCreated++;
+      if (activityPersistence.created) result.activitiesCreated++;
 
       // ── P1: Suggest project creation for new leads (fire-and-forget) ──
       // The lead's current assignee — never the mailbox connector — owns the
       // proposal. Unassigned/inaccessible leads produce no user action.
-      maybeSuggestProjectForAssignedActor({
-        email: effectiveEmail,
-        connection,
-        clientId,
-        opportunityId: oppId,
-      }).catch((err) =>
-        console.error(
-          "[sync-engine] Project suggestion error (non-fatal):",
-          err
-        )
-      );
+      if (!executionPolicy.providerMutationsDisabled) {
+        maybeSuggestProjectForAssignedActor({
+          email: effectiveEmail,
+          connection,
+          clientId,
+          opportunityId: oppId,
+        }).catch((err) =>
+          console.error(
+            "[sync-engine] Project suggestion error (non-fatal):",
+            err
+          )
+        );
+      }
     } else if (
       matchResult.action === "link" ||
       matchResult.action === "create_subclient"
@@ -2519,7 +2751,7 @@ async function processInboundEmail(
         unsafe: syncTitleUnsafeIdentity(connection, profile),
         enrichmentFacts: inboundEnrichmentFacts,
         sourceKey: routingIdentity.sourceKey,
-        mailboxAssignment: mailboxAssignmentContext(connection),
+        mailboxAssignment: mailboxAssignmentContext(connection, executionPolicy),
       };
       const opportunity = relationshipDecisionRequiresNewOpportunity
         ? await createOpportunity(
@@ -2563,14 +2795,17 @@ async function processInboundEmail(
 
       const linked = await linkInboundThread(oppId);
       if (!linked) return null;
-      const activityCreated = await createActivity(
-        effectiveEmail,
+      const activityPersistence = await createOrAdoptInboundActivity({
+        email: effectiveEmail,
         connection,
-        oppId,
-        "inbound",
-        activityRoutingExtra
-      );
-      if (!activityCreated) return null;
+        opportunityId: oppId,
+        extra: activityRoutingExtra,
+        executionPolicy,
+        existingOrphanActivity,
+        recoveryActorUserId,
+        syncLockOwner,
+      });
+      if (!activityPersistence.persisted) return null;
       await updateCorrespondenceCounts(
         oppId,
         effectiveEmail,
@@ -2582,37 +2817,41 @@ async function processInboundEmail(
         email.threadId,
         connection,
         result,
-        providerLockCheckpoint
+        providerLockCheckpoint,
+        executionPolicy
       );
       if (relationshipDecisionRequiresNewOpportunity) {
         result.newLeads++;
       } else {
         result.matched++;
       }
-      result.activitiesCreated++;
+      if (activityPersistence.created) result.activitiesCreated++;
     } else if (matchResult.action === "review") {
-      const activityCreated = await createActivity(
-        effectiveEmail,
+      const activityPersistence = await createOrAdoptInboundActivity({
+        email: effectiveEmail,
         connection,
-        null,
-        "inbound",
-        {
+        opportunityId: null,
+        extra: {
           matchNeedsReview: true,
           suggestedClientId: matchResult.suggestedClientId,
           matchConfidence: matchResult.confidence,
           ...activityRoutingExtra,
-        }
-      );
-      if (!activityCreated) return null;
+        },
+        executionPolicy,
+        existingOrphanActivity,
+        recoveryActorUserId,
+        syncLockOwner,
+      });
+      if (!activityPersistence.persisted) return null;
       result.needsReview++;
-      result.activitiesCreated++;
+      if (activityPersistence.created) result.activitiesCreated++;
     }
     return null; // Matched by a deterministic rule.
   }
 
   // Unmatched — upsert into email_threads so it appears in inbox,
   // then send to AI classification if feature-gated.
-  if (routingIdentity.isContactFormSubmission) {
+  if (!routingIdentity.mayInheritProviderThread) {
     return {
       email,
       effectiveEmail,
@@ -2620,6 +2859,19 @@ async function processInboundEmail(
       contactFormSubmitter,
       enrichmentFacts: inboundEnrichmentFacts,
       resolvedContact: resolvedInboundContact,
+      existingOrphanActivity,
+    };
+  }
+
+  if (executionPolicy.suppressThreadState) {
+    return {
+      email,
+      effectiveEmail,
+      routingIdentity,
+      contactFormSubmitter,
+      enrichmentFacts: inboundEnrichmentFacts,
+      resolvedContact: resolvedInboundContact,
+      existingOrphanActivity,
     };
   }
 
@@ -2643,7 +2895,264 @@ async function processInboundEmail(
     contactFormSubmitter,
     enrichmentFacts: inboundEnrichmentFacts,
     resolvedContact: resolvedInboundContact,
+    existingOrphanActivity,
   };
+}
+
+async function persistAIClassifiedUnmatchedInbound(input: {
+  contexts: UnmatchedInboundContext[];
+  connection: EmailConnection;
+  profile: SyncProfile;
+  companyName: string;
+  companyIndustry: string;
+  followUpDaysCache: Map<string, number>;
+  result: SyncCycleResult;
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint;
+  executionPolicy: EmailIngestionExecutionPolicy;
+  recoveryActorUserId: string | null;
+  syncLockOwner: string | null;
+}): Promise<void> {
+  if (input.contexts.length === 0) return;
+
+  await input.providerLockCheckpoint(true);
+  const unmatchedContextByIdentity = new Map(
+    input.contexts.map((context) => [
+      `${context.email.threadId}\u0000${context.email.id}`,
+      context,
+    ])
+  );
+  const aiResult = await AISyncReviewer.reviewUnmatchedEmails(
+    input.contexts.map((context) => context.email),
+    input.connection,
+    {
+      name: input.companyName,
+      industry: input.companyIndustry,
+      domains: input.profile.companyDomains || [],
+    }
+  );
+
+  for (const classified of aiResult.classifiedLeads) {
+    await input.providerLockCheckpoint();
+    try {
+      const classifiedEmail = normalizeProviderBackedEmailForSync(
+        classified.email,
+        input.connection,
+        input.result,
+        "sync_ai_classified_lead"
+      );
+      const context = unmatchedContextByIdentity.get(
+        `${classifiedEmail.threadId}\u0000${classifiedEmail.id}`
+      );
+      if (!context) {
+        throw new Error(
+          "AI reviewer returned a message outside the sanitized unmatched set"
+        );
+      }
+      const {
+        effectiveEmail,
+        routingIdentity,
+        contactFormSubmitter,
+        enrichmentFacts: deterministicFacts,
+        existingOrphanActivity,
+      } = context;
+      const classifiedStageReview = coerceAIStageForOpportunityPersistence(
+        classified.stage,
+        classified.terminalFlag
+      );
+
+      const matchResult = await EmailMatchingServiceV2.match(
+        input.connection.companyId,
+        deterministicFacts.contactEmail ?? "",
+        {
+          ...(routingIdentity.mayInheritProviderThread
+            ? {
+                threadId: routingIdentity.providerThreadId,
+                connectionId: input.connection.id,
+              }
+            : {}),
+          name: deterministicFacts.contactName ?? undefined,
+        }
+      );
+
+      const aiSupplementalFacts = leadEnrichmentFactsFromImport({
+        contactName: null,
+        contactEmail: null,
+        contactPhone: null,
+        address: null,
+        estimatedValue:
+          deterministicFacts.estimatedValue == null
+            ? classified.estimatedValue
+            : null,
+        description:
+          deterministicFacts.description == null
+            ? classified.description
+            : null,
+        providerThreadId: classifiedEmail.threadId,
+        providerMessageId: classifiedEmail.id,
+        extractionSource: "ai_classified",
+        aiConfidence: classified.confidence,
+      });
+
+      const relationshipDecision = await findOpportunityRelationshipMatch({
+        supabase: requireSupabase(),
+        companyId: input.connection.companyId,
+        connectionId: input.connection.id,
+        providerThreadId: routingIdentity.mayInheritProviderThread
+          ? classifiedEmail.threadId
+          : null,
+        clientId: matchResult.clientId,
+        facts: opportunityRelationshipFactsFromLeadEnrichment(
+          deterministicFacts,
+          effectiveEmail,
+          input.connection,
+          input.profile,
+          await getCachedOperatorIdentity(input.connection)
+        ),
+      });
+
+      let clientId =
+        matchResult.action === "link" ||
+        matchResult.action === "create_subclient"
+          ? matchResult.clientId!
+          : null;
+      let oppId: string;
+      let opportunityCreated = false;
+
+      if (relationshipDecision.action === "link") {
+        oppId = relationshipDecision.opportunityId;
+        clientId = relationshipDecision.clientId;
+      } else {
+        clientId ??= await createClient(
+          effectiveEmail,
+          input.connection.companyId,
+          contactFormSubmitter,
+          deterministicFacts
+        );
+        const opportunity = await createOpportunity(
+          effectiveEmail,
+          clientId,
+          input.connection.companyId,
+          classifiedStageReview.stage,
+          {
+            candidates: [
+              {
+                source: "contact",
+                name: deterministicFacts.contactName,
+                email: deterministicFacts.contactEmail,
+              },
+            ],
+            unsafe: syncTitleUnsafeIdentity(input.connection, input.profile),
+            enrichmentFacts: deterministicFacts,
+            sourceKey: routingIdentity.sourceKey,
+            mailboxAssignment: mailboxAssignmentContext(
+              input.connection,
+              input.executionPolicy
+            ),
+            aiStageReview: {
+              terminalFlag: classifiedStageReview.terminalFlag,
+              confidence: classified.confidence,
+            },
+          }
+        );
+        oppId = opportunity.id;
+        clientId = opportunity.clientId;
+        opportunityCreated = opportunity.created;
+      }
+
+      if (!opportunityCreated) {
+        await persistAIStageReviewProvenance({
+          opportunityId: oppId,
+          companyId: input.connection.companyId,
+          terminalFlag: classifiedStageReview.terminalFlag,
+          confidence: classified.confidence,
+        });
+      }
+
+      await applyCanonicalLeadEnrichment({
+        supabase: requireSupabase(),
+        opportunityId: oppId,
+        clientId,
+        facts: deterministicFacts,
+        companyId: input.connection.companyId,
+      });
+      if (
+        aiSupplementalFacts.estimatedValue != null ||
+        aiSupplementalFacts.description != null
+      ) {
+        await applyCanonicalLeadEnrichment({
+          supabase: requireSupabase(),
+          opportunityId: oppId,
+          clientId,
+          facts: aiSupplementalFacts,
+          companyId: input.connection.companyId,
+        });
+      }
+
+      const subClientIdentity = subClientIdentityFromFacts(deterministicFacts);
+      if (
+        matchResult.action === "create_subclient" &&
+        clientId &&
+        matchResult.clientId === clientId &&
+        subClientIdentity
+      ) {
+        await createSubClient(
+          effectiveEmail,
+          clientId,
+          input.connection.companyId,
+          subClientIdentity
+        );
+      }
+
+      const linked = routingIdentity.mayInheritProviderThread
+        ? await linkThread(
+            oppId,
+            classifiedEmail.threadId,
+            input.connection.id
+          )
+        : true;
+      if (!linked) continue;
+      const activityPersistence = await createOrAdoptInboundActivity({
+        email: effectiveEmail,
+        connection: input.connection,
+        opportunityId: oppId,
+        extra: {
+          matchConfidence:
+            relationshipDecision.action === "link"
+              ? relationshipDecision.confidence
+              : "ai",
+          ...(!routingIdentity.mayInheritProviderThread
+            ? { skipThreadState: true }
+            : {}),
+        },
+        executionPolicy: input.executionPolicy,
+        existingOrphanActivity,
+        recoveryActorUserId: input.recoveryActorUserId,
+        syncLockOwner: input.syncLockOwner,
+      });
+      if (!activityPersistence.persisted) continue;
+      await updateCorrespondenceCounts(
+        oppId,
+        effectiveEmail,
+        input.connection,
+        input.followUpDaysCache,
+        input.result
+      );
+      await applyLabel(
+        classifiedEmail.threadId,
+        input.connection,
+        input.result,
+        input.providerLockCheckpoint,
+        input.executionPolicy
+      );
+      if (activityPersistence.created) input.result.activitiesCreated++;
+    } catch (err) {
+      throw new LifecyclePersistenceError(
+        `[sync-engine] failed to persist AI-classified lead ${classified.clientEmail}: ${err instanceof Error ? err.message : "unknown error"}`
+      );
+    }
+  }
+
+  input.result.newLeads += aiResult.newLeadsClassified;
 }
 
 async function processSentEmail(
@@ -2661,10 +3170,14 @@ async function processSentEmail(
     "sync_sent_email"
   );
   email = normalizedEmail;
-  const routingIdentity = buildLeadRoutingIdentity(email, {
-    provider: connection.provider,
-    connectionId: connection.id,
-  });
+  const routingIdentity = buildLeadRoutingIdentity(
+    email,
+    {
+      provider: connection.provider,
+      connectionId: connection.id,
+    },
+    syncIngestionOperatorIdentity(connection, profile)
+  );
 
   const supabase = requireSupabase();
   const operatorIdentity = await getCachedOperatorIdentity(connection);
@@ -3293,6 +3806,426 @@ async function maybeDetectRescheduleRequest(
 
 export const SyncEngine = {
   /**
+   * Persist one exact provider message that was already fetched by the guarded
+   * recovery reader. This deliberately reuses canonical matching, enrichment,
+   * assignment, stage, and summary logic while disabling every provider-side
+   * mutation and leaving the mailbox cursor untouched.
+   */
+  async ingestExactInboundMessageForRecovery(input: {
+    actorUserId: string;
+    companyId: string;
+    connectionId: string;
+    email: NormalizedEmail;
+  }): Promise<SyncCycleResult> {
+    const connection = await EmailService.getConnection(input.connectionId);
+    if (!connection || connection.status !== "active") {
+      return { ...emptyResult(), errors: ["Connection not active"] };
+    }
+    if (connection.companyId !== input.companyId) {
+      return {
+        ...emptyResult(),
+        errors: ["Connection belongs to another company"],
+      };
+    }
+
+    const { data: ingestAuthorized, error: ingestAuthorizationError } =
+      await requireSupabase().rpc(
+        "authorize_email_exact_message_ingest_as_system",
+        {
+          p_actor_user_id: input.actorUserId,
+          p_company_id: input.companyId,
+          p_connection_id: connection.id,
+        }
+      );
+    if (ingestAuthorizationError || ingestAuthorized !== true) {
+      return {
+        ...emptyResult(),
+        errors: ["Recovery actor lacks mailbox or pipeline ingest authority"],
+      };
+    }
+
+    const result = emptyResult();
+    const profile: SyncProfile = { ...(connection.syncFilters as SyncProfile) };
+    const followUpDaysCache = new Map<string, number>();
+    const syncLockOwner = await acquireEmailConnectionSyncLock(
+      connection.id,
+      SYNC_LOCK_CONTEXT
+    );
+    if (!syncLockOwner) {
+      return {
+        ...emptyResult(),
+        errors: ["Sync already in progress for this connection"],
+      };
+    }
+    const renewSyncLeaseIfNeeded = createEmailConnectionSyncLockRenewer({
+      connectionId: connection.id,
+      ownerId: syncLockOwner,
+      context: SYNC_LOCK_CONTEXT,
+    });
+
+    try {
+      profile.internalPhones = [
+        ...(profile.internalPhones ?? []),
+        ...(await loadInternalPhonesForCompany(connection.companyId)),
+      ];
+
+      const authoritativeOperator =
+        await getCachedOperatorIdentity(connection);
+      const ingestionOperator = syncIngestionOperatorIdentity(
+        connection,
+        profile,
+        authoritativeOperator
+      );
+      const direction = resolvePersistedEmailDirection(
+        input.email,
+        ingestionOperator
+      );
+      if (direction !== "inbound") {
+        throw new LifecyclePersistenceError(
+          "[sync-engine] exact recovery message is not a canonical inbound message"
+        );
+      }
+
+      const blocklist = await EmailFilterService.buildBlocklist(
+        profile as unknown as GmailSyncFilters
+      );
+      const { email: effectiveFilterEmail } =
+        applyInboundEffectiveSenderIdentity(input.email, ingestionOperator);
+      if (
+        EmailFilterService.shouldFilter(
+          extractSenderEmail(effectiveFilterEmail.from),
+          effectiveFilterEmail.subject,
+          blocklist,
+          profile as unknown as GmailSyncFilters,
+          effectiveFilterEmail.labelIds,
+          effectiveFilterEmail.bodyText
+        )
+      ) {
+        throw new LifecyclePersistenceError(
+          "[sync-engine] exact recovery message is blocked by current email filters"
+        );
+      }
+
+      await renewSyncLeaseIfNeeded(true);
+      const unmatched = await processInboundEmail(
+        input.email,
+        connection,
+        profile,
+        followUpDaysCache,
+        result,
+        renewSyncLeaseIfNeeded,
+        ingestionOperator,
+        EXACT_MESSAGE_RECOVERY_POLICY,
+        input.actorUserId,
+        syncLockOwner
+      );
+      if (unmatched) {
+        const { data: company, error: companyError } = await requireSupabase()
+          .from("companies")
+          .select("name, industry")
+          .eq("id", connection.companyId)
+          .single();
+        if (companyError) {
+          throw new LifecyclePersistenceError(
+            `[sync-engine] exact recovery company context failed: ${companyError.message ?? "unknown error"}`
+          );
+        }
+        await persistAIClassifiedUnmatchedInbound({
+          contexts: [unmatched],
+          connection,
+          profile,
+          companyName: (company?.name as string) || "",
+          companyIndustry: (company?.industry as string) || "trades",
+          followUpDaysCache,
+          result,
+          providerLockCheckpoint: renewSyncLeaseIfNeeded,
+          executionPolicy: EXACT_MESSAGE_RECOVERY_POLICY,
+          recoveryActorUserId: input.actorUserId,
+          syncLockOwner,
+        });
+      }
+
+      const activity = await findExistingProviderActivity(
+        requireSupabase(),
+        connection,
+        input.email.id,
+        input.email.threadId
+      );
+      if (!activity?.opportunity_id) {
+        throw new LifecyclePersistenceError(
+          "[sync-engine] exact recovery message has no canonical opportunity"
+        );
+      }
+
+      const routingIdentity = buildLeadRoutingIdentity(
+        input.email,
+        {
+          provider: connection.provider,
+          connectionId: connection.id,
+        },
+        ingestionOperator
+      );
+      if (routingIdentity.mayInheritProviderThread) {
+        const { email: effectiveEmail } = applyInboundEffectiveSenderIdentity(
+          input.email,
+          ingestionOperator
+        );
+        // Recovery suppresses the normal background classifier/router, but a
+        // durable internal thread is still required by the guarded commercial
+        // outcome evaluator. Upsert only; do not schedule Phase C.
+        const { threadRow } = await EmailThreadService.upsertFromEmail({
+          companyId: connection.companyId,
+          connectionId: connection.id,
+          providerThreadId: input.email.threadId,
+          email: effectiveEmail,
+          direction: "inbound",
+          opportunityId: activity.opportunity_id,
+          markClassificationDirty: false,
+        });
+        await EmailThreadService.refreshSummaryOnly(threadRow);
+      }
+      await maybeAutoAdvanceOnAccept({
+        providerThreadId: routingIdentity.mayInheritProviderThread
+          ? input.email.threadId
+          : null,
+        opportunityId: activity.opportunity_id,
+        connection,
+        result,
+      });
+
+      const summaryRefresh = await refreshLeadSummariesForOpportunities({
+        supabase: requireSupabase(),
+        companyId: connection.companyId,
+        opportunityIds: [activity.opportunity_id],
+      });
+      if (
+        summaryRefresh.skippedFeatureDisabled ||
+        summaryRefresh.failed.length > 0 ||
+        summaryRefresh.requested !== 1 ||
+        summaryRefresh.written !== 1
+      ) {
+        throw new LifecyclePersistenceError(
+          `[sync-engine] exact recovery summary refresh incomplete: requested=${summaryRefresh.requested} written=${summaryRefresh.written} feature_disabled=${summaryRefresh.skippedFeatureDisabled} failures=${summaryRefresh.failed
+            .map((failure) => `${failure.opportunityId}: ${failure.error}`)
+            .join("; ")}`
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[sync-engine] Error recovering exact message ${input.email.id}:`,
+        error
+      );
+      result.errors.push(
+        error instanceof Error ? error.message : "Unknown error"
+      );
+    } finally {
+      await renewSyncLeaseIfNeeded.stop().catch(() => {});
+      await releaseEmailConnectionSyncLock(
+        connection.id,
+        syncLockOwner,
+        SYNC_LOCK_CONTEXT
+      );
+    }
+
+    return result;
+  },
+
+  /**
+   * Finish the deterministic projections after the guarded exact-message RPC
+   * moves one already-ingested message. This method has no provider transport
+   * dependency: it re-authorizes both lead scopes, proves exact target
+   * ownership, evaluates the target's complete commercial history, and
+   * refreshes both affected summaries under the mailbox sync lock.
+   */
+  async repairExactReparentedMessageForRecovery(
+    input: EmailExactMessageRecoveryReparentRepairInput
+  ): Promise<void> {
+    const connection = await EmailService.getConnection(input.connectionId);
+    if (
+      !connection ||
+      connection.status !== "active" ||
+      connection.companyId !== input.companyId
+    ) {
+      throw new LifecyclePersistenceError(
+        "[sync-engine] exact reparent repair connection is not active for this company"
+      );
+    }
+    if (
+      input.message.id !== input.entry.providerMessageId ||
+      input.message.threadId !== input.entry.providerThreadId
+    ) {
+      throw new LifecyclePersistenceError(
+        "[sync-engine] exact reparent repair provider identity changed"
+      );
+    }
+
+    const supabase = requireSupabase();
+    const { data: inboxAuthorized, error: inboxAuthorizationError } =
+      await supabase.rpc("authorize_email_inbox_action_as_system", {
+        p_actor_user_id: input.actorUserId,
+        p_connection_id: input.connectionId,
+        p_opportunity_id: null,
+        p_action: "view",
+      });
+    if (inboxAuthorizationError || inboxAuthorized !== true) {
+      throw new LifecyclePersistenceError(
+        "[sync-engine] exact reparent repair mailbox authorization changed"
+      );
+    }
+
+    for (const opportunityId of [
+      input.sourceOpportunityId,
+      input.targetOpportunityId,
+    ]) {
+      const { data: authorized, error } = await supabase.rpc(
+        "authorize_opportunity_action_as_system",
+        {
+          p_actor_user_id: input.actorUserId,
+          p_opportunity_id: opportunityId,
+          p_action: "edit",
+        }
+      );
+      if (error || authorized !== true) {
+        throw new LifecyclePersistenceError(
+          `[sync-engine] exact reparent repair lead authorization changed for ${opportunityId}`
+        );
+      }
+    }
+
+    const syncLockOwner = await acquireEmailConnectionSyncLock(
+      connection.id,
+      SYNC_LOCK_CONTEXT
+    );
+    if (!syncLockOwner) {
+      throw new LifecyclePersistenceError(
+        "[sync-engine] exact reparent repair mailbox is busy"
+      );
+    }
+    const renewSyncLeaseIfNeeded = createEmailConnectionSyncLockRenewer({
+      connectionId: connection.id,
+      ownerId: syncLockOwner,
+      context: SYNC_LOCK_CONTEXT,
+    });
+
+    try {
+      await renewSyncLeaseIfNeeded(true);
+      const [{ data: activity, error: activityError }, { data: event, error: eventError }] =
+        await Promise.all([
+          supabase
+            .from("activities")
+            .select(
+              "id, company_id, opportunity_id, email_connection_id, email_thread_id, email_message_id, direction"
+            )
+            .eq("id", input.activityId)
+            .eq("company_id", input.companyId)
+            .eq("opportunity_id", input.targetOpportunityId)
+            .eq("email_connection_id", input.connectionId)
+            .eq("email_thread_id", input.entry.providerThreadId)
+            .eq("email_message_id", input.entry.providerMessageId)
+            .eq("type", "email")
+            .maybeSingle(),
+          supabase
+            .from("opportunity_correspondence_events")
+            .select(
+              "id, company_id, opportunity_id, activity_id, connection_id, provider_thread_id, provider_message_id, direction, party_role, is_meaningful, opportunity_projection_applied"
+            )
+            .eq("id", input.correspondenceEventId)
+            .eq("company_id", input.companyId)
+            .eq("opportunity_id", input.targetOpportunityId)
+            .eq("activity_id", input.activityId)
+            .eq("connection_id", input.connectionId)
+            .eq("provider_thread_id", input.entry.providerThreadId)
+            .eq("provider_message_id", input.entry.providerMessageId)
+            .maybeSingle(),
+        ]);
+      if (activityError || !activity) {
+        throw new LifecyclePersistenceError(
+          `[sync-engine] exact reparent repair activity changed: ${activityError?.message ?? "row not found"}`
+        );
+      }
+      if (
+        eventError ||
+        !event ||
+        event.direction !== activity.direction ||
+        event.party_role !== "customer" ||
+        event.is_meaningful !== true ||
+        event.opportunity_projection_applied !== true
+      ) {
+        throw new LifecyclePersistenceError(
+          `[sync-engine] exact reparent repair correspondence changed: ${eventError?.message ?? "row not found or not projected customer evidence"}`
+        );
+      }
+
+      const outcomeResult = emptyResult();
+      await maybeAutoAdvanceOnAccept({
+        providerThreadId: null,
+        opportunityId: input.targetOpportunityId,
+        connection,
+        result: outcomeResult,
+      });
+      await renewSyncLeaseIfNeeded();
+
+      const profile: SyncProfile = {
+        ...(connection.syncFilters as SyncProfile),
+      };
+      const ingestionOperator = syncIngestionOperatorIdentity(
+        connection,
+        profile,
+        await getCachedOperatorIdentity(connection)
+      );
+      const routingIdentity = buildLeadRoutingIdentity(
+        input.message,
+        {
+          provider: connection.provider,
+          connectionId: connection.id,
+        },
+        ingestionOperator
+      );
+      if (routingIdentity.mayInheritProviderThread) {
+        const refreshedThread =
+          await EmailThreadService.refreshSummaryOnlyForProviderThread({
+            companyId: input.companyId,
+            connectionId: input.connectionId,
+            providerThreadId: input.entry.providerThreadId,
+          });
+        if (!refreshedThread) {
+          throw new LifecyclePersistenceError(
+            "[sync-engine] exact reparent thread summary refresh found no canonical thread"
+          );
+        }
+      }
+
+      const summaryRefresh = await refreshLeadSummariesForOpportunities({
+        supabase,
+        companyId: input.companyId,
+        opportunityIds: [
+          input.sourceOpportunityId,
+          input.targetOpportunityId,
+        ],
+      });
+      if (
+        summaryRefresh.skippedFeatureDisabled ||
+        summaryRefresh.failed.length > 0 ||
+        summaryRefresh.requested !== 2 ||
+        summaryRefresh.written !== 2
+      ) {
+        throw new LifecyclePersistenceError(
+          `[sync-engine] exact reparent summary refresh incomplete: requested=${summaryRefresh.requested} written=${summaryRefresh.written} feature_disabled=${summaryRefresh.skippedFeatureDisabled} failures=${summaryRefresh.failed
+            .map((failure) => `${failure.opportunityId}: ${failure.error}`)
+            .join("; ")}`
+        );
+      }
+    } finally {
+      await renewSyncLeaseIfNeeded.stop().catch(() => {});
+      await releaseEmailConnectionSyncLock(
+        connection.id,
+        syncLockOwner,
+        SYNC_LOCK_CONTEXT
+      );
+    }
+  },
+
+  /**
    * Run a full sync cycle for a connection.
    * This is the main entry point — called by cron, manual sync, and webhook.
    */
@@ -3497,11 +4430,13 @@ export const SyncEngine = {
         );
       }
       const discoveredEmails = [...discoveredByMessageId.values()];
-      const directionIdentity = {
-        connectionEmail: connection.email,
-        userEmailAddresses: profile.userEmailAddresses ?? [],
-        companyDomains: profile.companyDomains ?? [],
-      };
+      const authoritativeOperator =
+        await getCachedOperatorIdentity(connection);
+      const directionIdentity = syncIngestionOperatorIdentity(
+        connection,
+        profile,
+        authoritativeOperator
+      );
       const rawInboxEmails = discoveredEmails.filter(
         (email) =>
           resolvePersistedEmailDirection(email, directionIdentity) === "inbound"
@@ -3569,15 +4504,18 @@ export const SyncEngine = {
         profile as unknown as GmailSyncFilters
       );
       const inboxEmails = rawInboxEmails.filter(
-        (email) =>
-          !EmailFilterService.shouldFilter(
-            extractSenderEmail(email.from),
-            email.subject,
+        (email) => {
+          const { email: effectiveFilterEmail } =
+            applyInboundEffectiveSenderIdentity(email, directionIdentity);
+          return !EmailFilterService.shouldFilter(
+            extractSenderEmail(effectiveFilterEmail.from),
+            effectiveFilterEmail.subject,
             blocklist,
             profile as unknown as GmailSyncFilters,
-            email.labelIds,
-            email.bodyText
-          )
+            effectiveFilterEmail.labelIds,
+            effectiveFilterEmail.bodyText
+          );
+        }
       );
       // Sent mail is not filtered — user's own outbound is always relevant
       // to the pipeline (auto-linking, writing-profile learning).
@@ -3614,7 +4552,11 @@ export const SyncEngine = {
             profile,
             followUpDaysCache,
             result,
-            renewSyncLeaseIfNeeded
+            renewSyncLeaseIfNeeded,
+            directionIdentity,
+            NORMAL_EMAIL_INGESTION_POLICY,
+            null,
+            syncLockOwner
           );
           if (unmatchedContext) unmatchedContexts.push(unmatchedContext);
         } else {
@@ -3655,263 +4597,22 @@ export const SyncEngine = {
         const companyName = (company?.name as string) || "";
         const companyIndustry = (company?.industry as string) || "trades";
 
-        // Step 5: AI classification for unmatched emails
-        if (unmatchedContexts.length > 0) {
-          await renewSyncLeaseIfNeeded(true);
-          const unmatchedEmails = unmatchedContexts.map(
-            (context) => context.email
-          );
-          const unmatchedContextByIdentity = new Map(
-            unmatchedContexts.map((context) => [
-              `${context.email.threadId}\u0000${context.email.id}`,
-              context,
-            ])
-          );
-          const aiResult = await AISyncReviewer.reviewUnmatchedEmails(
-            unmatchedEmails,
-            connection,
-            {
-              name: companyName,
-              industry: companyIndustry,
-              domains: profile.companyDomains || [],
-            }
-          );
-
-          // Persist AI-classified leads as opportunities
-          for (const classified of aiResult.classifiedLeads) {
-            await renewSyncLeaseIfNeeded();
-            try {
-              const classifiedEmail = normalizeProviderBackedEmailForSync(
-                classified.email,
-                connection,
-                result,
-                "sync_ai_classified_lead"
-              );
-              const context = unmatchedContextByIdentity.get(
-                `${classifiedEmail.threadId}\u0000${classifiedEmail.id}`
-              );
-              if (!context) {
-                throw new Error(
-                  "AI reviewer returned a message outside the sanitized unmatched set"
-                );
-              }
-              const {
-                effectiveEmail,
-                routingIdentity,
-                contactFormSubmitter,
-                enrichmentFacts: deterministicFacts,
-              } = context;
-              // Defend the database boundary even if a mocked reviewer or a
-              // future classifier violates AISyncReviewer's active-stage
-              // contract. Model terminal output survives only as review
-              // provenance; it never becomes stage authority here.
-              const classifiedStageReview =
-                coerceAIStageForOpportunityPersistence(
-                  classified.stage,
-                  classified.terminalFlag
-                );
-
-              const matchResult = await EmailMatchingServiceV2.match(
-                connection.companyId,
-                deterministicFacts.contactEmail ?? "",
-                {
-                  ...(routingIdentity.mayInheritProviderThread
-                    ? {
-                        threadId: routingIdentity.providerThreadId,
-                        connectionId: connection.id,
-                      }
-                    : {}),
-                  name: deterministicFacts.contactName ?? undefined,
-                }
-              );
-
-              // The model may classify the lead/stage and fill safe missing
-              // non-identity facts. Customer identity always comes from the
-              // deterministic operator-excluding context captured before AI.
-              const aiSupplementalFacts = leadEnrichmentFactsFromImport({
-                contactName: null,
-                contactEmail: null,
-                contactPhone: null,
-                address: null,
-                estimatedValue:
-                  deterministicFacts.estimatedValue == null
-                    ? classified.estimatedValue
-                    : null,
-                description:
-                  deterministicFacts.description == null
-                    ? classified.description
-                    : null,
-                providerThreadId: classifiedEmail.threadId,
-                providerMessageId: classifiedEmail.id,
-                extractionSource: "ai_classified",
-                aiConfidence: classified.confidence,
-              });
-
-              const relationshipDecision =
-                await findOpportunityRelationshipMatch({
-                  supabase,
-                  companyId: connection.companyId,
-                  connectionId: connection.id,
-                  providerThreadId: routingIdentity.mayInheritProviderThread
-                    ? classifiedEmail.threadId
-                    : null,
-                  clientId: matchResult.clientId,
-                  facts: opportunityRelationshipFactsFromLeadEnrichment(
-                    deterministicFacts,
-                    effectiveEmail,
-                    connection,
-                    profile,
-                    await getCachedOperatorIdentity(connection)
-                  ),
-                });
-
-              let clientId =
-                matchResult.action === "link" ||
-                matchResult.action === "create_subclient"
-                  ? matchResult.clientId!
-                  : null;
-              let oppId: string;
-              let opportunityCreated = false;
-
-              if (relationshipDecision.action === "link") {
-                oppId = relationshipDecision.opportunityId;
-                // The relationship winner is authoritative even when the
-                // opportunity legitimately has no client yet. Never fall back
-                // to a preliminary email/domain match for another customer.
-                clientId = relationshipDecision.clientId;
-              } else {
-                clientId ??= await createClient(
-                  effectiveEmail,
-                  connection.companyId,
-                  contactFormSubmitter,
-                  deterministicFacts
-                );
-                const opportunity = await createOpportunity(
-                  effectiveEmail,
-                  clientId,
-                  connection.companyId,
-                  classifiedStageReview.stage,
-                  {
-                    candidates: [
-                      {
-                        source: "contact",
-                        name: deterministicFacts.contactName,
-                        email: deterministicFacts.contactEmail,
-                      },
-                    ],
-                    unsafe: syncTitleUnsafeIdentity(connection, profile),
-                    enrichmentFacts: deterministicFacts,
-                    sourceKey: routingIdentity.sourceKey,
-                    mailboxAssignment: mailboxAssignmentContext(connection),
-                    aiStageReview: {
-                      terminalFlag: classifiedStageReview.terminalFlag,
-                      confidence: classified.confidence,
-                    },
-                  }
-                );
-                oppId = opportunity.id;
-                clientId = opportunity.clientId;
-                opportunityCreated = opportunity.created;
-              }
-
-              // Linked opportunities and source-key race winners did not get
-              // this cycle's model review metadata through the insert. Persist
-              // the same idempotent snapshot without touching stage, manual
-              // overrides, assignment, or inbox authorization.
-              if (!opportunityCreated) {
-                await persistAIStageReviewProvenance({
-                  opportunityId: oppId,
-                  companyId: connection.companyId,
-                  terminalFlag: classifiedStageReview.terminalFlag,
-                  confidence: classified.confidence,
-                });
-              }
-
-              // Complete retryable semantic writes before publishing the
-              // durable thread/activity checkpoints. A failure now retries AI
-              // instead of being diverted by an already-created activity.
-              await applyCanonicalLeadEnrichment({
-                supabase,
-                opportunityId: oppId,
-                clientId,
-                facts: deterministicFacts,
-                companyId: connection.companyId,
-              });
-              if (
-                aiSupplementalFacts.estimatedValue != null ||
-                aiSupplementalFacts.description != null
-              ) {
-                await applyCanonicalLeadEnrichment({
-                  supabase,
-                  opportunityId: oppId,
-                  clientId,
-                  facts: aiSupplementalFacts,
-                  companyId: connection.companyId,
-                });
-              }
-
-              const subClientIdentity =
-                subClientIdentityFromFacts(deterministicFacts);
-              if (
-                matchResult.action === "create_subclient" &&
-                clientId &&
-                matchResult.clientId === clientId &&
-                subClientIdentity
-              ) {
-                await createSubClient(
-                  effectiveEmail,
-                  clientId,
-                  connection.companyId,
-                  subClientIdentity
-                );
-              }
-
-              const linked = routingIdentity.mayInheritProviderThread
-                ? await linkThread(
-                    oppId,
-                    classifiedEmail.threadId,
-                    connection.id
-                  )
-                : true;
-              if (!linked) continue;
-              const activityCreated = await createActivity(
-                effectiveEmail,
-                connection,
-                oppId,
-                "inbound",
-                {
-                  matchConfidence:
-                    relationshipDecision.action === "link"
-                      ? relationshipDecision.confidence
-                      : "ai",
-                  ...(routingIdentity.isContactFormSubmission
-                    ? { skipThreadState: true }
-                    : {}),
-                }
-              );
-              if (!activityCreated) continue;
-              await updateCorrespondenceCounts(
-                oppId,
-                effectiveEmail,
-                connection,
-                followUpDaysCache,
-                result
-              );
-              await applyLabel(
-                classifiedEmail.threadId,
-                connection,
-                result,
-                renewSyncLeaseIfNeeded
-              );
-              result.activitiesCreated++;
-            } catch (err) {
-              throw new LifecyclePersistenceError(
-                `[sync-engine] failed to persist AI-classified lead ${classified.clientEmail}: ${err instanceof Error ? err.message : "unknown error"}`
-              );
-            }
-          }
-          result.newLeads += aiResult.newLeadsClassified;
-        }
+        // Step 5: AI classification for unmatched emails. Exact-message
+        // recovery invokes this same persistence path with a no-provider-write
+        // policy and the authorized recovery actor.
+        await persistAIClassifiedUnmatchedInbound({
+          contexts: unmatchedContexts,
+          connection,
+          profile,
+          companyName,
+          companyIndustry,
+          followUpDaysCache,
+          result,
+          providerLockCheckpoint: renewSyncLeaseIfNeeded,
+          executionPolicy: NORMAL_EMAIL_INGESTION_POLICY,
+          recoveryActorUserId: null,
+          syncLockOwner,
+        });
 
         // An outbound reply may arrive in provider chronology before its
         // unmatched inbound thread has been classified and linked. Re-run the
@@ -3933,21 +4634,36 @@ export const SyncEngine = {
           string | { threadId: string; messages: NormalizedEmail[] }
         >();
         const opportunityByEvaluationKey = new Map<string, string>();
-        for (const email of [...inboxEmails, ...sentEmails]) {
+        const inboundEvaluationMessageIds = new Set(
+          inboxEmails.map((email) => email.id)
+        );
+        for (const rawEmail of [...inboxEmails, ...sentEmails]) {
+          const isInboundEvaluationMessage =
+            inboundEvaluationMessageIds.has(rawEmail.id);
+          const email = isInboundEvaluationMessage
+            ? applyInboundEffectiveSenderIdentity(
+                rawEmail,
+                directionIdentity
+              ).email
+            : rawEmail;
           const activity = await findExistingProviderActivity(
             supabase,
             connection,
-            email.id,
-            email.threadId
+            rawEmail.id,
+            rawEmail.threadId
           );
           const opportunityId = activity?.opportunity_id ?? null;
           if (!opportunityId) continue;
 
-          const routing = buildLeadRoutingIdentity(email, {
-            provider: connection.provider,
-            connectionId: connection.id,
-          });
-          const evaluationKey = routing.isContactFormSubmission
+          const routing = buildLeadRoutingIdentity(
+            rawEmail,
+            {
+              provider: connection.provider,
+              connectionId: connection.id,
+            },
+            directionIdentity
+          );
+          const evaluationKey = !routing.mayInheritProviderThread
             ? routing.sourceKey
             : routing.providerThreadId;
           const priorOpportunityId =
@@ -3961,7 +4677,7 @@ export const SyncEngine = {
           if (!activeLeadTargets.has(evaluationKey)) {
             activeLeadTargets.set(
               evaluationKey,
-              routing.isContactFormSubmission
+              !routing.mayInheritProviderThread
                 ? { threadId: evaluationKey, messages: [email] }
                 : email.threadId
             );
@@ -3980,7 +4696,6 @@ export const SyncEngine = {
             error: string;
           }> = [];
           for (const [evaluationKey, target] of activeLeadTargets) {
-            if (typeof target !== "string") continue;
             const opportunityId = opportunityByEvaluationKey.get(evaluationKey);
             if (!opportunityId) {
               throw new LifecyclePersistenceError(
@@ -3994,7 +4709,7 @@ export const SyncEngine = {
             // retry pacing lives inside maybeAutoAdvanceOnAccept.
             try {
               await maybeAutoAdvanceOnAccept({
-                providerThreadId: target,
+                providerThreadId: typeof target === "string" ? target : null,
                 opportunityId,
                 connection,
                 result,

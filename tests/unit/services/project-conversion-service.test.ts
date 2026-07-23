@@ -222,6 +222,76 @@ describe("convertOpportunityToProject — unified RPC contract", () => {
     expect(result.won).toBe(true);
   });
 
+  it("accepts exact message-scoped event/activity evidence without a CRM thread row", async () => {
+    const fake = makeFakeSupabase();
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await ProjectConversionService.convertOpportunityToProject({
+      opportunityId: OPP,
+      companyId: COMPANY,
+      decidedBy: null,
+      sourcePath: "email_accept",
+      expectedStage: "quoted",
+      expectedAssignmentVersion: 10,
+      evidence: {
+        connection_id: "connection-1",
+        conversation_scope: "message",
+        source_activity_id: "22222222-2222-4222-8222-222222222222",
+        provider_thread_id: "shared-forward-thread",
+        provider_message_id: "forwarded-message-1",
+        decisive_event_id: "11111111-1111-4111-8111-111111111111",
+        decisive_direction: "inbound",
+        evaluated_through_event_id: "11111111-1111-4111-8111-111111111111",
+        signals: ["explicit_acceptance"],
+        decision: "auto_advance_won",
+      },
+    });
+
+    expect(fake.rpcCalls).toHaveLength(1);
+    expect(fake.rpcCalls[0].args.p_evidence).toEqual({
+      connection_id: "connection-1",
+      conversation_scope: "message",
+      source_activity_id: "22222222-2222-4222-8222-222222222222",
+      provider_thread_id: "shared-forward-thread",
+      provider_message_id: "forwarded-message-1",
+      decisive_event_id: "11111111-1111-4111-8111-111111111111",
+      decisive_direction: "inbound",
+      evaluated_through_event_id: "11111111-1111-4111-8111-111111111111",
+      signals: ["explicit_acceptance"],
+      decision: "auto_advance_won",
+    });
+  });
+
+  it("rejects mixed thread and message-scoped actorless evidence before RPC", async () => {
+    const fake = makeFakeSupabase();
+    requireSupabaseMock.mockReturnValue(fake.client);
+
+    await expect(
+      ProjectConversionService.convertOpportunityToProject({
+        opportunityId: OPP,
+        companyId: COMPANY,
+        decidedBy: null,
+        sourcePath: "email_accept",
+        expectedStage: "quoted",
+        expectedAssignmentVersion: 10,
+        evidence: {
+          connection_id: "connection-1",
+          conversation_scope: "message",
+          source_activity_id: "22222222-2222-4222-8222-222222222222",
+          email_thread_id: "33333333-3333-4333-8333-333333333333",
+          provider_thread_id: "shared-forward-thread",
+          provider_message_id: "forwarded-message-1",
+          decisive_event_id: "11111111-1111-4111-8111-111111111111",
+          decisive_direction: "inbound",
+          evaluated_through_event_id: "11111111-1111-4111-8111-111111111111",
+          signals: ["explicit_acceptance"],
+          decision: "auto_advance_won",
+        },
+      } as never)
+    ).rejects.toThrow(/evidence is invalid/i);
+    expect(fake.rpcCalls).toHaveLength(0);
+  });
+
   it("rejects the legacy model-only likely-won source before RPC", async () => {
     const fake = makeFakeSupabase();
     requireSupabaseMock.mockReturnValue(fake.client);

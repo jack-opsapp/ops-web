@@ -432,6 +432,16 @@ export class Microsoft365Provider implements EmailProviderInterface {
 
   private async getToken(readPolicy?: ProviderReadPolicy): Promise<string> {
     if (new Date() >= this.connection.expiresAt) {
+      if (readPolicy?.oauthTokenMode === "current_only_no_persist") {
+        throw new ProviderApiError(
+          `M365 ${readPolicy.context ?? "read"}: current OAuth token is not valid for a credential-static read`,
+          409,
+          {
+            reason: "microsoft_oauth_refresh_forbidden",
+            expiresAt: this.connection.expiresAt.toISOString(),
+          }
+        );
+      }
       return this.refreshAccessToken(readPolicy);
     }
     if (readPolicy) this.assertReadDeadline(readPolicy);

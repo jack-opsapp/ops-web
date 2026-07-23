@@ -432,6 +432,7 @@ export type Database = {
           opportunity_id: string | null
           outcome: string | null
           project_id: string | null
+          provider_mutations_disabled: boolean
           sent_by_agent: boolean
           site_visit_id: string | null
           subject: string
@@ -470,6 +471,7 @@ export type Database = {
           opportunity_id?: string | null
           outcome?: string | null
           project_id?: string | null
+          provider_mutations_disabled?: boolean
           sent_by_agent?: boolean
           site_visit_id?: string | null
           subject: string
@@ -508,6 +510,7 @@ export type Database = {
           opportunity_id?: string | null
           outcome?: string | null
           project_id?: string | null
+          provider_mutations_disabled?: boolean
           sent_by_agent?: boolean
           site_visit_id?: string | null
           subject?: string
@@ -17004,6 +17007,102 @@ export type Database = {
         }
         Returns: boolean
       }
+      abandon_exact_message_recovery_work_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_connection_id: string
+          p_entry_sha256: string
+          p_manifest_sha256: string
+          p_provider_message_id: string
+          p_provider_thread_id: string
+          p_superseding_entry_sha256: string
+          p_superseding_manifest_sha256: string
+        }
+        Returns: boolean
+      }
+      authorize_email_exact_message_ingest_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_connection_id: string
+        }
+        Returns: boolean
+      }
+      claim_legacy_email_activity_connection_as_system: {
+        Args: {
+          p_activity_id: string
+          p_company_id: string
+          p_connection_id: string
+          p_provider_message_id: string
+          p_provider_thread_id: string
+        }
+        Returns: boolean
+      }
+      inspect_exact_message_recovery_application_as_system: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_entry_sha256: string
+          p_manifest_sha256: string
+          p_provider_message_id: string
+          p_provider_thread_id: string
+        }
+        Returns: Json
+      }
+      inspect_exact_message_recovery_work_as_system: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_entry_sha256: string
+          p_manifest_sha256: string
+          p_provider_message_id: string
+          p_provider_thread_id: string
+        }
+        Returns: Json
+      }
+      mark_exact_message_recovery_work_step_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_activity_id: string | null
+          p_company_id: string
+          p_connection_id: string
+          p_correspondence_event_id: string | null
+          p_entry_sha256: string
+          p_manifest_sha256: string
+          p_opportunity_id: string | null
+          p_provider_message_id: string
+          p_provider_thread_id: string
+          p_source_opportunity_id: string | null
+          p_step: string
+          p_target_opportunity_id: string | null
+        }
+        Returns: Json
+      }
+      register_exact_message_recovery_work_as_system: {
+        Args: {
+          p_action: string
+          p_actor_user_id: string
+          p_activity_id: string | null
+          p_attachment_required: boolean
+          p_company_id: string
+          p_connection_id: string
+          p_correspondence_event_id: string | null
+          p_draft_projection_required: boolean
+          p_entry_sha256: string
+          p_manifest_cutoff_at: string
+          p_manifest_generated_at: string
+          p_manifest_sha256: string
+          p_message_payload: Json
+          p_opportunity_id: string | null
+          p_provider_message_id: string
+          p_provider_thread_id: string
+          p_repair_required: boolean
+          p_source_opportunity_id: string | null
+          p_target_opportunity_id: string | null
+        }
+        Returns: Json
+      }
       authorize_email_thread_data_review_as_system: {
         Args: {
           p_action: string
@@ -17350,6 +17449,31 @@ export type Database = {
           start_date: string
         }
         Returns: number
+      }
+      create_target_and_reparent_opportunity_email_message_guarded: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_connection_id: string
+          p_entry_sha256: string
+          p_expected_activity_id: string
+          p_expected_correspondence_event_id: string
+          p_expected_source_assigned_to: string | null
+          p_expected_source_assignment_version: number
+          p_expected_source_project_id: string | null
+          p_expected_source_stage: string
+          p_expected_source_stage_manually_set: boolean
+          p_expected_source_updated_at: string
+          p_manifest_sha256: string
+          p_provider_message_id: string
+          p_provider_thread_id: string
+          p_source_opportunity_id: string
+          p_target_contact_name: string | null
+          p_target_email: string
+          p_target_source_thread_key: string
+          p_target_title: string
+        }
+        Returns: Json
       }
       create_notification_if_new: {
         Args: {
@@ -18499,6 +18623,35 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      reparent_opportunity_email_message_guarded: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_connection_id: string
+          p_entry_sha256: string
+          p_expected_activity_id: string
+          p_expected_correspondence_event_id: string
+          p_expected_source_assigned_to: string | null
+          p_expected_source_assignment_version: number
+          p_expected_source_project_id: string | null
+          p_expected_source_stage: string
+          p_expected_source_stage_manually_set: boolean
+          p_expected_source_updated_at: string
+          p_expected_target_assigned_to: string | null
+          p_expected_target_assignment_version: number
+          p_expected_target_project_id: string | null
+          p_expected_target_stage: string
+          p_expected_target_stage_manually_set: boolean
+          p_expected_target_updated_at: string
+          p_manifest_sha256: string
+          p_provider_message_id: string
+          p_provider_thread_id: string
+          p_source_opportunity_id: string
+          p_target_email: string
+          p_target_opportunity_id: string
+        }
+        Returns: Json
       }
       reassign_opportunity_email_thread_guarded: {
         Args: {

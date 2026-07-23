@@ -39,6 +39,7 @@ vi.mock("@/lib/email/opportunity-relationship-matching", () => ({
 
 import {
   evaluateOpportunityAcceptance,
+  evaluateOpportunityCommercialOutcome,
   shouldEvaluateOpportunityCommercialOutcome,
 } from "@/lib/api/services/conversation-state/acceptance-evaluation";
 
@@ -87,6 +88,7 @@ function makeSupabase(input: {
       const defaultEvents = [
         {
           id: "event-accept-1",
+          activity_id: "activity-accept-1",
           connection_id: "connection-1",
           provider_thread_id: "provider-thread-1",
           provider_message_id: "message-accept-1",
@@ -98,6 +100,7 @@ function makeSupabase(input: {
       ];
       const defaultActivities = [
         {
+          id: "activity-accept-1",
           email_connection_id: "connection-1",
           email_message_id: "message-accept-1",
           subject: "Re: Estimate",
@@ -109,6 +112,9 @@ function makeSupabase(input: {
         table === "opportunity_correspondence_events"
           ? (input.events ?? defaultEvents).map((event) => ({
               ...event,
+              activity_id: Object.hasOwn(event, "activity_id")
+                ? event.activity_id
+                : `activity-${event.provider_message_id}`,
               from_email:
                 event.from_email ??
                 (event.party_role === "customer"
@@ -116,7 +122,12 @@ function makeSupabase(input: {
                   : "operator@example.com"),
             }))
           : table === "activities"
-            ? (input.activities ?? defaultActivities)
+            ? (input.activities ?? defaultActivities).map((activity) => ({
+                ...activity,
+                id: Object.hasOwn(activity, "id")
+                  ? activity.id
+                  : `activity-${activity.email_message_id}`,
+              }))
             : table === "sub_clients"
               ? (input.subClients ?? [])
               : [];
@@ -214,6 +225,161 @@ describe("evaluateOpportunityAcceptance", () => {
     expect(shouldEvaluateOpportunityCommercialOutcome("lost", true)).toBe(
       false
     );
+  });
+
+  it.each([
+    {
+      body: "We accept the $600 supply-only estimate. Please send the deposit instructions.",
+      signal: "explicit_acceptance",
+    },
+    {
+      body: "Just paid the 50% deposit. Please confirm you received it.",
+      signal: "payment_confirmed",
+    },
+  ])(
+    "converts a trusted message-scoped customer commitment without an email_threads row: $signal",
+    async ({ body, signal }) => {
+      const { client } = makeSupabase({
+        opportunity: {
+          stage: "quoted",
+          stage_manually_set: false,
+          client_id: "client-1",
+          assignment_version: 17,
+          address: "2745 Fernwood Rd",
+        },
+        events: [
+          {
+            id: "event-forwarded-acceptance",
+            activity_id: "activity-forwarded-acceptance",
+            connection_id: "connection-1",
+            provider_thread_id: "shared-victoria-forward-thread",
+            provider_message_id: "forwarded-acceptance-message",
+            direction: "inbound",
+            party_role: "customer",
+            from_email: "customer@example.com",
+            occurred_at: "2026-07-22T16:00:00.000Z",
+          },
+        ],
+        activities: [
+          {
+            id: "activity-forwarded-acceptance",
+            email_connection_id: "connection-1",
+            email_message_id: "forwarded-acceptance-message",
+            subject: "Fwd: Victoria office lead",
+            body_text: body,
+            body_text_clean: body,
+          },
+        ],
+      });
+
+      const result = await evaluateOpportunityCommercialOutcome({
+        supabase: client as never,
+        opportunityId: "opportunity-1",
+        connection,
+      });
+
+      expect(mocks.buildConversationState).not.toHaveBeenCalled();
+      expect(mocks.persistRoutingDecision).not.toHaveBeenCalled();
+      expect(mocks.convertOpportunityToProject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          opportunityId: "opportunity-1",
+          expectedStage: "quoted",
+          expectedAssignmentVersion: 17,
+          evidence: {
+            connection_id: "connection-1",
+            conversation_scope: "message",
+            source_activity_id: "activity-forwarded-acceptance",
+            provider_thread_id: "shared-victoria-forward-thread",
+            provider_message_id: "forwarded-acceptance-message",
+            decisive_event_id: "event-forwarded-acceptance",
+            decisive_direction: "inbound",
+            evaluated_through_event_id: "event-forwarded-acceptance",
+            signals: expect.arrayContaining([signal]),
+            decision: "auto_advance_won",
+          },
+        })
+      );
+      expect(result).toEqual({ stageChanged: true });
+    }
+  );
+
+  it("applies a message-scoped budget/timing deferral without requiring an email_threads row", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "new_lead",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 18,
+      },
+      events: [
+        {
+          id: "event-forwarded-deferral",
+          activity_id: "activity-forwarded-deferral",
+          connection_id: "connection-1",
+          provider_thread_id: "shared-victoria-forward-thread",
+          provider_message_id: "forwarded-deferral-message",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-22T17:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-forwarded-deferral",
+          email_connection_id: "connection-1",
+          email_message_id: "forwarded-deferral-message",
+          subject: "Fwd: Project timing",
+          body_text:
+            "Truck repairs consumed the budget, so I need to postpone this until next year.",
+          body_text_clean:
+            "Truck repairs consumed the budget, so I need to postpone this until next year.",
+        },
+      ],
+    });
+    rpc.mockImplementation(async (name: string) =>
+      name === "apply_email_opportunity_deferred_disposition"
+        ? { data: [{ changed: true }], error: null }
+        : { data: null, error: null }
+    );
+
+    const result = await evaluateOpportunityCommercialOutcome({
+      supabase: client as never,
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "apply_email_opportunity_deferred_disposition",
+      expect.objectContaining({
+        p_connection_id: "connection-1",
+        p_provider_message_id: "forwarded-deferral-message",
+        p_expected_assignment_version: 18,
+        p_expected_stage: "new_lead",
+      })
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: true });
+  });
+
+  it("keeps a manual stage override inert in the opportunity-wide entrypoint", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "negotiation",
+        stage_manually_set: true,
+        client_id: "client-1",
+        assignment_version: 19,
+      },
+    });
+
+    const result = await evaluateOpportunityCommercialOutcome({
+      supabase: client as never,
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: false });
   });
 
   it("re-evaluates a signed attachment and converts the exact mailbox lead", async () => {

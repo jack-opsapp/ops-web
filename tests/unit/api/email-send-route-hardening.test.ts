@@ -293,6 +293,58 @@ describe("email send route hardening", () => {
     );
   });
 
+  it("authorizes an operator-authored message-scoped handoff as a new lead conversation", async () => {
+    mocks.resolveAccess.mockResolvedValue(
+      allowed({
+        threadId: null,
+        providerThreadId: null,
+        connectionId: "connection-company",
+        opportunityId: "opportunity-1",
+      })
+    );
+
+    const response = await POST(
+      request({
+        idempotencyKey: "system-handoff-attempt-1",
+        emailThreadId: null,
+        connectionId: "connection-company",
+        opportunityId: "opportunity-1",
+        to: ["customer@example.com"],
+        cc: [],
+        subject: "Victoria deck inquiry",
+        body: "Thanks for reaching out.",
+        inReplyTo: null,
+        followUpDraftId: "system-handoff-draft-1",
+      }) as never
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.resolveActor).toHaveBeenCalledWith(expect.any(Request));
+    expect(mocks.resolveAccess).toHaveBeenCalledTimes(1);
+    expect(mocks.resolveAccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: ACTOR,
+        operation: "send",
+        connectionId: "connection-company",
+        opportunityId: "opportunity-1",
+      })
+    );
+    expect(mocks.deliveryExecute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initiatedBy: "operator",
+        connectionId: "connection-company",
+        opportunityId: "opportunity-1",
+        sourceEmailThreadId: null,
+        replyProviderThreadId: null,
+        inReplyTo: null,
+        senderSwitched: false,
+        toEmails: ["customer@example.com"],
+        ccEmails: [],
+        followUpDraftId: "system-handoff-draft-1",
+      })
+    );
+  });
+
   it("does not call delivery when the lead/inbox intersection denies access", async () => {
     mocks.resolveAccess.mockResolvedValue({
       allowed: false,

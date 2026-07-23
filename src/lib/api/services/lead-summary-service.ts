@@ -798,9 +798,9 @@ function buildCurrentFactContext(input: {
       "scope",
       isCurrentScopeObservation
     );
-  const schedule =
-    clip(input.commercialOutcome?.facts.schedule, ACTIVITY_CONTENT_CAP) ??
-    resolveFoldedSchedule(input.conversationFold);
+  const schedule = input.commercialOutcome
+    ? clip(input.commercialOutcome.facts.schedule, ACTIVITY_CONTENT_CAP)
+    : resolveFoldedSchedule(input.conversationFold);
   const objection = input.commercialOutcome
     ? clip(input.commercialOutcome.facts.objection, ACTIVITY_CONTENT_CAP)
     : latestFoldObjection && !objectionWasResolved(latestFoldObjection)

@@ -37,6 +37,35 @@ describe("opportunity-merge site_visits company_id text-cast migration", () => {
     expect(siteVisitsUpdates).toHaveLength(1);
   });
 
+  it("refuses a merge while either opportunity has delivery-risk email", () => {
+    const companyLock = source.indexOf(
+      "perform private.lock_lead_assignment_company(p_company_id)"
+    );
+    const opportunityLock = source.indexOf("from public.opportunities");
+    const intentProof = source.indexOf("from public.email_send_intents intent");
+    const firstChildMutation = source.indexOf("update public.activities");
+
+    expect(companyLock).toBeGreaterThanOrEqual(0);
+    expect(opportunityLock).toBeGreaterThan(companyLock);
+    expect(intentProof).toBeGreaterThan(opportunityLock);
+    expect(firstChildMutation).toBeGreaterThan(intentProof);
+
+    const fence = source.slice(intentProof, firstChildMutation);
+    expect(fence).toContain("intent.company_id = p_company_id");
+    expect(fence).toContain(
+      "intent.opportunity_id in (p_winner_id, p_loser_id)"
+    );
+    expect(fence).toContain(
+      "intent.status in ( 'sending', 'delivery_unknown', 'provider_accepted', 'reconciling', 'reconciliation_failed' )"
+    );
+    expect(fence).toContain("order by intent.id");
+    expect(fence).toContain("for share");
+    expect(fence).toContain("email_delivery_in_flight");
+    expect(fence).not.toContain("'prepared'");
+    expect(fence).not.toContain("'provider_rejected'");
+    expect(fence).not.toContain("'reconciled'");
+  });
+
   it("wraps the redefinition in a single begin/commit like its siblings", () => {
     expect(source).toContain("\nbegin;\n");
     expect(source.trimEnd().endsWith("commit;")).toBe(true);

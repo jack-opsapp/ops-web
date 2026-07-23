@@ -534,6 +534,10 @@ describe("lead-summary live wording regressions", () => {
           direction: "inbound",
           body: "My husband says he'll remove it tonight, so removal is not needed.",
         },
+        {
+          direction: "inbound",
+          body: "I'm not in a rush, so feel free to piggyback with another job. I work from home tomorrow.",
+        },
         { direction: "outbound", body: "Tomorrow is good still!" },
       ]) as never
     );
@@ -543,7 +547,11 @@ describe("lead-summary live wording regressions", () => {
       current_price: 1200,
       excluded_scope: expect.stringMatching(/husband.*remove/i),
       schedule: "Tomorrow is good still!",
+      current_scope: expect.stringMatching(/installation offer/i),
     });
+    expect(bundle!.commercial_context!.current_scope).not.toMatch(
+      /piggyback|another job|work from home/i
+    );
     expect(bundle!.commercial_context!.superseded_prices).toContain(1400);
   });
 
@@ -641,7 +649,7 @@ describe("lead-summary live wording regressions", () => {
         },
         {
           direction: "inbound",
-          body: "Truck engine repairs consumed the funds, so we have to postpone until next year.",
+          body: "Truck engine repairs consumed the funds, so we have to postpone the project. Our timing is next year.",
         },
       ]) as never
     );
@@ -650,6 +658,11 @@ describe("lead-summary live wording regressions", () => {
       outcome: "deferred",
       current_price: 3192.7,
       objection: expect.stringMatching(/truck engine.*funds/i),
+      next_action: "Follow up next year.",
+    });
+    expect(bundle!.current_fact_context).toMatchObject({
+      current_scope: null,
+      schedule: null,
       next_action: "Follow up next year.",
     });
     expect(bundle!.commercial_context!.superseded_prices).toContain(3547.44);
@@ -740,23 +753,23 @@ describe("lead-summary live wording regressions", () => {
       trustedConversation([
         {
           direction: "inbound",
-          body: "We would like to proceed if you're still able to start us week of July 13. Can we connect to sort out paying the deposit?",
+          body: "We would like to proceed if you're still able to start us week of July 13. Can we connect to sort out paying the deposit? Could we ask your crew to help get some of the larger heavier items off the deck as I'm limited in how much weight I can do? If it goes up to a 2x6 we'll be whacking our heads on it even more than we do now. Looking forward to get going on this!",
         },
         { direction: "inbound", body: "Just paid Jackson's deposit." },
         { direction: "outbound", body: "Thank you Owen, received!" },
-        {
-          direction: "inbound",
-          body: "Just sent deposit and the security answer via text. Let us know if we are on for Monday, July 13th.",
-        },
       ]) as never
     );
 
     expect(bundle!.commercial_context).toMatchObject({
       outcome: "won",
       current_price: null,
-      schedule: expect.stringMatching(/monday.*july 13/i),
-      next_action: "Proceed with the confirmed work schedule.",
+      excluded_scope: null,
+      schedule: null,
     });
+    expect(bundle!.current_fact_context).toMatchObject({ schedule: null });
+    expect(bundle!.commercial_context!.next_action).not.toMatch(
+      /send deposit|instructions/i
+    );
     expect(bundle!.lead.address).toBe("2745 Fernwood Rd, Victoria BC");
   });
 });

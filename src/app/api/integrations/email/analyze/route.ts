@@ -44,6 +44,7 @@ import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import { getImportOpenAI } from "@/lib/api/services/openai-clients";
 import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
 import {
+  applyInboundEffectiveSenderIdentity,
   buildLeadRoutingIdentity,
   resolvePersistedEmailDirection,
 } from "@/lib/email/email-ingestion-routing";
@@ -500,7 +501,9 @@ async function runPhaseA(
   const { data: companyUsers, error: companyUsersError } = await supabase
     .from("users")
     .select("email, first_name, last_name")
-    .eq("company_id", companyId);
+    .eq("company_id", companyId)
+    .eq("is_active", true)
+    .is("deleted_at", null);
   if (companyUsersError) {
     throw new Error(
       `Failed to load company users for analysis: ${companyUsersError.message}`
@@ -588,12 +591,15 @@ async function runPhaseA(
     }
   }
 
+  const ingestionOperator = {
+    connectionEmail: connection.email,
+    companyDomains: [...companyDomainSet],
+    userEmailAddresses: [...employeeEmailSet],
+    teamForwarders: detection.teamForwarders,
+    knownPlatformSenders: [],
+  };
   const persistedDirection = (email: NormalizedEmail) =>
-    resolvePersistedEmailDirection(email, {
-      connectionEmail: connection.email,
-      companyDomains: [...companyDomainSet],
-      userEmailAddresses: [...employeeEmailSet],
-    });
+    resolvePersistedEmailDirection(email, ingestionOperator);
 
   // Ordinary conversations retain provider-thread grouping. Known contact-form
   // notifications are message-scoped because Gmail/platform forwarders may
@@ -601,12 +607,19 @@ async function runPhaseA(
   const threadMap = new Map<string, ThreadInfo>();
 
   for (const email of validEmails) {
-    const routing = buildLeadRoutingIdentity(email);
+    const direction = persistedDirection(email);
+    const effectiveEmail =
+      direction === "inbound"
+        ? applyInboundEffectiveSenderIdentity(email, ingestionOperator).email
+        : email;
+    const routing = buildLeadRoutingIdentity(
+      email,
+      undefined,
+      ingestionOperator
+    );
     const groupingKey = routing.sourceKey;
 
     if (!threadMap.has(groupingKey)) {
-      const direction = persistedDirection(email);
-
       // Determine pattern source for this thread
       let patternSource: ThreadInfo["patternSource"] = null;
       if (estimateThreadIds.has(email.threadId)) {
@@ -622,11 +635,11 @@ async function runPhaseA(
         providerThreadId: routing.providerThreadId,
         mayInheritProviderThread: routing.mayInheritProviderThread,
         emails: [],
-        subject: normalizeSubject(email.subject),
+        subject: normalizeSubject(effectiveEmail.subject),
         participants: [],
-        firstSender: email.from,
-        firstSenderName: email.fromName,
-        latestSnippet: email.snippet,
+        firstSender: effectiveEmail.from,
+        firstSenderName: effectiveEmail.fromName,
+        latestSnippet: effectiveEmail.snippet,
         direction,
         messageCount: 0,
         outboundCount: 0,
@@ -640,7 +653,7 @@ async function runPhaseA(
     }
 
     const thread = threadMap.get(groupingKey)!;
-    thread.emails.push(email);
+    thread.emails.push(effectiveEmail);
     thread.messageCount++;
 
     const isOutbound = persistedDirection(email) === "outbound";
@@ -650,7 +663,11 @@ async function runPhaseA(
     }
 
     // Track participants
-    const allAddresses = [email.from, ...email.to, ...email.cc];
+    const allAddresses = [
+      effectiveEmail.from,
+      ...effectiveEmail.to,
+      ...effectiveEmail.cc,
+    ];
     for (const addr of allAddresses) {
       const normalized = addr.toLowerCase();
       if (!thread.participants.includes(normalized)) {
@@ -662,13 +679,13 @@ async function runPhaseA(
     const emailDate = email.date.toISOString();
     if (emailDate < thread.dateRange.first) {
       thread.dateRange.first = emailDate;
-      thread.firstSender = email.from;
-      thread.firstSenderName = email.fromName;
+      thread.firstSender = effectiveEmail.from;
+      thread.firstSenderName = effectiveEmail.fromName;
       thread.direction = isOutbound ? "outbound" : "inbound";
     }
     if (emailDate > thread.dateRange.last) {
       thread.dateRange.last = emailDate;
-      thread.latestSnippet = email.snippet;
+      thread.latestSnippet = effectiveEmail.snippet;
     }
 
     // If ANY email in this thread has a pattern source, mark the whole thread

@@ -98,6 +98,38 @@ describe("assignPersonalMailboxLead", () => {
     );
   });
 
+  it("marks exact recovery assignments so provider-draft triggers stay suppressed", async () => {
+    const db = client({
+      data: {
+        ok: true,
+        conflict: false,
+        assigned_to: "user-1",
+        assignment_version: 1,
+        event_id: "event-1",
+      },
+      error: null,
+    });
+
+    await assignPersonalMailboxLead(
+      {
+        ...base,
+        ingestionSource: "email_recovery",
+        providerMutationsDisabled: true,
+      },
+      db as never
+    );
+
+    expect(db.rpc).toHaveBeenCalledWith(
+      "change_opportunity_assignment_as_system",
+      expect.objectContaining({
+        p_metadata: expect.objectContaining({
+          ingestion_source: "email_recovery",
+          provider_mutations_disabled: true,
+        }),
+      })
+    );
+  });
+
   it("leaves an ineligible personal owner unassigned", async () => {
     const db = client({
       data: null,

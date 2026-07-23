@@ -9,6 +9,7 @@
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { htmlToPlainText, stripQuotedHtml } from "@/lib/utils/email-parsing";
+import { gmailAuthenticatedFromDomains } from "@/lib/email/provider-authentication";
 import {
   DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES,
   ProviderApiError,
@@ -171,10 +172,25 @@ export class GmailProvider implements EmailProviderInterface {
     );
     this.assertReadDeadline(effectiveReadPolicy);
 
-    const token =
-      new Date() >= new Date(this.connection.expiresAt.getTime() - 60_000)
-        ? await this.refreshAccessToken(effectiveReadPolicy)
-        : this.connection.accessToken;
+    const requiresRefresh =
+      new Date() >= new Date(this.connection.expiresAt.getTime() - 60_000);
+    if (
+      requiresRefresh &&
+      effectiveReadPolicy.oauthTokenMode === "current_only_no_persist"
+    ) {
+      throw new ProviderApiError(
+        `Gmail ${effectiveReadPolicy.context ?? "read"}: current OAuth token is not valid for a credential-static read`,
+        409,
+        {
+          reason: "gmail_oauth_refresh_forbidden",
+          expiresAt: this.connection.expiresAt.toISOString(),
+        }
+      );
+    }
+
+    const token = requiresRefresh
+      ? await this.refreshAccessToken(effectiveReadPolicy)
+      : this.connection.accessToken;
 
     this.assertReadDeadline(effectiveReadPolicy);
     return token;
@@ -1544,6 +1560,7 @@ export class GmailProvider implements EmailProviderInterface {
       snippet: (msg.snippet as string) || "",
       bodyText: full,
       bodyTextClean: clean || undefined,
+      authenticatedFromDomains: gmailAuthenticatedFromDomains(headers),
       date: msg.internalDate
         ? new Date(parseInt(msg.internalDate as string))
         : new Date(),

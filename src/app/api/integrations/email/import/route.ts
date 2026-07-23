@@ -1408,21 +1408,6 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
             contactEmail: lead.clientEmail,
           });
 
-          if (!opportunityAggregatesSeededByImport) {
-            const { data: projectionRows, error: projectionError } =
-              await supabase.rpc("apply_opportunity_correspondence_event", {
-                p_company_id: companyId,
-                p_opportunity_id: opportunityId,
-                p_connection_id: connectionId,
-                p_provider_message_id: message.providerMessageId,
-              });
-            if (projectionError || !projectionRows) {
-              throw new Error(
-                `Failed to update lead correspondence: ${projectionError?.message ?? "no result"}`
-              );
-            }
-          }
-
           await EmailThreadService.upsertFromEmail({
             companyId,
             connectionId,

@@ -159,6 +159,8 @@ export interface DraftMemoryContextScope {
   exactSourceIds: string[];
   /** Company graph history is broader than one lead and requires a separate gate. */
   includeClientHistory: boolean;
+  /** False for read-only recovery/backfill evaluation; defaults to true. */
+  recordAccess?: boolean;
 }
 
 // ─── Phase C Constants ──────────────────────────────────────────────────────
@@ -1710,7 +1712,7 @@ export const MemoryService = {
 
           // Touch access timestamps + increment count for retrieved memories (fire-and-forget)
           const ids = vectorFacts.map((f) => f.id);
-          if (ids.length > 0) {
+          if (ids.length > 0 && scope?.recordAccess !== false) {
             supabase
               .rpc("increment_access_count", { memory_ids: ids })
               .then(null, (err) =>
