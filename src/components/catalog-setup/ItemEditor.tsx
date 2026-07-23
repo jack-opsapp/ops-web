@@ -23,11 +23,12 @@
 // micro-text, sentence case content, UPPERCASE authority. No steel accent on any
 // control (toggles, DONE) — accent is the single build-it CTA elsewhere.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
 import { Surface } from "@/components/ui/surface";
+import { Switch } from "@/components/ui/switch";
 import { ScrollFade } from "@/components/dashboard/widgets/shared/scroll-fade";
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
@@ -141,6 +142,7 @@ export function ItemEditor({
     { id: "mat-1", name: "", qty: null },
   ]);
 
+  const taxableId = useId();
   const isSell = card.module === "sell";
   const isTaxable = isSell ? card.fields.isTaxable : false;
   const unit =
@@ -473,40 +475,31 @@ export function ItemEditor({
           </section>
         </ScrollFade>
 
-        {/* Footer — Taxable toggle + DONE (default/secondary, NOT accent). */}
+        {/* Footer — Taxable toggle + DONE (default/secondary, NOT accent). The
+            toggle is the shared tokenized Switch (monochrome; accent only as its
+            focus ring), matching every settings toggle in the app. */}
         <footer className="flex items-center justify-between gap-2 border-t border-line px-2 py-1.5">
-          <button
-            type="button"
-            data-testid="editor-taxable-toggle"
-            role="switch"
-            aria-checked={isTaxable}
-            disabled={!isSell}
-            onClick={() =>
-              isSell &&
-              onEditField({ isTaxable: !isTaxable } as Partial<CardFieldsFor<ModuleKey>>)
-            }
-            className="flex items-center gap-2 disabled:opacity-50"
-          >
-            <span
-              aria-hidden="true"
+          <div className="flex items-center gap-2">
+            <Switch
+              id={taxableId}
+              data-testid="editor-taxable-toggle"
+              checked={isTaxable}
+              disabled={!isSell}
+              onCheckedChange={(next) =>
+                isSell &&
+                onEditField({ isTaxable: next } as Partial<CardFieldsFor<ModuleKey>>)
+              }
+            />
+            <label
+              htmlFor={taxableId}
               className={cn(
-                "relative h-4 w-7 rounded-bar border transition-colors duration-150",
-                isTaxable
-                  ? "border-line-hi bg-surface-active"
-                  : "border-line bg-surface-input",
+                "font-mono text-micro uppercase tracking-wider text-text-3",
+                isSell ? "cursor-pointer" : "opacity-50",
               )}
             >
-              <span
-                className={cn(
-                  "absolute top-0.5 h-2.5 w-2.5 rounded-full bg-text-2 transition-transform duration-150",
-                  isTaxable ? "translate-x-3.5" : "translate-x-0.5",
-                )}
-              />
-            </span>
-            <span className="font-mono text-micro uppercase tracking-wider text-text-3">
               {t("editor.footer.taxable", "taxable")}
-            </span>
-          </button>
+            </label>
+          </div>
 
           <button
             type="button"
