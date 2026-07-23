@@ -5155,6 +5155,7 @@ export type Database = {
           auto_send_settings: Json | null
           company_id: string
           created_at: string | null
+          default_intake_owner_id: string | null
           email: string
           expires_at: string
           history_id: string | null
@@ -5189,6 +5190,7 @@ export type Database = {
           auto_send_settings?: Json | null
           company_id: string
           created_at?: string | null
+          default_intake_owner_id?: string | null
           email: string
           expires_at: string
           history_id?: string | null
@@ -5223,6 +5225,7 @@ export type Database = {
           auto_send_settings?: Json | null
           company_id?: string
           created_at?: string | null
+          default_intake_owner_id?: string | null
           email?: string
           expires_at?: string
           history_id?: string | null
@@ -5247,7 +5250,15 @@ export type Database = {
           webhook_client_state_hash?: string | null
           webhook_subscription_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "email_connections_default_intake_owner_id_fkey"
+            columns: ["default_intake_owner_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       email_oauth_states: {
         Row: {
@@ -15972,6 +15983,117 @@ export type Database = {
         }
         Relationships: []
       }
+      unassigned_lead_assignment_deliveries: {
+        Row: {
+          assignment_version: number
+          attempts: number
+          available_at: string
+          claimed_at: string | null
+          claimed_by: string | null
+          company_id: string
+          connection_id: string
+          created_at: string
+          delivered_at: string | null
+          disposition: string | null
+          id: string
+          last_error: string | null
+          lease_expires_at: string | null
+          lease_token: string | null
+          max_attempts: number
+          notification_id: string | null
+          opportunity_id: string
+          push_state: string
+          recipient_user_id: string
+          state: string
+          terminal_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          assignment_version?: number
+          attempts?: number
+          available_at?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          company_id: string
+          connection_id: string
+          created_at?: string
+          delivered_at?: string | null
+          disposition?: string | null
+          id?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          max_attempts?: number
+          notification_id?: string | null
+          opportunity_id: string
+          push_state?: string
+          recipient_user_id: string
+          state?: string
+          terminal_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assignment_version?: number
+          attempts?: number
+          available_at?: string
+          claimed_at?: string | null
+          claimed_by?: string | null
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          delivered_at?: string | null
+          disposition?: string | null
+          id?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          max_attempts?: number
+          notification_id?: string | null
+          opportunity_id?: string
+          push_state?: string
+          recipient_user_id?: string
+          state?: string
+          terminal_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unassigned_lead_assignment_deliveries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unassigned_lead_assignment_deliveries_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unassigned_lead_assignment_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unassigned_lead_assignment_deliveries_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unassigned_lead_assignment_deliveries_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_dashboard_preferences: {
         Row: {
           company_id: string
@@ -17315,6 +17437,25 @@ export type Database = {
           should_push: boolean
         }[]
       }
+      claim_unassigned_lead_assignment_deliveries: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          company_id: string
+          delivery_id: string
+          delivery_lease_token: string | null
+          disposition: string
+          lead_title: string
+          notification_id: string | null
+          opportunity_id: string
+          recipient_user_id: string
+          requires_notification: boolean
+          should_push: boolean
+        }[]
+      }
       claim_task_schedule_automation_events: {
         Args: {
           p_lease_seconds?: number
@@ -17349,6 +17490,14 @@ export type Database = {
         Returns: boolean
       }
       complete_opportunity_conversion_notification_delivery: {
+        Args: {
+          p_delivery_id: string
+          p_lease_token: string
+          p_push_state: string
+        }
+        Returns: Json
+      }
+      complete_unassigned_lead_assignment_delivery: {
         Args: {
           p_delivery_id: string
           p_lease_token: string
@@ -17412,6 +17561,15 @@ export type Database = {
           p_task_start_date: string
         }
         Returns: string
+      }
+      configure_company_mailbox_intake_owner_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_connection_id: string
+          p_expected_owner_id: string | null
+          p_new_owner_id: string | null
+        }
+        Returns: Json
       }
       convert_estimate_to_invoice: {
         Args: { p_due_date?: string; p_estimate_id: string }
@@ -17681,6 +17839,16 @@ export type Database = {
           user_id: string
         }[]
       }
+      create_company_mailbox_email_opportunity_as_system: {
+        Args: {
+          p_connection_id: string
+          p_ingestion_source: string
+          p_opportunity: Json
+          p_provider_mutations_disabled: boolean
+          p_provider_thread_id: string
+        }
+        Returns: Json
+      }
       early_clear_expense_line: {
         Args: { p_expense_id: string }
         Returns: undefined
@@ -17751,6 +17919,15 @@ export type Database = {
         Returns: string
       }
       fail_opportunity_conversion_notification_delivery: {
+        Args: {
+          p_delivery_id: string
+          p_error: string
+          p_lease_token: string
+          p_retryable?: boolean
+        }
+        Returns: Json
+      }
+      fail_unassigned_lead_assignment_delivery: {
         Args: {
           p_delivery_id: string
           p_error: string

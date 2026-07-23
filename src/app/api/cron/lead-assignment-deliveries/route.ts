@@ -4,6 +4,7 @@ import { LeadAssignmentDeliveryService } from "@/lib/api/services/lead-assignmen
 import { OpportunityConversionNotificationDeliveryService } from "@/lib/api/services/opportunity-conversion-notification-delivery-service";
 import { ProjectStatusLifecycleOutboxService } from "@/lib/api/services/project-status-lifecycle-outbox-service";
 import { TaskMutationAutomationOutboxService } from "@/lib/api/services/task-mutation-automation-outbox-service";
+import { UnassignedLeadAssignmentDeliveryService } from "@/lib/api/services/unassigned-lead-assignment-delivery-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export const runtime = "nodejs";
@@ -28,29 +29,41 @@ export async function GET(request: NextRequest) {
 
   try {
     const db = getServiceRoleClient();
-    const [result, projectLifecycle, taskAutomation, conversionNotifications] =
-      await Promise.all([
-        LeadAssignmentDeliveryService.processBatch(db, {
-          limit: 50,
-          leaseSeconds: 360,
-        }),
-        ProjectStatusLifecycleOutboxService.processBatch(db, {
-          limit: 25,
-          leaseSeconds: 360,
-        }),
-        TaskMutationAutomationOutboxService.processBatch(db, {
-          limit: 25,
-          leaseSeconds: 360,
-        }),
-        OpportunityConversionNotificationDeliveryService.processBatch(db, {
-          limit: 25,
-          leaseSeconds: 360,
-        }),
-      ]);
+    const [
+      result,
+      unassignedLeadAssignments,
+      projectLifecycle,
+      taskAutomation,
+      conversionNotifications,
+    ] = await Promise.all([
+      LeadAssignmentDeliveryService.processBatch(db, {
+        limit: 50,
+        leaseSeconds: 360,
+      }),
+      UnassignedLeadAssignmentDeliveryService.processBatch(db, {
+        limit: 50,
+        leaseSeconds: 360,
+      }),
+      ProjectStatusLifecycleOutboxService.processBatch(db, {
+        limit: 25,
+        leaseSeconds: 360,
+      }),
+      TaskMutationAutomationOutboxService.processBatch(db, {
+        limit: 25,
+        leaseSeconds: 360,
+      }),
+      OpportunityConversionNotificationDeliveryService.processBatch(db, {
+        limit: 25,
+        leaseSeconds: 360,
+      }),
+    ]);
     const ok =
       result.errors.length === 0 &&
       result.requeued === 0 &&
       result.terminalFailed === 0 &&
+      unassignedLeadAssignments.errors.length === 0 &&
+      unassignedLeadAssignments.requeued === 0 &&
+      unassignedLeadAssignments.terminalFailed === 0 &&
       projectLifecycle.errors.length === 0 &&
       projectLifecycle.requeued === 0 &&
       projectLifecycle.failed === 0 &&
@@ -67,6 +80,7 @@ export async function GET(request: NextRequest) {
       {
         ok,
         ...result,
+        unassignedLeadAssignments,
         projectLifecycle,
         taskAutomation,
         conversionNotifications,

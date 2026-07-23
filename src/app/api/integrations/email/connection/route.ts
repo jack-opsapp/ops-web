@@ -23,18 +23,25 @@ import { runWithSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type {
   BrowserUpdateEmailConnection,
+  CompanyMailboxIntakeOwnerUpdate,
   EmailConnection,
   EmailConnectionDescriptor,
   SyncProfile,
 } from "@/lib/types/email-connection";
 
-const ALLOWED_UPDATE_FIELDS = new Set<keyof BrowserUpdateEmailConnection>([
+type ConnectionRouteUpdate = BrowserUpdateEmailConnection &
+  Partial<CompanyMailboxIntakeOwnerUpdate>;
+
+const ALLOWED_UPDATE_FIELDS = new Set<keyof ConnectionRouteUpdate>([
   "syncEnabled",
   "syncIntervalMinutes",
   "syncFilters",
   "aiReviewEnabled",
   "aiMemoryEnabled",
+  "defaultIntakeOwnerId",
 ]);
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function isSameCompany(
   actor: EmailRouteActor,
@@ -61,7 +68,7 @@ async function canManageConnection(
     return connection.userId === actor.userId;
   }
   if (connection.type !== "company") return false;
-  return checkPermissionById(actor.userId, "settings.integrations");
+  return checkPermissionById(actor.userId, "settings.integrations", "all");
 }
 
 function toDescriptor(
@@ -74,6 +81,9 @@ function toDescriptor(
     provider: connection.provider,
     type: connection.type,
     userId: connection.userId,
+    defaultIntakeOwnerId: includeConfiguration
+      ? (connection.defaultIntakeOwnerId ?? null)
+      : null,
     email: connection.email,
     syncEnabled: connection.syncEnabled,
     lastSyncedAt: connection.lastSyncedAt,
@@ -95,20 +105,19 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 function parseUpdate(
   raw: unknown,
   existingFilters: SyncProfile
-): BrowserUpdateEmailConnection | null {
+): ConnectionRouteUpdate | null {
   if (!isPlainObject(raw)) return null;
   const keys = Object.keys(raw);
   if (
     keys.length === 0 ||
     keys.some(
-      (key) =>
-        !ALLOWED_UPDATE_FIELDS.has(key as keyof BrowserUpdateEmailConnection)
+      (key) => !ALLOWED_UPDATE_FIELDS.has(key as keyof ConnectionRouteUpdate)
     )
   ) {
     return null;
   }
 
-  const update: BrowserUpdateEmailConnection = {};
+  const update: ConnectionRouteUpdate = {};
   if (raw.syncEnabled !== undefined) {
     if (typeof raw.syncEnabled !== "boolean") return null;
     update.syncEnabled = raw.syncEnabled;
@@ -139,6 +148,16 @@ function parseUpdate(
     if (typeof raw.aiMemoryEnabled !== "boolean") return null;
     update.aiMemoryEnabled = raw.aiMemoryEnabled;
   }
+  if (Object.prototype.hasOwnProperty.call(raw, "defaultIntakeOwnerId")) {
+    if (
+      raw.defaultIntakeOwnerId !== null &&
+      (typeof raw.defaultIntakeOwnerId !== "string" ||
+        !UUID_PATTERN.test(raw.defaultIntakeOwnerId))
+    ) {
+      return null;
+    }
+    update.defaultIntakeOwnerId = raw.defaultIntakeOwnerId;
+  }
   return update;
 }
 
@@ -161,7 +180,11 @@ export async function GET(request: NextRequest) {
         }
         const includeConfiguration =
           connection.type === "individual" ||
-          (await checkPermissionById(actor.userId, "settings.integrations"));
+          (await checkPermissionById(
+            actor.userId,
+            "settings.integrations",
+            "all"
+          ));
         if (!includeConfiguration) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
@@ -170,7 +193,7 @@ export async function GET(request: NextRequest) {
 
       const [connections, canManageCompany] = await Promise.all([
         EmailService.getConnections(actor.companyId),
-        checkPermissionById(actor.userId, "settings.integrations"),
+        checkPermissionById(actor.userId, "settings.integrations", "all"),
       ]);
       return NextResponse.json({
         connections: connections
@@ -242,6 +265,43 @@ export async function PATCH(request: NextRequest) {
         );
       }
 
+      if (
+        Object.prototype.hasOwnProperty.call(update, "defaultIntakeOwnerId")
+      ) {
+        if (
+          existing.type !== "company" ||
+          Object.keys(update).length !== 1 ||
+          !Object.prototype.hasOwnProperty.call(
+            body,
+            "expectedDefaultIntakeOwnerId"
+          ) ||
+          (body.expectedDefaultIntakeOwnerId !== null &&
+            (typeof body.expectedDefaultIntakeOwnerId !== "string" ||
+              !UUID_PATTERN.test(body.expectedDefaultIntakeOwnerId)))
+        ) {
+          return NextResponse.json(
+            { error: "Invalid intake owner update" },
+            { status: 400 }
+          );
+        }
+        if (
+          !(await checkPermissionById(actor.userId, "pipeline.assign", "all"))
+        ) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+        const configured =
+          await EmailService.configureCompanyMailboxIntakeOwner({
+            actorUserId: actor.userId,
+            connectionId,
+            expectedOwnerId: body.expectedDefaultIntakeOwnerId,
+            newOwnerId: update.defaultIntakeOwnerId ?? null,
+          });
+        return NextResponse.json({
+          ok: true,
+          connection: toDescriptor(configured),
+        });
+      }
+
       const updated = await EmailService.updateConnection(connectionId, update);
       return NextResponse.json({
         ok: true,
@@ -249,6 +309,26 @@ export async function PATCH(request: NextRequest) {
       });
     } catch (error) {
       console.error("[email connection PATCH] Failed", error);
+      if (
+        error instanceof Error &&
+        error.name === "CompanyMailboxIntakeOwnerConflictError"
+      ) {
+        return NextResponse.json(
+          { error: "Connection changed. Refresh and try again." },
+          { status: 409 }
+        );
+      }
+      if (
+        error instanceof Error &&
+        error.name === "CompanyMailboxIntakeOwnerValidationError"
+      ) {
+        return NextResponse.json(
+          {
+            error: "Choose an active teammate with lead and inbox access.",
+          },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ error: "Update failed" }, { status: 500 });
     }
   });

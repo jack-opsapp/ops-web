@@ -172,6 +172,7 @@ interface ImportState {
   clientMergeCalls?: Array<Record<string, unknown>>;
   correspondenceProjectionCalls?: Array<Record<string, unknown>>;
   correspondenceProjectionIncrements?: number;
+  rpcCalls?: Array<{ name: string; args: Record<string, unknown> }>;
 }
 
 function makeImportSupabaseDouble(state: ImportState) {
@@ -360,6 +361,7 @@ function makeImportSupabaseDouble(state: ImportState) {
       return new Query(table);
     },
     async rpc(name: string, args: Record<string, unknown>) {
+      state.rpcCalls?.push({ name, args });
       if (name === "authorize_opportunity_action_as_system") {
         return { data: true, error: null };
       }
@@ -1570,6 +1572,7 @@ describe("email opportunity title route writes", () => {
         source_thread_key: "email:gmail:connection-1:message:msg-concurrent",
       },
       clientMergeCalls: [],
+      rpcCalls: [],
     };
     getServiceRoleClientMock.mockReturnValue(makeImportSupabaseDouble(state));
     getConnectionMock.mockResolvedValue({
@@ -1691,6 +1694,16 @@ describe("email opportunity title route writes", () => {
         p_loser_id: "client-loser",
       }),
     ]);
+    expect(state.rpcCalls).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "assign_new_company_mailbox_opportunity",
+        }),
+        expect.objectContaining({
+          name: "create_company_mailbox_email_opportunity_as_system",
+        }),
+      ])
+    );
     expect(createActivityMock).toHaveBeenCalledOnce();
     expect(createActivityMock).toHaveBeenCalledWith(
       expect.objectContaining({

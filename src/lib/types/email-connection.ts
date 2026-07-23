@@ -25,6 +25,8 @@ export interface EmailConnection {
   provider: EmailProvider;
   type: "company" | "individual";
   userId: string | null;
+  /** Default OPS owner for newly discovered leads from a company mailbox. */
+  defaultIntakeOwnerId?: string | null;
   email: string;
   accessToken: string;
   refreshToken: string;
@@ -64,6 +66,8 @@ export interface EmailConnectionDescriptor {
   provider: EmailProvider;
   type: "company" | "individual";
   userId: string | null;
+  /** Redacted to null unless the actor can manage company integrations. */
+  defaultIntakeOwnerId: string | null;
   email: string;
   syncEnabled: boolean;
   lastSyncedAt: Date | null;
@@ -171,6 +175,11 @@ export type BrowserUpdateEmailConnection = Pick<
   | "aiReviewEnabled"
   | "aiMemoryEnabled"
 >;
+
+/** Dedicated stale-safe company mailbox owner configuration payload. */
+export interface CompanyMailboxIntakeOwnerUpdate {
+  defaultIntakeOwnerId: string | null;
+}
 
 // ─── Junction & Feature Types ────────────────────────────────────────────────
 

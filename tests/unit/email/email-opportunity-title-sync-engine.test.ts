@@ -156,6 +156,13 @@ interface SupabaseState {
   recoveryOpportunityAuthorized?: boolean;
   legacyActivityClaimRpcError?: string;
   orphanAdoptionRpcError?: string;
+  companyMailboxDefaultOwnerId?: string | null;
+  companyMailboxPromptCount?: number;
+  companyMailboxAtomicCreateFailuresRemaining?: number;
+  companyMailboxAtomicResultReason?: string;
+  activityReadDelayMs?: number;
+  activityReadsInFlight?: number;
+  maxActivityReadsInFlight?: number;
 }
 
 function makeSupabaseDouble(state: SupabaseState) {
@@ -718,7 +725,25 @@ function makeSupabaseDouble(state: SupabaseState) {
         | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
         | null
     ) {
-      return Promise.resolve(this.result()).then(onfulfilled, onrejected);
+      const result = async () => {
+        if (
+          this.table === "activities" &&
+          this.action === "select" &&
+          (state.activityReadDelayMs ?? 0) > 0
+        ) {
+          state.activityReadsInFlight = (state.activityReadsInFlight ?? 0) + 1;
+          state.maxActivityReadsInFlight = Math.max(
+            state.maxActivityReadsInFlight ?? 0,
+            state.activityReadsInFlight
+          );
+          await new Promise((resolve) =>
+            setTimeout(resolve, state.activityReadDelayMs)
+          );
+          state.activityReadsInFlight -= 1;
+        }
+        return this.result();
+      };
+      return result().then(onfulfilled, onrejected);
     }
   }
 
@@ -775,6 +800,147 @@ function makeSupabaseDouble(state: SupabaseState) {
         state.rpcCalls?.push({ name, params });
         return {
           data: state.recoveryIngestAuthorized ?? true,
+          error: null,
+        };
+      }
+      if (name === "create_company_mailbox_email_opportunity_as_system") {
+        state.rpcCalls?.push({ name, params });
+        if ((state.companyMailboxAtomicCreateFailuresRemaining ?? 0) > 0) {
+          state.companyMailboxAtomicCreateFailuresRemaining! -= 1;
+          return {
+            data: null,
+            error: { message: "atomic company lead creation unavailable" },
+          };
+        }
+
+        const payload = params.p_opportunity as Record<string, unknown>;
+        const existing = state.opportunities.find(
+          (row) =>
+            row.company_id === "company-1" &&
+            row.source_thread_key === payload.source_thread_key
+        );
+        if (existing) {
+          return {
+            data: {
+              ok: true,
+              created: false,
+              reason: "source_key_exists",
+              opportunity: {
+                id: existing.id,
+                client_id: existing.client_id,
+                assigned_to: existing.assigned_to ?? null,
+                assignment_version: existing.assignment_version ?? 0,
+              },
+              assignment: null,
+            },
+            error: null,
+          };
+        }
+
+        const opportunityId = `opp-${state.opportunities.length + 1}`;
+        const defaultOwnerId = state.companyMailboxDefaultOwnerId ?? null;
+        const assignmentVersion = defaultOwnerId ? 1 : 0;
+        const opportunity = {
+          id: opportunityId,
+          company_id: "company-1",
+          created_at: "2026-05-20T00:00:00.000Z",
+          updated_at: "2026-05-20T00:00:00.000Z",
+          stage_entered_at: "2026-05-20T00:00:00.000Z",
+          correspondence_count: 0,
+          inbound_count: 0,
+          outbound_count: 0,
+          assignment_version: assignmentVersion,
+          assigned_to: defaultOwnerId,
+          source: "email",
+          ...payload,
+        };
+        state.opportunities.push(opportunity);
+
+        return {
+          data: {
+            ok: true,
+            created: true,
+            reason:
+              state.companyMailboxAtomicResultReason ??
+              (defaultOwnerId ? "created_assigned" : "created_prompted"),
+            opportunity: {
+              id: opportunityId,
+              client_id: payload.client_id,
+              assigned_to: defaultOwnerId,
+              assignment_version: assignmentVersion,
+            },
+            assignment: defaultOwnerId
+              ? {
+                  outcome: "assigned",
+                  event_id: `assignment-event-${opportunityId}`,
+                  prompt_count: 0,
+                }
+              : {
+                  outcome: "owner_missing",
+                  event_id: null,
+                  prompt_count: state.companyMailboxPromptCount ?? 1,
+                },
+          },
+          error: null,
+        };
+      }
+      if (name === "assign_new_company_mailbox_opportunity") {
+        state.rpcCalls?.push({ name, params });
+        const opportunity = state.opportunities.find(
+          (row) => row.id === params.p_opportunity_id
+        );
+        if (!opportunity) {
+          return { data: null, error: { message: "opportunity_not_found" } };
+        }
+        const assignedTo =
+          typeof opportunity.assigned_to === "string"
+            ? opportunity.assigned_to
+            : null;
+        const assignmentVersion = Number(opportunity.assignment_version ?? 0);
+        if (
+          assignedTo !== (params.p_expected_assigned_to ?? null) ||
+          assignmentVersion !== Number(params.p_expected_assignment_version)
+        ) {
+          return {
+            data: {
+              ok: false,
+              conflict: true,
+              assigned_to: assignedTo,
+              assignment_version: assignmentVersion,
+              event_id: null,
+              reason: "assignment_conflict",
+              prompt_count: 0,
+            },
+            error: null,
+          };
+        }
+        const defaultOwnerId = state.companyMailboxDefaultOwnerId ?? null;
+        if (!defaultOwnerId) {
+          return {
+            data: {
+              ok: false,
+              conflict: false,
+              assigned_to: null,
+              assignment_version: assignmentVersion,
+              event_id: null,
+              reason: "owner_missing",
+              prompt_count: state.companyMailboxPromptCount ?? 0,
+            },
+            error: null,
+          };
+        }
+        opportunity.assigned_to = defaultOwnerId;
+        opportunity.assignment_version = assignmentVersion + 1;
+        return {
+          data: {
+            ok: true,
+            conflict: false,
+            assigned_to: defaultOwnerId,
+            assignment_version: assignmentVersion + 1,
+            event_id: `assignment-event-${params.p_opportunity_id}`,
+            reason: "assigned",
+            prompt_count: 0,
+          },
           error: null,
         };
       }
@@ -986,6 +1152,36 @@ function makeSupabaseDouble(state: SupabaseState) {
             data: null,
             error: { message: state.correspondenceProjectionError },
           };
+        }
+
+        if (params.p_activity_id != null) {
+          const activity = state.activities.find((row) => {
+            const companyId = row.company_id ?? "company-1";
+            const connectionId =
+              "email_connection_id" in row
+                ? row.email_connection_id
+                : "connection-1";
+            const type = row.type ?? "email";
+            return (
+              row.id === params.p_activity_id &&
+              companyId === params.p_company_id &&
+              row.opportunity_id === params.p_opportunity_id &&
+              type === "email" &&
+              connectionId === params.p_connection_id &&
+              row.email_thread_id === params.p_provider_thread_id &&
+              row.email_message_id === params.p_provider_message_id &&
+              row.direction === params.p_direction
+            );
+          });
+          if (!activity) {
+            return {
+              data: null,
+              error: {
+                code: "23514",
+                message: "correspondence_activity_identity_conflict",
+              },
+            };
+          }
         }
 
         state.correspondenceEvents ??= [];
@@ -1409,6 +1605,8 @@ describe("SyncEngine email opportunity title generation", () => {
       opportunities: [],
       threadLinks: [],
       activities: [],
+      companyMailboxDefaultOwnerId: "user-default-intake",
+      rpcCalls: [],
     };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
 
@@ -1435,12 +1633,302 @@ describe("SyncEngine email opportunity title generation", () => {
       source_email_id: "thread-1",
       source_thread_key: "email:gmail:connection-1:thread:thread-1",
       source: "email",
+      assigned_to: "user-default-intake",
+      assignment_version: 1,
     });
     expect(state.clients[0]).toMatchObject({
       name: "Kara Beach",
       email: "kara.beach@example.com",
     });
     expect(state.opportunities[0].title).not.toContain("Jackson Sweet");
+    expect(state.rpcCalls).toContainEqual({
+      name: "create_company_mailbox_email_opportunity_as_system",
+      params: expect.objectContaining({
+        p_connection_id: "connection-1",
+        p_provider_thread_id: "thread-1",
+        p_ingestion_source: "email_sync",
+        p_provider_mutations_disabled: false,
+        p_opportunity: expect.objectContaining({
+          client_id: "client-1",
+          source_thread_key: "email:gmail:connection-1:thread:thread-1",
+        }),
+      }),
+    });
+    expect(
+      state.rpcCalls?.some(
+        (call) => call.name === "assign_new_company_mailbox_opportunity"
+      )
+    ).toBe(false);
+    const atomicCreate = state.rpcCalls?.find(
+      (call) =>
+        call.name === "create_company_mailbox_email_opportunity_as_system"
+    );
+    expect(atomicCreate?.params.p_opportunity).not.toHaveProperty("source");
+  });
+
+  it("atomically retries company lead creation and assignment after a database interruption", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      companyMailboxDefaultOwnerId: "user-default-intake",
+      companyMailboxAtomicCreateFailuresRemaining: 1,
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-atomic",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [baseEmail({ id: "message-atomic-company-create" })],
+        nextSyncToken: "sync-token-atomic",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const first = await SyncEngine.runSync("connection-1");
+
+    expect(first.errors.join(" ")).toContain(
+      "atomic company lead creation unavailable"
+    );
+    expect(state.opportunities).toHaveLength(0);
+    expect(updateConnectionMock).not.toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ historyId: "sync-token-atomic" })
+    );
+
+    updateConnectionMock.mockClear();
+    const second = await SyncEngine.runSync("connection-1");
+
+    expect(second.errors).toEqual([]);
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.opportunities[0]).toMatchObject({
+      assigned_to: "user-default-intake",
+      assignment_version: 1,
+      source_thread_key: "email:gmail:connection-1:thread:thread-1",
+    });
+    expect(
+      state.rpcCalls?.filter(
+        (call) =>
+          call.name === "create_company_mailbox_email_opportunity_as_system"
+      )
+    ).toHaveLength(2);
+    expect(
+      state.rpcCalls?.some(
+        (call) => call.name === "assign_new_company_mailbox_opportunity"
+      )
+    ).toBe(false);
+    expect(updateConnectionMock).toHaveBeenLastCalledWith(
+      "connection-1",
+      expect.objectContaining({ historyId: "sync-token-atomic" })
+    );
+  });
+
+  it("rejects an atomic company result whose create reason contradicts its assignment outcome", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      companyMailboxDefaultOwnerId: "user-default-intake",
+      companyMailboxAtomicResultReason: "created_prompted",
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-invalid-atomic-result",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [baseEmail({ id: "msg-invalid-atomic-result" })],
+        nextSyncToken: "sync-token-invalid-atomic-result",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors.join(" ")).toContain(
+      "atomic company mailbox opportunity returned inconsistent assignment state"
+    );
+    expect(updateConnectionMock).not.toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({
+        historyId: "sync-token-invalid-atomic-result",
+      })
+    );
+  });
+
+  it("rejects an unassigned atomic company result without durable prompt proof", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      companyMailboxDefaultOwnerId: null,
+      companyMailboxPromptCount: 0,
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-missing-prompt-proof",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [baseEmail({ id: "msg-missing-prompt-proof" })],
+        nextSyncToken: "sync-token-missing-prompt-proof",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors.join(" ")).toContain(
+      "atomic company mailbox opportunity returned inconsistent assignment state"
+    );
+    expect(updateConnectionMock).not.toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({
+        historyId: "sync-token-missing-prompt-proof",
+      })
+    );
+  });
+
+  it("replays idempotent provenance for an existing atomic company source-key winner without assigning it", async () => {
+    const sourceThreadKey =
+      "email:gmail:connection-1:thread:thread-provenance-retry";
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [
+        {
+          id: "opp-existing-winner",
+          company_id: "company-1",
+          client_id: "client-existing-winner",
+          title: "Kara Beach — Email Inquiry",
+          stage: "new_lead",
+          source: "email",
+          source_thread_key: sourceThreadKey,
+          assigned_to: null,
+          assignment_version: 0,
+          archived_at: null,
+          deleted_at: null,
+          correspondence_count: 0,
+          inbound_count: 0,
+          outbound_count: 0,
+        },
+      ],
+      threadLinks: [],
+      activities: [],
+      companyMailboxDefaultOwnerId: "user-default-intake",
+      provenanceUpserts: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-provenance-retry",
+            threadId: "thread-provenance-retry",
+            from: "Kara Beach <kara.beach@example.com>",
+            fromName: "Kara Beach",
+            to: ["jackson@canprodeckandrail.com"],
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-provenance-retry",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-provenance-retry",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.opportunities[0]).toMatchObject({
+      id: "opp-existing-winner",
+      assigned_to: null,
+      assignment_version: 0,
+    });
+    expect(state.provenanceUpserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_type: "opportunity",
+          entity_id: "opp-existing-winner",
+          field_name: "contact_email",
+        }),
+      ])
+    );
+    expect(
+      state.rpcCalls?.filter(
+        (call) =>
+          call.name === "create_company_mailbox_email_opportunity_as_system"
+      )
+    ).toHaveLength(1);
+    expect(
+      state.rpcCalls?.some(
+        (call) => call.name === "assign_new_company_mailbox_opportunity"
+      )
+    ).toBe(false);
+  });
+
+  it("bounds persisted-direction activity lookups for a large provider batch", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      activityReadDelayMs: 5,
+      activityReadsInFlight: 0,
+      maxActivityReadsInFlight: 0,
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    shouldFilterMock.mockReturnValue(true);
+
+    const messages = Array.from({ length: 24 }, (_, index) =>
+      baseEmail({
+        id: `msg-direction-${index}`,
+        threadId: `thread-direction-${index}`,
+        from: `Customer ${index} <customer-${index}@example.com>`,
+        fromName: `Customer ${index}`,
+        to: ["jackson@canprodeckandrail.com"],
+        labelIds: ["INBOX"],
+      })
+    );
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: messages,
+        nextSyncToken: "sync-token-direction-batch",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-direction-batch",
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(state.maxActivityReadsInFlight).toBeGreaterThan(1);
+    expect(state.maxActivityReadsInFlight).toBeLessThanOrEqual(8);
   });
 
   it("excludes every authoritative operator alias in outbound To and CC before choosing the customer", async () => {
@@ -3920,6 +4408,369 @@ To: Kara Beach <kara.beach@example.com>`,
     });
   });
 
+  it("replays a persisted inbound direction after teammate roster drift without starving later mail", async () => {
+    const connectionId = "connection-replay-roster-drift";
+    const jakeOccurredAt = "2026-07-23T00:02:21.000Z";
+    const state: SupabaseState = {
+      clients: [],
+      operatorUsers: [
+        { email: "jackson@canprodeckandrail.com", phone: null },
+        { email: "jacobjstrickler@gmail.com", phone: null },
+      ],
+      opportunities: [
+        {
+          id: "opp-jake",
+          company_id: "company-1",
+          client_id: null,
+          title: "Jake Strickler — Email Inquiry",
+          stage: "qualifying",
+          stage_manually_set: false,
+          correspondence_count: 1,
+          inbound_count: 1,
+          outbound_count: 0,
+          last_inbound_at: jakeOccurredAt,
+          last_message_direction: "in",
+          archived_at: null,
+          deleted_at: null,
+        },
+        {
+          id: "opp-nick",
+          company_id: "company-1",
+          client_id: null,
+          title: "Nick Bradshaw — Email Inquiry",
+          stage: "new_lead",
+          stage_manually_set: false,
+          correspondence_count: 0,
+          inbound_count: 0,
+          outbound_count: 0,
+          archived_at: null,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [
+        {
+          opportunity_id: "opp-jake",
+          thread_id: "thread-jake-replay",
+          connection_id: connectionId,
+        },
+        {
+          opportunity_id: "opp-nick",
+          thread_id: "thread-nick-after-jake",
+          connection_id: connectionId,
+        },
+      ],
+      activities: [
+        {
+          id: "activity-jake-replay",
+          company_id: "company-1",
+          opportunity_id: "opp-jake",
+          email_connection_id: connectionId,
+          email_thread_id: "thread-jake-replay",
+          email_message_id: "msg-jake-replay",
+          type: "email",
+          direction: "inbound",
+          subject: "Glass Order :507 Nelson",
+          content: "Glass order details",
+          body_text: "Glass order details",
+          body_text_clean: "Glass order details",
+          from_email: "jacobjstrickler@gmail.com",
+          to_emails: ["canprojack@gmail.com"],
+          cc_emails: [],
+          is_read: true,
+          has_attachments: false,
+          attachment_count: 0,
+          created_at: jakeOccurredAt,
+        },
+      ],
+      correspondenceEvents: [
+        {
+          id: "event-jake-replay",
+          company_id: "company-1",
+          opportunity_id: "opp-jake",
+          activity_id: "activity-jake-replay",
+          connection_id: connectionId,
+          provider_thread_id: "thread-jake-replay",
+          provider_message_id: "msg-jake-replay",
+          direction: "inbound",
+          party_role: "customer",
+          is_meaningful: true,
+          noise_reason: null,
+          occurred_at: jakeOccurredAt,
+          source: "sync_activity",
+          subject: "Glass Order :507 Nelson",
+          from_email: "jacobjstrickler@gmail.com",
+          to_emails: ["canprojack@gmail.com"],
+          cc_emails: [],
+          opportunity_projection_applied: true,
+        },
+      ],
+      correspondenceProjectionApplications: 0,
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const connection = baseConnection({
+      id: connectionId,
+      email: "canprojack@gmail.com",
+      syncFilters: {
+        includeSentMail: true,
+        estimateSubjectPatterns: ["railing"],
+        companyDomains: ["canprodeckandrail.com"],
+        teamForwarders: [],
+        userEmailAddresses: [],
+      },
+    });
+    getConnectionMock.mockResolvedValue(connection);
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-jake-replay",
+            threadId: "thread-jake-replay",
+            from: "Jake Strickler <jacobjstrickler@gmail.com>",
+            fromName: "Jake Strickler",
+            to: ["canprojack@gmail.com"],
+            subject: "Glass Order :507 Nelson",
+            bodyText: "Glass order details",
+            snippet: "Glass order details",
+            date: new Date(jakeOccurredAt),
+            labelIds: ["INBOX"],
+          }),
+          baseEmail({
+            id: "msg-nick-after-jake",
+            threadId: "thread-nick-after-jake",
+            from: "Nick Bradshaw <nickybradshaw1989@outlook.com>",
+            fromName: "Nick Bradshaw",
+            to: ["canprojack@gmail.com"],
+            subject: "Railing Inquiry",
+            bodyText: "I need a new white railing for my front porch.",
+            snippet: "I need a new white railing for my front porch.",
+            date: new Date("2026-07-23T18:16:48.000Z"),
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-after-nick",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-after-nick",
+      })),
+    });
+
+    const result = await SyncEngine.runSync(connectionId);
+
+    expect(result.errors).toEqual([]);
+    expect(updateConnectionMock).toHaveBeenLastCalledWith(
+      connectionId,
+      expect.objectContaining({ historyId: "sync-token-after-nick" })
+    );
+    expect(
+      state.activities.filter(
+        (row) => row.email_message_id === "msg-jake-replay"
+      )
+    ).toHaveLength(1);
+    expect(
+      state.correspondenceEvents?.filter(
+        (row) => row.provider_message_id === "msg-jake-replay"
+      )
+    ).toHaveLength(1);
+    expect(state.correspondenceEvents?.[0]?.direction).toBe("inbound");
+    expect(state.opportunities[0]).toMatchObject({
+      correspondence_count: 1,
+      inbound_count: 1,
+      outbound_count: 0,
+    });
+    expect(
+      state.activities.filter(
+        (row) => row.email_message_id === "msg-nick-after-jake"
+      )
+    ).toHaveLength(1);
+    expect(
+      state.correspondenceEvents?.filter(
+        (row) => row.provider_message_id === "msg-nick-after-jake"
+      )
+    ).toHaveLength(1);
+    expect(state.correspondenceProjectionApplications).toBe(1);
+    expect(
+      state.rpcCalls?.filter(
+        (call) =>
+          call.name === "record_opportunity_correspondence_event" &&
+          call.params.p_provider_message_id === "msg-jake-replay"
+      )
+    ).toEqual([
+      expect.objectContaining({
+        params: expect.objectContaining({ p_direction: "inbound" }),
+      }),
+    ]);
+  });
+
+  it("uses the current teammate roster for a fresh provider message", async () => {
+    const connectionId = "connection-fresh-jake";
+    const state: SupabaseState = {
+      clients: [],
+      operatorUsers: [
+        { email: "jackson@canprodeckandrail.com", phone: null },
+        { email: "jacobjstrickler@gmail.com", phone: null },
+      ],
+      opportunities: [
+        {
+          id: "opp-fresh-jake",
+          company_id: "company-1",
+          client_id: null,
+          title: "Existing customer conversation",
+          stage: "qualifying",
+          stage_manually_set: false,
+          archived_at: null,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [
+        {
+          opportunity_id: "opp-fresh-jake",
+          thread_id: "thread-fresh-jake",
+          connection_id: connectionId,
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const connection = baseConnection({
+      id: connectionId,
+      email: "canprojack@gmail.com",
+      syncFilters: {
+        includeSentMail: true,
+        estimateSubjectPatterns: ["glass"],
+        companyDomains: ["canprodeckandrail.com"],
+        teamForwarders: [],
+        userEmailAddresses: [],
+      },
+    });
+    getConnectionMock.mockResolvedValue(connection);
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-fresh-jake",
+            threadId: "thread-fresh-jake",
+            from: "Jake Strickler <jacobjstrickler@gmail.com>",
+            fromName: "Jake Strickler",
+            to: ["Customer <customer@example.com>"],
+            subject: "Re: Glass order",
+            bodyText: "The glass order is ready.",
+            snippet: "The glass order is ready.",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-after-fresh-jake",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-after-fresh-jake",
+      })),
+    });
+
+    const result = await SyncEngine.runSync(connectionId);
+
+    expect(result.errors).toEqual([]);
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.activities).toEqual([
+      expect.objectContaining({
+        email_message_id: "msg-fresh-jake",
+        direction: "outbound",
+      }),
+    ]);
+    expect(state.correspondenceEvents).toEqual([
+      expect.objectContaining({
+        provider_message_id: "msg-fresh-jake",
+        direction: "outbound",
+      }),
+    ]);
+    expect(updateConnectionMock).toHaveBeenLastCalledWith(
+      connectionId,
+      expect.objectContaining({ historyId: "sync-token-after-fresh-jake" })
+    );
+  });
+
+  it("fails closed without advancing the cursor when persisted direction is malformed", async () => {
+    const connectionId = "connection-malformed-direction";
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [
+        {
+          id: "opp-malformed-direction",
+          company_id: "company-1",
+          client_id: null,
+          title: "Malformed direction lead",
+          stage: "new_lead",
+          stage_manually_set: false,
+          archived_at: null,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [
+        {
+          opportunity_id: "opp-malformed-direction",
+          thread_id: "thread-malformed-direction",
+          connection_id: connectionId,
+        },
+      ],
+      activities: [
+        {
+          id: "activity-malformed-direction",
+          company_id: "company-1",
+          opportunity_id: "opp-malformed-direction",
+          email_connection_id: connectionId,
+          email_thread_id: "thread-malformed-direction",
+          email_message_id: "msg-malformed-direction",
+          type: "email",
+          direction: "sideways",
+          created_at: "2026-07-23T18:00:00.000Z",
+        },
+      ],
+      correspondenceEvents: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(
+      baseConnection({ id: connectionId, email: "canprojack@gmail.com" })
+    );
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-malformed-direction",
+            threadId: "thread-malformed-direction",
+            from: "customer@example.com",
+            to: ["canprojack@gmail.com"],
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "must-not-commit",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "must-not-commit",
+      })),
+    });
+
+    const result = await SyncEngine.runSync(connectionId);
+
+    expect(result.errors).toEqual([
+      "[sync-engine] persisted activity activity-malformed-direction has invalid direction",
+    ]);
+    expect(updateConnectionMock).not.toHaveBeenCalledWith(
+      connectionId,
+      expect.objectContaining({ historyId: "must-not-commit" })
+    );
+  });
+
   it("persists provider occurrence time and processes mixed-direction history chronologically", async () => {
     const state: SupabaseState = {
       clients: [],
@@ -4583,6 +5434,7 @@ To: Kara Beach <kara.beach@example.com>`,
           email_message_id: "msg-imported-m1",
           email_connection_id: "connection-1",
           opportunity_id: "opp-imported",
+          direction: "inbound",
           created_at: "2026-05-19T00:00:00.000Z",
         },
       ],
@@ -4665,6 +5517,7 @@ To: Kara Beach <kara.beach@example.com>`,
           email_thread_id: "thread-wix-shared",
           email_message_id: "msg-sandra",
           opportunity_id: "opp-sandra",
+          direction: "inbound",
           created_at: "2026-05-19T00:00:00.000Z",
         },
         {
@@ -4675,6 +5528,7 @@ To: Kara Beach <kara.beach@example.com>`,
           email_thread_id: "thread-wix-shared",
           email_message_id: "msg-brad",
           opportunity_id: "opp-brad",
+          direction: "inbound",
           created_at: "2026-05-19T00:01:00.000Z",
         },
       ],

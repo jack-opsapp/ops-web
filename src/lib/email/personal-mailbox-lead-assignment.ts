@@ -46,10 +46,24 @@ function isTargetIneligible(error: {
   return text.includes("assignment_target_ineligible");
 }
 
+function assignmentMetadata(
+  input: PersonalMailboxLeadAssignmentInput
+): Record<string, unknown> {
+  return {
+    connection_id: input.connectionId,
+    provider_thread_id: input.providerThreadId,
+    ingestion_source: input.ingestionSource ?? "email_sync",
+    ...(input.providerMutationsDisabled
+      ? { provider_mutations_disabled: true }
+      : {}),
+  };
+}
+
 /**
  * Assign a newly created personal-mailbox lead through the guarded assignment
- * operation. Company-mailbox leads remain unassigned. The mailbox address is
- * deliberately absent: application identity is the canonical OPS user UUID.
+ * operation. Company-mailbox leads are created and assigned atomically by the
+ * sync engine's guarded database RPC. The mailbox address is deliberately
+ * absent: application identity is the canonical OPS user UUID.
  */
 export async function assignPersonalMailboxLead(
   input: PersonalMailboxLeadAssignmentInput,
@@ -84,14 +98,7 @@ export async function assignPersonalMailboxLead(
       p_system_source: "personal_mailbox",
       p_actor_user_id: null,
       p_suggestion_id: null,
-      p_metadata: {
-        connection_id: input.connectionId,
-        provider_thread_id: input.providerThreadId,
-        ingestion_source: input.ingestionSource ?? "email_sync",
-        ...(input.providerMutationsDisabled
-          ? { provider_mutations_disabled: true }
-          : {}),
-      },
+      p_metadata: assignmentMetadata(input),
     }
   );
 

@@ -11,6 +11,7 @@ export type NotificationType =
   | "setup_prompt"
   | "leads_waiting"
   | "lead_assigned"
+  | "lead_assignment_required"
   | "system"
   | "project_assigned"
   | "lead_converted"

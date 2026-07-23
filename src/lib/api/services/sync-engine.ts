@@ -889,6 +889,11 @@ async function applyPersonalMailboxAssignment(params: {
     CreateOpportunityTitleOptions["mailboxAssignment"]
   >;
 }): Promise<void> {
+  if (params.mailboxAssignment.connectionType !== "individual") {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] company mailbox assignment requires atomic opportunity creation"
+    );
+  }
   try {
     const result = await assignPersonalMailboxLead(
       {
@@ -906,7 +911,7 @@ async function applyPersonalMailboxAssignment(params: {
       requireSupabase()
     );
 
-    if (!result.assigned && result.reason !== "company_mailbox") {
+    if (!result.assigned && result.reason !== "already_assigned") {
       console.warn("[email-ingest] personal-mailbox lead left unassigned", {
         opportunityId: params.opportunityId,
         connectionId: params.mailboxAssignment.connectionId,
@@ -920,6 +925,153 @@ async function applyPersonalMailboxAssignment(params: {
       }`
     );
   }
+}
+
+interface AtomicCompanyMailboxOpportunityResult {
+  opportunityId: string;
+  clientId: string;
+  assignedTo: string | null;
+  assignmentVersion: number;
+  created: boolean;
+  assignmentOutcome: "assigned" | "owner_missing" | "owner_ineligible" | null;
+  assignmentEventId: string | null;
+  promptCount: number;
+}
+
+function atomicCompanyMailboxResult(
+  value: unknown
+): AtomicCompanyMailboxOpportunityResult {
+  const row = Array.isArray(value) && value.length === 1 ? value[0] : value;
+  if (!row || typeof row !== "object" || Array.isArray(row)) {
+    throw new Error(
+      "[sync-engine] atomic company mailbox opportunity returned no result"
+    );
+  }
+  const result = row as Record<string, unknown>;
+  const opportunity =
+    result.opportunity &&
+    typeof result.opportunity === "object" &&
+    !Array.isArray(result.opportunity)
+      ? (result.opportunity as Record<string, unknown>)
+      : null;
+  const assignment =
+    result.assignment &&
+    typeof result.assignment === "object" &&
+    !Array.isArray(result.assignment)
+      ? (result.assignment as Record<string, unknown>)
+      : null;
+  const created = result.created;
+  const opportunityId = opportunity?.id;
+  const clientId = opportunity?.client_id;
+  const assignedTo =
+    typeof opportunity?.assigned_to === "string"
+      ? opportunity.assigned_to
+      : null;
+  const assignmentVersion = Number(opportunity?.assignment_version);
+
+  if (
+    result.ok !== true ||
+    typeof created !== "boolean" ||
+    typeof opportunityId !== "string" ||
+    !opportunityId ||
+    typeof clientId !== "string" ||
+    !clientId ||
+    !Number.isInteger(assignmentVersion) ||
+    assignmentVersion < 0
+  ) {
+    throw new Error(
+      "[sync-engine] atomic company mailbox opportunity returned invalid identity"
+    );
+  }
+
+  if (!created) {
+    if (result.reason !== "source_key_exists" || assignment !== null) {
+      throw new Error(
+        "[sync-engine] existing company mailbox opportunity returned invalid retry state"
+      );
+    }
+    return {
+      opportunityId,
+      clientId,
+      assignedTo,
+      assignmentVersion,
+      created: false,
+      assignmentOutcome: null,
+      assignmentEventId: null,
+      promptCount: 0,
+    };
+  }
+
+  const outcome = assignment?.outcome;
+  const eventId =
+    typeof assignment?.event_id === "string" ? assignment.event_id : null;
+  const promptCount = Number(assignment?.prompt_count);
+  if (
+    (outcome !== "assigned" &&
+      outcome !== "owner_missing" &&
+      outcome !== "owner_ineligible") ||
+    !Number.isInteger(promptCount) ||
+    promptCount < 0
+  ) {
+    throw new Error(
+      "[sync-engine] atomic company mailbox opportunity returned invalid assignment state"
+    );
+  }
+  if (
+    result.reason !==
+      (outcome === "assigned" ? "created_assigned" : "created_prompted") ||
+    (outcome === "assigned" &&
+      (!assignedTo ||
+        assignmentVersion < 1 ||
+        !eventId ||
+        promptCount !== 0)) ||
+    (outcome !== "assigned" &&
+      (assignedTo !== null ||
+        assignmentVersion !== 0 ||
+        eventId !== null ||
+        promptCount < 1))
+  ) {
+    throw new Error(
+      "[sync-engine] atomic company mailbox opportunity returned inconsistent assignment state"
+    );
+  }
+
+  return {
+    opportunityId,
+    clientId,
+    assignedTo,
+    assignmentVersion,
+    created: true,
+    assignmentOutcome: outcome,
+    assignmentEventId: eventId,
+    promptCount,
+  };
+}
+
+async function createAtomicCompanyMailboxOpportunity(params: {
+  opportunity: Record<string, unknown>;
+  providerThreadId: string;
+  mailboxAssignment: NonNullable<
+    CreateOpportunityTitleOptions["mailboxAssignment"]
+  >;
+}): Promise<AtomicCompanyMailboxOpportunityResult> {
+  const { data, error } = await requireSupabase().rpc(
+    "create_company_mailbox_email_opportunity_as_system",
+    {
+      p_connection_id: params.mailboxAssignment.connectionId,
+      p_opportunity: params.opportunity,
+      p_provider_thread_id: params.providerThreadId,
+      p_ingestion_source: params.mailboxAssignment.ingestionSource,
+      p_provider_mutations_disabled:
+        params.mailboxAssignment.providerMutationsDisabled,
+    }
+  );
+  if (error) {
+    throw new Error(
+      `[sync-engine] atomic company mailbox opportunity failed: ${error.message ?? "unknown error"}`
+    );
+  }
+  return atomicCompanyMailboxResult(data);
 }
 
 async function createOpportunity(
@@ -964,39 +1116,103 @@ async function createOpportunity(
   const opportunityEnrichmentFields = titleOptions.enrichmentFacts
     ? buildNewOpportunityEnrichmentFields(titleOptions.enrichmentFacts)
     : {};
-  const { data, error } = await supabase
-    .from("opportunities")
-    .insert({
-      company_id: companyId,
-      client_id: clientId,
-      title: buildEmailOpportunityTitle({
-        kind: titleOptions.kind ?? "email_inquiry",
-        candidates,
-        unsafe: titleOptions.unsafe,
-      }),
-      stage: persistedStage,
-      source: "email",
-      // P0-A: dedupe key. UNIQUE (company_id, source_thread_key) makes a given
-      // email thread spawn at most one opportunity, closing the sync race.
-      source_thread_key: sourceKey,
-      ...opportunityEnrichmentFields,
-      // First-message aggregates are intentionally left at their database
-      // defaults. The immutable provider event below is the only authority
-      // allowed to project counters, including after a create race or replay.
-      tags: ["email-import"],
-      ...(safeStageReview.terminalFlag
-        ? {
-            ai_stage_signals: [
-              aiTerminalReviewProvenanceSignal(safeStageReview.terminalFlag),
-            ],
-            ...(persistedReviewConfidence == null
-              ? {}
-              : { ai_stage_confidence: persistedReviewConfidence }),
-          }
-        : {}),
-    })
-    .select("id, client_id, assigned_to, assignment_version")
-    .single();
+  const opportunityInsert = {
+    client_id: clientId,
+    title: buildEmailOpportunityTitle({
+      kind: titleOptions.kind ?? "email_inquiry",
+      candidates,
+      unsafe: titleOptions.unsafe,
+    }),
+    stage: persistedStage,
+    source_thread_key: sourceKey,
+    ...opportunityEnrichmentFields,
+    // First-message aggregates are intentionally left at their database
+    // defaults. The immutable provider event below is the only authority
+    // allowed to project counters, including after a create race or replay.
+    tags: ["email-import"],
+    ...(safeStageReview.terminalFlag
+      ? {
+          ai_stage_signals: [
+            aiTerminalReviewProvenanceSignal(safeStageReview.terminalFlag),
+          ],
+          ...(persistedReviewConfidence == null
+            ? {}
+            : { ai_stage_confidence: persistedReviewConfidence }),
+        }
+      : {}),
+  };
+
+  let data: Record<string, unknown> | null = null;
+  let error: { code?: string; message?: string } | null = null;
+  if (titleOptions.mailboxAssignment?.connectionType === "company") {
+    if (!sourceKey || !email.threadId) {
+      throw new Error(
+        "[sync-engine] company mailbox opportunity requires deterministic provider identity"
+      );
+    }
+    const atomicOpportunityInsert: Record<string, unknown> = {
+      ...opportunityInsert,
+    };
+    // The guarded RPC owns the immutable email source. Do not forward even the
+    // equivalent enrichment value through its strict user-data allowlist.
+    delete atomicOpportunityInsert.source;
+    const atomic = await createAtomicCompanyMailboxOpportunity({
+      opportunity: atomicOpportunityInsert,
+      providerThreadId: email.threadId,
+      mailboxAssignment: titleOptions.mailboxAssignment,
+    });
+    if (!atomic.created) {
+      // The atomic insert may have committed while a later, idempotent
+      // provenance write failed. Re-run that semantic tail on the authoritative
+      // source-key winner, but never turn a dedupe into an assignment backfill.
+      if (titleOptions.enrichmentFacts) {
+        await writeFieldProvenance({
+          supabase,
+          companyId,
+          opportunityId: atomic.opportunityId,
+          clientId: null,
+          opportunityUpdates: opportunityEnrichmentFields,
+          clientUpdates: {},
+          facts: titleOptions.enrichmentFacts,
+        });
+      }
+      console.log("[email-ingest] lead-dedupe-hit", {
+        threadKey: sourceKey,
+        companyId,
+      });
+      return {
+        id: atomic.opportunityId,
+        clientId: atomic.clientId,
+        created: false,
+      };
+    }
+    if (atomic.assignmentOutcome !== "assigned") {
+      console.warn("[email-ingest] company-mailbox lead left unassigned", {
+        opportunityId: atomic.opportunityId,
+        connectionId: titleOptions.mailboxAssignment.connectionId,
+        reason: atomic.assignmentOutcome,
+        promptsEnqueued: atomic.promptCount,
+      });
+    }
+    data = {
+      id: atomic.opportunityId,
+      client_id: atomic.clientId,
+      assigned_to: atomic.assignedTo,
+      assignment_version: atomic.assignmentVersion,
+    };
+  } else {
+    const insertResult = await supabase
+      .from("opportunities")
+      .insert({
+        company_id: companyId,
+        source: "email",
+        ...opportunityInsert,
+      })
+      .select("id, client_id, assigned_to, assignment_version")
+      .single();
+    data = insertResult.data as Record<string, unknown> | null;
+    error = insertResult.error;
+  }
 
   // P0-A: a concurrent sync may have created this thread's opportunity first.
   // The UNIQUE (company_id, source_thread_key) raises 23505 — fetch and return
@@ -1010,7 +1226,7 @@ async function createOpportunity(
         .eq("source_thread_key", sourceKey)
         .maybeSingle();
       if (existing?.id && existing.client_id) {
-        if (titleOptions.mailboxAssignment) {
+        if (titleOptions.mailboxAssignment?.connectionType === "individual") {
           await applyPersonalMailboxAssignment({
             opportunityId: existing.id as string,
             assignmentVersion: Number(existing.assignment_version ?? 0),
@@ -1045,7 +1261,7 @@ async function createOpportunity(
   const opportunityId = data.id as string;
   const authoritativeClientId = data.client_id as string;
 
-  if (titleOptions.mailboxAssignment) {
+  if (titleOptions.mailboxAssignment?.connectionType === "individual") {
     await applyPersonalMailboxAssignment({
       opportunityId,
       assignmentVersion: Number(data.assignment_version ?? 0),
@@ -2354,6 +2570,73 @@ async function findExistingProviderActivity(
   return null;
 }
 
+interface StableDiscoveredEmail {
+  email: NormalizedEmail;
+  direction: "inbound" | "outbound";
+  existingActivity: ExistingProviderActivity | null;
+}
+
+const STABLE_DIRECTION_LOOKUP_CONCURRENCY = 8;
+
+function requirePersistedActivityDirection(
+  activity: ExistingProviderActivity
+): "inbound" | "outbound" {
+  if (activity.direction !== "inbound" && activity.direction !== "outbound") {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] persisted activity ${activity.id ?? "unknown"} has invalid direction`
+    );
+  }
+  return activity.direction;
+}
+
+async function resolveStableDiscoveredEmail(
+  email: NormalizedEmail,
+  connection: EmailConnection,
+  directionIdentity: IngestionOperatorIdentity
+): Promise<StableDiscoveredEmail> {
+  const existingActivity = await findExistingProviderActivity(
+    requireSupabase(),
+    connection,
+    email.id,
+    email.threadId
+  );
+  return {
+    email,
+    direction: existingActivity
+      ? requirePersistedActivityDirection(existingActivity)
+      : resolvePersistedEmailDirection(email, directionIdentity),
+    existingActivity,
+  };
+}
+
+async function resolveStableDiscoveredEmails(
+  emails: NormalizedEmail[],
+  connection: EmailConnection,
+  directionIdentity: IngestionOperatorIdentity
+): Promise<StableDiscoveredEmail[]> {
+  const resolved = new Array<StableDiscoveredEmail>(emails.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(
+    STABLE_DIRECTION_LOOKUP_CONCURRENCY,
+    emails.length
+  );
+
+  const worker = async () => {
+    while (nextIndex < emails.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      resolved[index] = await resolveStableDiscoveredEmail(
+        emails[index],
+        connection,
+        directionIdentity
+      );
+    }
+  };
+
+  await Promise.all(Array.from({ length: workerCount }, () => worker()));
+  return resolved;
+}
+
 function normalizeRecoveryMailbox(
   value: string | null | undefined,
   label: string
@@ -2615,7 +2898,8 @@ async function processInboundEmail(
   executionPolicy: EmailIngestionExecutionPolicy = NORMAL_EMAIL_INGESTION_POLICY,
   recoveryActorUserId: string | null = null,
   syncLockOwner: string | null = null,
-  forceMessageScopedTransport = false
+  forceMessageScopedTransport = false,
+  preloadedExistingActivity?: ExistingProviderActivity | null
 ): Promise<UnmatchedInboundContext | null> {
   const normalizedEmail = normalizeProviderBackedEmailForSync(
     email,
@@ -2628,12 +2912,15 @@ async function processInboundEmail(
   const supabase = requireSupabase();
 
   // Dedup: check if we already have this email
-  const existingActivity = await findExistingProviderActivity(
-    supabase,
-    connection,
-    email.id,
-    email.threadId
-  );
+  const existingActivity =
+    preloadedExistingActivity === undefined
+      ? await findExistingProviderActivity(
+          supabase,
+          connection,
+          email.id,
+          email.threadId
+        )
+      : preloadedExistingActivity;
   if (existingActivity?.opportunity_id) {
     const existingOpportunityId = existingActivity.opportunity_id;
     const {
@@ -3414,7 +3701,8 @@ async function processSentEmail(
   profile: SyncProfile,
   followUpDaysCache: Map<string, number>,
   result: SyncCycleResult,
-  providerLockCheckpoint: EmailProviderMailboxCheckpoint
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint,
+  preloadedExistingActivity?: ExistingProviderActivity | null
 ): Promise<void> {
   const normalizedEmail = normalizeProviderBackedEmailForSync(
     email,
@@ -3442,12 +3730,15 @@ async function processSentEmail(
   );
 
   // Dedup
-  const existingActivity = await findExistingProviderActivity(
-    supabase,
-    connection,
-    email.id,
-    email.threadId
-  );
+  const existingActivity =
+    preloadedExistingActivity === undefined
+      ? await findExistingProviderActivity(
+          supabase,
+          connection,
+          email.id,
+          email.threadId
+        )
+      : preloadedExistingActivity;
   // Queue the immutable provider sample before any ownership branch. If the
   // queue write fails, the sync checkpoint must not advance; replay then
   // repairs the same provider identity without double-learning.
@@ -4301,10 +4592,9 @@ export const SyncEngine = {
         }
       }
 
-      const direction = resolvePersistedEmailDirection(
-        recoveryEmail,
-        ingestionOperator
-      );
+      const direction = existingRecoveryActivity
+        ? requirePersistedActivityDirection(existingRecoveryActivity)
+        : resolvePersistedEmailDirection(recoveryEmail, ingestionOperator);
       if (direction !== "inbound") {
         throw new LifecyclePersistenceError(
           "[sync-engine] exact recovery message is not a canonical inbound message"
@@ -4360,7 +4650,8 @@ export const SyncEngine = {
           EXACT_MESSAGE_RECOVERY_POLICY,
           input.actorUserId,
           syncLockOwner,
-          forceMessageScopedTransport
+          forceMessageScopedTransport,
+          existingRecoveryActivity
         );
         if (unmatched) {
           const { data: company, error: companyError } = await requireSupabase()
@@ -4822,8 +5113,9 @@ export const SyncEngine = {
 
       // Discovery buckets are not authoritative direction. Gmail labels can
       // overlap and aliases/forwarding can surface operator-authored messages in
-      // an INBOX history result. Dedupe across both provider reads, then resolve
-      // each persisted direction from author identity before any CRM write.
+      // an INBOX history result. Dedupe across both provider reads, then retain
+      // immutable persisted direction for retries and use current roster
+      // identity only for provider messages OPS has never ingested.
       const discoveredByMessageId = new Map<string, NormalizedEmail>();
       for (const discovered of [...inboxResult.emails, ...sentResult.emails]) {
         const existing = discoveredByMessageId.get(discovered.id);
@@ -4847,16 +5139,21 @@ export const SyncEngine = {
         profile,
         authoritativeOperator
       );
-      const rawInboxEmails = discoveredEmails.filter(
-        (email) =>
-          resolvePersistedEmailDirection(email, directionIdentity) === "inbound"
+      const stableDiscoveredEmails = await resolveStableDiscoveredEmails(
+        discoveredEmails,
+        connection,
+        directionIdentity
       );
+      const stableDiscoveryByMessageId = new Map(
+        stableDiscoveredEmails.map((entry) => [entry.email.id, entry])
+      );
+      const rawInboxEmails = stableDiscoveredEmails
+        .filter((entry) => entry.direction === "inbound")
+        .map((entry) => entry.email);
       const rawSentEmails = includeSentMail
-        ? discoveredEmails.filter(
-            (email) =>
-              resolvePersistedEmailDirection(email, directionIdentity) ===
-              "outbound"
-          )
+        ? stableDiscoveredEmails
+            .filter((entry) => entry.direction === "outbound")
+            .map((entry) => entry.email)
         : [];
       const newSyncToken =
         provider.providerType === "microsoft365"
@@ -4939,10 +5236,14 @@ export const SyncEngine = {
         ...inboxEmails.map((email) => ({
           email,
           direction: "inbound" as const,
+          existingActivity:
+            stableDiscoveryByMessageId.get(email.id)?.existingActivity ?? null,
         })),
         ...sentEmails.map((email) => ({
           email,
           direction: "outbound" as const,
+          existingActivity:
+            stableDiscoveryByMessageId.get(email.id)?.existingActivity ?? null,
         })),
       ].sort((left, right) => {
         const byDate = left.email.date.getTime() - right.email.date.getTime();
@@ -4964,7 +5265,9 @@ export const SyncEngine = {
             directionIdentity,
             NORMAL_EMAIL_INGESTION_POLICY,
             null,
-            syncLockOwner
+            syncLockOwner,
+            false,
+            item.existingActivity
           );
           if (unmatchedContext) unmatchedContexts.push(unmatchedContext);
         } else {
@@ -4974,7 +5277,8 @@ export const SyncEngine = {
             profile,
             followUpDaysCache,
             result,
-            renewSyncLeaseIfNeeded
+            renewSyncLeaseIfNeeded,
+            item.existingActivity
           );
         }
       }
@@ -5034,7 +5338,10 @@ export const SyncEngine = {
         } catch (err) {
           if (!isAIProviderUnavailableError(err)) throw err;
           aiProviderOutage ??= err;
-          await markUnmatchedThreadsPendingLeadScan(unmatchedContexts, connection);
+          await markUnmatchedThreadsPendingLeadScan(
+            unmatchedContexts,
+            connection
+          );
           result.leadScansDeferred += unmatchedContexts.length;
         }
 
@@ -5308,7 +5615,9 @@ export const SyncEngine = {
             if (summaryRefresh.failed.length > 0) {
               throw new LifecyclePersistenceError(
                 `[sync-engine] complete lead summary refresh failed before cursor advancement: ${summaryRefresh.failed
-                  .map((failure) => `${failure.opportunityId}: ${failure.error}`)
+                  .map(
+                    (failure) => `${failure.opportunityId}: ${failure.error}`
+                  )
                   .join("; ")}`
               );
             } else if (summaryRefresh.deferred.length > 0) {
@@ -5497,7 +5806,8 @@ export const SyncEngine = {
         const companyIndustry = (company?.industry as string) || "trades";
         // The same operator-identity seam runSync uses — no divergent context
         // rebuild — so direction resolution and ingestion match the live cycle.
-        const authoritativeOperator = await getCachedOperatorIdentity(connection);
+        const authoritativeOperator =
+          await getCachedOperatorIdentity(connection);
         const directionIdentity = syncIngestionOperatorIdentity(
           connection,
           profile,
@@ -5511,13 +5821,21 @@ export const SyncEngine = {
             const messages = await provider.fetchThread(
               thread.providerThreadId
             );
-            const latestInbound = messages
-              .filter(
-                (message) =>
-                  resolvePersistedEmailDirection(message, directionIdentity) ===
-                  "inbound"
+            const stableMessages = await Promise.all(
+              messages.map((message) =>
+                resolveStableDiscoveredEmail(
+                  message,
+                  connection,
+                  directionIdentity
+                )
               )
-              .sort((left, right) => left.date.getTime() - right.date.getTime())
+            );
+            const latestInbound = stableMessages
+              .filter((message) => message.direction === "inbound")
+              .sort(
+                (left, right) =>
+                  left.email.date.getTime() - right.email.date.getTime()
+              )
               .at(-1);
             if (!latestInbound) {
               // No inbound message remains on the thread (deleted upstream); the
@@ -5532,13 +5850,18 @@ export const SyncEngine = {
             // inheritance / relationship match) already claimed it — matched by
             // another path; clear without invoking the AI reviewer.
             const unmatchedContext = await processInboundEmail(
-              latestInbound,
+              latestInbound.email,
               connection,
               profile,
               followUpDaysCache,
               result,
               renewSyncLeaseIfNeeded,
-              directionIdentity
+              directionIdentity,
+              NORMAL_EMAIL_INGESTION_POLICY,
+              null,
+              syncLockOwner,
+              false,
+              latestInbound.existingActivity
             );
             if (!unmatchedContext) {
               await clearLeadScanPendingMarker(supabase, thread.id);

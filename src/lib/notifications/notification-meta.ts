@@ -50,6 +50,11 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
   setup_prompt: { label: "SETUP", icon: "settings-2", tone: "ambient" },
   leads_waiting: { label: "LEADS", icon: "inbox", tone: "attn" },
   lead_assigned: { label: "LEAD", icon: "user-plus", tone: "attn" },
+  lead_assignment_required: {
+    label: "OWNER",
+    icon: "user-plus",
+    tone: "critical",
+  },
   system: { label: "SYS", icon: "activity", tone: "ambient" },
   project_assigned: { label: "PROJECT", icon: "briefcase", tone: "accent" },
   lead_converted: { label: "WON", icon: "folder-input", tone: "accent" },

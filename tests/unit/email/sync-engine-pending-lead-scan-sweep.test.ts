@@ -78,7 +78,8 @@ describe("sync-engine pending-lead-scan drain sweep — replays the live path", 
     // evaluateStagesWithSummary's provider.fetchThread + runSync's direction
     // partition) before deterministic ingestion.
     expect(methodBody).toContain("provider.fetchThread(");
-    expect(methodBody).toContain("resolvePersistedEmailDirection(");
+    expect(methodBody).toContain("resolveStableDiscoveredEmail(");
+    expect(methodBody).toContain("latestInbound.existingActivity");
     expect(methodBody).toContain("processInboundEmail(");
     // The classify→promote step is the SAME implementation runSync Step 5 uses:
     // persistAIClassifiedUnmatchedInbound runs the reviewer call and promotes
@@ -100,7 +101,9 @@ describe("sync-engine pending-lead-scan drain sweep — replays the live path", 
 describe("sync-engine pending-lead-scan drain sweep — marker lifecycle", () => {
   it("clears the marker when a thread is resolved (promoted or matched by another path)", () => {
     // Delegates the clear to the id-scoped helper; success paths clear + count.
-    expect(methodBody).toContain("clearLeadScanPendingMarker(supabase, thread.id)");
+    expect(methodBody).toContain(
+      "clearLeadScanPendingMarker(supabase, thread.id)"
+    );
     expect(methodBody).toContain("outcome.cleared += 1;");
 
     const clearHelper = source.slice(
