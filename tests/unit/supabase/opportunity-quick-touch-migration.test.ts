@@ -6,7 +6,14 @@ import { describe, expect, it } from "vitest";
 const migration = readFileSync(
   path.join(
     process.cwd(),
-    "supabase/migrations/20260723070000_add_opportunity_action_required_at.sql"
+    "supabase/migrations/20260723174912_add_opportunity_action_required_at.sql"
+  ),
+  "utf8"
+);
+const activityTypeMigration = readFileSync(
+  path.join(
+    process.cwd(),
+    "supabase/migrations/20260723175646_allow_lead_quick_touch_activity_types.sql"
   ),
   "utf8"
 );
@@ -27,6 +34,54 @@ function compact(value: string): string {
 }
 
 describe("opportunity quick-touch migration", () => {
+  it("widens the activity type constraint without dropping existing activity types", () => {
+    const sql = compact(activityTypeMigration);
+    const acceptedTypes = [
+      "note",
+      "email",
+      "call",
+      "meeting",
+      "estimate_sent",
+      "estimate_accepted",
+      "estimate_declined",
+      "invoice_sent",
+      "payment_received",
+      "stage_change",
+      "created",
+      "won",
+      "lost",
+      "system",
+      "site_visit",
+      "site_visit_scheduled",
+      "text_message",
+      "email_compose",
+    ];
+
+    expect(sql).toContain(
+      "add constraint activities_type_check_v2 check"
+    );
+    expect(sql).toContain(") not valid");
+    for (const type of acceptedTypes) {
+      expect(sql).toContain(`'${type}'`);
+    }
+    const add = sql.indexOf(
+      "add constraint activities_type_check_v2 check"
+    );
+    const validate = sql.indexOf(
+      "validate constraint activities_type_check_v2"
+    );
+    const drop = sql.indexOf(
+      "drop constraint activities_type_check"
+    );
+    const rename = sql.indexOf(
+      "rename constraint activities_type_check_v2 to activities_type_check"
+    );
+
+    expect(validate).toBeGreaterThan(add);
+    expect(drop).toBeGreaterThan(validate);
+    expect(rename).toBeGreaterThan(drop);
+  });
+
   it("keeps local compose intent distinct from provider-backed email", () => {
     const sql = compact(migration);
     const guard = compact(providerGuard);
