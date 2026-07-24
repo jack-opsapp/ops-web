@@ -3,19 +3,21 @@ import { z } from "zod";
 
 import {
   EXTERNAL_API_VERSION,
+  MAX_ANSWER_COUNT,
+  MAX_FILE_BYTES,
+  MAX_FILES_PER_BATCH,
   MAX_JSON_BODY_BYTES,
+  MAX_UPLOAD_BATCH_BYTES,
 } from "@/lib/external-api/contracts";
-import {
-  RequestBodyError,
-  readBoundedJson,
-} from "@/lib/external-api/http/request-body";
+import { readBoundedJson } from "@/lib/external-api/http/request-body";
 import {
   ANALYTICS_LONG_CACHE_CONTROL,
   ANALYTICS_SHORT_CACHE_CONTROL,
-  INTAKE_CACHE_CONTROL,
   createErrorResponse,
-  createSuccessResponse,
+  createIntakeConfigResponse,
+  createLeadFeedResponse,
   errorEnvelopeSchema,
+  metricsCacheControlForQuery,
 } from "@/lib/external-api/http/responses";
 import {
   createExternalRequestId,
@@ -72,7 +74,7 @@ describe("external API bounded JSON reader", () => {
 
     await expect(
       readBoundedJson(request, z.object({ value: z.string() }).strict())
-    ).rejects.toMatchObject<RequestBodyError>({
+    ).rejects.toMatchObject({
       name: "RequestBodyError",
       code: "invalid_request",
       status: 400,
@@ -112,18 +114,27 @@ describe("external API bounded JSON reader", () => {
 });
 
 describe("external API response boundary", () => {
+  const intakeConfig = {
+    contractVersion: EXTERNAL_API_VERSION,
+    sources: [],
+    acceptedFilePolicy: {
+      contentTypes: ["image/jpeg"],
+      maxFiles: MAX_FILES_PER_BATCH,
+      maxFileBytes: MAX_FILE_BYTES,
+      maxBatchBytes: MAX_UPLOAD_BATCH_BYTES,
+    },
+    requestLimits: {
+      maxJsonBodyBytes: MAX_JSON_BODY_BYTES,
+      maxAnswers: MAX_ANSWER_COUNT,
+    },
+  } as const;
+
   it("emits the stable success envelope and intake no-store policy", async () => {
-    const response = createSuccessResponse(
-      { accepted: true },
-      z.object({ accepted: z.literal(true) }).strict(),
-      {
-        requestId: "req_0123456789abcdefghijklm",
-        status: 201,
-        cacheControl: INTAKE_CACHE_CONTROL,
-        serverTimestamp: "2026-07-24T17:30:00.000Z",
-      }
-    );
-    expect(response.status).toBe(201);
+    const response = createIntakeConfigResponse(intakeConfig, {
+      requestId: "req_0123456789abcdefghijklm",
+      serverTimestamp: "2026-07-24T17:30:00.000Z",
+    });
+    expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect(response.headers.get("x-request-id")).toBe(
       "req_0123456789abcdefghijklm"
@@ -132,12 +143,11 @@ describe("external API response boundary", () => {
       requestId: "req_0123456789abcdefghijklm",
       apiVersion: EXTERNAL_API_VERSION,
       serverTimestamp: "2026-07-24T17:30:00.000Z",
-      result: { accepted: true },
+      result: intakeConfig,
     });
     expect(() =>
-      createSuccessResponse(
-        { accepted: true, company_id: "internal-company" },
-        z.object({ accepted: z.literal(true) }).strict(),
+      createIntakeConfigResponse(
+        { ...intakeConfig, company_id: "internal-company" },
         { requestId: "req_0123456789abcdefghijklm" }
       )
     ).toThrow();
@@ -150,15 +160,47 @@ describe("external API response boundary", () => {
     expect(ANALYTICS_LONG_CACHE_CONTROL).toBe(
       "private, max-age=300, must-revalidate"
     );
+    expect(
+      metricsCacheControlForQuery({
+        preset: "30d",
+        metricIds: ["leads_received"],
+      })
+    ).toBe(ANALYTICS_SHORT_CACHE_CONTROL);
+    expect(
+      metricsCacheControlForQuery({
+        preset: "90d",
+        metricIds: ["leads_received"],
+      })
+    ).toBe(ANALYTICS_LONG_CACHE_CONTROL);
+    expect(
+      metricsCacheControlForQuery({
+        preset: "custom",
+        from: "2026-01-01",
+        to: "2026-04-01",
+        metricIds: ["leads_received"],
+      })
+    ).toBe(ANALYTICS_LONG_CACHE_CONTROL);
+    const leadFeedResponse = createLeadFeedResponse(
+      {
+        mode: "full",
+        dataThrough: "2026-07-24T17:30:00.000Z",
+        items: [],
+        nextCursor: null,
+        nextSyncCheckpoint: null,
+      },
+      { requestId: "req_0123456789abcdefghijklm" }
+    );
+    expect(leadFeedResponse.headers.get("cache-control")).toBe(
+      ANALYTICS_SHORT_CACHE_CONTROL
+    );
+  });
+
+  it("does not let a caller assign analytics caching to an intake result", () => {
     expect(() =>
-      createSuccessResponse(
-        { accepted: true },
-        z.object({ accepted: z.literal(true) }).strict(),
-        {
-          requestId: "req_0123456789abcdefghijklm",
-          cacheControl: "public, max-age=300" as never,
-        }
-      )
+      createIntakeConfigResponse(intakeConfig, {
+        requestId: "req_0123456789abcdefghijklm",
+        cacheControl: ANALYTICS_LONG_CACHE_CONTROL,
+      } as never)
     ).toThrow();
   });
 
@@ -189,7 +231,19 @@ describe("external API response boundary", () => {
             authorization: "Bearer secret",
           },
         ],
-      })
+      } as never)
+    ).toThrow();
+    expect(() =>
+      createErrorResponse("invalid_request", {
+        requestId: "req_0123456789abcdefghijklm",
+        details: [
+          {
+            field: "sourceId",
+            reason: "invalid",
+            message: "Bearer ops_live_this_must_never_leave_the_server",
+          },
+        ],
+      } as never)
     ).toThrow();
   });
 });

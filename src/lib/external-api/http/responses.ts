@@ -11,6 +11,14 @@ import {
   externalApiErrorCodeSchema,
   externalApiErrorDefinitions,
 } from "../contracts/errors";
+import {
+  intakeConfigResultSchema,
+  submissionResultSchema,
+  submissionStatusResultSchema,
+  uploadBatchResultSchema,
+} from "../contracts/intake";
+import { leadFeedResultSchema } from "../contracts/lead-feed";
+import { metricQuerySchema, metricsResultSchema } from "../contracts/metrics";
 import { externalRequestIdSchema } from "./request-id";
 
 export const INTAKE_CACHE_CONTROL = "no-store" as const;
@@ -33,18 +41,39 @@ const responseMetadataShape = {
 const unsafeDetailFieldPattern =
   /(?:authorization|credential|secret|token|body|signed.?url|storage)/i;
 
+export const errorDetailReasonSchema = z.enum([
+  "invalid",
+  "required",
+  "unknown_field",
+  "out_of_range",
+  "too_many_items",
+  "unsupported_content_type",
+  "body_missing",
+  "body_too_large",
+  "invalid_utf8",
+  "malformed_json",
+  "validation_failed",
+  "duplicate",
+  "not_allowed",
+  "not_found",
+  "expired",
+  "batch_expired",
+  "conflict",
+  "rejected",
+  "inspection_unavailable",
+  "size_mismatch",
+  "checksum_mismatch",
+  "content_type_mismatch",
+  "unsafe_content",
+  "rate_limited",
+  "temporarily_unavailable",
+]);
+
 export const errorDetailSchema = z
   .object({
     field: safeKeySchema.optional(),
     fileId: safeKeySchema.or(opaqueUploadIdSchema).optional(),
-    reason: safeKeySchema,
-    message: z
-      .string()
-      .trim()
-      .min(1)
-      .max(240)
-      .refine((value) => !/[\u0000-\u001f\u007f]/.test(value))
-      .optional(),
+    reason: errorDetailReasonSchema,
   })
   .strict()
   .superRefine((value, context) => {
@@ -80,12 +109,14 @@ export function successEnvelopeSchema<T extends z.ZodTypeAny>(resultSchema: T) {
     .strict();
 }
 
-type ResponseOptions = Readonly<{
-  requestId: string;
-  serverTimestamp?: string;
-  cacheControl?: z.infer<typeof externalApiCacheControlSchema>;
-  status?: number;
-}>;
+const responseOptionsSchema = z
+  .object({
+    requestId: externalRequestIdSchema,
+    serverTimestamp: timestampSchema.optional(),
+  })
+  .strict();
+
+export type ExternalResponseOptions = z.input<typeof responseOptionsSchema>;
 
 function responseHeaders(
   requestId: string,
@@ -99,20 +130,14 @@ function responseHeaders(
   });
 }
 
-export function createSuccessResponse<T extends z.ZodTypeAny>(
+function createSuccessResponse<T extends z.ZodTypeAny>(
   input: unknown,
   resultSchema: T,
-  options: ResponseOptions
+  optionsInput: ExternalResponseOptions,
+  status: number,
+  cacheControl: z.infer<typeof externalApiCacheControlSchema>
 ): Response {
-  const cacheControl = externalApiCacheControlSchema.parse(
-    options.cacheControl ?? INTAKE_CACHE_CONTROL
-  );
-  const status = z
-    .number()
-    .int()
-    .min(200)
-    .max(299)
-    .parse(options.status ?? 200);
+  const options = responseOptionsSchema.parse(optionsInput);
   const envelope = successEnvelopeSchema(resultSchema).parse({
     requestId: options.requestId,
     apiVersion: EXTERNAL_API_VERSION,
@@ -125,16 +150,123 @@ export function createSuccessResponse<T extends z.ZodTypeAny>(
   });
 }
 
-type ErrorResponseOptions = Readonly<{
-  requestId: string;
-  serverTimestamp?: string;
-  details?: readonly unknown[];
-}>;
+export function createIntakeConfigResponse(
+  input: unknown,
+  options: ExternalResponseOptions
+): Response {
+  return createSuccessResponse(
+    input,
+    intakeConfigResultSchema,
+    options,
+    200,
+    INTAKE_CACHE_CONTROL
+  );
+}
+
+export function createUploadBatchResponse(
+  input: unknown,
+  options: ExternalResponseOptions
+): Response {
+  const result = uploadBatchResultSchema.parse(input);
+  return createSuccessResponse(
+    result,
+    uploadBatchResultSchema,
+    options,
+    result.replayed ? 200 : 201,
+    INTAKE_CACHE_CONTROL
+  );
+}
+
+export function createSubmissionResponse(
+  input: unknown,
+  options: ExternalResponseOptions
+): Response {
+  const result = submissionResultSchema.parse(input);
+  return createSuccessResponse(
+    result,
+    submissionResultSchema,
+    options,
+    result.replayed ? 200 : 201,
+    INTAKE_CACHE_CONTROL
+  );
+}
+
+export function createSubmissionStatusResponse(
+  input: unknown,
+  options: ExternalResponseOptions
+): Response {
+  return createSuccessResponse(
+    input,
+    submissionStatusResultSchema,
+    options,
+    200,
+    INTAKE_CACHE_CONTROL
+  );
+}
+
+export function createLeadFeedResponse(
+  input: unknown,
+  options: ExternalResponseOptions
+): Response {
+  return createSuccessResponse(
+    input,
+    leadFeedResultSchema,
+    options,
+    200,
+    ANALYTICS_SHORT_CACHE_CONTROL
+  );
+}
+
+function timestampMilliseconds(value: string): number {
+  return new Date(
+    value.length === 10 ? `${value}T00:00:00.000Z` : value
+  ).getTime();
+}
+
+export function metricsCacheControlForQuery(
+  input: unknown
+): z.infer<typeof externalApiCacheControlSchema> {
+  const query = metricQuerySchema.parse(input);
+  if (query.preset === "90d" || query.preset === "lifetime") {
+    return ANALYTICS_LONG_CACHE_CONTROL;
+  }
+  if (
+    query.preset === "custom" &&
+    query.from !== undefined &&
+    query.to !== undefined &&
+    timestampMilliseconds(query.to) - timestampMilliseconds(query.from) >=
+      90 * 24 * 60 * 60 * 1000
+  ) {
+    return ANALYTICS_LONG_CACHE_CONTROL;
+  }
+  return ANALYTICS_SHORT_CACHE_CONTROL;
+}
+
+export function createMetricsResponse(
+  input: unknown,
+  queryInput: unknown,
+  options: ExternalResponseOptions
+): Response {
+  return createSuccessResponse(
+    input,
+    metricsResultSchema,
+    options,
+    200,
+    metricsCacheControlForQuery(queryInput)
+  );
+}
+
+const errorResponseOptionsSchema = responseOptionsSchema.extend({
+  details: z.array(errorDetailSchema).max(100).optional(),
+});
+
+export type ErrorResponseOptions = z.input<typeof errorResponseOptionsSchema>;
 
 export function createErrorResponse(
   code: ExternalApiErrorCode,
-  options: ErrorResponseOptions
+  optionsInput: ErrorResponseOptions
 ): Response {
+  const options = errorResponseOptionsSchema.parse(optionsInput);
   const definition = externalApiErrorDefinitions[code];
   const envelope = errorEnvelopeSchema.parse({
     requestId: options.requestId,
