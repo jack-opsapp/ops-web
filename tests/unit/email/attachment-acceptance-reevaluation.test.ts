@@ -95,6 +95,8 @@ function makeSupabase(input: {
           direction: "inbound",
           party_role: "customer",
           from_email: "customer@example.com",
+          to_emails: ["operator@example.com"],
+          cc_emails: [],
           occurred_at: "2026-07-14T18:00:00.000Z",
         },
       ];
@@ -106,26 +108,38 @@ function makeSupabase(input: {
           subject: "Re: Estimate",
           body_text: "We accept the estimate. Please proceed.",
           body_text_clean: "We accept the estimate. Please proceed.",
+          to_emails: ["operator@example.com"],
+          cc_emails: [],
         },
       ];
-      const eventRows: Row[] = (input.events ?? defaultEvents).map(
-        (event) => ({
-          ...event,
-          activity_id: Object.hasOwn(event, "activity_id")
-            ? event.activity_id
-            : `activity-${event.provider_message_id}`,
-          from_email:
-            event.from_email ??
-            (event.party_role === "customer"
-              ? "customer@example.com"
-              : "operator@example.com"),
-        })
-      );
+      const eventRows: Row[] = (input.events ?? defaultEvents).map((event) => ({
+        ...event,
+        activity_id: Object.hasOwn(event, "activity_id")
+          ? event.activity_id
+          : `activity-${event.provider_message_id}`,
+        from_email:
+          event.from_email ??
+          (event.party_role === "customer"
+            ? "customer@example.com"
+            : "operator@example.com"),
+        to_emails:
+          event.to_emails ??
+          (event.direction === "outbound"
+            ? ["customer@example.com"]
+            : ["operator@example.com"]),
+        cc_emails: event.cc_emails ?? [],
+      }));
       const rows =
         table === "opportunity_correspondence_events"
           ? eventRows
           : table === "activities"
-            ? (input.activities ?? defaultActivities).map((activity) => {
+            ? (input.activities ?? defaultActivities).map((activityValue) => {
+                const activity = activityValue as Row;
+                const {
+                  to_emails: suppliedToEmails,
+                  cc_emails: suppliedCcEmails,
+                  ...activityFields
+                } = activity;
                 const activityId = Object.hasOwn(activity, "id")
                   ? activity.id
                   : `activity-${activity.email_message_id}`;
@@ -137,13 +151,22 @@ function makeSupabase(input: {
                 const linkedThreadId = linkedEvent?.provider_thread_id;
                 const linkedDirection = linkedEvent?.direction;
                 return {
+                  ...activityFields,
                   email_thread_id:
-                    typeof linkedThreadId === "string"
+                    activity.email_thread_id ??
+                    (typeof linkedThreadId === "string"
                       ? linkedThreadId
-                      : "provider-thread-1",
+                      : "provider-thread-1"),
                   direction:
-                    linkedDirection === "outbound" ? "outbound" : "inbound",
-                  ...activity,
+                    activity.direction ??
+                    (linkedDirection === "outbound" ? "outbound" : "inbound"),
+                  to_emails:
+                    suppliedToEmails ??
+                    linkedEvent?.to_emails ??
+                    (linkedDirection === "outbound"
+                      ? ["customer@example.com"]
+                      : ["operator@example.com"]),
+                  cc_emails: suppliedCcEmails ?? linkedEvent?.cc_emails ?? [],
                   id: activityId,
                 };
               })
@@ -394,6 +417,65 @@ describe("evaluateOpportunityAcceptance", () => {
       })
     );
     expect(result).toEqual({ stageChanged: true });
+  });
+
+  it("fails closed when a legacy event has more than one composite activity match", async () => {
+    const body =
+      "We accept the estimate. Please send the deposit instructions.";
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 21,
+      },
+      events: [
+        {
+          id: "event-ambiguous-legacy-acceptance",
+          activity_id: null,
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-legacy",
+          provider_message_id: "provider-message-legacy",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-23T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-legacy-acceptance-a",
+          email_connection_id: "connection-1",
+          email_message_id: "provider-message-legacy",
+          email_thread_id: "provider-thread-legacy",
+          direction: "inbound",
+          subject: "Re: Estimate",
+          body_text: body,
+          body_text_clean: body,
+        },
+        {
+          id: "activity-legacy-acceptance-b",
+          email_connection_id: "connection-1",
+          email_message_id: "provider-message-legacy",
+          email_thread_id: "provider-thread-legacy",
+          direction: "inbound",
+          subject: "Re: Estimate",
+          body_text: body,
+          body_text_clean: body,
+        },
+      ],
+    });
+
+    await expect(
+      evaluateOpportunityCommercialOutcome({
+        supabase: client as never,
+        opportunityId: "opportunity-1",
+        connection,
+      })
+    ).rejects.toThrow(
+      "commercial evidence activity is not uniquely proven for event event-ambiguous-legacy-acceptance"
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
   });
 
   it("claims a validated legacy activity before thread-scoped conversion", async () => {
@@ -1576,6 +1658,10 @@ describe("evaluateOpportunityAcceptance", () => {
       name: "unresolved acceptance and deferral",
       body: "We are ready to proceed and we also need to postpone until next year because the budget is tight.",
     },
+    {
+      name: "revised quote cycle",
+      body: "Can you provide an updated quote to replace the plywood and vinyl?",
+    },
   ])(
     "does not let an older signed estimate override a newer $name",
     async ({ body }) => {
@@ -1715,6 +1801,101 @@ describe("evaluateOpportunityAcceptance", () => {
       "create_email_opportunity_notification_as_system",
       expect.objectContaining({ p_event_type: "accept_review_won" })
     );
+    expect(result).toEqual({ stageChanged: false });
+  });
+
+  it("does not replay quoted acceptance from a non-null legacy cleaned body", async () => {
+    const dirtyCleanedBody = [
+      "Thanks for the update.",
+      "",
+      "On Monday, Canpro wrote:",
+      "> We accept the $9,999 quote. Please proceed.",
+    ].join("\n");
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 16,
+        address: "88 Example Rd",
+      },
+      events: [
+        {
+          id: "event-dirty-clean",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-dirty-clean",
+          provider_message_id: "message-dirty-clean",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-01T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-dirty-clean",
+          subject: "Re: Estimate",
+          body_text: dirtyCleanedBody,
+          body_text_clean: dirtyCleanedBody,
+        },
+      ],
+    });
+
+    const result = await evaluateOpportunityCommercialOutcome({
+      supabase: client as never,
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: false });
+  });
+
+  it("does not trust outbound commercial evidence sent to another customer", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 16,
+        address: "88 Example Rd",
+      },
+      events: [
+        {
+          id: "event-cross-customer",
+          connection_id: "connection-1",
+          provider_thread_id: "thread-cross-customer",
+          provider_message_id: "message-cross-customer",
+          direction: "outbound",
+          party_role: "ops",
+          from_email: "operator@example.com",
+          to_emails: ["different.customer@example.net"],
+          cc_emails: [],
+          occurred_at: "2026-07-01T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          email_connection_id: "connection-1",
+          email_message_id: "message-cross-customer",
+          subject: "Re: Estimate",
+          body_text: "The installation is confirmed for Friday.",
+          body_text_clean: "The installation is confirmed for Friday.",
+          to_emails: ["different.customer@example.net"],
+          cc_emails: [],
+        },
+      ],
+    });
+
+    const result = await evaluateOpportunityCommercialOutcome({
+      supabase: client as never,
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
     expect(result).toEqual({ stageChanged: false });
   });
 

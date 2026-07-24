@@ -74,9 +74,18 @@ const BOUNCE_SUBJECT_RE =
   /\b(?:bounce|delivery status notification|delivery failure|undeliverable|message not delivered|returned mail|mail delivery subsystem)\b/i;
 const MARKETING_SUBJECT_RE =
   /\b(?:newsletter|promotion|promotions|sale|discount|unsubscribe|webinar|limited time|special offer)\b/i;
+const RECRUITING_RELAY_DOMAINS = new Set([
+  "indeed.com",
+  "indeedemail.com",
+  "indeedmail.com",
+]);
+const RECRUITING_TRAFFIC_RE =
+  /\b(?:new (?:job )?application|new candidate|candidate (?:application|update)|job application|application updates?|applied to (?:your|the) job|manage (?:your )?application e-?mails?|employer dashboard|job post(?:ing)?|view (?:the )?(?:candidate|application)|resume|résumé)\b/i;
 
 function normalizeEmail(value: string | null | undefined): string | null {
-  const normalized = extractEmailAddress(value ?? "").toLowerCase().trim();
+  const normalized = extractEmailAddress(value ?? "")
+    .toLowerCase()
+    .trim();
   return normalized.includes("@") ? normalized : null;
 }
 
@@ -93,11 +102,29 @@ function domain(email: string | null): string {
   return email?.split("@")[1]?.toLowerCase().trim() ?? "";
 }
 
-function normalizedSet(values: Array<string | null | undefined> | null | undefined): Set<string> {
+function isRecruitingRelayEmail(email: string | null): boolean {
+  const value = domain(email);
+  return [...RECRUITING_RELAY_DOMAINS].some(
+    (relayDomain) => value === relayDomain || value.endsWith(`.${relayDomain}`)
+  );
+}
+
+function isExclusiveRecruitingRelayEmail(email: string | null): boolean {
+  const value = domain(email);
+  return ["indeedemail.com", "indeedmail.com"].some(
+    (relayDomain) => value === relayDomain || value.endsWith(`.${relayDomain}`)
+  );
+}
+
+function normalizedSet(
+  values: Array<string | null | undefined> | null | undefined
+): Set<string> {
   return new Set(values?.map(normalizeEmail).filter(Boolean) as string[]);
 }
 
-function companyDomainSet(input: OpportunityCorrespondenceClassifierInput): Set<string> {
+function companyDomainSet(
+  input: OpportunityCorrespondenceClassifierInput
+): Set<string> {
   return new Set(
     (input.companyDomains ?? [])
       .map((value) => value.trim().toLowerCase())
@@ -105,14 +132,18 @@ function companyDomainSet(input: OpportunityCorrespondenceClassifierInput): Set<
   );
 }
 
-function knownInternalEmails(input: OpportunityCorrespondenceClassifierInput): Set<string> {
+function knownInternalEmails(
+  input: OpportunityCorrespondenceClassifierInput
+): Set<string> {
   return normalizedSet([
     input.connectionEmail,
     ...(input.userEmailAddresses ?? []),
   ]);
 }
 
-function knownPlatformEmails(input: OpportunityCorrespondenceClassifierInput): Set<string> {
+function knownPlatformEmails(
+  input: OpportunityCorrespondenceClassifierInput
+): Set<string> {
   return normalizedSet(input.knownPlatformSenders ?? []);
 }
 
@@ -157,6 +188,35 @@ function isProviderAddress(
   return Boolean(matchPlatform(email)) || knownPlatformEmails(input).has(email);
 }
 
+export function isRecruitingProviderNoise(input: {
+  direction?: OpportunityCorrespondenceDirection;
+  fromEmail?: string | null;
+  toEmails?: Array<string | null | undefined> | null;
+  ccEmails?: Array<string | null | undefined> | null;
+  subject?: string | null;
+  bodyText?: string | null;
+}): boolean {
+  const participants = [
+    normalizeEmail(input.fromEmail),
+    ...(input.toEmails ?? []).map(normalizeEmail),
+    ...(input.ccEmails ?? []).map(normalizeEmail),
+  ];
+  const hasRecruitingRelay = participants.some(isRecruitingRelayEmail);
+  const hasExclusiveRecruitingRelay = participants.some(
+    isExclusiveRecruitingRelayEmail
+  );
+  const hasRecruitingTraffic = RECRUITING_TRAFFIC_RE.test(
+    `${input.subject ?? ""}\n${input.bodyText ?? ""}`
+  );
+  return (
+    hasRecruitingRelay &&
+    (hasRecruitingTraffic ||
+      (hasExclusiveRecruitingRelay &&
+        (input.direction === "outbound" ||
+          isExclusiveRecruitingRelayEmail(normalizeEmail(input.fromEmail)))))
+  );
+}
+
 function isBounce(
   email: string | null,
   subject: string,
@@ -177,13 +237,17 @@ function isMarketingNoise(
 ): boolean {
   const category = input.threadCategory?.trim().toUpperCase() ?? "";
   if (category === "MARKETING") return true;
-  if (input.labels?.some((label) => label.toUpperCase() === "CATEGORY_PROMOTIONS")) {
+  if (
+    input.labels?.some((label) => label.toUpperCase() === "CATEGORY_PROMOTIONS")
+  ) {
     return true;
   }
   return MARKETING_SUBJECT_RE.test(subject);
 }
 
-function externalRecipient(input: OpportunityCorrespondenceClassifierInput): string | null {
+function externalRecipient(
+  input: OpportunityCorrespondenceClassifierInput
+): string | null {
   for (const value of [...(input.toEmails ?? []), ...(input.ccEmails ?? [])]) {
     const email = normalizeEmail(value);
     if (!email) continue;
@@ -240,7 +304,12 @@ export function classifyOpportunityCorrespondence(
     };
   }
 
-  if (duplicateProviderMessage(providerMessageId, input.existingProviderMessageIds)) {
+  if (
+    duplicateProviderMessage(
+      providerMessageId,
+      input.existingProviderMessageIds
+    )
+  ) {
     return {
       direction: input.direction,
       partyRole: "unknown",
@@ -266,6 +335,25 @@ export function classifyOpportunityCorrespondence(
       partyRole: "marketing",
       isMeaningful: false,
       noiseReason: "marketing_noise",
+      customerEmail: null,
+    };
+  }
+
+  if (
+    isRecruitingProviderNoise({
+      direction: input.direction,
+      fromEmail,
+      toEmails: input.toEmails,
+      ccEmails: input.ccEmails,
+      subject,
+      bodyText,
+    })
+  ) {
+    return {
+      direction: input.direction,
+      partyRole: "provider",
+      isMeaningful: false,
+      noiseReason: "provider_noise",
       customerEmail: null,
     };
   }
@@ -326,7 +414,11 @@ export function classifyOpportunityCorrespondence(
 
   if (input.direction === "outbound") {
     const recipient = externalRecipient(input);
-    if (recipient && (isInternalEmail(fromEmail, input) || fromEmail === normalizeEmail(input.connectionEmail))) {
+    if (
+      recipient &&
+      (isInternalEmail(fromEmail, input) ||
+        fromEmail === normalizeEmail(input.connectionEmail))
+    ) {
       return {
         direction: "outbound",
         partyRole: "ops",

@@ -20,7 +20,7 @@
 import {
   htmlToPlainText,
   stripPriorMessageOverlap,
-  stripQuotedContent,
+  stripQuotedContentStrict,
   stripQuotedHtml,
 } from "@/lib/utils/email-parsing";
 
@@ -59,7 +59,7 @@ const SIG_DELIMITER_RE = /^[ \t]*--[ \t]*$/;
 
 /** Device / mail-client footers that begin a non-content tail. */
 const CLIENT_FOOTER_RE =
-  /^[ \t]*(?:sent from my\b.*|sent via\b.*|get outlook for (?:ios|android)\b.*|get the outlook app\b.*)$/i;
+  /^[ \t]*(?:sent from my (?:iphone|ipad|ipod|android|samsung|galaxy|pixel|mobile device|phone)\b.*|sent from (?:outlook for (?:ios|android)|samsung mobile|yahoo mail for (?:iphone|ipad|android))\b.*|sent via (?:outlook|gmail|yahoo mail|samsung email)\b.*|get outlook for (?:ios|android)\b.*|get the outlook app\b.*)$/i;
 
 /** Closing words that, on their own line, open a sign-off block. */
 const SIGNOFF_WORDS = [
@@ -95,6 +95,17 @@ const LABELLED_FOOTER_RE =
 /** A line carrying contact-shaped data (phone digits / email / url). */
 const CONTACT_SHAPE_RE =
   /(?:\+?\d[\d().\s-]{6,}\d|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|\bhttps?:\/\/|\bwww\.)/i;
+const CORPORATE_SIGNATURE_SHAPE_RE =
+  /\b(?:owner|principal|president|director|designer|architect|manager|business hours?|office hours?|studio closure|suite|inc\.?|ltd\.?|corp\.?|corporation|company|collective|canpro|deck\s*&\s*rail)\b/i;
+const BARE_NAME_LINE_RE =
+  /^[A-Z][A-Za-z.'’-]{1,39}(?:\s+[A-Z][A-Za-z.'’-]{1,39}){0,3}$/;
+const ADDRESS_SHAPE_RE =
+  /\b\d{1,6}\s+(?:[A-Za-z0-9.'’-]+\s+){0,6}(?:avenue|ave|boulevard|blvd|circle|court|ct|crescent|cr|drive|dr|highway|hwy|lane|ln|place|pl|road|rd|street|st|terrace|trail|way|suite)\b/i;
+const POSTSCRIPT_RE = /^\s*(?:p\.?\s*s\.?|postscript)\b/i;
+const INLINE_CORPORATE_SIGNATURE_RE =
+  /[.!?]\s*(?:(?:kind|best|warm)\s+regards|regards|sincerely|cheers)?\s*,?\s*(?:[A-Z][A-Za-z.'’()-]*\s+){1,4}(?:(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,})[\s\S]{0,320}\b(?:inc\.?|ltd\.?|corp\.?|corporation|company|owner|principal|business hours?|studio closure|canpro)\b[.!]?\s*$/i;
+const COMMERCIAL_VETO_OR_REVERSAL_RE =
+  /\b(?:do not|don['’]?t)\s+proceed\b|\bchanged\s+(?:my|our)\s+minds?\b|\b(?:cancel\w*|declin\w*|reject\w*|withdraw\w*|stop\w*)\b.{0,80}\b(?:quote|estimate|proposal|work|job|project|installation)\b|\b(?:deposit|payment)\b.{0,80}\b(?:revers\w*|refund\w*|chargeback|returned|sent back)\b|\b(?:revers\w*|refund\w*|chargeback|returned|sent back)\b.{0,80}\b(?:deposit|payment)\b|\b(?:postpon\w*|defer\w*|delay\w*|hold(?:ing)? off)\b.{0,80}\b(?:work|job|project|installation|until|next year)\b/i;
 
 /** Longest a single line of a name/contact block may be before it reads as prose. */
 const MAX_SIG_LINE_LEN = 60;
@@ -111,6 +122,28 @@ function trimTrailingBlankLines(lines: string[]): string[] {
   return out;
 }
 
+function isSignatureShapedLine(line: string): boolean {
+  return (
+    CONTACT_SHAPE_RE.test(line) ||
+    LABELLED_FOOTER_RE.test(line) ||
+    CORPORATE_SIGNATURE_SHAPE_RE.test(line) ||
+    ADDRESS_SHAPE_RE.test(line) ||
+    BARE_NAME_LINE_RE.test(line.trim())
+  );
+}
+
+function looksLikeBareSignatureTail(tailLines: string[]): boolean {
+  const nonBlank = tailLines.filter((line) => !isBlank(line));
+  return (
+    nonBlank.length > 0 &&
+    nonBlank.length <= MAX_SIGNOFF_TAIL_LINES &&
+    nonBlank.every(
+      (line) =>
+        line.trim().length <= MAX_SIG_LINE_LEN && isSignatureShapedLine(line)
+    )
+  );
+}
+
 /**
  * True when the lines after a sign-off word look like a signature tail
  * (a short name + contact block) rather than a continued prose paragraph.
@@ -123,13 +156,41 @@ function trimTrailingBlankLines(lines: string[]): string[] {
 function looksLikeSignatureTail(tailLines: string[]): boolean {
   const nonBlank = tailLines.filter((l) => !isBlank(l));
   if (nonBlank.length === 0) return false;
-  if (nonBlank.length > MAX_SIGNOFF_TAIL_LINES) return false;
-  if (nonBlank.some((l) => l.trim().length > MAX_SIG_LINE_LEN)) return false;
-  if (nonBlank.some((l) => CONTACT_SHAPE_RE.test(l))) return true;
+  if (nonBlank.some((line) => POSTSCRIPT_RE.test(line))) return false;
+  const shortTail =
+    nonBlank.length <= MAX_SIGNOFF_TAIL_LINES &&
+    nonBlank.every((line) => line.trim().length <= MAX_SIG_LINE_LEN);
+  if (
+    shortTail &&
+    nonBlank.some((line) => CONTACT_SHAPE_RE.test(line)) &&
+    nonBlank.every(isSignatureShapedLine)
+  ) {
+    return true;
+  }
+  const lastContactIndex = nonBlank.findLastIndex((line) =>
+    CONTACT_SHAPE_RE.test(line)
+  );
+  const hasAuthoredTextAfterContact =
+    lastContactIndex >= 0 &&
+    nonBlank
+      .slice(lastContactIndex + 1)
+      .some((line) => !isSignatureShapedLine(line));
+  const extendedCorporateTail =
+    nonBlank.length <= 20 &&
+    nonBlank.join("\n").length <= 1_500 &&
+    nonBlank.every((line) => line.trim().length <= 180) &&
+    nonBlank.some((line) => CONTACT_SHAPE_RE.test(line)) &&
+    nonBlank.some((line) => CORPORATE_SIGNATURE_SHAPE_RE.test(line)) &&
+    !hasAuthoredTextAfterContact;
+  if (extendedCorporateTail) return true;
   // No contact data: only treat as a signature when it's a single short line
   // (a bare name like "Mike Chen"). Multiple short non-contact lines are
   // ambiguous, so we keep them rather than risk eating content.
-  return nonBlank.length === 1;
+  return (
+    shortTail &&
+    nonBlank.length === 1 &&
+    BARE_NAME_LINE_RE.test(nonBlank[0]!.trim())
+  );
 }
 
 /**
@@ -147,8 +208,23 @@ export function stripSignatureBlock(body: string): string {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // 1 + 2: hard delimiters — drop from here to the end.
-    if (SIG_DELIMITER_RE.test(line) || CLIENT_FOOTER_RE.test(line)) {
+    // 1: a hard delimiter is only authoritative when its tail is actually
+    // signature-shaped. Untrusted prose can contain delimiter-looking lines.
+    if (SIG_DELIMITER_RE.test(line)) {
+      const tail = lines.slice(i + 1);
+      if (
+        tail.every(isBlank) ||
+        looksLikeSignatureTail(tail) ||
+        looksLikeBareSignatureTail(tail)
+      ) {
+        cutAt = Math.min(cutAt, i);
+        break;
+      }
+    }
+
+    // 2: real device/client footers are terminal. Any authored text after one
+    // means the footer-looking line is part of the message and must be kept.
+    if (CLIENT_FOOTER_RE.test(line) && lines.slice(i + 1).every(isBlank)) {
       cutAt = Math.min(cutAt, i);
       break;
     }
@@ -177,8 +253,24 @@ export function stripSignatureBlock(body: string): string {
     if (firstFooter < lines.length) cutAt = firstFooter;
   }
 
-  if (cutAt >= lines.length) return body;
+  if (cutAt >= lines.length) {
+    const inlineSignature = INLINE_CORPORATE_SIGNATURE_RE.exec(normalized);
+    if (inlineSignature) {
+      const punctuationOffset = inlineSignature[0].search(/[.!?]/);
+      const inlineCutAt =
+        (inlineSignature.index ?? 0) + Math.max(0, punctuationOffset) + 1;
+      if (COMMERCIAL_VETO_OR_REVERSAL_RE.test(normalized.slice(inlineCutAt))) {
+        return body;
+      }
+      const kept = normalized.slice(0, inlineCutAt).trimEnd();
+      if (kept) return kept;
+    }
+    return body;
+  }
 
+  if (COMMERCIAL_VETO_OR_REVERSAL_RE.test(lines.slice(cutAt).join("\n"))) {
+    return body;
+  }
   const kept = trimTrailingBlankLines(lines.slice(0, cutAt));
   const result = kept.join("\n").trimEnd();
   // Never blank out the whole message: if stripping ate everything, the
@@ -197,7 +289,7 @@ export function stripSignatureBlock(body: string): string {
  */
 function quoteStripRaw(raw: string, subject: string): string {
   const plain = htmlToPlainText(stripQuotedHtml(raw));
-  return stripQuotedContent(plain, subject);
+  return stripQuotedContentStrict(plain, subject);
 }
 
 /**
@@ -235,7 +327,7 @@ export function authoredMessageBody(
   // 1. Quote strip (provider-clean preferred).
   const quoteStripped =
     opts.providerCleanBody != null
-      ? opts.providerCleanBody
+      ? stripQuotedContentStrict(opts.providerCleanBody, subject)
       : quoteStripRaw(rawBody, subject);
 
   // 2. Cross-message overlap strip.
