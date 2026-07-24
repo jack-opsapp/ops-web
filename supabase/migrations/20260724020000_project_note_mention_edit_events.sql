@@ -40,6 +40,12 @@ create table public.project_note_mention_events (
 create index project_note_mention_events_note_created_idx
   on public.project_note_mention_events (note_id, created_at, id);
 
+create index project_note_mention_events_company_id_idx
+  on public.project_note_mention_events (company_id);
+
+create index project_note_mention_events_actor_user_id_idx
+  on public.project_note_mention_events (actor_user_id);
+
 alter table public.project_note_mention_events enable row level security;
 revoke all on table public.project_note_mention_events from public, anon, authenticated, service_role;
 grant select on table public.project_note_mention_events to service_role;

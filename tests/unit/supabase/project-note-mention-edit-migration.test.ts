@@ -129,4 +129,16 @@ describe("project note mention edit migration", () => {
       /grant execute on function public\.update_project_note_mentions\(uuid, text, text\[\], uuid\)[\s\S]*?to anon, authenticated/i
     );
   });
+
+  it("indexes every event-table foreign key used for parent-row integrity checks", () => {
+    expect(migration).toMatch(
+      /create index project_note_mention_events_note_created_idx[\s\S]*?on public\.project_note_mention_events \(note_id, created_at, id\)/i
+    );
+    expect(migration).toMatch(
+      /create index project_note_mention_events_company_id_idx[\s\S]*?on public\.project_note_mention_events \(company_id\)/i
+    );
+    expect(migration).toMatch(
+      /create index project_note_mention_events_actor_user_id_idx[\s\S]*?on public\.project_note_mention_events \(actor_user_id\)/i
+    );
+  });
 });
