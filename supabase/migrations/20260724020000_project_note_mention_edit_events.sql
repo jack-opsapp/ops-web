@@ -44,6 +44,14 @@ alter table public.project_note_mention_events enable row level security;
 revoke all on table public.project_note_mention_events from public, anon, authenticated, service_role;
 grant select on table public.project_note_mention_events to service_role;
 
+create policy project_note_mention_events_no_client_access
+  on public.project_note_mention_events
+  as restrictive
+  for all
+  to anon, authenticated
+  using (false)
+  with check (false);
+
 create or replace function private.project_note_mention_events_are_immutable()
 returns trigger
 language plpgsql

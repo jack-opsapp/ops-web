@@ -117,6 +117,9 @@ describe("project note mention edit migration", () => {
       "grant select on table public.project_note_mention_events to service_role"
     );
     expect(migration).toMatch(
+      /create policy project_note_mention_events_no_client_access[\s\S]*?as restrictive[\s\S]*?to anon, authenticated[\s\S]*?using \(false\)[\s\S]*?with check \(false\)/i
+    );
+    expect(migration).toMatch(
       /create unique index if not exists notifications_mention_edit_event_unique[\s\S]*?on public\.notifications\s*\(\s*user_id,\s*company_id,\s*type,\s*dedupe_key\s*\)[\s\S]*?where type = 'mention'[\s\S]*?dedupe_key like 'mention-edit:%'/i
     );
     expect(migration).toMatch(
