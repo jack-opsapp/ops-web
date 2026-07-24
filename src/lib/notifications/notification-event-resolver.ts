@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { NotificationDispatchRequest } from "@/lib/notifications/notification-dispatch-policy";
+import { normalizeNotificationPreviewText } from "@/lib/notifications/notification-copy";
 import {
   filterActiveCompanyRecipients,
   type NotificationRouteActor,
@@ -216,9 +217,9 @@ export async function resolveNotificationEvent(params: {
     if (!project || project.deleted_at) {
       return { ok: false, status: 404, reason: "Mention project not found" };
     }
-    const preview = String(note.content ?? "")
-      .replace(/\s+/g, " ")
-      .trim();
+    const preview = normalizeNotificationPreviewText(
+      String(note.content ?? "")
+    );
     const body = preview
       ? `“${preview.slice(0, 80)}${preview.length > 80 ? "…" : ""}” on ${project.title}`
       : `You were mentioned in a note on ${project.title}.`;
@@ -349,7 +350,7 @@ export async function resolveNotificationEvent(params: {
         reason: "Mention project not found",
       };
     }
-    const preview = contentSnapshot.replace(/\s+/g, " ").trim();
+    const preview = normalizeNotificationPreviewText(contentSnapshot);
     const body = preview
       ? `“${preview.slice(0, 80)}${preview.length > 80 ? "…" : ""}” on ${projectTitle}`
       : `You were mentioned in a note on ${projectTitle}.`;

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildMemberJoinedCopy } from "@/lib/notifications/notification-copy";
+import {
+  buildMemberJoinedCopy,
+  normalizeNotificationPreviewText,
+} from "@/lib/notifications/notification-copy";
 
 describe("buildMemberJoinedCopy", () => {
   it("role assigned + seated", () => {
@@ -61,5 +64,23 @@ describe("buildMemberJoinedCopy", () => {
       wasSeated: true,
     });
     expect(copy.title).toBe("Sarah needs a role");
+  });
+});
+
+describe("normalizeNotificationPreviewText", () => {
+  it("renders individual and All Team persisted mentions without authority IDs", () => {
+    expect(
+      normalizeNotificationPreviewText(
+        "Check  @[Alex Smith](11111111-1111-4111-8111-111111111111)\nwith @[All Team](all-team)"
+      )
+    ).toBe("Check @Alex Smith with @All Team");
+  });
+
+  it("normalizes any valid persisted mention target without leaking it", () => {
+    expect(
+      normalizeNotificationPreviewText(
+        "@[Display Name](opaque-authority-value) is ready"
+      )
+    ).toBe("@Display Name is ready");
   });
 });

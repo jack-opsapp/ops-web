@@ -7,13 +7,29 @@ import type { User } from "@/lib/types/models";
 // --- Mention Parsing Utilities ---
 
 const MENTION_PATTERN = /@\[([^\]]+)\]\(([^)]+)\)/g;
+const ALL_TEAM_MENTION_NAME = "All Team";
+const ALL_TEAM_MENTION_SENTINEL = "all-team";
 
-export function extractMentionedUserIds(text: string): string[] {
+export function extractMentionedUserIds(
+  text: string,
+  users: ReadonlyArray<Pick<User, "id">>
+): string[] {
   const ids = new Set<string>();
+  const rosterIds = new Set(users.map(({ id }) => id));
   let match: RegExpExecArray | null;
   const regex = new RegExp(MENTION_PATTERN.source, "g");
   while ((match = regex.exec(text)) !== null) {
-    ids.add(match[2]);
+    const [, displayName, authorityId] = match;
+    if (
+      displayName === ALL_TEAM_MENTION_NAME &&
+      authorityId === ALL_TEAM_MENTION_SENTINEL
+    ) {
+      for (const { id } of users) {
+        ids.add(id);
+      }
+    } else if (rosterIds.has(authorityId)) {
+      ids.add(authorityId);
+    }
   }
   return Array.from(ids);
 }
@@ -94,8 +110,7 @@ export function MentionTextArea({
       const atIndex = textBeforeCursor.lastIndexOf("@");
 
       if (atIndex >= 0) {
-        const charBefore =
-          atIndex > 0 ? textBeforeCursor[atIndex - 1] : " ";
+        const charBefore = atIndex > 0 ? textBeforeCursor[atIndex - 1] : " ";
         const textAfterAt = textBeforeCursor.slice(atIndex + 1);
         if (
           (charBefore === " " || charBefore === "\n" || atIndex === 0) &&
@@ -136,9 +151,7 @@ export function MentionTextArea({
     if (showSuggestions && filteredUsers.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSuggestionIndex((i) =>
-          Math.min(i + 1, filteredUsers.length - 1)
-        );
+        setSuggestionIndex((i) => Math.min(i + 1, filteredUsers.length - 1));
         return;
       }
       if (e.key === "ArrowUp") {

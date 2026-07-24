@@ -51,7 +51,7 @@ describe("mention-edit notification proof", () => {
             company_id: actor.companyId,
             actor_user_id: actor.userId,
             recipient_user_ids: [aliceId, bobId],
-            content_snapshot: "@Alice Able and @Bob Builder check the seam.",
+            content_snapshot: `@[Alice Able](${aliceId}) and @[All Team](all-team) check the seam.`,
             actor_name_snapshot: "Alex Author",
             project_title_snapshot: "Deck rebuild",
             created_at: new Date().toISOString(),
@@ -102,7 +102,7 @@ describe("mention-edit notification proof", () => {
         projectId,
         noteId,
         dedupeKey: `mention-edit:${mentionEventId}`,
-        body: "“@Alice Able and @Bob Builder check the seam.” on Deck rebuild",
+        body: "“@Alice Able and @All Team check the seam.” on Deck rebuild",
         pushData: {
           type: "projectNoteMention",
           projectId,
@@ -214,5 +214,49 @@ describe("mention-edit notification proof", () => {
       reason: "Stale mention edit event",
     });
     expect(queriedTables).toEqual(["project_note_mention_events"]);
+  });
+
+  it("normalizes persisted mention markup in the original mention preview", async () => {
+    const db = {
+      from: (table: string) => {
+        if (table === "project_notes") {
+          return singleResult({
+            id: noteId,
+            project_id: projectId,
+            company_id: actor.companyId,
+            author_id: actor.userId,
+            content: `@[Bob Builder](${bobId}) and @[All Team](all-team) check the seam.`,
+            mentioned_user_ids: [bobId],
+            created_at: new Date().toISOString(),
+          });
+        }
+        if (table === "projects") {
+          return singleResult({
+            id: projectId,
+            company_id: actor.companyId,
+            title: "Deck rebuild",
+            status: "active",
+            team_member_ids: [],
+            opportunity_ref: null,
+            updated_at: new Date().toISOString(),
+            deleted_at: null,
+          });
+        }
+        throw new Error(`Unexpected table: ${table}`);
+      },
+    } as unknown as SupabaseClient;
+
+    const result = await resolveNotificationEvent({
+      db,
+      actor,
+      request: { eventType: "mention", noteId },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      event: expect.objectContaining({
+        body: "“@Bob Builder and @All Team check the seam.” on Deck rebuild",
+      }),
+    });
   });
 });
