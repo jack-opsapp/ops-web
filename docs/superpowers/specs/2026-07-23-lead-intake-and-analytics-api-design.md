@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-23
 
-**Status:** Approved product design; pending written-spec review
+**Status:** Approved product design; implementation plan complete
 
 **Scope:** OPS Web backend, integration settings, developer contract, and required OPS Software Bible updates
 
@@ -251,6 +251,8 @@ Represents the company-controlled origin of an intake:
 
 The authenticated source binding is authoritative. A caller cannot claim to be another configured website through payload fields.
 
+Allowed browser origins are an integration-compatibility and audit policy, not a substitute for the one-object upload capability. Browser CORS can reduce accidental cross-origin use, but non-browser clients can supply an `Origin` header; authorization therefore always comes from the short-lived create-only capability and the source-bound submission claim.
+
 Every source has at least one form. OPS creates a stable `default` form when the website does not distinguish forms, so `form_id` is always explicit rather than nullable.
 
 `default_intake_owner_id` uses the same company-membership, active-user, and assignment-authority validation as a mailbox default owner. It is configuration, never caller input.
@@ -371,9 +373,11 @@ The credential remains on the website server. A website may pass the temporary o
 - uses an unpredictable create-only object name;
 - cannot list, read, replace, or delete any object.
 
-A normal reusable presigned `PUT` is insufficient. OPS uses either a bounded signed `POST` policy that enforces create-only storage conditions or an authenticated streaming upload gateway that enforces them before accepting bytes. If the selected storage provider cannot guarantee create-only, one-use, content-length-bounded uploads, it cannot be used directly.
+A normal reusable presigned `PUT` is insufficient. On S3, OPS uses a SigV4 `PutObject` capability that signs the exact content length and `If-None-Match: *`, while bucket policy independently denies writes without the create-only condition. An authenticated streaming gateway is the fallback if real-browser verification cannot prove those constraints. S3 POST policy alone is not selected because its content-length range does not supply the required conditional create-only write. If the selected path cannot guarantee create-only, one-use, content-length-bounded uploads, it cannot be used directly.
 
 Unclaimed upload objects expire after 24 hours and are deleted automatically.
+
+Cleanup never removes the current object or creates a delete-marker gap while its upload capability can still be valid. The current quarantined object remains the `If-None-Match: *` blocker until capability expiry plus clock-skew margin; only then are all versions removed. A rejected or erased object becomes unreadable immediately, but deletion cannot make the original capability reusable.
 
 The idempotency manifest includes the authorization principal, source, form, and ordered file metadata. An exact upload-batch replay returns the same upload IDs and current states. When an intent is still open and has no object, OPS may issue a fresh short-lived capability for the same immutable target. A different manifest under the same key returns `409 idempotency_conflict`. An expired batch returns `410 upload_batch_expired` and requires a new batch key. Per-file acceptance and rejection are stable on replay, so a timeout cannot create duplicate intents or consume quota twice.
 
@@ -465,7 +469,7 @@ A first successful submission returns `201 Created` with:
 - lead creation time;
 - initial lead stage;
 - itemized attachment states;
-- a single-purpose signed email correlation marker when the configured source mirrors notification email;
+- a single-purpose authenticated-encrypted email correlation marker when the configured source mirrors notification email;
 - request ID.
 
 An exact replay returns `200 OK`, `replayed: true`, the original core outcome and identifiers, and the current attachment states. It never emits a second assignment or notification event.
@@ -549,6 +553,8 @@ Idempotency and external-submission identities are retained for the life of the 
 
 OPS stores a keyed digest of bounded idempotency and external-submission values, not the caller strings used for lookup. The protected original submission may preserve the external reference as submitted, subject to normal privacy erasure.
 
+Each digest records its key version. Key rotation adds a new active writer but retains every historical lookup key for as long as a submission/upload/tombstone references it; a referenced key cannot be retired. Credential rotation therefore cannot convert an old retry into a fresh inquiry, and missing historical key material fails closed rather than bypassing replay detection.
+
 The canonical request hash is explicitly versioned and covers:
 
 - authorization principal, authenticated company, effective source, and form;
@@ -612,7 +618,7 @@ The external caller cannot choose an assignee or embed a user ID in a submission
 
 If no default owner exists or the configured owner is no longer eligible, the lead enters the company-wide unassigned queue. The unassigned-delivery outbox must support `source_kind = external_intake` and the intake source ID instead of requiring an email connection. It notifies users who have assignment authority and cannot allow the lead to disappear merely because ordinary Operators can see only assigned leads.
 
-An API submission receives a deterministic `source_thread_key` in the external-intake namespace. When an integration also sends a notification email, it must either disable email-based lead creation or include an OPS-issued, cryptographically signed correlation marker so the email importer can validate the company, mailbox, and submission before attaching the message. The importer never links email from a plain public lead or submission ID. An uncorrelated duplicate notification email cannot be assumed to represent the same inquiry.
+An API submission receives a deterministic `source_thread_key` in the external-intake namespace. When an integration also sends a notification email, it must either disable email-based lead creation or include an OPS-issued, cryptographically authenticated and encrypted correlation marker so the email importer can validate the company, mailbox, and submission before attaching the message. The marker exposes no readable internal identity. The importer never links email from a plain public lead or submission ID. An uncorrelated duplicate notification email cannot be assumed to represent the same inquiry.
 
 On lead-to-project conversion:
 
@@ -699,7 +705,7 @@ A filtered snapshot omits `next_sync_checkpoint`; its cursor is valid only for p
 
 Paginated incremental runs also return `next_sync_checkpoint` only on the terminal page. A consumer must finish and durably apply the entire full or incremental scan before replacing its prior checkpoint. It must not apply deltas before its baseline scan completes or advance after an intermediate page; doing either can skip unread events or let an older baseline overwrite newer state.
 
-Page cursors and checkpoints encode and sign the authorization principal, authorization epoch, company, scopes, projection version, filters, sort, and high-water sequence. They cannot be replayed with another principal, grant version, company, filter set, or API version.
+Page cursors and checkpoints encrypt and authenticate the authorization principal, authorization epoch, company, scopes, projection version, filters, sort, and high-water sequence. Their serialized form exposes no readable internal identity or sequence. They cannot be replayed with another principal, grant version, company, filter set, or API version.
 
 The latest baseline projection for every retained lead remains available for full synchronization. Projection changes and deletion tombstones remain in the incremental stream for 30 days. Full-snapshot page cursors expire after one hour, and all versions needed by a valid cursor remain queryable for that lifetime. A checkpoint older than the retained sequence returns `410 sync_checkpoint_expired`; the consumer must perform a new full synchronization. Timestamp-only checkpoints are not accepted.
 
