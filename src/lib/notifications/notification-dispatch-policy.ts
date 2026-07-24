@@ -6,7 +6,8 @@ export type NotificationDispatchRequest =
     }
   | { eventType: "expense_submitted"; expenseId: string }
   | { eventType: "expense_approved" | "expense_paid"; batchId: string }
-  | { eventType: "mention"; noteId: string };
+  | { eventType: "mention"; noteId: string }
+  | { eventType: "mention_edit"; mentionEventId: string };
 
 export type NotificationDispatchParseResult =
   | { ok: true; value: NotificationDispatchRequest }
@@ -100,6 +101,17 @@ export function parseNotificationDispatchRequest(
         return { ok: false, reason: "Invalid mention proof" };
       }
       return { ok: true, value: { eventType, noteId: input.noteId } };
+    case "mention_edit":
+      if (
+        !hasOnlyKeys(input, ["eventType", "mentionEventId"]) ||
+        !isUuid(input.mentionEventId)
+      ) {
+        return { ok: false, reason: "Invalid mention edit proof" };
+      }
+      return {
+        ok: true,
+        value: { eventType, mentionEventId: input.mentionEventId },
+      };
     default:
       return { ok: false, reason: "Unsupported notification event" };
   }

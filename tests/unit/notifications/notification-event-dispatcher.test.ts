@@ -33,7 +33,10 @@ const statusEventId = "44444444-4444-4444-8444-444444444444";
 const recipientOne = "55555555-5555-4555-8555-555555555555";
 const recipientTwo = "66666666-6666-4666-8666-666666666666";
 
-function resolvedEvent(eventType: "project_status_change") {
+function resolvedEvent(
+  eventType: "project_status_change" | "mention_edit",
+  eventId = statusEventId
+) {
   return {
     ok: true as const,
     event: {
@@ -49,7 +52,7 @@ function resolvedEvent(eventType: "project_status_change") {
       actionLabel: "View Project",
       projectId,
       deepLinkType: "project",
-      dedupeKey: `${eventType}:${statusEventId}`,
+      dedupeKey: `${eventType}:${eventId}`,
       pushData: { type: "projectStatusChange", projectId },
     },
   };
@@ -122,6 +125,69 @@ describe("notification event dispatcher", () => {
     });
 
     expect(mocks.sendPush).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      ok: false,
+      status: 500,
+      reason: "Notification push failed",
+    });
+  });
+
+  it("retries mention-edit delivery with the persisted event id", async () => {
+    const mentionEventId = "77777777-7777-4777-8777-777777777777";
+    mocks.resolveEvent.mockResolvedValue(
+      resolvedEvent("mention_edit", mentionEventId)
+    );
+    mocks.createRail.mockResolvedValue({
+      attempted: 2,
+      errors: 0,
+      createdRecipientIds: [],
+    });
+
+    const result = await dispatchNotificationEvent({
+      db: {} as never,
+      actor,
+      request: {
+        eventType: "mention_edit",
+        mentionEventId,
+      },
+    });
+
+    expect(mocks.sendPush).toHaveBeenCalledWith({
+      recipientUserIds: [recipientOne, recipientTwo],
+      title: "Project status changed",
+      body: "The project moved forward.",
+      data: { type: "projectStatusChange", projectId },
+      idempotencyKey: mentionEventId,
+    });
+    expect(mocks.createRail).toHaveBeenCalledWith(
+      expect.objectContaining({ durableDedupe: true }),
+      expect.anything()
+    );
+    expect(result).toEqual({ ok: true, notified: 0, pushed: 2, emailed: 0 });
+  });
+
+  it("returns a retryable failure when a mention-edit push is not accepted", async () => {
+    const mentionEventId = "77777777-7777-4777-8777-777777777777";
+    mocks.resolveEvent.mockResolvedValue(
+      resolvedEvent("mention_edit", mentionEventId)
+    );
+    mocks.createRail.mockResolvedValue({
+      attempted: 2,
+      errors: 0,
+      createdRecipientIds: [],
+    });
+    mocks.sendPush.mockResolvedValue({
+      ok: false,
+      error: "provider unavailable",
+      status: 503,
+    });
+
+    const result = await dispatchNotificationEvent({
+      db: {} as never,
+      actor,
+      request: { eventType: "mention_edit", mentionEventId },
+    });
+
     expect(result).toEqual({
       ok: false,
       status: 500,

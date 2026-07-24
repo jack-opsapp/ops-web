@@ -50,6 +50,7 @@ export async function dispatchNotificationEvent(params: {
       projectId: event.projectId ?? null,
       deepLinkType: event.deepLinkType,
       dedupeKey: event.dedupeKey,
+      durableDedupe: params.request.eventType === "mention_edit",
     },
     params.db
   );
@@ -61,13 +62,15 @@ export async function dispatchNotificationEvent(params: {
     };
   }
 
-  const projectStatusEventId =
+  const durablePushEventId =
     params.request.eventType === "project_status_change"
       ? params.request.projectStatusEventId
-      : null;
-  const isProjectStatusChange = projectStatusEventId !== null;
+      : params.request.eventType === "mention_edit"
+        ? params.request.mentionEventId
+        : null;
+  const isDurablePushEvent = durablePushEventId !== null;
   const createdRecipients = new Set(rail.createdRecipientIds);
-  const pushRecipientIds = isProjectStatusChange
+  const pushRecipientIds = isDurablePushEvent
     ? preferences.pushRecipientIds
     : preferences.pushRecipientIds.filter((userId) =>
         createdRecipients.has(userId)
@@ -79,11 +82,9 @@ export async function dispatchNotificationEvent(params: {
       title: event.title,
       body: event.body,
       data: event.pushData,
-      ...(isProjectStatusChange
-        ? { idempotencyKey: projectStatusEventId }
-        : {}),
+      ...(isDurablePushEvent ? { idempotencyKey: durablePushEventId } : {}),
     });
-    if (isProjectStatusChange && !result.ok) {
+    if (isDurablePushEvent && !result.ok) {
       return {
         ok: false,
         status: 500,

@@ -19,14 +19,15 @@ describe("notification push idempotency", () => {
     expect(service).not.toContain('db.rpc("create_notification_if_new",');
   });
 
-  it("retries durable status pushes while keeping ordinary pushes new-rail-only", () => {
+  it("retries durable event pushes while keeping ordinary pushes new-rail-only", () => {
     expect(dispatcher).toContain(
       'params.request.eventType === "project_status_change"'
     );
+    expect(dispatcher).toContain('params.request.eventType === "mention_edit"');
     expect(dispatcher).toMatch(
       /\? preferences\.pushRecipientIds[\s\S]*?: preferences\.pushRecipientIds\.filter/
     );
-    expect(dispatcher).toContain("idempotencyKey: projectStatusEventId");
+    expect(dispatcher).toContain("idempotencyKey: durablePushEventId");
     expect(dispatcher).toContain('reason: "Notification push failed"');
   });
 

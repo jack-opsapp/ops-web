@@ -83,6 +83,41 @@ describe("parseNotificationDispatchRequest", () => {
     ).toBe(false);
   });
 
+  it("accepts only the persisted mention-edit event UUID", () => {
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "mention_edit",
+        mentionEventId: EVENT_ID,
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        eventType: "mention_edit",
+        mentionEventId: EVENT_ID,
+      },
+    });
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "mention_edit",
+        mentionEventId: "not-a-uuid",
+      }).ok
+    ).toBe(false);
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "mention_edit",
+        mentionEventId: EVENT_ID,
+        recipientIds: [USER_ID],
+      }).ok
+    ).toBe(false);
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "mention_edit",
+        mentionEventId: EVENT_ID,
+        noteId: PROJECT_ID,
+      }).ok
+    ).toBe(false);
+  });
+
   it("rejects unknown events and non-UUID evidence", () => {
     expect(
       parseNotificationDispatchRequest({
