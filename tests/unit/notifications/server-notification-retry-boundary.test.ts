@@ -45,6 +45,89 @@ describe("notification retry boundary", () => {
     expect(db.rpc).not.toHaveBeenCalled();
   });
 
+  it("allows the canonical mention-edit identity to survive read or resolved state", async () => {
+    const notificationQueries: Array<Record<string, unknown>> = [];
+    const rpc = vi.fn();
+    const db = {
+      from: (table: string) => {
+        if (table === "users") {
+          return queryResult({
+            data: [{ id: "22222222-2222-4222-8222-222222222222" }],
+            error: null,
+          });
+        }
+
+        const filters: Record<string, unknown> = {};
+        const builder: Record<string, unknown> = {};
+        builder.select = () => builder;
+        builder.eq = (column: string, value: unknown) => {
+          filters[column] = value;
+          return builder;
+        };
+        builder.limit = () => builder;
+        builder.maybeSingle = async () => {
+          notificationQueries.push({ ...filters });
+          return {
+            data: { id: "11111111-1111-4111-8111-111111111111" },
+            error: null,
+          };
+        };
+        return builder;
+      },
+      rpc,
+    } as unknown as SupabaseClient;
+
+    await expect(
+      createTrustedNotifications(
+        {
+          companyId: "33333333-3333-4333-8333-333333333333",
+          recipientUserIds: ["22222222-2222-4222-8222-222222222222"],
+          type: "mention",
+          title: "Alex mentioned you",
+          body: "Check the seam.",
+          dedupeKey: "mention-edit:44444444-4444-4444-8444-444444444444",
+          durableDedupe: true,
+        },
+        db
+      )
+    ).resolves.toEqual({
+      attempted: 1,
+      errors: 0,
+      createdRecipientIds: [],
+      createdNotifications: [],
+    });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(notificationQueries).toEqual([
+      {
+        user_id: "22222222-2222-4222-8222-222222222222",
+        company_id: "33333333-3333-4333-8333-333333333333",
+        type: "mention",
+        dedupe_key: "mention-edit:44444444-4444-4444-8444-444444444444",
+      },
+    ]);
+  });
+
+  it("rejects a non-UUID mention-edit durable identity", async () => {
+    const db = { from: vi.fn(), rpc: vi.fn() } as unknown as SupabaseClient;
+
+    await expect(
+      createTrustedNotifications(
+        {
+          companyId: "33333333-3333-4333-8333-333333333333",
+          recipientUserIds: ["22222222-2222-4222-8222-222222222222"],
+          type: "mention",
+          title: "Alex mentioned you",
+          body: "Check the seam.",
+          dedupeKey: "mention-edit:not-a-uuid",
+          durableDedupe: true,
+        },
+        db
+      )
+    ).rejects.toThrow("Unsupported durable notification identity");
+    expect(db.from).not.toHaveBeenCalled();
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
   it("reconciles a durable notification even after read state removes it from open dedupe", async () => {
     const notificationQueries: Array<Record<string, unknown>> = [];
     const rpc = vi.fn();

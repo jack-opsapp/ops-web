@@ -170,11 +170,14 @@ export async function createTrustedNotifications(
   if (!dedupeKey) {
     throw new Error("Notification dedupe key is required");
   }
-  if (
-    input.durableDedupe &&
-    (notificationType !== "data_review_resolved" ||
-      !dedupeKey.startsWith("data_review_resolution:v1:"))
-  ) {
+  const isSupportedDurableIdentity =
+    (notificationType === "data_review_resolved" &&
+      dedupeKey.startsWith("data_review_resolution:v1:")) ||
+    (notificationType === "mention" &&
+      /^mention-edit:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        dedupeKey
+      ));
+  if (input.durableDedupe && !isSupportedDurableIdentity) {
     throw new Error("Unsupported durable notification identity");
   }
 

@@ -3,7 +3,10 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { NotificationDispatchRequest } from "@/lib/notifications/notification-dispatch-policy";
-import type { NotificationRouteActor } from "@/lib/notifications/server-notification-service";
+import {
+  filterActiveCompanyRecipients,
+  type NotificationRouteActor,
+} from "@/lib/notifications/server-notification-service";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 
 export interface ResolvedNotificationEvent {
@@ -52,6 +55,9 @@ interface ProjectStatusNotificationProof {
 }
 
 const EVENT_FRESHNESS_MS = 15 * 60 * 1000;
+// OneSignal retains an idempotency UUID for 30 days. Stop retrying one day
+// earlier so a late replay can never create a second provider message.
+const MENTION_EDIT_FRESHNESS_MS = 29 * 24 * 60 * 60 * 1000;
 
 function values(value: unknown): string[] {
   return Array.isArray(value)
@@ -59,12 +65,13 @@ function values(value: unknown): string[] {
     : [];
 }
 
-function isFresh(value: unknown): boolean {
+function isFresh(
+  value: unknown,
+  maximumAgeMs: number = EVENT_FRESHNESS_MS
+): boolean {
   if (typeof value !== "string") return false;
   const timestamp = Date.parse(value);
-  return (
-    Number.isFinite(timestamp) && timestamp >= Date.now() - EVENT_FRESHNESS_MS
-  );
+  return Number.isFinite(timestamp) && timestamp >= Date.now() - maximumAgeMs;
 }
 
 async function loadProject(
@@ -236,6 +243,138 @@ export async function resolveNotificationEvent(params: {
           type: "projectNoteMention",
           projectId: project.id,
           noteId: String(note.id),
+          screen: "projectNotes",
+        },
+      },
+    };
+  }
+
+  if (request.eventType === "mention_edit") {
+    const { data: proof, error: proofError } = await db
+      .from("project_note_mention_events")
+      .select(
+        "id, note_id, project_id, company_id, actor_user_id, recipient_user_ids, content_snapshot, actor_name_snapshot, project_title_snapshot, created_at"
+      )
+      .eq("id", request.mentionEventId)
+      .eq("company_id", actor.companyId)
+      .eq("actor_user_id", actor.userId)
+      .maybeSingle();
+    if (proofError) {
+      throw new Error(
+        `Failed to load mention edit proof: ${proofError.message}`
+      );
+    }
+    if (
+      !proof ||
+      String(proof.id) !== request.mentionEventId ||
+      String(proof.company_id) !== actor.companyId ||
+      String(proof.actor_user_id) !== actor.userId
+    ) {
+      return {
+        ok: false,
+        status: 404,
+        reason: "Mention edit event not found",
+      };
+    }
+    if (!isFresh(proof.created_at, MENTION_EDIT_FRESHNESS_MS)) {
+      return {
+        ok: false,
+        status: 409,
+        reason: "Stale mention edit event",
+      };
+    }
+
+    const noteId = String(proof.note_id ?? "");
+    const projectId = String(proof.project_id ?? "");
+    if (!noteId || !projectId) {
+      throw new Error("Mention edit proof was invalid");
+    }
+    const { data: note, error: noteError } = await db
+      .from("project_notes")
+      .select(
+        "id, project_id, company_id, author_id, mentioned_user_ids, deleted_at, event_kind"
+      )
+      .eq("id", noteId)
+      .eq("project_id", projectId)
+      .eq("company_id", actor.companyId)
+      .eq("author_id", actor.userId)
+      .is("deleted_at", null)
+      .is("event_kind", null)
+      .maybeSingle();
+    if (noteError) {
+      throw new Error(
+        `Failed to revalidate mention edit note: ${noteError.message}`
+      );
+    }
+    if (!note) {
+      return {
+        ok: false,
+        status: 409,
+        reason: "Mention edit note is no longer eligible",
+      };
+    }
+
+    const contentSnapshot =
+      typeof proof.content_snapshot === "string"
+        ? proof.content_snapshot
+        : null;
+    const actorName =
+      typeof proof.actor_name_snapshot === "string"
+        ? proof.actor_name_snapshot.trim()
+        : "";
+    const projectTitle =
+      typeof proof.project_title_snapshot === "string"
+        ? proof.project_title_snapshot.trim()
+        : "";
+    if (contentSnapshot === null || !actorName || !projectTitle) {
+      throw new Error("Mention edit proof was invalid");
+    }
+
+    const currentMentionIds = new Set(values(note.mentioned_user_ids));
+    const stillMentionedEventRecipients = values(
+      proof.recipient_user_ids
+    ).filter((userId) => currentMentionIds.has(userId));
+    const recipientUserIds = await filterActiveCompanyRecipients({
+      companyId: actor.companyId,
+      recipientUserIds: stillMentionedEventRecipients,
+      excludeUserId: actor.userId,
+      db,
+    });
+
+    const project = await loadProject(db, actor, projectId);
+    if (!project || project.deleted_at) {
+      return {
+        ok: false,
+        status: 404,
+        reason: "Mention project not found",
+      };
+    }
+    const preview = contentSnapshot.replace(/\s+/g, " ").trim();
+    const body = preview
+      ? `“${preview.slice(0, 80)}${preview.length > 80 ? "…" : ""}” on ${projectTitle}`
+      : `You were mentioned in a note on ${projectTitle}.`;
+
+    return {
+      ok: true,
+      event: {
+        eventType: request.eventType,
+        companyId: actor.companyId,
+        recipientUserIds,
+        preferenceKey: "team_mentions",
+        type: "mention",
+        title: `${actorName} mentioned you`,
+        body,
+        persistent: false,
+        actionUrl: projectActionUrl(projectId),
+        actionLabel: "View Note",
+        projectId,
+        noteId,
+        deepLinkType: "project_note",
+        dedupeKey: `mention-edit:${request.mentionEventId}`,
+        pushData: {
+          type: "projectNoteMention",
+          projectId,
+          noteId,
           screen: "projectNotes",
         },
       },
