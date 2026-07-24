@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/services/project-conversion-service";
 import { createEmailOpportunityNotification } from "@/lib/email/email-opportunity-notification";
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
+import { isRecruitingProviderNoise } from "@/lib/email/opportunity-correspondence-classifier";
 import { findUniqueExistingProjectForEmailConversion } from "@/lib/email/opportunity-relationship-matching";
 import {
   detectCommercialOutcome,
@@ -30,6 +31,8 @@ interface CommercialEvidenceEvent {
   direction: "inbound" | "outbound";
   party_role: string;
   from_email: string | null;
+  to_emails: string[] | null;
+  cc_emails: string[] | null;
   occurred_at: string;
 }
 
@@ -42,10 +45,14 @@ interface CommercialEvidenceActivity {
   subject: string | null;
   body_text: string | null;
   body_text_clean: string | null;
+  to_emails: string[] | null;
+  cc_emails: string[] | null;
 }
 
 interface CommercialEvidenceMessage {
   evidenceKey: string;
+  connectionId: string;
+  providerThreadId: string;
   providerMessageId: string;
   occurredAt: string;
   direction: "inbound" | "outbound";
@@ -61,6 +68,26 @@ function mailboxMessageKey(connectionId: string, providerMessageId: string) {
 function normalizedEmail(value: string | null | undefined): string | null {
   const email = value?.trim().toLowerCase() ?? "";
   return email && email.includes("@") ? email : null;
+}
+
+function normalizedRecipientSet(
+  toEmails: string[] | null | undefined,
+  ccEmails: string[] | null | undefined
+): string[] {
+  return [
+    ...new Set(
+      [...(toEmails ?? []), ...(ccEmails ?? [])]
+        .map((email) => normalizedEmail(email))
+        .filter((email): email is string => email !== null)
+    ),
+  ].sort();
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
 
 async function loadOpportunityCustomerEmails(input: {
@@ -136,7 +163,7 @@ async function loadCompleteCommercialEvidence(input: {
     const { data, error } = await input.supabase
       .from("opportunity_correspondence_events")
       .select(
-        "id, activity_id, connection_id, provider_thread_id, provider_message_id, direction, party_role, from_email, occurred_at"
+        "id, activity_id, connection_id, provider_thread_id, provider_message_id, direction, party_role, from_email, to_emails, cc_emails, occurred_at"
       )
       .eq("company_id", input.companyId)
       .eq("opportunity_id", input.opportunityId)
@@ -159,7 +186,7 @@ async function loadCompleteCommercialEvidence(input: {
     const { data, error } = await input.supabase
       .from("activities")
       .select(
-        "id, email_connection_id, email_thread_id, email_message_id, direction, subject, body_text, body_text_clean"
+        "id, email_connection_id, email_thread_id, email_message_id, direction, subject, body_text, body_text_clean, to_emails, cc_emails"
       )
       .eq("company_id", input.companyId)
       .eq("opportunity_id", input.opportunityId)
@@ -180,16 +207,16 @@ async function loadCompleteCommercialEvidence(input: {
   const activityById = new Map(
     activities.map((activity) => [activity.id, activity])
   );
-  const activityByMessage = new Map<string, CommercialEvidenceActivity>();
+  const activitiesByMessage = new Map<string, CommercialEvidenceActivity[]>();
   for (const activity of activities) {
     if (!activity.email_connection_id || !activity.email_message_id) continue;
-    activityByMessage.set(
-      mailboxMessageKey(
-        activity.email_connection_id,
-        activity.email_message_id
-      ),
-      activity
+    const key = mailboxMessageKey(
+      activity.email_connection_id,
+      activity.email_message_id
     );
+    const matches = activitiesByMessage.get(key) ?? [];
+    matches.push(activity);
+    activitiesByMessage.set(key, matches);
   }
   const activityByEventId = new Map<string, CommercialEvidenceActivity>();
   const messages: CommercialEvidenceMessage[] = [];
@@ -207,11 +234,17 @@ async function loadCompleteCommercialEvidence(input: {
           ? ("operator" as const)
           : ("untrusted" as const);
     if (authorRole === "untrusted") continue;
+    const fallbackActivities = activitiesByMessage.get(
+      mailboxMessageKey(event.connection_id, event.provider_message_id)
+    );
+    if (!event.activity_id && (fallbackActivities?.length ?? 0) !== 1) {
+      throw new Error(
+        `commercial evidence activity is not uniquely proven for event ${event.id}`
+      );
+    }
     const activity = event.activity_id
       ? activityById.get(event.activity_id)
-      : activityByMessage.get(
-          mailboxMessageKey(event.connection_id, event.provider_message_id)
-        );
+      : fallbackActivities![0];
     // Never claim an opportunity-wide high-water mark if a trusted message at
     // or below it was not actually evaluated. Holding the sync cursor is safer
     // than converting from stale partial content, and the retry remains
@@ -221,16 +254,53 @@ async function loadCompleteCommercialEvidence(input: {
         `commercial evidence activity missing for event ${event.id}`
       );
     }
+    const eventRecipients = normalizedRecipientSet(
+      event.to_emails,
+      event.cc_emails
+    );
+    const activityRecipients = normalizedRecipientSet(
+      activity.to_emails,
+      activity.cc_emails
+    );
     if (
       activity.email_message_id !== event.provider_message_id ||
       activity.email_thread_id !== event.provider_thread_id ||
       activity.direction !== event.direction ||
+      !sameStringSet(eventRecipients, activityRecipients) ||
       (activity.email_connection_id !== null &&
         activity.email_connection_id !== event.connection_id)
     ) {
       throw new Error(
         `commercial evidence activity identity conflict for event ${event.id}`
       );
+    }
+    if (
+      event.direction === "outbound" &&
+      !eventRecipients.some((email) => input.customerEmails.has(email))
+    ) {
+      continue;
+    }
+    const cleanedBody =
+      activity.body_text_clean !== null
+        ? cleanMessageBody(activity.body_text_clean, {
+            subject: activity.subject ?? "",
+            providerCleanBody: null,
+          })
+        : cleanMessageBody(activity.body_text ?? "", {
+            subject: activity.subject ?? "",
+            providerCleanBody: null,
+          });
+    if (
+      isRecruitingProviderNoise({
+        direction: event.direction,
+        fromEmail: event.from_email,
+        toEmails: event.to_emails,
+        ccEmails: event.cc_emails,
+        subject: activity.subject,
+        bodyText: cleanedBody,
+      })
+    ) {
+      continue;
     }
     let provenActivity = activity;
     if (activity.email_connection_id === null) {
@@ -259,25 +329,22 @@ async function loadCompleteCommercialEvidence(input: {
         email_connection_id: event.connection_id,
       };
       activityById.set(activity.id, provenActivity);
-      activityByMessage.set(
+      activitiesByMessage.set(
         mailboxMessageKey(event.connection_id, event.provider_message_id),
-        provenActivity
+        [provenActivity]
       );
     }
     activityByEventId.set(event.id, provenActivity);
     messages.push({
       evidenceKey: event.id,
+      connectionId: event.connection_id,
+      providerThreadId: event.provider_thread_id,
       providerMessageId: event.provider_message_id,
       occurredAt: event.occurred_at,
       direction: event.direction,
       authorRole,
       subject: provenActivity.subject ?? "",
-      body:
-        provenActivity.body_text_clean ??
-        cleanMessageBody(provenActivity.body_text ?? "", {
-          subject: provenActivity.subject ?? "",
-          providerCleanBody: null,
-        }),
+      body: cleanedBody,
     });
   }
 
@@ -296,8 +363,7 @@ export interface OpportunityCommercialOutcomeEvaluationInput {
   now?: Date;
 }
 
-interface AcceptanceEvaluationInput
-  extends OpportunityCommercialOutcomeEvaluationInput {
+interface AcceptanceEvaluationInput extends OpportunityCommercialOutcomeEvaluationInput {
   providerThreadId: string;
 }
 
@@ -420,6 +486,7 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
   const signedAcceptanceEvent = signedAcceptedMessage
     ? completeEvidence.events.find(
         (event) =>
+          completeEvidence.activityByEventId.has(event.id) &&
           event.connection_id === connection.id &&
           event.provider_message_id ===
             signedAcceptedMessage.providerMessageId &&
@@ -547,14 +614,15 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
         "email acceptance has no durable decisive event or high-water mark"
       );
     }
-    const { data: conversionThread, error: conversionThreadError } = await supabase
-      .from("email_threads")
-      .select("id")
-      .eq("company_id", connection.companyId)
-      .eq("connection_id", conversionEvent.connection_id)
-      .eq("provider_thread_id", conversionEvent.provider_thread_id)
-      .eq("opportunity_id", opportunityId)
-      .maybeSingle();
+    const { data: conversionThread, error: conversionThreadError } =
+      await supabase
+        .from("email_threads")
+        .select("id")
+        .eq("company_id", connection.companyId)
+        .eq("connection_id", conversionEvent.connection_id)
+        .eq("provider_thread_id", conversionEvent.provider_thread_id)
+        .eq("opportunity_id", opportunityId)
+        .maybeSingle();
     if (conversionThreadError) {
       throw new Error(
         `email acceptance decisive thread lookup failed: ${conversionThreadError.message}`
