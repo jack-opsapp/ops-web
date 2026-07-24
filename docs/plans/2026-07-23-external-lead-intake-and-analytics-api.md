@@ -1191,6 +1191,15 @@ git commit -m "feat(pipeline): surface accepted intake files"
 
 **Skills:** `supabase:supabase`, `supabase:supabase-postgres-best-practices`, `superpowers:test-driven-development`.
 
+**Task 0 reconciliation note:** Extend the current
+`public.record_opportunity_correspondence_event(...)` command in place. Preserve
+its company advisory-lock/opportunity row-lock order, provider-message
+idempotency, exact activity validation, single-transaction event/counter
+projection, and the recruiting-provider-noise path that remains
+non-meaningful. Include both exact-message recovery wrappers (reparent and
+create-target) in the response-definition and `counts_as_first_response`
+proofs. Do not restore the superseded two-request insert/apply seam.
+
 **Step 1: Inventory every mutation path**
 
 Search for all writes affecting:
