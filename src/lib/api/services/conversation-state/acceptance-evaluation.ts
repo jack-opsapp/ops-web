@@ -35,11 +35,23 @@ interface CommercialEvidenceEvent {
 
 interface CommercialEvidenceActivity {
   id: string;
-  email_connection_id: string;
-  email_message_id: string;
+  email_connection_id: string | null;
+  email_thread_id: string | null;
+  email_message_id: string | null;
+  direction: "inbound" | "outbound" | null;
   subject: string | null;
   body_text: string | null;
   body_text_clean: string | null;
+}
+
+interface CommercialEvidenceMessage {
+  evidenceKey: string;
+  providerMessageId: string;
+  occurredAt: string;
+  direction: "inbound" | "outbound";
+  authorRole: "customer" | "operator";
+  subject: string;
+  body: string;
 }
 
 function mailboxMessageKey(connectionId: string, providerMessageId: string) {
@@ -147,7 +159,7 @@ async function loadCompleteCommercialEvidence(input: {
     const { data, error } = await input.supabase
       .from("activities")
       .select(
-        "id, email_connection_id, email_message_id, subject, body_text, body_text_clean"
+        "id, email_connection_id, email_thread_id, email_message_id, direction, subject, body_text, body_text_clean"
       )
       .eq("company_id", input.companyId)
       .eq("opportunity_id", input.opportunityId)
@@ -165,21 +177,24 @@ async function loadCompleteCommercialEvidence(input: {
     if (page.length < COMMERCIAL_EVIDENCE_PAGE_SIZE) break;
   }
 
-  const activityByMessage = new Map(
-    activities
-      .filter(
-        (activity) => activity.email_connection_id && activity.email_message_id
-      )
-      .map((activity) => [
-        mailboxMessageKey(
-          activity.email_connection_id,
-          activity.email_message_id
-        ),
-        activity,
-      ])
+  const activityById = new Map(
+    activities.map((activity) => [activity.id, activity])
   );
-  const messages = events.flatMap((event) => {
-    if (!event.connection_id || !event.provider_message_id) return [];
+  const activityByMessage = new Map<string, CommercialEvidenceActivity>();
+  for (const activity of activities) {
+    if (!activity.email_connection_id || !activity.email_message_id) continue;
+    activityByMessage.set(
+      mailboxMessageKey(
+        activity.email_connection_id,
+        activity.email_message_id
+      ),
+      activity
+    );
+  }
+  const activityByEventId = new Map<string, CommercialEvidenceActivity>();
+  const messages: CommercialEvidenceMessage[] = [];
+  for (const event of events) {
+    if (!event.connection_id || !event.provider_message_id) continue;
     const authorRole =
       event.direction === "inbound" &&
       event.party_role === "customer" &&
@@ -191,10 +206,12 @@ async function loadCompleteCommercialEvidence(input: {
         : event.direction === "outbound" && event.party_role === "ops"
           ? ("operator" as const)
           : ("untrusted" as const);
-    const activity = activityByMessage.get(
-      mailboxMessageKey(event.connection_id, event.provider_message_id)
-    );
-    if (authorRole === "untrusted") return [];
+    if (authorRole === "untrusted") continue;
+    const activity = event.activity_id
+      ? activityById.get(event.activity_id)
+      : activityByMessage.get(
+          mailboxMessageKey(event.connection_id, event.provider_message_id)
+        );
     // Never claim an opportunity-wide high-water mark if a trusted message at
     // or below it was not actually evaluated. Holding the sync cursor is safer
     // than converting from stale partial content, and the retry remains
@@ -204,28 +221,70 @@ async function loadCompleteCommercialEvidence(input: {
         `commercial evidence activity missing for event ${event.id}`
       );
     }
-    return [
-      {
-        evidenceKey: event.id,
-        providerMessageId: event.provider_message_id,
-        occurredAt: event.occurred_at,
-        direction: event.direction,
-        authorRole,
-        subject: activity.subject ?? "",
-        body:
-          activity.body_text_clean ??
-          cleanMessageBody(activity.body_text ?? "", {
-            subject: activity.subject ?? "",
-            providerCleanBody: null,
-          }),
-      },
-    ];
-  });
+    if (
+      activity.email_message_id !== event.provider_message_id ||
+      activity.email_thread_id !== event.provider_thread_id ||
+      activity.direction !== event.direction ||
+      (activity.email_connection_id !== null &&
+        activity.email_connection_id !== event.connection_id)
+    ) {
+      throw new Error(
+        `commercial evidence activity identity conflict for event ${event.id}`
+      );
+    }
+    let provenActivity = activity;
+    if (activity.email_connection_id === null) {
+      const { data: claimed, error: claimError } = await input.supabase.rpc(
+        "claim_legacy_email_activity_connection_as_system" as never,
+        {
+          p_company_id: input.companyId,
+          p_connection_id: event.connection_id,
+          p_activity_id: activity.id,
+          p_provider_thread_id: event.provider_thread_id,
+          p_provider_message_id: event.provider_message_id,
+        } as never
+      );
+      if (claimError) {
+        throw new Error(
+          `email acceptance legacy activity connection claim failed for event ${event.id}: ${claimError.message}`
+        );
+      }
+      if (claimed !== true) {
+        throw new Error(
+          `email acceptance legacy activity connection claim was not proven for event ${event.id}`
+        );
+      }
+      provenActivity = {
+        ...activity,
+        email_connection_id: event.connection_id,
+      };
+      activityById.set(activity.id, provenActivity);
+      activityByMessage.set(
+        mailboxMessageKey(event.connection_id, event.provider_message_id),
+        provenActivity
+      );
+    }
+    activityByEventId.set(event.id, provenActivity);
+    messages.push({
+      evidenceKey: event.id,
+      providerMessageId: event.provider_message_id,
+      occurredAt: event.occurred_at,
+      direction: event.direction,
+      authorRole,
+      subject: provenActivity.subject ?? "",
+      body:
+        provenActivity.body_text_clean ??
+        cleanMessageBody(provenActivity.body_text ?? "", {
+          subject: provenActivity.subject ?? "",
+          providerCleanBody: null,
+        }),
+    });
+  }
 
   return {
     events,
     messages,
-    activityByMessage,
+    activityByEventId,
     latestEventId: events.at(-1)?.id ?? null,
   };
 }
@@ -522,16 +581,14 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
         decision: "auto_advance_won",
       };
     } else {
-      const decisiveActivity = completeEvidence.activityByMessage.get(
-        mailboxMessageKey(
-          conversionEvent.connection_id,
-          conversionEvent.provider_message_id
-        )
+      const decisiveActivity = completeEvidence.activityByEventId.get(
+        conversionEvent.id
       );
       if (
         !conversionEvent.activity_id ||
         !decisiveActivity?.id ||
-        decisiveActivity.id !== conversionEvent.activity_id
+        decisiveActivity.id !== conversionEvent.activity_id ||
+        decisiveActivity.email_connection_id !== conversionEvent.connection_id
       ) {
         throw new Error(
           "email acceptance decisive event has no exact durable activity"

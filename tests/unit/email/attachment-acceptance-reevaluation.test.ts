@@ -60,7 +60,7 @@ function makeSupabase(input: {
     async (
       _name: string,
       _params?: unknown
-    ): Promise<{ data: unknown; error: null }> => ({
+    ): Promise<{ data: unknown; error: { message: string } | null }> => ({
       data: null,
       error: null,
     })
@@ -108,26 +108,45 @@ function makeSupabase(input: {
           body_text_clean: "We accept the estimate. Please proceed.",
         },
       ];
+      const eventRows: Row[] = (input.events ?? defaultEvents).map(
+        (event) => ({
+          ...event,
+          activity_id: Object.hasOwn(event, "activity_id")
+            ? event.activity_id
+            : `activity-${event.provider_message_id}`,
+          from_email:
+            event.from_email ??
+            (event.party_role === "customer"
+              ? "customer@example.com"
+              : "operator@example.com"),
+        })
+      );
       const rows =
         table === "opportunity_correspondence_events"
-          ? (input.events ?? defaultEvents).map((event) => ({
-              ...event,
-              activity_id: Object.hasOwn(event, "activity_id")
-                ? event.activity_id
-                : `activity-${event.provider_message_id}`,
-              from_email:
-                event.from_email ??
-                (event.party_role === "customer"
-                  ? "customer@example.com"
-                  : "operator@example.com"),
-            }))
+          ? eventRows
           : table === "activities"
-            ? (input.activities ?? defaultActivities).map((activity) => ({
-                ...activity,
-                id: Object.hasOwn(activity, "id")
+            ? (input.activities ?? defaultActivities).map((activity) => {
+                const activityId = Object.hasOwn(activity, "id")
                   ? activity.id
-                  : `activity-${activity.email_message_id}`,
-              }))
+                  : `activity-${activity.email_message_id}`;
+                const linkedEvent = eventRows.find(
+                  (event) =>
+                    event.activity_id === activityId ||
+                    event.provider_message_id === activity.email_message_id
+                );
+                const linkedThreadId = linkedEvent?.provider_thread_id;
+                const linkedDirection = linkedEvent?.direction;
+                return {
+                  email_thread_id:
+                    typeof linkedThreadId === "string"
+                      ? linkedThreadId
+                      : "provider-thread-1",
+                  direction:
+                    linkedDirection === "outbound" ? "outbound" : "inbound",
+                  ...activity,
+                  id: activityId,
+                };
+              })
             : table === "sub_clients"
               ? (input.subClients ?? [])
               : [];
@@ -303,6 +322,507 @@ describe("evaluateOpportunityAcceptance", () => {
     }
   );
 
+  it("claims an exact legacy activity before message-scoped conversion", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 21,
+      },
+      events: [
+        {
+          id: "event-legacy-acceptance",
+          activity_id: "activity-legacy-acceptance",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-legacy",
+          provider_message_id: "provider-message-legacy",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-23T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-legacy-acceptance",
+          email_connection_id: null,
+          email_message_id: "provider-message-legacy",
+          email_thread_id: "provider-thread-legacy",
+          direction: "inbound",
+          subject: "Re: Estimate",
+          body_text:
+            "We accept the estimate. Please send the deposit instructions.",
+          body_text_clean:
+            "We accept the estimate. Please send the deposit instructions.",
+        },
+      ],
+    });
+    rpc.mockImplementation(async (name: string) =>
+      name === "claim_legacy_email_activity_connection_as_system"
+        ? { data: true, error: null }
+        : { data: null, error: null }
+    );
+
+    const result = await evaluateOpportunityCommercialOutcome({
+      supabase: client as never,
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "claim_legacy_email_activity_connection_as_system",
+      {
+        p_company_id: "company-1",
+        p_connection_id: "connection-1",
+        p_activity_id: "activity-legacy-acceptance",
+        p_provider_thread_id: "provider-thread-legacy",
+        p_provider_message_id: "provider-message-legacy",
+      }
+    );
+    expect(mocks.convertOpportunityToProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        opportunityId: "opportunity-1",
+        expectedStage: "quoted",
+        expectedAssignmentVersion: 21,
+        evidence: expect.objectContaining({
+          conversation_scope: "message",
+          source_activity_id: "activity-legacy-acceptance",
+          provider_message_id: "provider-message-legacy",
+          decisive_event_id: "event-legacy-acceptance",
+        }),
+      })
+    );
+    expect(result).toEqual({ stageChanged: true });
+  });
+
+  it("claims a validated legacy activity before thread-scoped conversion", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 22,
+      },
+      thread: {
+        id: "thread-legacy-acceptance",
+        provider_thread_id: "provider-thread-legacy",
+      },
+      events: [
+        {
+          id: "event-legacy-acceptance",
+          activity_id: "activity-legacy-acceptance",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-legacy",
+          provider_message_id: "provider-message-legacy",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-23T18:00:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-legacy-acceptance",
+          email_connection_id: null,
+          email_message_id: "provider-message-legacy",
+          email_thread_id: "provider-thread-legacy",
+          direction: "inbound",
+          subject: "Re: Estimate",
+          body_text: "We accept the estimate.",
+          body_text_clean: "We accept the estimate.",
+        },
+      ],
+    });
+    rpc.mockImplementation(async (name: string) =>
+      name === "claim_legacy_email_activity_connection_as_system"
+        ? { data: true, error: null }
+        : { data: null, error: null }
+    );
+
+    const result = await evaluateOpportunityCommercialOutcome({
+      supabase: client as never,
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "claim_legacy_email_activity_connection_as_system",
+      {
+        p_company_id: "company-1",
+        p_connection_id: "connection-1",
+        p_activity_id: "activity-legacy-acceptance",
+        p_provider_thread_id: "provider-thread-legacy",
+        p_provider_message_id: "provider-message-legacy",
+      }
+    );
+    expect(mocks.convertOpportunityToProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evidence: expect.objectContaining({
+          email_thread_id: "thread-legacy-acceptance",
+          decisive_event_id: "event-legacy-acceptance",
+        }),
+      })
+    );
+    expect(result).toEqual({ stageChanged: true });
+  });
+
+  it("fails closed when the guarded claim finds a multiply-linked legacy activity", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 22,
+      },
+      thread: {
+        id: "thread-ambiguous-legacy",
+        provider_thread_id: "provider-thread-ambiguous",
+      },
+      events: [
+        {
+          id: "event-ambiguous-legacy-1",
+          activity_id: "activity-ambiguous-legacy",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-ambiguous",
+          provider_message_id: "provider-message-ambiguous",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-23T18:01:00.000Z",
+        },
+        {
+          id: "event-ambiguous-legacy-2",
+          activity_id: "activity-ambiguous-legacy",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-ambiguous",
+          provider_message_id: "provider-message-ambiguous",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-23T18:02:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-ambiguous-legacy",
+          email_connection_id: null,
+          email_message_id: "provider-message-ambiguous",
+          email_thread_id: "provider-thread-ambiguous",
+          direction: "inbound",
+          subject: "Re: Estimate",
+          body_text: "We accept the estimate.",
+          body_text_clean: "We accept the estimate.",
+        },
+      ],
+    });
+    rpc.mockImplementation(async (name: string) =>
+      name === "claim_legacy_email_activity_connection_as_system"
+        ? {
+            data: null,
+            error: { message: "legacy activity is linked to multiple events" },
+          }
+        : { data: null, error: null }
+    );
+
+    await expect(
+      evaluateOpportunityCommercialOutcome({
+        supabase: client as never,
+        opportunityId: "opportunity-1",
+        connection,
+      })
+    ).rejects.toThrow(
+      "email acceptance legacy activity connection claim failed for event event-ambiguous-legacy-1: legacy activity is linked to multiple events"
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      field: "connection",
+      activity: {
+        email_connection_id: "different-connection",
+        email_message_id: "provider-message-conflict",
+      },
+    },
+    {
+      field: "message",
+      activity: {
+        email_connection_id: "connection-1",
+        email_message_id: "different-message",
+      },
+    },
+    {
+      field: "missing message",
+      activity: {
+        email_connection_id: "connection-1",
+        email_message_id: null,
+      },
+    },
+    {
+      field: "thread",
+      activity: {
+        email_connection_id: "connection-1",
+        email_message_id: "provider-message-conflict",
+        email_thread_id: "different-thread",
+      },
+    },
+    {
+      field: "direction",
+      activity: {
+        email_connection_id: "connection-1",
+        email_message_id: "provider-message-conflict",
+        direction: "outbound",
+      },
+    },
+  ])(
+    "fails closed when an exact activity link has conflicting $field provenance",
+    async ({ activity }) => {
+      const { client } = makeSupabase({
+        opportunity: {
+          stage: "quoted",
+          stage_manually_set: false,
+          client_id: "client-1",
+          assignment_version: 22,
+        },
+        events: [
+          {
+            id: "event-provenance-conflict",
+            activity_id: "activity-provenance-conflict",
+            connection_id: "connection-1",
+            provider_thread_id: "provider-thread-conflict",
+            provider_message_id: "provider-message-conflict",
+            direction: "inbound",
+            party_role: "customer",
+            from_email: "customer@example.com",
+            occurred_at: "2026-07-23T18:05:00.000Z",
+          },
+        ],
+        activities: [
+          {
+            id: "activity-provenance-conflict",
+            ...activity,
+            subject: "Re: Estimate",
+            body_text: "We accept the estimate.",
+            body_text_clean: "We accept the estimate.",
+          },
+        ],
+      });
+
+      await expect(
+        evaluateOpportunityCommercialOutcome({
+          supabase: client as never,
+          opportunityId: "opportunity-1",
+          connection,
+        })
+      ).rejects.toThrow(
+        "commercial evidence activity identity conflict for event event-provenance-conflict"
+      );
+      expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    }
+  );
+
+  it("holds message-scoped conversion when a legacy activity claim is not proven", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 23,
+      },
+      events: [
+        {
+          id: "event-unclaimed-legacy",
+          activity_id: "activity-unclaimed-legacy",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-unclaimed",
+          provider_message_id: "provider-message-unclaimed",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-23T18:08:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-unclaimed-legacy",
+          email_connection_id: null,
+          email_message_id: "provider-message-unclaimed",
+          email_thread_id: "provider-thread-unclaimed",
+          direction: "inbound",
+          subject: "Re: Estimate",
+          body_text: "We accept the estimate.",
+          body_text_clean: "We accept the estimate.",
+        },
+      ],
+    });
+
+    await expect(
+      evaluateOpportunityCommercialOutcome({
+        supabase: client as never,
+        opportunityId: "opportunity-1",
+        connection,
+      })
+    ).rejects.toThrow(
+      "email acceptance legacy activity connection claim was not proven for event event-unclaimed-legacy"
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+  });
+
+  it("holds message-scoped conversion when the guarded legacy claim rejects it", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 23,
+      },
+      events: [
+        {
+          id: "event-rejected-legacy-claim",
+          activity_id: "activity-rejected-legacy-claim",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-rejected-claim",
+          provider_message_id: "provider-message-rejected-claim",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-23T18:09:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-rejected-legacy-claim",
+          email_connection_id: null,
+          email_message_id: "provider-message-rejected-claim",
+          email_thread_id: "provider-thread-rejected-claim",
+          direction: "inbound",
+          subject: "Re: Estimate",
+          body_text: "We accept the estimate.",
+          body_text_clean: "We accept the estimate.",
+        },
+      ],
+    });
+    rpc.mockImplementation(async (name: string) =>
+      name === "claim_legacy_email_activity_connection_as_system"
+        ? {
+            data: null,
+            error: { message: "legacy activity identity is not proven" },
+          }
+        : { data: null, error: null }
+    );
+
+    await expect(
+      evaluateOpportunityCommercialOutcome({
+        supabase: client as never,
+        opportunityId: "opportunity-1",
+        connection,
+      })
+    ).rejects.toThrow(
+      "email acceptance legacy activity connection claim failed for event event-rejected-legacy-claim: legacy activity identity is not proven"
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+  });
+
+  it("does not replace a missing exact activity link with a composite mailbox match", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 23,
+      },
+      events: [
+        {
+          id: "event-out-of-scope-activity",
+          activity_id: "activity-not-in-scoped-evidence",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-scoped",
+          provider_message_id: "provider-message-scoped",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-23T18:10:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "different-composite-activity",
+          email_connection_id: "connection-1",
+          email_message_id: "provider-message-scoped",
+          subject: "Re: Estimate",
+          body_text: "We accept the estimate.",
+          body_text_clean: "We accept the estimate.",
+        },
+      ],
+    });
+
+    await expect(
+      evaluateOpportunityCommercialOutcome({
+        supabase: client as never,
+        opportunityId: "opportunity-1",
+        connection,
+      })
+    ).rejects.toThrow(
+      "commercial evidence activity missing for event event-out-of-scope-activity"
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+  });
+
+  it("preserves composite mailbox fallback when a legacy event has no activity link", async () => {
+    const { client } = makeSupabase({
+      opportunity: {
+        stage: "quoted",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 24,
+      },
+      thread: {
+        id: "thread-composite-fallback",
+        provider_thread_id: "provider-thread-composite-fallback",
+      },
+      events: [
+        {
+          id: "event-composite-fallback",
+          activity_id: null,
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-composite-fallback",
+          provider_message_id: "provider-message-composite-fallback",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-23T18:15:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-composite-fallback",
+          email_connection_id: "connection-1",
+          email_message_id: "provider-message-composite-fallback",
+          subject: "Re: Estimate",
+          body_text: "We accept the estimate.",
+          body_text_clean: "We accept the estimate.",
+        },
+      ],
+    });
+
+    const result = await evaluateOpportunityCommercialOutcome({
+      supabase: client as never,
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(mocks.convertOpportunityToProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evidence: expect.objectContaining({
+          email_thread_id: "thread-composite-fallback",
+          decisive_event_id: "event-composite-fallback",
+        }),
+      })
+    );
+    expect(result).toEqual({ stageChanged: true });
+  });
+
   it("applies a message-scoped budget/timing deferral without requiring an email_threads row", async () => {
     const { client, rpc } = makeSupabase({
       opportunity: {
@@ -338,9 +858,11 @@ describe("evaluateOpportunityAcceptance", () => {
       ],
     });
     rpc.mockImplementation(async (name: string) =>
-      name === "apply_email_opportunity_deferred_disposition"
-        ? { data: [{ changed: true }], error: null }
-        : { data: null, error: null }
+      name === "claim_legacy_email_activity_connection_as_system"
+        ? { data: true, error: null }
+        : name === "apply_email_opportunity_deferred_disposition"
+          ? { data: [{ changed: true }], error: null }
+          : { data: null, error: null }
     );
 
     const result = await evaluateOpportunityCommercialOutcome({
@@ -357,6 +879,78 @@ describe("evaluateOpportunityAcceptance", () => {
         p_expected_assignment_version: 18,
         p_expected_stage: "new_lead",
       })
+    );
+    expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
+    expect(result).toEqual({ stageChanged: true });
+  });
+
+  it("applies a budget/timing deferral from validated legacy-null mailbox provenance", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "new_lead",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 25,
+      },
+      events: [
+        {
+          id: "event-legacy-deferral",
+          activity_id: "activity-legacy-deferral",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-legacy-deferral",
+          provider_message_id: "provider-message-legacy-deferral",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-23T18:20:00.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-legacy-deferral",
+          email_connection_id: null,
+          email_message_id: "provider-message-legacy-deferral",
+          email_thread_id: "provider-thread-legacy-deferral",
+          direction: "inbound",
+          subject: "Re: Project timing",
+          body_text:
+            "Truck repairs consumed the budget, so I need to postpone this until next year.",
+          body_text_clean:
+            "Truck repairs consumed the budget, so I need to postpone this until next year.",
+        },
+      ],
+    });
+    rpc.mockImplementation(async (name: string) =>
+      name === "claim_legacy_email_activity_connection_as_system"
+        ? { data: true, error: null }
+        : name === "apply_email_opportunity_deferred_disposition"
+          ? { data: [{ changed: true }], error: null }
+          : { data: null, error: null }
+    );
+
+    const result = await evaluateOpportunityCommercialOutcome({
+      supabase: client as never,
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "apply_email_opportunity_deferred_disposition",
+      expect.objectContaining({
+        p_connection_id: "connection-1",
+        p_provider_message_id: "provider-message-legacy-deferral",
+        p_expected_assignment_version: 25,
+      })
+    );
+    expect(rpc).toHaveBeenCalledWith(
+      "claim_legacy_email_activity_connection_as_system",
+      {
+        p_company_id: "company-1",
+        p_connection_id: "connection-1",
+        p_activity_id: "activity-legacy-deferral",
+        p_provider_thread_id: "provider-thread-legacy-deferral",
+        p_provider_message_id: "provider-message-legacy-deferral",
+      }
     );
     expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
     expect(result).toEqual({ stageChanged: true });
