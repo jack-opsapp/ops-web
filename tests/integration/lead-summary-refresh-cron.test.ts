@@ -200,18 +200,25 @@ function noteActivity(opportunityId: string, createdAt: string) {
     email_connection_id: null,
     email_message_id: null,
     email_thread_id: null,
+    to_emails: null,
+    cc_emails: null,
     outcome: null,
     duration_minutes: null,
     created_at: createdAt,
   };
 }
 
-function emailActivity(opportunityId: string, createdAt: string, body: string) {
+function emailActivity(
+  opportunityId: string,
+  createdAt: string,
+  body: string,
+  direction: "inbound" | "outbound" = "inbound"
+) {
   return {
     id: `email-${opportunityId}-${createdAt}`,
     opportunity_id: opportunityId,
     type: "email",
-    direction: "inbound",
+    direction,
     subject: "Deck quote",
     content: null,
     body_text: body,
@@ -219,6 +226,9 @@ function emailActivity(opportunityId: string, createdAt: string, body: string) {
     email_connection_id: "22222222-2222-2222-2222-222222222222",
     email_message_id: `message-${createdAt}`,
     email_thread_id: "thread-1",
+    to_emails:
+      direction === "inbound" ? ["operator@canpro.ca"] : ["jane@example.com"],
+    cc_emails: [],
     outcome: null,
     duration_minutes: null,
     created_at: createdAt,
@@ -242,6 +252,8 @@ function correspondenceEvent(
       activity.direction === "inbound"
         ? "jane@example.com"
         : "operator@canpro.ca",
+    to_emails: activity.to_emails,
+    cc_emails: activity.cc_emails,
     is_meaningful: true,
     opportunity_projection_applied: true,
     occurred_at: activity.created_at,
@@ -463,16 +475,16 @@ describe("buildLeadSummaryContext", () => {
       "Tomorrow is good still.",
       "Amazing! I work from home tomorrow.",
     ];
-    const activities = messages.map((body, index) => ({
-      ...emailActivity(
+    const activities = messages.map((body, index) =>
+      emailActivity(
         OPP_A,
         new Date(
           Date.parse("2026-07-21T15:00:00.000Z") + index * 3_600_000
         ).toISOString(),
-        body
-      ),
-      direction: index % 2 === 0 ? "outbound" : "inbound",
-    }));
+        body,
+        index % 2 === 0 ? "outbound" : "inbound"
+      )
+    );
     const bundle = buildLeadSummaryContext(
       opportunityRow({
         title: "Camille Ottenhof — Email Inquiry",
@@ -815,6 +827,61 @@ describe("runLeadSummaryRefresh", () => {
     });
   });
 
+  it("isolates a corrupt email provenance boundary and still refreshes other stale leads", async () => {
+    const corruptEmail = emailActivity(
+      OPP_A,
+      "2026-07-21T18:00:00.000Z",
+      "Please quote the composite railing."
+    );
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          id: OPP_A,
+          title: "Corrupt evidence",
+          ai_summary: "Existing A.",
+          ai_summary_updated_at: STAMP,
+        }),
+        opportunityRow({
+          id: OPP_B,
+          title: "Valid lead",
+          ai_summary: "Existing B.",
+          ai_summary_updated_at: STAMP,
+        }),
+      ],
+    };
+    tables.activities = {
+      rows: [corruptEmail, noteActivity(OPP_B, "2026-07-21T19:00:00.000Z")],
+    };
+    tables.opportunity_correspondence_events = {
+      rows: [
+        correspondenceEvent(corruptEmail, {
+          connection_id: "different-mailbox-connection",
+        }),
+      ],
+    };
+
+    const result = await runLeadSummaryRefresh({
+      supabase: mockSupabase,
+      mode: "refresh",
+      now: NOW,
+    });
+
+    expect(result.failed).toEqual([
+      {
+        opportunityId: OPP_A,
+        error: expect.stringContaining(
+          "lead summary correspondence activity identity conflict"
+        ),
+      },
+    ]);
+    expect(result.summariesWritten).toBe(1);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+    expect(supabaseRpcMock).toHaveBeenCalledTimes(1);
+    expect(supabaseRpcMock.mock.calls[0][1]).toMatchObject({
+      p_opportunity_id: OPP_B,
+    });
+  });
+
   it("rejects direct historical backfill before reading or writing", async () => {
     await expect(
       runLeadSummaryRefresh({
@@ -878,35 +945,29 @@ describe("runLeadSummaryRefresh", () => {
 describe("refreshLeadSummariesForOpportunities", () => {
   it("refreshes the complete conversation for a touched terminal lead without a stage or staleness filter", async () => {
     const activities = [
-      {
-        ...emailActivity(
-          OPP_A,
-          "2026-07-21T16:00:00.000Z",
-          "Installation total is $1,200."
-        ),
-        direction: "outbound",
-      },
-      {
-        ...emailActivity(
-          OPP_A,
-          "2026-07-21T17:00:00.000Z",
-          "Removal would bring the total to $1,400."
-        ),
-        direction: "outbound",
-      },
+      emailActivity(
+        OPP_A,
+        "2026-07-21T16:00:00.000Z",
+        "Installation total is $1,200.",
+        "outbound"
+      ),
+      emailActivity(
+        OPP_A,
+        "2026-07-21T17:00:00.000Z",
+        "Removal would bring the total to $1,400.",
+        "outbound"
+      ),
       emailActivity(
         OPP_A,
         "2026-07-21T18:00:00.000Z",
         "My husband will remove the old railing. We accept the $1,200 installation."
       ),
-      {
-        ...emailActivity(
-          OPP_A,
-          "2026-07-21T19:00:00.000Z",
-          "Tomorrow is confirmed for installation."
-        ),
-        direction: "outbound",
-      },
+      emailActivity(
+        OPP_A,
+        "2026-07-21T19:00:00.000Z",
+        "Tomorrow is confirmed for installation.",
+        "outbound"
+      ),
     ];
     tables.opportunities = {
       rows: [
@@ -974,8 +1035,9 @@ describe("refreshLeadSummariesForOpportunities", () => {
     expect(supabaseRpcMock).toHaveBeenCalledWith(
       "commit_lead_summary_snapshot",
       expect.objectContaining({
-        p_summary:
-          "Camille accepted the $1,200 installation with removal excluded; tomorrow is confirmed and the next action is to prepare for the scheduled work.",
+        p_summary: expect.stringMatching(
+          /\$1,200[\s\S]*husband will remove[\s\S]*tomorrow is confirmed/i
+        ),
         p_expected_correspondence_count: 4,
         p_expected_meaningful_event_count: 4,
         p_expected_latest_meaningful_event_id:
@@ -1024,6 +1086,52 @@ describe("refreshLeadSummariesForOpportunities", () => {
         call.filters.some(([kind, column]) => kind === "in" && column === "id")
     );
     expect(targetedOpportunityReads).toHaveLength(2);
+  });
+
+  it("holds the corrupt touched lead as failed while refreshing another touched lead", async () => {
+    const corruptEmail = emailActivity(
+      OPP_A,
+      "2026-07-21T18:00:00.000Z",
+      "Please quote the composite railing."
+    );
+    tables.opportunities = {
+      rows: [
+        opportunityRow({ id: OPP_A, title: "Corrupt evidence" }),
+        opportunityRow({ id: OPP_B, title: "Valid lead" }),
+      ],
+    };
+    tables.activities = {
+      rows: [corruptEmail, noteActivity(OPP_B, "2026-07-21T19:00:00.000Z")],
+    };
+    tables.opportunity_correspondence_events = {
+      rows: [
+        correspondenceEvent(corruptEmail, {
+          connection_id: "different-mailbox-connection",
+        }),
+      ],
+    };
+
+    const result = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds: [OPP_A, OPP_B],
+      now: NOW,
+    });
+
+    expect(result.failed).toEqual([
+      {
+        opportunityId: OPP_A,
+        error: expect.stringContaining(
+          "lead summary correspondence activity identity conflict"
+        ),
+      },
+    ]);
+    expect(result.written).toBe(1);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
+    expect(supabaseRpcMock).toHaveBeenCalledTimes(1);
+    expect(supabaseRpcMock.mock.calls[0][1]).toMatchObject({
+      p_opportunity_id: OPP_B,
+    });
   });
 
   it("does not overwrite a newer conversation when the guarded snapshot is stale", async () => {
@@ -1221,7 +1329,10 @@ describe("refreshLeadSummariesForOpportunities", () => {
     supabaseRpcMock.mockReset();
     supabaseRpcMock.mockResolvedValue({
       data: null,
-      error: { message: "permission denied for table opportunities", code: "42501" },
+      error: {
+        message: "permission denied for table opportunities",
+        code: "42501",
+      },
     });
 
     const result = await refreshLeadSummariesForOpportunities({
@@ -1234,7 +1345,8 @@ describe("refreshLeadSummariesForOpportunities", () => {
     expect(result.failed).toEqual([
       {
         opportunityId: OPP_A,
-        error: "summary write failed: permission denied for table opportunities",
+        error:
+          "summary write failed: permission denied for table opportunities",
       },
     ]);
     expect(result.deferred).toEqual([]);
@@ -1303,7 +1415,8 @@ describe("refreshLeadSummariesForOpportunities", () => {
     expect(result.failed).toEqual([
       {
         opportunityId: OPP_B,
-        error: "summary write failed: permission denied for table opportunities",
+        error:
+          "summary write failed: permission denied for table opportunities",
       },
     ]);
     expect(result.written).toBe(1);

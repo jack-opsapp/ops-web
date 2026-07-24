@@ -57,4 +57,43 @@ describe("terminal-stage-decision", () => {
       ])
     ).toBeNull();
   });
+
+  it.each([
+    ["negated", "The estimate was not accepted."],
+    ["tentative", "If the estimate is accepted, we can discuss scheduling."],
+    ["reported", "Jake said the estimate was accepted."],
+    ["example-only", 'Example only: "the estimate was accepted."'],
+    ["example-only suffix", "This is an accepted estimate example only."],
+    [
+      "example-only object suffix",
+      "The quote was accepted as an example only.",
+    ],
+    ["non-asserted", "I assume the estimate was accepted."],
+  ])("does not treat %s acceptance language as won", (_kind, body) => {
+    expect(
+      detectTerminalStageFromMessages([
+        {
+          direction: "inbound",
+          body,
+        },
+      ])
+    ).toBeNull();
+  });
+
+  it.each([
+    ["negated", "The crew is not scheduled to arrive Thursday."],
+    ["tentative", "The crew might arrive Thursday if the quote is accepted."],
+    ["reported", "Jake said the crew will arrive Thursday."],
+    ["example-only", 'Example only: "the crew will arrive Thursday."'],
+    ["non-asserted", "I assume the crew will arrive Thursday."],
+  ])("does not treat %s scheduling language as won", (_kind, body) => {
+    expect(
+      detectTerminalStageFromMessages([
+        {
+          direction: "inbound",
+          body,
+        },
+      ])
+    ).toBeNull();
+  });
 });

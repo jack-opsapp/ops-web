@@ -339,11 +339,11 @@ const QUOTE_MARKERS = [
   /^Get Outlook for (?:iOS|Android)/m,
 ];
 
-/**
- * Strip quoted reply content from an email body.
- * Returns only the NEW content from this specific message.
- */
-export function stripQuotedContent(body: string, subject = ""): string {
+function stripQuotedContentInternal(
+  body: string,
+  subject: string,
+  preserveQuoteOnlyPreview: boolean
+): string {
   if (!body) return body;
 
   // Normalize line endings — Gmail/M365 APIs may return \r\n
@@ -366,11 +366,30 @@ export function stripQuotedContent(body: string, subject = ""): string {
   // If we found a quote marker, trim to just the content before it
   if (earliest < normalized.length) {
     const stripped = normalized.slice(0, earliest).trimEnd();
-    // Don't return empty — if the entire message IS a quote, keep a small preview
-    return stripped.length > 20 ? stripped : normalized.slice(0, 500);
+    return preserveQuoteOnlyPreview && stripped.length <= 20
+      ? normalized.slice(0, 500)
+      : stripped;
   }
 
   return normalized;
+}
+
+/**
+ * Strip quoted reply content for display-oriented consumers. A quote-only or
+ * very short reply keeps a small preview so an inbox row does not appear blank.
+ */
+export function stripQuotedContent(body: string, subject = ""): string {
+  return stripQuotedContentInternal(body, subject, true);
+}
+
+/**
+ * Strip quoted reply content for lifecycle evidence. Unlike the display helper,
+ * this always returns only the actual pre-quote authored text, including an
+ * intentionally empty or very short reply. Quoted history can never inherit
+ * conversion authority from the current sender.
+ */
+export function stripQuotedContentStrict(body: string, subject = ""): string {
+  return stripQuotedContentInternal(body, subject, false);
 }
 
 // ─── Cross-message overlap stripping ───────────────────────────────────────

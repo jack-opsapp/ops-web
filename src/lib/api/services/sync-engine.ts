@@ -79,7 +79,10 @@ import {
   logInvalidProviderEmailIds,
   validateProviderEmailIds,
 } from "@/lib/email/provider-email-ids";
-import { classifyOpportunityCorrespondence } from "@/lib/email/opportunity-correspondence-classifier";
+import {
+  classifyOpportunityCorrespondence,
+  isRecruitingProviderNoise,
+} from "@/lib/email/opportunity-correspondence-classifier";
 import {
   extractEmailAddress,
   type ContactFormSubmissionIdentity,
@@ -173,29 +176,40 @@ function extractSenderEmail(from: string): string {
 //
 // Resolving the customer contact (operator-excluded on every field) needs the
 // operator's full identity — including company phones/addresses, which require a
-// DB read. getCompanyContext is NOT internally cached, so we memoize the built
-// identity per connection for a short window to avoid a per-email read during a
-// sync (a sync processes one connection's mailbox).
-const OPERATOR_IDENTITY_TTL_MS = 10 * 60 * 1000;
-const operatorIdentityCache = new Map<
-  string,
-  { identity: OperatorIdentity; at: number }
->();
+// DB read. Cache it only for the active sync cycle: every new cycle refreshes
+// the authoritative roster, while every message inside that cycle reuses the
+// same snapshot.
+const operatorIdentityCache = new Map<string, OperatorIdentity>();
 
-async function getCachedOperatorIdentity(
+async function refreshOperatorIdentityForSyncCycle(
   connection: EmailConnection
 ): Promise<OperatorIdentity> {
-  const now = Date.now();
-  const cached = operatorIdentityCache.get(connection.id);
-  if (cached && now - cached.at < OPERATOR_IDENTITY_TTL_MS) {
-    return cached.identity;
-  }
+  // Delete first so a failed authoritative refresh can never fall back to a
+  // prior cycle's teammate roster.
+  operatorIdentityCache.delete(connection.id);
   const identity = await fetchOperatorIdentity(
     connection.companyId,
     connection
   );
-  operatorIdentityCache.set(connection.id, { identity, at: now });
+  operatorIdentityCache.set(connection.id, identity);
   return identity;
+}
+
+async function getCachedOperatorIdentity(
+  connection: EmailConnection
+): Promise<OperatorIdentity> {
+  const cached = operatorIdentityCache.get(connection.id);
+  if (cached) return cached;
+  const identity = await fetchOperatorIdentity(
+    connection.companyId,
+    connection
+  );
+  operatorIdentityCache.set(connection.id, identity);
+  return identity;
+}
+
+function clearOperatorIdentityForSyncCycle(connectionId: string): void {
+  operatorIdentityCache.delete(connectionId);
 }
 
 /** Shape a NormalizedEmail as a single conversation-state RawThreadMessage. */
@@ -1005,11 +1019,12 @@ function atomicCompanyMailboxResult(
   const outcome = assignment?.outcome;
   const eventId =
     typeof assignment?.event_id === "string" ? assignment.event_id : null;
-  const promptCount = Number(assignment?.prompt_count);
+  const promptCount = assignment?.prompt_count;
   if (
     (outcome !== "assigned" &&
       outcome !== "owner_missing" &&
       outcome !== "owner_ineligible") ||
+    typeof promptCount !== "number" ||
     !Number.isInteger(promptCount) ||
     promptCount < 0
   ) {
@@ -1700,9 +1715,12 @@ async function persistDeterministicEmailThreadState(
   direction: "inbound" | "outbound",
   skipThreadState = false,
   messageIsNew = true,
-  executionPolicy: EmailIngestionExecutionPolicy = NORMAL_EMAIL_INGESTION_POLICY
+  executionPolicy: EmailIngestionExecutionPolicy = NORMAL_EMAIL_INGESTION_POLICY,
+  disposition: "standard" | "non_actionable_provider_noise" = "standard"
 ): Promise<void> {
   if (skipThreadState || executionPolicy.suppressThreadState) return;
+  const nonActionableProviderNoise =
+    disposition === "non_actionable_provider_noise";
 
   try {
     const { threadRow, isNew } = await EmailThreadService.upsertFromEmail({
@@ -1712,8 +1730,37 @@ async function persistDeterministicEmailThreadState(
       email,
       direction,
       opportunityId,
-      markClassificationDirty: messageIsNew,
+      markClassificationDirty: nonActionableProviderNoise
+        ? false
+        : messageIsNew,
     });
+
+    if (nonActionableProviderNoise) {
+      const classificationUpdate = threadRow.categoryManuallySet
+        ? {
+            category_classified_at: new Date().toISOString(),
+          }
+        : {
+            primary_category: "OTHER",
+            category_confidence: 1,
+            category_classifier_version: "recruiting-provider-noise-v1",
+            category_classified_at: new Date().toISOString(),
+          };
+      const { error: classificationError } = await requireSupabase()
+        .from("email_threads")
+        .update(classificationUpdate)
+        .eq("id", threadRow.id)
+        .eq("company_id", connection.companyId)
+        .eq("connection_id", connection.id)
+        .eq("provider_thread_id", email.threadId)
+        .eq("category_manually_set", threadRow.categoryManuallySet);
+      if (classificationError) {
+        throw new Error(
+          `provider-noise classification persistence failed: ${classificationError.message}`
+        );
+      }
+      return;
+    }
 
     const needsClassify =
       isNew ||
@@ -2921,6 +2968,36 @@ async function processInboundEmail(
           email.threadId
         )
       : preloadedExistingActivity;
+  if (
+    isRecruitingProviderNoise({
+      fromEmail: extractSenderEmail(email.from),
+      subject: email.subject,
+      bodyText: email.bodyText,
+    })
+  ) {
+    const activityPersistence = await createOrAdoptInboundActivity({
+      email,
+      connection,
+      opportunityId: null,
+      extra: { skipThreadState: true },
+      executionPolicy,
+      existingOrphanActivity: existingActivity ?? null,
+      recoveryActorUserId,
+      syncLockOwner,
+    });
+    if (activityPersistence.created) result.activitiesCreated++;
+    await persistDeterministicEmailThreadState(
+      email,
+      connection,
+      existingActivity?.opportunity_id ?? null,
+      "inbound",
+      false,
+      false,
+      executionPolicy,
+      "non_actionable_provider_noise"
+    );
+    return null;
+  }
   if (existingActivity?.opportunity_id) {
     const existingOpportunityId = existingActivity.opportunity_id;
     const {
@@ -3728,6 +3805,16 @@ async function processSentEmail(
     profile,
     operatorIdentity
   );
+  const externalRecipients = [
+    ...externalConversationEmail.to,
+    ...externalConversationEmail.cc,
+  ];
+  // A provider message authored by one teammate solely to other authoritative
+  // operator identities is internal company traffic, not a customer
+  // conversation or writing sample. Exit before learning, activity/thread
+  // persistence, relationship matching, or lead projection so an unrelated
+  // learning outage can never hold the mailbox cursor on internal mail.
+  if (externalRecipients.length === 0) return;
 
   // Dedup
   const existingActivity =
@@ -3834,12 +3921,6 @@ async function processSentEmail(
   // Reconcile every external To/CC participant as one conversation. Choosing a
   // recipient or the client's newest opportunity would split forwarded/grouped
   // conversations and can attach a receipt to the wrong job.
-  const externalRecipients = [
-    ...externalConversationEmail.to,
-    ...externalConversationEmail.cc,
-  ];
-  if (externalRecipients.length === 0) return;
-
   const recipientCandidate = identityCandidateFromMailbox(
     "outbound_recipient",
     externalRecipients[0]
@@ -4582,7 +4663,8 @@ export const SyncEngine = {
         ...(await loadInternalPhonesForCompany(connection.companyId)),
       ];
 
-      const authoritativeOperator = await getCachedOperatorIdentity(connection);
+      const authoritativeOperator =
+        await refreshOperatorIdentityForSyncCycle(connection);
       const ingestionOperator = syncIngestionOperatorIdentity(
         connection,
         profile,
@@ -4794,6 +4876,7 @@ export const SyncEngine = {
         error instanceof Error ? error.message : "Unknown error"
       );
     } finally {
+      clearOperatorIdentityForSyncCycle(connection.id);
       await renewSyncLeaseIfNeeded.stop().catch(() => {});
       await releaseEmailConnectionSyncLock(
         connection.id,
@@ -5175,7 +5258,8 @@ export const SyncEngine = {
         );
       }
       const discoveredEmails = [...discoveredByMessageId.values()];
-      const authoritativeOperator = await getCachedOperatorIdentity(connection);
+      const authoritativeOperator =
+        await refreshOperatorIdentityForSyncCycle(connection);
       const directionIdentity = syncIngestionOperatorIdentity(
         connection,
         profile,
@@ -5731,6 +5815,7 @@ export const SyncEngine = {
       result.errors.push(err instanceof Error ? err.message : "Unknown error");
     } finally {
       // P0-A: always release the per-connection sync lock.
+      clearOperatorIdentityForSyncCycle(connectionId);
       await renewSyncLeaseIfNeeded.stop().catch(() => {});
       await releaseEmailConnectionSyncLock(
         connectionId,
@@ -5851,7 +5936,7 @@ export const SyncEngine = {
         // The same operator-identity seam runSync uses — no divergent context
         // rebuild — so direction resolution and ingestion match the live cycle.
         const authoritativeOperator =
-          await getCachedOperatorIdentity(connection);
+          await refreshOperatorIdentityForSyncCycle(connection);
         const directionIdentity = syncIngestionOperatorIdentity(
           connection,
           profile,
@@ -5965,6 +6050,7 @@ export const SyncEngine = {
           }
         }
       } finally {
+        clearOperatorIdentityForSyncCycle(connectionId);
         await renewSyncLeaseIfNeeded.stop().catch(() => {});
         await releaseEmailConnectionSyncLock(
           connectionId,

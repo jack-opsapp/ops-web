@@ -90,6 +90,137 @@ describe("stripSignatureBlock", () => {
     expect(stripSignatureBlock(body)).toBe(body);
   });
 
+  it("strips a long corporate signature with closure dates and business hours", () => {
+    const body = [
+      "Yes, the side-mounted black railing works for us.",
+      "",
+      "Kind regards,",
+      "Alexis Solomon BA DID VISID",
+      "OWNER | PRINCIPAL INTERIOR ARCHITECTURAL DESIGNER",
+      "M I N T Freshly Inspired Design",
+      "Please note our upcoming studio closure dates:",
+      "August 17th to 21st",
+      "December 11 to January 3rd",
+      "Suite E - The Design Housse Collective",
+      "587 Bay Street, Victoria BC V8T 1P5",
+      "250-514-8203",
+      "Business Hours: 9:00 am - 5:00 pm, Monday - Friday",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(
+      "Yes, the side-mounted black railing works for us."
+    );
+  });
+
+  it("strips a collapsed inline name, phone, and company signature", () => {
+    const body =
+      "Feel free to text or call if anything changes.Jackson Sweet (250) 538-8994 Canpro Deck and Rail Victoria Inc.";
+
+    expect(stripSignatureBlock(body)).toBe(
+      "Feel free to text or call if anything changes."
+    );
+  });
+
+  it("does not truncate authored acceptance after contact-shaped prose", () => {
+    const body =
+      "Please call me. John Smith 250-555-0142 is the company contact for this project. We accept the $1,200 quote.";
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it("does not truncate authored commitment after an inline owner contact", () => {
+    const body =
+      "Here is the contact. Alex Jones alex@example.com is the owner for this project. Please proceed.";
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it("does not let a hard signature delimiter erase a later commercial veto", () => {
+    const body = [
+      "We accept the quote.",
+      "--",
+      "Actually, we changed our minds and cancelled the project.",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it("does not let a client footer erase a later payment reversal", () => {
+    const body = [
+      "The deposit was received.",
+      "Sent from my iPhone",
+      "Correction: the payment was reversed.",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it("does not let a sign-off-shaped block erase a postscript cancellation", () => {
+    const body = [
+      "Go ahead with the project.",
+      "Thanks,",
+      "Alex Jones",
+      "alex@example.com",
+      "P.S. We changed our minds and cancelled the project.",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it.each([
+    "P.S. Removal excluded. Installation is $1,200.",
+    "P.S. New total: $1,200.",
+    "P.S. Friday works instead.",
+    "P.S. Please add deck lighting for $500.",
+  ])(
+    "does not strip authored postscript facts after contact data: %s",
+    (postscript) => {
+      const body = [
+        "We accept the $1,400 quote including removal.",
+        "Thanks,",
+        "Jane Doe",
+        "jane@example.com",
+        postscript,
+      ].join("\n");
+
+      expect(stripSignatureBlock(body)).toBe(body);
+    }
+  );
+
+  it.each([
+    "Friday works.",
+    "New total is $1,200.",
+    "Removal is excluded.",
+    "Please send deposit details.",
+  ])("keeps an ambiguous short authored line after a sign-off: %s", (line) => {
+    const body = ["We accept the quote.", "Thanks,", line].join("\n");
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it.each([
+    "Sent from my bank account yesterday, the deposit is paid.",
+    "Sent from my husband: revised total is $1,200.",
+    "Sent via bank transfer; deposit paid.",
+  ])(
+    "does not mistake authored sent-language for a client footer: %s",
+    (line) => {
+      const body = ["We accept the quote.", line].join("\n");
+      expect(stripSignatureBlock(body)).toBe(body);
+    }
+  );
+
+  it("does not let a hard delimiter and signature erase a later postscript", () => {
+    const body = [
+      "We accept the quote.",
+      "--",
+      "Jane Doe",
+      "jane@example.com",
+      "P.S. Friday works instead.",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
   it("returns empty string input unchanged", () => {
     expect(stripSignatureBlock("")).toBe("");
   });
@@ -136,6 +267,42 @@ describe("cleanMessageBody", () => {
     expect(cleanMessageBody(raw, { providerCleanBody: null })).toBe(
       "Sounds good, see you then."
     );
+  });
+
+  it("keeps only a short authored reply and never inherits quoted acceptance", () => {
+    const raw = [
+      "Thanks.",
+      "",
+      "On Mon, Jun 23, 2026 at 3:45 PM John Smith <john@example.com> wrote:",
+      "> We accept the quote.",
+      "> Please proceed.",
+      "> The deposit was received.",
+    ].join("\n");
+
+    expect(cleanMessageBody(raw, { providerCleanBody: null })).toBe("Thanks.");
+  });
+
+  it("returns an empty lifecycle body for a quote-only reply", () => {
+    const raw = [
+      "On Mon, Jun 23, 2026 at 3:45 PM John Smith <john@example.com> wrote:",
+      "> We accept the quote.",
+      "> The deposit was received.",
+      "> Installation is confirmed Tuesday.",
+    ].join("\n");
+
+    expect(cleanMessageBody(raw, { providerCleanBody: null })).toBe("");
+  });
+
+  it("strictly quote-strips provider-clean text before lifecycle use", () => {
+    const providerCleanBody = [
+      "OK.",
+      "",
+      "On Mon, Jun 23, 2026 at 3:45 PM John Smith <john@example.com> wrote:",
+      "> Installation is confirmed Tuesday.",
+      "> The payment was received.",
+    ].join("\n");
+
+    expect(cleanMessageBody("raw", { providerCleanBody })).toBe("OK.");
   });
 
   it("treats an explicit empty provider-clean body as authoritative", () => {

@@ -36,7 +36,13 @@ import { getSyncOpenAI } from "./openai-clients";
 import { isAIProviderUnavailableError } from "./openai-monitoring";
 import { cleanMessageBody } from "./conversation-state/message-cleaner";
 import { extractCommercialDealPrices } from "@/lib/email/commercial-price";
-import { detectCommercialOutcome } from "@/lib/email/terminal-stage-decision";
+import {
+  currentCommercialEpisodeMessages,
+  detectCommercialOutcome,
+  isActionOnlyCommercialArtifactRequest,
+  normalizeCommercialEvidenceBody,
+} from "@/lib/email/terminal-stage-decision";
+import { isRecruitingProviderNoise } from "@/lib/email/opportunity-correspondence-classifier";
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
 import { withSerializationRetry } from "@/lib/supabase/serialization-retry";
 
@@ -148,6 +154,8 @@ interface ActivityRow {
   email_connection_id: string | null;
   email_message_id: string | null;
   email_thread_id: string | null;
+  to_emails: string[] | null;
+  cc_emails: string[] | null;
   outcome: string | null;
   duration_minutes: number | null;
   created_at: string;
@@ -193,6 +201,8 @@ interface CorrespondenceEventRow {
   direction: string;
   party_role: string;
   from_email: string | null;
+  to_emails: string[] | null;
+  cc_emails: string[] | null;
   is_meaningful: boolean;
   opportunity_projection_applied: boolean;
   occurred_at: string;
@@ -267,6 +277,26 @@ function normalizedEmail(value: string | null | undefined): string | null {
   return email && email.includes("@") ? email : null;
 }
 
+function normalizedRecipientSet(
+  toEmails: string[] | null | undefined,
+  ccEmails: string[] | null | undefined
+): string[] {
+  return [
+    ...new Set(
+      [...(toEmails ?? []), ...(ccEmails ?? [])]
+        .map((email) => normalizedEmail(email))
+        .filter((email): email is string => email !== null)
+    ),
+  ].sort();
+}
+
+function sameStringSet(left: string[], right: string[]): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
+}
+
 const GENERIC_SUMMARY_RE =
   /^(?:Classification unavailable\b|Thread classified as\b|Linked to an? [a-z_ ]+ opportunity\s*[—-]\s*|Customer thread\.?$|No summary available\.?$|(?:Lead|Customer) summary(?:\s|:|\.)?)/i;
 
@@ -317,11 +347,19 @@ export function trustedLeadEmailMessages(
   const activitiesById = new Map(
     slices.activities.map((activity) => [activity.id, activity])
   );
+  const activitiesByMailboxMessage = new Map<string, ActivityRow[]>();
+  for (const activity of slices.activities) {
+    if (!activity.email_connection_id || !activity.email_message_id) continue;
+    const key = `${activity.email_connection_id}:${activity.email_message_id}`;
+    const matches = activitiesByMailboxMessage.get(key) ?? [];
+    matches.push(activity);
+    activitiesByMailboxMessage.set(key, matches);
+  }
 
   const messages: TrustedEmailMessage[] = [];
   for (const event of slices.correspondenceEvents) {
     if (!event.is_meaningful || !event.opportunity_projection_applied) continue;
-    if (!event.activity_id || !event.connection_id) continue;
+    if (!event.connection_id) continue;
     const providerMessageId = event.provider_message_id?.trim();
     if (!providerMessageId) continue;
 
@@ -342,15 +380,69 @@ export function trustedLeadEmailMessages(
           : null;
     if (!direction || !authorRole) continue;
 
-    const activity = activitiesById.get(event.activity_id);
+    const fallbackActivities = activitiesByMailboxMessage.get(
+      `${event.connection_id}:${providerMessageId}`
+    );
+    if (!event.activity_id && (fallbackActivities?.length ?? 0) !== 1) {
+      throw new Error(
+        `lead summary correspondence activity is not uniquely proven for event ${event.id}`
+      );
+    }
+    const activity = event.activity_id
+      ? activitiesById.get(event.activity_id)
+      : fallbackActivities![0];
+    const eventRecipients = normalizedRecipientSet(
+      event.to_emails,
+      event.cc_emails
+    );
+    if (
+      direction === "outbound" &&
+      !eventRecipients.some((email) => customerEmails.has(email))
+    ) {
+      continue;
+    }
+    const activityRecipients = normalizedRecipientSet(
+      activity?.to_emails,
+      activity?.cc_emails
+    );
     if (
       !activity ||
       activity.type !== "email" ||
       activity.opportunity_id !== event.opportunity_id ||
       activity.direction !== direction ||
-      activity.email_connection_id !== event.connection_id ||
+      (activity.email_connection_id !== null &&
+        activity.email_connection_id !== event.connection_id) ||
       activity.email_message_id !== providerMessageId ||
-      activity.email_thread_id !== event.provider_thread_id
+      activity.email_thread_id !== event.provider_thread_id ||
+      !sameStringSet(eventRecipients, activityRecipients)
+    ) {
+      throw new Error(
+        `lead summary correspondence activity identity conflict for event ${event.id}`
+      );
+    }
+
+    const storedCleanBody = activity.body_text_clean;
+    const cleanedBody =
+      storedCleanBody !== null
+        ? cleanMessageBody(storedCleanBody, {
+            subject: activity.subject ?? "",
+            // Persisted "clean" bodies pre-date the current quote/signature
+            // boundary. Treat them as untrusted input and clean them again.
+            providerCleanBody: null,
+          })
+        : cleanMessageBody(activity.body_text ?? "", {
+            subject: activity.subject ?? "",
+            providerCleanBody: null,
+          });
+    if (
+      isRecruitingProviderNoise({
+        direction,
+        fromEmail: event.from_email,
+        toEmails: event.to_emails,
+        ccEmails: event.cc_emails,
+        subject: activity.subject,
+        bodyText: cleanedBody,
+      })
     ) {
       continue;
     }
@@ -365,13 +457,8 @@ export function trustedLeadEmailMessages(
       occurredAt: event.occurred_at,
       direction,
       authorRole,
-      subject: event.subject ?? "",
-      body:
-        activity.body_text_clean ??
-        cleanMessageBody(activity.body_text ?? "", {
-          subject: activity.subject ?? event.subject ?? "",
-          providerCleanBody: null,
-        }),
+      subject: activity.subject ?? "",
+      body: normalizeCommercialEvidenceBody(cleanedBody),
     });
   }
 
@@ -492,7 +579,28 @@ export function evaluateLeadStaleness(
 
 // ─── Prompt context bundle ───────────────────────────────────────────────────
 
+type LeadSummaryCurrentFactContext = {
+  current_price: number | null;
+  current_scope: string | null;
+  schedule: string | null;
+  objection: string | null;
+  next_action: string | null;
+  superseded_prices: number[];
+  superseded_scopes: string[];
+  superseded_schedules: string[];
+  resolved_objections: string[];
+  superseded_next_actions: string[];
+} | null;
+
+const FULL_LEAD_SUMMARY_VALIDATION_CONTEXT: unique symbol = Symbol(
+  "fullLeadSummaryValidationContext"
+);
+
 export interface LeadSummaryContextBundle {
+  [FULL_LEAD_SUMMARY_VALIDATION_CONTEXT]?: {
+    currentFactContext: LeadSummaryCurrentFactContext;
+    commercialSupersededPrices: number[];
+  };
   tid: typeof EVALUATION_KEY;
   lead: {
     title: string;
@@ -541,19 +649,15 @@ export interface LeadSummaryContextBundle {
       Array<{
         at: string;
         author_role: "customer" | "operator";
+        connection_id: string;
+        provider_thread_id: string;
+        evidence_key: string;
         text: string;
       }>
     >;
   };
   email_thread_summaries: string[];
-  current_fact_context: {
-    current_price: number | null;
-    current_scope: string | null;
-    schedule: string | null;
-    objection: string | null;
-    next_action: string | null;
-    superseded_prices: number[];
-  } | null;
+  current_fact_context: LeadSummaryCurrentFactContext;
   commercial_context: {
     outcome: "won" | "deferred" | "declined";
     reason: "customer_committed" | "budget_timing" | "customer_declined";
@@ -578,13 +682,13 @@ const CONVERSATION_FACT_PATTERNS: Record<ConversationFactKind, RegExp> = {
   price:
     /\$\s*[0-9][0-9,]*(?:\.\d{1,2})?|\b(?:quote|estimate|proposal|price|pricing|cost|total|budget|discount(?:ed)?|deposit|payment)\b/i,
   scope:
-    /\b(?:scope|include(?:d|s|ing)?|exclude(?:d|s|ing)?|without|supply|provide|install(?:ation|ing)?|remove|replace|repair|build|construct|material|finish|dimension|size|colou?r|option|revision|revised|addition|added)\b/i,
+    /\b(?:scope|include(?:d|s|ing)?|exclude(?:d|s|ing)?|without|supply|provide|install(?:ation|ing)?|remove|replac(?:e|ed|ement|ing)|repair|build|construct|material|finish|dimension|size|colou?r|option|revision|revised|addition|added)\b/i,
   schedule:
-    /\b(?:schedule(?:d)?|booking|booked|availability|available|start(?:ing)?|deadline|timeline|timing|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|next week|this week|week of|date)\b/i,
+    /\b(?:schedule(?:d)?|book(?:ing|ed)?|availability|available|start(?:ing)?|deadline|timeline|timing|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|next week|this week|week of|date)\b/i,
   objection:
     /\b(?:objection|concern|issue|problem|budget|afford|funds?|cash|too expensive|delay|postpone|hold off|not ready|cannot|can'?t|unable|conflict|occupied)\b/i,
   next_action:
-    /\b(?:next action|next step|follow[ -]?up|please|let (?:me|us) know|confirm|send|sent|provide|provided|share|shared|attach(?:ed)?|include(?:d)?|deliver(?:ed)?|call|reply|respond|need from|waiting for|instructions?|book|schedule)\b|\?/i,
+    /\b(?:next action|next step|follow[ -]?up|please|let (?:me|us) know|confirm|send|sent|provide|provided|share|shared|attach(?:ed)?|include(?:d)?|deliver(?:ed)?|call|reply|respond|need from|waiting for|instructions?|book(?:ed|ing)?|schedule)\b|\?/i,
 };
 const OPERATOR_ACTION_COMPLETION_RE =
   /\b(?:quote|estimate|proposal|document|details?|instructions?|information)\b.{0,80}\b(?:attached|sent|provided|shared|included|delivered)\b|\b(?:attached|sent|provided|shared|included|delivered)\b.{0,80}\b(?:quote|estimate|proposal|document|details?|instructions?|information)\b/i;
@@ -592,6 +696,8 @@ const QUOTE_VALIDITY_SCHEDULE_RE =
   /\b(?:quote|estimate|proposal|pricing)\b.{0,80}\b(?:valid(?:ity)?|expires?|expiry|good (?:through|until))\b|\b(?:valid(?:ity)?|expires?|expiry|good (?:through|until))\b.{0,80}\b(?:quote|estimate|proposal|pricing)\b/i;
 const PRE_SALE_SCHEDULE_RE =
   /\b(?:site visit|consultation|measure(?:ment|ments?)?|walk[ -]?through|sales appointment|calendar invitation)\b/i;
+const NON_EXECUTION_SCHEDULE_RE =
+  /\b(?:quote|estimate|proposal)\b.{0,100}\b(?:in(?:to)? (?:your|the) inbox|by e-?mail|e-?mailed|send|sent|deliver(?:ed|y)?|receiv(?:e|ed)|arriv(?:e|ed)|valid(?:ity)?|expires?|expiry|good (?:through|until))\b|\b(?:send|sent|deliver(?:ed|y)?|receiv(?:e|ed)|arriv(?:e|ed)|in(?:to)? (?:your|the) inbox|by e-?mail|valid(?:ity)?|expires?|expiry|good (?:through|until))\b.{0,100}\b(?:quote|estimate|proposal)\b|\b(?:offer|promotion|promo|discount|coupon)\b.{0,80}\b(?:valid|expires?|expiry|until|through)\b|\b(?:business|office|studio|holiday)\s+hours?\b|\b(?:office|studio|shop)\s+(?:is\s+)?closed\b/i;
 const SCHEDULE_CANCELLATION_RE =
   /\b(?:cancel(?:led|ed|ing)?|postpon(?:e|ed|ing)?|need(?:s|ed)? to reschedule|must reschedule|reschedul(?:e|ing))\b/i;
 const CONFIRMED_RESCHEDULE_RE =
@@ -615,7 +721,8 @@ function conversationFactSegments(body: string): string[] {
  */
 function buildConversationFold(
   completeEmailHistory: TrustedEmailMessage[],
-  recentMessageCount: number
+  recentMessageCount: number,
+  factsPerKindCap: number | null = CONVERSATION_FOLD_FACTS_PER_KIND
 ): LeadSummaryContextBundle["conversation_fold"] {
   const observations: LeadSummaryContextBundle["conversation_fold"]["observations"] =
     {
@@ -651,9 +758,17 @@ function buildConversationFold(
         facts.push({
           at: message.occurredAt,
           author_role: message.authorRole,
+          connection_id: message.connectionId,
+          provider_thread_id: message.providerThreadId,
+          evidence_key: message.evidenceKey,
           text,
         });
-        if (facts.length > CONVERSATION_FOLD_FACTS_PER_KIND) facts.shift();
+        if (
+          factsPerKindCap !== null &&
+          facts.length > Math.max(0, factsPerKindCap)
+        ) {
+          facts.shift();
+        }
       }
     }
   }
@@ -677,13 +792,29 @@ function latestConversationFact(
 }
 
 function isCurrentScopeObservation(text: string): boolean {
+  if (isActionOnlyCommercialArtifactRequest(text)) return false;
+  if (
+    /\b(?:without|no)\s+(?:a\s+|any\s+)?(?:problem|issue|concern)\b/i.test(text)
+  ) {
+    return false;
+  }
+  if (
+    /\b(?:booked|scheduled|confirmed)\s+(?:the\s+)?(?:repair\s+)?(?:project|job|work)\b/i.test(
+      text
+    ) &&
+    !/\b(?:install|remove|replac(?:e|ed|ement|ing)|build|construct|supply)\w*\b/i.test(
+      text
+    )
+  ) {
+    return false;
+  }
   const actionDominated =
     /^\s*(?:(?:next action|next step)\s*:\s*)?(?:please\s+)?(?:confirm|send|share|reply|respond|call|let (?:me|us) know|waiting for)\b/i.test(
       text
     );
   if (
     actionDominated &&
-    !/\b(?:install|remove|replace|repair|build|construct|supply)\w*\b/i.test(
+    !/\b(?:install|remove|replac(?:e|ed|ement|ing)|repair|build|construct|supply)\w*\b/i.test(
       text
     )
   ) {
@@ -691,7 +822,7 @@ function isCurrentScopeObservation(text: string): boolean {
   }
   const hasScheduleSignal = CONVERSATION_FACT_PATTERNS.schedule.test(text);
   const hasExplicitScopeSignal =
-    /\b(?:scope|include(?:d|s|ing)?|exclude(?:d|s|ing)?|without|supply|provide|remove|replace|repair|build|construct|material|finish|dimension|size|colou?r|option|revision|revised|addition|added)\b/i.test(
+    /\b(?:scope|include(?:d|s|ing)?|exclude(?:d|s|ing)?|without|supply|provide|remove|replac(?:e|ed|ement|ing)|repair|build|construct|material|finish|dimension|size|colou?r|option|revision|revised|addition|added)\b/i.test(
       text
     );
   return (
@@ -703,7 +834,8 @@ function isCurrentScopeObservation(text: string): boolean {
 function isCurrentScheduleObservation(text: string): boolean {
   if (
     QUOTE_VALIDITY_SCHEDULE_RE.test(text) ||
-    PRE_SALE_SCHEDULE_RE.test(text)
+    PRE_SALE_SCHEDULE_RE.test(text) ||
+    NON_EXECUTION_SCHEDULE_RE.test(text)
   ) {
     return false;
   }
@@ -715,16 +847,71 @@ function isCurrentScheduleObservation(text: string): boolean {
   ) {
     return false;
   }
-  return true;
+  return scheduleSummaryClauses(text).some((clause) => {
+    const dates = scheduleDateAnchors(clause);
+    const hasAnchor =
+      dates.length > 0 ||
+      namedScheduleAnchors(clause, dates).size > 0 ||
+      scheduleTimeAnchors(clause).size > 0 ||
+      scheduleQualifierAnchors(clause).size > 0;
+    const modalAnchorWork = new RegExp(
+      `${SCHEDULE_ASSERTION_ANCHOR_TEXT}.{0,36}\\b(?:can|could|would|should)\\s+work\\b`,
+      "i"
+    ).test(clause);
+    return (
+      hasAnchor &&
+      (clauseHasScheduleAssertionLanguage(clause) || modalAnchorWork) &&
+      !clauseTargetsUnrelatedSchedulePurpose(clause)
+    );
+  });
+}
+
+function isBareScheduleAvailabilityAcknowledgement(text: string): boolean {
+  return new RegExp(
+    `^\\s*${SCHEDULE_ASSERTION_ANCHOR_TEXT}\\s+(?:is\\s+)?(?:good|fine|okay|ok|available|works?(?:\\s+for\\s+(?:me|us))?|can\\s+work)[.!]?\\s*$`,
+    "i"
+  ).test(text.trim());
+}
+
+function isExecutionScheduleProposal(text: string): boolean {
+  return (
+    text.includes("?") &&
+    /\b(?:install(?:ation|ing)?|repair(?:ed|ing|s)?|replac(?:e|ed|ement|ing)|remov(?:e|ed|al|ing)|suppl(?:y|ied|ies|ying)|build(?:ing)?|crew|job|project|work|on[ -]?site|pickup|delivery)\b/i.test(
+      text
+    ) &&
+    /\b(?:schedule|book|start|begin|arrive|come|install)\w*\b/i.test(text) &&
+    (scheduleDateAnchors(text).length > 0 ||
+      namedScheduleAnchors(text, scheduleDateAnchors(text)).size > 0)
+  );
+}
+
+function isBareScheduleAcknowledgement(text: string): boolean {
+  return /^(?:(?:hi|hello|hey)\s+[a-z][a-z .'-]{0,50},?\s*)?(?:booked|scheduled|confirmed)[.!]?$/i.test(
+    text.trim()
+  );
+}
+
+function confirmedScheduleFromPriorFact(text: string): string | null {
+  const anchor = text.match(
+    new RegExp(SCHEDULE_ASSERTION_ANCHOR_TEXT, "i")
+  )?.[0];
+  return anchor ? `Booked for ${anchor}.` : null;
 }
 
 function resolveFoldedSchedule(
   fold: LeadSummaryContextBundle["conversation_fold"]
 ): string | null {
-  for (const observation of [...fold.observations.schedule].reverse()) {
+  const observations = fold.observations.schedule;
+  for (
+    let observationIndex = observations.length - 1;
+    observationIndex >= 0;
+    observationIndex -= 1
+  ) {
+    const observation = observations[observationIndex];
     if (
       QUOTE_VALIDITY_SCHEDULE_RE.test(observation.text) ||
-      PRE_SALE_SCHEDULE_RE.test(observation.text)
+      PRE_SALE_SCHEDULE_RE.test(observation.text) ||
+      NON_EXECUTION_SCHEDULE_RE.test(observation.text)
     ) {
       continue;
     }
@@ -733,6 +920,56 @@ function resolveFoldedSchedule(
       !CONFIRMED_RESCHEDULE_RE.test(observation.text)
     ) {
       return null;
+    }
+    if (isBareScheduleAcknowledgement(observation.text)) {
+      for (
+        let priorIndex = observationIndex - 1;
+        priorIndex >= 0;
+        priorIndex -= 1
+      ) {
+        const prior = observations[priorIndex];
+        if (
+          prior.connection_id !== observation.connection_id ||
+          prior.provider_thread_id !== observation.provider_thread_id
+        ) {
+          continue;
+        }
+        if (
+          SCHEDULE_CANCELLATION_RE.test(prior.text) &&
+          !CONFIRMED_RESCHEDULE_RE.test(prior.text)
+        ) {
+          break;
+        }
+        if (!isCurrentScheduleObservation(prior.text)) continue;
+        const confirmed = confirmedScheduleFromPriorFact(prior.text);
+        if (confirmed) return confirmed;
+      }
+      continue;
+    }
+    if (isBareScheduleAvailabilityAcknowledgement(observation.text)) {
+      for (
+        let priorIndex = observationIndex - 1;
+        priorIndex >= 0;
+        priorIndex -= 1
+      ) {
+        const prior = observations[priorIndex];
+        if (
+          prior.connection_id !== observation.connection_id ||
+          prior.provider_thread_id !== observation.provider_thread_id
+        ) {
+          continue;
+        }
+        if (
+          SCHEDULE_CANCELLATION_RE.test(prior.text) &&
+          !CONFIRMED_RESCHEDULE_RE.test(prior.text)
+        ) {
+          break;
+        }
+        if (isExecutionScheduleProposal(prior.text)) {
+          return observation.text;
+        }
+      }
+      continue;
     }
     if (isCurrentScheduleObservation(observation.text)) {
       return observation.text;
@@ -749,23 +986,36 @@ function isCurrentNextActionObservation(text: string): boolean {
 function resolveFoldedNextAction(
   fold: LeadSummaryContextBundle["conversation_fold"]
 ): string | null {
-  const observation = [...fold.observations.next_action]
-    .reverse()
-    .find((candidate) => isCurrentNextActionObservation(candidate.text));
-  if (!observation) return null;
-  if (
-    observation.author_role === "operator" &&
-    OPERATOR_ACTION_COMPLETION_RE.test(observation.text)
-  ) {
-    return "Await the customer's response; follow up if needed.";
+  for (const observation of [...fold.observations.next_action].reverse()) {
+    if (!isCurrentNextActionObservation(observation.text)) continue;
+    if (
+      observation.author_role === "operator" &&
+      isBareScheduleAcknowledgement(observation.text)
+    ) {
+      return null;
+    }
+    if (
+      observation.author_role === "operator" &&
+      OPERATOR_ACTION_COMPLETION_RE.test(observation.text)
+    ) {
+      return "Await the customer's response; follow up if needed.";
+    }
+    return observation.text;
   }
-  return observation.text;
+  return null;
 }
 
 function objectionWasResolved(text: string): boolean {
-  return /\b(?:no longer|resolved|not an issue|not a concern|budget (?:now )?(?:covers|approved|available)|funds? (?:are )?(?:secured|available)|ready to proceed|can proceed|please proceed|go ahead|can(?:not|'?t) wait)\b/i.test(
+  return /\b(?:no longer|resolved|not an issue|not a concern|without (?:a |any )?(?:problem|issue)|no (?:problem|issue)|(?:should|would|will|can)(?:\s+not|n['’]t)? have any (?:problem|issue)|budget (?:now )?(?:covers|approved|available)|funds? (?:are )?(?:secured|available)|ready to proceed|can proceed|please proceed|go ahead|can(?:not|'?t) wait)\b/i.test(
     text
   );
+}
+
+function resolveFoldedObjection(
+  fold: LeadSummaryContextBundle["conversation_fold"]
+): string | null {
+  const latest = fold.observations.objection.at(-1)?.text ?? null;
+  return latest && !objectionWasResolved(latest) ? latest : null;
 }
 
 function resolveSummaryCurrentPrice(input: {
@@ -782,15 +1032,12 @@ function resolveSummaryCurrentPrice(input: {
 
 function buildCurrentFactContext(input: {
   conversationFold: LeadSummaryContextBundle["conversation_fold"];
+  completeConversationFold: LeadSummaryContextBundle["conversation_fold"];
   foldedDiscussedPrices: number[];
   allDiscussedPrices: number[];
   commercialOutcome: ReturnType<typeof detectCommercialOutcome>;
   opportunity: OpportunityRow;
 }): LeadSummaryContextBundle["current_fact_context"] {
-  const latestFoldObjection = latestConversationFact(
-    input.conversationFold,
-    "objection"
-  );
   const currentPrice = resolveSummaryCurrentPrice(input);
   const currentScope =
     clip(input.commercialOutcome?.facts.currentScope, ACTIVITY_CONTENT_CAP) ??
@@ -804,15 +1051,102 @@ function buildCurrentFactContext(input: {
     : resolveFoldedSchedule(input.conversationFold);
   const objection = input.commercialOutcome
     ? clip(input.commercialOutcome.facts.objection, ACTIVITY_CONTENT_CAP)
-    : latestFoldObjection && !objectionWasResolved(latestFoldObjection)
-      ? latestFoldObjection
-      : null;
+    : resolveFoldedObjection(input.completeConversationFold);
   const nextAction =
     (input.commercialOutcome
       ? resolveCommercialNextAction(input.opportunity, input.commercialOutcome)
       : null) ?? resolveFoldedNextAction(input.conversationFold);
   const supersededPrices = input.allDiscussedPrices.filter(
     (price) => price !== currentPrice
+  );
+  const currentEvidenceKeys = new Set(
+    Object.values(input.conversationFold.observations)
+      .flat()
+      .map((observation) => observation.evidence_key)
+  );
+  const supersededFacts = (kind: ConversationFactKind): string[] => [
+    ...new Set(
+      input.completeConversationFold.observations[kind]
+        .filter(
+          (observation) => !currentEvidenceKeys.has(observation.evidence_key)
+        )
+        .map((observation) => observation.text)
+    ),
+  ];
+  const supersededScopes = supersededFacts("scope").filter(
+    (scope) =>
+      !currentScope || scope.toLowerCase() !== currentScope.toLowerCase()
+  );
+  const completeScheduleObservations =
+    input.completeConversationFold.observations.schedule;
+  const latestScheduleCancellationIndex =
+    completeScheduleObservations.findLastIndex(
+      (observation) =>
+        SCHEDULE_CANCELLATION_RE.test(observation.text) &&
+        !CONFIRMED_RESCHEDULE_RE.test(observation.text)
+    );
+  const explicitlyCancelledSchedules =
+    latestScheduleCancellationIndex >= 0
+      ? completeScheduleObservations
+          .slice(0, latestScheduleCancellationIndex)
+          .filter((observation) =>
+            isCurrentScheduleObservation(observation.text)
+          )
+          .map((observation) => observation.text)
+      : [];
+  const priorCurrentSchedules =
+    schedule !== null || latestScheduleCancellationIndex >= 0
+      ? completeScheduleObservations
+          .filter((observation) =>
+            isCurrentScheduleObservation(observation.text)
+          )
+          .map((observation) => observation.text)
+      : [];
+  const supersededSchedules = [
+    ...new Set([
+      ...supersededFacts("schedule"),
+      ...explicitlyCancelledSchedules,
+      ...priorCurrentSchedules,
+    ]),
+  ].filter(
+    (candidate) =>
+      !schedule ||
+      (candidate.toLowerCase() !== schedule.toLowerCase() &&
+        !summaryCarriesSchedule(candidate, schedule))
+  );
+  const completeObjectionObservations =
+    input.completeConversationFold.observations.objection;
+  const latestObjectionObservation = completeObjectionObservations.at(-1);
+  const resolvedObjections =
+    latestObjectionObservation &&
+    objectionWasResolved(latestObjectionObservation.text)
+      ? [
+          ...new Set(
+            completeObjectionObservations
+              .slice(0, -1)
+              .map((observation) => observation.text)
+          ),
+        ]
+      : [];
+  const completeNextActionObservations =
+    input.completeConversationFold.observations.next_action;
+  const latestNextActionObservation = completeNextActionObservations.at(-1);
+  const explicitlyCompletedActions =
+    latestNextActionObservation?.author_role === "operator" &&
+    (isBareScheduleAcknowledgement(latestNextActionObservation.text) ||
+      OPERATOR_ACTION_COMPLETION_RE.test(latestNextActionObservation.text))
+      ? completeNextActionObservations
+          .slice(0, -1)
+          .map((observation) => observation.text)
+      : [];
+  const supersededNextActions = [
+    ...new Set([
+      ...supersededFacts("next_action"),
+      ...explicitlyCompletedActions,
+    ]),
+  ].filter(
+    (candidate) =>
+      !nextAction || candidate.toLowerCase() !== nextAction.toLowerCase()
   );
 
   if (
@@ -821,7 +1155,11 @@ function buildCurrentFactContext(input: {
     schedule === null &&
     objection === null &&
     nextAction === null &&
-    supersededPrices.length === 0
+    supersededPrices.length === 0 &&
+    supersededScopes.length === 0 &&
+    supersededSchedules.length === 0 &&
+    resolvedObjections.length === 0 &&
+    supersededNextActions.length === 0
   ) {
     return null;
   }
@@ -833,6 +1171,10 @@ function buildCurrentFactContext(input: {
     objection,
     next_action: nextAction,
     superseded_prices: supersededPrices,
+    superseded_scopes: supersededScopes,
+    superseded_schedules: supersededSchedules,
+    resolved_objections: resolvedObjections,
+    superseded_next_actions: supersededNextActions,
   };
 }
 
@@ -886,6 +1228,17 @@ export function buildLeadSummaryContext(
     (parseMs(b) ?? 0) - (parseMs(a) ?? 0);
 
   const completeEmailHistory = trustedLeadEmailMessages(slices);
+  const nonEmailSourceActivities = slices.activities.filter(
+    (activity) => activity.type !== "email"
+  );
+  if (
+    completeEmailHistory.length === 0 &&
+    nonEmailSourceActivities.length === 0 &&
+    slices.siteVisits.length === 0 &&
+    !opportunity.description?.trim()
+  ) {
+    return null;
+  }
   const emails = [...completeEmailHistory]
     .sort((a, b) => byNewestFirst(a.occurredAt, b.occurredAt))
     .slice(0, EMAILS_IN_PROMPT)
@@ -897,13 +1250,41 @@ export function buildLeadSummaryContext(
       subj: clip(message.subject, 200),
       body: clip(message.body, EMAIL_BODY_CAP),
     }));
+  const commercialMessages = completeEmailHistory.map((message) => ({
+    evidenceKey: message.evidenceKey,
+    connectionId: message.connectionId,
+    providerThreadId: message.providerThreadId,
+    providerMessageId: message.providerMessageId,
+    occurredAt: message.occurredAt,
+    direction: message.direction,
+    authorRole: message.authorRole,
+    subject: message.subject,
+    body: message.body,
+  }));
+  const currentEpisodeEvidenceKeys = new Set(
+    currentCommercialEpisodeMessages(commercialMessages).map(
+      (message) => message.evidenceKey ?? message.providerMessageId
+    )
+  );
+  const currentEpisodeEmailHistory = completeEmailHistory.filter((message) =>
+    currentEpisodeEvidenceKeys.has(message.evidenceKey)
+  );
   const conversationFold = buildConversationFold(
-    completeEmailHistory,
+    currentEpisodeEmailHistory,
     emails.length
   );
+  const currentEpisodeValidationFold = buildConversationFold(
+    currentEpisodeEmailHistory,
+    emails.length,
+    null
+  );
+  const completeConversationFold = buildConversationFold(
+    completeEmailHistory,
+    emails.length,
+    null
+  );
 
-  const nonEmailActivity = slices.activities
-    .filter((activity) => activity.type !== "email")
+  const nonEmailActivity = nonEmailSourceActivities
     .sort((a, b) => byNewestFirst(a.created_at, b.created_at))
     .slice(0, NON_EMAIL_ACTIVITIES_IN_PROMPT)
     .reverse()
@@ -969,15 +1350,7 @@ export function buildLeadSummaryContext(
     now: new Date(
       completeEmailHistory.at(-1)?.occurredAt ?? opportunity.stage_entered_at
     ),
-    messages: completeEmailHistory.map((message) => ({
-      evidenceKey: message.evidenceKey,
-      providerMessageId: message.providerMessageId,
-      occurredAt: message.occurredAt,
-      direction: message.direction,
-      authorRole: message.authorRole,
-      subject: message.subject,
-      body: message.body,
-    })),
+    messages: commercialMessages,
   });
   const allDiscussedPrices = [
     ...new Set(
@@ -985,23 +1358,50 @@ export function buildLeadSummaryContext(
         extractCommercialDealPrices(message.body)
       )
     ),
-  ].slice(-COMMERCIAL_PRICE_FACT_CAP);
+  ];
   const foldedDiscussedPrices = [
     ...new Set(
-      conversationFold.observations.price.flatMap((observation) =>
+      currentEpisodeValidationFold.observations.price.flatMap((observation) =>
         extractCommercialDealPrices(observation.text)
       )
     ),
   ];
   const currentFactContext = buildCurrentFactContext({
-    conversationFold,
+    conversationFold: currentEpisodeValidationFold,
+    completeConversationFold,
     foldedDiscussedPrices,
     allDiscussedPrices,
     commercialOutcome,
     opportunity,
   });
+  const promptCurrentFactContext = currentFactContext
+    ? {
+        ...currentFactContext,
+        superseded_prices: currentFactContext.superseded_prices.slice(
+          -COMMERCIAL_PRICE_FACT_CAP
+        ),
+        superseded_scopes: currentFactContext.superseded_scopes.slice(
+          -CONVERSATION_FOLD_FACTS_PER_KIND
+        ),
+        superseded_schedules: currentFactContext.superseded_schedules.slice(
+          -CONVERSATION_FOLD_FACTS_PER_KIND
+        ),
+        resolved_objections: currentFactContext.resolved_objections.slice(
+          -CONVERSATION_FOLD_FACTS_PER_KIND
+        ),
+        superseded_next_actions:
+          currentFactContext.superseded_next_actions.slice(
+            -CONVERSATION_FOLD_FACTS_PER_KIND
+          ),
+      }
+    : null;
+  const commercialSupersededPrices = commercialOutcome
+    ? allDiscussedPrices.filter(
+        (price) => price !== currentFactContext?.current_price
+      )
+    : [];
 
-  return {
+  const bundle: LeadSummaryContextBundle = {
     tid: EVALUATION_KEY,
     lead: {
       title: opportunity.title,
@@ -1020,7 +1420,7 @@ export function buildLeadSummaryContext(
     emails,
     conversation_fold: conversationFold,
     email_thread_summaries: threadSummaries,
-    current_fact_context: currentFactContext,
+    current_fact_context: promptCurrentFactContext,
     commercial_context: commercialOutcome
       ? {
           outcome: commercialOutcome.outcome,
@@ -1048,12 +1448,20 @@ export function buildLeadSummaryContext(
             opportunity,
             commercialOutcome
           ),
-          superseded_prices: allDiscussedPrices.filter(
-            (price) => price !== currentFactContext?.current_price
+          superseded_prices: commercialSupersededPrices.slice(
+            -COMMERCIAL_PRICE_FACT_CAP
           ),
         }
       : null,
   };
+  Object.defineProperty(bundle, FULL_LEAD_SUMMARY_VALIDATION_CONTEXT, {
+    value: {
+      currentFactContext,
+      commercialSupersededPrices,
+    },
+    enumerable: false,
+  });
+  return bundle;
 }
 
 function summaryAmounts(summary: string): number[] {
@@ -1227,19 +1635,17 @@ const MONTH_SCHEDULE_ANCHORS = [
 ] as const;
 
 const SCHEDULE_PHRASE_ANCHORS = ["next week", "this week", "week of"];
+const SCHEDULE_MONTH_ALIAS_TEXT =
+  "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
 
-const SCHEDULE_ASSERTION_NAMED_TEXT =
-  "(?:today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|next\\s+week|this\\s+week|week\\s+of)";
-const SCHEDULE_ASSERTION_DATE_TEXT =
-  "(?:(?:january|february|march|april|may|june|july|august|september|october|november|december)\\s+\\d{1,2}(?:st|nd|rd|th)?(?:\\s*,?\\s*\\d{4})?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)(?:\\s*,?\\s*\\d{4})?|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}|\\d{1,2}[-/]\\d{1,2}(?:[-/]\\d{4})?)";
+const SCHEDULE_ASSERTION_NAMED_TEXT = `(?:today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|${SCHEDULE_MONTH_ALIAS_TEXT}|next\\s+week|this\\s+week|week\\s+of)`;
+const SCHEDULE_ASSERTION_DATE_TEXT = `(?:(?:${SCHEDULE_MONTH_ALIAS_TEXT})\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?(?:\\s*,?\\s*\\d{4})?|\\d{1,2}(?:st|nd|rd|th)?\\s+(?:${SCHEDULE_MONTH_ALIAS_TEXT})\\.?(?:\\s*,?\\s*\\d{4})?|\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}|\\d{1,2}[-/]\\d{1,2}(?:[-/]\\d{4})?)`;
 const SCHEDULE_ASSERTION_TIME_TEXT =
   "(?:(?:[01]?\\d|2[0-3]):[0-5]\\d\\s*(?:a\\.?m\\.?|p\\.?m\\.?)?|(?:[1-9]|1[0-2])\\s*(?:a\\.?m\\.?|p\\.?m\\.?))";
 const SCHEDULE_ASSERTION_ANCHOR_TEXT = `(?:(?:${SCHEDULE_ASSERTION_DATE_TEXT}|${SCHEDULE_ASSERTION_NAMED_TEXT})(?:\\s+(?:at|for)\\s+${SCHEDULE_ASSERTION_TIME_TEXT})?|${SCHEDULE_ASSERTION_TIME_TEXT})`;
 const SCHEDULE_ASSERTION_TERM_TEXT =
   "(?:schedule|scheduled|book|booked|booking|install|installation|start|starts|starting|begin|begins|beginning|appointment|timeline|date|window|work)";
 const SCHEDULE_QUESTION_MARKER = "__ops_schedule_question__";
-const SCHEDULE_MONTH_ALIAS_TEXT =
-  "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
 const UNRELATED_SCHEDULE_PURPOSE_TEXT =
   "(?:phone\\s+(?:call|appointment|meeting)|sales\\s+call|call|email|site\\s+visit|inspection|consultation|meeting|appointment|measurement(?:s|\\s+(?:visit|appointment|meeting))?|measure(?:ment)?\\s+visit|site\\s+measurement(?:\\s+visit)?|material\\s+(?:delivery|pickup)|delivery|pickup|walkthrough|quote(?:\\s+review)?|estimate\\s+review)";
 const SCHEDULE_WEEKDAYS = [
@@ -1317,7 +1723,18 @@ function namedScheduleAnchors(
 
 function scheduleDateAnchors(value: string): ScheduleDateAnchor[] {
   const anchors: ScheduleDateAnchor[] = [];
-  const monthPattern = MONTH_SCHEDULE_ANCHORS.join("|");
+  const monthPattern = SCHEDULE_MONTH_ALIAS_TEXT;
+  const monthNumber = (monthValue: string): number => {
+    const normalizedMonth = monthValue
+      .toLowerCase()
+      .replaceAll(".", "")
+      .slice(0, 3);
+    return (
+      MONTH_SCHEDULE_ANCHORS.findIndex((candidate) =>
+        candidate.startsWith(normalizedMonth)
+      ) + 1
+    );
+  };
   const pushCalendar = (
     yearValue: string | undefined,
     month: number,
@@ -1336,14 +1753,7 @@ function scheduleDateAnchors(value: string): ScheduleDateAnchor[] {
     anchors.push({ kind: "calendar", year, month, day });
   };
   const pushMonthYear = (monthValue: string, yearValue: string) => {
-    const normalizedMonth = monthValue
-      .toLowerCase()
-      .replaceAll(".", "")
-      .slice(0, 3);
-    const month =
-      MONTH_SCHEDULE_ANCHORS.findIndex((candidate) =>
-        candidate.startsWith(normalizedMonth)
-      ) + 1;
+    const month = monthNumber(monthValue);
     const year = Number(yearValue);
     if (month < 1 || !Number.isInteger(year) || year < 1900 || year > 2200) {
       return;
@@ -1353,26 +1763,20 @@ function scheduleDateAnchors(value: string): ScheduleDateAnchor[] {
 
   for (const match of value.matchAll(
     new RegExp(
-      `\\b(${monthPattern})\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?\\b`,
+      `\\b(${monthPattern})\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:\\s*,?\\s*(\\d{4}))?\\b`,
       "gi"
     )
   )) {
-    const month =
-      MONTH_SCHEDULE_ANCHORS.indexOf(
-        match[1]!.toLowerCase() as (typeof MONTH_SCHEDULE_ANCHORS)[number]
-      ) + 1;
+    const month = monthNumber(match[1]!);
     pushCalendar(match[3], month, match[2]);
   }
   for (const match of value.matchAll(
     new RegExp(
-      `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${monthPattern})(?:\\s*,?\\s*(\\d{4}))?\\b`,
+      `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(${monthPattern})\\.?(?:\\s*,?\\s*(\\d{4}))?\\b`,
       "gi"
     )
   )) {
-    const month =
-      MONTH_SCHEDULE_ANCHORS.indexOf(
-        match[2]!.toLowerCase() as (typeof MONTH_SCHEDULE_ANCHORS)[number]
-      ) + 1;
+    const month = monthNumber(match[2]!);
     pushCalendar(match[3], month, match[1]);
   }
   for (const match of value.matchAll(
@@ -1473,9 +1877,16 @@ function scheduleQualifierAnchors(value: string): Set<string> {
     addNearbyQualifier("p\\.?m\\.?", "daypart:pm");
   }
   addNearbyQualifier("(?:noon|midday)", "daypart:noon");
-  addNearbyQualifier("night", "daypart:night");
+  const nightPrecedesSeparateScheduledEvent = new RegExp(
+    `\\b(?:to)?night\\b[^.!?;\\n]{0,60}\\b(?:the\\s+)?night\\s+before\\b[^.!?;\\n]{0,32}\\b(?:confirmed\\s+|scheduled\\s+)?(?:${SCHEDULE_ASSERTION_TERM_TEXT}|job|project)\\b`,
+    "i"
+  ).test(normalized);
+  if (!nightPrecedesSeparateScheduledEvent) {
+    addNearbyQualifier("night", "daypart:night");
+  }
   if (
     /\btonight\b/i.test(normalized) &&
+    !nightPrecedesSeparateScheduledEvent &&
     new RegExp(
       `(?:${SCHEDULE_ASSERTION_TERM_TEXT}|job|project)${nearby}\\btonight\\b|\\btonight\\b${nearby}(?:${SCHEDULE_ASSERTION_TERM_TEXT}|job|project)`,
       "i"
@@ -1977,6 +2388,46 @@ function summaryCarriesNextAction(
   return summarySharesContextTerm(summary, nextAction);
 }
 
+function summaryPreservesExcludedScopeActor(
+  summary: string,
+  excludedScope: string
+): boolean {
+  const actorPerformsScope = (actorPattern: string) => {
+    const actorFirst = new RegExp(
+      `\\b(?:${actorPattern})\\b[^.!?;]{0,60}\\b(?:(?:will|can|plans? to|is going to|are going to|is|are)\\s+)?(?:personally\\s+)?(?:remov\\w*|handl\\w*|perform\\w*|do(?:ing)?|suppl\\w*|provid\\w*|complet\\w*|tak\\w* care of)\\b`,
+      "i"
+    );
+    const passiveActor = new RegExp(
+      `\\b(?:remov\\w*|handl\\w*|perform\\w*|suppl\\w*|provid\\w*|complet\\w*|scope|work)\\b[^.!?;]{0,60}\\b(?:by|responsibility of)\\s+(?:the\\s+|her\\s+|his\\s+|their\\s+)?(?:${actorPattern})\\b`,
+      "i"
+    );
+    return actorFirst.test(summary) || passiveActor.test(summary);
+  };
+
+  if (/\bhusband\b/i.test(excludedScope)) {
+    return actorPerformsScope("husband");
+  }
+  if (/\bwife\b/i.test(excludedScope)) {
+    return actorPerformsScope("wife");
+  }
+  if (/\bhomeowner\b/i.test(excludedScope)) {
+    return actorPerformsScope("homeowner|customer|owner");
+  }
+  if (/\b(?:customer|client|owner)\b/i.test(excludedScope)) {
+    return actorPerformsScope("customer|client|owner");
+  }
+  if (
+    /\b(?:we|i)\b.{0,80}\b(?:remove|handle|perform|do|take care of)\b/i.test(
+      excludedScope
+    )
+  ) {
+    return actorPerformsScope(
+      "customer|client|owner|homeowner|they|we|self|themselves"
+    );
+  }
+  return true;
+}
+
 function validateCurrentFactSummary(
   summary: string,
   context: LeadSummaryContextBundle["current_fact_context"]
@@ -1997,6 +2448,42 @@ function validateCurrentFactSummary(
   ) {
     throw new LeadSummaryModelContractError(
       "model repeated a superseded commercial price"
+    );
+  }
+  if (
+    context.superseded_scopes.some((scope) =>
+      summaryCarriesSpecificFact(summary, scope, 2)
+    )
+  ) {
+    throw new LeadSummaryModelContractError(
+      "model repeated a superseded commercial scope"
+    );
+  }
+  if (
+    context.superseded_schedules.some((schedule) =>
+      summaryCarriesSchedule(summary, schedule)
+    )
+  ) {
+    throw new LeadSummaryModelContractError(
+      "model repeated a superseded commercial schedule"
+    );
+  }
+  if (
+    context.resolved_objections.some((objection) =>
+      summaryCarriesSpecificFact(summary, objection, 2)
+    )
+  ) {
+    throw new LeadSummaryModelContractError(
+      "model repeated a resolved commercial objection"
+    );
+  }
+  if (
+    context.superseded_next_actions.some((action) =>
+      summaryCarriesSpecificFact(summary, action, 2)
+    )
+  ) {
+    throw new LeadSummaryModelContractError(
+      "model repeated a superseded commercial next action"
     );
   }
   if (
@@ -2040,6 +2527,36 @@ function validateCommercialSummary(
     );
   }
   if (!context) return;
+  if (
+    context.outcome === "won" &&
+    /\b(?:customer|client|owner|they|he|she)\b.{0,100}\b(?:(?:will|does|did|is|are|has|have)\s+not|(?:won|isn|aren|hasn|haven|doesn|didn)['’]t)\s+(?:(?:be\s+)?ready\s+to\s+)?(?:proceed|move forward)|\b(?:not ready to proceed|not moving forward|declined|cancelled|canceled|deferred the work)\b/i.test(
+      summary
+    )
+  ) {
+    throw new LeadSummaryModelContractError(
+      "model contradicted the customer commitment"
+    );
+  }
+  if (
+    context.outcome === "deferred" &&
+    /\b(?:not|no longer)\s+(?:deferred|delayed|postponed)|\b(?:isn|wasn|hasn|haven)['’]t\s+(?:deferred|delayed|postponed)|\bbudget\s+(?:is|was)\s+(?:fully\s+)?available\b|\bbudget\s+is\s+no longer (?:an? )?(?:issue|concern|objection)|\b(?:accepted|ready to proceed|will proceed|moving forward now)\b/i.test(
+      summary
+    )
+  ) {
+    throw new LeadSummaryModelContractError(
+      "model contradicted the customer deferral"
+    );
+  }
+  if (
+    context.outcome === "declined" &&
+    /\b(?:did|does|has|have|will)\s+not\s+decline|\b(?:didn|doesn|hasn|haven|won)['’]t\s+decline|\bnot declined\b|\b(?:accepted|still proceeding|will proceed|moving forward)\b/i.test(
+      summary
+    )
+  ) {
+    throw new LeadSummaryModelContractError(
+      "model contradicted the customer decline"
+    );
+  }
   if (
     context.current_price !== null &&
     !summaryMentionsAmount(summary, context.current_price)
@@ -2090,9 +2607,11 @@ function validateCommercialSummary(
   if (
     context.excluded_scope &&
     /\bremov/i.test(context.excluded_scope) &&
-    !/\b(?:remov|exclud|not included|customer handling|husband)\w*\b/i.test(
+    (/\b(?:includ(?:e|ed|es|ing)|covers?)\b.{0,50}\bremov|\bremov\w*\b.{0,50}\b(?:includ(?:e|ed|es|ing)|covers?)\b/i.test(
       summary
-    )
+    ) ||
+      !summaryCarriesSpecificFact(summary, context.excluded_scope, 2) ||
+      !summaryPreservesExcludedScopeActor(summary, context.excluded_scope))
   ) {
     throw new LeadSummaryModelContractError(
       "model omitted the revised removal scope"
@@ -2133,6 +2652,209 @@ function validateCommercialSummary(
   }
 }
 
+function fullCurrentFactValidationContext(
+  bundle: LeadSummaryContextBundle
+): LeadSummaryCurrentFactContext {
+  const promptContext = bundle.current_fact_context;
+  const fullContext =
+    bundle[FULL_LEAD_SUMMARY_VALIDATION_CONTEXT]?.currentFactContext;
+  if (!fullContext) return promptContext;
+  if (!promptContext) return fullContext;
+  return {
+    ...promptContext,
+    superseded_prices: fullContext.superseded_prices,
+    superseded_scopes: fullContext.superseded_scopes,
+    superseded_schedules: fullContext.superseded_schedules,
+    resolved_objections: fullContext.resolved_objections,
+    superseded_next_actions: fullContext.superseded_next_actions,
+  };
+}
+
+function fullCommercialValidationContext(
+  bundle: LeadSummaryContextBundle
+): LeadSummaryContextBundle["commercial_context"] {
+  if (!bundle.commercial_context) return null;
+  const fullPrices =
+    bundle[FULL_LEAD_SUMMARY_VALIDATION_CONTEXT]?.commercialSupersededPrices;
+  return fullPrices
+    ? { ...bundle.commercial_context, superseded_prices: fullPrices }
+    : bundle.commercial_context;
+}
+
+const REPAIRABLE_SUMMARY_OMISSIONS = new Set([
+  "model omitted the current commercial price",
+  "model omitted the current commercial scope",
+  "model omitted the current commercial schedule",
+  "model omitted the current commercial objection",
+  "model omitted the current commercial next action",
+  "model repeated a superseded commercial price",
+  "model repeated a superseded commercial scope",
+  "model repeated a superseded commercial schedule",
+  "model repeated a resolved commercial objection",
+  "model repeated a superseded commercial next action",
+  "model omitted the budget or timing deferral",
+  "model omitted the customer decline",
+  "model omitted the customer commitment",
+  "model omitted the revised removal scope",
+  "model contradicted the customer commitment",
+  "model contradicted the customer deferral",
+  "model contradicted the customer decline",
+]);
+const SUMMARY_MONEY_TEXT_RE =
+  /\$\s*[0-9][0-9,]*(?:\.\d{1,2})?|\b[0-9]{1,3}(?:,[0-9]{3})+(?:\.\d{1,2})?\b|\b[0-9]+\.\d{2}\b/g;
+const SUMMARY_PHONE_TEXT_RE =
+  /(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}/g;
+const SUMMARY_EMAIL_TEXT_RE = /\b[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}\b/g;
+const SUMMARY_URL_TEXT_RE = /\b(?:https?:\/\/|www\.)\S+/gi;
+const SUMMARY_PROMPT_TAIL_RE =
+  /\b(?:ignore|disregard|override)\b.{0,100}\b(?:instructions?|prompt|system message)\b|\b(?:return|respond|output)\s+(?:with|as)\s+json\b/i;
+const SUMMARY_INLINE_SIGNATURE_RE =
+  /[?!]\s*(?=[A-Z][A-Za-z.'’-]+(?:\s+[A-Z][A-Za-z.'’-]+){1,3}\s+(?:(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}|[\w.+-]+@))/;
+
+function deterministicSummaryFragment(
+  value: string | null | undefined,
+  options: { stripMoney?: boolean } = {}
+): string | null {
+  if (!value) return null;
+  let source = value.normalize("NFKC");
+  const inlineSignature = SUMMARY_INLINE_SIGNATURE_RE.exec(source);
+  if (inlineSignature) {
+    source = source.slice(0, (inlineSignature.index ?? 0) + 1);
+  }
+  const promptTail = SUMMARY_PROMPT_TAIL_RE.exec(source);
+  if (promptTail) source = source.slice(0, promptTail.index);
+  source = source
+    .replace(/<[^>]*>/g, " ")
+    .replace(SUMMARY_URL_TEXT_RE, " ")
+    .replace(SUMMARY_EMAIL_TEXT_RE, " ")
+    .replace(SUMMARY_PHONE_TEXT_RE, " ");
+  if (options.stripMoney !== false) {
+    source = source.replace(
+      SUMMARY_MONEY_TEXT_RE,
+      (match: string, offset: number, complete: string) => {
+        const trailing = complete.slice(
+          offset + match.length,
+          offset + match.length + 14
+        );
+        const leading = complete.slice(Math.max(0, offset - 8), offset);
+        const isDecimalMeasurement =
+          /^\d+\.\d{2}$/.test(match) &&
+          (/^\s*(?:-|–|—)?\s*(?:in(?:ch(?:es)?)?|ft|feet|foot|mm|cm|m)\b/i.test(
+            trailing
+          ) ||
+            /(?:dimension|measure(?:ment)?|size)\s*$/i.test(leading));
+        return isDecimalMeasurement ? match : " ";
+      }
+    );
+  }
+  const normalized = source
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .replace(/^\s*(?:hi|hello|hey)\s+[A-Za-z][A-Za-z .'-]{0,50},\s*/i, "")
+    .replace(
+      /^\s*(?:(?:current|excluded)\s+scope|scope|(?:requested\s+)?schedule|objection|next\s+(?:action|step))\s*:\s*/i,
+      ""
+    )
+    .replace(/[!?;]+/g, ",")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s,–—:-]+|[\s,–—:-]+$/g, "")
+    .trim();
+  return clip(normalized, 280);
+}
+
+function formattedSummaryAmount(amount: number): string {
+  const hasCents = Math.round(amount * 100) % 100 !== 0;
+  return `$${amount.toLocaleString("en-CA", {
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function modelSummaryMakesConflictingScheduleClaim(
+  summary: string,
+  schedule: string
+): boolean {
+  if (summaryCarriesSchedule(summary, schedule)) return false;
+  return scheduleSummaryClauses(summary).some((clause) => {
+    const dates = scheduleDateAnchors(clause);
+    const hasAnchor =
+      dates.length > 0 ||
+      namedScheduleAnchors(clause, dates).size > 0 ||
+      scheduleTimeAnchors(clause).size > 0 ||
+      scheduleQualifierAnchors(clause).size > 0;
+    return hasAnchor && clauseHasScheduleAssertionLanguage(clause);
+  });
+}
+
+function repairableSummaryOmission(
+  error: LeadSummaryModelContractError
+): boolean {
+  const message = error.message.replace(LEAD_SUMMARY_ERROR_PREFIX, "");
+  return REPAIRABLE_SUMMARY_OMISSIONS.has(message);
+}
+
+/**
+ * Last-resort renderer for repeated model omissions. Every clause is derived
+ * from the already-resolved deterministic fact context, normalized as display
+ * data, and re-validated through the same strict contracts before it can be
+ * persisted. It never weakens a truth check or repeats a superseded price.
+ */
+export function renderDeterministicLeadSummaryFallback(
+  bundle: LeadSummaryContextBundle
+): string {
+  const current = bundle.current_fact_context;
+  const commercial = bundle.commercial_context;
+  const location = deterministicSummaryFragment(bundle.lead.address, {
+    stripMoney: false,
+  });
+  const subject = location ? `Customer at ${location}` : "Customer";
+  const statusSentence =
+    commercial?.outcome === "won"
+      ? `${subject} accepted the work.`
+      : commercial?.outcome === "deferred"
+        ? `${subject} deferred the work for budget or timing.`
+        : commercial?.outcome === "declined"
+          ? `${subject} declined the work.`
+          : `${subject} remains in the ${bundle.lead.stage.replaceAll("_", " ")} stage.`;
+
+  const currentPrice =
+    current?.current_price ?? commercial?.current_price ?? null;
+  const currentScope =
+    current?.current_scope ?? commercial?.current_scope ?? null;
+  const schedule = current?.schedule ?? commercial?.schedule ?? null;
+  const objection = current?.objection ?? commercial?.objection ?? null;
+  const nextAction = current?.next_action ?? commercial?.next_action ?? null;
+  const clauses: string[] = [];
+  if (currentPrice !== null) {
+    clauses.push(`Current price: ${formattedSummaryAmount(currentPrice)}`);
+  }
+  const scope = deterministicSummaryFragment(currentScope);
+  if (scope) clauses.push(`Scope: ${scope}`);
+  const excludedScope = deterministicSummaryFragment(
+    commercial?.excluded_scope
+  );
+  if (excludedScope) clauses.push(`Excluded scope: ${excludedScope}`);
+  const scheduleFact = deterministicSummaryFragment(schedule);
+  if (scheduleFact) {
+    clauses.push(
+      `${scheduleExpectsTentativeAssertion(schedule ?? "") ? "Requested schedule" : "Schedule"}: ${scheduleFact}`
+    );
+  }
+  const objectionFact = deterministicSummaryFragment(objection);
+  if (objectionFact) clauses.push(`Objection: ${objectionFact}`);
+  const nextActionFact = deterministicSummaryFragment(nextAction);
+  if (nextActionFact) clauses.push(`Next action: ${nextActionFact}`);
+  if (clauses.length === 0) {
+    throw new LeadSummaryModelContractError(
+      "deterministic fallback had no current facts"
+    );
+  }
+
+  const summary = `${statusSentence} ${clauses.join("; ")}.`;
+  validateCommercialSummary(summary, fullCommercialValidationContext(bundle));
+  validateCurrentFactSummary(summary, fullCurrentFactValidationContext(bundle));
+  return summary;
+}
+
 // ─── Model call (mirrors ai-sync-reviewer.evaluateSingleBatch discipline) ────
 
 /**
@@ -2144,6 +2866,7 @@ export async function generateLeadSummary(input: {
   companyName: string;
   bundle: LeadSummaryContextBundle;
 }): Promise<string> {
+  let lastCandidateSummary: string | null = null;
   const systemPrompt = `You are analyzing a sales lead's full activity record for a trades business to generate a brief opportunity summary.
 
 Company: ${input.companyName}
@@ -2266,8 +2989,15 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
       );
     }
     const summary = record.summary.trim();
-    validateCommercialSummary(summary, input.bundle.commercial_context);
-    validateCurrentFactSummary(summary, input.bundle.current_fact_context);
+    lastCandidateSummary = summary;
+    validateCommercialSummary(
+      summary,
+      fullCommercialValidationContext(input.bundle)
+    );
+    validateCurrentFactSummary(
+      summary,
+      fullCurrentFactValidationContext(input.bundle)
+    );
     return summary;
   };
 
@@ -2278,7 +3008,33 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
       return await attemptOnce(trustedRetryDirective);
     } catch (error) {
       lastError = error;
-      if (!(error instanceof LeadSummaryModelContractError) || attempt === 1) {
+      if (!(error instanceof LeadSummaryModelContractError)) {
+        throw error;
+      }
+      if (attempt === 1) {
+        const schedule =
+          input.bundle.current_fact_context?.schedule ??
+          input.bundle.commercial_context?.schedule ??
+          null;
+        const contractMessage = error.message.replace(
+          LEAD_SUMMARY_ERROR_PREFIX,
+          ""
+        );
+        if (
+          repairableSummaryOmission(error) &&
+          lastCandidateSummary &&
+          !(
+            contractMessage ===
+              "model omitted the current commercial schedule" &&
+            schedule &&
+            modelSummaryMakesConflictingScheduleClaim(
+              lastCandidateSummary,
+              schedule
+            )
+          )
+        ) {
+          return renderDeterministicLeadSummaryFallback(input.bundle);
+        }
         throw error;
       }
       trustedRetryDirective =
@@ -2428,7 +3184,7 @@ export async function fetchLeadSummaryContextSlices(
         supabase
           .from("opportunity_correspondence_events")
           .select(
-            "id, opportunity_id, activity_id, connection_id, provider_thread_id, provider_message_id, direction, party_role, from_email, is_meaningful, opportunity_projection_applied, occurred_at, created_at, subject"
+            "id, opportunity_id, activity_id, connection_id, provider_thread_id, provider_message_id, direction, party_role, from_email, to_emails, cc_emails, is_meaningful, opportunity_projection_applied, occurred_at, created_at, subject"
           )
           .eq("company_id", companyId)
           .eq("is_meaningful", true)
@@ -2449,7 +3205,7 @@ export async function fetchLeadSummaryContextSlices(
       supabase
         .from("activities")
         .select(
-          "id, opportunity_id, type, direction, subject, content, body_text, body_text_clean, email_connection_id, email_message_id, email_thread_id, outcome, duration_minutes, created_at"
+          "id, opportunity_id, type, direction, subject, content, body_text, body_text_clean, email_connection_id, email_message_id, email_thread_id, to_emails, cc_emails, outcome, duration_minutes, created_at"
         )
         .eq("company_id", companyId)
         .in("opportunity_id", opportunityBatch)
@@ -2723,9 +3479,9 @@ export async function refreshLeadSummariesForOpportunities(input: {
     for (const opportunity of opportunities) {
       const slices = slicesByOpportunity.get(opportunity.id);
       if (!slices) continue;
-      const bundle = buildLeadSummaryContext(opportunity, slices);
-      if (!bundle) continue;
       try {
+        const bundle = buildLeadSummaryContext(opportunity, slices);
+        if (!bundle) continue;
         const summary = await generateLeadSummary({ companyName, bundle });
         await commitLeadSummarySnapshot({
           supabase: input.supabase,
@@ -2818,18 +3574,29 @@ async function sweepCompany(
   for (const opportunity of opportunities) {
     const slices = slicesByOpportunity.get(opportunity.id);
     if (!slices) continue;
-    const aggregates = computeLeadContextAggregates(opportunity, slices);
-    const verdict = evaluateLeadStaleness(opportunity, aggregates);
-    if (verdict === "insufficient_context") {
-      result.skippedInsufficientContext += 1;
+    try {
+      const aggregates = computeLeadContextAggregates(opportunity, slices);
+      const verdict = evaluateLeadStaleness(opportunity, aggregates);
+      if (verdict === "insufficient_context") {
+        result.skippedInsufficientContext += 1;
+        continue;
+      }
+      if (verdict !== "stale") continue;
+      candidates.push({
+        opportunity,
+        slices,
+        stampMs: parseMs(opportunity.ai_summary_updated_at),
+      });
+    } catch (error) {
+      // Treat a corrupt evidence boundary as a failure for this lead only.
+      // Other leads remain independently refreshable, while the failed lead
+      // stays dirty for a safe retry after its provenance is repaired.
+      result.failed.push({
+        opportunityId: opportunity.id,
+        error: error instanceof Error ? error.message : "unknown error",
+      });
       continue;
     }
-    if (verdict !== "stale") continue;
-    candidates.push({
-      opportunity,
-      slices,
-      stampMs: parseMs(opportunity.ai_summary_updated_at),
-    });
   }
 
   // Stalest first: never-stamped leads lead the queue, then oldest stamps.
@@ -2857,16 +3624,16 @@ async function sweepCompany(
   if (accumulator.dryRun) return;
 
   for (const candidate of toProcess) {
-    const bundle = buildLeadSummaryContext(
-      candidate.opportunity,
-      candidate.slices
-    );
-    if (!bundle) {
-      // Defensive: pre-filtering guarantees context, but never fabricate.
-      result.skippedInsufficientContext += 1;
-      continue;
-    }
     try {
+      const bundle = buildLeadSummaryContext(
+        candidate.opportunity,
+        candidate.slices
+      );
+      if (!bundle) {
+        // Defensive: pre-filtering guarantees context, but never fabricate.
+        result.skippedInsufficientContext += 1;
+        continue;
+      }
       const summary = await generateLeadSummary({ companyName, bundle });
       await commitLeadSummarySnapshot({
         supabase,

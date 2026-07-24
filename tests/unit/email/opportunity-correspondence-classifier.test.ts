@@ -99,6 +99,76 @@ describe("opportunity correspondence classifier", () => {
     });
   });
 
+  it("classifies recruiting relay traffic as non-sales provider noise", () => {
+    expect(
+      classifyOpportunityCorrespondence({
+        ...baseInput,
+        fromEmail: "candidate-7f42@indeedemail.com",
+        subject: "New application for Deck Installer",
+        bodyText:
+          "A candidate applied to your job. View the application in your employer dashboard.",
+      })
+    ).toMatchObject({
+      partyRole: "provider",
+      isMeaningful: false,
+      noiseReason: "provider_noise",
+      customerEmail: null,
+    });
+  });
+
+  it("classifies exact Indeed application-updates traffic as provider noise", () => {
+    expect(
+      classifyOpportunityCorrespondence({
+        ...baseInput,
+        fromEmail: "conversation-candidate-7f42@indeedemail.com",
+        subject: "Application update",
+        bodyText:
+          "Ask the person who posted the job or your account admin to remove you from these application updates.",
+      })
+    ).toMatchObject({
+      partyRole: "provider",
+      isMeaningful: false,
+      noiseReason: "provider_noise",
+      customerEmail: null,
+    });
+  });
+
+  it("classifies an OPS reply to an Indeed relay as provider noise", () => {
+    expect(
+      classifyOpportunityCorrespondence({
+        ...baseInput,
+        direction: "outbound",
+        fromEmail: "jackson@canprodeckandrail.com",
+        toEmails: ["conversation-candidate-7f42@indeedemail.com"],
+        subject: "Re: Vinyl installer application",
+        bodyText: "Feel free to call if anything changes.",
+      })
+    ).toMatchObject({
+      direction: "outbound",
+      partyRole: "provider",
+      isMeaningful: false,
+      noiseReason: "provider_noise",
+      customerEmail: null,
+    });
+  });
+
+  it("does not suppress a genuine project inquiry merely because it uses the word application", () => {
+    expect(
+      classifyOpportunityCorrespondence({
+        ...baseInput,
+        fromEmail: "owner@example.net",
+        subject: "Waterproofing question",
+        bodyText:
+          "Can you quote the application of a new waterproof deck coating?",
+      })
+    ).toMatchObject({
+      partyRole: "customer",
+      isMeaningful: true,
+      noiseReason: null,
+      customerEmail: "owner@example.net",
+    });
+  });
+
   it("excludes bounce messages", () => {
     expect(
       classifyOpportunityCorrespondence({

@@ -12,6 +12,8 @@ type CommercialSignal =
 
 interface CommercialOutcomeMessage {
   evidenceKey?: string;
+  connectionId?: string;
+  providerThreadId?: string;
   providerMessageId: string;
   occurredAt: string;
   direction: "inbound" | "outbound";
@@ -418,7 +420,8 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
       facts: {
         excludedScope: null,
         schedule: null,
-        nextAction: "Convert or link the project and confirm the work schedule.",
+        nextAction:
+          "Convert or link the project and confirm the work schedule.",
       },
     });
     expect(result?.facts.nextAction).not.toMatch(/send deposit|instructions/i);
@@ -526,6 +529,177 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
         currentPrice: 3192.7,
         objection: expect.stringMatching(/truck repairs cost \$4,000/i),
       },
+    });
+  });
+
+  it("attributes quote and repair amounts separately in the same sentence", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "same-sentence-quote-and-expense",
+          "2026-07-20T18:00:00.000Z",
+          "inbound",
+          "The discounted railing quote is $3,192.70, but my truck repairs cost $4,000 so we need to postpone until next year."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "deferred",
+      facts: { currentPrice: 3192.7 },
+    });
+  });
+
+  it("does not replace a quoted deal price with the customer's stated budget in the same clause", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "same-clause-quote-and-budget",
+          "2026-07-20T18:00:00.000Z",
+          "inbound",
+          "The $3,192.70 quote exceeds our $2,500 budget, so we need to postpone until next year."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "deferred",
+      facts: { currentPrice: 3192.7 },
+    });
+  });
+
+  it.each([
+    "I spent $4,000 on truck repairs, so we need to postpone until next year.",
+    "I paid $4,000 to fix the truck, so we need to postpone until next year.",
+    "Truck repairs ate $4,000, so we need to postpone until next year.",
+    "The truck set us back $4,000, so we need to postpone until next year.",
+    "We lost $4,000 fixing the engine, so we need to postpone until next year.",
+    "My $4,000 truck repair means we need to postpone until next year.",
+    "I had a $4,000 truck repair, so we need to postpone until next year.",
+  ])("does not promote an external expense to deal price: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "quote-before-expense-variant",
+            "2026-07-19T18:00:00.000Z",
+            "outbound",
+            "The discounted quote is $3,192.70."
+          ),
+          message(
+            "external-expense-variant",
+            "2026-07-20T18:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "deferred",
+      facts: { currentPrice: 3192.7 },
+    });
+  });
+
+  it.each([
+    "We only have $2,500 to spend, so we need to postpone until next year.",
+    "Our max is $2,500, so we need to postpone until next year.",
+    "We can afford $2,500, so we need to postpone until next year.",
+    "We set aside $2,500, so we need to postpone until next year.",
+    "We are short $692.70, so we need to postpone until next year.",
+    "We need another $692.70, so we need to postpone until next year.",
+  ])(
+    "does not promote budget or funding-gap amount to deal price: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "quote-before-budget-variant",
+              "2026-07-19T18:00:00.000Z",
+              "outbound",
+              "The discounted quote is $3,192.70."
+            ),
+            message(
+              "budget-variant",
+              "2026-07-20T18:00:00.000Z",
+              "inbound",
+              body
+            ),
+          ],
+        })
+      ).toMatchObject({
+        outcome: "deferred",
+        facts: { currentPrice: 3192.7 },
+      });
+    }
+  );
+
+  it.each([
+    "We need to postpone the project because the budget is gone.",
+    "We cannot afford the project right now.",
+    "Truck repairs consumed the funds, so put this off.",
+    "We need to delay until we have the money.",
+    "Please postpone for budget reasons and follow up later.",
+  ])(
+    "uses a bounded future follow-up for an undated budget deferral: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "undated-budget-deferral",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              body
+            ),
+          ],
+        })
+      ).toMatchObject({
+        outcome: "deferred",
+        followUpAt: "2026-10-21T16:00:00.000Z",
+        facts: {
+          nextAction: expect.stringMatching(
+            /follow.?up.*3 months|3 months.*follow.?up/i
+          ),
+        },
+      });
+    }
+  );
+
+  it.each([
+    "I sent $600 as the deposit.",
+    "I paid $600 yesterday.",
+    "Balance paid: $600.",
+    "The remaining balance is $600.",
+    "A $600 transfer was sent.",
+    "Receipt for $600 attached.",
+  ])("does not promote a transaction amount to deal price: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "quote-before-transaction",
+            "2026-07-19T18:00:00.000Z",
+            "inbound",
+            "We accept the $1,200 quote."
+          ),
+          message(
+            "transaction-amount",
+            "2026-07-20T18:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      facts: { currentPrice: 1200 },
     });
   });
 
@@ -1521,6 +1695,44 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
     }
   );
 
+  it("keeps a revised quote amount when payment receipt is confirmed in the same sentence", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "revised-quote-with-payment",
+            "2026-07-20T18:00:00.000Z",
+            "outbound",
+            "The revised quote is $1,275 and the deposit was received."
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      facts: { currentPrice: 1275 },
+    });
+  });
+
+  it("does not treat a deposit amount as the total deal price", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "deposit-amount-only",
+            "2026-07-20T18:00:00.000Z",
+            "outbound",
+            "The $500 deposit was received."
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      facts: { currentPrice: null },
+    });
+  });
+
   it.each([
     "We accept. Number of posts: 12.",
     "We accept. Installation time: 10 tomorrow.",
@@ -2076,7 +2288,7 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
     ).toBeNull();
   });
 
-  it("uses post-acceptance price and scope revisions as current facts", () => {
+  it("requires fresh customer authority after a post-acceptance price and scope revision", () => {
     const result = detectCommercialOutcome({
       now: NOW,
       messages: [
@@ -2095,15 +2307,7 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
       ],
     });
 
-    expect(result).toMatchObject({
-      outcome: "won",
-      decisiveMessageId: "accepted-original",
-      evidenceMessageIds: ["accepted-original", "revised-current-scope"],
-      facts: {
-        currentPrice: 1275,
-        currentScope: expect.stringMatching(/added gate/i),
-      },
-    });
+    expect(result).toBeNull();
   });
 
   it.each([
@@ -2179,6 +2383,1795 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
       outcome: "won",
       decisiveEvidenceKey: "connection-b:event-2",
       signals: expect.arrayContaining(["explicit_acceptance"]),
+    });
+  });
+
+  it("does not treat recruiting unsubscribe text as a customer declining project work", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "recruiting-footer",
+            "2026-07-21T17:00:00.000Z",
+            "inbound",
+            "No longer want application emails for this job? Manage your preferences under our Privacy Policy and Cookie Policy."
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "Friday would work—could we book 10:00?",
+    "Tuesday can work but preferably in the morning.",
+  ])("does not create a Won outcome from availability alone: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "availability-only",
+            "2026-07-21T17:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("can use availability as schedule evidence only after explicit commercial acceptance", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "accepted",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            "We accept the quote and are ready to proceed."
+          ),
+          message(
+            "availability",
+            "2026-07-21T17:00:00.000Z",
+            "inbound",
+            "Friday would work—could we book 10:00?"
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      facts: {
+        schedule: expect.stringMatching(/Friday.*10:00/i),
+      },
+    });
+  });
+
+  it("retires an older accepted cycle when the customer requests a revised quote for materially different work", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "old-acceptance",
+            "2026-05-01T17:00:00.000Z",
+            "inbound",
+            "That quote works for us. Please proceed with the railing installation."
+          ),
+          message(
+            "new-cycle",
+            "2026-07-20T17:00:00.000Z",
+            "inbound",
+            "Can you provide a revised quote for vinyl replacement?"
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("restores Won only from acceptance inside the new commercial episode", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "old-acceptance",
+          "2026-05-01T17:00:00.000Z",
+          "inbound",
+          "That quote works for us. Please proceed with the railing installation."
+        ),
+        message(
+          "new-cycle",
+          "2026-07-20T17:00:00.000Z",
+          "inbound",
+          "Can you provide a revised quote for $2,400 vinyl replacement?"
+        ),
+        message(
+          "new-acceptance",
+          "2026-07-21T17:00:00.000Z",
+          "inbound",
+          "We accept the $2,400 vinyl replacement quote. Please proceed."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "new-acceptance",
+      evidenceMessageIds: ["new-cycle", "new-acceptance"],
+      facts: {
+        currentPrice: 2400,
+        currentScope: expect.stringMatching(/vinyl replacement/i),
+      },
+    });
+  });
+
+  it.each([
+    "The project quote is scheduled to arrive Friday by email.",
+    "The estimate is booked for delivery Thursday.",
+    "Our promotion expires Friday.",
+    "Our office is closed Friday.",
+  ])("does not create Won from a non-execution schedule: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "non-execution-schedule",
+            "2026-07-21T17:00:00.000Z",
+            "outbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("requires fresh acceptance after an operator issues a revised quote", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "accepted",
+            "2026-07-20T16:00:00.000Z",
+            "inbound",
+            "We accept the $1,200 railing quote. Please proceed."
+          ),
+          message(
+            "operator-revision",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            "The revised quote total is $1,400 including old railing removal."
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("preserves accepted base work when a later quote request is explicitly an add-on", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "accepted",
+          "2026-07-20T16:00:00.000Z",
+          "inbound",
+          "We accept the $1,200 railing quote. Please proceed."
+        ),
+        message(
+          "optional-add-on",
+          "2026-07-21T16:00:00.000Z",
+          "inbound",
+          "Also, can you provide a separate quote to install deck lighting?"
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      facts: {
+        currentPrice: 1200,
+        currentScope: expect.stringMatching(/railing/i),
+      },
+    });
+    expect(result!.facts.currentScope).not.toMatch(/lighting/i);
+  });
+
+  it("blocks older signed authority across a revised or ambiguous quote cycle until fresh acceptance", () => {
+    const hasUnresolvedCommercialConflict =
+      terminalStageDecision.hasUnresolvedCommercialConflict;
+    const revised = message(
+      "revised",
+      "2026-07-21T16:00:00.000Z",
+      "inbound",
+      "Can you provide an updated quote to replace the plywood and vinyl?"
+    );
+    const ambiguous = message(
+      "ambiguous",
+      "2026-07-21T16:00:00.000Z",
+      "inbound",
+      "Can you provide a quote for the vinyl replacement?"
+    );
+    const addOn = message(
+      "add-on",
+      "2026-07-21T16:00:00.000Z",
+      "inbound",
+      "Can you also provide a separate quote for optional deck lighting?"
+    );
+    const accepted = message(
+      "fresh-acceptance",
+      "2026-07-21T17:00:00.000Z",
+      "inbound",
+      "We accept the updated vinyl replacement quote. Please proceed."
+    );
+
+    expect(hasUnresolvedCommercialConflict([revised], true)).toBe(true);
+    expect(hasUnresolvedCommercialConflict([ambiguous], true)).toBe(true);
+    expect(hasUnresolvedCommercialConflict([addOn], true)).toBe(false);
+    expect(hasUnresolvedCommercialConflict([revised, accepted], true)).toBe(
+      false
+    );
+  });
+
+  it.each([
+    "We no longer want this.",
+    "We no longer need this.",
+    "Please cancel it.",
+    "Cancel this, please.",
+  ])("lets a concise customer reversal veto prior acceptance: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "accepted-before-reversal",
+            "2026-07-20T16:00:00.000Z",
+            "inbound",
+            "We accept the $1,200 railing quote. Please proceed."
+          ),
+          message(
+            "concise-reversal",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "declined",
+      decisiveMessageId: "concise-reversal",
+    });
+  });
+
+  it.each([
+    "Let’s proceed with the railing quote.",
+    "We're ready to proceed with the quote.",
+    "We’re ready to proceed with the quote.",
+    "We are ready to proceed with the quote.",
+  ])("recognizes a common explicit work acceptance: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "common-acceptance",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      decisiveSignals: ["explicit_acceptance"],
+    });
+  });
+
+  it.each([
+    "Please postpone this until next year.",
+    "We need to defer the project to 2027.",
+  ])(
+    "creates a future follow-up from an explicit timing deferral: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "timing-deferral",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              body
+            ),
+          ],
+        })
+      ).toMatchObject({
+        outcome: "deferred",
+        reasonCode: "budget_timing",
+      });
+    }
+  );
+
+  it("inherits an execution schedule acknowledgement only inside the same mailbox thread", () => {
+    const proposal = {
+      ...message(
+        "schedule-proposal",
+        "2026-07-20T16:00:00.000Z",
+        "outbound",
+        "Can we schedule the railing installation for Thursday?"
+      ),
+      connectionId: "connection-1",
+      providerThreadId: "thread-1",
+    };
+    const acknowledgement = {
+      ...message(
+        "schedule-ack",
+        "2026-07-21T16:00:00.000Z",
+        "inbound",
+        "Thursday is good."
+      ),
+      connectionId: "connection-1",
+      providerThreadId: "thread-1",
+    };
+
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [proposal, acknowledgement],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      decisiveSignals: ["schedule_confirmed"],
+    });
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          proposal,
+          { ...acknowledgement, providerThreadId: "thread-2" },
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("inherits a customer's execution booking request for a same-thread operator confirmation", () => {
+    const request = {
+      ...message(
+        "booking-request",
+        "2026-07-20T16:00:00.000Z",
+        "inbound",
+        "Could we book the railing repair for August 18?"
+      ),
+      connectionId: "connection-1",
+      providerThreadId: "thread-1",
+    };
+    const confirmation = {
+      ...message(
+        "booking-confirmation",
+        "2026-07-21T16:00:00.000Z",
+        "outbound",
+        "Hey Sean, booked."
+      ),
+      connectionId: "connection-1",
+      providerThreadId: "thread-1",
+    };
+
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [request, confirmation],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      facts: { schedule: expect.stringMatching(/August 18/i) },
+    });
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [request, { ...confirmation, providerThreadId: "thread-2" }],
+      })
+    ).toBeNull();
+  });
+
+  it("does not reuse a pre-veto scheduling proposal", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          {
+            ...message(
+              "proposal-before-veto",
+              "2026-07-19T16:00:00.000Z",
+              "outbound",
+              "Can we schedule the railing installation for Friday?"
+            ),
+            connectionId: "connection-1",
+            providerThreadId: "thread-1",
+          },
+          {
+            ...message(
+              "decline",
+              "2026-07-20T16:00:00.000Z",
+              "inbound",
+              "We are not moving forward with the project."
+            ),
+            connectionId: "connection-1",
+            providerThreadId: "thread-1",
+          },
+          {
+            ...message(
+              "stale-ack",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              "Friday is good."
+            ),
+            connectionId: "connection-1",
+            providerThreadId: "thread-1",
+          },
+        ],
+      })
+    ).toMatchObject({
+      outcome: "declined",
+      decisiveMessageId: "decline",
+    });
+  });
+
+  it.each([
+    "The repair is booked Thursday.",
+    "Railing repair scheduled Friday.",
+    "Replacement booked Monday.",
+    "Railing removal scheduled Tuesday.",
+    "Crew scheduled Sep 2.",
+    "Work starts Oct. 3rd.",
+    "Installation booked 8/18.",
+    "Installation booked 2026-08-18.",
+  ])("recognizes a direct execution schedule: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "execution-schedule",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            body
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      decisiveSignals: ["schedule_confirmed"],
+    });
+  });
+
+  it.each([
+    "Our project office closure is scheduled Friday.",
+    "The project call is booked Monday.",
+    "The project invoice is scheduled Friday.",
+    "Project photoshoot booked Tuesday.",
+    "Project material sample delivery scheduled Monday.",
+    "Work order scheduled Friday.",
+    "Work permit booked Monday.",
+    "Job interview scheduled Tuesday.",
+    "Job quote booked Wednesday.",
+  ])("does not turn an administrative schedule into Won: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "administrative-schedule",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "Ready to proceed with the site visit.",
+    "Go ahead with the measurement appointment.",
+    "Please proceed with the consultation.",
+    "Let’s proceed with the meeting.",
+    "Go ahead with the refund.",
+    "Please proceed with refunding the deposit.",
+    "Go ahead and cancel the payment.",
+  ])(
+    "does not treat an administrative action as work acceptance: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "administrative-proceed",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              body
+            ),
+          ],
+        })
+      ).toBeNull();
+    }
+  );
+
+  it.each([
+    "We no longer need this meeting.",
+    "We no longer want this appointment.",
+    "We no longer need this payment reminder.",
+    "Please cancel this appointment.",
+    "We are not moving forward with the site visit.",
+    "We decided not to proceed with the measurement appointment.",
+  ])(
+    "does not treat an administrative cancellation as a sales-cycle decline: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "accepted-before-admin-change",
+              "2026-07-20T16:00:00.000Z",
+              "inbound",
+              "We accept the $1,200 railing quote. Please proceed."
+            ),
+            message(
+              "administrative-change",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              body
+            ),
+          ],
+        })
+      ).toMatchObject({
+        outcome: "won",
+        decisiveMessageId: "accepted-before-admin-change",
+      });
+    }
+  );
+
+  it.each([
+    "Can you update me on the quote?",
+    "Any update on our quote?",
+    "Status update on the proposal.",
+    "Update us on when the estimate will be ready.",
+  ])(
+    "preserves accepted authority across a document status request: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "accepted-before-status",
+              "2026-07-20T16:00:00.000Z",
+              "inbound",
+              "We accept the $1,200 railing quote. Please proceed."
+            ),
+            message(
+              "status-request",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              body
+            ),
+          ],
+        })
+      ).toMatchObject({
+        outcome: "won",
+        decisiveMessageId: "accepted-before-status",
+      });
+    }
+  );
+
+  it("quarantines later add-on pricing from the accepted base facts", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "accepted-base",
+            "2026-07-19T16:00:00.000Z",
+            "inbound",
+            "We accept the $1,200 railing installation quote. Please proceed."
+          ),
+          message(
+            "separate-add-on",
+            "2026-07-20T16:00:00.000Z",
+            "inbound",
+            "Also, can you provide a separate quote to install deck lighting?"
+          ),
+          message(
+            "add-on-price",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            "Deck lighting installation would be $500."
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      facts: {
+        currentPrice: 1200,
+        currentScope: expect.stringMatching(/railing/i),
+      },
+    });
+  });
+
+  it.each([
+    "The railing quote is $1,200 and is also attached.",
+    "The $1,200 railing quote also includes removal.",
+    "We also emailed the $1,200 railing quote to your husband.",
+    "Your railing quote is $1,200; photos are also attached.",
+  ])(
+    "does not treat incidental also wording as a separate add-on: %s",
+    (quoteBody) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "base-quote-with-incidental-also",
+              "2026-07-20T16:00:00.000Z",
+              "outbound",
+              quoteBody
+            ),
+            message(
+              "accept-base-quote-with-incidental-also",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              "We accept the railing quote. Please proceed."
+            ),
+          ],
+        })
+      ).toMatchObject({
+        outcome: "won",
+        facts: {
+          currentPrice: 1200,
+          currentScope: expect.stringMatching(/railing/i),
+        },
+      });
+    }
+  );
+
+  it("keeps base facts when acceptance after an add-on quote names the base scope", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "base-quote-before-add-on",
+          "2026-07-18T16:00:00.000Z",
+          "outbound",
+          "The railing installation quote is $1,200."
+        ),
+        message(
+          "separate-add-on-request-before-base-acceptance",
+          "2026-07-19T16:00:00.000Z",
+          "inbound",
+          "Also, can you provide a separate quote for optional deck lighting?"
+        ),
+        message(
+          "separate-add-on-price-before-base-acceptance",
+          "2026-07-20T16:00:00.000Z",
+          "outbound",
+          "Deck lighting installation would be $500."
+        ),
+        message(
+          "scoped-base-acceptance-after-add-on",
+          "2026-07-21T16:00:00.000Z",
+          "inbound",
+          "We accept the railing quote. Please proceed."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "scoped-base-acceptance-after-add-on",
+      facts: {
+        currentPrice: 1200,
+        currentScope: expect.stringMatching(/railing/i),
+      },
+    });
+    expect(result!.facts.currentScope).not.toMatch(/lighting/i);
+  });
+
+  it("keeps base facts when a confirmed schedule after an add-on quote names the base scope", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "base-quote-before-add-on-schedule",
+          "2026-07-17T16:00:00.000Z",
+          "outbound",
+          "The railing installation quote is $1,200."
+        ),
+        message(
+          "separate-add-on-request-before-base-schedule",
+          "2026-07-18T16:00:00.000Z",
+          "inbound",
+          "Also, can you provide a separate quote for optional deck lighting?"
+        ),
+        message(
+          "separate-add-on-price-before-base-schedule",
+          "2026-07-19T16:00:00.000Z",
+          "outbound",
+          "Deck lighting installation would be $500."
+        ),
+        message(
+          "base-schedule-request-after-add-on",
+          "2026-07-20T16:00:00.000Z",
+          "inbound",
+          "Can we schedule the railing installation for Tuesday?"
+        ),
+        message(
+          "base-schedule-confirmed-after-add-on",
+          "2026-07-21T16:00:00.000Z",
+          "outbound",
+          "Tuesday is confirmed for the railing installation."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "base-schedule-confirmed-after-add-on",
+      facts: {
+        currentPrice: 1200,
+        currentScope: expect.stringMatching(/railing/i),
+        schedule: expect.stringMatching(/tuesday/i),
+      },
+    });
+    expect(result!.facts.currentScope).not.toMatch(/lighting/i);
+  });
+
+  it("adds an explicitly accepted add-on to the accepted base deal", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "base-quote-before-accepted-add-on",
+          "2026-07-17T16:00:00.000Z",
+          "outbound",
+          "The railing installation quote is $1,200."
+        ),
+        message(
+          "base-acceptance-before-accepted-add-on",
+          "2026-07-18T16:00:00.000Z",
+          "inbound",
+          "We accept the railing installation quote. Please proceed."
+        ),
+        message(
+          "accepted-add-on-request",
+          "2026-07-19T16:00:00.000Z",
+          "inbound",
+          "Also, can you provide a separate quote for optional deck lighting?"
+        ),
+        message(
+          "accepted-add-on-price",
+          "2026-07-20T16:00:00.000Z",
+          "outbound",
+          "Deck lighting installation would be $500."
+        ),
+        message(
+          "accepted-add-on-decision",
+          "2026-07-21T16:00:00.000Z",
+          "inbound",
+          "We accept the separate deck lighting quote too. Please add it to the railing work."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "accepted-add-on-decision",
+      facts: {
+        currentPrice: 1700,
+        currentScope: expect.stringMatching(/railing/i),
+      },
+    });
+    expect(result!.facts.currentScope).toMatch(/lighting/i);
+  });
+
+  it("retains a priced add-on transition as evidence when that add-on is accepted", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "base-before-single-message-add-on",
+          "2026-07-18T16:00:00.000Z",
+          "outbound",
+          "The railing installation quote is $1,200."
+        ),
+        message(
+          "base-accepted-before-single-message-add-on",
+          "2026-07-19T16:00:00.000Z",
+          "inbound",
+          "We accept the railing installation quote. Please proceed."
+        ),
+        message(
+          "single-message-priced-add-on",
+          "2026-07-20T16:00:00.000Z",
+          "outbound",
+          "Here is a separate optional deck-lighting quote for $500."
+        ),
+        message(
+          "single-message-add-on-accepted",
+          "2026-07-21T16:00:00.000Z",
+          "inbound",
+          "We accept the deck-lighting quote too."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "single-message-add-on-accepted",
+      facts: {
+        currentPrice: 1700,
+        currentScope: expect.stringMatching(/railing/i),
+      },
+    });
+    expect(result!.facts.currentScope).toMatch(/deck-lighting/i);
+  });
+
+  it("keeps a terse same-thread add-on price inside the only open add-on branch", () => {
+    const onThread = (
+      value: CommercialOutcomeMessage
+    ): CommercialOutcomeMessage => ({
+      ...value,
+      connectionId: "connection-add-on-context",
+      providerThreadId: "thread-add-on-context",
+    });
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        onThread(
+          message(
+            "base-before-terse-add-on-price",
+            "2026-07-17T16:00:00.000Z",
+            "outbound",
+            "The railing installation quote is $1,200."
+          )
+        ),
+        onThread(
+          message(
+            "base-accepted-before-terse-add-on-price",
+            "2026-07-18T16:00:00.000Z",
+            "inbound",
+            "We accept the railing installation quote. Please proceed."
+          )
+        ),
+        onThread(
+          message(
+            "open-add-on-before-terse-price",
+            "2026-07-19T16:00:00.000Z",
+            "inbound",
+            "Can you send a separate deck-lighting quote?"
+          )
+        ),
+        onThread(
+          message(
+            "terse-add-on-price",
+            "2026-07-20T16:00:00.000Z",
+            "outbound",
+            "It would be $500."
+          )
+        ),
+        onThread(
+          message(
+            "accept-add-on-after-terse-price",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            "We accept the deck-lighting quote."
+          )
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "accept-add-on-after-terse-price",
+      facts: {
+        currentPrice: 1700,
+        currentScope: expect.stringMatching(/railing/i),
+      },
+    });
+    expect(result!.facts.currentScope).toMatch(/deck-lighting/i);
+  });
+
+  it.each([
+    [
+      "confirmation",
+      [
+        message(
+          "accepted-before-pure-schedule",
+          "2026-07-20T16:00:00.000Z",
+          "inbound",
+          "We accept the quote. Please proceed."
+        ),
+        message(
+          "pure-installation-confirmation",
+          "2026-07-21T16:00:00.000Z",
+          "outbound",
+          "The installation is confirmed for Tuesday."
+        ),
+      ],
+      /tuesday/i,
+    ],
+    [
+      "reschedule",
+      [
+        message(
+          "accepted-before-pure-reschedule",
+          "2026-07-19T16:00:00.000Z",
+          "inbound",
+          "We accept the quote. Please proceed."
+        ),
+        message(
+          "pure-installation-original-date",
+          "2026-07-20T16:00:00.000Z",
+          "outbound",
+          "The installation is confirmed for Tuesday."
+        ),
+        message(
+          "pure-installation-reschedule",
+          "2026-07-21T16:00:00.000Z",
+          "outbound",
+          "The installation was rescheduled to Friday."
+        ),
+      ],
+      /friday/i,
+    ],
+  ])(
+    "does not turn a pure installation %s into commercial scope",
+    (_case, messages, expectedSchedule) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages,
+        })
+      ).toMatchObject({
+        outcome: "won",
+        facts: {
+          currentScope: null,
+          schedule: expect.stringMatching(expectedSchedule),
+        },
+      });
+    }
+  );
+
+  it.each([
+    "I thought we accepted the quote.",
+    "I thought the quote was accepted.",
+    "We almost accepted the quote.",
+    "Maybe go ahead with the quote.",
+    "I think we should go ahead with the quote.",
+    "We may go ahead with the quote.",
+    "We might go ahead with the quote.",
+    "We were asked to go ahead with the quote.",
+    "The board recommended we go ahead with the quote.",
+    "We plan to go ahead with the quote.",
+  ])("does not convert tentative or reported acceptance: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "non-authoritative-acceptance",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "Maybe postpone the project until next year because of the budget.",
+    "We are considering postponing the project until next year because of the budget.",
+    "We almost postponed the project until next year because of the budget.",
+    "I thought we had to postpone the project until next year because of the budget.",
+    "We were advised to postpone the project until next year because of the budget.",
+    "Our accountant recommended postponing the project until next year because of the budget.",
+    "We should postpone the project until next year because of the budget.",
+  ])("does not close a sales cycle from tentative deferral: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "non-authoritative-deferral",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("treats a direct current plan to postpone for budget and timing as deferred", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "direct-deferral-plan",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            "We plan to postpone the project until next year because the truck repair used the budget."
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "deferred",
+      decisiveMessageId: "direct-deferral-plan",
+    });
+  });
+
+  it.each([
+    "Maybe cancel the project.",
+    "We are considering cancelling the project.",
+    "We almost cancelled the project.",
+    "I thought we had cancelled the project.",
+    "We were advised to cancel the project.",
+    "Our accountant recommended cancelling the project.",
+    "We should cancel the project.",
+    "We almost hired someone else.",
+  ])("does not override accepted work with tentative decline: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "accepted-before-tentative-decline",
+            "2026-07-20T16:00:00.000Z",
+            "inbound",
+            "We accept the $1,200 railing quote. Please proceed."
+          ),
+          message(
+            "tentative-decline",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "accepted-before-tentative-decline",
+    });
+  });
+
+  it.each([
+    "I thought the deposit was received.",
+    "We were told the deposit was received.",
+    "The bank said the deposit was received.",
+    "My neighbour said the deposit was received.",
+    "Hopefully the deposit was received.",
+    "I heard the deposit was received.",
+    "The deposit was received according to my neighbour.",
+  ])("does not convert customer hearsay about payment: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "customer-payment-hearsay",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("accepts direct operator confirmation that payment was received", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "operator-payment-confirmation",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            "The deposit was received."
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      decisiveSignals: ["payment_confirmed"],
+    });
+  });
+
+  it.each([
+    "I thought I asked where to send the deposit.",
+    "We were told to ask where to send the deposit.",
+    "Maybe send the deposit instructions.",
+    "I think we should ask where to send the deposit.",
+    "We may ask where to send the deposit.",
+    "We are considering asking where to send the deposit.",
+    "We almost asked where to send the deposit.",
+    "The bank asked us where to send the deposit.",
+    "Our accountant wants to know where to send the deposit.",
+  ])("does not convert tentative or reported deposit requests: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "non-authoritative-deposit-request",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("accepts the customer's direct deposit-payment question", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "direct-deposit-request",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            "Where should I send the deposit?"
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      decisiveSignals: ["deposit_requested"],
+    });
+  });
+
+  it.each([
+    "The installation is no longer scheduled Tuesday.",
+    "The installation isn't scheduled Tuesday.",
+    "The installation wasn't scheduled Tuesday.",
+    "The installation should be scheduled Tuesday.",
+    "The installation could have been scheduled Tuesday.",
+    "The installation was supposed to be scheduled Tuesday.",
+    "The installation is expected to be scheduled Tuesday.",
+    "The installation is planned to be scheduled Tuesday.",
+    "The installation will be scheduled Tuesday.",
+    "The installation might get scheduled Tuesday.",
+    "Hopefully the installation is scheduled Tuesday.",
+    "I thought the installation was scheduled Tuesday.",
+  ])("does not convert a negated or tentative schedule: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "non-authoritative-schedule",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "The installation contract signing is scheduled Tuesday.",
+    "The installation design review is scheduled Tuesday.",
+    "The installation colour selection is scheduled Tuesday.",
+    "The installation material order is scheduled Tuesday.",
+    "The installation shop drawings review is scheduled Tuesday.",
+    "The installation warranty registration is scheduled Tuesday.",
+    "The installation insurance paperwork is scheduled Tuesday.",
+  ])("does not convert an administrative installation event: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "administrative-installation-event",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "Can we schedule the installation estimate review Tuesday?",
+    "Can we book the repair quote appointment Tuesday?",
+    "Can we schedule the removal consultation Tuesday?",
+    "Can we book the material sample delivery Tuesday?",
+  ])(
+    "does not let a bare acknowledgement inherit a pre-sale schedule: %s",
+    (proposal) => {
+      const thread = (value: CommercialOutcomeMessage) => ({
+        ...value,
+        connectionId: "connection-pre-sale",
+        providerThreadId: "thread-pre-sale",
+      });
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            thread(
+              message(
+                "pre-sale-proposal",
+                "2026-07-20T16:00:00.000Z",
+                "outbound",
+                proposal
+              )
+            ),
+            thread(
+              message(
+                "pre-sale-ack",
+                "2026-07-21T16:00:00.000Z",
+                "inbound",
+                "Booked."
+              )
+            ),
+          ],
+        })
+      ).toBeNull();
+    }
+  );
+
+  it("lets a bare acknowledgement inherit a true same-thread execution proposal", () => {
+    const thread = (value: CommercialOutcomeMessage) => ({
+      ...value,
+      connectionId: "connection-execution",
+      providerThreadId: "thread-execution",
+    });
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          thread(
+            message(
+              "execution-proposal",
+              "2026-07-20T16:00:00.000Z",
+              "outbound",
+              "Can we schedule the railing installation Tuesday?"
+            )
+          ),
+          thread(
+            message(
+              "execution-ack",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              "Booked."
+            )
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "execution-ack",
+    });
+  });
+
+  it.each([
+    "Go ahead with the material order.",
+    "Go ahead with the design review.",
+    "Go ahead with the shop drawings.",
+    "Go ahead with the warranty registration.",
+    "Go ahead with the insurance paperwork.",
+  ])("does not accept a non-commercial go-ahead object: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "administrative-go-ahead",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "Go ahead with the railing installation.",
+    "Please proceed with the project.",
+  ])("accepts a scoped commercial go-ahead: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "commercial-go-ahead",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toMatchObject({ outcome: "won" });
+  });
+
+  it.each([
+    "Updated installation photos attached.",
+    "Updated scope photos attached.",
+    "Changed work contact phone number.",
+    "Updated installation instructions.",
+    "Changed work hours.",
+  ])("preserves accepted authority across neutral update prose: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "accepted-before-neutral-update",
+            "2026-07-20T16:00:00.000Z",
+            "inbound",
+            "We accept the $1,200 railing quote. Please proceed."
+          ),
+          message(
+            "neutral-update",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            body
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "accepted-before-neutral-update",
+    });
+  });
+
+  it.each([
+    "I assume we accepted the quote.",
+    "I understand we accepted the quote.",
+    "It seems we accepted the quote.",
+    "Apparently we accepted the quote.",
+    "There is no confirmation that the quote was accepted.",
+    "We are still waiting to hear whether the quote was accepted.",
+    "It is unclear whether the quote was accepted.",
+    "The email claimed the quote was accepted.",
+    "No one confirmed that the quote was accepted.",
+  ])("does not convert a non-asserted acceptance claim: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "non-asserted-acceptance",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "We accepted the quote for review only.",
+    "We approved the quote for budgeting purposes only.",
+    "We accept the quote as a starting point for negotiation.",
+    "We accepted that the quote is too high.",
+    "We accept that the quote is too high and won't proceed.",
+    "The quote was accepted by our software.",
+    "The quote was accepted into our records.",
+    "We accepted delivery of the quote.",
+    "We approved the quote format, not the work.",
+  ])(
+    "does not treat quote-artifact handling as work authorization: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "non-authorizing-quote-acceptance",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              body
+            ),
+          ],
+        })
+      ).toBeNull();
+    }
+  );
+
+  it.each([
+    "The estimate was approved for internal review only.",
+    "The estimate was approved for internal review.",
+    "The quote was approved for budgeting.",
+    "The proposal was approved for management review.",
+    "The estimate was accepted for consideration.",
+    "The quote was accepted for tender evaluation.",
+    "The quote was accepted as one of three options.",
+    "The quote was accepted for consideration only.",
+    "The proposal was accepted for tender evaluation only.",
+    "The estimate was accepted for filing only.",
+    "We accepted the quote to compare against another.",
+    "We approved the quote price, not yet the project.",
+    "The quote was accepted by our spam filter.",
+    "We accept the quoted amount but not the scope.",
+    "We approved the estimate for discussion purposes only.",
+    "The proposal was accepted into our document system.",
+    "We accepted the quote for reference only.",
+  ])(
+    "does not convert internal quote handling into work authorization: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "internal-quote-handling",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              body
+            ),
+          ],
+        })
+      ).toBeNull();
+    }
+  );
+
+  it.each([
+    "We've approved the budget, but not the quote.",
+    "We approved the cost, but not the job.",
+    "We accepted the price, but still need to approve the work.",
+    "We approve the materials, but not the installation.",
+    "We accepted your revised price but need to discuss the scope.",
+    "The quote was accepted for insurance purposes.",
+    "The estimate was approved for grant purposes.",
+  ])(
+    "does not convert partial commercial approvals into work authorization: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "partial-commercial-approval",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              body
+            ),
+          ],
+        })
+      ).toBeNull();
+    }
+  );
+
+  it.each([
+    "I assume the deposit was received.",
+    "I understand the deposit was received.",
+    "It seems the deposit was received.",
+    "There is no confirmation that the deposit was received.",
+    "We are still waiting to hear whether the deposit was received.",
+    "I don’t know whether the deposit was received.",
+    "The question is whether the deposit was received.",
+    "We need proof that the deposit was received.",
+    "The email claimed the deposit was received.",
+    "No one confirmed the deposit was received.",
+    "It is unclear whether the deposit was received.",
+    "John said the deposit was received.",
+    "Sarah told me the payment was sent.",
+  ])("does not convert a non-asserted payment claim: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "non-asserted-payment",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "Payment received notice is attached.",
+    "The deposit received flag is set by software.",
+    "Deposit received example only.",
+    "Please send a deposit received confirmation.",
+    "We need a deposit received email template.",
+    "The invoice says the deposit was received.",
+    "The system marked the payment as received.",
+    'The words "deposit received" should appear on the receipt.',
+    "This is a sample: payment received.",
+  ])("does not convert payment wording inside an artifact: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "payment-artifact",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "I received your deposit email.",
+    "I sent the payment question to our accountant.",
+    "We sent the deposit paperwork yesterday.",
+    "I sent the deposit form to accounting.",
+    "I sent the payment screenshot.",
+  ])("does not convert sending or receiving payment artifacts: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "payment-artifact-object",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "I assume the installation is confirmed Tuesday.",
+    "I understand the installation is confirmed Tuesday.",
+    "It seems the installation is confirmed Tuesday.",
+    "There is no confirmation that the installation was scheduled Tuesday.",
+    "We are waiting to hear whether the installation was scheduled Tuesday.",
+    "It is unclear whether the installation was scheduled Tuesday.",
+    "The email claimed the installation was scheduled Tuesday.",
+    "No one confirmed that the installation was scheduled Tuesday.",
+  ])("does not convert a non-asserted schedule claim: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "non-asserted-schedule",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "We need to confirm whether the crew arrives Thursday.",
+    "Our system scheduled the installation Thursday automatically.",
+    "Installation is scheduled Thursday in the sample quote.",
+    "The work starts Thursday according to the draft schedule.",
+    "Crew arrives Thursday is example text.",
+    "The permit says the crew arrives Thursday.",
+    "The system marked the installation scheduled Tuesday.",
+    "Sample: installation is scheduled Tuesday.",
+    "Draft wording: the crew arrives Thursday.",
+    "Placeholder: installation confirmed Tuesday.",
+    "Example only: the crew arrives Thursday.",
+  ])("does not convert schedule wording inside an artifact: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "schedule-artifact",
+            "2026-07-21T16:00:00.000Z",
+            "outbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "I need to check whether the work starts Thursday.",
+    "I need to verify whether the installation starts Monday.",
+    "The calendar shows installation scheduled Thursday.",
+    "Installation is scheduled Thursday in the planning document.",
+  ])(
+    "does not convert uncertain or planning-artifact schedules: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "planning-schedule-artifact",
+              "2026-07-21T16:00:00.000Z",
+              "outbound",
+              body
+            ),
+          ],
+        })
+      ).toBeNull();
+    }
+  );
+
+  it.each([
+    "I assume we postponed the project until next year due to budget.",
+    "I understand we postponed the project until next year due to budget.",
+    "It seems we postponed the project until next year due to budget.",
+    "There is no confirmation that we postponed the project until next year due to budget.",
+    "We are waiting to hear whether we postponed the project until next year due to budget.",
+    "It is unclear whether we postponed the project until next year due to budget.",
+    "The email claimed we postponed the project until next year due to budget.",
+    "No one confirmed that we postponed the project until next year due to budget.",
+  ])("does not defer on a non-asserted timing claim: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "non-asserted-deferral",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "We can't afford to postpone the project; the budget is ready.",
+    "We were unable to postpone because of the budget.",
+    "We need to avoid postponing the project because of timing.",
+    "The budget is approved, so postponing the project is not an option.",
+    "We decided against postponing the project for budget reasons.",
+    "We cannot delay the project because timing is critical.",
+  ])("does not defer on explicit anti-deferral wording: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message("anti-deferral", "2026-07-21T16:00:00.000Z", "inbound", body),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "We are done postponing; the budget is ready.",
+    "The delay is resolved and funds are available.",
+    "Budget approved after the delay.",
+    "Please delay billing until next year.",
+    "We need to postpone payment until next year; the project should proceed now.",
+  ])(
+    "does not defer on resolved or administrative delay wording: %s",
+    (body) => {
+      expect(
+        detectCommercialOutcome({
+          now: NOW,
+          messages: [
+            message(
+              "resolved-or-admin-delay",
+              "2026-07-21T16:00:00.000Z",
+              "inbound",
+              body
+            ),
+          ],
+        })
+      ).toBeNull();
+    }
+  );
+
+  it.each([
+    "Please cancel tomorrow's work and move it to Friday.",
+    "Cancel the installation Thursday—we need Friday instead.",
+    "We cancelled the installation for Thursday and booked Friday.",
+    "We have to cancel the work on Thursday, but Friday works.",
+    "We cancelled the job for Thursday only; still proceeding Friday.",
+  ])("does not treat a routine reschedule as a declined sale: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "routine-reschedule",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it.each([
+    "I assume we cancelled the project.",
+    "I understand we cancelled the project.",
+    "It seems we cancelled the project.",
+    "There is no confirmation that we cancelled the project.",
+    "We are waiting to hear whether we cancelled the project.",
+    "It is unclear whether we cancelled the project.",
+    "The email claimed we cancelled the project.",
+    "No one confirmed that we cancelled the project.",
+  ])("does not decline on a non-asserted cancellation claim: %s", (body) => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "non-asserted-decline",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            body
+          ),
+        ],
+      })
+    ).toBeNull();
+  });
+
+  it("does not authorize lifecycle wording embedded in a platform legal footer", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "accepted-before-platform-footer",
+            "2026-07-20T16:00:00.000Z",
+            "inbound",
+            "We accept the $1,200 quote."
+          ),
+          message(
+            "platform-footer",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            "Messages may be stored, processed and analysed under our Privacy Policy and Cookie Policy. Do not proceed with this project."
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "won",
+      decisiveMessageId: "accepted-before-platform-footer",
+    });
+  });
+
+  it("retains an explicit authored correction after a separate platform footer line", () => {
+    expect(
+      detectCommercialOutcome({
+        now: NOW,
+        messages: [
+          message(
+            "accepted-before-footer-correction",
+            "2026-07-20T16:00:00.000Z",
+            "inbound",
+            "We accept the $1,200 quote."
+          ),
+          message(
+            "footer-then-correction",
+            "2026-07-21T16:00:00.000Z",
+            "inbound",
+            [
+              "Messages may be stored under our Privacy Policy.",
+              "Correction: we changed our minds and cancelled the project.",
+            ].join("\n")
+          ),
+        ],
+      })
+    ).toMatchObject({
+      outcome: "declined",
+      decisiveMessageId: "footer-then-correction",
     });
   });
 });
