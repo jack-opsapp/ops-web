@@ -64,7 +64,7 @@ export interface OpportunityLifecycleDecision {
 }
 
 export const DEFAULT_FOLLOW_UP_TEMPLATE_BODY =
-  "Hey there {{first_name}}, just following up on this as I didn't see anything back from you.";
+  "Hi {{first_name}}, just checking in to see if you had any questions about the quote. No pressure — I wanted to make sure you had everything you needed.";
 export const DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT = "Following up";
 
 export const DEFAULT_LEAD_LIFECYCLE_SETTINGS: LeadLifecycleSettings = {

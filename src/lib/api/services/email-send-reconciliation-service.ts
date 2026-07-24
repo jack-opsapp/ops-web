@@ -19,6 +19,9 @@ export interface EmailSendReconciliationResult {
   providerMessageId: string;
   providerThreadId: string;
   sentAt: string;
+  comebackAt: string | null;
+  followUpOutcomeAppliedAt?: string | null;
+  followUpNotificationId?: string | null;
 }
 
 interface ReconcileEmailSendInput {
@@ -32,6 +35,69 @@ interface ReconcileEmailSendInput {
 function required(value: string | null, code: string): string {
   if (!value?.trim()) throw new Error(code);
   return value;
+}
+
+async function reconcileOperatorTemplateFollowUpOutcome(input: {
+  supabase: SupabaseClient;
+  intent: EmailSendIntent;
+}): Promise<{
+  comebackAt: string | null;
+  appliedAt: string;
+  notificationId: string;
+} | null> {
+  if (!input.intent.followUpDraftId) return null;
+
+  const { data: draft, error: draftError } = await input.supabase
+    .from("opportunity_follow_up_drafts")
+    .select("origin")
+    .eq("id", input.intent.followUpDraftId)
+    .eq("company_id", input.intent.companyId)
+    .eq("opportunity_id", input.intent.opportunityId)
+    .maybeSingle();
+  if (draftError) {
+    throw new Error(
+      `Template follow-up reconciliation lookup failed: ${draftError.message ?? "unknown error"}`
+    );
+  }
+  if (
+    (draft as { origin?: string | null } | null)?.origin !==
+    "template_follow_up"
+  ) {
+    return null;
+  }
+
+  const { data, error } = await input.supabase.rpc(
+    "reconcile_operator_template_follow_up_send_as_system",
+    { p_intent_id: input.intent.id }
+  );
+  if (error) {
+    throw new Error(
+      `Template follow-up reconciliation failed: ${error.message ?? "unknown error"}`
+    );
+  }
+  const row = (Array.isArray(data) ? data[0] : data) as {
+    intent_id?: string | null;
+    opportunity_id?: string | null;
+    comeback_at?: string | null;
+    applied_at?: string | null;
+    notification_id?: string | null;
+  } | null;
+  if (
+    !row ||
+    row.intent_id !== input.intent.id ||
+    row.opportunity_id !== input.intent.opportunityId ||
+    !row.applied_at ||
+    !row.notification_id
+  ) {
+    throw new Error(
+      "Template follow-up reconciliation returned an invalid receipt"
+    );
+  }
+  return {
+    comebackAt: row.comeback_at ?? null,
+    appliedAt: row.applied_at,
+    notificationId: row.notification_id,
+  };
 }
 
 /**
@@ -223,6 +289,10 @@ export async function reconcileEmailSend(
       `Sent email correspondence persistence failed: ${correspondenceResult.reason}`
     );
   }
+  const followUpOutcome = await reconcileOperatorTemplateFollowUpOutcome({
+    supabase,
+    intent,
+  });
 
   const { threadRow } = await EmailThreadService.upsertFromEmail({
     companyId: intent.companyId,
@@ -302,5 +372,8 @@ export async function reconcileEmailSend(
     providerMessageId,
     providerThreadId,
     sentAt,
+    comebackAt: followUpOutcome?.comebackAt ?? null,
+    followUpOutcomeAppliedAt: followUpOutcome?.appliedAt ?? null,
+    followUpNotificationId: followUpOutcome?.notificationId ?? null,
   };
 }

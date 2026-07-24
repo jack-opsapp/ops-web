@@ -35,6 +35,7 @@ interface State {
   canonicalThreadOwnerId: string | null;
   activityInsertError?: { code?: string; message: string } | null;
   activityLookupRows?: Array<Record<string, unknown>>;
+  followUpDraftOrigin?: string | null;
 }
 
 const CONNECTION = {
@@ -78,6 +79,9 @@ function intent(overrides: Partial<EmailSendIntent> = {}): EmailSendIntent {
     followUpDraftId: null,
     followUpSourceEventId: null,
     followUpRecipientEmail: null,
+    followUpOutcomeAppliedAt: null,
+    followUpComebackAt: null,
+    followUpNotificationId: null,
     learningAuthority: "operator_approved",
     actorNameSnapshot: "Jason Zavarella",
     actorEmailSnapshot: "jason-login@example.com",
@@ -161,6 +165,14 @@ function db(state: State) {
           error: null,
         };
       }
+      if (this.table === "opportunity_follow_up_drafts") {
+        return {
+          data: state.followUpDraftOrigin
+            ? { origin: state.followUpDraftOrigin }
+            : null,
+          error: null,
+        };
+      }
       return { data: null, error: null };
     }
     private result() {
@@ -180,7 +192,15 @@ function db(state: State) {
 
   return {
     from: (table: string) => new Query(table),
-    rpc: vi.fn(async () => ({ data: [{ changed: true }], error: null })),
+    rpc: vi.fn(
+      async (
+        _name: string,
+        _args?: Record<string, unknown>
+      ): Promise<{ data: unknown; error: null }> => ({
+        data: [{ changed: true }],
+        error: null,
+      })
+    ),
   };
 }
 
@@ -247,6 +267,48 @@ describe("accepted email reconciliation", () => {
         profileType: "sales_lead",
       })
     );
+  });
+
+  it("atomically applies and returns the template follow-up comeback after provider acceptance", async () => {
+    const state: State = {
+      activities: [],
+      activityUpdates: [],
+      canonicalThreadOwnerId: null,
+      followUpDraftOrigin: "template_follow_up",
+    };
+    const client = db(state);
+    client.rpc.mockImplementation(async (name: string) =>
+      name === "reconcile_operator_template_follow_up_send_as_system"
+        ? {
+            data: [
+              {
+                intent_id: "intent-1",
+                opportunity_id: "opp-1",
+                applied_at: "2026-07-15T18:01:01.000Z",
+                comeback_at: "2026-07-18T18:01:00.000Z",
+                notification_id: "notification-1",
+              },
+            ],
+            error: null,
+          }
+        : { data: [{ changed: true }], error: null }
+    );
+
+    const result = await reconcileEmailSend({
+      supabase: client as never,
+      intent: intent({
+        draftHistoryId: null,
+        followUpDraftId: "follow-up-draft-1",
+      }),
+      connection: CONNECTION as never,
+      provider: { applyLabel: vi.fn() },
+    });
+
+    expect(client.rpc).toHaveBeenCalledWith(
+      "reconcile_operator_template_follow_up_send_as_system",
+      { p_intent_id: "intent-1" }
+    );
+    expect(result.comebackAt).toBe("2026-07-18T18:01:00.000Z");
   });
 
   it("fails closed when the provider thread is already owned by another lead", async () => {

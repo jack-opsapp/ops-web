@@ -1014,6 +1014,7 @@
   "lifecycle.usingDefaults": "Usando predeterminados",
   "lifecycle.customize": "Personalizar",
   "lifecycle.resetDefaults": "Restablecer predeterminados",
+  "lifecycle.templateBody": "El cuerpo se usa en seguimientos de un toque. El asunto se usa en borradores locales. Guardar no envía nada.",
   "lifecycle.toast.saved": "Configuración de ciclo de vida guardada",
   "lifecycle.toast.saveFailed": "Error al guardar la configuración del ciclo de vida",
   "sections.invoiceAutomation": "Automatización de facturas",

@@ -71,6 +71,9 @@ function intent(
     followUpDraftId: null,
     followUpSourceEventId: null,
     followUpRecipientEmail: null,
+    followUpOutcomeAppliedAt: null,
+    followUpComebackAt: null,
+    followUpNotificationId: null,
     learningAuthority: PREPARE_INPUT.learningAuthority,
     actorNameSnapshot: "Jason Zavarella",
     actorEmailSnapshot: "jason@ops-login.example",
@@ -97,7 +100,12 @@ function intent(
   };
 }
 
-function dependencies() {
+function dependencies(
+  validateProviderDelivery?: (
+    intent: EmailSendIntent,
+    checkpoint: EmailProviderMailboxCheckpoint
+  ) => Promise<void>
+) {
   const mailboxLeaseState = { acquired: true };
   const mailboxCheckpoint = vi.fn(async () => undefined);
   const runWithMailboxLeaseMock = vi.fn();
@@ -160,6 +168,7 @@ function dependencies() {
     intentStore,
     provider: provider as unknown as EmailProviderInterface,
     reconcile,
+    validateProviderDelivery,
     runWithMailboxLease,
     now: () => new Date("2026-07-15T18:01:00.000Z"),
   });
@@ -203,6 +212,34 @@ describe("EmailSendDeliveryService", () => {
       intentId: "intent-1",
       leaseToken: "lease-1",
       activityId: "activity-1",
+    });
+  });
+
+  it("revalidates a claimed send before the provider call and terminates stale delivery", async () => {
+    const validateProviderDelivery = vi
+      .fn()
+      .mockRejectedValue(new Error("LEAD_FOLLOW_UP_RESPONSE_REQUIRED"));
+    const { service, intentStore, provider } = dependencies(
+      validateProviderDelivery
+    );
+
+    const result = await service.execute(PREPARE_INPUT);
+
+    expect(validateProviderDelivery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "intent-1",
+        status: "sending",
+      }),
+      expect.any(Function)
+    );
+    expect(result).toMatchObject({
+      state: "rejected",
+      delivered: false,
+    });
+    expect(provider.sendEmail).not.toHaveBeenCalled();
+    expect(intentStore.markProviderRejected).toHaveBeenCalledWith({
+      intentId: "intent-1",
+      error: "LEAD_FOLLOW_UP_RESPONSE_REQUIRED",
     });
   });
 

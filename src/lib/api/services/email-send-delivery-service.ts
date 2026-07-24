@@ -50,6 +50,16 @@ interface EmailSendDeliveryDependencies {
     intent: EmailSendIntent,
     providerLockCheckpoint: EmailProviderMailboxCheckpoint
   ) => Promise<EmailSendReconciliationResult>;
+  /**
+   * Optional provider-backed freshness check for a claimed send. It runs
+   * inside the mailbox lease after the durable prepared -> sending claim and
+   * immediately before the provider call. A failure is definitively
+   * pre-delivery and terminates this intent without invoking the provider.
+   */
+  validateProviderDelivery?: (
+    intent: EmailSendIntent,
+    providerLockCheckpoint: EmailProviderMailboxCheckpoint
+  ) => Promise<void>;
   runWithMailboxLease<T>(input: {
     connectionId: string;
     run: (checkpoint: EmailProviderMailboxCheckpoint) => Promise<T>;
@@ -145,6 +155,23 @@ export class EmailSendDeliveryService {
         prepared.id
       );
       if (!claimed) return outcome("pending", prepared);
+
+      if (this.dependencies.validateProviderDelivery) {
+        try {
+          await checkpoint();
+          await this.dependencies.validateProviderDelivery(claimed, checkpoint);
+        } catch (error) {
+          const rejected =
+            await this.dependencies.intentStore.markProviderRejected({
+              intentId: claimed.id,
+              error: message(error),
+            });
+          return outcome("rejected", rejected, {
+            delivered: false,
+            error: message(error),
+          });
+        }
+      }
 
       let providerResult: { messageId: string; threadId: string };
       try {

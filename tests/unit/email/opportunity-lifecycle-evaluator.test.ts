@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
   DEFAULT_LEAD_LIFECYCLE_SETTINGS,
   evaluateOpportunityLifecycle,
   type OpportunityLifecycleMeaningfulEvent,
@@ -11,6 +12,12 @@ const settings = {
   ...DEFAULT_LEAD_LIFECYCLE_SETTINGS,
   followUpAfterDays: 3,
 };
+
+it("keeps the stock follow-up concise and pressure-free", () => {
+  expect(DEFAULT_FOLLOW_UP_TEMPLATE_BODY).toBe(
+    "Hi {{first_name}}, just checking in to see if you had any questions about the quote. No pressure — I wanted to make sure you had everything you needed."
+  );
+});
 
 function opportunity(
   overrides: Partial<OpportunityLifecycleOpportunity> = {}
