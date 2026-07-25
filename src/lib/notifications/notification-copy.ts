@@ -2,6 +2,17 @@
 // through the ops-copywriter checklist: direct, imperative, specific,
 // no banned words. Do NOT edit without re-running the checklist.
 
+const PERSISTED_MENTION_PATTERN = /@\[([^\]]+)\]\([^)]+\)/g;
+
+export function normalizeNotificationPreviewText(text: string): string {
+  return text
+    .replace(PERSISTED_MENTION_PATTERN, (_mention, displayName: string) => {
+      return `@${displayName}`;
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export interface MemberJoinedCopyParams {
   firstName: string;
   roleName: string | null;

@@ -2,7 +2,10 @@
 
 import { Send, ImageIcon, X, Loader2, Pencil } from "lucide-react";
 import { useState, useRef } from "react";
-import { MentionTextArea, extractMentionedUserIds } from "@/components/ops/mention-textarea";
+import {
+  MentionTextArea,
+  extractMentionedUserIds,
+} from "@/components/ops/mention-textarea";
 import { PhotoCaptionDialog } from "@/components/ops/photo-caption-dialog";
 import { PhotoMarkupDialog } from "@/components/ops/photo-markup/photo-markup-dialog";
 import { uploadImage } from "@/lib/api/services/image-service";
@@ -51,7 +54,7 @@ export function NoteComposer({
   function handleSubmit() {
     if (!canSubmit) return;
     const trimmed = content.trim();
-    const mentionedIds = extractMentionedUserIds(trimmed);
+    const mentionedIds = extractMentionedUserIds(trimmed, users);
     onSubmit(trimmed, mentionedIds, attachments);
     setContent("");
     setAttachments([]);
@@ -134,7 +137,7 @@ export function NoteComposer({
               </button>
               {att.caption && (
                 <div className="absolute bottom-0 left-0 right-0 rounded-b-lg bg-black/70 px-1 py-0.5">
-                  <span className="text-micro text-[#EDEDED] line-clamp-1">
+                  <span className="line-clamp-1 text-micro text-[#EDEDED]">
                     {att.caption}
                   </span>
                 </div>
@@ -205,7 +208,8 @@ export function NoteComposer({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-[#666]">
-            {(content.length > 0 || attachments.length > 0) && "Ctrl+Enter to send"}
+            {(content.length > 0 || attachments.length > 0) &&
+              "Ctrl+Enter to send"}
           </span>
           {onCancel && (
             <button
@@ -218,7 +222,7 @@ export function NoteComposer({
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}
-            className="flex items-center gap-1.5 rounded-md bg-ops-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#4d8ab0] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-1.5 rounded-md bg-ops-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#4d8ab0] disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Send className="h-3.5 w-3.5" />
             {onCancel ? "Save" : "Post"}
