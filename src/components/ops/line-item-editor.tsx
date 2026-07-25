@@ -16,7 +16,7 @@ import {
   calculateLineTax,
   formatCurrency,
 } from "@/lib/types/pipeline";
-import type { Product } from "@/lib/types/pipeline";
+import type { LineItem, Product } from "@/lib/types/pipeline";
 import type { LineItemQuestion } from "@/lib/types/portal";
 import { useStockIndicator } from "@/lib/hooks/use-stock-indicator";
 import type { LineItemStockStatus } from "@/lib/types/product-materials";
@@ -96,18 +96,81 @@ export function createEmptyLineItem(): LineItemRow {
   };
 }
 
+export function createLineItemRowFromLineItem(lineItem: LineItem): LineItemRow {
+  const configuredOptions = Object.fromEntries(
+    Object.entries(lineItem.configuredOptions ?? {}).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  );
+  return {
+    id: lineItem.id,
+    name: lineItem.name,
+    quantity: lineItem.quantity,
+    unitPrice: lineItem.unitPrice,
+    isTaxable: lineItem.isTaxable,
+    discountPercent: lineItem.discountPercent,
+    productId: lineItem.productId,
+    unit: lineItem.unit,
+    isOptional: lineItem.isOptional,
+    isSelected: lineItem.isSelected,
+    type: lineItem.type,
+    taskTypeId: lineItem.taskTypeId,
+    taskTypeRef: lineItem.taskTypeRef,
+    unitId: lineItem.unitId,
+    resolvedUnitPrice: lineItem.resolvedUnitPrice,
+    minimumChargeSnapshot: lineItem.minimumChargeSnapshot,
+    unitCost: lineItem.unitCost,
+    estimatedHours: lineItem.estimatedHours,
+    configuredOptions,
+    resolvedOptionsLabel: lineItem.resolvedOptionsLabel,
+    missingRequiredOptions: [],
+    category: lineItem.category,
+    taxRateId: lineItem.taxRateId,
+  };
+}
+
 function computeAmount(item: LineItemRow, taxRate: number = 0) {
+  const pricing = computeLinePricingBreakdown(item, taxRate);
+  return {
+    lineTotal: pricing.lineTotal,
+    tax: pricing.tax,
+    total: pricing.total,
+  };
+}
+
+function computeLinePricingBreakdown(
+  item: LineItemRow,
+  taxRate: number = 0,
+) {
   if (item.isOptional && !item.isSelected) {
-    return { lineTotal: 0, tax: 0, total: 0 };
+    return {
+      subtotal: 0,
+      discountAmount: 0,
+      lineTotal: 0,
+      tax: 0,
+      total: 0,
+    };
   }
-  const extended = calculateLineTotal(
+
+  const rawExtension =
+    Math.round(item.quantity * item.unitPrice * 100) / 100;
+  const discountedExtension = calculateLineTotal(
     item.quantity,
     item.unitPrice,
     item.discountPercent,
   );
-  const lineTotal = Math.max(item.minimumChargeSnapshot ?? 0, extended);
+  const minimumCharge = item.minimumChargeSnapshot ?? 0;
+  const subtotal = Math.max(minimumCharge, rawExtension);
+  const lineTotal = Math.max(minimumCharge, discountedExtension);
+  const discountAmount = Math.max(0, subtotal - lineTotal);
   const tax = item.isTaxable ? calculateLineTax(lineTotal, taxRate) : 0;
-  return { lineTotal, tax, total: lineTotal + tax };
+  return {
+    subtotal,
+    discountAmount,
+    lineTotal,
+    tax,
+    total: lineTotal + tax,
+  };
 }
 
 export function LineItemEditor({
@@ -504,4 +567,4 @@ export function LineItemEditor({
   );
 }
 
-export { computeAmount };
+export { computeAmount, computeLinePricingBreakdown };

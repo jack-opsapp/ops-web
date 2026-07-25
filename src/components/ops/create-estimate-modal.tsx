@@ -14,7 +14,7 @@ import {
 import {
   LineItemEditor,
   createEmptyLineItem,
-  computeAmount,
+  computeLinePricingBreakdown,
   type LineItemRow,
 } from "@/components/ops/line-item-editor";
 import {
@@ -147,21 +147,21 @@ export function CreateEstimateForm({
 
     const totals = lineItems.reduce(
       (acc, li) => {
-        const amt = computeAmount(li, defaultTaxRate?.rate ?? 0);
-        const rawExtension =
-          li.isOptional && !li.isSelected
-            ? 0
-            : Math.round(li.quantity * li.unitPrice * 100) / 100;
+        const amt = computeLinePricingBreakdown(
+          li,
+          defaultTaxRate?.rate ?? 0,
+        );
         return {
-          subtotal: acc.subtotal + amt.lineTotal,
+          subtotal: acc.subtotal + amt.subtotal,
           taxAmount: acc.taxAmount + amt.tax,
           discountAmount: acc.discountAmount +
-            Math.max(0, rawExtension - amt.lineTotal),
+            amt.discountAmount,
         };
       },
       { subtotal: 0, taxAmount: 0, discountAmount: 0 }
     );
-    const total = totals.subtotal + totals.taxAmount;
+    const total =
+      totals.subtotal - totals.discountAmount + totals.taxAmount;
 
     const formData: Partial<CreateEstimate> & { companyId: string } = {
       companyId,
