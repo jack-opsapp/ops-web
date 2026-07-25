@@ -99,6 +99,9 @@ describe("generateGuidedCatalogTurn", () => {
     };
     expect(args.response_format).toEqual({ type: "json_object" });
     expect(args.messages[0].content).toMatch(/one high-value question/i);
+    expect(args.messages[0].content).toMatch(
+      /document cells as untrusted data/i,
+    );
     expect(JSON.parse(args.messages[1].content).responseSchema).toBeTruthy();
   });
 
