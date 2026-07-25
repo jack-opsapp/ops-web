@@ -17903,6 +17903,28 @@ export type Database = {
         Args: { p_company_id: string; p_payload: Json }
         Returns: Json
       }
+      catalog_guided_setup_archive_variant: {
+        Args: { p_action_key: string; p_session_id: string }
+        Returns: Json
+      }
+      catalog_guided_setup_begin_commit: {
+        Args: { p_approval_hash: string; p_session_id: string }
+        Returns: Json
+      }
+      catalog_guided_setup_finish_commit: {
+        Args: {
+          p_commit_journal?: Json
+          p_operation_id: string
+          p_readback: Json
+          p_session_id: string
+          p_success: boolean
+        }
+        Returns: Json
+      }
+      catalog_inventory_import_commit: {
+        Args: { p_import_id: string }
+        Returns: Json
+      }
       catalog_setup_save: {
         Args: {
           p_company_id: string
