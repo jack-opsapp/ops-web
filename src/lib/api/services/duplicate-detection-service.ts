@@ -17,6 +17,7 @@ import {
   normalizeTitle,
 } from "@/lib/utils/name-normalization";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -551,36 +552,48 @@ function scanTasks(tasks: TaskRow[]): DetectedPair[] {
 
 // ─── Main Scan Orchestrator ──────────────────────────────────────────────────
 
+export const DUPLICATE_ENTITY_PAGE_SIZE = 100;
+const DUPLICATE_PAIR_WRITE_LIMIT = 200;
+
+interface DuplicateScanDatabaseResult<T> {
+  data: T;
+  error: unknown;
+}
+
+async function checkedDuplicateScanResult<T>(
+  operation: string,
+  pending: PromiseLike<DuplicateScanDatabaseResult<T>>
+): Promise<T> {
+  let result: DuplicateScanDatabaseResult<T>;
+  try {
+    result = await pending;
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      `Duplicate scan ${operation} was unreachable`,
+      { cause }
+    );
+  }
+  if (result.error) {
+    throw new CronDatabaseOperationError(
+      `Duplicate scan ${operation} failed`,
+      { cause: result.error }
+    );
+  }
+  return result.data;
+}
+
 async function scanCompany(companyId: string): Promise<number> {
   const supabase = requireSupabase();
   let newCount = 0;
-
-  // Load existing dismissed/pending pairs to skip
-  const { data: existingReviews } = await supabase
-    .from("duplicate_reviews")
-    .select("entity_type, entity_a_id, entity_b_id, status")
-    .eq("company_id", companyId)
-    .in("status", ["pending", "dismissed"]);
-
-  const existingKeys = new Set(
-    (existingReviews ?? []).map(
-      (r) =>
-        `${r.entity_type}:${r.entity_a_id}:${r.entity_b_id}`
-    )
-  );
 
   async function insertNewPairs(
     entityType: DuplicateEntityType,
     pairs: DetectedPair[]
   ): Promise<number> {
-    const newPairs = pairs.filter((p) => {
-      const key = `${entityType}:${p.entityAId}:${p.entityBId}`;
-      return !existingKeys.has(key);
-    });
+    const boundedPairs = pairs.slice(0, DUPLICATE_PAIR_WRITE_LIMIT);
+    if (boundedPairs.length === 0) return 0;
 
-    if (newPairs.length === 0) return 0;
-
-    const rows = newPairs.map((p) => ({
+    const rows = boundedPairs.map((p) => ({
       company_id: companyId,
       entity_type: entityType,
       entity_a_id: p.entityAId,
@@ -590,70 +603,94 @@ async function scanCompany(companyId: string): Promise<number> {
       status: "pending",
     }));
 
-    const { error } = await supabase.from("duplicate_reviews").insert(rows);
-
-    if (error) {
-      console.error(
-        `[DuplicateDetection] Failed to insert ${entityType} pairs:`,
-        error.message
-      );
-      return 0;
-    }
-    return newPairs.length;
+    const inserted = await checkedDuplicateScanResult<
+      { id: string }[] | null
+    >(
+      `${entityType} duplicate-review upsert`,
+      supabase
+        .from("duplicate_reviews")
+        .upsert(rows, {
+          onConflict:
+            "company_id,entity_type,entity_a_id,entity_b_id",
+          ignoreDuplicates: true,
+        })
+        .select("id")
+    );
+    return inserted?.length ?? 0;
   }
 
   // ── 1. Clients ──
-  const { data: clients } = await supabase
-    .from("clients")
-    .select("id, name, email, phone_number, address")
-    .eq("company_id", companyId)
-    .is("deleted_at", null);
+  const clients = await checkedDuplicateScanResult<ClientRow[] | null>(
+    "client page read",
+    supabase
+      .from("clients")
+      .select("id, name, email, phone_number, address")
+      .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .limit(DUPLICATE_ENTITY_PAGE_SIZE)
+  );
 
   if (clients && clients.length > 1) {
-    const clientPairs = scanClients(clients as ClientRow[]);
+    const clientPairs = scanClients(clients);
     newCount += await insertNewPairs("client", clientPairs);
   }
 
   // ── 2. Opportunities ──
-  const { data: opps } = await supabase
-    .from("opportunities")
-    .select(
-      "id, contact_name, contact_email, contact_phone, title, address"
-    )
-    .eq("company_id", companyId)
-    .in("stage", ACTIVE_OPP_STAGES)
-    .is("deleted_at", null);
+  const opps = await checkedDuplicateScanResult<OpportunityRow[] | null>(
+    "opportunity page read",
+    supabase
+      .from("opportunities")
+      .select(
+        "id, contact_name, contact_email, contact_phone, title, address"
+      )
+      .eq("company_id", companyId)
+      .in("stage", ACTIVE_OPP_STAGES)
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .limit(DUPLICATE_ENTITY_PAGE_SIZE)
+  );
 
   if (opps && opps.length > 1) {
-    const oppPairs = scanOpportunities(opps as OpportunityRow[]);
+    const oppPairs = scanOpportunities(opps);
     newCount += await insertNewPairs("opportunity", oppPairs);
   }
 
   // ── 3. Projects ──
-  const { data: projects } = await supabase
-    .from("projects")
-    .select("id, title, client_id, address")
-    .eq("company_id", companyId)
-    .in("status", ACTIVE_PROJECT_STATUSES)
-    .is("deleted_at", null);
+  const projects = await checkedDuplicateScanResult<ProjectRow[] | null>(
+    "project page read",
+    supabase
+      .from("projects")
+      .select("id, title, client_id, address")
+      .eq("company_id", companyId)
+      .in("status", ACTIVE_PROJECT_STATUSES)
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .limit(DUPLICATE_ENTITY_PAGE_SIZE)
+  );
 
   if (projects && projects.length > 1) {
-    const projectPairs = scanProjects(projects as ProjectRow[]);
+    const projectPairs = scanProjects(projects);
     newCount += await insertNewPairs("project", projectPairs);
   }
 
   // ── 4. Tasks ──
-  const { data: tasks } = await supabase
-    .from("project_tasks")
-    .select(
-      "id, project_id, task_type_id, custom_title, start_date, end_date"
-    )
-    .eq("company_id", companyId)
-    .not("status", "in", '("completed","cancelled")')
-    .is("deleted_at", null);
+  const tasks = await checkedDuplicateScanResult<TaskRow[] | null>(
+    "task page read",
+    supabase
+      .from("project_tasks")
+      .select(
+        "id, project_id, task_type_id, custom_title, start_date, end_date"
+      )
+      .eq("company_id", companyId)
+      .not("status", "in", '("completed","cancelled")')
+      .is("deleted_at", null)
+      .order("id", { ascending: true })
+      .limit(DUPLICATE_ENTITY_PAGE_SIZE)
+  );
 
   if (tasks && tasks.length > 1) {
-    const taskPairs = scanTasks(tasks as TaskRow[]);
+    const taskPairs = scanTasks(tasks);
     newCount += await insertNewPairs("task", taskPairs);
   }
 

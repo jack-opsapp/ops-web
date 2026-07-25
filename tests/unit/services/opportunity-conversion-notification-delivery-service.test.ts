@@ -5,6 +5,7 @@ import {
   buildOpportunityConversionPushBody,
   OpportunityConversionNotificationDeliveryService,
 } from "@/lib/api/services/opportunity-conversion-notification-delivery-service";
+import { isDatabasePressureError } from "@/lib/api/services/cron-workload-control-service";
 
 const visibleClaim = {
   delivery_id: "11111111-1111-4111-8111-111111111111",
@@ -25,10 +26,10 @@ const visibleClaim = {
 
 interface RpcOptions {
   claims?: Array<Record<string, unknown>>;
-  claimError?: { message: string } | null;
-  completeError?: { message: string } | null;
+  claimError?: { message: string; code?: string; status?: number } | null;
+  completeError?: { message: string; code?: string; status?: number } | null;
   completeData?: Record<string, unknown>;
-  failError?: { message: string } | null;
+  failError?: { message: string; code?: string; status?: number } | null;
   failTerminal?: boolean;
 }
 
@@ -294,6 +295,45 @@ describe("OpportunityConversionNotificationDeliveryService", () => {
       })
     );
     expect(result.requeued).toBe(1);
+  });
+
+  it("stops without retry persistence when completion reports database pressure", async () => {
+    const { client, rpc } = rpcClient({
+      claims: [visibleClaim],
+      completeError: { message: "PGRST002 schema cache unavailable" },
+    });
+    sendPush.mockResolvedValue({ ok: true, recipients: 1 });
+
+    await expect(
+      OpportunityConversionNotificationDeliveryService.processBatch(
+        client,
+        { workerId: "99999999-9999-4999-8999-999999999999", limit: 5 },
+        { sendPush }
+      )
+    ).rejects.toThrow("PGRST002");
+
+    expect(rpc).not.toHaveBeenCalledWith(
+      "fail_opportunity_conversion_notification_delivery",
+      expect.anything()
+    );
+  });
+
+  it("preserves a code-only 53300 claim failure for the database circuit", async () => {
+    const { client } = rpcClient({
+      claimError: {
+        code: "53300",
+        message: "remaining connection slots are reserved",
+      },
+    });
+
+    const failure =
+      await OpportunityConversionNotificationDeliveryService.processBatch(
+        client,
+        { workerId: "99999999-9999-4999-8999-999999999999", limit: 5 },
+        { sendPush }
+      ).catch((error: unknown) => error);
+
+    expect(isDatabasePressureError(failure)).toBe(true);
   });
 
   it("rejects forged or malformed claim shapes before provider work", async () => {

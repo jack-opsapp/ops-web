@@ -4,6 +4,8 @@ import { createHash } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
+
 export type EmailSendIntentStatus =
   | "prepared"
   | "sending"
@@ -159,6 +161,13 @@ function firstRow(data: unknown): Record<string, unknown> | null {
     : null;
 }
 
+function databaseOperationError(
+  message: string,
+  cause: unknown
+): CronDatabaseOperationError {
+  return new CronDatabaseOperationError(message, { cause });
+}
+
 function mapIntent(row: Record<string, unknown>): EmailSendIntent {
   return {
     id: text(row.id),
@@ -267,8 +276,9 @@ export class EmailSendIntentService {
       .limit(1)
       .maybeSingle();
     if (error) {
-      throw new Error(
-        error.message || "EMAIL_SEND_INTENT_IDEMPOTENCY_LOOKUP_FAILED"
+      throw databaseOperationError(
+        error.message || "EMAIL_SEND_INTENT_IDEMPOTENCY_LOOKUP_FAILED",
+        error
       );
     }
     return data ? mapIntent(data as Record<string, unknown>) : null;
@@ -280,7 +290,7 @@ export class EmailSendIntentService {
   ): Promise<EmailSendIntent> {
     const { data, error } = await this.supabase.rpc(name, args);
     if (error) {
-      throw new Error(error.message || `${name} failed`);
+      throw databaseOperationError(error.message || `${name} failed`, error);
     }
     const row = firstRow(data);
     if (!row) throw new Error(`${name} returned no intent`);
@@ -293,7 +303,7 @@ export class EmailSendIntentService {
   ): Promise<EmailSendIntent | null> {
     const { data, error } = await this.supabase.rpc(name, args);
     if (error) {
-      throw new Error(error.message || `${name} failed`);
+      throw databaseOperationError(error.message || `${name} failed`, error);
     }
     const row = firstRow(data);
     return row && nullableText(row.id) ? mapIntent(row) : null;

@@ -2,6 +2,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runLeadLifecycleCron } from "@/lib/api/services/lead-lifecycle-cron-service";
+import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
+import {
+  advanceCronWorkloadCursor,
+  readCronWorkloadCursor,
+} from "@/lib/api/services/cron-workload-cursor-service";
 
 export const maxDuration = 300;
 export const runtime = "nodejs";
@@ -10,7 +15,7 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/cron/lead-lifecycle
  *
- * Vercel cron: daily at 13:00 UTC (06:00 America/Vancouver). The lifecycle
+ * Vercel cron: daily at 11:14 UTC. The lifecycle
  * cadence is day-based (follow-up after N days, archive after N days, lost
  * after N days), so a single daily sweep is sufficient — sub-daily runs would
  * re-evaluate the same day-boundaries and the action-service idempotency
@@ -50,7 +55,46 @@ export async function GET(request: NextRequest) {
   const now = new Date();
 
   try {
-    const result = await runLeadLifecycleCron({ supabase: db, now });
+    const controlled = await runWithCronWorkloadControl({
+      supabase: db,
+      workloadKey: "lead-lifecycle",
+      leaseSeconds: 360,
+      work: async (lease) => {
+        const cursor = await readCronWorkloadCursor(
+          db,
+          "lead-lifecycle",
+          lease
+        );
+        const result = await runLeadLifecycleCron({
+          supabase: db,
+          now,
+          afterCompanyId: cursor,
+          maxCompanies: 25,
+          maxOpportunities: 100,
+        });
+        await advanceCronWorkloadCursor(
+          db,
+          "lead-lifecycle",
+          lease,
+          cursor,
+          result.nextCompanyCursor
+        );
+        return result;
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
+    }
+    const result = controlled.value;
     // The destructive candidates are surfaced for operator review via the
     // structured log; keep the response payload lean but include the summary
     // counts plus the (capped) candidate list.
@@ -84,7 +128,7 @@ export async function GET(request: NextRequest) {
         destructiveCandidates: result.destructiveCandidates,
       })
     );
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, ran: true, ...result });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[cron/lead-lifecycle]", message);

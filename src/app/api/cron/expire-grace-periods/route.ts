@@ -12,6 +12,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import {
+  CronDatabaseOperationError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export const maxDuration = 60;
@@ -35,29 +39,60 @@ export async function GET(request: NextRequest) {
   console.log(`[expire-grace-periods] Cutoff: anything in grace before ${cutoff}`);
 
   try {
-    const { data, error } = await supabase
-      .from("companies")
-      .update({ subscription_status: "expired", seat_grace_start_date: null })
-      .eq("subscription_status", "grace")
-      .lt("seat_grace_start_date", cutoff)
-      .select("id, name");
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: "expire-grace-periods",
+      leaseSeconds: 120,
+      work: async () => {
+        const { data, error } = (await supabase.rpc(
+          "expire_grace_period_companies_batch_as_system" as never,
+          {
+            p_cutoff: cutoff,
+            p_batch_size: 500,
+          } as never
+        )) as unknown as { data: unknown; error: unknown };
 
-    if (error) {
-      console.error("[expire-grace-periods] Update failed:", error.message);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+        if (error) {
+          throw new CronDatabaseOperationError(
+            "grace-period expiry batch failed",
+            { cause: error }
+          );
+        }
+        if (
+          typeof data !== "number" ||
+          !Number.isSafeInteger(data) ||
+          data < 0 ||
+          data > 500
+        ) {
+          throw new CronDatabaseOperationError(
+            "grace-period expiry returned an invalid count",
+            { cause: new Error("invalid grace expiry batch result") }
+          );
+        }
+        return { expired: data };
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
     }
 
-    const expired = data?.length ?? 0;
+    const { expired } = controlled.value;
     if (expired > 0) {
-      console.log(
-        `[expire-grace-periods] Expired ${expired} companies:`,
-        data?.map((c) => `${c.id} (${c.name})`).join(", ")
-      );
+      console.log(`[expire-grace-periods] Expired ${expired} companies`);
     } else {
       console.log("[expire-grace-periods] No grace-period companies past cutoff");
     }
 
-    return NextResponse.json({ ok: true, expired });
+    return NextResponse.json({ ok: true, ran: true, expired });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[expire-grace-periods] Failed:", message);

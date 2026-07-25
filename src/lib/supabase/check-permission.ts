@@ -27,6 +27,7 @@
 
 import { getServiceRoleClient } from "./server-client";
 import { findUserByAuth } from "./find-user-by-auth";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 
 export type PermissionScope = "all" | "assigned" | "own";
 
@@ -111,6 +112,44 @@ export async function checkPermissionById(
   }
 
   return data === true;
+}
+
+/**
+ * Strict service-role variant for pressure-sensitive background work.
+ * Unlike the fail-closed request helper above, a database failure is surfaced
+ * with its original cause so the cron circuit can stop all later work.
+ */
+export async function checkPermissionByIdStrict(
+  userId: string,
+  permission: string,
+  requiredScope?: PermissionScope
+): Promise<boolean> {
+  const db = getServiceRoleClient();
+  let result: {
+    data: unknown;
+    error: unknown;
+  };
+
+  try {
+    result = await db.rpc("has_permission", {
+      p_user_id: userId,
+      p_permission: permission,
+      ...(requiredScope ? { p_required_scope: requiredScope } : {}),
+    });
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      `Permission lookup was unreachable for ${userId}`,
+      { cause }
+    );
+  }
+
+  if (result.error) {
+    throw new CronDatabaseOperationError(
+      `Permission lookup failed for ${userId}`,
+      { cause: result.error }
+    );
+  }
+  return result.data === true;
 }
 
 /**

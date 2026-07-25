@@ -5,6 +5,7 @@ import {
   buildUnassignedLeadAssignmentPushBody,
   UnassignedLeadAssignmentDeliveryService,
 } from "@/lib/api/services/unassigned-lead-assignment-delivery-service";
+import { isDatabasePressureError } from "@/lib/api/services/cron-workload-control-service";
 
 const visibleClaim = {
   delivery_id: "11111111-1111-4111-8111-111111111111",
@@ -19,21 +20,40 @@ const visibleClaim = {
   disposition: "notified",
 };
 
+const secondVisibleClaim = {
+  ...visibleClaim,
+  delivery_id: "77777777-7777-4777-8777-777777777777",
+  delivery_lease_token: "88888888-8888-4888-8888-888888888888",
+  notification_id: "99999999-9999-4999-8999-999999999999",
+};
+
+interface ClaimResponse {
+  claims?: Array<Record<string, unknown>>;
+  error?: { message: string; code?: string; status?: number } | null;
+}
+
 interface RpcOptions {
   claims?: Array<Record<string, unknown>>;
-  claimError?: { message: string } | null;
-  completeError?: { message: string } | null;
+  claimResponses?: ClaimResponse[];
+  claimError?: { message: string; code?: string; status?: number } | null;
+  completeError?: { message: string; code?: string; status?: number } | null;
   completeData?: Record<string, unknown>;
-  failError?: { message: string } | null;
+  failError?: { message: string; code?: string; status?: number } | null;
   failTerminal?: boolean;
 }
 
 function rpcClient(options: RpcOptions = {}) {
-  const rpc = vi.fn(async (name: string) => {
+  let claimCall = 0;
+  const rpc = vi.fn(async (name: string, _args?: unknown) => {
     if (name === "claim_unassigned_lead_assignment_deliveries") {
+      const scripted = options.claimResponses?.[claimCall];
+      claimCall += 1;
       return {
-        data: options.claims ?? [],
-        error: options.claimError ?? null,
+        data:
+          scripted?.claims ?? (claimCall === 1 ? (options.claims ?? []) : []),
+        error:
+          scripted?.error ??
+          (claimCall === 1 ? (options.claimError ?? null) : null),
       };
     }
     if (name === "complete_unassigned_lead_assignment_delivery") {
@@ -65,7 +85,7 @@ describe("UnassignedLeadAssignmentDeliveryService", () => {
     sendPush.mockReset();
   });
 
-  it("claims a bounded batch and returns an empty operational summary", async () => {
+  it("claims one row with a bounded lease and returns an empty operational summary", async () => {
     const { client, rpc } = rpcClient();
 
     const result = await UnassignedLeadAssignmentDeliveryService.processBatch(
@@ -78,7 +98,7 @@ describe("UnassignedLeadAssignmentDeliveryService", () => {
       "claim_unassigned_lead_assignment_deliveries",
       {
         p_worker_id: visibleClaim.delivery_id,
-        p_limit: 17,
+        p_limit: 1,
         p_lease_seconds: 240,
       }
     );
@@ -92,6 +112,161 @@ describe("UnassignedLeadAssignmentDeliveryService", () => {
       terminalFailed: 0,
       errors: [],
     });
+  });
+
+  it("completes each claimed row before requesting the next one", async () => {
+    const { client, rpc } = rpcClient({
+      claimResponses: [
+        { claims: [{ ...visibleClaim, should_push: false }] },
+        { claims: [{ ...secondVisibleClaim, should_push: false }] },
+      ],
+    });
+
+    const result = await UnassignedLeadAssignmentDeliveryService.processBatch(
+      client,
+      { limit: 2, workerId: visibleClaim.delivery_id },
+      { sendPush }
+    );
+
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      "claim_unassigned_lead_assignment_deliveries",
+      "complete_unassigned_lead_assignment_delivery",
+      "claim_unassigned_lead_assignment_deliveries",
+      "complete_unassigned_lead_assignment_delivery",
+    ]);
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({ p_limit: 1 });
+    expect(rpc.mock.calls[2]?.[1]).toMatchObject({ p_limit: 1 });
+    expect(result).toMatchObject({ claimed: 2, delivered: 2 });
+  });
+
+  it("stops requesting rows when the caller's bounded total is reached", async () => {
+    const thirdVisibleClaim = {
+      ...secondVisibleClaim,
+      delivery_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      delivery_lease_token: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    };
+    const { client, rpc } = rpcClient({
+      claimResponses: [
+        { claims: [{ ...visibleClaim, should_push: false }] },
+        { claims: [{ ...secondVisibleClaim, should_push: false }] },
+        { claims: [{ ...thirdVisibleClaim, should_push: false }] },
+      ],
+    });
+
+    const result = await UnassignedLeadAssignmentDeliveryService.processBatch(
+      client,
+      { limit: 2, workerId: visibleClaim.delivery_id },
+      { sendPush }
+    );
+
+    expect(
+      rpc.mock.calls.filter(
+        ([name]) => name === "claim_unassigned_lead_assignment_deliveries"
+      )
+    ).toHaveLength(2);
+    expect(result).toMatchObject({ claimed: 2, delivered: 2 });
+  });
+
+  it("aborts when a later claim reports PGRST002 without another RPC", async () => {
+    const { client, rpc } = rpcClient({
+      claimResponses: [
+        { claims: [{ ...visibleClaim, should_push: false }] },
+        {
+          error: {
+            message:
+              "PGRST002: Could not query the database for the schema cache",
+          },
+        },
+      ],
+    });
+
+    await expect(
+      UnassignedLeadAssignmentDeliveryService.processBatch(
+        client,
+        { limit: 3, workerId: visibleClaim.delivery_id },
+        { sendPush }
+      )
+    ).rejects.toThrow("PGRST002");
+
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      "claim_unassigned_lead_assignment_deliveries",
+      "complete_unassigned_lead_assignment_delivery",
+      "claim_unassigned_lead_assignment_deliveries",
+    ]);
+  });
+
+  it("preserves a code-only 53300 claim failure for the database circuit", async () => {
+    const { client } = rpcClient({
+      claimError: {
+        code: "53300",
+        message: "remaining connection slots are reserved",
+      },
+    });
+
+    const failure =
+      await UnassignedLeadAssignmentDeliveryService.processBatch(
+        client,
+        { limit: 2, workerId: visibleClaim.delivery_id },
+        { sendPush }
+      ).catch((error: unknown) => error);
+
+    expect(isDatabasePressureError(failure)).toBe(true);
+  });
+
+  it("aborts a 57014 completion failure without trying to persist or claim again", async () => {
+    const { client, rpc } = rpcClient({
+      claimResponses: [
+        { claims: [visibleClaim] },
+        { claims: [secondVisibleClaim] },
+      ],
+      completeError: {
+        message: "57014: canceling statement due to statement timeout",
+      },
+    });
+    sendPush.mockResolvedValue({ ok: true, recipients: 1 });
+
+    await expect(
+      UnassignedLeadAssignmentDeliveryService.processBatch(
+        client,
+        { limit: 2, workerId: visibleClaim.delivery_id },
+        { sendPush }
+      )
+    ).rejects.toThrow("57014");
+
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      "claim_unassigned_lead_assignment_deliveries",
+      "complete_unassigned_lead_assignment_delivery",
+    ]);
+  });
+
+  it("aborts a connection-timeout failure persistence without claiming again", async () => {
+    const { client, rpc } = rpcClient({
+      claimResponses: [
+        { claims: [visibleClaim] },
+        { claims: [secondVisibleClaim] },
+      ],
+      failError: {
+        message: "Connection terminated due to connection timeout",
+      },
+    });
+    sendPush.mockResolvedValue({
+      ok: false,
+      error: "provider unavailable",
+      status: 503,
+    });
+
+    await expect(
+      UnassignedLeadAssignmentDeliveryService.processBatch(
+        client,
+        { limit: 2, workerId: visibleClaim.delivery_id },
+        { sendPush }
+      )
+    ).rejects.toThrow("connection timeout");
+
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      "claim_unassigned_lead_assignment_deliveries",
+      "fail_unassigned_lead_assignment_delivery",
+    ]);
   });
 
   it("sends the assignment prompt with retry-safe lead routing data", async () => {
@@ -172,7 +347,10 @@ describe("UnassignedLeadAssignmentDeliveryService", () => {
     );
 
     expect(sendPush).not.toHaveBeenCalled();
-    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      "claim_unassigned_lead_assignment_deliveries",
+      "claim_unassigned_lead_assignment_deliveries",
+    ]);
     expect(result).toMatchObject({
       claimed: 1,
       consumed: 1,
@@ -264,7 +442,7 @@ describe("UnassignedLeadAssignmentDeliveryService", () => {
   it("requeues completion failure after an acknowledged idempotent push", async () => {
     const { client, rpc } = rpcClient({
       claims: [visibleClaim],
-      completeError: { message: "database timeout" },
+      completeError: { message: "delivery row changed" },
     });
     sendPush.mockResolvedValue({ ok: true, recipients: 1 });
 
@@ -279,7 +457,7 @@ describe("UnassignedLeadAssignmentDeliveryService", () => {
       "fail_unassigned_lead_assignment_delivery",
       expect.objectContaining({
         p_retryable: true,
-        p_error: expect.stringContaining("database timeout"),
+        p_error: expect.stringContaining("delivery row changed"),
       })
     );
     expect(result.requeued).toBe(1);

@@ -24,6 +24,20 @@ vi.mock("@/lib/supabase/helpers", () => ({
     work(),
 }));
 
+vi.mock("@/lib/api/services/cron-workload-control-service", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/api/services/cron-workload-control-service")
+  >("@/lib/api/services/cron-workload-control-service");
+  return {
+    ...actual,
+    runWithCronWorkloadControl: async ({
+      work,
+    }: {
+      work: () => Promise<unknown>;
+    }) => ({ status: "completed", value: await work() }),
+  };
+});
+
 vi.mock("@/lib/api/services/phase-c-category-autonomy-service", () => ({
   PhaseCCategoryAutonomy: {
     get: categoryGetMock,
@@ -116,7 +130,7 @@ describe("Phase C graduation cron execution", () => {
     );
   });
 
-  it("retries completion once and returns non-success when durable bookkeeping remains unavailable", async () => {
+  it("fails closed after one completion attempt when durable bookkeeping is unavailable", async () => {
     rpcMock.mockImplementation(async (name: string) => {
       if (name === "claim_phase_c_graduation_actor_scopes_as_system") {
         return { data: [scope], error: null };
@@ -136,8 +150,37 @@ describe("Phase C graduation cron execution", () => {
       ([name]) => name === "complete_phase_c_graduation_scope_check_as_system"
     );
 
-    expect(completionCalls).toHaveLength(2);
+    expect(completionCalls).toHaveLength(1);
     expect(response.status).toBe(500);
-    expect(body).toMatchObject({ ok: false, bookkeepingFailed: 1 });
+    expect(body).toMatchObject({
+      error: "Cron failed: Phase C graduation completion failed",
+    });
+  });
+
+  it("stops the sweep immediately when a claimed scope hits database pressure", async () => {
+    const secondScope = {
+      ...scope,
+      actor_user_id: "00000000-0000-4000-8000-000000000005",
+      lease_token: "00000000-0000-4000-8000-000000000006",
+    };
+    rpcMock.mockImplementation(async (name: string) => {
+      if (name === "claim_phase_c_graduation_actor_scopes_as_system") {
+        return { data: [scope, secondScope], error: null };
+      }
+      throw new Error(`Unexpected RPC ${name}`);
+    });
+    categoryGetMock.mockRejectedValueOnce({
+      code: "PGRST002",
+      message: "Could not query the database for the schema cache",
+    });
+
+    const response = await GET(request());
+    const completionCalls = rpcMock.mock.calls.filter(
+      ([name]) => name === "complete_phase_c_graduation_scope_check_as_system"
+    );
+
+    expect(response.status).toBe(500);
+    expect(categoryGetMock).toHaveBeenCalledTimes(1);
+    expect(completionCalls).toHaveLength(0);
   });
 });

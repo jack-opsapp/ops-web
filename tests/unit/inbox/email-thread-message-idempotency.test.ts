@@ -5,6 +5,7 @@ import {
   EmailThreadService,
   EmailThreadParentConflictError,
 } from "@/lib/api/services/email-thread-service";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 
 type Row = Record<string, unknown>;
@@ -14,6 +15,7 @@ interface State {
   thread: Row | null;
   activities: Row[];
   dirtyThreads?: Row[];
+  dirtyThreadsError?: unknown;
   threadUpdates?: Row[];
   projectionCalls?: Array<{ name: string; args: Row }>;
   projectionError?: string;
@@ -189,7 +191,10 @@ function makeSupabaseDouble(state: State) {
         return resolve({ data: rows, error: null });
       }
       if (this.table === "email_threads" && state.dirtyThreads) {
-        return resolve({ data: state.dirtyThreads, error: null });
+        return resolve({
+          data: state.dirtyThreads,
+          error: state.dirtyThreadsError ?? null,
+        });
       }
       return resolve({ data: [], error: null });
     }
@@ -665,5 +670,83 @@ describe("EmailThreadService.upsertFromEmail message idempotency", () => {
 
     expect(classify).toHaveBeenCalledTimes(2);
     expect(result).toEqual({ scanned: 2, classified: 1, errors: 1 });
+  });
+
+  it("propagates the dirty-queue Supabase failure with its raw cause", async () => {
+    const databaseCause = {
+      status: 504,
+      message: "Supabase gateway timeout",
+    };
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: null,
+      activities: [],
+      dirtyThreads: [],
+      dirtyThreadsError: databaseCause,
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const error = await EmailThreadService.retryDirtyClassifications({
+      companyIds: ["company-1"],
+    }).then(
+      () => null,
+      (failure) => failure
+    );
+
+    expect(error).toBeInstanceOf(CronDatabaseOperationError);
+    expect(error).toMatchObject({
+      message: expect.stringContaining("retryDirtyClassifications query"),
+      cause: databaseCause,
+    });
+  });
+
+  it("stops the dirty queue immediately on database pressure", async () => {
+    const first = threadRow({ id: "dirty-thread-pressure" });
+    const second = threadRow({ id: "dirty-thread-must-not-run" });
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: null,
+      activities: [],
+      dirtyThreads: [first, second],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const pressure = Object.assign(new Error("schema cache unavailable"), {
+      code: "PGRST002",
+    });
+    const classify = vi
+      .spyOn(EmailThreadService, "classifyAndUpdate")
+      .mockRejectedValueOnce(pressure);
+
+    await expect(
+      EmailThreadService.retryDirtyClassifications({
+        companyIds: ["company-1"],
+        concurrency: 1,
+      })
+    ).rejects.toBe(pressure);
+    expect(classify).toHaveBeenCalledOnce();
+  });
+
+  it("keeps an untagged external provider 504 isolated to its dirty thread", async () => {
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: null,
+      activities: [],
+      dirtyThreads: [threadRow({ id: "dirty-thread-provider" })],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const classify = vi
+      .spyOn(EmailThreadService, "classifyAndUpdate")
+      .mockRejectedValueOnce({
+        status: 504,
+        message: "OpenAI gateway timeout",
+      });
+
+    await expect(
+      EmailThreadService.retryDirtyClassifications({
+        companyIds: ["company-1"],
+        concurrency: 1,
+      })
+    ).resolves.toEqual({ scanned: 1, classified: 0, errors: 1 });
+    expect(classify).toHaveBeenCalledOnce();
   });
 });

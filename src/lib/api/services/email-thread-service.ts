@@ -69,6 +69,10 @@ import {
   type OpportunityChaseRow,
 } from "@/lib/inbox/opportunity-chase-enrichment";
 import { runEmailProviderMailboxOperation } from "./email-provider-mailbox-operation";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "./cron-workload-control-service";
 
 const EMAIL_THREAD_MAILBOX_BUSY = "EMAIL_THREAD_MAILBOX_BUSY";
 const EMAIL_THREAD_PROVIDER_AUTHORIZATION_REVOKED =
@@ -117,8 +121,9 @@ async function reloadClassificationWinner(input: {
     .eq("company_id", input.thread.companyId)
     .maybeSingle();
   if (error) {
-    throw new Error(
-      `${input.context} concurrent reload failed: ${error.message}`
+    throw new CronDatabaseOperationError(
+      `${input.context} concurrent reload failed: ${error.message}`,
+      { cause: error }
     );
   }
   if (!data) {
@@ -133,6 +138,7 @@ async function runThreadProviderOperation<T>(input: {
   supabase: ReturnType<typeof requireSupabase>;
   connection: EmailConnection;
   context: string;
+  abortOnDatabaseError?: boolean;
   authorizeProviderMutation?: () => Promise<boolean>;
   run: (provider: ReturnType<typeof EmailService.getProvider>) => Promise<T>;
 }): Promise<T> {
@@ -141,6 +147,7 @@ async function runThreadProviderOperation<T>(input: {
     connectionId: input.connection.id,
     context: input.context,
     busyError: EMAIL_THREAD_MAILBOX_BUSY,
+    abortOnDatabaseError: input.abortOnDatabaseError,
     run: async () => {
       if (
         input.authorizeProviderMutation &&
@@ -648,6 +655,18 @@ async function loadLearnedRules(
           error: null,
         }),
   ]);
+  if (domainRes.error) {
+    throw new CronDatabaseOperationError(
+      `loadLearnedRules domain query failed: ${domainRes.error.message}`,
+      { cause: domainRes.error }
+    );
+  }
+  if (senderRes.error) {
+    throw new CronDatabaseOperationError(
+      `loadLearnedRules sender query failed: ${senderRes.error.message}`,
+      { cause: senderRes.error }
+    );
+  }
 
   return {
     forDomain: countRulePairs(domainRes.data ?? []),
@@ -673,13 +692,19 @@ async function senderHasPriorConversations(
   senderEmail: string
 ): Promise<boolean> {
   const supabase = requireSupabase();
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("activities")
     .select("id", { count: "exact", head: true })
     .eq("company_id", companyId)
     .eq("type", "email")
     .eq("from_email", senderEmail.toLowerCase())
     .limit(1);
+  if (error) {
+    throw new CronDatabaseOperationError(
+      `senderHasPriorConversations query failed: ${error.message}`,
+      { cause: error }
+    );
+  }
   return (count ?? 0) > 1; // >1 because the one that just arrived is already stored
 }
 
@@ -1144,11 +1169,17 @@ export const EmailThreadService = {
     // AND the self-forward guard below. Cached per call; the lookup is one
     // indexed point-read so the cost is negligible vs. the directory
     // queries that follow.
-    const { data: connRow } = await supabase
+    const { data: connRow, error: connectionError } = await supabase
       .from("email_connections")
       .select("email")
       .eq("id", connectionId)
       .maybeSingle();
+    if (connectionError) {
+      throw new CronDatabaseOperationError(
+        `upsertFromEmail connection read failed: ${connectionError.message}`,
+        { cause: connectionError }
+      );
+    }
     const connectionEmail =
       ((connRow?.email as string | null) ?? "").toLowerCase().trim() || null;
 
@@ -1626,8 +1657,9 @@ export const EmailThreadService = {
       .limit(5);
 
     if (msgError) {
-      throw new Error(
-        `classifyAndUpdate message load failed: ${msgError.message}`
+      throw new CronDatabaseOperationError(
+        `classifyAndUpdate message load failed: ${msgError.message}`,
+        { cause: msgError }
       );
     }
 
@@ -1670,11 +1702,17 @@ export const EmailThreadService = {
       ]);
 
     // Used as a fallback when the connection owner's users row is missing.
-    const { data: connectionRow } = await supabase
+    const { data: connectionRow, error: connectionError } = await supabase
       .from("email_connections")
       .select("email")
       .eq("id", threadRow.connectionId)
       .maybeSingle();
+    if (connectionError) {
+      throw new CronDatabaseOperationError(
+        `classifyAndUpdate connection lookup failed: ${connectionError.message}`,
+        { cause: connectionError }
+      );
+    }
     const connectionEmail =
       (connectionRow?.email as string | null)?.toLowerCase().trim() ??
       undefined;
@@ -1720,8 +1758,9 @@ export const EmailThreadService = {
         .maybeSingle();
 
       if (detErr) {
-        throw new Error(
-          `classifyAndUpdate deterministic-internal update failed: ${detErr.message}`
+        throw new CronDatabaseOperationError(
+          `classifyAndUpdate deterministic-internal update failed: ${detErr.message}`,
+          { cause: detErr }
         );
       }
       if (!detUpdated) {
@@ -1836,8 +1875,9 @@ export const EmailThreadService = {
           .maybeSingle();
 
         if (custErr) {
-          throw new Error(
-            `classifyAndUpdate deterministic-customer update failed: ${custErr.message}`
+          throw new CronDatabaseOperationError(
+            `classifyAndUpdate deterministic-customer update failed: ${custErr.message}`,
+            { cause: custErr }
           );
         }
         if (!custUpdated) {
@@ -1933,7 +1973,10 @@ export const EmailThreadService = {
       .maybeSingle();
 
     if (updError) {
-      throw new Error(`classifyAndUpdate update failed: ${updError.message}`);
+      throw new CronDatabaseOperationError(
+        `classifyAndUpdate update failed: ${updError.message}`,
+        { cause: updError }
+      );
     }
     if (!updated) {
       return reloadOrRetrySummaryConflict("classifyAndUpdate update");
@@ -2653,25 +2696,47 @@ export const EmailThreadService = {
   async unsnooze(threadId: string): Promise<void> {
     const supabase = requireSupabase();
 
-    const { data: row, error: readError } = await supabase
-      .from("email_threads")
-      .select("id, connection_id, provider_thread_id")
-      .eq("id", threadId)
-      .single();
+    let row: Record<string, unknown> | null;
+    let readError: { message: string } | null;
+    try {
+      const result = await supabase
+        .from("email_threads")
+        .select("id, connection_id, provider_thread_id")
+        .eq("id", threadId)
+        .single();
+      row = result.data;
+      readError = result.error;
+    } catch (cause) {
+      throw new CronDatabaseOperationError("unsnooze read failed", { cause });
+    }
 
     if (readError)
-      throw new Error(`unsnooze read failed: ${readError.message}`);
+      throw new CronDatabaseOperationError(
+        `unsnooze read failed: ${readError.message}`,
+        { cause: readError }
+      );
     if (!row) throw new Error("unsnooze: thread not found");
 
-    const { data: connRow, error: connectionReadError } = await supabase
-      .from("email_connections")
-      .select("*")
-      .eq("id", row.connection_id as string)
-      .single();
+    let connRow: Record<string, unknown> | null;
+    let connectionReadError: { message: string } | null;
+    try {
+      const result = await supabase
+        .from("email_connections")
+        .select("*")
+        .eq("id", row.connection_id as string)
+        .single();
+      connRow = result.data;
+      connectionReadError = result.error;
+    } catch (cause) {
+      throw new CronDatabaseOperationError("unsnooze connection read failed", {
+        cause,
+      });
+    }
 
     if (connectionReadError) {
-      throw new Error(
-        `unsnooze connection read failed: ${connectionReadError.message}`
+      throw new CronDatabaseOperationError(
+        `unsnooze connection read failed: ${connectionReadError.message}`,
+        { cause: connectionReadError }
       );
     }
     if (!connRow) throw new Error("unsnooze: connection not found");
@@ -2679,17 +2744,27 @@ export const EmailThreadService = {
       supabase,
       connection: mapConnectionFromDb(connRow),
       context: "email-thread-unsnooze",
+      abortOnDatabaseError: true,
       run: (provider) =>
         provider.unarchiveThread(row.provider_thread_id as string),
     });
 
-    const { error: unsnoozeError } = await supabase
-      .from("email_threads")
-      .update({ snoozed_until: null })
-      .eq("id", threadId);
+    let unsnoozeError: { message: string } | null;
+    try {
+      const result = await supabase
+        .from("email_threads")
+        .update({ snoozed_until: null })
+        .eq("id", threadId);
+      unsnoozeError = result.error;
+    } catch (cause) {
+      throw new CronDatabaseOperationError("unsnooze mirror update failed", {
+        cause,
+      });
+    }
     if (unsnoozeError) {
-      throw new Error(
-        `unsnooze mirror update failed: ${unsnoozeError.message}`
+      throw new CronDatabaseOperationError(
+        `unsnooze mirror update failed: ${unsnoozeError.message}`,
+        { cause: unsnoozeError }
       );
     }
   },
@@ -2886,16 +2961,19 @@ export const EmailThreadService = {
       .limit(limit);
 
     if (error) {
-      throw new Error(
-        `retryDirtyClassifications query failed: ${error.message}`
+      throw new CronDatabaseOperationError(
+        `retryDirtyClassifications query failed: ${error.message}`,
+        { cause: error }
       );
     }
 
     const threads = (data ?? []).map(mapEmailThreadFromDb);
     const result = { scanned: 0, classified: 0, errors: 0 };
     let cursor = 0;
+    let databasePressure: unknown | null = null;
     const worker = async () => {
       while (true) {
+        if (databasePressure) throw databasePressure;
         const index = cursor++;
         if (index >= threads.length) return;
         const thread = threads[index];
@@ -2904,6 +2982,10 @@ export const EmailThreadService = {
           await EmailThreadService.classifyAndUpdate(thread);
           result.classified++;
         } catch (classificationError) {
+          if (isDatabasePressureError(classificationError)) {
+            databasePressure = classificationError;
+            throw classificationError;
+          }
           result.errors++;
           console.error(
             "[email-thread-service] dirty classification retry failed:",

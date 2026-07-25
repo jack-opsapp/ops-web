@@ -78,7 +78,7 @@ describe("lead-summary 40001 backoff", () => {
 
   it("preserves the PostgREST SQLSTATE across the summary-write re-wrap", () => {
     expect(leadSummarySource).toMatch(
-      /Object\.assign\(\s*new Error\(\s*`summary write failed:[\s\S]*?\{ code: \(error as \{ code\?: string \}\)\.code \}/
+      /new CronDatabaseOperationError\(\s*`summary write failed:[\s\S]*?\{ cause: error \}/
     );
   });
 });

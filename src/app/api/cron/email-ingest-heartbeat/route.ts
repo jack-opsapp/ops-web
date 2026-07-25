@@ -50,19 +50,174 @@ import { buildReconnectDeepLink } from "@/lib/email/reconnect-deep-link";
 import { PersonalEmailConnectionLifecycleService } from "@/lib/api/services/personal-email-connection-lifecycle-service";
 import { runEmailImportProviderOperations } from "@/lib/api/services/email-import-provider-operation-service";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  CronDatabaseOperationError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 
 export const maxDuration = 60;
+
+const HEARTBEAT_CONNECTION_PAGE_SIZE = 100;
+const MAX_FAILED_COMPANIES_PER_RUN = 5;
 
 interface HeartbeatRecipient {
   id: string;
   email: string;
   company_id: string;
+  is_company_admin: boolean;
+}
+
+interface HeartbeatCompany {
+  id: string;
+  name: string | null;
+  account_holder_id: string | null;
+  admin_ids: string[] | string | null;
+}
+
+type DatabaseResponse<T> = {
+  data: T;
+  error: { message?: string } | null;
+};
+
+function databaseMessage(error: unknown): string {
+  return error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+    ? error.message
+    : "unknown database error";
+}
+
+async function requireDatabaseResponse<T>(
+  context: string,
+  operation: () => PromiseLike<DatabaseResponse<T>>
+): Promise<T> {
+  try {
+    const result = await operation();
+    if (result.error) {
+      throw new CronDatabaseOperationError(
+        `${context}: ${databaseMessage(result.error)}`,
+        { cause: result.error }
+      );
+    }
+    return result.data;
+  } catch (cause) {
+    if (cause instanceof CronDatabaseOperationError) throw cause;
+    throw new CronDatabaseOperationError(`${context}: request failed`, {
+      cause,
+    });
+  }
+}
+
+function companyManagerIds(company: HeartbeatCompany): Set<string> {
+  const ids = new Set<string>();
+  if (company.account_holder_id) ids.add(company.account_holder_id);
+  const rawAdminIds = company.admin_ids;
+  if (Array.isArray(rawAdminIds)) {
+    for (const id of rawAdminIds) {
+      if (typeof id === "string" && id) ids.add(id);
+    }
+  } else if (typeof rawAdminIds === "string") {
+    for (const id of rawAdminIds.split(",").map((value) => value.trim())) {
+      if (id) ids.add(id);
+    }
+  }
+  return ids;
+}
+
+async function resolveIntegrationManagerIds(
+  supabase: SupabaseClient,
+  candidates: HeartbeatRecipient[],
+  companies: HeartbeatCompany[]
+): Promise<Set<string>> {
+  const companyManagers = new Map(
+    companies.map((company) => [company.id, companyManagerIds(company)])
+  );
+  const authorized = new Set<string>();
+  const unresolved: HeartbeatRecipient[] = [];
+
+  for (const candidate of candidates) {
+    if (
+      candidate.is_company_admin ||
+      companyManagers.get(candidate.company_id)?.has(candidate.id)
+    ) {
+      authorized.add(candidate.id);
+    } else {
+      unresolved.push(candidate);
+    }
+  }
+  if (unresolved.length === 0) return authorized;
+
+  const unresolvedIds = unresolved.map((candidate) => candidate.id);
+  const overrides = await requireDatabaseResponse(
+    "email heartbeat permission override lookup failed",
+    () =>
+      supabase
+        .from("user_permission_overrides")
+        .select("user_id, company_id, granted, scope")
+        .in("user_id", unresolvedIds)
+        .eq("permission", "settings.integrations")
+  );
+  const overrideByUser = new Map(
+    (overrides ?? []).map((row) => [String(row.user_id), row])
+  );
+
+  const roleCandidates = unresolved.filter((candidate) => {
+    const override = overrideByUser.get(candidate.id);
+    if (!override || override.company_id !== candidate.company_id) return true;
+    if (override.granted !== true) return false;
+    if (override.scope === "all") {
+      authorized.add(candidate.id);
+      return false;
+    }
+    return override.scope === null;
+  });
+  if (roleCandidates.length === 0) return authorized;
+
+  const userRoles = await requireDatabaseResponse(
+    "email heartbeat role lookup failed",
+    () =>
+      supabase
+        .from("user_roles")
+        .select("user_id, role_id")
+        .in(
+          "user_id",
+          roleCandidates.map((candidate) => candidate.id)
+        )
+  );
+  const roleIds = Array.from(
+    new Set(
+      (userRoles ?? []).map((row) => String(row.role_id ?? "")).filter(Boolean)
+    )
+  );
+  if (roleIds.length === 0) return authorized;
+
+  const rolePermissions = await requireDatabaseResponse(
+    "email heartbeat role permission lookup failed",
+    () =>
+      supabase
+        .from("role_permissions")
+        .select("role_id, scope")
+        .in("role_id", roleIds)
+        .eq("permission", "settings.integrations")
+  );
+  const authorizedRoleIds = new Set(
+    (rolePermissions ?? [])
+      .filter((row) => row.scope === "all")
+      .map((row) => String(row.role_id))
+  );
+  for (const row of userRoles ?? []) {
+    if (authorizedRoleIds.has(String(row.role_id))) {
+      authorized.add(String(row.user_id));
+    }
+  }
+  return authorized;
 }
 
 async function resolveHeartbeatRecipient(
-  supabase: SupabaseClient,
   candidates: HeartbeatRecipient[],
-  failure: FailureSignal
+  failure: FailureSignal,
+  integrationManagerIds: Set<string>
 ): Promise<HeartbeatRecipient | null> {
   const companyCandidates = candidates
     .filter((candidate) => candidate.company_id === failure.companyId)
@@ -77,27 +232,11 @@ async function resolveHeartbeatRecipient(
     );
   }
 
-  // A shared mailbox's historical connector user is metadata only. Resolve a
-  // current, active OPS integration manager through the canonical permission
-  // engine so the reconnect action is both visible and authorized.
-  for (const candidate of companyCandidates) {
-    const { data, error } = await supabase.rpc("has_permission", {
-      p_user_id: candidate.id,
-      p_permission: "settings.integrations",
-      p_required_scope: "all",
-    });
-    if (error) {
-      console.error("[email-heartbeat] manager permission lookup failed", {
-        companyId: failure.companyId,
-        userId: candidate.id,
-        error: error.message,
-      });
-      continue;
-    }
-    if (data === true) return candidate;
-  }
-
-  return null;
+  return (
+    companyCandidates.find((candidate) =>
+      integrationManagerIds.has(candidate.id)
+    ) ?? null
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -114,54 +253,83 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getServiceRoleClient();
+
+  try {
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: "email-ingest-heartbeat",
+      leaseSeconds: 120,
+      work: () => runHeartbeat(supabase),
+    });
+    if (controlled.status === "skipped") {
+      const reason =
+        controlled.reason === "lease_held"
+          ? "already_running"
+          : controlled.reason;
+      return NextResponse.json(
+        {
+          ok: controlled.reason === "lease_held",
+          ran: false,
+          reason,
+        },
+        { status: controlled.reason === "lease_held" ? 200 : 503 }
+      );
+    }
+    return controlled.value;
+  } catch (error) {
+    console.error("[email-heartbeat] fatal", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error instanceof Error ? error.message : "Email heartbeat failed",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+async function runHeartbeat(supabase: SupabaseClient) {
   const now = Date.now();
 
   // Retry durable personal-mailbox warning projections before provider health
   // checks. This only reads/writes OPS state; it never contacts or sends
   // through Gmail/Microsoft. Disconnect/reconnect routes process immediately,
   // while this hourly pass resolves events created by lead/thread changes.
-  try {
-    await PersonalEmailConnectionLifecycleService.drainPending(100, supabase);
-  } catch (error) {
-    console.error("[email-heartbeat] mailbox lifecycle drain failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  await PersonalEmailConnectionLifecycleService.drainPending(10, supabase, {
+    abortOnDatabaseError: true,
+  });
 
   // Retry the durable historical-import label ledger through the existing
   // heartbeat rather than adding another cron. The processor has a deliberately
   // label-only provider capability (list/create/apply); it cannot send email.
-  try {
-    const providerOperations = await runEmailImportProviderOperations(
-      supabase,
-      { limit: 5, leaseSeconds: 300 }
-    );
-    if (
-      providerOperations.failed > 0 ||
-      providerOperations.staleCompletions > 0 ||
-      providerOperations.staleFailures > 0
-    ) {
-      console.error("[email-heartbeat] import label operations incomplete", {
-        ...providerOperations,
-        errors: providerOperations.errors.slice(0, 5),
-      });
-    }
-  } catch (error) {
-    console.error("[email-heartbeat] import label operation drain failed", {
-      error: error instanceof Error ? error.message : String(error),
+  const providerOperations = await runEmailImportProviderOperations(supabase, {
+    limit: 2,
+    leaseSeconds: 300,
+  });
+  if (
+    providerOperations.failed > 0 ||
+    providerOperations.staleCompletions > 0 ||
+    providerOperations.staleFailures > 0
+  ) {
+    console.error("[email-heartbeat] import label operations incomplete", {
+      ...providerOperations,
+      errors: providerOperations.errors.slice(0, 5),
     });
   }
 
   // 1. Pull every connection — we need the full row to classify.
-  const { data: connections, error: connErr } = await supabase
-    .from("email_connections")
-    .select(
-      "id, company_id, user_id, email, provider, type, status, sync_enabled, webhook_subscription_id, webhook_expires_at, last_synced_at, created_at"
-    );
-  if (connErr) {
-    console.error("[email-heartbeat] fetch connections failed", connErr);
-    return NextResponse.json({ error: connErr.message }, { status: 500 });
-  }
+  const connections = await requireDatabaseResponse(
+    "email heartbeat connection scan failed",
+    () =>
+      supabase
+        .from("email_connections")
+        .select(
+          "id, company_id, user_id, email, provider, type, status, sync_enabled, webhook_subscription_id, webhook_expires_at, last_synced_at, created_at"
+        )
+        .order("id", { ascending: true })
+        .limit(HEARTBEAT_CONNECTION_PAGE_SIZE)
+  );
 
   // 2. Classify each connection. Group failures by company so each company
   //    gets at most one alert per cron tick (the worst failure).
@@ -189,21 +357,19 @@ export async function GET(request: NextRequest) {
   const resolutionTimestamp = new Date(now).toISOString();
   for (let index = 0; index < recoveredNotificationKeys.length; index += 200) {
     const keys = recoveredNotificationKeys.slice(index, index + 200);
-    const { error: resolutionError } = await supabase
-      .from("notifications")
-      .update({
-        resolved_at: resolutionTimestamp,
-        is_read: true,
-        resolution_reason: "email_ingest_recovered",
-      })
-      .in("dedupe_key", keys)
-      .is("resolved_at", null);
-    if (resolutionError) {
-      console.error("[email-heartbeat] notification resolution failed", {
-        error: resolutionError.message,
-        connectionCount: keys.length,
-      });
-    }
+    await requireDatabaseResponse(
+      "email heartbeat notification resolution failed",
+      () =>
+        supabase
+          .from("notifications")
+          .update({
+            resolved_at: resolutionTimestamp,
+            is_read: true,
+            resolution_reason: "email_ingest_recovered",
+          })
+          .in("dedupe_key", keys)
+          .is("resolved_at", null)
+    );
   }
 
   if (failuresByCompany.size === 0) {
@@ -219,24 +385,22 @@ export async function GET(request: NextRequest) {
 
   // 3. Dedup against the 4h alert log.
   const dedupSince = new Date(now - ALERT_DEDUP_MS).toISOString();
-  const { data: recentAlerts, error: recentAlertsError } = await supabase
-    .from("email_ingest_heartbeat_log")
-    .select("company_id")
-    .gte("triggered_at", dedupSince)
-    .in("company_id", failedCompanyIds);
-  if (recentAlertsError) {
-    return NextResponse.json(
-      { error: recentAlertsError.message },
-      { status: 500 }
-    );
-  }
+  const recentAlerts = await requireDatabaseResponse(
+    "email heartbeat alert dedupe lookup failed",
+    () =>
+      supabase
+        .from("email_ingest_heartbeat_log")
+        .select("company_id")
+        .gte("triggered_at", dedupSince)
+        .in("company_id", failedCompanyIds)
+  );
 
   const recentlyAlertedIds = new Set(
     (recentAlerts ?? []).map((r) => r.company_id as string)
   );
-  const toAlertIds = failedCompanyIds.filter(
-    (id) => !recentlyAlertedIds.has(id)
-  );
+  const toAlertIds = failedCompanyIds
+    .filter((id) => !recentlyAlertedIds.has(id))
+    .slice(0, MAX_FAILED_COMPANIES_PER_RUN);
 
   if (toAlertIds.length === 0) {
     return NextResponse.json({
@@ -249,30 +413,32 @@ export async function GET(request: NextRequest) {
   }
 
   // 4. Resolve company names and active canonical OPS recipients.
-  const { data: companies, error: companiesError } = await supabase
-    .from("companies")
-    .select("id, name")
-    .in("id", toAlertIds);
-  if (companiesError) {
-    return NextResponse.json(
-      { error: companiesError.message },
-      { status: 500 }
-    );
-  }
+  const companies = await requireDatabaseResponse(
+    "email heartbeat company lookup failed",
+    () =>
+      supabase
+        .from("companies")
+        .select("id, name, account_holder_id, admin_ids")
+        .in("id", toAlertIds)
+  );
 
-  const { data: recipientCandidates, error: recipientCandidatesError } =
-    await supabase
-      .from("users")
-      .select("id, email, company_id")
-      .in("company_id", toAlertIds)
-      .eq("is_active", true)
-      .is("deleted_at", null);
-  if (recipientCandidatesError) {
-    return NextResponse.json(
-      { error: recipientCandidatesError.message },
-      { status: 500 }
-    );
-  }
+  const recipientCandidates = await requireDatabaseResponse(
+    "email heartbeat recipient lookup failed",
+    () =>
+      supabase
+        .from("users")
+        .select("id, email, company_id, is_company_admin")
+        .in("company_id", toAlertIds)
+        .eq("is_active", true)
+        .is("deleted_at", null)
+  );
+  const typedCompanies = (companies ?? []) as HeartbeatCompany[];
+  const typedCandidates = (recipientCandidates ?? []) as HeartbeatRecipient[];
+  const integrationManagerIds = await resolveIntegrationManagerIds(
+    supabase,
+    typedCandidates,
+    typedCompanies
+  );
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.co";
 
@@ -281,7 +447,7 @@ export async function GET(request: NextRequest) {
     0,
     toAlertIds.length - (companies?.length ?? 0)
   );
-  for (const company of companies ?? []) {
+  for (const company of typedCompanies) {
     const companyId = company.id as string;
     const companyName = (company.name as string) ?? "Your company";
     const failures = failuresByCompany.get(companyId);
@@ -289,9 +455,9 @@ export async function GET(request: NextRequest) {
     const worst = pickWorstFailure(failures);
 
     const recipient = await resolveHeartbeatRecipient(
-      supabase,
-      (recipientCandidates ?? []) as HeartbeatRecipient[],
-      worst
+      typedCandidates,
+      worst,
+      integrationManagerIds
     );
     if (!recipient) {
       console.error("[email-heartbeat] no authorized reconnect recipient", {
@@ -320,37 +486,36 @@ export async function GET(request: NextRequest) {
     // Notification rail entry — non-technical wording. Uses the in-app
     // settings URL because the user is already authenticated when reading
     // the rail; the deep-link is only needed for the email path.
-    const { data: notificationResult, error: notificationError } =
-      await supabase.rpc("create_notification_if_new_with_identity", {
-        p_user_id: recipientUserId,
-        p_company_id: companyId,
-        p_type: "system_alert",
-        p_title: "Your inbox stopped sending leads to OPS",
-        p_body: `${worst.email} is disconnected. Reconnect to start capturing leads again.`,
-        p_persistent: true,
-        p_action_url: "/settings?tab=integrations",
-        p_action_label: "RECONNECT INBOX",
-        p_project_id: null,
-        p_deep_link_type: null,
-        p_dedupe_key: `email-ingest-health:${worst.connectionId}`,
-      });
+    const notificationResult = await requireDatabaseResponse(
+      "email heartbeat notification insert failed",
+      () =>
+        supabase.rpc("create_notification_if_new_with_identity", {
+          p_user_id: recipientUserId,
+          p_company_id: companyId,
+          p_type: "system_alert",
+          p_title: "Your inbox stopped sending leads to OPS",
+          p_body: `${worst.email} is disconnected. Reconnect to start capturing leads again.`,
+          p_persistent: true,
+          p_action_url: "/settings?tab=integrations",
+          p_action_label: "RECONNECT INBOX",
+          p_project_id: null,
+          p_deep_link_type: null,
+          p_dedupe_key: `email-ingest-health:${worst.connectionId}`,
+        })
+    );
     const rawNotification = Array.isArray(notificationResult)
       ? notificationResult[0]
       : notificationResult;
     const inAppDelivered =
-      !notificationError &&
       rawNotification !== null &&
       typeof rawNotification === "object" &&
       typeof (rawNotification as Record<string, unknown>).notification_id ===
         "string" &&
       typeof (rawNotification as Record<string, unknown>).created === "boolean";
     if (!inAppDelivered) {
-      console.error("[email-heartbeat] notification insert failed", {
-        companyId,
-        error:
-          notificationError?.message ??
-          "notification identity response was invalid",
-      });
+      throw new Error(
+        "email heartbeat notification identity response was invalid"
+      );
     }
 
     // SendGrid alert — properly templated, dispatched through gatedSend.
@@ -391,21 +556,15 @@ export async function GET(request: NextRequest) {
         : emailDelivered
           ? `${worst.reason}_email_only`
           : `${worst.reason}_inapp_only`;
-    const { error: logError } = await supabase
-      .from("email_ingest_heartbeat_log")
-      .insert({
-        company_id: companyId,
-        triggered_at: new Date(now).toISOString(),
-        reason: deliveryReason,
-      });
-    if (logError) {
-      console.error("[email-heartbeat] delivered-alert log failed", {
-        companyId,
-        error: logError.message,
-      });
-      deliveryFailureCount += 1;
-      continue;
-    }
+    await requireDatabaseResponse(
+      "email heartbeat delivered-alert log failed",
+      () =>
+        supabase.from("email_ingest_heartbeat_log").insert({
+          company_id: companyId,
+          triggered_at: new Date(now).toISOString(),
+          reason: deliveryReason,
+        })
+    );
 
     alertedCount += 1;
   }

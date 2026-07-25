@@ -4,6 +4,7 @@ import {
   authenticateRequest,
   isErrorResponse,
 } from "@/app/api/agent/_lib/auth";
+import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
 import { serializeTaskPatch } from "@/lib/api/services/task-service";
 import { TaskMutationAutomationOutboxService } from "@/lib/api/services/task-mutation-automation-outbox-service";
 import type { ProjectTask } from "@/lib/types/models";
@@ -170,9 +171,15 @@ export async function PATCH(
       try {
         after(async () => {
           try {
-            await TaskMutationAutomationOutboxService.processBatch(serviceDb, {
-              limit: 10,
-              leaseSeconds: 180,
+            await runWithCronWorkloadControl({
+              supabase: serviceDb,
+              workloadKey: "lead-outbox",
+              leaseSeconds: 360,
+              work: () =>
+                TaskMutationAutomationOutboxService.processBatch(serviceDb, {
+                  limit: 1,
+                  leaseSeconds: 360,
+                }),
             });
           } catch (error) {
             console.error("[task-update] Eager outbox drain failed", error);

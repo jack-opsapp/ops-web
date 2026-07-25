@@ -18,6 +18,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { computePmfState } from "@/lib/admin/pmf-queries";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
+import {
+  CronDatabaseOperationError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 import { sendPmfNotification } from "@/lib/notifications/pmf-send";
 import { weeklyDigestEmail as WeeklyDigestEmail } from "@/lib/email/pmf-bridge";
 import { daysUntilGate, isoWeekNumber } from "@/lib/pmf/formatters";
@@ -37,6 +41,34 @@ interface RetentionCohortRow {
   d90: number;
 }
 
+function databaseFailure(
+  operation: string,
+  cause: unknown
+): CronDatabaseOperationError {
+  if (cause instanceof CronDatabaseOperationError) return cause;
+  const detail =
+    typeof cause === "object" &&
+    cause !== null &&
+    "message" in cause &&
+    typeof cause.message === "string"
+      ? cause.message
+      : "unknown database error";
+  return new CronDatabaseOperationError(`${operation} failed: ${detail}`, {
+    cause,
+  });
+}
+
+async function executeDatabaseOperation<T>(
+  operation: string,
+  pending: PromiseLike<T>
+): Promise<T> {
+  try {
+    return await pending;
+  } catch (cause) {
+    throw databaseFailure(operation, cause);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
@@ -51,53 +83,73 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const sb = getAdminSupabase();
+
   try {
-    const sb = getAdminSupabase();
+    const controlled = await runWithCronWorkloadControl({
+      supabase: sb,
+      workloadKey: "pmf-weekly-digest",
+      leaseSeconds: 90,
+      work: async () => {
+        // Fetch state + retention cohorts in parallel — independent work.
+        const [state, cohortsResult] = await Promise.all([
+          computePmfState().catch((cause) => {
+            throw databaseFailure("weekly PMF state computation", cause);
+          }),
+          executeDatabaseOperation(
+            "pmf_retention_cohorts",
+            sb.rpc("pmf_retention_cohorts" as never)
+          ),
+        ]);
 
-    // Fetch state + retention cohorts in parallel — independent work.
-    const [state, cohortsResult] = await Promise.all([
-      computePmfState(),
-      sb.rpc("pmf_retention_cohorts" as never),
-    ]);
+        if (cohortsResult.error) {
+          throw databaseFailure("pmf_retention_cohorts", cohortsResult.error);
+        }
 
-    // The RPC's typed return is `never` (not in supabase-js generated types),
-    // so we bridge the unknown shape through `unknown` to the concrete row
-    // type. `pmf_retention_cohorts()` returns rows with exactly these keys.
-    const cohorts: RetentionCohortRow[] =
-      (cohortsResult.data as unknown as RetentionCohortRow[] | null) ?? [];
+        // The RPC's typed return is `never` (not in supabase-js generated
+        // types), so bridge through `unknown` to the concrete row type.
+        const cohorts: RetentionCohortRow[] =
+          (cohortsResult.data as unknown as RetentionCohortRow[] | null) ?? [];
 
-    if (cohortsResult.error) {
-      // Non-fatal: the template handles an empty array gracefully. Surface the
-      // error in logs so the missing migration (if that's the cause) is
-      // visible, but still send the rest of the digest.
-      console.error(
-        "[pmf-weekly-digest] pmf_retention_cohorts RPC failed:",
-        cohortsResult.error.message
+        // Hoist `now` once so the subject and body share the same values even
+        // if computation straddled a day boundary.
+        const now = new Date();
+        const daysToGate = daysUntilGate(now);
+        const weekNumber = isoWeekNumber(now);
+        const today = now.toISOString().slice(0, 10);
+
+        // Keep provider errors untagged so they fail this run without opening
+        // the database-pressure circuit.
+        await sendPmfNotification({
+          kind: "weekly_digest",
+          trigger: `weekly_${today}`,
+          emailSubject: `OPS :: PMF WEEKLY · W${weekNumber} · ${daysToGate} DAYS`,
+          emailReact: WeeklyDigestEmail({
+            state,
+            daysToGate,
+            weekNumber,
+            dashboardUrl: DASHBOARD_URL,
+            retentionCohorts: cohorts,
+          }),
+        });
+
+        return NextResponse.json({ ok: true });
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
       );
     }
 
-    // Hoist `now` once so the subject and body share the same values even
-    // if computation straddled a day boundary. Every time-derived value in
-    // this request (days-to-gate, ISO week, date slice) reads from this.
-    const now = new Date();
-    const daysToGate = daysUntilGate(now);
-    const weekNumber = isoWeekNumber(now);
-    const today = now.toISOString().slice(0, 10);
-
-    await sendPmfNotification({
-      kind: "weekly_digest",
-      trigger: `weekly_${today}`,
-      emailSubject: `OPS :: PMF WEEKLY · W${weekNumber} · ${daysToGate} DAYS`,
-      emailReact: WeeklyDigestEmail({
-        state,
-        daysToGate,
-        weekNumber,
-        dashboardUrl: DASHBOARD_URL,
-        retentionCohorts: cohorts,
-      }),
-    });
-
-    return NextResponse.json({ ok: true });
+    return controlled.value;
   } catch (err) {
     const message = err instanceof Error ? err.message : "weekly digest failed";
     console.error("[pmf-weekly-digest] failed:", message, err);

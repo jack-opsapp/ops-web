@@ -4,6 +4,10 @@ import {
   ProviderAuthError,
   ProviderScopeError,
 } from "@/lib/api/services/email-provider";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "@/lib/api/services/cron-workload-control-service";
 
 export interface ClaimedEmailAttachmentScan {
   id: string;
@@ -88,6 +92,36 @@ function safeError(error: unknown): string {
     .slice(0, 1000);
 }
 
+function reportedDatabasePressure(
+  error: unknown,
+  operation: string
+): CronDatabaseOperationError | null {
+  if (!isDatabasePressureError(error)) return null;
+  return error instanceof CronDatabaseOperationError
+    ? error
+    : new CronDatabaseOperationError(`${operation}: ${safeError(error)}`, {
+        cause: error,
+      });
+}
+
+async function runDatabaseOperation<T>(
+  operation: string,
+  run: () => Promise<T>
+): Promise<T> {
+  try {
+    return await run();
+  } catch (cause) {
+    const pressure =
+      cause instanceof CronDatabaseOperationError
+        ? cause
+        : new CronDatabaseOperationError(`${operation}: ${safeError(cause)}`, {
+            cause,
+          });
+    if (isDatabasePressureError(pressure)) throw pressure;
+    throw cause;
+  }
+}
+
 function retryAt(scan: ClaimedEmailAttachmentScan, now: Date): Date {
   const exponent = Math.min(Math.max(scan.attempts, 0), 10);
   const delayMs = Math.min(60_000 * 2 ** exponent, 24 * 60 * 60 * 1000);
@@ -107,11 +141,13 @@ export async function runEmailAttachmentWorker(
   const leaseSeconds = boundedInteger(options.leaseSeconds, 240, 30, 900);
   const workerId = (dependencies.workerId ?? randomUUID)();
   const now = dependencies.now ?? (() => new Date());
-  const scans = await dependencies.store.claim({
-    workerId,
-    limit,
-    leaseSeconds,
-  });
+  const scans = await runDatabaseOperation("Attachment scan claim failed", () =>
+    dependencies.store.claim({
+      workerId,
+      limit,
+      leaseSeconds,
+    })
+  );
 
   const result: EmailAttachmentWorkerResult = {
     claimed: scans.length,
@@ -124,8 +160,10 @@ export async function runEmailAttachmentWorker(
   };
 
   let nextIndex = 0;
+  let pressureAbort: CronDatabaseOperationError | null = null;
   const processOne = async (): Promise<void> => {
     while (true) {
+      if (pressureAbort) throw pressureAbort;
       const index = nextIndex;
       nextIndex += 1;
       const scan = scans[index];
@@ -137,11 +175,15 @@ export async function runEmailAttachmentWorker(
           if (scan.attempts >= MAX_ATTACHMENT_SCAN_ATTEMPTS) {
             const message =
               "One or more attachment files exhausted retry limits";
-            const updated = await dependencies.store.markFailed({
-              scan,
-              workerId,
-              error: message,
-            });
+            const updated = await runDatabaseOperation(
+              "Attachment scan failure persistence failed",
+              () =>
+                dependencies.store.markFailed({
+                  scan,
+                  workerId,
+                  error: message,
+                })
+            );
             if (updated) {
               result.failed += 1;
               result.errors.push({ scanId: scan.id, error: message });
@@ -150,40 +192,63 @@ export async function runEmailAttachmentWorker(
             }
             continue;
           }
-          const updated = await dependencies.store.markRetry({
-            scan,
-            workerId,
-            error: "One or more attachment files require retry",
-            availableAt: retryAt(scan, now()),
-          });
+          const updated = await runDatabaseOperation(
+            "Attachment scan retry persistence failed",
+            () =>
+              dependencies.store.markRetry({
+                scan,
+                workerId,
+                error: "One or more attachment files require retry",
+                availableAt: retryAt(scan, now()),
+              })
+          );
           if (updated) result.retrying += 1;
           else result.staleCompletions += 1;
           continue;
         }
 
-        const updated = await dependencies.store.markComplete(scan, workerId);
+        const updated = await runDatabaseOperation(
+          "Attachment scan completion failed",
+          () => dependencies.store.markComplete(scan, workerId)
+        );
         if (updated) result.completed += 1;
         else result.staleCompletions += 1;
       } catch (error) {
+        const pressure = reportedDatabasePressure(
+          error,
+          "Attachment scan processing stopped on database pressure"
+        );
+        if (pressure) {
+          pressureAbort = pressure;
+          throw pressure;
+        }
         const message = safeError(error);
         try {
           if (
             error instanceof ProviderAuthError ||
             error instanceof ProviderScopeError
           ) {
-            const updated = await dependencies.store.markPaused({
-              scan,
-              workerId,
-              error: message,
-            });
+            const updated = await runDatabaseOperation(
+              "Attachment scan pause persistence failed",
+              () =>
+                dependencies.store.markPaused({
+                  scan,
+                  workerId,
+                  error: message,
+                })
+            );
             if (updated) result.paused += 1;
             else result.staleCompletions += 1;
           } else if (scan.attempts >= MAX_ATTACHMENT_SCAN_ATTEMPTS) {
-            const updated = await dependencies.store.markFailed({
-              scan,
-              workerId,
-              error: message,
-            });
+            const updated = await runDatabaseOperation(
+              "Attachment scan failure persistence failed",
+              () =>
+                dependencies.store.markFailed({
+                  scan,
+                  workerId,
+                  error: message,
+                })
+            );
             if (updated) {
               result.failed += 1;
               result.errors.push({ scanId: scan.id, error: message });
@@ -191,16 +256,28 @@ export async function runEmailAttachmentWorker(
               result.staleCompletions += 1;
             }
           } else {
-            const updated = await dependencies.store.markRetry({
-              scan,
-              workerId,
-              error: message,
-              availableAt: retryAt(scan, now()),
-            });
+            const updated = await runDatabaseOperation(
+              "Attachment scan retry persistence failed",
+              () =>
+                dependencies.store.markRetry({
+                  scan,
+                  workerId,
+                  error: message,
+                  availableAt: retryAt(scan, now()),
+                })
+            );
             if (updated) result.retrying += 1;
             else result.staleCompletions += 1;
           }
         } catch (statusError) {
+          const pressure = reportedDatabasePressure(
+            statusError,
+            "Attachment scan transition stopped on database pressure"
+          );
+          if (pressure) {
+            pressureAbort = pressure;
+            throw pressure;
+          }
           result.failed += 1;
           result.errors.push({
             scanId: scan.id,

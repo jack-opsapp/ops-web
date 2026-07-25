@@ -34,6 +34,10 @@
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { getSyncOpenAI } from "./openai-clients";
 import { isAIProviderUnavailableError } from "./openai-monitoring";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "./cron-workload-control-service";
 import { cleanMessageBody } from "./conversation-state/message-cleaner";
 import { extractCommercialDealPrices } from "@/lib/email/commercial-price";
 import {
@@ -60,8 +64,11 @@ const ACTIVE_OPPORTUNITY_STAGES = [
 /** Engine stage-transition echo tolerance (see module doc). */
 export const LEAD_SUMMARY_STALENESS_EPSILON_MS = 5 * 60 * 1000;
 
-/** Structural cost cap for the optional sweep; targeted event refreshes are unbounded. */
-const DEFAULT_MAX_LEADS_PER_RUN = 40;
+/** Structural cost caps for recurring and event-targeted summary generation. */
+const DEFAULT_MAX_LEADS_PER_RUN = 5;
+const TARGETED_SUMMARY_MAX_PER_CYCLE = 5;
+export const LEAD_SUMMARY_SCHEDULED_OPPORTUNITY_LIMIT = 25;
+export const LEAD_SUMMARY_SCHEDULED_MODEL_CALL_LIMIT = 5;
 
 const OPEN_OPPS_SCAN_LIMIT = 2000;
 const CONTEXT_PAGE_SIZE = 1_000;
@@ -238,6 +245,14 @@ export interface LeadSummaryRunInput {
   /** Report candidates without calling the model or writing. */
   dryRun?: boolean;
   maxLeadsPerRun?: number;
+  /**
+   * Optional scheduled keyset window. Direct/manual service callers retain
+   * the complete legacy sweep when these fields are omitted.
+   */
+  opportunityAfterId?: string | null;
+  opportunityLimit?: number;
+  /** Counts every provider attempt, including the contract-repair retry. */
+  modelCallLimit?: number;
   now?: Date;
 }
 
@@ -249,12 +264,20 @@ export interface LeadSummaryRunResult {
   leadsScanned: number;
   candidates: number;
   summariesWritten: number;
+  modelCalls: number;
+  modelCallLimitReached: boolean;
   skippedInsufficientContext: number;
   failed: Array<{ opportunityId: string; error: string }>;
   /** Written leads (capped at RESULT_LIST_CAP) for observability. */
   written: Array<{ opportunityId: string; title: string }>;
   /** Candidate preview (capped) — populated in dry runs and real runs alike. */
   candidatesPreview: Array<{ opportunityId: string; title: string }>;
+  opportunityWindow: {
+    companyId: string;
+    afterOpportunityId: string | null;
+    lastOpportunityId: string | null;
+    full: boolean;
+  } | null;
 }
 
 // ─── Pure helpers (exported for tests) ──────────────────────────────────────
@@ -2857,6 +2880,18 @@ export function renderDeterministicLeadSummaryFallback(
 
 // ─── Model call (mirrors ai-sync-reviewer.evaluateSingleBatch discipline) ────
 
+interface LeadSummaryModelCallBudget {
+  limit: number;
+  used: number;
+}
+
+class LeadSummaryModelCallBudgetExhaustedError extends Error {
+  constructor() {
+    super("lead summary model-call budget exhausted");
+    this.name = "LeadSummaryModelCallBudgetExhaustedError";
+  }
+}
+
 /**
  * Generate the 1-2 sentence lead summary for one context bundle. The summary
  * field specification is copied verbatim from the shipped engine so both
@@ -2865,6 +2900,7 @@ export function renderDeterministicLeadSummaryFallback(
 export async function generateLeadSummary(input: {
   companyName: string;
   bundle: LeadSummaryContextBundle;
+  modelCallBudget?: LeadSummaryModelCallBudget;
 }): Promise<string> {
   let lastCandidateSummary: string | null = null;
   const systemPrompt = `You are analyzing a sales lead's full activity record for a trades business to generate a brief opportunity summary.
@@ -2922,6 +2958,14 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
   const attemptOnce = async (
     trustedRetryDirective: string | null
   ): Promise<string> => {
+    if (
+      input.modelCallBudget &&
+      input.modelCallBudget.used >= input.modelCallBudget.limit
+    ) {
+      throw new LeadSummaryModelCallBudgetExhaustedError();
+    }
+    if (input.modelCallBudget) input.modelCallBudget.used += 1;
+
     const response = await getSyncOpenAI().chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -3051,6 +3095,9 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
 interface CompanySweepAccumulator {
   result: LeadSummaryRunResult;
   remainingBudget: number;
+  modelCallBudget: LeadSummaryModelCallBudget;
+  opportunityAfterId: string | null;
+  opportunityLimit: number | null;
   nowIso: string;
   dryRun: boolean;
 }
@@ -3345,13 +3392,9 @@ async function commitLeadSummarySnapshot(input: {
         }
       );
       if (error) {
-        throw Object.assign(
-          new Error(
-            `summary write failed: ${error.message ?? "unknown error"}`
-          ),
-          // Preserve the PostgREST SQLSTATE so the retry classifier can
-          // recognize serialization failures after this re-wrap.
-          { code: (error as { code?: string }).code }
+        throw new CronDatabaseOperationError(
+          `summary write failed: ${error.message ?? "unknown error"}`,
+          { cause: error }
         );
       }
       return rows;
@@ -3380,21 +3423,32 @@ async function commitLeadSummarySnapshot(input: {
 
 export interface TargetedLeadSummaryRefreshResult {
   requested: number;
+  attempted: number;
   written: number;
   skippedFeatureDisabled: boolean;
   /**
-   * Genuine per-opportunity failures — a persistence write error or an unusable
-   * model answer. The sync cycle treats a non-empty `failed` as cursor-holding
-   * so the work replays.
+   * Genuine per-opportunity persistence or snapshot failures. The sync cycle
+   * treats a non-empty `failed` as cursor-holding so durable writes replay.
    */
   failed: Array<{ opportunityId: string; error: string }>;
   /**
    * Per-opportunity summaries skipped because the AI provider was unavailable
-   * (quota / outage / transport). These are deferrable, not failures: the
-   * summary stays dirty and recovers on the next inbound message or refresh, and
-   * the sync cycle advances its cursor instead of freezing on a doomed replay.
+   * (quota / outage / transport) or returned an unusable model-contract answer.
+   * These are deferrable derived-data failures: the summary stays dirty and
+   * recovers on the next inbound message or refresh, while the sync cycle
+   * advances its cursor instead of replaying already-persisted email work.
    */
-  deferred: Array<{ opportunityId: string; error: string }>;
+  deferred: Array<{
+    opportunityId: string;
+    error: string;
+    reason: "provider_unavailable" | "model_contract" | "model_refusal";
+  }>;
+  /**
+   * Ordered, lossless continuation for work that did not complete this cycle.
+   * Budgeted ids lead the queue; attempted failures rotate to the tail so one
+   * wedged model response cannot starve newer durable activity forever.
+   */
+  remainingOpportunityIds: string[];
 }
 
 /**
@@ -3412,19 +3466,30 @@ export async function refreshLeadSummariesForOpportunities(input: {
   const opportunityIds = [...new Set(input.opportunityIds.filter(Boolean))];
   const result: TargetedLeadSummaryRefreshResult = {
     requested: opportunityIds.length,
+    attempted: 0,
     written: 0,
     skippedFeatureDisabled: false,
     failed: [],
     deferred: [],
+    remainingOpportunityIds: [],
   };
   if (opportunityIds.length === 0) return result;
 
-  const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
-    input.companyId,
-    "phase_c"
-  );
+  let enabled: boolean;
+  try {
+    enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
+      input.companyId,
+      "phase_c"
+    );
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      `[lead-summary] feature gate read failed for ${input.companyId}`,
+      { cause }
+    );
+  }
   if (!enabled) {
     result.skippedFeatureDisabled = true;
+    result.remainingOpportunityIds = opportunityIds;
     return result;
   }
 
@@ -3434,8 +3499,9 @@ export async function refreshLeadSummariesForOpportunities(input: {
     .eq("id", input.companyId)
     .maybeSingle();
   if (companyError) {
-    throw new Error(
-      `[lead-summary] company lookup failed for ${input.companyId}: ${companyError.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `[lead-summary] company lookup failed for ${input.companyId}: ${companyError.message ?? "unknown error"}`,
+      { cause: companyError }
     );
   }
   const companyName =
@@ -3445,15 +3511,12 @@ export async function refreshLeadSummariesForOpportunities(input: {
 
   const nowIso = (input.now ?? new Date()).toISOString();
 
-  for (
-    let offset = 0;
-    offset < opportunityIds.length;
-    offset += DEFAULT_MAX_LEADS_PER_RUN
-  ) {
-    const batchIds = opportunityIds.slice(
-      offset,
-      offset + DEFAULT_MAX_LEADS_PER_RUN
-    );
+  const batchIds = opportunityIds.slice(0, TARGETED_SUMMARY_MAX_PER_CYCLE);
+  result.attempted = batchIds.length;
+  result.remainingOpportunityIds = opportunityIds.slice(
+    TARGETED_SUMMARY_MAX_PER_CYCLE
+  );
+  if (batchIds.length > 0) {
     const { data: opportunityRows, error: opportunityError } =
       await input.supabase
         .from("opportunities")
@@ -3464,17 +3527,27 @@ export async function refreshLeadSummariesForOpportunities(input: {
         .is("merged_into_opportunity_id", null)
         .limit(batchIds.length);
     if (opportunityError) {
-      throw new Error(
-        `[lead-summary] targeted opportunity fetch failed for ${input.companyId}: ${opportunityError.message ?? "unknown error"}`
+      throw new CronDatabaseOperationError(
+        `[lead-summary] targeted opportunity fetch failed for ${input.companyId}: ${opportunityError.message ?? "unknown error"}`,
+        { cause: opportunityError }
       );
     }
     const opportunities = (opportunityRows ?? []) as OpportunityRow[];
-    const slicesByOpportunity = await fetchLeadSummaryContextSlices(
-      input.supabase,
-      input.companyId,
-      opportunities.map((opportunity) => opportunity.id),
-      opportunities
-    );
+    let slicesByOpportunity: Map<string, LeadSummaryContextSlices>;
+    try {
+      slicesByOpportunity = await fetchLeadSummaryContextSlices(
+        input.supabase,
+        input.companyId,
+        opportunities.map((opportunity) => opportunity.id),
+        opportunities
+      );
+    } catch (cause) {
+      if (cause instanceof CronDatabaseOperationError) throw cause;
+      throw new CronDatabaseOperationError(
+        `[lead-summary] context read failed for ${input.companyId}`,
+        { cause }
+      );
+    }
 
     for (const opportunity of opportunities) {
       const slices = slicesByOpportunity.get(opportunity.id);
@@ -3493,6 +3566,11 @@ export async function refreshLeadSummariesForOpportunities(input: {
         });
         result.written += 1;
       } catch (error) {
+        // A PostgREST/gateway failure can share an HTTP status with OpenAI.
+        // Database origin wins: abort the batch so the durable workload
+        // circuit opens, rather than advancing a mailbox cursor.
+        if (isDatabasePressureError(error)) throw error;
+
         const entry = {
           opportunityId: opportunity.id,
           error: error instanceof Error ? error.message : "unknown error",
@@ -3502,9 +3580,26 @@ export async function refreshLeadSummariesForOpportunities(input: {
         // cursor instead of holding it for a replay that cannot succeed until
         // the provider recovers.
         if (isAIProviderUnavailableError(error)) {
-          result.deferred.push(entry);
+          result.deferred.push({
+            ...entry,
+            reason: "provider_unavailable",
+          });
+          result.remainingOpportunityIds.push(opportunity.id);
+        } else if (error instanceof LeadSummaryModelContractError) {
+          result.deferred.push({
+            ...entry,
+            reason: "model_contract",
+          });
+          result.remainingOpportunityIds.push(opportunity.id);
+        } else if (error instanceof LeadSummaryModelRefusalError) {
+          result.deferred.push({
+            ...entry,
+            reason: "model_refusal",
+          });
+          result.remainingOpportunityIds.push(opportunity.id);
         } else {
           result.failed.push(entry);
+          result.remainingOpportunityIds.push(opportunity.id);
         }
       }
     }
@@ -3526,8 +3621,9 @@ async function sweepCompany(
     .eq("id", companyId)
     .maybeSingle();
   if (companyError) {
-    throw new Error(
-      `[lead-summary] company lookup failed for ${companyId}: ${companyError.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `[lead-summary] company lookup failed for ${companyId}: ${companyError.message ?? "unknown error"}`,
+      { cause: companyError }
     );
   }
   const companyName =
@@ -3535,7 +3631,7 @@ async function sweepCompany(
       ? companyRow.name.trim()
       : "Unknown company";
 
-  const opportunityQuery = supabase
+  let opportunityQuery = supabase
     .from("opportunities")
     .select(OPPORTUNITY_FIELDS)
     .eq("company_id", companyId)
@@ -3543,28 +3639,58 @@ async function sweepCompany(
     .is("archived_at", null)
     .is("merged_into_opportunity_id", null)
     .in("stage", [...ACTIVE_OPPORTUNITY_STAGES]);
+  if (accumulator.opportunityAfterId) {
+    opportunityQuery = opportunityQuery.gt(
+      "id",
+      accumulator.opportunityAfterId
+    );
+  }
+  opportunityQuery = opportunityQuery.order("id", { ascending: true });
+  const opportunityLimit =
+    accumulator.opportunityLimit ?? OPEN_OPPS_SCAN_LIMIT;
   const { data: opportunityRows, error: opportunityError } =
-    await opportunityQuery.limit(OPEN_OPPS_SCAN_LIMIT);
+    await opportunityQuery.limit(opportunityLimit);
   if (opportunityError) {
-    throw new Error(
-      `[lead-summary] opportunity scan failed for company ${companyId}: ${opportunityError.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `[lead-summary] opportunity scan failed for company ${companyId}: ${opportunityError.message ?? "unknown error"}`,
+      { cause: opportunityError }
     );
   }
   const opportunities = (opportunityRows ?? []) as OpportunityRow[];
-  if (opportunities.length >= OPEN_OPPS_SCAN_LIMIT) {
+  if (
+    accumulator.opportunityLimit === null &&
+    opportunities.length >= OPEN_OPPS_SCAN_LIMIT
+  ) {
     console.warn(
       `[lead-summary] open-opportunity scan hit its ${OPEN_OPPS_SCAN_LIMIT}-row window for company ${companyId}`
     );
   }
+  if (accumulator.opportunityLimit !== null) {
+    result.opportunityWindow = {
+      companyId,
+      afterOpportunityId: accumulator.opportunityAfterId,
+      lastOpportunityId: opportunities.at(-1)?.id ?? null,
+      full: opportunities.length === accumulator.opportunityLimit,
+    };
+  }
   result.leadsScanned += opportunities.length;
   if (opportunities.length === 0) return;
 
-  const slicesByOpportunity = await fetchLeadSummaryContextSlices(
-    supabase,
-    companyId,
-    opportunities.map((opportunity) => opportunity.id),
-    opportunities
-  );
+  let slicesByOpportunity: Map<string, LeadSummaryContextSlices>;
+  try {
+    slicesByOpportunity = await fetchLeadSummaryContextSlices(
+      supabase,
+      companyId,
+      opportunities.map((opportunity) => opportunity.id),
+      opportunities
+    );
+  } catch (cause) {
+    if (cause instanceof CronDatabaseOperationError) throw cause;
+    throw new CronDatabaseOperationError(
+      `[lead-summary] context read failed for ${companyId}`,
+      { cause }
+    );
+  }
 
   const candidates: Array<{
     opportunity: OpportunityRow;
@@ -3634,7 +3760,11 @@ async function sweepCompany(
         result.skippedInsufficientContext += 1;
         continue;
       }
-      const summary = await generateLeadSummary({ companyName, bundle });
+      const summary = await generateLeadSummary({
+        companyName,
+        bundle,
+        modelCallBudget: accumulator.modelCallBudget,
+      });
       await commitLeadSummarySnapshot({
         supabase,
         companyId,
@@ -3651,6 +3781,12 @@ async function sweepCompany(
         });
       }
     } catch (error) {
+      if (error instanceof LeadSummaryModelCallBudgetExhaustedError) {
+        result.modelCallLimitReached = true;
+        break;
+      }
+      if (isDatabasePressureError(error)) throw error;
+
       // One lead's failure never aborts the sweep; the lead stays stale and
       // is retried on the next run.
       result.failed.push({
@@ -3667,6 +3803,44 @@ export async function runLeadSummaryRefresh(
   if ((input as { mode?: string }).mode !== "refresh") {
     throw new Error("Historical lead-summary backfill is disabled");
   }
+  if (
+    input.opportunityLimit !== undefined &&
+    (!Number.isSafeInteger(input.opportunityLimit) ||
+      input.opportunityLimit < 1 ||
+      input.opportunityLimit > LEAD_SUMMARY_SCHEDULED_OPPORTUNITY_LIMIT)
+  ) {
+    throw new RangeError(
+      `lead summary opportunity window must be between 1 and ${LEAD_SUMMARY_SCHEDULED_OPPORTUNITY_LIMIT}`
+    );
+  }
+  if (
+    input.opportunityAfterId !== undefined &&
+    input.opportunityAfterId !== null &&
+    (!input.opportunityAfterId.trim() ||
+      input.opportunityAfterId !== input.opportunityAfterId.trim() ||
+      input.opportunityAfterId.length > 128)
+  ) {
+    throw new Error("lead summary opportunity cursor is invalid");
+  }
+  if (
+    (input.opportunityLimit !== undefined ||
+      input.opportunityAfterId !== undefined) &&
+    !input.companyId
+  ) {
+    throw new Error(
+      "lead summary opportunity windows require an explicit company"
+    );
+  }
+  if (
+    input.modelCallLimit !== undefined &&
+    (!Number.isSafeInteger(input.modelCallLimit) ||
+      input.modelCallLimit < 1 ||
+      input.modelCallLimit > LEAD_SUMMARY_SCHEDULED_MODEL_CALL_LIMIT)
+  ) {
+    throw new RangeError(
+      `lead summary model-call limit must be between 1 and ${LEAD_SUMMARY_SCHEDULED_MODEL_CALL_LIMIT}`
+    );
+  }
   const now = input.now ?? new Date();
   const result: LeadSummaryRunResult = {
     mode: "refresh",
@@ -3676,10 +3850,13 @@ export async function runLeadSummaryRefresh(
     leadsScanned: 0,
     candidates: 0,
     summariesWritten: 0,
+    modelCalls: 0,
+    modelCallLimitReached: false,
     skippedInsufficientContext: 0,
     failed: [],
     written: [],
     candidatesPreview: [],
+    opportunityWindow: null,
   };
 
   let companyIds: string[];
@@ -3692,8 +3869,9 @@ export async function runLeadSummaryRefresh(
       .eq("feature_key", "phase_c")
       .eq("enabled", true);
     if (error) {
-      throw new Error(
-        `[lead-summary] phase_c company discovery failed: ${error.message ?? "unknown error"}`
+      throw new CronDatabaseOperationError(
+        `[lead-summary] phase_c company discovery failed: ${error.message ?? "unknown error"}`,
+        { cause: error }
       );
     }
     companyIds = [
@@ -3706,24 +3884,40 @@ export async function runLeadSummaryRefresh(
   }
   result.companiesConsidered = companyIds.length;
 
+  const modelCallBudget: LeadSummaryModelCallBudget = {
+    limit: input.modelCallLimit ?? Number.MAX_SAFE_INTEGER,
+    used: 0,
+  };
   const accumulator: CompanySweepAccumulator = {
     result,
     remainingBudget: input.maxLeadsPerRun ?? DEFAULT_MAX_LEADS_PER_RUN,
+    modelCallBudget,
+    opportunityAfterId: input.opportunityAfterId ?? null,
+    opportunityLimit: input.opportunityLimit ?? null,
     nowIso: now.toISOString(),
     dryRun: result.dryRun,
   };
 
   for (const companyId of companyIds) {
     // Authoritative per-company gate — identical to the shipped engine's.
-    const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
-      companyId,
-      "phase_c"
-    );
+    let enabled: boolean;
+    try {
+      enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
+        companyId,
+        "phase_c"
+      );
+    } catch (cause) {
+      throw new CronDatabaseOperationError(
+        `[lead-summary] feature gate read failed for ${companyId}`,
+        { cause }
+      );
+    }
     if (!enabled) continue;
     result.companiesEnabled += 1;
     await sweepCompany(input.supabase, companyId, accumulator);
     if (accumulator.remainingBudget <= 0 && !result.dryRun) break;
   }
 
+  result.modelCalls = modelCallBudget.used;
   return result;
 }

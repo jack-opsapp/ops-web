@@ -8,9 +8,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { ProjectLifecycleService } from "@/lib/api/services/project-lifecycle-service";
-import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
+import { runBoundedPhaseCCompanyFanout } from "@/lib/api/services/cron-company-fanout-service";
+import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
 
 export const maxDuration = 300;
+
+const WORKLOAD_KEY = "project-health";
+const COMPANY_LIMIT = 5;
+
+type HealthResult = {
+  companyId: string;
+  overdueTasks: number;
+  closableProjects: number;
+  error?: string;
+};
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -30,73 +41,61 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    // Find all companies with active subscriptions
-    const { data: companies, error } = await supabase
-      .from("companies")
-      .select("id")
-      .limit(500);
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: WORKLOAD_KEY,
+      leaseSeconds: 360,
+      work: (lease) =>
+        runBoundedPhaseCCompanyFanout<HealthResult>({
+          supabase,
+          workloadKey: WORKLOAD_KEY,
+          lease,
+          companyLimit: COMPANY_LIMIT,
+          processCompany: async (companyId) => {
+            const overdueTasks =
+              await ProjectLifecycleService.detectOverdueTasks(companyId);
+            const closableProjects =
+              await ProjectLifecycleService.detectClosableProjects(companyId);
+            return { companyId, overdueTasks, closableProjects };
+          },
+          onCompanyError: (companyId, error) => {
+            const message =
+              error instanceof Error ? error.message : "Unknown error";
+            console.error(
+              `[project-health] Error for company ${companyId}:`,
+              message
+            );
+            return {
+              companyId,
+              overdueTasks: 0,
+              closableProjects: 0,
+              error: message,
+            };
+          },
+        }),
+    });
 
-    if (error) throw error;
-
-    type HealthResult = {
-      companyId: string;
-      overdueTasks: number;
-      closableProjects: number;
-      error?: string;
-    };
-
-    // Filter to phase_c companies first
-    const phaseCCompanyIds: string[] = [];
-    for (const company of companies ?? []) {
-      const companyId = company.id as string;
-      const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
-        companyId,
-        "phase_c"
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
       );
-      if (enabled) phaseCCompanyIds.push(companyId);
     }
 
-    // Process in parallel chunks of 5 to avoid timeout
-    const CHUNK_SIZE = 5;
-    const results: HealthResult[] = [];
-
-    for (let i = 0; i < phaseCCompanyIds.length; i += CHUNK_SIZE) {
-      const chunk = phaseCCompanyIds.slice(i, i + CHUNK_SIZE);
-      const chunkResults = await Promise.allSettled(
-        chunk.map(async (companyId): Promise<HealthResult> => {
-          const [overdueTasks, closableProjects] = await Promise.all([
-            ProjectLifecycleService.detectOverdueTasks(companyId),
-            ProjectLifecycleService.detectClosableProjects(companyId),
-          ]);
-          return { companyId, overdueTasks, closableProjects };
-        })
-      );
-
-      for (let j = 0; j < chunkResults.length; j++) {
-        const r = chunkResults[j];
-        if (r.status === "fulfilled") {
-          if (r.value.overdueTasks > 0 || r.value.closableProjects > 0) {
-            results.push(r.value);
-          }
-        } else {
-          const message =
-            r.reason instanceof Error ? r.reason.message : "Unknown error";
-          console.error(
-            `[project-health] Error for company ${chunk[j]}:`,
-            message
-          );
-          results.push({
-            companyId: chunk[j],
-            overdueTasks: 0,
-            closableProjects: 0,
-            error: message,
-          });
-        }
-      }
-    }
+    const results = controlled.value.results.filter(
+      (result) =>
+        result.overdueTasks > 0 ||
+        result.closableProjects > 0 ||
+        result.error
+    );
 
     console.log(
-      `[project-health] Processed ${results.length} companies with findings`
+      `[project-health] Processed ${controlled.value.companyIds.length} companies; ${results.length} had findings or errors`
     );
 
     return NextResponse.json({ ok: true, results });

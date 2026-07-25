@@ -441,7 +441,7 @@ describe("AutoSendService queue lifecycle", () => {
       leaseToken: IDS.lease,
     });
     expect(db.rpc).toHaveBeenCalledWith("claim_phase_c_auto_sends", {
-      p_limit: 50,
+      p_limit: 10,
       p_lease_seconds: 300,
     });
     expect(db.from).not.toHaveBeenCalled();

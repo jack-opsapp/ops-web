@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { ProviderAuthError } from "@/lib/api/services/email-provider";
+import {
+  ProviderApiError,
+  ProviderAuthError,
+} from "@/lib/api/services/email-provider";
 import {
   runEmailAttachmentWorker,
   type ClaimedEmailAttachmentScan,
@@ -179,6 +182,94 @@ describe("email attachment scan worker", () => {
       },
     ]);
     expect(result).toMatchObject({ failed: 1, retrying: 0 });
+  });
+
+  it("stops on database pressure before retry persistence or the next scan", async () => {
+    const store = new FakeStore();
+    store.claimed = [scan("pressure"), scan("later")];
+    const pressure = Object.assign(
+      new Error("could not query the database for the schema cache"),
+      {
+        code: "PGRST002",
+        cause: { code: "57014", message: "statement timeout" },
+      }
+    );
+    const ingest = vi.fn(async () => {
+      throw pressure;
+    });
+
+    await expect(
+      runEmailAttachmentWorker(
+        {
+          store,
+          ingest,
+          workerId: () => "worker-pressure",
+        },
+        { concurrency: 1 }
+      )
+    ).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+
+    expect(ingest).toHaveBeenCalledTimes(1);
+    expect(store.retries).toEqual([]);
+    expect(store.failures).toEqual([]);
+  });
+
+  it("keeps a provider HTTP timeout on the ordinary attachment retry path", async () => {
+    const store = new FakeStore();
+    store.claimed = [scan("provider-timeout")];
+    const providerTimeout = new ProviderApiError(
+      "Gmail attachment read deadline exceeded",
+      504
+    );
+
+    const result = await runEmailAttachmentWorker(
+      {
+        store,
+        ingest: async () => {
+          throw providerTimeout;
+        },
+        workerId: () => "worker-provider-timeout",
+      },
+      { concurrency: 1 }
+    );
+
+    expect(result.retrying).toBe(1);
+    expect(store.retries).toHaveLength(1);
+    expect(store.retries[0]?.error).toBe(
+      "Gmail attachment read deadline exceeded"
+    );
+  });
+
+  it("surfaces database pressure from completion without scheduling a retry", async () => {
+    const store = new FakeStore();
+    store.claimed = [scan("completion-pressure"), scan("later")];
+    const pressure = Object.assign(new Error("525 SSL handshake failed"), {
+      status: 525,
+    });
+    store.markComplete = vi.fn(async () => {
+      throw pressure;
+    });
+    const ingest = vi.fn(async () => ({ requiresRetry: false }));
+
+    await expect(
+      runEmailAttachmentWorker(
+        {
+          store,
+          ingest,
+          workerId: () => "worker-completion-pressure",
+        },
+        { concurrency: 1 }
+      )
+    ).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+
+    expect(ingest).toHaveBeenCalledTimes(1);
+    expect(store.retries).toEqual([]);
   });
 
   it("bounds claim and concurrency inputs", async () => {

@@ -19,10 +19,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride, requireSupabase } from "@/lib/supabase/helpers";
 import { ClientSchedulingCommsService } from "@/lib/api/services/client-scheduling-comms-service";
-import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
 import { getCompanyManagerUserIds } from "@/lib/api/services/company-managers";
+import {
+  runBoundedPhaseCCompanyFanout,
+  throwCronDatabaseOperationError,
+} from "@/lib/api/services/cron-company-fanout-service";
+import {
+  isDatabasePressureError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 
 export const maxDuration = 300;
+
+const WORKLOAD_KEY = "appointment-reminders";
+const COMPANY_LIMIT = 5;
 
 type ReminderResult = {
   companyId: string;
@@ -62,13 +72,19 @@ async function findDefaultUserForCompany(
   const adminId = managerIds[0] ?? null;
   if (adminId) return adminId;
 
-  const { data: anyUser } = await supabase
+  const { data: anyUser, error } = await supabase
     .from("users")
     .select("id")
     .eq("company_id", companyId)
     .is("deleted_at", null)
     .limit(1)
     .maybeSingle();
+  if (error) {
+    throwCronDatabaseOperationError(
+      `appointment reminder user lookup failed for ${companyId}`,
+      error
+    );
+  }
 
   return (anyUser?.id as string) ?? null;
 }
@@ -90,11 +106,17 @@ async function processCompany(companyId: string): Promise<ReminderResult> {
   // Per-company timezone hour check — only process if the current local hour
   // matches the configured send_hour_local.
   const supabaseCheck = requireSupabase();
-  const { data: companyRow } = await supabaseCheck
+  const { data: companyRow, error: companyError } = await supabaseCheck
     .from("companies")
     .select("timezone")
     .eq("id", companyId)
     .maybeSingle();
+  if (companyError) {
+    throwCronDatabaseOperationError(
+      `appointment reminder timezone lookup failed for ${companyId}`,
+      companyError
+    );
+  }
   const timezone =
     (companyRow?.timezone as string) || "America/Vancouver";
   const currentLocalHour = currentHourInTimezone(timezone);
@@ -131,12 +153,18 @@ async function processCompany(companyId: string): Promise<ReminderResult> {
   // deserialize via the SendDayBeforeReminderActionData alias.
   const newSourceIds = candidateTasks.map((t) => `${t.taskId}:reminder`);
   const legacySourceIds = candidateTasks.map((t) => `${t.taskId}:day_before`);
-  const { data: existingActions } = await supabase
+  const { data: existingActions, error: existingActionsError } = await supabase
     .from("agent_actions")
     .select("source_id, status")
     .eq("company_id", companyId)
     .in("action_type", ["send_appointment_reminder", "send_day_before_reminder"])
     .in("source_id", [...newSourceIds, ...legacySourceIds]);
+  if (existingActionsError) {
+    throwCronDatabaseOperationError(
+      `appointment reminder deduplication read failed for ${companyId}`,
+      existingActionsError
+    );
+  }
 
   const skipTaskIds = new Set<string>();
   for (const row of existingActions ?? []) {
@@ -160,6 +188,7 @@ async function processCompany(companyId: string): Promise<ReminderResult> {
       );
       if (actionId) proposed++;
     } catch (err) {
+      if (isDatabasePressureError(err)) throw err;
       console.error(
         `[cron/appointment-reminders] task ${taskId} failed:`,
         err
@@ -193,70 +222,54 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    const { data: companies, error } = await supabase
-      .from("companies")
-      .select("id")
-      .limit(500);
-
-    if (error) throw error;
-
-    const allCompanyIds = (companies ?? []).map((c) => c.id as string);
-
-    const phaseCChecks = await Promise.allSettled(
-      allCompanyIds.map(async (companyId) => {
-        const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
-          companyId,
-          "phase_c"
-        );
-        return { companyId, enabled };
-      })
-    );
-    const phaseCCompanyIds = phaseCChecks
-      .filter(
-        (r): r is PromiseFulfilledResult<{ companyId: string; enabled: boolean }> =>
-          r.status === "fulfilled" && r.value.enabled
-      )
-      .map((r) => r.value.companyId);
-
-    const CHUNK_SIZE = 10;
-    const results: ReminderResult[] = [];
-
-    for (let i = 0; i < phaseCCompanyIds.length; i += CHUNK_SIZE) {
-      const chunk = phaseCCompanyIds.slice(i, i + CHUNK_SIZE);
-      const chunkResults = await Promise.allSettled(
-        chunk.map((companyId) => processCompany(companyId))
-      );
-
-      for (let j = 0; j < chunkResults.length; j++) {
-        const r = chunkResults[j];
-        if (r.status === "fulfilled") {
-          // Only log actionable results — skip "wrong_hour" (noisy every hour)
-          if (r.value.skipped === "wrong_hour") continue;
-          if (
-            r.value.remindersProposed > 0 ||
-            r.value.tasksChecked > 0 ||
-            r.value.skipped === "disabled"
-          ) {
-            results.push(r.value);
-          }
-        } else {
-          results.push({
-            companyId: chunk[j],
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: WORKLOAD_KEY,
+      leaseSeconds: 360,
+      work: (lease) =>
+        runBoundedPhaseCCompanyFanout<ReminderResult>({
+          supabase,
+          workloadKey: WORKLOAD_KEY,
+          lease,
+          companyLimit: COMPANY_LIMIT,
+          processCompany,
+          onCompanyError: (companyId, error) => ({
+            companyId,
             remindersProposed: 0,
             tasksChecked: 0,
             leadDays: 0,
-            error: r.reason?.message ?? "Unknown error",
-          });
-        }
-      }
+            error:
+              error instanceof Error ? error.message : "Unknown error",
+          }),
+        }),
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
     }
 
+    const results = controlled.value.results.filter(
+      (result) =>
+        result.skipped !== "wrong_hour" &&
+        (result.remindersProposed > 0 ||
+          result.tasksChecked > 0 ||
+          result.skipped === "disabled" ||
+          result.error)
+    );
     const totalReminders = results.reduce((s, r) => s + r.remindersProposed, 0);
     const errors = results.filter((r) => r.error);
 
     return NextResponse.json({
       ok: true,
-      companiesProcessed: phaseCCompanyIds.length,
+      companiesProcessed: controlled.value.companyIds.length,
       totalReminders,
       errors: errors.length,
       details: results,

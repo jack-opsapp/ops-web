@@ -8,9 +8,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { ProjectLifecycleService } from "@/lib/api/services/project-lifecycle-service";
-import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
+import { runBoundedPhaseCCompanyFanout } from "@/lib/api/services/cron-company-fanout-service";
+import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
 
 export const maxDuration = 300;
+
+const WORKLOAD_KEY = "project-status-updates";
+const COMPANY_LIMIT = 3;
+
+type StatusResult = {
+  companyId: string;
+  proposed: number;
+  error?: string;
+};
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -30,62 +40,48 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    // Find all companies
-    const { data: companies, error } = await supabase
-      .from("companies")
-      .select("id")
-      .limit(500);
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: WORKLOAD_KEY,
+      leaseSeconds: 360,
+      work: (lease) =>
+        runBoundedPhaseCCompanyFanout<StatusResult>({
+          supabase,
+          workloadKey: WORKLOAD_KEY,
+          lease,
+          companyLimit: COMPANY_LIMIT,
+          processCompany: async (companyId) => ({
+            companyId,
+            proposed:
+              await ProjectLifecycleService.scheduleStatusUpdates(companyId),
+          }),
+          onCompanyError: (companyId, error) => {
+            const message =
+              error instanceof Error ? error.message : "Unknown error";
+            console.error(
+              `[project-status-updates] Error for company ${companyId}:`,
+              message
+            );
+            return { companyId, proposed: 0, error: message };
+          },
+        }),
+    });
 
-    if (error) throw error;
-
-    type StatusResult = {
-      companyId: string;
-      proposed: number;
-      error?: string;
-    };
-
-    // Filter to phase_c companies first
-    const phaseCCompanyIds: string[] = [];
-    for (const company of companies ?? []) {
-      const companyId = company.id as string;
-      const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
-        companyId,
-        "phase_c"
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
       );
-      if (enabled) phaseCCompanyIds.push(companyId);
     }
 
-    // Process in parallel chunks of 3 (status updates involve AI calls)
-    const CHUNK_SIZE = 3;
-    const results: StatusResult[] = [];
-
-    for (let i = 0; i < phaseCCompanyIds.length; i += CHUNK_SIZE) {
-      const chunk = phaseCCompanyIds.slice(i, i + CHUNK_SIZE);
-      const chunkResults = await Promise.allSettled(
-        chunk.map(async (companyId): Promise<StatusResult> => {
-          const proposed =
-            await ProjectLifecycleService.scheduleStatusUpdates(companyId);
-          return { companyId, proposed };
-        })
-      );
-
-      for (let j = 0; j < chunkResults.length; j++) {
-        const r = chunkResults[j];
-        if (r.status === "fulfilled") {
-          if (r.value.proposed > 0) {
-            results.push(r.value);
-          }
-        } else {
-          const message =
-            r.reason instanceof Error ? r.reason.message : "Unknown error";
-          console.error(
-            `[project-status-updates] Error for company ${chunk[j]}:`,
-            message
-          );
-          results.push({ companyId: chunk[j], proposed: 0, error: message });
-        }
-      }
-    }
+    const results = controlled.value.results.filter(
+      (result) => result.proposed > 0 || result.error
+    );
 
     console.log(
       `[project-status-updates] Proposed ${results.reduce((s, r) => s + r.proposed, 0)} status updates across ${results.length} companies`

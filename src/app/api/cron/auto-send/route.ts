@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { AutoSendService } from "@/lib/api/services/auto-send-service";
+import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
 
 export const maxDuration = 300;
 
@@ -43,22 +44,43 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    const result = await AutoSendService.processPendingSends();
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: "auto-send",
+      leaseSeconds: 360,
+      work: async () => {
+        const result = await AutoSendService.processPendingSends();
 
-    console.log(
-      `[cron/auto-send] Processed: ${result.sent} sent, ${result.failed} failed`
-    );
+        console.log(
+          `[cron/auto-send] Processed: ${result.sent} sent, ${result.failed} failed`
+        );
 
-    if (result.errors.length > 0) {
-      console.error("[cron/auto-send] Errors:", result.errors);
+        if (result.errors.length > 0) {
+          console.error("[cron/auto-send] Errors:", result.errors);
+        }
+
+        return NextResponse.json({
+          ok: true,
+          sent: result.sent,
+          failed: result.failed,
+          errors: result.errors.length,
+        });
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
     }
 
-    return NextResponse.json({
-      ok: true,
-      sent: result.sent,
-      failed: result.failed,
-      errors: result.errors.length,
-    });
+    return controlled.value;
   } catch (err) {
     console.error("[cron/auto-send]", err);
     return NextResponse.json(

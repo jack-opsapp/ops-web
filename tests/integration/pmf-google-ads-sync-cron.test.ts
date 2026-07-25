@@ -29,7 +29,7 @@ interface UpsertCall {
 
 const upsertCalls: UpsertCall[] = [];
 
-let nextUpsertError: { message: string } | null = null;
+let nextUpsertError: { message: string; code?: string } | null = null;
 
 let isConfigured = true;
 let nextRows: Array<{
@@ -43,12 +43,46 @@ let nextRows: Array<{
 }> = [];
 let nextQueryError: Error | null = null;
 const queryCalls: Array<{ start: Date; end: Date }> = [];
+let nextControlSkip:
+  | "lease_held"
+  | "circuit_open"
+  | "control_unavailable"
+  | null = null;
+let lastWorkError: unknown = null;
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
 vi.mock("@/lib/supabase/admin-client", () => ({
   getAdminSupabase: () => makeMockClient(),
 }));
+
+vi.mock(
+  "@/lib/api/services/cron-workload-control-service",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/api/services/cron-workload-control-service")
+      >();
+    return {
+      ...actual,
+      runWithCronWorkloadControl: async ({
+        work,
+      }: {
+        work: () => Promise<unknown>;
+      }) => {
+        if (nextControlSkip) {
+          return { status: "skipped", reason: nextControlSkip };
+        }
+        try {
+          return { status: "completed", value: await work() };
+        } catch (error) {
+          lastWorkError = error;
+          throw error;
+        }
+      },
+    };
+  }
+);
 
 vi.mock("@/lib/analytics/google-ads-client", () => ({
   isGoogleAdsConfigured: () => isConfigured,
@@ -110,6 +144,8 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
     queryCalls.length = 0;
     nextUpsertError = null;
     nextQueryError = null;
+    nextControlSkip = null;
+    lastWorkError = null;
     isConfigured = true;
     nextRows = [];
     process.env.CRON_SECRET = VALID_SECRET;
@@ -149,6 +185,20 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { skipped: string };
     expect(json.skipped).toBeTruthy();
+    expect(queryCalls).toHaveLength(0);
+    expect(upsertCalls).toHaveLength(0);
+  });
+
+  it("skips an overlapping invocation before provider or database work", async () => {
+    nextControlSkip = "lease_held";
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
     expect(queryCalls).toHaveLength(0);
     expect(upsertCalls).toHaveLength(0);
   });
@@ -265,7 +315,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
     errorSpy.mockRestore();
   });
 
-  it("returns 500 with the error message when the supabase upsert fails", async () => {
+  it("tags a Supabase upsert failure as database pressure without leaking it", async () => {
     nextRows = [
       {
         date: expectedYesterdayStr(),
@@ -277,13 +327,21 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
         ctr: 0,
       },
     ];
-    nextUpsertError = { message: "boom" };
+    nextUpsertError = {
+      message: "remaining connection slots are reserved",
+      code: "53300",
+    };
 
     const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
-    expect(json.error).toBe("boom");
+    expect(json.error).toBe("google ads sync failed");
+
+    const { CronDatabaseOperationError, isDatabasePressureError } =
+      await import("@/lib/api/services/cron-workload-control-service");
+    expect(lastWorkError).toBeInstanceOf(CronDatabaseOperationError);
+    expect(isDatabasePressureError(lastWorkError)).toBe(true);
 
     // The upsert *was* attempted before the error came back.
     expect(upsertCalls).toHaveLength(1);

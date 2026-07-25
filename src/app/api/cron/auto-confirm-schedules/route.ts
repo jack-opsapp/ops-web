@@ -19,10 +19,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride, requireSupabase } from "@/lib/supabase/helpers";
 import { ClientSchedulingCommsService } from "@/lib/api/services/client-scheduling-comms-service";
-import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
 import { getCompanyManagerUserIds } from "@/lib/api/services/company-managers";
+import {
+  runBoundedPhaseCCompanyFanout,
+  throwCronDatabaseOperationError,
+} from "@/lib/api/services/cron-company-fanout-service";
+import {
+  isDatabasePressureError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 
 export const maxDuration = 300;
+
+const WORKLOAD_KEY = "auto-confirm-schedules";
+const COMPANY_LIMIT = 5;
 
 type Result = {
   companyId: string;
@@ -40,13 +50,19 @@ async function findDefaultUserForCompany(
   const adminId = managerIds[0] ?? null;
   if (adminId) return adminId;
 
-  const { data: anyUser } = await supabase
+  const { data: anyUser, error } = await supabase
     .from("users")
     .select("id")
     .eq("company_id", companyId)
     .is("deleted_at", null)
     .limit(1)
     .maybeSingle();
+  if (error) {
+    throwCronDatabaseOperationError(
+      `auto-confirm user lookup failed for ${companyId}`,
+      error
+    );
+  }
 
   return (anyUser?.id as string) ?? null;
 }
@@ -71,16 +87,22 @@ async function processCompany(companyId: string): Promise<Result> {
     try {
       // Double-check the task is still unconfirmed — if another path confirmed
       // it between listing and updating, skip.
-      const { data: current } = await supabase
+      const { data: current, error: currentError } = await supabase
         .from("project_tasks")
         .select("schedule_confirmed_at")
         .eq("id", taskId)
         .eq("company_id", companyId)
         .maybeSingle();
+      if (currentError) {
+        throwCronDatabaseOperationError(
+          `auto-confirm task recheck failed for ${taskId}`,
+          currentError
+        );
+      }
 
       if (current?.schedule_confirmed_at) continue;
 
-      await supabase
+      const { error: updateError } = await supabase
         .from("project_tasks")
         .update({
           schedule_confirmed_at: new Date().toISOString(),
@@ -88,6 +110,12 @@ async function processCompany(companyId: string): Promise<Result> {
         })
         .eq("id", taskId)
         .eq("company_id", companyId);
+      if (updateError) {
+        throwCronDatabaseOperationError(
+          `auto-confirm task update failed for ${taskId}`,
+          updateError
+        );
+      }
 
       await ClientSchedulingCommsService.onTaskScheduleConfirmed(
         companyId,
@@ -96,6 +124,7 @@ async function processCompany(companyId: string): Promise<Result> {
       );
       confirmedCount++;
     } catch (err) {
+      if (isDatabasePressureError(err)) throw err;
       console.error(
         `[cron/auto-confirm-schedules] task ${taskId} failed:`,
         err
@@ -123,6 +152,7 @@ async function processCompany(companyId: string): Promise<Result> {
         actionLabel: "notification.autoConfirmedTasks.action",
       });
     } catch (err) {
+      if (isDatabasePressureError(err)) throw err;
       console.error(
         "[cron/auto-confirm-schedules] audit notification failed:",
         err
@@ -155,63 +185,51 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    const { data: companies, error } = await supabase
-      .from("companies")
-      .select("id")
-      .limit(500);
-
-    if (error) throw error;
-
-    const allCompanyIds = (companies ?? []).map((c) => c.id as string);
-
-    const phaseCChecks = await Promise.allSettled(
-      allCompanyIds.map(async (companyId) => {
-        const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
-          companyId,
-          "phase_c"
-        );
-        return { companyId, enabled };
-      })
-    );
-    const phaseCCompanyIds = phaseCChecks
-      .filter(
-        (r): r is PromiseFulfilledResult<{ companyId: string; enabled: boolean }> =>
-          r.status === "fulfilled" && r.value.enabled
-      )
-      .map((r) => r.value.companyId);
-
-    const CHUNK_SIZE = 10;
-    const results: Result[] = [];
-
-    for (let i = 0; i < phaseCCompanyIds.length; i += CHUNK_SIZE) {
-      const chunk = phaseCCompanyIds.slice(i, i + CHUNK_SIZE);
-      const chunkResults = await Promise.allSettled(
-        chunk.map((companyId) => processCompany(companyId))
-      );
-
-      for (let j = 0; j < chunkResults.length; j++) {
-        const r = chunkResults[j];
-        if (r.status === "fulfilled") {
-          if (r.value.tasksChecked > 0 || r.value.tasksConfirmed > 0) {
-            results.push(r.value);
-          }
-        } else {
-          results.push({
-            companyId: chunk[j],
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: WORKLOAD_KEY,
+      leaseSeconds: 360,
+      work: (lease) =>
+        runBoundedPhaseCCompanyFanout<Result>({
+          supabase,
+          workloadKey: WORKLOAD_KEY,
+          lease,
+          companyLimit: COMPANY_LIMIT,
+          processCompany,
+          onCompanyError: (companyId, error) => ({
+            companyId,
             tasksChecked: 0,
             tasksConfirmed: 0,
-            error: r.reason?.message ?? "Unknown error",
-          });
-        }
-      }
+            error:
+              error instanceof Error ? error.message : "Unknown error",
+          }),
+        }),
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
     }
 
+    const results = controlled.value.results.filter(
+      (result) =>
+        result.tasksChecked > 0 ||
+        result.tasksConfirmed > 0 ||
+        result.error
+    );
     const totalConfirmed = results.reduce((s, r) => s + r.tasksConfirmed, 0);
     const errors = results.filter((r) => r.error);
 
     return NextResponse.json({
       ok: true,
-      companiesProcessed: phaseCCompanyIds.length,
+      companiesProcessed: controlled.value.companyIds.length,
       totalConfirmed,
       errors: errors.length,
       details: results,

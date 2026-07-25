@@ -200,4 +200,27 @@ describe("NotificationService", () => {
       ].sort()
     );
   });
+
+  it("retains the raw Supabase cause in strict cron creation", async () => {
+    const raw = {
+      code: "PGRST002",
+      message: "Could not query the database for the schema cache",
+    };
+    const rpc = vi.fn(async () => ({ error: raw }));
+    requireSupabaseMock.mockReturnValue({ rpc } as never);
+    const { CronDatabaseOperationError } = await import(
+      "@/lib/api/services/cron-workload-control-service"
+    );
+
+    const failure = await NotificationService.createOrThrow({
+      userId: "user-1",
+      companyId: "company-1",
+      type: "duplicates_found",
+      title: "Potential duplicates found",
+      body: "1 potential duplicate record detected",
+    }).catch((error) => error);
+
+    expect(failure).toBeInstanceOf(CronDatabaseOperationError);
+    expect(failure.cause).toBe(raw);
+  });
 });

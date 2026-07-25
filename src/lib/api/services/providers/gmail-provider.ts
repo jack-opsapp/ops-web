@@ -46,6 +46,186 @@ const GMAIL_ATTACHMENT_JSON_OVERHEAD_BYTES = 64 * 1024;
 const MAX_GMAIL_ATTACHMENTS_PER_MESSAGE = 500;
 const MAX_GMAIL_ATTACHMENT_REQUEST_MS = 30_000;
 const GMAIL_PROVIDER_READ_DEADLINE_MS = 45_000;
+const GMAIL_INCREMENTAL_HISTORY_MAX_PAGES = 10;
+const GMAIL_INCREMENTAL_HISTORY_MAX_MESSAGES = 25;
+const GMAIL_INCREMENTAL_HISTORY_PAGE_SIZE = 100;
+const GMAIL_INCREMENTAL_CURSOR_MAX_PENDING_MESSAGES = 2_000;
+const GMAIL_INCREMENTAL_CURSOR_MAX_BYTES = 128 * 1024;
+const GMAIL_INCREMENTAL_CURSOR_V1_PREFIX = "gmail:v1:";
+
+interface GmailIncrementalCursor {
+  startHistoryId: string;
+  pageToken: string | null;
+  finalHistoryId: string;
+  pendingMessageIds: string[];
+  historyComplete: boolean;
+}
+
+function malformedGmailIncrementalCursor(
+  syncToken: string,
+  reason: string
+): ProviderApiError {
+  return new ProviderApiError(
+    `Gmail sync cursor is malformed: ${reason}`,
+    500,
+    syncToken
+  );
+}
+
+function normalizedCursorString(
+  value: unknown,
+  field: string,
+  syncToken: string
+): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw malformedGmailIncrementalCursor(syncToken, `${field} is required`);
+  }
+  if (value !== value.trim()) {
+    throw malformedGmailIncrementalCursor(
+      syncToken,
+      `${field} must not contain surrounding whitespace`
+    );
+  }
+  return value;
+}
+
+function decodeGmailIncrementalCursor(
+  syncToken: string
+): GmailIncrementalCursor {
+  if (!syncToken.startsWith(GMAIL_INCREMENTAL_CURSOR_V1_PREFIX)) {
+    const historyId = normalizedCursorString(
+      syncToken,
+      "startHistoryId",
+      syncToken
+    );
+    return {
+      startHistoryId: historyId,
+      pageToken: null,
+      finalHistoryId: historyId,
+      pendingMessageIds: [],
+      historyComplete: false,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(
+      syncToken.slice(GMAIL_INCREMENTAL_CURSOR_V1_PREFIX.length)
+    ) as {
+      startHistoryId?: unknown;
+      pageToken?: unknown;
+      finalHistoryId?: unknown;
+      pendingMessageIds?: unknown;
+    };
+    const startHistoryId = normalizedCursorString(
+      parsed.startHistoryId,
+      "startHistoryId",
+      syncToken
+    );
+    const finalHistoryId = normalizedCursorString(
+      parsed.finalHistoryId,
+      "finalHistoryId",
+      syncToken
+    );
+    if (
+      parsed.pageToken !== null &&
+      (typeof parsed.pageToken !== "string" || !parsed.pageToken.trim())
+    ) {
+      throw malformedGmailIncrementalCursor(
+        syncToken,
+        "pageToken must be a non-empty string or null"
+      );
+    }
+    const pageToken =
+      parsed.pageToken === null
+        ? null
+        : normalizedCursorString(parsed.pageToken, "pageToken", syncToken);
+    if (!Array.isArray(parsed.pendingMessageIds)) {
+      throw malformedGmailIncrementalCursor(
+        syncToken,
+        "pendingMessageIds must be an array"
+      );
+    }
+    if (
+      parsed.pendingMessageIds.length >
+      GMAIL_INCREMENTAL_CURSOR_MAX_PENDING_MESSAGES
+    ) {
+      throw malformedGmailIncrementalCursor(
+        syncToken,
+        `pendingMessageIds exceeds ${GMAIL_INCREMENTAL_CURSOR_MAX_PENDING_MESSAGES}`
+      );
+    }
+    const pendingMessageIds = parsed.pendingMessageIds.map((value, index) =>
+      normalizedCursorString(value, `pendingMessageIds[${index}]`, syncToken)
+    );
+    if (new Set(pendingMessageIds).size !== pendingMessageIds.length) {
+      throw malformedGmailIncrementalCursor(
+        syncToken,
+        "pendingMessageIds contains duplicates"
+      );
+    }
+
+    return {
+      startHistoryId,
+      pageToken,
+      finalHistoryId,
+      pendingMessageIds,
+      // A structured cursor exists only after at least one history page has
+      // been read. A null continuation therefore means the terminal page was
+      // reached and only its bounded message remainder is pending.
+      historyComplete: pageToken === null,
+    };
+  } catch (error) {
+    if (error instanceof ProviderApiError) throw error;
+    throw malformedGmailIncrementalCursor(
+      syncToken,
+      error instanceof Error ? error.message : "invalid JSON"
+    );
+  }
+}
+
+function encodeGmailIncrementalCursor(
+  cursor: Omit<GmailIncrementalCursor, "historyComplete">
+): string {
+  if (cursor.pendingMessageIds.length === 0 && cursor.pageToken === null) {
+    return cursor.finalHistoryId;
+  }
+  if (
+    cursor.pendingMessageIds.length >
+    GMAIL_INCREMENTAL_CURSOR_MAX_PENDING_MESSAGES
+  ) {
+    throw new ProviderApiError(
+      `Gmail incremental continuation exceeds ${GMAIL_INCREMENTAL_CURSOR_MAX_PENDING_MESSAGES} pending messages`,
+      500,
+      {
+        startHistoryId: cursor.startHistoryId,
+        finalHistoryId: cursor.finalHistoryId,
+        pendingMessageCount: cursor.pendingMessageIds.length,
+      }
+    );
+  }
+
+  const encoded = `${GMAIL_INCREMENTAL_CURSOR_V1_PREFIX}${JSON.stringify({
+    startHistoryId: cursor.startHistoryId,
+    pageToken: cursor.pageToken,
+    finalHistoryId: cursor.finalHistoryId,
+    pendingMessageIds: cursor.pendingMessageIds,
+  })}`;
+  if (
+    new TextEncoder().encode(encoded).byteLength >
+    GMAIL_INCREMENTAL_CURSOR_MAX_BYTES
+  ) {
+    throw new ProviderApiError(
+      `Gmail incremental continuation exceeds ${GMAIL_INCREMENTAL_CURSOR_MAX_BYTES} bytes`,
+      500,
+      {
+        startHistoryId: cursor.startHistoryId,
+        finalHistoryId: cursor.finalHistoryId,
+        pendingMessageCount: cursor.pendingMessageIds.length,
+      }
+    );
+  }
+  return encoded;
+}
 
 function attachmentRequestSignal(): AbortSignal {
   return AbortSignal.timeout(MAX_GMAIL_ATTACHMENT_REQUEST_MS);
@@ -1366,9 +1546,12 @@ export class GmailProvider implements EmailProviderInterface {
   // ─── Private Helpers ────────────────────────────────────────────────────────
 
   /**
-   * Read every Gmail history page before exposing the new cursor. Gmail can
-   * repeat a message across history records/pages, so message ids are collected
-   * in insertion order through a Set before the full messages are fetched.
+   * Walk a bounded Gmail history slice and return an opaque continuation when
+   * more provider pages or materializable messages remain. The continuation
+   * retains both Gmail's page token and the latest observed terminal historyId,
+   * so a successful cycle resumes beyond old pages without advancing past
+   * unpersisted mail.
+   *
    * Any history-page or materializable-message failure aborts the result.
    * A post-discovery messages.get 404/410 is the one safe exception: Gmail has
    * permanently removed that object, so it is a tombstone rather than retryable
@@ -1380,14 +1563,23 @@ export class GmailProvider implements EmailProviderInterface {
     contextLabel: "mailbox" | "inbox" | "sent"
   ): Promise<SyncResult> {
     const deadlineAt = Date.now() + GMAIL_PROVIDER_READ_DEADLINE_MS;
-    const messageIds = new Set<string>();
-    let pageToken: string | undefined;
-    let finalHistoryId = syncToken;
+    const cursor = decodeGmailIncrementalCursor(syncToken);
+    const pendingMessageIds = [...cursor.pendingMessageIds];
+    const pendingMessageIdSet = new Set(pendingMessageIds);
+    let pageToken = cursor.pageToken;
+    let finalHistoryId = cursor.finalHistoryId;
+    let historyComplete = cursor.historyComplete;
+    let pagesRead = 0;
 
-    do {
+    while (
+      !historyComplete &&
+      pagesRead < GMAIL_INCREMENTAL_HISTORY_MAX_PAGES &&
+      pendingMessageIds.length < GMAIL_INCREMENTAL_HISTORY_MAX_MESSAGES
+    ) {
       const params = new URLSearchParams({
         historyTypes: "messageAdded",
-        startHistoryId: syncToken,
+        maxResults: String(GMAIL_INCREMENTAL_HISTORY_PAGE_SIZE),
+        startHistoryId: cursor.startHistoryId,
       });
       if (labelId) params.set("labelId", labelId);
       if (pageToken) params.set("pageToken", pageToken);
@@ -1404,18 +1596,39 @@ export class GmailProvider implements EmailProviderInterface {
         historyId?: string;
         nextPageToken?: string;
       }>(res, `history.list (${contextLabel})`);
+      pagesRead += 1;
 
       for (const record of data.history || []) {
         for (const added of record.messagesAdded || []) {
-          if (added.message?.id) messageIds.add(added.message.id);
+          const messageId = added.message?.id?.trim();
+          if (!messageId || pendingMessageIdSet.has(messageId)) continue;
+          pendingMessageIdSet.add(messageId);
+          pendingMessageIds.push(messageId);
         }
       }
 
-      if (data.historyId) finalHistoryId = data.historyId;
-      pageToken = data.nextPageToken || undefined;
-    } while (pageToken);
+      if (data.historyId?.trim()) finalHistoryId = data.historyId.trim();
+      const nextPageToken = data.nextPageToken?.trim() || null;
+      if (nextPageToken && nextPageToken === pageToken) {
+        throw new ProviderApiError(
+          `Gmail history.list (${contextLabel}) returned a non-advancing page token`,
+          500,
+          { pageToken, nextPageToken }
+        );
+      }
+      pageToken = nextPageToken;
+      historyComplete = pageToken === null;
+    }
 
-    const emails = await this.fetchMessagesByIds([...messageIds], {
+    const messageIdsToMaterialize = pendingMessageIds.slice(
+      0,
+      GMAIL_INCREMENTAL_HISTORY_MAX_MESSAGES
+    );
+    const remainingMessageIds = pendingMessageIds.slice(
+      GMAIL_INCREMENTAL_HISTORY_MAX_MESSAGES
+    );
+
+    const emails = await this.fetchMessagesByIds(messageIdsToMaterialize, {
       // History is a discovery log, not a snapshot. A message can be deleted
       // or permanently expunged after history.list names it but before the
       // follow-up messages.get. That 404/410 is a durable tombstone: there is
@@ -1431,7 +1644,12 @@ export class GmailProvider implements EmailProviderInterface {
             NON_DELIVERY_MESSAGE_LABELS.has(label.toUpperCase())
           )
       ),
-      nextSyncToken: finalHistoryId,
+      nextSyncToken: encodeGmailIncrementalCursor({
+        startHistoryId: cursor.startHistoryId,
+        pageToken,
+        finalHistoryId,
+        pendingMessageIds: remainingMessageIds,
+      }),
     };
   }
 
