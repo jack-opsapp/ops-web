@@ -154,8 +154,13 @@ export const usePermissionStore = create<PermissionState>()((set, get) => ({
     } else {
       // hold: keep the current grants visible while the refresh runs (boot
       // rehydrate / realtime reconnect). The catch below still fails closed on
-      // any refresh error, identically to revoke-first.
-      set({ loading: true });
+      // any refresh error, identically to revoke-first. Once canonical
+      // authority has been initialized, this is a background refresh and must
+      // remain route-ready; otherwise permission-gated layouts unmount the
+      // realtime channel that requested the refresh and create a retry loop.
+      if (!get().initialized) {
+        set({ loading: true });
+      }
     }
 
     try {
