@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { generateCatalogProposals } from "../setup-agent-service";
+import {
+  generateCatalogProposals,
+  generateGuidedCatalogTurn,
+} from "../setup-agent-service";
 
 function clientReturning(content: string) {
   const create = vi.fn(async (_args: Record<string, unknown>) => ({
@@ -62,5 +65,56 @@ describe("generateCatalogProposals", () => {
     const { client } = clientReturning('{"foo":1}');
     const result = await generateCatalogProposals({ description: "x", client });
     expect(result.proposals).toEqual([]);
+  });
+});
+
+describe("generateGuidedCatalogTurn", () => {
+  it("requests one schema-guided JSON turn and returns the validated question", async () => {
+    const turn = {
+      kind: "question",
+      facts: [],
+      question: {
+        id: "minimum-charge",
+        prompt: "Do you have a minimum charge?",
+        answerKind: "boolean",
+        factKeys: ["product.minimum_charge"],
+      },
+    };
+    const { client, create } = clientReturning(JSON.stringify(turn));
+
+    const result = await generateGuidedCatalogTurn({
+      answer: "Yes",
+      facts: [],
+      contradictions: [],
+      currentQuestion: null,
+      liveSnapshotSummary: { productCount: 0 },
+      verifiedReference: {},
+      client,
+    });
+
+    expect(result).toEqual(turn);
+    const args = create.mock.calls[0][0] as {
+      response_format: { type: string };
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(args.response_format).toEqual({ type: "json_object" });
+    expect(args.messages[0].content).toMatch(/one high-value question/i);
+    expect(JSON.parse(args.messages[1].content).responseSchema).toBeTruthy();
+  });
+
+  it("rejects malformed output instead of mutating the durable session", async () => {
+    const { client } = clientReturning('{"kind":"question","facts":[]}');
+
+    await expect(
+      generateGuidedCatalogTurn({
+        answer: "Yes",
+        facts: [],
+        contradictions: [],
+        currentQuestion: null,
+        liveSnapshotSummary: {},
+        verifiedReference: {},
+        client,
+      }),
+    ).rejects.toThrow(/invalid/i);
   });
 });

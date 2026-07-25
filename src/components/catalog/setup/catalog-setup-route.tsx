@@ -12,11 +12,9 @@
  *  • onBuild: commits the accepted cards via catalog_setup_save, toasts the
  *    result, resets the canvas, and returns to the now-populated /catalog.
  *  • onSetupLater: the ghost exit → back to /catalog.
- *  • sources: scoped to the lanes wired end-to-end. This slice ships MANUAL
- *    (add a row, fill it, accept), TEMPLATE (pick your trade → starter cards),
- *    and UPLOAD (drop a CSV → auto-route → map → dedupe-bind → stage); QuickBooks
- *    and the guided agent land in their own phases and appear in the picker as
- *    they do.
+ *  • guided setup: the default, stateful Phase C interview and reviewed commit.
+ *  • fallback sources: MANUAL, TEMPLATE, and UPLOAD remain available behind the
+ *    explicit "use another method" action. QuickBooks remains separately gated.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -74,18 +72,13 @@ import type {
   QuickBooksPaneSummary,
 } from "@/components/catalog-setup/QuickBooksPane";
 import type { OnFileProduct } from "@/lib/catalog-setup/existing-rows";
+import { GuidedCatalogSetup } from "./guided-catalog-setup";
 
 /**
- * Lanes wired end-to-end. The guided "describe" (agent) lane appears only when
- * it's configured (NEXT_PUBLIC_CATALOG_AGENT_ENABLED + a server OPENAI_API_KEY) —
- * honest, never a lane that 503s. TEMPLATE (per-trade starter) + MANUAL are the
- * always-available deterministic floor (offline / no-agent safe). More lanes
- * (file upload, QuickBooks) join as their phases land.
+ * Phase C guided setup is the default surface. These deterministic lanes remain
+ * as the explicit fallback when the operator chooses another setup method.
  */
-const AGENT_ENABLED = process.env.NEXT_PUBLIC_CATALOG_AGENT_ENABLED === "true";
-const AVAILABLE_SOURCES: SetupSource[] = AGENT_ENABLED
-  ? ["describe", "upload", "template", "manual"]
-  : ["upload", "template", "manual"];
+const AVAILABLE_SOURCES: SetupSource[] = ["upload", "template", "manual"];
 
 // QuickBooks read-only pull lane. DARK BY DEFAULT — the button appears only when
 // the client flag is set (the server route is independently gated + Canpro-scoped;
@@ -146,6 +139,7 @@ export function CatalogSetupRoute() {
   const [agentErrored, setAgentErrored] = useState(false);
   const [inventoryPromptOpen, setInventoryPromptOpen] = useState(false);
   const inventoryPromptShownRef = useRef(false);
+  const [useLegacySetup, setUseLegacySetup] = useState(false);
 
   // ── Gates + analytics context (computed unconditionally — rules of hooks) ────
   // step-gates is the single source for which modules this operator can run;
@@ -159,7 +153,7 @@ export function CatalogSetupRoute() {
   // so the lane is never a dead 503/repeat-failure (agent-fallback contract).
   const agentDriver = resolveDriver({
     online,
-    agentEnabled: AGENT_ENABLED,
+    agentEnabled: false,
     agentErrored,
   });
   const availableSources = useMemo(
@@ -570,6 +564,31 @@ export function CatalogSetupRoute() {
         onReload={() => window.location.reload()}
         onExit={() => router.push("/catalog")}
       />
+    );
+  }
+
+  if (!useLegacySetup) {
+    return (
+      <PrerequisiteGate
+        blocker={blocker}
+        onReload={() => window.location.reload()}
+        onExit={() => router.push("/catalog")}
+      >
+        <OfflineBanner online={online} className="mx-3 mt-2" />
+        <GuidedCatalogSetup
+          onUseAnotherMethod={() => setUseLegacySetup(true)}
+          onExit={() => router.push("/catalog")}
+          onAddInventoryList={(guidedSessionId, defaultLocation) =>
+            router.push(
+              `/catalog/setup/inventory?sessionId=${encodeURIComponent(guidedSessionId)}${
+                defaultLocation
+                  ? `&location=${encodeURIComponent(defaultLocation)}`
+                  : ""
+              }`,
+            )
+          }
+        />
+      </PrerequisiteGate>
     );
   }
 

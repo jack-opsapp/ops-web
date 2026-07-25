@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mocks = vi.hoisted(() => ({
@@ -34,6 +34,7 @@ function request(body: unknown) {
 describe("POST /api/catalog/setup/sessions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("OPENAI_API_KEY", "server-agent-key");
     mocks.verifyAuthToken.mockResolvedValue({
       uid: "firebase-user",
       email: "operator@example.com",
@@ -50,6 +51,10 @@ describe("POST /api/catalog/setup/sessions", () => {
         status: "interviewing",
       },
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("starts a company-scoped session for an authorized catalog operator", async () => {
@@ -73,6 +78,21 @@ describe("POST /api/catalog/setup/sessions", () => {
     const response = await POST(request({ token: "valid-token" }));
 
     expect(response.status).toBe(403);
+    expect(mocks.startOrResumeGuidedSetupSession).not.toHaveBeenCalled();
+  });
+
+  it("does not create a durable session when the guided agent is unavailable", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "");
+
+    const response = await POST(request({ token: "valid-token" }));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      session: null,
+      resumed: false,
+      agentAvailable: false,
+    });
     expect(mocks.startOrResumeGuidedSetupSession).not.toHaveBeenCalled();
   });
 

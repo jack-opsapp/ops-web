@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CANPRO_VINYL_LIVE_SNAPSHOT } from "../__fixtures__/canpro-vinyl";
 import { DEKSMART_ULTRA_COLORS } from "../reference/deksmart";
+import { buildDeksmartVinylDesiredStructure } from "../reference/deksmart-desired";
 import {
   reconcileCatalogStructure,
   type DesiredCatalogStructure,
@@ -61,7 +62,127 @@ const desired: DesiredCatalogStructure = {
   ],
 };
 
+const desiredWithProducts: DesiredCatalogStructure = {
+  ...desired,
+  products: [
+    {
+      clientId: "vinyl-install-68",
+      name: "Vinyl membrane installation",
+      description: "Supply and install DekSmart Ultra 68mil membrane.",
+      basePrice: 11.73,
+      unitCost: 2,
+      pricingUnit: "sqft",
+      minimumCharge: 1500,
+      isTaxable: true,
+      showInStorefront: true,
+      taskTypeClientId: "vinyl-install",
+      linkedFamilyRef: "deksmart-ultra-68",
+      options: [
+        {
+          clientId: "vinyl-install-68:color",
+          name: "Color",
+          required: true,
+          affectsRecipe: true,
+          catalogOptionRef: "deksmart-ultra-68:color",
+          values: DEKSMART_ULTRA_COLORS.map((color) => ({
+            clientId: `vinyl-install-68:color:${color.toLowerCase().replaceAll(" ", "-")}`,
+            label: color,
+            catalogValueRef: `deksmart-ultra-68:color:${color.toLowerCase().replaceAll(" ", "-")}`,
+          })),
+        },
+      ],
+      materials: [
+        {
+          clientId: "vinyl-install-68:membrane",
+          catalogItemRef: "deksmart-ultra-68",
+          variantSelector: {
+            productOptionRef: "vinyl-install-68:color",
+          },
+          quantityPerUnit: 1,
+          quantityRule: {
+            calculationKind: "cut_plan",
+            measureSource: "deck_geometry/v1",
+            requiredInputs: ["finished_area_sqft", "deck_dimensions"],
+            wasteFactor: 1,
+            purchaseRounding: "none",
+            fallbackRule: { mode: "manual_dimensions" },
+            config: { orderMode: "precut_or_roll" },
+          },
+        },
+      ],
+      capability: {
+        capabilityKey: "deck_geometry/v1",
+        requiredInputs: [
+          "finished_area_sqft",
+          "deck_dimensions",
+          "exposed_edge_lf",
+          "wall_edge_lf",
+        ],
+        fallbackBehavior: { mode: "manual_dimensions" },
+      },
+    },
+    {
+      clientId: "vinyl-install-60",
+      name: "Vinyl membrane installation — 60mil",
+      description: "Supply and install DekSmart Smoothback 60mil membrane.",
+      basePrice: 12.73,
+      unitCost: 2.25,
+      pricingUnit: "sqft",
+      minimumCharge: 1500,
+      isTaxable: true,
+      showInStorefront: false,
+      taskTypeClientId: "vinyl-install",
+      linkedFamilyRef: "deksmart-smoothback-60",
+      options: [
+        {
+          clientId: "vinyl-install-60:color",
+          name: "Color",
+          required: true,
+          affectsRecipe: true,
+          catalogOptionRef: "deksmart-smoothback-60:color",
+          values: ["Antique Beige", "Dove Grey"].map((color) => ({
+            clientId: `vinyl-install-60:color:${color.toLowerCase().replaceAll(" ", "-")}`,
+            label: color,
+            catalogValueRef: `deksmart-smoothback-60:color:${color.toLowerCase().replaceAll(" ", "-")}`,
+          })),
+        },
+      ],
+      materials: [],
+    },
+  ],
+};
+
 describe("Phase C Canpro vinyl reconciliation", () => {
+  it("produces a reviewable complete DekSmart plan from the observed live catalog", () => {
+    const blueprint = reconcileCatalogStructure(
+      CANPRO_VINYL_LIVE_SNAPSHOT,
+      buildDeksmartVinylDesiredStructure({
+        standardPricePerSqft: 11.73,
+        smoothbackPricePerSqft: 12.73,
+        standardLaborCostPerSqft: 2,
+        smoothbackLaborCostPerSqft: 2.25,
+        minimumCharge: 1500,
+        taxRate: 0.05,
+        taskTypeDisplay: "Vinyl Install",
+      }),
+    );
+
+    expect(blueprint.ready).toBe(true);
+    expect(
+      blueprint.issues.filter((issue) => issue.severity === "blocker"),
+    ).toEqual([]);
+    expect(
+      blueprint.actions.filter(
+        (action) => action.actionType === "upsert_product",
+      ),
+    ).toHaveLength(2);
+    expect(
+      blueprint.actions.filter(
+        (action) => action.actionType === "upsert_product_material",
+      ),
+    ).toHaveLength(10);
+  });
+
   it("preserves all 12 existing Ultra IDs and creates only seven missing colors", () => {
     const blueprint = reconcileCatalogStructure(
       CANPRO_VINYL_LIVE_SNAPSHOT,
@@ -194,5 +315,77 @@ describe("Phase C Canpro vinyl reconciliation", () => {
     expect(
       blueprint.issues.filter((issue) => issue.code === "ambiguous_match"),
     ).toHaveLength(0);
+  });
+
+  it("builds two quote products with Color only and keeps 60mil off the storefront", () => {
+    const blueprint = reconcileCatalogStructure(
+      CANPRO_VINYL_LIVE_SNAPSHOT,
+      desiredWithProducts,
+    );
+    const products = blueprint.actions.filter(
+      (action) => action.actionType === "upsert_product",
+    );
+    const options = blueprint.actions.filter(
+      (action) => action.actionType === "upsert_product_option",
+    );
+
+    expect(products).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          clientId: "vinyl-install-68",
+          payload: expect.objectContaining({
+            basePrice: 11.73,
+            unitCost: 2,
+            minimumCharge: 1500,
+            isTaxable: true,
+            showInStorefront: true,
+            taskTypeClientId: "vinyl-install",
+          }),
+        }),
+        expect.objectContaining({
+          clientId: "vinyl-install-60",
+          payload: expect.objectContaining({
+            name: "Vinyl membrane installation — 60mil",
+            basePrice: 12.73,
+            unitCost: 2.25,
+            showInStorefront: false,
+          }),
+        }),
+      ]),
+    );
+    expect(options.map((action) => action.payload.name)).toEqual([
+      "Color",
+      "Color",
+    ]);
+    expect(options.some((action) => action.payload.name === "Thickness")).toBe(
+      false,
+    );
+  });
+
+  it("connects the standard product to deck geometry with a manual fallback", () => {
+    const blueprint = reconcileCatalogStructure(
+      CANPRO_VINYL_LIVE_SNAPSHOT,
+      desiredWithProducts,
+    );
+
+    expect(blueprint.actions).toContainEqual(
+      expect.objectContaining({
+        actionType: "upsert_material_quantity_rule",
+        payload: expect.objectContaining({
+          calculationKind: "cut_plan",
+          measureSource: "deck_geometry/v1",
+          fallbackRule: { mode: "manual_dimensions" },
+        }),
+      }),
+    );
+    expect(blueprint.actions).toContainEqual(
+      expect.objectContaining({
+        actionType: "upsert_capability_binding",
+        payload: expect.objectContaining({
+          capabilityKey: "deck_geometry/v1",
+          fallbackBehavior: { mode: "manual_dimensions" },
+        }),
+      }),
+    );
   });
 });

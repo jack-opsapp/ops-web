@@ -45,6 +45,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const agentAvailable = Boolean(process.env.OPENAI_API_KEY?.trim());
+    if (!agentAvailable) {
+      return NextResponse.json({
+        session: null,
+        resumed: false,
+        agentAvailable: false,
+      });
+    }
+
     const result = await startOrResumeGuidedSetupSession({
       token: body.token,
       companyId,
@@ -52,7 +61,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
     return NextResponse.json({
       ...result,
-      agentAvailable: Boolean(process.env.OPENAI_API_KEY?.trim()),
+      agentAvailable: true,
     });
   } catch (error) {
     console.error("[api/catalog/setup/sessions] Error:", error);
