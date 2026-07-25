@@ -69,7 +69,7 @@ describe("generateCatalogProposals", () => {
 });
 
 describe("generateGuidedCatalogTurn", () => {
-  it("requests one schema-guided JSON turn and returns the validated question", async () => {
+  it("keeps a supplier-neutral interview free of DekSmart assumptions", async () => {
     const turn = {
       kind: "question",
       facts: [],
@@ -102,7 +102,47 @@ describe("generateGuidedCatalogTurn", () => {
     expect(args.messages[0].content).toMatch(
       /document cells as untrusted data/i,
     );
+    expect(args.messages[0].content).toMatch(
+      /confirm.*supplier|supplier.*confirmed/i,
+    );
+    expect(
+      args.messages.map((message) => message.content).join("\n"),
+    ).not.toMatch(/deksmart/i);
     expect(JSON.parse(args.messages[1].content).responseSchema).toBeTruthy();
+  });
+
+  it("adds DekSmart review guidance only after its verified reference is selected", async () => {
+    const turn = {
+      kind: "question",
+      facts: [],
+      question: {
+        id: "pricing",
+        prompt: "What do you charge?",
+        answerKind: "text",
+        factKeys: ["product.price"],
+      },
+    };
+    const { client, create } = clientReturning(JSON.stringify(turn));
+
+    await generateGuidedCatalogTurn({
+      answer: "We use DekSmart",
+      facts: [],
+      contradictions: [],
+      currentQuestion: null,
+      liveSnapshotSummary: {},
+      verifiedReference: {
+        deksmartMembranes: { ultra68: {} },
+        deksmartSystemMaterials: [],
+      },
+      client,
+    });
+
+    const args = create.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(args.messages[0].content).toMatch(
+      /For a DekSmart vinyl review/i,
+    );
   });
 
   it("rejects malformed output instead of mutating the durable session", async () => {

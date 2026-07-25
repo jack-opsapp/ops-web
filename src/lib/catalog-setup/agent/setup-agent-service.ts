@@ -114,7 +114,28 @@ function systemPrompt(): string {
   ].join("\n");
 }
 
-function guidedSystemPrompt(): string {
+function hasDeksmartReference(
+  verifiedReference: Record<string, unknown>,
+): boolean {
+  return (
+    "deksmartMembranes" in verifiedReference &&
+    "deksmartSystemMaterials" in verifiedReference
+  );
+}
+
+function guidedSystemPrompt(
+  verifiedReference: Record<string, unknown>,
+): string {
+  const supplierRules = hasDeksmartReference(verifiedReference)
+    ? [
+        "- DekSmart has been explicitly confirmed for this setup. Persist that supplier identity as a confirmed fact.",
+        "- For a DekSmart vinyl review, include exactly two product actions: the normal 68mil install and the staff-selectable 60mil exception. Each must include unitCost. Include the GST and Vinyl Install task-type actions. Verified supplier families, colors, materials, costs, compatibility, and purchasing rules are reconciled deterministically after your response.",
+      ]
+    : [
+        "- Never assume or name a manufacturer, supplier, product line, SKU, compatibility rule, or supplier-specific system until the operator or a confirmed fact identifies it.",
+        "- When the service depends on manufacturer-specific products and no supplier is confirmed, ask which manufacturer or supplier they use before asking supplier-specific pricing or product questions.",
+      ];
+
   return [
     "You are the Phase C catalog setup specialist for OPS.",
     "Your job is to understand a trades business and propose a complete quoting, product-option, material, purchasing, inventory, and task system.",
@@ -133,7 +154,7 @@ function guidedSystemPrompt(): string {
     "- A staff-only choice must never become a customer product option.",
     "- Reuse verified live IDs. New records use stable lowercase client IDs, never invented UUIDs.",
     "- A reviewable product action must explicitly carry name, basePrice, pricingUnit, minimumCharge (number or null), isTaxable, showInStorefront, and a verified task type ID/client reference.",
-    "- For a DekSmart vinyl review, include exactly two product actions: the normal 68mil install and the staff-selectable 60mil exception. Each must include unitCost. Include the GST and Vinyl Install task-type actions. Verified supplier families, colors, materials, costs, compatibility, and purchasing rules are reconciled deterministically after your response.",
+    ...supplierRules,
     "- Unknown values stay unresolved. A blueprint with a blocker is never ready.",
     "",
     "Return JSON only and obey the supplied strict response schema.",
@@ -202,7 +223,10 @@ export async function generateGuidedCatalogTurn(
     // it before any durable session update.
     response_format: { type: "json_object" },
     messages: [
-      { role: "system", content: guidedSystemPrompt() },
+      {
+        role: "system",
+        content: guidedSystemPrompt(params.verifiedReference),
+      },
       {
         role: "user",
         content: JSON.stringify({

@@ -3,6 +3,7 @@ import { SetupAgentOutputError } from "@/lib/catalog-setup/agent/setup-agent-ser
 import { CANPRO_VINYL_LIVE_SNAPSHOT } from "../__fixtures__/canpro-vinyl";
 import {
   canonicalizeVerifiedSupplierTurn,
+  confirmExplicitSupplierFact,
   supplierAdapterForTurn,
 } from "../turn-service";
 import type {
@@ -87,6 +88,7 @@ describe("verified supplier turn canonicalization", () => {
     const turn = canonicalizeVerifiedSupplierTurn(
       deksmartReview(),
       CANPRO_VINYL_LIVE_SNAPSHOT,
+      "deksmart",
     );
 
     expect(turn.kind).toBe("review");
@@ -117,6 +119,23 @@ describe("verified supplier turn canonicalization", () => {
         existingId: "a53dd13d-dc0c-4df0-88d6-118404b161ce",
       }),
     );
+  });
+
+  it("does not trust a model-authored supplier name without a selected adapter", () => {
+    const modelTurn = deksmartReview();
+    const canonical = canonicalizeVerifiedSupplierTurn(
+      modelTurn,
+      CANPRO_VINYL_LIVE_SNAPSHOT,
+    );
+
+    expect(canonical).toEqual(modelTurn);
+    expect(canonical.kind).toBe("review");
+    if (canonical.kind !== "review") return;
+    expect(
+      canonical.blueprint.actions.filter(
+        (entry) => entry.actionType === "upsert_product_material",
+      ),
+    ).toHaveLength(0);
   });
 
   it("uses the selected supplier adapter even if the model omits the brand word", () => {
@@ -160,7 +179,39 @@ describe("verified supplier turn canonicalization", () => {
       canonicalizeVerifiedSupplierTurn(
         turn,
         CANPRO_VINYL_LIVE_SNAPSHOT,
+        "deksmart",
       ),
     ).toThrow(SetupAgentOutputError);
+  });
+
+  it("persists an explicitly identified supplier as a confirmed fact", () => {
+    const confirmed = confirmExplicitSupplierFact(
+      {
+        kind: "question",
+        facts: [],
+        question: {
+          id: "next-question",
+          prompt: "What do you charge?",
+          answerKind: "text",
+          factKeys: ["customer_products.price"],
+        },
+      },
+      "We install DekSmart vinyl membrane",
+      "deksmart",
+    );
+
+    expect(confirmed.facts).toContainEqual({
+      id: "fact:supplier:vinyl_membrane:deksmart",
+      classification: "material_compatibility",
+      key: "suppliers.vinyl_membrane.manufacturer",
+      value: "DekSmart",
+      source: {
+        kind: "operator",
+        reference: "explicit supplier selection",
+      },
+      confidence: 1,
+      status: "confirmed",
+      contradicts: [],
+    });
   });
 });

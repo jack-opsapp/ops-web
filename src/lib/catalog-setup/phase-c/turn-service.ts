@@ -167,11 +167,7 @@ export function canonicalizeVerifiedSupplierTurn(
   liveSnapshot: Record<string, unknown>,
   supplierAdapter?: "deksmart",
 ): CatalogAgentTurn {
-  if (
-    turn.kind !== "review" ||
-    (supplierAdapter !== "deksmart" &&
-      !JSON.stringify(turn).toLocaleLowerCase("en-CA").includes("deksmart"))
-  ) {
+  if (turn.kind !== "review" || supplierAdapter !== "deksmart") {
     return turn;
   }
 
@@ -230,15 +226,73 @@ export function canonicalizeVerifiedSupplierTurn(
   };
 }
 
+function normalizedSupplierSignal(value: unknown): string {
+  return JSON.stringify(value)
+    .normalize("NFKC")
+    .toLocaleLowerCase("en-CA")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function explicitSupplierAdapterForAnswer(
+  answer: unknown,
+): "deksmart" | null {
+  const answerRecord = asRecord(answer);
+  if (answerRecord.kind === "catalog_source_document") {
+    return null;
+  }
+  return normalizedSupplierSignal(answer).includes("deksmart")
+    ? "deksmart"
+    : null;
+}
+
 export function supplierAdapterForTurn(
   answer: unknown,
   facts: CatalogFact[],
 ): "deksmart" | null {
-  const signal = JSON.stringify({ answer, facts })
-    .normalize("NFKC")
-    .toLocaleLowerCase("en-CA")
-    .replace(/[^a-z0-9]+/g, "");
-  return signal.includes("deksmart") ? "deksmart" : null;
+  const explicitAnswer = explicitSupplierAdapterForAnswer(answer);
+  if (explicitAnswer) return explicitAnswer;
+
+  const confirmedFacts = facts.filter(
+    (fact) => fact.status === "confirmed",
+  );
+  return normalizedSupplierSignal(confirmedFacts).includes("deksmart")
+    ? "deksmart"
+    : null;
+}
+
+export function confirmExplicitSupplierFact(
+  turn: CatalogAgentTurn,
+  answer: unknown,
+  supplierAdapter: "deksmart" | null,
+): CatalogAgentTurn {
+  if (
+    supplierAdapter !== "deksmart" ||
+    explicitSupplierAdapterForAnswer(answer) !== "deksmart"
+  ) {
+    return turn;
+  }
+
+  const supplierFact: CatalogFact = {
+    id: "fact:supplier:vinyl_membrane:deksmart",
+    classification: "material_compatibility",
+    key: "suppliers.vinyl_membrane.manufacturer",
+    value: "DekSmart",
+    source: {
+      kind: "operator",
+      reference: "explicit supplier selection",
+    },
+    confidence: 1,
+    status: "confirmed",
+    contradicts: [],
+  };
+
+  return {
+    ...turn,
+    facts: [
+      ...turn.facts.filter((fact) => fact.id !== supplierFact.id),
+      supplierFact,
+    ],
+  };
 }
 
 export async function runGuidedSetupTurn({
@@ -305,8 +359,13 @@ export async function runGuidedSetupTurn({
           }
         : {},
   });
-  const turn = canonicalizeVerifiedSupplierTurn(
+  const supplierConfirmedTurn = confirmExplicitSupplierFact(
     generatedTurn,
+    answer,
+    supplierAdapter,
+  );
+  const turn = canonicalizeVerifiedSupplierTurn(
+    supplierConfirmedTurn,
     liveSnapshot,
     supplierAdapter ?? undefined,
   );
