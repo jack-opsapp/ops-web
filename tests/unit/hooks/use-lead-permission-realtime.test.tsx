@@ -182,7 +182,7 @@ describe("lead permission realtime delivery", () => {
 
     const payload = {
       new: {
-        id: "permission-delivery-1",
+        id: "permission-delivery-live",
         company_id: "company-1",
         recipient_user_id: "user-1",
       },
@@ -194,6 +194,30 @@ describe("lead permission realtime delivery", () => {
     });
 
     expect(queryClient.getQueryData(inboxKey)).toBeUndefined();
+    expect(fetchPermissions).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not replay the latest backlog delivery after the hook remounts", async () => {
+    const fetchPermissions = vi.fn().mockResolvedValue(undefined);
+    usePermissionStore.setState({ fetchPermissions });
+    const delivery = {
+      id: "permission-delivery-remount",
+      company_id: "company-1",
+      recipient_user_id: "user-1",
+    };
+    const { permissionBuilder, wrapper } = harness([delivery]);
+
+    const firstMount = renderHook(() => useLeadAssignmentRealtime(), {
+      wrapper,
+    });
+    await waitFor(() => expect(fetchPermissions).toHaveBeenCalledTimes(1));
+    firstMount.unmount();
+
+    renderHook(() => useLeadAssignmentRealtime(), { wrapper });
+    await waitFor(() =>
+      expect(permissionBuilder.select).toHaveBeenCalledTimes(2)
+    );
+
     expect(fetchPermissions).toHaveBeenCalledTimes(1);
   });
 

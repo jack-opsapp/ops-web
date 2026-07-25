@@ -43,6 +43,51 @@ export interface PermissionChangeDeliveryRow {
   recipient_user_id?: unknown;
 }
 
+const latestClaimedPermissionDeliveryByRecipient = new Map<string, string>();
+
+/**
+ * Claims a permission delivery before its destructive asynchronous
+ * reconciliation begins. The claim survives React effect remounts for the
+ * lifetime of this browser runtime, preventing the durable backlog from
+ * repeatedly revoking the same user's in-memory grants and unmounting the
+ * dashboard. A rejected row releases its claim so corrected data can retry.
+ */
+export async function applyPermissionDeliveryOncePerRuntime(deps: {
+  row: PermissionChangeDeliveryRow;
+  recipientUserId: string;
+  reconcile: (row: PermissionChangeDeliveryRow) => Promise<boolean>;
+}): Promise<boolean> {
+  const deliveryId = typeof deps.row.id === "string" ? deps.row.id : null;
+  const previousDeliveryId =
+    latestClaimedPermissionDeliveryByRecipient.get(deps.recipientUserId);
+
+  if (deliveryId && previousDeliveryId === deliveryId) return true;
+  if (deliveryId) {
+    latestClaimedPermissionDeliveryByRecipient.set(
+      deps.recipientUserId,
+      deliveryId
+    );
+  }
+
+  const handled = await deps.reconcile(deps.row);
+  if (
+    !handled &&
+    deliveryId &&
+    latestClaimedPermissionDeliveryByRecipient.get(deps.recipientUserId) ===
+      deliveryId
+  ) {
+    if (previousDeliveryId) {
+      latestClaimedPermissionDeliveryByRecipient.set(
+        deps.recipientUserId,
+        previousDeliveryId
+      );
+    } else {
+      latestClaimedPermissionDeliveryByRecipient.delete(deps.recipientUserId);
+    }
+  }
+  return handled;
+}
+
 async function refreshAccessSensitiveQueries(
   queryClient: QueryClient
 ): Promise<void> {
@@ -449,7 +494,6 @@ export function useLeadAssignmentRealtime(): void {
     const supabase = getSupabaseClient();
     if (!supabase) return;
     const seenVersionByOpportunity = new Map<string, number>();
-    const seenPermissionDeliveryIds = new Set<string>();
     let disposed = false;
     let terminalRestartRequested = false;
 
@@ -527,18 +571,16 @@ export function useLeadAssignmentRealtime(): void {
     const applyPermissionDelivery = async (
       row: PermissionChangeDeliveryRow
     ): Promise<void> => {
-      const deliveryId = typeof row.id === "string" ? row.id : null;
-      if (deliveryId && seenPermissionDeliveryIds.has(deliveryId)) return;
-      if (deliveryId) seenPermissionDeliveryIds.add(deliveryId);
-
-      const handled = await reconcilePermissionChangeDelivery(
-        queryClient,
+      await applyPermissionDeliveryOncePerRuntime({
         row,
-        currentUserId
-      );
-      if (!handled && deliveryId) {
-        seenPermissionDeliveryIds.delete(deliveryId);
-      }
+        recipientUserId: currentUserId,
+        reconcile: (delivery) =>
+          reconcilePermissionChangeDelivery(
+            queryClient,
+            delivery,
+            currentUserId
+          ),
+      });
     };
 
     // Raw permission-delivery backlog read → true when the read succeeded (and
