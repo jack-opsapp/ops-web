@@ -3,6 +3,7 @@ import {
   CatalogAgentTurnSchema,
   CatalogBlueprintSchema,
   CatalogFactSchema,
+  GuidedQuestionSchema,
   GuidedSetupSessionDocumentSchema,
 } from "../schemas";
 
@@ -21,6 +22,17 @@ const operatorFact = {
 } as const;
 
 describe("Phase C catalog setup schemas", () => {
+  it("rejects file questions because guided setup never requires an upload", () => {
+    expect(() =>
+      GuidedQuestionSchema.parse({
+        id: "upload-price-sheet",
+        prompt: "Upload your current price sheet.",
+        answerKind: "file",
+        factKeys: ["customer_products"],
+      }),
+    ).toThrow();
+  });
+
   it("accepts a single-question turn with classified, sourced facts", () => {
     const parsed = CatalogAgentTurnSchema.parse({
       kind: "question",

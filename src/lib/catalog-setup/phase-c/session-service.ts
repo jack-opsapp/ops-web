@@ -8,6 +8,7 @@ import {
   buildLiveCatalogSnapshot,
   type LiveCatalogContextRowSets,
 } from "./live-catalog-context";
+import type { GuidedQuestion } from "./types";
 
 const ACTIVE_SESSION_STATUSES = [
   "interviewing",
@@ -34,10 +35,11 @@ interface QueryResult {
 
 interface LooseQuery extends PromiseLike<QueryResult> {
   select(columns?: string): LooseQuery;
-  eq(column: string, value: string): LooseQuery;
+  eq(column: string, value: string | number): LooseQuery;
   in(column: string, values: readonly string[]): LooseQuery;
   order(column: string, options?: { ascending?: boolean }): LooseQuery;
   limit(count: number): LooseQuery;
+  update(values: Record<string, unknown>): LooseQuery;
   maybeSingle(): Promise<QueryResult>;
   single(): Promise<QueryResult>;
 }
@@ -49,6 +51,14 @@ interface LooseTable extends LooseQuery {
 export interface GuidedSetupQueryClient {
   from(table: string): LooseTable;
 }
+
+export const FIRST_SERVICE_LINE_QUESTION: GuidedQuestion = {
+  id: "first-service-line",
+  prompt: "What service do you want to set up first?",
+  answerKind: "text",
+  factKeys: ["customer_products.first_service_line"],
+  help: "Tell me what you sell or install. A price sheet is optional.",
+};
 
 function asRows(value: unknown): Array<Record<string, unknown>> {
   return Array.isArray(value)
@@ -223,6 +233,65 @@ function mapSessionRow(row: Record<string, unknown>) {
   };
 }
 
+function needsFileQuestionRepair(row: Record<string, unknown>): boolean {
+  return (
+    row.status === "interviewing" &&
+    asRows(row.unresolved_questions).some(
+      (question) => question.answerKind === "file",
+    )
+  );
+}
+
+async function repairFileQuestion(
+  client: GuidedSetupQueryClient,
+  row: Record<string, unknown>,
+  companyId: string,
+  operatorId: string,
+): Promise<Record<string, unknown>> {
+  if (!needsFileQuestionRepair(row)) return row;
+
+  const version = Number(row.version ?? 0);
+  const nextVersion = version + 1;
+  const sessionOperatorId =
+    typeof row.operator_id === "string" ? row.operator_id : operatorId;
+  const repairedResult = await client
+    .from("catalog_guided_setup_sessions")
+    .update({
+      version: nextVersion,
+      unresolved_questions: [FIRST_SERVICE_LINE_QUESTION],
+      sources: [
+        ...asRows(row.sources),
+        {
+          kind: "system_repair",
+          reason: "unsupported_file_question",
+          version: nextVersion,
+        },
+      ],
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", String(row.id))
+    .eq("company_id", companyId)
+    .eq("operator_id", sessionOperatorId)
+    .eq("version", version)
+    .select("*")
+    .maybeSingle();
+
+  if (repairedResult.error) {
+    throw new Error(
+      `Failed to repair guided setup: ${repairedResult.error.message ?? "unknown error"}`,
+    );
+  }
+  if (
+    !repairedResult.data ||
+    typeof repairedResult.data !== "object"
+  ) {
+    throw new Error(
+      "Failed to repair guided setup: the session changed in another window",
+    );
+  }
+  return repairedResult.data as Record<string, unknown>;
+}
+
 export async function startOrResumeGuidedSetupSession({
   token,
   companyId,
@@ -244,9 +313,13 @@ export async function startOrResumeGuidedSetupSession({
     );
   }
   if (existingResult.data && typeof existingResult.data === "object") {
-    const session = mapSessionRow(
+    const repairedRow = await repairFileQuestion(
+      client,
       existingResult.data as Record<string, unknown>,
+      companyId,
+      operatorId,
     );
+    const session = mapSessionRow(repairedRow);
     const lock = await acquireSessionLock(
       createSessionLockStore(
         () =>
@@ -279,7 +352,7 @@ export async function startOrResumeGuidedSetupSession({
       version: 0,
       facts: [],
       sources: [],
-      unresolved_questions: [],
+      unresolved_questions: [FIRST_SERVICE_LINE_QUESTION],
       contradictions: [],
       live_snapshot: snapshot,
       live_snapshot_hash: snapshot.hash,

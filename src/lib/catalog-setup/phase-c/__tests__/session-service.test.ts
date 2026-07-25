@@ -16,16 +16,22 @@ import {
 
 type Row = Record<string, unknown>;
 type Filter =
-  | { kind: "eq"; column: string; value: string }
+  | { kind: "eq"; column: string; value: string | number }
   | { kind: "in"; column: string; values: readonly string[] };
 
 function createQueryClient(seed: Record<string, Row[]>) {
   const calls: Array<{ table: string; filters: Filter[] }> = [];
+  const updates: Array<{
+    table: string;
+    filters: Filter[];
+    values: Row;
+  }> = [];
 
   class Query {
     private filters: Filter[] = [];
     private limitCount: number | null = null;
     private inserted: Row | null = null;
+    private updated: Row | null = null;
 
     constructor(private readonly table: string) {}
 
@@ -33,7 +39,7 @@ function createQueryClient(seed: Record<string, Row[]>) {
       return this;
     }
 
-    eq(column: string, value: string) {
+    eq(column: string, value: string | number) {
       this.filters.push({ kind: "eq", column, value });
       return this;
     }
@@ -54,6 +60,11 @@ function createQueryClient(seed: Record<string, Row[]>) {
 
     insert(values: Row) {
       this.inserted = values;
+      return this;
+    }
+
+    update(values: Row) {
+      this.updated = values;
       return this;
     }
 
@@ -97,12 +108,21 @@ function createQueryClient(seed: Record<string, Row[]>) {
         }
       }
       if (this.limitCount !== null) rows = rows.slice(0, this.limitCount);
+      if (this.updated) {
+        updates.push({
+          table: this.table,
+          filters: [...this.filters],
+          values: this.updated,
+        });
+        rows = rows.map((row) => ({ ...row, ...this.updated }));
+      }
       return { data: single ? rows[0] ?? null : rows, error: null };
     }
   }
 
   return {
     calls,
+    updates,
     client: {
       from(table: string) {
         return new Query(table);
@@ -194,5 +214,92 @@ describe("Phase C guided setup session service", () => {
     expect(result.resumed).toBe(true);
     expect(result.session.status).toBe("review");
     expect(calls.some((call) => call.table === "products")).toBe(false);
+  });
+
+  it("starts with a short conversational question instead of a generated upload gate", async () => {
+    const { client } = createQueryClient({});
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    const result = await startOrResumeGuidedSetupSession({
+      token: "token",
+      companyId: "company-1",
+      operatorId: "operator-2",
+    });
+
+    expect(result.resumed).toBe(false);
+    expect(result.session.unresolvedQuestions).toEqual([
+      {
+        id: "first-service-line",
+        prompt: "What service do you want to set up first?",
+        answerKind: "text",
+        factKeys: ["customer_products.first_service_line"],
+        help: "Tell me what you sell or install. A price sheet is optional.",
+      },
+    ]);
+  });
+
+  it("repairs an active session that was stranded on a file question", async () => {
+    const { client, updates } = createQueryClient({
+      catalog_guided_setup_sessions: [
+        {
+          id: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+          company_id: "company-1",
+          operator_id: "operator-1",
+          mode: "guided",
+          status: "interviewing",
+          version: 1,
+          facts: [],
+          sources: [],
+          unresolved_questions: [
+            {
+              id: "upload-price-sheet",
+              prompt: "Upload your current price sheet.",
+              answerKind: "file",
+              factKeys: ["customer_products"],
+            },
+          ],
+        },
+      ],
+    });
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    const result = await startOrResumeGuidedSetupSession({
+      token: "token",
+      companyId: "company-1",
+      operatorId: "operator-2",
+    });
+
+    expect(result.resumed).toBe(true);
+    expect(result.session.version).toBe(2);
+    expect(result.session.unresolvedQuestions).toEqual([
+      {
+        id: "first-service-line",
+        prompt: "What service do you want to set up first?",
+        answerKind: "text",
+        factKeys: ["customer_products.first_service_line"],
+        help: "Tell me what you sell or install. A price sheet is optional.",
+      },
+    ]);
+    expect(updates).toContainEqual(
+      expect.objectContaining({
+        table: "catalog_guided_setup_sessions",
+        values: expect.objectContaining({
+          version: 2,
+          unresolved_questions: [
+            expect.objectContaining({
+              id: "first-service-line",
+              answerKind: "text",
+            }),
+          ],
+        }),
+        filters: expect.arrayContaining([
+          {
+            kind: "eq",
+            column: "operator_id",
+            value: "operator-1",
+          },
+        ]),
+      }),
+    );
   });
 });

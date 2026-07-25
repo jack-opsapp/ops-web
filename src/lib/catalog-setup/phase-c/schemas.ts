@@ -50,7 +50,6 @@ export const GuidedQuestionSchema = z
       "boolean",
       "single_choice",
       "multi_choice",
-      "file",
     ]),
     factKeys: z.array(z.string().min(1)).min(1),
     options: z.array(z.string().min(1)).min(1).optional(),
