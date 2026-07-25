@@ -9,6 +9,7 @@ const {
   processProjectLifecycle,
   processTaskAutomation,
   processConversionNotifications,
+  runWithCronWorkloadControl,
   getServiceRoleClient,
   client,
 } = vi.hoisted(() => ({
@@ -17,6 +18,7 @@ const {
   processProjectLifecycle: vi.fn(),
   processTaskAutomation: vi.fn(),
   processConversionNotifications: vi.fn(),
+  runWithCronWorkloadControl: vi.fn(),
   getServiceRoleClient: vi.fn(),
   client: { rpc: vi.fn() },
 }));
@@ -50,6 +52,9 @@ vi.mock(
     },
   })
 );
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  runWithCronWorkloadControl,
+}));
 
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient,
@@ -134,6 +139,13 @@ describe("lead assignment deliveries cron", () => {
     processConversionNotifications.mockResolvedValue(
       conversionNotificationResult
     );
+    runWithCronWorkloadControl.mockReset();
+    runWithCronWorkloadControl.mockImplementation(
+      async ({ work }: { work: () => Promise<unknown> }) => ({
+        status: "completed",
+        value: await work(),
+      })
+    );
   });
 
   afterEach(() => {
@@ -169,35 +181,109 @@ describe("lead assignment deliveries cron", () => {
     const response = await GET(request("cron-secret"));
 
     expect(getServiceRoleClient).toHaveBeenCalledOnce();
+    expect(runWithCronWorkloadControl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: client,
+        workloadKey: "lead-outbox",
+        leaseSeconds: 360,
+        work: expect.any(Function),
+      })
+    );
     expect(processBatch).toHaveBeenCalledWith(client, {
-      limit: 50,
+      limit: 5,
       leaseSeconds: 360,
     });
     expect(processUnassignedLeadAssignments).toHaveBeenCalledWith(client, {
-      limit: 50,
+      limit: 5,
       leaseSeconds: 360,
     });
     expect(processProjectLifecycle).toHaveBeenCalledWith(client, {
-      limit: 25,
+      limit: 2,
       leaseSeconds: 360,
     });
     expect(processTaskAutomation).toHaveBeenCalledWith(client, {
-      limit: 25,
+      limit: 1,
       leaseSeconds: 360,
     });
     expect(processConversionNotifications).toHaveBeenCalledWith(client, {
-      limit: 25,
+      limit: 5,
       leaseSeconds: 360,
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       ok: true,
+      ran: true,
       ...successResult,
       unassignedLeadAssignments: unassignedLeadAssignmentResult,
       projectLifecycle: projectLifecycleResult,
       taskAutomation: taskAutomationResult,
       conversionNotifications: conversionNotificationResult,
     });
+  });
+
+  it("finishes each bounded pipeline before starting the next one", async () => {
+    let resolveAssigned: ((value: typeof successResult) => void) | undefined;
+    processBatch.mockReturnValue(
+      new Promise<typeof successResult>((resolve) => {
+        resolveAssigned = resolve;
+      })
+    );
+
+    const responsePromise = GET(request("cron-secret"));
+    await vi.waitFor(() => expect(processBatch).toHaveBeenCalledOnce());
+
+    expect(processUnassignedLeadAssignments).not.toHaveBeenCalled();
+    expect(processProjectLifecycle).not.toHaveBeenCalled();
+    expect(processTaskAutomation).not.toHaveBeenCalled();
+    expect(processConversionNotifications).not.toHaveBeenCalled();
+
+    resolveAssigned?.(successResult);
+    const response = await responsePromise;
+
+    expect(response.status).toBe(200);
+    expect(processUnassignedLeadAssignments).toHaveBeenCalledOnce();
+    expect(processProjectLifecycle).toHaveBeenCalledOnce();
+    expect(processTaskAutomation).toHaveBeenCalledOnce();
+    expect(processConversionNotifications).toHaveBeenCalledOnce();
+  });
+
+  it("launches no work when another heavy workload holds the durable lease", async () => {
+    runWithCronWorkloadControl.mockResolvedValue({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const response = await GET(request("cron-secret"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(processBatch).not.toHaveBeenCalled();
+    expect(processUnassignedLeadAssignments).not.toHaveBeenCalled();
+    expect(processProjectLifecycle).not.toHaveBeenCalled();
+    expect(processTaskAutomation).not.toHaveBeenCalled();
+    expect(processConversionNotifications).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the durable workload control is unavailable", async () => {
+    runWithCronWorkloadControl.mockResolvedValue({
+      status: "skipped",
+      reason: "control_unavailable",
+      error: new Error("connection timeout"),
+    });
+
+    const response = await GET(request("cron-secret"));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      ok: false,
+      ran: false,
+      reason: "control_unavailable",
+    });
+    expect(processBatch).not.toHaveBeenCalled();
   });
 
   it("returns 503 when any claimed delivery was requeued or terminalized", async () => {
@@ -213,6 +299,46 @@ describe("lead assignment deliveries cron", () => {
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ ok: false, requeued: 1 });
+  });
+
+  it("aborts before another pipeline when a worker throws database pressure", async () => {
+    processBatch.mockRejectedValue(
+      Object.assign(new Error("schema cache unavailable"), {
+        code: "PGRST002",
+      })
+    );
+
+    const response = await GET(request("cron-secret"));
+
+    expect(response.status).toBe(500);
+    expect(processBatch).toHaveBeenCalledOnce();
+    expect(processUnassignedLeadAssignments).not.toHaveBeenCalled();
+    expect(processProjectLifecycle).not.toHaveBeenCalled();
+    expect(processTaskAutomation).not.toHaveBeenCalled();
+    expect(processConversionNotifications).not.toHaveBeenCalled();
+  });
+
+  it("does not treat a returned OneSignal 504 as database pressure", async () => {
+    processBatch.mockResolvedValue({
+      ...successResult,
+      delivered: 0,
+      pushed: 0,
+      requeued: 1,
+      errors: [
+        {
+          deliveryId: "delivery-1",
+          message: "OneSignal push failed (504): Gateway Timeout",
+        },
+      ],
+    });
+
+    const response = await GET(request("cron-secret"));
+
+    expect(response.status).toBe(503);
+    expect(processUnassignedLeadAssignments).toHaveBeenCalledOnce();
+    expect(processProjectLifecycle).toHaveBeenCalledOnce();
+    expect(processTaskAutomation).toHaveBeenCalledOnce();
+    expect(processConversionNotifications).toHaveBeenCalledOnce();
   });
 
   it("returns 503 and reports an unassigned-lead prompt retry", async () => {
@@ -288,14 +414,14 @@ describe("lead assignment deliveries cron", () => {
     expect(await response.json()).toEqual({ ok: false, error: "claim denied" });
   });
 
-  it("runs every minute so responsibility handoffs reach the assignee promptly", () => {
+  it("runs on the isolated minute offset for bounded responsibility handoffs", () => {
     const config = JSON.parse(
       readFileSync(path.join(process.cwd(), "vercel.json"), "utf8")
     ) as { crons: Array<{ path: string; schedule: string }> };
 
     expect(config.crons).toContainEqual({
       path: "/api/cron/lead-assignment-deliveries",
-      schedule: "* * * * *",
+      schedule: "2-59/10 * * * *",
     });
   });
 });

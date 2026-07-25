@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { EmailConnection } from "@/lib/types/email-connection";
+import { isDatabasePressureError } from "./cron-workload-control-service";
 import type { EmailProviderInterface } from "./email-provider";
 import {
   EmailSendIntentService,
@@ -131,6 +132,9 @@ export class EmailSendReconciliationRecoveryService {
         reconciled += 1;
       } catch (error) {
         const failure = message(error);
+        if (isDatabasePressureError(error)) {
+          throw error;
+        }
         try {
           await this.dependencies.intentStore.failReconciliation({
             intentId: intent.id,
@@ -138,6 +142,9 @@ export class EmailSendReconciliationRecoveryService {
             error: failure,
           });
         } catch (leaseError) {
+          if (isDatabasePressureError(leaseError)) {
+            throw leaseError;
+          }
           errors.push(
             `${intent.id}: ${failure}; recovery lease update failed: ${message(leaseError)}`
           );

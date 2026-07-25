@@ -21,15 +21,21 @@ vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({ from: supabaseFromMock, rpc: vi.fn() }),
 }));
 
+const { runWithCronWorkloadControlMock } = vi.hoisted(() => ({
+  runWithCronWorkloadControlMock: vi.fn(),
+}));
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  runWithCronWorkloadControl: runWithCronWorkloadControlMock,
+}));
+
 // ─── SendGrid transport mock ─────────────────────────────────────────────────
 
 vi.mock("@sendgrid/mail", () => ({
   default: {
     setApiKey: vi.fn(),
-    send: vi.fn().mockResolvedValue([
-      { headers: { "x-message-id": "sg-test-001" } },
-      {},
-    ]),
+    send: vi
+      .fn()
+      .mockResolvedValue([{ headers: { "x-message-id": "sg-test-001" } }, {}]),
   },
 }));
 
@@ -40,6 +46,13 @@ import { GET } from "@/app/api/cron/onboarding-drip/route";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  runWithCronWorkloadControlMock.mockReset();
+  runWithCronWorkloadControlMock.mockImplementation(
+    async ({ work }: { work: () => Promise<unknown> }) => ({
+      status: "completed",
+      value: await work(),
+    })
+  );
   process.env.CRON_SECRET = "test-secret";
   process.env.SENDGRID_API_KEY = "test-key";
   process.env.EMAIL_UNSUBSCRIBE_SECRET = "0".repeat(64);
@@ -51,7 +64,7 @@ function buildRequest(authHeader?: string): NextRequest {
   if (authHeader) headers.set("authorization", authHeader);
   return new NextRequest(
     new URL("https://example.com/api/cron/onboarding-drip"),
-    { headers },
+    { headers }
   );
 }
 
@@ -110,6 +123,48 @@ describe("/api/cron/onboarding-drip", () => {
     expect(res.status).toBe(401);
   });
 
+  it("returns an idempotent no-op while another drip sweep owns the lease", async () => {
+    runWithCronWorkloadControlMock.mockResolvedValue({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const res = await GET(buildRequest("Bearer test-secret"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(supabaseFromMock).not.toHaveBeenCalled();
+    expect(sgMail.send).not.toHaveBeenCalled();
+  });
+
+  it.each(["circuit_open", "control_unavailable"] as const)(
+    "fails closed when durable workload control reports %s",
+    async (reason) => {
+      runWithCronWorkloadControlMock.mockResolvedValue({
+        status: "skipped",
+        reason,
+        ...(reason === "control_unavailable"
+          ? { error: new Error("control RPC unavailable") }
+          : {}),
+      });
+
+      const res = await GET(buildRequest("Bearer test-secret"));
+
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({
+        ok: false,
+        ran: false,
+        reason,
+      });
+      expect(supabaseFromMock).not.toHaveBeenCalled();
+      expect(sgMail.send).not.toHaveBeenCalled();
+    }
+  );
+
   it("returns ok=true with zero counters when no candidate companies exist", async () => {
     mockSupabaseTables({
       // companies query returns [] from the chain default — both the scan
@@ -127,6 +182,14 @@ describe("/api/cron/onboarding-drip", () => {
     expect(body.calendar_processed).toBe(0);
     expect(body.lost_you_fired).toBe(0);
     expect(body.retried).toBe(0);
+    expect(runWithCronWorkloadControlMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: expect.objectContaining({ from: supabaseFromMock }),
+        workloadKey: "onboarding-drip",
+        leaseSeconds: 360,
+        work: expect.any(Function),
+      })
+    );
   });
 
   it("dedup: with no candidate companies + no retry rows, sgMail.send is never called", async () => {
@@ -156,9 +219,8 @@ describe("/api/cron/onboarding-drip", () => {
     // flaky based on wall-clock time). Verifies the React Email render
     // pipeline produces the Task Completed / Jake completed copy that
     // mirrors dispatchTaskCompleted's real notification body.
-    const { sendOnboardingDay4NoNotification } = await import(
-      "@/lib/email/sendgrid"
-    );
+    const { sendOnboardingDay4NoNotification } =
+      await import("@/lib/email/sendgrid");
 
     // gatedSend queries email_pause_state + email_suppressions, then inserts
     // into email_log. All three need to resolve permissively.
@@ -212,8 +274,9 @@ describe("/api/cron/onboarding-drip", () => {
         }),
         gte: () => chain,
         is: () => chain,
-        then: (resolve: any) =>
-          resolve({ data: [], error: null, count: 0 }),
+        order: () => chain,
+        limit: async () => ({ data: [], error: null, count: 0 }),
+        then: (resolve: any) => resolve({ data: [], error: null, count: 0 }),
       };
       return chain;
     };

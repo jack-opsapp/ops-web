@@ -24,6 +24,8 @@ import type {
   PaymentReminderPreset,
 } from "@/lib/types/approval-queue";
 import { DEFAULT_CLIENT_COMMS_SETTINGS } from "@/lib/types/approval-queue";
+import { throwCronDatabaseOperationError } from "./cron-company-fanout-service";
+import { isDatabasePressureError } from "./cron-workload-control-service";
 
 // ─── Locale-aware helpers ───────────────────────────────────────────────────
 
@@ -167,7 +169,10 @@ async function getReminderSettings(
     .eq("id", companyId)
     .single();
   if (error) {
-    throw new Error("Failed to load reminder settings: " + error.message);
+    throwCronDatabaseOperationError(
+      `Failed to load reminder settings: ${error.message}`,
+      error
+    );
   }
   if (!data) {
     throw new Error("Failed to load reminder settings: company not found");
@@ -276,7 +281,10 @@ async function claimReminderGeneration(
     }
   );
   if (error) {
-    throw new Error(`Failed to claim reminder generation: ${error.message}`);
+    throwCronDatabaseOperationError(
+      `Failed to claim reminder generation: ${error.message}`,
+      error
+    );
   }
   const result = data as Record<string, unknown> | null;
   return {
@@ -304,9 +312,9 @@ async function releaseReminderGeneration(
     }
   );
   if (error) {
-    console.error(
-      "[payment-reminder] Failed to release generation claim:",
-      error.message
+    throwCronDatabaseOperationError(
+      `Failed to release reminder generation claim: ${error.message}`,
+      error
     );
   }
 }
@@ -454,7 +462,10 @@ export const PaymentReminderService = {
 
     if (error) {
       if (options.throwOnError) {
-        throw new Error("Failed to fetch overdue invoices: " + error.message);
+        throwCronDatabaseOperationError(
+          `Failed to fetch overdue invoices: ${error.message}`,
+          error
+        );
       }
       console.error(
         "[payment-reminder] Failed to fetch overdue invoices:",
@@ -478,8 +489,9 @@ export const PaymentReminderService = {
       .is("merged_into_client_id", null)
       .in("id", clientIds);
     if (clientsError && options.throwOnError) {
-      throw new Error(
-        "Failed to fetch reminder clients: " + clientsError.message
+      throwCronDatabaseOperationError(
+        `Failed to fetch reminder clients: ${clientsError.message}`,
+        clientsError
       );
     }
 
@@ -513,8 +525,9 @@ export const PaymentReminderService = {
         .eq("company_id", companyId)
         .in("id", projectIds);
       if (projectsError && options.throwOnError) {
-        throw new Error(
-          "Failed to fetch reminder projects: " + projectsError.message
+        throwCronDatabaseOperationError(
+          `Failed to fetch reminder projects: ${projectsError.message}`,
+          projectsError
         );
       }
 
@@ -535,8 +548,9 @@ export const PaymentReminderService = {
         .eq("action_type", "send_payment_reminder")
         .in("status", ["pending", "approved", "executed", "rejected"]);
     if (existingActionsError && options.throwOnError) {
-      throw new Error(
-        "Failed to fetch existing reminders: " + existingActionsError.message
+      throwCronDatabaseOperationError(
+        `Failed to fetch existing reminders: ${existingActionsError.message}`,
+        existingActionsError
       );
     }
 
@@ -845,7 +859,8 @@ Key details to include:
 
     const overdueInvoices = await this.detectOverdueInvoices(
       companyId,
-      settings
+      settings,
+      { throwOnError: true }
     );
     if (overdueInvoices.length === 0) return 0;
 
@@ -873,6 +888,7 @@ Key details to include:
         );
         if (actionId) proposed++;
       } catch (err) {
+        if (isDatabasePressureError(err)) throw err;
         console.error(
           `[payment-reminder] Failed for invoice ${invoice.invoiceNumber}:`,
           err
@@ -1034,7 +1050,7 @@ Key details to include:
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 24);
 
-    const { data: invoices } = await supabase
+    const { data: invoices, error: invoicesError } = await supabase
       .from("invoices")
       .select(
         "id, invoice_number, total, balance_due, due_date, status, paid_at, issue_date"
@@ -1164,12 +1180,18 @@ Key details to include:
     const cutoff = new Date();
     cutoff.setFullYear(cutoff.getFullYear() - 1);
 
-    const { data: invoices } = await supabase
+    const { data: invoices, error: invoicesError } = await supabase
       .from("invoices")
       .select("id, client_id, total, balance_due, due_date, status, paid_at")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .gte("issue_date", cutoff.toISOString());
+    if (invoicesError) {
+      throwCronDatabaseOperationError(
+        `Failed to load late-payment invoice history: ${invoicesError.message}`,
+        invoicesError
+      );
+    }
 
     if (!invoices || invoices.length === 0) return 0;
 
@@ -1220,7 +1242,7 @@ Key details to include:
 
       // Check if already flagged recently (within 7 days)
       const sourceId = `${clientId}:health`;
-      const { data: existing } = await supabase
+      const { data: existing, error: existingError } = await supabase
         .from("agent_actions")
         .select("id, created_at")
         .eq("company_id", companyId)
@@ -1229,6 +1251,12 @@ Key details to include:
         .in("status", ["pending", "approved", "executed"])
         .order("created_at", { ascending: false })
         .limit(1);
+      if (existingError) {
+        throwCronDatabaseOperationError(
+          `Failed to load existing client health alerts: ${existingError.message}`,
+          existingError
+        );
+      }
 
       if (existing && existing.length > 0) {
         const lastCreated = new Date(existing[0].created_at as string);
@@ -1238,11 +1266,17 @@ Key details to include:
       }
 
       // Get client name
-      const { data: client } = await supabase
+      const { data: client, error: clientError } = await supabase
         .from("clients")
         .select("name")
         .eq("id", clientId)
         .single();
+      if (clientError) {
+        throwCronDatabaseOperationError(
+          `Failed to load late-paying client: ${clientError.message}`,
+          clientError
+        );
+      }
 
       const clientName = (client?.name as string) ?? "Unknown Client";
 
@@ -1252,7 +1286,8 @@ Key details to include:
         const factContent = `Client ${clientName} has a late payment rate of ${Math.round(lateRate * 100)}%. ${latePaid} invoices paid late out of ${totalPaid}. Currently ${overdueCount} overdue.`;
 
         // Check if a similar memory already exists for this client
-        const { data: existingMemory } = await supabase
+        const { data: existingMemory, error: existingMemoryError } =
+          await supabase
           .from("agent_memories")
           .select("id")
           .eq("company_id", companyId)
@@ -1260,10 +1295,16 @@ Key details to include:
           .eq("category", "client_preference")
           .ilike("content", `%Client ${clientName} has a late payment rate%`)
           .limit(1);
+        if (existingMemoryError) {
+          throwCronDatabaseOperationError(
+            `Failed to load late-payment memory: ${existingMemoryError.message}`,
+            existingMemoryError
+          );
+        }
 
         if (existingMemory && existingMemory.length > 0) {
           // Update existing memory with fresh data
-          await supabase
+          const { error: memoryUpdateError } = await supabase
             .from("agent_memories")
             .update({
               content: factContent,
@@ -1271,8 +1312,16 @@ Key details to include:
               updated_at: new Date().toISOString(),
             })
             .eq("id", existingMemory[0].id as string);
+          if (memoryUpdateError) {
+            throwCronDatabaseOperationError(
+              `Failed to update late-payment memory: ${memoryUpdateError.message}`,
+              memoryUpdateError
+            );
+          }
         } else {
-          await supabase.from("agent_memories").insert({
+          const { error: memoryInsertError } = await supabase
+            .from("agent_memories")
+            .insert({
             company_id: companyId,
             memory_type: "fact",
             category: "client_preference",
@@ -1280,8 +1329,15 @@ Key details to include:
             confidence: 1.0,
             source: "database",
           });
+          if (memoryInsertError) {
+            throwCronDatabaseOperationError(
+              `Failed to insert late-payment memory: ${memoryInsertError.message}`,
+              memoryInsertError
+            );
+          }
         }
-      } catch {
+      } catch (error) {
+        if (isDatabasePressureError(error)) throw error;
         // Non-critical — don't block on memory storage
       }
 

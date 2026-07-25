@@ -156,7 +156,9 @@ describe("email conversion photo worker", () => {
 
   it("verifies the private byte hash and size before normalization or upload", async () => {
     const deps = dependencies({
-      downloadPrivate: vi.fn(async () => Buffer.from("different-private-source")),
+      downloadPrivate: vi.fn(async () =>
+        Buffer.from("different-private-source")
+      ),
     });
 
     const result = await runEmailConversionPhotoWorker(deps);
@@ -301,5 +303,99 @@ describe("email conversion photo worker", () => {
           "private object missing; queue update failed: database unavailable",
       },
     ]);
+  });
+
+  it("stops on a source-read database failure before retry persistence or the next job", async () => {
+    const laterJob = { ...job, id: "job-2", leaseToken: "lease-2" };
+    const pressure = Object.assign(
+      new Error("could not query the database for the schema cache"),
+      {
+        code: "PGRST002",
+        cause: { code: "57014", message: "statement timeout" },
+      }
+    );
+    const loadSource = vi.fn(async () => {
+      throw pressure;
+    });
+    const deps = dependencies({
+      claim: vi.fn(async () => [job, laterJob]),
+      loadSource,
+    });
+
+    await expect(
+      runEmailConversionPhotoWorker(deps, { limit: 2 })
+    ).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+
+    expect(loadSource).toHaveBeenCalledTimes(1);
+    expect(deps.finish).not.toHaveBeenCalled();
+  });
+
+  it("surfaces database pressure from retry persistence with the original cause", async () => {
+    const pressure = Object.assign(new Error("525 SSL handshake failed"), {
+      status: 525,
+      cause: { code: "ECONNRESET" },
+    });
+    const deps = dependencies({
+      downloadPrivate: vi.fn(async () => {
+        throw new Error("private object temporarily unavailable");
+      }),
+      finish: vi.fn(async () => {
+        throw pressure;
+      }),
+    });
+
+    await expect(runEmailConversionPhotoWorker(deps)).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+  });
+
+  it("stops cleanup pressure before claiming materialization jobs", async () => {
+    const pressure = Object.assign(new Error("statement timeout"), {
+      code: "57014",
+    });
+    const claim = vi.fn(async () => [job]);
+    const deps = dependencies({
+      claim,
+      claimCleanups: vi.fn(async () => [cleanup]),
+      deleteProjectPhoto: vi.fn(async () => {
+        throw new Error("storage provider unavailable");
+      }),
+      finishObjectCleanup: vi.fn(async () => {
+        throw pressure;
+      }),
+    });
+
+    await expect(runEmailConversionPhotoWorker(deps)).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it("keeps an external storage HTTP timeout on the ordinary photo retry path", async () => {
+    const storageTimeout = Object.assign(
+      new Error("storage provider gateway timeout"),
+      { name: "StorageApiError", statusCode: 504 }
+    );
+    const deps = dependencies({
+      uploadProjectPhoto: vi.fn(async () => {
+        throw storageTimeout;
+      }),
+    });
+
+    const result = await runEmailConversionPhotoWorker(deps);
+
+    expect(result.retrying).toBe(1);
+    expect(deps.finish).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outcome: "retrying",
+        error: "storage provider gateway timeout",
+      })
+    );
   });
 });

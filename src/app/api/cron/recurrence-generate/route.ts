@@ -1,6 +1,6 @@
 // GET /api/cron/recurrence-generate
 //
-// Vercel cron: runs every 4 hours (schedule "0 */4 * * *" in vercel.json).
+// Vercel cron: runs every 4 hours at minute 59.
 //
 // For every active task_recurrences row whose next_generation_at <= NOW(),
 // expand the RRULE up to RECURRENCE_HORIZON_DAYS in the future, apply any
@@ -18,11 +18,23 @@ import { addDays, format } from "date-fns";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
+import {
+  advanceCronWorkloadCursor,
+  readCronWorkloadCursor,
+} from "@/lib/api/services/cron-workload-cursor-service";
 
 export const maxDuration = 300;
 
 const RECURRENCE_HORIZON_DAYS = 60;
 const NEXT_GENERATION_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4h
+const MAX_RECURRENCES_PER_RUN = 10;
+const MAX_OCCURRENCES_PER_RECURRENCE = 25;
+const WORKLOAD_KEY = "recurrence-generate";
 
 interface RecurrenceRow {
   id: string;
@@ -108,19 +120,27 @@ async function processRecurrence(
     // Window: NOW() through NOW() + horizon. Trim to end_anchor if set.
     const now = new Date();
     const horizonEnd = addDays(now, RECURRENCE_HORIZON_DAYS);
-    const occurrences = rule.between(
-      new Date(`${format(now, "yyyy-MM-dd")}T00:00:00Z`),
+    const windowStartKey = format(now, "yyyy-MM-dd");
+    const windowEndKey = format(horizonEnd, "yyyy-MM-dd");
+    const allOccurrences = rule.between(
+      new Date(`${windowStartKey}T00:00:00Z`),
       horizonEnd,
       true
     );
-    result.occurrencesConsidered = occurrences.length;
 
-    // Pull all exceptions for this recurrence in one shot.
+    // Pull only exceptions inside this generation horizon.
     const { data: exceptionRows, error: excErr } = await supabase
       .from("task_recurrence_exceptions")
       .select("*")
-      .eq("recurrence_id", recurrence.id);
-    if (excErr) throw excErr;
+      .eq("recurrence_id", recurrence.id)
+      .gte("original_date", windowStartKey)
+      .lte("original_date", windowEndKey);
+    if (excErr) {
+      throw new CronDatabaseOperationError(
+        "recurrence exception read failed",
+        { cause: excErr }
+      );
+    }
     const exceptions = new Map<string, ExceptionRow>();
     for (const row of (exceptionRows ?? []) as ExceptionRow[]) {
       exceptions.set(row.original_date, row);
@@ -133,21 +153,38 @@ async function processRecurrence(
       .from("project_tasks")
       .select("recurrence_origin_date")
       .eq("recurrence_id", recurrence.id)
-      .is("deleted_at", null);
-    if (existErr) throw existErr;
+      .is("deleted_at", null)
+      .gte("recurrence_origin_date", windowStartKey)
+      .lte("recurrence_origin_date", windowEndKey);
+    if (existErr) {
+      throw new CronDatabaseOperationError(
+        "recurrence existing-task read failed",
+        { cause: existErr }
+      );
+    }
     const existingOrigins = new Set<string>(
       (existingRows ?? [])
         .map((r) => r.recurrence_origin_date as string | null)
         .filter((v): v is string => Boolean(v))
     );
 
+    const pendingOccurrences = allOccurrences.filter((occurrence) => {
+      const originalDate = toDateKey(occurrence);
+      return (
+        !existingOrigins.has(originalDate) &&
+        exceptions.get(originalDate)?.action !== "skip"
+      );
+    });
+    const occurrences = pendingOccurrences.slice(
+      0,
+      MAX_OCCURRENCES_PER_RECURRENCE
+    );
+    const hasMore = pendingOccurrences.length > occurrences.length;
+    result.occurrencesConsidered = occurrences.length;
+
     for (const occurrence of occurrences) {
       const originalDate = toDateKey(occurrence);
-      if (existingOrigins.has(originalDate)) continue;
-
       const exception = exceptions.get(originalDate);
-
-      if (exception?.action === "skip") continue;
 
       // Resolve effective fields (template defaults + exception overrides).
       const effectiveDate = exception?.new_date ?? originalDate;
@@ -195,7 +232,10 @@ async function processRecurrence(
         // Unique-conflict on (recurrence_id, recurrence_origin_date) means
         // a concurrent run already inserted this — skip silently.
         if ((insertErr as { code?: string }).code === "23505") continue;
-        throw insertErr;
+        throw new CronDatabaseOperationError(
+          "recurrence task insert failed",
+          { cause: insertErr }
+        );
       }
       if (!insertedTask) continue;
 
@@ -208,12 +248,23 @@ async function processRecurrence(
       .from("task_recurrences")
       .update({
         next_generation_at: new Date(
-          Date.now() + NEXT_GENERATION_INTERVAL_MS
+          Date.now() + (hasMore ? 0 : NEXT_GENERATION_INTERVAL_MS)
         ).toISOString(),
       })
       .eq("id", recurrence.id);
-    if (bumpErr) throw bumpErr;
+    if (bumpErr) {
+      throw new CronDatabaseOperationError(
+        "recurrence checkpoint update failed",
+        { cause: bumpErr }
+      );
+    }
   } catch (err) {
+    if (
+      err instanceof CronDatabaseOperationError ||
+      isDatabasePressureError(err)
+    ) {
+      throw err;
+    }
     result.error = err instanceof Error ? err.message : String(err);
     console.error(
       `[cron/recurrence-generate] recurrence ${recurrence.id} failed:`,
@@ -242,34 +293,99 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    const { data: due, error } = await supabase
-      .from("task_recurrences")
-      .select("*")
-      .is("deleted_at", null)
-      .lte("next_generation_at", new Date().toISOString())
-      .limit(500);
-    if (error) throw error;
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: WORKLOAD_KEY,
+      leaseSeconds: 360,
+      work: async (lease) => {
+        const cursor = await readCronWorkloadCursor(
+          supabase,
+          WORKLOAD_KEY,
+          lease
+        );
+        const dueAt = new Date().toISOString();
 
-    const recurrences = (due ?? []) as RecurrenceRow[];
+        async function readPage(afterId: string | null) {
+          let query = supabase
+            .from("task_recurrences")
+            .select("*")
+            .is("deleted_at", null)
+            .lte("next_generation_at", dueAt)
+            .order("id", { ascending: true });
+          if (afterId) query = query.gt("id", afterId);
+          return query.limit(MAX_RECURRENCES_PER_RUN);
+        }
 
-    const results: ProcessResult[] = [];
-    for (const r of recurrences) {
-      const result = await processRecurrence(supabase, r);
-      results.push(result);
+        let page = await readPage(cursor);
+        if (page.error) {
+          throw new CronDatabaseOperationError(
+            "due recurrence page read failed",
+            { cause: page.error }
+          );
+        }
+        let recurrences = (page.data ?? []) as RecurrenceRow[];
+        if (recurrences.length === 0 && cursor) {
+          page = await readPage(null);
+          if (page.error) {
+            throw new CronDatabaseOperationError(
+              "wrapped recurrence page read failed",
+              { cause: page.error }
+            );
+          }
+          recurrences = (page.data ?? []) as RecurrenceRow[];
+        }
+
+        const results: ProcessResult[] = [];
+        for (const recurrence of recurrences) {
+          results.push(await processRecurrence(supabase, recurrence));
+        }
+
+        await advanceCronWorkloadCursor(
+          supabase,
+          WORKLOAD_KEY,
+          lease,
+          cursor,
+          recurrences.length === MAX_RECURRENCES_PER_RUN
+            ? recurrences[recurrences.length - 1].id
+            : null
+        );
+
+        const totalInserted = results.reduce(
+          (sum, result) => sum + result.tasksInserted,
+          0
+        );
+        const errors = results.filter((result) => result.error);
+        return {
+          recurrences,
+          results,
+          totalInserted,
+          errors,
+        };
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
     }
-
-    const totalInserted = results.reduce((s, r) => s + r.tasksInserted, 0);
-    const errors = results.filter((r) => r.error);
 
     return NextResponse.json({
       ok: true,
-      recurrences_processed: recurrences.length,
-      tasks_generated: totalInserted,
+      ran: true,
+      recurrences_processed: controlled.value.recurrences.length,
+      tasks_generated: controlled.value.totalInserted,
       // Backward-compatible response field. Notification delivery is now
       // asynchronous from immutable task mutation proof.
       notifications_sent: 0,
-      errors: errors.length,
-      details: results,
+      errors: controlled.value.errors.length,
+      details: controlled.value.results,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

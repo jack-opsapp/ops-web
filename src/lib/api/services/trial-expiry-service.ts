@@ -29,6 +29,10 @@ import {
   formatTrialEndDisplay,
 } from "@/lib/utils/company-timezone";
 import { getAppUrl } from "@/lib/utils/app-url";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "./cron-workload-control-service";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +73,7 @@ export interface ProcessResult {
   sent: Array<{ companyId: string; type: TrialNotificationType }>;
   skipped: Array<{ companyId: string; reason: string }>;
   errors: Array<{ companyId: string; error: string }>;
+  nextCompanyCursor: string | null;
 }
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
@@ -241,8 +246,10 @@ async function fetchAdminUsers(
     .in("id", adminIds);
 
   if (error) {
-    console.error("[trial-expiry] Failed to fetch admin users:", error.message);
-    return [];
+    throw new CronDatabaseOperationError(
+      "trial expiry admin-user read failed",
+      { cause: error }
+    );
   }
 
   return (data ?? []) as AdminUserRow[];
@@ -257,35 +264,72 @@ export const TrialExpiryService = {
    */
   async processAll(
     supabase: SupabaseClient,
-    now = new Date()
+    now = new Date(),
+    options: {
+      afterCompanyId?: string | null;
+      limit?: number;
+    } = {}
   ): Promise<ProcessResult> {
+    const limit = Math.max(1, Math.min(options.limit ?? 10, 10));
     const result: ProcessResult = {
       scanned: 0,
       sent: [],
       skipped: [],
       errors: [],
+      nextCompanyCursor: null,
     };
 
-    const { data: companies, error } = await supabase
+    let query = supabase
       .from("companies")
       .select(
         "id, name, trial_end_date, latitude, longitude, default_project_color, logo_url, admin_ids"
       )
       .eq("subscription_status", "trial")
       .not("trial_end_date", "is", null)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .order("id", { ascending: true });
+    if (options.afterCompanyId) {
+      query = query.gt("id", options.afterCompanyId);
+    }
+    let { data: companies, error } = await query.limit(limit);
+
+    if (!error && (companies?.length ?? 0) === 0 && options.afterCompanyId) {
+      const wrapped = await supabase
+        .from("companies")
+        .select(
+          "id, name, trial_end_date, latitude, longitude, default_project_color, logo_url, admin_ids"
+        )
+        .eq("subscription_status", "trial")
+        .not("trial_end_date", "is", null)
+        .is("deleted_at", null)
+        .order("id", { ascending: true })
+        .limit(limit);
+      companies = wrapped.data;
+      error = wrapped.error;
+    }
 
     if (error) {
-      throw new Error(`Failed to load trial companies: ${error.message}`);
+      throw new CronDatabaseOperationError(
+        "trial expiry company page read failed",
+        { cause: error }
+      );
     }
 
     const rows = (companies ?? []) as TrialCompanyRow[];
     result.scanned = rows.length;
+    result.nextCompanyCursor =
+      rows.length === limit ? rows[rows.length - 1].id : null;
 
     for (const company of rows) {
       try {
         await this.processCompany(supabase, company, now, result);
       } catch (err) {
+        if (
+          err instanceof CronDatabaseOperationError ||
+          isDatabasePressureError(err)
+        ) {
+          throw err;
+        }
         const message = err instanceof Error ? err.message : String(err);
         console.error(
           `[trial-expiry] Unhandled error for company ${company.id}:`,
@@ -332,22 +376,6 @@ export const TrialExpiryService = {
       return;
     }
 
-    // Dedup check — have we already sent this type for this company?
-    const { data: existing, error: existingError } = await supabase
-      .from("trial_expiry_notifications")
-      .select("id")
-      .eq("company_id", company.id)
-      .eq("notification_type", type)
-      .maybeSingle();
-
-    if (existingError) {
-      throw new Error(`Failed to check dedup table: ${existingError.message}`);
-    }
-
-    if (existing) {
-      return; // already sent — skip silently
-    }
-
     const admins = await fetchAdminUsers(supabase, adminIds);
     const activeAdmins = admins.filter(
       (u) => !u.deleted_at && typeof u.email === "string" && u.email.length > 0
@@ -371,6 +399,26 @@ export const TrialExpiryService = {
     const sinceExpiry = daysSince(trialEnd, now);
 
     const promoCodes = getPromoCodes(type);
+
+    // Claim the unique notification BEFORE any provider send. A concurrent or
+    // retried cron sees 23505 and exits without sending again. If provider
+    // acceptance is followed by a database outage, this durable row still
+    // prevents an ambiguous resend.
+    const { error: claimError } = await supabase
+      .from("trial_expiry_notifications")
+      .insert({
+        company_id: company.id,
+        notification_type: type,
+        promo_code_50: promoCodes?.code50 ?? null,
+        promo_code_30: promoCodes?.code30 ?? null,
+      });
+    if (claimError) {
+      if (claimError.code === "23505") return;
+      throw new CronDatabaseOperationError(
+        "trial expiry notification claim failed",
+        { cause: claimError }
+      );
+    }
 
     // ─── Send email(s) ─────────────────────────────────────────────────────
     await this.sendEmails({
@@ -417,23 +465,6 @@ export const TrialExpiryService = {
         daysRemaining: remaining,
         promoCode50: promoCodes.code50,
       });
-    }
-
-    // ─── Record the dedup row ──────────────────────────────────────────────
-    const { error: insertError } = await supabase
-      .from("trial_expiry_notifications")
-      .insert({
-        company_id: company.id,
-        notification_type: type,
-        promo_code_50: promoCodes?.code50 ?? null,
-        promo_code_30: promoCodes?.code30 ?? null,
-      });
-
-    if (insertError) {
-      // 23505 = unique_violation (another cron run beat us). Not an error.
-      if (insertError.code !== "23505") {
-        throw new Error(`Failed to record dedup row: ${insertError.message}`);
-      }
     }
 
     result.sent.push({ companyId: company.id, type });
@@ -535,9 +566,9 @@ export const TrialExpiryService = {
 
     const { error } = await params.supabase.from("notifications").insert(rows);
     if (error) {
-      console.error(
-        `[trial-expiry] In-app notification insert failed for company ${params.companyId}:`,
-        error.message
+      throw new CronDatabaseOperationError(
+        "trial expiry in-app notification insert failed",
+        { cause: error }
       );
     }
   },

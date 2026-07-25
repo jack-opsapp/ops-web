@@ -59,6 +59,34 @@ vi.mock("@/lib/email/pause", () => ({
   pause: (input: unknown) => pauseMock(input),
 }));
 
+vi.mock(
+  "@/lib/api/services/cron-workload-control-service",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/api/services/cron-workload-control-service")
+      >();
+    const workloadLease = {
+      ownerToken: "email-anomaly-test-owner",
+      fenceToken: 1,
+      globalFenceToken: 1,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      signal: new AbortController().signal,
+    };
+    return {
+      ...actual,
+      runWithCronWorkloadControl: async ({
+        work,
+      }: {
+        work: (lease: typeof workloadLease) => Promise<unknown>;
+      }) => ({
+        status: "completed",
+        value: await work(workloadLease),
+      }),
+    };
+  }
+);
+
 vi.mock("@/lib/supabase/server-client", () => {
   const fromBuilder = (table: string) => {
     const insertBuilder = (payload: unknown) => {

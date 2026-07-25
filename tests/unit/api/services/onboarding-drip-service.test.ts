@@ -699,7 +699,9 @@ describe("OnboardingDripService.processAll", () => {
         const chain: any = {
           select: () => chain,
           gte: () => chain,
-          is: async () => ({ data: opts.candidates, error: null }),
+          is: () => chain,
+          order: () => chain,
+          limit: async () => ({ data: opts.candidates, error: null }),
         };
         return chain;
       }

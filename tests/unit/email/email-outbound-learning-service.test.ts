@@ -7,6 +7,7 @@ import {
   type OutboundMemoryExtraction,
   type OutboundWritingSample,
 } from "@/lib/api/services/email-outbound-learning-service";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 import { outboundLearningEvidenceKey } from "@/lib/email/outbound-learning-evidence";
 
 const WRITING_SAMPLE: OutboundWritingSample = {
@@ -1186,6 +1187,130 @@ describe("EmailOutboundLearningService", () => {
     expect(result.errors).toEqual([
       expect.objectContaining({ error: "model unavailable" }),
     ]);
+  });
+
+  it("aborts on database pressure before writing retry bookkeeping", async () => {
+    const prepared = dbRow({
+      status: "leased",
+      attempts: 1,
+      lease_token: "0e8fd9ee-9bc3-4c7a-b273-50802cbcd29f",
+      lease_expires_at: "2026-07-14T18:05:00.000Z",
+      writing_sample: WRITING_SAMPLE,
+      memory_extraction: MEMORY_EXTRACTION,
+      draft_outcome: DRAFT_OUTCOME,
+      draft_correction_facts: [],
+      apply_learning: true,
+      apply_full_body_learning: true,
+      preparation_version: "outbound-learning-v1",
+      prepared_at: "2026-07-14T18:01:00.000Z",
+    });
+    const databaseCause = {
+      status: 504,
+      message: "Supabase gateway timeout",
+    };
+    const db = clientMock();
+    db.rpc
+      .mockResolvedValueOnce({ data: [prepared], error: null })
+      .mockResolvedValueOnce({ data: null, error: databaseCause });
+    const service = new EmailOutboundLearningService(
+      db as never,
+      dependencyMock()
+    );
+
+    const error = await service
+      .runWorker({ limit: 1, concurrency: 1 })
+      .then(
+        () => null,
+        (failure) => failure
+      );
+
+    expect(error).toBeInstanceOf(CronDatabaseOperationError);
+    expect(error).toMatchObject({ cause: databaseCause });
+    expect(db.rpc).not.toHaveBeenCalledWith(
+      "retry_email_outbound_learning",
+      expect.anything()
+    );
+  });
+
+  it("propagates database pressure raised by retry bookkeeping", async () => {
+    const databaseCause = {
+      code: "PGRST002",
+      message: "schema cache unavailable",
+    };
+    const db = clientMock();
+    db.rpc
+      .mockResolvedValueOnce({
+        data: [
+          dbRow({
+            status: "leased",
+            attempts: 1,
+            lease_token: "0e8fd9ee-9bc3-4c7a-b273-50802cbcd29f",
+            lease_expires_at: "2026-07-14T18:05:00.000Z",
+          }),
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: new Error("model unavailable"),
+      })
+      .mockResolvedValueOnce({ data: null, error: databaseCause });
+    const service = new EmailOutboundLearningService(
+      db as never,
+      dependencyMock()
+    );
+
+    const error = await service
+      .runWorker({ limit: 1, concurrency: 1 })
+      .then(
+        () => null,
+        (failure) => failure
+      );
+
+    expect(error).toBeInstanceOf(CronDatabaseOperationError);
+    expect(error).toMatchObject({ cause: databaseCause });
+  });
+
+  it("retries an untagged OpenAI 504 without opening database pressure", async () => {
+    const providerError = {
+      status: 504,
+      message: "OpenAI gateway timeout",
+    };
+    const db = clientMock();
+    db.rpc
+      .mockResolvedValueOnce({
+        data: [
+          dbRow({
+            status: "leased",
+            attempts: 1,
+            lease_token: "0e8fd9ee-9bc3-4c7a-b273-50802cbcd29f",
+            lease_expires_at: "2026-07-14T18:05:00.000Z",
+          }),
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: dbRow({
+          status: "pending",
+          attempts: 1,
+          last_error: "OpenAI gateway timeout",
+        }),
+        error: null,
+      });
+    const service = new EmailOutboundLearningService(
+      db as never,
+      dependencyMock({
+        prepareMemoryExtraction: vi.fn().mockRejectedValue(providerError),
+      })
+    );
+
+    await expect(
+      service.runWorker({ limit: 1, concurrency: 1 })
+    ).resolves.toMatchObject({
+      claimed: 1,
+      retrying: 1,
+      bookkeepingFailed: 0,
+    });
   });
 
   it("counts a job as terminal only when retry bookkeeping returns failed", async () => {

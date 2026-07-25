@@ -23,6 +23,14 @@ const methodBody = source.slice(
   methodStart,
   source.indexOf("async sweepStaleLeads(")
 );
+const clearHelper = source.slice(
+  source.indexOf("async function clearLeadScanPendingMarker("),
+  source.indexOf("function openAIProviderErrorMetadata(")
+);
+const staleSweepBody = source.slice(
+  source.indexOf("async sweepStaleLeads("),
+  source.indexOf("\n  },\n};", source.indexOf("async sweepStaleLeads("))
+);
 
 describe("sync-engine pending-lead-scan drain sweep — surface", () => {
   it("defines retryPendingLeadScans as a SyncEngine method", () => {
@@ -60,6 +68,12 @@ describe("sync-engine pending-lead-scan drain sweep — bounded selection", () =
     expect(methodBody).toMatch(/options\?\.limit \?\? 50/);
     expect(methodBody).toContain("Math.min(");
     expect(methodBody).toContain(".limit(limit)");
+  });
+
+  it("tags the initial Supabase query and preserves the raw cause", () => {
+    expect(methodBody).toMatch(
+      /if \(pendingError\) \{\s*throw new CronDatabaseOperationError\([\s\S]*?\{\s*cause: pendingError\s*\}\s*\);/
+    );
   });
 
   it("rebuilds runSync's per-connection context via the same helpers", () => {
@@ -106,10 +120,6 @@ describe("sync-engine pending-lead-scan drain sweep — marker lifecycle", () =>
     );
     expect(methodBody).toContain("outcome.cleared += 1;");
 
-    const clearHelper = source.slice(
-      source.indexOf("async function clearLeadScanPendingMarker("),
-      source.indexOf("function openAIProviderErrorMetadata(")
-    );
     expect(clearHelper).toContain(".update({ lead_scan_pending_at: null })");
     // Scoped by primary key — never disturbs another thread's marker.
     expect(clearHelper).toContain('.eq("id", threadId)');
@@ -131,5 +141,44 @@ describe("sync-engine pending-lead-scan drain sweep — marker lifecycle", () =>
     // A provider outage breaks out of the connection's thread loop rather than
     // throwing — the sweep always returns its summary.
     expect(methodBody.indexOf("break;", outageBranchStart)).toBeGreaterThan(-1);
+  });
+
+  it("rethrows database pressure, including marker-clear persistence failures", () => {
+    expect(clearHelper).toMatch(
+      /throw new CronDatabaseOperationError\([\s\S]*?\{\s*cause: error\s*\}\s*\);/
+    );
+    const threadCatch = methodBody.slice(
+      methodBody.indexOf("} catch (threadError) {"),
+      methodBody.indexOf("\n          }", methodBody.indexOf("} catch (threadError) {")) +
+        12
+    );
+    expect(threadCatch).toMatch(
+      /if \(isDatabasePressureError\(threadError\)\) \{\s*throw threadError;\s*\}/
+    );
+  });
+
+  it("keeps untagged external provider failures on the provider-deferral path", () => {
+    const catchStart = methodBody.indexOf("} catch (threadError) {");
+    const pressureIdx = methodBody.indexOf(
+      "isDatabasePressureError(threadError)",
+      catchStart
+    );
+    const providerIdx = methodBody.indexOf(
+      "isAIProviderUnavailableError(threadError)",
+      catchStart
+    );
+    expect(pressureIdx).toBeGreaterThan(catchStart);
+    expect(providerIdx).toBeGreaterThan(pressureIdx);
+  });
+});
+
+describe("sync-engine stale-lead sweep — database failures", () => {
+  it("does not discard the initial Supabase query error", () => {
+    expect(staleSweepBody).toMatch(
+      /const \{ data, error \} = await query\.limit\(limit\);/
+    );
+    expect(staleSweepBody).toMatch(
+      /if \(error\) \{\s*throw new CronDatabaseOperationError\([\s\S]*?\{\s*cause: error\s*\}\s*\);/
+    );
   });
 });

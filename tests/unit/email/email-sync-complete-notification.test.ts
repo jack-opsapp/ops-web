@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 import { createEmailSyncCompleteNotification } from "@/lib/email/email-sync-complete-notification";
 
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000001";
@@ -101,19 +102,50 @@ describe("createEmailSyncCompleteNotification", () => {
   });
 
   it("surfaces database errors without retrying the notification operation", async () => {
+    const cause = { code: "53300", message: "database unavailable" };
     const rpc = vi.fn(async () => ({
       data: null,
-      error: { message: "database unavailable" },
+      error: cause,
     }));
 
-    await expect(
-      createEmailSyncCompleteNotification({
+    let failure: unknown;
+    try {
+      await createEmailSyncCompleteNotification({
         ...input(),
         supabase: { rpc } as unknown as SupabaseClient,
-      })
-    ).rejects.toThrow(
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(CronDatabaseOperationError);
+    expect(failure).toMatchObject({
+      cause,
+    });
+    expect((failure as Error).message).toBe(
       "email sync-complete notification failed: database unavailable"
     );
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves a rejected notification RPC as a database operation failure", async () => {
+    const cause = Object.assign(new Error("connect ETIMEDOUT"), {
+      code: "ETIMEDOUT",
+    });
+    const rpc = vi.fn().mockRejectedValue(cause);
+
+    let failure: unknown;
+    try {
+      await createEmailSyncCompleteNotification({
+        ...input(),
+        supabase: { rpc } as unknown as SupabaseClient,
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(CronDatabaseOperationError);
+    expect(failure).toMatchObject({ cause });
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 });

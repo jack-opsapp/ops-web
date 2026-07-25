@@ -18,6 +18,7 @@ import type {
   EmailConnection,
   UpdateEmailConnection,
 } from "@/lib/types/email-connection";
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
 
 function mapFromDb(row: Record<string, unknown>): EmailConnection {
   const type = row.type as EmailConnection["type"];
@@ -78,17 +79,30 @@ export const EmailConnectionService = {
 
   async getConnection(connectionId: string): Promise<EmailConnection | null> {
     const supabase = requireSupabase();
-    const { data, error } = await supabase
-      .from("email_connections")
-      .select("*")
-      .eq("id", connectionId)
-      .single();
+    let data: Record<string, unknown> | null;
+    let error: { code?: string; message: string } | null;
+    try {
+      const result = await supabase
+        .from("email_connections")
+        .select("*")
+        .eq("id", connectionId)
+        .single();
+      data = result.data;
+      error = result.error;
+    } catch (cause) {
+      throw new CronDatabaseOperationError("Failed to fetch email connection", {
+        cause,
+      });
+    }
 
     if (error) {
       if (error.code === "PGRST116") return null;
-      throw new Error(`Failed to fetch email connection: ${error.message}`);
+      throw new CronDatabaseOperationError(
+        `Failed to fetch email connection: ${error.message}`,
+        { cause: error }
+      );
     }
-    return mapFromDb(data);
+    return data ? mapFromDb(data) : null;
   },
 
   async createConnection(
@@ -168,16 +182,31 @@ export const EmailConnectionService = {
       row.expires_at = data.expiresAt.toISOString();
     }
 
-    const { data: updated, error } = await supabase
-      .from("email_connections")
-      .update(row)
-      .eq("id", connectionId)
-      .select()
-      .single();
+    let updated: Record<string, unknown> | null;
+    let error: { message: string } | null;
+    try {
+      const result = await supabase
+        .from("email_connections")
+        .update(row)
+        .eq("id", connectionId)
+        .select()
+        .single();
+      updated = result.data;
+      error = result.error;
+    } catch (cause) {
+      throw new CronDatabaseOperationError(
+        "Failed to update email connection",
+        { cause }
+      );
+    }
 
     if (error) {
-      throw new Error(`Failed to update email connection: ${error.message}`);
+      throw new CronDatabaseOperationError(
+        `Failed to update email connection: ${error.message}`,
+        { cause: error }
+      );
     }
+    if (!updated) throw new Error("Failed to update email connection: no row");
     return mapFromDb(updated);
   },
 

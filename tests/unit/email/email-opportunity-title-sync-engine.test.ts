@@ -1597,6 +1597,16 @@ function baseConnection(
   };
 }
 
+function opaqueSyncContinuation(
+  providerToken: string,
+  pendingLeadSummaryOpportunityIds: string[]
+): string {
+  return `ops-email-sync:v1:${JSON.stringify({
+    providerToken,
+    pendingLeadSummaryOpportunityIds,
+  })}`;
+}
+
 function baseEmail(overrides: Partial<NormalizedEmail> = {}): NormalizedEmail {
   return {
     id: "msg-1",
@@ -1668,10 +1678,12 @@ describe("SyncEngine email opportunity title generation", () => {
     refreshLeadSummariesForOpportunitiesMock.mockImplementation(
       async (input: { opportunityIds: string[] }) => ({
         requested: input.opportunityIds.length,
+        attempted: input.opportunityIds.length,
         written: input.opportunityIds.length,
         skippedFeatureDisabled: false,
         failed: [],
         deferred: [],
+        remainingOpportunityIds: [],
       })
     );
     evaluateOpportunityAcceptanceMock.mockReset();
@@ -1766,6 +1778,96 @@ describe("SyncEngine email opportunity title generation", () => {
     await expect(SyncEngine.runSync("connection-1")).rejects.toThrow(
       "[sync-engine] email connection lock acquisition returned an invalid owner"
     );
+  });
+
+  it("drains a bounded derived-summary continuation while advancing the underlying provider token", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const pendingIds = Array.from(
+      { length: 7 },
+      (_, index) => `opportunity-${index + 1}`
+    );
+    getConnectionMock.mockResolvedValue(
+      baseConnection({
+        historyId: opaqueSyncContinuation("sync-token", pendingIds),
+      })
+    );
+    const fetchNewEmailsSince = vi.fn(async () => ({
+      emails: [],
+      nextSyncToken: "sync-token-2",
+    }));
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince,
+    });
+    refreshLeadSummariesForOpportunitiesMock.mockResolvedValueOnce({
+      requested: 7,
+      attempted: 5,
+      written: 5,
+      skippedFeatureDisabled: false,
+      failed: [],
+      deferred: [],
+      remainingOpportunityIds: pendingIds.slice(5),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(fetchNewEmailsSince).toHaveBeenCalledWith("sync-token");
+    expect(refreshLeadSummariesForOpportunitiesMock).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      companyId: "company-1",
+      opportunityIds: pendingIds,
+    });
+    const persistedHistoryId = updateConnectionMock.mock.calls.at(-1)?.[1]
+      ?.historyId as string;
+    expect(persistedHistoryId).toMatch(/^ops-email-sync:v1:/);
+    expect(
+      JSON.parse(persistedHistoryId.slice("ops-email-sync:v1:".length))
+    ).toEqual({
+      providerToken: "sync-token-2",
+      pendingLeadSummaryOpportunityIds: pendingIds.slice(5),
+    });
+  });
+
+  it("fails closed instead of truncating an oversized derived-summary continuation", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const oversizedPendingIds = Array.from(
+      { length: 501 },
+      (_, index) => `opportunity-${index + 1}`
+    );
+    getConnectionMock.mockResolvedValue(
+      baseConnection({
+        historyId: opaqueSyncContinuation(
+          "sync-token",
+          oversizedPendingIds
+        ),
+      })
+    );
+    const fetchNewEmailsSince = vi.fn();
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince,
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors.join(" ")).toContain(
+      "pendingLeadSummaryOpportunityIds exceeds 500"
+    );
+    expect(fetchNewEmailsSince).not.toHaveBeenCalled();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
   });
 
   it("uses the external recipient display name for sent-folder safety-net opportunities", async () => {
@@ -3807,10 +3909,12 @@ To: Kara Beach <kara.beach@example.com>`,
     matchMock.mockResolvedValue({ action: "create_new", clientId: null });
     refreshLeadSummariesForOpportunitiesMock.mockResolvedValueOnce({
       requested: 1,
+      attempted: 0,
       written: 0,
       skippedFeatureDisabled: true,
       failed: [],
       deferred: [],
+      remainingOpportunityIds: ["opportunity-1"],
     });
 
     const result = await SyncEngine.ingestExactInboundMessageForRecovery({
@@ -4468,10 +4572,15 @@ To: Kara Beach <kara.beach@example.com>`,
 
     refreshLeadSummariesForOpportunitiesMock.mockResolvedValueOnce({
       requested: 2,
+      attempted: 0,
       written: 0,
       skippedFeatureDisabled: true,
       failed: [],
       deferred: [],
+      remainingOpportunityIds: [
+        "source-opportunity",
+        "target-opportunity",
+      ],
     });
     await expect(runRepair()).rejects.toThrow(
       "exact reparent summary refresh incomplete"
@@ -5615,6 +5724,7 @@ To: Kara Beach <kara.beach@example.com>`,
     ]);
     refreshLeadSummariesForOpportunitiesMock.mockResolvedValueOnce({
       requested: 1,
+      attempted: 1,
       written: 0,
       skippedFeatureDisabled: false,
       failed: [
@@ -5624,6 +5734,7 @@ To: Kara Beach <kara.beach@example.com>`,
         },
       ],
       deferred: [],
+      remainingOpportunityIds: ["opp-summary-retry"],
     });
 
     const result = await SyncEngine.runSync("connection-1");
@@ -5631,6 +5742,97 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(result.errors.join(" ")).toContain("summary write unavailable");
     expect(state.opportunities[0].ai_summary).toBeUndefined();
     expect(updateConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("advances the provider cursor when only derived summary model output violates its contract", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [
+        {
+          id: "opp-summary-model-contract",
+          company_id: "company-1",
+          client_id: null,
+          title: "Summary model contract lead",
+          stage: "qualifying",
+          stage_manually_set: false,
+          archived_at: null,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [
+        {
+          opportunity_id: "opp-summary-model-contract",
+          thread_id: "thread-summary-model-contract",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+      stageTransitions: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const updateEmail = baseEmail({
+      id: "msg-summary-model-contract",
+      threadId: "thread-summary-model-contract",
+      from: "Kara Beach <kara.beach@example.com>",
+      fromName: "Kara Beach",
+      to: ["jackson@canprodeckandrail.com"],
+      subject: "Updated schedule",
+      bodyText: "Please install next Tuesday and keep removal excluded.",
+      snippet: "Please install next Tuesday and keep removal excluded.",
+      labelIds: ["INBOX"],
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [updateEmail],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    evaluateStagesWithSummaryMock.mockResolvedValue([
+      {
+        threadId: "thread-summary-model-contract",
+        newStage: "qualifying",
+        terminalFlag: null,
+        summary: "Customer supplied an updated installation schedule.",
+      },
+    ]);
+    refreshLeadSummariesForOpportunitiesMock.mockResolvedValueOnce({
+      requested: 1,
+      attempted: 1,
+      written: 0,
+      skippedFeatureDisabled: false,
+      failed: [],
+      deferred: [
+        {
+          opportunityId: "opp-summary-model-contract",
+          error: "model omitted the current commercial schedule",
+          reason: "model_contract",
+        },
+      ],
+      remainingOpportunityIds: ["opp-summary-model-contract"],
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(result.aiProviderDeferred).toBe(false);
+    const persistedHistoryId = updateConnectionMock.mock.calls.at(-1)?.[1]
+      ?.historyId as string;
+    expect(persistedHistoryId).toMatch(/^ops-email-sync:v1:/);
+    expect(
+      JSON.parse(persistedHistoryId.slice("ops-email-sync:v1:".length))
+    ).toEqual({
+      providerToken: "sync-token-2",
+      pendingLeadSummaryOpportunityIds: ["opp-summary-model-contract"],
+    });
   });
 
   it("links a new provider thread to an existing active opportunity when parsed customer address matches", async () => {
@@ -6879,9 +7081,8 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(upsertFromEmailMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ markClassificationDirty: true })
     );
-    expect(afterMock).toHaveBeenCalledOnce();
-    await afterMock.mock.calls[0][0]();
-    expect(classifyAndUpdateMock).toHaveBeenCalledOnce();
+    expect(afterMock).not.toHaveBeenCalled();
+    expect(classifyAndUpdateMock).not.toHaveBeenCalled();
 
     afterMock.mockClear();
     classifyAndUpdateMock.mockClear();
@@ -7146,10 +7347,12 @@ describe("SyncEngine Gmail history completeness", () => {
     refreshLeadSummariesForOpportunitiesMock.mockImplementation(
       async (input: { opportunityIds: string[] }) => ({
         requested: input.opportunityIds.length,
+        attempted: input.opportunityIds.length,
         written: input.opportunityIds.length,
         skippedFeatureDisabled: false,
         failed: [],
         deferred: [],
+        remainingOpportunityIds: [],
       })
     );
     upsertFromEmailMock.mockReset();

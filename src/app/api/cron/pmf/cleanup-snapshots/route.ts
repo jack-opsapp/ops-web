@@ -1,7 +1,7 @@
 /**
  * GET /api/cron/pmf/cleanup-snapshots
  *
- * Vercel cron: `30 14 * * *` — 06:30 PT daily (just before the digest crons).
+ * Vercel cron: `4 11 * * *` — isolated daily maintenance window.
  *
  * Deletes `pmf_threshold_snapshots` rows older than 30 days. The snapshot
  * table is append-only (one row every 15 minutes from the threshold-check
@@ -10,6 +10,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import {
+  CronDatabaseOperationError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 
 export const runtime = "nodejs";
@@ -38,22 +42,57 @@ export async function GET(request: NextRequest) {
       Date.now() - RETENTION_DAYS * 86_400_000
     ).toISOString();
 
-    const { error, count } = await sb
-      .from("pmf_threshold_snapshots")
-      .delete({ count: "exact" })
-      .lt("captured_at", cutoff);
+    const controlled = await runWithCronWorkloadControl({
+      supabase: sb,
+      workloadKey: "pmf-cleanup-snapshots",
+      leaseSeconds: 120,
+      work: async () => {
+        const { data, error } = (await sb.rpc(
+          "cleanup_pmf_threshold_snapshots_batch_as_system" as never,
+          {
+            p_cutoff: cutoff,
+            p_batch_size: 250,
+          } as never
+        )) as unknown as { data: unknown; error: unknown };
 
-    if (error) {
-      console.error("[pmf-cleanup-snapshots] delete failed:", error.message);
+        if (error) {
+          throw new CronDatabaseOperationError(
+            "PMF snapshot cleanup batch failed",
+            { cause: error }
+          );
+        }
+        if (
+          typeof data !== "number" ||
+          !Number.isSafeInteger(data) ||
+          data < 0 ||
+          data > 250
+        ) {
+          throw new CronDatabaseOperationError(
+            "PMF snapshot cleanup returned an invalid count",
+            { cause: new Error("invalid snapshot cleanup result") }
+          );
+        }
+        return { pruned: data };
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
       return NextResponse.json(
-        { error: "snapshot cleanup failed" },
-        { status: 500 }
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
       );
     }
 
-    // supabase-js returns `count: number | null`; coerce null to 0 so the
-    // JSON response always has a numeric `pruned`.
-    return NextResponse.json({ ok: true, pruned: count ?? 0 });
+    return NextResponse.json({
+      ok: true,
+      ran: true,
+      pruned: controlled.value.pruned,
+    });
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "snapshot cleanup failed";

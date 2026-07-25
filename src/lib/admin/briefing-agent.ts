@@ -15,6 +15,7 @@ import {
   failBriefing,
   getLatestBriefing,
 } from "./briefing-queries";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 import { pullAdsData } from "./briefing-steps/pull-ads-data";
 import { getCompetitorSearchContent } from "./briefing-steps/competitor-research";
 import { getMarketSentimentContent } from "./briefing-steps/market-sentiment";
@@ -86,6 +87,9 @@ export async function generateBriefing(
 
     return briefingId;
   } catch (err) {
+    if (err instanceof CronDatabaseOperationError) {
+      throw err;
+    }
     const message = err instanceof Error ? err.message : String(err);
     await failBriefing(briefingId, message);
     throw err;

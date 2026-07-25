@@ -9,6 +9,7 @@ import {
   EmailSendReconciliationRecoveryService,
   type EmailSendReconciliationRecoveryDependencies,
 } from "@/lib/api/services/email-send-reconciliation-recovery-service";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 import type { EmailSendIntent } from "@/lib/api/services/email-send-intent-service";
 
 function leasedIntent(): EmailSendIntent {
@@ -171,5 +172,104 @@ describe("EmailSendReconciliationRecoveryService", () => {
       errors: ["intent-1: activity insert failed"],
     });
     expect(deps.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("stops immediately when claiming work hits database pressure", async () => {
+    const deps = dependencies();
+    const cause = {
+      status: 521,
+      message: "Web server is down",
+    };
+    const pressure = new CronDatabaseOperationError(
+      "Email send reconciliation claim failed",
+      { cause }
+    );
+    deps.intentStore.claimNextReconciliation.mockReset();
+    deps.intentStore.claimNextReconciliation.mockRejectedValue(pressure);
+
+    await expect(deps.service.process({ limit: 5 })).rejects.toBe(pressure);
+
+    expect(deps.intentStore.claimNextReconciliation).toHaveBeenCalledTimes(1);
+    expect(deps.intentStore.failReconciliation).not.toHaveBeenCalled();
+  });
+
+  it("does not write a retry or claim more work after reconciliation hits database pressure", async () => {
+    const deps = dependencies();
+    const cause = {
+      status: 525,
+      message: "SSL handshake failed",
+    };
+    const pressure = new CronDatabaseOperationError(
+      "Sent email activity persistence failed",
+      { cause }
+    );
+    deps.reconcile.mockRejectedValue(pressure);
+
+    await expect(deps.service.process({ limit: 5 })).rejects.toBe(pressure);
+
+    expect(deps.intentStore.failReconciliation).not.toHaveBeenCalled();
+    expect(deps.intentStore.claimNextReconciliation).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not claim more work when retry persistence hits database pressure", async () => {
+    const deps = dependencies();
+    const cause = {
+      status: 521,
+      message: "Web server is down",
+    };
+    const pressure = new CronDatabaseOperationError(
+      "Email send reconciliation failure persistence failed",
+      { cause }
+    );
+    deps.reconcile.mockRejectedValue(new Error("activity insert failed"));
+    deps.intentStore.failReconciliation.mockRejectedValue(pressure);
+
+    await expect(deps.service.process({ limit: 5 })).rejects.toBe(pressure);
+
+    expect(deps.intentStore.claimNextReconciliation).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not write a retry when reconciliation completion hits database pressure", async () => {
+    const deps = dependencies();
+    const cause = {
+      status: 525,
+      message: "SSL handshake failed",
+    };
+    const pressure = new CronDatabaseOperationError(
+      "Email send reconciliation completion failed",
+      { cause }
+    );
+    deps.intentStore.completeReconciliation.mockRejectedValue(pressure);
+
+    await expect(deps.service.process({ limit: 5 })).rejects.toBe(pressure);
+
+    expect(deps.intentStore.failReconciliation).not.toHaveBeenCalled();
+    expect(deps.intentStore.claimNextReconciliation).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps an external provider HTTP timeout on the ordinary fenced retry path", async () => {
+    const deps = dependencies();
+    const providerTimeout = Object.assign(
+      new Error("Gmail upstream request timed out"),
+      {
+        name: "ProviderApiError",
+        status: 504,
+      }
+    );
+    deps.reconcile.mockRejectedValue(providerTimeout);
+
+    const result = await deps.service.process({ limit: 1 });
+
+    expect(deps.intentStore.failReconciliation).toHaveBeenCalledWith({
+      intentId: "intent-1",
+      leaseToken: "reconcile-lease-1",
+      error: "Gmail upstream request timed out",
+    });
+    expect(result).toEqual({
+      claimed: 1,
+      reconciled: 0,
+      failed: 1,
+      errors: ["intent-1: Gmail upstream request timed out"],
+    });
   });
 });

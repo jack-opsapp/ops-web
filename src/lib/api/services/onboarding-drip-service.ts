@@ -12,6 +12,7 @@ import {
   sendOnboardingDay14Active,
   sendOnboardingLostYou,
 } from "@/lib/email/sendgrid";
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
 
 /**
  * Onboarding drip service. Calendar-driven plus behavior-triggered
@@ -571,14 +572,20 @@ export const OnboardingDripService = {
    */
   async processRetries(db: SupabaseClient, now: Date): Promise<{ retried: number }> {
     const fiveMinAgo = new Date(now.getTime() - 5 * 60_000).toISOString();
-    const { data: candidates } = await db
+    const { data: candidates, error: candidateError } = await db
       .from("onboarding_email_log")
       .select("id, user_id, company_id, day_slot, branch, email_type, attempts")
       .in("status", ["pending", "failed"])
       .lt("attempts", 3)
       .gt("day_slot_expires_at", now.toISOString())
       .lt("updated_at", fiveMinAgo)
-      .limit(100);
+      .limit(10);
+    if (candidateError) {
+      throw new CronDatabaseOperationError(
+        `Onboarding retry lookup failed: ${candidateError.message}`,
+        { cause: candidateError }
+      );
+    }
 
     let retried = 0;
     for (const row of (candidates ?? []) as Array<{
@@ -823,13 +830,21 @@ export const OnboardingDripService = {
   ): Promise<{ scanned: number; calendar_processed: number; lost_you_fired: number; retried: number }> {
     const fifteenDaysAgo = new Date(now.getTime() - 15 * 86400_000).toISOString();
 
-    const { data: candidates } = await db
+    const { data: candidates, error: candidateError } = await db
       .from("companies")
       .select(
         "id, account_holder_id, admin_ids, deleted_at, subscription_status, created_at, latitude, longitude",
       )
       .gte("created_at", fifteenDaysAgo)
-      .is("deleted_at", null);
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (candidateError) {
+      throw new CronDatabaseOperationError(
+        `Onboarding candidate lookup failed: ${candidateError.message}`,
+        { cause: candidateError }
+      );
+    }
 
     let calendar = 0;
     let lost = 0;

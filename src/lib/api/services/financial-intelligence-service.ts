@@ -20,6 +20,8 @@ import type {
   FinancialIntelligenceSettings,
   AgentActionPriority,
 } from "@/lib/types/approval-queue";
+import { throwCronDatabaseOperationError } from "./cron-company-fanout-service";
+import { isDatabasePressureError } from "./cron-workload-control-service";
 
 // ─── Return Types ─────────────────────────────────────────────────────────────
 
@@ -92,11 +94,17 @@ async function getFinancialSettings(
 ): Promise<FinancialIntelligenceSettings> {
   const supabase = requireSupabase();
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("companies")
     .select("invoice_settings")
     .eq("id", companyId)
     .single();
+  if (error) {
+    throwCronDatabaseOperationError(
+      `Failed to load financial intelligence settings: ${error.message}`,
+      error
+    );
+  }
 
   if (!data?.invoice_settings) return DEFAULT_SETTINGS;
 
@@ -145,11 +153,17 @@ function monthsAgo(n: number): Date {
 async function getCompanyAdminUserId(companyId: string): Promise<string | null> {
   const supabase = requireSupabase();
 
-  const { data: company } = await supabase
+  const { data: company, error } = await supabase
     .from("companies")
     .select("admin_ids")
     .eq("id", companyId)
     .single();
+  if (error) {
+    throwCronDatabaseOperationError(
+      `Failed to load financial intelligence admin: ${error.message}`,
+      error
+    );
+  }
 
   if (!company?.admin_ids) return null;
 
@@ -183,7 +197,7 @@ export const FinancialIntelligenceService = {
     const cutoff = monthsAgo(months);
 
     // Fetch paid/partially_paid invoices for the last N months
-    const { data: invoices } = await supabase
+    const { data: invoices, error: invoicesError } = await supabase
       .from("invoices")
       .select("total, paid_at, issue_date, status")
       .eq("company_id", companyId)
@@ -191,14 +205,26 @@ export const FinancialIntelligenceService = {
       .in("status", ["paid", "partially_paid"])
       .gte("issue_date", cutoff.toISOString())
       .order("issue_date", { ascending: true });
+    if (invoicesError) {
+      throwCronDatabaseOperationError(
+        `Failed to load revenue invoices: ${invoicesError.message}`,
+        invoicesError
+      );
+    }
 
     // Fetch pipeline opportunities (active stages)
-    const { data: opportunities } = await supabase
+    const { data: opportunities, error: opportunitiesError } = await supabase
       .from("opportunities")
       .select("estimated_value, win_probability, expected_close_date, stage")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .in("stage", ["quoting", "quoted", "follow_up", "negotiation"]);
+    if (opportunitiesError) {
+      throwCronDatabaseOperationError(
+        `Failed to load revenue pipeline: ${opportunitiesError.message}`,
+        opportunitiesError
+      );
+    }
 
     // Group invoices by month
     const monthlyMap = new Map<string, number>();
@@ -269,7 +295,7 @@ export const FinancialIntelligenceService = {
     let yoyChange: number | null = null;
     {
       const priorYearCutoff = monthsAgo(months + 12);
-      const { data: priorYearInvoices } = await supabase
+      const { data: priorYearInvoices, error: priorYearError } = await supabase
         .from("invoices")
         .select("total, issue_date")
         .eq("company_id", companyId)
@@ -277,6 +303,12 @@ export const FinancialIntelligenceService = {
         .in("status", ["paid", "partially_paid"])
         .gte("issue_date", priorYearCutoff.toISOString())
         .lt("issue_date", cutoff.toISOString());
+      if (priorYearError) {
+        throwCronDatabaseOperationError(
+          `Failed to load prior-year revenue: ${priorYearError.message}`,
+          priorYearError
+        );
+      }
 
       if (priorYearInvoices && priorYearInvoices.length > 0) {
         const priorTotal = priorYearInvoices.reduce(
@@ -304,13 +336,19 @@ export const FinancialIntelligenceService = {
     const cutoff = monthsAgo(24);
 
     // Fetch invoices with line items for service-level seasonality
-    const { data: invoices } = await supabase
+    const { data: invoices, error: invoicesError } = await supabase
       .from("invoices")
       .select("id, total, issue_date")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .in("status", ["paid", "partially_paid", "sent", "awaiting_payment"])
       .gte("issue_date", cutoff.toISOString());
+    if (invoicesError) {
+      throwCronDatabaseOperationError(
+        `Failed to load seasonal invoices: ${invoicesError.message}`,
+        invoicesError
+      );
+    }
 
     if (!invoices || invoices.length === 0) {
       return {
@@ -358,10 +396,16 @@ export const FinancialIntelligenceService = {
 
     for (let i = 0; i < invoiceIds.length; i += lineItemChunkSize) {
       const chunk = invoiceIds.slice(i, i + lineItemChunkSize);
-      const { data: items } = await supabase
+      const { data: items, error: itemsError } = await supabase
         .from("line_items")
         .select("invoice_id, task_type_id, name, line_total")
         .in("invoice_id", chunk);
+      if (itemsError) {
+        throwCronDatabaseOperationError(
+          `Failed to load seasonal invoice items: ${itemsError.message}`,
+          itemsError
+        );
+      }
       if (items) allLineItems.push(...items);
     }
 
@@ -378,10 +422,16 @@ export const FinancialIntelligenceService = {
     if (taskTypeIds.length > 0) {
       for (let i = 0; i < taskTypeIds.length; i += lineItemChunkSize) {
         const chunk = taskTypeIds.slice(i, i + lineItemChunkSize);
-        const { data: types } = await supabase
+        const { data: types, error: typesError } = await supabase
           .from("task_types_v2")
           .select("id, display")
           .in("id", chunk);
+        if (typesError) {
+          throwCronDatabaseOperationError(
+            `Failed to load seasonal task types: ${typesError.message}`,
+            typesError
+          );
+        }
         if (types) {
           for (const t of types) {
             taskTypeNames.set(t.id as string, t.display as string);
@@ -445,12 +495,18 @@ export const FinancialIntelligenceService = {
     const settings = await getFinancialSettings(companyId);
 
     // Fetch estimates with terminal statuses (approved, declined, expired)
-    const { data: estimates } = await supabase
+    const { data: estimates, error: estimatesError } = await supabase
       .from("estimates")
       .select("id, total, status")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .in("status", ["approved", "converted", "declined", "expired"]);
+    if (estimatesError) {
+      throwCronDatabaseOperationError(
+        `Failed to load pricing estimates: ${estimatesError.message}`,
+        estimatesError
+      );
+    }
 
     if (!estimates || estimates.length === 0) {
       return { serviceAnalysis: [] };
@@ -463,10 +519,16 @@ export const FinancialIntelligenceService = {
 
     for (let i = 0; i < estimateIds.length; i += chunkSize) {
       const chunk = estimateIds.slice(i, i + chunkSize);
-      const { data: items } = await supabase
+      const { data: items, error: itemsError } = await supabase
         .from("line_items")
         .select("estimate_id, task_type_id, name")
         .in("estimate_id", chunk);
+      if (itemsError) {
+        throwCronDatabaseOperationError(
+          `Failed to load pricing estimate items: ${itemsError.message}`,
+          itemsError
+        );
+      }
       if (items) allLineItems.push(...items);
     }
 
@@ -489,10 +551,16 @@ export const FinancialIntelligenceService = {
     if (taskTypeIds.length > 0) {
       for (let i = 0; i < taskTypeIds.length; i += chunkSize) {
         const chunk = taskTypeIds.slice(i, i + chunkSize);
-        const { data: types } = await supabase
+        const { data: types, error: typesError } = await supabase
           .from("task_types_v2")
           .select("id, display")
           .in("id", chunk);
+        if (typesError) {
+          throwCronDatabaseOperationError(
+            `Failed to load pricing task types: ${typesError.message}`,
+            typesError
+          );
+        }
         if (types) {
           for (const t of types) {
             taskTypeNames.set(t.id as string, t.display as string);
@@ -604,13 +672,20 @@ export const FinancialIntelligenceService = {
     const today = new Date();
 
     // Current state: outstanding invoices
-    const { data: outstandingInvoices } = await supabase
+    const { data: outstandingInvoices, error: outstandingError } =
+      await supabase
       .from("invoices")
       .select("id, client_id, balance_due, due_date, status, total")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .in("status", ["sent", "awaiting_payment", "partially_paid", "past_due"])
       .gt("balance_due", 0);
+    if (outstandingError) {
+      throwCronDatabaseOperationError(
+        `Failed to load outstanding invoices: ${outstandingError.message}`,
+        outstandingError
+      );
+    }
 
     const outstanding = (outstandingInvoices ?? []).reduce(
       (sum, inv) => sum + Number(inv.balance_due ?? 0), 0
@@ -623,12 +698,18 @@ export const FinancialIntelligenceService = {
 
     // Cash received this month
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const { data: payments } = await supabase
+    const { data: payments, error: paymentsError } = await supabase
       .from("payments")
       .select("amount")
       .eq("company_id", companyId)
       .is("voided_at", null)
       .gte("payment_date", monthStart.toISOString());
+    if (paymentsError) {
+      throwCronDatabaseOperationError(
+        `Failed to load monthly payments: ${paymentsError.message}`,
+        paymentsError
+      );
+    }
 
     const receivedThisMonth = (payments ?? []).reduce(
       (sum, p) => sum + Number(p.amount ?? 0), 0
@@ -643,13 +724,19 @@ export const FinancialIntelligenceService = {
       const chunkSize = 80;
       for (let i = 0; i < clientIds.length; i += chunkSize) {
         const chunk = clientIds.slice(i, i + chunkSize);
-        const { data: paidInvoices } = await supabase
+        const { data: paidInvoices, error: paidInvoicesError } = await supabase
           .from("invoices")
           .select("client_id, due_date, paid_at")
           .eq("company_id", companyId)
           .is("deleted_at", null)
           .in("status", ["paid"])
           .in("client_id", chunk);
+        if (paidInvoicesError) {
+          throwCronDatabaseOperationError(
+            `Failed to load client payment history: ${paidInvoicesError.message}`,
+            paidInvoicesError
+          );
+        }
 
         // Compute on-time rate per client
         const clientCounts = new Map<string, { onTime: number; total: number }>();
@@ -685,12 +772,18 @@ export const FinancialIntelligenceService = {
     ];
 
     // Pipeline opportunities closing in each period
-    const { data: pipelineOpps } = await supabase
+    const { data: pipelineOpps, error: pipelineError } = await supabase
       .from("opportunities")
       .select("estimated_value, win_probability, expected_close_date")
       .eq("company_id", companyId)
       .is("deleted_at", null)
       .in("stage", ["quoting", "quoted", "follow_up", "negotiation"]);
+    if (pipelineError) {
+      throwCronDatabaseOperationError(
+        `Failed to load cash-flow pipeline: ${pipelineError.message}`,
+        pipelineError
+      );
+    }
 
     const projection: CashFlowProjection["projection"] = [];
 
@@ -759,11 +852,17 @@ export const FinancialIntelligenceService = {
         .map(([id]) => id);
 
       if (topClientIds.length > 0) {
-        const { data: clients } = await supabase
+        const { data: clients, error: clientsError } = await supabase
           .from("clients")
           .select("id, name")
           .eq("company_id", companyId)
           .in("id", topClientIds);
+        if (clientsError) {
+          throwCronDatabaseOperationError(
+            `Failed to load concentration-risk clients: ${clientsError.message}`,
+            clientsError
+          );
+        }
 
         for (const c of clients ?? []) {
           const entry = clientOutstanding.get(c.id as string);
@@ -834,13 +933,10 @@ export const FinancialIntelligenceService = {
     const settings = await getFinancialSettings(companyId);
     if (!settings.enabled) return null;
 
-    // Run all four analyses in parallel
-    const [revenue, cashflow, pricing, seasonal] = await Promise.all([
-      this.getRevenueForecasting(companyId),
-      this.getCashFlowProjection(companyId),
-      this.getPricingOptimization(companyId),
-      this.getSeasonalPatterns(companyId),
-    ]);
+    const revenue = await this.getRevenueForecasting(companyId);
+    const cashflow = await this.getCashFlowProjection(companyId);
+    const pricing = await this.getPricingOptimization(companyId);
+    const seasonal = await this.getSeasonalPatterns(companyId);
 
     // Collect all alerts
     const allAlerts = [...cashflow.alerts];
@@ -981,15 +1077,30 @@ async function storeFinancialMemories(
   if (memories.length > 0) {
     try {
       // Remove stale financial analysis memories
-      await supabase
+      const { error: deleteError } = await supabase
         .from("agent_memories")
         .delete()
         .eq("company_id", companyId)
         .eq("source", "financial_analysis");
+      if (deleteError) {
+        throwCronDatabaseOperationError(
+          `Failed to delete stale financial memories: ${deleteError.message}`,
+          deleteError
+        );
+      }
 
       // Insert fresh ones
-      await supabase.from("agent_memories").insert(memories);
+      const { error: insertError } = await supabase
+        .from("agent_memories")
+        .insert(memories);
+      if (insertError) {
+        throwCronDatabaseOperationError(
+          `Failed to insert financial memories: ${insertError.message}`,
+          insertError
+        );
+      }
     } catch (err) {
+      if (isDatabasePressureError(err)) throw err;
       // Non-fatal — memories are supplementary
       console.error("[financial-intelligence] Failed to store memories:", err);
     }

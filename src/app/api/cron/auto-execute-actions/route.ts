@@ -1,6 +1,6 @@
 /**
  * GET /api/cron/auto-execute-actions
- * Vercel cron: runs every 5 minutes.
+ * Vercel cron: runs every 20 minutes on an isolated offset.
  *
  * Processes pending agent_actions whose auto_execute_at has passed. These
  * were created by the various auto-send autonomy levels (appointment
@@ -14,6 +14,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { ApprovalQueueService } from "@/lib/api/services/approval-queue-service";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 
 export const maxDuration = 300;
 
@@ -35,52 +40,81 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    const now = new Date().toISOString();
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: "auto-execute-actions",
+      leaseSeconds: 360,
+      work: async () => {
+        const now = new Date().toISOString();
 
-    // Find pending actions whose auto_execute_at has passed
-    const { data: dueActions, error } = await supabase
-      .from("agent_actions")
-      .select("id")
-      .eq("status", "pending")
-      .not("auto_execute_at", "is", null)
-      .lte("auto_execute_at", now)
-      .limit(100);
+        // Find pending actions whose auto_execute_at has passed
+        const { data: dueActions, error } = await supabase
+          .from("agent_actions")
+          .select("id")
+          .eq("status", "pending")
+          .not("auto_execute_at", "is", null)
+          .lte("auto_execute_at", now)
+          .limit(10);
 
-    if (error) throw error;
+        if (error) {
+          throw new CronDatabaseOperationError(
+            `Auto-execute action lookup failed: ${error.message}`,
+            { cause: error }
+          );
+        }
 
-    const results: Array<{
-      actionId: string;
-      success: boolean;
-      error?: string;
-    }> = [];
+        const results: Array<{
+          actionId: string;
+          success: boolean;
+          error?: string;
+        }> = [];
 
-    for (const row of dueActions ?? []) {
-      const actionId = row.id as string;
-      try {
-        await ApprovalQueueService.executeAutonomousAction(actionId);
-        results.push({ actionId, success: true });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Unknown error";
-        results.push({ actionId, success: false, error: message });
-        console.error(
-          `[cron/auto-execute-actions] ${actionId} failed:`,
-          message
-        );
-      }
+        for (const row of dueActions ?? []) {
+          const actionId = row.id as string;
+          try {
+            await ApprovalQueueService.executeAutonomousAction(actionId);
+            results.push({ actionId, success: true });
+          } catch (err) {
+            if (isDatabasePressureError(err)) throw err;
+            const message =
+              err instanceof Error ? err.message : "Unknown error";
+            results.push({ actionId, success: false, error: message });
+            console.error(
+              `[cron/auto-execute-actions] ${actionId} failed:`,
+              message
+            );
+          }
+        }
+
+        const succeeded = results.filter((r) => r.success).length;
+        const failed = results.filter((r) => !r.success).length;
+        const recovery =
+          await ApprovalQueueService.recoverApprovedActionEmails(5);
+
+        return NextResponse.json({
+          ok: true,
+          dueCount: dueActions?.length ?? 0,
+          succeeded,
+          failed,
+          recovery,
+          results,
+        });
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
     }
 
-    const succeeded = results.filter((r) => r.success).length;
-    const failed = results.filter((r) => !r.success).length;
-    const recovery = await ApprovalQueueService.recoverApprovedActionEmails(50);
-
-    return NextResponse.json({
-      ok: true,
-      dueCount: dueActions?.length ?? 0,
-      succeeded,
-      failed,
-      recovery,
-      results,
-    });
+    return controlled.value;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[cron/auto-execute-actions]", message);

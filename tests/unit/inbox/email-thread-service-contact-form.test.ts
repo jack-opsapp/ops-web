@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 
 type ClientRow = { id: string; email: string; name: string };
 
@@ -9,6 +10,7 @@ interface SupabaseDoubleState {
   connectionEmail: string;
   clients: ClientRow[];
   insertedThreads: Array<Record<string, unknown>>;
+  maybeSingleErrors?: Record<string, unknown>;
 }
 
 function makeSupabaseDouble(state: SupabaseDoubleState) {
@@ -58,6 +60,8 @@ function makeSupabaseDouble(state: SupabaseDoubleState) {
     }
 
     async maybeSingle() {
+      const error = state.maybeSingleErrors?.[this.table];
+      if (error) return { data: null, error };
       if (this.table === "email_threads") {
         return { data: null, error: null };
       }
@@ -287,6 +291,32 @@ describe("EmailThreadService.upsertFromEmail contact-form sender identity", () =
       code: "invalid_provider_email_identifiers",
     });
 
+    expect(state.insertedThreads).toHaveLength(0);
+  });
+
+  it("preserves a connection-read gateway failure as database-origin pressure", async () => {
+    const databaseCause = {
+      status: 525,
+      message: "SSL handshake failed",
+    };
+    const state: SupabaseDoubleState = {
+      connectionEmail: "office@example-contractors.com",
+      clients: [],
+      insertedThreads: [],
+      maybeSingleErrors: { email_connections: databaseCause },
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const failure = await EmailThreadService.upsertFromEmail({
+      companyId: "company-1",
+      connectionId: "connection-1",
+      providerThreadId: "provider-thread-1",
+      direction: "inbound",
+      email: baseEmail({ bodyText: contactFormBody }),
+    }).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(CronDatabaseOperationError);
+    expect(failure).toMatchObject({ cause: databaseCause });
     expect(state.insertedThreads).toHaveLength(0);
   });
 });

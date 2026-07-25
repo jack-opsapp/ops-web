@@ -1,5 +1,10 @@
 import { createHash } from "node:crypto";
 
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "@/lib/api/services/cron-workload-control-service";
+
 export type EmailConversionPhotoOperation = "materialize" | "revoke";
 
 export interface ClaimedEmailConversionPhotoJob {
@@ -142,6 +147,36 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function reportedDatabasePressure(
+  error: unknown,
+  operation: string
+): CronDatabaseOperationError | null {
+  if (!isDatabasePressureError(error)) return null;
+  return error instanceof CronDatabaseOperationError
+    ? error
+    : new CronDatabaseOperationError(`${operation}: ${message(error)}`, {
+        cause: error,
+      });
+}
+
+async function runDatabaseOperation<T>(
+  operation: string,
+  run: () => Promise<T>
+): Promise<T> {
+  try {
+    return await run();
+  } catch (cause) {
+    const pressure =
+      cause instanceof CronDatabaseOperationError
+        ? cause
+        : new CronDatabaseOperationError(`${operation}: ${message(cause)}`, {
+            cause,
+          });
+    if (isDatabasePressureError(pressure)) throw pressure;
+    throw cause;
+  }
+}
+
 function boundedInteger(
   value: number | undefined,
   fallback: number,
@@ -209,7 +244,10 @@ async function recordFinish(
   result: EmailConversionPhotoWorkerResult,
   input: Parameters<EmailConversionPhotoWorkerDependencies["finish"]>[0]
 ): Promise<void> {
-  const updated = await dependencies.finish(input);
+  const updated = await runDatabaseOperation(
+    "Email conversion photo queue transition failed",
+    () => dependencies.finish(input)
+  );
   if (!updated) {
     result.staleCompletions += 1;
     return;
@@ -227,26 +265,44 @@ async function processCleanupBatch(
   for (const cleanup of cleanups) {
     try {
       await dependencies.deleteProjectPhoto(cleanup.objectPath);
-      const completed = await dependencies.finishObjectCleanup({
-        cleanup,
-        outcome: "deleted",
-        error: null,
-        availableAt: null,
-      });
+      const completed = await runDatabaseOperation(
+        "Email conversion photo cleanup completion failed",
+        () =>
+          dependencies.finishObjectCleanup({
+            cleanup,
+            outcome: "deleted",
+            error: null,
+            availableAt: null,
+          })
+      );
       if (completed) result.cleanupCompleted += 1;
       else result.staleCompletions += 1;
     } catch (error) {
+      const pressure = reportedDatabasePressure(
+        error,
+        "Email conversion photo cleanup stopped on database pressure"
+      );
+      if (pressure) throw pressure;
       const cleanupError = message(error);
       try {
-        const updated = await dependencies.finishObjectCleanup({
-          cleanup,
-          outcome: "retrying",
-          error: cleanupError,
-          availableAt: retryAt(dependencies.now(), cleanup.attempts),
-        });
+        const updated = await runDatabaseOperation(
+          "Email conversion photo cleanup retry persistence failed",
+          () =>
+            dependencies.finishObjectCleanup({
+              cleanup,
+              outcome: "retrying",
+              error: cleanupError,
+              availableAt: retryAt(dependencies.now(), cleanup.attempts),
+            })
+        );
         if (updated) result.cleanupRetrying += 1;
         else result.staleCompletions += 1;
       } catch (finishError) {
+        const pressure = reportedDatabasePressure(
+          finishError,
+          "Email conversion photo cleanup retry stopped on database pressure"
+        );
+        if (pressure) throw pressure;
         result.errors.push({
           objectId: cleanup.id,
           error: `${cleanupError}; cleanup queue update failed: ${message(finishError)}`,
@@ -270,8 +326,7 @@ function sourceBytesMatch(
     return false;
   }
   return (
-    createHash("sha256").update(bytes).digest("hex") ===
-    job.sourceContentSha256
+    createHash("sha256").update(bytes).digest("hex") === job.sourceContentSha256
   );
 }
 
@@ -289,15 +344,22 @@ export async function runEmailConversionPhotoWorker(
   );
   const result = emptyResult();
 
-  const abandonedCleanups = await dependencies.claimCleanups({
-    workerId,
-    limit,
-    leaseSeconds,
-    jobId: null,
-  });
+  const abandonedCleanups = await runDatabaseOperation(
+    "Email conversion photo cleanup claim failed",
+    () =>
+      dependencies.claimCleanups({
+        workerId,
+        limit,
+        leaseSeconds,
+        jobId: null,
+      })
+  );
   await processCleanupBatch(dependencies, result, abandonedCleanups);
 
-  const jobs = await dependencies.claim({ workerId, limit, leaseSeconds });
+  const jobs = await runDatabaseOperation(
+    "Email conversion photo claim failed",
+    () => dependencies.claim({ workerId, limit, leaseSeconds })
+  );
   result.claimed = jobs.length;
 
   for (const job of jobs) {
@@ -305,15 +367,22 @@ export async function runEmailConversionPhotoWorker(
 
     try {
       if (job.operation === "revoke") {
-        const revocationCleanups = await dependencies.claimCleanups({
-          workerId,
-          limit,
-          leaseSeconds,
-          jobId: job.id,
-        });
+        const revocationCleanups = await runDatabaseOperation(
+          "Email conversion photo revocation cleanup claim failed",
+          () =>
+            dependencies.claimCleanups({
+              workerId,
+              limit,
+              leaseSeconds,
+              jobId: job.id,
+            })
+        );
         await processCleanupBatch(dependencies, result, revocationCleanups);
 
-        const completed = await dependencies.completeRevocation({ job });
+        const completed = await runDatabaseOperation(
+          "Email conversion photo revocation completion failed",
+          () => dependencies.completeRevocation({ job })
+        );
         if (completed) {
           result.completed += 1;
         } else {
@@ -327,7 +396,10 @@ export async function runEmailConversionPhotoWorker(
         continue;
       }
 
-      const source = await dependencies.loadSource(job);
+      const source = await runDatabaseOperation(
+        "Email conversion photo source read failed",
+        () => dependencies.loadSource(job)
+      );
       if (!source) {
         await recordFinish(dependencies, result, {
           job,
@@ -357,10 +429,14 @@ export async function runEmailConversionPhotoWorker(
       }
 
       const projectObjectPath = buildEmailConversionProjectPhotoPath(job);
-      const staged = await dependencies.stageObject({
-        job,
-        objectPath: projectObjectPath,
-      });
+      const staged = await runDatabaseOperation(
+        "Email conversion photo staging failed",
+        () =>
+          dependencies.stageObject({
+            job,
+            objectPath: projectObjectPath,
+          })
+      );
       if (!staged) {
         result.staleCompletions += 1;
         continue;
@@ -376,24 +452,32 @@ export async function runEmailConversionPhotoWorker(
         throw new Error("PROJECT_PHOTO_STORAGE_IDENTITY_CONFLICT");
       }
 
-      const completed = await dependencies.complete({
-        job,
-        filename: source.filename,
-        occurredAt: source.occurredAt,
-        projectObjectPath,
-        projectPhotoUrl: uploaded.publicUrl,
-        projectContentSha256: uploaded.contentSha256,
-        projectVerifiedSizeBytes: uploaded.verifiedSizeBytes,
-      });
+      const completed = await runDatabaseOperation(
+        "Email conversion photo completion failed",
+        () =>
+          dependencies.complete({
+            job,
+            filename: source.filename,
+            occurredAt: source.occurredAt,
+            projectObjectPath,
+            projectPhotoUrl: uploaded.publicUrl,
+            projectContentSha256: uploaded.contentSha256,
+            projectVerifiedSizeBytes: uploaded.verifiedSizeBytes,
+          })
+      );
       if (completed) {
         stagedObjectPath = null;
         result.completed += 1;
       } else {
-        const marked = await dependencies.markObjectCleanup({
-          job,
-          objectPath: projectObjectPath,
-          reason: "STALE_MATERIALIZATION_COMPLETION",
-        });
+        const marked = await runDatabaseOperation(
+          "Email conversion photo cleanup reservation failed",
+          () =>
+            dependencies.markObjectCleanup({
+              job,
+              objectPath: projectObjectPath,
+              reason: "STALE_MATERIALIZATION_COMPLETION",
+            })
+        );
         if (!marked) {
           result.errors.push({
             jobId: job.id,
@@ -404,17 +488,31 @@ export async function runEmailConversionPhotoWorker(
         result.staleCompletions += 1;
       }
     } catch (error) {
+      const pressure = reportedDatabasePressure(
+        error,
+        "Email conversion photo processing stopped on database pressure"
+      );
+      if (pressure) throw pressure;
       const errorMessage = message(error);
       let recordedError = errorMessage;
 
       if (stagedObjectPath) {
         try {
-          await dependencies.markObjectCleanup({
-            job,
-            objectPath: stagedObjectPath,
-            reason: `MATERIALIZATION_ERROR: ${errorMessage}`,
-          });
+          await runDatabaseOperation(
+            "Email conversion photo cleanup reservation failed",
+            () =>
+              dependencies.markObjectCleanup({
+                job,
+                objectPath: stagedObjectPath as string,
+                reason: `MATERIALIZATION_ERROR: ${errorMessage}`,
+              })
+          );
         } catch (cleanupError) {
+          const pressure = reportedDatabasePressure(
+            cleanupError,
+            "Email conversion photo cleanup reservation stopped on database pressure"
+          );
+          if (pressure) throw pressure;
           recordedError = `${errorMessage}; object cleanup reservation failed: ${message(cleanupError)}`;
         }
       }
@@ -433,6 +531,11 @@ export async function runEmailConversionPhotoWorker(
           result.errors.push({ jobId: job.id, error: recordedError });
         }
       } catch (finishError) {
+        const pressure = reportedDatabasePressure(
+          finishError,
+          "Email conversion photo retry stopped on database pressure"
+        );
+        if (pressure) throw pressure;
         result.errors.push({
           jobId: job.id,
           error: `${recordedError}; queue update failed: ${message(finishError)}`,

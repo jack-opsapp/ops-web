@@ -20,6 +20,25 @@ vi.mock("@/lib/email/audiences", () => ({
   resolveAudience: (...args: unknown[]) => resolveAudienceMock(...args),
 }));
 
+vi.mock(
+  "@/lib/api/services/cron-workload-control-service",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/api/services/cron-workload-control-service")
+      >();
+    return {
+      ...actual,
+      runWithCronWorkloadControl: vi.fn(
+        async ({ work }: { work: () => Promise<unknown> }) => ({
+          status: "completed",
+          value: await work(),
+        })
+      ),
+    };
+  }
+);
+
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({ from: fromMock, rpc: vi.fn() }),
 }));

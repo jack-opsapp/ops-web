@@ -8,9 +8,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { FinancialIntelligenceService } from "@/lib/api/services/financial-intelligence-service";
-import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
+import { runBoundedPhaseCCompanyFanout } from "@/lib/api/services/cron-company-fanout-service";
+import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
+import { getCompanyManagerUserIds } from "@/lib/api/services/company-managers";
 
 export const maxDuration = 300;
+
+const WORKLOAD_KEY = "financial-digest";
+const COMPANY_LIMIT = 3;
+
+type DigestResult = {
+  companyId: string;
+  digestProposed: boolean;
+  error?: string;
+};
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -30,94 +41,70 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    // Find all companies
-    const { data: companies, error } = await supabase
-      .from("companies")
-      .select("id, admin_ids")
-      .limit(500);
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: WORKLOAD_KEY,
+      leaseSeconds: 360,
+      work: (lease) =>
+        runBoundedPhaseCCompanyFanout<DigestResult>({
+          supabase,
+          workloadKey: WORKLOAD_KEY,
+          lease,
+          companyLimit: COMPANY_LIMIT,
+          processCompany: async (companyId) => {
+            const adminUserId = (
+              await getCompanyManagerUserIds(supabase, companyId)
+            )[0];
+            if (!adminUserId) {
+              return {
+                companyId,
+                digestProposed: false,
+                error: "No admin user found",
+              };
+            }
 
-    if (error) throw error;
+            const actionId =
+              await FinancialIntelligenceService.generateFinancialDigest(
+                companyId,
+                adminUserId
+              );
+            return { companyId, digestProposed: Boolean(actionId) };
+          },
+          onCompanyError: (companyId, error) => {
+            const message =
+              error instanceof Error ? error.message : "Unknown error";
+            console.error(
+              `[cron/financial-digest] Company ${companyId}:`,
+              message
+            );
+            return {
+              companyId,
+              digestProposed: false,
+              error: message,
+            };
+          },
+        }),
+    });
 
-    // Filter to phase_c companies
-    const allCompanyIds = (companies ?? []).map((c) => c.id as string);
-    const phaseCChecks = await Promise.allSettled(
-      allCompanyIds.map(async (companyId) => {
-        const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
-          companyId,
-          "phase_c"
-        );
-        return { companyId, enabled };
-      })
-    );
-    const phaseCCompanyIds = phaseCChecks
-      .filter(
-        (r): r is PromiseFulfilledResult<{ companyId: string; enabled: boolean }> =>
-          r.status === "fulfilled" && r.value.enabled
-      )
-      .map((r) => r.value.companyId);
-
-    // Build company → admin user map
-    const companyAdminMap = new Map<string, string>();
-    for (const company of companies ?? []) {
-      const companyId = company.id as string;
-      if (!phaseCCompanyIds.includes(companyId)) continue;
-
-      const adminIdsStr = company.admin_ids as string;
-      if (adminIdsStr) {
-        const firstAdmin = adminIdsStr.split(",").map((s: string) => s.trim()).filter(Boolean)[0];
-        if (firstAdmin) companyAdminMap.set(companyId, firstAdmin);
-      }
-    }
-
-    type DigestResult = {
-      companyId: string;
-      digestProposed: boolean;
-      error?: string;
-    };
-
-    // Process in parallel batches of 10
-    const CHUNK_SIZE = 10;
-    const results: DigestResult[] = [];
-
-    for (let i = 0; i < phaseCCompanyIds.length; i += CHUNK_SIZE) {
-      const chunk = phaseCCompanyIds.slice(i, i + CHUNK_SIZE);
-      const chunkResults = await Promise.allSettled(
-        chunk.map(async (companyId): Promise<DigestResult> => {
-          const adminUserId = companyAdminMap.get(companyId);
-          if (!adminUserId) {
-            return { companyId, digestProposed: false, error: "No admin user found" };
-          }
-
-          const actionId = await FinancialIntelligenceService.generateFinancialDigest(
-            companyId,
-            adminUserId
-          );
-
-          return { companyId, digestProposed: !!actionId };
-        })
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
       );
-
-      for (let j = 0; j < chunkResults.length; j++) {
-        const r = chunkResults[j];
-        if (r.status === "fulfilled") {
-          results.push(r.value);
-        } else {
-          console.error(`[cron/financial-digest] Company ${chunk[j]}:`, r.reason?.message ?? "Unknown error");
-          results.push({
-            companyId: chunk[j],
-            digestProposed: false,
-            error: r.reason?.message ?? "Unknown error",
-          });
-        }
-      }
     }
 
+    const results = controlled.value.results;
     const totalProposed = results.filter((r) => r.digestProposed).length;
     const errors = results.filter((r) => r.error);
 
     return NextResponse.json({
       ok: true,
-      companiesProcessed: phaseCCompanyIds.length,
+      companiesProcessed: controlled.value.companyIds.length,
       digestsProposed: totalProposed,
       errors: errors.length,
       details: results.filter((r) => r.digestProposed || r.error),

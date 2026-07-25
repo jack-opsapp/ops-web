@@ -68,6 +68,10 @@ import {
   type OpportunityLifecycleDecision,
   type OpportunityLifecycleDecisionAction,
 } from "@/lib/email/opportunity-lifecycle-evaluator";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "./cron-workload-control-service";
 
 interface CronSupabaseLike {
   // The P4/P5 lifecycle tables are not present in the generated Supabase types
@@ -83,8 +87,12 @@ interface CronSupabaseLike {
 export interface LeadLifecycleCronInput {
   supabase: CronSupabaseLike;
   now?: Date;
-  /** Hard cap on opportunities scanned per run. Mirrors the manual script. */
+  /** Hard cap on opportunities scanned per run. */
   maxOpportunities?: number;
+  /** Durable company cursor supplied by the route-level workload control. */
+  afterCompanyId?: string | null;
+  /** Hard cap on eligible companies rotated through per run. */
+  maxCompanies?: number;
 }
 
 const NON_DESTRUCTIVE_ACTIONS = new Set<OpportunityLifecycleDecisionAction>([
@@ -100,8 +108,29 @@ const DESTRUCTIVE_ACTIONS = new Set<OpportunityLifecycleDecisionAction>([
   "reactivate_on_related_inbound",
 ]);
 
-const DEFAULT_MAX_OPPORTUNITIES = 2000;
-const CHUNK = 100;
+const DEFAULT_MAX_OPPORTUNITIES = 100;
+const DEFAULT_MAX_COMPANIES = 25;
+const CHUNK = 25;
+
+function databaseData<T>(
+  operation: string,
+  result: { data?: T | null; error?: unknown }
+): T | null {
+  if (result.error) {
+    throw new CronDatabaseOperationError(
+      `lead lifecycle ${operation} failed`,
+      { cause: result.error }
+    );
+  }
+  return result.data ?? null;
+}
+
+function throwDatabaseOperationFailure(operation: string): never {
+  throw new CronDatabaseOperationError(
+    `lead lifecycle ${operation} failed`,
+    { cause: new Error("database operation returned a failure result") }
+  );
+}
 
 /**
  * Per-company opt-in gate for auto-executing a destructive disposition. The
@@ -300,6 +329,8 @@ export interface LeadLifecycleCronResult {
   errors: number;
   /** Capped sample of destructive candidates for the structured log. */
   destructiveCandidates: DestructiveCandidate[];
+  /** Next durable company-page cursor; null wraps to the first page. */
+  nextCompanyCursor: string | null;
 }
 
 interface OpportunityRow {
@@ -424,26 +455,61 @@ function latestMeaningfulEvent(
  * live connections" gate. Companies with neither are not swept.
  */
 async function fetchEligibleCompanyIds(
-  supabase: CronSupabaseLike
-): Promise<Set<string>> {
-  const eligible = new Set<string>();
+  supabase: CronSupabaseLike,
+  afterCompanyId: string | null,
+  maxCompanies: number
+): Promise<{ ids: Set<string>; nextCursor: string | null }> {
+  async function fetchPage(cursor: string | null): Promise<string[]> {
+    let settingsQuery = supabase
+      .from("lead_lifecycle_settings")
+      .select("company_id")
+      .order("company_id", { ascending: true });
+    let connectionsQuery = supabase
+      .from("email_connections")
+      .select("company_id")
+      .eq("status", "active")
+      .order("company_id", { ascending: true });
+    if (cursor) {
+      settingsQuery = settingsQuery.gt("company_id", cursor);
+      connectionsQuery = connectionsQuery.gt("company_id", cursor);
+    }
 
-  const settings = await supabase
-    .from("lead_lifecycle_settings")
-    .select("company_id");
-  for (const row of (settings.data ?? []) as Array<{ company_id: string }>) {
-    if (row.company_id) eligible.add(row.company_id);
+    const settings = await settingsQuery.limit(maxCompanies);
+    const settingsRows =
+      databaseData<Array<{ company_id: string }>>(
+        "eligible settings read",
+        settings
+      ) ?? [];
+    const connections = await connectionsQuery.limit(maxCompanies);
+    const connectionRows =
+      databaseData<Array<{ company_id: string }>>(
+        "eligible connections read",
+        connections
+      ) ?? [];
+
+    return Array.from(
+      new Set(
+        [...settingsRows, ...connectionRows]
+          .map((row) => row.company_id)
+          .filter(Boolean)
+      )
+    )
+      .sort()
+      .slice(0, maxCompanies);
   }
 
-  const connections = await supabase
-    .from("email_connections")
-    .select("company_id")
-    .eq("status", "active");
-  for (const row of (connections.data ?? []) as Array<{ company_id: string }>) {
-    if (row.company_id) eligible.add(row.company_id);
+  let selected = await fetchPage(afterCompanyId);
+  if (selected.length === 0 && afterCompanyId) {
+    selected = await fetchPage(null);
   }
 
-  return eligible;
+  return {
+    ids: new Set(selected),
+    nextCursor:
+      selected.length === maxCompanies
+        ? selected[selected.length - 1]
+        : null,
+  };
 }
 
 async function fetchOpportunities(
@@ -452,7 +518,7 @@ async function fetchOpportunities(
   maxOpportunities: number
 ): Promise<OpportunityRow[]> {
   // Chunk the eligible-company filter the same way every other fetch in this
-  // file does (CHUNK=100). A single unbounded `.in("company_id", [...])` would
+  // file does (CHUNK=25). A single unbounded `.in("company_id", [...])` would
   // exceed PostgREST's URL/statement limits as the eligible-company set grows;
   // chunking keeps each request bounded. We over-fetch up to `maxOpportunities`
   // per chunk, merge, re-sort by updated_at desc, then apply the global cap so
@@ -460,7 +526,7 @@ async function fetchOpportunities(
   const merged: OpportunityRow[] = [];
   for (const ids of chunk(Array.from(eligibleCompanyIds), CHUNK)) {
     if (ids.length === 0) continue;
-    const { data } = await supabase
+    const queryResult = await supabase
       .from("opportunities")
       .select(
         "id, company_id, title, stage, archived_at, deleted_at, project_id, project_ref, created_at, stage_entered_at, contact_name, lost_reason, lost_notes, actual_close_date, updated_at"
@@ -469,7 +535,12 @@ async function fetchOpportunities(
       .in("company_id", ids)
       .order("updated_at", { ascending: false })
       .limit(maxOpportunities);
-    for (const row of (data ?? []) as OpportunityRow[]) {
+    const data =
+      databaseData<OpportunityRow[]>(
+        "opportunity page read",
+        queryResult
+      ) ?? [];
+    for (const row of data) {
       if (eligibleCompanyIds.has(row.company_id)) merged.push(row);
     }
   }
@@ -489,14 +560,19 @@ async function fetchEvents(
 ): Promise<Map<string, CorrespondenceEventRow[]>> {
   const byOpportunity = new Map<string, CorrespondenceEventRow[]>();
   for (const ids of chunk(opportunityIds, CHUNK)) {
-    const { data } = await supabase
+    const queryResult = await supabase
       .from("opportunity_correspondence_events")
       .select(
         "id, opportunity_id, connection_id, provider_thread_id, direction, party_role, is_meaningful, occurred_at, linked_contact_kind"
       )
       .in("opportunity_id", ids)
       .order("occurred_at", { ascending: true });
-    for (const row of (data ?? []) as CorrespondenceEventRow[]) {
+    const data =
+      databaseData<CorrespondenceEventRow[]>(
+        "correspondence event read",
+        queryResult
+      ) ?? [];
+    for (const row of data) {
       const list = byOpportunity.get(row.opportunity_id) ?? [];
       list.push(row);
       byOpportunity.set(row.opportunity_id, list);
@@ -511,13 +587,18 @@ async function fetchLifecycleStates(
 ): Promise<Map<string, LifecycleStateRow>> {
   const map = new Map<string, LifecycleStateRow>();
   for (const ids of chunk(opportunityIds, CHUNK)) {
-    const { data } = await supabase
+    const queryResult = await supabase
       .from("opportunity_lifecycle_state")
       .select(
         "opportunity_id, company_id, last_meaningful_event_id, last_meaningful_at, last_meaningful_direction, unanswered_follow_up_count, second_follow_up_sent_at, operator_follow_up_miss_at, stale_status, stale_status_at"
       )
       .in("opportunity_id", ids);
-    for (const row of (data ?? []) as LifecycleStateRow[]) {
+    const data =
+      databaseData<LifecycleStateRow[]>(
+        "lifecycle state read",
+        queryResult
+      ) ?? [];
+    for (const row of data) {
       map.set(row.opportunity_id, row);
     }
   }
@@ -531,13 +612,15 @@ async function fetchSettings(
   if (companyIds.length === 0) return new Map();
   const map = new Map<string, LeadLifecycleSettings>();
   for (const ids of chunk(companyIds, CHUNK)) {
-    const { data } = await supabase
+    const queryResult = await supabase
       .from("lead_lifecycle_settings")
       .select(
         "company_id, follow_up_after_days, second_follow_up_archive_after_days, no_correspondence_archive_days, inbound_unreplied_lost_days, follow_up_template_subject, follow_up_template_body, auto_archive_enabled, auto_lost_enabled"
       )
       .in("company_id", ids);
-    for (const row of (data ?? []) as SettingsRow[]) {
+    const data =
+      databaseData<SettingsRow[]>("settings read", queryResult) ?? [];
+    for (const row of data) {
       map.set(row.company_id, settingsFromRow(row));
     }
   }
@@ -558,14 +641,16 @@ async function fetchOperators(
   if (companyIds.length === 0) return operatorByCompany;
 
   for (const ids of chunk(companyIds, CHUNK)) {
-    const { data } = await supabase
+    const queryResult = await supabase
       .from("companies")
       .select("id, admin_ids")
       .in("id", ids);
-    for (const company of (data ?? []) as Array<{
-      id: string;
-      admin_ids: string[] | null;
-    }>) {
+    const data =
+      databaseData<Array<{ id: string; admin_ids: string[] | null }>>(
+        "company operator read",
+        queryResult
+      ) ?? [];
+    for (const company of data) {
       operatorByCompany.set(company.id, company.admin_ids?.[0] ?? null);
     }
   }
@@ -573,17 +658,21 @@ async function fetchOperators(
   const missing = companyIds.filter((id) => !operatorByCompany.get(id));
   for (const ids of chunk(missing, CHUNK)) {
     if (ids.length === 0) continue;
-    const { data } = await supabase
+    const queryResult = await supabase
       .from("users")
       .select("id, company_id, is_company_admin, is_active")
       .in("company_id", ids)
       .eq("is_company_admin", true)
       .is("deleted_at", null);
-    for (const user of (data ?? []) as Array<{
-      id: string;
-      company_id: string | null;
-      is_active: boolean | null;
-    }>) {
+    const data =
+      databaseData<
+        Array<{
+          id: string;
+          company_id: string | null;
+          is_active: boolean | null;
+        }>
+      >("fallback operator read", queryResult) ?? [];
+    for (const user of data) {
       if (!user.company_id) continue;
       if (user.is_active === false) continue;
       if (!operatorByCompany.get(user.company_id)) {
@@ -613,9 +702,12 @@ async function fetchFragmentedOpportunityIds(
       .select("opportunity_id")
       .in("opportunity_id", ids)
       .like("email_thread_id", LEGACY_THREAD_PREFIX);
-    for (const row of (activityProbe.data ?? []) as Array<{
-      opportunity_id: string | null;
-    }>) {
+    const activityRows =
+      databaseData<Array<{ opportunity_id: string | null }>>(
+        "fragmented activity probe",
+        activityProbe
+      ) ?? [];
+    for (const row of activityRows) {
       if (row.opportunity_id) fragmented.add(row.opportunity_id);
     }
 
@@ -624,9 +716,12 @@ async function fetchFragmentedOpportunityIds(
       .select("opportunity_id")
       .in("opportunity_id", ids)
       .like("provider_thread_id", LEGACY_THREAD_PREFIX);
-    for (const row of (eventProbe.data ?? []) as Array<{
-      opportunity_id: string | null;
-    }>) {
+    const eventRows =
+      databaseData<Array<{ opportunity_id: string | null }>>(
+        "fragmented event probe",
+        eventProbe
+      ) ?? [];
+    for (const row of eventRows) {
       if (row.opportunity_id) fragmented.add(row.opportunity_id);
     }
   }
@@ -687,7 +782,12 @@ async function resolveReviewActionTarget(
       .eq("company_id", companyId)
       .eq("id", threadId);
     if (connectionId) byIdQuery = byIdQuery.eq("connection_id", connectionId);
-    const { data: byIdData } = await byIdQuery.limit(1);
+    const byIdResult = await byIdQuery.limit(1);
+    const byIdData =
+      databaseData<Array<{ id?: string }>>(
+        "inbox thread id read",
+        byIdResult
+      ) ?? [];
     const byId = (byIdData?.[0] as { id?: string } | undefined)?.id;
     if (byId) {
       return inboxReviewTarget(byId, opportunityId);
@@ -702,7 +802,12 @@ async function resolveReviewActionTarget(
     .eq("company_id", companyId)
     .eq("provider_thread_id", threadId);
   if (connectionId) byProviderQuery = byProviderQuery.eq("connection_id", connectionId);
-  const { data: byProviderData } = await byProviderQuery.limit(1);
+  const byProviderResult = await byProviderQuery.limit(1);
+  const byProviderData =
+    databaseData<Array<{ id?: string }>>(
+      "provider thread read",
+      byProviderResult
+    ) ?? [];
   const byProvider = (byProviderData?.[0] as { id?: string } | undefined)?.id;
   if (byProvider) {
     return inboxReviewTarget(byProvider, opportunityId);
@@ -740,7 +845,7 @@ async function emitDestructiveReviewNotification(
 
   const dedupeKey = destructiveReviewDedupeKey(args.opportunityId, args.action);
 
-  const { data: existingData } = await supabase
+  const existingResult = await supabase
     .from("notifications")
     .select("id")
     .eq("user_id", args.operatorUserId)
@@ -750,6 +855,11 @@ async function emitDestructiveReviewNotification(
     .eq("is_read", false)
     .is("resolved_at", null)
     .limit(1);
+  const existingData =
+    databaseData<Array<{ id: string }>>(
+      "review notification dedupe read",
+      existingResult
+    ) ?? [];
   if (Array.isArray(existingData) && existingData.length > 0) {
     return "skipped_existing";
   }
@@ -762,7 +872,7 @@ async function emitDestructiveReviewNotification(
   );
   const copy = destructiveReviewCopy(args.action, args.opportunityTitle);
 
-  const { error } = await supabase
+  const insertResult = await supabase
     .from("notifications")
     .insert({
       user_id: args.operatorUserId,
@@ -784,8 +894,11 @@ async function emitDestructiveReviewNotification(
     })
     .select("id")
     .single();
-
-  return error ? "skipped_insert_failed" : "created";
+  databaseData<{ id: string }>(
+    "review notification insert",
+    insertResult
+  );
+  return "created";
 }
 
 export async function runLeadLifecycleCron(
@@ -794,6 +907,7 @@ export async function runLeadLifecycleCron(
   const supabase = input.supabase;
   const now = input.now ?? new Date();
   const maxOpportunities = input.maxOpportunities ?? DEFAULT_MAX_OPPORTUNITIES;
+  const maxCompanies = input.maxCompanies ?? DEFAULT_MAX_COMPANIES;
 
   const result: LeadLifecycleCronResult = {
     scanned: 0,
@@ -817,9 +931,16 @@ export async function runLeadLifecycleCron(
     nonDestructiveSkipped: 0,
     errors: 0,
     destructiveCandidates: [],
+    nextCompanyCursor: null,
   };
 
-  const eligibleCompanyIds = await fetchEligibleCompanyIds(supabase);
+  const eligiblePage = await fetchEligibleCompanyIds(
+    supabase,
+    input.afterCompanyId ?? null,
+    maxCompanies
+  );
+  const eligibleCompanyIds = eligiblePage.ids;
+  result.nextCompanyCursor = eligiblePage.nextCursor;
   result.eligibleCompanies = eligibleCompanyIds.size;
   if (eligibleCompanyIds.size === 0) return result;
 
@@ -834,14 +955,17 @@ export async function runLeadLifecycleCron(
   const opportunityIds = opportunities.map((row) => row.id);
   const companyIds = unique(opportunities.map((row) => row.company_id));
 
-  const [eventsByOpportunity, lifecycleStates, settingsByCompany, operators, fragmentedIds] =
-    await Promise.all([
-      fetchEvents(supabase, opportunityIds),
-      fetchLifecycleStates(supabase, opportunityIds),
-      fetchSettings(supabase, companyIds),
-      fetchOperators(supabase, companyIds),
-      fetchFragmentedOpportunityIds(supabase, opportunityIds),
-    ]);
+  const eventsByOpportunity = await fetchEvents(supabase, opportunityIds);
+  const lifecycleStates = await fetchLifecycleStates(
+    supabase,
+    opportunityIds
+  );
+  const settingsByCompany = await fetchSettings(supabase, companyIds);
+  const operators = await fetchOperators(supabase, companyIds);
+  const fragmentedIds = await fetchFragmentedOpportunityIds(
+    supabase,
+    opportunityIds
+  );
 
   result.fragmentedOpportunities = fragmentedIds.size;
 
@@ -925,7 +1049,9 @@ export async function runLeadLifecycleCron(
           ops.draft === "skipped_lifecycle_state_failed" ||
           ops.lifecycleState === "skipped_update_failed"
         ) {
-          result.errors += 1;
+          throwDatabaseOperationFailure(
+            "non-destructive action persistence"
+          );
         }
         if (
           ops.draft === "skipped_missing_source_event" ||
@@ -933,7 +1059,13 @@ export async function runLeadLifecycleCron(
         ) {
           result.nonDestructiveSkipped += 1;
         }
-      } catch {
+      } catch (error) {
+        if (
+          error instanceof CronDatabaseOperationError ||
+          isDatabasePressureError(error)
+        ) {
+          throw error;
+        }
         result.errors += 1;
       }
     } else if (DESTRUCTIVE_ACTIONS.has(decision.action)) {
@@ -1016,7 +1148,9 @@ export async function runLeadLifecycleCron(
           } else if (op === "skipped_update_failed") {
             // The mutation/audit write itself failed (RPC error, missing
             // snapshot/approval, or audit insert failure) — a real error.
-            result.errors += 1;
+            throwDatabaseOperationFailure(
+              "destructive opportunity persistence"
+            );
           } else if (op.startsWith("skipped_")) {
             // A structural guard declined the action by design — not an error.
             result.destructiveExecutionSkippedGuarded += 1;
@@ -1024,7 +1158,13 @@ export async function runLeadLifecycleCron(
           if (execution.operations.lifecycleState === "updated") {
             result.lifecycleStatesUpdated += 1;
           }
-        } catch {
+        } catch (error) {
+          if (
+            error instanceof CronDatabaseOperationError ||
+            isDatabasePressureError(error)
+          ) {
+            throw error;
+          }
           result.errors += 1;
         }
       } else {
@@ -1052,7 +1192,13 @@ export async function runLeadLifecycleCron(
           } else {
             result.errors += 1;
           }
-        } catch {
+        } catch (error) {
+          if (
+            error instanceof CronDatabaseOperationError ||
+            isDatabasePressureError(error)
+          ) {
+            throw error;
+          }
           result.errors += 1;
         }
       }
@@ -1122,10 +1268,18 @@ export async function runLeadLifecycleCron(
           if (reset.operations.lifecycleState === "updated") {
             result.lifecycleStatesUpdated += 1;
           } else if (reset.operations.lifecycleState === "skipped_update_failed") {
-            result.errors += 1;
+            throwDatabaseOperationFailure(
+              "meaningful-inbound lifecycle reset"
+            );
           }
         }
-      } catch {
+      } catch (error) {
+        if (
+          error instanceof CronDatabaseOperationError ||
+          isDatabasePressureError(error)
+        ) {
+          throw error;
+        }
         result.errors += 1;
       }
     }

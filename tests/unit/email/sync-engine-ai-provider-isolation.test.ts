@@ -20,9 +20,7 @@ const source = readFileSync(
 const aiBlockStart = source.indexOf(
   "let aiProviderOutage: unknown | null = null;"
 );
-const finalCheckpointIdx = source.lastIndexOf(
-  "await persistSyncCheckpoint();"
-);
+const finalCheckpointIdx = source.lastIndexOf("await persistSyncCheckpoint();");
 const aiBlock = source.slice(aiBlockStart, finalCheckpointIdx);
 
 describe("sync-engine AI-provider isolation — result shape", () => {
@@ -66,8 +64,19 @@ describe("sync-engine AI-provider isolation — Step 5", () => {
     expect(step5).toContain("recoveryActorUserId: null,");
     // Wrapped so only provider-unavailability is downgraded to the flag.
     expect(step5).toContain("} catch (err) {");
-    expect(step5).toContain("if (!isAIProviderUnavailableError(err)) throw err;");
-    expect(step5).toContain("aiProviderOutage ??= err;");
+    expect(step5).toContain("if (isDatabasePressureError(err)) throw err;");
+    expect(step5).toContain(
+      "const providerUnavailable = isAIProviderUnavailableError(err);"
+    );
+    expect(step5).toContain(
+      "const modelAnswerDeferred = isDeferredModelAnswerError(err);"
+    );
+    expect(step5).toContain(
+      "if (!providerUnavailable && !modelAnswerDeferred) throw err;"
+    );
+    expect(step5).toContain(
+      "if (providerUnavailable) aiProviderOutage ??= err;"
+    );
   });
 
   it("defers durably on a provider outage and counts the deferral", () => {
@@ -80,8 +89,8 @@ describe("sync-engine AI-provider isolation — Step 5", () => {
       ),
       aiBlock.indexOf("for (const sentEmail of sentEmails)")
     );
-    expect(step5Catch).toContain(
-      "markUnmatchedThreadsPendingLeadScan(unmatchedContexts, connection);"
+    expect(step5Catch).toMatch(
+      /markUnmatchedThreadsPendingLeadScan\(\s*unmatchedContexts,\s*connection\s*\);/
     );
     expect(step5Catch).toContain(
       "result.leadScansDeferred += unmatchedContexts.length;"
@@ -126,15 +135,20 @@ describe("sync-engine AI-provider isolation — Step 6", () => {
       /if \(!aiProviderOutage\) \{\s*try \{\s*stageResults = await AISyncReviewer\.evaluateStagesWithSummary\(/
     );
     expect(step6).toContain(
-      "if (!isAIProviderUnavailableError(err)) throw err;"
+      "if (isDatabasePressureError(err)) throw err;"
     );
+    expect(step6).toContain("if (isAIProviderUnavailableError(err)) {");
     expect(step6).toContain("aiProviderOutage ??= err;");
+    expect(step6).toContain("} else if (isDeferredModelAnswerError(err)) {");
   });
 
-  it("treats a deferred (not failed) summary refresh as an outage", () => {
+  it("reports only provider deferrals as outages and lets model-contract deferrals advance", () => {
     expect(aiBlock).toContain("if (summaryRefresh.failed.length > 0) {");
-    expect(aiBlock).toMatch(
-      /else if \(summaryRefresh\.deferred\.length > 0\) \{[\s\S]*aiProviderOutage \?\?= summaryRefresh\.deferred\[0\]\.error;/
+    expect(aiBlock).toContain('failure.reason === "provider_unavailable"');
+    expect(aiBlock).toContain('failure.reason === "model_contract"');
+    expect(aiBlock).toContain("aiProviderOutage ??= providerFailure.error;");
+    expect(aiBlock).not.toContain(
+      "aiProviderOutage ??= summaryRefresh.deferred[0].error;"
     );
   });
 });
@@ -170,29 +184,29 @@ describe("sync-engine AI-provider isolation — safety-net catch order", () => {
     // provider outage downgraded to the flag; unknown errors still fail closed.
     expect(idxLifecycle).toBeLessThan(idxProvider);
     expect(innerCatch).toMatch(
-      /if \(isAIProviderUnavailableError\(aiErr\)\) \{\s*aiProviderOutage \?\?= aiErr;\s*\} else \{\s*throw new LifecyclePersistenceError\(/
+      /if \(isAIProviderUnavailableError\(aiErr\)\) \{\s*aiProviderOutage \?\?= aiErr;\s*\} else if \(isDeferredModelAnswerError\(aiErr\)\) \{[\s\S]*?\} else \{\s*throw new LifecyclePersistenceError\(/
     );
   });
 });
 
 describe("sync-engine AI-provider isolation — cursor-advance regression guard", () => {
-  it("reports the outage and sets the flag AFTER the catch and BEFORE the checkpoint", () => {
+  it("sets the deferral flag before the checkpoint and reports only after cursor publication", () => {
     // This is the exact 2026-07-22 bug: the outage handling must sit between the
     // AI try/catch and persistSyncCheckpoint so the Gmail cursor still advances.
-    expect(source).toMatch(
-      /if \(aiProviderOutage\) \{\s*await reportAIProviderOutageOnce\(aiProviderOutage\);\s*result\.aiProviderDeferred = true;/
-    );
     const catchOpenIdx = source.indexOf("} catch (aiErr) {");
     const reportIdx = source.indexOf(
-      "await reportAIProviderOutageOnce(aiProviderOutage);"
+      "await reportAIProviderOutageOnce(aiProviderOutage);",
+      catchOpenIdx
     );
-    const flagIdx = source.indexOf("result.aiProviderDeferred = true;");
+    const flagIdx = source.indexOf(
+      "result.aiProviderDeferred = true;",
+      catchOpenIdx
+    );
     expect(catchOpenIdx).toBeGreaterThan(-1);
     expect(finalCheckpointIdx).toBeGreaterThan(-1);
-    expect(reportIdx).toBeGreaterThan(catchOpenIdx);
-    expect(flagIdx).toBeGreaterThan(reportIdx);
+    expect(flagIdx).toBeGreaterThan(catchOpenIdx);
     expect(flagIdx).toBeLessThan(finalCheckpointIdx);
-    expect(reportIdx).toBeLessThan(finalCheckpointIdx);
+    expect(reportIdx).toBeGreaterThan(finalCheckpointIdx);
   });
 
   it("fires the alert with the platform sync key and email_sync workload, best-effort", () => {

@@ -13,6 +13,7 @@
  */
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { getAdminEmails } from "@/lib/admin/admin-queries";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 
 export type BucketName = "dispatch" | "gate" | "field_notes" | "portal";
 
@@ -96,7 +97,9 @@ export async function getActivePauses(): Promise<PauseState[]> {
     const supabase = getServiceRoleClient();
     const { data, error } = await supabase
       .from("email_pause_state")
-      .select("scope, is_paused, pause_reason, paused_until, paused_at, paused_by")
+      .select(
+        "scope, is_paused, pause_reason, paused_until, paused_at, paused_by"
+      )
       .eq("is_paused", true)
       .order("paused_at", { ascending: false });
     if (error) {
@@ -111,12 +114,16 @@ export async function getActivePauses(): Promise<PauseState[]> {
 }
 
 /** Read a single scope's pause state. NEVER throws. */
-export async function getPauseState(scope: PauseScope): Promise<PauseState | null> {
+export async function getPauseState(
+  scope: PauseScope
+): Promise<PauseState | null> {
   try {
     const supabase = getServiceRoleClient();
     const { data, error } = await supabase
       .from("email_pause_state")
-      .select("scope, is_paused, pause_reason, paused_until, paused_at, paused_by")
+      .select(
+        "scope, is_paused, pause_reason, paused_until, paused_at, paused_by"
+      )
       .eq("scope", scope)
       .maybeSingle();
     if (error) {
@@ -155,7 +162,9 @@ export async function getActivePauseScope(opts: {
     const supabase = getServiceRoleClient();
     const { data, error } = await supabase
       .from("email_pause_state")
-      .select("scope, is_paused, pause_reason, paused_until, paused_at, paused_by")
+      .select(
+        "scope, is_paused, pause_reason, paused_until, paused_at, paused_by"
+      )
       .in("scope", scopesToCheck)
       .eq("is_paused", true);
     if (error) {
@@ -183,7 +192,10 @@ export async function getActivePauseScope(opts: {
   }
 }
 
-export async function isPaused(opts: { kind: string; campaignId?: string | null }): Promise<boolean> {
+export async function isPaused(opts: {
+  kind: string;
+  campaignId?: string | null;
+}): Promise<boolean> {
   return (await getActivePauseScope(opts)) !== null;
 }
 
@@ -204,6 +216,8 @@ interface PauseInput {
    * pause. Used to render the audit chain in the admin Event Monitor tab.
    */
   anomalyLogId?: string;
+  /** Cron callers use strict mode so any Supabase failure aborts later work. */
+  abortOnDatabaseError?: boolean;
 }
 
 export interface PauseResult {
@@ -222,55 +236,97 @@ export async function pause(input: PauseInput): Promise<PauseResult> {
   const supabase = getServiceRoleClient();
   const now = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from("email_pause_state")
-    .upsert(
-      {
+  let data: Parameters<typeof rowToState>[0] | null;
+  let error: { message: string } | null;
+  try {
+    const result = await supabase
+      .from("email_pause_state")
+      .upsert(
+        {
+          scope: input.scope,
+          is_paused: true,
+          pause_reason: input.reason,
+          paused_until: input.pausedUntil ?? null,
+          paused_at: now,
+          paused_by: input.actorUserId,
+          resumed_at: null,
+          resumed_by: null,
+          updated_at: now,
+        },
+        { onConflict: "scope" }
+      )
+      .select(
+        "scope, is_paused, pause_reason, paused_until, paused_at, paused_by"
+      )
+      .single();
+    data = result.data;
+    error = result.error;
+  } catch (cause) {
+    throw new CronDatabaseOperationError("Pause database request failed", {
+      cause,
+    });
+  }
+
+  if (error) {
+    throw new CronDatabaseOperationError(`Pause failed: ${error.message}`, {
+      cause: error,
+    });
+  }
+  if (!data) throw new Error("Pause failed: no state returned");
+
+  let auditRow: { id?: unknown } | null;
+  let auditErr: { message: string } | null;
+  try {
+    const result = await supabase
+      .from("email_pause_audit_log")
+      .insert({
         scope: input.scope,
-        is_paused: true,
-        pause_reason: input.reason,
+        action: "pause",
+        reason: input.reason,
         paused_until: input.pausedUntil ?? null,
-        paused_at: now,
-        paused_by: input.actorUserId,
-        resumed_at: null,
-        resumed_by: null,
-        updated_at: now,
-      },
-      { onConflict: "scope" }
-    )
-    .select("scope, is_paused, pause_reason, paused_until, paused_at, paused_by")
-    .single();
-
-  if (error) throw new Error(`Pause failed: ${error.message}`);
-
-  const { data: auditRow, error: auditErr } = await supabase
-    .from("email_pause_audit_log")
-    .insert({
-      scope: input.scope,
-      action: "pause",
-      reason: input.reason,
-      paused_until: input.pausedUntil ?? null,
-      actor_user_id: input.actorUserId,
-      actor_email: input.actorEmail,
-      severity: input.severity ?? null,
-      anomaly_log_id: input.anomalyLogId ?? null,
-    })
-    .select("id")
-    .single();
+        actor_user_id: input.actorUserId,
+        actor_email: input.actorEmail,
+        severity: input.severity ?? null,
+        anomaly_log_id: input.anomalyLogId ?? null,
+      })
+      .select("id")
+      .single();
+    auditRow = result.data;
+    auditErr = result.error;
+  } catch (cause) {
+    if (input.abortOnDatabaseError) {
+      throw new CronDatabaseOperationError("Pause audit request failed", {
+        cause,
+      });
+    }
+    auditRow = null;
+    auditErr = {
+      message: cause instanceof Error ? cause.message : String(cause),
+    };
+  }
 
   // Audit insert failure must not roll back the pause itself — the killswitch
   // is already active in email_pause_state. Log the error but continue so the
   // operator still gets the rail notification and the send chokepoint stops.
   if (auditErr) {
+    if (input.abortOnDatabaseError) {
+      throw new CronDatabaseOperationError(
+        `Pause audit insert failed: ${auditErr.message}`,
+        { cause: auditErr }
+      );
+    }
     console.error("[email-pause] audit insert failed:", auditErr);
   }
   const pauseAuditId = (auditRow?.id as string | undefined) ?? null;
 
-  await fanoutPauseNotifications({
-    scope: input.scope,
-    reason: input.reason,
-    actorEmail: input.actorEmail,
-  });
+  await fanoutPauseNotifications(
+    {
+      scope: input.scope,
+      reason: input.reason,
+      actorEmail: input.actorEmail,
+    },
+    input.abortOnDatabaseError === true
+  );
 
   return { state: rowToState(data), pauseAuditId };
 }
@@ -311,23 +367,49 @@ export async function resume(input: ResumeInput): Promise<void> {
  * Mark a scope as auto-resumed when its `paused_until` has passed.
  * Called by the email-pause-auto-resume cron.
  */
-export async function autoResume(scope: PauseScope): Promise<void> {
+export async function autoResume(
+  scope: PauseScope,
+  options: { abortOnDatabaseError?: boolean } = {}
+): Promise<void> {
   const supabase = getServiceRoleClient();
   const now = new Date().toISOString();
-  const { error } = await supabase
-    .from("email_pause_state")
-    .update({ is_paused: false, resumed_at: now, updated_at: now })
-    .eq("scope", scope)
-    .eq("is_paused", true);
-  if (error) throw new Error(`Auto-resume failed: ${error.message}`);
+  try {
+    const { error } = await supabase
+      .from("email_pause_state")
+      .update({ is_paused: false, resumed_at: now, updated_at: now })
+      .eq("scope", scope)
+      .eq("is_paused", true);
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Auto-resume failed: ${error.message}`,
+        { cause: error }
+      );
+    }
 
-  await supabase.from("email_pause_audit_log").insert({
-    scope,
-    action: "auto_resume",
-    reason: "paused_until elapsed",
-  });
+    const { error: auditError } = await supabase
+      .from("email_pause_audit_log")
+      .insert({
+        scope,
+        action: "auto_resume",
+        reason: "paused_until elapsed",
+      });
+    if (auditError) {
+      throw new CronDatabaseOperationError(
+        `Auto-resume audit failed: ${auditError.message}`,
+        { cause: auditError }
+      );
+    }
 
-  await resolvePauseNotifications(scope);
+    await resolvePauseNotifications(scope, options);
+  } catch (cause) {
+    if (cause instanceof CronDatabaseOperationError) throw cause;
+    throw new CronDatabaseOperationError(
+      "Auto-resume database request failed",
+      {
+        cause,
+      }
+    );
+  }
 }
 
 export interface AuditLogRow {
@@ -367,14 +449,35 @@ const PAUSE_NOTIFICATION_TYPE = "email_pause";
  * `users.email`. Admins without a matching `users` row are skipped silently
  * (notifications.user_id is NOT NULL).
  */
-async function fanoutPauseNotifications(input: {
-  scope: PauseScope;
-  reason: string;
-  actorEmail: string;
-}): Promise<void> {
+async function fanoutPauseNotifications(
+  input: {
+    scope: PauseScope;
+    reason: string;
+    actorEmail: string;
+  },
+  abortOnDatabaseError = false
+): Promise<void> {
   try {
     const supabase = getServiceRoleClient();
-    const adminEmails = await getAdminEmails();
+    let adminEmails: string[];
+    if (abortOnDatabaseError) {
+      const { data: admins, error: adminsError } = await supabase
+        .from("admins")
+        .select("email");
+      if (adminsError) {
+        throw new CronDatabaseOperationError(
+          `Pause admin lookup failed: ${adminsError.message}`,
+          { cause: adminsError }
+        );
+      }
+      adminEmails = (admins ?? [])
+        .map((row) => row.email)
+        .filter(
+          (email): email is string => typeof email === "string" && !!email
+        );
+    } else {
+      adminEmails = await getAdminEmails();
+    }
     if (adminEmails.length === 0) return;
 
     const { data: adminUsers, error: lookupErr } = await supabase
@@ -382,6 +485,12 @@ async function fanoutPauseNotifications(input: {
       .select("id, company_id, email")
       .in("email", adminEmails);
     if (lookupErr) {
+      if (abortOnDatabaseError) {
+        throw new CronDatabaseOperationError(
+          `Pause admin user lookup failed: ${lookupErr.message}`,
+          { cause: lookupErr }
+        );
+      }
       console.error("[email-pause] admin user lookup failed:", lookupErr);
       return;
     }
@@ -401,11 +510,26 @@ async function fanoutPauseNotifications(input: {
       action_url: "/admin/email?tab=killswitches",
       action_label: "MANAGE",
     }));
-    const { error: insertErr } = await supabase.from("notifications").insert(rows);
+    const { error: insertErr } = await supabase
+      .from("notifications")
+      .insert(rows);
     if (insertErr) {
+      if (abortOnDatabaseError) {
+        throw new CronDatabaseOperationError(
+          `Pause notification insert failed: ${insertErr.message}`,
+          { cause: insertErr }
+        );
+      }
       console.error("[email-pause] notification insert failed:", insertErr);
     }
   } catch (err) {
+    if (abortOnDatabaseError) {
+      if (err instanceof CronDatabaseOperationError) throw err;
+      throw new CronDatabaseOperationError(
+        "Pause notification fanout request failed",
+        { cause: err }
+      );
+    }
     // Notifications are best-effort — never throw out of a pause operation.
     console.error("[email-pause] fanout failed:", err);
   }
@@ -415,7 +539,10 @@ async function fanoutPauseNotifications(input: {
  * Mark every persistent pause notification for a scope as read.
  * Called from resume() and autoResume().
  */
-async function resolvePauseNotifications(scope: PauseScope): Promise<void> {
+async function resolvePauseNotifications(
+  scope: PauseScope,
+  options: { abortOnDatabaseError?: boolean } = {}
+): Promise<void> {
   try {
     const supabase = getServiceRoleClient();
     const titleFragment = `Email paused: ${scope}`;
@@ -426,9 +553,22 @@ async function resolvePauseNotifications(scope: PauseScope): Promise<void> {
       .eq("title", titleFragment)
       .eq("is_read", false);
     if (error) {
+      if (options.abortOnDatabaseError) {
+        throw new CronDatabaseOperationError(
+          `Pause notification resolve failed: ${error.message}`,
+          { cause: error }
+        );
+      }
       console.error("[email-pause] notification resolve failed:", error);
     }
   } catch (err) {
+    if (options.abortOnDatabaseError) {
+      if (err instanceof CronDatabaseOperationError) throw err;
+      throw new CronDatabaseOperationError(
+        "Pause notification resolve request failed",
+        { cause: err }
+      );
+    }
     console.error("[email-pause] resolve failed:", err);
   }
 }
