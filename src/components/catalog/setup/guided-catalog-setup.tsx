@@ -8,7 +8,25 @@ import {
   useRef,
   useState,
 } from "react";
-import { ArrowRight, Check, Loader2 } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  FileSpreadsheet,
+  Loader2,
+} from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
 import type {
@@ -16,6 +34,10 @@ import type {
   CatalogBlueprint,
   GuidedQuestion,
 } from "@/lib/catalog-setup/phase-c/types";
+import {
+  GuidedCatalogSourceDocumentError,
+  readGuidedCatalogSourceFile,
+} from "@/lib/catalog-setup/phase-c/source-document";
 
 type GuidedStatus =
   | "interviewing"
@@ -61,6 +83,18 @@ function record(value: unknown): Record<string, unknown> {
 
 function array<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function confirmedDecisionCount(
+  facts: Array<Record<string, unknown>>,
+): number {
+  return facts.filter((fact) => {
+    const source = record(fact.source);
+    return (
+      fact.status === "confirmed" &&
+      (source.kind === "operator" || source.kind === "upload")
+    );
+  }).length;
 }
 
 function normalizeSession(value: unknown): GuidedSession {
@@ -263,26 +297,26 @@ function QuestionInput({
   return (
     <form onSubmit={submit} className="mt-5">
       {question.answerKind === "text" ? (
-        <textarea
+        <Textarea
           autoFocus
           value={value}
           disabled={busy}
           onChange={(event) => setValue(event.target.value)}
           rows={4}
-          className="w-full resize-none rounded border border-glass-border bg-glass-fill px-3 py-3 font-mohave text-body text-text outline-none transition-colors placeholder:text-text-mute focus:border-ops-accent disabled:opacity-40"
+          className="min-h-36 resize-none px-3 py-3"
           placeholder={t(
             "guided.answerPlaceholder",
             "Type your answer",
           )}
         />
       ) : (
-        <input
+        <Input
           autoFocus
           type={question.answerKind === "number" ? "number" : "text"}
           value={value}
           disabled={busy}
           onChange={(event) => setValue(event.target.value)}
-          className="h-11 w-full rounded border border-glass-border bg-glass-fill px-3 font-mono text-data-sm text-text outline-none transition-colors placeholder:text-text-mute focus:border-ops-accent disabled:opacity-40"
+          className="min-h-11 px-1 font-mono text-data-sm"
           placeholder={t(
             "guided.answerPlaceholder",
             "Type your answer",
@@ -297,6 +331,128 @@ function QuestionInput({
         {t("guided.continue", "CONTINUE")}
       </button>
     </form>
+  );
+}
+
+function SourceDocumentInput({
+  busy,
+  onAnswer,
+}: {
+  busy: boolean;
+  onAnswer: (answer: unknown) => void;
+}) {
+  const { t } = useDictionary("catalog-setup");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [reading, setReading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const errorMessage = useCallback(
+    (error: GuidedCatalogSourceDocumentError) => {
+      const messages: Record<
+        GuidedCatalogSourceDocumentError["code"],
+        string
+      > = {
+        unsupported_type: t(
+          "guided.sourceInvalid",
+          "Use a CSV or Excel price sheet.",
+        ),
+        too_large: t(
+          "guided.sourceTooLarge",
+          "Keep the price sheet under 5 MB.",
+        ),
+        empty: t(
+          "guided.sourceEmpty",
+          "The price sheet has no rows.",
+        ),
+        invalid_headers: t(
+          "guided.sourceHeaders",
+          "Every price-sheet column needs a unique heading.",
+        ),
+        too_many_rows: t(
+          "guided.sourceRows",
+          "Split the price sheet into files with 250 rows or fewer.",
+        ),
+        too_many_columns: t(
+          "guided.sourceColumns",
+          "Keep the price sheet to 50 columns or fewer.",
+        ),
+        cell_too_large: t(
+          "guided.sourceCell",
+          "One cell is too long. Shorten long notes and try again.",
+        ),
+        answer_too_large: t(
+          "guided.sourcePayload",
+          "Split the price sheet into smaller files and try again.",
+        ),
+        read_failed: t(
+          "guided.sourceReadError",
+          "The price sheet could not be read.",
+        ),
+      };
+      return messages[error.code];
+    },
+    [t],
+  );
+
+  const handleFile = useCallback(
+    async (file: File | undefined) => {
+      if (!file || busy || reading) return;
+      setReading(true);
+      setUploadError(null);
+      try {
+        onAnswer(await readGuidedCatalogSourceFile(file));
+      } catch (error) {
+        setUploadError(
+          error instanceof GuidedCatalogSourceDocumentError
+            ? errorMessage(error)
+            : t(
+                "guided.sourceReadError",
+                "The price sheet could not be read.",
+              ),
+        );
+      } finally {
+        setReading(false);
+        if (inputRef.current) inputRef.current.value = "";
+      }
+    },
+    [busy, errorMessage, onAnswer, reading, t],
+  );
+
+  return (
+    <div className="mt-4 border-t border-glass-border pt-4">
+      <input
+        ref={inputRef}
+        type="file"
+        accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        aria-label={t("guided.sourceLabel", "Upload price sheet")}
+        className="sr-only"
+        disabled={busy || reading}
+        onChange={(event) => void handleFile(event.target.files?.[0])}
+      />
+      <button
+        type="button"
+        disabled={busy || reading}
+        onClick={() => inputRef.current?.click()}
+        className="inline-flex min-h-11 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-2 transition-colors hover:border-line-hi hover:text-text disabled:opacity-40"
+      >
+        {reading ? (
+          <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+        ) : (
+          <FileSpreadsheet aria-hidden className="h-4 w-4" />
+        )}
+        {reading
+          ? t("guided.sourceReading", "READING PRICE SHEET")
+          : t("guided.sourceUpload", "UPLOAD PRICE SHEET")}
+      </button>
+      <span className="ml-3 font-mono text-micro text-text-mute">
+        {t("guided.sourceHint", "[ optional · CSV or Excel · up to 5 MB ]")}
+      </span>
+      {uploadError ? (
+        <p className="mt-2 font-mono text-micro text-danger" role="alert">
+          {uploadError}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -491,6 +647,58 @@ export function GuidedCatalogSetup({
         commitError instanceof Error
           ? commitError.message
           : t("guided.commitError", "Catalog could not be built"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }, [busy, session, t]);
+
+  const startOver = useCallback(async () => {
+    if (!session || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const idToken = await token(
+        t(
+          "guided.sessionExpired",
+          "Your session has expired. Sign in again.",
+        ),
+      );
+      const abandonResponse = await fetch(
+        `/api/catalog/setup/sessions/${session.id}/abandon`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: idToken,
+            expectedVersion: session.version,
+          }),
+        },
+      );
+      await jsonResponse<{ session: unknown }>(abandonResponse);
+
+      const startResponse = await fetch("/api/catalog/setup/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: idToken }),
+      });
+      const result = await jsonResponse<{
+        session: unknown | null;
+        agentAvailable: boolean;
+      }>(startResponse);
+      setAgentAvailable(result.agentAvailable);
+      setCommitResult(null);
+      initialTurnRef.current = false;
+      setSession(
+        result.agentAvailable && result.session
+          ? normalizeSession(result.session)
+          : null,
+      );
+    } catch (restartError) {
+      setError(
+        restartError instanceof Error
+          ? restartError.message
+          : t("guided.restartError", "Setup could not restart"),
       );
     } finally {
       setBusy(false);
@@ -774,9 +982,9 @@ export function GuidedCatalogSetup({
         {t("guided.kicker", "GUIDED CATALOG SETUP")}
       </span>
       <div className="mt-3 font-mono text-micro text-text-mute">
-        {t("guided.factCount", "{count} details confirmed").replace(
+        {t("guided.factCount", "Confirmed decisions · {count}").replace(
           "{count}",
-          String(session.facts.length),
+          String(confirmedDecisionCount(session.facts)),
         )}
       </div>
       <div className="mt-5 glass-surface p-5">
@@ -793,12 +1001,18 @@ export function GuidedCatalogSetup({
           </p>
         ) : null}
         {question ? (
-          <QuestionInput
-            key={question.id}
-            question={question}
-            busy={busy}
-            onAnswer={(answer) => void runTurn(answer, session)}
-          />
+          <>
+            <QuestionInput
+              key={question.id}
+              question={question}
+              busy={busy}
+              onAnswer={(answer) => void runTurn(answer, session)}
+            />
+            <SourceDocumentInput
+              busy={busy}
+              onAnswer={(answer) => void runTurn(answer, session)}
+            />
+          </>
         ) : (
           <div className="mt-5 flex items-center gap-2 font-mono text-micro uppercase text-text-3">
             <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
@@ -824,7 +1038,42 @@ export function GuidedCatalogSetup({
           </button>
         </div>
       ) : null}
-      <div className="mt-6 flex gap-4">
+      <div className="mt-6 flex flex-wrap gap-4">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              type="button"
+              disabled={busy}
+              className="font-mono text-micro text-text-3 transition-colors hover:text-text disabled:opacity-40"
+            >
+              {t("guided.restartGhost", "[ start over ]")}
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {t("guided.restartTitle", "START THIS SETUP AGAIN?")}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t(
+                  "guided.restartBody",
+                  "This clears this setup conversation and starts again. Your live catalog stays untouched.",
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>
+                {t("guided.restartCancel", "KEEP WORKING")}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => void startOver()}
+                className="border-rose-line bg-rose-soft text-rose hover:border-rose"
+              >
+                {t("guided.restartConfirm", "START OVER")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <button
           type="button"
           onClick={onUseAnotherMethod}

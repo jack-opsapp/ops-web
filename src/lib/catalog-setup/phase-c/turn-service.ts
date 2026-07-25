@@ -323,12 +323,24 @@ export async function runGuidedSetupTurn({
   const nextPlanHash = reduced.proposedPlan
     ? hashPlan(reduced.proposedPlan)
     : null;
+  const answerRecord = asRecord(answer);
+  const sourceKind =
+    answerRecord.kind === "catalog_source_document"
+      ? "upload"
+      : "operator";
   const nextSources = [
     ...rows(current.sources),
     {
-      kind: "operator",
+      kind: sourceKind,
       questionId: unresolvedQuestions[0]?.id ?? null,
       answer,
+      ...(sourceKind === "upload"
+        ? {
+            filename: answerRecord.filename,
+            rowCount: answerRecord.rowCount,
+            sourceHash: hashPlan(answer),
+          }
+        : {}),
       version: nextVersion,
     },
   ];

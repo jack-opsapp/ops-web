@@ -114,4 +114,54 @@ describe("POST guided catalog session turn", () => {
     expect(response.status).toBe(403);
     expect(mocks.runGuidedSetupTurn).not.toHaveBeenCalled();
   });
+
+  it("accepts a bounded source document larger than a normal text answer", async () => {
+    const answer = {
+      kind: "catalog_source_document",
+      filename: "catalog.csv",
+      format: "csv",
+      headers: ["Product", "Description"],
+      rows: Array.from({ length: 100 }, (_, index) => ({
+        Product: `Catalog item ${index + 1}`,
+        Description: "Installed service ".repeat(12),
+      })),
+      rowCount: 100,
+    };
+    expect(JSON.stringify(answer).length).toBeGreaterThan(20_000);
+
+    const response = await POST(
+      request({
+        token: "valid-token",
+        answer,
+        expectedVersion: 2,
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.runGuidedSetupTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ answer }),
+    );
+  });
+
+  it("rejects a forged or unbounded source document before model generation", async () => {
+    const response = await POST(
+      request({
+        token: "valid-token",
+        answer: {
+          kind: "catalog_source_document",
+          filename: "catalog.csv",
+          format: "csv",
+          headers: ["Product"],
+          rows: [],
+          rowCount: 0,
+        },
+        expectedVersion: 2,
+      }),
+      context,
+    );
+
+    expect(response.status).toBe(400);
+    expect(mocks.runGuidedSetupTurn).not.toHaveBeenCalled();
+  });
 });

@@ -147,6 +147,199 @@ describe("GuidedCatalogSetup", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("uses the shared tokenized field and counts only operator-confirmed decisions", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(() =>
+      response({
+        session: {
+          ...baseSession,
+          facts: [
+            {
+              id: "live-products",
+              classification: "customer_product",
+              key: "live_ops.active_customer_products",
+              value: [],
+              source: { kind: "live_ops" },
+              confidence: 1,
+              status: "confirmed",
+              contradicts: [],
+            },
+            {
+              id: "live-task-types",
+              classification: "task_type_behavior",
+              key: "live_ops.active_task_types_available",
+              value: ["Vinyl Install"],
+              source: { kind: "live_ops" },
+              confidence: 1,
+              status: "confirmed",
+              contradicts: [],
+            },
+            {
+              id: "operator-service",
+              classification: "customer_product",
+              key: "customer_products.first_service_line",
+              value: "Vinyl membrane installation",
+              source: { kind: "operator" },
+              confidence: 1,
+              status: "confirmed",
+              contradicts: [],
+            },
+          ],
+          unresolvedQuestions: [
+            {
+              id: "service-description",
+              prompt: "What do you install?",
+              answerKind: "text",
+              factKeys: ["customer_products.description"],
+            },
+          ],
+        },
+        agentAvailable: true,
+      }),
+    );
+
+    renderSetup();
+
+    expect(
+      await screen.findByText("Confirmed decisions · 1"),
+    ).toBeInTheDocument();
+    const field = screen.getByRole("textbox");
+    expect(field).toHaveClass("bg-surface-input");
+    expect(field).not.toHaveClass("bg-glass-fill");
+  });
+
+  it("feeds an optional CSV price sheet into the current guided turn", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() =>
+        response({
+          session: {
+            ...baseSession,
+            unresolvedQuestions: [
+              {
+                id: "first-service-line",
+                prompt: "What service do you want to set up first?",
+                answerKind: "text",
+                factKeys: ["customer_products.first_service_line"],
+                help: "Describe the service, or upload a CSV or Excel price sheet.",
+              },
+            ],
+          },
+          agentAvailable: true,
+        }),
+      )
+      .mockImplementationOnce((_input, init) => {
+        const body = JSON.parse(String(init?.body));
+        expect(body.expectedVersion).toBe(1);
+        expect(body.answer).toEqual({
+          kind: "catalog_source_document",
+          filename: "vinyl.csv",
+          format: "csv",
+          headers: ["Product", "Price"],
+          rows: [
+            {
+              Product: "Vinyl membrane installation",
+              Price: "11.73",
+            },
+          ],
+          rowCount: 1,
+        });
+        return response({
+          session: {
+            ...baseSession,
+            version: 2,
+            facts: [],
+            unresolvedQuestions: [
+              {
+                id: "minimum",
+                prompt: "What is the minimum charge?",
+                answerKind: "number",
+                factKeys: ["pricing.minimum"],
+              },
+            ],
+          },
+        });
+      });
+
+    renderSetup();
+    await screen.findByText("What service do you want to set up first?");
+    fireEvent.change(screen.getByLabelText("Upload price sheet"), {
+      target: {
+        files: [
+          new File(
+            ["Product,Price\nVinyl membrane installation,11.73"],
+            "vinyl.csv",
+            { type: "text/csv" },
+          ),
+        ],
+      },
+    });
+
+    expect(
+      await screen.findByText("What is the minimum charge?"),
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("retires the current setup and opens a clean session after confirmation", async () => {
+    const freshSession = {
+      ...baseSession,
+      id: "92b13861-51ad-4cb9-8771-a8066a0930b2",
+      version: 0,
+      facts: [],
+      unresolvedQuestions: [
+        {
+          id: "first-service-line",
+          prompt: "What service do you want to set up first?",
+          answerKind: "text",
+          factKeys: ["customer_products.first_service_line"],
+        },
+      ],
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() =>
+        response({ session: baseSession, agentAvailable: true }),
+      )
+      .mockImplementationOnce((input, init) => {
+        expect(String(input)).toContain(
+          "/api/catalog/setup/sessions/54ce9e88-5688-4e73-ae4e-a62f85044b77/abandon",
+        );
+        expect(JSON.parse(String(init?.body))).toEqual({
+          token: "firebase-token",
+          expectedVersion: 1,
+        });
+        return response({
+          session: { ...baseSession, status: "abandoned", version: 2 },
+        });
+      })
+      .mockImplementationOnce((input) => {
+        expect(input).toBe("/api/catalog/setup/sessions");
+        return response({
+          session: freshSession,
+          agentAvailable: true,
+          resumed: false,
+        });
+      });
+
+    renderSetup();
+    await screen.findByText("Is GST added on top?");
+    fireEvent.click(
+      screen.getByRole("button", { name: "[ start over ]" }),
+    );
+    expect(
+      screen.getByText("START THIS SETUP AGAIN?"),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "START OVER" }),
+    );
+
+    expect(
+      await screen.findByText("What service do you want to set up first?"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Confirmed decisions · 0")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("commits only the reviewed plan hash and offers the separate inventory handoff", async () => {
     const addInventory = vi.fn();
     vi.spyOn(globalThis, "fetch")

@@ -24,6 +24,21 @@ interface StartSessionParams {
   operatorId: string;
 }
 
+interface AbandonSessionParams {
+  token: string;
+  companyId: string;
+  operatorId: string;
+  sessionId: string;
+  expectedVersion: number;
+}
+
+export class GuidedSetupSessionVersionConflictError extends Error {
+  constructor() {
+    super("Guided setup session changed before it could be restarted");
+    this.name = "GuidedSetupSessionVersionConflictError";
+  }
+}
+
 interface QueryError {
   message?: string;
 }
@@ -57,7 +72,7 @@ export const FIRST_SERVICE_LINE_QUESTION: GuidedQuestion = {
   prompt: "What service do you want to set up first?",
   answerKind: "text",
   factKeys: ["customer_products.first_service_line"],
-  help: "Tell me what you sell or install. A price sheet is optional.",
+  help: "Describe the service, or upload a CSV or Excel price sheet.",
 };
 
 function asRows(value: unknown): Array<Record<string, unknown>> {
@@ -411,4 +426,72 @@ export async function startOrResumeGuidedSetupSession({
     heldByOther: lock.heldByOther,
     session,
   };
+}
+
+export async function abandonGuidedSetupSession({
+  token,
+  companyId,
+  operatorId,
+  sessionId,
+  expectedVersion,
+}: AbandonSessionParams) {
+  const client = getAccessTokenClient(token) as unknown as GuidedSetupQueryClient;
+  const currentResult = await client
+    .from("catalog_guided_setup_sessions")
+    .select("*")
+    .eq("id", sessionId)
+    .eq("company_id", companyId)
+    .maybeSingle();
+
+  if (currentResult.error) {
+    throw new Error(
+      `Failed to load guided setup: ${currentResult.error.message ?? "unknown error"}`,
+    );
+  }
+  if (!currentResult.data || typeof currentResult.data !== "object") {
+    throw new GuidedSetupSessionVersionConflictError();
+  }
+  const current = currentResult.data as Record<string, unknown>;
+  if (
+    Number(current.version) !== expectedVersion ||
+    !ACTIVE_SESSION_STATUSES.includes(
+      current.status as (typeof ACTIVE_SESSION_STATUSES)[number],
+    )
+  ) {
+    throw new GuidedSetupSessionVersionConflictError();
+  }
+
+  const nextVersion = expectedVersion + 1;
+  const updatedResult = await client
+    .from("catalog_guided_setup_sessions")
+    .update({
+      status: "abandoned",
+      version: nextVersion,
+      sources: [
+        ...asRows(current.sources),
+        {
+          kind: "operator",
+          action: "abandon_setup",
+          operatorId,
+          version: nextVersion,
+        },
+      ],
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", sessionId)
+    .eq("company_id", companyId)
+    .eq("version", expectedVersion)
+    .in("status", ACTIVE_SESSION_STATUSES)
+    .select("*")
+    .maybeSingle();
+
+  if (updatedResult.error) {
+    throw new Error(
+      `Failed to restart guided setup: ${updatedResult.error.message ?? "unknown error"}`,
+    );
+  }
+  if (!updatedResult.data || typeof updatedResult.data !== "object") {
+    throw new GuidedSetupSessionVersionConflictError();
+  }
+  return mapSessionRow(updatedResult.data as Record<string, unknown>);
 }

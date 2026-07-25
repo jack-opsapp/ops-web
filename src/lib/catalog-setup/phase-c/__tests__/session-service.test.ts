@@ -10,6 +10,8 @@ vi.mock("@/lib/supabase/accessToken-client", () => ({
 }));
 
 import {
+  abandonGuidedSetupSession,
+  GuidedSetupSessionVersionConflictError,
   loadCompanyCatalogRowSets,
   startOrResumeGuidedSetupSession,
 } from "../session-service";
@@ -242,7 +244,7 @@ describe("Phase C guided setup session service", () => {
         prompt: "What service do you want to set up first?",
         answerKind: "text",
         factKeys: ["customer_products.first_service_line"],
-        help: "Tell me what you sell or install. A price sheet is optional.",
+        help: "Describe the service, or upload a CSV or Excel price sheet.",
       },
     ]);
   });
@@ -286,7 +288,7 @@ describe("Phase C guided setup session service", () => {
         prompt: "What service do you want to set up first?",
         answerKind: "text",
         factKeys: ["customer_products.first_service_line"],
-        help: "Tell me what you sell or install. A price sheet is optional.",
+        help: "Describe the service, or upload a CSV or Excel price sheet.",
       },
     ]);
     expect(updates).toContainEqual(
@@ -354,5 +356,82 @@ describe("Phase C guided setup session service", () => {
         answerKind: "text",
       }),
     ]);
+  });
+
+  it("abandons only the matching active company session and preserves its audit history", async () => {
+    const { client, updates } = createQueryClient({
+      catalog_guided_setup_sessions: [
+        {
+          id: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+          company_id: "company-1",
+          operator_id: "operator-1",
+          mode: "guided",
+          status: "interviewing",
+          version: 2,
+          facts: [{ key: "pricing.minimum", value: 1_500 }],
+          sources: [{ kind: "operator", questionId: "minimum" }],
+        },
+      ],
+    });
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    const session = await abandonGuidedSetupSession({
+      token: "token",
+      companyId: "company-1",
+      operatorId: "operator-2",
+      sessionId: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+      expectedVersion: 2,
+    });
+
+    expect(session.status).toBe("abandoned");
+    expect(session.version).toBe(3);
+    expect(session.facts).toEqual([
+      { key: "pricing.minimum", value: 1_500 },
+    ]);
+    expect(updates).toContainEqual(
+      expect.objectContaining({
+        table: "catalog_guided_setup_sessions",
+        values: expect.objectContaining({
+          status: "abandoned",
+          version: 3,
+          sources: [
+            { kind: "operator", questionId: "minimum" },
+            {
+              kind: "operator",
+              action: "abandon_setup",
+              operatorId: "operator-2",
+              version: 3,
+            },
+          ],
+        }),
+      }),
+    );
+  });
+
+  it("rejects a stale restart without changing the session", async () => {
+    const { client, updates } = createQueryClient({
+      catalog_guided_setup_sessions: [
+        {
+          id: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+          company_id: "company-1",
+          status: "interviewing",
+          version: 3,
+          facts: [],
+          sources: [],
+        },
+      ],
+    });
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    await expect(
+      abandonGuidedSetupSession({
+        token: "token",
+        companyId: "company-1",
+        operatorId: "operator-2",
+        sessionId: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+        expectedVersion: 2,
+      }),
+    ).rejects.toBeInstanceOf(GuidedSetupSessionVersionConflictError);
+    expect(updates).toEqual([]);
   });
 });
