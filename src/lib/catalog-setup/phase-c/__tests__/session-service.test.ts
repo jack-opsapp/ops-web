@@ -19,13 +19,17 @@ type Filter =
   | { kind: "eq"; column: string; value: string | number }
   | { kind: "in"; column: string; values: readonly string[] };
 
-function createQueryClient(seed: Record<string, Row[]>) {
+function createQueryClient(
+  seed: Record<string, Row[]>,
+  options: { suppressFirstUpdateResponse?: boolean } = {},
+) {
   const calls: Array<{ table: string; filters: Filter[] }> = [];
   const updates: Array<{
     table: string;
     filters: Filter[];
     values: Row;
   }> = [];
+  let suppressUpdateResponses = options.suppressFirstUpdateResponse ? 1 : 0;
 
   class Query {
     private filters: Filter[] = [];
@@ -115,6 +119,11 @@ function createQueryClient(seed: Record<string, Row[]>) {
           values: this.updated,
         });
         rows = rows.map((row) => ({ ...row, ...this.updated }));
+        seed[this.table] = rows;
+        if (suppressUpdateResponses > 0) {
+          suppressUpdateResponses -= 1;
+          return { data: single ? null : [], error: null };
+        }
       }
       return { data: single ? rows[0] ?? null : rows, error: null };
     }
@@ -301,5 +310,49 @@ describe("Phase C guided setup session service", () => {
         ]),
       }),
     );
+  });
+
+  it("resumes the repaired row when another concurrent request wins the repair", async () => {
+    const { client } = createQueryClient(
+      {
+        catalog_guided_setup_sessions: [
+          {
+            id: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+            company_id: "company-1",
+            operator_id: "operator-1",
+            mode: "guided",
+            status: "interviewing",
+            version: 1,
+            facts: [],
+            sources: [],
+            unresolved_questions: [
+              {
+                id: "upload-price-sheet",
+                prompt: "Upload your current price sheet.",
+                answerKind: "file",
+                factKeys: ["customer_products"],
+              },
+            ],
+          },
+        ],
+      },
+      { suppressFirstUpdateResponse: true },
+    );
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    const result = await startOrResumeGuidedSetupSession({
+      token: "token",
+      companyId: "company-1",
+      operatorId: "operator-2",
+    });
+
+    expect(result.resumed).toBe(true);
+    expect(result.session.version).toBe(2);
+    expect(result.session.unresolvedQuestions).toEqual([
+      expect.objectContaining({
+        id: "first-service-line",
+        answerKind: "text",
+      }),
+    ]);
   });
 });

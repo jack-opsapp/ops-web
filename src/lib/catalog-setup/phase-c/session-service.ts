@@ -285,6 +285,26 @@ async function repairFileQuestion(
     !repairedResult.data ||
     typeof repairedResult.data !== "object"
   ) {
+    const latestResult = await client
+      .from("catalog_guided_setup_sessions")
+      .select("*")
+      .eq("id", String(row.id))
+      .eq("company_id", companyId)
+      .maybeSingle();
+    if (latestResult.error) {
+      throw new Error(
+        `Failed to reload guided setup after repair: ${latestResult.error.message ?? "unknown error"}`,
+      );
+    }
+    if (
+      latestResult.data &&
+      typeof latestResult.data === "object" &&
+      !needsFileQuestionRepair(
+        latestResult.data as Record<string, unknown>,
+      )
+    ) {
+      return latestResult.data as Record<string, unknown>;
+    }
     throw new Error(
       "Failed to repair guided setup: the session changed in another window",
     );
