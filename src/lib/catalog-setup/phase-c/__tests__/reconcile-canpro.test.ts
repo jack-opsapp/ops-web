@@ -7,6 +7,15 @@ import {
 } from "../reconcile";
 
 const desired: DesiredCatalogStructure = {
+  taxRates: [
+    {
+      clientId: "gst",
+      name: "GST",
+      rate: 0.05,
+      isDefault: true,
+      isActive: true,
+    },
+  ],
   taskTypes: [
     {
       clientId: "vinyl-install",
@@ -144,6 +153,27 @@ describe("Phase C Canpro vinyl reconciliation", () => {
         dependsOn: [
           "verify:catalog_variant:d2187acd-2f4a-4ac8-bc7c-120897e07522",
         ],
+      }),
+    );
+  });
+
+  it("creates the missing 5% GST rate as the company default", () => {
+    const blueprint = reconcileCatalogStructure(
+      CANPRO_VINYL_LIVE_SNAPSHOT,
+      desired,
+    );
+
+    expect(blueprint.actions).toContainEqual(
+      expect.objectContaining({
+        group: "CREATE",
+        actionType: "upsert_tax_rate",
+        clientId: "gst",
+        payload: {
+          name: "GST",
+          rate: 0.05,
+          isDefault: true,
+          isActive: true,
+        },
       }),
     );
   });

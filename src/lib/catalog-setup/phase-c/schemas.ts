@@ -95,6 +95,7 @@ export const CatalogActionTypeSchema = z.enum([
   "upsert_capability_binding",
   "reuse_task_type",
   "create_task_type",
+  "upsert_tax_rate",
   "move_catalog_variant",
   "archive_catalog_variant",
   "archive_catalog_option",

@@ -157,5 +157,6 @@ export const CANPRO_VINYL_LIVE_SNAPSHOT = {
       deleted_at: null,
     },
   ],
+  taxRates: [],
   verificationItems: [],
 } satisfies LiveCatalogSnapshot;

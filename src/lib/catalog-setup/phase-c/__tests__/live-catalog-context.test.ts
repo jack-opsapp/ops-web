@@ -53,6 +53,7 @@ describe("buildLiveCatalogSnapshot", () => {
       units: [],
       categories: [],
       taskTypes: [],
+      taxRates: [],
       verificationItems: [],
     };
 
@@ -92,6 +93,7 @@ describe("buildLiveCatalogSnapshot", () => {
       units: [],
       categories: [],
       taskTypes: [],
+      taxRates: [],
       verificationItems: [],
     };
 
@@ -136,6 +138,7 @@ describe("buildLiveCatalogSnapshot", () => {
       units: [],
       categories: [],
       taskTypes: [],
+      taxRates: [],
       verificationItems: [],
     };
 

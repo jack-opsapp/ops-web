@@ -19,6 +19,7 @@ export interface LiveCatalogContextRowSets {
   units: Array<Record<string, unknown>>;
   categories: Array<Record<string, unknown>>;
   taskTypes: Array<Record<string, unknown>>;
+  taxRates: Array<Record<string, unknown>>;
   verificationItems: Array<Record<string, unknown>>;
 }
 
@@ -42,6 +43,7 @@ const NUMERIC_FIELDS = new Set([
   "quantity",
   "quantity_per_unit",
   "quantity_value",
+  "rate",
   "remaining_length_value",
   "unit_cost",
   "unit_cost_override",
@@ -115,6 +117,7 @@ const ROW_SET_KEYS: Array<keyof LiveCatalogContextRowSets> = [
   "units",
   "categories",
   "taskTypes",
+  "taxRates",
   "verificationItems",
 ];
 

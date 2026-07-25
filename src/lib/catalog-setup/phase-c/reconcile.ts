@@ -8,6 +8,13 @@ import type {
 } from "./types";
 
 export interface DesiredCatalogStructure {
+  taxRates?: Array<{
+    clientId: string;
+    name: string;
+    rate: number;
+    isDefault: boolean;
+    isActive: boolean;
+  }>;
   taskTypes: Array<{
     clientId: string;
     display: string;
@@ -121,6 +128,40 @@ export function reconcileCatalogStructure(
     string,
     { familyName: string; values: Record<string, string> }
   >();
+
+  for (const taxRate of desired.taxRates ?? []) {
+    const matches = activeRows(snapshot.taxRates).filter(
+      (row) => normalizeIdentity(row.name) === normalizeIdentity(taxRate.name),
+    );
+    if (matches.length > 1) {
+      issues.push({
+        code: "ambiguous_match",
+        severity: "blocker",
+        message: `Multiple tax rates match ${taxRate.name}.`,
+      });
+      continue;
+    }
+    const existing = matches[0];
+    actions.push({
+      actionKey: `${existing ? "update" : "create"}:tax-rate:${taxRate.clientId}`,
+      group: existing ? "UPDATE" : "CREATE",
+      actionType: "upsert_tax_rate",
+      targetKind: "tax_rate",
+      ...(existing
+        ? {
+            existingId: stringId(existing),
+            sourceFingerprint: fingerprint(existing),
+          }
+        : { clientId: taxRate.clientId }),
+      dependsOn: [],
+      payload: {
+        name: taxRate.name,
+        rate: taxRate.rate,
+        isDefault: taxRate.isDefault,
+        isActive: taxRate.isActive,
+      },
+    });
+  }
   for (const variant of activeVariants) {
     const variantId = stringId(variant);
     const family = familiesById.get(String(variant.catalog_item_id ?? ""));

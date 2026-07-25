@@ -115,6 +115,7 @@ export async function loadCompanyCatalogRowSets(
     units,
     categories,
     taskTypes,
+    taxRates,
     verificationItems,
   ] = await Promise.all([
     readCompanyRows(client, "products", companyId),
@@ -127,6 +128,7 @@ export async function loadCompanyCatalogRowSets(
     readCompanyRows(client, "catalog_units", companyId),
     readCompanyRows(client, "catalog_categories", companyId),
     readCompanyRows(client, "task_types", companyId),
+    readCompanyRows(client, "tax_rates", companyId),
     readCompanyRows(client, "catalog_setup_verification_items", companyId),
   ]);
 
@@ -193,6 +195,7 @@ export async function loadCompanyCatalogRowSets(
     units,
     categories,
     taskTypes,
+    taxRates,
     verificationItems,
   };
 }
