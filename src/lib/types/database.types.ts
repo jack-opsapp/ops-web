@@ -8878,6 +8878,7 @@ export type Database = {
           is_selected: boolean | null
           is_taxable: boolean | null
           line_total: number | null
+          minimum_charge_snapshot: number | null
           name: string
           parent_line_item_id: string | null
           product_id: string | null
@@ -8910,6 +8911,7 @@ export type Database = {
           is_selected?: boolean | null
           is_taxable?: boolean | null
           line_total?: number | null
+          minimum_charge_snapshot?: number | null
           name: string
           parent_line_item_id?: string | null
           product_id?: string | null
@@ -8942,6 +8944,7 @@ export type Database = {
           is_selected?: boolean | null
           is_taxable?: boolean | null
           line_total?: number | null
+          minimum_charge_snapshot?: number | null
           name?: string
           parent_line_item_id?: string | null
           product_id?: string | null

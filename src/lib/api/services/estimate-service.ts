@@ -166,21 +166,41 @@ function mapLineItemFromDb(row: Record<string, unknown>): LineItem {
     estimateId: (row.estimate_id as string) ?? null,
     invoiceId: (row.invoice_id as string) ?? null,
     productId: (row.product_id as string) ?? null,
+    parentLineItemId: (row.parent_line_item_id as string) ?? null,
 
     // Type & template linkage
     type: (row.type as string as import("@/lib/types/pipeline").LineItemType) ?? "MATERIAL",
     taskTypeId: (row.task_type_id as string) ?? null,
+    taskTypeRef: (row.task_type_ref as string) ?? null,
 
     // Content
     name: row.name as string,
     description: (row.description as string) ?? null,
     quantity: Number(row.quantity ?? 0),
     unit: (row.unit as string) ?? "each",
+    unitId: (row.unit_id as string) ?? null,
     unitPrice: Number(row.unit_price ?? 0),
+    resolvedUnitPrice:
+      row.resolved_unit_price != null
+        ? Number(row.resolved_unit_price)
+        : null,
+    minimumChargeSnapshot:
+      row.minimum_charge_snapshot != null
+        ? Number(row.minimum_charge_snapshot)
+        : null,
     unitCost: row.unit_cost != null ? Number(row.unit_cost) : null,
+    estimatedHours:
+      row.estimated_hours != null ? Number(row.estimated_hours) : null,
     discountPercent: Number(row.discount_percent ?? 0),
     isTaxable: (row.is_taxable as boolean) ?? false,
     taxRateId: (row.tax_rate_id as string) ?? null,
+    configuredOptions:
+      row.configured_options &&
+      typeof row.configured_options === "object" &&
+      !Array.isArray(row.configured_options)
+        ? (row.configured_options as Record<string, unknown>)
+        : null,
+    resolvedOptionsLabel: (row.resolved_options_label as string) ?? null,
 
     // Calculated (DB-generated)
     lineTotal: Number(row.line_total ?? 0),
@@ -210,19 +230,33 @@ function mapLineItemToDb(
   if (data.estimateId !== undefined) row.estimate_id = data.estimateId;
   if (data.invoiceId !== undefined) row.invoice_id = data.invoiceId;
   if (data.productId !== undefined) row.product_id = data.productId;
+  if (data.parentLineItemId !== undefined)
+    row.parent_line_item_id = data.parentLineItemId;
 
   if (data.type !== undefined) row.type = data.type;
   if (data.taskTypeId !== undefined) row.task_type_id = data.taskTypeId;
+  if (data.taskTypeRef !== undefined) row.task_type_ref = data.taskTypeRef;
 
   if (data.name !== undefined) row.name = data.name;
   if (data.description !== undefined) row.description = data.description;
   if (data.quantity !== undefined) row.quantity = data.quantity;
   if (data.unit !== undefined) row.unit = data.unit;
+  if (data.unitId !== undefined) row.unit_id = data.unitId;
   if (data.unitPrice !== undefined) row.unit_price = data.unitPrice;
+  if (data.resolvedUnitPrice !== undefined)
+    row.resolved_unit_price = data.resolvedUnitPrice;
+  if (data.minimumChargeSnapshot !== undefined)
+    row.minimum_charge_snapshot = data.minimumChargeSnapshot;
   if (data.unitCost !== undefined) row.unit_cost = data.unitCost;
+  if (data.estimatedHours !== undefined)
+    row.estimated_hours = data.estimatedHours;
   if (data.discountPercent !== undefined) row.discount_percent = data.discountPercent;
   if (data.isTaxable !== undefined) row.is_taxable = data.isTaxable;
   if (data.taxRateId !== undefined) row.tax_rate_id = data.taxRateId;
+  if (data.configuredOptions !== undefined)
+    row.configured_options = data.configuredOptions;
+  if (data.resolvedOptionsLabel !== undefined)
+    row.resolved_options_label = data.resolvedOptionsLabel;
 
   if (data.isOptional !== undefined) row.is_optional = data.isOptional;
   if (data.isSelected !== undefined) row.is_selected = data.isSelected;

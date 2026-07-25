@@ -21,6 +21,8 @@ import type { LineItemQuestion } from "@/lib/types/portal";
 import { useStockIndicator } from "@/lib/hooks/use-stock-indicator";
 import type { LineItemStockStatus } from "@/lib/types/product-materials";
 import { LineItemMaterialsSection } from "./line-item-materials-section";
+import { ProductConfigurationFields } from "./product-configuration-fields";
+import type { ResolvedProductConfiguration } from "@/lib/products/product-configuration-resolver";
 
 export interface LineItemRow {
   id: string;
@@ -33,6 +35,19 @@ export interface LineItemRow {
   unit: string;
   isOptional: boolean;
   isSelected: boolean;
+  type: Product["type"];
+  taskTypeId: string | null;
+  taskTypeRef: string | null;
+  unitId: string | null;
+  resolvedUnitPrice: number | null;
+  minimumChargeSnapshot: number | null;
+  unitCost: number | null;
+  estimatedHours: number | null;
+  configuredOptions: Record<string, string>;
+  resolvedOptionsLabel: string | null;
+  missingRequiredOptions: string[];
+  category: string | null;
+  taxRateId: string | null;
 }
 
 interface LineItemEditorProps {
@@ -40,6 +55,7 @@ interface LineItemEditorProps {
   onChange: (items: LineItemRow[]) => void;
   products?: Product[];
   taxRate?: number;
+  taxRateId?: string | null;
   className?: string;
   /** Questions grouped by line item ID — enables question badges */
   questionsByLineItem?: Record<string, LineItemQuestion[]>;
@@ -64,11 +80,32 @@ export function createEmptyLineItem(): LineItemRow {
     unit: "each",
     isOptional: false,
     isSelected: true,
+    type: "OTHER",
+    taskTypeId: null,
+    taskTypeRef: null,
+    unitId: null,
+    resolvedUnitPrice: null,
+    minimumChargeSnapshot: null,
+    unitCost: null,
+    estimatedHours: null,
+    configuredOptions: {},
+    resolvedOptionsLabel: null,
+    missingRequiredOptions: [],
+    category: null,
+    taxRateId: null,
   };
 }
 
 function computeAmount(item: LineItemRow, taxRate: number = 0) {
-  const lineTotal = calculateLineTotal(item.quantity, item.unitPrice, item.discountPercent);
+  if (item.isOptional && !item.isSelected) {
+    return { lineTotal: 0, tax: 0, total: 0 };
+  }
+  const extended = calculateLineTotal(
+    item.quantity,
+    item.unitPrice,
+    item.discountPercent,
+  );
+  const lineTotal = Math.max(item.minimumChargeSnapshot ?? 0, extended);
   const tax = item.isTaxable ? calculateLineTax(lineTotal, taxRate) : 0;
   return { lineTotal, tax, total: lineTotal + tax };
 }
@@ -78,6 +115,7 @@ export function LineItemEditor({
   onChange,
   products = [],
   taxRate = 0,
+  taxRateId = null,
   className,
   questionsByLineItem,
   onEditQuestions,
@@ -118,13 +156,46 @@ export function LineItemEditor({
                 name: product.name,
                 unitPrice: product.defaultPrice,
                 isTaxable: product.isTaxable,
-                unit: product.unit ?? "each",
+                unit: product.pricingUnit ?? product.unit ?? "each",
+                type: product.type,
+                taskTypeId: product.taskTypeId,
+                taskTypeRef: product.taskTypeRef ?? null,
+                unitId: product.unitId ?? null,
+                resolvedUnitPrice: product.defaultPrice,
+                minimumChargeSnapshot: product.minimumCharge ?? null,
+                unitCost: product.unitCost,
+                estimatedHours: null,
+                configuredOptions: {},
+                resolvedOptionsLabel: null,
+                missingRequiredOptions: ["__loading__"],
+                category: product.category,
+                taxRateId: product.isTaxable ? taxRateId : null,
               }
             : item
         )
       );
     },
-    [items, onChange, products]
+    [items, onChange, products, taxRateId]
+  );
+
+  const applyResolvedConfiguration = useCallback(
+    (itemId: string, resolved: ResolvedProductConfiguration) => {
+      onChange(
+        items.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                unitPrice: resolved.unitPrice,
+                resolvedUnitPrice: resolved.unitPrice,
+                configuredOptions: resolved.configuredOptions,
+                resolvedOptionsLabel: resolved.resolvedOptionsLabel || null,
+                missingRequiredOptions: resolved.missingRequiredOptions,
+              }
+            : item,
+        ),
+      );
+    },
+    [items, onChange],
   );
 
   const totals = items.reduce(
@@ -195,6 +266,9 @@ export function LineItemEditor({
         {items.map((item) => {
           const computed = computeAmount(item, taxRate);
           const stock = item.productId ? stockByLine.get(item.id) : undefined;
+          const product = item.productId
+            ? products.find((entry) => entry.id === item.productId)
+            : undefined;
           const expanded = expandedIds.has(item.id);
           const isTempId = item.id.startsWith("temp-");
           return (
@@ -355,6 +429,20 @@ export function LineItemEditor({
                 </button>
               </div>
             </div>
+
+            {product && (
+              <div className="pl-[22px]">
+                <ProductConfigurationFields
+                  product={product}
+                  configuredOptions={item.configuredOptions}
+                  quantity={item.quantity}
+                  discountPercent={item.discountPercent}
+                  onResolved={(resolved) =>
+                    applyResolvedConfiguration(item.id, resolved)
+                  }
+                />
+              </div>
+            )}
 
             {/* Expanded: materials override (existing saved items only) */}
             {expanded && item.productId && (
