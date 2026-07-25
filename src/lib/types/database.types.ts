@@ -3688,6 +3688,620 @@ export type Database = {
           },
         ]
       }
+      catalog_guided_setup_actions: {
+        Row: {
+          action_hash: string
+          action_key: string
+          action_type: string
+          attempt_count: number
+          commit_operation_id: string | null
+          committed_at: string | null
+          company_id: string
+          created_at: string
+          error: Json | null
+          id: string
+          request: Json
+          response: Json | null
+          session_id: string
+          source_fingerprint: string | null
+          started_at: string | null
+          status: string
+          target_id: string | null
+          target_kind: string
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          action_hash: string
+          action_key: string
+          action_type: string
+          attempt_count?: number
+          commit_operation_id?: string | null
+          committed_at?: string | null
+          company_id: string
+          created_at?: string
+          error?: Json | null
+          id?: string
+          request?: Json
+          response?: Json | null
+          session_id: string
+          source_fingerprint?: string | null
+          started_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_kind: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          action_hash?: string
+          action_key?: string
+          action_type?: string
+          attempt_count?: number
+          commit_operation_id?: string | null
+          committed_at?: string | null
+          company_id?: string
+          created_at?: string
+          error?: Json | null
+          id?: string
+          request?: Json
+          response?: Json | null
+          session_id?: string
+          source_fingerprint?: string | null
+          started_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_kind?: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_guided_setup_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_guided_setup_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_guided_setup_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_guided_setup_sessions: {
+        Row: {
+          approval_hash: string | null
+          approved_at: string | null
+          commit_journal: Json
+          commit_operation_id: string | null
+          company_id: string
+          completed_at: string | null
+          contradictions: Json
+          created_at: string
+          facts: Json
+          id: string
+          live_snapshot: Json
+          live_snapshot_hash: string
+          mode: string
+          operator_id: string
+          proposed_plan: Json | null
+          proposed_plan_hash: string | null
+          readback: Json | null
+          sources: Json
+          status: string
+          unresolved_questions: Json
+          updated_at: string
+          validation_issues: Json
+          version: number
+        }
+        Insert: {
+          approval_hash?: string | null
+          approved_at?: string | null
+          commit_journal?: Json
+          commit_operation_id?: string | null
+          company_id: string
+          completed_at?: string | null
+          contradictions?: Json
+          created_at?: string
+          facts?: Json
+          id?: string
+          live_snapshot?: Json
+          live_snapshot_hash: string
+          mode?: string
+          operator_id: string
+          proposed_plan?: Json | null
+          proposed_plan_hash?: string | null
+          readback?: Json | null
+          sources?: Json
+          status?: string
+          unresolved_questions?: Json
+          updated_at?: string
+          validation_issues?: Json
+          version?: number
+        }
+        Update: {
+          approval_hash?: string | null
+          approved_at?: string | null
+          commit_journal?: Json
+          commit_operation_id?: string | null
+          company_id?: string
+          completed_at?: string | null
+          contradictions?: Json
+          created_at?: string
+          facts?: Json
+          id?: string
+          live_snapshot?: Json
+          live_snapshot_hash?: string
+          mode?: string
+          operator_id?: string
+          proposed_plan?: Json | null
+          proposed_plan_hash?: string | null
+          readback?: Json | null
+          sources?: Json
+          status?: string
+          unresolved_questions?: Json
+          updated_at?: string
+          validation_issues?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_guided_setup_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_guided_setup_sessions_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_inventory_import_rows: {
+        Row: {
+          committed_event_id: string | null
+          committed_stock_unit_id: string | null
+          company_id: string
+          created_at: string
+          error: Json | null
+          id: string
+          import_id: string
+          matched_variant_id: string | null
+          normalized_data: Json
+          proposed_stock_unit: Json | null
+          raw_data: Json
+          row_fingerprint: string
+          row_number: number
+          status: string
+          updated_at: string
+          validation_issues: Json
+        }
+        Insert: {
+          committed_event_id?: string | null
+          committed_stock_unit_id?: string | null
+          company_id: string
+          created_at?: string
+          error?: Json | null
+          id?: string
+          import_id: string
+          matched_variant_id?: string | null
+          normalized_data?: Json
+          proposed_stock_unit?: Json | null
+          raw_data: Json
+          row_fingerprint: string
+          row_number: number
+          status?: string
+          updated_at?: string
+          validation_issues?: Json
+        }
+        Update: {
+          committed_event_id?: string | null
+          committed_stock_unit_id?: string | null
+          company_id?: string
+          created_at?: string
+          error?: Json | null
+          id?: string
+          import_id?: string
+          matched_variant_id?: string | null
+          normalized_data?: Json
+          proposed_stock_unit?: Json | null
+          raw_data?: Json
+          row_fingerprint?: string
+          row_number?: number
+          status?: string
+          updated_at?: string
+          validation_issues?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_inventory_import_rows_committed_event_id_fkey"
+            columns: ["committed_event_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_stock_unit_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_import_rows_committed_stock_unit_id_fkey"
+            columns: ["committed_stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_stock_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_import_rows_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_import_rows_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_inventory_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_import_rows_matched_variant_id_fkey"
+            columns: ["matched_variant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_inventory_imports: {
+        Row: {
+          commit_operation_id: string | null
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          error: Json | null
+          id: string
+          mapping: Json
+          operator_id: string
+          setup_session_id: string | null
+          source_hash: string
+          source_mime_type: string | null
+          source_name: string
+          status: string
+          summary: Json
+          updated_at: string
+          validation_issues: Json
+        }
+        Insert: {
+          commit_operation_id?: string | null
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          error?: Json | null
+          id?: string
+          mapping?: Json
+          operator_id: string
+          setup_session_id?: string | null
+          source_hash: string
+          source_mime_type?: string | null
+          source_name: string
+          status?: string
+          summary?: Json
+          updated_at?: string
+          validation_issues?: Json
+        }
+        Update: {
+          commit_operation_id?: string | null
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error?: Json | null
+          id?: string
+          mapping?: Json
+          operator_id?: string
+          setup_session_id?: string | null
+          source_hash?: string
+          source_mime_type?: string | null
+          source_name?: string
+          status?: string
+          summary?: Json
+          updated_at?: string
+          validation_issues?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_inventory_imports_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_imports_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_imports_setup_session_id_fkey"
+            columns: ["setup_session_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_guided_setup_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_product_capability_bindings: {
+        Row: {
+          capability_key: string
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          enabled: boolean
+          fallback_behavior: Json
+          id: string
+          product_id: string
+          required_inputs: Json
+          updated_at: string
+        }
+        Insert: {
+          capability_key: string
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          enabled?: boolean
+          fallback_behavior?: Json
+          id?: string
+          product_id: string
+          required_inputs?: Json
+          updated_at?: string
+        }
+        Update: {
+          capability_key?: string
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          enabled?: boolean
+          fallback_behavior?: Json
+          id?: string
+          product_id?: string
+          required_inputs?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_product_capability_bindings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_capability_bindings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_setup_verification_items: {
+        Row: {
+          company_id: string
+          created_at: string
+          evidence: Json
+          id: string
+          item_key: string
+          message: string
+          resolved_at: string | null
+          resolved_by: string | null
+          session_id: string | null
+          severity: string
+          source: Json
+          status: string
+          subject_id: string | null
+          subject_kind: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          item_key: string
+          message: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          session_id?: string | null
+          severity?: string
+          source?: Json
+          status?: string
+          subject_id?: string | null
+          subject_kind: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          item_key?: string
+          message?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          session_id?: string | null
+          severity?: string
+          source?: Json
+          status?: string
+          subject_id?: string | null
+          subject_kind?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_setup_verification_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_setup_verification_items_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_setup_verification_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_guided_setup_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_supplier_cost_profiles: {
+        Row: {
+          activation_rule: Json
+          catalog_variant_id: string
+          company_id: string
+          created_at: string
+          currency_code: string
+          deleted_at: string | null
+          id: string
+          is_default: boolean
+          label: string
+          profile_key: string
+          source: Json
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          activation_rule?: Json
+          catalog_variant_id: string
+          company_id: string
+          created_at?: string
+          currency_code?: string
+          deleted_at?: string | null
+          id?: string
+          is_default?: boolean
+          label: string
+          profile_key: string
+          source?: Json
+          unit_cost: number
+          updated_at?: string
+        }
+        Update: {
+          activation_rule?: Json
+          catalog_variant_id?: string
+          company_id?: string
+          created_at?: string
+          currency_code?: string
+          deleted_at?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string
+          profile_key?: string
+          source?: Json
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_supplier_cost_profiles_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_supplier_cost_profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_material_quantity_rules: {
+        Row: {
+          calculation_kind: string
+          company_id: string
+          config: Json
+          coverage_quantity: number | null
+          created_at: string
+          deleted_at: string | null
+          fallback_rule: Json
+          id: string
+          measure_source: string
+          package_quantity: number | null
+          product_material_id: string
+          purchase_rounding: string
+          required_inputs: Json
+          rounding_increment: number | null
+          updated_at: string
+          waste_factor: number
+        }
+        Insert: {
+          calculation_kind: string
+          company_id: string
+          config?: Json
+          coverage_quantity?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          fallback_rule?: Json
+          id?: string
+          measure_source: string
+          package_quantity?: number | null
+          product_material_id: string
+          purchase_rounding?: string
+          required_inputs?: Json
+          rounding_increment?: number | null
+          updated_at?: string
+          waste_factor?: number
+        }
+        Update: {
+          calculation_kind?: string
+          company_id?: string
+          config?: Json
+          coverage_quantity?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          fallback_rule?: Json
+          id?: string
+          measure_source?: string
+          package_quantity?: number | null
+          product_material_id?: string
+          purchase_rounding?: string
+          required_inputs?: Json
+          rounding_increment?: number | null
+          updated_at?: string
+          waste_factor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_material_quantity_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_material_quantity_rules_product_material_id_fkey"
+            columns: ["product_material_id"]
+            isOneToOne: false
+            referencedRelation: "product_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           account_holder_id: string | null

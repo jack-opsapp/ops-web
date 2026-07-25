@@ -21,12 +21,14 @@
 import { useEffect, useRef, useState } from "react";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { buildSessionId, type LockState } from "@/lib/catalog-setup/session-lock";
+import { buildSessionId } from "@/lib/catalog-setup/session-lock";
 import {
   acquireSessionLock,
+  createSessionLockStore,
   heartbeatSessionLock,
   releaseSessionLock,
   type LockStore,
+  type SessionLockTable,
 } from "@/lib/catalog-setup/session-lock-service";
 
 // On by default now the substrate is live; the env var is a kill-switch (="false").
@@ -57,12 +59,6 @@ function getOrCreateLockSessionId(): string {
   return minted;
 }
 
-interface LockRow {
-  session_id: string;
-  heartbeat_at: string;
-  user_id: string | null;
-}
-
 /**
  * Supabase-backed LockStore against the dedicated catalog_setup_session_locks
  * table (company_id PK → one row per company; upsert = claim/refresh). Addressed
@@ -72,46 +68,9 @@ interface LockRow {
  */
 export function createSupabaseLockStore(userId?: string | null): LockStore {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const table = () => (requireSupabase() as any).from(LOCK_TABLE);
-  return {
-    async read(companyId) {
-      const { data, error } = await table()
-        .select("session_id, heartbeat_at, user_id")
-        .eq("company_id", companyId)
-        .maybeSingle();
-      if (error) throw error;
-      if (!data) return null;
-      const row = data as LockRow;
-      const parsed = Date.parse(row.heartbeat_at);
-      const lock: LockState = {
-        sessionId: row.session_id,
-        heartbeatAt: Number.isNaN(parsed) ? 0 : parsed,
-        userId: row.user_id,
-      };
-      return lock;
-    },
-    async write(companyId, sessionId, heartbeatAt) {
-      const iso = new Date(heartbeatAt).toISOString();
-      const { error } = await table().upsert(
-        {
-          company_id: companyId,
-          session_id: sessionId,
-          user_id: userId ?? null,
-          heartbeat_at: iso,
-          updated_at: iso,
-        },
-        { onConflict: "company_id" },
-      );
-      if (error) throw error;
-    },
-    async release(companyId, sessionId) {
-      const { error } = await table()
-        .delete()
-        .eq("company_id", companyId)
-        .eq("session_id", sessionId);
-      if (error) throw error;
-    },
-  };
+  const table = () =>
+    (requireSupabase() as any).from(LOCK_TABLE) as SessionLockTable;
+  return createSessionLockStore(table, userId);
 }
 
 export interface CatalogSetupLock {

@@ -28,6 +28,77 @@ export interface LockStore {
   release(companyId: string, sessionId: string): Promise<void>;
 }
 
+interface LockQueryResult {
+  data: unknown;
+  error: { message?: string } | null;
+}
+
+export interface SessionLockTable extends PromiseLike<LockQueryResult> {
+  select(columns: string): SessionLockTable;
+  eq(column: string, value: string): SessionLockTable;
+  upsert(
+    values: Record<string, unknown>,
+    options: { onConflict: string },
+  ): PromiseLike<LockQueryResult>;
+  delete(): SessionLockTable;
+  maybeSingle(): Promise<LockQueryResult>;
+}
+
+interface LockRow {
+  session_id: string;
+  heartbeat_at: string;
+  user_id: string | null;
+}
+
+/**
+ * Shared Supabase-table adapter used by both the browser wizard and the
+ * server-owned Phase C session route. Keeping the storage mapping here prevents
+ * the two entry points from drifting on heartbeat/user semantics.
+ */
+export function createSessionLockStore(
+  table: () => SessionLockTable,
+  userId?: string | null,
+): LockStore {
+  return {
+    async read(companyId) {
+      const { data, error } = await table()
+        .select("session_id, heartbeat_at, user_id")
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (error) throw new Error(error.message ?? "Failed to read setup lock");
+      if (!data || typeof data !== "object") return null;
+      const row = data as LockRow;
+      const parsed = Date.parse(row.heartbeat_at);
+      return {
+        sessionId: row.session_id,
+        heartbeatAt: Number.isNaN(parsed) ? 0 : parsed,
+        userId: row.user_id,
+      };
+    },
+    async write(companyId, sessionId, heartbeatAt) {
+      const iso = new Date(heartbeatAt).toISOString();
+      const { error } = await table().upsert(
+        {
+          company_id: companyId,
+          session_id: sessionId,
+          user_id: userId ?? null,
+          heartbeat_at: iso,
+          updated_at: iso,
+        },
+        { onConflict: "company_id" },
+      );
+      if (error) throw new Error(error.message ?? "Failed to write setup lock");
+    },
+    async release(companyId, sessionId) {
+      const { error } = await table()
+        .delete()
+        .eq("company_id", companyId)
+        .eq("session_id", sessionId);
+      if (error) throw new Error(error.message ?? "Failed to release setup lock");
+    },
+  };
+}
+
 export interface LockProbe {
   /** Is another LIVE session holding the lock? */
   heldByOther: boolean;
