@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   act,
   fireEvent,
@@ -111,6 +111,15 @@ function renderSetup(
   );
 }
 
+const originalScrollIntoView = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  "scrollIntoView",
+);
+const originalScrollTo = Object.getOwnPropertyDescriptor(
+  HTMLElement.prototype,
+  "scrollTo",
+);
+
 describe("GuidedCatalogSetup", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -131,6 +140,124 @@ describe("GuidedCatalogSetup", () => {
       }),
     });
     mocks.getIdToken.mockResolvedValue("firebase-token");
+  });
+
+  afterEach(() => {
+    if (originalScrollIntoView) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "scrollIntoView",
+        originalScrollIntoView,
+      );
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+    }
+    if (originalScrollTo) {
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "scrollTo",
+        originalScrollTo,
+      );
+    } else {
+      Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
+    }
+  });
+
+  it("does not scroll an ancestor or move a short first-turn transcript", async () => {
+    const scrollIntoView = vi.fn();
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: scrollTo,
+    });
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getAttribute("role") === "log" ? 160 : 0;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getAttribute("role") === "log" ? 240 : 0;
+      },
+    );
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(() =>
+      response({
+        session: {
+          ...baseSession,
+          unresolvedQuestions: [
+            {
+              id: "first-service-line",
+              prompt: "What service do you want to set up first?",
+              answerKind: "text",
+              factKeys: ["customer_products.first_service_line"],
+              help: "Describe the service, or upload a CSV or Excel price sheet.",
+            },
+          ],
+          conversation: [
+            {
+              id: "assistant:1:first-service-line",
+              role: "assistant",
+              kind: "text",
+              content: "What service do you want to set up first?",
+              version: 1,
+            },
+          ],
+        },
+        agentAvailable: true,
+      }),
+    );
+
+    renderSetup();
+
+    await screen.findByText("What service do you want to set up first?");
+    await waitFor(() => {
+      expect(scrollIntoView).not.toHaveBeenCalled();
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+  });
+
+  it("positions an overflowing transcript on the transcript element only", async () => {
+    const scrollIntoView = vi.fn();
+    const scrollTo = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: scrollTo,
+    });
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getAttribute("role") === "log" ? 640 : 0;
+      },
+    );
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+      function (this: HTMLElement) {
+        return this.getAttribute("role") === "log" ? 240 : 0;
+      },
+    );
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(() =>
+      response({ session: baseSession, agentAvailable: true }),
+    );
+
+    renderSetup();
+
+    const transcript = await screen.findByRole("log", {
+      name: "Catalog setup conversation",
+    });
+    await waitFor(() => {
+      expect(scrollIntoView).not.toHaveBeenCalled();
+      expect(scrollTo).toHaveBeenCalledWith({
+        top: 640,
+        behavior: "auto",
+      });
+    });
+    expect(scrollTo.mock.instances).toContain(transcript);
   });
 
   it("opens the durable guided session and sends one answer at a time", async () => {

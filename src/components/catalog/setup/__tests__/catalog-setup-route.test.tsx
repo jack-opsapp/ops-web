@@ -88,13 +88,18 @@ describe("CatalogSetupRoute permission gate", () => {
     expect(screen.queryByTestId("wizard-shell-stub")).toBeNull();
   });
 
-  it("gives the full-height guided surface its own vertical scroll region", () => {
+  it("bounds the guided surface without adding a competing scroll region", () => {
     canMock.mockReturnValue(true);
     renderRoute();
 
     expect(screen.getByTestId("guided-catalog-scroll-region")).toHaveClass(
+      "flex",
       "min-h-0",
       "flex-1",
+      "flex-col",
+      "overflow-hidden"
+    );
+    expect(screen.getByTestId("guided-catalog-scroll-region")).not.toHaveClass(
       "overflow-y-auto"
     );
   });

@@ -215,7 +215,7 @@ function QuestionInput({
       <button
         type="button"
         disabled
-        className="pointer-events-none mt-3 inline-flex min-h-11 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-mute"
+        className="pointer-events-none inline-flex min-h-11 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-mute"
       >
         <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
         {t("guided.working", "WORKING…")}
@@ -225,7 +225,7 @@ function QuestionInput({
 
   if (question.answerKind === "boolean") {
     return (
-      <div className="mt-5 flex gap-2">
+      <div className="flex gap-2">
         {[
           [t("guided.yes", "YES"), true],
           [t("guided.no", "NO"), false],
@@ -249,7 +249,7 @@ function QuestionInput({
     question.options?.length
   ) {
     return (
-      <div className="mt-5 grid gap-2">
+      <div className="grid gap-2">
         {question.options.map((option) => (
           <button
             key={option}
@@ -274,7 +274,7 @@ function QuestionInput({
       if (choices.length > 0) onAnswer(choices);
     };
     return (
-      <div className="mt-5">
+      <div>
         <div className="grid gap-2">
           {question.options.map((option) => {
             const selected = choices.includes(option);
@@ -335,7 +335,10 @@ function QuestionInput({
     );
   };
   return (
-    <form onSubmit={submit} className="mt-5">
+    <form
+      onSubmit={submit}
+      className={cn(question.answerKind === "text" && "relative")}
+    >
       {question.answerKind === "text" ? (
         <Textarea
           autoFocus
@@ -352,8 +355,8 @@ function QuestionInput({
               event.currentTarget.form?.requestSubmit();
             }
           }}
-          rows={4}
-          className="min-h-36 resize-none px-3 py-3"
+          rows={2}
+          className="min-h-16 max-h-32 resize-none overflow-y-auto py-1 pl-1.5 pr-32"
           placeholder={t(
             "guided.answerPlaceholder",
             "Type your answer",
@@ -376,7 +379,12 @@ function QuestionInput({
       <button
         type="submit"
         disabled={locked || !value.trim()}
-        className="mt-3 rounded border border-ops-accent px-3 py-2 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:pointer-events-none disabled:border-glass-border disabled:text-text-mute"
+        className={cn(
+          "min-h-9 rounded border border-ops-accent px-3 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:pointer-events-none disabled:border-glass-border disabled:text-text-mute",
+          question.answerKind === "text"
+            ? "absolute bottom-1 right-1"
+            : "mt-3",
+        )}
       >
         {t("guided.continue", "CONTINUE")}
       </button>
@@ -469,7 +477,7 @@ function SourceDocumentInput({
   );
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-3">
+    <div className="mt-2 flex flex-wrap items-center gap-2">
       <input
         ref={inputRef}
         type="file"
@@ -483,7 +491,7 @@ function SourceDocumentInput({
         type="button"
         disabled={locked || reading}
         onClick={() => inputRef.current?.click()}
-        className="inline-flex min-h-11 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-2 transition-colors hover:border-line-hi hover:text-text disabled:pointer-events-none disabled:opacity-40"
+        className="inline-flex min-h-9 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-2 transition-colors hover:border-line-hi hover:text-text disabled:pointer-events-none disabled:opacity-40"
       >
         {reading ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
@@ -524,7 +532,7 @@ export function GuidedCatalogSetup({
   const startRef = useRef(false);
   const initialTurnRef = useRef(false);
   const turnInFlightRef = useRef(false);
-  const conversationEndRef = useRef<HTMLLIElement>(null);
+  const transcriptRef = useRef<HTMLOListElement>(null);
   const reduceMotion = useReducedMotion();
 
   const runTurn = useCallback(
@@ -588,9 +596,13 @@ export function GuidedCatalogSetup({
   );
 
   useEffect(() => {
-    conversationEndRef.current?.scrollIntoView?.({
-      behavior: reduceMotion ? "auto" : "smooth",
-      block: "end",
+    const transcript = transcriptRef.current;
+    if (!transcript || transcript.scrollHeight <= transcript.clientHeight) {
+      return;
+    }
+    transcript.scrollTo({
+      top: transcript.scrollHeight,
+      behavior: "auto",
     });
   }, [
     busy,
@@ -1073,7 +1085,7 @@ export function GuidedCatalogSetup({
     <section
       data-testid="guided-catalog-interview"
       className={cn(
-        "mx-auto flex h-full min-h-96 w-full max-w-4xl flex-col px-4 py-5 md:px-6",
+        "mx-auto flex h-full min-h-0 w-full max-w-4xl flex-col overflow-hidden px-4 py-3 md:px-6",
         className,
       )}
     >
@@ -1096,13 +1108,14 @@ export function GuidedCatalogSetup({
       </header>
 
       <ol
+        ref={transcriptRef}
         role="log"
         aria-live="polite"
         aria-label={t(
           "guided.transcriptLabel",
           "Catalog setup conversation",
         )}
-        className="scrollbar-hide min-h-0 flex-1 space-y-5 overflow-y-auto py-5"
+        className="scrollbar-hide min-h-0 flex-1 space-y-5 overflow-y-auto py-3"
       >
         <AnimatePresence initial={false}>
           {conversation.map((message) => {
@@ -1209,11 +1222,10 @@ export function GuidedCatalogSetup({
             ) : null}
           </li>
         ) : null}
-        <li ref={conversationEndRef} aria-hidden />
       </ol>
 
-      <div className="border-t border-glass-border pt-4">
-        <div className="glass-surface p-4">
+      <div className="border-t border-glass-border pt-2">
+        <div className="glass-surface p-2">
           {question ? (
             <>
               <QuestionInput
@@ -1237,7 +1249,7 @@ export function GuidedCatalogSetup({
         </div>
       </div>
 
-      <footer className="mt-4 flex flex-wrap gap-4">
+      <footer className="mt-2 flex flex-wrap gap-2">
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <button
