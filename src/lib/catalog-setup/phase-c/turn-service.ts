@@ -2,10 +2,13 @@ import { createHash } from "crypto";
 import { getAccessTokenClient } from "@/lib/supabase/accessToken-client";
 import {
   generateGuidedCatalogTurn,
-  SetupAgentOutputError,
   type GenerateGuidedCatalogTurnParams,
 } from "@/lib/catalog-setup/agent/setup-agent-service";
 import { applyCatalogAgentTurn } from "./conversation-reducer";
+import {
+  advanceGuidedConversation,
+  normalizeGuidedConversation,
+} from "./conversation-history";
 import {
   CatalogFactSchema,
   CatalogBlueprintSchema,
@@ -439,6 +442,11 @@ export async function runGuidedSetupTurn({
     current.unresolved_questions ?? []
   );
   const contradictions = rows(current.contradictions);
+  const conversation = normalizeGuidedConversation(
+    current.conversation,
+    unresolvedQuestions,
+    version,
+  );
   const proposedPlan =
     current.proposed_plan == null
       ? null
@@ -502,6 +510,13 @@ export async function runGuidedSetupTurn({
       version: nextVersion,
     },
   ];
+  const nextConversation = advanceGuidedConversation({
+    conversation,
+    currentQuestion: unresolvedQuestions[0] ?? null,
+    answer,
+    nextQuestion: reduced.unresolvedQuestions[0] ?? null,
+    nextVersion,
+  });
   const updateResult = await client
     .from("catalog_guided_setup_sessions")
     .update({
@@ -509,6 +524,7 @@ export async function runGuidedSetupTurn({
       version: nextVersion,
       facts: reduced.facts,
       sources: nextSources,
+      conversation: nextConversation,
       unresolved_questions: reduced.unresolvedQuestions,
       contradictions: reduced.contradictions,
       proposed_plan: reduced.proposedPlan,

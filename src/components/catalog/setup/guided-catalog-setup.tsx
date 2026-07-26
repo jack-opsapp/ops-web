@@ -2,12 +2,14 @@
 
 import {
   FormEvent,
+  KeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   Check,
@@ -32,12 +34,21 @@ import { cn } from "@/lib/utils/cn";
 import type {
   CatalogAction,
   CatalogBlueprint,
+  GuidedConversationMessage,
   GuidedQuestion,
 } from "@/lib/catalog-setup/phase-c/types";
+import {
+  guidedOperatorMessageForAnswer,
+  normalizeGuidedConversation,
+} from "@/lib/catalog-setup/phase-c/conversation-history";
 import {
   GuidedCatalogSourceDocumentError,
   readGuidedCatalogSourceFile,
 } from "@/lib/catalog-setup/phase-c/source-document";
+import {
+  cardEnterVariants,
+  cardEnterVariantsReduced,
+} from "@/lib/catalog-setup/motion";
 
 type GuidedStatus =
   | "interviewing"
@@ -52,6 +63,7 @@ interface GuidedSession {
   status: GuidedStatus;
   version: number;
   facts: Array<Record<string, unknown>>;
+  conversation: GuidedConversationMessage[];
   unresolvedQuestions: GuidedQuestion[];
   proposedPlan: CatalogBlueprint | null;
   proposedPlanHash: string | null;
@@ -73,6 +85,11 @@ interface GuidedCatalogSetupProps {
     defaultLocation?: string,
   ) => void;
   className?: string;
+}
+
+interface PendingGuidedTurn {
+  answer: unknown;
+  message: GuidedConversationMessage;
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -99,14 +116,21 @@ function confirmedDecisionCount(
 
 function normalizeSession(value: unknown): GuidedSession {
   const row = record(value);
+  const unresolvedQuestions = array<GuidedQuestion>(
+    row.unresolvedQuestions ?? row.unresolved_questions,
+  );
+  const version = Number(row.version ?? 0);
   return {
     id: String(row.id ?? ""),
     status: String(row.status ?? "interviewing") as GuidedStatus,
-    version: Number(row.version ?? 0),
+    version,
     facts: array<Record<string, unknown>>(row.facts),
-    unresolvedQuestions: array<GuidedQuestion>(
-      row.unresolvedQuestions ?? row.unresolved_questions,
+    conversation: normalizeGuidedConversation(
+      row.conversation,
+      unresolvedQuestions,
+      version,
     ),
+    unresolvedQuestions,
     proposedPlan:
       (row.proposedPlan ?? row.proposed_plan) == null
         ? null
@@ -169,10 +193,12 @@ function planActions(
 function QuestionInput({
   question,
   busy,
+  locked,
   onAnswer,
 }: {
   question: GuidedQuestion;
   busy: boolean;
+  locked: boolean;
   onAnswer: (answer: unknown) => void;
 }) {
   const { t } = useDictionary("catalog-setup");
@@ -184,6 +210,19 @@ function QuestionInput({
     setChoices([]);
   }, [question.id]);
 
+  if (busy) {
+    return (
+      <button
+        type="button"
+        disabled
+        className="pointer-events-none mt-3 inline-flex min-h-11 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-mute"
+      >
+        <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+        {t("guided.working", "WORKING…")}
+      </button>
+    );
+  }
+
   if (question.answerKind === "boolean") {
     return (
       <div className="mt-5 flex gap-2">
@@ -194,9 +233,9 @@ function QuestionInput({
           <button
             key={String(answer)}
             type="button"
-            disabled={busy}
+            disabled={locked}
             onClick={() => onAnswer(answer)}
-            className="rounded border border-glass-border px-3 py-2 font-cakemono text-cake-button uppercase text-text transition-colors hover:border-ops-accent hover:text-ops-accent disabled:opacity-40"
+            className="rounded border border-glass-border px-3 py-2 font-cakemono text-cake-button uppercase text-text transition-colors hover:border-ops-accent hover:text-ops-accent disabled:pointer-events-none disabled:opacity-40"
           >
             {String(label)}
           </button>
@@ -215,9 +254,9 @@ function QuestionInput({
           <button
             key={option}
             type="button"
-            disabled={busy}
+            disabled={locked}
             onClick={() => onAnswer(option)}
-            className="flex min-h-11 items-center justify-between rounded border border-glass-border px-3 py-2 text-left font-mohave text-body text-text transition-colors hover:border-ops-accent hover:text-ops-accent disabled:opacity-40"
+            className="flex min-h-11 items-center justify-between rounded border border-glass-border px-3 py-2 text-left font-mohave text-body text-text transition-colors hover:border-ops-accent hover:text-ops-accent disabled:pointer-events-none disabled:opacity-40"
           >
             {option}
             <ArrowRight aria-hidden className="h-4 w-4" />
@@ -243,7 +282,7 @@ function QuestionInput({
               <button
                 key={option}
                 type="button"
-                disabled={busy}
+                disabled={locked}
                 aria-pressed={selected}
                 onClick={() =>
                   setChoices((current) =>
@@ -253,7 +292,7 @@ function QuestionInput({
                   )
                 }
                 className={cn(
-                  "flex min-h-11 items-center gap-3 rounded border px-3 py-2 text-left font-mohave text-body transition-colors disabled:opacity-40",
+                  "flex min-h-11 items-center gap-3 rounded border px-3 py-2 text-left font-mohave text-body transition-colors disabled:pointer-events-none disabled:opacity-40",
                   selected
                     ? "border-ops-accent text-ops-accent"
                     : "border-glass-border text-text hover:border-ops-accent",
@@ -276,9 +315,9 @@ function QuestionInput({
         </div>
         <button
           type="button"
-          disabled={busy || choices.length === 0}
+          disabled={locked || choices.length === 0}
           onClick={submit}
-          className="mt-4 rounded border border-ops-accent px-3 py-2 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:border-glass-border disabled:text-text-mute"
+          className="mt-4 rounded border border-ops-accent px-3 py-2 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:pointer-events-none disabled:border-glass-border disabled:text-text-mute"
         >
           {t("guided.continue", "CONTINUE")}
         </button>
@@ -290,6 +329,7 @@ function QuestionInput({
     event.preventDefault();
     const clean = value.trim();
     if (!clean) return;
+    setValue("");
     onAnswer(
       question.answerKind === "number" ? Number(clean) : clean,
     );
@@ -300,8 +340,18 @@ function QuestionInput({
         <Textarea
           autoFocus
           value={value}
-          disabled={busy}
+          disabled={locked}
           onChange={(event) => setValue(event.target.value)}
+          onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
           rows={4}
           className="min-h-36 resize-none px-3 py-3"
           placeholder={t(
@@ -314,7 +364,7 @@ function QuestionInput({
           autoFocus
           type={question.answerKind === "number" ? "number" : "text"}
           value={value}
-          disabled={busy}
+          disabled={locked}
           onChange={(event) => setValue(event.target.value)}
           className="min-h-11 px-1 font-mono text-data-sm"
           placeholder={t(
@@ -325,8 +375,8 @@ function QuestionInput({
       )}
       <button
         type="submit"
-        disabled={busy || !value.trim()}
-        className="mt-3 rounded border border-ops-accent px-3 py-2 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:border-glass-border disabled:text-text-mute"
+        disabled={locked || !value.trim()}
+        className="mt-3 rounded border border-ops-accent px-3 py-2 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:pointer-events-none disabled:border-glass-border disabled:text-text-mute"
       >
         {t("guided.continue", "CONTINUE")}
       </button>
@@ -335,10 +385,10 @@ function QuestionInput({
 }
 
 function SourceDocumentInput({
-  busy,
+  locked,
   onAnswer,
 }: {
-  busy: boolean;
+  locked: boolean;
   onAnswer: (answer: unknown) => void;
 }) {
   const { t } = useDictionary("catalog-setup");
@@ -396,7 +446,7 @@ function SourceDocumentInput({
 
   const handleFile = useCallback(
     async (file: File | undefined) => {
-      if (!file || busy || reading) return;
+      if (!file || locked || reading) return;
       setReading(true);
       setUploadError(null);
       try {
@@ -415,25 +465,25 @@ function SourceDocumentInput({
         if (inputRef.current) inputRef.current.value = "";
       }
     },
-    [busy, errorMessage, onAnswer, reading, t],
+    [errorMessage, locked, onAnswer, reading, t],
   );
 
   return (
-    <div className="mt-4 border-t border-glass-border pt-4">
+    <div className="mt-3 flex flex-wrap items-center gap-3">
       <input
         ref={inputRef}
         type="file"
         accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         aria-label={t("guided.sourceLabel", "Upload price sheet")}
         className="sr-only"
-        disabled={busy || reading}
+        disabled={locked || reading}
         onChange={(event) => void handleFile(event.target.files?.[0])}
       />
       <button
         type="button"
-        disabled={busy || reading}
+        disabled={locked || reading}
         onClick={() => inputRef.current?.click()}
-        className="inline-flex min-h-11 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-2 transition-colors hover:border-line-hi hover:text-text disabled:opacity-40"
+        className="inline-flex min-h-11 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-2 transition-colors hover:border-line-hi hover:text-text disabled:pointer-events-none disabled:opacity-40"
       >
         {reading ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
@@ -444,11 +494,11 @@ function SourceDocumentInput({
           ? t("guided.sourceReading", "READING PRICE SHEET")
           : t("guided.sourceUpload", "UPLOAD PRICE SHEET")}
       </button>
-      <span className="ml-3 font-mono text-micro text-text-mute">
+      <span className="font-mono text-micro text-text-mute">
         {t("guided.sourceHint", "[ optional · CSV or Excel · up to 5 MB ]")}
       </span>
       {uploadError ? (
-        <p className="mt-2 font-mono text-micro text-danger" role="alert">
+        <p className="w-full font-mono text-micro text-danger" role="alert">
           {uploadError}
         </p>
       ) : null}
@@ -467,13 +517,39 @@ export function GuidedCatalogSetup({
   const [agentAvailable, setAgentAvailable] = useState(true);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingTurn, setPendingTurn] =
+    useState<PendingGuidedTurn | null>(null);
   const [commitResult, setCommitResult] =
     useState<GuidedCommitResponse | null>(null);
   const startRef = useRef(false);
   const initialTurnRef = useRef(false);
+  const turnInFlightRef = useRef(false);
+  const conversationEndRef = useRef<HTMLLIElement>(null);
+  const reduceMotion = useReducedMotion();
 
   const runTurn = useCallback(
-    async (answer: unknown, current: GuidedSession) => {
+    async (
+      answer: unknown,
+      current: GuidedSession,
+      retryPending = false,
+    ) => {
+      if (turnInFlightRef.current) return;
+      turnInFlightRef.current = true;
+      if (!retryPending) {
+        const message = guidedOperatorMessageForAnswer(
+          answer,
+          current.unresolvedQuestions[0] ?? null,
+          current.version + 1,
+        );
+        setPendingTurn(
+          message
+            ? {
+                answer,
+                message,
+              }
+            : null,
+        );
+      }
       setBusy(true);
       setError(null);
       try {
@@ -496,6 +572,7 @@ export function GuidedCatalogSetup({
         );
         const result = await jsonResponse<{ session: unknown }>(response);
         setSession(normalizeSession(result.session));
+        setPendingTurn(null);
       } catch (turnError) {
         setError(
           turnError instanceof Error
@@ -503,11 +580,25 @@ export function GuidedCatalogSetup({
             : t("guided.error", "Setup could not continue"),
         );
       } finally {
+        turnInFlightRef.current = false;
         setBusy(false);
       }
     },
     [t],
   );
+
+  useEffect(() => {
+    conversationEndRef.current?.scrollIntoView?.({
+      behavior: reduceMotion ? "auto" : "smooth",
+      block: "end",
+    });
+  }, [
+    busy,
+    error,
+    pendingTurn,
+    reduceMotion,
+    session?.conversation.length,
+  ]);
 
   useEffect(() => {
     if (startRef.current) return;
@@ -688,6 +779,7 @@ export function GuidedCatalogSetup({
       }>(startResponse);
       setAgentAvailable(result.agentAvailable);
       setCommitResult(null);
+      setPendingTurn(null);
       initialTurnRef.current = false;
       setSession(
         result.agentAvailable && result.session
@@ -969,82 +1061,189 @@ export function GuidedCatalogSetup({
   }
 
   const question = session.unresolvedQuestions[0];
+  const conversation =
+    pendingTurn &&
+    !session.conversation.some(
+      (message) => message.id === pendingTurn.message.id,
+    )
+      ? [...session.conversation, pendingTurn.message]
+      : session.conversation;
+  const turnLocked = busy || pendingTurn !== null;
   return (
     <section
       data-testid="guided-catalog-interview"
       className={cn(
-        "mx-auto flex min-h-96 w-full max-w-3xl flex-col justify-center px-5 py-8",
+        "mx-auto flex h-full min-h-96 w-full max-w-4xl flex-col px-4 py-5 md:px-6",
         className,
       )}
     >
-      <span className="font-mono text-micro uppercase tracking-wide text-text-3">
-        {"// "}
-        {t("guided.kicker", "GUIDED CATALOG SETUP")}
-      </span>
-      <div className="mt-3 font-mono text-micro text-text-mute">
-        {t("guided.factCount", "Confirmed decisions · {count}").replace(
-          "{count}",
-          String(confirmedDecisionCount(session.facts)),
-        )}
-      </div>
-      <div className="mt-5 glass-surface p-5">
-        <h1 className="font-cakemono text-cake-section font-light uppercase leading-tight text-text">
-          {question?.prompt ??
-            t(
-              "guided.preparing",
-              "Preparing the next question",
-            )}
-        </h1>
-        {question?.help ? (
-          <p className="mt-3 font-mohave text-body text-text-2">
-            {question.help}
-          </p>
-        ) : null}
-        {question ? (
-          <>
-            <QuestionInput
-              key={question.id}
-              question={question}
-              busy={busy}
-              onAnswer={(answer) => void runTurn(answer, session)}
-            />
-            <SourceDocumentInput
-              busy={busy}
-              onAnswer={(answer) => void runTurn(answer, session)}
-            />
-          </>
-        ) : (
-          <div className="mt-5 flex items-center gap-2 font-mono text-micro uppercase text-text-3">
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-            {t("guided.thinking", "CHECKING WHAT'S ALREADY ON FILE")}
-          </div>
-        )}
-      </div>
-      {error ? (
-        <div className="mt-4">
-          <p className="font-mono text-micro text-danger">{error}</p>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() =>
-              void runTurn(
-                { intent: "retry_last_turn" },
-                session,
-              )
-            }
-            className="mt-2 font-mono text-micro text-text-3 transition-colors hover:text-text"
-          >
-            {t("guided.retry", "[ try again ]")}
-          </button>
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-glass-border pb-3">
+        <div>
+          <span className="font-mono text-micro uppercase tracking-wide text-text-3">
+            {"// "}
+            {t("guided.kicker", "GUIDED CATALOG SETUP")}
+          </span>
+          <h1 className="mt-1 font-cakemono text-cake-section font-light uppercase text-text">
+            {t("guided.conversationTitle", "BUILD YOUR CATALOG")}
+          </h1>
         </div>
-      ) : null}
-      <div className="mt-6 flex flex-wrap gap-4">
+        <div className="font-mono text-micro text-text-mute">
+          {t("guided.factCount", "Confirmed decisions · {count}").replace(
+            "{count}",
+            String(confirmedDecisionCount(session.facts)),
+          )}
+        </div>
+      </header>
+
+      <ol
+        role="log"
+        aria-live="polite"
+        aria-label={t(
+          "guided.transcriptLabel",
+          "Catalog setup conversation",
+        )}
+        className="scrollbar-hide min-h-0 flex-1 space-y-5 overflow-y-auto py-5"
+      >
+        <AnimatePresence initial={false}>
+          {conversation.map((message) => {
+            const assistant = message.role === "assistant";
+            const currentHelp =
+              assistant &&
+              question?.help &&
+              message.id ===
+                `assistant:${session.version}:${question.id}`
+                ? question.help
+                : null;
+            return (
+              <motion.li
+                key={message.id}
+                variants={
+                  reduceMotion
+                    ? cardEnterVariantsReduced
+                    : cardEnterVariants
+                }
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className={cn(
+                  "w-fit max-w-2xl font-mohave text-body",
+                  assistant
+                    ? "mr-auto border-l border-agent-border bg-agent-bg px-4 py-3 text-text"
+                    : "ml-auto rounded border border-glass-border bg-surface-input px-4 py-3 text-text",
+                )}
+                data-message-role={message.role}
+              >
+                <div
+                  className={cn(
+                    "mb-1 font-mono text-micro uppercase tracking-wide",
+                    assistant ? "text-agent-text2" : "text-text-mute",
+                  )}
+                >
+                  {assistant
+                    ? t("guided.agentLabel", "PHASE C")
+                    : t("guided.operatorLabel", "YOU")}
+                </div>
+                {message.kind === "source_document" ? (
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet
+                      aria-hidden
+                      className="h-4 w-4 shrink-0 text-text-3"
+                    />
+                    <span>
+                      {t(
+                        "guided.sourceMessage",
+                        "Uploaded {filename}",
+                      ).replace("{filename}", message.content)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap">{message.content}</p>
+                )}
+                {currentHelp ? (
+                  <p className="mt-2 text-body-sm text-text-2">
+                    {currentHelp}
+                  </p>
+                ) : null}
+              </motion.li>
+            );
+          })}
+        </AnimatePresence>
+
+        {busy ? (
+          <li
+            role="status"
+            aria-label={t(
+              "guided.workingStatus",
+              "Phase C is working",
+            )}
+            className="mr-auto flex w-fit items-center gap-2 border-l border-agent-border bg-agent-bg px-4 py-3 font-mohave text-body-sm text-text-2"
+          >
+            <Loader2
+              aria-hidden
+              className="h-4 w-4 animate-spin text-agent-text2"
+            />
+            {t(
+              "guided.workingBody",
+              "Phase C is checking your answer…",
+            )}
+          </li>
+        ) : null}
+
+        {error ? (
+          <li
+            role="alert"
+            className="ml-auto max-w-2xl rounded border border-rose-line bg-rose-soft px-4 py-3"
+          >
+            <p className="font-mohave text-body-sm text-rose">{error}</p>
+            {pendingTurn ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void runTurn(pendingTurn.answer, session, true)
+                }
+                className="mt-2 font-mono text-micro text-text-2 transition-colors hover:text-text disabled:pointer-events-none disabled:opacity-40"
+              >
+                {t("guided.retry", "[ try again ]")}
+              </button>
+            ) : null}
+          </li>
+        ) : null}
+        <li ref={conversationEndRef} aria-hidden />
+      </ol>
+
+      <div className="border-t border-glass-border pt-4">
+        <div className="glass-surface p-4">
+          {question ? (
+            <>
+              <QuestionInput
+                key={question.id}
+                question={question}
+                busy={busy}
+                locked={turnLocked}
+                onAnswer={(answer) => void runTurn(answer, session)}
+              />
+              <SourceDocumentInput
+                locked={turnLocked}
+                onAnswer={(answer) => void runTurn(answer, session)}
+              />
+            </>
+          ) : (
+            <div className="flex items-center gap-2 font-mohave text-body-sm text-text-2">
+              <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+              {t("guided.preparing", "Preparing the next question")}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <footer className="mt-4 flex flex-wrap gap-4">
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <button
               type="button"
               disabled={busy}
-              className="font-mono text-micro text-text-3 transition-colors hover:text-text disabled:opacity-40"
+              className="font-mono text-micro text-text-3 transition-colors hover:text-text disabled:pointer-events-none disabled:opacity-40"
             >
               {t("guided.restartGhost", "[ start over ]")}
             </button>
@@ -1088,7 +1287,7 @@ export function GuidedCatalogSetup({
         >
           {t("guided.exit", "[ back to catalog ]")}
         </button>
-      </div>
+      </footer>
     </section>
   );
 }

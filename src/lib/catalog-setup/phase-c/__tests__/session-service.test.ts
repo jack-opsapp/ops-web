@@ -247,6 +247,73 @@ describe("Phase C guided setup session service", () => {
         help: "Describe the service, or upload a CSV or Excel price sheet.",
       },
     ]);
+    expect(result.session.conversation).toEqual([
+      {
+        id: "assistant:0:first-service-line",
+        role: "assistant",
+        kind: "text",
+        content: "What service do you want to set up first?",
+        version: 0,
+      },
+    ]);
+  });
+
+  it("restores a saved transcript when resuming a guided session", async () => {
+    const conversation = [
+      {
+        id: "assistant:0:first-service-line",
+        role: "assistant",
+        kind: "text",
+        content: "What service do you want to set up first?",
+        version: 0,
+      },
+      {
+        id: "operator:1:first-service-line",
+        role: "operator",
+        kind: "text",
+        content: "Vinyl membrane installation",
+        version: 1,
+      },
+      {
+        id: "assistant:1:supplier",
+        role: "assistant",
+        kind: "text",
+        content: "Which supplier do you use?",
+        version: 1,
+      },
+    ];
+    const { client } = createQueryClient({
+      catalog_guided_setup_sessions: [
+        {
+          id: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+          company_id: "company-1",
+          operator_id: "operator-1",
+          mode: "guided",
+          status: "interviewing",
+          version: 1,
+          facts: [],
+          sources: [],
+          conversation,
+          unresolved_questions: [
+            {
+              id: "supplier",
+              prompt: "Which supplier do you use?",
+              answerKind: "text",
+              factKeys: ["suppliers.primary"],
+            },
+          ],
+        },
+      ],
+    });
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    const result = await startOrResumeGuidedSetupSession({
+      token: "token",
+      companyId: "company-1",
+      operatorId: "operator-2",
+    });
+
+    expect(result.session.conversation).toEqual(conversation);
   });
 
   it("repairs an active session that was stranded on a file question", async () => {

@@ -8,6 +8,7 @@ import {
   buildLiveCatalogSnapshot,
   type LiveCatalogContextRowSets,
 } from "./live-catalog-context";
+import { normalizeGuidedConversation } from "./conversation-history";
 import type { GuidedQuestion } from "./types";
 
 const ACTIVE_SESSION_STATUSES = [
@@ -226,16 +227,25 @@ export async function loadCompanyCatalogRowSets(
 }
 
 function mapSessionRow(row: Record<string, unknown>) {
+  const unresolvedQuestions = asRows(
+    row.unresolved_questions,
+  ) as unknown as GuidedQuestion[];
+  const version = Number(row.version ?? 0);
   return {
     id: row.id,
     companyId: row.company_id,
     operatorId: row.operator_id,
     mode: row.mode,
     status: row.status,
-    version: row.version,
+    version,
     facts: row.facts,
     sources: row.sources,
-    unresolvedQuestions: row.unresolved_questions,
+    conversation: normalizeGuidedConversation(
+      row.conversation,
+      unresolvedQuestions,
+      version,
+    ),
+    unresolvedQuestions,
     contradictions: row.contradictions,
     liveSnapshot: row.live_snapshot,
     liveSnapshotHash: row.live_snapshot_hash,
@@ -274,6 +284,11 @@ async function repairFileQuestion(
     .update({
       version: nextVersion,
       unresolved_questions: [FIRST_SERVICE_LINE_QUESTION],
+      conversation: normalizeGuidedConversation(
+        row.conversation,
+        [FIRST_SERVICE_LINE_QUESTION],
+        nextVersion,
+      ),
       sources: [
         ...asRows(row.sources),
         {
@@ -387,6 +402,11 @@ export async function startOrResumeGuidedSetupSession({
       version: 0,
       facts: [],
       sources: [],
+      conversation: normalizeGuidedConversation(
+        [],
+        [FIRST_SERVICE_LINE_QUESTION],
+        0,
+      ),
       unresolved_questions: [FIRST_SERVICE_LINE_QUESTION],
       contradictions: [],
       live_snapshot: snapshot,

@@ -69,6 +69,21 @@ export const GuidedQuestionSchema = z
     }
   });
 
+export const GuidedConversationMessageSchema = z
+  .object({
+    id: z.string().min(1).max(240),
+    role: z.enum(["assistant", "operator"]),
+    kind: z.enum(["text", "source_document"]),
+    content: z.string().min(1).max(8_000),
+    version: z.number().int().nonnegative(),
+    filename: z.string().min(1).max(255).optional(),
+  })
+  .strict();
+
+export const GuidedConversationSchema = z
+  .array(GuidedConversationMessageSchema)
+  .max(200);
+
 export const CatalogActionGroupSchema = z.enum([
   "CREATE",
   "REUSE",
@@ -200,6 +215,7 @@ export const GuidedSetupSessionDocumentSchema = z
     version: z.number().int().nonnegative(),
     facts: z.array(CatalogFactSchema),
     sources: z.array(z.record(z.unknown())),
+    conversation: GuidedConversationSchema.default([]),
     unresolvedQuestions: z.array(GuidedQuestionSchema),
     contradictions: z.array(z.record(z.unknown())),
     liveSnapshot: z.record(z.unknown()),

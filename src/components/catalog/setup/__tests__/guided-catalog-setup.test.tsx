@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -29,6 +30,15 @@ const baseSession = {
   status: "interviewing",
   version: 1,
   facts: [],
+  conversation: [
+    {
+      id: "assistant:1:tax",
+      role: "assistant",
+      kind: "text",
+      content: "Is GST added on top?",
+      version: 1,
+    },
+  ],
   unresolvedQuestions: [
     {
       id: "tax",
@@ -104,6 +114,22 @@ function renderSetup(
 describe("GuidedCatalogSetup", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener() {},
+        removeEventListener() {},
+        addListener() {},
+        removeListener() {},
+        dispatchEvent() {
+          return false;
+        },
+      }),
+    });
     mocks.getIdToken.mockResolvedValue("firebase-token");
   });
 
@@ -145,6 +171,226 @@ describe("GuidedCatalogSetup", () => {
       await screen.findByText("What is the minimum charge?"),
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("acknowledges a submitted answer immediately and exposes a true working state", async () => {
+    let finishTurn:
+      | ((value: Response | PromiseLike<Response>) => void)
+      | undefined;
+    vi.spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() =>
+        response({ session: baseSession, agentAvailable: true }),
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            finishTurn = resolve;
+          }),
+      );
+
+    renderSetup();
+    await screen.findByText("Is GST added on top?");
+    fireEvent.click(screen.getByRole("button", { name: "YES" }));
+
+    expect(screen.getByText("Yes")).toBeInTheDocument();
+    expect(
+      screen.getByRole("status", { name: "Phase C is working" }),
+    ).toBeInTheDocument();
+    const workingButton = screen.getByRole("button", { name: "WORKING…" });
+    expect(workingButton).toBeDisabled();
+    expect(workingButton).toHaveClass("pointer-events-none");
+
+    await waitFor(() => expect(finishTurn).toBeDefined());
+    await act(async () => {
+      finishTurn!(
+        new Response(
+          JSON.stringify({
+            session: {
+              ...baseSession,
+              version: 2,
+              conversation: [
+                ...baseSession.conversation,
+                {
+                  id: "operator:2:tax",
+                  role: "operator",
+                  kind: "text",
+                  content: "Yes",
+                  version: 2,
+                },
+                {
+                  id: "assistant:2:minimum",
+                  role: "assistant",
+                  kind: "text",
+                  content: "What is the minimum charge?",
+                  version: 2,
+                },
+              ],
+              unresolvedQuestions: [
+                {
+                  id: "minimum",
+                  prompt: "What is the minimum charge?",
+                  answerKind: "number",
+                  factKeys: ["pricing.minimum"],
+                },
+              ],
+            },
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+      );
+      await Promise.resolve();
+    });
+    expect(
+      await screen.findByText("What is the minimum charge?"),
+    ).toBeInTheDocument();
+  });
+
+  it("restores the persisted transcript with readable conversational typography", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(() =>
+      response({
+        session: {
+          ...baseSession,
+          version: 2,
+          conversation: [
+            ...baseSession.conversation,
+            {
+              id: "operator:2:tax",
+              role: "operator",
+              kind: "text",
+              content: "Yes",
+              version: 2,
+            },
+            {
+              id: "assistant:2:minimum",
+              role: "assistant",
+              kind: "text",
+              content: "What is the minimum charge?",
+              version: 2,
+            },
+          ],
+          unresolvedQuestions: [
+            {
+              id: "minimum",
+              prompt: "What is the minimum charge?",
+              answerKind: "number",
+              factKeys: ["pricing.minimum"],
+            },
+          ],
+        },
+        agentAvailable: true,
+      }),
+    );
+
+    renderSetup();
+
+    expect(await screen.findByText("Yes")).toBeInTheDocument();
+    const assistantMessage = screen
+      .getByText("What is the minimum charge?")
+      .closest('[data-message-role="assistant"]');
+    expect(assistantMessage).toHaveClass("font-mohave");
+    expect(assistantMessage).not.toHaveClass("uppercase");
+    expect(assistantMessage).not.toHaveClass("font-cakemono");
+  });
+
+  it("keeps a failed answer visible and retries the exact answer without duplication", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() =>
+        response({
+          session: {
+            ...baseSession,
+            unresolvedQuestions: [
+              {
+                id: "service",
+                prompt: "What service do you want to set up first?",
+                answerKind: "text",
+                factKeys: ["customer_products.first_service_line"],
+              },
+            ],
+            conversation: [
+              {
+                id: "assistant:1:service",
+                role: "assistant",
+                kind: "text",
+                content: "What service do you want to set up first?",
+                version: 1,
+              },
+            ],
+          },
+          agentAvailable: true,
+        }),
+      )
+      .mockImplementationOnce(() =>
+        response({ error: "Setup could not continue" }, 500),
+      )
+      .mockImplementationOnce((_input, init) => {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          token: "firebase-token",
+          answer: "Vinyl membrane installation",
+          expectedVersion: 1,
+        });
+        return response({
+          session: {
+            ...baseSession,
+            version: 2,
+            conversation: [
+              {
+                id: "assistant:1:service",
+                role: "assistant",
+                kind: "text",
+                content: "What service do you want to set up first?",
+                version: 1,
+              },
+              {
+                id: "operator:2:service",
+                role: "operator",
+                kind: "text",
+                content: "Vinyl membrane installation",
+                version: 2,
+              },
+              {
+                id: "assistant:2:supplier",
+                role: "assistant",
+                kind: "text",
+                content: "Which supplier do you use?",
+                version: 2,
+              },
+            ],
+            unresolvedQuestions: [
+              {
+                id: "supplier",
+                prompt: "Which supplier do you use?",
+                answerKind: "text",
+                factKeys: ["suppliers.primary"],
+              },
+            ],
+          },
+        });
+      });
+
+    renderSetup();
+    await screen.findByText("What service do you want to set up first?");
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Vinyl membrane installation" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "CONTINUE" }));
+
+    expect(
+      await screen.findByText("Setup could not continue"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Vinyl membrane installation"),
+    ).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "[ try again ]" }));
+
+    expect(await screen.findByText("Which supplier do you use?")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Vinyl membrane installation"),
+    ).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("uses the shared tokenized field and counts only operator-confirmed decisions", async () => {

@@ -3780,6 +3780,7 @@ export type Database = {
           commit_operation_id: string | null
           company_id: string
           completed_at: string | null
+          conversation: Json
           contradictions: Json
           created_at: string
           facts: Json
@@ -3805,6 +3806,7 @@ export type Database = {
           commit_operation_id?: string | null
           company_id: string
           completed_at?: string | null
+          conversation?: Json
           contradictions?: Json
           created_at?: string
           facts?: Json
@@ -3830,6 +3832,7 @@ export type Database = {
           commit_operation_id?: string | null
           company_id?: string
           completed_at?: string | null
+          conversation?: Json
           contradictions?: Json
           created_at?: string
           facts?: Json
