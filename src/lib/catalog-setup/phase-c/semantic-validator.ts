@@ -39,26 +39,38 @@ function schemaFailure(message: string): CatalogTurnValidationResult {
 }
 
 export function validateCatalogAgentTurn(
-  input: unknown,
+  input: unknown
 ): CatalogTurnValidationResult {
   const parsed = CatalogAgentTurnSchema.safeParse(input);
   if (!parsed.success) {
     return schemaFailure(
       parsed.error.issues
         .map((issue) => `${issue.path.join(".")}: ${issue.message}`)
-        .join(" · "),
+        .join(" · ")
     );
   }
 
   const turn = parsed.data;
   const issues: CatalogSetupIssue[] = [];
   if (turn.kind === "review") {
+    const unconfirmedCompanyKnowledge = turn.facts.filter(
+      (fact) =>
+        fact.source.kind === "company_knowledge" && fact.status === "unresolved"
+    );
+    if (unconfirmedCompanyKnowledge.length > 0) {
+      issues.push({
+        code: "company_knowledge_unconfirmed",
+        severity: "blocker",
+        message: "Confirm company knowledge before review.",
+      });
+    }
+
     const staffOnlyThickness = turn.facts.some(
       (fact) =>
         fact.status === "confirmed" &&
         fact.classification === "staff_only_choice" &&
         normalized(fact.key).includes("thickness") &&
-        fact.value !== false,
+        fact.value !== false
     );
     if (staffOnlyThickness) {
       for (const action of turn.blueprint.actions) {
@@ -80,14 +92,14 @@ export function validateCatalogAgentTurn(
     for (const action of turn.blueprint.actions) {
       if (action.actionType !== "upsert_product") continue;
       const missing: string[] = REQUIRED_PRODUCT_FIELDS.filter(
-        (field) => !Object.prototype.hasOwnProperty.call(action.payload, field),
+        (field) => !Object.prototype.hasOwnProperty.call(action.payload, field)
       );
       const hasTaskType =
         Object.prototype.hasOwnProperty.call(action.payload, "taskTypeRef") ||
         Object.prototype.hasOwnProperty.call(action.payload, "taskTypeId") ||
         Object.prototype.hasOwnProperty.call(
           action.payload,
-          "taskTypeClientId",
+          "taskTypeClientId"
         );
       if (!hasTaskType) missing.push("taskTypeRef");
       if (missing.length > 0) {
@@ -103,7 +115,7 @@ export function validateCatalogAgentTurn(
     const contradictedKeys = new Set(
       turn.facts
         .filter((fact) => fact.status === "contradicted")
-        .map((fact) => fact.key),
+        .map((fact) => fact.key)
     );
     if (contradictedKeys.size > 0) {
       for (const action of turn.blueprint.actions) {
@@ -111,10 +123,10 @@ export function validateCatalogAgentTurn(
           JSON.stringify({
             actionKey: action.actionKey,
             payload: action.payload,
-          }),
+          })
         );
         const affected = [...contradictedKeys].filter((key) =>
-          serialized.includes(normalized(key)),
+          serialized.includes(normalized(key))
         );
         if (affected.length > 0) {
           issues.push({

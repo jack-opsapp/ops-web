@@ -59,7 +59,7 @@ describe("Phase C semantic validator", () => {
     expect(result.issues).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ code: "staff_choice_exposed" }),
-      ]),
+      ])
     );
   });
 
@@ -88,7 +88,54 @@ describe("Phase C semantic validator", () => {
 
     expect(result.success).toBe(false);
     expect(result.issues[0]).toEqual(
-      expect.objectContaining({ code: "incomplete_product_plan" }),
+      expect.objectContaining({ code: "incomplete_product_plan" })
+    );
+  });
+
+  it("blocks review while a company knowledge fact still needs confirmation", () => {
+    const result = validateCatalogAgentTurn({
+      kind: "review",
+      facts: [
+        {
+          id: "memory-price",
+          classification: "pricing_rule",
+          key: "product.vinyl.base_price",
+          value: 11.73,
+          source: {
+            kind: "company_knowledge",
+            reference: "memory-price",
+          },
+          confidence: 0.92,
+          status: "unresolved",
+          contradicts: [],
+        },
+      ],
+      blueprint: {
+        version: 1,
+        summary: "Vinyl",
+        ready: true,
+        issues: [],
+        actions: [
+          {
+            actionKey: "create:product:vinyl",
+            group: "CREATE",
+            actionType: "upsert_product",
+            targetKind: "product",
+            clientId: "vinyl",
+            dependsOn: [],
+            payload: requiredProductPayload,
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "company_knowledge_unconfirmed",
+        }),
+      ])
     );
   });
 

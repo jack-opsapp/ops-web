@@ -29,7 +29,7 @@ describe("Phase C catalog setup schemas", () => {
         prompt: "Upload your current price sheet.",
         answerKind: "file",
         factKeys: ["customer_products"],
-      }),
+      })
     ).toThrow();
   });
 
@@ -67,7 +67,7 @@ describe("Phase C catalog setup schemas", () => {
           actions: [],
           issues: [],
         },
-      }),
+      })
     ).toThrow();
   });
 
@@ -119,7 +119,7 @@ describe("Phase C catalog setup schemas", () => {
           },
         ],
         issues: [],
-      }),
+      })
     ).toThrow();
   });
 
@@ -128,8 +128,38 @@ describe("Phase C catalog setup schemas", () => {
       CatalogFactSchema.parse({
         ...operatorFact,
         classification: "misc",
-      }),
+      })
     ).toThrow();
+  });
+
+  it("accepts company knowledge only as an unresolved fact source", () => {
+    const parsed = CatalogFactSchema.parse({
+      ...operatorFact,
+      id: "fact-company-knowledge-price",
+      source: {
+        kind: "company_knowledge",
+        reference: "memory-price",
+      },
+      confidence: 0.92,
+      status: "unresolved",
+    });
+
+    expect(parsed.source.kind).toBe("company_knowledge");
+    expect(parsed.status).toBe("unresolved");
+  });
+
+  it("rejects company knowledge presented as confirmed truth", () => {
+    expect(() =>
+      CatalogFactSchema.parse({
+        ...operatorFact,
+        source: {
+          kind: "company_knowledge",
+          reference: "memory-price",
+        },
+        confidence: 0.92,
+        status: "confirmed",
+      })
+    ).toThrow(/unresolved/i);
   });
 
   it("accepts a durable session document with structured state rather than chat as truth", () => {

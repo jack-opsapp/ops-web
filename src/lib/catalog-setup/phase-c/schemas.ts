@@ -19,6 +19,7 @@ export const CatalogFactSourceKindSchema = z.enum([
   "operator",
   "upload",
   "verified_supplier",
+  "company_knowledge",
   "calculation",
 ]);
 
@@ -38,7 +39,19 @@ export const CatalogFactSchema = z
     status: z.enum(["confirmed", "unresolved", "contradicted"]),
     contradicts: z.array(z.string().min(1)).default([]),
   })
-  .strict();
+  .strict()
+  .superRefine((fact, ctx) => {
+    if (
+      fact.source.kind === "company_knowledge" &&
+      fact.status !== "unresolved"
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["status"],
+        message: "Company knowledge facts must remain unresolved",
+      });
+    }
+  });
 
 export const GuidedQuestionSchema = z
   .object({
@@ -118,7 +131,10 @@ export const CatalogActionTypeSchema = z.enum([
 
 export const CatalogActionSchema = z
   .object({
-    actionKey: z.string().min(1).regex(/^[a-z0-9][a-z0-9:_-]*$/),
+    actionKey: z
+      .string()
+      .min(1)
+      .regex(/^[a-z0-9][a-z0-9:_-]*$/),
     group: CatalogActionGroupSchema,
     actionType: CatalogActionTypeSchema,
     targetKind: z.string().min(1),
@@ -163,7 +179,7 @@ export const CatalogBlueprintSchema = z
   .strict()
   .superRefine((blueprint, ctx) => {
     const blocking = blueprint.issues.some(
-      (issue) => issue.severity === "blocker",
+      (issue) => issue.severity === "blocker"
     );
     if (blueprint.ready && blocking) {
       ctx.addIssue({

@@ -14,6 +14,11 @@ import {
   CatalogBlueprintSchema,
   GuidedQuestionSchema,
 } from "./schemas";
+import {
+  loadCatalogKnowledgeContext,
+  type CatalogKnowledgeContext,
+  type LoadCatalogKnowledgeContextInput,
+} from "./catalog-knowledge-context";
 
 interface QueryError {
   message?: string;
@@ -62,6 +67,9 @@ interface RunGuidedSetupTurnParams {
   generateTurn?: (
     params: GenerateGuidedCatalogTurnParams
   ) => ReturnType<typeof generateGuidedCatalogTurn>;
+  loadKnowledge?: (
+    params: LoadCatalogKnowledgeContextInput
+  ) => Promise<CatalogKnowledgeContext>;
 }
 
 function rows(value: unknown): Array<Record<string, unknown>> {
@@ -135,6 +143,7 @@ export async function runGuidedSetupTurn({
   expectedVersion,
   client: injectedClient,
   generateTurn = generateGuidedCatalogTurn,
+  loadKnowledge = loadCatalogKnowledgeContext,
 }: RunGuidedSetupTurnParams) {
   const client =
     injectedClient ??
@@ -173,13 +182,27 @@ export async function runGuidedSetupTurn({
   const conversation = normalizeGuidedConversation(
     current.conversation,
     unresolvedQuestions,
-    version,
+    version
   );
   const proposedPlan =
     current.proposed_plan == null
       ? null
       : CatalogBlueprintSchema.parse(current.proposed_plan);
   const liveSnapshot = asRecord(current.live_snapshot);
+  let companyKnowledge: CatalogKnowledgeContext = {
+    queryHash: "",
+    evidence: [],
+  };
+  try {
+    companyKnowledge = await loadKnowledge({
+      companyId,
+      currentQuestion: unresolvedQuestions[0] ?? null,
+      answer,
+      facts,
+    });
+  } catch (error) {
+    console.error("[catalog-setup] Company knowledge unavailable", error);
+  }
   const turn = await generateTurn({
     answer,
     facts,
@@ -187,6 +210,7 @@ export async function runGuidedSetupTurn({
     currentQuestion: unresolvedQuestions[0] ?? null,
     liveSnapshotSummary: snapshotSummary(liveSnapshot),
     verifiedReference: {},
+    companyKnowledge: companyKnowledge.evidence,
   });
   const reduced = applyCatalogAgentTurn(
     {
@@ -204,8 +228,23 @@ export async function runGuidedSetupTurn({
   const answerRecord = asRecord(answer);
   const sourceKind =
     answerRecord.kind === "catalog_source_document" ? "upload" : "operator";
+  const knowledgeSource =
+    companyKnowledge.evidence.length > 0
+      ? [
+          {
+            kind: "company_knowledge",
+            queryHash: companyKnowledge.queryHash,
+            memoryIds: companyKnowledge.evidence.map((entry) => entry.id),
+            categories: Array.from(
+              new Set(companyKnowledge.evidence.map((entry) => entry.category))
+            ),
+            version: nextVersion,
+          },
+        ]
+      : [];
   const nextSources = [
     ...rows(current.sources),
+    ...knowledgeSource,
     {
       kind: sourceKind,
       questionId: unresolvedQuestions[0]?.id ?? null,

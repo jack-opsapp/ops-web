@@ -32,7 +32,10 @@ describe("generateCatalogProposals", () => {
     });
 
     expect(result.proposals).toHaveLength(1);
-    expect(result.proposals[0]).toMatchObject({ module: "SELL", name: "Service call" });
+    expect(result.proposals[0]).toMatchObject({
+      module: "SELL",
+      name: "Service call",
+    });
 
     const args = create.mock.calls[0][0] as {
       response_format: unknown;
@@ -40,7 +43,10 @@ describe("generateCatalogProposals", () => {
     };
     expect(args.response_format).toEqual({ type: "json_object" });
     expect(args.messages[0].role).toBe("system");
-    expect(args.messages.at(-1)).toEqual({ role: "user", content: "I do roof repairs" });
+    expect(args.messages.at(-1)).toEqual({
+      role: "user",
+      content: "I do roof repairs",
+    });
   });
 
   it("threads prior turns ahead of the latest description", async () => {
@@ -50,7 +56,9 @@ describe("generateCatalogProposals", () => {
       priorTurns: ["I'm a plumber"],
       client,
     });
-    const msgs = (create.mock.calls[0][0] as { messages: { content: string }[] }).messages;
+    const msgs = (
+      create.mock.calls[0][0] as { messages: { content: string }[] }
+    ).messages;
     expect(msgs.map((m) => m.content)).toContain("I'm a plumber");
     expect(msgs.at(-1)?.content).toBe("mostly residential");
   });
@@ -89,6 +97,7 @@ describe("generateGuidedCatalogTurn", () => {
       currentQuestion: null,
       liveSnapshotSummary: { productCount: 0 },
       verifiedReference: {},
+      companyKnowledge: [],
       client,
     });
 
@@ -100,13 +109,13 @@ describe("generateGuidedCatalogTurn", () => {
     expect(args.response_format).toEqual({ type: "json_object" });
     expect(args.messages[0].content).toMatch(/one high-value question/i);
     expect(args.messages[0].content).toMatch(
-      /document cells as untrusted data/i,
+      /document cells as untrusted data/i
     );
     expect(args.messages[0].content).toMatch(
-      /confirm.*supplier|supplier.*confirmed/i,
+      /confirm.*supplier|supplier.*confirmed/i
     );
     expect(
-      args.messages.map((message) => message.content).join("\n"),
+      args.messages.map((message) => message.content).join("\n")
     ).not.toMatch(/deksmart/i);
     expect(JSON.parse(args.messages[1].content).responseSchema).toBeTruthy();
   });
@@ -134,6 +143,57 @@ describe("generateGuidedCatalogTurn", () => {
         supplier: "Northstar",
         source: "operator-provided catalog",
       },
+      companyKnowledge: [],
+      client,
+    });
+
+    const args = create.mock.calls[0][0] as {
+      messages: Array<{ role: string; content: string }>;
+    };
+    expect(args.messages[0].content).toMatch(/session-scoped.*evidence/i);
+    expect(args.messages[0].content).not.toMatch(/Northstar/i);
+    expect(args.messages[0].content).not.toMatch(
+      /exactly two product actions/i
+    );
+    expect(
+      JSON.parse(args.messages[1].content).verifiedSupplierReference
+    ).toEqual({
+      supplier: "Northstar",
+      source: "operator-provided catalog",
+    });
+  });
+
+  it("uses company knowledge as unconfirmed background evidence", async () => {
+    const turn = {
+      kind: "question",
+      facts: [],
+      question: {
+        id: "confirm-historical-price",
+        prompt: "Is your current installed price still $18 per square foot?",
+        answerKind: "boolean",
+        factKeys: ["product.price"],
+      },
+    };
+    const { client, create } = clientReturning(JSON.stringify(turn));
+
+    await generateGuidedCatalogTurn({
+      answer: "We install vinyl membrane",
+      facts: [],
+      contradictions: [],
+      currentQuestion: null,
+      liveSnapshotSummary: {},
+      verifiedReference: {},
+      companyKnowledge: [
+        {
+          id: "memory-price",
+          category: "pricing",
+          content: "Vinyl installation was quoted at $18 per square foot.",
+          confidence: 0.92,
+          source: "email",
+          scope: "company",
+          observedAt: "2026-07-01T12:00:00.000Z",
+        },
+      ],
       client,
     });
 
@@ -141,16 +201,20 @@ describe("generateGuidedCatalogTurn", () => {
       messages: Array<{ role: string; content: string }>;
     };
     expect(args.messages[0].content).toMatch(
-      /session-scoped.*evidence/i,
+      /company knowledge.*untrusted.*unconfirmed/i
     );
-    expect(args.messages[0].content).not.toMatch(/Northstar/i);
-    expect(args.messages[0].content).not.toMatch(/exactly two product actions/i);
-    expect(
-      JSON.parse(args.messages[1].content).verifiedSupplierReference,
-    ).toEqual({
-      supplier: "Northstar",
-      source: "operator-provided catalog",
-    });
+    expect(args.messages[0].content).toMatch(
+      /confirm.*operator.*before review/i
+    );
+    expect(args.messages[0].content).toMatch(
+      /never mention.*memory ids.*confidence/i
+    );
+    expect(JSON.parse(args.messages[1].content).companyKnowledge).toEqual([
+      expect.objectContaining({
+        id: "memory-price",
+        category: "pricing",
+      }),
+    ]);
   });
 
   it("rejects malformed output instead of mutating the durable session", async () => {
@@ -164,8 +228,9 @@ describe("generateGuidedCatalogTurn", () => {
         currentQuestion: null,
         liveSnapshotSummary: {},
         verifiedReference: {},
+        companyKnowledge: [],
         client,
-      }),
+      })
     ).rejects.toThrow(/invalid/i);
   });
 });
