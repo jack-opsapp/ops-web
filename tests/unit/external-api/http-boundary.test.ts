@@ -24,6 +24,8 @@ import {
   resolveExternalRequestId,
 } from "@/lib/external-api/http/request-id";
 
+const requestId = "req_10000000-0000-4000-8000-000000000001";
+
 function requestFromChunks(
   chunks: Uint8Array[],
   contentType = "application/json"
@@ -131,16 +133,14 @@ describe("external API response boundary", () => {
 
   it("emits the stable success envelope and intake no-store policy", async () => {
     const response = createIntakeConfigResponse(intakeConfig, {
-      requestId: "req_0123456789abcdefghijklm",
+      requestId,
       serverTimestamp: "2026-07-24T17:30:00.000Z",
     });
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(response.headers.get("x-request-id")).toBe(
-      "req_0123456789abcdefghijklm"
-    );
+    expect(response.headers.get("x-request-id")).toBe(requestId);
     await expect(response.json()).resolves.toEqual({
-      requestId: "req_0123456789abcdefghijklm",
+      requestId,
       apiVersion: EXTERNAL_API_VERSION,
       serverTimestamp: "2026-07-24T17:30:00.000Z",
       result: intakeConfig,
@@ -148,7 +148,7 @@ describe("external API response boundary", () => {
     expect(() =>
       createIntakeConfigResponse(
         { ...intakeConfig, company_id: "internal-company" },
-        { requestId: "req_0123456789abcdefghijklm" }
+        { requestId }
       )
     ).toThrow();
   });
@@ -188,7 +188,7 @@ describe("external API response boundary", () => {
         nextCursor: null,
         nextSyncCheckpoint: null,
       },
-      { requestId: "req_0123456789abcdefghijklm" }
+      { requestId }
     );
     expect(leadFeedResponse.headers.get("cache-control")).toBe(
       ANALYTICS_SHORT_CACHE_CONTROL
@@ -198,7 +198,7 @@ describe("external API response boundary", () => {
   it("does not let a caller assign analytics caching to an intake result", () => {
     expect(() =>
       createIntakeConfigResponse(intakeConfig, {
-        requestId: "req_0123456789abcdefghijklm",
+        requestId,
         cacheControl: ANALYTICS_LONG_CACHE_CONTROL,
       } as never)
     ).toThrow();
@@ -206,7 +206,7 @@ describe("external API response boundary", () => {
 
   it("emits mapped safe errors and rejects secret-bearing detail objects", async () => {
     const response = createErrorResponse("upload_batch_expired", {
-      requestId: "req_0123456789abcdefghijklm",
+      requestId,
       serverTimestamp: "2026-07-24T17:30:00.000Z",
       details: [
         {
@@ -223,7 +223,7 @@ describe("external API response boundary", () => {
 
     expect(() =>
       createErrorResponse("invalid_request", {
-        requestId: "req_0123456789abcdefghijklm",
+        requestId,
         details: [
           {
             field: "authorization",
@@ -235,7 +235,7 @@ describe("external API response boundary", () => {
     ).toThrow();
     expect(() =>
       createErrorResponse("invalid_request", {
-        requestId: "req_0123456789abcdefghijklm",
+        requestId,
         details: [
           {
             field: "sourceId",
@@ -249,17 +249,21 @@ describe("external API response boundary", () => {
 });
 
 describe("external API request IDs", () => {
-  it("creates opaque IDs and accepts only a safe inbound request ID", () => {
-    expect(createExternalRequestId()).toMatch(/^req_[A-Za-z0-9_-]{22,64}$/);
-    expect(
-      resolveExternalRequestId(
-        new Headers({ "x-request-id": "req_0123456789abcdefghijklm" })
-      )
-    ).toBe("req_0123456789abcdefghijklm");
+  it("creates server-owned UUID-backed request IDs", () => {
+    const generatedPattern =
+      /^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    expect(createExternalRequestId()).toMatch(generatedPattern);
+
+    const supplied = resolveExternalRequestId(
+      new Headers({ "x-request-id": requestId })
+    );
+    expect(supplied).toMatch(generatedPattern);
+    expect(supplied).not.toBe(requestId);
+
     expect(
       resolveExternalRequestId(
         new Headers({ "x-request-id": "provider secret value" })
       )
-    ).toMatch(/^req_[A-Za-z0-9_-]{22,64}$/);
+    ).toMatch(generatedPattern);
   });
 });
