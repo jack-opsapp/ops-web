@@ -16986,6 +16986,129 @@ export type Database = {
         Args: { p_estimate_id: string; p_idempotency_key: string }
         Returns: Json
       }
+      authenticate_external_api_credential_as_system: {
+        Args: {
+          p_digest_version: number
+          p_secret_digest: string
+          p_visible_prefix: string
+        }
+        Returns: {
+          allowed_source_ids: string[]
+          authenticated: boolean
+          authorization_epoch: number
+          company_id: string
+          credential_class: string
+          credential_id: string
+          denial_code: string
+          principal_id: string
+          scopes: string[]
+        }[]
+      }
+      create_external_api_credential_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_credential_class: string
+          p_digest_version: number
+          p_expires_at: string
+          p_name: string
+          p_scopes: string[]
+          p_secret_digest: string
+          p_source_ids: string[]
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      create_lead_intake_source_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_allowed_browser_origins: string[]
+          p_canonical_host: string
+          p_default_coarse_source: string
+          p_default_intake_owner_id: string
+          p_default_phone_region: string
+          p_forms: Json
+          p_site_label: string
+        }
+        Returns: Json
+      }
+      list_external_api_settings_as_system: {
+        Args: { p_actor_user_id: string }
+        Returns: Json
+      }
+      purge_external_api_network_fingerprints_as_system: {
+        Args: { p_cutoff: string }
+        Returns: number
+      }
+      record_external_api_request_audit_as_system: {
+        Args: {
+          p_cache_result: string
+          p_duration_ms: number
+          p_error_code: string
+          p_fingerprint_digest: string
+          p_fingerprint_version: number
+          p_grouping: string[]
+          p_idempotency_result: string
+          p_method: string
+          p_metric_set: string[]
+          p_outcome: string
+          p_phase: string
+          p_presented_prefix: string
+          p_rate_limit_result: string
+          p_request_id: string
+          p_request_received_at: string
+          p_response_class: number
+          p_result_size: number
+          p_route: string
+        }
+        Returns: undefined
+      }
+      revoke_external_api_credential_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_credential_id: string
+          p_reason_code: string
+        }
+        Returns: Json
+      }
+      rotate_external_api_credential_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_credential_id: string
+          p_digest_version: number
+          p_expected_updated_at: string
+          p_expires_at: string
+          p_overlap_seconds: number
+          p_secret_digest: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      update_external_api_credential_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_credential_id: string
+          p_expected_updated_at: string
+          p_expires_at: string
+          p_name: string
+        }
+        Returns: Json
+      }
+      update_lead_intake_source_as_system: {
+        Args: {
+          p_active: boolean
+          p_actor_user_id: string
+          p_allowed_browser_origins: string[]
+          p_canonical_host: string
+          p_default_coarse_source: string
+          p_default_intake_owner_id: string
+          p_default_phone_region: string
+          p_expected_updated_at: string
+          p_forms: Json
+          p_site_label: string
+          p_source_id: string
+        }
+        Returns: Json
+      }
       acquire_email_connection_sync_lock_as_system: {
         Args: { p_connection_id: string; p_lease_seconds?: number }
         Returns: string
