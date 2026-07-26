@@ -9,6 +9,7 @@ import {
   ProviderAuthError,
   ProviderScopeError,
 } from "./email-provider";
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
 
 export type EmailProviderMutationKind =
   | "draft_create"
@@ -208,12 +209,30 @@ export function buildEmailProviderMutationFingerprint(value: unknown): string {
 export class SupabaseEmailProviderMutationAttemptStore implements EmailProviderMutationAttemptStore {
   constructor(private readonly supabase: SupabaseClient) {}
 
+  private async rpc(
+    name: string,
+    args: Record<string, unknown>
+  ): Promise<unknown> {
+    try {
+      const { data, error } = await this.supabase.rpc(name, args);
+      if (error) {
+        throw new CronDatabaseOperationError(
+          `${name} failed: ${error.message || "unknown error"}`,
+          { cause: error }
+        );
+      }
+      return data;
+    } catch (cause) {
+      if (cause instanceof CronDatabaseOperationError) throw cause;
+      throw new CronDatabaseOperationError(`${name} failed`, { cause });
+    }
+  }
+
   private async requiredRpc(
     name: string,
     args: Record<string, unknown>
   ): Promise<EmailProviderMutationAttempt> {
-    const { data, error } = await this.supabase.rpc(name, args);
-    if (error) throw new Error(error.message || `${name} failed`);
+    const data = await this.rpc(name, args);
     const row = firstRow(data);
     if (!row || !nonEmpty(row.id)) {
       throw new Error(`${name} returned no provider mutation attempt`);
@@ -225,8 +244,7 @@ export class SupabaseEmailProviderMutationAttemptStore implements EmailProviderM
     name: string,
     args: Record<string, unknown>
   ): Promise<EmailProviderMutationAttempt | null> {
-    const { data, error } = await this.supabase.rpc(name, args);
-    if (error) throw new Error(error.message || `${name} failed`);
+    const data = await this.rpc(name, args);
     const row = firstRow(data);
     return row && nonEmpty(row.id) ? mapAttempt(row) : null;
   }
@@ -443,6 +461,7 @@ export class EmailProviderMutationAttemptService {
             providerResult,
           });
         } catch (error) {
+          if (error instanceof CronDatabaseOperationError) throw error;
           acceptanceError = error;
         }
       }
@@ -479,6 +498,7 @@ export class EmailProviderMutationAttemptService {
         await input.reconcile(acceptance);
         reconciled = true;
       } catch (error) {
+        if (error instanceof CronDatabaseOperationError) throw error;
         reconciliationError = error;
       }
     }
@@ -503,6 +523,7 @@ export class EmailProviderMutationAttemptService {
       try {
         return await this.store.complete(current.id);
       } catch (error) {
+        if (error instanceof CronDatabaseOperationError) throw error;
         completionError = error;
       }
     }
@@ -539,7 +560,8 @@ export class EmailProviderMutationAttemptService {
         providerResult,
         error,
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof CronDatabaseOperationError) throw error;
       // The durable `attempting` claim itself remains a no-replay fence even if
       // this richer recovery marker cannot be persisted during an outage.
     }

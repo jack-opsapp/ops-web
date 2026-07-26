@@ -162,7 +162,9 @@ describe("duplicate-scan cron — recipient selection never filters by role", ()
   });
 
   it("gates notification recipients on the granular pipeline.manage permission", () => {
-    expect(cronSource).toContain("checkPermissionById");
-    expect(cronSource).toMatch(/checkPermissionById\([\s\S]*?["']pipeline\.manage["']/);
+    expect(cronSource).toContain("checkPermissionByIdStrict");
+    expect(cronSource).toMatch(
+      /checkPermissionByIdStrict\([\s\S]*?["']pipeline\.manage["']/
+    );
   });
 });

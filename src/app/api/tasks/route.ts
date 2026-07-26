@@ -8,6 +8,7 @@ import {
   serializeTaskPatch,
   type CreateTaskWithEventData,
 } from "@/lib/api/services/task-service";
+import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
 import { TaskMutationAutomationOutboxService } from "@/lib/api/services/task-mutation-automation-outbox-service";
 import type { ProjectTask } from "@/lib/types/models";
 import { getAccessTokenClient } from "@/lib/supabase/accessToken-client";
@@ -224,9 +225,15 @@ export async function POST(request: NextRequest) {
       try {
         after(async () => {
           try {
-            await TaskMutationAutomationOutboxService.processBatch(serviceDb, {
-              limit: 10,
-              leaseSeconds: 180,
+            await runWithCronWorkloadControl({
+              supabase: serviceDb,
+              workloadKey: "lead-outbox",
+              leaseSeconds: 360,
+              work: () =>
+                TaskMutationAutomationOutboxService.processBatch(serviceDb, {
+                  limit: 1,
+                  leaseSeconds: 360,
+                }),
             });
           } catch (error) {
             console.error("[task-create] Eager outbox drain failed", error);

@@ -36,6 +36,7 @@ import { InvoiceStatus, DiscountType } from "@/lib/types/pipeline";
 import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
 import { ApprovedActionEmailTransportService } from "./approved-action-email-transport-service";
 import type { OutboundLearningAuthority } from "./email-outbound-learning-service";
+import { throwCronDatabaseOperationError } from "./cron-company-fanout-service";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -854,7 +855,10 @@ export const ApprovalQueueService = {
         }
       );
       if (error) {
-        throw new Error(`Failed to propose task action: ${error.message}`);
+        throwCronDatabaseOperationError(
+          "failed to persist guarded task action",
+          error
+        );
       }
       const result = data as Record<string, unknown> | null;
       if (
@@ -869,7 +873,7 @@ export const ApprovalQueueService = {
     } else {
       // Application-level dedup check (belt + suspenders with the DB unique index)
       if (params.sourceId) {
-        const { data: existing } = await supabase
+        const { data: existing, error: existingError } = await supabase
           .from("agent_actions")
           .select("id")
           .eq("company_id", params.companyId)
@@ -877,6 +881,12 @@ export const ApprovalQueueService = {
           .eq("source_id", params.sourceId)
           .eq("status", "pending")
           .limit(1);
+        if (existingError) {
+          throwCronDatabaseOperationError(
+            "failed to check for an existing proposed action",
+            existingError
+          );
+        }
 
         if (existing && existing.length > 0) {
           return null; // Already proposed
@@ -907,7 +917,10 @@ export const ApprovalQueueService = {
       if (error) {
         // Unique constraint violation = dedup
         if (error.code === "23505") return null;
-        throw new Error(`Failed to propose action: ${error.message}`);
+        throwCronDatabaseOperationError(
+          "failed to persist proposed action",
+          error
+        );
       }
       actionId = data!.id as string;
     }

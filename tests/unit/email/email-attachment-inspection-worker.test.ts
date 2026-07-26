@@ -273,6 +273,92 @@ describe("email attachment inspection worker", () => {
     });
   });
 
+  it("stops on database pressure before retry persistence or the next inspection", async () => {
+    const store = new FakeStore();
+    store.claimed = [job("pressure"), job("later")];
+    const pressure = Object.assign(
+      new Error("could not query the database for the schema cache"),
+      { code: "PGRST002", cause: { code: "57014" } }
+    );
+    const inspect = vi.fn(async () => {
+      throw pressure;
+    });
+
+    await expect(
+      runEmailAttachmentInspectionWorker(
+        {
+          store,
+          inspect,
+          workerId: () => "inspection-worker-pressure",
+        },
+        { concurrency: 1 }
+      )
+    ).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+
+    expect(inspect).toHaveBeenCalledTimes(1);
+    expect(store.retries).toEqual([]);
+    expect(store.failures).toEqual([]);
+  });
+
+  it("keeps an external model HTTP timeout on the ordinary inspection retry path", async () => {
+    const store = new FakeStore();
+    store.claimed = [job("model-timeout")];
+    const modelTimeout = Object.assign(
+      new Error("OpenAI upstream request timed out"),
+      {
+        name: "InternalServerError",
+        status: 504,
+      }
+    );
+
+    const result = await runEmailAttachmentInspectionWorker(
+      {
+        store,
+        inspect: async () => {
+          throw modelTimeout;
+        },
+        workerId: () => "inspection-worker-model-timeout",
+      },
+      { concurrency: 1 }
+    );
+
+    expect(result.retrying).toBe(1);
+    expect(store.retries).toHaveLength(1);
+    expect(store.retries[0]?.error).toBe("OpenAI upstream request timed out");
+  });
+
+  it("surfaces database pressure from a durable transition before the next inspection", async () => {
+    const store = new FakeStore();
+    store.claimed = [job("completion-pressure"), job("later")];
+    const pressure = Object.assign(new Error("525 SSL handshake failed"), {
+      status: 525,
+    });
+    store.markComplete = vi.fn(async () => {
+      throw pressure;
+    });
+    const inspect = vi.fn(async () => ({ outcome: "complete" as const }));
+
+    await expect(
+      runEmailAttachmentInspectionWorker(
+        {
+          store,
+          inspect,
+          workerId: () => "inspection-worker-completion-pressure",
+        },
+        { concurrency: 1 }
+      )
+    ).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+
+    expect(inspect).toHaveBeenCalledTimes(1);
+    expect(store.retries).toEqual([]);
+  });
+
   it("has no provider, Gmail, or sending dependency", () => {
     const source = readFileSync(
       resolve(

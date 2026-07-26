@@ -35,9 +35,53 @@ const supabaseRpcMock = vi.fn(
     error: null,
   })
 );
+let skipLeadLifecycle = false;
+const cursorAdvanceMock = vi.fn(
+  async (
+    _supabase: unknown,
+    _workloadKey: unknown,
+    _lease: unknown,
+    _expectedCursor: unknown,
+    _nextCursor: unknown
+  ) => undefined
+);
+const workloadLease = {
+  ownerToken: "test-owner",
+  fenceToken: 1,
+  globalFenceToken: 1,
+  expiresAt: "2099-01-01T00:00:00.000Z",
+  signal: new AbortController().signal,
+};
 
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({ from: supabaseFromMock, rpc: supabaseRpcMock }),
+}));
+
+vi.mock(
+  "@/lib/api/services/cron-workload-control-service",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/api/services/cron-workload-control-service")
+      >();
+    return {
+      ...actual,
+      runWithCronWorkloadControl: async ({
+        work,
+      }: {
+        work: (lease: typeof workloadLease) => Promise<unknown>;
+      }) =>
+        skipLeadLifecycle
+          ? { status: "skipped", reason: "lease_held" }
+          : { status: "completed", value: await work(workloadLease) },
+    };
+  }
+);
+
+vi.mock("@/lib/api/services/cron-workload-cursor-service", () => ({
+  readCronWorkloadCursor: async () => null,
+  advanceCronWorkloadCursor: (...args: unknown[]) =>
+    cursorAdvanceMock(args[0], args[1], args[2], args[3], args[4]),
 }));
 
 import { GET } from "@/app/api/cron/lead-lifecycle/route";
@@ -153,6 +197,7 @@ function makeChain(opts: ChainOpts) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  skipLeadLifecycle = false;
   process.env.CRON_SECRET = "test-secret";
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
   process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role-key";
@@ -181,6 +226,58 @@ describe("/api/cron/lead-lifecycle — auth", () => {
     const res = await GET(buildRequest("Bearer anything"));
     expect(res.status).toBe(500);
     expect(supabaseFromMock).not.toHaveBeenCalled();
+  });
+
+  it("skips an overlapping lifecycle sweep before scanning companies", async () => {
+    skipLeadLifecycle = true;
+    const res = await GET(buildRequest("Bearer test-secret"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(supabaseFromMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("/api/cron/lead-lifecycle — workload bounds", () => {
+  it("rotates at most 25 eligible companies and advances the durable cursor", async () => {
+    const companyIds = Array.from(
+      { length: 30 },
+      (_, index) => `company-${String(index + 1).padStart(2, "0")}`
+    );
+    supabaseFromMock.mockImplementation((table: string) => {
+      if (table === "lead_lifecycle_settings") {
+        return makeChain({
+          selectResult: () => ({
+            data: companyIds.map((company_id) => ({ company_id })),
+            error: null,
+          }),
+        });
+      }
+      return makeChain({
+        selectResult: () => ({ data: [], error: null }),
+      });
+    });
+
+    const res = await GET(buildRequest("Bearer test-secret"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      ran: true,
+      eligibleCompanies: 25,
+      scanned: 0,
+      nextCompanyCursor: "company-25",
+    });
+    expect(cursorAdvanceMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "lead-lifecycle",
+      workloadLease,
+      null,
+      "company-25"
+    );
   });
 });
 

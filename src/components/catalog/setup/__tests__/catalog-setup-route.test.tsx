@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // The route mounts several useQuery/useMutation hooks (baseline, lock, lookups,
@@ -12,7 +12,7 @@ function renderRoute() {
   return render(
     <QueryClientProvider client={client}>
       <CatalogSetupRoute />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
 }
 
@@ -50,7 +50,19 @@ vi.mock("@/lib/hooks/use-setup-agent", () => ({
 }));
 vi.mock("@/components/catalog-setup/setup-wizard-shell", () => ({
   SetupWizardShell: (props: { inventoryTracked?: boolean }) => (
-    <div data-testid="wizard-shell-stub" data-tracked={String(props.inventoryTracked)} />
+    <div
+      data-testid="wizard-shell-stub"
+      data-tracked={String(props.inventoryTracked)}
+    />
+  ),
+}));
+vi.mock("@/components/catalog/setup/guided-catalog-setup", () => ({
+  GuidedCatalogSetup: (props: { onUseAnotherMethod: () => void }) => (
+    <div data-testid="guided-catalog-stub">
+      <button type="button" onClick={props.onUseAnotherMethod}>
+        use another method
+      </button>
+    </div>
   ),
 }));
 
@@ -68,18 +80,32 @@ describe("CatalogSetupRoute permission gate", () => {
 
   it("mounts the wizard when catalog.run_setup is granted", () => {
     canMock.mockImplementation(
-      (p: string) => p === "catalog.run_setup" || p === "catalog.products.manage",
+      (p: string) =>
+        p === "catalog.run_setup" || p === "catalog.products.manage"
     );
     renderRoute();
-    expect(screen.getByTestId("wizard-shell-stub")).toBeInTheDocument();
+    expect(screen.getByTestId("guided-catalog-stub")).toBeInTheDocument();
+    expect(screen.queryByTestId("wizard-shell-stub")).toBeNull();
   });
 
-  it("passes inventoryTracked=false when inventory is off (STOCK omitted)", () => {
+  it("gives the full-height guided surface its own vertical scroll region", () => {
     canMock.mockReturnValue(true);
     renderRoute();
+
+    expect(screen.getByTestId("guided-catalog-scroll-region")).toHaveClass(
+      "min-h-0",
+      "flex-1",
+      "overflow-y-auto"
+    );
+  });
+
+  it("keeps the deterministic setup lanes behind an explicit fallback", () => {
+    canMock.mockReturnValue(true);
+    renderRoute();
+    fireEvent.click(screen.getByRole("button", { name: "use another method" }));
     expect(screen.getByTestId("wizard-shell-stub")).toHaveAttribute(
       "data-tracked",
-      "false",
+      "false"
     );
   });
 });

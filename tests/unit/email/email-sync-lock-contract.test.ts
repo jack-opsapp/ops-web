@@ -34,11 +34,11 @@ describe("email sync lock acquisition contract", () => {
   });
 
   it("renews and releases through the global owner-fenced RPCs", () => {
-    expect(source).toContain(
-      '.rpc(\n    "renew_email_connection_sync_lock_as_system"'
+    expect(source).toMatch(
+      /\.rpc\(\s*"renew_email_connection_sync_lock_as_system"/
     );
-    expect(source).toContain(
-      '.rpc(\n      "release_email_connection_sync_lock_as_system"'
+    expect(source).toMatch(
+      /\.rpc\(\s*"release_email_connection_sync_lock_as_system"/
     );
     expect(source).toContain(
       "p_lease_seconds: EMAIL_CONNECTION_SYNC_LOCK_TTL_SECONDS"

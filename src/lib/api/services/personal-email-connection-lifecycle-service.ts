@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { EmailConnectionService } from "@/lib/api/services/email-connection-service";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import type { EmailConnection } from "@/lib/types/email-connection";
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
 
 const PROCESS_LIFECYCLE_RPC = "process_personal_mailbox_lifecycle_event";
 const SIGNATURE_LIFECYCLE_OUTBOX =
@@ -25,6 +26,10 @@ export interface PersonalMailboxLifecycleDrainResult {
   selected: number;
   processed: number;
   failed: number;
+}
+
+export interface PersonalMailboxLifecycleDrainOptions {
+  abortOnDatabaseError?: boolean;
 }
 
 type PersonalConnectionIdentity = Pick<
@@ -94,12 +99,24 @@ async function processConnection(
   connectionId: string,
   supabase: SupabaseClient
 ): Promise<PersonalMailboxLifecycleResult> {
-  const { data, error } = await supabase.rpc(PROCESS_LIFECYCLE_RPC, {
-    p_connection_id: connectionId,
-  });
+  let data: unknown;
+  let error: { message: string } | null;
+  try {
+    const result = await supabase.rpc(PROCESS_LIFECYCLE_RPC, {
+      p_connection_id: connectionId,
+    });
+    data = result.data;
+    error = result.error;
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      "Failed to process personal mailbox lifecycle",
+      { cause }
+    );
+  }
   if (error) {
-    throw new Error(
-      `Failed to process personal mailbox lifecycle: ${error.message}`
+    throw new CronDatabaseOperationError(
+      `Failed to process personal mailbox lifecycle: ${error.message}`,
+      { cause: error }
     );
   }
 
@@ -114,6 +131,36 @@ async function processConnection(
     notifiedUserCount: count(row, "notified_user_count"),
     resolvedNotificationCount: count(row, "resolved_notification_count"),
   };
+}
+
+async function recordProcessingFailureStrict(
+  supabase: SupabaseClient,
+  connectionId: string,
+  error: unknown
+): Promise<void> {
+  const message =
+    error instanceof Error
+      ? error.message
+      : "Mailbox warning processing failed";
+  try {
+    const { error: updateError } = await supabase
+      .from("email_connection_lifecycle_outbox")
+      .update({ last_error: message.slice(0, 2_000) })
+      .eq("connection_id", connectionId)
+      .is("processed_at", null);
+    if (updateError) {
+      throw new CronDatabaseOperationError(
+        `Failed to record personal mailbox lifecycle error: ${updateError.message}`,
+        { cause: updateError }
+      );
+    }
+  } catch (cause) {
+    if (cause instanceof CronDatabaseOperationError) throw cause;
+    throw new CronDatabaseOperationError(
+      "Failed to record personal mailbox lifecycle error",
+      { cause }
+    );
+  }
 }
 
 async function processConnectionBestEffort(
@@ -237,24 +284,61 @@ async function loadSignatureLifecycleEvents(
   supabase: SupabaseClient,
   options: { connectionId?: string; limit: number }
 ): Promise<SignatureLifecycleEvent[]> {
-  let query = supabase
-    .from(SIGNATURE_LIFECYCLE_OUTBOX)
-    .select("actor_user_id, connection_id, company_id, requested_at")
-    .is("processed_at", null)
-    .lte("available_at", new Date().toISOString());
-  if (options.connectionId) {
-    query = query.eq("connection_id", options.connectionId);
+  let data: unknown;
+  let error: { message: string } | null;
+  try {
+    let query = supabase
+      .from(SIGNATURE_LIFECYCLE_OUTBOX)
+      .select("actor_user_id, connection_id, company_id, requested_at")
+      .is("processed_at", null)
+      .lte("available_at", new Date().toISOString());
+    if (options.connectionId) {
+      query = query.eq("connection_id", options.connectionId);
+    }
+    const result = await query
+      .order("available_at", { ascending: true })
+      .order("requested_at", { ascending: true })
+      .limit(options.limit);
+    data = result.data;
+    error = result.error;
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      "Failed to load signature notification lifecycle events",
+      { cause }
+    );
   }
-  const { data, error } = await query
-    .order("available_at", { ascending: true })
-    .order("requested_at", { ascending: true })
-    .limit(options.limit);
   if (error) {
-    throw new Error(
-      `Failed to load signature notification lifecycle events: ${error.message}`
+    throw new CronDatabaseOperationError(
+      `Failed to load signature notification lifecycle events: ${error.message}`,
+      { cause: error }
     );
   }
   return signatureLifecycleEvents(data);
+}
+
+async function processSignatureEventStrict(
+  supabase: SupabaseClient,
+  event: SignatureLifecycleEvent
+): Promise<void> {
+  try {
+    const { error } = await supabase.rpc(PROCESS_SIGNATURE_LIFECYCLE_RPC, {
+      p_actor_user_id: event.actorUserId,
+      p_connection_id: event.connectionId,
+      p_company_id: event.companyId,
+    });
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Failed to process signature notification lifecycle: ${error.message}`,
+        { cause: error }
+      );
+    }
+  } catch (cause) {
+    if (cause instanceof CronDatabaseOperationError) throw cause;
+    throw new CronDatabaseOperationError(
+      "Failed to process signature notification lifecycle",
+      { cause }
+    );
+  }
 }
 
 async function reconcileSignatureConnectionBestEffort(
@@ -338,18 +422,30 @@ export const PersonalEmailConnectionLifecycleService = {
    */
   async drainPending(
     limit = 100,
-    supabase: SupabaseClient = requireSupabase()
+    supabase: SupabaseClient = requireSupabase(),
+    options: PersonalMailboxLifecycleDrainOptions = {}
   ): Promise<PersonalMailboxLifecycleDrainResult> {
     const boundedLimit = Math.max(1, Math.min(500, Math.trunc(limit)));
-    const { data, error } = await supabase
-      .from("email_connection_lifecycle_outbox")
-      .select("connection_id")
-      .is("processed_at", null)
-      .order("requested_at", { ascending: true })
-      .limit(boundedLimit);
-    if (error) {
-      throw new Error(
-        `Failed to load personal mailbox lifecycle events: ${error.message}`
+    let data: Array<{ connection_id?: unknown }> | null;
+    try {
+      const result = await supabase
+        .from("email_connection_lifecycle_outbox")
+        .select("connection_id")
+        .is("processed_at", null)
+        .order("requested_at", { ascending: true })
+        .limit(boundedLimit);
+      if (result.error) {
+        throw new CronDatabaseOperationError(
+          `Failed to load personal mailbox lifecycle events: ${result.error.message}`,
+          { cause: result.error }
+        );
+      }
+      data = result.data;
+    } catch (cause) {
+      if (cause instanceof CronDatabaseOperationError) throw cause;
+      throw new CronDatabaseOperationError(
+        "Failed to load personal mailbox lifecycle events",
+        { cause }
       );
     }
 
@@ -362,14 +458,37 @@ export const PersonalEmailConnectionLifecycleService = {
     let failed = 0;
 
     for (const connectionId of connectionIds) {
-      const result = await processConnectionBestEffort(connectionId, supabase);
-      if (result.state === "processed") processed += 1;
-      else failed += 1;
+      if (options.abortOnDatabaseError) {
+        try {
+          await processConnection(connectionId, supabase);
+          processed += 1;
+        } catch (error) {
+          if (error instanceof CronDatabaseOperationError) throw error;
+          await recordProcessingFailureStrict(supabase, connectionId, error);
+          failed += 1;
+        }
+      } else {
+        const result = await processConnectionBestEffort(
+          connectionId,
+          supabase
+        );
+        if (result.state === "processed") processed += 1;
+        else failed += 1;
+      }
     }
 
     // Signature prompt work is independently durable. Its failures stay on
     // the signature outbox and never change personal-mailbox warning results.
-    await drainSignatureLifecycleBestEffort(boundedLimit, supabase);
+    if (options.abortOnDatabaseError) {
+      const events = await loadSignatureLifecycleEvents(supabase, {
+        limit: boundedLimit,
+      });
+      for (const event of events) {
+        await processSignatureEventStrict(supabase, event);
+      }
+    } else {
+      await drainSignatureLifecycleBestEffort(boundedLimit, supabase);
+    }
 
     return { selected: connectionIds.length, processed, failed };
   },

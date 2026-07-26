@@ -15,13 +15,19 @@ let existingRequests: { access_type: string; created_at: string }[] = [];
 const inserts: { table: string; row: unknown }[] = [];
 vi.mock("@/lib/supabase/admin-client", () => ({
   getAdminSupabase: () => ({
-    from: (table: string) => ({
-      select: () => Promise.resolve({ data: existingRequests, error: null }),
-      insert: (row: unknown) => {
+    from: (table: string) => {
+      const query = {
+        select: () => query,
+        order: () => query,
+        limit: () =>
+          Promise.resolve({ data: existingRequests, error: null }),
+        insert: (row: unknown) => {
         inserts.push({ table, row });
         return Promise.resolve({ data: null, error: null });
-      },
-    }),
+        },
+      };
+      return query;
+    },
   }),
 }));
 
@@ -83,12 +89,13 @@ describe("toEngagementFact / toDownloadFact", () => {
 });
 
 describe("bootstrapIfNeeded (idempotent)", () => {
-  it("creates ONGOING + ONE_TIME_SNAPSHOT when no requests exist", async () => {
+  it("creates at most one report request when no requests exist", async () => {
     existingRequests = [];
     await bootstrapIfNeeded();
-    expect(ascPost).toHaveBeenCalledTimes(2);
-    const types = inserts.map((i) => (i.row as { access_type: string }).access_type).sort();
-    expect(types).toEqual(["ONE_TIME_SNAPSHOT", "ONGOING"]);
+    expect(ascPost).toHaveBeenCalledTimes(1);
+    expect((inserts[0].row as { access_type: string }).access_type).toBe(
+      "ONGOING"
+    );
   });
 
   it("does nothing when ONGOING + a fresh snapshot already exist", async () => {
@@ -107,5 +114,18 @@ describe("bootstrapIfNeeded (idempotent)", () => {
     await bootstrapIfNeeded();
     expect(ascPost).toHaveBeenCalledTimes(1);
     expect((inserts[0].row as { access_type: string }).access_type).toBe("ONGOING");
+  });
+
+  it("creates the snapshot on the run after ONGOING exists", async () => {
+    existingRequests = [
+      { access_type: "ONGOING", created_at: new Date().toISOString() },
+    ];
+
+    await bootstrapIfNeeded();
+
+    expect(ascPost).toHaveBeenCalledTimes(1);
+    expect((inserts[0].row as { access_type: string }).access_type).toBe(
+      "ONE_TIME_SNAPSHOT"
+    );
   });
 });

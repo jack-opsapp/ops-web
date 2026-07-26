@@ -17,7 +17,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {label && (
           <label
             htmlFor={textareaId}
-            className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em]"
+            className="font-mohave text-caption-sm text-text-3 uppercase tracking-wide"
           >
             {label}
           </label>
@@ -30,9 +30,9 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             "border border-border",
             "transition-all duration-150",
             "placeholder:text-text-3",
-            "focus:border-[rgba(255,255,255,0.20)] focus:outline-none",
+            "focus:border-line-hi focus:outline-none",
             "disabled:cursor-not-allowed disabled:opacity-40",
-            "min-h-[80px] resize-y",
+            "min-h-20 resize-y",
             error && "border-rose-line focus:border-rose-line",
             className
           )}

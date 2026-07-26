@@ -12,11 +12,9 @@
  *  • onBuild: commits the accepted cards via catalog_setup_save, toasts the
  *    result, resets the canvas, and returns to the now-populated /catalog.
  *  • onSetupLater: the ghost exit → back to /catalog.
- *  • sources: scoped to the lanes wired end-to-end. This slice ships MANUAL
- *    (add a row, fill it, accept), TEMPLATE (pick your trade → starter cards),
- *    and UPLOAD (drop a CSV → auto-route → map → dedupe-bind → stage); QuickBooks
- *    and the guided agent land in their own phases and appear in the picker as
- *    they do.
+ *  • guided setup: the default, stateful Phase C interview and reviewed commit.
+ *  • fallback sources: MANUAL, TEMPLATE, and UPLOAD remain available behind the
+ *    explicit "use another method" action. QuickBooks remains separately gated.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -41,7 +39,10 @@ import {
   useSetupAgent,
 } from "@/lib/hooks/use-setup-agent";
 import { commitsHeld, resolveDriver } from "@/lib/catalog-setup/agent-fallback";
-import { buildStepPlan, type StepContext } from "@/lib/catalog-setup/step-machine";
+import {
+  buildStepPlan,
+  type StepContext,
+} from "@/lib/catalog-setup/step-machine";
 import { entryAllowed, isStepAccessible } from "@/lib/catalog-setup/step-gates";
 import { deriveBlockingPrerequisite } from "@/lib/catalog-setup/prerequisites";
 import { selectTradeTemplate } from "@/lib/catalog-setup/trade-templates";
@@ -74,24 +75,20 @@ import type {
   QuickBooksPaneSummary,
 } from "@/components/catalog-setup/QuickBooksPane";
 import type { OnFileProduct } from "@/lib/catalog-setup/existing-rows";
+import { GuidedCatalogSetup } from "./guided-catalog-setup";
 
 /**
- * Lanes wired end-to-end. The guided "describe" (agent) lane appears only when
- * it's configured (NEXT_PUBLIC_CATALOG_AGENT_ENABLED + a server OPENAI_API_KEY) —
- * honest, never a lane that 503s. TEMPLATE (per-trade starter) + MANUAL are the
- * always-available deterministic floor (offline / no-agent safe). More lanes
- * (file upload, QuickBooks) join as their phases land.
+ * Phase C guided setup is the default surface. These deterministic lanes remain
+ * as the explicit fallback when the operator chooses another setup method.
  */
-const AGENT_ENABLED = process.env.NEXT_PUBLIC_CATALOG_AGENT_ENABLED === "true";
-const AVAILABLE_SOURCES: SetupSource[] = AGENT_ENABLED
-  ? ["describe", "upload", "template", "manual"]
-  : ["upload", "template", "manual"];
+const AVAILABLE_SOURCES: SetupSource[] = ["upload", "template", "manual"];
 
 // QuickBooks read-only pull lane. DARK BY DEFAULT — the button appears only when
 // the client flag is set (the server route is independently gated + Canpro-scoped;
 // broad enablement is gated on the plaintext-token remediation). Appended (not
 // edited into the literal above) so it stays an isolated, idempotent addition.
-const QB_IMPORT_ENABLED = process.env.NEXT_PUBLIC_CATALOG_QB_IMPORT_ENABLED === "true";
+const QB_IMPORT_ENABLED =
+  process.env.NEXT_PUBLIC_CATALOG_QB_IMPORT_ENABLED === "true";
 if (QB_IMPORT_ENABLED && !AVAILABLE_SOURCES.includes("quickbooks")) {
   AVAILABLE_SOURCES.push("quickbooks");
 }
@@ -137,8 +134,12 @@ export function CatalogSetupRoute() {
   >("picker");
   // QuickBooks lane view-state (the route owns the lifecycle; the pane renders it).
   const [qbStatus, setQbStatus] = useState<QuickBooksPaneStatus>("ready");
-  const [qbSummary, setQbSummary] = useState<QuickBooksPaneSummary | null>(null);
-  const [qbErrorKind, setQbErrorKind] = useState<"generic" | "reconnect">("generic");
+  const [qbSummary, setQbSummary] = useState<QuickBooksPaneSummary | null>(
+    null
+  );
+  const [qbErrorKind, setQbErrorKind] = useState<"generic" | "reconnect">(
+    "generic"
+  );
   const [turns, setTurns] = useState<string[]>([]);
   // Once the agent fails mid-session, it stays failed for the session: the driver
   // falls to the deterministic guided path and the "describe" lane is withdrawn so
@@ -146,6 +147,7 @@ export function CatalogSetupRoute() {
   const [agentErrored, setAgentErrored] = useState(false);
   const [inventoryPromptOpen, setInventoryPromptOpen] = useState(false);
   const inventoryPromptShownRef = useRef(false);
+  const [useLegacySetup, setUseLegacySetup] = useState(false);
 
   // ── Gates + analytics context (computed unconditionally — rules of hooks) ────
   // step-gates is the single source for which modules this operator can run;
@@ -159,7 +161,7 @@ export function CatalogSetupRoute() {
   // so the lane is never a dead 503/repeat-failure (agent-fallback contract).
   const agentDriver = resolveDriver({
     online,
-    agentEnabled: AGENT_ENABLED,
+    agentEnabled: false,
     agentErrored,
   });
   const availableSources = useMemo(
@@ -167,7 +169,7 @@ export function CatalogSetupRoute() {
       agentDriver === "agent"
         ? AVAILABLE_SOURCES
         : AVAILABLE_SOURCES.filter((s) => s !== "describe"),
-    [agentDriver],
+    [agentDriver]
   );
 
   // ── Prerequisite gate (spec §16) — never a crash, always a calm reason ───────
@@ -188,7 +190,7 @@ export function CatalogSetupRoute() {
           company?.subscriptionStatus === SubscriptionStatus.Expired ||
           company?.subscriptionStatus === SubscriptionStatus.Cancelled,
       }),
-    [company?.id, company?.subscriptionStatus, baseline],
+    [company?.id, company?.subscriptionStatus, baseline]
   );
 
   const context: StepContext = useMemo(
@@ -198,7 +200,7 @@ export function CatalogSetupRoute() {
       canStock: isStepAccessible("STOCK", can),
       canTypes: isStepAccessible("TYPES", can),
     }),
-    [tracked, can],
+    [tracked, can]
   );
   const totalSteps = useMemo(() => buildStepPlan(context).length, [context]);
 
@@ -208,7 +210,7 @@ export function CatalogSetupRoute() {
   // re-import MERGES instead of double-creating.
   const { liveRows, existingRows } = useMemo(
     () => toExistingCatalog(existingProductRows ?? []),
-    [existingProductRows],
+    [existingProductRows]
   );
 
   const sessionId = useMemo(() => getSessionId(), []);
@@ -229,7 +231,9 @@ export function CatalogSetupRoute() {
       const hasAdded = cards.some(
         (c) =>
           c.module === key &&
-          (c.state === "accepted" || c.state === "edited" || c.state === "merge"),
+          (c.state === "accepted" ||
+            c.state === "edited" ||
+            c.state === "merge")
       );
       if (hasAdded) analytics.trackStepCompleted(key);
     }
@@ -239,8 +243,10 @@ export function CatalogSetupRoute() {
   // A one-time forced fork — turn tracking on (counts stay) or keep as products
   // (quantities surfaced via the down-shift, never silently dropped).
   const stockCardCount = useMemo(
-    () => cards.filter((c) => c.module === "stock" && c.state !== "rejected").length,
-    [cards],
+    () =>
+      cards.filter((c) => c.module === "stock" && c.state !== "rejected")
+        .length,
+    [cards]
   );
   useEffect(() => {
     if (!tracked && stockCardCount > 0 && !inventoryPromptShownRef.current) {
@@ -257,7 +263,7 @@ export function CatalogSetupRoute() {
       },
       onError: () =>
         toast.error(
-          t("inventoryOff.trackError", "Couldn't turn on tracking — try again"),
+          t("inventoryOff.trackError", "Couldn't turn on tracking — try again")
         ),
     });
   }, [setInventoryMode, t]);
@@ -265,7 +271,9 @@ export function CatalogSetupRoute() {
   const onKeepAsProducts = useCallback(() => {
     dispatch({ type: "DOWNSHIFT_STOCK_TO_PRODUCTS" });
     setInventoryPromptOpen(false);
-    toast(t("inventoryOff.kept", "Kept as products — quantities shown on each"));
+    toast(
+      t("inventoryOff.kept", "Kept as products — quantities shown on each")
+    );
   }, [dispatch, t]);
 
   const onPickSource = useCallback(
@@ -293,7 +301,7 @@ export function CatalogSetupRoute() {
         setDriverMode("conversation");
       }
     },
-    [analytics],
+    [analytics]
   );
 
   // TEMPLATE lane confirm: stage the trade's starter cards (trade + task types +
@@ -305,7 +313,7 @@ export function CatalogSetupRoute() {
       dispatch({ type: "ADD_CARDS", cards: selectTradeTemplate(trade) });
       setDriverMode("picker");
     },
-    [dispatch],
+    [dispatch]
   );
 
   // UPLOAD lane: read the file, auto-route (clean CSV/XLSX → deterministic
@@ -349,7 +357,7 @@ export function CatalogSetupRoute() {
         read: result.read,
       };
     },
-    [analytics, categories, units, liveRows, dispatch],
+    [analytics, categories, units, liveRows, dispatch]
   );
 
   // A can't-read file → the SHELL seeds a manual SELL row and opens it in the
@@ -397,7 +405,10 @@ export function CatalogSetupRoute() {
   // owner returns and re-enters the wizard). Read-only pull only — never push.
   const onConnectQuickBooks = useCallback(() => {
     if (!company?.id) return;
-    initiateOAuth.mutate({ companyId: company.id, provider: AccountingProvider.QuickBooks });
+    initiateOAuth.mutate({
+      companyId: company.id,
+      provider: AccountingProvider.QuickBooks,
+    });
   }, [initiateOAuth, company]);
 
   const onSend = useCallback(
@@ -415,15 +426,15 @@ export function CatalogSetupRoute() {
               toast.success(
                 t("agent.added", "Added {n} — review and edit").replace(
                   "{n}",
-                  String(res.cards.length),
-                ),
+                  String(res.cards.length)
+                )
               );
             } else {
               toast(
                 t(
                   "agent.none",
-                  "Couldn't pull anything from that — try describing what you sell",
-                ),
+                  "Couldn't pull anything from that — try describing what you sell"
+                )
               );
             }
           },
@@ -435,14 +446,20 @@ export function CatalogSetupRoute() {
             setDriverMode("picker");
             toast.error(
               err instanceof AgentUnavailableError
-                ? t("agent.unavailable", "Guided setup is unavailable — add manually")
-                : t("agent.error", "Couldn't generate — switched to guided setup"),
+                ? t(
+                    "agent.unavailable",
+                    "Guided setup is unavailable — add manually"
+                  )
+                : t(
+                    "agent.error",
+                    "Couldn't generate — switched to guided setup"
+                  )
             );
           },
-        },
+        }
       );
     },
-    [agent, turns, dispatch, t, analytics],
+    [agent, turns, dispatch, t, analytics]
   );
 
   const onBuild = useCallback(() => {
@@ -451,7 +468,10 @@ export function CatalogSetupRoute() {
     // build goes through once connectivity returns (spec §16).
     if (commitsHeld(online)) {
       toast.error(
-        t("offline.held", "You're offline — your catalog is saved, build when you're back"),
+        t(
+          "offline.held",
+          "You're offline — your catalog is saved, build when you're back"
+        )
       );
       return;
     }
@@ -488,8 +508,8 @@ export function CatalogSetupRoute() {
             toast.warning(
               t(
                 "commitTypesWarning",
-                "Catalog's live — task types didn't save. Re-run setup to add them.",
-              ),
+                "Catalog's live — task types didn't save. Re-run setup to add them."
+              )
             );
           }
           reset();
@@ -507,8 +527,8 @@ export function CatalogSetupRoute() {
             toast.error(
               t(
                 "commitScopeMismatch",
-                "Your account isn't set up for catalog changes yet — ask your admin to finish your setup.",
-              ),
+                "Your account isn't set up for catalog changes yet — ask your admin to finish your setup."
+              )
             );
             return;
           }
@@ -521,21 +541,20 @@ export function CatalogSetupRoute() {
               : err.message;
           // Sequential per-transaction calls: some may be live even on failure.
           // Lead with what saved so we never imply "nothing saved" over live rows.
-          const partial =
-            err instanceof CommitError ? err.partial : undefined;
+          const partial = err instanceof CommitError ? err.partial : undefined;
           const savedPhrase = partial ? commitCountPhrase(partial) : "";
           if (savedPhrase) {
             toast.error(
-              t("commitPartial", "Saved {saved}. Some items need a fix — build again.").replace(
-                "{saved}",
-                savedPhrase,
-              ),
+              t(
+                "commitPartial",
+                "Saved {saved}. Some items need a fix — build again."
+              ).replace("{saved}", savedPhrase)
             );
           } else {
             toast.error(detail || t("commitError", "Catalog commit failed"));
           }
         },
-      },
+      }
     );
   }, [commit, cards, existingRows, reset, router, t, online, analytics]);
 
@@ -570,6 +589,36 @@ export function CatalogSetupRoute() {
         onReload={() => window.location.reload()}
         onExit={() => router.push("/catalog")}
       />
+    );
+  }
+
+  if (!useLegacySetup) {
+    return (
+      <PrerequisiteGate
+        blocker={blocker}
+        onReload={() => window.location.reload()}
+        onExit={() => router.push("/catalog")}
+      >
+        <OfflineBanner online={online} className="mx-3 mt-2" />
+        <div
+          data-testid="guided-catalog-scroll-region"
+          className="scrollbar-hide min-h-0 flex-1 overflow-y-auto"
+        >
+          <GuidedCatalogSetup
+            onUseAnotherMethod={() => setUseLegacySetup(true)}
+            onExit={() => router.push("/catalog")}
+            onAddInventoryList={(guidedSessionId, defaultLocation) =>
+              router.push(
+                `/catalog/setup/inventory?sessionId=${encodeURIComponent(guidedSessionId)}${
+                  defaultLocation
+                    ? `&location=${encodeURIComponent(defaultLocation)}`
+                    : ""
+                }`
+              )
+            }
+          />
+        </div>
+      </PrerequisiteGate>
     );
   }
 

@@ -14,12 +14,13 @@ import {
 import {
   LineItemEditor,
   createEmptyLineItem,
-  computeAmount,
+  computeLinePricingBreakdown,
   type LineItemRow,
 } from "@/components/ops/line-item-editor";
 import {
   useCreateEstimate,
   useClients,
+  useDefaultTaxRate,
   useProjects,
   useProducts,
 } from "@/lib/hooks";
@@ -31,6 +32,7 @@ import { useSetupGate } from "@/hooks/useSetupGate";
 import { SetupInterceptionModal } from "@/components/setup/SetupInterceptionModal";
 import { useDictionary } from "@/i18n/client";
 import { toast } from "@/components/ui/toast";
+import { getEstimateDraftBlocker } from "@/lib/estimates/estimate-draft-validation";
 
 // ─── Extracted Form Component ─────────────────────────────────────────────────
 
@@ -61,6 +63,10 @@ export function CreateEstimateForm({
   const { data: clientsData } = useClients();
   const { data: projectsData } = useProjects();
   const { data: products = [] } = useProducts();
+  const {
+    data: defaultTaxRate,
+    isLoading: isDefaultTaxRateLoading,
+  } = useDefaultTaxRate();
   const createEstimate = useCreateEstimate();
 
   const clients = clientsData?.clients ?? [];
@@ -90,17 +96,50 @@ export function CreateEstimateForm({
   const handleSubmit = () => {
     if (!can("estimates.create")) return;
 
+    const blocker = getEstimateDraftBlocker(lineItems, defaultTaxRate);
+    if (blocker === "missing_required_options") {
+      toast.error(
+        t(
+          "estimates.form.requiredOptionsError",
+          "Complete the required product options.",
+        ),
+      );
+      return;
+    }
+    if (blocker === "missing_default_tax_rate") {
+      toast.error(
+        t(
+          "estimates.form.defaultTaxError",
+          "Set a default tax rate before quoting taxable work.",
+        ),
+      );
+      return;
+    }
+
     const mappedLineItems: Partial<CreateLineItem>[] = lineItems.map((li, index) => ({
       name: li.name,
       quantity: li.quantity,
       unitPrice: li.unitPrice,
+      resolvedUnitPrice: li.resolvedUnitPrice,
+      minimumChargeSnapshot: li.minimumChargeSnapshot,
+      unitCost: li.unitCost,
+      estimatedHours: li.estimatedHours,
       discountPercent: li.discountPercent,
       productId: li.productId,
+      parentLineItemId: null,
       sortOrder: index,
       estimateId: null,
       invoiceId: null,
       isTaxable: li.isTaxable,
+      taxRateId: li.isTaxable ? defaultTaxRate?.id ?? null : null,
       unit: li.unit,
+      unitId: li.unitId,
+      type: li.type,
+      taskTypeId: li.taskTypeId,
+      taskTypeRef: li.taskTypeRef,
+      configuredOptions: li.configuredOptions,
+      resolvedOptionsLabel: li.resolvedOptionsLabel,
+      category: li.category,
       isOptional: li.isOptional,
       isSelected: li.isSelected,
       companyId,
@@ -108,20 +147,21 @@ export function CreateEstimateForm({
 
     const totals = lineItems.reduce(
       (acc, li) => {
-        const amt = computeAmount(li);
+        const amt = computeLinePricingBreakdown(
+          li,
+          defaultTaxRate?.rate ?? 0,
+        );
         return {
-          subtotal: acc.subtotal + amt.lineTotal,
+          subtotal: acc.subtotal + amt.subtotal,
           taxAmount: acc.taxAmount + amt.tax,
-          discountAmount:
-            acc.discountAmount +
-            (li.discountPercent > 0
-              ? (li.quantity * li.unitPrice * li.discountPercent) / 100
-              : 0),
+          discountAmount: acc.discountAmount +
+            amt.discountAmount,
         };
       },
       { subtotal: 0, taxAmount: 0, discountAmount: 0 }
     );
-    const total = totals.subtotal + totals.taxAmount - totals.discountAmount;
+    const total =
+      totals.subtotal - totals.discountAmount + totals.taxAmount;
 
     const formData: Partial<CreateEstimate> & { companyId: string } = {
       companyId,
@@ -135,6 +175,7 @@ export function CreateEstimateForm({
       internalNotes: internalNotes || null,
       terms: termsAndConditions || null,
       subtotal: totals.subtotal,
+      taxRate: defaultTaxRate?.rate ?? 0,
       taxAmount: totals.taxAmount,
       discountAmount: totals.discountAmount,
       total,
@@ -219,7 +260,13 @@ export function CreateEstimateForm({
           <label className="font-mono text-caption-sm text-text-3 uppercase tracking-widest">
             {t("estimates.form.lineItems")}
           </label>
-          <LineItemEditor items={lineItems} onChange={setLineItems} products={products} />
+          <LineItemEditor
+            items={lineItems}
+            onChange={setLineItems}
+            products={products}
+            taxRate={defaultTaxRate?.rate ?? 0}
+            taxRateId={defaultTaxRate?.id ?? null}
+          />
         </div>
 
         {/* Notes */}
@@ -256,7 +303,12 @@ export function CreateEstimateForm({
               Cancel
             </Button>
           )}
-          <Button onClick={handleSubmit} loading={createEstimate.isPending} className="gap-[6px]">
+          <Button
+            onClick={handleSubmit}
+            loading={createEstimate.isPending}
+            disabled={isDefaultTaxRateLoading}
+            className="gap-[6px]"
+          >
             <Save className="w-[16px] h-[16px]" />
             Create Estimate
           </Button>

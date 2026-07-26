@@ -47,7 +47,7 @@ describe("AdminFeatureOverrideService.isFeatureEnabled", () => {
     await expect(
       AdminFeatureOverrideService.isAIFeatureEnabled("company-abc", "phase_c")
     ).rejects.toThrow(
-      "Failed to read AI feature override: override read unavailable"
+      "failed to read phase_c feature override for company-abc: override read unavailable"
     );
   });
 

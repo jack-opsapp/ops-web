@@ -45,7 +45,8 @@ vi.mock("@/lib/store/auth-store", () => ({
   },
 }));
 
-const { usePermissionStore } = await import("@/lib/store/permissions-store");
+const { selectPermissionsReady, usePermissionStore } =
+  await import("@/lib/store/permissions-store");
 
 const USER_ID = "user-1";
 const COMPANY_ID = "company-1";
@@ -248,8 +249,10 @@ describe("PermissionStore canonical authority refresh", () => {
       .fetchPermissions(USER_ID, { mode: "hold" });
     const immediateState = usePermissionStore.getState();
 
-    // Unlike revoke-first, the last-good grants stay visible during the refresh.
-    expect(immediateState.loading).toBe(true);
+    // Unlike revoke-first, a background refresh leaves the initialized
+    // authority renderable so route gates do not unmount the dashboard.
+    expect(immediateState.loading).toBe(false);
+    expect(selectPermissionsReady(immediateState)).toBe(true);
     expect(immediateState.permissions.get("pipeline.view")).toBe("all");
     expect(immediateState.permissions.get("settings.billing")).toBe("all");
 
@@ -263,6 +266,36 @@ describe("PermissionStore canonical authority refresh", () => {
     expect(
       usePermissionStore.getState().permissions.has("settings.billing")
     ).toBe(false);
+  });
+
+  it("hold mode still blocks the first canonical permission load", async () => {
+    Object.assign(authState, {
+      currentUser: user(false),
+      company: company({
+        accountHolderId: "other-holder",
+        adminIds: [],
+      }),
+      role: UserRole.Operator,
+    });
+    let resolveUser!: (value: ReturnType<typeof user>) => void;
+    fetchUser.mockReturnValue(
+      new Promise<ReturnType<typeof user>>((resolve) => {
+        resolveUser = resolve;
+      })
+    );
+
+    const refresh = usePermissionStore
+      .getState()
+      .fetchPermissions(USER_ID, { mode: "hold" });
+    const immediateState = usePermissionStore.getState();
+
+    expect(immediateState.initialized).toBe(false);
+    expect(immediateState.loading).toBe(true);
+    expect(selectPermissionsReady(immediateState)).toBe(false);
+
+    resolveUser(user(false));
+    await refresh;
+    expect(selectPermissionsReady(usePermissionStore.getState())).toBe(true);
   });
 
   it("hold mode still fails closed when the canonical refresh errors", async () => {

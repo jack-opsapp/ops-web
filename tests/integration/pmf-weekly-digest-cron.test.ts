@@ -22,6 +22,21 @@ import type { WeeklyDigestProps } from "@/emails/pmf/weekly-digest";
 
 // ─── Mock state ──────────────────────────────────────────────────────────────
 
+const workloadControlMocks = vi.hoisted(() => {
+  class CronDatabaseOperationError extends Error {
+    constructor(message: string, options: { cause: unknown }) {
+      super(message, options);
+      this.name = "CronDatabaseOperationError";
+    }
+  }
+
+  return {
+    CronDatabaseOperationError,
+    runWithCronWorkloadControl: vi.fn(),
+    observedWorkFailures: [] as unknown[],
+  };
+});
+
 interface RpcCall {
   name: string;
   args?: Record<string, unknown>;
@@ -65,6 +80,11 @@ vi.mock("@/lib/admin/pmf-queries", () => ({
 vi.mock("@/lib/notifications/pmf-send", () => ({
   sendPmfNotification: (opts: Parameters<typeof sendPmfNotificationMock>[0]) =>
     sendPmfNotificationMock(opts),
+}));
+
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  CronDatabaseOperationError: workloadControlMocks.CronDatabaseOperationError,
+  runWithCronWorkloadControl: workloadControlMocks.runWithCronWorkloadControl,
 }));
 
 vi.mock("@/lib/supabase/admin-client", () => ({
@@ -192,6 +212,21 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
     nextRpcResponse = { data: [], error: null };
     sendPmfNotificationMock.mockReset();
     sendPmfNotificationMock.mockResolvedValue(undefined);
+    workloadControlMocks.runWithCronWorkloadControl.mockReset();
+    workloadControlMocks.observedWorkFailures.length = 0;
+    workloadControlMocks.runWithCronWorkloadControl.mockImplementation(
+      async ({ work }: { work: () => Promise<unknown> }) => {
+        try {
+          return {
+            status: "completed",
+            value: await work(),
+          };
+        } catch (error) {
+          workloadControlMocks.observedWorkFailures.push(error);
+          throw error;
+        }
+      }
+    );
     nextComputePmfStateResult = makeState();
     process.env.CRON_SECRET = VALID_SECRET;
   });
@@ -234,7 +269,59 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
     expect(rpcCalls[0].name).toBe("pmf_retention_cohorts");
 
     expect(sendPmfNotificationMock).toHaveBeenCalledTimes(1);
+    expect(
+      workloadControlMocks.runWithCronWorkloadControl
+    ).toHaveBeenCalledWith({
+      supabase: expect.objectContaining({ rpc: expect.any(Function) }),
+      workloadKey: "pmf-weekly-digest",
+      leaseSeconds: 90,
+      work: expect.any(Function),
+    });
   });
+
+  it("returns an idempotent no-op when another weekly digest owns the lease", async () => {
+    workloadControlMocks.runWithCronWorkloadControl.mockResolvedValue({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(rpcCalls).toHaveLength(0);
+    expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["circuit_open", "control_unavailable"] as const)(
+    "fails closed when workload control reports %s",
+    async (reason) => {
+      workloadControlMocks.runWithCronWorkloadControl.mockResolvedValue({
+        status: "skipped",
+        reason,
+        ...(reason === "control_unavailable"
+          ? { error: new Error("control RPC unavailable") }
+          : {}),
+      });
+
+      const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
+      const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({
+        ok: false,
+        ran: false,
+        reason,
+      });
+      expect(rpcCalls).toHaveLength(0);
+      expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+    }
+  );
 
   it("hands off kind, date-scoped trigger, subject with week + days, and a React element", async () => {
     const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
@@ -327,34 +414,31 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
     expect(weeklyDigestProps[0].retentionCohorts).toEqual([]);
   });
 
-  it("RPC error is non-fatal: logs and still sends with empty cohorts", async () => {
+  it("fails the controlled work on a retention cohort database error", async () => {
+    const cohortError = {
+      code: "57014",
+      message: "canceling statement due to statement timeout",
+    };
     nextRpcResponse = {
       data: null,
-      error: {
-        message: "function public.pmf_retention_cohorts() does not exist",
-      },
+      error: cohortError,
     };
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
-    expect(res.status).toBe(200);
 
-    // Send still happened with an empty cohort array.
-    expect(sendPmfNotificationMock).toHaveBeenCalledTimes(1);
-    expect(weeklyDigestProps).toHaveLength(1);
-    expect(weeklyDigestProps[0].retentionCohorts).toEqual([]);
-
-    // And the RPC error was logged.
-    expect(errorSpy).toHaveBeenCalled();
-    const loggedRpcErr = errorSpy.mock.calls.some((args) =>
-      args.some(
-        (a) =>
-          typeof a === "string" &&
-          a.includes("pmf_retention_cohorts RPC failed")
-      )
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "weekly digest failed" });
+    expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+    expect(weeklyDigestProps).toHaveLength(0);
+    expect(workloadControlMocks.observedWorkFailures).toHaveLength(1);
+    const [failure] = workloadControlMocks.observedWorkFailures;
+    expect(failure).toBeInstanceOf(
+      workloadControlMocks.CronDatabaseOperationError
     );
-    expect(loggedRpcErr).toBe(true);
+    expect((failure as Error & { cause?: unknown }).cause).toBe(cohortError);
+    expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });
 
@@ -371,13 +455,20 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
     expect(json.error).toBe("weekly digest failed");
     expect(errorSpy).toHaveBeenCalled();
     expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+    expect(workloadControlMocks.observedWorkFailures).toHaveLength(1);
+    const [failure] = workloadControlMocks.observedWorkFailures;
+    expect(failure).toBeInstanceOf(
+      workloadControlMocks.CronDatabaseOperationError
+    );
+    expect((failure as Error & { cause?: unknown }).cause).toBe(
+      nextComputePmfStateResult
+    );
     errorSpy.mockRestore();
   });
 
-  it("returns 500 when sendPmfNotification throws", async () => {
-    sendPmfNotificationMock.mockRejectedValueOnce(
-      new Error("sendgrid transient 502")
-    );
+  it("keeps a notification provider failure outside the database circuit", async () => {
+    const providerFailure = new Error("sendgrid transient 502");
+    sendPmfNotificationMock.mockRejectedValueOnce(providerFailure);
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const { GET } = await import("@/app/api/cron/pmf/weekly-digest/route");
@@ -386,6 +477,12 @@ describe("GET /api/cron/pmf/weekly-digest", () => {
     const json = (await res.json()) as { error: string };
     expect(json.error).toBe("weekly digest failed");
     expect(errorSpy).toHaveBeenCalled();
+    expect(workloadControlMocks.observedWorkFailures).toEqual([
+      providerFailure,
+    ]);
+    expect(providerFailure).not.toBeInstanceOf(
+      workloadControlMocks.CronDatabaseOperationError
+    );
     errorSpy.mockRestore();
   });
 });

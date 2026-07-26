@@ -7,11 +7,15 @@ import { NextRequest } from "next/server";
 const {
   getServiceRoleClientMock,
   runEmailSendReconciliationRecoveryMock,
+  runWithCronWorkloadControlMock,
+  isDatabasePressureErrorMock,
   runWithSupabaseMock,
   serviceRoleClient,
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
   runEmailSendReconciliationRecoveryMock: vi.fn(),
+  runWithCronWorkloadControlMock: vi.fn(),
+  isDatabasePressureErrorMock: vi.fn(),
   runWithSupabaseMock: vi.fn(),
   serviceRoleClient: { kind: "service-role-client" },
 }));
@@ -22,6 +26,11 @@ vi.mock("@/lib/supabase/server-client", () => ({
 
 vi.mock("@/lib/supabase/helpers", () => ({
   runWithSupabase: runWithSupabaseMock,
+}));
+
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  runWithCronWorkloadControl: runWithCronWorkloadControlMock,
+  isDatabasePressureError: isDatabasePressureErrorMock,
 }));
 
 vi.mock(
@@ -48,6 +57,19 @@ describe("email send reconciliation cron", () => {
     runWithSupabaseMock.mockReset();
     runWithSupabaseMock.mockImplementation(
       async (_client: unknown, work: () => Promise<unknown>) => work()
+    );
+    runWithCronWorkloadControlMock.mockReset();
+    runWithCronWorkloadControlMock.mockImplementation(
+      async ({ work }: { work: () => Promise<unknown> }) => ({
+        status: "completed",
+        value: await work(),
+      })
+    );
+    isDatabasePressureErrorMock.mockReset();
+    isDatabasePressureErrorMock.mockImplementation((error: unknown) =>
+      /PGRST002|57014|connection timeout|SSL handshake failed|web server is down|\b52[125]\b/i.test(
+        String(error)
+      )
     );
     runEmailSendReconciliationRecoveryMock.mockReset();
     runEmailSendReconciliationRecoveryMock.mockResolvedValue({
@@ -110,10 +132,48 @@ describe("email send reconciliation cron", () => {
       serviceRoleClient,
       expect.any(Function)
     );
+    expect(runWithCronWorkloadControlMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: serviceRoleClient,
+        workloadKey: "send-reconciliation",
+        leaseSeconds: 240,
+        work: expect.any(Function),
+      })
+    );
     expect(runEmailSendReconciliationRecoveryMock).toHaveBeenCalledWith(
       serviceRoleClient,
-      { limit: 25, failureCooldownSeconds: 60, leaseSeconds: 300 }
+      { limit: 5, failureCooldownSeconds: 60, leaseSeconds: 180 }
     );
+  });
+
+  it("opens the circuit when reconciliation reports database pressure", async () => {
+    runEmailSendReconciliationRecoveryMock.mockResolvedValue({
+      claimed: 1,
+      reconciled: 0,
+      failed: 1,
+      errors: ["intent-1: PGRST002 schema cache unavailable"],
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(500);
+  });
+
+  it("launches no reconciliation work while another heavy workload holds the lease", async () => {
+    runWithCronWorkloadControlMock.mockResolvedValue({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(runEmailSendReconciliationRecoveryMock).not.toHaveBeenCalled();
   });
 
   it("contains no provider-send execution path", () => {
@@ -128,18 +188,18 @@ describe("email send reconciliation cron", () => {
     expect(source).not.toMatch(/\.sendEmail\s*\(/);
   });
 
-  it("is scheduled every five minutes without changing the Phase C dark-launch cron", () => {
+  it("uses its isolated offset without changing the Phase C dark-launch cron", () => {
     const config = JSON.parse(
       readFileSync(resolve(process.cwd(), "vercel.json"), "utf8")
     ) as { crons: Array<{ path: string; schedule: string }> };
 
     expect(config.crons).toContainEqual({
       path: "/api/cron/email-send-reconciliation",
-      schedule: "*/5 * * * *",
+      schedule: "8-59/20 * * * *",
     });
     expect(config.crons).toContainEqual({
       path: "/api/cron/auto-send",
-      schedule: "*/5 13-23,0-4 * * *",
+      schedule: "16-59/20 13-23,0-4 * * *",
     });
   });
 });

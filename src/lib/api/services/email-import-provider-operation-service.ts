@@ -12,6 +12,7 @@ import {
 } from "./email-connection-sync-lock";
 import type { EmailProviderInterface } from "./email-provider";
 import { EmailService } from "./email-service";
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
 
 const OPS_PIPELINE_LABEL = "OPS Pipeline";
 const DEFAULT_LIMIT = 5;
@@ -106,6 +107,30 @@ function boundedInteger(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function requireDatabaseResponse<T>(
+  context: string,
+  operation: () => PromiseLike<{
+    data: T;
+    error: { message?: string } | null;
+  }>
+): Promise<T> {
+  try {
+    const result = await operation();
+    if (result.error) {
+      throw new CronDatabaseOperationError(
+        `${context}: ${result.error.message ?? "unknown error"}`,
+        { cause: result.error }
+      );
+    }
+    return result.data;
+  } catch (cause) {
+    if (cause instanceof CronDatabaseOperationError) throw cause;
+    throw new CronDatabaseOperationError(`${context}: request failed`, {
+      cause,
+    });
+  }
 }
 
 function requiredString(value: unknown, code: string): string {
@@ -244,11 +269,13 @@ export class EmailImportProviderOperationService {
     try {
       return await this.dependencies.complete(input);
     } catch (firstError) {
+      if (firstError instanceof CronDatabaseOperationError) throw firstError;
       // The provider mutation is already accepted. Retry only the idempotent
       // database completion once; never call applyLabel a second time here.
       try {
         return await this.dependencies.complete(input);
       } catch (retryError) {
+        if (retryError instanceof CronDatabaseOperationError) throw retryError;
         throw new Error(
           `${errorMessage(firstError)}; completion retry failed: ${errorMessage(retryError)}`
         );
@@ -340,6 +367,7 @@ export class EmailImportProviderOperationService {
         }
         result.applied += 1;
       } catch (error) {
+        if (error instanceof CronDatabaseOperationError) throw error;
         const failure = errorMessage(error);
         result.failed += 1;
         try {
@@ -357,6 +385,9 @@ export class EmailImportProviderOperationService {
             continue;
           }
         } catch (persistenceError) {
+          if (persistenceError instanceof CronDatabaseOperationError) {
+            throw persistenceError;
+          }
           result.errors.push({
             operationId: operation.id,
             error: `${failure}; failure persistence failed: ${errorMessage(persistenceError)}`,
@@ -376,37 +407,29 @@ export function createSupabaseEmailImportProviderOperationStore(
 ): EmailImportProviderOperationStore {
   return {
     async claim(input) {
-      const { data, error } = await supabase.rpc(
-        "claim_email_import_provider_operations",
-        {
-          p_holder: input.holder,
-          p_limit: input.limit,
-          p_lease_seconds: input.leaseSeconds,
-        }
+      const data = await requireDatabaseResponse(
+        "Email import provider operation claim failed",
+        () =>
+          supabase.rpc("claim_email_import_provider_operations", {
+            p_holder: input.holder,
+            p_limit: input.limit,
+            p_lease_seconds: input.leaseSeconds,
+          })
       );
-      if (error) {
-        throw new Error(
-          `Email import provider operation claim failed: ${error.message}`
-        );
-      }
       return ((data ?? []) as ProviderOperationRow[]).map((row) =>
         mapClaimedOperation(row, input.holder)
       );
     },
 
     async authorize(input) {
-      const { data, error } = await supabase.rpc(
-        "authorize_email_import_provider_operation_as_system",
-        {
-          p_operation_id: input.operationId,
-          p_holder: input.holder,
-        }
+      const data = await requireDatabaseResponse(
+        "Email import provider operation authorization failed",
+        () =>
+          supabase.rpc("authorize_email_import_provider_operation_as_system", {
+            p_operation_id: input.operationId,
+            p_holder: input.holder,
+          })
       );
-      if (error) {
-        throw new Error(
-          `Email import provider operation authorization failed: ${error.message}`
-        );
-      }
       return firstBoolean(data);
     },
 
@@ -415,24 +438,23 @@ export function createSupabaseEmailImportProviderOperationStore(
         input.providerLabelId,
         "EMAIL_IMPORT_PROVIDER_LABEL_ID_MISSING"
       );
-      const { data: updated, error: updateError } = await supabase
-        .from("email_connections")
-        .update({
-          ops_label_id: providerLabelId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", input.connectionId)
-        .eq("company_id", input.companyId)
-        .eq("sync_enabled", true)
-        .in("status", ["active", "setup_incomplete"])
-        .is("ops_label_id", null)
-        .select("id, company_id, ops_label_id")
-        .maybeSingle();
-      if (updateError) {
-        throw new Error(
-          `Email import provider label persistence failed: ${updateError.message}`
-        );
-      }
+      const updated = await requireDatabaseResponse(
+        "Email import provider label persistence failed",
+        () =>
+          supabase
+            .from("email_connections")
+            .update({
+              ops_label_id: providerLabelId,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", input.connectionId)
+            .eq("company_id", input.companyId)
+            .eq("sync_enabled", true)
+            .in("status", ["active", "setup_incomplete"])
+            .is("ops_label_id", null)
+            .select("id, company_id, ops_label_id")
+            .maybeSingle()
+      );
       if (
         updated?.id === input.connectionId &&
         updated.company_id === input.companyId &&
@@ -444,17 +466,16 @@ export function createSupabaseEmailImportProviderOperationStore(
       // Another worker may have won the same mailbox-label race. Use only the
       // exact connection's now-canonical label; never overwrite it or borrow a
       // label from another connection.
-      const { data: current, error: currentError } = await supabase
-        .from("email_connections")
-        .select("id, company_id, sync_enabled, status, ops_label_id")
-        .eq("id", input.connectionId)
-        .eq("company_id", input.companyId)
-        .maybeSingle();
-      if (currentError) {
-        throw new Error(
-          `Email import provider label reload failed: ${currentError.message}`
-        );
-      }
+      const current = await requireDatabaseResponse(
+        "Email import provider label reload failed",
+        () =>
+          supabase
+            .from("email_connections")
+            .select("id, company_id, sync_enabled, status, ops_label_id")
+            .eq("id", input.connectionId)
+            .eq("company_id", input.companyId)
+            .maybeSingle()
+      );
       if (
         !current ||
         current.id !== input.connectionId ||
@@ -471,36 +492,28 @@ export function createSupabaseEmailImportProviderOperationStore(
     },
 
     async complete(input) {
-      const { data, error } = await supabase.rpc(
-        "complete_email_import_provider_operation",
-        {
-          p_operation_id: input.operationId,
-          p_holder: input.holder,
-          p_provider_label_id: input.providerLabelId,
-        }
+      const data = await requireDatabaseResponse(
+        "Email import provider operation completion failed",
+        () =>
+          supabase.rpc("complete_email_import_provider_operation", {
+            p_operation_id: input.operationId,
+            p_holder: input.holder,
+            p_provider_label_id: input.providerLabelId,
+          })
       );
-      if (error) {
-        throw new Error(
-          `Email import provider operation completion failed: ${error.message}`
-        );
-      }
       return firstBoolean(data);
     },
 
     async fail(input) {
-      const { data, error } = await supabase.rpc(
-        "fail_email_import_provider_operation",
-        {
-          p_operation_id: input.operationId,
-          p_holder: input.holder,
-          p_error: input.error,
-        }
+      const data = await requireDatabaseResponse(
+        "Email import provider operation failure write failed",
+        () =>
+          supabase.rpc("fail_email_import_provider_operation", {
+            p_operation_id: input.operationId,
+            p_holder: input.holder,
+            p_error: input.error,
+          })
       );
-      if (error) {
-        throw new Error(
-          `Email import provider operation failure write failed: ${error.message}`
-        );
-      }
       return firstBoolean(data);
     },
   };
@@ -523,6 +536,7 @@ export async function runEmailImportProviderOperations(
           connectionId,
           context: "email-import-provider-operation",
           client: supabase,
+          abortOnDatabaseError: true,
           run,
         }),
       workerId: () => randomUUID(),

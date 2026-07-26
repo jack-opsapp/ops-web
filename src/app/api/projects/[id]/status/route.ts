@@ -4,6 +4,7 @@ import {
   authenticateRequest,
   isErrorResponse,
 } from "@/app/api/agent/_lib/auth";
+import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
 import { ProjectStatusLifecycleOutboxService } from "@/lib/api/services/project-status-lifecycle-outbox-service";
 import { getAccessTokenClient } from "@/lib/supabase/accessToken-client";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
@@ -147,9 +148,15 @@ export async function PATCH(
     try {
       after(async () => {
         try {
-          await ProjectStatusLifecycleOutboxService.processBatch(serviceDb, {
-            limit: 10,
-            leaseSeconds: 180,
+          await runWithCronWorkloadControl({
+            supabase: serviceDb,
+            workloadKey: "lead-outbox",
+            leaseSeconds: 360,
+            work: () =>
+              ProjectStatusLifecycleOutboxService.processBatch(serviceDb, {
+                limit: 1,
+                leaseSeconds: 360,
+              }),
           });
         } catch (error) {
           // The database trigger committed the lifecycle event atomically with

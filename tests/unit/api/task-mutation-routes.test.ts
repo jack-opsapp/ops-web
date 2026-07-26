@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   actorRpc: vi.fn(),
   serializeTaskPatch: vi.fn(),
   processTaskAutomation: vi.fn(),
+  runWithCronWorkloadControl: vi.fn(),
 }));
 
 vi.mock("next/server", async (importOriginal) => ({
@@ -39,6 +40,9 @@ vi.mock("@/lib/api/services/task-mutation-automation-outbox-service", () => ({
   TaskMutationAutomationOutboxService: {
     processBatch: mocks.processTaskAutomation,
   },
+}));
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  runWithCronWorkloadControl: mocks.runWithCronWorkloadControl,
 }));
 
 import { PATCH } from "@/app/api/tasks/[id]/route";
@@ -129,6 +133,12 @@ beforeEach(() => {
   });
   mocks.getAccessTokenClient.mockReturnValue(actorDatabase());
   mocks.getServiceRoleClient.mockReturnValue({ service: true });
+  mocks.runWithCronWorkloadControl.mockImplementation(
+    async ({ work }: { work: () => Promise<unknown> }) => ({
+      status: "completed",
+      value: await work(),
+    })
+  );
   mocks.serializeTaskPatch.mockImplementation((value: unknown) => {
     const input = value as Record<string, unknown>;
     const serialized: Record<string, unknown> = {};
@@ -201,10 +211,45 @@ describe("POST /api/tasks", () => {
     expect(mocks.afterCallbacks).toHaveLength(1);
 
     await mocks.afterCallbacks[0]();
+    expect(mocks.runWithCronWorkloadControl).toHaveBeenCalledWith({
+      supabase: expect.objectContaining({ service: true }),
+      workloadKey: "lead-outbox",
+      leaseSeconds: 360,
+      work: expect.any(Function),
+    });
     expect(mocks.processTaskAutomation).toHaveBeenCalledWith(
       expect.objectContaining({ service: true }),
-      { limit: 10, leaseSeconds: 180 }
+      { limit: 1, leaseSeconds: 360 }
     );
+  });
+
+  it("keeps a committed scheduled task when workload control is unavailable", async () => {
+    mocks.getAccessTokenClient.mockReturnValue(actorDatabase());
+    mocks.runWithCronWorkloadControl.mockResolvedValueOnce({
+      status: "skipped",
+      reason: "control_unavailable",
+      error: new Error("database unavailable"),
+    });
+
+    const response = await POST(
+      request("POST", "/api/tasks", {
+        ...createBody(),
+        schedule: {
+          title: "Site visit",
+          startDate: "2026-07-21T16:00:00.000Z",
+        },
+      }) as never
+    );
+
+    expect(response.status).toBe(201);
+    await expect(mocks.afterCallbacks[0]()).resolves.toBeUndefined();
+    expect(mocks.runWithCronWorkloadControl).toHaveBeenCalledWith({
+      supabase: expect.objectContaining({ service: true }),
+      workloadKey: "lead-outbox",
+      leaseSeconds: 360,
+      work: expect.any(Function),
+    });
+    expect(mocks.processTaskAutomation).not.toHaveBeenCalled();
   });
 
   it("delegates create authorization to the atomic RPC and fails closed", async () => {
@@ -330,10 +375,46 @@ describe("PATCH /api/tasks/:id", () => {
     expect(patch.sourceLineItemId).toBeUndefined();
 
     await mocks.afterCallbacks[0]();
+    expect(mocks.runWithCronWorkloadControl).toHaveBeenCalledWith({
+      supabase: expect.objectContaining({ service: true }),
+      workloadKey: "lead-outbox",
+      leaseSeconds: 360,
+      work: expect.any(Function),
+    });
     expect(mocks.processTaskAutomation).toHaveBeenCalledWith(
       expect.objectContaining({ service: true }),
-      { limit: 10, leaseSeconds: 180 }
+      { limit: 1, leaseSeconds: 360 }
     );
+  });
+
+  it("keeps a committed task update when the workload guard fails", async () => {
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    mocks.getAccessTokenClient.mockReturnValue(
+      actorDatabase({ data: currentTask(), error: null })
+    );
+    mocks.runWithCronWorkloadControl.mockRejectedValueOnce(
+      new Error("control completion unavailable")
+    );
+
+    const response = await PATCH(
+      request("PATCH", `/api/tasks/${TASK_ID}`, {
+        data: { startDate: "2026-07-22T16:00:00.000Z" },
+      }) as never,
+      { params: Promise.resolve({ id: TASK_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    await expect(mocks.afterCallbacks[0]()).resolves.toBeUndefined();
+    expect(mocks.runWithCronWorkloadControl).toHaveBeenCalledWith({
+      supabase: expect.objectContaining({ service: true }),
+      workloadKey: "lead-outbox",
+      leaseSeconds: 360,
+      work: expect.any(Function),
+    });
+    expect(mocks.processTaskAutomation).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it("fails closed when the task is hidden or guarded authorization is revoked", async () => {

@@ -14,10 +14,37 @@ const senderMock = vi.fn();
 
 const inserts: Array<{ table: string; payload: unknown }> = [];
 const updates: Array<{ table: string; payload: unknown }> = [];
+type MockDatabaseError = {
+  code?: string;
+  message: string;
+  status?: number;
+};
+let campaignLookupError: MockDatabaseError | null;
+let emailJobUpdateError: MockDatabaseError | null;
+let emailJobUpdateErrorStatus: string | null;
 
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({ rpc: rpcMock, from: fromMock }),
 }));
+
+vi.mock(
+  "@/lib/api/services/cron-workload-control-service",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/api/services/cron-workload-control-service")
+      >();
+    return {
+      ...actual,
+      runWithCronWorkloadControl: vi.fn(
+        async ({ work }: { work: () => Promise<unknown> }) => ({
+          status: "completed",
+          value: await work(),
+        })
+      ),
+    };
+  }
+);
 
 vi.mock("@/lib/email/campaigns", () => ({
   completeCampaignIfDone: (...args: unknown[]) =>
@@ -42,10 +69,9 @@ import { GET } from "@/app/api/cron/email/worker/route";
 function buildRequest(authHeader?: string): NextRequest {
   const headers = new Headers();
   if (authHeader) headers.set("authorization", authHeader);
-  return new NextRequest(
-    new URL("https://example.com/api/cron/email/worker"),
-    { headers }
-  );
+  return new NextRequest(new URL("https://example.com/api/cron/email/worker"), {
+    headers,
+  });
 }
 
 beforeEach(() => {
@@ -54,9 +80,13 @@ beforeEach(() => {
   updates.length = 0;
   process.env.CRON_SECRET = "test-secret";
   completeCampaignIfDoneMock.mockResolvedValue(true);
+  campaignLookupError = null;
+  emailJobUpdateError = null;
+  emailJobUpdateErrorStatus = null;
 });
 
 function buildBuilder(table: string) {
+  let updatePayload: Record<string, unknown> | null = null;
   const builder = {
     select() {
       return builder;
@@ -77,7 +107,7 @@ function buildBuilder(table: string) {
               created_by_user_id: "operator-uid",
             },
           ],
-          error: null,
+          error: campaignLookupError,
         });
       }
       return Promise.resolve({ data: [], error: null });
@@ -124,11 +154,25 @@ function buildBuilder(table: string) {
     },
     update(payload: unknown) {
       updates.push({ table, payload });
+      updatePayload = payload as Record<string, unknown>;
       return builder;
     },
     insert(payload: unknown) {
       inserts.push({ table, payload });
       return builder;
+    },
+    then(
+      resolve: (value: unknown) => unknown,
+      reject?: (reason: unknown) => unknown
+    ) {
+      const shouldFailEmailJobUpdate =
+        table === "email_jobs" &&
+        emailJobUpdateError !== null &&
+        updatePayload?.status === emailJobUpdateErrorStatus;
+      return Promise.resolve({
+        data: null,
+        error: shouldFailEmailJobUpdate ? emailJobUpdateError : null,
+      }).then(resolve, reject);
     },
   };
   return builder;
@@ -188,9 +232,7 @@ describe("email worker cron", () => {
     // Notification rail entry on completion
     const notif = inserts.find((i) => i.table === "notifications");
     expect(notif).toBeTruthy();
-    expect(
-      (notif?.payload as { type?: string }).type
-    ).toBe("campaign_done");
+    expect((notif?.payload as { type?: string }).type).toBe("campaign_done");
   });
 
   it("marks suppressed jobs and increments suppressed_skipped_count", async () => {
@@ -213,7 +255,10 @@ describe("email worker cron", () => {
       return Promise.resolve({ data: null, error: null });
     });
     fromMock.mockImplementation((table: string) => buildBuilder(table));
-    senderMock.mockResolvedValue({ status: "suppression_skipped", reason: "suppressed" });
+    senderMock.mockResolvedValue({
+      status: "suppression_skipped",
+      reason: "suppressed",
+    });
 
     const res = await GET(buildRequest("Bearer test-secret"));
     const body = await res.json();
@@ -264,5 +309,121 @@ describe("email worker cron", () => {
         (args as { p_field?: string }).p_field === "failed_count"
     );
     expect(incCall).toBeTruthy();
+  });
+
+  it("stops before provider dispatch when a Supabase read returns code-only 53300", async () => {
+    rpcMock.mockImplementation((name: string) => {
+      if (name === "claim_email_jobs") {
+        return Promise.resolve({
+          data: [
+            {
+              id: "j-pressure",
+              campaign_id: "c1",
+              recipient_email: "pressure@example.com",
+              recipient_user_id: null,
+              template_payload: {},
+              retry_count: 0,
+            },
+          ],
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+    fromMock.mockImplementation((table: string) => buildBuilder(table));
+    campaignLookupError = {
+      code: "53300",
+      message: "database rejected the request",
+    };
+
+    const res = await GET(buildRequest("Bearer test-secret"));
+
+    expect(res.status).toBe(500);
+    expect(senderMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps an external provider 504 on the ordinary retry path", async () => {
+    rpcMock.mockImplementation((name: string) => {
+      if (name === "claim_email_jobs") {
+        return Promise.resolve({
+          data: [
+            {
+              id: "j-provider-504",
+              campaign_id: "c1",
+              recipient_email: "provider@example.com",
+              recipient_user_id: null,
+              template_payload: {},
+              retry_count: 0,
+            },
+          ],
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+    fromMock.mockImplementation((table: string) => buildBuilder(table));
+    senderMock.mockRejectedValue(
+      Object.assign(new Error("Email provider gateway failed"), { status: 504 })
+    );
+
+    const res = await GET(buildRequest("Bearer test-secret"));
+
+    expect(res.status).toBe(200);
+    expect(senderMock).toHaveBeenCalledOnce();
+    expect(updates).toContainEqual({
+      table: "email_jobs",
+      payload: expect.objectContaining({
+        status: "pending",
+        retry_count: 1,
+      }),
+    });
+  });
+
+  it("does not dispatch a second provider send after accepted-send DB finalization pressure", async () => {
+    rpcMock.mockImplementation((name: string) => {
+      if (name === "claim_email_jobs") {
+        return Promise.resolve({
+          data: [
+            {
+              id: "j-accepted-1",
+              campaign_id: "c1",
+              recipient_email: "first@example.com",
+              recipient_user_id: null,
+              template_payload: {},
+              retry_count: 0,
+            },
+            {
+              id: "j-accepted-2",
+              campaign_id: "c1",
+              recipient_email: "second@example.com",
+              recipient_user_id: null,
+              template_payload: {},
+              retry_count: 0,
+            },
+          ],
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+    fromMock.mockImplementation((table: string) => buildBuilder(table));
+    senderMock.mockResolvedValue({ status: "sent", messageId: "msg-accepted" });
+    emailJobUpdateErrorStatus = "sent";
+    emailJobUpdateError = {
+      code: "53300",
+      message: "database rejected the finalization",
+    };
+
+    const res = await GET(buildRequest("Bearer test-secret"));
+
+    expect(res.status).toBe(500);
+    expect(senderMock).toHaveBeenCalledOnce();
+    expect(
+      updates.some(
+        ({ table, payload }) =>
+          table === "email_jobs" &&
+          (payload as { status?: string }).status === "pending"
+      )
+    ).toBe(false);
   });
 });

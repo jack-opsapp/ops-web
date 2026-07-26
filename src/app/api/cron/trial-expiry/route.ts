@@ -1,7 +1,7 @@
 /**
  * GET /api/cron/trial-expiry
  *
- * Vercel cron: runs daily at 14:00 UTC (7am PT / 10am ET). Fires trial
+ * Vercel cron: runs daily at 12:44 UTC. Fires trial
  * expiry notifications (email, push, in-app) on the 7/5/3/1 day pre-expiry
  * marks and the 7/30 day post-expiry marks.
  *
@@ -12,6 +12,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { TrialExpiryService } from "@/lib/api/services/trial-expiry-service";
+import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
+import {
+  advanceCronWorkloadCursor,
+  readCronWorkloadCursor,
+} from "@/lib/api/services/cron-workload-cursor-service";
 
 export const maxDuration = 300;
 
@@ -32,7 +37,44 @@ export async function GET(request: NextRequest) {
   const supabase = getServiceRoleClient();
 
   try {
-    const result = await TrialExpiryService.processAll(supabase);
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: "trial-expiry",
+      leaseSeconds: 360,
+      work: async (lease) => {
+        const cursor = await readCronWorkloadCursor(
+          supabase,
+          "trial-expiry",
+          lease
+        );
+        const result = await TrialExpiryService.processAll(
+          supabase,
+          new Date(),
+          { afterCompanyId: cursor, limit: 10 }
+        );
+        await advanceCronWorkloadCursor(
+          supabase,
+          "trial-expiry",
+          lease,
+          cursor,
+          result.nextCompanyCursor
+        );
+        return result;
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
+    }
+    const result = controlled.value;
 
     console.log(
       `[cron/trial-expiry] Scanned ${result.scanned} companies, sent ${result.sent.length}, skipped ${result.skipped.length}, errors ${result.errors.length}`
@@ -44,6 +86,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
+      ran: true,
       scanned: result.scanned,
       sent: result.sent,
       skipped: result.skipped,

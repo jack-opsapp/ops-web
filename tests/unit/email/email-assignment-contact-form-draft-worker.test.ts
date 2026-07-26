@@ -9,6 +9,7 @@ import {
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { EmailConnectionSyncLockRunResult } from "@/lib/api/services/email-connection-sync-lock";
 import type { EmailProviderMailboxCheckpoint } from "@/lib/api/services/email-provider-mailbox-operation";
+import { ProviderApiError } from "@/lib/api/services/email-provider";
 
 const FORM_BODY = [
   "New contact form submission",
@@ -615,5 +616,63 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     expect(otherUserResult.retrying).toBe(1);
     expect(otherUserHarness.generateDraft).not.toHaveBeenCalled();
     expect(otherUserHarness.placeDraft).not.toHaveBeenCalled();
+  });
+
+  it("stops on database pressure before failure persistence or the next draft", async () => {
+    const pressure = Object.assign(
+      new Error("could not query the database for the schema cache"),
+      {
+        code: "PGRST002",
+        cause: { code: "57014", message: "statement timeout" },
+      }
+    );
+    const harness = makeHarness({
+      jobs: [
+        claimed(),
+        claimed({ id: "00000000-0000-4000-8000-000000000202" }),
+      ],
+    });
+    harness.loadConnection.mockRejectedValue(pressure);
+
+    await expect(harness.worker.process({ limit: 2 })).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+
+    expect(harness.loadConnection).toHaveBeenCalledTimes(1);
+    expect(harness.fail).not.toHaveBeenCalled();
+  });
+
+  it("surfaces database pressure from failure persistence with the original cause", async () => {
+    const pressure = Object.assign(new Error("525 SSL handshake failed"), {
+      status: 525,
+      cause: { code: "ECONNRESET" },
+    });
+    const harness = makeHarness();
+    harness.generateDraft.mockRejectedValue(
+      new Error("model output temporarily unavailable")
+    );
+    harness.fail.mockRejectedValue(pressure);
+
+    await expect(harness.worker.process()).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+  });
+
+  it("keeps a provider HTTP timeout on the ordinary draft retry path", async () => {
+    const harness = makeHarness();
+    harness.resolveSignature.mockRejectedValue(
+      new ProviderApiError("Gmail signature read deadline exceeded", 504)
+    );
+
+    const result = await harness.worker.process();
+
+    expect(result.retrying).toBe(1);
+    expect(harness.fail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: "Gmail signature read deadline exceeded",
+      })
+    );
   });
 });

@@ -326,6 +326,14 @@ export const queryKeys = {
       [...queryKeys.products.lists(), companyId, filters] as const,
     details: () => [...queryKeys.products.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.products.details(), id] as const,
+    configuration: (id: string) =>
+      [...queryKeys.products.detail(id), "configuration"] as const,
+  },
+
+  taxRates: {
+    all: ["taxRates"] as const,
+    list: (companyId: string) =>
+      [...queryKeys.taxRates.all, companyId] as const,
   },
 
   // Estimates

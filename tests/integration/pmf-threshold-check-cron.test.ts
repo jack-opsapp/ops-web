@@ -24,6 +24,21 @@ import type { PmfState } from "@/lib/pmf/types";
 
 // ─── Mock state ──────────────────────────────────────────────────────────────
 
+const workloadControlMocks = vi.hoisted(() => {
+  class CronDatabaseOperationError extends Error {
+    constructor(message: string, options: { cause: unknown }) {
+      super(message, options);
+      this.name = "CronDatabaseOperationError";
+    }
+  }
+
+  return {
+    CronDatabaseOperationError,
+    runWithCronWorkloadControl: vi.fn(),
+    observedWorkFailures: [] as unknown[],
+  };
+});
+
 interface RecordedCall {
   table: string;
   method: string;
@@ -81,6 +96,11 @@ vi.mock("@/lib/admin/pmf-queries", () => ({
 vi.mock("@/lib/notifications/pmf-send", () => ({
   sendPmfNotification: (opts: Parameters<typeof sendPmfNotificationMock>[0]) =>
     sendPmfNotificationMock(opts),
+}));
+
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  CronDatabaseOperationError: workloadControlMocks.CronDatabaseOperationError,
+  runWithCronWorkloadControl: workloadControlMocks.runWithCronWorkloadControl,
 }));
 
 vi.mock("@/lib/supabase/admin-client", () => ({
@@ -277,6 +297,21 @@ describe("GET /api/cron/pmf/threshold-check", () => {
     resultQueue = [];
     sendPmfNotificationMock.mockReset();
     sendPmfNotificationMock.mockResolvedValue(undefined);
+    workloadControlMocks.runWithCronWorkloadControl.mockReset();
+    workloadControlMocks.observedWorkFailures.length = 0;
+    workloadControlMocks.runWithCronWorkloadControl.mockImplementation(
+      async ({ work }: { work: () => Promise<unknown> }) => {
+        try {
+          return {
+            status: "completed",
+            value: await work(),
+          };
+        } catch (error) {
+          workloadControlMocks.observedWorkFailures.push(error);
+          throw error;
+        }
+      }
+    );
     nextComputePmfStateResult = makeState();
     process.env.CRON_SECRET = VALID_SECRET;
   });
@@ -334,7 +369,59 @@ describe("GET /api/cron/pmf/threshold-check", () => {
     const insertedRow = inserts[0].args[0] as { state: PmfState };
     expect(insertedRow.state).toBeDefined();
     expect(insertedRow.state.markers).toBeDefined();
+    expect(
+      workloadControlMocks.runWithCronWorkloadControl
+    ).toHaveBeenCalledWith({
+      supabase: expect.objectContaining({ from: expect.any(Function) }),
+      workloadKey: "pmf-threshold-check",
+      leaseSeconds: 90,
+      work: expect.any(Function),
+    });
   });
+
+  it("returns an idempotent no-op when another threshold check owns the lease", async () => {
+    workloadControlMocks.runWithCronWorkloadControl.mockResolvedValue({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(recordedCalls).toHaveLength(0);
+    expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["circuit_open", "control_unavailable"] as const)(
+    "fails closed when workload control reports %s",
+    async (reason) => {
+      workloadControlMocks.runWithCronWorkloadControl.mockResolvedValue({
+        status: "skipped",
+        reason,
+        ...(reason === "control_unavailable"
+          ? { error: new Error("control RPC unavailable") }
+          : {}),
+      });
+
+      const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+      const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({
+        ok: false,
+        ran: false,
+        reason,
+      });
+      expect(recordedCalls).toHaveLength(0);
+      expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+    }
+  );
 
   it("transition: marker_1 amber → green fires one sendPmfNotification", async () => {
     const prior = makeState({ marker1: "amber" });
@@ -584,70 +671,100 @@ describe("GET /api/cron/pmf/threshold-check", () => {
     expect(firstReferralCalls).toHaveLength(0);
   });
 
-  it("treats prior-snapshot read error as null and still fires event-driven triggers", async () => {
-    // A transient failure reading the prior snapshot must NOT abort the
-    // cron — we log the error, fall back to prior=null (disabling only
-    // the state-diff path), and still deliver inbound / refund /
-    // first-referral alerts. Seed position 1 (prior snapshot) with an
-    // error and a new inbound prospect; expect one send.
+  it("fails the controlled work when the prior snapshot read fails", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const priorError = {
+      code: "57014",
+      message: "canceling statement due to statement timeout",
+    };
 
     resultQueue = [
-      // 1. prior snapshot — transient read error
-      { data: null, error: { message: "transient db error" } },
-      // 2. insert snapshot
+      { data: null, error: priorError },
       { data: null, error: null },
-      // 3. newInbound — one prospect
-      {
-        data: [
-          {
-            id: "prospect-after-err",
-            company: "acme",
-            name: "alice",
-            source: "paid_ad",
-            first_contact_direction: "inbound",
-            first_contact_at: "2026-04-22T11:55:00.000Z",
-          },
-        ],
-        error: null,
-      },
-      // 4. newRefunds — none
       { data: [], error: null },
-      // 5. newReferrals — none
+      { data: [], error: null },
       { data: [], error: null },
     ];
 
     const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
     const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as {
-      ok: boolean;
-      transitions: number;
-      inbound: number;
-      refunds: number;
-      sent: number;
-    };
-    expect(json.ok).toBe(true);
-    expect(json.transitions).toBe(0);
-    expect(json.inbound).toBe(1);
-    expect(json.sent).toBe(1);
 
-    expect(sendPmfNotificationMock).toHaveBeenCalledTimes(1);
-    expect(sendPmfNotificationMock.mock.calls[0][0].trigger).toBe(
-      "new_inbound_prospect-after-err"
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "pmf threshold check failed" });
+    expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+    expect(workloadControlMocks.observedWorkFailures).toHaveLength(1);
+    const [failure] = workloadControlMocks.observedWorkFailures;
+    expect(failure).toBeInstanceOf(
+      workloadControlMocks.CronDatabaseOperationError
     );
-
-    // The read error was logged.
+    expect((failure as Error & { cause?: unknown }).cause).toBe(priorError);
     expect(errorSpy).toHaveBeenCalled();
-    const loggedPriorErr = errorSpy.mock.calls.some((args) =>
-      args.some(
-        (a) => typeof a === "string" && a.includes("prior snapshot read failed")
-      )
-    );
-    expect(loggedPriorErr).toBe(true);
-
     errorSpy.mockRestore();
   });
+
+  it("fails the controlled work when the current snapshot insert fails", async () => {
+    const insertError = {
+      code: "53200",
+      message: "out of memory",
+    };
+    resultQueue = [
+      { data: [], error: null },
+      { data: null, error: insertError },
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [], error: null },
+    ];
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+    expect(res.status).toBe(500);
+    expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+    expect(workloadControlMocks.observedWorkFailures).toHaveLength(1);
+    const [failure] = workloadControlMocks.observedWorkFailures;
+    expect(failure).toBeInstanceOf(
+      workloadControlMocks.CronDatabaseOperationError
+    );
+    expect((failure as Error & { cause?: unknown }).cause).toBe(insertError);
+    errorSpy.mockRestore();
+  });
+
+  it.each([
+    { label: "inbound", queueIndex: 2 },
+    { label: "refund", queueIndex: 3 },
+    { label: "referral", queueIndex: 4 },
+  ])(
+    "fails the controlled work when the $label event query fails",
+    async ({ queueIndex }) => {
+      const eventError = {
+        code: "PGRST002",
+        message: "Could not query the database for the schema cache",
+      };
+      resultQueue = [
+        { data: [], error: null },
+        { data: null, error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+      ];
+      resultQueue[queueIndex] = { data: null, error: eventError };
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+      const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+      expect(res.status).toBe(500);
+      expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+      expect(workloadControlMocks.observedWorkFailures).toHaveLength(1);
+      const [failure] = workloadControlMocks.observedWorkFailures;
+      expect(failure).toBeInstanceOf(
+        workloadControlMocks.CronDatabaseOperationError
+      );
+      expect((failure as Error & { cause?: unknown }).cause).toBe(eventError);
+      errorSpy.mockRestore();
+    }
+  );
 
   it("no transitions, no events: returns 200 with zero sends", async () => {
     seedQueue({ prior: makeState() });
@@ -682,9 +799,17 @@ describe("GET /api/cron/pmf/threshold-check", () => {
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: string };
     // Generic error shape — no Supabase internals leaked to clients.
-    expect(json.error).toBe("pmf state computation failed");
+    expect(json.error).toBe("pmf threshold check failed");
     expect(errorSpy).toHaveBeenCalled();
     expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+    expect(workloadControlMocks.observedWorkFailures).toHaveLength(1);
+    const [failure] = workloadControlMocks.observedWorkFailures;
+    expect(failure).toBeInstanceOf(
+      workloadControlMocks.CronDatabaseOperationError
+    );
+    expect((failure as Error & { cause?: unknown }).cause).toBe(
+      nextComputePmfStateResult
+    );
     errorSpy.mockRestore();
   });
 

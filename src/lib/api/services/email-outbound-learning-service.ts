@@ -4,6 +4,10 @@ import {
   cleanMessageBody,
 } from "./conversation-state/message-cleaner";
 import { outboundLearningEvidenceKey } from "@/lib/email/outbound-learning-evidence";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "./cron-workload-control-service";
 
 export const OUTBOUND_LEARNING_PREPARATION_VERSION = "outbound-learning-v1";
 
@@ -262,7 +266,12 @@ const defaultDependencies: EmailOutboundLearningDependencies = {
       .eq("company_id", job.companyId)
       .eq("user_id", job.userId ?? "")
       .maybeSingle();
-    if (error) throw error;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning draft history lookup failed: ${error.message}`,
+        { cause: error }
+      );
+    }
     if (!data) {
       throw new Error(
         "Outbound learning draft history disappeared before preparation"
@@ -547,7 +556,12 @@ export class EmailOutboundLearningService {
       }
     );
 
-    if (error) throw error;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning enqueue failed: ${errorText(error)}`,
+        { cause: error }
+      );
+    }
     const row = rowsFromRpc(data)[0];
     if (!row) throw new Error("Outbound learning enqueue returned no job");
     return mapJob(row);
@@ -591,7 +605,12 @@ export class EmailOutboundLearningService {
         p_lease_seconds: input.leaseSeconds ?? 300,
       }
     );
-    if (error) throw error;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning claim failed: ${errorText(error)}`,
+        { cause: error }
+      );
+    }
     const rows = rowsFromRpc(data).map(mapJob);
     const unexpected = rows.find(
       (job) => job.status !== "leased" && job.status !== "failed"
@@ -639,7 +658,12 @@ export class EmailOutboundLearningService {
         p_preparation_version: OUTBOUND_LEARNING_PREPARATION_VERSION,
       }
     );
-    if (error) throw error;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning preparation failed: ${errorText(error)}`,
+        { cause: error }
+      );
+    }
     const row = rowsFromRpc(data)[0];
     if (!row) {
       throw new Error("Outbound learning preparation lost lease ownership");
@@ -655,7 +679,12 @@ export class EmailOutboundLearningService {
       "apply_email_outbound_learning",
       { p_job_id: job.id, p_lease_token: leaseToken }
     );
-    if (error) throw error;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning application failed: ${errorText(error)}`,
+        { cause: error }
+      );
+    }
     const row = rowsFromRpc(data)[0];
     if (!row) {
       throw new Error("Outbound learning application lost lease ownership");
@@ -677,7 +706,12 @@ export class EmailOutboundLearningService {
         p_delay_seconds: 900,
       }
     );
-    if (error) throw error;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning deferral failed: ${errorText(error)}`,
+        { cause: error }
+      );
+    }
     const row = rowsFromRpc(data)[0];
     if (!row)
       throw new Error("Outbound learning deferral lost lease ownership");
@@ -697,7 +731,12 @@ export class EmailOutboundLearningService {
         p_error: errorText(errorValue).slice(0, 4000),
       }
     );
-    if (error) throw error;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning retry failed: ${errorText(error)}`,
+        { cause: error }
+      );
+    }
     const row = rowsFromRpc(data)[0];
     if (!row) throw new Error("Outbound learning retry lost lease ownership");
     return mapJob(row);
@@ -948,7 +987,12 @@ export class EmailOutboundLearningService {
           }
           result.completed++;
         } catch (error) {
-          const message = errorText(error);
+          if (isDatabasePressureError(error)) {
+            throw error;
+          }
+          const retryableError =
+            error instanceof CronDatabaseOperationError ? error.cause : error;
+          const message = errorText(retryableError);
           // Enqueue may atomically enrich a provider-only job with draft
           // provenance while this worker is preparing it. That deliberately
           // revokes the old lease so the next claim recomputes the outcome from
@@ -958,7 +1002,7 @@ export class EmailOutboundLearningService {
             return;
           }
           try {
-            const retryResult = await this.retry(job, error);
+            const retryResult = await this.retry(job, retryableError);
             // A lost HTTP response can arrive after the apply transaction
             // committed. The retry RPC recognizes the exact completing token and
             // returns the completed job without replaying any effect.
@@ -994,6 +1038,9 @@ export class EmailOutboundLearningService {
             });
             return;
           } catch (retryError) {
+            if (isDatabasePressureError(retryError)) {
+              throw retryError;
+            }
             console.error("[outbound-learning] retry bookkeeping failed", {
               jobId: job.id,
               providerMessageId: job.providerMessageId,

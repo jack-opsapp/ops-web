@@ -14,6 +14,7 @@
 
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { AdminFeatureOverride } from "@/lib/types/email-connection";
+import { throwCronDatabaseOperationError } from "./cron-company-fanout-service";
 
 type AIFeatureKey = "phase_c" | "ai_auto_send";
 
@@ -52,7 +53,10 @@ export const AdminFeatureOverrideService = {
       .maybeSingle();
 
     if (error) {
-      throw new Error(`Failed to read AI feature override: ${error.message}`);
+      throwCronDatabaseOperationError(
+        `failed to read ${feature} feature override for ${companyId}`,
+        error
+      );
     }
 
     return data?.enabled === true;

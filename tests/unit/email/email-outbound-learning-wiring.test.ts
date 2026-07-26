@@ -115,7 +115,9 @@ describe("outbound learning producer and worker wiring", () => {
   });
 
   it("drains a bounded worker from the existing cron without stopping sync loops", () => {
-    expect(cronSource).toContain("runWorker({ limit: 10, concurrency: 2");
+    expect(cronSource).toContain(
+      "runWorker({ limit: 2, concurrency: 1, leaseSeconds: 900 })"
+    );
     expect(cronSource).toContain("outboundLearning");
     expect(cronSource).toContain("outboundLearningError");
   });

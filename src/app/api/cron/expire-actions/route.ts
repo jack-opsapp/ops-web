@@ -4,6 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import {
+  CronDatabaseOperationError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export const maxDuration = 60;
@@ -27,25 +31,56 @@ export async function GET(request: NextRequest) {
   console.log("[expire-actions] Starting expiry cycle");
 
   try {
-    const { data, error } = await supabase
-      .from("agent_actions")
-      .update({ status: "expired" })
-      .eq("status", "pending")
-      .lt("expires_at", new Date().toISOString())
-      .select("id");
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: "expire-agent-actions",
+      leaseSeconds: 120,
+      work: async () => {
+        const { data, error } = (await supabase.rpc(
+          "expire_agent_actions_batch_as_system" as never,
+          {
+            p_batch_size: 500,
+            p_now: new Date().toISOString(),
+          } as never
+        )) as unknown as { data: unknown; error: unknown };
 
-    if (error) {
-      console.error("[expire-actions] Expiry failed:", error.message);
+        if (error) {
+          throw new CronDatabaseOperationError(
+            "agent action expiry batch failed",
+            { cause: error }
+          );
+        }
+        if (
+          typeof data !== "number" ||
+          !Number.isSafeInteger(data) ||
+          data < 0 ||
+          data > 500
+        ) {
+          throw new CronDatabaseOperationError(
+            "agent action expiry returned an invalid count",
+            { cause: new Error("invalid expiry batch result") }
+          );
+        }
+        return { expired: data };
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
       return NextResponse.json(
-        { ok: false, error: error.message },
-        { status: 500 }
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
       );
     }
 
-    const expired = data?.length ?? 0;
+    const { expired } = controlled.value;
     console.log(`[expire-actions] Expired ${expired} stale actions`);
 
-    return NextResponse.json({ ok: true, expired });
+    return NextResponse.json({ ok: true, ran: true, expired });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[expire-actions] Failed:", message);

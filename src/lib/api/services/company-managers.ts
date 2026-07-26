@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { throwCronDatabaseOperationError } from "./cron-company-fanout-service";
 
 /**
  * Resolve a company's authoritative MANAGEMENT user-ids — the account holder
@@ -27,7 +28,10 @@ export async function getCompanyManagerUserIds(
     .eq("id", companyId)
     .maybeSingle();
   if (error) {
-    throw new Error(`Failed to resolve company managers: ${error.message}`);
+    throwCronDatabaseOperationError(
+      `failed to resolve company managers for ${companyId}`,
+      error
+    );
   }
   if (!company) return [];
 

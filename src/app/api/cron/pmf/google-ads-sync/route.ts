@@ -1,8 +1,7 @@
 /**
  * GET /api/cron/pmf/google-ads-sync
  *
- * Vercel cron: runs daily at 14:15 UTC (~15 minutes after the trial-expiry
- * cron at 14:00 UTC). Pulls yesterday's account-level Google Ads totals via
+ * Vercel cron: runs daily at 10:24 UTC. Pulls yesterday's account-level Google Ads totals via
  * the existing queryDailyAccountData helper (which already converts micros
  * to dollars) and upserts a single row keyed on (channel, spend_date) into
  * ad_spend_log for PMF marker computation (CAC, payback, etc).
@@ -17,6 +16,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import {
+  CronDatabaseOperationError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import {
   isGoogleAdsConfigured,
@@ -26,6 +29,13 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+class GoogleAdsProviderError extends Error {
+  constructor(options: { cause: unknown }) {
+    super("google ads sync failed", options);
+    this.name = "GoogleAdsProviderError";
+  }
+}
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -46,60 +56,92 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ skipped: "google ads not configured" });
   }
 
-  // Yesterday in UTC. Google Ads finalizes per-day data ~24h after the day
-  // closes, and the cron itself fires at 14:15 UTC, so this is safely "done".
-  const yesterday = new Date();
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  const dateStr = yesterday.toISOString().slice(0, 10);
-
-  let rows: Awaited<ReturnType<typeof queryDailyAccountData>>;
   try {
-    rows = await queryDailyAccountData(yesterday, yesterday);
-  } catch (err) {
-    // Google Ads errors are formatted as "Google Ads API error (status): <raw body>".
-    // The raw body can include customer IDs, request diagnostics, and partial auth
-    // metadata — log it server-side, but don't echo it back to the HTTP response.
-    const message =
-      err instanceof Error ? err.message : "google ads query failed";
-    console.error("[pmf-google-ads-sync] query failed:", message);
+    const sb = getAdminSupabase();
+    const controlled = await runWithCronWorkloadControl({
+      supabase: sb,
+      workloadKey: "pmf-google-ads-sync",
+      leaseSeconds: 120,
+      work: async () => {
+        // Yesterday in UTC. Google Ads finalizes per-day data about 24 hours
+        // after close, so the scheduled pull reads a settled day.
+        const yesterday = new Date();
+        yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+        const dateStr = yesterday.toISOString().slice(0, 10);
+
+        let rows: Awaited<ReturnType<typeof queryDailyAccountData>>;
+        try {
+          rows = await queryDailyAccountData(yesterday, yesterday);
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : "google ads query failed";
+          console.error("[pmf-google-ads-sync] query failed:", message);
+          throw new GoogleAdsProviderError({ cause: error });
+        }
+
+        const row = rows[0];
+        // Record zero on no-data days so "checked, no spend" stays distinct
+        // from a missing synchronization.
+        const spendDollars = row?.spend ?? 0;
+        const clicks = row?.clicks ?? 0;
+        const impressions = row?.impressions ?? 0;
+        const spendCents = Math.round(spendDollars * 100);
+
+        const { error } = await sb.from("ad_spend_log").upsert(
+          {
+            channel: "google_ads",
+            spend_date: dateStr,
+            spend_cents: spendCents,
+            impressions,
+            clicks,
+            source: "auto_sync",
+          },
+          { onConflict: "channel,spend_date" }
+        );
+
+        if (error) {
+          throw new CronDatabaseOperationError(
+            "PMF Google Ads upsert failed",
+            { cause: error }
+          );
+        }
+
+        return {
+          date: dateStr,
+          spendCents,
+          impressions,
+          clicks,
+        };
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
+    }
+
+    return NextResponse.json({
+      ok: true,
+      ran: true,
+      date: controlled.value.date,
+      spend_cents: controlled.value.spendCents,
+      impressions: controlled.value.impressions,
+      clicks: controlled.value.clicks,
+    });
+  } catch (error) {
+    if (!(error instanceof GoogleAdsProviderError)) {
+      console.error("[pmf-google-ads-sync] failed:", error);
+    }
     return NextResponse.json(
       { error: "google ads sync failed" },
       { status: 500 }
     );
   }
-
-  const row = rows[0];
-  // No data for yesterday (paused account, ramp-up period, etc) → record a
-  // zero row so PMF dashboard can tell "we checked, no spend" apart from
-  // "missing data".
-  const spendDollars = row?.spend ?? 0;
-  const clicks = row?.clicks ?? 0;
-  const impressions = row?.impressions ?? 0;
-  const spendCents = Math.round(spendDollars * 100);
-
-  const sb = getAdminSupabase();
-  const { error } = await sb.from("ad_spend_log").upsert(
-    {
-      channel: "google_ads",
-      spend_date: dateStr,
-      spend_cents: spendCents,
-      impressions,
-      clicks,
-      source: "auto_sync",
-    },
-    { onConflict: "channel,spend_date" }
-  );
-
-  if (error) {
-    console.error("[pmf-google-ads-sync] upsert failed:", error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json({
-    ok: true,
-    date: dateStr,
-    spend_cents: spendCents,
-    impressions,
-    clicks,
-  });
 }

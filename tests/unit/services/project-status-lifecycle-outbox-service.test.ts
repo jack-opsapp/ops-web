@@ -7,6 +7,7 @@ vi.mock("@/lib/api/services/project-lifecycle-service", () => ({
 }));
 
 import { ProjectStatusLifecycleOutboxService } from "@/lib/api/services/project-status-lifecycle-outbox-service";
+import { isDatabasePressureError } from "@/lib/api/services/cron-workload-control-service";
 
 const claim = {
   event_id: "event-1",
@@ -98,6 +99,49 @@ describe("ProjectStatusLifecycleOutboxService", () => {
       }
     );
     expect(result.requeued).toBe(1);
+  });
+
+  it("stops without another database write when lifecycle work reports pressure", async () => {
+    lifecycle.mockRejectedValueOnce(
+      new Error("PGRST002 schema cache unavailable")
+    );
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({ data: 0, error: null })
+      .mockResolvedValueOnce({ data: [claim], error: null });
+    const db = { rpc, from: vi.fn(() => userQuery()) };
+
+    await expect(
+      ProjectStatusLifecycleOutboxService.processBatch(db as never, {
+        workerId: "worker-1",
+        limit: 2,
+      })
+    ).rejects.toThrow("PGRST002");
+
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc).not.toHaveBeenCalledWith(
+      "fail_project_status_lifecycle_event",
+      expect.anything()
+    );
+  });
+
+  it("preserves a code-only 53300 finalizer failure for the database circuit", async () => {
+    const rpc = vi.fn().mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: "53300",
+        message: "remaining connection slots are reserved",
+      },
+    });
+    const db = { rpc, from: vi.fn(() => userQuery()) };
+
+    const failure = await ProjectStatusLifecycleOutboxService.processBatch(
+      db as never,
+      { workerId: "worker-1" }
+    ).catch((error: unknown) => error);
+
+    expect(isDatabasePressureError(failure)).toBe(true);
+    expect(rpc).toHaveBeenCalledOnce();
   });
 
   it("reports rows terminalized after an expired final lease", async () => {

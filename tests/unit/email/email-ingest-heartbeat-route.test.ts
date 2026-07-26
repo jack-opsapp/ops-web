@@ -4,11 +4,13 @@ import { NextRequest } from "next/server";
 const {
   drainPersonalMailboxLifecycleMock,
   processImportProviderOperationsMock,
+  runWithCronWorkloadControlMock,
   heartbeatState,
   sendInboxConnectionDownMock,
 } = vi.hoisted(() => ({
   drainPersonalMailboxLifecycleMock: vi.fn(),
   processImportProviderOperationsMock: vi.fn(),
+  runWithCronWorkloadControlMock: vi.fn(),
   heartbeatState: {
     notificationInsertError: null as { message: string } | null,
     notificationCreated: true,
@@ -22,10 +24,28 @@ const {
       name: string;
       params: Record<string, unknown>;
     }>,
+    connectionLimits: [] as number[],
+    additionalConnections: [] as Array<Record<string, unknown>>,
+    additionalCompanies: [] as Array<Record<string, unknown>>,
+    additionalUsers: [] as Array<Record<string, unknown>>,
+    companyLookupIds: [] as string[],
     integrationPermissionAllowed: true,
     connectionHealthy: false,
   },
   sendInboxConnectionDownMock: vi.fn(),
+}));
+
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  CronDatabaseOperationError: class CronDatabaseOperationError extends Error {
+    constructor(message: string, options: { cause: unknown }) {
+      super(message, options);
+      this.name = "CronDatabaseOperationError";
+    }
+  },
+  isDatabasePressureError: (error: unknown) =>
+    error instanceof Error &&
+    (error as Error & { cause?: { code?: string } }).cause?.code === "53300",
+  runWithCronWorkloadControl: runWithCronWorkloadControlMock,
 }));
 
 vi.mock("@/lib/email/sendgrid", () => ({
@@ -50,27 +70,36 @@ vi.mock("@/lib/supabase/server-client", () => ({
     from: (table: string) => {
       if (table === "email_connections") {
         const healthy = heartbeatState.connectionHealthy;
-        return {
-          select: async () => ({
-            data: [
-              {
-                id: "connection-1",
-                company_id: "company-1",
-                user_id: "user-1",
-                email: "owner@example.com",
-                provider: "gmail",
-                type: "company",
-                status: "active",
-                sync_enabled: true,
-                webhook_subscription_id: healthy ? "watch-1" : null,
-                webhook_expires_at: healthy ? "2999-01-01T00:00:00.000Z" : null,
-                last_synced_at: healthy ? new Date().toISOString() : null,
-                created_at: "2020-01-01T00:00:00.000Z",
-              },
-            ],
-            error: null,
-          }),
+        const query = {
+          select: () => query,
+          order: () => query,
+          limit: async (limit: number) => {
+            heartbeatState.connectionLimits.push(limit);
+            return {
+              data: [
+                {
+                  id: "connection-1",
+                  company_id: "company-1",
+                  user_id: "user-1",
+                  email: "owner@example.com",
+                  provider: "gmail",
+                  type: "company",
+                  status: "active",
+                  sync_enabled: true,
+                  webhook_subscription_id: healthy ? "watch-1" : null,
+                  webhook_expires_at: healthy
+                    ? "2999-01-01T00:00:00.000Z"
+                    : null,
+                  last_synced_at: healthy ? new Date().toISOString() : null,
+                  created_at: "2020-01-01T00:00:00.000Z",
+                },
+                ...heartbeatState.additionalConnections,
+              ],
+              error: null,
+            };
+          },
         };
+        return { select: query.select };
       }
 
       if (table === "email_ingest_heartbeat_log") {
@@ -90,16 +119,23 @@ vi.mock("@/lib/supabase/server-client", () => ({
       if (table === "companies") {
         return {
           select: () => ({
-            in: async () => ({
-              data: [
-                {
-                  id: "company-1",
-                  name: "Canpro",
-                  admin_ids: ["admin-1"],
-                },
-              ],
-              error: null,
-            }),
+            in: async (_column: string, ids: string[]) => {
+              heartbeatState.companyLookupIds.push(...ids);
+              return {
+                data: [
+                  {
+                    id: "company-1",
+                    name: "Canpro",
+                    account_holder_id: null,
+                    admin_ids: heartbeatState.integrationPermissionAllowed
+                      ? ["admin-1"]
+                      : [],
+                  },
+                  ...heartbeatState.additionalCompanies,
+                ].filter((company) => ids.includes(String(company.id))),
+                error: null,
+              };
+            },
           }),
         };
       }
@@ -110,9 +146,11 @@ vi.mock("@/lib/supabase/server-client", () => ({
             id: "admin-1",
             email: "admin@example.com",
             company_id: "company-1",
+            is_company_admin: false,
             is_active: true,
             deleted_at: null,
           },
+          ...heartbeatState.additionalUsers,
         ];
         let filtered = [...users];
         const query = {
@@ -156,6 +194,27 @@ vi.mock("@/lib/supabase/server-client", () => ({
                 return { error: null };
               },
             }),
+          }),
+        };
+      }
+
+      if (table === "user_permission_overrides") {
+        const query = {
+          select: () => query,
+          in: () => query,
+          eq: () => query,
+          then: (
+            resolve: (value: { data: never[]; error: null }) => unknown
+          ) =>
+            Promise.resolve({ data: [], error: null }).then(resolve),
+        };
+        return { select: query.select };
+      }
+
+      if (table === "user_roles") {
+        return {
+          select: () => ({
+            in: async () => ({ data: [], error: null }),
           }),
         };
       }
@@ -220,6 +279,11 @@ describe("email ingest heartbeat delivery semantics", () => {
     heartbeatState.notificationInserts.length = 0;
     heartbeatState.notificationResolutions.length = 0;
     heartbeatState.rpcCalls.length = 0;
+    heartbeatState.connectionLimits.length = 0;
+    heartbeatState.additionalConnections.length = 0;
+    heartbeatState.additionalCompanies.length = 0;
+    heartbeatState.additionalUsers.length = 0;
+    heartbeatState.companyLookupIds.length = 0;
     heartbeatState.integrationPermissionAllowed = true;
     heartbeatState.connectionHealthy = false;
     sendInboxConnectionDownMock.mockReset();
@@ -236,6 +300,13 @@ describe("email ingest heartbeat delivery semantics", () => {
       staleFailures: 0,
       errors: [],
     });
+    runWithCronWorkloadControlMock.mockReset();
+    runWithCronWorkloadControlMock.mockImplementation(
+      async ({ work }: { work: () => Promise<unknown> }) => ({
+        status: "completed",
+        value: await work(),
+      })
+    );
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -245,55 +316,17 @@ describe("email ingest heartbeat delivery semantics", () => {
     vi.restoreAllMocks();
   });
 
-  it.each([
-    {
-      delivery: "suppressed",
-      outcome: {
-        result: {
-          status: "suppression_skipped",
-          reason: "suppressed",
-        },
-      },
-    },
-    {
-      delivery: "paused",
-      outcome: {
-        result: {
-          status: "paused_skipped",
-          scope: "global",
-        },
-      },
-    },
-    {
-      delivery: "failed",
-      outcome: { error: new Error("SendGrid unavailable") },
-    },
-  ])(
-    "does not dedupe a failed alert when in-app insert fails and email is $delivery",
-    async ({ outcome }) => {
-      heartbeatState.notificationInsertError = {
-        message: "notification insert failed",
-      };
-      if ("error" in outcome) {
-        sendInboxConnectionDownMock.mockRejectedValue(outcome.error);
-      } else {
-        sendInboxConnectionDownMock.mockResolvedValue(outcome.result);
-      }
+  it("aborts before provider delivery when the in-app database insert fails", async () => {
+    heartbeatState.notificationInsertError = {
+      message: "notification insert failed",
+    };
 
-      const response = await GET(request());
-      const body = await response.json();
+    const response = await GET(request());
 
-      expect(response.status).toBe(503);
-      expect(body).toEqual({
-        ok: false,
-        checked: 1,
-        failed: 1,
-        alerted: 0,
-        deliveryFailures: 1,
-      });
-      expect(heartbeatState.heartbeatLogInserts).toEqual([]);
-    }
-  );
+    expect(response.status).toBe(500);
+    expect(sendInboxConnectionDownMock).not.toHaveBeenCalled();
+    expect(heartbeatState.heartbeatLogInserts).toEqual([]);
+  });
 
   it.each([
     {
@@ -304,12 +337,6 @@ describe("email ingest heartbeat delivery semantics", () => {
         reason: "suppressed",
       },
       expectedReason: "webhook_setup_failed_inapp_only",
-    },
-    {
-      delivery: "email only",
-      notificationError: { message: "notification insert failed" },
-      sendResult: { status: "sent", messageId: "sg-message-1" },
-      expectedReason: "webhook_setup_failed_email_only",
     },
     {
       delivery: "email and in-app",
@@ -352,8 +379,9 @@ describe("email ingest heartbeat delivery semantics", () => {
     await GET(request());
 
     expect(drainPersonalMailboxLifecycleMock).toHaveBeenCalledWith(
-      100,
-      expect.anything()
+      10,
+      expect.anything(),
+      { abortOnDatabaseError: true }
     );
   });
 
@@ -367,8 +395,108 @@ describe("email ingest heartbeat delivery semantics", () => {
 
     expect(processImportProviderOperationsMock).toHaveBeenCalledWith(
       expect.anything(),
-      { limit: 5, leaseSeconds: 300 }
+      { limit: 2, leaseSeconds: 300 }
     );
+  });
+
+  it("caps the connection scan page at 100 rows", async () => {
+    sendInboxConnectionDownMock.mockResolvedValue({
+      status: "suppression_skipped",
+      reason: "suppressed",
+    });
+
+    await GET(request());
+
+    expect(heartbeatState.connectionLimits).toEqual([100]);
+  });
+
+  it("alerts at most five failing companies per heartbeat run", async () => {
+    for (let index = 2; index <= 6; index += 1) {
+      heartbeatState.additionalConnections.push({
+        id: `connection-${index}`,
+        company_id: `company-${index}`,
+        user_id: `user-${index}`,
+        email: `owner-${index}@example.com`,
+        provider: "gmail",
+        type: "company",
+        status: "active",
+        sync_enabled: true,
+        webhook_subscription_id: null,
+        webhook_expires_at: null,
+        last_synced_at: null,
+        created_at: "2020-01-01T00:00:00.000Z",
+      });
+      heartbeatState.additionalCompanies.push({
+        id: `company-${index}`,
+        name: `Company ${index}`,
+        account_holder_id: null,
+        admin_ids: [`admin-${index}`],
+      });
+      heartbeatState.additionalUsers.push({
+        id: `admin-${index}`,
+        email: `admin-${index}@example.com`,
+        company_id: `company-${index}`,
+        is_company_admin: false,
+        is_active: true,
+        deleted_at: null,
+      });
+    }
+    sendInboxConnectionDownMock.mockResolvedValue({
+      status: "suppression_skipped",
+      reason: "suppressed",
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      checked: 6,
+      failed: 6,
+      alerted: 5,
+    });
+    expect(heartbeatState.companyLookupIds).toHaveLength(5);
+    expect(heartbeatState.notificationInserts).toHaveLength(5);
+    expect(heartbeatState.heartbeatLogInserts).toHaveLength(5);
+  });
+
+  it("launches no heartbeat work while another cron holds the workload lease", async () => {
+    runWithCronWorkloadControlMock.mockResolvedValue({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(runWithCronWorkloadControlMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workloadKey: "email-ingest-heartbeat",
+        leaseSeconds: 120,
+        work: expect.any(Function),
+      })
+    );
+    expect(drainPersonalMailboxLifecycleMock).not.toHaveBeenCalled();
+    expect(processImportProviderOperationsMock).not.toHaveBeenCalled();
+  });
+
+  it("aborts later work when the lifecycle drain hits database pressure", async () => {
+    const pressure = Object.assign(new Error("remaining connection slots"), {
+      name: "CronDatabaseOperationError",
+      cause: { code: "53300", message: "remaining connection slots" },
+    });
+    drainPersonalMailboxLifecycleMock.mockRejectedValue(pressure);
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(500);
+    expect(processImportProviderOperationsMock).not.toHaveBeenCalled();
+    expect(sendInboxConnectionDownMock).not.toHaveBeenCalled();
   });
 
   it("targets a current integration manager instead of the legacy company connector", async () => {
@@ -396,6 +524,9 @@ describe("email ingest heartbeat delivery semantics", () => {
       JSON.stringify(heartbeatState.notificationInserts) +
         JSON.stringify(sendInboxConnectionDownMock.mock.calls)
     ).not.toContain("userId=user-1");
+    expect(
+      heartbeatState.rpcCalls.some((call) => call.name === "has_permission")
+    ).toBe(false);
   });
 
   it("creates the persistent rail alert through a connection-scoped dedupe identity", async () => {

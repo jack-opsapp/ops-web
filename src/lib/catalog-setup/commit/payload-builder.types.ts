@@ -30,10 +30,11 @@ export interface ProductOptionDoc {
   client_id: string;
   id?: string;
   name: string;
-  kind: "select";
+  kind: "select" | "integer" | "boolean" | "text";
   affects_price?: boolean;
   affects_recipe?: boolean;
   required?: boolean;
+  default_value?: string | null;
   sort_order?: number;
   values: OptionValueDoc[];
 }
@@ -60,13 +61,32 @@ export interface PricingModifierDoc {
  */
 export interface ProductMaterialDoc {
   client_id: string;
+  id?: string;
   quantity_per_unit: number;
   notes?: string | null;
   catalog_variant_id?: string | null;
+  catalog_variant_client_id?: string | null;
   variant_selector?: Record<string, unknown> | null;
   catalog_item_id?: string | null;
+  catalog_item_client_id?: string | null;
   scaled_by_option_client_id?: string | null;
   unit_id?: string | null;
+}
+
+export interface CatalogOptionMappingDoc {
+  client_id: string;
+  id?: string;
+  catalog_item_id?: string | null;
+  catalog_item_client_id?: string | null;
+  catalog_option_id?: string | null;
+  catalog_option_client_id?: string | null;
+  product_option_id?: string | null;
+  product_option_client_id?: string | null;
+  catalog_option_value_id?: string | null;
+  catalog_option_value_client_id?: string | null;
+  product_option_value_id?: string | null;
+  product_option_value_client_id?: string | null;
+  mapping_kind: string;
 }
 
 /** A child line of a bundle/package product. */
@@ -102,12 +122,15 @@ export interface ProductDoc {
   minimum_charge?: number | null;
   minimum_quantity?: number | null;
   linked_catalog_item_id?: string | null;
+  task_type_id?: string | null;
+  task_type_ref?: string | null;
   bundle_pricing_mode?: string | null;
   external_source?: string | null;
   external_id?: string | null;
   options?: ProductOptionDoc[];
   pricing_modifiers?: PricingModifierDoc[];
   product_materials?: ProductMaterialDoc[];
+  catalog_option_mappings?: CatalogOptionMappingDoc[];
   bundle_items?: BundleItemDoc[];
 }
 
@@ -133,6 +156,7 @@ export interface VariantDoc {
  * contract). The route loops families; the builder accepts at most one.
  */
 export interface FamilyDoc {
+  client_id?: string;
   id?: string;
   name: string;
   category_id?: string | null;
@@ -142,11 +166,19 @@ export interface FamilyDoc {
   external_id?: string | null;
 }
 
+export interface CatalogOptionDoc {
+  client_id: string;
+  id?: string;
+  name: string;
+  sort_order?: number;
+  values: OptionValueDoc[];
+}
+
 /** Top-level `p_payload` for `catalog_setup_save`. */
 export interface CatalogSetupPayload {
   mode: SetupMode;
   family?: FamilyDoc;
-  catalog_options?: unknown[];
+  catalog_options?: CatalogOptionDoc[];
   variants?: VariantDoc[];
   products?: ProductDoc[];
   /** top-level recipe array (mirrors the per-product nesting) */

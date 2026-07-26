@@ -25,6 +25,8 @@ import { AIDraftService } from "./ai-draft-service";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { getCompanyLocale, renderServerString } from "@/i18n/server-render";
 import { resolveNewEmailConversationConnectionId } from "@/lib/email/email-connection-selection";
+import { throwCronDatabaseOperationError } from "./cron-company-fanout-service";
+import { isDatabasePressureError } from "./cron-workload-control-service";
 import type {
   SendStatusEmailActionData,
   ReassignTaskActionData,
@@ -137,7 +139,10 @@ async function getLifecycleConfig(companyId: string): Promise<LifecycleConfig> {
     .single();
 
   if (error) {
-    throw new Error(`Failed to load lifecycle settings: ${error.message}`);
+    throwCronDatabaseOperationError(
+      `Failed to load lifecycle settings: ${error.message}`,
+      error
+    );
   }
 
   if (!data?.lifecycle_settings) return DEFAULT_CONFIG;
@@ -1043,7 +1048,7 @@ export const ProjectLifecycleService = {
     if (frequencyDays <= 0) return 0; // Disabled
 
     // Find active projects
-    const { data: projects } = await supabase
+    const { data: projects, error: projectsError } = await supabase
       .from("projects")
       .select("id, title, client_id")
       .eq("company_id", companyId)
@@ -1051,6 +1056,12 @@ export const ProjectLifecycleService = {
       .is("deleted_at", null)
       .not("client_id", "is", null)
       .limit(100);
+    if (projectsError) {
+      throwCronDatabaseOperationError(
+        `Failed to load projects due for status updates: ${projectsError.message}`,
+        projectsError
+      );
+    }
 
     if (!projects || projects.length === 0) return 0;
 
@@ -1059,13 +1070,19 @@ export const ProjectLifecycleService = {
     cutoffDate.setDate(cutoffDate.getDate() - frequencyDays);
 
     const projectIds = projects.map((p) => p.id as string);
-    const { data: recentActions } = await supabase
+    const { data: recentActions, error: recentActionsError } = await supabase
       .from("agent_actions")
       .select("source_id, status")
       .eq("company_id", companyId)
       .eq("action_type", "send_status_email")
       .in("status", ["pending", "executed", "approved"])
       .gte("created_at", cutoffDate.toISOString());
+    if (recentActionsError) {
+      throwCronDatabaseOperationError(
+        `Failed to load recent project status actions: ${recentActionsError.message}`,
+        recentActionsError
+      );
+    }
 
     const recentProjectIds = new Set(
       (recentActions ?? [])
@@ -1097,6 +1114,7 @@ export const ProjectLifecycleService = {
         );
         proposed++;
       } catch (err) {
+        if (isDatabasePressureError(err)) throw err;
         console.error(
           `[project-lifecycle] Failed to generate status update for ${pid}:`,
           err
@@ -1124,7 +1142,7 @@ export const ProjectLifecycleService = {
 
     // Find tasks with calendar events whose end_date has passed
     // Join project_tasks with calendar_events via calendar_event_id
-    const { data: overdueTasks } = await supabase
+    const { data: overdueTasks, error: overdueTasksError } = await supabase
       .from("project_tasks")
       .select(
         "id, custom_title, project_id, task_type_id, team_member_ids, status, calendar_event_id"
@@ -1134,6 +1152,12 @@ export const ProjectLifecycleService = {
       .not("calendar_event_id", "is", null)
       .is("deleted_at", null)
       .limit(200);
+    if (overdueTasksError) {
+      throwCronDatabaseOperationError(
+        `Failed to load overdue task candidates: ${overdueTasksError.message}`,
+        overdueTasksError
+      );
+    }
 
     if (!overdueTasks || overdueTasks.length === 0) return 0;
 
@@ -1144,11 +1168,17 @@ export const ProjectLifecycleService = {
 
     if (eventIds.length === 0) return 0;
 
-    const { data: events } = await supabase
+    const { data: events, error: eventsError } = await supabase
       .from("calendar_events")
       .select("id, end_date, start_date")
       .in("id", eventIds)
       .lt("end_date", now.toISOString());
+    if (eventsError) {
+      throwCronDatabaseOperationError(
+        `Failed to load overdue task calendar events: ${eventsError.message}`,
+        eventsError
+      );
+    }
 
     if (!events || events.length === 0) return 0;
 
@@ -1157,12 +1187,19 @@ export const ProjectLifecycleService = {
 
     // Check for existing pending reassign actions
     const taskIds = overdueTasks.map((t) => t.id as string);
-    const { data: existingActions } = await supabase
+    const { data: existingActions, error: existingActionsError } =
+      await supabase
       .from("agent_actions")
       .select("source_id")
       .eq("company_id", companyId)
       .eq("action_type", "reassign_task")
       .eq("status", "pending");
+    if (existingActionsError) {
+      throwCronDatabaseOperationError(
+        `Failed to load pending reassignment actions: ${existingActionsError.message}`,
+        existingActionsError
+      );
+    }
 
     const pendingReassignSourceIds = new Set(
       (existingActions ?? []).map((a) => a.source_id as string)
@@ -1180,10 +1217,16 @@ export const ProjectLifecycleService = {
     ];
     const projectNameMap = new Map<string, string>();
     if (projectIds.length > 0) {
-      const { data: projects } = await supabase
+      const { data: projects, error: projectsError } = await supabase
         .from("projects")
         .select("id, title")
         .in("id", projectIds);
+      if (projectsError) {
+        throwCronDatabaseOperationError(
+          `Failed to load overdue task projects: ${projectsError.message}`,
+          projectsError
+        );
+      }
       for (const p of projects ?? []) {
         projectNameMap.set(p.id as string, p.title as string);
       }
@@ -1198,10 +1241,16 @@ export const ProjectLifecycleService = {
     }
     const memberNameMap = new Map<string, string>();
     if (allMemberIds.size > 0) {
-      const { data: members } = await supabase
+      const { data: members, error: membersError } = await supabase
         .from("users")
         .select("id, first_name, last_name")
         .in("id", Array.from(allMemberIds));
+      if (membersError) {
+        throwCronDatabaseOperationError(
+          `Failed to load overdue task team members: ${membersError.message}`,
+          membersError
+        );
+      }
       for (const m of members ?? []) {
         const name =
           `${(m.first_name as string) ?? ""} ${(m.last_name as string) ?? ""}`.trim() ||
@@ -1270,7 +1319,8 @@ export const ProjectLifecycleService = {
             actionUrl: `/dashboard?openProject=${projectId}&mode=view`,
             actionLabel: "View Project",
           });
-        } catch {
+        } catch (error) {
+          if (isDatabasePressureError(error)) throw error;
           // Non-critical
         }
         continue;
@@ -1350,8 +1400,9 @@ export const ProjectLifecycleService = {
         .limit(100);
 
     if (completedProjectsError) {
-      throw new Error(
-        `Failed to load closeable projects: ${completedProjectsError.message}`
+      throwCronDatabaseOperationError(
+        `Failed to load closeable projects: ${completedProjectsError.message}`,
+        completedProjectsError
       );
     }
 
@@ -1367,8 +1418,9 @@ export const ProjectLifecycleService = {
         .eq("status", "pending");
 
     if (existingActionsError) {
-      throw new Error(
-        `Failed to load pending close actions: ${existingActionsError.message}`
+      throwCronDatabaseOperationError(
+        `Failed to load pending close actions: ${existingActionsError.message}`,
+        existingActionsError
       );
     }
 
@@ -1410,8 +1462,9 @@ export const ProjectLifecycleService = {
           .limit(1);
 
       if (incompleteTasksError) {
-        throw new Error(
-          `Failed to check incomplete project tasks: ${incompleteTasksError.message}`
+        throwCronDatabaseOperationError(
+          `Failed to check incomplete project tasks: ${incompleteTasksError.message}`,
+          incompleteTasksError
         );
       }
 
@@ -1426,8 +1479,9 @@ export const ProjectLifecycleService = {
         .is("deleted_at", null);
 
       if (allTasksError) {
-        throw new Error(
-          `Failed to load project task counts: ${allTasksError.message}`
+        throwCronDatabaseOperationError(
+          `Failed to load project task counts: ${allTasksError.message}`,
+          allTasksError
         );
       }
 
@@ -1448,8 +1502,9 @@ export const ProjectLifecycleService = {
           .limit(1);
 
       if (recentActivityError) {
-        throw new Error(
-          `Failed to load recent project activity: ${recentActivityError.message}`
+        throwCronDatabaseOperationError(
+          `Failed to load recent project activity: ${recentActivityError.message}`,
+          recentActivityError
         );
       }
 

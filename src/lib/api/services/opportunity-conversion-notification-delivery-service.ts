@@ -8,6 +8,10 @@ import {
   type SendPushParams,
   type SendPushResult,
 } from "@/lib/integrations/onesignal";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "./cron-workload-control-service";
 
 interface OpportunityConversionNotificationClaim {
   delivery_id: string;
@@ -152,8 +156,9 @@ async function persistFailure(params: {
     }
   );
   if (error) {
-    throw new Error(
-      `Failed to persist conversion notification failure: ${error.message}`
+    throw new CronDatabaseOperationError(
+      `Failed to persist conversion notification failure: ${error.message}`,
+      { cause: error }
     );
   }
   return Boolean((data as FailureResult | null)?.terminal);
@@ -194,8 +199,9 @@ export const OpportunityConversionNotificationDeliveryService = {
         }
       );
       if (error) {
-        throw new Error(
-          `Failed to claim conversion notification delivery: ${error.message}`
+        throw new CronDatabaseOperationError(
+          `Failed to claim conversion notification delivery: ${error.message}`,
+          { cause: error }
         );
       }
       const claims = (data ?? []) as unknown[];
@@ -259,6 +265,9 @@ export const OpportunityConversionNotificationDeliveryService = {
             if (terminal) result.terminalFailed += 1;
             else result.requeued += 1;
           } catch (persistError) {
+            if (isDatabasePressureError(persistError)) {
+              throw persistError;
+            }
             result.errors.push({
               deliveryId: claim.delivery_id,
               message: `${failure}; ${errorMessage(persistError)}`,
@@ -295,6 +304,12 @@ export const OpportunityConversionNotificationDeliveryService = {
       }
 
       const failure = `Conversion notification completion failed: ${completeError.message}`;
+      const completionDatabaseError = new CronDatabaseOperationError(failure, {
+        cause: completeError,
+      });
+      if (isDatabasePressureError(completionDatabaseError)) {
+        throw completionDatabaseError;
+      }
       try {
         const terminal = await persistFailure({
           db,
@@ -306,6 +321,9 @@ export const OpportunityConversionNotificationDeliveryService = {
         if (terminal) result.terminalFailed += 1;
         else result.requeued += 1;
       } catch (persistError) {
+        if (isDatabasePressureError(persistError)) {
+          throw persistError;
+        }
         result.errors.push({
           deliveryId: claim.delivery_id,
           message: `${failure}; ${errorMessage(persistError)}`,

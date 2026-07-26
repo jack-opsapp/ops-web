@@ -23,6 +23,8 @@ import type {
   ScheduleOptimizationSettings,
   TaskAutomationPersistenceGuard,
 } from "@/lib/types/approval-queue";
+import { throwCronDatabaseOperationError } from "./cron-company-fanout-service";
+import { isDatabasePressureError } from "./cron-workload-control-service";
 import { DEFAULT_SCHEDULE_SETTINGS } from "@/lib/types/approval-queue";
 
 // ─── Haversine Distance ──────────────────────────────────────────────────────
@@ -226,11 +228,17 @@ async function loadScheduleSettings(
   companyId: string
 ): Promise<ScheduleOptimizationSettings> {
   const supabase = requireSupabase();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("companies")
     .select("schedule_settings")
     .eq("id", companyId)
     .single();
+  if (error) {
+    throwCronDatabaseOperationError(
+      `Failed to load schedule optimization settings: ${error.message}`,
+      error
+    );
+  }
 
   const raw = data?.schedule_settings as Record<string, unknown> | null;
   if (!raw) return DEFAULT_SCHEDULE_SETTINGS;
@@ -302,9 +310,9 @@ export const ScheduleOptimizationService = {
       .limit(500);
 
     if (tasksErr) {
-      console.error(
-        "[schedule-optimization] optimizeDailySchedule tasks fetch:",
-        tasksErr.message
+      throwCronDatabaseOperationError(
+        `Failed to load schedule optimization tasks: ${tasksErr.message}`,
+        tasksErr
       );
     }
 
@@ -342,11 +350,10 @@ export const ScheduleOptimizationService = {
         .in("id", chunk);
 
       if (projErr) {
-        console.error(
-          "[schedule-optimization] optimizeDailySchedule projects fetch:",
-          projErr.message
+        throwCronDatabaseOperationError(
+          `Failed to load schedule optimization projects: ${projErr.message}`,
+          projErr
         );
-        continue;
       }
 
       for (const p of projects ?? []) {
@@ -403,11 +410,10 @@ export const ScheduleOptimizationService = {
           .in("id", chunk);
 
         if (membersErr) {
-          console.error(
-            "[schedule-optimization] optimizeDailySchedule members fetch:",
-            membersErr.message
+          throwCronDatabaseOperationError(
+            `Failed to load schedule optimization members: ${membersErr.message}`,
+            membersErr
           );
-          continue;
         }
 
         for (const m of members ?? []) {
@@ -704,6 +710,7 @@ export const ScheduleOptimizationService = {
           });
           if (actionId) proposed++;
         } catch (err) {
+          if (isDatabasePressureError(err)) throw err;
           console.error(
             "[schedule-optimization] route reorder propose failed:",
             err instanceof Error ? err.message : err
@@ -738,6 +745,7 @@ export const ScheduleOptimizationService = {
             newStartISO = gap.startDate.toISOString();
             newEndISO = gap.endDate.toISOString();
           } catch (err) {
+            if (isDatabasePressureError(err)) throw err;
             console.error(
               "[schedule-optimization] findScheduleGap fallback:",
               err instanceof Error ? err.message : err
@@ -810,6 +818,7 @@ export const ScheduleOptimizationService = {
               conflictCount++;
             }
           } catch (err) {
+            if (isDatabasePressureError(err)) throw err;
             console.error(
               "[schedule-optimization] conflict propose failed:",
               err instanceof Error ? err.message : err
@@ -878,6 +887,7 @@ export const ScheduleOptimizationService = {
             };
           }
         } catch (err) {
+          if (isDatabasePressureError(err)) throw err;
           console.error(
             "[schedule-optimization] weather check failed:",
             err instanceof Error ? err.message : err
@@ -908,6 +918,7 @@ export const ScheduleOptimizationService = {
           unassignedCount++;
         }
       } catch (err) {
+        if (isDatabasePressureError(err)) throw err;
         console.error(
           "[schedule-optimization] unassigned propose failed:",
           err instanceof Error ? err.message : err
