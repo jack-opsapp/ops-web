@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CANPRO_VINYL_LIVE_SNAPSHOT } from "../__fixtures__/canpro-vinyl";
-import { DEKSMART_ULTRA_COLORS } from "../reference/deksmart";
-import { buildDeksmartVinylDesiredStructure } from "../reference/deksmart-desired";
+import { DEKSMART_ULTRA_COLORS } from "../__fixtures__/canpro-deksmart-reference";
+import { buildDeksmartVinylDesiredStructure } from "../__fixtures__/canpro-desired";
 import {
   reconcileCatalogStructure,
   type DesiredCatalogStructure,

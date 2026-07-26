@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDeksmartVinylDesiredStructure } from "../reference/deksmart-desired";
+import { buildDeksmartVinylDesiredStructure } from "../__fixtures__/canpro-desired";
 
 const desired = buildDeksmartVinylDesiredStructure({
   standardPricePerSqft: 11.73,

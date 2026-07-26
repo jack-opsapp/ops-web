@@ -2,7 +2,7 @@ import type { DesiredCatalogStructure } from "../reconcile";
 import {
   DEKSMART_MEMBRANES,
   DEKSMART_SYSTEM_MATERIALS,
-} from "./deksmart";
+} from "./canpro-deksmart-reference";
 
 interface BuildDeksmartVinylDesiredStructureInput {
   standardPricePerSqft: number;

@@ -111,7 +111,7 @@ describe("generateGuidedCatalogTurn", () => {
     expect(JSON.parse(args.messages[1].content).responseSchema).toBeTruthy();
   });
 
-  it("adds DekSmart review guidance only after its verified reference is selected", async () => {
+  it("treats supplier evidence generically without activating a prescribed brand plan", async () => {
     const turn = {
       kind: "question",
       facts: [],
@@ -125,14 +125,14 @@ describe("generateGuidedCatalogTurn", () => {
     const { client, create } = clientReturning(JSON.stringify(turn));
 
     await generateGuidedCatalogTurn({
-      answer: "We use DekSmart",
+      answer: "We use Northstar products",
       facts: [],
       contradictions: [],
       currentQuestion: null,
       liveSnapshotSummary: {},
       verifiedReference: {
-        deksmartMembranes: { ultra68: {} },
-        deksmartSystemMaterials: [],
+        supplier: "Northstar",
+        source: "operator-provided catalog",
       },
       client,
     });
@@ -141,8 +141,16 @@ describe("generateGuidedCatalogTurn", () => {
       messages: Array<{ role: string; content: string }>;
     };
     expect(args.messages[0].content).toMatch(
-      /For a DekSmart vinyl review/i,
+      /session-scoped.*evidence/i,
     );
+    expect(args.messages[0].content).not.toMatch(/Northstar/i);
+    expect(args.messages[0].content).not.toMatch(/exactly two product actions/i);
+    expect(
+      JSON.parse(args.messages[1].content).verifiedSupplierReference,
+    ).toEqual({
+      supplier: "Northstar",
+      source: "operator-provided catalog",
+    });
   });
 
   it("rejects malformed output instead of mutating the durable session", async () => {

@@ -74,6 +74,12 @@ function normalize(value: string): string {
     .trim();
 }
 
+function normalizedTokens(value: string): string[] {
+  return normalize(value)
+    .split(" ")
+    .filter((token) => token.length >= 3);
+}
+
 function findCell(
   row: Record<string, string>,
   canonical: keyof typeof HEADER_ALIASES,
@@ -160,20 +166,9 @@ function matches(
   const item = normalize(input.item);
   const color = normalize(input.color);
   const thickness = normalize(input.thickness);
-  return variants.filter((variant) => {
+  const attributesMatch = (variant: VariantDescriptor): boolean => {
     const normalizedFamily = normalize(variant.family);
     const normalizedValues = variant.values.map(normalize);
-    const itemMatch =
-      !item ||
-      variant.searchable.includes(item) ||
-      item.includes(normalizedFamily) ||
-      normalizedValues.some(
-        (value) => value.includes(item) || item.includes(value),
-      ) ||
-      (item.includes("vinyl") &&
-        normalizedFamily.includes("deksmart") &&
-        (normalizedFamily.includes("68") ||
-          normalizedFamily.includes("60")));
     const colorMatch =
       !color ||
       normalizedValues.some((value) => value === color) ||
@@ -182,7 +177,28 @@ function matches(
       !thickness ||
       normalizedFamily.includes(thickness.replace(/\s*mil$/, "")) ||
       variant.searchable.includes(thickness);
-    return itemMatch && colorMatch && thicknessMatch;
+    return colorMatch && thicknessMatch;
+  };
+  const directMatches = variants.filter((variant) => {
+    if (!attributesMatch(variant)) return false;
+    const normalizedFamily = normalize(variant.family);
+    const normalizedValues = variant.values.map(normalize);
+    return (
+      !item ||
+      variant.searchable.includes(item) ||
+      item.includes(normalizedFamily) ||
+      normalizedValues.some(
+        (value) => value.includes(item) || item.includes(value),
+      )
+    );
+  });
+  if (directMatches.length > 0 || !item) return directMatches;
+
+  const itemTokens = normalizedTokens(item);
+  return variants.filter((variant) => {
+    if (!attributesMatch(variant)) return false;
+    const searchableTokens = new Set(normalizedTokens(variant.searchable));
+    return itemTokens.some((token) => searchableTokens.has(token));
   });
 }
 

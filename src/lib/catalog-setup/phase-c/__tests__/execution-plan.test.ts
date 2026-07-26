@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CANPRO_VINYL_LIVE_SNAPSHOT } from "../__fixtures__/canpro-vinyl";
-import { buildDeksmartVinylDesiredStructure } from "../reference/deksmart-desired";
+import { buildDeksmartVinylDesiredStructure } from "../__fixtures__/canpro-desired";
 import { reconcileCatalogStructure } from "../reconcile";
 import {
   buildResolvedProductInput,

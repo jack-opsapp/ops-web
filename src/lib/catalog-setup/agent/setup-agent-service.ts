@@ -9,9 +9,9 @@
 // and never sees the provider, so swapping models/providers is a one-file change.
 // Output is validated downstream by the strict Zod schema + commit-safety
 // guardrails. Guided turns receive that contract in their prompt and use JSON
-// mode because their union plus supplier-specific payloads exceed the
-// provider's strict Structured Outputs subset. Malformed output is rejected
-// before a durable session update.
+// mode because their union plus extensible action payloads exceed the provider's
+// strict Structured Outputs subset. Malformed output is rejected before a
+// durable session update.
 //
 // In product this is "guided setup" — never labelled "AI" (voice rules). Internal
 // engineering names it precisely.
@@ -114,29 +114,7 @@ function systemPrompt(): string {
   ].join("\n");
 }
 
-function hasDeksmartReference(
-  verifiedReference: Record<string, unknown>
-): boolean {
-  return (
-    "deksmartMembranes" in verifiedReference &&
-    "deksmartSystemMaterials" in verifiedReference
-  );
-}
-
-function guidedSystemPrompt(
-  verifiedReference: Record<string, unknown>
-): string {
-  const supplierRules = hasDeksmartReference(verifiedReference)
-    ? [
-        "- DekSmart has been explicitly confirmed for this setup. Persist that supplier identity as a confirmed fact.",
-        "- For a DekSmart vinyl review, include exactly two product actions: the normal 68mil install and the staff-selectable 60mil exception. Each must include unitCost. Include the GST and Vinyl Install task-type actions. Verified supplier families, colors, materials, costs, compatibility, and purchasing rules are reconciled deterministically after your response.",
-        "- Do not emit a DekSmart review until confirmed operator facts contain separate 68mil and 60mil customer prices, labor costs per square foot, the minimum charge, and the GST rate. Ask one concise question for any missing commercial values.",
-      ]
-    : [
-        "- Never assume or name a manufacturer, supplier, product line, SKU, compatibility rule, or supplier-specific system until the operator or a confirmed fact identifies it.",
-        "- When the service depends on manufacturer-specific products and no supplier is confirmed, ask which manufacturer or supplier they use before asking supplier-specific pricing or product questions.",
-      ];
-
+function guidedSystemPrompt(): string {
   return [
     "You are the Phase C catalog setup specialist for OPS.",
     "Your job is to understand a trades business and propose a complete quoting, product-option, material, purchasing, inventory, and task system.",
@@ -144,7 +122,9 @@ function guidedSystemPrompt(
     "",
     "Decision policy:",
     "- Read the supplied live company snapshot before asking anything.",
-    "- Treat verified supplier reference as facts, but never invent missing SKUs, costs, dimensions, coverage, IDs, or compatibility.",
+    "- Treat verified supplier reference as session-scoped, source-attributed evidence. Never turn a supplier name alone into assumed products, SKUs, prices, dimensions, coverage, or compatibility.",
+    "- Never assume or name a manufacturer, supplier, product line, SKU, compatibility rule, or supplier-specific system until the operator, an uploaded source, or verified session evidence identifies it.",
+    "- When the service depends on manufacturer-specific products and no supplier is confirmed, ask which manufacturer or supplier they use. When a supplier is confirmed but its catalog details are not, ask for those details or a source instead of relying on general model knowledge.",
     "- Ask exactly one question when a decision that affects structure or pricing is unresolved.",
     "- Do not ask what live OPS data, prior confirmed facts, or verified supplier data already answers.",
     "- Confirm contradictions instead of silently choosing one answer.",
@@ -155,7 +135,6 @@ function guidedSystemPrompt(
     "- A staff-only choice must never become a customer product option.",
     "- Reuse verified live IDs. New records use stable lowercase client IDs, never invented UUIDs.",
     "- A reviewable product action must explicitly carry name, basePrice, pricingUnit, minimumCharge (number or null), isTaxable, showInStorefront, and a verified task type ID/client reference.",
-    ...supplierRules,
     "- Unknown values stay unresolved. A blueprint with a blocker is never ready.",
     "",
     "Return JSON only and obey the supplied strict response schema.",
@@ -216,17 +195,17 @@ export async function generateGuidedCatalogTurn(
   );
   const completion = await client.chat.completions.create({
     model: params.model ?? DEFAULT_CATALOG_MODEL,
-    // Catalog action payloads intentionally carry supplier-specific JSON, and
-    // the turn itself is a top-level discriminated union. Those shapes exceed
-    // the provider's strict Structured Outputs subset. JSON mode keeps the call
-    // compatible; the complete Zod-derived contract is still supplied to the
-    // model and every response is rejected unless our strict validator accepts
-    // it before any durable session update.
+    // Catalog action payloads are intentionally extensible, and the turn itself
+    // is a top-level discriminated union. Those shapes exceed the provider's
+    // strict Structured Outputs subset. JSON mode keeps the call compatible;
+    // the complete Zod-derived contract is still supplied to the model and every
+    // response is rejected unless our strict validator accepts it before any
+    // durable session update.
     response_format: { type: "json_object" },
     messages: [
       {
         role: "system",
-        content: guidedSystemPrompt(params.verifiedReference),
+        content: guidedSystemPrompt(),
       },
       {
         role: "user",

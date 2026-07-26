@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CANPRO_VINYL_LIVE_SNAPSHOT } from "../../phase-c/__fixtures__/canpro-vinyl";
-import { buildDeksmartVinylDesiredStructure } from "../../phase-c/reference/deksmart-desired";
+import { buildDeksmartVinylDesiredStructure } from "../../phase-c/__fixtures__/canpro-desired";
 import { reconcileCatalogStructure } from "../../phase-c/reconcile";
 import { mapInventorySheet } from "../inventory-import-mapper";
 
