@@ -2,7 +2,7 @@
  * Integration test — GET /api/feature-flags
  *
  * Verifies that the route includes the per-company synthetic flags
- * (`inbox_ui`, `phase_c`) in its response, sourced from
+ * (`inbox_ui`, `phase_c`, `external_api`) in its response, sourced from
  * admin_feature_overrides via the service-role client. phase_c gates the
  * Phase C operator surfaces (Calibration nav/route, /agent queue) — there
  * is no global phase_c row and unknown slugs default to accessible in the
@@ -92,7 +92,12 @@ function override(featureKey: string, enabled: boolean) {
  * feature_flag_overrides (returns empty overrides).
  */
 function makeDbDouble(
-  flags: Array<{ slug: string; enabled: boolean; routes: string[]; permissions: string[] }>
+  flags: Array<{
+    slug: string;
+    enabled: boolean;
+    routes: string[];
+    permissions: string[];
+  }>
 ) {
   return {
     from: (table: string) => {
@@ -119,7 +124,10 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   // Auth resolves to a known user
-  verifyAdminAuthMock.mockResolvedValue({ uid: TEST_UID, email: "test@ops.co" });
+  verifyAdminAuthMock.mockResolvedValue({
+    uid: TEST_UID,
+    email: "test@ops.co",
+  });
 
   // User lookup returns id + company_id
   findUserByAuthMock.mockResolvedValue({
@@ -132,7 +140,14 @@ beforeEach(() => {
 
   // Default: one global flag in the feature_flags table
   getServiceRoleClientMock.mockReturnValue(
-    makeDbDouble([{ slug: "pipeline", enabled: true, routes: ["/pipeline"], permissions: ["pipeline.view"] }])
+    makeDbDouble([
+      {
+        slug: "pipeline",
+        enabled: true,
+        routes: ["/pipeline"],
+        permissions: ["pipeline.view"],
+      },
+    ])
   );
 });
 
@@ -196,7 +211,34 @@ describe("GET /api/feature-flags — per-company synthetic flags", () => {
     expect(phaseC.enabled).toBe(false);
   });
 
-  it("fails closed for BOTH synthetic flags when the override check throws", async () => {
+  it("includes external_api enabled only for pilot companies", async () => {
+    getOverridesMock.mockResolvedValue([override("external_api", true)]);
+
+    const res = await GET(makeRequest(TEST_USER_ID));
+    const body = await res.json();
+    const externalApi = body.find(
+      (f: { slug: string }) => f.slug === "external_api"
+    );
+
+    expect(externalApi).toBeDefined();
+    expect(externalApi.enabled).toBe(true);
+    expect(externalApi.hasOverride).toBe(false);
+    expect(externalApi.routes).toEqual([]);
+    expect(externalApi.permissions).toEqual([]);
+  });
+
+  it("includes external_api disabled for companies without the override", async () => {
+    const res = await GET(makeRequest(TEST_USER_ID));
+    const body = await res.json();
+    const externalApi = body.find(
+      (f: { slug: string }) => f.slug === "external_api"
+    );
+
+    expect(externalApi).toBeDefined();
+    expect(externalApi.enabled).toBe(false);
+  });
+
+  it("fails closed for all synthetic flags when the override check throws", async () => {
     getOverridesMock.mockRejectedValue(new Error("DB timeout"));
 
     const res = await GET(makeRequest(TEST_USER_ID));
@@ -205,9 +247,13 @@ describe("GET /api/feature-flags — per-company synthetic flags", () => {
     const body = await res.json();
     const inboxFlag = body.find((f: { slug: string }) => f.slug === "inbox_ui");
     const phaseC = body.find((f: { slug: string }) => f.slug === "phase_c");
+    const externalApi = body.find(
+      (f: { slug: string }) => f.slug === "external_api"
+    );
 
     expect(inboxFlag.enabled).toBe(false);
     expect(phaseC.enabled).toBe(false);
+    expect(externalApi.enabled).toBe(false);
   });
 
   it("calls getOverrides with the resolved company_id (not the user id)", async () => {
@@ -222,8 +268,12 @@ describe("GET /api/feature-flags — per-company synthetic flags", () => {
     const body = await res.json();
     const inboxFlag = body.find((f: { slug: string }) => f.slug === "inbox_ui");
     const phaseC = body.find((f: { slug: string }) => f.slug === "phase_c");
+    const externalApi = body.find(
+      (f: { slug: string }) => f.slug === "external_api"
+    );
     expect(inboxFlag.enabled).toBe(false);
     expect(phaseC.enabled).toBe(false);
+    expect(externalApi.enabled).toBe(false);
   });
 
   it("returns 403 when userId param does not match JWT-resolved user", async () => {
@@ -253,5 +303,6 @@ describe("GET /api/feature-flags — per-company synthetic flags", () => {
     expect(slugs).toContain("pipeline");
     expect(slugs).toContain("inbox_ui");
     expect(slugs).toContain("phase_c");
+    expect(slugs).toContain("external_api");
   });
 });

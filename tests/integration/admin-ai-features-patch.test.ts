@@ -4,8 +4,9 @@
  * Verifies:
  *   1. `feature: inbox_ui` routes to AdminFeatureOverrideService.setFeatureOverride (generic, no wizard)
  *   2. `feature: phase_c`  routes to AdminFeatureOverrideService.setOverride (wizard side-effect)
- *   3. Admin auth guard is enforced (unauthenticated → 401)
- *   4. Unknown features yield 400
+ *   3. `feature: external_api` routes to the generic override service
+ *   4. Admin auth guard is enforced (unauthenticated → 401)
+ *   5. Unknown features yield 400
  *
  * External boundaries mocked:
  *   - verifyAdminAuth     → Firebase JWT verification
@@ -95,7 +96,10 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   // Happy-path admin auth
-  verifyAdminAuthMock.mockResolvedValue({ uid: "firebase-uid", email: ADMIN_EMAIL });
+  verifyAdminAuthMock.mockResolvedValue({
+    uid: "firebase-uid",
+    email: ADMIN_EMAIL,
+  });
   isAdminEmailMock.mockResolvedValue(true);
 
   // Service-role client stub (used to pin the override context)
@@ -178,6 +182,35 @@ describe("PATCH /api/admin/ai-features/[companyId] — phase_c regression", () =
   });
 });
 
+describe("PATCH /api/admin/ai-features/[companyId] — external_api", () => {
+  it("uses the generic override path for the Website API pilot gate", async () => {
+    const res = await PATCH(makeRequest({ external_api: true }), makeParams());
+
+    expect(res.status).toBe(200);
+    expect(setFeatureOverrideMock).toHaveBeenCalledWith(
+      TEST_COMPANY_ID,
+      "external_api",
+      true,
+      ADMIN_EMAIL
+    );
+    expect(setOverrideMock).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({
+      ok: true,
+      updated: [{ feature: "external_api", enabled: true }],
+    });
+  });
+
+  it("rejects non-boolean pilot values instead of coercing them on", async () => {
+    const res = await PATCH(
+      makeRequest({ external_api: "false" }),
+      makeParams()
+    );
+
+    expect(res.status).toBe(400);
+    expect(setFeatureOverrideMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("PATCH /api/admin/ai-features/[companyId] — both features in one request", () => {
   it("routes phase_c to setOverride and inbox_ui to setFeatureOverride simultaneously", async () => {
     const res = await PATCH(
@@ -189,8 +222,18 @@ describe("PATCH /api/admin/ai-features/[companyId] — both features in one requ
     expect(setOverrideMock).toHaveBeenCalledOnce();
     expect(setFeatureOverrideMock).toHaveBeenCalledOnce();
 
-    expect(setOverrideMock).toHaveBeenCalledWith(TEST_COMPANY_ID, "phase_c", true, ADMIN_EMAIL);
-    expect(setFeatureOverrideMock).toHaveBeenCalledWith(TEST_COMPANY_ID, "inbox_ui", true, ADMIN_EMAIL);
+    expect(setOverrideMock).toHaveBeenCalledWith(
+      TEST_COMPANY_ID,
+      "phase_c",
+      true,
+      ADMIN_EMAIL
+    );
+    expect(setFeatureOverrideMock).toHaveBeenCalledWith(
+      TEST_COMPANY_ID,
+      "inbox_ui",
+      true,
+      ADMIN_EMAIL
+    );
   });
 });
 
