@@ -115,7 +115,7 @@ function systemPrompt(): string {
 }
 
 function hasDeksmartReference(
-  verifiedReference: Record<string, unknown>,
+  verifiedReference: Record<string, unknown>
 ): boolean {
   return (
     "deksmartMembranes" in verifiedReference &&
@@ -124,12 +124,13 @@ function hasDeksmartReference(
 }
 
 function guidedSystemPrompt(
-  verifiedReference: Record<string, unknown>,
+  verifiedReference: Record<string, unknown>
 ): string {
   const supplierRules = hasDeksmartReference(verifiedReference)
     ? [
         "- DekSmart has been explicitly confirmed for this setup. Persist that supplier identity as a confirmed fact.",
         "- For a DekSmart vinyl review, include exactly two product actions: the normal 68mil install and the staff-selectable 60mil exception. Each must include unitCost. Include the GST and Vinyl Install task-type actions. Verified supplier families, colors, materials, costs, compatibility, and purchasing rules are reconciled deterministically after your response.",
+        "- Do not emit a DekSmart review until confirmed operator facts contain separate 68mil and 60mil customer prices, labor costs per square foot, the minimum charge, and the GST rate. Ask one concise question for any missing commercial values.",
       ]
     : [
         "- Never assume or name a manufacturer, supplier, product line, SKU, compatibility rule, or supplier-specific system until the operator or a confirmed fact identifies it.",
@@ -206,12 +207,12 @@ export async function generateCatalogProposals(
 }
 
 export async function generateGuidedCatalogTurn(
-  params: GenerateGuidedCatalogTurnParams,
+  params: GenerateGuidedCatalogTurnParams
 ): Promise<CatalogAgentTurn> {
   const client = params.client ?? defaultClient();
   const jsonSchema = zodToJsonSchema(
     CatalogAgentTurnSchema,
-    "CatalogAgentTurn",
+    "CatalogAgentTurn"
   );
   const completion = await client.chat.completions.create({
     model: params.model ?? DEFAULT_CATALOG_MODEL,
@@ -252,7 +253,7 @@ export async function generateGuidedCatalogTurn(
     raw = JSON.parse(content);
   } catch {
     throw new SetupAgentOutputError(
-      "Invalid guided setup response: malformed JSON",
+      "Invalid guided setup response: malformed JSON"
     );
   }
   const validated = validateCatalogAgentTurn(raw);
@@ -260,7 +261,7 @@ export async function generateGuidedCatalogTurn(
     throw new SetupAgentOutputError(
       `Invalid guided setup response: ${validated.issues
         .map((issue) => issue.message)
-        .join(" · ")}`,
+        .join(" · ")}`
     );
   }
   return validated.turn;
