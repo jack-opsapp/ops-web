@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = resolve(
   process.cwd(),
-  "supabase/migrations/20260725030000_external_api_authorization_foundation.sql"
+  "supabase/migrations/20260726210000_external_api_authorization_foundation.sql"
 );
 const runnerPath = resolve(
   process.cwd(),
