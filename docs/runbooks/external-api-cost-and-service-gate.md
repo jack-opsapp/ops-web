@@ -13,6 +13,33 @@ review-only infrastructure definitions may be prepared after Task 0. No paid
 resource, cloud plan, production migration, deployment, or pilot may be created
 or changed until Jackson approves a refreshed account-specific quote.
 
+## Approved verification spend
+
+Jackson approved one disposable, no-data Supabase branch for database proof on
+2026-07-27. It was created at `2026-07-27T16:09:39Z`, deleted at
+`2026-07-27T19:25:44Z`, and confirmed absent from the project immediately after
+deletion.
+
+- elapsed time: `3.268` hours;
+- billing rule quoted before approval: partial hours may bill as full hours;
+- conservative billable duration: `4` hours;
+- branch rate: `$0.01344/hour`, plus usage;
+- conservative branch charge: `$0.05376`, plus any metered usage.
+
+The branch applied the complete production migration history followed by the
+external API chain. Eight rollback contracts passed against the resulting
+schema, generated database types included all 51 external API public
+functions, and Supabase advisors reported no external API security or
+performance warning/error. Private tables intentionally remain inaccessible
+through direct RLS policies; the remaining security advisor entries are
+informational `RLS enabled no policy` notices. The remaining performance
+entries are informational `unused index` notices expected on a new empty
+branch.
+
+This approval did not cover AWS, CloudFront, GuardDuty, SQS, EventBridge,
+Upstash, Vercel tier changes, production migrations, deployment, or a pilot.
+None of those were provisioned or changed.
+
 ## Recommendation
 
 Keep the approved architecture: direct-to-private-S3 upload, GuardDuty scanning,
@@ -184,26 +211,26 @@ default.
 The high column is an approval ceiling for estimating only. It is **not**
 approved traffic, spend, or pilot capacity.
 
-| Input | Low | Expected | High approval ceiling |
-|---|---:|---:|---:|
-| Leads / month | 100 | 1,000 | 3,000 |
-| Files / month | 50 | 2,000 | 6,000 |
-| Average file | 2 MiB | 5 MiB | 5 MiB |
-| New scan volume | 0.10 GiB | 9.8 GiB | 29.3 GiB |
-| Scan objects | 50 | 2,000 | 6,000 |
-| API requests | 10,000 | 100,000 | 1,000,000 |
-| Redis commands | 100,000 | 1,000,000 | 10,000,000 |
-| CDN downloads | 100 | 4,000 | 12,000 |
-| CDN transfer | 0.2 GiB | 19.5 GiB | 58.6 GiB |
-| Privacy-erased leads / files | 1 / 1 | 10 / 20 | 30 / 60 |
-| Stale cleanup objects | 3 | 100 | 300 |
-| S3 charged write-class requests | 200 | 8,000 | 24,000 |
-| S3 charged `HEAD` requests | 156 | 6,160 | 18,480 |
-| S3 charged `GET` requests | 250 | 10,000 | 30,000 |
-| S3 free `DELETE` requests | 6 | 160 | 480 |
-| SQS request units | 209 | 8,300 | 24,900 |
-| EventBridge event-unit floor | 100 | 4,000 | 12,000 |
-| Privacy-erasure CloudFront invalidation paths | 2 | 40 | 120 |
+| Input                                         |      Low |  Expected | High approval ceiling |
+| --------------------------------------------- | -------: | --------: | --------------------: |
+| Leads / month                                 |      100 |     1,000 |                 3,000 |
+| Files / month                                 |       50 |     2,000 |                 6,000 |
+| Average file                                  |    2 MiB |     5 MiB |                 5 MiB |
+| New scan volume                               | 0.10 GiB |   9.8 GiB |              29.3 GiB |
+| Scan objects                                  |       50 |     2,000 |                 6,000 |
+| API requests                                  |   10,000 |   100,000 |             1,000,000 |
+| Redis commands                                |  100,000 | 1,000,000 |            10,000,000 |
+| CDN downloads                                 |      100 |     4,000 |                12,000 |
+| CDN transfer                                  |  0.2 GiB |  19.5 GiB |              58.6 GiB |
+| Privacy-erased leads / files                  |    1 / 1 |   10 / 20 |               30 / 60 |
+| Stale cleanup objects                         |        3 |       100 |                   300 |
+| S3 charged write-class requests               |      200 |     8,000 |                24,000 |
+| S3 charged `HEAD` requests                    |      156 |     6,160 |                18,480 |
+| S3 charged `GET` requests                     |      250 |    10,000 |                30,000 |
+| S3 free `DELETE` requests                     |        6 |       160 |                   480 |
+| SQS request units                             |      209 |     8,300 |                24,900 |
+| EventBridge event-unit floor                  |      100 |     4,000 |                12,000 |
+| Privacy-erasure CloudFront invalidation paths |        2 |        40 |                   120 |
 
 Assumptions:
 
@@ -249,23 +276,23 @@ S3 = 0.023 × stored_GiB
 
 The request estimate deliberately expands every modeled action:
 
-| Request class | Per-file or cleanup action | Low | Expected | High |
-|---|---|---:|---:|---:|
-| Charged write | original `PUT` | 50 | 2,000 | 6,000 |
-| Charged write | canonical `COPY` | 50 | 2,000 | 6,000 |
-| Charged write | derivative `PUT` | 50 | 2,000 | 6,000 |
-| Charged write | scan-disposition `PutObjectTagging` | 50 | 2,000 | 6,000 |
-| Charged write | `LIST` | 0 | 0 | 0 |
-| **Charged write total** | four per file | **200** | **8,000** | **24,000** |
-| Charged read | base `HEAD` for claim, inspection, and derivative | 150 | 6,000 | 18,000 |
-| Charged read | deletion-readback `HEAD` | 6 | 160 | 480 |
-| **Charged `HEAD` total** |  | **156** | **6,160** | **18,480** |
-| Charged read | structural-inspection `GET` | 50 | 2,000 | 6,000 |
-| Charged read | derivative-worker `GET` | 50 | 2,000 | 6,000 |
-| Charged read | conservative GuardDuty S3 read-equivalent `GET` | 50 | 2,000 | 6,000 |
-| Charged read | CloudFront origin `GET`, two downloads/file with caching disabled | 100 | 4,000 | 12,000 |
-| **Charged `GET` total** | five per file | **250** | **10,000** | **30,000** |
-| Free delete | three keys per erased file plus stale cleanup | 6 | 160 | 480 |
+| Request class            | Per-file or cleanup action                                        |     Low |   Expected |       High |
+| ------------------------ | ----------------------------------------------------------------- | ------: | ---------: | ---------: |
+| Charged write            | original `PUT`                                                    |      50 |      2,000 |      6,000 |
+| Charged write            | canonical `COPY`                                                  |      50 |      2,000 |      6,000 |
+| Charged write            | derivative `PUT`                                                  |      50 |      2,000 |      6,000 |
+| Charged write            | scan-disposition `PutObjectTagging`                               |      50 |      2,000 |      6,000 |
+| Charged write            | `LIST`                                                            |       0 |          0 |          0 |
+| **Charged write total**  | four per file                                                     | **200** |  **8,000** | **24,000** |
+| Charged read             | base `HEAD` for claim, inspection, and derivative                 |     150 |      6,000 |     18,000 |
+| Charged read             | deletion-readback `HEAD`                                          |       6 |        160 |        480 |
+| **Charged `HEAD` total** |                                                                   | **156** |  **6,160** | **18,480** |
+| Charged read             | structural-inspection `GET`                                       |      50 |      2,000 |      6,000 |
+| Charged read             | derivative-worker `GET`                                           |      50 |      2,000 |      6,000 |
+| Charged read             | conservative GuardDuty S3 read-equivalent `GET`                   |      50 |      2,000 |      6,000 |
+| Charged read             | CloudFront origin `GET`, two downloads/file with caching disabled |     100 |      4,000 |     12,000 |
+| **Charged `GET` total**  | five per file                                                     | **250** | **10,000** | **30,000** |
+| Free delete              | three keys per erased file plus stale cleanup                     |       6 |        160 |        480 |
 
 `LIST` is zero because the database ledger supplies exact object keys.
 Deletion readback is three `HEAD` requests per privacy-erased file plus one per
@@ -321,12 +348,12 @@ SQS = 0.40 × max(request_units − unused_free_units, 0) / 1,000,000
 The base path reserves four 64 KiB request units per file. A 5% retry set,
 rounded up, reserves three more units per retried file:
 
-| SQS units | Low | Expected | High |
-|---|---:|---:|---:|
-| Base, `4 × files` | 200 | 8,000 | 24,000 |
-| Retry files, `ceil(5% × files)` | 3 | 100 | 300 |
-| Retry units, `3 × retry files` | 9 | 300 | 900 |
-| **Total units** | **209** | **8,300** | **24,900** |
+| SQS units                       |     Low |  Expected |       High |
+| ------------------------------- | ------: | --------: | ---------: |
+| Base, `4 × files`               |     200 |     8,000 |     24,000 |
+| Retry files, `ceil(5% × files)` |       3 |       100 |        300 |
+| Retry units, `3 × retry files`  |       9 |       300 |        900 |
+| **Total units**                 | **209** | **8,300** | **24,900** |
 
 EventBridge AWS opt-in data events are `$1/million` 64 KiB units; delivery to a
 service in the same account is free.
@@ -342,12 +369,12 @@ Sources: [SQS pricing](https://aws.amazon.com/sqs/pricing/) and
 
 Current flat-rate tiers:
 
-| Tier | Monthly | Requests | Transfer |
-|---|---:|---:|---:|
-| Free | `$0` | 1 million | 100 GB |
-| Pro | `$15` | 10 million | 50 TB |
-| Business | `$200` | 125 million | 50 TB |
-| Premium | `$1,000` | 500 million | 50 TB |
+| Tier     |  Monthly |    Requests | Transfer |
+| -------- | -------: | ----------: | -------: |
+| Free     |     `$0` |   1 million |   100 GB |
+| Pro      |    `$15` |  10 million |    50 TB |
+| Business |   `$200` | 125 million |    50 TB |
+| Premium  | `$1,000` | 500 million |    50 TB |
 
 Flat plans have no monetary overage, but AWS may reduce performance after
 sustained excess. Free-plan count, historical usage, account Free Tier status,
@@ -374,12 +401,12 @@ and `$0.60` if none remains.
 The deliberately conservative zero-allowance case also charges every modeled
 download request and byte:
 
-| CloudFront pay-as-you-go case | Low | Expected | High |
-|---|---:|---:|---:|
-| Transfer + HTTPS requests, shared allowances remain | `$0.0000` | `$0.0000` | `$0.0000` |
-| Exact erasure invalidations, first 1,000 paths remain | `$0.0000` | `$0.0000` | `$0.0000` |
-| Transfer + HTTPS requests, zero allowance | `$0.0167` | `$1.6642` | `$4.9925` |
-| Exact erasure invalidations, zero allowance | `$0.0100` | `$0.2000` | `$0.6000` |
+| CloudFront pay-as-you-go case                           |           Low |      Expected |          High |
+| ------------------------------------------------------- | ------------: | ------------: | ------------: |
+| Transfer + HTTPS requests, shared allowances remain     |     `$0.0000` |     `$0.0000` |     `$0.0000` |
+| Exact erasure invalidations, first 1,000 paths remain   |     `$0.0000` |     `$0.0000` |     `$0.0000` |
+| Transfer + HTTPS requests, zero allowance               |     `$0.0167` |     `$1.6642` |     `$4.9925` |
+| Exact erasure invalidations, zero allowance             |     `$0.0100` |     `$0.2000` |     `$0.6000` |
 | **Total, zero request/transfer/invalidation allowance** | **`$0.0267`** | **`$1.8642`** | **`$5.5925`** |
 
 Sources:
@@ -441,15 +468,15 @@ class cost =
      + memory_GiB × wall_seconds / 3,600 × 0.0106)
 ```
 
-| Execution class | Invocation assumption | Low | Expected | High | CPU / memory / wall per invocation | Modeled cost, low / expected / high |
-|---|---|---:|---:|---:|---|---:|
-| Public API | scenario API requests | 10,000 | 100,000 | 1,000,000 | 0.05 s / 2 GiB / 0.25 s | `$0.0385` / `$0.3850` / `$3.8500` |
-| Attachment and queue inspection | two per file | 100 | 4,000 | 12,000 | 0.30 s / 2 GiB / 2.00 s | `$0.0023` / `$0.0922` / `$0.2765` |
-| Lead outbox and projection | three per lead | 300 | 3,000 | 9,000 | 0.10 s / 1 GiB / 0.50 s | `$0.0017` / `$0.0169` / `$0.0507` |
-| Privacy erasure | 1% of leads, rounded up | 1 | 10 | 30 | 0.50 s / 2 GiB / 3.00 s | `<$0.0001` / `$0.0004` / `$0.0011` |
-| Retry execution | 5% of the three worker classes, rounded up | 21 | 351 | 1,052 | 0.20 s / 2 GiB / 1.00 s | `$0.0003` / `$0.0048` / `$0.0143` |
-| Maintenance cron | one daily invocation | 30 | 30 | 30 | 0.10 s / 1 GiB / 2.00 s | `$0.0003` / `$0.0003` / `$0.0003` |
-| **All modeled Function usage** |  | **10,452** | **107,391** | **1,022,112** |  | **`$0.0431` / `$0.4995` / `$4.1929`** |
+| Execution class                 | Invocation assumption                      |        Low |    Expected |          High | CPU / memory / wall per invocation |   Modeled cost, low / expected / high |
+| ------------------------------- | ------------------------------------------ | ---------: | ----------: | ------------: | ---------------------------------- | ------------------------------------: |
+| Public API                      | scenario API requests                      |     10,000 |     100,000 |     1,000,000 | 0.05 s / 2 GiB / 0.25 s            |     `$0.0385` / `$0.3850` / `$3.8500` |
+| Attachment and queue inspection | two per file                               |        100 |       4,000 |        12,000 | 0.30 s / 2 GiB / 2.00 s            |     `$0.0023` / `$0.0922` / `$0.2765` |
+| Lead outbox and projection      | three per lead                             |        300 |       3,000 |         9,000 | 0.10 s / 1 GiB / 0.50 s            |     `$0.0017` / `$0.0169` / `$0.0507` |
+| Privacy erasure                 | 1% of leads, rounded up                    |          1 |          10 |            30 | 0.50 s / 2 GiB / 3.00 s            |    `<$0.0001` / `$0.0004` / `$0.0011` |
+| Retry execution                 | 5% of the three worker classes, rounded up |         21 |         351 |         1,052 | 0.20 s / 2 GiB / 1.00 s            |     `$0.0003` / `$0.0048` / `$0.0143` |
+| Maintenance cron                | one daily invocation                       |         30 |          30 |            30 | 0.10 s / 1 GiB / 2.00 s            |     `$0.0003` / `$0.0003` / `$0.0003` |
+| **All modeled Function usage**  |                                            | **10,452** | **107,391** | **1,022,112** |                                    | **`$0.0431` / `$0.4995` / `$4.1929`** |
 
 The retry count is `ceil(5% × (attachment/queue + outbox/projection + privacy
 erasure invocations))`. This conservatively assumes attachment inspection,
@@ -470,41 +497,41 @@ SQS/CloudFront allowances, the full Vercel execution model above, and no
 Supabase incremental charge. “Month 12” replaces first-month S3 storage with
 12 accumulated intake months; scanning and requests remain one current month.
 
-| Cost component | Low | Expected | High approval ceiling |
-|---|---:|---:|---:|
-| S3, month 1 storage + 4 writes/file + modeled reads | `$0.0040` | `$0.3272` | `$0.9817` |
-| S3, month 12 storage + current requests | `$0.0349` | `$3.4156` | `$10.2468` |
-| GuardDuty, eligible allowance | `$0.0000` | `$1.0039` | `$3.6217` |
-| GuardDuty, no allowance | `$0.0195` | `$1.3089` | `$3.9267` |
-| EventBridge, two events/file | `$0.0001` | `$0.0040` | `$0.0120` |
-| SQS, shared allowance remains | `$0.0000` | `$0.0000` | `$0.0000` |
-| SQS, no allowance | `$0.0001` | `$0.0033` | `$0.0100` |
-| CloudFront request/transfer + exact erasure invalidation, shared allowances remain | `$0.0000` | `$0.0000` | `$0.0000` |
-| CloudFront request/transfer + exact erasure invalidation, zero allowance | `$0.0267` | `$1.8642` | `$5.5925` |
-| Vercel, all modeled Function classes | `$0.0431` | `$0.4995` | `$4.1929` |
-| Redis variable tier | `$0.00` Free | `$2.00` PAYG | `$10.00` Fixed |
-| Prod Pack for production | `+$200.00` | `+$200.00` | `+$200.00` |
+| Cost component                                                                     |          Low |     Expected | High approval ceiling |
+| ---------------------------------------------------------------------------------- | -----------: | -----------: | --------------------: |
+| S3, month 1 storage + 4 writes/file + modeled reads                                |    `$0.0040` |    `$0.3272` |             `$0.9817` |
+| S3, month 12 storage + current requests                                            |    `$0.0349` |    `$3.4156` |            `$10.2468` |
+| GuardDuty, eligible allowance                                                      |    `$0.0000` |    `$1.0039` |             `$3.6217` |
+| GuardDuty, no allowance                                                            |    `$0.0195` |    `$1.3089` |             `$3.9267` |
+| EventBridge, two events/file                                                       |    `$0.0001` |    `$0.0040` |             `$0.0120` |
+| SQS, shared allowance remains                                                      |    `$0.0000` |    `$0.0000` |             `$0.0000` |
+| SQS, no allowance                                                                  |    `$0.0001` |    `$0.0033` |             `$0.0100` |
+| CloudFront request/transfer + exact erasure invalidation, shared allowances remain |    `$0.0000` |    `$0.0000` |             `$0.0000` |
+| CloudFront request/transfer + exact erasure invalidation, zero allowance           |    `$0.0267` |    `$1.8642` |             `$5.5925` |
+| Vercel, all modeled Function classes                                               |    `$0.0431` |    `$0.4995` |             `$4.1929` |
+| Redis variable tier                                                                | `$0.00` Free | `$2.00` PAYG |        `$10.00` Fixed |
+| Prod Pack for production                                                           |   `+$200.00` |   `+$200.00` |            `+$200.00` |
 
 The primary shared-allowance subtotals are:
 
-| Shared allowances remain | Low | Expected | High approval ceiling |
-|---|---:|---:|---:|
-| **Variable subtotal, month 1** | **`$0.05`** | **`$3.83`** | **`$18.81`** |
-| **Variable subtotal, month 12** | **`$0.08`** | **`$6.92`** | **`$28.07`** |
-| **Production subtotal, month 1** | **`$200.25`*** | **`$203.83`** | **`$218.81`** |
-| **Production subtotal, month 12** | **`$200.28`*** | **`$206.92`** | **`$228.07`** |
+| Shared allowances remain          |            Low |      Expected | High approval ceiling |
+| --------------------------------- | -------------: | ------------: | --------------------: |
+| **Variable subtotal, month 1**    |    **`$0.05`** |   **`$3.83`** |          **`$18.81`** |
+| **Variable subtotal, month 12**   |    **`$0.08`** |   **`$6.92`** |          **`$28.07`** |
+| **Production subtotal, month 1**  | **`$200.25`*** | **`$203.83`** |         **`$218.81`** |
+| **Production subtotal, month 12** | **`$200.28`*** | **`$206.92`** |         **`$228.07`** |
 
 Alternate subtotals make the account-wide allowance uncertainty numeric in
 every scenario:
 
-| Allowance case | Low | Expected | High approval ceiling |
-|---|---:|---:|---:|
-| Variable month 1, zero CloudFront allowance | `$0.07` | `$5.70` | `$24.40` |
-| Production month 1, zero CloudFront allowance | `$200.27` | `$205.70` | `$224.40` |
-| Production month 12, zero CloudFront allowance | `$200.30` | `$208.79` | `$233.67` |
-| Variable month 1, all modeled AWS allowances exhausted | `$0.09` | `$6.01` | `$24.72` |
-| Production month 1, all modeled AWS allowances exhausted | `$200.29` | `$206.01` | `$224.72` |
-| Production month 12, all modeled AWS allowances exhausted | `$200.32` | `$209.10` | `$233.98` |
+| Allowance case                                            |       Low |  Expected | High approval ceiling |
+| --------------------------------------------------------- | --------: | --------: | --------------------: |
+| Variable month 1, zero CloudFront allowance               |   `$0.07` |   `$5.70` |              `$24.40` |
+| Production month 1, zero CloudFront allowance             | `$200.27` | `$205.70` |             `$224.40` |
+| Production month 12, zero CloudFront allowance            | `$200.30` | `$208.79` |             `$233.67` |
+| Variable month 1, all modeled AWS allowances exhausted    |   `$0.09` |   `$6.01` |              `$24.72` |
+| Production month 1, all modeled AWS allowances exhausted  | `$200.29` | `$206.01` |             `$224.72` |
+| Production month 12, all modeled AWS allowances exhausted | `$200.32` | `$209.10` |             `$233.98` |
 
 \* Prod Pack cannot be attached to Free. The low production subtotal therefore
 uses PAYG Redis (`$0.20`) plus Prod Pack, replacing the `$0` development tier.
