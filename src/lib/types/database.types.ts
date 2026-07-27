@@ -17639,6 +17639,10 @@ export type Database = {
           scopes: string[]
         }[]
       }
+      claim_external_lead_projection_backfill_as_system: {
+        Args: { p_lease_seconds?: number; p_run_id: string }
+        Returns: Json
+      }
       create_external_intake_submission_as_system: {
         Args: {
           p_attribution_candidates: Json
@@ -17712,6 +17716,35 @@ export type Database = {
         }
         Returns: string[]
       }
+      inspect_external_lead_projection_backfill_as_system: {
+        Args: { p_company_id?: string | null }
+        Returns: Json
+      }
+      process_external_lead_projection_backfill_as_system: {
+        Args: {
+          p_batch_size?: number
+          p_lease_generation: number
+          p_lease_token: string
+          p_run_id: string
+        }
+        Returns: Json
+      }
+      prune_external_lead_projection_versions_as_system: {
+        Args: { p_now?: string }
+        Returns: number
+      }
+      refresh_external_lead_projection_as_system: {
+        Args: {
+          p_company_id: string
+          p_opportunity_id: string
+          p_reason: string
+        }
+        Returns: {
+          change_sequence: number
+          operation: string
+          public_lead_id: string
+        }[]
+      }
       resolve_external_intake_email_correlation_as_system: {
         Args: {
           p_company_id: string
@@ -17736,6 +17769,14 @@ export type Database = {
           p_source_public_id: string
           p_visible_prefix: string
         }
+        Returns: Json
+      }
+      start_external_lead_projection_backfill_as_system: {
+        Args: { p_company_id?: string | null }
+        Returns: Json
+      }
+      verify_external_lead_projection_backfill_as_system: {
+        Args: { p_run_id: string }
         Returns: Json
       }
       resolve_external_intake_attachment_as_system: {
