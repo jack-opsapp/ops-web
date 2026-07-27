@@ -58,6 +58,7 @@ import { EmailTemplatesTab } from "./email-templates-tab";
 import { LifecycleSettingsTab } from "./lifecycle-settings-tab";
 import { PortalBrandingTab } from "./portal-branding-tab";
 import { ClientCommsSettingsTab } from "./client-comms-settings-tab";
+import { WebsiteIntegrationTab } from "./website-integration-tab";
 import { MapPreferencesTab } from "./map-preferences-tab";
 import { DataPrivacyTab } from "./data-privacy-tab";
 import { DeveloperTab } from "./developer-tab";
@@ -95,8 +96,8 @@ export interface SettingsSection {
   labelKey: string;
   /** Granular RBAC permission required (feature-flag-unlocked AND granted). */
   permission?: string;
-  /** Company feature flag required (canAccessFeature). Only `phase_c` today. */
-  flag?: "phase_c";
+  /** Company feature flag required (canAccessFeature). */
+  flag?: "phase_c" | "external_api";
   /** Visible only to dev-flagged operators (`currentUser.devPermission`). */
   devOnly?: boolean;
   /** Section body. */
@@ -110,6 +111,32 @@ export interface SettingsDomain {
   labelKey: string;
   icon: LucideIcon;
   sections: SettingsSection[];
+}
+
+export interface SettingsSectionVisibility {
+  devPermission: boolean;
+  permissionsReady: boolean;
+  flagsReady: boolean;
+  can: (permission: string) => boolean;
+  isPermissionUnlocked: (permission: string) => boolean;
+  canAccessFeature: (flag: NonNullable<SettingsSection["flag"]>) => boolean;
+}
+
+export function isSettingsSectionVisible(
+  section: SettingsSection,
+  visibility: SettingsSectionVisibility
+): boolean {
+  if (section.devOnly) return visibility.devPermission;
+  if (section.flag) {
+    if (!visibility.flagsReady) return false;
+    if (!visibility.canAccessFeature(section.flag)) return false;
+  }
+  if (section.permission) {
+    if (!visibility.permissionsReady) return false;
+    if (!visibility.isPermissionUnlocked(section.permission)) return false;
+    if (!visibility.can(section.permission)) return false;
+  }
+  return true;
 }
 
 // ── Registry ─────────────────────────────────────────────────────────────────
@@ -170,6 +197,14 @@ export const SETTINGS_DOMAINS: SettingsDomain[] = [
       { id: "templates", labelKey: "sections.emailTemplates", permission: "settings.integrations", component: EmailTemplatesTab, legacyTabIds: ["email-templates"] },
       { id: "lifecycle", labelKey: "sections.lifecycle", permission: "settings.company", component: LifecycleSettingsTab, legacyTabIds: ["lifecycle", "ai"] },
       { id: "portal", labelKey: "sections.portal", permission: "portal.manage_branding", component: PortalBrandingTab, legacyTabIds: ["portal"] },
+      {
+        id: "website",
+        labelKey: "sections.website",
+        permission: "settings.integrations",
+        flag: "external_api",
+        component: WebsiteIntegrationTab,
+        legacyTabIds: ["website", "external-api"],
+      },
       // Client Comms = the agent's outbound-autonomy face → Phase-C only (Canpro).
       { id: "client-comms", labelKey: "sections.clientComms", permission: "settings.integrations", flag: "phase_c", component: ClientCommsSettingsTab, legacyTabIds: ["client-comms"] },
     ],
