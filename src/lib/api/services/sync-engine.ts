@@ -174,12 +174,7 @@ function isDeferredModelAnswerError(
   seen = new Set<unknown>(),
   depth = 0
 ): boolean {
-  if (
-    !error ||
-    typeof error !== "object" ||
-    depth > 6 ||
-    seen.has(error)
-  ) {
+  if (!error || typeof error !== "object" || depth > 6 || seen.has(error)) {
     return false;
   }
   seen.add(error);
@@ -1958,6 +1953,75 @@ interface PersistInboundActivityResult {
   activityId: string | null;
 }
 
+type ContactFormRecipientAttestationRpcClient = {
+  rpc: (
+    name: "attest_email_contact_form_recipient_as_system",
+    args: {
+      p_source_activity_id: string;
+      p_company_id: string;
+      p_opportunity_id: string;
+      p_connection_id: string;
+      p_provider_message_id: string;
+      p_provider_thread_id: string;
+      p_parsed_recipient: string;
+    }
+  ) => Promise<{
+    data: boolean | null;
+    error: { message?: string } | null;
+  }>;
+};
+
+async function attestContactFormRecipient(input: {
+  activityId: string | null;
+  opportunityId: string | null;
+  connection: EmailConnection;
+  email: NormalizedEmail;
+  parsedRecipient: string | null;
+  sourceSender: string | null;
+}): Promise<void> {
+  if (!input.parsedRecipient || !input.opportunityId) return;
+  const normalizedParsedRecipient = extractSenderEmail(input.parsedRecipient);
+  const normalizedSourceSender = input.sourceSender
+    ? extractSenderEmail(input.sourceSender)
+    : "";
+  if (
+    !normalizedSourceSender ||
+    normalizedSourceSender === normalizedParsedRecipient
+  )
+    return;
+  if (!input.activityId) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] contact-form recipient attestation failed: source activity identity is missing"
+    );
+  }
+
+  const { data, error } = await (
+    requireSupabase() as unknown as ContactFormRecipientAttestationRpcClient
+  ).rpc("attest_email_contact_form_recipient_as_system", {
+    p_source_activity_id: input.activityId,
+    p_company_id: input.connection.companyId,
+    p_opportunity_id: input.opportunityId,
+    p_connection_id: input.connection.id,
+    p_provider_message_id: input.email.id,
+    p_provider_thread_id: input.email.threadId,
+    p_parsed_recipient: input.parsedRecipient,
+  });
+  if (error) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] contact-form recipient attestation failed: ${error?.message ?? "RPC returned no confirmation"}`
+    );
+  }
+  // A canonical/manual identity conflict is a safe no-draft outcome, not a
+  // mailbox-sync outage. The activity remains persisted and the SQL resolver
+  // will continue to reject the optional review-draft path.
+  if (data === false) return;
+  if (data !== true) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] contact-form recipient attestation failed: RPC returned no confirmation"
+    );
+  }
+}
+
 /**
  * Create a new inbound activity or atomically adopt the exact scoped orphan
  * left by a prior activity/event transaction seam. The guarded RPC owns the
@@ -1973,6 +2037,7 @@ async function createOrAdoptInboundActivity(input: {
   existingOrphanActivity: ExistingProviderActivity | null;
   recoveryActorUserId: string | null;
   syncLockOwner: string | null;
+  contactFormRecipient?: string | null;
 }): Promise<PersistInboundActivityResult> {
   if (!input.existingOrphanActivity) {
     const created = await createActivity(
@@ -1990,6 +2055,14 @@ async function createOrAdoptInboundActivity(input: {
       input.email.id,
       input.email.threadId
     );
+    await attestContactFormRecipient({
+      activityId: activity?.id ?? null,
+      opportunityId: input.opportunityId,
+      connection: input.connection,
+      email: input.email,
+      parsedRecipient: input.contactFormRecipient ?? null,
+      sourceSender: activity?.from_email ?? null,
+    });
     return {
       persisted: true,
       created: true,
@@ -2098,6 +2171,14 @@ async function createOrAdoptInboundActivity(input: {
     true,
     input.executionPolicy
   );
+  await attestContactFormRecipient({
+    activityId: input.existingOrphanActivity.id,
+    opportunityId: input.opportunityId,
+    connection: input.connection,
+    email: input.email,
+    parsedRecipient: input.contactFormRecipient ?? null,
+    sourceSender: input.existingOrphanActivity.from_email ?? null,
+  });
 
   return {
     persisted: true,
@@ -3036,6 +3117,14 @@ async function processInboundEmail(
       facts: existingEnrichmentFacts,
       companyId: connection.companyId,
     });
+    await attestContactFormRecipient({
+      activityId: existingActivity.id ?? null,
+      opportunityId: existingOpportunityId,
+      connection,
+      email: effectiveExistingEmail,
+      parsedRecipient: existingSubmitter?.email ?? null,
+      sourceSender: existingActivity.from_email ?? null,
+    });
     await recordActivityCorrespondenceEvent(
       effectiveExistingEmail,
       connection,
@@ -3112,6 +3201,7 @@ async function processInboundEmail(
       existingOrphanActivity,
       recoveryActorUserId,
       syncLockOwner,
+      contactFormRecipient: contactFormSubmitter?.email ?? null,
     });
     if (!activityPersistence.persisted) return null;
     await applyCanonicalLeadEnrichment({
@@ -3244,6 +3334,7 @@ async function processInboundEmail(
         existingOrphanActivity,
         recoveryActorUserId,
         syncLockOwner,
+        contactFormRecipient: contactFormSubmitter?.email ?? null,
       });
       if (!activityPersistence.persisted) return null;
       await updateCorrespondenceCounts(
@@ -3303,6 +3394,7 @@ async function processInboundEmail(
         existingOrphanActivity,
         recoveryActorUserId,
         syncLockOwner,
+        contactFormRecipient: contactFormSubmitter?.email ?? null,
       });
       if (!activityPersistence.persisted) return null;
       await updateCorrespondenceCounts(
@@ -3407,6 +3499,7 @@ async function processInboundEmail(
         existingOrphanActivity,
         recoveryActorUserId,
         syncLockOwner,
+        contactFormRecipient: contactFormSubmitter?.email ?? null,
       });
       if (!activityPersistence.persisted) return null;
       await updateCorrespondenceCounts(
@@ -3444,6 +3537,7 @@ async function processInboundEmail(
         existingOrphanActivity,
         recoveryActorUserId,
         syncLockOwner,
+        contactFormRecipient: contactFormSubmitter?.email ?? null,
       });
       if (!activityPersistence.persisted) return null;
       result.needsReview++;
@@ -3727,6 +3821,7 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         existingOrphanActivity,
         recoveryActorUserId: input.recoveryActorUserId,
         syncLockOwner: input.syncLockOwner,
+        contactFormRecipient: contactFormSubmitter?.email ?? null,
       });
       if (!activityPersistence.persisted) continue;
       await updateCorrespondenceCounts(
@@ -5343,9 +5438,7 @@ export const SyncEngine = {
           if (summaryRefresh.failed.length > 0) {
             throw new LifecyclePersistenceError(
               `[sync-engine] complete lead summary refresh failed before cursor advancement: ${summaryRefresh.failed
-                .map(
-                  (failure) => `${failure.opportunityId}: ${failure.error}`
-                )
+                .map((failure) => `${failure.opportunityId}: ${failure.error}`)
                 .join("; ")}`
             );
           }
@@ -5381,9 +5474,7 @@ export const SyncEngine = {
         await persistSyncCheckpoint();
         if (deferredSummaryProviderFailure) {
           try {
-            await reportAIProviderOutageOnce(
-              deferredSummaryProviderFailure
-            );
+            await reportAIProviderOutageOnce(deferredSummaryProviderFailure);
           } catch (notificationError) {
             if (isDatabasePressureError(notificationError)) {
               throw notificationError;
@@ -6303,9 +6394,7 @@ export const SyncEngine = {
       return data ?? [];
     };
 
-    let staleOpps = await loadStaleOpportunityWindow(
-      input.afterOpportunityId
-    );
+    let staleOpps = await loadStaleOpportunityWindow(input.afterOpportunityId);
     if (input.afterOpportunityId && staleOpps.length === 0) {
       staleOpps = await loadStaleOpportunityWindow(null);
     }

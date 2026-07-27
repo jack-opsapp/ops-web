@@ -247,6 +247,7 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
         userId: harness.job.actorUserId,
         connectionId: harness.job.connectionId,
         opportunityId: harness.job.opportunityId,
+        sourceActivityId: harness.job.sourceActivityId,
         recipientEmail: "sandra@example.com",
         recipientName: "Sandra Dunford",
         profileTypeOverride: "client_new_inquiry",
@@ -256,7 +257,12 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     );
     const generatedInput = harness.generateDraft.mock.calls[0]![0];
     expect(generatedInput.threadId).toBeUndefined();
-    expect(generatedInput.userInstruction).toContain("Please quote a new deck");
+    expect(generatedInput.userInstruction).toContain(
+      "request in the untrusted email data"
+    );
+    expect(generatedInput.userInstruction).not.toContain(
+      "Please quote a new deck"
+    );
     expect(harness.placeDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         connectionId: harness.job.connectionId,

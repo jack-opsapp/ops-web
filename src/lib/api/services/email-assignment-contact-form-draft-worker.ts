@@ -109,6 +109,7 @@ export interface EmailAssignmentContactFormDraftDependencies {
     userId: string;
     connectionId: string;
     opportunityId: string;
+    sourceActivityId: string;
     recipientEmail: string;
     recipientName?: string;
     userInstruction: string;
@@ -488,6 +489,7 @@ export class EmailAssignmentContactFormDraftWorker {
             userId: job.actorUserId,
             connectionId: job.connectionId,
             opportunityId: job.opportunityId,
+            sourceActivityId: job.sourceActivityId,
             recipientEmail: job.customerEmail,
             ...(submitter.name || job.customerName
               ? {
@@ -495,7 +497,7 @@ export class EmailAssignmentContactFormDraftWorker {
                     submitter.name || job.customerName || undefined,
                 }
               : {}),
-            userInstruction: buildContactFormDraftInstruction(submitter),
+            userInstruction: buildContactFormDraftInstruction(),
             profileTypeOverride: "client_new_inquiry",
             autonomous: true,
             origin: "phase_c",
