@@ -17624,6 +17624,147 @@ export type Database = {
           scopes: string[]
         }[]
       }
+      abandon_external_intake_delivery_as_system: {
+        Args: {
+          p_delivery_id: string
+          p_safe_code: string
+        }
+        Returns: boolean
+      }
+      claim_external_intake_cleanups_as_system: {
+        Args: {
+          p_lease_seconds: number
+          p_limit: number
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          company_id: string
+          intent_id: string
+          lease_generation: number
+          lease_token: string
+          object_version_id: string
+          storage_object_key: string
+        }[]
+      }
+      claim_external_intake_delivery_cleanups_as_system: {
+        Args: {
+          p_lease_seconds: number
+          p_limit: number
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          delivery_id: string
+          lease_generation: number
+          lease_token: string
+          object_version_id: string | null
+          storage_object_key: string
+        }[]
+      }
+      claim_external_intake_inspections_as_system: {
+        Args: {
+          p_lease_seconds: number
+          p_limit: number
+          p_worker_id: string
+        }
+        Returns: {
+          attempts: number
+          company_id: string
+          declared_content_type: string
+          deadline_at: string
+          delete_not_before: string
+          expected_checksum_sha256: string | null
+          expected_size_bytes: number
+          filename: string
+          first_queued_at: string
+          generation: number
+          guardduty_status: string | null
+          id: string
+          intent_id: string
+          lease_token: string
+          object_key: string
+          object_version_id: string
+          observed_checksum_sha256: string | null
+          observed_size_bytes: number
+        }[]
+      }
+      finish_external_intake_cleanup_as_system: {
+        Args: {
+          p_available_at: string | null
+          p_generation: number
+          p_intent_id: string
+          p_lease_token: string
+          p_object_version_id: string
+          p_outcome: string
+          p_safe_code: string | null
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
+      finish_external_intake_delivery_cleanup_as_system: {
+        Args: {
+          p_available_at: string | null
+          p_delivery_id: string
+          p_generation: number
+          p_lease_token: string
+          p_observed_object_version_id: string | null
+          p_outcome: string
+          p_safe_code: string | null
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
+      finish_external_intake_inspection_as_system: {
+        Args: {
+          p_accepted_checksum_sha256: string | null
+          p_accepted_object_key: string | null
+          p_accepted_object_version_id: string | null
+          p_accepted_size_bytes: number | null
+          p_available_at: string | null
+          p_delivery_mode: string | null
+          p_delivery_object_id: string | null
+          p_detected_content_type: string | null
+          p_generation: number
+          p_inspection_id: string
+          p_lease_token: string
+          p_outcome: string
+          p_safe_code: string | null
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
+      maintain_external_intake_files_as_system: {
+        Args: { p_limit: number }
+        Returns: Json
+      }
+      record_external_intake_delivery_as_system: {
+        Args: {
+          p_checksum_sha256: string
+          p_delivery_id: string
+          p_generation: number
+          p_inspection_id: string
+          p_lease_token: string
+          p_object_version_id: string
+          p_size_bytes: number
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
+      record_external_intake_object_event_as_system: {
+        Args: {
+          p_event_type: string
+          p_guardduty_status: string | null
+          p_object_version_id: string
+          p_observed_checksum_sha256: string | null
+          p_observed_size_bytes: number | null
+          p_occurred_at: string
+          p_provider_event_id: string
+          p_provider_sequencer: string | null
+          p_storage_object_key: string
+        }
+        Returns: Json
+      }
       reserve_external_intake_upload_batch_as_system: {
         Args: {
           p_authorization_epoch: number
@@ -17648,6 +17789,17 @@ export type Database = {
           p_route: string
           p_source_public_id: string
           p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      stage_external_intake_delivery_as_system: {
+        Args: {
+          p_delivery_mode: string
+          p_generation: number
+          p_inspection_id: string
+          p_lease_token: string
+          p_storage_object_key: string
+          p_worker_id: string
         }
         Returns: Json
       }

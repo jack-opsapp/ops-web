@@ -9,6 +9,11 @@ export interface ExternalIntakeStorageConfig {
   secretAccessKey: string;
 }
 
+export interface ExternalIntakeAwsCredentials {
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
 let externalIntakeS3Client: S3Client | null = null;
 
 function requireEnvironmentValue(name: string): string {
@@ -31,6 +36,14 @@ export function readExternalIntakeStorageConfig(): ExternalIntakeStorageConfig {
     secretAccessKey: requireEnvironmentValue(
       "EXTERNAL_INTAKE_AWS_SECRET_ACCESS_KEY"
     ),
+  };
+}
+
+export function getExternalIntakeAwsCredentials(): ExternalIntakeAwsCredentials {
+  const config = readExternalIntakeStorageConfig();
+  return {
+    accessKeyId: config.accessKeyId,
+    secretAccessKey: config.secretAccessKey,
   };
 }
 
