@@ -2306,10 +2306,15 @@ export const EmailThreadService = {
       leadPreference === "archive" &&
       siblingThreads.length === 0
     ) {
-      const { error: opportunityArchiveError } = await supabase
-        .from("opportunities")
-        .update({ archived_at: new Date().toISOString() })
-        .eq("id", linkedOpportunity.id);
+      const { error: opportunityArchiveError } = await supabase.rpc(
+        "mutate_opportunity_lifecycle",
+        {
+          p_opportunity_id: linkedOpportunity.id,
+          p_action: "archive",
+          p_actor_user_id: null,
+          p_company_id: row.company_id as string,
+        }
+      );
       if (opportunityArchiveError) {
         throw new Error(
           `archive lead mirror update failed: ${opportunityArchiveError.message}`
@@ -2448,11 +2453,15 @@ export const EmailThreadService = {
     if (params.archiveOpportunityId && failedThreadIds.length > 0) {
       failedOpportunityId = params.archiveOpportunityId;
     } else if (params.archiveOpportunityId) {
-      const { error: oppError } = await supabase
-        .from("opportunities")
-        .update({ archived_at: new Date().toISOString() })
-        .eq("id", params.archiveOpportunityId)
-        .eq("company_id", params.companyId);
+      const { error: oppError } = await supabase.rpc(
+        "mutate_opportunity_lifecycle",
+        {
+          p_opportunity_id: params.archiveOpportunityId,
+          p_action: "archive",
+          p_actor_user_id: null,
+          p_company_id: params.companyId,
+        }
+      );
 
       if (!oppError) {
         leadArchivedOpportunityId = params.archiveOpportunityId;
@@ -2569,11 +2578,15 @@ export const EmailThreadService = {
     if (params.unarchiveOpportunityId && failedThreadIds.length > 0) {
       failedOpportunityId = params.unarchiveOpportunityId;
     } else if (params.unarchiveOpportunityId) {
-      const { error: oppError } = await supabase
-        .from("opportunities")
-        .update({ archived_at: null })
-        .eq("id", params.unarchiveOpportunityId)
-        .eq("company_id", params.companyId);
+      const { error: oppError } = await supabase.rpc(
+        "mutate_opportunity_lifecycle",
+        {
+          p_opportunity_id: params.unarchiveOpportunityId,
+          p_action: "unarchive",
+          p_actor_user_id: null,
+          p_company_id: params.companyId,
+        }
+      );
 
       if (!oppError) {
         unarchivedOpportunityId = params.unarchiveOpportunityId;

@@ -2,6 +2,7 @@ import {
   classifyOpportunityCorrespondence,
   type OpportunityCorrespondenceClassification,
   type OpportunityCorrespondenceDirection,
+  type OpportunityResponseKind,
 } from "@/lib/email/opportunity-correspondence-classifier";
 import {
   logInvalidProviderEmailIds,
@@ -60,6 +61,10 @@ export interface RecordCorrespondenceEventInput {
   submitterEmail?: string | null;
   linkedContactKind?: string | null;
   linkedContactId?: string | null;
+  responseKindHint?: Exclude<
+    OpportunityResponseKind,
+    "not_applicable" | "delivery_receipt" | "internal_note"
+  > | null;
 }
 
 export type RecordCorrespondenceEventResult =
@@ -217,7 +222,11 @@ export const OpportunityLifecycleService = {
         p_from_email: input.fromEmail ?? null,
         p_to_emails: asStringArray(input.toEmails),
         p_cc_emails: asStringArray(input.ccEmails),
-        p_apply_opportunity_projection: input.applyOpportunityProjection ?? false,
+        p_apply_opportunity_projection:
+          input.applyOpportunityProjection ?? false,
+        p_response_definition_version: classification.responseDefinitionVersion,
+        p_response_kind: classification.responseKind,
+        p_counts_as_first_response: classification.countsAsFirstResponse,
       }
     );
 

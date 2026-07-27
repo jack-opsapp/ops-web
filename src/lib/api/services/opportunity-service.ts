@@ -31,7 +31,6 @@ import {
   ActivityType,
   FollowUpStatus,
   FollowUpType,
-  PIPELINE_STAGES_DEFAULT,
 } from "@/lib/types/pipeline";
 import { mergeImageUrls, removeImageUrl } from "@/lib/utils/opportunity-images";
 import { computeHandledFollowUpAt } from "@/lib/leads/chase-state";
@@ -665,6 +664,30 @@ export const OpportunityService = {
 
     // Strip the id field if present – it should not be sent as a column update
     const { id: _id, ...rest } = data as Record<string, unknown>;
+    const guardedLifecycleFields = [
+      "stage",
+      "stageEnteredAt",
+      "stage_entered_at",
+      "winProbability",
+      "win_probability",
+      "projectId",
+      "project_id",
+      "projectRef",
+      "project_ref",
+      "archivedAt",
+      "archived_at",
+      "deletedAt",
+      "deleted_at",
+      "mergedIntoOpportunityId",
+      "merged_into_opportunity_id",
+    ];
+    if (
+      guardedLifecycleFields.some((field) =>
+        Object.prototype.hasOwnProperty.call(rest, field)
+      )
+    ) {
+      throw new Error("Opportunity lifecycle fields require guarded commands");
+    }
     const row = mapOpportunityToDb(
       rest as Partial<CreateOpportunity> & {
         nextFollowUpAt?: Date | string | null;
@@ -799,65 +822,29 @@ export const OpportunityService = {
     userId?: string
   ): Promise<Opportunity> {
     const supabase = requireSupabase();
+    const { data, error } = await supabase.rpc("move_opportunity_stage", {
+      p_opportunity_id: id,
+      p_to_stage: newStage,
+      p_user_id: userId ?? null,
+    });
 
-    // 1. Fetch current opportunity
-    const current = await OpportunityService.fetchOpportunity(id);
-    const fromStage = current.stage;
-    const now = new Date();
-
-    // Calculate how long the opportunity was in the previous stage (milliseconds)
-    const durationInStage = current.stageEnteredAt
-      ? now.getTime() - current.stageEnteredAt.getTime()
-      : null;
-
-    // Look up the default win probability for the new stage
-    const stageConfig = PIPELINE_STAGES_DEFAULT.find(
-      (s) => s.slug === newStage
-    );
-    const winProbability =
-      stageConfig?.winProbability ?? current.winProbability;
-
-    // 2. Update the opportunity
-    const { data: updated, error: updateError } = await supabase
-      .from("opportunities")
-      .update({
-        stage: newStage,
-        stage_entered_at: now.toISOString(),
-        win_probability: winProbability,
-        stage_manually_set: true, // Prevent AI/deterministic override
-      })
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (updateError) {
+    if (error) {
       throw new Error(
-        `Failed to move opportunity ${id} to stage ${newStage}: ${updateError.message}`
+        `Failed to move opportunity ${id} to stage ${newStage}: ${error.message}`
       );
     }
 
-    // 3. Insert stage transition record
-    const { error: transitionError } = await supabase
-      .from("stage_transitions")
-      .insert({
-        company_id: current.companyId,
-        opportunity_id: id,
-        from_stage: fromStage,
-        to_stage: newStage,
-        transitioned_at: now.toISOString(),
-        transitioned_by: userId ?? null,
-        duration_in_stage: durationInStage,
-      });
-
-    if (transitionError) {
-      // Log but don't fail – the opportunity was already moved
-      console.error(
-        `Failed to record stage transition for opportunity ${id}:`,
-        transitionError.message
+    const updated = (Array.isArray(data) ? data[0] : data) as Record<
+      string,
+      unknown
+    > | null;
+    if (!updated) {
+      throw new Error(
+        `Failed to move opportunity ${id} to stage ${newStage}: RPC returned no row`
       );
     }
 
-    return mapOpportunityFromDb(updated as Record<string, unknown>);
+    return mapOpportunityFromDb(updated);
   },
 
   /**
@@ -866,11 +853,12 @@ export const OpportunityService = {
    */
   async deleteOpportunity(id: string): Promise<void> {
     const supabase = requireSupabase();
-
-    const { error } = await supabase
-      .from("opportunities")
-      .update({ deleted_at: new Date().toISOString() })
-      .eq("id", id);
+    const { error } = await supabase.rpc("mutate_opportunity_lifecycle", {
+      p_opportunity_id: id,
+      p_action: "delete",
+      p_actor_user_id: null,
+      p_company_id: null,
+    });
 
     if (error) {
       throw new Error(`Failed to delete opportunity ${id}: ${error.message}`);
@@ -884,10 +872,12 @@ export const OpportunityService = {
    */
   async archiveOpportunity(id: string): Promise<void> {
     const supabase = requireSupabase();
-    const { error } = await supabase
-      .from("opportunities")
-      .update({ archived_at: new Date().toISOString() })
-      .eq("id", id);
+    const { error } = await supabase.rpc("mutate_opportunity_lifecycle", {
+      p_opportunity_id: id,
+      p_action: "archive",
+      p_actor_user_id: null,
+      p_company_id: null,
+    });
     if (error)
       throw new Error(`Failed to archive opportunity: ${error.message}`);
   },
@@ -899,10 +889,12 @@ export const OpportunityService = {
    */
   async unarchiveOpportunity(id: string): Promise<void> {
     const supabase = requireSupabase();
-    const { error } = await supabase
-      .from("opportunities")
-      .update({ archived_at: null })
-      .eq("id", id);
+    const { error } = await supabase.rpc("mutate_opportunity_lifecycle", {
+      p_opportunity_id: id,
+      p_action: "unarchive",
+      p_actor_user_id: null,
+      p_company_id: null,
+    });
     if (error)
       throw new Error(`Failed to unarchive opportunity: ${error.message}`);
   },

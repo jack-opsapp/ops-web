@@ -24,6 +24,15 @@ export type OpportunityCorrespondenceNoiseReason =
   | "missing_provider_id"
   | null;
 
+export type OpportunityResponseKind =
+  | "not_applicable"
+  | "human"
+  | "configured_automation"
+  | "automated_acknowledgement"
+  | "delivery_receipt"
+  | "internal_note"
+  | "unknown";
+
 export interface OpportunityCorrespondenceClassifierInput {
   direction: OpportunityCorrespondenceDirection;
   providerThreadId?: string | null;
@@ -43,6 +52,14 @@ export interface OpportunityCorrespondenceClassifierInput {
   contactEmail?: string | null;
   submitterEmail?: string | null;
   existingProviderMessageIds?: Iterable<string> | null;
+  /**
+   * Authoritative send-path evidence. Historical provider sync intentionally
+   * omits this hint so response coverage remains unknown instead of inferred.
+   */
+  responseKindHint?: Exclude<
+    OpportunityResponseKind,
+    "not_applicable" | "delivery_receipt" | "internal_note"
+  > | null;
 }
 
 export interface OpportunityCorrespondenceClassification {
@@ -51,7 +68,15 @@ export interface OpportunityCorrespondenceClassification {
   isMeaningful: boolean;
   noiseReason: OpportunityCorrespondenceNoiseReason;
   customerEmail: string | null;
+  responseDefinitionVersion: 1;
+  responseKind: OpportunityResponseKind;
+  countsAsFirstResponse: boolean;
 }
+
+type BaseOpportunityCorrespondenceClassification = Omit<
+  OpportunityCorrespondenceClassification,
+  "responseDefinitionVersion" | "responseKind" | "countsAsFirstResponse"
+>;
 
 const SYSTEM_LOCAL_PARTS = new Set([
   "admin",
@@ -284,6 +309,40 @@ function parsedContactFormSubmitterEmail(
   return parsedSubmitter === submitterEmail ? submitterEmail : null;
 }
 
+function withResponseClassification(
+  input: OpportunityCorrespondenceClassifierInput,
+  classification: BaseOpportunityCorrespondenceClassification
+): OpportunityCorrespondenceClassification {
+  let responseKind: OpportunityResponseKind = "unknown";
+
+  if (classification.noiseReason === "bounce") {
+    responseKind = "delivery_receipt";
+  } else if (
+    classification.partyRole === "internal" ||
+    classification.noiseReason === "internal_system"
+  ) {
+    responseKind = "internal_note";
+  } else if (classification.direction === "inbound") {
+    responseKind = "not_applicable";
+  } else if (
+    classification.partyRole === "ops" &&
+    classification.isMeaningful
+  ) {
+    responseKind = input.responseKindHint ?? "unknown";
+  }
+
+  return {
+    ...classification,
+    responseDefinitionVersion: 1,
+    responseKind,
+    countsAsFirstResponse:
+      classification.direction === "outbound" &&
+      classification.partyRole === "ops" &&
+      classification.isMeaningful &&
+      (responseKind === "human" || responseKind === "configured_automation"),
+  };
+}
+
 export function classifyOpportunityCorrespondence(
   input: OpportunityCorrespondenceClassifierInput
 ): OpportunityCorrespondenceClassification {
@@ -295,13 +354,13 @@ export function classifyOpportunityCorrespondence(
   const submitterEmail = normalizeEmail(input.submitterEmail);
 
   if (!providerThreadId) {
-    return {
+    return withResponseClassification(input, {
       direction: input.direction,
       partyRole: "unknown",
       isMeaningful: false,
       noiseReason: "missing_provider_id",
       customerEmail: null,
-    };
+    });
   }
 
   if (
@@ -310,33 +369,33 @@ export function classifyOpportunityCorrespondence(
       input.existingProviderMessageIds
     )
   ) {
-    return {
+    return withResponseClassification(input, {
       direction: input.direction,
       partyRole: "unknown",
       isMeaningful: false,
       noiseReason: "duplicate_provider_message_id",
       customerEmail: null,
-    };
+    });
   }
 
   if (isBounce(fromEmail, subject, bodyText)) {
-    return {
+    return withResponseClassification(input, {
       direction: input.direction,
       partyRole: "system",
       isMeaningful: false,
       noiseReason: "bounce",
       customerEmail: null,
-    };
+    });
   }
 
   if (isMarketingNoise(input, subject)) {
-    return {
+    return withResponseClassification(input, {
       direction: input.direction,
       partyRole: "marketing",
       isMeaningful: false,
       noiseReason: "marketing_noise",
       customerEmail: null,
-    };
+    });
   }
 
   if (
@@ -349,13 +408,13 @@ export function classifyOpportunityCorrespondence(
       bodyText,
     })
   ) {
-    return {
+    return withResponseClassification(input, {
       direction: input.direction,
       partyRole: "provider",
       isMeaningful: false,
       noiseReason: "provider_noise",
       customerEmail: null,
-    };
+    });
   }
 
   if (input.direction === "inbound") {
@@ -372,43 +431,43 @@ export function classifyOpportunityCorrespondence(
       !isProviderAddress(contactFormSubmitterEmail, input) &&
       !isSystemAddress(contactFormSubmitterEmail)
     ) {
-      return {
+      return withResponseClassification(input, {
         direction: "inbound",
         partyRole: "customer",
         isMeaningful: true,
         noiseReason: null,
         customerEmail: contactFormSubmitterEmail,
-      };
+      });
     }
 
     if (isProviderAddress(fromEmail, input)) {
-      return {
+      return withResponseClassification(input, {
         direction: "inbound",
         partyRole: "provider",
         isMeaningful: false,
         noiseReason: "provider_noise",
         customerEmail: null,
-      };
+      });
     }
 
     if (isInternalEmail(fromEmail, input) || isSystemAddress(fromEmail)) {
-      return {
+      return withResponseClassification(input, {
         direction: "inbound",
         partyRole: "internal",
         isMeaningful: false,
         noiseReason: "internal_system",
         customerEmail: null,
-      };
+      });
     }
 
     if (fromEmail) {
-      return {
+      return withResponseClassification(input, {
         direction: "inbound",
         partyRole: "customer",
         isMeaningful: true,
         noiseReason: null,
         customerEmail: fromEmail,
-      };
+      });
     }
   }
 
@@ -419,31 +478,31 @@ export function classifyOpportunityCorrespondence(
       (isInternalEmail(fromEmail, input) ||
         fromEmail === normalizeEmail(input.connectionEmail))
     ) {
-      return {
+      return withResponseClassification(input, {
         direction: "outbound",
         partyRole: "ops",
         isMeaningful: true,
         noiseReason: null,
         customerEmail: recipient,
-      };
+      });
     }
 
     if (!recipient) {
-      return {
+      return withResponseClassification(input, {
         direction: "outbound",
         partyRole: "internal",
         isMeaningful: false,
         noiseReason: "internal_system",
         customerEmail: null,
-      };
+      });
     }
   }
 
-  return {
+  return withResponseClassification(input, {
     direction: input.direction,
     partyRole: "unknown",
     isMeaningful: false,
     noiseReason: "provider_noise",
     customerEmail: null,
-  };
+  });
 }

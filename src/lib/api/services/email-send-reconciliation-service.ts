@@ -288,6 +288,8 @@ export async function reconcileEmailSend(
       direction: "outbound",
       occurredAt: new Date(sentAt),
       source: "email_send",
+      responseKindHint:
+        intent.initiatedBy === "operator" ? "human" : "configured_automation",
       applyOpportunityProjection: true,
       fromEmail: intent.clientFromAddressSnapshot,
       fromName: intent.actorNameSnapshot,

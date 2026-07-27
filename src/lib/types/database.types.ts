@@ -9806,6 +9806,7 @@ export type Database = {
           cc_emails: string[]
           company_id: string
           connection_id: string | null
+          counts_as_first_response: boolean
           created_at: string
           direction: string
           from_email: string | null
@@ -9820,6 +9821,8 @@ export type Database = {
           party_role: string
           provider_message_id: string | null
           provider_thread_id: string
+          response_definition_version: number
+          response_kind: string
           source: string
           subject: string | null
           to_emails: string[]
@@ -9829,6 +9832,7 @@ export type Database = {
           cc_emails?: string[]
           company_id: string
           connection_id?: string | null
+          counts_as_first_response?: boolean
           created_at?: string
           direction: string
           from_email?: string | null
@@ -9843,6 +9847,8 @@ export type Database = {
           party_role: string
           provider_message_id?: string | null
           provider_thread_id: string
+          response_definition_version?: number
+          response_kind?: string
           source: string
           subject?: string | null
           to_emails?: string[]
@@ -9852,6 +9858,7 @@ export type Database = {
           cc_emails?: string[]
           company_id?: string
           connection_id?: string | null
+          counts_as_first_response?: boolean
           created_at?: string
           direction?: string
           from_email?: string | null
@@ -9866,6 +9873,8 @@ export type Database = {
           party_role?: string
           provider_message_id?: string | null
           provider_thread_id?: string
+          response_definition_version?: number
+          response_kind?: string
           source?: string
           subject?: string | null
           to_emails?: string[]
@@ -19527,6 +19536,7 @@ export type Database = {
           p_cc_emails: string[]
           p_company_id: string
           p_connection_id: string
+          p_counts_as_first_response: boolean
           p_direction: string
           p_from_email: string
           p_is_meaningful: boolean
@@ -19538,6 +19548,8 @@ export type Database = {
           p_party_role: string
           p_provider_message_id: string
           p_provider_thread_id: string
+          p_response_definition_version: number
+          p_response_kind: string
           p_source: string
           p_subject: string
           p_to_emails: string[]
@@ -19722,7 +19734,7 @@ export type Database = {
         Args: {
           p_opportunity_id: string
           p_to_stage: string
-          p_user_id: string
+          p_user_id: string | null
         }
         Returns: {
           actual_close_date: string | null
@@ -19785,6 +19797,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      mutate_opportunity_lifecycle: {
+        Args: {
+          p_action: string
+          p_actor_user_id?: string | null
+          p_company_id?: string | null
+          p_opportunity_id: string
+        }
+        Returns: Json
       }
       notify_email_attachment_scan_exception: {
         Args: {

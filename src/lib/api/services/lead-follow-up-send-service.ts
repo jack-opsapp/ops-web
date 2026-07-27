@@ -903,6 +903,7 @@ async function materializeLatestOutboundSource(
     direction: "outbound",
     occurredAt: input.message.date,
     source: "lead_follow_up_preflight",
+    responseKindHint: "human",
     applyOpportunityProjection: true,
     fromEmail: input.message.from,
     fromName: input.message.fromName,
