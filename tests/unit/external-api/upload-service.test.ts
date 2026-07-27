@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ExternalApiRequestActor } from "@/lib/external-api/auth/credential-auth";
+import { deriveActiveIdempotencyDigest } from "@/lib/external-api/intake/idempotency";
 import {
   createExternalUploadBatch,
   hashCanonicalUploadManifest,
@@ -18,6 +18,13 @@ const AUDIT_REQUEST_ID = "10000000-0000-4000-8000-000000000008";
 const NOW = "2026-07-26T22:00:00.000Z";
 const EXPIRES = "2026-07-26T22:02:00.000Z";
 const DELETE_NOT_BEFORE = "2026-07-26T22:03:00.000Z";
+const idempotencyKeyRing = {
+  activeKid: 2,
+  keys: new Map([
+    [1, Buffer.alloc(32, 1)],
+    [2, Buffer.alloc(32, 2)],
+  ]),
+};
 
 function opaque(prefix: string, uuid: string): string {
   return `${prefix}_${Buffer.from(uuid.replaceAll("-", ""), "hex").toString(
@@ -94,6 +101,14 @@ describe("external upload batch service", () => {
     });
   });
 
+  function dependencies() {
+    return {
+      client: { rpc },
+      issueCapability,
+      idempotencyKeyRing,
+    };
+  }
+
   it("hashes a canonical manifest independently of caller file order", () => {
     const second = {
       callerFileId: "plans",
@@ -117,7 +132,7 @@ describe("external upload batch service", () => {
         requestedOrigin: "https://example.test",
         batch: request,
       },
-      { client: { rpc }, issueCapability }
+      dependencies()
     );
 
     expect(result.result).toMatchObject({
@@ -143,7 +158,7 @@ describe("external upload batch service", () => {
     });
     expect(result.idempotencyResult).toBe("new");
     expect(rpc).toHaveBeenCalledWith(
-      "reserve_external_intake_upload_batch_as_system",
+      "reserve_external_intake_upload_batch_rotating_as_system",
       expect.objectContaining({
         p_request_id: AUDIT_REQUEST_ID,
         p_principal_id: PRINCIPAL_ID,
@@ -153,9 +168,23 @@ describe("external upload batch service", () => {
         p_source_public_id: SOURCE_UUID,
         p_form_public_id: FORM_UUID,
         p_requested_origin: "https://example.test",
-        p_idempotency_digest: `\\x${createHash("sha256")
-          .update("upload-request-0001")
-          .digest("hex")}`,
+        p_idempotency_digest_version: 2,
+        p_idempotency_digest: `\\x${
+          deriveActiveIdempotencyDigest(
+            {
+              kind: "principal",
+              companyId: COMPANY_ID,
+              principalId: PRINCIPAL_ID,
+              namespace: "upload_batch",
+              key: "upload-request-0001",
+            },
+            idempotencyKeyRing
+          ).digest
+        }`,
+        p_idempotency_candidates: expect.arrayContaining([
+          expect.objectContaining({ kid: 1 }),
+          expect.objectContaining({ kid: 2 }),
+        ]),
         p_manifest_hash_version: 1,
       })
     );
@@ -202,7 +231,7 @@ describe("external upload batch service", () => {
           ],
         },
       },
-      { client: { rpc }, issueCapability }
+      dependencies()
     );
 
     expect(result.result.replayed).toBe(true);
@@ -243,7 +272,7 @@ describe("external upload batch service", () => {
             requestedOrigin: null,
             batch: request,
           },
-          { client: { rpc }, issueCapability }
+          dependencies()
         )
       ).rejects.toMatchObject({ code });
     }
@@ -265,7 +294,7 @@ describe("external upload batch service", () => {
           requestedOrigin: null,
           batch: request,
         },
-        { client: { rpc }, issueCapability }
+        dependencies()
       )
     ).rejects.toMatchObject({ code: "temporarily_unavailable" });
     expect(rpc).toHaveBeenLastCalledWith(

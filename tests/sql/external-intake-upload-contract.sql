@@ -182,7 +182,7 @@ begin
   select * into strict v_fixture
   from external_intake_upload_contract_fixture;
 
-  return public.reserve_external_intake_upload_batch_as_system(
+  return public.reserve_external_intake_upload_batch_rotating_as_system(
     p_request_id,
     v_fixture.principal_id,
     v_fixture.credential_id,
@@ -195,6 +195,14 @@ begin
     p_form_id,
     1::smallint,
     p_idempotency_digest,
+    jsonb_build_array(
+      jsonb_build_object(
+        'kid',
+        1,
+        'digest',
+        E'\\x' || encode(p_idempotency_digest, 'hex')
+      )
+    ),
     1::smallint,
     p_manifest_hash,
     p_files,
@@ -267,6 +275,66 @@ from external_intake_upload_contract_values first
 cross join external_intake_upload_contract_values replay
 where first.value_name = 'first_reservation'
   and replay.value_name = 'exact_replay';
+
+insert into external_intake_upload_contract_values (value_name, value)
+select
+  'rotated_replay',
+  public.reserve_external_intake_upload_batch_rotating_as_system(
+    'e2000000-0000-4000-8000-000000000312',
+    fixture.principal_id,
+    fixture.credential_id,
+    fixture.company_id,
+    1::smallint,
+    decode(repeat('11', 32), 'hex'),
+    'opsxupl1',
+    fixture.authorization_epoch,
+    fixture.source_id,
+    fixture.form_id,
+    2::smallint,
+    decode(repeat('29', 32), 'hex'),
+    jsonb_build_array(
+      jsonb_build_object(
+        'kid',
+        2,
+        'digest',
+        E'\\x' || repeat('29', 32)
+      ),
+      jsonb_build_object(
+        'kid',
+        1,
+        'digest',
+        E'\\x' || repeat('21', 32)
+      )
+    ),
+    1::smallint,
+    decode(repeat('31', 32), 'hex'),
+    '[{"callerFileId":"photo","filename":"photo.jpg","sizeBytes":4096,"contentType":"image/jpeg","sha256":"0707070707070707070707070707070707070707070707070707070707070707"}]'::jsonb,
+    null,
+    clock_timestamp() + interval '2 minutes',
+    clock_timestamp() + interval '3 minutes',
+    clock_timestamp() + interval '10 minutes',
+    '/v1/intake/uploads',
+    'POST',
+    clock_timestamp()
+  )
+from external_intake_upload_contract_fixture fixture;
+
+insert into external_intake_upload_contract_results (check_name, passed)
+select
+  'idempotency_key_rotation_replays_original',
+  first.value ->> 'status' = 'new'
+  and rotated.value ->> 'status' = 'replay'
+  and first.value ->> 'batch_id' = rotated.value ->> 'batch_id'
+  and (
+    select batch.idempotency_digest_version = 1
+      and batch.idempotency_digest = decode(repeat('21', 32), 'hex')
+    from private.external_intake_upload_batches batch
+    where batch.id = (first.value ->> 'batch_id')::uuid
+  )
+from external_intake_upload_contract_values first
+cross join external_intake_upload_contract_values rotated
+where first.value_name = 'first_reservation'
+  and rotated.value_name = 'rotated_replay';
 
 insert into external_intake_upload_contract_results (check_name, passed)
 select
@@ -591,6 +659,7 @@ declare
   v_missing text;
   v_expected constant text[] := array[
     'exact_replay_does_not_reserve_twice',
+    'idempotency_key_rotation_replays_original',
     'changed_manifest_conflicts',
     'expired_batch_returns_expired',
     'cross_source_denied',

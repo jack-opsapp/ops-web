@@ -15,6 +15,12 @@ import {
   uploadBatchResultSchema,
 } from "../contracts/intake";
 import { decodeOpaqueUuid, encodeOpaqueUuid } from "../contracts/opaque-id";
+import {
+  deriveActiveIdempotencyDigest,
+  deriveIdempotencyLookupCandidates,
+  readIdempotencyHmacKeyRing,
+  type VersionedHmacKeyRing,
+} from "../intake/idempotency";
 import { commitExternalApiAuditBase } from "../security/audit";
 import {
   issueExternalUploadCapability,
@@ -42,6 +48,7 @@ interface UploadRpcClient {
 
 interface UploadServiceDependencies {
   client?: UploadRpcClient;
+  idempotencyKeyRing?: VersionedHmacKeyRing;
   issueCapability?: (
     input: ExternalUploadCapabilityInput
   ) => Promise<ExternalUploadCapability>;
@@ -218,18 +225,48 @@ export async function createExternalUploadBatch(
   const manifestByCallerFileId = new Map(
     manifest.map((file) => [file.callerFileId, file] as const)
   );
+  let idempotencyKeyRing: VersionedHmacKeyRing;
+  let idempotencyDigest: ReturnType<typeof deriveActiveIdempotencyDigest>;
+  let idempotencyCandidates: ReturnType<
+    typeof deriveIdempotencyLookupCandidates
+  >;
+  try {
+    idempotencyKeyRing =
+      dependencies.idempotencyKeyRing ?? readIdempotencyHmacKeyRing();
+    const identity = {
+      kind: "principal" as const,
+      companyId: input.actor.companyId,
+      principalId: input.actor.principalId,
+      namespace: "upload_batch" as const,
+      key: input.idempotencyKey,
+    };
+    idempotencyDigest = deriveActiveIdempotencyDigest(
+      identity,
+      idempotencyKeyRing
+    );
+    idempotencyCandidates = deriveIdempotencyLookupCandidates(
+      identity,
+      idempotencyKeyRing
+    );
+  } catch {
+    throw new ExternalApiSafeError("temporarily_unavailable");
+  }
 
   let rpcResponse: { data: unknown; error: unknown };
   try {
     rpcResponse = await client.rpc(
-      "reserve_external_intake_upload_batch_as_system",
+      "reserve_external_intake_upload_batch_rotating_as_system",
       {
         p_request_id: input.auditRequestId,
         ...actorArguments(input.actor),
         p_source_public_id: sourceUuid,
         p_form_public_id: formUuid,
-        p_idempotency_digest_version: 1,
-        p_idempotency_digest: sha256Hex(input.idempotencyKey),
+        p_idempotency_digest_version: idempotencyDigest.kid,
+        p_idempotency_digest: `\\x${idempotencyDigest.digest}`,
+        p_idempotency_candidates: idempotencyCandidates.map((candidate) => ({
+          kid: candidate.kid,
+          digest: `\\x${candidate.digest}`,
+        })),
         p_manifest_hash_version: 1,
         p_manifest_hash: hashCanonicalUploadManifest(manifest),
         p_files: manifest,

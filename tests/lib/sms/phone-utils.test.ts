@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { normalizePhoneE164, InvalidPhoneError, formatPhoneNational } from "@/lib/sms/phone-utils";
+import {
+  normalizePhoneE164,
+  InvalidPhoneError,
+  formatPhoneNational,
+} from "@/lib/sms/phone-utils";
 
 describe("normalizePhoneE164", () => {
   it("accepts a US 10-digit number and returns E.164", () => {
@@ -24,6 +28,20 @@ describe("normalizePhoneE164", () => {
 
   it("accepts a Canadian number with country code", () => {
     expect(normalizePhoneE164("+15145551234")).toBe("+15145551234");
+  });
+
+  it("accepts a UK local number with an explicit valid region", () => {
+    expect(normalizePhoneE164("020 7946 0018", "GB")).toBe("+442079460018");
+  });
+
+  it("accepts an explicit international number without applying the default region", () => {
+    expect(normalizePhoneE164("+442079460018")).toBe("+442079460018");
+  });
+
+  it("rejects unsupported two-letter country values at runtime", () => {
+    expect(() => normalizePhoneE164("020 7946 0018", "ZZ" as never)).toThrow(
+      InvalidPhoneError
+    );
   });
 
   it("throws InvalidPhoneError on gibberish", () => {

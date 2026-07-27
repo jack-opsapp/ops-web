@@ -37,7 +37,7 @@ begin
   select * into strict v_fixture
   from private.external_intake_upload_concurrency_fixture;
 
-  v_result := public.reserve_external_intake_upload_batch_as_system(
+  v_result := public.reserve_external_intake_upload_batch_rotating_as_system(
     'e3000000-0000-4000-8000-000000000601',
     v_fixture.principal_id,
     v_fixture.credential_id,
@@ -50,6 +50,14 @@ begin
     v_fixture.form_public_id,
     1::smallint,
     decode(repeat('61', 32), 'hex'),
+    jsonb_build_array(
+      jsonb_build_object(
+        'kid',
+        1,
+        'digest',
+        E'\\x' || repeat('61', 32)
+      )
+    ),
     1::smallint,
     decode(repeat('62', 32), 'hex'),
     '[{"callerFileId":"partA","filename":"part-a.pdf","sizeBytes":26214400,"contentType":"application/pdf"},{"callerFileId":"partB","filename":"part-b.pdf","sizeBytes":26214400,"contentType":"application/pdf"}]'::jsonb,

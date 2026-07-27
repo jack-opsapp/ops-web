@@ -17792,6 +17792,34 @@ export type Database = {
         }
         Returns: Json
       }
+      reserve_external_intake_upload_batch_rotating_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_batch_expires_at: string
+          p_capability_expires_at: string
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_delete_not_before: string
+          p_digest_version: number
+          p_files: Json
+          p_form_public_id: string
+          p_idempotency_candidates: Json
+          p_idempotency_digest: string
+          p_idempotency_digest_version: number
+          p_manifest_hash: string
+          p_manifest_hash_version: number
+          p_method: string
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_requested_origin: string
+          p_route: string
+          p_source_public_id: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
       stage_external_intake_delivery_as_system: {
         Args: {
           p_delivery_mode: string
