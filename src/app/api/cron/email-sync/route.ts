@@ -240,6 +240,38 @@ export async function GET(request: NextRequest) {
                 : "Unknown thread classification retry error";
           }
 
+          // Drain exact-message classification deferrals and idempotent label
+          // writes. The queue is filtered through the same current
+          // subscription gate as live mailbox sync.
+          let ingestionRecovery = {
+            claimed: 0,
+            classificationsRecovered: 0,
+            promoted: 0,
+            labelsApplied: 0,
+            retrying: 0,
+            failed: 0,
+            stale: 0,
+            staleCompletions: 0,
+            errors: [] as Array<{ queueId: string; error: string }>,
+          };
+          let ingestionRecoveryError: string | null = null;
+          try {
+            ingestionRecovery = await SyncEngine.retryPendingIngestionRecovery({
+              companyIds: [...activeCompanyIds],
+              limit: 10,
+            });
+          } catch (recoveryError) {
+            if (isDatabasePressureError(recoveryError)) throw recoveryError;
+            console.error(
+              "[email-cron-sync] ingestion recovery error:",
+              recoveryError
+            );
+            ingestionRecoveryError =
+              recoveryError instanceof Error
+                ? recoveryError.message
+                : "Unknown ingestion recovery error";
+          }
+
           // Drain the deferred lead-classification queue. Threads whose Step-5
           // classification was skipped during a provider outage carry
           // `email_threads.lead_scan_pending_at`; replay them now that the AI
@@ -314,6 +346,13 @@ export async function GET(request: NextRequest) {
             threadClassificationRetryError
               ? 1
               : 0) +
+            (ingestionRecovery.retrying > 0 ||
+            ingestionRecovery.failed > 0 ||
+            ingestionRecovery.staleCompletions > 0 ||
+            ingestionRecovery.errors.length > 0 ||
+            ingestionRecoveryError
+              ? 1
+              : 0) +
             (pendingLeadScanSweep.errors.length > 0 || pendingLeadScanSweepError
               ? 1
               : 0) +
@@ -336,6 +375,8 @@ export async function GET(request: NextRequest) {
               staleSweepError,
               threadClassificationRetry,
               threadClassificationRetryError,
+              ingestionRecovery,
+              ingestionRecoveryError,
               pendingLeadScanSweep,
               pendingLeadScanSweepError,
               outboundLearning,

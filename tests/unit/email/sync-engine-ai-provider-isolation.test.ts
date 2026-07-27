@@ -104,7 +104,7 @@ describe("sync-engine AI-provider isolation — Step 5", () => {
 });
 
 describe("sync-engine AI-provider isolation — durable defer helper", () => {
-  it("marks only non-contact-form, unpromoted threads and never throws", () => {
+  it("queues every exact message before writing the legacy thread marker", () => {
     const helperStart = source.indexOf(
       "async function markUnmatchedThreadsPendingLeadScan("
     );
@@ -113,15 +113,24 @@ describe("sync-engine AI-provider isolation — durable defer helper", () => {
       helperStart,
       source.indexOf("function openAIProviderErrorMetadata(")
     );
-    // Only non-contact-form contexts have a durable email_threads row.
+    expect(helperBody).toContain("for (const context of contexts) {");
+    expect(helperBody).toContain("await enqueueEmailIngestionRecovery({");
+    expect(helperBody).toContain('kind: "lead_classification",');
+    expect(helperBody).toContain("providerMessageId: context.email.id,");
+    expect(helperBody).toContain("providerThreadId: context.email.threadId,");
+    // Only non-contact-form contexts have a compatibility email_threads row.
     expect(helperBody).toContain(
       "context.routingIdentity.isContactFormSubmission"
     );
     expect(helperBody).toContain("lead_scan_pending_at");
     // Never overwrite a thread another path already promoted.
     expect(helperBody).toContain('.is("opportunity_id", null)');
-    // Body is wrapped so a marker-write failure is caught, never thrown.
-    expect(helperBody).toMatch(/\{\s*try \{[\s\S]*\} catch \(err\) \{/);
+    // Exact-message enqueue precedes the best-effort marker catch, so queue
+    // persistence failures hold the cursor instead of disappearing.
+    expect(
+      helperBody.indexOf("await enqueueEmailIngestionRecovery({")
+    ).toBeLessThan(helperBody.indexOf("try {"));
+    expect(helperBody).toContain("exact-message recovery remains queued");
   });
 });
 
@@ -134,9 +143,7 @@ describe("sync-engine AI-provider isolation — Step 6", () => {
     expect(step6).toMatch(
       /if \(!aiProviderOutage\) \{\s*try \{\s*stageResults = await AISyncReviewer\.evaluateStagesWithSummary\(/
     );
-    expect(step6).toContain(
-      "if (isDatabasePressureError(err)) throw err;"
-    );
+    expect(step6).toContain("if (isDatabasePressureError(err)) throw err;");
     expect(step6).toContain("if (isAIProviderUnavailableError(err)) {");
     expect(step6).toContain("aiProviderOutage ??= err;");
     expect(step6).toContain("} else if (isDeferredModelAnswerError(err)) {");
