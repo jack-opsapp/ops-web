@@ -43,6 +43,9 @@ describe("external API operations migration", () => {
     expect(source).toContain(
       "public.purge_external_api_network_fingerprints_as_system"
     );
+    expect(source).toMatch(
+      /purge_external_api_network_fingerprints_as_system\(\s*v_now\s*\)/
+    );
     expect(source).not.toMatch(
       /delete from private\.external_api_request_audit/
     );

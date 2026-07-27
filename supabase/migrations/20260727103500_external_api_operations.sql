@@ -293,7 +293,7 @@ begin
   get diagnostics v_credentials_retired = row_count;
 
   select public.purge_external_api_network_fingerprints_as_system(
-    v_now - interval '30 days'
+    v_now
   )
   into v_network_purged;
 
