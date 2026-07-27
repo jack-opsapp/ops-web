@@ -257,7 +257,7 @@ git commit -m "feat(api): define external v1 contracts"
 
 **Files:**
 
-- Create: `supabase/migrations/20260726210000_external_api_authorization_foundation.sql`
+- Create: `supabase/migrations/20260727102500_external_api_authorization_foundation.sql`
 - Create: `scripts/run-external-api-sql-contracts.mjs`
 - Modify: `package.json`
 - Modify: `src/lib/types/database.types.ts` (generated after the migration is verified)
@@ -367,7 +367,7 @@ Then regenerate `src/lib/types/database.types.ts` using the project's standard S
 **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260726210000_external_api_authorization_foundation.sql scripts/run-external-api-sql-contracts.mjs package.json src/lib/types/database.types.ts tests/unit/supabase/external-api-authorization-migration.test.ts tests/sql/external-api-authorization-contract.sql
+git add supabase/migrations/20260727102500_external_api_authorization_foundation.sql scripts/run-external-api-sql-contracts.mjs package.json src/lib/types/database.types.ts tests/unit/supabase/external-api-authorization-migration.test.ts tests/sql/external-api-authorization-contract.sql
 git commit -m "feat(api): add external authorization and projection foundation"
 ```
 
@@ -657,7 +657,7 @@ git commit -m "feat(storage): define private intake file infrastructure"
 
 **Files:**
 
-- Create: `supabase/migrations/20260726211000_external_intake_upload_foundation.sql`
+- Create: `supabase/migrations/20260727102600_external_intake_upload_foundation.sql`
 - Create: `src/lib/external-api/uploads/upload-service.ts`
 - Create: `src/app/v1/intake/uploads/route.ts`
 - Modify: `src/lib/types/database.types.ts`
@@ -723,7 +723,7 @@ npm run test:external-api:sql -- --match intake-upload
 Regenerate types, then commit:
 
 ```bash
-git add supabase/migrations/20260726211000_external_intake_upload_foundation.sql src/lib/external-api/uploads src/app/v1/intake/uploads src/lib/types/database.types.ts tests
+git add supabase/migrations/20260727102600_external_intake_upload_foundation.sql src/lib/external-api/uploads src/app/v1/intake/uploads src/lib/types/database.types.ts tests
 git commit -m "feat(api): add replay-safe upload intents"
 ```
 
@@ -733,7 +733,7 @@ git commit -m "feat(api): add replay-safe upload intents"
 
 **Files:**
 
-- Create: `supabase/migrations/20260726212000_external_intake_attachment_processing.sql`
+- Create: `supabase/migrations/20260727102700_external_intake_attachment_processing.sql`
 - Create: `src/lib/external-api/uploads/file-policy.ts`
 - Create: `src/lib/external-api/uploads/structural-inspector.ts`
 - Create: `src/lib/external-api/uploads/image-sanitizer.ts`
@@ -815,7 +815,7 @@ The cron processes upload-arrival events, GuardDuty events, inspection work, 24-
 Run local migration/lint, focused tests, and a storage-adapter integration test against a non-production bucket or an emulator. Regenerate types, then:
 
 ```bash
-git add supabase/migrations/20260726212000_external_intake_attachment_processing.sql src/lib/external-api/uploads src/app/api/cron/external-api-maintenance vercel.json src/lib/types/database.types.ts tests
+git add supabase/migrations/20260727102700_external_intake_attachment_processing.sql src/lib/external-api/uploads src/app/api/cron/external-api-maintenance vercel.json src/lib/types/database.types.ts tests
 git commit -m "feat(api): inspect and retain private intake files"
 ```
 
@@ -884,7 +884,7 @@ git commit -m "feat(api): canonicalize external intake submissions"
 
 **Files:**
 
-- Create: `supabase/migrations/20260726213000_external_lead_intake_command.sql`
+- Create: `supabase/migrations/20260727102900_external_lead_intake_command.sql`
 - Create: `src/lib/external-api/intake/submission-service.ts`
 - Modify: `src/lib/types/database.types.ts`
 - Modify: `src/lib/api/services/unassigned-lead-assignment-delivery-service.ts`
@@ -984,7 +984,7 @@ npm run test:external-api:sql -- --match lead-intake
 Regenerate types, then:
 
 ```bash
-git add supabase/migrations/20260726213000_external_lead_intake_command.sql src/lib/external-api/intake/submission-service.ts src/lib/types/database.types.ts src/lib/api/services/unassigned-lead-assignment-delivery-service.ts tests
+git add supabase/migrations/20260727102900_external_lead_intake_command.sql src/lib/external-api/intake/submission-service.ts src/lib/types/database.types.ts src/lib/api/services/unassigned-lead-assignment-delivery-service.ts tests
 git commit -m "feat(api): create leads atomically from external intake"
 ```
 
@@ -1072,7 +1072,7 @@ git commit -m "feat(api): expose intake configuration and submissions"
 
 **Files:**
 
-- Create: `supabase/migrations/20260726214000_external_intake_lead_file_access.sql`
+- Create: `supabase/migrations/20260727103100_external_intake_lead_file_access.sql`
 - Modify: `src/lib/api/services/opportunity-assigned-context-service.ts`
 - Modify: `src/lib/api/services/project-file-service.ts`
 - Create: `src/lib/external-api/uploads/project-file-projection-worker.ts`
@@ -1164,7 +1164,7 @@ The maintenance cron processes the durable erasure queue in bounded leased batch
 Run focused tests, keyboard/zoom checks, the design-system audit, local migration lint, and regenerate types. Then:
 
 ```bash
-git add supabase/migrations/20260726214000_external_intake_lead_file_access.sql src/lib/api/services/opportunity-assigned-context-service.ts src/lib/api/services/project-file-service.ts src/lib/external-api/uploads src/app/api/opportunities src/app/'(dashboard)'/pipeline/_components src/i18n/dictionaries src/lib/types/database.types.ts tests
+git add supabase/migrations/20260727103100_external_intake_lead_file_access.sql src/lib/api/services/opportunity-assigned-context-service.ts src/lib/api/services/project-file-service.ts src/lib/external-api/uploads src/app/api/opportunities src/app/'(dashboard)'/pipeline/_components src/i18n/dictionaries src/lib/types/database.types.ts tests
 git commit -m "feat(pipeline): surface accepted intake files"
 ```
 
@@ -1174,7 +1174,7 @@ git commit -m "feat(pipeline): surface accepted intake files"
 
 **Files:**
 
-- Create: `supabase/migrations/20260726215000_external_analytics_lifecycle_evidence.sql`
+- Create: `supabase/migrations/20260727103200_external_analytics_lifecycle_evidence.sql`
 - Modify: `src/lib/api/services/opportunity-service.ts`
 - Modify: `src/lib/api/services/opportunity-lifecycle-service.ts`
 - Modify: `src/lib/api/services/email-thread-service.ts`
@@ -1253,7 +1253,7 @@ npm run test:external-api:sql -- --match analytics-lifecycle
 Regenerate types, then:
 
 ```bash
-git add supabase/migrations/20260726215000_external_analytics_lifecycle_evidence.sql src/lib/api/services src/lib/email src/lib/types/database.types.ts tests
+git add supabase/migrations/20260727103200_external_analytics_lifecycle_evidence.sql src/lib/api/services src/lib/email src/lib/types/database.types.ts tests
 git commit -m "fix(pipeline): make external lifecycle evidence atomic"
 ```
 
@@ -1263,7 +1263,7 @@ git commit -m "fix(pipeline): make external lifecycle evidence atomic"
 
 **Files:**
 
-- Create: `supabase/migrations/20260726220000_external_lead_projection.sql`
+- Create: `supabase/migrations/20260727103300_external_lead_projection.sql`
 - Create: `src/lib/external-api/analytics/source-projection.ts`
 - Create: `src/lib/external-api/analytics/projection-service.ts`
 - Create: `src/lib/external-api/analytics/projection-backfill.ts`
@@ -1342,7 +1342,7 @@ npm run api:backfill-lead-projections -- --local --verify
 ```
 
 ```bash
-git add supabase/migrations/20260726220000_external_lead_projection.sql src/lib/external-api/analytics scripts/backfill-external-lead-projections.mjs package.json src/lib/types/database.types.ts tests
+git add supabase/migrations/20260727103300_external_lead_projection.sql src/lib/external-api/analytics scripts/backfill-external-lead-projections.mjs package.json src/lib/types/database.types.ts tests
 git commit -m "feat(analytics): add external lead projections"
 ```
 
@@ -1421,7 +1421,7 @@ git commit -m "feat(api): expose checkpointed lead analytics"
 
 **Files:**
 
-- Create: `supabase/migrations/20260726221000_external_lead_metrics_v1.sql`
+- Create: `supabase/migrations/20260727103400_external_lead_metrics_v1.sql`
 - Create: `src/lib/external-api/analytics/metric-definitions/v1.ts`
 - Create: `src/lib/external-api/analytics/metric-definitions/index.ts`
 - Create: `src/lib/external-api/analytics/financial-attribution.ts`
@@ -1492,7 +1492,7 @@ npm run test:external-api:sql -- --match lead-metrics
 Regenerate types, then:
 
 ```bash
-git add supabase/migrations/20260726221000_external_lead_metrics_v1.sql src/lib/external-api/analytics src/app/v1/analytics/metrics src/lib/types/database.types.ts tests
+git add supabase/migrations/20260727103400_external_lead_metrics_v1.sql src/lib/external-api/analytics src/app/v1/analytics/metrics src/lib/types/database.types.ts tests
 git commit -m "feat(api): add versioned lead metrics"
 ```
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = resolve(
   process.cwd(),
-  "supabase/migrations/20260726211000_external_intake_upload_foundation.sql"
+  "supabase/migrations/20260727102600_external_intake_upload_foundation.sql"
 );
 const contractPath = resolve(
   process.cwd(),

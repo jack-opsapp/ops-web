@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const migrationPath = resolve(
   process.cwd(),
-  "supabase/migrations/20260726213000_external_lead_intake_command.sql"
+  "supabase/migrations/20260727102900_external_lead_intake_command.sql"
 );
 const source = existsSync(migrationPath)
   ? readFileSync(migrationPath, "utf8").toLowerCase()
