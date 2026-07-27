@@ -9,11 +9,11 @@ export const MAX_ANSWER_COUNT = 100;
 export const DEFAULT_LEAD_FEED_PAGE_SIZE = 100;
 export const MAX_LEAD_FEED_PAGE_SIZE = 250;
 
-const opaqueId = (prefix: string) =>
+const opaqueId = (prefix: string, maximumLength = 128) =>
   z
     .string()
     .regex(
-      new RegExp(`^${prefix}_[A-Za-z0-9_-]{22,128}$`),
+      new RegExp(`^${prefix}_[A-Za-z0-9_-]{22,${maximumLength}}$`),
       `Expected an opaque ${prefix} identifier`
     );
 
@@ -25,8 +25,8 @@ export const opaqueLeadIdSchema = opaqueId("lead");
 export const opaqueCampaignHandleSchema = opaqueId("cmp");
 export const opaqueAttributionHandleSchema = opaqueId("attr");
 export const opaquePathHandleSchema = opaqueId("path");
-export const opaqueCursorSchema = opaqueId("cur");
-export const opaqueSyncCheckpointSchema = opaqueId("sync");
+export const opaqueCursorSchema = opaqueId("cur", 4096);
+export const opaqueSyncCheckpointSchema = opaqueId("sync", 2048);
 export const opaqueEmailCorrelationMarkerSchema = opaqueId("emc");
 
 export const timestampSchema = z.string().datetime({ offset: true });

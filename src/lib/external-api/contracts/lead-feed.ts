@@ -325,5 +325,6 @@ export const leadFeedResultSchema = z
 
 export type SourceAttribution = z.infer<typeof sourceAttributionSchema>;
 export type LeadProjection = z.infer<typeof leadProjectionSchema>;
+export type LeadFeedFilters = z.infer<typeof leadFeedFiltersSchema>;
 export type LeadFeedQuery = z.infer<typeof leadFeedQuerySchema>;
 export type LeadFeedResult = z.infer<typeof leadFeedResultSchema>;

@@ -17639,6 +17639,23 @@ export type Database = {
           scopes: string[]
         }[]
       }
+      authorize_external_lead_feed_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_method: string
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_require_financial: boolean
+          p_route: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
       claim_external_lead_projection_backfill_as_system: {
         Args: { p_lease_seconds?: number; p_run_id: string }
         Returns: Json
@@ -17732,6 +17749,25 @@ export type Database = {
       prune_external_lead_projection_versions_as_system: {
         Args: { p_now?: string }
         Returns: number
+      }
+      read_external_lead_feed_page_as_system: {
+        Args: {
+          p_after_public_lead_id: string | null
+          p_after_sequence: number | null
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_filters: Json
+          p_high_water_sequence: number
+          p_include_financial: boolean
+          p_mode: string
+          p_page_size: number
+          p_principal_id: string
+          p_visible_prefix: string
+        }
+        Returns: Json
       }
       refresh_external_lead_projection_as_system: {
         Args: {
