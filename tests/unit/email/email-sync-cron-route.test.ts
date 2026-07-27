@@ -5,6 +5,7 @@ const {
   runSyncMock,
   sweepStaleLeadsMock,
   retryDirtyClassificationsMock,
+  retryPendingIngestionRecoveryMock,
   retryPendingLeadScansMock,
   runWithCronWorkloadControlMock,
   isDatabasePressureErrorMock,
@@ -69,6 +70,7 @@ const {
     runSyncMock: vi.fn(),
     sweepStaleLeadsMock: vi.fn(),
     retryDirtyClassificationsMock: vi.fn(),
+    retryPendingIngestionRecoveryMock: vi.fn(),
     retryPendingLeadScansMock: vi.fn(),
     runWithCronWorkloadControlMock: vi.fn(),
     isDatabasePressureErrorMock: vi.fn(),
@@ -87,6 +89,7 @@ vi.mock("@/lib/api/services/sync-engine", () => ({
   SyncEngine: {
     runSync: runSyncMock,
     sweepStaleLeads: sweepStaleLeadsMock,
+    retryPendingIngestionRecovery: retryPendingIngestionRecoveryMock,
     retryPendingLeadScans: retryPendingLeadScansMock,
   },
 }));
@@ -159,6 +162,7 @@ describe("email sync cron HTTP outcome", () => {
     runSyncMock.mockReset();
     sweepStaleLeadsMock.mockReset();
     retryDirtyClassificationsMock.mockReset();
+    retryPendingIngestionRecoveryMock.mockReset();
     retryPendingLeadScansMock.mockReset();
     readCronWorkloadCursorMock.mockReset();
     advanceCronWorkloadCursorMock.mockReset();
@@ -217,6 +221,17 @@ describe("email sync cron HTTP outcome", () => {
       scanned: 0,
       promoted: 0,
       cleared: 0,
+      errors: [],
+    });
+    retryPendingIngestionRecoveryMock.mockResolvedValue({
+      claimed: 0,
+      classificationsRecovered: 0,
+      promoted: 0,
+      labelsApplied: 0,
+      retrying: 0,
+      failed: 0,
+      stale: 0,
+      staleCompletions: 0,
       errors: [],
     });
   });
@@ -375,6 +390,70 @@ describe("email sync cron HTTP outcome", () => {
     expect(body.pendingLeadScanSweepError).toBeNull();
   });
 
+  it("drains exact-message classification and label recovery for active companies", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      newLeads: 0,
+      errors: [],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+    retryPendingIngestionRecoveryMock.mockResolvedValue({
+      claimed: 3,
+      classificationsRecovered: 1,
+      promoted: 1,
+      labelsApplied: 2,
+      retrying: 0,
+      failed: 0,
+      stale: 0,
+      staleCompletions: 0,
+      errors: [],
+    });
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(retryPendingIngestionRecoveryMock).toHaveBeenCalledWith({
+      companyIds: ["company-1"],
+      limit: 10,
+    });
+    expect(body.ingestionRecovery).toMatchObject({
+      claimed: 3,
+      classificationsRecovered: 1,
+      promoted: 1,
+      labelsApplied: 2,
+    });
+    expect(body.ingestionRecoveryError).toBeNull();
+  });
+
+  it("returns 503 while a durable ingestion recovery remains retrying", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      newLeads: 0,
+      errors: [],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+    retryPendingIngestionRecoveryMock.mockResolvedValue({
+      claimed: 1,
+      classificationsRecovered: 0,
+      promoted: 0,
+      labelsApplied: 0,
+      retrying: 1,
+      failed: 0,
+      stale: 0,
+      staleCompletions: 0,
+      errors: [{ queueId: "recovery-1", error: "gmail unavailable" }],
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      ingestionRecovery: { retrying: 1 },
+    });
+  });
+
   it("counts a pending lead-scan sweep error in the failed tally", async () => {
     runSyncMock.mockResolvedValue({
       activitiesCreated: 0,
@@ -413,6 +492,7 @@ describe("email sync cron HTTP outcome", () => {
     expect(response.status).toBe(500);
     expect(sweepStaleLeadsMock).not.toHaveBeenCalled();
     expect(retryDirtyClassificationsMock).not.toHaveBeenCalled();
+    expect(retryPendingIngestionRecoveryMock).not.toHaveBeenCalled();
     expect(retryPendingLeadScansMock).not.toHaveBeenCalled();
   });
 
@@ -429,6 +509,7 @@ describe("email sync cron HTTP outcome", () => {
     expect(response.status).toBe(503);
     expect(sweepStaleLeadsMock).toHaveBeenCalledOnce();
     expect(retryDirtyClassificationsMock).toHaveBeenCalledOnce();
+    expect(retryPendingIngestionRecoveryMock).toHaveBeenCalledOnce();
     expect(retryPendingLeadScansMock).toHaveBeenCalledOnce();
   });
 
@@ -449,6 +530,7 @@ describe("email sync cron HTTP outcome", () => {
     expect(runSyncMock).not.toHaveBeenCalled();
     expect(sweepStaleLeadsMock).not.toHaveBeenCalled();
     expect(retryDirtyClassificationsMock).not.toHaveBeenCalled();
+    expect(retryPendingIngestionRecoveryMock).not.toHaveBeenCalled();
     expect(retryPendingLeadScansMock).not.toHaveBeenCalled();
   });
 

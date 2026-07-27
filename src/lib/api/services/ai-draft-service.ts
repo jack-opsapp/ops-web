@@ -25,6 +25,12 @@ import {
   type DraftStateContext,
 } from "./conversation-state/draft-context";
 import { evaluateAutonomyGate } from "./conversation-state/autonomy-gate";
+import {
+  ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION,
+  ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT,
+  resolveSourceBoundAutonomousRouting,
+  type SourceBoundAutonomousRouting,
+} from "./conversation-state/source-bound-autonomous-routing";
 import { persistRoutingDecision } from "./conversation-state/persist-routing";
 import type { ConversationState } from "./conversation-state/types";
 import { inboxModel } from "./conversation-state/inbox-models";
@@ -200,6 +206,13 @@ export interface AIDraftRequest {
    * (manual) drafts omit this and always proceed; the operator is the review.
    */
   autonomous?: boolean;
+  /**
+   * Narrow server-owned routing authority for an assignment-fenced contact
+   * form whose platform notification intentionally has no durable customer
+   * thread. It is honored only with exact source-bound canonical send access;
+   * every mismatch remains held by the normal autonomy gate.
+   */
+  sourceBoundAutonomousRouting?: SourceBoundAutonomousRouting;
   /**
    * P4-B: draft origin, mirrors opportunity_follow_up_drafts.origin vocab
    * ('operator' | 'template_follow_up' | 'phase_c' | 'system_handoff').
@@ -848,6 +861,8 @@ export const AIDraftService = {
     const opportunityId = emailAccess?.opportunityId ?? req.opportunityId;
     const threadId = emailAccess?.providerThreadId ?? req.threadId;
     const sourceActivityId = req.sourceActivityId?.trim() || null;
+    const assignedContactFormReview =
+      req.sourceBoundAutonomousRouting === "assigned_contact_form_review";
     // A recipient supplied before authorization is never identity evidence.
     // Canonical paths derive it from the linked opportunity/conversation.
     const recipientEmail = emailAccess ? undefined : req.recipientEmail;
@@ -900,7 +915,8 @@ export const AIDraftService = {
       ) {
         throw new Error("Draft source activity is not authorized");
       }
-      authorizedSourceActivity = sourceActivity as (typeof threadMessages)[number];
+      authorizedSourceActivity =
+        sourceActivity as (typeof threadMessages)[number];
     }
 
     if (threadId || authorizedSourceActivity) {
@@ -921,9 +937,7 @@ export const AIDraftService = {
       const sourceBound = authorizedSourceActivity !== null;
       const { data: messages, error: messagesError } = await messagesQuery
         .order("created_at", { ascending: sourceBound })
-        .limit(
-          sourceBound ? MAX_SOURCE_BOUND_CONVERSATION_MESSAGES + 1 : 20
-        );
+        .limit(sourceBound ? MAX_SOURCE_BOUND_CONVERSATION_MESSAGES + 1 : 20);
 
       if (messagesError) {
         throw new Error(
@@ -960,9 +974,7 @@ export const AIDraftService = {
             (message.body_text_clean ?? message.body_text ?? "").length,
           0
         );
-        if (
-          sourceBoundCharacters > MAX_SOURCE_BOUND_CONVERSATION_CHARACTERS
-        ) {
+        if (sourceBoundCharacters > MAX_SOURCE_BOUND_CONVERSATION_CHARACTERS) {
           throw new Error(
             `Draft conversation exceeds the safe ${MAX_SOURCE_BOUND_CONVERSATION_CHARACTERS}-character bound`
           );
@@ -1017,7 +1029,7 @@ export const AIDraftService = {
           .filter(Boolean)
           .join("\n");
 
-        if (authorizedSourceActivity) {
+        if (authorizedSourceActivity && !assignedContactFormReview) {
           const sourceEmail = authorizedSourceActivity.from_email
             .trim()
             .toLowerCase();
@@ -1080,9 +1092,29 @@ export const AIDraftService = {
     // router held for review. Reuses the state already built above (zero extra
     // cost). Manual (operator-initiated) drafts are never gated — the operator
     // is the human review. Returns a deliberate "held" result, not an error.
-    const gate = evaluateAutonomyGate({
+    const effectiveAutonomousRouting = resolveSourceBoundAutonomousRouting({
+      authority: req.sourceBoundAutonomousRouting,
       autonomous: req.autonomous === true,
       routing: convRouting,
+      sourceActivityId,
+      authorizedSourceActivityId: authorizedSourceActivity?.id ?? null,
+      companyId,
+      userId,
+      connectionId,
+      opportunityId,
+      origin: req.origin,
+      profileTypeOverride: req.profileTypeOverride,
+      emailAccess,
+    });
+    const sourceBoundNewThread =
+      req.sourceBoundAutonomousRouting === "assigned_contact_form_review" &&
+      effectiveAutonomousRouting === "draft";
+    const effectiveUserInstruction = sourceBoundNewThread
+      ? ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION
+      : userInstruction;
+    const gate = evaluateAutonomyGate({
+      autonomous: req.autonomous === true,
+      routing: effectiveAutonomousRouting,
       routingReasons: convRoutingReasons,
     });
     if (gate.hold) {
@@ -1106,8 +1138,9 @@ export const AIDraftService = {
     const threadSubject = threadMessages[0]?.subject || "";
     const recipientDomain =
       (clientEmail || recipientEmail || "").split("@")[1] || "";
-    // Use userInstruction as fallback signal when no thread subject exists
-    const subjectSignal = threadSubject || userInstruction || "";
+    // Use only an operator/server-owned instruction as a fallback signal when
+    // no thread subject exists. Source-bound form content remains untrusted.
+    const subjectSignal = threadSubject || effectiveUserInstruction || "";
     const profileType =
       req.profileTypeOverride ??
       determineProfileType(opportunityStage, recipientDomain, subjectSignal);
@@ -1262,9 +1295,9 @@ export const AIDraftService = {
         if (
           broadContextPermissions.pricingCorpus &&
           (mentionsPricing ||
-            (userInstruction &&
+            (effectiveUserInstruction &&
               pricingSignals.some((s) =>
-                userInstruction.toLowerCase().includes(s)
+                effectiveUserInstruction.toLowerCase().includes(s)
               )))
         ) {
           try {
@@ -1428,10 +1461,6 @@ export const AIDraftService = {
     if (threadMessages.length > 0) {
       sources.push("thread_history");
     }
-    const sourceBoundGreetingFirstName =
-      authorizedSourceActivity && clientName
-        ? clientName.trim().split(/\s+/)[0] || null
-        : null;
 
     // ── Build system prompt with all 12 writing dimensions ─────────────
     const greetings = (profile?.greeting_patterns as string[]) || [];
@@ -1519,7 +1548,7 @@ RULES:
 - Use their preferred word substitutions if listed above
 - Include relevant business details if available from context
 - Output ONLY the email body itself. Do NOT wrap the response in markdown code fences (\`\`\`), do NOT prefix with "Here's the draft:" or similar intros, do NOT include a subject line
-- Replace {name} in the greeting with the recipient's first name${sourceBoundGreetingFirstName || draftState?.greetingFirstName ? `: ${sourceBoundGreetingFirstName || draftState?.greetingFirstName}` : ""}`;
+- Replace {name} in the greeting with the verified recipient name from the untrusted reference data when available; otherwise use a neutral greeting`;
 
     // ── Build user prompt ──────────────────────────────────────────────
     const lastInbound = threadMessages
@@ -1539,11 +1568,10 @@ RULES:
       : draftState?.recipientEmail || clientEmail;
     const latestInboundText =
       (authorizedSourceActivity
-        ? authorizedSourceActivity.body_text_clean ??
-          authorizedSourceActivity.body_text
+        ? (authorizedSourceActivity.body_text_clean ??
+          authorizedSourceActivity.body_text)
         : draftState?.latestCustomerText ||
-          lastInbound?.body_text?.slice(0, 1500)) ||
-      "(no body)";
+          lastInbound?.body_text?.slice(0, 1500)) || "(no body)";
     const fullThreadText = authorizedSourceActivity
       ? threadContext
       : draftState?.cleanThread || threadContext;
@@ -1568,20 +1596,20 @@ RULES:
       attachmentContext: draftState?.attachmentBlock || null,
     });
 
-    if (promptInbound) {
+    if (promptInbound && !sourceBoundNewThread) {
       userPrompt = `Draft a reply to this email thread.
 
 <UNTRUSTED_EMAIL_DATA_JSON>
 ${untrustedReferenceJson}
 </UNTRUSTED_EMAIL_DATA_JSON>
-${userInstruction ? `\nTrusted operator instruction:\n${userInstruction}` : ""}`;
+${effectiveUserInstruction ? `\nTrusted operator instruction:\n${effectiveUserInstruction}` : ""}`;
     } else {
       userPrompt = `Draft a new email.
 
 <UNTRUSTED_EMAIL_DATA_JSON>
 ${untrustedReferenceJson}
 </UNTRUSTED_EMAIL_DATA_JSON>
-${userInstruction ? `Purpose: ${userInstruction}` : "Write a professional business email."}
+${effectiveUserInstruction ? `Purpose: ${effectiveUserInstruction}` : "Write a professional business email."}
 `;
     }
 
@@ -1661,11 +1689,13 @@ ${userInstruction ? `Purpose: ${userInstruction}` : "Write a professional busine
     // Subject: reply to the latest inbound's subject (Re: …), else fall back
     // to the thread's first subject. Source message id: the provider message
     // id of the latest inbound activity — the message this draft replies to.
-    const replySource =
-      authorizedSourceActivity ??
-      threadMessages.filter((m) => m.direction === "inbound").pop();
-    const baseSubject =
-      replySource?.subject || threadMessages[0]?.subject || "";
+    const replySource = sourceBoundNewThread
+      ? undefined
+      : (authorizedSourceActivity ??
+        threadMessages.filter((m) => m.direction === "inbound").pop());
+    const baseSubject = sourceBoundNewThread
+      ? ""
+      : replySource?.subject || threadMessages[0]?.subject || "";
     const learnedSubject = baseSubject
       ? null
       : learnedNewThreadSubjectFromPreferences(
@@ -1680,11 +1710,13 @@ ${userInstruction ? `Purpose: ${userInstruction}` : "Write a professional busine
         );
     const newThreadSubject = chooseNewThreadSubject({
       operatorSubject: req.subject,
-      configuredSubject: req.configuredSubject,
+      configuredSubject: sourceBoundNewThread
+        ? ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT
+        : req.configuredSubject,
       learnedSubject,
       generatedSubject: contextualNewThreadSubject({
         opportunityTitle,
-        userInstruction,
+        userInstruction: effectiveUserInstruction,
       }),
       fallback: "Your inquiry",
     });

@@ -290,6 +290,43 @@ function makeSupabaseDouble(state: SupabaseState) {
       ) {
         return { data: true, error: null };
       }
+      if (name === "create_company_mailbox_email_opportunity_as_system") {
+        const payload = params.p_opportunity as Record<string, unknown>;
+        const opportunityId = `opp-${state.opportunities.length + 1}`;
+        state.opportunities.push({
+          id: opportunityId,
+          company_id: "company-1",
+          created_at: "2026-05-25T00:00:00.000Z",
+          updated_at: "2026-05-25T00:00:00.000Z",
+          stage_entered_at: "2026-05-25T00:00:00.000Z",
+          correspondence_count: 0,
+          inbound_count: 0,
+          outbound_count: 0,
+          assignment_version: 0,
+          assigned_to: null,
+          source: "email",
+          ...payload,
+        });
+        return {
+          data: {
+            ok: true,
+            created: true,
+            reason: "created_prompted",
+            opportunity: {
+              id: opportunityId,
+              client_id: payload.client_id,
+              assigned_to: null,
+              assignment_version: 0,
+            },
+            assignment: {
+              outcome: "owner_missing",
+              event_id: null,
+              prompt_count: 1,
+            },
+          },
+          error: null,
+        };
+      }
       if (name === "record_opportunity_correspondence_event") {
         const opportunity = state.opportunities.find(
           (row) => row.id === params.p_opportunity_id

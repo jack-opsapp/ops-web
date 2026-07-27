@@ -801,25 +801,32 @@ describe("lead-summary live wording regressions", () => {
 
   it("keeps the dated booking request when a later bare booked acknowledgement has no schedule detail", () => {
     const bundle = buildLeadSummaryContext(
-      opportunity({ stage: "quoted" }) as never,
+      opportunity({ stage: "won" }) as never,
       trustedConversation([
         {
           direction: "inbound",
-          body: "Could we book the repair for August 18?",
+          body: "Hey Jackson, Can you possibly book me in for the vinyl replacement on Aug 18th?",
         },
         {
           direction: "outbound",
-          body: "Hey Sean, booked.",
+          body: "Hey Sean, booked. Hope things are going well on your end!",
         },
       ]) as never
     );
 
     expect(bundle!.current_fact_context).toMatchObject({
-      schedule: expect.stringMatching(/August 18/i),
+      current_scope: expect.stringMatching(/vinyl replacement/i),
+      schedule: expect.stringMatching(/Aug 18/i),
+      next_action: "Prepare for the confirmed work schedule.",
     });
+    expect(bundle!.current_fact_context!.current_scope).not.toMatch(
+      /book|Aug 18/i
+    );
     expect(bundle!.current_fact_context!.schedule).not.toMatch(
       /Hey Sean, booked/i
     );
+    expect(() => renderDeterministicLeadSummaryFallback(bundle!)).not.toThrow();
+    expect(renderDeterministicLeadSummaryFallback(bundle!)).toMatch(/Aug 18/i);
   });
 
   it("recognizes an abbreviated dated booking request as requested work schedule", () => {
@@ -1028,6 +1035,425 @@ describe("lead-summary live wording regressions", () => {
     expect(bundle!.commercial_context!.superseded_prices).toContain(1400);
   });
 
+  it("keeps accepted-job timing bounded to the schedule instead of the surrounding deposit email", () => {
+    const bundle = buildLeadSummaryContext(
+      {
+        ...opportunity(),
+        title: "Mariah — Estimate",
+        stage: "won",
+      } as never,
+      trustedConversation([
+        {
+          direction: "outbound",
+          body: "I see that you approved the estimates. The next step is to collect a deposit, book the work, and order material.",
+        },
+        {
+          direction: "inbound",
+          body: "We are away for a week, but can transfer money. What do you need for a deposit and how can we pay it? We hope to have the decks finished before the end of summer.",
+        },
+        {
+          direction: "outbound",
+          body: "For the deposit, I need 50% down to get you booked in and get materials ordered. We can do e-transfer or cheque. As far as timing goes, let me get back to you. We should have no trouble finishing before the end of summer. I need to see whether we can fit a slot coming up or whether it will be closer to the end of August.",
+        },
+        {
+          direction: "inbound",
+          body: "Sounds great. If the 50% deposit amount is correct, I can transfer it this weekend or Monday.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.commercial_context).toMatchObject({ outcome: "won" });
+    expect(bundle!.current_fact_context!.schedule).toMatch(/summer|August/i);
+    expect(bundle!.current_fact_context!.schedule).not.toMatch(
+      /deposit|e-transfer|cheque/i
+    );
+    expect(bundle!.current_fact_context!.schedule!.length).toBeLessThan(240);
+    expect(() => renderDeterministicLeadSummaryFallback(bundle!)).not.toThrow();
+  });
+
+  it("keeps a confirmed installation update out of a customer's extended signature and stale schedule history", () => {
+    const extendedSignature = [
+      "Kind regards,",
+      "Alexis Solomon BA DID VISID",
+      "OWNER | PRINCIPAL INTERIOR ARCHITECTURAL DESIGNER",
+      "M I N T",
+      "Freshly Inspired Design",
+      "Please note our upcoming studio closure dates:",
+      "August 17th to 21st",
+      "December 11 to January 3rd",
+      "Suite E - The Design Housse Collective",
+      "587 Bay Street, Victoria BC V8T 1P5",
+      "250-514-8203",
+      "Business Hours: 9:00 am - 5:00 pm, Monday - Friday",
+      "Closed Weekends & Holidays",
+      "mintfreshlyinspireddesign.com",
+      "WE'RE SOCIAL!",
+      "Instagram | m.i.n.t_interior_design",
+      "Facebook | MINT Freshly Inspired Design",
+      "Make sure to follow our adventures within the Design Housse Collective!",
+      "Instagram | The Design Housse Collective",
+      "I acknowledge and am grateful to the local First Nations on whose traditional territory I live, work and raise my family.",
+    ].join("\n");
+    const bundle = buildLeadSummaryContext(
+      {
+        ...opportunity(),
+        title: "Alexis — Email Inquiry",
+        stage: "won",
+      } as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: `I'd like to move forward with your estimate. Please let me know when you can come for installation.\n\n${extendedSignature}`,
+        },
+        {
+          direction: "outbound",
+          body: "We should have no problem fitting the installation in this week.",
+        },
+        {
+          direction: "inbound",
+          body: `Today would be great. The post has been removed.\n\n${extendedSignature}`,
+        },
+        {
+          direction: "outbound",
+          body: "Our plan is for tomorrow.",
+        },
+        {
+          direction: "inbound",
+          body: `What time should I expect the installer tomorrow? I would appreciate an update.\n\n${extendedSignature}`,
+        },
+        {
+          direction: "outbound",
+          body: "The project will still be done this week. You can expect the installer around 10 tomorrow.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.current_fact_context!.next_action).not.toMatch(
+      /kind regards|studio closure|business hours|traditional territory/i
+    );
+    expect(() => renderDeterministicLeadSummaryFallback(bundle!)).not.toThrow();
+    expect(renderDeterministicLeadSummaryFallback(bundle!)).toMatch(
+      /tomorrow|this week/i
+    );
+  });
+
+  it("keeps an operational supplies complaint out of scope and validates the current execution window", () => {
+    const bundle = buildLeadSummaryContext(
+      {
+        ...opportunity(),
+        title: "Alexis — Email Inquiry",
+        stage: "won",
+      } as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: "I'm honestly confused about why he would show up to a job site without all the supplies needed.",
+        },
+        {
+          direction: "outbound",
+          body: "The project will still be done this week, but I am sorry about the miscommunication!",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.current_fact_context).toMatchObject({
+      current_scope: null,
+      schedule: expect.stringMatching(/done this week/i),
+      next_action: "Prepare for the confirmed work schedule.",
+    });
+    expect(() => renderDeterministicLeadSummaryFallback(bundle!)).not.toThrow();
+    expect(renderDeterministicLeadSummaryFallback(bundle!)).toMatch(
+      /done this week/i
+    );
+  });
+
+  it.each([
+    "The project was supposed to be done Friday, but it wasn't.",
+    "The installer didn't come yesterday.",
+  ])(
+    "does not treat a missed or negated execution window as a confirmed schedule: %s",
+    (body) => {
+      const bundle = buildLeadSummaryContext(
+        opportunity({ stage: "won" }) as never,
+        trustedConversation([{ direction: "outbound", body }]) as never
+      );
+
+      expect(bundle!.current_fact_context?.schedule ?? null).toBeNull();
+      expect(bundle!.current_fact_context?.next_action ?? null).toBeNull();
+    }
+  );
+
+  it.each([
+    {
+      body: "Friday isn't available; Monday is confirmed for installation.",
+      expected: /Monday is confirmed/i,
+    },
+    {
+      body: "The installer didn't come Friday, but we rescheduled for Monday.",
+      expected: /rescheduled for Monday/i,
+    },
+  ])(
+    "keeps the valid replacement schedule from mixed negated wording: $body",
+    ({ body, expected }) => {
+      const bundle = buildLeadSummaryContext(
+        opportunity({ stage: "won" }) as never,
+        trustedConversation([{ direction: "outbound", body }]) as never
+      );
+
+      expect(bundle!.current_fact_context!.schedule).toMatch(expected);
+      expect(bundle!.current_fact_context!.schedule).not.toMatch(
+        /isn't available|didn't come/i
+      );
+      expect(bundle!.current_fact_context!.next_action).toBe(
+        "Prepare for the confirmed work schedule."
+      );
+    }
+  );
+
+  it("does not treat an unrelated later schedule update as completing a customer request", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "quoted" }) as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: "Please send the material photos before we proceed.",
+        },
+        {
+          direction: "outbound",
+          body: "The project will still be done this week.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.current_fact_context!.next_action).toMatch(
+      /material photos/i
+    );
+  });
+
+  it("does not treat an unrelated completed artifact as satisfying a customer request", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "quoted" }) as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: "Please send the material photos before we proceed.",
+        },
+        {
+          direction: "outbound",
+          body: "Quote attached.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.current_fact_context!.next_action).toMatch(
+      /material photos/i
+    );
+  });
+
+  it("recognizes only the matching completed artifact as satisfying a customer request", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "quoted" }) as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: "Please send the material photos before we proceed.",
+        },
+        {
+          direction: "outbound",
+          body: "Material photos attached.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.current_fact_context!.next_action).toBe(
+      "Await the customer's response; follow up if needed."
+    );
+  });
+
+  it("keeps an independent customer request pending after another request is completed", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "quoted" }) as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: "Please send the deposit payment instructions.",
+        },
+        {
+          direction: "inbound",
+          body: "Please also send the material photos.",
+        },
+        {
+          direction: "outbound",
+          body: "Material photos attached.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.current_fact_context!.next_action).toMatch(
+      /deposit (?:or )?payment instructions/i
+    );
+    expect(bundle!.current_fact_context!.superseded_next_actions).toContain(
+      "Please also send the material photos."
+    );
+    expect(bundle!.current_fact_context!.superseded_next_actions).not.toContain(
+      "Please send the deposit payment instructions."
+    );
+  });
+
+  it("requires every requested artifact family before marking a combined ask complete", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "quoted" }) as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: "Please send the quote and material photos.",
+        },
+        {
+          direction: "outbound",
+          body: "Quote attached.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.current_fact_context!.next_action).toMatch(
+      /quote and material photos/i
+    );
+    expect(bundle!.current_fact_context!.superseded_next_actions).not.toContain(
+      "Please send the quote and material photos."
+    );
+  });
+
+  it("does not let a bare booking acknowledgement erase an unrelated pending ask", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "won" }) as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: "Please send the material photos.",
+        },
+        {
+          direction: "inbound",
+          body: "Can you install on Aug 18?",
+        },
+        {
+          direction: "outbound",
+          body: "Booked.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.current_fact_context).toMatchObject({
+      schedule: expect.stringMatching(/Aug 18/i),
+      next_action: expect.stringMatching(/material photos/i),
+    });
+  });
+
+  it("does not let a won disposition mask a newer unresolved customer request", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "won" }) as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: "I accept the $1,200 quote.",
+        },
+        {
+          direction: "inbound",
+          body: "Please send the material photos.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.commercial_context).toMatchObject({ outcome: "won" });
+    expect(bundle!.current_fact_context!.next_action).toMatch(
+      /material photos/i
+    );
+    expect(bundle!.current_fact_context!.next_action).not.toMatch(
+      /confirm the work schedule/i
+    );
+  });
+
+  it("keeps an operator schedule counter-proposal tentative and waits for the customer", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "won" }) as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: "Can you do Aug 18?",
+        },
+        {
+          direction: "outbound",
+          body: "Could we instead schedule Aug 20?",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.current_fact_context).toMatchObject({
+      schedule: expect.stringMatching(/Aug 20/i),
+      next_action: "Await the customer's response; follow up if needed.",
+    });
+    expect(bundle!.current_fact_context!.next_action).not.toMatch(/prepare/i);
+  });
+
+  it.each([
+    {
+      direction: "inbound" as const,
+      body: "We hope to have the decks finished before the end of summer.",
+    },
+    {
+      direction: "outbound" as const,
+      body: "We should have no trouble finishing the railing before the end of August.",
+    },
+  ])(
+    "keeps a desired execution target tentative until both sides confirm it: $body",
+    (message) => {
+      const bundle = buildLeadSummaryContext(
+        opportunity({ stage: "won" }) as never,
+        trustedConversation([message]) as never
+      );
+
+      expect(bundle!.current_fact_context).toMatchObject({
+        schedule: expect.stringMatching(/end of (?:summer|August)/i),
+        next_action: "Confirm the work schedule.",
+      });
+      expect(bundle!.current_fact_context!.next_action).not.toMatch(/confirmed/i);
+    }
+  );
+
+  it("prepares only after a dated customer request receives an explicit booking acknowledgement", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "won" }) as never,
+      trustedConversation([
+        {
+          direction: "inbound",
+          body: "Can you install on Aug 18?",
+        },
+        {
+          direction: "outbound",
+          body: "Booked.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.current_fact_context).toMatchObject({
+      schedule: expect.stringMatching(/Aug 18/i),
+      next_action: "Prepare for the confirmed work schedule.",
+    });
+  });
+
+  it.each([
+    "The 50% deposit covers supply and installation of the railing.",
+    "The $1,200 payment is for removal and installation.",
+  ])("preserves explicit work scope expressed through payment terms: %s", (body) => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "quoted" }) as never,
+      trustedConversation([{ direction: "outbound", body }]) as never
+    );
+
+    expect(bundle!.current_fact_context!.current_scope).toMatch(
+      /supply|installation|removal/i
+    );
+  });
+
   it("renders Camille's greeting-prefixed tomorrow confirmation in the deterministic fallback", () => {
     const bundle = buildLeadSummaryContext(
       {
@@ -1128,7 +1554,7 @@ describe("lead-summary live wording regressions", () => {
         },
         {
           direction: "inbound",
-          body: "Let me know what the deposit/payment is and we will get that sent your way.",
+          body: "We don't need the supply-only railing until August. Let me know what the deposit/payment is and we will get that sent your way.",
         },
       ]) as never
     );
@@ -1137,8 +1563,14 @@ describe("lead-summary live wording regressions", () => {
       outcome: "won",
       current_price: 600,
       current_scope: expect.stringMatching(/supply-only railing/i),
+      schedule: expect.stringMatching(/august/i),
       next_action: "Send deposit or payment instructions.",
     });
+    expect(bundle!.current_fact_context).toMatchObject({
+      schedule: expect.stringMatching(/august/i),
+      next_action: "Send deposit or payment instructions.",
+    });
+    expect(renderDeterministicLeadSummaryFallback(bundle!)).toMatch(/august/i);
   });
 
   it("keeps Erick's discounted 3192.70 price, truck-repair objection, and next-year follow-up", () => {
@@ -1248,7 +1680,7 @@ describe("lead-summary live wording regressions", () => {
     expect(bundle!.commercial_context!.objection).toBeNull();
   });
 
-  it("keeps Owen's confirmed deposit receipt and July 13 work schedule", () => {
+  it("keeps Owen's paid-deposit Won outcome without promoting conditional July 13 timing to a confirmed schedule", () => {
     const bundle = buildLeadSummaryContext(
       {
         ...opportunity(),
@@ -1276,6 +1708,12 @@ describe("lead-summary live wording regressions", () => {
     expect(bundle!.current_fact_context).toMatchObject({ schedule: null });
     expect(bundle!.commercial_context!.next_action).not.toMatch(
       /send deposit|instructions/i
+    );
+    expect(bundle!.commercial_context!.next_action).toBe(
+      "Confirm the work schedule."
+    );
+    expect(bundle!.current_fact_context!.next_action).toMatch(
+      /crew.*larger.*heavier items/i
     );
     expect(bundle!.lead.address).toBe("2745 Fernwood Rd, Victoria BC");
   });

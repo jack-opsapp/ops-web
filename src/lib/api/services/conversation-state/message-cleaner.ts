@@ -95,13 +95,24 @@ const LABELLED_FOOTER_RE =
 /** A line carrying contact-shaped data (phone digits / email / url). */
 const CONTACT_SHAPE_RE =
   /(?:\+?\d[\d().\s-]{6,}\d|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|\bhttps?:\/\/|\bwww\.)/i;
-const CORPORATE_SIGNATURE_SHAPE_RE =
+const BARE_DOMAIN_LINE_RE = /^\s*(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/\S*)?\s*$/i;
+const CORPORATE_SIGNATURE_KEYWORD_RE =
   /\b(?:owner|principal|president|director|designer|architect|manager|business hours?|office hours?|studio closure|suite|inc\.?|ltd\.?|corp\.?|corporation|company|collective|canpro|deck\s*&\s*rail)\b/i;
+const CORPORATE_SIGNATURE_ACTION_RE =
+  /\b(?:please|call|reply|respond|send|share|confirm|schedule|book|need|want|could|would|should|will|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|[?!]/i;
 const BARE_NAME_LINE_RE =
   /^[A-Z][A-Za-z.'’-]{1,39}(?:\s+[A-Z][A-Za-z.'’-]{1,39}){0,3}$/;
 const ADDRESS_SHAPE_RE =
   /\b\d{1,6}\s+(?:[A-Za-z0-9.'’-]+\s+){0,6}(?:avenue|ave|boulevard|blvd|circle|court|ct|crescent|cr|drive|dr|highway|hwy|lane|ln|place|pl|road|rd|street|st|terrace|trail|way|suite)\b/i;
 const POSTSCRIPT_RE = /^\s*(?:p\.?\s*s\.?|postscript)\b/i;
+const EXTENDED_SIGNATURE_FOOTER_RE =
+  /^\s*(?:(?:closed weekends?)(?:\s+(?:and|&)\s+holidays?)?[.!]?|holidays?[.!]?|holiday hours?(?:\s*[:—–-].*)?|we['’]?(?:re| are)\s+social(?:\s*[:|—–-].*)?[.!]?|(?:make sure to\s+)?follow our adventures\b.{0,200}|(?:instagram|facebook|linkedin)(?:\s*[:|@—–-].*)?|(?:(?:with gratitude,\s*)?(?:we|i)\s+(?:(?:respectfully\s+)?(?:acknowledge|recognize)|(?:live|work)\b).{0,280}\b(?:traditional territory|first nations)\b.{0,160}|traditional territory acknowledgement(?:\s*[:—–-].*)?|territory (?:i|we) (?:live|work)(?:\s*[:—–-].*)?))\s*$/i;
+const SPACED_BRAND_MARK_RE =
+  /^\s*(?:[A-Z]\s+){3,}[A-Z](?:\s+[A-Z][A-Za-z&.'’()-]*){0,8}\s*$/;
+const CREDENTIALLED_NAME_LINE_RE =
+  /^\s*[A-Z][A-Za-z.'’()-]{1,39}(?:\s+[A-Z][A-Za-z.'’()-]{1,39}){1,3}(?:\s+[A-Z]{2,10}){1,4}\s*$/;
+const SIGNATURE_DATE_RANGE_RE =
+  /^\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?\s+(?:to|through|until|[-–—])\s+(?:(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+)?\d{1,2}(?:st|nd|rd|th)?\s*$/i;
 const INLINE_CORPORATE_SIGNATURE_RE =
   /[.!?]\s*(?:(?:kind|best|warm)\s+regards|regards|sincerely|cheers)?\s*,?\s*(?:[A-Z][A-Za-z.'’()-]*\s+){1,4}(?:(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}|[\w.+-]+@[\w.-]+\.[A-Za-z]{2,})[\s\S]{0,320}\b(?:inc\.?|ltd\.?|corp\.?|corporation|company|owner|principal|business hours?|studio closure|canpro)\b[.!]?\s*$/i;
 const COMMERCIAL_VETO_OR_REVERSAL_RE =
@@ -122,13 +133,51 @@ function trimTrailingBlankLines(lines: string[]): string[] {
   return out;
 }
 
+function isCorporateSignatureShapedLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.length > 320) return false;
+  if (/^(?:business|office) hours?\s*:/i.test(trimmed)) return true;
+  if (
+    /^please note (?:our|the) upcoming studio closure dates?\s*:?\s*$/i.test(
+      trimmed
+    )
+  ) {
+    return true;
+  }
+  if (!CORPORATE_SIGNATURE_KEYWORD_RE.test(trimmed)) return false;
+  if (CORPORATE_SIGNATURE_ACTION_RE.test(trimmed)) return false;
+  return (
+    /^canpro\b.{0,100}\bdeck\s+(?:&|and)\s+rail\b/i.test(trimmed) ||
+    /^(?:owner|principal|president|director|designer|architect|manager)\b/i.test(
+      trimmed
+    ) ||
+    /^(?:project|office|operations|general|sales)\s+manager\s*$/i.test(
+      trimmed
+    ) ||
+    /\b(?:inc\.?|ltd\.?|corp\.?|corporation|company|collective|canpro|deck\s*&\s*rail)\.?\s*$/i.test(
+      trimmed
+    )
+  );
+}
+
 function isSignatureShapedLine(line: string): boolean {
   return (
     CONTACT_SHAPE_RE.test(line) ||
+    BARE_DOMAIN_LINE_RE.test(line) ||
     LABELLED_FOOTER_RE.test(line) ||
-    CORPORATE_SIGNATURE_SHAPE_RE.test(line) ||
+    isCorporateSignatureShapedLine(line) ||
     ADDRESS_SHAPE_RE.test(line) ||
     BARE_NAME_LINE_RE.test(line.trim())
+  );
+}
+
+function isExtendedSignatureShapedLine(line: string): boolean {
+  return (
+    isSignatureShapedLine(line) ||
+    EXTENDED_SIGNATURE_FOOTER_RE.test(line) ||
+    SPACED_BRAND_MARK_RE.test(line) ||
+    CREDENTIALLED_NAME_LINE_RE.test(line) ||
+    SIGNATURE_DATE_RANGE_RE.test(line)
   );
 }
 
@@ -167,21 +216,16 @@ function looksLikeSignatureTail(tailLines: string[]): boolean {
   ) {
     return true;
   }
-  const lastContactIndex = nonBlank.findLastIndex((line) =>
-    CONTACT_SHAPE_RE.test(line)
+  const hasAuthoredTextInExtendedTail = nonBlank.some(
+    (line) => !isExtendedSignatureShapedLine(line)
   );
-  const hasAuthoredTextAfterContact =
-    lastContactIndex >= 0 &&
-    nonBlank
-      .slice(lastContactIndex + 1)
-      .some((line) => !isSignatureShapedLine(line));
   const extendedCorporateTail =
-    nonBlank.length <= 20 &&
-    nonBlank.join("\n").length <= 1_500 &&
-    nonBlank.every((line) => line.trim().length <= 180) &&
+    nonBlank.length <= 40 &&
+    nonBlank.join("\n").length <= 4_000 &&
+    nonBlank.every((line) => line.trim().length <= 320) &&
     nonBlank.some((line) => CONTACT_SHAPE_RE.test(line)) &&
-    nonBlank.some((line) => CORPORATE_SIGNATURE_SHAPE_RE.test(line)) &&
-    !hasAuthoredTextAfterContact;
+    nonBlank.some((line) => isCorporateSignatureShapedLine(line)) &&
+    !hasAuthoredTextInExtendedTail;
   if (extendedCorporateTail) return true;
   // No contact data: only treat as a signature when it's a single short line
   // (a bare name like "Mike Chen"). Multiple short non-contact lines are

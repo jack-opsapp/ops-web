@@ -2200,7 +2200,9 @@ describe("evaluateOpportunityAcceptance", () => {
     expect(result).toEqual({ stageChanged: false });
   });
 
-  it("links a unique same-client same-address project instead of creating a duplicate", async () => {
+  it("links Owen's accepted Fernwood project instead of creating a duplicate", async () => {
+    const owenOpportunityId = "17d8d8c1-6eba-40f2-8f66-052ee3de198c";
+    const acceptedProjectId = "1f4a718a-05c0-47b7-8823-7de51e717d97";
     const { client } = makeSupabase({
       opportunity: {
         stage: "new_lead",
@@ -2233,7 +2235,7 @@ describe("evaluateOpportunityAcceptance", () => {
       ],
     });
     mocks.findUniqueExistingProjectForEmailConversion.mockResolvedValue(
-      "project-1"
+      acceptedProjectId
     );
     mocks.buildConversationState.mockResolvedValue({
       accept: { detected: true, confidence: "high", basis: [] },
@@ -2252,7 +2254,7 @@ describe("evaluateOpportunityAcceptance", () => {
     const result = await evaluateOpportunityAcceptance({
       supabase: client as never,
       providerThreadId: "provider-thread-1",
-      opportunityId: "opportunity-1",
+      opportunityId: owenOpportunityId,
       connection,
     });
 
@@ -2261,15 +2263,15 @@ describe("evaluateOpportunityAcceptance", () => {
     ).toHaveBeenCalledWith({
       supabase: client,
       companyId: "company-1",
-      opportunityId: "opportunity-1",
+      opportunityId: owenOpportunityId,
       clientId: "client-1",
       clientRef: null,
       opportunityAddress: "2745 Fernwood Rd",
     });
     expect(mocks.linkOpportunityToExistingProject).toHaveBeenCalledWith(
       expect.objectContaining({
-        opportunityId: "opportunity-1",
-        linkToProjectId: "project-1",
+        opportunityId: owenOpportunityId,
+        linkToProjectId: acceptedProjectId,
         expectedAssignmentVersion: 11,
       })
     );

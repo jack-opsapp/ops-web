@@ -47,10 +47,7 @@ export interface ClaimedEmailAssignmentContactFormDraft {
 }
 
 export type ContactFormDraftFailureDisposition =
-  | "retrying"
-  | "failed"
-  | "stale"
-  | "reconciliation_required";
+  "retrying" | "failed" | "stale" | "reconciliation_required";
 
 export interface ContactFormDraftProviderPlacementAttempt {
   attemptId: string;
@@ -83,6 +80,8 @@ interface GeneratedContactFormDraft {
   draftHistoryId: string;
   subject?: string;
   reason?: string;
+  heldForReview?: boolean;
+  escalated?: boolean;
 }
 
 interface PreparedContactFormDraft {
@@ -109,6 +108,7 @@ export interface EmailAssignmentContactFormDraftDependencies {
     userId: string;
     connectionId: string;
     opportunityId: string;
+    sourceActivityId: string;
     recipientEmail: string;
     recipientName?: string;
     userInstruction: string;
@@ -330,6 +330,18 @@ function preparedFromClaim(
   };
 }
 
+function isTerminalDraftUnavailable(
+  generated: GeneratedContactFormDraft
+): boolean {
+  const reason = generated.reason?.trim() ?? "";
+  return (
+    generated.heldForReview === true ||
+    generated.escalated === true ||
+    reason === "escalated_to_operator" ||
+    reason.startsWith("Need more email data to match your voice")
+  );
+}
+
 function emptyResult(): EmailAssignmentContactFormDraftWorkerResult {
   return {
     claimed: 0,
@@ -488,6 +500,7 @@ export class EmailAssignmentContactFormDraftWorker {
             userId: job.actorUserId,
             connectionId: job.connectionId,
             opportunityId: job.opportunityId,
+            sourceActivityId: job.sourceActivityId,
             recipientEmail: job.customerEmail,
             ...(submitter.name || job.customerName
               ? {
@@ -495,7 +508,7 @@ export class EmailAssignmentContactFormDraftWorker {
                     submitter.name || job.customerName || undefined,
                 }
               : {}),
-            userInstruction: buildContactFormDraftInstruction(submitter),
+            userInstruction: buildContactFormDraftInstruction(),
             profileTypeOverride: "client_new_inquiry",
             autonomous: true,
             origin: "phase_c",
@@ -505,6 +518,14 @@ export class EmailAssignmentContactFormDraftWorker {
             !generated.draft?.trim() ||
             !generated.draftHistoryId?.trim()
           ) {
+            if (!isTerminalDraftUnavailable(generated)) {
+              throw new Error(
+                `EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_TEMPORARILY_UNAVAILABLE: ${
+                  generated.reason?.trim() ||
+                  "draft generation returned no durable result"
+                }`
+              );
+            }
             await this.markSkipped(
               result,
               job,

@@ -173,7 +173,7 @@ const SCHEDULE_FACT_RE = new RegExp(
   "i"
 );
 const SCHEDULE_FACT_CONTEXT_RE =
-  /\b(?:need(?:ed)?\s+(?:it|them|this|the work)?\s*until|start(?:ing)?(?:\s+us)?|week of|on for|schedule|book(?:ed|ing)?|availability|available|installation|crew|work date|project date|deadline|timeline|pickup|delivery|ready (?:by|for))\b/i;
+  /\b(?:(?:do\s+not|does\s+not|did\s+not|don['’]t|doesn['’]t|didn['’]t|won['’]t)\s+need\b.{0,100}\buntil|need(?:ed)?\s+(?:it|them|this|the work)?\s*until|start(?:ing)?(?:\s+us)?|week of|on for|schedule|book(?:ed|ing)?|availability|available|installation|crew|work date|project date|deadline|timeline|pickup|delivery|ready (?:by|for))\b/i;
 const SEE_YOU_EXECUTION_SCHEDULE_RE = new RegExp(
   `\\bsee you\\s+(?:on\\s+)?${SCHEDULE_DATE_ANCHOR_TEXT}\\b`,
   "i"
@@ -200,6 +200,8 @@ const CONFIRMED_RESCHEDULE_RE = new RegExp(
 );
 const SCHEDULE_INQUIRY_RE =
   /\b(?:is|are|can|could|would|will)\b.{0,60}\b(?:tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|date|day)\b.{0,60}\b(?:open|available|work|good|possible)\b\s*\?/i;
+const SCHEDULE_CONFIRMATION_REQUEST_RE =
+  /\b(?:let\s+(?:me|us)\s+know|please\s+(?:confirm|advise))\b.{0,80}\b(?:if|whether)\b.{0,80}\b(?:on\s+for|scheduled|booked|confirmed)\b/i;
 const DEFERRAL_ACTION_VERB_RE =
   /\b(?:delay(?:ed|ing)?|postpon(?:e|ed|ing)|defer(?:red|ring)?|paus(?:e|ed|ing)|revisit(?:ed|ing)?|circle(?:d|ing)? back|wait(?:ed|ing)?|hold(?:ing)? off|put(?:ting)? (?:this|it) off)\b/gi;
 const NEGATED_DEFERRAL_ACTION_PREFIX_RE =
@@ -1656,6 +1658,21 @@ function lastScheduleFactBody(
       return null;
     }
     if (CONDITIONAL_SCHEDULE_RE.test(body)) continue;
+    const scheduleFactClauses = commercialClauses(body).filter(
+      (clause) =>
+        SCHEDULE_FACT_RE.test(clause) &&
+        SCHEDULE_FACT_CONTEXT_RE.test(clause)
+    );
+    if (
+      scheduleFactClauses.length > 0 &&
+      scheduleFactClauses.every(
+        (clause) =>
+          SCHEDULE_CONFIRMATION_REQUEST_RE.test(clause) ||
+          isInterrogativeClaim(clause, [SCHEDULE_FACT_RE])
+      )
+    ) {
+      continue;
+    }
     if (SCHEDULE_FACT_RE.test(body) && SCHEDULE_FACT_CONTEXT_RE.test(body)) {
       return body;
     }

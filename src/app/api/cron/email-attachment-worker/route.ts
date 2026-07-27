@@ -2,8 +2,8 @@
  * GET /api/cron/email-attachment-worker
  *
  * Runs bounded durable email maintenance: exact-message attachment ingestion,
- * converted-project photo projection, and assignment-triggered review drafts
- * for contact-form leads. This route only authenticates Vercel, installs the
+ * and converted-project photo projection. Assignment-triggered review drafts
+ * run with the lead-assignment outbox. This route only authenticates Vercel, installs the
  * service-role Supabase context, and reports the combined batch outcome.
  */
 
@@ -15,7 +15,6 @@ import {
   runWithCronWorkloadControl,
 } from "@/lib/api/services/cron-workload-control-service";
 import { runSupabaseEmailAttachmentWorker } from "@/lib/api/services/email-attachments/attachment-runtime";
-import { runSupabaseEmailAssignmentContactFormDraftWorker } from "@/lib/api/services/email-assignment-contact-form-draft-runtime";
 import { runSupabaseEmailConversionPhotoWorker } from "@/lib/api/services/email-conversion-photo-runtime";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
@@ -90,17 +89,9 @@ export async function GET(request: NextRequest) {
           );
           throwReportedDatabasePressure(conversionPhotos.errors);
 
-          const assignmentContactFormDrafts =
-            await runSupabaseEmailAssignmentContactFormDraftWorker(supabase, {
-              leaseSeconds: 360,
-              limit: 1,
-            });
-          throwReportedDatabasePressure(assignmentContactFormDrafts.errors);
-
           return {
             attachmentIngestion,
             conversionPhotos,
-            assignmentContactFormDrafts,
           };
         }),
     });
@@ -117,25 +108,18 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const {
-      attachmentIngestion,
-      conversionPhotos,
-      assignmentContactFormDrafts,
-    } = controlled.value;
+    const { attachmentIngestion, conversionPhotos } = controlled.value;
     const ok =
       attachmentIngestion.failed === 0 &&
       attachmentIngestion.errors.length === 0 &&
       conversionPhotos.failed === 0 &&
-      conversionPhotos.errors.length === 0 &&
-      assignmentContactFormDrafts.failed === 0 &&
-      assignmentContactFormDrafts.errors.length === 0;
+      conversionPhotos.errors.length === 0;
 
     return NextResponse.json(
       {
         ok,
         ...attachmentIngestion,
         conversionPhotos,
-        assignmentContactFormDrafts,
       },
       { status: ok ? 200 : 503 }
     );
