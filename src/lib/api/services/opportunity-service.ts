@@ -664,6 +664,12 @@ export const OpportunityService = {
 
     // Strip the id field if present – it should not be sent as a column update
     const { id: _id, ...rest } = data as Record<string, unknown>;
+    const row = mapOpportunityToDb(
+      rest as Partial<CreateOpportunity> & {
+        nextFollowUpAt?: Date | string | null;
+        handledAt?: Date | string | null;
+      }
+    );
     const guardedLifecycleFields = [
       "stage",
       "stageEnteredAt",
@@ -688,12 +694,6 @@ export const OpportunityService = {
     ) {
       throw new Error("Opportunity lifecycle fields require guarded commands");
     }
-    const row = mapOpportunityToDb(
-      rest as Partial<CreateOpportunity> & {
-        nextFollowUpAt?: Date | string | null;
-        handledAt?: Date | string | null;
-      }
-    );
 
     const { data: updated, error } = await supabase
       .from("opportunities")
