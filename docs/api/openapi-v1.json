@@ -1,0 +1,3599 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OPS External Lead API",
+    "version": "1.0.0",
+    "description": "Server-to-server lead intake, file handoff, privacy-safe lead sync, and versioned analytics."
+  },
+  "servers": [
+    {
+      "url": "https://app.opsapp.co"
+    }
+  ],
+  "paths": {
+    "/v1/intake/config": {
+      "get": {
+        "operationId": "getIntakeConfig",
+        "summary": "Read intake configuration",
+        "description": "Returns the sources, forms, and upload limits available to this intake credential. Requires intake.write.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-ops-required-scopes": [
+          "intake.write"
+        ],
+        "responses": {
+          "200": {
+            "description": "Current intake configuration.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntakeConfigSuccess"
+                },
+                "example": {
+                  "requestId": "req_10000000-0000-4000-8000-000000000001",
+                  "apiVersion": "v1",
+                  "serverTimestamp": "2026-07-27T18:00:00.000Z",
+                  "result": {
+                    "contractVersion": "v1",
+                    "sources": [
+                      {
+                        "sourceId": "src_AAAAAAAAAAAAAAAAAAAAAA",
+                        "label": "Website",
+                        "canonicalSiteHost": "quotes.example.com",
+                        "defaultPhoneRegion": "CA",
+                        "defaultOwnerConfigured": true,
+                        "forms": [
+                          {
+                            "formId": "frm_BBBBBBBBBBBBBBBBBBBBBB",
+                            "label": "Quote request",
+                            "isDefault": true
+                          }
+                        ]
+                      }
+                    ],
+                    "acceptedFilePolicy": {
+                      "contentTypes": [
+                        "image/jpeg",
+                        "application/pdf"
+                      ],
+                      "maxFiles": 10,
+                      "maxFileBytes": 26214400,
+                      "maxBatchBytes": 52428800
+                    },
+                    "requestLimits": {
+                      "maxJsonBodyBytes": 262144,
+                      "maxAnswers": 100
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/intake/uploads": {
+      "post": {
+        "operationId": "createUploadBatch",
+        "summary": "Reserve file uploads",
+        "description": "Creates an idempotent upload batch. Keep the OPS credential on your server; send only the returned single-use upload capability to the browser. Requires intake.write.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-ops-required-scopes": [
+          "intake.write"
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadBatchRequest"
+              },
+              "example": {
+                "sourceId": "src_AAAAAAAAAAAAAAAAAAAAAA",
+                "formId": "frm_BBBBBBBBBBBBBBBBBBBBBB",
+                "files": [
+                  {
+                    "callerFileId": "site-photo-1",
+                    "filename": "site-photo.jpg",
+                    "sizeBytes": 245760,
+                    "contentType": "image/jpeg"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A new or replayed upload batch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadBatchSuccess"
+                },
+                "example": {
+                  "requestId": "req_10000000-0000-4000-8000-000000000001",
+                  "apiVersion": "v1",
+                  "serverTimestamp": "2026-07-27T18:00:00.000Z",
+                  "result": {
+                    "replayed": false,
+                    "uploads": [
+                      {
+                        "callerFileId": "site-photo-1",
+                        "uploadId": "upl_CCCCCCCCCCCCCCCCCCCCCC",
+                        "state": "issued",
+                        "capability": {
+                          "method": "PUT",
+                          "url": "https://uploads.example.com/reserved-object",
+                          "expiresAt": "2026-07-27T18:00:00.000Z",
+                          "requiredHeaders": {
+                            "contentType": "image/jpeg",
+                            "contentLength": 245760,
+                            "ifNoneMatch": "*"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "A new or replayed upload batch.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadBatchSuccess"
+                },
+                "example": {
+                  "requestId": "req_10000000-0000-4000-8000-000000000001",
+                  "apiVersion": "v1",
+                  "serverTimestamp": "2026-07-27T18:00:00.000Z",
+                  "result": {
+                    "replayed": false,
+                    "uploads": [
+                      {
+                        "callerFileId": "site-photo-1",
+                        "uploadId": "upl_CCCCCCCCCCCCCCCCCCCCCC",
+                        "state": "issued",
+                        "capability": {
+                          "method": "PUT",
+                          "url": "https://uploads.example.com/reserved-object",
+                          "expiresAt": "2026-07-27T18:00:00.000Z",
+                          "requiredHeaders": {
+                            "contentType": "image/jpeg",
+                            "contentLength": 245760,
+                            "ifNoneMatch": "*"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/intake/submissions": {
+      "post": {
+        "operationId": "createIntakeSubmission",
+        "summary": "Create a lead",
+        "description": "Creates or safely replays the original website submission and its lead/customer records. Later email belongs to the OPS email engine. Requires intake.write.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-ops-required-scopes": [
+          "intake.write"
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionRequest"
+              },
+              "example": {
+                "sourceId": "src_AAAAAAAAAAAAAAAAAAAAAA",
+                "formId": "frm_BBBBBBBBBBBBBBBBBBBBBB",
+                "contact": {
+                  "name": "Sample customer",
+                  "email": "customer@example.com"
+                },
+                "workSummary": "Replace the rear deck.",
+                "answers": [],
+                "uploadIds": [
+                  "upl_CCCCCCCCCCCCCCCCCCCCCC"
+                ],
+                "externalSubmissionId": "website-form-0001"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A new or replayed lead submission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionSuccess"
+                },
+                "example": {
+                  "requestId": "req_10000000-0000-4000-8000-000000000001",
+                  "apiVersion": "v1",
+                  "serverTimestamp": "2026-07-27T18:00:00.000Z",
+                  "result": {
+                    "publicSubmissionId": "sub_DDDDDDDDDDDDDDDDDDDDDD",
+                    "publicLeadId": "lead_EEEEEEEEEEEEEEEEEEEEEE",
+                    "customerOutcome": "created",
+                    "leadCreatedAt": "2026-07-27T18:00:00.000Z",
+                    "initialLeadStage": "new_lead",
+                    "attachments": [
+                      {
+                        "uploadId": "upl_CCCCCCCCCCCCCCCCCCCCCC",
+                        "callerFileId": "site-photo-1",
+                        "state": "pending_inspection",
+                        "safeCode": null
+                      }
+                    ],
+                    "emailCorrelationMarker": "emc_FFFFFFFFFFFFFFFFFFFFFF",
+                    "replayed": false
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "A new or replayed lead submission.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionSuccess"
+                },
+                "example": {
+                  "requestId": "req_10000000-0000-4000-8000-000000000001",
+                  "apiVersion": "v1",
+                  "serverTimestamp": "2026-07-27T18:00:00.000Z",
+                  "result": {
+                    "publicSubmissionId": "sub_DDDDDDDDDDDDDDDDDDDDDD",
+                    "publicLeadId": "lead_EEEEEEEEEEEEEEEEEEEEEE",
+                    "customerOutcome": "created",
+                    "leadCreatedAt": "2026-07-27T18:00:00.000Z",
+                    "initialLeadStage": "new_lead",
+                    "attachments": [
+                      {
+                        "uploadId": "upl_CCCCCCCCCCCCCCCCCCCCCC",
+                        "callerFileId": "site-photo-1",
+                        "state": "pending_inspection",
+                        "safeCode": null
+                      }
+                    ],
+                    "emailCorrelationMarker": "emc_FFFFFFFFFFFFFFFFFFFFFF",
+                    "replayed": false
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/intake/submissions/{publicSubmissionId}": {
+      "get": {
+        "operationId": "getIntakeSubmission",
+        "summary": "Read submission status",
+        "description": "Returns safe file-processing state for the original submission. Requires intake.write.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-ops-required-scopes": [
+          "intake.write"
+        ],
+        "parameters": [
+          {
+            "name": "publicSubmissionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^sub_[A-Za-z0-9_-]+$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current submission and file-processing state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionStatusSuccess"
+                },
+                "example": {
+                  "requestId": "req_10000000-0000-4000-8000-000000000001",
+                  "apiVersion": "v1",
+                  "serverTimestamp": "2026-07-27T18:00:00.000Z",
+                  "result": {
+                    "publicSubmissionId": "sub_DDDDDDDDDDDDDDDDDDDDDD",
+                    "publicLeadId": "lead_EEEEEEEEEEEEEEEEEEEEEE",
+                    "createdAt": "2026-07-27T18:00:00.000Z",
+                    "customerOutcome": "created",
+                    "attachments": [
+                      {
+                        "uploadId": "upl_CCCCCCCCCCCCCCCCCCCCCC",
+                        "callerFileId": "site-photo-1",
+                        "state": "accepted",
+                        "safeCode": null
+                      }
+                    ],
+                    "attachmentProcessingTerminal": true,
+                    "pollAfterSeconds": null
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/analytics/leads": {
+      "get": {
+        "operationId": "getLeadFeed",
+        "summary": "Sync lead projections",
+        "description": "Returns all company lead projections without customer contact details. Commit a terminal full-sync checkpoint before requesting incremental changes. Requires analytics.leads.read.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-ops-required-scopes": [
+          "analytics.leads.read"
+        ],
+        "x-ops-runtime-schema": {
+          "$ref": "#/components/schemas/LeadFeedQuery"
+        },
+        "parameters": [
+          {
+            "name": "mode",
+            "in": "query",
+            "required": false,
+            "description": "full or incremental",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "full",
+                "incremental"
+              ],
+              "default": "full"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "description": "Page size from 1 through 250.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 250,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Opaque page cursor.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sync_checkpoint",
+            "in": "query",
+            "required": false,
+            "description": "Committed checkpoint required for incremental sync.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "description": "Repeat to include more than one lead stage.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "disposition",
+            "in": "query",
+            "required": false,
+            "description": "Repeat to include more than one terminal disposition.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "record_state",
+            "in": "query",
+            "required": false,
+            "description": "Repeat to include more than one record state.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "inquiry_received_from",
+            "in": "query",
+            "required": false,
+            "description": "Inclusive inquiry-received lower bound.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "inquiry_received_to",
+            "in": "query",
+            "required": false,
+            "description": "Exclusive inquiry-received upper bound.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "updated_from",
+            "in": "query",
+            "required": false,
+            "description": "Inclusive updated lower bound.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "updated_to",
+            "in": "query",
+            "required": false,
+            "description": "Exclusive updated upper bound.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "source_id",
+            "in": "query",
+            "required": false,
+            "description": "Opaque source filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "campaign_handle",
+            "in": "query",
+            "required": false,
+            "description": "Opaque campaign filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "form_id",
+            "in": "query",
+            "required": false,
+            "description": "Opaque form filter.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A full or incremental page of lead projections.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadFeedSuccess"
+                },
+                "example": {
+                  "requestId": "req_10000000-0000-4000-8000-000000000001",
+                  "apiVersion": "v1",
+                  "serverTimestamp": "2026-07-27T18:00:00.000Z",
+                  "result": {
+                    "mode": "full",
+                    "dataThrough": "2026-07-27T18:00:00.000Z",
+                    "items": [
+                      {
+                        "operation": "delete",
+                        "publicLeadId": "lead_EEEEEEEEEEEEEEEEEEEEEE",
+                        "deletedAt": "2026-07-27T18:00:00.000Z"
+                      }
+                    ],
+                    "nextCursor": null,
+                    "nextSyncCheckpoint": null
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/analytics/metrics": {
+      "get": {
+        "operationId": "getLeadMetrics",
+        "summary": "Read versioned lead metrics",
+        "description": "Returns metrics with explicit population, denominator, evidence coverage, suppression, timezone, and definition version. Financial metrics additionally require analytics.financial.read.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "x-ops-required-scopes": [
+          "analytics.leads.read"
+        ],
+        "x-ops-runtime-schema": {
+          "$ref": "#/components/schemas/MetricQuery"
+        },
+        "parameters": [
+          {
+            "name": "preset",
+            "in": "query",
+            "required": false,
+            "description": "7d, 30d, 90d, lifetime, or custom.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "7d",
+                "30d",
+                "90d",
+                "lifetime",
+                "custom"
+              ],
+              "default": "30d"
+            }
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": false,
+            "description": "Repeat for every requested metric.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "group_by",
+            "in": "query",
+            "required": false,
+            "description": "Repeat for up to one time and one source dimension.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 2
+            },
+            "style": "form",
+            "explode": true
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "Company-local custom range start.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "Company-local custom range end.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "definition_version",
+            "in": "query",
+            "required": false,
+            "description": "Metric definition version.",
+            "schema": {
+              "type": "string",
+              "default": "1"
+            }
+          },
+          {
+            "name": "source_id",
+            "in": "query",
+            "required": false,
+            "description": "Opaque source filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "campaign_handle",
+            "in": "query",
+            "required": false,
+            "description": "Opaque campaign filter.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "form_id",
+            "in": "query",
+            "required": false,
+            "description": "Opaque form filter.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Versioned metric cells and evidence coverage.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsSuccess"
+                },
+                "example": {
+                  "requestId": "req_10000000-0000-4000-8000-000000000001",
+                  "apiVersion": "v1",
+                  "serverTimestamp": "2026-07-27T18:00:00.000Z",
+                  "result": {
+                    "from": "2026-06-27T07:00:00.000Z",
+                    "to": "2026-07-27T07:00:00.000Z",
+                    "timezone": "America/Vancouver",
+                    "generatedAt": "2026-07-27T18:00:00.000Z",
+                    "dataThrough": "2026-07-27T18:00:00.000Z",
+                    "metricDefinitionVersion": "1",
+                    "currency": null,
+                    "includedMetricIds": [
+                      "leads_received"
+                    ],
+                    "results": [
+                      {
+                        "metricId": "leads_received",
+                        "definitionVersion": "1",
+                        "basis": "received_cohort",
+                        "population": "Leads first received during the selected range.",
+                        "value": 42,
+                        "unit": "count",
+                        "numerator": 42,
+                        "denominator": null,
+                        "includedCount": 42,
+                        "missingEvidenceCount": 0,
+                        "grouping": null,
+                        "currency": null,
+                        "suppressed": false,
+                        "cohortCount": 42,
+                        "evidenceCoveragePercent": 100
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Safe error envelope.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "OPS external credential",
+        "description": "Load this credential from a server-side secret. Never place it in browser code, source control, logs, URLs, or analytics."
+      }
+    },
+    "schemas": {
+      "IntakeConfigSuccess": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "pattern": "^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v1"
+            ]
+          },
+          "serverTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "contractVersion": {
+                "type": "string",
+                "enum": [
+                  "v1"
+                ]
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "sourceId": {
+                      "type": "string",
+                      "pattern": "^src_[A-Za-z0-9_-]{22,128}$"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160
+                    },
+                    "canonicalSiteHost": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 253,
+                      "pattern": "^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$"
+                    },
+                    "defaultPhoneRegion": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}$"
+                    },
+                    "defaultOwnerConfigured": {
+                      "type": "boolean"
+                    },
+                    "forms": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "formId": {
+                            "type": "string",
+                            "pattern": "^frm_[A-Za-z0-9_-]{22,128}$"
+                          },
+                          "label": {
+                            "$ref": "#/components/schemas/IntakeConfigSuccess/properties/result/properties/sources/items/properties/label"
+                          },
+                          "isDefault": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "formId",
+                          "label",
+                          "isDefault"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "minItems": 1,
+                      "maxItems": 100
+                    }
+                  },
+                  "required": [
+                    "sourceId",
+                    "label",
+                    "canonicalSiteHost",
+                    "defaultPhoneRegion",
+                    "defaultOwnerConfigured",
+                    "forms"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 100
+              },
+              "acceptedFilePolicy": {
+                "type": "object",
+                "properties": {
+                  "contentTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "image/jpeg",
+                        "image/png",
+                        "image/webp",
+                        "image/heic",
+                        "image/heif",
+                        "application/pdf",
+                        "text/plain",
+                        "text/csv",
+                        "application/msword",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "application/vnd.ms-excel",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "image/vnd.dwg",
+                        "image/vnd.dxf",
+                        "application/acad",
+                        "application/dxf"
+                      ]
+                    },
+                    "minItems": 1
+                  },
+                  "maxFiles": {
+                    "type": "number",
+                    "enum": [
+                      10
+                    ]
+                  },
+                  "maxFileBytes": {
+                    "type": "number",
+                    "enum": [
+                      26214400
+                    ]
+                  },
+                  "maxBatchBytes": {
+                    "type": "number",
+                    "enum": [
+                      52428800
+                    ]
+                  }
+                },
+                "required": [
+                  "contentTypes",
+                  "maxFiles",
+                  "maxFileBytes",
+                  "maxBatchBytes"
+                ],
+                "additionalProperties": false
+              },
+              "requestLimits": {
+                "type": "object",
+                "properties": {
+                  "maxJsonBodyBytes": {
+                    "type": "number",
+                    "enum": [
+                      262144
+                    ]
+                  },
+                  "maxAnswers": {
+                    "type": "number",
+                    "enum": [
+                      100
+                    ]
+                  }
+                },
+                "required": [
+                  "maxJsonBodyBytes",
+                  "maxAnswers"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "contractVersion",
+              "sources",
+              "acceptedFilePolicy",
+              "requestLimits"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "requestId",
+          "apiVersion",
+          "serverTimestamp",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "UploadBatchRequest": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "pattern": "^src_[A-Za-z0-9_-]{22,128}$"
+          },
+          "formId": {
+            "type": "string",
+            "pattern": "^frm_[A-Za-z0-9_-]{22,128}$"
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "callerFileId": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128,
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+                },
+                "filename": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255
+                },
+                "sizeBytes": {
+                  "type": "integer",
+                  "exclusiveMinimum": true,
+                  "minimum": 0,
+                  "maximum": 26214400
+                },
+                "contentType": {
+                  "type": "string",
+                  "enum": [
+                    "image/jpeg",
+                    "image/png",
+                    "image/webp",
+                    "image/heic",
+                    "image/heif",
+                    "application/pdf",
+                    "text/plain",
+                    "text/csv",
+                    "application/msword",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "application/vnd.ms-excel",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "image/vnd.dwg",
+                    "image/vnd.dxf",
+                    "application/acad",
+                    "application/dxf"
+                  ]
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-fA-F0-9]{64}$"
+                }
+              },
+              "required": [
+                "callerFileId",
+                "filename",
+                "sizeBytes",
+                "contentType"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 10
+          }
+        },
+        "required": [
+          "sourceId",
+          "formId",
+          "files"
+        ],
+        "additionalProperties": false
+      },
+      "UploadBatchSuccess": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "pattern": "^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v1"
+            ]
+          },
+          "serverTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "replayed": {
+                "type": "boolean"
+              },
+              "uploads": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "callerFileId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128,
+                          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+                        },
+                        "uploadId": {
+                          "type": "string",
+                          "pattern": "^upl_[A-Za-z0-9_-]{22,128}$"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "issued"
+                          ]
+                        },
+                        "capability": {
+                          "type": "object",
+                          "properties": {
+                            "method": {
+                              "type": "string",
+                              "enum": [
+                                "PUT"
+                              ]
+                            },
+                            "url": {
+                              "type": "string",
+                              "format": "uri",
+                              "maxLength": 2048
+                            },
+                            "expiresAt": {
+                              "$ref": "#/components/schemas/UploadBatchSuccess/properties/serverTimestamp"
+                            },
+                            "requiredHeaders": {
+                              "type": "object",
+                              "properties": {
+                                "contentType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "image/jpeg",
+                                    "image/png",
+                                    "image/webp",
+                                    "image/heic",
+                                    "image/heif",
+                                    "application/pdf",
+                                    "text/plain",
+                                    "text/csv",
+                                    "application/msword",
+                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                    "application/vnd.ms-excel",
+                                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                    "image/vnd.dwg",
+                                    "image/vnd.dxf",
+                                    "application/acad",
+                                    "application/dxf"
+                                  ]
+                                },
+                                "contentLength": {
+                                  "type": "integer",
+                                  "exclusiveMinimum": true,
+                                  "minimum": 0,
+                                  "maximum": 26214400
+                                },
+                                "ifNoneMatch": {
+                                  "type": "string",
+                                  "enum": [
+                                    "*"
+                                  ]
+                                },
+                                "checksumSha256": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9+/]{43}=$"
+                                }
+                              },
+                              "required": [
+                                "contentType",
+                                "contentLength",
+                                "ifNoneMatch"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "method",
+                            "url",
+                            "expiresAt",
+                            "requiredHeaders"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "callerFileId",
+                        "uploadId",
+                        "state",
+                        "capability"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "callerFileId": {
+                          "$ref": "#/components/schemas/UploadBatchSuccess/properties/result/properties/uploads/items/anyOf/0/properties/callerFileId"
+                        },
+                        "uploadId": {
+                          "$ref": "#/components/schemas/UploadBatchSuccess/properties/result/properties/uploads/items/anyOf/0/properties/uploadId"
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "uploaded"
+                          ]
+                        },
+                        "capability": {
+                          "enum": [
+                            "null"
+                          ],
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "callerFileId",
+                        "uploadId",
+                        "state",
+                        "capability"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "callerFileId": {
+                          "$ref": "#/components/schemas/UploadBatchSuccess/properties/result/properties/uploads/items/anyOf/0/properties/callerFileId"
+                        },
+                        "uploadId": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/UploadBatchSuccess/properties/result/properties/uploads/items/anyOf/0/properties/uploadId"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "rejected",
+                            "expired"
+                          ]
+                        },
+                        "capability": {
+                          "enum": [
+                            "null"
+                          ],
+                          "nullable": true
+                        },
+                        "safeCode": {
+                          "$ref": "#/components/schemas/UploadBatchSuccess/properties/result/properties/uploads/items/anyOf/0/properties/callerFileId"
+                        }
+                      },
+                      "required": [
+                        "callerFileId",
+                        "uploadId",
+                        "state",
+                        "safeCode"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 10
+              }
+            },
+            "required": [
+              "replayed",
+              "uploads"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "requestId",
+          "apiVersion",
+          "serverTimestamp",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "SubmissionRequest": {
+        "type": "object",
+        "properties": {
+          "sourceId": {
+            "type": "string",
+            "pattern": "^src_[A-Za-z0-9_-]{22,128}$"
+          },
+          "formId": {
+            "type": "string",
+            "pattern": "^frm_[A-Za-z0-9_-]{22,128}$"
+          },
+          "contact": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "email": {
+                "type": "string",
+                "format": "email",
+                "maxLength": 320
+              },
+              "phone": {
+                "type": "string",
+                "minLength": 3,
+                "maxLength": 40
+              },
+              "organizationName": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "phoneRegion": {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false
+          },
+          "serviceAddress": {
+            "type": "object",
+            "properties": {
+              "line1": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "line2": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "city": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "region": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "postalCode": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "countryCode": {
+                "$ref": "#/components/schemas/SubmissionRequest/properties/contact/properties/phoneRegion"
+              }
+            },
+            "required": [
+              "line1",
+              "city",
+              "region",
+              "postalCode",
+              "countryCode"
+            ],
+            "additionalProperties": false
+          },
+          "workSummary": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "preferredTiming": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "answers": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "fieldKey": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+                    },
+                    "label": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 160
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "string"
+                      ]
+                    },
+                    "value": {
+                      "type": "string",
+                      "maxLength": 10000
+                    }
+                  },
+                  "required": [
+                    "fieldKey",
+                    "label",
+                    "type",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "fieldKey": {
+                      "$ref": "#/components/schemas/SubmissionRequest/properties/answers/items/anyOf/0/properties/fieldKey"
+                    },
+                    "label": {
+                      "$ref": "#/components/schemas/SubmissionRequest/properties/answers/items/anyOf/0/properties/label"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "number"
+                      ]
+                    },
+                    "value": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "fieldKey",
+                    "label",
+                    "type",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "fieldKey": {
+                      "$ref": "#/components/schemas/SubmissionRequest/properties/answers/items/anyOf/0/properties/fieldKey"
+                    },
+                    "label": {
+                      "$ref": "#/components/schemas/SubmissionRequest/properties/answers/items/anyOf/0/properties/label"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "boolean"
+                      ]
+                    },
+                    "value": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "fieldKey",
+                    "label",
+                    "type",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "fieldKey": {
+                      "$ref": "#/components/schemas/SubmissionRequest/properties/answers/items/anyOf/0/properties/fieldKey"
+                    },
+                    "label": {
+                      "$ref": "#/components/schemas/SubmissionRequest/properties/answers/items/anyOf/0/properties/label"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "date"
+                      ]
+                    },
+                    "value": {
+                      "type": "string",
+                      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                    }
+                  },
+                  "required": [
+                    "fieldKey",
+                    "label",
+                    "type",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "fieldKey": {
+                      "$ref": "#/components/schemas/SubmissionRequest/properties/answers/items/anyOf/0/properties/fieldKey"
+                    },
+                    "label": {
+                      "$ref": "#/components/schemas/SubmissionRequest/properties/answers/items/anyOf/0/properties/label"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "single_choice"
+                      ]
+                    },
+                    "value": {
+                      "type": "string",
+                      "maxLength": 500
+                    }
+                  },
+                  "required": [
+                    "fieldKey",
+                    "label",
+                    "type",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "fieldKey": {
+                      "$ref": "#/components/schemas/SubmissionRequest/properties/answers/items/anyOf/0/properties/fieldKey"
+                    },
+                    "label": {
+                      "$ref": "#/components/schemas/SubmissionRequest/properties/answers/items/anyOf/0/properties/label"
+                    },
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "string_list"
+                      ]
+                    },
+                    "value": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      "maxItems": 50
+                    }
+                  },
+                  "required": [
+                    "fieldKey",
+                    "label",
+                    "type",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 100,
+            "default": []
+          },
+          "attribution": {
+            "type": "object",
+            "properties": {
+              "utmSource": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "utmMedium": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "utmCampaign": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "utmTerm": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "utmContent": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "externalCampaignId": {
+                "type": "string",
+                "maxLength": 512
+              },
+              "clickProviderCode": {
+                "type": "string",
+                "enum": [
+                  "google_ads",
+                  "microsoft_ads",
+                  "meta_ads",
+                  "other"
+                ]
+              },
+              "clickId": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "landingPageUrl": {
+                "type": "string",
+                "format": "uri",
+                "maxLength": 2048
+              },
+              "referrerUrl": {
+                "$ref": "#/components/schemas/SubmissionRequest/properties/attribution/properties/landingPageUrl"
+              }
+            },
+            "additionalProperties": false
+          },
+          "uploadIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^upl_[A-Za-z0-9_-]{22,128}$"
+            },
+            "maxItems": 10,
+            "default": []
+          },
+          "externalSubmissionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256,
+            "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+          }
+        },
+        "required": [
+          "sourceId",
+          "formId",
+          "contact"
+        ],
+        "additionalProperties": false
+      },
+      "SubmissionSuccess": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "pattern": "^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v1"
+            ]
+          },
+          "serverTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "publicSubmissionId": {
+                "type": "string",
+                "pattern": "^sub_[A-Za-z0-9_-]{22,128}$"
+              },
+              "publicLeadId": {
+                "type": "string",
+                "pattern": "^lead_[A-Za-z0-9_-]{22,128}$"
+              },
+              "customerOutcome": {
+                "type": "string",
+                "enum": [
+                  "created",
+                  "matched",
+                  "created_possible_duplicate"
+                ]
+              },
+              "leadCreatedAt": {
+                "$ref": "#/components/schemas/SubmissionSuccess/properties/serverTimestamp"
+              },
+              "initialLeadStage": {
+                "type": "string",
+                "enum": [
+                  "new_lead"
+                ]
+              },
+              "attachments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "uploadId": {
+                      "type": "string",
+                      "pattern": "^upl_[A-Za-z0-9_-]{22,128}$"
+                    },
+                    "callerFileId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "accepted",
+                        "pending_inspection",
+                        "rejected",
+                        "missing",
+                        "expired"
+                      ]
+                    },
+                    "safeCode": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/SubmissionSuccess/properties/result/properties/attachments/items/properties/callerFileId"
+                        }
+                      ],
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "uploadId",
+                    "callerFileId",
+                    "state",
+                    "safeCode"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 10
+              },
+              "emailCorrelationMarker": {
+                "type": "string",
+                "pattern": "^emc_[A-Za-z0-9_-]{22,128}$"
+              },
+              "replayed": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "publicSubmissionId",
+              "publicLeadId",
+              "customerOutcome",
+              "leadCreatedAt",
+              "initialLeadStage",
+              "attachments",
+              "replayed"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "requestId",
+          "apiVersion",
+          "serverTimestamp",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "SubmissionStatusSuccess": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "pattern": "^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v1"
+            ]
+          },
+          "serverTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "publicSubmissionId": {
+                "type": "string",
+                "pattern": "^sub_[A-Za-z0-9_-]{22,128}$"
+              },
+              "publicLeadId": {
+                "type": "string",
+                "pattern": "^lead_[A-Za-z0-9_-]{22,128}$"
+              },
+              "createdAt": {
+                "$ref": "#/components/schemas/SubmissionStatusSuccess/properties/serverTimestamp"
+              },
+              "customerOutcome": {
+                "type": "string",
+                "enum": [
+                  "created",
+                  "matched",
+                  "created_possible_duplicate"
+                ]
+              },
+              "attachments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "uploadId": {
+                      "type": "string",
+                      "pattern": "^upl_[A-Za-z0-9_-]{22,128}$"
+                    },
+                    "callerFileId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+                    },
+                    "state": {
+                      "type": "string",
+                      "enum": [
+                        "accepted",
+                        "pending_inspection",
+                        "rejected",
+                        "missing",
+                        "expired"
+                      ]
+                    },
+                    "safeCode": {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/SubmissionStatusSuccess/properties/result/properties/attachments/items/properties/callerFileId"
+                        }
+                      ],
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "uploadId",
+                    "callerFileId",
+                    "state",
+                    "safeCode"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 10
+              },
+              "attachmentProcessingTerminal": {
+                "type": "boolean"
+              },
+              "pollAfterSeconds": {
+                "type": "integer",
+                "minimum": 5,
+                "maximum": 300,
+                "nullable": true
+              }
+            },
+            "required": [
+              "publicSubmissionId",
+              "publicLeadId",
+              "createdAt",
+              "customerOutcome",
+              "attachments",
+              "attachmentProcessingTerminal",
+              "pollAfterSeconds"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "requestId",
+          "apiVersion",
+          "serverTimestamp",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "LeadFeedQuery": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "full",
+              "incremental"
+            ],
+            "default": "full"
+          },
+          "pageSize": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 250,
+            "default": 100
+          },
+          "cursor": {
+            "type": "string",
+            "pattern": "^cur_[A-Za-z0-9_-]{22,4096}$"
+          },
+          "syncCheckpoint": {
+            "type": "string",
+            "pattern": "^sync_[A-Za-z0-9_-]{22,2048}$"
+          },
+          "filters": {
+            "type": "object",
+            "properties": {
+              "inquiryReceivedFrom": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "inquiryReceivedTo": {
+                "$ref": "#/components/schemas/LeadFeedQuery/properties/filters/properties/inquiryReceivedFrom"
+              },
+              "updatedFrom": {
+                "$ref": "#/components/schemas/LeadFeedQuery/properties/filters/properties/inquiryReceivedFrom"
+              },
+              "updatedTo": {
+                "$ref": "#/components/schemas/LeadFeedQuery/properties/filters/properties/inquiryReceivedFrom"
+              },
+              "sourceId": {
+                "type": "string",
+                "pattern": "^src_[A-Za-z0-9_-]{22,128}$"
+              },
+              "campaignHandle": {
+                "type": "string",
+                "pattern": "^cmp_[A-Za-z0-9_-]{22,128}$"
+              },
+              "formId": {
+                "type": "string",
+                "pattern": "^frm_[A-Za-z0-9_-]{22,128}$"
+              },
+              "stage": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "new_lead",
+                    "qualifying",
+                    "quoting",
+                    "quoted",
+                    "follow_up",
+                    "negotiation",
+                    "won",
+                    "lost",
+                    "discarded"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 9
+              },
+              "disposition": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "won",
+                    "lost",
+                    "disqualified",
+                    "discarded",
+                    "converted_to_project"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 5
+              },
+              "recordState": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "archived",
+                    "merged"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 3
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "LeadFeedSuccess": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "pattern": "^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v1"
+            ]
+          },
+          "serverTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "enum": [
+                  "full",
+                  "incremental"
+                ]
+              },
+              "dataThrough": {
+                "$ref": "#/components/schemas/LeadFeedSuccess/properties/serverTimestamp"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "operation": {
+                          "type": "string",
+                          "enum": [
+                            "upsert",
+                            "merge"
+                          ]
+                        },
+                        "publicLeadId": {
+                          "type": "string",
+                          "pattern": "^lead_[A-Za-z0-9_-]{22,128}$"
+                        },
+                        "inquiryReceivedAt": {
+                          "$ref": "#/components/schemas/LeadFeedSuccess/properties/serverTimestamp"
+                        },
+                        "createdAt": {
+                          "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                        },
+                        "updatedAt": {
+                          "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                        },
+                        "currentStageEnteredAt": {
+                          "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                        },
+                        "terminalAt": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "currentStage": {
+                          "type": "string",
+                          "enum": [
+                            "new_lead",
+                            "qualifying",
+                            "quoting",
+                            "quoted",
+                            "follow_up",
+                            "negotiation",
+                            "won",
+                            "lost",
+                            "discarded"
+                          ]
+                        },
+                        "disposition": {
+                          "type": "string",
+                          "enum": [
+                            "won",
+                            "lost",
+                            "disqualified",
+                            "discarded",
+                            "converted_to_project"
+                          ],
+                          "nullable": true
+                        },
+                        "recordState": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "archived",
+                            "merged"
+                          ]
+                        },
+                        "mergeTargetPublicLeadId": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/publicLeadId"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "source": {
+                          "type": "object",
+                          "properties": {
+                            "sourceChannel": {
+                              "type": "string",
+                              "enum": [
+                                "website",
+                                "email",
+                                "referral",
+                                "phone",
+                                "social",
+                                "walk_in",
+                                "repeat_business",
+                                "manual",
+                                "other"
+                              ]
+                            },
+                            "sourceIntegrationType": {
+                              "type": "string",
+                              "enum": [
+                                "external_intake",
+                                "email_import",
+                                "manual",
+                                "referral",
+                                "phone",
+                                "social",
+                                "walk_in",
+                                "repeat_business",
+                                "other"
+                              ]
+                            },
+                            "sourceId": {
+                              "type": "string",
+                              "pattern": "^src_[A-Za-z0-9_-]{22,128}$",
+                              "nullable": true
+                            },
+                            "sourceLabel": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 160,
+                              "nullable": true
+                            },
+                            "siteHost": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 253,
+                              "pattern": "^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$",
+                              "nullable": true
+                            },
+                            "siteLabel": {
+                              "allOf": [
+                                {
+                                  "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/sourceLabel"
+                                }
+                              ],
+                              "nullable": true
+                            },
+                            "formId": {
+                              "type": "string",
+                              "pattern": "^frm_[A-Za-z0-9_-]{22,128}$",
+                              "nullable": true
+                            },
+                            "formLabel": {
+                              "allOf": [
+                                {
+                                  "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/sourceLabel"
+                                }
+                              ],
+                              "nullable": true
+                            },
+                            "campaign": {
+                              "type": "object",
+                              "properties": {
+                                "present": {
+                                  "type": "boolean"
+                                },
+                                "handle": {
+                                  "type": "string",
+                                  "pattern": "^cmp_[A-Za-z0-9_-]{22,128}$",
+                                  "nullable": true
+                                },
+                                "label": {
+                                  "allOf": [
+                                    {
+                                      "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/sourceLabel"
+                                    }
+                                  ],
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "present",
+                                "handle",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "utm": {
+                              "type": "object",
+                              "properties": {
+                                "source": {
+                                  "type": "object",
+                                  "properties": {
+                                    "present": {
+                                      "type": "boolean"
+                                    },
+                                    "handle": {
+                                      "type": "string",
+                                      "pattern": "^attr_[A-Za-z0-9_-]{22,128}$",
+                                      "nullable": true
+                                    },
+                                    "label": {
+                                      "allOf": [
+                                        {
+                                          "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/sourceLabel"
+                                        }
+                                      ],
+                                      "nullable": true
+                                    }
+                                  },
+                                  "required": [
+                                    "present",
+                                    "handle",
+                                    "label"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                "medium": {
+                                  "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/utm/properties/source"
+                                },
+                                "campaign": {
+                                  "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/utm/properties/source"
+                                },
+                                "term": {
+                                  "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/utm/properties/source"
+                                },
+                                "content": {
+                                  "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/utm/properties/source"
+                                }
+                              },
+                              "required": [
+                                "source",
+                                "medium",
+                                "campaign",
+                                "term",
+                                "content"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "click": {
+                              "type": "object",
+                              "properties": {
+                                "providerCode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "google_ads",
+                                    "microsoft_ads",
+                                    "meta_ads",
+                                    "other"
+                                  ],
+                                  "nullable": true
+                                },
+                                "captured": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "providerCode",
+                                "captured"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "landingPage": {
+                              "type": "object",
+                              "properties": {
+                                "host": {
+                                  "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/siteHost"
+                                },
+                                "pathHandle": {
+                                  "type": "string",
+                                  "pattern": "^path_[A-Za-z0-9_-]{22,128}$"
+                                },
+                                "routeLabel": {
+                                  "allOf": [
+                                    {
+                                      "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/sourceLabel"
+                                    }
+                                  ],
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "host",
+                                "pathHandle",
+                                "routeLabel"
+                              ],
+                              "additionalProperties": false,
+                              "nullable": true
+                            },
+                            "referrer": {
+                              "allOf": [
+                                {
+                                  "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/source/properties/landingPage"
+                                }
+                              ],
+                              "nullable": true
+                            },
+                            "inquiryReceivedAt": {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                            },
+                            "leadCreatedAt": {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                            },
+                            "attributionCapturedAt": {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                            },
+                            "timingSource": {
+                              "type": "string",
+                              "enum": [
+                                "authenticated_request",
+                                "provider_message",
+                                "manual",
+                                "creation_fallback"
+                              ]
+                            },
+                            "timingQuality": {
+                              "type": "string",
+                              "enum": [
+                                "exact",
+                                "provider_derived",
+                                "manual",
+                                "fallback"
+                              ]
+                            },
+                            "completeness": {
+                              "type": "object",
+                              "properties": {
+                                "channelKnown": {
+                                  "type": "boolean"
+                                },
+                                "authenticatedSite": {
+                                  "type": "boolean"
+                                },
+                                "configuredForm": {
+                                  "type": "boolean"
+                                },
+                                "campaignObserved": {
+                                  "type": "boolean"
+                                },
+                                "utmSetObserved": {
+                                  "type": "boolean"
+                                },
+                                "landingPageObserved": {
+                                  "type": "boolean"
+                                },
+                                "referrerObserved": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "required": [
+                                "channelKnown",
+                                "authenticatedSite",
+                                "configuredForm",
+                                "campaignObserved",
+                                "utmSetObserved",
+                                "landingPageObserved",
+                                "referrerObserved"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "sourceChannel",
+                            "sourceIntegrationType",
+                            "sourceId",
+                            "sourceLabel",
+                            "siteHost",
+                            "siteLabel",
+                            "formId",
+                            "formLabel",
+                            "campaign",
+                            "utm",
+                            "click",
+                            "landingPage",
+                            "referrer",
+                            "inquiryReceivedAt",
+                            "leadCreatedAt",
+                            "attributionCapturedAt",
+                            "timingSource",
+                            "timingQuality",
+                            "completeness"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "firstResponseAt": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "firstResponseMinutes": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "nullable": true
+                        },
+                        "wonAt": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "lostAt": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "disqualifiedAt": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "discardedAt": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "projectConvertedAt": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "minutesToDecision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "nullable": true
+                        },
+                        "minutesToWin": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "nullable": true
+                        },
+                        "minutesToProjectConversion": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "nullable": true
+                        },
+                        "reached": {
+                          "type": "object",
+                          "properties": {
+                            "qualifying": {
+                              "type": "boolean"
+                            },
+                            "quoting": {
+                              "type": "boolean"
+                            },
+                            "quoted": {
+                              "type": "boolean"
+                            },
+                            "followUp": {
+                              "type": "boolean"
+                            },
+                            "negotiation": {
+                              "type": "boolean"
+                            },
+                            "won": {
+                              "type": "boolean"
+                            },
+                            "lost": {
+                              "type": "boolean"
+                            },
+                            "projectConverted": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "qualifying",
+                            "quoting",
+                            "quoted",
+                            "followUp",
+                            "negotiation",
+                            "won",
+                            "lost",
+                            "projectConverted"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "financial": {
+                          "type": "object",
+                          "properties": {
+                            "estimatedLeadValue": {
+                              "type": "number",
+                              "minimum": 0,
+                              "nullable": true
+                            },
+                            "wonValue": {
+                              "type": "number",
+                              "minimum": 0,
+                              "nullable": true
+                            },
+                            "invoicedTotal": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "paidTotal": {
+                              "type": "number",
+                              "minimum": 0
+                            },
+                            "currency": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            }
+                          },
+                          "required": [
+                            "estimatedLeadValue",
+                            "wonValue",
+                            "invoicedTotal",
+                            "paidTotal",
+                            "currency"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "operation",
+                        "publicLeadId",
+                        "inquiryReceivedAt",
+                        "createdAt",
+                        "updatedAt",
+                        "currentStageEnteredAt",
+                        "terminalAt",
+                        "currentStage",
+                        "disposition",
+                        "recordState",
+                        "mergeTargetPublicLeadId",
+                        "source",
+                        "firstResponseAt",
+                        "firstResponseMinutes",
+                        "wonAt",
+                        "lostAt",
+                        "disqualifiedAt",
+                        "discardedAt",
+                        "projectConvertedAt",
+                        "minutesToDecision",
+                        "minutesToWin",
+                        "minutesToProjectConversion",
+                        "reached"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "operation": {
+                          "type": "string",
+                          "enum": [
+                            "delete"
+                          ]
+                        },
+                        "publicLeadId": {
+                          "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/publicLeadId"
+                        },
+                        "deletedAt": {
+                          "$ref": "#/components/schemas/LeadFeedSuccess/properties/result/properties/items/items/anyOf/0/properties/inquiryReceivedAt"
+                        }
+                      },
+                      "required": [
+                        "operation",
+                        "publicLeadId",
+                        "deletedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                },
+                "maxItems": 250
+              },
+              "nextCursor": {
+                "type": "string",
+                "pattern": "^cur_[A-Za-z0-9_-]{22,4096}$",
+                "nullable": true
+              },
+              "nextSyncCheckpoint": {
+                "type": "string",
+                "pattern": "^sync_[A-Za-z0-9_-]{22,2048}$",
+                "nullable": true
+              }
+            },
+            "required": [
+              "mode",
+              "dataThrough",
+              "items",
+              "nextCursor",
+              "nextSyncCheckpoint"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "requestId",
+          "apiVersion",
+          "serverTimestamp",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "MetricQuery": {
+        "type": "object",
+        "properties": {
+          "preset": {
+            "type": "string",
+            "enum": [
+              "7d",
+              "30d",
+              "90d",
+              "lifetime",
+              "custom"
+            ],
+            "default": "30d"
+          },
+          "from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            ]
+          },
+          "to": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricQuery/properties/from/anyOf/0"
+              },
+              {
+                "$ref": "#/components/schemas/MetricQuery/properties/from/anyOf/1"
+              }
+            ]
+          },
+          "metricIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "leads_received",
+                "cohort_active_lead_count",
+                "cohort_discarded_lead_count",
+                "cohort_discard_rate",
+                "cohort_current_stage_distribution",
+                "cohort_outcome_distribution",
+                "cohort_disqualified_count",
+                "cohort_disqualified_rate",
+                "project_converted_count",
+                "project_converted_rate",
+                "stage_reached_funnel_count",
+                "stage_reached_funnel_rate",
+                "cohort_decided_lead_count",
+                "cohort_won_count",
+                "cohort_lost_count",
+                "cohort_decided_win_rate",
+                "first_response_coverage",
+                "median_first_response_minutes",
+                "median_time_to_decision",
+                "median_time_to_win",
+                "median_time_to_project_conversion",
+                "intake_submissions_accepted",
+                "intake_submissions_rejected",
+                "intake_submissions_replayed",
+                "external_intake_customers_created",
+                "external_intake_customers_matched",
+                "source_attribution_completeness",
+                "lifecycle_evidence_completeness",
+                "cohort_open_estimated_value",
+                "cohort_won_value",
+                "cohort_average_won_value",
+                "invoiced_event_total",
+                "paid_event_total"
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 33
+          },
+          "definitionVersion": {
+            "type": "string",
+            "pattern": "^[1-9]\\d*$",
+            "default": "1"
+          },
+          "groupBy": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "day",
+                "week",
+                "month",
+                "source",
+                "campaign",
+                "form"
+              ]
+            },
+            "maxItems": 2,
+            "default": []
+          },
+          "sourceId": {
+            "type": "string",
+            "pattern": "^src_[A-Za-z0-9_-]{22,128}$"
+          },
+          "campaignHandle": {
+            "type": "string",
+            "pattern": "^cmp_[A-Za-z0-9_-]{22,128}$"
+          },
+          "formId": {
+            "type": "string",
+            "pattern": "^frm_[A-Za-z0-9_-]{22,128}$"
+          }
+        },
+        "required": [
+          "metricIds"
+        ],
+        "additionalProperties": false
+      },
+      "MetricsSuccess": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "pattern": "^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v1"
+            ]
+          },
+          "serverTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "result": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "$ref": "#/components/schemas/MetricsSuccess/properties/serverTimestamp"
+              },
+              "to": {
+                "$ref": "#/components/schemas/MetricsSuccess/properties/serverTimestamp"
+              },
+              "timezone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "generatedAt": {
+                "$ref": "#/components/schemas/MetricsSuccess/properties/serverTimestamp"
+              },
+              "dataThrough": {
+                "$ref": "#/components/schemas/MetricsSuccess/properties/serverTimestamp"
+              },
+              "metricDefinitionVersion": {
+                "type": "string",
+                "pattern": "^[1-9]\\d*$"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$",
+                "nullable": true
+              },
+              "includedMetricIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "leads_received",
+                    "cohort_active_lead_count",
+                    "cohort_discarded_lead_count",
+                    "cohort_discard_rate",
+                    "cohort_current_stage_distribution",
+                    "cohort_outcome_distribution",
+                    "cohort_disqualified_count",
+                    "cohort_disqualified_rate",
+                    "project_converted_count",
+                    "project_converted_rate",
+                    "stage_reached_funnel_count",
+                    "stage_reached_funnel_rate",
+                    "cohort_decided_lead_count",
+                    "cohort_won_count",
+                    "cohort_lost_count",
+                    "cohort_decided_win_rate",
+                    "first_response_coverage",
+                    "median_first_response_minutes",
+                    "median_time_to_decision",
+                    "median_time_to_win",
+                    "median_time_to_project_conversion",
+                    "intake_submissions_accepted",
+                    "intake_submissions_rejected",
+                    "intake_submissions_replayed",
+                    "external_intake_customers_created",
+                    "external_intake_customers_matched",
+                    "source_attribution_completeness",
+                    "lifecycle_evidence_completeness",
+                    "cohort_open_estimated_value",
+                    "cohort_won_value",
+                    "cohort_average_won_value",
+                    "invoiced_event_total",
+                    "paid_event_total"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 33
+              },
+              "results": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "metricId": {
+                      "$ref": "#/components/schemas/MetricsSuccess/properties/result/properties/includedMetricIds/items"
+                    },
+                    "definitionVersion": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d*$"
+                    },
+                    "basis": {
+                      "type": "string",
+                      "enum": [
+                        "received_cohort",
+                        "current_snapshot",
+                        "event_dated"
+                      ]
+                    },
+                    "population": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    },
+                    "value": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "unit": {
+                      "type": "string",
+                      "enum": [
+                        "count",
+                        "percent",
+                        "minutes",
+                        "currency"
+                      ]
+                    },
+                    "numerator": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "denominator": {
+                      "type": "number",
+                      "minimum": 0,
+                      "nullable": true
+                    },
+                    "includedCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "missingEvidenceCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "grouping": {
+                      "type": "object",
+                      "properties": {
+                        "timeBucket": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/MetricsSuccess/properties/serverTimestamp"
+                            }
+                          ],
+                          "nullable": true
+                        },
+                        "sourceId": {
+                          "type": "string",
+                          "pattern": "^src_[A-Za-z0-9_-]{22,128}$",
+                          "nullable": true
+                        },
+                        "campaignHandle": {
+                          "type": "string",
+                          "pattern": "^cmp_[A-Za-z0-9_-]{22,128}$",
+                          "nullable": true
+                        },
+                        "formId": {
+                          "type": "string",
+                          "pattern": "^frm_[A-Za-z0-9_-]{22,128}$",
+                          "nullable": true
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 160,
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "label"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    },
+                    "currency": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{3}$",
+                      "nullable": true
+                    },
+                    "suppressed": {
+                      "type": "boolean"
+                    },
+                    "cohortCount": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "evidenceCoveragePercent": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 100
+                    }
+                  },
+                  "required": [
+                    "metricId",
+                    "definitionVersion",
+                    "basis",
+                    "population",
+                    "value",
+                    "unit",
+                    "numerator",
+                    "denominator",
+                    "includedCount",
+                    "missingEvidenceCount",
+                    "grouping",
+                    "currency",
+                    "suppressed",
+                    "cohortCount",
+                    "evidenceCoveragePercent"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "timezone",
+              "generatedAt",
+              "dataThrough",
+              "metricDefinitionVersion",
+              "currency",
+              "includedMetricIds",
+              "results"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "requestId",
+          "apiVersion",
+          "serverTimestamp",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "pattern": "^req_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "apiVersion": {
+            "type": "string",
+            "enum": [
+              "v1"
+            ]
+          },
+          "serverTimestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "integer",
+                "minimum": 400,
+                "maximum": 599
+              },
+              "code": {
+                "type": "string",
+                "enum": [
+                  "invalid_credentials",
+                  "credential_expired",
+                  "credential_revoked",
+                  "insufficient_scope",
+                  "source_not_allowed",
+                  "form_not_allowed",
+                  "invalid_request",
+                  "idempotency_conflict",
+                  "external_submission_conflict",
+                  "submission_not_found",
+                  "upload_not_found",
+                  "upload_expired",
+                  "upload_batch_expired",
+                  "upload_rejected",
+                  "rate_limited",
+                  "rate_limit_unavailable",
+                  "cursor_invalid",
+                  "sync_checkpoint_expired",
+                  "range_too_large",
+                  "date_alignment_required",
+                  "definition_version_unsupported",
+                  "temporarily_unavailable",
+                  "internal_error"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              "details": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "field": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128,
+                      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]*$"
+                    },
+                    "fileId": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/ErrorEnvelope/properties/error/properties/details/items/properties/field"
+                        },
+                        {
+                          "type": "string",
+                          "pattern": "^upl_[A-Za-z0-9_-]{22,128}$"
+                        }
+                      ]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": [
+                        "invalid",
+                        "required",
+                        "unknown_field",
+                        "out_of_range",
+                        "too_many_items",
+                        "unsupported_content_type",
+                        "body_missing",
+                        "body_too_large",
+                        "invalid_utf8",
+                        "malformed_json",
+                        "validation_failed",
+                        "duplicate",
+                        "not_allowed",
+                        "not_found",
+                        "expired",
+                        "batch_expired",
+                        "conflict",
+                        "rejected",
+                        "inspection_unavailable",
+                        "size_mismatch",
+                        "checksum_mismatch",
+                        "content_type_mismatch",
+                        "unsafe_content",
+                        "rate_limited",
+                        "temporarily_unavailable"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                },
+                "maxItems": 100
+              }
+            },
+            "required": [
+              "status",
+              "code",
+              "message",
+              "details"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "requestId",
+          "apiVersion",
+          "serverTimestamp",
+          "error"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}
