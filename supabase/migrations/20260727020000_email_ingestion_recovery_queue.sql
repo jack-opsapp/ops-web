@@ -69,6 +69,7 @@ create table public.email_ingestion_recovery_queue (
 
 create index email_ingestion_recovery_claim_idx
   on public.email_ingestion_recovery_queue (
+    company_id,
     available_at,
     created_at,
     id

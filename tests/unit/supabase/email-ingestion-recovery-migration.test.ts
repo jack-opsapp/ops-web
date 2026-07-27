@@ -20,6 +20,9 @@ describe("email ingestion recovery migration", () => {
       "unique (connection_id, recovery_kind, operation_key)"
     );
     expect(sql).toContain(
+      "on public.email_ingestion_recovery_queue ( company_id, available_at, created_at, id )"
+    );
+    expect(sql).toContain(
       "recovery_kind in ('lead_classification', 'provider_label_apply')"
     );
     expect(sql).toContain(
