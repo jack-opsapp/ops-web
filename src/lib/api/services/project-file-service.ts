@@ -13,6 +13,7 @@
  */
 
 import { requireSupabase, parseDateRequired } from "@/lib/supabase/helpers";
+import { z } from "zod";
 
 /**
  * Inbox-rail-friendly representation of a client document. The
@@ -31,7 +32,7 @@ export interface ProjectDocument {
   /** Human-readable filename — e.g. "Estimate #1042.pdf". */
   filename: string;
   /** Originating record type. Drives the navigation target on click. */
-  sourceType: "estimate" | "invoice" | "email_attachment";
+  sourceType: "estimate" | "invoice" | "email_attachment" | "intake_attachment";
   /** Originating record id. Pair with sourceType to build a route. */
   sourceId: string;
   /** Status of the source record (e.g. "draft", "sent", "paid"). For an
@@ -61,6 +62,8 @@ export interface ProjectDocument {
    *  and always null for `email_attachment`.
    *  Drives the ACCOUNTING tab totals strip without re-querying. */
   value: number | null;
+  /** Canonical source lead for a privately projected website attachment. */
+  sourceOpportunityId?: string | null;
 }
 
 interface EstimateRow {
@@ -80,6 +83,18 @@ interface InvoiceRow {
   updated_at: string;
   total: number | null;
 }
+
+const intakeProjectDocumentSchema = z
+  .object({
+    id: z.string().uuid(),
+    filename: z.string().min(1).max(255),
+    mime_type: z.string().min(1).max(255),
+    size_bytes: z.coerce.number().int().positive(),
+    source_opportunity_id: z.string().uuid(),
+    updated_at: z.string().datetime({ offset: true }),
+    download_url: z.string().startsWith("/api/opportunities/"),
+  })
+  .strict();
 
 function safeFilename(
   prefix: string,
@@ -195,5 +210,48 @@ export const ProjectFileService = {
     return [...estimates, ...invoices]
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
       .slice(0, limit);
+  },
+
+  /**
+   * Accepted website files projected onto one converted project. The guarded
+   * RPC returns only display metadata and an authorization-checking same-origin
+   * download route; object keys and inspection evidence never reach callers.
+   */
+  async listProjectIntakeDocuments(
+    projectId: string
+  ): Promise<ProjectDocument[]> {
+    if (!projectId) return [];
+    const supabase = requireSupabase();
+    const { data, error } = await supabase.rpc("list_project_intake_files", {
+      p_project_id: projectId,
+    });
+    if (error) {
+      console.error(
+        "[project-file-service] intake attachment fetch failed:",
+        error.message
+      );
+      return [];
+    }
+    const parsed = z.array(intakeProjectDocumentSchema).safeParse(data ?? []);
+    if (!parsed.success) {
+      console.error(
+        "[project-file-service] intake attachment response was invalid"
+      );
+      return [];
+    }
+    return parsed.data.map((row) => ({
+      id: `intake_attachment:${row.id}`,
+      filename: row.filename,
+      sourceType: "intake_attachment",
+      sourceId: row.id,
+      status: "accepted",
+      pdfStoragePath: row.download_url,
+      mimeType: row.mime_type,
+      sizeBytes: row.size_bytes,
+      sourceLabel: "website",
+      sourceOpportunityId: row.source_opportunity_id,
+      updatedAt: new Date(row.updated_at).toISOString(),
+      value: null,
+    }));
   },
 };

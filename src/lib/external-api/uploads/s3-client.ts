@@ -5,8 +5,6 @@ import { S3Client } from "@aws-sdk/client-s3";
 export interface ExternalIntakeStorageConfig {
   region: string;
   bucket: string;
-  accessKeyId: string;
-  secretAccessKey: string;
 }
 
 export interface ExternalIntakeAwsCredentials {
@@ -14,7 +12,8 @@ export interface ExternalIntakeAwsCredentials {
   secretAccessKey: string;
 }
 
-let externalIntakeS3Client: S3Client | null = null;
+let externalIntakeUploadSignerS3Client: S3Client | null = null;
+let externalIntakeWorkerS3Client: S3Client | null = null;
 
 function requireEnvironmentValue(name: string): string {
   const value = process.env[name]?.trim();
@@ -24,41 +23,65 @@ function requireEnvironmentValue(name: string): string {
   return value;
 }
 
-/**
- * External intake uses a dedicated, create-only AWS principal. It must never
- * inherit the broader credentials used by existing OPS storage paths.
- */
 export function readExternalIntakeStorageConfig(): ExternalIntakeStorageConfig {
   return {
     region: requireEnvironmentValue("EXTERNAL_INTAKE_AWS_REGION"),
     bucket: requireEnvironmentValue("EXTERNAL_INTAKE_S3_BUCKET"),
-    accessKeyId: requireEnvironmentValue("EXTERNAL_INTAKE_AWS_ACCESS_KEY_ID"),
+  };
+}
+
+/**
+ * Only this identity signs browser PUT capabilities. Its IAM policy permits
+ * one conditional create operation and has no read, list, or delete access.
+ */
+export function getExternalIntakeUploadSignerCredentials(): ExternalIntakeAwsCredentials {
+  return {
+    accessKeyId: requireEnvironmentValue(
+      "EXTERNAL_INTAKE_UPLOAD_AWS_ACCESS_KEY_ID"
+    ),
     secretAccessKey: requireEnvironmentValue(
-      "EXTERNAL_INTAKE_AWS_SECRET_ACCESS_KEY"
+      "EXTERNAL_INTAKE_UPLOAD_AWS_SECRET_ACCESS_KEY"
     ),
   };
 }
 
-export function getExternalIntakeAwsCredentials(): ExternalIntakeAwsCredentials {
-  const config = readExternalIntakeStorageConfig();
+/**
+ * The private maintenance identity consumes queues, inspects files, projects
+ * accepted copies, and deletes exact versions during privacy erasure.
+ */
+export function getExternalIntakeWorkerCredentials(): ExternalIntakeAwsCredentials {
   return {
-    accessKeyId: config.accessKeyId,
-    secretAccessKey: config.secretAccessKey,
+    accessKeyId: requireEnvironmentValue(
+      "EXTERNAL_INTAKE_WORKER_AWS_ACCESS_KEY_ID"
+    ),
+    secretAccessKey: requireEnvironmentValue(
+      "EXTERNAL_INTAKE_WORKER_AWS_SECRET_ACCESS_KEY"
+    ),
   };
 }
 
-export function getExternalIntakeS3Client(): S3Client {
-  if (externalIntakeS3Client) {
-    return externalIntakeS3Client;
+export function getExternalIntakeUploadSignerS3Client(): S3Client {
+  if (externalIntakeUploadSignerS3Client) {
+    return externalIntakeUploadSignerS3Client;
   }
 
   const config = readExternalIntakeStorageConfig();
-  externalIntakeS3Client = new S3Client({
+  externalIntakeUploadSignerS3Client = new S3Client({
     region: config.region,
-    credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey,
-    },
+    credentials: getExternalIntakeUploadSignerCredentials(),
   });
-  return externalIntakeS3Client;
+  return externalIntakeUploadSignerS3Client;
+}
+
+export function getExternalIntakeWorkerS3Client(): S3Client {
+  if (externalIntakeWorkerS3Client) {
+    return externalIntakeWorkerS3Client;
+  }
+
+  const config = readExternalIntakeStorageConfig();
+  externalIntakeWorkerS3Client = new S3Client({
+    region: config.region,
+    credentials: getExternalIntakeWorkerCredentials(),
+  });
+  return externalIntakeWorkerS3Client;
 }

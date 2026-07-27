@@ -10,7 +10,7 @@ vi.mock("@aws-sdk/s3-request-presigner", () => ({
 }));
 
 vi.mock("@/lib/external-api/uploads/s3-client", () => ({
-  getExternalIntakeS3Client: getClientMock,
+  getExternalIntakeUploadSignerS3Client: getClientMock,
   readExternalIntakeStorageConfig: () => ({
     region: "us-west-2",
     bucket: "ops-external-intake-test",
@@ -76,6 +76,7 @@ describe("external intake upload capability", () => {
     expect(getSignedUrlMock).toHaveBeenCalledTimes(1);
     const [client, command, options] = getSignedUrlMock.mock.calls[0];
     expect(client).toEqual({ marker: "dedicated-client" });
+    expect(getClientMock).toHaveBeenCalledTimes(1);
     expect(command.input).toMatchObject({
       Bucket: "ops-external-intake-test",
       Key: capability.key,

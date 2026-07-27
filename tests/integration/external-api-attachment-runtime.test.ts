@@ -41,8 +41,8 @@ describe("external intake attachment runtime adapter", () => {
   beforeEach(() => {
     vi.stubEnv("EXTERNAL_INTAKE_AWS_REGION", "us-west-2");
     vi.stubEnv("EXTERNAL_INTAKE_S3_BUCKET", "private-test-bucket");
-    vi.stubEnv("EXTERNAL_INTAKE_AWS_ACCESS_KEY_ID", "test-key");
-    vi.stubEnv("EXTERNAL_INTAKE_AWS_SECRET_ACCESS_KEY", "test-secret");
+    vi.stubEnv("EXTERNAL_INTAKE_WORKER_AWS_ACCESS_KEY_ID", "test-key");
+    vi.stubEnv("EXTERNAL_INTAKE_WORKER_AWS_SECRET_ACCESS_KEY", "test-secret");
     vi.stubEnv(
       "EXTERNAL_INTAKE_UPLOAD_QUEUE_URL",
       "https://sqs.us-west-2.amazonaws.com/1/upload"
@@ -216,6 +216,8 @@ describe("external intake attachment runtime adapter", () => {
             return { data: true, error: null };
           case "claim_external_intake_cleanups_as_system":
           case "claim_external_intake_delivery_cleanups_as_system":
+          case "claim_external_intake_project_file_projections_as_system":
+          case "claim_external_intake_erasures_as_system":
             return { data: [], error: null };
           default:
             throw new Error(`unexpected rpc ${name}`);
@@ -263,6 +265,12 @@ describe("external intake attachment runtime adapter", () => {
     expect(derivativeInput?.IfNoneMatch).toBe("*");
     expect(derivativeInput?.Tagging).toBe(
       "GuardDutyMalwareScanStatus=NO_THREATS_FOUND&ops-disposition=accepted"
+    );
+    expect(derivativeInput?.CacheControl).toBe("no-store, max-age=0");
+    expect(originalInput?.CacheControl).toBe("no-store, max-age=0");
+    expect(derivativeInput?.ContentDisposition).toBe("inline");
+    expect(originalInput?.ContentDisposition).toBe(
+      'attachment; filename="website-attachment"'
     );
     const derivative = Buffer.from(derivativeInput?.Body as Uint8Array);
     expect((await sharp(derivative).metadata()).exif).toBeUndefined();

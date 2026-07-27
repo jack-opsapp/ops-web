@@ -8,7 +8,11 @@ vi.mock("@aws-sdk/cloudfront-signer", () => ({
   getSignedUrl: cloudFrontSignedUrlMock,
 }));
 
-import { createExternalAttachmentDeliveryUrl } from "@/lib/external-api/uploads/cloudfront-delivery";
+import {
+  createExternalAttachmentDeliveryUrl,
+  invalidateExternalAttachmentDeliveryPaths,
+  verifyExternalAttachmentDeliveryDenied,
+} from "@/lib/external-api/uploads/cloudfront-delivery";
 
 const FIXED_NOW = new Date("2026-07-26T22:00:00.000Z");
 
@@ -20,6 +24,9 @@ beforeEach(() => {
     "EXTERNAL_INTAKE_CLOUDFRONT_PRIVATE_KEY",
     "-----BEGIN PRIVATE KEY-----\\nTEST\\n-----END PRIVATE KEY-----"
   );
+  vi.stubEnv("EXTERNAL_INTAKE_CLOUDFRONT_DISTRIBUTION_ID", "E123456789AB");
+  vi.stubEnv("EXTERNAL_INTAKE_WORKER_AWS_ACCESS_KEY_ID", "AKIATEST");
+  vi.stubEnv("EXTERNAL_INTAKE_WORKER_AWS_SECRET_ACCESS_KEY", "test-secret");
   cloudFrontSignedUrlMock.mockReturnValue(
     "https://files-intake.example.test/safe-derivative/a.webp?Expires=1&Signature=x&Key-Pair-Id=KTEST123"
   );
@@ -109,5 +116,72 @@ describe("external intake CloudFront delivery", () => {
         expiresInSeconds: 120,
       })
     ).toThrow("attachment_delivery_unavailable");
+  });
+
+  it("submits one exact-path signed invalidation and returns its reference", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(
+          "<Invalidation><Id>INVALIDATION_123</Id><Status>InProgress</Status></Invalidation>",
+          { status: 201 }
+        )
+      );
+
+    await expect(
+      invalidateExternalAttachmentDeliveryPaths(
+        [
+          "/safe-derivative/0c942ee0-7da9-4f1a-92aa-b727eb808066/a.webp",
+          "/accepted-original/0c942ee0-7da9-4f1a-92aa-b727eb808066/a",
+        ],
+        {
+          now: () => FIXED_NOW,
+          callerReference: () => "erasure-1",
+          fetch: fetchMock,
+        }
+      )
+    ).resolves.toBe("INVALIDATION_123");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://cloudfront.amazonaws.com/2020-05-31/distribution/E123456789AB/invalidation",
+      expect.objectContaining({
+        method: "POST",
+        cache: "no-store",
+        redirect: "error",
+      })
+    );
+    const request = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(String(request.body)).toContain("<CallerReference>erasure-1");
+    expect(new Headers(request.headers).get("authorization")).toContain(
+      "AWS4-HMAC-SHA256"
+    );
+  });
+
+  it.each([
+    ["/quarantine/a", "quarantine"],
+    ["/safe-derivative/a.webp*", "wildcard"],
+    ["/safe-derivative/../a.webp", "traversal"],
+  ])("rejects an invalidation %s", async (path) => {
+    await expect(
+      invalidateExternalAttachmentDeliveryPaths([path])
+    ).rejects.toThrow("invalid_attachment_invalidation");
+  });
+
+  it("requires cookieless delivery readback to deny every deleted path", async () => {
+    cloudFrontSignedUrlMock
+      .mockReturnValueOnce("https://files-intake.example.test/image")
+      .mockReturnValueOnce("https://files-intake.example.test/document");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 404 }))
+      .mockResolvedValueOnce(new Response(null, { status: 403 }));
+
+    await expect(
+      verifyExternalAttachmentDeliveryDenied(
+        ["safe-derivative/a.webp", "accepted-original/a/file"],
+        fetchMock
+      )
+    ).resolves.toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

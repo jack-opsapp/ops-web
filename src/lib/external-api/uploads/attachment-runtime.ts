@@ -26,9 +26,11 @@ import {
   type NormalizedExternalIntakeQueueEvent,
 } from "./queue-consumer";
 import {
-  getExternalIntakeS3Client,
+  getExternalIntakeWorkerS3Client,
   readExternalIntakeStorageConfig,
 } from "./s3-client";
+import { processExternalIntakeErasureBatch } from "./erasure-worker";
+import { processExternalIntakeProjectFileProjectionBatch } from "./project-file-projection-worker";
 
 interface RpcClient {
   rpc(
@@ -139,6 +141,12 @@ export interface ExternalIntakeMaintenanceResult {
   cleanupRetrying: number;
   expired: number;
   credentialsRetired: number;
+  projectFilesClaimed: number;
+  projectFilesCompleted: number;
+  projectFilesRetrying: number;
+  erasuresClaimed: number;
+  erasuresCompleted: number;
+  erasuresRetrying: number;
   errors: Array<{ operation: string; safeCode: string }>;
 }
 
@@ -340,6 +348,7 @@ interface AcceptedTarget {
   objectKey: string;
   bytes: Buffer;
   contentType: string;
+  contentDisposition: "inline" | 'attachment; filename="website-attachment"';
 }
 
 function acceptedTargets(input: AcceptInput): AcceptedTarget[] {
@@ -351,6 +360,7 @@ function acceptedTargets(input: AcceptInput): AcceptedTarget[] {
     objectKey: `accepted-original/${input.inspection.companyId}/${input.inspection.intentId}/${suffix}`,
     bytes: input.sourceBytes,
     contentType: "application/octet-stream",
+    contentDisposition: 'attachment; filename="website-attachment"',
   };
   if (input.sanitizedImage) {
     const extension =
@@ -366,6 +376,7 @@ function acceptedTargets(input: AcceptInput): AcceptedTarget[] {
         objectKey: `safe-derivative/${input.inspection.companyId}/${input.inspection.intentId}/${suffix}.${extension}`,
         bytes: input.sanitizedImage.bytes,
         contentType: input.sanitizedImage.contentType,
+        contentDisposition: "inline",
       },
     ];
   }
@@ -474,6 +485,8 @@ async function prepareAcceptedTarget(
           Body: target.bytes,
           ContentLength: target.bytes.length,
           ContentType: target.contentType,
+          ContentDisposition: target.contentDisposition,
+          CacheControl: "no-store, max-age=0",
           ChecksumSHA256: checksumBase64,
           IfNoneMatch: "*",
           Tagging:
@@ -853,7 +866,7 @@ export async function runExternalIntakeMaintenance(
   const cleanupLimit = bounded(options.cleanupLimit, 5, 1, 25);
   const leaseSeconds = bounded(options.leaseSeconds, 360, 30, 900);
   const client = rpcClient(supabase);
-  const s3 = dependencies.s3 ?? getExternalIntakeS3Client();
+  const s3 = dependencies.s3 ?? getExternalIntakeWorkerS3Client();
   const bucket = readExternalIntakeStorageConfig().bucket;
   const now = dependencies.now ?? (() => new Date());
   const workerId = dependencies.workerId ?? (() => `ext-${randomUUID()}`);
@@ -868,6 +881,12 @@ export async function runExternalIntakeMaintenance(
     cleanupRetrying: 0,
     expired: 0,
     credentialsRetired: 0,
+    projectFilesClaimed: 0,
+    projectFilesCompleted: 0,
+    projectFilesRetrying: 0,
+    erasuresClaimed: 0,
+    erasuresCompleted: 0,
+    erasuresRetrying: 0,
     errors: [],
   };
 
@@ -962,6 +981,57 @@ export async function runExternalIntakeMaintenance(
     result.errors.push({
       operation: "cleanup",
       safeCode: "cleanup_retry",
+    });
+  }
+
+  try {
+    const projection = await processExternalIntakeProjectFileProjectionBatch(
+      supabase,
+      {
+        limit: cleanupLimit,
+        leaseSeconds,
+        workerId: activeWorkerId,
+      }
+    );
+    result.projectFilesClaimed = projection.claimed;
+    result.projectFilesCompleted = projection.completed;
+    result.projectFilesRetrying = projection.requeued;
+    if (projection.errors > 0) {
+      result.errors.push({
+        operation: "project_file_projection",
+        safeCode: "projection_partial",
+      });
+    }
+  } catch {
+    result.errors.push({
+      operation: "project_file_projection",
+      safeCode: "projection_retry",
+    });
+  }
+
+  try {
+    const erasure = await processExternalIntakeErasureBatch(
+      supabase,
+      {
+        limit: cleanupLimit,
+        leaseSeconds,
+        workerId: activeWorkerId,
+      },
+      { s3, now }
+    );
+    result.erasuresClaimed = erasure.claimed;
+    result.erasuresCompleted = erasure.completed;
+    result.erasuresRetrying = erasure.requeued;
+    if (erasure.errors > 0) {
+      result.errors.push({
+        operation: "privacy_erasure",
+        safeCode: "erasure_partial",
+      });
+    }
+  } catch {
+    result.errors.push({
+      operation: "privacy_erasure",
+      safeCode: "erasure_retry",
     });
   }
 

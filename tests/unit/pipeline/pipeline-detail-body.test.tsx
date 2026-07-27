@@ -18,6 +18,8 @@ const childProps = vi.hoisted(() => ({
   correspondence: vi.fn(),
   timeline: vi.fn(),
   nextSteps: vi.fn(),
+  files: vi.fn(),
+  tabBar: vi.fn(),
 }));
 const assignedContextHookMock = vi.hoisted(() => vi.fn());
 
@@ -62,6 +64,15 @@ vi.mock(
   () => ({ PipelineDetailPhotosTab: () => <div data-testid="mock-photos" /> })
 );
 vi.mock(
+  "@/app/(dashboard)/pipeline/_components/pipeline-detail-files-tab",
+  () => ({
+    PipelineDetailFilesTab: (props: unknown) => {
+      childProps.files(props);
+      return <div data-testid="mock-files" />;
+    },
+  })
+);
+vi.mock(
   "@/app/(dashboard)/pipeline/_components/pipeline-detail-next-steps",
   () => ({
     PipelineDetailNextSteps: (props: unknown) => {
@@ -72,7 +83,12 @@ vi.mock(
 );
 vi.mock(
   "@/app/(dashboard)/pipeline/_components/pipeline-detail-tab-bar",
-  () => ({ PipelineDetailTabBar: () => <div data-testid="mock-tab-bar" /> })
+  () => ({
+    PipelineDetailTabBar: (props: unknown) => {
+      childProps.tabBar(props);
+      return <div data-testid="mock-tab-bar" />;
+    },
+  })
 );
 
 const opportunity = { id: "opp-1" } as Opportunity;
@@ -84,7 +100,8 @@ const assignedContext = {
   followUps: [{ id: "follow-up-1" }],
   siteVisits: [{ id: "visit-1" }],
   correspondence: [{ id: "correspondence-1" }],
-} as OpportunityAssignedContext;
+  intakeAttachments: [],
+} as unknown as OpportunityAssignedContext;
 const fullLeadAccess = {
   canView: true,
   canEdit: true,
@@ -155,6 +172,39 @@ describe("PipelineDetailBody composition", () => {
     expect(screen.queryByTestId("mock-overview")).not.toBeInTheDocument();
     // The band is present even when the operator cannot manage.
     expect(screen.getByTestId("mock-band")).toBeInTheDocument();
+  });
+
+  it("reveals and routes Files only when accepted descriptors exist", () => {
+    const attachment = {
+      id: "11111111-1111-4111-8111-111111111111",
+      filename: "plans.pdf",
+      kind: "document" as const,
+      mimeType: "application/pdf",
+      sizeBytes: 2048,
+      occurredAt: new Date("2026-07-26T22:00:00.000Z"),
+      previewUrl: null,
+      downloadUrl:
+        "/api/opportunities/opp-1/intake-attachments/11111111-1111-4111-8111-111111111111?mode=download",
+    };
+    assignedContextHookMock.mockReturnValue(
+      queryResult({
+        data: { ...assignedContext, intakeAttachments: [attachment] },
+      })
+    );
+
+    render(
+      <PipelineDetailBody
+        opportunity={opportunity}
+        activeTab="files"
+        leadAccess={readOnlyLeadAccess}
+      />
+    );
+
+    expect(childProps.tabBar).toHaveBeenLastCalledWith({ hasFiles: true });
+    expect(childProps.files).toHaveBeenLastCalledWith({
+      attachments: [attachment],
+    });
+    expect(screen.getByTestId("mock-files")).toBeInTheDocument();
   });
 
   it("loads the guarded context once and sends only its projections to detail children", () => {

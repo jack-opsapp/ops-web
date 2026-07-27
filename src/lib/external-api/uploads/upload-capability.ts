@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
-  getExternalIntakeS3Client,
+  getExternalIntakeUploadSignerS3Client,
   readExternalIntakeStorageConfig,
 } from "@/lib/external-api/uploads/s3-client";
 
@@ -111,12 +111,16 @@ export async function issueExternalUploadCapability(
     ChecksumSHA256: input.checksumSha256,
     IfNoneMatch: "*",
   });
-  const url = await getSignedUrl(getExternalIntakeS3Client(), command, {
-    expiresIn: input.expiresInSeconds,
-    signingDate: now,
-    signableHeaders: new Set(["content-type"]),
-    unhoistableHeaders: new Set(["x-amz-checksum-sha256"]),
-  });
+  const url = await getSignedUrl(
+    getExternalIntakeUploadSignerS3Client(),
+    command,
+    {
+      expiresIn: input.expiresInSeconds,
+      signingDate: now,
+      signableHeaders: new Set(["content-type"]),
+      unhoistableHeaders: new Set(["x-amz-checksum-sha256"]),
+    }
+  );
 
   const headers: Record<string, string> = {
     "content-length": String(input.contentLength),

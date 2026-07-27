@@ -11,8 +11,8 @@ const CHECKSUM_SHA256 = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=";
 beforeAll(() => {
   vi.stubEnv("EXTERNAL_INTAKE_AWS_REGION", "us-west-2");
   vi.stubEnv("EXTERNAL_INTAKE_S3_BUCKET", "ops-external-intake-test");
-  vi.stubEnv("EXTERNAL_INTAKE_AWS_ACCESS_KEY_ID", "TESTKEY");
-  vi.stubEnv("EXTERNAL_INTAKE_AWS_SECRET_ACCESS_KEY", "TESTSECRET");
+  vi.stubEnv("EXTERNAL_INTAKE_UPLOAD_AWS_ACCESS_KEY_ID", "TESTKEY");
+  vi.stubEnv("EXTERNAL_INTAKE_UPLOAD_AWS_SECRET_ACCESS_KEY", "TESTSECRET");
 });
 
 afterAll(() => {

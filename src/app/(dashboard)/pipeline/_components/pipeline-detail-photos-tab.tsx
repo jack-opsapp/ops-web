@@ -21,7 +21,11 @@ import { Camera, Loader2, Plus, X } from "lucide-react";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import type { Locale } from "@/i18n/types";
-import { type Activity, ActivityType, type Opportunity } from "@/lib/types/pipeline";
+import {
+  type Activity,
+  ActivityType,
+  type Opportunity,
+} from "@/lib/types/pipeline";
 import {
   useOpportunityActivities,
   useSiteVisits,
@@ -29,6 +33,7 @@ import {
   useRemoveOpportunityImage,
 } from "@/lib/hooks";
 import { uploadLeadPhotos } from "@/lib/api/services/lead-photo-upload";
+import type { OpportunityAssignedContextIntakeAttachment } from "@/lib/api/services/opportunity-assigned-context-service";
 
 // ── Utilities ──
 
@@ -47,8 +52,9 @@ function collectPhotos(
   leadImages: string[],
   activities: Activity[],
   siteVisits: Array<{ photos: string[]; scheduledAt: Date | string }>,
+  intakeAttachments: OpportunityAssignedContextIntakeAttachment[],
   locale: Locale,
-  t: (key: string, fallback?: string) => string,
+  t: (key: string, fallback?: string) => string
 ): PhotoRecord[] {
   const photos: PhotoRecord[] = [];
 
@@ -91,6 +97,17 @@ function collectPhotos(
     }
   }
 
+  for (const attachment of intakeAttachments) {
+    if (attachment.kind !== "image" || !attachment.previewUrl) continue;
+    const date = new Date(attachment.occurredAt);
+    dated.push({
+      url: attachment.previewUrl,
+      date,
+      source: `${t("detail.photoWebsiteSource", "Website")} — ${date.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" })}`,
+      removable: false,
+    });
+  }
+
   dated.sort((a, b) => b.date.getTime() - a.date.getTime());
   photos.push(...dated);
   return photos;
@@ -109,12 +126,36 @@ function PhotoLightbox({
   onClose: () => void;
   onNavigate: (idx: number) => void;
 }) {
+  const { t } = useDictionary("pipeline");
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
       if (e.key === "ArrowLeft" && activeIndex > 0) onNavigate(activeIndex - 1);
       if (e.key === "ArrowRight" && activeIndex < photos.length - 1)
         onNavigate(activeIndex + 1);
+      if (e.key === "Tab") {
+        const focusable = Array.from(
+          dialogRef.current?.querySelectorAll<HTMLElement>(
+            "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])"
+          ) ?? []
+        );
+        if (focusable.length === 0) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (focusable.length === 1) {
+          e.preventDefault();
+          first.focus();
+        } else if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
@@ -122,39 +163,66 @@ function PhotoLightbox({
 
   return (
     <div
+      ref={dialogRef}
       data-pipeline-detail-modal=""
-      className="fixed inset-0 z-[3000] flex items-center justify-center bg-background/80"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("detail.photoViewer", "Photo viewer")}
+      className="z-modal fixed inset-0 flex items-center justify-center bg-background/80 p-10"
       onClick={onClose}
     >
+      <button
+        type="button"
+        autoFocus
+        aria-label={t("detail.photoClose", "Close photo")}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose();
+        }}
+        className="absolute right-4 top-4 flex h-11 w-11 items-center justify-center rounded border border-border bg-fill-neutral-dim text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-active hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent motion-reduce:transition-none"
+      >
+        <X className="h-4 w-4" strokeWidth={1.75} />
+      </button>
+
       {/* Left arrow */}
       {activeIndex > 0 && (
         <button
-          onClick={(e) => { e.stopPropagation(); onNavigate(activeIndex - 1); }}
-          className="absolute left-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded border border-border bg-fill-neutral-dim text-text-2 transition-colors hover:bg-surface-active hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+          type="button"
+          aria-label={t("detail.photoPrevious", "Previous photo")}
+          onClick={(e) => {
+            e.stopPropagation();
+            onNavigate(activeIndex - 1);
+          }}
+          className="absolute left-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded border border-border bg-fill-neutral-dim text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-active hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent motion-reduce:transition-none"
         >
-          <span className="font-mono text-[14px]">&lsaquo;</span>
+          <span className="font-mono text-body-sm">&lsaquo;</span>
         </button>
       )}
 
       <img
         src={photos[activeIndex].url}
-        alt=""
-        className="max-w-[80vw] max-h-[80vh] object-contain rounded-chip"
+        alt={photos[activeIndex].source}
+        className="max-h-full max-w-full rounded-chip object-contain"
         onClick={(e) => e.stopPropagation()}
       />
 
       {/* Right arrow */}
       {activeIndex < photos.length - 1 && (
         <button
-          onClick={(e) => { e.stopPropagation(); onNavigate(activeIndex + 1); }}
-          className="absolute right-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded border border-border bg-fill-neutral-dim text-text-2 transition-colors hover:bg-surface-active hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+          type="button"
+          aria-label={t("detail.photoNext", "Next photo")}
+          onClick={(e) => {
+            e.stopPropagation();
+            onNavigate(activeIndex + 1);
+          }}
+          className="absolute right-4 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded border border-border bg-fill-neutral-dim text-text-2 transition-colors duration-150 ease-smooth hover:bg-surface-active hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent motion-reduce:transition-none"
         >
-          <span className="font-mono text-[14px]">&rsaquo;</span>
+          <span className="font-mono text-body-sm">&rsaquo;</span>
         </button>
       )}
 
       {/* Counter */}
-      <span className="absolute bottom-4 left-1/2 -translate-x-1/2 font-mono text-[11px] text-text-2">
+      <span className="absolute bottom-4 left-1/2 -translate-x-1/2 font-mono text-micro text-text-2">
         {activeIndex + 1} / {photos.length}
       </span>
     </div>
@@ -181,7 +249,7 @@ function AddPhotoTile({
   return (
     <label
       className={
-        "flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded border border-dashed border-border text-text-3 transition-colors hover:border-border-medium hover:bg-surface-hover hover:text-text-2 focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ops-accent" +
+        "flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 rounded border border-dashed border-border text-text-3 transition-colors duration-150 ease-smooth focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ops-accent hover:border-border-medium hover:bg-surface-hover hover:text-text-2 motion-reduce:transition-none" +
         (uploading ? " pointer-events-none" : "")
       }
     >
@@ -203,7 +271,7 @@ function AddPhotoTile({
         <>
           <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
           {progress && (
-            <span className="font-mono text-[11px] tabular-nums [font-feature-settings:'tnum'_1,'zero'_1]">
+            <span className="font-mono text-micro slashed-zero tabular-nums">
               {progress.done}/{progress.total}
             </span>
           )}
@@ -211,7 +279,7 @@ function AddPhotoTile({
       ) : (
         <>
           <Plus className="h-4 w-4" strokeWidth={1.75} />
-          <span className="font-mono text-micro uppercase tracking-[0.14em]">
+          <span className="font-mono text-micro uppercase tracking-widest">
             {label}
           </span>
         </>
@@ -225,11 +293,13 @@ function AddPhotoTile({
 interface PipelineDetailPhotosTabProps {
   opportunity: Opportunity;
   canManage: boolean;
+  intakeAttachments?: OpportunityAssignedContextIntakeAttachment[];
 }
 
 export function PipelineDetailPhotosTab({
   opportunity,
   canManage,
+  intakeAttachments = [],
 }: PipelineDetailPhotosTabProps) {
   const { t } = useDictionary("pipeline");
   const { locale } = useLocale();
@@ -239,9 +309,13 @@ export function PipelineDetailPhotosTab({
   const removeImage = useRemoveOpportunityImage();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [removingUrl, setRemovingUrl] = useState<string | null>(null);
+  const lightboxTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const photos = useMemo(
     () =>
@@ -249,14 +323,20 @@ export function PipelineDetailPhotosTab({
         opportunity.images,
         activities ?? [],
         siteVisits ?? [],
+        intakeAttachments,
         locale,
-        t,
+        t
       ),
-    [opportunity.images, activities, siteVisits, locale, t]
+    [opportunity.images, activities, siteVisits, intakeAttachments, locale, t]
   );
 
   const handleNavigate = useCallback((idx: number) => {
     setLightboxIndex(idx);
+  }, []);
+
+  const handleLightboxClose = useCallback(() => {
+    setLightboxIndex(null);
+    lightboxTriggerRef.current?.focus();
   }, []);
 
   const handleFiles = useCallback(
@@ -300,7 +380,9 @@ export function PipelineDetailPhotosTab({
         { id: opportunity.id, url },
         {
           onError: () =>
-            setUploadError(t("detail.photoRemoveFailed", "Failed to remove photo")),
+            setUploadError(
+              t("detail.photoRemoveFailed", "Failed to remove photo")
+            ),
           onSettled: () => setRemovingUrl(null),
         }
       );
@@ -311,8 +393,8 @@ export function PipelineDetailPhotosTab({
   if (photos.length === 0 && !canManage) {
     return (
       <div className="flex flex-col items-center justify-center py-10 text-center">
-        <Camera className="w-5 h-5 text-text-mute mb-2" />
-        <span className="font-mono text-[11px] text-text-mute">
+        <Camera className="mb-2 h-5 w-5 text-text-mute" />
+        <span className="font-mono text-micro text-text-mute">
           {t("detail.noPhotosYet")}
         </span>
       </div>
@@ -321,10 +403,7 @@ export function PipelineDetailPhotosTab({
 
   return (
     <>
-      <div
-        className="grid gap-1"
-        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(64px, 96px))" }}
-      >
+      <div className="grid grid-cols-4 gap-1">
         {canManage && (
           <AddPhotoTile
             uploading={uploading}
@@ -345,17 +424,22 @@ export function PipelineDetailPhotosTab({
               }
             >
               <button
-                onClick={() => setLightboxIndex(idx)}
+                type="button"
+                aria-label={`${t("detail.photoOpen", "Open photo")} — ${photo.source}`}
+                onClick={(event) => {
+                  lightboxTriggerRef.current = event.currentTarget;
+                  setLightboxIndex(idx);
+                }}
                 disabled={removing}
-                className="h-full w-full overflow-hidden rounded-panel border border-border transition-colors hover:border-border-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+                className="h-full w-full overflow-hidden rounded-panel border border-border transition-colors duration-150 ease-smooth hover:border-border-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent motion-reduce:transition-none"
               >
                 <img
                   src={photo.url}
                   alt=""
-                  className="w-full h-full object-cover"
+                  className="h-full w-full object-cover"
                   loading="lazy"
                 />
-                <div className="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-background/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-0.5">
+                <div className="absolute inset-x-0 bottom-0 flex h-6 items-end justify-center bg-gradient-to-t from-background/60 to-transparent pb-0.5 opacity-0 transition-opacity duration-150 ease-smooth group-hover:opacity-100 motion-reduce:transition-none">
                   <span className="font-mono text-micro text-text-2">
                     {photo.source}
                   </span>
@@ -371,7 +455,7 @@ export function PipelineDetailPhotosTab({
                     e.stopPropagation();
                     handleRemove(photo.url);
                   }}
-                  className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded bg-background/70 text-text-2 opacity-0 transition-[opacity,color] duration-150 group-hover:opacity-100 hover:text-[var(--rose)] focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+                  className="absolute right-1 top-1 flex h-11 w-11 items-center justify-center rounded bg-background/70 text-text-2 opacity-0 transition-[opacity,color] duration-150 ease-smooth hover:text-rose focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent group-hover:opacity-100 motion-reduce:transition-none"
                 >
                   <X className="h-3 w-3" strokeWidth={1.75} />
                 </button>
@@ -382,9 +466,9 @@ export function PipelineDetailPhotosTab({
       </div>
 
       {uploadError && (
-        <p className="mt-2 font-mono text-[11px] uppercase tracking-[0.14em]">
+        <p className="mt-2 font-mono text-micro uppercase tracking-widest">
           <span className="text-text-mute">{"// "}</span>
-          <span className="text-[var(--rose)]">{uploadError}</span>
+          <span className="text-rose">{uploadError}</span>
         </p>
       )}
 
@@ -392,7 +476,7 @@ export function PipelineDetailPhotosTab({
         <PhotoLightbox
           photos={photos}
           activeIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
+          onClose={handleLightboxClose}
           onNavigate={handleNavigate}
         />
       )}

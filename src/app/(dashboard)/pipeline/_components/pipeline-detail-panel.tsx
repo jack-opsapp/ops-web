@@ -42,6 +42,7 @@ import type { DetailTabId } from "./pipeline-mode-types";
 import { PipelineDetailCorrespondenceTab } from "./pipeline-detail-correspondence-tab";
 import { PipelineDetailNextSteps } from "./pipeline-detail-next-steps";
 import { PipelineDetailPhotosTab } from "./pipeline-detail-photos-tab";
+import { PipelineDetailFilesTab } from "./pipeline-detail-files-tab";
 import { PipelineDetailTabBar } from "./pipeline-detail-tab-bar";
 import { PipelineDetailTimelineTab } from "./pipeline-detail-timeline-tab";
 import { LeadMapBand } from "./lead-map-band";
@@ -92,6 +93,10 @@ export function PipelineDetailBody({
   // content so Contact/Linked can never claim "[ no contact ]" about a lead
   // whose context simply failed to load.
   const contextFailed = assignedContextQuery.isError && !contextDenied;
+  const intakeAttachments = assignedContext?.intakeAttachments ?? [];
+  const hasFiles = intakeAttachments.some(
+    (attachment) => attachment.downloadUrl.length > 0
+  );
 
   return (
     <div
@@ -121,7 +126,7 @@ export function PipelineDetailBody({
           canManage={leadAccess.canEdit}
         />
       ) : null}
-      <PipelineDetailTabBar />
+      <PipelineDetailTabBar hasFiles={hasFiles} />
 
       <div className="scrollbar-hide min-h-0 flex-1 overflow-y-auto p-3">
         {contextLoading ? (
@@ -163,7 +168,11 @@ export function PipelineDetailBody({
                   <PipelineDetailPhotosTab
                     opportunity={opportunity}
                     canManage={leadAccess.canEdit}
+                    intakeAttachments={intakeAttachments}
                   />
+                )}
+                {activeTab === "files" && hasFiles && (
+                  <PipelineDetailFilesTab attachments={intakeAttachments} />
                 )}
               </>
             )}
@@ -186,15 +195,15 @@ function DetailContextSkeleton() {
       aria-hidden="true"
       className="space-y-3"
     >
-      <div className="h-[14px] w-[120px] animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+      <div className="h-3.5 w-32 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
       <div className="space-y-1.5">
-        <div className="h-[12px] w-full animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
-        <div className="h-[12px] w-4/5 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+        <div className="h-3 w-full animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+        <div className="h-3 w-4/5 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
       </div>
-      <div className="h-[14px] w-[88px] animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+      <div className="h-3.5 w-24 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
       <div className="space-y-1.5">
-        <div className="h-[12px] w-3/5 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
-        <div className="h-[12px] w-2/5 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+        <div className="h-3 w-3/5 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
+        <div className="h-3 w-2/5 animate-pulse rounded bg-fill-neutral-dim motion-reduce:animate-none" />
       </div>
     </div>
   );
@@ -219,7 +228,7 @@ function DetailContextErrorRow({
       role="alert"
       className="mb-3 flex items-center justify-between gap-2 rounded border border-border-subtle px-2 py-1.5"
     >
-      <span className="min-w-0 truncate font-mono text-micro uppercase tracking-[0.14em] text-rose">
+      <span className="min-w-0 truncate font-mono text-micro uppercase tracking-widest text-rose">
         {t("detail.contextError", "// ERROR — COULDN'T LOAD LEAD CONTEXT")}
       </span>
       <button
@@ -228,7 +237,7 @@ function DetailContextErrorRow({
         disabled={retrying}
         className={cn(
           "shrink-0 rounded border border-glass-border px-2 py-0.5",
-          "font-mono text-micro uppercase tracking-[0.14em] text-text-2",
+          "font-mono text-micro uppercase tracking-widest text-text-2",
           "transition-colors duration-150 hover:bg-surface-hover hover:text-text",
           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
           "disabled:cursor-wait disabled:opacity-40"
@@ -314,7 +323,7 @@ export const PipelineDetailActionMenu = memo(function PipelineDetailActionMenu({
         <div
           data-pipeline-detail-action-menu
           data-keyboard-scope="modal-or-menu"
-          className="glass-dense absolute right-0 top-full z-10 mt-1 min-w-[168px] rounded-modal border border-border p-1"
+          className="glass-dense absolute right-0 top-full z-10 mt-1 min-w-44 rounded-modal border border-border p-1"
         >
           {canAdvance && (
             <ActionItem
@@ -410,7 +419,7 @@ function ActionItem({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left font-mohave text-[11px] transition-colors hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+        "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left font-mohave text-micro transition-colors hover:bg-surface-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
         destructive ? "text-ops-error" : "text-text-2"
       )}
     >

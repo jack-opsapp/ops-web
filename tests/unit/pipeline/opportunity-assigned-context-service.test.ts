@@ -123,6 +123,20 @@ function validContextResponse() {
         occurred_at: "2026-07-15T11:00:00+00:00",
       },
     ],
+    intake_attachments: [
+      {
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        filename: "site-photo.jpg",
+        kind: "image",
+        mime_type: "image/jpeg",
+        size_bytes: 1024,
+        occurred_at: "2026-07-10T10:00:00+00:00",
+        preview_url:
+          "/api/opportunities/11111111-1111-4111-8111-111111111111/intake-attachments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa?mode=preview",
+        download_url:
+          "/api/opportunities/11111111-1111-4111-8111-111111111111/intake-attachments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa?mode=download",
+      },
+    ],
   };
 }
 
@@ -173,6 +187,14 @@ describe("OpportunityAssignedContextService", () => {
       partyRole: "customer",
       isMeaningful: true,
     });
+    expect(context.intakeAttachments[0]).toMatchObject({
+      filename: "site-photo.jpg",
+      kind: "image",
+      mimeType: "image/jpeg",
+      sizeBytes: 1024,
+      previewUrl:
+        "/api/opportunities/11111111-1111-4111-8111-111111111111/intake-attachments/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa?mode=preview",
+    });
   });
 
   it("fails closed when Supabase denies the guarded read", async () => {
@@ -206,6 +228,7 @@ describe("OpportunityAssignedContextService", () => {
       deck_designs: [],
       lifecycle: null,
       correspondence: [],
+      intake_attachments: [],
     };
     rpcMock.mockResolvedValue({ data: empty, error: null });
 

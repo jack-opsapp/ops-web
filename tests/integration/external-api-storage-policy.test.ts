@@ -119,6 +119,22 @@ describe("external intake storage infrastructure policy", () => {
     expect(policy).toContain('"true"');
   });
 
+  it("gives the private worker exact-version erasure and invalidation access", () => {
+    const source = template();
+    const worker = resourceBlock(
+      source,
+      "ExternalIntakeWorkerPolicy",
+      "ExternalIntakeBucketPolicy"
+    );
+
+    expect(worker).toContain("s3:GetObjectVersion");
+    expect(worker).toContain("s3:DeleteObjectVersion");
+    expect(worker).not.toContain("- s3:DeleteObject\n");
+    expect(worker).toContain("cloudfront:CreateInvalidation");
+    expect(worker).not.toContain("cloudfront:GetInvalidation");
+    expect(worker).not.toContain("s3:ListBucket");
+  });
+
   it("delivers S3 arrivals and GuardDuty scan results to queues with DLQs", () => {
     const source = template();
 
@@ -200,11 +216,14 @@ describe("external intake storage infrastructure policy", () => {
       "EXTERNAL_INTAKE_UPLOAD_QUEUE_URL",
       "EXTERNAL_INTAKE_SCAN_QUEUE_URL",
       "EXTERNAL_INTAKE_CLOUDFRONT_DOMAIN",
+      "EXTERNAL_INTAKE_CLOUDFRONT_DISTRIBUTION_ID",
       "EXTERNAL_INTAKE_CLOUDFRONT_KEY_PAIR_ID",
       "EXTERNAL_INTAKE_CLOUDFRONT_PRIVATE_KEY",
     ]) {
       expect(source).toContain(name);
     }
+    expect(source).toContain("ExternalIntakeUploadSignerUserName");
+    expect(source).toContain("ExternalIntakeWorkerUserName");
     expect(source).not.toContain("BEGIN PRIVATE KEY");
     expect(source).not.toContain("SecretAccessKey:");
   });

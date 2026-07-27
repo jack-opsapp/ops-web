@@ -17729,6 +17729,90 @@ export type Database = {
         }
         Returns: Json
       }
+      resolve_external_intake_attachment_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_mode: string
+          p_opportunity_id: string
+          p_public_upload_id: string
+        }
+        Returns: Json
+      }
+      list_project_intake_files: {
+        Args: { p_project_id: string }
+        Returns: Json
+      }
+      claim_external_intake_project_file_projections_as_system: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          company_id: string
+          id: string
+          intent_id: string
+          lease_generation: number
+          lease_token: string
+          opportunity_id: string
+          project_id: string
+          submission_id: string
+        }[]
+      }
+      finish_external_intake_project_file_projection_as_system: {
+        Args: {
+          p_available_at?: string | null
+          p_generation: number
+          p_job_id: string
+          p_lease_token: string
+          p_outcome: string
+          p_safe_code?: string | null
+          p_worker_id: string
+        }
+        Returns: Json
+      }
+      request_external_intake_erasure_as_system: {
+        Args: {
+          p_authority: string
+          p_reason: string
+          p_requested_by_user_id: string
+          p_submission_id: string
+        }
+        Returns: Json
+      }
+      claim_external_intake_erasures_as_system: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          company_id: string
+          id: string
+          invalidation_paths: Json
+          invalidation_reference: string | null
+          lease_generation: number
+          lease_token: string
+          opportunity_id: string
+          storage_objects: Json
+          submission_id: string
+        }[]
+      }
+      finish_external_intake_erasure_as_system: {
+        Args: {
+          p_available_at?: string | null
+          p_erasure_id: string
+          p_generation: number
+          p_invalidation_reference?: string | null
+          p_lease_token: string
+          p_outcome: string
+          p_safe_code?: string | null
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
       claim_external_intake_post_commit_outbox_as_system: {
         Args: {
           p_lease_seconds: number

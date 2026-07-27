@@ -254,6 +254,29 @@ const correspondenceSchema = z
     occurredAt: value.occurred_at,
   }));
 
+const intakeAttachmentSchema = z
+  .object({
+    id: uuidSchema,
+    filename: z.string().min(1).max(255),
+    kind: z.enum(["image", "document"]),
+    mime_type: z.string().min(1).max(255),
+    size_bytes: z.number().int().positive(),
+    occurred_at: timestampSchema,
+    preview_url: z.string().startsWith("/api/opportunities/").nullable(),
+    download_url: z.string().startsWith("/api/opportunities/"),
+  })
+  .strict()
+  .transform((value) => ({
+    id: value.id,
+    filename: value.filename,
+    kind: value.kind,
+    mimeType: value.mime_type,
+    sizeBytes: value.size_bytes,
+    occurredAt: value.occurred_at,
+    previewUrl: value.preview_url,
+    downloadUrl: value.download_url,
+  }));
+
 const assignedContextSchema = z
   .object({
     lead: leadSchema,
@@ -265,6 +288,7 @@ const assignedContextSchema = z
     deck_designs: z.array(deckDesignSchema),
     lifecycle: lifecycleSchema.nullable(),
     correspondence: z.array(correspondenceSchema),
+    intake_attachments: z.array(intakeAttachmentSchema),
   })
   .strict()
   .transform((value) => ({
@@ -277,6 +301,7 @@ const assignedContextSchema = z
     deckDesigns: value.deck_designs,
     lifecycle: value.lifecycle,
     correspondence: value.correspondence,
+    intakeAttachments: value.intake_attachments,
   }));
 
 export type OpportunityAssignedContext = z.infer<typeof assignedContextSchema>;
@@ -293,6 +318,8 @@ export type OpportunityAssignedContextSiteVisit =
   OpportunityAssignedContext["siteVisits"][number];
 export type OpportunityAssignedContextCorrespondence =
   OpportunityAssignedContext["correspondence"][number];
+export type OpportunityAssignedContextIntakeAttachment =
+  OpportunityAssignedContext["intakeAttachments"][number];
 
 export type OpportunityAssignedContextErrorCode =
   | "invalid_request"

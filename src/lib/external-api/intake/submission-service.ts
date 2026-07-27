@@ -17,7 +17,7 @@ import {
 } from "../contracts/intake";
 import { decodeOpaqueUuid, encodeOpaqueUuid } from "../contracts/opaque-id";
 import {
-  getExternalIntakeS3Client,
+  getExternalIntakeWorkerS3Client,
   readExternalIntakeStorageConfig,
 } from "../uploads/s3-client";
 import {
@@ -228,7 +228,7 @@ async function headExternalIntakeObject(input: {
 }): Promise<ExternalIntakeObjectHead | null> {
   const config = readExternalIntakeStorageConfig();
   try {
-    const result = await getExternalIntakeS3Client().send(
+    const result = await getExternalIntakeWorkerS3Client().send(
       new HeadObjectCommand({
         Bucket: config.bucket,
         Key: input.objectKey,

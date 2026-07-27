@@ -8,7 +8,7 @@ import {
 import { z } from "zod";
 
 import {
-  getExternalIntakeAwsCredentials,
+  getExternalIntakeWorkerCredentials,
   readExternalIntakeStorageConfig,
 } from "./s3-client";
 
@@ -210,7 +210,7 @@ function getSqsClient(): SQSClient {
   const config = readExternalIntakeStorageConfig();
   externalIntakeSqsClient = new SQSClient({
     region: config.region,
-    credentials: getExternalIntakeAwsCredentials(),
+    credentials: getExternalIntakeWorkerCredentials(),
   });
   return externalIntakeSqsClient;
 }
