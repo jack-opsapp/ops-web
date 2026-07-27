@@ -80,10 +80,12 @@ import {
 import {
   applyInboundEffectiveSenderIdentity,
   buildLeadRoutingIdentity,
+  extractExternalIntakeEmailCorrelationMarker,
   resolvePersistedEmailDirection,
   type IngestionOperatorIdentity,
   type LeadRoutingIdentity,
 } from "@/lib/email/email-ingestion-routing";
+import { resolveExternalIntakeEmailCorrelation } from "@/lib/external-api/intake/email-correlation-routing";
 import {
   logInvalidProviderEmailIds,
   validateProviderEmailIds,
@@ -3422,6 +3424,62 @@ async function processInboundEmail(
     throw new Error(
       `[sync-engine] contact hygiene failed: ${err instanceof Error ? err.message : "unknown error"}`
     );
+  }
+
+  // A website-created lead may carry an authenticated, mailbox-bound marker in
+  // the platform's real notification email. Resolve it before every generic
+  // thread/contact matcher. The marker is only a capability to revalidate the
+  // immutable submission mapping; public lead/submission handles have no
+  // routing authority.
+  const externalIntakeCorrelation = await resolveExternalIntakeEmailCorrelation(
+    {
+      marker: extractExternalIntakeEmailCorrelationMarker(email),
+      companyId: connection.companyId,
+      mailboxId: connection.id,
+    }
+  );
+  if (externalIntakeCorrelation) {
+    await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: externalIntakeCorrelation.opportunityId,
+      clientId: externalIntakeCorrelation.clientId,
+      facts: inboundEnrichmentFacts,
+      companyId: connection.companyId,
+    });
+    const activityPersistence = await createOrAdoptInboundActivity({
+      email: effectiveEmail,
+      connection,
+      opportunityId: externalIntakeCorrelation.opportunityId,
+      extra: {
+        matchConfidence: "external_intake_marker",
+        skipThreadState: true,
+      },
+      executionPolicy,
+      existingOrphanActivity,
+      recoveryActorUserId,
+      syncLockOwner,
+      contactFormRecipient: contactFormSubmitter?.email ?? null,
+    });
+    if (!activityPersistence.persisted) return null;
+    await updateCorrespondenceCounts(
+      externalIntakeCorrelation.opportunityId,
+      effectiveEmail,
+      connection,
+      followUpDaysCache,
+      result
+    );
+    await applyLabel(
+      email.threadId,
+      email.id,
+      connection,
+      result,
+      providerLockCheckpoint,
+      syncLockOwner,
+      executionPolicy
+    );
+    if (activityPersistence.created) result.activitiesCreated++;
+    result.matched++;
+    return null;
   }
 
   // Thread inheritance — is this thread already linked to an OPS lead?

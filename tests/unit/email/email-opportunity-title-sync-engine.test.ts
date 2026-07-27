@@ -28,6 +28,7 @@ const {
   enqueueIfEnabledMock,
   phaseCRouteMock,
   createClassifiedEmailThreadNotificationsMock,
+  resolveExternalIntakeEmailCorrelationMock,
 } = vi.hoisted(() => ({
   getConnectionMock: vi.fn(),
   getProviderMock: vi.fn(),
@@ -51,6 +52,7 @@ const {
   })),
   phaseCRouteMock: vi.fn(),
   createClassifiedEmailThreadNotificationsMock: vi.fn(),
+  resolveExternalIntakeEmailCorrelationMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api/services/email-service", () => ({
@@ -125,6 +127,11 @@ vi.mock("@/lib/api/services/phase-c-autonomy-router", () => ({
 vi.mock("@/lib/email/email-opportunity-notification", () => ({
   createClassifiedEmailThreadNotifications:
     createClassifiedEmailThreadNotificationsMock,
+}));
+
+vi.mock("@/lib/external-api/intake/email-correlation-routing", () => ({
+  resolveExternalIntakeEmailCorrelation:
+    resolveExternalIntakeEmailCorrelationMock,
 }));
 
 vi.mock("next/server", async () => {
@@ -1706,6 +1713,8 @@ describe("SyncEngine email opportunity title generation", () => {
     afterMock.mockReset();
     phaseCRouteMock.mockReset();
     createClassifiedEmailThreadNotificationsMock.mockReset();
+    resolveExternalIntakeEmailCorrelationMock.mockReset();
+    resolveExternalIntakeEmailCorrelationMock.mockResolvedValue(null);
     enqueueIfEnabledMock.mockClear();
     enqueueIfEnabledMock.mockResolvedValue({
       enqueued: true,
@@ -3599,6 +3608,86 @@ To: Kara Beach <kara.beach@example.com>`,
       opportunity_id: "opp-1",
     });
     expect(upsertFromEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("links the real website notification to its authenticated intake lead before generic matching", async () => {
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-intake",
+          company_id: "company-1",
+          name: "Marcel Mercier",
+          email: "marcel.mercier@example.com",
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-intake",
+          company_id: "company-1",
+          client_id: "client-intake",
+          client_ref: null,
+          title: "Marcel Mercier — Website Inquiry",
+          stage: "new_lead",
+          deleted_at: null,
+          archived_at: null,
+          correspondence_count: 0,
+          inbound_count: 0,
+          outbound_count: 0,
+          assignment_version: 0,
+        },
+      ],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    resolveExternalIntakeEmailCorrelationMock.mockResolvedValue({
+      opportunityId: "opp-intake",
+      clientId: "client-intake",
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-intake-notification",
+            threadId: "thread-platform-shared",
+            from: "Canpro Deck and Rail <notifications@wix-forms.com>",
+            fromName: "Canpro Deck and Rail",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Contact Us 3 got a new submission",
+            bodyText: `${contactFormBody}\n\nemc_${"A".repeat(95)}`,
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(result.matched).toBe(1);
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.activities).toContainEqual(
+      expect.objectContaining({
+        email_message_id: "msg-intake-notification",
+        email_thread_id: "thread-platform-shared",
+        opportunity_id: "opp-intake",
+        match_confidence: "external_intake_marker",
+      })
+    );
+    expect(state.threadLinks).toHaveLength(0);
+    expect(upsertFromEmailMock).not.toHaveBeenCalled();
+    expect(resolveExternalIntakeEmailCorrelationMock).toHaveBeenCalledWith({
+      marker: `emc_${"A".repeat(95)}`,
+      companyId: "company-1",
+      mailboxId: "connection-1",
+    });
   });
 
   it("uses the nested customer identity for a generic office forward", async () => {

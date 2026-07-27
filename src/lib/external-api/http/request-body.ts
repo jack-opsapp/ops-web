@@ -86,11 +86,11 @@ async function readBoundedBytes(
   return body;
 }
 
-export async function readBoundedJson<T>(
+export async function readBoundedJson<TSchema extends z.ZodTypeAny>(
   request: Request,
-  schema: z.ZodType<T>,
+  schema: TSchema,
   maxBytes = MAX_JSON_BODY_BYTES
-): Promise<T> {
+): Promise<z.output<TSchema>> {
   requireJsonContentType(request);
   const bytes = await readBoundedBytes(request, maxBytes);
 
@@ -121,5 +121,5 @@ export async function readBoundedJson<T>(
       "The JSON request body does not match the endpoint contract."
     );
   }
-  return parsed.data;
+  return parsed.data as z.output<TSchema>;
 }

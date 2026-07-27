@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildLeadRoutingIdentity,
   canonicalizeProviderThreadId,
+  extractExternalIntakeEmailCorrelationMarker,
   resolvePersistedEmailDirection,
 } from "@/lib/email/email-ingestion-routing";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
@@ -33,6 +34,41 @@ const operator = {
   userEmailAddresses: ["jackson@canprodeckandrail.com"],
   companyDomains: ["canprodeckandrail.com"],
 };
+
+describe("extractExternalIntakeEmailCorrelationMarker", () => {
+  const marker = `emc_${"A".repeat(95)}`;
+
+  it("extracts one encrypted marker from the immutable message body", () => {
+    expect(
+      extractExternalIntakeEmailCorrelationMarker(
+        email({ bodyText: `Website inquiry\n${marker}\n`, snippet: "" })
+      )
+    ).toBe(marker);
+  });
+
+  it("rejects repeated or conflicting markers", () => {
+    expect(
+      extractExternalIntakeEmailCorrelationMarker(
+        email({ bodyText: `${marker}\n${marker}` })
+      )
+    ).toBeNull();
+    expect(
+      extractExternalIntakeEmailCorrelationMarker(
+        email({ bodyText: `${marker}\nemc_${"B".repeat(95)}` })
+      )
+    ).toBeNull();
+  });
+
+  it("never treats public lead or submission handles as correlation authority", () => {
+    expect(
+      extractExternalIntakeEmailCorrelationMarker(
+        email({
+          bodyText: "sub_ABEiM0RVZneImaq7zN3u_w lead_ABEiM0RVZneImaq7zN3u_w",
+        })
+      )
+    ).toBeNull();
+  });
+});
 
 describe("resolvePersistedEmailDirection", () => {
   it("classifies the connected mailbox's own message as outbound even in the inbox bucket", () => {

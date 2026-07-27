@@ -17663,6 +17663,56 @@ export type Database = {
         }
         Returns: Json
       }
+      get_external_intake_config_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_method: string
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_route: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      get_external_intake_submission_status_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_method: string
+          p_principal_id: string
+          p_public_submission_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_route: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      list_external_intake_email_correlation_sources_as_system: {
+        Args: {
+          p_company_id: string
+          p_mailbox_id: string
+        }
+        Returns: string[]
+      }
+      resolve_external_intake_email_correlation_as_system: {
+        Args: {
+          p_company_id: string
+          p_mailbox_id: string
+          p_opportunity_id: string
+          p_source_id: string
+          p_submission_id: string
+        }
+        Returns: Json
+      }
       resolve_external_intake_submission_context_as_system: {
         Args: {
           p_authorization_epoch: number
@@ -17678,6 +17728,35 @@ export type Database = {
           p_visible_prefix: string
         }
         Returns: Json
+      }
+      claim_external_intake_post_commit_outbox_as_system: {
+        Args: {
+          p_lease_seconds: number
+          p_limit: number
+          p_worker_id: string
+        }
+        Returns: {
+          company_id: string
+          lease_token: string
+          opportunity_id: string
+          original_context: Json
+          outbox_id: string
+        }[]
+      }
+      complete_external_intake_post_commit_outbox_as_system: {
+        Args: {
+          p_lease_token: string
+          p_outbox_id: string
+        }
+        Returns: boolean
+      }
+      retry_external_intake_post_commit_outbox_as_system: {
+        Args: {
+          p_error_code: string
+          p_lease_token: string
+          p_outbox_id: string
+        }
+        Returns: boolean
       }
       abandon_external_intake_delivery_as_system: {
         Args: {

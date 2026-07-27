@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const runMaintenance = vi.fn();
+const processOutbox = vi.fn();
 let leaseHeld = false;
 
 vi.mock("@/lib/supabase/server-client", () => ({
@@ -10,6 +11,11 @@ vi.mock("@/lib/supabase/server-client", () => ({
 
 vi.mock("@/lib/external-api/uploads/attachment-runtime", () => ({
   runExternalIntakeMaintenance: (...args: unknown[]) => runMaintenance(...args),
+}));
+
+vi.mock("@/lib/external-api/intake/outbox-worker", () => ({
+  processExternalIntakeOutboxBatch: (...args: unknown[]) =>
+    processOutbox(...args),
 }));
 
 vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
@@ -34,6 +40,7 @@ describe("external API maintenance cron", () => {
     process.env.CRON_SECRET = "secret";
     leaseHeld = false;
     runMaintenance.mockReset();
+    processOutbox.mockReset();
     runMaintenance.mockResolvedValue({
       eventsRecorded: 2,
       inspectionsClaimed: 1,
@@ -47,6 +54,12 @@ describe("external API maintenance cron", () => {
       credentialsRetired: 1,
       errors: [],
     });
+    processOutbox.mockResolvedValue({
+      claimed: 2,
+      completed: 2,
+      requeued: 0,
+      errors: [],
+    });
   });
 
   it("rejects unauthorized work before touching storage or the database", async () => {
@@ -56,6 +69,7 @@ describe("external API maintenance cron", () => {
 
     expect(response.status).toBe(401);
     expect(runMaintenance).not.toHaveBeenCalled();
+    expect(processOutbox).not.toHaveBeenCalled();
   });
 
   it("runs one bounded, leased maintenance slice and returns counts only", async () => {
@@ -77,6 +91,9 @@ describe("external API maintenance cron", () => {
       cleanupRetrying: 0,
       expired: 0,
       credentialsRetired: 1,
+      outboxClaimed: 2,
+      outboxCompleted: 2,
+      outboxRetrying: 0,
     });
     expect(runMaintenance).toHaveBeenCalledWith(
       { role: "service" },
@@ -84,6 +101,13 @@ describe("external API maintenance cron", () => {
         eventLimit: expect.any(Number),
         inspectionLimit: expect.any(Number),
         cleanupLimit: expect.any(Number),
+      })
+    );
+    expect(processOutbox).toHaveBeenCalledWith(
+      expect.objectContaining({
+        limit: expect.any(Number),
+        leaseSeconds: expect.any(Number),
+        workerId: "external-api-maintenance",
       })
     );
   });
@@ -101,6 +125,7 @@ describe("external API maintenance cron", () => {
       reason: "already_running",
     });
     expect(runMaintenance).not.toHaveBeenCalled();
+    expect(processOutbox).not.toHaveBeenCalled();
   });
 
   it("does not return object keys, filenames, or provider detail", async () => {

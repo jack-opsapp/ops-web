@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
+import { processExternalIntakeOutboxBatch } from "@/lib/external-api/intake/outbox-worker";
 import { runExternalIntakeMaintenance } from "@/lib/external-api/uploads/attachment-runtime";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
@@ -40,13 +41,20 @@ export async function GET(request: NextRequest) {
       supabase,
       workloadKey: "external-api-maintenance",
       leaseSeconds: 300,
-      work: () =>
-        runExternalIntakeMaintenance(supabase, {
+      work: async () => {
+        const maintenance = await runExternalIntakeMaintenance(supabase, {
           eventLimit: 10,
           inspectionLimit: 5,
           cleanupLimit: 5,
           leaseSeconds: 360,
-        }),
+        });
+        const outbox = await processExternalIntakeOutboxBatch({
+          limit: 10,
+          leaseSeconds: 360,
+          workerId: "external-api-maintenance",
+        });
+        return { maintenance, outbox };
+      },
     });
 
     if (controlled.status === "skipped") {
@@ -63,22 +71,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const value = controlled.value;
-    const ok = value.errors.length === 0;
+    const { maintenance, outbox } = controlled.value;
+    const ok = maintenance.errors.length === 0 && outbox.errors.length === 0;
     return NextResponse.json(
       {
         ok,
         ran: true,
-        eventsRecorded: value.eventsRecorded,
-        inspectionsClaimed: value.inspectionsClaimed,
-        accepted: value.accepted,
-        rejected: value.rejected,
-        retrying: value.retrying,
-        cleanupsClaimed: value.cleanupsClaimed,
-        cleanupsCompleted: value.cleanupsCompleted,
-        cleanupRetrying: value.cleanupRetrying,
-        expired: value.expired,
-        credentialsRetired: value.credentialsRetired,
+        eventsRecorded: maintenance.eventsRecorded,
+        inspectionsClaimed: maintenance.inspectionsClaimed,
+        accepted: maintenance.accepted,
+        rejected: maintenance.rejected,
+        retrying: maintenance.retrying,
+        cleanupsClaimed: maintenance.cleanupsClaimed,
+        cleanupsCompleted: maintenance.cleanupsCompleted,
+        cleanupRetrying: maintenance.cleanupRetrying,
+        expired: maintenance.expired,
+        credentialsRetired: maintenance.credentialsRetired,
+        outboxClaimed: outbox.claimed,
+        outboxCompleted: outbox.completed,
+        outboxRetrying: outbox.requeued,
       },
       { status: ok ? 200 : 503 }
     );

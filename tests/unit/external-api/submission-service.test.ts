@@ -16,6 +16,7 @@ const UPLOAD_UUID = "10000000-0000-4000-8000-000000000006";
 const SUBMISSION_UUID = "10000000-0000-4000-8000-000000000007";
 const LEAD_UUID = "10000000-0000-4000-8000-000000000008";
 const AUDIT_REQUEST_ID = "10000000-0000-4000-8000-000000000009";
+const MAILBOX_UUID = "10000000-0000-4000-8000-000000000010";
 const NOW = "2026-07-26T22:00:00.000Z";
 
 function opaque(prefix: string, uuid: string): string {
@@ -122,6 +123,7 @@ const commandResult = {
       safe_code: null,
     },
   ],
+  email_correlation: null,
 };
 
 describe("external intake submission service", () => {
@@ -185,7 +187,7 @@ describe("external intake submission service", () => {
         p_observed_checksum_sha256: `\\x${"07".repeat(32)}`,
       })
     );
-    expect(result).toEqual({
+    expect(result.result).toEqual({
       publicSubmissionId: opaque("sub", SUBMISSION_UUID),
       publicLeadId: opaque("lead", LEAD_UUID),
       customerOutcome: "created",
@@ -247,6 +249,103 @@ describe("external intake submission service", () => {
     );
   });
 
+  it("returns an authenticated marker only for the mailbox binding supplied by the command", async () => {
+    rpc.mockImplementation((name: string) => {
+      if (name === "resolve_external_intake_submission_context_as_system") {
+        return Promise.resolve({ data: context, error: null });
+      }
+      if (name === "record_external_intake_object_event_as_system") {
+        return Promise.resolve({ data: { status: "recorded" }, error: null });
+      }
+      if (name === "create_external_intake_submission_as_system") {
+        return Promise.resolve({
+          data: {
+            ...commandResult,
+            email_correlation: {
+              company_id: COMPANY_ID,
+              mailbox_id: MAILBOX_UUID,
+              source_id: SOURCE_UUID,
+              submission_id: SUBMISSION_UUID,
+              lead_id: LEAD_UUID,
+            },
+          },
+          error: null,
+        });
+      }
+      throw new Error(`Unexpected RPC ${name}`);
+    });
+
+    const result = await createExternalIntakeSubmission(
+      {
+        actor,
+        auditRequestId: AUDIT_REQUEST_ID,
+        requestReceivedAt: NOW,
+        idempotencyKey: "submission-request-42",
+        requestedOrigin: null,
+        submission,
+      },
+      {
+        ...dependencies(),
+        emailCorrelationKeyRing: {
+          activeKid: 1,
+          keys: new Map([[1, Buffer.alloc(32, 11)]]),
+        },
+        emailCorrelationNonceSource: () => Buffer.alloc(12, 12),
+      }
+    );
+
+    expect(result.result.emailCorrelationMarker).toMatch(
+      /^emc_[A-Za-z0-9_-]+$/
+    );
+    expect(result.result).not.toHaveProperty("mailboxId");
+    expect(result.result).not.toHaveProperty("sourceId");
+  });
+
+  it("fails safely after commit when a required correlation key is unavailable", async () => {
+    rpc.mockImplementation((name: string) => {
+      if (name === "resolve_external_intake_submission_context_as_system") {
+        return Promise.resolve({ data: context, error: null });
+      }
+      if (name === "record_external_intake_object_event_as_system") {
+        return Promise.resolve({ data: { status: "recorded" }, error: null });
+      }
+      if (name === "create_external_intake_submission_as_system") {
+        return Promise.resolve({
+          data: {
+            ...commandResult,
+            email_correlation: {
+              company_id: COMPANY_ID,
+              mailbox_id: MAILBOX_UUID,
+              source_id: SOURCE_UUID,
+              submission_id: SUBMISSION_UUID,
+              lead_id: LEAD_UUID,
+            },
+          },
+          error: null,
+        });
+      }
+      throw new Error(`Unexpected RPC ${name}`);
+    });
+
+    await expect(
+      createExternalIntakeSubmission(
+        {
+          actor,
+          auditRequestId: AUDIT_REQUEST_ID,
+          requestReceivedAt: NOW,
+          idempotencyKey: "submission-request-42",
+          requestedOrigin: null,
+          submission,
+        },
+        dependencies()
+      )
+    ).rejects.toMatchObject({ code: "temporarily_unavailable" });
+    expect(rpc).toHaveBeenCalledWith(
+      "create_external_intake_submission_as_system",
+      expect.any(Object)
+    );
+  });
+
   it("does not fail a lead when an object is truly absent", async () => {
     headObject.mockResolvedValue(null);
 
@@ -271,7 +370,7 @@ describe("external intake submission service", () => {
         ([name]) => name === "create_external_intake_submission_as_system"
       )
     ).toBe(true);
-    expect(result.publicLeadId).toBe(opaque("lead", LEAD_UUID));
+    expect(result.result.publicLeadId).toBe(opaque("lead", LEAD_UUID));
   });
 
   it("fails closed before the command when HEAD evidence mismatches the intent", async () => {

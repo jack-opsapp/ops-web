@@ -559,6 +559,262 @@ begin
 end;
 $check$;
 
+-- config_and_status_are_principal_scoped
+do $check$
+declare
+  v_fixture external_lead_intake_contract_fixture%rowtype;
+  v_created jsonb;
+  v_config jsonb;
+  v_status jsonb;
+  v_other_credential jsonb;
+  v_other_status jsonb;
+begin
+  select * into strict v_fixture
+  from external_lead_intake_contract_fixture;
+
+  v_created := pg_temp.submit_external_inquiry(
+    'e3000000-0000-4000-8000-000000001011',
+    decode(repeat('49', 32), 'hex'),
+    null,
+    decode(repeat('59', 32), 'hex'),
+    'Status Contact',
+    'status@example.invalid',
+    null,
+    null,
+    'Status inquiry'
+  );
+
+  v_config := public.get_external_intake_config_as_system(
+    'e3000000-0000-4000-8000-000000001012',
+    v_fixture.principal_id,
+    v_fixture.credential_id,
+    v_fixture.company_id,
+    1::smallint,
+    decode(repeat('33', 32), 'hex'),
+    'opsxint1',
+    v_fixture.authorization_epoch,
+    '/v1/intake/config',
+    'GET',
+    clock_timestamp()
+  );
+  if v_config ->> 'status' <> 'ready'
+    or jsonb_array_length(v_config -> 'sources') <> 1
+    or v_config #>> '{sources,0,public_source_id}'
+      is distinct from v_fixture.source_id::text
+    or v_config #>> '{sources,0,forms,0,public_form_id}'
+      is distinct from v_fixture.form_id::text
+  then
+    raise exception 'config_and_status_are_principal_scoped config failed';
+  end if;
+
+  v_status := public.get_external_intake_submission_status_as_system(
+    'e3000000-0000-4000-8000-000000001013',
+    v_fixture.principal_id,
+    v_fixture.credential_id,
+    v_fixture.company_id,
+    1::smallint,
+    decode(repeat('33', 32), 'hex'),
+    'opsxint1',
+    v_fixture.authorization_epoch,
+    (v_created ->> 'public_submission_id')::uuid,
+    '/v1/intake/submissions/{publicSubmissionId}',
+    'GET',
+    clock_timestamp()
+  );
+  if v_status ->> 'status' <> 'found'
+    or v_status ->> 'public_lead_id'
+      is distinct from v_created ->> 'public_lead_id'
+    or (v_status ->> 'attachment_processing_terminal')::boolean is not true
+    or v_status -> 'poll_after_seconds' <> 'null'::jsonb
+  then
+    raise exception 'config_and_status_are_principal_scoped status failed';
+  end if;
+
+  v_other_credential := public.create_external_api_credential_as_system(
+    'e3000000-0000-4000-8000-000000000101',
+    'Other intake contract key',
+    'intake',
+    array['intake.write']::text[],
+    array[v_fixture.source_id]::uuid[],
+    1::smallint,
+    decode(repeat('34', 32), 'hex'),
+    'opsxint2',
+    clock_timestamp() + interval '1 day'
+  );
+  v_other_status := public.get_external_intake_submission_status_as_system(
+    'e3000000-0000-4000-8000-000000001014',
+    (v_other_credential ->> 'principalId')::uuid,
+    (v_other_credential ->> 'credentialId')::uuid,
+    v_fixture.company_id,
+    1::smallint,
+    decode(repeat('34', 32), 'hex'),
+    'opsxint2',
+    (v_other_credential ->> 'authorizationEpoch')::bigint,
+    (v_created ->> 'public_submission_id')::uuid,
+    '/v1/intake/submissions/{publicSubmissionId}',
+    'GET',
+    clock_timestamp()
+  );
+  if v_other_status ->> 'status' <> 'not_found' then
+    raise exception 'config_and_status_are_principal_scoped isolation failed';
+  end if;
+
+  if not exists (
+    select 1
+    from private.external_api_request_audit audit
+    where audit.request_id in (
+      'e3000000-0000-4000-8000-000000001012'::uuid,
+      'e3000000-0000-4000-8000-000000001013'::uuid,
+      'e3000000-0000-4000-8000-000000001014'::uuid
+    )
+    group by audit.company_id
+    having count(*) = 3
+  ) then
+    raise exception 'config_and_status_are_principal_scoped audit failed';
+  end if;
+
+  insert into external_lead_intake_contract_results
+  values ('config_and_status_are_principal_scoped', true, null);
+end;
+$check$;
+
+-- post_commit_outbox_is_leased_and_context_bounded
+do $check$
+declare
+  v_claim record;
+  v_claimed integer := 0;
+begin
+  for v_claim in
+    select *
+    from public.claim_external_intake_post_commit_outbox_as_system(
+      'external-intake-contract',
+      25,
+      300
+    )
+  loop
+    v_claimed := v_claimed + 1;
+    if v_claim.original_context is null
+      or jsonb_typeof(v_claim.original_context -> 'work') <> 'object'
+      or jsonb_typeof(v_claim.original_context -> 'serviceAddress') <> 'object'
+      or jsonb_typeof(v_claim.original_context -> 'answers') <> 'array'
+      or v_claim.original_context ->> 'occurredAt' is null
+      or v_claim.original_context ? 'contact'
+      or not public.complete_external_intake_post_commit_outbox_as_system(
+        v_claim.outbox_id,
+        v_claim.lease_token
+      )
+      or public.complete_external_intake_post_commit_outbox_as_system(
+        v_claim.outbox_id,
+        v_claim.lease_token
+      )
+    then
+      raise exception 'post_commit_outbox_is_leased_and_context_bounded failed';
+    end if;
+  end loop;
+
+  if v_claimed < 1 then
+    raise exception 'post_commit_outbox_is_leased_and_context_bounded empty';
+  end if;
+  insert into external_lead_intake_contract_results
+  values ('post_commit_outbox_is_leased_and_context_bounded', true, null);
+end;
+$check$;
+
+-- email_correlation_is_mailbox_bound_and_mapping_checked
+do $check$
+declare
+  v_fixture external_lead_intake_contract_fixture%rowtype;
+  v_created jsonb;
+  v_submission private.external_intake_submissions%rowtype;
+  v_sources uuid[];
+  v_resolution jsonb;
+begin
+  select * into strict v_fixture
+  from external_lead_intake_contract_fixture;
+
+  insert into public.email_connections (
+    id, company_id, type, status
+  ) values (
+    'e3000000-0000-4000-8000-000000000901',
+    v_fixture.company_id::text,
+    'company',
+    'active'
+  );
+
+  v_created := pg_temp.submit_external_inquiry(
+    'e3000000-0000-4000-8000-000000001015',
+    decode(repeat('4a', 32), 'hex'),
+    null,
+    decode(repeat('5a', 32), 'hex'),
+    'Correlation Contact',
+    'correlation@example.invalid',
+    null,
+    null,
+    'Correlation inquiry'
+  );
+  if v_created #>> '{email_correlation,mailbox_id}'
+    is distinct from 'e3000000-0000-4000-8000-000000000901'
+  then
+    raise exception
+      'email_correlation_is_mailbox_bound_and_mapping_checked issue failed';
+  end if;
+
+  select submission.* into strict v_submission
+  from private.external_intake_submissions submission
+  where submission.public_submission_id
+    = (v_created ->> 'public_submission_id')::uuid;
+
+  v_sources :=
+    public.list_external_intake_email_correlation_sources_as_system(
+      v_fixture.company_id,
+      'e3000000-0000-4000-8000-000000000901'
+    );
+  if cardinality(v_sources) <> 1
+    or not (v_submission.source_id = any(v_sources))
+  then
+    raise exception
+      'email_correlation_is_mailbox_bound_and_mapping_checked sources failed';
+  end if;
+
+  v_resolution :=
+    public.resolve_external_intake_email_correlation_as_system(
+      v_fixture.company_id,
+      'e3000000-0000-4000-8000-000000000901',
+      v_submission.source_id,
+      v_submission.id,
+      v_submission.opportunity_id
+    );
+  if v_resolution ->> 'status' <> 'found'
+    or v_resolution ->> 'opportunity_id'
+      is distinct from v_submission.opportunity_id::text
+    or v_resolution ->> 'client_id'
+      is distinct from v_submission.matched_client_id::text
+  then
+    raise exception
+      'email_correlation_is_mailbox_bound_and_mapping_checked resolve failed';
+  end if;
+
+  if public.resolve_external_intake_email_correlation_as_system(
+    v_fixture.company_id,
+    'e3000000-0000-4000-8000-000000000902',
+    v_submission.source_id,
+    v_submission.id,
+    v_submission.opportunity_id
+  ) ->> 'status' <> 'not_found'
+  then
+    raise exception
+      'email_correlation_is_mailbox_bound_and_mapping_checked isolation failed';
+  end if;
+
+  insert into external_lead_intake_contract_results
+  values (
+    'email_correlation_is_mailbox_bound_and_mapping_checked',
+    true,
+    null
+  );
+end;
+$check$;
+
 do $verification$
 declare
   v_expected constant text[] := array[
@@ -568,7 +824,10 @@ declare
     'same_identity_creates_two_leads_one_customer',
     'sub_client_match_preserves_parent',
     'created_possible_duplicate',
-    'uploads_commit_with_submission'
+    'uploads_commit_with_submission',
+    'config_and_status_are_principal_scoped',
+    'post_commit_outbox_is_leased_and_context_bounded',
+    'email_correlation_is_mailbox_bound_and_mapping_checked'
   ];
 begin
   if exists (

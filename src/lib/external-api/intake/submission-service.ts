@@ -24,6 +24,7 @@ import {
   canonicalizeSubmission,
   normalizeAttributionUrl,
 } from "./canonicalize";
+import { commitExternalApiAuditBase } from "../security/audit";
 import {
   canonicalizeContactIdentity,
   normalizeValidatedEmail,
@@ -39,6 +40,11 @@ import {
   readAttributionHmacKeyRing,
   type AttributionDimension,
 } from "./source-attribution";
+import {
+  readEmailCorrelationKeyRing,
+  sealEmailCorrelationMarker,
+  type EmailCorrelationKeyRing,
+} from "./email-correlation";
 
 interface SubmissionRpcClient {
   rpc(
@@ -61,6 +67,8 @@ interface SubmissionServiceDependencies {
   headObject?: (input: {
     objectKey: string;
   }) => Promise<ExternalIntakeObjectHead | null>;
+  emailCorrelationKeyRing?: EmailCorrelationKeyRing;
+  emailCorrelationNonceSource?: (size: number) => Buffer;
   randomUUID?: () => string;
 }
 
@@ -145,6 +153,16 @@ const completedCommandSchema = z
     initial_lead_stage: z.literal("new_lead"),
     replayed: z.boolean(),
     attachments: z.array(commandAttachmentSchema).max(10),
+    email_correlation: z
+      .object({
+        company_id: z.string().uuid(),
+        mailbox_id: z.string().uuid(),
+        source_id: z.string().uuid(),
+        submission_id: z.string().uuid(),
+        lead_id: z.string().uuid(),
+      })
+      .strict()
+      .nullable(),
   })
   .strict();
 
@@ -589,23 +607,58 @@ export async function createExternalIntakeSubmission(
     throw commandError(parsed.data.status);
   }
 
-  return submissionResultSchema.parse({
-    publicSubmissionId: encodeOpaqueUuid(
-      "sub",
-      parsed.data.public_submission_id
-    ),
-    publicLeadId: encodeOpaqueUuid("lead", parsed.data.public_lead_id),
-    customerOutcome: parsed.data.customer_outcome,
-    leadCreatedAt: parsed.data.lead_created_at,
-    initialLeadStage: parsed.data.initial_lead_stage,
-    attachments: parsed.data.attachments.map((attachment) => ({
-      uploadId: encodeOpaqueUuid("upl", attachment.public_upload_id),
-      callerFileId: attachment.caller_file_id,
-      state: attachment.state,
-      safeCode: attachment.safe_code,
-    })),
-    replayed: parsed.data.replayed,
-  });
+  let emailCorrelationMarker: string | undefined;
+  if (parsed.data.email_correlation !== null) {
+    const correlation = parsed.data.email_correlation;
+    if (correlation.company_id !== input.actor.companyId) {
+      throw new ExternalApiSafeError("temporarily_unavailable");
+    }
+    try {
+      const issuedAt = new Date(input.requestReceivedAt);
+      const expiresAt = new Date(
+        Math.floor(issuedAt.getTime() / 1000) * 1000 + 30 * 24 * 60 * 60 * 1000
+      );
+      emailCorrelationMarker = sealEmailCorrelationMarker(
+        {
+          companyId: correlation.company_id,
+          mailboxId: correlation.mailbox_id,
+          sourceId: correlation.source_id,
+          submissionId: correlation.submission_id,
+          leadId: correlation.lead_id,
+          expiresAt,
+        },
+        dependencies.emailCorrelationKeyRing ?? readEmailCorrelationKeyRing(),
+        dependencies.emailCorrelationNonceSource
+      );
+    } catch {
+      throw new ExternalApiSafeError("temporarily_unavailable");
+    }
+  }
+
+  return {
+    result: submissionResultSchema.parse({
+      publicSubmissionId: encodeOpaqueUuid(
+        "sub",
+        parsed.data.public_submission_id
+      ),
+      publicLeadId: encodeOpaqueUuid("lead", parsed.data.public_lead_id),
+      customerOutcome: parsed.data.customer_outcome,
+      leadCreatedAt: parsed.data.lead_created_at,
+      initialLeadStage: parsed.data.initial_lead_stage,
+      attachments: parsed.data.attachments.map((attachment) => ({
+        uploadId: encodeOpaqueUuid("upl", attachment.public_upload_id),
+        callerFileId: attachment.caller_file_id,
+        state: attachment.state,
+        safeCode: attachment.safe_code,
+      })),
+      ...(emailCorrelationMarker ? { emailCorrelationMarker } : {}),
+      replayed: parsed.data.replayed,
+    }),
+    auditBase: commitExternalApiAuditBase(input.auditRequestId),
+    idempotencyResult: parsed.data.replayed
+      ? ("replay" as const)
+      : ("new" as const),
+  };
 }
 
 export function buildContactIdentityBackfillRows(
