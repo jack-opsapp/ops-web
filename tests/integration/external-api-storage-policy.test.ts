@@ -1,0 +1,211 @@
+// @vitest-environment node
+
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+
+const templatePath = path.join(
+  process.cwd(),
+  "infra",
+  "external-intake-storage.yaml"
+);
+
+function template(): string {
+  return readFileSync(templatePath, "utf8");
+}
+
+function resourceBlock(source: string, logicalId: string, nextId: string) {
+  const start = source.indexOf(`  ${logicalId}:`);
+  const end = source.indexOf(`  ${nextId}:`, start + 1);
+  expect(start, `${logicalId} must exist`).toBeGreaterThanOrEqual(0);
+  expect(end, `${nextId} must follow ${logicalId}`).toBeGreaterThan(start);
+  return source.slice(start, end);
+}
+
+describe("external intake storage infrastructure policy", () => {
+  it("defines one private, owner-enforced, encrypted, versioned intake bucket", () => {
+    const source = template();
+    const bucket = resourceBlock(
+      source,
+      "ExternalIntakeBucket",
+      "UploadEventsDeadLetterQueue"
+    );
+
+    expect(bucket).toContain("Type: AWS::S3::Bucket");
+    expect(bucket).toContain("BucketOwnerEnforced");
+    expect(bucket).toContain("BlockPublicAcls: true");
+    expect(bucket).toContain("BlockPublicPolicy: true");
+    expect(bucket).toContain("IgnorePublicAcls: true");
+    expect(bucket).toContain("RestrictPublicBuckets: true");
+    expect(bucket).toContain("BucketEncryption:");
+    expect(bucket).toContain("SSEAlgorithm: AES256");
+    expect(bucket).toContain("VersioningConfiguration:");
+    expect(bucket).toContain("Status: Enabled");
+    expect(bucket).toContain("quarantine/");
+    expect(bucket).toContain("accepted-original/");
+    expect(bucket).toContain("safe-derivative/");
+    expect(source).not.toMatch(/AccessControl:\s*PublicRead/);
+  });
+
+  it("allows credentialless browser PUT/HEAD transport without browser reads", () => {
+    const bucket = resourceBlock(
+      template(),
+      "ExternalIntakeBucket",
+      "UploadEventsDeadLetterQueue"
+    );
+    const corsStart = bucket.indexOf("CorsConfiguration:");
+    const corsEnd = bucket.indexOf("LifecycleConfiguration:");
+    const cors = bucket.slice(corsStart, corsEnd);
+
+    expect(cors).toContain("AllowedOrigins:");
+    expect(cors).toContain('- "*"');
+    expect(cors).toContain("- PUT");
+    expect(cors).toContain("- HEAD");
+    expect(cors).not.toContain("- GET");
+    expect(cors).not.toContain("- DELETE");
+    expect(cors).toContain("- content-length");
+    expect(cors).toContain("- content-type");
+    expect(cors).toContain("- if-none-match");
+    expect(cors).toContain("- x-amz-checksum-sha256");
+    expect(cors).toContain("- ETag");
+    expect(cors).toContain("- x-amz-version-id");
+  });
+
+  it("keeps terminal cleanup behind capability expiry plus skew and a durable fallback", () => {
+    const source = template();
+    const bucket = resourceBlock(
+      source,
+      "ExternalIntakeBucket",
+      "UploadEventsDeadLetterQueue"
+    );
+
+    expect(source).toContain("upload-capability-delete-not-before");
+    expect(source).toContain("cleanup=eligible");
+    expect(bucket).toContain("ExpirationInDays: 1");
+    expect(bucket).toContain("NoncurrentVersionExpiration:");
+    expect(bucket).toContain("NoncurrentDays: 1");
+    expect(source).toContain("application cleanup is authoritative");
+  });
+
+  it("gives the upload signer one conditional create-only permission", () => {
+    const source = template();
+    const signer = resourceBlock(
+      source,
+      "ExternalIntakeUploadSignerPolicy",
+      "ExternalIntakeWorkerUser"
+    );
+
+    expect(signer).toContain("- s3:PutObject");
+    expect(signer).toContain("quarantine/*");
+    expect(signer).toContain("s3:if-none-match");
+    expect(signer).toContain('"*"');
+    expect(signer).not.toContain("s3:GetObject");
+    expect(signer).not.toContain("s3:ListBucket");
+    expect(signer).not.toContain("s3:DeleteObject");
+  });
+
+  it("independently denies a PUT that omits the create-only condition", () => {
+    const source = template();
+    const policy = resourceBlock(
+      source,
+      "ExternalIntakeBucketPolicy",
+      "GuardDutyMalwareProtectionRole"
+    );
+
+    expect(policy).toContain("Sid: DenyMissingConditionalWrite");
+    expect(policy).toContain("Effect: Deny");
+    expect(policy).toContain("Action: s3:PutObject");
+    expect(policy).toContain("s3:if-none-match");
+    expect(policy).toContain('"true"');
+  });
+
+  it("delivers S3 arrivals and GuardDuty scan results to queues with DLQs", () => {
+    const source = template();
+
+    expect(source).toContain("UploadEventsDeadLetterQueue");
+    expect(source).toContain("UploadEventsQueue");
+    expect(source).toContain("ScanResultsDeadLetterQueue");
+    expect(source).toContain("ScanResultsQueue");
+    expect(source.match(/RedrivePolicy:/g)).toHaveLength(2);
+    expect(source).toContain("s3:ObjectCreated:*");
+    expect(source).toContain("GuardDuty Malware Protection Object Scan Result");
+    expect(source).toContain("source:");
+    expect(source).toContain("- aws.guardduty");
+  });
+
+  it("limits GuardDuty to the quarantine prefix and enables managed tagging", () => {
+    const source = template();
+    const plan = resourceBlock(
+      source,
+      "ExternalIntakeMalwareProtectionPlan",
+      "ExternalIntakeSigningPublicKey"
+    );
+
+    expect(plan).toContain("Type: AWS::GuardDuty::MalwareProtectionPlan");
+    expect(plan).toContain("ObjectPrefixes:");
+    expect(plan).toContain("- quarantine/");
+    expect(plan).not.toContain("- accepted-original/");
+    expect(plan).not.toContain("- safe-derivative/");
+    expect(plan).toContain("Tagging:");
+    expect(plan).toContain("Status: ENABLED");
+    expect(source).toContain("EventBridgeEnabled: true");
+    expect(source).toContain("s3:PutObjectVersionTagging");
+    expect(source).toContain("malware-protection-resource-validation-object");
+    expect(source).toContain(
+      "events:ManagedBy: malware-protection-plan.guardduty.amazonaws.com"
+    );
+  });
+
+  it("uses OAC, trusted keys, zero caching, and separate delivery behaviors", () => {
+    const source = template();
+
+    expect(source).toContain("Type: AWS::CloudFront::OriginAccessControl");
+    expect(source).toContain("SigningBehavior: always");
+    expect(source).toContain("SigningProtocol: sigv4");
+    expect(source).toContain("Type: AWS::CloudFront::KeyGroup");
+    expect(source).toContain("TrustedKeyGroups:");
+    expect(source).toContain("PathPattern: safe-derivative/*");
+    expect(source).toContain("PathPattern: accepted-original/*");
+    expect(source).toContain("Content-Disposition");
+    expect(source).toContain("Value: attachment");
+    expect(source).toContain("Content-Type");
+    expect(source).toContain("Value: application/octet-stream");
+    expect(source).toContain("ContentTypeOptions:");
+    expect(source).toContain("ContentSecurityPolicy:");
+    expect(source).toContain("DefaultTTL: 0");
+    expect(source).toContain("MinTTL: 0");
+    expect(source).toContain("MaxTTL: 0");
+    expect(source).toContain("Cache-Control");
+    expect(source).toContain("private, no-store, max-age=0");
+  });
+
+  it("denies CloudFront reads unless both scan and acceptance tags are present", () => {
+    const policy = resourceBlock(
+      template(),
+      "ExternalIntakeBucketPolicy",
+      "GuardDutyMalwareProtectionRole"
+    );
+
+    expect(policy).toContain("s3:ExistingObjectTag/GuardDutyMalwareScanStatus");
+    expect(policy).toContain("NO_THREATS_FOUND");
+    expect(policy).toContain("s3:ExistingObjectTag/ops-disposition");
+    expect(policy).toContain("accepted");
+  });
+
+  it("emits the exact non-secret application environment outputs", () => {
+    const source = template();
+    for (const name of [
+      "EXTERNAL_INTAKE_AWS_REGION",
+      "EXTERNAL_INTAKE_S3_BUCKET",
+      "EXTERNAL_INTAKE_UPLOAD_QUEUE_URL",
+      "EXTERNAL_INTAKE_SCAN_QUEUE_URL",
+      "EXTERNAL_INTAKE_CLOUDFRONT_DOMAIN",
+      "EXTERNAL_INTAKE_CLOUDFRONT_KEY_PAIR_ID",
+      "EXTERNAL_INTAKE_CLOUDFRONT_PRIVATE_KEY",
+    ]) {
+      expect(source).toContain(name);
+    }
+    expect(source).not.toContain("BEGIN PRIVATE KEY");
+    expect(source).not.toContain("SecretAccessKey:");
+  });
+});
