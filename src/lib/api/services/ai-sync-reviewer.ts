@@ -26,6 +26,11 @@ import {
   runEmailProviderMailboxOperation,
   type EmailProviderMailboxCheckpoint,
 } from "./email-provider-mailbox-operation";
+import {
+  evaluateLeadFeedbackPriorBatch,
+  type LeadFeedbackBaseline,
+  type LeadFeedbackPriorDecision,
+} from "./lead-feedback-prior-service";
 
 export interface AIClassifiedLead {
   email: NormalizedEmail;
@@ -53,6 +58,11 @@ export interface AIReviewResult {
     flag: "likely_won" | "likely_lost";
   }>;
   duplicatesDetected: number;
+  deferredClassifications: Array<{
+    email: NormalizedEmail;
+    baseline: LeadFeedbackBaseline;
+    decision: LeadFeedbackPriorDecision;
+  }>;
 }
 
 // ─── Stage validation ────────────────────────────────────────────────────────
@@ -131,6 +141,7 @@ function emptyReviewResult(): AIReviewResult {
     stageChanges: 0,
     terminalFlags: [],
     duplicatesDetected: 0,
+    deferredClassifications: [],
   };
 }
 
@@ -227,8 +238,34 @@ export const AISyncReviewer = {
       return classification;
     });
 
+    const baselines: LeadFeedbackBaseline[] = orderedClassifications.map(
+      (classification) => ({
+        verdict: classification.verdict === "lead" ? "lead" : "not_lead",
+        confidence: classification.confidence,
+      })
+    );
+    const priorDecisions = await evaluateLeadFeedbackPriorBatch({
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      threshold,
+      protectedDomains: companyContext.domains,
+      candidates: unmatchedEmails.map((email, index) => ({
+        baseline: baselines[index],
+        candidate: {
+          providerThreadId: email.threadId,
+          providerMessageId: email.id,
+          senderEmail: email.from,
+        },
+      })),
+    });
+    if (priorDecisions.length !== orderedClassifications.length) {
+      throw new Error(
+        "[ai-sync-reviewer] feedback prior omitted an input decision"
+      );
+    }
+
     const leads = orderedClassifications.filter(
-      (c) => c.verdict === "lead" && c.confidence >= threshold
+      (_, index) => priorDecisions[index].outcome === "lead"
     );
 
     // Build classified leads with their source emails for persistence
@@ -259,6 +296,17 @@ export const AISyncReviewer = {
       duplicatesDetected: orderedClassifications.filter(
         (c) => c.duplicateOf.length > 0
       ).length,
+      deferredClassifications: orderedClassifications.flatMap((_, index) =>
+        priorDecisions[index].outcome === "defer"
+          ? [
+              {
+                email: unmatchedEmails[index],
+                baseline: baselines[index],
+                decision: priorDecisions[index],
+              },
+            ]
+          : []
+      ),
     };
   },
 

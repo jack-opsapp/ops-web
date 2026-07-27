@@ -28,6 +28,7 @@ const {
   enqueueIfEnabledMock,
   phaseCRouteMock,
   createClassifiedEmailThreadNotificationsMock,
+  persistDeferredLeadClassificationMock,
 } = vi.hoisted(() => ({
   getConnectionMock: vi.fn(),
   getProviderMock: vi.fn(),
@@ -51,6 +52,7 @@ const {
   })),
   phaseCRouteMock: vi.fn(),
   createClassifiedEmailThreadNotificationsMock: vi.fn(),
+  persistDeferredLeadClassificationMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api/services/email-service", () => ({
@@ -79,6 +81,10 @@ vi.mock("@/lib/api/services/ai-sync-reviewer", () => ({
     reviewUnmatchedEmails: reviewUnmatchedEmailsMock,
     evaluateStagesWithSummary: evaluateStagesWithSummaryMock,
   },
+}));
+
+vi.mock("@/lib/api/services/lead-feedback-prior-service", () => ({
+  persistDeferredLeadClassification: persistDeferredLeadClassificationMock,
 }));
 
 vi.mock("@/lib/api/services/email-thread-service", () => ({
@@ -753,11 +759,9 @@ function makeSupabaseDouble(state: SupabaseState) {
 
     then<TResult1 = unknown, TResult2 = never>(
       onfulfilled?:
-        | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
-        | null,
+        ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
       onrejected?:
-        | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
-        | null
+        ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
     ) {
       const result = async () => {
         if (
@@ -1706,6 +1710,8 @@ describe("SyncEngine email opportunity title generation", () => {
     afterMock.mockReset();
     phaseCRouteMock.mockReset();
     createClassifiedEmailThreadNotificationsMock.mockReset();
+    persistDeferredLeadClassificationMock.mockReset();
+    persistDeferredLeadClassificationMock.mockResolvedValue(true);
     enqueueIfEnabledMock.mockClear();
     enqueueIfEnabledMock.mockResolvedValue({
       enqueued: true,
@@ -1849,10 +1855,7 @@ describe("SyncEngine email opportunity title generation", () => {
     );
     getConnectionMock.mockResolvedValue(
       baseConnection({
-        historyId: opaqueSyncContinuation(
-          "sync-token",
-          oversizedPendingIds
-        ),
+        historyId: opaqueSyncContinuation("sync-token", oversizedPendingIds),
       })
     );
     const fetchNewEmailsSince = vi.fn();
@@ -2641,6 +2644,90 @@ To: Kara Beach <kara.beach@example.com>`,
       outbound_count: 0,
     });
     expect(state.correspondenceProjectionApplications).toBe(1);
+  });
+
+  it("durably holds a feedback-deferred message without creating a lead", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      correspondenceEvents: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const deferredEmail = baseEmail({
+      id: "msg-feedback-deferred",
+      threadId: "thread-feedback-deferred",
+      from: "Vendor Relay <vendor@example.com>",
+      fromName: "Vendor Relay",
+      to: ["jackson@canprodeckandrail.com"],
+      subject: "Checking in",
+      bodyText: "Following up.",
+      snippet: "Following up.",
+      labelIds: ["INBOX"],
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [deferredEmail],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+    reviewUnmatchedEmailsMock.mockResolvedValue({
+      classifiedLeads: [],
+      newLeadsClassified: 0,
+      deferredClassifications: [
+        {
+          email: deferredEmail,
+          baseline: { verdict: "lead", confidence: 0.79 },
+          decision: {
+            outcome: "defer",
+            adjustedLeadScore: 0.63,
+            adjustment: -0.16,
+            reviewReason: "feedback_boundary",
+            appliedFeedbackIds: ["feedback-1"],
+            evidence: {
+              exactMessage: false,
+              exactThread: false,
+              senderNegativeIndependentCount: 1,
+              domainNegativeIndependentThreadCount: 1,
+              domainNegativeIndependentSenderCount: 1,
+              domainMature: false,
+              hasSuppressionAuthority: false,
+            },
+          },
+        },
+      ],
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(result.needsReview).toBe(1);
+    expect(state.opportunities).toEqual([]);
+    expect(persistDeferredLeadClassificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-1",
+        connectionId: "connection-1",
+        candidate: {
+          providerThreadId: "thread-feedback-deferred",
+          providerMessageId: "msg-feedback-deferred",
+          senderEmail: "Vendor Relay <vendor@example.com>",
+        },
+        baseline: { verdict: "lead", confidence: 0.79 },
+        decision: expect.objectContaining({
+          outcome: "defer",
+          reviewReason: "feedback_boundary",
+        }),
+      })
+    );
   });
 
   it.each([
@@ -4577,10 +4664,7 @@ To: Kara Beach <kara.beach@example.com>`,
       skippedFeatureDisabled: true,
       failed: [],
       deferred: [],
-      remainingOpportunityIds: [
-        "source-opportunity",
-        "target-opportunity",
-      ],
+      remainingOpportunityIds: ["source-opportunity", "target-opportunity"],
     });
     await expect(runRepair()).rejects.toThrow(
       "exact reparent summary refresh incomplete"
