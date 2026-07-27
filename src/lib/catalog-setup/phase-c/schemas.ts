@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  CATALOG_CAPABILITY_MANIFEST_REVISION,
   GUIDED_CAPABILITY_REFS,
   GUIDED_QUESTION_INTENTS,
 } from "./catalog-capability-manifest";
@@ -121,11 +122,36 @@ export const GuidedConversationMessageSchema = z
     content: z.string().min(1).max(8_000),
     version: z.number().int().nonnegative(),
     filename: z.string().min(1).max(255).optional(),
+    inputId: z.string().min(1).max(240).optional(),
+    supersedesId: z.string().min(1).max(240).optional(),
+    state: z
+      .enum(["accepted", "queued", "superseded", "removed"])
+      .optional(),
   })
   .strict();
 
 export const GuidedConversationSchema = z
   .array(GuidedConversationMessageSchema)
+  .max(200);
+
+export const GuidedInputLedgerEntrySchema = z
+  .object({
+    id: z.string().min(1).max(240),
+    revision: z.number().int().positive(),
+    questionId: z.string().min(1).max(240).optional(),
+    answer: z.unknown(),
+    displayKind: z.enum(["text", "source_document"]),
+    displayContent: z.string().min(1).max(8_000),
+    filename: z.string().min(1).max(255).optional(),
+    state: z.enum(["queued", "accepted", "superseded", "removed"]),
+    supersedesId: z.string().min(1).max(240).optional(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export const GuidedInputLedgerSchema = z
+  .array(GuidedInputLedgerEntrySchema)
   .max(200);
 
 export const CatalogActionGroupSchema = z.enum([
@@ -261,6 +287,14 @@ export const GuidedSetupSessionDocumentSchema = z
     mode: z.literal("guided"),
     status: GuidedSetupStatusSchema,
     version: z.number().int().nonnegative(),
+    inputRevision: z.number().int().nonnegative().default(0),
+    processedInputRevision: z.number().int().nonnegative().default(0),
+    inputLedger: GuidedInputLedgerSchema.default([]),
+    capabilityManifestRevision: z
+      .string()
+      .min(1)
+      .max(128)
+      .default(CATALOG_CAPABILITY_MANIFEST_REVISION),
     facts: z.array(CatalogFactSchema),
     sources: z.array(z.record(z.unknown())),
     conversation: GuidedConversationSchema.default([]),

@@ -97,6 +97,18 @@ export function normalizeGuidedConversation(
   return conversation.slice(-MAX_CONVERSATION_MESSAGES);
 }
 
+export function visibleGuidedConversation(
+  value: unknown,
+): GuidedConversationMessage[] {
+  const parsed = GuidedConversationSchema.safeParse(value);
+  if (!parsed.success) return [];
+  return parsed.data.filter(
+    (message) =>
+      message.state !== "superseded" &&
+      message.state !== "removed",
+  );
+}
+
 export function advanceGuidedConversation({
   conversation,
   currentQuestion,

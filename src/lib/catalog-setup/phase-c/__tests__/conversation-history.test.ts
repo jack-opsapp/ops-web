@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   advanceGuidedConversation,
   normalizeGuidedConversation,
+  visibleGuidedConversation,
 } from "../conversation-history";
 import type { GuidedQuestion } from "../types";
 
@@ -124,6 +125,36 @@ describe("Phase C durable conversation history", () => {
       expect.objectContaining({
         id: "assistant:2:service",
         content: "Tell me more about the vinyl service.",
+      }),
+    ]);
+  });
+
+  it("hides superseded and removed operator inputs from the normal transcript", () => {
+    expect(
+      visibleGuidedConversation([
+        {
+          id: "operator-input:old",
+          role: "operator",
+          kind: "text",
+          content: "Old answer",
+          version: 1,
+          inputId: "old",
+          state: "superseded",
+        },
+        {
+          id: "operator-input:new",
+          role: "operator",
+          kind: "text",
+          content: "Corrected answer",
+          version: 2,
+          inputId: "new",
+          state: "queued",
+        },
+      ]),
+    ).toEqual([
+      expect.objectContaining({
+        id: "operator-input:new",
+        content: "Corrected answer",
       }),
     ]);
   });

@@ -9,7 +9,11 @@ import {
   type LiveCatalogContextRowSets,
 } from "./live-catalog-context";
 import { normalizeGuidedConversation } from "./conversation-history";
+import { normalizeGuidedInputLedger } from "./input-ledger";
 import type { GuidedQuestion } from "./types";
+import {
+  CATALOG_CAPABILITY_MANIFEST_REVISION,
+} from "./catalog-capability-manifest";
 
 const ACTIVE_SESSION_STATUSES = [
   "interviewing",
@@ -70,6 +74,8 @@ export interface GuidedSetupQueryClient {
 
 export const FIRST_SERVICE_LINE_QUESTION: GuidedQuestion = {
   id: "first-service-line",
+  intent: "service_selection",
+  capabilityRef: "catalog-core/v1",
   prompt: "What service do you want to set up first?",
   answerKind: "text",
   factKeys: ["customer_products.first_service_line"],
@@ -238,6 +244,15 @@ function mapSessionRow(row: Record<string, unknown>) {
     mode: row.mode,
     status: row.status,
     version,
+    inputRevision: Number(row.input_revision ?? 0),
+    processedInputRevision: Number(
+      row.processed_input_revision ?? 0,
+    ),
+    inputLedger: normalizeGuidedInputLedger(row.input_ledger),
+    capabilityManifestRevision:
+      typeof row.capability_manifest_revision === "string"
+        ? row.capability_manifest_revision
+        : CATALOG_CAPABILITY_MANIFEST_REVISION,
     facts: row.facts,
     sources: row.sources,
     conversation: normalizeGuidedConversation(
@@ -400,6 +415,11 @@ export async function startOrResumeGuidedSetupSession({
       mode: "guided",
       status: "interviewing",
       version: 0,
+      input_revision: 0,
+      processed_input_revision: 0,
+      input_ledger: [],
+      capability_manifest_revision:
+        CATALOG_CAPABILITY_MANIFEST_REVISION,
       facts: [],
       sources: [],
       conversation: normalizeGuidedConversation(
