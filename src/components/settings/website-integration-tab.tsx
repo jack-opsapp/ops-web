@@ -118,6 +118,8 @@ export function WebsiteIntegrationTab() {
   const [revealedSecret, setRevealedSecret] = useState<CredentialSecret | null>(
     null
   );
+  const [pendingRevealSecret, setPendingRevealSecret] =
+    useState<CredentialSecret | null>(null);
   const [busyCredentialId, setBusyCredentialId] = useState<string | null>(null);
   const sourceTriggerRef = useRef<HTMLButtonElement | null>(null);
   const credentialTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -240,7 +242,7 @@ export function WebsiteIntegrationTab() {
         ...settings,
         credentials: [result.credential, ...settings.credentials],
       }));
-      setRevealedSecret(result);
+      setPendingRevealSecret(result);
       return result;
     },
     [updateReadySettings]
@@ -379,7 +381,7 @@ export function WebsiteIntegrationTab() {
         <Surface className="p-3">
           <div className="flex flex-col items-start gap-3">
             <div className="space-y-1">
-              <h2 className="font-mohave text-heading text-text">
+              <h2 className="font-cakemono text-heading font-light uppercase text-text">
                 {t("website.empty.title", "WEBSITE INTAKE")}
               </h2>
               <p className="max-w-prose font-mohave text-body-sm text-text-2">
@@ -459,6 +461,11 @@ export function WebsiteIntegrationTab() {
         onOpenChange={(open) =>
           setCredentialDialog((current) => ({ ...current, open }))
         }
+        onClosed={() => {
+          if (!pendingRevealSecret) return;
+          setRevealedSecret(pendingRevealSecret);
+          setPendingRevealSecret(null);
+        }}
         onCreate={createCredential}
         onUpdate={updateCredential}
       />

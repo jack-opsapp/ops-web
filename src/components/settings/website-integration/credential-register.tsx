@@ -141,7 +141,7 @@ function CredentialActions({
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle className="font-cakemono font-light uppercase">
               {t("website.key.rotateTitle", "ROTATE ACCESS KEY")}
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -177,7 +177,7 @@ function CredentialActions({
         </AlertDialogTrigger>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
+            <AlertDialogTitle className="font-cakemono font-light uppercase">
               {t("website.key.revokeTitle", "REVOKE ACCESS KEY")}
             </AlertDialogTitle>
             <AlertDialogDescription>
@@ -310,7 +310,7 @@ export function CredentialRegister({
         <div>
           <h2
             id="website-access-keys-heading"
-            className="font-mohave text-heading text-text"
+            className="font-cakemono text-heading font-light uppercase text-text"
           >
             {t("website.key.title", "ACCESS KEYS")}
           </h2>

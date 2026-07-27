@@ -46,7 +46,7 @@ export function SecretRevealDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="font-cakemono font-light uppercase">
             {t("website.secret.title", "COPY ACCESS KEY")}
           </DialogTitle>
           <DialogDescription>

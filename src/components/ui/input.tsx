@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils/cn";
 
 export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
+  labelClassName?: string;
   error?: string;
   helperText?: string;
   prefixIcon?: React.ReactNode;
@@ -10,7 +11,21 @@ export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> 
 }
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, label, error, helperText, prefixIcon, suffixIcon, id, ...props }, ref) => {
+  (
+    {
+      className,
+      type,
+      label,
+      labelClassName,
+      error,
+      helperText,
+      prefixIcon,
+      suffixIcon,
+      id,
+      ...props
+    },
+    ref
+  ) => {
     const generatedId = React.useId();
     const inputId = id || generatedId;
 
@@ -19,7 +34,10 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="font-mohave text-caption-sm text-text-3 uppercase tracking-wide"
+            className={cn(
+              "font-mohave text-caption-sm uppercase tracking-wide text-text-3",
+              labelClassName
+            )}
           >
             {label}
           </label>
@@ -33,11 +51,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             "focus-within:border-line-hi",
             error && "border-rose-line focus-within:border-rose-line",
             prefixIcon ? "pl-3" : "pl-2",
-            suffixIcon ? "pr-3" : "pr-2",
+            suffixIcon ? "pr-3" : "pr-2"
           )}
         >
           {prefixIcon && (
-            <div className="text-text-3 shrink-0 pointer-events-none [&_svg]:w-3.5 [&_svg]:h-3.5">
+            <div className="pointer-events-none shrink-0 text-text-3 [&_svg]:h-3.5 [&_svg]:w-3.5">
               {prefixIcon}
             </div>
           )}
@@ -45,7 +63,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             type={type}
             id={inputId}
             className={cn(
-              "flex-1 min-w-0 bg-transparent text-text font-mohave text-body",
+              "min-w-0 flex-1 bg-transparent font-mohave text-body text-text",
               "py-1.5 outline-none",
               "placeholder:text-text-3",
               "disabled:cursor-not-allowed disabled:opacity-40",
@@ -54,23 +72,34 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             aria-invalid={error ? "true" : undefined}
             aria-describedby={
-              error ? `${inputId}-error` : helperText ? `${inputId}-helper` : undefined
+              error
+                ? `${inputId}-error`
+                : helperText
+                  ? `${inputId}-helper`
+                  : undefined
             }
             {...props}
           />
           {suffixIcon && (
-            <div className="text-text-3 shrink-0 [&_svg]:w-3.5 [&_svg]:h-3.5">
+            <div className="shrink-0 text-text-3 [&_svg]:h-3.5 [&_svg]:w-3.5">
               {suffixIcon}
             </div>
           )}
         </div>
         {error && (
-          <p id={`${inputId}-error`} className="text-caption-sm text-rose font-mono" role="alert">
+          <p
+            id={`${inputId}-error`}
+            className="font-mono text-caption-sm text-rose"
+            role="alert"
+          >
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p id={`${inputId}-helper`} className="text-caption-sm text-text-3 font-mono">
+          <p
+            id={`${inputId}-helper`}
+            className="font-mono text-caption-sm text-text-3"
+          >
             {helperText}
           </p>
         )}

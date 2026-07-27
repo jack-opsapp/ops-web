@@ -89,7 +89,7 @@ export function SourceRegister({
         <div>
           <h2
             id="website-source-heading"
-            className="font-mohave text-heading text-text"
+            className="font-cakemono text-heading font-light uppercase text-text"
           >
             {t("website.source.title", "WEBSITE SOURCE")}
           </h2>

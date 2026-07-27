@@ -38,6 +38,7 @@ interface CredentialDialogProps {
   returnFocusTo: HTMLButtonElement | null;
   sources: WebsiteSource[];
   onOpenChange: (open: boolean) => void;
+  onClosed: () => void;
   onCreate: (payload: {
     name: string;
     class: WebsiteCredentialClass;
@@ -66,6 +67,7 @@ export function CredentialDialog({
   returnFocusTo,
   sources,
   onOpenChange,
+  onClosed,
   onCreate,
   onUpdate,
 }: CredentialDialogProps) {
@@ -147,14 +149,18 @@ export function CredentialDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         onCloseAutoFocus={(event) => {
-          if (!returnFocusTo) return;
-          event.preventDefault();
-          returnFocusTo.focus();
+          if (returnFocusTo) {
+            event.preventDefault();
+            returnFocusTo.focus();
+          }
+          onClosed();
         }}
       >
         <form onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
+            <DialogTitle className="font-cakemono font-light uppercase">
+              {title}
+            </DialogTitle>
             <DialogDescription>
               {kind === "intake"
                 ? t(
@@ -186,6 +192,7 @@ export function CredentialDialog({
 
             <Input
               label={t("website.key.name", "KEY NAME")}
+              labelClassName="font-cakemono font-light"
               value={name}
               onChange={(event) => setName(event.target.value)}
               required
@@ -197,7 +204,7 @@ export function CredentialDialog({
               <div className="space-y-1">
                 <label
                   htmlFor="website-key-source"
-                  className="font-mohave text-caption-sm uppercase tracking-wide text-text-3"
+                  className="font-cakemono text-caption-sm font-light uppercase tracking-wide text-text-3"
                 >
                   {t("website.key.source", "WEBSITE SOURCE")}
                 </label>
@@ -224,6 +231,7 @@ export function CredentialDialog({
             <Input
               type="date"
               label={t("website.key.expiry", "EXPIRY DATE")}
+              labelClassName="font-cakemono font-light"
               value={expiresOn}
               min={new Date().toISOString().slice(0, 10)}
               onChange={(event) => setExpiresOn(event.target.value)}
@@ -235,7 +243,7 @@ export function CredentialDialog({
 
             {!credential && kind === "analytics" ? (
               <div className="space-y-2">
-                <label className="flex cursor-pointer items-center gap-2 font-mohave text-body-sm text-text">
+                <label className="flex cursor-pointer items-center gap-2 font-cakemono text-body-sm font-light uppercase text-text">
                   <Checkbox
                     checked={includeFinancial}
                     onClick={() => setIncludeFinancial((current) => !current)}

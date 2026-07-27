@@ -167,7 +167,9 @@ export function SourceDialog({
       >
         <form onSubmit={submit}>
           <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
+            <DialogTitle className="font-cakemono font-light uppercase">
+              {title}
+            </DialogTitle>
             <DialogDescription>
               {t(
                 "website.source.dialogDetail",
@@ -179,6 +181,7 @@ export function SourceDialog({
           <div className="space-y-2">
             <Input
               label={t("website.source.siteLabel", "SITE LABEL")}
+              labelClassName="font-cakemono font-light"
               value={fields.siteLabel}
               onChange={(event) =>
                 setFields((current) => ({
@@ -196,6 +199,7 @@ export function SourceDialog({
             />
             <Input
               label={t("website.source.host", "WEBSITE HOST")}
+              labelClassName="font-cakemono font-light"
               value={fields.canonicalHost}
               onChange={(event) =>
                 setFields((current) => ({
@@ -210,6 +214,7 @@ export function SourceDialog({
             />
             <Textarea
               label={t("website.source.origins", "ALLOWED BROWSER ORIGINS")}
+              labelClassName="font-cakemono font-light"
               value={fields.allowedBrowserOrigins}
               onChange={(event) =>
                 setFields((current) => ({
@@ -229,7 +234,7 @@ export function SourceDialog({
             <div className="space-y-1">
               <label
                 htmlFor="website-phone-region"
-                className="font-mohave text-caption-sm uppercase tracking-wide text-text-3"
+                className="font-cakemono text-caption-sm font-light uppercase tracking-wide text-text-3"
               >
                 {t("website.source.phoneRegion", "PHONE REGION")}
               </label>
@@ -256,7 +261,7 @@ export function SourceDialog({
               </Select>
             </div>
             {source ? (
-              <label className="flex cursor-pointer items-center gap-2 font-mohave text-body-sm text-text">
+              <label className="flex cursor-pointer items-center gap-2 font-cakemono text-body-sm font-light uppercase text-text">
                 <Checkbox
                   checked={fields.active}
                   onCheckedChange={(checked) =>

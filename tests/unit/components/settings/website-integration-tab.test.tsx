@@ -106,6 +106,37 @@ beforeEach(() => {
 });
 
 describe("WebsiteIntegrationTab", () => {
+  it("uses the OPS display voice for section and form labels", async () => {
+    const user = userEvent.setup();
+    authedFetchMock.mockReturnValue(response(settings()));
+
+    render(<WebsiteIntegrationTab />);
+
+    const emptyHeading = await screen.findByRole("heading", {
+      name: "WEBSITE INTAKE",
+    });
+    expect(emptyHeading).toHaveClass(
+      "font-cakemono",
+      "font-light",
+      "uppercase"
+    );
+
+    await user.click(screen.getByRole("button", { name: "CONNECT WEBSITE" }));
+    expect(
+      screen.getByRole("heading", { name: "CONNECT WEBSITE" })
+    ).toHaveClass("font-cakemono", "font-light", "uppercase");
+    expect(screen.getByText("SITE LABEL", { selector: "label" })).toHaveClass(
+      "font-cakemono",
+      "font-light",
+      "uppercase"
+    );
+    expect(screen.getByText("PHONE REGION", { selector: "label" })).toHaveClass(
+      "font-cakemono",
+      "font-light",
+      "uppercase"
+    );
+  });
+
   it("renders one clear first-use action", async () => {
     authedFetchMock.mockReturnValue(response(settings()));
 
