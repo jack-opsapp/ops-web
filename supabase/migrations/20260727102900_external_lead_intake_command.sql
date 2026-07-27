@@ -2725,7 +2725,13 @@ begin
     p_company_id,
     v_opportunity_id
   )
-  returning public_lead_id into v_public_lead_id;
+  on conflict (company_id, opportunity_id) do nothing;
+
+  select handle.public_lead_id
+  into strict v_public_lead_id
+  from private.external_lead_handles handle
+  where handle.company_id = p_company_id
+    and handle.opportunity_id = v_opportunity_id;
 
   v_public_source := jsonb_build_object(
     'sourceChannel', case v_source.default_coarse_source

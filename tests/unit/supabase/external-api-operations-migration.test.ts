@@ -11,6 +11,20 @@ const source = existsSync(migrationPath)
   : "";
 
 describe("external API operations migration", () => {
+  it("recompiles the upload guard after every upload schema extension", () => {
+    expect(source).toContain(
+      "create or replace function private.guard_external_intake_upload_transition()"
+    );
+    expect(source).toContain("external_intake_upload_identity_immutable");
+  });
+
+  it("covers every external API foreign key created by the migration chain", () => {
+    expect(source).toContain("pg_catalog.pg_constraint");
+    expect(source).toContain("constraint_row.contype = 'f'");
+    expect(source).toContain("create index %i on %i.%i (%s)");
+    expect(source).toContain("external_fk_");
+  });
+
   it("installs one service-role-only maintenance command with bounded health", () => {
     expect(existsSync(migrationPath)).toBe(true);
     expect(source).toContain(
@@ -64,7 +78,12 @@ describe("external API operations migration", () => {
     expect(source).toMatch(
       /create unique index[\s\S]*notifications_external_api_security_dedupe/
     );
-    expect(source).not.toMatch(
+    const securityEventSource = source.slice(
+      source.indexOf(
+        "create or replace function private.record_external_api_unsafe_upload()"
+      )
+    );
+    expect(securityEventSource).not.toMatch(
       /original_contact|original_work|ordered_answers|filename|storage_object_key/
     );
   });

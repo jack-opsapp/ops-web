@@ -98,7 +98,7 @@ begin
   begin
     perform public.move_opportunity_stage(
       'e5000000-0000-4000-8000-000000000301',
-      'contacted',
+      'qualifying',
       null
     );
     raise exception 'forced_atomic_stage_rollback';
@@ -131,7 +131,7 @@ $contract$;
 
 select public.move_opportunity_stage(
   'e5000000-0000-4000-8000-000000000301',
-  'contacted',
+  'qualifying',
   null
 );
 
@@ -144,9 +144,9 @@ begin
       on event.company_id = opportunity.company_id
      and event.opportunity_id = opportunity.id
     where opportunity.id = 'e5000000-0000-4000-8000-000000000301'
-      and opportunity.stage = 'contacted'
+      and opportunity.stage = 'qualifying'
       and event.event_kind = 'stage_changed'
-      and event.to_stage = 'contacted'
+      and event.to_stage = 'qualifying'
   ) then
     raise exception 'atomic_stage_and_evidence_commit_failed';
   end if;
@@ -277,7 +277,7 @@ insert into public.projects (
   'e5000000-0000-4000-8000-000000000201',
   'e5000000-0000-4000-8000-000000000301',
   'Lifecycle project',
-  'active',
+  'in_progress',
   clock_timestamp(),
   clock_timestamp()
 );

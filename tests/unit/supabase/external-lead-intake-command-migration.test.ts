@@ -137,6 +137,12 @@ describe("external lead intake command migration", () => {
     expect(source).toMatch(
       /private\.append_external_lead_projection_foundation\([\s\S]*?1::smallint,[\s\S]*?'upsert'/
     );
+    expect(source).toMatch(
+      /insert into private\.external_lead_handles[\s\S]*?on conflict \(company_id, opportunity_id\) do nothing/
+    );
+    expect(source).toMatch(
+      /select handle\.public_lead_id[\s\S]*?from private\.external_lead_handles handle[\s\S]*?where handle\.company_id = p_company_id[\s\S]*?and handle\.opportunity_id = v_opportunity_id/
+    );
     expect(source).toContain("external_intake_default");
     expect(source).toContain("private.change_opportunity_assignment_core(");
     expect(source).toContain(
@@ -183,6 +189,9 @@ describe("external lead intake command migration", () => {
     expect(contract).toContain("sub_client_match_preserves_parent");
     expect(contract).toContain("created_possible_duplicate");
     expect(contract).toContain("uploads_commit_with_submission");
+    expect(contract).toContain("'external-intake-contract@example.invalid'");
+    expect(contract).toContain("'contract-access-token'");
+    expect(contract).toContain("'contract-refresh-token'");
     expect(contract.trimEnd()).toMatch(/rollback;$/);
 
     const writer = readFileSync(concurrencyWriterPath, "utf8").toLowerCase();

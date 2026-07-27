@@ -733,11 +733,16 @@ begin
   from external_lead_intake_contract_fixture;
 
   insert into public.email_connections (
-    id, company_id, type, status
+    id, company_id, type, email, access_token, refresh_token, expires_at,
+    status
   ) values (
     'e3000000-0000-4000-8000-000000000901',
     v_fixture.company_id::text,
     'company',
+    'external-intake-contract@example.invalid',
+    'contract-access-token',
+    'contract-refresh-token',
+    clock_timestamp() + interval '1 day',
     'active'
   );
 

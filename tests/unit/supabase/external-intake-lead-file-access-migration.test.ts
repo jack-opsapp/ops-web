@@ -10,6 +10,13 @@ const migrationPath = resolve(
 const source = existsSync(migrationPath)
   ? readFileSync(migrationPath, "utf8").toLowerCase()
   : "";
+const contractPath = resolve(
+  process.cwd(),
+  "tests/sql/external-intake-lead-file-access-contract.sql"
+);
+const contract = existsSync(contractPath)
+  ? readFileSync(contractPath, "utf8").toLowerCase()
+  : "";
 
 describe("external intake lead file access migration", () => {
   it("keeps source evidence and project representations private", () => {
@@ -97,6 +104,12 @@ describe("external intake lead file access migration", () => {
     expect(source).toContain("invalidation_reference");
   });
 
+  it("allows the first observed checksum while keeping later evidence changes erasure-only", () => {
+    expect(source).toMatch(
+      /or \(\s*old\.object_version_id is not null\s*and new\.observed_checksum_sha256\s+is distinct from old\.observed_checksum_sha256\s*\)/
+    );
+  });
+
   it("publishes only guarded browser reads and service-only worker commands", () => {
     expect(source).toMatch(
       /grant execute on function public\.get_opportunity_assigned_context\(uuid\)[\s\S]*?to anon, authenticated/
@@ -118,5 +131,26 @@ describe("external intake lead file access migration", () => {
         )
       );
     }
+  });
+
+  it("uses a canonical project status in the executable contract", () => {
+    expect(existsSync(contractPath)).toBe(true);
+    expect(contract).toContain("'in_progress'");
+    expect(contract.indexOf("insert into public.projects")).toBeGreaterThan(
+      contract.indexOf("insert into private.external_intake_delivery_objects")
+    );
+    expect(contract).toContain(
+      "set_config('request.jwt.claim.role', 'authenticated', true)"
+    );
+    expect(contract).toContain(
+      "set_config('request.jwt.claim.sub', 'f4000000-0000-4000-8000-000000000101', true)"
+    );
+    expect(contract).toContain(
+      `set_config('request.jwt.claims', '{"role":"authenticated","sub":"f4000000-0000-4000-8000-000000000101"}', true)`
+    );
+    expect(contract).toMatch(
+      /insert into public\.users \([\s\S]*?auth_id[\s\S]*?\) values/
+    );
+    expect(contract.trimEnd()).toMatch(/rollback;$/);
   });
 });

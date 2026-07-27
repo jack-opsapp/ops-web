@@ -233,7 +233,7 @@ set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
 as $function$
   select coalesce(
     opportunity.project_ref,
-    private.try_parse_uuid(opportunity.project_id)
+    opportunity.project_id
   )
   from public.opportunities opportunity
   where opportunity.id = p_opportunity_id;
@@ -804,6 +804,7 @@ security definer
 set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
 as $function$
 declare
+  v_dependency_row jsonb;
   v_company_id uuid;
   v_opportunity_id uuid;
   v_reason text := coalesce(tg_argv[0], 'opportunity_changed');
@@ -812,21 +813,14 @@ begin
     return coalesce(new, old);
   end if;
 
-  v_company_id := case when tg_op = 'DELETE'
-    then old.company_id else new.company_id end;
-  v_opportunity_id := case
-    when tg_table_name = 'external_lead_lifecycle_facts' then
-      case when tg_op = 'DELETE'
-        then old.opportunity_id else new.opportunity_id end
-    when tg_table_name = 'external_lead_source_projections' then
-      case when tg_op = 'DELETE'
-        then old.opportunity_id else new.opportunity_id end
-    when tg_table_name = 'opportunity_dispositions' then
-      case when tg_op = 'DELETE'
-        then old.opportunity_id else new.opportunity_id end
-    else
-      case when tg_op = 'DELETE' then old.id else new.id end
-  end;
+  v_dependency_row := case when tg_op = 'DELETE'
+    then to_jsonb(old) else to_jsonb(new) end;
+  v_company_id :=
+    nullif(v_dependency_row ->> 'company_id', '')::uuid;
+  v_opportunity_id := coalesce(
+    nullif(v_dependency_row ->> 'opportunity_id', '')::uuid,
+    nullif(v_dependency_row ->> 'id', '')::uuid
+  );
 
   perform 1
   from public.opportunities opportunity
@@ -924,7 +918,7 @@ begin
     where opportunity.company_id = v_company_id
       and (
         opportunity.project_ref = v_project_id
-        or private.try_parse_uuid(opportunity.project_id) = v_project_id
+        or opportunity.project_id = v_project_id
         or opportunity.id = case
           when tg_op = 'DELETE' then coalesce(
             old.opportunity_ref,
@@ -1011,8 +1005,7 @@ begin
             v_invoice.project_id is not null
             and (
               opportunity.project_ref = v_invoice.project_id
-              or private.try_parse_uuid(opportunity.project_id) =
-                v_invoice.project_id
+              or opportunity.project_id = v_invoice.project_id
             )
           )
         )
@@ -1092,8 +1085,7 @@ begin
               v_invoice.project_id is not null
               and (
                 opportunity.project_ref = v_invoice.project_id
-                or private.try_parse_uuid(opportunity.project_id) =
-                  v_invoice.project_id
+                or opportunity.project_id = v_invoice.project_id
               )
             )
           )

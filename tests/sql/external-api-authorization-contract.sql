@@ -1445,6 +1445,8 @@ $contract$;
 
 -- Minimal stable projection and attribution foundation -----------------------
 
+select set_config('ops.external_projection_refreshing', 'on', true);
+
 insert into public.opportunities (
   id,
   company_id,
@@ -1500,6 +1502,8 @@ from private.append_external_lead_projection_foundation(
   '{"recordState":"active","stage":"qualifying"}'::jsonb,
   clock_timestamp()
 ) result;
+
+select set_config('ops.external_projection_refreshing', 'off', true);
 
 insert into external_api_contract_results (check_name, passed)
 select

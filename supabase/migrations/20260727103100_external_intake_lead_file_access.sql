@@ -335,8 +335,11 @@ begin
     or new.original_filename is distinct from old.original_filename
     or new.expected_checksum_sha256
       is distinct from old.expected_checksum_sha256
-    or new.observed_checksum_sha256
-      is distinct from old.observed_checksum_sha256
+    or (
+      old.object_version_id is not null
+      and new.observed_checksum_sha256
+        is distinct from old.observed_checksum_sha256
+    )
   then
     delete from private.external_intake_upload_erasure_write_tokens token
     where token.transaction_id = txid_current()

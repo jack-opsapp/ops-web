@@ -261,9 +261,7 @@ describe("external API authorization foundation migration", () => {
 
   it("exposes only fixed service-role wrappers and revokes private execution", () => {
     for (const wrapper of publicWrappers) {
-      expect(source).toContain(
-        `create or replace function public.${wrapper}`
-      );
+      expect(source).toContain(`create or replace function public.${wrapper}`);
       expect(source).toMatch(
         new RegExp(
           `revoke all on function public\\.${wrapper}[\\s\\S]*?from public, anon, authenticated, service_role`
@@ -373,9 +371,9 @@ describe("external API authorization foundation migration", () => {
     expect(rotate).toContain("principal_id");
     expect(rotate).toContain("issued_authorization_epoch");
     expect(rotate).not.toContain("insert into private.external_api_principals");
-    expect(rotate.indexOf("v_rotation_at := clock_timestamp()")).toBeGreaterThan(
-      rotate.indexOf("for update")
-    );
+    expect(
+      rotate.indexOf("v_rotation_at := clock_timestamp()")
+    ).toBeGreaterThan(rotate.indexOf("for update"));
     expect(revoke.indexOf("v_revoked_at := clock_timestamp()")).toBeGreaterThan(
       revoke.indexOf("for update")
     );
@@ -409,9 +407,7 @@ describe("external API authorization foundation migration", () => {
     expect(base).toContain("external_api_company_feature_enabled");
     expect(finalizer).toContain("'pre_auth'");
     expect(finalizer).toContain("'finalize'");
-    expect(finalizer).toContain(
-      "update private.external_api_request_audit"
-    );
+    expect(finalizer).toContain("update private.external_api_request_audit");
     expect(finalizer).not.toMatch(
       /\bauthorization\b|\braw_secret\b|\brequest_body\b|\bsigned_url\b/
     );
@@ -456,14 +452,12 @@ describe("external API authorization foundation migration", () => {
     expect(runner).toContain("if (!/^\\d+$/.test(normalizedOutput))");
     expect(runner).not.toContain("...process.env");
     expect(runner).toContain('PGPASSFILE: "/dev/null"');
-    expect(runner).toContain(
-      'isLoopback ? "disable" : "verify-full"'
-    );
+    expect(runner).toContain('isLoopback ? "disable" : "verify-full"');
     expect(runner).toContain("PGSSLROOTCERT");
     expect(runner).toContain("EXTERNAL_API_SQL_SSL_ROOT_CERT");
     expect(runner).toContain("FORBIDDEN_PROJECT_REFS");
     expect(runner).toContain("ijeekuhbatykdomumfjx");
-    expect(runner).toContain("hostname.includes(\",\")");
+    expect(runner).toContain('hostname.includes(",")');
     expect(runner).toContain("username === `postgres.${expectedProjectRef}`");
     expect(runner).toContain("assertNotCancelled");
     expect(runner).toContain("normalizeHostname");
@@ -487,17 +481,13 @@ describe("external API authorization foundation migration", () => {
       "external_api_authorization_contract_check_set_changed"
     );
     expect(contract).toContain("null_create_forms_means_default_only");
-    expect(contract).toContain(
-      "null_update_forms_preserves_custom_forms"
-    );
+    expect(contract).toContain("null_update_forms_preserves_custom_forms");
     expect(contract).toContain("nullable_default_source_denied");
     expect(contract).toContain("nullable_source_active_denied");
     expect(contract).toContain("nullable_credential_class_denied");
     expect(contract).toContain("nullable_credential_scopes_denied");
     expect(contract).toContain("nullable_audit_phase_denied");
-    expect(contract).toContain(
-      "fingerprint_prefix_without_digest_denied"
-    );
+    expect(contract).toContain("fingerprint_prefix_without_digest_denied");
     expect(contract).toContain(
       "inactive_source_cannot_create_authenticated_audit"
     );
@@ -517,6 +507,12 @@ describe("external API authorization foundation migration", () => {
     expect(contract).toContain("audit_surface_has_no_sensitive_fields");
     expect(contract).toContain("audit_finalization_failure_preserves_base");
     expect(contract).toContain("projection_versions_are_append_only");
+    expect(contract).toContain(
+      "set_config('ops.external_projection_refreshing', 'on', true)"
+    );
+    expect(contract).toContain(
+      "set_config('ops.external_projection_refreshing', 'off', true)"
+    );
     expect(contract).toContain("request.jwt.claim.role");
     expect(contract).toContain("has_function_privilege");
     expect(contract).toContain("has_table_privilege");

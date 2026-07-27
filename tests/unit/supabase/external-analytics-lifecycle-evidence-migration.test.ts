@@ -101,6 +101,9 @@ describe("external analytics lifecycle evidence migration", () => {
     expect(sqlContract).toContain("atomic_stage_and_evidence");
     expect(sqlContract).toContain("conversion_is_distinct_from_win");
     expect(sqlContract).toContain("historical_unknown_reduces_coverage");
+    expect(sqlContract).toContain("'qualifying'");
+    expect(sqlContract).toContain("'in_progress'");
+    expect(sqlContract).not.toContain("'contacted'");
     expect(sqlContract.trimEnd()).toMatch(/rollback;$/);
   });
 });

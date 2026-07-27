@@ -30,6 +30,15 @@ describe("external lead projection migration", () => {
     expect(source).toContain("projection_schema_version");
   });
 
+  it("uses the production UUID project mirrors without text parsing", () => {
+    expect(source).toMatch(
+      /select coalesce\(\s*opportunity\.project_ref,\s*opportunity\.project_id\s*\)/
+    );
+    expect(source).not.toContain(
+      "private.try_parse_uuid(opportunity.project_id)"
+    );
+  });
+
   it("covers every externally visible dependency with same-transaction triggers", () => {
     for (const dependency of [
       "opportunities",
@@ -47,6 +56,16 @@ describe("external lead projection migration", () => {
     expect(source).toContain("external_lead_projection_on_project");
     expect(source).toContain("external_lead_projection_on_invoice");
     expect(source).toContain("external_lead_projection_on_payment");
+  });
+
+  it("reads shared trigger identifiers through a table-neutral JSON row", () => {
+    expect(source).toContain("v_dependency_row jsonb");
+    expect(source).toMatch(
+      /v_dependency_row := case when tg_op = 'delete'\s+then to_jsonb\(old\) else to_jsonb\(new\) end/
+    );
+    expect(source).toMatch(
+      /v_dependency_row ->> 'opportunity_id'[\s\S]*?v_dependency_row ->> 'id'/
+    );
   });
 
   it("keeps raw attribution and internal identifiers out of public payloads", () => {

@@ -27,6 +27,195 @@ begin
 end;
 $prerequisites$;
 
+-- Recompile the transition guard after the upload table has received every
+-- extension in this migration chain. PostgreSQL can retain a trigger
+-- function's composite-row plan across those schema changes.
+create or replace function private.guard_external_intake_upload_transition()
+returns trigger
+language plpgsql
+security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+declare
+  v_erasure_token boolean := false;
+begin
+  if new.caller_file_id is distinct from old.caller_file_id
+    or new.original_filename is distinct from old.original_filename
+    or new.expected_checksum_sha256
+      is distinct from old.expected_checksum_sha256
+    or (
+      old.object_version_id is not null
+      and new.observed_checksum_sha256
+        is distinct from old.observed_checksum_sha256
+    )
+  then
+    delete from private.external_intake_upload_erasure_write_tokens token
+    where token.transaction_id = txid_current()
+      and token.backend_pid = pg_backend_pid()
+      and token.intent_id = old.id
+    returning true into v_erasure_token;
+
+    if not found
+      or not coalesce(v_erasure_token, false)
+      or new.caller_file_id <> 'erased:' || old.id::text
+      or new.original_filename <> 'privacy-erased'
+      or new.expected_checksum_sha256 is not null
+      or new.observed_checksum_sha256 is not null
+      or new.state <> old.state
+    then
+      raise exception 'external_intake_upload_identity_immutable'
+        using errcode = '42501';
+    end if;
+  end if;
+
+  if new.id is distinct from old.id
+    or new.company_id is distinct from old.company_id
+    or new.batch_id is distinct from old.batch_id
+    or new.public_upload_id is distinct from old.public_upload_id
+    or new.ordinal is distinct from old.ordinal
+    or (
+      not v_erasure_token
+      and (
+        new.caller_file_id is distinct from old.caller_file_id
+        or new.original_filename is distinct from old.original_filename
+        or new.expected_checksum_sha256
+          is distinct from old.expected_checksum_sha256
+      )
+    )
+    or new.expected_size_bytes is distinct from old.expected_size_bytes
+    or new.declared_content_type is distinct from old.declared_content_type
+    or new.storage_object_key is distinct from old.storage_object_key
+    or new.created_at is distinct from old.created_at
+  then
+    raise exception 'external_intake_upload_identity_immutable'
+      using errcode = '42501';
+  end if;
+
+  if old.object_version_id is not null
+    and (
+      new.object_version_id is distinct from old.object_version_id
+      or new.observed_size_bytes is distinct from old.observed_size_bytes
+      or (
+        not v_erasure_token
+        and new.observed_checksum_sha256
+          is distinct from old.observed_checksum_sha256
+      )
+      or new.uploaded_at is distinct from old.uploaded_at
+    )
+  then
+    raise exception 'external_intake_upload_object_conflict'
+      using errcode = '23505';
+  end if;
+
+  if new.state <> old.state
+    and not (
+      (old.state = 'issued' and new.state in ('uploaded', 'expired'))
+      or (
+        old.state = 'uploaded'
+        and new.state in ('claimed', 'closed_missing', 'expired')
+      )
+      or (
+        old.state = 'claimed'
+        and new.state in ('pending_inspection', 'closed_missing', 'expired')
+      )
+      or (
+        old.state = 'pending_inspection'
+        and new.state in ('accepted', 'rejected', 'closed_missing', 'expired')
+      )
+    )
+  then
+    raise exception 'external_intake_upload_transition_invalid'
+      using errcode = '23514';
+  end if;
+
+  if (
+      new.capability_expires_at is distinct from old.capability_expires_at
+      or new.delete_not_before is distinct from old.delete_not_before
+    )
+    and old.state <> 'issued'
+  then
+    raise exception 'external_intake_upload_capability_immutable'
+      using errcode = '42501';
+  end if;
+
+  new.updated_at := clock_timestamp();
+  return new;
+end;
+$function$;
+
+-- Every parent delete/update must be able to check its external-API children
+-- without scanning a whole private table. The tables are new and empty while
+-- this migration runs, so creating the covering indexes here is lock-safe.
+do $cover_external_foreign_keys$
+declare
+  v_foreign_key record;
+begin
+  for v_foreign_key in
+    select
+      namespace.nspname as schema_name,
+      relation.relname as table_name,
+      constraint_row.conname as constraint_name,
+      string_agg(
+        format('%I', attribute.attname),
+        ', '
+        order by key_column.ordinality
+      ) as column_list
+    from pg_catalog.pg_constraint constraint_row
+    join pg_catalog.pg_class relation
+      on relation.oid = constraint_row.conrelid
+    join pg_catalog.pg_namespace namespace
+      on namespace.oid = relation.relnamespace
+    join unnest(constraint_row.conkey)
+      with ordinality as key_column(attnum, ordinality)
+      on true
+    join pg_catalog.pg_attribute attribute
+      on attribute.attrelid = relation.oid
+     and attribute.attnum = key_column.attnum
+    where constraint_row.contype = 'f'
+      and namespace.nspname = 'private'
+      and relation.relname like 'external\_%' escape '\'
+      and not exists (
+        select 1
+        from pg_catalog.pg_index index_row
+        where index_row.indrelid = constraint_row.conrelid
+          and index_row.indisvalid
+          and index_row.indisready
+          and index_row.indpred is null
+          and (
+            select array_agg(
+              index_key.attnum::smallint
+              order by index_key.ordinality
+            )
+            from unnest(index_row.indkey::smallint[])
+              with ordinality as index_key(attnum, ordinality)
+            where index_key.ordinality
+              <= cardinality(constraint_row.conkey)
+          ) = constraint_row.conkey
+      )
+    group by
+      namespace.nspname,
+      relation.relname,
+      constraint_row.conname
+  loop
+    execute format(
+      'create index %I on %I.%I (%s)',
+      'external_fk_' || substr(
+        md5(
+          v_foreign_key.schema_name || '.' ||
+          v_foreign_key.table_name || '.' ||
+          v_foreign_key.constraint_name
+        ),
+        1,
+        12
+      ) || '_idx',
+      v_foreign_key.schema_name,
+      v_foreign_key.table_name,
+      v_foreign_key.column_list
+    );
+  end loop;
+end;
+$cover_external_foreign_keys$;
+
 alter table private.external_api_security_events
   drop constraint external_api_security_events_type_check;
 

@@ -24,9 +24,10 @@ insert into public.companies (
 );
 
 insert into public.users (
-  id, bubble_id, company_id, first_name, last_name, email, role,
+  id, auth_id, bubble_id, company_id, first_name, last_name, email, role,
   is_company_admin, is_active, deleted_at
 ) values (
+  'f4000000-0000-4000-8000-000000000101',
   'f4000000-0000-4000-8000-000000000101',
   'external-intake-file-contract-owner',
   'f4000000-0000-4000-8000-000000000001',
@@ -111,19 +112,6 @@ insert into public.opportunities (
   'client@example.invalid',
   'new_lead',
   'website',
-  clock_timestamp(),
-  clock_timestamp()
-);
-
-insert into public.projects (
-  id, company_id, client_id, opportunity_id, title, status, created_at, updated_at
-) values (
-  'f4000000-0000-4000-8000-000000000501',
-  'f4000000-0000-4000-8000-000000000001',
-  'f4000000-0000-4000-8000-000000000301',
-  'f4000000-0000-4000-8000-000000000401',
-  'Website file project',
-  'active',
   clock_timestamp(),
   clock_timestamp()
 );
@@ -398,6 +386,19 @@ insert into private.external_intake_delivery_objects (
 );
 
 -- Scan-before-conversion: the first file is already clean when the lead links.
+insert into public.projects (
+  id, company_id, client_id, opportunity_id, title, status, created_at, updated_at
+) values (
+  'f4000000-0000-4000-8000-000000000501',
+  'f4000000-0000-4000-8000-000000000001',
+  'f4000000-0000-4000-8000-000000000301',
+  'f4000000-0000-4000-8000-000000000401',
+  'Website file project',
+  'in_progress',
+  clock_timestamp(),
+  clock_timestamp()
+);
+
 update public.opportunities
 set project_ref = 'f4000000-0000-4000-8000-000000000501',
     project_id = 'f4000000-0000-4000-8000-000000000501',
@@ -564,6 +565,10 @@ declare
   v_resolution jsonb;
   v_project_files jsonb;
 begin
+  perform set_config('request.jwt.claim.role', 'authenticated', true);
+  perform set_config('request.jwt.claim.sub', 'f4000000-0000-4000-8000-000000000101', true);
+  perform set_config('request.jwt.claims', '{"role":"authenticated","sub":"f4000000-0000-4000-8000-000000000101"}', true);
+
   v_context := public.get_opportunity_assigned_context(
     'f4000000-0000-4000-8000-000000000401'
   );
@@ -583,6 +588,9 @@ begin
   then
     raise exception 'guarded_project_file_descriptor_failed';
   end if;
+
+  perform set_config('request.jwt.claim.role', 'service_role', true);
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
   v_resolution := public.resolve_external_intake_attachment_as_system(
     'f4000000-0000-4000-8000-000000000101',
