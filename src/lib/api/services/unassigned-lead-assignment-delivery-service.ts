@@ -18,6 +18,8 @@ interface UnassignedLeadAssignmentDeliveryClaim {
   delivery_lease_token: string | null;
   company_id: string;
   opportunity_id: string;
+  source_kind: "email_connection" | "external_intake";
+  source_id: string;
   recipient_user_id: string;
   notification_id: string | null;
   lead_title: string;
@@ -122,6 +124,8 @@ function assertClaim(
     "delivery_id",
     "company_id",
     "opportunity_id",
+    "source_kind",
+    "source_id",
     "recipient_user_id",
     "lead_title",
     "disposition",
@@ -129,6 +133,14 @@ function assertClaim(
     if (typeof claim[key] !== "string" || claim[key] === "") {
       throw new Error(`Unassigned lead assignment claim is missing ${key}`);
     }
+  }
+  if (
+    claim.source_kind !== "email_connection" &&
+    claim.source_kind !== "external_intake"
+  ) {
+    throw new Error(
+      "Unassigned lead assignment claim has an invalid source kind"
+    );
   }
   if (
     typeof claim.should_push !== "boolean" ||

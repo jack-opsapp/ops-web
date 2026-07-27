@@ -1,0 +1,13 @@
+{
+  "sessions": [
+    {
+      "name": "intake_writer",
+      "file": "external-lead-intake-concurrency-writer.psql"
+    },
+    {
+      "name": "intake_contender",
+      "file": "external-lead-intake-concurrency-contender.psql"
+    }
+  ],
+  "timeoutMs": 60000
+}

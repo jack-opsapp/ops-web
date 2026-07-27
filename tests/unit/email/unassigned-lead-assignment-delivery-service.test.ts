@@ -12,6 +12,8 @@ const visibleClaim = {
   delivery_lease_token: "22222222-2222-4222-8222-222222222222",
   company_id: "33333333-3333-4333-8333-333333333333",
   opportunity_id: "44444444-4444-4444-8444-444444444444",
+  source_kind: "email_connection",
+  source_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   recipient_user_id: "55555555-5555-4555-8555-555555555555",
   notification_id: "66666666-6666-4666-8666-666666666666",
   lead_title: "Canpro framing renovation",
@@ -203,12 +205,11 @@ describe("UnassignedLeadAssignmentDeliveryService", () => {
       },
     });
 
-    const failure =
-      await UnassignedLeadAssignmentDeliveryService.processBatch(
-        client,
-        { limit: 2, workerId: visibleClaim.delivery_id },
-        { sendPush }
-      ).catch((error: unknown) => error);
+    const failure = await UnassignedLeadAssignmentDeliveryService.processBatch(
+      client,
+      { limit: 2, workerId: visibleClaim.delivery_id },
+      { sendPush }
+    ).catch((error: unknown) => error);
 
     expect(isDatabasePressureError(failure)).toBe(true);
   });
@@ -304,6 +305,25 @@ describe("UnassignedLeadAssignmentDeliveryService", () => {
       pushed: 1,
       errors: [],
     });
+  });
+
+  it("delivers the same owner prompt for an external-intake source", async () => {
+    const externalClaim = {
+      ...visibleClaim,
+      source_kind: "external_intake",
+      source_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    };
+    const { client } = rpcClient({ claims: [externalClaim] });
+    sendPush.mockResolvedValue({ ok: true, recipients: 1 });
+
+    const result = await UnassignedLeadAssignmentDeliveryService.processBatch(
+      client,
+      { workerId: visibleClaim.delivery_id },
+      { sendPush }
+    );
+
+    expect(sendPush).toHaveBeenCalledOnce();
+    expect(result).toMatchObject({ claimed: 1, delivered: 1, pushed: 1 });
   });
 
   it("keeps the persistent rail prompt when push is disabled", async () => {

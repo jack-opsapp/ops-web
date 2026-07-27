@@ -1,0 +1,76 @@
+\set ON_ERROR_STOP on
+
+do $wait_for_fixture$
+declare
+  v_deadline timestamptz := clock_timestamp() + interval '30 seconds';
+begin
+  loop
+    exit when to_regclass(
+      'private.external_lead_intake_concurrency_fixture'
+    ) is not null;
+    if clock_timestamp() >= v_deadline then
+      raise exception 'external_lead_intake_concurrency_fixture_timeout';
+    end if;
+    perform pg_sleep(0.05);
+  end loop;
+end;
+$wait_for_fixture$;
+
+select pg_advisory_lock(2026072611);
+select pg_advisory_unlock(2026072611);
+
+-- Phase one overlaps a different-key inquiry for the same new identity.
+select pg_advisory_lock(2026072612);
+select pg_advisory_unlock(2026072612);
+
+begin;
+set local lock_timeout = '10s';
+set local statement_timeout = '60s';
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+insert into private.external_lead_intake_concurrency_results (
+  phase,
+  session_name,
+  result
+) values (
+  'same_identity',
+  'contender',
+  private.external_lead_intake_concurrency_submit(
+    'same_identity',
+    gen_random_uuid(),
+    decode(repeat('82', 32), 'hex'),
+    decode(repeat('92', 32), 'hex'),
+    'identity-race@example.invalid',
+    'Second overlapping inquiry'
+  )
+);
+
+commit;
+
+-- Phase two overlaps an exact transport retry.
+select pg_advisory_lock(2026072613);
+select pg_advisory_unlock(2026072613);
+
+begin;
+set local lock_timeout = '10s';
+set local statement_timeout = '60s';
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+insert into private.external_lead_intake_concurrency_results (
+  phase,
+  session_name,
+  result
+) values (
+  'same_key',
+  'contender',
+  private.external_lead_intake_concurrency_submit(
+    'same_key',
+    gen_random_uuid(),
+    decode(repeat('83', 32), 'hex'),
+    decode(repeat('93', 32), 'hex'),
+    'same-key-race@example.invalid',
+    'Exact overlapping retry'
+  )
+);
+
+commit;

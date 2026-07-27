@@ -16614,7 +16614,7 @@ export type Database = {
           claimed_at: string | null
           claimed_by: string | null
           company_id: string
-          connection_id: string
+          connection_id: string | null
           created_at: string
           delivered_at: string | null
           disposition: string | null
@@ -16627,6 +16627,8 @@ export type Database = {
           opportunity_id: string
           push_state: string
           recipient_user_id: string
+          source_id: string
+          source_kind: string
           state: string
           terminal_at: string | null
           updated_at: string
@@ -16638,7 +16640,7 @@ export type Database = {
           claimed_at?: string | null
           claimed_by?: string | null
           company_id: string
-          connection_id: string
+          connection_id?: string | null
           created_at?: string
           delivered_at?: string | null
           disposition?: string | null
@@ -16651,6 +16653,8 @@ export type Database = {
           opportunity_id: string
           push_state?: string
           recipient_user_id: string
+          source_id: string
+          source_kind: string
           state?: string
           terminal_at?: string | null
           updated_at?: string
@@ -16662,7 +16666,7 @@ export type Database = {
           claimed_at?: string | null
           claimed_by?: string | null
           company_id?: string
-          connection_id?: string
+          connection_id?: string | null
           created_at?: string
           delivered_at?: string | null
           disposition?: string | null
@@ -16675,6 +16679,8 @@ export type Database = {
           opportunity_id?: string
           push_state?: string
           recipient_user_id?: string
+          source_id?: string
+          source_kind?: string
           state?: string
           terminal_at?: string | null
           updated_at?: string
@@ -17624,6 +17630,55 @@ export type Database = {
           scopes: string[]
         }[]
       }
+      create_external_intake_submission_as_system: {
+        Args: {
+          p_attribution_candidates: Json
+          p_authorization_epoch: number
+          p_canonical_request_hash: string
+          p_canonical_submission: Json
+          p_canonicalization_version: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_evidence_schema_version: number
+          p_external_submission_candidates: Json
+          p_external_submission_digest: string | null
+          p_external_submission_digest_version: number | null
+          p_form_public_id: string
+          p_idempotency_candidates: Json
+          p_idempotency_digest: string
+          p_idempotency_digest_version: number
+          p_method: string
+          p_normalized_contact: Json
+          p_original_evidence: Json
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_requested_origin: string | null
+          p_route: string
+          p_source_public_id: string
+          p_upload_ids: string[]
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      resolve_external_intake_submission_context_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_form_public_id: string
+          p_principal_id: string
+          p_public_upload_ids: string[]
+          p_requested_origin: string | null
+          p_source_public_id: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
       abandon_external_intake_delivery_as_system: {
         Args: {
           p_delivery_id: string
@@ -18462,6 +18517,8 @@ export type Database = {
           recipient_user_id: string
           requires_notification: boolean
           should_push: boolean
+          source_id: string
+          source_kind: string
         }[]
       }
       claim_task_schedule_automation_events: {
