@@ -9,7 +9,9 @@ const {
   processProjectLifecycle,
   processTaskAutomation,
   processConversionNotifications,
+  processAssignmentContactFormDrafts,
   runWithCronWorkloadControl,
+  runWithSupabase,
   getServiceRoleClient,
   client,
 } = vi.hoisted(() => ({
@@ -18,7 +20,9 @@ const {
   processProjectLifecycle: vi.fn(),
   processTaskAutomation: vi.fn(),
   processConversionNotifications: vi.fn(),
+  processAssignmentContactFormDrafts: vi.fn(),
   runWithCronWorkloadControl: vi.fn(),
+  runWithSupabase: vi.fn(),
   getServiceRoleClient: vi.fn(),
   client: { rpc: vi.fn() },
 }));
@@ -54,6 +58,16 @@ vi.mock(
 );
 vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
   runWithCronWorkloadControl,
+}));
+vi.mock(
+  "@/lib/api/services/email-assignment-contact-form-draft-runtime",
+  () => ({
+    runSupabaseEmailAssignmentContactFormDraftWorker:
+      processAssignmentContactFormDrafts,
+  })
+);
+vi.mock("@/lib/supabase/helpers", () => ({
+  runWithSupabase,
 }));
 
 vi.mock("@/lib/supabase/server-client", () => ({
@@ -110,6 +124,17 @@ const conversionNotificationResult = {
   terminalFailed: 0,
   errors: [],
 };
+const assignmentContactFormDraftResult = {
+  claimed: 1,
+  drafted: 1,
+  skipped: 0,
+  retrying: 0,
+  failed: 0,
+  stale: 0,
+  reconciliationRequired: 0,
+  staleCompletions: 0,
+  errors: [],
+};
 
 function request(token?: string): NextRequest {
   return new NextRequest(
@@ -138,6 +163,14 @@ describe("lead assignment deliveries cron", () => {
     processConversionNotifications.mockReset();
     processConversionNotifications.mockResolvedValue(
       conversionNotificationResult
+    );
+    processAssignmentContactFormDrafts.mockReset();
+    processAssignmentContactFormDrafts.mockResolvedValue(
+      assignmentContactFormDraftResult
+    );
+    runWithSupabase.mockReset();
+    runWithSupabase.mockImplementation(
+      async (_client: unknown, work: () => Promise<unknown>) => work()
     );
     runWithCronWorkloadControl.mockReset();
     runWithCronWorkloadControl.mockImplementation(
@@ -197,6 +230,11 @@ describe("lead assignment deliveries cron", () => {
       limit: 5,
       leaseSeconds: 360,
     });
+    expect(processAssignmentContactFormDrafts).toHaveBeenCalledWith(client, {
+      limit: 3,
+      leaseSeconds: 360,
+    });
+    expect(runWithSupabase).toHaveBeenCalledWith(client, expect.any(Function));
     expect(processProjectLifecycle).toHaveBeenCalledWith(client, {
       limit: 2,
       leaseSeconds: 360,
@@ -215,6 +253,7 @@ describe("lead assignment deliveries cron", () => {
       ran: true,
       ...successResult,
       unassignedLeadAssignments: unassignedLeadAssignmentResult,
+      assignmentContactFormDrafts: assignmentContactFormDraftResult,
       projectLifecycle: projectLifecycleResult,
       taskAutomation: taskAutomationResult,
       conversionNotifications: conversionNotificationResult,
@@ -233,6 +272,7 @@ describe("lead assignment deliveries cron", () => {
     await vi.waitFor(() => expect(processBatch).toHaveBeenCalledOnce());
 
     expect(processUnassignedLeadAssignments).not.toHaveBeenCalled();
+    expect(processAssignmentContactFormDrafts).not.toHaveBeenCalled();
     expect(processProjectLifecycle).not.toHaveBeenCalled();
     expect(processTaskAutomation).not.toHaveBeenCalled();
     expect(processConversionNotifications).not.toHaveBeenCalled();
@@ -242,6 +282,7 @@ describe("lead assignment deliveries cron", () => {
 
     expect(response.status).toBe(200);
     expect(processUnassignedLeadAssignments).toHaveBeenCalledOnce();
+    expect(processAssignmentContactFormDrafts).toHaveBeenCalledOnce();
     expect(processProjectLifecycle).toHaveBeenCalledOnce();
     expect(processTaskAutomation).toHaveBeenCalledOnce();
     expect(processConversionNotifications).toHaveBeenCalledOnce();
@@ -263,6 +304,7 @@ describe("lead assignment deliveries cron", () => {
     });
     expect(processBatch).not.toHaveBeenCalled();
     expect(processUnassignedLeadAssignments).not.toHaveBeenCalled();
+    expect(processAssignmentContactFormDrafts).not.toHaveBeenCalled();
     expect(processProjectLifecycle).not.toHaveBeenCalled();
     expect(processTaskAutomation).not.toHaveBeenCalled();
     expect(processConversionNotifications).not.toHaveBeenCalled();
@@ -313,6 +355,7 @@ describe("lead assignment deliveries cron", () => {
     expect(response.status).toBe(500);
     expect(processBatch).toHaveBeenCalledOnce();
     expect(processUnassignedLeadAssignments).not.toHaveBeenCalled();
+    expect(processAssignmentContactFormDrafts).not.toHaveBeenCalled();
     expect(processProjectLifecycle).not.toHaveBeenCalled();
     expect(processTaskAutomation).not.toHaveBeenCalled();
     expect(processConversionNotifications).not.toHaveBeenCalled();
@@ -336,6 +379,7 @@ describe("lead assignment deliveries cron", () => {
 
     expect(response.status).toBe(503);
     expect(processUnassignedLeadAssignments).toHaveBeenCalledOnce();
+    expect(processAssignmentContactFormDrafts).toHaveBeenCalledOnce();
     expect(processProjectLifecycle).toHaveBeenCalledOnce();
     expect(processTaskAutomation).toHaveBeenCalledOnce();
     expect(processConversionNotifications).toHaveBeenCalledOnce();
@@ -402,6 +446,31 @@ describe("lead assignment deliveries cron", () => {
     expect(await response.json()).toMatchObject({
       ok: false,
       conversionNotifications: { requeued: 1 },
+    });
+  });
+
+  it("returns 503 when assignment-triggered drafting must retry", async () => {
+    processAssignmentContactFormDrafts.mockResolvedValue({
+      ...assignmentContactFormDraftResult,
+      drafted: 0,
+      retrying: 1,
+      errors: [
+        {
+          queueId: "contact-draft-1",
+          error: "draft generation temporarily unavailable",
+        },
+      ],
+    });
+
+    const response = await GET(request("cron-secret"));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      assignmentContactFormDrafts: {
+        retrying: 1,
+        errors: [{ queueId: "contact-draft-1" }],
+      },
     });
   });
 

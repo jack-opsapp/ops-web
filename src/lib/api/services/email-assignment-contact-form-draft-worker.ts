@@ -47,10 +47,7 @@ export interface ClaimedEmailAssignmentContactFormDraft {
 }
 
 export type ContactFormDraftFailureDisposition =
-  | "retrying"
-  | "failed"
-  | "stale"
-  | "reconciliation_required";
+  "retrying" | "failed" | "stale" | "reconciliation_required";
 
 export interface ContactFormDraftProviderPlacementAttempt {
   attemptId: string;
@@ -83,6 +80,8 @@ interface GeneratedContactFormDraft {
   draftHistoryId: string;
   subject?: string;
   reason?: string;
+  heldForReview?: boolean;
+  escalated?: boolean;
 }
 
 interface PreparedContactFormDraft {
@@ -331,6 +330,18 @@ function preparedFromClaim(
   };
 }
 
+function isTerminalDraftUnavailable(
+  generated: GeneratedContactFormDraft
+): boolean {
+  const reason = generated.reason?.trim() ?? "";
+  return (
+    generated.heldForReview === true ||
+    generated.escalated === true ||
+    reason === "escalated_to_operator" ||
+    reason.startsWith("Need more email data to match your voice")
+  );
+}
+
 function emptyResult(): EmailAssignmentContactFormDraftWorkerResult {
   return {
     claimed: 0,
@@ -507,6 +518,14 @@ export class EmailAssignmentContactFormDraftWorker {
             !generated.draft?.trim() ||
             !generated.draftHistoryId?.trim()
           ) {
+            if (!isTerminalDraftUnavailable(generated)) {
+              throw new Error(
+                `EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_TEMPORARILY_UNAVAILABLE: ${
+                  generated.reason?.trim() ||
+                  "draft generation returned no durable result"
+                }`
+              );
+            }
             await this.markSkipped(
               result,
               job,

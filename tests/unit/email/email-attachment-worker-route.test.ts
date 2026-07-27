@@ -6,7 +6,6 @@ import { NextRequest } from "next/server";
 
 const {
   getServiceRoleClientMock,
-  runSupabaseEmailAssignmentContactFormDraftWorkerMock,
   runSupabaseEmailConversionPhotoWorkerMock,
   runSupabaseEmailAttachmentWorkerMock,
   runWithCronWorkloadControlMock,
@@ -15,7 +14,6 @@ const {
   serviceRoleClient,
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
-  runSupabaseEmailAssignmentContactFormDraftWorkerMock: vi.fn(),
   runSupabaseEmailConversionPhotoWorkerMock: vi.fn(),
   runSupabaseEmailAttachmentWorkerMock: vi.fn(),
   runWithCronWorkloadControlMock: vi.fn(),
@@ -52,14 +50,6 @@ vi.mock("@/lib/api/services/email-conversion-photo-runtime", () => ({
     runSupabaseEmailConversionPhotoWorkerMock,
 }));
 
-vi.mock(
-  "@/lib/api/services/email-assignment-contact-form-draft-runtime",
-  () => ({
-    runSupabaseEmailAssignmentContactFormDraftWorker:
-      runSupabaseEmailAssignmentContactFormDraftWorkerMock,
-  })
-);
-
 import { GET } from "@/app/api/cron/email-attachment-worker/route";
 
 const emptyResult = {
@@ -85,18 +75,6 @@ const emptyPhotoResult = {
   errors: [],
 };
 
-const emptyAssignmentDraftResult = {
-  claimed: 0,
-  drafted: 0,
-  skipped: 0,
-  retrying: 0,
-  failed: 0,
-  stale: 0,
-  reconciliationRequired: 0,
-  staleCompletions: 0,
-  errors: [],
-};
-
 function request(secret = "cron-test-secret"): NextRequest {
   return new NextRequest("https://ops.test/api/cron/email-attachment-worker", {
     headers: { authorization: `Bearer ${secret}` },
@@ -113,10 +91,6 @@ describe("email attachment worker cron", () => {
     runSupabaseEmailConversionPhotoWorkerMock.mockReset();
     runSupabaseEmailConversionPhotoWorkerMock.mockResolvedValue(
       emptyPhotoResult
-    );
-    runSupabaseEmailAssignmentContactFormDraftWorkerMock.mockReset();
-    runSupabaseEmailAssignmentContactFormDraftWorkerMock.mockResolvedValue(
-      emptyAssignmentDraftResult
     );
     runWithCronWorkloadControlMock.mockReset();
     runWithCronWorkloadControlMock.mockImplementation(
@@ -163,9 +137,6 @@ describe("email attachment worker cron", () => {
     expect(getServiceRoleClientMock).not.toHaveBeenCalled();
     expect(runSupabaseEmailAttachmentWorkerMock).not.toHaveBeenCalled();
     expect(runSupabaseEmailConversionPhotoWorkerMock).not.toHaveBeenCalled();
-    expect(
-      runSupabaseEmailAssignmentContactFormDraftWorkerMock
-    ).not.toHaveBeenCalled();
   });
 
   it("rejects an invalid bearer token before creating a service client", async () => {
@@ -179,9 +150,6 @@ describe("email attachment worker cron", () => {
     expect(getServiceRoleClientMock).not.toHaveBeenCalled();
     expect(runSupabaseEmailAttachmentWorkerMock).not.toHaveBeenCalled();
     expect(runSupabaseEmailConversionPhotoWorkerMock).not.toHaveBeenCalled();
-    expect(
-      runSupabaseEmailAssignmentContactFormDraftWorkerMock
-    ).not.toHaveBeenCalled();
   });
 
   it("runs the worker inside the service-role Supabase context", async () => {
@@ -195,7 +163,6 @@ describe("email attachment worker cron", () => {
       ok: true,
       ...result,
       conversionPhotos: emptyPhotoResult,
-      assignmentContactFormDrafts: emptyAssignmentDraftResult,
     });
     expect(runWithSupabaseMock).toHaveBeenCalledWith(
       serviceRoleClient,
@@ -223,12 +190,6 @@ describe("email attachment worker cron", () => {
       serviceRoleClient,
       { limit: 2, leaseSeconds: 360 }
     );
-    expect(
-      runSupabaseEmailAssignmentContactFormDraftWorkerMock
-    ).toHaveBeenCalledWith(serviceRoleClient, {
-      leaseSeconds: 360,
-      limit: 1,
-    });
   });
 
   it("returns 503 when the worker reports one or more failures", async () => {
@@ -247,7 +208,6 @@ describe("email attachment worker cron", () => {
       ok: false,
       ...result,
       conversionPhotos: emptyPhotoResult,
-      assignmentContactFormDrafts: emptyAssignmentDraftResult,
     });
   });
 
@@ -268,9 +228,6 @@ describe("email attachment worker cron", () => {
 
     expect(response.status).toBe(500);
     expect(runSupabaseEmailConversionPhotoWorkerMock).not.toHaveBeenCalled();
-    expect(
-      runSupabaseEmailAssignmentContactFormDraftWorkerMock
-    ).not.toHaveBeenCalled();
   });
 
   it("stops before later pipelines when attachment inspection reports nested database pressure", async () => {
@@ -299,9 +256,6 @@ describe("email attachment worker cron", () => {
 
     expect(response.status).toBe(500);
     expect(runSupabaseEmailConversionPhotoWorkerMock).not.toHaveBeenCalled();
-    expect(
-      runSupabaseEmailAssignmentContactFormDraftWorkerMock
-    ).not.toHaveBeenCalled();
   });
 
   it("returns 503 when converted-project photo materialization fails", async () => {
@@ -320,7 +274,6 @@ describe("email attachment worker cron", () => {
       ok: false,
       ...emptyResult,
       conversionPhotos: photoResult,
-      assignmentContactFormDrafts: emptyAssignmentDraftResult,
     });
   });
 
@@ -344,29 +297,6 @@ describe("email attachment worker cron", () => {
       ok: false,
       ...emptyResult,
       conversionPhotos: photoResult,
-      assignmentContactFormDrafts: emptyAssignmentDraftResult,
-    });
-  });
-
-  it("returns 503 when assignment-triggered contact-form draft processing fails", async () => {
-    const draftResult = {
-      ...emptyAssignmentDraftResult,
-      claimed: 1,
-      failed: 1,
-      errors: [{ queueId: "draft-job-1", error: "provider unavailable" }],
-    };
-    runSupabaseEmailAssignmentContactFormDraftWorkerMock.mockResolvedValue(
-      draftResult
-    );
-
-    const response = await GET(request());
-
-    expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({
-      ok: false,
-      ...emptyResult,
-      conversionPhotos: emptyPhotoResult,
-      assignmentContactFormDrafts: draftResult,
     });
   });
 
@@ -383,9 +313,6 @@ describe("email attachment worker cron", () => {
       error: "claim failed",
     });
     expect(runSupabaseEmailConversionPhotoWorkerMock).not.toHaveBeenCalled();
-    expect(
-      runSupabaseEmailAssignmentContactFormDraftWorkerMock
-    ).not.toHaveBeenCalled();
   });
 
   it("uses isolated offsets without replacing existing crons", () => {
@@ -425,9 +352,6 @@ describe("email attachment worker cron", () => {
     });
     expect(runSupabaseEmailAttachmentWorkerMock).not.toHaveBeenCalled();
     expect(runSupabaseEmailConversionPhotoWorkerMock).not.toHaveBeenCalled();
-    expect(
-      runSupabaseEmailAssignmentContactFormDraftWorkerMock
-    ).not.toHaveBeenCalled();
   });
 
   it("fails closed when attachment workload control is unavailable", async () => {

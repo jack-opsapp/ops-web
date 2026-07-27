@@ -84,6 +84,15 @@ function makeHarness(input?: {
   authorization?: boolean[];
   connection?: EmailConnection | null;
   providerPlacementAttempt?: ContactFormDraftProviderPlacementAttempt | null;
+  generatedDraft?: {
+    available: boolean;
+    draft: string;
+    draftHistoryId: string;
+    subject?: string;
+    reason?: string;
+    heldForReview?: boolean;
+    escalated?: boolean;
+  };
 }) {
   const job = claimed();
   const claim = vi.fn(async () => input?.jobs ?? [job]);
@@ -103,12 +112,16 @@ function makeHarness(input?: {
   );
   const generateDraft = vi.fn<
     EmailAssignmentContactFormDraftDependencies["generateDraft"]
-  >(async () => ({
-    available: true,
-    draft: "Hi Sandra,\n\nThanks for reaching out. Let’s arrange a quick call.",
-    draftHistoryId: "00000000-0000-4000-8000-000000000601",
-    subject: "Your deck inquiry",
-  }));
+  >(
+    async () =>
+      input?.generatedDraft ?? {
+        available: true,
+        draft:
+          "Hi Sandra,\n\nThanks for reaching out. Let’s arrange a quick call.",
+        draftHistoryId: "00000000-0000-4000-8000-000000000601",
+        subject: "Your deck inquiry",
+      }
+  );
   const prepare = vi.fn(async () => true);
   const resolveSignature = vi.fn<
     EmailAssignmentContactFormDraftDependencies["resolveSignature"]
@@ -326,6 +339,57 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
       expect(result.skipped).toBe(1);
     }
   );
+
+  it("retries an empty model response instead of terminally skipping a still-authorized assignment", async () => {
+    const harness = makeHarness({
+      generatedDraft: {
+        available: false,
+        draft: "",
+        draftHistoryId: "",
+        reason: "AI returned empty response",
+      },
+    });
+
+    const result = await harness.worker.process();
+
+    expect(harness.complete).not.toHaveBeenCalled();
+    expect(harness.fail).toHaveBeenCalledWith({
+      queueId: harness.job.id,
+      holder: "contact-form-worker-1",
+      error:
+        "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_TEMPORARILY_UNAVAILABLE: AI returned empty response",
+    });
+    expect(result.retrying).toBe(1);
+    expect(harness.getDraftTransport).not.toHaveBeenCalled();
+    expect(harness.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("keeps a deterministic under-trained writing profile as a terminal safety hold", async () => {
+    const harness = makeHarness({
+      generatedDraft: {
+        available: false,
+        draft: "",
+        draftHistoryId: "",
+        reason:
+          "Need more email data to match your voice (3/5 emails analyzed)",
+      },
+    });
+
+    const result = await harness.worker.process();
+
+    expect(harness.fail).not.toHaveBeenCalled();
+    expect(harness.complete).toHaveBeenCalledWith({
+      queueId: harness.job.id,
+      holder: "contact-form-worker-1",
+      mailboxDraftId: null,
+      providerThreadId: null,
+      draftHistoryId: null,
+      providerCreateAttemptId: null,
+      outcome: "draft_unavailable",
+    });
+    expect(result.skipped).toBe(1);
+    expect(harness.getDraftTransport).not.toHaveBeenCalled();
+  });
 
   it.each(["auto_draft", "auto_send", "auto_follow_up"])(
     "keeps %s review-only and never exposes the send capability",
