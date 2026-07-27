@@ -47,6 +47,11 @@ import {
   RateLimitUnavailableError,
   createConfiguredStrictRateLimiter,
 } from "../security/strict-rate-limit";
+import {
+  recordExternalApiAuthorizationDenial,
+  type ExternalApiAuthorizationDenialCode,
+  type ExternalApiAuthorizationDenialClient,
+} from "../security/security-alerts";
 
 type ResponseClass = 2 | 3 | 4 | 5;
 
@@ -107,6 +112,10 @@ export interface ExternalApiBoundaryDependencies {
     principalIdentity: string;
     companyIdentity: string;
   }): Promise<ExternalApiRateLimitDecision>;
+  recordAuthorizationDenial?(
+    actor: ExternalApiRequestActor,
+    code: ExternalApiAuthorizationDenialCode
+  ): Promise<void>;
   audit: ExternalApiAuditRecorder;
   now(): Date;
 }
@@ -143,7 +152,9 @@ type SafeBoundaryFailure = Readonly<{
 function createDefaultDependencies(): ExternalApiBoundaryDependencies {
   const limiter = createConfiguredStrictRateLimiter();
   let client:
-    | (ExternalApiAuthRpcClient & ExternalApiAuditRpcClient)
+    | (ExternalApiAuthRpcClient &
+        ExternalApiAuditRpcClient &
+        ExternalApiAuthorizationDenialClient)
     | undefined;
   let credentialKeyRing:
     | ReturnType<typeof readExternalApiCredentialHmacKeyRing>
@@ -154,9 +165,11 @@ function createDefaultDependencies(): ExternalApiBoundaryDependencies {
   let auditRecorder: ExternalApiAuditRecorder | undefined;
 
   function serviceClient(): ExternalApiAuthRpcClient &
-    ExternalApiAuditRpcClient {
+    ExternalApiAuditRpcClient &
+    ExternalApiAuthorizationDenialClient {
     client ??= getServiceRoleClient() as unknown as ExternalApiAuthRpcClient &
-      ExternalApiAuditRpcClient;
+      ExternalApiAuditRpcClient &
+      ExternalApiAuthorizationDenialClient;
     return client;
   }
 
@@ -212,6 +225,9 @@ function createDefaultDependencies(): ExternalApiBoundaryDependencies {
     },
     checkAuthenticatedRateLimit(input) {
       return limiter.checkAuthenticated(input);
+    },
+    recordAuthorizationDenial(actor, code) {
+      return recordExternalApiAuthorizationDenial(serviceClient(), actor, code);
     },
     get audit() {
       auditRecorder ??= createSupabaseExternalApiAuditRecorder(serviceClient());
@@ -525,7 +541,19 @@ export function createExternalApiRequestBoundary<TInput, TResult>(
           })
         );
       } catch (error) {
-        const failure = safeFailure(error);
+        let failure = safeFailure(error);
+        if (
+          actor &&
+          deps.recordAuthorizationDenial &&
+          (failure.code === "source_not_allowed" ||
+            failure.code === "form_not_allowed")
+        ) {
+          try {
+            await deps.recordAuthorizationDenial(actor, failure.code);
+          } catch {
+            failure = { code: "temporarily_unavailable" };
+          }
+        }
         const response = createFailureResponse(failure, identity, deps.now());
         const finalized = await finalizePossibleAuthenticatedFailure({
           dependencies: deps,

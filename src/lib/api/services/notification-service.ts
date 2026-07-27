@@ -14,6 +14,7 @@ export type NotificationType =
   | "lead_assigned"
   | "lead_assignment_required"
   | "lead_follow_up_sent"
+  | "external_api_security"
   | "system"
   | "project_assigned"
   | "lead_converted"
@@ -168,10 +169,9 @@ export const NotificationService = {
       );
     }
     if (result.error) {
-      throw new CronDatabaseOperationError(
-        "Notification creation failed",
-        { cause: result.error }
-      );
+      throw new CronDatabaseOperationError("Notification creation failed", {
+        cause: result.error,
+      });
     }
   },
 

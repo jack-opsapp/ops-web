@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import type { ExternalApiRequestActor } from "@/lib/external-api/auth/credential-auth";
+import { ExternalApiSafeError } from "@/lib/external-api/contracts/errors";
 import {
   createExternalApiRequestBoundary,
   type ExternalApiBoundaryDependencies,
@@ -378,5 +379,62 @@ describe("external API request boundary", () => {
       })
     );
     expect(deps.audit.recordPreAuth).not.toHaveBeenCalled();
+  });
+
+  it("records authenticated source denials before returning the safe error", async () => {
+    const events: string[] = [];
+    const deps = dependencies(events);
+    deps.recordAuthorizationDenial = vi.fn(async () => {
+      events.push("security_denial");
+    });
+    const handle = createExternalApiRequestBoundary({
+      route: "/v1/intake/submissions",
+      method: "POST",
+      requiredCredentialClass: "intake",
+      requiredScopes: ["intake.write"],
+      parseRequest: async () => ({}),
+      handler: async () => {
+        throw new ExternalApiSafeError("source_not_allowed");
+      },
+      createResponse: vi.fn(),
+      dependencies: deps,
+    });
+
+    const response = await handle(request());
+
+    expect(response.status).toBe(403);
+    expect(deps.recordAuthorizationDenial).toHaveBeenCalledWith(
+      actor,
+      "source_not_allowed"
+    );
+    expect(events.indexOf("security_denial")).toBeLessThan(
+      events.lastIndexOf("audit")
+    );
+  });
+
+  it("fails closed when a source denial cannot be durably recorded", async () => {
+    const deps = dependencies([]);
+    deps.recordAuthorizationDenial = vi.fn(async () => {
+      throw new Error("private backend detail");
+    });
+    const handle = createExternalApiRequestBoundary({
+      route: "/v1/intake/submissions",
+      method: "POST",
+      requiredCredentialClass: "intake",
+      requiredScopes: ["intake.write"],
+      parseRequest: async () => ({}),
+      handler: async () => {
+        throw new ExternalApiSafeError("form_not_allowed");
+      },
+      createResponse: vi.fn(),
+      dependencies: deps,
+    });
+
+    const response = await handle(request());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: "temporarily_unavailable" },
+    });
   });
 });

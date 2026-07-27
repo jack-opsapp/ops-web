@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
 import { processExternalIntakeOutboxBatch } from "@/lib/external-api/intake/outbox-worker";
+import { runExternalApiOperationsMaintenance } from "@/lib/external-api/security/security-alerts";
 import { runExternalIntakeMaintenance } from "@/lib/external-api/uploads/attachment-runtime";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
@@ -42,6 +43,9 @@ export async function GET(request: NextRequest) {
       workloadKey: "external-api-maintenance",
       leaseSeconds: 300,
       work: async () => {
+        const operations = await runExternalApiOperationsMaintenance(supabase, {
+          limit: 100,
+        });
         const maintenance = await runExternalIntakeMaintenance(supabase, {
           eventLimit: 10,
           inspectionLimit: 5,
@@ -53,7 +57,7 @@ export async function GET(request: NextRequest) {
           leaseSeconds: 360,
           workerId: "external-api-maintenance",
         });
-        return { maintenance, outbox };
+        return { operations, maintenance, outbox };
       },
     });
 
@@ -71,12 +75,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { maintenance, outbox } = controlled.value;
+    const { operations, maintenance, outbox } = controlled.value;
     const ok = maintenance.errors.length === 0 && outbox.errors.length === 0;
     return NextResponse.json(
       {
         ok,
         ran: true,
+        operationsCredentialsRetired: operations.credentialsRetired,
+        networkFingerprintsPurged: operations.networkFingerprintsPurged,
+        securityEventsPurged: operations.securityEventsPurged,
+        projectionVersionsPruned: operations.projectionVersionsPruned,
+        securityAlertsCreated: operations.alertsCreated,
+        securityRecipientsNotified: operations.recipientsNotified,
+        operationsHealth: operations.health,
         eventsRecorded: maintenance.eventsRecorded,
         inspectionsClaimed: maintenance.inspectionsClaimed,
         accepted: maintenance.accepted,
@@ -103,7 +114,7 @@ export async function GET(request: NextRequest) {
     console.error("[cron/external-api-maintenance] maintenance failed");
     return NextResponse.json(
       { ok: false, error: "Maintenance unavailable" },
-      { status: 500 }
+      { status: 503 }
     );
   }
 }

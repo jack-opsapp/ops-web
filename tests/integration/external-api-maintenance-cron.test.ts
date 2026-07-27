@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const runMaintenance = vi.fn();
+const runOperations = vi.fn();
 const processOutbox = vi.fn();
 let leaseHeld = false;
 
@@ -16,6 +17,11 @@ vi.mock("@/lib/external-api/uploads/attachment-runtime", () => ({
 vi.mock("@/lib/external-api/intake/outbox-worker", () => ({
   processExternalIntakeOutboxBatch: (...args: unknown[]) =>
     processOutbox(...args),
+}));
+
+vi.mock("@/lib/external-api/security/security-alerts", () => ({
+  runExternalApiOperationsMaintenance: (...args: unknown[]) =>
+    runOperations(...args),
 }));
 
 vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
@@ -40,7 +46,25 @@ describe("external API maintenance cron", () => {
     process.env.CRON_SECRET = "secret";
     leaseHeld = false;
     runMaintenance.mockReset();
+    runOperations.mockReset();
     processOutbox.mockReset();
+    runOperations.mockResolvedValue({
+      credentialsRetired: 2,
+      networkFingerprintsPurged: 4,
+      securityEventsPurged: 3,
+      projectionVersionsPruned: 8,
+      alertsCreated: 2,
+      recipientsNotified: 3,
+      referencedIdempotencyKids: [1, 2],
+      health: {
+        activeExpiredUploadBatches: 0,
+        overlapCredentialsDue: 0,
+        expiredNetworkFingerprints: 0,
+        expiredSecurityEvents: 0,
+        expiredProjectionVersions: 0,
+        pendingSecurityAlerts: 0,
+      },
+    });
     runMaintenance.mockResolvedValue({
       eventsRecorded: 2,
       inspectionsClaimed: 1,
@@ -69,6 +93,7 @@ describe("external API maintenance cron", () => {
 
     expect(response.status).toBe(401);
     expect(runMaintenance).not.toHaveBeenCalled();
+    expect(runOperations).not.toHaveBeenCalled();
     expect(processOutbox).not.toHaveBeenCalled();
   });
 
@@ -81,6 +106,20 @@ describe("external API maintenance cron", () => {
     expect(await response.json()).toEqual({
       ok: true,
       ran: true,
+      operationsCredentialsRetired: 2,
+      networkFingerprintsPurged: 4,
+      securityEventsPurged: 3,
+      projectionVersionsPruned: 8,
+      securityAlertsCreated: 2,
+      securityRecipientsNotified: 3,
+      operationsHealth: {
+        activeExpiredUploadBatches: 0,
+        overlapCredentialsDue: 0,
+        expiredNetworkFingerprints: 0,
+        expiredSecurityEvents: 0,
+        expiredProjectionVersions: 0,
+        pendingSecurityAlerts: 0,
+      },
       eventsRecorded: 2,
       inspectionsClaimed: 1,
       accepted: 1,
@@ -95,6 +134,13 @@ describe("external API maintenance cron", () => {
       outboxCompleted: 2,
       outboxRetrying: 0,
     });
+    expect(runOperations).toHaveBeenCalledWith(
+      { role: "service" },
+      expect.objectContaining({ limit: expect.any(Number) })
+    );
+    expect(runOperations.mock.invocationCallOrder[0]).toBeLessThan(
+      runMaintenance.mock.invocationCallOrder[0]
+    );
     expect(runMaintenance).toHaveBeenCalledWith(
       { role: "service" },
       expect.objectContaining({
@@ -125,6 +171,7 @@ describe("external API maintenance cron", () => {
       reason: "already_running",
     });
     expect(runMaintenance).not.toHaveBeenCalled();
+    expect(runOperations).not.toHaveBeenCalled();
     expect(processOutbox).not.toHaveBeenCalled();
   });
 

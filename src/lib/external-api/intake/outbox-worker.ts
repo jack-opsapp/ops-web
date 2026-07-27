@@ -109,9 +109,7 @@ export async function processExternalIntakeOutboxBatch(
         }
       );
       result.completed += 1;
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "summary refresh failed";
+    } catch {
       try {
         await transition(
           client,
@@ -130,7 +128,10 @@ export async function processExternalIntakeOutboxBatch(
         });
         continue;
       }
-      result.errors.push({ outboxId: claim.outbox_id, error: message });
+      result.errors.push({
+        outboxId: claim.outbox_id,
+        error: "summary_refresh_failed",
+      });
     }
   }
 

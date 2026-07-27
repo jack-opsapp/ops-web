@@ -183,16 +183,19 @@ describe("external API credential authentication", () => {
   });
 
   it("fails safely for the wrong class, missing scope, and database failure", async () => {
-    const analyticsRpc = vi.fn().mockResolvedValue({
-      data: [
-        authenticatedRow({
-          credential_class: "analytics",
-          scopes: ["analytics.leads.read"],
-          allowed_source_ids: [],
-        }),
-      ],
-      error: null,
-    });
+    const analyticsRpc = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [
+          authenticatedRow({
+            credential_class: "analytics",
+            scopes: ["analytics.leads.read"],
+            allowed_source_ids: [],
+          }),
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: true, error: null });
     await expect(
       authenticateExternalApiCredential({
         request: request(),
@@ -202,11 +205,23 @@ describe("external API credential authentication", () => {
         client: { rpc: analyticsRpc },
       })
     ).rejects.toMatchObject({ code: "insufficient_scope", status: 403 });
+    expect(analyticsRpc).toHaveBeenLastCalledWith(
+      "record_external_api_authorization_denial_as_system",
+      {
+        p_principal_id: "10000000-0000-4000-8000-000000000001",
+        p_credential_id: "10000000-0000-4000-8000-000000000002",
+        p_company_id: "10000000-0000-4000-8000-000000000003",
+        p_failure_code: "insufficient_scope",
+      }
+    );
 
-    const missingScopeRpc = vi.fn().mockResolvedValue({
-      data: [authenticatedRow({ scopes: [] })],
-      error: null,
-    });
+    const missingScopeRpc = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [authenticatedRow({ scopes: [] })],
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: true, error: null });
     await expect(
       authenticateExternalApiCredential({
         request: request(),
@@ -233,6 +248,32 @@ describe("external API credential authentication", () => {
       code: "temporarily_unavailable",
       status: 503,
       message: "temporarily_unavailable",
+    });
+  });
+
+  it("fails closed when a scope denial cannot be recorded", async () => {
+    const rpc = vi
+      .fn()
+      .mockResolvedValueOnce({
+        data: [authenticatedRow({ scopes: [] })],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: { message: "private backend detail" },
+      });
+
+    await expect(
+      authenticateExternalApiCredential({
+        request: request(),
+        requiredCredentialClass: "intake",
+        requiredScopes: ["intake.write"],
+        keyRing: ring,
+        client: { rpc },
+      })
+    ).rejects.toMatchObject({
+      code: "temporarily_unavailable",
+      status: 503,
     });
   });
 });

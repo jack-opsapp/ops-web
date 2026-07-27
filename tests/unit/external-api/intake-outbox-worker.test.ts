@@ -103,6 +103,10 @@ describe("external intake post-commit outbox worker", () => {
       }
     );
     expect(result).toMatchObject({ claimed: 1, completed: 0, requeued: 1 });
-    expect(result.errors[0]).toMatchObject({ outboxId: OUTBOX_ID });
+    expect(result.errors[0]).toEqual({
+      outboxId: OUTBOX_ID,
+      error: "summary_refresh_failed",
+    });
+    expect(JSON.stringify(result)).not.toContain("provider unavailable");
   });
 });

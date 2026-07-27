@@ -8,6 +8,10 @@ import {
   type ExternalApiHmacKeyRing,
   deriveCredentialLookupDigest,
 } from "./credential-secret";
+import {
+  recordExternalApiAuthorizationDenial,
+  type ExternalApiAuthorizationDenialCode,
+} from "../security/security-alerts";
 
 const MAX_AUTHORIZATION_HEADER_BYTES = 256;
 const QUERY_CREDENTIAL_NAMES = new Set([
@@ -69,6 +73,18 @@ export interface ExternalApiAuthRpcClient {
       p_digest_version: number;
       p_secret_digest: string;
       p_visible_prefix: string;
+    }
+  ): PromiseLike<{
+    data: unknown;
+    error: unknown;
+  }>;
+  rpc(
+    name: "record_external_api_authorization_denial_as_system",
+    args: {
+      p_principal_id: string;
+      p_credential_id: string;
+      p_company_id: string;
+      p_failure_code: ExternalApiAuthorizationDenialCode;
     }
   ): PromiseLike<{
     data: unknown;
@@ -251,10 +267,28 @@ export async function authenticateExternalApiCredential(input: {
   }
   const actor = immutableActor(parsed.data[0], bearer, lookupDigest);
   if (actor.credentialClass !== input.requiredCredentialClass) {
+    try {
+      await recordExternalApiAuthorizationDenial(
+        input.client,
+        actor,
+        "insufficient_scope"
+      );
+    } catch {
+      throw new ExternalApiAuthError("temporarily_unavailable", 503);
+    }
     throw new ExternalApiAuthError("insufficient_scope", 403);
   }
   const grantedScopes = new Set(actor.scopes);
   if (!input.requiredScopes.every((scope) => grantedScopes.has(scope))) {
+    try {
+      await recordExternalApiAuthorizationDenial(
+        input.client,
+        actor,
+        "insufficient_scope"
+      );
+    } catch {
+      throw new ExternalApiAuthError("temporarily_unavailable", 503);
+    }
     throw new ExternalApiAuthError("insufficient_scope", 403);
   }
   return actor;

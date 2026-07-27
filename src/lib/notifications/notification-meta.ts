@@ -60,6 +60,11 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
     icon: "check-circle-2",
     tone: "ambient",
   },
+  external_api_security: {
+    label: "SECURITY",
+    icon: "settings-2",
+    tone: "critical",
+  },
   system: { label: "SYS", icon: "activity", tone: "ambient" },
   project_assigned: { label: "PROJECT", icon: "briefcase", tone: "accent" },
   lead_converted: { label: "WON", icon: "folder-input", tone: "accent" },
