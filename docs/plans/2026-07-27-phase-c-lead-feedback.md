@@ -1,6 +1,6 @@
 # Phase C Lead Feedback — Implementation Plan
 
-**Date:** 2026-07-27  
+**Date:** 2026-07-27
 **Design:** `docs/superpowers/specs/2026-07-27-phase-c-lead-feedback-design.md`
 
 ## 1. Lock the database contract with failing tests
@@ -44,4 +44,3 @@
 - Run a read-only shadow evaluation against representative recent live contexts; make zero writes.
 - Review diffs for secrets, unrelated files, unsafe live actions, and missing docs.
 - Commit atomic local changes in each repository. Do not push.
-

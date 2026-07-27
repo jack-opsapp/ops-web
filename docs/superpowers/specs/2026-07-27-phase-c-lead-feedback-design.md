@@ -1,7 +1,7 @@
 # Phase C Lead Feedback — Design
 
-**Date:** 2026-07-27  
-**Status:** Approved for local implementation  
+**Date:** 2026-07-27
+**Status:** Approved for local implementation
 **Surfaces:** OPS iOS, OPS Web ingestion, Supabase contract, Software Bible
 
 ## Outcome
@@ -138,4 +138,3 @@ Local proof must include:
 - iOS tests for reason mapping, Phase C routing, immediate selection, optional note, feedback persistence decoding, Undo, and disabled-mode preservation;
 - full relevant Web and iOS test/build checks;
 - a read-only, zero-write shadow evaluation against recent live thread/lead evidence, with false-positive, false-negative, deferral, and uncertain-case reporting.
-
