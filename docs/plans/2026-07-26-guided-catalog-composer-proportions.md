@@ -33,13 +33,16 @@
 
 **Files:**
 - Modify: `src/components/catalog/setup/guided-catalog-setup.tsx`
+- Modify: `tailwind.config.ts`
 
-**Design tokens:** `h-9`, `w-9`, `gap-1`, `right-1`, `bottom-1`, `text-text-2`, `text-text-3`, `hover:bg-surface-hover`, `focus-visible:ring-ops-accent`, `rounded`.
+**Design tokens:** `h-control-36`, `w-control-36`, `h-icon-16`, `w-icon-16`, `gap-1`, `right-1`, `bottom-1`, `text-text-2`, `text-text-3`, `hover:bg-surface-hover`, `focus-visible:ring-ops-accent`, `rounded`.
 
-1. Replace the text Continue treatment with a square icon-only action while keeping the localized accessible name, disabled state, and submit behavior.
-2. Reduce the textarea’s reserved action space to the square control plus standard gap.
-3. Replace the dense spreadsheet glyph with a lightweight attachment glyph and remove the upload action’s perimeter border.
-4. Run the focused component and viewport tests and confirm they pass.
+1. Add explicit icon and control-dimension Tailwind tokens because OPS's numeric spacing override makes conventional dimension classes ambiguous.
+2. Replace the text Continue treatment with a square icon-only action while keeping the localized accessible name, disabled state, and submit behavior.
+3. Reduce the textarea’s reserved action space to the square control plus standard gap.
+4. Replace the dense spreadsheet glyph with a lightweight attachment glyph and remove the upload action’s perimeter border.
+5. Migrate Guided Catalog Setup icons to the explicit 16px semantic token.
+6. Run the focused component and viewport tests and confirm they pass.
 
 ### Task 3: Make the prevention contract permanent
 

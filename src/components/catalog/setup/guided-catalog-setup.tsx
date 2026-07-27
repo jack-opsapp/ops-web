@@ -12,9 +12,11 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
+  ArrowUp,
   Check,
   FileSpreadsheet,
   Loader2,
+  Paperclip,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -217,7 +219,10 @@ function QuestionInput({
         disabled
         className="pointer-events-none inline-flex min-h-11 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-mute"
       >
-        <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+        <Loader2
+          aria-hidden
+          className="h-icon-16 w-icon-16 animate-spin"
+        />
         {t("guided.working", "WORKING…")}
       </button>
     );
@@ -259,7 +264,10 @@ function QuestionInput({
             className="flex min-h-11 items-center justify-between rounded border border-glass-border px-3 py-2 text-left font-mohave text-body text-text transition-colors hover:border-ops-accent hover:text-ops-accent disabled:pointer-events-none disabled:opacity-40"
           >
             {option}
-            <ArrowRight aria-hidden className="h-4 w-4" />
+            <ArrowRight
+              aria-hidden
+              className="h-icon-16 w-icon-16"
+            />
           </button>
         ))}
       </div>
@@ -300,13 +308,18 @@ function QuestionInput({
               >
                 <span
                   className={cn(
-                    "grid h-4 w-4 place-items-center rounded-sm border",
+                    "grid h-icon-16 w-icon-16 place-items-center rounded-sm border",
                     selected
                       ? "border-ops-accent bg-ops-accent text-black"
                       : "border-glass-border",
                   )}
                 >
-                  {selected ? <Check aria-hidden className="h-3 w-3" /> : null}
+                  {selected ? (
+                    <Check
+                      aria-hidden
+                      className="h-icon-16 w-icon-16"
+                    />
+                  ) : null}
                 </span>
                 {option}
               </button>
@@ -356,7 +369,7 @@ function QuestionInput({
             }
           }}
           rows={2}
-          className="min-h-16 max-h-32 resize-none overflow-y-auto py-1 pl-1.5 pr-32"
+          className="min-h-16 max-h-32 resize-none overflow-y-auto py-1 pl-1.5 pr-12"
           placeholder={t(
             "guided.answerPlaceholder",
             "Type your answer",
@@ -379,14 +392,25 @@ function QuestionInput({
       <button
         type="submit"
         disabled={locked || !value.trim()}
-        className={cn(
-          "min-h-9 rounded border border-ops-accent px-3 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:pointer-events-none disabled:border-glass-border disabled:text-text-mute",
+        aria-label={
           question.answerKind === "text"
-            ? "absolute bottom-1 right-1"
-            : "mt-3",
+            ? t("guided.continue", "CONTINUE")
+            : undefined
+        }
+        className={cn(
+          question.answerKind === "text"
+            ? "absolute bottom-1 right-1 grid h-control-36 w-control-36 place-items-center rounded text-text-2 transition-colors ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:text-text-mute"
+            : "mt-3 min-h-9 rounded border border-ops-accent px-3 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:pointer-events-none disabled:border-glass-border disabled:text-text-mute",
         )}
       >
-        {t("guided.continue", "CONTINUE")}
+        {question.answerKind === "text" ? (
+          <ArrowUp
+            aria-hidden
+            className="h-icon-16 w-icon-16"
+          />
+        ) : (
+          t("guided.continue", "CONTINUE")
+        )}
       </button>
     </form>
   );
@@ -491,12 +515,19 @@ function SourceDocumentInput({
         type="button"
         disabled={locked || reading}
         onClick={() => inputRef.current?.click()}
-        className="inline-flex min-h-9 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-2 transition-colors hover:border-line-hi hover:text-text disabled:pointer-events-none disabled:opacity-40"
+        className="inline-flex min-h-9 items-center gap-1 rounded px-1.5 font-cakemono text-cake-button uppercase text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
       >
         {reading ? (
-          <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+          <Loader2
+            aria-hidden
+            className="h-icon-16 w-icon-16 animate-spin"
+          />
         ) : (
-          <FileSpreadsheet aria-hidden className="h-4 w-4" />
+          <Paperclip
+            aria-hidden
+            className="h-icon-16 w-icon-16 shrink-0"
+            strokeWidth={1.5}
+          />
         )}
         {reading
           ? t("guided.sourceReading", "READING PRICE SHEET")
@@ -819,7 +850,10 @@ export function GuidedCatalogSetup({
         )}
       >
         <div className="flex items-center gap-2 font-mono text-micro uppercase tracking-wide text-text-3">
-          <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+          <Loader2
+            aria-hidden
+            className="h-icon-16 w-icon-16 animate-spin"
+          />
           {t("guided.loading", "READING YOUR CATALOG")}
         </div>
       </div>
@@ -1047,7 +1081,10 @@ export function GuidedCatalogSetup({
             className="inline-flex min-h-11 items-center gap-2 rounded border border-ops-accent px-4 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:border-glass-border disabled:text-text-mute"
           >
             {busy ? (
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+              <Loader2
+                aria-hidden
+                className="h-icon-16 w-icon-16 animate-spin"
+              />
             ) : null}
             {busy
               ? t("guided.building", "BUILDING")
@@ -1160,7 +1197,7 @@ export function GuidedCatalogSetup({
                   <div className="flex items-center gap-2">
                     <FileSpreadsheet
                       aria-hidden
-                      className="h-4 w-4 shrink-0 text-text-3"
+                      className="h-icon-16 w-icon-16 shrink-0 text-text-3"
                     />
                     <span>
                       {t(
@@ -1193,7 +1230,7 @@ export function GuidedCatalogSetup({
           >
             <Loader2
               aria-hidden
-              className="h-4 w-4 animate-spin text-agent-text2"
+              className="h-icon-16 w-icon-16 animate-spin text-agent-text2"
             />
             {t(
               "guided.workingBody",
@@ -1242,7 +1279,10 @@ export function GuidedCatalogSetup({
             </>
           ) : (
             <div className="flex items-center gap-2 font-mohave text-body-sm text-text-2">
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+              <Loader2
+                aria-hidden
+                className="h-icon-16 w-icon-16 animate-spin"
+              />
               {t("guided.preparing", "Preparing the next question")}
             </div>
           )}

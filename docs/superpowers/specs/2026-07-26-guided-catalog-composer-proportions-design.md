@@ -19,6 +19,12 @@ Guided Catalog Setup uses the visual hierarchy of a conversation, not a standalo
 - The attachment glyph remains at the 16px icon tier.
 - The first-turn browser test verifies computed bounding boxes, border treatment, and control-to-composer ratios at every required viewport.
 
+## Root-cause prevention
+
+OPS overrides Tailwind's numeric spacing scale: `h-4 w-4` resolves to 32px in this project, not Tailwind's familiar 16px. That convention mismatch made icons render twice as large while the source looked correct during review.
+
+The Tailwind theme therefore exposes explicit `icon-16`, `icon-20`, `icon-24`, and `icon-32` spacing tokens, plus explicit `control-32`, `control-36`, and `control-40` dimensions. Icon and contractual control dimensions must use those semantic names rather than ambiguous numeric spacing utilities.
+
 ## Permanent design-system contract
 
 The active OPS Web interface system gains a Composer Actions pattern. Generic primary/default/secondary button patterns are forbidden inside chat composers. Composer actions must be ghost utilities, with one square icon-only send action and quiet attachment controls.

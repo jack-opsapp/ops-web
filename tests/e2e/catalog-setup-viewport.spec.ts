@@ -220,6 +220,42 @@ test.describe("Guided Catalog Setup conversation viewports", () => {
         "the composer must stay compact and subordinate",
       ).toBeLessThanOrEqual(96);
 
+      const sendAction = page.getByRole("button", {
+        name: "CONTINUE",
+        exact: true,
+      });
+      const sendActionBox = await sendAction.boundingBox();
+      expect(sendActionBox).not.toBeNull();
+      expect(
+        Math.abs(sendActionBox!.width - sendActionBox!.height),
+        "the composer send action must remain square",
+      ).toBeLessThanOrEqual(1);
+      expect(
+        sendActionBox!.width,
+        "the composer send action must remain in the dense-control tier",
+      ).toBeLessThanOrEqual(40);
+      expect(
+        await textbox.evaluate((element) =>
+          Number.parseFloat(getComputedStyle(element).paddingRight),
+        ),
+        "the send action must not reserve CTA-sized space in the answer field",
+      ).toBeLessThanOrEqual(48);
+
+      const uploadAction = page.getByRole("button", {
+        name: "UPLOAD PRICE SHEET",
+        exact: true,
+      });
+      expect(
+        await uploadAction.evaluate(
+          (element) => getComputedStyle(element).borderTopWidth,
+        ),
+        "the attachment action must remain a quiet ghost utility",
+      ).toBe("0px");
+      const uploadIconBox = await uploadAction.locator("svg").boundingBox();
+      expect(uploadIconBox).not.toBeNull();
+      expect(uploadIconBox!.width).toBeLessThanOrEqual(16.5);
+      expect(uploadIconBox!.height).toBeLessThanOrEqual(16.5);
+
       const outerScroll = page.getByTestId("guided-catalog-scroll-region");
       const outerState = await outerScroll.evaluate((element) => ({
         overflowY: getComputedStyle(element).overflowY,
