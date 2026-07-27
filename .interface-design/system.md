@@ -313,6 +313,35 @@ These tokens are the **complete allowlist**. New shadow stacks are not permitted
 Hover: Default/Secondary/Ghost → `rgba(255,255,255,0.05)` bg + text brightens to `text`.
 Focus: `1.5px ring-ops-accent ring-offset-2 ring-offset-black`
 
+### Composer Actions
+
+Chat and conversational answer fields are context-specific controls. Generic
+primary, default, or secondary button treatments do not belong inside them.
+The transcript and answer must remain visually dominant.
+
+| Action | Treatment |
+|--------|-----------|
+| Send / continue | Square `h-control-36 w-control-36` ghost action inside the field; icon-only with a localized accessible name; 16px directional icon; `text-2` → `text` over `surface-hover` |
+| Attach / upload | Ghost action with no perimeter border; 16px lightweight attachment icon; label may remain when it clarifies the accepted source |
+
+**Proportion rules:**
+
+- A send action is square. A labeled CTA inside a text composer is forbidden.
+- Reserve only the square action width plus the standard internal gap in the input.
+- Attachment actions stay subordinate: no filled surface, accent border, dense
+  document glyph, or standalone-button prominence.
+- Token compliance alone is not design approval. Judge the rendered control
+  against its immediate container and content hierarchy.
+
+**Icon sizing rule:** OPS overrides Tailwind's numeric spacing scale, so familiar
+classes do not have Tailwind's default dimensions (`h-4 w-4` resolves to 32px,
+not 16px). Icons MUST use the explicit semantic pairs
+`h-icon-16 w-icon-16`, `h-icon-20 w-icon-20`,
+`h-icon-24 w-icon-24`, or `h-icon-32 w-icon-32`. Numeric spacing utilities are
+for layout, not icon dimensions. Dense web controls use the explicit
+`control-32`, `control-36`, or `control-40` dimensions when their rendered
+size is part of the hierarchy contract.
+
 ### Tags
 
 | Variant | Text | Background | Border | When |
