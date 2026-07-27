@@ -57,11 +57,36 @@ export const CatalogFactSchema = z
     }
   });
 
+export const GuidedQuestionIntentSchema = z.enum(
+  GUIDED_QUESTION_INTENTS,
+);
+export const GuidedCapabilityRefSchema = z.enum(
+  GUIDED_CAPABILITY_REFS,
+);
+export const GuidedQuestionContextSchema = z
+  .object({
+    serviceLabel: z.string().trim().min(1).max(160).optional(),
+    productLabel: z.string().trim().min(1).max(160).optional(),
+    optionLabel: z.string().trim().min(1).max(160).optional(),
+  })
+  .strict();
+
+export const GuidedQuestionDecisionSchema = z
+  .object({
+    id: z.string().min(1),
+    intent: GuidedQuestionIntentSchema,
+    capabilityRef: GuidedCapabilityRefSchema,
+    factKeys: z.array(z.string().min(1)).min(1),
+    context: GuidedQuestionContextSchema.default({}),
+  })
+  .strict();
+
 export const GuidedQuestionSchema = z
   .object({
     id: z.string().min(1),
-    intent: z.enum(GUIDED_QUESTION_INTENTS).optional(),
-    capabilityRef: z.enum(GUIDED_CAPABILITY_REFS).optional(),
+    intent: GuidedQuestionIntentSchema.optional(),
+    capabilityRef: GuidedCapabilityRefSchema.optional(),
+    context: GuidedQuestionContextSchema.optional(),
     prompt: z.string().min(1),
     answerKind: z.enum([
       "text",

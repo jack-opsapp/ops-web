@@ -77,15 +77,49 @@ describe("generateCatalogProposals", () => {
 });
 
 describe("generateGuidedCatalogTurn", () => {
+  it("publishes server-owned question copy instead of model-written behavior", async () => {
+    const { client } = clientReturning(
+      JSON.stringify({
+        kind: "question",
+        facts: [],
+        question: {
+          id: "supplier",
+          intent: "supplier_identity",
+          capabilityRef: "catalog-core/v1",
+          factKeys: ["service.vinyl.supplier"],
+          context: { serviceLabel: "vinyl decking" },
+        },
+      }),
+    );
+
+    const result = await generateGuidedCatalogTurn({
+      answer: "Vinyl decking",
+      facts: [],
+      contradictions: [],
+      currentQuestion: null,
+      liveSnapshotSummary: {},
+      verifiedReference: {},
+      companyKnowledge: [],
+      client,
+    });
+
+    expect(result.kind).toBe("question");
+    if (result.kind !== "question") return;
+    expect(result.question.prompt).toBe(
+      "Which manufacturer, supplier, or product line do you use for vinyl decking?",
+    );
+  });
+
   it("keeps a supplier-neutral interview free of DekSmart assumptions", async () => {
     const turn = {
       kind: "question",
       facts: [],
       question: {
         id: "minimum-charge",
-        prompt: "Do you have a minimum charge?",
-        answerKind: "boolean",
+        intent: "pricing",
+        capabilityRef: "catalog-core/v1",
         factKeys: ["product.minimum_charge"],
+        context: { productLabel: "vinyl membrane installation" },
       },
     };
     const { client, create } = clientReturning(JSON.stringify(turn));
@@ -101,7 +135,17 @@ describe("generateGuidedCatalogTurn", () => {
       client,
     });
 
-    expect(result).toEqual(turn);
+    expect(result).toMatchObject({
+      kind: "question",
+      facts: [],
+      question: {
+        id: "minimum-charge",
+        intent: "pricing",
+        capabilityRef: "catalog-core/v1",
+        prompt:
+          "What base price, unit, and minimum charge should OPS use for vinyl membrane installation?",
+      },
+    });
     const args = create.mock.calls[0][0] as {
       response_format: { type: string };
       messages: Array<{ role: string; content: string }>;
@@ -126,9 +170,10 @@ describe("generateGuidedCatalogTurn", () => {
       facts: [],
       question: {
         id: "pricing",
-        prompt: "What do you charge?",
-        answerKind: "text",
+        intent: "pricing",
+        capabilityRef: "catalog-core/v1",
         factKeys: ["product.price"],
+        context: { productLabel: "this product" },
       },
     };
     const { client, create } = clientReturning(JSON.stringify(turn));
@@ -169,9 +214,10 @@ describe("generateGuidedCatalogTurn", () => {
       facts: [],
       question: {
         id: "confirm-historical-price",
-        prompt: "Is your current installed price still $18 per square foot?",
-        answerKind: "boolean",
+        intent: "pricing",
+        capabilityRef: "catalog-core/v1",
         factKeys: ["product.price"],
+        context: { productLabel: "vinyl installation" },
       },
     };
     const { client, create } = clientReturning(JSON.stringify(turn));
