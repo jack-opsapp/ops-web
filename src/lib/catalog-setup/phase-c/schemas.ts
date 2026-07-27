@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  GUIDED_CAPABILITY_REFS,
+  GUIDED_QUESTION_INTENTS,
+} from "./catalog-capability-manifest";
 
 export const CatalogFactClassificationSchema = z.enum([
   "customer_product",
@@ -56,6 +60,8 @@ export const CatalogFactSchema = z
 export const GuidedQuestionSchema = z
   .object({
     id: z.string().min(1),
+    intent: z.enum(GUIDED_QUESTION_INTENTS).optional(),
+    capabilityRef: z.enum(GUIDED_CAPABILITY_REFS).optional(),
     prompt: z.string().min(1),
     answerKind: z.enum([
       "text",
@@ -171,6 +177,7 @@ export const CatalogSetupIssueSchema = z
 export const CatalogBlueprintSchema = z
   .object({
     version: z.literal(1),
+    capabilityRevision: z.string().min(1).optional(),
     summary: z.string().min(1),
     ready: z.boolean(),
     actions: z.array(CatalogActionSchema),
