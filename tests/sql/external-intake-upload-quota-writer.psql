@@ -1,0 +1,348 @@
+\set ON_ERROR_STOP on
+
+-- Session A creates an isolated direct fixture, holds the canonical company
+-- quota row, then commits the final allowed 50 MiB while Session B is blocked.
+
+select pg_advisory_lock(2026072601);
+
+begin;
+set local lock_timeout = '10s';
+set local statement_timeout = '60s';
+
+drop table if exists private.external_intake_upload_concurrency_result;
+drop table if exists private.external_intake_upload_concurrency_fixture;
+
+create table private.external_intake_upload_concurrency_fixture (
+  company_id uuid primary key,
+  principal_id uuid not null,
+  credential_id uuid not null,
+  source_internal_id uuid not null,
+  source_public_id uuid not null,
+  form_internal_id uuid not null,
+  form_public_id uuid not null
+);
+
+create table private.external_intake_upload_concurrency_result (
+  session_name text primary key,
+  status text not null
+);
+
+insert into public.companies (
+  id,
+  bubble_id,
+  name,
+  subscription_status,
+  subscription_plan
+) values (
+  'e3000000-0000-4000-8000-000000000001',
+  'external-upload-concurrency-company',
+  'External Upload Concurrency',
+  'trial',
+  'trial'
+);
+
+insert into public.users (
+  id,
+  bubble_id,
+  company_id,
+  first_name,
+  last_name,
+  email,
+  role,
+  is_company_admin,
+  is_active,
+  deleted_at
+) values (
+  'e3000000-0000-4000-8000-000000000101',
+  'external-upload-concurrency-owner',
+  'e3000000-0000-4000-8000-000000000001',
+  'External',
+  'Concurrency Owner',
+  'external-upload-concurrency@example.invalid',
+  'owner',
+  true,
+  true,
+  null
+);
+
+insert into public.admin_feature_overrides (
+  id,
+  company_id,
+  feature_key,
+  enabled,
+  enabled_by,
+  enabled_at,
+  metadata
+) values (
+  'e3000000-0000-4000-8000-000000000201',
+  'e3000000-0000-4000-8000-000000000001',
+  'external_api',
+  true,
+  'e3000000-0000-4000-8000-000000000101',
+  clock_timestamp(),
+  '{"contract_fixture":true}'::jsonb
+);
+
+insert into private.lead_intake_sources (
+  id,
+  company_id,
+  public_source_id,
+  site_label,
+  canonical_host,
+  default_phone_region,
+  allowed_browser_origins,
+  default_coarse_source,
+  created_by_user_id
+) values (
+  'e3000000-0000-4000-8000-000000000301',
+  'e3000000-0000-4000-8000-000000000001',
+  'e3000000-0000-4000-8000-000000000302',
+  'Concurrency Website',
+  'concurrency.example.invalid',
+  'CA',
+  array['https://concurrency.example.invalid']::text[],
+  'website',
+  'e3000000-0000-4000-8000-000000000101'
+);
+
+insert into private.lead_intake_forms (
+  id,
+  company_id,
+  source_id,
+  public_form_id,
+  form_key,
+  label,
+  is_default,
+  is_active
+) values (
+  'e3000000-0000-4000-8000-000000000303',
+  'e3000000-0000-4000-8000-000000000001',
+  'e3000000-0000-4000-8000-000000000301',
+  'e3000000-0000-4000-8000-000000000304',
+  'default',
+  'Default',
+  true,
+  true
+);
+
+insert into private.external_api_principals (
+  id,
+  company_id,
+  credential_family_id,
+  principal_type,
+  credential_class,
+  scopes,
+  status,
+  authorization_epoch,
+  granted_by_user_id
+) values (
+  'e3000000-0000-4000-8000-000000000401',
+  'e3000000-0000-4000-8000-000000000001',
+  'e3000000-0000-4000-8000-000000000402',
+  'server_key',
+  'intake',
+  array['intake.write']::text[],
+  'active',
+  1,
+  'e3000000-0000-4000-8000-000000000101'
+);
+
+insert into private.external_api_principal_sources (
+  principal_id,
+  company_id,
+  source_id
+) values (
+  'e3000000-0000-4000-8000-000000000401',
+  'e3000000-0000-4000-8000-000000000001',
+  'e3000000-0000-4000-8000-000000000301'
+);
+
+insert into private.external_api_credentials (
+  id,
+  company_id,
+  principal_id,
+  name,
+  digest_version,
+  secret_digest,
+  visible_prefix,
+  issued_authorization_epoch,
+  status,
+  expires_at,
+  created_by_user_id
+) values (
+  'e3000000-0000-4000-8000-000000000501',
+  'e3000000-0000-4000-8000-000000000001',
+  'e3000000-0000-4000-8000-000000000401',
+  'Concurrency credential',
+  1,
+  decode(repeat('41', 32), 'hex'),
+  'opsxrace',
+  1,
+  'active',
+  clock_timestamp() + interval '1 day',
+  'e3000000-0000-4000-8000-000000000101'
+);
+
+insert into private.external_intake_upload_concurrency_fixture
+values (
+  'e3000000-0000-4000-8000-000000000001',
+  'e3000000-0000-4000-8000-000000000401',
+  'e3000000-0000-4000-8000-000000000501',
+  'e3000000-0000-4000-8000-000000000301',
+  'e3000000-0000-4000-8000-000000000302',
+  'e3000000-0000-4000-8000-000000000303',
+  'e3000000-0000-4000-8000-000000000304'
+);
+
+insert into private.external_intake_company_quota_locks (company_id)
+values ('e3000000-0000-4000-8000-000000000001');
+
+insert into private.external_intake_upload_batches (
+  company_id,
+  principal_id,
+  credential_id,
+  source_id,
+  form_id,
+  idempotency_digest_version,
+  idempotency_digest,
+  manifest_hash_version,
+  manifest_hash,
+  reserved_bytes,
+  reserved_objects,
+  expires_at
+)
+select
+  'e3000000-0000-4000-8000-000000000001',
+  'e3000000-0000-4000-8000-000000000401',
+  'e3000000-0000-4000-8000-000000000501',
+  'e3000000-0000-4000-8000-000000000301',
+  'e3000000-0000-4000-8000-000000000303',
+  1,
+  decode(lpad(to_hex(series.value + 3000), 64, '0'), 'hex'),
+  1,
+  decode(lpad(to_hex(series.value + 4000), 64, '0'), 'hex'),
+  52428800,
+  1,
+  clock_timestamp() + interval '10 minutes'
+from generate_series(1, 19) series(value);
+
+insert into private.external_intake_rolling_byte_reservations (
+  batch_id,
+  company_id,
+  reserved_bytes
+)
+select id, company_id, reserved_bytes
+from private.external_intake_upload_batches
+where company_id = 'e3000000-0000-4000-8000-000000000001';
+
+commit;
+
+begin;
+set local lock_timeout = '10s';
+set local statement_timeout = '60s';
+
+select 1
+from private.external_intake_company_quota_locks
+where company_id = 'e3000000-0000-4000-8000-000000000001'
+for update;
+
+select pg_advisory_unlock(2026072601);
+select pg_sleep(2);
+
+with winner as (
+  insert into private.external_intake_upload_batches (
+    company_id,
+    principal_id,
+    credential_id,
+    source_id,
+    form_id,
+    idempotency_digest_version,
+    idempotency_digest,
+    manifest_hash_version,
+    manifest_hash,
+    reserved_bytes,
+    reserved_objects,
+    expires_at
+  ) values (
+    'e3000000-0000-4000-8000-000000000001',
+    'e3000000-0000-4000-8000-000000000401',
+    'e3000000-0000-4000-8000-000000000501',
+    'e3000000-0000-4000-8000-000000000301',
+    'e3000000-0000-4000-8000-000000000303',
+    1,
+    decode(repeat('51', 32), 'hex'),
+    1,
+    decode(repeat('52', 32), 'hex'),
+    52428800,
+    1,
+    clock_timestamp() + interval '10 minutes'
+  )
+  returning id, company_id, reserved_bytes
+)
+insert into private.external_intake_rolling_byte_reservations (
+  batch_id,
+  company_id,
+  reserved_bytes
+)
+select id, company_id, reserved_bytes
+from winner;
+
+commit;
+
+do $wait_for_contender$
+declare
+  v_deadline timestamptz := clock_timestamp() + interval '30 seconds';
+begin
+  loop
+    exit when exists (
+      select 1
+      from private.external_intake_upload_concurrency_result
+      where session_name = 'quota_contender'
+    );
+    if clock_timestamp() >= v_deadline then
+      raise exception 'external_intake_quota_contender_timeout';
+    end if;
+    perform pg_sleep(0.05);
+  end loop;
+end;
+$wait_for_contender$;
+
+do $verify_and_cleanup$
+begin
+  if not exists (
+    select 1
+    from private.external_intake_upload_concurrency_result
+    where session_name = 'quota_contender'
+      and status = 'quota_exceeded'
+  ) then
+    raise exception 'external_intake_quota_concurrency_failed';
+  end if;
+end;
+$verify_and_cleanup$;
+
+begin;
+delete from private.external_intake_rolling_byte_reservations
+where company_id = 'e3000000-0000-4000-8000-000000000001';
+delete from private.external_intake_upload_batches
+where company_id = 'e3000000-0000-4000-8000-000000000001';
+delete from private.external_intake_company_quota_locks
+where company_id = 'e3000000-0000-4000-8000-000000000001';
+delete from private.external_api_credentials
+where company_id = 'e3000000-0000-4000-8000-000000000001';
+delete from private.external_api_principal_sources
+where company_id = 'e3000000-0000-4000-8000-000000000001';
+delete from private.lead_intake_forms
+where company_id = 'e3000000-0000-4000-8000-000000000001';
+delete from private.lead_intake_sources
+where company_id = 'e3000000-0000-4000-8000-000000000001';
+delete from private.external_api_principals
+where company_id = 'e3000000-0000-4000-8000-000000000001';
+delete from public.admin_feature_overrides
+where id = 'e3000000-0000-4000-8000-000000000201';
+delete from public.users
+where id = 'e3000000-0000-4000-8000-000000000101';
+delete from public.companies
+where id = 'e3000000-0000-4000-8000-000000000001';
+drop table private.external_intake_upload_concurrency_result;
+drop table private.external_intake_upload_concurrency_fixture;
+commit;

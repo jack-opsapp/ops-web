@@ -158,6 +158,10 @@ export const uploadCapabilitySchema = z
         contentType: acceptedUploadContentTypeSchema,
         contentLength: z.number().int().positive().max(MAX_FILE_BYTES),
         ifNoneMatch: z.literal("*"),
+        checksumSha256: z
+          .string()
+          .regex(/^[A-Za-z0-9+/]{43}=$/)
+          .optional(),
       })
       .strict(),
   })

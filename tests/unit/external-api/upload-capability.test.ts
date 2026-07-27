@@ -86,6 +86,7 @@ describe("external intake upload capability", () => {
     });
     expect(options).toEqual({
       expiresIn: 120,
+      signingDate: FIXED_NOW,
       signableHeaders: new Set(["content-type"]),
       unhoistableHeaders: new Set(["x-amz-checksum-sha256"]),
     });

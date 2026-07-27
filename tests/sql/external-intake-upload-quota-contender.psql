@@ -1,0 +1,79 @@
+\set ON_ERROR_STOP on
+
+-- Session B waits until Session A has committed the isolated fixture, crosses
+-- the advisory barrier only after A holds the quota row, and then attempts the
+-- final 50 MiB reservation while A's transaction is still open.
+
+do $wait_for_fixture$
+declare
+  v_deadline timestamptz := clock_timestamp() + interval '30 seconds';
+begin
+  loop
+    exit when to_regclass(
+      'private.external_intake_upload_concurrency_fixture'
+    ) is not null;
+    if clock_timestamp() >= v_deadline then
+      raise exception 'external_intake_quota_fixture_timeout';
+    end if;
+    perform pg_sleep(0.05);
+  end loop;
+end;
+$wait_for_fixture$;
+
+select pg_advisory_lock(2026072601);
+select pg_advisory_unlock(2026072601);
+
+begin;
+set local lock_timeout = '10s';
+set local statement_timeout = '60s';
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+do $reserve$
+declare
+  v_fixture private.external_intake_upload_concurrency_fixture%rowtype;
+  v_received_at timestamptz := clock_timestamp();
+  v_result jsonb;
+begin
+  select * into strict v_fixture
+  from private.external_intake_upload_concurrency_fixture;
+
+  v_result := public.reserve_external_intake_upload_batch_as_system(
+    'e3000000-0000-4000-8000-000000000601',
+    v_fixture.principal_id,
+    v_fixture.credential_id,
+    v_fixture.company_id,
+    1::smallint,
+    decode(repeat('41', 32), 'hex'),
+    'opsxrace',
+    1,
+    v_fixture.source_public_id,
+    v_fixture.form_public_id,
+    1::smallint,
+    decode(repeat('61', 32), 'hex'),
+    1::smallint,
+    decode(repeat('62', 32), 'hex'),
+    '[{"callerFileId":"partA","filename":"part-a.pdf","sizeBytes":26214400,"contentType":"application/pdf"},{"callerFileId":"partB","filename":"part-b.pdf","sizeBytes":26214400,"contentType":"application/pdf"}]'::jsonb,
+    null,
+    v_received_at + interval '2 minutes',
+    v_received_at + interval '3 minutes',
+    v_received_at + interval '10 minutes',
+    '/v1/intake/uploads',
+    'POST',
+    v_received_at
+  );
+
+  if v_result ->> 'status' <> 'quota_exceeded' then
+    raise exception 'external_intake_quota_oversubscribed: %', v_result;
+  end if;
+end;
+$reserve$;
+
+rollback;
+
+insert into private.external_intake_upload_concurrency_result (
+  session_name,
+  status
+) values (
+  'quota_contender',
+  'quota_exceeded'
+);

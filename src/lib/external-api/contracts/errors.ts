@@ -132,3 +132,13 @@ export const externalApiErrorDefinitions = {
 export function getExternalApiErrorStatus(code: ExternalApiErrorCode): number {
   return externalApiErrorDefinitions[code].status;
 }
+
+export class ExternalApiSafeError extends Error {
+  readonly status: number;
+
+  constructor(readonly code: ExternalApiErrorCode) {
+    super(code);
+    this.name = "ExternalApiSafeError";
+    this.status = getExternalApiErrorStatus(code);
+  }
+}

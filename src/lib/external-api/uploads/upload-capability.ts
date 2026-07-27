@@ -18,16 +18,27 @@ const CONTENT_TYPE_PATTERN =
   /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/i;
 const SHA256_BASE64_PATTERN = /^[A-Za-z0-9+/]{43}=?$/;
 
-export interface ExternalUploadCapabilityInput {
-  companyId: string;
-  sourceId: string;
-  intentId: string;
-  fileId: string;
+interface ExternalUploadCapabilityBase {
   contentLength: number;
   contentType: string;
   checksumSha256?: string;
   expiresInSeconds: number;
 }
+
+interface GeneratedExternalUploadCapabilityInput extends ExternalUploadCapabilityBase {
+  companyId: string;
+  sourceId: string;
+  intentId: string;
+  fileId: string;
+}
+
+interface ExactExternalUploadCapabilityInput extends ExternalUploadCapabilityBase {
+  objectKey: string;
+}
+
+export type ExternalUploadCapabilityInput =
+  | GeneratedExternalUploadCapabilityInput
+  | ExactExternalUploadCapabilityInput;
 
 export interface ExternalUploadCapability {
   key: string;
@@ -43,15 +54,17 @@ interface CapabilityDependencies {
 }
 
 function assertValidInput(input: ExternalUploadCapabilityInput): void {
-  const identifiers = [
-    input.companyId,
-    input.sourceId,
-    input.intentId,
-    input.fileId,
-  ];
+  const targetIsValid =
+    "objectKey" in input
+      ? /^quarantine\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i.test(
+          input.objectKey
+        )
+      : [input.companyId, input.sourceId, input.intentId, input.fileId].every(
+          (identifier) => UUID_PATTERN.test(identifier)
+        );
 
   if (
-    identifiers.some((identifier) => !UUID_PATTERN.test(identifier)) ||
+    !targetIsValid ||
     !Number.isSafeInteger(input.contentLength) ||
     input.contentLength <= 0 ||
     input.contentLength > UPLOAD_CAPABILITY_MAX_BYTES ||
@@ -78,14 +91,17 @@ export async function issueExternalUploadCapability(
   }
 
   const config = readExternalIntakeStorageConfig();
-  const key = [
-    "quarantine",
-    input.companyId,
-    input.sourceId,
-    input.intentId,
-    input.fileId,
-    randomUUID(),
-  ].join("/");
+  const key =
+    "objectKey" in input
+      ? input.objectKey
+      : [
+          "quarantine",
+          input.companyId,
+          input.sourceId,
+          input.intentId,
+          input.fileId,
+          randomUUID(),
+        ].join("/");
 
   const command = new PutObjectCommand({
     Bucket: config.bucket,
@@ -97,6 +113,7 @@ export async function issueExternalUploadCapability(
   });
   const url = await getSignedUrl(getExternalIntakeS3Client(), command, {
     expiresIn: input.expiresInSeconds,
+    signingDate: now,
     signableHeaders: new Set(["content-type"]),
     unhoistableHeaders: new Set(["x-amz-checksum-sha256"]),
   });

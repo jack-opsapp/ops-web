@@ -21,6 +21,7 @@ const actor: ExternalApiRequestActor = Object.freeze({
   allowedSourceIds: Object.freeze(["10000000-0000-4000-8000-000000000013"]),
   authorizationEpoch: 2,
   digestVersion: 1,
+  credentialDigest: `\\x${"ab".repeat(32)}`,
   visiblePrefix: "opsx_1_abcdefghijkl",
 });
 

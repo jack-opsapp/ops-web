@@ -136,6 +136,7 @@ describe("external API credential authentication", () => {
       allowedSourceIds: ["10000000-0000-4000-8000-000000000004"],
       authorizationEpoch: 4,
       digestVersion: 1,
+      credentialDigest: expect.stringMatching(/^\\x[0-9a-f]{64}$/),
       visiblePrefix: "opsx_1_abcdefghijkl",
     });
     expect(Object.isFrozen(actor)).toBe(true);

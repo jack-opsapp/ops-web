@@ -58,6 +58,7 @@ export type ExternalApiRequestActor = Readonly<{
   allowedSourceIds: readonly string[];
   authorizationEpoch: number;
   digestVersion: number;
+  credentialDigest: string;
   visiblePrefix: string;
 }>;
 
@@ -166,7 +167,8 @@ function byteaHex(value: Uint8Array): string {
 
 function immutableActor(
   row: z.infer<typeof authenticationRowSchema>,
-  bearer: ParsedExternalApiBearer
+  bearer: ParsedExternalApiBearer,
+  lookupDigest: Uint8Array
 ): ExternalApiRequestActor {
   if (
     !row.authenticated ||
@@ -199,6 +201,7 @@ function immutableActor(
     allowedSourceIds: Object.freeze([...row.allowed_source_ids]),
     authorizationEpoch: row.authorization_epoch,
     digestVersion: bearer.digestVersion,
+    credentialDigest: byteaHex(lookupDigest),
     visiblePrefix: bearer.visiblePrefix,
   });
 }
@@ -246,7 +249,7 @@ export async function authenticateExternalApiCredential(input: {
   if (!parsed.success) {
     throw new ExternalApiAuthError("temporarily_unavailable", 503);
   }
-  const actor = immutableActor(parsed.data[0], bearer);
+  const actor = immutableActor(parsed.data[0], bearer, lookupDigest);
   if (actor.credentialClass !== input.requiredCredentialClass) {
     throw new ExternalApiAuthError("insufficient_scope", 403);
   }

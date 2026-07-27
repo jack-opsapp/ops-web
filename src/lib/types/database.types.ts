@@ -17624,6 +17624,66 @@ export type Database = {
           scopes: string[]
         }[]
       }
+      reserve_external_intake_upload_batch_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_batch_expires_at: string
+          p_capability_expires_at: string
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_delete_not_before: string
+          p_digest_version: number
+          p_files: Json
+          p_form_public_id: string
+          p_idempotency_digest: string
+          p_idempotency_digest_version: number
+          p_manifest_hash: string
+          p_manifest_hash_version: number
+          p_method: string
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_requested_origin: string | null
+          p_route: string
+          p_source_public_id: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      release_external_intake_upload_batch_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_batch_id: string
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_principal_id: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      record_external_intake_uploaded_object_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_form_public_id: string
+          p_object_version_id: string
+          p_observed_checksum_sha256: string | null
+          p_observed_size_bytes: number
+          p_principal_id: string
+          p_public_upload_id: string
+          p_source_public_id: string
+          p_storage_object_key: string
+          p_uploaded_at: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
       create_external_api_credential_as_system: {
         Args: {
           p_actor_user_id: string

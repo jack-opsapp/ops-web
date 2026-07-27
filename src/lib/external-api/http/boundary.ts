@@ -13,7 +13,10 @@ import {
 } from "../auth/credential-auth";
 import { readExternalApiCredentialHmacKeyRing } from "../auth/credential-secret";
 import type { CredentialGrant, ExternalApiScope } from "../contracts/common";
-import type { ExternalApiErrorCode } from "../contracts/errors";
+import {
+  ExternalApiSafeError,
+  type ExternalApiErrorCode,
+} from "../contracts/errors";
 import { RequestBodyError } from "./request-body";
 import {
   type ExternalRequestIdentity,
@@ -140,11 +143,14 @@ type SafeBoundaryFailure = Readonly<{
 function createDefaultDependencies(): ExternalApiBoundaryDependencies {
   const limiter = createConfiguredStrictRateLimiter();
   let client:
-    (ExternalApiAuthRpcClient & ExternalApiAuditRpcClient) | undefined;
+    | (ExternalApiAuthRpcClient & ExternalApiAuditRpcClient)
+    | undefined;
   let credentialKeyRing:
-    ReturnType<typeof readExternalApiCredentialHmacKeyRing> | undefined;
+    | ReturnType<typeof readExternalApiCredentialHmacKeyRing>
+    | undefined;
   let networkKeyRing:
-    ReturnType<typeof readExternalApiNetworkHmacKeyRing> | undefined;
+    | ReturnType<typeof readExternalApiNetworkHmacKeyRing>
+    | undefined;
   let auditRecorder: ExternalApiAuditRecorder | undefined;
 
   function serviceClient(): ExternalApiAuthRpcClient &
@@ -228,6 +234,9 @@ function elapsedMilliseconds(start: Date, end: Date): number {
 
 function safeFailure(error: unknown): SafeBoundaryFailure {
   if (error instanceof ExternalApiAuthError) {
+    return { code: error.code };
+  }
+  if (error instanceof ExternalApiSafeError) {
     return { code: error.code };
   }
   if (
