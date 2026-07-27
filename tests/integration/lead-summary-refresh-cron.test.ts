@@ -287,7 +287,7 @@ function emailActivity(
     email_thread_id: "thread-1",
     to_emails:
       direction === "inbound" ? ["operator@canpro.ca"] : ["jane@example.com"],
-    cc_emails: [],
+    cc_emails: [] as string[],
     outcome: null,
     duration_minutes: null,
     created_at: createdAt,
@@ -1274,6 +1274,212 @@ describe("refreshLeadSummariesForOpportunities", () => {
         p_expected_meaningful_event_count: 4,
         p_expected_latest_meaningful_event_id:
           "event-email-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa-2026-07-21T19:00:00.000Z",
+      })
+    );
+  });
+
+  it("refreshes Owen's null summary from the complete Owen and Jennifer conversation without calling a requested July 13 date confirmed", async () => {
+    const owenEmail = "owen.schellenberger@example.com";
+    const jenniferEmail = "jenvee12@example.com";
+    const acceptedProjectId = "1f4a718a-05c0-47b7-8823-7de51e717d97";
+    const sourceMessages = [
+      {
+        at: "2026-05-19T19:00:00.000Z",
+        direction: "inbound" as const,
+        body: "Jennifer introduced Owen for the project at 2745 Fernwood Rd.",
+        threadId: "thread-jennifer-placeholder",
+        fromEmail: jenniferEmail,
+        toEmails: ["operator@canpro.ca"],
+        ccEmails: [owenEmail],
+      },
+      {
+        at: "2026-05-20T19:00:00.000Z",
+        direction: "inbound" as const,
+        body: "We would like to proceed if you're still able to start us week of July 13. Can we connect to sort out paying the deposit? Could we ask your crew to help get some of the larger heavier items off the deck as I'm limited in how much weight I can do? If it goes up to a 2x6 we'll be whacking our heads on it even more than we do now. Looking forward to get going on this!",
+        threadId: "thread-owen-decisive",
+        fromEmail: owenEmail,
+        toEmails: ["operator@canpro.ca"],
+        ccEmails: [jenniferEmail],
+      },
+      {
+        at: "2026-05-21T19:00:00.000Z",
+        direction: "inbound" as const,
+        body: "Just paid Jackson's deposit.",
+        threadId: "thread-owen-decisive",
+        fromEmail: owenEmail,
+        toEmails: ["operator@canpro.ca"],
+        ccEmails: [jenniferEmail],
+      },
+      {
+        at: "2026-05-22T19:00:00.000Z",
+        direction: "outbound" as const,
+        body: "Thank you Owen, received!",
+        threadId: "thread-owen-decisive",
+        fromEmail: "operator@canpro.ca",
+        toEmails: [owenEmail],
+        ccEmails: [jenniferEmail],
+      },
+      {
+        at: "2026-05-23T19:00:00.000Z",
+        direction: "inbound" as const,
+        body: "Just sent deposit and the security answer via text. Let us know if we are on for Monday, July 13th.",
+        threadId: "thread-jennifer-placeholder",
+        fromEmail: jenniferEmail,
+        toEmails: ["operator@canpro.ca"],
+        ccEmails: [owenEmail],
+      },
+    ];
+    const activities = sourceMessages.map((message, index) => ({
+      ...emailActivity(
+        OPP_A,
+        message.at,
+        message.body,
+        message.direction
+      ),
+      id: `activity-owen-${index}`,
+      subject: "2745 Fernwood project",
+      email_message_id: `message-owen-${index}`,
+      email_thread_id: message.threadId,
+      to_emails: message.toEmails,
+      cc_emails: message.ccEmails,
+    }));
+    const events = activities.map((activity, index) =>
+      correspondenceEvent(activity, {
+        id: `event-owen-${index}`,
+        provider_thread_id: sourceMessages[index].threadId,
+        provider_message_id: `message-owen-${index}`,
+        from_email: sourceMessages[index].fromEmail,
+        to_emails: sourceMessages[index].toEmails,
+        cc_emails: sourceMessages[index].ccEmails,
+      })
+    );
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          client_id: "client-owen",
+          client_ref: null,
+          title: "Owen Schellenberger — Email Inquiry",
+          stage: "won",
+          stage_entered_at: "2026-05-23T19:00:00.000Z",
+          created_at: "2026-05-19T18:00:00.000Z",
+          contact_name: "Owen Schellenberger",
+          contact_email: owenEmail,
+          address: "2745 Fernwood Rd, Victoria BC",
+          source: "email",
+          ai_summary: null,
+          ai_summary_updated_at: null,
+          correspondence_count: activities.length,
+          project_ref: acceptedProjectId,
+          project_id: acceptedProjectId,
+        }),
+      ],
+    };
+    tables.clients = {
+      rows: [
+        {
+          id: "client-owen",
+          company_id: COMPANY_ID,
+          email: owenEmail,
+          deleted_at: null,
+        },
+      ],
+    };
+    tables.sub_clients = {
+      rows: [
+        {
+          id: "sub-client-jennifer",
+          company_id: COMPANY_ID,
+          client_id: "client-owen",
+          email: jenniferEmail,
+          deleted_at: null,
+        },
+      ],
+    };
+    tables.activities = { rows: activities };
+    tables.opportunity_correspondence_events = { rows: events };
+    tables.email_threads = {
+      rows: [
+        {
+          id: "thread-row-jennifer",
+          opportunity_id: OPP_A,
+          connection_id: "22222222-2222-2222-2222-222222222222",
+          provider_thread_id: "thread-jennifer-placeholder",
+          ai_summary: "Jennifer introduced Owen for the Fernwood project.",
+          last_message_at: "2026-05-23T19:00:00.000Z",
+        },
+        {
+          id: "thread-row-owen",
+          opportunity_id: OPP_A,
+          connection_id: "22222222-2222-2222-2222-222222222222",
+          provider_thread_id: "thread-owen-decisive",
+          ai_summary: "Owen paid the deposit and Canpro confirmed receipt.",
+          last_message_at: "2026-05-22T19:00:00.000Z",
+        },
+      ],
+    };
+    const summary =
+      "Owen and Jennifer paid the deposit for the 2745 Fernwood project, and Canpro confirmed receipt. Owen asked whether the crew can help move the larger heavy items. The next action is to respond about that help and confirm the work schedule.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    const result = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds: [OPP_A],
+      now: NOW,
+    });
+    expect(result).toMatchObject({
+      requested: 1,
+      written: 1,
+      failed: [],
+      deferred: [],
+    });
+    const prompt = JSON.parse(
+      openAICreateMock.mock.calls[0][0].messages[1].content
+    );
+    expect(prompt.lead).toMatchObject({
+      stage: "won",
+      previous_summary: null,
+      address: "2745 Fernwood Rd, Victoria BC",
+    });
+    expect(prompt.emails.map((email: { body: string }) => email.body)).toEqual(
+      sourceMessages.map((message) => message.body)
+    );
+    const foldedThreadIds = new Set(
+      Object.values(prompt.conversation_fold.observations)
+        .flat()
+        .map(
+          (observation) =>
+            (observation as { provider_thread_id: string }).provider_thread_id
+        )
+    );
+    expect(foldedThreadIds).toEqual(
+      new Set(["thread-jennifer-placeholder", "thread-owen-decisive"])
+    );
+    expect(prompt.commercial_context).toMatchObject({
+      outcome: "won",
+      schedule: null,
+      next_action: "Confirm the work schedule.",
+    });
+    expect(prompt.current_fact_context).toMatchObject({
+      schedule: null,
+      next_action: "Confirm the work schedule.",
+    });
+    expect(
+      prompt.conversation_fold.observations.next_action
+        .map((observation: { text: string }) => observation.text)
+        .join(" ")
+    ).toMatch(/crew.*larger.*heavier items/i);
+    expect(summary).toMatch(/crew.*larger heavy items/i);
+    expect(summary).toMatch(/confirm the work schedule/i);
+    expect(updateCalls).toHaveLength(0);
+    expect(supabaseRpcMock).toHaveBeenCalledWith(
+      "commit_lead_summary_snapshot",
+      expect.objectContaining({
+        p_summary: summary,
+        p_expected_prior_summary: null,
+        p_expected_correspondence_count: 5,
+        p_expected_meaningful_event_count: 5,
+        p_expected_latest_meaningful_event_id: "event-owen-4",
       })
     );
   });

@@ -339,7 +339,7 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
     expect(result?.signals).not.toContain("payment_confirmed");
   });
 
-  it("treats Owen and Jennifer's paid deposits as Won despite the earlier conditional start request", () => {
+  it("treats Owen and Jennifer's paid deposits as Won without promoting their schedule-confirmation request", () => {
     const result = detectCommercialOutcome({
       now: NOW,
       messages: [
@@ -382,8 +382,38 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
       ]),
       signals: expect.arrayContaining(["payment_confirmed"]),
       facts: {
-        schedule: expect.stringMatching(/monday|july 13/i),
-        nextAction: expect.stringMatching(/convert|project|schedule/i),
+        schedule: null,
+        nextAction:
+          "Convert or link the project and confirm the work schedule.",
+      },
+    });
+  });
+
+  it("does not treat a question-form date as a confirmed schedule fact", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "owen-deposit-paid",
+          "2026-05-21T19:00:00.000Z",
+          "inbound",
+          "Just paid Jackson's deposit."
+        ),
+        message(
+          "owen-schedule-question",
+          "2026-05-23T19:00:00.000Z",
+          "inbound",
+          "Are we on for Monday, July 13th?"
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      facts: {
+        schedule: null,
+        nextAction:
+          "Convert or link the project and confirm the work schedule.",
       },
     });
   });

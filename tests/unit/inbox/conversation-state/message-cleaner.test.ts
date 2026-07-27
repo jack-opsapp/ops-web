@@ -112,6 +112,37 @@ describe("stripSignatureBlock", () => {
     );
   });
 
+  it("strips an extended corporate signature with social links and a land acknowledgement", () => {
+    const body = [
+      "Today would be great. The post has been removed.",
+      "",
+      "Kind regards,",
+      "Alexis Solomon BA DID VISID",
+      "OWNER | PRINCIPAL INTERIOR ARCHITECTURAL DESIGNER",
+      "M I N T",
+      "Freshly Inspired Design",
+      "Please note our upcoming studio closure dates:",
+      "August 17th to 21st",
+      "December 11 to January 3rd",
+      "Suite E - The Design Housse Collective",
+      "587 Bay Street, Victoria BC V8T 1P5",
+      "250-514-8203",
+      "Business Hours: 9:00 am - 5:00 pm, Monday - Friday",
+      "Closed Weekends & Holidays",
+      "mintfreshlyinspireddesign.com",
+      "WE'RE SOCIAL!",
+      "Instagram | m.i.n.t_interior_design",
+      "Facebook | MINT Freshly Inspired Design",
+      "Make sure to follow our adventures within the Design Housse Collective!",
+      "Instagram | The Design Housse Collective",
+      "I acknowledge and am grateful to the local First Nations on whose traditional territory I live, work and raise my family.",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(
+      "Today would be great. The post has been removed."
+    );
+  });
+
   it("strips a collapsed inline name, phone, and company signature", () => {
     const body =
       "Feel free to text or call if anything changes.Jackson Sweet (250) 538-8994 Canpro Deck and Rail Victoria Inc.";
@@ -186,6 +217,71 @@ describe("stripSignatureBlock", () => {
       expect(stripSignatureBlock(body)).toBe(body);
     }
   );
+
+  it("does not let an extended corporate signature erase later authored schedule text", () => {
+    const body = [
+      "We accept the quote.",
+      "Thanks,",
+      "Jane Doe",
+      "Owner, Acme Ltd.",
+      "jane@example.com",
+      "Friday is booked instead.",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it("does not let an extended corporate signature erase an unclassified authored request", () => {
+    const body = [
+      "We accept the quote.",
+      "Thanks,",
+      "Jane Doe",
+      "Owner, Acme Ltd.",
+      "jane@example.com",
+      "Please call when you have a chance.",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it("does not treat authored schedule text containing a footer keyword as signature copy", () => {
+    const body = [
+      "We accept the quote.",
+      "Thanks,",
+      "Jane Doe",
+      "Owner, Acme Ltd.",
+      "jane@example.com",
+      "I'm closed weekends, but Friday works.",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it("does not treat authored text mentioning a corporate role as signature copy", () => {
+    const body = [
+      "We accept the quote.",
+      "Thanks,",
+      "Jane Doe",
+      "Owner, Acme Ltd.",
+      "jane@example.com",
+      "Please call the project manager tomorrow.",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it("does not erase authored text that appears before the final signature contact line", () => {
+    const body = [
+      "We accept the quote.",
+      "Thanks,",
+      "Jane Doe",
+      "Please call when you have a chance.",
+      "jane@example.com",
+      "Owner, Acme Ltd.",
+    ].join("\n");
+
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
 
   it.each([
     "Friday works.",
