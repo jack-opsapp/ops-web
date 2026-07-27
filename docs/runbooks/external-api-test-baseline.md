@@ -7,6 +7,30 @@
 **Merged `origin/main`:** `998211dfa910a2ff7a16462b68fd191f8974b4a2`
 **Status:** accepted known-red comparison baseline for Tasks 1–19
 
+## Final implementation readback
+
+The final machine-readable full-suite run on 2026-07-27 reported:
+
+```text
+Test Files  3 failed | 1090 passed | 1 skipped (1094)
+Tests       13 failed | 10001 passed | 5 skipped (10019)
+```
+
+Every External Lead API test passed. The remaining failures are confined to
+files unchanged from current `origin/main`:
+
+- `tests/integration/uploads-presign.test.ts`: the same eight `403` failures
+  recorded below;
+- `tests/unit/components/create-estimate-form.test.tsx`: three failures because
+  its `@/lib/hooks` mock does not expose `useDefaultTaxRate`;
+- `tests/unit/i18n/inbox-parity.test.ts`: the same two missing Spanish-key
+  failures recorded below.
+
+The two historical email failures recorded below now pass in focused runs.
+This final run used the repository-local pnpm install because the bundled
+runtime has no npm executable; the historical accepted result remains below
+as provenance rather than being rewritten.
+
 ## Merge evidence
 
 The prepared worktree was clean at the recorded planning base
@@ -82,14 +106,14 @@ history added tests; it did not introduce a deterministic new failure.
 All eight requests returned `403` before the asserted content-type or extension
 result:
 
-| Test | Error |
-|---|---|
-| `content-type validation > allows image/jpeg for an arbitrary image folder` | `AssertionError: expected 403 to be 200` |
-| `content-type validation > allows application/json for the training_data/ folder prefix` | `AssertionError: expected 403 to be 200` |
-| `content-type validation > rejects application/json when folder is NOT training_data/` | `AssertionError: expected 403 to be 400` |
-| `content-type validation > rejects image/gif everywhere (not on the allowlist)` | `AssertionError: expected 403 to be 400` |
-| `content-type validation > rejects application/javascript even when path is training_data/` | `AssertionError: expected 403 to be 400` |
-| `file extension inference > preserves the original extension when present` | `AssertionError: expected 403 to be 200` |
+| Test                                                                                             | Error                                    |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------- |
+| `content-type validation > allows image/jpeg for an arbitrary image folder`                      | `AssertionError: expected 403 to be 200` |
+| `content-type validation > allows application/json for the training_data/ folder prefix`         | `AssertionError: expected 403 to be 200` |
+| `content-type validation > rejects application/json when folder is NOT training_data/`           | `AssertionError: expected 403 to be 400` |
+| `content-type validation > rejects image/gif everywhere (not on the allowlist)`                  | `AssertionError: expected 403 to be 400` |
+| `content-type validation > rejects application/javascript even when path is training_data/`      | `AssertionError: expected 403 to be 400` |
+| `file extension inference > preserves the original extension when present`                       | `AssertionError: expected 403 to be 200` |
 | `file extension inference > falls back to .json when filename has no extension and type is JSON` | `AssertionError: expected 403 to be 200` |
 | `file extension inference > falls back to .jpg when filename has no extension and type is image` | `AssertionError: expected 403 to be 200` |
 
@@ -739,9 +763,9 @@ It contained the accepted failures above plus two timeout-shaped failures:
 
 - `src/lib/inbox/__tests__/opp-display.test.ts` failed before collecting a test:
   `Error: [vitest-worker]: Timeout calling "fetch" with
-  "["/tests/mocks/data.ts","web"]"`.
+"["/tests/mocks/data.ts","web"]"`.
 - `tests/unit/hooks/use-client-projects.test.tsx > useClientProjects > returns
-  the project list when the query resolves` failed with
+the project list when the query resolves` failed with
   `Error: Test timed out in 5000ms`.
 
 A focused unchanged rerun passed both files:
