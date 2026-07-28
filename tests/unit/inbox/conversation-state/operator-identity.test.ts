@@ -112,6 +112,51 @@ describe("buildOperatorIdentity — full union across all sources", () => {
     expect(identity.companyName).toBe("Canpro Fencing");
   });
 
+  it("treats only verified secondary emails as exact operator identity", () => {
+    const identity = buildOperatorIdentity(
+      baseInput({
+        companyUsers: [
+          {
+            id: "user-jason",
+            firstName: "Jason",
+            lastName: "Zavarella",
+            email: "fourseasonscontracting705@gmail.com",
+            phone: "250-661-9544",
+            emailAliases: [
+              {
+                email: "info.jzconstruct@gmail.com",
+                status: "verified",
+              },
+              {
+                email: "pending.jz@gmail.com",
+                status: "pending",
+              },
+              {
+                email: "rejected.jz@gmail.com",
+                status: "rejected",
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    expect(identity.emails).toContain("info.jzconstruct@gmail.com");
+    expect(identity.emails).not.toContain("pending.jz@gmail.com");
+    expect(identity.emails).not.toContain("rejected.jz@gmail.com");
+    expect(identity.staffMembers).toEqual([
+      expect.objectContaining({
+        userId: "user-jason",
+        registeredEmail: "fourseasonscontracting705@gmail.com",
+        fullName: "Jason Zavarella",
+        phone: "2506619544",
+        verifiedAliases: new Set(["info.jzconstruct@gmail.com"]),
+        pendingAliases: new Set(["pending.jz@gmail.com"]),
+        rejectedAliases: new Set(["rejected.jz@gmail.com"]),
+      }),
+    ]);
+  });
+
   it("unions optional SyncProfile arrays (emails / domains / platform senders)", () => {
     const identity = buildOperatorIdentity(
       baseInput({

@@ -31,7 +31,12 @@ import {
 } from "@/lib/email/import-extraction-sanitizer";
 import { deduplicateAnalyzedLeads } from "@/lib/email/import-lead-dedup";
 import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
-import { resolvePersistedEmailDirection } from "@/lib/email/email-ingestion-routing";
+import {
+  ingestionOperatorIdentityFromAuthoritative,
+  resolvePersistedEmailAuthorship,
+} from "@/lib/email/email-ingestion-routing";
+import { fetchOperatorIdentity } from "@/lib/api/services/conversation-state/operator-identity";
+import { persistStaffEmailAliasCandidate } from "@/lib/email/staff-email-alias";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import {
   replaceAnalyzedLeadEmailsFromFetch,
@@ -473,8 +478,7 @@ async function publishAnalysisCompletion({
 
   const currentResult = currentRow.result as Record<string, unknown>;
   const phaseCDispatch = currentResult.phaseCDispatch as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const completedResult = {
     ...currentResult,
     ...(phaseCDispatch
@@ -656,7 +660,9 @@ async function runPhaseB(
   const { data: companyUsers, error: companyUsersError } = await supabase
     .from("users")
     .select("email, first_name, last_name, phone")
-    .eq("company_id", companyId);
+    .eq("company_id", companyId)
+    .eq("is_active", true)
+    .is("deleted_at", null);
   if (companyUsersError) {
     throw new Error(
       `Failed to load company users for Phase B: ${companyUsersError.message}`
@@ -674,6 +680,16 @@ async function runPhaseB(
         .toLowerCase();
     if (fullName) employeeNameSet.add(fullName);
     if (u.phone) employeePhones.push(u.phone);
+  }
+  const authoritativeOperator = await fetchOperatorIdentity(
+    companyId,
+    connection
+  );
+  for (const email of authoritativeOperator.emails) {
+    employeeEmailSet.add(email);
+  }
+  for (const domain of authoritativeOperator.domains) {
+    companyDomainSet.add(domain);
   }
 
   const { data: company, error: companyError } = await supabase
@@ -703,12 +719,35 @@ async function runPhaseB(
       typeof value === "string" && value.trim().length > 0
   );
 
+  const ingestionOperator = ingestionOperatorIdentityFromAuthoritative({
+    connectionEmail: connection.email,
+    operator: authoritativeOperator,
+    additionalCompanyDomains: [...companyDomainSet],
+  });
+  const persistedDirections = new Map<string, "inbound" | "outbound">();
+  const ensurePersistedDirection = async (email: NormalizedEmail) => {
+    const existing = persistedDirections.get(email.id);
+    if (existing) return existing;
+    const authorship = resolvePersistedEmailAuthorship(
+      email,
+      ingestionOperator
+    );
+    if (authorship.staffAliasCandidate) {
+      await persistStaffEmailAliasCandidate({
+        supabase,
+        companyId,
+        connectionId,
+        providerThreadId: email.threadId,
+        providerMessageId: email.id,
+        candidate: authorship.staffAliasCandidate,
+      });
+    }
+    persistedDirections.set(email.id, authorship.direction);
+    return authorship.direction;
+  };
   const persistedDirection = (email: NormalizedEmail) =>
-    resolvePersistedEmailDirection(email, {
-      connectionEmail: connection.email,
-      companyDomains: [...companyDomainSet],
-      userEmailAddresses: [...employeeEmailSet],
-    });
+    persistedDirections.get(email.id) ??
+    resolvePersistedEmailAuthorship(email, ingestionOperator).direction;
 
   // ─── 3. Full thread fetch for ALL confirmed leads (no cap) ─────────────────
   // Parallelized: fetch 5 threads concurrently to stay within 800s budget.
@@ -767,6 +806,9 @@ async function runPhaseB(
     for (const result of results) {
       if (result.fetchedMessages) {
         const { lead, fetchedMessages } = result;
+        await Promise.all(
+          fetchedMessages.map((message) => ensurePersistedDirection(message))
+        );
         fetchedThreads.set(lead.threadId, fetchedMessages);
         replaceAnalyzedLeadEmailsFromFetch(
           lead,
@@ -802,7 +844,6 @@ async function runPhaseB(
       );
     }
   }
-
   console.log(
     `[email-analyze-continue] Thread fetch complete: ${fetchedCount} fetched, ${skippedCount} skipped`
   );
@@ -967,6 +1008,9 @@ async function runPhaseB(
         `${(u.first_name || "").trim()} ${(u.last_name || "").trim()}`.trim()
       );
     }
+  }
+  for (const email of authoritativeOperator.emails) {
+    if (!employeeEmails.includes(email)) employeeEmails.push(email);
   }
 
   const extractions = await EmailAIClassifier.deepExtractLeads(

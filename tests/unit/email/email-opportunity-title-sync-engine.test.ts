@@ -146,7 +146,20 @@ import { SyncEngine } from "@/lib/api/services/sync-engine";
 
 interface SupabaseState {
   clients: Array<Record<string, unknown>>;
-  operatorUsers?: Array<{ email: string; phone: string | null }>;
+  operatorUsers?: Array<{
+    id?: string;
+    first_name?: string | null;
+    last_name?: string | null;
+    email: string;
+    phone: string | null;
+  }>;
+  operatorEmailAliases?: Array<{
+    user_id: string;
+    email: string;
+    status: "pending" | "verified" | "rejected";
+  }>;
+  ingestionRecoveryRows?: Array<Record<string, unknown>>;
+  completedIngestionRecovery?: Array<Record<string, unknown>>;
   operatorIdentityReads?: number;
   subClients?: Array<Record<string, unknown>>;
   opportunities: Array<Record<string, unknown>>;
@@ -589,13 +602,22 @@ function makeSupabaseDouble(state: SupabaseState) {
       }
 
       if (this.table === "users" && this.action === "select") {
-        if (this.selectedColumns === "email, phone") {
+        if (
+          this.selectedColumns === "id, first_name, last_name, email, phone"
+        ) {
           state.operatorIdentityReads = (state.operatorIdentityReads ?? 0) + 1;
         }
         return {
           data: state.operatorUsers ?? [
             { email: "jackson@canprodeckandrail.com", phone: null },
           ],
+          error: null,
+        };
+      }
+
+      if (this.table === "user_email_aliases" && this.action === "select") {
+        return {
+          data: state.operatorEmailAliases ?? [],
           error: null,
         };
       }
@@ -840,6 +862,34 @@ function makeSupabaseDouble(state: SupabaseState) {
           data: state.recoveryIngestAuthorized ?? true,
           error: null,
         };
+      }
+      if (name === "record_staff_email_alias_candidate_as_system") {
+        state.rpcCalls?.push({ name, params });
+        return {
+          data: "staff-alias-candidate-1",
+          error: null,
+        };
+      }
+      if (name === "claim_email_ingestion_recovery_as_system") {
+        state.rpcCalls?.push({ name, params });
+        return {
+          data: state.ingestionRecoveryRows ?? [],
+          error: null,
+        };
+      }
+      if (name === "reauthorize_email_ingestion_recovery_as_system") {
+        state.rpcCalls?.push({ name, params });
+        return { data: true, error: null };
+      }
+      if (name === "complete_email_ingestion_recovery_as_system") {
+        state.rpcCalls?.push({ name, params });
+        state.completedIngestionRecovery ??= [];
+        state.completedIngestionRecovery.push(params);
+        return { data: true, error: null };
+      }
+      if (name === "fail_email_ingestion_recovery_as_system") {
+        state.rpcCalls?.push({ name, params });
+        return { data: "retrying", error: null };
       }
       if (name === "create_company_mailbox_email_opportunity_as_system") {
         state.rpcCalls?.push({ name, params });
@@ -5285,6 +5335,255 @@ To: Kara Beach <kara.beach@example.com>`,
     );
   });
 
+  it("routes a strongly corroborated secondary staff sender outbound while preserving the external customer", async () => {
+    const connectionId = "connection-jason-secondary-address";
+    const state: SupabaseState = {
+      clients: [],
+      operatorUsers: [
+        {
+          id: "user-jackson",
+          first_name: "Jackson",
+          last_name: "Sweet",
+          email: "canprojack@gmail.com",
+          phone: null,
+        },
+        {
+          id: "user-jason",
+          first_name: "Jason",
+          last_name: "Zavarella",
+          email: "fourseasonscontracting705@gmail.com",
+          phone: "2506619544",
+        },
+      ],
+      operatorEmailAliases: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      correspondenceEvents: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const connection = baseConnection({
+      id: connectionId,
+      email: "canprojack@gmail.com",
+      syncFilters: {
+        includeSentMail: true,
+        estimateSubjectPatterns: ["quote"],
+        companyDomains: ["canprodeckandrail.com"],
+        teamForwarders: [],
+        userEmailAddresses: [],
+      },
+    });
+    getConnectionMock.mockResolvedValue(connection);
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-jason-secondary-address",
+            threadId: "thread-jason-secondary-address",
+            from: "Jason Z <info.jzconstruct@gmail.com>",
+            fromName: "Jason Z",
+            to: ["Riley Customer <riley.customer@example.com>"],
+            cc: ["fourseasonscontracting705@gmail.com"],
+            subject: "Deck quote for Riley",
+            bodyText:
+              "Hi Riley, attached is your deck quote.\n\nJason Zavarella\n250-661-9544",
+            snippet: "Hi Riley, attached is your deck quote.",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-after-jason-secondary",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-after-jason-secondary",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.runSync(connectionId);
+
+    expect(result.errors).toEqual([]);
+    expect(
+      state.rpcCalls?.filter(
+        (call) => call.name === "record_staff_email_alias_candidate_as_system"
+      )
+    ).toEqual([
+      expect.objectContaining({
+        params: expect.objectContaining({
+          p_user_id: "user-jason",
+          p_email: "info.jzconstruct@gmail.com",
+          p_provider_thread_id: "thread-jason-secondary-address",
+          p_provider_message_id: "msg-jason-secondary-address",
+          p_evidence: {
+            fullName: "Jason Zavarella",
+            phone: "2506619544",
+            registeredEmailRecipient: true,
+          },
+        }),
+      }),
+    ]);
+    expect(matchMock).toHaveBeenCalledWith(
+      "company-1",
+      "riley.customer@example.com",
+      expect.objectContaining({ connectionId })
+    );
+    expect(state.clients).toEqual([
+      expect.objectContaining({
+        name: "Riley Customer",
+        email: "riley.customer@example.com",
+      }),
+    ]);
+    expect(
+      state.clients.some(
+        (client) => client.email === "info.jzconstruct@gmail.com"
+      )
+    ).toBe(false);
+    expect(state.activities).toEqual([
+      expect.objectContaining({
+        email_message_id: "msg-jason-secondary-address",
+        direction: "outbound",
+        match_needs_review: true,
+        match_confidence: "staff_alias_pending",
+      }),
+    ]);
+    expect(state.correspondenceEvents).toEqual([
+      expect.objectContaining({
+        provider_message_id: "msg-jason-secondary-address",
+        direction: "outbound",
+      }),
+    ]);
+  });
+
+  it("reclassifies the exact queued secondary-staff message through the recovery path", async () => {
+    const connectionId = "connection-jason-secondary-recovery";
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-riley",
+          company_id: "company-1",
+          name: "Riley Customer",
+          email: "riley.customer@example.com",
+        },
+      ],
+      operatorUsers: [
+        {
+          id: "user-jason",
+          first_name: "Jason",
+          last_name: "Zavarella",
+          email: "fourseasonscontracting705@gmail.com",
+          phone: "2506619544",
+        },
+      ],
+      operatorEmailAliases: [],
+      opportunities: [
+        {
+          id: "opp-riley",
+          company_id: "company-1",
+          client_id: "client-riley",
+          title: "Riley Customer — Deck quote",
+          stage: "quoted",
+          stage_manually_set: false,
+          correspondence_count: 0,
+          inbound_count: 0,
+          outbound_count: 0,
+          assignment_version: 0,
+          archived_at: null,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [
+        {
+          opportunity_id: "opp-riley",
+          thread_id: "thread-jason-secondary-recovery",
+          connection_id: connectionId,
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+      rpcCalls: [],
+      ingestionRecoveryRows: [
+        {
+          id: "recovery-jason-secondary",
+          company_id: "company-1",
+          connection_id: connectionId,
+          recovery_kind: "lead_classification",
+          provider_thread_id: "thread-jason-secondary-recovery",
+          provider_message_id: "msg-jason-secondary-recovery",
+          provider_label_id: null,
+          status: "processing",
+          attempts: 1,
+        },
+      ],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const connection = baseConnection({
+      id: connectionId,
+      email: "canprojack@gmail.com",
+      syncFilters: {
+        includeSentMail: true,
+        estimateSubjectPatterns: ["quote"],
+        companyDomains: ["canprodeckandrail.com"],
+        teamForwarders: [],
+        userEmailAddresses: [],
+      },
+    });
+    getConnectionMock.mockResolvedValue(connection);
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchThread: vi.fn(async () => [
+        baseEmail({
+          id: "msg-jason-secondary-recovery",
+          threadId: "thread-jason-secondary-recovery",
+          from: "Jason Z <info.jzconstruct@gmail.com>",
+          fromName: "Jason Z",
+          to: ["Riley Customer <riley.customer@example.com>"],
+          cc: ["fourseasonscontracting705@gmail.com"],
+          subject: "Deck quote for Riley",
+          bodyText:
+            "Hi Riley, attached is your deck quote.\n\nJason Zavarella\n250-661-9544",
+          snippet: "Hi Riley, attached is your deck quote.",
+          labelIds: ["INBOX"],
+        }),
+      ]),
+    });
+
+    const result = await SyncEngine.retryPendingIngestionRecovery({
+      companyIds: ["company-1"],
+      limit: 1,
+    });
+
+    expect(result).toMatchObject({
+      claimed: 1,
+      classificationsRecovered: 1,
+      promoted: 0,
+      errors: [],
+    });
+    expect(state.activities).toEqual([
+      expect.objectContaining({
+        email_message_id: "msg-jason-secondary-recovery",
+        opportunity_id: "opp-riley",
+        direction: "outbound",
+        match_needs_review: true,
+        match_confidence: "staff_alias_pending",
+      }),
+    ]);
+    expect(
+      state.clients.some(
+        (client) => client.email === "info.jzconstruct@gmail.com"
+      )
+    ).toBe(false);
+    expect(state.completedIngestionRecovery).toEqual([
+      expect.objectContaining({
+        p_queue_id: "recovery-jason-secondary",
+        p_outcome: "classification_recovered",
+      }),
+    ]);
+  });
+
   it("skips outbound learning and lead work for all-internal teammate mail", async () => {
     const connectionId = "connection-internal-jake-to-jackson";
     const state: SupabaseState = {
@@ -7389,6 +7688,9 @@ To: Kara Beach <kara.beach@example.com>`,
       { name: "Canpro Deck and Rail" },
       expect.objectContaining({
         providerLockCheckpoint: expect.any(Function),
+      }),
+      expect.objectContaining({
+        connectionEmail: "jackson@canprodeckandrail.com",
       })
     );
     expect(state.opportunities[0]).toMatchObject({

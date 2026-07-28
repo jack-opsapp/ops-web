@@ -42,6 +42,17 @@ export interface OperatorIdentity {
   phones: Set<string>; // normalized company + user phones
   addresses: Set<string>; // normalized company address(es)
   companyName: string | null;
+  staffMembers?: OperatorStaffMember[];
+}
+
+export interface OperatorStaffMember {
+  userId: string;
+  registeredEmail: string;
+  fullName: string;
+  phone: string | null;
+  verifiedAliases: Set<string>;
+  pendingAliases: Set<string>;
+  rejectedAliases: Set<string>;
 }
 
 export interface AttachmentInspection {

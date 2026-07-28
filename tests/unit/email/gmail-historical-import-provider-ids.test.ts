@@ -262,6 +262,18 @@ function makeSupabaseDouble(
     }
 
     async maybeSingle() {
+      if (this.table === "companies") {
+        return {
+          data: {
+            id: "company-1",
+            name: "Canpro Deck and Rail",
+            email: options.connectionEmail ?? "operator@example.com",
+            phone: null,
+            address: null,
+          },
+          error: null,
+        };
+      }
       if (this.table === "opportunities") {
         const companyId = this.filters.get("company_id");
         return {
@@ -320,6 +332,9 @@ function makeSupabaseDouble(
           data: (options.companyUserEmails ?? []).map((email) => ({ email })),
           error: null,
         };
+      }
+      if (this.table === "user_email_aliases") {
+        return { data: [], error: null };
       }
       if (
         options.writeError?.table === this.table &&

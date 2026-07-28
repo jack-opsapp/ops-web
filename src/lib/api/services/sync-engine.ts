@@ -81,10 +81,14 @@ import {
 import {
   applyInboundEffectiveSenderIdentity,
   buildLeadRoutingIdentity,
+  ingestionOperatorIdentityFromAuthoritative,
+  resolvePersistedEmailAuthorship,
   resolvePersistedEmailDirection,
   type IngestionOperatorIdentity,
   type LeadRoutingIdentity,
+  type StaffAliasCandidate,
 } from "@/lib/email/email-ingestion-routing";
+import { persistStaffEmailAliasCandidate } from "@/lib/email/staff-email-alias";
 import {
   logInvalidProviderEmailIds,
   validateProviderEmailIds,
@@ -445,16 +449,21 @@ function syncIngestionOperatorIdentity(
   profile: SyncProfile,
   authoritative?: OperatorIdentity
 ): IngestionOperatorIdentity {
+  if (authoritative) {
+    return ingestionOperatorIdentityFromAuthoritative({
+      connectionEmail: connection.email,
+      operator: authoritative,
+      teamForwarders: profile.teamForwarders ?? [],
+      knownPlatformSenders: profile.knownPlatformSenders ?? [],
+    });
+  }
   return {
     connectionEmail: connection.email,
-    userEmailAddresses: authoritative
-      ? [...authoritative.emails]
-      : (profile.userEmailAddresses ?? []),
-    companyDomains: authoritative
-      ? [...authoritative.domains]
-      : (profile.companyDomains ?? []),
+    userEmailAddresses: profile.userEmailAddresses ?? [],
+    companyDomains: profile.companyDomains ?? [],
     teamForwarders: profile.teamForwarders ?? [],
     knownPlatformSenders: profile.knownPlatformSenders ?? [],
+    staffMembers: [],
   };
 }
 
@@ -1880,6 +1889,7 @@ async function recordActivityCorrespondenceEvent(
   if (!opportunityId) return;
   const supabase = requireSupabase();
   const profile = connection.syncFilters as Partial<SyncProfile> | null;
+  const authoritative = await getCachedOperatorIdentity(connection);
   const result = await OpportunityLifecycleService.recordCorrespondenceEvent({
     supabase,
     companyId: connection.companyId,
@@ -1901,8 +1911,8 @@ async function recordActivityCorrespondenceEvent(
     bodyText: email.bodyText,
     labels: email.labelIds,
     connectionEmail: connection.email,
-    companyDomains: profile?.companyDomains ?? [],
-    userEmailAddresses: profile?.userEmailAddresses ?? [],
+    companyDomains: [...authoritative.domains],
+    userEmailAddresses: [...authoritative.emails],
     knownPlatformSenders: profile?.knownPlatformSenders ?? [],
   });
 
@@ -2924,6 +2934,7 @@ interface StableDiscoveredEmail {
   email: NormalizedEmail;
   direction: "inbound" | "outbound";
   existingActivity: ExistingProviderActivity | null;
+  staffAliasCandidate: StaffAliasCandidate | null;
 }
 
 const STABLE_DIRECTION_LOOKUP_CONCURRENCY = 8;
@@ -2950,12 +2961,35 @@ async function resolveStableDiscoveredEmail(
     email.id,
     email.threadId
   );
+  const currentAuthorship = resolvePersistedEmailAuthorship(
+    email,
+    directionIdentity
+  );
+  if (!existingActivity && currentAuthorship.staffAliasCandidate) {
+    try {
+      await persistStaffEmailAliasCandidate({
+        supabase: requireSupabase(),
+        companyId: connection.companyId,
+        connectionId: connection.id,
+        providerThreadId: email.threadId,
+        providerMessageId: email.id,
+        candidate: currentAuthorship.staffAliasCandidate,
+      });
+    } catch (error) {
+      throw new LifecyclePersistenceError(
+        `[sync-engine] ${error instanceof Error ? error.message : "staff alias review persistence failed"}`
+      );
+    }
+  }
   return {
     email,
     direction: existingActivity
       ? requirePersistedActivityDirection(existingActivity)
-      : resolvePersistedEmailDirection(email, directionIdentity),
+      : currentAuthorship.direction,
     existingActivity,
+    staffAliasCandidate: existingActivity
+      ? null
+      : currentAuthorship.staffAliasCandidate,
   };
 }
 
@@ -3871,7 +3905,12 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       name: input.companyName,
       industry: input.companyIndustry,
       domains: input.profile.companyDomains || [],
-    }
+    },
+    syncIngestionOperatorIdentity(
+      input.connection,
+      input.profile,
+      await getCachedOperatorIdentity(input.connection)
+    )
   );
 
   for (const deferred of aiResult.deferredClassifications ?? []) {
@@ -4131,7 +4170,8 @@ async function processSentEmail(
   result: SyncCycleResult,
   providerLockCheckpoint: EmailProviderMailboxCheckpoint,
   syncLockOwner: string,
-  preloadedExistingActivity?: ExistingProviderActivity | null
+  preloadedExistingActivity?: ExistingProviderActivity | null,
+  staffAliasCandidate: StaffAliasCandidate | null = null
 ): Promise<void> {
   const normalizedEmail = normalizeProviderBackedEmailForSync(
     email,
@@ -4140,17 +4180,17 @@ async function processSentEmail(
     "sync_sent_email"
   );
   email = normalizedEmail;
+  const operatorIdentity = await getCachedOperatorIdentity(connection);
   const routingIdentity = buildLeadRoutingIdentity(
     email,
     {
       provider: connection.provider,
       connectionId: connection.id,
     },
-    syncIngestionOperatorIdentity(connection, profile)
+    syncIngestionOperatorIdentity(connection, profile, operatorIdentity)
   );
 
   const supabase = requireSupabase();
-  const operatorIdentity = await getCachedOperatorIdentity(connection);
   const externalConversationEmail = emailWithAuthoritativeExternalRecipients(
     email,
     connection,
@@ -4242,7 +4282,13 @@ async function processSentEmail(
       email,
       connection,
       threadOpportunity.opportunityId,
-      "outbound"
+      "outbound",
+      staffAliasCandidate
+        ? {
+            matchNeedsReview: true,
+            matchConfidence: "staff_alias_pending",
+          }
+        : undefined
     );
     if (!activityCreated) return;
     await applyCanonicalLeadEnrichment({
@@ -4266,6 +4312,7 @@ async function processSentEmail(
     );
     result.activitiesCreated++;
     result.matched++;
+    if (staffAliasCandidate) result.needsReview++;
 
     return;
   }
@@ -4365,7 +4412,12 @@ async function processSentEmail(
       connection,
       null,
       "outbound",
-      { matchNeedsReview: true, matchConfidence: "unlinked_outbound" }
+      {
+        matchNeedsReview: true,
+        matchConfidence: staffAliasCandidate
+          ? "staff_alias_pending"
+          : "unlinked_outbound",
+      }
     );
     if (activityCreated) {
       result.activitiesCreated++;
@@ -4389,8 +4441,10 @@ async function processSentEmail(
     opportunityId,
     "outbound",
     {
-      matchConfidence:
-        relationshipDecision.action === "link"
+      matchNeedsReview: Boolean(staffAliasCandidate),
+      matchConfidence: staffAliasCandidate
+        ? "staff_alias_pending"
+        : relationshipDecision.action === "link"
           ? relationshipDecision.confidence
           : "estimate",
     }
@@ -4417,6 +4471,7 @@ async function processSentEmail(
     result.matched++;
   }
   result.activitiesCreated++;
+  if (staffAliasCandidate) result.needsReview++;
 }
 
 async function reconcileUnlinkedOutboundEmail(
@@ -5805,12 +5860,16 @@ export const SyncEngine = {
           direction: "inbound" as const,
           existingActivity:
             stableDiscoveryByMessageId.get(email.id)?.existingActivity ?? null,
+          staffAliasCandidate: null,
         })),
         ...sentEmails.map((email) => ({
           email,
           direction: "outbound" as const,
           existingActivity:
             stableDiscoveryByMessageId.get(email.id)?.existingActivity ?? null,
+          staffAliasCandidate:
+            stableDiscoveryByMessageId.get(email.id)?.staffAliasCandidate ??
+            null,
         })),
       ].sort((left, right) => {
         const byDate = left.email.date.getTime() - right.email.date.getTime();
@@ -5846,7 +5905,8 @@ export const SyncEngine = {
             result,
             renewSyncLeaseIfNeeded,
             syncLockOwner,
-            item.existingActivity
+            item.existingActivity,
+            item.staffAliasCandidate
           );
         }
       }
@@ -6066,7 +6126,8 @@ export const SyncEngine = {
                 [...activeLeadTargets.values()],
                 connection,
                 { name: companyName },
-                { providerLockCheckpoint: renewSyncLeaseIfNeeded }
+                { providerLockCheckpoint: renewSyncLeaseIfNeeded },
+                directionIdentity
               );
             } catch (err) {
               if (isDatabasePressureError(err)) throw err;
@@ -6508,56 +6569,64 @@ export const SyncEngine = {
             `EMAIL_INGESTION_RECOVERY_EXACT_MESSAGE_MISSING:${providerMessageId}`
           );
         }
-        if (exact.direction !== "inbound") {
-          throw new Error(
-            `EMAIL_INGESTION_RECOVERY_DIRECTION_INVALID:${providerMessageId}`
-          );
-        }
-
         const result = emptyResult();
         const followUpDaysCache = new Map<string, number>();
-        const unmatched = await processInboundEmail(
-          exact.email,
-          input.connection,
-          profile,
-          followUpDaysCache,
-          result,
-          input.providerLockCheckpoint,
-          directionIdentity,
-          NORMAL_EMAIL_INGESTION_POLICY,
-          null,
-          input.syncLockOwner,
-          false,
-          exact.existingActivity
-        );
         let promoted = false;
-        if (unmatched) {
-          const { data: company, error: companyError } = await supabase
-            .from("companies")
-            .select("name, industry")
-            .eq("id", input.connection.companyId)
-            .single();
-          if (companyError) {
-            throw new CronDatabaseOperationError(
-              `[sync-engine] recovery company context read failed: ${companyError.message}`,
-              { cause: companyError }
-            );
-          }
-          const before = result.newLeads;
-          await persistAIClassifiedUnmatchedInbound({
-            contexts: [unmatched],
-            connection: input.connection,
+        if (exact.direction === "outbound") {
+          await processSentEmail(
+            exact.email,
+            input.connection,
             profile,
-            companyName: (company?.name as string) || "",
-            companyIndustry: (company?.industry as string) || "trades",
             followUpDaysCache,
             result,
-            providerLockCheckpoint: input.providerLockCheckpoint,
-            executionPolicy: NORMAL_EMAIL_INGESTION_POLICY,
-            recoveryActorUserId: null,
-            syncLockOwner: input.syncLockOwner,
-          });
-          promoted = result.newLeads > before;
+            input.providerLockCheckpoint,
+            input.syncLockOwner,
+            exact.existingActivity,
+            exact.staffAliasCandidate
+          );
+        } else {
+          const unmatched = await processInboundEmail(
+            exact.email,
+            input.connection,
+            profile,
+            followUpDaysCache,
+            result,
+            input.providerLockCheckpoint,
+            directionIdentity,
+            NORMAL_EMAIL_INGESTION_POLICY,
+            null,
+            input.syncLockOwner,
+            false,
+            exact.existingActivity
+          );
+          if (unmatched) {
+            const { data: company, error: companyError } = await supabase
+              .from("companies")
+              .select("name, industry")
+              .eq("id", input.connection.companyId)
+              .single();
+            if (companyError) {
+              throw new CronDatabaseOperationError(
+                `[sync-engine] recovery company context read failed: ${companyError.message}`,
+                { cause: companyError }
+              );
+            }
+            const before = result.newLeads;
+            await persistAIClassifiedUnmatchedInbound({
+              contexts: [unmatched],
+              connection: input.connection,
+              profile,
+              companyName: (company?.name as string) || "",
+              companyIndustry: (company?.industry as string) || "trades",
+              followUpDaysCache,
+              result,
+              providerLockCheckpoint: input.providerLockCheckpoint,
+              executionPolicy: NORMAL_EMAIL_INGESTION_POLICY,
+              recoveryActorUserId: null,
+              syncLockOwner: input.syncLockOwner,
+            });
+            promoted = result.newLeads > before;
+          }
         }
 
         const { data: legacyRows, error: legacyError } = await supabase
@@ -6739,8 +6808,29 @@ export const SyncEngine = {
               )
               .at(-1);
             if (!latestInbound) {
-              // No inbound message remains on the thread (deleted upstream); the
-              // deferred classification can never complete — drain the marker.
+              const latestOutbound = stableMessages
+                .filter((message) => message.direction === "outbound")
+                .sort(
+                  (left, right) =>
+                    left.email.date.getTime() - right.email.date.getTime()
+                )
+                .at(-1);
+              if (latestOutbound) {
+                await processSentEmail(
+                  latestOutbound.email,
+                  connection,
+                  profile,
+                  followUpDaysCache,
+                  result,
+                  renewSyncLeaseIfNeeded,
+                  syncLockOwner,
+                  latestOutbound.existingActivity,
+                  latestOutbound.staffAliasCandidate
+                );
+              }
+              // No inbound message remains, or current authoritative staff
+              // identity corrected the deferred message to outbound. In both
+              // cases the lead-scan marker has no inbound work left.
               await clearLeadScanPendingMarker(supabase, thread.id);
               outcome.cleared += 1;
               continue;

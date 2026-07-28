@@ -17019,6 +17019,76 @@ export type Database = {
           },
         ]
       }
+      user_email_aliases: {
+        Row: {
+          company_id: string
+          created_at: string
+          email: string
+          evidence: Json
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          source: string
+          status: string
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          email: string
+          evidence?: Json
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          source: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          email?: string
+          evidence?: Json
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_email_aliases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_email_aliases_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_email_aliases_verified_by_fkey"
+            columns: ["verified_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_permission_overrides: {
         Row: {
           company_id: string
@@ -19284,6 +19354,25 @@ export type Database = {
           next_follow_up_at: string | null
           stage: string
         }[]
+      }
+      record_staff_email_alias_candidate_as_system: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_email: string
+          p_evidence: Json
+          p_provider_message_id: string
+          p_provider_thread_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      review_user_email_alias: {
+        Args: {
+          p_alias_id: string
+          p_status: string
+        }
+        Returns: Database["public"]["Tables"]["user_email_aliases"]["Row"]
       }
       increment_signup_count: {
         Args: { variant_id: string }
