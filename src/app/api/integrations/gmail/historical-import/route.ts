@@ -984,10 +984,6 @@ async function processMessage(
     hasAttachments: false,
     sizeEstimate: 0,
   } satisfies NormalizedEmail;
-  const configuredRouting = syncFilters as unknown as {
-    teamForwarders?: string[];
-    knownPlatformSenders?: string[];
-  };
   const authorship = resolvePersistedEmailAuthorship(
     normalizedEmail,
     ingestionOperator
