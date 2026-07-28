@@ -241,6 +241,40 @@ describe("resolvePersistedEmailDirection", () => {
     });
   });
 
+  it("tolerates a provider fixture with no CC collection while reviewing a staff alias", () => {
+    const resolution = resolvePersistedEmailAuthorship(
+      email({
+        from: "JZ Construction <info.jzconstruct@gmail.com>",
+        to: ["eyans2@telus.net"],
+        cc: undefined,
+        bodyText:
+          "Quote attached.\n\nJason Zavarella\nJZ Construction\n250 661 9544",
+      }),
+      {
+        ...operator,
+        staffMembers: [
+          {
+            userId: "user-jason",
+            registeredEmail: "fourseasonscontracting705@gmail.com",
+            fullName: "Jason Zavarella",
+            phone: "2506619544",
+            verifiedAliases: [],
+            pendingAliases: [],
+            rejectedAliases: [],
+          },
+        ],
+      }
+    );
+
+    expect(resolution).toMatchObject({
+      direction: "outbound",
+      staffAliasCandidate: {
+        userId: "user-jason",
+        email: "info.jzconstruct@gmail.com",
+      },
+    });
+  });
+
   it("records registered-team-email CC as additional exact corroboration", () => {
     const resolution = resolvePersistedEmailAuthorship(
       email({

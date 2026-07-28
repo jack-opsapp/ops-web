@@ -210,7 +210,9 @@ function corroboratedStaffAliasCandidate(
   const signatureWords = ` ${normalizedWords(signature)} `;
   const signaturePhones = signaturePhoneSet(signature);
   const recipients = new Set(
-    [...email.to, ...email.cc].map(normalizedEmail).filter(Boolean)
+    [...(email.to ?? []), ...(email.cc ?? [])]
+      .map(normalizedEmail)
+      .filter(Boolean)
   );
   const matches = members.filter((member) => {
     const fullName = normalizedWords(member.fullName);
