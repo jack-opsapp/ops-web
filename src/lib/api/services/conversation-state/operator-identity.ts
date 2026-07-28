@@ -33,12 +33,9 @@
 //   delegates to the pure core. Any read failure is authoritative and retries
 //   ingestion before contact facts can be written with an incomplete denylist.
 //
-// DRY NOTE: opportunity-relationship-matching.ts defines normalizeEmail /
-// normalizePhone / normalizeAddress but does NOT export them (module-private
-// `function` declarations). Per the build rules we may not edit that file and a
-// private symbol cannot be imported, so the SAME normalization rules are
-// replicated verbatim below to guarantee identical canonicalization across the
-// layer. If those helpers are ever exported, swap these for the imports.
+// Email and phone normalization mirror the relationship matcher. Address
+// identity imports the shared property-level qualifier directly so locality
+// text can never enter the operator/customer exclusion set.
 
 import type { OperatorIdentity } from "@/lib/api/services/conversation-state/types";
 import type {
@@ -127,7 +124,7 @@ export interface BuildOperatorIdentityInput {
  * authoritative sources (connection + company users + company record) plus the
  * optional wizard profile, with normalization and de-duplication.
  *
- * Public email domains are intentionally RETAINED in `domains`.
+ * Public email domains are intentionally excluded from `domains`.
  */
 export function buildOperatorIdentity(
   input: BuildOperatorIdentityInput

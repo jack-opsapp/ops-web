@@ -19,6 +19,9 @@ describe("property-address identity boundary", () => {
     "PO Box 123, Victoria BC",
     "Unit 2, Victoria",
     "near Cedar Hill",
+    "250 888 3674",
+    "2026 07 28",
+    "123 456",
   ])("rejects contextual or mailing-only location %j", (value) => {
     expect(parsePropertyAddressIdentity(value)).toBeNull();
     expect(normalizePropertyAddressIdentity(value)).toBeNull();

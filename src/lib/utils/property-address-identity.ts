@@ -32,7 +32,7 @@ const LEADING_HYPHENATED_UNIT_RE =
 const TRAILING_UNIT_RE =
   /(?:^|[,\s]+)(?:apartment|suite|unit|ste|apt|#)\s*\.?\s*#?\s*([a-z0-9]+(?:[-/][a-z0-9]+)*)\b.*$/i;
 const PO_BOX_ONLY_RE = /^\s*(?:p\.?\s*o\.?\s+box|post office box)\b/i;
-const CIVIC_ADDRESS_RE = /^\d+[a-z]?\s+\S+/i;
+const CIVIC_ADDRESS_RE = /^\d+[a-z]?\s+(?=\S*[a-z])\S+/i;
 const RURAL_ROUTE_RE =
   /^(?:(?:rr|rural route)\s*\d+\b.*\b(?:site|box|lot)\s*[a-z0-9-]+|(?:site|box)\s*[a-z0-9-]+\b.*\b(?:rr|rural route)\s*\d+)\b/i;
 const LOT_PROPERTY_RE =

@@ -136,7 +136,7 @@ begin
     return '';
   end if;
 
-  if v_canonical ~ '^[0-9]+[a-z]?\s+\S+' then
+  if v_canonical ~ '^[0-9]+[a-z]?\s+(?=\S*[a-z])\S+' then
     v_tokens := regexp_split_to_array(v_canonical, '\s+');
     v_base := v_canonical;
 
@@ -218,6 +218,9 @@ begin
     or private.normalize_property_address('Saanich Cedar Hill area') <> ''
     or private.normalize_property_address('Victoria, BC V8W 1P6') <> ''
     or private.normalize_property_address('PO Box 123, Victoria BC') <> ''
+    or private.normalize_property_address('250 888 3674') <> ''
+    or private.normalize_property_address('2026 07 28') <> ''
+    or private.normalize_property_address('123 456') <> ''
   then
     raise exception 'locality entered property address identity';
   end if;
