@@ -48,6 +48,9 @@ describe("Phase C catalog setup schemas", () => {
     });
 
     expect(parsed.kind).toBe("question");
+    if (parsed.kind !== "question") {
+      throw new Error("Expected a question turn");
+    }
     expect(parsed.facts[0].classification).toBe("pricing_rule");
     expect(parsed.question.capabilityRef).toBe("catalog-core/v1");
   });
@@ -61,7 +64,7 @@ describe("Phase C catalog setup schemas", () => {
         prompt: "Should OPS do this automatically?",
         answerKind: "boolean",
         factKeys: ["invented"],
-      }),
+      })
     ).toThrow();
   });
 
@@ -76,7 +79,7 @@ describe("Phase C catalog setup schemas", () => {
     });
 
     expect(blueprint.capabilityRevision).toBe(
-      "phase-c-capabilities/2026-07-27.1",
+      "phase-c-capabilities/2026-07-27.1"
     );
   });
 
