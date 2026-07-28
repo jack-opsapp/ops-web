@@ -19336,6 +19336,23 @@ export type Database = {
           stage_manually_set: boolean
         }[]
       }
+      apply_email_opportunity_declined_disposition: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_evidence?: Json
+          p_expected_assignment_version: number
+          p_expected_stage: string
+          p_opportunity_id: string
+          p_provider_message_id: string
+        }
+        Returns: {
+          changed: boolean
+          disposition_id: string | null
+          guard_reason: string | null
+          stage: string
+        }[]
+      }
       apply_email_opportunity_deferred_disposition: {
         Args: {
           p_company_id: string

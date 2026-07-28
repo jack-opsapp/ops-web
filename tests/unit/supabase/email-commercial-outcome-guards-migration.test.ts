@@ -247,6 +247,78 @@ describe("email commercial-outcome database guards", () => {
     );
   });
 
+  it("applies a decisive customer rejection with terminal precedence, ordering, and retry guards", () => {
+    const definition = latestFunction(
+      "create or replace function public.apply_email_opportunity_declined_disposition"
+    );
+    const body = compact(definition.body);
+
+    expect(body).toContain("auth.role()");
+    expect(body).toContain("service_role");
+    expect(body).toContain("for update");
+    expect(body).toContain("assignment_version");
+    expect(body).toContain("p_expected_stage");
+    expect(body).toContain("evaluated_through_event_id");
+    expect(body).toContain("opportunity_has_pending_meaningful_email");
+    expect(body).toContain("meaningful correspondence projection pending");
+    expect(body).toMatch(
+      /event\.direction = 'inbound'[\s\S]*?event\.party_role = 'customer'[\s\S]*?opportunity_sender_is_persisted_customer\([\s\S]*?event\.from_email[\s\S]*?event\.is_meaningful is true/
+    );
+    expect(body).toMatch(
+      /newer\.occurred_at > v_evaluated_through_at[\s\S]*?raise exception 'declined disposition evidence is stale'/
+    );
+    expect(body).toContain("manual_terminal_stage");
+    expect(body).toMatch(
+      /v_opp\.stage_manually_set[\s\S]*?v_opp\.stage in \('won', 'lost', 'discarded'\)/
+    );
+    expect(body).toContain("already_applied");
+    expect(body).toMatch(
+      /v_existing_connection_id is not distinct from p_connection_id[\s\S]*?v_existing_provider_message_id is not distinct from p_provider_message_id[\s\S]*?'already_applied'/
+    );
+    expect(body).toContain("v_existing_decisive_occurred_at");
+    expect(body).toMatch(
+      /v_decisive_occurred_at < v_existing_decisive_occurred_at[\s\S]*?'terminal_stage'/
+    );
+    expect(body).toMatch(
+      /update public\.opportunities[\s\S]*?set stage = 'lost'[\s\S]*?stage_manually_set = false[\s\S]*?lost_reason = v_reason_code[\s\S]*?next_follow_up_at = null/
+    );
+    expect(body).toContain("insert into public.stage_transitions");
+    expect(body).toMatch(
+      /insert into public\.opportunity_dispositions[\s\S]*?'lost'[\s\S]*?v_reason_code[\s\S]*?'guarded_lifecycle'/
+    );
+    expect(body).toContain("disposition_updated");
+    expect(body).toContain(
+      "p_evidence -> 'signals' = '[\"customer_declined\"]'::jsonb"
+    );
+    const opportunityUpdate = body.match(
+      /update public\.opportunities[\s\S]*?where id = p_opportunity_id/
+    )?.[0];
+    expect(opportunityUpdate).toBeDefined();
+    expect(opportunityUpdate).not.toMatch(/assigned_to\s*=/);
+
+    const assignmentGuard = body.indexOf(
+      "if v_opp.assignment_version is distinct from p_expected_assignment_version"
+    );
+    const manualTerminalGuard = body.indexOf("'manual_terminal_stage'::text");
+    const exactRetry = body.indexOf(
+      "v_existing_provider_message_id is not distinct from p_provider_message_id"
+    );
+    const staleEvidence = body.indexOf(
+      "raise exception 'declined disposition evidence is stale'"
+    );
+    const stageSnapshot = body.indexOf(
+      "if v_opp.stage is distinct from p_expected_stage"
+    );
+    expect(assignmentGuard).toBeGreaterThan(-1);
+    expect(manualTerminalGuard).toBeGreaterThan(assignmentGuard);
+    expect(exactRetry).toBeGreaterThan(manualTerminalGuard);
+    expect(staleEvidence).toBeGreaterThan(exactRetry);
+    expect(stageSnapshot).toBeGreaterThan(staleEvidence);
+    expect(compact(definition.tail)).toMatch(
+      /revoke all on function public\.apply_email_opportunity_declined_disposition[\s\S]*?grant execute[\s\S]*?to service_role/
+    );
+  });
+
   it("binds email acceptance to one trusted decisive event and a fresh opportunity high-water mark", () => {
     const definition = latestFunction(
       "create or replace function private.valid_actorless_opportunity_conversion_evidence"

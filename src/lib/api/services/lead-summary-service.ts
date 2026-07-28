@@ -560,10 +560,7 @@ export function hasSubstantiveLeadContext(
 }
 
 export type LeadStalenessVerdict =
-  | "fresh"
-  | "stale"
-  | "awaiting_event"
-  | "insufficient_context";
+  "fresh" | "stale" | "awaiting_event" | "insufficient_context";
 
 /**
  * Staleness decision for one open lead.
@@ -683,7 +680,8 @@ export interface LeadSummaryContextBundle {
   current_fact_context: LeadSummaryCurrentFactContext;
   commercial_context: {
     outcome: "won" | "deferred" | "declined";
-    reason: "customer_committed" | "budget_timing" | "customer_declined";
+    reason:
+      "customer_committed" | "budget_timing" | "customer_declined" | "price";
     current_price: number | null;
     current_scope: string | null;
     excluded_scope: string | null;
@@ -695,11 +693,7 @@ export interface LeadSummaryContextBundle {
 }
 
 type ConversationFactKind =
-  | "price"
-  | "scope"
-  | "schedule"
-  | "objection"
-  | "next_action";
+  "price" | "scope" | "schedule" | "objection" | "next_action";
 
 const CONVERSATION_FACT_PATTERNS: Record<ConversationFactKind, RegExp> = {
   price:
@@ -1189,10 +1183,7 @@ function actionArtifactFamilies(text: string): Set<string> {
 }
 
 function isScheduleActionRequest(text: string): boolean {
-  if (
-    isCurrentScheduleObservation(text) ||
-    isExecutionScheduleProposal(text)
-  ) {
+  if (isCurrentScheduleObservation(text) || isExecutionScheduleProposal(text)) {
     return true;
   }
   if (!text.includes("?")) return false;
@@ -1264,9 +1255,7 @@ function resolveFoldedNextAction(
       );
     const artifactsCompleted =
       requestFamilies.size === 0 ||
-      [...requestFamilies].every((family) =>
-        completedFamilies.has(family)
-      );
+      [...requestFamilies].every((family) => completedFamilies.has(family));
     if (
       (requestsSchedule || requestFamilies.size > 0) &&
       scheduleCompleted &&
@@ -1464,16 +1453,13 @@ function buildCurrentFactContext(input: {
     latestScheduleCancellationIndex >= 0
       ? completeScheduleObservations
           .slice(0, latestScheduleCancellationIndex)
-          .flatMap((observation) =>
-            currentScheduleClauses(observation.text)
-          )
+          .flatMap((observation) => currentScheduleClauses(observation.text))
       : [];
   const priorCurrentSchedules =
     schedule !== null || latestScheduleCancellationIndex >= 0
-      ? completeScheduleObservations
-          .flatMap((observation) =>
-            currentScheduleClauses(observation.text)
-          )
+      ? completeScheduleObservations.flatMap((observation) =>
+          currentScheduleClauses(observation.text)
+        )
       : [];
   const supersededSchedules = [
     ...new Set([
