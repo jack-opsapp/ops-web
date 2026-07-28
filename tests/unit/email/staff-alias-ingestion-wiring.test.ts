@@ -9,10 +9,7 @@ function source(path: string): string {
 
 describe("authoritative staff aliases across ingestion paths", () => {
   it.each([
-    [
-      "live sync and recovery",
-      "src/lib/api/services/sync-engine.ts",
-    ],
+    ["live sync and recovery", "src/lib/api/services/sync-engine.ts"],
     [
       "historical Gmail import",
       "src/app/api/integrations/gmail/historical-import/route.ts",

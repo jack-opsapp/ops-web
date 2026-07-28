@@ -27,8 +27,7 @@ const STREET_IDENTITY_TOKENS = new Set([
 
 const LEADING_UNIT_RE =
   /^\s*(?:apartment|suite|unit|ste|apt|#)\s*\.?\s*#?\s*([a-z0-9]+(?:[-/][a-z0-9]+)*)\s*[,;:-]?\s*(.+)$/i;
-const LEADING_HYPHENATED_UNIT_RE =
-  /^\s*([a-z0-9]+)\s*-\s*(\d+[a-z]?)\s+(.+)$/i;
+const LEADING_HYPHENATED_UNIT_RE = /^\s*([a-z0-9]+)\s*-\s*(\d+[a-z]?)\s+(.+)$/i;
 const TRAILING_UNIT_RE =
   /(?:^|[,\s]+)(?:apartment|suite|unit|ste|apt|#)\s*\.?\s*#?\s*([a-z0-9]+(?:[-/][a-z0-9]+)*)\b.*$/i;
 const PO_BOX_ONLY_RE = /^\s*(?:p\.?\s*o\.?\s+box|post office box)\b/i;
@@ -69,10 +68,7 @@ function splitUnit(value: string): { property: string; unit: string | null } {
 
 function civicStreetIdentity(canonical: string): string {
   const tokens = canonical.split(" ");
-  if (
-    tokens[1] === "highway" &&
-    /^[a-z0-9-]+$/i.test(tokens[2] ?? "")
-  ) {
+  if (tokens[1] === "highway" && /^[a-z0-9-]+$/i.test(tokens[2] ?? "")) {
     return tokens.slice(0, 3).join(" ");
   }
   if (

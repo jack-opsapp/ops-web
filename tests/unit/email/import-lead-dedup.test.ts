@@ -179,39 +179,37 @@ describe("import-lead-dedup", () => {
     expect(result[0].duplicateGroupId).toBe("thread-primary,thread-secondary");
   });
 
-  it.each([
-    "Victoria",
-    "Langford",
-    "Esquimalt, BC",
-    "Saanich Cedar Hill area",
-  ])("never merges separate leads through locality-only metadata: %s", (address) => {
-    const result = deduplicateAnalyzedLeads([
-      lead({
-        id: "paul",
-        threadId: "thread-paul",
-        client: {
-          name: "Paul Holmes",
-          email: "pwholmes64@icloud.com",
-          phone: "2508883674",
-          description: "New deck and railings",
-          address,
-        },
-      }),
-      lead({
-        id: "sandra",
-        threadId: "thread-sandra",
-        client: {
-          name: "Paul Holmes",
-          email: "sdunford58@gmail.com",
-          phone: "2508886537",
-          description: "Vinyl deck quote",
-          address,
-        },
-      }),
-    ]);
+  it.each(["Victoria", "Langford", "Esquimalt, BC", "Saanich Cedar Hill area"])(
+    "never merges separate leads through locality-only metadata: %s",
+    (address) => {
+      const result = deduplicateAnalyzedLeads([
+        lead({
+          id: "paul",
+          threadId: "thread-paul",
+          client: {
+            name: "Paul Holmes",
+            email: "pwholmes64@icloud.com",
+            phone: "2508883674",
+            description: "New deck and railings",
+            address,
+          },
+        }),
+        lead({
+          id: "sandra",
+          threadId: "thread-sandra",
+          client: {
+            name: "Paul Holmes",
+            email: "sdunford58@gmail.com",
+            phone: "2508886537",
+            description: "Vinyl deck quote",
+            address,
+          },
+        }),
+      ]);
 
-    expect(result).toHaveLength(2);
-  });
+      expect(result).toHaveLength(2);
+    }
+  );
 
   it("keeps different units at one civic address separate", () => {
     const result = deduplicateAnalyzedLeads([
