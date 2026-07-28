@@ -46,6 +46,7 @@ import type {
   SyncProfile,
 } from "@/lib/types/email-connection";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
+import { normalizePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
 
 // ─── Normalization (mirrors opportunity-relationship-matching.ts) ─────────────
 
@@ -65,14 +66,8 @@ function normalizePhone(value: string | null | undefined): string | null {
     : digits;
 }
 
-/** Lowercased, punctuation-collapsed address; null under 8 chars. */
 function normalizeAddress(value: string | null | undefined): string | null {
-  const normalized = value
-    ?.toLowerCase()
-    .replace(/[.,#]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return normalized && normalized.length >= 8 ? normalized : null;
+  return normalizePropertyAddressIdentity(value);
 }
 
 /** The domain part of an email address, lowercased; null if absent. */

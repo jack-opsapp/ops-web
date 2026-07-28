@@ -1206,6 +1206,63 @@ describe("opportunity relationship matching", () => {
     });
   });
 
+  it.each([
+    "Victoria",
+    "Langford",
+    "Esquimalt, BC",
+    "Tillicum",
+    "Henderson",
+    "North Saanich",
+    "Saanich Cedar Hill area",
+  ])(
+    "never links unrelated people from locality-only address identity: %s",
+    (locality) => {
+      const decision = decideOpportunityRelationshipMatch({
+        facts: facts({
+          contactName: "Paul Holmes",
+          contactEmail: "pwholmes64@icloud.com",
+          address: locality,
+          description: "Install an aluminum guard system.",
+          subject: "New inquiry",
+        }),
+        candidates: [
+          candidate({
+            id: "opp-sandra",
+            clientId: "client-sandra",
+            contactEmail: "sdunford58@gmail.com",
+            clientEmails: ["sdunford58@gmail.com"],
+            contactPhone: "2508886537",
+            clientPhones: ["2508886537"],
+            address: locality,
+            clientAddresses: [locality],
+          }),
+        ],
+      });
+
+      expect(decision).toMatchObject({ action: "create_new" });
+    }
+  );
+
+  it("keeps separate units at one civic address as separate job identities", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "Mary Carter",
+        contactEmail: "mary.new@example.com",
+        address: "123 Main Street, Unit 3, Victoria BC",
+      }),
+      candidates: [
+        candidate({
+          contactEmail: "john@example.com",
+          address: "123 Main St Apt 2",
+          clientAddresses: [],
+          subClientAddresses: [],
+        }),
+      ],
+    });
+
+    expect(decision).toMatchObject({ action: "create_new" });
+  });
+
   it("creates a separate opportunity when the prior same-address project is closed and scope is distinct", () => {
     const decision = decideOpportunityRelationshipMatch({
       facts: facts({

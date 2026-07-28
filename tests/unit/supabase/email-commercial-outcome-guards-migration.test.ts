@@ -35,33 +35,18 @@ function compact(value: string) {
 }
 
 describe("email commercial-outcome database guards", () => {
-  it("uses an email-only conservative street identity without changing the global normalizer", () => {
+  it("uses the central property-qualified address identity for email conversion", () => {
     const definition = latestFunction(
       "create or replace function private.normalize_email_project_dedupe_address"
     );
     const body = compact(definition.body);
     const tail = compact(definition.tail);
 
-    expect(body).toContain("private.normalize_address(p_address)");
-    expect(body).toContain("street_type_ordinality");
-    expect(body).toContain("unit_identifier");
-    expect(body).toContain("(apartment|suite|unit|ste|apt|#)");
-    expect(body).toMatch(/' unit ' \|\| unit_identity\.unit_identifier/);
-    expect(body).toContain("normalized.value ~ '^[0-9]+[a-z]?");
-    expect(body).toMatch(
-      /tokens\.ordinality <= boundary\.street_type_ordinality/
+    expect(body).toContain(
+      "private.normalize_property_address(p_address, true)"
     );
-    expect(body).toMatch(/'street'[\s\S]*?'road'[\s\S]*?'boulevard'/);
-    expect(tail).toContain("123 example st");
-    expect(tail).toContain("123 example street, example city bc");
-    expect(tail).toMatch(
-      /normalize_email_project_dedupe_address\('123 example st'\)[\s\S]*?is distinct from[\s\S]*?normalize_email_project_dedupe_address/
-    );
-    expect(tail).toMatch(
-      /normalize_email_project_dedupe_address\([\s\S]*?123 example st, apartment 2, example city bc[\s\S]*?is distinct from[\s\S]*?normalize_email_project_dedupe_address\('123 example street unit 2'\)/
-    );
-    expect(tail).toMatch(
-      /normalize_email_project_dedupe_address\('123 example street unit 2'\)[\s\S]*?is not distinct from[\s\S]*?normalize_email_project_dedupe_address\('123 example st #3'\)/
+    expect(tail).toContain(
+      "revoke all on function private.normalize_email_project_dedupe_address"
     );
   });
 

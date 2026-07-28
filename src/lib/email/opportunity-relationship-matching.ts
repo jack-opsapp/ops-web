@@ -1,6 +1,6 @@
 import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
-import { normalizeAddress as normalizeCanonicalAddress } from "@/lib/utils/name-normalization";
+import { normalizePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
 
 export type OpportunityRelationshipConfidence =
   | "provider_thread"
@@ -178,25 +178,6 @@ const ADDRESS_DISCOVERY_NOISE_TOKENS = new Set([
   "unit",
 ]);
 
-const STREET_IDENTITY_TOKENS = new Set([
-  "avenue",
-  "boulevard",
-  "court",
-  "crescent",
-  "drive",
-  "highway",
-  "lane",
-  "parkway",
-  "place",
-  "road",
-  "square",
-  "street",
-  "terrace",
-]);
-
-const ADDRESS_UNIT_IDENTITY_PATTERN =
-  /(?:^|[,\s]+)(?:apartment|suite|unit|ste|apt|#)\s*\.?\s*#?\s*([a-z0-9]+(?:[-/][a-z0-9]+)*)/i;
-
 function normalizeEmail(value: string | null | undefined): string | null {
   const normalized = value?.trim().toLowerCase() ?? "";
   if (!normalized || !normalized.includes("@")) return null;
@@ -212,27 +193,7 @@ function normalizePhone(value: string | null | undefined): string | null {
 }
 
 function normalizeAddress(value: string | null | undefined): string | null {
-  const unitIdentifier =
-    value?.match(ADDRESS_UNIT_IDENTITY_PATTERN)?.[1]?.toLowerCase() ?? null;
-  const canonical = normalizeCanonicalAddress(value ?? "");
-  if (!canonical || canonical.length < 8) return null;
-  const tokens = canonical.split(" ");
-  const streetTypeIndex = tokens.findIndex((token) =>
-    STREET_IDENTITY_TOKENS.has(token)
-  );
-  // Optional municipality / province / postal text must not split the same
-  // numbered street into two identities. Keep non-street/rural addresses fully
-  // canonical instead of guessing where their identity ends.
-  let streetIdentity = canonical;
-  if (
-    streetTypeIndex >= 2 &&
-    /^[0-9]+[a-z]?(?:[-/][0-9a-z]+)?$/.test(tokens[0] ?? "")
-  ) {
-    streetIdentity = tokens.slice(0, streetTypeIndex + 1).join(" ");
-  }
-  return unitIdentifier
-    ? `${streetIdentity} unit ${unitIdentifier}`
-    : streetIdentity;
+  return normalizePropertyAddressIdentity(value);
 }
 
 function addressDiscoveryPatterns(value: string | null | undefined): string[] {
