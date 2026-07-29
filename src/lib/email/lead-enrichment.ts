@@ -371,16 +371,38 @@ function hasVerifiedContactNameEvidence(facts: LeadEnrichmentFacts): boolean {
   );
 }
 
+/**
+ * Model confidence required before an AI-extracted name may replace a stored
+ * one. Only ever consulted for a name the system itself minted from the email
+ * local part — a real name is never at risk regardless of confidence.
+ */
+const AI_NAME_REPLACE_MIN_CONFIDENCE = 0.8;
+
 function canReplaceContactName(
   name: string | null | undefined,
   email: string | null | undefined,
   facts: LeadEnrichmentFacts
 ): boolean {
   if (isWeakName(name)) return true;
+
+  // Hard floor: anything that is not a name we derived from this exact
+  // mailbox's local part is treated as real and is never replaced by an
+  // extraction. Operator-owned fields are excluded a layer above, and the
+  // valueSnapshot check in hasStrictlyBetterMatchingEvidence fails closed on
+  // any value that changed without provenance.
+  const localPartDerived =
+    isLocalPartDerivedName(name, email) &&
+    normalizeEmail(email) === normalizeEmail(facts.contactEmail);
+  if (!localPartDerived) return false;
+
+  if (hasVerifiedContactNameEvidence(facts)) return true;
+
+  // The AI reviewer is the only signal for a lead that never carried a display
+  // name anywhere — accepted above the confidence floor, and only over a name
+  // the system fabricated in the first place.
   return (
-    hasVerifiedContactNameEvidence(facts) &&
-    normalizeEmail(email) === normalizeEmail(facts.contactEmail) &&
-    isLocalPartDerivedName(name, email)
+    facts.extractionSource === "ai_classified" &&
+    (facts.aiConfidence ?? 0) >= AI_NAME_REPLACE_MIN_CONFIDENCE
   );
 }
 
