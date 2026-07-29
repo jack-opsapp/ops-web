@@ -7,23 +7,26 @@
 **Authorized actor for an approved run:** Jackson Sweet,
 `283d49df-90a1-4abb-b94c-3e9f17f02c0d`
 
-This is an approval-only runbook. Preparing or committing this file does not
-authorize a production migration, data repair, Gmail mutation, release, or
-deploy. Every repair is database-only. No provider message, thread, label,
-draft, or mailbox setting may be changed.
+Engineering owns the migrations, repair design, and technical validation in
+this runbook. Jackson's approval authorizes only the coordinated production
+release and guarded repair execution; it is not a technical review step.
+Preparing or committing this file does not authorize a production migration,
+data repair, Gmail mutation, release, or deploy. Every repair is database-only.
+No provider message, thread, label, draft, or mailbox setting may be changed.
 
 ## Release gate
 
-The repair must not run until all three application migrations are reviewed,
-applied in order, and the compatible application release is live:
+The repair must not run until all three engineering-validated application
+migrations are applied in order and the compatible application release is
+live:
 
 1. `20260728160000_property_address_identity_boundary.sql`
 2. `20260728161000_authoritative_staff_email_aliases.sql`
 3. `20260728162000_guarded_customer_decline_lifecycle.sql`
 
-Immediately before approval, export a fresh read-only manifest containing
-every row and expected value named below. Canonicalize the JSON and record its
-SHA-256. The apply runner must accept that reviewed manifest, derive one
+Immediately before the approved run, export a fresh read-only manifest
+containing every row and expected value named below. Canonicalize the JSON and
+record its SHA-256. The apply runner must accept that frozen manifest, derive one
 per-entry SHA-256, and abort the whole entry on any snapshot mismatch. It must
 also verify that the production functions and `user_email_aliases` table exist,
 the application release is healthy, and no newer correspondence has appeared.
@@ -44,14 +47,14 @@ the application release is healthy, and no newer correspondence has appeared.
 
 ### Required preconditions
 
-- Sandra still matches the reviewed stage, manual-stage, assignment, project,
+- Sandra still matches the frozen stage, manual-stage, assignment, project,
   and `updated_at` snapshot.
 - The activity and correspondence event still belong to Sandra and still carry
   the exact mailbox/thread/message identity above.
 - The event remains meaningful inbound customer correspondence with
   `opportunity_projection_applied=true`.
 - No active client, sub-client, or opportunity exists for Paul's exact email or
-  phone. If one now exists, stop and generate a new reviewed target manifest.
+  phone. If one now exists, stop and generate a new frozen target manifest.
 - The activity still has zero attachments; the event/activity still have zero
   dependent follow-up drafts, approved email intents, and assignment contact-
   form draft rows.
@@ -60,7 +63,7 @@ the application release is healthy, and no newer correspondence has appeared.
 
 Call
 `create_target_and_reparent_opportunity_email_message_guarded(...)` as service
-role with Jackson as the audited actor and the exact reviewed source snapshot.
+role with Jackson as the audited actor and the exact frozen source snapshot.
 The target is one message-scoped lead:
 
 - Title/contact name: `Paul Holmes — Email Inquiry` / `Paul Holmes`
@@ -116,7 +119,7 @@ Run this only after Entry 1 has removed Paul's later false correspondence.
   Sandra's persisted customer identity.
 - The exact message still states that she chose someone else and cites
   financial reasons.
-- No meaningful event exists after the reviewed high-water event.
+- No meaningful event exists after the frozen high-water event.
 - The opportunity is still nonterminal and not assigned since the manifest.
 - The earlier repaired false-Won disposition remains superseded.
 
@@ -150,7 +153,8 @@ stage transition. Run the normal summary refresh after commit.
 
 ## Entry 3 — correct Jason Zavarella staff mail
 
-This entry requires a separately reviewed, service-role-only repair function.
+This entry requires a separately engineering-validated, service-role-only
+repair function.
 The ordinary customer-message reparent function must not be used: these are
 staff-authored outbound messages and must first change direction/party
 authority. The repair function must be additive, idempotent, manifest-bound,
@@ -166,7 +170,8 @@ Insert-or-verify one active `user_email_aliases` row:
 - Authority: `operator_verified`
 - Verified by: Jackson Sweet,
   `283d49df-90a1-4abb-b94c-3e9f17f02c0d`
-- Evidence: reviewed Gmail messages, Jason's exact registered email in CC, and
+- Evidence: read-only-verified Gmail messages, Jason's exact registered email in
+  CC, and
   exact team phone `2506619544` in signature
 
 The repair must not create an alias from name similarity, a phone fragment,
@@ -224,7 +229,7 @@ summary, assignment, and notification delivery through the canonical paths.
 Reclassify the activity to outbound and the event to
 `direction=outbound`, `party_role=ops`. Reparent the exact activity/event and
 thread link to Maureen's existing opportunity. The guarded transaction must
-allow this reviewed Won target without changing its stage, manual-stage flag,
+allow this frozen Won target without changing its stage, manual-stage flag,
 project links, close fields, assignment, or customer identity. Recompute its
 correspondence/lifecycle projection and summary.
 
@@ -236,7 +241,7 @@ Only after both messages and every child row have moved:
   reason; retain the delivery/event as audit history and mark it corrected
   through repair metadata rather than deleting it.
 - Soft-delete/discard the false opportunity and record a correction disposition
-  naming both destination opportunity IDs and the reviewed manifest hash.
+  naming both destination opportunity IDs and the frozen manifest hash.
 - Soft-delete the false JZ Construction client only if a final company-wide
   reference scan proves no remaining active relationship. Otherwise retain it
   as an auditable corrected shell with no active lead identity.
@@ -274,6 +279,6 @@ After all three entries, capture one read-only closeout artifact showing:
 
 Observe at least one normal sync and one recovery cycle before declaring the
 release healthy. Rollback is forward-only: disable the new ingestion release if
-needed, preserve the audit/alias rows, and use a newly reviewed inverse manifest
+needed, preserve the audit/alias rows, and use a newly frozen inverse manifest
 to reparent exact evidence. Never delete provider history or overwrite an
 operator terminal decision to simulate rollback.
