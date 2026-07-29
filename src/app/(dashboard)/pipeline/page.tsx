@@ -14,6 +14,7 @@ import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { trackScreenView } from "@/lib/analytics/analytics";
 import { useUndoStore } from "@/stores/undo-store";
 import { toast } from "@/components/ui/toast";
+import { showUndoToast } from "@/components/ui/toast-undo";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   selectCanCreateOpportunity,
@@ -271,6 +272,7 @@ export default function PipelinePage() {
 
   // ── Undo store ────────────────────────────────────────────────────────
   const pushUndo = useUndoStore((s) => s.pushUndo);
+  const undoEntry = useUndoStore((s) => s.undoEntry);
 
   // ── Track screen view ─────────────────────────────────────────────────
   useEffect(() => {
@@ -670,11 +672,21 @@ export default function PipelinePage() {
         name
       );
       archiveMutation.mutate(opportunityId);
-      pushUndo({
+      // Same contract as a stage move: the entry lands on the global undo
+      // stack (top bar Cmd+Z) AND the toast exposes that same entry, targeted
+      // by id so the two affordances can never both fire for one archive.
+      const entryId = pushUndo({
         label,
         inverseFn: async () => {
           await unarchiveMutation.mutateAsync(opportunityId);
         },
+      });
+      showUndoToast({
+        title: name,
+        description: t("actions.archived", "Lead archived"),
+        undoLabel: t("table.undo.action"),
+        onUndo: () => undoEntry(entryId),
+        variant: "success",
       });
     },
     [
@@ -683,6 +695,7 @@ export default function PipelinePage() {
       activeOpportunities,
       leadAccessById,
       pushUndo,
+      undoEntry,
       t,
     ]
   );

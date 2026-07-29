@@ -76,12 +76,20 @@ vi.mock("@/i18n/client", () => ({
 
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
-vi.mock("@/components/ui/toast", () => ({
-  toast: {
-    success: (...a: unknown[]) => toastSuccess(...a),
-    error: (...a: unknown[]) => toastError(...a),
-  },
-}));
+const toastBase = vi.fn();
+// Sonner's `toast` is a callable with variant methods hung off it. The base
+// call matters here: `showUndoToast` (the undo toast an active stage move now
+// renders) invokes `toast(title, opts)` directly.
+vi.mock("@/components/ui/toast", () => {
+  const toast = Object.assign(
+    (...a: unknown[]) => toastBase(...a),
+    {
+      success: (...a: unknown[]) => toastSuccess(...a),
+      error: (...a: unknown[]) => toastError(...a),
+    }
+  );
+  return { toast };
+});
 
 vi.mock("@/lib/store/auth-store", () => ({
   useAuthStore: () => ({ currentUser: { id: "user-1" } }),
@@ -117,10 +125,15 @@ vi.mock("@/lib/store/permissions-store", async () => {
   };
 });
 
-const pushUndo = vi.fn();
+const pushUndo = vi.fn(() => "undo-entry-1");
+const undoEntry = vi.fn(async () => {});
 vi.mock("@/stores/undo-store", () => ({
-  useUndoStore: (selector: (s: { pushUndo: typeof pushUndo }) => unknown) =>
-    selector({ pushUndo }),
+  useUndoStore: (
+    selector: (s: {
+      pushUndo: typeof pushUndo;
+      undoEntry: typeof undoEntry;
+    }) => unknown
+  ) => selector({ pushUndo, undoEntry }),
 }));
 
 const PREFLIGHT: ConversionPreflight = {
@@ -511,6 +524,67 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
         longitude: -123.0,
       },
     });
+  });
+});
+
+describe("useStageTransition — active-move undo toast", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id ? PREFLIGHT : undefined,
+      isLoading: false,
+    }));
+  });
+
+  it("renders a VISIBLE undo action instead of a bare success toast", async () => {
+    const opp = makeOpp({ stage: OpportunityStage.Negotiation });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() =>
+      result.current.requestStageChange(opp.id, OpportunityStage.Quoting)
+    );
+
+    // The old toast carried no way back — the undo entry was pushed but
+    // invisible. The move now renders through showUndoToast, which must still
+    // emit the SUCCESS variant so the olive status rail survives the change.
+    expect(toastBase).not.toHaveBeenCalled();
+    expect(toastSuccess).toHaveBeenCalledTimes(1);
+
+    const [title, options] = toastSuccess.mock.calls[0] as [
+      string,
+      { description?: string; action?: { label: string; onClick: () => void } },
+    ];
+    expect(title).toContain("Acme");
+    expect(options.description).toBe("Negotiation → Quoting");
+    expect(options.action?.label).toBeTruthy();
+  });
+
+  it("undo action targets the pushed entry so the top bar can't undo it twice", async () => {
+    const opp = makeOpp({ stage: OpportunityStage.Negotiation });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() =>
+      result.current.requestStageChange(opp.id, OpportunityStage.Quoting)
+    );
+
+    // The same entry backs both affordances: the global stack (Cmd+Z) and the
+    // toast. The toast must consume it BY ID, never pop the stack blindly.
+    expect(pushUndo).toHaveBeenCalledTimes(1);
+    const entryId = pushUndo.mock.results[0].value;
+
+    const [, options] = toastSuccess.mock.calls[0] as [
+      string,
+      { action?: { onClick: () => void } },
+    ];
+    await act(async () => {
+      options.action?.onClick();
+    });
+
+    expect(undoEntry).toHaveBeenCalledWith(entryId);
   });
 });
 
