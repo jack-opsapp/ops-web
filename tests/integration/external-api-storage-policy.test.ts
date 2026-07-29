@@ -1,8 +1,14 @@
 // @vitest-environment node
 
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+
+const require = createRequire(import.meta.url);
+const { load: parseYaml } = require("js-yaml") as {
+  load(source: string): unknown;
+};
 
 const templatePath = path.join(
   process.cwd(),
@@ -117,6 +123,30 @@ describe("external intake storage infrastructure policy", () => {
     expect(policy).toContain("Action: s3:PutObject");
     expect(policy).toContain("s3:if-none-match");
     expect(policy).toContain('"true"');
+  });
+
+  it("parses the missing-condition guard with the exact IAM Null operator", () => {
+    const policy = resourceBlock(
+      template(),
+      "ExternalIntakeBucketPolicy",
+      "GuardDutyMalwareProtectionRole"
+    );
+    const statementStart = policy.indexOf(
+      "          - Sid: DenyMissingConditionalWrite"
+    );
+    const conditionStart = policy.indexOf(
+      "            Condition:",
+      statementStart
+    );
+    const nextStatement = policy.indexOf("          - Sid:", conditionStart);
+    const conditionSource = policy
+      .slice(conditionStart, nextStatement)
+      .replace(/^ {12}/gm, "");
+    const parsed = parseYaml(conditionSource) as {
+      Condition?: Record<string, unknown>;
+    };
+
+    expect(parsed.Condition).toHaveProperty("Null");
   });
 
   it("gives the private worker exact-version erasure and invalidation access", () => {

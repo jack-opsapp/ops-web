@@ -149,6 +149,7 @@
     "encoding": "^0.1.13",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.1.0",
+    "js-yaml": "^4.1.1",
     "jsdom": "^25.0.0",
     "msw": "^2.6.0",
     "postcss": "^8.4.0",
