@@ -1,5 +1,10 @@
 import type { CatalogAgentTurn, CatalogSetupIssue } from "./types";
 import { CatalogAgentTurnSchema } from "./schemas";
+import {
+  CATALOG_CAPABILITY_MANIFEST_REVISION,
+  guidedCapability,
+  guidedCapabilityForAction,
+} from "./catalog-capability-manifest";
 
 export interface CatalogTurnValidationResult {
   success: boolean;
@@ -52,7 +57,53 @@ export function validateCatalogAgentTurn(
 
   const turn = parsed.data;
   const issues: CatalogSetupIssue[] = [];
+  if (turn.kind === "question") {
+    const capability = turn.question.capabilityRef
+      ? guidedCapability(turn.question.capabilityRef)
+      : null;
+    if (!turn.question.intent || !turn.question.capabilityRef) {
+      issues.push({
+        code: "capability_contract_missing",
+        severity: "blocker",
+        message:
+          "Phase C questions require a released capability contract.",
+      });
+    } else if (
+      !capability?.available ||
+      !capability.questionIntents.includes(turn.question.intent)
+    ) {
+      issues.push({
+        code: "capability_unavailable",
+        severity: "blocker",
+        message:
+          "Phase C cannot ask about behavior OPS does not execute.",
+      });
+    }
+  }
   if (turn.kind === "review") {
+    if (
+      turn.blueprint.capabilityRevision !==
+      CATALOG_CAPABILITY_MANIFEST_REVISION
+    ) {
+      issues.push({
+        code: "capability_manifest_changed",
+        severity: "blocker",
+        message:
+          "OPS capabilities changed. Generate a new review before building the catalog.",
+      });
+    }
+    for (const action of turn.blueprint.actions) {
+      const capability = guidedCapabilityForAction(action.actionType);
+      if (!capability?.available) {
+        issues.push({
+          code: "capability_unavailable",
+          severity: "blocker",
+          actionKey: action.actionKey,
+          message:
+            "This action describes behavior no released OPS client executes.",
+        });
+      }
+    }
     const unconfirmedCompanyKnowledge = turn.facts.filter(
       (fact) =>
         fact.source.kind === "company_knowledge" && fact.status === "unresolved"

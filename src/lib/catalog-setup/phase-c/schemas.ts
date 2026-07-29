@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  CATALOG_CAPABILITY_MANIFEST_REVISION,
+  GUIDED_CAPABILITY_REFS,
+  GUIDED_QUESTION_INTENTS,
+} from "./catalog-capability-manifest";
 
 export const CatalogFactClassificationSchema = z.enum([
   "customer_product",
@@ -53,9 +58,36 @@ export const CatalogFactSchema = z
     }
   });
 
+export const GuidedQuestionIntentSchema = z.enum(
+  GUIDED_QUESTION_INTENTS,
+);
+export const GuidedCapabilityRefSchema = z.enum(
+  GUIDED_CAPABILITY_REFS,
+);
+export const GuidedQuestionContextSchema = z
+  .object({
+    serviceLabel: z.string().trim().min(1).max(160).optional(),
+    productLabel: z.string().trim().min(1).max(160).optional(),
+    optionLabel: z.string().trim().min(1).max(160).optional(),
+  })
+  .strict();
+
+export const GuidedQuestionDecisionSchema = z
+  .object({
+    id: z.string().min(1),
+    intent: GuidedQuestionIntentSchema,
+    capabilityRef: GuidedCapabilityRefSchema,
+    factKeys: z.array(z.string().min(1)).min(1),
+    context: GuidedQuestionContextSchema.default({}),
+  })
+  .strict();
+
 export const GuidedQuestionSchema = z
   .object({
     id: z.string().min(1),
+    intent: GuidedQuestionIntentSchema.optional(),
+    capabilityRef: GuidedCapabilityRefSchema.optional(),
+    context: GuidedQuestionContextSchema.optional(),
     prompt: z.string().min(1),
     answerKind: z.enum([
       "text",
@@ -90,11 +122,36 @@ export const GuidedConversationMessageSchema = z
     content: z.string().min(1).max(8_000),
     version: z.number().int().nonnegative(),
     filename: z.string().min(1).max(255).optional(),
+    inputId: z.string().min(1).max(240).optional(),
+    supersedesId: z.string().min(1).max(240).optional(),
+    state: z
+      .enum(["accepted", "queued", "superseded", "removed"])
+      .optional(),
   })
   .strict();
 
 export const GuidedConversationSchema = z
   .array(GuidedConversationMessageSchema)
+  .max(200);
+
+export const GuidedInputLedgerEntrySchema = z
+  .object({
+    id: z.string().min(1).max(240),
+    revision: z.number().int().positive(),
+    questionId: z.string().min(1).max(240).optional(),
+    answer: z.unknown(),
+    displayKind: z.enum(["text", "source_document"]),
+    displayContent: z.string().min(1).max(8_000),
+    filename: z.string().min(1).max(255).optional(),
+    state: z.enum(["queued", "accepted", "superseded", "removed"]),
+    supersedesId: z.string().min(1).max(240).optional(),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  })
+  .strict();
+
+export const GuidedInputLedgerSchema = z
+  .array(GuidedInputLedgerEntrySchema)
   .max(200);
 
 export const CatalogActionGroupSchema = z.enum([
@@ -171,6 +228,7 @@ export const CatalogSetupIssueSchema = z
 export const CatalogBlueprintSchema = z
   .object({
     version: z.literal(1),
+    capabilityRevision: z.string().min(1).optional(),
     summary: z.string().min(1),
     ready: z.boolean(),
     actions: z.array(CatalogActionSchema),
@@ -229,6 +287,14 @@ export const GuidedSetupSessionDocumentSchema = z
     mode: z.literal("guided"),
     status: GuidedSetupStatusSchema,
     version: z.number().int().nonnegative(),
+    inputRevision: z.number().int().nonnegative().default(0),
+    processedInputRevision: z.number().int().nonnegative().default(0),
+    inputLedger: GuidedInputLedgerSchema.default([]),
+    capabilityManifestRevision: z
+      .string()
+      .min(1)
+      .max(128)
+      .default(CATALOG_CAPABILITY_MANIFEST_REVISION),
     facts: z.array(CatalogFactSchema),
     sources: z.array(z.record(z.unknown())),
     conversation: GuidedConversationSchema.default([]),

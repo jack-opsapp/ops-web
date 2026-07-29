@@ -17,79 +17,79 @@
 
 ### Backgrounds
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `background` | `#000000` | Page canvas — pure black |
-| `.glass-surface` | `rgba(18,18,20,0.58)` + blur(28px) sat(1.3) + 10px radius + top gradient | All elevated surfaces, cards, panels, widgets |
-| `.glass-dense` | `rgba(18,18,20,0.78)` + blur(28px) sat(1.3) + 12px radius + top gradient | Stacked glass: dialogs, popovers, dropdowns, floating windows, toasts |
-| `surface-input` | `rgba(255,255,255,0.04)` | Input fields |
-| `surface-hover` | `rgba(255,255,255,0.05)` | Interactive row/button hover |
-| `surface-active` | `rgba(255,255,255,0.08)` | Active toggle, pressed state |
+| Token            | Value                                                                    | Use                                                                   |
+| ---------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `background`     | `#000000`                                                                | Page canvas — pure black                                              |
+| `.glass-surface` | `rgba(18,18,20,0.58)` + blur(28px) sat(1.3) + 10px radius + top gradient | All elevated surfaces, cards, panels, widgets                         |
+| `.glass-dense`   | `rgba(18,18,20,0.78)` + blur(28px) sat(1.3) + 12px radius + top gradient | Stacked glass: dialogs, popovers, dropdowns, floating windows, toasts |
+| `surface-input`  | `rgba(255,255,255,0.04)`                                                 | Input fields                                                          |
+| `surface-hover`  | `rgba(255,255,255,0.05)`                                                 | Interactive row/button hover                                          |
+| `surface-active` | `rgba(255,255,255,0.08)`                                                 | Active toggle, pressed state                                          |
 
 ### Text Hierarchy (WCAG AA verified vs #000)
 
-| Token | Tailwind | Value | Ratio | Use |
-|-------|----------|-------|-------|-----|
-| text | `text-text` | `#EDEDED` | 18.8:1 AAA | Primary body, hero numbers, names, active nav |
-| text-2 | `text-text-2` | `#B5B5B5` | 10.3:1 AAA | Secondary values, ghost buttons, links, sidebar icons |
-| text-3 | `text-text-3` | `#8A8A8A` | 5.4:1 AA | Labels, metadata, subtitles, placeholders |
-| text-mute | `text-text-mute` | `#6A6A6A` | 3.4:1 | Decorative ONLY: `//` slashes, separators. Never body text. |
+| Token     | Tailwind         | Value     | Ratio      | Use                                                         |
+| --------- | ---------------- | --------- | ---------- | ----------------------------------------------------------- |
+| text      | `text-text`      | `#EDEDED` | 18.8:1 AAA | Primary body, hero numbers, names, active nav               |
+| text-2    | `text-text-2`    | `#B5B5B5` | 10.3:1 AAA | Secondary values, ghost buttons, links, sidebar icons       |
+| text-3    | `text-text-3`    | `#8A8A8A` | 5.4:1 AA   | Labels, metadata, subtitles, placeholders                   |
+| text-mute | `text-text-mute` | `#6A6A6A` | 3.4:1      | Decorative ONLY: `//` slashes, separators. Never body text. |
 
 ### Accent — Primary Actions Only
 
-| Token | Value | Use |
-|-------|-------|-----|
+| Token        | Value                | Use                                                 |
+| ------------ | -------------------- | --------------------------------------------------- |
 | `ops-accent` | `#6F94B0` (5.6:1 AA) | Primary CTA button fill. Focus rings. Nothing else. |
-| `ops-amber` | `#C4A868` | Warning semantic indicator. Never decorative. |
+| `ops-amber`  | `#C4A868`            | Warning semantic indicator. Never decorative.       |
 
 **Accent does NOT appear on:** ghost buttons, links, toggles, sidebar active state, tags, data bars, `//` slashes, input focus borders, carets, or any decorative element.
 
 ### Earth Tones — Semantic Indicators Only
 
-| Token | Value | Semantic |
-|-------|-------|----------|
-| `olive` | `#9DB582` (7.8:1) | Positive: success, nominal, completed, +delta |
-| `tan` | `#C4A868` (8.1:1) | Attention: warning, site visit, expiring |
-| `rose` | `#B58289` (6.2:1) | Negative: error, overdue, cost |
+| Token   | Value             | Semantic                                            |
+| ------- | ----------------- | --------------------------------------------------- |
+| `olive` | `#9DB582` (7.8:1) | Positive: success, nominal, completed, +delta       |
+| `tan`   | `#C4A868` (8.1:1) | Attention: warning, site visit, expiring            |
+| `rose`  | `#B58289` (6.2:1) | Negative: error, overdue, cost                      |
 | `brick` | `#93321A` (2.5:1) | Destructive: borders/dots only, never text on black |
 
 ### Agent Provenance Palette — Claude-authored surfaces only
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `agent` | `#8A7FB8` | Base agent fill, borders, AI-draft chevron tag |
-| `agent-hi` | `#B5ABDC` | Emphasis text on agent surfaces |
-| `agent-text` | `#C9C0E6` | Body text Claude wrote |
-| `agent-text-2` | `#A39CC9` | Secondary / provenance lines ("Edited from Claude draft · 12s ago") |
-| `agent-border` | `rgba(138,127,184,0.18)` | Dividers / outlines on agent cards |
-| `agent-border-hi` | `rgba(138,127,184,0.36)` | Emphasis borders |
-| `agent-bg` | `rgba(138,127,184,0.04)` | Tinted backgrounds |
-| `agent-bg-hi` | `rgba(138,127,184,0.10)` | Hover / active agent surfaces |
+| Token             | Value                    | Use                                                                 |
+| ----------------- | ------------------------ | ------------------------------------------------------------------- |
+| `agent`           | `#8A7FB8`                | Base agent fill, borders, AI-draft chevron tag                      |
+| `agent-hi`        | `#B5ABDC`                | Emphasis text on agent surfaces                                     |
+| `agent-text`      | `#C9C0E6`                | Body text Claude wrote                                              |
+| `agent-text-2`    | `#A39CC9`                | Secondary / provenance lines ("Edited from Claude draft · 12s ago") |
+| `agent-border`    | `rgba(138,127,184,0.18)` | Dividers / outlines on agent cards                                  |
+| `agent-border-hi` | `rgba(138,127,184,0.36)` | Emphasis borders                                                    |
+| `agent-bg`        | `rgba(138,127,184,0.04)` | Tinted backgrounds                                                  |
+| `agent-bg-hi`     | `rgba(138,127,184,0.10)` | Hover / active agent surfaces                                       |
 
 **Rule.** Lavender is reserved for Claude-authored surfaces. Allowed: AI summary band, "Claude drafted this" labels, auto-sent banner, autonomy panel, AI-drafted bubble fills, AI-drafted thread row indicator, agent body text. Forbidden: category chips, status pills, links, drafts authored by user / Gmail, opportunities, "Your turn" banner, anything human-authored. If a surface mixes user + Claude content (edited Claude draft), use neutral text and surface agent provenance with a small `agent-text-2` provenance line.
 
 ### Financial
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `financial-revenue` | `#C4A868` | Revenue bars, income |
-| `financial-profit` | `#9DB582` | Profit indicators |
-| `financial-cost` | `#B58289` | Expense/cost indicators |
+| Token                   | Value     | Use                     |
+| ----------------------- | --------- | ----------------------- |
+| `financial-revenue`     | `#C4A868` | Revenue bars, income    |
+| `financial-profit`      | `#9DB582` | Profit indicators       |
+| `financial-cost`        | `#B58289` | Expense/cost indicators |
 | `financial-receivables` | `#D4A574` | Outstanding receivables |
-| `financial-overdue` | `#93321A` | Past-due amounts |
+| `financial-overdue`     | `#93321A` | Past-due amounts        |
 
 ### Borders
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `line` / `border` | `rgba(255,255,255,0.10)` | Standard hairline — panels, topbar, inputs |
-| `glass-border` | `rgba(255,255,255,0.09)` | Glass panel edge (applied by .glass-surface) |
+| Token             | Value                    | Use                                          |
+| ----------------- | ------------------------ | -------------------------------------------- |
+| `line` / `border` | `rgba(255,255,255,0.10)` | Standard hairline — panels, topbar, inputs   |
+| `glass-border`    | `rgba(255,255,255,0.09)` | Glass panel edge (applied by .glass-surface) |
 
 ### Neutral Fills
 
-| Token | Value | Use |
-|-------|-------|-----|
-| `fill-neutral` | `rgba(255,255,255,0.14)` | Non-interactive data: bar fills, progress tracks |
+| Token              | Value                    | Use                                              |
+| ------------------ | ------------------------ | ------------------------------------------------ |
+| `fill-neutral`     | `rgba(255,255,255,0.14)` | Non-interactive data: bar fills, progress tracks |
 | `fill-neutral-dim` | `rgba(255,255,255,0.06)` | Track backgrounds, skeletons, subtle backgrounds |
 
 ---
@@ -98,11 +98,11 @@
 
 ### Font Stack
 
-| Font | Role |
-|------|------|
-| **Mohave** | Headings, hero numbers (wt 300), body text (wt 400–500), page titles |
-| **JetBrains Mono** | All micro labels, numerical data, timestamps, metadata, category tags, `//` prefixes, tactical brackets |
-| **Cake Mono** (brand + TopBar H1 + display) | Uppercase display voice — see Logo & Brand section |
+| Font                                        | Role                                                                                                    |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Mohave**                                  | Headings, hero numbers (wt 300), body text (wt 400–500), page titles                                    |
+| **JetBrains Mono**                          | All micro labels, numerical data, timestamps, metadata, category tags, `//` prefixes, tactical brackets |
+| **Cake Mono** (brand + TopBar H1 + display) | Uppercase display voice — see Logo & Brand section                                                      |
 
 **Kosugi is deprecated** (removed 2026-04-17). Every former Kosugi usage moved to JetBrains Mono — the mono face now carries both the tactical-label and numerical-data roles.
 
@@ -116,36 +116,39 @@ All numerical contexts: `font-feature-settings: "tnum" 1, "zero" 1` (tabular num
 
 ### Type Hierarchy
 
-| Role | Classes | Size | Use |
-|------|---------|------|-----|
-| Hero number | `font-mohave font-light` | 76–84px | Dashboard hero, revenue total |
-| Page title (TopBar H1) | `font-cakemono font-light uppercase` | 22px | Root-route page heading — dashboard, clients, invoices, etc. |
-| Display heading | `font-cakemono font-light uppercase` | 28–32px | Auth h1s, wizard step titles, account-type screen |
-| Section heading | `font-cakemono font-light uppercase` | 15–20px | Admin section headers, settings panel subheads |
-| Button label | `font-cakemono font-light uppercase` | 14px | Primary/secondary uppercase button text |
-| Badge | `font-cakemono font-light uppercase tracking-wider` | 11px | Status badges, role tags |
-| Panel title | `font-mono text-micro uppercase tracking-wider` | 11px | Widget/section titles |
-| Body / name | `font-mohave text-body-sm` | 14px | Entity names, row primary text |
-| Data value (lg) | `font-mono text-data-lg font-semibold` | 20px | Hero metrics in widgets |
-| Data value | `font-mono text-data-sm` | 13px | Standard data values |
-| Category label | `font-mono text-micro uppercase tracking-wider` | 11px | BOOKED, INVOICED, etc. |
-| Metadata | `font-mono text-micro` | 11px | Timestamps, IDs, subtotals |
-| Row secondary | `font-mono text-micro` | 11px | Line item secondary text |
-| Footer | `font-mono text-micro uppercase tracking-wider` | 11px | "View Invoices" etc. |
-| Badge | `font-mono text-micro uppercase tracking-wider` | 11px | Status badges |
+| Role                   | Classes                                             | Size    | Use                                                          |
+| ---------------------- | --------------------------------------------------- | ------- | ------------------------------------------------------------ |
+| Hero number            | `font-mohave font-light`                            | 76–84px | Dashboard hero, revenue total                                |
+| Page title (TopBar H1) | `font-cakemono font-light uppercase`                | 22px    | Root-route page heading — dashboard, clients, invoices, etc. |
+| Display heading        | `font-cakemono font-light uppercase`                | 28–32px | Auth h1s, wizard step titles, account-type screen            |
+| Section heading        | `font-cakemono font-light uppercase`                | 15–20px | Admin section headers, settings panel subheads               |
+| Button label           | `font-cakemono font-light uppercase`                | 14px    | Primary/secondary uppercase button text                      |
+| Badge                  | `font-cakemono font-light uppercase tracking-wider` | 11px    | Status badges, role tags                                     |
+| Panel title            | `font-mono text-micro uppercase tracking-wider`     | 11px    | Widget/section titles                                        |
+| Body / name            | `font-mohave text-body-sm`                          | 14px    | Entity names, row primary text                               |
+| Data value (lg)        | `font-mono text-data-lg font-semibold`              | 20px    | Hero metrics in widgets                                      |
+| Data value             | `font-mono text-data-sm`                            | 13px    | Standard data values                                         |
+| Category label         | `font-mono text-micro uppercase tracking-wider`     | 11px    | BOOKED, INVOICED, etc.                                       |
+| Metadata               | `font-mono text-micro`                              | 11px    | Timestamps, IDs, subtotals                                   |
+| Row secondary          | `font-mono text-micro`                              | 11px    | Line item secondary text                                     |
+| Footer                 | `font-mono text-micro uppercase tracking-wider`     | 11px    | "View Invoices" etc.                                         |
+| Badge                  | `font-mono text-micro uppercase tracking-wider`     | 11px    | Status badges                                                |
 
 ---
 
 ## Logo & Brand
 
 ### The Mark
+
 The OPS mark is two interlocking chamfered brackets with subtle isometric extrusion. Monochrome only. Never apply color, gradient, shadow, or glow. Use `<OpsMark>` from `@/components/brand` — it renders inline SVG with `fill="currentColor"` so color inherits from CSS `color`.
 
 ### Lockups
+
 `<OpsLockup orientation="horizontal">` — mark + "OPS" (Cake Mono, outlined paths) inline. Natural aspect ~1.59:1. Use for: sidebar footer, auth hero, blog header, portal watermark, email headers.
 `<OpsLockup orientation="vertical">` — mark above "OPS". 1:1 square. Use for: loading gates, onboarding welcome screens.
 
 ### Clear Space & Minimum Size
+
 - Clear space around the mark: at least 25% of the mark's height on all sides. No other element (text, border, icon) may enter this buffer.
 - Minimum display size: 16px (mark), 24px tall (horizontal lockup), 48px tall (vertical lockup). Below these thresholds the extrusion detail collapses.
 
@@ -158,18 +161,21 @@ The OPS mark is two interlocking chamfered brackets with subtle isometric extrus
 **Tracking:** Cake Mono is tightly metered by design. Most usages drop `tracking-wider` — apply extra tracking only when the visual context demands it (e.g., full-screen hero wordmarks).
 
 **Still reserved for brand surfaces (uses same `font-cakemono` class):**
+
 - Logo lockups (`<OpsLockup>`)
 - iOS / Android app icon
 - Marketing hero wordmarks (`ops-site/`)
 - Social share images (OG, Twitter card)
 
 **Never use Cake Mono for:**
+
 - Body text, paragraphs, long-form copy
 - Sentence-case content
 - Numerical data readouts (use `font-mono`)
 - Small-caps category labels (use `font-mono`, which is already the "small uppercase" voice)
 
 **Mohave remains the voice for:**
+
 - Hero numbers (Mohave Light at 76–84px)
 - Body text, names, secondary text (Mohave 400–500 sentence-case)
 - Anything non-uppercase at display sizes
@@ -181,30 +187,33 @@ Cake Mono is loaded via Adobe Typekit (kit id `dbh0pet`) in the root layout `<he
 **ops-site** (marketing) does NOT follow this rule — it retains heavy Mohave display type. The web product (OPS-Web) and the marketing site diverge here intentionally.
 
 ### Color Treatment
+
 - On dark backgrounds (product chrome, dashboard): mark in `text` (#EDEDED) via CSS `color` inherited through `currentColor`.
 - On light backgrounds (invoices, printed docs, light-mode emails): mark in `#000000`.
 - Never tint with accent, earth tones, or any non-monochrome color.
 
 ### Accessibility
+
 Every usage carries a `title` prop that resolves to "OPS" (default) OR explicit `title=""` for purely decorative instances where surrounding text already identifies the brand. Avoid stacking `aria-label` on a wrapper with the SVG's own title — use one or the other.
 
 ### Deprecated
+
 Bebas Neue (removed 2026-04-17). Any new `font-family: "Bebas Neue"` declaration fails review.
 
 ---
 
 ## Border Radius
 
-| Element | Value | Tailwind |
-|---------|-------|----------|
-| Glass panels / cards / widgets | 10px | `rounded-panel` |
-| Modals / dialogs / popovers / dropdowns / floating windows / toasts | 12px | `rounded-modal` (via `.glass-dense`) |
-| Buttons | 5px | `rounded` or `rounded-[5px]` |
-| Tags / chips | 4px | `rounded-chip` |
-| Inputs | 5px | `rounded-[5px]` |
-| Funnel bars / progress tracks | 2px | `rounded-bar` |
-| Sidebar item hover bg | 6px | `rounded-[6px]` |
-| Avatars | full | `rounded-full` |
+| Element                                                             | Value | Tailwind                             |
+| ------------------------------------------------------------------- | ----- | ------------------------------------ |
+| Glass panels / cards / widgets                                      | 10px  | `rounded-panel`                      |
+| Modals / dialogs / popovers / dropdowns / floating windows / toasts | 12px  | `rounded-modal` (via `.glass-dense`) |
+| Buttons                                                             | 5px   | `rounded` or `rounded-[5px]`         |
+| Tags / chips                                                        | 4px   | `rounded-chip`                       |
+| Inputs                                                              | 5px   | `rounded-[5px]`                      |
+| Funnel bars / progress tracks                                       | 2px   | `rounded-bar`                        |
+| Sidebar item hover bg                                               | 6px   | `rounded-[6px]`                      |
+| Avatars                                                             | full  | `rounded-full`                       |
 
 No `999px` fully-rounded pills anywhere except avatars. No `rounded-sm` (2.5px) on containers.
 
@@ -216,33 +225,33 @@ No `999px` fully-rounded pills anywhere except avatars. No `rounded-sm` (2.5px) 
 
 ### Canvas Layout
 
-| Property | Value |
-|----------|-------|
-| Canvas padding | `36px 44px` (px-[44px] py-[36px]) |
-| Max content width | `1320px` |
-| Gap between panels | `24px` |
-| Two-column layout gap | `24px` |
+| Property              | Value                             |
+| --------------------- | --------------------------------- |
+| Canvas padding        | `36px 44px` (px-[44px] py-[36px]) |
+| Max content width     | `1320px`                          |
+| Gap between panels    | `24px`                            |
+| Two-column layout gap | `24px`                            |
 
 ### Panel Internal
 
-| Zone | Padding |
-|------|---------|
-| Panel header | `22px 30px 6px` |
-| Panel body | `16px 30px 34px` |
+| Zone            | Padding          |
+| --------------- | ---------------- |
+| Panel header    | `22px 30px 6px`  |
+| Panel body      | `16px 30px 34px` |
 | Hero panel body | `20px 40px 40px` |
 
 ### Widget Internal
 
-| Context | Value | Tailwind |
-|---------|-------|----------|
-| XS inner padding | top only, sides from shell | `pt-3` |
-| SM inner padding | all sides | `p-3` |
-| MD+ inner padding | | `px-3 py-2` |
-| Section gap | 8px | `mt-1` or `mb-1` |
-| Row vertical padding | 3px | `py-[3px]` |
-| Row horizontal padding | 4px | `px-1` |
-| Icon-text gap | 4px | `gap-1` |
-| Footer top padding | 8px | `pt-1` |
+| Context                | Value                      | Tailwind         |
+| ---------------------- | -------------------------- | ---------------- |
+| XS inner padding       | top only, sides from shell | `pt-3`           |
+| SM inner padding       | all sides                  | `p-3`            |
+| MD+ inner padding      |                            | `px-3 py-2`      |
+| Section gap            | 8px                        | `mt-1` or `mb-1` |
+| Row vertical padding   | 3px                        | `py-[3px]`       |
+| Row horizontal padding | 4px                        | `px-1`           |
+| Icon-text gap          | 4px                        | `gap-1`          |
+| Footer top padding     | 8px                        | `pt-1`           |
 
 ---
 
@@ -258,7 +267,7 @@ backdrop-filter: blur(28px) saturate(1.3);
 border: 1px solid rgba(255, 255, 255, 0.09);
 border-radius: 10px;
 /* Plus ::before pseudo-element: */
-background: linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%);
+background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40%);
 ```
 
 ### Dense Glass (`.glass-dense`)
@@ -271,7 +280,7 @@ backdrop-filter: blur(28px) saturate(1.3);
 border: 1px solid rgba(255, 255, 255, 0.09);
 border-radius: 12px;
 /* Plus ::before pseudo-element: */
-background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent 35%);
+background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 35%);
 ```
 
 ### `<Surface>` Component
@@ -288,10 +297,10 @@ Import from `@/components/ui/surface`. Variants: `default` (glass-surface), `den
 
 **Floating-window shells** — the only `box-shadow`-bearing surfaces in OPS-Web — separate dense glass from the canvas where a borderless ring alone would not. Two tokens cover every approved use:
 
-| Token | Stack | Use |
-|-------|-------|-----|
-| `--shadow-window` | `0 24px 64px rgba(0,0,0,0.65), 0 0 0 0.5px rgba(255,255,255,0.04)` | Workspace shell; future estimate / email composer windows |
-| `--shadow-dropdown` | `0 12px 32px rgba(0,0,0,0.55)` | Floating dropdowns over busy underlayments (e.g. address autocomplete over Mapbox tiles) |
+| Token               | Stack                                                              | Use                                                                                      |
+| ------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `--shadow-window`   | `0 24px 64px rgba(0,0,0,0.65), 0 0 0 0.5px rgba(255,255,255,0.04)` | Workspace shell; future estimate / email composer windows                                |
+| `--shadow-dropdown` | `0 12px 32px rgba(0,0,0,0.55)`                                     | Floating dropdowns over busy underlayments (e.g. address autocomplete over Mapbox tiles) |
 
 These tokens are the **complete allowlist**. New shadow stacks are not permitted; reuse the closest token or escalate. Static UI inside the floating window (panels, rows, inputs) still keeps to glass + borders only.
 
@@ -301,14 +310,14 @@ These tokens are the **complete allowlist**. New shadow stacks are not permitted
 
 ### Buttons
 
-| Variant | Fill | Text | Border | Use |
-|---------|------|------|--------|-----|
-| Primary | `ops-accent` | black | none | Single primary CTA per screen |
-| Default | `rgba(255,255,255,0.07)` | `text-2` | `rgba(255,255,255,0.10)` | Standard button |
-| Secondary | transparent | `text-2` | `rgba(255,255,255,0.10)` | Secondary actions |
-| Ghost | transparent | `text-2` | none | Subtle actions |
-| Destructive | `rose-soft` | `rose` | `rose-line` | Delete, cancel (rare) |
-| Link | transparent | `text-2` | none | Inline text links |
+| Variant     | Fill                     | Text     | Border                   | Use                           |
+| ----------- | ------------------------ | -------- | ------------------------ | ----------------------------- |
+| Primary     | `ops-accent`             | black    | none                     | Single primary CTA per screen |
+| Default     | `rgba(255,255,255,0.07)` | `text-2` | `rgba(255,255,255,0.10)` | Standard button               |
+| Secondary   | transparent              | `text-2` | `rgba(255,255,255,0.10)` | Secondary actions             |
+| Ghost       | transparent              | `text-2` | none                     | Subtle actions                |
+| Destructive | `rose-soft`              | `rose`   | `rose-line`              | Delete, cancel (rare)         |
+| Link        | transparent              | `text-2` | none                     | Inline text links             |
 
 Hover: Default/Secondary/Ghost → `rgba(255,255,255,0.05)` bg + text brightens to `text`.
 Focus: `1.5px ring-ops-accent ring-offset-2 ring-offset-black`
@@ -319,15 +328,20 @@ Chat and conversational answer fields are context-specific controls. Generic
 primary, default, or secondary button treatments do not belong inside them.
 The transcript and answer must remain visually dominant.
 
-| Action | Treatment |
-|--------|-----------|
-| Send / continue | Square `h-control-36 w-control-36` ghost action inside the field; icon-only with a localized accessible name; 16px directional icon; `text-2` → `text` over `surface-hover` |
-| Attach / upload | Ghost action with no perimeter border; 16px lightweight attachment icon; label may remain when it clarifies the accepted source |
+| Action          | Treatment                                                                                                                                                                                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Send / continue | Dense `h-control-32` ghost action inside the field; 16px directional icon; `text-2` → `text` over `surface-hover`. Default is square and icon-only. Guided Phase C pairs the familiar paper-airplane icon with the explicit `SEND` label and caps the action at 80px wide. |
+| Attach / upload | Ghost action with no perimeter border; 16px lightweight attachment icon; label may remain when it clarifies the accepted source                                                                                                                                            |
 
 **Proportion rules:**
 
-- A send action is square. A labeled CTA inside a text composer is forbidden.
-- Reserve only the square action width plus the standard internal gap in the input.
+- Composer actions use the compact 32px tier, never the standard form-button or
+  mobile touch-target tier.
+- Default send actions are square. Guided Phase C may use a short `SEND` label
+  beside the icon for recognition; this is a compact utility action, never a
+  primary CTA.
+- Reserve only the rendered action width plus the standard internal gap in the
+  input.
 - Attachment actions stay subordinate: no filled surface, accent border, dense
   document glyph, or standalone-button prominence.
 - Token compliance alone is not design approval. Judge the rendered control
@@ -344,12 +358,12 @@ size is part of the hierarchy contract.
 
 ### Tags
 
-| Variant | Text | Background | Border | When |
-|---------|------|------------|--------|------|
-| Neutral | `text-2` | `rgba(255,255,255,0.05)` | `1px solid line` | Default — no semantic meaning |
-| Olive | `olive` | `olive-soft` | `olive-line` | Success, completed, in-progress |
-| Tan | `tan` | `tan-soft` | `tan-line` | Warning, site visit, attention |
-| Rose | `rose` | `rose-soft` | `rose-line` | Error, overdue, cost |
+| Variant | Text     | Background               | Border           | When                            |
+| ------- | -------- | ------------------------ | ---------------- | ------------------------------- |
+| Neutral | `text-2` | `rgba(255,255,255,0.05)` | `1px solid line` | Default — no semantic meaning   |
+| Olive   | `olive`  | `olive-soft`             | `olive-line`     | Success, completed, in-progress |
+| Tan     | `tan`    | `tan-soft`               | `tan-line`       | Warning, site visit, attention  |
+| Rose    | `rose`   | `rose-soft`              | `rose-line`      | Error, overdue, cost            |
 
 Earth-tone tags ONLY when the color carries semantic meaning. Default is neutral.
 
@@ -391,30 +405,30 @@ The right edge of the canvas houses a stack of tactical action tabs — slim 28p
 
 ### Anatomy
 
-| Element | Spec |
-|---------|------|
-| Tab width | `28px` always |
-| Tab rest height | Per instance — Notifications `180px`, Quick Actions `132px`, Bug Report `100px` |
-| Tab expanded height (hover or open) | Matches paired drawer height (animates `top` + `height` simultaneously, never `bottom`/`transform`) |
-| Background | `var(--glass)` |
-| Backdrop | `blur(28px) saturate(1.3)` |
-| Border | `1px solid var(--glass-border)`, `border-right: none` |
-| Radius | `4px` top-left + bottom-left only (flat against edge) |
-| Accent stripe | `2px` left edge, full height. Color reflects state per instance — see Accent Tones below |
-| Glyph | Centered. Closed state `rotate(-90deg)` (lays sideways with vertical wordmark), open state `rotate(45deg)` (`+` becomes `×`). 220ms `EASE_SMOOTH` |
-| Wordmark | `font-mono` 9px, `letter-spacing: 0.18em`, vertical (`writing-mode: vertical-rl; transform: rotate(180deg)`), uppercase, `text-2` |
-| Count badge | Closed only. `font-mono` 11px tabular-nums, vertical orientation matching wordmark |
-| Hover tooltip | Closed only. `glass-dense` chip with title (`font-mohave` 13) + `KeyHint` shortcut, fades in to the left of the tab |
+| Element                             | Spec                                                                                                                                              |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tab width                           | `28px` always                                                                                                                                     |
+| Tab rest height                     | Per instance — Notifications `180px`, Quick Actions `132px`, Bug Report `100px`                                                                   |
+| Tab expanded height (hover or open) | Matches paired drawer height (animates `top` + `height` simultaneously, never `bottom`/`transform`)                                               |
+| Background                          | `var(--glass)`                                                                                                                                    |
+| Backdrop                            | `blur(28px) saturate(1.3)`                                                                                                                        |
+| Border                              | `1px solid var(--glass-border)`, `border-right: none`                                                                                             |
+| Radius                              | `4px` top-left + bottom-left only (flat against edge)                                                                                             |
+| Accent stripe                       | `2px` left edge, full height. Color reflects state per instance — see Accent Tones below                                                          |
+| Glyph                               | Centered. Closed state `rotate(-90deg)` (lays sideways with vertical wordmark), open state `rotate(45deg)` (`+` becomes `×`). 220ms `EASE_SMOOTH` |
+| Wordmark                            | `font-mono` 9px, `letter-spacing: 0.18em`, vertical (`writing-mode: vertical-rl; transform: rotate(180deg)`), uppercase, `text-2`                 |
+| Count badge                         | Closed only. `font-mono` 11px tabular-nums, vertical orientation matching wordmark                                                                |
+| Hover tooltip                       | Closed only. `glass-dense` chip with title (`font-mohave` 13) + `KeyHint` shortcut, fades in to the left of the tab                               |
 
 ### Accent Tones
 
 The left accent stripe is **always painted** — never empty. Color derives from instance semantics:
 
-| Instance | At rest | Has critical | Has attention |
-|---|---|---|---|
-| Notifications | `--ops-accent` (steel blue) | `--rose` | `--tan` |
-| Quick Actions | `--ops-accent` (steel blue, always — actions have no severity tone) | — | — |
-| Bug Report | `--text-mute` (ambient — bug submission is voluntary, not urgent) | — | — |
+| Instance      | At rest                                                             | Has critical | Has attention |
+| ------------- | ------------------------------------------------------------------- | ------------ | ------------- |
+| Notifications | `--ops-accent` (steel blue)                                         | `--rose`     | `--tan`       |
+| Quick Actions | `--ops-accent` (steel blue, always — actions have no severity tone) | —            | —             |
+| Bug Report    | `--text-mute` (ambient — bug submission is voluntary, not urgent)   | —            | —             |
 
 ### Stacking on the Right Edge
 
@@ -445,23 +459,23 @@ Bug Report     center +218               spans +168 → +268
 
 Each tab pairs with **one** drawer. Two drawers cannot be open simultaneously — `useEdgeTabStore` enforces single-slot mutual exclusion via `activeTab: string | null`. Opening Quick Actions atomically closes Notifications and vice versa.
 
-| Drawer style | Use when | Notifications | Quick Actions | Bug Report |
-|---|---|---|---|---|
-| **Full-rail** | Content needs vertical room (lists, filtering, scroll) | ✓ `top: 72; bottom: 16` | — | — |
-| **Panel-anchored** | Content is finite and static (action menus, settings, single forms) | — | ✓ 308×452, anchored to tab vertical center via `stackOffset` math | ✓ 360×520, anchored at `STACK_OFFSET_BUG` |
+| Drawer style       | Use when                                                            | Notifications           | Quick Actions                                                     | Bug Report                                |
+| ------------------ | ------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------- | ----------------------------------------- |
+| **Full-rail**      | Content needs vertical room (lists, filtering, scroll)              | ✓ `top: 72; bottom: 16` | —                                                                 | —                                         |
+| **Panel-anchored** | Content is finite and static (action menus, settings, single forms) | —                       | ✓ 308×452, anchored to tab vertical center via `stackOffset` math | ✓ 360×520, anchored at `STACK_OFFSET_BUG` |
 
 ### Drawer Surface
 
-| Property | Full-rail (Notif) | Panel (Quick Actions) | Panel (Bug Report) |
-|---|---|---|---|
-| Width | `min(360px, calc(100vw - 36px))` | `308px` | `360px` (clamped to viewport) |
-| Height | `calc(100vh - 88px)` (full rail) | `452px` (panel) | `520px` (panel) |
-| Background | `var(--glass)` (0.58 alpha) | `rgba(32, 34, 38, 0.92)` | `rgba(32, 34, 38, 0.92)` (matches QA — form-dense, needs legibility) |
-| Border | `1px solid var(--glass-border)` (0.09) | `1px solid rgba(255,255,255,0.18)` | `1px solid rgba(255,255,255,0.18)` |
-| Border-right | `none` | `none` | `none` |
-| Border-radius | `0` (flat against edge) | `0` (flat against edge) | `0` (flat against edge) |
-| Top-edge highlight | `linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)` | Same | Same |
-| z-index | `1500` (floating-ui) | `1500` | `1500` |
+| Property           | Full-rail (Notif)                                                  | Panel (Quick Actions)              | Panel (Bug Report)                                                   |
+| ------------------ | ------------------------------------------------------------------ | ---------------------------------- | -------------------------------------------------------------------- |
+| Width              | `min(360px, calc(100vw - 36px))`                                   | `308px`                            | `360px` (clamped to viewport)                                        |
+| Height             | `calc(100vh - 88px)` (full rail)                                   | `452px` (panel)                    | `520px` (panel)                                                      |
+| Background         | `var(--glass)` (0.58 alpha)                                        | `rgba(32, 34, 38, 0.92)`           | `rgba(32, 34, 38, 0.92)` (matches QA — form-dense, needs legibility) |
+| Border             | `1px solid var(--glass-border)` (0.09)                             | `1px solid rgba(255,255,255,0.18)` | `1px solid rgba(255,255,255,0.18)`                                   |
+| Border-right       | `none`                                                             | `none`                             | `none`                                                               |
+| Border-radius      | `0` (flat against edge)                                            | `0` (flat against edge)            | `0` (flat against edge)                                              |
+| Top-edge highlight | `linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%)` | Same                               | Same                                                                 |
+| z-index            | `1500` (floating-ui)                                               | `1500`                             | `1500`                                                               |
 
 ### Open Animation
 
@@ -489,11 +503,11 @@ Clicking routes to the relevant settings tab (`/settings?tab=quick-actions` for 
 
 Single-letter, no modifier, registered globally with input/textarea/contenteditable guards. Toggles open/close.
 
-| Tab | Shortcut |
-|---|---|
-| Notifications | `N` |
-| Quick Actions | `Q` |
-| Bug Report | `` ` `` (backtick) |
+| Tab           | Shortcut           |
+| ------------- | ------------------ |
+| Notifications | `N`                |
+| Quick Actions | `Q`                |
+| Bug Report    | `` ` `` (backtick) |
 
 `Escape` closes the active drawer. Both shortcuts mount via document keydown listener and check:
 
@@ -545,12 +559,12 @@ All category labels (BOOKED, INVOICED, LEAD, QUALIFIED, etc.) use Kosugi upperca
 
 ### Size Tiers
 
-| Size | Grid | Content Rules |
-|------|------|---------------|
-| **XS** (1x1) | ~120x80px | Hero number + title ONLY. No description, no footer. |
-| **SM** (2x1) | ~240x80px | Hero + title + ONE secondary element. No footer. |
-| **MD** (6x2) | ~full-width x 160px | Header + content zone + footer. |
-| **LG** (6x4) | ~full-width x 320px | Header + hero/chart + scrollable detail + footer. |
+| Size         | Grid                | Content Rules                                        |
+| ------------ | ------------------- | ---------------------------------------------------- |
+| **XS** (1x1) | ~120x80px           | Hero number + title ONLY. No description, no footer. |
+| **SM** (2x1) | ~240x80px           | Hero + title + ONE secondary element. No footer.     |
+| **MD** (6x2) | ~full-width x 160px | Header + content zone + footer.                      |
+| **LG** (6x4) | ~full-width x 320px | Header + hero/chart + scrollable detail + footer.    |
 
 ### Zone Structure (MD+)
 
@@ -566,12 +580,12 @@ All category labels (BOOKED, INVOICED, LEAD, QUALIFIED, etc.) use Kosugi upperca
 
 ### Navigation Consistency
 
-| Size | Navigation Element |
-|------|-------------------|
-| XS | Entire card clickable. No button. |
-| SM | ArrowUpRight icon (14px) top-right. `text-text-mute hover:text-text-2` |
-| MD | Footer text + optional row-level clicks |
-| LG | Footer text + row-level clicks + inline actions |
+| Size | Navigation Element                                                     |
+| ---- | ---------------------------------------------------------------------- |
+| XS   | Entire card clickable. No button.                                      |
+| SM   | ArrowUpRight icon (14px) top-right. `text-text-mute hover:text-text-2` |
+| MD   | Footer text + optional row-level clicks                                |
+| LG   | Footer text + row-level clicks + inline actions                        |
 
 ---
 
@@ -580,12 +594,15 @@ All category labels (BOOKED, INVOICED, LEAD, QUALIFIED, etc.) use Kosugi upperca
 Empty states MUST be size-aware.
 
 ### XS Empty
+
 Hero value ($0, 0%) in `text-display text-text-mute`. Title in `text-micro uppercase`. No description, no footer.
 
 ### SM Empty
+
 Hero value in `text-data-lg text-text-mute`. Title in `text-micro uppercase`, mt-1. Short description in `text-caption-sm text-text-mute`, mt-1. No footer.
 
 ### MD+ Empty
+
 Title in header position. Centered hero value in `text-display text-text-mute`. Description in `text-caption-sm text-text-mute`. Footer navigation text.
 
 ---
@@ -639,20 +656,20 @@ Every keyboard shortcut on screen renders through **`KeyHint`** (`src/components
 
 Always use these symbols — never spelled-out words like `"Cmd"` or `"Enter"`.
 
-| Key | Glyph | Key | Glyph |
-|-----|-------|-----|-------|
-| Command | `⌘` | Enter / Return | `↵` |
-| Option / Alt | `⌥` | Backspace | `⌫` |
-| Shift | `⇧` | Space | `␣` |
-| Control | `⌃` | Escape | `⎋` |
-| Tab | `⇥` | Arrows | `→ ← ↑ ↓` |
+| Key          | Glyph | Key            | Glyph     |
+| ------------ | ----- | -------------- | --------- |
+| Command      | `⌘`   | Enter / Return | `↵`       |
+| Option / Alt | `⌥`   | Backspace      | `⌫`       |
+| Shift        | `⇧`   | Space          | `␣`       |
+| Control      | `⌃`   | Escape         | `⎋`       |
+| Tab          | `⇥`   | Arrows         | `→ ← ↑ ↓` |
 
 ### Variants
 
-| Variant | Use when | Visual |
-|---------|----------|--------|
-| **`chip`** *(default)* | Standalone reference: shortcut lists, tooltips, command palette, search-field hints, menu items | Boxed: `bg-[rgba(255,255,255,0.06)]`, `border-[rgba(255,255,255,0.10)]`, `rounded-[3px]`, `min-w-[20px] h-[20px] px-[5px]`. Combos render as side-by-side chips with `gap-[4px]`. |
-| **`inline`** | Inside a coloured button or running text where a hard-edged chip would compete with the container | Bracketed mono: `[K]` or `[⌘K]`, `font-mono text-[11px] opacity-70`, colour inherits from parent. |
+| Variant                | Use when                                                                                          | Visual                                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`chip`** _(default)_ | Standalone reference: shortcut lists, tooltips, command palette, search-field hints, menu items   | Boxed: `bg-[rgba(255,255,255,0.06)]`, `border-[rgba(255,255,255,0.10)]`, `rounded-[3px]`, `min-w-[20px] h-[20px] px-[5px]`. Combos render as side-by-side chips with `gap-[4px]`. |
+| **`inline`**           | Inside a coloured button or running text where a hard-edged chip would compete with the container | Bracketed mono: `[K]` or `[⌘K]`, `font-mono text-[11px] opacity-70`, colour inherits from parent.                                                                                 |
 
 ### Rules
 
@@ -687,16 +704,16 @@ import { KeyHint } from "@/components/ui/key-hint";
 
 **NO spring physics.** NO bounce. Exception: drag-and-drop reorder only.
 
-| Animation | Duration | Easing |
-|-----------|----------|--------|
-| Hover transitions | 150ms | EASE_SMOOTH |
-| Panel enter | 200ms | EASE_SMOOTH |
-| Page transitions | 250ms | EASE_SMOOTH |
-| Row stagger entrance | 300ms + 50ms/item | EASE_SMOOTH |
-| Chart bar grow | 400-600ms + index delay | EASE_SMOOTH |
-| Hero number count-up | 800ms | Quadratic ease-out |
-| Card flip | 350ms | EASE_SMOOTH |
-| Hero collapse | 300ms | EASE_SMOOTH |
+| Animation            | Duration                | Easing             |
+| -------------------- | ----------------------- | ------------------ |
+| Hover transitions    | 150ms                   | EASE_SMOOTH        |
+| Panel enter          | 200ms                   | EASE_SMOOTH        |
+| Page transitions     | 250ms                   | EASE_SMOOTH        |
+| Row stagger entrance | 300ms + 50ms/item       | EASE_SMOOTH        |
+| Chart bar grow       | 400-600ms + index delay | EASE_SMOOTH        |
+| Hero number count-up | 800ms                   | Quadratic ease-out |
+| Card flip            | 350ms                   | EASE_SMOOTH        |
+| Hero collapse        | 300ms                   | EASE_SMOOTH        |
 
 **Reduced motion:** Every animation MUST check `useReducedMotion()` or `prefers-reduced-motion`. Fallback: opacity-only transitions at 150ms.
 
@@ -751,10 +768,10 @@ The month, week, day, and crew views all render the same logical artifact — an
 
 The special-events row in the crew view, plus any month/week/day rendering of personal or time-off events, MUST use the non-color signal below. Task type colors can land on any palette and would visually merge into special events otherwise.
 
-| Kind | Background | Border | Glyph | Text |
-|------|------------|--------|-------|------|
-| `personal` | `rgba(255, 255, 255, 0.10)` | `rgba(255, 255, 255, 0.20)` | Lucide `Star` (filled, 1.5px stroke) | `#FFFFFF` |
-| `time_off` | `rgba(196, 168, 104, 0.06)` | `rgba(196, 168, 104, 0.30)` (`--tan`) | Lucide `TreePalm` (1.5px stroke) | `#C4A868` (`--tan`) |
+| Kind       | Background                  | Border                                | Glyph                                | Text                |
+| ---------- | --------------------------- | ------------------------------------- | ------------------------------------ | ------------------- |
+| `personal` | `rgba(255, 255, 255, 0.10)` | `rgba(255, 255, 255, 0.20)`           | Lucide `Star` (filled, 1.5px stroke) | `#FFFFFF`           |
+| `time_off` | `rgba(196, 168, 104, 0.06)` | `rgba(196, 168, 104, 0.30)` (`--tan`) | Lucide `TreePalm` (1.5px stroke)     | `#C4A868` (`--tan`) |
 
 Special events drop the type stripe and type chip. The leading glyph (Star or TreePalm) carries the kind signal. (Bugs `0342efaf` time-off, `89a5d774` personal.)
 
@@ -766,12 +783,12 @@ The badge MUST use this surface — direct status-fill (`event.typeColors.bg` at
 
 The cell containing `today` reads with a frosted-glass tint of the primary accent so the operator can spot it at a glance even on a busy month grid. (Bug `a561f726`.)
 
-| Property | Value |
-|----------|-------|
-| Background | `var(--ops-accent-soft)` (`rgba(111, 148, 176, 0.12)`) |
-| Border / inset highlight | `var(--ops-accent-line)` (`rgba(111, 148, 176, 0.30)`) — month grid uses `box-shadow: inset 0 0 0 1px ...` to avoid replacing the cell's right grid border |
-| Drop-target hover (drag-over) | `rgba(111, 148, 176, 0.18)` — brightens above today fill so a drag indicator always reads as the strongest signal |
-| Today badge / chip (header) | `var(--ops-accent)` solid fill, black text, 4px radius |
+| Property                      | Value                                                                                                                                                      |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Background                    | `var(--ops-accent-soft)` (`rgba(111, 148, 176, 0.12)`)                                                                                                     |
+| Border / inset highlight      | `var(--ops-accent-line)` (`rgba(111, 148, 176, 0.30)`) — month grid uses `box-shadow: inset 0 0 0 1px ...` to avoid replacing the cell's right grid border |
+| Drop-target hover (drag-over) | `rgba(111, 148, 176, 0.18)` — brightens above today fill so a drag indicator always reads as the strongest signal                                          |
+| Today badge / chip (header)   | `var(--ops-accent)` solid fill, black text, 4px radius                                                                                                     |
 
 The previous 0.06-alpha tint read identical to the weekend tint and was indistinguishable on busy weeks. The new 0.12 + accent-line border keeps today readable without competing with task badges.
 
@@ -808,15 +825,15 @@ Any content that fades, clips, or overflows MUST use gradient transitions. Hard 
 
 ## Accessibility
 
-| Requirement | Standard |
-|-------------|----------|
-| Text contrast | ≥ 4.5:1 (AA) for all body text. `text-mute` (3.4:1) decorative only. |
-| Font size floor | 11px minimum. No exceptions. |
+| Requirement            | Standard                                                                                                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Text contrast          | ≥ 4.5:1 (AA) for all body text. `text-mute` (3.4:1) decorative only.                                                                                                     |
+| Font size floor        | 11px minimum. No exceptions.                                                                                                                                             |
 | Touch / cursor targets | 44×44px applies to **iOS/mobile only**. OPS Web is cursor-driven — there is **no touch-size minimum**; pickers, list rows, and dense controls use ~32px desktop density. |
-| Focus ring | `1.5px solid accent, offset 2px` — accent appropriate for system-level focus. |
-| Reduced motion | Every animation checks `prefers-reduced-motion`. Fallback: opacity-only at 150ms. |
-| Semantic HTML | `<button>` for buttons, `<a>` for links. No div click handlers without ARIA roles. |
-| Color independence | Information never conveyed by color alone. Earth-tone tags always include text labels. |
+| Focus ring             | `1.5px solid accent, offset 2px` — accent appropriate for system-level focus.                                                                                            |
+| Reduced motion         | Every animation checks `prefers-reduced-motion`. Fallback: opacity-only at 150ms.                                                                                        |
+| Semantic HTML          | `<button>` for buttons, `<a>` for links. No div click handlers without ARIA roles.                                                                                       |
+| Color independence     | Information never conveyed by color alone. Earth-tone tags always include text labels.                                                                                   |
 
 ---
 
@@ -832,41 +849,41 @@ Pattern: `t("key") ?? "English fallback"`
 
 These shared components MUST be used. Never hand-roll equivalent markup:
 
-| Component | Use For |
-|-----------|---------|
-| `<Surface>` | Any glass panel (default/dense/inset/ghost) |
-| `<Card>` | Widget-level cards (default/elevated/interactive/accent/ghost) |
-| `WidgetLineItem` | Any list row in any widget |
-| `WidgetStatusBadge` | Any status indicator |
-| `WidgetEmptyState` | Any centered empty state (MD+) |
-| `WidgetPeriodPicker` | Any time filter control |
-| `WidgetMoreButton` | Any "+N more" expandable |
-| `WidgetBackgroundChart` | Any SM background chart |
-| `WidgetHeroCollapse` | Any LG collapsible hero section |
-| `WidgetInlineAction` | Any inline action button |
-| `WidgetCardFlip` | Any title-click info reveal |
-| `ScrollFade` | Any scrollable list container |
-| `WidgetTooltip` | Any hover tooltip on charts |
-| `formatCompactCurrency` | Any compact currency display |
-| `formatLocaleCurrency` | Any full currency display |
-| `widgetLineItemStyle` | Any staggered row entrance |
+| Component               | Use For                                                        |
+| ----------------------- | -------------------------------------------------------------- |
+| `<Surface>`             | Any glass panel (default/dense/inset/ghost)                    |
+| `<Card>`                | Widget-level cards (default/elevated/interactive/accent/ghost) |
+| `WidgetLineItem`        | Any list row in any widget                                     |
+| `WidgetStatusBadge`     | Any status indicator                                           |
+| `WidgetEmptyState`      | Any centered empty state (MD+)                                 |
+| `WidgetPeriodPicker`    | Any time filter control                                        |
+| `WidgetMoreButton`      | Any "+N more" expandable                                       |
+| `WidgetBackgroundChart` | Any SM background chart                                        |
+| `WidgetHeroCollapse`    | Any LG collapsible hero section                                |
+| `WidgetInlineAction`    | Any inline action button                                       |
+| `WidgetCardFlip`        | Any title-click info reveal                                    |
+| `ScrollFade`            | Any scrollable list container                                  |
+| `WidgetTooltip`         | Any hover tooltip on charts                                    |
+| `formatCompactCurrency` | Any compact currency display                                   |
+| `formatLocaleCurrency`  | Any full currency display                                      |
+| `widgetLineItemStyle`   | Any staggered row entrance                                     |
 
 ---
 
 ## Z-Index Scale
 
-| Layer | z-index | Purpose |
-|-------|---------|---------|
-| **base** | 0 | Normal flow |
-| **content** | 1–10 | In-page elevation (vignettes, calendar states) |
-| **interactive** | 100–200 | Drag/resize/ghost overlays |
-| **nav** | 500 | Sidebar |
-| **dropdown** | 1000 | Menus, autocomplete |
-| **floating-ui** | 1500–1600 | FAB, bug report, action prompts, window dock |
-| **window** | 2000+ | Floating windows (dynamic, auto-increments) |
-| **modal** | 3000 | Portaled dialogs/sheets (Radix) |
-| **map-controls** | 5000 | Full-screen map page only |
-| **emergency** | 9000–9999 | Sign-out, lockout overlays |
+| Layer            | z-index   | Purpose                                        |
+| ---------------- | --------- | ---------------------------------------------- |
+| **base**         | 0         | Normal flow                                    |
+| **content**      | 1–10      | In-page elevation (vignettes, calendar states) |
+| **interactive**  | 100–200   | Drag/resize/ghost overlays                     |
+| **nav**          | 500       | Sidebar                                        |
+| **dropdown**     | 1000      | Menus, autocomplete                            |
+| **floating-ui**  | 1500–1600 | FAB, bug report, action prompts, window dock   |
+| **window**       | 2000+     | Floating windows (dynamic, auto-increments)    |
+| **modal**        | 3000      | Portaled dialogs/sheets (Radix)                |
+| **map-controls** | 5000      | Full-screen map page only                      |
+| **emergency**    | 9000–9999 | Sign-out, lockout overlays                     |
 
 ---
 

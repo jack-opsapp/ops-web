@@ -3,19 +3,21 @@ import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import {
-  GuidedSetupVersionConflictError,
-  runGuidedSetupTurn,
-} from "@/lib/catalog-setup/phase-c/turn-service";
-import {
-  SetupAgentConfigError,
-  SetupAgentOutputError,
-} from "@/lib/catalog-setup/agent/setup-agent-service";
+  GuidedSetupInputConflictError,
+  GuidedSetupInputError,
+  mutateGuidedSetupInput,
+} from "@/lib/catalog-setup/phase-c/input-service";
+import { isGuidedCatalogSourceDocument } from "@/lib/catalog-setup/phase-c/source-document";
 
-interface TurnBody {
+interface MessageBody {
   token?: unknown;
+  operation?: unknown;
+  answer?: unknown;
   expectedVersion?: unknown;
-  expectedInputRevision?: unknown;
+  expectedInputId?: unknown;
 }
+
+const MAX_ANSWER_BYTES = 20_000;
 
 export async function POST(
   req: NextRequest,
@@ -23,9 +25,19 @@ export async function POST(
 ): Promise<NextResponse> {
   try {
     const { sessionId } = await params;
-    const body = (await req.json()) as TurnBody;
+    const body = (await req.json()) as MessageBody;
     if (typeof body.token !== "string" || !body.token) {
       return NextResponse.json({ error: "Missing token" }, { status: 400 });
+    }
+    if (
+      body.operation !== "append" &&
+      body.operation !== "edit" &&
+      body.operation !== "remove"
+    ) {
+      return NextResponse.json(
+        { error: "Unsupported message operation" },
+        { status: 400 },
+      );
     }
     if (
       !Number.isInteger(body.expectedVersion) ||
@@ -37,16 +49,40 @@ export async function POST(
       );
     }
     if (
-      !Number.isInteger(body.expectedInputRevision) ||
-      Number(body.expectedInputRevision) < 0
+      body.operation !== "append" &&
+      (typeof body.expectedInputId !== "string" ||
+        !body.expectedInputId)
     ) {
       return NextResponse.json(
-        {
-          error:
-            "expectedInputRevision must be a non-negative integer",
-        },
+        { error: "Queued message id is required" },
         { status: 400 },
       );
+    }
+
+    if (body.operation !== "remove") {
+      const answerRecord =
+        body.answer &&
+        typeof body.answer === "object" &&
+        !Array.isArray(body.answer)
+          ? (body.answer as Record<string, unknown>)
+          : null;
+      const isSourceDocument =
+        answerRecord?.kind === "catalog_source_document";
+      if (isSourceDocument && !isGuidedCatalogSourceDocument(body.answer)) {
+        return NextResponse.json(
+          { error: "Price sheet is invalid or too large" },
+          { status: 400 },
+        );
+      }
+      if (
+        !isSourceDocument &&
+        JSON.stringify(body.answer ?? null).length > MAX_ANSWER_BYTES
+      ) {
+        return NextResponse.json(
+          { error: "Message is too large" },
+          { status: 400 },
+        );
+      }
     }
 
     const verified = await verifyAuthToken(body.token);
@@ -75,35 +111,31 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const result = await runGuidedSetupTurn({
+    const result = await mutateGuidedSetupInput({
       token: body.token,
       companyId,
       operatorId,
       sessionId,
+      operation: body.operation,
+      answer: body.answer,
       expectedVersion: Number(body.expectedVersion),
-      expectedInputRevision: Number(body.expectedInputRevision),
+      expectedInputId:
+        typeof body.expectedInputId === "string"
+          ? body.expectedInputId
+          : undefined,
     });
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof GuidedSetupVersionConflictError) {
+    if (error instanceof GuidedSetupInputConflictError) {
       return NextResponse.json(
-        { error: "Setup changed in another window", code: "version_conflict" },
+        { error: error.message, code: "input_conflict" },
         { status: 409 },
       );
     }
-    if (error instanceof SetupAgentConfigError) {
-      return NextResponse.json(
-        { error: "Guided setup is temporarily unavailable" },
-        { status: 503 },
-      );
+    if (error instanceof GuidedSetupInputError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
     }
-    if (error instanceof SetupAgentOutputError) {
-      return NextResponse.json(
-        { error: "The setup response could not be verified. Try again." },
-        { status: 422 },
-      );
-    }
-    console.error("[api/catalog/setup/sessions/turn] Error:", error);
+    console.error("[api/catalog/setup/sessions/messages] Error:", error);
     if (error instanceof Error && error.message.toLowerCase().includes("token")) {
       return NextResponse.json(
         { error: "Invalid or expired token" },

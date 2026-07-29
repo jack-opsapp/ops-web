@@ -43,6 +43,10 @@ export const RAIL_ADVANCE_DURATION = 0.25;
 export const CARD_STAGGER = 0.05;
 /** Reduced-motion fallback — opacity-only, uniform 150ms for every beat. */
 export const REDUCED_DURATION = 0.15;
+/** INTELLIGENCE ripple — one precise pass across the Phase C activity bars. */
+export const PHASE_C_RIPPLE_DURATION = 0.72;
+/** Typewriter pacing for a newly generated Phase C response. */
+export const PHASE_C_TYPEWRITER_INTERVAL_MS = 18;
 /** Count-up run length for running totals (ms — consumed by rAF, not Framer). */
 export const COUNT_UP_DURATION_MS = 800;
 
@@ -202,7 +206,7 @@ export interface UseCountUpOptions {
  */
 export function useCountUp(
   value: number,
-  options: UseCountUpOptions = {},
+  options: UseCountUpOptions = {}
 ): number {
   const systemReduced = useReducedMotion();
   const reduced = options.reduced ?? !!systemReduced;
@@ -279,7 +283,11 @@ export function countUp(
   from: number,
   to: number,
   onUpdate: (value: number) => void,
-  options: { durationMs?: number; reduced?: boolean; onComplete?: () => void } = {},
+  options: {
+    durationMs?: number;
+    reduced?: boolean;
+    onComplete?: () => void;
+  } = {}
 ): { cancel: () => void } {
   const durationMs = options.durationMs ?? COUNT_UP_DURATION_MS;
 
@@ -343,7 +351,9 @@ export function useCatalogSetupMotion(): CatalogSetupMotion {
   return {
     reduced,
     cardAccept: reduced ? cardAcceptVariantsReduced : cardAcceptVariants,
-    cardAcceptDot: reduced ? cardAcceptDotVariantsReduced : cardAcceptDotVariants,
+    cardAcceptDot: reduced
+      ? cardAcceptDotVariantsReduced
+      : cardAcceptDotVariants,
     cardEnter: reduced ? cardEnterVariantsReduced : cardEnterVariants,
     cardEnterContainer: reduced
       ? cardEnterContainerVariantsReduced
