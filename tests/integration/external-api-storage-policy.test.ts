@@ -6,8 +6,22 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
-const { load: parseYaml } = require("js-yaml") as {
-  load(source: string): unknown;
+const {
+  DEFAULT_SCHEMA: defaultYamlSchema,
+  Type: YamlType,
+  load: parseYaml,
+} = require("js-yaml") as {
+  DEFAULT_SCHEMA: {
+    extend(types: unknown[]): unknown;
+  };
+  Type: new (
+    tag: string,
+    options: {
+      construct(value: unknown): unknown;
+      kind: "scalar" | "sequence";
+    }
+  ) => unknown;
+  load(source: string, options?: { schema?: unknown }): unknown;
 };
 
 const templatePath = path.join(
@@ -15,9 +29,46 @@ const templatePath = path.join(
   "infra",
   "external-intake-storage.yaml"
 );
+const cloudFormationSchema = defaultYamlSchema.extend([
+  new YamlType("!Ref", {
+    kind: "scalar",
+    construct: (value) => ({ Ref: value }),
+  }),
+  new YamlType("!Sub", {
+    kind: "scalar",
+    construct: (value) => ({ "Fn::Sub": value }),
+  }),
+  new YamlType("!GetAtt", {
+    kind: "scalar",
+    construct: (value) => ({ "Fn::GetAtt": value }),
+  }),
+  new YamlType("!Join", {
+    kind: "sequence",
+    construct: (value) => ({ "Fn::Join": value }),
+  }),
+]);
 
 function template(): string {
   return readFileSync(templatePath, "utf8");
+}
+
+function parsedTemplate() {
+  return parseYaml(template(), { schema: cloudFormationSchema }) as {
+    Resources: Record<
+      string,
+      {
+        Properties?: {
+          PolicyDocument?: {
+            Statement?: Array<{
+              Action?: string | string[];
+              Condition?: Record<string, unknown>;
+              Sid?: string;
+            }>;
+          };
+        };
+      }
+    >;
+  };
 }
 
 function resourceBlock(source: string, logicalId: string, nextId: string) {
@@ -221,6 +272,22 @@ describe("external intake storage infrastructure policy", () => {
     expect(source).toContain(
       "events:ManagedBy: malware-protection-plan.guardduty.amazonaws.com"
     );
+  });
+
+  it("allows GuardDuty to validate bucket ownership without a prefix condition", () => {
+    const statements =
+      parsedTemplate().Resources.GuardDutyMalwareProtectionRolePolicy.Properties
+        ?.PolicyDocument?.Statement ?? [];
+    const ownership = statements.find(
+      (statement) => statement.Sid === "AllowCheckBucketOwnership"
+    );
+
+    expect(ownership).toBeDefined();
+    expect(ownership?.Action).toEqual([
+      "s3:ListBucket",
+      "s3:GetBucketLocation",
+    ]);
+    expect(ownership).not.toHaveProperty("Condition");
   });
 
   it("uses OAC, trusted keys, zero caching, and separate delivery behaviors", () => {

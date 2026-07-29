@@ -346,16 +346,13 @@ Resources:
             Action:
               - s3:GetBucketNotification
               - s3:PutBucketNotification
+            Resource: !GetAtt ExternalIntakeBucket.Arn
+          - Sid: AllowCheckBucketOwnership
+            Effect: Allow
+            Action:
+              - s3:ListBucket
               - s3:GetBucketLocation
             Resource: !GetAtt ExternalIntakeBucket.Arn
-          - Sid: ListGuardDutyQuarantinePrefix
-            Effect: Allow
-            Action: s3:ListBucket
-            Resource: !GetAtt ExternalIntakeBucket.Arn
-            Condition:
-              StringLike:
-                s3:prefix:
-                  - quarantine/*
           - Sid: ScanAndTagQuarantineObjects
             Effect: Allow
             Action:
