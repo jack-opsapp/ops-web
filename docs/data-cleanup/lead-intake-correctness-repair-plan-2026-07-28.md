@@ -16,13 +16,14 @@ No provider message, thread, label, draft, or mailbox setting may be changed.
 
 ## Release gate
 
-The repair must not run until all three engineering-validated application
+The repair must not run until all four engineering-validated application
 migrations are applied in order and the compatible application release is
 live:
 
 1. `20260728160000_property_address_identity_boundary.sql`
 2. `20260728161000_authoritative_staff_email_aliases.sql`
 3. `20260728162000_guarded_customer_decline_lifecycle.sql`
+4. `20260728163000_guarded_staff_false_lead_correction.sql`
 
 Immediately before the approved run, export a fresh read-only manifest
 containing every row and expected value named below. Canonicalize the JSON and
@@ -153,8 +154,9 @@ stage transition. Run the normal summary refresh after commit.
 
 ## Entry 3 — correct Jason Zavarella staff mail
 
-This entry requires a separately engineering-validated, service-role-only
-repair function.
+This entry uses the engineering-validated, service-role-only
+`apply_staff_authored_false_lead_correction_guarded(...)` function from
+`20260728163000_guarded_staff_false_lead_correction.sql`.
 The ordinary customer-message reparent function must not be used: these are
 staff-authored outbound messages and must first change direction/party
 authority. The repair function must be additive, idempotent, manifest-bound,
@@ -184,12 +186,16 @@ domain similarity, or message text alone.
 - Current false assignment event:
   `d90ec5af-129d-4b56-8abf-bab5579e926b`
 - Delivery: `2d560bf5-2c98-4c1e-a330-907b95dcc5ba`
-- Notification: `31f77324-7c75-4812-851b-f7735d32c7b3`
+- Notifications:
+  `31f77324-7c75-4812-851b-f7735d32c7b3`,
+  `96ac1b82-30f3-473d-9ed6-a11b78a78067`, and
+  `eb00a311-607c-4f1b-84c5-35a663f15647`
 - Expected child inventory: two activities, two correspondence events, two
-  opportunity-thread joins, one inbox thread, one lifecycle state, one
-  assignment event/delivery/notification, one stored attachment, and no
-  dispositions, transitions, follow-ups, drafts, suggestions, approved email
-  intents, or contact-form draft rows.
+  opportunity-thread joins, two inbox threads, one lifecycle state, one
+  assignment event/delivery, three notifications, one stored attachment, one
+  unsent Phase C generated draft, and five field-provenance rows. There are no
+  dispositions, transitions, follow-ups, follow-up drafts, lifecycle action
+  audits, pending sends, approved email intents, or contact-form draft rows.
 
 Any count or row-identity difference aborts the entry and requires a new
 read-only review.
@@ -203,6 +209,9 @@ read-only review.
 - External recipient: `eyans2@telus.net`
 - Attachment: `9f065064-b1da-4621-85d8-a2118152e7e4`,
   `Quote_-_177_Hampshire_Road.pdf`
+- New property identity: `177 Hampshire Road`
+- New source key:
+  `email:gmail:5dd46f2b-a6b6-4a3d-9c5a-d660341f14a3:message:19f05da45dbcf41b`
 - Current production has no active exact client/opportunity for the recipient.
 
 Create one message-scoped customer/client opportunity for Darrell and Jane,
@@ -238,17 +247,22 @@ correspondence/lifecycle projection and summary.
 Only after both messages and every child row have moved:
 
 - Resolve the false assignment notification with an explicit data-correction
-  reason; retain the delivery/event as audit history and mark it corrected
-  through repair metadata rather than deleting it.
+  reason together with the false customer/reply notifications; retain the
+  assignment delivery/event as audit history and mark the correction through
+  the immutable repair receipt rather than deleting it.
+- Mark the unsent OPS draft discarded while preserving its provider draft id.
+  Gmail remains read-only; no provider draft is deleted or changed.
 - Soft-delete/discard the false opportunity and record a correction disposition
   naming both destination opportunity IDs and the frozen manifest hash.
 - Soft-delete the false JZ Construction client only if a final company-wide
   reference scan proves no remaining active relationship. Otherwise retain it
   as an auditable corrected shell with no active lead identity.
 - Assert zero remaining activity, correspondence, attachment, inbox-thread,
-  lifecycle, opportunity-thread, follow-up, draft, assignment, conversion,
-  notification, estimate/invoice, project, and suggestion references to the
-  false opportunity except the explicitly retained correction audit rows.
+  lifecycle, opportunity-thread, follow-up, active draft, conversion,
+  estimate/invoice, project, and suggestion references to the false
+  opportunity. Retain only the discarded draft, field provenance, resolved
+  notifications, assignment event/delivery, disposition, transition, and
+  immutable correction receipt as explicit audit history.
 
 ### Readback
 
