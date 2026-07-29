@@ -25,12 +25,17 @@ import {
   COMPANY_SCOPED_DATA,
   FK_CYCLE_BREAKERS,
   MANIFEST_VERSION,
+  OUT_OF_SCOPE_TABLES,
   PARENT_SCOPED_DATA,
   TENANT_TABLE,
   UNTYPED_TABLE_ALLOWLIST,
   exportPlan,
   manifestByTable,
 } from "@/lib/data/company-data-manifest";
+import {
+  AUTH_IDENTITY_SNAPSHOT,
+  IN_SCOPE_SNAPSHOT,
+} from "@/lib/data/company-data-scope-snapshot";
 
 const ROOT = path.resolve(__dirname, "../..");
 
@@ -95,7 +100,103 @@ function readRouteSource(route: "delete-account" | "export"): string {
     .replace(/^\s*\/\/.*$/gm, "");
 }
 
-describe("company data manifest — completeness diff against the generated schema", () => {
+describe("company data manifest — PRIMARY guard: the live in-scope snapshot", () => {
+  const manifestTables = new Set(COMPANY_DATA_MANIFEST.map((e) => e.table));
+  const outOfScope = new Set(OUT_OF_SCOPE_TABLES.map((e) => e.table));
+  const accountedFor = new Set([...manifestTables, ...outOfScope]);
+
+  it("accounts for every table the live schema puts inside a company", () => {
+    const unaccounted = IN_SCOPE_SNAPSHOT.filter(
+      (table) => !accountedFor.has(table)
+    ).sort();
+
+    expect(
+      unaccounted,
+      `In scope per the live schema but neither classified in the manifest nor declared in ` +
+        `OUT_OF_SCOPE_TABLES. Absence is not an exclusion — give each one a strategy and an ` +
+        `export decision, or an explicit reason for being out of scope: ${unaccounted.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("never classifies a table that is not actually in scope", () => {
+    const phantom = [...manifestTables]
+      .filter(
+        (table) => !IN_SCOPE_SNAPSHOT.includes(table) && table !== TENANT_TABLE
+      )
+      .sort();
+
+    expect(
+      phantom,
+      `Manifest classifies tables the live snapshot does not place in a company's scope. ` +
+        `Either they were renamed/dropped, or the snapshot needs regenerating: ${phantom.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("adds only the tenant row on top of the derived scope", () => {
+    expect(manifestTables.has(TENANT_TABLE)).toBe(true);
+    expect(IN_SCOPE_SNAPSHOT).not.toContain(TENANT_TABLE);
+  });
+
+  it("forces a decision on every auth-identity table the closure cannot reach", () => {
+    const undeclared = AUTH_IDENTITY_SNAPSHOT.filter(
+      (table) => !outOfScope.has(table)
+    ).sort();
+
+    expect(
+      undeclared,
+      `These hang off auth.users rather than public.users, so the company_id closure cannot ` +
+        `see them — they must be explicitly declared in OUT_OF_SCOPE_TABLES: ${undeclared.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("keeps the snapshot itself plausible", () => {
+    expect(IN_SCOPE_SNAPSHOT.length).toBeGreaterThan(200);
+    expect(new Set(IN_SCOPE_SNAPSHOT).size).toBe(IN_SCOPE_SNAPSHOT.length);
+    expect(new Set(AUTH_IDENTITY_SNAPSHOT).size).toBe(
+      AUTH_IDENTITY_SNAPSHOT.length
+    );
+    for (const table of AUTH_IDENTITY_SNAPSHOT) {
+      expect(IN_SCOPE_SNAPSHOT, `${table} cannot be both`).not.toContain(table);
+    }
+  });
+});
+
+describe("company data manifest — out-of-scope registry", () => {
+  const generated = readGeneratedTypes();
+  const manifestTables = new Set(COMPANY_DATA_MANIFEST.map((e) => e.table));
+
+  it("gives every exclusion a substantive reason", () => {
+    for (const entry of OUT_OF_SCOPE_TABLES) {
+      expect(entry.reason?.trim().length, `${entry.table}`).toBeGreaterThan(40);
+    }
+  });
+
+  it("never excludes and classifies the same table", () => {
+    const both = OUT_OF_SCOPE_TABLES.filter((e) =>
+      manifestTables.has(e.table)
+    ).map((e) => e.table);
+    expect(both, `declared out of scope AND classified: ${both.join(", ")}`).toEqual(
+      []
+    );
+  });
+
+  it("names only real tables, so a typo cannot be parked here", () => {
+    const unknown = OUT_OF_SCOPE_TABLES.filter(
+      (e) => !generated.tables.has(e.table)
+    ).map((e) => e.table);
+    expect(
+      unknown,
+      `out-of-scope entries absent from database.types.ts: ${unknown.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("has no duplicate entries", () => {
+    const names = OUT_OF_SCOPE_TABLES.map((e) => e.table);
+    expect(new Set(names).size).toBe(names.length);
+  });
+});
+
+describe("company data manifest — SECONDARY guard: the generated types", () => {
   const generated = readGeneratedTypes();
   const manifestTables = new Set(COMPANY_DATA_MANIFEST.map((e) => e.table));
 
@@ -310,13 +411,64 @@ describe("company data manifest — strategy integrity", () => {
     ).toEqual([]);
   });
 
-  it("keeps the retained set small and deliberate", () => {
+  it("retains exactly the deliberated set, and nothing else", () => {
+    // Pinned rather than capped: adding a retained table means a customer's
+    // data survives account closure, which must be a reviewed decision, not a
+    // number that happens to fit under a limit.
     const retained = COMPANY_DATA_MANIFEST.filter(
       (e) => e.deleteStrategy === "retain"
     );
-    expect(retained.length).toBeLessThanOrEqual(20);
+
+    expect(retained.map((e) => e.table).sort()).toEqual([
+      // Referential integrity — surviving tombstones still point at these.
+      "expense_batches",
+      "expense_categories",
+      // Financial and audit obligations that outlive the account.
+      "audit_log",
+      "billing_events",
+      // OPS's own SPEC sales ledger, enumerated in full.
+      "spec_acceptance_events",
+      "spec_blocked_buyers",
+      "spec_change_orders",
+      "spec_communications",
+      "spec_email_outbox",
+      "spec_feature_acceptance",
+      "spec_internal_notes",
+      "spec_module_entitlements",
+      "spec_owner_approval_requests",
+      "spec_payments",
+      "spec_projects",
+      "spec_referrals",
+      "spec_refund_requests",
+      "spec_retainers",
+      "spec_satisfaction_ratings",
+      "spec_scope_documents",
+      "spec_support_tickets",
+    ].sort());
+
     for (const entry of retained) {
       expect(entry.reason, `${entry.table}`).toBeTruthy();
+    }
+  });
+
+  it("enumerates the whole SPEC family rather than implying its children", () => {
+    // The family used to stop at the nine tables that FK `users` directly, with
+    // the deeper ones only mentioned in prose — exactly the absence-as-exclusion
+    // pattern this file exists to prevent.
+    const byTable = manifestByTable();
+    for (const table of [
+      "spec_change_orders",
+      "spec_payments",
+      "spec_referrals",
+      "spec_retainers",
+      "spec_satisfaction_ratings",
+      "spec_scope_documents",
+      "spec_support_tickets",
+    ]) {
+      const entry = byTable.get(table);
+      expect(entry, `${table} must be declared, not implied`).toBeDefined();
+      expect(entry!.deleteStrategy).toBe("retain");
+      expect(entry!.export).toBe(false);
     }
   });
 
