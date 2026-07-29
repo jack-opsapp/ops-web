@@ -8485,6 +8485,255 @@ export type Database = {
           },
         ]
       }
+      lead_classification_reviews: {
+        Row: {
+          adjusted_lead_score: number
+          baseline_confidence: number
+          baseline_verdict: string
+          company_id: string
+          connection_id: string
+          created_at: string
+          evidence: Json
+          id: string
+          provider_message_id: string
+          provider_thread_id: string
+          resolved_at: string | null
+          review_reason: string
+          sender_domain: string | null
+          sender_email: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          adjusted_lead_score: number
+          baseline_confidence: number
+          baseline_verdict: string
+          company_id: string
+          connection_id: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          provider_message_id: string
+          provider_thread_id: string
+          resolved_at?: string | null
+          review_reason: string
+          sender_domain?: string | null
+          sender_email?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          adjusted_lead_score?: number
+          baseline_confidence?: number
+          baseline_verdict?: string
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          provider_message_id?: string
+          provider_thread_id?: string
+          resolved_at?: string | null
+          review_reason?: string
+          sender_domain?: string | null
+          sender_email?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_classification_reviews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_classification_reviews_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_disposition_feedback: {
+        Row: {
+          actor_user_id: string
+          applied_opportunity_updated_at: string | null
+          applied_stage: string | null
+          apply_idempotency_key: string
+          canonical_outcome: string
+          company_id: string
+          created_at: string
+          disposition_id: string | null
+          id: string
+          learning_polarity: string
+          learning_state: string
+          model_context: Json
+          opportunity_id: string
+          optional_note: string | null
+          participants_hash: string | null
+          phase_c_enabled: boolean
+          policy_context: Json
+          prior_actual_close_date: string | null
+          prior_disposition_id: string | null
+          prior_lost_notes: string | null
+          prior_lost_reason: string | null
+          prior_stage: string
+          prior_stage_entered_at: string
+          prior_stage_manually_set: boolean
+          reason_code: string
+          resolution_status: string
+          retracted_at: string | null
+          retracted_by: string | null
+          sender_domain: string | null
+          sender_email: string | null
+          source_connection_id: string | null
+          source_message_id: string | null
+          source_provider_thread_id: string | null
+          source_thread_id: string | null
+          source_thread_key: string | null
+          undo_idempotency_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          actor_user_id: string
+          applied_opportunity_updated_at?: string | null
+          applied_stage?: string | null
+          apply_idempotency_key: string
+          canonical_outcome: string
+          company_id: string
+          created_at?: string
+          disposition_id?: string | null
+          id?: string
+          learning_polarity: string
+          learning_state?: string
+          model_context?: Json
+          opportunity_id: string
+          optional_note?: string | null
+          participants_hash?: string | null
+          phase_c_enabled: boolean
+          policy_context?: Json
+          prior_actual_close_date?: string | null
+          prior_disposition_id?: string | null
+          prior_lost_notes?: string | null
+          prior_lost_reason?: string | null
+          prior_stage: string
+          prior_stage_entered_at: string
+          prior_stage_manually_set: boolean
+          reason_code: string
+          resolution_status: string
+          retracted_at?: string | null
+          retracted_by?: string | null
+          sender_domain?: string | null
+          sender_email?: string | null
+          source_connection_id?: string | null
+          source_message_id?: string | null
+          source_provider_thread_id?: string | null
+          source_thread_id?: string | null
+          source_thread_key?: string | null
+          undo_idempotency_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actor_user_id?: string
+          applied_opportunity_updated_at?: string | null
+          applied_stage?: string | null
+          apply_idempotency_key?: string
+          canonical_outcome?: string
+          company_id?: string
+          created_at?: string
+          disposition_id?: string | null
+          id?: string
+          learning_polarity?: string
+          learning_state?: string
+          model_context?: Json
+          opportunity_id?: string
+          optional_note?: string | null
+          participants_hash?: string | null
+          phase_c_enabled?: boolean
+          policy_context?: Json
+          prior_actual_close_date?: string | null
+          prior_disposition_id?: string | null
+          prior_lost_notes?: string | null
+          prior_lost_reason?: string | null
+          prior_stage?: string
+          prior_stage_entered_at?: string
+          prior_stage_manually_set?: boolean
+          reason_code?: string
+          resolution_status?: string
+          retracted_at?: string | null
+          retracted_by?: string | null
+          sender_domain?: string | null
+          sender_email?: string | null
+          source_connection_id?: string | null
+          source_message_id?: string | null
+          source_provider_thread_id?: string | null
+          source_thread_id?: string | null
+          source_thread_key?: string | null
+          undo_idempotency_key?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_disposition_feedback_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_disposition_id_fkey"
+            columns: ["disposition_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_dispositions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_prior_disposition_id_fkey"
+            columns: ["prior_disposition_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_dispositions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_retracted_by_fkey"
+            columns: ["retracted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_source_connection_id_fkey"
+            columns: ["source_connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_source_thread_id_fkey"
+            columns: ["source_thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_field_provenance: {
         Row: {
           actor_user_id: string | null
@@ -17606,6 +17855,27 @@ export type Database = {
         Args: { p_estimate_id: string; p_idempotency_key: string }
         Returns: Json
       }
+      apply_lead_disposition_feedback: {
+        Args: {
+          p_idempotency_key: string
+          p_opportunity_id: string
+          p_optional_note: string | null
+          p_reason_code: string
+        }
+        Returns: {
+          current_actual_close_date: string | null
+          current_lost_notes: string | null
+          current_lost_reason: string | null
+          current_stage: string
+          current_stage_entered_at: string
+          current_stage_manually_set: boolean
+          feedback_id: string
+          idempotent_replay: boolean
+          lifecycle_changed: boolean
+          outcome: string
+          prior_stage: string
+        }[]
+      }
       acquire_email_connection_sync_lock_as_system: {
         Args: { p_connection_id: string; p_lease_seconds?: number }
         Returns: string
@@ -18795,6 +19065,13 @@ export type Database = {
           schedule: string
         }[]
       }
+      get_lead_disposition_context: {
+        Args: { p_opportunity_id: string }
+        Returns: {
+          phase_c_enabled: boolean
+          policy_version: string
+        }[]
+      }
       get_opportunity_lead_files: {
         Args: { p_opportunity_id: string }
         Returns: {
@@ -19928,6 +20205,25 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      undo_lead_disposition_feedback: {
+        Args: {
+          p_feedback_id: string
+          p_idempotency_key: string
+        }
+        Returns: {
+          current_actual_close_date: string | null
+          current_lost_notes: string | null
+          current_lost_reason: string | null
+          current_stage: string
+          current_stage_entered_at: string
+          current_stage_manually_set: boolean
+          feedback_id: string
+          idempotent_replay: boolean
+          lifecycle_changed: boolean
+          outcome: string
+          prior_stage: string
+        }[]
       }
       users_with_permission: {
         Args: {

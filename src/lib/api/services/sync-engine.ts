@@ -57,6 +57,7 @@ import {
   reportOpenAIQuotaExhausted,
   type OpenAIQuotaErrorMetadata,
 } from "@/lib/notifications/openai-quota-alert-service";
+import { persistDeferredLeadClassification } from "./lead-feedback-prior-service";
 import {
   buildEmailOpportunityTitle,
   identityCandidateFromMailbox,
@@ -3872,6 +3873,32 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       domains: input.profile.companyDomains || [],
     }
   );
+
+  for (const deferred of aiResult.deferredClassifications ?? []) {
+    await input.providerLockCheckpoint();
+    const context = unmatchedContextByIdentity.get(
+      `${deferred.email.threadId}\u0000${deferred.email.id}`
+    );
+    if (!context) {
+      throw new LifecyclePersistenceError(
+        "[sync-engine] feedback prior deferred a message outside the unmatched set"
+      );
+    }
+    await persistDeferredLeadClassification({
+      companyId: input.connection.companyId,
+      connectionId: input.connection.id,
+      candidate: {
+        providerThreadId: deferred.email.threadId,
+        providerMessageId: deferred.email.id,
+        senderEmail: deferred.email.from,
+      },
+      baseline: deferred.baseline,
+      decision: deferred.decision,
+      mayProjectThread: context.routingIdentity.mayInheritProviderThread,
+      client: requireSupabase(),
+    });
+    input.result.needsReview += 1;
+  }
 
   for (const classified of aiResult.classifiedLeads) {
     await input.providerLockCheckpoint();
