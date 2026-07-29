@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildLeadRoutingIdentity,
   canonicalizeProviderThreadId,
+  quarantinePendingStaffAlias,
   resolvePersistedEmailAuthorship,
   resolvePersistedEmailDirection,
 } from "@/lib/email/email-ingestion-routing";
@@ -306,6 +307,78 @@ describe("resolvePersistedEmailDirection", () => {
       phone: "2506619544",
       registeredEmailRecipient: true,
     });
+  });
+
+  it("keeps an already-pending alias quarantined as outbound review without requiring repeated signature evidence", () => {
+    const resolution = resolvePersistedEmailAuthorship(
+      email({
+        from: "JZ Construction <info.jzconstruct@gmail.com>",
+        fromName: "JZ Construction",
+        to: ["another.customer@example.com"],
+        cc: [],
+        bodyText: "Attached is the revised quote.",
+      }),
+      {
+        ...operator,
+        staffMembers: [
+          {
+            userId: "user-jason",
+            registeredEmail: "fourseasonscontracting705@gmail.com",
+            fullName: "Jason Zavarella",
+            phone: "2506619544",
+            verifiedAliases: [],
+            pendingAliases: ["info.jzconstruct@gmail.com"],
+            rejectedAliases: [],
+          },
+        ],
+      }
+    );
+
+    expect(resolution).toEqual({
+      direction: "outbound",
+      staffAliasCandidate: null,
+    });
+  });
+
+  it("quarantines a newly persisted candidate once for the matching staff member", () => {
+    const staffMembers = [
+      {
+        userId: "user-jason",
+        registeredEmail: "fourseasonscontracting705@gmail.com",
+        fullName: "Jason Zavarella",
+        phone: "2506619544",
+        verifiedAliases: [],
+        pendingAliases: [],
+        rejectedAliases: [],
+      },
+      {
+        userId: "user-jackson",
+        registeredEmail: "canprojack@gmail.com",
+        fullName: "Jackson Sweet",
+        phone: null,
+        verifiedAliases: [],
+        pendingAliases: [],
+        rejectedAliases: [],
+      },
+    ];
+    const ingestionOperator = { ...operator, staffMembers };
+    const candidate = {
+      userId: "user-jason",
+      email: " INFO.JZCONSTRUCT@gmail.com ",
+      evidence: {
+        fullName: "Jason Zavarella",
+        phone: "2506619544",
+        registeredEmailRecipient: true,
+      },
+    };
+
+    quarantinePendingStaffAlias(ingestionOperator, candidate);
+    quarantinePendingStaffAlias(ingestionOperator, candidate);
+
+    expect(staffMembers[0].pendingAliases).toEqual([
+      "info.jzconstruct@gmail.com",
+    ]);
+    expect(staffMembers[1].pendingAliases).toEqual([]);
   });
 
   it("keeps public-domain customers inbound when they share a name or phone fragment", () => {

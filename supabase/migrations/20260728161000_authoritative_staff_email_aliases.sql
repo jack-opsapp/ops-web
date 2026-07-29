@@ -2,71 +2,136 @@
 -- Pending signature evidence blocks false lead creation but never grants exact
 -- operator identity until an administrator explicitly verifies the alias.
 
+begin;
+
 create table public.user_email_aliases (
   id uuid primary key default gen_random_uuid(),
   company_id uuid not null references public.companies(id) on delete cascade,
-  user_id uuid not null references public.users(id) on delete cascade,
+  user_id uuid not null,
   email text not null,
   status text not null default 'pending'
     check (status in ('pending', 'verified', 'rejected')),
   source text not null
     check (source in (
       'signature_corroborated',
-      'operator_verified',
-      'provider_attested',
-      'profile_authority'
+      'operator_verified'
     )),
   evidence jsonb not null default '{}'::jsonb
     check (jsonb_typeof(evidence) = 'object'),
   first_seen_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  reviewed_by uuid,
   verified_at timestamptz,
-  verified_by uuid references public.users(id) on delete set null,
+  verified_by uuid,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint user_email_aliases_user_company_fkey
+    foreign key (company_id, user_id)
+    references public.users (company_id, id)
+    on delete cascade,
+  constraint user_email_aliases_reviewer_company_fkey
+    foreign key (company_id, reviewed_by)
+    references public.users (company_id, id)
+    on delete restrict,
+  constraint user_email_aliases_verifier_company_fkey
+    foreign key (company_id, verified_by)
+    references public.users (company_id, id)
+    on delete restrict,
   constraint user_email_aliases_normalized_email
     check (
       email = lower(btrim(email))
       and email ~ '^[a-z0-9.!#$%&''*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}$'
     ),
-  constraint user_email_aliases_verified_audit
+  constraint user_email_aliases_review_audit
     check (
-      (status = 'verified' and verified_at is not null)
-      or (status <> 'verified' and verified_at is null)
+      (
+        status = 'pending'
+        and source = 'signature_corroborated'
+        and reviewed_at is null
+        and reviewed_by is null
+        and verified_at is null
+        and verified_by is null
+      )
+      or (
+        status = 'verified'
+        and source = 'operator_verified'
+        and reviewed_at is not null
+        and reviewed_by is not null
+        and verified_at is not distinct from reviewed_at
+        and verified_by is not distinct from reviewed_by
+      )
+      or (
+        status = 'rejected'
+        and source = 'signature_corroborated'
+        and reviewed_at is not null
+        and reviewed_by is not null
+        and verified_at is null
+        and verified_by is null
+      )
     ),
   unique (company_id, email)
 );
 
 create index user_email_aliases_user_status_idx
-  on public.user_email_aliases (user_id, status, email);
+  on public.user_email_aliases (company_id, user_id, status, email);
+create index user_email_aliases_reviewed_by_idx
+  on public.user_email_aliases (company_id, reviewed_by)
+  where reviewed_by is not null;
+create index user_email_aliases_verified_by_idx
+  on public.user_email_aliases (company_id, verified_by)
+  where verified_by is not null;
 
 alter table public.user_email_aliases enable row level security;
 
 revoke all on table public.user_email_aliases
   from public, anon, authenticated, service_role;
 grant select on table public.user_email_aliases to authenticated, service_role;
-grant insert, update, delete on table public.user_email_aliases to service_role;
 
-create policy user_email_aliases_company_read
+create policy user_email_aliases_admin_read
   on public.user_email_aliases
   for select
   to authenticated
-  using (company_id = (select private.get_user_company_id()));
+  using (
+    company_id = (select private.get_user_company_id())
+    and private.permission_user_is_admin(
+      (select private.get_current_user_id()),
+      company_id
+    )
+  );
 
 create or replace function private.guard_user_email_alias_identity()
 returns trigger
 language plpgsql
 security definer
-set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+set search_path = ''
 as $function$
 begin
   if tg_op = 'UPDATE' and (
-    new.company_id is distinct from old.company_id
+    new.id is distinct from old.id
+    or new.company_id is distinct from old.company_id
     or new.user_id is distinct from old.user_id
     or new.email is distinct from old.email
+    or new.first_seen_at is distinct from old.first_seen_at
     or new.created_at is distinct from old.created_at
   ) then
     raise exception 'staff alias identity is immutable'
+      using errcode = '22023';
+  end if;
+
+  if tg_op = 'UPDATE'
+    and old.status <> 'pending'
+    and (
+      new.status is distinct from old.status
+      or new.source is distinct from old.source
+      or new.evidence is distinct from old.evidence
+      or new.reviewed_at is distinct from old.reviewed_at
+      or new.reviewed_by is distinct from old.reviewed_by
+      or new.verified_at is distinct from old.verified_at
+      or new.verified_by is distinct from old.verified_by
+    )
+  then
+    raise exception 'staff alias review is immutable'
       using errcode = '22023';
   end if;
 
@@ -117,7 +182,7 @@ create or replace function public.record_staff_email_alias_candidate_as_system(
 ) returns uuid
 language plpgsql
 security definer
-set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+set search_path = ''
 as $function$
 declare
   v_email text := lower(btrim(coalesce(p_email, '')));
@@ -126,7 +191,7 @@ declare
   v_expected_phone text;
   v_alias public.user_email_aliases%rowtype;
 begin
-  if coalesce(auth.role(), '') <> 'service_role' then
+  if coalesce(auth.jwt() ->> 'role', '') <> 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
   if p_company_id is null
@@ -235,8 +300,8 @@ begin
     'signature_corroborated',
     p_evidence || jsonb_build_object(
       'connection_id', p_connection_id,
-      'provider_thread_id', p_provider_thread_id,
-      'provider_message_id', p_provider_message_id
+      'provider_thread_id', btrim(p_provider_thread_id),
+      'provider_message_id', btrim(p_provider_message_id)
     )
   )
   on conflict (company_id, email) do update
@@ -259,7 +324,7 @@ $function$;
 
 revoke all on function public.record_staff_email_alias_candidate_as_system(
   uuid, uuid, uuid, text, text, text, jsonb
-) from public, anon, authenticated;
+) from public, anon, authenticated, service_role;
 grant execute on function public.record_staff_email_alias_candidate_as_system(
   uuid, uuid, uuid, text, text, text, jsonb
 ) to service_role;
@@ -270,11 +335,12 @@ create or replace function public.review_user_email_alias(
 ) returns public.user_email_aliases
 language plpgsql
 security definer
-set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+set search_path = ''
 as $function$
 declare
   v_actor_user_id uuid := private.get_current_user_id();
   v_alias public.user_email_aliases%rowtype;
+  v_reviewed_at timestamptz := now();
 begin
   if p_status not in ('verified', 'rejected') then
     raise exception 'invalid staff alias review status'
@@ -308,13 +374,18 @@ begin
            when p_status = 'verified' then 'operator_verified'
            else source
          end,
+         reviewed_at = v_reviewed_at,
+         reviewed_by = v_actor_user_id,
          verified_at = case
-           when p_status = 'verified' then now()
+           when p_status = 'verified' then v_reviewed_at
            else null
          end,
-         verified_by = v_actor_user_id,
+         verified_by = case
+           when p_status = 'verified' then v_actor_user_id
+           else null
+         end,
          evidence = evidence || jsonb_build_object(
-           'reviewed_at', now(),
+           'reviewed_at', v_reviewed_at,
            'reviewed_by', v_actor_user_id,
            'review_status', p_status
          )
@@ -325,6 +396,8 @@ end;
 $function$;
 
 revoke all on function public.review_user_email_alias(uuid, text)
-  from public, anon, service_role;
+  from public, anon, authenticated, service_role;
 grant execute on function public.review_user_email_alias(uuid, text)
   to authenticated;
+
+commit;

@@ -38,6 +38,30 @@ export interface StaffAliasCandidate {
   };
 }
 
+/**
+ * Quarantine a newly persisted candidate inside the current ingestion snapshot.
+ * The database row becomes authoritative on the next refresh; this cycle-local
+ * mirror prevents later messages in the same batch from racing ahead of it.
+ */
+export function quarantinePendingStaffAlias(
+  operator: IngestionOperatorIdentity,
+  candidate: StaffAliasCandidate
+): void {
+  const member = operator.staffMembers?.find(
+    (staffMember) => staffMember.userId === candidate.userId
+  );
+  if (!member) return;
+  const alias = normalizedEmail(candidate.email);
+  if (
+    alias &&
+    !member.pendingAliases.some(
+      (pendingAlias) => normalizedEmail(pendingAlias) === alias
+    )
+  ) {
+    member.pendingAliases.push(alias);
+  }
+}
+
 export interface PersistedEmailAuthorship {
   direction: "inbound" | "outbound";
   staffAliasCandidate: StaffAliasCandidate | null;
@@ -274,6 +298,24 @@ function trustedSenderSet(values: string[] | undefined): Set<string> {
   return new Set((values ?? []).map(normalizedEmail).filter(Boolean));
 }
 
+function isPendingStaffAlias(
+  sender: string,
+  operator: IngestionOperatorIdentity
+): boolean {
+  if (!sender) return false;
+  const members = operator.staffMembers ?? [];
+  if (
+    members.some((member) =>
+      member.rejectedAliases.map(normalizedEmail).includes(sender)
+    )
+  ) {
+    return false;
+  }
+  return members.some((member) =>
+    member.pendingAliases.map(normalizedEmail).includes(sender)
+  );
+}
+
 function isTrustedForwardingWrapper(
   email: Pick<NormalizedEmail, "from" | "authenticatedFromDomains">,
   operator: IngestionOperatorIdentity
@@ -478,6 +520,15 @@ export function resolvePersistedEmailAuthorship(
 
   const fromDomain = normalizedDomain(from.split("@")[1]);
   if (fromDomain && companyDomains.has(fromDomain)) {
+    return { direction: "outbound", staffAliasCandidate: null };
+  }
+
+  // A pending alias has already passed exact full-name + full-phone
+  // corroboration and is awaiting an administrator's decision. Quarantine
+  // every later message from that exact mailbox as outbound/review even when
+  // its body no longer repeats the signature evidence. A rejected alias
+  // remains eligible as an external sender.
+  if (isPendingStaffAlias(from, operator)) {
     return { direction: "outbound", staffAliasCandidate: null };
   }
 

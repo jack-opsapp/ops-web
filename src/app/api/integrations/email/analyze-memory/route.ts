@@ -23,6 +23,7 @@ import { EmailService } from "@/lib/api/services/email-service";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
 import {
   ingestionOperatorIdentityFromAuthoritative,
+  quarantinePendingStaffAlias,
   resolvePersistedEmailAuthorship,
 } from "@/lib/email/email-ingestion-routing";
 import { fetchOperatorIdentity } from "@/lib/api/services/conversation-state/operator-identity";
@@ -494,6 +495,10 @@ async function runPhaseCEntry(
         providerMessageId: email.id,
         candidate: authorship.staffAliasCandidate,
       });
+      quarantinePendingStaffAlias(
+        ingestionOperator,
+        authorship.staffAliasCandidate
+      );
     }
     persistedDirections.set(email.id, authorship.direction);
     return authorship.direction;
@@ -593,11 +598,19 @@ async function runPhaseCEntry(
 
     for (const r of results) {
       if (r.messages) {
-        await Promise.all(
-          r.messages.map((message) =>
-            ensurePersistedDirection(message as NormalizedEmail)
-          )
+        const messagesInAuthorshipOrder = [...r.messages].sort(
+          (left, right) => {
+            const leftEmail = left as NormalizedEmail;
+            const rightEmail = right as NormalizedEmail;
+            const byDate = leftEmail.date.getTime() - rightEmail.date.getTime();
+            return byDate !== 0
+              ? byDate
+              : leftEmail.id.localeCompare(rightEmail.id);
+          }
         );
+        for (const message of messagesInAuthorshipOrder) {
+          await ensurePersistedDirection(message as NormalizedEmail);
+        }
         fetchedThreads.set(r.threadId, r.messages);
       }
     }

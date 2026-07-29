@@ -47,6 +47,7 @@ import {
   applyInboundEffectiveSenderIdentity,
   buildLeadRoutingIdentity,
   ingestionOperatorIdentityFromAuthoritative,
+  quarantinePendingStaffAlias,
   resolvePersistedEmailAuthorship,
 } from "@/lib/email/email-ingestion-routing";
 import { fetchOperatorIdentity } from "@/lib/api/services/conversation-state/operator-identity";
@@ -598,7 +599,11 @@ async function runPhaseA(
   );
 
   // Also collect all estimate-pattern thread IDs from the emailSourceMap directly
-  for (const email of validEmails) {
+  const validEmailsInAuthorshipOrder = [...validEmails].sort((left, right) => {
+    const byDate = left.date.getTime() - right.date.getTime();
+    return byDate !== 0 ? byDate : left.id.localeCompare(right.id);
+  });
+  for (const email of validEmailsInAuthorshipOrder) {
     if (detection.emailSourceMap[email.id] === "estimate_pattern") {
       estimateThreadIds.add(email.threadId);
     }
@@ -612,7 +617,7 @@ async function runPhaseA(
     additionalCompanyDomains: [...companyDomainSet],
   });
   const persistedDirections = new Map<string, "inbound" | "outbound">();
-  for (const email of validEmails) {
+  for (const email of validEmailsInAuthorshipOrder) {
     if (persistedDirections.has(email.id)) continue;
     const authorship = resolvePersistedEmailAuthorship(
       email,
@@ -627,6 +632,10 @@ async function runPhaseA(
         providerMessageId: email.id,
         candidate: authorship.staffAliasCandidate,
       });
+      quarantinePendingStaffAlias(
+        ingestionOperator,
+        authorship.staffAliasCandidate
+      );
     }
     persistedDirections.set(email.id, authorship.direction);
   }

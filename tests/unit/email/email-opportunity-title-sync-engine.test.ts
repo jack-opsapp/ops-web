@@ -5457,6 +5457,106 @@ To: Kara Beach <kara.beach@example.com>`,
     ]);
   });
 
+  it("quarantines later same-cycle mail from a newly pending staff alias even when the signature does not repeat", async () => {
+    const connectionId = "connection-jason-secondary-same-cycle";
+    const state: SupabaseState = {
+      clients: [],
+      operatorUsers: [
+        {
+          id: "user-jason",
+          first_name: "Jason",
+          last_name: "Zavarella",
+          email: "fourseasonscontracting705@gmail.com",
+          phone: "2506619544",
+        },
+      ],
+      operatorEmailAliases: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      correspondenceEvents: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const connection = baseConnection({
+      id: connectionId,
+      email: "canprojack@gmail.com",
+      syncFilters: {
+        includeSentMail: true,
+        estimateSubjectPatterns: ["quote"],
+        companyDomains: ["canprodeckandrail.com"],
+        teamForwarders: [],
+        userEmailAddresses: [],
+      },
+    });
+    getConnectionMock.mockResolvedValue(connection);
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-jason-no-repeat",
+            threadId: "thread-jason-no-repeat",
+            from: "JZ Construction <info.jzconstruct@gmail.com>",
+            fromName: "JZ Construction",
+            to: ["Second Customer <second.customer@example.com>"],
+            cc: [],
+            subject: "Revised deck quote",
+            bodyText: "Attached is the revised quote.",
+            snippet: "Attached is the revised quote.",
+            date: new Date("2026-07-27T16:05:00.000Z"),
+            labelIds: ["INBOX"],
+          }),
+          baseEmail({
+            id: "msg-jason-corroborated",
+            threadId: "thread-jason-corroborated",
+            from: "JZ Construction <info.jzconstruct@gmail.com>",
+            fromName: "JZ Construction",
+            to: ["First Customer <first.customer@example.com>"],
+            cc: ["fourseasonscontracting705@gmail.com"],
+            subject: "First deck quote",
+            bodyText:
+              "Quote attached.\n\nJason Zavarella\nJZ Construction\n250-661-9544",
+            snippet: "Quote attached.",
+            date: new Date("2026-07-27T16:00:00.000Z"),
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-after-jason-same-cycle",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-after-jason-same-cycle",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    const result = await SyncEngine.runSync(connectionId);
+
+    expect(result.errors).toEqual([]);
+    expect(
+      state.rpcCalls?.filter(
+        (call) => call.name === "record_staff_email_alias_candidate_as_system"
+      )
+    ).toHaveLength(1);
+    expect(state.activities).toEqual([
+      expect.objectContaining({
+        email_message_id: "msg-jason-corroborated",
+        direction: "outbound",
+      }),
+      expect.objectContaining({
+        email_message_id: "msg-jason-no-repeat",
+        direction: "outbound",
+      }),
+    ]);
+    expect(
+      state.clients.some(
+        (client) => client.email === "info.jzconstruct@gmail.com"
+      )
+    ).toBe(false);
+  });
+
   it("reclassifies the exact queued secondary-staff message through the recovery path", async () => {
     const connectionId = "connection-jason-secondary-recovery";
     const state: SupabaseState = {

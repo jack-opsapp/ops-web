@@ -38,6 +38,7 @@ import {
   buildLeadRoutingIdentity,
   canonicalizeProviderThreadId,
   ingestionOperatorIdentityFromAuthoritative,
+  quarantinePendingStaffAlias,
   resolvePersistedEmailAuthorship,
   type IngestionOperatorIdentity,
 } from "@/lib/email/email-ingestion-routing";
@@ -997,6 +998,10 @@ async function processMessage(
       providerMessageId,
       candidate: authorship.staffAliasCandidate,
     });
+    quarantinePendingStaffAlias(
+      ingestionOperator,
+      authorship.staffAliasCandidate
+    );
   }
   const direction = authorship.direction;
   const staffAliasNeedsReview = authorship.staffAliasCandidate !== null;

@@ -82,6 +82,7 @@ import {
   applyInboundEffectiveSenderIdentity,
   buildLeadRoutingIdentity,
   ingestionOperatorIdentityFromAuthoritative,
+  quarantinePendingStaffAlias,
   resolvePersistedEmailAuthorship,
   resolvePersistedEmailDirection,
   type IngestionOperatorIdentity,
@@ -2950,17 +2951,12 @@ function requirePersistedActivityDirection(
   return activity.direction;
 }
 
-async function resolveStableDiscoveredEmail(
+async function resolveStableDiscoveredEmailAuthorship(
   email: NormalizedEmail,
   connection: EmailConnection,
-  directionIdentity: IngestionOperatorIdentity
+  directionIdentity: IngestionOperatorIdentity,
+  existingActivity: ExistingProviderActivity | null
 ): Promise<StableDiscoveredEmail> {
-  const existingActivity = await findExistingProviderActivity(
-    requireSupabase(),
-    connection,
-    email.id,
-    email.threadId
-  );
   const currentAuthorship = resolvePersistedEmailAuthorship(
     email,
     directionIdentity
@@ -2999,6 +2995,9 @@ async function resolveStableDiscoveredEmails(
   directionIdentity: IngestionOperatorIdentity
 ): Promise<StableDiscoveredEmail[]> {
   const resolved = new Array<StableDiscoveredEmail>(emails.length);
+  const existingActivities = new Array<ExistingProviderActivity | null>(
+    emails.length
+  );
   let nextIndex = 0;
   const workerCount = Math.min(
     STABLE_DIRECTION_LOOKUP_CONCURRENCY,
@@ -3009,15 +3008,44 @@ async function resolveStableDiscoveredEmails(
     while (nextIndex < emails.length) {
       const index = nextIndex;
       nextIndex += 1;
-      resolved[index] = await resolveStableDiscoveredEmail(
-        emails[index],
+      existingActivities[index] = await findExistingProviderActivity(
+        requireSupabase(),
         connection,
-        directionIdentity
+        emails[index].id,
+        emails[index].threadId
       );
     }
   };
 
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  // Persisted activity lookups are independent and stay parallel. New-message
+  // authorship is resolved in provider chronology so the first strongly
+  // corroborated alias immediately quarantines every later same-cycle message
+  // from that exact mailbox, even before the next authoritative roster refresh.
+  const chronologicalIndexes = emails
+    .map((_, index) => index)
+    .sort((left, right) => {
+      const byDate = emails[left].date.getTime() - emails[right].date.getTime();
+      return byDate !== 0
+        ? byDate
+        : emails[left].id.localeCompare(emails[right].id);
+    });
+  for (const index of chronologicalIndexes) {
+    resolved[index] = await resolveStableDiscoveredEmailAuthorship(
+      emails[index],
+      connection,
+      directionIdentity,
+      existingActivities[index]
+    );
+    if (resolved[index].staffAliasCandidate) {
+      quarantinePendingStaffAlias(
+        directionIdentity,
+        resolved[index].staffAliasCandidate
+      );
+    }
+  }
+
   return resolved;
 }
 
@@ -6552,14 +6580,10 @@ export const SyncEngine = {
         await input.providerLockCheckpoint();
         const provider = EmailService.getProvider(input.connection);
         const messages = await provider.fetchThread(input.job.providerThreadId);
-        const stableMessages = await Promise.all(
-          messages.map((message) =>
-            resolveStableDiscoveredEmail(
-              message,
-              input.connection,
-              directionIdentity
-            )
-          )
+        const stableMessages = await resolveStableDiscoveredEmails(
+          messages,
+          input.connection,
+          directionIdentity
         );
         const exact = stableMessages.find(
           (message) => message.email.id === providerMessageId
@@ -6791,14 +6815,10 @@ export const SyncEngine = {
             const messages = await provider.fetchThread(
               thread.providerThreadId
             );
-            const stableMessages = await Promise.all(
-              messages.map((message) =>
-                resolveStableDiscoveredEmail(
-                  message,
-                  connection,
-                  directionIdentity
-                )
-              )
+            const stableMessages = await resolveStableDiscoveredEmails(
+              messages,
+              connection,
+              directionIdentity
             );
             const latestInbound = stableMessages
               .filter((message) => message.direction === "inbound")

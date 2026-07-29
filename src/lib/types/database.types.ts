@@ -17028,6 +17028,8 @@ export type Database = {
           first_seen_at: string
           id: string
           last_seen_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
           source: string
           status: string
           updated_at: string
@@ -17043,6 +17045,8 @@ export type Database = {
           first_seen_at?: string
           id?: string
           last_seen_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source: string
           status?: string
           updated_at?: string
@@ -17058,6 +17062,8 @@ export type Database = {
           first_seen_at?: string
           id?: string
           last_seen_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           source?: string
           status?: string
           updated_at?: string
@@ -17074,18 +17080,25 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "user_email_aliases_user_id_fkey"
-            columns: ["user_id"]
+            foreignKeyName: "user_email_aliases_reviewer_company_fkey"
+            columns: ["company_id", "reviewed_by"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
+            referencedColumns: ["company_id", "id"]
           },
           {
-            foreignKeyName: "user_email_aliases_verified_by_fkey"
-            columns: ["verified_by"]
+            foreignKeyName: "user_email_aliases_user_company_fkey"
+            columns: ["company_id", "user_id"]
             isOneToOne: false
             referencedRelation: "users"
-            referencedColumns: ["id"]
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "user_email_aliases_verifier_company_fkey"
+            columns: ["company_id", "verified_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
           },
         ]
       }

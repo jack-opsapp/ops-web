@@ -33,6 +33,7 @@ import { deduplicateAnalyzedLeads } from "@/lib/email/import-lead-dedup";
 import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
 import {
   ingestionOperatorIdentityFromAuthoritative,
+  quarantinePendingStaffAlias,
   resolvePersistedEmailAuthorship,
 } from "@/lib/email/email-ingestion-routing";
 import { fetchOperatorIdentity } from "@/lib/api/services/conversation-state/operator-identity";
@@ -741,6 +742,10 @@ async function runPhaseB(
         providerMessageId: email.id,
         candidate: authorship.staffAliasCandidate,
       });
+      quarantinePendingStaffAlias(
+        ingestionOperator,
+        authorship.staffAliasCandidate
+      );
     }
     persistedDirections.set(email.id, authorship.direction);
     return authorship.direction;
@@ -806,9 +811,15 @@ async function runPhaseB(
     for (const result of results) {
       if (result.fetchedMessages) {
         const { lead, fetchedMessages } = result;
-        await Promise.all(
-          fetchedMessages.map((message) => ensurePersistedDirection(message))
+        const messagesInAuthorshipOrder = [...fetchedMessages].sort(
+          (left, right) => {
+            const byDate = left.date.getTime() - right.date.getTime();
+            return byDate !== 0 ? byDate : left.id.localeCompare(right.id);
+          }
         );
+        for (const message of messagesInAuthorshipOrder) {
+          await ensurePersistedDirection(message);
+        }
         fetchedThreads.set(lead.threadId, fetchedMessages);
         replaceAnalyzedLeadEmailsFromFetch(
           lead,

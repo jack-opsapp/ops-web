@@ -45,7 +45,9 @@ describe("authoritative staff aliases across ingestion paths", () => {
       "src/app/api/integrations/email/analyze-memory/route.ts",
     ],
   ])("%s persists strongly corroborated aliases for audit", (_label, path) => {
-    expect(source(path)).toContain("persistStaffEmailAliasCandidate");
+    const body = source(path);
+    expect(body).toContain("persistStaffEmailAliasCandidate");
+    expect(body).toContain("quarantinePendingStaffAlias");
   });
 
   it("recovery can correct queued customer classification to outbound", () => {
