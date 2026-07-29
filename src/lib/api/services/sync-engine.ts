@@ -56,11 +56,14 @@ import {
   type EmailOpportunityUnsafeIdentity,
 } from "@/lib/email/opportunity-title";
 import {
+  buildAISupplementalLeadFacts,
+  hasAISupplementalLeadFacts,
+} from "@/lib/email/ai-supplemental-facts";
+import {
   applyCanonicalLeadEnrichment,
   buildNewClientEnrichmentFields,
   buildNewOpportunityEnrichmentFields,
   leadEnrichmentFactsFromEmail,
-  leadEnrichmentFactsFromImport,
   resolveAutoCreatedClientName,
   writeFieldProvenance,
   type LeadEnrichmentFacts,
@@ -3608,23 +3611,16 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         }
       );
 
-      const aiSupplementalFacts = leadEnrichmentFactsFromImport({
-        contactName: null,
-        contactEmail: null,
-        contactPhone: null,
-        address: null,
-        estimatedValue:
-          deterministicFacts.estimatedValue == null
-            ? classified.estimatedValue
-            : null,
-        description:
-          deterministicFacts.description == null
-            ? classified.description
-            : null,
+      const aiSupplementalFacts = buildAISupplementalLeadFacts({
+        deterministicFacts,
+        classified: {
+          clientName: classified.clientName,
+          estimatedValue: classified.estimatedValue,
+          description: classified.description,
+          confidence: classified.confidence,
+        },
         providerThreadId: classifiedEmail.threadId,
         providerMessageId: classifiedEmail.id,
-        extractionSource: "ai_classified",
-        aiConfidence: classified.confidence,
       });
 
       const relationshipDecision = await findOpportunityRelationshipMatch({
@@ -3709,10 +3705,7 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         facts: deterministicFacts,
         companyId: input.connection.companyId,
       });
-      if (
-        aiSupplementalFacts.estimatedValue != null ||
-        aiSupplementalFacts.description != null
-      ) {
+      if (hasAISupplementalLeadFacts(aiSupplementalFacts)) {
         await applyCanonicalLeadEnrichment({
           supabase: requireSupabase(),
           opportunityId: oppId,
