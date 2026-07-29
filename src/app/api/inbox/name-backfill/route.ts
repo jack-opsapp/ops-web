@@ -33,40 +33,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { resolveEmailConnectionOperationAccess } from "@/lib/email/email-connection-operation-access";
-
-// Keep in sync with GENERIC_MAILBOX_TOKENS in email-thread-service.ts.
-// Duplicated intentionally — one file does live-sync writes, this one
-// runs a backfill; coupling them via an import would drag service-layer
-// code into an edge-ish route. If the list diverges by more than two
-// tokens, lift it into a shared constants module.
-const GENERIC_MAILBOX_TOKENS = new Set([
-  "team", "info", "accounts", "accounting", "sales", "support", "billing",
-  "help", "hello", "contact", "noreply", "no-reply", "admin", "office",
-  "mailbox", "inbox", "notifications", "updates", "news", "marketing",
-  "service", "services", "enquiries", "inquiries",
-]);
-
-function isBrokenName(
-  currentName: string | null,
-  senderEmail: string | null
-): boolean {
-  if (!currentName) return true;
-  const trimmed = currentName.trim();
-  if (!trimmed) return true;
-  if (trimmed.includes("@")) return true;
-  if (senderEmail) {
-    const localPart = senderEmail.split("@")[0];
-    if (localPart && trimmed.toLowerCase() === localPart.toLowerCase()) {
-      return true;
-    }
-  }
-  const tokens = trimmed.toLowerCase().split(/[\s_\-/.]+/).filter(Boolean);
-  if (tokens.length === 0) return true;
-  // Treat as broken when ANY token is a generic mailbox label. "eDocs at
-  // Vitrum - no reply" has "no-reply" → broken. "Cecilia Reyes" has no
-  // generic tokens → ok.
-  return tokens.some((t) => GENERIC_MAILBOX_TOKENS.has(t));
-}
+import { isPlaceholderClientName } from "@/lib/email/placeholder-name";
 
 interface NameBackfillResult {
   scanned: number;
@@ -132,7 +99,7 @@ export async function POST(request: NextRequest) {
   // Pre-filter down to rows worth touching. Saves a directory scan for
   // every row that already has a human-looking name.
   const brokenRows = threads.filter((t) =>
-    isBrokenName(
+    isPlaceholderClientName(
       (t.latest_sender_name as string | null) ?? null,
       (t.latest_sender_email as string | null) ?? null
     )
