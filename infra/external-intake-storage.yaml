@@ -82,7 +82,7 @@ Resources:
         - Key: ops-data-class
           Value: external-lead-intake
         - Key: ops-prefix-contract
-          Value: quarantine/|accepted-original/|safe-derivative/
+          Value: quarantine/ accepted-original/ safe-derivative/
 
   UploadEventsDeadLetterQueue:
     Type: AWS::SQS::Queue

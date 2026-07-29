@@ -53,6 +53,27 @@ describe("external intake storage infrastructure policy", () => {
     expect(source).not.toMatch(/AccessControl:\s*PublicRead/);
   });
 
+  it("uses only S3-supported characters in bucket tags", () => {
+    const bucket = resourceBlock(
+      template(),
+      "ExternalIntakeBucket",
+      "UploadEventsDeadLetterQueue"
+    );
+    const tagsStart = bucket.indexOf("      Tags:");
+    const parsed = parseYaml(
+      bucket.slice(tagsStart).replace(/^ {6}/gm, "")
+    ) as {
+      Tags?: Array<{ Key?: string; Value?: string }>;
+    };
+    const allowedS3TagCharacters = /^[A-Za-z0-9 _.:/=+\-@]*$/;
+
+    expect(parsed.Tags).toBeDefined();
+    for (const tag of parsed.Tags ?? []) {
+      expect(tag.Key).toMatch(allowedS3TagCharacters);
+      expect(tag.Value).toMatch(allowedS3TagCharacters);
+    }
+  });
+
   it("allows credentialless browser PUT/HEAD transport without browser reads", () => {
     const bucket = resourceBlock(
       template(),
