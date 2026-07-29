@@ -1,0 +1,405 @@
+/**
+ * The anti-drift guard for the company-data manifest (bug 241830b2).
+ *
+ * The account-deletion and export routes were frozen at a schema that no
+ * longer exists — they addressed `estimate_line_items`, `invoice_line_items`
+ * and `tasks`, none of which are real tables, and swallowed every error so the
+ * lie was invisible. Both routes are now driven by one manifest. These tests
+ * are what stop the manifest going stale again:
+ *
+ *  1. Every table the checked-in generated types say has a `company_id` MUST
+ *     be classified in the manifest.
+ *  2. Every manifest entry MUST exist in the generated types, except a named,
+ *     documented allowlist of backend tables the types have not caught up to.
+ *
+ * Tests cannot reach production, so the diff is taken against
+ * `src/lib/types/database.types.ts` — regenerating that file is precisely what
+ * forces a newly added table to be consciously classified here.
+ */
+
+import { readFileSync } from "fs";
+import path from "path";
+import { describe, expect, it } from "vitest";
+import {
+  COMPANY_DATA_MANIFEST,
+  COMPANY_SCOPED_DATA,
+  FK_CYCLE_BREAKERS,
+  MANIFEST_VERSION,
+  PARENT_SCOPED_DATA,
+  TENANT_TABLE,
+  UNTYPED_TABLE_ALLOWLIST,
+  exportPlan,
+  manifestByTable,
+} from "@/lib/data/company-data-manifest";
+
+const ROOT = path.resolve(__dirname, "../..");
+
+/** Table names the routes used to address that have never existed. */
+const PHANTOM_TABLES = ["estimate_line_items", "invoice_line_items"];
+
+/** Parse the `Tables:` block of the generated types (Views deliberately excluded). */
+function readGeneratedTypes(): {
+  tables: Set<string>;
+  withCompanyId: Set<string>;
+} {
+  const source = readFileSync(
+    path.join(ROOT, "src/lib/types/database.types.ts"),
+    "utf8"
+  ).split("\n");
+
+  const start = source.indexOf("    Tables: {");
+  const end = source.indexOf("    Views: {");
+  expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+
+  const tables = new Set<string>();
+  const withCompanyId = new Set<string>();
+
+  let current: string | null = null;
+  let inRow = false;
+
+  for (const line of source.slice(start, end)) {
+    const opened = line.match(/^ {6}([A-Za-z0-9_]+): \{$/);
+    if (opened && !current) {
+      current = opened[1];
+      tables.add(current);
+      inRow = false;
+      continue;
+    }
+    if (!current) continue;
+    if (line === "        Row: {") {
+      inRow = true;
+      continue;
+    }
+    if (inRow && line === "        }") {
+      inRow = false;
+      continue;
+    }
+    if (inRow && /^ {10}company_id\??:/.test(line)) withCompanyId.add(current);
+    if (line === "      }") {
+      current = null;
+      inRow = false;
+    }
+  }
+
+  return { tables, withCompanyId };
+}
+
+/**
+ * Route source with comments stripped. The routes document the historical bug
+ * by name, which is worth keeping — the guard is about executable code.
+ */
+function readRouteSource(route: "delete-account" | "export"): string {
+  return readFileSync(path.join(ROOT, `src/app/api/data/${route}/route.ts`), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+}
+
+describe("company data manifest — completeness diff against the generated schema", () => {
+  const generated = readGeneratedTypes();
+  const manifestTables = new Set(COMPANY_DATA_MANIFEST.map((e) => e.table));
+
+  it("classifies every generated table that carries a company_id", () => {
+    const missing = [...generated.withCompanyId]
+      .filter((table) => !manifestTables.has(table))
+      .sort();
+
+    expect(
+      missing,
+      `Tables carry company_id in database.types.ts but are unclassified in the manifest. ` +
+        `Add an entry (table, companyColumn, deleteStrategy, export) for each: ${missing.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("only names tables the generated schema knows, or an explicitly allowlisted one", () => {
+    const unknown = [...manifestTables]
+      .filter(
+        (table) =>
+          !generated.tables.has(table) &&
+          !UNTYPED_TABLE_ALLOWLIST.includes(table)
+      )
+      .sort();
+
+    expect(
+      unknown,
+      `Manifest names tables absent from database.types.ts. Either the table was renamed/dropped, ` +
+        `or the types need regenerating, or the table belongs on UNTYPED_TABLE_ALLOWLIST: ${unknown.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("keeps the untyped allowlist honest — no stale entries", () => {
+    const stale = UNTYPED_TABLE_ALLOWLIST.filter(
+      (table) => generated.tables.has(table) || !manifestTables.has(table)
+    ).sort();
+
+    expect(
+      stale,
+      `Allowlisted tables are now present in database.types.ts (or gone from the manifest) — remove them ` +
+        `from UNTYPED_TABLE_ALLOWLIST: ${stale.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("declares a manifest version and the tenant table", () => {
+    expect(MANIFEST_VERSION).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(TENANT_TABLE).toBe("companies");
+  });
+});
+
+describe("company data manifest — regression guard on the frozen schema", () => {
+  it("never names a table that does not exist", () => {
+    for (const phantom of [...PHANTOM_TABLES, "tasks"]) {
+      expect(
+        COMPANY_DATA_MANIFEST.some((e) => e.table === phantom),
+        `${phantom} is not a real table`
+      ).toBe(false);
+    }
+  });
+
+  it("keeps the phantom table names out of both route sources", () => {
+    for (const route of ["delete-account", "export"] as const) {
+      const source = readRouteSource(route);
+      for (const phantom of PHANTOM_TABLES) {
+        expect(source, `${route} still references ${phantom}`).not.toContain(
+          phantom
+        );
+      }
+      // A bare `tasks` table reference — the real table is project_tasks.
+      expect(source, `${route} still addresses a bare tasks table`).not.toMatch(
+        /from\(\s*["'`]tasks["'`]\s*\)/
+      );
+    }
+  });
+
+  it("routes address tables only through the manifest", () => {
+    for (const route of ["delete-account", "export"] as const) {
+      const source = readRouteSource(route);
+      const literals = [...source.matchAll(/\.from\(\s*["'`]([a-z0-9_]+)["'`]/g)]
+        .map((m) => m[1])
+        .filter((table) => table !== "companies" && table !== "users");
+      expect(
+        literals,
+        `${route} hardcodes table names instead of iterating the manifest: ${literals.join(", ")}`
+      ).toEqual([]);
+    }
+  });
+
+  it("uses the real names for the tables the old routes got wrong", () => {
+    const byTable = manifestByTable();
+    expect(byTable.get("project_tasks")?.deleteStrategy).toBe("soft");
+    expect(byTable.get("line_items")?.deleteStrategy).toBe("hard");
+    expect(byTable.get("project_tasks")?.export).toBe(true);
+    expect(byTable.get("line_items")?.export).toBe(true);
+  });
+});
+
+describe("company data manifest — coverage of the tables the old cascade missed", () => {
+  const byTable = manifestByTable();
+
+  const expected: Array<[string, "soft" | "hard" | "retain", boolean]> = [
+    ["expenses", "soft", true],
+    ["project_photos", "soft", true],
+    ["project_notes", "soft", true],
+    ["site_visits", "soft", true],
+    ["sub_clients", "soft", true],
+    ["follow_ups", "hard", true],
+    ["activities", "hard", true],
+    ["calendar_user_events", "soft", true],
+    ["deck_designs", "soft", true],
+    ["project_tasks", "soft", true],
+    ["line_items", "hard", true],
+  ];
+
+  it.each(expected)(
+    "%s is classified (%s, exported=%s)",
+    (table, strategy, exported) => {
+      const entry = byTable.get(table);
+      expect(entry, `${table} is missing from the manifest`).toBeDefined();
+      expect(entry!.deleteStrategy).toBe(strategy);
+      expect(entry!.export).toBe(exported);
+    }
+  );
+
+  it("keeps the previously-missed tables in the export plan", () => {
+    const exported = new Set(exportPlan().map((e) => e.table));
+    for (const [table, , wanted] of expected) {
+      if (wanted) expect(exported.has(table), `${table} not exported`).toBe(true);
+    }
+  });
+
+  it("excludes internal machinery from the export plan", () => {
+    const exported = new Set(exportPlan().map((e) => e.table));
+    for (const machinery of [
+      "email_oauth_states",
+      "email_connections",
+      "portal_tokens",
+      "accounting_sync_queue",
+      "analytics_events",
+      "opportunity_views",
+      "qbo_staging_invoices",
+      "payment_reminder_generation_claims",
+    ]) {
+      expect(exported.has(machinery), `${machinery} must not be exported`).toBe(
+        false
+      );
+    }
+  });
+});
+
+describe("company data manifest — strategy integrity", () => {
+  const byTable = manifestByTable();
+
+  it("has one entry per table", () => {
+    expect(manifestByTable().size).toBe(COMPANY_DATA_MANIFEST.length);
+  });
+
+  it("splits cleanly into company-scoped and parent-scoped entries", () => {
+    expect(COMPANY_DATA_MANIFEST.length).toBe(
+      COMPANY_SCOPED_DATA.length + PARENT_SCOPED_DATA.length
+    );
+    expect(COMPANY_SCOPED_DATA.every((e) => e.scope === "company")).toBe(true);
+    expect(PARENT_SCOPED_DATA.every((e) => e.scope === "parent")).toBe(true);
+  });
+
+  it("never applies a deleted_at filter to a table without the column", () => {
+    // Tables verified against prod (2026-07-29) as having NO deleted_at column.
+    // A "soft" strategy on any of them is the latent bug this guards.
+    for (const table of [
+      "line_items",
+      "payments",
+      "follow_ups",
+      "activities",
+      "notifications",
+      "tax_rates",
+      "roles",
+      "email_threads",
+      "stage_transitions",
+      "payment_milestones",
+      "role_permissions",
+      "user_roles",
+    ]) {
+      const entry = byTable.get(table);
+      expect(entry, `${table} missing`).toBeDefined();
+      expect(
+        entry!.deleteStrategy,
+        `${table} has no deleted_at column — it cannot be soft-deleted`
+      ).not.toBe("soft");
+      expect(entry!.softDeletable, `${table} has no deleted_at column`).toBe(
+        false
+      );
+    }
+  });
+
+  it("marks every soft-delete entry as soft-deletable", () => {
+    for (const entry of COMPANY_DATA_MANIFEST) {
+      if (entry.deleteStrategy === "soft") {
+        expect(entry.softDeletable, `${entry.table}`).toBe(true);
+      }
+    }
+  });
+
+  it("requires a reason for every retained or non-exported table", () => {
+    const unexplained = COMPANY_DATA_MANIFEST.filter(
+      (e) =>
+        (e.deleteStrategy === "retain" || !e.export) &&
+        (!e.reason || e.reason.trim().length < 10)
+    ).map((e) => e.table);
+
+    expect(
+      unexplained,
+      `retain / export:false entries must carry a reason: ${unexplained.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("keeps the retained set small and deliberate", () => {
+    const retained = COMPANY_DATA_MANIFEST.filter(
+      (e) => e.deleteStrategy === "retain"
+    );
+    expect(retained.length).toBeLessThanOrEqual(20);
+    for (const entry of retained) {
+      expect(entry.reason, `${entry.table}`).toBeTruthy();
+    }
+  });
+
+  it("scopes every company entry by a real tenant column", () => {
+    for (const entry of COMPANY_SCOPED_DATA) {
+      expect(entry.companyColumn, entry.table).toBeTruthy();
+      expect(["uuid", "text"]).toContain(entry.companyColumnType);
+      if (entry.table !== TENANT_TABLE) {
+        expect(entry.companyColumn, entry.table).toBe("company_id");
+      }
+    }
+    const tenant = COMPANY_SCOPED_DATA.find((e) => e.table === TENANT_TABLE);
+    expect(tenant?.companyColumn).toBe("id");
+  });
+
+  it("points every parent-scoped entry at a table that is itself in the manifest", () => {
+    const known = new Set(COMPANY_DATA_MANIFEST.map((e) => e.table));
+    for (const entry of PARENT_SCOPED_DATA) {
+      expect(entry.parentColumn, entry.table).toBeTruthy();
+      expect(
+        known.has(entry.parentTable),
+        `${entry.table} hangs off ${entry.parentTable}, which is not classified`
+      ).toBe(true);
+    }
+  });
+});
+
+describe("company data manifest — deletion ordering", () => {
+  const order = new Map(
+    COMPANY_SCOPED_DATA.map((entry, index) => [entry.table, index])
+  );
+
+  function before(child: string, parent: string) {
+    expect(order.has(child), `${child} missing`).toBe(true);
+    expect(order.has(parent), `${parent} missing`).toBe(true);
+    expect(
+      order.get(child)!,
+      `${child} must be deleted before ${parent} (FK restrict)`
+    ).toBeLessThan(order.get(parent)!);
+  }
+
+  it("deletes FK children before their parents", () => {
+    // Verified against prod pg_constraint (2026-07-29): blocking (NO ACTION /
+    // RESTRICT) foreign keys between hard-deleted, company-scoped tables.
+    before("email_outbound_edit_promotions", "email_outbound_learning_queue");
+    before("email_outbound_learning_queue", "email_send_intents");
+    before("email_send_intents", "pending_auto_sends");
+    before("email_send_intents", "email_connections");
+    before("approved_action_email_intents", "activities");
+    before("approved_action_email_intents", "agent_actions");
+    before("opportunity_assignment_deliveries", "opportunity_assignment_events");
+    before("opportunity_assignment_events", "opportunity_assignment_suggestions");
+    before("email_conversion_photo_objects", "email_conversion_photo_jobs");
+    before("email_conversion_photo_jobs", "email_attachments");
+    before("email_conversion_photo_jobs", "opportunity_conversion_events");
+    before("email_attachments", "email_connections");
+    before("activities", "email_connections");
+    before("agent_knowledge_graph", "graph_entities");
+    before("agent_memories", "graph_entities");
+    before("line_items", "tax_rates");
+    before("portal_sessions", "portal_tokens");
+    before("task_schedule_automation_outbox", "task_mutation_events");
+    before("email_import_provider_operations", "gmail_scan_jobs");
+  });
+
+  it("tombstones the company row last", () => {
+    expect(COMPANY_SCOPED_DATA[COMPANY_SCOPED_DATA.length - 1].table).toBe(
+      TENANT_TABLE
+    );
+  });
+
+  it("breaks the two mutual foreign-key cycles before deleting either side", () => {
+    expect(FK_CYCLE_BREAKERS).toEqual([
+      {
+        table: "pending_auto_sends",
+        column: "send_intent_id",
+        companyColumn: "company_id",
+      },
+      {
+        table: "opportunity_assignment_suggestions",
+        column: "resolution_event_id",
+        companyColumn: "company_id",
+      },
+    ]);
+  });
+});
