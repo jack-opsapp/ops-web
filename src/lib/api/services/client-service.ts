@@ -24,6 +24,10 @@ async function recordOperatorClientProvenance(
   clientId: string,
   row: Record<string, unknown>
 ): Promise<void> {
+  // Browser-only: the stamp identifies the signed-in operator from their
+  // Firebase token. Server callers (historical import, email import) are
+  // machine writes and record their own provenance through the pipeline.
+  if (typeof window === "undefined") return;
   const fields = buildOperatorClientProvenanceUpdates(row);
   if (Object.keys(fields).length === 0) return;
   try {
