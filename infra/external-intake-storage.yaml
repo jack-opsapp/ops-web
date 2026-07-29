@@ -6,9 +6,9 @@ Description: >-
 
 Parameters:
   CloudFrontPublicKeyEncoded:
-    Type: String
+    Type: CommaDelimitedList
     NoEcho: true
-    Description: PEM-encoded RSA public key. Retain the private key outside CloudFormation.
+    Description: Comma-delimited PEM lines for an RSA public key. Retain the private key outside CloudFormation.
 
 Resources:
   ExternalIntakeBucket:
@@ -412,7 +412,7 @@ Resources:
       PublicKeyConfig:
         CallerReference: !Sub "${AWS::StackName}-${AWS::AccountId}"
         Comment: External intake attachment signed URL key
-        EncodedKey: !Ref CloudFrontPublicKeyEncoded
+        EncodedKey: !Join ["\n", !Ref CloudFrontPublicKeyEncoded]
         Name: !Sub "${AWS::StackName}-external-intake"
 
   ExternalIntakeSigningKeyGroup:

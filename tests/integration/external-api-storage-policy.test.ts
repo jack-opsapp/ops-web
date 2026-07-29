@@ -225,6 +225,33 @@ describe("external intake storage infrastructure policy", () => {
     expect(source).toContain("private, no-store, max-age=0");
   });
 
+  it("reconstructs a multiline CloudFront public key from a console-safe list", () => {
+    const source = template();
+    const parameterStart = source.indexOf("  CloudFrontPublicKeyEncoded:");
+    const resourcesStart = source.indexOf("\nResources:", parameterStart);
+    const parameter = parseYaml(
+      `Parameter:\n${source.slice(parameterStart, resourcesStart)}`
+    ) as {
+      Parameter?: {
+        CloudFrontPublicKeyEncoded?: {
+          Type?: string;
+        };
+      };
+    };
+    const publicKey = resourceBlock(
+      source,
+      "ExternalIntakeSigningPublicKey",
+      "ExternalIntakeSigningKeyGroup"
+    );
+
+    expect(parameter.Parameter?.CloudFrontPublicKeyEncoded?.Type).toBe(
+      "CommaDelimitedList"
+    );
+    expect(publicKey).toContain(
+      'EncodedKey: !Join ["\\n", !Ref CloudFrontPublicKeyEncoded]'
+    );
+  });
+
   it("denies CloudFront reads unless both scan and acceptance tags are present", () => {
     const policy = resourceBlock(
       template(),
