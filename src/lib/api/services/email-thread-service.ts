@@ -592,6 +592,7 @@ async function repairPlaceholderClientName(params: {
     .from("clients")
     .select("id, name, email")
     .eq("id", params.clientId)
+    .eq("company_id", params.companyId)
     .maybeSingle();
   if (!clientRow) return;
 
@@ -634,7 +635,8 @@ async function repairPlaceholderClientName(params: {
   const { error: updateError } = await params.supabase
     .from("clients")
     .update({ name: decision.name })
-    .eq("id", params.clientId);
+    .eq("id", params.clientId)
+    .eq("company_id", params.companyId);
   if (updateError) return;
 
   invalidateCachedSenderName(
