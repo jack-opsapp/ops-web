@@ -45,9 +45,14 @@
  * carries a `company_id` must be classified, and the manifest must not name a
  * table the types do not know, except the documented
  * `UNTYPED_TABLE_ALLOWLIST`. This guard is deliberately the weaker of the two
- * — it CANNOT see the 30 backend tables the generated types have not caught up
- * to, so a table absent from the types could slip past it unnoticed. It must
- * never be the only guard; the snapshot is what actually holds the line.
+ * — it CANNOT see the backend tables the generated types have not caught up to
+ * (every one of them is enumerated in `UNTYPED_TABLE_ALLOWLIST` below), so a
+ * table absent from the types could slip past it unnoticed. It must never be
+ * the only guard; the snapshot is what actually holds the line.
+ *
+ * That allowlist shrinks as main regenerates the types, and the
+ * stale-allowlist assertion is what forces it to be pruned — treat a failure
+ * there as the guard working, not as breakage.
  *
  * Tests cannot reach production, so refreshing those two checked-in artefacts
  * is what forces a new table to be consciously classified. After any migration
@@ -2446,7 +2451,6 @@ export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [
   "email_ingestion_recovery_queue",
   "email_provider_mutation_attempts",
   "email_send_intents",
-  "lead_intake_correction_runs",
   "opportunity_assignment_deliveries",
   "opportunity_assignment_events",
   "opportunity_assignment_suggestions",
@@ -2459,7 +2463,6 @@ export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [
   "qbo_item_product_mappings",
   "unanswered_lead_local_draft_generation_claims",
   "unanswered_lead_message_projections",
-  "user_email_aliases",
   "user_permission_change_deliveries",
 ];
 

@@ -1,5 +1,9 @@
 /**
- * OPS Web — Live In-Scope Table Snapshot (GENERATED — do not hand-edit)
+ * OPS Web — Live In-Scope Table Snapshot
+ *
+ * The two arrays below are GENERATED from the live schema by the queries in
+ * this header. Never hand-add or hand-remove a name — re-run the query and
+ * replace the array wholesale, so the file can only ever say what prod says.
  *
  * A checked-in picture of which tables the LIVE database considers part of a
  * company's data. `company-data-manifest.ts` must account for every name here,
@@ -7,10 +11,11 @@
  *
  * ── Why a snapshot and not just the generated types ────────────────────────
  * The manifest's other guard diffs against `database.types.ts`, which cannot
- * see backend tables the types have not caught up to — 30 in-scope tables are
- * missing from it today. A table absent from the types could therefore drop
- * out of the manifest silently, which is the exact bug class W1-6 exists to
- * kill. This snapshot is the primary guard; the types diff is the secondary.
+ * see backend tables the types have not caught up to — the manifest's
+ * `UNTYPED_TABLE_ALLOWLIST` enumerates the in-scope tables missing from it. A
+ * table absent from the types could therefore drop out of the manifest
+ * silently, which is the exact bug class W1-6 exists to kill. This snapshot is
+ * the primary guard; the types diff is the secondary.
  *
  * ── Regenerating ───────────────────────────────────────────────────────────
  * Run both queries against prod via the Supabase MCP
