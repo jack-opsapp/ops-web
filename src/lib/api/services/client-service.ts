@@ -6,7 +6,50 @@
  */
 
 import { requireSupabase, parseDate, parseDateRequired } from "@/lib/supabase/helpers";
+import { buildOperatorClientProvenanceUpdates } from "@/lib/clients/operator-provenance";
+import { authedFetch } from "@/lib/utils/authed-fetch";
 import type { Client, SubClient } from "../../types/models";
+
+/**
+ * Stamp a manual client edit as operator-owned so the email pipeline stops
+ * treating the value as replaceable. Provenance is company-scoped and written
+ * with the service role, so it goes through a server route rather than the
+ * browser's Supabase client.
+ *
+ * The edit itself has already committed by the time this runs. A failure here
+ * costs the row its overwrite protection, not the user's change, so it is
+ * logged rather than surfaced as a failed save.
+ */
+async function recordOperatorClientProvenance(
+  clientId: string,
+  row: Record<string, unknown>
+): Promise<void> {
+  const fields = buildOperatorClientProvenanceUpdates(row);
+  if (Object.keys(fields).length === 0) return;
+  try {
+    const response = await authedFetch(
+      `/api/clients/${encodeURIComponent(clientId)}/provenance`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
+      }
+    );
+    if (!response.ok) {
+      console.error(
+        "[client-service] operator provenance not recorded",
+        clientId,
+        response.status
+      );
+    }
+  } catch (error) {
+    console.error(
+      "[client-service] operator provenance request failed",
+      clientId,
+      error
+    );
+  }
+}
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -179,6 +222,8 @@ export const ClientService = {
       .eq("id", id);
 
     if (error) throw new Error(`Failed to update client: ${error.message}`);
+
+    await recordOperatorClientProvenance(id, row);
   },
 
   /**
