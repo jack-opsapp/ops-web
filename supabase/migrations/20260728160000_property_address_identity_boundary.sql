@@ -3,6 +3,8 @@
 -- This migration is intentionally schema/behavior only. It does not rewrite
 -- any existing opportunity, client, project, activity, or correspondence row.
 
+begin;
+
 create or replace function private.canonicalize_address_text(p_address text)
 returns text
 language sql
@@ -50,8 +52,11 @@ as $function$
         when 'hwy' then 'highway'
         when 'pl' then 'place'
         when 'ct' then 'court'
+        when 'cir' then 'circle'
         when 'ln' then 'lane'
         when 'ter' then 'terrace'
+        when 'trl' then 'trail'
+        when 'wy' then 'way'
         when 'pkwy' then 'parkway'
         when 'sq' then 'square'
         else token
@@ -94,7 +99,7 @@ begin
   then
     v_unit := lower(
       substring(
-        v_raw from '^\s*(?:apartment|suite|unit|ste|apt|#)\s*\.?\s*#?\s*([a-z0-9]+(?:[-/][a-z0-9]+)*)'
+        lower(v_raw) from '^\s*(?:apartment|suite|unit|ste|apt|#)\s*\.?\s*#?\s*([a-z0-9]+(?:[-/][a-z0-9]+)*)'
       )
     );
     v_property := regexp_replace(
@@ -106,7 +111,7 @@ begin
   elsif v_raw ~* '^\s*[a-z0-9]+\s*-\s*[0-9]+[a-z]?\s+.+$'
   then
     v_unit := lower(
-      substring(v_raw from '^\s*([a-z0-9]+)\s*-\s*[0-9]+[a-z]?\s+')
+      substring(lower(v_raw) from '^\s*([a-z0-9]+)\s*-\s*[0-9]+[a-z]?\s+')
     );
     v_property := regexp_replace(
       v_raw,
@@ -118,7 +123,7 @@ begin
   then
     v_unit := lower(
       substring(
-        v_raw from '(?:^|[,\s]+)(?:apartment|suite|unit|ste|apt|#)\s*\.?\s*#?\s*([a-z0-9]+(?:[-/][a-z0-9]+)*)'
+        lower(v_raw) from '(?:^|[,\s]+)(?:apartment|suite|unit|ste|apt|#)\s*\.?\s*#?\s*([a-z0-9]+(?:[-/][a-z0-9]+)*)'
       )
     );
     v_property := regexp_replace(
@@ -136,9 +141,9 @@ begin
     return '';
   end if;
 
-  if v_canonical ~ '^[0-9]+[a-z]?\s+(?=\S*[a-z])\S+' then
+  if v_canonical ~ '^[0-9]{1,6}[a-z]?\s+(?=\S*[a-z])\S+' then
     v_tokens := regexp_split_to_array(v_canonical, '\s+');
-    v_base := v_canonical;
+    v_base := null;
 
     if v_tokens[2] = 'highway'
       and coalesce(v_tokens[3], '') ~ '^[a-z0-9-]+$'
@@ -153,13 +158,17 @@ begin
       for v_index in 3..coalesce(array_length(v_tokens, 1), 0) loop
         v_token := v_tokens[v_index];
         if v_token in (
-          'avenue', 'boulevard', 'court', 'crescent', 'drive', 'highway',
-          'lane', 'parkway', 'place', 'road', 'square', 'street', 'terrace'
+          'avenue', 'boulevard', 'circle', 'court', 'crescent', 'drive',
+          'highway', 'lane', 'parkway', 'place', 'road', 'square', 'street',
+          'terrace', 'trail', 'way'
         ) then
           v_base := array_to_string(v_tokens[1:v_index], ' ');
           exit;
         end if;
       end loop;
+    end if;
+    if v_base is null then
+      return '';
     end if;
   elsif v_canonical ~ '^(rr|rural route)\s*[0-9]+\y.*\y(site|box|lot)\s*[a-z0-9-]+\y'
     or v_canonical ~ '^(site|box)\s*[a-z0-9-]+\y.*\y(rr|rural route)\s*[0-9]+\y'
@@ -221,6 +230,10 @@ begin
     or private.normalize_property_address('250 888 3674') <> ''
     or private.normalize_property_address('2026 07 28') <> ''
     or private.normalize_property_address('123 456') <> ''
+    or private.normalize_property_address('123 Victoria') <> ''
+    or private.normalize_property_address('2508883674 Victoria') <> ''
+    or private.normalize_property_address('20260728 Main') <> ''
+    or private.normalize_property_address('123 Cedar') <> ''
   then
     raise exception 'locality entered property address identity';
   end if;
@@ -231,6 +244,12 @@ begin
       is distinct from '123 main street unit 2'
     or private.normalize_property_address('123 Main St Apt 2')
       is not distinct from private.normalize_property_address('123 Main St Apt 3')
+    or private.normalize_property_address('123 Cedar Way, Victoria BC')
+      is distinct from '123 cedar way'
+    or private.normalize_property_address('45 Ridge Trl, Saanich BC')
+      is distinct from '45 ridge trail'
+    or private.normalize_property_address('9 Garden Cir, Langford BC')
+      is distinct from '9 garden circle'
     or private.normalize_property_address('RR 2 Site 4 Box 19')
       is distinct from 'rr 2 site 4 box 19'
     or private.normalize_property_address('Lot 12 Concession 3')
@@ -240,3 +259,5 @@ begin
   end if;
 end;
 $property_address_contract$;
+
+commit;

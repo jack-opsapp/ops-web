@@ -88,7 +88,7 @@ describe("fetchOperatorIdentity", () => {
       ])
     );
     expect(identity.phones).toEqual(new Set(["2505550101", "2505550100"]));
-    expect(identity.addresses).toContain("123 trade way victoria bc");
+    expect(identity.addresses).toContain("123 trade way");
     expect(identity.domains).toContain("canpro.example");
   });
 

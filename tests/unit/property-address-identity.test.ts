@@ -22,6 +22,10 @@ describe("property-address identity boundary", () => {
     "250 888 3674",
     "2026 07 28",
     "123 456",
+    "123 Victoria",
+    "2508883674 Victoria",
+    "20260728 Main",
+    "123 Cedar",
   ])("rejects contextual or mailing-only location %j", (value) => {
     expect(parsePropertyAddressIdentity(value)).toBeNull();
     expect(normalizePropertyAddressIdentity(value)).toBeNull();
@@ -36,6 +40,9 @@ describe("property-address identity boundary", () => {
     ["2-123 Main St", "123 main street unit 2"],
     ["12345 Hwy 17, Kenora ON", "12345 highway 17"],
     ["4-123 Range Road 215, Alberta", "123 range road 215 unit 4"],
+    ["123 Cedar Way, Victoria BC", "123 cedar way"],
+    ["45 Ridge Trl, Saanich BC", "45 ridge trail"],
+    ["9 Garden Cir, Langford BC", "9 garden circle"],
     ["RR 2 Site 4 Box 19", "rr 2 site 4 box 19"],
     ["Site 4 Box 19 RR 2", "site 4 box 19 rr 2"],
     ["Lot 12 Concession 3", "lot 12 concession 3"],

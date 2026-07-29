@@ -42,9 +42,16 @@ describe("property address identity migration", () => {
       "saanich cedar hill area",
       "victoria, bc v8w 1p6",
       "po box 123",
+      "123 victoria",
+      "2508883674 victoria",
+      "20260728 main",
+      "123 cedar",
       "2745 fernwood rd",
       "unit 2, 123 main street",
       "123 main st apt 3",
+      "123 cedar way, victoria bc",
+      "45 ridge trl, saanich bc",
+      "9 garden cir, langford bc",
       "rr 2 site 4 box 19",
       "lot 12 concession 3",
     ]) {
@@ -52,6 +59,9 @@ describe("property address identity migration", () => {
     }
     expect(sql).toContain("locality entered property address identity");
     expect(sql).toContain("property address identity contract failed");
+    expect(sql).toMatch(
+      /substring\(\s*lower\(v_raw\) from '[^']*(?:apartment|suite|unit)/
+    );
   });
 
   it("keeps internal functions unavailable through the Data API", () => {

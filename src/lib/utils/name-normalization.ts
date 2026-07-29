@@ -64,8 +64,11 @@ const ADDRESS_TOKEN_CANON: Record<string, string> = {
   hwy: "highway",
   pl: "place",
   ct: "court",
+  cir: "circle",
   ln: "lane",
   ter: "terrace",
+  trl: "trail",
+  wy: "way",
   pkwy: "parkway",
   sq: "square",
 };

@@ -12,6 +12,7 @@ export interface PropertyAddressIdentity {
 const STREET_IDENTITY_TOKENS = new Set([
   "avenue",
   "boulevard",
+  "circle",
   "court",
   "crescent",
   "drive",
@@ -23,6 +24,8 @@ const STREET_IDENTITY_TOKENS = new Set([
   "square",
   "street",
   "terrace",
+  "trail",
+  "way",
 ]);
 
 const LEADING_UNIT_RE =
@@ -31,7 +34,7 @@ const LEADING_HYPHENATED_UNIT_RE = /^\s*([a-z0-9]+)\s*-\s*(\d+[a-z]?)\s+(.+)$/i;
 const TRAILING_UNIT_RE =
   /(?:^|[,\s]+)(?:apartment|suite|unit|ste|apt|#)\s*\.?\s*#?\s*([a-z0-9]+(?:[-/][a-z0-9]+)*)\b.*$/i;
 const PO_BOX_ONLY_RE = /^\s*(?:p\.?\s*o\.?\s+box|post office box)\b/i;
-const CIVIC_ADDRESS_RE = /^\d+[a-z]?\s+(?=\S*[a-z])\S+/i;
+const CIVIC_ADDRESS_RE = /^\d{1,6}[a-z]?\s+(?=\S*[a-z])\S+/i;
 const RURAL_ROUTE_RE =
   /^(?:(?:rr|rural route)\s*\d+\b.*\b(?:site|box|lot)\s*[a-z0-9-]+|(?:site|box)\s*[a-z0-9-]+\b.*\b(?:rr|rural route)\s*\d+)\b/i;
 const LOT_PROPERTY_RE =
@@ -66,7 +69,7 @@ function splitUnit(value: string): { property: string; unit: string | null } {
   return { property: value, unit: null };
 }
 
-function civicStreetIdentity(canonical: string): string {
+function civicStreetIdentity(canonical: string): string | null {
   const tokens = canonical.split(" ");
   if (tokens[1] === "highway" && /^[a-z0-9-]+$/i.test(tokens[2] ?? "")) {
     return tokens.slice(0, 3).join(" ");
@@ -90,7 +93,7 @@ function civicStreetIdentity(canonical: string): string {
   });
   return streetTypeIndex >= 2
     ? tokens.slice(0, streetTypeIndex + 1).join(" ")
-    : canonical;
+    : null;
 }
 
 /**
@@ -115,7 +118,9 @@ export function parsePropertyAddressIdentity(
   let base = canonical;
   if (CIVIC_ADDRESS_RE.test(canonical)) {
     kind = "civic";
-    base = civicStreetIdentity(canonical);
+    const civicBase = civicStreetIdentity(canonical);
+    if (!civicBase) return null;
+    base = civicBase;
   } else if (
     RURAL_ROUTE_RE.test(canonical) ||
     LOT_PROPERTY_RE.test(canonical)
