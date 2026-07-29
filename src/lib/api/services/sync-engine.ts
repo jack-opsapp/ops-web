@@ -56,11 +56,15 @@ import {
   type EmailOpportunityUnsafeIdentity,
 } from "@/lib/email/opportunity-title";
 import {
+  buildAISupplementalLeadFacts,
+  hasAISupplementalLeadFacts,
+} from "@/lib/email/ai-supplemental-facts";
+import {
   applyCanonicalLeadEnrichment,
   buildNewClientEnrichmentFields,
   buildNewOpportunityEnrichmentFields,
   leadEnrichmentFactsFromEmail,
-  leadEnrichmentFactsFromImport,
+  resolveAutoCreatedClientName,
   writeFieldProvenance,
   type LeadEnrichmentFacts,
 } from "@/lib/email/lead-enrichment";
@@ -738,14 +742,21 @@ async function createClient(
     enrichmentFacts !== undefined
       ? enrichmentFacts?.contactEmail
       : (submitter?.email ?? extractSenderEmail(email.from));
-  const senderName =
-    enrichmentFacts?.companyName ??
-    enrichmentFacts?.contactName ??
-    submitter?.company ??
-    submitter?.name ??
-    (enrichmentFacts?.sourcePlatform ? null : email.fromName) ??
-    // P0-C: never fabricate a name from the email local-part ("canprojack").
-    "New Lead";
+  // P0-C: never fabricate a name from the email local-part ("canprojack").
+  // The sender tier goes through displayNameFromMailbox, which rejects a
+  // local-part display name; Gmail synthesizes one for every bare-address
+  // sender.
+  const senderName = resolveAutoCreatedClientName({
+    preferredNames: [
+      enrichmentFacts?.companyName,
+      enrichmentFacts?.contactName,
+      submitter?.company,
+      submitter?.name,
+    ],
+    fromMailbox: email.from,
+    fromName: email.fromName,
+    allowSenderDisplayName: !enrichmentFacts?.sourcePlatform,
+  });
 
   // Check for existing client first to avoid duplicates
   const { data: existingClients, error: existingClientError } = senderEmail
@@ -842,7 +853,12 @@ async function createSubClient(
   const supabase = requireSupabase();
   const senderEmail = submitter?.email ?? extractSenderEmail(email.from);
   // P0-C: never fabricate a name from the email local-part.
-  const senderName = submitter?.name || email.fromName || "New Lead";
+  const senderName = resolveAutoCreatedClientName({
+    preferredNames: [submitter?.name],
+    fromMailbox: email.from,
+    fromName: email.fromName,
+    allowSenderDisplayName: true,
+  });
 
   // Check for existing sub-client to avoid duplicates
   const { data: existingSub, error: existingSubError } = await supabase
@@ -3595,23 +3611,16 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         }
       );
 
-      const aiSupplementalFacts = leadEnrichmentFactsFromImport({
-        contactName: null,
-        contactEmail: null,
-        contactPhone: null,
-        address: null,
-        estimatedValue:
-          deterministicFacts.estimatedValue == null
-            ? classified.estimatedValue
-            : null,
-        description:
-          deterministicFacts.description == null
-            ? classified.description
-            : null,
+      const aiSupplementalFacts = buildAISupplementalLeadFacts({
+        deterministicFacts,
+        classified: {
+          clientName: classified.clientName,
+          estimatedValue: classified.estimatedValue,
+          description: classified.description,
+          confidence: classified.confidence,
+        },
         providerThreadId: classifiedEmail.threadId,
         providerMessageId: classifiedEmail.id,
-        extractionSource: "ai_classified",
-        aiConfidence: classified.confidence,
       });
 
       const relationshipDecision = await findOpportunityRelationshipMatch({
@@ -3696,10 +3705,7 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         facts: deterministicFacts,
         companyId: input.connection.companyId,
       });
-      if (
-        aiSupplementalFacts.estimatedValue != null ||
-        aiSupplementalFacts.description != null
-      ) {
+      if (hasAISupplementalLeadFacts(aiSupplementalFacts)) {
         await applyCanonicalLeadEnrichment({
           supabase: requireSupabase(),
           opportunityId: oppId,
