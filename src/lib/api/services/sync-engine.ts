@@ -61,6 +61,7 @@ import {
   buildNewOpportunityEnrichmentFields,
   leadEnrichmentFactsFromEmail,
   leadEnrichmentFactsFromImport,
+  resolveAutoCreatedClientName,
   writeFieldProvenance,
   type LeadEnrichmentFacts,
 } from "@/lib/email/lead-enrichment";
@@ -738,14 +739,21 @@ async function createClient(
     enrichmentFacts !== undefined
       ? enrichmentFacts?.contactEmail
       : (submitter?.email ?? extractSenderEmail(email.from));
-  const senderName =
-    enrichmentFacts?.companyName ??
-    enrichmentFacts?.contactName ??
-    submitter?.company ??
-    submitter?.name ??
-    (enrichmentFacts?.sourcePlatform ? null : email.fromName) ??
-    // P0-C: never fabricate a name from the email local-part ("canprojack").
-    "New Lead";
+  // P0-C: never fabricate a name from the email local-part ("canprojack").
+  // The sender tier goes through displayNameFromMailbox, which rejects a
+  // local-part display name; Gmail synthesizes one for every bare-address
+  // sender.
+  const senderName = resolveAutoCreatedClientName({
+    preferredNames: [
+      enrichmentFacts?.companyName,
+      enrichmentFacts?.contactName,
+      submitter?.company,
+      submitter?.name,
+    ],
+    fromMailbox: email.from,
+    fromName: email.fromName,
+    allowSenderDisplayName: !enrichmentFacts?.sourcePlatform,
+  });
 
   // Check for existing client first to avoid duplicates
   const { data: existingClients, error: existingClientError } = senderEmail
@@ -842,7 +850,12 @@ async function createSubClient(
   const supabase = requireSupabase();
   const senderEmail = submitter?.email ?? extractSenderEmail(email.from);
   // P0-C: never fabricate a name from the email local-part.
-  const senderName = submitter?.name || email.fromName || "New Lead";
+  const senderName = resolveAutoCreatedClientName({
+    preferredNames: [submitter?.name],
+    fromMailbox: email.from,
+    fromName: email.fromName,
+    allowSenderDisplayName: true,
+  });
 
   // Check for existing sub-client to avoid duplicates
   const { data: existingSub, error: existingSubError } = await supabase

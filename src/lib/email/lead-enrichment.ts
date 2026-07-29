@@ -226,6 +226,41 @@ function displayNameFromMailbox(
   return candidate;
 }
 
+/**
+ * The name an auto-created client/sub-client row gets when a lead arrives by
+ * email. The chain is: first non-blank supplied name (enrichment company name,
+ * enrichment contact name, contact-form submitter fields), then the sender's
+ * real display name, then the "New Lead" placeholder.
+ *
+ * The sender tier routes through displayNameFromMailbox, which rejects a
+ * display name that is just the mailbox local part. Gmail synthesizes
+ * `fromName` as `from.split("@")[0]` when the From header carries no display
+ * name, so without that guard a bare `canprojack@gmail.com` sender becomes a
+ * client literally named "canprojack".
+ *
+ * `allowSenderDisplayName` is false for known-platform senders (Wix, Houzz,
+ * …) whose display name describes the platform, not the customer.
+ */
+export function resolveAutoCreatedClientName(input: {
+  preferredNames: Array<string | null | undefined>;
+  fromMailbox: string | null | undefined;
+  fromName: string | null | undefined;
+  allowSenderDisplayName: boolean;
+}): string {
+  for (const candidate of input.preferredNames) {
+    const cleaned = cleanText(candidate);
+    if (cleaned) return cleaned;
+  }
+  if (input.allowSenderDisplayName) {
+    const senderDisplayName = displayNameFromMailbox(
+      input.fromMailbox,
+      input.fromName
+    );
+    if (senderDisplayName) return senderDisplayName;
+  }
+  return "New Lead";
+}
+
 function localPartToName(email: string | null): string | null {
   const local = localPart(email);
   if (!local || UNSAFE_LOCAL_PARTS.has(local)) return null;
