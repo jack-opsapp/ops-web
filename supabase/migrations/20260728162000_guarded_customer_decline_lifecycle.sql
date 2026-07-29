@@ -25,7 +25,7 @@ create or replace function public.apply_email_opportunity_declined_disposition(
 )
 language plpgsql
 security definer
-set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+set search_path = ''
 as $function$
 declare
   v_opp public.opportunities%rowtype;
@@ -36,15 +36,18 @@ declare
   v_decisive_event_id uuid;
   v_decisive_occurred_at timestamptz;
   v_existing_disposition_id uuid;
+  v_existing_reason_code text;
   v_existing_connection_id uuid;
   v_existing_provider_message_id text;
   v_existing_decisive_event_id uuid;
   v_existing_decisive_occurred_at timestamptz;
   v_is_disposition_update boolean := false;
+  v_is_same_message_reason_upgrade boolean := false;
   v_requested_evidence jsonb;
+  v_superseded_disposition_id uuid;
   v_new_disposition_id uuid;
 begin
-  if coalesce(auth.role(), '') <> 'service_role' then
+  if coalesce(auth.jwt() ->> 'role', '') <> 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
 
@@ -173,9 +176,11 @@ begin
   end if;
 
   select disposition.id,
+         disposition.reason_code,
          private.try_parse_uuid(disposition.evidence ->> 'connection_id'),
          disposition.evidence ->> 'provider_message_id'
     into v_existing_disposition_id,
+         v_existing_reason_code,
          v_existing_connection_id,
          v_existing_provider_message_id
     from public.opportunity_dispositions disposition
@@ -234,12 +239,24 @@ begin
     and v_existing_connection_id is not distinct from p_connection_id
     and v_existing_provider_message_id is not distinct from p_provider_message_id
   then
-    return query select
-      false,
-      v_opp.stage,
-      v_existing_disposition_id,
-      'already_applied'::text;
-    return;
+    if v_existing_reason_code is not distinct from v_reason_code
+      or (
+        v_existing_reason_code = 'price'
+        and v_reason_code = 'customer_declined'
+      )
+    then
+      return query select
+        false,
+        v_opp.stage,
+        v_existing_disposition_id,
+        'already_applied'::text;
+      return;
+    end if;
+
+    v_is_same_message_reason_upgrade := (
+      v_existing_reason_code = 'customer_declined'
+      and v_reason_code = 'price'
+    );
   end if;
 
   -- An exact retry is decided above. Any later durable event invalidates a
@@ -294,18 +311,20 @@ begin
       return;
     end if;
 
-    if v_decisive_occurred_at < v_existing_decisive_occurred_at
-      or (
-        v_decisive_occurred_at = v_existing_decisive_occurred_at
-        and v_decisive_event_id <= v_existing_decisive_event_id
-      )
-    then
-      return query select
-        false,
-        v_opp.stage,
-        v_existing_disposition_id,
-        'terminal_stage'::text;
-      return;
+    if not v_is_same_message_reason_upgrade then
+      if v_decisive_occurred_at < v_existing_decisive_occurred_at
+        or (
+          v_decisive_occurred_at = v_existing_decisive_occurred_at
+          and v_decisive_event_id <= v_existing_decisive_event_id
+        )
+      then
+        return query select
+          false,
+          v_opp.stage,
+          v_existing_disposition_id,
+          'terminal_stage'::text;
+        return;
+      end if;
     end if;
 
     v_is_disposition_update := true;
@@ -361,7 +380,8 @@ begin
      set superseded_at = now()
    where opportunity_id = p_opportunity_id
      and company_id = p_company_id
-     and superseded_at is null;
+     and superseded_at is null
+  returning id into v_superseded_disposition_id;
 
   insert into public.opportunity_dispositions (
     company_id,
@@ -383,6 +403,14 @@ begin
     v_requested_evidence
   ) returning id into v_new_disposition_id;
 
+  if v_superseded_disposition_id is not null then
+    update public.opportunity_dispositions
+       set superseded_by = v_new_disposition_id
+     where id = v_superseded_disposition_id
+       and company_id = p_company_id
+       and opportunity_id = p_opportunity_id;
+  end if;
+
   return query select
     not v_is_disposition_update,
     'lost'::text,
@@ -396,7 +424,7 @@ $function$;
 
 revoke all on function public.apply_email_opportunity_declined_disposition(
   uuid, uuid, uuid, text, bigint, text, jsonb
-) from public, anon, authenticated;
+) from public, anon, authenticated, service_role;
 grant execute on function public.apply_email_opportunity_declined_disposition(
   uuid, uuid, uuid, text, bigint, text, jsonb
 ) to service_role;

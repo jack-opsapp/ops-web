@@ -253,8 +253,9 @@ describe("email commercial-outcome database guards", () => {
     );
     const body = compact(definition.body);
 
-    expect(body).toContain("auth.role()");
+    expect(body).toContain("auth.jwt()");
     expect(body).toContain("service_role");
+    expect(body).toContain("set search_path = ''");
     expect(body).toContain("for update");
     expect(body).toContain("assignment_version");
     expect(body).toContain("p_expected_stage");
@@ -273,7 +274,11 @@ describe("email commercial-outcome database guards", () => {
     );
     expect(body).toContain("already_applied");
     expect(body).toMatch(
-      /v_existing_connection_id is not distinct from p_connection_id[\s\S]*?v_existing_provider_message_id is not distinct from p_provider_message_id[\s\S]*?'already_applied'/
+      /v_existing_connection_id is not distinct from p_connection_id[\s\S]*?v_existing_provider_message_id is not distinct from p_provider_message_id[\s\S]*?v_existing_reason_code is not distinct from v_reason_code[\s\S]*?'already_applied'/
+    );
+    expect(body).toContain("v_is_same_message_reason_upgrade");
+    expect(body).toMatch(
+      /v_existing_reason_code = 'price'[\s\S]*?v_reason_code = 'customer_declined'[\s\S]*?'already_applied'/
     );
     expect(body).toContain("v_existing_decisive_occurred_at");
     expect(body).toMatch(
@@ -287,6 +292,7 @@ describe("email commercial-outcome database guards", () => {
       /insert into public\.opportunity_dispositions[\s\S]*?'lost'[\s\S]*?v_reason_code[\s\S]*?'guarded_lifecycle'/
     );
     expect(body).toContain("disposition_updated");
+    expect(body).toContain("superseded_by = v_new_disposition_id");
     expect(body).toContain(
       "p_evidence -> 'signals' = '[\"customer_declined\"]'::jsonb"
     );
