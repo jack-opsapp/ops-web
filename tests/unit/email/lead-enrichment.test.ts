@@ -142,6 +142,74 @@ describe("lead lifecycle enrichment decisions", () => {
     });
   });
 
+  it.each([
+    "Victoria",
+    "Langford",
+    "Esquimalt",
+    "Tillicum",
+    "Henderson",
+    "North Saanich",
+    "Saanich Cedar Hill area",
+  ])(
+    "never persists locality-only enrichment as a job address: %s",
+    (locality) => {
+      const facts = leadEnrichmentFactsFromEmail({
+        email: baseEmail(),
+        direction: "inbound",
+        connection: baseConnection(),
+        profile: syncProfile,
+        submitter: {
+          name: "Paul Holmes",
+          email: "pwholmes64@icloud.com",
+          phone: "2508883674",
+          message: "New deck and stair railings.",
+          address: locality,
+        },
+      });
+
+      const updates = buildLeadEnrichmentUpdates({
+        existingOpportunity: { address: null },
+        existingClient: { address: null },
+        facts,
+      });
+
+      expect(updates.opportunity.address).toBeUndefined();
+      expect(updates.client.address).toBeUndefined();
+    }
+  );
+
+  it.each([
+    "Unit 4, 123 Main Street, Victoria BC",
+    "RR 2 Site 4 Box 8, North Saanich BC",
+    "PID 009-123-456",
+  ])(
+    "preserves qualified property-level enrichment for storage: %s",
+    (propertyAddress) => {
+      const facts = leadEnrichmentFactsFromEmail({
+        email: baseEmail(),
+        direction: "inbound",
+        connection: baseConnection(),
+        profile: syncProfile,
+        submitter: {
+          name: "Jane Doe",
+          email: "jane.doe@hotmail.com",
+          phone: null,
+          message: "Please quote my project.",
+          address: propertyAddress,
+        },
+      });
+
+      const updates = buildLeadEnrichmentUpdates({
+        existingOpportunity: { address: null },
+        existingClient: { address: null },
+        facts,
+      });
+
+      expect(updates.opportunity.address).toBe(propertyAddress);
+      expect(updates.client.address).toBe(propertyAddress);
+    }
+  );
+
   it("does not overwrite existing operator-entered opportunity or client values", () => {
     const facts = leadEnrichmentFactsFromEmail({
       email: baseEmail({
