@@ -37,6 +37,15 @@ export interface CleanMessageOptions {
   providerCleanBody?: string | null;
 }
 
+export interface SplitMessageBodyResult {
+  /** Quote/overlap-stripped text exactly as authored, including any signature. */
+  authoredBody: string;
+  /** Authored text safe for lifecycle facts, with a terminal signature removed. */
+  lifecycleBody: string;
+  /** Terminal signature/footer evidence removed from `lifecycleBody`. */
+  signatureBlock: string;
+}
+
 // ─── Signature / footer stripping ──────────────────────────────────────────
 //
 // A trailing signature block is detected by an anchor on its own line, after
@@ -242,8 +251,11 @@ function looksLikeSignatureTail(tailLines: string[]): boolean {
  * plain-text message body. Returns the body unchanged when no confident
  * signature anchor is found.
  */
-export function stripSignatureBlock(body: string): string {
-  if (!body) return body;
+function splitSignatureBlock(body: string): {
+  lifecycleBody: string;
+  signatureBlock: string;
+} {
+  if (!body) return { lifecycleBody: body, signatureBlock: "" };
   const normalized = body.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const lines = normalized.split("\n");
 
@@ -304,22 +316,35 @@ export function stripSignatureBlock(body: string): string {
       const inlineCutAt =
         (inlineSignature.index ?? 0) + Math.max(0, punctuationOffset) + 1;
       if (COMMERCIAL_VETO_OR_REVERSAL_RE.test(normalized.slice(inlineCutAt))) {
-        return body;
+        return { lifecycleBody: body, signatureBlock: "" };
       }
       const kept = normalized.slice(0, inlineCutAt).trimEnd();
-      if (kept) return kept;
+      if (kept) {
+        return {
+          lifecycleBody: kept,
+          signatureBlock: normalized.slice(inlineCutAt).trim(),
+        };
+      }
     }
-    return body;
+    return { lifecycleBody: body, signatureBlock: "" };
   }
 
   if (COMMERCIAL_VETO_OR_REVERSAL_RE.test(lines.slice(cutAt).join("\n"))) {
-    return body;
+    return { lifecycleBody: body, signatureBlock: "" };
   }
   const kept = trimTrailingBlankLines(lines.slice(0, cutAt));
   const result = kept.join("\n").trimEnd();
   // Never blank out the whole message: if stripping ate everything, the
   // "signature" was actually the content — keep the original.
-  return result.length > 0 ? result : body;
+  if (!result) return { lifecycleBody: body, signatureBlock: "" };
+  return {
+    lifecycleBody: result,
+    signatureBlock: lines.slice(cutAt).join("\n").trim(),
+  };
+}
+
+export function stripSignatureBlock(body: string): string {
+  return splitSignatureBlock(body).lifecycleBody;
 }
 
 // ─── Quote + overlap + signature composition ───────────────────────────────
@@ -351,7 +376,25 @@ export function cleanMessageBody(
   rawBody: string,
   opts: CleanMessageOptions
 ): string {
-  return stripSignatureBlock(authoredMessageBody(rawBody, opts)).trim();
+  return splitMessageBody(rawBody, opts).lifecycleBody;
+}
+
+/**
+ * Build both factual lifecycle text and separately retained signature evidence
+ * from one canonical quote/overlap pass.
+ */
+export function splitMessageBody(
+  rawBody: string,
+  opts: CleanMessageOptions
+): SplitMessageBodyResult {
+  const authoredBody = authoredMessageBody(rawBody, opts);
+  const { lifecycleBody, signatureBlock } =
+    splitSignatureBlock(authoredBody);
+  return {
+    authoredBody,
+    lifecycleBody: lifecycleBody.trim(),
+    signatureBlock,
+  };
 }
 
 /**

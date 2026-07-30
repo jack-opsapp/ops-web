@@ -161,6 +161,11 @@ describe("assembleConversationState — clean body", () => {
     expect(m.cleanBody).not.toMatch(/On Mon/);
     expect(m.cleanBody).not.toContain("$3,200");
     expect(m.cleanBody).not.toContain("778-555-9999"); // signature dropped
+    expect(m.authoredBody).toContain("Sarah Lee");
+    expect(m.authoredBody).not.toMatch(/On Mon/);
+    expect(m.signatureBlock).toBe(
+      ["Thanks,", "Sarah Lee", "778-555-9999"].join("\n")
+    );
     expect(m.rawBody).toContain("$3,200"); // raw retained for audit
   });
 

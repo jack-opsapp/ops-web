@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  splitMessageBody,
   cleanMessageBody,
   stripSignatureBlock,
 } from "@/lib/api/services/conversation-state/message-cleaner";
@@ -323,6 +324,53 @@ describe("stripSignatureBlock", () => {
 });
 
 describe("cleanMessageBody", () => {
+  it("preserves customer-authored signature evidence separately from lifecycle text", () => {
+    const raw = [
+      "Yes, please proceed with the estimate.",
+      "",
+      "Thanks,",
+      "Kevin Falk",
+      "250-555-0199",
+      "",
+      "On Mon, Jul 27, 2026 at 9:00 AM Canpro wrote:",
+      "> The estimate is attached.",
+    ].join("\n");
+
+    expect(splitMessageBody(raw, {})).toEqual({
+      authoredBody: [
+        "Yes, please proceed with the estimate.",
+        "",
+        "Thanks,",
+        "Kevin Falk",
+        "250-555-0199",
+      ].join("\n"),
+      lifecycleBody: "Yes, please proceed with the estimate.",
+      signatureBlock: ["Thanks,", "Kevin Falk", "250-555-0199"].join("\n"),
+    });
+  });
+
+  it("keeps an explicit empty provider-clean body authoritative in the structured result", () => {
+    expect(
+      splitMessageBody("Kevin Falk\nOn Monday, Canpro wrote:\n> quoted", {
+        providerCleanBody: "",
+      })
+    ).toEqual({
+      authoredBody: "",
+      lifecycleBody: "",
+      signatureBlock: "",
+    });
+  });
+
+  it("separates a terminal mobile footer without treating it as lifecycle text", () => {
+    expect(
+      splitMessageBody("Confirmed for Friday.\n\nSent from my iPhone", {})
+    ).toEqual({
+      authoredBody: "Confirmed for Friday.\n\nSent from my iPhone",
+      lifecycleBody: "Confirmed for Friday.",
+      signatureBlock: "Sent from my iPhone",
+    });
+  });
+
   it("strips an `On … wrote:` quoted chain AND a `-- ` signature, leaving only the new reply", () => {
     const raw = [
       "Yes, let's go ahead with the 40ft cedar fence. Thanks for the quick turnaround.",

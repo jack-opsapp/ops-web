@@ -24,7 +24,7 @@
 
 import { extractEmailAddress } from "@/lib/utils/email-parsing";
 
-import { cleanMessageBody } from "./message-cleaner";
+import { splitMessageBody } from "./message-cleaner";
 import { classifyParty } from "./party-classifier";
 import { resolveContact, type ContactFormSubmitter } from "./contact-resolver";
 import { detectAccept } from "./accept-detector";
@@ -194,12 +194,13 @@ export function assembleConversationState(
   const priorCleanBodies: string[] = [];
 
   for (const raw of sorted) {
-    const cleanBody = cleanMessageBody(raw.rawBody, {
+    const splitBody = splitMessageBody(raw.rawBody, {
       subject: raw.subject,
       priorBodies:
         priorCleanBodies.length > 0 ? [...priorCleanBodies] : undefined,
       providerCleanBody: raw.providerCleanBody ?? null,
     });
+    const cleanBody = splitBody.lifecycleBody;
 
     // Classify from the RAW body so noise heuristics (bounce / marketing
     // "unsubscribe" footers) still see the signals the cleaner would strip.
@@ -251,6 +252,8 @@ export function assembleConversationState(
       fromName: cleanDisplayName(raw.fromName),
       sentAt: raw.sentAt,
       cleanBody,
+      authoredBody: splitBody.authoredBody,
+      signatureBlock: splitBody.signatureBlock,
       rawBody: raw.rawBody,
       isRealCustomerInbound,
       attachments,

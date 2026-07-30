@@ -85,6 +85,10 @@ export interface CleanMessage {
   sentAt: string; // ISO 8601
   /** quote-stripped + signature-stripped + cross-message overlap-stripped. */
   cleanBody: string;
+  /** quote/overlap-stripped customer-authored text, including its signature. */
+  authoredBody?: string;
+  /** terminal signature/footer evidence, kept separate from lifecycle facts. */
+  signatureBlock?: string;
   /** retained verbatim for audit. */
   rawBody: string;
   /** direction=inbound ∧ partyRole=customer ∧ deterministically "meaningful". */
