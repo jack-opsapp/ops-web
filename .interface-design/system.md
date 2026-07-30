@@ -340,6 +340,8 @@ The transcript and answer must remain visually dominant.
 - Default send actions are square. Guided Phase C may use a short `SEND` label
   beside the icon for recognition; this is a compact utility action, never a
   primary CTA.
+- Inset the send action by the composer padding plus one 4px half-step. It may
+  not sit flush against the glass edge.
 - Reserve only the rendered action width plus the standard internal gap in the
   input.
 - Attachment actions stay subordinate: no filled surface, accent border, dense
@@ -355,6 +357,24 @@ not 16px). Icons MUST use the explicit semantic pairs
 for layout, not icon dimensions. Dense web controls use the explicit
 `control-32`, `control-36`, or `control-40` dimensions when their rendered
 size is part of the hierarchy contract.
+
+### Conversational Quick Answers
+
+Quick answers belong to the assistant turn they answer, never inside the
+floating composer. The transcript remains the only vertical scroll owner.
+
+- Start the current answer set expanded at its natural height. Do not use a
+  fixed `max-height`, clipping, or an internal scroll region.
+- Pair the set with an accessible disclosure using `aria-expanded` and
+  `aria-controls`; collapsing hides only the choices, not the assistant label,
+  question, or helper.
+- Choice rows are full-width, sentence-case Mohave `text-body-sm`, left aligned,
+  with `rounded-chip`, `border-glass-border`, `bg-surface-input`, and the
+  standard surface hover/active tokens.
+- Natural-language choices never use Cake Mono or uppercase transformation.
+  Reserve uppercase mono text for the compact disclosure label.
+- Expanding may reposition the transcript to keep the newest choice visible.
+  Never scroll or reposition an ancestor container.
 
 ### Tags
 

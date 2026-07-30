@@ -744,6 +744,85 @@ describe("GuidedCatalogSetup", () => {
     expect(send).toHaveTextContent("SEND");
   });
 
+  it("keeps long quick answers in a collapsible transcript panel instead of the composer", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(() =>
+      response({
+        session: {
+          ...baseSession,
+          version: 17,
+          conversation: [
+            {
+              id: "assistant:17:membrane-inventory",
+              role: "assistant",
+              kind: "text",
+              content:
+                "How should OPS handle DekSmart membrane purchasing and inventory for vinyl decking?",
+              version: 17,
+            },
+          ],
+          unresolvedQuestions: [
+            {
+              id: "membrane-inventory",
+              prompt:
+                "How should OPS handle DekSmart membrane purchasing and inventory for vinyl decking?",
+              answerKind: "multi_choice",
+              factKeys: ["materials.deksmart.inventory_method"],
+              options: [
+                "Do not track membrane inventory yet; staff purchase/order manually per job, and the product quote price is enough for now.",
+                "Track membrane as inventory by sq ft; calculate needed material from quoted deck sq ft plus a staff-adjusted waste allowance.",
+                "Track membrane as rolls/sheets; purchasing and inventory need roll/sheet dimensions, coverage, and cost details before setup can be ready.",
+              ],
+            },
+          ],
+        },
+        agentAvailable: true,
+      })
+    );
+
+    renderSetup();
+
+    const question = await screen.findByText(
+      "How should OPS handle DekSmart membrane purchasing and inventory for vinyl decking?"
+    );
+    const message = question.closest('[data-message-role="assistant"]');
+    const composer = screen.getByTestId("guided-catalog-composer");
+    const quickAnswers = screen.getByRole("group", {
+      name: "Quick answers",
+    });
+    expect(message).toContainElement(quickAnswers);
+    expect(composer).not.toContainElement(quickAnswers);
+
+    const choices = screen.getAllByRole("button", {
+      name: /track membrane/i,
+    });
+    expect(choices).toHaveLength(3);
+    for (const choice of choices) {
+      expect(choice).toHaveClass("font-mohave", "text-body-sm", "text-left");
+      expect(choice).not.toHaveClass("font-cakemono", "uppercase");
+    }
+    fireEvent.click(choices[0]);
+    expect(choices[0]).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "SEND" })).toBeEnabled();
+
+    const toggle = screen.getByRole("button", { name: /options/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("group", { name: "Quick answers" })
+      ).not.toBeInTheDocument();
+    });
+    expect(question).toBeVisible();
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await waitFor(() => {
+      expect(
+        screen.getByRole("group", { name: "Quick answers" })
+      ).toBeVisible();
+    });
+  });
+
   it("restores the persisted transcript with readable conversational typography", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementationOnce(() =>
       response({
