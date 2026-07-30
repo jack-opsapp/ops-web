@@ -61,6 +61,10 @@ vi.mock("@/lib/hooks", () => ({
   useConvertOpportunityToProject: () => ({ mutate: convertMutate }),
   useLinkOpportunityToExistingProject: () => ({ mutate: linkMutate }),
   useConversionPreflight: (id: string | undefined) => preflightHook(id),
+  // Discard-only dependencies — never reached by the Won/Lost/active-move
+  // paths under test, but the hook resolves them on every render.
+  useApplyLeadDispositionFeedback: () => ({ mutateAsync: vi.fn() }),
+  useUndoLeadDispositionFeedback: () => ({ mutateAsync: vi.fn() }),
 }));
 
 vi.mock("@/i18n/client", () => ({
