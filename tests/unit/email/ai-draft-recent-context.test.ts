@@ -99,8 +99,9 @@ vi.mock("@/lib/api/services/conversation-state/persist-routing", () => ({
 vi.mock("@/lib/supabase/helpers", () => {
   function query(table: string) {
     const filters: Array<[string, unknown]> = [];
-    let orderBy: { column: string; ascending: boolean } | null = null;
+    const orderBys: Array<{ column: string; ascending: boolean }> = [];
     let rowLimit: number | null = null;
+    let rowRange: { from: number; to: number } | null = null;
     let operation: "select" | "insert" = "select";
     let insertPayload: Row | null = null;
 
@@ -108,15 +109,18 @@ vi.mock("@/lib/supabase/helpers", () => {
       let rows = [...(database.tables[table] ?? [])].filter((row) =>
         filters.every(([column, value]) => row[column] === value)
       );
-      if (orderBy) {
-        const { column, ascending } = orderBy;
+      if (orderBys.length > 0) {
         rows.sort((left, right) => {
-          const a = String(left[column] ?? "");
-          const b = String(right[column] ?? "");
-          const comparison = a < b ? -1 : a > b ? 1 : 0;
-          return ascending ? comparison : -comparison;
+          for (const { column, ascending } of orderBys) {
+            const a = String(left[column] ?? "");
+            const b = String(right[column] ?? "");
+            const comparison = a < b ? -1 : a > b ? 1 : 0;
+            if (comparison !== 0) return ascending ? comparison : -comparison;
+          }
+          return 0;
         });
       }
+      if (rowRange) rows = rows.slice(rowRange.from, rowRange.to + 1);
       if (rowLimit != null) rows = rows.slice(0, rowLimit);
       return rows;
     };
@@ -137,7 +141,11 @@ vi.mock("@/lib/supabase/helpers", () => {
       return chain;
     };
     chain.order = (column: string, options: { ascending?: boolean } = {}) => {
-      orderBy = { column, ascending: options.ascending !== false };
+      orderBys.push({ column, ascending: options.ascending !== false });
+      return chain;
+    };
+    chain.range = (from: number, to: number) => {
+      rowRange = { from, to };
       return chain;
     };
     chain.limit = (value: number) => {
@@ -619,6 +627,79 @@ describe("AIDraftService recent mailbox context", () => {
     expect(fullConversation).toContain("COMPLETE_CONTEXT_30");
     expect(fullConversation.indexOf("COMPLETE_CONTEXT_01")).toBeLessThan(
       fullConversation.indexOf("COMPLETE_CONTEXT_30")
+    );
+  });
+
+  it("pages beyond 200 messages with stable timestamp and id ordering", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-paged",
+        company_id: "company-1",
+        title: "Paged conversation",
+        ai_summary: "Long-running estimate discussion.",
+        stage: "negotiation",
+        address: null,
+        contact_name: "Pat Page",
+        contact_email: "pat@example.com",
+        clients: { name: "Pat Page", email: "pat@example.com" },
+      },
+    ];
+    database.tables.activities = Array.from({ length: 205 }, (_, index) => {
+      const sequence = index + 1;
+      const padded = String(sequence).padStart(3, "0");
+      return {
+        id: `activity-${padded}`,
+        company_id: "company-1",
+        opportunity_id: "opportunity-paged",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-paged",
+        email_message_id: `message-${padded}`,
+        type: "email",
+        direction: sequence % 2 === 0 ? "outbound" : "inbound",
+        from_email:
+          sequence % 2 === 0 ? "canprojack@gmail.com" : "pat@example.com",
+        subject: `Conversation ${padded}`,
+        body_text: `PAGED_CONTEXT_${padded}`,
+        body_text_clean: `PAGED_CONTEXT_${padded}`,
+        created_at:
+          sequence >= 204
+            ? "2026-07-29T12:00:00.000Z"
+            : new Date(Date.UTC(2026, 0, 1, 0, sequence)).toISOString(),
+      };
+    });
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-paged",
+      sourceActivityId: "activity-205",
+      origin: "system_handoff",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "edit",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-paged",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "all",
+        inboxScope: "all",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    const fullConversation = String(
+      latestUntrustedData().fullConversation ?? ""
+    );
+    expect(fullConversation).toContain("PAGED_CONTEXT_001");
+    expect(fullConversation).toContain("PAGED_CONTEXT_205");
+    expect(fullConversation.indexOf("PAGED_CONTEXT_204")).toBeLessThan(
+      fullConversation.indexOf("PAGED_CONTEXT_205")
     );
   });
 
@@ -1110,7 +1191,7 @@ describe("AIDraftService recent mailbox context", () => {
     );
   });
 
-  it("uses the newest 20 messages and preserves chronological prompt order", async () => {
+  it("loads the complete thread and preserves chronological prompt order", async () => {
     database.tables.email_threads = [threadRow("thread-b", "connection-b")];
     database.tables.activities = Array.from({ length: 30 }, (_, index) => {
       const sequence = index + 1;
@@ -1136,8 +1217,8 @@ describe("AIDraftService recent mailbox context", () => {
     expect(result.sourceMessageId).toBe("message-30");
     expect(fullThread.match(/CONTENT_\d{2}_END/g)).toEqual(
       Array.from(
-        { length: 20 },
-        (_, index) => `CONTENT_${String(index + 11).padStart(2, "0")}_END`
+        { length: 30 },
+        (_, index) => `CONTENT_${String(index + 1).padStart(2, "0")}_END`
       )
     );
   });

@@ -344,6 +344,7 @@ function toIso(value: string | null | undefined): string {
 }
 
 interface ActivityEmailRow {
+  id: string;
   email_message_id: string | null;
   from_email: string | null;
   to_emails: string[] | null;
@@ -354,6 +355,8 @@ interface ActivityEmailRow {
   direction: "inbound" | "outbound" | null;
   created_at: string | null;
 }
+
+const CONVERSATION_ACTIVITY_PAGE_SIZE = 500;
 
 /**
  * Load a thread's attachments grouped by PROVIDER message id, each carrying its
@@ -543,23 +546,34 @@ export async function buildConversationState(
     syncFilters: (conn.sync_filters ?? {}) as SyncProfile,
   });
 
-  // 3. Newest thread messages from this mailbox's `activities` ledger.
-  //    Fetch newest-first so LIMIT retains current context, then reverse below
-  //    before the deterministic core consumes the rows chronologically.
-  const { data: activityRows } = await supabase
-    .from("activities")
-    .select(
-      "email_message_id, from_email, to_emails, cc_emails, subject, body_text, body_text_clean, direction, created_at"
-    )
-    .eq("company_id", t.company_id)
-    .eq("email_connection_id", t.connection_id)
-    .eq("type", "email")
-    .eq("email_thread_id", t.provider_thread_id)
-    .order("created_at", { ascending: false })
-    .limit(20);
-  const activities = (
-    [...(activityRows ?? [])] as unknown as ActivityEmailRow[]
-  ).reverse();
+  // 3. Complete thread history from this mailbox's `activities` ledger.
+  //    Stable two-part ordering makes page boundaries deterministic even when
+  //    a provider imports several messages with the same occurrence timestamp.
+  const activities: ActivityEmailRow[] = [];
+  for (let from = 0; ; from += CONVERSATION_ACTIVITY_PAGE_SIZE) {
+    const { data: activityRows, error: activityError } = await supabase
+      .from("activities")
+      .select(
+        "id, email_message_id, from_email, to_emails, cc_emails, subject, body_text, body_text_clean, direction, created_at"
+      )
+      .eq("company_id", t.company_id)
+      .eq("email_connection_id", t.connection_id)
+      .eq("type", "email")
+      .eq("email_thread_id", t.provider_thread_id)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + CONVERSATION_ACTIVITY_PAGE_SIZE - 1);
+    if (activityError) {
+      console.error(
+        "[conversation-state] activity history load failed:",
+        activityError.message
+      );
+      return null;
+    }
+    const page = (activityRows ?? []) as unknown as ActivityEmailRow[];
+    activities.push(...page);
+    if (page.length < CONVERSATION_ACTIVITY_PAGE_SIZE) break;
+  }
 
   // 4. Attachments (Phase 2): provider identity + cached inspection, keyed by
   //    provider message id. A deterministic DB read — no vision call here.

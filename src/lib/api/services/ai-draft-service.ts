@@ -67,8 +67,7 @@ function getOpenAI() {
  */
 export const LIFECYCLE_LEARNING_ENABLED = true;
 
-const MAX_SOURCE_BOUND_CONVERSATION_MESSAGES = 200;
-const MAX_SOURCE_BOUND_CONVERSATION_CHARACTERS = 120_000;
+const DRAFT_CONVERSATION_PAGE_SIZE = 200;
 
 /**
  * Serialize customer/business reference data without allowing its content to
@@ -920,42 +919,35 @@ export const AIDraftService = {
     }
 
     if (threadId || authorizedSourceActivity) {
-      let messagesQuery = supabase
-        .from("activities")
-        .select(
-          "id, opportunity_id, direction, from_email, subject, body_text, body_text_clean, created_at, email_message_id"
-        )
-        .eq("company_id", companyId)
-        .eq("email_connection_id", connectionId)
-        .eq("type", "email");
-      // A source-bound handoff is an opportunity reply, not a thread-local
-      // reply. Load every authorized fragment so forwards, alternate contacts,
-      // and split provider threads cannot hide already-sent price/scope.
-      messagesQuery = authorizedSourceActivity
-        ? messagesQuery.eq("opportunity_id", opportunityId!)
-        : messagesQuery.eq("email_thread_id", threadId!);
       const sourceBound = authorizedSourceActivity !== null;
-      const { data: messages, error: messagesError } = await messagesQuery
-        .order("created_at", { ascending: sourceBound })
-        .limit(sourceBound ? MAX_SOURCE_BOUND_CONVERSATION_MESSAGES + 1 : 20);
+      for (let from = 0; ; from += DRAFT_CONVERSATION_PAGE_SIZE) {
+        let messagesQuery = supabase
+          .from("activities")
+          .select(
+            "id, opportunity_id, direction, from_email, subject, body_text, body_text_clean, created_at, email_message_id"
+          )
+          .eq("company_id", companyId)
+          .eq("email_connection_id", connectionId)
+          .eq("type", "email");
+        // A source-bound handoff is an opportunity reply, not a thread-local
+        // reply. Load every authorized fragment so forwards, alternate contacts,
+        // and split provider threads cannot hide already-sent price/scope.
+        messagesQuery = sourceBound
+          ? messagesQuery.eq("opportunity_id", opportunityId!)
+          : messagesQuery.eq("email_thread_id", threadId!);
+        const { data: messages, error: messagesError } = await messagesQuery
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .range(from, from + DRAFT_CONVERSATION_PAGE_SIZE - 1);
 
-      if (messagesError) {
-        throw new Error(
-          `Draft conversation could not be loaded: ${messagesError.message}`
-        );
-      }
-      if (
-        sourceBound &&
-        (messages?.length ?? 0) > MAX_SOURCE_BOUND_CONVERSATION_MESSAGES
-      ) {
-        throw new Error(
-          `Draft conversation exceeds the safe ${MAX_SOURCE_BOUND_CONVERSATION_MESSAGES}-message bound`
-        );
-      }
-
-      threadMessages = [...(messages ?? [])] as typeof threadMessages;
-      if (!sourceBound) {
-        threadMessages.reverse();
+        if (messagesError) {
+          throw new Error(
+            `Draft conversation could not be loaded: ${messagesError.message}`
+          );
+        }
+        const page = [...(messages ?? [])] as typeof threadMessages;
+        threadMessages.push(...page);
+        if (page.length < DRAFT_CONVERSATION_PAGE_SIZE) break;
       }
       if (sourceBound) {
         if (
@@ -965,18 +957,6 @@ export const AIDraftService = {
         ) {
           throw new Error(
             "Draft source activity is missing from the complete authorized conversation"
-          );
-        }
-        const sourceBoundCharacters = threadMessages.reduce(
-          (total, message) =>
-            total +
-            message.subject.length +
-            (message.body_text_clean ?? message.body_text ?? "").length,
-          0
-        );
-        if (sourceBoundCharacters > MAX_SOURCE_BOUND_CONVERSATION_CHARACTERS) {
-          throw new Error(
-            `Draft conversation exceeds the safe ${MAX_SOURCE_BOUND_CONVERSATION_CHARACTERS}-character bound`
           );
         }
       }
