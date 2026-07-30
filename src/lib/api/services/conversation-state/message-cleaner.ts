@@ -388,8 +388,7 @@ export function splitMessageBody(
   opts: CleanMessageOptions
 ): SplitMessageBodyResult {
   const authoredBody = authoredMessageBody(rawBody, opts);
-  const { lifecycleBody, signatureBlock } =
-    splitSignatureBlock(authoredBody);
+  const { lifecycleBody, signatureBlock } = splitSignatureBlock(authoredBody);
   return {
     authoredBody,
     lifecycleBody: lifecycleBody.trim(),

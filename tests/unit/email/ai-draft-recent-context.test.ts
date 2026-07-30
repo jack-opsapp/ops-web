@@ -311,8 +311,7 @@ function sourceBoundRetrievalRequest() {
 
 function latestUserPrompt(): string {
   const request = openAICreateMock.mock.calls.at(-1)?.[0] as
-    | { messages?: Array<{ role: string; content: string }> }
-    | undefined;
+    { messages?: Array<{ role: string; content: string }> } | undefined;
   return (
     request?.messages?.find((message) => message.role === "user")?.content ?? ""
   );
@@ -320,8 +319,7 @@ function latestUserPrompt(): string {
 
 function latestSystemPrompt(): string {
   const request = openAICreateMock.mock.calls.at(-1)?.[0] as
-    | { messages?: Array<{ role: string; content: string }> }
-    | undefined;
+    { messages?: Array<{ role: string; content: string }> } | undefined;
   return (
     request?.messages?.find((message) => message.role === "system")?.content ??
     ""

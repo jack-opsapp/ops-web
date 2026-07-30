@@ -551,10 +551,7 @@ export function hasSubstantiveLeadContext(
 }
 
 export type LeadStalenessVerdict =
-  | "fresh"
-  | "stale"
-  | "awaiting_event"
-  | "insufficient_context";
+  "fresh" | "stale" | "awaiting_event" | "insufficient_context";
 
 /**
  * Staleness decision for one open lead.
@@ -661,10 +658,7 @@ export interface LeadSummaryContextBundle {
   commercial_context: {
     outcome: "won" | "deferred" | "declined";
     reason:
-      | "customer_committed"
-      | "budget_timing"
-      | "customer_declined"
-      | "price";
+      "customer_committed" | "budget_timing" | "customer_declined" | "price";
     current_price: number | null;
     current_scope: string | null;
     excluded_scope: string | null;

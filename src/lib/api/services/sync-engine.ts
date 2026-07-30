@@ -1842,8 +1842,7 @@ async function linkThread(
     );
   }
   const canonicalOpportunityId = canonicalRows?.[0]?.opportunity_id as
-    | string
-    | undefined;
+    string | undefined;
   if (!canonicalOpportunityId) {
     throw new Error(
       "[sync-engine] linkThread did not persist a canonical provider-thread owner"
@@ -2170,8 +2169,7 @@ async function createActivity(
     connection,
     opportunityId,
     ((insertedActivity as Record<string, unknown> | null)?.id as
-      | string
-      | null) ?? null,
+      string | null) ?? null,
     direction
   );
 

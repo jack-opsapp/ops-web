@@ -56,8 +56,7 @@ const GENERIC_NAME_RE =
   /^(?:unknown|new lead|new customer|customer|lead|n\/a|na|null|undefined|none|-|—|no name|test)$/i;
 const PERSON_NAME_RE =
   /^[A-Z][A-Za-z.'’()-]{1,39}(?:\s+[A-Z][A-Za-z.'’()-]{1,39}){1,3}$/;
-const SELF_IDENTIFICATION_RE =
-  /\b(?:my name is|this is|i am|i['’]m)\s+/gi;
+const SELF_IDENTIFICATION_RE = /\b(?:my name is|this is|i am|i['’]m)\s+/gi;
 const SIGNATURE_SIGNOFF_RE =
   /^(?:thanks|thank you|thanks again|regards|best regards|kind regards|warm regards|best|cheers|sincerely)[,\-—–\s]*$/i;
 const SIGNATURE_NON_NAME_RE =
@@ -466,21 +465,11 @@ export function resolveContact(input: ResolveContactInput): ResolvedContact {
   }
   if (!nameIsVerified) {
     for (const m of latestCustomerMessages) {
-      const selfIdentified = customerSelfIdentifiedName(
-        m.cleanBody,
-        operator
-      );
+      const selfIdentified = customerSelfIdentifiedName(m.cleanBody, operator);
       if (selfIdentified) {
         name = selfIdentified;
         nameIsVerified = true;
-        prov.push(
-          provenance(
-            "name",
-            "customer_self_identification",
-            0.96,
-            m
-          )
-        );
+        prov.push(provenance("name", "customer_self_identification", 0.96, m));
         break;
       }
     }

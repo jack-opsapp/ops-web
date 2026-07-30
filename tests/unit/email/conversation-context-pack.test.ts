@@ -21,9 +21,7 @@ function message(
     providerMessageId: `message-${index}`,
     providerThreadId: "thread-authorized",
     connectionId: "connection-1",
-    occurredAt: new Date(
-      Date.UTC(2026, 6, 1 + index, 12)
-    ).toISOString(),
+    occurredAt: new Date(Date.UTC(2026, 6, 1 + index, 12)).toISOString(),
     direction: inbound ? "inbound" : "outbound",
     authorRole: inbound ? "customer" : "operator",
     subject: "Deck estimate",

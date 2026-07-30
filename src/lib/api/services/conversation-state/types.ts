@@ -21,11 +21,13 @@ export type LeadStage =
   | "lost"
   | "discarded";
 
-export type PartyRole = "customer" | "operator" | "internal" | "system" | "unknown";
+export type PartyRole =
+  "customer" | "operator" | "internal" | "system" | "unknown";
 
 export type AttachmentKind = "image" | "pdf" | "document" | "other";
 
-export type RoutingDecision = "draft" | "update_lead_only" | "require_human_review";
+export type RoutingDecision =
+  "draft" | "update_lead_only" | "require_human_review";
 
 /**
  * The operator's full identity set, built from authoritative data
@@ -135,7 +137,9 @@ export interface AcceptSignal {
    * high → signed_estimate_attachment and/or explicit_accept_language.
    * low  → verbal_soft (ambiguous "sounds good", "ok" without commitment).
    */
-  basis: ("signed_estimate_attachment" | "explicit_accept_language" | "verbal_soft")[];
+  basis: (
+    "signed_estimate_attachment" | "explicit_accept_language" | "verbal_soft"
+  )[];
   evidenceMessageIds: string[];
 }
 

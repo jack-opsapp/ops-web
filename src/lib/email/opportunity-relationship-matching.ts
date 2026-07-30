@@ -1256,9 +1256,7 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
         "Existing project client proof is unavailable; automatic project creation is blocked"
       );
     }
-    relationshipAddress = normalizeAddress(
-      rowString(clients[0], "address")
-    );
+    relationshipAddress = normalizeAddress(rowString(clients[0], "address"));
   }
   if (!relationshipAddress) {
     throw new EmailConversionRelationshipReviewError(

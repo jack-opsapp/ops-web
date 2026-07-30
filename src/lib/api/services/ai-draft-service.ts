@@ -885,7 +885,7 @@ export const AIDraftService = {
     }
 
     // ── Fetch thread messages for context ───────────────────────────────
-    let threadMessages: Array<{
+    const threadMessages: Array<{
       id: string;
       opportunity_id: string | null;
       direction: string;
@@ -1452,11 +1452,16 @@ export const AIDraftService = {
             evidenceKey: activityId,
             providerMessageId,
             providerThreadId:
-              message.email_thread_id?.trim() || threadId || opportunityId || "",
+              message.email_thread_id?.trim() ||
+              threadId ||
+              opportunityId ||
+              "",
             connectionId,
             occurredAt: message.created_at,
             direction: outbound ? ("outbound" as const) : ("inbound" as const),
-            authorRole: outbound ? ("operator" as const) : ("customer" as const),
+            authorRole: outbound
+              ? ("operator" as const)
+              : ("customer" as const),
             subject: message.subject ?? "",
             body: message.body_text_clean ?? message.body_text ?? "",
           },
@@ -1493,35 +1498,28 @@ export const AIDraftService = {
 
     // Extract 12-dimension sub-objects from vocabulary_preferences
     const paragraphStructure = vocabPrefs.paragraph_structure as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const hedgingTendency =
       typeof vocabPrefs.hedging_tendency === "number"
         ? (vocabPrefs.hedging_tendency as number)
         : null;
     const punctuationHabits = vocabPrefs.punctuation_habits as
-      | Record<string, number>
-      | undefined;
+      Record<string, number> | undefined;
     const vocabComplexity = vocabPrefs.vocabulary_complexity as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const engagementStyle = vocabPrefs.engagement_style as
-      | Record<string, number>
-      | undefined;
+      Record<string, number> | undefined;
     const emailLengthData = vocabPrefs.email_length as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const substitutions = vocabPrefs.substitutions as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
 
     // Extract response_structure from tone_traits (dimension 10)
     const normalizedTraits = Array.isArray(toneTraits)
       ? Object.fromEntries((toneTraits as string[]).map((t) => [t, true]))
       : (toneTraits as Record<string, unknown>);
     const responseStructure = normalizedTraits.response_structure as
-      | Record<string, string>
-      | undefined;
+      Record<string, string> | undefined;
     const traitLabels = Object.entries(normalizedTraits)
       .filter(([k, v]) => k !== "response_structure" && v === true)
       .map(([k]) => k);

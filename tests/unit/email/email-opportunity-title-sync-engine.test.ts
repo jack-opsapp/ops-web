@@ -6215,9 +6215,9 @@ To: Kara Beach <kara.beach@example.com>`,
 
     expect(result.errors).toEqual([]);
     expect(result.needsReview).toBe(1);
-    expect(
-      state.opportunities[0].operator_action_required_at
-    ).toEqual(expect.any(String));
+    expect(state.opportunities[0].operator_action_required_at).toEqual(
+      expect.any(String)
+    );
     expect(createEmailOpportunityNotificationMock).toHaveBeenCalledWith({
       opportunityId: "opp-relationship-review",
       connectionId: "connection-1",

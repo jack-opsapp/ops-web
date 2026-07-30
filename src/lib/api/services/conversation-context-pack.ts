@@ -25,7 +25,14 @@ export const CONVERSATION_CONTEXT_TOOL: OpenAI.Chat.ChatCompletionTool = {
       properties: {
         factKind: {
           type: ["string", "null"],
-          enum: ["price", "scope", "schedule", "objection", "next_action", null],
+          enum: [
+            "price",
+            "scope",
+            "schedule",
+            "objection",
+            "next_action",
+            null,
+          ],
         },
         query: { type: ["string", "null"], maxLength: 300 },
         before: { type: ["string", "null"], maxLength: 40 },
@@ -57,7 +64,9 @@ export function countConversationTokens(text: string): number {
 function truncateToTokens(text: string, maxTokens: number): string {
   const tokens = encoding().encode(text);
   if (tokens.length <= maxTokens) return text;
-  return `${encoding().decode(tokens.slice(0, Math.max(0, maxTokens - 1))).trimEnd()}…`;
+  return `${encoding()
+    .decode(tokens.slice(0, Math.max(0, maxTokens - 1)))
+    .trimEnd()}…`;
 }
 
 export interface ConversationContextChunk {
@@ -204,10 +213,7 @@ function chunkBody(body: string, maxChunkTokens: number): string[] {
   let current = "";
   for (const fragment of fragments) {
     const candidate = current ? `${current}\n\n${fragment}` : fragment;
-    if (
-      current &&
-      countConversationTokens(candidate) > maxChunkTokens
-    ) {
+    if (current && countConversationTokens(candidate) > maxChunkTokens) {
       chunks.push(current);
       current = fragment;
     } else {
@@ -309,13 +315,10 @@ function priorityChunks(
       chunks.find(
         (chunk) =>
           chunk.evidenceKey === newestFact.evidence_key &&
-          chunk.text.toLowerCase().includes(
-            newestFact.text.slice(0, 40).toLowerCase()
-          )
-      ) ??
-        chunks.find(
-          (chunk) => chunk.evidenceKey === newestFact.evidence_key
-        )
+          chunk.text
+            .toLowerCase()
+            .includes(newestFact.text.slice(0, 40).toLowerCase())
+      ) ?? chunks.find((chunk) => chunk.evidenceKey === newestFact.evidence_key)
     );
   }
 
@@ -413,7 +416,10 @@ function renderPack(input: {
 export function buildConversationContextPack(
   input: BuildConversationContextPackInput
 ): ConversationContextPack {
-  const tokenBudget = Math.max(256, input.tokenBudget ?? DEFAULT_CONVERSATION_CONTEXT_TOKEN_BUDGET);
+  const tokenBudget = Math.max(
+    256,
+    input.tokenBudget ?? DEFAULT_CONVERSATION_CONTEXT_TOKEN_BUDGET
+  );
   const maxChunkTokens = Math.max(
     40,
     input.maxChunkTokens ?? DEFAULT_MAX_CHUNK_TOKENS
@@ -439,9 +445,7 @@ export function buildConversationContextPack(
     chunks: [],
   });
   let available =
-    tokenBudget -
-    countConversationTokens(fixedText) -
-    MANIFEST_TOKEN_RESERVE;
+    tokenBudget - countConversationTokens(fixedText) - MANIFEST_TOKEN_RESERVE;
   for (const chunk of candidates) {
     const renderedTokens = countConversationTokens(renderChunk(chunk)) + 2;
     if (renderedTokens > available) continue;
@@ -585,10 +589,7 @@ export function retrieveConversationContext(input: {
   };
   for (const { chunk } of candidates) {
     addChunk(chunk);
-    for (const adjacentIndex of [
-      chunk.chunkIndex - 1,
-      chunk.chunkIndex + 1,
-    ]) {
+    for (const adjacentIndex of [chunk.chunkIndex - 1, chunk.chunkIndex + 1]) {
       addChunk(
         allChunks.find(
           (candidate) =>

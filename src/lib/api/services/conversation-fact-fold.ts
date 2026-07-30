@@ -1,11 +1,7 @@
 import { extractCommercialDealPrices } from "@/lib/email/commercial-price";
 
 export type ConversationFactKind =
-  | "price"
-  | "scope"
-  | "schedule"
-  | "objection"
-  | "next_action";
+  "price" | "scope" | "schedule" | "objection" | "next_action";
 
 export interface TrustedEmailMessage {
   activityId: string;
@@ -36,21 +32,19 @@ export interface ConversationFold {
   observations: Record<ConversationFactKind, ConversationFactObservation[]>;
 }
 
-export const CONVERSATION_FACT_PATTERNS: Record<
-  ConversationFactKind,
-  RegExp
-> = {
-  price:
-    /\$\s*[0-9][0-9,]*(?:\.\d{1,2})?|\b(?:quote|estimate|proposal|price|pricing|cost|total|budget|discount(?:ed)?|deposit|payment)\b/i,
-  scope:
-    /\b(?:scope|include(?:d|s|ing)?|exclude(?:d|s|ing)?|without|supply|provide|install(?:ation|ing)?|remove|replac(?:e|ed|ement|ing)|repair|build|construct|material|finish|dimension|size|colou?r|option|revision|revised|addition|added)\b/i,
-  schedule:
-    /\b(?:schedule(?:d)?|book(?:ing|ed)?|availability|available|start(?:ing)?|finish(?:ed|ing)?|complete(?:d|ing)?|deadline|timeline|timing|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|spring|summer|fall|autumn|winter|next week|this week|week of|end of|date)\b/i,
-  objection:
-    /\b(?:objection|concern|issue|problem|budget|afford|funds?|cash|too expensive|delay|postpone|hold off|not ready|cannot|can'?t|unable|conflict|occupied)\b/i,
-  next_action:
-    /\b(?:next action|next step|follow[ -]?up|please|let (?:me|us) know|confirm|send|sent|provide|provided|share|shared|attach(?:ed)?|include(?:d)?|call|reply|respond|need from|waiting for|instructions?|book(?:ed|ing)?|schedule)\b|\?/i,
-};
+export const CONVERSATION_FACT_PATTERNS: Record<ConversationFactKind, RegExp> =
+  {
+    price:
+      /\$\s*[0-9][0-9,]*(?:\.\d{1,2})?|\b(?:quote|estimate|proposal|price|pricing|cost|total|budget|discount(?:ed)?|deposit|payment)\b/i,
+    scope:
+      /\b(?:scope|include(?:d|s|ing)?|exclude(?:d|s|ing)?|without|supply|provide|install(?:ation|ing)?|remove|replac(?:e|ed|ement|ing)|repair|build|construct|material|finish|dimension|size|colou?r|option|revision|revised|addition|added)\b/i,
+    schedule:
+      /\b(?:schedule(?:d)?|book(?:ing|ed)?|availability|available|start(?:ing)?|finish(?:ed|ing)?|complete(?:d|ing)?|deadline|timeline|timing|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|spring|summer|fall|autumn|winter|next week|this week|week of|end of|date)\b/i,
+    objection:
+      /\b(?:objection|concern|issue|problem|budget|afford|funds?|cash|too expensive|delay|postpone|hold off|not ready|cannot|can'?t|unable|conflict|occupied)\b/i,
+    next_action:
+      /\b(?:next action|next step|follow[ -]?up|please|let (?:me|us) know|confirm|send|sent|provide|provided|share|shared|attach(?:ed)?|include(?:d)?|call|reply|respond|need from|waiting for|instructions?|book(?:ed|ing)?|schedule)\b|\?/i,
+  };
 
 const DEFAULT_FACTS_PER_KIND = 3;
 const FACT_TEXT_CAP = 400;
