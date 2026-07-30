@@ -7,12 +7,23 @@ import userEvent from "@testing-library/user-event";
 // the "operator ignored it" signal, so it must fire exactly once no matter
 // which way the toast leaves the screen — and never after a confirmed reason.
 
-const customToast = vi.fn(() => "toast-1");
+type CustomToastOptions = {
+  id?: string | number;
+  duration?: number;
+  className?: string;
+  onDismiss?: () => void;
+  onAutoClose?: () => void;
+};
+
+const customToast = vi.fn(
+  (_render: unknown, _options?: CustomToastOptions): string | number =>
+    "toast-1"
+);
 const dismissToast = vi.fn();
 vi.mock("@/components/ui/toast", () => ({
   toast: {
-    custom: (...args: unknown[]) => customToast(...(args as [])),
-    dismiss: (...args: unknown[]) => dismissToast(...(args as [])),
+    custom: (...args: Parameters<typeof customToast>) => customToast(...args),
+    dismiss: (id: string | number) => dismissToast(id),
   },
 }));
 
@@ -167,8 +178,7 @@ describe("showDiscardFeedbackToast", () => {
 
     expect(handle.toastId).toBe("toast-1");
     expect(customToast).toHaveBeenCalledTimes(1);
-    const options = customToast.mock.calls[0]![1] as { duration: number };
-    expect(options.duration).toBe(10_000);
+    expect(customToast.mock.calls[0]![1]!.duration).toBe(10_000);
   });
 
   it("fires onClosedWithoutReason once even when dismiss and auto-close both land", () => {
@@ -182,12 +192,9 @@ describe("showDiscardFeedbackToast", () => {
       onClosedWithoutReason,
     });
 
-    const options = customToast.mock.calls[0]![1] as {
-      onDismiss: () => void;
-      onAutoClose: () => void;
-    };
-    options.onDismiss();
-    options.onAutoClose();
+    const options = customToast.mock.calls[0]![1]!;
+    options.onDismiss!();
+    options.onAutoClose!();
 
     expect(onClosedWithoutReason).toHaveBeenCalledTimes(1);
   });
@@ -211,8 +218,7 @@ describe("showDiscardFeedbackToast", () => {
       onUndo: vi.fn(),
     });
 
-    const options = customToast.mock.calls[0]![1] as { onAutoClose: () => void };
-    options.onAutoClose();
+    customToast.mock.calls[0]![1]!.onAutoClose!();
 
     expect(onClosedWithoutReason).not.toHaveBeenCalled();
   });
@@ -236,10 +242,7 @@ describe("showDiscardFeedbackToast", () => {
     });
 
     expect(customToast).toHaveBeenCalledTimes(2);
-    const options = customToast.mock.calls[1]![1] as {
-      id: string | number;
-      duration: number;
-    };
+    const options = customToast.mock.calls[1]![1]!;
     expect(options.id).toBe("toast-1");
     expect(options.duration).toBe(10_000);
   });

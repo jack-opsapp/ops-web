@@ -271,12 +271,17 @@ export function showDiscardFeedbackToast(
 ): DiscardFeedbackToastHandle {
   const duration = options.durationMs ?? DISCARD_CAPTURE_DURATION_MS;
 
-  let settled = false;
-  let applying = false;
-  let toastId: string | number | undefined;
+  // One mutable cell for the toast's whole life: the id is needed by the
+  // re-render that locks the rack, and `settled` is the guard every exit path
+  // checks. `applying` lives here too so the swap needs no React state.
+  const live: {
+    toastId: string | number | undefined;
+    settled: boolean;
+    applying: boolean;
+  } = { toastId: undefined, settled: false, applying: false };
 
   const settle = () => {
-    settled = true;
+    live.settled = true;
   };
 
   const renderPending = () =>
@@ -287,13 +292,13 @@ export function showDiscardFeedbackToast(
           stateLine={options.stateLine}
           t={options.t}
           state={{ kind: "pending" }}
-          applying={applying}
+          applying={live.applying}
           onReason={handleReason}
           onUndo={handleUndo}
         />
       ),
       {
-        ...(toastId === undefined ? {} : { id: toastId }),
+        ...(live.toastId === undefined ? {} : { id: live.toastId }),
         duration,
         className: DISCARD_CAPTURE_TOAST_CLASS,
         onDismiss: handleClosed,
@@ -302,28 +307,28 @@ export function showDiscardFeedbackToast(
     );
 
   function handleReason(code: LeadDiscardReasonCode) {
-    if (settled) return;
-    settled = true;
-    applying = true;
+    if (live.settled) return;
+    live.settled = true;
+    live.applying = true;
     renderPending();
     options.onReason(code);
   }
 
   function handleUndo() {
-    if (settled) return;
-    settled = true;
+    if (live.settled) return;
+    live.settled = true;
     options.onUndo();
   }
 
   function handleClosed() {
-    if (settled) return;
-    settled = true;
+    if (live.settled) return;
+    live.settled = true;
     options.onClosedWithoutReason();
   }
 
-  toastId = renderPending();
+  live.toastId = renderPending();
 
-  return { toastId, settle };
+  return { toastId: live.toastId, settle };
 }
 
 /**

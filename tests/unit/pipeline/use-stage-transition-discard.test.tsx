@@ -6,7 +6,10 @@ import {
   getStageDisplayName,
   type Opportunity,
 } from "@/lib/types/pipeline";
-import { LeadDispositionFeedbackError } from "@/lib/api/services/lead-disposition-feedback-service";
+import {
+  LeadDispositionFeedbackError,
+  type LeadDispositionFeedbackResult,
+} from "@/lib/api/services/lead-disposition-feedback-service";
 
 // Discard is the ONE lead action that carries a learning signal, so
 // `requestStageChange(id, Discarded)` no longer falls through to a plain stage
@@ -40,22 +43,26 @@ vi.mock("@tanstack/react-query", async () => {
 
 const moveMutate = vi.fn((_vars, opts) => opts?.onSuccess?.());
 const moveMutateAsync = vi.fn(async () => {});
-const applyMutateAsync = vi.fn(async () => ({
-  feedbackId: "fb-1",
-  outcome: "discarded" as const,
-  priorStage: "new_lead",
-  currentStage: "discarded",
-  lifecycleChanged: true,
-  idempotentReplay: false,
-}));
-const undoMutateAsync = vi.fn(async () => ({
-  feedbackId: "fb-1",
-  outcome: "discarded" as const,
-  priorStage: "negotiation",
-  currentStage: "negotiation",
-  lifecycleChanged: true,
-  idempotentReplay: false,
-}));
+const applyMutateAsync = vi.fn(
+  async (_input: unknown): Promise<LeadDispositionFeedbackResult> => ({
+    feedbackId: "fb-1",
+    outcome: "discarded",
+    priorStage: "new_lead",
+    currentStage: "discarded",
+    lifecycleChanged: true,
+    idempotentReplay: false,
+  })
+);
+const undoMutateAsync = vi.fn(
+  async (_input: unknown): Promise<LeadDispositionFeedbackResult> => ({
+    feedbackId: "fb-1",
+    outcome: "discarded",
+    priorStage: "negotiation",
+    currentStage: "negotiation",
+    lifecycleChanged: true,
+    idempotentReplay: false,
+  })
+);
 
 vi.mock("@/lib/hooks", () => ({
   useClients: () => ({ data: { clients: [{ id: "client-1", name: "Acme" }] } }),
@@ -71,21 +78,44 @@ vi.mock("@/lib/hooks", () => ({
   useUndoLeadDispositionFeedback: () => ({ mutateAsync: undoMutateAsync }),
 }));
 
-const showCaptureToast = vi.fn(() => ({
-  toastId: "toast-1",
-  settle: vi.fn(),
-}));
-const confirmCaptureToast = vi.fn();
-const dismissCaptureToast = vi.fn();
+type CaptureOptions = {
+  title: string;
+  stateLine: string;
+  onReason: (code: string) => void;
+  onUndo: () => void;
+  onClosedWithoutReason: () => void;
+};
+
+type CaptureHandle = { toastId: string | number; settle: () => void };
+
+type ConfirmOptions = {
+  title: string;
+  stateLine: string;
+  reasonLabel: string;
+  onUndo: () => void;
+};
+
+const showCaptureToast = vi.fn(
+  (_options: CaptureOptions): CaptureHandle => ({
+    toastId: "toast-1",
+    settle: vi.fn(),
+  })
+);
+const confirmCaptureToast = vi.fn(
+  (_handle: CaptureHandle, _options: ConfirmOptions) => {}
+);
+const dismissCaptureToast = vi.fn((_handle: CaptureHandle) => {});
 vi.mock(
   "@/app/(dashboard)/pipeline/_components/discard-feedback-toast",
   () => ({
-    showDiscardFeedbackToast: (options: unknown) =>
-      showCaptureToast(options as never),
-    confirmDiscardFeedbackToast: (...args: unknown[]) =>
-      confirmCaptureToast(...(args as [])),
-    dismissDiscardFeedbackToast: (...args: unknown[]) =>
-      dismissCaptureToast(...(args as [])),
+    showDiscardFeedbackToast: (options: CaptureOptions) =>
+      showCaptureToast(options),
+    confirmDiscardFeedbackToast: (
+      handle: CaptureHandle,
+      options: ConfirmOptions
+    ) => confirmCaptureToast(handle, options),
+    dismissDiscardFeedbackToast: (handle: CaptureHandle) =>
+      dismissCaptureToast(handle),
     discardReasonLabel: (_t: unknown, code: string) => code,
   })
 );
@@ -180,18 +210,10 @@ const EXPECTED_STAGE_LINE = `${getStageDisplayName(
   OpportunityStage.Negotiation
 )} → ${getStageDisplayName(OpportunityStage.Discarded)}`;
 
-type CaptureOptions = {
-  title: string;
-  stateLine: string;
-  onReason: (code: string) => void;
-  onUndo: () => void;
-  onClosedWithoutReason: () => void;
-};
-
 function lastCaptureOptions(): CaptureOptions {
   const call = showCaptureToast.mock.calls.at(-1);
   if (!call) throw new Error("capture toast was never shown");
-  return call[0] as unknown as CaptureOptions;
+  return call[0];
 }
 
 function discard(opp: Opportunity) {
@@ -371,9 +393,7 @@ describe("useStageTransition — discard capture (Phase C ON)", () => {
       lastCaptureOptions().onReason("spam");
     });
 
-    const confirmed = confirmCaptureToast.mock.calls[0]![1] as {
-      onUndo: () => void;
-    };
+    const confirmed = confirmCaptureToast.mock.calls[0]![1];
     await act(async () => {
       confirmed.onUndo();
     });
@@ -398,9 +418,7 @@ describe("useStageTransition — discard capture (Phase C ON)", () => {
     });
     invalidateQueries.mockClear();
 
-    const confirmed = confirmCaptureToast.mock.calls[0]![1] as {
-      onUndo: () => void;
-    };
+    const confirmed = confirmCaptureToast.mock.calls[0]![1];
     await act(async () => {
       confirmed.onUndo();
     });

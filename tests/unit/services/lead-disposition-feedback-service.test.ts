@@ -32,7 +32,7 @@ function rpcMock(result: {
   data: unknown;
   error: null | { message: string; code?: string };
 }) {
-  const rpc = vi.fn(async () => result);
+  const rpc = vi.fn(async (_name: string, _args: Record<string, unknown>) => result);
   vi.mocked(requireSupabase).mockReturnValue({ rpc } as never);
   return rpc;
 }
