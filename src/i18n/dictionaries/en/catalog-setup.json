@@ -48,6 +48,7 @@
   "guided.workingBody": "Phase C is checking your answer…",
   "guided.factCount": "Confirmed decisions · {count}",
   "guided.answerPlaceholder": "Type your answer",
+  "guided.choicePlaceholder": "Pick an option above, or type something else",
   "guided.quickAnswers": "Quick answers",
   "guided.hideOptions": "HIDE OPTIONS",
   "guided.showOptions": "SHOW OPTIONS",

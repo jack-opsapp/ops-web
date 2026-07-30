@@ -789,8 +789,19 @@ describe("GuidedCatalogSetup", () => {
     const quickAnswers = screen.getByRole("group", {
       name: "Quick answers",
     });
+    expect(screen.getByRole("textbox")).toHaveAttribute(
+      "placeholder",
+      "Pick an option above, or type something else"
+    );
     expect(message).toContainElement(quickAnswers);
     expect(composer).not.toContainElement(quickAnswers);
+    expect(composer).toHaveClass(
+      "rounded",
+      "border-line",
+      "bg-glass-dense",
+      "focus-within:border-line-hi"
+    );
+    expect(composer).not.toHaveClass("glass-surface");
 
     const choices = screen.getAllByRole("button", {
       name: /track membrane/i,
@@ -1207,7 +1218,14 @@ describe("GuidedCatalogSetup", () => {
     const field = screen.getByRole("textbox");
     expect(field).toHaveClass("bg-transparent", "!min-h-control-36");
     expect(field).not.toHaveClass("bg-glass-fill");
+    expect(field).toHaveAttribute("placeholder", "Type your answer");
     expect(screen.getByTestId("guided-catalog-composer")).toHaveClass(
+      "rounded",
+      "border-line",
+      "bg-glass-dense",
+      "focus-within:border-line-hi"
+    );
+    expect(screen.getByTestId("guided-catalog-composer")).not.toHaveClass(
       "glass-surface"
     );
   });

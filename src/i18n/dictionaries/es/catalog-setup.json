@@ -48,6 +48,7 @@
   "guided.workingBody": "La Fase C está revisando tu respuesta…",
   "guided.factCount": "Decisiones confirmadas · {count}",
   "guided.answerPlaceholder": "Escribe tu respuesta",
+  "guided.choicePlaceholder": "Elige una opción arriba o escribe otra respuesta",
   "guided.quickAnswers": "Respuestas rápidas",
   "guided.hideOptions": "OCULTAR OPCIONES",
   "guided.showOptions": "MOSTRAR OPCIONES",

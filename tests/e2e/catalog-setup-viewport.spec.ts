@@ -500,6 +500,29 @@ test.describe("Guided Catalog Setup conversation viewports", () => {
     expect(questionBox).not.toBeNull();
     expect(quickAnswersBox).not.toBeNull();
 
+    const answerField = page.getByRole("textbox");
+    await expect(answerField).toHaveAttribute(
+      "placeholder",
+      "Pick an option above, or type something else"
+    );
+    await answerField.focus();
+    const composerSurface = await composer.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        backdropFilter: style.backdropFilter,
+        backgroundColor: style.backgroundColor,
+        borderColor: style.borderColor,
+        borderRadius: Number.parseFloat(style.borderRadius),
+        boxShadow: style.boxShadow,
+      };
+    });
+    expect(composerSurface.borderRadius).toBeGreaterThanOrEqual(4.5);
+    expect(composerSurface.borderRadius).toBeLessThanOrEqual(5.5);
+    expect(composerSurface.backdropFilter).not.toBe("none");
+    expect(composerSurface.backgroundColor).not.toBe("rgb(0, 0, 0)");
+    expect(composerSurface.borderColor).toBe("rgba(255, 255, 255, 0.18)");
+    expect(composerSurface.boxShadow).toBe("none");
+
     await expectBoxInside(
       questionBox!,
       transcriptBox!,

@@ -207,6 +207,8 @@ function QuestionInput({
 }) {
   const { t } = useDictionary("catalog-setup");
   const [value, setValue] = useState("");
+  const hasQuickAnswers =
+    question.answerKind === "boolean" || (question.options?.length ?? 0) > 0;
 
   useEffect(() => {
     setValue(editingValue ?? "");
@@ -268,8 +270,16 @@ function QuestionInput({
             rows={1}
             className="max-h-8 !min-h-control-36 resize-none overflow-y-auto border-0 bg-transparent px-1 py-0.5 focus:border-0"
             placeholder={t(
-              busy ? "guided.followUpPlaceholder" : "guided.answerPlaceholder",
-              busy ? "Add a quick follow-up or correction" : "Type your answer"
+              busy
+                ? "guided.followUpPlaceholder"
+                : hasQuickAnswers
+                  ? "guided.choicePlaceholder"
+                  : "guided.answerPlaceholder",
+              busy
+                ? "Add a quick follow-up or correction"
+                : hasQuickAnswers
+                  ? "Pick an option above, or type something else"
+                  : "Type your answer"
             )}
           />
         </div>
@@ -1537,7 +1547,7 @@ export function GuidedCatalogSetup({
         <div className="mx-auto w-full max-w-4xl px-4 pb-1 md:px-6">
           <div
             data-testid="guided-catalog-composer"
-            className="glass-surface pointer-events-auto p-1"
+            className="pointer-events-auto rounded border border-line bg-glass-dense p-1 backdrop-blur-[var(--glass-blur)] backdrop-saturate-[var(--glass-saturate)] focus-within:border-line-hi"
           >
             {question ? (
               <>

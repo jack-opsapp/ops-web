@@ -337,6 +337,9 @@ The transcript and answer must remain visually dominant.
 
 - Composer actions use the compact 32px tier, never the standard form-button or
   mobile touch-target tier.
+- The composer shell is an input dock, not a panel: use the 5px input radius,
+  dense-glass fill, standard input hairline, and `line-hi` focus border. Do not
+  use `.glass-surface`, its top-edge gradient, or a box shadow.
 - Default send actions are square. Guided Phase C may use a short `SEND` label
   beside the icon for recognition; this is a compact utility action, never a
   primary CTA.
@@ -346,6 +349,9 @@ The transcript and answer must remain visually dominant.
   input.
 - Attachment actions stay subordinate: no filled surface, accent border, dense
   document glyph, or standalone-button prominence.
+- When the active question has quick answers, the placeholder directs the
+  operator to pick an option above or type a different answer. Open-ended
+  questions retain the standard answer placeholder.
 - Token compliance alone is not design approval. Judge the rendered control
   against its immediate container and content hierarchy.
 
