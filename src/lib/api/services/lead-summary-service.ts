@@ -560,7 +560,10 @@ export function hasSubstantiveLeadContext(
 }
 
 export type LeadStalenessVerdict =
-  "fresh" | "stale" | "awaiting_event" | "insufficient_context";
+  | "fresh"
+  | "stale"
+  | "awaiting_event"
+  | "insufficient_context";
 
 /**
  * Staleness decision for one open lead.
@@ -681,7 +684,10 @@ export interface LeadSummaryContextBundle {
   commercial_context: {
     outcome: "won" | "deferred" | "declined";
     reason:
-      "customer_committed" | "budget_timing" | "customer_declined" | "price";
+      | "customer_committed"
+      | "budget_timing"
+      | "customer_declined"
+      | "price";
     current_price: number | null;
     current_scope: string | null;
     excluded_scope: string | null;
@@ -693,7 +699,11 @@ export interface LeadSummaryContextBundle {
 }
 
 type ConversationFactKind =
-  "price" | "scope" | "schedule" | "objection" | "next_action";
+  | "price"
+  | "scope"
+  | "schedule"
+  | "objection"
+  | "next_action";
 
 const CONVERSATION_FACT_PATTERNS: Record<ConversationFactKind, RegExp> = {
   price:
@@ -1416,10 +1426,12 @@ function buildCurrentFactContext(input: {
         : "Prepare for the confirmed work schedule."
       : null;
   const nextAction =
-    pendingNextAction ??
-    commercialNextAction ??
-    scheduleNextAction ??
-    foldedNextAction.postCompletionAction;
+    input.commercialOutcome?.outcome === "declined"
+      ? null
+      : (pendingNextAction ??
+        commercialNextAction ??
+        scheduleNextAction ??
+        foldedNextAction.postCompletionAction);
   const supersededPrices = input.allDiscussedPrices.filter(
     (price) => price !== currentPrice
   );
@@ -1490,10 +1502,19 @@ function buildCurrentFactContext(input: {
         ]
       : [];
   const explicitlyCompletedActions = completeNextAction.completedActions;
+  const declinedNextActions =
+    input.commercialOutcome?.outcome === "declined"
+      ? [
+          completeNextAction.pendingAction,
+          completeNextAction.postCompletionAction,
+          input.commercialOutcome.facts.nextAction,
+        ].filter((action): action is string => Boolean(action))
+      : [];
   const supersededNextActions = [
     ...new Set([
       ...supersededFacts("next_action"),
       ...explicitlyCompletedActions,
+      ...declinedNextActions,
     ]),
   ].filter(
     (candidate) =>
@@ -1551,6 +1572,9 @@ function resolveCommercialNextAction(
   opportunity: OpportunityRow,
   outcome: NonNullable<ReturnType<typeof detectCommercialOutcome>>
 ): string | null {
+  if (outcome.outcome === "declined") {
+    return null;
+  }
   if (outcome.outcome !== "won" || opportunity.stage !== "won") {
     return outcome.facts.nextAction;
   }

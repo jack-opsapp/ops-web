@@ -33,6 +33,7 @@ import {
   normalizeEmailAddress,
   sanitizeContactFormPhoneValue,
 } from "@/lib/utils/email-parsing";
+import { parsePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
 
 export interface ContactFormSubmitter {
   name?: string | null;
@@ -115,14 +116,6 @@ function phoneDigits(value: string | null | undefined): string {
   return (value ?? "").replace(/\D/g, "");
 }
 
-/** Loose key for operator address membership: lowercase, collapse non-alnum. */
-function addressKey(value: string | null | undefined): string {
-  return (value ?? "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-}
-
 function isOperatorEmail(email: string, operator: OperatorIdentity): boolean {
   if (operator.emails.has(email)) return true;
   const domain = email.split("@")[1] ?? "";
@@ -147,15 +140,32 @@ function isOperatorAddress(
   address: string,
   operator: OperatorIdentity
 ): boolean {
-  const key = addressKey(address);
-  if (!key) return false;
+  const candidate = parsePropertyAddressIdentity(address);
+  if (!candidate) return false;
   for (const op of operator.addresses) {
-    const opKey = addressKey(op);
-    if (!opKey) continue;
-    if (key === opKey || key.includes(opKey) || opKey.includes(key))
+    const operatorAddress = parsePropertyAddressIdentity(op);
+    if (!operatorAddress || candidate.base !== operatorAddress.base) continue;
+    if (
+      candidate.unit === operatorAddress.unit ||
+      candidate.unit === null ||
+      operatorAddress.unit === null
+    ) {
       return true;
+    }
   }
   return false;
+}
+
+/**
+ * Keep the original cleaned property string for display/storage, but require
+ * it to pass the same property-level qualification boundary used by matching.
+ * Localities remain available in source metadata and never become job addresses.
+ */
+function qualifiedPropertyAddress(
+  value: string | null | undefined
+): string | null {
+  const cleaned = cleanText(value);
+  return cleaned && parsePropertyAddressIdentity(cleaned) ? cleaned : null;
 }
 
 function isGenericName(value: string): boolean {
@@ -430,14 +440,16 @@ export function resolveContact(input: ResolveContactInput): ResolvedContact {
 
   // ── address ────────────────────────────────────────────────────────────
   let address: string | null = null;
-  const formAddress = cleanText(contactFormSubmitter?.address);
+  const formAddress = qualifiedPropertyAddress(contactFormSubmitter?.address);
   if (formAddress && !isOperatorAddress(formAddress, operator)) {
     address = formAddress;
     prov.push(provenance("address", "contact_form", 0.9, latestCustomer));
   }
   if (!address) {
     for (const m of customerMessages) {
-      const candidate = collectAddressFromText(m.cleanBody);
+      const candidate = qualifiedPropertyAddress(
+        collectAddressFromText(m.cleanBody)
+      );
       if (candidate && !isOperatorAddress(candidate, operator)) {
         address = candidate;
         prov.push(provenance("address", "message_body", 0.55, m));

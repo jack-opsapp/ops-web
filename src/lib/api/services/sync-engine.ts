@@ -1060,8 +1060,9 @@ async function createClient(
       clientUpdates.email = enrichmentFacts.contactEmail;
     if (enrichmentFacts.contactPhone)
       clientUpdates.phone_number = enrichmentFacts.contactPhone;
-    if (enrichmentFacts.address)
-      clientUpdates.address = enrichmentFacts.address;
+    if (typeof enrichmentFields.address === "string") {
+      clientUpdates.address = enrichmentFields.address;
+    }
     await writeFieldProvenance({
       supabase,
       companyId,
