@@ -6,7 +6,14 @@ import { describe, expect, it } from "vitest";
 const sql = readFileSync(
   join(
     process.cwd(),
-    "supabase/migrations/20260729230000_pipeline_follow_up_reliability.sql"
+    "supabase/migrations/20260730162648_pipeline_follow_up_reliability.sql"
+  ),
+  "utf8"
+);
+const hardeningSql = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260730162910_pipeline_follow_up_reliability_acl_and_fk_indexes.sql"
   ),
   "utf8"
 );
@@ -50,6 +57,21 @@ describe("pipeline follow-up reliability migration", () => {
     );
     expect(sql).toContain(
       "opportunity.last_outbound_at >= opportunity.next_follow_up_at"
+    );
+  });
+
+  it("revokes direct trigger execution and covers every new foreign key", () => {
+    expect(hardeningSql).toContain(
+      "revoke all on function private.guard_template_follow_up_cycle()"
+    );
+    expect(hardeningSql).toContain(
+      "email_ingestion_recovery_queue_opportunity_idx"
+    );
+    expect(hardeningSql).toContain(
+      "opportunity_manual_outbound_cycle_receipts_correspondence_idx"
+    );
+    expect(hardeningSql).toContain(
+      "opportunity_manual_outbound_cycle_receipts_activity_idx"
     );
   });
 });
