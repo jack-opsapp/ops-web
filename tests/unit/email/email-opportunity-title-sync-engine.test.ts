@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/services/email-provider";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { buildEmailOpportunityTitle } from "@/lib/email/opportunity-title";
+import { EmailConversionRelationshipReviewError } from "@/lib/email/opportunity-relationship-matching";
 
 const {
   getConnectionMock,
@@ -27,6 +28,7 @@ const {
   afterMock,
   enqueueIfEnabledMock,
   phaseCRouteMock,
+  createEmailOpportunityNotificationMock,
   createClassifiedEmailThreadNotificationsMock,
   persistDeferredLeadClassificationMock,
 } = vi.hoisted(() => ({
@@ -51,6 +53,7 @@ const {
     jobId: "learning-job-test",
   })),
   phaseCRouteMock: vi.fn(),
+  createEmailOpportunityNotificationMock: vi.fn(),
   createClassifiedEmailThreadNotificationsMock: vi.fn(),
   persistDeferredLeadClassificationMock: vi.fn(),
 }));
@@ -129,6 +132,7 @@ vi.mock("@/lib/api/services/phase-c-autonomy-router", () => ({
 }));
 
 vi.mock("@/lib/email/email-opportunity-notification", () => ({
+  createEmailOpportunityNotification: createEmailOpportunityNotificationMock,
   createClassifiedEmailThreadNotifications:
     createClassifiedEmailThreadNotificationsMock,
 }));
@@ -1759,6 +1763,8 @@ describe("SyncEngine email opportunity title generation", () => {
     });
     afterMock.mockReset();
     phaseCRouteMock.mockReset();
+    createEmailOpportunityNotificationMock.mockReset();
+    createEmailOpportunityNotificationMock.mockResolvedValue(true);
     createClassifiedEmailThreadNotificationsMock.mockReset();
     persistDeferredLeadClassificationMock.mockReset();
     persistDeferredLeadClassificationMock.mockResolvedValue(true);
@@ -6143,6 +6149,86 @@ To: Kara Beach <kara.beach@example.com>`,
       opportunityIds: ["opp-stage-refresh"],
     });
     expect(state.stageTransitions).toEqual([]);
+  });
+
+  it("holds only the ambiguous conversion for review and still advances the mailbox cursor", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [
+        {
+          id: "opp-relationship-review",
+          company_id: "company-1",
+          client_id: "client-review",
+          client_ref: "client-review",
+          title: "Relationship review lead",
+          stage: "negotiation",
+          stage_manually_set: false,
+          assignment_version: 4,
+          archived_at: null,
+          deleted_at: null,
+        },
+      ],
+      threadLinks: [
+        {
+          opportunity_id: "opp-relationship-review",
+          thread_id: "thread-relationship-review",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const updateEmail = baseEmail({
+      id: "msg-relationship-review",
+      threadId: "thread-relationship-review",
+      from: "Kevin Falk <falks@example.com>",
+      fromName: "Kevin Falk",
+      to: ["jackson@canprodeckandrail.com"],
+      subject: "Re: Estimate",
+      bodyText: "Looks good. Please go ahead.",
+      snippet: "Looks good. Please go ahead.",
+      labelIds: ["INBOX"],
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [updateEmail],
+        nextSyncToken: "sync-token-after-review",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-after-review",
+      })),
+    });
+    evaluateOpportunityAcceptanceMock.mockRejectedValueOnce(
+      new EmailConversionRelationshipReviewError(
+        "ambiguous_project",
+        "Existing project relationship is ambiguous; automatic project creation is blocked"
+      )
+    );
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(result.needsReview).toBe(1);
+    expect(
+      state.opportunities[0].operator_action_required_at
+    ).toEqual(expect.any(String));
+    expect(createEmailOpportunityNotificationMock).toHaveBeenCalledWith({
+      opportunityId: "opp-relationship-review",
+      connectionId: "connection-1",
+      providerThreadId: "thread-relationship-review",
+      expectedAssignmentVersion: 4,
+      eventType: "accept_review_won",
+      supabase: expect.anything(),
+    });
+    const persistedHistoryId = updateConnectionMock.mock.calls.at(-1)?.[1]
+      ?.historyId as string;
+    expect(persistedHistoryId).toContain("sync-token-after-review");
   });
 
   it("keeps the provider cursor unchanged when the complete lead summary cannot be committed", async () => {

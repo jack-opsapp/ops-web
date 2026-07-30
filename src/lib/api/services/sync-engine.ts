@@ -75,6 +75,7 @@ import {
   type LeadEnrichmentFacts,
 } from "@/lib/email/lead-enrichment";
 import {
+  EmailConversionRelationshipReviewError,
   findOpportunityRelationshipMatch,
   type OpportunityRelationshipFacts,
 } from "@/lib/email/opportunity-relationship-matching";
@@ -2599,9 +2600,9 @@ async function maybeAutoAdvanceOnAccept(args: {
   result: SyncCycleResult;
 }): Promise<void> {
   const { providerThreadId, opportunityId, connection, result } = args;
+  const supabase = requireSupabase();
+  let expectedAssignmentVersion: number | null = null;
   try {
-    const supabase = requireSupabase();
-
     const { data: opp, error: opportunityError } = await supabase
       .from("opportunities")
       .select("stage, stage_manually_set, assignment_version")
@@ -2614,6 +2615,9 @@ async function maybeAutoAdvanceOnAccept(args: {
       );
     }
     if (!opp) return;
+    expectedAssignmentVersion = Number.isSafeInteger(opp.assignment_version)
+      ? (opp.assignment_version as number)
+      : null;
     if (
       !shouldEvaluateOpportunityCommercialOutcome(
         opp.stage as string,
@@ -2659,6 +2663,47 @@ async function maybeAutoAdvanceOnAccept(args: {
     );
     if (evaluation.stageChanged) result.stageChanges++;
   } catch (err) {
+    if (err instanceof EmailConversionRelationshipReviewError) {
+      const operatorActionRequiredAt = new Date().toISOString();
+      const { error: reviewWriteError } = await supabase
+        .from("opportunities")
+        .update({ operator_action_required_at: operatorActionRequiredAt })
+        .eq("id", opportunityId)
+        .eq("company_id", connection.companyId);
+      if (reviewWriteError) {
+        throw new LifecyclePersistenceError(
+          `[sync-engine] relationship review state failed before cursor advancement for opportunity ${opportunityId}: ${reviewWriteError.message ?? "unknown error"}`,
+          { cause: reviewWriteError }
+        );
+      }
+
+      result.needsReview += 1;
+      console.warn(
+        `[sync-engine] held opportunity ${opportunityId} for relationship review (${err.code}); mailbox cursor will advance`
+      );
+      if (
+        providerThreadId &&
+        expectedAssignmentVersion !== null &&
+        expectedAssignmentVersion >= 0
+      ) {
+        try {
+          await createEmailOpportunityNotification({
+            opportunityId,
+            connectionId: connection.id,
+            providerThreadId,
+            expectedAssignmentVersion,
+            eventType: "accept_review_won",
+            supabase,
+          });
+        } catch (notificationError) {
+          console.error(
+            `[sync-engine] relationship review notification failed for opportunity ${opportunityId}; review state remains durable:`,
+            notificationError
+          );
+        }
+      }
+      return;
+    }
     if (isDatabasePressureError(err)) throw err;
     throw new LifecyclePersistenceError(
       `[sync-engine] accept-to-project conversion failed before cursor advancement: ${err instanceof Error ? err.message : "unknown error"}`,
