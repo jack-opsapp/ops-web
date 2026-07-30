@@ -49,6 +49,13 @@ import {
 import { isRecruitingProviderNoise } from "@/lib/email/opportunity-correspondence-classifier";
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
 import { withSerializationRetry } from "@/lib/supabase/serialization-retry";
+import {
+  buildConversationFold,
+  CONVERSATION_FACT_PATTERNS,
+  type ConversationFactKind,
+  type ConversationFold,
+  type TrustedEmailMessage,
+} from "./conversation-fact-fold";
 
 // ─── Tuning constants ────────────────────────────────────────────────────────
 
@@ -83,8 +90,6 @@ const ACTIVITY_CONTENT_CAP = 400;
 const SITE_VISIT_NOTES_CAP = 400;
 const SITE_VISIT_MEASUREMENTS_CAP = 300;
 const THREAD_SUMMARY_CAP = 300;
-const CONVERSATION_FOLD_FACT_CAP = 400;
-
 const EMAILS_IN_PROMPT = 40;
 const CONVERSATION_FOLD_FACTS_PER_KIND = 3;
 const COMMERCIAL_PRICE_FACT_CAP = 12;
@@ -337,20 +342,6 @@ export function isSubstantiveThreadSummary(
   return Boolean(
     typeof value === "string" && value.trim() && !isGenericSummary(value)
   );
-}
-
-interface TrustedEmailMessage {
-  activityId: string;
-  eventId: string;
-  evidenceKey: string;
-  providerMessageId: string;
-  providerThreadId: string;
-  connectionId: string;
-  occurredAt: string;
-  direction: "inbound" | "outbound";
-  authorRole: "customer" | "operator";
-  subject: string;
-  body: string;
 }
 
 /**
@@ -664,21 +655,7 @@ export interface LeadSummaryContextBundle {
     subj: string | null;
     body: string | null;
   }>;
-  conversation_fold: {
-    source_message_count: number;
-    recent_message_count: number;
-    observations: Record<
-      ConversationFactKind,
-      Array<{
-        at: string;
-        author_role: "customer" | "operator";
-        connection_id: string;
-        provider_thread_id: string;
-        evidence_key: string;
-        text: string;
-      }>
-    >;
-  };
+  conversation_fold: ConversationFold;
   email_thread_summaries: string[];
   current_fact_context: LeadSummaryCurrentFactContext;
   commercial_context: {
@@ -698,25 +675,6 @@ export interface LeadSummaryContextBundle {
   } | null;
 }
 
-type ConversationFactKind =
-  | "price"
-  | "scope"
-  | "schedule"
-  | "objection"
-  | "next_action";
-
-const CONVERSATION_FACT_PATTERNS: Record<ConversationFactKind, RegExp> = {
-  price:
-    /\$\s*[0-9][0-9,]*(?:\.\d{1,2})?|\b(?:quote|estimate|proposal|price|pricing|cost|total|budget|discount(?:ed)?|deposit|payment)\b/i,
-  scope:
-    /\b(?:scope|include(?:d|s|ing)?|exclude(?:d|s|ing)?|without|supply|provide|install(?:ation|ing)?|remove|replac(?:e|ed|ement|ing)|repair|build|construct|material|finish|dimension|size|colou?r|option|revision|revised|addition|added)\b/i,
-  schedule:
-    /\b(?:schedule(?:d)?|book(?:ing|ed)?|availability|available|start(?:ing)?|finish(?:ed|ing)?|complete(?:d|ing)?|deadline|timeline|timing|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?|spring|summer|fall|autumn|winter|next week|this week|week of|end of|date)\b/i,
-  objection:
-    /\b(?:objection|concern|issue|problem|budget|afford|funds?|cash|too expensive|delay|postpone|hold off|not ready|cannot|can'?t|unable|conflict|occupied)\b/i,
-  next_action:
-    /\b(?:next action|next step|follow[ -]?up|please|let (?:me|us) know|confirm|send|sent|provide|provided|share|shared|attach(?:ed)?|include(?:d)?|call|reply|respond|need from|waiting for|instructions?|book(?:ed|ing)?|schedule)\b|\?/i,
-};
 const OPERATOR_ACTION_COMPLETION_RE =
   /\b(?:quote|estimate|proposal|photos?|pictures?|images?|documents?|files?|attachments?|details?|instructions?|information|payments?|deposits?|measurements?|dimensions?)\b.{0,80}\b(?:attached|sent|provided|shared|included|delivered|received|confirmed|completed)\b|\b(?:attached|sent|provided|shared|included|delivered|received|confirmed|completed)\b.{0,80}\b(?:quote|estimate|proposal|photos?|pictures?|images?|documents?|files?|attachments?|details?|instructions?|information|payments?|deposits?|measurements?|dimensions?)\b/i;
 const ACTION_ARTIFACT_FAMILIES = [
@@ -756,74 +714,6 @@ function conversationFactSegments(body: string): string[] {
     .split(/(?<=[!?])\s+|\.\s+(?=[A-Z0-9])/)
     .map((segment) => segment.trim())
     .filter(Boolean);
-}
-
-/**
- * Fold every trusted email into a fixed-size, deterministic set of the newest
- * observations for each summary-critical fact class. This is deliberately
- * independent of the terminal-outcome detector: ongoing opportunities still
- * retain older price, scope, schedule, objection, and next-action evidence
- * when neutral mail pushes the source message outside the newest-40 excerpt.
- */
-function buildConversationFold(
-  completeEmailHistory: TrustedEmailMessage[],
-  recentMessageCount: number,
-  factsPerKindCap: number | null = CONVERSATION_FOLD_FACTS_PER_KIND
-): LeadSummaryContextBundle["conversation_fold"] {
-  const observations: LeadSummaryContextBundle["conversation_fold"]["observations"] =
-    {
-      price: [],
-      scope: [],
-      schedule: [],
-      objection: [],
-      next_action: [],
-    };
-
-  for (const message of completeEmailHistory) {
-    for (const segment of conversationFactSegments(message.body)) {
-      for (const kind of Object.keys(
-        CONVERSATION_FACT_PATTERNS
-      ) as ConversationFactKind[]) {
-        const pattern = CONVERSATION_FACT_PATTERNS[kind];
-        pattern.lastIndex = 0;
-        if (!pattern.test(segment)) continue;
-        if (
-          kind === "price" &&
-          extractCommercialDealPrices(segment).length === 0
-        ) {
-          continue;
-        }
-        const text = clip(segment, CONVERSATION_FOLD_FACT_CAP);
-        if (!text) continue;
-
-        const facts = observations[kind];
-        const duplicateIndex = facts.findIndex(
-          (fact) => fact.text.toLowerCase() === text.toLowerCase()
-        );
-        if (duplicateIndex >= 0) facts.splice(duplicateIndex, 1);
-        facts.push({
-          at: message.occurredAt,
-          author_role: message.authorRole,
-          connection_id: message.connectionId,
-          provider_thread_id: message.providerThreadId,
-          evidence_key: message.evidenceKey,
-          text,
-        });
-        if (
-          factsPerKindCap !== null &&
-          facts.length > Math.max(0, factsPerKindCap)
-        ) {
-          facts.shift();
-        }
-      }
-    }
-  }
-
-  return {
-    source_message_count: completeEmailHistory.length,
-    recent_message_count: recentMessageCount,
-    observations,
-  };
 }
 
 function latestConversationFact(

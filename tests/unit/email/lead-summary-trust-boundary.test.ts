@@ -21,6 +21,7 @@ import {
   isSubstantiveThreadSummary,
   renderDeterministicLeadSummaryFallback,
 } from "@/lib/api/services/lead-summary-service";
+import { buildConversationFold } from "@/lib/api/services/conversation-fact-fold";
 
 const COMPANY_ID = "11111111-1111-1111-1111-111111111111";
 const OPPORTUNITY_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -97,6 +98,52 @@ function correspondenceEvent(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
 }
+
+describe("shared trusted conversation fact fold", () => {
+  it("keeps the newest bounded observations for every summary-critical fact", () => {
+    const base = {
+      activityId: "activity-1",
+      eventId: "event-1",
+      providerMessageId: "message-1",
+      providerThreadId: "thread-1",
+      connectionId: CONNECTION_ID,
+      direction: "inbound" as const,
+      authorRole: "customer" as const,
+      subject: "Estimate",
+    };
+    const fold = buildConversationFold(
+      [
+        {
+          ...base,
+          evidenceKey: "event-1",
+          occurredAt: "2026-07-20T12:00:00.000Z",
+          body: "The $1,200 quote includes cedar railing.",
+        },
+        {
+          ...base,
+          activityId: "activity-2",
+          eventId: "event-2",
+          evidenceKey: "event-2",
+          providerMessageId: "message-2",
+          occurredAt: "2026-07-21T12:00:00.000Z",
+          body: "Friday works. Please send the deposit instructions.",
+        },
+      ],
+      1
+    );
+
+    expect(fold).toMatchObject({
+      source_message_count: 2,
+      recent_message_count: 1,
+      observations: {
+        price: [expect.objectContaining({ evidence_key: "event-1" })],
+        scope: [expect.objectContaining({ evidence_key: "event-1" })],
+        schedule: [expect.objectContaining({ evidence_key: "event-2" })],
+        next_action: [expect.objectContaining({ evidence_key: "event-2" })],
+      },
+    });
+  });
+});
 
 function trustedConversation(
   messages: Array<{ direction: "inbound" | "outbound"; body: string }>
