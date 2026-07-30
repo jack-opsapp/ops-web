@@ -24,9 +24,29 @@
  *     phase's `onDismiss`/`onAutoClose` survive into the confirmed phase. The
  *     single-fire `settled` guard below is what keeps a confirmed toast's
  *     eventual close from also committing the plain discard.
+ *   - Sonner re-measures a toast's height in a layout effect keyed on
+ *     `[mounted, title, description, …]` — deliberately NOT on `jsx`. A custom
+ *     toast that swaps its content therefore keeps the height it mounted with,
+ *     which left ~109px of empty glass under the one-line confirmed state (the
+ *     rack is nine chips tall, the confirmation is one tag). Two things are
+ *     needed to make that measurement land correctly, and BOTH are load-bearing:
+ *
+ *       1. A phase-varying `description` re-arms the effect. It must be
+ *          `description`, NOT `title`: sonner's update path rebuilds the toast
+ *          as `{...prev, ...data, title: data.message}`, so any `title` we pass
+ *          is clobbered to undefined on every update. `description` survives.
+ *          Neither is ever rendered here — the same component picks `t.jsx`
+ *          over the title/description layout whenever jsx is present — so this
+ *          is measurement metadata only. See {@link phaseMeasurementKey}.
+ *       2. The phase swap must NOT animate out. Sonner measures synchronously
+ *          in a layout effect, and `AnimatePresence mode="wait"` keeps the
+ *          OUTGOING rack mounted on exactly that commit — so the re-measure
+ *          would capture the tall state it is meant to replace. The confirmed
+ *          block therefore mounts directly (enter-only motion): the rack is
+ *          gone from the DOM before sonner measures.
  */
 
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { toast } from "@/components/ui/toast";
 import { Tag } from "@/components/ui/tag";
 import { cn } from "@/lib/utils/cn";
@@ -41,6 +61,15 @@ const DISCARD_CAPTURE_DURATION_MS = 10_000;
 
 /** Marks the toast so globals.css can paint its rail olive (see file header). */
 const DISCARD_CAPTURE_TOAST_CLASS = "ops-toast-discard-capture";
+
+/**
+ * Sonner's height re-measure key (see file header). Passed as `description`,
+ * never rendered — `jsx` always wins — so the toast box shrinks to the
+ * confirmed state instead of holding the nine-chip rack's height.
+ */
+function phaseMeasurementKey(phase: DiscardFeedbackToastState["kind"]): string {
+  return `discard-capture:${phase}`;
+}
 
 /** Dictionary accessor shape — matches `useDictionary(...).t`. */
 export type DiscardFeedbackTranslate = (
@@ -164,66 +193,61 @@ export function DiscardFeedbackToastBody({
         {stateLine}
       </p>
 
+      {/* Enter-only motion, deliberately no AnimatePresence — see file header
+       * point 2: an exiting rack would still be mounted when sonner measures. */}
       <div className="mt-2.5 border-t border-line pt-2">
-        <AnimatePresence mode="wait" initial={false}>
-          {state.kind === "pending" ? (
-            <motion.div
-              key="pending"
-              variants={swapVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
+        {state.kind === "pending" ? (
+          <motion.div
+            key="pending"
+            variants={swapVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-3">
+              <SlashPrefix />
+              {t("discardFeedback.reasonHeading", "Reason — trains the filter")}
+            </p>
+            <div
+              role="group"
+              aria-label={t("discardFeedback.reasonGroupAria", "Discard reason")}
+              className="mt-1.5 flex flex-wrap gap-1.5"
             >
-              <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-3">
-                <SlashPrefix />
-                {t("discardFeedback.reasonHeading", "Reason — trains the filter")}
-              </p>
-              <div
-                role="group"
-                aria-label={t(
-                  "discardFeedback.reasonGroupAria",
-                  "Discard reason"
-                )}
-                className="mt-1.5 flex flex-wrap gap-1.5"
-              >
-                {DISCARD_REASON_ORDER.map((code) => (
-                  <button
-                    key={code}
-                    type="button"
-                    disabled={applying}
-                    onClick={() => onReason(code)}
-                    className={cn(
-                      "rounded-chip border border-line bg-surface-hover px-1.5 py-[3px]",
-                      "font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-text-2",
-                      "transition-colors duration-150",
-                      "hover:border-line-hi hover:bg-surface-active hover:text-text",
-                      "focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
-                      applying && "pointer-events-none opacity-60"
-                    )}
-                  >
-                    {discardReasonLabel(t, code)}
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="confirmed"
-              variants={swapVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-            >
-              <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-3">
-                <SlashPrefix />
-                {t("discardFeedback.logged", "Reason logged")}
-              </p>
-              <div className="mt-1.5">
-                <Tag variant="olive">{state.reasonLabel}</Tag>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              {DISCARD_REASON_ORDER.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  disabled={applying}
+                  onClick={() => onReason(code)}
+                  className={cn(
+                    "rounded-chip border border-line bg-surface-hover px-1.5 py-[3px]",
+                    "font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-text-2",
+                    "transition-colors duration-150",
+                    "hover:border-line-hi hover:bg-surface-active hover:text-text",
+                    "focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent",
+                    applying && "pointer-events-none opacity-60"
+                  )}
+                >
+                  {discardReasonLabel(t, code)}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="confirmed"
+            variants={swapVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-3">
+              <SlashPrefix />
+              {t("discardFeedback.logged", "Reason logged")}
+            </p>
+            <div className="mt-1.5">
+              <Tag variant="olive">{state.reasonLabel}</Tag>
+            </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );
@@ -301,6 +325,7 @@ export function showDiscardFeedbackToast(
         ...(live.toastId === undefined ? {} : { id: live.toastId }),
         duration,
         className: DISCARD_CAPTURE_TOAST_CLASS,
+        description: phaseMeasurementKey("pending"),
         onDismiss: handleClosed,
         onAutoClose: handleClosed,
       }
@@ -357,6 +382,7 @@ export function confirmDiscardFeedbackToast(
       id: handle.toastId,
       duration: options.durationMs ?? DISCARD_CAPTURE_DURATION_MS,
       className: DISCARD_CAPTURE_TOAST_CLASS,
+      description: phaseMeasurementKey("confirmed"),
     }
   );
 }

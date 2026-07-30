@@ -11,6 +11,8 @@ type CustomToastOptions = {
   id?: string | number;
   duration?: number;
   className?: string;
+  title?: string;
+  description?: string;
   onDismiss?: () => void;
   onAutoClose?: () => void;
 };
@@ -245,5 +247,42 @@ describe("showDiscardFeedbackToast", () => {
     const options = customToast.mock.calls[1]![1]!;
     expect(options.id).toBe("toast-1");
     expect(options.duration).toBe(10_000);
+  });
+
+  // Sonner re-measures a toast's height only when `title`/`description`
+  // change — never on `jsx`. It must be `description`: sonner's update path
+  // rebuilds the toast as `{...prev, ...data, title: data.message}`, so a
+  // `title` we pass is clobbered to undefined on every update. Without a
+  // surviving phase key the confirmed toast keeps the nine-chip rack's height
+  // and hangs ~109px of empty glass under a one-line confirmation (measured
+  // live at 258.8px locked vs 149.6px natural before this guard existed).
+  it("varies the unrendered description per phase so sonner re-measures the height", () => {
+    const handle = showDiscardFeedbackToast({
+      title: "Acme",
+      stateLine: "Negotiation → Discarded",
+      t,
+      onReason: vi.fn(),
+      onUndo: vi.fn(),
+      onClosedWithoutReason: vi.fn(),
+    });
+
+    confirmDiscardFeedbackToast(handle, {
+      title: "Acme",
+      stateLine: "Marked lost — disqualified",
+      reasonLabel: "Not a fit",
+      t,
+      onUndo: vi.fn(),
+    });
+
+    const pendingKey = customToast.mock.calls[0]![1]!.description;
+    const confirmedKey = customToast.mock.calls[1]![1]!.description;
+
+    expect(pendingKey).toBeTruthy();
+    expect(confirmedKey).toBeTruthy();
+    expect(confirmedKey).not.toBe(pendingKey);
+
+    // `title` would be silently dropped by sonner's update merge, so it must
+    // not be the carrier for the phase key.
+    expect(customToast.mock.calls[1]![1]!.title).toBeUndefined();
   });
 });
