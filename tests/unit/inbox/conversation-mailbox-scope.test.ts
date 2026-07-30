@@ -37,8 +37,9 @@ vi.mock("@/lib/supabase/helpers", () => {
   function query(table: string) {
     const filters: Array<[string, unknown]> = [];
     const inFilters: Array<[string, unknown[]]> = [];
-    let orderBy: { column: string; ascending: boolean } | null = null;
+    const orderBys: Array<{ column: string; ascending: boolean }> = [];
     let rowLimit: number | null = null;
+    let rowRange: { from: number; to: number } | null = null;
 
     const matchingRows = () => {
       let rows = [...(database.tables[table] ?? [])].filter(
@@ -46,15 +47,20 @@ vi.mock("@/lib/supabase/helpers", () => {
           filters.every(([column, value]) => row[column] === value) &&
           inFilters.every(([column, values]) => values.includes(row[column]))
       );
-      if (orderBy) {
-        const { column, ascending } = orderBy;
+      if (orderBys.length > 0) {
         rows.sort((left, right) => {
-          const a = String(left[column] ?? "");
-          const b = String(right[column] ?? "");
-          const comparison = a < b ? -1 : a > b ? 1 : 0;
-          return ascending ? comparison : -comparison;
+          for (const { column, ascending } of orderBys) {
+            const a = String(left[column] ?? "");
+            const b = String(right[column] ?? "");
+            const comparison = a < b ? -1 : a > b ? 1 : 0;
+            if (comparison !== 0) {
+              return ascending ? comparison : -comparison;
+            }
+          }
+          return 0;
         });
       }
+      if (rowRange) rows = rows.slice(rowRange.from, rowRange.to + 1);
       if (rowLimit != null) rows = rows.slice(0, rowLimit);
       return rows;
     };
@@ -76,7 +82,11 @@ vi.mock("@/lib/supabase/helpers", () => {
       return chain;
     };
     chain.order = (column: string, options: { ascending?: boolean } = {}) => {
-      orderBy = { column, ascending: options.ascending !== false };
+      orderBys.push({ column, ascending: options.ascending !== false });
+      return chain;
+    };
+    chain.range = (from: number, to: number) => {
+      rowRange = { from, to };
       return chain;
     };
     chain.limit = (value: number) => {
@@ -139,6 +149,7 @@ function activityRow(
   providerMessageId = SHARED_PROVIDER_MESSAGE_ID
 ): Row {
   return {
+    id: `activity-${connectionId}-${providerMessageId}`,
     company_id: "company-1",
     email_connection_id: connectionId,
     email_thread_id: SHARED_PROVIDER_THREAD_ID,
@@ -233,7 +244,7 @@ describe("buildConversationState mailbox isolation", () => {
     expect(stateB?.recipient.email).toBe("customer-b@example.com");
   });
 
-  it("uses the newest 20 messages and returns them in chronological order", async () => {
+  it("loads the complete conversation and returns it in chronological order", async () => {
     database.tables.email_threads = [threadRow("thread-b", "connection-b")];
     database.tables.email_connections = [connectionRow("connection-b")];
     database.tables.activities = Array.from({ length: 30 }, (_, index) => {
@@ -251,8 +262,8 @@ describe("buildConversationState mailbox isolation", () => {
 
     expect(state?.messages.map((message) => message.providerMessageId)).toEqual(
       Array.from(
-        { length: 20 },
-        (_, index) => `message-${String(index + 11).padStart(2, "0")}`
+        { length: 30 },
+        (_, index) => `message-${String(index + 1).padStart(2, "0")}`
       )
     );
   });
