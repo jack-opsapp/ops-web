@@ -227,6 +227,7 @@ function activityRow(
   createdAt: string
 ): Row {
   return {
+    id: `activity-${connectionId}-${messageId}`,
     company_id: "company-1",
     email_connection_id: connectionId,
     email_thread_id: SHARED_PROVIDER_THREAD_ID,
@@ -237,6 +238,74 @@ function activityRow(
     body_text: body,
     created_at: createdAt,
     email_message_id: messageId,
+  };
+}
+
+function seedLongSourceBoundConversation() {
+  database.tables.opportunities = [
+    {
+      id: "opportunity-retrieval",
+      company_id: "company-1",
+      title: "Long retrieval conversation",
+      ai_summary: "A long-running glass railing estimate.",
+      stage: "negotiation",
+      address: "123 Main Street",
+      contact_name: "Kevin Falk",
+      contact_email: "falks@example.com",
+      clients: { name: "Kevin Falk", email: "falks@example.com" },
+    },
+  ];
+  database.tables.activities = Array.from({ length: 205 }, (_, index) => {
+    const sequence = index + 1;
+    const padded = String(sequence).padStart(3, "0");
+    return {
+      id: `activity-${padded}`,
+      company_id: "company-1",
+      opportunity_id: "opportunity-retrieval",
+      email_connection_id: "connection-b",
+      email_thread_id: "provider-retrieval",
+      email_message_id: `message-${padded}`,
+      type: "email",
+      direction: sequence % 2 === 0 ? "outbound" : "inbound",
+      from_email:
+        sequence % 2 === 0 ? "canprojack@gmail.com" : "falks@example.com",
+      subject: `Estimate ${padded}`,
+      body_text:
+        sequence === 1
+          ? `ORIGINAL_PRICE The revised total is $8,400 including glass railing. ${"detail ".repeat(80)}`
+          : `CONTEXT_${padded} ${"routine update ".repeat(80)}`,
+      body_text_clean:
+        sequence === 1
+          ? `ORIGINAL_PRICE The revised total is $8,400 including glass railing. ${"detail ".repeat(80)}`
+          : `CONTEXT_${padded} ${"routine update ".repeat(80)}`,
+      created_at: new Date(Date.UTC(2026, 0, 1, 0, sequence)).toISOString(),
+    };
+  });
+}
+
+function sourceBoundRetrievalRequest() {
+  return {
+    companyId: "company-1",
+    userId: "user-1",
+    connectionId: "connection-b",
+    opportunityId: "opportunity-retrieval",
+    sourceActivityId: "activity-205",
+    origin: "system_handoff" as const,
+    emailAccess: {
+      allowed: true as const,
+      actor: { userId: "user-1", companyId: "company-1" },
+      operation: "edit" as const,
+      threadId: null,
+      connectionId: "connection-b",
+      providerThreadId: null,
+      opportunityId: "opportunity-retrieval",
+      connectionType: "company" as const,
+      connectionOwnerId: null,
+      pipelineScope: "all" as const,
+      inboxScope: "all" as const,
+      usedLegacyPipelineManage: false,
+      usedLegacyInboxViewCompany: false,
+    },
   };
 }
 
@@ -696,11 +765,125 @@ describe("AIDraftService recent mailbox context", () => {
     const fullConversation = String(
       latestUntrustedData().fullConversation ?? ""
     );
-    expect(fullConversation).toContain("PAGED_CONTEXT_001");
+    const manifestMatch = fullConversation.match(
+      /CONTEXT MANIFEST\n(\{[^\n]+\})/
+    );
+    expect(manifestMatch?.[1]).toBeTruthy();
+    expect(JSON.parse(manifestMatch![1]!)).toMatchObject({
+      clipped: true,
+      totalMessages: 205,
+      retrievalAvailable: true,
+    });
+    expect(fullConversation).not.toContain("PAGED_CONTEXT_001");
     expect(fullConversation).toContain("PAGED_CONTEXT_205");
     expect(fullConversation.indexOf("PAGED_CONTEXT_204")).toBeLessThan(
       fullConversation.indexOf("PAGED_CONTEXT_205")
     );
+  });
+
+  it("automatically retrieves clipped older price context before drafting", async () => {
+    seedLongSourceBoundConversation();
+    openAICreateMock
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            finish_reason: "tool_calls",
+            message: {
+              content: null,
+              tool_calls: [
+                {
+                  id: "call-price",
+                  type: "function",
+                  function: {
+                    name: "retrieve_conversation_context",
+                    arguments: JSON.stringify({
+                      factKind: "price",
+                      query: "glass railing revised total",
+                      evidenceKeys: ["activity-001"],
+                    }),
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        choices: [
+          {
+            finish_reason: "stop",
+            message: {
+              content:
+                "Hi Kevin,\n\nThe revised total remains $8,400 including glass railing.\n\nThanks,",
+            },
+          },
+        ],
+      });
+
+    const result = await AIDraftService.generateDraft(
+      sourceBoundRetrievalRequest()
+    );
+
+    expect(result.available).toBe(true);
+    expect(result.draft).toContain("$8,400");
+    expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    const secondRequest = openAICreateMock.mock.calls[1]?.[0] as {
+      messages?: Array<{
+        role: string;
+        content?: string;
+        tool_call_id?: string;
+      }>;
+    };
+    const toolMessage = secondRequest.messages?.find(
+      (message) => message.role === "tool"
+    );
+    expect(toolMessage).toMatchObject({ tool_call_id: "call-price" });
+    expect(toolMessage?.content).toContain("ORIGINAL_PRICE");
+    expect(result.draft).not.toMatch(/clipp|retriev|context manifest/i);
+  });
+
+  it("holds the draft when older context is still unresolved after two retrieval rounds", async () => {
+    seedLongSourceBoundConversation();
+    const toolCallResponse = (id: string) => ({
+      choices: [
+        {
+          finish_reason: "tool_calls",
+          message: {
+            content: null,
+            tool_calls: [
+              {
+                id,
+                type: "function",
+                function: {
+                  name: "retrieve_conversation_context",
+                  arguments: JSON.stringify({
+                    query: "fact that does not exist",
+                  }),
+                },
+              },
+            ],
+          },
+        },
+      ],
+    });
+    openAICreateMock
+      .mockResolvedValueOnce(toolCallResponse("call-1"))
+      .mockResolvedValueOnce(toolCallResponse("call-2"))
+      .mockResolvedValueOnce(toolCallResponse("call-3"));
+
+    const result = await AIDraftService.generateDraft(
+      sourceBoundRetrievalRequest()
+    );
+
+    expect(result).toMatchObject({
+      available: false,
+      heldForReview: true,
+      reason: "conversation_context_unresolved",
+    });
+    expect(openAICreateMock).toHaveBeenCalledTimes(3);
+    expect(
+      database.inserts.some((insert) => insert.table === "ai_draft_history")
+    ).toBe(false);
   });
 
   it("fails closed when the complete authorized conversation cannot be read", async () => {

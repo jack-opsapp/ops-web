@@ -379,6 +379,7 @@ export function buildConversationContextPack(
     [...selectedPriority].sort(
       (left, right) =>
         left.occurredAt.localeCompare(right.occurredAt) ||
+        left.messageId.localeCompare(right.messageId) ||
         left.chunkIndex - right.chunkIndex
     );
   let selectedChunks = chronological();
@@ -526,6 +527,7 @@ export function retrieveConversationContext(input: {
   chunks.sort(
     (left, right) =>
       left.occurredAt.localeCompare(right.occurredAt) ||
+      left.messageId.localeCompare(right.messageId) ||
       left.chunkIndex - right.chunkIndex
   );
   const text = chunks.map(renderChunk).join("\n\n");
