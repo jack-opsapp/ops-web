@@ -123,6 +123,24 @@ export interface FindOpportunityRelationshipMatchInput {
   facts: OpportunityRelationshipFacts;
 }
 
+export type EmailConversionRelationshipReviewCode =
+  | "client_identity_conflict"
+  | "client_proof_missing"
+  | "address_proof_missing"
+  | "ambiguous_project"
+  | "project_linked_elsewhere";
+
+export class EmailConversionRelationshipReviewError extends Error {
+  constructor(
+    public readonly code: EmailConversionRelationshipReviewCode,
+    message: string,
+    options?: ErrorOptions
+  ) {
+    super(message, options);
+    this.name = "EmailConversionRelationshipReviewError";
+  }
+}
+
 const ACTIVE_OPPORTUNITY_STAGES = new Set([
   "new_lead",
   "qualifying",
@@ -1029,6 +1047,21 @@ async function fetchProjectRowsByClientId(
   );
 }
 
+async function fetchClientRowsById(
+  supabase: SupabaseLike,
+  companyId: string,
+  clientId: string
+): Promise<Record<string, unknown>[]> {
+  return rowsFrom(
+    table(supabase, "clients")
+      .select("id, address")
+      .eq("company_id", companyId)
+      .eq("id", clientId)
+      .is("deleted_at", null)
+      .limit(2)
+  );
+}
+
 async function fetchProjectForOpportunity(
   supabase: SupabaseLike,
   companyId: string,
@@ -1173,16 +1206,25 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
   clientRef?: string | null;
   opportunityAddress: string | null;
 }): Promise<string | null> {
-  const clientId = resolveGuardedOpportunityClientId({
-    clientId: input.clientId,
-    clientRef: input.clientRef,
-  });
+  let clientId: string | null;
+  try {
+    clientId = resolveGuardedOpportunityClientId({
+      clientId: input.clientId,
+      clientRef: input.clientRef,
+    });
+  } catch (error) {
+    throw new EmailConversionRelationshipReviewError(
+      "client_identity_conflict",
+      "Opportunity client mirrors disagree; automatic project creation is blocked",
+      { cause: error }
+    );
+  }
   if (!clientId) {
-    throw new Error(
+    throw new EmailConversionRelationshipReviewError(
+      "client_proof_missing",
       "Existing project client proof is unavailable; automatic project creation is blocked"
     );
   }
-  const opportunityAddress = normalizeAddress(input.opportunityAddress);
 
   const projects = (
     await fetchProjectRowsByClientId(input.supabase, input.companyId, clientId)
@@ -1199,29 +1241,58 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
     }
     return true;
   });
-  if (!opportunityAddress) {
-    if (activeSameClient.length > 0) {
-      throw new Error(
-        "Existing project address proof is unavailable; automatic project creation is blocked"
+  if (activeSameClient.length === 0) return null;
+
+  let relationshipAddress = normalizeAddress(input.opportunityAddress);
+  if (!relationshipAddress) {
+    const clients = await fetchClientRowsById(
+      input.supabase,
+      input.companyId,
+      clientId
+    );
+    if (clients.length !== 1) {
+      throw new EmailConversionRelationshipReviewError(
+        "client_proof_missing",
+        "Existing project client proof is unavailable; automatic project creation is blocked"
       );
     }
-    return null;
+    relationshipAddress = normalizeAddress(
+      rowString(clients[0], "address")
+    );
+  }
+  if (!relationshipAddress) {
+    throw new EmailConversionRelationshipReviewError(
+      "address_proof_missing",
+      "Existing project address proof is unavailable; automatic project creation is blocked"
+    );
   }
   const eligible = activeSameClient.filter(
-    (project) => normalizeAddress(project.address) === opportunityAddress
+    (project) => normalizeAddress(project.address) === relationshipAddress
   );
   if (eligible.length > 1) {
-    throw new Error(
+    throw new EmailConversionRelationshipReviewError(
+      "ambiguous_project",
       "Existing project relationship is ambiguous; automatic project creation is blocked"
     );
   }
   const match = eligible[0];
-  if (!match) return null;
+  if (!match) {
+    if (
+      activeSameClient.some((project) => !normalizeAddress(project.address))
+    ) {
+      throw new EmailConversionRelationshipReviewError(
+        "address_proof_missing",
+        "An active same-client project has no property-level address proof; automatic project creation is blocked"
+      );
+    }
+    return null;
+  }
   if (
     match.opportunityId != null &&
     match.opportunityId !== input.opportunityId
   ) {
-    throw new Error(
+    throw new EmailConversionRelationshipReviewError(
+      "project_linked_elsewhere",
       "Existing project is linked to another opportunity; automatic project creation is blocked"
     );
   }

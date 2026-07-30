@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   decideOpportunityRelationshipMatch,
+  EmailConversionRelationshipReviewError,
   findOpportunityRelationshipMatch,
   findUniqueExistingProjectForEmailConversion,
   type OpportunityRelationshipCandidate,
@@ -1089,6 +1090,14 @@ describe("opportunity relationship matching", () => {
 
   it("does not guess among active same-client projects when the opportunity address is absent", async () => {
     const fixture = fixtureSupabase({
+      clients: [
+        {
+          id: "client-owen",
+          company_id: "company-1",
+          address: null,
+          deleted_at: null,
+        },
+      ],
       projects: [
         {
           id: "project-without-address-proof",
@@ -1115,6 +1124,135 @@ describe("opportunity relationship matching", () => {
         opportunityAddress: null,
       })
     ).rejects.toThrow("address proof is unavailable");
+  });
+
+  it("uses the canonical client property address when the opportunity address is absent", async () => {
+    const fixture = fixtureSupabase({
+      clients: [
+        {
+          id: "client-owen",
+          company_id: "company-1",
+          address: "2745 Fernwood Road, Victoria BC",
+          deleted_at: null,
+        },
+      ],
+      projects: [
+        {
+          id: "project-client-address",
+          company_id: "company-1",
+          client_id: "client-owen",
+          opportunity_id: null,
+          opportunity_ref: null,
+          status: "accepted",
+          title: "Fernwood project",
+          description: null,
+          address: "2745 Fernwood Rd",
+          completed_at: null,
+          deleted_at: null,
+        },
+        {
+          id: "project-other-address",
+          company_id: "company-1",
+          client_id: "client-owen",
+          opportunity_id: null,
+          opportunity_ref: null,
+          status: "estimated",
+          title: "Other project",
+          description: null,
+          address: "90 Other Road, Victoria BC",
+          completed_at: null,
+          deleted_at: null,
+        },
+      ],
+    });
+
+    await expect(
+      findUniqueExistingProjectForEmailConversion({
+        supabase: fixture.supabase as never,
+        companyId: "company-1",
+        opportunityId: "opp-owen",
+        clientId: "client-owen",
+        opportunityAddress: null,
+      })
+    ).resolves.toBe("project-client-address");
+  });
+
+  it("never treats a client city as project relationship proof", async () => {
+    const fixture = fixtureSupabase({
+      clients: [
+        {
+          id: "client-owen",
+          company_id: "company-1",
+          address: "Victoria, BC",
+          deleted_at: null,
+        },
+      ],
+      projects: [
+        {
+          id: "project-victoria",
+          company_id: "company-1",
+          client_id: "client-owen",
+          opportunity_id: null,
+          opportunity_ref: null,
+          status: "accepted",
+          title: "Victoria project",
+          description: null,
+          address: "90 Other Road, Victoria BC",
+          completed_at: null,
+          deleted_at: null,
+        },
+      ],
+    });
+
+    const error = await findUniqueExistingProjectForEmailConversion({
+      supabase: fixture.supabase as never,
+      companyId: "company-1",
+      opportunityId: "opp-owen",
+      clientId: "client-owen",
+      opportunityAddress: null,
+    }).catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(EmailConversionRelationshipReviewError);
+    expect(error.code).toBe("address_proof_missing");
+  });
+
+  it("holds conversion when an active same-client project has no property-level address", async () => {
+    const fixture = fixtureSupabase({
+      clients: [
+        {
+          id: "client-owen",
+          company_id: "company-1",
+          address: "2745 Fernwood Road, Victoria BC",
+          deleted_at: null,
+        },
+      ],
+      projects: [
+        {
+          id: "project-unqualified-address",
+          company_id: "company-1",
+          client_id: "client-owen",
+          opportunity_id: null,
+          opportunity_ref: null,
+          status: "accepted",
+          title: "Unknown active project",
+          description: null,
+          address: "Victoria",
+          completed_at: null,
+          deleted_at: null,
+        },
+      ],
+    });
+
+    const error = await findUniqueExistingProjectForEmailConversion({
+      supabase: fixture.supabase as never,
+      companyId: "company-1",
+      opportunityId: "opp-owen",
+      clientId: "client-owen",
+      opportunityAddress: null,
+    }).catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(EmailConversionRelationshipReviewError);
+    expect(error.code).toBe("address_proof_missing");
   });
 
   it("allows creation without an address only after proving the client has no active project", async () => {
