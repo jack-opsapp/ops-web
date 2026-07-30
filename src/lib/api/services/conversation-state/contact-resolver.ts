@@ -54,6 +54,14 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // lead-enrichment's GENERIC_NAME_RE (which is private) — kept narrow on purpose.
 const GENERIC_NAME_RE =
   /^(?:unknown|new lead|new customer|customer|lead|n\/a|na|null|undefined|none|-|—|no name|test)$/i;
+const PERSON_NAME_RE =
+  /^[A-Z][A-Za-z.'’()-]{1,39}(?:\s+[A-Z][A-Za-z.'’()-]{1,39}){1,3}$/;
+const SELF_IDENTIFICATION_RE =
+  /\b(?:my name is|this is|i am|i['’]m)\s+/gi;
+const SIGNATURE_SIGNOFF_RE =
+  /^(?:thanks|thank you|thanks again|regards|best regards|kind regards|warm regards|best|cheers|sincerely)[,\-—–\s]*$/i;
+const SIGNATURE_NON_NAME_RE =
+  /@|\b(?:owner|principal|president|director|manager|designer|architect|office|mobile|phone|tel|fax|www|https?|inc|ltd|corp|company|deck|rail)\b|\d{3}/i;
 
 // Local label set for the bounded address collector. The canonical
 // CONTACT_FORM_* label arrays in email-parsing.ts are NOT exported, so this
@@ -170,6 +178,27 @@ function qualifiedPropertyAddress(
 
 function isGenericName(value: string): boolean {
   return GENERIC_NAME_RE.test(value.trim());
+}
+
+function nameKey(value: string | null | undefined): string {
+  return (
+    cleanText(value)
+      ?.toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim() ?? ""
+  );
+}
+
+function isOperatorName(
+  candidate: string,
+  operator: OperatorIdentity
+): boolean {
+  const candidateKey = nameKey(candidate);
+  if (!candidateKey) return false;
+  if (candidateKey === nameKey(operator.companyName)) return true;
+  return (operator.staffMembers ?? []).some(
+    (staff) => candidateKey === nameKey(staff.fullName)
+  );
 }
 
 // ── phone shape validation (net-new on top of the shared sanitizer) ──────────
@@ -336,6 +365,50 @@ function unverifiedNameFromEmail(email: string | null): string | null {
   return cleanText(name);
 }
 
+function customerSelfIdentifiedName(
+  body: string | null | undefined,
+  operator: OperatorIdentity
+): string | null {
+  if (!body) return null;
+  for (const match of body.matchAll(SELF_IDENTIFICATION_RE)) {
+    const after = body.slice((match.index ?? 0) + match[0].length);
+    const candidate = after.match(
+      /^([A-Z][A-Za-z.'’()-]{1,39}(?:\s+[A-Z][A-Za-z.'’()-]{1,39}){1,3})(?=[,.;!?\n]|$)/
+    )?.[1];
+    const cleaned = cleanText(candidate);
+    if (
+      cleaned &&
+      !isGenericName(cleaned) &&
+      !isOperatorName(cleaned, operator)
+    ) {
+      return cleaned;
+    }
+  }
+  return null;
+}
+
+function customerSignatureName(
+  signatureBlock: string | null | undefined,
+  operator: OperatorIdentity
+): string | null {
+  if (!signatureBlock) return null;
+  for (const line of signatureBlock.split("\n")) {
+    const candidate = cleanText(line);
+    if (
+      !candidate ||
+      SIGNATURE_SIGNOFF_RE.test(candidate) ||
+      SIGNATURE_NON_NAME_RE.test(candidate) ||
+      !PERSON_NAME_RE.test(candidate) ||
+      isGenericName(candidate) ||
+      isOperatorName(candidate, operator)
+    ) {
+      continue;
+    }
+    return candidate;
+  }
+  return null;
+}
+
 // ── pure core ────────────────────────────────────────────────────────────────
 
 /**
@@ -360,6 +433,9 @@ export function resolveContact(input: ResolveContactInput): ResolvedContact {
   const latestCustomer = customerMessages.length
     ? [...customerMessages].sort((a, b) => b.sentAt.localeCompare(a.sentAt))[0]
     : null;
+  const latestCustomerMessages = [...customerMessages].sort((a, b) =>
+    b.sentAt.localeCompare(a.sentAt)
+  );
 
   // ── email ──────────────────────────────────────────────────────────────
   let email: string | null = null;
@@ -389,7 +465,39 @@ export function resolveContact(input: ResolveContactInput): ResolvedContact {
     prov.push(provenance("name", "contact_form", 0.95, latestCustomer));
   }
   if (!nameIsVerified) {
-    for (const m of customerMessages) {
+    for (const m of latestCustomerMessages) {
+      const selfIdentified = customerSelfIdentifiedName(
+        m.cleanBody,
+        operator
+      );
+      if (selfIdentified) {
+        name = selfIdentified;
+        nameIsVerified = true;
+        prov.push(
+          provenance(
+            "name",
+            "customer_self_identification",
+            0.96,
+            m
+          )
+        );
+        break;
+      }
+    }
+  }
+  if (!nameIsVerified) {
+    for (const m of latestCustomerMessages) {
+      const signed = customerSignatureName(m.signatureBlock, operator);
+      if (signed) {
+        name = signed;
+        nameIsVerified = true;
+        prov.push(provenance("name", "customer_signature", 0.94, m));
+        break;
+      }
+    }
+  }
+  if (!nameIsVerified) {
+    for (const m of latestCustomerMessages) {
       const verified = verifiedDisplayName(m.fromName, m.fromEmail);
       if (verified) {
         name = verified;

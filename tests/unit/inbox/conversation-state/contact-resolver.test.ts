@@ -42,6 +42,110 @@ function customerInbound(overrides: Partial<CleanMessage> = {}): CleanMessage {
 // ── (4) name provenance ─────────────────────────────────────────────────────
 
 describe("resolveContact — name verification", () => {
+  it("uses the customer's signature name instead of the mailbox header or local part", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          fromEmail: "falks@example.com",
+          fromName: "Falks",
+          authoredBody: "Please send the revised quote.\n\nThanks,\nKevin Falk",
+          signatureBlock: "Thanks,\nKevin Falk",
+          cleanBody: "Please send the revised quote.",
+          rawBody: "Please send the revised quote.\n\nThanks,\nKevin Falk",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.name).toBe("Kevin Falk");
+    expect(result.nameIsVerified).toBe(true);
+    expect(result.provenance).toContainEqual(
+      expect.objectContaining({
+        field: "name",
+        source: "customer_signature",
+        confidence: 0.94,
+      })
+    );
+  });
+
+  it("uses an explicit customer self-identification before the From header", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          fromEmail: "falks@example.com",
+          fromName: "Falks",
+          authoredBody:
+            "Hi, this is Kevin Falk. I am following up about the estimate.",
+          signatureBlock: "",
+          cleanBody:
+            "Hi, this is Kevin Falk. I am following up about the estimate.",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.name).toBe("Kevin Falk");
+    expect(result.provenance).toContainEqual(
+      expect.objectContaining({
+        field: "name",
+        source: "customer_self_identification",
+      })
+    );
+  });
+
+  it("never uses an operator-authored signature as the customer name", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          fromEmail: "falks@example.com",
+          fromName: "Falks",
+          authoredBody: "Please send the revised quote.",
+          signatureBlock: "",
+        }),
+        {
+          ...customerInbound(),
+          providerMessageId: "operator-reply",
+          direction: "outbound",
+          partyRole: "operator",
+          fromEmail: "canprojack@gmail.com",
+          fromName: "Jackson Sweet",
+          authoredBody: "I will send it today.\n\nJackson Sweet",
+          signatureBlock: "Jackson Sweet\nCanpro Deck and Rail",
+          cleanBody: "I will send it today.",
+          isRealCustomerInbound: false,
+        },
+      ],
+      operator: operator(),
+    });
+
+    expect(result.name).toBe("Falks");
+    expect(result.name).not.toBe("Jackson Sweet");
+  });
+
+  it("does not resurrect a quoted third-party signature as customer identity", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          fromEmail: "falks@example.com",
+          fromName: "Falks",
+          authoredBody: "Please send the revised quote.",
+          signatureBlock: "",
+          cleanBody: "Please send the revised quote.",
+          rawBody: [
+            "Please send the revised quote.",
+            "On Monday, Alex Smith wrote:",
+            "> Thanks,",
+            "> Alex Smith",
+          ].join("\n"),
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.name).toBe("Falks");
+    expect(result.name).not.toBe("Alex Smith");
+  });
+
   it("sets nameIsVerified=true from a real display name", () => {
     const result = resolveContact({
       messages: [customerInbound({ fromName: "Jane Doe" })],
