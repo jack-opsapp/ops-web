@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const runMaintenance = vi.fn();
 const runOperations = vi.fn();
 const processOutbox = vi.fn();
+const purgeRateLimits = vi.fn();
 let leaseHeld = false;
 
 vi.mock("@/lib/supabase/server-client", () => ({
@@ -22,6 +23,11 @@ vi.mock("@/lib/external-api/intake/outbox-worker", () => ({
 vi.mock("@/lib/external-api/security/security-alerts", () => ({
   runExternalApiOperationsMaintenance: (...args: unknown[]) =>
     runOperations(...args),
+}));
+
+vi.mock("@/lib/external-api/security/strict-rate-limit", () => ({
+  purgeExpiredExternalApiRateLimitWindows: (...args: unknown[]) =>
+    purgeRateLimits(...args),
 }));
 
 vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
@@ -48,6 +54,8 @@ describe("external API maintenance cron", () => {
     runMaintenance.mockReset();
     runOperations.mockReset();
     processOutbox.mockReset();
+    purgeRateLimits.mockReset();
+    purgeRateLimits.mockResolvedValue(7);
     runOperations.mockResolvedValue({
       credentialsRetired: 2,
       networkFingerprintsPurged: 4,
@@ -95,6 +103,7 @@ describe("external API maintenance cron", () => {
     expect(runMaintenance).not.toHaveBeenCalled();
     expect(runOperations).not.toHaveBeenCalled();
     expect(processOutbox).not.toHaveBeenCalled();
+    expect(purgeRateLimits).not.toHaveBeenCalled();
   });
 
   it("runs one bounded, leased maintenance slice and returns counts only", async () => {
@@ -110,6 +119,7 @@ describe("external API maintenance cron", () => {
       networkFingerprintsPurged: 4,
       securityEventsPurged: 3,
       projectionVersionsPruned: 8,
+      rateLimitWindowsPurged: 7,
       securityAlertsCreated: 2,
       securityRecipientsNotified: 3,
       operationsHealth: {
@@ -140,6 +150,10 @@ describe("external API maintenance cron", () => {
     );
     expect(runOperations.mock.invocationCallOrder[0]).toBeLessThan(
       runMaintenance.mock.invocationCallOrder[0]
+    );
+    expect(purgeRateLimits).toHaveBeenCalledWith(
+      { role: "service" },
+      { limit: 1000 }
     );
     expect(runMaintenance).toHaveBeenCalledWith(
       { role: "service" },
@@ -173,6 +187,7 @@ describe("external API maintenance cron", () => {
     expect(runMaintenance).not.toHaveBeenCalled();
     expect(runOperations).not.toHaveBeenCalled();
     expect(processOutbox).not.toHaveBeenCalled();
+    expect(purgeRateLimits).not.toHaveBeenCalled();
   });
 
   it("does not return object keys, filenames, or provider detail", async () => {

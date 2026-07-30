@@ -53,7 +53,7 @@ function dependencies(events: string[]): ExternalApiBoundaryDependencies {
       return {
         version: 1,
         digest: Buffer.alloc(32, 1),
-        redisIdentity: "fingerprint-safe-digest",
+        rateLimitIdentity: "fingerprint-safe-digest",
         presentedPrefix: "opsx_1_abcdefghijkl",
       };
     },
@@ -160,7 +160,7 @@ describe("external API request boundary", () => {
         expect(context.method).toBe("POST");
         expect(context.networkFingerprint).toMatchObject({
           version: 1,
-          redisIdentity: "fingerprint-safe-digest",
+          rateLimitIdentity: "fingerprint-safe-digest",
           presentedPrefix: "opsx_1_abcdefghijkl",
         });
         return {

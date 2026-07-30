@@ -22,7 +22,7 @@ export class NetworkFingerprintUnavailableError extends Error {
 export type ExternalApiNetworkFingerprint = Readonly<{
   version: number;
   digest: Buffer;
-  redisIdentity: string;
+  rateLimitIdentity: string;
   presentedPrefix: string;
 }>;
 
@@ -83,7 +83,7 @@ export function createExternalApiNetworkFingerprint(input: {
   return Object.freeze({
     version: input.keyRing.activeKid,
     digest,
-    redisIdentity: digest.toString("base64url"),
+    rateLimitIdentity: digest.toString("base64url"),
     presentedPrefix: input.presentedPrefix,
   });
 }

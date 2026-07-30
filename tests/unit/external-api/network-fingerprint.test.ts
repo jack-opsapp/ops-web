@@ -40,7 +40,7 @@ describe("external API network fingerprints", () => {
 
     expect(first.version).toBe(4);
     expect(first.digest).toHaveLength(32);
-    expect(first.redisIdentity).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(first.rateLimitIdentity).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(first.digest.equals(second.digest)).toBe(true);
     expect(
       first.digest.equals(createHash("sha256").update("203.0.113.8").digest())

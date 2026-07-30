@@ -150,7 +150,7 @@ type SafeBoundaryFailure = Readonly<{
 }>;
 
 function createDefaultDependencies(): ExternalApiBoundaryDependencies {
-  const limiter = createConfiguredStrictRateLimiter();
+  let limiter: ReturnType<typeof createConfiguredStrictRateLimiter> | undefined;
   let client:
     | (ExternalApiAuthRpcClient &
         ExternalApiAuditRpcClient &
@@ -171,6 +171,11 @@ function createDefaultDependencies(): ExternalApiBoundaryDependencies {
       ExternalApiAuditRpcClient &
       ExternalApiAuthorizationDenialClient;
     return client;
+  }
+
+  function rateLimiter(): ReturnType<typeof createConfiguredStrictRateLimiter> {
+    limiter ??= createConfiguredStrictRateLimiter(serviceClient());
+    return limiter;
   }
 
   function credentialKeys(): ReturnType<
@@ -203,7 +208,7 @@ function createDefaultDependencies(): ExternalApiBoundaryDependencies {
       });
     },
     checkPreAuthRateLimit(input) {
-      return limiter.checkPreAuth(input);
+      return rateLimiter().checkPreAuth(input);
     },
     async authenticate(input) {
       try {
@@ -224,7 +229,7 @@ function createDefaultDependencies(): ExternalApiBoundaryDependencies {
       );
     },
     checkAuthenticatedRateLimit(input) {
-      return limiter.checkAuthenticated(input);
+      return rateLimiter().checkAuthenticated(input);
     },
     recordAuthorizationDenial(actor, code) {
       return recordExternalApiAuthorizationDenial(serviceClient(), actor, code);
@@ -441,7 +446,7 @@ export function createExternalApiRequestBoundary<TInput, TResult>(
         presentedPrefix,
       });
       preAuthDecision = await deps.checkPreAuthRateLimit({
-        networkFingerprint: networkFingerprint.redisIdentity,
+        networkFingerprint: networkFingerprint.rateLimitIdentity,
         presentedPrefix,
       });
 

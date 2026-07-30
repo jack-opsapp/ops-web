@@ -1,0 +1,99 @@
+\set ON_ERROR_STOP on
+
+select pg_advisory_lock(2026073021);
+
+drop table if exists private.external_api_rate_limit_concurrency_results;
+create table private.external_api_rate_limit_concurrency_results (
+  session_name text primary key,
+  result jsonb not null
+);
+
+-- Start immediately after a ten-second boundary so the overlap cannot
+-- legitimately land in two different fixed windows.
+select pg_sleep(
+  (
+    10
+    - mod(
+        floor(extract(epoch from clock_timestamp()))::integer,
+        10
+      )
+    + 0.2
+  )::double precision
+);
+
+begin;
+set local lock_timeout = '10s';
+set local statement_timeout = '60s';
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+insert into private.external_api_rate_limit_concurrency_results (
+  session_name,
+  result
+) values (
+  'writer',
+  public.consume_external_api_rate_limits_as_system(
+    jsonb_build_array(
+      jsonb_build_object(
+        'scope', 'preauth_network',
+        'identity', repeat('R', 43)
+      ),
+      jsonb_build_object(
+        'scope', 'preauth_prefix',
+        'identity', repeat('R', 43) || '.missing'
+      )
+    )
+  )
+);
+
+select pg_advisory_unlock(2026073021);
+select pg_sleep(1);
+commit;
+
+select pg_advisory_lock(2026073022);
+select pg_advisory_unlock(2026073022);
+
+do $verify$
+declare
+  v_writer jsonb;
+  v_contender jsonb;
+  v_bad_windows integer;
+begin
+  select result into v_writer
+  from private.external_api_rate_limit_concurrency_results
+  where session_name = 'writer';
+
+  select result into v_contender
+  from private.external_api_rate_limit_concurrency_results
+  where session_name = 'contender';
+
+  select count(*)::integer into v_bad_windows
+  from private.external_api_rate_limit_windows window_row
+  where window_row.identity_digest in (
+    repeat('R', 43),
+    repeat('R', 43) || '.missing'
+  )
+    and window_row.request_count <> 2;
+
+  if v_writer is null
+    or v_contender is null
+    or not (v_writer ->> 'allowed')::boolean
+    or not (v_contender ->> 'allowed')::boolean
+    or (v_writer ->> 'remaining')::integer <> 29
+    or (v_contender ->> 'remaining')::integer <> 28
+    or v_bad_windows <> 0
+  then
+    raise exception
+      'external_api_rate_limit_concurrency_contract_failed: writer=%, contender=%, bad_windows=%',
+      v_writer,
+      v_contender,
+      v_bad_windows;
+  end if;
+end;
+$verify$;
+
+delete from private.external_api_rate_limit_windows
+where identity_digest in (
+  repeat('R', 43),
+  repeat('R', 43) || '.missing'
+);
+drop table private.external_api_rate_limit_concurrency_results;

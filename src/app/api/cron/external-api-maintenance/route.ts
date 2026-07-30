@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
 import { processExternalIntakeOutboxBatch } from "@/lib/external-api/intake/outbox-worker";
 import { runExternalApiOperationsMaintenance } from "@/lib/external-api/security/security-alerts";
+import { purgeExpiredExternalApiRateLimitWindows } from "@/lib/external-api/security/strict-rate-limit";
 import { runExternalIntakeMaintenance } from "@/lib/external-api/uploads/attachment-runtime";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
@@ -46,6 +47,11 @@ export async function GET(request: NextRequest) {
         const operations = await runExternalApiOperationsMaintenance(supabase, {
           limit: 100,
         });
+        const rateLimitWindowsPurged =
+          await purgeExpiredExternalApiRateLimitWindows(
+            supabase,
+            { limit: 1000 }
+          );
         const maintenance = await runExternalIntakeMaintenance(supabase, {
           eventLimit: 10,
           inspectionLimit: 5,
@@ -57,7 +63,7 @@ export async function GET(request: NextRequest) {
           leaseSeconds: 360,
           workerId: "external-api-maintenance",
         });
-        return { operations, maintenance, outbox };
+        return { operations, rateLimitWindowsPurged, maintenance, outbox };
       },
     });
 
@@ -75,7 +81,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { operations, maintenance, outbox } = controlled.value;
+    const {
+      operations,
+      rateLimitWindowsPurged,
+      maintenance,
+      outbox,
+    } = controlled.value;
     const ok = maintenance.errors.length === 0 && outbox.errors.length === 0;
     return NextResponse.json(
       {
@@ -85,6 +96,7 @@ export async function GET(request: NextRequest) {
         networkFingerprintsPurged: operations.networkFingerprintsPurged,
         securityEventsPurged: operations.securityEventsPurged,
         projectionVersionsPruned: operations.projectionVersionsPruned,
+        rateLimitWindowsPurged,
         securityAlertsCreated: operations.alertsCreated,
         securityRecipientsNotified: operations.recipientsNotified,
         operationsHealth: operations.health,

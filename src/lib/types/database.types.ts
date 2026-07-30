@@ -18035,6 +18035,10 @@ export type Database = {
           scopes: string[]
         }[]
       }
+      consume_external_api_rate_limits_as_system: {
+        Args: { p_checks: Json }
+        Returns: Json
+      }
       authorize_external_lead_feed_as_system: {
         Args: {
           p_authorization_epoch: number
@@ -18597,6 +18601,10 @@ export type Database = {
       }
       purge_external_api_network_fingerprints_as_system: {
         Args: { p_cutoff: string }
+        Returns: number
+      }
+      purge_external_api_rate_limit_windows_as_system: {
+        Args: { p_limit?: number }
         Returns: number
       }
       record_external_api_request_audit_as_system: {

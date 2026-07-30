@@ -95,7 +95,7 @@ describe("external API audit redaction", () => {
     const fingerprint = {
       version: 2,
       digest: Buffer.alloc(32, 9),
-      redisIdentity: "safe-fingerprint",
+      rateLimitIdentity: "safe-fingerprint",
       presentedPrefix: "opsx_2_abcdefghijkl",
     };
 
