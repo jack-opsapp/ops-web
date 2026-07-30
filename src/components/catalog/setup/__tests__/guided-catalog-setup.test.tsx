@@ -793,6 +793,10 @@ describe("GuidedCatalogSetup", () => {
       "placeholder",
       "Pick an option above, or type something else"
     );
+    expect(screen.getByRole("textbox")).toHaveClass(
+      "text-body-sm",
+      "!min-h-control-32"
+    );
     expect(message).toContainElement(quickAnswers);
     expect(composer).not.toContainElement(quickAnswers);
     expect(composer).toHaveClass(
@@ -813,7 +817,9 @@ describe("GuidedCatalogSetup", () => {
     }
     fireEvent.click(choices[0]);
     expect(choices[0]).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "SEND" })).toBeEnabled();
+    const send = screen.getByRole("button", { name: "SEND" });
+    expect(send).toBeEnabled();
+    expect(send.closest("form")).toHaveClass("pb-0.5");
 
     const toggle = screen.getByRole("button", { name: /options/i });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -1216,7 +1222,11 @@ describe("GuidedCatalogSetup", () => {
       await screen.findByText("Confirmed decisions · 1")
     ).toBeInTheDocument();
     const field = screen.getByRole("textbox");
-    expect(field).toHaveClass("bg-transparent", "!min-h-control-36");
+    expect(field).toHaveClass(
+      "bg-transparent",
+      "text-body-sm",
+      "!min-h-control-32"
+    );
     expect(field).not.toHaveClass("bg-glass-fill");
     expect(field).toHaveAttribute("placeholder", "Type your answer");
     expect(screen.getByTestId("guided-catalog-composer")).toHaveClass(

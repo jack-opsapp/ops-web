@@ -250,7 +250,10 @@ function QuestionInput({
           </button>
         </div>
       ) : null}
-      <form onSubmit={submit} className="flex min-w-0 items-end gap-0.5 px-0.5">
+      <form
+        onSubmit={submit}
+        className="flex min-w-0 items-end gap-0.5 px-0.5 pb-0.5"
+      >
         <div className="min-w-0 flex-1">
           <Textarea
             autoFocus
@@ -268,7 +271,7 @@ function QuestionInput({
               }
             }}
             rows={1}
-            className="max-h-8 !min-h-control-36 resize-none overflow-y-auto border-0 bg-transparent px-1 py-0.5 focus:border-0"
+            className="max-h-8 !min-h-control-32 resize-none overflow-y-auto border-0 bg-transparent px-1 py-0.5 text-body-sm focus:border-0"
             placeholder={t(
               busy
                 ? "guided.followUpPlaceholder"

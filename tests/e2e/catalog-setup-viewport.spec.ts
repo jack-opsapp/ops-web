@@ -506,6 +506,15 @@ test.describe("Guided Catalog Setup conversation viewports", () => {
       "Pick an option above, or type something else"
     );
     await answerField.focus();
+    const answerTypography = await answerField.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        fontFamily: style.fontFamily,
+        fontSize: Number.parseFloat(style.fontSize),
+      };
+    });
+    expect(answerTypography.fontFamily).toContain("Mohave");
+    expect(answerTypography.fontSize).toBe(14);
     const composerSurface = await composer.evaluate((element) => {
       const style = getComputedStyle(element);
       return {
@@ -589,12 +598,21 @@ test.describe("Guided Catalog Setup conversation viewports", () => {
     await expect(quickAnswers).toBeVisible();
 
     const send = page.getByRole("button", { name: "SEND", exact: true });
+    const uploadRow = page
+      .getByRole("button", { name: "UPLOAD PRICE SHEET", exact: true })
+      .locator("xpath=..");
     const sendBox = await send.boundingBox();
+    const uploadRowBox = await uploadRow.boundingBox();
     expect(sendBox).not.toBeNull();
+    expect(uploadRowBox).not.toBeNull();
     expect(
       composerBox!.x + composerBox!.width - (sendBox!.x + sendBox!.width),
       "SEND needs a deliberate inset from the composer's right edge"
     ).toBeGreaterThanOrEqual(12);
+    expect(
+      uploadRowBox!.y - (sendBox!.y + sendBox!.height),
+      "SEND needs a deliberate inset above the upload divider"
+    ).toBeGreaterThanOrEqual(4);
 
     const footer = page.getByTestId("guided-catalog-footer-actions");
     const footerBox = await footer.boundingBox();

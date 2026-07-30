@@ -340,6 +340,9 @@ The transcript and answer must remain visually dominant.
 - The composer shell is an input dock, not a panel: use the 5px input radius,
   dense-glass fill, standard input hairline, and `line-hi` focus border. Do not
   use `.glass-surface`, its top-edge gradient, or a box shadow.
+- Composer entry text uses sentence-case Mohave `text-body-sm` (14px) in a
+  32px field. Reserve one 4px half-step below the entry row so SEND never sits
+  directly against the upload divider.
 - Default send actions are square. Guided Phase C may use a short `SEND` label
   beside the icon for recognition; this is a compact utility action, never a
   primary CTA.
