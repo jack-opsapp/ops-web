@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  AutomaticProjectCreationSafetyHoldError,
   decideOpportunityRelationshipMatch,
   findOpportunityRelationshipMatch,
   findUniqueExistingProjectForEmailConversion,
+  isAutomaticProjectCreationSafetyHold,
   type OpportunityRelationshipCandidate,
   type OpportunityRelationshipFacts,
 } from "@/lib/email/opportunity-relationship-matching";
@@ -199,6 +201,22 @@ function opportunityRow(index: number, overrides: FixtureRow = {}): FixtureRow {
 }
 
 describe("opportunity relationship matching", () => {
+  it("recognizes a typed automatic-project safety hold through wrapped causes", () => {
+    const hold = new AutomaticProjectCreationSafetyHoldError(
+      "address_proof_unavailable",
+      "address proof unavailable"
+    );
+
+    expect(
+      isAutomaticProjectCreationSafetyHold({
+        cause: { cause: hold },
+      })
+    ).toBe(true);
+    expect(
+      isAutomaticProjectCreationSafetyHold(new Error("ordinary persistence"))
+    ).toBe(false);
+  });
+
   it("fails closed when a relationship lookup read fails", async () => {
     const failedQuery = {
       select() {
@@ -1106,6 +1124,16 @@ describe("opportunity relationship matching", () => {
       ],
     });
 
+    const lookup = findUniqueExistingProjectForEmailConversion({
+      supabase: fixture.supabase as never,
+      companyId: "company-1",
+      opportunityId: "opp-owen",
+      clientId: "client-owen",
+      opportunityAddress: null,
+    });
+    await expect(lookup).rejects.toBeInstanceOf(
+      AutomaticProjectCreationSafetyHoldError
+    );
     await expect(
       findUniqueExistingProjectForEmailConversion({
         supabase: fixture.supabase as never,

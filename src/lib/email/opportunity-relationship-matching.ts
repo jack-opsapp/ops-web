@@ -1165,6 +1165,38 @@ async function attachUniqueStandaloneProject(
   if (matches.length === 1) candidate.project = matches[0];
 }
 
+export class AutomaticProjectCreationSafetyHoldError extends Error {
+  constructor(
+    public readonly reason:
+      | "client_proof_unavailable"
+      | "address_proof_unavailable"
+      | "ambiguous_existing_project"
+      | "existing_project_linked_elsewhere",
+    message: string
+  ) {
+    super(message);
+    this.name = "AutomaticProjectCreationSafetyHoldError";
+  }
+}
+
+export function isAutomaticProjectCreationSafetyHold(
+  error: unknown
+): error is AutomaticProjectCreationSafetyHoldError {
+  let current = error;
+  const seen = new Set<unknown>();
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (current instanceof AutomaticProjectCreationSafetyHoldError) {
+      return true;
+    }
+    if (!current || typeof current !== "object" || seen.has(current)) {
+      return false;
+    }
+    seen.add(current);
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 export async function findUniqueExistingProjectForEmailConversion(input: {
   supabase: SupabaseLike;
   companyId: string;
@@ -1178,7 +1210,8 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
     clientRef: input.clientRef,
   });
   if (!clientId) {
-    throw new Error(
+    throw new AutomaticProjectCreationSafetyHoldError(
+      "client_proof_unavailable",
       "Existing project client proof is unavailable; automatic project creation is blocked"
     );
   }
@@ -1201,7 +1234,8 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
   });
   if (!opportunityAddress) {
     if (activeSameClient.length > 0) {
-      throw new Error(
+      throw new AutomaticProjectCreationSafetyHoldError(
+        "address_proof_unavailable",
         "Existing project address proof is unavailable; automatic project creation is blocked"
       );
     }
@@ -1211,7 +1245,8 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
     (project) => normalizeAddress(project.address) === opportunityAddress
   );
   if (eligible.length > 1) {
-    throw new Error(
+    throw new AutomaticProjectCreationSafetyHoldError(
+      "ambiguous_existing_project",
       "Existing project relationship is ambiguous; automatic project creation is blocked"
     );
   }
@@ -1221,7 +1256,8 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
     match.opportunityId != null &&
     match.opportunityId !== input.opportunityId
   ) {
-    throw new Error(
+    throw new AutomaticProjectCreationSafetyHoldError(
+      "existing_project_linked_elsewhere",
       "Existing project is linked to another opportunity; automatic project creation is blocked"
     );
   }

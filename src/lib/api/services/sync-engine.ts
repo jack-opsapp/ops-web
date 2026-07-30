@@ -76,6 +76,7 @@ import {
 } from "@/lib/email/lead-enrichment";
 import {
   findOpportunityRelationshipMatch,
+  isAutomaticProjectCreationSafetyHold,
   type OpportunityRelationshipFacts,
 } from "@/lib/email/opportunity-relationship-matching";
 import {
@@ -559,6 +560,7 @@ interface EmailIngestionRecoveryRow {
   provider_thread_id: unknown;
   provider_message_id: unknown;
   provider_label_id: unknown;
+  opportunity_id: unknown;
   status: unknown;
   attempts: unknown;
 }
@@ -587,7 +589,11 @@ function mapEmailIngestionRecoveryRow(
   }
   const row = candidate as EmailIngestionRecoveryRow;
   const kind = requiredRecoveryString(row.recovery_kind, "recovery_kind");
-  if (kind !== "lead_classification" && kind !== "provider_label_apply") {
+  if (
+    kind !== "lead_classification" &&
+    kind !== "provider_label_apply" &&
+    kind !== "commercial_outcome"
+  ) {
     throw new Error("Email ingestion recovery row has invalid recovery_kind");
   }
   const attempts =
@@ -612,6 +618,7 @@ function mapEmailIngestionRecoveryRow(
       row.provider_label_id,
       "provider_label_id"
     ),
+    opportunityId: nullableRecoveryString(row.opportunity_id, "opportunity_id"),
     status: requiredRecoveryString(row.status, "status"),
     attempts,
   };
@@ -652,10 +659,11 @@ function recoveryFailureDisposition(
 async function enqueueEmailIngestionRecovery(input: {
   companyId: string;
   connectionId: string;
-  kind: "lead_classification" | "provider_label_apply";
+  kind: "lead_classification" | "provider_label_apply" | "commercial_outcome";
   providerThreadId: string;
   providerMessageId: string;
   providerLabelId?: string | null;
+  opportunityId?: string | null;
 }): Promise<ClaimedEmailIngestionRecovery & { status: string }> {
   const { data, error } = await requireSupabase().rpc(
     "enqueue_email_ingestion_recovery_as_system",
@@ -666,6 +674,7 @@ async function enqueueEmailIngestionRecovery(input: {
       p_provider_thread_id: input.providerThreadId,
       p_provider_message_id: input.providerMessageId,
       p_provider_label_id: input.providerLabelId ?? null,
+      p_opportunity_id: input.opportunityId ?? null,
     }
   );
   if (error) {
@@ -702,7 +711,11 @@ async function claimEmailIngestionRecoveryById(input: {
 async function completeEmailIngestionRecovery(input: {
   queueId: string;
   holder: string;
-  outcome: "classification_recovered" | "label_applied" | "stale_configuration";
+  outcome:
+    | "classification_recovered"
+    | "commercial_outcome_recovered"
+    | "label_applied"
+    | "stale_configuration";
 }): Promise<boolean> {
   const { data, error } = await requireSupabase().rpc(
     "complete_email_ingestion_recovery_as_system",
@@ -1814,8 +1827,7 @@ async function linkThread(
     );
   }
   const canonicalOpportunityId = canonicalRows?.[0]?.opportunity_id as
-    | string
-    | undefined;
+    string | undefined;
   if (!canonicalOpportunityId) {
     throw new Error(
       "[sync-engine] linkThread did not persist a canonical provider-thread owner"
@@ -2142,8 +2154,7 @@ async function createActivity(
     connection,
     opportunityId,
     ((insertedActivity as Record<string, unknown> | null)?.id as
-      | string
-      | null) ?? null,
+      string | null) ?? null,
     direction
   );
 
@@ -6037,6 +6048,13 @@ export const SyncEngine = {
           string | { threadId: string; messages: NormalizedEmail[] }
         >();
         const opportunityByEvaluationKey = new Map<string, string>();
+        const recoveryCandidatesByEvaluationKey = new Map<
+          string,
+          Array<{
+            providerThreadId: string;
+            providerMessageId: string;
+          }>
+        >();
         const inboundEvaluationMessageIds = new Set(
           inboxEmails.map((email) => email.id)
         );
@@ -6076,6 +6094,16 @@ export const SyncEngine = {
             );
           }
           opportunityByEvaluationKey.set(evaluationKey, opportunityId);
+          const recoveryCandidates =
+            recoveryCandidatesByEvaluationKey.get(evaluationKey) ?? [];
+          recoveryCandidates.push({
+            providerThreadId: rawEmail.threadId,
+            providerMessageId: rawEmail.id,
+          });
+          recoveryCandidatesByEvaluationKey.set(
+            evaluationKey,
+            recoveryCandidates
+          );
           if (!activeLeadTargets.has(evaluationKey)) {
             activeLeadTargets.set(
               evaluationKey,
@@ -6110,11 +6138,12 @@ export const SyncEngine = {
                 `[sync-engine] commercial outcome identity ${evaluationKey} has no opportunity`
               );
             }
-            // One wedged opportunity must not starve the rest of the batch
-            // (2026-07-22 outage): every other lead still gets its accept
-            // evaluation this cycle, then one aggregated persistence error
-            // holds the cursor so the idempotent cycle replays. Serialization
-            // retry pacing lives inside maybeAutoAdvanceOnAccept.
+            // One ordinary persistence failure still holds the cursor so the
+            // idempotent cycle replays. A typed automatic-project safety hold
+            // is different: its exact durable event is quarantined below so
+            // unrelated mail can progress without weakening that lead's gate.
+            // Serialization retry pacing lives inside
+            // maybeAutoAdvanceOnAccept.
             try {
               await maybeAutoAdvanceOnAccept({
                 providerThreadId: typeof target === "string" ? target : null,
@@ -6124,6 +6153,77 @@ export const SyncEngine = {
               });
             } catch (acceptError) {
               if (isDatabasePressureError(acceptError)) throw acceptError;
+              if (isAutomaticProjectCreationSafetyHold(acceptError)) {
+                const recoveryCandidates =
+                  recoveryCandidatesByEvaluationKey.get(evaluationKey) ?? [];
+                const candidateMessageIds = [
+                  ...new Set(
+                    recoveryCandidates.map(
+                      (candidate) => candidate.providerMessageId
+                    )
+                  ),
+                ];
+                const { data: recoveryEvents, error: recoveryEventError } =
+                  candidateMessageIds.length > 0
+                    ? await supabase
+                        .from("opportunity_correspondence_events")
+                        .select(
+                          "id, provider_thread_id, provider_message_id, occurred_at"
+                        )
+                        .eq("company_id", connection.companyId)
+                        .eq("opportunity_id", opportunityId)
+                        .eq("connection_id", connection.id)
+                        .eq("is_meaningful", true)
+                        .is("noise_reason", null)
+                        .eq("opportunity_projection_applied", true)
+                        .in("provider_message_id", candidateMessageIds)
+                        .order("occurred_at", { ascending: false })
+                        .order("id", { ascending: false })
+                        .limit(1)
+                    : { data: null, error: null };
+                if (recoveryEventError) {
+                  throw new CronDatabaseOperationError(
+                    `[sync-engine] commercial outcome recovery identity read failed: ${recoveryEventError.message}`,
+                    { cause: recoveryEventError }
+                  );
+                }
+                const recoveryEvent = recoveryEvents?.[0] as
+                  | {
+                      provider_thread_id?: unknown;
+                      provider_message_id?: unknown;
+                    }
+                  | undefined;
+                const providerThreadId = nullableRecoveryString(
+                  recoveryEvent?.provider_thread_id,
+                  "commercial_outcome.provider_thread_id"
+                );
+                const providerMessageId = nullableRecoveryString(
+                  recoveryEvent?.provider_message_id,
+                  "commercial_outcome.provider_message_id"
+                );
+                const recoveryIdentity = recoveryCandidates.find(
+                  (candidate) =>
+                    candidate.providerThreadId === providerThreadId &&
+                    candidate.providerMessageId === providerMessageId
+                );
+                if (!recoveryIdentity) {
+                  throw new LifecyclePersistenceError(
+                    `[sync-engine] commercial outcome recovery identity ${evaluationKey} has no exact meaningful event`
+                  );
+                }
+                await enqueueEmailIngestionRecovery({
+                  companyId: connection.companyId,
+                  connectionId: connection.id,
+                  kind: "commercial_outcome",
+                  providerThreadId: recoveryIdentity.providerThreadId,
+                  providerMessageId: recoveryIdentity.providerMessageId,
+                  opportunityId,
+                });
+                console.warn(
+                  `[sync-engine] commercial outcome recovery deferred for opportunity ${opportunityId}: ${acceptError.message}`
+                );
+                continue;
+              }
               acceptFailures.push({
                 opportunityId,
                 error:
@@ -6671,6 +6771,71 @@ export const SyncEngine = {
         }
 
         return promoted ? "promoted" : "resolved";
+      },
+
+      async recoverCommercialOutcome(input) {
+        const opportunityId = input.job.opportunityId;
+        const providerMessageId = input.job.providerMessageId;
+        if (!opportunityId) {
+          throw new Error("EMAIL_INGESTION_RECOVERY_OPPORTUNITY_ID_MISSING");
+        }
+        if (!providerMessageId) {
+          throw new Error("EMAIL_INGESTION_RECOVERY_MESSAGE_ID_MISSING");
+        }
+
+        const { data: evidence, error: evidenceError } = await supabase
+          .from("opportunity_correspondence_events")
+          .select(
+            "id, opportunity_id, connection_id, provider_thread_id, provider_message_id, is_meaningful, opportunity_projection_applied"
+          )
+          .eq("company_id", input.connection.companyId)
+          .eq("opportunity_id", opportunityId)
+          .eq("connection_id", input.connection.id)
+          .eq("provider_thread_id", input.job.providerThreadId)
+          .eq("provider_message_id", providerMessageId)
+          .limit(2);
+        if (evidenceError) {
+          throw new CronDatabaseOperationError(
+            `[sync-engine] commercial outcome recovery evidence read failed: ${evidenceError.message}`,
+            { cause: evidenceError }
+          );
+        }
+        if (
+          (evidence ?? []).length !== 1 ||
+          evidence?.[0]?.is_meaningful !== true ||
+          evidence?.[0]?.opportunity_projection_applied !== true
+        ) {
+          throw new Error(
+            "EMAIL_INGESTION_RECOVERY_COMMERCIAL_EVIDENCE_CHANGED"
+          );
+        }
+
+        const outcomeResult = emptyResult();
+        await maybeAutoAdvanceOnAccept({
+          providerThreadId: null,
+          opportunityId,
+          connection: input.connection,
+          result: outcomeResult,
+        });
+        await input.providerLockCheckpoint();
+
+        const summaryRefresh = await refreshLeadSummariesForOpportunities({
+          supabase,
+          companyId: input.connection.companyId,
+          opportunityIds: [opportunityId],
+        });
+        if (
+          !summaryRefresh.skippedFeatureDisabled &&
+          (summaryRefresh.failed.length > 0 ||
+            summaryRefresh.requested !== 1 ||
+            summaryRefresh.written !== 1)
+        ) {
+          throw new Error(
+            `EMAIL_INGESTION_RECOVERY_SUMMARY_REFRESH_INCOMPLETE:${summaryRefresh.failed
+              .map((failure) => failure.error)
+              .join(";")}`
+          );
+        }
       },
 
       complete: completeEmailIngestionRecovery,
