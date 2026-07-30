@@ -56,4 +56,12 @@ describe("sync-engine durable ingestion recovery wiring", () => {
     );
     expect(recoveryMethod).toContain("recoveryActorUserId: null,");
   });
+
+  it("parks only the typed project-proof safety hold and lets the mailbox cursor continue", () => {
+    expect(source).toContain("isAutomaticProjectCreationSafetyHold(");
+    expect(source).toContain('kind: "commercial_outcome",');
+    expect(source).toContain("opportunityId,");
+    expect(source).toContain("commercial outcome recovery");
+    expect(source).toContain("recoverCommercialOutcome(input)");
+  });
 });
