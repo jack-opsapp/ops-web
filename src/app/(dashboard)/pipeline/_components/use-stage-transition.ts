@@ -23,6 +23,16 @@
  *     the operator picks a dedup candidate we `linkExisting` instead of create;
  *     if the deal is already linked, "Open project" just deep-links to it.
  *
+ *   - Discarded is terminal AND the only stage change that carries a learning
+ *     signal, so it never falls through to a plain move. It routes through
+ *     {@link beginDiscardCapture}: the card flips optimistically, then either
+ *     the one-tap capture toast records WHY (Phase C on) or the RPC records an
+ *     authoritative `legacy_unspecified` audit row (Phase C off). Both write
+ *     through the atomic `apply_lead_disposition_feedback` contract, which owns
+ *     the reason → lifecycle mapping; undo routes through its guarded inverse.
+ *     Every path degrades to today's plain `moveStage`, so a discard can never
+ *     fail to happen because the feedback contract was unavailable.
+ *
  * Won uses the canonical granular convert gate (with bounded legacy fallback);
  * other stage mutations use the canonical granular edit gate. The same-stage no-op,
  * Won→dialog / Lost→dialog routing, and undo `inverseFn` are shared so the
@@ -42,15 +52,31 @@ import {
 } from "@/lib/store/permissions-store";
 import { useUndoStore } from "@/stores/undo-store";
 import { queryKeys } from "@/lib/api/query-client";
+import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import {
+  useApplyLeadDispositionFeedback,
   useClients,
   useConversionPreflight,
   useConvertOpportunityToProject,
   useLinkOpportunityToExistingProject,
   useMoveOpportunityStage,
+  useUndoLeadDispositionFeedback,
   useUpdateOpportunity,
 } from "@/lib/hooks";
 import type { ConversionPreflight } from "@/lib/api/services/project-conversion-service";
+import {
+  LeadDispositionFeedbackError,
+  type LeadDiscardReasonCode,
+  type LeadDispositionFeedbackErrorCode,
+  type LeadDispositionOutcome,
+} from "@/lib/api/services/lead-disposition-feedback-service";
+import {
+  confirmDiscardFeedbackToast,
+  discardReasonLabel,
+  dismissDiscardFeedbackToast,
+  showDiscardFeedbackToast,
+  type DiscardFeedbackToastHandle,
+} from "./discard-feedback-toast";
 import type { AddressSelection } from "@/components/ops/projects/workspace/inputs/address-autocomplete";
 import {
   type Opportunity,
@@ -59,6 +85,11 @@ import {
   formatCurrency,
 } from "@/lib/types/pipeline";
 import type { StageTransitionConfirmData } from "./stage-transition-dialog";
+
+/** Narrow an unknown throw to the feedback service's stable error code. */
+function feedbackErrorCode(error: unknown): LeadDispositionFeedbackErrorCode {
+  return error instanceof LeadDispositionFeedbackError ? error.code : "unknown";
+}
 
 export interface UseStageTransitionArgs {
   /**
@@ -115,6 +146,8 @@ export function useStageTransition({
   const pushUndo = useUndoStore((s) => s.pushUndo);
 
   const moveStage = useMoveOpportunityStage();
+  const applyFeedback = useApplyLeadDispositionFeedback();
+  const undoFeedback = useUndoLeadDispositionFeedback();
   const updateOpportunity = useUpdateOpportunity();
   const convertToProject = useConvertOpportunityToProject();
   const linkToExisting = useLinkOpportunityToExistingProject();
@@ -154,6 +187,302 @@ export function useStageTransition({
     setPendingStageMove(null);
   }, []);
 
+  /**
+   * Discard, end to end. The operator's action is asserted immediately (the
+   * card leaves the column before any write) and the reason is captured with
+   * at most one extra tap — never a dialog, never a required field.
+   *
+   * Every server step runs through `mutateAsync` inside plain async closures
+   * with an explicit invalidation, because mutation lifecycle callbacks are
+   * gated on this component still being mounted and the operator can navigate
+   * away while the capture toast is still on screen.
+   */
+  const beginDiscardCapture = useCallback(
+    (opp: Opportunity) => {
+      const id = opp.id;
+      const previousStage = opp.stage;
+      const clientName =
+        clientNameMap.get(opp.clientId ?? "") ??
+        opp.contactName ??
+        opp.title ??
+        "";
+      const value = opp.estimatedValue
+        ? formatCurrency(opp.estimatedValue)
+        : "";
+      const title = `${clientName}${value ? ` · ${value}` : ""}`;
+      const toStage = getStageDisplayName(OpportunityStage.Discarded);
+      const stageLine = `${getStageDisplayName(previousStage)} → ${toStage}`;
+      const undoLabel = `${clientName} → ${toStage}`;
+
+      const invalidateOpportunities = () => {
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.opportunities.all,
+        });
+      };
+
+      /** Today's plain discard — the legacy path AND the never-fail fallback. */
+      const commitPlainDiscard = ({ announce }: { announce: boolean }) => {
+        moveStage.mutate(
+          { id, stage: OpportunityStage.Discarded, userId: currentUser?.id },
+          {
+            onSuccess: () => {
+              // Silent when the capture toast already announced the discard —
+              // a second success toast for the same action is noise.
+              if (announce) {
+                toast.success(title, { description: stageLine });
+              }
+              pushUndo({
+                label: undoLabel,
+                inverseFn: async () => {
+                  await moveStage.mutateAsync({
+                    id,
+                    stage: previousStage,
+                    userId: currentUser?.id,
+                  });
+                },
+              });
+            },
+            onError: (error) => {
+              toast.error(t("toast.failedMove"), {
+                description:
+                  error instanceof Error
+                    ? error.message
+                    : t("toast.errorOccurred"),
+              });
+            },
+          }
+        );
+      };
+
+      // Won/Lost sources sit outside the feedback contract (the RPC refuses
+      // terminal stages), so they keep today's behavior byte for byte.
+      if (
+        previousStage === OpportunityStage.Won ||
+        previousStage === OpportunityStage.Lost
+      ) {
+        commitPlainDiscard({ announce: true });
+        return;
+      }
+
+      // Mirrors useMoveOpportunityStage.onMutate — the write is deferred, so
+      // this flip is the only thing standing between the tap and the feedback.
+      queryClient.cancelQueries({ queryKey: queryKeys.opportunities.lists() });
+      queryClient.setQueriesData<Opportunity[]>(
+        { queryKey: queryKeys.opportunities.lists() },
+        (old) =>
+          old
+            ? old.map((o) =>
+                o.id === id
+                  ? {
+                      ...o,
+                      stage: OpportunityStage.Discarded,
+                      stageEnteredAt: new Date(),
+                    }
+                  : o
+              )
+            : old
+      );
+      queryClient.setQueriesData<Opportunity>(
+        { queryKey: queryKeys.opportunities.detail(id) },
+        (old) =>
+          old
+            ? {
+                ...old,
+                stage: OpportunityStage.Discarded,
+                stageEnteredAt: new Date(),
+              }
+            : old
+      );
+
+      /** Retract an applied feedback row (toast UNDO and the global stack). */
+      const retractFeedback =
+        (feedbackId: string, handle?: DiscardFeedbackToastHandle) =>
+        async () => {
+          try {
+            await undoFeedback.mutateAsync({
+              feedbackId,
+              idempotencyKey: crypto.randomUUID(),
+            });
+            if (handle) dismissDiscardFeedbackToast(handle);
+            invalidateOpportunities();
+          } catch (error) {
+            if (handle) dismissDiscardFeedbackToast(handle);
+            invalidateOpportunities();
+            if (feedbackErrorCode(error) === "undo_conflict") {
+              toast.error(
+                t("discardFeedback.error.undoBlockedTitle", "Undo blocked"),
+                {
+                  description: t(
+                    "discardFeedback.error.undoBlockedBody",
+                    "This lead changed after the discard"
+                  ),
+                }
+              );
+              return;
+            }
+            toast.error(t("toast.failedUpdate"), {
+              description:
+                error instanceof Error
+                  ? error.message
+                  : t("toast.errorOccurred"),
+            });
+          }
+        };
+
+      // Read at call time, never subscribed: an unknown slug fails OPEN in
+      // `canAccessFeature`, so the `initialized` check is load-bearing.
+      const flagsState = useFeatureFlagsStore.getState();
+      const phaseCEnabled =
+        flagsState.initialized && flagsState.canAccessFeature("phase_c");
+
+      if (!phaseCEnabled) {
+        // No capture UI, but still an authoritative audit row — and UX byte
+        // identical to the discard that shipped before Phase C.
+        void (async () => {
+          try {
+            const result = await applyFeedback.mutateAsync({
+              opportunityId: id,
+              reasonCode: "legacy_unspecified",
+              idempotencyKey: crypto.randomUUID(),
+            });
+            invalidateOpportunities();
+            toast.success(title, { description: stageLine });
+            pushUndo({
+              label: undoLabel,
+              inverseFn: retractFeedback(result.feedbackId),
+            });
+          } catch (error) {
+            const code = feedbackErrorCode(error);
+            if (code === "terminal_or_merged" || code === "access_denied") {
+              invalidateOpportunities();
+              toast.error(t("toast.failedMove"), {
+                description:
+                  error instanceof Error
+                    ? error.message
+                    : t("toast.errorOccurred"),
+              });
+              return;
+            }
+            commitPlainDiscard({ announce: true });
+          }
+        })();
+        return;
+      }
+
+      /** `duplicate`/`other` leave the lead on the board — say so plainly. */
+      const outcomeStateLine = (outcome: LeadDispositionOutcome): string => {
+        switch (outcome) {
+          case "lost":
+            return t(
+              "discardFeedback.outcome.lost",
+              "Marked lost — disqualified"
+            );
+          case "duplicate_review":
+            return t(
+              "discardFeedback.outcome.duplicate",
+              "Duplicate review — stays on board"
+            );
+          case "review_deferred":
+            return t(
+              "discardFeedback.outcome.review",
+              "Sent to review — stays on board"
+            );
+          default:
+            return stageLine;
+        }
+      };
+
+      // One key per capture, reused only if that same capture is retried, so a
+      // double-fire replays the original write instead of duplicating it.
+      const pendingKey = crypto.randomUUID();
+      let resolved = false;
+
+      const captureHandle: DiscardFeedbackToastHandle =
+        showDiscardFeedbackToast({
+          title,
+          stateLine: stageLine,
+          t,
+          onReason: (code: LeadDiscardReasonCode) => {
+            if (resolved) return;
+            resolved = true;
+            void (async () => {
+              try {
+                const result = await applyFeedback.mutateAsync({
+                  opportunityId: id,
+                  reasonCode: code,
+                  idempotencyKey: pendingKey,
+                });
+                const retract = retractFeedback(
+                  result.feedbackId,
+                  captureHandle
+                );
+                confirmDiscardFeedbackToast(captureHandle, {
+                  title,
+                  stateLine: outcomeStateLine(result.outcome),
+                  reasonLabel: discardReasonLabel(t, code),
+                  t,
+                  onUndo: () => {
+                    void retract();
+                  },
+                });
+                invalidateOpportunities();
+                pushUndo({ label: undoLabel, inverseFn: retract });
+              } catch (error) {
+                dismissDiscardFeedbackToast(captureHandle);
+                const code = feedbackErrorCode(error);
+                if (code === "terminal_or_merged" || code === "access_denied") {
+                  invalidateOpportunities();
+                  toast.error(t("toast.failedMove"), {
+                    description:
+                      error instanceof Error
+                        ? error.message
+                        : t("toast.errorOccurred"),
+                  });
+                  return;
+                }
+                // The reason is lost, the discard is not.
+                commitPlainDiscard({ announce: false });
+                // A flag flipped mid-session is not the operator's problem.
+                if (code === "phase_c_disabled") return;
+                toast.error(
+                  t("discardFeedback.error.notSavedTitle", "Reason not saved"),
+                  {
+                    description: t(
+                      "discardFeedback.error.notSavedBody",
+                      "Lead discarded — the reason did not record"
+                    ),
+                  }
+                );
+              }
+            })();
+          },
+          onUndo: () => {
+            // Nothing was written yet — undo is a pure cancel.
+            if (resolved) return;
+            resolved = true;
+            dismissDiscardFeedbackToast(captureHandle);
+            invalidateOpportunities();
+          },
+          onClosedWithoutReason: () => {
+            // Skipping is allowed: commit the discard, keep no evidence.
+            if (resolved) return;
+            resolved = true;
+            commitPlainDiscard({ announce: false });
+          },
+        });
+    },
+    [
+      applyFeedback,
+      clientNameMap,
+      currentUser,
+      moveStage,
+      pushUndo,
+      queryClient,
+      t,
+      undoFeedback,
+    ]
+  );
+
   /** Handle stage move from drag-and-drop, advance button, menu, or table cell */
   const requestStageChange = useCallback(
     (id: string, newStage: OpportunityStage) => {
@@ -176,6 +505,12 @@ export function useStageTransition({
         setTransitionOpportunity(opp);
         setTransitionType("lost");
         setPendingStageMove({ id, stage: newStage });
+        return;
+      }
+
+      // Discard owns its own flow — optimistic flip, then reason capture.
+      if (newStage === OpportunityStage.Discarded) {
+        beginDiscardCapture(opp);
         return;
       }
 
@@ -229,6 +564,7 @@ export function useStageTransition({
       t,
       clientNameMap,
       pushUndo,
+      beginDiscardCapture,
     ]
   );
 
