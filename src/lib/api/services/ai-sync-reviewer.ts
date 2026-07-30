@@ -15,7 +15,10 @@ import {
 import { EmailService } from "./email-service";
 import { getSyncOpenAI } from "./openai-clients";
 import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
-import { resolvePersistedEmailDirection } from "@/lib/email/email-ingestion-routing";
+import {
+  resolvePersistedEmailAuthorship,
+  type IngestionOperatorIdentity,
+} from "@/lib/email/email-ingestion-routing";
 import type { NormalizedEmail } from "./email-provider";
 import type {
   EmailConnection,
@@ -26,6 +29,11 @@ import {
   runEmailProviderMailboxOperation,
   type EmailProviderMailboxCheckpoint,
 } from "./email-provider-mailbox-operation";
+import {
+  evaluateLeadFeedbackPriorBatch,
+  type LeadFeedbackBaseline,
+  type LeadFeedbackPriorDecision,
+} from "./lead-feedback-prior-service";
 
 export interface AIClassifiedLead {
   email: NormalizedEmail;
@@ -53,6 +61,11 @@ export interface AIReviewResult {
     flag: "likely_won" | "likely_lost";
   }>;
   duplicatesDetected: number;
+  deferredClassifications: Array<{
+    email: NormalizedEmail;
+    baseline: LeadFeedbackBaseline;
+    decision: LeadFeedbackPriorDecision;
+  }>;
 }
 
 // ─── Stage validation ────────────────────────────────────────────────────────
@@ -131,6 +144,7 @@ function emptyReviewResult(): AIReviewResult {
     stageChanges: 0,
     terminalFlags: [],
     duplicatesDetected: 0,
+    deferredClassifications: [],
   };
 }
 
@@ -145,7 +159,8 @@ export const AISyncReviewer = {
   async reviewUnmatchedEmails(
     unmatchedEmails: NormalizedEmail[],
     connection: EmailConnection,
-    companyContext: { name: string; industry: string; domains: string[] }
+    companyContext: { name: string; industry: string; domains: string[] },
+    authoritativeOperator?: IngestionOperatorIdentity
   ): Promise<AIReviewResult> {
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       connection.companyId,
@@ -181,12 +196,15 @@ export const AISyncReviewer = {
       // it is capped to 1500 chars inside classifySingleBatch.
       body: e.bodyTextClean || e.bodyText || e.snippet,
       date: e.date.toISOString(),
-      direction: resolvePersistedEmailDirection(e, {
-        connectionEmail: connection.email,
-        companyDomains:
-          connection.syncFilters?.companyDomains ?? companyContext.domains,
-        userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
-      }),
+      direction: resolvePersistedEmailAuthorship(
+        e,
+        authoritativeOperator ?? {
+          connectionEmail: connection.email,
+          companyDomains:
+            connection.syncFilters?.companyDomains ?? companyContext.domains,
+          userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
+        }
+      ).direction,
     }));
     const classifications = await EmailAIClassifier.classifyBatch(
       classificationInputs,
@@ -227,8 +245,34 @@ export const AISyncReviewer = {
       return classification;
     });
 
+    const baselines: LeadFeedbackBaseline[] = orderedClassifications.map(
+      (classification) => ({
+        verdict: classification.verdict === "lead" ? "lead" : "not_lead",
+        confidence: classification.confidence,
+      })
+    );
+    const priorDecisions = await evaluateLeadFeedbackPriorBatch({
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      threshold,
+      protectedDomains: companyContext.domains,
+      candidates: unmatchedEmails.map((email, index) => ({
+        baseline: baselines[index],
+        candidate: {
+          providerThreadId: email.threadId,
+          providerMessageId: email.id,
+          senderEmail: email.from,
+        },
+      })),
+    });
+    if (priorDecisions.length !== orderedClassifications.length) {
+      throw new Error(
+        "[ai-sync-reviewer] feedback prior omitted an input decision"
+      );
+    }
+
     const leads = orderedClassifications.filter(
-      (c) => c.verdict === "lead" && c.confidence >= threshold
+      (_, index) => priorDecisions[index].outcome === "lead"
     );
 
     // Build classified leads with their source emails for persistence
@@ -259,6 +303,17 @@ export const AISyncReviewer = {
       duplicatesDetected: orderedClassifications.filter(
         (c) => c.duplicateOf.length > 0
       ).length,
+      deferredClassifications: orderedClassifications.flatMap((_, index) =>
+        priorDecisions[index].outcome === "defer"
+          ? [
+              {
+                email: unmatchedEmails[index],
+                baseline: baselines[index],
+                decision: priorDecisions[index],
+              },
+            ]
+          : []
+      ),
     };
   },
 
@@ -285,7 +340,8 @@ export const AISyncReviewer = {
     mailboxOperation: {
       supabase?: SupabaseClient;
       providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
-    } = {}
+    } = {},
+    authoritativeOperator?: IngestionOperatorIdentity
   ): Promise<StageEvaluationResult[]> {
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       connection.companyId,
@@ -356,12 +412,15 @@ export const AISyncReviewer = {
           subject: m.subject,
           bodyText: m.bodyText,
           date: m.date.toISOString(),
-          direction: resolvePersistedEmailDirection(m, {
-            connectionEmail: connection.email,
-            companyDomains: connection.syncFilters?.companyDomains ?? [],
-            userEmailAddresses:
-              connection.syncFilters?.userEmailAddresses ?? [],
-          }),
+          direction: resolvePersistedEmailAuthorship(
+            m,
+            authoritativeOperator ?? {
+              connectionEmail: connection.email,
+              companyDomains: connection.syncFilters?.companyDomains ?? [],
+              userEmailAddresses:
+                connection.syncFilters?.userEmailAddresses ?? [],
+            }
+          ).direction,
         })),
       });
     }

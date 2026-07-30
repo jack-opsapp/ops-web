@@ -6,9 +6,11 @@ import {
 } from "@/lib/catalog-setup/agent/setup-agent-service";
 import { applyCatalogAgentTurn } from "./conversation-reducer";
 import {
+  acceptGuidedConversationInputs,
   advanceGuidedConversation,
   normalizeGuidedConversation,
 } from "./conversation-history";
+import { normalizeGuidedInputLedger } from "./input-ledger";
 import {
   CatalogFactSchema,
   CatalogBlueprintSchema,
@@ -19,6 +21,9 @@ import {
   type CatalogKnowledgeContext,
   type LoadCatalogKnowledgeContextInput,
 } from "./catalog-knowledge-context";
+import {
+  CATALOG_CAPABILITY_MANIFEST_REVISION,
+} from "./catalog-capability-manifest";
 
 interface QueryError {
   message?: string;
@@ -61,8 +66,9 @@ interface RunGuidedSetupTurnParams {
   companyId: string;
   operatorId: string;
   sessionId: string;
-  answer: unknown;
+  answer?: unknown;
   expectedVersion: number;
+  expectedInputRevision?: number;
   client?: GuidedTurnQueryClient;
   generateTurn?: (
     params: GenerateGuidedCatalogTurnParams
@@ -141,6 +147,7 @@ export async function runGuidedSetupTurn({
   sessionId,
   answer,
   expectedVersion,
+  expectedInputRevision,
   client: injectedClient,
   generateTurn = generateGuidedCatalogTurn,
   loadKnowledge = loadCatalogKnowledgeContext,
@@ -153,6 +160,7 @@ export async function runGuidedSetupTurn({
     .select("*")
     .eq("id", sessionId)
     .eq("company_id", companyId)
+    .eq("operator_id", operatorId)
     .maybeSingle();
 
   if (currentResult.error) {
@@ -173,6 +181,25 @@ export async function runGuidedSetupTurn({
       `Guided setup cannot accept answers while ${String(current.status)}.`
     );
   }
+  const inputRevision = Number(current.input_revision ?? 0);
+  const processedInputRevision = Number(
+    current.processed_input_revision ?? 0,
+  );
+  const manifestRevision =
+    typeof current.capability_manifest_revision === "string"
+      ? current.capability_manifest_revision
+      : CATALOG_CAPABILITY_MANIFEST_REVISION;
+  if (
+    expectedInputRevision != null &&
+    inputRevision !== expectedInputRevision
+  ) {
+    throw new GuidedSetupVersionConflictError();
+  }
+  if (manifestRevision !== CATALOG_CAPABILITY_MANIFEST_REVISION) {
+    throw new GuidedSetupSessionError(
+      "OPS capabilities changed. Reload Guided Catalog Setup.",
+    );
+  }
 
   const facts = CatalogFactSchema.array().parse(current.facts ?? []);
   const unresolvedQuestions = GuidedQuestionSchema.array().parse(
@@ -189,6 +216,35 @@ export async function runGuidedSetupTurn({
       ? null
       : CatalogBlueprintSchema.parse(current.proposed_plan);
   const liveSnapshot = asRecord(current.live_snapshot);
+  const inputLedger = normalizeGuidedInputLedger(current.input_ledger);
+  const queuedInputs =
+    expectedInputRevision == null
+      ? []
+      : inputLedger.filter(
+          (entry) =>
+            entry.state === "queued" &&
+            entry.revision > processedInputRevision &&
+            entry.revision <= expectedInputRevision,
+        );
+  if (expectedInputRevision != null && queuedInputs.length === 0) {
+    throw new GuidedSetupSessionError(
+      "There are no queued messages for Phase C.",
+    );
+  }
+  const turnAnswer =
+    queuedInputs.length === 0
+      ? answer
+      : queuedInputs.length === 1
+        ? queuedInputs[0].answer
+        : {
+            kind: "operator_input_batch",
+            inputs: queuedInputs.map((entry) => ({
+              id: entry.id,
+              revision: entry.revision,
+              questionId: entry.questionId ?? null,
+              answer: entry.answer,
+            })),
+          };
   let companyKnowledge: CatalogKnowledgeContext = {
     queryHash: "",
     evidence: [],
@@ -197,14 +253,14 @@ export async function runGuidedSetupTurn({
     companyKnowledge = await loadKnowledge({
       companyId,
       currentQuestion: unresolvedQuestions[0] ?? null,
-      answer,
+      answer: turnAnswer,
       facts,
     });
   } catch (error) {
     console.error("[catalog-setup] Company knowledge unavailable", error);
   }
   const turn = await generateTurn({
-    answer,
+    answer: turnAnswer,
     facts,
     contradictions,
     currentQuestion: unresolvedQuestions[0] ?? null,
@@ -225,7 +281,7 @@ export async function runGuidedSetupTurn({
   const nextPlanHash = reduced.proposedPlan
     ? hashPlan(reduced.proposedPlan)
     : null;
-  const answerRecord = asRecord(answer);
+  const answerRecord = asRecord(turnAnswer);
   const sourceKind =
     answerRecord.kind === "catalog_source_document" ? "upload" : "operator";
   const knowledgeSource =
@@ -242,35 +298,90 @@ export async function runGuidedSetupTurn({
           },
         ]
       : [];
+  const operatorSources =
+    queuedInputs.length > 0
+      ? queuedInputs.map((entry) => {
+          if (entry.displayKind === "source_document") {
+            const sourceDocument = asRecord(entry.answer);
+            return {
+              kind: "upload",
+              inputId: entry.id,
+              questionId: entry.questionId ?? null,
+              filename: entry.filename ?? sourceDocument.filename,
+              rowCount: sourceDocument.rowCount,
+              sourceHash: hashPlan(entry.answer),
+              revision: entry.revision,
+              version: nextVersion,
+            };
+          }
+          return {
+            kind: "operator",
+            inputId: entry.id,
+            questionId: entry.questionId ?? null,
+            answer: entry.answer,
+            revision: entry.revision,
+            version: nextVersion,
+          };
+        })
+      : [
+          {
+            kind: sourceKind,
+            questionId: unresolvedQuestions[0]?.id ?? null,
+            answer: turnAnswer,
+            ...(sourceKind === "upload"
+              ? {
+                  filename: answerRecord.filename,
+                  rowCount: answerRecord.rowCount,
+                  sourceHash: hashPlan(turnAnswer),
+                }
+              : {}),
+            version: nextVersion,
+          },
+        ];
   const nextSources = [
     ...rows(current.sources),
     ...knowledgeSource,
-    {
-      kind: sourceKind,
-      questionId: unresolvedQuestions[0]?.id ?? null,
-      answer,
-      ...(sourceKind === "upload"
-        ? {
-            filename: answerRecord.filename,
-            rowCount: answerRecord.rowCount,
-            sourceHash: hashPlan(answer),
-          }
-        : {}),
-      version: nextVersion,
-    },
+    ...operatorSources,
   ];
-  const nextConversation = advanceGuidedConversation({
-    conversation,
-    currentQuestion: unresolvedQuestions[0] ?? null,
-    answer,
-    nextQuestion: reduced.unresolvedQuestions[0] ?? null,
-    nextVersion,
-  });
+  const acceptedInputIds = queuedInputs.map((entry) => entry.id);
+  const nextConversation =
+    queuedInputs.length > 0
+      ? acceptGuidedConversationInputs({
+          conversation,
+          acceptedInputIds,
+          nextQuestion: reduced.unresolvedQuestions[0] ?? null,
+          nextVersion,
+        })
+      : advanceGuidedConversation({
+          conversation,
+          currentQuestion: unresolvedQuestions[0] ?? null,
+          answer: turnAnswer,
+          nextQuestion: reduced.unresolvedQuestions[0] ?? null,
+          nextVersion,
+        });
+  const nextInputLedger =
+    queuedInputs.length > 0
+      ? inputLedger.map((entry) =>
+          acceptedInputIds.includes(entry.id)
+            ? {
+                ...entry,
+                state: "accepted" as const,
+                updatedAt: new Date().toISOString(),
+              }
+            : entry,
+        )
+      : inputLedger;
   const updateResult = await client
     .from("catalog_guided_setup_sessions")
     .update({
       status: reduced.status,
       version: nextVersion,
+      ...(queuedInputs.length > 0
+        ? {
+            processed_input_revision: expectedInputRevision,
+            input_ledger: nextInputLedger,
+          }
+        : {}),
       facts: reduced.facts,
       sources: nextSources,
       conversation: nextConversation,
@@ -287,6 +398,11 @@ export async function runGuidedSetupTurn({
     .eq("company_id", companyId)
     .eq("operator_id", operatorId)
     .eq("version", expectedVersion)
+    .eq("input_revision", inputRevision)
+    .eq(
+      "capability_manifest_revision",
+      CATALOG_CAPABILITY_MANIFEST_REVISION,
+    )
     .select("*")
     .maybeSingle();
 
@@ -296,11 +412,32 @@ export async function runGuidedSetupTurn({
     );
   }
   if (!updateResult.data || typeof updateResult.data !== "object") {
+    if (expectedInputRevision != null) {
+      const latestResult = await client
+        .from("catalog_guided_setup_sessions")
+        .select("*")
+        .eq("id", sessionId)
+        .eq("company_id", companyId)
+        .eq("operator_id", operatorId)
+        .maybeSingle();
+      if (
+        !latestResult.error &&
+        latestResult.data &&
+        typeof latestResult.data === "object"
+      ) {
+        return {
+          session: latestResult.data,
+          turn: null,
+          superseded: true,
+        };
+      }
+    }
     throw new GuidedSetupVersionConflictError();
   }
 
   return {
     session: updateResult.data,
     turn,
+    superseded: false,
   };
 }

@@ -2,6 +2,7 @@ import {
   extractAddressFromBody,
   extractPhoneFromBody,
 } from "@/lib/utils/body-fact-extractors";
+import { normalizePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
 
 export interface ClientExtractionFactsInput {
   name?: string | null;
@@ -110,17 +111,7 @@ function inboundMessageBodies(messages: ImportExtractionMessage[]): string[] {
 
 function normalizeAddressKey(value: string | null | undefined): string | null {
   const extracted = extractAddressFromBody(value) ?? cleanText(value);
-  if (!extracted) return null;
-  const key = extracted
-    .toLowerCase()
-    .replace(/\b(crescent|cres)\b/g, "cres")
-    .replace(/\b(street|st)\b/g, "st")
-    .replace(/\b(avenue|ave)\b/g, "ave")
-    .replace(/\b(road|rd)\b/g, "rd")
-    .replace(/\b(lane|ln)\b/g, "lane")
-    .replace(/\b(drive|dr)\b/g, "dr")
-    .replace(/[^a-z0-9]/g, "");
-  return key || null;
+  return normalizePropertyAddressIdentity(extracted);
 }
 
 function isExcludedAddress(

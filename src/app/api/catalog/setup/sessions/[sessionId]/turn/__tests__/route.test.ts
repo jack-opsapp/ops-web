@@ -68,12 +68,12 @@ describe("POST guided catalog session turn", () => {
     });
   });
 
-  it("persists one authorized optimistic turn", async () => {
+  it("generates from the already-persisted input revision", async () => {
     const response = await POST(
       request({
         token: "valid-token",
-        answer: "Yes",
         expectedVersion: 2,
+        expectedInputRevision: 3,
       }),
       context,
     );
@@ -86,14 +86,18 @@ describe("POST guided catalog session turn", () => {
       companyId: "a612edc0-5c18-4c4d-af97-55b9410dd077",
       operatorId: "d82114aa-7b98-4439-85f0-978f835e0627",
       sessionId: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
-      answer: "Yes",
       expectedVersion: 2,
+      expectedInputRevision: 3,
     });
   });
 
-  it("rejects a stale or malformed version before model generation", async () => {
+  it("rejects a stale or malformed revision before model generation", async () => {
     const response = await POST(
-      request({ token: "valid-token", answer: "Yes", expectedVersion: -1 }),
+      request({
+        token: "valid-token",
+        expectedVersion: 2,
+        expectedInputRevision: -1,
+      }),
       context,
     );
 
@@ -107,7 +111,11 @@ describe("POST guided catalog session turn", () => {
       .mockResolvedValueOnce(false);
 
     const response = await POST(
-      request({ token: "valid-token", answer: null, expectedVersion: 0 }),
+      request({
+        token: "valid-token",
+        expectedVersion: 0,
+        expectedInputRevision: 0,
+      }),
       context,
     );
 
@@ -115,53 +123,20 @@ describe("POST guided catalog session turn", () => {
     expect(mocks.runGuidedSetupTurn).not.toHaveBeenCalled();
   });
 
-  it("accepts a bounded source document larger than a normal text answer", async () => {
-    const answer = {
-      kind: "catalog_source_document",
-      filename: "catalog.csv",
-      format: "csv",
-      headers: ["Product", "Description"],
-      rows: Array.from({ length: 100 }, (_, index) => ({
-        Product: `Catalog item ${index + 1}`,
-        Description: "Installed service ".repeat(12),
-      })),
-      rowCount: 100,
-    };
-    expect(JSON.stringify(answer).length).toBeGreaterThan(20_000);
-
+  it("ignores a browser-supplied answer and uses only persisted input", async () => {
     const response = await POST(
       request({
         token: "valid-token",
-        answer,
+        answer: "This must not reach the model",
         expectedVersion: 2,
+        expectedInputRevision: 3,
       }),
       context,
     );
 
     expect(response.status).toBe(200);
     expect(mocks.runGuidedSetupTurn).toHaveBeenCalledWith(
-      expect.objectContaining({ answer }),
+      expect.not.objectContaining({ answer: expect.anything() }),
     );
-  });
-
-  it("rejects a forged or unbounded source document before model generation", async () => {
-    const response = await POST(
-      request({
-        token: "valid-token",
-        answer: {
-          kind: "catalog_source_document",
-          filename: "catalog.csv",
-          format: "csv",
-          headers: ["Product"],
-          rows: [],
-          rowCount: 0,
-        },
-        expectedVersion: 2,
-      }),
-      context,
-    );
-
-    expect(response.status).toBe(400);
-    expect(mocks.runGuidedSetupTurn).not.toHaveBeenCalled();
   });
 });

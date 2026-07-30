@@ -602,7 +602,7 @@ export function CatalogSetupRoute() {
         <OfflineBanner online={online} className="mx-3 mt-2" />
         <div
           data-testid="guided-catalog-scroll-region"
-          className="scrollbar-hide min-h-0 flex-1 overflow-y-auto"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
           <GuidedCatalogSetup
             onUseAnotherMethod={() => setUseLegacySetup(true)}

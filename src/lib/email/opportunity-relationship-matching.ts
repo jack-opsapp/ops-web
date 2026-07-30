@@ -1,6 +1,6 @@
 import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
-import { normalizeAddress as normalizeCanonicalAddress } from "@/lib/utils/name-normalization";
+import { normalizePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
 
 export type OpportunityRelationshipConfidence =
   | "provider_thread"
@@ -178,25 +178,6 @@ const ADDRESS_DISCOVERY_NOISE_TOKENS = new Set([
   "unit",
 ]);
 
-const STREET_IDENTITY_TOKENS = new Set([
-  "avenue",
-  "boulevard",
-  "court",
-  "crescent",
-  "drive",
-  "highway",
-  "lane",
-  "parkway",
-  "place",
-  "road",
-  "square",
-  "street",
-  "terrace",
-]);
-
-const ADDRESS_UNIT_IDENTITY_PATTERN =
-  /(?:^|[,\s]+)(?:apartment|suite|unit|ste|apt|#)\s*\.?\s*#?\s*([a-z0-9]+(?:[-/][a-z0-9]+)*)/i;
-
 function normalizeEmail(value: string | null | undefined): string | null {
   const normalized = value?.trim().toLowerCase() ?? "";
   if (!normalized || !normalized.includes("@")) return null;
@@ -212,27 +193,7 @@ function normalizePhone(value: string | null | undefined): string | null {
 }
 
 function normalizeAddress(value: string | null | undefined): string | null {
-  const unitIdentifier =
-    value?.match(ADDRESS_UNIT_IDENTITY_PATTERN)?.[1]?.toLowerCase() ?? null;
-  const canonical = normalizeCanonicalAddress(value ?? "");
-  if (!canonical || canonical.length < 8) return null;
-  const tokens = canonical.split(" ");
-  const streetTypeIndex = tokens.findIndex((token) =>
-    STREET_IDENTITY_TOKENS.has(token)
-  );
-  // Optional municipality / province / postal text must not split the same
-  // numbered street into two identities. Keep non-street/rural addresses fully
-  // canonical instead of guessing where their identity ends.
-  let streetIdentity = canonical;
-  if (
-    streetTypeIndex >= 2 &&
-    /^[0-9]+[a-z]?(?:[-/][0-9a-z]+)?$/.test(tokens[0] ?? "")
-  ) {
-    streetIdentity = tokens.slice(0, streetTypeIndex + 1).join(" ");
-  }
-  return unitIdentifier
-    ? `${streetIdentity} unit ${unitIdentifier}`
-    : streetIdentity;
+  return normalizePropertyAddressIdentity(value);
 }
 
 function addressDiscoveryPatterns(value: string | null | undefined): string[] {
@@ -1204,6 +1165,38 @@ async function attachUniqueStandaloneProject(
   if (matches.length === 1) candidate.project = matches[0];
 }
 
+export class AutomaticProjectCreationSafetyHoldError extends Error {
+  constructor(
+    public readonly reason:
+      | "client_proof_unavailable"
+      | "address_proof_unavailable"
+      | "ambiguous_existing_project"
+      | "existing_project_linked_elsewhere",
+    message: string
+  ) {
+    super(message);
+    this.name = "AutomaticProjectCreationSafetyHoldError";
+  }
+}
+
+export function isAutomaticProjectCreationSafetyHold(
+  error: unknown
+): error is AutomaticProjectCreationSafetyHoldError {
+  let current = error;
+  const seen = new Set<unknown>();
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (current instanceof AutomaticProjectCreationSafetyHoldError) {
+      return true;
+    }
+    if (!current || typeof current !== "object" || seen.has(current)) {
+      return false;
+    }
+    seen.add(current);
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 export async function findUniqueExistingProjectForEmailConversion(input: {
   supabase: SupabaseLike;
   companyId: string;
@@ -1217,7 +1210,8 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
     clientRef: input.clientRef,
   });
   if (!clientId) {
-    throw new Error(
+    throw new AutomaticProjectCreationSafetyHoldError(
+      "client_proof_unavailable",
       "Existing project client proof is unavailable; automatic project creation is blocked"
     );
   }
@@ -1240,7 +1234,8 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
   });
   if (!opportunityAddress) {
     if (activeSameClient.length > 0) {
-      throw new Error(
+      throw new AutomaticProjectCreationSafetyHoldError(
+        "address_proof_unavailable",
         "Existing project address proof is unavailable; automatic project creation is blocked"
       );
     }
@@ -1250,7 +1245,8 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
     (project) => normalizeAddress(project.address) === opportunityAddress
   );
   if (eligible.length > 1) {
-    throw new Error(
+    throw new AutomaticProjectCreationSafetyHoldError(
+      "ambiguous_existing_project",
       "Existing project relationship is ambiguous; automatic project creation is blocked"
     );
   }
@@ -1260,7 +1256,8 @@ export async function findUniqueExistingProjectForEmailConversion(input: {
     match.opportunityId != null &&
     match.opportunityId !== input.opportunityId
   ) {
-    throw new Error(
+    throw new AutomaticProjectCreationSafetyHoldError(
+      "existing_project_linked_elsewhere",
       "Existing project is linked to another opportunity; automatic project creation is blocked"
     );
   }

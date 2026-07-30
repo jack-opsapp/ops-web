@@ -6,6 +6,7 @@ import {
   buildLeadFollowUpDraftRefreshPatch,
   isStockFollowUpStage,
   LeadFollowUpError,
+  leadFollowUpPreviewFingerprint,
   normalizeLeadFollowUpDeliveryError,
   prepareInputFromExistingLeadFollowUpIntent,
   refetchReconciledLeadFollowUpIntent,
@@ -364,6 +365,33 @@ describe("lead one-tap follow-up resolution", () => {
     ).toBe("Hi Crystal, just checking on Front deck.");
   });
 
+  it("binds review approval to the exact provider reply and rendered content", () => {
+    const reviewed = {
+      connectionId: "connection-1",
+      providerThreadId: "provider-thread-1",
+      inReplyTo: "provider-message-1",
+      recipientEmail: "Crystal@Example.com",
+      from: "Jackson@OPS.test",
+      subject: "Re: Front deck quote",
+      body: "Crystal, checking in on the quote.",
+    };
+
+    expect(leadFollowUpPreviewFingerprint(reviewed)).toHaveLength(64);
+    expect(leadFollowUpPreviewFingerprint(reviewed)).toBe(
+      leadFollowUpPreviewFingerprint({
+        ...reviewed,
+        recipientEmail: "crystal@example.com",
+        from: "jackson@ops.test",
+      })
+    );
+    expect(
+      leadFollowUpPreviewFingerprint({
+        ...reviewed,
+        body: "Crystal, the quote changed.",
+      })
+    ).not.toBe(leadFollowUpPreviewFingerprint(reviewed));
+  });
+
   it("refreshes an untouched stale draft to the current stock reply and provider subject", () => {
     expect(
       resolveLeadFollowUpDraftContent(
@@ -449,7 +477,11 @@ describe("lead one-tap follow-up resolution", () => {
   it("allows a fresh send only when the canonical comeback is due", () => {
     expect(() =>
       assertFreshLeadFollowUpIsDue(
-        { next_follow_up_at: "2026-07-23T18:00:00.000Z" },
+        {
+          next_follow_up_at: "2026-07-23T18:00:00.000Z",
+          stage_entered_at: "2026-07-20T18:00:00.000Z",
+          last_outbound_at: "2026-07-22T18:00:00.000Z",
+        },
         "America/Vancouver",
         new Date("2026-07-23T18:00:00.000Z")
       )
@@ -457,7 +489,11 @@ describe("lead one-tap follow-up resolution", () => {
 
     expect(() =>
       assertFreshLeadFollowUpIsDue(
-        { next_follow_up_at: "2026-07-24T18:00:00.000Z" },
+        {
+          next_follow_up_at: "2026-07-24T18:00:00.000Z",
+          stage_entered_at: "2026-07-20T18:00:00.000Z",
+          last_outbound_at: "2026-07-22T18:00:00.000Z",
+        },
         "America/Vancouver",
         new Date("2026-07-23T18:00:00.000Z")
       )
@@ -468,11 +504,65 @@ describe("lead one-tap follow-up resolution", () => {
     expect(() =>
       assertFreshLeadFollowUpIsDue(
         // UTC has already rolled to Jul 24, but Vancouver is still Jul 23.
-        { next_follow_up_at: "2026-07-24T06:30:00.000Z" },
+        {
+          next_follow_up_at: "2026-07-24T06:30:00.000Z",
+          stage_entered_at: "2026-07-20T18:00:00.000Z",
+          last_outbound_at: "2026-07-22T18:00:00.000Z",
+        },
         "America/Vancouver",
         new Date("2026-07-23T16:00:00.000Z")
       )
     ).not.toThrow();
+  });
+
+  it("refuses a due date inherited from before the lead entered its current quote-bearing stage", () => {
+    expect(() =>
+      assertFreshLeadFollowUpIsDue(
+        {
+          next_follow_up_at: "2026-07-23T18:00:00.000Z",
+          stage_entered_at: "2026-07-24T18:00:00.000Z",
+          last_outbound_at: "2026-07-22T18:00:00.000Z",
+        },
+        "America/Vancouver",
+        new Date("2026-07-25T18:00:00.000Z")
+      )
+    ).toThrowError(expect.objectContaining({ code: "LEAD_FOLLOW_UP_NOT_DUE" }));
+  });
+
+  it("refuses a cycle already satisfied by a meaningful outbound at or after its due instant", () => {
+    for (const lastOutboundAt of [
+      "2026-07-23T18:00:00.000Z",
+      "2026-07-24T18:00:00.000Z",
+    ]) {
+      expect(() =>
+        assertFreshLeadFollowUpIsDue(
+          {
+            next_follow_up_at: "2026-07-23T18:00:00.000Z",
+            stage_entered_at: "2026-07-20T18:00:00.000Z",
+            last_outbound_at: lastOutboundAt,
+          },
+          "America/Vancouver",
+          new Date("2026-07-25T18:00:00.000Z")
+        )
+      ).toThrowError(
+        expect.objectContaining({ code: "LEAD_FOLLOW_UP_NOT_DUE" })
+      );
+    }
+  });
+
+  it("requires the provider-confirmed outbound source to predate the due cycle", () => {
+    expect(() =>
+      assertFreshLeadFollowUpIsDue(
+        {
+          next_follow_up_at: "2026-07-23T18:00:00.000Z",
+          stage_entered_at: "2026-07-20T18:00:00.000Z",
+          last_outbound_at: "2026-07-22T18:00:00.000Z",
+        },
+        "America/Vancouver",
+        new Date("2026-07-25T18:00:00.000Z"),
+        new Date("2026-07-24T18:00:00.000Z")
+      )
+    ).toThrowError(expect.objectContaining({ code: "LEAD_FOLLOW_UP_NOT_DUE" }));
   });
 
   it("limits quote-specific stock copy to quote-bearing stages", () => {

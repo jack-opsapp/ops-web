@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CATALOG_CAPABILITY_MANIFEST_REVISION } from "../catalog-capability-manifest";
 import { validateCatalogAgentTurn } from "../semantic-validator";
 
 const requiredProductPayload = {
@@ -87,8 +88,10 @@ describe("Phase C semantic validator", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.issues[0]).toEqual(
-      expect.objectContaining({ code: "incomplete_product_plan" })
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "incomplete_product_plan" }),
+      ]),
     );
   });
 
@@ -145,6 +148,8 @@ describe("Phase C semantic validator", () => {
       facts: [],
       question: {
         id: "minimum",
+        intent: "pricing",
+        capabilityRef: "catalog-core/v1",
         prompt: "Do you have a minimum charge?",
         answerKind: "boolean",
         factKeys: ["product.minimum_charge"],
@@ -152,5 +157,90 @@ describe("Phase C semantic validator", () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it("rejects a question without a released capability contract", () => {
+    const result = validateCatalogAgentTurn({
+      kind: "question",
+      facts: [],
+      question: {
+        id: "deck-waste",
+        intent: "static_material_quantity",
+        capabilityRef: "deck-geometry/v1",
+        prompt: "Should OPS calculate waste from Deck Designer?",
+        answerKind: "boolean",
+        factKeys: ["product.deck_geometry"],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "capability_unavailable",
+        }),
+      ]),
+    );
+  });
+
+  it("rejects unsupported blueprint actions even when their metadata is writable", () => {
+    const result = validateCatalogAgentTurn({
+      kind: "review",
+      facts: [],
+      blueprint: {
+        version: 1,
+        capabilityRevision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+        summary: "Invented geometry automation",
+        ready: true,
+        issues: [],
+        actions: [
+          {
+            actionKey: "create:material-rule:vinyl",
+            group: "CREATE",
+            actionType: "upsert_material_quantity_rule",
+            targetKind: "material_quantity_rule",
+            clientId: "vinyl-rule",
+            dependsOn: [],
+            payload: {
+              measureSource: "deck_geometry/v1",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "capability_unavailable",
+          actionKey: "create:material-rule:vinyl",
+        }),
+      ]),
+    );
+  });
+
+  it("rejects a review generated against a different capability revision", () => {
+    const result = validateCatalogAgentTurn({
+      kind: "review",
+      facts: [],
+      blueprint: {
+        version: 1,
+        capabilityRevision: "phase-c-capabilities/older",
+        summary: "Stale",
+        ready: true,
+        issues: [],
+        actions: [],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "capability_manifest_changed",
+        }),
+      ]),
+    );
   });
 });

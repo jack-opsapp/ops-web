@@ -177,6 +177,18 @@ function makeSupabaseDouble() {
       return { data: null, error: null };
     }
     async maybeSingle() {
+      if (this.table === "companies") {
+        return {
+          data: {
+            id: "company-1",
+            name: "Canpro Deck and Rail",
+            email: "operator@example.com",
+            phone: null,
+            address: null,
+          },
+          error: null,
+        };
+      }
       return { data: null, error: null };
     }
     then<TResult1 = unknown, TResult2 = never>(

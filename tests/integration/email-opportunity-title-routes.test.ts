@@ -101,6 +101,20 @@ vi.mock("@/lib/api/services/email-thread-service", () => ({
   },
 }));
 
+vi.mock(
+  "@/lib/api/services/conversation-state/operator-identity",
+  () => ({
+    fetchOperatorIdentity: vi.fn(async () => ({
+      emails: new Set(["jackson@canprodeckandrail.com"]),
+      domains: new Set(["canprodeckandrail.com"]),
+      phones: new Set<string>(),
+      addresses: new Set<string>(),
+      companyName: "Canpro Deck and Rail",
+      staffMembers: [],
+    })),
+  })
+);
+
 vi.mock("@/lib/email/opportunity-relationship-matching", () => ({
   findOpportunityRelationshipMatch: relationshipMatchMock,
 }));

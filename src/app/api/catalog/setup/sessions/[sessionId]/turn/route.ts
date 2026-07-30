@@ -10,15 +10,12 @@ import {
   SetupAgentConfigError,
   SetupAgentOutputError,
 } from "@/lib/catalog-setup/agent/setup-agent-service";
-import { isGuidedCatalogSourceDocument } from "@/lib/catalog-setup/phase-c/source-document";
 
 interface TurnBody {
   token?: unknown;
-  answer?: unknown;
   expectedVersion?: unknown;
+  expectedInputRevision?: unknown;
 }
-
-const MAX_ANSWER_BYTES = 20_000;
 
 export async function POST(
   req: NextRequest,
@@ -39,26 +36,15 @@ export async function POST(
         { status: 400 },
       );
     }
-    const answerRecord =
-      body.answer &&
-      typeof body.answer === "object" &&
-      !Array.isArray(body.answer)
-        ? (body.answer as Record<string, unknown>)
-        : null;
-    const isSourceDocument =
-      answerRecord?.kind === "catalog_source_document";
-    if (isSourceDocument && !isGuidedCatalogSourceDocument(body.answer)) {
-      return NextResponse.json(
-        { error: "Price sheet is invalid or too large" },
-        { status: 400 },
-      );
-    }
     if (
-      !isSourceDocument &&
-      JSON.stringify(body.answer ?? null).length > MAX_ANSWER_BYTES
+      !Number.isInteger(body.expectedInputRevision) ||
+      Number(body.expectedInputRevision) < 0
     ) {
       return NextResponse.json(
-        { error: "Answer is too large" },
+        {
+          error:
+            "expectedInputRevision must be a non-negative integer",
+        },
         { status: 400 },
       );
     }
@@ -94,8 +80,8 @@ export async function POST(
       companyId,
       operatorId,
       sessionId,
-      answer: body.answer ?? null,
       expectedVersion: Number(body.expectedVersion),
+      expectedInputRevision: Number(body.expectedInputRevision),
     });
     return NextResponse.json(result);
   } catch (error) {

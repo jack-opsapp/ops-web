@@ -61,7 +61,7 @@ type CommercialOutcomeDecision =
   | {
       outcome: "declined";
       confidence: "high";
-      reasonCode: "customer_declined";
+      reasonCode: "customer_declined" | "price";
       decisiveEvidenceKey: string;
       decisiveMessageId: string;
       decisiveDirection: "inbound";
@@ -531,6 +531,52 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
           /follow.?up.*next year|next year.*follow.?up/i
         ),
       },
+    });
+  });
+
+  it("classifies Sandra's unequivocal rejection as Lost for price", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "sandra-price-rejection",
+          "2026-07-25T13:25:09.000Z",
+          "inbound",
+          "We did go with someone else mostly for financial reasons."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "declined",
+      confidence: "high",
+      reasonCode: "price",
+      decisiveMessageId: "sandra-price-rejection",
+      decisiveSignals: ["customer_declined"],
+      followUpAt: null,
+      facts: {
+        objection: expect.stringMatching(/financial reasons/i),
+      },
+    });
+  });
+
+  it("keeps a decisive rejection without a stated reason distinct from price", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "plain-rejection",
+          "2026-07-25T13:25:09.000Z",
+          "inbound",
+          "We hired someone else. Please close this out."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "declined",
+      reasonCode: "customer_declined",
+      decisiveMessageId: "plain-rejection",
     });
   });
 

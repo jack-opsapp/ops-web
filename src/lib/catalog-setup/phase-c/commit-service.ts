@@ -7,6 +7,19 @@ import {
   compileCatalogExecutionBlueprint,
 } from "./execution-plan";
 import type { CatalogAction, CatalogBlueprint } from "./types";
+import {
+  CATALOG_CAPABILITY_MANIFEST_REVISION,
+  guidedCapabilityForAction,
+} from "./catalog-capability-manifest";
+
+export class GuidedCapabilityManifestConflictError extends Error {
+  constructor() {
+    super(
+      "Phase C capability manifest changed or contains unavailable actions",
+    );
+    this.name = "GuidedCapabilityManifestConflictError";
+  }
+}
 
 export interface CatalogCommitStart {
   operationId: string;
@@ -209,6 +222,26 @@ async function finishAttention(
 export async function executeGuidedCatalogCommit(
   params: ExecuteGuidedCatalogCommitParams,
 ): Promise<GuidedCatalogCommitResult> {
+  let blueprint: CatalogBlueprint;
+  try {
+    blueprint = CatalogBlueprintSchema.parse(
+      await params.adapter.loadBlueprint(params.sessionId),
+    );
+  } catch (error) {
+    if (error instanceof GuidedCapabilityManifestConflictError) throw error;
+    throw new GuidedCapabilityManifestConflictError();
+  }
+  if (
+    blueprint.capabilityRevision !==
+      CATALOG_CAPABILITY_MANIFEST_REVISION ||
+    blueprint.actions.some(
+      (action) =>
+        guidedCapabilityForAction(action.actionType)?.available !== true,
+    )
+  ) {
+    throw new GuidedCapabilityManifestConflictError();
+  }
+
   const start = await params.adapter.begin(
     params.sessionId,
     params.approvalHash,
@@ -225,22 +258,6 @@ export async function executeGuidedCatalogCommit(
   }
 
   const journal: Array<Record<string, unknown>> = [];
-  let blueprint: CatalogBlueprint;
-  try {
-    blueprint = CatalogBlueprintSchema.parse(
-      await params.adapter.loadBlueprint(params.sessionId),
-    );
-  } catch (error) {
-    record(journal, "plan_load_failed");
-    return finishAttention(params, start.operationId, journal, [
-      {
-        code: "server_plan_invalid",
-        message:
-          error instanceof Error ? error.message : "Server plan is invalid",
-      },
-    ]);
-  }
-
   const execution = compileCatalogExecutionBlueprint(blueprint);
   const idMap = initialIdMap(blueprint);
 

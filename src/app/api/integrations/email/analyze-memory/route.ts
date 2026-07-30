@@ -21,7 +21,13 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { EmailService } from "@/lib/api/services/email-service";
 import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
-import { resolvePersistedEmailDirection } from "@/lib/email/email-ingestion-routing";
+import {
+  ingestionOperatorIdentityFromAuthoritative,
+  quarantinePendingStaffAlias,
+  resolvePersistedEmailAuthorship,
+} from "@/lib/email/email-ingestion-routing";
+import { fetchOperatorIdentity } from "@/lib/api/services/conversation-state/operator-identity";
+import { persistStaffEmailAliasCandidate } from "@/lib/email/staff-email-alias";
 import {
   MemoryService,
   SKIP_CLASSIFICATION_KEYWORDS,
@@ -448,7 +454,9 @@ async function runPhaseCEntry(
   const { data: companyUsers, error: companyUsersError } = await supabase
     .from("users")
     .select("email")
-    .eq("company_id", companyId);
+    .eq("company_id", companyId)
+    .eq("is_active", true)
+    .is("deleted_at", null);
   if (companyUsersError) {
     throw new Error(
       `Phase C could not load company email identities: ${companyUsersError.message}`
@@ -459,12 +467,45 @@ async function runPhaseCEntry(
   for (const u of companyUsers || []) {
     if (u.email) employeeEmailSet.add((u.email as string).toLowerCase().trim());
   }
+  const authoritativeOperator = await fetchOperatorIdentity(
+    companyId,
+    connection
+  );
+  for (const email of authoritativeOperator.emails) {
+    employeeEmailSet.add(email);
+  }
+  const ingestionOperator = ingestionOperatorIdentityFromAuthoritative({
+    connectionEmail: connection.email,
+    operator: authoritativeOperator,
+  });
+  const persistedDirections = new Map<string, "inbound" | "outbound">();
+  const ensurePersistedDirection = async (email: NormalizedEmail) => {
+    const existing = persistedDirections.get(email.id);
+    if (existing) return existing;
+    const authorship = resolvePersistedEmailAuthorship(
+      email,
+      ingestionOperator
+    );
+    if (authorship.staffAliasCandidate) {
+      await persistStaffEmailAliasCandidate({
+        supabase,
+        companyId,
+        connectionId,
+        providerThreadId: email.threadId,
+        providerMessageId: email.id,
+        candidate: authorship.staffAliasCandidate,
+      });
+      quarantinePendingStaffAlias(
+        ingestionOperator,
+        authorship.staffAliasCandidate
+      );
+    }
+    persistedDirections.set(email.id, authorship.direction);
+    return authorship.direction;
+  };
   const persistedDirection = (email: NormalizedEmail) =>
-    resolvePersistedEmailDirection(email, {
-      connectionEmail: connection.email,
-      companyDomains: connection.syncFilters?.companyDomains ?? [],
-      userEmailAddresses: [...employeeEmailSet],
-    });
+    persistedDirections.get(email.id) ??
+    resolvePersistedEmailAuthorship(email, ingestionOperator).direction;
 
   // ─── 4. Collect all thread identities to fetch ───────────────────────────
   // Contact-form leads have a logical message-scoped key plus a raw provider
@@ -557,6 +598,19 @@ async function runPhaseCEntry(
 
     for (const r of results) {
       if (r.messages) {
+        const messagesInAuthorshipOrder = [...r.messages].sort(
+          (left, right) => {
+            const leftEmail = left as NormalizedEmail;
+            const rightEmail = right as NormalizedEmail;
+            const byDate = leftEmail.date.getTime() - rightEmail.date.getTime();
+            return byDate !== 0
+              ? byDate
+              : leftEmail.id.localeCompare(rightEmail.id);
+          }
+        );
+        for (const message of messagesInAuthorshipOrder) {
+          await ensurePersistedDirection(message as NormalizedEmail);
+        }
         fetchedThreads.set(r.threadId, r.messages);
       }
     }

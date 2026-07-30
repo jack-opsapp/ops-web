@@ -3,9 +3,11 @@ import { CANPRO_VINYL_LIVE_SNAPSHOT } from "../__fixtures__/canpro-vinyl";
 import { buildDeksmartVinylDesiredStructure } from "../__fixtures__/canpro-desired";
 import { reconcileCatalogStructure } from "../reconcile";
 import {
+  GuidedCapabilityManifestConflictError,
   executeGuidedCatalogCommit,
   type CatalogGuidedCommitAdapter,
 } from "../commit-service";
+import { CATALOG_CAPABILITY_MANIFEST_REVISION } from "../catalog-capability-manifest";
 
 const blueprint = reconcileCatalogStructure(
   CANPRO_VINYL_LIVE_SNAPSHOT,
@@ -19,6 +21,19 @@ const blueprint = reconcileCatalogStructure(
     taskTypeDisplay: "Vinyl Install",
   }),
 );
+
+const releasedBlueprint = {
+  ...blueprint,
+  capabilityRevision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+  actions: blueprint.actions.filter(
+    (action) =>
+      ![
+        "upsert_supplier_cost_profile",
+        "upsert_material_quantity_rule",
+        "upsert_capability_binding",
+      ].includes(action.actionType),
+  ),
+};
 
 function stableId(value: string): string {
   const hex = Array.from(value)
@@ -42,7 +57,7 @@ function fakeAdapter(
       replayed: false,
       status: "committing",
     })),
-    loadBlueprint: vi.fn(async () => blueprint),
+    loadBlueprint: vi.fn(async () => releasedBlueprint),
     markActions: vi.fn(async () => undefined),
     resolveTaskType: vi.fn(async (action) =>
       action.existingId ?? stableId(action.clientId ?? action.actionKey),
@@ -217,7 +232,28 @@ describe("Phase C catalog commit service", () => {
 
     expect(result.replayed).toBe(true);
     expect(result.readback.products).toBe(2);
-    expect(adapter.loadBlueprint).not.toHaveBeenCalled();
+    expect(adapter.loadBlueprint).toHaveBeenCalled();
+    expect(adapter.saveCatalog).not.toHaveBeenCalled();
+    expect(adapter.finish).not.toHaveBeenCalled();
+  });
+
+  it("rejects manifest drift before beginning or writing a commit", async () => {
+    const { adapter } = fakeAdapter();
+    vi.mocked(adapter.loadBlueprint).mockResolvedValue({
+      ...releasedBlueprint,
+      capabilityRevision: "phase-c-capabilities/older",
+    });
+
+    await expect(
+      executeGuidedCatalogCommit({
+        sessionId: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+        approvalHash: "sha256:reviewed-plan",
+        adapter,
+      }),
+    ).rejects.toBeInstanceOf(GuidedCapabilityManifestConflictError);
+
+    expect(adapter.begin).not.toHaveBeenCalled();
+    expect(adapter.markActions).not.toHaveBeenCalled();
     expect(adapter.saveCatalog).not.toHaveBeenCalled();
     expect(adapter.finish).not.toHaveBeenCalled();
   });

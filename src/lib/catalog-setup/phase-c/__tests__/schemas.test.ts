@@ -39,6 +39,8 @@ describe("Phase C catalog setup schemas", () => {
       facts: [operatorFact],
       question: {
         id: "tax-treatment",
+        intent: "tax_treatment",
+        capabilityRef: "catalog-core/v1",
         prompt: "Should tax be added to this price?",
         answerKind: "boolean",
         factKeys: ["products.standard.taxable"],
@@ -46,7 +48,39 @@ describe("Phase C catalog setup schemas", () => {
     });
 
     expect(parsed.kind).toBe("question");
+    if (parsed.kind !== "question") {
+      throw new Error("Expected a question turn");
+    }
     expect(parsed.facts[0].classification).toBe("pricing_rule");
+    expect(parsed.question.capabilityRef).toBe("catalog-core/v1");
+  });
+
+  it("rejects unknown question intents and capability references", () => {
+    expect(() =>
+      GuidedQuestionSchema.parse({
+        id: "invented",
+        intent: "make_the_deck_designer_do_it",
+        capabilityRef: "invented/v99",
+        prompt: "Should OPS do this automatically?",
+        answerKind: "boolean",
+        factKeys: ["invented"],
+      })
+    ).toThrow();
+  });
+
+  it("stamps review blueprints with the capability manifest revision", () => {
+    const blueprint = CatalogBlueprintSchema.parse({
+      version: 1,
+      capabilityRevision: "phase-c-capabilities/2026-07-27.1",
+      summary: "Vinyl membrane system",
+      ready: true,
+      actions: [],
+      issues: [],
+    });
+
+    expect(blueprint.capabilityRevision).toBe(
+      "phase-c-capabilities/2026-07-27.1"
+    );
   });
 
   it("rejects a turn that tries to return a question and a review together", () => {

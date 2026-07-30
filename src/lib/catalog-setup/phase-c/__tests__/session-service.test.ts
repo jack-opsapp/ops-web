@@ -238,9 +238,18 @@ describe("Phase C guided setup session service", () => {
     });
 
     expect(result.resumed).toBe(false);
+    expect(result.session).toMatchObject({
+      inputRevision: 0,
+      processedInputRevision: 0,
+      inputLedger: [],
+      capabilityManifestRevision:
+        "phase-c-capabilities/2026-07-27.1",
+    });
     expect(result.session.unresolvedQuestions).toEqual([
       {
         id: "first-service-line",
+        intent: "service_selection",
+        capabilityRef: "catalog-core/v1",
         prompt: "What service do you want to set up first?",
         answerKind: "text",
         factKeys: ["customer_products.first_service_line"],
@@ -352,6 +361,8 @@ describe("Phase C guided setup session service", () => {
     expect(result.session.unresolvedQuestions).toEqual([
       {
         id: "first-service-line",
+        intent: "service_selection",
+        capabilityRef: "catalog-core/v1",
         prompt: "What service do you want to set up first?",
         answerKind: "text",
         factKeys: ["customer_products.first_service_line"],

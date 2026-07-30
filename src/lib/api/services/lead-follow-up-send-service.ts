@@ -37,6 +37,7 @@ import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
 
 const STOCK_FOLLOW_UP_STAGES = new Set(["quoted", "follow_up", "negotiation"]);
 const RATE_LIMIT_PER_HOUR = 100;
+const TEMPLATE_SETTINGS_PATH = "Settings → Comms → Lifecycle";
 
 type CompanySubscriptionFields = Pick<
   Company,
@@ -338,6 +339,30 @@ export function renderLeadFollowUpTemplate(
     .trim();
 }
 
+export function leadFollowUpPreviewFingerprint(input: {
+  connectionId: string;
+  providerThreadId: string;
+  inReplyTo: string;
+  recipientEmail: string;
+  from: string;
+  subject: string;
+  body: string;
+}): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        input.connectionId,
+        input.providerThreadId,
+        input.inReplyTo,
+        normalizedEmail(input.recipientEmail),
+        normalizedEmail(input.from),
+        input.subject,
+        input.body,
+      ])
+    )
+    .digest("hex");
+}
+
 export function resolveLeadFollowUpDraftContent(
   draft: {
     subject: string;
@@ -394,11 +419,30 @@ export function buildLeadFollowUpDraftRefreshPatch(
 export function assertFreshLeadFollowUpIsDue(
   opportunity: Record<string, unknown>,
   timezone: string,
-  now = new Date()
+  now = new Date(),
+  providerSourceOccurredAt?: Date
 ): void {
   const dueAt = normalizedText(opportunity.next_follow_up_at);
   const dueMillis = dueAt ? new Date(dueAt).getTime() : Number.NaN;
-  if (!Number.isFinite(dueMillis)) {
+  const stageEnteredAt = normalizedText(opportunity.stage_entered_at);
+  const stageEnteredMillis = stageEnteredAt
+    ? new Date(stageEnteredAt).getTime()
+    : Number.NaN;
+  const lastOutboundAt = normalizedText(opportunity.last_outbound_at);
+  const lastOutboundMillis = lastOutboundAt
+    ? new Date(lastOutboundAt).getTime()
+    : Number.NaN;
+  const providerSourceMillis = providerSourceOccurredAt?.getTime();
+  if (
+    !Number.isFinite(dueMillis) ||
+    !Number.isFinite(stageEnteredMillis) ||
+    !Number.isFinite(lastOutboundMillis) ||
+    dueMillis < stageEnteredMillis ||
+    lastOutboundMillis >= dueMillis ||
+    (providerSourceMillis !== undefined &&
+      (!Number.isFinite(providerSourceMillis) ||
+        providerSourceMillis >= dueMillis))
+  ) {
     throw new LeadFollowUpError("LEAD_FOLLOW_UP_NOT_DUE", 409);
   }
   const calendarDay = (value: Date): string => {
@@ -954,6 +998,79 @@ interface FollowUpDraftRow {
   updated_at: string;
 }
 
+async function resolvePreviewedFollowUpContent(
+  supabase: SupabaseClient,
+  input: {
+    companyId: string;
+    opportunityId: string;
+    connectionId: string;
+    providerThreadId: string;
+    providerMessageId: string;
+    recipientEmail: string;
+    subject: string;
+    body: string;
+  }
+): Promise<{ subject: string; body: string }> {
+  const openDrafts = await supabase
+    .from("opportunity_follow_up_drafts")
+    .select(
+      "id, connection_id, provider_thread_id, source_event_id, subject, original_body, current_body, recipient_email, updated_at"
+    )
+    .eq("company_id", input.companyId)
+    .eq("opportunity_id", input.opportunityId)
+    .eq("origin", "template_follow_up")
+    .eq("status", "drafted")
+    .order("created_at", { ascending: false })
+    .limit(2);
+  if (openDrafts.error) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_DRAFT_LOOKUP_FAILED", 500);
+  }
+  if ((openDrafts.data ?? []).length > 1) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_DRAFT_AMBIGUOUS", 409);
+  }
+  const open = ((openDrafts.data ?? [])[0] ?? null) as FollowUpDraftRow | null;
+  if (
+    !open ||
+    open.connection_id !== input.connectionId ||
+    open.provider_thread_id !== input.providerThreadId ||
+    normalizedEmail(open.recipient_email ?? "") !== input.recipientEmail ||
+    !open.source_event_id
+  ) {
+    return { subject: input.subject, body: input.body };
+  }
+
+  const source = await supabase
+    .from("opportunity_correspondence_events")
+    .select("id")
+    .eq("id", open.source_event_id)
+    .eq("company_id", input.companyId)
+    .eq("opportunity_id", input.opportunityId)
+    .eq("connection_id", input.connectionId)
+    .eq("provider_thread_id", input.providerThreadId)
+    .eq("provider_message_id", input.providerMessageId)
+    .eq("direction", "outbound")
+    .eq("party_role", "ops")
+    .eq("is_meaningful", true)
+    .is("noise_reason", null)
+    .eq("opportunity_projection_applied", true)
+    .limit(1)
+    .maybeSingle();
+  if (source.error) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_DRAFT_LOOKUP_FAILED", 500);
+  }
+  if (!source.data) {
+    return { subject: input.subject, body: input.body };
+  }
+  return resolveLeadFollowUpDraftContent(
+    {
+      subject: open.subject,
+      originalBody: open.original_body,
+      currentBody: open.current_body,
+    },
+    { subject: input.subject, body: input.body }
+  );
+}
+
 async function ensureFollowUpDraft(
   supabase: SupabaseClient,
   input: {
@@ -1263,10 +1380,173 @@ async function executeLeadFollowUpIntent(input: {
   };
 }
 
+export async function previewLeadFollowUp(input: {
+  actor: EmailRouteActor;
+  opportunityId: string;
+}): Promise<LeadFollowUpRouteResult> {
+  const supabase = getServiceRoleClient();
+  await assertLeadFollowUpPipelineAccess(
+    supabase,
+    input.actor,
+    input.opportunityId
+  );
+  const [thread, opportunity] = await Promise.all([
+    fetchCanonicalThread(supabase, input.actor.companyId, input.opportunityId),
+    fetchCanonicalOpportunity(
+      supabase,
+      input.actor.companyId,
+      input.opportunityId
+    ),
+  ]);
+  if (
+    !isStockFollowUpStage(opportunity.stage) ||
+    opportunity.archived_at ||
+    opportunity.merged_into_opportunity_id ||
+    opportunity.project_id ||
+    opportunity.project_ref
+  ) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_OPPORTUNITY_STALE", 409);
+  }
+
+  const access = await resolveEmailOpportunityAccess({
+    actor: input.actor,
+    operation: "send",
+    threadId: thread.id,
+    connectionId: thread.connectionId,
+    opportunityId: input.opportunityId,
+    supabase,
+  });
+  if (!access.allowed) {
+    throw new LeadFollowUpError(
+      access.reason.includes("conflict")
+        ? "LEAD_FOLLOW_UP_THREAD_CONFLICT"
+        : "LEAD_FOLLOW_UP_FORBIDDEN",
+      access.reason.includes("conflict") ? 409 : 403
+    );
+  }
+
+  const [settingsResult, companyResult] = await Promise.all([
+    supabase
+      .from("lead_lifecycle_settings")
+      .select("follow_up_template_body")
+      .eq("company_id", input.actor.companyId)
+      .maybeSingle(),
+    supabase
+      .from("companies")
+      .select(
+        "name, timezone, subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
+      )
+      .eq("id", input.actor.companyId)
+      .single(),
+  ]);
+  if (settingsResult.error || companyResult.error || !companyResult.data) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_LOOKUP_FAILED", 500);
+  }
+  const companyRow = companyResult.data as Record<string, unknown>;
+  if (!getSubscriptionInfo(mapSubscriptionRow(companyRow)).isActive) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_SUBSCRIPTION_INACTIVE", 403);
+  }
+  const companyTimezone = normalizedText(companyRow.timezone);
+  if (!companyTimezone) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_TIMEZONE_INVALID", 409);
+  }
+  assertFreshLeadFollowUpIsDue(opportunity, companyTimezone);
+
+  const recipientEmail = normalizedEmail(
+    normalizedText(opportunity.contact_email) ?? ""
+  );
+  if (!recipientEmail) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_RECIPIENT_REQUIRED", 409);
+  }
+  const connection = await EmailService.getConnection(access.connectionId);
+  if (
+    !connection ||
+    connection.status !== "active" ||
+    connection.companyId !== input.actor.companyId
+  ) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_CONNECTION_INVALID", 409);
+  }
+  const provider = EmailService.getProvider(connection);
+  const providerMessages = await provider.fetchThread(thread.providerThreadId);
+  const providerContext = resolveProviderFollowUpContext({
+    connectionEmail: connection.email,
+    senderEmails: connection.syncFilters?.userEmailAddresses ?? [],
+    recipientEmail,
+    messages: providerMessages,
+  });
+  if (providerContext.providerThreadId !== thread.providerThreadId) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_THREAD_CONFLICT", 409);
+  }
+  assertFreshLeadFollowUpIsDue(
+    opportunity,
+    companyTimezone,
+    new Date(),
+    providerContext.latestMessage.date
+  );
+
+  const settings = (settingsResult.data ?? {}) as Record<string, unknown>;
+  const stockBody = renderLeadFollowUpTemplate(
+    normalizedText(settings.follow_up_template_body) ??
+      DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
+    {
+      contactName: normalizedText(opportunity.contact_name),
+      opportunityTitle: normalizedText(opportunity.title),
+      companyName: normalizedText(companyRow.name),
+    }
+  );
+  const previewedContent = await resolvePreviewedFollowUpContent(supabase, {
+    companyId: input.actor.companyId,
+    opportunityId: input.opportunityId,
+    connectionId: connection.id,
+    providerThreadId: providerContext.providerThreadId,
+    providerMessageId: providerContext.inReplyTo,
+    recipientEmail,
+    subject: providerContext.subject,
+    body: stockBody,
+  });
+  const signature = await resolveEmailSignatureForMessage({
+    supabase,
+    connection,
+    userId: input.actor.userId,
+    refreshProviderIfMissing: false,
+  });
+  if (!signature) {
+    throw new LeadFollowUpError("EMAIL_SIGNATURE_REQUIRED", 409);
+  }
+  const renderedBody = renderEmailBodyWithSignature({
+    body: previewedContent.body,
+    contentType: "text",
+    signature,
+  });
+  return {
+    status: 200,
+    body: {
+      recipient: {
+        name: normalizedText(opportunity.contact_name),
+        email: recipientEmail,
+      },
+      from: connection.email,
+      subject: previewedContent.subject,
+      body: renderedBody,
+      previewFingerprint: leadFollowUpPreviewFingerprint({
+        connectionId: connection.id,
+        providerThreadId: providerContext.providerThreadId,
+        inReplyTo: providerContext.inReplyTo,
+        recipientEmail,
+        from: connection.email,
+        subject: previewedContent.subject,
+        body: renderedBody,
+      }),
+      templateSettingsPath: TEMPLATE_SETTINGS_PATH,
+    },
+  };
+}
+
 export async function sendLeadFollowUp(input: {
   actor: EmailRouteActor;
   opportunityId: string;
   idempotencyKey: string;
+  previewFingerprint?: string | null;
 }): Promise<LeadFollowUpRouteResult> {
   const supabase = getServiceRoleClient();
   const intentStore = new EmailSendIntentService(supabase);
@@ -1431,6 +1711,66 @@ export async function sendLeadFollowUp(input: {
   if (!latestMessage) {
     throw new LeadFollowUpError("LEAD_FOLLOW_UP_THREAD_INVALID", 409);
   }
+  assertFreshLeadFollowUpIsDue(
+    opportunity,
+    companyTimezone,
+    new Date(),
+    latestMessage.date
+  );
+
+  const settings = (settingsResult.data ?? {}) as Record<string, unknown>;
+  // Replies retain the provider thread's current subject. Gmail requires a
+  // matching Subject alongside threadId + RFC reply headers to keep the
+  // outbound message in the existing conversation.
+  const subject = providerContext.subject;
+  const stockBody = renderLeadFollowUpTemplate(
+    normalizedText(settings.follow_up_template_body) ??
+      DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
+    {
+      contactName: normalizedText(opportunity.contact_name),
+      opportunityTitle: normalizedText(opportunity.title),
+      companyName: normalizedText(companyRow.name),
+    }
+  );
+  const previewedContent = await resolvePreviewedFollowUpContent(supabase, {
+    companyId: input.actor.companyId,
+    opportunityId: input.opportunityId,
+    connectionId: connection.id,
+    providerThreadId: providerContext.providerThreadId,
+    providerMessageId: providerContext.inReplyTo,
+    recipientEmail,
+    subject,
+    body: stockBody,
+  });
+  const signature = await resolveEmailSignatureForMessage({
+    supabase,
+    connection,
+    userId: input.actor.userId,
+    refreshProviderIfMissing: true,
+  });
+  if (!signature) {
+    throw new LeadFollowUpError("EMAIL_SIGNATURE_REQUIRED", 409);
+  }
+  const reviewedRenderedBody = renderEmailBodyWithSignature({
+    body: previewedContent.body,
+    contentType: "text",
+    signature,
+  });
+  if (
+    input.previewFingerprint &&
+    input.previewFingerprint !==
+      leadFollowUpPreviewFingerprint({
+        connectionId: connection.id,
+        providerThreadId: providerContext.providerThreadId,
+        inReplyTo: providerContext.inReplyTo,
+        recipientEmail,
+        from: connection.email,
+        subject: previewedContent.subject,
+        body: reviewedRenderedBody,
+      })
+  ) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_REVIEW_CHANGED", 409);
+  }
 
   const sourceEventId = await materializeLatestOutboundSource(supabase, {
     companyId: input.actor.companyId,
@@ -1452,20 +1792,6 @@ export async function sendLeadFollowUp(input: {
     opportunityId: input.opportunityId,
   });
 
-  const settings = (settingsResult.data ?? {}) as Record<string, unknown>;
-  // Replies retain the provider thread's current subject. Gmail requires a
-  // matching Subject alongside threadId + RFC reply headers to keep the
-  // outbound message in the existing conversation.
-  const subject = providerContext.subject;
-  const body = renderLeadFollowUpTemplate(
-    normalizedText(settings.follow_up_template_body) ??
-      DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
-    {
-      contactName: normalizedText(opportunity.contact_name),
-      opportunityTitle: normalizedText(opportunity.title),
-      companyName: normalizedText(companyRow.name),
-    }
-  );
   const draft = await ensureFollowUpDraft(supabase, {
     companyId: input.actor.companyId,
     opportunityId: input.opportunityId,
@@ -1476,7 +1802,7 @@ export async function sendLeadFollowUp(input: {
     recipientEmail,
     recipientName: normalizedText(opportunity.contact_name),
     subject,
-    body,
+    body: stockBody,
   });
   const authored = resolveLeadFollowUpDraftContent(
     {
@@ -1484,7 +1810,7 @@ export async function sendLeadFollowUp(input: {
       originalBody: draft.original_body,
       currentBody: draft.current_body,
     },
-    { subject, body }
+    { subject, body: stockBody }
   );
   const authoredBody = authored.body;
   const authoredSubject = authored.subject;
@@ -1502,20 +1828,26 @@ export async function sendLeadFollowUp(input: {
     throw new LeadFollowUpError("LEAD_FOLLOW_UP_RATE_LIMITED", 429);
   }
 
-  const signature = await resolveEmailSignatureForMessage({
-    supabase,
-    connection,
-    userId: input.actor.userId,
-    refreshProviderIfMissing: true,
-  });
-  if (!signature) {
-    throw new LeadFollowUpError("EMAIL_SIGNATURE_REQUIRED", 409);
-  }
   const renderedBody = renderEmailBodyWithSignature({
     body: authoredBody,
     contentType: "text",
     signature,
   });
+  if (
+    input.previewFingerprint &&
+    input.previewFingerprint !==
+      leadFollowUpPreviewFingerprint({
+        connectionId: connection.id,
+        providerThreadId: providerContext.providerThreadId,
+        inReplyTo: providerContext.inReplyTo,
+        recipientEmail,
+        from: connection.email,
+        subject: authoredSubject,
+        body: renderedBody,
+      })
+  ) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_REVIEW_CHANGED", 409);
+  }
   const renderedBodyHash = createHash("sha256")
     .update(renderedBody)
     .digest("hex");

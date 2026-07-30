@@ -387,9 +387,11 @@ export function shouldEvaluateOpportunityCommercialOutcome(
   stageManuallySet: boolean
 ): boolean {
   // Lost can be an engine-owned budget deferral, not a permanent operator
-  // decision. Its guarded disposition record decides whether a later Won write
-  // is allowed; Won/discarded and every manual override remain inert here.
-  return !stageManuallySet && !["won", "discarded"].includes(stage);
+  // decision. A manual terminal stage is operator truth and remains inert, but
+  // a nonterminal manual repair cannot permanently suppress newer decisive
+  // customer evidence. The guarded write rechecks precedence under row lock.
+  if (["won", "discarded"].includes(stage)) return false;
+  return !(stageManuallySet && stage === "lost");
 }
 
 async function loadCommercialOutcomeOpportunity({
@@ -523,7 +525,55 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
 
   const assignmentVersion = opportunity.assignment_version;
   if (commercialOutcome?.outcome === "declined" && !signedAcceptanceIsNewer) {
-    return { stageChanged: false };
+    if (
+      !Number.isSafeInteger(assignmentVersion) ||
+      (assignmentVersion as number) < 0
+    ) {
+      throw new Error("email decline decision has no assignment snapshot");
+    }
+    const { data: rows, error } = await supabase.rpc(
+      "apply_email_opportunity_declined_disposition" as never,
+      {
+        p_company_id: connection.companyId,
+        p_opportunity_id: opportunityId,
+        p_connection_id: decisiveEvent!.connection_id,
+        p_provider_message_id: commercialOutcome.decisiveMessageId,
+        p_expected_assignment_version: assignmentVersion as number,
+        p_expected_stage: opportunity.stage as string,
+        p_evidence: {
+          reason_code: commercialOutcome.reasonCode,
+          signals: commercialOutcome.signals,
+          evidence_message_ids: commercialOutcome.evidenceMessageIds,
+          evaluated_through_event_id: completeEvidence.latestEventId,
+        },
+      } as never
+    );
+    if (error || !rows) {
+      throw new Error(
+        `email decline disposition failed: ${error?.message ?? "RPC returned no rows"}`
+      );
+    }
+    const row = (Array.isArray(rows) ? rows[0] : rows) as
+      { changed?: boolean; guard_reason?: string | null } | undefined;
+    if (!row) {
+      throw new Error("email decline disposition returned no decision row");
+    }
+    if (
+      !row.changed &&
+      ![
+        "already_applied",
+        "disposition_updated",
+        "assignment_snapshot_mismatch",
+        "manual_terminal_stage",
+        "snapshot_mismatch",
+        "terminal_stage",
+      ].includes(row.guard_reason ?? "")
+    ) {
+      throw new Error(
+        `email decline disposition was not committed: ${row.guard_reason ?? "unknown guard"}`
+      );
+    }
+    return { stageChanged: Boolean(row.changed) };
   }
   if (commercialOutcome?.outcome === "deferred" && !signedAcceptanceIsNewer) {
     if (
@@ -556,8 +606,7 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
       );
     }
     const row = (Array.isArray(rows) ? rows[0] : rows) as
-      | { changed?: boolean; guard_reason?: string | null }
-      | undefined;
+      { changed?: boolean; guard_reason?: string | null } | undefined;
     if (!row) {
       throw new Error("email deferral disposition returned no decision row");
     }

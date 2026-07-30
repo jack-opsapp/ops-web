@@ -3,16 +3,17 @@
  * 40001) surfaced through PostgREST/supabase-js.
  *
  * The guarded commercial RPCs (convert_opportunity_to_project,
- * commit_lead_summary_snapshot, apply_email_opportunity_deferred_disposition)
- * raise 'meaningful correspondence projection pending' with errcode 40001
- * while a meaningful correspondence event awaits counter projection, and the
- * dedupe/lease triggers raise other 40001 sentinels under contention. Those
- * are retry invitations for a *near-future* success — but during the
- * 2026-07-22 outage a permanently stuck projection row turned zero-backoff
- * retries into a hot loop (~1,800 failed transactions/sec) that pinned
- * database CPU. Every worker retry of a 40001 must therefore be paced and
- * capped: exponential backoff with jitter, a hard attempt ceiling, and a
- * typed exhaustion error the caller records instead of retrying forever.
+ * commit_lead_summary_snapshot, apply_email_opportunity_deferred_disposition,
+ * apply_email_opportunity_declined_disposition) raise 'meaningful
+ * correspondence projection pending' with errcode 40001 while a meaningful
+ * correspondence event awaits counter projection, and the dedupe/lease
+ * triggers raise other 40001 sentinels under contention. Those are retry
+ * invitations for a *near-future* success — but during the 2026-07-22 outage
+ * a permanently stuck projection row turned zero-backoff retries into a hot
+ * loop (~1,800 failed transactions/sec) that pinned database CPU. Every
+ * worker retry of a 40001 must therefore be paced and capped: exponential
+ * backoff with jitter, a hard attempt ceiling, and a typed exhaustion error
+ * the caller records instead of retrying forever.
  */
 
 export const MEANINGFUL_PROJECTION_PENDING_MESSAGE =

@@ -97,6 +97,49 @@ export function normalizeGuidedConversation(
   return conversation.slice(-MAX_CONVERSATION_MESSAGES);
 }
 
+export function visibleGuidedConversation(
+  value: unknown,
+): GuidedConversationMessage[] {
+  const parsed = GuidedConversationSchema.safeParse(value);
+  if (!parsed.success) return [];
+  return parsed.data.filter(
+    (message) =>
+      message.state !== "superseded" &&
+      message.state !== "removed",
+  );
+}
+
+export function acceptGuidedConversationInputs({
+  conversation,
+  acceptedInputIds,
+  nextQuestion,
+  nextVersion,
+}: {
+  conversation: unknown;
+  acceptedInputIds: string[];
+  nextQuestion: GuidedQuestion | null;
+  nextVersion: number;
+}): GuidedConversationMessage[] {
+  const parsed = GuidedConversationSchema.safeParse(conversation);
+  const accepted = new Set(acceptedInputIds);
+  const next = (parsed.success ? parsed.data : []).map((message) =>
+    message.inputId && accepted.has(message.inputId)
+      ? { ...message, state: "accepted" as const }
+      : message,
+  );
+  if (
+    nextQuestion &&
+    !next.some(
+      (message) =>
+        message.id ===
+        `assistant:${nextVersion}:${nextQuestion.id}`,
+    )
+  ) {
+    next.push(assistantMessage(nextQuestion, nextVersion));
+  }
+  return next.slice(-MAX_CONVERSATION_MESSAGES);
+}
+
 export function advanceGuidedConversation({
   conversation,
   currentQuestion,

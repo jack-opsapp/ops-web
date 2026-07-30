@@ -13,9 +13,9 @@ import { requireSupabase } from "@/lib/supabase/helpers";
 import {
   normalizeCompanyName,
   normalizePhone,
-  normalizeAddress,
   normalizeTitle,
 } from "@/lib/utils/name-normalization";
+import { normalizePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
 import { CronDatabaseOperationError } from "./cron-workload-control-service";
 
@@ -240,9 +240,9 @@ function scanClients(clients: ClientRow[]): DetectedPair[] {
 
         // Check address match → upgrade to high
         if (group[i].address && group[j].address) {
-          const addrA = normalizeAddress(group[i].address!);
-          const addrB = normalizeAddress(group[j].address!);
-          if (addrA.length > 0 && addrA === addrB) {
+          const addrA = normalizePropertyAddressIdentity(group[i].address);
+          const addrB = normalizePropertyAddressIdentity(group[j].address);
+          if (addrA && addrA === addrB) {
             signals.push({ type: "same_address", detail: addrA });
             confidence = "high";
           }
@@ -343,9 +343,9 @@ function scanOpportunities(opps: OpportunityRow[]): DetectedPair[] {
         }
 
         if (group[i].address && group[j].address) {
-          const addrA = normalizeAddress(group[i].address!);
-          const addrB = normalizeAddress(group[j].address!);
-          if (addrA.length > 0 && addrA === addrB) {
+          const addrA = normalizePropertyAddressIdentity(group[i].address);
+          const addrB = normalizePropertyAddressIdentity(group[j].address);
+          if (addrA && addrA === addrB) {
             signals.push({ type: "same_address", detail: addrA });
           }
         }
@@ -409,8 +409,8 @@ function scanProjects(projects: ProjectRow[]): DetectedPair[] {
       let addrB = "";
       let sameAddress = false;
       if (a.address && b.address) {
-        addrA = normalizeAddress(a.address);
-        addrB = normalizeAddress(b.address);
+        addrA = normalizePropertyAddressIdentity(a.address) ?? "";
+        addrB = normalizePropertyAddressIdentity(b.address) ?? "";
         sameAddress = addrA.length > 0 && addrA === addrB;
       }
 

@@ -10,12 +10,7 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import {
-  ArrowRight,
-  Check,
-  FileSpreadsheet,
-  Loader2,
-} from "lucide-react";
+import { Check, FileSpreadsheet, Loader2, Paperclip, Send } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,7 +22,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useDictionary } from "@/i18n/client";
 import { cn } from "@/lib/utils/cn";
@@ -38,8 +32,8 @@ import type {
   GuidedQuestion,
 } from "@/lib/catalog-setup/phase-c/types";
 import {
-  guidedOperatorMessageForAnswer,
   normalizeGuidedConversation,
+  visibleGuidedConversation,
 } from "@/lib/catalog-setup/phase-c/conversation-history";
 import {
   GuidedCatalogSourceDocumentError,
@@ -48,7 +42,11 @@ import {
 import {
   cardEnterVariants,
   cardEnterVariantsReduced,
+  PHASE_C_RIPPLE_DURATION,
+  PHASE_C_TYPEWRITER_INTERVAL_MS,
+  REDUCED_DURATION,
 } from "@/lib/catalog-setup/motion";
+import { EASE_SMOOTH } from "@/lib/utils/motion";
 
 type GuidedStatus =
   | "interviewing"
@@ -62,6 +60,8 @@ interface GuidedSession {
   id: string;
   status: GuidedStatus;
   version: number;
+  inputRevision: number;
+  processedInputRevision: number;
   facts: Array<Record<string, unknown>>;
   conversation: GuidedConversationMessage[];
   unresolvedQuestions: GuidedQuestion[];
@@ -80,16 +80,8 @@ interface GuidedCommitResponse {
 interface GuidedCatalogSetupProps {
   onUseAnotherMethod: () => void;
   onExit: () => void;
-  onAddInventoryList: (
-    sessionId: string,
-    defaultLocation?: string,
-  ) => void;
+  onAddInventoryList: (sessionId: string, defaultLocation?: string) => void;
   className?: string;
-}
-
-interface PendingGuidedTurn {
-  answer: unknown;
-  message: GuidedConversationMessage;
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -102,9 +94,7 @@ function array<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
 
-function confirmedDecisionCount(
-  facts: Array<Record<string, unknown>>,
-): number {
+function confirmedDecisionCount(facts: Array<Record<string, unknown>>): number {
   return facts.filter((fact) => {
     const source = record(fact.source);
     return (
@@ -117,18 +107,22 @@ function confirmedDecisionCount(
 function normalizeSession(value: unknown): GuidedSession {
   const row = record(value);
   const unresolvedQuestions = array<GuidedQuestion>(
-    row.unresolvedQuestions ?? row.unresolved_questions,
+    row.unresolvedQuestions ?? row.unresolved_questions
   );
   const version = Number(row.version ?? 0);
   return {
     id: String(row.id ?? ""),
     status: String(row.status ?? "interviewing") as GuidedStatus,
     version,
+    inputRevision: Number(row.inputRevision ?? row.input_revision ?? 0),
+    processedInputRevision: Number(
+      row.processedInputRevision ?? row.processed_input_revision ?? 0
+    ),
     facts: array<Record<string, unknown>>(row.facts),
     conversation: normalizeGuidedConversation(
       row.conversation,
       unresolvedQuestions,
-      version,
+      version
     ),
     unresolvedQuestions,
     proposedPlan:
@@ -139,10 +133,7 @@ function normalizeSession(value: unknown): GuidedSession {
       typeof (row.proposedPlanHash ?? row.proposed_plan_hash) === "string"
         ? String(row.proposedPlanHash ?? row.proposed_plan_hash)
         : null,
-    readback:
-      (row.readback == null
-        ? null
-        : record(row.readback)),
+    readback: row.readback == null ? null : record(row.readback),
   };
 }
 
@@ -155,22 +146,14 @@ async function token(expiredMessage: string): Promise<string> {
 
 async function jsonResponse<T>(response: Response): Promise<T> {
   const body = (await response.json().catch(() => null)) as
-    | (T & { error?: string })
-    | { error?: string }
-    | null;
+    (T & { error?: string }) | { error?: string } | null;
   if (!response.ok || !body) {
     throw new Error(body?.error ?? "Guided setup could not continue");
   }
   return body as T;
 }
 
-function ReviewStat({
-  label,
-  value,
-}: {
-  label: string;
-  value: number;
-}) {
+function ReviewStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="border-l border-glass-border pl-3">
       <div className="font-mono text-data-lg tabular-nums text-text">
@@ -185,7 +168,7 @@ function ReviewStat({
 
 function planActions(
   plan: CatalogBlueprint | null,
-  type: CatalogAction["actionType"],
+  type: CatalogAction["actionType"]
 ): CatalogAction[] {
   return plan?.actions.filter((action) => action.actionType === type) ?? [];
 }
@@ -194,193 +177,152 @@ function QuestionInput({
   question,
   busy,
   locked,
+  editingValue,
+  onCancelEdit,
   onAnswer,
 }: {
   question: GuidedQuestion;
   busy: boolean;
   locked: boolean;
-  onAnswer: (answer: unknown) => void;
+  editingValue: string | null;
+  onCancelEdit: () => void;
+  onAnswer: (answer: unknown) => Promise<boolean>;
 }) {
   const { t } = useDictionary("catalog-setup");
   const [value, setValue] = useState("");
   const [choices, setChoices] = useState<string[]>([]);
 
   useEffect(() => {
-    setValue("");
+    setValue(editingValue ?? "");
     setChoices([]);
-  }, [question.id]);
+  }, [editingValue, question.id]);
 
-  if (busy) {
-    return (
-      <button
-        type="button"
-        disabled
-        className="pointer-events-none mt-3 inline-flex min-h-11 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-mute"
-      >
-        <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-        {t("guided.working", "WORKING…")}
-      </button>
-    );
-  }
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    const clean = value.trim();
+    const answer =
+      choices.length > 0
+        ? choices
+        : question.answerKind === "number"
+          ? Number(clean)
+          : clean;
+    if (
+      choices.length === 0 &&
+      (!clean || (question.answerKind === "number" && !Number.isFinite(answer)))
+    ) {
+      return;
+    }
+    if (await onAnswer(answer)) {
+      setValue("");
+      setChoices([]);
+    }
+  };
 
-  if (question.answerKind === "boolean") {
-    return (
-      <div className="mt-5 flex gap-2">
-        {[
-          [t("guided.yes", "YES"), true],
-          [t("guided.no", "NO"), false],
-        ].map(([label, answer]) => (
-          <button
-            key={String(answer)}
-            type="button"
-            disabled={locked}
-            onClick={() => onAnswer(answer)}
-            className="rounded border border-glass-border px-3 py-2 font-cakemono text-cake-button uppercase text-text transition-colors hover:border-ops-accent hover:text-ops-accent disabled:pointer-events-none disabled:opacity-40"
-          >
-            {String(label)}
-          </button>
-        ))}
-      </div>
-    );
-  }
+  const options =
+    question.answerKind === "boolean"
+      ? [
+          { label: t("guided.yes", "YES"), answer: true },
+          { label: t("guided.no", "NO"), answer: false },
+        ]
+      : (question.options?.map((option) => ({
+          label: option,
+          answer: option,
+        })) ?? []);
 
-  if (
-    question.answerKind === "single_choice" &&
-    question.options?.length
-  ) {
-    return (
-      <div className="mt-5 grid gap-2">
-        {question.options.map((option) => (
-          <button
-            key={option}
-            type="button"
-            disabled={locked}
-            onClick={() => onAnswer(option)}
-            className="flex min-h-11 items-center justify-between rounded border border-glass-border px-3 py-2 text-left font-mohave text-body text-text transition-colors hover:border-ops-accent hover:text-ops-accent disabled:pointer-events-none disabled:opacity-40"
-          >
-            {option}
-            <ArrowRight aria-hidden className="h-4 w-4" />
-          </button>
-        ))}
-      </div>
-    );
-  }
-
-  if (
-    question.answerKind === "multi_choice" &&
-    question.options?.length
-  ) {
-    const submit = () => {
-      if (choices.length > 0) onAnswer(choices);
-    };
-    return (
-      <div className="mt-5">
-        <div className="grid gap-2">
-          {question.options.map((option) => {
-            const selected = choices.includes(option);
+  return (
+    <>
+      {options.length > 0 && !editingValue ? (
+        <div
+          className="scrollbar-hide flex max-h-8 flex-wrap gap-0.5 overflow-y-auto px-0.5 pb-0.5"
+          aria-label={t("guided.quickAnswers", "Quick answers")}
+        >
+          {options.map(({ label, answer }) => {
+            const selected =
+              question.answerKind === "multi_choice" &&
+              choices.includes(String(answer));
             return (
               <button
-                key={option}
+                key={String(answer)}
                 type="button"
                 disabled={locked}
-                aria-pressed={selected}
-                onClick={() =>
+                aria-pressed={
+                  question.answerKind === "multi_choice" ? selected : undefined
+                }
+                onClick={() => {
+                  if (question.answerKind !== "multi_choice") {
+                    void onAnswer(answer);
+                    return;
+                  }
                   setChoices((current) =>
                     selected
-                      ? current.filter((entry) => entry !== option)
-                      : [...current, option],
-                  )
-                }
+                      ? current.filter((entry) => entry !== String(answer))
+                      : [...current, String(answer)]
+                  );
+                }}
                 className={cn(
-                  "flex min-h-11 items-center gap-3 rounded border px-3 py-2 text-left font-mohave text-body transition-colors disabled:pointer-events-none disabled:opacity-40",
+                  "inline-flex min-h-control-32 items-center gap-0.5 rounded-chip border px-1 font-cakemono text-cake-badge uppercase transition-colors ease-smooth disabled:pointer-events-none disabled:opacity-40",
                   selected
                     ? "border-ops-accent text-ops-accent"
-                    : "border-glass-border text-text hover:border-ops-accent",
+                    : "border-glass-border text-text-2 hover:bg-surface-hover hover:text-text"
                 )}
               >
-                <span
-                  className={cn(
-                    "grid h-4 w-4 place-items-center rounded-sm border",
-                    selected
-                      ? "border-ops-accent bg-ops-accent text-black"
-                      : "border-glass-border",
-                  )}
-                >
-                  {selected ? <Check aria-hidden className="h-3 w-3" /> : null}
-                </span>
-                {option}
+                {selected ? (
+                  <Check aria-hidden className="h-icon-16 w-icon-16" />
+                ) : null}
+                {label}
               </button>
             );
           })}
         </div>
+      ) : null}
+      {editingValue ? (
+        <div className="flex items-center justify-between gap-1 px-0.5 pb-0.5 font-mono text-micro text-text-3">
+          <span>{t("guided.editing", "EDITING QUEUED MESSAGE")}</span>
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            className="rounded-chip px-1 py-0.5 transition-colors ease-smooth hover:bg-surface-hover hover:text-text"
+          >
+            {t("guided.cancelEdit", "[ cancel ]")}
+          </button>
+        </div>
+      ) : null}
+      <form onSubmit={submit} className="flex min-w-0 items-end gap-0.5">
+        <div className="min-w-0 flex-1">
+          <Textarea
+            autoFocus
+            value={value}
+            disabled={locked}
+            onChange={(event) => setValue(event.target.value)}
+            onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => {
+              if (
+                event.key === "Enter" &&
+                !event.shiftKey &&
+                !event.nativeEvent.isComposing
+              ) {
+                event.preventDefault();
+                event.currentTarget.form?.requestSubmit();
+              }
+            }}
+            rows={1}
+            className="max-h-8 !min-h-control-36 resize-none overflow-y-auto border-0 bg-transparent px-1 py-0.5 focus:border-0"
+            placeholder={t(
+              busy ? "guided.followUpPlaceholder" : "guided.answerPlaceholder",
+              busy ? "Add a quick follow-up or correction" : "Type your answer"
+            )}
+          />
+        </div>
         <button
-          type="button"
-          disabled={locked || choices.length === 0}
-          onClick={submit}
-          className="mt-4 rounded border border-ops-accent px-3 py-2 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:pointer-events-none disabled:border-glass-border disabled:text-text-mute"
+          type="submit"
+          disabled={locked || (!value.trim() && choices.length === 0)}
+          aria-label={t("guided.send", "SEND")}
+          className="inline-flex h-control-32 shrink-0 items-center gap-0.5 rounded border border-glass-border px-1 font-cakemono text-cake-badge uppercase text-text-2 transition-colors ease-smooth hover:border-ops-accent hover:text-ops-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:text-text-mute"
         >
-          {t("guided.continue", "CONTINUE")}
+          <Send aria-hidden className="h-icon-16 w-icon-16" strokeWidth={1.5} />
+          {t("guided.send", "SEND")}
         </button>
-      </div>
-    );
-  }
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const clean = value.trim();
-    if (!clean) return;
-    setValue("");
-    onAnswer(
-      question.answerKind === "number" ? Number(clean) : clean,
-    );
-  };
-  return (
-    <form onSubmit={submit} className="mt-5">
-      {question.answerKind === "text" ? (
-        <Textarea
-          autoFocus
-          value={value}
-          disabled={locked}
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={(event: KeyboardEvent<HTMLTextAreaElement>) => {
-            if (
-              event.key === "Enter" &&
-              !event.shiftKey &&
-              !event.nativeEvent.isComposing
-            ) {
-              event.preventDefault();
-              event.currentTarget.form?.requestSubmit();
-            }
-          }}
-          rows={4}
-          className="min-h-36 resize-none px-3 py-3"
-          placeholder={t(
-            "guided.answerPlaceholder",
-            "Type your answer",
-          )}
-        />
-      ) : (
-        <Input
-          autoFocus
-          type={question.answerKind === "number" ? "number" : "text"}
-          value={value}
-          disabled={locked}
-          onChange={(event) => setValue(event.target.value)}
-          className="min-h-11 px-1 font-mono text-data-sm"
-          placeholder={t(
-            "guided.answerPlaceholder",
-            "Type your answer",
-          )}
-        />
-      )}
-      <button
-        type="submit"
-        disabled={locked || !value.trim()}
-        className="mt-3 rounded border border-ops-accent px-3 py-2 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:pointer-events-none disabled:border-glass-border disabled:text-text-mute"
-      >
-        {t("guided.continue", "CONTINUE")}
-      </button>
-    </form>
+      </form>
+    </>
   );
 }
 
@@ -398,50 +340,45 @@ function SourceDocumentInput({
 
   const errorMessage = useCallback(
     (error: GuidedCatalogSourceDocumentError) => {
-      const messages: Record<
-        GuidedCatalogSourceDocumentError["code"],
-        string
-      > = {
-        unsupported_type: t(
-          "guided.sourceInvalid",
-          "Use a CSV or Excel price sheet.",
-        ),
-        too_large: t(
-          "guided.sourceTooLarge",
-          "Keep the price sheet under 5 MB.",
-        ),
-        empty: t(
-          "guided.sourceEmpty",
-          "The price sheet has no rows.",
-        ),
-        invalid_headers: t(
-          "guided.sourceHeaders",
-          "Every price-sheet column needs a unique heading.",
-        ),
-        too_many_rows: t(
-          "guided.sourceRows",
-          "Split the price sheet into files with 250 rows or fewer.",
-        ),
-        too_many_columns: t(
-          "guided.sourceColumns",
-          "Keep the price sheet to 50 columns or fewer.",
-        ),
-        cell_too_large: t(
-          "guided.sourceCell",
-          "One cell is too long. Shorten long notes and try again.",
-        ),
-        answer_too_large: t(
-          "guided.sourcePayload",
-          "Split the price sheet into smaller files and try again.",
-        ),
-        read_failed: t(
-          "guided.sourceReadError",
-          "The price sheet could not be read.",
-        ),
-      };
+      const messages: Record<GuidedCatalogSourceDocumentError["code"], string> =
+        {
+          unsupported_type: t(
+            "guided.sourceInvalid",
+            "Use a CSV or Excel price sheet."
+          ),
+          too_large: t(
+            "guided.sourceTooLarge",
+            "Keep the price sheet under 5 MB."
+          ),
+          empty: t("guided.sourceEmpty", "The price sheet has no rows."),
+          invalid_headers: t(
+            "guided.sourceHeaders",
+            "Every price-sheet column needs a unique heading."
+          ),
+          too_many_rows: t(
+            "guided.sourceRows",
+            "Split the price sheet into files with 250 rows or fewer."
+          ),
+          too_many_columns: t(
+            "guided.sourceColumns",
+            "Keep the price sheet to 50 columns or fewer."
+          ),
+          cell_too_large: t(
+            "guided.sourceCell",
+            "One cell is too long. Shorten long notes and try again."
+          ),
+          answer_too_large: t(
+            "guided.sourcePayload",
+            "Split the price sheet into smaller files and try again."
+          ),
+          read_failed: t(
+            "guided.sourceReadError",
+            "The price sheet could not be read."
+          ),
+        };
       return messages[error.code];
     },
-    [t],
+    [t]
   );
 
   const handleFile = useCallback(
@@ -455,21 +392,18 @@ function SourceDocumentInput({
         setUploadError(
           error instanceof GuidedCatalogSourceDocumentError
             ? errorMessage(error)
-            : t(
-                "guided.sourceReadError",
-                "The price sheet could not be read.",
-              ),
+            : t("guided.sourceReadError", "The price sheet could not be read.")
         );
       } finally {
         setReading(false);
         if (inputRef.current) inputRef.current.value = "";
       }
     },
-    [errorMessage, locked, onAnswer, reading, t],
+    [errorMessage, locked, onAnswer, reading, t]
   );
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-3">
+    <div className="flex min-w-0 flex-wrap items-center gap-0.5 border-t border-glass-border pt-0.5">
       <input
         ref={inputRef}
         type="file"
@@ -483,26 +417,141 @@ function SourceDocumentInput({
         type="button"
         disabled={locked || reading}
         onClick={() => inputRef.current?.click()}
-        className="inline-flex min-h-11 items-center gap-2 rounded border border-glass-border px-3 font-cakemono text-cake-button uppercase text-text-2 transition-colors hover:border-line-hi hover:text-text disabled:pointer-events-none disabled:opacity-40"
+        className="inline-flex h-control-32 items-center gap-0.5 rounded px-1 font-cakemono text-cake-badge uppercase text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black disabled:pointer-events-none disabled:opacity-40"
       >
         {reading ? (
-          <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+          <Loader2 aria-hidden className="h-icon-16 w-icon-16 animate-spin" />
         ) : (
-          <FileSpreadsheet aria-hidden className="h-4 w-4" />
+          <Paperclip
+            aria-hidden
+            className="h-icon-16 w-icon-16 shrink-0"
+            strokeWidth={1.5}
+          />
         )}
         {reading
           ? t("guided.sourceReading", "READING PRICE SHEET")
           : t("guided.sourceUpload", "UPLOAD PRICE SHEET")}
       </button>
-      <span className="font-mono text-micro text-text-mute">
+      <span className="hidden font-mono text-micro text-text-mute sm:inline">
         {t("guided.sourceHint", "[ optional · CSV or Excel · up to 5 MB ]")}
       </span>
       {uploadError ? (
-        <p className="w-full font-mono text-micro text-danger" role="alert">
+        <p className="text-danger w-full font-mono text-micro" role="alert">
           {uploadError}
         </p>
       ) : null}
     </div>
+  );
+}
+
+function PhaseCActivity({ label }: { label: string }) {
+  const reduceMotion = useReducedMotion();
+  return (
+    <div className="flex items-center gap-1">
+      <span className="flex h-icon-16 items-center gap-0.5" aria-hidden>
+        {Array.from({ length: 5 }, (_, index) => (
+          <motion.span
+            key={index}
+            data-testid="phase-c-loader-bar"
+            className="h-1.5 w-0.5 origin-center rounded-bar bg-agent-text2"
+            animate={
+              reduceMotion
+                ? { opacity: 0.65, scaleY: 0.7 }
+                : {
+                    opacity: [0.35, 1, 0.35],
+                    scaleY: [0.45, 1, 0.45],
+                  }
+            }
+            transition={
+              reduceMotion
+                ? {
+                    duration: REDUCED_DURATION,
+                    ease: EASE_SMOOTH,
+                  }
+                : {
+                    duration: PHASE_C_RIPPLE_DURATION,
+                    delay: (index * PHASE_C_RIPPLE_DURATION) / 5,
+                    ease: EASE_SMOOTH,
+                    repeat: Infinity,
+                    repeatDelay: 0,
+                  }
+            }
+          />
+        ))}
+      </span>
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function PhaseCTypewriter({
+  text,
+  animate,
+  onProgress,
+  onComplete,
+}: {
+  text: string;
+  animate: boolean;
+  onProgress: () => void;
+  onComplete: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+  const [visible, setVisible] = useState(animate && !reduceMotion ? "" : text);
+
+  useEffect(() => {
+    if (!animate || reduceMotion) {
+      setVisible(text);
+      onComplete();
+      return;
+    }
+
+    let frame: number | null = null;
+    let startedAt: number | null = null;
+    let lastLength = 0;
+    setVisible("");
+
+    const tick = (now: number) => {
+      if (startedAt === null) startedAt = now;
+      const nextLength = Math.min(
+        text.length,
+        Math.max(
+          1,
+          Math.floor((now - startedAt) / PHASE_C_TYPEWRITER_INTERVAL_MS) + 1
+        )
+      );
+      if (nextLength !== lastLength) {
+        lastLength = nextLength;
+        setVisible(text.slice(0, nextLength));
+        onProgress();
+      }
+      if (nextLength < text.length) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        onComplete();
+      }
+    };
+
+    frame = requestAnimationFrame(tick);
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame);
+    };
+  }, [animate, onComplete, onProgress, reduceMotion, text]);
+
+  if (!animate || reduceMotion) {
+    return <span className="whitespace-pre-wrap">{text}</span>;
+  }
+
+  return (
+    <>
+      <span
+        aria-hidden
+        data-testid="phase-c-typewriter"
+        className="whitespace-pre-wrap"
+      >
+        {visible}
+      </span>
+      <span className="sr-only">{text}</span>
+    </>
   );
 }
 
@@ -516,42 +565,57 @@ export function GuidedCatalogSetup({
   const [session, setSession] = useState<GuidedSession | null>(null);
   const [agentAvailable, setAgentAvailable] = useState(true);
   const [busy, setBusy] = useState(true);
+  const [messageSaving, setMessageSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pendingTurn, setPendingTurn] =
-    useState<PendingGuidedTurn | null>(null);
-  const [commitResult, setCommitResult] =
-    useState<GuidedCommitResponse | null>(null);
+  const [editingInput, setEditingInput] = useState<{
+    id: string;
+    value: string;
+  } | null>(null);
+  const [animatedMessageId, setAnimatedMessageId] = useState<string | null>(
+    null
+  );
+  const [headerInset, setHeaderInset] = useState(0);
+  const [composerInset, setComposerInset] = useState(0);
+  const [commitResult, setCommitResult] = useState<GuidedCommitResponse | null>(
+    null
+  );
   const startRef = useRef(false);
-  const initialTurnRef = useRef(false);
   const turnInFlightRef = useRef(false);
-  const conversationEndRef = useRef<HTMLLIElement>(null);
+  const sessionRef = useRef<GuidedSession | null>(null);
+  const transcriptRef = useRef<HTMLOListElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
 
+  const applySession = useCallback((value: unknown) => {
+    const next = normalizeSession(value);
+    sessionRef.current = next;
+    setSession(next);
+    return next;
+  }, []);
+
+  const scrollTranscriptToBottom = useCallback(() => {
+    const transcript = transcriptRef.current;
+    if (!transcript || transcript.scrollHeight <= transcript.clientHeight) {
+      return;
+    }
+    transcript.scrollTo({
+      top: transcript.scrollHeight,
+      behavior: "auto",
+    });
+  }, []);
+
   const runTurn = useCallback(
-    async (
-      answer: unknown,
-      current: GuidedSession,
-      retryPending = false,
-    ) => {
+    async (current: GuidedSession) => {
+      if (current.inputRevision <= current.processedInputRevision) {
+        setBusy(false);
+        return;
+      }
       if (turnInFlightRef.current) return;
       turnInFlightRef.current = true;
-      if (!retryPending) {
-        const message = guidedOperatorMessageForAnswer(
-          answer,
-          current.unresolvedQuestions[0] ?? null,
-          current.version + 1,
-        );
-        setPendingTurn(
-          message
-            ? {
-                answer,
-                message,
-              }
-            : null,
-        );
-      }
       setBusy(true);
       setError(null);
+      let generationSucceeded = false;
       try {
         const response = await fetch(
           `/api/catalog/setup/sessions/${current.id}/turn`,
@@ -562,43 +626,157 @@ export function GuidedCatalogSetup({
               token: await token(
                 t(
                   "guided.sessionExpired",
-                  "Your session has expired. Sign in again.",
-                ),
+                  "Your session has expired. Sign in again."
+                )
               ),
-              answer,
               expectedVersion: current.version,
+              expectedInputRevision: current.inputRevision,
             }),
-          },
+          }
         );
-        const result = await jsonResponse<{ session: unknown }>(response);
-        setSession(normalizeSession(result.session));
-        setPendingTurn(null);
+        const result = await jsonResponse<{
+          session: unknown;
+          superseded?: boolean;
+        }>(response);
+        const next = applySession(result.session);
+        generationSucceeded = true;
+        if (!result.superseded) {
+          const newestAssistant = [...next.conversation]
+            .reverse()
+            .find(
+              (message) =>
+                message.role === "assistant" && message.version === next.version
+            );
+          setAnimatedMessageId(newestAssistant?.id ?? null);
+        }
       } catch (turnError) {
         setError(
           turnError instanceof Error
             ? turnError.message
-            : t("guided.error", "Setup could not continue"),
+            : t("guided.error", "Setup could not continue")
         );
       } finally {
         turnInFlightRef.current = false;
-        setBusy(false);
+        const latest = sessionRef.current;
+        if (
+          generationSucceeded &&
+          latest &&
+          latest.inputRevision > latest.processedInputRevision
+        ) {
+          void runTurn(latest);
+        } else {
+          setBusy(false);
+        }
       }
     },
-    [t],
+    [applySession, t]
   );
 
   useEffect(() => {
-    conversationEndRef.current?.scrollIntoView?.({
-      behavior: reduceMotion ? "auto" : "smooth",
-      block: "end",
-    });
+    scrollTranscriptToBottom();
   }, [
     busy,
+    composerInset,
     error,
-    pendingTurn,
+    headerInset,
     reduceMotion,
     session?.conversation.length,
+    scrollTranscriptToBottom,
   ]);
+
+  useEffect(() => {
+    const header = headerRef.current;
+    const composer = composerRef.current;
+    if (!header || !composer) return;
+    const measure = () => {
+      setHeaderInset(header.offsetHeight);
+      setComposerInset(composer.offsetHeight);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    observer.observe(composer);
+    return () => observer.disconnect();
+  }, [session?.status]);
+
+  const persistInput = useCallback(
+    async (
+      answer: unknown,
+      operation: "append" | "edit" | "remove" = "append",
+      expectedInputId?: string
+    ) => {
+      const current = sessionRef.current;
+      if (!current || messageSaving) return false;
+      setMessageSaving(true);
+      setError(null);
+      try {
+        const authToken = await token(
+          t("guided.sessionExpired", "Your session has expired. Sign in again.")
+        );
+        const save = async (
+          target: GuidedSession,
+          allowConflictRefresh: boolean
+        ): Promise<{
+          session: unknown;
+          input: Record<string, unknown> | null;
+        }> => {
+          const response = await fetch(
+            `/api/catalog/setup/sessions/${target.id}/messages`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                token: authToken,
+                operation,
+                answer,
+                expectedVersion: target.version,
+                expectedInputId,
+              }),
+            }
+          );
+          if (response.status === 409 && allowConflictRefresh) {
+            const refreshResponse = await fetch("/api/catalog/setup/sessions", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token: authToken }),
+            });
+            const refreshed = await jsonResponse<{
+              session: unknown | null;
+              agentAvailable: boolean;
+            }>(refreshResponse);
+            if (!refreshed.session) {
+              throw new Error(t("guided.error", "Setup could not continue"));
+            }
+            const freshSession = applySession(refreshed.session);
+            return save(freshSession, false);
+          }
+          return jsonResponse<{
+            session: unknown;
+            input: Record<string, unknown> | null;
+          }>(response);
+        };
+        const result = await save(current, true);
+        const next = applySession(result.session);
+        setEditingInput(null);
+        setBusy(true);
+        if (!turnInFlightRef.current) {
+          void runTurn(next);
+        }
+        return true;
+      } catch (inputError) {
+        setError(
+          inputError instanceof Error
+            ? inputError.message
+            : t("guided.error", "Setup could not continue")
+        );
+        return false;
+      } finally {
+        setMessageSaving(false);
+      }
+    },
+    [applySession, messageSaving, runTurn, t]
+  );
 
   useEffect(() => {
     if (startRef.current) return;
@@ -613,8 +791,8 @@ export function GuidedCatalogSetup({
             token: await token(
               t(
                 "guided.sessionExpired",
-                "Your session has expired. Sign in again.",
-              ),
+                "Your session has expired. Sign in again."
+              )
             ),
           }),
         });
@@ -623,72 +801,48 @@ export function GuidedCatalogSetup({
           agentAvailable: boolean;
         }>(response);
         setAgentAvailable(result.agentAvailable);
-        setSession(
-          result.agentAvailable && result.session
-            ? normalizeSession(result.session)
-            : null,
-        );
+        if (result.agentAvailable && result.session) {
+          applySession(result.session);
+        } else {
+          sessionRef.current = null;
+          setSession(null);
+        }
         setBusy(false);
       } catch (startError) {
         setError(
           startError instanceof Error
             ? startError.message
-            : t("guided.error", "Setup could not start"),
+            : t("guided.error", "Setup could not start")
         );
         setBusy(false);
       }
     })();
-  }, [t]);
-
-  useEffect(() => {
-    if (
-      !session ||
-      !agentAvailable ||
-      busy ||
-      initialTurnRef.current ||
-      session.status !== "interviewing" ||
-      session.unresolvedQuestions.length > 0
-    ) {
-      return;
-    }
-    initialTurnRef.current = true;
-    void runTurn(
-      {
-        intent: "start_guided_catalog_setup",
-        instruction: "Begin with the single highest-value unanswered question.",
-      },
-      session,
-    );
-  }, [agentAvailable, busy, runTurn, session]);
+  }, [applySession, t]);
 
   const products = useMemo(
     () => planActions(session?.proposedPlan ?? null, "upsert_product"),
-    [session?.proposedPlan],
+    [session?.proposedPlan]
   );
   const familyCount = useMemo(
     () =>
-      planActions(
-        session?.proposedPlan ?? null,
-        "upsert_catalog_family",
-      ).length,
-    [session?.proposedPlan],
+      planActions(session?.proposedPlan ?? null, "upsert_catalog_family")
+        .length,
+    [session?.proposedPlan]
   );
   const materialRuleCount = useMemo(
     () =>
       planActions(
         session?.proposedPlan ?? null,
-        "upsert_material_quantity_rule",
+        "upsert_material_quantity_rule"
       ).length,
-    [session?.proposedPlan],
+    [session?.proposedPlan]
   );
   const taskCount = useMemo(
     () =>
       (session?.proposedPlan?.actions ?? []).filter((action) =>
-        ["reuse_task_type", "create_task_type"].includes(
-          action.actionType,
-        ),
+        ["reuse_task_type", "create_task_type"].includes(action.actionType)
       ).length,
-    [session?.proposedPlan],
+    [session?.proposedPlan]
   );
 
   const commit = useCallback(async () => {
@@ -705,22 +859,20 @@ export function GuidedCatalogSetup({
             token: await token(
               t(
                 "guided.sessionExpired",
-                "Your session has expired. Sign in again.",
-              ),
+                "Your session has expired. Sign in again."
+              )
             ),
             approvalHash: session.proposedPlanHash,
           }),
-        },
+        }
       );
       const result = (await response.json().catch(() => null)) as
-        | (GuidedCommitResponse & { error?: string })
-        | null;
+        (GuidedCommitResponse & { error?: string }) | null;
       const recoverableAttention =
         response.status === 422 && result?.status === "attention";
       if ((!response.ok && !recoverableAttention) || !result) {
         throw new Error(
-          result?.error ??
-            t("guided.commitError", "Catalog could not be built"),
+          result?.error ?? t("guided.commitError", "Catalog could not be built")
         );
       }
       setCommitResult(result);
@@ -731,13 +883,13 @@ export function GuidedCatalogSetup({
               status: result.status,
               readback: result.readback,
             }
-          : current,
+          : current
       );
     } catch (commitError) {
       setError(
         commitError instanceof Error
           ? commitError.message
-          : t("guided.commitError", "Catalog could not be built"),
+          : t("guided.commitError", "Catalog could not be built")
       );
     } finally {
       setBusy(false);
@@ -750,10 +902,7 @@ export function GuidedCatalogSetup({
     setError(null);
     try {
       const idToken = await token(
-        t(
-          "guided.sessionExpired",
-          "Your session has expired. Sign in again.",
-        ),
+        t("guided.sessionExpired", "Your session has expired. Sign in again.")
       );
       const abandonResponse = await fetch(
         `/api/catalog/setup/sessions/${session.id}/abandon`,
@@ -764,7 +913,7 @@ export function GuidedCatalogSetup({
             token: idToken,
             expectedVersion: session.version,
           }),
-        },
+        }
       );
       await jsonResponse<{ session: unknown }>(abandonResponse);
 
@@ -779,23 +928,24 @@ export function GuidedCatalogSetup({
       }>(startResponse);
       setAgentAvailable(result.agentAvailable);
       setCommitResult(null);
-      setPendingTurn(null);
-      initialTurnRef.current = false;
-      setSession(
-        result.agentAvailable && result.session
-          ? normalizeSession(result.session)
-          : null,
-      );
+      setEditingInput(null);
+      setAnimatedMessageId(null);
+      if (result.agentAvailable && result.session) {
+        applySession(result.session);
+      } else {
+        sessionRef.current = null;
+        setSession(null);
+      }
     } catch (restartError) {
       setError(
         restartError instanceof Error
           ? restartError.message
-          : t("guided.restartError", "Setup could not restart"),
+          : t("guided.restartError", "Setup could not restart")
       );
     } finally {
       setBusy(false);
     }
-  }, [busy, session, t]);
+  }, [applySession, busy, session, t]);
 
   if (busy && !session) {
     return (
@@ -803,12 +953,11 @@ export function GuidedCatalogSetup({
         data-testid="guided-catalog-loading"
         className={cn(
           "grid min-h-96 place-items-center bg-background",
-          className,
+          className
         )}
       >
-        <div className="flex items-center gap-2 font-mono text-micro uppercase tracking-wide text-text-3">
-          <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-          {t("guided.loading", "READING YOUR CATALOG")}
+        <div className="font-mono text-micro uppercase tracking-wide text-text-3">
+          <PhaseCActivity label={t("guided.loading", "READING YOUR CATALOG")} />
         </div>
       </div>
     );
@@ -820,21 +969,21 @@ export function GuidedCatalogSetup({
         data-testid="guided-catalog-unavailable"
         className={cn(
           "mx-auto flex min-h-96 max-w-2xl flex-col justify-center px-5",
-          className,
+          className
         )}
       >
         <span className="font-mono text-micro uppercase tracking-wide text-text-3">
           {"// "}
           {t("guided.kicker", "GUIDED CATALOG SETUP")}
         </span>
-        <h1 className="mt-3 font-cakemono text-cake-title font-light uppercase text-text">
+        <h1 className="text-cake-title mt-3 font-cakemono font-light uppercase text-text">
           {t("guided.unavailableTitle", "GUIDED SETUP IS OFFLINE")}
         </h1>
         <p className="mt-3 max-w-prose font-mohave text-body text-text-2">
           {error ??
             t(
               "guided.unavailableBody",
-              "Use another setup method. Nothing has been changed.",
+              "Use another setup method. Nothing has been changed."
             )}
         </p>
         <button
@@ -856,35 +1005,33 @@ export function GuidedCatalogSetup({
         typeof fact.key === "string" &&
         fact.key.toLocaleLowerCase("en-CA").includes("location") &&
         typeof fact.value === "string" &&
-        fact.value.trim(),
+        fact.value.trim()
     )?.value as string | undefined;
     return (
       <section
         data-testid="guided-catalog-complete"
         className={cn(
           "mx-auto flex min-h-96 max-w-3xl flex-col justify-center px-5",
-          className,
+          className
         )}
       >
-        <span className="font-mono text-micro uppercase tracking-wide text-success">
+        <span className="text-success font-mono text-micro uppercase tracking-wide">
           {"// "}
           {t("guided.completeKicker", "CATALOG VERIFIED")}
         </span>
-        <h1 className="mt-3 font-cakemono text-cake-title font-light uppercase text-text">
+        <h1 className="text-cake-title mt-3 font-cakemono font-light uppercase text-text">
           {t("guided.completeTitle", "YOUR CATALOG IS READY")}
         </h1>
         <p className="mt-3 max-w-prose font-mohave text-body text-text-2">
           {t(
             "guided.inventoryQuestion",
-            "Do you have a current inventory list you want me to add?",
+            "Do you have a current inventory list you want me to add?"
           )}
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={() =>
-              onAddInventoryList(session.id, defaultLocation)
-            }
+            onClick={() => onAddInventoryList(session.id, defaultLocation)}
             className="rounded border border-ops-accent px-3 py-2 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black"
           >
             {t("guided.addInventory", "ADD INVENTORY LIST")}
@@ -907,20 +1054,20 @@ export function GuidedCatalogSetup({
         data-testid="guided-catalog-attention"
         className={cn(
           "mx-auto flex min-h-96 max-w-3xl flex-col justify-center px-5",
-          className,
+          className
         )}
       >
-        <span className="font-mono text-micro uppercase tracking-wide text-warning">
+        <span className="text-warning font-mono text-micro uppercase tracking-wide">
           {"// "}
           {t("guided.attentionKicker", "ONE CHECK REMAINS")}
         </span>
-        <h1 className="mt-3 font-cakemono text-cake-title font-light uppercase text-text">
+        <h1 className="text-cake-title mt-3 font-cakemono font-light uppercase text-text">
           {t("guided.attentionTitle", "MOST OF YOUR CATALOG IS READY")}
         </h1>
         <p className="mt-3 max-w-prose font-mohave text-body text-text-2">
           {t(
             "guided.attentionBody",
-            "A live record is still connected to an old catalog item, so setup left it untouched. Your saved work is safe.",
+            "A live record is still connected to an old catalog item, so setup left it untouched. Your saved work is safe."
           )}
         </p>
         <button
@@ -938,23 +1085,20 @@ export function GuidedCatalogSetup({
     return (
       <section
         data-testid="guided-catalog-review"
-        className={cn(
-          "mx-auto w-full max-w-5xl px-4 py-5 md:px-6",
-          className,
-        )}
+        className={cn("mx-auto w-full max-w-5xl px-4 py-5 md:px-6", className)}
       >
         <header className="border-b border-glass-border pb-4">
           <span className="font-mono text-micro uppercase tracking-wide text-text-3">
             {"// "}
             {t("guided.reviewKicker", "READY FOR REVIEW")}
           </span>
-          <h1 className="mt-2 font-cakemono text-cake-title font-light uppercase text-text">
+          <h1 className="text-cake-title mt-2 font-cakemono font-light uppercase text-text">
             {t("guided.reviewTitle", "HERE'S WHAT WILL BE BUILT")}
           </h1>
           <p className="mt-2 max-w-prose font-mohave text-body text-text-2">
             {t(
               "guided.reviewBody",
-              "I checked this against your live catalog. Existing records are reused; only the approved changes go live.",
+              "I checked this against your live catalog. Existing records are reused; only the approved changes go live."
             )}
           </p>
         </header>
@@ -980,10 +1124,7 @@ export function GuidedCatalogSetup({
 
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           {products.map((product) => (
-            <article
-              key={product.actionKey}
-              className="glass-surface p-4"
-            >
+            <article key={product.actionKey} className="glass-surface p-4">
               <div className="font-cakemono text-cake-button uppercase text-text">
                 {String(product.payload.name ?? "—")}
               </div>
@@ -993,8 +1134,7 @@ export function GuidedCatalogSetup({
                   <strong className="font-normal text-text">
                     ${Number(product.payload.basePrice ?? 0).toFixed(2)}/
                     {String(
-                      product.payload.pricingUnit ??
-                        t("guided.unit", "unit"),
+                      product.payload.pricingUnit ?? t("guided.unit", "unit")
                     )}
                   </strong>
                 </span>
@@ -1024,7 +1164,7 @@ export function GuidedCatalogSetup({
         ) : null}
 
         {error ? (
-          <p className="mt-4 font-mono text-micro text-danger">{error}</p>
+          <p className="text-danger mt-4 font-mono text-micro">{error}</p>
         ) : null}
 
         <footer className="mt-6 flex flex-wrap items-center gap-4 border-t border-glass-border pt-4">
@@ -1035,7 +1175,10 @@ export function GuidedCatalogSetup({
             className="inline-flex min-h-11 items-center gap-2 rounded border border-ops-accent px-4 font-cakemono text-cake-button uppercase text-ops-accent transition-colors hover:bg-ops-accent hover:text-black disabled:border-glass-border disabled:text-text-mute"
           >
             {busy ? (
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
+              <Loader2
+                aria-hidden
+                className="h-icon-16 w-icon-16 animate-spin"
+              />
             ) : null}
             {busy
               ? t("guided.building", "BUILDING")
@@ -1061,108 +1204,162 @@ export function GuidedCatalogSetup({
   }
 
   const question = session.unresolvedQuestions[0];
-  const conversation =
-    pendingTurn &&
-    !session.conversation.some(
-      (message) => message.id === pendingTurn.message.id,
-    )
-      ? [...session.conversation, pendingTurn.message]
-      : session.conversation;
-  const turnLocked = busy || pendingTurn !== null;
+  const conversation = visibleGuidedConversation(session.conversation);
+  const latestQueuedInput = [...conversation]
+    .reverse()
+    .find(
+      (message) =>
+        message.role === "operator" &&
+        message.state === "queued" &&
+        !!message.inputId
+    );
   return (
     <section
       data-testid="guided-catalog-interview"
       className={cn(
-        "mx-auto flex h-full min-h-96 w-full max-w-4xl flex-col px-4 py-5 md:px-6",
-        className,
+        "relative h-full min-h-0 w-full overflow-hidden bg-background",
+        className
       )}
     >
-      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-glass-border pb-3">
-        <div>
-          <span className="font-mono text-micro uppercase tracking-wide text-text-3">
-            {"// "}
-            {t("guided.kicker", "GUIDED CATALOG SETUP")}
-          </span>
-          <h1 className="mt-1 font-cakemono text-cake-section font-light uppercase text-text">
-            {t("guided.conversationTitle", "BUILD YOUR CATALOG")}
-          </h1>
-        </div>
-        <div className="font-mono text-micro text-text-mute">
-          {t("guided.factCount", "Confirmed decisions · {count}").replace(
-            "{count}",
-            String(confirmedDecisionCount(session.facts)),
-          )}
+      <header
+        ref={headerRef}
+        className="absolute inset-x-0 top-0 z-20 border-b border-glass-border bg-background"
+      >
+        <div className="mx-auto flex w-full max-w-4xl flex-wrap items-end justify-between gap-1 px-4 py-1.5 md:px-6">
+          <div>
+            <span className="font-mono text-micro uppercase tracking-wide text-text-3">
+              {"// "}
+              {t("guided.kicker", "GUIDED CATALOG SETUP")}
+            </span>
+            <h1 className="mt-0.5 font-cakemono text-cake-section font-light uppercase text-text">
+              {t("guided.conversationTitle", "BUILD YOUR CATALOG")}
+            </h1>
+          </div>
+          <div className="font-mono text-micro text-text-mute">
+            {t("guided.factCount", "Confirmed decisions · {count}").replace(
+              "{count}",
+              String(confirmedDecisionCount(session.facts))
+            )}
+          </div>
         </div>
       </header>
 
       <ol
+        ref={transcriptRef}
         role="log"
         aria-live="polite"
-        aria-label={t(
-          "guided.transcriptLabel",
-          "Catalog setup conversation",
-        )}
-        className="scrollbar-hide min-h-0 flex-1 space-y-5 overflow-y-auto py-5"
+        aria-label={t("guided.transcriptLabel", "Catalog setup conversation")}
+        className="scrollbar-hide absolute inset-0 min-h-0 space-y-2 overflow-y-auto px-4 pb-2 md:px-6"
       >
+        <li aria-hidden style={{ height: headerInset }} />
         <AnimatePresence initial={false}>
           {conversation.map((message) => {
             const assistant = message.role === "assistant";
             const currentHelp =
               assistant &&
               question?.help &&
-              message.id ===
-                `assistant:${session.version}:${question.id}`
+              message.id === `assistant:${session.version}:${question.id}`
                 ? question.help
                 : null;
             return (
               <motion.li
                 key={message.id}
                 variants={
-                  reduceMotion
-                    ? cardEnterVariantsReduced
-                    : cardEnterVariants
+                  reduceMotion ? cardEnterVariantsReduced : cardEnterVariants
                 }
                 initial="hidden"
                 animate="visible"
                 exit="exit"
                 className={cn(
-                  "w-fit max-w-2xl font-mohave text-body",
-                  assistant
-                    ? "mr-auto border-l border-agent-border bg-agent-bg px-4 py-3 text-text"
-                    : "ml-auto rounded border border-glass-border bg-surface-input px-4 py-3 text-text",
+                  "mx-auto w-full max-w-4xl font-mohave text-body",
+                  assistant ? "text-text" : "flex flex-col items-end text-text"
                 )}
                 data-message-role={message.role}
               >
                 <div
                   className={cn(
-                    "mb-1 font-mono text-micro uppercase tracking-wide",
-                    assistant ? "text-agent-text2" : "text-text-mute",
+                    "w-fit max-w-3xl",
+                    assistant
+                      ? "border-l border-agent-border bg-agent-bg px-2 py-1.5"
+                      : "rounded border border-glass-border bg-surface-input px-2 py-1.5"
                   )}
                 >
-                  {assistant
-                    ? t("guided.agentLabel", "PHASE C")
-                    : t("guided.operatorLabel", "YOU")}
-                </div>
-                {message.kind === "source_document" ? (
-                  <div className="flex items-center gap-2">
-                    <FileSpreadsheet
-                      aria-hidden
-                      className="h-4 w-4 shrink-0 text-text-3"
-                    />
-                    <span>
-                      {t(
-                        "guided.sourceMessage",
-                        "Uploaded {filename}",
-                      ).replace("{filename}", message.content)}
-                    </span>
+                  <div
+                    className={cn(
+                      "mb-0.5 font-mono text-micro uppercase tracking-wide",
+                      assistant ? "text-agent-text2" : "text-text-mute"
+                    )}
+                  >
+                    {assistant
+                      ? t("guided.agentLabel", "PHASE C")
+                      : t("guided.operatorLabel", "YOU")}
                   </div>
-                ) : (
-                  <p className="whitespace-pre-wrap">{message.content}</p>
-                )}
-                {currentHelp ? (
-                  <p className="mt-2 text-body-sm text-text-2">
-                    {currentHelp}
-                  </p>
+                  {message.kind === "source_document" ? (
+                    <div className="flex items-center gap-1">
+                      <FileSpreadsheet
+                        aria-hidden
+                        className="h-icon-16 w-icon-16 shrink-0 text-text-3"
+                      />
+                      <span>
+                        {t(
+                          "guided.sourceMessage",
+                          "Uploaded {filename}"
+                        ).replace("{filename}", message.content)}
+                      </span>
+                    </div>
+                  ) : assistant ? (
+                    <p>
+                      <PhaseCTypewriter
+                        text={message.content}
+                        animate={message.id === animatedMessageId}
+                        onProgress={scrollTranscriptToBottom}
+                        onComplete={() =>
+                          setAnimatedMessageId((current) =>
+                            current === message.id ? null : current
+                          )
+                        }
+                      />
+                    </p>
+                  ) : (
+                    <p className="whitespace-pre-wrap">{message.content}</p>
+                  )}
+                  {currentHelp ? (
+                    <p className="mt-1 text-body-sm text-text-2">
+                      {currentHelp}
+                    </p>
+                  ) : null}
+                </div>
+                {!assistant &&
+                message.inputId &&
+                message.inputId === latestQueuedInput?.inputId &&
+                message.state === "queued" ? (
+                  <div className="mt-0.5 flex items-center gap-0.5 font-mono text-micro text-text-mute">
+                    {message.kind === "text" ? (
+                      <button
+                        type="button"
+                        disabled={messageSaving}
+                        onClick={() =>
+                          setEditingInput({
+                            id: message.inputId!,
+                            value: message.content,
+                          })
+                        }
+                        className="rounded-chip border border-glass-border px-1 py-0.5 transition-colors ease-smooth hover:bg-surface-hover hover:text-text disabled:pointer-events-none disabled:opacity-40"
+                      >
+                        {t("guided.editQueued", "[ edit ]")}
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      disabled={messageSaving}
+                      onClick={() =>
+                        void persistInput(undefined, "remove", message.inputId)
+                      }
+                      className="rounded-chip border border-glass-border px-1 py-0.5 transition-colors ease-smooth hover:bg-surface-hover hover:text-text disabled:pointer-events-none disabled:opacity-40"
+                    >
+                      {t("guided.removeQueued", "[ remove ]")}
+                    </button>
+                  </div>
                 ) : null}
               </motion.li>
             );
@@ -1172,122 +1369,133 @@ export function GuidedCatalogSetup({
         {busy ? (
           <li
             role="status"
-            aria-label={t(
-              "guided.workingStatus",
-              "Phase C is working",
-            )}
-            className="mr-auto flex w-fit items-center gap-2 border-l border-agent-border bg-agent-bg px-4 py-3 font-mohave text-body-sm text-text-2"
+            aria-label={t("guided.workingStatus", "Phase C is working")}
+            className="mx-auto w-full max-w-4xl font-mono text-micro uppercase tracking-wide text-text-3"
           >
-            <Loader2
-              aria-hidden
-              className="h-4 w-4 animate-spin text-agent-text2"
-            />
-            {t(
-              "guided.workingBody",
-              "Phase C is checking your answer…",
-            )}
+            <div className="w-fit border-l border-agent-border bg-agent-bg px-2 py-1">
+              <PhaseCActivity
+                label={t(
+                  "guided.workingBody",
+                  "PHASE C IS CHECKING YOUR MESSAGE"
+                )}
+              />
+            </div>
           </li>
         ) : null}
 
         {error ? (
-          <li
-            role="alert"
-            className="ml-auto max-w-2xl rounded border border-rose-line bg-rose-soft px-4 py-3"
-          >
-            <p className="font-mohave text-body-sm text-rose">{error}</p>
-            {pendingTurn ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  void runTurn(pendingTurn.answer, session, true)
-                }
-                className="mt-2 font-mono text-micro text-text-2 transition-colors hover:text-text disabled:pointer-events-none disabled:opacity-40"
-              >
-                {t("guided.retry", "[ try again ]")}
-              </button>
-            ) : null}
+          <li role="alert" className="mx-auto w-full max-w-4xl">
+            <div className="ml-auto w-fit max-w-3xl rounded border border-rose-line bg-rose-soft px-2 py-1.5">
+              <p className="font-mohave text-body-sm text-rose">{error}</p>
+              {session.inputRevision > session.processedInputRevision ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void runTurn(session)}
+                  className="mt-2 font-mono text-micro text-text-2 transition-colors hover:text-text disabled:pointer-events-none disabled:opacity-40"
+                >
+                  {t("guided.retry", "[ try again ]")}
+                </button>
+              ) : null}
+            </div>
           </li>
         ) : null}
-        <li ref={conversationEndRef} aria-hidden />
+        <li aria-hidden style={{ height: composerInset }} />
       </ol>
 
-      <div className="border-t border-glass-border pt-4">
-        <div className="glass-surface p-4">
-          {question ? (
-            <>
-              <QuestionInput
-                key={question.id}
-                question={question}
-                busy={busy}
-                locked={turnLocked}
-                onAnswer={(answer) => void runTurn(answer, session)}
-              />
-              <SourceDocumentInput
-                locked={turnLocked}
-                onAnswer={(answer) => void runTurn(answer, session)}
-              />
-            </>
-          ) : (
-            <div className="flex items-center gap-2 font-mohave text-body-sm text-text-2">
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" />
-              {t("guided.preparing", "Preparing the next question")}
-            </div>
-          )}
-        </div>
-      </div>
+      <div
+        ref={composerRef}
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-20"
+      >
+        <div className="mx-auto w-full max-w-4xl px-4 pb-1 md:px-6">
+          <div
+            data-testid="guided-catalog-composer"
+            className="glass-surface pointer-events-auto p-1"
+          >
+            {question ? (
+              <>
+                <QuestionInput
+                  key={question.id}
+                  question={question}
+                  busy={busy}
+                  locked={messageSaving}
+                  editingValue={editingInput?.value ?? null}
+                  onCancelEdit={() => setEditingInput(null)}
+                  onAnswer={(answer) =>
+                    persistInput(
+                      answer,
+                      editingInput ? "edit" : "append",
+                      editingInput?.id
+                    )
+                  }
+                />
+                <SourceDocumentInput
+                  locked={messageSaving}
+                  onAnswer={(answer) => void persistInput(answer)}
+                />
+              </>
+            ) : (
+              <div className="font-mono text-micro uppercase tracking-wide text-text-3">
+                <PhaseCActivity
+                  label={t("guided.preparing", "PREPARING THE NEXT QUESTION")}
+                />
+              </div>
+            )}
+          </div>
 
-      <footer className="mt-4 flex flex-wrap gap-4">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
+          <footer className="pointer-events-auto mt-0.5 flex flex-wrap justify-center gap-0.5">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  type="button"
+                  disabled={busy}
+                  className="h-control-32 rounded-chip border border-glass-border bg-background px-1 font-mono text-micro text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text disabled:pointer-events-none disabled:opacity-40"
+                >
+                  {t("guided.restartGhost", "[ start over ]")}
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {t("guided.restartTitle", "START THIS SETUP AGAIN?")}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t(
+                      "guided.restartBody",
+                      "This clears this setup conversation and starts again. Your live catalog stays untouched."
+                    )}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>
+                    {t("guided.restartCancel", "KEEP WORKING")}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => void startOver()}
+                    className="border-rose-line bg-rose-soft text-rose hover:border-rose"
+                  >
+                    {t("guided.restartConfirm", "START OVER")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <button
               type="button"
-              disabled={busy}
-              className="font-mono text-micro text-text-3 transition-colors hover:text-text disabled:pointer-events-none disabled:opacity-40"
+              onClick={onUseAnotherMethod}
+              className="h-control-32 rounded-chip border border-glass-border bg-background px-1 font-mono text-micro text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text"
             >
-              {t("guided.restartGhost", "[ start over ]")}
+              {t("guided.otherMethodGhost", "[ use another method ]")}
             </button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t("guided.restartTitle", "START THIS SETUP AGAIN?")}
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                {t(
-                  "guided.restartBody",
-                  "This clears this setup conversation and starts again. Your live catalog stays untouched.",
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>
-                {t("guided.restartCancel", "KEEP WORKING")}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => void startOver()}
-                className="border-rose-line bg-rose-soft text-rose hover:border-rose"
-              >
-                {t("guided.restartConfirm", "START OVER")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-        <button
-          type="button"
-          onClick={onUseAnotherMethod}
-          className="font-mono text-micro text-text-3 transition-colors hover:text-text"
-        >
-          {t("guided.otherMethodGhost", "[ use another method ]")}
-        </button>
-        <button
-          type="button"
-          onClick={onExit}
-          className="font-mono text-micro text-text-3 transition-colors hover:text-text"
-        >
-          {t("guided.exit", "[ back to catalog ]")}
-        </button>
-      </footer>
+            <button
+              type="button"
+              onClick={onExit}
+              className="h-control-32 rounded-chip border border-glass-border bg-background px-1 font-mono text-micro text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text"
+            >
+              {t("guided.exit", "[ back to catalog ]")}
+            </button>
+          </footer>
+        </div>
+      </div>
     </section>
   );
 }
