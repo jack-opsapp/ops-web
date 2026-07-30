@@ -31,10 +31,10 @@ export interface BuildEmailOpportunityTitleInput {
 
 const SOURCE_PRIORITY: Record<EmailOpportunityIdentitySource, number> = {
   contact_form: 0,
-  inbound_sender: 1,
+  contact: 1,
   outbound_recipient: 1,
-  contact: 2,
-  client: 3,
+  client: 2,
+  inbound_sender: 3,
 };
 
 const GENERIC_LOCAL_PARTS = new Set([

@@ -58,6 +58,7 @@ export interface ExistingOpportunityForEnrichment {
   company_id?: string | null;
   client_id?: string | null;
   client_ref?: string | null;
+  title?: string | null;
   contact_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
@@ -348,6 +349,30 @@ function canReplaceContactName(
     normalizeEmail(email) === normalizeEmail(facts.contactEmail) &&
     isLocalPartDerivedName(name, email)
   );
+}
+
+function upgradedGeneratedEmailTitle(
+  existingOpportunity: ExistingOpportunityForEnrichment,
+  verifiedName: string
+): string | null {
+  const title = cleanText(existingOpportunity.title);
+  if (!title) return null;
+  const match = title.match(/^(.+?)\s+—\s+(Email Inquiry|Estimate)$/);
+  if (!match) return null;
+
+  const currentIdentity = normalizedNameKey(match[1]);
+  const autoIdentityKeys = new Set(
+    [
+      "new lead",
+      normalizedNameKey(existingOpportunity.contact_name),
+      normalizedNameKey(
+        localPartToName(normalizeEmail(existingOpportunity.contact_email))
+      ),
+    ].filter(Boolean)
+  );
+  if (!autoIdentityKeys.has(currentIdentity)) return null;
+  if (currentIdentity === normalizedNameKey(verifiedName)) return null;
+  return `${verifiedName} — ${match[2]}`;
 }
 
 function isWeakEmail(value: string | null | undefined): boolean {
@@ -756,6 +781,13 @@ export function buildLeadEnrichmentUpdates(input: {
     ) {
       opportunity.contact_name = facts.contactName;
     }
+    if (opportunity.contact_name === facts.contactName && facts.contactName) {
+      const upgradedTitle = upgradedGeneratedEmailTitle(
+        existingOpportunity,
+        facts.contactName
+      );
+      if (upgradedTitle) opportunity.title = upgradedTitle;
+    }
     if (
       facts.contactEmail &&
       !protectedFields?.opportunity.has("contact_email") &&
@@ -1085,6 +1117,7 @@ export async function applyCanonicalLeadEnrichment({
     "company_id",
     "client_id",
     "client_ref",
+    "title",
     "contact_name",
     "contact_email",
     "contact_phone",

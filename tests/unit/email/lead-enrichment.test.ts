@@ -142,6 +142,56 @@ describe("lead lifecycle enrichment decisions", () => {
     });
   });
 
+  it("repairs only an auto-generated local-part title when a verified name arrives", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Kevin Falk <falks@example.com>",
+        fromName: "Kevin Falk",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+
+    const updates = buildLeadEnrichmentUpdates({
+      existingOpportunity: {
+        title: "Falks — Email Inquiry",
+        contact_name: "Falks",
+        contact_email: "falks@example.com",
+      },
+      facts,
+    });
+
+    expect(updates.opportunity).toMatchObject({
+      contact_name: "Kevin Falk",
+      title: "Kevin Falk — Email Inquiry",
+    });
+  });
+
+  it("never rewrites a custom opportunity title while repairing contact identity", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Kevin Falk <falks@example.com>",
+        fromName: "Kevin Falk",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+
+    const updates = buildLeadEnrichmentUpdates({
+      existingOpportunity: {
+        title: "Westshore glass rail replacement",
+        contact_name: "Falks",
+        contact_email: "falks@example.com",
+      },
+      facts,
+    });
+
+    expect(updates.opportunity.contact_name).toBe("Kevin Falk");
+    expect(updates.opportunity).not.toHaveProperty("title");
+  });
+
   it.each([
     "Victoria",
     "Langford",

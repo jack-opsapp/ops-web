@@ -445,6 +445,32 @@ function contactFormTitleCandidate(
   ];
 }
 
+function inboundTitleCandidates(
+  submitter: ContactFormSubmissionIdentity | null,
+  resolvedContact: ResolvedContact
+): EmailOpportunityIdentityCandidate[] {
+  const hasCustomerAuthoredName = resolvedContact.provenance.some(
+    (entry) =>
+      entry.field === "name" &&
+      (entry.source === "customer_signature" ||
+        entry.source === "customer_self_identification")
+  );
+  return [
+    ...contactFormTitleCandidate(submitter),
+    ...(resolvedContact.nameIsVerified &&
+    resolvedContact.name &&
+    hasCustomerAuthoredName
+      ? [
+          {
+            source: "contact" as const,
+            name: resolvedContact.name,
+            email: resolvedContact.email,
+          },
+        ]
+      : []),
+  ];
+}
+
 function syncIngestionOperatorIdentity(
   connection: EmailConnection,
   profile: SyncProfile,
@@ -3675,7 +3701,10 @@ async function processInboundEmail(
         connection.companyId,
         "new_lead",
         {
-          candidates: contactFormTitleCandidate(contactFormSubmitter),
+          candidates: inboundTitleCandidates(
+            contactFormSubmitter,
+            resolvedInboundContact
+          ),
           unsafe: syncTitleUnsafeIdentity(connection, profile),
           enrichmentFacts: inboundEnrichmentFacts,
           sourceKey: routingIdentity.sourceKey,
@@ -3746,7 +3775,10 @@ async function processInboundEmail(
     ) {
       const matchedClientId = matchResult.clientId!;
       const titleOptions = {
-        candidates: contactFormTitleCandidate(contactFormSubmitter),
+        candidates: inboundTitleCandidates(
+          contactFormSubmitter,
+          resolvedInboundContact
+        ),
         unsafe: syncTitleUnsafeIdentity(connection, profile),
         enrichmentFacts: inboundEnrichmentFacts,
         sourceKey: routingIdentity.sourceKey,

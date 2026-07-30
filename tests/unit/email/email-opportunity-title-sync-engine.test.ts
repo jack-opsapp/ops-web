@@ -6991,7 +6991,57 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(state.opportunities[0].title).toBe("Leah Graham — Email Inquiry");
   });
 
-  it("prioritizes inbound sender identity over an existing linked client display name", async () => {
+  it("uses a customer signature name instead of a weak From display name", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-kevin-falk",
+            threadId: "thread-kevin-falk",
+            from: "Falks <falks@example.com>",
+            fromName: "Falks",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Need an estimate",
+            bodyText: [
+              "Can you quote our deck repair?",
+              "",
+              "Thanks,",
+              "Kevin Falk",
+              "250-555-0199",
+            ].join("\n"),
+            bodyTextClean: null,
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({ action: "create_new", clientId: null });
+
+    await SyncEngine.runSync("connection-1");
+
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.opportunities[0]).toMatchObject({
+      title: "Kevin Falk — Email Inquiry",
+      contact_name: "Kevin Falk",
+      contact_email: "falks@example.com",
+    });
+  });
+
+  it("prioritizes an exact linked client identity over the inbound From display name", async () => {
     const state: SupabaseState = {
       clients: [
         {
@@ -7047,9 +7097,8 @@ To: Kara Beach <kara.beach@example.com>`,
     await SyncEngine.runSync("connection-1");
 
     expect(state.opportunities).toHaveLength(1);
-    expect(state.opportunities[0].title).toBe("Mara Hill — Email Inquiry");
-    expect(state.opportunities[0].title).not.toContain(
-      "Existing Property Group"
+    expect(state.opportunities[0].title).toBe(
+      "Existing Property Group — Email Inquiry"
     );
   });
 
@@ -8437,6 +8486,46 @@ describe("SyncEngine Gmail history completeness", () => {
 });
 
 describe("buildEmailOpportunityTitle unsafe identity filtering", () => {
+  it("prefers a customer-authored contact name over the From display name", () => {
+    expect(
+      buildEmailOpportunityTitle({
+        kind: "email_inquiry",
+        candidates: [
+          {
+            source: "inbound_sender",
+            name: "Falks",
+            email: "falks@example.com",
+          },
+          {
+            source: "contact",
+            name: "Kevin Falk",
+            email: "falks@example.com",
+          },
+        ],
+      })
+    ).toBe("Kevin Falk — Email Inquiry");
+  });
+
+  it("prefers an exact canonical client over the From display name", () => {
+    expect(
+      buildEmailOpportunityTitle({
+        kind: "estimate",
+        candidates: [
+          {
+            source: "inbound_sender",
+            name: "Falks",
+            email: "falks@example.com",
+          },
+          {
+            source: "client",
+            name: "Kevin Falk",
+            email: "falks@example.com",
+          },
+        ],
+      })
+    ).toBe("Kevin Falk — Estimate");
+  });
+
   it("rejects operator, company, and platform identities before using a safe local part", () => {
     expect(
       buildEmailOpportunityTitle({
