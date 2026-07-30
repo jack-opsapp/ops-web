@@ -152,7 +152,10 @@ Financial metric IDs require `analytics.financial.read`; otherwise the request i
 - Reuse the original idempotency key and body for write retries.
 - Treat `409` as a changed-body or changed-identity conflict, not as success.
 - Do not cache intake responses.
-- Analytics responses may use the returned private cache policy.
+- The pilot does not use a shared server-side analytics cache. Every protected
+  analytics request reauthorizes and reads the privacy-safe OPS projection.
+- A caller may honor the returned private browser/server cache policy only
+  inside its own trusted environment.
 - Revocation is checked before any analytics cache read.
 
 All responses include `x-request-id`. Record that safe request ID when support is needed; never record the credential or full request body.

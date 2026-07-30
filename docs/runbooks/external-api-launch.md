@@ -1,8 +1,10 @@
 # External Lead API Launch
 
-**Status:** blocked at paid-service approval
-**Production state:** no migration, infrastructure, environment, deployment, or
-company enablement has been applied
+**Status:** AWS stack complete; blocked at production database/deployment approval
+**Production state:** Jackson confirmed the dedicated AWS intake stack
+succeeded. No external API Supabase migration, OPS Web production deployment,
+credential, company enablement, or Norcut production connection has been
+applied.
 **Default:** fail closed
 
 This is the operating order for the External Lead Intake and Analytics API.
@@ -13,8 +15,7 @@ The API remains unavailable to every company until the final company-specific
 
 Do not start production work until all gates are recorded in the launch record:
 
-1. Jackson approves the refreshed AWS, Upstash, Vercel, and Supabase cost
-   readback.
+1. Jackson approves the refreshed AWS, Vercel, and Supabase cost readback.
 2. Jackson approves the production migration and deployment.
 3. Jackson names the one pilot company and website source.
 4. The disposable staging acceptance stack passes storage, scan, queue, CDN,
@@ -23,7 +24,7 @@ Do not start production work until all gates are recorded in the launch record:
 6. A rollback operator and security-response owner are present for the pilot.
 
 Any failed gate stops the launch. Do not weaken an upload condition, reuse a
-general Redis database, bypass malware quarantine, enable another company, or
+the generic process-memory limiter, bypass malware quarantine, enable another company, or
 silently omit analytics evidence.
 
 ## Release order
@@ -37,7 +38,6 @@ Create one restricted launch record containing:
 - Supabase project and branch identifiers;
 - AWS account and region;
 - CloudFormation stack ID;
-- Upstash database ID and plan;
 - Vercel project and deployment IDs;
 - pilot company UUID;
 - pilot source hostname;
@@ -49,20 +49,24 @@ Create one restricted launch record containing:
 Do not put credentials, signing keys, customer content, storage object keys, or
 database URLs in the record.
 
-### 2. Provision the dedicated Redis boundary
+### 2. Configure the two-layer quota boundary
 
-Create a dedicated production Redis database in the same operating region as
-the API. Enable the approved production plan and Prod Pack. Record the measured
-plan, SLA, region, command allowance, storage allowance, and monthly fixed
-cost.
+Do not provision Redis or Upstash.
 
-Set only:
+The `external_api_rate_limits` migration creates the private fixed-window
+counter table plus service-role-only consume and purge commands. The
+application sends only HMAC-derived identities and recognizes only the locked
+pre-auth, intake-principal, analytics-principal, and company policies.
 
-- `EXTERNAL_API_REDIS_REST_URL`
-- `EXTERNAL_API_REDIS_REST_TOKEN`
+At the Vercel edge, configure one coarse `/v1/*` WAF rate rule that absorbs
+anonymous floods before a request reaches Supabase. The database remains the
+exact quota authority. Verify:
 
-Verify from a staging deployment that Redis unavailability produces `503` for
-every protected route. A process-memory or fail-open fallback is forbidden.
+- a WAF denial never reaches the route;
+- a Supabase denial returns `429` with the bounded retry delay;
+- a missing, slow, errored, or malformed quota command returns safe `503`;
+- no process-memory or fail-open fallback exists;
+- no raw IP address or credential secret is stored in the quota table.
 
 ### 3. Provision private intake storage
 
@@ -145,6 +149,7 @@ Apply in this exact order:
 10. `20260727103350_external_lead_feed.sql`
 11. `20260727103400_external_lead_metrics_v1.sql`
 12. `20260727103500_external_api_operations.sql`
+13. `20260730213000_external_api_rate_limits.sql`
 
 The first migration creates no public HTTP route and enables no company. After
 application, verify:
@@ -153,7 +158,7 @@ application, verify:
 - every public command is executable only by `service_role`;
 - every security-definer function has a fixed search path;
 - every company/source/form check fails across tenants;
-- all twelve migrations exist once in the ledger;
+- all thirteen migrations exist once in the ledger;
 - database security and performance advisors show no new finding caused by
   this series.
 
@@ -169,7 +174,7 @@ Smoke the disabled state:
 
 - Website settings is not visible for an unapproved company;
 - all six public endpoints deny credentials for an unapproved company;
-- missing Redis, storage, queue, signing, encryption, or HMAC configuration
+- missing quota authority, storage, queue, signing, encryption, or HMAC configuration
   returns a safe unavailable response;
 - no response or log contains a credential, contact value, filename, storage
   key, scanner detail, SQL error, or stack trace.
@@ -281,7 +286,7 @@ node scripts/verify-external-api-load.mjs \
 The report is written under `docs/artifacts/` and records p50/p95/p99, error
 rate, route counts, page behavior, replay behavior, and fail-closed probes.
 Record read-only database query plans, SQS oldest-message age, DLQ depth, and
-Redis cache-hit telemetry beside it.
+quota-denial and database-window telemetry beside it.
 
 Run the canonical storage/lifecycle/privacy scenario after the paid staging
 stack and isolated acceptance driver exist:
@@ -326,7 +331,7 @@ tag manager, or browser analytics.
 Page the operator and disable the pilot immediately for any of:
 
 - cross-company read/write or authorization ambiguity;
-- a protected route serving while Redis or authorization state is unavailable;
+- a protected route serving while quota or authorization state is unavailable;
 - a quarantined/rejected object delivered by CloudFront;
 - one idempotency replay creating a second lead, customer, event, or upload;
 - a privacy erasure leaving any object version, derivative, relationship,
@@ -406,7 +411,7 @@ All must pass after enablement:
 9. Metrics return definition version, numerator, denominator, coverage, and
    suppression state.
 10. A normal analytics credential is denied financial metrics.
-11. Revocation denies the next request, including a would-be cache hit.
+11. Revocation denies the next request; the pilot has no shared server cache.
 12. Disablement denies every company credential.
 
 ## Current acceptance state
@@ -414,7 +419,8 @@ All must pass after enablement:
 - Code, migrations, generated OpenAPI, and local contracts: prepared.
 - Disposable Supabase branch schema/SQL verification: in progress.
 - Paid AWS/GuardDuty/SQS/CloudFront staging acceptance: not run; not approved.
-- Dedicated production Redis failure proof: not run; not approved.
+- Supabase quota failure/concurrency proof: implemented; disposable database
+  execution remains required before production approval.
 - Expected/high staging load reports: not run; staging services not approved.
 - Canonical 12-step scenario: encoded, but a skip is expected until the paid
   staging stack and isolated acceptance driver are approved.

@@ -2,6 +2,14 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+> **Superseded infrastructure decision — 2026-07-30:** References below to a
+> dedicated Upstash/Redis limiter and private analytics cache are retained as
+> historical planning context. The approved pilot implementation is the
+> zero-extra-service revision in
+> `docs/plans/2026-07-30-external-api-zero-cost-norcut-pilot.md`: Vercel WAF
+> provides coarse edge protection, Supabase provides exact atomic quotas, and
+> server-side private analytics caching is bypassed.
+
 **Goal:** Ship a company-scoped `/v1` API that accepts one original website inquiry with private photos/files, creates the correct customer/contact and a fresh OPS lead exactly once, and exposes a company-wide pseudonymous lead feed plus versioned analytics metrics for server-rendered website dashboards.
 
 **Architecture:** Public `/v1` route handlers ignore browser cookies and terminate at a dedicated external-API boundary. They authenticate reveal-once credentials, apply a durable fail-closed limiter, validate strict Zod contracts, and call fixed service-role database commands that revalidate company, principal epoch, scope, and source inside each transaction. Original files upload directly to a versioned private S3 quarantine bucket through create-only conditional capabilities, pass structural and malware inspection, and are delivered only through short-lived CloudFront URLs from a cookieless origin. Intake creates the customer/contact, fresh lead, immutable submission, upload claims, public lead handle, source projection, assignment event, and post-commit outbox atomically. Analytics reads an append-only privacy-safe projection and versioned metric functions; it never serializes raw opportunity, customer, message, or file rows.

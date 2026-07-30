@@ -1,12 +1,42 @@
 # External API Cost and Service Gate
 
-> **NOT APPROVED — DO NOT PROVISION**
+> **CURRENT PILOT DECISION — NO DEDICATED REDIS/UPSTASH**
 
 **Recorded:** 2026-07-24
 **Scope:** External Lead Intake and Analytics API
 **Pricing currency:** USD
-**Approval state:** no AWS, CloudFront, GuardDuty, SQS, EventBridge, Upstash,
-Vercel tier, migration, deployment, or pilot change is authorized
+**Approval state:** Jackson confirmed the dedicated AWS intake stack was
+successfully provisioned on 2026-07-29. No Upstash purchase or Vercel tier
+upgrade is approved or required. Production Supabase migrations, production
+deployments, credential issuance, company enablement, and the Norcut pilot
+remain separately gated.
+
+## Approved zero-extra-service revision — 2026-07-30
+
+The pilot uses the services already in the OPS operating boundary:
+
+- Vercel WAF provides a coarse `/v1/*` edge rate rule. [Rate limiting is
+  available on every Vercel plan](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting);
+  the current public allowance includes the first one million allowed requests
+  per month, then lists `$0.50` per million in `iad1`.
+- The existing OPS Supabase project stores exact fixed-window counters for
+  HMAC-derived network, credential, and company identities. One guarded RPC
+  atomically consumes each request's quota group and fails closed on database,
+  timeout, or response-validation failure.
+- Analytics performs no shared server-side cache read/write during the pilot.
+  It reauthorizes and reads the privacy-safe projection directly.
+- Expired quota rows are removed in bounded batches by the existing
+  twenty-minute external API maintenance job.
+
+This removes the modeled Upstash `~$202/month` production recommendation and
+sets the dedicated limiter/cache service cost to `$0`. Supabase quota traffic
+uses the existing project and is pay-as-used within its current plan; Vercel
+WAF is expected to remain within its included allowance at pilot volume.
+AWS storage, scanning, request, queue, and delivery remain metered variable
+costs, so the existing AWS budget/stop thresholds still apply.
+
+The detailed July 24 analysis below is retained as a historical pricing
+snapshot. Its Upstash recommendation is superseded and must not be followed.
 
 This is a planning estimate, not an account quote. Application code and
 review-only infrastructure definitions may be prepared after Task 0. No paid

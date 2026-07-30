@@ -6,6 +6,11 @@
 
 **Scope:** OPS Web backend, integration settings, developer contract, and required OPS Software Bible updates
 
+**Implementation revision — 2026-07-30:** The locked requirement remains a
+durable, shared, fail-closed limiter. For the Norcut pilot it is implemented as
+coarse Vercel WAF protection plus exact atomic Supabase quota windows. No
+dedicated Redis/Upstash service or shared private analytics cache is used.
+
 ## 1. Outcome
 
 OPS will expose a narrow, versioned external API that lets a trades business connect its website to OPS without giving the website broad access to the company's account.
