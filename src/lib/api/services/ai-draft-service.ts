@@ -47,8 +47,9 @@ import { checkPermissionById } from "@/lib/supabase/check-permission";
 import {
   buildConversationContextPack,
   canRetrieveConversationContext,
+  CONVERSATION_CONTEXT_TOOL,
+  parseConversationRetrievalRequest,
   retrieveConversationContext,
-  type ConversationContextRetrievalRequest,
 } from "./conversation-context-pack";
 import type { TrustedEmailMessage } from "./conversation-fact-fold";
 
@@ -76,79 +77,6 @@ function getOpenAI() {
 export const LIFECYCLE_LEARNING_ENABLED = true;
 
 const DRAFT_CONVERSATION_PAGE_SIZE = 200;
-
-const CONVERSATION_CONTEXT_TOOL: OpenAI.Chat.ChatCompletionTool = {
-  type: "function",
-  function: {
-    name: "retrieve_conversation_context",
-    description:
-      "Retrieve a small, authorized slice of older conversation evidence when the context manifest is clipped and the draft requires a specific fact.",
-    parameters: {
-      type: "object",
-      additionalProperties: false,
-      properties: {
-        factKind: {
-          type: ["string", "null"],
-          enum: ["price", "scope", "schedule", "objection", "next_action", null],
-        },
-        query: { type: ["string", "null"], maxLength: 300 },
-        before: { type: ["string", "null"], maxLength: 40 },
-        after: { type: ["string", "null"], maxLength: 40 },
-        evidenceKeys: {
-          type: ["array", "null"],
-          maxItems: 10,
-          items: { type: "string", maxLength: 200 },
-        },
-      },
-    },
-  },
-};
-
-function parseConversationRetrievalRequest(
-  value: string
-): ConversationContextRetrievalRequest | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    return null;
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return null;
-  }
-  const record = parsed as Record<string, unknown>;
-  const factKinds = new Set([
-    "price",
-    "scope",
-    "schedule",
-    "objection",
-    "next_action",
-  ]);
-  const text = (key: string, max: number) => {
-    const candidate = record[key];
-    return typeof candidate === "string"
-      ? candidate.trim().slice(0, max) || null
-      : null;
-  };
-  const factKind =
-    typeof record.factKind === "string" && factKinds.has(record.factKind)
-      ? (record.factKind as ConversationContextRetrievalRequest["factKind"])
-      : null;
-  const evidenceKeys = Array.isArray(record.evidenceKeys)
-    ? record.evidenceKeys
-        .filter((entry): entry is string => typeof entry === "string")
-        .map((entry) => entry.trim().slice(0, 200))
-        .filter(Boolean)
-        .slice(0, 10)
-    : null;
-  return {
-    factKind,
-    query: text("query", 300),
-    before: text("before", 40),
-    after: text("after", 40),
-    evidenceKeys,
-  };
-}
 
 /**
  * Serialize customer/business reference data without allowing its content to

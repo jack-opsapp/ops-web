@@ -1,4 +1,5 @@
 import { getEncoding, type Tiktoken } from "js-tiktoken";
+import type OpenAI from "openai";
 
 import {
   buildConversationFold,
@@ -11,6 +12,33 @@ import {
 export const MAX_CONVERSATION_CONTEXT_RETRIEVAL_ROUNDS = 2;
 export const DEFAULT_CONVERSATION_CONTEXT_TOKEN_BUDGET = 8_000;
 export const DEFAULT_CONVERSATION_RETRIEVAL_TOKEN_BUDGET = 2_500;
+
+export const CONVERSATION_CONTEXT_TOOL: OpenAI.Chat.ChatCompletionTool = {
+  type: "function",
+  function: {
+    name: "retrieve_conversation_context",
+    description:
+      "Retrieve a small, authorized slice of older conversation evidence when the context manifest is clipped and a specific fact is required.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        factKind: {
+          type: ["string", "null"],
+          enum: ["price", "scope", "schedule", "objection", "next_action", null],
+        },
+        query: { type: ["string", "null"], maxLength: 300 },
+        before: { type: ["string", "null"], maxLength: 40 },
+        after: { type: ["string", "null"], maxLength: 40 },
+        evidenceKeys: {
+          type: ["array", "null"],
+          maxItems: 10,
+          items: { type: "string", maxLength: 200 },
+        },
+      },
+    },
+  },
+};
 
 const DEFAULT_MAX_CHUNK_TOKENS = 600;
 const MANIFEST_TOKEN_RESERVE = 180;
@@ -89,6 +117,52 @@ export interface ConversationContextRetrievalResult {
   chunks: ConversationContextChunk[];
   tokenCount: number;
   unresolved: boolean;
+}
+
+export function parseConversationRetrievalRequest(
+  value: string
+): ConversationContextRetrievalRequest | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  const record = parsed as Record<string, unknown>;
+  const factKinds = new Set([
+    "price",
+    "scope",
+    "schedule",
+    "objection",
+    "next_action",
+  ]);
+  const text = (key: string, max: number) => {
+    const candidate = record[key];
+    return typeof candidate === "string"
+      ? candidate.trim().slice(0, max) || null
+      : null;
+  };
+  const factKind =
+    typeof record.factKind === "string" && factKinds.has(record.factKind)
+      ? (record.factKind as ConversationContextRetrievalRequest["factKind"])
+      : null;
+  const evidenceKeys = Array.isArray(record.evidenceKeys)
+    ? record.evidenceKeys
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim().slice(0, 200))
+        .filter(Boolean)
+        .slice(0, 10)
+    : null;
+  return {
+    factKind,
+    query: text("query", 300),
+    before: text("before", 40),
+    after: text("after", 40),
+    evidenceKeys,
+  };
 }
 
 function splitOversizedFragment(
