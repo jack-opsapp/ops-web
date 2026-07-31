@@ -1,8 +1,11 @@
 # Public External API Reference
 
-**Date:** 2026-07-30  
-**Status:** Product and engineering confirmed for implementation  
-**Surface:** OPS Web  
+**Date:** 2026-07-30
+
+**Status:** Product and engineering confirmed for implementation
+
+**Surface:** OPS Web
+
 **Public route:** `/developers/api`
 
 ## Intent
