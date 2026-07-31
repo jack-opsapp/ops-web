@@ -540,6 +540,8 @@
   "modal.writeback.learnMore": "más información sobre sincronización →",
 
   "toast.archivedTactic": "SYS :: HILO ARCHIVADO",
+  "toast.archivePartialTactic": "SYS :: ARCHIVADO PARCIAL",
+  "toast.restorePartialTactic": "SYS :: RESTAURACIÓN PARCIAL",
   "toast.snoozedTactic": "SYS :: POSPUESTO HASTA {time}",
   "toast.recategorizedTactic": "SYS :: MOVIDO A {category}",
   "toast.dismissedTactic": "SYS :: MARCADO SIN RESPUESTA NECESARIA",
