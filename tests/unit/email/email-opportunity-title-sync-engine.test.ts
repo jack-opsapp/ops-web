@@ -1516,6 +1516,18 @@ function makeSupabaseDouble(state: SupabaseState) {
           error: null,
         };
       }
+      if (name === "reconcile_manual_outbound_follow_up_cycle_as_system") {
+        state.rpcCalls?.push({ name, params });
+        return {
+          data: [
+            {
+              correspondence_event_id: params.p_correspondence_event_id,
+              opportunity_id: params.p_opportunity_id,
+            },
+          ],
+          error: null,
+        };
+      }
       state.rpcCalls?.push({ name, params });
       if (
         name === "apply_email_opportunity_stage_transition" &&
