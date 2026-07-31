@@ -8813,6 +8813,70 @@ export type Database = {
           },
         ]
       }
+      lead_intake_correction_runs: {
+        Row: {
+          actor_user_id: string
+          applied_at: string
+          company_id: string
+          correction_key: string
+          entry_a_sha256: string
+          entry_b_sha256: string
+          id: string
+          input_spec: Json
+          manifest_sha256: string
+          result: Json
+          source_opportunity_id: string
+        }
+        Insert: {
+          actor_user_id: string
+          applied_at?: string
+          company_id: string
+          correction_key: string
+          entry_a_sha256: string
+          entry_b_sha256: string
+          id?: string
+          input_spec: Json
+          manifest_sha256: string
+          result: Json
+          source_opportunity_id: string
+        }
+        Update: {
+          actor_user_id?: string
+          applied_at?: string
+          company_id?: string
+          correction_key?: string
+          entry_a_sha256?: string
+          entry_b_sha256?: string
+          id?: string
+          input_spec?: Json
+          manifest_sha256?: string
+          result?: Json
+          source_opportunity_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_intake_correction_runs_actor_company_fkey"
+            columns: ["company_id", "actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "lead_intake_correction_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_intake_correction_runs_source_company_fkey"
+            columns: ["company_id", "source_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["company_id", "id"]
+          },
+        ]
+      }
       lead_lifecycle_settings: {
         Row: {
           auto_archive_enabled: boolean
@@ -17019,6 +17083,89 @@ export type Database = {
           },
         ]
       }
+      user_email_aliases: {
+        Row: {
+          company_id: string
+          created_at: string
+          email: string
+          evidence: Json
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: string
+          status: string
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          email: string
+          evidence?: Json
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          email?: string
+          evidence?: Json
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_email_aliases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_email_aliases_reviewer_company_fkey"
+            columns: ["company_id", "reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "user_email_aliases_user_company_fkey"
+            columns: ["company_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "user_email_aliases_verifier_company_fkey"
+            columns: ["company_id", "verified_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+        ]
+      }
       user_permission_overrides: {
         Row: {
           company_id: string
@@ -17875,6 +18022,18 @@ export type Database = {
           outcome: string
           prior_stage: string
         }[]
+      }
+      apply_staff_authored_false_lead_correction_guarded: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_correction_key: string
+          p_entry_a_sha256: string
+          p_entry_b_sha256: string
+          p_manifest_sha256: string
+          p_spec: Json
+        }
+        Returns: Json
       }
       acquire_email_connection_sync_lock_as_system: {
         Args: { p_connection_id: string; p_lease_seconds?: number }
@@ -19266,6 +19425,23 @@ export type Database = {
           stage_manually_set: boolean
         }[]
       }
+      apply_email_opportunity_declined_disposition: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_evidence?: Json
+          p_expected_assignment_version: number
+          p_expected_stage: string
+          p_opportunity_id: string
+          p_provider_message_id: string
+        }
+        Returns: {
+          changed: boolean
+          disposition_id: string | null
+          guard_reason: string | null
+          stage: string
+        }[]
+      }
       apply_email_opportunity_deferred_disposition: {
         Args: {
           p_company_id: string
@@ -19284,6 +19460,25 @@ export type Database = {
           next_follow_up_at: string | null
           stage: string
         }[]
+      }
+      record_staff_email_alias_candidate_as_system: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_email: string
+          p_evidence: Json
+          p_provider_message_id: string
+          p_provider_thread_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      review_user_email_alias: {
+        Args: {
+          p_alias_id: string
+          p_status: string
+        }
+        Returns: Database["public"]["Tables"]["user_email_aliases"]["Row"]
       }
       increment_signup_count: {
         Args: { variant_id: string }

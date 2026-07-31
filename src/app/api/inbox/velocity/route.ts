@@ -30,14 +30,17 @@ function parseScope(raw: string | null): InboxScope {
   return raw === "company" ? "company" : "own";
 }
 
-function applyAuthorizationFilter<
-  T extends {
-    in(column: string, values: string[]): T;
-    is(column: string, value: null): T;
-    or(filter: string): T;
-  },
->(query: T, filter: EmailThreadListAuthorizationFilter): T {
-  let authorized = query;
+interface AuthorizationFilterQuery {
+  in(column: string, values: string[]): AuthorizationFilterQuery;
+  is(column: string, value: null): AuthorizationFilterQuery;
+  or(filter: string): AuthorizationFilterQuery;
+}
+
+function applyAuthorizationFilter<T>(
+  query: T,
+  filter: EmailThreadListAuthorizationFilter
+): T {
+  let authorized = query as unknown as AuthorizationFilterQuery;
   if (filter.connectionIds) {
     authorized = authorized.in("connection_id", filter.connectionIds);
   }
@@ -45,7 +48,7 @@ function applyAuthorizationFilter<
     authorized = authorized.is("opportunity_id", null);
   }
   if (filter.or) authorized = authorized.or(filter.or);
-  return authorized;
+  return authorized as unknown as T;
 }
 
 function emptyVelocity() {

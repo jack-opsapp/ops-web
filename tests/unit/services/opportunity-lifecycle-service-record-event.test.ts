@@ -8,10 +8,17 @@
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { resetStaleMock } = vi.hoisted(() => ({ resetStaleMock: vi.fn() }));
+const { reconcileManualOutboundMock, resetStaleMock } = vi.hoisted(() => ({
+  reconcileManualOutboundMock: vi.fn(),
+  resetStaleMock: vi.fn(),
+}));
 
 vi.mock("@/lib/api/services/opportunity-lifecycle-action-service", () => ({
   resetStaleLifecycleAfterMeaningfulInbound: resetStaleMock,
+}));
+
+vi.mock("@/lib/api/services/manual-outbound-follow-up-cycle-service", () => ({
+  reconcileManualOutboundFollowUpCycle: reconcileManualOutboundMock,
 }));
 
 import {
@@ -72,6 +79,7 @@ function buildInput(
 beforeEach(() => {
   vi.clearAllMocks();
   resetStaleMock.mockResolvedValue({ applied: true });
+  reconcileManualOutboundMock.mockResolvedValue(undefined);
 });
 
 describe("OpportunityLifecycleService.recordCorrespondenceEvent", () => {
@@ -194,7 +202,9 @@ describe("OpportunityLifecycleService.recordCorrespondenceEvent", () => {
     });
 
     await expect(
-      OpportunityLifecycleService.recordCorrespondenceEvent(buildInput(supabase))
+      OpportunityLifecycleService.recordCorrespondenceEvent(
+        buildInput(supabase)
+      )
     ).rejects.toThrow(/Correspondence event insert failed/);
     expect(resetStaleMock).not.toHaveBeenCalled();
   });
@@ -219,5 +229,44 @@ describe("OpportunityLifecycleService.recordCorrespondenceEvent", () => {
 
     expect(result).toEqual({ created: false, reason: "missing_opportunity" });
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("idempotently satisfies a cycle only for a meaningful manual OPS outbound", async () => {
+    const { supabase } = makeSupabase({
+      data: [
+        {
+          created: true,
+          event_id: "evt-manual-outbound",
+          correspondence_count: 3,
+          inbound_count: 1,
+          outbound_count: 2,
+          stage: "quoted",
+          stage_manually_set: false,
+          assignment_version: 1,
+          last_inbound_at: "2026-07-20T10:00:00Z",
+          last_outbound_at: "2026-07-29T10:00:00Z",
+          last_message_direction: "out",
+        },
+      ],
+      error: null,
+    });
+
+    await OpportunityLifecycleService.recordCorrespondenceEvent(
+      buildInput(supabase, {
+        direction: "outbound",
+        source: "sync_activity",
+        occurredAt: new Date("2026-07-29T10:00:00Z"),
+        fromEmail: "ops@myco.com",
+        toEmails: ["jane@customer.com"],
+        connectionEmail: "ops@myco.com",
+      })
+    );
+
+    expect(reconcileManualOutboundMock).toHaveBeenCalledWith({
+      supabase,
+      companyId: "co-1",
+      opportunityId: "opp-1",
+      correspondenceEventId: "evt-manual-outbound",
+    });
   });
 });

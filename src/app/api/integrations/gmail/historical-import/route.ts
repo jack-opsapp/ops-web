@@ -37,13 +37,17 @@ import {
   applyInboundEffectiveSenderIdentity,
   buildLeadRoutingIdentity,
   canonicalizeProviderThreadId,
-  resolvePersistedEmailDirection,
+  ingestionOperatorIdentityFromAuthoritative,
+  quarantinePendingStaffAlias,
+  resolvePersistedEmailAuthorship,
+  type IngestionOperatorIdentity,
 } from "@/lib/email/email-ingestion-routing";
+import { fetchOperatorIdentity } from "@/lib/api/services/conversation-state/operator-identity";
+import { persistStaffEmailAliasCandidate } from "@/lib/email/staff-email-alias";
 import { gmailAuthenticatedFromDomains } from "@/lib/email/provider-authentication";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import {
   htmlToPlainText,
-  isCommonEmailDomain,
   normalizeEmailAddress,
 } from "@/lib/utils/email-parsing";
 import {
@@ -406,37 +410,22 @@ async function postHistoricalImport(
       conn.sync_filters && typeof conn.sync_filters === "object"
         ? conn.sync_filters
         : DEFAULT_SYNC_FILTERS;
-    const { data: companyUsers, error: companyUsersError } = await supabase
-      .from("users")
-      .select("email")
-      .eq("company_id", companyId);
-    if (companyUsersError) {
-      throw new Error(
-        `Failed to load operator email identities: ${companyUsersError.message}`
-      );
-    }
-    const operatorEmailAddresses = Array.from(
-      new Set(
-        [
-          conn.email,
-          ...(companyUsers ?? [])
-            .map((user) => (typeof user.email === "string" ? user.email : ""))
-            .filter(Boolean),
-        ]
-          .map(normalizeEmailAddress)
-          .filter(Boolean)
-      )
-    );
-    const operatorDomains = Array.from(
-      new Set(
-        [...operatorEmailAddresses.map((email) => email.split("@")[1] ?? "")]
-          .map((domain) => domain.trim().toLowerCase())
-          .filter(
-            (domain): domain is string =>
-              Boolean(domain) && !isCommonEmailDomain(domain)
-          )
-      )
-    );
+    const authoritativeOperator = await fetchOperatorIdentity(companyId, {
+      email: conn.email,
+      syncFilters,
+    });
+    const operatorEmailAddresses = [...authoritativeOperator.emails];
+    const operatorDomains = [...authoritativeOperator.domains];
+    const configuredRouting = syncFilters as unknown as {
+      teamForwarders?: string[];
+      knownPlatformSenders?: string[];
+    };
+    const ingestionOperator = ingestionOperatorIdentityFromAuthoritative({
+      connectionEmail: conn.email,
+      operator: authoritativeOperator,
+      teamForwarders: configuredRouting.teamForwarders ?? [],
+      knownPlatformSenders: configuredRouting.knownPlatformSenders ?? [],
+    });
 
     // Create import job record
     const { data: job, error: jobError } = await supabase
@@ -545,6 +534,7 @@ async function postHistoricalImport(
             conn.email,
             operatorEmailAddresses,
             operatorDomains,
+            ingestionOperator,
             syncFilters,
             blocklist,
             supabase,
@@ -876,6 +866,7 @@ async function processMessage(
   connectionEmail: string,
   operatorEmailAddresses: string[],
   operatorDomains: string[],
+  ingestionOperator: IngestionOperatorIdentity,
   syncFilters: GmailSyncFilters,
   blocklist: { domains: Set<string>; keywords: string[] },
   supabase: ReturnType<typeof requireSupabase>,
@@ -994,21 +985,26 @@ async function processMessage(
     hasAttachments: false,
     sizeEstimate: 0,
   } satisfies NormalizedEmail;
-  const configuredRouting = syncFilters as unknown as {
-    teamForwarders?: string[];
-    knownPlatformSenders?: string[];
-  };
-  const ingestionOperator = {
-    connectionEmail,
-    companyDomains: operatorDomains,
-    userEmailAddresses: operatorEmailAddresses,
-    teamForwarders: configuredRouting.teamForwarders ?? [],
-    knownPlatformSenders: configuredRouting.knownPlatformSenders ?? [],
-  };
-  const direction = resolvePersistedEmailDirection(
+  const authorship = resolvePersistedEmailAuthorship(
     normalizedEmail,
     ingestionOperator
   );
+  if (authorship.staffAliasCandidate) {
+    await persistStaffEmailAliasCandidate({
+      supabase,
+      companyId,
+      connectionId,
+      providerThreadId,
+      providerMessageId,
+      candidate: authorship.staffAliasCandidate,
+    });
+    quarantinePendingStaffAlias(
+      ingestionOperator,
+      authorship.staffAliasCandidate
+    );
+  }
+  const direction = authorship.direction;
+  const staffAliasNeedsReview = authorship.staffAliasCandidate !== null;
   const inboundIdentity =
     direction === "inbound"
       ? applyInboundEffectiveSenderIdentity(normalizedEmail, ingestionOperator)
@@ -1209,8 +1205,10 @@ async function processMessage(
     const { error: activityMetadataError } = await supabase
       .from("activities")
       .update({
-        match_confidence: matchResult.confidence,
-        match_needs_review: matchResult.needsReview,
+        match_confidence: staffAliasNeedsReview
+          ? "staff_alias_pending"
+          : matchResult.confidence,
+        match_needs_review: staffAliasNeedsReview || matchResult.needsReview,
         suggested_client_id: matchResult.suggestedClientId,
       })
       .eq("id", activityId);
@@ -1266,7 +1264,7 @@ async function processMessage(
       matched:
         Boolean(existingActivity.opportunity_id) ||
         matchResult.confidence !== "unmatched",
-      needsReview: matchResult.needsReview,
+      needsReview: staffAliasNeedsReview || matchResult.needsReview,
       leadCreated: false,
     };
   }
@@ -1388,7 +1386,7 @@ async function processMessage(
 
   return {
     matched: isMatched,
-    needsReview: matchResult.needsReview,
+    needsReview: staffAliasNeedsReview || matchResult.needsReview,
     leadCreated,
   };
 }

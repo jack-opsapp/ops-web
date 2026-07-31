@@ -46,8 +46,12 @@ import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
 import {
   applyInboundEffectiveSenderIdentity,
   buildLeadRoutingIdentity,
-  resolvePersistedEmailDirection,
+  ingestionOperatorIdentityFromAuthoritative,
+  quarantinePendingStaffAlias,
+  resolvePersistedEmailAuthorship,
 } from "@/lib/email/email-ingestion-routing";
+import { fetchOperatorIdentity } from "@/lib/api/services/conversation-state/operator-identity";
+import { persistStaffEmailAliasCandidate } from "@/lib/email/staff-email-alias";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { AnalyzedLead } from "@/lib/types/email-import";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
@@ -520,6 +524,16 @@ async function runPhaseA(
         .toLowerCase();
     if (fullName) employeeNameSet.add(fullName);
   }
+  const authoritativeOperator = await fetchOperatorIdentity(
+    companyId,
+    connection
+  );
+  for (const email of authoritativeOperator.emails) {
+    employeeEmailSet.add(email);
+  }
+  for (const domain of authoritativeOperator.domains) {
+    companyDomainSet.add(domain);
+  }
 
   // Fetch company info (needed for domain matching and AI context)
   const { data: company, error: companyError } = await supabase
@@ -585,21 +599,49 @@ async function runPhaseA(
   );
 
   // Also collect all estimate-pattern thread IDs from the emailSourceMap directly
-  for (const email of validEmails) {
+  const validEmailsInAuthorshipOrder = [...validEmails].sort((left, right) => {
+    const byDate = left.date.getTime() - right.date.getTime();
+    return byDate !== 0 ? byDate : left.id.localeCompare(right.id);
+  });
+  for (const email of validEmailsInAuthorshipOrder) {
     if (detection.emailSourceMap[email.id] === "estimate_pattern") {
       estimateThreadIds.add(email.threadId);
     }
   }
 
-  const ingestionOperator = {
-    connectionEmail: connection.email,
-    companyDomains: [...companyDomainSet],
-    userEmailAddresses: [...employeeEmailSet],
+  const ingestionOperator = ingestionOperatorIdentityFromAuthoritative({
+    connectionEmail: ownerEmailLower || connection.email,
+    operator: authoritativeOperator,
     teamForwarders: detection.teamForwarders,
     knownPlatformSenders: [],
-  };
+    additionalCompanyDomains: [...companyDomainSet],
+  });
+  const persistedDirections = new Map<string, "inbound" | "outbound">();
+  for (const email of validEmailsInAuthorshipOrder) {
+    if (persistedDirections.has(email.id)) continue;
+    const authorship = resolvePersistedEmailAuthorship(
+      email,
+      ingestionOperator
+    );
+    if (authorship.staffAliasCandidate) {
+      await persistStaffEmailAliasCandidate({
+        supabase,
+        companyId,
+        connectionId,
+        providerThreadId: email.threadId,
+        providerMessageId: email.id,
+        candidate: authorship.staffAliasCandidate,
+      });
+      quarantinePendingStaffAlias(
+        ingestionOperator,
+        authorship.staffAliasCandidate
+      );
+    }
+    persistedDirections.set(email.id, authorship.direction);
+  }
   const persistedDirection = (email: NormalizedEmail) =>
-    resolvePersistedEmailDirection(email, ingestionOperator);
+    persistedDirections.get(email.id) ??
+    resolvePersistedEmailAuthorship(email, ingestionOperator).direction;
 
   // Ordinary conversations retain provider-thread grouping. Known contact-form
   // notifications are message-scoped because Gmail/platform forwarders may

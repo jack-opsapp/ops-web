@@ -1,4 +1,5 @@
 import type { AnalyzedLead } from "@/lib/types/email-import";
+import { normalizePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
 
 const STAGE_RANK: Record<string, number> = {
   new_lead: 10,
@@ -31,19 +32,7 @@ function normalizePhone(value: string | null | undefined): string | null {
 }
 
 function normalizeAddress(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const normalized = value
-    .toLowerCase()
-    .replace(/\b(crescent|cres)\b/g, "cres")
-    .replace(/\b(street|st)\b/g, "st")
-    .replace(/\b(avenue|ave)\b/g, "ave")
-    .replace(/\b(road|rd)\b/g, "rd")
-    .replace(/\b(lane|ln)\b/g, "lane")
-    .replace(/\b(drive|dr)\b/g, "dr")
-    .replace(/\b(court|ct)\b/g, "ct")
-    .replace(/\b(place|pl)\b/g, "pl")
-    .replace(/[^a-z0-9]/g, "");
-  return normalized.length >= 8 ? normalized : null;
+  return normalizePropertyAddressIdentity(value);
 }
 
 function normalizeName(value: string | null | undefined): string | null {

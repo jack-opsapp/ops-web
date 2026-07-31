@@ -261,11 +261,9 @@ function makeSupabaseDouble(state: SupabaseState) {
 
     then<TResult1 = unknown, TResult2 = never>(
       onfulfilled?:
-        | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
-        | null,
+        ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
       onrejected?:
-        | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
-        | null
+        ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
     ) {
       return Promise.resolve(this.result()).then(onfulfilled, onrejected);
     }
@@ -357,6 +355,17 @@ function makeSupabaseDouble(state: SupabaseState) {
         }
         return {
           data: [{ created: true, event_id: "event-1" }],
+          error: null,
+        };
+      }
+      if (name === "reconcile_manual_outbound_follow_up_cycle_as_system") {
+        return {
+          data: [
+            {
+              correspondence_event_id: params.p_correspondence_event_id,
+              opportunity_id: params.p_opportunity_id,
+            },
+          ],
           error: null,
         };
       }

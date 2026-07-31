@@ -244,6 +244,74 @@ describe("resolveContact — phone resolution", () => {
 // ── (1)+(3) address: operator exclusion + bounded collection ─────────────────
 
 describe("resolveContact — address resolution", () => {
+  it.each([
+    "Victoria",
+    "Langford",
+    "Esquimalt",
+    "Tillicum",
+    "Henderson",
+    "North Saanich",
+    "Saanich Cedar Hill area",
+  ])(
+    "does not promote locality-only contact-form metadata to a job address: %s",
+    (locality) => {
+      const result = resolveContact({
+        messages: [customerInbound()],
+        operator: operator(),
+        contactFormSubmitter: {
+          name: "Jane Doe",
+          email: "jane.doe@hotmail.com",
+          address: locality,
+        },
+      });
+
+      expect(result.address).toBeNull();
+      expect(result.provenance.some((p) => p.field === "address")).toBe(false);
+    }
+  );
+
+  it("does not promote a locality-only forwarded form label to a job address", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          cleanBody: [
+            "Name: Paul Holmes",
+            "Location: Victoria",
+            "Message: New deck and stair railings",
+          ].join("\n"),
+          rawBody: "",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.address).toBeNull();
+    expect(result.provenance.some((p) => p.field === "address")).toBe(false);
+  });
+
+  it.each([
+    "Unit 4, 123 Main Street, Victoria BC",
+    "RR 2 Site 4 Box 8, North Saanich BC",
+    "PID 009-123-456",
+  ])("preserves a qualified property-level address: %s", (propertyAddress) => {
+    const result = resolveContact({
+      messages: [customerInbound()],
+      operator: operator(),
+      contactFormSubmitter: {
+        name: "Jane Doe",
+        email: "jane.doe@hotmail.com",
+        address: propertyAddress,
+      },
+    });
+
+    expect(result.address).toBe(propertyAddress);
+    expect(
+      result.provenance.some(
+        (p) => p.field === "address" && p.source === "contact_form"
+      )
+    ).toBe(true);
+  });
+
   it("collects a bounded customer address from a contact-form block, stopping at the next label", () => {
     const result = resolveContact({
       messages: [

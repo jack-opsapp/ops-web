@@ -8,6 +8,7 @@ import {
   validateProviderEmailIds,
 } from "@/lib/email/provider-email-ids";
 import { resetStaleLifecycleAfterMeaningfulInbound } from "./opportunity-lifecycle-action-service";
+import { reconcileManualOutboundFollowUpCycle } from "./manual-outbound-follow-up-cycle-service";
 
 interface LifecycleSupabaseLike {
   // New P4 tables are not present in generated Supabase types until the schema
@@ -114,8 +115,7 @@ async function updateLifecycleStateAfterMeaningfulEvent(
 
   const currentAt = normalizedText(
     (current as Record<string, unknown> | null)?.last_meaningful_at as
-      | string
-      | null
+      string | null
   );
   if (currentAt && new Date(currentAt) > new Date(occurredAt)) return;
 
@@ -217,7 +217,8 @@ export const OpportunityLifecycleService = {
         p_from_email: input.fromEmail ?? null,
         p_to_emails: asStringArray(input.toEmails),
         p_cc_emails: asStringArray(input.ccEmails),
-        p_apply_opportunity_projection: input.applyOpportunityProjection ?? false,
+        p_apply_opportunity_projection:
+          input.applyOpportunityProjection ?? false,
       }
     );
 
@@ -246,9 +247,7 @@ export const OpportunityLifecycleService = {
     }
 
     const row = (Array.isArray(data) ? data[0] : data) as
-      | { created?: boolean | null; event_id?: string | null }
-      | null
-      | undefined;
+      { created?: boolean | null; event_id?: string | null } | null | undefined;
     if (!row || typeof row.created !== "boolean") {
       console.error("[lead-lifecycle] correspondence event insert failed", {
         companyId: input.companyId,
@@ -271,6 +270,20 @@ export const OpportunityLifecycleService = {
       classification,
       eventId
     );
+    if (
+      eventId &&
+      input.source === "sync_activity" &&
+      input.direction === "outbound" &&
+      classification.partyRole === "ops" &&
+      classification.isMeaningful
+    ) {
+      await reconcileManualOutboundFollowUpCycle({
+        supabase: input.supabase,
+        companyId: input.companyId,
+        opportunityId: input.opportunityId,
+        correspondenceEventId: eventId,
+      });
+    }
 
     if (!row.created) {
       return {

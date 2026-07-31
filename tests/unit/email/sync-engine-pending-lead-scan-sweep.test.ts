@@ -92,7 +92,7 @@ describe("sync-engine pending-lead-scan drain sweep — replays the live path", 
     // evaluateStagesWithSummary's provider.fetchThread + runSync's direction
     // partition) before deterministic ingestion.
     expect(methodBody).toContain("provider.fetchThread(");
-    expect(methodBody).toContain("resolveStableDiscoveredEmail(");
+    expect(methodBody).toContain("resolveStableDiscoveredEmails(");
     expect(methodBody).toContain("latestInbound.existingActivity");
     expect(methodBody).toContain("processInboundEmail(");
     // The classify→promote step is the SAME implementation runSync Step 5 uses:

@@ -179,6 +179,67 @@ describe("import-lead-dedup", () => {
     expect(result[0].duplicateGroupId).toBe("thread-primary,thread-secondary");
   });
 
+  it.each(["Victoria", "Langford", "Esquimalt, BC", "Saanich Cedar Hill area"])(
+    "never merges separate leads through locality-only metadata: %s",
+    (address) => {
+      const result = deduplicateAnalyzedLeads([
+        lead({
+          id: "paul",
+          threadId: "thread-paul",
+          client: {
+            name: "Paul Holmes",
+            email: "pwholmes64@icloud.com",
+            phone: "2508883674",
+            description: "New deck and railings",
+            address,
+          },
+        }),
+        lead({
+          id: "sandra",
+          threadId: "thread-sandra",
+          client: {
+            name: "Paul Holmes",
+            email: "sdunford58@gmail.com",
+            phone: "2508886537",
+            description: "Vinyl deck quote",
+            address,
+          },
+        }),
+      ]);
+
+      expect(result).toHaveLength(2);
+    }
+  );
+
+  it("keeps different units at one civic address separate", () => {
+    const result = deduplicateAnalyzedLeads([
+      lead({
+        id: "unit-2",
+        threadId: "thread-unit-2",
+        client: {
+          name: "Morgan Lee",
+          email: "unit2@example.com",
+          phone: null,
+          description: "Unit 2 deck",
+          address: "123 Main St Apt 2",
+        },
+      }),
+      lead({
+        id: "unit-3",
+        threadId: "thread-unit-3",
+        client: {
+          name: "Morgan Lee",
+          email: "unit3@example.com",
+          phone: null,
+          description: "Unit 3 deck",
+          address: "123 Main St Apt 3",
+        },
+      }),
+    ]);
+
+    expect(result).toHaveLength(2);
+  });
+
   it("does not collapse leads without an email into one duplicate group", () => {
     const result = deduplicateAnalyzedLeads([
       lead({

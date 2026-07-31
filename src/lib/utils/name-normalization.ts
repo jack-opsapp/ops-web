@@ -37,9 +37,9 @@ const UNIT_PATTERN =
 
 // Canonical token map for directionals + common street types. Each token folds
 // to one form so spelling variants ("W"/"West", "Ave"/"Avenue") compare equal.
-// Mirrors the CASE expression in `private.normalize_address` (won-conversion
-// migration 20260603020000) EXACTLY — keep the two in lockstep; the shared
-// vectors in tests/unit/name-normalization.test.ts guard the parity.
+// Canonical token vocabulary reused by the property-identity qualifier. This
+// helper alone does not qualify an address for matching; every identity caller
+// must use property-address-identity.ts.
 const ADDRESS_TOKEN_CANON: Record<string, string> = {
   // directionals
   w: "west",
@@ -64,16 +64,20 @@ const ADDRESS_TOKEN_CANON: Record<string, string> = {
   hwy: "highway",
   pl: "place",
   ct: "court",
+  cir: "circle",
   ln: "lane",
   ter: "terrace",
+  trl: "trail",
+  wy: "way",
   pkwy: "parkway",
   sq: "square",
 };
 
 /**
- * Normalize an address for comparison. Single source of truth shared with the
- * SQL `private.normalize_address` (the convert-time preflight + nightly
- * duplicate scan must agree — spec §6.1).
+ * Canonicalize address text. This is deliberately not an address-identity
+ * boundary: it accepts locality-only text and strips units. Relationship,
+ * duplicate, conversion, and project-match callers must use
+ * normalizePropertyAddressIdentity instead.
  *
  * 1. Lowercase, strip the unit/suite/apt designator and everything after it.
  * 2. Periods and commas become separators; whitespace collapses.
