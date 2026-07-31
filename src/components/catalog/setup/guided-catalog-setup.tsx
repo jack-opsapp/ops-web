@@ -1,8 +1,10 @@
 "use client";
 
 import {
+  Dispatch,
   FormEvent,
   KeyboardEvent,
+  SetStateAction,
   useCallback,
   useEffect,
   useMemo,
@@ -10,7 +12,15 @@ import {
   useState,
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Check, FileSpreadsheet, Loader2, Paperclip, Send } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  FileSpreadsheet,
+  Loader2,
+  Paperclip,
+  Send,
+} from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,6 +93,9 @@ interface GuidedCatalogSetupProps {
   onAddInventoryList: (sessionId: string, defaultLocation?: string) => void;
   className?: string;
 }
+
+const FLOATING_FOOTER_CHIP_CLASS =
+  "h-control-32 rounded-chip border border-glass-border bg-glass px-1 font-mono text-micro text-text-3 backdrop-blur-[var(--glass-blur)] backdrop-saturate-[var(--glass-saturate)] transition-colors ease-smooth hover:bg-surface-hover hover:text-text";
 
 function record(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -178,6 +191,8 @@ function QuestionInput({
   busy,
   locked,
   editingValue,
+  choices,
+  setChoices,
   onCancelEdit,
   onAnswer,
 }: {
@@ -185,17 +200,20 @@ function QuestionInput({
   busy: boolean;
   locked: boolean;
   editingValue: string | null;
+  choices: string[];
+  setChoices: Dispatch<SetStateAction<string[]>>;
   onCancelEdit: () => void;
   onAnswer: (answer: unknown) => Promise<boolean>;
 }) {
   const { t } = useDictionary("catalog-setup");
   const [value, setValue] = useState("");
-  const [choices, setChoices] = useState<string[]>([]);
+  const hasQuickAnswers =
+    question.answerKind === "boolean" || (question.options?.length ?? 0) > 0;
 
   useEffect(() => {
     setValue(editingValue ?? "");
     setChoices([]);
-  }, [editingValue, question.id]);
+  }, [editingValue, question.id, setChoices]);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -218,63 +236,8 @@ function QuestionInput({
     }
   };
 
-  const options =
-    question.answerKind === "boolean"
-      ? [
-          { label: t("guided.yes", "YES"), answer: true },
-          { label: t("guided.no", "NO"), answer: false },
-        ]
-      : (question.options?.map((option) => ({
-          label: option,
-          answer: option,
-        })) ?? []);
-
   return (
     <>
-      {options.length > 0 && !editingValue ? (
-        <div
-          className="scrollbar-hide flex max-h-8 flex-wrap gap-0.5 overflow-y-auto px-0.5 pb-0.5"
-          aria-label={t("guided.quickAnswers", "Quick answers")}
-        >
-          {options.map(({ label, answer }) => {
-            const selected =
-              question.answerKind === "multi_choice" &&
-              choices.includes(String(answer));
-            return (
-              <button
-                key={String(answer)}
-                type="button"
-                disabled={locked}
-                aria-pressed={
-                  question.answerKind === "multi_choice" ? selected : undefined
-                }
-                onClick={() => {
-                  if (question.answerKind !== "multi_choice") {
-                    void onAnswer(answer);
-                    return;
-                  }
-                  setChoices((current) =>
-                    selected
-                      ? current.filter((entry) => entry !== String(answer))
-                      : [...current, String(answer)]
-                  );
-                }}
-                className={cn(
-                  "inline-flex min-h-control-32 items-center gap-0.5 rounded-chip border px-1 font-cakemono text-cake-badge uppercase transition-colors ease-smooth disabled:pointer-events-none disabled:opacity-40",
-                  selected
-                    ? "border-ops-accent text-ops-accent"
-                    : "border-glass-border text-text-2 hover:bg-surface-hover hover:text-text"
-                )}
-              >
-                {selected ? (
-                  <Check aria-hidden className="h-icon-16 w-icon-16" />
-                ) : null}
-                {label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
       {editingValue ? (
         <div className="flex items-center justify-between gap-1 px-0.5 pb-0.5 font-mono text-micro text-text-3">
           <span>{t("guided.editing", "EDITING QUEUED MESSAGE")}</span>
@@ -287,7 +250,10 @@ function QuestionInput({
           </button>
         </div>
       ) : null}
-      <form onSubmit={submit} className="flex min-w-0 items-end gap-0.5">
+      <form
+        onSubmit={submit}
+        className="flex min-w-0 items-end gap-0.5 px-0.5 pb-0.5"
+      >
         <div className="min-w-0 flex-1">
           <Textarea
             autoFocus
@@ -305,10 +271,18 @@ function QuestionInput({
               }
             }}
             rows={1}
-            className="max-h-8 !min-h-control-36 resize-none overflow-y-auto border-0 bg-transparent px-1 py-0.5 focus:border-0"
+            className="max-h-8 !min-h-control-32 resize-none overflow-y-auto border-0 bg-transparent px-1 py-0.5 text-body-sm focus:border-0"
             placeholder={t(
-              busy ? "guided.followUpPlaceholder" : "guided.answerPlaceholder",
-              busy ? "Add a quick follow-up or correction" : "Type your answer"
+              busy
+                ? "guided.followUpPlaceholder"
+                : hasQuickAnswers
+                  ? "guided.choicePlaceholder"
+                  : "guided.answerPlaceholder",
+              busy
+                ? "Add a quick follow-up or correction"
+                : hasQuickAnswers
+                  ? "Pick an option above, or type something else"
+                  : "Type your answer"
             )}
           />
         </div>
@@ -323,6 +297,144 @@ function QuestionInput({
         </button>
       </form>
     </>
+  );
+}
+
+function QuickAnswerChoices({
+  question,
+  choices,
+  expanded,
+  locked,
+  setChoices,
+  onExpandedChange,
+  onAnswer,
+}: {
+  question: GuidedQuestion;
+  choices: string[];
+  expanded: boolean;
+  locked: boolean;
+  setChoices: Dispatch<SetStateAction<string[]>>;
+  onExpandedChange: (expanded: boolean) => void;
+  onAnswer: (answer: unknown) => Promise<boolean>;
+}) {
+  const { t } = useDictionary("catalog-setup");
+  const reduceMotion = useReducedMotion();
+  const options =
+    question.answerKind === "boolean"
+      ? [
+          { label: t("guided.yes", "YES"), answer: true },
+          { label: t("guided.no", "NO"), answer: false },
+        ]
+      : (question.options?.map((option) => ({
+          label: option,
+          answer: option,
+        })) ?? []);
+
+  if (options.length === 0) return null;
+
+  const panelId = `guided-quick-answers-${question.id.replace(
+    /[^a-zA-Z0-9_-]/g,
+    "-"
+  )}`;
+  const disclosureLabel = t(
+    expanded ? "guided.hideOptions" : "guided.showOptions",
+    expanded ? "HIDE OPTIONS" : "SHOW OPTIONS"
+  );
+
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        aria-controls={panelId}
+        aria-expanded={expanded}
+        aria-label={disclosureLabel}
+        onClick={() => onExpandedChange(!expanded)}
+        className="inline-flex h-control-32 items-center gap-0.5 rounded-chip px-1 font-mono text-micro uppercase tracking-wide text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text"
+      >
+        {disclosureLabel} · {options.length}
+        {expanded ? (
+          <ChevronUp
+            aria-hidden
+            className="h-icon-16 w-icon-16"
+            strokeWidth={1.5}
+          />
+        ) : (
+          <ChevronDown
+            aria-hidden
+            className="h-icon-16 w-icon-16"
+            strokeWidth={1.5}
+          />
+        )}
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            id={panelId}
+            role="group"
+            aria-label={t("guided.quickAnswers", "Quick answers")}
+            className="mt-0.5 grid gap-0.5"
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }}
+            transition={{
+              duration: reduceMotion ? REDUCED_DURATION : 0.2,
+              ease: EASE_SMOOTH,
+            }}
+          >
+            {options.map(({ label, answer }) => {
+              const selected =
+                question.answerKind === "multi_choice" &&
+                choices.includes(String(answer));
+              return (
+                <button
+                  key={String(answer)}
+                  type="button"
+                  disabled={locked}
+                  aria-pressed={
+                    question.answerKind === "multi_choice"
+                      ? selected
+                      : undefined
+                  }
+                  onClick={() => {
+                    if (question.answerKind !== "multi_choice") {
+                      void onAnswer(answer);
+                      return;
+                    }
+                    setChoices((current) =>
+                      selected
+                        ? current.filter((entry) => entry !== String(answer))
+                        : [...current, String(answer)]
+                    );
+                  }}
+                  className={cn(
+                    "flex min-h-control-32 w-full items-start gap-1 rounded-chip border px-1.5 py-1 text-left font-mohave text-body-sm normal-case transition-colors ease-smooth disabled:pointer-events-none disabled:opacity-40",
+                    selected
+                      ? "border-glass-border-medium bg-surface-active text-text"
+                      : "border-glass-border bg-surface-input text-text-2 hover:bg-surface-hover hover:text-text"
+                  )}
+                >
+                  {question.answerKind === "multi_choice" ? (
+                    <span
+                      aria-hidden
+                      className="mt-0.5 block h-icon-16 w-icon-16 shrink-0"
+                    >
+                      {selected ? (
+                        <Check
+                          className="h-icon-16 w-icon-16"
+                          strokeWidth={1.5}
+                        />
+                      ) : null}
+                    </span>
+                  ) : null}
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -576,6 +688,8 @@ export function GuidedCatalogSetup({
   );
   const [headerInset, setHeaderInset] = useState(0);
   const [composerInset, setComposerInset] = useState(0);
+  const [choices, setChoices] = useState<string[]>([]);
+  const [quickAnswersExpanded, setQuickAnswersExpanded] = useState(true);
   const [commitResult, setCommitResult] = useState<GuidedCommitResponse | null>(
     null
   );
@@ -586,6 +700,12 @@ export function GuidedCatalogSetup({
   const headerRef = useRef<HTMLElement>(null);
   const composerRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
+  const activeQuestionId = session?.unresolvedQuestions[0]?.id ?? null;
+
+  useEffect(() => {
+    setChoices([]);
+    setQuickAnswersExpanded(true);
+  }, [activeQuestionId]);
 
   const applySession = useCallback((value: unknown) => {
     const next = normalizeSession(value);
@@ -683,6 +803,12 @@ export function GuidedCatalogSetup({
     session?.conversation.length,
     scrollTranscriptToBottom,
   ]);
+
+  useEffect(() => {
+    if (quickAnswersExpanded) {
+      scrollTranscriptToBottom();
+    }
+  }, [activeQuestionId, quickAnswersExpanded, scrollTranscriptToBottom]);
 
   useEffect(() => {
     const header = headerRef.current;
@@ -1255,12 +1381,15 @@ export function GuidedCatalogSetup({
         <AnimatePresence initial={false}>
           {conversation.map((message) => {
             const assistant = message.role === "assistant";
-            const currentHelp =
+            const currentQuestion =
               assistant &&
-              question?.help &&
+              question &&
               message.id === `assistant:${session.version}:${question.id}`
-                ? question.help
+                ? question
                 : null;
+            const currentHelp = currentQuestion?.help
+              ? currentQuestion.help
+              : null;
             return (
               <motion.li
                 key={message.id}
@@ -1327,6 +1456,17 @@ export function GuidedCatalogSetup({
                     <p className="mt-1 text-body-sm text-text-2">
                       {currentHelp}
                     </p>
+                  ) : null}
+                  {currentQuestion && !editingInput ? (
+                    <QuickAnswerChoices
+                      question={currentQuestion}
+                      choices={choices}
+                      expanded={quickAnswersExpanded}
+                      locked={messageSaving}
+                      setChoices={setChoices}
+                      onExpandedChange={setQuickAnswersExpanded}
+                      onAnswer={(answer) => persistInput(answer)}
+                    />
                   ) : null}
                 </div>
                 {!assistant &&
@@ -1410,7 +1550,7 @@ export function GuidedCatalogSetup({
         <div className="mx-auto w-full max-w-4xl px-4 pb-1 md:px-6">
           <div
             data-testid="guided-catalog-composer"
-            className="glass-surface pointer-events-auto p-1"
+            className="pointer-events-auto rounded border border-line bg-glass-dense p-1 backdrop-blur-[var(--glass-blur)] backdrop-saturate-[var(--glass-saturate)] focus-within:border-line-hi"
           >
             {question ? (
               <>
@@ -1420,6 +1560,8 @@ export function GuidedCatalogSetup({
                   busy={busy}
                   locked={messageSaving}
                   editingValue={editingInput?.value ?? null}
+                  choices={choices}
+                  setChoices={setChoices}
                   onCancelEdit={() => setEditingInput(null)}
                   onAnswer={(answer) =>
                     persistInput(
@@ -1443,13 +1585,19 @@ export function GuidedCatalogSetup({
             )}
           </div>
 
-          <footer className="pointer-events-auto mt-0.5 flex flex-wrap justify-center gap-0.5">
+          <footer
+            data-testid="guided-catalog-footer-actions"
+            className="pointer-events-auto mt-0.5 flex flex-wrap justify-start gap-0.5"
+          >
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <button
                   type="button"
                   disabled={busy}
-                  className="h-control-32 rounded-chip border border-glass-border bg-background px-1 font-mono text-micro text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text disabled:pointer-events-none disabled:opacity-40"
+                  className={cn(
+                    FLOATING_FOOTER_CHIP_CLASS,
+                    "disabled:pointer-events-none disabled:opacity-40"
+                  )}
                 >
                   {t("guided.restartGhost", "[ start over ]")}
                 </button>
@@ -1482,14 +1630,14 @@ export function GuidedCatalogSetup({
             <button
               type="button"
               onClick={onUseAnotherMethod}
-              className="h-control-32 rounded-chip border border-glass-border bg-background px-1 font-mono text-micro text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text"
+              className={FLOATING_FOOTER_CHIP_CLASS}
             >
               {t("guided.otherMethodGhost", "[ use another method ]")}
             </button>
             <button
               type="button"
               onClick={onExit}
-              className="h-control-32 rounded-chip border border-glass-border bg-background px-1 font-mono text-micro text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text"
+              className={FLOATING_FOOTER_CHIP_CLASS}
             >
               {t("guided.exit", "[ back to catalog ]")}
             </button>

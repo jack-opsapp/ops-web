@@ -522,6 +522,12 @@
     background: rgb(var(--ops-accent-rgb, 111 148 176));
     opacity: 0.6;
   }
+  /* Custom (jsx) toasts can't carry a `data-type` — sonner's ExternalToast
+   * omits it — so the lead-discard capture toast opts into the olive rail by
+   * class. Same token as success: the discard IS asserted optimistically. */
+  [data-sonner-toast].ops-toast-discard-capture::after {
+    background: var(--color-olive, #9DB582); /* olive */
+  }
 
   /* Layout: content column sits to the right of the rail. Description gets
    * a tactical `//` prefix prepended via ::before so callers don't have to
