@@ -178,8 +178,8 @@ describe("company data manifest — PRIMARY guard: the live in-scope snapshot", 
  * created by migrations that granted it nothing at all, and the cascade
  * returned 500 at acting-step 23 of 198 on the first of those. The other
  * fifteen are worse: they grant SELECT and withhold DELETE, so the count
- * succeeds and nothing looks wrong until that step runs. Twenty-nine of the
- * thirty are classified in this manifest.
+ * succeeds and nothing looks wrong until that step runs. All thirty are
+ * classified in this manifest.
  *
  * Every one must be routed through `public.purge_company_rows`. This asserts it
  * in both directions against the live privilege snapshot.
@@ -311,13 +311,7 @@ describe("company data manifest — PRIVILEGE guard: what service_role may actua
     }
   });
 
-  it("leaves exactly one blocked table unclassified, and says which", () => {
-    // `opportunity_manual_outbound_cycle_receipts` was created on 2026-07-30 by
-    // migration 20260730162648, one day after IN_SCOPE_SNAPSHOT was generated,
-    // so the primary guard cannot see it yet. It carries `company_id` and hangs
-    // off opportunities/activities, i.e. it IS company data and belongs in the
-    // manifest. Pinned rather than ignored: regenerate the scope snapshot,
-    // classify it at the right foreign-key depth, then delete this test.
+  it("leaves no blocked company-data table unclassified", () => {
     const unclassified = SERVICE_ROLE_BLOCKED_TABLES.map((p) => p.table)
       .filter((table) => !manifestTables.has(table) && !outOfScope.has(table))
       .sort();
@@ -325,25 +319,25 @@ describe("company data manifest — PRIVILEGE guard: what service_role may actua
     expect(
       unclassified,
       `Blocked tables that are neither classified nor declared out of scope: ${unclassified.join(", ")}`
-    ).toEqual(["opportunity_manual_outbound_cycle_receipts"]);
+    ).toEqual([]);
   });
 
   it("keeps the function's SQL allowlist and the TypeScript set identical", () => {
     // The original defect in miniature: the deployed function allowlisted
-    // fifteen tables while the route needed twenty-nine, and nothing said so.
+    // fifteen tables while the route needed thirty, and nothing said so.
     // Either side drifting silently reintroduces it — a table declared here but
     // absent from the allowlist is refused at runtime with 42501, and one in the
     // allowlist but not here is simply never called.
     const sql = readFileSync(
       path.join(
         ROOT,
-        "supabase/migrations/20260731020000_company_purge_definer_full_manifest_coverage.sql"
+        "supabase/migrations/20260731161122_transactional_company_data_purge.sql"
       ),
       "utf8"
     );
 
     const array = sql.match(
-      /v_allowed constant text\[\] := ARRAY\[([\s\S]*?)\];/
+      /v_allowed constant text\[\] := array\[([\s\S]*?)\];/i
     );
     expect(array, "could not find the allowlist in the migration").not.toBeNull();
 
@@ -367,6 +361,68 @@ describe("company data manifest — PRIVILEGE guard: what service_role may actua
         `${privileges.table} is fully available — it does not belong in the blocked snapshot`
       ).toBe(false);
     }
+  });
+});
+
+describe("company data purge — immutable event ledger exception", () => {
+  const migrationPath = path.join(
+    ROOT,
+    "supabase/migrations/20260731170226_account_purge_immutable_event_exception.sql"
+  );
+
+  it("permits only the exact tenant's DELETE through the narrow purge helper", () => {
+    const sql = readFileSync(migrationPath, "utf8").toLowerCase();
+
+    expect(sql).toMatch(
+      /set_config\(\s*'ops\.company_data_purge_company_id',\s*p_company_id::text,\s*true\s*\)/
+    );
+    expect(sql).toContain(
+      "current_setting('ops.company_data_purge_company_id', true)"
+    );
+    expect(sql).toContain("old.company_id::text");
+    expect(sql).toContain(
+      "current_setting('request.jwt.claims', true)"
+    );
+    expect(sql).toContain("tg_op = 'delete'");
+    expect(sql).toContain("return old");
+
+    for (const functionName of [
+      "private.reject_task_mutation_event_change",
+      "private.project_note_mention_events_are_immutable",
+      "private.guard_opportunity_conversion_notification_delivery",
+    ]) {
+      expect(sql, functionName).toContain(
+        `create or replace function ${functionName}()`
+      );
+    }
+  });
+
+  it("does not disable triggers or relax immutable UPDATE protection", () => {
+    const sql = readFileSync(migrationPath, "utf8").toLowerCase();
+
+    expect(sql).not.toContain("session_replication_role");
+    expect(sql).not.toMatch(/disable\s+trigger/);
+    expect(sql).toContain(
+      "raise exception 'task_mutation_events_are_immutable'"
+    );
+    expect(sql).toContain(
+      "raise exception 'project note mention events are immutable'"
+    );
+    expect(sql).toContain(
+      "raise exception 'conversion notification deliveries are immutable'"
+    );
+  });
+});
+
+describe("company data purge — side-effect delivery ordering", () => {
+  it("purges permission deliveries after every authority mutation can enqueue them", () => {
+    const tables = deletionPlan().map((entry) => entry.table);
+    const deliveryIndex = tables.indexOf("user_permission_change_deliveries");
+
+    expect(deliveryIndex).toBeGreaterThan(
+      tables.indexOf("user_permission_overrides")
+    );
+    expect(deliveryIndex).toBeGreaterThan(tables.indexOf("users"));
   });
 });
 

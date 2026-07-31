@@ -136,7 +136,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-07-29";
+export const MANIFEST_VERSION = "2026-07-31";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -177,6 +177,16 @@ export interface ParentScopedEntry extends ManifestEntryBase {
 }
 
 export type ManifestEntry = CompanyScopedEntry | ParentScopedEntry;
+
+export type TransactionalPurgeStep = ManifestEntry & {
+  readonly definer_purged: boolean;
+};
+
+export interface TransactionalPurgePlan {
+  readonly manifest_version: string;
+  readonly cycle_breakers: typeof FK_CYCLE_BREAKERS;
+  readonly steps: readonly TransactionalPurgeStep[];
+}
 
 /**
  * A table the live schema puts near a company's data that this cascade
@@ -219,6 +229,9 @@ export interface DefinerPurgedEntry {
 /** The SECURITY DEFINER function that purges the tables below. */
 export const DEFINER_PURGE_FUNCTION = "purge_company_rows";
 
+/** The single transactional account-deletion entry point. */
+export const COMPANY_DATA_PURGE_FUNCTION = "purge_company_data";
+
 /**
  * Tables the cascade cannot delete from directly, because `service_role` — the
  * role both data routes run as — lacks the privilege.
@@ -228,8 +241,8 @@ export const DEFINER_PURGE_FUNCTION = "purge_company_rows";
  * whether the deleting role may touch it. Thirty `public` base tables withhold
  * from `service_role` at least one privilege the cascade needs — fifteen were
  * created by migrations that granted it nothing at all, fifteen more grant
- * SELECT and withhold DELETE — and twenty-nine of the thirty are classified
- * here. A rehearsal of the cascade against a disposable prod tenant died at
+ * SELECT and withhold DELETE. A rehearsal of the cascade against a disposable
+ * prod tenant died at
  * acting-step 23 of 198 on the first of them, and would have died on the next
  * fourteen one at a time.
  *
@@ -390,6 +403,11 @@ export const DEFINER_PURGED_TABLES: readonly DefinerPurgedEntry[] = [
     table: "opportunity_conversion_events",
     reason:
       "service_role may SELECT but not DELETE the append-only conversion event log. Purged through purge_company_rows.",
+  },
+  {
+    table: "opportunity_manual_outbound_cycle_receipts",
+    reason:
+      "service_role may SELECT but not DELETE the manual outbound cycle receipt ledger. Purged through purge_company_rows.",
   },
   {
     table: "project_note_mention_events",
@@ -1986,6 +2004,17 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
       "Lead-to-project conversion machinery.",
   },
   {
+    table: "opportunity_manual_outbound_cycle_receipts",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Idempotency receipts for manual outbound opportunity-cycle bookkeeping.",
+  },
+  {
     table: "opportunity_correspondence_events",
     scope: "company",
     companyColumn: "company_id",
@@ -2586,17 +2615,6 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     export: true,
   },
   {
-    table: "user_permission_change_deliveries",
-    scope: "company",
-    companyColumn: "company_id",
-    companyColumnType: "uuid",
-    softDeletable: false,
-    deleteStrategy: "hard",
-    export: false,
-    reason:
-      "Permission-change notification delivery receipts.",
-  },
-  {
     table: "user_permission_overrides",
     scope: "company",
     companyColumn: "company_id",
@@ -2613,6 +2631,17 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: true,
     deleteStrategy: "soft",
     export: true,
+  },
+  {
+    table: "user_permission_change_deliveries",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Permission-change notification delivery receipts. Purged after permission overrides and user tombstones because those authority mutations enqueue fresh delivery rows.",
   },
   {
     table: "weather_forecasts",
@@ -2667,6 +2696,7 @@ export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [
   "opportunity_assignment_events",
   "opportunity_assignment_suggestions",
   "opportunity_conversion_events",
+  "opportunity_manual_outbound_cycle_receipts",
   "payment_reminder_generation_claims",
   "payment_review_writeoff_receipts",
   "phase_c_category_auto_send_acceptances",
@@ -2732,6 +2762,18 @@ export function manifestByTable(): Map<string, ManifestEntry> {
  */
 export function deletionPlan(): ManifestEntry[] {
   return COMPANY_DATA_MANIFEST.filter((e) => e.deleteStrategy !== "retain");
+}
+
+/** Serializable plan passed verbatim to the transactional purge function. */
+export function transactionalPurgePlan(): TransactionalPurgePlan {
+  return {
+    manifest_version: MANIFEST_VERSION,
+    cycle_breakers: FK_CYCLE_BREAKERS,
+    steps: deletionPlan().map((entry) => ({
+      ...entry,
+      definer_purged: isDefinerPurged(entry.table),
+    })),
+  };
 }
 
 /** Everything the customer is entitled to take with them. */

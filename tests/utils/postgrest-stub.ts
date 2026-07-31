@@ -70,6 +70,7 @@ export class PostgrestStub {
   readonly ops: RecordedOp[] = [];
   private readonly rows = new Map<string, Row[]>();
   private readonly failures = new Map<string, StubFailure>();
+  private readonly rpcResults = new Map<string, unknown>();
   private seq = 0;
 
   setRows(table: string, rows: Row[]): this {
@@ -88,6 +89,12 @@ export class PostgrestStub {
     failure: StubFailure
   ): this {
     this.failures.set(`${kind}:${table}`, failure);
+    return this;
+  }
+
+  /** Return a named payload from one RPC without modelling its database body. */
+  setRpcResult(fn: string, data: unknown): this {
+    this.rpcResults.set(fn, data);
     return this;
   }
 
@@ -141,6 +148,10 @@ export class PostgrestStub {
     const failure =
       this.failures.get(`rpc:${table}`) ?? this.failures.get(`*:${table}`);
     if (failure) return { data: null, error: failure };
+
+    if (this.rpcResults.has(fn)) {
+      return { data: this.rpcResults.get(fn), error: null };
+    }
 
     const rows = this.rows.get(table) ?? [];
     const hit = rows.filter((row) => row.company_id === args.p_company_id);

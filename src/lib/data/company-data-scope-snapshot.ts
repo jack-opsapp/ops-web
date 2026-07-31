@@ -62,7 +62,7 @@
  *     AND con.confrelid::regclass::text = 'auth.users'
  *   -- minus anything already in IN_SCOPE_SNAPSHOT
  *
- * Verified against prod 2026-07-29: 218 in scope, 5 auth-identity.
+ * Verified against prod 2026-07-31: 219 in scope, 5 auth-identity.
  * The tenant row `companies` is deliberately absent — it carries no
  * `company_id` and no foreign key into scope, so no query can derive it; the
  * manifest adds it explicitly as the root.
@@ -198,6 +198,7 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "opportunity_follow_up_drafts",
   "opportunity_lifecycle_action_audit",
   "opportunity_lifecycle_state",
+  "opportunity_manual_outbound_cycle_receipts",
   "opportunity_merges",
   "opportunity_views",
   "payment_milestones",
