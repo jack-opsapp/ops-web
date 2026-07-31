@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  AutomaticProjectCreationSafetyHoldError,
   decideOpportunityRelationshipMatch,
   findOpportunityRelationshipMatch,
   findUniqueExistingProjectForEmailConversion,
+  isAutomaticProjectCreationSafetyHold,
   type OpportunityRelationshipCandidate,
   type OpportunityRelationshipFacts,
 } from "@/lib/email/opportunity-relationship-matching";
@@ -199,6 +201,22 @@ function opportunityRow(index: number, overrides: FixtureRow = {}): FixtureRow {
 }
 
 describe("opportunity relationship matching", () => {
+  it("recognizes a typed automatic-project safety hold through wrapped causes", () => {
+    const hold = new AutomaticProjectCreationSafetyHoldError(
+      "address_proof_unavailable",
+      "address proof unavailable"
+    );
+
+    expect(
+      isAutomaticProjectCreationSafetyHold({
+        cause: { cause: hold },
+      })
+    ).toBe(true);
+    expect(
+      isAutomaticProjectCreationSafetyHold(new Error("ordinary persistence"))
+    ).toBe(false);
+  });
+
   it("fails closed when a relationship lookup read fails", async () => {
     const failedQuery = {
       select() {
@@ -1106,6 +1124,16 @@ describe("opportunity relationship matching", () => {
       ],
     });
 
+    const lookup = findUniqueExistingProjectForEmailConversion({
+      supabase: fixture.supabase as never,
+      companyId: "company-1",
+      opportunityId: "opp-owen",
+      clientId: "client-owen",
+      opportunityAddress: null,
+    });
+    await expect(lookup).rejects.toBeInstanceOf(
+      AutomaticProjectCreationSafetyHoldError
+    );
     await expect(
       findUniqueExistingProjectForEmailConversion({
         supabase: fixture.supabase as never,
@@ -1204,6 +1232,63 @@ describe("opportunity relationship matching", () => {
       opportunityId: "opp-active",
       confidence: "shared_active_address",
     });
+  });
+
+  it.each([
+    "Victoria",
+    "Langford",
+    "Esquimalt, BC",
+    "Tillicum",
+    "Henderson",
+    "North Saanich",
+    "Saanich Cedar Hill area",
+  ])(
+    "never links unrelated people from locality-only address identity: %s",
+    (locality) => {
+      const decision = decideOpportunityRelationshipMatch({
+        facts: facts({
+          contactName: "Paul Holmes",
+          contactEmail: "pwholmes64@icloud.com",
+          address: locality,
+          description: "Install an aluminum guard system.",
+          subject: "New inquiry",
+        }),
+        candidates: [
+          candidate({
+            id: "opp-sandra",
+            clientId: "client-sandra",
+            contactEmail: "sdunford58@gmail.com",
+            clientEmails: ["sdunford58@gmail.com"],
+            contactPhone: "2508886537",
+            clientPhones: ["2508886537"],
+            address: locality,
+            clientAddresses: [locality],
+          }),
+        ],
+      });
+
+      expect(decision).toMatchObject({ action: "create_new" });
+    }
+  );
+
+  it("keeps separate units at one civic address as separate job identities", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "Mary Carter",
+        contactEmail: "mary.new@example.com",
+        address: "123 Main Street, Unit 3, Victoria BC",
+      }),
+      candidates: [
+        candidate({
+          contactEmail: "john@example.com",
+          address: "123 Main St Apt 2",
+          clientAddresses: [],
+          subClientAddresses: [],
+        }),
+      ],
+    });
+
+    expect(decision).toMatchObject({ action: "create_new" });
   });
 
   it("creates a separate opportunity when the prior same-address project is closed and scope is distinct", () => {

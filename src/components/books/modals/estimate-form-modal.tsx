@@ -26,12 +26,14 @@ import {
 import {
   LineItemEditor,
   createEmptyLineItem,
-  computeAmount,
+  createLineItemRowFromLineItem,
+  computeLinePricingBreakdown,
   type LineItemRow,
 } from "@/components/ops/line-item-editor";
 import { EstimateStatus } from "@/lib/types/pipeline";
 import type { Estimate, Product, CreateEstimate, CreateLineItem } from "@/lib/types/pipeline";
 import { formatDateOnly } from "@/lib/utils/format";
+import { useDefaultTaxRate } from "@/lib/hooks";
 
 /** Radix Select forbids an empty-string item value; this sentinel represents
  *  the optional "no project" choice and maps back to "" on change. */
@@ -63,6 +65,8 @@ export function EstimateFormModal({
   const { t } = useDictionary("pipeline");
   const { t: tc } = useDictionary("common");
   const isEditing = !!estimate;
+  const { data: defaultTaxRate } = useDefaultTaxRate();
+  const appliedTaxRate = estimate?.taxRate ?? defaultTaxRate?.rate ?? 0;
 
   // State is fully driven by props through the effect below. Initializers are
   // intentionally blank so the initial render never captures a partial list
@@ -99,18 +103,7 @@ export function EstimateFormModal({
       setTermsAndConditions(estimate.terms ?? "");
       setLineItems(
         estimate.lineItems && estimate.lineItems.length > 0
-          ? estimate.lineItems.map((li) => ({
-              id: li.id,
-              name: li.name,
-              quantity: li.quantity,
-              unitPrice: li.unitPrice,
-              isTaxable: li.isTaxable,
-              discountPercent: li.discountPercent,
-              productId: li.productId,
-              unit: li.unit,
-              isOptional: li.isOptional,
-              isSelected: li.isSelected,
-            }))
+          ? estimate.lineItems.map(createLineItemRowFromLineItem)
           : [createEmptyLineItem()]
       );
     } else {
@@ -131,13 +124,28 @@ export function EstimateFormModal({
         name: li.name,
         quantity: li.quantity,
         unitPrice: li.unitPrice,
+        resolvedUnitPrice: li.resolvedUnitPrice,
+        minimumChargeSnapshot: li.minimumChargeSnapshot,
+        unitCost: li.unitCost,
+        estimatedHours: li.estimatedHours,
         discountPercent: li.discountPercent,
         productId: li.productId,
+        parentLineItemId: null,
         sortOrder: index,
         estimateId: null,
         invoiceId: null,
         isTaxable: li.isTaxable,
+        taxRateId: li.isTaxable
+          ? li.taxRateId ?? defaultTaxRate?.id ?? null
+          : null,
         unit: li.unit,
+        unitId: li.unitId,
+        type: li.type,
+        taskTypeId: li.taskTypeId,
+        taskTypeRef: li.taskTypeRef,
+        configuredOptions: li.configuredOptions,
+        resolvedOptionsLabel: li.resolvedOptionsLabel,
+        category: li.category,
         isOptional: li.isOptional,
         isSelected: li.isSelected,
         companyId,
@@ -146,16 +154,18 @@ export function EstimateFormModal({
 
     const totals = lineItems.reduce(
       (acc, li) => {
-        const amt = computeAmount(li);
+        const amount = computeLinePricingBreakdown(li, appliedTaxRate);
         return {
-          subtotal: acc.subtotal + amt.lineTotal,
-          taxAmount: acc.taxAmount + amt.tax,
-          discountAmount: acc.discountAmount + (li.discountPercent > 0 ? (li.quantity * li.unitPrice * li.discountPercent / 100) : 0),
+          subtotal: acc.subtotal + amount.subtotal,
+          taxAmount: acc.taxAmount + amount.tax,
+          discountAmount:
+            acc.discountAmount + amount.discountAmount,
         };
       },
       { subtotal: 0, taxAmount: 0, discountAmount: 0 }
     );
-    const total = totals.subtotal + totals.taxAmount - totals.discountAmount;
+    const total =
+      totals.subtotal - totals.discountAmount + totals.taxAmount;
 
     const formData: Partial<CreateEstimate> & { companyId: string } = {
       companyId,
@@ -167,6 +177,7 @@ export function EstimateFormModal({
       internalNotes: internalNotes || null,
       terms: termsAndConditions || null,
       subtotal: totals.subtotal,
+      taxRate: appliedTaxRate,
       taxAmount: totals.taxAmount,
       discountAmount: totals.discountAmount,
       total,
@@ -281,6 +292,8 @@ export function EstimateFormModal({
               items={lineItems}
               onChange={setLineItems}
               products={products}
+              taxRate={appliedTaxRate}
+              taxRateId={defaultTaxRate?.id ?? null}
             />
           </div>
 

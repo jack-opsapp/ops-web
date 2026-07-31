@@ -906,4 +906,3 @@ git commit -m "docs(catalog): record guided setup runtime contracts"
 **Step 6: Stop before production writes**
 
 Report the verified local/test outcome, exact migration status, and the pending production action. Do not apply migrations, push `main`, deploy, or mutate Canpro until Jackson explicitly approves those production actions.
-

@@ -4,6 +4,7 @@ import {
   EmailSendIntentService,
   buildEmailSendRequestFingerprint,
 } from "@/lib/api/services/email-send-intent-service";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 
 const BASE_INPUT = {
   idempotencyKey: "7ae57144-cf56-493e-bc27-6b91bcf3a0cb",
@@ -438,5 +439,98 @@ describe("EmailSendIntentService", () => {
         leaseSeconds: 240,
       })
     ).resolves.toBeNull();
+  });
+
+  it("preserves the raw Supabase cause when an idempotency lookup fails", async () => {
+    const cause = {
+      status: 521,
+      code: "521",
+      message: "Web server is down",
+    };
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: cause,
+    });
+    const limit = vi.fn(() => ({ maybeSingle }));
+    const secondEq = vi.fn(() => ({ limit }));
+    const firstEq = vi.fn(() => ({ eq: secondEq }));
+    const select = vi.fn(() => ({ eq: firstEq }));
+    const from = vi.fn(() => ({ select }));
+    const service = new EmailSendIntentService({ from } as never);
+
+    await expect(
+      service.findByIdempotencyKey({
+        companyId: BASE_INPUT.companyId,
+        idempotencyKey: BASE_INPUT.idempotencyKey,
+      })
+    ).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause,
+    });
+  });
+
+  it("preserves the raw Supabase cause from required reconciliation RPCs", async () => {
+    const cause = {
+      status: 525,
+      code: "525",
+      message: "SSL handshake failed",
+    };
+    const db = dbMock();
+    db.rpc.mockResolvedValue({ data: null, error: cause });
+    const service = new EmailSendIntentService(db as never);
+
+    await expect(
+      service.completeReconciliation({
+        intentId: "intent-1",
+        leaseToken: "lease-1",
+        activityId: "activity-1",
+      })
+    ).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause,
+    });
+  });
+
+  it("preserves the raw Supabase cause from nullable reconciliation RPCs", async () => {
+    const cause = {
+      code: "PGRST002",
+      message: "could not query the database for the schema cache",
+    };
+    const db = dbMock();
+    db.rpc.mockResolvedValue({ data: null, error: cause });
+    const service = new EmailSendIntentService(db as never);
+
+    await expect(
+      service.claimNextReconciliation({
+        failedBefore: "2026-07-15T18:05:00.000Z",
+        leaseSeconds: 240,
+      })
+    ).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause,
+    });
+  });
+
+  it("keeps a missing successful RPC receipt as an untagged business invariant", async () => {
+    const db = dbMock();
+    db.rpc.mockResolvedValue({ data: null, error: null });
+    const service = new EmailSendIntentService(db as never);
+
+    let failure: unknown;
+    try {
+      await service.completeReconciliation({
+        intentId: "intent-1",
+        leaseToken: "lease-1",
+        activityId: "activity-1",
+      });
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(CronDatabaseOperationError);
+    expect(failure).toMatchObject({
+      message: "complete_email_send_reconciliation returned no intent",
+    });
   });
 });

@@ -77,6 +77,128 @@ describe("buildCatalogSetupPayload — flat product", () => {
   });
 });
 
+describe("buildCatalogSetupPayload — Phase C complete product", () => {
+  it("serializes the standard Canpro vinyl product without a thickness option", () => {
+    const payload = buildCatalogSetupPayload({
+      mode: "edit",
+      products: [
+        {
+          clientId: "vinyl-install-68",
+          name: "Vinyl membrane installation",
+          description: "Supply and install DekSmart Ultra 68mil membrane.",
+          kind: "service",
+          basePrice: 11.73,
+          unitCost: 2,
+          pricingUnit: "sqft",
+          minimumCharge: 1500,
+          isTaxable: true,
+          showInStorefront: true,
+          taskTypeRef: "a53dd13d-dc0c-4df0-88d6-118404b161ce",
+          options: [
+            {
+              clientId: "vinyl-install-68:color",
+              name: "Color",
+              kind: "select",
+              required: true,
+              affectsRecipe: true,
+              values: [
+                {
+                  clientId: "vinyl-install-68:color:cobblestone",
+                  label: "Cobblestone",
+                },
+                {
+                  clientId: "vinyl-install-68:color:dove-grey",
+                  label: "Dove Grey",
+                },
+              ],
+            },
+          ],
+          recipes: [
+            {
+              catalogItemClientId: "deksmart-ultra-68",
+              variantSelector: { color: "$option.color" },
+            },
+          ],
+          catalogOptionMappings: [
+            {
+              catalogItemClientId: "deksmart-ultra-68",
+              catalogOptionClientId: "deksmart-ultra-68:color",
+              productOptionClientId: "vinyl-install-68:color",
+              mappingKind: "value",
+            },
+          ],
+        },
+      ],
+    });
+
+    const product = payload.products![0];
+    expect(product.default_price).toBe(11.73);
+    expect(product.unit_cost).toBe(2);
+    expect(product.minimum_charge).toBe(1500);
+    expect(product.is_taxable).toBe(true);
+    expect(product.show_in_storefront).toBe(true);
+    expect(product.task_type_ref).toBe(
+      "a53dd13d-dc0c-4df0-88d6-118404b161ce",
+    );
+    expect(product.options?.map((option) => option.name)).toEqual(["Color"]);
+    expect(product.options?.map((option) => option.name)).not.toContain(
+      "Thickness",
+    );
+    expect(product.product_materials?.[0]).toEqual(
+      expect.objectContaining({
+        catalog_item_client_id: "deksmart-ultra-68",
+        variant_selector: {
+          color: "$option.color",
+        },
+      }),
+    );
+    expect(product.catalog_option_mappings?.[0]).toEqual(
+      expect.objectContaining({
+        catalog_item_client_id: "deksmart-ultra-68",
+        catalog_option_client_id: "deksmart-ultra-68:color",
+        product_option_client_id: "vinyl-install-68:color",
+      }),
+    );
+  });
+
+  it("keeps the 60mil exception as a hidden staff-selectable product", () => {
+    const payload = buildCatalogSetupPayload({
+      mode: "edit",
+      products: [
+        {
+          clientId: "vinyl-install-60",
+          name: "Vinyl membrane installation — 60mil",
+          kind: "service",
+          basePrice: 12.73,
+          unitCost: 2.25,
+          pricingUnit: "sqft",
+          minimumCharge: 1500,
+          isTaxable: true,
+          showInStorefront: false,
+          options: [
+            {
+              name: "Color",
+              kind: "select",
+              required: true,
+              affectsRecipe: true,
+              values: [{ label: "Dove Grey" }],
+            },
+          ],
+        },
+      ],
+    });
+
+    const product = payload.products![0];
+    expect(product.name).toContain("60mil");
+    expect(product.default_price).toBe(12.73);
+    expect(product.unit_cost).toBe(2.25);
+    expect(product.show_in_storefront).toBe(false);
+    expect(product.options?.some((option) => option.name === "Thickness")).toBe(
+      false,
+    );
+  });
+});
+
 describe("buildCatalogSetupPayload — tier ladder", () => {
   it("maps a size tier to select option + values + add_flat modifiers (never tiered_pricing)", () => {
     const payload = buildCatalogSetupPayload({
@@ -384,6 +506,45 @@ describe("buildCatalogSetupPayload — bundles", () => {
 });
 
 describe("buildCatalogSetupPayload — single catalog family + variants", () => {
+  it("serializes an explicit Color axis and preserves existing variant ids", () => {
+    const payload = buildCatalogSetupPayload({
+      mode: "edit",
+      family: {
+        clientId: "deksmart-ultra-68",
+        id: "9b30f44d-47da-4134-872d-7f9c2d6f1b44",
+        name: "DekSmart Ultra 68mil membrane",
+        options: [
+          {
+            clientId: "deksmart-ultra-68:color",
+            name: "Color",
+            values: [
+              {
+                clientId: "deksmart-ultra-68:color:cobblestone",
+                label: "Cobblestone",
+              },
+            ],
+          },
+        ],
+        variants: [
+          {
+            clientId: "ultra-cobblestone",
+            id: "18234bac-442f-41e8-98e7-956c051fbf21",
+            optionValueClientIds: [
+              "deksmart-ultra-68:color:cobblestone",
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(payload.family?.client_id).toBe("deksmart-ultra-68");
+    expect(payload.catalog_options?.[0].name).toBe("Color");
+    expect(payload.catalog_options?.[0].values[0].label).toBe("Cobblestone");
+    expect(payload.variants?.[0].id).toBe(
+      "18234bac-442f-41e8-98e7-956c051fbf21",
+    );
+  });
+
   it("maps one family object (NOT an array) + variants with option_value_client_ids", () => {
     const payload = buildCatalogSetupPayload({
       mode: "edit",

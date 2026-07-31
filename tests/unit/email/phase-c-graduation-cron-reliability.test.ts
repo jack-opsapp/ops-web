@@ -44,8 +44,11 @@ describe("Phase C graduation sweep reliability", () => {
     expect(source).not.toContain("@/components/ops/inbox/category-chip");
   });
 
-  it("returns a non-success response when completion bookkeeping remains incomplete", () => {
-    expect(source).toContain("bookkeepingFailed > 0");
-    expect(source).toMatch(/bookkeepingFailed > 0[\s\S]*status:\s*500/);
+  it("is globally leased, bounded, and fails closed on database pressure", () => {
+    expect(source).toContain("runWithCronWorkloadControl");
+    expect(source).toContain('WORKLOAD_KEY = "phase-c-graduation-check"');
+    expect(source).toContain("MAX_ACTOR_SCOPES_PER_RUN = 10");
+    expect(source).toContain("isDatabasePressureError(err)");
+    expect(source).not.toContain("for (let attempt");
   });
 });

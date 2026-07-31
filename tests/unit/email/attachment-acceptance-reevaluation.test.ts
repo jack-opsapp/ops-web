@@ -267,6 +267,16 @@ describe("evaluateOpportunityAcceptance", () => {
     expect(shouldEvaluateOpportunityCommercialOutcome("lost", true)).toBe(
       false
     );
+    expect(shouldEvaluateOpportunityCommercialOutcome("quoted", true)).toBe(
+      true
+    );
+    expect(
+      shouldEvaluateOpportunityCommercialOutcome("negotiation", true)
+    ).toBe(true);
+    expect(shouldEvaluateOpportunityCommercialOutcome("won", true)).toBe(false);
+    expect(shouldEvaluateOpportunityCommercialOutcome("discarded", true)).toBe(
+      false
+    );
   });
 
   it.each([
@@ -1038,15 +1048,49 @@ describe("evaluateOpportunityAcceptance", () => {
     expect(result).toEqual({ stageChanged: true });
   });
 
-  it("keeps a manual stage override inert in the opportunity-wide entrypoint", async () => {
-    const { client } = makeSupabase({
+  it("lets newer decisive customer evidence evaluate through a nonterminal manual stage", async () => {
+    const { client, rpc } = makeSupabase({
       opportunity: {
-        stage: "negotiation",
+        stage: "quoted",
         stage_manually_set: true,
         client_id: "client-1",
         assignment_version: 19,
       },
+      events: [
+        {
+          id: "event-sandra-rejection",
+          activity_id: "activity-sandra-rejection",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-sandra",
+          provider_message_id: "sandra-price-rejection",
+          direction: "inbound",
+          party_role: "customer",
+          from_email: "customer@example.com",
+          occurred_at: "2026-07-25T13:25:09.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-sandra-rejection",
+          email_connection_id: "connection-1",
+          email_thread_id: "provider-thread-sandra",
+          email_message_id: "sandra-price-rejection",
+          direction: "inbound",
+          subject: "Re: Quote",
+          body_text:
+            "We did go with someone else mostly for financial reasons.",
+          body_text_clean:
+            "We did go with someone else mostly for financial reasons.",
+          to_emails: ["operator@example.com"],
+          cc_emails: [],
+        },
+      ],
     });
+    rpc.mockImplementation(async (name: string) =>
+      name === "apply_email_opportunity_declined_disposition"
+        ? { data: [{ changed: true, guard_reason: null }], error: null }
+        : { data: null, error: null }
+    );
 
     const result = await evaluateOpportunityCommercialOutcome({
       supabase: client as never,
@@ -1054,8 +1098,25 @@ describe("evaluateOpportunityAcceptance", () => {
       connection,
     });
 
+    expect(rpc).toHaveBeenCalledWith(
+      "apply_email_opportunity_declined_disposition",
+      expect.objectContaining({
+        p_company_id: "company-1",
+        p_opportunity_id: "opportunity-1",
+        p_connection_id: "connection-1",
+        p_provider_message_id: "sandra-price-rejection",
+        p_expected_assignment_version: 19,
+        p_expected_stage: "quoted",
+        p_evidence: {
+          reason_code: "price",
+          signals: ["customer_declined"],
+          evidence_message_ids: ["sandra-price-rejection"],
+          evaluated_through_event_id: "event-sandra-rejection",
+        },
+      })
+    );
     expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
-    expect(result).toEqual({ stageChanged: false });
+    expect(result).toEqual({ stageChanged: true });
   });
 
   it("re-evaluates a signed attachment and converts the exact mailbox lead", async () => {
@@ -1274,10 +1335,10 @@ describe("evaluateOpportunityAcceptance", () => {
     );
   });
 
-  it("does not rebuild state for an active manually overridden lead", async () => {
+  it("does not rebuild state for a manual terminal Lost lead", async () => {
     const { client } = makeSupabase({
       opportunity: {
-        stage: "negotiation",
+        stage: "lost",
         stage_manually_set: true,
         client_id: null,
         assignment_version: 4,
@@ -1396,6 +1457,97 @@ describe("evaluateOpportunityAcceptance", () => {
     );
     expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
     expect(result).toEqual({ stageChanged: true });
+  });
+
+  it("supersedes an older engine deferral with a newer decisive price rejection", async () => {
+    const { client, rpc } = makeSupabase({
+      opportunity: {
+        stage: "lost",
+        stage_manually_set: false,
+        client_id: "client-1",
+        assignment_version: 10,
+        address: "88 Example Rd",
+      },
+      events: [
+        {
+          id: "event-old-deferral",
+          activity_id: "activity-old-deferral",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "old-deferral",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-20T18:00:00.000Z",
+        },
+        {
+          id: "event-new-price-rejection",
+          activity_id: "activity-new-price-rejection",
+          connection_id: "connection-1",
+          provider_thread_id: "provider-thread-1",
+          provider_message_id: "new-price-rejection",
+          direction: "inbound",
+          party_role: "customer",
+          occurred_at: "2026-07-25T13:25:09.000Z",
+        },
+      ],
+      activities: [
+        {
+          id: "activity-old-deferral",
+          email_connection_id: "connection-1",
+          email_thread_id: "provider-thread-1",
+          email_message_id: "old-deferral",
+          direction: "inbound",
+          subject: "Re: Quote",
+          body_text:
+            "The budget is tied up, so postpone the project until next year.",
+          body_text_clean:
+            "The budget is tied up, so postpone the project until next year.",
+        },
+        {
+          id: "activity-new-price-rejection",
+          email_connection_id: "connection-1",
+          email_thread_id: "provider-thread-1",
+          email_message_id: "new-price-rejection",
+          direction: "inbound",
+          subject: "Re: Quote",
+          body_text:
+            "We went with someone else because their price worked better.",
+          body_text_clean:
+            "We went with someone else because their price worked better.",
+        },
+      ],
+    });
+    rpc.mockImplementation(async (name: string) =>
+      name === "apply_email_opportunity_declined_disposition"
+        ? {
+            data: [{ changed: false, guard_reason: "disposition_updated" }],
+            error: null,
+          }
+        : { data: null, error: null }
+    );
+
+    const result = await evaluateOpportunityCommercialOutcome({
+      supabase: client as never,
+      opportunityId: "opportunity-1",
+      connection,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "apply_email_opportunity_declined_disposition",
+      expect.objectContaining({
+        p_provider_message_id: "new-price-rejection",
+        p_expected_stage: "lost",
+        p_evidence: expect.objectContaining({
+          reason_code: "price",
+          evaluated_through_event_id: "event-new-price-rejection",
+        }),
+      })
+    );
+    expect(rpc).not.toHaveBeenCalledWith(
+      "apply_email_opportunity_deferred_disposition",
+      expect.anything()
+    );
+    expect(result).toEqual({ stageChanged: false });
   });
 
   it("uses the newest opportunity-wide decision across fragmented threads", async () => {
@@ -2200,7 +2352,9 @@ describe("evaluateOpportunityAcceptance", () => {
     expect(result).toEqual({ stageChanged: false });
   });
 
-  it("links a unique same-client same-address project instead of creating a duplicate", async () => {
+  it("links Owen's accepted Fernwood project instead of creating a duplicate", async () => {
+    const owenOpportunityId = "17d8d8c1-6eba-40f2-8f66-052ee3de198c";
+    const acceptedProjectId = "1f4a718a-05c0-47b7-8823-7de51e717d97";
     const { client } = makeSupabase({
       opportunity: {
         stage: "new_lead",
@@ -2233,7 +2387,7 @@ describe("evaluateOpportunityAcceptance", () => {
       ],
     });
     mocks.findUniqueExistingProjectForEmailConversion.mockResolvedValue(
-      "project-1"
+      acceptedProjectId
     );
     mocks.buildConversationState.mockResolvedValue({
       accept: { detected: true, confidence: "high", basis: [] },
@@ -2252,7 +2406,7 @@ describe("evaluateOpportunityAcceptance", () => {
     const result = await evaluateOpportunityAcceptance({
       supabase: client as never,
       providerThreadId: "provider-thread-1",
-      opportunityId: "opportunity-1",
+      opportunityId: owenOpportunityId,
       connection,
     });
 
@@ -2261,15 +2415,15 @@ describe("evaluateOpportunityAcceptance", () => {
     ).toHaveBeenCalledWith({
       supabase: client,
       companyId: "company-1",
-      opportunityId: "opportunity-1",
+      opportunityId: owenOpportunityId,
       clientId: "client-1",
       clientRef: null,
       opportunityAddress: "2745 Fernwood Rd",
     });
     expect(mocks.linkOpportunityToExistingProject).toHaveBeenCalledWith(
       expect.objectContaining({
-        opportunityId: "opportunity-1",
-        linkToProjectId: "project-1",
+        opportunityId: owenOpportunityId,
+        linkToProjectId: acceptedProjectId,
         expectedAssignmentVersion: 11,
       })
     );

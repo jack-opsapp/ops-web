@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -54,18 +55,30 @@ export async function createEmailSyncCompleteNotification(
     return false;
   }
 
-  const { data, error } = await (
-    input.supabase as unknown as SyncCompleteNotificationRpcClient
-  ).rpc("create_email_sync_complete_notification_as_system", {
-    p_connection_id: input.connectionId,
-    p_expected_owner_user_id: input.expectedOwnerUserId,
-    p_new_leads: input.newLeads,
-    p_matched: input.matched,
-    p_needs_review: input.needsReview,
-  });
+  let result: Awaited<
+    ReturnType<SyncCompleteNotificationRpcClient["rpc"]>
+  >;
+  try {
+    result = await (
+      input.supabase as unknown as SyncCompleteNotificationRpcClient
+    ).rpc("create_email_sync_complete_notification_as_system", {
+      p_connection_id: input.connectionId,
+      p_expected_owner_user_id: input.expectedOwnerUserId,
+      p_new_leads: input.newLeads,
+      p_matched: input.matched,
+      p_needs_review: input.needsReview,
+    });
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      "email sync-complete notification RPC was unreachable",
+      { cause }
+    );
+  }
+  const { data, error } = result;
   if (error) {
-    throw new Error(
-      `email sync-complete notification failed: ${error.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `email sync-complete notification failed: ${error.message ?? "unknown error"}`,
+      { cause: error }
     );
   }
 

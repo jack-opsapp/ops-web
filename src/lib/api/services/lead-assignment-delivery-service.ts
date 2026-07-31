@@ -4,6 +4,10 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "@/lib/api/services/cron-workload-control-service";
+import {
   sendOneSignalPush,
   type SendPushParams,
   type SendPushResult,
@@ -150,8 +154,9 @@ async function failActiveDelivery(params: {
     }
   );
   if (error) {
-    throw new Error(
-      `Failed to persist lead assignment delivery failure: ${error.message}`
+    throw new CronDatabaseOperationError(
+      `Failed to persist lead assignment delivery failure: ${error.message}`,
+      { cause: error }
     );
   }
   return {
@@ -172,22 +177,6 @@ export const LeadAssignmentDeliveryService = {
       30,
       Math.min(Math.floor(options.leaseSeconds ?? 180), 900)
     );
-
-    const { data, error } = await supabase.rpc(
-      "claim_opportunity_assignment_deliveries",
-      {
-        p_worker_id: workerId,
-        p_limit: limit,
-        p_lease_seconds: leaseSeconds,
-      }
-    );
-    if (error) {
-      throw new Error(
-        `Failed to claim lead assignment deliveries: ${error.message}`
-      );
-    }
-
-    const claims = (data ?? []) as unknown[];
     const result: LeadAssignmentDeliveryWorkerResult = {
       claimed: 0,
       consumed: 0,
@@ -199,11 +188,27 @@ export const LeadAssignmentDeliveryService = {
       errors: [],
     };
 
-    result.claimed = claims.length;
+    while (result.claimed < limit) {
+      const { data, error } = await supabase.rpc(
+        "claim_opportunity_assignment_deliveries",
+        {
+          p_worker_id: workerId,
+          p_limit: 1,
+          p_lease_seconds: leaseSeconds,
+        }
+      );
+      if (error) {
+        throw new CronDatabaseOperationError(
+          `Failed to claim lead assignment deliveries: ${error.message}`,
+          { cause: error }
+        );
+      }
 
-    for (const rawClaim of claims) {
+      const [rawClaim] = (data ?? []) as unknown[];
+      if (!rawClaim) break;
       assertClaim(rawClaim);
       const claim = rawClaim;
+      result.claimed += 1;
 
       if (!claim.requires_notification) {
         if (claim.disposition === "terminal_failure") {
@@ -248,6 +253,9 @@ export const LeadAssignmentDeliveryService = {
             if (failed.terminal) result.terminalFailed += 1;
             else result.requeued += 1;
           } catch (failurePersistenceError) {
+            if (isDatabasePressureError(failurePersistenceError)) {
+              throw failurePersistenceError;
+            }
             result.errors.push({
               deliveryId: claim.delivery_id,
               message: `${message}; ${errorMessage(failurePersistenceError)}`,
@@ -285,6 +293,12 @@ export const LeadAssignmentDeliveryService = {
       const message = `Lead assignment delivery completion failed: ${
         (completeError as SupabaseRpcError).message
       }`;
+      const completionDatabaseError = new CronDatabaseOperationError(message, {
+        cause: completeError,
+      });
+      if (isDatabasePressureError(completionDatabaseError)) {
+        throw completionDatabaseError;
+      }
       try {
         const failed = await failActiveDelivery({
           supabase,
@@ -296,6 +310,9 @@ export const LeadAssignmentDeliveryService = {
         if (failed.terminal) result.terminalFailed += 1;
         else result.requeued += 1;
       } catch (failurePersistenceError) {
+        if (isDatabasePressureError(failurePersistenceError)) {
+          throw failurePersistenceError;
+        }
         result.errors.push({
           deliveryId: claim.delivery_id,
           message: `${message}; ${errorMessage(failurePersistenceError)}`,

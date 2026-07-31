@@ -3688,6 +3688,623 @@ export type Database = {
           },
         ]
       }
+      catalog_guided_setup_actions: {
+        Row: {
+          action_hash: string
+          action_key: string
+          action_type: string
+          attempt_count: number
+          commit_operation_id: string | null
+          committed_at: string | null
+          company_id: string
+          created_at: string
+          error: Json | null
+          id: string
+          request: Json
+          response: Json | null
+          session_id: string
+          source_fingerprint: string | null
+          started_at: string | null
+          status: string
+          target_id: string | null
+          target_kind: string
+          updated_at: string
+          verified_at: string | null
+        }
+        Insert: {
+          action_hash: string
+          action_key: string
+          action_type: string
+          attempt_count?: number
+          commit_operation_id?: string | null
+          committed_at?: string | null
+          company_id: string
+          created_at?: string
+          error?: Json | null
+          id?: string
+          request?: Json
+          response?: Json | null
+          session_id: string
+          source_fingerprint?: string | null
+          started_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_kind: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Update: {
+          action_hash?: string
+          action_key?: string
+          action_type?: string
+          attempt_count?: number
+          commit_operation_id?: string | null
+          committed_at?: string | null
+          company_id?: string
+          created_at?: string
+          error?: Json | null
+          id?: string
+          request?: Json
+          response?: Json | null
+          session_id?: string
+          source_fingerprint?: string | null
+          started_at?: string | null
+          status?: string
+          target_id?: string | null
+          target_kind?: string
+          updated_at?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_guided_setup_actions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_guided_setup_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_guided_setup_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_guided_setup_sessions: {
+        Row: {
+          approval_hash: string | null
+          approved_at: string | null
+          commit_journal: Json
+          commit_operation_id: string | null
+          company_id: string
+          completed_at: string | null
+          conversation: Json
+          contradictions: Json
+          created_at: string
+          facts: Json
+          id: string
+          live_snapshot: Json
+          live_snapshot_hash: string
+          mode: string
+          operator_id: string
+          proposed_plan: Json | null
+          proposed_plan_hash: string | null
+          readback: Json | null
+          sources: Json
+          status: string
+          unresolved_questions: Json
+          updated_at: string
+          validation_issues: Json
+          version: number
+        }
+        Insert: {
+          approval_hash?: string | null
+          approved_at?: string | null
+          commit_journal?: Json
+          commit_operation_id?: string | null
+          company_id: string
+          completed_at?: string | null
+          conversation?: Json
+          contradictions?: Json
+          created_at?: string
+          facts?: Json
+          id?: string
+          live_snapshot?: Json
+          live_snapshot_hash: string
+          mode?: string
+          operator_id: string
+          proposed_plan?: Json | null
+          proposed_plan_hash?: string | null
+          readback?: Json | null
+          sources?: Json
+          status?: string
+          unresolved_questions?: Json
+          updated_at?: string
+          validation_issues?: Json
+          version?: number
+        }
+        Update: {
+          approval_hash?: string | null
+          approved_at?: string | null
+          commit_journal?: Json
+          commit_operation_id?: string | null
+          company_id?: string
+          completed_at?: string | null
+          conversation?: Json
+          contradictions?: Json
+          created_at?: string
+          facts?: Json
+          id?: string
+          live_snapshot?: Json
+          live_snapshot_hash?: string
+          mode?: string
+          operator_id?: string
+          proposed_plan?: Json | null
+          proposed_plan_hash?: string | null
+          readback?: Json | null
+          sources?: Json
+          status?: string
+          unresolved_questions?: Json
+          updated_at?: string
+          validation_issues?: Json
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_guided_setup_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_guided_setup_sessions_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_inventory_import_rows: {
+        Row: {
+          committed_event_id: string | null
+          committed_stock_unit_id: string | null
+          company_id: string
+          created_at: string
+          error: Json | null
+          id: string
+          import_id: string
+          matched_variant_id: string | null
+          normalized_data: Json
+          proposed_stock_unit: Json | null
+          raw_data: Json
+          row_fingerprint: string
+          row_number: number
+          status: string
+          updated_at: string
+          validation_issues: Json
+        }
+        Insert: {
+          committed_event_id?: string | null
+          committed_stock_unit_id?: string | null
+          company_id: string
+          created_at?: string
+          error?: Json | null
+          id?: string
+          import_id: string
+          matched_variant_id?: string | null
+          normalized_data?: Json
+          proposed_stock_unit?: Json | null
+          raw_data: Json
+          row_fingerprint: string
+          row_number: number
+          status?: string
+          updated_at?: string
+          validation_issues?: Json
+        }
+        Update: {
+          committed_event_id?: string | null
+          committed_stock_unit_id?: string | null
+          company_id?: string
+          created_at?: string
+          error?: Json | null
+          id?: string
+          import_id?: string
+          matched_variant_id?: string | null
+          normalized_data?: Json
+          proposed_stock_unit?: Json | null
+          raw_data?: Json
+          row_fingerprint?: string
+          row_number?: number
+          status?: string
+          updated_at?: string
+          validation_issues?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_inventory_import_rows_committed_event_id_fkey"
+            columns: ["committed_event_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_stock_unit_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_import_rows_committed_stock_unit_id_fkey"
+            columns: ["committed_stock_unit_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_stock_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_import_rows_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_import_rows_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_inventory_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_import_rows_matched_variant_id_fkey"
+            columns: ["matched_variant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_inventory_imports: {
+        Row: {
+          commit_operation_id: string | null
+          company_id: string
+          completed_at: string | null
+          created_at: string
+          error: Json | null
+          id: string
+          mapping: Json
+          operator_id: string
+          setup_session_id: string | null
+          source_hash: string
+          source_mime_type: string | null
+          source_name: string
+          status: string
+          summary: Json
+          updated_at: string
+          validation_issues: Json
+        }
+        Insert: {
+          commit_operation_id?: string | null
+          company_id: string
+          completed_at?: string | null
+          created_at?: string
+          error?: Json | null
+          id?: string
+          mapping?: Json
+          operator_id: string
+          setup_session_id?: string | null
+          source_hash: string
+          source_mime_type?: string | null
+          source_name: string
+          status?: string
+          summary?: Json
+          updated_at?: string
+          validation_issues?: Json
+        }
+        Update: {
+          commit_operation_id?: string | null
+          company_id?: string
+          completed_at?: string | null
+          created_at?: string
+          error?: Json | null
+          id?: string
+          mapping?: Json
+          operator_id?: string
+          setup_session_id?: string | null
+          source_hash?: string
+          source_mime_type?: string | null
+          source_name?: string
+          status?: string
+          summary?: Json
+          updated_at?: string
+          validation_issues?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_inventory_imports_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_imports_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_inventory_imports_setup_session_id_fkey"
+            columns: ["setup_session_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_guided_setup_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_product_capability_bindings: {
+        Row: {
+          capability_key: string
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          enabled: boolean
+          fallback_behavior: Json
+          id: string
+          product_id: string
+          required_inputs: Json
+          updated_at: string
+        }
+        Insert: {
+          capability_key: string
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          enabled?: boolean
+          fallback_behavior?: Json
+          id?: string
+          product_id: string
+          required_inputs?: Json
+          updated_at?: string
+        }
+        Update: {
+          capability_key?: string
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          enabled?: boolean
+          fallback_behavior?: Json
+          id?: string
+          product_id?: string
+          required_inputs?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_product_capability_bindings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_product_capability_bindings_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_setup_verification_items: {
+        Row: {
+          company_id: string
+          created_at: string
+          evidence: Json
+          id: string
+          item_key: string
+          message: string
+          resolved_at: string | null
+          resolved_by: string | null
+          session_id: string | null
+          severity: string
+          source: Json
+          status: string
+          subject_id: string | null
+          subject_kind: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          item_key: string
+          message: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          session_id?: string | null
+          severity?: string
+          source?: Json
+          status?: string
+          subject_id?: string | null
+          subject_kind: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          item_key?: string
+          message?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          session_id?: string | null
+          severity?: string
+          source?: Json
+          status?: string
+          subject_id?: string | null
+          subject_kind?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_setup_verification_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_setup_verification_items_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_setup_verification_items_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_guided_setup_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalog_supplier_cost_profiles: {
+        Row: {
+          activation_rule: Json
+          catalog_variant_id: string
+          company_id: string
+          created_at: string
+          currency_code: string
+          deleted_at: string | null
+          id: string
+          is_default: boolean
+          label: string
+          profile_key: string
+          source: Json
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          activation_rule?: Json
+          catalog_variant_id: string
+          company_id: string
+          created_at?: string
+          currency_code?: string
+          deleted_at?: string | null
+          id?: string
+          is_default?: boolean
+          label: string
+          profile_key: string
+          source?: Json
+          unit_cost: number
+          updated_at?: string
+        }
+        Update: {
+          activation_rule?: Json
+          catalog_variant_id?: string
+          company_id?: string
+          created_at?: string
+          currency_code?: string
+          deleted_at?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string
+          profile_key?: string
+          source?: Json
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalog_supplier_cost_profiles_catalog_variant_id_fkey"
+            columns: ["catalog_variant_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_variants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_supplier_cost_profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_material_quantity_rules: {
+        Row: {
+          calculation_kind: string
+          company_id: string
+          config: Json
+          coverage_quantity: number | null
+          created_at: string
+          deleted_at: string | null
+          fallback_rule: Json
+          id: string
+          measure_source: string
+          package_quantity: number | null
+          product_material_id: string
+          purchase_rounding: string
+          required_inputs: Json
+          rounding_increment: number | null
+          updated_at: string
+          waste_factor: number
+        }
+        Insert: {
+          calculation_kind: string
+          company_id: string
+          config?: Json
+          coverage_quantity?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          fallback_rule?: Json
+          id?: string
+          measure_source: string
+          package_quantity?: number | null
+          product_material_id: string
+          purchase_rounding?: string
+          required_inputs?: Json
+          rounding_increment?: number | null
+          updated_at?: string
+          waste_factor?: number
+        }
+        Update: {
+          calculation_kind?: string
+          company_id?: string
+          config?: Json
+          coverage_quantity?: number | null
+          created_at?: string
+          deleted_at?: string | null
+          fallback_rule?: Json
+          id?: string
+          measure_source?: string
+          package_quantity?: number | null
+          product_material_id?: string
+          purchase_rounding?: string
+          required_inputs?: Json
+          rounding_increment?: number | null
+          updated_at?: string
+          waste_factor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_material_quantity_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_material_quantity_rules_product_material_id_fkey"
+            columns: ["product_material_id"]
+            isOneToOne: false
+            referencedRelation: "product_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           account_holder_id: string | null
@@ -7868,6 +8485,255 @@ export type Database = {
           },
         ]
       }
+      lead_classification_reviews: {
+        Row: {
+          adjusted_lead_score: number
+          baseline_confidence: number
+          baseline_verdict: string
+          company_id: string
+          connection_id: string
+          created_at: string
+          evidence: Json
+          id: string
+          provider_message_id: string
+          provider_thread_id: string
+          resolved_at: string | null
+          review_reason: string
+          sender_domain: string | null
+          sender_email: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          adjusted_lead_score: number
+          baseline_confidence: number
+          baseline_verdict: string
+          company_id: string
+          connection_id: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          provider_message_id: string
+          provider_thread_id: string
+          resolved_at?: string | null
+          review_reason: string
+          sender_domain?: string | null
+          sender_email?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          adjusted_lead_score?: number
+          baseline_confidence?: number
+          baseline_verdict?: string
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          evidence?: Json
+          id?: string
+          provider_message_id?: string
+          provider_thread_id?: string
+          resolved_at?: string | null
+          review_reason?: string
+          sender_domain?: string | null
+          sender_email?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_classification_reviews_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_classification_reviews_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_disposition_feedback: {
+        Row: {
+          actor_user_id: string
+          applied_opportunity_updated_at: string | null
+          applied_stage: string | null
+          apply_idempotency_key: string
+          canonical_outcome: string
+          company_id: string
+          created_at: string
+          disposition_id: string | null
+          id: string
+          learning_polarity: string
+          learning_state: string
+          model_context: Json
+          opportunity_id: string
+          optional_note: string | null
+          participants_hash: string | null
+          phase_c_enabled: boolean
+          policy_context: Json
+          prior_actual_close_date: string | null
+          prior_disposition_id: string | null
+          prior_lost_notes: string | null
+          prior_lost_reason: string | null
+          prior_stage: string
+          prior_stage_entered_at: string
+          prior_stage_manually_set: boolean
+          reason_code: string
+          resolution_status: string
+          retracted_at: string | null
+          retracted_by: string | null
+          sender_domain: string | null
+          sender_email: string | null
+          source_connection_id: string | null
+          source_message_id: string | null
+          source_provider_thread_id: string | null
+          source_thread_id: string | null
+          source_thread_key: string | null
+          undo_idempotency_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          actor_user_id: string
+          applied_opportunity_updated_at?: string | null
+          applied_stage?: string | null
+          apply_idempotency_key: string
+          canonical_outcome: string
+          company_id: string
+          created_at?: string
+          disposition_id?: string | null
+          id?: string
+          learning_polarity: string
+          learning_state?: string
+          model_context?: Json
+          opportunity_id: string
+          optional_note?: string | null
+          participants_hash?: string | null
+          phase_c_enabled: boolean
+          policy_context?: Json
+          prior_actual_close_date?: string | null
+          prior_disposition_id?: string | null
+          prior_lost_notes?: string | null
+          prior_lost_reason?: string | null
+          prior_stage: string
+          prior_stage_entered_at: string
+          prior_stage_manually_set: boolean
+          reason_code: string
+          resolution_status: string
+          retracted_at?: string | null
+          retracted_by?: string | null
+          sender_domain?: string | null
+          sender_email?: string | null
+          source_connection_id?: string | null
+          source_message_id?: string | null
+          source_provider_thread_id?: string | null
+          source_thread_id?: string | null
+          source_thread_key?: string | null
+          undo_idempotency_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actor_user_id?: string
+          applied_opportunity_updated_at?: string | null
+          applied_stage?: string | null
+          apply_idempotency_key?: string
+          canonical_outcome?: string
+          company_id?: string
+          created_at?: string
+          disposition_id?: string | null
+          id?: string
+          learning_polarity?: string
+          learning_state?: string
+          model_context?: Json
+          opportunity_id?: string
+          optional_note?: string | null
+          participants_hash?: string | null
+          phase_c_enabled?: boolean
+          policy_context?: Json
+          prior_actual_close_date?: string | null
+          prior_disposition_id?: string | null
+          prior_lost_notes?: string | null
+          prior_lost_reason?: string | null
+          prior_stage?: string
+          prior_stage_entered_at?: string
+          prior_stage_manually_set?: boolean
+          reason_code?: string
+          resolution_status?: string
+          retracted_at?: string | null
+          retracted_by?: string | null
+          sender_domain?: string | null
+          sender_email?: string | null
+          source_connection_id?: string | null
+          source_message_id?: string | null
+          source_provider_thread_id?: string | null
+          source_thread_id?: string | null
+          source_thread_key?: string | null
+          undo_idempotency_key?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_disposition_feedback_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_disposition_id_fkey"
+            columns: ["disposition_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_dispositions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_prior_disposition_id_fkey"
+            columns: ["prior_disposition_id"]
+            isOneToOne: false
+            referencedRelation: "opportunity_dispositions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_retracted_by_fkey"
+            columns: ["retracted_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_source_connection_id_fkey"
+            columns: ["source_connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_disposition_feedback_source_thread_id_fkey"
+            columns: ["source_thread_id"]
+            isOneToOne: false
+            referencedRelation: "email_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_field_provenance: {
         Row: {
           actor_user_id: string | null
@@ -7944,6 +8810,70 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_intake_correction_runs: {
+        Row: {
+          actor_user_id: string
+          applied_at: string
+          company_id: string
+          correction_key: string
+          entry_a_sha256: string
+          entry_b_sha256: string
+          id: string
+          input_spec: Json
+          manifest_sha256: string
+          result: Json
+          source_opportunity_id: string
+        }
+        Insert: {
+          actor_user_id: string
+          applied_at?: string
+          company_id: string
+          correction_key: string
+          entry_a_sha256: string
+          entry_b_sha256: string
+          id?: string
+          input_spec: Json
+          manifest_sha256: string
+          result: Json
+          source_opportunity_id: string
+        }
+        Update: {
+          actor_user_id?: string
+          applied_at?: string
+          company_id?: string
+          correction_key?: string
+          entry_a_sha256?: string
+          entry_b_sha256?: string
+          id?: string
+          input_spec?: Json
+          manifest_sha256?: string
+          result?: Json
+          source_opportunity_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_intake_correction_runs_actor_company_fkey"
+            columns: ["company_id", "actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "lead_intake_correction_runs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_intake_correction_runs_source_company_fkey"
+            columns: ["company_id", "source_opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["company_id", "id"]
           },
         ]
       }
@@ -8264,6 +9194,7 @@ export type Database = {
           is_selected: boolean | null
           is_taxable: boolean | null
           line_total: number | null
+          minimum_charge_snapshot: number | null
           name: string
           parent_line_item_id: string | null
           product_id: string | null
@@ -8296,6 +9227,7 @@ export type Database = {
           is_selected?: boolean | null
           is_taxable?: boolean | null
           line_total?: number | null
+          minimum_charge_snapshot?: number | null
           name: string
           parent_line_item_id?: string | null
           product_id?: string | null
@@ -8328,6 +9260,7 @@ export type Database = {
           is_selected?: boolean | null
           is_taxable?: boolean | null
           line_total?: number | null
+          minimum_charge_snapshot?: number | null
           name?: string
           parent_line_item_id?: string | null
           product_id?: string | null
@@ -16150,6 +17083,89 @@ export type Database = {
           },
         ]
       }
+      user_email_aliases: {
+        Row: {
+          company_id: string
+          created_at: string
+          email: string
+          evidence: Json
+          first_seen_at: string
+          id: string
+          last_seen_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source: string
+          status: string
+          updated_at: string
+          user_id: string
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          email: string
+          evidence?: Json
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          email?: string
+          evidence?: Json
+          first_seen_at?: string
+          id?: string
+          last_seen_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_email_aliases_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_email_aliases_reviewer_company_fkey"
+            columns: ["company_id", "reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "user_email_aliases_user_company_fkey"
+            columns: ["company_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+          {
+            foreignKeyName: "user_email_aliases_verifier_company_fkey"
+            columns: ["company_id", "verified_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["company_id", "id"]
+          },
+        ]
+      }
       user_permission_overrides: {
         Row: {
           company_id: string
@@ -16986,6 +18002,39 @@ export type Database = {
         Args: { p_estimate_id: string; p_idempotency_key: string }
         Returns: Json
       }
+      apply_lead_disposition_feedback: {
+        Args: {
+          p_idempotency_key: string
+          p_opportunity_id: string
+          p_optional_note: string | null
+          p_reason_code: string
+        }
+        Returns: {
+          current_actual_close_date: string | null
+          current_lost_notes: string | null
+          current_lost_reason: string | null
+          current_stage: string
+          current_stage_entered_at: string
+          current_stage_manually_set: boolean
+          feedback_id: string
+          idempotent_replay: boolean
+          lifecycle_changed: boolean
+          outcome: string
+          prior_stage: string
+        }[]
+      }
+      apply_staff_authored_false_lead_correction_guarded: {
+        Args: {
+          p_actor_user_id: string
+          p_company_id: string
+          p_correction_key: string
+          p_entry_a_sha256: string
+          p_entry_b_sha256: string
+          p_manifest_sha256: string
+          p_spec: Json
+        }
+        Returns: Json
+      }
       acquire_email_connection_sync_lock_as_system: {
         Args: { p_connection_id: string; p_lease_seconds?: number }
         Returns: string
@@ -17284,6 +18333,28 @@ export type Database = {
       }
       catalog_import_validate: {
         Args: { p_company_id: string; p_payload: Json }
+        Returns: Json
+      }
+      catalog_guided_setup_archive_variant: {
+        Args: { p_action_key: string; p_session_id: string }
+        Returns: Json
+      }
+      catalog_guided_setup_begin_commit: {
+        Args: { p_approval_hash: string; p_session_id: string }
+        Returns: Json
+      }
+      catalog_guided_setup_finish_commit: {
+        Args: {
+          p_commit_journal?: Json
+          p_operation_id: string
+          p_readback: Json
+          p_session_id: string
+          p_success: boolean
+        }
+        Returns: Json
+      }
+      catalog_inventory_import_commit: {
+        Args: { p_import_id: string }
         Returns: Json
       }
       catalog_setup_save: {
@@ -18153,6 +19224,13 @@ export type Database = {
           schedule: string
         }[]
       }
+      get_lead_disposition_context: {
+        Args: { p_opportunity_id: string }
+        Returns: {
+          phase_c_enabled: boolean
+          policy_version: string
+        }[]
+      }
       get_opportunity_lead_files: {
         Args: { p_opportunity_id: string }
         Returns: {
@@ -18347,6 +19425,23 @@ export type Database = {
           stage_manually_set: boolean
         }[]
       }
+      apply_email_opportunity_declined_disposition: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_evidence?: Json
+          p_expected_assignment_version: number
+          p_expected_stage: string
+          p_opportunity_id: string
+          p_provider_message_id: string
+        }
+        Returns: {
+          changed: boolean
+          disposition_id: string | null
+          guard_reason: string | null
+          stage: string
+        }[]
+      }
       apply_email_opportunity_deferred_disposition: {
         Args: {
           p_company_id: string
@@ -18365,6 +19460,25 @@ export type Database = {
           next_follow_up_at: string | null
           stage: string
         }[]
+      }
+      record_staff_email_alias_candidate_as_system: {
+        Args: {
+          p_company_id: string
+          p_connection_id: string
+          p_email: string
+          p_evidence: Json
+          p_provider_message_id: string
+          p_provider_thread_id: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      review_user_email_alias: {
+        Args: {
+          p_alias_id: string
+          p_status: string
+        }
+        Returns: Database["public"]["Tables"]["user_email_aliases"]["Row"]
       }
       increment_signup_count: {
         Args: { variant_id: string }
@@ -19286,6 +20400,25 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      undo_lead_disposition_feedback: {
+        Args: {
+          p_feedback_id: string
+          p_idempotency_key: string
+        }
+        Returns: {
+          current_actual_close_date: string | null
+          current_lost_notes: string | null
+          current_lost_reason: string | null
+          current_stage: string
+          current_stage_entered_at: string
+          current_stage_manually_set: boolean
+          feedback_id: string
+          idempotent_replay: boolean
+          lifecycle_changed: boolean
+          outcome: string
+          prior_stage: string
+        }[]
       }
       users_with_permission: {
         Args: {

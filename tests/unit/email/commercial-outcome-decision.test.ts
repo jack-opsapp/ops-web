@@ -61,7 +61,7 @@ type CommercialOutcomeDecision =
   | {
       outcome: "declined";
       confidence: "high";
-      reasonCode: "customer_declined";
+      reasonCode: "customer_declined" | "price";
       decisiveEvidenceKey: string;
       decisiveMessageId: string;
       decisiveDirection: "inbound";
@@ -339,7 +339,7 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
     expect(result?.signals).not.toContain("payment_confirmed");
   });
 
-  it("treats Owen and Jennifer's paid deposits as Won despite the earlier conditional start request", () => {
+  it("treats Owen and Jennifer's paid deposits as Won without promoting their schedule-confirmation request", () => {
     const result = detectCommercialOutcome({
       now: NOW,
       messages: [
@@ -382,8 +382,38 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
       ]),
       signals: expect.arrayContaining(["payment_confirmed"]),
       facts: {
-        schedule: expect.stringMatching(/monday|july 13/i),
-        nextAction: expect.stringMatching(/convert|project|schedule/i),
+        schedule: null,
+        nextAction:
+          "Convert or link the project and confirm the work schedule.",
+      },
+    });
+  });
+
+  it("does not treat a question-form date as a confirmed schedule fact", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "owen-deposit-paid",
+          "2026-05-21T19:00:00.000Z",
+          "inbound",
+          "Just paid Jackson's deposit."
+        ),
+        message(
+          "owen-schedule-question",
+          "2026-05-23T19:00:00.000Z",
+          "inbound",
+          "Are we on for Monday, July 13th?"
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "won",
+      facts: {
+        schedule: null,
+        nextAction:
+          "Convert or link the project and confirm the work schedule.",
       },
     });
   });
@@ -501,6 +531,52 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
           /follow.?up.*next year|next year.*follow.?up/i
         ),
       },
+    });
+  });
+
+  it("classifies Sandra's unequivocal rejection as Lost for price", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "sandra-price-rejection",
+          "2026-07-25T13:25:09.000Z",
+          "inbound",
+          "We did go with someone else mostly for financial reasons."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "declined",
+      confidence: "high",
+      reasonCode: "price",
+      decisiveMessageId: "sandra-price-rejection",
+      decisiveSignals: ["customer_declined"],
+      followUpAt: null,
+      facts: {
+        objection: expect.stringMatching(/financial reasons/i),
+      },
+    });
+  });
+
+  it("keeps a decisive rejection without a stated reason distinct from price", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "plain-rejection",
+          "2026-07-25T13:25:09.000Z",
+          "inbound",
+          "We hired someone else. Please close this out."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "declined",
+      reasonCode: "customer_declined",
+      decisiveMessageId: "plain-rejection",
     });
   });
 

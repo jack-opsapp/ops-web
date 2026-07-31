@@ -2,9 +2,10 @@
 // Core sync cycle — runs on every sync trigger (cron, manual, webhook).
 // Implements the 12-step flow from spec Section 4C.
 
-import { after } from "next/server";
+import { randomUUID } from "node:crypto";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { requireSupabase, runWithSupabase } from "@/lib/supabase/helpers";
+import { requireSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 import { EmailService } from "./email-service";
@@ -41,13 +42,23 @@ import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-clien
 import { createEmailOpportunityNotification } from "@/lib/email/email-opportunity-notification";
 import { createEmailSyncCompleteNotification } from "@/lib/email/email-sync-complete-notification";
 import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-health";
+import {
+  decodeEmailSyncContinuation,
+  encodeEmailSyncContinuation,
+} from "@/lib/email/email-sync-continuation";
 import { withSerializationRetry } from "@/lib/supabase/serialization-retry";
 import { refreshLeadSummariesForOpportunities } from "./lead-summary-service";
 import { isAIProviderUnavailableError } from "./openai-monitoring";
 import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "./cron-workload-control-service";
+import {
   reportOpenAIQuotaExhausted,
   type OpenAIQuotaErrorMetadata,
 } from "@/lib/notifications/openai-quota-alert-service";
+import { getOptionalPmfOperatorIdentity } from "@/lib/pmf/recipients";
+import { persistDeferredLeadClassification } from "./lead-feedback-prior-service";
 import {
   buildEmailOpportunityTitle,
   identityCandidateFromMailbox,
@@ -70,15 +81,21 @@ import {
 } from "@/lib/email/lead-enrichment";
 import {
   findOpportunityRelationshipMatch,
+  isAutomaticProjectCreationSafetyHold,
   type OpportunityRelationshipFacts,
 } from "@/lib/email/opportunity-relationship-matching";
 import {
   applyInboundEffectiveSenderIdentity,
   buildLeadRoutingIdentity,
+  ingestionOperatorIdentityFromAuthoritative,
+  quarantinePendingStaffAlias,
+  resolvePersistedEmailAuthorship,
   resolvePersistedEmailDirection,
   type IngestionOperatorIdentity,
   type LeadRoutingIdentity,
+  type StaffAliasCandidate,
 } from "@/lib/email/email-ingestion-routing";
+import { persistStaffEmailAliasCandidate } from "@/lib/email/staff-email-alias";
 import {
   logInvalidProviderEmailIds,
   validateProviderEmailIds,
@@ -116,6 +133,12 @@ import {
   releaseEmailConnectionSyncLock,
 } from "./email-connection-sync-lock";
 import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-operation";
+import {
+  EmailIngestionRecoveryWorker,
+  type ClaimedEmailIngestionRecovery,
+  type EmailIngestionRecoveryFailureDisposition,
+  type EmailIngestionRecoveryWorkerResult,
+} from "./email-ingestion-recovery-worker";
 import type { EmailExactMessageRecoveryReparentRepairInput } from "./email-exact-message-recovery-service";
 import { cleanMessageBody } from "./conversation-state/message-cleaner";
 import {
@@ -153,10 +176,36 @@ export interface SyncCycleResult {
 
 /** A semantic opportunity write failed, so the provider cursor must not move. */
 class LifecyclePersistenceError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
     this.name = "LifecyclePersistenceError";
   }
+}
+
+const DEFERRED_MODEL_ANSWER_ERROR_NAMES = new Set([
+  "ModelContractError",
+  "ModelRefusalError",
+  "StageEvaluationModelContractError",
+  "StageEvaluationModelRefusalError",
+]);
+
+function isDeferredModelAnswerError(
+  error: unknown,
+  seen = new Set<unknown>(),
+  depth = 0
+): boolean {
+  if (!error || typeof error !== "object" || depth > 6 || seen.has(error)) {
+    return false;
+  }
+  seen.add(error);
+  const record = error as Record<string, unknown>;
+  if (
+    typeof record.name === "string" &&
+    DEFERRED_MODEL_ANSWER_ERROR_NAMES.has(record.name)
+  ) {
+    return true;
+  }
+  return isDeferredModelAnswerError(record.cause, seen, depth + 1);
 }
 
 // ─── Module-level helpers ───────────────────────────────────────────────────
@@ -407,16 +456,21 @@ function syncIngestionOperatorIdentity(
   profile: SyncProfile,
   authoritative?: OperatorIdentity
 ): IngestionOperatorIdentity {
+  if (authoritative) {
+    return ingestionOperatorIdentityFromAuthoritative({
+      connectionEmail: connection.email,
+      operator: authoritative,
+      teamForwarders: profile.teamForwarders ?? [],
+      knownPlatformSenders: profile.knownPlatformSenders ?? [],
+    });
+  }
   return {
     connectionEmail: connection.email,
-    userEmailAddresses: authoritative
-      ? [...authoritative.emails]
-      : (profile.userEmailAddresses ?? []),
-    companyDomains: authoritative
-      ? [...authoritative.domains]
-      : (profile.companyDomains ?? []),
+    userEmailAddresses: profile.userEmailAddresses ?? [],
+    companyDomains: profile.companyDomains ?? [],
     teamForwarders: profile.teamForwarders ?? [],
     knownPlatformSenders: profile.knownPlatformSenders ?? [],
+    staffMembers: [],
   };
 }
 
@@ -501,6 +555,210 @@ function emptyResult(): SyncCycleResult {
     leadScansDeferred: 0,
     errors: [],
   };
+}
+
+interface EmailIngestionRecoveryRow {
+  id: unknown;
+  company_id: unknown;
+  connection_id: unknown;
+  recovery_kind: unknown;
+  provider_thread_id: unknown;
+  provider_message_id: unknown;
+  provider_label_id: unknown;
+  opportunity_id: unknown;
+  status: unknown;
+  attempts: unknown;
+}
+
+function requiredRecoveryString(value: unknown, field: string): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Email ingestion recovery row is missing ${field}`);
+  }
+  return value;
+}
+
+function nullableRecoveryString(value: unknown, field: string): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") {
+    throw new Error(`Email ingestion recovery row has invalid ${field}`);
+  }
+  return value;
+}
+
+function mapEmailIngestionRecoveryRow(
+  value: unknown
+): ClaimedEmailIngestionRecovery & { status: string } {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new Error("Email ingestion recovery RPC returned no row");
+  }
+  const row = candidate as EmailIngestionRecoveryRow;
+  const kind = requiredRecoveryString(row.recovery_kind, "recovery_kind");
+  if (
+    kind !== "lead_classification" &&
+    kind !== "provider_label_apply" &&
+    kind !== "commercial_outcome"
+  ) {
+    throw new Error("Email ingestion recovery row has invalid recovery_kind");
+  }
+  const attempts =
+    typeof row.attempts === "number" ? row.attempts : Number(row.attempts);
+  if (!Number.isSafeInteger(attempts) || attempts < 0) {
+    throw new Error("Email ingestion recovery row has invalid attempts");
+  }
+  return {
+    id: requiredRecoveryString(row.id, "id"),
+    companyId: requiredRecoveryString(row.company_id, "company_id"),
+    connectionId: requiredRecoveryString(row.connection_id, "connection_id"),
+    kind,
+    providerThreadId: requiredRecoveryString(
+      row.provider_thread_id,
+      "provider_thread_id"
+    ),
+    providerMessageId: nullableRecoveryString(
+      row.provider_message_id,
+      "provider_message_id"
+    ),
+    providerLabelId: nullableRecoveryString(
+      row.provider_label_id,
+      "provider_label_id"
+    ),
+    opportunityId: nullableRecoveryString(row.opportunity_id, "opportunity_id"),
+    status: requiredRecoveryString(row.status, "status"),
+    attempts,
+  };
+}
+
+function emailIngestionRecoveryRows(
+  value: unknown
+): ClaimedEmailIngestionRecovery[] {
+  if (value === null || value === undefined) return [];
+  if (!Array.isArray(value)) {
+    return [mapEmailIngestionRecoveryRow(value)];
+  }
+  return value.map((row) => mapEmailIngestionRecoveryRow(row));
+}
+
+function recoveryRpcBoolean(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value[0] === true;
+  return false;
+}
+
+function recoveryFailureDisposition(
+  value: unknown
+): EmailIngestionRecoveryFailureDisposition {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  if (
+    candidate === "retrying" ||
+    candidate === "failed" ||
+    candidate === "stale"
+  ) {
+    return candidate;
+  }
+  throw new Error(
+    "Email ingestion recovery failure RPC returned an invalid disposition"
+  );
+}
+
+async function enqueueEmailIngestionRecovery(input: {
+  companyId: string;
+  connectionId: string;
+  kind: "lead_classification" | "provider_label_apply" | "commercial_outcome";
+  providerThreadId: string;
+  providerMessageId: string;
+  providerLabelId?: string | null;
+  opportunityId?: string | null;
+}): Promise<ClaimedEmailIngestionRecovery & { status: string }> {
+  const { data, error } = await requireSupabase().rpc(
+    "enqueue_email_ingestion_recovery_as_system",
+    {
+      p_company_id: input.companyId,
+      p_connection_id: input.connectionId,
+      p_recovery_kind: input.kind,
+      p_provider_thread_id: input.providerThreadId,
+      p_provider_message_id: input.providerMessageId,
+      p_provider_label_id: input.providerLabelId ?? null,
+      p_opportunity_id: input.opportunityId ?? null,
+    }
+  );
+  if (error) {
+    throw new CronDatabaseOperationError(
+      `[sync-engine] email ingestion recovery enqueue failed: ${error.message}`,
+      { cause: error }
+    );
+  }
+  return mapEmailIngestionRecoveryRow(data);
+}
+
+async function claimEmailIngestionRecoveryById(input: {
+  queueId: string;
+  holder: string;
+}): Promise<(ClaimedEmailIngestionRecovery & { status: string }) | null> {
+  const { data, error } = await requireSupabase().rpc(
+    "claim_email_ingestion_recovery_by_id_as_system",
+    {
+      p_queue_id: input.queueId,
+      p_holder: input.holder,
+      p_lease_seconds: 360,
+    }
+  );
+  if (error) {
+    throw new CronDatabaseOperationError(
+      `[sync-engine] email ingestion recovery direct claim failed: ${error.message}`,
+      { cause: error }
+    );
+  }
+  if (data === null || (Array.isArray(data) && data.length === 0)) return null;
+  return mapEmailIngestionRecoveryRow(data);
+}
+
+async function completeEmailIngestionRecovery(input: {
+  queueId: string;
+  holder: string;
+  outcome:
+    | "classification_recovered"
+    | "commercial_outcome_recovered"
+    | "label_applied"
+    | "stale_configuration";
+}): Promise<boolean> {
+  const { data, error } = await requireSupabase().rpc(
+    "complete_email_ingestion_recovery_as_system",
+    {
+      p_queue_id: input.queueId,
+      p_holder: input.holder,
+      p_outcome: input.outcome,
+    }
+  );
+  if (error) {
+    throw new CronDatabaseOperationError(
+      `[sync-engine] email ingestion recovery completion failed: ${error.message}`,
+      { cause: error }
+    );
+  }
+  return recoveryRpcBoolean(data);
+}
+
+async function failEmailIngestionRecovery(input: {
+  queueId: string;
+  holder: string;
+  error: string;
+}): Promise<EmailIngestionRecoveryFailureDisposition> {
+  const { data, error } = await requireSupabase().rpc(
+    "fail_email_ingestion_recovery_as_system",
+    {
+      p_queue_id: input.queueId,
+      p_holder: input.holder,
+      p_error: input.error,
+    }
+  );
+  if (error) {
+    throw new CronDatabaseOperationError(
+      `[sync-engine] email ingestion recovery failure persistence failed: ${error.message}`,
+      { cause: error }
+    );
+  }
+  return recoveryFailureDisposition(data);
 }
 
 // Incremental provider cursors eventually expire. A fresh cursor cannot be
@@ -814,8 +1072,9 @@ async function createClient(
       clientUpdates.email = enrichmentFacts.contactEmail;
     if (enrichmentFacts.contactPhone)
       clientUpdates.phone_number = enrichmentFacts.contactPhone;
-    if (enrichmentFacts.address)
-      clientUpdates.address = enrichmentFacts.address;
+    if (typeof enrichmentFields.address === "string") {
+      clientUpdates.address = enrichmentFields.address;
+    }
     await writeFieldProvenance({
       supabase,
       companyId,
@@ -1586,8 +1845,7 @@ async function linkThread(
     );
   }
   const canonicalOpportunityId = canonicalRows?.[0]?.opportunity_id as
-    | string
-    | undefined;
+    string | undefined;
   if (!canonicalOpportunityId) {
     throw new Error(
       "[sync-engine] linkThread did not persist a canonical provider-thread owner"
@@ -1662,6 +1920,7 @@ async function recordActivityCorrespondenceEvent(
   if (!opportunityId) return;
   const supabase = requireSupabase();
   const profile = connection.syncFilters as Partial<SyncProfile> | null;
+  const authoritative = await getCachedOperatorIdentity(connection);
   const result = await OpportunityLifecycleService.recordCorrespondenceEvent({
     supabase,
     companyId: connection.companyId,
@@ -1683,8 +1942,8 @@ async function recordActivityCorrespondenceEvent(
     bodyText: email.bodyText,
     labels: email.labelIds,
     connectionEmail: connection.email,
-    companyDomains: profile?.companyDomains ?? [],
-    userEmailAddresses: profile?.userEmailAddresses ?? [],
+    companyDomains: [...authoritative.domains],
+    userEmailAddresses: [...authoritative.emails],
     knownPlatformSenders: profile?.knownPlatformSenders ?? [],
   });
 
@@ -1703,27 +1962,6 @@ interface ActivityPersistenceOptions {
   skipThreadState?: boolean;
 }
 
-/**
- * Keep thread classification off the synchronous sync/send path without
- * assuming the caller is currently inside a Next.js request. Route handlers
- * get Next's response-lifecycle guarantee; cron workers and direct provider
- * syncs fall back to a detached task. New messages are already persisted with
- * category_classified_at cleared, so interruption or failure remains eligible
- * for the bounded durable retry sweep.
- */
-function scheduleThreadBackgroundTask(task: () => Promise<void>): void {
-  const supabase = requireSupabase();
-  const scopedTask = () => runWithSupabase(supabase, task);
-
-  try {
-    after(scopedTask);
-  } catch {
-    setTimeout(() => {
-      void scopedTask();
-    }, 0);
-  }
-}
-
 async function persistDeterministicEmailThreadState(
   email: NormalizedEmail,
   connection: EmailConnection,
@@ -1739,7 +1977,7 @@ async function persistDeterministicEmailThreadState(
     disposition === "non_actionable_provider_noise";
 
   try {
-    const { threadRow, isNew } = await EmailThreadService.upsertFromEmail({
+    const { threadRow } = await EmailThreadService.upsertFromEmail({
       companyId: connection.companyId,
       connectionId: connection.id,
       providerThreadId: email.threadId,
@@ -1771,57 +2009,17 @@ async function persistDeterministicEmailThreadState(
         .eq("provider_thread_id", email.threadId)
         .eq("category_manually_set", threadRow.categoryManuallySet);
       if (classificationError) {
-        throw new Error(
-          `provider-noise classification persistence failed: ${classificationError.message}`
+        throw new CronDatabaseOperationError(
+          `provider-noise classification persistence failed: ${classificationError.message}`,
+          { cause: classificationError }
         );
       }
       return;
     }
-
-    const needsClassify =
-      isNew ||
-      messageIsNew ||
-      threadRow.categoryClassifiedAt === null ||
-      threadRow.categoryConfidence < 0.6 ||
-      (direction === "inbound" && !threadRow.categoryManuallySet);
-
-    if (needsClassify) {
-      scheduleThreadBackgroundTask(async () => {
-        try {
-          await EmailThreadService.classifyAndUpdate(threadRow);
-        } catch (err) {
-          console.error(
-            "[sync-engine] thread classify failed (non-fatal) for",
-            threadRow.id,
-            err instanceof Error ? err.message : err
-          );
-        }
-      });
-    } else if (direction === "inbound") {
-      scheduleThreadBackgroundTask(async () => {
-        try {
-          const { PhaseCAutonomyRouter } =
-            await import("./phase-c-autonomy-router");
-          const result = await PhaseCAutonomyRouter.route(threadRow);
-          if (
-            result.outcome !== "noop_off" &&
-            result.outcome !== "noop_draft_on_request"
-          ) {
-            console.log(
-              "[phase-c-router] thread=%s outcome=%s level=%s (inbound reuse)",
-              threadRow.id,
-              result.outcome,
-              result.effectiveLevel
-            );
-          }
-        } catch (err) {
-          console.error(
-            "[phase-c-router] sync-engine inbound route failed (non-fatal):",
-            err instanceof Error ? err.message : err
-          );
-        }
-      });
-    }
+    // Standard messages remain in the durable
+    // category_classified_at IS NULL queue created by upsertFromEmail.
+    // The bounded in-lease retry sweep classifies and routes them; no work is
+    // detached past the global workload fence.
   } catch (err) {
     if (err instanceof EmailThreadParentConflictError) {
       // Two duplicate leads claim this one Gmail/M365 thread. This exact
@@ -1842,9 +2040,9 @@ async function persistDeterministicEmailThreadState(
         }
       );
 
-      const operatorUserId = process.env.PMF_OPERATOR_USER_ID;
-      const operatorCompanyId = process.env.PMF_OPERATOR_COMPANY_ID;
-      if (operatorUserId && operatorCompanyId) {
+      const operatorIdentity = getOptionalPmfOperatorIdentity();
+      if (operatorIdentity) {
+        const { operatorUserId, operatorCompanyId } = operatorIdentity;
         try {
           await getServiceRoleClient().rpc(
             "create_notification_if_new_with_identity",
@@ -1974,8 +2172,7 @@ async function createActivity(
     connection,
     opportunityId,
     ((insertedActivity as Record<string, unknown> | null)?.id as
-      | string
-      | null) ?? null,
+      string | null) ?? null,
     direction
   );
 
@@ -1997,6 +2194,75 @@ interface PersistInboundActivityResult {
   activityId: string | null;
 }
 
+type ContactFormRecipientAttestationRpcClient = {
+  rpc: (
+    name: "attest_email_contact_form_recipient_as_system",
+    args: {
+      p_source_activity_id: string;
+      p_company_id: string;
+      p_opportunity_id: string;
+      p_connection_id: string;
+      p_provider_message_id: string;
+      p_provider_thread_id: string;
+      p_parsed_recipient: string;
+    }
+  ) => Promise<{
+    data: boolean | null;
+    error: { message?: string } | null;
+  }>;
+};
+
+async function attestContactFormRecipient(input: {
+  activityId: string | null;
+  opportunityId: string | null;
+  connection: EmailConnection;
+  email: NormalizedEmail;
+  parsedRecipient: string | null;
+  sourceSender: string | null;
+}): Promise<void> {
+  if (!input.parsedRecipient || !input.opportunityId) return;
+  const normalizedParsedRecipient = extractSenderEmail(input.parsedRecipient);
+  const normalizedSourceSender = input.sourceSender
+    ? extractSenderEmail(input.sourceSender)
+    : "";
+  if (
+    !normalizedSourceSender ||
+    normalizedSourceSender === normalizedParsedRecipient
+  )
+    return;
+  if (!input.activityId) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] contact-form recipient attestation failed: source activity identity is missing"
+    );
+  }
+
+  const { data, error } = await (
+    requireSupabase() as unknown as ContactFormRecipientAttestationRpcClient
+  ).rpc("attest_email_contact_form_recipient_as_system", {
+    p_source_activity_id: input.activityId,
+    p_company_id: input.connection.companyId,
+    p_opportunity_id: input.opportunityId,
+    p_connection_id: input.connection.id,
+    p_provider_message_id: input.email.id,
+    p_provider_thread_id: input.email.threadId,
+    p_parsed_recipient: input.parsedRecipient,
+  });
+  if (error) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] contact-form recipient attestation failed: ${error?.message ?? "RPC returned no confirmation"}`
+    );
+  }
+  // A canonical/manual identity conflict is a safe no-draft outcome, not a
+  // mailbox-sync outage. The activity remains persisted and the SQL resolver
+  // will continue to reject the optional review-draft path.
+  if (data === false) return;
+  if (data !== true) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] contact-form recipient attestation failed: RPC returned no confirmation"
+    );
+  }
+}
+
 /**
  * Create a new inbound activity or atomically adopt the exact scoped orphan
  * left by a prior activity/event transaction seam. The guarded RPC owns the
@@ -2012,6 +2278,7 @@ async function createOrAdoptInboundActivity(input: {
   existingOrphanActivity: ExistingProviderActivity | null;
   recoveryActorUserId: string | null;
   syncLockOwner: string | null;
+  contactFormRecipient?: string | null;
 }): Promise<PersistInboundActivityResult> {
   if (!input.existingOrphanActivity) {
     const created = await createActivity(
@@ -2029,6 +2296,14 @@ async function createOrAdoptInboundActivity(input: {
       input.email.id,
       input.email.threadId
     );
+    await attestContactFormRecipient({
+      activityId: activity?.id ?? null,
+      opportunityId: input.opportunityId,
+      connection: input.connection,
+      email: input.email,
+      parsedRecipient: input.contactFormRecipient ?? null,
+      sourceSender: activity?.from_email ?? null,
+    });
     return {
       persisted: true,
       created: true,
@@ -2137,6 +2412,14 @@ async function createOrAdoptInboundActivity(input: {
     true,
     input.executionPolicy
   );
+  await attestContactFormRecipient({
+    activityId: input.existingOrphanActivity.id,
+    opportunityId: input.opportunityId,
+    connection: input.connection,
+    email: input.email,
+    parsedRecipient: input.contactFormRecipient ?? null,
+    sourceSender: input.existingOrphanActivity.from_email ?? null,
+  });
 
   return {
     persisted: true,
@@ -2241,25 +2524,62 @@ async function updateCorrespondenceCounts(
 
 async function applyLabel(
   threadId: string,
+  messageId: string,
   connection: EmailConnection,
   result: SyncCycleResult,
   providerLockCheckpoint: EmailProviderMailboxCheckpoint,
+  syncLockOwner: string | null,
   executionPolicy: EmailIngestionExecutionPolicy = NORMAL_EMAIL_INGESTION_POLICY
 ): Promise<void> {
   if (executionPolicy.providerMutationsDisabled || !connection.opsLabelId)
     return;
+  if (!syncLockOwner) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] provider label write lacks the mailbox lease for ${messageId}`
+    );
+  }
+  const recovery = await enqueueEmailIngestionRecovery({
+    companyId: connection.companyId,
+    connectionId: connection.id,
+    kind: "provider_label_apply",
+    providerThreadId: threadId,
+    providerMessageId: messageId,
+    providerLabelId: connection.opsLabelId,
+  });
+  if (recovery.status === "completed") return;
+  const claimed = await claimEmailIngestionRecoveryById({
+    queueId: recovery.id,
+    holder: syncLockOwner,
+  });
+  if (!claimed || claimed.status !== "processing") return;
+
   await providerLockCheckpoint();
   try {
     const provider = EmailService.getProvider(connection);
     await provider.applyLabel(threadId, connection.opsLabelId);
   } catch (err) {
+    await failEmailIngestionRecovery({
+      queueId: recovery.id,
+      holder: syncLockOwner,
+      error: err instanceof Error ? err.message : String(err),
+    });
     console.error(
-      `[sync-engine] Failed to apply label to thread ${threadId}:`,
+      `[sync-engine] Deferred provider label recovery for thread ${threadId}:`,
       err
     );
     return;
   }
   await providerLockCheckpoint();
+  const completed = await completeEmailIngestionRecovery({
+    queueId: recovery.id,
+    holder: syncLockOwner,
+    outcome: "label_applied",
+  });
+  if (!completed) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] provider label recovery completion changed for ${messageId}`
+    );
+  }
   result.labelsApplied++;
 }
 
@@ -2341,8 +2661,10 @@ async function maybeAutoAdvanceOnAccept(args: {
     );
     if (evaluation.stageChanged) result.stageChanges++;
   } catch (err) {
+    if (isDatabasePressureError(err)) throw err;
     throw new LifecyclePersistenceError(
-      `[sync-engine] accept-to-project conversion failed before cursor advancement: ${err instanceof Error ? err.message : "unknown error"}`
+      `[sync-engine] accept-to-project conversion failed before cursor advancement: ${err instanceof Error ? err.message : "unknown error"}`,
+      { cause: err }
     );
   }
 }
@@ -2489,8 +2811,9 @@ async function legacyActivityMatchesConnection(
     .eq("activity_id", activity.id)
     .limit(2);
   if (eventError) {
-    throw new Error(
-      `[sync-engine] legacy activity event proof failed: ${eventError.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `[sync-engine] legacy activity event proof failed: ${eventError.message ?? "unknown error"}`,
+      { cause: eventError }
     );
   }
   const eventConnectionIds = Array.from(
@@ -2518,8 +2841,9 @@ async function legacyActivityMatchesConnection(
       .eq("connection_id", connection.id)
       .limit(1);
     if (threadLinkError) {
-      throw new Error(
-        `[sync-engine] legacy activity thread proof failed: ${threadLinkError.message ?? "unknown error"}`
+      throw new CronDatabaseOperationError(
+        `[sync-engine] legacy activity thread proof failed: ${threadLinkError.message ?? "unknown error"}`,
+        { cause: threadLinkError }
       );
     }
     if (threadLinks && threadLinks.length > 0) return "match";
@@ -2534,8 +2858,9 @@ async function legacyActivityMatchesConnection(
       .eq("provider_thread_id", providerThreadId)
       .limit(1);
   if (deterministicThreadError) {
-    throw new Error(
-      `[sync-engine] legacy email-thread proof failed: ${deterministicThreadError.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `[sync-engine] legacy email-thread proof failed: ${deterministicThreadError.message ?? "unknown error"}`,
+      { cause: deterministicThreadError }
     );
   }
   return deterministicThreads && deterministicThreads.length > 0
@@ -2559,8 +2884,9 @@ async function findExistingProviderActivity(
     .eq("email_message_id", providerMessageId);
 
   if (error) {
-    throw new Error(
-      `[sync-engine] activity dedupe failed: ${error.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `[sync-engine] activity dedupe failed: ${error.message ?? "unknown error"}`,
+      { cause: error }
     );
   }
 
@@ -2614,8 +2940,9 @@ async function findExistingProviderActivity(
       }
     );
     if (claimError) {
-      throw new Error(
-        `[sync-engine] legacy activity connection claim failed: ${claimError.message ?? "unknown error"}`
+      throw new CronDatabaseOperationError(
+        `[sync-engine] legacy activity connection claim failed: ${claimError.message ?? "unknown error"}`,
+        { cause: claimError }
       );
     }
     if (claimed !== true) {
@@ -2637,6 +2964,7 @@ interface StableDiscoveredEmail {
   email: NormalizedEmail;
   direction: "inbound" | "outbound";
   existingActivity: ExistingProviderActivity | null;
+  staffAliasCandidate: StaffAliasCandidate | null;
 }
 
 const STABLE_DIRECTION_LOOKUP_CONCURRENCY = 8;
@@ -2652,23 +2980,41 @@ function requirePersistedActivityDirection(
   return activity.direction;
 }
 
-async function resolveStableDiscoveredEmail(
+async function resolveStableDiscoveredEmailAuthorship(
   email: NormalizedEmail,
   connection: EmailConnection,
-  directionIdentity: IngestionOperatorIdentity
+  directionIdentity: IngestionOperatorIdentity,
+  existingActivity: ExistingProviderActivity | null
 ): Promise<StableDiscoveredEmail> {
-  const existingActivity = await findExistingProviderActivity(
-    requireSupabase(),
-    connection,
-    email.id,
-    email.threadId
+  const currentAuthorship = resolvePersistedEmailAuthorship(
+    email,
+    directionIdentity
   );
+  if (!existingActivity && currentAuthorship.staffAliasCandidate) {
+    try {
+      await persistStaffEmailAliasCandidate({
+        supabase: requireSupabase(),
+        companyId: connection.companyId,
+        connectionId: connection.id,
+        providerThreadId: email.threadId,
+        providerMessageId: email.id,
+        candidate: currentAuthorship.staffAliasCandidate,
+      });
+    } catch (error) {
+      throw new LifecyclePersistenceError(
+        `[sync-engine] ${error instanceof Error ? error.message : "staff alias review persistence failed"}`
+      );
+    }
+  }
   return {
     email,
     direction: existingActivity
       ? requirePersistedActivityDirection(existingActivity)
-      : resolvePersistedEmailDirection(email, directionIdentity),
+      : currentAuthorship.direction,
     existingActivity,
+    staffAliasCandidate: existingActivity
+      ? null
+      : currentAuthorship.staffAliasCandidate,
   };
 }
 
@@ -2678,6 +3024,9 @@ async function resolveStableDiscoveredEmails(
   directionIdentity: IngestionOperatorIdentity
 ): Promise<StableDiscoveredEmail[]> {
   const resolved = new Array<StableDiscoveredEmail>(emails.length);
+  const existingActivities = new Array<ExistingProviderActivity | null>(
+    emails.length
+  );
   let nextIndex = 0;
   const workerCount = Math.min(
     STABLE_DIRECTION_LOOKUP_CONCURRENCY,
@@ -2688,15 +3037,44 @@ async function resolveStableDiscoveredEmails(
     while (nextIndex < emails.length) {
       const index = nextIndex;
       nextIndex += 1;
-      resolved[index] = await resolveStableDiscoveredEmail(
-        emails[index],
+      existingActivities[index] = await findExistingProviderActivity(
+        requireSupabase(),
         connection,
-        directionIdentity
+        emails[index].id,
+        emails[index].threadId
       );
     }
   };
 
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+  // Persisted activity lookups are independent and stay parallel. New-message
+  // authorship is resolved in provider chronology so the first strongly
+  // corroborated alias immediately quarantines every later same-cycle message
+  // from that exact mailbox, even before the next authoritative roster refresh.
+  const chronologicalIndexes = emails
+    .map((_, index) => index)
+    .sort((left, right) => {
+      const byDate = emails[left].date.getTime() - emails[right].date.getTime();
+      return byDate !== 0
+        ? byDate
+        : emails[left].id.localeCompare(emails[right].id);
+    });
+  for (const index of chronologicalIndexes) {
+    resolved[index] = await resolveStableDiscoveredEmailAuthorship(
+      emails[index],
+      connection,
+      directionIdentity,
+      existingActivities[index]
+    );
+    if (resolved[index].staffAliasCandidate) {
+      quarantinePendingStaffAlias(
+        directionIdentity,
+        resolved[index].staffAliasCandidate
+      );
+    }
+  }
+
   return resolved;
 }
 
@@ -3068,6 +3446,14 @@ async function processInboundEmail(
       facts: existingEnrichmentFacts,
       companyId: connection.companyId,
     });
+    await attestContactFormRecipient({
+      activityId: existingActivity.id ?? null,
+      opportunityId: existingOpportunityId,
+      connection,
+      email: effectiveExistingEmail,
+      parsedRecipient: existingSubmitter?.email ?? null,
+      sourceSender: existingActivity.from_email ?? null,
+    });
     await recordActivityCorrespondenceEvent(
       effectiveExistingEmail,
       connection,
@@ -3144,6 +3530,7 @@ async function processInboundEmail(
       existingOrphanActivity,
       recoveryActorUserId,
       syncLockOwner,
+      contactFormRecipient: contactFormSubmitter?.email ?? null,
     });
     if (!activityPersistence.persisted) return null;
     await applyCanonicalLeadEnrichment({
@@ -3162,27 +3549,24 @@ async function processInboundEmail(
     );
     await applyLabel(
       email.threadId,
+      email.id,
       connection,
       result,
       providerLockCheckpoint,
+      syncLockOwner,
       executionPolicy
     );
     if (activityPersistence.created) result.activitiesCreated++;
     result.matched++;
 
-    // ── S2.3: Reschedule request detection (fire-and-forget) ───────────
-    // Looks up the just-created activity row and runs the reschedule
-    // classifier (phase_c gated + heuristic + GPT). Never blocks sync.
+    // Keep reschedule detection inside the workload fence. Ordinary model or
+    // business failures remain non-fatal inside the helper; database pressure
+    // aborts the cycle before another heavy lane can start.
     if (!executionPolicy.providerMutationsDisabled) {
-      maybeDetectRescheduleRequest(
+      await maybeDetectRescheduleRequest(
         effectiveEmail,
         connection,
         threadOpportunity.opportunityId
-      ).catch((err) =>
-        console.error(
-          "[sync-engine] Reschedule detection error (non-fatal):",
-          err
-        )
       );
     }
 
@@ -3281,6 +3665,7 @@ async function processInboundEmail(
         existingOrphanActivity,
         recoveryActorUserId,
         syncLockOwner,
+        contactFormRecipient: contactFormSubmitter?.email ?? null,
       });
       if (!activityPersistence.persisted) return null;
       await updateCorrespondenceCounts(
@@ -3292,9 +3677,11 @@ async function processInboundEmail(
       );
       await applyLabel(
         email.threadId,
+        email.id,
         connection,
         result,
         providerLockCheckpoint,
+        syncLockOwner,
         executionPolicy
       );
       result.matched++;
@@ -3340,6 +3727,7 @@ async function processInboundEmail(
         existingOrphanActivity,
         recoveryActorUserId,
         syncLockOwner,
+        contactFormRecipient: contactFormSubmitter?.email ?? null,
       });
       if (!activityPersistence.persisted) return null;
       await updateCorrespondenceCounts(
@@ -3351,29 +3739,34 @@ async function processInboundEmail(
       );
       await applyLabel(
         email.threadId,
+        email.id,
         connection,
         result,
         providerLockCheckpoint,
+        syncLockOwner,
         executionPolicy
       );
       result.newLeads++;
       if (activityPersistence.created) result.activitiesCreated++;
 
-      // ── P1: Suggest project creation for new leads (fire-and-forget) ──
+      // ── P1: Suggest project creation for new leads ────────────────────
       // The lead's current assignee — never the mailbox connector — owns the
-      // proposal. Unassigned/inaccessible leads produce no user action.
+      // proposal. Keep the bounded derived work inside the global lease.
       if (!executionPolicy.providerMutationsDisabled) {
-        maybeSuggestProjectForAssignedActor({
-          email: effectiveEmail,
-          connection,
-          clientId,
-          opportunityId: oppId,
-        }).catch((err) =>
+        try {
+          await maybeSuggestProjectForAssignedActor({
+            email: effectiveEmail,
+            connection,
+            clientId,
+            opportunityId: oppId,
+          });
+        } catch (err) {
+          if (isDatabasePressureError(err)) throw err;
           console.error(
             "[sync-engine] Project suggestion error (non-fatal):",
             err
-          )
-        );
+          );
+        }
       }
     } else if (
       matchResult.action === "link" ||
@@ -3441,6 +3834,7 @@ async function processInboundEmail(
         existingOrphanActivity,
         recoveryActorUserId,
         syncLockOwner,
+        contactFormRecipient: contactFormSubmitter?.email ?? null,
       });
       if (!activityPersistence.persisted) return null;
       await updateCorrespondenceCounts(
@@ -3452,9 +3846,11 @@ async function processInboundEmail(
       );
       await applyLabel(
         email.threadId,
+        email.id,
         connection,
         result,
         providerLockCheckpoint,
+        syncLockOwner,
         executionPolicy
       );
       if (relationshipDecisionRequiresNewOpportunity) {
@@ -3478,6 +3874,7 @@ async function processInboundEmail(
         existingOrphanActivity,
         recoveryActorUserId,
         syncLockOwner,
+        contactFormRecipient: contactFormSubmitter?.email ?? null,
       });
       if (!activityPersistence.persisted) return null;
       result.needsReview++;
@@ -3565,8 +3962,39 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       name: input.companyName,
       industry: input.companyIndustry,
       domains: input.profile.companyDomains || [],
-    }
+    },
+    syncIngestionOperatorIdentity(
+      input.connection,
+      input.profile,
+      await getCachedOperatorIdentity(input.connection)
+    )
   );
+
+  for (const deferred of aiResult.deferredClassifications ?? []) {
+    await input.providerLockCheckpoint();
+    const context = unmatchedContextByIdentity.get(
+      `${deferred.email.threadId}\u0000${deferred.email.id}`
+    );
+    if (!context) {
+      throw new LifecyclePersistenceError(
+        "[sync-engine] feedback prior deferred a message outside the unmatched set"
+      );
+    }
+    await persistDeferredLeadClassification({
+      companyId: input.connection.companyId,
+      connectionId: input.connection.id,
+      candidate: {
+        providerThreadId: deferred.email.threadId,
+        providerMessageId: deferred.email.id,
+        senderEmail: deferred.email.from,
+      },
+      baseline: deferred.baseline,
+      decision: deferred.decision,
+      mayProjectThread: context.routingIdentity.mayInheritProviderThread,
+      client: requireSupabase(),
+    });
+    input.result.needsReview += 1;
+  }
 
   for (const classified of aiResult.classifiedLeads) {
     await input.providerLockCheckpoint();
@@ -3751,6 +4179,7 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         existingOrphanActivity,
         recoveryActorUserId: input.recoveryActorUserId,
         syncLockOwner: input.syncLockOwner,
+        contactFormRecipient: contactFormSubmitter?.email ?? null,
       });
       if (!activityPersistence.persisted) continue;
       await updateCorrespondenceCounts(
@@ -3762,9 +4191,11 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       );
       await applyLabel(
         classifiedEmail.threadId,
+        classifiedEmail.id,
         input.connection,
         input.result,
         input.providerLockCheckpoint,
+        input.syncLockOwner,
         input.executionPolicy
       );
       if (activityPersistence.created) input.result.activitiesCreated++;
@@ -3785,7 +4216,9 @@ async function processSentEmail(
   followUpDaysCache: Map<string, number>,
   result: SyncCycleResult,
   providerLockCheckpoint: EmailProviderMailboxCheckpoint,
-  preloadedExistingActivity?: ExistingProviderActivity | null
+  syncLockOwner: string,
+  preloadedExistingActivity?: ExistingProviderActivity | null,
+  staffAliasCandidate: StaffAliasCandidate | null = null
 ): Promise<void> {
   const normalizedEmail = normalizeProviderBackedEmailForSync(
     email,
@@ -3794,17 +4227,17 @@ async function processSentEmail(
     "sync_sent_email"
   );
   email = normalizedEmail;
+  const operatorIdentity = await getCachedOperatorIdentity(connection);
   const routingIdentity = buildLeadRoutingIdentity(
     email,
     {
       provider: connection.provider,
       connectionId: connection.id,
     },
-    syncIngestionOperatorIdentity(connection, profile)
+    syncIngestionOperatorIdentity(connection, profile, operatorIdentity)
   );
 
   const supabase = requireSupabase();
-  const operatorIdentity = await getCachedOperatorIdentity(connection);
   const externalConversationEmail = emailWithAuthoritativeExternalRecipients(
     email,
     connection,
@@ -3896,7 +4329,13 @@ async function processSentEmail(
       email,
       connection,
       threadOpportunity.opportunityId,
-      "outbound"
+      "outbound",
+      staffAliasCandidate
+        ? {
+            matchNeedsReview: true,
+            matchConfidence: "staff_alias_pending",
+          }
+        : undefined
     );
     if (!activityCreated) return;
     await applyCanonicalLeadEnrichment({
@@ -3920,6 +4359,7 @@ async function processSentEmail(
     );
     result.activitiesCreated++;
     result.matched++;
+    if (staffAliasCandidate) result.needsReview++;
 
     return;
   }
@@ -4019,7 +4459,12 @@ async function processSentEmail(
       connection,
       null,
       "outbound",
-      { matchNeedsReview: true, matchConfidence: "unlinked_outbound" }
+      {
+        matchNeedsReview: true,
+        matchConfidence: staffAliasCandidate
+          ? "staff_alias_pending"
+          : "unlinked_outbound",
+      }
     );
     if (activityCreated) {
       result.activitiesCreated++;
@@ -4043,8 +4488,10 @@ async function processSentEmail(
     opportunityId,
     "outbound",
     {
-      matchConfidence:
-        relationshipDecision.action === "link"
+      matchNeedsReview: Boolean(staffAliasCandidate),
+      matchConfidence: staffAliasCandidate
+        ? "staff_alias_pending"
+        : relationshipDecision.action === "link"
           ? relationshipDecision.confidence
           : "estimate",
     }
@@ -4060,15 +4507,18 @@ async function processSentEmail(
   if (createdOpportunity) {
     await applyLabel(
       email.threadId,
+      email.id,
       connection,
       result,
-      providerLockCheckpoint
+      providerLockCheckpoint,
+      syncLockOwner
     );
     result.newLeads++;
   } else {
     result.matched++;
   }
   result.activitiesCreated++;
+  if (staffAliasCandidate) result.needsReview++;
 }
 
 async function reconcileUnlinkedOutboundEmail(
@@ -4384,7 +4834,6 @@ async function learnFromOutboundEmail(
 /**
  * S2.3: Detect inbound reschedule requests on opportunity-linked threads.
  *
- * Fire-and-forget — never awaited, never blocks the sync loop.
  * Gated inside the service (phase_c + client_comms_settings + keyword heuristic).
  *
  * Filters early so GPT is only called when there are active upcoming tasks
@@ -4400,7 +4849,7 @@ async function maybeDetectRescheduleRequest(
 
     // Quick pre-check: does the opportunity link to a project with any
     // scheduled tasks in the near future? If not, skip.
-    const { data: project } = await supabase
+    const { data: project, error: projectError } = await supabase
       .from("projects")
       .select("id")
       .eq("company_id", connection.companyId)
@@ -4408,13 +4857,25 @@ async function maybeDetectRescheduleRequest(
       .is("deleted_at", null)
       .limit(1)
       .maybeSingle();
+    if (projectError) {
+      throw new CronDatabaseOperationError(
+        `[sync-engine] reschedule project lookup failed: ${projectError.message ?? "unknown error"}`,
+        { cause: projectError }
+      );
+    }
 
     if (!project) {
-      const { data: oppRow } = await supabase
+      const { data: oppRow, error: opportunityError } = await supabase
         .from("opportunities")
         .select("project_id")
         .eq("id", opportunityId)
         .maybeSingle();
+      if (opportunityError) {
+        throw new CronDatabaseOperationError(
+          `[sync-engine] reschedule opportunity lookup failed: ${opportunityError.message ?? "unknown error"}`,
+          { cause: opportunityError }
+        );
+      }
       if (!oppRow?.project_id) return;
     }
 
@@ -4423,7 +4884,7 @@ async function maybeDetectRescheduleRequest(
       const nowIso = new Date().toISOString();
       const windowEnd = new Date();
       windowEnd.setDate(windowEnd.getDate() + 30);
-      const { data: upcoming } = await supabase
+      const { data: upcoming, error: upcomingError } = await supabase
         .from("project_tasks")
         .select("id")
         .eq("company_id", connection.companyId)
@@ -4434,11 +4895,17 @@ async function maybeDetectRescheduleRequest(
         .gte("start_date", nowIso)
         .lte("start_date", windowEnd.toISOString())
         .limit(1);
+      if (upcomingError) {
+        throw new CronDatabaseOperationError(
+          `[sync-engine] reschedule task lookup failed: ${upcomingError.message ?? "unknown error"}`,
+          { cause: upcomingError }
+        );
+      }
       if (!upcoming || upcoming.length === 0) return;
     }
 
     // Look up the just-created activity row by email_message_id
-    const { data: activityRow } = await supabase
+    const { data: activityRow, error: activityError } = await supabase
       .from("activities")
       .select("id, email_connection_id, email_thread_id, opportunity_id")
       .eq("email_message_id", email.id)
@@ -4448,6 +4915,12 @@ async function maybeDetectRescheduleRequest(
       .eq("opportunity_id", opportunityId)
       .limit(1)
       .maybeSingle();
+    if (activityError) {
+      throw new CronDatabaseOperationError(
+        `[sync-engine] reschedule activity lookup failed: ${activityError.message ?? "unknown error"}`,
+        { cause: activityError }
+      );
+    }
 
     if (
       !activityRow?.id ||
@@ -4468,6 +4941,7 @@ async function maybeDetectRescheduleRequest(
       activityId: activityRow.id as string,
     });
   } catch (err) {
+    if (isDatabasePressureError(err)) throw err;
     console.error(
       "[sync-engine] maybeDetectRescheduleRequest failed (non-fatal):",
       err
@@ -4476,39 +4950,37 @@ async function maybeDetectRescheduleRequest(
 }
 
 /**
- * Durably defer Step-5 lead classification for unmatched threads when the
- * OpenAI provider is down. Only non-contact-form contexts carry a durable
- * `email_threads` row (routing `mayInheritProviderThread` === not a contact
- * form), so only those can be marked; the marker is set only where
- * `opportunity_id IS NULL` so a thread already promoted by another path is
- * never overwritten. Contact-form contexts have no durable thread row and are
- * logged as non-thread deferrals (they recover on the next inbound message or
- * via the deterministic contact-form pipeline).
+ * Durably defer Step-5 lead classification by exact provider message before
+ * the mailbox cursor advances. The service-only recovery queue covers both
+ * ordinary thread rows and message-scoped forwarded contact forms. The legacy
+ * `email_threads.lead_scan_pending_at` marker remains as a compatibility signal
+ * for non-contact-form rows, but it is no longer the source of durability.
  *
- * Best-effort by contract: the entire body is wrapped so a marker-write failure
- * is caught and logged, never thrown. Deferral degrades gracefully — even with
- * no marker, the thread re-triggers Step-5 classification on its next inbound
- * reply — so a failed deferral must never hold the Gmail cursor.
+ * Queue persistence is authoritative: a failure throws and withholds the
+ * cursor. The compatibility marker remains best-effort because the exact
+ * message queue is already durable and deduplicated.
  */
 async function markUnmatchedThreadsPendingLeadScan(
   contexts: UnmatchedInboundContext[],
   connection: EmailConnection
 ): Promise<void> {
+  for (const context of contexts) {
+    await enqueueEmailIngestionRecovery({
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      kind: "lead_classification",
+      providerThreadId: context.email.threadId,
+      providerMessageId: context.email.id,
+    });
+  }
+
   try {
     const threadIds: string[] = [];
-    let contactFormDeferrals = 0;
     for (const context of contexts) {
       if (context.routingIdentity.isContactFormSubmission) {
-        contactFormDeferrals += 1;
         continue;
       }
       threadIds.push(context.email.threadId);
-    }
-
-    if (contactFormDeferrals > 0) {
-      console.warn(
-        `[sync-engine] lead-scan-deferral :: ${contactFormDeferrals} contact-form context(s) have no durable thread row; deferred to next inbound message`
-      );
     }
 
     if (threadIds.length === 0) return;
@@ -4520,11 +4992,15 @@ async function markUnmatchedThreadsPendingLeadScan(
       .in("provider_thread_id", threadIds)
       .is("opportunity_id", null);
     if (error) {
-      throw new Error(error.message ?? "unknown error");
+      throw new CronDatabaseOperationError(
+        `[sync-engine] lead-scan deferral write failed: ${error.message ?? "unknown error"}`,
+        { cause: error }
+      );
     }
   } catch (err) {
+    if (isDatabasePressureError(err)) throw err;
     console.error(
-      "[sync-engine] failed to mark unmatched threads pending lead scan (non-fatal — recovers on next inbound reply):",
+      "[sync-engine] failed to write compatibility lead-scan marker (exact-message recovery remains queued):",
       err instanceof Error ? err.message : err
     );
   }
@@ -4547,10 +5023,11 @@ async function clearLeadScanPendingMarker(
     .update({ lead_scan_pending_at: null })
     .eq("id", threadId);
   if (error) {
-    throw new Error(
+    throw new CronDatabaseOperationError(
       `[sync-engine] failed to clear lead_scan_pending_at for thread ${threadId}: ${
         error.message ?? "unknown error"
-      }`
+      }`,
+      { cause: error }
     );
   }
 }
@@ -5158,7 +5635,13 @@ export const SyncEngine = {
         }
       }
 
-      const syncToken = connection.historyId;
+      const persistedSyncContinuation = connection.historyId
+        ? decodeEmailSyncContinuation(connection.historyId)
+        : null;
+      const syncToken =
+        persistedSyncContinuation?.providerToken ?? connection.historyId;
+      let pendingLeadSummaryOpportunityIds =
+        persistedSyncContinuation?.pendingLeadSummaryOpportunityIds ?? [];
 
       // Step 1: Fetch new emails since last sync (inbox + sent)
       //
@@ -5310,7 +5793,10 @@ export const SyncEngine = {
           connectionId,
           ownerId: syncLockOwner,
           lastSyncedAt: new Date(),
-          historyId: newSyncToken,
+          historyId: encodeEmailSyncContinuation({
+            providerToken: newSyncToken,
+            pendingLeadSummaryOpportunityIds,
+          }),
           clearRecovery: gmailRecoveryCheckpoint !== null,
           context: SYNC_LOCK_CONTEXT,
         });
@@ -5318,6 +5804,44 @@ export const SyncEngine = {
       await renewSyncLeaseIfNeeded(true);
 
       if (rawInboxEmails.length === 0 && rawSentEmails.length === 0) {
+        let deferredSummaryProviderFailure: unknown | null = null;
+        if (pendingLeadSummaryOpportunityIds.length > 0) {
+          const summaryOpportunityIds = pendingLeadSummaryOpportunityIds;
+          const summaryRefresh = await refreshLeadSummariesForOpportunities({
+            supabase: requireSupabase(),
+            companyId: connection.companyId,
+            opportunityIds: summaryOpportunityIds,
+          });
+          if (summaryRefresh.failed.length > 0) {
+            throw new LifecyclePersistenceError(
+              `[sync-engine] complete lead summary refresh failed before cursor advancement: ${summaryRefresh.failed
+                .map((failure) => `${failure.opportunityId}: ${failure.error}`)
+                .join("; ")}`
+            );
+          }
+          pendingLeadSummaryOpportunityIds =
+            summaryRefresh.remainingOpportunityIds;
+
+          const providerFailure = summaryRefresh.deferred.find(
+            (failure) => failure.reason === "provider_unavailable"
+          );
+          if (providerFailure) {
+            deferredSummaryProviderFailure = providerFailure.error;
+            result.aiProviderDeferred = true;
+          }
+          const modelContractFailures = summaryRefresh.deferred.filter(
+            (failure) =>
+              failure.reason === "model_contract" ||
+              failure.reason === "model_refusal"
+          );
+          if (modelContractFailures.length > 0) {
+            console.warn(
+              `[sync-engine] deferred ${modelContractFailures.length} lead summary model-contract failure(s); mailbox cursor will advance`,
+              modelContractFailures
+            );
+          }
+        }
+
         await reconcilePendingMailboxDraftsForConnection({
           connection,
           supabase: requireSupabase(),
@@ -5325,6 +5849,19 @@ export const SyncEngine = {
         });
         await renewSyncLeaseIfNeeded(true);
         await persistSyncCheckpoint();
+        if (deferredSummaryProviderFailure) {
+          try {
+            await reportAIProviderOutageOnce(deferredSummaryProviderFailure);
+          } catch (notificationError) {
+            if (isDatabasePressureError(notificationError)) {
+              throw notificationError;
+            }
+            console.error(
+              "[sync-engine] deferred-summary provider notification failed (non-fatal):",
+              notificationError
+            );
+          }
+        }
         return result;
       }
 
@@ -5370,12 +5907,16 @@ export const SyncEngine = {
           direction: "inbound" as const,
           existingActivity:
             stableDiscoveryByMessageId.get(email.id)?.existingActivity ?? null,
+          staffAliasCandidate: null,
         })),
         ...sentEmails.map((email) => ({
           email,
           direction: "outbound" as const,
           existingActivity:
             stableDiscoveryByMessageId.get(email.id)?.existingActivity ?? null,
+          staffAliasCandidate:
+            stableDiscoveryByMessageId.get(email.id)?.staffAliasCandidate ??
+            null,
         })),
       ].sort((left, right) => {
         const byDate = left.email.date.getTime() - right.email.date.getTime();
@@ -5410,7 +5951,9 @@ export const SyncEngine = {
             followUpDaysCache,
             result,
             renewSyncLeaseIfNeeded,
-            item.existingActivity
+            syncLockOwner,
+            item.existingActivity,
+            item.staffAliasCandidate
           );
         }
       }
@@ -5439,11 +5982,17 @@ export const SyncEngine = {
         const supabase = requireSupabase();
 
         // Get company context for AI
-        const { data: company } = await supabase
+        const { data: company, error: companyError } = await supabase
           .from("companies")
           .select("name, industry")
           .eq("id", connection.companyId)
           .single();
+        if (companyError) {
+          throw new CronDatabaseOperationError(
+            `[sync-engine] AI company context read failed: ${companyError.message ?? "unknown error"}`,
+            { cause: companyError }
+          );
+        }
 
         const companyName = (company?.name as string) || "";
         const companyIndustry = (company?.industry as string) || "trades";
@@ -5468,13 +6017,21 @@ export const SyncEngine = {
             syncLockOwner,
           });
         } catch (err) {
-          if (!isAIProviderUnavailableError(err)) throw err;
-          aiProviderOutage ??= err;
+          if (isDatabasePressureError(err)) throw err;
+          const providerUnavailable = isAIProviderUnavailableError(err);
+          const modelAnswerDeferred = isDeferredModelAnswerError(err);
+          if (!providerUnavailable && !modelAnswerDeferred) throw err;
+          if (providerUnavailable) aiProviderOutage ??= err;
           await markUnmatchedThreadsPendingLeadScan(
             unmatchedContexts,
             connection
           );
           result.leadScansDeferred += unmatchedContexts.length;
+          if (modelAnswerDeferred) {
+            console.warn(
+              `[sync-engine] deferred ${unmatchedContexts.length} unmatched lead scan(s) after a model contract/refusal; mailbox cursor will advance`
+            );
+          }
         }
 
         // An outbound reply may arrive in provider chronology before its
@@ -5499,6 +6056,13 @@ export const SyncEngine = {
           string | { threadId: string; messages: NormalizedEmail[] }
         >();
         const opportunityByEvaluationKey = new Map<string, string>();
+        const recoveryCandidatesByEvaluationKey = new Map<
+          string,
+          Array<{
+            providerThreadId: string;
+            providerMessageId: string;
+          }>
+        >();
         const inboundEvaluationMessageIds = new Set(
           inboxEmails.map((email) => email.id)
         );
@@ -5538,6 +6102,16 @@ export const SyncEngine = {
             );
           }
           opportunityByEvaluationKey.set(evaluationKey, opportunityId);
+          const recoveryCandidates =
+            recoveryCandidatesByEvaluationKey.get(evaluationKey) ?? [];
+          recoveryCandidates.push({
+            providerThreadId: rawEmail.threadId,
+            providerMessageId: rawEmail.id,
+          });
+          recoveryCandidatesByEvaluationKey.set(
+            evaluationKey,
+            recoveryCandidates
+          );
           if (!activeLeadTargets.has(evaluationKey)) {
             activeLeadTargets.set(
               evaluationKey,
@@ -5549,6 +6123,12 @@ export const SyncEngine = {
         }
 
         if (activeLeadTargets.size > 0) {
+          pendingLeadSummaryOpportunityIds = [
+            ...new Set([
+              ...pendingLeadSummaryOpportunityIds,
+              ...opportunityByEvaluationKey.values(),
+            ]),
+          ];
           await renewSyncLeaseIfNeeded(true);
 
           // Evaluate deterministic commercial outcomes only after every
@@ -5566,11 +6146,12 @@ export const SyncEngine = {
                 `[sync-engine] commercial outcome identity ${evaluationKey} has no opportunity`
               );
             }
-            // One wedged opportunity must not starve the rest of the batch
-            // (2026-07-22 outage): every other lead still gets its accept
-            // evaluation this cycle, then one aggregated persistence error
-            // holds the cursor so the idempotent cycle replays. Serialization
-            // retry pacing lives inside maybeAutoAdvanceOnAccept.
+            // One ordinary persistence failure still holds the cursor so the
+            // idempotent cycle replays. A typed automatic-project safety hold
+            // is different: its exact durable event is quarantined below so
+            // unrelated mail can progress without weakening that lead's gate.
+            // Serialization retry pacing lives inside
+            // maybeAutoAdvanceOnAccept.
             try {
               await maybeAutoAdvanceOnAccept({
                 providerThreadId: typeof target === "string" ? target : null,
@@ -5579,6 +6160,78 @@ export const SyncEngine = {
                 result,
               });
             } catch (acceptError) {
+              if (isDatabasePressureError(acceptError)) throw acceptError;
+              if (isAutomaticProjectCreationSafetyHold(acceptError)) {
+                const recoveryCandidates =
+                  recoveryCandidatesByEvaluationKey.get(evaluationKey) ?? [];
+                const candidateMessageIds = [
+                  ...new Set(
+                    recoveryCandidates.map(
+                      (candidate) => candidate.providerMessageId
+                    )
+                  ),
+                ];
+                const { data: recoveryEvents, error: recoveryEventError } =
+                  candidateMessageIds.length > 0
+                    ? await supabase
+                        .from("opportunity_correspondence_events")
+                        .select(
+                          "id, provider_thread_id, provider_message_id, occurred_at"
+                        )
+                        .eq("company_id", connection.companyId)
+                        .eq("opportunity_id", opportunityId)
+                        .eq("connection_id", connection.id)
+                        .eq("is_meaningful", true)
+                        .is("noise_reason", null)
+                        .eq("opportunity_projection_applied", true)
+                        .in("provider_message_id", candidateMessageIds)
+                        .order("occurred_at", { ascending: false })
+                        .order("id", { ascending: false })
+                        .limit(1)
+                    : { data: null, error: null };
+                if (recoveryEventError) {
+                  throw new CronDatabaseOperationError(
+                    `[sync-engine] commercial outcome recovery identity read failed: ${recoveryEventError.message}`,
+                    { cause: recoveryEventError }
+                  );
+                }
+                const recoveryEvent = recoveryEvents?.[0] as
+                  | {
+                      provider_thread_id?: unknown;
+                      provider_message_id?: unknown;
+                    }
+                  | undefined;
+                const providerThreadId = nullableRecoveryString(
+                  recoveryEvent?.provider_thread_id,
+                  "commercial_outcome.provider_thread_id"
+                );
+                const providerMessageId = nullableRecoveryString(
+                  recoveryEvent?.provider_message_id,
+                  "commercial_outcome.provider_message_id"
+                );
+                const recoveryIdentity = recoveryCandidates.find(
+                  (candidate) =>
+                    candidate.providerThreadId === providerThreadId &&
+                    candidate.providerMessageId === providerMessageId
+                );
+                if (!recoveryIdentity) {
+                  throw new LifecyclePersistenceError(
+                    `[sync-engine] commercial outcome recovery identity ${evaluationKey} has no exact meaningful event`
+                  );
+                }
+                await enqueueEmailIngestionRecovery({
+                  companyId: connection.companyId,
+                  connectionId: connection.id,
+                  kind: "commercial_outcome",
+                  providerThreadId: recoveryIdentity.providerThreadId,
+                  providerMessageId: recoveryIdentity.providerMessageId,
+                  opportunityId,
+                });
+                console.warn(
+                  `[sync-engine] commercial outcome recovery deferred for opportunity ${opportunityId}: ${acceptError.message}`
+                );
+                continue;
+              }
               acceptFailures.push({
                 opportunityId,
                 error:
@@ -5609,11 +6262,20 @@ export const SyncEngine = {
                 [...activeLeadTargets.values()],
                 connection,
                 { name: companyName },
-                { providerLockCheckpoint: renewSyncLeaseIfNeeded }
+                { providerLockCheckpoint: renewSyncLeaseIfNeeded },
+                directionIdentity
               );
             } catch (err) {
-              if (!isAIProviderUnavailableError(err)) throw err;
-              aiProviderOutage ??= err;
+              if (isDatabasePressureError(err)) throw err;
+              if (isAIProviderUnavailableError(err)) {
+                aiProviderOutage ??= err;
+              } else if (isDeferredModelAnswerError(err)) {
+                console.warn(
+                  `[sync-engine] deferred ${activeLeadTargets.size} stage evaluation(s) after a model contract/refusal; mailbox cursor will advance`
+                );
+              } else {
+                throw err;
+              }
             }
           }
 
@@ -5636,9 +6298,15 @@ export const SyncEngine = {
                   )
                   .eq("id", oppId)
                   .single();
-              if (opportunityLookupError || !oppData) {
+              if (opportunityLookupError) {
+                throw new CronDatabaseOperationError(
+                  `[sync-engine] stage evaluation opportunity lookup failed for ${oppId}: ${opportunityLookupError.message ?? "unknown error"}`,
+                  { cause: opportunityLookupError }
+                );
+              }
+              if (!oppData) {
                 throw new LifecyclePersistenceError(
-                  `[sync-engine] stage evaluation opportunity lookup failed for ${oppId}: ${opportunityLookupError?.message ?? "row not found"}`
+                  `[sync-engine] stage evaluation opportunity lookup failed for ${oppId}: row not found`
                 );
               }
 
@@ -5697,16 +6365,21 @@ export const SyncEngine = {
                     .eq("id", oppId);
 
                   if (updateError) {
-                    throw new LifecyclePersistenceError(
-                      `[sync-engine] lifecycle update failed for opportunity ${oppId}: ${updateError.message ?? "unknown error"}`
+                    throw new CronDatabaseOperationError(
+                      `[sync-engine] lifecycle update failed for opportunity ${oppId}: ${updateError.message ?? "unknown error"}`,
+                      { cause: updateError }
                     );
                   }
                 } catch (updateError) {
-                  if (updateError instanceof LifecyclePersistenceError) {
+                  if (
+                    updateError instanceof LifecyclePersistenceError ||
+                    updateError instanceof CronDatabaseOperationError
+                  ) {
                     throw updateError;
                   }
                   throw new LifecyclePersistenceError(
-                    `[sync-engine] lifecycle update failed for opportunity ${oppId}: ${updateError instanceof Error ? updateError.message : "unknown error"}`
+                    `[sync-engine] lifecycle update failed for opportunity ${oppId}: ${updateError instanceof Error ? updateError.message : "unknown error"}`,
+                    { cause: updateError }
                   );
                 }
               }
@@ -5724,9 +6397,15 @@ export const SyncEngine = {
                       p_ai_signal: sr.terminalFlag || "ai_evaluated",
                     }
                   );
-                if (transitionError || !transitionRows) {
+                if (transitionError) {
+                  throw new CronDatabaseOperationError(
+                    `[sync-engine] AI stage transition failed for opportunity ${oppId}: ${transitionError.message ?? "unknown error"}`,
+                    { cause: transitionError }
+                  );
+                }
+                if (!transitionRows) {
                   throw new LifecyclePersistenceError(
-                    `[sync-engine] AI stage transition failed for opportunity ${oppId}: ${transitionError?.message ?? "RPC returned no rows"}`
+                    `[sync-engine] AI stage transition failed for opportunity ${oppId}: RPC returned no rows`
                   );
                 }
                 const transition = Array.isArray(transitionRows)
@@ -5744,7 +6423,7 @@ export const SyncEngine = {
             const summaryRefresh = await refreshLeadSummariesForOpportunities({
               supabase,
               companyId: connection.companyId,
-              opportunityIds: [...new Set(opportunityByEvaluationKey.values())],
+              opportunityIds: pendingLeadSummaryOpportunityIds,
             });
             if (summaryRefresh.failed.length > 0) {
               throw new LifecyclePersistenceError(
@@ -5755,12 +6434,30 @@ export const SyncEngine = {
                   .join("; ")}`
               );
             } else if (summaryRefresh.deferred.length > 0) {
-              // The model was reachable for stage eval but a later summary call
-              // hit the provider outage. Defer (do not hold the cursor): the
-              // summary stays dirty and recovers via the refresh cron or the
-              // opportunity's next inbound message.
-              aiProviderOutage ??= summaryRefresh.deferred[0].error;
+              // Summary generation is derived work. A provider outage still
+              // raises the existing operator signal, while a model-contract
+              // omission is simply left dirty for the next bounded refresh.
+              // Neither can justify replaying already-persisted mailbox work.
+              const providerFailure = summaryRefresh.deferred.find(
+                (failure) => failure.reason === "provider_unavailable"
+              );
+              if (providerFailure) {
+                aiProviderOutage ??= providerFailure.error;
+              }
+              const modelContractFailures = summaryRefresh.deferred.filter(
+                (failure) =>
+                  failure.reason === "model_contract" ||
+                  failure.reason === "model_refusal"
+              );
+              if (modelContractFailures.length > 0) {
+                console.warn(
+                  `[sync-engine] deferred ${modelContractFailures.length} lead summary model-contract failure(s); mailbox cursor will advance`,
+                  modelContractFailures
+                );
+              }
             }
+            pendingLeadSummaryOpportunityIds =
+              summaryRefresh.remainingOpportunityIds;
           }
         }
       } catch (aiErr) {
@@ -5769,30 +6466,64 @@ export const SyncEngine = {
         // Error) always propagate first and hold the cursor for idempotent
         // replay; a genuine provider outage is downgraded to the flag; anything
         // else is still wrapped and fails closed (cursor holds).
+        if (isDatabasePressureError(aiErr)) throw aiErr;
         if (aiErr instanceof LifecyclePersistenceError) throw aiErr;
         if (isAIProviderUnavailableError(aiErr)) {
           aiProviderOutage ??= aiErr;
+        } else if (isDeferredModelAnswerError(aiErr)) {
+          console.warn(
+            "[sync-engine] deferred an AI model contract/refusal; mailbox cursor will advance"
+          );
         } else {
           throw new LifecyclePersistenceError(
-            `[sync-engine] AI review failed before cursor advancement: ${aiErr instanceof Error ? aiErr.message : "unknown error"}`
+            `[sync-engine] AI review failed before cursor advancement: ${aiErr instanceof Error ? aiErr.message : "unknown error"}`,
+            { cause: aiErr }
           );
         }
       }
 
-      // An isolated provider outage surfaces once on the operator rail and as a
-      // machine-observable signal in the cron result, then the cycle falls
-      // through to persistSyncCheckpoint() below so the Gmail cursor advances.
+      // Publish the provider cursor before all derived notifications. A rail
+      // write must never replay correspondence that is already durable.
       if (aiProviderOutage) {
-        await reportAIProviderOutageOnce(aiProviderOutage);
         result.aiProviderDeferred = true;
       }
 
-      // Step 11: Notifications
-      if (result.newLeads > 0 || result.activitiesCreated > 0) {
-        await createSyncNotification(connection, result);
+      // Step 12: Update sync token.
+      await renewSyncLeaseIfNeeded(true);
+      await persistSyncCheckpoint();
+
+      // Step 11: derived notifications. They still run inside the global
+      // workload lease, and typed database pressure aborts into the circuit,
+      // but failure cannot pin the now-published provider cursor.
+      if (aiProviderOutage) {
+        try {
+          await reportAIProviderOutageOnce(aiProviderOutage);
+        } catch (notificationError) {
+          if (isDatabasePressureError(notificationError)) {
+            throw notificationError;
+          }
+          console.error(
+            "[sync-engine] AI provider outage notification failed (non-fatal):",
+            notificationError
+          );
+        }
       }
 
-      // Step 11b: Check autonomy milestones (E5)
+      if (result.newLeads > 0 || result.activitiesCreated > 0) {
+        try {
+          await createSyncNotification(connection, result);
+        } catch (notificationError) {
+          if (isDatabasePressureError(notificationError)) {
+            throw notificationError;
+          }
+          console.error(
+            "[sync-engine] sync-complete notification failed (non-fatal):",
+            notificationError
+          );
+        }
+      }
+
+      // Step 11b: Check autonomy milestones (E5), still inside the fence.
       // A shared mailbox's connector/creator is not the human who authored or
       // reviewed this sync's messages. Shared-mailbox milestones are evaluated
       // later from the actor-attributed outbound learning ledger.
@@ -5801,23 +6532,31 @@ export const SyncEngine = {
         connection.userId &&
         result.activitiesCreated > 0
       ) {
-        AutonomyMilestoneService.checkMilestonesAfterSync(
-          connection.companyId,
-          connection.userId,
-          connectionId
-        ).catch((err) => {
+        try {
+          await AutonomyMilestoneService.checkMilestonesAfterSync(
+            connection.companyId,
+            connection.userId,
+            connectionId,
+            { throwOnError: true }
+          );
+        } catch (milestoneError) {
+          if (isDatabasePressureError(milestoneError)) {
+            throw milestoneError;
+          }
           console.error(
             "[sync-engine] Milestone check failed (non-fatal):",
-            err
+            milestoneError
           );
-        });
+        }
       }
-
-      // Step 12: Update sync token
-      await renewSyncLeaseIfNeeded(true);
-      await persistSyncCheckpoint();
     } catch (err) {
       console.error(`[sync-engine] Error syncing ${connectionId}:`, err);
+      if (
+        err instanceof CronDatabaseOperationError ||
+        isDatabasePressureError(err)
+      ) {
+        throw err;
+      }
       result.errors.push(err instanceof Error ? err.message : "Unknown error");
     } finally {
       // P0-A: always release the per-connection sync lock.
@@ -5831,6 +6570,292 @@ export const SyncEngine = {
     }
 
     return result;
+  },
+
+  /**
+   * Drain exact-message classification deferrals and idempotent provider-label
+   * writes. Claims are tenant-filtered by the cron's current subscription gate,
+   * then reauthorized inside the physical-mailbox lease immediately before any
+   * provider access. Successful retries reuse the canonical ingest and label
+   * paths; no alternate lifecycle implementation exists here.
+   */
+  async retryPendingIngestionRecovery(options: {
+    companyIds: string[];
+    limit?: number;
+  }): Promise<EmailIngestionRecoveryWorkerResult> {
+    const supabase = requireSupabase();
+    const worker = new EmailIngestionRecoveryWorker({
+      async claim(input) {
+        const { data, error } = await supabase.rpc(
+          "claim_email_ingestion_recovery_as_system",
+          {
+            p_holder: input.holder,
+            p_company_ids: input.companyIds,
+            p_limit: input.limit,
+            p_lease_seconds: input.leaseSeconds,
+          }
+        );
+        if (error) {
+          throw new CronDatabaseOperationError(
+            `[sync-engine] email ingestion recovery claim failed: ${error.message}`,
+            { cause: error }
+          );
+        }
+        return emailIngestionRecoveryRows(data);
+      },
+
+      async reauthorize(input) {
+        const { data, error } = await supabase.rpc(
+          "reauthorize_email_ingestion_recovery_as_system",
+          {
+            p_queue_id: input.queueId,
+            p_holder: input.holder,
+          }
+        );
+        if (error) {
+          throw new CronDatabaseOperationError(
+            `[sync-engine] email ingestion recovery reauthorization failed: ${error.message}`,
+            { cause: error }
+          );
+        }
+        return recoveryRpcBoolean(data);
+      },
+
+      loadConnection(connectionId) {
+        return EmailService.getConnection(connectionId);
+      },
+
+      async runWithMailboxLease(input) {
+        const syncLockOwner = await acquireEmailConnectionSyncLock(
+          input.connectionId,
+          SYNC_LOCK_CONTEXT
+        );
+        if (!syncLockOwner) return { acquired: false };
+        const renewSyncLeaseIfNeeded = createEmailConnectionSyncLockRenewer({
+          connectionId: input.connectionId,
+          ownerId: syncLockOwner,
+          context: SYNC_LOCK_CONTEXT,
+        });
+        try {
+          return {
+            acquired: true,
+            value: await input.run(renewSyncLeaseIfNeeded, syncLockOwner),
+          };
+        } finally {
+          clearOperatorIdentityForSyncCycle(input.connectionId);
+          await renewSyncLeaseIfNeeded.stop().catch(() => {});
+          await releaseEmailConnectionSyncLock(
+            input.connectionId,
+            syncLockOwner,
+            SYNC_LOCK_CONTEXT
+          );
+        }
+      },
+
+      async applyProviderLabel(input) {
+        if (!input.job.providerLabelId) {
+          throw new Error("EMAIL_INGESTION_RECOVERY_LABEL_ID_MISSING");
+        }
+        await input.providerLockCheckpoint();
+        const provider = EmailService.getProvider(input.connection);
+        await provider.applyLabel(
+          input.job.providerThreadId,
+          input.job.providerLabelId
+        );
+        await input.providerLockCheckpoint();
+      },
+
+      async recoverLeadClassification(input) {
+        const providerMessageId = input.job.providerMessageId;
+        if (!providerMessageId) {
+          throw new Error("EMAIL_INGESTION_RECOVERY_MESSAGE_ID_MISSING");
+        }
+        const profile: SyncProfile = {
+          ...(input.connection.syncFilters as SyncProfile),
+        };
+        profile.internalPhones = [
+          ...(profile.internalPhones ?? []),
+          ...(await loadInternalPhonesForCompany(input.connection.companyId)),
+        ];
+        const authoritativeOperator = await refreshOperatorIdentityForSyncCycle(
+          input.connection
+        );
+        const directionIdentity = syncIngestionOperatorIdentity(
+          input.connection,
+          profile,
+          authoritativeOperator
+        );
+        await input.providerLockCheckpoint();
+        const provider = EmailService.getProvider(input.connection);
+        const messages = await provider.fetchThread(input.job.providerThreadId);
+        const stableMessages = await resolveStableDiscoveredEmails(
+          messages,
+          input.connection,
+          directionIdentity
+        );
+        const exact = stableMessages.find(
+          (message) => message.email.id === providerMessageId
+        );
+        if (!exact) {
+          throw new Error(
+            `EMAIL_INGESTION_RECOVERY_EXACT_MESSAGE_MISSING:${providerMessageId}`
+          );
+        }
+        const result = emptyResult();
+        const followUpDaysCache = new Map<string, number>();
+        let promoted = false;
+        if (exact.direction === "outbound") {
+          await processSentEmail(
+            exact.email,
+            input.connection,
+            profile,
+            followUpDaysCache,
+            result,
+            input.providerLockCheckpoint,
+            input.syncLockOwner,
+            exact.existingActivity,
+            exact.staffAliasCandidate
+          );
+        } else {
+          const unmatched = await processInboundEmail(
+            exact.email,
+            input.connection,
+            profile,
+            followUpDaysCache,
+            result,
+            input.providerLockCheckpoint,
+            directionIdentity,
+            NORMAL_EMAIL_INGESTION_POLICY,
+            null,
+            input.syncLockOwner,
+            false,
+            exact.existingActivity
+          );
+          if (unmatched) {
+            const { data: company, error: companyError } = await supabase
+              .from("companies")
+              .select("name, industry")
+              .eq("id", input.connection.companyId)
+              .single();
+            if (companyError) {
+              throw new CronDatabaseOperationError(
+                `[sync-engine] recovery company context read failed: ${companyError.message}`,
+                { cause: companyError }
+              );
+            }
+            const before = result.newLeads;
+            await persistAIClassifiedUnmatchedInbound({
+              contexts: [unmatched],
+              connection: input.connection,
+              profile,
+              companyName: (company?.name as string) || "",
+              companyIndustry: (company?.industry as string) || "trades",
+              followUpDaysCache,
+              result,
+              providerLockCheckpoint: input.providerLockCheckpoint,
+              executionPolicy: NORMAL_EMAIL_INGESTION_POLICY,
+              recoveryActorUserId: null,
+              syncLockOwner: input.syncLockOwner,
+            });
+            promoted = result.newLeads > before;
+          }
+        }
+
+        const { data: legacyRows, error: legacyError } = await supabase
+          .from("email_threads")
+          .select("id")
+          .eq("connection_id", input.connection.id)
+          .eq("provider_thread_id", input.job.providerThreadId)
+          .not("lead_scan_pending_at", "is", null)
+          .limit(1);
+        if (legacyError) {
+          throw new CronDatabaseOperationError(
+            `[sync-engine] recovery compatibility marker read failed: ${legacyError.message}`,
+            { cause: legacyError }
+          );
+        }
+        for (const row of legacyRows ?? []) {
+          await clearLeadScanPendingMarker(supabase, row.id as string);
+        }
+
+        return promoted ? "promoted" : "resolved";
+      },
+
+      async recoverCommercialOutcome(input) {
+        const opportunityId = input.job.opportunityId;
+        const providerMessageId = input.job.providerMessageId;
+        if (!opportunityId) {
+          throw new Error("EMAIL_INGESTION_RECOVERY_OPPORTUNITY_ID_MISSING");
+        }
+        if (!providerMessageId) {
+          throw new Error("EMAIL_INGESTION_RECOVERY_MESSAGE_ID_MISSING");
+        }
+
+        const { data: evidence, error: evidenceError } = await supabase
+          .from("opportunity_correspondence_events")
+          .select(
+            "id, opportunity_id, connection_id, provider_thread_id, provider_message_id, is_meaningful, opportunity_projection_applied"
+          )
+          .eq("company_id", input.connection.companyId)
+          .eq("opportunity_id", opportunityId)
+          .eq("connection_id", input.connection.id)
+          .eq("provider_thread_id", input.job.providerThreadId)
+          .eq("provider_message_id", providerMessageId)
+          .limit(2);
+        if (evidenceError) {
+          throw new CronDatabaseOperationError(
+            `[sync-engine] commercial outcome recovery evidence read failed: ${evidenceError.message}`,
+            { cause: evidenceError }
+          );
+        }
+        if (
+          (evidence ?? []).length !== 1 ||
+          evidence?.[0]?.is_meaningful !== true ||
+          evidence?.[0]?.opportunity_projection_applied !== true
+        ) {
+          throw new Error(
+            "EMAIL_INGESTION_RECOVERY_COMMERCIAL_EVIDENCE_CHANGED"
+          );
+        }
+
+        const outcomeResult = emptyResult();
+        await maybeAutoAdvanceOnAccept({
+          providerThreadId: null,
+          opportunityId,
+          connection: input.connection,
+          result: outcomeResult,
+        });
+        await input.providerLockCheckpoint();
+
+        const summaryRefresh = await refreshLeadSummariesForOpportunities({
+          supabase,
+          companyId: input.connection.companyId,
+          opportunityIds: [opportunityId],
+        });
+        if (
+          !summaryRefresh.skippedFeatureDisabled &&
+          (summaryRefresh.failed.length > 0 ||
+            summaryRefresh.requested !== 1 ||
+            summaryRefresh.written !== 1)
+        ) {
+          throw new Error(
+            `EMAIL_INGESTION_RECOVERY_SUMMARY_REFRESH_INCOMPLETE:${summaryRefresh.failed
+              .map((failure) => failure.error)
+              .join(";")}`
+          );
+        }
+      },
+
+      complete: completeEmailIngestionRecovery,
+      fail: failEmailIngestionRecovery,
+      workerId: randomUUID,
+    });
+
+    return worker.process({
+      companyIds: options.companyIds,
+      limit: options.limit,
+      leaseSeconds: 360,
+    });
   },
 
   /**
@@ -5882,8 +6907,9 @@ export const SyncEngine = {
       .order("lead_scan_pending_at", { ascending: true })
       .limit(limit);
     if (pendingError) {
-      throw new Error(
-        `[sync-engine] retryPendingLeadScans query failed: ${pendingError.message}`
+      throw new CronDatabaseOperationError(
+        `[sync-engine] retryPendingLeadScans query failed: ${pendingError.message}`,
+        { cause: pendingError }
       );
     }
 
@@ -5932,11 +6958,17 @@ export const SyncEngine = {
       const result = emptyResult();
 
       try {
-        const { data: company } = await supabase
+        const { data: company, error: companyError } = await supabase
           .from("companies")
           .select("name, industry")
           .eq("id", connection.companyId)
           .single();
+        if (companyError) {
+          throw new CronDatabaseOperationError(
+            `[sync-engine] retryPendingLeadScans company lookup failed: ${companyError.message}`,
+            { cause: companyError }
+          );
+        }
         const companyName = (company?.name as string) || "";
         const companyIndustry = (company?.industry as string) || "trades";
         // The same operator-identity seam runSync uses — no divergent context
@@ -5956,14 +6988,10 @@ export const SyncEngine = {
             const messages = await provider.fetchThread(
               thread.providerThreadId
             );
-            const stableMessages = await Promise.all(
-              messages.map((message) =>
-                resolveStableDiscoveredEmail(
-                  message,
-                  connection,
-                  directionIdentity
-                )
-              )
+            const stableMessages = await resolveStableDiscoveredEmails(
+              messages,
+              connection,
+              directionIdentity
             );
             const latestInbound = stableMessages
               .filter((message) => message.direction === "inbound")
@@ -5973,8 +7001,29 @@ export const SyncEngine = {
               )
               .at(-1);
             if (!latestInbound) {
-              // No inbound message remains on the thread (deleted upstream); the
-              // deferred classification can never complete — drain the marker.
+              const latestOutbound = stableMessages
+                .filter((message) => message.direction === "outbound")
+                .sort(
+                  (left, right) =>
+                    left.email.date.getTime() - right.email.date.getTime()
+                )
+                .at(-1);
+              if (latestOutbound) {
+                await processSentEmail(
+                  latestOutbound.email,
+                  connection,
+                  profile,
+                  followUpDaysCache,
+                  result,
+                  renewSyncLeaseIfNeeded,
+                  syncLockOwner,
+                  latestOutbound.existingActivity,
+                  latestOutbound.staffAliasCandidate
+                );
+              }
+              // No inbound message remains, or current authoritative staff
+              // identity corrected the deferred message to outbound. In both
+              // cases the lead-scan marker has no inbound work left.
               await clearLeadScanPendingMarker(supabase, thread.id);
               outcome.cleared += 1;
               continue;
@@ -6030,6 +7079,9 @@ export const SyncEngine = {
             await clearLeadScanPendingMarker(supabase, thread.id);
             outcome.cleared += 1;
           } catch (threadError) {
+            if (isDatabasePressureError(threadError)) {
+              throw threadError;
+            }
             if (isAIProviderUnavailableError(threadError)) {
               // Provider still down: leave this connection's remaining markers in
               // place (they retry next run) and move to the next connection. The
@@ -6070,28 +7122,58 @@ export const SyncEngine = {
   },
 
   /**
-   * Sweep all active opportunities for stale follow-up detection.
+   * Sweep one durable keyset window of active opportunities for stale
+   * follow-up detection.
    * Called by the cron independently of new email arrival — catches leads
    * that go quiet (no new emails trigger the per-email evaluator).
    *
    * Resolves autoFollowUpDays per-company per-stage from
    * pipeline_stage_configs, cached for the duration of the sweep.
    */
-  async sweepStaleLeads(): Promise<number> {
+  async sweepStaleLeads(input: {
+    afterOpportunityId: string | null;
+    limit: number;
+  }): Promise<{
+    stageChanges: number;
+    scanned: number;
+    nextCursor: string | null;
+  }> {
     const supabase = requireSupabase();
     let stageChanges = 0;
+    const limit = Math.min(Math.max(input.limit, 1), 50);
 
     // Select company_id too so we can resolve the per-company autoFollowUpDays
     // from pipeline_stage_configs.
-    const { data: staleOpps } = await supabase
-      .from("opportunities")
-      .select(
-        "id, company_id, stage, stage_manually_set, assignment_version, correspondence_count, outbound_count, inbound_count, last_inbound_at, last_outbound_at, last_message_direction"
-      )
-      .eq("last_message_direction", "out")
-      .not("stage", "in", '("won","lost","follow_up")')
-      .is("deleted_at", null)
-      .not("last_outbound_at", "is", null);
+    const loadStaleOpportunityWindow = async (
+      afterOpportunityId: string | null
+    ) => {
+      let query = supabase
+        .from("opportunities")
+        .select(
+          "id, company_id, stage, stage_manually_set, assignment_version, correspondence_count, outbound_count, inbound_count, last_inbound_at, last_outbound_at, last_message_direction"
+        )
+        .eq("last_message_direction", "out")
+        .not("stage", "in", '("won","lost","follow_up")')
+        .is("deleted_at", null)
+        .not("last_outbound_at", "is", null)
+        .order("id", { ascending: true });
+      if (afterOpportunityId) {
+        query = query.gt("id", afterOpportunityId);
+      }
+      const { data, error } = await query.limit(limit);
+      if (error) {
+        throw new CronDatabaseOperationError(
+          `[sync-engine] stale-lead scan failed: ${error.message}`,
+          { cause: error }
+        );
+      }
+      return data ?? [];
+    };
+
+    let staleOpps = await loadStaleOpportunityWindow(input.afterOpportunityId);
+    if (input.afterOpportunityId && staleOpps.length === 0) {
+      staleOpps = await loadStaleOpportunityWindow(null);
+    }
 
     const cache = new Map<string, number>();
 
@@ -6130,9 +7212,15 @@ export const SyncEngine = {
             p_expected_assignment_version: opp.assignment_version,
             p_ai_signal: null,
           });
-        if (transitionError || !transitionRows) {
+        if (transitionError) {
+          throw new CronDatabaseOperationError(
+            `[sync-engine] stale-stage transition failed for opportunity ${opp.id}: ${transitionError.message ?? "unknown error"}`,
+            { cause: transitionError }
+          );
+        }
+        if (!transitionRows) {
           throw new LifecyclePersistenceError(
-            `[sync-engine] stale-stage transition failed for opportunity ${opp.id}: ${transitionError?.message ?? "RPC returned no rows"}`
+            `[sync-engine] stale-stage transition failed for opportunity ${opp.id}: RPC returned no rows`
           );
         }
         const transition = Array.isArray(transitionRows)
@@ -6142,6 +7230,13 @@ export const SyncEngine = {
       }
     }
 
-    return stageChanges;
+    return {
+      stageChanges,
+      scanned: staleOpps.length,
+      nextCursor:
+        staleOpps.length === limit
+          ? ((staleOpps.at(-1)?.id as string | undefined) ?? null)
+          : null,
+    };
   },
 };

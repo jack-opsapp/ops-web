@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   getServiceRoleClient: vi.fn(),
   statusRpc: vi.fn(),
   processBatch: vi.fn(),
+  runWithCronWorkloadControl: vi.fn(),
   afterCallbacks: [] as Array<() => Promise<void>>,
 }));
 
@@ -28,6 +29,9 @@ vi.mock("@/lib/api/services/project-status-lifecycle-outbox-service", () => ({
   ProjectStatusLifecycleOutboxService: {
     processBatch: mocks.processBatch,
   },
+}));
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  runWithCronWorkloadControl: mocks.runWithCronWorkloadControl,
 }));
 
 import { PATCH } from "@/app/api/projects/[id]/status/route";
@@ -80,6 +84,12 @@ beforeEach(() => {
     error: null,
   });
   mocks.getServiceRoleClient.mockReturnValue({ rpc: mocks.statusRpc });
+  mocks.runWithCronWorkloadControl.mockImplementation(
+    async ({ work }: { work: () => Promise<unknown> }) => ({
+      status: "completed",
+      value: await work(),
+    })
+  );
   mocks.processBatch.mockResolvedValue({
     claimed: 1,
     completed: 1,
@@ -130,10 +140,38 @@ describe("PATCH /api/projects/:id/status", () => {
     expect(mocks.afterCallbacks).toHaveLength(1);
 
     await mocks.afterCallbacks[0]();
-    expect(mocks.processBatch).toHaveBeenCalledWith(expect.anything(), {
-      limit: 10,
-      leaseSeconds: 180,
+    expect(mocks.runWithCronWorkloadControl).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      workloadKey: "lead-outbox",
+      leaseSeconds: 360,
+      work: expect.any(Function),
     });
+    expect(mocks.processBatch).toHaveBeenCalledWith(expect.anything(), {
+      limit: 1,
+      leaseSeconds: 360,
+    });
+  });
+
+  it("keeps the committed status update successful when the shared lane is held", async () => {
+    mocks.runWithCronWorkloadControl.mockResolvedValueOnce({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const response = await PATCH(request({ status: "Estimated" }) as never, {
+      params: Promise.resolve({ id: "project-1" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true, changed: true });
+    await expect(mocks.afterCallbacks[0]()).resolves.toBeUndefined();
+    expect(mocks.runWithCronWorkloadControl).toHaveBeenCalledWith({
+      supabase: expect.anything(),
+      workloadKey: "lead-outbox",
+      leaseSeconds: 360,
+      work: expect.any(Function),
+    });
+    expect(mocks.processBatch).not.toHaveBeenCalled();
   });
 
   it("does not schedule lifecycle work when the locked RPC reports no change", async () => {

@@ -7,6 +7,7 @@ const {
   getProviderMock,
   placeNewThreadDraftMock,
   renderDraftMock,
+  resolveEmailOpportunityAccessMock,
   resolveSignatureMock,
   runWithEmailConnectionSyncLockMock,
 } = vi.hoisted(() => ({
@@ -16,12 +17,17 @@ const {
   getProviderMock: vi.fn(),
   placeNewThreadDraftMock: vi.fn(),
   renderDraftMock: vi.fn(),
+  resolveEmailOpportunityAccessMock: vi.fn(),
   resolveSignatureMock: vi.fn(),
   runWithEmailConnectionSyncLockMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api/services/ai-draft-service", () => ({
   AIDraftService: { generateDraft: generateDraftMock },
+}));
+
+vi.mock("@/lib/email/email-opportunity-access", () => ({
+  resolveEmailOpportunityAccess: resolveEmailOpportunityAccessMock,
 }));
 
 vi.mock("@/lib/api/services/email-service", () => ({
@@ -41,6 +47,7 @@ vi.mock("@/lib/email/email-signature-runtime", () => ({
 }));
 
 vi.mock("@/lib/api/services/mailbox-draft-push", () => ({
+  CONTACT_FORM_OUTREACH_SUBJECT: "Thanks for reaching out",
   buildContactFormDraftInstruction: vi.fn(() => "contact form instruction"),
   placeNewThreadDraft: placeNewThreadDraftMock,
 }));
@@ -109,6 +116,21 @@ describe("assignment contact-form draft runtime", () => {
     getConnectionMock.mockResolvedValue(connection());
     getProviderMock.mockReturnValue(provider);
     getAutonomyMock.mockResolvedValue({ CUSTOMER: "auto_draft" });
+    resolveEmailOpportunityAccessMock.mockResolvedValue({
+      allowed: true,
+      actor: { userId: ACTOR_ID, companyId: COMPANY_ID },
+      operation: "send",
+      threadId: null,
+      connectionId: CONNECTION_ID,
+      providerThreadId: null,
+      opportunityId: OPPORTUNITY_ID,
+      connectionType: "company",
+      connectionOwnerId: null,
+      pipelineScope: "assigned",
+      inboxScope: "assigned",
+      usedLegacyPipelineManage: false,
+      usedLegacyInboxViewCompany: false,
+    });
     generateDraftMock.mockResolvedValue({
       available: true,
       draft: "Hi Sandra,\n\nThanks for reaching out.",
@@ -201,10 +223,26 @@ describe("assignment contact-form draft runtime", () => {
         userId: ACTOR_ID,
         connectionId: CONNECTION_ID,
         opportunityId: OPPORTUNITY_ID,
+        sourceActivityId: "00000000-0000-4000-8000-000000000501",
         origin: "phase_c",
         autonomous: true,
+        configuredSubject: "Thanks for reaching out",
+        sourceBoundAutonomousRouting: "assigned_contact_form_review",
+        emailAccess: expect.objectContaining({
+          operation: "send",
+          threadId: null,
+          providerThreadId: null,
+          opportunityId: OPPORTUNITY_ID,
+        }),
       })
     );
+    expect(resolveEmailOpportunityAccessMock).toHaveBeenCalledWith({
+      actor: { userId: ACTOR_ID, companyId: COMPANY_ID },
+      operation: "send",
+      connectionId: CONNECTION_ID,
+      opportunityId: OPPORTUNITY_ID,
+      supabase,
+    });
     expect(resolveSignatureMock).toHaveBeenCalledWith(
       expect.objectContaining({
         supabase,

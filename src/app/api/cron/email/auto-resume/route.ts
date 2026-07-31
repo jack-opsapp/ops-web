@@ -11,6 +11,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { autoResume, type PauseScope } from "@/lib/email/pause";
+import {
+  CronDatabaseOperationError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,42 +28,93 @@ export async function GET(req: NextRequest) {
     );
   }
   if (req.headers.get("authorization") !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: "unauthorized" },
+      { status: 401 }
+    );
   }
 
   const supabase = getServiceRoleClient();
-  const nowIso = new Date().toISOString();
+  try {
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: "email-auto-resume",
+      leaseSeconds: 120,
+      work: async () => {
+        let expired: Array<{ scope: string }> | null;
+        try {
+          const result = await supabase
+            .from("email_pause_state")
+            .select("scope")
+            .eq("is_paused", true)
+            .not("paused_until", "is", null)
+            .lt("paused_until", new Date().toISOString())
+            .order("paused_until", { ascending: true })
+            .limit(25);
+          if (result.error) {
+            throw new CronDatabaseOperationError(
+              `Email auto-resume read failed: ${result.error.message}`,
+              { cause: result.error }
+            );
+          }
+          expired = result.data as Array<{ scope: string }> | null;
+        } catch (cause) {
+          if (cause instanceof CronDatabaseOperationError) throw cause;
+          throw new CronDatabaseOperationError(
+            "Email auto-resume read failed",
+            { cause }
+          );
+        }
 
-  const { data: expired, error } = await supabase
-    .from("email_pause_state")
-    .select("scope")
-    .eq("is_paused", true)
-    .not("paused_until", "is", null)
-    .lt("paused_until", nowIso);
+        const resumed: string[] = [];
+        const failures: { scope: string; error: string }[] = [];
+        for (const row of expired ?? []) {
+          try {
+            await autoResume(row.scope as PauseScope, {
+              abortOnDatabaseError: true,
+            });
+            resumed.push(row.scope);
+          } catch (error) {
+            if (error instanceof CronDatabaseOperationError) throw error;
+            const message =
+              error instanceof Error ? error.message : String(error);
+            console.error("[auto-resume]", row.scope, message);
+            failures.push({ scope: row.scope, error: message });
+          }
+        }
+        return {
+          ok: true,
+          checked: (expired ?? []).length,
+          resumed,
+          failures,
+        };
+      },
+    });
 
-  if (error) {
-    console.error("[auto-resume] read failed:", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  }
-
-  const resumed: string[] = [];
-  const failures: { scope: string; error: string }[] = [];
-
-  for (const row of expired ?? []) {
-    try {
-      await autoResume(row.scope as PauseScope);
-      resumed.push(row.scope);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error("[auto-resume]", row.scope, msg);
-      failures.push({ scope: row.scope, error: msg });
+    if (controlled.status === "skipped") {
+      const reason =
+        controlled.reason === "lease_held"
+          ? "already_running"
+          : controlled.reason;
+      return NextResponse.json(
+        {
+          ok: controlled.reason === "lease_held",
+          ran: false,
+          reason,
+        },
+        { status: controlled.reason === "lease_held" ? 200 : 503 }
+      );
     }
+    return NextResponse.json(controlled.value);
+  } catch (error) {
+    console.error("[auto-resume] fatal:", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error instanceof Error ? error.message : "Email auto-resume failed",
+      },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.json({
-    ok: true,
-    checked: (expired ?? []).length,
-    resumed,
-    failures,
-  });
 }

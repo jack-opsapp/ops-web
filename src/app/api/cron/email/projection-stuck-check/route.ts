@@ -1,7 +1,8 @@
 /**
  * /api/cron/email/projection-stuck-check
  *
- * Runs every 5 minutes. Detects meaningful correspondence events whose
+ * Runs every 20 minutes on an isolated offset. Detects meaningful
+ * correspondence events whose
  * opportunity counter projection never applied:
  *
  *   is_meaningful AND NOT opportunity_projection_applied
@@ -24,6 +25,12 @@
  * Auth: Bearer ${CRON_SECRET}. Service-role DB only.
  */
 import { NextRequest, NextResponse } from "next/server";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
+import { getOptionalPmfOperatorIdentity } from "@/lib/pmf/recipients";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export const runtime = "nodejs";
@@ -31,10 +38,10 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const STUCK_THRESHOLD_MS = 5 * 60 * 1000;
-const SCAN_LIMIT = 500;
-// Bound the self-heal work per run so 50 sequential apply-RPC round-trips stay
+const SCAN_LIMIT = 50;
+// Bound the self-heal work per run so sequential apply-RPC round-trips stay
 // well inside maxDuration (60s); anything beyond is deferred to the next run.
-const REPAIR_LIMIT = 50;
+const REPAIR_LIMIT = 5;
 const ALERT_DEDUPE_KEY = "email-correspondence-projection-stuck";
 
 interface StuckEventRow {
@@ -44,6 +51,23 @@ interface StuckEventRow {
   created_at: string;
   connection_id: string | null;
   provider_message_id: string | null;
+}
+
+function projectionDatabaseError(
+  operation: string,
+  cause: unknown
+): CronDatabaseOperationError {
+  const causeMessage =
+    cause &&
+    typeof cause === "object" &&
+    "message" in cause &&
+    typeof cause.message === "string"
+      ? `: ${cause.message}`
+      : "";
+  return new CronDatabaseOperationError(
+    `projection-stuck-check ${operation} failed${causeMessage}`,
+    { cause }
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -59,191 +83,261 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getServiceRoleClient();
-  const now = Date.now();
-  const thresholdIso = new Date(now - STUCK_THRESHOLD_MS).toISOString();
+  try {
+    const controlled = await runWithCronWorkloadControl({
+      supabase: db,
+      workloadKey: "projection-repair",
+      leaseSeconds: 120,
+      work: async () => {
+        const now = Date.now();
+        const thresholdIso = new Date(now - STUCK_THRESHOLD_MS).toISOString();
 
-  const { data: stuckRows, error: stuckError } = await db
-    .from("opportunity_correspondence_events")
-    .select(
-      "id, company_id, opportunity_id, created_at, connection_id, provider_message_id"
-    )
-    .eq("is_meaningful", true)
-    .eq("opportunity_projection_applied", false)
-    .lt("created_at", thresholdIso)
-    .order("created_at", { ascending: true })
-    .limit(SCAN_LIMIT);
-  if (stuckError) {
-    console.error("[projection-stuck-check] scan failed:", stuckError.message);
-    return NextResponse.json({ error: "scan_failed" }, { status: 500 });
-  }
+        const { data: stuckRows, error: stuckError } = await db
+          .from("opportunity_correspondence_events")
+          .select(
+            "id, company_id, opportunity_id, created_at, connection_id, provider_message_id"
+          )
+          .eq("is_meaningful", true)
+          .eq("opportunity_projection_applied", false)
+          .lt("created_at", thresholdIso)
+          .order("created_at", { ascending: true })
+          .limit(SCAN_LIMIT);
+        if (stuckError) {
+          throw projectionDatabaseError("scan", stuckError);
+        }
 
-  const stuck = (stuckRows ?? []) as StuckEventRow[];
+        const stuck = (stuckRows ?? []) as StuckEventRow[];
 
-  // Repair before alerting. The idempotent apply RPC projects any pending row
-  // keyed by connection + provider message id, flipping it out of the stuck
-  // set — the same one-transaction projection new writes now do inline. A row
-  // that self-heals here is one an operator never has to see.
-  let repaired = 0;
-  let repairAttempts = 0;
-  let repairCapped = false;
-  const remaining: StuckEventRow[] = [];
-  for (const row of stuck) {
-    const connectionId = row.connection_id;
-    const providerMessageId = row.provider_message_id;
-    if (!connectionId || !providerMessageId) {
-      // The apply RPC keys on connection + provider message id; without both
-      // this row cannot self-heal — leave it for the operator alert.
-      remaining.push(row);
-      continue;
+        // Repair before alerting. The idempotent apply RPC projects any pending row
+        // keyed by connection + provider message id, flipping it out of the stuck
+        // set — the same one-transaction projection new writes now do inline. A row
+        // that self-heals here is one an operator never has to see.
+        let repaired = 0;
+        let repairAttempts = 0;
+        let repairCapped = false;
+        const remaining: StuckEventRow[] = [];
+        for (const row of stuck) {
+          const connectionId = row.connection_id;
+          const providerMessageId = row.provider_message_id;
+          if (!connectionId || !providerMessageId) {
+            // The apply RPC keys on connection + provider message id; without both
+            // this row cannot self-heal — leave it for the operator alert.
+            remaining.push(row);
+            continue;
+          }
+          if (repairAttempts >= REPAIR_LIMIT) {
+            repairCapped = true;
+            remaining.push(row);
+            continue;
+          }
+          repairAttempts += 1;
+          const { error: repairError } = await db.rpc(
+            "apply_opportunity_correspondence_event",
+            {
+              p_company_id: row.company_id,
+              p_opportunity_id: row.opportunity_id,
+              p_connection_id: connectionId,
+              p_provider_message_id: providerMessageId,
+            }
+          );
+          if (repairError) {
+            const databaseError = projectionDatabaseError(
+              `repair for event ${row.id}`,
+              repairError
+            );
+            if (isDatabasePressureError(databaseError)) {
+              throw databaseError;
+            }
+            console.error(
+              "[projection-stuck-check] auto-repair failed for event",
+              row.id,
+              repairError.message
+            );
+            remaining.push(row);
+            continue;
+          }
+          repaired += 1;
+        }
+        if (repairCapped) {
+          console.error(
+            `[projection-stuck-check] repair capped at ${REPAIR_LIMIT} this run; ${remaining.length} row(s) deferred to next run`
+          );
+        }
+        if (repaired > 0) {
+          console.error(
+            `[projection-stuck-check] auto-repaired ${repaired} stuck projection(s) via apply RPC`
+          );
+        }
+
+        if (remaining.length === 0) {
+          // Incident over (never started, or fully auto-repaired this run): close any
+          // open alert so the dedupe key re-arms for the next incident.
+          const { data: resolvedRows, error: resolutionError } = await db
+            .from("notifications")
+            .update({
+              resolved_at: new Date(now).toISOString(),
+              is_read: true,
+              resolution_reason: "projection_recovered",
+            })
+            .eq("dedupe_key", ALERT_DEDUPE_KEY)
+            .is("resolved_at", null)
+            .select("id");
+          if (resolutionError) {
+            const databaseError = projectionDatabaseError(
+              "alert resolution",
+              resolutionError
+            );
+            if (isDatabasePressureError(databaseError)) {
+              throw databaseError;
+            }
+            console.error(
+              "[projection-stuck-check] alert resolution failed:",
+              resolutionError.message
+            );
+            return NextResponse.json(
+              { error: "resolution_failed" },
+              { status: 500 }
+            );
+          }
+          return NextResponse.json({
+            ok: true,
+            stuck: 0,
+            repaired,
+            resolved: (resolvedRows ?? []).length,
+          });
+        }
+
+        const opportunityIds = new Set(
+          remaining.map((row) => row.opportunity_id)
+        );
+        const companyIds = new Set(remaining.map((row) => row.company_id));
+        const oldestAgeMinutes = Math.floor(
+          (now - Date.parse(remaining[0].created_at)) / 60_000
+        );
+
+        // Forensic breadcrumb for the on-call session — the notification carries
+        // the summary, the log carries the row identities.
+        console.error("[projection-stuck-check] stuck projection detected", {
+          stuck: remaining.length,
+          repaired,
+          scanCapped: stuck.length >= SCAN_LIMIT,
+          repairCapped,
+          opportunities: opportunityIds.size,
+          companies: companyIds.size,
+          oldestAgeMinutes,
+          sampleEventIds: remaining.slice(0, 10).map((row) => row.id),
+        });
+
+        const operatorIdentity = getOptionalPmfOperatorIdentity();
+        if (!operatorIdentity) {
+          console.error(
+            "[projection-stuck-check] alert skipped — PMF_OPERATOR_USER_ID or PMF_OPERATOR_COMPANY_ID unset"
+          );
+          return NextResponse.json({
+            ok: true,
+            stuck: remaining.length,
+            repaired,
+            opportunities: opportunityIds.size,
+            companies: companyIds.size,
+            oldestAgeMinutes,
+            alerted: false,
+          });
+        }
+        const { operatorUserId, operatorCompanyId } = operatorIdentity;
+
+        const eventNoun =
+          remaining.length === 1 ? "email event" : "email events";
+        const leadNoun = opportunityIds.size === 1 ? "lead" : "leads";
+        // Name the self-heal in the alert so the operator knows the monitor is
+        // actively draining the backlog, not just reporting it.
+        const repairNote =
+          repaired > 0 ? ` Auto-repaired ${repaired} this run.` : "";
+        const { data: notificationResult, error: notificationError } =
+          await db.rpc("create_notification_if_new_with_identity", {
+            p_user_id: operatorUserId,
+            p_company_id: operatorCompanyId,
+            p_type: "system_alert",
+            p_title: "CRITICAL :: EMAIL PROJECTION STUCK",
+            p_body: `${remaining.length} meaningful ${eventNoun} unprojected for over 5 minutes across ${opportunityIds.size} ${leadNoun}. Oldest ${oldestAgeMinutes}m.${repairNote} Lifecycle writes are running without this evidence.`,
+            p_persistent: true,
+            p_action_url: "/admin/email?tab=event-monitor",
+            p_action_label: "VIEW MONITOR",
+            p_project_id: null,
+            p_deep_link_type: null,
+            p_dedupe_key: ALERT_DEDUPE_KEY,
+          });
+        if (notificationError) {
+          const databaseError = projectionDatabaseError(
+            "alert insert",
+            notificationError
+          );
+          if (isDatabasePressureError(databaseError)) {
+            throw databaseError;
+          }
+          console.error(
+            "[projection-stuck-check] alert insert failed:",
+            notificationError.message
+          );
+          return NextResponse.json({ error: "alert_failed" }, { status: 500 });
+        }
+
+        const rawNotification = Array.isArray(notificationResult)
+          ? notificationResult[0]
+          : notificationResult;
+        const alerted =
+          rawNotification !== null &&
+          typeof rawNotification === "object" &&
+          typeof (rawNotification as Record<string, unknown>)
+            .notification_id === "string";
+
+        return NextResponse.json({
+          ok: true,
+          stuck: remaining.length,
+          repaired,
+          opportunities: opportunityIds.size,
+          companies: companyIds.size,
+          oldestAgeMinutes,
+          scanCapped: stuck.length >= SCAN_LIMIT,
+          // False when an open alert already covers this incident (deduped).
+          alerted,
+        });
+      },
+    });
+
+    if (controlled.status === "skipped") {
+      const reason =
+        controlled.reason === "lease_held"
+          ? "already_running"
+          : controlled.reason;
+      return NextResponse.json(
+        {
+          ok: controlled.reason === "lease_held",
+          ran: false,
+          reason,
+        },
+        { status: controlled.reason === "lease_held" ? 200 : 503 }
+      );
     }
-    if (repairAttempts >= REPAIR_LIMIT) {
-      repairCapped = true;
-      remaining.push(row);
-      continue;
-    }
-    repairAttempts += 1;
-    const { error: repairError } = await db.rpc(
-      "apply_opportunity_correspondence_event",
+
+    return controlled.value;
+  } catch (error) {
+    const failure =
+      error instanceof Error
+        ? error.message
+        : typeof error === "object" &&
+            error !== null &&
+            "message" in error &&
+            typeof error.message === "string"
+          ? error.message
+          : "Unknown projection repair error";
+    console.error("[projection-stuck-check] controlled run failed:", failure);
+    return NextResponse.json(
       {
-        p_company_id: row.company_id,
-        p_opportunity_id: row.opportunity_id,
-        p_connection_id: connectionId,
-        p_provider_message_id: providerMessageId,
-      }
-    );
-    if (repairError) {
-      console.error(
-        "[projection-stuck-check] auto-repair failed for event",
-        row.id,
-        repairError.message
-      );
-      remaining.push(row);
-      continue;
-    }
-    repaired += 1;
-  }
-  if (repairCapped) {
-    console.error(
-      `[projection-stuck-check] repair capped at ${REPAIR_LIMIT} this run; ${remaining.length} row(s) deferred to next run`
+        error: isDatabasePressureError(error)
+          ? "database_pressure"
+          : "projection_check_failed",
+      },
+      { status: 500 }
     );
   }
-  if (repaired > 0) {
-    console.error(
-      `[projection-stuck-check] auto-repaired ${repaired} stuck projection(s) via apply RPC`
-    );
-  }
-
-  if (remaining.length === 0) {
-    // Incident over (never started, or fully auto-repaired this run): close any
-    // open alert so the dedupe key re-arms for the next incident.
-    const { data: resolvedRows, error: resolutionError } = await db
-      .from("notifications")
-      .update({
-        resolved_at: new Date(now).toISOString(),
-        is_read: true,
-        resolution_reason: "projection_recovered",
-      })
-      .eq("dedupe_key", ALERT_DEDUPE_KEY)
-      .is("resolved_at", null)
-      .select("id");
-    if (resolutionError) {
-      console.error(
-        "[projection-stuck-check] alert resolution failed:",
-        resolutionError.message
-      );
-      return NextResponse.json({ error: "resolution_failed" }, { status: 500 });
-    }
-    return NextResponse.json({
-      ok: true,
-      stuck: 0,
-      repaired,
-      resolved: (resolvedRows ?? []).length,
-    });
-  }
-
-  const opportunityIds = new Set(remaining.map((row) => row.opportunity_id));
-  const companyIds = new Set(remaining.map((row) => row.company_id));
-  const oldestAgeMinutes = Math.floor(
-    (now - Date.parse(remaining[0].created_at)) / 60_000
-  );
-
-  // Forensic breadcrumb for the on-call session — the notification carries
-  // the summary, the log carries the row identities.
-  console.error("[projection-stuck-check] stuck projection detected", {
-    stuck: remaining.length,
-    repaired,
-    scanCapped: stuck.length >= SCAN_LIMIT,
-    repairCapped,
-    opportunities: opportunityIds.size,
-    companies: companyIds.size,
-    oldestAgeMinutes,
-    sampleEventIds: remaining.slice(0, 10).map((row) => row.id),
-  });
-
-  const operatorUserId = process.env.PMF_OPERATOR_USER_ID;
-  const operatorCompanyId = process.env.PMF_OPERATOR_COMPANY_ID;
-  if (!operatorUserId || !operatorCompanyId) {
-    console.error(
-      "[projection-stuck-check] alert skipped — PMF_OPERATOR_USER_ID or PMF_OPERATOR_COMPANY_ID unset"
-    );
-    return NextResponse.json({
-      ok: true,
-      stuck: remaining.length,
-      repaired,
-      opportunities: opportunityIds.size,
-      companies: companyIds.size,
-      oldestAgeMinutes,
-      alerted: false,
-    });
-  }
-
-  const eventNoun = remaining.length === 1 ? "email event" : "email events";
-  const leadNoun = opportunityIds.size === 1 ? "lead" : "leads";
-  // Name the self-heal in the alert so the operator knows the monitor is
-  // actively draining the backlog, not just reporting it.
-  const repairNote = repaired > 0 ? ` Auto-repaired ${repaired} this run.` : "";
-  const { data: notificationResult, error: notificationError } = await db.rpc(
-    "create_notification_if_new_with_identity",
-    {
-      p_user_id: operatorUserId,
-      p_company_id: operatorCompanyId,
-      p_type: "system_alert",
-      p_title: "CRITICAL :: EMAIL PROJECTION STUCK",
-      p_body: `${remaining.length} meaningful ${eventNoun} unprojected for over 5 minutes across ${opportunityIds.size} ${leadNoun}. Oldest ${oldestAgeMinutes}m.${repairNote} Lifecycle writes are running without this evidence.`,
-      p_persistent: true,
-      p_action_url: "/admin/email?tab=event-monitor",
-      p_action_label: "VIEW MONITOR",
-      p_project_id: null,
-      p_deep_link_type: null,
-      p_dedupe_key: ALERT_DEDUPE_KEY,
-    }
-  );
-  if (notificationError) {
-    console.error(
-      "[projection-stuck-check] alert insert failed:",
-      notificationError.message
-    );
-    return NextResponse.json({ error: "alert_failed" }, { status: 500 });
-  }
-
-  const rawNotification = Array.isArray(notificationResult)
-    ? notificationResult[0]
-    : notificationResult;
-  const alerted =
-    rawNotification !== null &&
-    typeof rawNotification === "object" &&
-    typeof (rawNotification as Record<string, unknown>).notification_id ===
-      "string";
-
-  return NextResponse.json({
-    ok: true,
-    stuck: remaining.length,
-    repaired,
-    opportunities: opportunityIds.size,
-    companies: companyIds.size,
-    oldestAgeMinutes,
-    scanCapped: stuck.length >= SCAN_LIMIT,
-    // False when an open alert already covers this incident (deduped).
-    alerted,
-  });
 }

@@ -7,6 +7,10 @@ const syncEngineSource = readFileSync(
   join(process.cwd(), "src/lib/api/services/sync-engine.ts"),
   "utf8"
 );
+const emailSyncCronSource = readFileSync(
+  join(process.cwd(), "src/app/api/cron/email-sync/route.ts"),
+  "utf8"
+);
 
 describe("sync-engine Phase C routing boundary", () => {
   it("never invokes or implements the legacy connection-owner auto-draft path", () => {
@@ -19,12 +23,15 @@ describe("sync-engine Phase C routing boundary", () => {
     );
   });
 
-  it("routes inbound work only after the canonical thread boundary", () => {
-    expect(syncEngineSource).toContain(
+  it("defers canonical thread routing to the bounded cron-owned queue", () => {
+    expect(syncEngineSource).not.toContain(
       "await EmailThreadService.classifyAndUpdate(threadRow)"
     );
-    expect(syncEngineSource).toContain(
+    expect(syncEngineSource).not.toContain(
       "await PhaseCAutonomyRouter.route(threadRow)"
+    );
+    expect(emailSyncCronSource).toContain(
+      "await EmailThreadService.retryDirtyClassifications({"
     );
   });
 

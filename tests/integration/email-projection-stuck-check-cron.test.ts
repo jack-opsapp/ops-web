@@ -11,6 +11,23 @@ import { NextRequest } from "next/server";
 
 const rpcMock = vi.fn();
 const fromMock = vi.fn();
+const {
+  runWithCronWorkloadControlMock,
+  isDatabasePressureErrorMock,
+  CronDatabaseOperationErrorMock,
+  workloadControlState,
+} =
+  vi.hoisted(() => ({
+    runWithCronWorkloadControlMock: vi.fn(),
+    isDatabasePressureErrorMock: vi.fn(),
+    CronDatabaseOperationErrorMock: class CronDatabaseOperationError extends Error {
+      constructor(message: string, options: { cause: unknown }) {
+        super(message, options);
+        this.name = "CronDatabaseOperationError";
+      }
+    },
+    workloadControlState: { workError: null as unknown },
+  }));
 
 interface CapturedEventsQuery {
   eqs: Array<[string, unknown]>;
@@ -30,6 +47,7 @@ const notificationsUpdate: CapturedNotificationsUpdate = {
   eqs: [],
   isCalls: [],
 };
+const OPERATOR_COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 let stuckRowsResponse: { data: unknown; error: { message: string } | null } = {
   data: [],
   error: null,
@@ -37,6 +55,12 @@ let stuckRowsResponse: { data: unknown; error: { message: string } | null } = {
 
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => ({ rpc: rpcMock, from: fromMock }),
+}));
+
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  runWithCronWorkloadControl: runWithCronWorkloadControlMock,
+  isDatabasePressureError: isDatabasePressureErrorMock,
+  CronDatabaseOperationError: CronDatabaseOperationErrorMock,
 }));
 
 import { GET } from "@/app/api/cron/email/projection-stuck-check/route";
@@ -101,7 +125,26 @@ beforeEach(() => {
   stuckRowsResponse = { data: [], error: null };
   process.env.CRON_SECRET = "test-secret";
   process.env.PMF_OPERATOR_USER_ID = "operator-user";
-  process.env.PMF_OPERATOR_COMPANY_ID = "operator-company";
+  process.env.PMF_OPERATOR_COMPANY_ID = OPERATOR_COMPANY_ID;
+  workloadControlState.workError = null;
+  runWithCronWorkloadControlMock.mockImplementation(
+    async ({ work }: { work: () => Promise<unknown> }) => {
+      try {
+        return {
+          status: "completed",
+          value: await work(),
+        };
+      } catch (error) {
+        workloadControlState.workError = error;
+        throw error;
+      }
+    }
+  );
+  isDatabasePressureErrorMock.mockImplementation((error: unknown) =>
+    /PGRST002|57014|connection timeout|SSL handshake failed|web server is down|\b52[125]\b/i.test(
+      `${String(error)} ${JSON.stringify(error)}`
+    )
+  );
   // The route now issues two kinds of RPC: apply_opportunity_correspondence_event
   // (auto-repair) and create_notification_if_new_with_identity (alert). Default
   // both to success; individual tests override the apply branch as needed.
@@ -143,6 +186,32 @@ describe("projection-stuck-check cron", () => {
     const threshold = Date.parse(thresholdIso as string);
     expect(before - threshold).toBeGreaterThanOrEqual(5 * 60 * 1000 - 50);
     expect(before - threshold).toBeLessThan(5 * 60 * 1000 + 5_000);
+    expect(eventsQuery.limits).toEqual([50]);
+    expect(runWithCronWorkloadControlMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workloadKey: "projection-repair",
+        leaseSeconds: 120,
+        work: expect.any(Function),
+      })
+    );
+  });
+
+  it("launches no projection work while another heavy workload holds the lease", async () => {
+    runWithCronWorkloadControlMock.mockResolvedValue({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const response = await GET(buildRequest("Bearer test-secret"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(fromMock).not.toHaveBeenCalled();
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
   it("fires one persistent deduped operator alert when rows are stuck", async () => {
@@ -174,16 +243,14 @@ describe("projection-stuck-check cron", () => {
     ];
     expect(rpcName).toBe("create_notification_if_new_with_identity");
     expect(rpcArgs.p_user_id).toBe("operator-user");
-    expect(rpcArgs.p_company_id).toBe("operator-company");
+    expect(rpcArgs.p_company_id).toBe(OPERATOR_COMPANY_ID);
     expect(rpcArgs.p_type).toBe("system_alert");
     expect(rpcArgs.p_title).toBe("CRITICAL :: EMAIL PROJECTION STUCK");
     expect(rpcArgs.p_body).toBe(
       "2 meaningful email events unprojected for over 5 minutes across 2 leads. Oldest 47m. Lifecycle writes are running without this evidence."
     );
     expect(rpcArgs.p_persistent).toBe(true);
-    expect(rpcArgs.p_dedupe_key).toBe(
-      "email-correspondence-projection-stuck"
-    );
+    expect(rpcArgs.p_dedupe_key).toBe("email-correspondence-projection-stuck");
     expect(rpcArgs.p_action_url).toBe("/admin/email?tab=event-monitor");
     expect(rpcArgs.p_action_label).toBe("VIEW MONITOR");
 
@@ -236,10 +303,32 @@ describe("projection-stuck-check cron", () => {
   });
 
   it("returns 500 when the scan itself fails", async () => {
-    stuckRowsResponse = { data: null, error: { message: "boom" } };
+    const databaseCause = { message: "boom" };
+    stuckRowsResponse = { data: null, error: databaseCause };
     const response = await GET(buildRequest("Bearer test-secret"));
     expect(response.status).toBe(500);
     expect(rpcMock).not.toHaveBeenCalled();
+    expect(workloadControlState.workError).toBeInstanceOf(
+      CronDatabaseOperationErrorMock
+    );
+    expect(workloadControlState.workError).toMatchObject({
+      cause: databaseCause,
+    });
+  });
+
+  it("opens the circuit and stops when the scan reports database pressure", async () => {
+    stuckRowsResponse = {
+      data: null,
+      error: { message: "PGRST002 schema cache unavailable" },
+    };
+
+    const response = await GET(buildRequest("Bearer test-secret"));
+
+    expect(response.status).toBe(500);
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(workloadControlState.workError).toBeInstanceOf(
+      CronDatabaseOperationErrorMock
+    );
   });
 
   it("auto-repairs a stuck row via the apply RPC and resolves instead of alerting", async () => {
@@ -352,6 +441,42 @@ describe("projection-stuck-check cron", () => {
       stuck: 1,
       repaired: 1,
       alerted: true,
+    });
+  });
+
+  it("stops before the next repair when an apply RPC reports database pressure", async () => {
+    stuckRowsResponse = {
+      data: [
+        {
+          id: "evt-pressure",
+          company_id: "co-1",
+          opportunity_id: "opp-1",
+          created_at: new Date(Date.now() - 30 * 60_000).toISOString(),
+          connection_id: "conn-1",
+          provider_message_id: "msg-pressure",
+        },
+        {
+          id: "evt-never-started",
+          company_id: "co-1",
+          opportunity_id: "opp-2",
+          created_at: new Date(Date.now() - 20 * 60_000).toISOString(),
+          connection_id: "conn-1",
+          provider_message_id: "msg-never-started",
+        },
+      ],
+      error: null,
+    };
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: { message: "525 SSL handshake failed" },
+    });
+
+    const response = await GET(buildRequest("Bearer test-secret"));
+
+    expect(response.status).toBe(500);
+    expect(rpcMock).toHaveBeenCalledTimes(1);
+    expect(rpcMock.mock.calls[0][1]).toMatchObject({
+      p_provider_message_id: "msg-pressure",
     });
   });
 

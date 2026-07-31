@@ -11,6 +11,10 @@ import type { EffectiveEmailSignature } from "./email-signature-service";
 import type { CreateNewThreadDraftResult } from "./email-provider";
 import type { EmailConnectionSyncLockRunResult } from "./email-connection-sync-lock";
 import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-operation";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "./cron-workload-control-service";
 
 const DEFAULT_LIMIT = 3;
 const DEFAULT_LEASE_SECONDS = 360;
@@ -43,10 +47,7 @@ export interface ClaimedEmailAssignmentContactFormDraft {
 }
 
 export type ContactFormDraftFailureDisposition =
-  | "retrying"
-  | "failed"
-  | "stale"
-  | "reconciliation_required";
+  "retrying" | "failed" | "stale" | "reconciliation_required";
 
 export interface ContactFormDraftProviderPlacementAttempt {
   attemptId: string;
@@ -79,6 +80,8 @@ interface GeneratedContactFormDraft {
   draftHistoryId: string;
   subject?: string;
   reason?: string;
+  heldForReview?: boolean;
+  escalated?: boolean;
 }
 
 interface PreparedContactFormDraft {
@@ -105,6 +108,7 @@ export interface EmailAssignmentContactFormDraftDependencies {
     userId: string;
     connectionId: string;
     opportunityId: string;
+    sourceActivityId: string;
     recipientEmail: string;
     recipientName?: string;
     userInstruction: string;
@@ -214,6 +218,37 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function reportedDatabasePressure(
+  error: unknown,
+  operation: string
+): CronDatabaseOperationError | null {
+  if (!isDatabasePressureError(error)) return null;
+  return error instanceof CronDatabaseOperationError
+    ? error
+    : new CronDatabaseOperationError(`${operation}: ${errorMessage(error)}`, {
+        cause: error,
+      });
+}
+
+async function runDatabaseOperation<T>(
+  operation: string,
+  run: () => Promise<T>
+): Promise<T> {
+  try {
+    return await run();
+  } catch (cause) {
+    const pressure =
+      cause instanceof CronDatabaseOperationError
+        ? cause
+        : new CronDatabaseOperationError(
+            `${operation}: ${errorMessage(cause)}`,
+            { cause }
+          );
+    if (isDatabasePressureError(pressure)) throw pressure;
+    throw cause;
+  }
+}
+
 function normalizedEmail(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -295,6 +330,18 @@ function preparedFromClaim(
   };
 }
 
+function isTerminalDraftUnavailable(
+  generated: GeneratedContactFormDraft
+): boolean {
+  const reason = generated.reason?.trim() ?? "";
+  return (
+    generated.heldForReview === true ||
+    generated.escalated === true ||
+    reason === "escalated_to_operator" ||
+    reason.startsWith("Need more email data to match your voice")
+  );
+}
+
 function emptyResult(): EmailAssignmentContactFormDraftWorkerResult {
   return {
     claimed: 0,
@@ -321,11 +368,15 @@ export class EmailAssignmentContactFormDraftWorker {
     failure: string
   ): Promise<void> {
     try {
-      const disposition = await this.dependencies.fail({
-        queueId: job.id,
-        holder,
-        error: failure,
-      });
+      const disposition = await runDatabaseOperation(
+        "Contact-form draft failure persistence failed",
+        () =>
+          this.dependencies.fail({
+            queueId: job.id,
+            holder,
+            error: failure,
+          })
+      );
       if (disposition === "reconciliation_required") {
         result.reconciliationRequired += 1;
       } else {
@@ -335,6 +386,11 @@ export class EmailAssignmentContactFormDraftWorker {
         result.errors.push({ queueId: job.id, error: failure });
       }
     } catch (persistenceError) {
+      const pressure = reportedDatabasePressure(
+        persistenceError,
+        "Contact-form draft failure persistence stopped on database pressure"
+      );
+      if (pressure) throw pressure;
       result.failed += 1;
       result.errors.push({
         queueId: job.id,
@@ -352,15 +408,19 @@ export class EmailAssignmentContactFormDraftWorker {
     outcome: "autonomy_ineligible" | "draft_unavailable",
     draftHistoryId: string | null
   ): Promise<void> {
-    const completed = await this.dependencies.complete({
-      queueId: job.id,
-      holder,
-      mailboxDraftId: null,
-      providerThreadId: null,
-      draftHistoryId,
-      providerCreateAttemptId: null,
-      outcome,
-    });
+    const completed = await runDatabaseOperation(
+      "Contact-form draft skip persistence failed",
+      () =>
+        this.dependencies.complete({
+          queueId: job.id,
+          holder,
+          mailboxDraftId: null,
+          providerThreadId: null,
+          draftHistoryId,
+          providerCreateAttemptId: null,
+          outcome,
+        })
+    );
     if (completed) result.skipped += 1;
     else result.staleCompletions += 1;
   }
@@ -369,16 +429,20 @@ export class EmailAssignmentContactFormDraftWorker {
     options: EmailAssignmentContactFormDraftWorkerOptions = {}
   ): Promise<EmailAssignmentContactFormDraftWorkerResult> {
     const holder = this.dependencies.workerId();
-    const jobs = await this.dependencies.claim({
-      holder,
-      limit: boundedInteger(options.limit, DEFAULT_LIMIT, 1, 25),
-      leaseSeconds: boundedInteger(
-        options.leaseSeconds,
-        DEFAULT_LEASE_SECONDS,
-        60,
-        900
-      ),
-    });
+    const jobs = await runDatabaseOperation(
+      "Contact-form draft claim failed",
+      () =>
+        this.dependencies.claim({
+          holder,
+          limit: boundedInteger(options.limit, DEFAULT_LIMIT, 1, 25),
+          leaseSeconds: boundedInteger(
+            options.leaseSeconds,
+            DEFAULT_LEASE_SECONDS,
+            60,
+            900
+          ),
+        })
+    );
     const result = emptyResult();
     result.claimed = jobs.length;
 
@@ -387,15 +451,20 @@ export class EmailAssignmentContactFormDraftWorker {
       let mailboxDraftId: string | null = null;
       let providerThreadId: string | null = null;
       try {
-        const connection = await this.dependencies.loadConnection(
-          job.connectionId
+        const connection = await runDatabaseOperation(
+          "Contact-form draft mailbox read failed",
+          () => this.dependencies.loadConnection(job.connectionId)
         );
         validateConnection(job, connection);
 
-        const autonomy = await this.dependencies.getCustomerAutonomy(
-          job.connectionId,
-          job.actorUserId,
-          "CUSTOMER"
+        const autonomy = await runDatabaseOperation(
+          "Contact-form draft autonomy read failed",
+          () =>
+            this.dependencies.getCustomerAutonomy(
+              job.connectionId,
+              job.actorUserId,
+              "CUSTOMER"
+            )
         );
         if (!CUSTOMER_DRAFT_LEVELS.has(autonomy)) {
           await this.markSkipped(
@@ -409,10 +478,14 @@ export class EmailAssignmentContactFormDraftWorker {
         }
 
         if (
-          !(await this.dependencies.reauthorize({
-            queueId: job.id,
-            holder,
-          }))
+          !(await runDatabaseOperation(
+            "Contact-form draft reauthorization failed",
+            () =>
+              this.dependencies.reauthorize({
+                queueId: job.id,
+                holder,
+              })
+          ))
         ) {
           throw new Error(
             "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_AUTHORIZATION_STALE"
@@ -427,6 +500,7 @@ export class EmailAssignmentContactFormDraftWorker {
             userId: job.actorUserId,
             connectionId: job.connectionId,
             opportunityId: job.opportunityId,
+            sourceActivityId: job.sourceActivityId,
             recipientEmail: job.customerEmail,
             ...(submitter.name || job.customerName
               ? {
@@ -434,7 +508,7 @@ export class EmailAssignmentContactFormDraftWorker {
                     submitter.name || job.customerName || undefined,
                 }
               : {}),
-            userInstruction: buildContactFormDraftInstruction(submitter),
+            userInstruction: buildContactFormDraftInstruction(),
             profileTypeOverride: "client_new_inquiry",
             autonomous: true,
             origin: "phase_c",
@@ -444,6 +518,14 @@ export class EmailAssignmentContactFormDraftWorker {
             !generated.draft?.trim() ||
             !generated.draftHistoryId?.trim()
           ) {
+            if (!isTerminalDraftUnavailable(generated)) {
+              throw new Error(
+                `EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_TEMPORARILY_UNAVAILABLE: ${
+                  generated.reason?.trim() ||
+                  "draft generation returned no durable result"
+                }`
+              );
+            }
             await this.markSkipped(
               result,
               job,
@@ -453,11 +535,15 @@ export class EmailAssignmentContactFormDraftWorker {
             );
             continue;
           }
-          const preparedPersisted = await this.dependencies.prepare({
-            queueId: job.id,
-            holder,
-            draftHistoryId: generated.draftHistoryId,
-          });
+          const preparedPersisted = await runDatabaseOperation(
+            "Contact-form draft preparation failed",
+            () =>
+              this.dependencies.prepare({
+                queueId: job.id,
+                holder,
+                draftHistoryId: generated.draftHistoryId,
+              })
+          );
           if (!preparedPersisted) {
             throw new Error(
               "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_PREPARATION_STALE"
@@ -488,10 +574,14 @@ export class EmailAssignmentContactFormDraftWorker {
             // assignment/event/queue lease while holding the physical-mailbox
             // lease, immediately before the durable provider boundary.
             if (
-              !(await this.dependencies.reauthorize({
-                queueId: job.id,
-                holder,
-              }))
+              !(await runDatabaseOperation(
+                "Contact-form draft provider reauthorization failed",
+                () =>
+                  this.dependencies.reauthorize({
+                    queueId: job.id,
+                    holder,
+                  })
+              ))
             ) {
               throw new Error(
                 "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_AUTHORIZATION_STALE"
@@ -502,11 +592,14 @@ export class EmailAssignmentContactFormDraftWorker {
             // The one-shot attempt is durable before the provider boundary. A
             // null response means an earlier attempt may already have crossed
             // that boundary, so this worker must never create again.
-            const providerPlacementAttempt =
-              await this.dependencies.beginProviderCreate({
-                queueId: job.id,
-                holder,
-              });
+            const providerPlacementAttempt = await runDatabaseOperation(
+              "Contact-form draft provider placement reservation failed",
+              () =>
+                this.dependencies.beginProviderCreate({
+                  queueId: job.id,
+                  holder,
+                })
+            );
             if (!providerPlacementAttempt) {
               return "reconciliation_required" as const;
             }
@@ -537,15 +630,19 @@ export class EmailAssignmentContactFormDraftWorker {
               persistPlacement: (placement) => {
                 mailboxDraftId = placement.mailboxDraftId;
                 providerThreadId = placement.threadId;
-                return this.dependencies.complete({
-                  queueId: job.id,
-                  holder,
-                  mailboxDraftId: placement.mailboxDraftId,
-                  providerThreadId: placement.threadId,
-                  draftHistoryId: prepared.draftHistoryId,
-                  providerCreateAttemptId,
-                  outcome: "drafted",
-                });
+                return runDatabaseOperation(
+                  "Contact-form draft completion failed",
+                  () =>
+                    this.dependencies.complete({
+                      queueId: job.id,
+                      holder,
+                      mailboxDraftId: placement.mailboxDraftId,
+                      providerThreadId: placement.threadId,
+                      draftHistoryId: prepared.draftHistoryId,
+                      providerCreateAttemptId,
+                      outcome: "drafted",
+                    })
+                );
               },
             });
             if (!placed.mailboxDraftId?.trim() || !placed.threadId?.trim()) {
@@ -565,21 +662,35 @@ export class EmailAssignmentContactFormDraftWorker {
         }
         result.drafted += 1;
       } catch (error) {
+        const pressure = reportedDatabasePressure(
+          error,
+          "Contact-form draft processing stopped on database pressure"
+        );
+        if (pressure) throw pressure;
         const failure = errorMessage(error);
         if (providerCreateAttemptId) {
+          const createAttemptId = providerCreateAttemptId;
           try {
-            const reconciled =
-              await this.dependencies.markReconciliationRequired({
-                queueId: job.id,
-                holder,
-                providerCreateAttemptId,
-                mailboxDraftId,
-                providerThreadId,
-                error: failure,
-              });
+            const reconciled = await runDatabaseOperation(
+              "Contact-form draft reconciliation persistence failed",
+              () =>
+                this.dependencies.markReconciliationRequired({
+                  queueId: job.id,
+                  holder,
+                  providerCreateAttemptId: createAttemptId,
+                  mailboxDraftId,
+                  providerThreadId,
+                  error: failure,
+                })
+            );
             if (reconciled) result.reconciliationRequired += 1;
             else result.staleCompletions += 1;
           } catch (persistenceError) {
+            const pressure = reportedDatabasePressure(
+              persistenceError,
+              "Contact-form draft reconciliation stopped on database pressure"
+            );
+            if (pressure) throw pressure;
             // Never route an uncertain provider acceptance through the retry
             // RPC. The durable attempt lets the lease-recovery path quarantine
             // it without creating a second mailbox draft.

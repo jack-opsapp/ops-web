@@ -3,6 +3,7 @@
  * SERVER ONLY. Uses admin client (service role, bypasses RLS).
  */
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 import type {
   AdsDailyAccount,
   AdsDailyCampaign,
@@ -20,44 +21,61 @@ import type {
 
 const db = () => getAdminSupabase();
 
+function throwAdsHistoryDatabaseError(
+  operation: string,
+  error: unknown
+): void {
+  if (error) {
+    throw new CronDatabaseOperationError(
+      `ads history ${operation} failed`,
+      { cause: error }
+    );
+  }
+}
+
 // ─── Upserts (used by sync) ──────────────────────────────────────────────────
 
 export async function upsertDailyAccount(row: Omit<AdsDailyAccount, "synced_at">): Promise<void> {
-  await db()
+  const { error } = await db()
     .from("ads_daily_account")
     .upsert({ ...row, synced_at: new Date().toISOString() }, { onConflict: "date" });
+  throwAdsHistoryDatabaseError("daily account upsert", error);
 }
 
 export async function upsertDailyAccountBatch(rows: Omit<AdsDailyAccount, "synced_at">[]): Promise<void> {
   if (rows.length === 0) return;
   const withTimestamp = rows.map((r) => ({ ...r, synced_at: new Date().toISOString() }));
-  await db()
+  const { error } = await db()
     .from("ads_daily_account")
     .upsert(withTimestamp, { onConflict: "date" });
+  throwAdsHistoryDatabaseError("daily account batch upsert", error);
 }
 
 export async function upsertDailyCampaigns(rows: Omit<AdsDailyCampaign, "synced_at">[]): Promise<void> {
   if (rows.length === 0) return;
   const withTimestamp = rows.map((r) => ({ ...r, synced_at: new Date().toISOString() }));
-  await db()
+  const { error } = await db()
     .from("ads_daily_campaign")
     .upsert(withTimestamp, { onConflict: "date,campaign_name" });
+  throwAdsHistoryDatabaseError("daily campaign upsert", error);
 }
 
 export async function upsertDailyKeywords(rows: Omit<AdsDailyKeyword, "synced_at">[]): Promise<void> {
   if (rows.length === 0) return;
   const withTimestamp = rows.map((r) => ({ ...r, synced_at: new Date().toISOString() }));
-  await db()
+  const { error } = await db()
     .from("ads_daily_keyword")
     .upsert(withTimestamp, { onConflict: "date,keyword" });
+  throwAdsHistoryDatabaseError("daily keyword upsert", error);
 }
 
 export async function upsertDailySearchTerms(rows: Omit<AdsDailySearchTerm, "synced_at">[]): Promise<void> {
   if (rows.length === 0) return;
   const withTimestamp = rows.map((row) => ({ ...row, synced_at: new Date().toISOString() }));
-  await db()
+  const { error } = await db()
     .from("ads_daily_search_term")
     .upsert(withTimestamp, { onConflict: "date,search_term,campaign_name,ad_group_name" });
+  throwAdsHistoryDatabaseError("daily search-term upsert", error);
 }
 
 // ─── Reads (used by admin page) ──────────────────────────────────────────────
@@ -288,8 +306,9 @@ export async function updateSyncStatus(
   id: "daily-sync" | "backfill",
   update: Partial<Omit<AdsSyncStatus, "id">>
 ): Promise<void> {
-  await db()
+  const { error } = await db()
     .from("ads_sync_status")
     .update({ ...update, updated_at: new Date().toISOString() })
     .eq("id", id);
+  throwAdsHistoryDatabaseError("sync status update", error);
 }

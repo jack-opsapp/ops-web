@@ -1,5 +1,6 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
 
 export const EMAIL_CONNECTION_SYNC_LOCK_TTL_SECONDS = 10 * 60;
 export const EMAIL_CONNECTION_SYNC_LOCK_RENEW_INTERVAL_MS = 2 * 60 * 1000;
@@ -20,17 +21,29 @@ export async function acquireEmailConnectionSyncLock(
   client?: SupabaseClient
 ): Promise<string | null> {
   const supabase = client ?? requireSupabase();
-  const { data, error } = await supabase.rpc(
-    "acquire_email_connection_sync_lock_as_system",
-    {
-      p_connection_id: connectionId,
-      p_lease_seconds: EMAIL_CONNECTION_SYNC_LOCK_TTL_SECONDS,
-    }
-  );
+  let data: unknown;
+  let error: { message?: string } | null;
+  try {
+    const result = await supabase.rpc(
+      "acquire_email_connection_sync_lock_as_system",
+      {
+        p_connection_id: connectionId,
+        p_lease_seconds: EMAIL_CONNECTION_SYNC_LOCK_TTL_SECONDS,
+      }
+    );
+    data = result.data;
+    error = result.error;
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      `[${context}] email connection lock acquisition failed`,
+      { cause }
+    );
+  }
 
   if (error) {
-    throw new Error(
-      `[${context}] email connection lock acquisition failed: ${error.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `[${context}] email connection lock acquisition failed: ${error.message ?? "unknown error"}`,
+      { cause: error }
     );
   }
   if (data === null) return null;
@@ -49,18 +62,30 @@ export async function renewEmailConnectionSyncLock(
   client?: SupabaseClient
 ): Promise<void> {
   const supabase = client ?? requireSupabase();
-  const { data, error } = await supabase.rpc(
-    "renew_email_connection_sync_lock_as_system",
-    {
-      p_connection_id: connectionId,
-      p_owner_id: ownerId,
-      p_lease_seconds: EMAIL_CONNECTION_SYNC_LOCK_TTL_SECONDS,
-    }
-  );
+  let data: unknown;
+  let error: { message?: string } | null;
+  try {
+    const result = await supabase.rpc(
+      "renew_email_connection_sync_lock_as_system",
+      {
+        p_connection_id: connectionId,
+        p_owner_id: ownerId,
+        p_lease_seconds: EMAIL_CONNECTION_SYNC_LOCK_TTL_SECONDS,
+      }
+    );
+    data = result.data;
+    error = result.error;
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      `[${context}] email connection lock renewal failed`,
+      { cause }
+    );
+  }
 
   if (error) {
-    throw new Error(
-      `[${context}] email connection lock renewal failed: ${error.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `[${context}] email connection lock renewal failed: ${error.message ?? "unknown error"}`,
+      { cause: error }
     );
   }
   if (typeof data !== "boolean") {
@@ -81,8 +106,9 @@ function assertOwnerFencedWrite(
   context: string
 ): void {
   if (error) {
-    throw new Error(
-      `[${context}] owner-fenced mailbox write failed: ${error.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `[${context}] owner-fenced mailbox write failed: ${error.message ?? "unknown error"}`,
+      { cause: error }
     );
   }
   if (data !== true) {
@@ -287,7 +313,8 @@ export async function releaseEmailConnectionSyncLock(
   connectionId: string,
   ownerId: string,
   context: string,
-  client?: SupabaseClient
+  client?: SupabaseClient,
+  abortOnDatabaseError = false
 ): Promise<void> {
   try {
     const supabase = client ?? requireSupabase();
@@ -300,6 +327,12 @@ export async function releaseEmailConnectionSyncLock(
     );
 
     if (error) {
+      if (abortOnDatabaseError) {
+        throw new CronDatabaseOperationError(
+          `[${context}] email connection lock release failed: ${error.message ?? "unknown error"}`,
+          { cause: error }
+        );
+      }
       console.error(
         `[${context}] email connection lock release failed (non-fatal):`,
         error.message
@@ -307,11 +340,23 @@ export async function releaseEmailConnectionSyncLock(
       return;
     }
     if (typeof data !== "boolean") {
+      if (abortOnDatabaseError) {
+        throw new Error(
+          `[${context}] email connection lock release returned an invalid result`
+        );
+      }
       console.error(
         `[${context}] email connection lock release returned an invalid result`
       );
     }
   } catch (error) {
+    if (abortOnDatabaseError) {
+      if (error instanceof CronDatabaseOperationError) throw error;
+      throw new CronDatabaseOperationError(
+        `[${context}] email connection lock release failed`,
+        { cause: error }
+      );
+    }
     console.error(
       `[${context}] email connection lock release threw (non-fatal):`,
       error
@@ -331,11 +376,13 @@ export async function runWithEmailConnectionSyncLock<T>({
   connectionId,
   context,
   client,
+  abortOnDatabaseError = false,
   run,
 }: {
   connectionId: string;
   context: string;
   client?: SupabaseClient;
+  abortOnDatabaseError?: boolean;
   run: (checkpoint: EmailConnectionSyncLockRenewer) => Promise<T>;
 }): Promise<EmailConnectionSyncLockRunResult<T>> {
   const ownerId = await acquireEmailConnectionSyncLock(
@@ -375,7 +422,8 @@ export async function runWithEmailConnectionSyncLock<T>({
       connectionId,
       ownerId,
       context,
-      client
+      client,
+      abortOnDatabaseError
     );
   }
 

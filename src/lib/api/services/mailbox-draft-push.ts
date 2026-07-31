@@ -20,7 +20,6 @@ import {
   type MailboxDraftRow,
 } from "./mailbox-draft-helpers";
 import type { CreateNewThreadDraftResult } from "./email-provider";
-import type { ContactFormSubmissionIdentity } from "@/lib/utils/email-parsing";
 import {
   runEmailProviderMailboxOperation,
   type EmailProviderMailboxCheckpoint,
@@ -29,21 +28,23 @@ import {
   buildEmailProviderMutationFingerprint,
   createEmailProviderMutationAttemptService,
 } from "./email-provider-mutation-attempt-service";
+import {
+  ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION,
+  ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT,
+} from "./conversation-state/source-bound-autonomous-routing";
 
 /** OPS-voice subject for an auto-drafted FIRST reply to a contact-form lead.
  *  Sentence case, no exclamation, no "Re:" (ops-copywriter, 2026-06-03). */
-export const CONTACT_FORM_OUTREACH_SUBJECT = "Thanks for reaching out";
+export const CONTACT_FORM_OUTREACH_SUBJECT =
+  ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT;
 
-/** Grounds the new-email draft in the submitter's actual inquiry so the body
- *  reads as a real first reply, not boilerplate. Fed to generateDraft as
- *  `userInstruction` (its new-email prompt renders it as "Purpose: …"). */
-export function buildContactFormDraftInstruction(
-  submitter: Pick<ContactFormSubmissionIdentity, "name" | "message">
-): string {
-  const who = submitter.name?.trim() || "a prospective customer";
-  const msg = submitter.message?.trim();
-  const quoted = msg ? ` They wrote: "${msg.slice(0, 500)}"` : "";
-  return `Write a brief, warm first reply to a new website enquiry from ${who}.${quoted} Acknowledge their request and suggest a next step (a quick call or a site visit). Keep it short and do not invent specifics.`;
+/**
+ * Server-owned purpose for the first contact-form outreach. Submitter content
+ * is already available inside AIDraftService's untrusted-data envelope and
+ * must never be promoted into a trusted operator instruction.
+ */
+export function buildContactFormDraftInstruction(): string {
+  return ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION;
 }
 
 type PushProvider = {

@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildLeadRoutingIdentity,
   canonicalizeProviderThreadId,
+  quarantinePendingStaffAlias,
+  resolvePersistedEmailAuthorship,
   resolvePersistedEmailDirection,
 } from "@/lib/email/email-ingestion-routing";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
@@ -166,6 +168,289 @@ describe("resolvePersistedEmailDirection", () => {
         operator
       )
     ).toBe("inbound");
+  });
+
+  it("treats an explicitly verified secondary Gmail address as authoritative staff", () => {
+    const resolution = resolvePersistedEmailAuthorship(
+      email({
+        from: "JZ Construction <info.jzconstruct@gmail.com>",
+        fromName: "JZ Construction",
+        to: ["customer@example.com"],
+        cc: [],
+        bodyText: "Please see the attached quote.",
+      }),
+      {
+        ...operator,
+        userEmailAddresses: [
+          ...(operator.userEmailAddresses ?? []),
+          "info.jzconstruct@gmail.com",
+        ],
+        staffMembers: [],
+      }
+    );
+
+    expect(resolution).toEqual({
+      direction: "outbound",
+      staffAliasCandidate: null,
+    });
+  });
+
+  it("fails a strongly corroborated secondary staff sender into outbound review", () => {
+    const resolution = resolvePersistedEmailAuthorship(
+      email({
+        id: "19f05da45dbcf41b",
+        threadId: "19f05da45dbcf41b",
+        from: "JZ Construction <info.jzconstruct@gmail.com>",
+        fromName: "JZ Construction",
+        to: ["eyans2@telus.net"],
+        cc: ["canprojack@gmail.com"],
+        bodyText: [
+          "Please see the attached quote.",
+          "",
+          "Jason Zavarella",
+          "JZ Construction",
+          "250-661-9544",
+        ].join("\n"),
+      }),
+      {
+        ...operator,
+        staffMembers: [
+          {
+            userId: "user-jason",
+            registeredEmail: "fourseasonscontracting705@gmail.com",
+            fullName: "Jason Zavarella",
+            phone: "2506619544",
+            verifiedAliases: [],
+            pendingAliases: [],
+            rejectedAliases: [],
+          },
+        ],
+      }
+    );
+
+    expect(resolution).toEqual({
+      direction: "outbound",
+      staffAliasCandidate: {
+        userId: "user-jason",
+        email: "info.jzconstruct@gmail.com",
+        evidence: {
+          fullName: "Jason Zavarella",
+          phone: "2506619544",
+          registeredEmailRecipient: false,
+        },
+      },
+    });
+  });
+
+  it("tolerates a provider fixture with no CC collection while reviewing a staff alias", () => {
+    const resolution = resolvePersistedEmailAuthorship(
+      email({
+        from: "JZ Construction <info.jzconstruct@gmail.com>",
+        to: ["eyans2@telus.net"],
+        cc: undefined,
+        bodyText:
+          "Quote attached.\n\nJason Zavarella\nJZ Construction\n250 661 9544",
+      }),
+      {
+        ...operator,
+        staffMembers: [
+          {
+            userId: "user-jason",
+            registeredEmail: "fourseasonscontracting705@gmail.com",
+            fullName: "Jason Zavarella",
+            phone: "2506619544",
+            verifiedAliases: [],
+            pendingAliases: [],
+            rejectedAliases: [],
+          },
+        ],
+      }
+    );
+
+    expect(resolution).toMatchObject({
+      direction: "outbound",
+      staffAliasCandidate: {
+        userId: "user-jason",
+        email: "info.jzconstruct@gmail.com",
+      },
+    });
+  });
+
+  it("records registered-team-email CC as additional exact corroboration", () => {
+    const resolution = resolvePersistedEmailAuthorship(
+      email({
+        from: "JZ Construction <info.jzconstruct@gmail.com>",
+        fromName: "JZ Construction",
+        to: ["ohmygarden@shaw.ca"],
+        cc: ["fourseasonscontracting705@gmail.com", "canprojack@gmail.com"],
+        bodyText:
+          "Quote attached.\n\nJason Zavarella\nJZ Construction\n250 661 9544",
+      }),
+      {
+        ...operator,
+        staffMembers: [
+          {
+            userId: "user-jason",
+            registeredEmail: "fourseasonscontracting705@gmail.com",
+            fullName: "Jason Zavarella",
+            phone: "2506619544",
+            verifiedAliases: [],
+            pendingAliases: [],
+            rejectedAliases: [],
+          },
+        ],
+      }
+    );
+
+    expect(resolution.staffAliasCandidate?.evidence).toMatchObject({
+      fullName: "Jason Zavarella",
+      phone: "2506619544",
+      registeredEmailRecipient: true,
+    });
+  });
+
+  it("keeps an already-pending alias quarantined as outbound review without requiring repeated signature evidence", () => {
+    const resolution = resolvePersistedEmailAuthorship(
+      email({
+        from: "JZ Construction <info.jzconstruct@gmail.com>",
+        fromName: "JZ Construction",
+        to: ["another.customer@example.com"],
+        cc: [],
+        bodyText: "Attached is the revised quote.",
+      }),
+      {
+        ...operator,
+        staffMembers: [
+          {
+            userId: "user-jason",
+            registeredEmail: "fourseasonscontracting705@gmail.com",
+            fullName: "Jason Zavarella",
+            phone: "2506619544",
+            verifiedAliases: [],
+            pendingAliases: ["info.jzconstruct@gmail.com"],
+            rejectedAliases: [],
+          },
+        ],
+      }
+    );
+
+    expect(resolution).toEqual({
+      direction: "outbound",
+      staffAliasCandidate: null,
+    });
+  });
+
+  it("quarantines a newly persisted candidate once for the matching staff member", () => {
+    const staffMembers = [
+      {
+        userId: "user-jason",
+        registeredEmail: "fourseasonscontracting705@gmail.com",
+        fullName: "Jason Zavarella",
+        phone: "2506619544",
+        verifiedAliases: [],
+        pendingAliases: [],
+        rejectedAliases: [],
+      },
+      {
+        userId: "user-jackson",
+        registeredEmail: "canprojack@gmail.com",
+        fullName: "Jackson Sweet",
+        phone: null,
+        verifiedAliases: [],
+        pendingAliases: [],
+        rejectedAliases: [],
+      },
+    ];
+    const ingestionOperator = { ...operator, staffMembers };
+    const candidate = {
+      userId: "user-jason",
+      email: " INFO.JZCONSTRUCT@gmail.com ",
+      evidence: {
+        fullName: "Jason Zavarella",
+        phone: "2506619544",
+        registeredEmailRecipient: true,
+      },
+    };
+
+    quarantinePendingStaffAlias(ingestionOperator, candidate);
+    quarantinePendingStaffAlias(ingestionOperator, candidate);
+
+    expect(staffMembers[0].pendingAliases).toEqual([
+      "info.jzconstruct@gmail.com",
+    ]);
+    expect(staffMembers[1].pendingAliases).toEqual([]);
+  });
+
+  it("keeps public-domain customers inbound when they share a name or phone fragment", () => {
+    const staffMembers = [
+      {
+        userId: "user-jason",
+        registeredEmail: "fourseasonscontracting705@gmail.com",
+        fullName: "Jason Zavarella",
+        phone: "2506619544",
+        verifiedAliases: [],
+        pendingAliases: [],
+        rejectedAliases: [],
+      },
+    ];
+
+    for (const message of [
+      email({
+        from: "Jason Zavarella <customer@gmail.com>",
+        bodyText: "Can I get a quote? Call me at 250-661.",
+      }),
+      email({
+        from: "Customer <customer@gmail.com>",
+        bodyText: "My reference is 2506619544 but my name is Alex.",
+      }),
+      email({
+        from: "Customer <customer@gmail.com>",
+        bodyText: [
+          "Can I get a quote?",
+          "On Jul 7, 2026, Jason Zavarella wrote:",
+          "Jason Zavarella",
+          "250-661-9544",
+        ].join("\n"),
+      }),
+    ]) {
+      expect(
+        resolvePersistedEmailAuthorship(message, {
+          ...operator,
+          staffMembers,
+        })
+      ).toEqual({
+        direction: "inbound",
+        staffAliasCandidate: null,
+      });
+    }
+  });
+
+  it("never resurrects an explicitly rejected alias from signature evidence", () => {
+    const resolution = resolvePersistedEmailAuthorship(
+      email({
+        from: "Jason Zavarella <rejected.jz@gmail.com>",
+        bodyText: "Jason Zavarella\n250-661-9544",
+      }),
+      {
+        ...operator,
+        staffMembers: [
+          {
+            userId: "user-jason",
+            registeredEmail: "fourseasonscontracting705@gmail.com",
+            fullName: "Jason Zavarella",
+            phone: "2506619544",
+            verifiedAliases: [],
+            pendingAliases: [],
+            rejectedAliases: ["rejected.jz@gmail.com"],
+          },
+        ],
+      }
+    );
+
+    expect(resolution).toEqual({
+      direction: "inbound",
+      staffAliasCandidate: null,
+    });
   });
 });
 

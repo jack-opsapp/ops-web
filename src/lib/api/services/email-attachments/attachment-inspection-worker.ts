@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
 
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "@/lib/api/services/cron-workload-control-service";
+
 export interface ClaimedEmailAttachmentInspectionJob {
   id: string;
   companyId: string;
@@ -110,6 +115,38 @@ function safeText(value: unknown, fallback: string): string {
   );
 }
 
+function reportedDatabasePressure(
+  error: unknown,
+  operation: string
+): CronDatabaseOperationError | null {
+  if (!isDatabasePressureError(error)) return null;
+  return error instanceof CronDatabaseOperationError
+    ? error
+    : new CronDatabaseOperationError(
+        `${operation}: ${safeText(error, "database operation failed")}`,
+        { cause: error }
+      );
+}
+
+async function runDatabaseOperation<T>(
+  operation: string,
+  run: () => Promise<T>
+): Promise<T> {
+  try {
+    return await run();
+  } catch (cause) {
+    const pressure =
+      cause instanceof CronDatabaseOperationError
+        ? cause
+        : new CronDatabaseOperationError(
+            `${operation}: ${safeText(cause, "database operation failed")}`,
+            { cause }
+          );
+    if (isDatabasePressureError(pressure)) throw pressure;
+    throw cause;
+  }
+}
+
 function retryAvailableAt(
   job: ClaimedEmailAttachmentInspectionJob,
   now: Date
@@ -128,11 +165,15 @@ export async function runEmailAttachmentInspectionWorker(
   const leaseSeconds = boundedInteger(options.leaseSeconds, 240, 30, 900);
   const workerId = (dependencies.workerId ?? randomUUID)();
   const now = dependencies.now ?? (() => new Date());
-  const jobs = await dependencies.store.claim({
-    workerId,
-    limit,
-    leaseSeconds,
-  });
+  const jobs = await runDatabaseOperation(
+    "Attachment inspection claim failed",
+    () =>
+      dependencies.store.claim({
+        workerId,
+        limit,
+        leaseSeconds,
+      })
+  );
 
   const result: EmailAttachmentInspectionWorkerResult = {
     claimed: jobs.length,
@@ -145,9 +186,11 @@ export async function runEmailAttachmentInspectionWorker(
   };
 
   let nextIndex = 0;
+  let pressureAbort: CronDatabaseOperationError | null = null;
 
   const processOne = async (): Promise<void> => {
     while (true) {
+      if (pressureAbort) throw pressureAbort;
       const index = nextIndex;
       nextIndex += 1;
       const job = jobs[index];
@@ -157,6 +200,14 @@ export async function runEmailAttachmentInspectionWorker(
       try {
         outcome = await dependencies.inspect(job);
       } catch (error) {
+        const pressure = reportedDatabasePressure(
+          error,
+          "Attachment inspection stopped on database pressure"
+        );
+        if (pressure) {
+          pressureAbort = pressure;
+          throw pressure;
+        }
         outcome = {
           outcome: "retry",
           error: safeText(error, "Attachment inspection failed"),
@@ -166,40 +217,66 @@ export async function runEmailAttachmentInspectionWorker(
       try {
         let updated: boolean;
         if (outcome.outcome === "complete") {
-          updated = await dependencies.store.markComplete({ job, workerId });
+          updated = await runDatabaseOperation(
+            "Attachment inspection completion failed",
+            () => dependencies.store.markComplete({ job, workerId })
+          );
           if (updated) result.completed += 1;
         } else if (outcome.outcome === "skip") {
-          updated = await dependencies.store.markSkipped({
-            job,
-            workerId,
-            reason: safeText(outcome.reason, "Attachment inspection skipped"),
-          });
+          updated = await runDatabaseOperation(
+            "Attachment inspection skip persistence failed",
+            () =>
+              dependencies.store.markSkipped({
+                job,
+                workerId,
+                reason: safeText(
+                  outcome.reason,
+                  "Attachment inspection skipped"
+                ),
+              })
+          );
           if (updated) result.skipped += 1;
         } else {
           const error = safeText(outcome.error, "Attachment inspection retry");
           if (job.attempts >= MAX_ATTACHMENT_INSPECTION_ATTEMPTS) {
-            updated = await dependencies.store.markFailed({
-              job,
-              workerId,
-              error,
-            });
+            updated = await runDatabaseOperation(
+              "Attachment inspection failure persistence failed",
+              () =>
+                dependencies.store.markFailed({
+                  job,
+                  workerId,
+                  error,
+                })
+            );
             if (updated) {
               result.failed += 1;
               result.errors.push({ jobId: job.id, error });
             }
           } else {
-            updated = await dependencies.store.markRetry({
-              job,
-              workerId,
-              error,
-              availableAt: retryAvailableAt(job, now()),
-            });
+            updated = await runDatabaseOperation(
+              "Attachment inspection retry persistence failed",
+              () =>
+                dependencies.store.markRetry({
+                  job,
+                  workerId,
+                  error,
+                  availableAt: retryAvailableAt(job, now()),
+                })
+            );
             if (updated) result.retrying += 1;
           }
         }
 
         if (!updated) result.staleCompletions += 1;
       } catch (error) {
+        const pressure = reportedDatabasePressure(
+          error,
+          "Attachment inspection transition stopped on database pressure"
+        );
+        if (pressure) {
+          pressureAbort = pressure;
+          throw pressure;
+        }
         result.failed += 1;
         result.errors.push({
           jobId: job.id,

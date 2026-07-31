@@ -462,12 +462,21 @@ function opportunityIdFromKey(
   auth: AuthContext
 ): string | null {
   const lower = identity.segments.map((segment) => segment.toLowerCase());
+  const companyId = auth.companyId.toLowerCase();
   if (
     lower[0] === "opportunities" &&
-    lower[1] === auth.companyId.toLowerCase() &&
+    lower[1] === companyId &&
     UUID_RE.test(identity.segments[2] ?? "")
   ) {
     return identity.segments[2];
+  }
+  if (
+    lower[0] === "projects" &&
+    lower[1] === companyId &&
+    lower[2] === "leads" &&
+    UUID_RE.test(identity.segments[3] ?? "")
+  ) {
+    return identity.segments[3];
   }
   if (
     lower[0] === "email-imports" &&

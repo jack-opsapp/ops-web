@@ -135,9 +135,139 @@ describe.each([
       requestedUrls.filter((url) => url.includes("/messages/"))
     ).toHaveLength(3);
   });
+
+  it("checkpoints after ten history pages and resumes from the opaque Gmail page token", async () => {
+    const firstRunHistoryTokens: Array<string | null> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        const pageToken = url.searchParams.get("pageToken");
+        firstRunHistoryTokens.push(pageToken);
+        const page = pageToken
+          ? Number(pageToken.replace("page-", ""))
+          : 1;
+        return jsonResponse({
+          history: [],
+          nextPageToken: `page-${page + 1}`,
+          historyId: `history-observed-${page}`,
+        });
+      })
+    );
+
+    const provider = new GmailProvider(makeConnection());
+    const first = await provider[method]("history-start");
+
+    expect(firstRunHistoryTokens).toEqual([
+      null,
+      "page-2",
+      "page-3",
+      "page-4",
+      "page-5",
+      "page-6",
+      "page-7",
+      "page-8",
+      "page-9",
+      "page-10",
+    ]);
+    expect(first.nextSyncToken).toMatch(/^gmail:v1:/);
+
+    const resumedHistoryTokens: Array<string | null> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(String(input));
+        const pageToken = url.searchParams.get("pageToken");
+        resumedHistoryTokens.push(pageToken);
+        expect(url.searchParams.get("startHistoryId")).toBe("history-start");
+        expect(pageToken).toBe("page-11");
+        return jsonResponse({
+          history: [],
+          historyId: "history-final",
+        });
+      })
+    );
+
+    const resumed = await provider[method](first.nextSyncToken);
+
+    expect(resumedHistoryTokens).toEqual(["page-11"]);
+    expect(resumed.nextSyncToken).toBe("history-final");
+    expect(resumed.emails).toEqual([]);
+  });
+
+  it("materializes at most twenty-five messages and drains a terminal-page remainder without replaying history", async () => {
+    const messageIds = Array.from(
+      { length: 30 },
+      (_, index) => `message-${String(index + 1).padStart(2, "0")}`
+    );
+    let historyRequests = 0;
+    const firstFetch = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/history")) {
+        historyRequests += 1;
+        return jsonResponse({
+          history: [
+            {
+              messagesAdded: messageIds.map((id) => ({ message: { id } })),
+            },
+          ],
+          historyId: "history-final",
+        });
+      }
+      const messageId = url.pathname.match(/\/messages\/([^/]+)$/)?.[1];
+      if (messageId) return jsonResponse(gmailMessage(messageId));
+      throw new Error(`Unexpected Gmail request: ${url.toString()}`);
+    });
+    vi.stubGlobal("fetch", firstFetch);
+
+    const provider = new GmailProvider(makeConnection());
+    const first = await provider[method]("history-start");
+
+    expect(historyRequests).toBe(1);
+    expect(first.emails.map((email) => email.id)).toEqual(
+      messageIds.slice(0, 25)
+    );
+    expect(first.nextSyncToken).toMatch(/^gmail:v1:/);
+
+    const resumedFetch = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(String(input));
+      expect(url.pathname.endsWith("/history")).toBe(false);
+      const messageId = url.pathname.match(/\/messages\/([^/]+)$/)?.[1];
+      if (messageId) return jsonResponse(gmailMessage(messageId));
+      throw new Error(`Unexpected Gmail request: ${url.toString()}`);
+    });
+    vi.stubGlobal("fetch", resumedFetch);
+
+    const resumed = await provider[method](first.nextSyncToken);
+
+    expect(resumed.emails.map((email) => email.id)).toEqual(
+      messageIds.slice(25)
+    );
+    expect(resumed.nextSyncToken).toBe("history-final");
+    expect(
+      resumedFetch.mock.calls.some(([input]) =>
+        String(input).includes("/history?")
+      )
+    ).toBe(false);
+  });
 });
 
 describe("GmailProvider incremental history failures", () => {
+  it("rejects a malformed opaque history continuation before sending credentials", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new GmailProvider(makeConnection()).fetchNewEmailsSince(
+        'gmail:v1:{"startHistoryId":""}'
+      )
+    ).rejects.toMatchObject({
+      name: ProviderApiError.name,
+      providerStatus: 500,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("throws a typed token error from a later history page before fetching messages", async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = new URL(String(input));

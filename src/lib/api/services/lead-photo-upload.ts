@@ -2,9 +2,9 @@
  * OPS Web — Lead Photo Upload
  *
  * Uploads lead photos through `/api/uploads/presign` into
- * `opportunities/{companyId}/{opportunityId}/…` — the exact folder iOS
- * `LeadImageService` writes — and returns the full public S3 URLs that land
- * in `opportunities.images` (bible 03 § Images contract).
+ * `projects/{companyId}/leads/{opportunityId}/…` — the public project-media
+ * namespace iOS `LeadImageService` also writes — and returns the full S3 URLs
+ * that land in `opportunities.images` (bible 03 § Images contract).
  *
  * Transport: the route's multipart direct-upload mode (server-side S3 put,
  * same auth + folder authorization + content-type validation as the JSON
@@ -23,6 +23,7 @@
  */
 
 import { authedFetch } from "@/lib/utils/authed-fetch";
+import { leadMediaFolder } from "@/lib/s3/lead-media-key";
 import { compressImage, ImageUploadError } from "./image-service";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB — matches the route cap.
@@ -102,7 +103,7 @@ export async function uploadLeadPhotos(
   opportunityId: string,
   onProgress?: (done: number, total: number) => void
 ): Promise<LeadPhotoUploadResult> {
-  const folder = `opportunities/${companyId}/${opportunityId}`;
+  const folder = leadMediaFolder(companyId, opportunityId);
   const total = files.length;
   let done = 0;
 

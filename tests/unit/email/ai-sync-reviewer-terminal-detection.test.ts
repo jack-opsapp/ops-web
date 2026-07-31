@@ -6,6 +6,7 @@ const createMock = vi.hoisted(() => vi.fn());
 const fetchThreadMock = vi.hoisted(() => vi.fn());
 const isAIFeatureEnabledMock = vi.hoisted(() => vi.fn());
 const classifyBatchMock = vi.hoisted(() => vi.fn());
+const evaluateLeadFeedbackPriorBatchMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/api/services/openai-clients", () => ({
   getSyncOpenAI: () => ({
@@ -27,6 +28,10 @@ vi.mock("@/lib/api/services/email-service", () => ({
   EmailService: {
     getProvider: () => ({ fetchThread: fetchThreadMock }),
   },
+}));
+
+vi.mock("@/lib/api/services/lead-feedback-prior-service", () => ({
+  evaluateLeadFeedbackPriorBatch: evaluateLeadFeedbackPriorBatchMock,
 }));
 
 vi.mock("@/lib/api/services/email-ai-classifier", async (importOriginal) => {
@@ -104,6 +109,40 @@ describe("AISyncReviewer terminal stage guard", () => {
     fetchThreadMock.mockReset();
     classifyBatchMock.mockReset();
     classifyBatchMock.mockResolvedValue([]);
+    evaluateLeadFeedbackPriorBatchMock.mockReset();
+    evaluateLeadFeedbackPriorBatchMock.mockImplementation(
+      async ({
+        candidates,
+        threshold,
+      }: {
+        candidates: Array<{
+          baseline: { verdict: "lead" | "not_lead"; confidence: number };
+        }>;
+        threshold: number;
+      }) =>
+        candidates.map(({ baseline }) => ({
+          outcome:
+            baseline.verdict === "lead" && baseline.confidence >= threshold
+              ? "lead"
+              : "not_lead",
+          adjustedLeadScore:
+            baseline.verdict === "lead"
+              ? baseline.confidence
+              : 1 - baseline.confidence,
+          adjustment: 0,
+          reviewReason: null,
+          appliedFeedbackIds: [],
+          evidence: {
+            exactMessage: false,
+            exactThread: false,
+            senderNegativeIndependentCount: 0,
+            domainNegativeIndependentThreadCount: 0,
+            domainNegativeIndependentSenderCount: 0,
+            domainMature: false,
+            hasSuppressionAuthority: false,
+          },
+        }))
+    );
     isAIFeatureEnabledMock.mockReset();
     isAIFeatureEnabledMock.mockResolvedValue(true);
   });
@@ -916,5 +955,130 @@ describe("AISyncReviewer terminal stage guard", () => {
 
     expect(result.newLeadsClassified).toBe(0);
     expect(result.classifiedLeads).toEqual([]);
+  });
+
+  it("applies company-scoped feedback after model classification", async () => {
+    classifyBatchMock.mockResolvedValue([
+      {
+        id: "message-1",
+        verdict: "lead",
+        confidence: 0.78,
+        stage: "new_lead",
+        estimatedValue: null,
+        client: null,
+        duplicateOf: [],
+        terminalFlag: null,
+      },
+    ]);
+    evaluateLeadFeedbackPriorBatchMock.mockResolvedValue([
+      {
+        outcome: "not_lead",
+        adjustedLeadScore: 0.33,
+        adjustment: -0.45,
+        reviewReason: null,
+        appliedFeedbackIds: ["feedback-1"],
+        evidence: {
+          exactMessage: true,
+          exactThread: true,
+          senderNegativeIndependentCount: 1,
+          domainNegativeIndependentThreadCount: 1,
+          domainNegativeIndependentSenderCount: 1,
+          domainMature: false,
+          hasSuppressionAuthority: true,
+        },
+      },
+    ]);
+
+    const result = await AISyncReviewer.reviewUnmatchedEmails(
+      [unmatchedEmail],
+      connection,
+      companyContext
+    );
+
+    expect(evaluateLeadFeedbackPriorBatchMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-1",
+        threshold: 0.7,
+        protectedDomains: ["canprodeckandrail.com"],
+        candidates: [
+          expect.objectContaining({
+            baseline: { verdict: "lead", confidence: 0.78 },
+            candidate: {
+              providerThreadId: "thread-1",
+              providerMessageId: "message-1",
+              senderEmail: "Kara Beach <kara@example.com>",
+            },
+          }),
+        ],
+      })
+    );
+    expect(result.classifiedLeads).toEqual([]);
+    expect(result.deferredClassifications).toEqual([]);
+  });
+
+  it("returns a bounded feedback ambiguity for durable human review", async () => {
+    classifyBatchMock.mockResolvedValue([
+      {
+        id: "message-1",
+        verdict: "lead",
+        confidence: 0.79,
+        stage: "new_lead",
+        estimatedValue: null,
+        client: null,
+        duplicateOf: [],
+        terminalFlag: null,
+      },
+    ]);
+    evaluateLeadFeedbackPriorBatchMock.mockResolvedValue([
+      {
+        outcome: "defer",
+        adjustedLeadScore: 0.63,
+        adjustment: -0.16,
+        reviewReason: "feedback_boundary",
+        appliedFeedbackIds: ["feedback-1"],
+        evidence: {
+          exactMessage: false,
+          exactThread: false,
+          senderNegativeIndependentCount: 1,
+          domainNegativeIndependentThreadCount: 1,
+          domainNegativeIndependentSenderCount: 1,
+          domainMature: false,
+          hasSuppressionAuthority: false,
+        },
+      },
+    ]);
+
+    const result = await AISyncReviewer.reviewUnmatchedEmails(
+      [unmatchedEmail],
+      connection,
+      companyContext
+    );
+
+    expect(result.newLeadsClassified).toBe(0);
+    expect(result.classifiedLeads).toEqual([]);
+    expect(result.deferredClassifications).toEqual([
+      expect.objectContaining({
+        email: unmatchedEmail,
+        baseline: { verdict: "lead", confidence: 0.79 },
+        decision: expect.objectContaining({
+          outcome: "defer",
+          reviewReason: "feedback_boundary",
+        }),
+      }),
+    ]);
+  });
+
+  it("does not read feedback when Phase C is disabled", async () => {
+    isAIFeatureEnabledMock.mockResolvedValue(false);
+
+    const result = await AISyncReviewer.reviewUnmatchedEmails(
+      [unmatchedEmail],
+      connection,
+      companyContext
+    );
+
+    expect(classifyBatchMock).not.toHaveBeenCalled();
+    expect(evaluateLeadFeedbackPriorBatchMock).not.toHaveBeenCalled();
+    expect(result.deferredClassifications).toEqual([]);
   });
 });

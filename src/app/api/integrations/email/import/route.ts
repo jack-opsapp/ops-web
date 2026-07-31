@@ -53,12 +53,15 @@ import {
   loadEmailImportSourceForActor,
 } from "@/lib/email/email-import-job-access";
 import { assignPersonalMailboxLead } from "@/lib/email/personal-mailbox-lead-assignment";
+import { fetchOperatorIdentity } from "@/lib/api/services/conversation-state/operator-identity";
+import type { OperatorIdentity } from "@/lib/api/services/conversation-state/types";
 
 export const maxDuration = 300;
 
 function buildImportedLeadOpportunityTitle(
   lead: ImportPayload["leads"][number],
-  syncProfile: Partial<ImportPayload["syncProfile"]> | undefined
+  syncProfile: Partial<ImportPayload["syncProfile"]> | undefined,
+  operator?: OperatorIdentity
 ): string {
   return buildEmailOpportunityTitle({
     kind: "estimate",
@@ -70,8 +73,8 @@ function buildImportedLeadOpportunityTitle(
       },
     ],
     unsafe: {
-      emails: syncProfile?.userEmailAddresses,
-      domains: syncProfile?.companyDomains,
+      emails: operator ? [...operator.emails] : syncProfile?.userEmailAddresses,
+      domains: operator ? [...operator.domains] : syncProfile?.companyDomains,
       platformEmails: syncProfile?.knownPlatformSenders,
     },
   });
@@ -402,6 +405,15 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
   ) {
     throw new Error("Import mailbox authorization changed");
   }
+  const authoritativeOperator = await fetchOperatorIdentity(
+    companyId,
+    connection
+  );
+  const pendingStaffAliases = new Set(
+    (authoritativeOperator.staffMembers ?? []).flatMap((member) => [
+      ...member.pendingAliases,
+    ])
+  );
 
   const result: ImportResult = {
     clientsCreated: 0,
@@ -441,6 +453,20 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
     const bIsMerge = b.mergeWithLeadId ? 1 : 0;
     return aIsMerge - bIsMerge;
   });
+  for (const lead of sortedLeads) {
+    if (lead.action === "discard") continue;
+    const email = lead.clientEmail.trim().toLowerCase();
+    const domain = email.split("@")[1] ?? "";
+    if (
+      authoritativeOperator.emails.has(email) ||
+      pendingStaffAliases.has(email) ||
+      authoritativeOperator.domains.has(domain)
+    ) {
+      throw new Error(
+        `Import rejected an authoritative or pending staff identity: ${email}`
+      );
+    }
+  }
 
   for (let i = 0; i < sortedLeads.length; i++) {
     const lead = sortedLeads[i];
@@ -871,7 +897,11 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
           const opp = await OpportunityService.createOpportunity({
             companyId,
             clientId,
-            title: buildImportedLeadOpportunityTitle(lead, payload.syncProfile),
+            title: buildImportedLeadOpportunityTitle(
+              lead,
+              payload.syncProfile,
+              authoritativeOperator
+            ),
             stage,
             source: OpportunitySource.Email,
             contactName: lead.clientName,
@@ -1401,8 +1431,8 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
             subject: message.subject,
             bodyText: null,
             connectionEmail: connection.email,
-            companyDomains: payload.syncProfile?.companyDomains ?? [],
-            userEmailAddresses: payload.syncProfile?.userEmailAddresses ?? [],
+            companyDomains: [...authoritativeOperator.domains],
+            userEmailAddresses: [...authoritativeOperator.emails],
             knownPlatformSenders:
               payload.syncProfile?.knownPlatformSenders ?? [],
             contactEmail: lead.clientEmail,

@@ -20,8 +20,8 @@ import path from "node:path";
 import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
 
-interface CompanyScopedQuery<TSelf> {
-  eq(column: string, value: string): TSelf;
+interface CompanyScopedQuery {
+  eq(column: string, value: string): CompanyScopedQuery;
 }
 
 interface CountQueryResult {
@@ -177,8 +177,12 @@ function isSyntheticImportActivity(row: ActivityRow): boolean {
   );
 }
 
-function companyScoped<T extends CompanyScopedQuery<T>>(query: T): T {
-  return COMPANY_ID ? query.eq("company_id", COMPANY_ID) : query;
+function companyScoped<T>(query: T): T {
+  if (!COMPANY_ID) return query;
+  return (query as unknown as CompanyScopedQuery).eq(
+    "company_id",
+    COMPANY_ID
+  ) as unknown as T;
 }
 
 async function fetchExactCount(
@@ -209,7 +213,7 @@ async function fetchBlankEmailThreads(): Promise<EmailThreadRow[]> {
 }
 
 async function fetchBlankThreadLinks(): Promise<ThreadLinkRow[]> {
-  let query = sb
+  const query = sb
     .from("opportunity_email_threads")
     .select("id, opportunity_id, thread_id, connection_id, created_at")
     .eq("thread_id", "")

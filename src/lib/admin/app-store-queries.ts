@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { bucketizeAggregate } from "@/lib/admin/date-utils";
 import type { Granularity, ChartDataPoint, DonutSegment } from "@/lib/admin/types";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 
 const db = () => getAdminSupabase();
 
@@ -60,13 +61,26 @@ export async function getAscSyncStatus(job = "app-store-sync"): Promise<AscSyncS
 export async function updateAscSyncStatus(
   job: string,
   patch: Partial<Omit<AscSyncStatus, "job_name">>,
+  client = db(),
 ): Promise<void> {
-  await db()
-    .from("asc_sync_status")
-    .upsert(
+  let result: { error: unknown };
+  try {
+    result = await client.from("asc_sync_status").upsert(
       { job_name: job, ...patch, last_run_at: new Date().toISOString(), updated_at: new Date().toISOString() },
       { onConflict: "job_name" },
     );
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      `App Store sync status write was unreachable for ${job}`,
+      { cause },
+    );
+  }
+  if (result.error) {
+    throw new CronDatabaseOperationError(
+      `App Store sync status write failed for ${job}`,
+      { cause: result.error },
+    );
+  }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -9,9 +9,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { ScheduleOptimizationService } from "@/lib/api/services/schedule-optimization-service";
-import { AdminFeatureOverrideService } from "@/lib/api/services/admin-feature-override-service";
+import { runBoundedPhaseCCompanyFanout } from "@/lib/api/services/cron-company-fanout-service";
+import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
+import { getCompanyManagerUserIds } from "@/lib/api/services/company-managers";
 
 export const maxDuration = 300;
+
+const WORKLOAD_KEY = "schedule-optimization";
+const COMPANY_LIMIT = 3;
+
+type OptResult = {
+  companyId: string;
+  today: { proposed: number; conflicts: number; unassigned: number } | null;
+  tomorrow: { proposed: number; conflicts: number; unassigned: number } | null;
+  error?: string;
+};
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -31,89 +43,42 @@ export async function GET(request: NextRequest) {
   setSupabaseOverride(supabase);
 
   try {
-    // Find all companies
-    const { data: companies, error } = await supabase
-      .from("companies")
-      .select("id, admin_ids")
-      .limit(500);
-
-    if (error) throw error;
-
-    // Filter to phase_c companies
-    const allCompanyIds = (companies ?? []).map((c) => c.id as string);
-    const phaseCChecks = await Promise.allSettled(
-      allCompanyIds.map(async (companyId) => {
-        const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
-          companyId,
-          "phase_c"
-        );
-        return { companyId, enabled };
-      })
-    );
-    const phaseCCompanyIds = phaseCChecks
-      .filter(
-        (r): r is PromiseFulfilledResult<{ companyId: string; enabled: boolean }> =>
-          r.status === "fulfilled" && r.value.enabled
-      )
-      .map((r) => r.value.companyId);
-
-    // Build company → admin user map
-    const companyAdminMap = new Map<string, string>();
-    for (const company of companies ?? []) {
-      const companyId = company.id as string;
-      if (!phaseCCompanyIds.includes(companyId)) continue;
-
-      const adminIdsStr = company.admin_ids as string;
-      if (adminIdsStr) {
-        const firstAdmin = adminIdsStr
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter(Boolean)[0];
-        if (firstAdmin) companyAdminMap.set(companyId, firstAdmin);
-      }
-    }
-
-    type OptResult = {
-      companyId: string;
-      today: { proposed: number; conflicts: number; unassigned: number } | null;
-      tomorrow: { proposed: number; conflicts: number; unassigned: number } | null;
-      error?: string;
-    };
-
-    // Process in parallel batches of 10
-    const CHUNK_SIZE = 10;
-    const results: OptResult[] = [];
     const today = new Date();
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    for (let i = 0; i < phaseCCompanyIds.length; i += CHUNK_SIZE) {
-      const chunk = phaseCCompanyIds.slice(i, i + CHUNK_SIZE);
-      const chunkResults = await Promise.allSettled(
-        chunk.map(async (companyId): Promise<OptResult> => {
-          const adminUserId = companyAdminMap.get(companyId);
-          if (!adminUserId) {
-            console.warn(
-              `[cron/schedule-optimization] company ${companyId}: no admin user found`
-            );
-            return {
-              companyId,
-              today: null,
-              tomorrow: null,
-              error: "No admin user found",
-            };
-          }
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: WORKLOAD_KEY,
+      leaseSeconds: 360,
+      work: (lease) =>
+        runBoundedPhaseCCompanyFanout<OptResult>({
+          supabase,
+          workloadKey: WORKLOAD_KEY,
+          lease,
+          companyLimit: COMPANY_LIMIT,
+          processCompany: async (companyId) => {
+            const adminUserId = (
+              await getCompanyManagerUserIds(supabase, companyId)
+            )[0];
+            if (!adminUserId) {
+              console.warn(
+                `[cron/schedule-optimization] company ${companyId}: no admin user found`
+              );
+              return {
+                companyId,
+                today: null,
+                tomorrow: null,
+                error: "No admin user found",
+              };
+            }
 
-          try {
-            // Optimize today: catch conflicts and unassigned tasks
             const todayResult =
               await ScheduleOptimizationService.suggestScheduleOptimizations(
                 companyId,
                 adminUserId,
                 today
               );
-
-            // Optimize tomorrow: proactive route planning
             const tomorrowResult =
               await ScheduleOptimizationService.suggestScheduleOptimizations(
                 companyId,
@@ -132,9 +97,11 @@ export async function GET(request: NextRequest) {
               today: todayResult,
               tomorrow: tomorrowResult,
             };
-          } catch (err) {
-            const message = err instanceof Error ? err.message : "Unknown error";
-            console.error(
+          },
+          onCompanyError: (companyId, error) => {
+            const message =
+              error instanceof Error ? error.message : "Unknown error";
+            console.warn(
               `[cron/schedule-optimization] ${companyId} failed:`,
               message
             );
@@ -144,30 +111,23 @@ export async function GET(request: NextRequest) {
               tomorrow: null,
               error: message,
             };
-          }
-        })
-      );
+          },
+        }),
+    });
 
-      for (let j = 0; j < chunkResults.length; j++) {
-        const r = chunkResults[j];
-        if (r.status === "fulfilled") {
-          results.push(r.value);
-        } else {
-          const message = r.reason?.message ?? "Unknown error";
-          console.error(
-            `[cron/schedule-optimization] ${chunk[j]} rejected:`,
-            message
-          );
-          results.push({
-            companyId: chunk[j],
-            today: null,
-            tomorrow: null,
-            error: message,
-          });
-        }
-      }
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
     }
 
+    const results = controlled.value.results;
     const totalProposed = results.reduce(
       (sum, r) =>
         sum + (r.today?.proposed ?? 0) + (r.tomorrow?.proposed ?? 0),
@@ -187,7 +147,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      companiesProcessed: phaseCCompanyIds.length,
+      companiesProcessed: controlled.value.companyIds.length,
       optimizationsProposed: totalProposed,
       conflictsFound: totalConflicts,
       unassignedFound: totalUnassigned,

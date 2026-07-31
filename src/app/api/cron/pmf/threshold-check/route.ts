@@ -24,6 +24,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { computePmfState } from "@/lib/admin/pmf-queries";
+import {
+  CronDatabaseOperationError,
+  runWithCronWorkloadControl,
+} from "@/lib/api/services/cron-workload-control-service";
 import { diffState } from "@/lib/pmf/threshold-diff";
 import { sendPmfNotification } from "@/lib/notifications/pmf-send";
 import { thresholdAlertEmail as ThresholdAlertEmail } from "@/lib/email/pmf-bridge";
@@ -62,75 +66,75 @@ interface ReferralProspectRow {
   name: string;
 }
 
-export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return NextResponse.json(
-      { error: "CRON_SECRET not configured" },
-      { status: 500 }
-    );
-  }
+function databaseFailure(
+  operation: string,
+  cause: unknown
+): CronDatabaseOperationError {
+  if (cause instanceof CronDatabaseOperationError) return cause;
+  const detail =
+    typeof cause === "object" &&
+    cause !== null &&
+    "message" in cause &&
+    typeof cause.message === "string"
+      ? cause.message
+      : "unknown database error";
+  return new CronDatabaseOperationError(`${operation} failed: ${detail}`, {
+    cause,
+  });
+}
 
-  const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+async function executeDatabaseOperation<T>(
+  operation: string,
+  pending: PromiseLike<T>
+): Promise<T> {
+  try {
+    return await pending;
+  } catch (cause) {
+    throw databaseFailure(operation, cause);
   }
+}
 
+async function runThresholdCheck(
+  sb: ReturnType<typeof getAdminSupabase>
+): Promise<NextResponse> {
   // Compute a single timestamp shared across every alert fired in this run, so
   // a batch of transitions + events all report the same `· HH:MM` suffix.
   const runTimestamp = fmtTime(new Date());
-
-  const sb = getAdminSupabase();
 
   // Compute current state (uncached — every 15 min we want fresh values).
   let now: PmfState;
   try {
     now = await computePmfState();
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "compute pmf state failed";
-    console.error(
-      "[pmf-threshold-check] computePmfState failed:",
-      message,
-      err
-    );
-    return NextResponse.json(
-      { error: "pmf state computation failed" },
-      { status: 500 }
-    );
+  } catch (cause) {
+    throw databaseFailure("PMF state computation", cause);
   }
 
   // Read the most recent prior snapshot BEFORE inserting the current one,
   // so the diff compares against the previous run, not this one.
-  // A transient read failure is non-fatal: we log and fall back to
-  // `prior = null`, which disables only the state-diff path. Event-driven
-  // triggers (inbound / refund / first-referral) still fire — we'd rather
-  // deliver those than abort the whole cron run on a read hiccup.
-  const { data: priorRows, error: priorErr } = await sb
-    .from("pmf_threshold_snapshots")
-    .select("state")
-    .order("captured_at", { ascending: false })
-    .limit(1);
+  const { data: priorRows, error: priorErr } = await executeDatabaseOperation(
+    "PMF prior snapshot read",
+    sb
+      .from("pmf_threshold_snapshots")
+      .select("state")
+      .order("captured_at", { ascending: false })
+      .limit(1)
+  );
   if (priorErr) {
-    console.error(
-      "[pmf-threshold-check] prior snapshot read failed:",
-      priorErr
-    );
+    throw databaseFailure("PMF prior snapshot read", priorErr);
   }
   const prior = (priorRows?.[0]?.state ?? null) as PmfState | null;
 
-  // Persist the current snapshot. If this fails we still continue with the
-  // notification pass — missing a snapshot only costs us a baseline for the
-  // NEXT run's diff, and we don't want to drop alerts that already fired.
-  // But log loudly so ops can see it in Vercel logs.
-  const { error: insertErr } = await sb
-    .from("pmf_threshold_snapshots")
-    .insert({ state: now as unknown as Record<string, unknown> });
+  // Persist the current snapshot before sending notifications. A missing
+  // snapshot would make a retry compare against stale state and duplicate
+  // work, so database failures abort this controlled run.
+  const { error: insertErr } = await executeDatabaseOperation(
+    "PMF snapshot insert",
+    sb
+      .from("pmf_threshold_snapshots")
+      .insert({ state: now as unknown as Record<string, unknown> })
+  );
   if (insertErr) {
-    console.error(
-      "[pmf-threshold-check] snapshot insert failed:",
-      insertErr.message
-    );
+    throw databaseFailure("PMF snapshot insert", insertErr);
   }
 
   // Event-driven triggers — last 15 min of activity.
@@ -144,42 +148,44 @@ export async function GET(request: NextRequest) {
     { data: newRefunds, error: refundErr },
     { data: newReferrals, error: referralErr },
   ] = await Promise.all([
-    sb
-      .from("pmf_prospects")
-      .select("id,company,name,source,first_contact_direction,first_contact_at")
-      .gte("created_at", since)
-      .or(
-        "first_contact_direction.eq.inbound,source.in.(paid_ad,organic_search,referral,direct)"
-      ),
-    sb
-      .from("billing_events")
-      .select("id,amount_cents,company_id,occurred_at")
-      .eq("event_type", BILLING_EVENT_TYPE_REFUND)
-      .gte("received_at", since),
-    sb
-      .from("pmf_prospects")
-      .select("id,company,name")
-      .eq("source", "referral")
-      .gte("created_at", since),
+    executeDatabaseOperation(
+      "PMF inbound event query",
+      sb
+        .from("pmf_prospects")
+        .select(
+          "id,company,name,source,first_contact_direction,first_contact_at"
+        )
+        .gte("created_at", since)
+        .or(
+          "first_contact_direction.eq.inbound,source.in.(paid_ad,organic_search,referral,direct)"
+        )
+    ),
+    executeDatabaseOperation(
+      "PMF refund event query",
+      sb
+        .from("billing_events")
+        .select("id,amount_cents,company_id,occurred_at")
+        .eq("event_type", BILLING_EVENT_TYPE_REFUND)
+        .gte("received_at", since)
+    ),
+    executeDatabaseOperation(
+      "PMF referral event query",
+      sb
+        .from("pmf_prospects")
+        .select("id,company,name")
+        .eq("source", "referral")
+        .gte("created_at", since)
+    ),
   ]);
 
   if (inboundErr) {
-    console.error(
-      "[pmf-threshold-check] newInbound query failed:",
-      inboundErr.message
-    );
+    throw databaseFailure("PMF inbound event query", inboundErr);
   }
   if (refundErr) {
-    console.error(
-      "[pmf-threshold-check] newRefunds query failed:",
-      refundErr.message
-    );
+    throw databaseFailure("PMF refund event query", refundErr);
   }
   if (referralErr) {
-    console.error(
-      "[pmf-threshold-check] newReferrals query failed:",
-      referralErr.message
-    );
+    throw databaseFailure("PMF referral event query", referralErr);
   }
 
   const inboundRows = (newInbound ?? []) as InboundProspectRow[];
@@ -317,4 +323,52 @@ export async function GET(request: NextRequest) {
     refunds: refundRows.length,
     sent: sends.length,
   });
+}
+
+export async function GET(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    return NextResponse.json(
+      { error: "CRON_SECRET not configured" },
+      { status: 500 }
+    );
+  }
+
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const sb = getAdminSupabase();
+
+  try {
+    const controlled = await runWithCronWorkloadControl({
+      supabase: sb,
+      workloadKey: "pmf-threshold-check",
+      leaseSeconds: 90,
+      work: () => runThresholdCheck(sb),
+    });
+
+    if (controlled.status === "skipped") {
+      const alreadyRunning = controlled.reason === "lease_held";
+      return NextResponse.json(
+        {
+          ok: alreadyRunning,
+          ran: false,
+          reason: alreadyRunning ? "already_running" : controlled.reason,
+        },
+        { status: alreadyRunning ? 200 : 503 }
+      );
+    }
+
+    return controlled.value;
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "pmf threshold check failed";
+    console.error("[pmf-threshold-check] failed:", message, err);
+    return NextResponse.json(
+      { error: "pmf threshold check failed" },
+      { status: 500 }
+    );
+  }
 }

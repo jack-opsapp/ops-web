@@ -9,6 +9,7 @@ import {
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { EmailConnectionSyncLockRunResult } from "@/lib/api/services/email-connection-sync-lock";
 import type { EmailProviderMailboxCheckpoint } from "@/lib/api/services/email-provider-mailbox-operation";
+import { ProviderApiError } from "@/lib/api/services/email-provider";
 
 const FORM_BODY = [
   "New contact form submission",
@@ -83,6 +84,15 @@ function makeHarness(input?: {
   authorization?: boolean[];
   connection?: EmailConnection | null;
   providerPlacementAttempt?: ContactFormDraftProviderPlacementAttempt | null;
+  generatedDraft?: {
+    available: boolean;
+    draft: string;
+    draftHistoryId: string;
+    subject?: string;
+    reason?: string;
+    heldForReview?: boolean;
+    escalated?: boolean;
+  };
 }) {
   const job = claimed();
   const claim = vi.fn(async () => input?.jobs ?? [job]);
@@ -102,12 +112,16 @@ function makeHarness(input?: {
   );
   const generateDraft = vi.fn<
     EmailAssignmentContactFormDraftDependencies["generateDraft"]
-  >(async () => ({
-    available: true,
-    draft: "Hi Sandra,\n\nThanks for reaching out. Let’s arrange a quick call.",
-    draftHistoryId: "00000000-0000-4000-8000-000000000601",
-    subject: "Your deck inquiry",
-  }));
+  >(
+    async () =>
+      input?.generatedDraft ?? {
+        available: true,
+        draft:
+          "Hi Sandra,\n\nThanks for reaching out. Let’s arrange a quick call.",
+        draftHistoryId: "00000000-0000-4000-8000-000000000601",
+        subject: "Your deck inquiry",
+      }
+  );
   const prepare = vi.fn(async () => true);
   const resolveSignature = vi.fn<
     EmailAssignmentContactFormDraftDependencies["resolveSignature"]
@@ -246,6 +260,7 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
         userId: harness.job.actorUserId,
         connectionId: harness.job.connectionId,
         opportunityId: harness.job.opportunityId,
+        sourceActivityId: harness.job.sourceActivityId,
         recipientEmail: "sandra@example.com",
         recipientName: "Sandra Dunford",
         profileTypeOverride: "client_new_inquiry",
@@ -255,7 +270,12 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     );
     const generatedInput = harness.generateDraft.mock.calls[0]![0];
     expect(generatedInput.threadId).toBeUndefined();
-    expect(generatedInput.userInstruction).toContain("Please quote a new deck");
+    expect(generatedInput.userInstruction).toContain(
+      "request in the untrusted email data"
+    );
+    expect(generatedInput.userInstruction).not.toContain(
+      "Please quote a new deck"
+    );
     expect(harness.placeDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         connectionId: harness.job.connectionId,
@@ -319,6 +339,57 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
       expect(result.skipped).toBe(1);
     }
   );
+
+  it("retries an empty model response instead of terminally skipping a still-authorized assignment", async () => {
+    const harness = makeHarness({
+      generatedDraft: {
+        available: false,
+        draft: "",
+        draftHistoryId: "",
+        reason: "AI returned empty response",
+      },
+    });
+
+    const result = await harness.worker.process();
+
+    expect(harness.complete).not.toHaveBeenCalled();
+    expect(harness.fail).toHaveBeenCalledWith({
+      queueId: harness.job.id,
+      holder: "contact-form-worker-1",
+      error:
+        "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_TEMPORARILY_UNAVAILABLE: AI returned empty response",
+    });
+    expect(result.retrying).toBe(1);
+    expect(harness.getDraftTransport).not.toHaveBeenCalled();
+    expect(harness.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("keeps a deterministic under-trained writing profile as a terminal safety hold", async () => {
+    const harness = makeHarness({
+      generatedDraft: {
+        available: false,
+        draft: "",
+        draftHistoryId: "",
+        reason:
+          "Need more email data to match your voice (3/5 emails analyzed)",
+      },
+    });
+
+    const result = await harness.worker.process();
+
+    expect(harness.fail).not.toHaveBeenCalled();
+    expect(harness.complete).toHaveBeenCalledWith({
+      queueId: harness.job.id,
+      holder: "contact-form-worker-1",
+      mailboxDraftId: null,
+      providerThreadId: null,
+      draftHistoryId: null,
+      providerCreateAttemptId: null,
+      outcome: "draft_unavailable",
+    });
+    expect(result.skipped).toBe(1);
+    expect(harness.getDraftTransport).not.toHaveBeenCalled();
+  });
 
   it.each(["auto_draft", "auto_send", "auto_follow_up"])(
     "keeps %s review-only and never exposes the send capability",
@@ -615,5 +686,63 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     expect(otherUserResult.retrying).toBe(1);
     expect(otherUserHarness.generateDraft).not.toHaveBeenCalled();
     expect(otherUserHarness.placeDraft).not.toHaveBeenCalled();
+  });
+
+  it("stops on database pressure before failure persistence or the next draft", async () => {
+    const pressure = Object.assign(
+      new Error("could not query the database for the schema cache"),
+      {
+        code: "PGRST002",
+        cause: { code: "57014", message: "statement timeout" },
+      }
+    );
+    const harness = makeHarness({
+      jobs: [
+        claimed(),
+        claimed({ id: "00000000-0000-4000-8000-000000000202" }),
+      ],
+    });
+    harness.loadConnection.mockRejectedValue(pressure);
+
+    await expect(harness.worker.process({ limit: 2 })).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+
+    expect(harness.loadConnection).toHaveBeenCalledTimes(1);
+    expect(harness.fail).not.toHaveBeenCalled();
+  });
+
+  it("surfaces database pressure from failure persistence with the original cause", async () => {
+    const pressure = Object.assign(new Error("525 SSL handshake failed"), {
+      status: 525,
+      cause: { code: "ECONNRESET" },
+    });
+    const harness = makeHarness();
+    harness.generateDraft.mockRejectedValue(
+      new Error("model output temporarily unavailable")
+    );
+    harness.fail.mockRejectedValue(pressure);
+
+    await expect(harness.worker.process()).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: pressure,
+    });
+  });
+
+  it("keeps a provider HTTP timeout on the ordinary draft retry path", async () => {
+    const harness = makeHarness();
+    harness.resolveSignature.mockRejectedValue(
+      new ProviderApiError("Gmail signature read deadline exceeded", 504)
+    );
+
+    const result = await harness.worker.process();
+
+    expect(result.retrying).toBe(1);
+    expect(harness.fail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: "Gmail signature read deadline exceeded",
+      })
+    );
   });
 });

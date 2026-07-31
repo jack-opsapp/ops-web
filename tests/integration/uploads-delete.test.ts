@@ -389,6 +389,32 @@ describe("POST /api/uploads/delete", () => {
     expect(s3SendMock).not.toHaveBeenCalled();
   });
 
+  it("uses the canonical opportunity edit boundary for a public lead-media key", async () => {
+    const key = `projects/${COMPANY}/leads/${OPPORTUNITY}/1712345678-photo.jpg`;
+    opportunityEditAllowed.set(OPPORTUNITY, true);
+
+    const POST = await loadRoute();
+    expect((await POST(request(key))).status).toBe(200);
+  });
+
+  it("denies a public lead-media key when the canonical opportunity edit boundary denies", async () => {
+    const key = `projects/${COMPANY}/leads/${OPPORTUNITY}/1712345678-photo.jpg`;
+    opportunityEditAllowed.set(OPPORTUNITY, false);
+
+    const POST = await loadRoute();
+    expect((await POST(request(key))).status).toBe(403);
+    expect(s3SendMock).not.toHaveBeenCalled();
+  });
+
+  it("denies a foreign-company public lead-media key", async () => {
+    const key = `projects/${FOREIGN_COMPANY}/leads/${OPPORTUNITY}/1712345678-photo.jpg`;
+    opportunityEditAllowed.set(OPPORTUNITY, true);
+
+    const POST = await loadRoute();
+    expect((await POST(request(key))).status).toBe(403);
+    expect(s3SendMock).not.toHaveBeenCalled();
+  });
+
   it("recovers the opportunity id from a migrated email-import key", async () => {
     const key = `migrated/supabase-storage/images/email-imports/${OPPORTUNITY}/photo.jpg`;
     opportunityEditAllowed.set(OPPORTUNITY, true);

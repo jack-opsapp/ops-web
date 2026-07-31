@@ -250,6 +250,16 @@ const config: Config = {
 
       // === Spacing (8-point grid) ===
       spacing: {
+        // Explicit icon dimensions. OPS overrides Tailwind's numeric spacing
+        // scale, so h-4/w-4 resolve to 32px rather than Tailwind's familiar
+        // 16px. Icon classes must use these semantic tokens instead.
+        "icon-16": "16px",
+        "icon-20": "20px",
+        "icon-24": "24px",
+        "icon-32": "32px",
+        "control-32": "32px",
+        "control-36": "36px",
+        "control-40": "40px",
         "0.5": "4px",
         "1": "8px",
         "1.5": "12px",

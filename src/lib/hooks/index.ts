@@ -138,6 +138,8 @@ export {
   useUpdateProduct,
   useDeleteProduct,
 } from "./use-products";
+export { useTaxRates, useDefaultTaxRate } from "./use-tax-rates";
+export { useProductConfiguration } from "./use-product-configuration";
 
 // Catalog lookups (categories + units; read + inline-create writes)
 export {
@@ -203,6 +205,16 @@ export {
   useRemoveOpportunityImage,
 } from "./use-opportunities";
 export { useOpportunityDeckDesigns } from "./use-opportunity-deck-designs";
+
+// Lead disposition feedback (Phase C discard capture)
+export {
+  useApplyLeadDispositionFeedback,
+  useUndoLeadDispositionFeedback,
+} from "./use-lead-disposition-feedback";
+export type {
+  ApplyLeadDispositionFeedbackInput,
+  UndoLeadDispositionFeedbackInput,
+} from "./use-lead-disposition-feedback";
 
 // Accounting
 export {

@@ -5,9 +5,16 @@ const {
   runSyncMock,
   sweepStaleLeadsMock,
   retryDirtyClassificationsMock,
+  retryPendingIngestionRecoveryMock,
   retryPendingLeadScansMock,
+  runWithCronWorkloadControlMock,
+  isDatabasePressureErrorMock,
+  connectionLimitMock,
   runWithSupabaseMock,
   setSupabaseOverrideMock,
+  readCronWorkloadCursorMock,
+  advanceCronWorkloadCursorMock,
+  runOutboundLearningWorkerMock,
   supabaseContext,
   serviceRoleClient,
 } = vi.hoisted(() => {
@@ -47,6 +54,11 @@ const {
         select: () => query,
         eq: () => query,
         in: () => query,
+        order: () => query,
+        limit: (value: number) => {
+          if (table === "email_connections") connectionLimitMock(value);
+          return query;
+        },
         then: (resolve: (value: unknown) => unknown) =>
           Promise.resolve(result).then(resolve),
       };
@@ -58,9 +70,16 @@ const {
     runSyncMock: vi.fn(),
     sweepStaleLeadsMock: vi.fn(),
     retryDirtyClassificationsMock: vi.fn(),
+    retryPendingIngestionRecoveryMock: vi.fn(),
     retryPendingLeadScansMock: vi.fn(),
+    runWithCronWorkloadControlMock: vi.fn(),
+    isDatabasePressureErrorMock: vi.fn(),
+    connectionLimitMock: vi.fn(),
     runWithSupabaseMock: vi.fn(),
     setSupabaseOverrideMock: vi.fn(),
+    readCronWorkloadCursorMock: vi.fn(),
+    advanceCronWorkloadCursorMock: vi.fn(),
+    runOutboundLearningWorkerMock: vi.fn(),
     supabaseContext,
     serviceRoleClient,
   };
@@ -70,6 +89,7 @@ vi.mock("@/lib/api/services/sync-engine", () => ({
   SyncEngine: {
     runSync: runSyncMock,
     sweepStaleLeads: sweepStaleLeadsMock,
+    retryPendingIngestionRecovery: retryPendingIngestionRecoveryMock,
     retryPendingLeadScans: retryPendingLeadScansMock,
   },
 }));
@@ -77,6 +97,27 @@ vi.mock("@/lib/api/services/sync-engine", () => ({
 vi.mock("@/lib/api/services/email-thread-service", () => ({
   EmailThreadService: {
     retryDirtyClassifications: retryDirtyClassificationsMock,
+  },
+}));
+
+vi.mock("@/lib/api/services/cron-workload-cursor-service", () => ({
+  readCronWorkloadCursor: readCronWorkloadCursorMock,
+  advanceCronWorkloadCursor: advanceCronWorkloadCursorMock,
+}));
+
+vi.mock("@/lib/api/services/email-outbound-learning-service", () => ({
+  EmailOutboundLearningService: class EmailOutboundLearningService {
+    runWorker = runOutboundLearningWorkerMock;
+  },
+}));
+
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  runWithCronWorkloadControl: runWithCronWorkloadControlMock,
+  isDatabasePressureError: isDatabasePressureErrorMock,
+  CronDatabaseOperationError: class CronDatabaseOperationError extends Error {
+    constructor(message: string, options: { cause: unknown }) {
+      super(message, options);
+    }
   },
 }));
 
@@ -101,13 +142,62 @@ function request(): NextRequest {
   });
 }
 
+const workloadLease = {
+  ownerToken: "email-sync-test-owner",
+  fenceToken: 1,
+  globalFenceToken: 1,
+  expiresAt: "2099-01-01T00:00:00.000Z",
+  signal: new AbortController().signal,
+};
+
+const emptyStaleSweep = {
+  stageChanges: 0,
+  scanned: 0,
+  nextCursor: null,
+};
+
 describe("email sync cron HTTP outcome", () => {
   beforeEach(() => {
     process.env.CRON_SECRET = "cron-test-secret";
     runSyncMock.mockReset();
     sweepStaleLeadsMock.mockReset();
     retryDirtyClassificationsMock.mockReset();
+    retryPendingIngestionRecoveryMock.mockReset();
     retryPendingLeadScansMock.mockReset();
+    readCronWorkloadCursorMock.mockReset();
+    advanceCronWorkloadCursorMock.mockReset();
+    runOutboundLearningWorkerMock.mockReset();
+    runWithCronWorkloadControlMock.mockReset();
+    runWithCronWorkloadControlMock.mockImplementation(
+      async ({
+        work,
+      }: {
+        work: (lease: typeof workloadLease) => Promise<unknown>;
+      }) => ({
+        status: "completed",
+        value: await work(workloadLease),
+      })
+    );
+    readCronWorkloadCursorMock.mockResolvedValue(null);
+    advanceCronWorkloadCursorMock.mockResolvedValue(undefined);
+    runOutboundLearningWorkerMock.mockResolvedValue({
+      claimed: 0,
+      prepared: 0,
+      completed: 0,
+      deferred: 0,
+      retrying: 0,
+      bookkeepingFailed: 0,
+      terminalFailed: 0,
+      failed: 0,
+      errors: [],
+    });
+    isDatabasePressureErrorMock.mockReset();
+    isDatabasePressureErrorMock.mockImplementation((error: unknown) =>
+      /PGRST002|57014|connection timeout|SSL handshake failed|web server is down|\b52[125]\b/i.test(
+        String(error)
+      )
+    );
+    connectionLimitMock.mockReset();
     runWithSupabaseMock.mockReset();
     runWithSupabaseMock.mockImplementation(
       async (client: unknown, work: () => Promise<unknown>) => {
@@ -133,6 +223,17 @@ describe("email sync cron HTTP outcome", () => {
       cleared: 0,
       errors: [],
     });
+    retryPendingIngestionRecoveryMock.mockResolvedValue({
+      claimed: 0,
+      classificationsRecovered: 0,
+      promoted: 0,
+      labelsApplied: 0,
+      retrying: 0,
+      failed: 0,
+      stale: 0,
+      staleCompletions: 0,
+      errors: [],
+    });
   });
 
   it("keeps the complete cron cycle inside an isolated service-role context", async () => {
@@ -144,7 +245,7 @@ describe("email sync cron HTTP outcome", () => {
         errors: [],
       };
     });
-    sweepStaleLeadsMock.mockResolvedValue(0);
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
 
     const response = await GET(request());
 
@@ -153,6 +254,15 @@ describe("email sync cron HTTP outcome", () => {
       serviceRoleClient,
       expect.any(Function)
     );
+    expect(runWithCronWorkloadControlMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: serviceRoleClient,
+        workloadKey: "email-sync",
+        leaseSeconds: 360,
+        work: expect.any(Function),
+      })
+    );
+    expect(connectionLimitMock).toHaveBeenCalledWith(5);
     expect(supabaseContext.seenBySync).toBe(serviceRoleClient);
     expect(setSupabaseOverrideMock).not.toHaveBeenCalled();
     expect(runtime).toBe("nodejs");
@@ -165,7 +275,7 @@ describe("email sync cron HTTP outcome", () => {
       newLeads: 0,
       errors: ["cursor intentionally unchanged"],
     });
-    sweepStaleLeadsMock.mockResolvedValue(0);
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
 
     const response = await GET(request());
     const body = await response.json();
@@ -201,7 +311,7 @@ describe("email sync cron HTTP outcome", () => {
       newLeads: 0,
       errors: [],
     });
-    sweepStaleLeadsMock.mockResolvedValue(0);
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
     retryDirtyClassificationsMock.mockResolvedValue({
       scanned: 2,
       classified: 2,
@@ -214,8 +324,8 @@ describe("email sync cron HTTP outcome", () => {
     expect(response.status).toBe(200);
     expect(retryDirtyClassificationsMock).toHaveBeenCalledWith({
       companyIds: ["company-1"],
-      limit: 10,
-      concurrency: 2,
+      limit: 5,
+      concurrency: 1,
     });
     expect(body.threadClassificationRetry).toEqual({
       scanned: 2,
@@ -230,7 +340,7 @@ describe("email sync cron HTTP outcome", () => {
       newLeads: 0,
       errors: [],
     });
-    sweepStaleLeadsMock.mockResolvedValue(0);
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
     retryDirtyClassificationsMock.mockResolvedValue({
       scanned: 1,
       classified: 0,
@@ -258,7 +368,7 @@ describe("email sync cron HTTP outcome", () => {
       newLeads: 0,
       errors: [],
     });
-    sweepStaleLeadsMock.mockResolvedValue(0);
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
     retryPendingLeadScansMock.mockResolvedValue({
       scanned: 3,
       promoted: 2,
@@ -270,7 +380,7 @@ describe("email sync cron HTTP outcome", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(retryPendingLeadScansMock).toHaveBeenCalledWith({ limit: 50 });
+    expect(retryPendingLeadScansMock).toHaveBeenCalledWith({ limit: 10 });
     expect(body.pendingLeadScanSweep).toEqual({
       scanned: 3,
       promoted: 2,
@@ -280,18 +390,84 @@ describe("email sync cron HTTP outcome", () => {
     expect(body.pendingLeadScanSweepError).toBeNull();
   });
 
+  it("drains exact-message classification and label recovery for active companies", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      newLeads: 0,
+      errors: [],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+    retryPendingIngestionRecoveryMock.mockResolvedValue({
+      claimed: 3,
+      classificationsRecovered: 1,
+      promoted: 1,
+      labelsApplied: 2,
+      retrying: 0,
+      failed: 0,
+      stale: 0,
+      staleCompletions: 0,
+      errors: [],
+    });
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(retryPendingIngestionRecoveryMock).toHaveBeenCalledWith({
+      companyIds: ["company-1"],
+      limit: 10,
+    });
+    expect(body.ingestionRecovery).toMatchObject({
+      claimed: 3,
+      classificationsRecovered: 1,
+      promoted: 1,
+      labelsApplied: 2,
+    });
+    expect(body.ingestionRecoveryError).toBeNull();
+  });
+
+  it("returns 503 while a durable ingestion recovery remains retrying", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      newLeads: 0,
+      errors: [],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+    retryPendingIngestionRecoveryMock.mockResolvedValue({
+      claimed: 1,
+      classificationsRecovered: 0,
+      promoted: 0,
+      labelsApplied: 0,
+      retrying: 1,
+      failed: 0,
+      stale: 0,
+      staleCompletions: 0,
+      errors: [{ queueId: "recovery-1", error: "gmail unavailable" }],
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      ingestionRecovery: { retrying: 1 },
+    });
+  });
+
   it("counts a pending lead-scan sweep error in the failed tally", async () => {
     runSyncMock.mockResolvedValue({
       activitiesCreated: 0,
       newLeads: 0,
       errors: [],
     });
-    sweepStaleLeadsMock.mockResolvedValue(0);
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
     retryPendingLeadScansMock.mockResolvedValue({
       scanned: 2,
       promoted: 0,
       cleared: 1,
-      errors: ["connection conn-1: AI provider unavailable — insufficient_quota"],
+      errors: [
+        "connection conn-1: AI provider unavailable — insufficient_quota",
+      ],
     });
 
     const response = await GET(request());
@@ -304,5 +480,74 @@ describe("email sync cron HTTP outcome", () => {
       failedConnections: 0,
     });
     expect(body.pendingLeadScanSweep.errors).toHaveLength(1);
+  });
+
+  it("stops the cycle immediately when mailbox work reports database pressure", async () => {
+    runSyncMock.mockRejectedValue(
+      new Error("PGRST002: could not query the database for the schema cache")
+    );
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(500);
+    expect(sweepStaleLeadsMock).not.toHaveBeenCalled();
+    expect(retryDirtyClassificationsMock).not.toHaveBeenCalled();
+    expect(retryPendingIngestionRecoveryMock).not.toHaveBeenCalled();
+    expect(retryPendingLeadScansMock).not.toHaveBeenCalled();
+  });
+
+  it("does not infer database pressure from an external-provider error string", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      newLeads: 0,
+      errors: ["Gmail 525 SSL handshake failed"],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(sweepStaleLeadsMock).toHaveBeenCalledOnce();
+    expect(retryDirtyClassificationsMock).toHaveBeenCalledOnce();
+    expect(retryPendingIngestionRecoveryMock).toHaveBeenCalledOnce();
+    expect(retryPendingLeadScansMock).toHaveBeenCalledOnce();
+  });
+
+  it("launches no work while another heavy workload holds the durable lease", async () => {
+    runWithCronWorkloadControlMock.mockResolvedValue({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(runSyncMock).not.toHaveBeenCalled();
+    expect(sweepStaleLeadsMock).not.toHaveBeenCalled();
+    expect(retryDirtyClassificationsMock).not.toHaveBeenCalled();
+    expect(retryPendingIngestionRecoveryMock).not.toHaveBeenCalled();
+    expect(retryPendingLeadScansMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when workload control cannot reach the database", async () => {
+    runWithCronWorkloadControlMock.mockResolvedValue({
+      status: "skipped",
+      reason: "control_unavailable",
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      ok: false,
+      ran: false,
+      reason: "control_unavailable",
+    });
+    expect(runSyncMock).not.toHaveBeenCalled();
   });
 });

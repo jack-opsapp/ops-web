@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { EmailConnection } from "@/lib/types/email-connection";
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
 import { EmailOutboundLearningService } from "./email-outbound-learning-service";
 import type { EmailProviderInterface } from "./email-provider";
 import { applyEmailProviderLabelWriteback } from "./email-provider-label-writeback";
@@ -37,6 +38,13 @@ function required(value: string | null, code: string): string {
   return value;
 }
 
+function databaseOperationError(
+  message: string,
+  cause: unknown
+): CronDatabaseOperationError {
+  return new CronDatabaseOperationError(message, { cause });
+}
+
 async function reconcileOperatorTemplateFollowUpOutcome(input: {
   supabase: SupabaseClient;
   intent: EmailSendIntent;
@@ -55,8 +63,9 @@ async function reconcileOperatorTemplateFollowUpOutcome(input: {
     .eq("opportunity_id", input.intent.opportunityId)
     .maybeSingle();
   if (draftError) {
-    throw new Error(
-      `Template follow-up reconciliation lookup failed: ${draftError.message ?? "unknown error"}`
+    throw databaseOperationError(
+      `Template follow-up reconciliation lookup failed: ${draftError.message ?? "unknown error"}`,
+      draftError
     );
   }
   if (
@@ -71,8 +80,9 @@ async function reconcileOperatorTemplateFollowUpOutcome(input: {
     { p_intent_id: input.intent.id }
   );
   if (error) {
-    throw new Error(
-      `Template follow-up reconciliation failed: ${error.message ?? "unknown error"}`
+    throw databaseOperationError(
+      `Template follow-up reconciliation failed: ${error.message ?? "unknown error"}`,
+      error
     );
   }
   const row = (Array.isArray(data) ? data[0] : data) as {
@@ -140,8 +150,9 @@ export async function reconcileEmailSend(
       { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
     );
   if (threadClaimError) {
-    throw new Error(
-      `Sent email thread claim failed: ${threadClaimError.message ?? "unknown error"}`
+    throw databaseOperationError(
+      `Sent email thread claim failed: ${threadClaimError.message ?? "unknown error"}`,
+      threadClaimError
     );
   }
 
@@ -154,8 +165,9 @@ export async function reconcileEmailSend(
       .limit(1)
       .maybeSingle();
   if (canonicalThreadLinkError) {
-    throw new Error(
-      `Sent email canonical thread lookup failed: ${canonicalThreadLinkError.message ?? "unknown error"}`
+    throw databaseOperationError(
+      `Sent email canonical thread lookup failed: ${canonicalThreadLinkError.message ?? "unknown error"}`,
+      canonicalThreadLinkError
     );
   }
   if (canonicalThreadLink?.opportunity_id !== intent.opportunityId) {
@@ -200,8 +212,9 @@ export async function reconcileEmailSend(
       .eq("email_message_id", providerMessageId)
       .limit(2);
     if (racedActivityError) {
-      throw new Error(
-        `Sent email canonical activity lookup failed: ${racedActivityError.message ?? "unknown error"}`
+      throw databaseOperationError(
+        `Sent email canonical activity lookup failed: ${racedActivityError.message ?? "unknown error"}`,
+        racedActivityError
       );
     }
     const candidates = (racedActivities ?? []) as Array<
@@ -241,14 +254,20 @@ export async function reconcileEmailSend(
       .eq("email_connection_id", intent.connectionId)
       .eq("email_message_id", providerMessageId);
     if (attributionError) {
-      throw new Error(
-        `Sent email actor attribution failed: ${attributionError.message ?? "unknown error"}`
+      throw databaseOperationError(
+        `Sent email actor attribution failed: ${attributionError.message ?? "unknown error"}`,
+        attributionError
       );
     }
     canonicalActivity = candidate;
-  } else if (activityError || !canonicalActivity) {
+  } else if (activityError) {
+    throw databaseOperationError(
+      `Sent email activity persistence failed: ${activityError.message ?? "unknown error"}`,
+      activityError
+    );
+  } else if (!canonicalActivity) {
     throw new Error(
-      `Sent email activity persistence failed: ${activityError?.message ?? "insert returned no row"}`
+      "Sent email activity persistence failed: insert returned no row"
     );
   }
 

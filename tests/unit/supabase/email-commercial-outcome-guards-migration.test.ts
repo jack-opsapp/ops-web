@@ -35,33 +35,18 @@ function compact(value: string) {
 }
 
 describe("email commercial-outcome database guards", () => {
-  it("uses an email-only conservative street identity without changing the global normalizer", () => {
+  it("uses the central property-qualified address identity for email conversion", () => {
     const definition = latestFunction(
       "create or replace function private.normalize_email_project_dedupe_address"
     );
     const body = compact(definition.body);
     const tail = compact(definition.tail);
 
-    expect(body).toContain("private.normalize_address(p_address)");
-    expect(body).toContain("street_type_ordinality");
-    expect(body).toContain("unit_identifier");
-    expect(body).toContain("(apartment|suite|unit|ste|apt|#)");
-    expect(body).toMatch(/' unit ' \|\| unit_identity\.unit_identifier/);
-    expect(body).toContain("normalized.value ~ '^[0-9]+[a-z]?");
-    expect(body).toMatch(
-      /tokens\.ordinality <= boundary\.street_type_ordinality/
+    expect(body).toContain(
+      "private.normalize_property_address(p_address, true)"
     );
-    expect(body).toMatch(/'street'[\s\S]*?'road'[\s\S]*?'boulevard'/);
-    expect(tail).toContain("123 example st");
-    expect(tail).toContain("123 example street, example city bc");
-    expect(tail).toMatch(
-      /normalize_email_project_dedupe_address\('123 example st'\)[\s\S]*?is distinct from[\s\S]*?normalize_email_project_dedupe_address/
-    );
-    expect(tail).toMatch(
-      /normalize_email_project_dedupe_address\([\s\S]*?123 example st, apartment 2, example city bc[\s\S]*?is distinct from[\s\S]*?normalize_email_project_dedupe_address\('123 example street unit 2'\)/
-    );
-    expect(tail).toMatch(
-      /normalize_email_project_dedupe_address\('123 example street unit 2'\)[\s\S]*?is not distinct from[\s\S]*?normalize_email_project_dedupe_address\('123 example st #3'\)/
+    expect(tail).toContain(
+      "revoke all on function private.normalize_email_project_dedupe_address"
     );
   });
 
@@ -259,6 +244,84 @@ describe("email commercial-outcome database guards", () => {
     expect(stageSnapshot).toBeGreaterThan(staleEvidence);
     expect(compact(definition.tail)).toMatch(
       /revoke all on function public\.apply_email_opportunity_deferred_disposition[\s\S]*?grant execute[\s\S]*?to service_role/
+    );
+  });
+
+  it("applies a decisive customer rejection with terminal precedence, ordering, and retry guards", () => {
+    const definition = latestFunction(
+      "create or replace function public.apply_email_opportunity_declined_disposition"
+    );
+    const body = compact(definition.body);
+
+    expect(body).toContain("auth.jwt()");
+    expect(body).toContain("service_role");
+    expect(body).toContain("set search_path = ''");
+    expect(body).toContain("for update");
+    expect(body).toContain("assignment_version");
+    expect(body).toContain("p_expected_stage");
+    expect(body).toContain("evaluated_through_event_id");
+    expect(body).toContain("opportunity_has_pending_meaningful_email");
+    expect(body).toContain("meaningful correspondence projection pending");
+    expect(body).toMatch(
+      /event\.direction = 'inbound'[\s\S]*?event\.party_role = 'customer'[\s\S]*?opportunity_sender_is_persisted_customer\([\s\S]*?event\.from_email[\s\S]*?event\.is_meaningful is true/
+    );
+    expect(body).toMatch(
+      /newer\.occurred_at > v_evaluated_through_at[\s\S]*?raise exception 'declined disposition evidence is stale'/
+    );
+    expect(body).toContain("manual_terminal_stage");
+    expect(body).toMatch(
+      /v_opp\.stage_manually_set[\s\S]*?v_opp\.stage in \('won', 'lost', 'discarded'\)/
+    );
+    expect(body).toContain("already_applied");
+    expect(body).toMatch(
+      /v_existing_connection_id is not distinct from p_connection_id[\s\S]*?v_existing_provider_message_id is not distinct from p_provider_message_id[\s\S]*?v_existing_reason_code is not distinct from v_reason_code[\s\S]*?'already_applied'/
+    );
+    expect(body).toContain("v_is_same_message_reason_upgrade");
+    expect(body).toMatch(
+      /v_existing_reason_code = 'price'[\s\S]*?v_reason_code = 'customer_declined'[\s\S]*?'already_applied'/
+    );
+    expect(body).toContain("v_existing_decisive_occurred_at");
+    expect(body).toMatch(
+      /v_decisive_occurred_at < v_existing_decisive_occurred_at[\s\S]*?'terminal_stage'/
+    );
+    expect(body).toMatch(
+      /update public\.opportunities[\s\S]*?set stage = 'lost'[\s\S]*?stage_manually_set = false[\s\S]*?lost_reason = v_reason_code[\s\S]*?next_follow_up_at = null/
+    );
+    expect(body).toContain("insert into public.stage_transitions");
+    expect(body).toMatch(
+      /insert into public\.opportunity_dispositions[\s\S]*?'lost'[\s\S]*?v_reason_code[\s\S]*?'guarded_lifecycle'/
+    );
+    expect(body).toContain("disposition_updated");
+    expect(body).toContain("superseded_by = v_new_disposition_id");
+    expect(body).toContain(
+      "p_evidence -> 'signals' = '[\"customer_declined\"]'::jsonb"
+    );
+    const opportunityUpdate = body.match(
+      /update public\.opportunities[\s\S]*?where id = p_opportunity_id/
+    )?.[0];
+    expect(opportunityUpdate).toBeDefined();
+    expect(opportunityUpdate).not.toMatch(/assigned_to\s*=/);
+
+    const assignmentGuard = body.indexOf(
+      "if v_opp.assignment_version is distinct from p_expected_assignment_version"
+    );
+    const manualTerminalGuard = body.indexOf("'manual_terminal_stage'::text");
+    const exactRetry = body.indexOf(
+      "v_existing_provider_message_id is not distinct from p_provider_message_id"
+    );
+    const staleEvidence = body.indexOf(
+      "raise exception 'declined disposition evidence is stale'"
+    );
+    const stageSnapshot = body.indexOf(
+      "if v_opp.stage is distinct from p_expected_stage"
+    );
+    expect(assignmentGuard).toBeGreaterThan(-1);
+    expect(manualTerminalGuard).toBeGreaterThan(assignmentGuard);
+    expect(exactRetry).toBeGreaterThan(manualTerminalGuard);
+    expect(staleEvidence).toBeGreaterThan(exactRetry);
+    expect(stageSnapshot).toBeGreaterThan(staleEvidence);
+    expect(compact(definition.tail)).toMatch(
+      /revoke all on function public\.apply_email_opportunity_declined_disposition[\s\S]*?grant execute[\s\S]*?to service_role/
     );
   });
 

@@ -71,7 +71,7 @@ export type CommercialOutcomeDecision =
   | {
       outcome: "declined";
       confidence: "high";
-      reasonCode: "customer_declined";
+      reasonCode: "customer_declined" | "price";
       decisiveEvidenceKey: string;
       decisiveMessageId: string;
       decisiveDirection: "inbound";
@@ -173,7 +173,7 @@ const SCHEDULE_FACT_RE = new RegExp(
   "i"
 );
 const SCHEDULE_FACT_CONTEXT_RE =
-  /\b(?:need(?:ed)?\s+(?:it|them|this|the work)?\s*until|start(?:ing)?(?:\s+us)?|week of|on for|schedule|book(?:ed|ing)?|availability|available|installation|crew|work date|project date|deadline|timeline|pickup|delivery|ready (?:by|for))\b/i;
+  /\b(?:(?:do\s+not|does\s+not|did\s+not|don['’]t|doesn['’]t|didn['’]t|won['’]t)\s+need\b.{0,100}\buntil|need(?:ed)?\s+(?:it|them|this|the work)?\s*until|start(?:ing)?(?:\s+us)?|week of|on for|schedule|book(?:ed|ing)?|availability|available|installation|crew|work date|project date|deadline|timeline|pickup|delivery|ready (?:by|for))\b/i;
 const SEE_YOU_EXECUTION_SCHEDULE_RE = new RegExp(
   `\\bsee you\\s+(?:on\\s+)?${SCHEDULE_DATE_ANCHOR_TEXT}\\b`,
   "i"
@@ -200,6 +200,8 @@ const CONFIRMED_RESCHEDULE_RE = new RegExp(
 );
 const SCHEDULE_INQUIRY_RE =
   /\b(?:is|are|can|could|would|will)\b.{0,60}\b(?:tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|date|day)\b.{0,60}\b(?:open|available|work|good|possible)\b\s*\?/i;
+const SCHEDULE_CONFIRMATION_REQUEST_RE =
+  /\b(?:let\s+(?:me|us)\s+know|please\s+(?:confirm|advise))\b.{0,80}\b(?:if|whether)\b.{0,80}\b(?:on\s+for|scheduled|booked|confirmed)\b/i;
 const DEFERRAL_ACTION_VERB_RE =
   /\b(?:delay(?:ed|ing)?|postpon(?:e|ed|ing)|defer(?:red|ring)?|paus(?:e|ed|ing)|revisit(?:ed|ing)?|circle(?:d|ing)? back|wait(?:ed|ing)?|hold(?:ing)? off|put(?:ting)? (?:this|it) off)\b/gi;
 const NEGATED_DEFERRAL_ACTION_PREFIX_RE =
@@ -217,7 +219,9 @@ const ADMINISTRATIVE_DEFERRAL_OBJECT_RE =
 const RESOLVED_OR_ADMINISTRATIVE_DEFERRAL_RE =
   /\b(?:done|finished)\s+(?:with\s+)?(?:delay|postpon|deferr|paus|wait|hold)\w*\b|\b(?:delay|deferral|postponement)\b.{0,50}\b(?:is|was|has been|had been)\s+(?:resolved|cleared|finished|over)\b|\b(?:budget|funds?)\b.{0,50}\b(?:approved|available|restored)\b.{0,50}\bafter\s+(?:the\s+)?(?:delay|deferral|postponement)\b|\b(?:delay|postpone|defer|hold off)\w*\s+(?:the\s+)?(?:billing|invoice|payment|deposit)\b/i;
 const CUSTOMER_DECLINE_RE =
-  /\b(?:cancel(?:led|ed|ing)?(?: the| this| our)? (?:job|project|work|installation)|cancel(?:led|ed)? (?:it|this) (?:entirely|altogether)|do not proceed|don'?t proceed|decid(?:e|ed) not to (?:proceed|move forward)|not moving forward|hired someone else|going with someone else|declin(?:e|ed)(?: the)? (?:quote|estimate|proposal|work|job|project|installation)|no longer (?:want|need) (?:the|this)? ?(?:work|job|project|installation))\b/gi;
+  /\b(?:cancel(?:led|ed|ing)?(?: the| this| our)? (?:job|project|work|installation)|cancel(?:led|ed)? (?:it|this) (?:entirely|altogether)|do not proceed|don'?t proceed|decid(?:e|ed) not to (?:proceed|move forward)|not moving forward|hired someone else|(?:did\s+go|went|going) with someone else|declin(?:e|ed)(?: the)? (?:quote|estimate|proposal|work|job|project|installation)|no longer (?:want|need) (?:the|this)? ?(?:work|job|project|installation))\b/gi;
+const PRICE_DECLINE_REASON_RE =
+  /\b(?:financial reasons?|price|pricing|cost|costs|too expensive|more expensive|cheaper|afford(?:ability)?|money)\b/i;
 const COMMERCIAL_REVERSAL_ACTION_RE =
   /\b(?:cancel(?:l?ed|l?ing)?|withdraw(?:n|ing)?|reject(?:ed|ing|ion)?|stop(?:ping)?)\b.{0,60}\b(?:quote|estimate|proposal|work|job|project|installation)\b|\b(?:quote|estimate|proposal|work|job|project|installation)\b.{0,40}\b(?:cancell?ation|withdrawal|rejection)\b|\bclose\s+(?:the\s+)?project\b.{0,40}\bwithout\s+starting\b/gi;
 const RETRACTED_ACCEPTANCE_RE =
@@ -1656,6 +1660,20 @@ function lastScheduleFactBody(
       return null;
     }
     if (CONDITIONAL_SCHEDULE_RE.test(body)) continue;
+    const scheduleFactClauses = commercialClauses(body).filter(
+      (clause) =>
+        SCHEDULE_FACT_RE.test(clause) && SCHEDULE_FACT_CONTEXT_RE.test(clause)
+    );
+    if (
+      scheduleFactClauses.length > 0 &&
+      scheduleFactClauses.every(
+        (clause) =>
+          SCHEDULE_CONFIRMATION_REQUEST_RE.test(clause) ||
+          isInterrogativeClaim(clause, [SCHEDULE_FACT_RE])
+      )
+    ) {
+      continue;
+    }
     if (SCHEDULE_FACT_RE.test(body) && SCHEDULE_FACT_CONTEXT_RE.test(body)) {
       return body;
     }
@@ -2050,7 +2068,7 @@ export function detectCommercialOutcome(input: {
     schedule,
     objection: deferred || declined ? cleanBody(decisive.message.body) : null,
     nextAction: declined
-      ? "Review the customer's cancellation and close or update the sales cycle."
+      ? null
       : deferred
         ? deferredTiming!.nextAction
         : signals.includes("payment_confirmed")
@@ -2076,7 +2094,9 @@ export function detectCommercialOutcome(input: {
     return {
       ...base,
       outcome: "declined",
-      reasonCode: "customer_declined",
+      reasonCode: PRICE_DECLINE_REASON_RE.test(cleanBody(decisive.message.body))
+        ? "price"
+        : "customer_declined",
       decisiveDirection: "inbound",
       followUpAt: null,
     };

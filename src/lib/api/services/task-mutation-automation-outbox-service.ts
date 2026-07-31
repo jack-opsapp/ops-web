@@ -11,6 +11,10 @@ import {
   type ConfirmedScheduleChange,
   type TaskScheduleState,
 } from "./client-scheduling-comms-service";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "./cron-workload-control-service";
 import { ScheduleOptimizationService } from "./schedule-optimization-service";
 
 type TaskAutomationKind =
@@ -113,6 +117,30 @@ function isTaskNotificationKind(
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function taskAutomationDatabaseOperation<T>(
+  operation: string,
+  pending: PromiseLike<{ data: T; error: { message?: string } | null }>
+): Promise<T> {
+  let result: { data: T; error: { message?: string } | null };
+  try {
+    result = await pending;
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      `Task automation ${operation} was unreachable`,
+      { cause }
+    );
+  }
+  if (result.error) {
+    throw new CronDatabaseOperationError(
+      `Task automation ${operation} failed: ${
+        result.error.message ?? "unknown error"
+      }`,
+      { cause: result.error }
+    );
+  }
+  return result.data;
 }
 
 function stringOrNull(value: unknown): string | null {
@@ -242,17 +270,17 @@ async function complete(
   disposition: string,
   result: Record<string, unknown> = {}
 ): Promise<void> {
-  const { data, error } = await db.rpc(
-    "complete_task_schedule_automation_event",
-    {
+  const data = await taskAutomationDatabaseOperation(
+    "completion",
+    db.rpc("complete_task_schedule_automation_event", {
       p_event_id: claim.event_id,
       p_lease_token: claim.lease_token,
       p_disposition: disposition,
       p_result: result,
-    }
+    })
   );
-  if (error || data !== true) {
-    throw new Error(error?.message ?? "Task automation lease was lost");
+  if (data !== true) {
+    throw new Error("Task automation lease was lost");
   }
 }
 
@@ -261,14 +289,13 @@ async function processTaskNotificationClaim(
   claim: TaskAutomationClaim,
   result: TaskAutomationBatchResult
 ): Promise<void> {
-  const { data, error } = await db.rpc(
-    "persist_task_mutation_notification_as_system",
-    {
+  const data = await taskAutomationDatabaseOperation(
+    "notification persistence",
+    db.rpc("persist_task_mutation_notification_as_system", {
       p_event_id: claim.event_id,
       p_lease_token: claim.lease_token,
-    }
+    })
   );
-  if (error) throw error;
   const persisted = taskNotificationPersistenceResult(data);
 
   if (persisted.disposition === "superseded") {
@@ -326,12 +353,14 @@ async function actorCanEditTask(
   _task: Record<string, unknown>
 ): Promise<boolean> {
   if (!claim.actor_user_id) return false;
-  const { data, error } = await db.rpc("authorize_task_action_as_system", {
-    p_actor_user_id: claim.actor_user_id,
-    p_task_id: claim.task_id,
-    p_action: "edit",
-  });
-  if (error) throw error;
+  const data = await taskAutomationDatabaseOperation(
+    "authorization",
+    db.rpc("authorize_task_action_as_system", {
+      p_actor_user_id: claim.actor_user_id,
+      p_task_id: claim.task_id,
+      p_action: "edit",
+    })
+  );
   return data === true;
 }
 
@@ -339,14 +368,16 @@ async function loadTask(
   db: SupabaseClient,
   claim: TaskAutomationClaim
 ): Promise<Record<string, unknown> | null> {
-  const { data, error } = await db
-    .from("project_tasks")
-    .select(TASK_FIELDS)
-    .eq("id", claim.task_id)
-    .eq("company_id", claim.company_id)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (error) throw error;
+  const data = await taskAutomationDatabaseOperation(
+    "task read",
+    db
+      .from("project_tasks")
+      .select(TASK_FIELDS)
+      .eq("id", claim.task_id)
+      .eq("company_id", claim.company_id)
+      .is("deleted_at", null)
+      .maybeSingle()
+  );
   return (data as Record<string, unknown> | null) ?? null;
 }
 
@@ -572,6 +603,9 @@ async function processClaim(
     await complete(db, claim, "processed", effectResult);
     result.completed += 1;
   } catch (error) {
+    if (isDatabasePressureError(error)) {
+      throw error;
+    }
     const failure = message(error);
     const { data: disposition, error: persistError } = await db.rpc(
       "fail_task_schedule_automation_event",
@@ -583,6 +617,13 @@ async function processClaim(
       }
     );
     if (persistError) {
+      const persistenceDatabaseError = new CronDatabaseOperationError(
+        `Task automation failure persistence failed: ${persistError.message}`,
+        { cause: persistError }
+      );
+      if (isDatabasePressureError(persistenceDatabaseError)) {
+        throw persistenceDatabaseError;
+      }
       result.failed += 1;
       result.errors.push({
         eventId: claim.event_id,
@@ -609,14 +650,10 @@ export const TaskMutationAutomationOutboxService = {
       Math.min(Math.floor(options.leaseSeconds ?? 180), 900)
     );
     const workerId = options.workerId ?? randomUUID();
-    const { data: terminalized, error: terminalizeError } = await db.rpc(
-      "finalize_exhausted_task_schedule_automation_events"
+    const terminalized = await taskAutomationDatabaseOperation(
+      "exhausted-event finalization",
+      db.rpc("finalize_exhausted_task_schedule_automation_events")
     );
-    if (terminalizeError) {
-      throw new Error(
-        `Failed to finalize exhausted task automation events: ${terminalizeError.message}`
-      );
-    }
     if (
       typeof terminalized !== "number" ||
       !Number.isSafeInteger(terminalized) ||
@@ -640,19 +677,14 @@ export const TaskMutationAutomationOutboxService = {
     // whole batch up front lets slow model work consume tail-row leases and
     // attempts without ever touching those rows.
     for (let processed = 0; processed < limit; processed += 1) {
-      const { data, error } = await db.rpc(
-        "claim_task_schedule_automation_events",
-        {
+      const data = await taskAutomationDatabaseOperation(
+        "claim",
+        db.rpc("claim_task_schedule_automation_events", {
           p_worker_id: workerId,
           p_limit: 1,
           p_lease_seconds: leaseSeconds,
-        }
+        })
       );
-      if (error) {
-        throw new Error(
-          `Failed to claim task automation event: ${error.message}`
-        );
-      }
       const claims = (data ?? []) as unknown[];
       if (claims.length === 0) break;
       if (claims.length !== 1) {

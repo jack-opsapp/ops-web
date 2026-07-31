@@ -58,6 +58,7 @@ function makeQueryBuilder(table: string) {
   let pendingFilters: Array<{ method: string; args: unknown[] }> = [];
   let mode: "select" | "insert" | "update" | null = null;
   let pendingPatch: Record<string, unknown> | undefined;
+  let pendingLimit: number | undefined;
 
   const builder: Record<string, unknown> = {};
   builder.select = () => {
@@ -107,7 +108,10 @@ function makeQueryBuilder(table: string) {
     pendingFilters.push({ method: "is", args: [k, v] });
     return builder;
   };
-  builder.limit = () => builder;
+  builder.limit = (value: number) => {
+    pendingLimit = value;
+    return builder;
+  };
   builder.order = () => builder;
 
   builder.maybeSingle = async () => ({ data: null, error: null });
@@ -147,7 +151,11 @@ function makeQueryBuilder(table: string) {
         }
         return true;
       });
-      result = { data: due, error: null };
+      result = {
+        data:
+          pendingLimit === undefined ? due : due.slice(0, pendingLimit),
+        error: null,
+      };
     } else if (mode === "select" && table === "task_recurrence_exceptions") {
       const recIdFilter = pendingFilters.find(
         (f) => f.method === "eq" && f.args[0] === "recurrence_id"
@@ -206,6 +214,60 @@ vi.mock("@/lib/supabase/helpers", () => ({
   setSupabaseOverride: () => {},
 }));
 
+let skipRecurrenceWorkload = false;
+const advanceRecurrenceCursorMock = vi.fn(
+  async (
+    _supabase: unknown,
+    _workloadKey: unknown,
+    _lease: unknown,
+    _expectedCursor: unknown,
+    _nextCursor: unknown
+  ) => undefined
+);
+const recurrenceWorkloadLease = {
+  ownerToken: "test-owner",
+  fenceToken: 1,
+  globalFenceToken: 1,
+  expiresAt: "2099-01-01T00:00:00.000Z",
+  signal: new AbortController().signal,
+};
+
+vi.mock(
+  "@/lib/api/services/cron-workload-control-service",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/api/services/cron-workload-control-service")
+      >();
+    return {
+      ...actual,
+      runWithCronWorkloadControl: async ({
+        work,
+      }: {
+        work: (lease: typeof recurrenceWorkloadLease) => Promise<unknown>;
+      }) =>
+        skipRecurrenceWorkload
+          ? { status: "skipped", reason: "lease_held" }
+          : {
+              status: "completed",
+              value: await work(recurrenceWorkloadLease),
+            },
+    };
+  }
+);
+
+vi.mock("@/lib/api/services/cron-workload-cursor-service", () => ({
+  readCronWorkloadCursor: async () => null,
+  advanceCronWorkloadCursor: (...args: unknown[]) =>
+    advanceRecurrenceCursorMock(
+      args[0],
+      args[1],
+      args[2],
+      args[3],
+      args[4]
+    ),
+}));
+
 beforeEach(() => {
   state.recurrences = [];
   state.exceptions = [];
@@ -213,6 +275,7 @@ beforeEach(() => {
   state.insertedTasks = [];
   state.insertedNotifications = [];
   state.recurrenceUpdates = [];
+  skipRecurrenceWorkload = false;
   process.env.CRON_SECRET = "test-secret";
 });
 
@@ -235,6 +298,86 @@ describe("/api/cron/recurrence-generate", () => {
     );
     const res = await GET(req);
     expect(res.status).toBe(401);
+  });
+
+  it("skips an overlapping recurrence run before reading templates", async () => {
+    skipRecurrenceWorkload = true;
+    const res = await GET(authedRequest());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(state.recurrenceUpdates).toHaveLength(0);
+  });
+
+  it("rotates through at most 10 due recurrence templates per run", async () => {
+    state.recurrences = Array.from({ length: 12 }, (_, index) => ({
+      id: `rec-${String(index).padStart(2, "0")}`,
+      company_id: "co-1",
+      project_id: null,
+      client_id: null,
+      task_type_id: null,
+      title: "Bounded recurrence",
+      team_member_ids: [],
+      rrule: "FREQ=DAILY;COUNT=1",
+      start_anchor: "2026-04-27",
+      end_anchor: null,
+      all_day: true,
+      start_time: null,
+      end_time: null,
+      duration: 1,
+      notes: null,
+      next_generation_at: "2026-04-27T00:00:00Z",
+      deleted_at: null,
+    }));
+
+    const res = await GET(authedRequest());
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      ran: true,
+      recurrences_processed: 10,
+    });
+    expect(advanceRecurrenceCursorMock).toHaveBeenCalledWith(
+      expect.anything(),
+      "recurrence-generate",
+      recurrenceWorkloadLease,
+      null,
+      "rec-09"
+    );
+  });
+
+  it("materializes at most 25 pending occurrences per recurrence", async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    state.recurrences = [
+      {
+        id: "rec-daily",
+        company_id: "co-1",
+        project_id: null,
+        client_id: null,
+        task_type_id: null,
+        title: "Daily bounded task",
+        team_member_ids: [],
+        rrule: "FREQ=DAILY",
+        start_anchor: today,
+        end_anchor: null,
+        all_day: true,
+        start_time: null,
+        end_time: null,
+        duration: 1,
+        notes: null,
+        next_generation_at: "2026-04-27T00:00:00Z",
+        deleted_at: null,
+      },
+    ];
+
+    const res = await GET(authedRequest());
+
+    expect(res.status).toBe(200);
+    expect(state.insertedTasks).toHaveLength(25);
   });
 
   it("expands a weekly recurrence to ~9 occurrences over 60 days", async () => {

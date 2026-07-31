@@ -24,14 +24,30 @@ import {
   MAX_SEATS_BY_PLAN,
   type OpsSubscriptionStatus,
 } from "@/lib/stripe/subscription-mapping";
+import {
+  CronDatabaseOperationError,
+  runWithCronWorkloadControl,
+  type CronWorkloadLease,
+} from "@/lib/api/services/cron-workload-control-service";
+import {
+  advanceCronWorkloadCursor,
+  readCronWorkloadCursor,
+} from "@/lib/api/services/cron-workload-cursor-service";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const maxDuration = 300;
+
+const WORKLOAD_KEY = "stripe-subscription-reconciliation";
+const COMPANY_LIMIT = 10;
 
 // Terminal states that reconcile must never revert. `expired` is a local
 // decision made by the grace-expiry cron (Stripe has no equivalent), and
 // `cancelled` is set on user cancellation — if Stripe somehow reactivates we
 // expect it to come in through the webhook, not through this nightly job.
-const STICKY_STATUSES: ReadonlyArray<OpsSubscriptionStatus> = ["expired", "cancelled"];
+const STICKY_STATUSES: ReadonlyArray<OpsSubscriptionStatus> = [
+  "expired",
+  "cancelled",
+];
 
 type CompanyRow = {
   id: string;
@@ -60,17 +76,66 @@ function toIso(unixSeconds: number | null | undefined): string | null {
   return unixSeconds ? new Date(unixSeconds * 1000).toISOString() : null;
 }
 
-function pickSubscription(list: Stripe.Subscription[]): Stripe.Subscription | null {
+function pickSubscription(
+  list: Stripe.Subscription[]
+): Stripe.Subscription | null {
   if (list.length === 0) return null;
-  const live = list.find((s) => ["active", "trialing", "past_due"].includes(s.status));
+  const live = list.find((s) =>
+    ["active", "trialing", "past_due"].includes(s.status)
+  );
   if (live) return live;
   return [...list].sort((a, b) => b.created - a.created)[0];
+}
+
+function failureMessage(error: unknown): string {
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function loadCompanies(
+  supabase: SupabaseClient,
+  cursor: string | null
+): Promise<CompanyRow[]> {
+  try {
+    let query = supabase
+      .from("companies")
+      .select(
+        "id, stripe_customer_id, subscription_status, subscription_plan, subscription_end, trial_start_date, trial_end_date, seat_grace_start_date, max_seats"
+      )
+      .not("stripe_customer_id", "is", null)
+      .order("id", { ascending: true });
+    if (cursor) query = query.gt("id", cursor);
+    const { data, error } = await query.limit(COMPANY_LIMIT);
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Stripe reconciliation company query failed: ${error.message}`,
+        { cause: error }
+      );
+    }
+    return (data ?? []) as CompanyRow[];
+  } catch (cause) {
+    if (cause instanceof CronDatabaseOperationError) throw cause;
+    throw new CronDatabaseOperationError(
+      "Stripe reconciliation company query failed",
+      { cause }
+    );
+  }
 }
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
-    return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
+    return NextResponse.json(
+      { error: "CRON_SECRET not configured" },
+      { status: 500 }
+    );
   }
 
   const authHeader = request.headers.get("authorization");
@@ -79,26 +144,63 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = getServiceRoleClient();
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
-  const { data: companies, error } = await supabase
-    .from("companies")
-    .select(
-      "id, stripe_customer_id, subscription_status, subscription_plan, subscription_end, trial_start_date, trial_end_date, seat_grace_start_date, max_seats"
-    )
-    .not("stripe_customer_id", "is", null);
-
-  if (error) {
-    console.error("[reconcile-stripe] Failed to fetch companies:", error.message);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  try {
+    const controlled = await runWithCronWorkloadControl({
+      supabase,
+      workloadKey: WORKLOAD_KEY,
+      leaseSeconds: 360,
+      work: (lease) => runStripeReconciliation(supabase, lease),
+    });
+    if (controlled.status === "skipped") {
+      const reason =
+        controlled.reason === "lease_held"
+          ? "already_running"
+          : controlled.reason;
+      return NextResponse.json(
+        {
+          ok: controlled.reason === "lease_held",
+          ran: false,
+          reason,
+        },
+        { status: controlled.reason === "lease_held" ? 200 : 503 }
+      );
+    }
+    return NextResponse.json(controlled.value);
+  } catch (error) {
+    console.error("[reconcile-stripe] fatal:", error);
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Stripe reconciliation failed",
+      },
+      { status: 500 }
+    );
   }
+}
 
+async function runStripeReconciliation(
+  supabase: SupabaseClient,
+  lease: CronWorkloadLease
+) {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  const cursor = await readCronWorkloadCursor(
+    supabase,
+    WORKLOAD_KEY,
+    lease
+  );
+  let companies = await loadCompanies(supabase, cursor);
+  if (cursor && companies.length === 0) {
+    companies = await loadCompanies(supabase, null);
+  }
   let updated = 0;
   let inSync = 0;
   let noSubs = 0;
   let errors = 0;
 
-  for (const company of (companies ?? []) as CompanyRow[]) {
+  for (const company of companies) {
     try {
       const subs = await stripe.subscriptions.list({
         customer: company.stripe_customer_id!,
@@ -177,27 +279,54 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const { error: updErr } = await supabase
-        .from("companies")
-        .update(patch)
-        .eq("id", company.id);
-
-      if (updErr) {
-        console.error(`[reconcile-stripe] update failed for ${company.id}: ${updErr.message}`);
-        errors++;
-        continue;
+      let updErr: { message: string } | null;
+      try {
+        const result = await supabase
+          .from("companies")
+          .update(patch)
+          .eq("id", company.id);
+        updErr = result.error;
+      } catch (cause) {
+        throw new CronDatabaseOperationError(
+          `Stripe reconciliation update failed for ${company.id}`,
+          { cause }
+        );
       }
 
-      console.log(`[reconcile-stripe] drift fixed: ${company.id}`, patch);
+      if (updErr) {
+        throw new CronDatabaseOperationError(
+          `Stripe reconciliation update failed for ${company.id}: ${updErr.message}`,
+          { cause: updErr }
+        );
+      }
+
+      console.warn(`[reconcile-stripe] drift fixed: ${company.id}`, patch);
       updated++;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      if (err instanceof CronDatabaseOperationError) throw err;
+      const msg = failureMessage(err);
       console.error(`[reconcile-stripe] ${company.id} failed: ${msg}`);
       errors++;
     }
   }
 
-  const summary = { ok: true, updated, inSync, noSubs, errors };
-  console.log("[reconcile-stripe] summary:", summary);
-  return NextResponse.json(summary);
+  const nextCursor =
+    companies.length === COMPANY_LIMIT ? (companies.at(-1)?.id ?? null) : null;
+  await advanceCronWorkloadCursor(
+    supabase,
+    WORKLOAD_KEY,
+    lease,
+    cursor,
+    nextCursor
+  );
+  const summary = {
+    ok: true,
+    updated,
+    inSync,
+    noSubs,
+    errors,
+    cursor: { previous: cursor, next: nextCursor },
+  };
+  console.warn("[reconcile-stripe] summary:", summary);
+  return summary;
 }

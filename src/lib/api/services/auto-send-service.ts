@@ -15,6 +15,7 @@ import type {
 import { markdownToEmailHtml } from "@/lib/utils/markdown-to-email-html";
 import { AdminFeatureOverrideService } from "./admin-feature-override-service";
 import { AIDraftService } from "./ai-draft-service";
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
 import { runWithEmailConnectionSyncLock } from "./email-connection-sync-lock";
 import { EmailSendDeliveryService } from "./email-send-delivery-service";
 import { EmailSendIntentService } from "./email-send-intent-service";
@@ -702,12 +703,15 @@ export const AutoSendService = {
     const { data, error } = await requireSupabase().rpc(
       "claim_phase_c_auto_sends",
       {
-        p_limit: options.limit ?? 50,
+        p_limit: options.limit ?? 10,
         p_lease_seconds: options.leaseSeconds ?? 300,
       }
     );
     if (error) {
-      throw new Error(error.message || "claim_phase_c_auto_sends failed");
+      throw new CronDatabaseOperationError(
+        error.message || "claim_phase_c_auto_sends failed",
+        { cause: error }
+      );
     }
     const rows = Array.isArray(data) ? data : data ? [data] : [];
     return rows.map((row) => mapClaimedFromDb(row as Record<string, unknown>));

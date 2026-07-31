@@ -50,15 +50,45 @@ vi.mock("@/lib/supabase/server-client", () => ({
   }),
 }));
 
+const { runWithCronWorkloadControlMock } = vi.hoisted(() => ({
+  runWithCronWorkloadControlMock: vi.fn(),
+}));
+const {
+  readCronWorkloadCursorMock,
+  advanceCronWorkloadCursorMock,
+} = vi.hoisted(() => ({
+  readCronWorkloadCursorMock: vi.fn(),
+  advanceCronWorkloadCursorMock: vi.fn(),
+}));
+vi.mock("@/lib/api/services/cron-workload-control-service", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/api/services/cron-workload-control-service")
+  >("@/lib/api/services/cron-workload-control-service");
+  return {
+    ...actual,
+    runWithCronWorkloadControl: runWithCronWorkloadControlMock,
+  };
+});
+vi.mock("@/lib/api/services/cron-workload-cursor-service", () => ({
+  readCronWorkloadCursor: readCronWorkloadCursorMock,
+  advanceCronWorkloadCursor: advanceCronWorkloadCursorMock,
+}));
+
 import {
   runLeadSummaryRefresh,
   refreshLeadSummariesForOpportunities,
   evaluateLeadStaleness,
   computeLeadContextAggregates,
   buildLeadSummaryContext,
+  LeadSummaryModelContractError,
+  LeadSummaryModelRefusalError,
   LEAD_SUMMARY_STALENESS_EPSILON_MS,
 } from "@/lib/api/services/lead-summary-service";
-import { GET, POST } from "@/app/api/cron/lead-summary-refresh/route";
+import {
+  GET,
+  POST,
+} from "@/app/api/cron/lead-summary-refresh/route";
+import { decodeLeadSummaryRefreshCursor } from "@/lib/email/lead-summary-refresh-cursor";
 
 // ─── Chain-level Supabase mock ──────────────────────────────────────────────
 
@@ -86,10 +116,29 @@ function makeChain(table: string) {
   const resolveSelect = () => {
     let rows = cfg.rows ?? [];
     for (const [kind, column, value] of filters) {
-      if (kind !== "in" || !Array.isArray(value)) continue;
       rows = rows.filter((row) => {
         if (!row || typeof row !== "object") return false;
-        return value.includes((row as Record<string, unknown>)[column]);
+        const candidate = (row as Record<string, unknown>)[column];
+        if (kind === "in" && Array.isArray(value)) {
+          return value.includes(candidate);
+        }
+        if (kind === "eq") {
+          // Older fixtures omit repeated tenant/filter columns that are
+          // immaterial to their assertion. Apply equality whenever the row
+          // actually carries the field.
+          return candidate === undefined || candidate === value;
+        }
+        if (kind === "gt") {
+          return (
+            typeof candidate === "string" &&
+            typeof value === "string" &&
+            candidate > value
+          );
+        }
+        if (kind === "is" && value === null) {
+          return candidate === null || candidate === undefined;
+        }
+        return true;
       });
     }
     return {
@@ -111,12 +160,22 @@ function makeChain(table: string) {
       filters.push(["in", column, value]);
       return chain;
     },
+    gt: (column: string, value: unknown) => {
+      filters.push(["gt", column, value]);
+      return chain;
+    },
     not: (column: string, operator: string, value: unknown) => {
       filters.push(["not", column, `${operator}:${String(value)}`]);
       return chain;
     },
     order: () => chain,
-    limit: async () => resolveSelect(),
+    limit: async (limit: number) => {
+      const result = resolveSelect();
+      return {
+        data: result.data?.slice(0, limit) ?? null,
+        error: result.error,
+      };
+    },
     range: async (from: number, to: number) => {
       const result = resolveSelect();
       return {
@@ -228,7 +287,7 @@ function emailActivity(
     email_thread_id: "thread-1",
     to_emails:
       direction === "inbound" ? ["operator@canpro.ca"] : ["jane@example.com"],
-    cc_emails: [],
+    cc_emails: [] as string[],
     outcome: null,
     duration_minutes: null,
     created_at: createdAt,
@@ -279,7 +338,15 @@ function modelResponse(summary: string) {
 
 function baseTables(overrides: Record<string, TableConfig> = {}) {
   return {
-    admin_feature_overrides: { rows: [{ company_id: COMPANY_ID }] },
+    admin_feature_overrides: {
+      rows: [
+        {
+          company_id: COMPANY_ID,
+          feature_key: "phase_c",
+          enabled: true,
+        },
+      ],
+    },
     companies: { maybeSingleRow: { id: COMPANY_ID, name: "Canpro" } },
     opportunities: { rows: [] },
     clients: { rows: [] },
@@ -314,6 +381,33 @@ beforeEach(() => {
   });
   isAIFeatureEnabledMock.mockReset();
   isAIFeatureEnabledMock.mockResolvedValue(true);
+  readCronWorkloadCursorMock.mockReset();
+  readCronWorkloadCursorMock.mockResolvedValue(null);
+  advanceCronWorkloadCursorMock.mockReset();
+  advanceCronWorkloadCursorMock.mockResolvedValue(undefined);
+  runWithCronWorkloadControlMock.mockReset();
+  runWithCronWorkloadControlMock.mockImplementation(
+    async ({
+      work,
+    }: {
+      work: (lease: {
+        ownerToken: string;
+        fenceToken: number;
+        globalFenceToken: number;
+        expiresAt: string;
+        signal: AbortSignal;
+      }) => Promise<unknown>;
+    }) => ({
+      status: "completed",
+      value: await work({
+        ownerToken: "lead-summary-owner",
+        fenceToken: 17,
+        globalFenceToken: 29,
+        expiresAt: "2026-07-21T20:06:00.000Z",
+        signal: new AbortController().signal,
+      }),
+    })
+  );
 });
 
 afterEach(() => {
@@ -738,6 +832,111 @@ describe("runLeadSummaryRefresh", () => {
     });
   });
 
+  it("hydrates only the requested keyset window before reading lead context", async () => {
+    const opportunityIds = Array.from(
+      { length: 31 },
+      (_, index) => `opportunity-${String(index + 1).padStart(2, "0")}`
+    );
+    tables.opportunities = {
+      rows: opportunityIds.map((id) =>
+        opportunityRow({
+          id,
+          ai_summary: "Existing summary.",
+          ai_summary_updated_at: STAMP,
+        })
+      ),
+    };
+    tables.activities = {
+      rows: opportunityIds.map((id) =>
+        noteActivity(id, "2026-07-21T18:00:00.000Z")
+      ),
+    };
+
+    const result = await runLeadSummaryRefresh({
+      supabase: mockSupabase,
+      mode: "refresh",
+      companyId: COMPANY_ID,
+      opportunityAfterId: opportunityIds[4],
+      opportunityLimit: 25,
+      maxLeadsPerRun: 5,
+      modelCallLimit: 5,
+      now: NOW,
+    });
+
+    expect(result.leadsScanned).toBe(25);
+    expect(result.opportunityWindow).toEqual({
+      companyId: COMPANY_ID,
+      afterOpportunityId: opportunityIds[4],
+      lastOpportunityId: opportunityIds[29],
+      full: true,
+    });
+    expect(result.modelCalls).toBe(5);
+    const hydratedOpportunitySets = selectCalls
+      .flatMap((call) => call.filters)
+      .filter(
+        ([kind, column, value]) =>
+          kind === "in" &&
+          (column === "opportunity_id" || column === "id") &&
+          Array.isArray(value) &&
+          (value as string[]).some((id) => id.startsWith("opportunity-"))
+      )
+      .map(([, , value]) => value as string[]);
+    expect(hydratedOpportunitySets.length).toBeGreaterThan(0);
+    expect(
+      Math.max(...hydratedOpportunitySets.map((ids) => ids.length))
+    ).toBeLessThanOrEqual(25);
+    expect(
+      hydratedOpportunitySets.every(
+        (ids) =>
+          !ids.includes(opportunityIds[4]) &&
+          !ids.includes(opportunityIds[30])
+      )
+    ).toBe(true);
+  });
+
+  it("counts contract retries against the five-call scheduled model budget", async () => {
+    const opportunityIds = Array.from(
+      { length: 5 },
+      (_, index) => `budget-opportunity-${index + 1}`
+    );
+    tables.opportunities = {
+      rows: opportunityIds.map((id) =>
+        opportunityRow({
+          id,
+          ai_summary: "Existing summary.",
+          ai_summary_updated_at: STAMP,
+        })
+      ),
+    };
+    tables.activities = {
+      rows: opportunityIds.map((id) =>
+        noteActivity(id, "2026-07-21T18:00:00.000Z")
+      ),
+    };
+    openAICreateMock.mockResolvedValue({
+      choices: [
+        {
+          finish_reason: "stop",
+          message: { refusal: null, content: "not-json" },
+        },
+      ],
+    });
+
+    const result = await runLeadSummaryRefresh({
+      supabase: mockSupabase,
+      mode: "refresh",
+      companyId: COMPANY_ID,
+      opportunityLimit: 25,
+      maxLeadsPerRun: 5,
+      modelCallLimit: 5,
+      now: NOW,
+    });
+
+    expect(openAICreateMock).toHaveBeenCalledTimes(5);
+    expect(result.modelCalls).toBe(5);
+    expect(result.modelCallLimitReached).toBe(true);
+  });
+
   it("retries once on a model contract error and succeeds", async () => {
     tables.opportunities = {
       rows: [
@@ -824,6 +1023,39 @@ describe("runLeadSummaryRefresh", () => {
     expect(supabaseRpcMock).toHaveBeenCalledTimes(1);
     expect(supabaseRpcMock.mock.calls[0][1]).toMatchObject({
       p_opportunity_id: OPP_B,
+    });
+  });
+
+  it("aborts the sweep on database gateway pressure instead of completing the workload as healthy", async () => {
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          ai_summary: "Existing summary.",
+          ai_summary_updated_at: STAMP,
+        }),
+      ],
+    };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+    supabaseRpcMock.mockReset();
+    supabaseRpcMock.mockResolvedValue({
+      data: null,
+      error: {
+        message: "Could not query the database for the schema cache",
+        code: "PGRST002",
+        status: 504,
+      },
+    });
+
+    await expect(
+      runLeadSummaryRefresh({
+        supabase: mockSupabase,
+        mode: "refresh",
+        now: NOW,
+      })
+    ).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
     });
   });
 
@@ -1046,7 +1278,213 @@ describe("refreshLeadSummariesForOpportunities", () => {
     );
   });
 
-  it("processes every touched opportunity across internal 40-lead batches", async () => {
+  it("refreshes Owen's null summary from the complete Owen and Jennifer conversation without calling a requested July 13 date confirmed", async () => {
+    const owenEmail = "owen.schellenberger@example.com";
+    const jenniferEmail = "jenvee12@example.com";
+    const acceptedProjectId = "1f4a718a-05c0-47b7-8823-7de51e717d97";
+    const sourceMessages = [
+      {
+        at: "2026-05-19T19:00:00.000Z",
+        direction: "inbound" as const,
+        body: "Jennifer introduced Owen for the project at 2745 Fernwood Rd.",
+        threadId: "thread-jennifer-placeholder",
+        fromEmail: jenniferEmail,
+        toEmails: ["operator@canpro.ca"],
+        ccEmails: [owenEmail],
+      },
+      {
+        at: "2026-05-20T19:00:00.000Z",
+        direction: "inbound" as const,
+        body: "We would like to proceed if you're still able to start us week of July 13. Can we connect to sort out paying the deposit? Could we ask your crew to help get some of the larger heavier items off the deck as I'm limited in how much weight I can do? If it goes up to a 2x6 we'll be whacking our heads on it even more than we do now. Looking forward to get going on this!",
+        threadId: "thread-owen-decisive",
+        fromEmail: owenEmail,
+        toEmails: ["operator@canpro.ca"],
+        ccEmails: [jenniferEmail],
+      },
+      {
+        at: "2026-05-21T19:00:00.000Z",
+        direction: "inbound" as const,
+        body: "Just paid Jackson's deposit.",
+        threadId: "thread-owen-decisive",
+        fromEmail: owenEmail,
+        toEmails: ["operator@canpro.ca"],
+        ccEmails: [jenniferEmail],
+      },
+      {
+        at: "2026-05-22T19:00:00.000Z",
+        direction: "outbound" as const,
+        body: "Thank you Owen, received!",
+        threadId: "thread-owen-decisive",
+        fromEmail: "operator@canpro.ca",
+        toEmails: [owenEmail],
+        ccEmails: [jenniferEmail],
+      },
+      {
+        at: "2026-05-23T19:00:00.000Z",
+        direction: "inbound" as const,
+        body: "Just sent deposit and the security answer via text. Let us know if we are on for Monday, July 13th.",
+        threadId: "thread-jennifer-placeholder",
+        fromEmail: jenniferEmail,
+        toEmails: ["operator@canpro.ca"],
+        ccEmails: [owenEmail],
+      },
+    ];
+    const activities = sourceMessages.map((message, index) => ({
+      ...emailActivity(
+        OPP_A,
+        message.at,
+        message.body,
+        message.direction
+      ),
+      id: `activity-owen-${index}`,
+      subject: "2745 Fernwood project",
+      email_message_id: `message-owen-${index}`,
+      email_thread_id: message.threadId,
+      to_emails: message.toEmails,
+      cc_emails: message.ccEmails,
+    }));
+    const events = activities.map((activity, index) =>
+      correspondenceEvent(activity, {
+        id: `event-owen-${index}`,
+        provider_thread_id: sourceMessages[index].threadId,
+        provider_message_id: `message-owen-${index}`,
+        from_email: sourceMessages[index].fromEmail,
+        to_emails: sourceMessages[index].toEmails,
+        cc_emails: sourceMessages[index].ccEmails,
+      })
+    );
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          client_id: "client-owen",
+          client_ref: null,
+          title: "Owen Schellenberger — Email Inquiry",
+          stage: "won",
+          stage_entered_at: "2026-05-23T19:00:00.000Z",
+          created_at: "2026-05-19T18:00:00.000Z",
+          contact_name: "Owen Schellenberger",
+          contact_email: owenEmail,
+          address: "2745 Fernwood Rd, Victoria BC",
+          source: "email",
+          ai_summary: null,
+          ai_summary_updated_at: null,
+          correspondence_count: activities.length,
+          project_ref: acceptedProjectId,
+          project_id: acceptedProjectId,
+        }),
+      ],
+    };
+    tables.clients = {
+      rows: [
+        {
+          id: "client-owen",
+          company_id: COMPANY_ID,
+          email: owenEmail,
+          deleted_at: null,
+        },
+      ],
+    };
+    tables.sub_clients = {
+      rows: [
+        {
+          id: "sub-client-jennifer",
+          company_id: COMPANY_ID,
+          client_id: "client-owen",
+          email: jenniferEmail,
+          deleted_at: null,
+        },
+      ],
+    };
+    tables.activities = { rows: activities };
+    tables.opportunity_correspondence_events = { rows: events };
+    tables.email_threads = {
+      rows: [
+        {
+          id: "thread-row-jennifer",
+          opportunity_id: OPP_A,
+          connection_id: "22222222-2222-2222-2222-222222222222",
+          provider_thread_id: "thread-jennifer-placeholder",
+          ai_summary: "Jennifer introduced Owen for the Fernwood project.",
+          last_message_at: "2026-05-23T19:00:00.000Z",
+        },
+        {
+          id: "thread-row-owen",
+          opportunity_id: OPP_A,
+          connection_id: "22222222-2222-2222-2222-222222222222",
+          provider_thread_id: "thread-owen-decisive",
+          ai_summary: "Owen paid the deposit and Canpro confirmed receipt.",
+          last_message_at: "2026-05-22T19:00:00.000Z",
+        },
+      ],
+    };
+    const summary =
+      "Owen and Jennifer paid the deposit for the 2745 Fernwood project, and Canpro confirmed receipt. Owen asked whether the crew can help move the larger heavy items. The next action is to respond about that help and confirm the work schedule.";
+    openAICreateMock.mockResolvedValue(modelResponse(summary));
+
+    const result = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds: [OPP_A],
+      now: NOW,
+    });
+    expect(result).toMatchObject({
+      requested: 1,
+      written: 1,
+      failed: [],
+      deferred: [],
+    });
+    const prompt = JSON.parse(
+      openAICreateMock.mock.calls[0][0].messages[1].content
+    );
+    expect(prompt.lead).toMatchObject({
+      stage: "won",
+      previous_summary: null,
+      address: "2745 Fernwood Rd, Victoria BC",
+    });
+    expect(prompt.emails.map((email: { body: string }) => email.body)).toEqual(
+      sourceMessages.map((message) => message.body)
+    );
+    const foldedThreadIds = new Set(
+      Object.values(prompt.conversation_fold.observations)
+        .flat()
+        .map(
+          (observation) =>
+            (observation as { provider_thread_id: string }).provider_thread_id
+        )
+    );
+    expect(foldedThreadIds).toEqual(
+      new Set(["thread-jennifer-placeholder", "thread-owen-decisive"])
+    );
+    expect(prompt.commercial_context).toMatchObject({
+      outcome: "won",
+      schedule: null,
+      next_action: "Confirm the work schedule.",
+    });
+    expect(prompt.current_fact_context).toMatchObject({
+      schedule: null,
+      next_action: "Confirm the work schedule.",
+    });
+    expect(
+      prompt.conversation_fold.observations.next_action
+        .map((observation: { text: string }) => observation.text)
+        .join(" ")
+    ).toMatch(/crew.*larger.*heavier items/i);
+    expect(summary).toMatch(/crew.*larger heavy items/i);
+    expect(summary).toMatch(/confirm the work schedule/i);
+    expect(updateCalls).toHaveLength(0);
+    expect(supabaseRpcMock).toHaveBeenCalledWith(
+      "commit_lead_summary_snapshot",
+      expect.objectContaining({
+        p_summary: summary,
+        p_expected_prior_summary: null,
+        p_expected_correspondence_count: 5,
+        p_expected_meaningful_event_count: 5,
+        p_expected_latest_meaningful_event_id: "event-owen-4",
+      })
+    );
+  });
+
+  it("processes at most five touched opportunities and returns the complete durable remainder", async () => {
     const opportunityIds = Array.from(
       { length: 41 },
       (_, index) => `opportunity-${String(index + 1).padStart(2, "0")}`
@@ -1075,17 +1513,43 @@ describe("refreshLeadSummariesForOpportunities", () => {
 
     expect(result).toMatchObject({
       requested: 41,
-      written: 41,
+      attempted: 5,
+      written: 5,
       failed: [],
+      remainingOpportunityIds: opportunityIds.slice(5),
     });
     expect(updateCalls).toHaveLength(0);
-    expect(supabaseRpcMock).toHaveBeenCalledTimes(41);
+    expect(supabaseRpcMock).toHaveBeenCalledTimes(5);
     const targetedOpportunityReads = selectCalls.filter(
       (call) =>
         call.table === "opportunities" &&
         call.filters.some(([kind, column]) => kind === "in" && column === "id")
     );
-    expect(targetedOpportunityReads).toHaveLength(2);
+    expect(targetedOpportunityReads).toHaveLength(1);
+  });
+
+  it("retains every targeted id when the feature gate is disabled", async () => {
+    const opportunityIds = Array.from(
+      { length: 7 },
+      (_, index) => `opportunity-${index + 1}`
+    );
+    isAIFeatureEnabledMock.mockResolvedValue(false);
+
+    const result = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds,
+      now: NOW,
+    });
+
+    expect(result).toMatchObject({
+      requested: 7,
+      attempted: 0,
+      written: 0,
+      skippedFeatureDisabled: true,
+      remainingOpportunityIds: opportunityIds,
+    });
+    expect(openAICreateMock).not.toHaveBeenCalled();
   });
 
   it("holds the corrupt touched lead as failed while refreshing another touched lead", async () => {
@@ -1309,12 +1773,81 @@ describe("refreshLeadSummariesForOpportunities", () => {
     });
 
     expect(result.deferred).toEqual([
-      { opportunityId: OPP_A, error: "429 You exceeded your current quota." },
+      {
+        opportunityId: OPP_A,
+        error: "429 You exceeded your current quota.",
+        reason: "provider_unavailable",
+      },
     ]);
     expect(result.failed).toEqual([]);
     expect(result.written).toBe(0);
+    expect(result.remainingOpportunityIds).toEqual([OPP_A]);
     // Generation threw before the guarded write, so the cursor-holding commit
     // path was never reached.
+    expect(supabaseRpcMock).not.toHaveBeenCalled();
+  });
+
+  it("defers a model-contract omission so derived summary work cannot hold the mailbox cursor", async () => {
+    tables.opportunities = { rows: [opportunityRow()] };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+    openAICreateMock.mockReset();
+    openAICreateMock.mockRejectedValue(
+      new LeadSummaryModelContractError(
+        "model omitted the current commercial schedule"
+      )
+    );
+
+    const result = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds: [OPP_A],
+      now: NOW,
+    });
+
+    expect(result.deferred).toEqual([
+      {
+        opportunityId: OPP_A,
+        error: expect.stringContaining(
+          "model omitted the current commercial schedule"
+        ),
+        reason: "model_contract",
+      },
+    ]);
+    expect(result.failed).toEqual([]);
+    expect(result.written).toBe(0);
+    expect(result.remainingOpportunityIds).toEqual([OPP_A]);
+    expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    expect(supabaseRpcMock).not.toHaveBeenCalled();
+  });
+
+  it("defers a model refusal so derived summary work cannot hold the mailbox cursor", async () => {
+    tables.opportunities = { rows: [opportunityRow()] };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+    openAICreateMock.mockReset();
+    openAICreateMock.mockRejectedValue(new LeadSummaryModelRefusalError());
+
+    const result = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds: [OPP_A],
+      now: NOW,
+    });
+
+    expect(result.deferred).toEqual([
+      {
+        opportunityId: OPP_A,
+        error: expect.stringContaining("model refused summary response"),
+        reason: "model_refusal",
+      },
+    ]);
+    expect(result.failed).toEqual([]);
+    expect(result.written).toBe(0);
+    expect(result.remainingOpportunityIds).toEqual([OPP_A]);
+    expect(openAICreateMock).toHaveBeenCalledTimes(1);
     expect(supabaseRpcMock).not.toHaveBeenCalled();
   });
 
@@ -1351,6 +1884,34 @@ describe("refreshLeadSummariesForOpportunities", () => {
     ]);
     expect(result.deferred).toEqual([]);
     expect(result.written).toBe(0);
+  });
+
+  it("aborts immediately on database gateway pressure instead of treating it as an AI-provider outage", async () => {
+    tables.opportunities = { rows: [opportunityRow()] };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+    supabaseRpcMock.mockReset();
+    supabaseRpcMock.mockResolvedValue({
+      data: null,
+      error: {
+        message: "upstream request timeout",
+        code: "PGRST002",
+        status: 504,
+      },
+    });
+
+    await expect(
+      refreshLeadSummariesForOpportunities({
+        supabase: mockSupabase,
+        companyId: COMPANY_ID,
+        opportunityIds: [OPP_A],
+        now: NOW,
+      })
+    ).rejects.toMatchObject({
+      name: "CronDatabaseOperationError",
+      message: "summary write failed: upstream request timeout",
+    });
   });
 
   it("routes a provider outage, a persistence failure, and a success into their own buckets", async () => {
@@ -1410,7 +1971,11 @@ describe("refreshLeadSummariesForOpportunities", () => {
 
     expect(result.requested).toBe(3);
     expect(result.deferred).toEqual([
-      { opportunityId: OPP_A, error: "429 You exceeded your current quota." },
+      {
+        opportunityId: OPP_A,
+        error: "429 You exceeded your current quota.",
+        reason: "provider_unavailable",
+      },
     ]);
     expect(result.failed).toEqual([
       {
@@ -1471,6 +2036,7 @@ describe("GET /api/cron/lead-summary-refresh", () => {
     });
     expect(supabaseFromMock).not.toHaveBeenCalled();
     expect(openAICreateMock).not.toHaveBeenCalled();
+    expect(runWithCronWorkloadControlMock).not.toHaveBeenCalled();
   });
 
   it("runs the refresh sweep when enabled", async () => {
@@ -1496,7 +2062,201 @@ describe("GET /api/cron/lead-summary-refresh", () => {
     expect(payload.summariesWritten).toBe(1);
     expect(updateCalls).toHaveLength(0);
     expect(supabaseRpcMock).toHaveBeenCalledTimes(1);
+    expect(runWithCronWorkloadControlMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        supabase: expect.objectContaining({
+          from: supabaseFromMock,
+          rpc: supabaseRpcMock,
+        }),
+        workloadKey: "lead-summary-refresh",
+        leaseSeconds: 360,
+        work: expect.any(Function),
+      })
+    );
   });
+
+  it("caps production work at one company, 25 hydrated opportunities, and five model calls", async () => {
+    const secondCompanyId = "22222222-2222-2222-2222-222222222222";
+    const opportunityIds = Array.from(
+      { length: 30 },
+      (_, index) => `route-opportunity-${String(index + 1).padStart(2, "0")}`
+    );
+    vi.stubEnv("CRON_SECRET", "top-secret");
+    vi.stubEnv("LEAD_SUMMARY_REFRESH_ENABLED", "true");
+    tables.admin_feature_overrides = {
+      rows: [
+        {
+          company_id: COMPANY_ID,
+          feature_key: "phase_c",
+          enabled: true,
+        },
+        {
+          company_id: secondCompanyId,
+          feature_key: "phase_c",
+          enabled: true,
+        },
+      ],
+    };
+    tables.opportunities = {
+      rows: [
+        ...opportunityIds.map((id) =>
+          opportunityRow({
+            id,
+            ai_summary: "Existing summary.",
+            ai_summary_updated_at: STAMP,
+          })
+        ),
+        opportunityRow({
+          id: "route-other-company-opportunity",
+          company_id: secondCompanyId,
+          ai_summary: "Existing summary.",
+          ai_summary_updated_at: STAMP,
+        }),
+      ],
+    };
+    tables.activities = {
+      rows: opportunityIds.map((id) =>
+        noteActivity(id, "2026-07-21T18:00:00.000Z")
+      ),
+    };
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      ok: true,
+      companiesConsidered: 1,
+      leadsScanned: 25,
+      modelCalls: 5,
+    });
+    expect(openAICreateMock).toHaveBeenCalledTimes(5);
+    expect(advanceCronWorkloadCursorMock).toHaveBeenCalledTimes(1);
+    const advanceArgs = advanceCronWorkloadCursorMock.mock.calls[0];
+    expect(advanceArgs[1]).toBe("lead-summary-refresh");
+    expect(advanceArgs[3]).toBeNull();
+    expect(decodeLeadSummaryRefreshCursor(advanceArgs[4])).toEqual({
+      companyId: COMPANY_ID,
+      afterOpportunityId: opportunityIds[24],
+    });
+    const hydratedOpportunitySets = selectCalls
+      .flatMap((call) => call.filters)
+      .filter(
+        ([kind, column, value]) =>
+          kind === "in" &&
+          column === "opportunity_id" &&
+          Array.isArray(value)
+      )
+      .map(([, , value]) => value as string[]);
+    expect(
+      Math.max(...hydratedOpportunitySets.map((ids) => ids.length))
+    ).toBeLessThanOrEqual(25);
+    expect(
+      hydratedOpportunitySets.every(
+        (ids) => !ids.includes("route-other-company-opportunity")
+      )
+    ).toBe(true);
+  });
+
+  it("rotates the durable cursor to the next company after a short opportunity window", async () => {
+    const secondCompanyId = "22222222-2222-2222-2222-222222222222";
+    vi.stubEnv("CRON_SECRET", "top-secret");
+    vi.stubEnv("LEAD_SUMMARY_REFRESH_ENABLED", "true");
+    tables.admin_feature_overrides = {
+      rows: [
+        {
+          company_id: COMPANY_ID,
+          feature_key: "phase_c",
+          enabled: true,
+        },
+        {
+          company_id: secondCompanyId,
+          feature_key: "phase_c",
+          enabled: true,
+        },
+      ],
+    };
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          ai_summary: "Existing summary.",
+          ai_summary_updated_at: STAMP,
+        }),
+      ],
+    };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+
+    expect(response.status).toBe(200);
+    const nextCursor = advanceCronWorkloadCursorMock.mock.calls[0][4];
+    expect(decodeLeadSummaryRefreshCursor(nextCursor)).toEqual({
+      companyId: secondCompanyId,
+      afterOpportunityId: null,
+    });
+  });
+
+  it("does not advance the durable cursor when the bounded window read fails", async () => {
+    vi.stubEnv("CRON_SECRET", "top-secret");
+    vi.stubEnv("LEAD_SUMMARY_REFRESH_ENABLED", "true");
+    tables.opportunities = {
+      rows: [],
+      error: { message: "database unavailable" },
+    };
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+
+    expect(response.status).toBe(500);
+    expect(advanceCronWorkloadCursorMock).not.toHaveBeenCalled();
+  });
+
+  it("returns an idempotent no-op while another refresh owns the lease", async () => {
+    vi.stubEnv("CRON_SECRET", "top-secret");
+    vi.stubEnv("LEAD_SUMMARY_REFRESH_ENABLED", "true");
+    runWithCronWorkloadControlMock.mockResolvedValue({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(supabaseFromMock).not.toHaveBeenCalled();
+    expect(openAICreateMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["circuit_open", "control_unavailable"] as const)(
+    "fails closed when durable workload control reports %s",
+    async (reason) => {
+      vi.stubEnv("CRON_SECRET", "top-secret");
+      vi.stubEnv("LEAD_SUMMARY_REFRESH_ENABLED", "true");
+      runWithCronWorkloadControlMock.mockResolvedValue({
+        status: "skipped",
+        reason,
+        ...(reason === "control_unavailable"
+          ? { error: new Error("control RPC unavailable") }
+          : {}),
+      });
+
+      const response = await GET(cronRequest("Bearer top-secret"));
+
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({
+        ok: false,
+        ran: false,
+        reason,
+      });
+      expect(supabaseFromMock).not.toHaveBeenCalled();
+      expect(openAICreateMock).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe("POST /api/cron/lead-summary-refresh", () => {

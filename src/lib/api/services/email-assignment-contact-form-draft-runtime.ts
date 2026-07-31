@@ -16,9 +16,13 @@ import {
 } from "./email-assignment-contact-form-draft-worker";
 import { AIDraftService } from "./ai-draft-service";
 import { EmailService } from "./email-service";
-import { placeNewThreadDraft } from "./mailbox-draft-push";
+import {
+  CONTACT_FORM_OUTREACH_SUBJECT,
+  placeNewThreadDraft,
+} from "./mailbox-draft-push";
 import { runWithEmailConnectionSyncLock } from "./email-connection-sync-lock";
 import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
+import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
 import {
   renderMailboxDraftWithSignature,
   resolveEmailSignatureForMessage,
@@ -262,8 +266,28 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
       return autonomy.CUSTOMER;
     },
 
-    generateDraft(input) {
-      return AIDraftService.generateDraft(input);
+    async generateDraft(input) {
+      const access = await resolveEmailOpportunityAccess({
+        actor: {
+          userId: input.userId,
+          companyId: input.companyId,
+        },
+        operation: "send",
+        connectionId: input.connectionId,
+        opportunityId: input.opportunityId,
+        supabase,
+      });
+      if (!access.allowed) {
+        throw new Error(
+          `Contact-form draft canonical access denied: ${access.reason}`
+        );
+      }
+      return AIDraftService.generateDraft({
+        ...input,
+        configuredSubject: CONTACT_FORM_OUTREACH_SUBJECT,
+        emailAccess: access,
+        sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      });
     },
 
     async prepare(input) {

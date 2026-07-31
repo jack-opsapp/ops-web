@@ -21,6 +21,25 @@ import type { PmfState } from "@/lib/pmf/types";
 
 // ─── Mock state ──────────────────────────────────────────────────────────────
 
+const workloadControlMocks = vi.hoisted(() => {
+  class CronDatabaseOperationError extends Error {
+    constructor(message: string, options: { cause: unknown }) {
+      super(message, options);
+      this.name = "CronDatabaseOperationError";
+    }
+  }
+
+  return {
+    CronDatabaseOperationError,
+    runWithCronWorkloadControl: vi.fn(),
+    observedWorkFailures: [] as unknown[],
+    adminClient: {
+      from: vi.fn(),
+      rpc: vi.fn(),
+    },
+  };
+});
+
 const sendPmfNotificationMock =
   vi.fn<
     (opts: {
@@ -49,11 +68,13 @@ vi.mock("@/lib/notifications/pmf-send", () => ({
     sendPmfNotificationMock(opts),
 }));
 
+vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
+  CronDatabaseOperationError: workloadControlMocks.CronDatabaseOperationError,
+  runWithCronWorkloadControl: workloadControlMocks.runWithCronWorkloadControl,
+}));
+
 vi.mock("@/lib/supabase/admin-client", () => ({
-  getAdminSupabase: () => ({
-    from: () => ({}),
-    rpc: async () => ({ data: null, error: null }),
-  }),
+  getAdminSupabase: () => workloadControlMocks.adminClient,
 }));
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -150,6 +171,21 @@ describe("GET /api/cron/pmf/daily-digest", () => {
   beforeEach(() => {
     sendPmfNotificationMock.mockReset();
     sendPmfNotificationMock.mockResolvedValue(undefined);
+    workloadControlMocks.runWithCronWorkloadControl.mockReset();
+    workloadControlMocks.observedWorkFailures.length = 0;
+    workloadControlMocks.runWithCronWorkloadControl.mockImplementation(
+      async ({ work }: { work: () => Promise<unknown> }) => {
+        try {
+          return {
+            status: "completed",
+            value: await work(),
+          };
+        } catch (error) {
+          workloadControlMocks.observedWorkFailures.push(error);
+          throw error;
+        }
+      }
+    );
     nextComputePmfStateResult = makeState();
     process.env.CRON_SECRET = VALID_SECRET;
   });
@@ -186,7 +222,57 @@ describe("GET /api/cron/pmf/daily-digest", () => {
     expect(json).toEqual({ ok: true });
 
     expect(sendPmfNotificationMock).toHaveBeenCalledTimes(1);
+    expect(
+      workloadControlMocks.runWithCronWorkloadControl
+    ).toHaveBeenCalledWith({
+      supabase: workloadControlMocks.adminClient,
+      workloadKey: "pmf-daily-digest",
+      leaseSeconds: 90,
+      work: expect.any(Function),
+    });
   });
+
+  it("returns an idempotent no-op when another daily digest owns the lease", async () => {
+    workloadControlMocks.runWithCronWorkloadControl.mockResolvedValue({
+      status: "skipped",
+      reason: "lease_held",
+    });
+
+    const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      ran: false,
+      reason: "already_running",
+    });
+    expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["circuit_open", "control_unavailable"] as const)(
+    "fails closed when workload control reports %s",
+    async (reason) => {
+      workloadControlMocks.runWithCronWorkloadControl.mockResolvedValue({
+        status: "skipped",
+        reason,
+        ...(reason === "control_unavailable"
+          ? { error: new Error("control RPC unavailable") }
+          : {}),
+      });
+
+      const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
+      const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({
+        ok: false,
+        ran: false,
+        reason,
+      });
+      expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+    }
+  );
 
   it("hands off the correct kind, trigger, subject, and a React element", async () => {
     const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
@@ -225,13 +311,20 @@ describe("GET /api/cron/pmf/daily-digest", () => {
     expect(json.error).toBe("daily digest failed");
     expect(errorSpy).toHaveBeenCalled();
     expect(sendPmfNotificationMock).not.toHaveBeenCalled();
+    expect(workloadControlMocks.observedWorkFailures).toHaveLength(1);
+    const [failure] = workloadControlMocks.observedWorkFailures;
+    expect(failure).toBeInstanceOf(
+      workloadControlMocks.CronDatabaseOperationError
+    );
+    expect((failure as Error & { cause?: unknown }).cause).toBe(
+      nextComputePmfStateResult
+    );
     errorSpy.mockRestore();
   });
 
-  it("returns 500 when sendPmfNotification throws", async () => {
-    sendPmfNotificationMock.mockRejectedValueOnce(
-      new Error("sendgrid transient 502")
-    );
+  it("keeps a notification provider failure outside the database circuit", async () => {
+    const providerFailure = new Error("sendgrid transient 502");
+    sendPmfNotificationMock.mockRejectedValueOnce(providerFailure);
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     const { GET } = await import("@/app/api/cron/pmf/daily-digest/route");
@@ -240,6 +333,12 @@ describe("GET /api/cron/pmf/daily-digest", () => {
     const json = (await res.json()) as { error: string };
     expect(json.error).toBe("daily digest failed");
     expect(errorSpy).toHaveBeenCalled();
+    expect(workloadControlMocks.observedWorkFailures).toEqual([
+      providerFailure,
+    ]);
+    expect(providerFailure).not.toBeInstanceOf(
+      workloadControlMocks.CronDatabaseOperationError
+    );
     errorSpy.mockRestore();
   });
 });

@@ -19,18 +19,18 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em]"
+            className="font-mohave text-caption-sm text-text-3 uppercase tracking-wide"
           >
             {label}
           </label>
         )}
         <div
           className={cn(
-            "flex items-center gap-2 rounded min-h-[36px]",
-            "bg-[rgba(255,255,255,0.04)]",
-            "border border-[rgba(255,255,255,0.10)]",
+            "flex min-h-9 items-center gap-2 rounded",
+            "bg-surface-input",
+            "border border-border",
             "transition-all duration-150",
-            "focus-within:border-[rgba(255,255,255,0.20)]",
+            "focus-within:border-line-hi",
             error && "border-rose-line focus-within:border-rose-line",
             prefixIcon ? "pl-3" : "pl-2",
             suffixIcon ? "pr-3" : "pr-2",

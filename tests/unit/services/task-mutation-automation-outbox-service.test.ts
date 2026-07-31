@@ -31,6 +31,10 @@ vi.mock("@/lib/integrations/onesignal", () => ({
 }));
 
 import { TaskMutationAutomationOutboxService } from "@/lib/api/services/task-mutation-automation-outbox-service";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "@/lib/api/services/cron-workload-control-service";
 
 const before = {
   start_date: "2026-07-21T16:00:00.000Z",
@@ -80,6 +84,10 @@ function database(options: {
   permission?: boolean;
   permissions?: boolean[];
   terminalFailed?: number;
+  terminalizeError?: { message: string; code?: string; status?: number };
+  claimError?: { message: string; code?: string; status?: number };
+  claimRejection?: unknown;
+  taskError?: unknown;
   notificationProof?: Record<string, unknown>;
 }) {
   const permissions = [...(options.permissions ?? [])];
@@ -89,13 +97,20 @@ function database(options: {
   const leaseOrder: string[] = [];
   const rpc = vi.fn(async (name: string, args?: Record<string, unknown>) => {
     if (name === "finalize_exhausted_task_schedule_automation_events") {
-      return { data: options.terminalFailed ?? 0, error: null };
+      return {
+        data: options.terminalizeError ? null : (options.terminalFailed ?? 0),
+        error: options.terminalizeError ?? null,
+      };
     }
     if (name === "claim_task_schedule_automation_events") {
+      if (options.claimRejection) throw options.claimRejection;
       const batch = claimBatches.shift() ?? [];
       const event = batch[0] as Record<string, unknown> | undefined;
       leaseOrder.push(`claim:${String(event?.event_id ?? "empty")}`);
-      return { data: batch, error: null };
+      return {
+        data: options.claimError ? null : batch,
+        error: options.claimError ?? null,
+      };
     }
     if (name === "authorize_task_action_as_system") {
       return {
@@ -154,7 +169,7 @@ function database(options: {
                 schedule_confirmed_at: after.schedule_confirmed_at,
               }
             : options.task,
-        error: null,
+        error: options.taskError ?? null,
       });
     }
     if (table === "users") {
@@ -302,6 +317,93 @@ describe("TaskMutationAutomationOutboxService", () => {
       })
     );
     expect(result.requeued).toBe(1);
+  });
+
+  it("stops without retry persistence when an effect reports database pressure", async () => {
+    effects.rescheduled.mockRejectedValueOnce(
+      new Error("PGRST002 schema cache unavailable")
+    );
+    const fake = database({
+      claimBatches: [[claim], [{ ...claim, event_id: "event-2" }]],
+    });
+
+    await expect(
+      TaskMutationAutomationOutboxService.processBatch(fake.client as never, {
+        limit: 2,
+      })
+    ).rejects.toThrow("PGRST002 schema cache unavailable");
+
+    expect(fake.rpc).not.toHaveBeenCalledWith(
+      "fail_task_schedule_automation_event",
+      expect.anything()
+    );
+    expect(fake.leaseOrder).toEqual(["claim:event-1"]);
+  });
+
+  it("preserves a code-only 53300 finalizer failure for the database circuit", async () => {
+    const fake = database({
+      terminalizeError: {
+        code: "53300",
+        message: "remaining connection slots are reserved",
+      },
+    });
+
+    const failure = await TaskMutationAutomationOutboxService.processBatch(
+      fake.client as never
+    ).catch((error: unknown) => error);
+
+    expect(isDatabasePressureError(failure)).toBe(true);
+    expect(fake.rpc).toHaveBeenCalledOnce();
+  });
+
+  it("preserves a rejected claim call as a database-origin failure", async () => {
+    const databaseCause = Object.assign(new Error("socket reset"), {
+      code: "ECONNRESET",
+    });
+    const fake = database({ claimRejection: databaseCause });
+
+    const failure = await TaskMutationAutomationOutboxService.processBatch(
+      fake.client as never
+    ).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(CronDatabaseOperationError);
+    expect(failure).toMatchObject({ cause: databaseCause });
+  });
+
+  it("stops before retry persistence or the next claim on a task-read gateway failure", async () => {
+    const fake = database({
+      claimBatches: [[claim], [{ ...claim, event_id: "event-2" }]],
+      taskError: { status: 525, message: "SSL handshake failed" },
+    });
+
+    await expect(
+      TaskMutationAutomationOutboxService.processBatch(fake.client as never, {
+        limit: 2,
+      })
+    ).rejects.toBeInstanceOf(CronDatabaseOperationError);
+
+    expect(fake.rpc).not.toHaveBeenCalledWith(
+      "fail_task_schedule_automation_event",
+      expect.anything()
+    );
+    expect(fake.leaseOrder).toEqual(["claim:event-1"]);
+  });
+
+  it("requeues an untagged external-provider 525 instead of opening the database circuit", async () => {
+    effects.rescheduled.mockRejectedValueOnce(
+      Object.assign(new Error("OpenAI SSL handshake failed"), { status: 525 })
+    );
+    const fake = database({});
+
+    const result = await TaskMutationAutomationOutboxService.processBatch(
+      fake.client as never
+    );
+
+    expect(result.requeued).toBe(1);
+    expect(fake.rpc).toHaveBeenCalledWith(
+      "fail_task_schedule_automation_event",
+      expect.anything()
+    );
   });
 
   it("surfaces expired max-attempt events even when there is nothing left to claim", async () => {

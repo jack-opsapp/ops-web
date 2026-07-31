@@ -26,14 +26,16 @@ import {
 import {
   LineItemEditor,
   createEmptyLineItem,
+  createLineItemRowFromLineItem,
+  computeLinePricingBreakdown,
   type LineItemRow,
 } from "@/components/ops/line-item-editor";
 import {
   InvoiceStatus,
-  calculateLineTotal,
   PAYMENT_TERMS_OPTIONS,
 } from "@/lib/types/pipeline";
 import type { Invoice, Product, CreateInvoice, CreateLineItem } from "@/lib/types/pipeline";
+import { useDefaultTaxRate } from "@/lib/hooks";
 
 /** Radix Select forbids an empty-string item value; this sentinel represents
  *  the optional "no project" choice and maps back to "" on change. */
@@ -86,6 +88,8 @@ export function InvoiceFormModal({
   const { t } = useDictionary("pipeline");
   const { t: tc } = useDictionary("common");
   const isEditing = !!invoice;
+  const { data: defaultTaxRate } = useDefaultTaxRate();
+  const appliedTaxRate = invoice?.taxRate ?? defaultTaxRate?.rate ?? 0;
 
   // State is fully prop-driven through the effect below. Initial values stay
   // blank so we never capture a stale list row that's missing its line items.
@@ -129,18 +133,7 @@ export function InvoiceFormModal({
       setInternalNotes(invoice.internalNotes ?? "");
       setLineItems(
         invoice.lineItems && invoice.lineItems.length > 0
-          ? invoice.lineItems.map((li) => ({
-              id: li.id,
-              name: li.name,
-              quantity: li.quantity,
-              unitPrice: li.unitPrice,
-              isTaxable: li.isTaxable,
-              discountPercent: li.discountPercent,
-              productId: li.productId,
-              unit: li.unit,
-              isOptional: li.isOptional,
-              isSelected: li.isSelected,
-            }))
+          ? invoice.lineItems.map(createLineItemRowFromLineItem)
           : [createEmptyLineItem()]
       );
     } else {
@@ -166,15 +159,32 @@ export function InvoiceFormModal({
         sortOrder: index, productId: li.productId,
         unit: li.unit, isOptional: li.isOptional, isSelected: li.isSelected,
         estimateId: null, invoiceId: null,
-        description: null, unitCost: null, taxRateId: null,
-        category: null, serviceDate: null,
+        description: null, unitCost: li.unitCost,
+        taxRateId: li.isTaxable
+          ? li.taxRateId ?? defaultTaxRate?.id ?? null
+          : null,
+        category: li.category, serviceDate: null,
+        parentLineItemId: null,
+        type: li.type,
+        taskTypeId: li.taskTypeId,
+        taskTypeRef: li.taskTypeRef,
+        unitId: li.unitId,
+        resolvedUnitPrice: li.resolvedUnitPrice,
+        minimumChargeSnapshot: li.minimumChargeSnapshot,
+        estimatedHours: li.estimatedHours,
+        configuredOptions: li.configuredOptions,
+        resolvedOptionsLabel: li.resolvedOptionsLabel,
       };
     });
 
-    const totals = mappedLineItems.reduce(
+    const totals = lineItems.reduce(
       (acc, li) => {
-        const lineTotal = calculateLineTotal(li.quantity, li.unitPrice, li.discountPercent);
-        return { subtotal: acc.subtotal + lineTotal, taxAmount: acc.taxAmount, discountAmount: acc.discountAmount };
+        const amount = computeLinePricingBreakdown(li, appliedTaxRate);
+        return {
+          subtotal: acc.subtotal + amount.subtotal,
+          taxAmount: acc.taxAmount + amount.tax,
+          discountAmount: acc.discountAmount + amount.discountAmount,
+        };
       },
       { subtotal: 0, taxAmount: 0, discountAmount: 0 }
     );
@@ -190,6 +200,7 @@ export function InvoiceFormModal({
       clientMessage: notes || null,
       internalNotes: internalNotes || null,
       subtotal: totals.subtotal,
+      taxRate: appliedTaxRate,
       taxAmount: totals.taxAmount,
       discountAmount: totals.discountAmount,
       total,
@@ -289,7 +300,13 @@ export function InvoiceFormModal({
           {/* Line Items */}
           <div className="space-y-0.5">
             <label className="font-mono text-micro text-text-3 uppercase tracking-[0.16em]">{t("invoices.form.lineItems")}</label>
-            <LineItemEditor items={lineItems} onChange={setLineItems} products={products} />
+            <LineItemEditor
+              items={lineItems}
+              onChange={setLineItems}
+              products={products}
+              taxRate={appliedTaxRate}
+              taxRateId={defaultTaxRate?.id ?? null}
+            />
           </div>
 
           {/* Notes */}
@@ -314,4 +331,3 @@ export function InvoiceFormModal({
     </Dialog>
   );
 }
-

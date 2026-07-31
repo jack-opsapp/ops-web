@@ -33,12 +33,9 @@
 //   delegates to the pure core. Any read failure is authoritative and retries
 //   ingestion before contact facts can be written with an incomplete denylist.
 //
-// DRY NOTE: opportunity-relationship-matching.ts defines normalizeEmail /
-// normalizePhone / normalizeAddress but does NOT export them (module-private
-// `function` declarations). Per the build rules we may not edit that file and a
-// private symbol cannot be imported, so the SAME normalization rules are
-// replicated verbatim below to guarantee identical canonicalization across the
-// layer. If those helpers are ever exported, swap these for the imports.
+// Email and phone normalization mirror the relationship matcher. Address
+// identity imports the shared property-level qualifier directly so locality
+// text can never enter the operator/customer exclusion set.
 
 import type { OperatorIdentity } from "@/lib/api/services/conversation-state/types";
 import type {
@@ -46,6 +43,7 @@ import type {
   SyncProfile,
 } from "@/lib/types/email-connection";
 import { PUBLIC_EMAIL_DOMAINS } from "@/lib/types/pipeline";
+import { normalizePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
 
 // ─── Normalization (mirrors opportunity-relationship-matching.ts) ─────────────
 
@@ -65,14 +63,8 @@ function normalizePhone(value: string | null | undefined): string | null {
     : digits;
 }
 
-/** Lowercased, punctuation-collapsed address; null under 8 chars. */
 function normalizeAddress(value: string | null | undefined): string | null {
-  const normalized = value
-    ?.toLowerCase()
-    .replace(/[.,#]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return normalized && normalized.length >= 8 ? normalized : null;
+  return normalizePropertyAddressIdentity(value);
 }
 
 /** The domain part of an email address, lowercased; null if absent. */
@@ -101,8 +93,15 @@ export interface OperatorCompanyInput {
 }
 
 export interface OperatorUserInput {
+  id?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   email: string;
   phone?: string | null;
+  emailAliases?: Array<{
+    email: string;
+    status: "pending" | "verified" | "rejected";
+  }>;
 }
 
 export interface BuildOperatorIdentityInput {
@@ -125,7 +124,7 @@ export interface BuildOperatorIdentityInput {
  * authoritative sources (connection + company users + company record) plus the
  * optional wizard profile, with normalization and de-duplication.
  *
- * Public email domains are intentionally RETAINED in `domains`.
+ * Public email domains are intentionally excluded from `domains`.
  */
 export function buildOperatorIdentity(
   input: BuildOperatorIdentityInput
@@ -134,6 +133,7 @@ export function buildOperatorIdentity(
   const domains = new Set<string>();
   const phones = new Set<string>();
   const addresses = new Set<string>();
+  const staffMembers: OperatorIdentity["staffMembers"] = [];
 
   // The operator DOMAIN set is match-by-domain, so it must hold PRIVATE/company
   // domains only. A public provider domain here would match every customer on
@@ -173,6 +173,36 @@ export function buildOperatorIdentity(
   for (const user of input.companyUsers) {
     addEmail(user.email);
     addPhone(user.phone);
+    const verifiedAliases = new Set<string>();
+    const pendingAliases = new Set<string>();
+    const rejectedAliases = new Set<string>();
+    for (const alias of user.emailAliases ?? []) {
+      const email = normalizeEmail(alias.email);
+      if (!email) continue;
+      if (alias.status === "verified") {
+        verifiedAliases.add(email);
+        addEmail(email);
+      } else if (alias.status === "pending") {
+        pendingAliases.add(email);
+      } else {
+        rejectedAliases.add(email);
+      }
+    }
+    const userId = user.id?.trim() ?? "";
+    const registeredEmail = normalizeEmail(user.email);
+    if (userId && registeredEmail) {
+      staffMembers.push({
+        userId,
+        registeredEmail,
+        fullName: [user.firstName?.trim(), user.lastName?.trim()]
+          .filter(Boolean)
+          .join(" "),
+        phone: normalizePhone(user.phone),
+        verifiedAliases,
+        pendingAliases,
+        rejectedAliases,
+      });
+    }
   }
 
   // 3) Company record.
@@ -190,7 +220,7 @@ export function buildOperatorIdentity(
 
   const companyName = input.company.name?.trim() || null;
 
-  return { emails, domains, phones, addresses, companyName };
+  return { emails, domains, phones, addresses, companyName, staffMembers };
 }
 
 // ─── Thin fetch wrapper (separate; pure core does NOT call this) ──────────────
@@ -209,7 +239,7 @@ export async function fetchOperatorIdentity(
   connection: Pick<EmailConnection, "email" | "syncFilters">
 ): Promise<OperatorIdentity> {
   const supabase = requireSupabase();
-  const [companyResult, usersResult] = await Promise.all([
+  const [companyResult, usersResult, aliasesResult] = await Promise.all([
     supabase
       .from("companies")
       .select("id, name, email, phone, address")
@@ -217,10 +247,14 @@ export async function fetchOperatorIdentity(
       .maybeSingle(),
     supabase
       .from("users")
-      .select("email, phone")
+      .select("id, first_name, last_name, email, phone")
       .eq("company_id", companyId)
       .eq("is_active", true)
       .is("deleted_at", null),
+    supabase
+      .from("user_email_aliases")
+      .select("user_id, email, status")
+      .eq("company_id", companyId),
   ]);
 
   if (companyResult.error) {
@@ -238,6 +272,11 @@ export async function fetchOperatorIdentity(
       `Failed to load operator user identities: ${usersResult.error.message}`
     );
   }
+  if (aliasesResult.error) {
+    throw new Error(
+      `Failed to load operator email aliases: ${aliasesResult.error.message}`
+    );
+  }
 
   const company = companyResult.data as {
     name: string | null;
@@ -246,13 +285,31 @@ export async function fetchOperatorIdentity(
     address: string | null;
   };
   const userRows = (usersResult.data ?? []) as Array<{
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
     email: string | null;
     phone: string | null;
   }>;
+  const aliasRows = (aliasesResult.data ?? []) as Array<{
+    user_id: string;
+    email: string;
+    status: "pending" | "verified" | "rejected";
+  }>;
+  const aliasesByUser = new Map<string, OperatorUserInput["emailAliases"]>();
+  for (const alias of aliasRows) {
+    const aliases = aliasesByUser.get(alias.user_id) ?? [];
+    aliases.push({ email: alias.email, status: alias.status });
+    aliasesByUser.set(alias.user_id, aliases);
+  }
 
   const companyUsers: OperatorUserInput[] = userRows.map((row) => ({
+    id: row.id,
+    firstName: row.first_name,
+    lastName: row.last_name,
     email: row.email ?? "",
     phone: row.phone,
+    emailAliases: aliasesByUser.get(row.id) ?? [],
   }));
   if (company.email) {
     companyUsers.push({ email: company.email, phone: company.phone });

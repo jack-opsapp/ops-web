@@ -314,7 +314,8 @@ export async function POST(req: NextRequest) {
 
     try {
       const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: "networkidle0" });
+      await page.setContent(html, { waitUntil: "load" });
+      await page.waitForNetworkIdle({ concurrency: 0, idleTime: 500 });
       const pdfBuffer = await page.pdf({
         format: "A4",
         printBackground: true,

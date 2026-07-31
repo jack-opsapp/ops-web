@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runWithEmailConnectionSyncLock } from "./email-connection-sync-lock";
+import { CronDatabaseOperationError } from "./cron-workload-control-service";
 
 export type EmailProviderMailboxCheckpoint = (force?: boolean) => Promise<void>;
 
@@ -62,6 +63,7 @@ export async function runEmailProviderMailboxOperation<T>(input: {
   context: string;
   busyError: string;
   providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
+  abortOnDatabaseError?: boolean;
   run: (checkpoint: EmailProviderMailboxCheckpoint) => Promise<T>;
 }): Promise<T> {
   let providerRunStarted = false;
@@ -87,9 +89,11 @@ export async function runEmailProviderMailboxOperation<T>(input: {
       connectionId: input.connectionId,
       context: input.context,
       client: input.supabase,
+      abortOnDatabaseError: input.abortOnDatabaseError,
       run: execute,
     });
   } catch (error) {
+    if (error instanceof CronDatabaseOperationError) throw error;
     // Provider errors originate while the callback is running and retain
     // their original type. Failures before the provider boundary or after a
     // completed provider operation are mailbox-lease failures and must not be

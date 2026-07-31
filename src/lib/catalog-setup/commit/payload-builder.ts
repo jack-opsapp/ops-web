@@ -22,6 +22,7 @@
 
 import type {
   BundleItemDoc,
+  CatalogOptionMappingDoc,
   CatalogSetupPayload,
   FamilyDoc,
   OptionValueDoc,
@@ -59,10 +60,16 @@ export interface TierInput {
 
 /** A recipe line (how much stock one unit draws down). */
 export interface RecipeInput {
+  /** Stable logical id so post-commit rules can resolve the persisted row. */
+  clientId?: string;
+  /** Existing recipe row updated in edit mode. */
+  id?: string;
   /** concrete variant pin (preferred) */
   catalogVariantId?: string;
+  catalogVariantClientId?: string;
   /** family id — REQUIRES a non-empty variantSelector to be valid */
   catalogItemId?: string;
+  catalogItemClientId?: string;
   /** fully-resolvable selector when pinning by family */
   variantSelector?: Record<string, unknown>;
   /** defaults to 1 */
@@ -70,6 +77,42 @@ export interface RecipeInput {
   notes?: string;
   scaledByOptionClientId?: string;
   unitId?: string;
+}
+
+export interface ProductOptionValueInput {
+  clientId?: string;
+  id?: string;
+  label: string;
+  sortOrder?: number;
+}
+
+export interface ProductOptionInput {
+  clientId?: string;
+  id?: string;
+  name: string;
+  kind: "select" | "integer" | "boolean" | "text";
+  affectsPrice?: boolean;
+  affectsRecipe?: boolean;
+  required?: boolean;
+  defaultValue?: string | null;
+  sortOrder?: number;
+  values?: ProductOptionValueInput[];
+}
+
+export interface CatalogOptionMappingInput {
+  clientId?: string;
+  id?: string;
+  catalogItemId?: string;
+  catalogItemClientId?: string;
+  catalogOptionId?: string;
+  catalogOptionClientId?: string;
+  productOptionId?: string;
+  productOptionClientId?: string;
+  catalogOptionValueId?: string;
+  catalogOptionValueClientId?: string;
+  productOptionValueId?: string;
+  productOptionValueClientId?: string;
+  mappingKind: string;
 }
 
 /** A child line of a bundle/package product. */
@@ -106,11 +149,15 @@ export interface ProductInput {
   minimumCharge?: number;
   minimumQuantity?: number;
   linkedCatalogItemId?: string;
+  taskTypeId?: string;
+  taskTypeRef?: string;
   bundlePricingMode?: string;
   externalSource?: string;
   externalId?: string;
   /** present → expands to option + values + add_flat modifiers */
   tier?: TierInput;
+  options?: ProductOptionInput[];
+  catalogOptionMappings?: CatalogOptionMappingInput[];
   recipes?: RecipeInput[];
   bundleItems?: BundleItemInput[];
 }
@@ -150,6 +197,13 @@ export interface FamilyInput {
   externalSource?: string;
   externalId?: string;
   variants?: VariantInput[];
+  options?: Array<{
+    clientId?: string;
+    id?: string;
+    name: string;
+    sortOrder?: number;
+    values: ProductOptionValueInput[];
+  }>;
 }
 
 export interface BuilderInput {
@@ -249,8 +303,10 @@ function mapRecipe(
   ordinal: number
 ): ProductMaterialDoc {
   const hasConcreteVariant =
-    typeof recipe.catalogVariantId === "string" &&
-    recipe.catalogVariantId.length > 0;
+    (typeof recipe.catalogVariantId === "string" &&
+      recipe.catalogVariantId.length > 0) ||
+    (typeof recipe.catalogVariantClientId === "string" &&
+      recipe.catalogVariantClientId.length > 0);
   const hasResolvableSelector = isNonEmptyObject(recipe.variantSelector);
 
   if (!hasConcreteVariant && !hasResolvableSelector) {
@@ -261,17 +317,95 @@ function mapRecipe(
   }
 
   const doc: ProductMaterialDoc = {
-    client_id: mintClientId(productClientId, "mat", ordinal),
+    client_id:
+      recipe.clientId ?? mintClientId(productClientId, "mat", ordinal),
     quantity_per_unit: recipe.quantityPerUnit ?? 1,
   };
+  if (recipe.id != null) doc.id = recipe.id;
   if (recipe.notes != null) doc.notes = recipe.notes;
   if (hasConcreteVariant) doc.catalog_variant_id = recipe.catalogVariantId;
+  if (recipe.catalogVariantClientId != null)
+    doc.catalog_variant_client_id = recipe.catalogVariantClientId;
   if (recipe.catalogItemId != null) doc.catalog_item_id = recipe.catalogItemId;
+  if (recipe.catalogItemClientId != null)
+    doc.catalog_item_client_id = recipe.catalogItemClientId;
   if (hasResolvableSelector) doc.variant_selector = recipe.variantSelector;
   if (recipe.scaledByOptionClientId != null)
     doc.scaled_by_option_client_id = recipe.scaledByOptionClientId;
   if (recipe.unitId != null) doc.unit_id = recipe.unitId;
   return doc;
+}
+
+function mapOption(
+  productClientId: string,
+  option: ProductOptionInput,
+  ordinal: number,
+): ProductOptionDoc {
+  const clientId =
+    option.clientId ?? mintClientId(productClientId, "opt", ordinal);
+  return {
+    client_id: clientId,
+    ...(option.id ? { id: option.id } : {}),
+    name: option.name,
+    kind: option.kind,
+    affects_price: option.affectsPrice ?? false,
+    affects_recipe: option.affectsRecipe ?? false,
+    required: option.required ?? false,
+    default_value: option.defaultValue ?? null,
+    sort_order: option.sortOrder ?? ordinal,
+    values: (option.values ?? []).map((value, valueOrdinal) => ({
+      client_id:
+        value.clientId ??
+        mintClientId(clientId, "value", valueOrdinal),
+      ...(value.id ? { id: value.id } : {}),
+      label: value.label,
+      sort_order: value.sortOrder ?? valueOrdinal,
+    })),
+  };
+}
+
+function mapCatalogOptionMapping(
+  productClientId: string,
+  mapping: CatalogOptionMappingInput,
+  ordinal: number,
+): CatalogOptionMappingDoc {
+  return {
+    client_id:
+      mapping.clientId ??
+      mintClientId(productClientId, "catalog-map", ordinal),
+    ...(mapping.id ? { id: mapping.id } : {}),
+    mapping_kind: mapping.mappingKind,
+    ...(mapping.catalogItemId
+      ? { catalog_item_id: mapping.catalogItemId }
+      : {}),
+    ...(mapping.catalogItemClientId
+      ? { catalog_item_client_id: mapping.catalogItemClientId }
+      : {}),
+    ...(mapping.catalogOptionId
+      ? { catalog_option_id: mapping.catalogOptionId }
+      : {}),
+    ...(mapping.catalogOptionClientId
+      ? { catalog_option_client_id: mapping.catalogOptionClientId }
+      : {}),
+    ...(mapping.productOptionId
+      ? { product_option_id: mapping.productOptionId }
+      : {}),
+    ...(mapping.productOptionClientId
+      ? { product_option_client_id: mapping.productOptionClientId }
+      : {}),
+    ...(mapping.catalogOptionValueId
+      ? { catalog_option_value_id: mapping.catalogOptionValueId }
+      : {}),
+    ...(mapping.catalogOptionValueClientId
+      ? { catalog_option_value_client_id: mapping.catalogOptionValueClientId }
+      : {}),
+    ...(mapping.productOptionValueId
+      ? { product_option_value_id: mapping.productOptionValueId }
+      : {}),
+    ...(mapping.productOptionValueClientId
+      ? { product_option_value_client_id: mapping.productOptionValueClientId }
+      : {}),
+  };
 }
 
 function mapBundleItem(
@@ -319,6 +453,8 @@ function mapProduct(input: ProductInput): ProductDoc {
     doc.minimum_quantity = input.minimumQuantity;
   if (input.linkedCatalogItemId != null)
     doc.linked_catalog_item_id = input.linkedCatalogItemId;
+  if (input.taskTypeId != null) doc.task_type_id = input.taskTypeId;
+  if (input.taskTypeRef != null) doc.task_type_ref = input.taskTypeRef;
   if (input.bundlePricingMode != null)
     doc.bundle_pricing_mode = input.bundlePricingMode;
   if (input.externalSource != null) doc.external_source = input.externalSource;
@@ -335,6 +471,16 @@ function mapProduct(input: ProductInput): ProductDoc {
     doc.options = [option];
     if (modifiers.length > 0) doc.pricing_modifiers = modifiers;
   }
+  if (input.options && input.options.length > 0) {
+    if (input.tier) {
+      throw new PayloadBuildError(
+        "A product cannot define both a tier shortcut and explicit options.",
+      );
+    }
+    doc.options = input.options.map((option, index) =>
+      mapOption(input.clientId, option, index),
+    );
+  }
   if (resolvedBase != null) {
     doc.base_price = resolvedBase;
     doc.default_price = resolvedBase; // builder mirrors base→default
@@ -343,6 +489,15 @@ function mapProduct(input: ProductInput): ProductDoc {
   if (input.recipes && input.recipes.length > 0) {
     doc.product_materials = input.recipes.map((r, i) =>
       mapRecipe(input.clientId, r, i)
+    );
+  }
+  if (
+    input.catalogOptionMappings &&
+    input.catalogOptionMappings.length > 0
+  ) {
+    doc.catalog_option_mappings = input.catalogOptionMappings.map(
+      (mapping, index) =>
+        mapCatalogOptionMapping(input.clientId, mapping, index),
     );
   }
   if (input.bundleItems && input.bundleItems.length > 0) {
@@ -403,6 +558,8 @@ export function buildCatalogSetupPayload(
 
   if (input.family) {
     const family: FamilyDoc = { name: input.family.name };
+    if (input.family.clientId != null)
+      family.client_id = input.family.clientId;
     if (input.family.id != null) family.id = input.family.id;
     if (input.family.categoryId != null)
       family.category_id = input.family.categoryId;
@@ -417,6 +574,27 @@ export function buildCatalogSetupPayload(
 
     if (input.family.variants && input.family.variants.length > 0) {
       payload.variants = input.family.variants.map(mapVariant);
+    }
+    if (input.family.options && input.family.options.length > 0) {
+      payload.catalog_options = input.family.options.map((option, index) => {
+        const clientId =
+          option.clientId ??
+          mintClientId(input.family!.clientId ?? input.family!.name, "catalog-opt", index);
+        return {
+          client_id: clientId,
+          ...(option.id ? { id: option.id } : {}),
+          name: option.name,
+          sort_order: option.sortOrder ?? index,
+          values: option.values.map((value, valueIndex) => ({
+            client_id:
+              value.clientId ??
+              mintClientId(clientId, "value", valueIndex),
+            ...(value.id ? { id: value.id } : {}),
+            label: value.label,
+            sort_order: value.sortOrder ?? valueIndex,
+          })),
+        };
+      });
     }
   }
 

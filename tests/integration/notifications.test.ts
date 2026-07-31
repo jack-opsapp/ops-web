@@ -210,7 +210,7 @@ function miniEmailReact(): ReactElement {
 const RECIPIENT_SMS = "+15555550123";
 const RECIPIENT_EMAIL = "pmf-integration@ops.test";
 const OPERATOR_UID = "operator-integration-uid";
-const OPERATOR_COMPANY = "ops-platform-integration";
+const OPERATOR_COMPANY = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 
 beforeEach(() => {
   tracker.smsCalls.length = 0;

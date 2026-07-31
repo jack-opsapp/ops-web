@@ -14,6 +14,7 @@ import {
   extractPhoneFromBody,
 } from "@/lib/utils/body-fact-extractors";
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
+import { parsePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
 
 type OpportunitySourceValue =
   | "referral"
@@ -783,6 +784,11 @@ export function buildLeadEnrichmentUpdates(input: {
   const { existingOpportunity, existingClient, facts, protectedFields } = input;
   const opportunity: Record<string, unknown> = {};
   const client: Record<string, unknown> = {};
+  const cleanedAddress = cleanText(facts.address);
+  const propertyAddress =
+    cleanedAddress && parsePropertyAddressIdentity(cleanedAddress)
+      ? cleanedAddress
+      : null;
   const incomingSource = provenanceSourceForFacts(facts);
   const incomingConfidence = provenanceConfidenceForFacts(
     facts,
@@ -834,7 +840,7 @@ export function buildLeadEnrichmentUpdates(input: {
       opportunity.contact_phone = facts.contactPhone;
     }
     if (
-      facts.address &&
+      propertyAddress &&
       !protectedFields?.opportunity.has("contact_address") &&
       (isWeakText(existingOpportunity.address) ||
         hasStrictlyBetterMatchingEvidence(
@@ -844,7 +850,7 @@ export function buildLeadEnrichmentUpdates(input: {
           protectedFields?.opportunityEvidence
         ))
     ) {
-      opportunity.address = facts.address;
+      opportunity.address = propertyAddress;
     }
     if (
       facts.estimatedValue != null &&
@@ -965,7 +971,7 @@ export function buildLeadEnrichmentUpdates(input: {
       client.phone_number = facts.contactPhone;
     }
     if (
-      facts.address &&
+      propertyAddress &&
       !protectedFields?.client.has("contact_address") &&
       (isWeakText(existingClient.address) ||
         hasStrictlyBetterMatchingEvidence(
@@ -975,7 +981,7 @@ export function buildLeadEnrichmentUpdates(input: {
           protectedFields?.clientEvidence
         ))
     ) {
-      client.address = facts.address;
+      client.address = propertyAddress;
     }
   }
 

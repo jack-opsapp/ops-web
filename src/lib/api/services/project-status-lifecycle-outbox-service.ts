@@ -4,6 +4,10 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { runWithSupabase } from "@/lib/supabase/helpers";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "./cron-workload-control-service";
 import { ProjectLifecycleService } from "./project-lifecycle-service";
 
 interface ProjectStatusLifecycleClaim {
@@ -82,9 +86,13 @@ export const ProjectStatusLifecycleOutboxService = {
       !Number.isSafeInteger(terminalized) ||
       terminalized < 0
     ) {
-      throw new Error(
-        `Failed to terminalize project lifecycle events: ${terminalizeError?.message ?? "invalid result"}`
-      );
+      const message = `Failed to terminalize project lifecycle events: ${terminalizeError?.message ?? "invalid result"}`;
+      if (terminalizeError) {
+        throw new CronDatabaseOperationError(message, {
+          cause: terminalizeError,
+        });
+      }
+      throw new Error(message);
     }
     const workerId = options.workerId ?? randomUUID();
     const result: ProjectStatusLifecycleBatchResult = {
@@ -108,8 +116,9 @@ export const ProjectStatusLifecycleOutboxService = {
         }
       );
       if (error) {
-        throw new Error(
-          `Failed to claim project lifecycle events: ${error.message}`
+        throw new CronDatabaseOperationError(
+          `Failed to claim project lifecycle events: ${error.message}`,
+          { cause: error }
         );
       }
       const claims = (data ?? []) as unknown[];
@@ -131,7 +140,12 @@ export const ProjectStatusLifecycleOutboxService = {
             .eq("company_id", claim.company_id)
             .is("deleted_at", null)
             .maybeSingle();
-          if (actorError) throw actorError;
+          if (actorError) {
+            throw new CronDatabaseOperationError(
+              `Project lifecycle actor lookup failed: ${actorError.message}`,
+              { cause: actorError }
+            );
+          }
           actorName =
             [actor?.first_name, actor?.last_name]
               .filter(
@@ -165,12 +179,19 @@ export const ProjectStatusLifecycleOutboxService = {
           }
         );
         if (completeError || completed !== true) {
-          throw new Error(
-            completeError?.message ?? "Project lifecycle lease was lost"
-          );
+          if (completeError) {
+            throw new CronDatabaseOperationError(
+              completeError.message ?? "Project lifecycle lease was lost",
+              { cause: completeError }
+            );
+          }
+          throw new Error("Project lifecycle lease was lost");
         }
         result.completed += 1;
       } catch (error) {
+        if (isDatabasePressureError(error)) {
+          throw error;
+        }
         const failure = message(error);
         const { data: disposition, error: persistError } = await db.rpc(
           "fail_project_status_lifecycle_event",
@@ -182,6 +203,13 @@ export const ProjectStatusLifecycleOutboxService = {
           }
         );
         if (persistError) {
+          const persistenceDatabaseError = new CronDatabaseOperationError(
+            `Project lifecycle failure persistence failed: ${persistError.message}`,
+            { cause: persistError }
+          );
+          if (isDatabasePressureError(persistenceDatabaseError)) {
+            throw persistenceDatabaseError;
+          }
           result.errors.push({
             eventId: claim.event_id,
             message: `${failure}; failure persistence: ${persistError.message}`,

@@ -1,4 +1,5 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { CronDatabaseOperationError } from "./cron-workload-error-contract";
 
 export type NotificationType =
   | "mention"
@@ -99,6 +100,26 @@ export interface CreateNotificationParams {
   deepLinkType?: NotificationDeepLinkType;
 }
 
+function createNotificationRpcArgs(
+  params: CreateNotificationParams
+): Record<string, unknown> {
+  const rpcArgs: Record<string, unknown> = {
+    p_user_id: params.userId,
+    p_company_id: params.companyId,
+    p_type: params.type,
+    p_title: params.title,
+    p_body: params.body,
+    p_persistent: params.persistent ?? false,
+    p_action_url: params.actionUrl ?? null,
+    p_action_label: params.actionLabel ?? null,
+    p_project_id: params.projectId ?? null,
+  };
+  if (params.deepLinkType !== undefined) {
+    rpcArgs.p_deep_link_type = params.deepLinkType;
+  }
+  return rpcArgs;
+}
+
 export const NotificationService = {
   /**
    * General-purpose notification creation. Use this for all new notification types.
@@ -117,25 +138,40 @@ export const NotificationService = {
     // notifications. Only deep-link-aware callers require the migrated 10-arg
     // function (migration 20260609181500), and that migration must land before
     // their code deploys.
-    const rpcArgs: Record<string, unknown> = {
-      p_user_id: params.userId,
-      p_company_id: params.companyId,
-      p_type: params.type,
-      p_title: params.title,
-      p_body: params.body,
-      p_persistent: params.persistent ?? false,
-      p_action_url: params.actionUrl ?? null,
-      p_action_label: params.actionLabel ?? null,
-      p_project_id: params.projectId ?? null,
-    };
-    if (params.deepLinkType !== undefined) {
-      rpcArgs.p_deep_link_type = params.deepLinkType;
-    }
-
-    const { error } = await supabase.rpc("create_notification_if_new", rpcArgs);
+    const { error } = await supabase.rpc(
+      "create_notification_if_new",
+      createNotificationRpcArgs(params)
+    );
 
     if (error) {
       console.error("[NotificationService.create] Failed:", error.message);
+    }
+  },
+
+  /**
+   * Pressure-aware creation for cron work. The normal `create` API remains
+   * fail-soft for interactive callers; this strict variant preserves the raw
+   * Supabase failure so a controlled workload can abort immediately.
+   */
+  async createOrThrow(params: CreateNotificationParams): Promise<void> {
+    const supabase = requireSupabase();
+    let result: { error: unknown };
+    try {
+      result = await supabase.rpc(
+        "create_notification_if_new",
+        createNotificationRpcArgs(params)
+      );
+    } catch (cause) {
+      throw new CronDatabaseOperationError(
+        "Notification creation was unreachable",
+        { cause }
+      );
+    }
+    if (result.error) {
+      throw new CronDatabaseOperationError(
+        "Notification creation failed",
+        { cause: result.error }
+      );
     }
   },
 

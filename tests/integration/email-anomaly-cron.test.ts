@@ -42,6 +42,7 @@ const captures = {
   metrics: { value: null as MetricsResp | null },
   recent: [] as AnomalyRow[],
 };
+const OPERATOR_COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 
 const pauseMock = vi.fn(async (_input: unknown) => ({
   state: {
@@ -58,6 +59,34 @@ const pauseMock = vi.fn(async (_input: unknown) => ({
 vi.mock("@/lib/email/pause", () => ({
   pause: (input: unknown) => pauseMock(input),
 }));
+
+vi.mock(
+  "@/lib/api/services/cron-workload-control-service",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/api/services/cron-workload-control-service")
+      >();
+    const workloadLease = {
+      ownerToken: "email-anomaly-test-owner",
+      fenceToken: 1,
+      globalFenceToken: 1,
+      expiresAt: "2099-01-01T00:00:00.000Z",
+      signal: new AbortController().signal,
+    };
+    return {
+      ...actual,
+      runWithCronWorkloadControl: async ({
+        work,
+      }: {
+        work: (lease: typeof workloadLease) => Promise<unknown>;
+      }) => ({
+        status: "completed",
+        value: await work(workloadLease),
+      }),
+    };
+  }
+);
 
 vi.mock("@/lib/supabase/server-client", () => {
   const fromBuilder = (table: string) => {
@@ -117,7 +146,7 @@ beforeEach(() => {
   process.env.CRON_SECRET = "test-secret";
   process.env.PMF_OPERATOR_USER_ID = "u-op";
   process.env.PMF_NOTIFICATION_EMAIL = "ops@opsapp.co";
-  process.env.PMF_OPERATOR_COMPANY_ID = "co-op";
+  process.env.PMF_OPERATOR_COMPANY_ID = OPERATOR_COMPANY_ID;
 });
 
 function buildReq(auth?: string): NextRequest {
