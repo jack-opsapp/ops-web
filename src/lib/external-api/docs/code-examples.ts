@@ -124,7 +124,7 @@ function javascriptExample(
       ]
     : [];
   return [
-    'const token = process.env.OPS_API_TOKEN;',
+    "const token = process.env.OPS_API_TOKEN;",
     'if (!token) throw new Error("OPS_API_TOKEN is required");',
     "",
     functionSignature,
@@ -194,7 +194,7 @@ function phpExample(
     "curl_close($request);",
     "",
     "if ($response === false || $status >= 400) {",
-    "    throw new RuntimeException(\"OPS request failed: {$status}\");",
+    '    throw new RuntimeException("OPS request failed: {$status}");',
     "}",
     "$result = json_decode($response, true, flags: JSON_THROW_ON_ERROR);",
   ].join("\n");
@@ -209,9 +209,7 @@ export function buildExternalApiCodeExamples(
         (candidate) => candidate.operationId === operationId
       );
       if (!operation) {
-        throw new Error(
-          `Missing operation for code examples: ${operationId}`
-        );
+        throw new Error(`Missing operation for code examples: ${operationId}`);
       }
       return [
         operationId,

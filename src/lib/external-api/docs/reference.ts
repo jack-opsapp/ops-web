@@ -25,8 +25,7 @@ export interface ExternalApiReferenceField {
   constraints: string[];
 }
 
-export interface ExternalApiReferenceParameter
-  extends ExternalApiReferenceField {
+export interface ExternalApiReferenceParameter extends ExternalApiReferenceField {
   location: "header" | "path" | "query";
 }
 
@@ -286,10 +285,7 @@ function findOperation(
         operationId,
         method,
         path,
-        summary: requireString(
-          rawOperation.summary,
-          `${operationId} summary`
-        ),
+        summary: requireString(rawOperation.summary, `${operationId} summary`),
         description: requireString(
           rawOperation.description,
           `${operationId} description`
@@ -347,10 +343,7 @@ export function buildExternalApiReference(
     openApiVersion: document.openapi,
     apiVersion: requireString(document.info.version, "info version"),
     title: requireString(document.info.title, "info title"),
-    description: requireString(
-      document.info.description,
-      "info description"
-    ),
+    description: requireString(document.info.description, "info description"),
     baseUrl: requireString(server.url, "server URL"),
     operations: EXTERNAL_API_REFERENCE_OPERATION_IDS.map((operationId) =>
       findOperation(document, operationId)
@@ -358,6 +351,5 @@ export function buildExternalApiReference(
   };
 }
 
-export const externalApiReference = buildExternalApiReference(
-  externalApiDocument
-);
+export const externalApiReference =
+  buildExternalApiReference(externalApiDocument);
