@@ -28,6 +28,7 @@ const {
     additionalConnections: [] as Array<Record<string, unknown>>,
     additionalCompanies: [] as Array<Record<string, unknown>>,
     additionalUsers: [] as Array<Record<string, unknown>>,
+    primaryConnectionOverrides: {} as Record<string, unknown>,
     companyLookupIds: [] as string[],
     integrationPermissionAllowed: true,
     connectionHealthy: false,
@@ -92,6 +93,7 @@ vi.mock("@/lib/supabase/server-client", () => ({
                     : null,
                   last_synced_at: healthy ? new Date().toISOString() : null,
                   created_at: "2020-01-01T00:00:00.000Z",
+                  ...heartbeatState.primaryConnectionOverrides,
                 },
                 ...heartbeatState.additionalConnections,
               ],
@@ -203,9 +205,7 @@ vi.mock("@/lib/supabase/server-client", () => ({
           select: () => query,
           in: () => query,
           eq: () => query,
-          then: (
-            resolve: (value: { data: never[]; error: null }) => unknown
-          ) =>
+          then: (resolve: (value: { data: never[]; error: null }) => unknown) =>
             Promise.resolve({ data: [], error: null }).then(resolve),
         };
         return { select: query.select };
@@ -283,6 +283,7 @@ describe("email ingest heartbeat delivery semantics", () => {
     heartbeatState.additionalConnections.length = 0;
     heartbeatState.additionalCompanies.length = 0;
     heartbeatState.additionalUsers.length = 0;
+    heartbeatState.primaryConnectionOverrides = {};
     heartbeatState.companyLookupIds.length = 0;
     heartbeatState.integrationPermissionAllowed = true;
     heartbeatState.connectionHealthy = false;
@@ -547,6 +548,38 @@ describe("email ingest heartbeat delivery semantics", () => {
         p_dedupe_key: "email-ingest-health:connection-1",
       }),
     });
+  });
+
+  it("reports stale OPS processing without calling an authorized Gmail mailbox disconnected", async () => {
+    heartbeatState.primaryConnectionOverrides = {
+      webhook_subscription_id: "watch-1",
+      webhook_expires_at: "2999-01-01T00:00:00.000Z",
+      last_synced_at: "2020-01-01T00:00:00.000Z",
+    };
+    sendInboxConnectionDownMock.mockResolvedValue({
+      status: "sent",
+      messageId: "sg-message-1",
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(heartbeatState.notificationInserts).toContainEqual(
+      expect.objectContaining({
+        title: "Inbox processing is delayed",
+        body: "owner@example.com is still connected. OPS has not processed recent mail. Automatic retry is active.",
+        action_label: "CHECK INBOX STATUS",
+      })
+    );
+    expect(JSON.stringify(heartbeatState.notificationInserts)).not.toContain(
+      "disconnected"
+    );
+    expect(sendInboxConnectionDownMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: "sync_stale",
+        reconnectUrl: "https://ops.test/settings?tab=integrations",
+      })
+    );
   });
 
   it("treats an already-open deduped rail alert as delivered", async () => {
