@@ -887,6 +887,86 @@ describe("GuidedCatalogSetup", () => {
     expect(assistantMessage).not.toHaveClass("font-cakemono");
   });
 
+  it("shows a selected quick answer after the question it answered and removes the synthetic repeat", async () => {
+    const inventoryQuestion =
+      "How should OPS handle DekSmart membrane purchasing and inventory for vinyl decking?";
+    const selectedAnswer =
+      "Track membrane as rolls/sheets; purchasing and inventory need roll/sheet dimensions, coverage, and cost details before setup can be ready.";
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(() =>
+      response({
+        session: {
+          ...baseSession,
+          version: 12,
+          conversation: [
+            {
+              id: "assistant:10:membrane-inventory",
+              role: "assistant",
+              kind: "text",
+              content: inventoryQuestion,
+              version: 10,
+            },
+            {
+              id: "operator-input:input-1",
+              inputId: "input-1",
+              state: "accepted",
+              role: "operator",
+              kind: "text",
+              content: selectedAnswer,
+              version: 11,
+            },
+            {
+              id: "assistant:11:membrane-inventory",
+              role: "assistant",
+              kind: "text",
+              content: inventoryQuestion,
+              version: 11,
+            },
+            {
+              id: "assistant:12:material-tracking-scope",
+              role: "assistant",
+              kind: "text",
+              content:
+                "OPS does not track roll or sheet inventory yet. How should 68mil Deksmart PVC Membrane be handled for now?",
+              version: 12,
+            },
+          ],
+          unresolvedQuestions: [
+            {
+              id: "material-tracking-scope",
+              intent: "material_tracking_scope",
+              capabilityRef: "static-product-materials/v1",
+              prompt:
+                "OPS does not track roll or sheet inventory yet. How should 68mil Deksmart PVC Membrane be handled for now?",
+              answerKind: "single_choice",
+              factKeys: ["materials.vinyl.inventory_policy"],
+              options: [
+                "Keep purchasing and inventory staff-managed",
+                "Add a fixed material quantity per product unit",
+              ],
+            },
+          ],
+        },
+        agentAvailable: true,
+      })
+    );
+
+    renderSetup();
+
+    const question = await screen.findByText(inventoryQuestion);
+    const answer = screen.getByText(selectedAnswer);
+    const nextQuestion = screen.getByText(
+      "OPS does not track roll or sheet inventory yet. How should 68mil Deksmart PVC Membrane be handled for now?"
+    );
+    expect(screen.getAllByText(inventoryQuestion)).toHaveLength(1);
+    expect(
+      question.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      answer.compareDocumentPosition(nextQuestion) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
   it("keeps a failed answer visible and retries the exact answer without duplication", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

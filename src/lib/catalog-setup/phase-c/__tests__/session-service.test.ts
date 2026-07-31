@@ -392,6 +392,146 @@ describe("Phase C guided setup session service", () => {
     );
   });
 
+  it("repairs the invalid review-readiness turn after an unsupported roll inventory request", async () => {
+    const inventoryQuestion =
+      "How should OPS handle DekSmart membrane purchasing and inventory for vinyl decking?";
+    const selectedAnswer =
+      "Track membrane as rolls/sheets; purchasing and inventory need roll/sheet dimensions, coverage, and cost details before setup can be ready.";
+    const { client, updates } = createQueryClient({
+      catalog_guided_setup_sessions: [
+        {
+          id: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+          company_id: "company-1",
+          operator_id: "operator-1",
+          mode: "guided",
+          status: "interviewing",
+          version: 12,
+          facts: [
+            {
+              id: "product-name",
+              key: "customer_products.vinyl.name",
+              value: "68mil Deksmart PVC Membrane",
+              classification: "customer_product",
+              source: { kind: "operator" },
+              confidence: 1,
+              status: "confirmed",
+              contradicts: [],
+            },
+            {
+              id: "unsupported-roll-inventory",
+              key: "materials.vinyl.inventory_policy",
+              value: selectedAnswer,
+              classification: "inventory_rule",
+              source: { kind: "operator" },
+              confidence: 1,
+              status: "confirmed",
+              contradicts: [],
+            },
+            {
+              id: "unsupported-roll-purchasing",
+              key: "materials.vinyl.purchasing_quantity_basis",
+              value: "roll/sheet",
+              classification: "purchasing_rule",
+              source: { kind: "operator" },
+              confidence: 1,
+              status: "confirmed",
+              contradicts: [],
+            },
+          ],
+          sources: [],
+          conversation: [
+            {
+              id: "assistant:10:membrane-inventory",
+              role: "assistant",
+              kind: "text",
+              content: inventoryQuestion,
+              version: 10,
+            },
+            {
+              id: "operator-input:input-1",
+              inputId: "input-1",
+              state: "accepted",
+              role: "operator",
+              kind: "text",
+              content: selectedAnswer,
+              version: 11,
+            },
+            {
+              id: "assistant:11:membrane-inventory",
+              role: "assistant",
+              kind: "text",
+              content: inventoryQuestion,
+              version: 11,
+            },
+            {
+              id: "assistant:12:review-ready",
+              role: "assistant",
+              kind: "text",
+              content: "Is this catalog setup ready for you to review?",
+              version: 12,
+            },
+          ],
+          unresolved_questions: [
+            {
+              id: "review-ready",
+              intent: "review_readiness",
+              capabilityRef: "catalog-core/v1",
+              prompt: "Is this catalog setup ready for you to review?",
+              answerKind: "boolean",
+              factKeys: ["catalog.review"],
+            },
+          ],
+          proposed_plan: null,
+        },
+      ],
+    });
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    const result = await startOrResumeGuidedSetupSession({
+      token: "token",
+      companyId: "company-1",
+      operatorId: "operator-2",
+    });
+
+    expect(result.resumed).toBe(true);
+    expect(result.session.version).toBe(13);
+    expect(result.session.unresolvedQuestions).toEqual([
+      expect.objectContaining({
+        intent: "material_tracking_scope",
+        capabilityRef: "static-product-materials/v1",
+        answerKind: "single_choice",
+        options: [
+          "Keep purchasing and inventory staff-managed",
+          "Add a fixed material quantity per product unit",
+        ],
+      }),
+    ]);
+    expect(result.session.facts).toEqual([
+      expect.objectContaining({ id: "product-name" }),
+    ]);
+    expect(
+      result.session.conversation.filter(
+        (message: { content?: string }) =>
+          message.content === inventoryQuestion,
+      ),
+    ).toHaveLength(1);
+    expect(updates).toContainEqual(
+      expect.objectContaining({
+        table: "catalog_guided_setup_sessions",
+        values: expect.objectContaining({
+          version: 13,
+          facts: [expect.objectContaining({ id: "product-name" })],
+          sources: [
+            expect.objectContaining({
+              kind: "system_repair",
+              reason: "unsupported_roll_inventory_review_question",
+            }),
+          ],
+        }),
+      }),
+    );
+  });
+
   it("resumes the repaired row when another concurrent request wins the repair", async () => {
     const { client } = createQueryClient(
       {

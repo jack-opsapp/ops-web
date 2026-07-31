@@ -56,6 +56,45 @@ describe("Phase C server-owned question policy", () => {
     ).toBeNull();
   });
 
+  it("never asks the operator to decide whether Phase C is ready for review", () => {
+    expect(
+      resolveGuidedQuestion({
+        id: "review-ready",
+        intent: "review_readiness",
+        capabilityRef: "catalog-core/v1",
+        factKeys: ["catalog.review"],
+        context: {},
+      }),
+    ).toBeNull();
+  });
+
+  it("offers only released handling when roll inventory was requested", () => {
+    expect(
+      resolveGuidedQuestion({
+        id: "material-tracking-scope",
+        intent: "material_tracking_scope" as never,
+        capabilityRef: "static-product-materials/v1",
+        factKeys: ["materials.vinyl.inventory_policy"],
+        context: { productLabel: "68mil Deksmart PVC Membrane" },
+      }),
+    ).toEqual({
+      id: "material-tracking-scope",
+      intent: "material_tracking_scope",
+      capabilityRef: "static-product-materials/v1",
+      context: { productLabel: "68mil Deksmart PVC Membrane" },
+      prompt:
+        "OPS does not track roll or sheet inventory yet. How should 68mil Deksmart PVC Membrane be handled for now?",
+      answerKind: "single_choice",
+      factKeys: ["materials.vinyl.inventory_policy"],
+      options: [
+        "Keep purchasing and inventory staff-managed",
+        "Add a fixed material quantity per product unit",
+      ],
+      help:
+        "Fixed quantities are supported. Roll tracking, offcuts, coverage calculations, and purchasing automation are not connected yet.",
+    });
+  });
+
   it("fails closed for unknown question intent or capability input", () => {
     expect(
       resolveGuidedQuestion({

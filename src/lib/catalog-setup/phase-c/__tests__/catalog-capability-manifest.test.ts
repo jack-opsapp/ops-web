@@ -29,6 +29,15 @@ describe("Phase C executable capability manifest", () => {
     expect(isGuidedCapabilityAvailable("roll-inventory/v1")).toBe(false);
   });
 
+  it("exposes concrete material scope but never operator-owned review readiness", () => {
+    expect(
+      guidedCapability("static-product-materials/v1")?.questionIntents,
+    ).toContain("material_tracking_scope");
+    expect(
+      guidedCapability("catalog-core/v1")?.questionIntents,
+    ).not.toContain("review_readiness");
+  });
+
   it("fails closed for unknown capability references", () => {
     expect(isGuidedCapabilityAvailable("invented-capability/v99")).toBe(
       false,

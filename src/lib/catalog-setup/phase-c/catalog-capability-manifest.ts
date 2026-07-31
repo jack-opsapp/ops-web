@@ -24,6 +24,7 @@ export const GUIDED_QUESTION_INTENTS = [
   "tax_treatment",
   "storefront_visibility",
   "task_type",
+  "material_tracking_scope",
   "static_material_quantity",
   "clarify_contradiction",
   "review_readiness",
@@ -54,7 +55,6 @@ const CORE_QUESTION_INTENTS = [
   "storefront_visibility",
   "task_type",
   "clarify_contradiction",
-  "review_readiness",
 ] as const satisfies readonly GuidedQuestionIntent[];
 
 const CAPABILITIES: Record<GuidedCapabilityRef, GuidedCatalogCapability> = {
@@ -89,7 +89,10 @@ const CAPABILITIES: Record<GuidedCapabilityRef, GuidedCatalogCapability> = {
     available: true,
     runtimeConsumer:
       "src/lib/api/services/task-materials-service.ts",
-    questionIntents: ["static_material_quantity"],
+    questionIntents: [
+      "material_tracking_scope",
+      "static_material_quantity",
+    ],
     actionTypes: ["upsert_product_material"],
   },
   "supplier-cost-automation/v1": {

@@ -25,6 +25,39 @@ function assistantMessage(
   };
 }
 
+function assistantQuestionIdentity(
+  message: GuidedConversationMessage,
+): string | null {
+  if (message.role !== "assistant") return null;
+  const match = /^assistant:\d+:(.+)$/.exec(message.id);
+  return match ? `${match[1]}\u0000${message.content}` : null;
+}
+
+function deduplicateAssistantQuestions(
+  conversation: GuidedConversationMessage[],
+): GuidedConversationMessage[] {
+  const seen = new Set<string>();
+  return conversation.filter((message) => {
+    const identity = assistantQuestionIdentity(message);
+    if (!identity) return true;
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  });
+}
+
+function containsAssistantQuestion(
+  conversation: GuidedConversationMessage[],
+  question: GuidedQuestion,
+): boolean {
+  const identity = assistantQuestionIdentity(
+    assistantMessage(question, 0),
+  );
+  return conversation.some(
+    (message) => assistantQuestionIdentity(message) === identity,
+  );
+}
+
 export function guidedOperatorMessageForAnswer(
   answer: unknown,
   currentQuestion: GuidedQuestion | null,
@@ -81,16 +114,16 @@ export function normalizeGuidedConversation(
   version: number,
 ): GuidedConversationMessage[] {
   const parsed = GuidedConversationSchema.safeParse(value);
-  const conversation = parsed.success ? [...parsed.data] : [];
+  const conversation = deduplicateAssistantQuestions(
+    parsed.success ? [...parsed.data] : [],
+  );
   const currentQuestion = unresolvedQuestions[0];
   const currentMessage = currentQuestion
     ? assistantMessage(currentQuestion, version)
     : null;
   if (
     currentMessage &&
-    !conversation.some(
-      (message) => message.id === currentMessage.id,
-    )
+    !containsAssistantQuestion(conversation, currentQuestion)
   ) {
     conversation.push(currentMessage);
   }
@@ -102,10 +135,12 @@ export function visibleGuidedConversation(
 ): GuidedConversationMessage[] {
   const parsed = GuidedConversationSchema.safeParse(value);
   if (!parsed.success) return [];
-  return parsed.data.filter(
-    (message) =>
-      message.state !== "superseded" &&
-      message.state !== "removed",
+  return deduplicateAssistantQuestions(
+    parsed.data.filter(
+      (message) =>
+        message.state !== "superseded" &&
+        message.state !== "removed",
+    ),
   );
 }
 
@@ -122,18 +157,16 @@ export function acceptGuidedConversationInputs({
 }): GuidedConversationMessage[] {
   const parsed = GuidedConversationSchema.safeParse(conversation);
   const accepted = new Set(acceptedInputIds);
-  const next = (parsed.success ? parsed.data : []).map((message) =>
+  const next = deduplicateAssistantQuestions(
+    parsed.success ? parsed.data : [],
+  ).map((message) =>
     message.inputId && accepted.has(message.inputId)
       ? { ...message, state: "accepted" as const }
       : message,
   );
   if (
     nextQuestion &&
-    !next.some(
-      (message) =>
-        message.id ===
-        `assistant:${nextVersion}:${nextQuestion.id}`,
-    )
+    !containsAssistantQuestion(next, nextQuestion)
   ) {
     next.push(assistantMessage(nextQuestion, nextVersion));
   }
@@ -171,11 +204,7 @@ export function advanceGuidedConversation({
   }
   if (
     nextQuestion &&
-    !normalized.some(
-      (message) =>
-        message.id ===
-        `assistant:${nextVersion}:${nextQuestion.id}`,
-    )
+    !containsAssistantQuestion(normalized, nextQuestion)
   ) {
     normalized.push(assistantMessage(nextQuestion, nextVersion));
   }
