@@ -24,6 +24,10 @@ import {
   metricQuerySchema,
   metricsResultSchema,
 } from "@/lib/external-api/contracts/metrics";
+import {
+  EXTERNAL_API_REFERENCE_OPERATION_IDS,
+  externalApiReference,
+} from "@/lib/external-api/docs/reference";
 
 const generatedPath = resolve(process.cwd(), "docs/api/openapi-v1.json");
 
@@ -162,5 +166,18 @@ describe("external API OpenAPI contract", () => {
     expect(() =>
       metricsResultSchema.parse(EXTERNAL_API_EXAMPLES.metricsResult)
     ).not.toThrow();
+  });
+
+  it("keeps the public reference in exact operation coverage with the contract", () => {
+    const document = generateExternalApiOpenApi();
+    const publishedOperationIds = operations(document).map(
+      ([, operation]) => operation.operationId
+    );
+
+    expect(publishedOperationIds).toEqual(EXTERNAL_API_REFERENCE_OPERATION_IDS);
+    expect(
+      externalApiReference.operations.map((operation) => operation.operationId)
+    ).toEqual(publishedOperationIds);
+    expect(externalApiReference.document).toEqual(document);
   });
 });
