@@ -303,6 +303,25 @@ export const pipelineCardEntryVariantsReduced: Variants = {
   visible: { opacity: 1, transition: { duration: 0.15 } },
 };
 
+/**
+ * Discard-capture toast — pending reason rack → confirmed reason tag.
+ * A single decisive swap: the rack lifts out, the logged reason lands. No
+ * height animation (the region is a hard cut) and no spring — the swap IS
+ * the confirmation, so it must read as settled, not springy.
+ */
+export const discardReasonSwapVariants: Variants = {
+  hidden: { opacity: 0, y: -4 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, y: -4, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
+/** Reduced-motion fallback — opacity only, no translate. */
+export const discardReasonSwapReducedVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+  exit: { opacity: 0, transition: { duration: 0.15, ease: EASE_SMOOTH } },
+};
+
 // ── Floating toolbar + tray animations ──
 
 /** Archive tray — slide in from right */
