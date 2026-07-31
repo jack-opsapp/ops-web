@@ -174,6 +174,25 @@ describe("POST /api/data/delete-account — atomic cascade contract", () => {
     });
   });
 
+  it("includes every normalized visit child before the site-visit parent", async () => {
+    await POST(request(validBody));
+    const rpc = stub.ops.find((op) => op.kind === "rpc");
+    const steps = rpc?.args?.p_plan as { steps?: Array<Record<string, unknown>> };
+    const tables = (steps.steps ?? []).map((step) => step.table);
+    const parentIndex = tables.indexOf("site_visits");
+
+    expect(parentIndex).toBeGreaterThan(-1);
+    for (const child of [
+      "site_visit_artifacts",
+      "site_visit_checklist_answers",
+      "site_visit_identity_drafts",
+    ]) {
+      expect(tables.indexOf(child), `${child} must precede site_visits`).toBeLessThan(
+        parentIndex
+      );
+    }
+  });
+
   it("does not issue direct mutations for any manifest table", async () => {
     await POST(request(validBody));
     const directManifestMutations = stub.ops.filter(
