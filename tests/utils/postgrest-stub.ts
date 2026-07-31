@@ -8,7 +8,10 @@
  * lets a test fail an individual table so error propagation can be proven.
  *
  * Supports only what those routes use: select / update / delete, the
- * eq / is / in / not filters, `{ count, head }` selects, and single().
+ * eq / is / in / not filters, `{ count, head }` selects, single(), and the
+ * `rpc()` call the cascade uses for the tables `service_role` may not delete
+ * from directly. An `rpc` op is recorded against the table it names, so
+ * `opsFor()` / `firstSeq()` / `failOn()` reach it exactly like any other step.
  */
 
 export type Row = Record<string, unknown>;
@@ -24,18 +27,22 @@ export interface RecordedFilter {
 export interface RecordedOp {
   seq: number;
   table: string;
-  kind: "select" | "update" | "delete";
+  kind: "select" | "update" | "delete" | "rpc";
   columns?: string;
   head: boolean;
   countMode?: string;
   payload?: Row;
   filters: RecordedFilter[];
+  /** `rpc` only: the function name and the arguments it was called with. */
+  fn?: string;
+  args?: Row;
 }
 
 export interface StubFailure {
   message: string;
   code?: string;
   details?: string;
+  hint?: string;
 }
 
 type Result = { data: unknown; count: number | null; error: StubFailure | null };
@@ -101,8 +108,47 @@ export class PostgrestStub {
   }
 
   client() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return { from: (table: string) => new StubBuilder(this, table) as any };
+    return {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      from: (table: string) => new StubBuilder(this, table) as any,
+      rpc: (fn: string, args: Row) => this.callRpc(fn, args),
+    };
+  }
+
+  /**
+   * `db.rpc(fn, args)`. Modelled on `public.purge_company_rows`: it hard-deletes
+   * every row of `args.p_table` whose `company_id` matches `args.p_company_id`
+   * and returns the number removed, in one call — no separate count.
+   *
+   * Recorded against the table rather than the function so a test asserts the
+   * step the same way it asserts a direct delete.
+   */
+  async callRpc(
+    fn: string,
+    args: Row
+  ): Promise<{ data: unknown; error: StubFailure | null }> {
+    const table = String(args.p_table ?? fn);
+    this.ops.push({
+      seq: this.seq++,
+      table,
+      kind: "rpc",
+      head: false,
+      filters: [],
+      fn,
+      args: { ...args },
+    });
+
+    const failure =
+      this.failures.get(`rpc:${table}`) ?? this.failures.get(`*:${table}`);
+    if (failure) return { data: null, error: failure };
+
+    const rows = this.rows.get(table) ?? [];
+    const hit = rows.filter((row) => row.company_id === args.p_company_id);
+    this.rows.set(
+      table,
+      rows.filter((row) => !hit.includes(row))
+    );
+    return { data: hit.length, error: null };
   }
 
   /** @internal */

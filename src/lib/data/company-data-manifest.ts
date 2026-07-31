@@ -206,6 +206,218 @@ export const FK_CYCLE_BREAKERS = [
   },
 ] as const;
 
+/**
+ * A table `service_role` is not permitted to purge directly, and the reason.
+ * The cascade routes these through `public.purge_company_rows` instead.
+ */
+export interface DefinerPurgedEntry {
+  readonly table: string;
+  /** Why the direct path is unavailable. Required — there are no silent detours. */
+  readonly reason: string;
+}
+
+/** The SECURITY DEFINER function that purges the tables below. */
+export const DEFINER_PURGE_FUNCTION = "purge_company_rows";
+
+/**
+ * Tables the cascade cannot delete from directly, because `service_role` — the
+ * role both data routes run as — lacks the privilege.
+ *
+ * ── Why these exist ────────────────────────────────────────────────────────
+ * Classification in this manifest says what a table IS. It says nothing about
+ * whether the deleting role may touch it. Thirty `public` base tables withhold
+ * from `service_role` at least one privilege the cascade needs — fifteen were
+ * created by migrations that granted it nothing at all, fifteen more grant
+ * SELECT and withhold DELETE — and twenty-nine of the thirty are classified
+ * here. A rehearsal of the cascade against a disposable prod tenant died at
+ * acting-step 23 of 198 on the first of them, and would have died on the next
+ * fourteen one at a time.
+ *
+ * The remedy is `public.purge_company_rows(p_table text, p_company_id uuid)` —
+ * SECURITY DEFINER, owned by `postgres`, `search_path` pinned, EXECUTE granted
+ * to `service_role` only. It refuses any table not on its own allowlist
+ * (`42501`) and a NULL company (`22004`), casts the parameter rather than the
+ * column so the `company_id` index still applies, and returns the row count.
+ * The privilege it lends is exactly "delete one company's rows from one
+ * allowlisted table" — narrower, and far more auditable, than granting DELETE
+ * on append-only event tables to every service-role code path in the product.
+ *
+ * ── Invariants ─────────────────────────────────────────────────────────────
+ * The function purges by `company_id` and hard-deletes, so every entry here
+ * MUST be `scope: "company"`, `companyColumn: "company_id"`, and
+ * `deleteStrategy: "hard"`. `tests/integration/company-data-manifest.test.ts`
+ * pins that, pins this set against the live privilege snapshot in both
+ * directions, and fails the moment a manifest table becomes unpurgeable
+ * without being declared here.
+ *
+ * Entries are grouped by failure shape because the two are diagnosed
+ * differently — the first group cannot even be counted, the second counts fine
+ * and refuses the DELETE one call later.
+ */
+export const DEFINER_PURGED_TABLES: readonly DefinerPurgedEntry[] = [
+  // ── No privileges at all: SELECT, UPDATE and DELETE are all denied. ───────
+  // Granted to `postgres` only. The cascade cannot so much as count these.
+  {
+    table: "email_assignment_contact_form_draft_queue",
+    reason:
+      "Granted to postgres only — service_role holds no SELECT, UPDATE or DELETE, so the cascade cannot even count the rows. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_import_provider_operations",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on the provider-operation log. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_outbound_edit_evidence",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on the outbound edit-evidence store. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_outbound_edit_promotions",
+    reason:
+      "Granted to postgres only — service_role holds no privileges. This is the table the live rehearsal died on at step 23 of 198. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_outbound_learning_queue",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on the outbound learning queue. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_outbound_memory_evidence",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on the outbound memory-evidence store. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_outbound_writing_samples",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on the stored writing samples. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_provider_mutation_attempts",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on the provider mutation-attempt log. Purged through purge_company_rows.",
+  },
+  {
+    table: "opportunity_conversion_notification_deliveries",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on these delivery receipts. Purged through purge_company_rows.",
+  },
+  {
+    table: "phase_c_category_auto_send_acceptances",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on the auto-send acceptance ledger. Purged through purge_company_rows.",
+  },
+  {
+    table: "project_status_lifecycle_outbox",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on the project-status outbox. Purged through purge_company_rows.",
+  },
+  {
+    table: "task_mutation_events",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on the task mutation event log. Purged through purge_company_rows.",
+  },
+  {
+    table: "task_schedule_automation_outbox",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on the schedule-automation outbox. Purged through purge_company_rows.",
+  },
+  {
+    table: "unassigned_lead_assignment_deliveries",
+    reason:
+      "Granted to postgres only — service_role holds no privileges on these delivery receipts. Purged through purge_company_rows.",
+  },
+  {
+    table: "user_permission_change_deliveries",
+    reason:
+      "Granted to authenticated and postgres — service_role was left out entirely, so it holds no privileges. Purged through purge_company_rows.",
+  },
+
+  // ── Readable but not deletable: SELECT granted, DELETE withheld. ──────────
+  // These are the dangerous half. The count succeeds, so nothing looks wrong
+  // until the DELETE one call later is refused.
+  {
+    table: "email_conversion_photo_jobs",
+    reason:
+      "service_role may SELECT but not DELETE — the count succeeds and the purge is refused one call later. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_conversion_photo_objects",
+    reason:
+      "service_role may SELECT but not DELETE the conversion photo objects. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_ingestion_recovery_queue",
+    reason:
+      "service_role may SELECT and UPDATE but not DELETE the ingestion recovery queue. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_send_intents",
+    reason:
+      "service_role may SELECT and UPDATE but not DELETE send intents — the cycle breaker that nulls pending_auto_sends.send_intent_id still works, the purge does not. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_signature_notification_lifecycle_outbox",
+    reason:
+      "service_role may SELECT but not DELETE the signature-notification outbox. Purged through purge_company_rows.",
+  },
+  {
+    table: "email_signatures",
+    reason:
+      "service_role may SELECT but not DELETE signatures. The export still works — it only reads — but the purge does not. Purged through purge_company_rows.",
+  },
+  {
+    table: "lead_intake_correction_runs",
+    reason:
+      "service_role may SELECT but not DELETE intake correction runs. Purged through purge_company_rows.",
+  },
+  {
+    table: "opportunity_assignment_deliveries",
+    reason:
+      "service_role may SELECT but not DELETE these delivery receipts. Purged through purge_company_rows.",
+  },
+  {
+    table: "opportunity_assignment_events",
+    reason:
+      "service_role may SELECT but not DELETE the append-only assignment event log. Purged through purge_company_rows.",
+  },
+  {
+    table: "opportunity_assignment_suggestions",
+    reason:
+      "service_role may SELECT and UPDATE but not DELETE suggestions — the cycle breaker that nulls resolution_event_id still works, the purge does not. Purged through purge_company_rows.",
+  },
+  {
+    table: "opportunity_conversion_events",
+    reason:
+      "service_role may SELECT but not DELETE the append-only conversion event log. Purged through purge_company_rows.",
+  },
+  {
+    table: "project_note_mention_events",
+    reason:
+      "service_role may SELECT but not DELETE the mention event log. Purged through purge_company_rows.",
+  },
+  {
+    table: "stage_transitions",
+    reason:
+      "service_role may SELECT but not DELETE the append-only stage transition history. The export still works; the purge does not. Purged through purge_company_rows.",
+  },
+  {
+    table: "user_email_aliases",
+    reason:
+      "service_role may SELECT but not DELETE staff email aliases. The export still works; the purge does not. Purged through purge_company_rows.",
+  },
+];
+
+let definerPurgedCache: Set<string> | null = null;
+
+/** Must this table's purge go through `public.purge_company_rows`? */
+export function isDefinerPurged(table: string): boolean {
+  if (!definerPurgedCache) {
+    definerPurgedCache = new Set(DEFINER_PURGED_TABLES.map((e) => e.table));
+  }
+  return definerPurgedCache.has(table);
+}
+
 export const PARENT_SCOPED_DATA: readonly ParentScopedEntry[] = [
   {
     table: "catalog_item_tags",

@@ -13,9 +13,13 @@ import type { NextRequest } from "next/server";
 import { PostgrestStub } from "../utils/postgrest-stub";
 import {
   COMPANY_SCOPED_DATA,
+  DEFINER_PURGED_TABLES,
+  DEFINER_PURGE_FUNCTION,
+  FK_CYCLE_BREAKERS,
   MANIFEST_VERSION,
   PARENT_SCOPED_DATA,
   deletionPlan,
+  isDefinerPurged,
 } from "@/lib/data/company-data-manifest";
 
 const COMPANY = "11111111-1111-4111-8111-111111111111";
@@ -255,6 +259,18 @@ describe("POST /api/data/delete-account — soft vs hard, and the deleted_at tra
     await POST(request(validBody));
     for (const entry of COMPANY_SCOPED_DATA) {
       if (entry.deleteStrategy === "retain") continue;
+
+      // The definer detour carries the company as an argument rather than a
+      // filter, but the tenant scoping is the same guarantee.
+      if (isDefinerPurged(entry.table)) {
+        const purge = stub
+          .opsFor(entry.table)
+          .find((op) => op.kind === "rpc");
+        expect(purge, `${entry.table} not purged`).toBeDefined();
+        expect(purge!.args?.p_company_id, `${entry.table}`).toBe(COMPANY);
+        continue;
+      }
+
       const mutation = stub
         .opsFor(entry.table)
         .find((op) => op.kind !== "select");
@@ -373,8 +389,13 @@ describe("POST /api/data/delete-account — foreign-key cycle breakers", () => {
       .find((op) => op.kind === "update");
     expect(breaker).toBeDefined();
     expect(breaker!.payload).toEqual({ send_intent_id: null });
+    // email_send_intents grants service_role SELECT and UPDATE but not DELETE,
+    // so its purge is the definer call — the cycle must still break first.
     expect(breaker!.seq).toBeLessThan(
-      stub.firstSeq("email_send_intents", "delete")
+      stub.firstSeq("email_send_intents", "rpc")
+    );
+    expect(stub.firstSeq("email_send_intents", "rpc")).toBeLessThan(
+      Number.POSITIVE_INFINITY
     );
     expect(breaker!.seq).toBeLessThan(
       stub.firstSeq("pending_auto_sends", "delete")
@@ -392,8 +413,11 @@ describe("POST /api/data/delete-account — foreign-key cycle breakers", () => {
       .find((op) => op.kind === "update");
     expect(breaker!.payload).toEqual({ resolution_event_id: null });
     expect(breaker!.seq).toBeLessThan(
-      stub.firstSeq("opportunity_assignment_events", "delete")
+      stub.firstSeq("opportunity_assignment_events", "rpc")
     );
+    expect(
+      stub.firstSeq("opportunity_assignment_events", "rpc")
+    ).toBeLessThan(Number.POSITIVE_INFINITY);
   });
 });
 
@@ -413,7 +437,7 @@ describe("POST /api/data/delete-account — failures are never swallowed", () =>
     expect(body.error).toContain("permission denied for table project_tasks");
     expect(body.failedStep.table).toBe("project_tasks");
     expect(body.failedStep.message).toBe(
-      "permission denied for table project_tasks"
+      "permission denied for table project_tasks [42501]"
     );
     expect(body.failedStep.code).toBe("42501");
   });
@@ -471,6 +495,163 @@ describe("POST /api/data/delete-account — failures are never swallowed", () =>
       stub.opsFor(table).some((op) => op.kind !== "select")
     );
     expect(mutatedLater, "no step after the failure may run").toEqual([]);
+  });
+});
+
+describe("POST /api/data/delete-account — tables service_role may not delete from", () => {
+  // Twenty-nine manifest tables are granted to `postgres` alone. A live
+  // rehearsal died at acting-step 23 of 198 on the first of them; the fourteen
+  // that grant SELECT and withhold DELETE would have killed the next fourteen
+  // attempts one at a time. They go through purge_company_rows instead.
+
+  it("purges every unreachable table through the definer function, never directly", async () => {
+    await POST(request(validBody));
+
+    const cycleBreakers = new Set<string>(
+      FK_CYCLE_BREAKERS.map((b) => b.table)
+    );
+
+    for (const { table } of DEFINER_PURGED_TABLES) {
+      const ops = stub.opsFor(table);
+
+      const purges = ops.filter((op) => op.kind === "rpc");
+      expect(purges.length, `${table} must be purged exactly once`).toBe(1);
+      expect(purges[0].fn).toBe(DEFINER_PURGE_FUNCTION);
+      expect(purges[0].args).toEqual({
+        p_table: table,
+        p_company_id: COMPANY,
+      });
+
+      // The only direct call permitted on these tables is a cycle breaker's
+      // UPDATE, which nulls a nullable column service_role may still write.
+      const direct = ops.filter((op) => op.kind !== "rpc");
+      expect(
+        direct.map((op) => op.kind),
+        `${table} was addressed directly, which service_role is not permitted to do`
+      ).toEqual(cycleBreakers.has(table) ? ["update"] : []);
+    }
+  });
+
+  it("collapses the count/mutate pair into one round trip", async () => {
+    await POST(request(validBody));
+
+    // Two calls per step for a directly-reachable table (count, then mutate),
+    // one for these — which also closes the window between the two in which the
+    // number could change. `clients` is not the parent of any parent-scoped
+    // entry, so it carries no id-collection select to muddy the count.
+    expect(stub.opsFor("clients").length).toBe(2);
+    expect(stub.opsFor("task_mutation_events").length).toBe(1);
+  });
+
+  it("reports the row count the function returned, scoped to the company", async () => {
+    stub.setRows("email_send_intents", [
+      { id: "s1", company_id: COMPANY },
+      { id: "s2", company_id: COMPANY },
+      { id: "s3", company_id: "another-company" },
+    ]);
+
+    const body = await (await POST(request(validBody))).json();
+
+    expect(body.deletedCounts.email_send_intents).toBe(2);
+    expect(stub.getRows("email_send_intents")).toEqual([
+      { id: "s3", company_id: "another-company" },
+    ]);
+  });
+
+  it("counts every definer-purged table among the completed steps", async () => {
+    const body = await (await POST(request(validBody))).json();
+    expect(body.success).toBe(true);
+    for (const { table } of DEFINER_PURGED_TABLES) {
+      expect(body.deletedCounts, `${table}`).toHaveProperty(table);
+    }
+  });
+
+  it("stops the cascade when the definer function refuses a table", async () => {
+    stub.failOn("task_mutation_events", "rpc", {
+      message: "purge_company_rows: task_mutation_events is not purgeable",
+      code: "42501",
+    });
+
+    const res = await POST(request(validBody));
+    expect(res.status).toBe(500);
+
+    const body = await res.json();
+    expect(body.success).toBe(false);
+    expect(body.failedStep.table).toBe("task_mutation_events");
+    expect(body.failedStep.operation).toBe("purge");
+    expect(body.failedStep.code).toBe("42501");
+    expect(body.deletedCounts).not.toHaveProperty("task_mutation_events");
+  });
+
+  it("does not tombstone the company when a definer purge fails", async () => {
+    stub.failOn("task_mutation_events", "rpc", { message: "boom" });
+    await POST(request(validBody));
+    expect(stub.getRows("companies")[0].deleted_at).toBeNull();
+  });
+});
+
+describe("POST /api/data/delete-account — the database message is never blank", () => {
+  // The rehearsal's 500 carried `"message": ""`, which is why diagnosis took
+  // hours. A count is `head: true` — a HEAD request — and a HEAD response has
+  // no body, so PostgREST's error payload never arrives and every field is
+  // empty. `??` does not catch "", so the blank went straight through.
+
+  it("surfaces a permission-shaped failure with its code, not an empty string", async () => {
+    stub.failOn("email_outbound_edit_promotions", "rpc", {
+      message: "permission denied for table email_outbound_edit_promotions",
+      code: "42501",
+    });
+
+    const body = await (await POST(request(validBody))).json();
+
+    expect(body.failedStep.message).not.toBe("");
+    expect(body.failedStep.message).toContain("42501");
+    expect(body.failedStep.message).toContain("permission denied");
+    expect(body.error).toContain("42501");
+  });
+
+  it("explains an entirely empty driver payload instead of reporting nothing", async () => {
+    // Exactly the shape the rehearsal hit: a HEAD count refused by the server.
+    stub.failOn("project_tasks", "select", {
+      message: "",
+      code: "",
+      details: "",
+      hint: "",
+    });
+
+    const res = await POST(request(validBody));
+    expect(res.status).toBe(500);
+
+    const body = await res.json();
+    expect(body.failedStep.message).not.toBe("");
+    expect(body.failedStep.message).toContain("HEAD");
+    expect(body.failedStep).not.toHaveProperty("code");
+    expect(body.error).toContain("project_tasks");
+  });
+
+  it("keeps the code when it is the only thing the driver supplied", async () => {
+    stub.failOn("project_tasks", "select", { message: "", code: "42501" });
+
+    const body = await (await POST(request(validBody))).json();
+
+    expect(body.failedStep.message).toContain("42501");
+    expect(body.failedStep.code).toBe("42501");
+  });
+
+  it("carries details and hint through to the payload", async () => {
+    stub.failOn("project_tasks", "update", {
+      message: "update or delete violates foreign key constraint",
+      code: "23503",
+      details: 'Key (id)=(t1) is still referenced from table "task_materials".',
+      hint: "Delete the referencing rows first.",
+    });
+
+    const body = await (await POST(request(validBody))).json();
+
+    expect(body.failedStep.details).toContain("task_materials");
+    expect(body.failedStep.hint).toBe("Delete the referencing rows first.");
+    expect(body.failedStep.message).toContain("task_materials");
+    expect(body.failedStep.message).toContain("Delete the referencing rows");
   });
 });
 

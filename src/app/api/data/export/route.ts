@@ -155,6 +155,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             operation: stepError.operation,
             message: stepError.databaseMessage,
             ...(stepError.code ? { code: stepError.code } : {}),
+            ...(stepError.details ? { details: stepError.details } : {}),
+            ...(stepError.hint ? { hint: stepError.hint } : {}),
           },
         },
         { status: 500 }

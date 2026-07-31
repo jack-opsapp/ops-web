@@ -25,35 +25,78 @@ import {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-/** The shape a PostgREST error arrives in. */
+/** The shape a PostgREST error arrives in. Every field is optional in practice. */
 export interface PostgrestFailure {
-  message?: string;
-  code?: string;
-  details?: string;
-  hint?: string;
+  message?: string | null;
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+}
+
+/** Trimmed text, or "" for null / undefined / whitespace. */
+function text(value?: string | null): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+/** "" for a field that carries nothing, so it never lands in a JSON payload. */
+function optional(value?: string | null): string | undefined {
+  return text(value) || undefined;
+}
+
+/**
+ * Everything the driver actually gave us, in one line.
+ *
+ * A live rehearsal of the cascade returned `"message": ""` and nothing else,
+ * which cost hours of diagnosis. The cause is structural, not incidental: the
+ * count step issues `select("*", { count: "exact", head: true })`, and a HEAD
+ * response carries no body — so PostgREST's JSON error payload never arrives
+ * and supabase-js hands back a failure whose every field is blank. `??` does
+ * not catch an empty string, so the old composition passed it straight through.
+ *
+ * `details` and `hint` are folded in because PostgREST puts the actionable part
+ * of a permission or constraint failure there, and the code is always appended
+ * when present — a bare `42501` in a log line is what turns "it broke" into
+ * "the role has no grant". When there is genuinely nothing to report, the
+ * fallback says so AND names the reason the payload is empty.
+ */
+export function describeDatabaseFailure(failure: PostgrestFailure): string {
+  const parts = [
+    text(failure.message),
+    text(failure.details),
+    text(failure.hint),
+  ].filter(Boolean);
+  const code = text(failure.code);
+
+  if (parts.length > 0) {
+    return code ? `${parts.join(" — ")} [${code}]` : parts.join(" — ");
+  }
+
+  return code
+    ? `database error [${code}] (the driver returned no message, details or hint)`
+    : "unknown database error (the driver returned an empty payload — a count " +
+        "is a HEAD request, which carries no body, so a permission failure arrives blank)";
 }
 
 /** A named, non-swallowable failure of one cascade or export step. */
 export class CompanyDataStepError extends Error {
   readonly table: string;
   readonly operation: string;
+  /** The underlying database message, without the step prefix. Never empty. */
+  readonly databaseMessage: string;
   readonly code?: string;
   readonly details?: string;
+  readonly hint?: string;
 
   constructor(table: string, operation: string, failure: PostgrestFailure) {
-    super(
-      `${operation} ${table} failed: ${failure.message ?? "unknown database error"}`
-    );
+    const databaseMessage = describeDatabaseFailure(failure);
+    super(`${operation} ${table} failed: ${databaseMessage}`);
     this.name = "CompanyDataStepError";
     this.table = table;
     this.operation = operation;
-    this.code = failure.code;
-    this.details = failure.details;
-  }
-
-  /** The underlying database message, without the step prefix. */
-  get databaseMessage(): string {
-    return this.message.slice(this.message.indexOf("failed: ") + 8);
+    this.databaseMessage = databaseMessage;
+    this.code = optional(failure.code);
+    this.details = optional(failure.details);
+    this.hint = optional(failure.hint);
   }
 }
 

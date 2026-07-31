@@ -27,6 +27,21 @@
  *     the company row is NOT tombstoned when the cascade did not finish;
  *   • a Stripe cancellation failure no longer disappears into the logs: it is
  *     returned as an explicit, non-fatal `warnings` entry.
+ *
+ * ── Two defects a live rehearsal exposed (2026-07-30) ───────────────────────
+ * A rehearsal against a disposable prod tenant returned 500 at acting-step 23
+ * of 198, and the failure payload read `"message": ""`.
+ *
+ *   1. Twenty-nine manifest tables withhold from `service_role` — the role this
+ *      route runs as — at least one privilege the cascade needs: fifteen grant
+ *      it nothing at all, fourteen grant SELECT and withhold DELETE. Those
+ *      steps now go through `public.purge_company_rows`; see
+ *      `DEFINER_PURGED_TABLES`.
+ *   2. The empty message was structural. A count is `head: true`, i.e. a HEAD
+ *      request, and a HEAD response has no body — so PostgREST's error payload
+ *      never arrives and every field comes back blank. `describeDatabaseFailure`
+ *      now composes message + details + hint + code and, failing all of those,
+ *      says why the payload was empty instead of returning "".
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -36,9 +51,11 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { checkPermission } from "@/lib/supabase/check-permission";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import {
+  DEFINER_PURGE_FUNCTION,
   FK_CYCLE_BREAKERS,
   MANIFEST_VERSION,
   deletionPlan,
+  isDefinerPurged,
   type ManifestEntry,
 } from "@/lib/data/company-data-manifest";
 import {
@@ -92,6 +109,47 @@ async function breakForeignKeyCycles(db: Db, companyId: string): Promise<void> {
   }
 }
 
+/**
+ * Purge a table `service_role` may not delete from, through the SECURITY
+ * DEFINER function that may.
+ *
+ * Twenty-nine manifest tables are beyond `service_role`'s reach — fifteen deny
+ * it outright, fourteen let it read and refuse the DELETE — so the direct path
+ * cannot purge them at all. `public.purge_company_rows` enforces
+ * its own allowlist and returns the number of rows it removed, which is the
+ * count this step reports: one round trip instead of two, and no window between
+ * counting and deleting in which the number could change.
+ *
+ * Invariant, pinned in `tests/integration/company-data-manifest.test.ts`: every
+ * table in `DEFINER_PURGED_TABLES` is company-scoped on `company_id` with a
+ * `hard` strategy, because that is precisely what the function does.
+ */
+async function purgeThroughDefiner(
+  db: Db,
+  entry: ManifestEntry,
+  companyId: string
+): Promise<number> {
+  const { data, error } = await (db as any).rpc(DEFINER_PURGE_FUNCTION, {
+    p_table: entry.table,
+    p_company_id: companyId,
+  });
+
+  if (error) throw new CompanyDataStepError(entry.table, "purge", error);
+
+  const deleted = Number(data ?? 0);
+  if (!Number.isFinite(deleted)) {
+    // The rows are gone, but we cannot say how many — and reporting a number
+    // that is not real is the exact dishonesty this route exists to remove.
+    throw new CompanyDataStepError(entry.table, "purge", {
+      message:
+        `${DEFINER_PURGE_FUNCTION} returned a non-numeric row count ` +
+        `(${JSON.stringify(data)}); the rows may already be deleted`,
+    });
+  }
+
+  return deleted;
+}
+
 /** Count, then act. Returns the number of rows the step actually removed. */
 async function executeStep(
   db: Db,
@@ -100,6 +158,10 @@ async function executeStep(
   now: string,
   companyId: string
 ): Promise<number> {
+  if (isDefinerPurged(entry.table)) {
+    return purgeThroughDefiner(db, entry, companyId);
+  }
+
   const operation = operationFor(entry);
   const mutate = (query: any) =>
     entry.deleteStrategy === "soft"
@@ -266,6 +328,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             message: stepError.databaseMessage,
             ...(stepError.code ? { code: stepError.code } : {}),
             ...(stepError.details ? { details: stepError.details } : {}),
+            ...(stepError.hint ? { hint: stepError.hint } : {}),
           },
           steps: { completed, total: plan.length },
           completedSteps: Object.keys(deletedCounts),
@@ -337,7 +400,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Deletion failed",
+        // `|| `, not `??` — an Error carrying an empty message is exactly the
+        // shape that produced `"message": ""` in the rehearsal payload.
+        error:
+          (error instanceof Error ? error.message : String(error ?? "")) ||
+          "Deletion failed",
         steps: {
           completed: Object.keys(deletedCounts).length,
           total: plan.length,

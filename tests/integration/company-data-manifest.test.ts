@@ -23,19 +23,26 @@ import { describe, expect, it } from "vitest";
 import {
   COMPANY_DATA_MANIFEST,
   COMPANY_SCOPED_DATA,
+  DEFINER_PURGED_TABLES,
   FK_CYCLE_BREAKERS,
   MANIFEST_VERSION,
   OUT_OF_SCOPE_TABLES,
   PARENT_SCOPED_DATA,
   TENANT_TABLE,
   UNTYPED_TABLE_ALLOWLIST,
+  deletionPlan,
   exportPlan,
   manifestByTable,
+  type CompanyScopedEntry,
 } from "@/lib/data/company-data-manifest";
 import {
   AUTH_IDENTITY_SNAPSHOT,
   IN_SCOPE_SNAPSHOT,
 } from "@/lib/data/company-data-scope-snapshot";
+import {
+  SERVICE_ROLE_BLOCKED_TABLES,
+  blockedPrivilegesByTable,
+} from "@/lib/data/company-data-privilege-snapshot";
 
 const ROOT = path.resolve(__dirname, "../..");
 
@@ -157,6 +164,208 @@ describe("company data manifest — PRIMARY guard: the live in-scope snapshot", 
     );
     for (const table of AUTH_IDENTITY_SNAPSHOT) {
       expect(IN_SCOPE_SNAPSHOT, `${table} cannot be both`).not.toContain(table);
+    }
+  });
+});
+
+/**
+ * The guard that would have caught the 2026-07-30 rehearsal failure before the
+ * rehearsal did.
+ *
+ * Classifying a table says what it IS. It says nothing about whether the role
+ * the routes run as may touch it. Thirty `public` base tables withhold from
+ * `service_role` at least one privilege the cascade needs — fifteen were
+ * created by migrations that granted it nothing at all, and the cascade
+ * returned 500 at acting-step 23 of 198 on the first of those. The other
+ * fifteen are worse: they grant SELECT and withhold DELETE, so the count
+ * succeeds and nothing looks wrong until that step runs. Twenty-nine of the
+ * thirty are classified in this manifest.
+ *
+ * Every one must be routed through `public.purge_company_rows`. This asserts it
+ * in both directions against the live privilege snapshot.
+ */
+describe("company data manifest — PRIVILEGE guard: what service_role may actually do", () => {
+  const blocked = blockedPrivilegesByTable();
+  const manifestTables = new Set(COMPANY_DATA_MANIFEST.map((e) => e.table));
+  const outOfScope = new Set(OUT_OF_SCOPE_TABLES.map((e) => e.table));
+  const definerPurged = new Set(DEFINER_PURGED_TABLES.map((e) => e.table));
+  const byTable = manifestByTable();
+
+  it("routes every table service_role cannot purge through the definer function", () => {
+    const unroutable = [...manifestTables]
+      .filter((table) => blocked.has(table) && !definerPurged.has(table))
+      .sort();
+
+    expect(
+      unroutable,
+      `service_role cannot both SELECT and DELETE these, so the cascade cannot purge them at all. ` +
+        `Declare each in DEFINER_PURGED_TABLES and add it to the allowlist inside ` +
+        `public.purge_company_rows, or grant the privilege: ${unroutable.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("never sends a table down the definer detour it does not need", () => {
+    const needless = [...definerPurged]
+      .filter((table) => !blocked.has(table))
+      .sort();
+
+    expect(
+      needless,
+      `service_role can SELECT and DELETE these directly, so the detour through ` +
+        `purge_company_rows is dead weight hiding a normal step. Remove them from ` +
+        `DEFINER_PURGED_TABLES (and from the function's allowlist): ${needless.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("declares only tables the manifest classifies", () => {
+    const unknown = [...definerPurged]
+      .filter((table) => !manifestTables.has(table))
+      .sort();
+
+    expect(
+      unknown,
+      `DEFINER_PURGED_TABLES names tables the manifest does not classify — the cascade ` +
+        `would never call them: ${unknown.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("keeps every detour inside what purge_company_rows can actually do", () => {
+    // The function purges by `company_id` and hard-deletes. A soft-deletable
+    // entry sent down this path would be destroyed instead of tombstoned, and a
+    // parent-scoped one would be purged by a column it does not filter on.
+    for (const { table } of DEFINER_PURGED_TABLES) {
+      const entry = byTable.get(table);
+      expect(entry, `${table} is not classified`).toBeDefined();
+      expect(entry!.scope, `${table} must be company-scoped`).toBe("company");
+      expect(
+        (entry as CompanyScopedEntry).companyColumn,
+        `${table} must be scoped by company_id`
+      ).toBe("company_id");
+      expect(
+        entry!.deleteStrategy,
+        `${table} would be hard-deleted by the function regardless of this strategy`
+      ).toBe("hard");
+    }
+  });
+
+  it("gives every detour a substantive reason and names it once", () => {
+    for (const entry of DEFINER_PURGED_TABLES) {
+      expect(entry.reason?.trim().length, `${entry.table}`).toBeGreaterThan(40);
+    }
+    const names = DEFINER_PURGED_TABLES.map((e) => e.table);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("keeps every exported table readable", () => {
+    const unreadable = exportPlan()
+      .map((e) => e.table)
+      .filter((table) => blocked.get(table)?.select === false)
+      .sort();
+
+    expect(
+      unreadable,
+      `The export route reads these and service_role has no SELECT — the download would ` +
+        `500 instead of producing a file: ${unreadable.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("keeps every soft-deleted table updatable", () => {
+    const untombstonable = deletionPlan()
+      .filter(
+        (e) =>
+          e.deleteStrategy === "soft" && blocked.get(e.table)?.update === false
+      )
+      .map((e) => e.table)
+      .sort();
+
+    expect(
+      untombstonable,
+      `These are tombstoned with an UPDATE that service_role may not perform, and the ` +
+        `definer function hard-deletes rather than tombstones, so it is not the remedy: ` +
+        `${untombstonable.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("keeps both cycle breakers writable", () => {
+    // The breakers null a column with a direct UPDATE before either side of the
+    // cycle is purged — the definer function cannot stand in for that.
+    for (const breaker of FK_CYCLE_BREAKERS) {
+      const privileges = blocked.get(breaker.table);
+      expect(
+        !privileges || (privileges.select && privileges.update),
+        `${breaker.table} cannot be updated by service_role, so its foreign-key cycle ` +
+          `can never be broken and no delete order can satisfy it`
+      ).toBe(true);
+    }
+  });
+
+  it("keeps every parent chain readable", () => {
+    // Parent-scoped children are found by SELECTing their parents' ids first.
+    for (const entry of PARENT_SCOPED_DATA) {
+      for (const table of [entry.table, entry.parentTable]) {
+        expect(
+          blocked.get(table)?.select === false,
+          `${entry.table} is resolved through ${table}, which service_role cannot read`
+        ).toBe(false);
+      }
+    }
+  });
+
+  it("leaves exactly one blocked table unclassified, and says which", () => {
+    // `opportunity_manual_outbound_cycle_receipts` was created on 2026-07-30 by
+    // migration 20260730162648, one day after IN_SCOPE_SNAPSHOT was generated,
+    // so the primary guard cannot see it yet. It carries `company_id` and hangs
+    // off opportunities/activities, i.e. it IS company data and belongs in the
+    // manifest. Pinned rather than ignored: regenerate the scope snapshot,
+    // classify it at the right foreign-key depth, then delete this test.
+    const unclassified = SERVICE_ROLE_BLOCKED_TABLES.map((p) => p.table)
+      .filter((table) => !manifestTables.has(table) && !outOfScope.has(table))
+      .sort();
+
+    expect(
+      unclassified,
+      `Blocked tables that are neither classified nor declared out of scope: ${unclassified.join(", ")}`
+    ).toEqual(["opportunity_manual_outbound_cycle_receipts"]);
+  });
+
+  it("keeps the function's SQL allowlist and the TypeScript set identical", () => {
+    // The original defect in miniature: the deployed function allowlisted
+    // fifteen tables while the route needed twenty-nine, and nothing said so.
+    // Either side drifting silently reintroduces it — a table declared here but
+    // absent from the allowlist is refused at runtime with 42501, and one in the
+    // allowlist but not here is simply never called.
+    const sql = readFileSync(
+      path.join(
+        ROOT,
+        "supabase/migrations/20260731020000_company_purge_definer_full_manifest_coverage.sql"
+      ),
+      "utf8"
+    );
+
+    const array = sql.match(
+      /v_allowed constant text\[\] := ARRAY\[([\s\S]*?)\];/
+    );
+    expect(array, "could not find the allowlist in the migration").not.toBeNull();
+
+    const allowlisted = [...array![1].matchAll(/'([a-z0-9_]+)'/g)]
+      .map((m) => m[1])
+      .sort();
+
+    expect(
+      allowlisted,
+      `public.purge_company_rows' allowlist and DEFINER_PURGED_TABLES must name the same tables`
+    ).toEqual([...definerPurged].sort());
+  });
+
+  it("keeps the privilege snapshot itself plausible", () => {
+    const names = SERVICE_ROLE_BLOCKED_TABLES.map((p) => p.table);
+    expect(new Set(names).size).toBe(names.length);
+    expect(names).toEqual([...names].sort());
+    for (const privileges of SERVICE_ROLE_BLOCKED_TABLES) {
+      expect(
+        privileges.select && privileges.delete,
+        `${privileges.table} is fully available — it does not belong in the blocked snapshot`
+      ).toBe(false);
     }
   });
 });
