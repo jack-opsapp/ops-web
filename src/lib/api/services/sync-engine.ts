@@ -57,6 +57,7 @@ import {
   reportOpenAIQuotaExhausted,
   type OpenAIQuotaErrorMetadata,
 } from "@/lib/notifications/openai-quota-alert-service";
+import { getOptionalPmfOperatorIdentity } from "@/lib/pmf/recipients";
 import { persistDeferredLeadClassification } from "./lead-feedback-prior-service";
 import {
   buildEmailOpportunityTitle,
@@ -2023,9 +2024,9 @@ async function persistDeterministicEmailThreadState(
         }
       );
 
-      const operatorUserId = process.env.PMF_OPERATOR_USER_ID;
-      const operatorCompanyId = process.env.PMF_OPERATOR_COMPANY_ID;
-      if (operatorUserId && operatorCompanyId) {
+      const operatorIdentity = getOptionalPmfOperatorIdentity();
+      if (operatorIdentity) {
+        const { operatorUserId, operatorCompanyId } = operatorIdentity;
         try {
           await getServiceRoleClient().rpc(
             "create_notification_if_new_with_identity",

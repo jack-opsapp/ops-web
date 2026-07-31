@@ -47,6 +47,7 @@ const notificationsUpdate: CapturedNotificationsUpdate = {
   eqs: [],
   isCalls: [],
 };
+const OPERATOR_COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 let stuckRowsResponse: { data: unknown; error: { message: string } | null } = {
   data: [],
   error: null,
@@ -124,7 +125,7 @@ beforeEach(() => {
   stuckRowsResponse = { data: [], error: null };
   process.env.CRON_SECRET = "test-secret";
   process.env.PMF_OPERATOR_USER_ID = "operator-user";
-  process.env.PMF_OPERATOR_COMPANY_ID = "operator-company";
+  process.env.PMF_OPERATOR_COMPANY_ID = OPERATOR_COMPANY_ID;
   workloadControlState.workError = null;
   runWithCronWorkloadControlMock.mockImplementation(
     async ({ work }: { work: () => Promise<unknown> }) => {
@@ -242,7 +243,7 @@ describe("projection-stuck-check cron", () => {
     ];
     expect(rpcName).toBe("create_notification_if_new_with_identity");
     expect(rpcArgs.p_user_id).toBe("operator-user");
-    expect(rpcArgs.p_company_id).toBe("operator-company");
+    expect(rpcArgs.p_company_id).toBe(OPERATOR_COMPANY_ID);
     expect(rpcArgs.p_type).toBe("system_alert");
     expect(rpcArgs.p_title).toBe("CRITICAL :: EMAIL PROJECTION STUCK");
     expect(rpcArgs.p_body).toBe(
