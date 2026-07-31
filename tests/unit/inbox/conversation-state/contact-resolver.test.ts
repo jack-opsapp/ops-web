@@ -42,6 +42,192 @@ function customerInbound(overrides: Partial<CleanMessage> = {}): CleanMessage {
 // ── (4) name provenance ─────────────────────────────────────────────────────
 
 describe("resolveContact — name verification", () => {
+  it("promotes Kevin Falk's full inbound sign-off over the provisional falkks header", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          providerMessageId: "19f8bb753b48ca4b",
+          fromEmail: "falkks1980@gmail.com",
+          fromName: "falkks",
+          cleanBody: "We'll get it done.",
+          rawBody: "We'll get it done.\n\nThanks,\nKevin Falk",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.name).toBe("Kevin Falk");
+    expect(result.nameIsVerified).toBe(true);
+    expect(
+      result.provenance.find((entry) => entry.field === "name")
+    ).toMatchObject({
+      source: "email_signature",
+      confidence: 0.92,
+      sourceMessageId: "19f8bb753b48ca4b",
+    });
+  });
+
+  it("promotes James Lam's full inbound sign-off over the Jtblam local-part fallback", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          providerMessageId: "19fa482000000001",
+          fromEmail: "jtblam@gmail.com",
+          fromName: "jtblam",
+          cleanBody: "That timing works for me.",
+          rawBody:
+            "That timing works for me.\n\nThanks\nJames Lam\n250-213-5767",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.name).toBe("James Lam");
+    expect(result.nameIsVerified).toBe(true);
+    expect(
+      result.provenance.find((entry) => entry.field === "name")
+    ).toMatchObject({
+      source: "email_signature",
+      confidence: 0.92,
+      sourceMessageId: "19fa482000000001",
+    });
+  });
+
+  it("never promotes an operator team member's name from an inbound body", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          fromEmail: "actual.customer@gmail.com",
+          fromName: "Actual Customer",
+          cleanBody: "Please see the note I copied below.",
+          rawBody:
+            "Please see the note I copied below.\n\nThanks,\nJackson Sweet",
+        }),
+      ],
+      operator: operator({
+        staffMembers: [
+          {
+            userId: "operator-jackson",
+            registeredEmail: "canprojack@gmail.com",
+            fullName: "Jackson Sweet",
+            phone: "2505550000",
+            verifiedAliases: new Set(),
+            pendingAliases: new Set(),
+            rejectedAliases: new Set(),
+          },
+        ],
+      }),
+    });
+
+    expect(result.name).toBe("Actual Customer");
+    expect(
+      result.provenance.some(
+        (entry) => entry.field === "name" && entry.source === "email_signature"
+      )
+    ).toBe(false);
+  });
+
+  it("rejects sentence-like text after a sign-off as customer identity", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          fromEmail: "falkks1980@gmail.com",
+          fromName: "falkks",
+          cleanBody: "Thanks, this should work.",
+          rawBody: "Thanks,\nThis Should Work",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.name).toBe("Falkks1980");
+    expect(result.nameIsVerified).toBe(false);
+    expect(
+      result.provenance.some(
+        (entry) => entry.field === "name" && entry.source === "email_signature"
+      )
+    ).toBe(false);
+  });
+
+  it("rejects a company or role phrase in the signature name position", () => {
+    const companyResult = resolveContact({
+      messages: [
+        customerInbound({
+          fromEmail: "customer@gmail.com",
+          fromName: "Customer",
+          rawBody: "Received.\n\nThanks,\nCanpro Deck And Rail",
+        }),
+      ],
+      operator: operator(),
+    });
+    const roleResult = resolveContact({
+      messages: [
+        customerInbound({
+          fromEmail: "customer@gmail.com",
+          fromName: "Customer",
+          rawBody: "Received.\n\nThanks,\nJames Lam Owner",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(companyResult.name).toBe("Customer");
+    expect(roleResult.name).toBe("Customer");
+  });
+
+  it("binds a signed name to the resolved sender rather than another public-domain participant", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          providerMessageId: "target-message",
+          fromEmail: "jtblam@gmail.com",
+          fromName: "jtblam",
+          sentAt: "2026-07-29T10:00:00.000Z",
+          rawBody: "Can you send the estimate?",
+        }),
+        customerInbound({
+          providerMessageId: "other-participant-message",
+          fromEmail: "other.person@gmail.com",
+          fromName: "Other Person",
+          sentAt: "2026-07-29T10:05:00.000Z",
+          rawBody: "Adding one detail.\n\nThanks,\nJames Lam",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.email).toBe("jtblam@gmail.com");
+    expect(result.name).toBe("Jtblam");
+    expect(result.nameIsVerified).toBe(false);
+  });
+
+  it("prefers the newest signed name from the same sender", () => {
+    const result = resolveContact({
+      messages: [
+        customerInbound({
+          providerMessageId: "older-message",
+          fromEmail: "customer@gmail.com",
+          fromName: "customer",
+          sentAt: "2026-07-20T10:00:00.000Z",
+          rawBody: "Old note.\n\nThanks,\nJamie Smith",
+        }),
+        customerInbound({
+          providerMessageId: "newer-message",
+          fromEmail: "customer@gmail.com",
+          fromName: "customer",
+          sentAt: "2026-07-29T10:00:00.000Z",
+          rawBody: "Correction.\n\nThanks,\nJames Smith",
+        }),
+      ],
+      operator: operator(),
+    });
+
+    expect(result.name).toBe("James Smith");
+    expect(
+      result.provenance.find((entry) => entry.field === "name")?.sourceMessageId
+    ).toBe("newer-message");
+  });
+
   it("sets nameIsVerified=true from a real display name", () => {
     const result = resolveContact({
       messages: [customerInbound({ fromName: "Jane Doe" })],

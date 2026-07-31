@@ -322,6 +322,23 @@ function applyResolvedContactToFacts(
 ): void {
   if (resolved.nameIsVerified && resolved.name) {
     facts.contactName = resolved.name;
+    const nameEvidence = resolved.provenance.find(
+      (entry) => entry.field === "name"
+    );
+    if (nameEvidence?.source === "email_signature") {
+      facts.fieldEvidence = {
+        ...facts.fieldEvidence,
+        contactName: {
+          source: "inbound",
+          confidence: nameEvidence.confidence,
+        },
+      };
+    } else if (nameEvidence?.source === "contact_form") {
+      facts.fieldEvidence = {
+        ...facts.fieldEvidence,
+        contactName: { source: "contact_form", confidence: 1 },
+      };
+    }
   }
   if (resolved.email) facts.contactEmail = resolved.email;
   facts.contactPhone = resolved.phone;
@@ -1000,7 +1017,7 @@ async function createClient(
     enrichmentFacts?.contactName ??
     submitter?.company ??
     submitter?.name ??
-    (enrichmentFacts?.sourcePlatform ? null : email.fromName) ??
+    (enrichmentFacts === undefined && !submitter ? email.fromName : null) ??
     // P0-C: never fabricate a name from the email local-part ("canprojack").
     "New Lead";
 
@@ -1389,13 +1406,14 @@ async function createOpportunity(
   const opportunityEnrichmentFields = titleOptions.enrichmentFacts
     ? buildNewOpportunityEnrichmentFields(titleOptions.enrichmentFacts)
     : {};
+  const generatedTitle = buildEmailOpportunityTitle({
+    kind: titleOptions.kind ?? "email_inquiry",
+    candidates,
+    unsafe: titleOptions.unsafe,
+  });
   const opportunityInsert = {
     client_id: clientId,
-    title: buildEmailOpportunityTitle({
-      kind: titleOptions.kind ?? "email_inquiry",
-      candidates,
-      unsafe: titleOptions.unsafe,
-    }),
+    title: generatedTitle,
     stage: persistedStage,
     source_thread_key: sourceKey,
     ...opportunityEnrichmentFields,
@@ -1554,7 +1572,10 @@ async function createOpportunity(
       companyId,
       opportunityId,
       clientId: null,
-      opportunityUpdates: opportunityEnrichmentFields,
+      opportunityUpdates: {
+        title: generatedTitle,
+        ...opportunityEnrichmentFields,
+      },
       clientUpdates: {},
       facts: titleOptions.enrichmentFacts,
     });
@@ -1828,7 +1849,8 @@ async function linkThread(
     );
   }
   const canonicalOpportunityId = canonicalRows?.[0]?.opportunity_id as
-    string | undefined;
+    | string
+    | undefined;
   if (!canonicalOpportunityId) {
     throw new Error(
       "[sync-engine] linkThread did not persist a canonical provider-thread owner"
@@ -2155,7 +2177,8 @@ async function createActivity(
     connection,
     opportunityId,
     ((insertedActivity as Record<string, unknown> | null)?.id as
-      string | null) ?? null,
+      | string
+      | null) ?? null,
     direction
   );
 

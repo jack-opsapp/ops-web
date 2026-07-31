@@ -19,6 +19,7 @@
 **Skills:** Test-driven development and systematic debugging.
 
 **Files:**
+
 - Modify: `src/lib/api/services/conversation-state/message-cleaner.ts`
 - Modify: `src/lib/api/services/conversation-state/contact-resolver.ts`
 - Modify: `src/lib/api/services/conversation-state/types.ts`
@@ -39,6 +40,7 @@
 **Skills:** Test-driven development.
 
 **Files:**
+
 - Modify: `src/lib/email/lead-enrichment.ts`
 - Modify: `src/lib/api/services/sync-engine.ts`
 - Test: `tests/unit/email/lead-enrichment.test.ts`
@@ -47,9 +49,9 @@
 **Steps:**
 
 1. Add failing tests proving signature evidence replaces `falkks` and `Jtblam`.
-2. Add failing tests proving equal/weaker headers, stale snapshots, confirmed fields, unrelated email/phone evidence, retries, and out-of-order messages cannot replace canonical names.
+2. Add failing tests proving exact linked-client evidence promotes only across the same normalized email, signed full names outrank it, and equal/weaker headers, stale snapshots, confirmed fields, unrelated email/phone evidence, retries, and out-of-order messages cannot replace canonical names.
 3. Add an optional contact-name evidence payload to enrichment facts.
-4. Map resolved name provenance into that payload without raising confidence for unrelated fields.
+4. Map resolved name provenance into that payload, admit exact linked-client evidence only behind the same-email fence, and do not raise confidence for unrelated fields.
 5. Apply source/confidence per written field and persist exact provenance.
 6. Run the focused tests and confirm red-green completion.
 
@@ -58,6 +60,7 @@
 **Skills:** Test-driven development.
 
 **Files:**
+
 - Modify: `src/lib/email/opportunity-title.ts`
 - Modify: `src/lib/email/lead-enrichment.ts`
 - Modify: `src/lib/api/services/sync-engine.ts`
@@ -82,6 +85,7 @@
 **Skills:** Test-driven development and systematic debugging.
 
 **Files:**
+
 - Modify: relevant sync/import/recovery tests discovered during execution.
 - Test: `tests/unit/email/sync-engine-ingestion-recovery-wiring.test.ts`
 - Test: `tests/unit/email/gmail-historical-import-provider-ids.test.ts`
@@ -99,6 +103,7 @@
 **Skills:** Supabase read-only verification and verification before completion.
 
 **Files:**
+
 - Modify: `../ops-software-bible/03_DATA_ARCHITECTURE.md`
 - Modify: `../ops-software-bible/04_API_AND_INTEGRATION.md`
 - Create or modify: guarded repair documentation under `docs/`.

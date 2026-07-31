@@ -16,8 +16,8 @@ Evidence order:
 
 1. Operator-confirmed identity.
 2. Explicit contact-form identity.
-3. Exact canonical directory identity for the same email or phone.
-4. A full customer name in an inbound sign-off, extracted only from the authored, quote-stripped message and tied to that message's external sender.
+3. A full customer name in an inbound sign-off, extracted only from the authored, quote-stripped message and tied to that message's external sender.
+4. Exact linked-client directory identity when the client, opportunity, and current correspondence share the same normalized email.
 5. A human-shaped `From` or outbound-recipient display name.
 6. An email local-part, which is display fallback only and never verified identity.
 
@@ -43,7 +43,8 @@ The signature name is authoritative for the sender email on that message. A firs
 
 - Higher-confidence evidence may replace the current value only when persisted provenance still snapshots that current value.
 - Contact-form and operator-confirmed values remain protected.
-- Signature evidence outranks header/local-part evidence.
+- Signature evidence outranks exact linked-client, header, and local-part evidence.
+- An exact linked-client name may promote an opportunity only across the same normalized email identity; phone fragments and name similarity are never sufficient.
 - Equal or weaker evidence is idempotent and cannot churn names.
 - A signature correction updates both the opportunity contact and an exactly matched client record when neither has operator protection.
 
@@ -90,4 +91,3 @@ Required regression coverage:
 - Corrected contact names rewrite OPS-generated inquiry and estimate titles.
 - Human-edited titles remain unchanged.
 - Live sync, existing-thread reuse, import, historical import, and recovery all use the shared boundary.
-
