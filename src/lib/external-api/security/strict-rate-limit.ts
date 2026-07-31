@@ -189,7 +189,7 @@ export function createStrictRateLimiter(config: {
     });
   }
 
-  return Object.freeze({
+  const limiter: StrictExternalApiRateLimiter = {
     checkPreAuth(input) {
       return check([
         {
@@ -217,7 +217,8 @@ export function createStrictRateLimiter(config: {
         },
       ]);
     },
-  });
+  };
+  return Object.freeze(limiter);
 }
 
 export function createConfiguredStrictRateLimiter(
