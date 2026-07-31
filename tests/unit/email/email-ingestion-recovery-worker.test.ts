@@ -53,6 +53,7 @@ function labelJob(
     providerThreadId: "provider-thread-1",
     providerMessageId: "provider-message-exact",
     providerLabelId: "Label_1",
+    opportunityId: null,
     attempts: 1,
     ...overrides,
   };
@@ -71,6 +72,18 @@ function classificationJob(
   };
 }
 
+function commercialOutcomeJob(
+  overrides: Partial<ClaimedEmailIngestionRecovery> = {}
+): ClaimedEmailIngestionRecovery {
+  return {
+    ...classificationJob(),
+    id: "00000000-0000-4000-8000-000000000203",
+    kind: "commercial_outcome",
+    opportunityId: "00000000-0000-4000-8000-000000000401",
+    ...overrides,
+  };
+}
+
 function makeHarness(input?: {
   jobs?: ClaimedEmailIngestionRecovery[];
   connection?: EmailConnection | null;
@@ -85,6 +98,7 @@ function makeHarness(input?: {
   );
   const applyProviderLabel = vi.fn(async () => undefined);
   const recoverLeadClassification = vi.fn(async () => "promoted" as const);
+  const recoverCommercialOutcome = vi.fn(async () => undefined);
   const complete = vi.fn(async () => true);
   const fail = vi.fn<EmailIngestionRecoveryDependencies["fail"]>(
     async () => "retrying"
@@ -110,6 +124,7 @@ function makeHarness(input?: {
     runWithMailboxLease,
     applyProviderLabel,
     recoverLeadClassification,
+    recoverCommercialOutcome,
     complete,
     fail,
     workerId: () => "email-ingestion-recovery-worker-1",
@@ -122,6 +137,7 @@ function makeHarness(input?: {
     loadConnection,
     applyProviderLabel,
     recoverLeadClassification,
+    recoverCommercialOutcome,
     complete,
     fail,
     mailbox,
@@ -197,6 +213,48 @@ describe("EmailIngestionRecoveryWorker", () => {
     });
     expect(result.classificationsRecovered).toBe(1);
     expect(result.promoted).toBe(1);
+  });
+
+  it("re-evaluates one exact safety-held commercial outcome without provider transport", async () => {
+    const job = commercialOutcomeJob();
+    const harness = makeHarness({ jobs: [job] });
+
+    const result = await harness.worker.process({
+      companyIds: [COMPANY_ID],
+    });
+
+    expect(harness.recoverCommercialOutcome).toHaveBeenCalledWith({
+      job,
+      connection: expect.objectContaining({ id: CONNECTION_ID }),
+      providerLockCheckpoint: harness.checkpoint,
+      syncLockOwner: "00000000-0000-4000-8000-000000000301",
+    });
+    expect(harness.recoverLeadClassification).not.toHaveBeenCalled();
+    expect(harness.applyProviderLabel).not.toHaveBeenCalled();
+    expect(harness.complete).toHaveBeenCalledWith({
+      queueId: job.id,
+      holder: "email-ingestion-recovery-worker-1",
+      outcome: "commercial_outcome_recovered",
+    });
+    expect(result.commercialOutcomesRecovered).toBe(1);
+  });
+
+  it("rejects a commercial recovery whose exact opportunity identity is absent", async () => {
+    const harness = makeHarness({
+      jobs: [commercialOutcomeJob({ opportunityId: null })],
+    });
+
+    const result = await harness.worker.process({
+      companyIds: [COMPANY_ID],
+    });
+
+    expect(harness.recoverCommercialOutcome).not.toHaveBeenCalled();
+    expect(harness.fail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: "EMAIL_INGESTION_RECOVERY_OPPORTUNITY_ID_MISSING",
+      })
+    );
+    expect(result.retrying).toBe(1);
   });
 
   it("fails closed when the durable lease is no longer authorized", async () => {

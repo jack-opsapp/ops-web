@@ -12,7 +12,7 @@ const DEFAULT_LIMIT = 10;
 const DEFAULT_LEASE_SECONDS = 360;
 
 export type EmailIngestionRecoveryKind =
-  "lead_classification" | "provider_label_apply";
+  "lead_classification" | "provider_label_apply" | "commercial_outcome";
 
 export interface ClaimedEmailIngestionRecovery {
   id: string;
@@ -22,6 +22,7 @@ export interface ClaimedEmailIngestionRecovery {
   providerThreadId: string;
   providerMessageId: string | null;
   providerLabelId: string | null;
+  opportunityId: string | null;
   attempts: number;
 }
 
@@ -56,11 +57,20 @@ export interface EmailIngestionRecoveryDependencies {
     providerLockCheckpoint: EmailProviderMailboxCheckpoint;
     syncLockOwner: string;
   }): Promise<"promoted" | "resolved">;
+  recoverCommercialOutcome(input: {
+    job: ClaimedEmailIngestionRecovery;
+    connection: EmailConnection;
+    providerLockCheckpoint: EmailProviderMailboxCheckpoint;
+    syncLockOwner: string;
+  }): Promise<void>;
   complete(input: {
     queueId: string;
     holder: string;
     outcome:
-      "classification_recovered" | "label_applied" | "stale_configuration";
+      | "classification_recovered"
+      | "commercial_outcome_recovered"
+      | "label_applied"
+      | "stale_configuration";
   }): Promise<boolean>;
   fail(input: {
     queueId: string;
@@ -81,6 +91,7 @@ export interface EmailIngestionRecoveryWorkerResult {
   classificationsRecovered: number;
   promoted: number;
   labelsApplied: number;
+  commercialOutcomesRecovered: number;
   retrying: number;
   failed: number;
   stale: number;
@@ -108,6 +119,7 @@ function emptyResult(): EmailIngestionRecoveryWorkerResult {
     classificationsRecovered: 0,
     promoted: 0,
     labelsApplied: 0,
+    commercialOutcomesRecovered: 0,
     retrying: 0,
     failed: 0,
     stale: 0,
@@ -140,6 +152,9 @@ function validateJob(job: ClaimedEmailIngestionRecovery): void {
   }
   if (job.kind === "provider_label_apply" && !job.providerLabelId?.trim()) {
     throw new Error("EMAIL_INGESTION_RECOVERY_LABEL_ID_MISSING");
+  }
+  if (job.kind === "commercial_outcome" && !job.opportunityId?.trim()) {
+    throw new Error("EMAIL_INGESTION_RECOVERY_OPPORTUNITY_ID_MISSING");
   }
 }
 
@@ -259,6 +274,17 @@ export class EmailIngestionRecoveryWorker {
               return "label_applied" as const;
             }
 
+            if (job.kind === "commercial_outcome") {
+              await this.dependencies.recoverCommercialOutcome({
+                job,
+                connection,
+                providerLockCheckpoint: checkpoint,
+                syncLockOwner,
+              });
+              await checkpoint();
+              return "commercial_outcome_recovered" as const;
+            }
+
             const classification =
               await this.dependencies.recoverLeadClassification({
                 job,
@@ -296,6 +322,8 @@ export class EmailIngestionRecoveryWorker {
         }
         if (leaseOutcome === "label_applied") {
           result.labelsApplied += 1;
+        } else if (leaseOutcome === "commercial_outcome_recovered") {
+          result.commercialOutcomesRecovered += 1;
         } else if (leaseOutcome === "stale_configuration") {
           result.stale += 1;
         } else {

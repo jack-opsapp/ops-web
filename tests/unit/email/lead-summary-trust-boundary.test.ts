@@ -711,6 +711,39 @@ describe("lead-summary trusted correspondence boundary", () => {
 });
 
 describe("lead-summary live wording regressions", () => {
+  it("retires an answered operator question after an unequivocal customer decline", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity({ stage: "lost" }) as never,
+      trustedConversation([
+        {
+          direction: "outbound",
+          body: "Did you go with someone else? If so, what was the deciding factor?",
+        },
+        {
+          direction: "inbound",
+          body: "We did go with someone else mostly for financial reasons.",
+        },
+      ]) as never
+    );
+
+    expect(bundle!.commercial_context).toMatchObject({
+      outcome: "declined",
+      reason: "price",
+      next_action: null,
+    });
+    expect(bundle!.current_fact_context).toMatchObject({
+      next_action: null,
+      superseded_next_actions: expect.arrayContaining([
+        expect.stringMatching(/deciding factor/i),
+      ]),
+    });
+
+    const fallback = renderDeterministicLeadSummaryFallback(bundle!);
+    expect(fallback).toMatch(/declined/i);
+    expect(fallback).toMatch(/financial/i);
+    expect(fallback).not.toMatch(/next action|deciding factor/i);
+  });
+
   it("keeps a terminal quote amount instead of its validity duration", () => {
     const bundle = buildLeadSummaryContext(
       opportunity({ stage: "won" }) as never,

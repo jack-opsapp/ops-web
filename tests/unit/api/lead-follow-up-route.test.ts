@@ -1,11 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getServiceRoleClientMock, resolveActorMock, sendLeadFollowUpMock } =
-  vi.hoisted(() => ({
-    getServiceRoleClientMock: vi.fn(() => ({ from: vi.fn(), rpc: vi.fn() })),
-    resolveActorMock: vi.fn(),
-    sendLeadFollowUpMock: vi.fn(),
-  }));
+const {
+  getServiceRoleClientMock,
+  resolveActorMock,
+  previewLeadFollowUpMock,
+  sendLeadFollowUpMock,
+} = vi.hoisted(() => ({
+  getServiceRoleClientMock: vi.fn(() => ({ from: vi.fn(), rpc: vi.fn() })),
+  resolveActorMock: vi.fn(),
+  previewLeadFollowUpMock: vi.fn(),
+  sendLeadFollowUpMock: vi.fn(),
+}));
 
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: getServiceRoleClientMock,
@@ -21,11 +26,12 @@ vi.mock("@/lib/api/services/lead-follow-up-send-service", async () => {
   >("@/lib/api/services/lead-follow-up-send-service");
   return {
     ...actual,
+    previewLeadFollowUp: previewLeadFollowUpMock,
     sendLeadFollowUp: sendLeadFollowUpMock,
   };
 });
 
-import { POST } from "@/app/api/leads/[opportunityId]/follow-up/route";
+import { GET, POST } from "@/app/api/leads/[opportunityId]/follow-up/route";
 import { LeadFollowUpError } from "@/lib/api/services/lead-follow-up-send-service";
 
 function request(body: unknown) {
@@ -51,6 +57,7 @@ describe("POST /api/leads/[opportunityId]/follow-up", () => {
   beforeEach(() => {
     resolveActorMock.mockReset();
     sendLeadFollowUpMock.mockReset();
+    previewLeadFollowUpMock.mockReset();
     resolveActorMock.mockResolvedValue({
       ok: true,
       actor: {
@@ -58,6 +65,40 @@ describe("POST /api/leads/[opportunityId]/follow-up", () => {
         companyId: "company-1",
         email: "jackson@ops.test",
       },
+    });
+  });
+
+  it("returns the server-derived recipient and stock content without accepting client transport facts", async () => {
+    previewLeadFollowUpMock.mockResolvedValue({
+      status: 200,
+      body: {
+        recipient: {
+          name: "Crystal",
+          email: "crystal@example.com",
+        },
+        subject: "Re: Front deck quote",
+        body: "Crystal, checking in on the quote.",
+        previewFingerprint:
+          "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        templateSettingsPath: "Settings → Comms → Lifecycle",
+      },
+    });
+
+    const response = await GET(request(null) as never, context);
+
+    expect(response.status).toBe(200);
+    expect(previewLeadFollowUpMock).toHaveBeenCalledWith({
+      actor: {
+        userId: "user-1",
+        companyId: "company-1",
+        email: "jackson@ops.test",
+      },
+      opportunityId,
+    });
+    expect(await response.json()).toMatchObject({
+      recipient: { name: "Crystal", email: "crystal@example.com" },
+      subject: "Re: Front deck quote",
+      templateSettingsPath: "Settings → Comms → Lifecycle",
     });
   });
 
@@ -110,12 +151,58 @@ describe("POST /api/leads/[opportunityId]/follow-up", () => {
       },
       opportunityId,
       idempotencyKey: "173e2538-60ed-4b12-a30e-b8c7f0825f4d",
+      previewFingerprint: null,
     });
     expect(await response.json()).toMatchObject({
       ok: true,
       delivered: true,
       comebackAt: "2026-07-26T18:00:00.000Z",
     });
+  });
+
+  it("binds an explicitly reviewed preview to the send request", async () => {
+    const previewFingerprint =
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    sendLeadFollowUpMock.mockResolvedValue({
+      status: 200,
+      body: {
+        ok: true,
+        delivered: true,
+        reconciliationPending: false,
+        deliveryUnknown: false,
+        intentId: "intent-1",
+        opportunity: { id: opportunityId },
+      },
+    });
+
+    const response = await POST(
+      request({
+        idempotencyKey: "173e2538-60ed-4b12-a30e-b8c7f0825f4d",
+        previewFingerprint,
+      }) as never,
+      context
+    );
+
+    expect(response.status).toBe(200);
+    expect(sendLeadFollowUpMock).toHaveBeenCalledWith(
+      expect.objectContaining({ previewFingerprint })
+    );
+  });
+
+  it("rejects a malformed preview fingerprint before any send work", async () => {
+    const response = await POST(
+      request({
+        idempotencyKey: "173e2538-60ed-4b12-a30e-b8c7f0825f4d",
+        previewFingerprint: "not-a-preview",
+      }) as never,
+      context
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "LEAD_FOLLOW_UP_PREVIEW_FINGERPRINT_INVALID",
+    });
+    expect(sendLeadFollowUpMock).not.toHaveBeenCalled();
   });
 
   it("preserves provider-accepted reconciliation-pending status", async () => {
