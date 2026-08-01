@@ -62,7 +62,9 @@
  *     AND con.confrelid::regclass::text = 'auth.users'
  *   -- minus anything already in IN_SCOPE_SNAPSHOT
  *
- * Verified against prod 2026-07-31: 219 in scope, 5 auth-identity.
+ * Verified against prod 2026-07-31: 219 in scope, 5 auth-identity. The pending
+ * site-visit cloud-sync migration adds the three explicitly marked children
+ * below, producing the post-migration 222-table snapshot checked in here.
  * The tenant row `companies` is deliberately absent — it carries no
  * `company_id` and no foreign key into scope, so no query can derive it; the
  * manifest adds it explicitly as the root.
@@ -243,6 +245,9 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "recurring_expenses",
   "role_permissions",
   "roles",
+  "site_visit_artifacts",
+  "site_visit_checklist_answers",
+  "site_visit_identity_drafts",
   "site_visits",
   "spec_acceptance_events",
   "spec_blocked_buyers",

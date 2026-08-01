@@ -187,9 +187,9 @@ describe("POST /api/data/delete-account — atomic cascade contract", () => {
       "site_visit_checklist_answers",
       "site_visit_identity_drafts",
     ]) {
-      expect(tables.indexOf(child), `${child} must precede site_visits`).toBeLessThan(
-        parentIndex
-      );
+      const childIndex = tables.indexOf(child);
+      expect(childIndex, `${child} must be in the purge plan`).toBeGreaterThan(-1);
+      expect(childIndex, `${child} must precede site_visits`).toBeLessThan(parentIndex);
     }
   });
 
@@ -224,8 +224,7 @@ describe("POST /api/data/delete-account — atomic cascade contract", () => {
 
   it("reports zero completed steps when the transaction fails", async () => {
     stub.failOn(PURGE_FUNCTION, "rpc", {
-      message:
-        "purge_company_data: step 113/199 (soft-delete expenses) failed: permission denied for table expenses",
+      message: `purge_company_data: step 113/${deletionPlan().length} (soft-delete expenses) failed: permission denied for table expenses`,
       code: "42501",
       details: "The transaction was rolled back.",
     });

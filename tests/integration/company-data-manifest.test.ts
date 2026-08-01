@@ -632,9 +632,9 @@ describe("company data manifest — coverage of the tables the old cascade misse
         deleteStrategy: "soft",
         export: true,
       });
-      expect(tables.indexOf(child), `${child} must precede site_visits`).toBeLessThan(
-        parentIndex
-      );
+      const childIndex = tables.indexOf(child);
+      expect(childIndex, `${child} must be in the purge plan`).toBeGreaterThan(-1);
+      expect(childIndex, `${child} must precede site_visits`).toBeLessThan(parentIndex);
     }
   });
 });

@@ -136,7 +136,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-07-31";
+export const MANIFEST_VERSION = "2026-08-01";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -2419,6 +2419,33 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     export: true,
   },
   {
+    table: "site_visit_artifacts",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "text",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
+    table: "site_visit_checklist_answers",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "text",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
+    table: "site_visit_identity_drafts",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "text",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
     table: "site_visits",
     scope: "company",
     companyColumn: "company_id",
@@ -2703,6 +2730,9 @@ export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [
   "project_note_mention_events",
   "qbo_estimate_opportunity_links",
   "qbo_item_product_mappings",
+  "site_visit_artifacts",
+  "site_visit_checklist_answers",
+  "site_visit_identity_drafts",
   "unanswered_lead_local_draft_generation_claims",
   "unanswered_lead_message_projections",
   "user_permission_change_deliveries",

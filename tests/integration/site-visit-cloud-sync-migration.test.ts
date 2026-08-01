@@ -155,11 +155,27 @@ describe("site-visit cloud sync migration", () => {
     expect(sql).toMatch(/completed_at\s*=\s*coalesce\(completed_at,/);
     expect(sql).toMatch(/insert into public\.activities[\s\S]*on conflict/);
     expect(sql).toMatch(/update public\.site_visits[\s\S]*activity_id/);
+    expect(sql).toContain("private.enforce_site_visit_status_monotonicity");
+    expect(sql).toContain("site_visit_terminal_status_is_monotonic");
+    expect(sql).toContain("site_visit_status_cannot_regress");
+    expect(sql).toMatch(
+      /before update of status on public\.site_visits[\s\S]*private\.enforce_site_visit_status_monotonicity/
+    );
+  });
+
+  it("bounds completion payloads before they reach legacy columns", () => {
+    expect(sql).toMatch(/pg_column_size\(p_completion\)\s*>\s*1048576/);
+    expect(sql).toMatch(/char_length\(p_completion\s*->>\s*'notes'\)\s*>\s*200000/);
+    expect(sql).toMatch(/char_length\(p_completion\s*->>\s*'measurements'\)\s*>\s*200000/);
+    expect(sql).toMatch(/char_length\(p_completion\s*->>\s*'internal_notes'\)\s*>\s*200000/);
+    expect(sql).toMatch(/jsonb_array_length\(p_completion\s*->\s*'photos'\)\s*>\s*100/);
+    expect(sql).toMatch(/jsonb_typeof\(photo\.value\)\s*<>\s*'string'/);
+    expect(sql).toMatch(/char_length\(photo\.value\s*#>>\s*'\{\}'\)\s*>\s*4096/);
   });
 
   it("keeps the guarded RPC callable only through the app roles", () => {
     expect(sql).toMatch(
-      /create or replace function public\.complete_site_visit_guarded\(uuid, jsonb\)/
+      /create or replace function public\.complete_site_visit_guarded\(\s*p_site_visit_id uuid,\s*p_completion jsonb/
     );
     expect(sql).toMatch(/set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'/);
     expect(sql).toMatch(
