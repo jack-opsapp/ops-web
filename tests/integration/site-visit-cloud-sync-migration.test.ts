@@ -16,6 +16,13 @@ const securityBoundaryPath = join(
 const securityBoundarySql = existsSync(securityBoundaryPath)
   ? readFileSync(securityBoundaryPath, "utf8").toLowerCase()
   : "";
+const fkIndexPath = join(
+  MIGRATIONS,
+  "20260802102853_site_visit_fk_indexes.sql"
+);
+const fkIndexSql = existsSync(fkIndexPath)
+  ? readFileSync(fkIndexPath, "utf8").toLowerCase()
+  : "";
 
 const BUSINESS_TABLES = [
   "site_visit_artifacts",
@@ -231,6 +238,16 @@ describe("site-visit cloud sync migration", () => {
         )
       );
     }
+  });
+
+  it("covers both legacy site-visit foreign-key lookups", () => {
+    expect(existsSync(fkIndexPath)).toBe(true);
+    expect(fkIndexSql).toMatch(
+      /create index if not exists project_photos_site_visit_id_idx[\s\S]*on public\.project_photos\s*\(site_visit_id\)/
+    );
+    expect(fkIndexSql).toMatch(
+      /create index if not exists site_visits_activity_id_idx[\s\S]*on public\.site_visits\s*\(activity_id\)/
+    );
   });
 
   it("never disables integrity enforcement", () => {
