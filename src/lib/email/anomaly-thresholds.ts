@@ -104,7 +104,7 @@ export function evaluateThresholds(s: MetricSnapshot): AnomalyEval[] {
     }
   }
 
-  if (s.baselineSent !== undefined && s.baselineSent > 0) {
+  if (s.baselineSent !== undefined && s.baselineSent >= MIN_SENDS_FOR_PCT) {
     const ratio = (s.totalSent / s.baselineSent) * 100;
     if (ratio < VOLUME_DROP_PCT) {
       out.push({
