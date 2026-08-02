@@ -1,15 +1,53 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { NextRequest } from "next/server";
+import type { CronWorkloadLease } from "@/lib/api/services/cron-workload-control-service";
 
 const ACTIVE = "11111111-1111-4111-8111-111111111111";
 const DELETED_A = "22222222-2222-4222-8222-222222222222";
 const DELETED_B = "33333333-3333-4333-8333-333333333333";
 
 const eraseSiteVisitPrefixMock = vi.fn();
+let nextControlSkip:
+  | "lease_held"
+  | "circuit_open"
+  | "control_unavailable"
+  | null = null;
 vi.mock("@/lib/s3/site-visit-prefix-erasure", () => ({
   eraseSiteVisitPrefix: (companyId: string) =>
     eraseSiteVisitPrefixMock(companyId),
 }));
+
+vi.mock(
+  "@/lib/api/services/cron-workload-control-service",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("@/lib/api/services/cron-workload-control-service")
+      >();
+    return {
+      ...actual,
+      runWithCronWorkloadControl: async ({
+        work,
+      }: {
+        work: (lease: CronWorkloadLease) => Promise<unknown>;
+      }) => {
+        if (nextControlSkip) {
+          return { status: "skipped", reason: nextControlSkip };
+        }
+        return {
+          status: "completed",
+          value: await work({
+            ownerToken: "site-visit-erasure-test-owner",
+            fenceToken: 1,
+            globalFenceToken: 1,
+            expiresAt: "2099-01-01T00:00:00.000Z",
+            signal: new AbortController().signal,
+          }),
+        };
+      },
+    };
+  }
+);
 
 let companyRows: Array<{ id: string; deleted_at: string | null }> = [];
 const rangeMock = vi.fn(async (from: number, to: number) => ({
@@ -42,6 +80,7 @@ function request(secret?: string): NextRequest {
 beforeEach(() => {
   process.env.CRON_SECRET = "cron-secret";
   companyRows = [];
+  nextControlSkip = null;
   rangeMock.mockClear();
   eraseSiteVisitPrefixMock.mockReset().mockResolvedValue({
     prefix: "site-visits/company/",
@@ -56,6 +95,25 @@ describe("site-visit storage erasure cron", () => {
     expect((await GET(request())).status).toBe(500);
     process.env.CRON_SECRET = "cron-secret";
     expect((await GET(request("wrong"))).status).toBe(401);
+    expect(eraseSiteVisitPrefixMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed without touching storage when the workload circuit is open", async () => {
+    companyRows = [
+      { id: DELETED_A, deleted_at: "2026-08-01T00:00:00.000Z" },
+    ];
+    nextControlSkip = "circuit_open";
+
+    const response = await GET(request("cron-secret"));
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      ok: false,
+      ran: false,
+      reason: "circuit_open",
+    });
+    expect(rangeMock).not.toHaveBeenCalled();
     expect(eraseSiteVisitPrefixMock).not.toHaveBeenCalled();
   });
 
