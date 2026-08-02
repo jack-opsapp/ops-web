@@ -23,7 +23,9 @@ import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { buildEmailOpportunityTitle } from "@/lib/email/opportunity-title";
 import {
   applyCanonicalLeadEnrichment,
+  buildNewOpportunityEnrichmentFields,
   leadEnrichmentFactsFromImport,
+  writeFieldProvenance,
 } from "@/lib/email/lead-enrichment";
 import { findOpportunityRelationshipMatch } from "@/lib/email/opportunity-relationship-matching";
 import {
@@ -67,7 +69,7 @@ function buildImportedLeadOpportunityTitle(
     kind: "estimate",
     candidates: [
       {
-        source: "contact",
+        source: "operator_confirmed",
         name: lead.clientName,
         email: lead.clientEmail,
       },
@@ -557,6 +559,13 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
         providerMessageId: null,
         extractionSource: "import_payload",
       });
+      enrichmentFacts.fieldEvidence = {
+        contactName: {
+          source: "operator",
+          confidence: 1,
+          actorUserId: authorizedJob.actorUserId,
+        },
+      };
 
       // Use local variables to avoid mutating the payload object
       let effectiveAction = lead.action;
@@ -893,15 +902,16 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
           .is("source_email_id", null);
       } else {
         let createdOpportunity = false;
+        const generatedTitle = buildImportedLeadOpportunityTitle(
+          lead,
+          payload.syncProfile,
+          authoritativeOperator
+        );
         try {
           const opp = await OpportunityService.createOpportunity({
             companyId,
             clientId,
-            title: buildImportedLeadOpportunityTitle(
-              lead,
-              payload.syncProfile,
-              authoritativeOperator
-            ),
+            title: generatedTitle,
             stage,
             source: OpportunitySource.Email,
             contactName: lead.clientName,
@@ -948,6 +958,18 @@ async function runImport(jobId: string, supabase: SupabaseClient) {
           createdOpportunity = true;
           opportunityCreatedForImport = true;
           opportunityAggregatesSeededByImport = true;
+          await writeFieldProvenance({
+            supabase,
+            companyId,
+            opportunityId,
+            clientId: null,
+            opportunityUpdates: {
+              title: generatedTitle,
+              ...buildNewOpportunityEnrichmentFields(enrichmentFacts),
+            },
+            clientUpdates: {},
+            facts: enrichmentFacts,
+          });
         } catch (createError) {
           if (databaseErrorCode(createError) !== "23505") {
             throw createError;

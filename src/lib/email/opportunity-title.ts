@@ -7,6 +7,7 @@ export type EmailOpportunityIdentitySource =
   | "client"
   | "contact"
   | "contact_form"
+  | "operator_confirmed"
   | "inbound_sender"
   | "outbound_recipient";
 
@@ -29,8 +30,23 @@ export interface BuildEmailOpportunityTitleInput {
   unsafe?: EmailOpportunityUnsafeIdentity;
 }
 
+export interface RewriteGeneratedEmailOpportunityTitleInput {
+  currentTitle: string | null | undefined;
+  currentContactName: string | null | undefined;
+  currentContactEmail: string | null | undefined;
+  nextContactName: string | null | undefined;
+  nextNameSource: EmailOpportunityIdentitySource;
+  /**
+   * Omit when the opportunity predates title provenance. When present, the
+   * snapshot must still equal the stored title or the title is treated as a
+   * subsequent human edit and left untouched.
+   */
+  titleEvidence?: { valueSnapshot: string | null } | null;
+}
+
 const SOURCE_PRIORITY: Record<EmailOpportunityIdentitySource, number> = {
   contact_form: 0,
+  operator_confirmed: 0,
   inbound_sender: 1,
   outbound_recipient: 1,
   contact: 2,
@@ -87,6 +103,22 @@ function emailDomain(email: string): string {
 
 function normalizeNameKey(value: string | null | undefined): string {
   return cleanIdentityName(value)?.toLowerCase() ?? "";
+}
+
+function normalizedIdentityKey(value: string | null | undefined): string {
+  return (
+    cleanIdentityName(value)
+      ?.normalize("NFKD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "") ?? ""
+  );
+}
+
+function generatedTitlePrefixKey(value: string | null | undefined): string {
+  return value?.trim().toLowerCase() === "new lead"
+    ? "newlead"
+    : normalizedIdentityKey(value);
 }
 
 function companyNameKey(value: string | null | undefined): string {
@@ -201,24 +233,63 @@ function firstSafeDisplayName(
 
     const name = cleanIdentityName(candidate.name);
     if (!name || isUnsafeName(name, unsafe)) continue;
+    if (isMailboxHandleDisplayName(candidate, name, email)) continue;
     return name;
   }
   return null;
 }
 
-function firstSafeEmailName(
-  candidates: EmailOpportunityIdentityCandidate[],
-  unsafe: ReturnType<typeof unsafeSets>
-): string | null {
-  for (const candidate of candidates) {
-    const email = normalizeEmail(candidate.email);
-    if (!email || isUnsafeEmail(email, unsafe)) continue;
-
-    const name = localPartToDisplayName(email);
-    if (!name || isUnsafeName(name, unsafe)) continue;
-    return name;
+function isMailboxHandleDisplayName(
+  candidate: EmailOpportunityIdentityCandidate,
+  name: string,
+  email: string
+): boolean {
+  if (
+    candidate.source === "contact_form" ||
+    candidate.source === "operator_confirmed"
+  ) {
+    return false;
   }
-  return null;
+  if (!email || /\s/u.test(name)) return false;
+
+  const localPart = email.split("@")[0] ?? "";
+  const nameKey = normalizedIdentityKey(name);
+  const localPartKey = normalizedIdentityKey(localPart);
+  if (!nameKey || !localPartKey) return false;
+  if (nameKey === localPartKey) return true;
+
+  // A single header token is useful only when it is shaped like a real first
+  // name. Lowercase handles, all-caps aliases, mixed-case usernames, and
+  // digit-bearing IDs stay provisional without becoming customer-facing text.
+  if (!/^\p{Lu}[\p{Ll}'’\-]+$/u.test(name)) return true;
+
+  const suffix = localPartKey.slice(nameKey.length);
+  return localPartKey.startsWith(nameKey) && /^\d+$/u.test(suffix);
+}
+
+/**
+ * Shared mailbox-header qualification boundary. Header names are provisional:
+ * person-shaped values may be displayed, but mailbox handles and local-parts
+ * are never promoted into canonical customer identity.
+ */
+export function qualifyMailboxDisplayName(
+  name: string | null | undefined,
+  email: string | null | undefined
+): string | null {
+  const cleaned = cleanIdentityName(name);
+  const normalizedEmail = normalizeEmail(email);
+  if (!cleaned) return null;
+  return isMailboxHandleDisplayName(
+    {
+      source: "inbound_sender",
+      name: cleaned,
+      email: normalizedEmail,
+    },
+    cleaned,
+    normalizedEmail
+  )
+    ? null
+    : cleaned;
 }
 
 export function parseMailboxDisplayName(
@@ -246,10 +317,57 @@ export function buildEmailOpportunityTitle(
 ): string {
   const unsafe = unsafeSets(input.unsafe);
   const candidates = rankIdentityCandidates(input.candidates);
-  const identity =
-    firstSafeDisplayName(candidates, unsafe) ??
-    firstSafeEmailName(candidates, unsafe) ??
-    "New Lead";
+  const identity = firstSafeDisplayName(candidates, unsafe) ?? "New Lead";
 
   return `${identity} — ${titleSuffix(input.kind)}`;
+}
+
+const GENERATED_TITLE_RE = /^(.*?)\s+(?:—|-)\s+(Email Inquiry|Estimate)$/u;
+
+/**
+ * Promote the identity portion of an OPS-generated email lead title while
+ * preserving its lead kind. Provenance is the primary ownership proof. Older
+ * rows without title provenance are eligible only when their prefix still
+ * matches a known generated identity, so arbitrary human titles fail closed.
+ */
+export function rewriteGeneratedEmailOpportunityTitle(
+  input: RewriteGeneratedEmailOpportunityTitleInput
+): string | null {
+  const currentTitle = input.currentTitle?.trim();
+  const nextContactName = firstSafeDisplayName(
+    [
+      {
+        source: input.nextNameSource,
+        name: input.nextContactName,
+        email: input.currentContactEmail,
+      },
+    ],
+    unsafeSets(undefined)
+  );
+  if (!currentTitle || !nextContactName) return null;
+
+  const parsed = currentTitle.match(GENERATED_TITLE_RE);
+  if (!parsed) return null;
+  const currentPrefix = parsed[1]?.trim() ?? "";
+  const suffix = parsed[2];
+  if (!currentPrefix || !suffix) return null;
+
+  if (input.titleEvidence !== undefined) {
+    if (input.titleEvidence?.valueSnapshot !== currentTitle) return null;
+  } else {
+    const prefixKey = generatedTitlePrefixKey(currentPrefix);
+    const knownGeneratedKeys = new Set(
+      [
+        "New Lead",
+        input.currentContactName,
+        localPartToDisplayName(normalizeEmail(input.currentContactEmail)),
+      ]
+        .map(generatedTitlePrefixKey)
+        .filter(Boolean)
+    );
+    if (!prefixKey || !knownGeneratedKeys.has(prefixKey)) return null;
+  }
+
+  if (currentPrefix === nextContactName) return null;
+  return `${nextContactName} — ${suffix}`;
 }

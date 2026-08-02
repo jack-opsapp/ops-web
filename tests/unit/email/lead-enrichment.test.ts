@@ -361,6 +361,38 @@ describe("lead lifecycle enrichment decisions", () => {
     expect(facts.contactName).toBeNull();
   });
 
+  it("rejects a lowercase header handle even when the mailbox has numeric suffixes", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "falkks <falkks1980@gmail.com>",
+        fromName: "falkks",
+        subject: "Need a deck quote",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+
+    expect(facts.contactEmail).toBe("falkks1980@gmail.com");
+    expect(facts.contactName).toBeNull();
+  });
+
+  it("keeps a person-shaped full header name as provisional evidence", () => {
+    const facts = leadEnrichmentFactsFromEmail({
+      email: baseEmail({
+        from: "Kevin Falk <falkks1980@gmail.com>",
+        fromName: "Kevin Falk",
+        subject: "Need a deck quote",
+      }),
+      direction: "inbound",
+      connection: baseConnection(),
+      profile: syncProfile,
+    });
+
+    expect(facts.contactEmail).toBe("falkks1980@gmail.com");
+    expect(facts.contactName).toBe("Kevin Falk");
+  });
+
   it("replaces a legacy local-part-derived name with verified contact-form evidence", () => {
     const facts = leadEnrichmentFactsFromEmail({
       email: baseEmail(),

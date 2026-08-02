@@ -20,11 +20,14 @@ import { OpportunityLifecycleService } from "@/lib/api/services/opportunity-life
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import {
   applyCanonicalLeadEnrichment,
+  buildNewOpportunityEnrichmentFields,
   type LeadEnrichmentFacts,
+  writeFieldProvenance,
 } from "@/lib/email/lead-enrichment";
 import {
   buildEmailOpportunityTitle,
   parseMailboxDisplayName,
+  qualifyMailboxDisplayName,
 } from "@/lib/email/opportunity-title";
 import { findOpportunityRelationshipMatch } from "@/lib/email/opportunity-relationship-matching";
 import {
@@ -214,9 +217,7 @@ function verifiedMailboxDisplayName(
   normalizedMailboxEmail = normalizeEmailAddress(mailbox)
 ): string | null {
   const displayName = parseMailboxDisplayName(mailbox);
-  const localPart = normalizedMailboxEmail.split("@")[0]?.trim().toLowerCase();
-  if (!displayName || !localPart) return displayName;
-  return displayName.trim().toLowerCase() === localPart ? null : displayName;
+  return qualifyMailboxDisplayName(displayName, normalizedMailboxEmail);
 }
 
 function messageDate(msg: GmailMessage): Date {
@@ -743,19 +744,34 @@ async function postHistoricalImport(
             );
 
             if (existingOpps.length === 0) {
-              await OpportunityService.createOpportunity({
+              const generatedTitle = buildEmailOpportunityTitle({
+                kind: "email_inquiry",
+                candidates: [
+                  {
+                    source: "operator_confirmed",
+                    name: contact.name,
+                    email: contact.fromEmail,
+                  },
+                ],
+              });
+              const approvedFacts: LeadEnrichmentFacts = {
+                contactName: contact.name,
+                companyName: null,
+                contactEmail: contact.fromEmail.toLowerCase(),
+                contactPhone: null,
+                address: null,
+                estimatedValue: null,
+                description: null,
+                source: "email",
+                sourcePlatform: null,
+                providerThreadId: null,
+                providerMessageId: null,
+                extractionSource: "import_payload",
+              };
+              const opportunity = await OpportunityService.createOpportunity({
                 companyId,
                 clientId,
-                title: buildEmailOpportunityTitle({
-                  kind: "email_inquiry",
-                  candidates: [
-                    {
-                      source: "inbound_sender",
-                      name: contact.name,
-                      email: contact.fromEmail,
-                    },
-                  ],
-                }),
+                title: generatedTitle,
                 stage: OpportunityStage.NewLead,
                 source: OpportunitySource.Email,
                 contactName: contact.name,
@@ -776,6 +792,19 @@ async function postHistoricalImport(
                 latitude: null,
                 longitude: null,
                 tags: ["email-import"],
+              });
+              await writeFieldProvenance({
+                supabase,
+                companyId,
+                opportunityId: opportunity.id,
+                clientId: null,
+                opportunityUpdates: {
+                  title: generatedTitle,
+                  ...buildNewOpportunityEnrichmentFields(approvedFacts),
+                },
+                clientUpdates: {},
+                facts: approvedFacts,
+                actorUserId: access.actor.userId,
               });
               leadsCreated++;
             }
@@ -1301,23 +1330,24 @@ async function processMessage(
     opportunityId = relationshipDecision.opportunityId;
     activityClientId = relationshipDecision.clientId ?? clientId;
   } else if (clientId) {
+    const generatedTitle = buildEmailOpportunityTitle({
+      kind: "email_inquiry",
+      candidates: [
+        {
+          source: routingIdentity.isContactFormSubmission
+            ? "contact_form"
+            : direction === "outbound"
+              ? "outbound_recipient"
+              : "inbound_sender",
+          name: customerName,
+          email: customerEmail,
+        },
+      ],
+    });
     const opportunity = await OpportunityService.createOpportunity({
       companyId,
       clientId,
-      title: buildEmailOpportunityTitle({
-        kind: "email_inquiry",
-        candidates: [
-          {
-            source: routingIdentity.isContactFormSubmission
-              ? "contact_form"
-              : direction === "outbound"
-                ? "outbound_recipient"
-                : "inbound_sender",
-            name: customerName,
-            email: customerEmail,
-          },
-        ],
-      }),
+      title: generatedTitle,
       stage: OpportunityStage.NewLead,
       source: OpportunitySource.Email,
       contactName: customerName || null,
@@ -1343,6 +1373,18 @@ async function processMessage(
     });
     opportunityId = opportunity.id;
     leadCreated = true;
+    await writeFieldProvenance({
+      supabase,
+      companyId,
+      opportunityId,
+      clientId: null,
+      opportunityUpdates: {
+        title: generatedTitle,
+        ...buildNewOpportunityEnrichmentFields(enrichmentFacts),
+      },
+      clientUpdates: {},
+      facts: enrichmentFacts,
+    });
   }
 
   if (opportunityId) {

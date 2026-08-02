@@ -101,19 +101,16 @@ vi.mock("@/lib/api/services/email-thread-service", () => ({
   },
 }));
 
-vi.mock(
-  "@/lib/api/services/conversation-state/operator-identity",
-  () => ({
-    fetchOperatorIdentity: vi.fn(async () => ({
-      emails: new Set(["jackson@canprodeckandrail.com"]),
-      domains: new Set(["canprodeckandrail.com"]),
-      phones: new Set<string>(),
-      addresses: new Set<string>(),
-      companyName: "Canpro Deck and Rail",
-      staffMembers: [],
-    })),
-  })
-);
+vi.mock("@/lib/api/services/conversation-state/operator-identity", () => ({
+  fetchOperatorIdentity: vi.fn(async () => ({
+    emails: new Set(["jackson@canprodeckandrail.com"]),
+    domains: new Set(["canprodeckandrail.com"]),
+    phones: new Set<string>(),
+    addresses: new Set<string>(),
+    companyName: "Canpro Deck and Rail",
+    staffMembers: [],
+  })),
+}));
 
 vi.mock("@/lib/email/opportunity-relationship-matching", () => ({
   findOpportunityRelationshipMatch: relationshipMatchMock,
@@ -1921,7 +1918,7 @@ describe("email opportunity title route writes", () => {
     );
   });
 
-  it("falls back to email identity when imported lead names are company or summary text", async () => {
+  it("uses New Lead when imported names are unsafe instead of fabricating from email", async () => {
     const state: ImportState = {
       jobUpdates: [],
       opportunityPatches: [],
@@ -2001,7 +1998,7 @@ describe("email opportunity title route writes", () => {
       string,
       unknown
     >;
-    expect(payload.title).toBe("Kara Beach — Estimate");
+    expect(payload.title).toBe("New Lead — Estimate");
     expect(payload.title).not.toContain("Canpro");
     expect(payload.title).not.toContain("summary");
   });

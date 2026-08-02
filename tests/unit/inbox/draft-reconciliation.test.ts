@@ -7,16 +7,24 @@
 
 import { beforeEach, describe, it, expect, vi } from "vitest";
 
-const { getDraftMock, enqueueIfEnabledMock, listKnownSignaturesMock } =
-  vi.hoisted(() => ({
-    getDraftMock: vi.fn(),
-    enqueueIfEnabledMock: vi.fn(),
-    listKnownSignaturesMock: vi.fn(),
-  }));
+const {
+  getDraftMock,
+  deleteDraftMock,
+  enqueueIfEnabledMock,
+  listKnownSignaturesMock,
+} = vi.hoisted(() => ({
+  getDraftMock: vi.fn(),
+  deleteDraftMock: vi.fn(),
+  enqueueIfEnabledMock: vi.fn(),
+  listKnownSignaturesMock: vi.fn(),
+}));
 
 vi.mock("@/lib/api/services/email-service", () => ({
   EmailService: {
-    getProvider: () => ({ getDraft: getDraftMock }),
+    getProvider: () => ({
+      getDraft: getDraftMock,
+      deleteDraft: deleteDraftMock,
+    }),
   },
 }));
 
@@ -188,8 +196,10 @@ describe("classifyDraftOutcome", () => {
 describe("reconcilePendingMailboxDrafts", () => {
   beforeEach(() => {
     getDraftMock.mockReset();
+    deleteDraftMock.mockReset();
     enqueueIfEnabledMock.mockReset();
     getDraftMock.mockResolvedValue(null);
+    deleteDraftMock.mockResolvedValue(undefined);
     enqueueIfEnabledMock.mockResolvedValue({ id: "queue-1" });
     listKnownSignaturesMock.mockResolvedValue([
       {
@@ -199,6 +209,91 @@ describe("reconcilePendingMailboxDrafts", () => {
         contentHash: "a".repeat(64),
       },
     ]);
+  });
+
+  it("deletes and supersedes a partial-context draft when a later inbound exists", async () => {
+    const pendingRows = [
+      {
+        id: "draft-history-stale",
+        company_id: "company-1",
+        user_id: "user-1",
+        mailbox_draft_id: "provider-draft-stale",
+        source_message_id: "provider-inbound-1",
+        created_at: "2026-07-10T09:05:00.000Z",
+        profile_type: "general",
+        opportunity_id: "opportunity-1",
+      },
+    ];
+    const activities = [
+      {
+        id: "activity-in-1",
+        direction: "inbound",
+        body_text: "First message",
+        created_at: "2026-07-10T09:00:00.000Z",
+        subject: "Schedule",
+        from_email: "rose@example.com",
+        to_emails: ["operator@example.com"],
+        email_message_id: "provider-inbound-1",
+        opportunity_id: "opportunity-1",
+      },
+      {
+        id: "activity-in-2",
+        direction: "inbound",
+        body_text: "Correction with current details",
+        created_at: "2026-07-10T09:10:00.000Z",
+        subject: "Re: Schedule",
+        from_email: "rose@example.com",
+        to_emails: ["operator@example.com"],
+        email_message_id: "provider-inbound-2",
+        opportunity_id: "opportunity-1",
+      },
+    ];
+    const updateCalls: Array<Record<string, unknown>> = [];
+    getDraftMock.mockResolvedValue({ id: "provider-draft-stale" });
+
+    function queryFor(table: string) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updateCalls.push(payload);
+          return query;
+        }),
+        order: vi.fn(async () => ({
+          data: table === "activities" ? activities : [],
+          error: null,
+        })),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve({
+            data: table === "ai_draft_history" ? pendingRows : [],
+            error: null,
+          }).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    await reconcilePendingMailboxDrafts({
+      connection: {
+        id: "connection-1",
+        companyId: "company-1",
+        email: "operator@example.com",
+      } as never,
+      providerThreadId: "provider-thread-1",
+      supabase: {
+        from: vi.fn((table: string) => queryFor(table)),
+      } as never,
+    });
+
+    expect(deleteDraftMock).toHaveBeenCalledOnce();
+    expect(deleteDraftMock).toHaveBeenCalledWith("provider-draft-stale");
+    expect(updateCalls).toContainEqual(
+      expect.objectContaining({ status: "superseded" })
+    );
+    expect(enqueueIfEnabledMock).not.toHaveBeenCalled();
   });
 
   it("hands a mailbox-sent AI draft to the durable provider-id queue exactly once", async () => {
@@ -216,6 +311,7 @@ describe("reconcilePendingMailboxDrafts", () => {
     const outboundRows = [
       {
         id: "activity-1",
+        direction: "outbound",
         body_text:
           "Final operator body\n\nThanks,\n\nOld Jackson\nOld OPS LTD.\n\n" +
           "On Tue, Jul 14, 2026, Lead wrote:\n> Prior message",
@@ -681,6 +777,7 @@ describe("reconcilePendingMailboxDrafts", () => {
     const outboundRows = [
       {
         id: "activity-1",
+        direction: "outbound",
         body_text: "Final body\n\nJackson\nOPS LTD.",
         created_at: "2026-07-10T10:00:00.000Z",
         subject: "Final subject",

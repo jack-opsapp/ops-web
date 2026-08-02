@@ -142,7 +142,9 @@ describe("opportunity lifecycle evaluator dry-run decisions", () => {
     });
     // A beyond-qualified archive is the strong lost candidate phase C will
     // reclassify — the evidence flag preserves that signal.
-    expect((decision.evidence as { beyondQualified?: boolean }).beyondQualified).toBe(true);
+    expect(
+      (decision.evidence as { beyondQualified?: boolean }).beyondQualified
+    ).toBe(true);
   });
 
   it("archives an unreplied inbound in an early stage too — the 'forgot to follow up' lead, no beyond-qualified gate", () => {
@@ -164,7 +166,9 @@ describe("opportunity lifecycle evaluator dry-run decisions", () => {
       dryRun: true,
     });
     // Early-stage archive → more likely a cold/forgotten lead than a lost deal.
-    expect((decision.evidence as { beyondQualified?: boolean }).beyondQualified).toBe(false);
+    expect(
+      (decision.evidence as { beyondQualified?: boolean }).beyondQualified
+    ).toBe(false);
   });
 
   it("ignores terminal and protected opportunities", () => {
@@ -212,5 +216,57 @@ describe("opportunity lifecycle evaluator dry-run decisions", () => {
       action: "reactivate_on_related_inbound",
       dryRun: true,
     });
+  });
+
+  it("keeps an earlier related inbound visible when a later outbound lands in the same catch-up", () => {
+    const decision = evaluateOpportunityLifecycle({
+      opportunity: opportunity({ archivedAt: "2026-05-20T00:00:00.000Z" }),
+      lifecycleState: null,
+      meaningfulEvents: [
+        event({
+          id: "event-inbound",
+          direction: "inbound",
+          partyRole: "customer",
+          linkedContactKind: "high_confidence_related_contact",
+          occurredAt: "2026-05-26T18:00:00.000Z",
+        }),
+        event({
+          id: "event-outbound",
+          direction: "outbound",
+          partyRole: "ops",
+          linkedContactKind: null,
+          occurredAt: "2026-05-26T18:05:00.000Z",
+        }),
+      ],
+      settings,
+      now,
+    });
+
+    expect(decision).toMatchObject({
+      action: "reactivate_on_related_inbound",
+      evidence: {
+        latestEventId: "event-inbound",
+        latestEventAt: "2026-05-26T18:00:00.000Z",
+      },
+    });
+  });
+
+  it("does not reactivate from related mail that predates the archive", () => {
+    expect(
+      evaluateOpportunityLifecycle({
+        opportunity: opportunity({ archivedAt: "2026-05-20T00:00:00.000Z" }),
+        lifecycleState: null,
+        meaningfulEvents: [
+          event({
+            direction: "inbound",
+            partyRole: "customer",
+            linkedContactKind: "related_contact",
+            occurredAt: "2026-05-19T18:00:00.000Z",
+          }),
+        ],
+        settings,
+        now,
+      })
+    ).toMatchObject({ action: "no_action", ignored: true });
   });
 });
