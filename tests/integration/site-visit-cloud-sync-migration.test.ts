@@ -9,6 +9,13 @@ const migrationFiles = readdirSync(MIGRATIONS).filter((file) =>
 const migrationPath =
   migrationFiles.length === 1 ? join(MIGRATIONS, migrationFiles[0]) : "";
 const sql = migrationPath ? readFileSync(migrationPath, "utf8").toLowerCase() : "";
+const securityBoundaryPath = join(
+  MIGRATIONS,
+  "20260802093608_site_visit_completion_rpc_security_boundary.sql"
+);
+const securityBoundarySql = existsSync(securityBoundaryPath)
+  ? readFileSync(securityBoundaryPath, "utf8").toLowerCase()
+  : "";
 
 const BUSINESS_TABLES = [
   "site_visit_artifacts",
@@ -187,6 +194,31 @@ describe("site-visit cloud sync migration", () => {
     );
     expect(sql).toMatch(
       /grant execute on function public\.complete_site_visit_guarded\(uuid, jsonb\) to anon, authenticated/
+    );
+  });
+
+  it("keeps the public RPC invoker-safe while isolating privileged work", () => {
+    expect(existsSync(securityBoundaryPath)).toBe(true);
+    expect(securityBoundarySql).toMatch(
+      /alter function public\.complete_site_visit_guarded\(uuid, jsonb\)\s+set schema private/
+    );
+    expect(securityBoundarySql).toMatch(
+      /create function public\.complete_site_visit_guarded\([\s\S]*security invoker/
+    );
+    expect(securityBoundarySql).toMatch(
+      /select private\.complete_site_visit_guarded\(p_site_visit_id, p_completion\)/
+    );
+    expect(securityBoundarySql).toMatch(
+      /revoke all on function private\.complete_site_visit_guarded\(uuid, jsonb\)[\s\S]*from public, anon, authenticated, service_role/
+    );
+    expect(securityBoundarySql).toMatch(
+      /grant execute on function private\.complete_site_visit_guarded\(uuid, jsonb\)[\s\S]*to anon, authenticated/
+    );
+    expect(securityBoundarySql).toMatch(
+      /revoke all on function public\.complete_site_visit_guarded\(uuid, jsonb\)[\s\S]*from public, anon, authenticated, service_role/
+    );
+    expect(securityBoundarySql).toMatch(
+      /grant execute on function public\.complete_site_visit_guarded\(uuid, jsonb\)[\s\S]*to anon, authenticated/
     );
   });
 
