@@ -252,7 +252,18 @@ describe("site-visit cloud sync migration", () => {
     for (const table of ["site_visits", ...BUSINESS_TABLES]) {
       expect(contract).toContain(table);
     }
+    for (const relatedTable of ["activities", "project_photos"]) {
+      expect(contract).toContain(relatedTable);
+    }
+    for (const mediaColumn of [
+      "asset_url",
+      "rendered_asset_url",
+      "thumbnail_url",
+    ]) {
+      expect(contract).toContain(mediaColumn);
+    }
     expect(contract).toContain("cross_tenant");
     expect(contract).toContain("purge_company_data");
+    expect(contract).toContain("ops.company_data_purge_company_id");
   });
 });
