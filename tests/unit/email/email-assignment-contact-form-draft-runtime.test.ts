@@ -197,7 +197,7 @@ describe("assignment contact-form draft runtime", () => {
       }
       if (
         name ===
-        "begin_email_assignment_contact_form_draft_provider_create_as_system"
+        "begin_assignment_contact_draft_provider_create_as_system"
       ) {
         return {
           data: {
@@ -289,7 +289,7 @@ describe("assignment contact-form draft runtime", () => {
       })
     );
     expect(rpc).toHaveBeenCalledWith(
-      "begin_email_assignment_contact_form_draft_provider_create_as_system",
+      "begin_assignment_contact_draft_provider_create_as_system",
       expect.objectContaining({ p_queue_id: QUEUE_ID })
     );
     expect(

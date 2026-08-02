@@ -45,6 +45,7 @@ import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-
 import {
   decodeEmailSyncContinuation,
   encodeEmailSyncContinuation,
+  isEmailSyncContinuationPending,
 } from "@/lib/email/email-sync-continuation";
 import { withSerializationRetry } from "@/lib/supabase/serialization-retry";
 import { refreshLeadSummariesForOpportunities } from "./lead-summary-service";
@@ -129,6 +130,7 @@ import {
   acquireEmailConnectionSyncLock,
   createEmailConnectionSyncLockRenewer,
   persistEmailConnectionRecoveryCheckpoint,
+  persistEmailConnectionSyncCheckpoint,
   persistEmailConnectionSyncCompletion,
   releaseEmailConnectionSyncLock,
 } from "./email-connection-sync-lock";
@@ -171,6 +173,8 @@ export interface SyncCycleResult {
   /** Count of unmatched threads whose lead classification was durably deferred
    * (marked `email_threads.lead_scan_pending_at`) due to a provider outage. */
   leadScansDeferred: number;
+  /** The durable cursor advanced, but provider or derived work still remains. */
+  continuationPending: boolean;
   errors: string[];
 }
 
@@ -327,6 +331,23 @@ function applyResolvedContactToFacts(
 ): void {
   if (resolved.nameIsVerified && resolved.name) {
     facts.contactName = resolved.name;
+    const nameEvidence = resolved.provenance.find(
+      (entry) => entry.field === "name"
+    );
+    if (nameEvidence?.source === "email_signature") {
+      facts.fieldEvidence = {
+        ...facts.fieldEvidence,
+        contactName: {
+          source: "inbound",
+          confidence: nameEvidence.confidence,
+        },
+      };
+    } else if (nameEvidence?.source === "contact_form") {
+      facts.fieldEvidence = {
+        ...facts.fieldEvidence,
+        contactName: { source: "contact_form", confidence: 1 },
+      };
+    }
   }
   if (resolved.email) facts.contactEmail = resolved.email;
   facts.contactPhone = resolved.phone;
@@ -553,6 +574,7 @@ function emptyResult(): SyncCycleResult {
     invalidProviderEmails: 0,
     aiProviderDeferred: false,
     leadScansDeferred: 0,
+    continuationPending: false,
     errors: [],
   };
 }
@@ -1406,13 +1428,14 @@ async function createOpportunity(
   const opportunityEnrichmentFields = titleOptions.enrichmentFacts
     ? buildNewOpportunityEnrichmentFields(titleOptions.enrichmentFacts)
     : {};
+  const generatedTitle = buildEmailOpportunityTitle({
+    kind: titleOptions.kind ?? "email_inquiry",
+    candidates,
+    unsafe: titleOptions.unsafe,
+  });
   const opportunityInsert = {
     client_id: clientId,
-    title: buildEmailOpportunityTitle({
-      kind: titleOptions.kind ?? "email_inquiry",
-      candidates,
-      unsafe: titleOptions.unsafe,
-    }),
+    title: generatedTitle,
     stage: persistedStage,
     source_thread_key: sourceKey,
     ...opportunityEnrichmentFields,
@@ -1571,7 +1594,10 @@ async function createOpportunity(
       companyId,
       opportunityId,
       clientId: null,
-      opportunityUpdates: opportunityEnrichmentFields,
+      opportunityUpdates: {
+        title: generatedTitle,
+        ...opportunityEnrichmentFields,
+      },
       clientUpdates: {},
       facts: titleOptions.enrichmentFacts,
     });
@@ -1845,7 +1871,8 @@ async function linkThread(
     );
   }
   const canonicalOpportunityId = canonicalRows?.[0]?.opportunity_id as
-    string | undefined;
+    | string
+    | undefined;
   if (!canonicalOpportunityId) {
     throw new Error(
       "[sync-engine] linkThread did not persist a canonical provider-thread owner"
@@ -1919,6 +1946,24 @@ async function recordActivityCorrespondenceEvent(
 ): Promise<void> {
   if (!opportunityId) return;
   const supabase = requireSupabase();
+  let linkedContactKind: "high_confidence_related_contact" | null = null;
+  if (direction === "inbound") {
+    const { data: exactThreadRows, error: exactThreadError } = await supabase
+      .from("opportunity_email_threads")
+      .select("opportunity_id")
+      .eq("opportunity_id", opportunityId)
+      .eq("connection_id", connection.id)
+      .eq("thread_id", email.threadId)
+      .limit(1);
+    if (exactThreadError) {
+      throw new LifecyclePersistenceError(
+        `[sync-engine] exact correspondence relationship read failed: ${exactThreadError.message ?? "unknown error"}`
+      );
+    }
+    if (exactThreadRows?.[0]?.opportunity_id === opportunityId) {
+      linkedContactKind = "high_confidence_related_contact";
+    }
+  }
   const profile = connection.syncFilters as Partial<SyncProfile> | null;
   const authoritative = await getCachedOperatorIdentity(connection);
   const result = await OpportunityLifecycleService.recordCorrespondenceEvent({
@@ -1934,6 +1979,7 @@ async function recordActivityCorrespondenceEvent(
     occurredAt: email.date,
     source: "sync_activity",
     applyOpportunityProjection: true,
+    linkedContactKind,
     fromEmail: extractSenderEmail(email.from),
     fromName: email.fromName,
     toEmails: email.to.map(extractSenderEmail),
@@ -2172,7 +2218,8 @@ async function createActivity(
     connection,
     opportunityId,
     ((insertedActivity as Record<string, unknown> | null)?.id as
-      string | null) ?? null,
+      | string
+      | null) ?? null,
     direction
   );
 
@@ -5778,6 +5825,7 @@ export const SyncEngine = {
         mailboxReconciliation?.gmailCheckpoint ?? null;
       const persistSyncCheckpoint = async () => {
         if (gmailRecoveryCheckpoint?.nextPageToken) {
+          result.continuationPending = true;
           await persistEmailConnectionRecoveryCheckpoint({
             connectionId,
             ownerId: syncLockOwner,
@@ -5789,14 +5837,27 @@ export const SyncEngine = {
           return;
         }
 
+        const historyId = encodeEmailSyncContinuation({
+          providerToken: newSyncToken,
+          pendingLeadSummaryOpportunityIds,
+        });
+        result.continuationPending = isEmailSyncContinuationPending(historyId);
+        if (result.continuationPending) {
+          await persistEmailConnectionSyncCheckpoint({
+            connectionId,
+            ownerId: syncLockOwner,
+            historyId,
+            clearRecovery: gmailRecoveryCheckpoint !== null,
+            context: SYNC_LOCK_CONTEXT,
+          });
+          return;
+        }
+
         await persistEmailConnectionSyncCompletion({
           connectionId,
           ownerId: syncLockOwner,
           lastSyncedAt: new Date(),
-          historyId: encodeEmailSyncContinuation({
-            providerToken: newSyncToken,
-            pendingLeadSummaryOpportunityIds,
-          }),
+          historyId,
           clearRecovery: gmailRecoveryCheckpoint !== null,
           context: SYNC_LOCK_CONTEXT,
         });

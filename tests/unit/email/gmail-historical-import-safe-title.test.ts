@@ -291,10 +291,10 @@ describe("Gmail historical import — safe opportunity titles", () => {
     );
 
     expect(response.status).toBe(200);
-    // The builder rejects placeholder names and derives a display name from the
-    // safe email local-part → "Someone — Email Inquiry".
+    // The builder rejects placeholder names and never presents an email
+    // local-part as if it were an authoritative customer name.
     expect(createOpportunityMock).toHaveBeenCalledWith(
-      expect.objectContaining({ title: "Someone — Email Inquiry" })
+      expect.objectContaining({ title: "New Lead — Email Inquiry" })
     );
     // And it must NEVER fall back to the old raw interpolation.
     expect(createOpportunityMock).not.toHaveBeenCalledWith(
@@ -309,8 +309,8 @@ describe("Gmail historical import — safe opportunity titles", () => {
     expect(response.status).toBe(200);
     const call = createOpportunityMock.mock.calls.find(Boolean);
     const title = (call?.[0] as { title?: string } | undefined)?.title ?? "";
-    // Builder drops the >80-char name and derives from the email local-part.
-    expect(title).toBe("Big — Email Inquiry");
+    // Builder drops the >80-char name without promoting the mailbox handle.
+    expect(title).toBe("New Lead — Email Inquiry");
     expect(title).not.toContain(hugeName);
   });
 });

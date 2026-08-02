@@ -170,6 +170,23 @@ function isRelatedInbound(event: OpportunityLifecycleMeaningfulEvent | null): bo
   return linkedKind === "related_contact" || linkedKind === "high_confidence_related_contact";
 }
 
+function latestRelatedInboundAfter(
+  events: OpportunityLifecycleMeaningfulEvent[],
+  after: Date
+): OpportunityLifecycleMeaningfulEvent | null {
+  return [...events]
+    .filter((event) => {
+      const occurredAt = parseDate(event.occurredAt);
+      return isRelatedInbound(event) && Boolean(occurredAt && occurredAt > after);
+    })
+    .sort((left, right) => {
+      const timeDifference =
+        (parseDate(right.occurredAt)?.getTime() ?? 0) -
+        (parseDate(left.occurredAt)?.getTime() ?? 0);
+      return timeDifference || right.id.localeCompare(left.id);
+    })[0] ?? null;
+}
+
 function hasInboundAfter(
   events: OpportunityLifecycleMeaningfulEvent[],
   since: Date
@@ -206,14 +223,18 @@ export function evaluateOpportunityLifecycle(
   }
 
   if (archivedAt) {
-    if (isRelatedInbound(latestEvent)) {
+    const reactivationEvent = latestRelatedInboundAfter(
+      input.meaningfulEvents,
+      archivedAt
+    );
+    if (reactivationEvent) {
       return decision(
         input,
         "reactivate_on_related_inbound",
         "A related meaningful inbound arrived on an archived opportunity.",
         {
-          latestEventId: latestEvent?.id ?? null,
-          latestEventAt: latestEvent?.occurredAt ?? null,
+          latestEventId: reactivationEvent.id,
+          latestEventAt: reactivationEvent.occurredAt,
         }
       );
     }

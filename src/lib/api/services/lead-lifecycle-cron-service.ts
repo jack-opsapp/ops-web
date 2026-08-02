@@ -449,6 +449,23 @@ function latestMeaningfulEvent(
   );
 }
 
+function decisionMeaningfulEvent(
+  rows: CorrespondenceEventRow[],
+  decision: OpportunityLifecycleDecision
+): CorrespondenceEventRow | null {
+  const decisionEventId =
+    typeof decision.evidence.latestEventId === "string"
+      ? decision.evidence.latestEventId
+      : null;
+  if (decisionEventId) {
+    const exact = rows.find(
+      (row) => row.id === decisionEventId && row.is_meaningful
+    );
+    return exact ?? null;
+  }
+  return latestMeaningfulEvent(rows);
+}
+
 /**
  * Eligible companies = those with a lead_lifecycle_settings row OR an active
  * email_connection. Mirrors the task's "companies with lifecycle settings /
@@ -1005,7 +1022,7 @@ export async function runLeadLifecycleCron(
     if (decision.action === "no_action" || decision.ignored) {
       // Non-destructive supersede pass still applies below.
     } else if (NON_DESTRUCTIVE_ACTIONS.has(decision.action)) {
-      const latestEvent = latestMeaningfulEvent(eventRows);
+      const latestEvent = decisionMeaningfulEvent(eventRows, decision);
       try {
         const execution = await executeOpportunityLifecycleAction({
           supabase,
@@ -1093,7 +1110,7 @@ export async function runLeadLifecycleCron(
         // stage, deleted, converted/linked, already-archived, lost-stage
         // allow-list, related-inbound, and snapshot-mismatch guards.
         status = "applied";
-        const latestEvent = latestMeaningfulEvent(eventRows);
+        const latestEvent = decisionMeaningfulEvent(eventRows, decision);
         try {
           const execution = await executeOpportunityLifecycleAction({
             supabase,

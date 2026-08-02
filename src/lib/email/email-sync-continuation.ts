@@ -1,4 +1,5 @@
 const EMAIL_SYNC_CONTINUATION_V1_PREFIX = "ops-email-sync:v1:";
+const GMAIL_INCREMENTAL_CURSOR_V1_PREFIX = "gmail:v1:";
 export const EMAIL_SYNC_CONTINUATION_MAX_PENDING_LEAD_SUMMARIES = 500;
 const EMAIL_SYNC_CONTINUATION_MAX_PROVIDER_TOKEN_BYTES = 256 * 1024;
 const EMAIL_SYNC_CONTINUATION_MAX_BYTES = 320 * 1024;
@@ -43,9 +44,7 @@ function normalizedPendingOpportunityIds(value: unknown): string[] {
       "pendingLeadSummaryOpportunityIds must be an array"
     );
   }
-  if (
-    value.length > EMAIL_SYNC_CONTINUATION_MAX_PENDING_LEAD_SUMMARIES
-  ) {
+  if (value.length > EMAIL_SYNC_CONTINUATION_MAX_PENDING_LEAD_SUMMARIES) {
     throw new EmailSyncContinuationError(
       `pendingLeadSummaryOpportunityIds exceeds ${EMAIL_SYNC_CONTINUATION_MAX_PENDING_LEAD_SUMMARIES}`
     );
@@ -63,8 +62,7 @@ function normalizedPendingOpportunityIds(value: unknown): string[] {
       );
     }
     if (
-      byteLength(candidate) >
-      EMAIL_SYNC_CONTINUATION_MAX_OPPORTUNITY_ID_BYTES
+      byteLength(candidate) > EMAIL_SYNC_CONTINUATION_MAX_OPPORTUNITY_ID_BYTES
     ) {
       throw new EmailSyncContinuationError(
         `pendingLeadSummaryOpportunityIds[${index}] exceeds ${EMAIL_SYNC_CONTINUATION_MAX_OPPORTUNITY_ID_BYTES} bytes`
@@ -111,7 +109,9 @@ export function decodeEmailSyncContinuation(
   } catch (error) {
     if (error instanceof EmailSyncContinuationError) throw error;
     throw new EmailSyncContinuationError(
-      error instanceof Error ? `invalid JSON: ${error.message}` : "invalid JSON",
+      error instanceof Error
+        ? `invalid JSON: ${error.message}`
+        : "invalid JSON",
       { cause: error }
     );
   }
@@ -137,4 +137,24 @@ export function encodeEmailSyncContinuation(input: {
     );
   }
   return encoded;
+}
+
+/**
+ * True while a persisted mailbox cursor still represents bounded work rather
+ * than a provider high-water mark. OPS wrappers exist only while derived lead
+ * summaries remain, and Gmail emits its structured cursor only while provider
+ * pages or discovered messages remain. Other provider tokens are terminal.
+ *
+ * Malformed OPS wrappers fail closed through decodeEmailSyncContinuation so a
+ * scheduler never mistakes an unreadable checkpoint for completion.
+ */
+export function isEmailSyncContinuationPending(
+  syncToken: string | null
+): boolean {
+  if (!syncToken) return false;
+  const continuation = decodeEmailSyncContinuation(syncToken);
+  return (
+    continuation.pendingLeadSummaryOpportunityIds.length > 0 ||
+    continuation.providerToken.startsWith(GMAIL_INCREMENTAL_CURSOR_V1_PREFIX)
+  );
 }

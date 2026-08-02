@@ -304,7 +304,7 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
 
     async beginProviderCreate(input) {
       const { data, error } = await supabase.rpc(
-        "begin_email_assignment_contact_form_draft_provider_create_as_system",
+        "begin_assignment_contact_draft_provider_create_as_system",
         {
           p_queue_id: input.queueId,
           p_holder: input.holder,
@@ -317,7 +317,7 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
 
     async markReconciliationRequired(input) {
       const { data, error } = await supabase.rpc(
-        "mark_email_assignment_contact_form_draft_reconciliation_required_as_system",
+        "mark_assignment_contact_draft_reconciliation_as_system",
         {
           p_queue_id: input.queueId,
           p_holder: input.holder,
