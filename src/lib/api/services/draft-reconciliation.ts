@@ -268,7 +268,7 @@ export async function reconcilePendingMailboxDrafts({
   const { data: pendingRows, error: queryErr } = await supabase
     .from("ai_draft_history")
     .select(
-      "id, company_id, user_id, mailbox_draft_id, created_at, profile_type, opportunity_id"
+      "id, company_id, user_id, mailbox_draft_id, source_message_id, created_at, profile_type, opportunity_id"
     )
     .eq("company_id", connection.companyId)
     .eq("connection_id", connection.id)
@@ -329,6 +329,51 @@ export async function reconcilePendingMailboxDrafts({
     canonicalRows.push(newest);
   }
 
+  // Load the complete persisted thread context before looking at the provider
+  // draft. A Phase C draft is stale as soon as any later inbound or outbound
+  // follows the exact source message it answered. This source-message fence is
+  // independent of when the draft row itself happened to be inserted.
+  const { data: activities, error: activityError } = await supabase
+    .from("activities")
+    .select(
+      "id, direction, body_text, created_at, subject, from_email, to_emails, email_message_id, opportunity_id"
+    )
+    .eq("company_id", connection.companyId)
+    .eq("email_connection_id", connection.id)
+    .eq("email_thread_id", providerThreadId)
+    .order("created_at", { ascending: true });
+  if (activityError) {
+    throw new Error(
+      `[draft-reconciliation] activity query failed: ${reconciliationFailureMessage(activityError)}`,
+      { cause: activityError }
+    );
+  }
+
+  const threadActivities = (activities ?? []) as Array<Record<string, unknown>>;
+  const staleDraftHistoryIds = new Set<string>();
+  for (const row of canonicalRows) {
+    const sourceMessageId =
+      typeof row.source_message_id === "string"
+        ? row.source_message_id.trim()
+        : "";
+    if (!sourceMessageId) continue;
+    const source = threadActivities.find(
+      (activity) => activity.email_message_id === sourceMessageId
+    );
+    if (!source) continue;
+    const sourceAt = Date.parse(String(source.created_at ?? ""));
+    if (!Number.isFinite(sourceAt)) continue;
+    if (
+      threadActivities.some(
+        (activity) =>
+          activity.email_message_id !== sourceMessageId &&
+          Date.parse(String(activity.created_at ?? "")) >= sourceAt
+      )
+    ) {
+      staleDraftHistoryIds.add(String(row.id));
+    }
+  }
+
   const draftPresence = new Map<string, boolean>();
   const providerReadFailures: Array<{ identity: string; error: unknown }> = [];
   const effectiveReadPolicy: ProviderReadPolicy = {
@@ -353,6 +398,16 @@ export async function reconcilePendingMailboxDrafts({
           try {
             const draft = await provider.getDraft(mailboxDraftId, readPolicy);
             draftPresence.set(mailboxDraftId, draft !== null);
+            if (draft !== null && staleDraftHistoryIds.has(String(row.id))) {
+              // Both providers define deleteDraft as idempotent (404 is
+              // success). If the database write below fails after deletion,
+              // replay still classifies by source-message freshness and can
+              // never reinterpret the missing stale draft as user-approved.
+              await checkpoint();
+              await provider.deleteDraft(mailboxDraftId);
+              draftPresence.set(mailboxDraftId, false);
+              await checkpoint();
+            }
           } catch (error) {
             providerReadFailures.push({ identity: mailboxDraftId, error });
           }
@@ -369,25 +424,9 @@ export async function reconcilePendingMailboxDrafts({
     },
   });
 
-  // Step 3: Query outbound activities for this thread (all of them, ordered oldest-first).
-  const { data: outboundActivities, error: outboundError } = await supabase
-    .from("activities")
-    .select(
-      "id, body_text, created_at, subject, from_email, to_emails, email_message_id, opportunity_id"
-    )
-    .eq("company_id", connection.companyId)
-    .eq("email_connection_id", connection.id)
-    .eq("email_thread_id", providerThreadId)
-    .eq("direction", "outbound")
-    .order("created_at", { ascending: true });
-  if (outboundError) {
-    throw new Error(
-      `[draft-reconciliation] outbound activity query failed: ${reconciliationFailureMessage(outboundError)}`,
-      { cause: outboundError }
-    );
-  }
-
-  const outbound = outboundActivities ?? [];
+  const outbound = threadActivities.filter(
+    (activity) => activity.direction === "outbound"
+  );
 
   const now = new Date();
 
@@ -402,6 +441,18 @@ export async function reconcilePendingMailboxDrafts({
   const rowFailures: Array<{ identity: string; error: unknown }> = [];
   for (const row of canonicalRows) {
     try {
+      if (staleDraftHistoryIds.has(String(row.id))) {
+        const { error: supersedeError } = await supabase
+          .from("ai_draft_history")
+          .update({
+            status: "superseded",
+            discarded_at: new Date().toISOString(),
+          })
+          .eq("id", row.id);
+        if (supersedeError) throw supersedeError;
+        continue;
+      }
+
       const rowCreatedAt = new Date(row.created_at as string);
       const mailboxDraftId = row.mailbox_draft_id as string;
 

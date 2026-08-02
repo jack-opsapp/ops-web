@@ -51,6 +51,7 @@ import {
   buildEmailProviderMutationFingerprint,
   createEmailProviderMutationAttemptService,
 } from "./email-provider-mutation-attempt-service";
+import { emailSyncContinuationPendingForConnection } from "@/lib/email/email-sync-continuation-state";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ export type RouterOutcome =
   | "noop_not_inbound"
   | "noop_archived"
   | "noop_actor_unavailable"
+  | "noop_sync_incomplete"
   | "draft_placement_pending"
   | "auto_drafted"
   | "auto_sent_scheduled"
@@ -201,6 +203,49 @@ class PhaseCThreadAuthorizationError extends Error {
   }
 }
 
+class PhaseCSyncContinuationError extends Error {
+  constructor() {
+    super("mailbox_sync_continuation_pending");
+    this.name = "PhaseCSyncContinuationError";
+  }
+}
+
+async function deferPhaseCThread(thread: EmailThread): Promise<void> {
+  const { error } = await requireSupabase()
+    .from("email_threads")
+    .update({ category_classified_at: null })
+    .eq("id", thread.id)
+    .eq("company_id", thread.companyId)
+    .eq("connection_id", thread.connectionId);
+  if (error) {
+    throw new Error(
+      `Phase C continuation deferral failed: ${error.message ?? "unknown error"}`,
+      { cause: error }
+    );
+  }
+}
+
+async function assertPhaseCSyncTerminal(thread: EmailThread): Promise<void> {
+  const pending = await emailSyncContinuationPendingForConnection({
+    supabase: requireSupabase() as never,
+    connectionId: thread.connectionId,
+    context: "phase-c",
+  });
+  if (pending) throw new PhaseCSyncContinuationError();
+}
+
+function syncIncompleteResult(
+  thread: EmailThread,
+  effectiveLevel: EmailThreadAutonomyLevel
+): RouterResult {
+  return {
+    outcome: "noop_sync_incomplete",
+    category: thread.primaryCategory,
+    effectiveLevel,
+    detail: "mailbox_sync_continuation_pending",
+  };
+}
+
 async function authorizeCurrentPhaseCThread(
   thread: EmailThread,
   userId: string,
@@ -289,6 +334,7 @@ async function placePhaseCMailboxDraft(
 
       let mailboxDraftId: string;
       if (existing?.mailbox_draft_id) {
+        await assertPhaseCSyncTerminal(thread);
         await checkpoint();
         await provider.updateDraft(
           existing.mailbox_draft_id,
@@ -345,6 +391,7 @@ async function placePhaseCMailboxDraft(
             if (!latestAccess.allowed) {
               throw new PhaseCThreadAuthorizationError(latestAccess.reason);
             }
+            await assertPhaseCSyncTerminal(thread);
             await checkpoint();
             const draftId = await provider.createDraft(
               to,
@@ -423,6 +470,16 @@ export const PhaseCAutonomyRouter = {
       // Skip threads already out of the active inbox.
       if (!isThreadActionable(thread)) {
         return { outcome: "noop_archived", category, effectiveLevel: "off" };
+      }
+
+      try {
+        await assertPhaseCSyncTerminal(thread);
+      } catch (error) {
+        if (error instanceof PhaseCSyncContinuationError) {
+          await deferPhaseCThread(thread);
+          return syncIncompleteResult(thread, "off");
+        }
+        throw error;
       }
 
       const mailboxPolicy = await PhaseCCategoryAutonomy.get(
@@ -697,6 +754,10 @@ export const PhaseCAutonomyRouter = {
         detail: placed.mailboxDraftId,
       };
     } catch (err) {
+      if (err instanceof PhaseCSyncContinuationError) {
+        await deferPhaseCThread(thread);
+        return syncIncompleteResult(thread, effective);
+      }
       if (err instanceof PhaseCThreadAuthorizationError) {
         return {
           outcome: "noop_actor_unavailable",
@@ -761,6 +822,16 @@ export const PhaseCAutonomyRouter = {
     }
 
     const subject = normalizeReplySubject(thread.subject ?? "");
+
+    try {
+      await assertPhaseCSyncTerminal(thread);
+    } catch (error) {
+      if (error instanceof PhaseCSyncContinuationError) {
+        await deferPhaseCThread(thread);
+        return syncIncompleteResult(thread, effective);
+      }
+      throw error;
+    }
 
     const scheduled = await AutoSendService.scheduleAutoSend({
       category: thread.primaryCategory,
@@ -827,6 +898,16 @@ export const PhaseCAutonomyRouter = {
         effectiveLevel: effective,
         detail: access.reason,
       };
+    }
+
+    try {
+      await assertPhaseCSyncTerminal(thread);
+    } catch (error) {
+      if (error instanceof PhaseCSyncContinuationError) {
+        await deferPhaseCThread(thread);
+        return syncIncompleteResult(thread, effective);
+      }
+      throw error;
     }
 
     const result = await EmailThreadService.archive({
@@ -907,6 +988,16 @@ export const PhaseCAutonomyRouter = {
     }
 
     const subject = normalizeReplySubject(thread.subject ?? "");
+
+    try {
+      await assertPhaseCSyncTerminal(thread);
+    } catch (error) {
+      if (error instanceof PhaseCSyncContinuationError) {
+        await deferPhaseCThread(thread);
+        return syncIncompleteResult(thread, effective);
+      }
+      throw error;
+    }
 
     const scheduled = await AutoSendService.scheduleAutoSend({
       category: thread.primaryCategory,

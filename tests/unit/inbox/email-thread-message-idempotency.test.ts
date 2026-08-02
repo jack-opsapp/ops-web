@@ -12,6 +12,7 @@ type Row = Record<string, unknown>;
 
 interface State {
   connectionEmail: string;
+  connectionHistoryId?: string | null;
   thread: Row | null;
   activities: Row[];
   dirtyThreads?: Row[];
@@ -194,6 +195,17 @@ function makeSupabaseDouble(state: State) {
         return resolve({
           data: state.dirtyThreads,
           error: state.dirtyThreadsError ?? null,
+        });
+      }
+      if (this.table === "email_connections") {
+        return resolve({
+          data: [
+            {
+              id: "connection-1",
+              history_id: state.connectionHistoryId ?? "terminal-history",
+            },
+          ],
+          error: null,
         });
       }
       return resolve({ data: [], error: null });
@@ -669,7 +681,36 @@ describe("EmailThreadService.upsertFromEmail message idempotency", () => {
     });
 
     expect(classify).toHaveBeenCalledTimes(2);
-    expect(result).toEqual({ scanned: 2, classified: 1, errors: 1 });
+    expect(result).toEqual({
+      scanned: 2,
+      classified: 1,
+      deferred: 0,
+      errors: 1,
+    });
+  });
+
+  it("defers dirty threads without classification while their mailbox continuation is pending", async () => {
+    const state: State = {
+      connectionEmail: "office@example.com",
+      connectionHistoryId: 'gmail:v1:{"pendingMessageIds":["message-2"]}',
+      thread: null,
+      activities: [],
+      dirtyThreads: [threadRow({ id: "dirty-thread-partial" })],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const classify = vi.spyOn(EmailThreadService, "classifyAndUpdate");
+
+    await expect(
+      EmailThreadService.retryDirtyClassifications({
+        companyIds: ["company-1"],
+      })
+    ).resolves.toEqual({
+      scanned: 1,
+      classified: 0,
+      deferred: 1,
+      errors: 0,
+    });
+    expect(classify).not.toHaveBeenCalled();
   });
 
   it("propagates the dirty-queue Supabase failure with its raw cause", async () => {
@@ -746,7 +787,12 @@ describe("EmailThreadService.upsertFromEmail message idempotency", () => {
         companyIds: ["company-1"],
         concurrency: 1,
       })
-    ).resolves.toEqual({ scanned: 1, classified: 0, errors: 1 });
+    ).resolves.toEqual({
+      scanned: 1,
+      classified: 0,
+      deferred: 0,
+      errors: 1,
+    });
     expect(classify).toHaveBeenCalledOnce();
   });
 });

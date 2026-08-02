@@ -73,6 +73,7 @@ import {
   CronDatabaseOperationError,
   isDatabasePressureError,
 } from "./cron-workload-control-service";
+import { isEmailSyncContinuationPending } from "@/lib/email/email-sync-continuation";
 
 const EMAIL_THREAD_MAILBOX_BUSY = "EMAIL_THREAD_MAILBOX_BUSY";
 const EMAIL_THREAD_PROVIDER_AUTHORIZATION_REVOKED =
@@ -2941,12 +2942,17 @@ export const EmailThreadService = {
     companyIds: string[];
     limit?: number;
     concurrency?: number;
-  }): Promise<{ scanned: number; classified: number; errors: number }> {
+  }): Promise<{
+    scanned: number;
+    classified: number;
+    deferred: number;
+    errors: number;
+  }> {
     const companyIds = Array.from(
       new Set(params.companyIds.map((id) => id.trim()).filter(Boolean))
     );
     if (companyIds.length === 0) {
-      return { scanned: 0, classified: 0, errors: 0 };
+      return { scanned: 0, classified: 0, deferred: 0, errors: 0 };
     }
 
     const limit = Math.min(Math.max(params.limit ?? 10, 1), 25);
@@ -2968,7 +2974,51 @@ export const EmailThreadService = {
     }
 
     const threads = (data ?? []).map(mapEmailThreadFromDb);
-    const result = { scanned: 0, classified: 0, errors: 0 };
+    const connectionIds = Array.from(
+      new Set(threads.map((thread) => thread.connectionId))
+    );
+    const continuationPending = new Set<string>();
+    if (connectionIds.length > 0) {
+      const { data: connectionRows, error: connectionError } = await supabase
+        .from("email_connections")
+        .select(
+          "id, history_id, history_recovery_page_token, sync_in_progress_at"
+        )
+        .in("id", connectionIds);
+      if (connectionError) {
+        throw new CronDatabaseOperationError(
+          `retryDirtyClassifications continuation query failed: ${connectionError.message}`,
+          { cause: connectionError }
+        );
+      }
+      const returnedConnectionIds = new Set<string>();
+      for (const row of connectionRows ?? []) {
+        const connectionId = row.id as string;
+        returnedConnectionIds.add(connectionId);
+        if (
+          row.sync_in_progress_at ||
+          row.history_recovery_page_token ||
+          isEmailSyncContinuationPending(
+            (row.history_id as string | null) ?? null
+          )
+        ) {
+          continuationPending.add(connectionId);
+        }
+      }
+      if (returnedConnectionIds.size !== connectionIds.length) {
+        throw new CronDatabaseOperationError(
+          "retryDirtyClassifications connection authority is incomplete",
+          {
+            cause: {
+              requested: connectionIds,
+              returned: returnedConnectionIds,
+            },
+          }
+        );
+      }
+    }
+
+    const result = { scanned: 0, classified: 0, deferred: 0, errors: 0 };
     let cursor = 0;
     let databasePressure: unknown | null = null;
     const worker = async () => {
@@ -2978,6 +3028,10 @@ export const EmailThreadService = {
         if (index >= threads.length) return;
         const thread = threads[index];
         result.scanned++;
+        if (continuationPending.has(thread.connectionId)) {
+          result.deferred++;
+          continue;
+        }
         try {
           await EmailThreadService.classifyAndUpdate(thread);
           result.classified++;
