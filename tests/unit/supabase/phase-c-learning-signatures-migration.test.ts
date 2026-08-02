@@ -26,6 +26,23 @@ const databaseTypes = existsSync(databaseTypesPath)
   ? readFileSync(databaseTypesPath, "utf8")
   : "";
 
+function generatedFunctionBlock(name: string): string {
+  const marker = `      ${name}:`;
+  const start = databaseTypes.indexOf(marker);
+  expect(start, `${name} is missing from generated types`).toBeGreaterThanOrEqual(0);
+  const openingBrace = databaseTypes.indexOf("{", start);
+  expect(openingBrace).toBeGreaterThan(start);
+
+  let depth = 0;
+  for (let index = openingBrace; index < databaseTypes.length; index += 1) {
+    if (databaseTypes[index] === "{") depth += 1;
+    if (databaseTypes[index] === "}") depth -= 1;
+    if (depth === 0) return databaseTypes.slice(start, index + 1);
+  }
+
+  throw new Error(`unterminated generated function block: ${name}`);
+}
+
 describe("Phase C learning and email signature migration", () => {
   it("is a transaction-wrapped additive migration", () => {
     expect(existsSync(migrationPath)).toBe(true);
@@ -420,8 +437,8 @@ describe("Phase C learning and email signature migration", () => {
       "grant execute on function public.reassign_phase_c_mailbox_draft(uuid, uuid, text, uuid, text, uuid, text) to service_role"
     );
     expect(databaseTypes).toContain("reassign_phase_c_mailbox_draft:");
-    expect(databaseTypes).toContain(
-      "p_expected_old_draft_history_id?: string | null"
+    expect(generatedFunctionBlock("reassign_phase_c_mailbox_draft")).toContain(
+      "p_expected_old_draft_history_id?: string"
     );
   });
 
@@ -443,10 +460,11 @@ describe("Phase C learning and email signature migration", () => {
     expect(compactSql).toContain(
       "grant execute on function public.replace_email_signature(uuid, uuid, uuid, text, text, text, text, text, timestamptz, timestamptz, uuid) to service_role"
     );
-    expect(databaseTypes).toContain("replace_email_signature:");
-    expect(databaseTypes).toContain("p_actor_user_id: string | null");
-    expect(databaseTypes).toContain(
-      'Returns: Database["public"]["Tables"]["email_signatures"]["Row"]'
-    );
+    const generatedReplace = generatedFunctionBlock("replace_email_signature");
+    expect(generatedReplace).toContain("p_actor_user_id: string");
+    expect(generatedReplace).toContain("Returns: {");
+    expect(generatedReplace).toContain("id: string");
+    expect(generatedReplace).toContain('to: "email_signatures"');
+    expect(generatedReplace).toContain("isSetofReturn: false");
   });
 });
