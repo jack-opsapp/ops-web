@@ -14,6 +14,7 @@ import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { checkPermission } from "@/lib/supabase/check-permission";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { eraseSiteVisitPrefix } from "@/lib/s3/site-visit-prefix-erasure";
 import {
   COMPANY_DATA_PURGE_FUNCTION,
   MANIFEST_VERSION,
@@ -257,6 +258,23 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const warnings: Array<{ step: string; message: string }> = [];
     let stripeSummary: { cancelledSubscriptions: number } | null = null;
+
+    try {
+      await eraseSiteVisitPrefix(companyId);
+    } catch (storageError) {
+      const message =
+        storageError instanceof Error
+          ? storageError.message
+          : String(storageError);
+      console.error(
+        `[delete-account] Site-visit storage erasure failed for company ${companyId}: ${message}`
+      );
+      warnings.push({
+        step: "storage:erase-site-visits",
+        message:
+          "Company data was deleted. Visit media cleanup is still running and will retry automatically.",
+      });
+    }
 
     if (company.stripe_customer_id) {
       try {

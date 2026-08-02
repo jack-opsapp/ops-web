@@ -193,6 +193,10 @@
       "schedule": "19 * * * *"
     },
     {
+      "path": "/api/cron/storage/site-visit-erasure",
+      "schedule": "49 6 * * *"
+    },
+    {
       "path": "/api/cron/lead-lifecycle",
       "schedule": "14 11 * * *"
     },
