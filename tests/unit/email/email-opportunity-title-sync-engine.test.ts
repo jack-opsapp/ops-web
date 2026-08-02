@@ -1375,6 +1375,19 @@ function makeSupabaseDouble(state: SupabaseState) {
         });
         return { data: true, error: null };
       }
+      if (name === "persist_email_connection_sync_checkpoint_as_system") {
+        await updateConnectionMock(params.p_connection_id, {
+          historyId: params.p_history_id,
+          ...(params.p_clear_recovery
+            ? {
+                historyRecoveryAnchor: null,
+                historyRecoveryPageToken: null,
+                historyRecoveryTargetToken: null,
+              }
+            : {}),
+        });
+        return { data: true, error: null };
+      }
       if (name === "record_opportunity_correspondence_event") {
         state.rpcCalls?.push({ name, params });
         if (state.correspondenceEventInsertError) {
@@ -1531,6 +1544,15 @@ function makeSupabaseDouble(state: SupabaseState) {
                 opportunity.last_message_direction ?? null,
             },
           ],
+          error: null,
+        };
+      }
+      if (name === "reconcile_manual_outbound_follow_up_cycle_as_system") {
+        return {
+          data: {
+            correspondence_event_id: params.p_correspondence_event_id,
+            opportunity_id: params.p_opportunity_id,
+          },
           error: null,
         };
       }
@@ -6709,6 +6731,7 @@ To: Kara Beach <kara.beach@example.com>`,
         party_role: "customer",
         is_meaningful: true,
         noise_reason: null,
+        linked_contact_kind: "high_confidence_related_contact",
         source: "sync_activity",
       }),
     ]);
@@ -6722,6 +6745,7 @@ To: Kara Beach <kara.beach@example.com>`,
       params: expect.objectContaining({
         p_opportunity_id: "opp-linked",
         p_provider_message_id: "msg-linked",
+        p_linked_contact_kind: "high_confidence_related_contact",
       }),
     });
     expect(upsertFromEmailMock).toHaveBeenCalledWith(
@@ -8280,6 +8304,7 @@ describe("SyncEngine Gmail history completeness", () => {
     const first = await firstPromise;
 
     expect(first.errors).toEqual([]);
+    expect(first.continuationPending).toBe(true);
     expect(listThreadIds).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ pageToken: null })
@@ -8302,6 +8327,7 @@ describe("SyncEngine Gmail history completeness", () => {
     const second = await secondPromise;
 
     expect(second.errors).toEqual([]);
+    expect(second.continuationPending).toBe(false);
     expect(fetchNewEmailsSince).toHaveBeenCalledTimes(1);
     expect(listThreadIds).toHaveBeenNthCalledWith(
       2,
@@ -8361,6 +8387,7 @@ describe("SyncEngine Gmail history completeness", () => {
     const result = await SyncEngine.runSync("connection-1");
 
     expect(result.errors).toEqual([]);
+    expect(result.continuationPending).toBe(true);
     expect(listThreadIds).toHaveBeenCalledTimes(10);
     expect(updateConnectionMock).toHaveBeenLastCalledWith(
       "connection-1",

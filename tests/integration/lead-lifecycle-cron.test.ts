@@ -97,6 +97,9 @@ const FRAGMENTED_OPP = "66666666-6666-6666-6666-666666666666";
 
 // 60 days ago — well past the 7-day follow-up + 30-day no-response thresholds.
 const LONG_AGO = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+const BEFORE_LONG_AGO = new Date(
+  Date.now() - 61 * 24 * 60 * 60 * 1000
+).toISOString();
 // 10 days ago — an unanswered inbound the operator still owes a reply (past the
 // follow-up nudge window, but under the 30-day archive window). Drives
 // `operator_follow_up_miss` without tipping into archive-first auto-cleanup.
@@ -292,9 +295,7 @@ describe("/api/cron/lead-lifecycle — non-destructive auto-exec", () => {
     // inbound opp has an inbound event 60 days ago (→ operator miss notif).
     supabaseFromMock.mockImplementation((table: string) => {
       if (table === "opportunity_correspondence_events") {
-        const chain = makeChain({
-          selectResult: () => ({ data: [], error: null }),
-        });
+        const chain = makeChain({ selectResult: () => ({ data: [], error: null }) });
         // Override .in to return per-opp events; .like (fragmentation probe)
         // returns none.
         const realIn = chain.in;
@@ -495,6 +496,7 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
     // settings `{ auto_archive_enabled: false }` to exercise the dry-run
     // fallback: a destructive decision the company has NOT opted into executing.
     reactivate?: boolean;
+    laterOutbound?: boolean;
     // When provided, the settings fetch (.in company_id) returns this row,
     // overriding the engine defaults. Omitted → defaults (both flags ON).
     settings?: { auto_archive_enabled?: boolean; auto_lost_enabled?: boolean };
@@ -510,7 +512,9 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
   }) {
     return (table: string) => {
       if (table === "opportunity_correspondence_events") {
-        const chain = makeChain({ selectResult: () => ({ data: [], error: null }) });
+        const chain = makeChain({
+          selectResult: () => ({ data: [], error: null }),
+        });
         chain.then = (resolve: any) => {
           const likeFilter = chain.filters.find((f: any) => f[0] === "like");
           if (likeFilter) {
@@ -539,6 +543,21 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
               occurred_at: LONG_AGO,
               linked_contact_kind: opts.reactivate ? "related_contact" : null,
             });
+            if (opts.reactivate && opts.laterOutbound) {
+              events.push({
+                id: "evt-later-outbound",
+                opportunity_id: DESTRUCTIVE_OPP,
+                connection_id: opts.reviewThreadProviderId
+                  ? "conn-review"
+                  : null,
+                provider_thread_id: opts.reviewThreadProviderId ?? null,
+                direction: "outbound",
+                party_role: "ops",
+                is_meaningful: true,
+                occurred_at: RECENT_INBOUND,
+                linked_contact_kind: null,
+              });
+            }
           }
           return resolve({ data: events, error: null });
         };
@@ -586,7 +605,7 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
                   title: "Old quote",
                   stage: "quoted",
                   // Reactivate requires an already-archived opportunity.
-                  archived_at: opts.reactivate ? LONG_AGO : null,
+                  archived_at: opts.reactivate ? BEFORE_LONG_AGO : null,
                   deleted_at: null,
                   project_id: null,
                   project_ref: null,
@@ -736,6 +755,39 @@ describe("/api/cron/lead-lifecycle — destructive auto-exec + dry-run fallback"
     expect(body.errors).toBe(0);
     expect(supabaseRpcMock).toHaveBeenCalledTimes(1);
     expect(notificationInserts).toHaveLength(0);
+  });
+
+  it("reactivates from the exact inbound even when a later outbound is newest", async () => {
+    const draftInserts: unknown[] = [];
+    const notificationInserts: unknown[] = [];
+    supabaseFromMock.mockImplementation(
+      destructiveHandlers({
+        fragmented: false,
+        reactivate: true,
+        laterOutbound: true,
+        draftInserts,
+        notificationInserts,
+      })
+    );
+    supabaseRpcMock.mockResolvedValueOnce({
+      data: { applied: true },
+      error: null,
+    });
+
+    const res = await GET(buildRequest("Bearer test-secret"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.ok).toBe(true);
+    expect(body.destructiveReactivated).toBe(1);
+    expect(body.errors).toBe(0);
+    expect(supabaseRpcMock).toHaveBeenCalledTimes(1);
+    const rpcArgs = supabaseRpcMock.mock.calls[0][1] as Record<string, any>;
+    expect(rpcArgs.p_action).toBe("reactivate_on_related_inbound");
+    expect(rpcArgs.p_decision_evidence).toMatchObject({
+      latestEventId: "evt-react",
+      latestEventAt: LONG_AGO,
+    });
   });
 
   it("dry-runs a destructive disposition when the company has NOT opted in (reactivate with auto-archive off): one review notification, never the RPC", async () => {

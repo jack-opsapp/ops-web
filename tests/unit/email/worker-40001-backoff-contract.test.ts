@@ -40,7 +40,12 @@ describe("sync-engine 40001 backoff and batch isolation", () => {
   it("isolates each opportunity in the accept batch and aggregates failures after the loop", () => {
     const loopStart = syncEngineSource.indexOf("const acceptFailures");
     expect(loopStart).toBeGreaterThan(-1);
-    const loop = syncEngineSource.slice(loopStart, loopStart + 2400);
+    const loopEnd = syncEngineSource.indexOf(
+      "// Thread-scoped stage evaluation",
+      loopStart
+    );
+    expect(loopEnd).toBeGreaterThan(loopStart);
+    const loop = syncEngineSource.slice(loopStart, loopEnd);
     expect(loop).toMatch(
       /try\s*\{\s*await maybeAutoAdvanceOnAccept\(\{[\s\S]*?\}\);\s*\}\s*catch/
     );

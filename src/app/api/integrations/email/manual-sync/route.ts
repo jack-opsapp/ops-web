@@ -178,12 +178,37 @@ export async function POST(request: NextRequest) {
         results.push({ connectionId: id, ...result });
       }
 
-      return NextResponse.json({
-        ok: true,
-        source: source || "manual",
-        connectionsProcessed: results.length,
-        results,
-      });
+      const failedConnections = results.filter(
+        (result) => result.errors.length > 0
+      ).length;
+      const pendingConnections = results.filter(
+        (result) => result.continuationPending
+      ).length;
+      const state =
+        failedConnections > 0
+          ? failedConnections === results.length
+            ? "failed"
+            : "partial"
+          : pendingConnections > 0
+            ? "continuing"
+            : "complete";
+
+      return NextResponse.json(
+        {
+          ok: failedConnections === 0,
+          state,
+          retryable: failedConnections > 0,
+          source: source || "manual",
+          connectionsProcessed: results.length,
+          failedConnections,
+          pendingConnections,
+          results,
+        },
+        {
+          status:
+            failedConnections > 0 ? 503 : pendingConnections > 0 ? 202 : 200,
+        }
+      );
     } catch (err) {
       console.error("[email-manual-sync]", err);
       return NextResponse.json(

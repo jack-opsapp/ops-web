@@ -4,6 +4,7 @@ export interface EmailSyncCronResult {
   provider: string;
   activitiesCreated: number;
   newLeads: number;
+  continuationPending?: boolean;
   errors?: string[];
 }
 
@@ -16,6 +17,7 @@ interface EmailSyncCronConnection {
 interface EmailSyncEngineResult {
   activitiesCreated: number;
   newLeads: number;
+  continuationPending?: boolean;
   errors: string[];
 }
 
@@ -30,6 +32,7 @@ export function buildEmailSyncCronResult(
     provider: connection.provider,
     activitiesCreated: result.activitiesCreated,
     newLeads: result.newLeads,
+    ...(result.continuationPending ? { continuationPending: true } : {}),
     ...(result.errors.length > 0 ? { errors: result.errors } : {}),
   };
 }

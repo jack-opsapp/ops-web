@@ -18071,6 +18071,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      persist_email_connection_sync_checkpoint_as_system: {
+        Args: {
+          p_clear_recovery?: boolean
+          p_connection_id: string
+          p_history_id: string
+          p_owner_id: string
+        }
+        Returns: boolean
+      }
       complete_gmail_import_job_as_system: {
         Args: {
           p_clients_created: number
