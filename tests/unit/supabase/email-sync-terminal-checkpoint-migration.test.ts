@@ -49,6 +49,12 @@ describe("email sync terminal checkpoint migration", () => {
 
   it("records exact repository parity for the deployed conflict-target hotfix", () => {
     expect(hotfixSql).toContain(
+      "public.reconcile_manual_outbound_follow_up_cycle_as_system(uuid,uuid,uuid)"
+    );
+    expect(hotfixSql).not.toContain(
+      "uuid,uuid,text,text,timestamptz,text,text,text,text[],text[],text"
+    );
+    expect(hotfixSql).toContain(
       "on conflict on constraint opportunity_lifecycle_state_pkey do update"
     );
     expect(hotfixSql).not.toMatch(/on conflict \(opportunity_id\)/i);

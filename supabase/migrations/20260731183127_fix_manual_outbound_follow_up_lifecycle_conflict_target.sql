@@ -8,7 +8,7 @@ begin;
 do $hotfix$
 declare
   v_signature regprocedure := to_regprocedure(
-    'public.reconcile_manual_outbound_follow_up_cycle_as_system(uuid,uuid,text,text,timestamptz,text,text,text,text[],text[],text,uuid,uuid,uuid,timestamptz,text)'
+    'public.reconcile_manual_outbound_follow_up_cycle_as_system(uuid,uuid,uuid)'
   );
   v_definition text;
 begin
@@ -45,13 +45,11 @@ end;
 $hotfix$;
 
 revoke all on function public.reconcile_manual_outbound_follow_up_cycle_as_system(
-  uuid, uuid, text, text, timestamptz, text, text, text, text[], text[], text,
-  uuid, uuid, uuid, timestamptz, text
+  uuid, uuid, uuid
 ) from public, anon, authenticated, service_role;
 
 grant execute on function public.reconcile_manual_outbound_follow_up_cycle_as_system(
-  uuid, uuid, text, text, timestamptz, text, text, text, text[], text[], text,
-  uuid, uuid, uuid, timestamptz, text
+  uuid, uuid, uuid
 ) to service_role;
 
 commit;
