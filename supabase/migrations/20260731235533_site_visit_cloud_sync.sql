@@ -223,6 +223,30 @@ create unique index site_visit_identity_drafts_active_visit_uidx
   on public.site_visit_identity_drafts(site_visit_id)
   where deleted_at is null;
 
+-- Project conversion may be retried after an interrupted response. The phone
+-- reuses the visit object's URL, and this active identity makes that retry a
+-- single gallery row across devices. Fail the migration with a specific
+-- preflight error instead of discovering historical duplicates during index
+-- creation with an opaque constraint message.
+do $block$
+begin
+  if exists (
+    select 1
+      from public.project_photos photo
+     where photo.site_visit_id is not null
+       and photo.deleted_at is null
+     group by photo.company_id, photo.project_id, photo.site_visit_id, photo.url
+    having count(*) > 1
+  ) then
+    raise exception 'duplicate_active_site_visit_project_photos';
+  end if;
+end;
+$block$;
+
+create unique index project_photos_active_site_visit_url_uidx
+  on public.project_photos(company_id, project_id, site_visit_id, url)
+  where site_visit_id is not null and deleted_at is null;
+
 -- A child always carries the exact text company identity and opportunity
 -- binding of its visit. The direct single-column FK remains visible to the
 -- account-purge validator; the trigger supplies the denormalized guarantees.

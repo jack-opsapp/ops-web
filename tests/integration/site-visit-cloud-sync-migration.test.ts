@@ -99,6 +99,10 @@ describe("site-visit cloud sync migration", () => {
     expect(sql).toMatch(
       /unique index site_visit_identity_drafts_active_visit_uidx[\s\S]*\(site_visit_id\)[\s\S]*where deleted_at is null/
     );
+    expect(sql).toContain("duplicate_active_site_visit_project_photos");
+    expect(sql).toMatch(
+      /unique index project_photos_active_site_visit_url_uidx[\s\S]*\(company_id, project_id, site_visit_id, url\)[\s\S]*where site_visit_id is not null and deleted_at is null/
+    );
   });
 
   it("rejects a child whose direct tenant differs from its parent", () => {
