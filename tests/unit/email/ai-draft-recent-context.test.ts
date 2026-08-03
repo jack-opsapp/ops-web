@@ -476,6 +476,98 @@ describe("AIDraftService recent mailbox context", () => {
     });
   });
 
+  it("strips the forwarder's wrapper signature from the contact-form prompt", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-forwarded-form",
+        company_id: "company-1",
+        title: "Carolyn Molson — Email inquiry",
+        ai_summary: "Front deck quote request.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Carolyn Molson",
+        contact_email: "molsonc2020@gmail.com",
+        clients: {
+          name: "Carolyn Molson",
+          email: "molsonc2020@gmail.com",
+        },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-forwarded-form",
+        company_id: "company-1",
+        opportunity_id: "opportunity-forwarded-form",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-wix-forward-thread",
+        email_message_id: "message-carolyn",
+        type: "email",
+        direction: "inbound",
+        from_email: "jared@canprodeckandrail.com",
+        subject: "Fwd: Free Quote form got a new submission",
+        body_text: [
+          "Thanks,Jared Jerome ",
+          "778-268-3324",
+          "Canpro Deck and Rail",
+          "",
+          "Sent from my iPhone",
+          "",
+          "Begin forwarded message:",
+          "",
+          "From: Canpro Deck and Rail <notifications@wix-forms.com>",
+          "Subject: Free Quote form got a new submission",
+          "",
+          "Name:",
+          "Carolyn Molson ",
+          "Email Address:",
+          "molsonc2020@gmail.com ",
+          "How Can We Help?:",
+          "I would like a quote for a front deck.",
+        ].join("\n"),
+        created_at: "2026-08-02T18:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-forwarded-form",
+      sourceActivityId: "activity-forwarded-form",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Thanks for reaching out",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-forwarded-form",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    const prompt = latestUserPrompt();
+    // The forwarder's identity never reaches the model — not in the latest
+    // inbound body and not in the full-conversation block.
+    expect(prompt).not.toContain("Jared Jerome");
+    expect(prompt).not.toContain("778-268-3324");
+    expect(prompt).not.toContain("Sent from my iPhone");
+    // The customer's actual submission survives intact.
+    expect(prompt).toContain("I would like a quote for a front deck.");
+    expect(prompt).toContain("Carolyn Molson");
+  });
+
   it("uses the complete authorized opportunity conversation across fragmented threads", async () => {
     database.tables.opportunities = [
       {

@@ -31,6 +31,7 @@ import {
   resolveSourceBoundAutonomousRouting,
   type SourceBoundAutonomousRouting,
 } from "./conversation-state/source-bound-autonomous-routing";
+import { stripForwardWrapper } from "./conversation-state/forward-wrapper";
 import { persistRoutingDecision } from "./conversation-state/persist-routing";
 import type { ConversationState } from "./conversation-state/types";
 import { inboxModel } from "./conversation-state/inbox-models";
@@ -1447,10 +1448,19 @@ export const AIDraftService = {
     }
 
     // ── Build thread context string ────────────────────────────────────
+    // A contact-form submission arrives forwarded from the operator's phone, so
+    // every rendering of that body carries the FORWARDER's device signature.
+    // Strip it everywhere the body reaches the prompt — leaving it in the
+    // conversation block would re-introduce the identity the model must not
+    // adopt (2026-08-02 impersonation incident).
+    const promptBodyText = (raw: string): string =>
+      assignedContactFormReview ? stripForwardWrapper(raw) : raw;
     const threadContext = threadMessages
       .map((m) => {
         const dir = m.direction === "outbound" ? "YOU" : "THEM";
-        const canonicalBody = m.body_text_clean ?? m.body_text ?? "";
+        const canonicalBody = promptBodyText(
+          m.body_text_clean ?? m.body_text ?? ""
+        );
         const body = authorizedSourceActivity
           ? canonicalBody
           : canonicalBody.slice(0, 600);
@@ -1567,11 +1577,13 @@ RULES:
       ? clientEmail
       : draftState?.recipientEmail || clientEmail;
     const latestInboundText =
-      (authorizedSourceActivity
-        ? (authorizedSourceActivity.body_text_clean ??
-          authorizedSourceActivity.body_text)
-        : draftState?.latestCustomerText ||
-          lastInbound?.body_text?.slice(0, 1500)) || "(no body)";
+      promptBodyText(
+        (authorizedSourceActivity
+          ? (authorizedSourceActivity.body_text_clean ??
+            authorizedSourceActivity.body_text)
+          : draftState?.latestCustomerText ||
+            lastInbound?.body_text?.slice(0, 1500)) || ""
+      ) || "(no body)";
     const fullThreadText = authorizedSourceActivity
       ? threadContext
       : draftState?.cleanThread || threadContext;
