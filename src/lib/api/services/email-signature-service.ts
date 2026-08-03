@@ -231,6 +231,36 @@ export function resolveEffectiveEmailSignature(
   return provider ? toEffective(provider, "provider") : null;
 }
 
+/**
+ * Has the operator ever stood behind an identity on this mailbox?
+ *
+ * Only an OPS-authored signature counts — operator scope (theirs) or mailbox
+ * scope (the whole mailbox's). A provider-imported block is somebody else's
+ * HTML until a human says otherwise, so it can never satisfy this on its own.
+ * `confirmed_at` is that human moment; a row without it is a draft identity.
+ */
+export function hasConfirmedEmailIdentity(
+  _rows: EmailSignatureRecord[],
+  _context: {
+    companyId: string;
+    connectionId: string;
+    userId?: string | null;
+  }
+): boolean {
+  const scopeUserId = _context.userId?.trim() || null;
+  return _rows.some(
+    (row) =>
+      row.isActive &&
+      row.companyId === _context.companyId &&
+      row.connectionId === _context.connectionId &&
+      Boolean(row.contentHtml || row.contentText) &&
+      row.source === "ops" &&
+      (row.scopeUserId === null ||
+        (scopeUserId !== null && row.scopeUserId === scopeUserId)) &&
+      Boolean(row.confirmedAt)
+  );
+}
+
 function normalizePlainText(value: string): string {
   return value
     .replace(/\r\n?/g, "\n")
@@ -310,6 +340,10 @@ interface SignatureLookupInput {
 interface EffectiveSignatureLookupInput extends SignatureLookupInput {
   userId?: string | null;
   mailboxAddress: string;
+}
+
+interface ConfirmedIdentityLookupInput extends SignatureLookupInput {
+  userId?: string | null;
 }
 
 interface RefreshProviderSignatureInput extends SignatureLookupInput {
@@ -447,6 +481,18 @@ export const EmailSignatureService = {
   ): Promise<EffectiveEmailSignature | null> {
     const rows = await EmailSignatureService.listActive(input);
     return resolveEffectiveEmailSignature(rows, input);
+  },
+
+  /**
+   * The gate for outbound work that speaks for the operator by name. Autonomous
+   * new-lead outreach must not open a thread on a mailbox whose owner has never
+   * confirmed how they sign off.
+   */
+  async hasConfirmedIdentity(
+    input: ConfirmedIdentityLookupInput
+  ): Promise<boolean> {
+    const rows = await EmailSignatureService.listActive(input);
+    return hasConfirmedEmailIdentity(rows, input);
   },
 
   async saveOps(input: SaveOpsSignatureInput): Promise<EmailSignatureRecord> {

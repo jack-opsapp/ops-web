@@ -16,6 +16,7 @@ import {
 } from "./email-assignment-contact-form-draft-worker";
 import { AIDraftService } from "./ai-draft-service";
 import { EmailService } from "./email-service";
+import { EmailSignatureService } from "./email-signature-service";
 import { placeNewThreadDraft } from "./mailbox-draft-push";
 import { runWithEmailConnectionSyncLock } from "./email-connection-sync-lock";
 import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
@@ -24,6 +25,15 @@ import {
   renderMailboxDraftWithSignature,
   resolveEmailSignatureForMessage,
 } from "@/lib/email/email-signature-runtime";
+import { createTrustedNotifications } from "@/lib/notifications/server-notification-service";
+
+/**
+ * Distinct from `email_signature_required` (which the database resolves the
+ * moment ANY signature row exists, including an unconfirmed provider import).
+ * This one stays open until a human has actually stood behind the identity.
+ */
+export const IDENTITY_CONFIRMATION_NOTIFICATION_TYPE =
+  "email_identity_confirmation_required";
 
 interface ClaimRow {
   id: unknown;
@@ -261,6 +271,32 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
         actorUserId
       );
       return autonomy.CUSTOMER;
+    },
+
+    hasConfirmedIdentity(input) {
+      return EmailSignatureService.hasConfirmedIdentity({
+        companyId: input.companyId,
+        connectionId: input.connectionId,
+        userId: input.userId,
+      });
+    },
+
+    async requestIdentityConfirmation(input) {
+      await createTrustedNotifications(
+        {
+          companyId: input.companyId,
+          recipientUserIds: [input.userId],
+          type: IDENTITY_CONFIRMATION_NOTIFICATION_TYPE,
+          title: "New-lead replies are on hold",
+          body: "Confirm your email signature so OPS can draft them in your name.",
+          persistent: true,
+          actionUrl: `/settings?section=profile&connection=${input.connectionId}`,
+          actionLabel: "CONFIRM SIGNATURE",
+          deepLinkType: "settings",
+          dedupeKey: `email-identity-confirmation:${input.connectionId}:${input.userId}`,
+        },
+        supabase
+      );
     },
 
     async generateDraft(input) {

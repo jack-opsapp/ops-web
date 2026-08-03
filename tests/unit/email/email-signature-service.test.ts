@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createEmailSignatureContent,
   emailSignatureHtmlToText,
+  hasConfirmedEmailIdentity,
   renderEmailBodyWithSignature,
   resolveEffectiveEmailSignature,
   sanitizeEmailSignatureHtml,
@@ -152,6 +153,90 @@ describe("effective email signatures", () => {
       source: "gmail_send_as",
       scope: "provider",
     });
+  });
+});
+
+describe("confirmed sender identity", () => {
+  const scope = {
+    companyId: "company-1",
+    connectionId: "connection-1",
+    userId: "user-1",
+  };
+  const confirmedAt = "2026-08-02T18:00:00.000Z";
+
+  function opsRow(
+    overrides: Partial<EmailSignatureRecord> = {}
+  ): EmailSignatureRecord {
+    return signatureRow({
+      id: "operator-ops",
+      scopeUserId: "user-1",
+      source: "ops",
+      contentHtml: "<div>Jackson Sweet</div>",
+      contentText: "Jackson Sweet",
+      contentHash: "operator-hash",
+      providerIdentity: null,
+      confirmedAt,
+      ...overrides,
+    });
+  }
+
+  it("accepts a confirmed operator-scope signature", () => {
+    expect(hasConfirmedEmailIdentity([opsRow()], scope)).toBe(true);
+  });
+
+  it("accepts a confirmed mailbox-scope signature for any operator", () => {
+    expect(
+      hasConfirmedEmailIdentity(
+        [opsRow({ id: "mailbox-ops", scopeUserId: null })],
+        { ...scope, userId: "user-9" }
+      )
+    ).toBe(true);
+  });
+
+  it("rejects an OPS signature that was never confirmed", () => {
+    expect(
+      hasConfirmedEmailIdentity([opsRow({ confirmedAt: null })], scope)
+    ).toBe(false);
+  });
+
+  it("rejects a provider-imported signature even when it carries a confirmation stamp", () => {
+    // Provider HTML is somebody else's block until it is rebuilt as an OPS
+    // signature. A timestamp on the imported row is not the operator's word.
+    expect(
+      hasConfirmedEmailIdentity(
+        [
+          signatureRow({
+            providerIdentity: "operator@example.com",
+            confirmedAt,
+          }),
+        ],
+        scope
+      )
+    ).toBe(false);
+  });
+
+  it("rejects another operator's confirmed signature", () => {
+    expect(
+      hasConfirmedEmailIdentity([opsRow({ scopeUserId: "user-2" })], scope)
+    ).toBe(false);
+  });
+
+  it("rejects other tenants, other connections, inactive rows, and empty content", () => {
+    expect(
+      hasConfirmedEmailIdentity(
+        [
+          opsRow({ id: "other-tenant", companyId: "company-2" }),
+          opsRow({ id: "other-connection", connectionId: "connection-2" }),
+          opsRow({ id: "inactive", isActive: false }),
+          opsRow({ id: "empty", contentHtml: "", contentText: "" }),
+        ],
+        scope
+      )
+    ).toBe(false);
+  });
+
+  it("rejects an empty mailbox", () => {
+    expect(hasConfirmedEmailIdentity([], scope)).toBe(false);
   });
 });
 

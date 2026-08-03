@@ -21,6 +21,10 @@ import {
 
 const DEFAULT_LIMIT = 3;
 const DEFAULT_LEASE_SECONDS = 360;
+const TEMPORARILY_UNAVAILABLE =
+  "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_TEMPORARILY_UNAVAILABLE";
+/** Non-terminal hold reason recorded on the queue row while identity is unset. */
+export const AWAITING_IDENTITY_CONFIRMATION = "awaiting_identity_confirmation";
 const CUSTOMER_DRAFT_LEVELS = new Set([
   "auto_draft",
   "auto_send",
@@ -109,6 +113,18 @@ export interface EmailAssignmentContactFormDraftDependencies {
     actorUserId: string,
     category: Extract<EmailThreadCategory, "CUSTOMER">
   ): Promise<string>;
+  /** Operator- or mailbox-scope OPS signature the operator has confirmed. */
+  hasConfirmedIdentity(input: {
+    companyId: string;
+    connectionId: string;
+    userId: string;
+  }): Promise<boolean>;
+  /** Deduped persistent rail prompt; one unresolved entry per mailbox+operator. */
+  requestIdentityConfirmation(input: {
+    companyId: string;
+    connectionId: string;
+    userId: string;
+  }): Promise<void>;
   generateDraft(input: {
     companyId: string;
     userId: string;
@@ -419,6 +435,37 @@ export class EmailAssignmentContactFormDraftWorker {
     }
   }
 
+  /**
+   * Ask the operator to confirm their sending identity.
+   *
+   * The rail prompt is deduped at the database boundary, so calling this on
+   * every held pass is correct and produces exactly one unresolved entry. It is
+   * best-effort by design: a notification outage must never convert a held job
+   * into a failed one — the hold itself is what protects the customer.
+   */
+  private async requestIdentityConfirmation(
+    job: ClaimedEmailAssignmentContactFormDraft
+  ): Promise<void> {
+    try {
+      await this.dependencies.requestIdentityConfirmation({
+        companyId: job.companyId,
+        connectionId: job.connectionId,
+        userId: job.actorUserId,
+      });
+    } catch (error) {
+      const pressure = reportedDatabasePressure(
+        error,
+        "Contact-form draft identity prompt stopped on database pressure"
+      );
+      if (pressure) throw pressure;
+      console.error("[contact-form-draft] identity prompt failed", {
+        connectionId: job.connectionId,
+        userId: job.actorUserId,
+        error: errorMessage(error),
+      });
+    }
+  }
+
   private async markSkipped(
     result: EmailAssignmentContactFormDraftWorkerResult,
     job: ClaimedEmailAssignmentContactFormDraft,
@@ -511,6 +558,28 @@ export class EmailAssignmentContactFormDraftWorker {
         }
 
         const submitter = parseSubmitter(job);
+
+        // Identity gate. This mailbox is about to open a brand-new thread with
+        // a stranger and sign it as the operator. Until that operator has
+        // confirmed how they sign off, nothing is written and nothing is
+        // placed — the queue row simply waits and the rail asks them once.
+        if (
+          !(await runDatabaseOperation(
+            "Contact-form draft identity read failed",
+            () =>
+              this.dependencies.hasConfirmedIdentity({
+                companyId: job.companyId,
+                connectionId: job.connectionId,
+                userId: job.actorUserId,
+              })
+          ))
+        ) {
+          await this.requestIdentityConfirmation(job);
+          throw new Error(
+            `${TEMPORARILY_UNAVAILABLE}: ${AWAITING_IDENTITY_CONFIRMATION}`
+          );
+        }
+
         const outreachSubject = resolveOutreachSubject(connection);
         let prepared = preparedFromClaim(job, outreachSubject);
         if (!prepared) {
@@ -540,7 +609,7 @@ export class EmailAssignmentContactFormDraftWorker {
           ) {
             if (!isTerminalDraftUnavailable(generated)) {
               throw new Error(
-                `EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_TEMPORARILY_UNAVAILABLE: ${
+                `${TEMPORARILY_UNAVAILABLE}: ${
                   generated.reason?.trim() ||
                   "draft generation returned no durable result"
                 }`
