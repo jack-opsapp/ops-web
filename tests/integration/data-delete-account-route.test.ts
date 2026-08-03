@@ -26,12 +26,14 @@ const {
   findUserMock,
   stripeListMock,
   stripeCancelMock,
+  eraseSiteVisitPrefixMock,
 } = vi.hoisted(() => ({
   verifyAuthMock: vi.fn(),
   checkPermissionMock: vi.fn(),
   findUserMock: vi.fn(),
   stripeListMock: vi.fn(),
   stripeCancelMock: vi.fn(),
+  eraseSiteVisitPrefixMock: vi.fn(),
 }));
 
 let stub: PostgrestStub;
@@ -55,6 +57,10 @@ vi.mock("stripe", () => ({
       cancel: (id: string) => stripeCancelMock(id),
     };
   },
+}));
+vi.mock("@/lib/s3/site-visit-prefix-erasure", () => ({
+  eraseSiteVisitPrefix: (companyId: string) =>
+    eraseSiteVisitPrefixMock(companyId),
 }));
 
 import { POST } from "@/app/api/data/delete-account/route";
@@ -107,6 +113,11 @@ beforeEach(() => {
   });
   stripeListMock.mockReset().mockResolvedValue({ data: [] });
   stripeCancelMock.mockReset().mockResolvedValue({});
+  eraseSiteVisitPrefixMock.mockReset().mockResolvedValue({
+    prefix: `site-visits/${COMPANY}/`,
+    pages: 1,
+    deleted: 0,
+  });
   process.env.STRIPE_SECRET_KEY = "sk_test_stub";
 });
 
@@ -156,6 +167,48 @@ describe("POST /api/data/delete-account — authorization gates", () => {
 });
 
 describe("POST /api/data/delete-account — atomic cascade contract", () => {
+  it("erases visit media only after the database purge commits", async () => {
+    eraseSiteVisitPrefixMock.mockImplementation(async () => {
+      expect(stub.ops.some((operation) => operation.kind === "rpc")).toBe(true);
+      return { prefix: `site-visits/${COMPANY}/`, pages: 1, deleted: 3 };
+    });
+
+    const response = await POST(request(validBody));
+
+    expect(response.status).toBe(200);
+    expect(eraseSiteVisitPrefixMock).toHaveBeenCalledWith(COMPANY);
+  });
+
+  it("does not touch storage when the transactional purge rolls back", async () => {
+    stub.failOn(PURGE_FUNCTION, "rpc", {
+      message: `purge_company_data: step 1/${deletionPlan().length} (purge activities) failed: permission denied`,
+      code: "42501",
+      details: "The transaction was rolled back.",
+    });
+
+    const response = await POST(request(validBody));
+
+    expect(response.status).toBe(500);
+    expect(eraseSiteVisitPrefixMock).not.toHaveBeenCalled();
+  });
+
+  it("commits account closure with a retry warning when immediate storage erasure fails", async () => {
+    eraseSiteVisitPrefixMock.mockRejectedValue(
+      new Error("site_visit_prefix_delete_incomplete")
+    );
+
+    const response = await POST(request(validBody));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.warnings).toContainEqual({
+      step: "storage:erase-site-visits",
+      message:
+        "Company data was deleted. Visit media cleanup is still running and will retry automatically.",
+    });
+  });
+
   it("sends the complete ordered manifest and cycle breakers through one RPC", async () => {
     const res = await POST(request(validBody));
     expect(res.status).toBe(200);
@@ -172,6 +225,25 @@ describe("POST /api/data/delete-account — atomic cascade contract", () => {
         definer_purged: isDefinerPurged(entry.table),
       })),
     });
+  });
+
+  it("includes every normalized visit child before the site-visit parent", async () => {
+    await POST(request(validBody));
+    const rpc = stub.ops.find((op) => op.kind === "rpc");
+    const steps = rpc?.args?.p_plan as { steps?: Array<Record<string, unknown>> };
+    const tables = (steps.steps ?? []).map((step) => step.table);
+    const parentIndex = tables.indexOf("site_visits");
+
+    expect(parentIndex).toBeGreaterThan(-1);
+    for (const child of [
+      "site_visit_artifacts",
+      "site_visit_checklist_answers",
+      "site_visit_identity_drafts",
+    ]) {
+      const childIndex = tables.indexOf(child);
+      expect(childIndex, `${child} must be in the purge plan`).toBeGreaterThan(-1);
+      expect(childIndex, `${child} must precede site_visits`).toBeLessThan(parentIndex);
+    }
   });
 
   it("does not issue direct mutations for any manifest table", async () => {
@@ -205,8 +277,7 @@ describe("POST /api/data/delete-account — atomic cascade contract", () => {
 
   it("reports zero completed steps when the transaction fails", async () => {
     stub.failOn(PURGE_FUNCTION, "rpc", {
-      message:
-        "purge_company_data: step 113/199 (soft-delete expenses) failed: permission denied for table expenses",
+      message: `purge_company_data: step 113/${deletionPlan().length} (soft-delete expenses) failed: permission denied for table expenses`,
       code: "42501",
       details: "The transaction was rolled back.",
     });
