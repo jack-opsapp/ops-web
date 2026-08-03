@@ -6398,6 +6398,7 @@ export type Database = {
           last_error: string | null
           lease_expires_at: string | null
           lease_holder: string | null
+          mailbox_busy_since: string | null
           mailbox_draft_id: string | null
           opportunity_id: string
           outreach_provider_thread_id: string | null
@@ -6431,6 +6432,7 @@ export type Database = {
           last_error?: string | null
           lease_expires_at?: string | null
           lease_holder?: string | null
+          mailbox_busy_since?: string | null
           mailbox_draft_id?: string | null
           opportunity_id: string
           outreach_provider_thread_id?: string | null
@@ -6464,6 +6466,7 @@ export type Database = {
           last_error?: string | null
           lease_expires_at?: string | null
           lease_holder?: string | null
+          mailbox_busy_since?: string | null
           mailbox_draft_id?: string | null
           opportunity_id?: string
           outreach_provider_thread_id?: string | null
