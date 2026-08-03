@@ -1690,8 +1690,10 @@ ${effectiveUserInstruction ? `Purpose: ${effectiveUserInstruction}` : "Write a p
         );
     const newThreadSubject = chooseNewThreadSubject({
       operatorSubject: req.subject,
+      // The caller's configured subject IS the operator's per-mailbox outreach
+      // setting. The server-owned constant is the fallback, never the override.
       configuredSubject: sourceBoundNewThread
-        ? ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT
+        ? req.configuredSubject?.trim() || ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT
         : req.configuredSubject,
       learnedSubject,
       generatedSubject: contextualNewThreadSubject({

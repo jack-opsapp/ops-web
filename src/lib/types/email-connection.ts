@@ -48,6 +48,12 @@ export interface EmailConnection {
   opsLabelId: string | null;
   aiReviewEnabled: boolean;
   aiMemoryEnabled: boolean;
+  /**
+   * Operator-chosen subject line for the FIRST outbound email to a new lead.
+   * Contact-form outreach opens a fresh thread, so there is no inbound subject
+   * to reply to. Null/absent falls back to the server-owned default.
+   */
+  outreachSubject?: string | null;
   status: EmailConnectionStatus;
   createdAt: Date;
   updatedAt: Date;

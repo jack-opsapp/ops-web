@@ -16,10 +16,7 @@ import {
 } from "./email-assignment-contact-form-draft-worker";
 import { AIDraftService } from "./ai-draft-service";
 import { EmailService } from "./email-service";
-import {
-  CONTACT_FORM_OUTREACH_SUBJECT,
-  placeNewThreadDraft,
-} from "./mailbox-draft-push";
+import { placeNewThreadDraft } from "./mailbox-draft-push";
 import { runWithEmailConnectionSyncLock } from "./email-connection-sync-lock";
 import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
 import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
@@ -283,8 +280,9 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
         );
       }
       return AIDraftService.generateDraft({
+        // `configuredSubject` arrives resolved from the mailbox's
+        // outreach_subject setting (server-owned constant when unset).
         ...input,
-        configuredSubject: CONTACT_FORM_OUTREACH_SUBJECT,
         emailAccess: access,
         sourceBoundAutonomousRouting: "assigned_contact_form_review",
       });

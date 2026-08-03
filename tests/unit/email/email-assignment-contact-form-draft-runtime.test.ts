@@ -91,6 +91,7 @@ function connection() {
     opsLabelId: null,
     aiReviewEnabled: true,
     aiMemoryEnabled: true,
+    outreachSubject: "Canpro Deck and Rail Estimate",
     status: "active" as const,
     createdAt: new Date("2026-07-15T00:00:00.000Z"),
     updatedAt: new Date("2026-07-15T00:00:00.000Z"),
@@ -195,10 +196,7 @@ describe("assignment contact-form draft runtime", () => {
       if (name === "fail_email_assignment_contact_form_draft_as_system") {
         return { data: "retrying", error: null };
       }
-      if (
-        name ===
-        "begin_assignment_contact_draft_provider_create_as_system"
-      ) {
+      if (name === "begin_assignment_contact_draft_provider_create_as_system") {
         return {
           data: {
             attempt_id: PROVIDER_CREATE_ATTEMPT_ID,
@@ -226,7 +224,9 @@ describe("assignment contact-form draft runtime", () => {
         sourceActivityId: "00000000-0000-4000-8000-000000000501",
         origin: "phase_c",
         autonomous: true,
-        configuredSubject: "Thanks for reaching out",
+        // Resolved by the worker from the mailbox's outreach_subject setting
+        // and threaded through the runtime untouched.
+        configuredSubject: "Canpro Deck and Rail Estimate",
         sourceBoundAutonomousRouting: "assigned_contact_form_review",
         emailAccess: expect.objectContaining({
           operation: "send",

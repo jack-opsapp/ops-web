@@ -639,6 +639,67 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     );
   });
 
+  it("uses the mailbox's configured outreach subject for generation and placement", async () => {
+    const harness = makeHarness({
+      connection: connection({
+        outreachSubject: "  Canpro Deck and Rail Estimate  ",
+      }),
+    });
+    harness.generateDraft.mockResolvedValue({
+      available: true,
+      draft: "Hi Sandra,\n\nHappy to quote the deck.",
+      draftHistoryId: "00000000-0000-4000-8000-000000000601",
+    });
+
+    const result = await harness.worker.process();
+
+    expect(result.drafted).toBe(1);
+    expect(harness.generateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        configuredSubject: "Canpro Deck and Rail Estimate",
+      })
+    );
+    expect(harness.placeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: "Canpro Deck and Rail Estimate" })
+    );
+  });
+
+  it("falls back to the server-owned outreach subject when the mailbox has none", async () => {
+    const harness = makeHarness({
+      connection: connection({ outreachSubject: "   " }),
+    });
+
+    const result = await harness.worker.process();
+
+    expect(result.drafted).toBe(1);
+    expect(harness.generateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ configuredSubject: "Thanks for reaching out" })
+    );
+  });
+
+  it("resumes a prepared draft under the mailbox's configured outreach subject", async () => {
+    const harness = makeHarness({
+      jobs: [
+        claimed({
+          draftHistoryId: "00000000-0000-4000-8000-000000000601",
+          draftBody: "Hi Sandra,\n\nHappy to quote the deck.",
+          draftSubject: null,
+        }),
+      ],
+      connection: connection({
+        outreachSubject: "Canpro Deck and Rail Estimate",
+      }),
+    });
+
+    const result = await harness.worker.process();
+
+    expect(result.drafted).toBe(1);
+    expect(harness.generateDraft).not.toHaveBeenCalled();
+    expect(harness.placeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: "Canpro Deck and Rail Estimate" })
+    );
+  });
+
   it("rejects a mismatched or inactive claimed mailbox before model/provider work", async () => {
     const harness = makeHarness({
       connection: connection({

@@ -6,7 +6,10 @@ import {
   extractContactFormSubmission,
   type ContactFormSubmissionIdentity,
 } from "@/lib/utils/email-parsing";
-import { buildContactFormDraftInstruction } from "./mailbox-draft-push";
+import {
+  buildContactFormDraftInstruction,
+  CONTACT_FORM_OUTREACH_SUBJECT,
+} from "./mailbox-draft-push";
 import type { EffectiveEmailSignature } from "./email-signature-service";
 import type { CreateNewThreadDraftResult } from "./email-provider";
 import type { EmailConnectionSyncLockRunResult } from "./email-connection-sync-lock";
@@ -47,7 +50,10 @@ export interface ClaimedEmailAssignmentContactFormDraft {
 }
 
 export type ContactFormDraftFailureDisposition =
-  "retrying" | "failed" | "stale" | "reconciliation_required";
+  | "retrying"
+  | "failed"
+  | "stale"
+  | "reconciliation_required";
 
 export interface ContactFormDraftProviderPlacementAttempt {
   attemptId: string;
@@ -112,6 +118,8 @@ export interface EmailAssignmentContactFormDraftDependencies {
     recipientEmail: string;
     recipientName?: string;
     userInstruction: string;
+    /** Resolved from the mailbox's outreach_subject setting; never customer text. */
+    configuredSubject: string;
     profileTypeOverride: "client_new_inquiry";
     autonomous: true;
     origin: "phase_c";
@@ -315,8 +323,18 @@ function parseSubmitter(
   return submitter;
 }
 
+/**
+ * The subject line for a first outreach email. New-lead outreach opens a fresh
+ * thread, so there is no inbound subject to reply to — the operator's
+ * per-mailbox setting decides, and the server-owned constant is the fallback.
+ */
+function resolveOutreachSubject(connection: EmailConnection): string {
+  return connection.outreachSubject?.trim() || CONTACT_FORM_OUTREACH_SUBJECT;
+}
+
 function preparedFromClaim(
-  job: ClaimedEmailAssignmentContactFormDraft
+  job: ClaimedEmailAssignmentContactFormDraft,
+  outreachSubject: string
 ): PreparedContactFormDraft | null {
   if (!job.draftHistoryId) return null;
   const body = job.draftBody?.trim();
@@ -326,7 +344,7 @@ function preparedFromClaim(
   return {
     draftHistoryId: job.draftHistoryId,
     body: job.draftBody as string,
-    subject: job.draftSubject?.trim() || "Thanks for reaching out",
+    subject: job.draftSubject?.trim() || outreachSubject,
   };
 }
 
@@ -493,7 +511,8 @@ export class EmailAssignmentContactFormDraftWorker {
         }
 
         const submitter = parseSubmitter(job);
-        let prepared = preparedFromClaim(job);
+        const outreachSubject = resolveOutreachSubject(connection);
+        let prepared = preparedFromClaim(job, outreachSubject);
         if (!prepared) {
           const generated = await this.dependencies.generateDraft({
             companyId: job.companyId,
@@ -509,6 +528,7 @@ export class EmailAssignmentContactFormDraftWorker {
                 }
               : {}),
             userInstruction: buildContactFormDraftInstruction(),
+            configuredSubject: outreachSubject,
             profileTypeOverride: "client_new_inquiry",
             autonomous: true,
             origin: "phase_c",
@@ -552,7 +572,7 @@ export class EmailAssignmentContactFormDraftWorker {
           prepared = {
             draftHistoryId: generated.draftHistoryId,
             body: generated.draft,
-            subject: generated.subject?.trim() || "Thanks for reaching out",
+            subject: generated.subject?.trim() || outreachSubject,
           };
         }
 
