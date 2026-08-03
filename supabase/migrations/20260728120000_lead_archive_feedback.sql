@@ -1,5 +1,14 @@
 -- Lead archive feedback — additive extension of the deployed Phase C contract.
 --
+-- STATUS: APPLIED to prod ijeekuhbatykdomumfjx on 2026-07-29 via MCP
+-- apply_migration (name: lead_archive_feedback), byte-verified against this
+-- file, applied minus the begin/commit wrapper (the runner supplies its own
+-- transaction). Verified live: both RPCs present, both CHECKs widened, both
+-- snapshot columns present, anon EXECUTE granted. Idempotent — but do not
+-- re-run casually. 2026-07-30 follow-up: v_now was switched from
+-- clock_timestamp() to now() by lead_feedback_undo_timestamp_truth (the
+-- trigger stamps now(); recording clock_timestamp() made every undo fail).
+--
 -- Bug e0c8084f: discarding a lead captures a reason + optional note (Phase C,
 -- shipped), but archiving captures nothing. Archive is the OTHER way a lead
 -- leaves the board, and it is the reversible one — an owner parks a real job

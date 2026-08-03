@@ -1,5 +1,8 @@
 -- =====================================================================
--- DRAFT — NOT APPLIED. DO NOT RUN WITHOUT PM SIGN-OFF.
+-- APPLIED to prod ijeekuhbatykdomumfjx on 2026-07-30 via MCP apply_migration
+-- (name: conversion_preflight_candidate_link_state). Post-apply sentinel
+-- verified: already_linked annotation present in the live definition.
+-- DO NOT RE-RUN: the already-annotated guard aborts loudly.
 -- =====================================================================
 -- Authored during the iOS bug sweep (WS-B, bug 5468b3c6). NOT executed
 -- against any Supabase project — not prod, not a branch, not the sandbox.

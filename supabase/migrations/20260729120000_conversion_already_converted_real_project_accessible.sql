@@ -1,5 +1,8 @@
 -- =====================================================================
--- DRAFT — NOT APPLIED. DO NOT RUN WITHOUT PM SIGN-OFF.
+-- APPLIED to prod ijeekuhbatykdomumfjx on 2026-07-30 via MCP apply_migration
+-- (name: conversion_already_converted_real_project_accessible). Post-apply
+-- sentinel verified: hardcoded_false_count 7 -> 6, patch text present.
+-- DO NOT RE-RUN: the drift guard now finds 0 needles and aborts loudly.
 -- =====================================================================
 -- This file is a drafted fix authored during the iOS bug sweep
 -- (WS-B, bug ced5b3cb). It has NOT been executed against any Supabase
