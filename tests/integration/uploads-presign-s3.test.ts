@@ -29,6 +29,8 @@ const USER = "33333333-3333-4333-8333-333333333333";
 const OTHER_USER = "44444444-4444-4444-8444-444444444444";
 const EXPENSE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const UPLOAD = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const SITE_VISIT = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+const ARTIFACT = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +47,10 @@ interface AuthUserRow {
 }
 
 const usersByUid = new Map<string, AuthUserRow>();
+const siteVisitsById = new Map<
+  string,
+  { id: string; company_id: string; deleted_at: string | null }
+>();
 const supabaseUploadMock = vi.fn();
 const supabasePublicUrlMock = vi.fn();
 const supabaseSignedUrlMock = vi.fn();
@@ -86,6 +92,43 @@ function makeSupabaseStub() {
 
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => makeSupabaseStub(),
+}));
+
+const getAccessTokenClientMock = vi.fn((token: string) => ({
+  from: (table: string) => {
+    if (table !== "site_visits") {
+      throw new Error(`Unexpected user-scoped table in test: ${table}`);
+    }
+    const filters = new Map<string, unknown>();
+    const builder = {
+      select: () => builder,
+      eq: (column: string, value: unknown) => {
+        filters.set(column, value);
+        return builder;
+      },
+      is: (column: string, value: unknown) => {
+        filters.set(column, value);
+        return builder;
+      },
+      maybeSingle: async () => {
+        const id = String(filters.get("id") ?? "");
+        const row = siteVisitsById.get(id);
+        if (
+          !row ||
+          row.company_id !== filters.get("company_id") ||
+          row.deleted_at !== filters.get("deleted_at")
+        ) {
+          return { data: null, error: null };
+        }
+        return { data: row, error: null };
+      },
+    };
+    return builder;
+  },
+  token,
+}));
+vi.mock("@/lib/supabase/accessToken-client", () => ({
+  getAccessTokenClient: (token: string) => getAccessTokenClientMock(token),
 }));
 
 const rateLimitMock =
@@ -213,6 +256,8 @@ beforeEach(() => {
     error: null,
   });
   usersByUid.clear();
+  siteVisitsById.clear();
+  getAccessTokenClientMock.mockClear();
   process.env.STORAGE_BACKEND = "s3";
   vi.resetModules();
 });
@@ -503,6 +548,128 @@ describe("POST /api/uploads/presign — happy path", () => {
 
   // Multipart (direct upload) e2e coverage lives in Playwright — see
   // header note above the helpers section for rationale.
+});
+
+describe("POST /api/uploads/presign — site-visit media", () => {
+  beforeEach(() => {
+    verifyAuthTokenMock.mockResolvedValue({ uid: "u1", claims: {} });
+    usersByUid.set("u1", activeUser());
+    siteVisitsById.set(SITE_VISIT, {
+      id: SITE_VISIT,
+      company_id: COMPANY,
+      deleted_at: null,
+    });
+  });
+
+  const request = (
+    overrides: Record<string, unknown> = {},
+    token = "ok"
+  ) =>
+    jsonRequest(
+      {
+        targetType: "site_visit",
+        siteVisitId: SITE_VISIT,
+        artifactId: ARTIFACT,
+        variant: "original",
+        filename: "field-photo.heic",
+        contentType: "image/heic",
+        fileSize: 4_000_000,
+        ...overrides,
+      },
+      { Authorization: `Bearer ${token}` }
+    );
+
+  it("authorizes through the caller token and returns one stable object key on retry", async () => {
+    getSignedUrlMock
+      .mockResolvedValueOnce("https://upload.example/?signed=first")
+      .mockResolvedValueOnce("https://upload.example/?signed=second");
+    const POST = await loadRoute();
+
+    const first = await POST(request());
+    const second = await POST(request());
+    const firstBody = await first.json();
+    const secondBody = await second.json();
+
+    const expected =
+      `https://ops-app-files-prod.s3.us-west-2.amazonaws.com/` +
+      `site-visits/${COMPANY}/${SITE_VISIT}/${ARTIFACT}/original.heic`;
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(firstBody.publicUrl).toBe(expected);
+    expect(secondBody.publicUrl).toBe(expected);
+    expect(firstBody.uploadUrl).not.toBe(secondBody.uploadUrl);
+    expect(getAccessTokenClientMock).toHaveBeenCalledWith("ok");
+
+    const commands = getSignedUrlMock.mock.calls.map(
+      (call) => (call[1] as { input: Record<string, unknown> }).input
+    );
+    expect(commands.map((command) => command.Key)).toEqual([
+      `site-visits/${COMPANY}/${SITE_VISIT}/${ARTIFACT}/original.heic`,
+      `site-visits/${COMPANY}/${SITE_VISIT}/${ARTIFACT}/original.heic`,
+    ]);
+    expect(commands[0]).toMatchObject({ ContentLength: 4_000_000 });
+    const options = getSignedUrlMock.mock.calls[0][2] as {
+      signableHeaders: Set<string>;
+    };
+    expect(options.signableHeaders.has("content-length")).toBe(true);
+  });
+
+  it("keeps original, rendered, and thumbnail variants on separate deterministic keys", async () => {
+    const POST = await loadRoute();
+    for (const variant of ["original", "rendered", "thumbnail"]) {
+      await POST(request({ variant }));
+    }
+
+    const keys = getSignedUrlMock.mock.calls.map(
+      (call) => (call[1] as { input: Record<string, unknown> }).input.Key
+    );
+    expect(keys).toEqual(
+      ["original", "rendered", "thumbnail"].map(
+        (variant) =>
+          `site-visits/${COMPANY}/${SITE_VISIT}/${ARTIFACT}/${variant}.heic`
+      )
+    );
+  });
+
+  it("rejects a caller-supplied folder and malformed target values", async () => {
+    const POST = await loadRoute();
+    for (const overrides of [
+      { folder: `site-visits/${FOREIGN}` },
+      { siteVisitId: SITE_VISIT.toUpperCase() },
+      { artifactId: "not-a-uuid" },
+      { variant: "preview" },
+      { fileSize: 10 * 1024 * 1024 + 1 },
+    ]) {
+      const response = await POST(request(overrides));
+      expect(response.status).toBe(400);
+    }
+    expect(getSignedUrlMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["missing", undefined],
+    [
+      "foreign-company",
+      { id: SITE_VISIT, company_id: FOREIGN, deleted_at: null },
+    ],
+    [
+      "deleted",
+      {
+        id: SITE_VISIT,
+        company_id: COMPANY,
+        deleted_at: "2026-07-31T20:00:00.000Z",
+      },
+    ],
+  ])("does not presign a %s visit", async (_label, row) => {
+    siteVisitsById.clear();
+    if (row) siteVisitsById.set(SITE_VISIT, row);
+    const POST = await loadRoute();
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(404);
+    expect(getSignedUrlMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/uploads/presign — path authorization", () => {

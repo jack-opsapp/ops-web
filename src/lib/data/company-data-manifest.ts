@@ -136,7 +136,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-07-31";
+export const MANIFEST_VERSION = "2026-08-01";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -2419,6 +2419,33 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     export: true,
   },
   {
+    table: "site_visit_artifacts",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "text",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
+    table: "site_visit_checklist_answers",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "text",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
+    table: "site_visit_identity_drafts",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "text",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
     table: "site_visits",
     scope: "company",
     companyColumn: "company_id",
@@ -2676,37 +2703,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
   },
 ];
 
-export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [
-  "accounting_sync_events",
-  "accounting_sync_queue",
-  "accounting_sync_suppressions",
-  "approved_action_email_intents",
-  "catalog_setup_session_locks",
-  "deck_zoning_parcel_records",
-  "email_assignment_contact_form_draft_queue",
-  "email_autonomy_milestones",
-  "email_connection_lifecycle_outbox",
-  "email_conversion_photo_jobs",
-  "email_conversion_photo_objects",
-  "email_import_provider_operations",
-  "email_ingestion_recovery_queue",
-  "email_provider_mutation_attempts",
-  "email_send_intents",
-  "opportunity_assignment_deliveries",
-  "opportunity_assignment_events",
-  "opportunity_assignment_suggestions",
-  "opportunity_conversion_events",
-  "opportunity_manual_outbound_cycle_receipts",
-  "payment_reminder_generation_claims",
-  "payment_review_writeoff_receipts",
-  "phase_c_category_auto_send_acceptances",
-  "project_note_mention_events",
-  "qbo_estimate_opportunity_links",
-  "qbo_item_product_mappings",
-  "unanswered_lead_local_draft_generation_claims",
-  "unanswered_lead_message_projections",
-  "user_permission_change_deliveries",
-];
+export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [];
 
 export const OUT_OF_SCOPE_TABLES: readonly OutOfScopeEntry[] = [
   {

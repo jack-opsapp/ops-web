@@ -304,8 +304,8 @@ describe("email signature notification lifecycle migration", () => {
     expect(databaseTypes).toContain(
       "enqueue_email_signature_notification_lifecycle: {"
     );
-    expect(databaseTypes).toContain(
-      "process_email_signature_notification_lifecycle: {"
+    expect(databaseTypes).toMatch(
+      /process_email_signature_notification_lifecycle:\s*(?:\{|\|)/
     );
     expect(databaseTypes).toContain(
       "fail_email_signature_notification_lifecycle: {"

@@ -566,6 +566,9 @@ describe("company data manifest — coverage of the tables the old cascade misse
     ["project_photos", "soft", true],
     ["project_notes", "soft", true],
     ["site_visits", "soft", true],
+    ["site_visit_artifacts", "soft", true],
+    ["site_visit_checklist_answers", "soft", true],
+    ["site_visit_identity_drafts", "soft", true],
     ["sub_clients", "soft", true],
     ["follow_ups", "hard", true],
     ["activities", "hard", true],
@@ -607,6 +610,31 @@ describe("company data manifest — coverage of the tables the old cascade misse
       expect(exported.has(machinery), `${machinery} must not be exported`).toBe(
         false
       );
+    }
+  });
+
+  it("purges normalized visit children before their parent", () => {
+    const tables = deletionPlan().map((entry) => entry.table);
+    const parentIndex = tables.indexOf("site_visits");
+    expect(parentIndex).toBeGreaterThan(-1);
+
+    for (const child of [
+      "site_visit_artifacts",
+      "site_visit_checklist_answers",
+      "site_visit_identity_drafts",
+    ]) {
+      const entry = byTable.get(child);
+      expect(entry).toMatchObject({
+        scope: "company",
+        companyColumn: "company_id",
+        companyColumnType: "text",
+        softDeletable: true,
+        deleteStrategy: "soft",
+        export: true,
+      });
+      const childIndex = tables.indexOf(child);
+      expect(childIndex, `${child} must be in the purge plan`).toBeGreaterThan(-1);
+      expect(childIndex, `${child} must precede site_visits`).toBeLessThan(parentIndex);
     }
   });
 });

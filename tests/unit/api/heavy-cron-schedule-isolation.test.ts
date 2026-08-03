@@ -50,6 +50,7 @@ const guardedProductionRoutes = new Map<string, string>([
   ["/api/cron/trial-expiry", "44 12 * * *"],
   ["/api/cron/unsnooze", "1-59/5 13-23,0-4 * * *"],
   ["/api/cron/stale-leads", "17 * * * *"],
+  ["/api/cron/storage/site-visit-erasure", "54 6 * * *"],
   ["/api/cron/phase-c-graduation-check", "24 12 * * *"],
   ["/api/cron/pmf/threshold-check", "57 13-14,16-23,0-4 * * *"],
   ["/api/cron/pmf/daily-digest", "59 15 * * *"],
