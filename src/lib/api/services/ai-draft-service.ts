@@ -31,7 +31,10 @@ import {
   resolveSourceBoundAutonomousRouting,
   type SourceBoundAutonomousRouting,
 } from "./conversation-state/source-bound-autonomous-routing";
-import { buildDraftSystemPrompt } from "./conversation-state/draft-system-prompt";
+import {
+  buildDraftSystemPrompt,
+  type DraftOperatorIdentity,
+} from "./conversation-state/draft-system-prompt";
 import { stripForwardWrapper } from "./conversation-state/forward-wrapper";
 import { persistRoutingDecision } from "./conversation-state/persist-routing";
 import type { ConversationState } from "./conversation-state/types";
@@ -370,6 +373,47 @@ async function loadSafeCompanyIdentityContext(
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/**
+ * WHO the draft is written as — read from the authoritative `users` +
+ * `companies` rows, never inferred from email content. Non-fatal: a null result
+ * only drops the naming clause from the prompt's OPERATOR IDENTITY block; the
+ * "never adopt another person's identity" rule always ships.
+ */
+async function loadDraftOperatorIdentity(
+  companyId: string,
+  userId: string
+): Promise<DraftOperatorIdentity | null> {
+  try {
+    const supabase = requireSupabase();
+    const [operatorResult, companyResult] = await Promise.all([
+      supabase
+        .from("users")
+        .select("first_name, last_name")
+        .eq("id", userId)
+        .eq("company_id", companyId)
+        .maybeSingle(),
+      supabase
+        .from("companies")
+        .select("name")
+        .eq("id", companyId)
+        .maybeSingle(),
+    ]);
+
+    const firstName = String(operatorResult.data?.first_name ?? "").trim();
+    const lastName = String(operatorResult.data?.last_name ?? "").trim();
+    const companyName = String(companyResult.data?.name ?? "").trim();
+    if (!firstName && !lastName) return null;
+
+    return { firstName, lastName, companyName };
+  } catch (error) {
+    console.error("[ai-draft] operator identity load failed", {
+      companyId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -1474,7 +1518,15 @@ export const AIDraftService = {
     }
 
     // ── Build system prompt with all 12 writing dimensions ─────────────
-    const systemPrompt = buildDraftSystemPrompt({ profile });
+    // The contact-form outreach path appends the operator's confirmed
+    // signature after generation (gated on confirmation), so the model must
+    // write no name or contact block of its own.
+    const operatorIdentity = await loadDraftOperatorIdentity(companyId, userId);
+    const systemPrompt = buildDraftSystemPrompt({
+      profile,
+      operator: operatorIdentity,
+      signatureWillBeAppended: assignedContactFormReview,
+    });
 
     // ── Build user prompt ──────────────────────────────────────────────
     const lastInbound = threadMessages

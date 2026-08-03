@@ -476,6 +476,126 @@ describe("AIDraftService recent mailbox context", () => {
     });
   });
 
+  it("pins the operator's identity in the contact-form system prompt", async () => {
+    database.tables.users = [
+      {
+        id: "user-1",
+        company_id: "company-1",
+        first_name: "Jackson",
+        last_name: "Sweet",
+      },
+    ];
+    database.tables.companies = [
+      { id: "company-1", name: "Canpro Deck and Rail" },
+    ];
+    database.tables.opportunities = [
+      {
+        id: "opportunity-identity",
+        company_id: "company-1",
+        title: "Carolyn Molson — Email inquiry",
+        ai_summary: "Front deck quote request.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Carolyn Molson",
+        contact_email: "molsonc2020@gmail.com",
+        clients: { name: "Carolyn Molson", email: "molsonc2020@gmail.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-identity",
+        company_id: "company-1",
+        opportunity_id: "opportunity-identity",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-wix-identity-thread",
+        email_message_id: "message-identity",
+        type: "email",
+        direction: "inbound",
+        from_email: "jared@canprodeckandrail.com",
+        subject: "Fwd: Free Quote form got a new submission",
+        body_text: "I would like a quote for a front deck.",
+        created_at: "2026-08-02T18:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-identity",
+      sourceActivityId: "activity-identity",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Thanks for reaching out",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-identity",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    const systemPrompt = latestSystemPrompt();
+    expect(systemPrompt).toContain(
+      "You are writing as Jackson Sweet of Canpro Deck and Rail."
+    );
+    expect(systemPrompt).toContain(
+      "Never sign as, or adopt contact details of, any other person appearing in the email"
+    );
+    // The contact-form path appends the confirmed signature after generation.
+    expect(systemPrompt).toContain(
+      "Do NOT write a name, phone number, or contact block"
+    );
+  });
+
+  it("lets the model sign with a first name when no signature is appended", async () => {
+    database.tables.users = [
+      {
+        id: "user-1",
+        company_id: "company-1",
+        first_name: "Jackson",
+        last_name: "Sweet",
+      },
+    ];
+    database.tables.companies = [
+      { id: "company-1", name: "Canpro Deck and Rail" },
+    ];
+    database.tables.activities = [
+      activityRow(
+        "connection-a",
+        "message-manual",
+        "Can you come look at the railing?",
+        "2026-08-02T18:00:00.000Z"
+      ),
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-a",
+      threadId: SHARED_PROVIDER_THREAD_ID,
+    });
+
+    expect(result.available).toBe(true);
+    const systemPrompt = latestSystemPrompt();
+    expect(systemPrompt).toContain(
+      'Sign off with your closing phrase and first name only ("Jackson").'
+    );
+    expect(systemPrompt).not.toContain("is appended automatically");
+  });
+
   it("strips the forwarder's wrapper signature from the contact-form prompt", async () => {
     database.tables.opportunities = [
       {
