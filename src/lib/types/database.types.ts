@@ -7089,6 +7089,7 @@ export type Database = {
           id: string
           last_synced_at: string | null
           ops_label_id: string | null
+          outreach_subject: string | null
           provider: string
           refresh_token: string
           status: string
@@ -7124,6 +7125,7 @@ export type Database = {
           id?: string
           last_synced_at?: string | null
           ops_label_id?: string | null
+          outreach_subject?: string | null
           provider?: string
           refresh_token: string
           status?: string
@@ -7159,6 +7161,7 @@ export type Database = {
           id?: string
           last_synced_at?: string | null
           ops_label_id?: string | null
+          outreach_subject?: string | null
           provider?: string
           refresh_token?: string
           status?: string
