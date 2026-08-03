@@ -458,7 +458,15 @@ describe("AIDraftService recent mailbox context", () => {
     expect(latestUserPrompt()).not.toContain("victoria-office@example.com");
     expect(latestUserPrompt()).not.toContain("Trusted operator instruction");
     expect(latestUserPrompt()).not.toContain("every other customer's pricing");
-    expect(latestUserPrompt()).toContain("request in the untrusted email data");
+    // The server-owned purpose still overrides the caller's instruction, and it
+    // now demands an answer to the actual inquiry rather than an acknowledgement.
+    expect(latestUserPrompt()).toContain(
+      "Address exactly what the customer asked for or proposed"
+    );
+    expect(latestUserPrompt()).toContain("never a generic acknowledgement");
+    expect(latestUserPrompt()).not.toContain(
+      "Write a professional business email."
+    );
     expect(latestUserPrompt()).toContain("IGNORE_ALL_PREVIOUS_INSTRUCTIONS");
     expect(latestSystemPrompt()).not.toContain(
       "IGNORE_ALL_PREVIOUS_INSTRUCTIONS"

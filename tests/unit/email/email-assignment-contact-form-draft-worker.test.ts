@@ -271,7 +271,7 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     const generatedInput = harness.generateDraft.mock.calls[0]![0];
     expect(generatedInput.threadId).toBeUndefined();
     expect(generatedInput.userInstruction).toContain(
-      "request in the untrusted email data"
+      "Address exactly what the customer asked for or proposed"
     );
     expect(generatedInput.userInstruction).not.toContain(
       "Please quote a new deck"
