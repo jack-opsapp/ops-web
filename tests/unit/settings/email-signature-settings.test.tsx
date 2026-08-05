@@ -337,7 +337,9 @@ describe("EmailSignatureSettings", () => {
         "New-lead replies stay held until you confirm how you sign off."
       )
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Canpro Deck and Rail estimate")).toBeInTheDocument();
+    expect(
+      screen.getByText("Canpro Deck and Rail estimate")
+    ).toBeInTheDocument();
     expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Edit identity" })
@@ -412,9 +414,7 @@ describe("EmailSignatureSettings", () => {
   it("stands out when the rail sent the operator to this exact mailbox", () => {
     signatureQuery.mockReturnValue(loadedSignature());
 
-    const { rerender } = renderWithQuery(
-      <EmailSignatureSettings {...props} />
-    );
+    const { rerender } = renderWithQuery(<EmailSignatureSettings {...props} />);
     expect(screen.getByTestId("email-signature-settings")).not.toHaveAttribute(
       "data-highlighted"
     );
@@ -438,6 +438,108 @@ describe("EmailSignatureSettings", () => {
   });
 });
 
+describe("EmailSignatureSettings subject variables", () => {
+  it("drops a variable where the operator left the cursor", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    const subject = screen.getByLabelText("First reply subject");
+    await user.type(subject, "Canpro Estimate");
+    // Back to just after "Canpro" — mid-subject, not the easy append case.
+    await user.keyboard("{ArrowLeft>9/}");
+    await user.click(screen.getByRole("button", { name: "{address}" }));
+
+    expect(subject).toHaveValue("Canpro {address} Estimate");
+  });
+
+  it("appends a variable to a subject the operator never put a cursor in", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(
+      loadedSignature({ outreachSubject: "Canpro Deck and Rail Estimate" })
+    );
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "{project}" }));
+
+    expect(screen.getByLabelText("First reply subject")).toHaveValue(
+      "Canpro Deck and Rail Estimate {project}"
+    );
+  });
+
+  it("shows what the variable becomes on a real lead", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.type(
+      screen.getByLabelText("First reply subject"),
+      "Canpro Deck and Rail Estimate -"
+    );
+    await user.click(screen.getByRole("button", { name: "{address}" }));
+
+    // Rendered through the real fill function, separator spacing and all.
+    expect(screen.getByTestId("subject-example")).toHaveTextContent(
+      "Canpro Deck and Rail Estimate - 2210 Cedar Hill Rd"
+    );
+  });
+
+  it("says nothing about examples for a plain subject", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.type(
+      screen.getByLabelText("First reply subject"),
+      "Thanks for reaching out"
+    );
+
+    expect(screen.queryByTestId("subject-example")).not.toBeInTheDocument();
+  });
+
+  it("never shows a brace in the example, whatever the operator typed", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.type(
+      screen.getByLabelText("First reply subject"),
+      "Canpro Estimate - {{whatever}"
+    );
+
+    const example = screen.getByTestId("subject-example");
+    expect(example.textContent).not.toMatch(/[{}]/);
+    expect(example).toHaveTextContent("Canpro Estimate");
+  });
+
+  it("shows the confirmed subject as the lead will read it", () => {
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        missing: false,
+        confirmedAt: "2026-08-03T10:00:00.000Z",
+        outreachSubject: "Canpro Deck and Rail Estimate - {address}",
+      })
+    );
+
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    expect(
+      screen.getByText("Canpro Deck and Rail Estimate - {address}")
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("subject-example")).toHaveTextContent(
+      "Canpro Deck and Rail Estimate - 2210 Cedar Hill Rd"
+    );
+  });
+
+  it("gives an operator who cannot manage the mailbox nothing to insert with", () => {
+    signatureQuery.mockReturnValue(loadedSignature());
+
+    renderWithQuery(<EmailSignatureSettings {...props} canManage={false} />);
+
+    expect(screen.getByRole("button", { name: "{address}" })).toBeDisabled();
+  });
+});
+
 const CUSTOM_LOGO = "https://files.example.com/email-signatures/mark.png";
 
 function logoFile(contents: string, type = "image/png"): File {
@@ -453,9 +555,7 @@ describe("EmailSignatureSettings custom logo", () => {
   it("sends the operator's own mark and turns it on", async () => {
     const user = userEvent.setup();
     signatureQuery.mockReturnValue(loadedSignature({ companyLogoUrl: null }));
-    const { rerender } = renderWithQuery(
-      <EmailSignatureSettings {...props} />
-    );
+    const { rerender } = renderWithQuery(<EmailSignatureSettings {...props} />);
 
     // The mark appears on the card because the server answered with it.
     uploadLogoMutate.mockImplementation(async () => {
@@ -483,9 +583,7 @@ describe("EmailSignatureSettings custom logo", () => {
     });
     expect(uploadedBytes(0)).toBe("MARK-BYTES");
     // Supplying a mark is asking for it to show — no second decision.
-    expect(
-      screen.getByRole("switch", { name: "Show logo" })
-    ).toBeChecked();
+    expect(screen.getByRole("switch", { name: "Show logo" })).toBeChecked();
   });
 
   it("cuts a solid background out unasked and leaves a way back", async () => {
@@ -526,7 +624,9 @@ describe("EmailSignatureSettings custom logo", () => {
 
     expect(uploadedBytes(0)).toBe("PHOTO-BYTES");
     expect(screen.queryByText("[background removed]")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Undo" })
+    ).not.toBeInTheDocument();
   });
 
   it("signs with the uploaded mark over the company logo", async () => {
@@ -545,9 +645,7 @@ describe("EmailSignatureSettings custom logo", () => {
   it("offers the way back to the company logo, and only then", async () => {
     const user = userEvent.setup();
     signatureQuery.mockReturnValue(loadedSignature());
-    const { rerender } = renderWithQuery(
-      <EmailSignatureSettings {...props} />
-    );
+    const { rerender } = renderWithQuery(<EmailSignatureSettings {...props} />);
 
     await user.click(screen.getByRole("switch", { name: "Show logo" }));
     expect(

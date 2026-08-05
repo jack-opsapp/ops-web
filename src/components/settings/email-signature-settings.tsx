@@ -14,8 +14,14 @@
  * black canvas would be a lie about what the customer receives.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Loader2, Pencil, RotateCcw, Upload } from "lucide-react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  Loader2,
+  Pencil,
+  RotateCcw,
+  Upload,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,6 +30,11 @@ import { Switch } from "@/components/ui/switch";
 import { Tag } from "@/components/ui/tag";
 import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
+import {
+  SUBJECT_TEMPLATE_TOKEN_NAMES,
+  fillSubjectTemplate,
+  type LearnedSubjectContext,
+} from "@/lib/email/email-subject-policy";
 import { renderSignatureTemplate } from "@/lib/email/signature-template";
 import {
   useClearSignatureLogo,
@@ -85,7 +96,7 @@ function SignatureSheet({ html, label }: { html: string; label: string }) {
   return (
     <div>
       <PanelLabel>{label}</PanelLabel>
-      <div className="mt-1 overflow-x-auto rounded border border-border bg-text-primary p-2 animate-fade-in motion-reduce:animate-none">
+      <div className="mt-1 animate-fade-in overflow-x-auto rounded border border-border bg-text-primary p-2 motion-reduce:animate-none">
         {html.trim() ? (
           <div
             data-testid="signature-sheet"
@@ -169,13 +180,7 @@ function LayoutOption({
 }
 
 /** Confirmed identity, or the absence of one — the first thing to read. */
-function StateTag({
-  confirmed,
-  t,
-}: {
-  confirmed: boolean;
-  t: Translate;
-}) {
+function StateTag({ confirmed, t }: { confirmed: boolean; t: Translate }) {
   return confirmed ? (
     <Tag variant="olive">
       {t("integrations.signature.state.confirmed", "Confirmed")}
@@ -184,6 +189,66 @@ function StateTag({
     <Tag variant="tan">
       {t("integrations.signature.state.unconfirmed", "Not confirmed")}
     </Tag>
+  );
+}
+
+/**
+ * One detail OPS can pull off the lead itself. Drawn as exactly what it is:
+ * tapping it lands the same characters in the field, so there is no second
+ * syntax to learn and nothing to memorize.
+ */
+function TokenChip({
+  token,
+  disabled,
+  onInsert,
+}: {
+  token: string;
+  disabled: boolean;
+  onInsert: (token: string) => void;
+}) {
+  const label = `{${token}}`;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onInsert(label)}
+      className={cn(
+        "rounded-chip border border-border bg-transparent px-1.5 py-1",
+        "font-mono text-micro text-text-3 transition-colors duration-150",
+        "hover:bg-surface-hover-subtle hover:text-text-2",
+        "disabled:pointer-events-none disabled:opacity-40"
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
+ * The same subject on a real lead — resolved through the very function that
+ * fills it at send time, never a lookalike. It answers the only question a
+ * variable raises: what does the customer actually read? A subject with
+ * nothing to resolve has nothing to explain, so the line stays away.
+ */
+function SubjectExample({
+  subject,
+  context,
+  label,
+}: {
+  subject: string;
+  context: LearnedSubjectContext;
+  label: string;
+}) {
+  if (!/[{}]/.test(subject)) return null;
+
+  return (
+    <p
+      className="font-mono text-micro text-text-3"
+      data-testid="subject-example"
+    >
+      <span className="text-text-mute">{label} </span>
+      {fillSubjectTemplate(subject, context) || "—"}
+    </p>
   );
 }
 
@@ -235,6 +300,15 @@ export function EmailSignatureSettings({
   const [uncutLogo, setUncutLogo] = useState<File | null>(null);
   const hydratedRef = useRef<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const subjectRef = useRef<HTMLInputElement>(null);
+  /**
+   * Where the operator last had the cursor in the subject, kept here rather
+   * than read off focus: tapping a variable moves focus to the chip, and an
+   * untouched field has no cursor to speak of — that one appends.
+   */
+  const subjectCaretRef = useRef<{ start: number; end: number } | null>(null);
+  const insertedCaretRef = useRef<number | null>(null);
+  const variablesLabelId = useId();
 
   const data = signature.data;
   const confirmed = Boolean(data?.confirmedAt);
@@ -254,8 +328,20 @@ export function EmailSignatureSettings({
     hydratedRef.current = key;
     setFields(data.fields);
     setSubject(data.outreachSubject ?? "");
+    subjectCaretRef.current = null;
     setIsBuilding(!data.confirmedAt && !data.providerSignature);
   }, [data]);
+
+  // Put the operator back where they were typing, just past what they added.
+  useEffect(() => {
+    const caret = insertedCaretRef.current;
+    if (caret == null) return;
+    insertedCaretRef.current = null;
+    const field = subjectRef.current;
+    if (!field) return;
+    field.focus();
+    field.setSelectionRange(caret, caret);
+  }, [subject]);
 
   const preview = useMemo(
     () =>
@@ -289,6 +375,61 @@ export function EmailSignatureSettings({
     key: K,
     value: EmailIdentityFields[K]
   ) => setFields((current) => ({ ...current, [key]: value }));
+
+  const rememberSubjectCaret = (
+    event: React.SyntheticEvent<HTMLInputElement>
+  ) => {
+    const field = event.currentTarget;
+    subjectCaretRef.current = {
+      start: field.selectionStart ?? field.value.length,
+      end: field.selectionEnd ?? field.value.length,
+    };
+  };
+
+  const insertSubjectToken = (token: string) => {
+    const caret = subjectCaretRef.current;
+    const before = subject.slice(
+      0,
+      Math.min(caret?.start ?? subject.length, subject.length)
+    );
+    const after = subject.slice(
+      Math.min(caret?.end ?? subject.length, subject.length)
+    );
+    // Dropped straight against a word, a variable would read as one word the
+    // moment it fills — so it arrives with the space the operator would type.
+    const lead = before && !/\s$/.test(before) ? " " : "";
+    const trail = after && !/^\s/.test(after) ? " " : "";
+    const caretAfter = before.length + lead.length + token.length;
+
+    subjectCaretRef.current = { start: caretAfter, end: caretAfter };
+    insertedCaretRef.current = caretAfter;
+    setSubject(`${before}${lead}${token}${trail}${after}`);
+  };
+
+  /**
+   * One lead, invented once, so the example never moves under the operator
+   * while they type. Sample data, not copy the product speaks — but it is on
+   * screen, so it speaks the operator's language.
+   */
+  const exampleContext = useMemo<LearnedSubjectContext>(
+    () => ({
+      contact: t("integrations.signature.subject.sample.name", "Sam Carter"),
+      address: t(
+        "integrations.signature.subject.sample.address",
+        "2210 Cedar Hill Rd"
+      ),
+      project: t(
+        "integrations.signature.subject.sample.project",
+        "Rear deck rebuild"
+      ),
+      email: t(
+        "integrations.signature.subject.sample.email",
+        "sam.carter@gmail.com"
+      ),
+    }),
+    [t]
+  );
+  const exampleLabel = t("integrations.signature.subject.example", "[example]");
 
   const handleSave = async () => {
     try {
@@ -558,10 +699,7 @@ export function EmailSignatureSettings({
                             className="h-icon-16 w-icon-16"
                             aria-hidden="true"
                           />
-                          {t(
-                            "integrations.signature.logo.replace",
-                            "Replace"
-                          )}
+                          {t("integrations.signature.logo.replace", "Replace")}
                         </Button>
 
                         {customLogoUrl ? (
@@ -590,7 +728,7 @@ export function EmailSignatureSettings({
                           just happened to the file is a smaller thing than
                           which file it is. */}
                       {uncutLogo ? (
-                        <div className="flex items-center gap-1 animate-fade-in motion-reduce:animate-none">
+                        <div className="flex animate-fade-in items-center gap-1 motion-reduce:animate-none">
                           <span className="font-mono text-micro text-text-3">
                             {t(
                               "integrations.signature.logo.removed",
@@ -675,23 +813,63 @@ export function EmailSignatureSettings({
                 label={t("integrations.signature.preview", "Preview")}
               />
 
-              <Input
-                label={t(
-                  "integrations.signature.subject.label",
-                  "First reply subject"
-                )}
-                helperText={t(
-                  "integrations.signature.subject.help",
-                  "[the subject line on first replies to new leads]"
-                )}
-                placeholder={t(
-                  "integrations.signature.subject.placeholder",
-                  "Thanks for reaching out"
-                )}
-                value={subject}
-                onChange={(event) => setSubject(event.target.value)}
-                disabled={!editable}
-              />
+              <div className="space-y-1">
+                <Input
+                  ref={subjectRef}
+                  label={t(
+                    "integrations.signature.subject.label",
+                    "First reply subject"
+                  )}
+                  helperText={t(
+                    "integrations.signature.subject.help",
+                    "[the subject line on first replies to new leads]"
+                  )}
+                  placeholder={t(
+                    "integrations.signature.subject.placeholder",
+                    "Thanks for reaching out"
+                  )}
+                  value={subject}
+                  onChange={(event) => setSubject(event.target.value)}
+                  onFocus={rememberSubjectCaret}
+                  onKeyUp={rememberSubjectCaret}
+                  onMouseUp={rememberSubjectCaret}
+                  onSelect={rememberSubjectCaret}
+                  disabled={!editable}
+                />
+
+                {/* The four details OPS already knows about whoever wrote in.
+                    Quiet, because most operators will type a subject and never
+                    need one — and one tap away for the operator who does. */}
+                <div
+                  role="group"
+                  aria-labelledby={variablesLabelId}
+                  className="flex flex-wrap items-center gap-1"
+                >
+                  <span
+                    id={variablesLabelId}
+                    className="font-mono text-micro text-text-mute"
+                  >
+                    {t(
+                      "integrations.signature.subject.variables",
+                      "[filled per lead]"
+                    )}
+                  </span>
+                  {SUBJECT_TEMPLATE_TOKEN_NAMES.map((token) => (
+                    <TokenChip
+                      key={token}
+                      token={token}
+                      disabled={!editable}
+                      onInsert={insertSubjectToken}
+                    />
+                  ))}
+                </div>
+
+                <SubjectExample
+                  subject={subject}
+                  context={exampleContext}
+                  label={exampleLabel}
+                />
+              </div>
 
               <div className="flex flex-wrap items-center gap-1">
                 <Button
@@ -753,10 +931,7 @@ export function EmailSignatureSettings({
                   ) : (
                     <div>
                       <PanelLabel>
-                        {t(
-                          "integrations.signature.signsOffAs",
-                          "Signs off as"
-                        )}
+                        {t("integrations.signature.signsOffAs", "Signs off as")}
                       </PanelLabel>
                       <pre className="mt-1 whitespace-pre-wrap break-words font-mohave text-body-sm text-text-2">
                         {data.ops?.text || data.effective?.text || "—"}
@@ -777,6 +952,13 @@ export function EmailSignatureSettings({
                         </span>
                       )}
                     </p>
+                    {/* A stored subject can carry variables. Left alone it
+                        would read as though braces go out to the customer. */}
+                    <SubjectExample
+                      subject={data.outreachSubject ?? ""}
+                      context={exampleContext}
+                      label={exampleLabel}
+                    />
                   </div>
                 </>
               ) : importedSignature ? (
@@ -828,7 +1010,10 @@ export function EmailSignatureSettings({
                       {t("integrations.signature.edit", "Edit identity")}
                     </>
                   ) : (
-                    t("integrations.signature.buildInstead", "Build one instead")
+                    t(
+                      "integrations.signature.buildInstead",
+                      "Build one instead"
+                    )
                   )}
                 </Button>
               </div>
