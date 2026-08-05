@@ -281,6 +281,35 @@ export async function getDailySpendFromHistory(
   }));
 }
 
+/**
+ * First and last day with real ad activity in the warehouse (spend, clicks,
+ * or impressions above zero). Null until history has been imported. Drives
+ * the "all" range preset and the paused-state line on the ads page.
+ */
+export async function getHistoryBounds(): Promise<{ firstDay: string; lastDay: string } | null> {
+  const activity = "spend.gt.0,clicks.gt.0,impressions.gt.0";
+
+  const [{ data: first }, { data: last }] = await Promise.all([
+    db()
+      .from("ads_daily_account")
+      .select("date")
+      .or(activity)
+      .order("date", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+    db()
+      .from("ads_daily_account")
+      .select("date")
+      .or(activity)
+      .order("date", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (!first?.date || !last?.date) return null;
+  return { firstDay: String(first.date), lastDay: String(last.date) };
+}
+
 /** Check if we have synced data for a given date range. */
 export async function hasHistoryData(startDate: string, endDate: string): Promise<boolean> {
   const { count } = await db()
