@@ -228,6 +228,32 @@ Test: after connect-success state with unconfirmed identity, the confirmation su
 
 ---
 
+## Workstream C — Signature logo studio (2026-08-05, Jackson-requested; builds on the SHIPPED A+B waves)
+
+> Branch `feat/signature-logo-studio` off origin/main (which now equals d648b043). **Skills (mandatory):** `custom-skills:executing-plans`, `ops-design`, `frontend-design:frontend-design`, `custom-skills:interface-design`, `ops-copywriter:ops-copywriter`; `custom-skills:audit-design-system` as the final gate.
+
+**Locked decisions (Jackson):** (1) the builder accepts a CUSTOM signature logo, independent of `companies.logo_url`; (2) background removal is automatic and invisible — upload anything, a solid-color background comes out clean, no button; paid/ML cutout services are OUT (free client-side only). Original is recoverable via an undo affordance shown only when removal was applied.
+
+**Verified facts:** `email_connections.signature_logo_url` (text, nullable) IS ALREADY APPLIED to prod (migration `add_email_connections_signature_logo_url`, 2026-08-05) — hand-add to `database.types.ts`, do NOT re-apply or regen. `renderSignatureTemplate` already takes `logoUrl` as a parameter — the template needs NO changes; only the logo SOURCE resolution changes (custom when set, else company). GOTCHA from lead-media work: this project's storage bucket CORS blocks direct browser PUTs — uploads must round-trip through an API route, never direct-to-storage from the browser.
+
+### Task C1: Types
+Hand-add `signature_logo_url` to the `email_connections` block of `src/lib/types/database.types.ts` (Row + Insert/Update optionals) and `signatureLogoUrl` to `src/lib/types/email-connection.ts` + its mapping in `email-connection-service.ts` (and the browser service if it now maps identity fields). `npx tsc --noEmit` clean. Commit: `chore(db): add email_connections.signature_logo_url to types`.
+
+### Task C2: Solid-background removal module (pure core + thin canvas wrapper)
+Create `src/lib/images/remove-solid-background.ts` + tests. Split for testability:
+- `removeSolidBackgroundFromPixels(data: Uint8ClampedArray, width, height): { applied: boolean }` — PURE, operates in place. Detection: sample every border pixel; if ≥ 90% sit within ΔRGB ≤ 24 (per-channel) of the border's median color, the background is "solid". Removal: BFS flood fill seeded from every border pixel within ΔRGB ≤ 28 of that median, setting alpha 0; 1px feather on the fill boundary (alpha 128 for pixels adjacent to cleared ones that are within 1.5× tolerance). Non-solid border (gradient/photo) → `applied: false`, pixels untouched.
+- `removeSolidBackground(file: File): Promise<{ blob: Blob; applied: boolean }>` — browser-only wrapper (createImageBitmap → canvas → pixels → PNG blob). Not unit-tested (jsdom has no canvas); keep it dumb.
+TDD the pure core with synthetic fixtures: white field with a colored square (applied, square intact, corners transparent); enclosed white hole inside the logo NOT cleared (fill is edge-seeded — assert); gradient background (untouched, applied false); logo touching the border (its pixels outside tolerance survive). Commit: `feat(images): automatic solid-background removal core`.
+
+### Task C3: Upload + storage route
+FIRST investigate how the app already uploads/stores the COMPANY logo (find the writer of `companies.logo_url` in web settings; follow its storage mechanism + validation utilities) and mirror it. Add to the identity settings API surface: `POST` action `upload_signature_logo` (base64 payload ≤ 1 MB decoded, content-type allowlist png/jpeg/webp, decode-validate server-side, store via the existing image storage path pattern, save public URL to `email_connections.signature_logo_url`) and `clear_signature_logo` (null the column; do NOT delete the stored object — history is cheap, broken images in already-sent mail are not). GET response gains `signatureLogoUrl`. Authorization mirrors the route's existing scope checks. Tests per the route's existing test patterns. Commit: `feat(settings): custom signature logo upload`.
+
+### Task C4: Builder integration
+`email-signature-settings.tsx`: the logo control becomes source-aware — company-logo thumbnail (as today) plus an UPLOAD action; when a custom logo is set: its thumbnail, and a revert action back to the company logo. Client flow on upload: run `removeSolidBackground` BEFORE the POST; when `applied`, show a quiet inline undo affordance ([brackets] micro-copy, ops-copywriter) that re-uploads the original file on click. Save/confirm path passes the effective logo URL into the structured save so the server renders the template with it (extend `saveStructuredSignature`'s defaults resolution: custom > company). Preview + both layouts unchanged otherwise. Dictionaries en+es. Component tests: custom-logo state, revert, undo-after-removal, save uses custom URL. Commit: `feat(settings): custom logo in the signature builder`.
+
+### Task C5: Sweep
+`custom-skills:audit-design-system` (zero hardcoded values), full `npx vitest run`, `npx tsc --noEmit`, lint on touched files, screenshots to `docs/artifacts/sender-identity/` (upload state, custom logo in confirmed card, before/after of a white-background logo). Known pre-existing flakes: sendgrid-onboarding-jack timeouts, openai-quota-alert wall-clock. Commit fixes atomically.
+
 ## Verification phase (session owner, not executors)
 
 1. Full suite + tsc green in the worktree; diff review of every commit.
