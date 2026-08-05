@@ -504,7 +504,7 @@
   "integrations.signature.sectionTitle": "Email signatures",
   "integrations.signature.sectionDescription": "How OPS signs for each inbox you have connected.",
   "integrations.signature.connectStep.title": "One more thing",
-  "integrations.signature.connectStep.body": "OPS can read this inbox now. Confirm how it signs for you and new-lead replies start moving.",
+  "integrations.signature.connectStep.body": "OPS can read this inbox now.",
   "integrations.signature.state.confirmed": "Confirmed",
   "integrations.signature.state.unconfirmed": "Not confirmed",
   "integrations.signature.held": "New-lead replies stay held until you confirm how you sign off.",

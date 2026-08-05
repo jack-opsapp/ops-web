@@ -74,9 +74,11 @@ export function SenderIdentityConnectStep({
             {t("integrations.signature.connectStep.title", "One more thing")}
           </DialogTitle>
           <DialogDescription>
+            {/* The card below states the stake; saying it twice, forty pixels
+                apart, reads as a lecture. */}
             {t(
               "integrations.signature.connectStep.body",
-              "OPS can read this inbox now. Confirm how it signs for you and new-lead replies start moving."
+              "OPS can read this inbox now."
             )}
           </DialogDescription>
         </DialogHeader>

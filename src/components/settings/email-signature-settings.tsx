@@ -122,35 +122,39 @@ function LayoutOption({
       disabled={disabled}
       onClick={() => onSelect(layout)}
       className={cn(
-        "flex flex-1 items-center gap-1 rounded border px-1.5 py-1 text-left",
+        // Content-width, not half the card: two arrangements are a pair of
+        // controls, not two bars of empty space.
+        "flex items-center gap-1 rounded border px-1.5 py-1 text-left",
         "transition-all duration-150 disabled:pointer-events-none disabled:opacity-40",
         selected
           ? "border-border-medium bg-surface-active text-text"
           : "border-border bg-transparent text-text-3 hover:bg-surface-hover-subtle hover:text-text-2"
       )}
     >
+      {/* The mark, the hairline, the text block — 2px strokes, the same weight
+          the system draws every other bar at. */}
       <span
         aria-hidden="true"
         className={cn(
-          "flex shrink-0 items-center gap-[3px]",
-          layout === "stacked" && "flex-col items-start gap-[3px]"
+          "flex shrink-0 items-center gap-0.5",
+          layout === "stacked" && "flex-col items-start"
         )}
       >
         {layout === "logo-left" ? (
           <>
-            <span className="block h-[18px] w-[18px] rounded-sm bg-fill-neutral" />
-            <span className="block h-[18px] w-px bg-border-medium" />
-            <span className="flex flex-col gap-[3px]">
-              <span className="block h-[2px] w-[22px] rounded-bar bg-fill-neutral" />
-              <span className="block h-[2px] w-[16px] rounded-bar bg-fill-neutral-dim" />
-              <span className="block h-[2px] w-[19px] rounded-bar bg-fill-neutral-dim" />
+            <span className="block h-icon-16 w-icon-16 rounded-sm bg-fill-neutral" />
+            <span className="block h-icon-16 w-px bg-border-medium" />
+            <span className="flex flex-col gap-0.5">
+              <span className="block h-[2px] w-3 rounded-bar bg-fill-neutral" />
+              <span className="block h-[2px] w-2 rounded-bar bg-fill-neutral-dim" />
+              <span className="block h-[2px] w-1.5 rounded-bar bg-fill-neutral-dim" />
             </span>
           </>
         ) : (
           <>
-            <span className="block h-[2px] w-[26px] rounded-bar bg-fill-neutral" />
-            <span className="block h-[2px] w-[18px] rounded-bar bg-fill-neutral-dim" />
-            <span className="block h-[12px] w-[12px] rounded-sm bg-fill-neutral" />
+            <span className="block h-[2px] w-3 rounded-bar bg-fill-neutral" />
+            <span className="block h-[2px] w-2 rounded-bar bg-fill-neutral-dim" />
+            <span className="block h-1.5 w-1.5 rounded-sm bg-fill-neutral" />
           </>
         )}
       </span>
