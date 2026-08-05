@@ -25,10 +25,19 @@ export interface StoreImageInput {
   contentType: string;
   /** Extension without the dot, already derived from the verified bytes. */
   extension: string;
-  /** Logical prefix, e.g. `"email-signatures"`. Gets company-scoped. */
+  /** Logical prefix, e.g. `"company-{id}/logos"`. Gets company-scoped. */
   folder: string;
   companyId: string;
+  /**
+   * Optional marker in front of the generated filename, e.g. `"signature_"`.
+   * Lets two kinds of object share one folder — and so one public-read
+   * policy — without either being able to overwrite the other.
+   */
+  filenamePrefix?: string;
 }
+
+/** Same alphabet the folder segments allow: no slashes, no traversal. */
+const SAFE_FILENAME_PREFIX_RE = /^[A-Za-z0-9._-]+$/;
 
 export type StoreImageResult =
   | { ok: true; url: string }
@@ -45,7 +54,18 @@ export async function storeImageObject(
   const folder = authorizeFolder(input.folder, input.companyId);
   if (!folder.ok) return { ok: false, error: folder.reason };
 
-  const key = `${folder.folder}/${buildUniqueSuffix()}.${input.extension}`;
+  // Callers pass a constant here, never user input — but the folder is
+  // guarded segment by segment, and a filename able to hold a slash would
+  // be the one way around that. Fail closed instead.
+  if (
+    input.filenamePrefix !== undefined &&
+    !SAFE_FILENAME_PREFIX_RE.test(input.filenamePrefix)
+  ) {
+    return { ok: false, error: "Invalid filename prefix" };
+  }
+  const filenamePrefix = input.filenamePrefix ?? "";
+
+  const key = `${folder.folder}/${filenamePrefix}${buildUniqueSuffix()}.${input.extension}`;
 
   if (getStorageBackend() === "supabase") {
     const supabase = getServiceRoleClient();
