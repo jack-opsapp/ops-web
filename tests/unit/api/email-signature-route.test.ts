@@ -15,6 +15,7 @@ const {
   updateConnectionMock,
   identityRowsMock,
   hasConfirmedIdentityMock,
+  resolveIdentityNotificationMock,
 } = vi.hoisted(() => ({
   getConnectionMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -29,6 +30,12 @@ const {
   updateConnectionMock: vi.fn(),
   identityRowsMock: vi.fn(),
   hasConfirmedIdentityMock: vi.fn(),
+  resolveIdentityNotificationMock: vi.fn(),
+}));
+
+vi.mock("@/lib/notifications/email-identity-confirmation", () => ({
+  resolveEmailIdentityConfirmationNotification:
+    resolveIdentityNotificationMock,
 }));
 
 vi.mock("@/lib/api/services/email-service", () => ({
@@ -138,6 +145,7 @@ beforeEach(() => {
   resolveEmailSignatureForMessageMock.mockResolvedValue(null);
   listActiveMock.mockResolvedValue([]);
   hasConfirmedIdentityMock.mockResolvedValue(false);
+  resolveIdentityNotificationMock.mockResolvedValue(undefined);
   saveOpsMock.mockResolvedValue({});
   updateConnectionMock.mockResolvedValue({});
   identityRowsMock.mockImplementation((table: string) =>
@@ -587,6 +595,46 @@ describe("email identity settings", () => {
     expect(response.status).toBe(200);
     expect(saveOpsMock).toHaveBeenCalledTimes(1);
     expect(updateConnectionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the rail's confirmation prompt the moment identity lands", async () => {
+    await PUT(
+      jsonRequest("PUT", {
+        fields: { name: "Jackson Sweet", companyName: "Canpro" },
+      })
+    );
+
+    expect(resolveIdentityNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-1",
+        connectionId: "connection-1",
+        userId: "user-1",
+      })
+    );
+  });
+
+  it("closes the prompt on a confirmed import too", async () => {
+    listActiveMock.mockResolvedValue([
+      {
+        id: "sig-provider",
+        source: "gmail_send_as",
+        scopeUserId: null,
+        providerIdentity: "user-1@example.com",
+        contentHtml: "<div>Jack from Gmail</div>",
+        contentText: "Jack from Gmail",
+        confirmedAt: null,
+      },
+    ]);
+
+    await POST(jsonRequest("POST", { action: "confirm_imported" }));
+
+    expect(resolveIdentityNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the prompt open when only the subject was saved", async () => {
+    await PUT(jsonRequest("PUT", { outreachSubject: "Canpro Estimate" }));
+
+    expect(resolveIdentityNotificationMock).not.toHaveBeenCalled();
   });
 
   it("rejects a PUT that asks for nothing at all", async () => {

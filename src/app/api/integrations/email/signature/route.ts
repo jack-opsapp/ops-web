@@ -20,6 +20,7 @@ import {
   describeSignatureTemplate,
   renderSignatureTemplate,
 } from "@/lib/email/signature-template";
+import { resolveEmailIdentityConfirmationNotification } from "@/lib/notifications/email-identity-confirmation";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { EmailConnection } from "@/lib/types/email-connection";
@@ -390,6 +391,7 @@ export async function PUT(request: NextRequest) {
         return forbiddenConnectionResponse();
       }
       const scope = signatureScope(actorResult.actor, connection.id);
+      let identityConfirmed = false;
 
       if (fields) {
         const failure = await saveStructuredSignature({
@@ -399,6 +401,7 @@ export async function PUT(request: NextRequest) {
           layout: signatureLayout(body?.layout),
         });
         if (failure) return NextResponse.json(failure, { status: 400 });
+        identityConfirmed = true;
       } else if (hasLegacyText) {
         const opsText = body?.opsText as string;
         if (opsText.trim()) {
@@ -410,6 +413,7 @@ export async function PUT(request: NextRequest) {
             confirmedAt: new Date().toISOString(),
             actorUserId: scope.userId,
           });
+          identityConfirmed = true;
         } else {
           await EmailSignatureService.deactivate({
             companyId: scope.companyId,
@@ -424,6 +428,17 @@ export async function PUT(request: NextRequest) {
       if (hasSubject) {
         await EmailConnectionService.updateConnection(scope.connectionId, {
           outreachSubject: optionalText(body?.outreachSubject) || null,
+        });
+      }
+
+      // The rail asked for this. Close it here rather than waiting for the next
+      // held lead to notice the gate is open.
+      if (identityConfirmed) {
+        await resolveEmailIdentityConfirmationNotification({
+          supabase,
+          companyId: scope.companyId,
+          connectionId: scope.connectionId,
+          userId: scope.userId,
         });
       }
 
@@ -514,6 +529,12 @@ export async function POST(request: NextRequest) {
           text: imported.contentText,
           confirmedAt: new Date().toISOString(),
           actorUserId: scope.userId,
+        });
+        await resolveEmailIdentityConfirmationNotification({
+          supabase,
+          companyId: scope.companyId,
+          connectionId: scope.connectionId,
+          userId: scope.userId,
         });
         return NextResponse.json(
           await loadResponse(scope, connection, {

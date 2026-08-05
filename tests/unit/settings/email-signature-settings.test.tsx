@@ -373,6 +373,23 @@ describe("EmailSignatureSettings", () => {
     expect(screen.getByLabelText("Name")).toBeInTheDocument();
   });
 
+  it("stands out when the rail sent the operator to this exact mailbox", () => {
+    signatureQuery.mockReturnValue(loadedSignature());
+
+    const { rerender } = renderWithQuery(
+      <EmailSignatureSettings {...props} />
+    );
+    expect(screen.getByTestId("email-signature-settings")).not.toHaveAttribute(
+      "data-highlighted"
+    );
+
+    rerender(<EmailSignatureSettings {...props} highlighted />);
+    expect(screen.getByTestId("email-signature-settings")).toHaveAttribute(
+      "data-highlighted",
+      "true"
+    );
+  });
+
   it("shows the identity read-only to an operator who cannot manage it", () => {
     signatureQuery.mockReturnValue(loadedSignature());
 

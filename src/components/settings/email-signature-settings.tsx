@@ -44,6 +44,12 @@ interface EmailSignatureSettingsProps {
   connectionId: string;
   mailbox: string;
   canManage?: boolean;
+  /**
+   * The card the operator was sent here to deal with — the rail's identity
+   * notification deep-links to exactly one mailbox. Lifts it out of a list of
+   * otherwise identical cards; it is not a state of the identity itself.
+   */
+  highlighted?: boolean;
 }
 
 type Translate = (key: string, fallback?: string) => string;
@@ -188,6 +194,7 @@ export function EmailSignatureSettings({
   connectionId,
   mailbox,
   canManage = true,
+  highlighted = false,
 }: EmailSignatureSettingsProps) {
   const { t } = useDictionary("settings");
   const scope = { companyId, userId, connectionId };
@@ -308,8 +315,12 @@ export function EmailSignatureSettings({
   return (
     <Surface
       variant="inset"
-      className="p-2"
+      className={cn(
+        "p-2",
+        highlighted && "border-border-medium bg-surface-active"
+      )}
       data-testid="email-signature-settings"
+      data-highlighted={highlighted || undefined}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
