@@ -741,7 +741,8 @@ describe("custom signature logo", () => {
       expect.objectContaining({
         contentType: "image/png",
         extension: "png",
-        folder: "email-signatures",
+        folder: "company-company-1/logos",
+        filenamePrefix: "signature_",
         companyId: "company-1",
       })
     );
@@ -752,6 +753,36 @@ describe("custom signature logo", () => {
       signatureLogoUrl: STORED_LOGO,
       companyLogoUrl: "https://cdn.example.com/canpro.png",
     });
+  });
+
+  // The bucket serves reads by prefix. `email-signatures/...` was not one of
+  // the readable families, so every uploaded mark 403'd in the operator's own
+  // signature. These two facts together pin the stored key:
+  //   here            — the route asks for `company-{id}/logos` + `signature_`
+  //   s3-store-image  — those inputs compose
+  //                     `company-{id}/logos/signature_{ts}-{rand}.{ext}`
+  it("asks storage for the company logo prefix, which reads publicly", async () => {
+    const companyId = "44444444-4444-4444-4444-444444444444";
+    resolveEmailRouteActorMock.mockResolvedValue({
+      ok: true,
+      actor: { userId: "user-1", companyId },
+    });
+
+    const response = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: pngPayload(),
+        contentType: "image/png",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const stored = storeImageObjectMock.mock.calls[0][0];
+    expect(stored.folder).toBe(`company-${companyId}/logos`);
+    expect(stored.filenamePrefix).toBe("signature_");
+    expect(stored.companyId).toBe(companyId);
+    // Never the prefix that shipped broken.
+    expect(stored.folder).not.toContain("email-signatures");
   });
 
   it("takes the payload with its data-url wrapper attached", async () => {

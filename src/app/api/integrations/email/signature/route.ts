@@ -39,8 +39,17 @@ interface SignatureScope {
   connectionId: string;
 }
 
-/** Company-scoped by the storage layer; the prefix is only for legibility. */
-const SIGNATURE_LOGO_FOLDER = "email-signatures";
+/**
+ * The mark goes in the company's logo folder — the bucket grants public
+ * reads by prefix, and this is the family already covered. A mark stored
+ * anywhere else uploads cleanly and then 403s in every inbox it reaches.
+ * The filename keeps it distinct from the company logo's own `logo_`
+ * objects sharing the folder.
+ */
+function signatureLogoFolder(companyId: string): string {
+  return `company-${companyId}/logos`;
+}
+const SIGNATURE_LOGO_FILENAME_PREFIX = "signature_";
 
 function requiredText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -540,7 +549,8 @@ export async function POST(request: NextRequest) {
           buffer: decoded.buffer,
           contentType: decoded.contentType,
           extension: decoded.extension,
-          folder: SIGNATURE_LOGO_FOLDER,
+          folder: signatureLogoFolder(scope.companyId),
+          filenamePrefix: SIGNATURE_LOGO_FILENAME_PREFIX,
           companyId: scope.companyId,
         });
         if (!stored.ok) {
