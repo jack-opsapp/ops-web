@@ -19,13 +19,38 @@ database to produce these.
 | `05-logo-left-default.png` | Logo on: the two arrangements appear, logo-left selected. |
 | `06-logo-below.png` | The stacked arrangement, preview updated. |
 
+## Custom signature logo
+
+| File | State |
+| --- | --- |
+| `07-no-logo-add.png` | No mark anywhere — no toggle, no arrangement, one way in. |
+| `08-company-logo-source-actions.png` | The company logo is the mark: REPLACE, and nothing to revert to. |
+| `09-background-removed-undo.png` | Straight after an upload whose background was cut: the mark is the operator's own, REVERT appears, and the removal offers its way back. |
+| `10-custom-logo-confirmed.png` | Confirmed, signing with the uploaded mark. |
+| `11-background-removal-before-after.png` | The cut itself: the uploaded file, and the result over a checkerboard. |
+| `logo-source-white-bg.png` | The file fed through the real file input. |
+| `logo-cut-transparent.png` | What the card uploaded. |
+
+**The removal is not staged.** `09` was produced by handing
+`logo-source-white-bg.png` to the card's own file input; the browser ran the
+shipped `removeSolidBackground` and the harness read the bytes back off the
+upload request. Measured on those bytes in the browser: 56,549 of 72,000 pixels
+cleared, 3 feathered, corner alpha `0`, wordmark alpha `255`, and the ring's
+enclosed counter still `255` — identical to what `make-logo-fixture.ts` gets
+running the same core in Node.
+
 ## Re-running
 
 ```
-# preview server: .claude/launch.json → "sender-identity" (port 3411)
+# dev server: npm run dev:webpack -- -p 3411
 # .env.local needs DEV_BYPASS_AUTH=true and NEXT_PUBLIC_DEV_BYPASS_AUTH=true
-node -e "…"   # or drive the harnesses through the Playwright MCP:
+# The first /settings compile under webpack takes minutes — warm it before
+# driving the harnesses through the Playwright MCP:
 #   shot-run.js      → 01, 02, 03
 #   shot-connect.js  → 04
 #   shot-layout.js   → 05, 06
+#   shot-logo.js     → 07, 08, 09, 10
+# and, standalone:
+#   npx tsx docs/artifacts/sender-identity/make-logo-fixture.ts → 11 + the two
+#   loose PNGs (run it first; shot-logo.js uploads the source it writes)
 ```
