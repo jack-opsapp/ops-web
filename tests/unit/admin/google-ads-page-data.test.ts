@@ -95,6 +95,40 @@ describe("resolveAdsRange", () => {
   });
 });
 
+describe("defaultAdsPreset", () => {
+  it("opens on ALL when the account has been quiet for the whole default window", async () => {
+    const { defaultAdsPreset } = await importAssembly();
+    expect(defaultAdsPreset({ firstDay: "2025-02-20", lastDay: "2026-03-09" })).toBe("all");
+  });
+
+  it("opens on 30d when there is activity inside the last 30 days", async () => {
+    const { defaultAdsPreset } = await importAssembly();
+    const recent = new Date();
+    recent.setUTCDate(recent.getUTCDate() - 3);
+    const lastDay = recent.toISOString().split("T")[0];
+    expect(defaultAdsPreset({ firstDay: "2025-02-20", lastDay })).toBe("30d");
+  });
+
+  it("opens on 30d before any history has been imported", async () => {
+    const { defaultAdsPreset } = await importAssembly();
+    expect(defaultAdsPreset(null)).toBe("30d");
+  });
+});
+
+describe("getInitialAdsView", () => {
+  it("fetches bounds once and serves the chosen preset", async () => {
+    const { getInitialAdsView } = await importAssembly();
+    const view = await getInitialAdsView();
+
+    expect(view.preset).toBe("all");
+    expect(view.data.summary).toEqual(SUMMARY);
+    // ALL resolved from warehouse bounds — history queried with the first activity day
+    expect(history.getAccountSummaryFromHistory).toHaveBeenCalledWith("2025-02-20", expect.any(String));
+    // Bounds fetched exactly once (passed through, not re-fetched)
+    expect(history.getHistoryBounds).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("getGoogleAdsPageData", () => {
   it("serves synced windows from the warehouse with live keyword/conversion fill-ins", async () => {
     const { getGoogleAdsPageData } = await importAssembly();

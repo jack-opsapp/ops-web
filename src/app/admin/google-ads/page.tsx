@@ -3,13 +3,14 @@ import { AdminPageHeader } from "../_components/admin-page-header";
 import { GoogleAdsContent } from "./_components/google-ads-content";
 import { SyncStatusBar } from "./_components/sync-status";
 import { BriefingHero } from "./briefings/_components/briefing-hero";
-import { getGoogleAdsPageData } from "@/lib/admin/google-ads-page-data";
+import { getInitialAdsView, type AdsRangePreset } from "@/lib/admin/google-ads-page-data";
 import type { GoogleAdsPageData } from "@/lib/analytics/google-ads-types";
 
 export default async function GoogleAdsPage() {
   let data: GoogleAdsPageData;
+  let initialPreset: AdsRangePreset;
   try {
-    data = await getGoogleAdsPageData("30d");
+    ({ preset: initialPreset, data } = await getInitialAdsView());
   } catch (err: unknown) {
     return (
       <div className="p-8">
@@ -53,7 +54,7 @@ export default async function GoogleAdsPage() {
           <BriefingHero />
         </Suspense>
       </div>
-      <GoogleAdsContent initialData={data} />
+      <GoogleAdsContent initialData={data} initialRangeKey={initialPreset} />
     </div>
   );
 }

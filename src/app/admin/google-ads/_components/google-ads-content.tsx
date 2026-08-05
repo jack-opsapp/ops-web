@@ -10,7 +10,7 @@ import { KeywordTable } from "./keyword-table";
 import { SearchTermsTable } from "./search-terms-table";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import type { GoogleAdsPageData } from "@/lib/analytics/google-ads-types";
-import type { ChartDataPoint, DateRangeParams } from "@/lib/admin/types";
+import type { ChartDataPoint, DatePreset, DateRangeParams } from "@/lib/admin/types";
 
 // ─── Animation (per design system: EASE_SMOOTH, no spring/bounce) ─────────────
 
@@ -43,6 +43,8 @@ const fadeOnly = {
 
 interface GoogleAdsContentProps {
   initialData: GoogleAdsPageData;
+  /** Range preset the server chose for first paint (state-aware default). */
+  initialRangeKey?: string;
 }
 
 const RANGE_CAPTIONS: Record<string, string> = {
@@ -54,9 +56,9 @@ const RANGE_CAPTIONS: Record<string, string> = {
   all: "all history",
 };
 
-export function GoogleAdsContent({ initialData }: GoogleAdsContentProps) {
+export function GoogleAdsContent({ initialData, initialRangeKey = "30d" }: GoogleAdsContentProps) {
   const [data, setData] = useState(initialData);
-  const [rangeKey, setRangeKey] = useState<string>("30d");
+  const [rangeKey, setRangeKey] = useState<string>(initialRangeKey);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -123,7 +125,7 @@ export function GoogleAdsContent({ initialData }: GoogleAdsContentProps) {
       {/* Date range + refresh */}
       <div className="flex items-center justify-between">
         <DateRangeControl
-          defaultPreset="30d"
+          defaultPreset={initialRangeKey as DatePreset}
           presets={["7d", "30d", "90d", "12m", "all"]}
           onChange={handleRangeChange}
         />
