@@ -56,7 +56,13 @@ function requiredText(value: unknown): string | null {
 }
 
 function optionalText(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+  // Pasted text (PDFs, notes apps) can smuggle invisible control characters;
+  // Postgres rejects NUL outright ("null character not permitted"), so a paste
+  // must never be able to fail a save. These are single-line identity fields —
+  // every C0/C1 control character is stripped, not just NUL.
+  if (typeof value !== "string") return "";
+  // eslint-disable-next-line no-control-regex
+  return value.replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim();
 }
 
 function signatureLayout(value: unknown): EmailSignatureLayout {

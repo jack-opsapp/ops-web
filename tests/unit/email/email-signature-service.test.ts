@@ -462,3 +462,35 @@ describe("signature rendering boundary", () => {
     ).not.toContain("Previous signature");
   });
 });
+
+
+describe("createEmailSignatureContent control-character hygiene", () => {
+  // Postgres rejects NUL in text columns with "null character not permitted"
+  // (2026-08-05 incident: a pasted identity field blocked the founder's
+  // confirm). Every persisted signature flows through this function, so a
+  // smuggled control character must die here, not in the database.
+  it("strips NUL from authored text before hashing and persisting", () => {
+    const content = createEmailSignatureContent({
+      text: "Jackson \x00 Sweet\nCanpro Deck and Rail\x00",
+    });
+    expect(content.text).not.toContain("\x00");
+    expect(content.html).not.toContain("\x00");
+    expect(content.text).toContain("Jackson  Sweet");
+  });
+
+  it("strips NUL from provided html while keeping the markup intact", () => {
+    const content = createEmailSignatureContent({
+      html: "<p>Jackson \x00Sweet</p>\n<p>Owner</p>",
+    });
+    expect(content.html).not.toContain("\x00");
+    expect(content.html).toContain("Jackson Sweet");
+    expect(content.text).toContain("Owner");
+  });
+
+  it("strips the wider C0 range from plain text", () => {
+    const content = createEmailSignatureContent({
+      text: "Jackson\x1b[0m Sweet",
+    });
+    expect(content.text).toBe("Jackson[0m Sweet");
+  });
+});

@@ -177,8 +177,13 @@ export function createEmailSignatureContent(_input: {
   text?: string | null;
 }): { html: string; text: string; hash: string } {
   const inputText = normalizePlainText(_input.text ?? "");
-  const sourceHtml = _input.html?.trim()
-    ? _input.html
+  // NUL is unstorable in Postgres text ("null character not permitted") and
+  // sanitize-html does not promise to remove it. Only NUL is stripped on the
+  // HTML side — markup legitimately carries tabs and newlines.
+  // eslint-disable-next-line no-control-regex
+  const rawHtml = (_input.html ?? "").replace(/\x00/g, "");
+  const sourceHtml = rawHtml.trim()
+    ? rawHtml
     : plainTextToSignatureHtml(inputText);
   const html = sanitizeEmailSignatureHtml(sourceHtml).trim();
   // An authored plain-text mirror beats one derived from the markup: only
@@ -265,11 +270,17 @@ export function hasConfirmedEmailIdentity(
 }
 
 function normalizePlainText(value: string): string {
-  return value
-    .replace(/\r\n?/g, "\n")
-    .replace(/[ \t]+$/gm, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return (
+    value
+      // Postgres cannot store NUL in text columns ("null character not
+      // permitted"), and pasted rich text can smuggle other invisible C0
+      // controls. Newlines and tabs are legitimate here and survive.
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, "")
+      .replace(/\r\n?/g, "\n")
+      .replace(/[ \t]+$/gm, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
 }
 
 function plainTextToSignatureHtml(text: string): string {
