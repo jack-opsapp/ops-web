@@ -1501,12 +1501,25 @@ export const AIDraftService = {
     // adopt (2026-08-02 impersonation incident).
     const promptBodyText = (raw: string): string =>
       assignedContactFormReview ? stripForwardWrapper(raw) : raw;
+    // The clean-state layer extracts the AUTHOR'S OWN text — correct for a
+    // conversation, inverted for a forwarded contact-form notification, where
+    // the forwarder's authored text IS the wrapper signature and the customer's
+    // submission lives entirely in the quoted section the cleaner discards
+    // (2026-08-05: drafts told customers their inquiry "didn't come through"
+    // because the model received a stripped wrapper and nothing else). On the
+    // contact-form path the RAW body is canonical; the wrapper strip above
+    // removes the forwarder's identity from it.
+    const promptSourceText = (m: {
+      body_text: string | null;
+      body_text_clean: string | null;
+    }): string =>
+      assignedContactFormReview
+        ? (m.body_text ?? m.body_text_clean ?? "")
+        : (m.body_text_clean ?? m.body_text ?? "");
     const threadContext = threadMessages
       .map((m) => {
         const dir = m.direction === "outbound" ? "YOU" : "THEM";
-        const canonicalBody = promptBodyText(
-          m.body_text_clean ?? m.body_text ?? ""
-        );
+        const canonicalBody = promptBodyText(promptSourceText(m));
         const body = authorizedSourceActivity
           ? canonicalBody
           : canonicalBody.slice(0, 600);
@@ -1548,8 +1561,7 @@ export const AIDraftService = {
     const latestInboundText =
       promptBodyText(
         (authorizedSourceActivity
-          ? (authorizedSourceActivity.body_text_clean ??
-            authorizedSourceActivity.body_text)
+          ? promptSourceText(authorizedSourceActivity)
           : draftState?.latestCustomerText ||
             lastInbound?.body_text?.slice(0, 1500)) || ""
       ) || "(no body)";

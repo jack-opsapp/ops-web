@@ -485,6 +485,81 @@ describe("AIDraftService recent mailbox context", () => {
     });
   });
 
+  it("feeds the RAW forwarded body to the prompt when the clean text is only the forwarder's wrapper", async () => {
+    // The clean-state layer keeps the AUTHOR'S text — for a forwarded
+    // contact-form notification that is just the forwarder's device signature,
+    // and the customer's submission lives in the quoted section the cleaner
+    // discards. 2026-08-05: drafts told customers their inquiry "didn't come
+    // through" because the model received a stripped wrapper and nothing else.
+    database.tables.opportunities = [
+      {
+        id: "opportunity-raw-forward",
+        company_id: "company-1",
+        title: "Steve Clark — Email inquiry",
+        ai_summary: "Front deck repair.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Steve Clark",
+        contact_email: "steve@example.com",
+        clients: { name: "Steve Clark", email: "steve@example.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-raw-forward",
+        company_id: "company-1",
+        opportunity_id: "opportunity-raw-forward",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-forward-thread",
+        email_message_id: "message-steve",
+        type: "email",
+        direction: "inbound",
+        from_email: "victoria-office@example.com",
+        subject: "Fwd: Contact Us got a new submission",
+        body_text:
+          "Thanks,Jerry Forwarder \n555-0100\nExample Co\n\nSent from my iPhone\n\nBegin forwarded message:\n\nFrom: Example Co <notifications@wix-forms.com>\nReply-To: steve@example.com\n\nSubmission summary:\n\nFull Name:\nSteve Clark\n\nHow can we help?:\nRepair the FRONT_DECK_AT_TANNER_RIDGE and meet Monday at the office.",
+        body_text_clean: "Thanks,Jerry Forwarder \n555-0100\nExample Co",
+        created_at: "2026-07-22T16:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-raw-forward",
+      sourceActivityId: "activity-raw-forward",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Thanks for reaching out",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-raw-forward",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    // The customer's actual submission reaches the model...
+    expect(latestUserPrompt()).toContain("FRONT_DECK_AT_TANNER_RIDGE");
+    expect(latestUserPrompt()).toContain("meet Monday");
+    // ...and the forwarder's wrapper identity does not.
+    expect(latestUserPrompt()).not.toContain("Jerry Forwarder");
+    expect(latestUserPrompt()).not.toContain("555-0100");
+  });
+
   it("uses the mailbox's configured outreach subject on the contact-form path", async () => {
     database.tables.opportunities = [
       {
