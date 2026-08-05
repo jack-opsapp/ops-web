@@ -553,6 +553,144 @@ describe("AIDraftService recent mailbox context", () => {
     });
   });
 
+  it("fills the mailbox's subject template from this lead", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-template",
+        company_id: "company-1",
+        title: "Sandra Dunford — Email inquiry",
+        ai_summary: "New deck quote request.",
+        stage: "new_lead",
+        address: "2394 Tanner Ridge Place",
+        contact_name: "Sandra Dunford",
+        contact_email: "sandra@example.com",
+        clients: { name: "Sandra Dunford", email: "sandra@example.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-template",
+        company_id: "company-1",
+        opportunity_id: "opportunity-template",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-form-template-thread",
+        email_message_id: "message-template",
+        type: "email",
+        direction: "inbound",
+        from_email: "office@example.com",
+        subject: "New contact form submission",
+        body_text: "Please quote a new deck at our home.",
+        created_at: "2026-08-02T16:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-template",
+      sourceActivityId: "activity-template",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Canpro Deck and Rail Estimate - {address}",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-template",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    expect(result.subject).toBe(
+      "Canpro Deck and Rail Estimate - 2394 Tanner Ridge Place"
+    );
+    expect(result.subjectSource).toBe("configured");
+    expect(database.inserts.at(-1)?.payload).toMatchObject({
+      subject: "Canpro Deck and Rail Estimate - 2394 Tanner Ridge Place",
+      subject_source: "configured",
+    });
+  });
+
+  it("drops a template variable this lead cannot answer, separator and all", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-template-empty",
+        company_id: "company-1",
+        title: "Sandra Dunford — Email inquiry",
+        ai_summary: "New deck quote request.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Sandra Dunford",
+        contact_email: "sandra@example.com",
+        clients: { name: "Sandra Dunford", email: "sandra@example.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-template-empty",
+        company_id: "company-1",
+        opportunity_id: "opportunity-template-empty",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-form-template-empty-thread",
+        email_message_id: "message-template-empty",
+        type: "email",
+        direction: "inbound",
+        from_email: "office@example.com",
+        subject: "New contact form submission",
+        body_text: "Please quote a new deck at our home.",
+        created_at: "2026-08-02T16:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-template-empty",
+      sourceActivityId: "activity-template-empty",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Canpro Deck and Rail Estimate - {address}",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-template-empty",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    expect(result.subject).toBe("Canpro Deck and Rail Estimate");
+    expect(result.subjectSource).toBe("configured");
+    expect(database.inserts.at(-1)?.payload).toMatchObject({
+      subject: "Canpro Deck and Rail Estimate",
+      subject_source: "configured",
+    });
+  });
+
   it("falls back to the server-owned subject when the mailbox configures none", async () => {
     database.tables.opportunities = [
       {

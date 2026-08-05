@@ -42,6 +42,7 @@ import { inboxModel } from "./conversation-state/inbox-models";
 import {
   chooseNewThreadSubject,
   contextualNewThreadSubject,
+  fillSubjectTemplate,
   learnedNewThreadSubjectFromPreferences,
   normalizeReplySubject,
   type NewThreadSubjectSource,
@@ -1676,25 +1677,33 @@ ${effectiveUserInstruction ? `Purpose: ${effectiveUserInstruction}` : "Write a p
     const baseSubject = sourceBoundNewThread
       ? ""
       : replySource?.subject || threadMessages[0]?.subject || "";
+    const subjectContext = {
+      contact: subjectContactName,
+      company: recipientCompany,
+      address: opportunityAddress,
+      project: opportunityTitle,
+      email: clientEmail,
+    };
     const learnedSubject = baseSubject
       ? null
       : learnedNewThreadSubjectFromPreferences(
           (profile as Record<string, unknown> | null)?.subject_preferences,
-          {
-            contact: subjectContactName,
-            company: recipientCompany,
-            address: opportunityAddress,
-            project: opportunityTitle,
-            email: clientEmail,
-          }
+          subjectContext
         );
+    // The operator's setting may carry per-lead variables. Fill them from this
+    // lead before ranking: a variable this lead cannot answer leaves with its
+    // separator, and a template that empties out yields to the next candidate.
+    const configuredSubject = fillSubjectTemplate(
+      (sourceBoundNewThread
+        ? req.configuredSubject?.trim() || ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT
+        : req.configuredSubject) ?? "",
+      subjectContext
+    );
     const newThreadSubject = chooseNewThreadSubject({
       operatorSubject: req.subject,
       // The caller's configured subject IS the operator's per-mailbox outreach
       // setting. The server-owned constant is the fallback, never the override.
-      configuredSubject: sourceBoundNewThread
-        ? req.configuredSubject?.trim() || ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT
-        : req.configuredSubject,
+      configuredSubject,
       learnedSubject,
       generatedSubject: contextualNewThreadSubject({
         opportunityTitle,

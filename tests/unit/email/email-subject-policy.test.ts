@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   normalizeReplySubject,
   chooseNewThreadSubject,
+  fillSubjectTemplate,
   isReplyLikeSubject,
   normalizeLearnedSubjectExamples,
   contextualNewThreadSubject,
   learnedNewThreadSubjectFromPreferences,
   subjectDraftRequestFields,
 } from "@/lib/email/email-subject-policy";
+import type { LearnedSubjectContext } from "@/lib/email/email-subject-policy";
 
 describe("email subject policy", () => {
   it("preserves reply threading while collapsing repeated case-insensitive prefixes", () => {
@@ -148,6 +150,123 @@ describe("email subject policy", () => {
     ).toBe(
       "Jordan Lee | North Shore Decks | 18 Cedar Road | Deck replacement | jordan@example.com | OPP-1042"
     );
+  });
+
+  it("fills the operator's own subject template from this lead", () => {
+    expect(
+      fillSubjectTemplate("Canpro Deck and Rail Estimate - {address}", {
+        address: "2394 Tanner Ridge Place",
+      })
+    ).toBe("Canpro Deck and Rail Estimate - 2394 Tanner Ridge Place");
+  });
+
+  it("takes the dangling separator with an unfillable token", () => {
+    expect(
+      fillSubjectTemplate("Canpro Deck and Rail Estimate - {address}", {
+        address: null,
+      })
+    ).toBe("Canpro Deck and Rail Estimate");
+  });
+
+  it("removes the separator after a token when there is none before it", () => {
+    expect(
+      fillSubjectTemplate("{address} — Canpro Deck and Rail Estimate", {})
+    ).toBe("Canpro Deck and Rail Estimate");
+    expect(
+      fillSubjectTemplate("{address} — Canpro Deck and Rail Estimate", {
+        address: "2394 Tanner Ridge Place",
+      })
+    ).toBe("2394 Tanner Ridge Place — Canpro Deck and Rail Estimate");
+  });
+
+  it("maps the operator-facing name token onto the lead's contact", () => {
+    expect(
+      fillSubjectTemplate("{name}, your deck quote", { contact: "Sam Carter" })
+    ).toBe("Sam Carter, your deck quote");
+    expect(
+      fillSubjectTemplate("{NAME}, your deck quote", { contact: "Sam Carter" })
+    ).toBe("Sam Carter, your deck quote");
+  });
+
+  it("fills every exposed token and drops the ones this lead cannot answer", () => {
+    expect(
+      fillSubjectTemplate("{name} | {address} | {project} | {email}", {
+        contact: "Sam Carter",
+        address: "2210 Cedar Hill Rd",
+        project: "Rear deck rebuild",
+        email: "sam@example.com",
+      })
+    ).toBe(
+      "Sam Carter | 2210 Cedar Hill Rd | Rear deck rebuild | sam@example.com"
+    );
+
+    expect(
+      fillSubjectTemplate("{name} | {address} | {project} | {email}", {
+        project: "Rear deck rebuild",
+      })
+    ).toBe("Rear deck rebuild");
+  });
+
+  it("treats an unrecognized token as unfillable rather than leaving it literal", () => {
+    expect(
+      fillSubjectTemplate("Estimate for {foo} - {address}", {
+        address: "2210 Cedar Hill Rd",
+      })
+    ).toBe("Estimate for 2210 Cedar Hill Rd");
+    expect(
+      fillSubjectTemplate("Estimate - {company} - {number}", {
+        company: "North Shore Decks",
+        number: "OPP-1042",
+      })
+    ).toBe("Estimate");
+  });
+
+  it("returns a template with no tokens byte for byte", () => {
+    const plain = "Thanks for  reaching out - Canpro Deck and Rail";
+    expect(fillSubjectTemplate(plain, { contact: "Sam Carter" })).toBe(plain);
+  });
+
+  it("returns empty for a template this lead cannot fill at all", () => {
+    expect(fillSubjectTemplate("{address}", {})).toBe("");
+    expect(fillSubjectTemplate("{name} - {address}", {})).toBe("");
+  });
+
+  it("never lets a brace reach the subject line", () => {
+    const templates = [
+      "Canpro Deck and Rail Estimate - {address}",
+      "{name} — {project} estimate",
+      "{}",
+      "{{name}}",
+      "Estimate {address",
+      "Estimate} {name} {",
+      "{name}{address}{project}{email}",
+      "{unknown} · {address} : {name}",
+      "Estimate for {name}, {address}, {project}",
+    ];
+    const contexts: LearnedSubjectContext[] = [
+      {},
+      { contact: "Sam Carter" },
+      { address: "2210 Cedar Hill Rd", project: "Rear deck rebuild" },
+      {
+        contact: "Sam Carter",
+        company: "North Shore Decks",
+        address: "2210 Cedar Hill Rd",
+        project: "Rear deck rebuild",
+        email: "sam@example.com",
+        number: "OPP-1042",
+      },
+      { contact: "  ", address: null, project: undefined, email: "" },
+      { address: "Suite {4} — 2210 Cedar Hill Rd" },
+    ];
+
+    for (const template of templates) {
+      for (const context of contexts) {
+        const filled = fillSubjectTemplate(template, context);
+        expect(filled, `${template} :: ${JSON.stringify(context)}`).not.toMatch(
+          /[{}]/
+        );
+      }
+    }
   });
 
   it("keeps configured template subjects distinct from explicit operator typing", () => {

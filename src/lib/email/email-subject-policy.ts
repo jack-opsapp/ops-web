@@ -92,6 +92,106 @@ export function contextualNewThreadSubject(input: {
   return candidate.charAt(0).toLocaleUpperCase() + candidate.slice(1);
 }
 
+/**
+ * The tokens an operator may type into their own outreach subject, and the lead
+ * field each one answers with. `{name}` is deliberately not `{contact}`: the
+ * operator is naming the person, not our column.
+ */
+const SUBJECT_TEMPLATE_TOKENS: Record<string, keyof LearnedSubjectContext> = {
+  name: "contact",
+  address: "address",
+  project: "project",
+  email: "email",
+};
+
+export const SUBJECT_TEMPLATE_TOKEN_NAMES = Object.keys(
+  SUBJECT_TEMPLATE_TOKENS
+) as ReadonlyArray<keyof typeof SUBJECT_TEMPLATE_TOKENS>;
+
+/**
+ * `{…}` in any shape — including the empty `{}` — so a malformed token can
+ * never survive as literal punctuation in a subject a customer reads.
+ */
+const SUBJECT_TOKEN = /\{([^{}]*)\}/g;
+const SEPARATORS = "-–—·,:|";
+const TRAILING_SEPARATOR = new RegExp(`\\s*[${SEPARATORS}]\\s*$`);
+const LEADING_SEPARATOR = new RegExp(`^\\s*[${SEPARATORS}]\\s*`);
+const EDGE_SEPARATORS = new RegExp(
+  `^\\s*[${SEPARATORS}]+\\s*|\\s*[${SEPARATORS}]+\\s*$`,
+  "g"
+);
+
+/** Tidy the seams a removed token leaves behind, and never emit a brace. */
+function tidyFilledSubject(value: string): string {
+  return value
+    .replace(/[{}]/g, "")
+    .replace(/[\r\n]+/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .replace(EDGE_SEPARATORS, "")
+    .trim();
+}
+
+/**
+ * Fill an operator-authored subject template against one lead.
+ *
+ * A lead that cannot answer a token loses the token AND the separator holding
+ * it on — "Canpro Deck and Rail Estimate - {address}" reads as "Canpro Deck and
+ * Rail Estimate", never "Canpro Deck and Rail Estimate - ". The separator ahead
+ * of the token goes first; the one behind it goes only when there is nothing
+ * ahead. Everything the operator typed outside a token is preserved.
+ *
+ * Nothing brace-shaped ever survives. A template with no braces at all is
+ * returned byte for byte — filling must not quietly reformat a plain subject.
+ */
+export function fillSubjectTemplate(
+  template: string,
+  context: LearnedSubjectContext
+): string {
+  if (!/[{}]/.test(template)) return template;
+
+  let filled = "";
+  let cursor = 0;
+  SUBJECT_TOKEN.lastIndex = 0;
+
+  for (
+    let match = SUBJECT_TOKEN.exec(template);
+    match;
+    match = SUBJECT_TOKEN.exec(template)
+  ) {
+    const literal = template.slice(cursor, match.index);
+    const field = SUBJECT_TEMPLATE_TOKENS[match[1].trim().toLocaleLowerCase()];
+    const value = field ? cleanSubject(context[field]) : "";
+
+    if (value) {
+      filled += literal + value;
+    } else {
+      const ahead = filled + literal;
+      const withoutAhead = ahead.replace(TRAILING_SEPARATOR, "");
+      if (withoutAhead !== ahead) {
+        filled = withoutAhead;
+      } else {
+        filled = ahead;
+        // Nothing ahead to absorb the gap, so the separator behind it goes.
+        const behind = template
+          .slice(SUBJECT_TOKEN.lastIndex)
+          .match(LEADING_SEPARATOR);
+        if (behind) SUBJECT_TOKEN.lastIndex += behind[0].length;
+      }
+    }
+
+    cursor = SUBJECT_TOKEN.lastIndex;
+  }
+
+  return tidyFilledSubject(filled + template.slice(cursor));
+}
+
+/**
+ * Deliberately does NOT share `fillSubjectTemplate`. A learned pattern is only
+ * usable when this lead fills it ENTIRELY — a half-filled pattern learned from
+ * someone else's thread is a wrong subject, not a shorter one — and it speaks
+ * the learner's own six-token vocabulary rather than the four the operator is
+ * offered. Same shape, opposite failure mode.
+ */
 export function learnedNewThreadSubjectFromPreferences(
   preferences: unknown,
   context: LearnedSubjectContext
