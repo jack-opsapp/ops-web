@@ -15,7 +15,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Loader2, Pencil, RotateCcw } from "lucide-react";
+import { AlertTriangle, Loader2, Pencil, RotateCcw, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,11 +26,14 @@ import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { renderSignatureTemplate } from "@/lib/email/signature-template";
 import {
+  useClearSignatureLogo,
   useConfirmImportedEmailSignature,
   useEmailSignature,
   useImportProviderEmailSignature,
   useSaveEmailSignature,
+  useUploadSignatureLogo,
 } from "@/lib/hooks/use-email-signature";
+import { removeSolidBackground } from "@/lib/images/remove-solid-background";
 import type {
   EmailIdentityFields,
   EmailSignatureLayout,
@@ -184,6 +187,18 @@ function StateTag({
   );
 }
 
+/** Bytes for the JSON route. The server owns the address the mark ends up at —
+ *  a URL from here would be a remote image OPS embeds in outbound mail. */
+async function encodeUpload(blob: Blob): Promise<string> {
+  const reader = new FileReader();
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    reader.onerror = () => reject(new Error("The file could not be read"));
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.readAsDataURL(blob);
+  });
+  return dataUrl.replace(/^data:[^;,]*;base64,/, "");
+}
+
 function hydrationKey(data: EmailSignatureSettingsResponse): string {
   return [
     data.confirmedAt ?? "",
@@ -206,15 +221,28 @@ export function EmailSignatureSettings({
   const saveSignature = useSaveEmailSignature();
   const confirmImported = useConfirmImportedEmailSignature();
   const importProvider = useImportProviderEmailSignature();
+  const uploadLogo = useUploadSignatureLogo();
+  const clearLogo = useClearSignatureLogo();
 
   const [fields, setFields] = useState<EmailIdentityFields>(EMPTY_FIELDS);
   const [subject, setSubject] = useState("");
   const [isBuilding, setIsBuilding] = useState(false);
+  /**
+   * The file the operator actually picked, kept only while a background was
+   * cut out of it. Its presence IS the undo affordance — removal is silent
+   * otherwise, and there is nothing to undo when nothing was removed.
+   */
+  const [uncutLogo, setUncutLogo] = useState<File | null>(null);
   const hydratedRef = useRef<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const data = signature.data;
   const confirmed = Boolean(data?.confirmedAt);
   const importedSignature = data?.providerSignature ?? null;
+  // One mark, one thumbnail. Which record it came from is OPS's problem, not a
+  // choice to put in front of somebody confirming how they sign an email.
+  const customLogoUrl = data?.signatureLogoUrl ?? null;
+  const logoUrl = customLogoUrl ?? data?.companyLogoUrl ?? null;
 
   // Re-seed only when the server's answer actually changed, so a background
   // refetch can never overwrite what the operator is typing. A save does change
@@ -237,10 +265,10 @@ export function EmailSignatureSettings({
         companyName: fields.companyName,
         phone: fields.phone,
         website: fields.website,
-        logoUrl: fields.includeLogo ? (data?.companyLogoUrl ?? null) : null,
+        logoUrl: fields.includeLogo ? logoUrl : null,
         layout: fields.layout,
       }),
-    [fields, data?.companyLogoUrl]
+    [fields, logoUrl]
   );
 
   // A promoted Gmail import — or anything saved before the builder existed —
@@ -252,7 +280,9 @@ export function EmailSignatureSettings({
   const busy =
     saveSignature.isPending ||
     confirmImported.isPending ||
-    importProvider.isPending;
+    importProvider.isPending ||
+    uploadLogo.isPending ||
+    clearLogo.isPending;
   const editable = canManage && !busy;
 
   const setField = <K extends keyof EmailIdentityFields>(
@@ -281,6 +311,54 @@ export function EmailSignatureSettings({
         t("integrations.signature.saveFailed", "Identity not saved"),
         { description: error instanceof Error ? error.message : String(error) }
       );
+    }
+  };
+
+  const sendLogo = async (blob: Blob, fallbackType: string) => {
+    await uploadLogo.mutateAsync({
+      ...scope,
+      data: await encodeUpload(blob),
+      contentType: blob.type || fallbackType,
+    });
+  };
+
+  const logoFailed = (error: unknown) =>
+    toast.error(t("integrations.signature.logo.failed", "Logo not saved"), {
+      description: error instanceof Error ? error.message : String(error),
+    });
+
+  /**
+   * The whole cut happens here, before the upload, and announces nothing. A
+   * background that cannot be cut cleanly is left alone — the operator's file
+   * goes up as it came in.
+   */
+  const handleLogoPicked = async (file: File) => {
+    try {
+      const cut = await removeSolidBackground(file);
+      await sendLogo(cut.blob, file.type);
+      setField("includeLogo", true);
+      setUncutLogo(cut.applied ? file : null);
+    } catch (error) {
+      logoFailed(error);
+    }
+  };
+
+  const handleRestoreLogo = async () => {
+    if (!uncutLogo) return;
+    try {
+      await sendLogo(uncutLogo, uncutLogo.type);
+      setUncutLogo(null);
+    } catch (error) {
+      logoFailed(error);
+    }
+  };
+
+  const handleClearLogo = async () => {
+    try {
+      await clearLogo.mutateAsync(scope);
+      setUncutLogo(null);
+    } catch (error) {
+      logoFailed(error);
     }
   };
 
@@ -430,22 +508,20 @@ export function EmailSignatureSettings({
                 />
               </div>
 
-              {/* No logo on the company record means no toggle to reason about. */}
-              {data.companyLogoUrl ? (
+              {/* No mark anywhere means nothing to show and nothing to
+                  arrange — just the one way to supply one. */}
+              {logoUrl ? (
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-1">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={data.companyLogoUrl}
+                        src={logoUrl}
                         alt=""
                         className="h-icon-24 w-icon-24 shrink-0 object-contain"
                       />
                       <span className="truncate font-mohave text-body-sm text-text-2">
-                        {t(
-                          "integrations.signature.logo.toggle",
-                          "Show company logo"
-                        )}
+                        {t("integrations.signature.logo.toggle", "Show logo")}
                       </span>
                     </div>
                     <Switch
@@ -456,44 +532,135 @@ export function EmailSignatureSettings({
                       disabled={!editable}
                       aria-label={t(
                         "integrations.signature.logo.toggle",
-                        "Show company logo"
+                        "Show logo"
                       )}
                     />
                   </div>
 
+                  {/* Where the mark comes from only matters while it is on. */}
                   {fields.includeLogo ? (
-                    <div
-                      role="radiogroup"
-                      aria-label={t(
-                        "integrations.signature.layout.label",
-                        "Logo placement"
-                      )}
-                      className="flex gap-1"
-                    >
-                      <LayoutOption
-                        layout="logo-left"
-                        selected={fields.layout === "logo-left"}
-                        label={t(
-                          "integrations.signature.layout.left",
-                          "Logo left"
+                    <>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => logoInputRef.current?.click()}
+                          loading={uploadLogo.isPending}
+                          disabled={!editable}
+                        >
+                          <Upload
+                            className="h-icon-16 w-icon-16"
+                            aria-hidden="true"
+                          />
+                          {t(
+                            "integrations.signature.logo.replace",
+                            "Replace"
+                          )}
+                        </Button>
+
+                        {customLogoUrl ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleClearLogo}
+                            loading={clearLogo.isPending}
+                            disabled={!editable}
+                          >
+                            {data.companyLogoUrl
+                              ? t(
+                                  "integrations.signature.logo.revert",
+                                  "Use the company logo"
+                                )
+                              : t(
+                                  "integrations.signature.logo.remove",
+                                  "Remove"
+                                )}
+                          </Button>
+                        ) : null}
+
+                        {uncutLogo ? (
+                          <div className="flex items-center gap-1 animate-fade-in motion-reduce:animate-none">
+                            <span className="font-mono text-micro text-text-3">
+                              {t(
+                                "integrations.signature.logo.removed",
+                                "[background removed]"
+                              )}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={handleRestoreLogo}
+                              disabled={!editable}
+                            >
+                              {t("integrations.signature.logo.undo", "Undo")}
+                            </Button>
+                          </div>
+                        ) : null}
+                      </div>
+
+                      <div
+                        role="radiogroup"
+                        aria-label={t(
+                          "integrations.signature.layout.label",
+                          "Logo placement"
                         )}
-                        disabled={!editable}
-                        onSelect={(layout) => setField("layout", layout)}
-                      />
-                      <LayoutOption
-                        layout="stacked"
-                        selected={fields.layout === "stacked"}
-                        label={t(
-                          "integrations.signature.layout.below",
-                          "Logo below"
-                        )}
-                        disabled={!editable}
-                        onSelect={(layout) => setField("layout", layout)}
-                      />
-                    </div>
+                        className="flex gap-1"
+                      >
+                        <LayoutOption
+                          layout="logo-left"
+                          selected={fields.layout === "logo-left"}
+                          label={t(
+                            "integrations.signature.layout.left",
+                            "Logo left"
+                          )}
+                          disabled={!editable}
+                          onSelect={(layout) => setField("layout", layout)}
+                        />
+                        <LayoutOption
+                          layout="stacked"
+                          selected={fields.layout === "stacked"}
+                          label={t(
+                            "integrations.signature.layout.below",
+                            "Logo below"
+                          )}
+                          disabled={!editable}
+                          onSelect={(layout) => setField("layout", layout)}
+                        />
+                      </div>
+                    </>
                   ) : null}
                 </div>
-              ) : null}
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => logoInputRef.current?.click()}
+                  loading={uploadLogo.isPending}
+                  disabled={!editable}
+                >
+                  <Upload className="h-icon-16 w-icon-16" aria-hidden="true" />
+                  {t("integrations.signature.logo.add", "Add a logo")}
+                </Button>
+              )}
+
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                data-testid="signature-logo-input"
+                disabled={!editable}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  // Reset first: picking the same file twice must still fire.
+                  event.target.value = "";
+                  if (file) void handleLogoPicked(file);
+                }}
+              />
 
               <SignatureSheet
                 html={preview.html}
