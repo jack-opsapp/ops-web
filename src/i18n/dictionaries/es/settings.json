@@ -503,6 +503,8 @@
   "integrations.signature.title": "Identidad del remitente",
   "integrations.signature.sectionTitle": "Firmas de correo",
   "integrations.signature.sectionDescription": "Cómo firma OPS en cada bandeja que tienes conectada.",
+  "integrations.signature.connectStep.title": "Una cosa más",
+  "integrations.signature.connectStep.body": "OPS ya puede leer esta bandeja. Confirma cómo firma por ti y las respuestas a clientes potenciales empiezan a salir.",
   "integrations.signature.state.confirmed": "Confirmada",
   "integrations.signature.state.unconfirmed": "Sin confirmar",
   "integrations.signature.held": "Las respuestas a clientes potenciales quedan retenidas hasta que confirmes cómo firmas.",

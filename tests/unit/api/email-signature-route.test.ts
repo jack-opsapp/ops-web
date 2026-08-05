@@ -14,6 +14,7 @@ const {
   runWithEmailConnectionSyncLockMock,
   updateConnectionMock,
   identityRowsMock,
+  hasConfirmedIdentityMock,
 } = vi.hoisted(() => ({
   getConnectionMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -27,6 +28,7 @@ const {
   runWithEmailConnectionSyncLockMock: vi.fn(),
   updateConnectionMock: vi.fn(),
   identityRowsMock: vi.fn(),
+  hasConfirmedIdentityMock: vi.fn(),
 }));
 
 vi.mock("@/lib/api/services/email-service", () => ({
@@ -47,6 +49,7 @@ vi.mock("@/lib/api/services/email-signature-service", () => ({
     saveOps: saveOpsMock,
     deactivate: vi.fn(),
     refreshProvider: refreshProviderMock,
+    hasConfirmedIdentity: hasConfirmedIdentityMock,
   },
 }));
 
@@ -134,6 +137,7 @@ beforeEach(() => {
   getProviderMock.mockReturnValue({});
   resolveEmailSignatureForMessageMock.mockResolvedValue(null);
   listActiveMock.mockResolvedValue([]);
+  hasConfirmedIdentityMock.mockResolvedValue(false);
   saveOpsMock.mockResolvedValue({});
   updateConnectionMock.mockResolvedValue({});
   identityRowsMock.mockImplementation((table: string) =>
@@ -303,6 +307,12 @@ describe("email signature route individual-mailbox ownership", () => {
       allowedCompany,
       ownIndividual,
     ]);
+    // The list carries the gate's answer per mailbox so the post-connect step
+    // can find the one still holding outreach in a single read.
+    hasConfirmedIdentityMock.mockImplementation(
+      async ({ connectionId }: { connectionId: string }) =>
+        connectionId === "company-connection"
+    );
 
     const response = await GET(
       new NextRequest(
@@ -319,12 +329,14 @@ describe("email signature route individual-mailbox ownership", () => {
           mailbox: "user-2@example.com",
           provider: "gmail",
           type: "company",
+          identityConfirmed: true,
         },
         {
           id: "own-connection",
           mailbox: "user-2@example.com",
           provider: "gmail",
           type: "individual",
+          identityConfirmed: false,
         },
       ],
     });

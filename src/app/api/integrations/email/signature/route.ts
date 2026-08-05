@@ -140,14 +140,23 @@ function signatureScope(actor: EmailRouteActor, connectionId: string) {
   };
 }
 
-function toConnectionDescriptor(
+async function toConnectionDescriptor(
+  actor: EmailRouteActor,
   connection: EmailConnection
-): EmailSignatureConnectionDescriptor {
+): Promise<EmailSignatureConnectionDescriptor> {
   return {
     id: connection.id,
     mailbox: connection.email,
     provider: connection.provider,
     type: connection.type,
+    // The gate's own answer, not an approximation of it — the post-connect
+    // step and the settings list both need to know which mailbox is holding
+    // outreach, and asking per mailbox afterwards would be a read per card.
+    identityConfirmed: await EmailSignatureService.hasConfirmedIdentity({
+      companyId: actor.companyId,
+      connectionId: connection.id,
+      userId: actor.userId,
+    }),
   };
 }
 
@@ -305,7 +314,11 @@ export async function GET(request: NextRequest) {
           supabase,
         });
         return NextResponse.json({
-          connections: allowed.map(toConnectionDescriptor),
+          connections: await Promise.all(
+            allowed.map((connection) =>
+              toConnectionDescriptor(actorResult.actor, connection)
+            )
+          ),
         });
       }
 

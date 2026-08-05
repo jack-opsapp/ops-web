@@ -61,6 +61,12 @@ export interface EmailSignatureConnectionDescriptor {
   mailbox: string;
   provider: EmailProvider;
   type: "company" | "individual";
+  /**
+   * Whether outreach on this mailbox would pass the identity gate for the
+   * asking operator. Carried on the list so a caller can find the mailbox that
+   * still needs attention without a read per mailbox.
+   */
+  identityConfirmed: boolean;
 }
 
 export interface EmailSignatureConnectionsResponse {

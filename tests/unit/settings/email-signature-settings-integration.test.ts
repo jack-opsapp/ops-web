@@ -30,4 +30,11 @@ describe("ProfileTab email signature placement", () => {
     expect(integrationsSource).not.toContain("<EmailSignatureSettings");
     expect(integrationsSource).not.toContain("signatureConnections.map");
   });
+
+  it("asks for the sender identity after a connect, behind the import wizard", () => {
+    expect(integrationsSource).toContain("<SenderIdentityConnectStep");
+    // Two setups must not compete for the same moment: the import wizard runs
+    // first, and the identity step opens as it closes.
+    expect(integrationsSource).toContain("active={justConnected && !wizardOpen}");
+  });
 });

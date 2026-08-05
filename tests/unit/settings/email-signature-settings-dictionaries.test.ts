@@ -7,6 +7,8 @@ const keys = [
   "integrations.signature.title",
   "integrations.signature.sectionTitle",
   "integrations.signature.sectionDescription",
+  "integrations.signature.connectStep.title",
+  "integrations.signature.connectStep.body",
   "integrations.signature.state.confirmed",
   "integrations.signature.state.unconfirmed",
   "integrations.signature.held",
