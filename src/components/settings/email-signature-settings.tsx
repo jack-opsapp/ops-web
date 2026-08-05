@@ -514,12 +514,17 @@ export function EmailSignatureSettings({
                 <div className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-1">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={logoUrl}
-                        alt=""
-                        className="h-icon-24 w-icon-24 shrink-0 object-contain"
-                      />
+                      {/* On the near-white the signature actually lands on. A
+                          cut-out mark is dark ink on nothing, and would all
+                          but vanish against the OPS canvas. */}
+                      <span className="flex h-icon-24 w-icon-24 shrink-0 items-center justify-center rounded-chip bg-text-primary">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={logoUrl}
+                          alt=""
+                          className="h-icon-20 w-icon-20 object-contain"
+                        />
+                      </span>
                       <span className="truncate font-mohave text-body-sm text-text-2">
                         {t("integrations.signature.logo.toggle", "Show logo")}
                       </span>
@@ -580,26 +585,30 @@ export function EmailSignatureSettings({
                           </Button>
                         ) : null}
 
-                        {uncutLogo ? (
-                          <div className="flex items-center gap-1 animate-fade-in motion-reduce:animate-none">
-                            <span className="font-mono text-micro text-text-3">
-                              {t(
-                                "integrations.signature.logo.removed",
-                                "[background removed]"
-                              )}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={handleRestoreLogo}
-                              disabled={!editable}
-                            >
-                              {t("integrations.signature.logo.undo", "Undo")}
-                            </Button>
-                          </div>
-                        ) : null}
                       </div>
+
+                      {/* Its own line, under the controls that persist: what
+                          just happened to the file is a smaller thing than
+                          which file it is. */}
+                      {uncutLogo ? (
+                        <div className="flex items-center gap-1 animate-fade-in motion-reduce:animate-none">
+                          <span className="font-mono text-micro text-text-3">
+                            {t(
+                              "integrations.signature.logo.removed",
+                              "[background removed]"
+                            )}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRestoreLogo}
+                            disabled={!editable}
+                          >
+                            {t("integrations.signature.logo.undo", "Undo")}
+                          </Button>
+                        </div>
+                      ) : null}
 
                       <div
                         role="radiogroup"
