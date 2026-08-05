@@ -7091,6 +7091,7 @@ export type Database = {
           ops_label_id: string | null
           outreach_subject: string | null
           provider: string
+          provider_snapshot_at: string | null
           refresh_token: string
           signature_logo_url: string | null
           status: string
@@ -7128,6 +7129,7 @@ export type Database = {
           ops_label_id?: string | null
           outreach_subject?: string | null
           provider?: string
+          provider_snapshot_at?: string | null
           refresh_token: string
           signature_logo_url?: string | null
           status?: string
@@ -7165,6 +7167,7 @@ export type Database = {
           ops_label_id?: string | null
           outreach_subject?: string | null
           provider?: string
+          provider_snapshot_at?: string | null
           refresh_token?: string
           signature_logo_url?: string | null
           status?: string
@@ -26170,6 +26173,7 @@ export type Database = {
           p_connection_id: string
           p_history_id: string
           p_owner_id: string
+          p_provider_snapshot_complete?: boolean
         }
         Returns: boolean
       }

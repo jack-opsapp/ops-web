@@ -10,6 +10,14 @@ const checkpointSql = readFileSync(
   "utf8"
 );
 
+const providerSnapshotSql = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260805151056_email_provider_snapshot_health.sql"
+  ),
+  "utf8"
+);
+
 const hotfixSql = readFileSync(
   join(
     process.cwd(),
@@ -31,6 +39,41 @@ describe("email sync terminal checkpoint migration", () => {
     expect(updateBody).not.toMatch(/last_synced_at\s*=/i);
     expect(checkpointSql).toMatch(
       /private\.email_provider_mailbox_sync_leases[\s\S]*?owner_id\s*=\s*p_owner_id[\s\S]*?expires_at\s*>\s*v_written_at/i
+    );
+  });
+
+  it("records provider progress without falsely completing derived summary work", () => {
+    expect(providerSnapshotSql).toMatch(
+      /add column if not exists provider_snapshot_at timestamptz/i
+    );
+    expect(providerSnapshotSql).toMatch(
+      /persist_email_connection_sync_checkpoint_as_system\([\s\S]*?p_provider_snapshot_complete boolean/i
+    );
+    expect(providerSnapshotSql).toMatch(
+      /persist_email_connection_sync_checkpoint_as_system\(\s*p_connection_id uuid,\s*p_owner_id uuid,\s*p_history_id text,\s*p_clear_recovery boolean default false,\s*p_provider_snapshot_complete boolean default false\s*\)/i
+    );
+    expect(providerSnapshotSql).toMatch(
+      /provider_snapshot_at\s*=\s*case[\s\S]*?p_provider_snapshot_complete[\s\S]*?v_written_at/i
+    );
+    const checkpointUpdate = providerSnapshotSql.match(
+      /create or replace function public\.persist_email_connection_sync_checkpoint_as_system[\s\S]*?get diagnostics v_updated_count/i
+    )?.[0];
+    expect(checkpointUpdate).toBeTruthy();
+    expect(checkpointUpdate).not.toMatch(/last_synced_at\s*=/i);
+  });
+
+  it("keeps provider progress owner-fenced, service-role only, and terminally monotonic", () => {
+    expect(providerSnapshotSql).toMatch(
+      /private\.email_provider_mailbox_sync_leases[\s\S]*?owner_id\s*=\s*p_owner_id[\s\S]*?expires_at\s*>\s*v_written_at/i
+    );
+    expect(providerSnapshotSql).toMatch(
+      /revoke all on function public\.persist_email_connection_sync_checkpoint_as_system\([\s\S]*?from public, anon, authenticated, service_role/i
+    );
+    expect(providerSnapshotSql).toMatch(
+      /grant execute on function public\.persist_email_connection_sync_checkpoint_as_system\([\s\S]*?to service_role/i
+    );
+    expect(providerSnapshotSql).toMatch(
+      /persist_email_connection_sync_completion_as_system[\s\S]*?provider_snapshot_at\s*=\s*greatest\([\s\S]*?v_written_at/i
     );
   });
 
