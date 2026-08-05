@@ -102,13 +102,43 @@ const EMPTY_PAGE_DATA: GoogleAdsPageData = {
   history: null,
 };
 
+/**
+ * The range the page should open on: the view with something to say.
+ * While the account is quiet (no activity inside the last 30 days) that is
+ * ALL — the full history. Once ads are running again it is the last 30 days.
+ */
+export function defaultAdsPreset(
+  historyBounds: { firstDay: string; lastDay: string } | null
+): AdsRangePreset {
+  if (!historyBounds?.lastDay) return "30d";
+  const cutoff = yesterdayUtc();
+  cutoff.setUTCDate(cutoff.getUTCDate() - 29);
+  return historyBounds.lastDay < fmt(cutoff) ? "all" : "30d";
+}
+
+/** Resolve the opening view for the server-rendered page in one call. */
+export async function getInitialAdsView(): Promise<{
+  preset: AdsRangePreset;
+  data: GoogleAdsPageData;
+}> {
+  if (!isGoogleAdsConfigured()) return { preset: "30d", data: EMPTY_PAGE_DATA };
+
+  const bounds = await safe(getHistoryBounds(), null);
+  const preset = defaultAdsPreset(bounds);
+  return { preset, data: await getGoogleAdsPageData(preset, bounds) };
+}
+
 /** Assemble everything the /admin/google-ads page renders for one range. */
 export async function getGoogleAdsPageData(
-  preset: AdsRangePreset
+  preset: AdsRangePreset,
+  precomputedBounds?: { firstDay: string; lastDay: string } | null
 ): Promise<GoogleAdsPageData> {
   if (!isGoogleAdsConfigured()) return EMPTY_PAGE_DATA;
 
-  const history = await safe(getHistoryBounds(), null);
+  const history =
+    precomputedBounds !== undefined
+      ? precomputedBounds
+      : await safe(getHistoryBounds(), null);
   const { startDate, endDate } = await resolveAdsRange(preset, history);
 
   // Keywords and conversion actions are never warehoused — always live.
