@@ -584,7 +584,6 @@ export function EmailSignatureSettings({
                                 )}
                           </Button>
                         ) : null}
-
                       </div>
 
                       {/* Its own line, under the controls that persist: what

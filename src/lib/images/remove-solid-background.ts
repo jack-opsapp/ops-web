@@ -45,9 +45,7 @@ export interface BackgroundRemovalResult {
 
 function borderIndices(width: number, height: number): Uint32Array {
   const count =
-    width === 1 || height === 1
-      ? width * height
-      : width * 2 + height * 2 - 4;
+    width === 1 || height === 1 ? width * height : width * 2 + height * 2 - 4;
   const indices = new Uint32Array(count);
   let next = 0;
   for (let x = 0; x < width; x += 1) {
@@ -204,10 +202,7 @@ export async function removeSolidBackground(
   }
 
   try {
-    const scale = Math.min(
-      1,
-      MAX_EDGE / Math.max(bitmap.width, bitmap.height)
-    );
+    const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height));
     const width = Math.max(1, Math.round(bitmap.width * scale));
     const height = Math.max(1, Math.round(bitmap.height * scale));
 

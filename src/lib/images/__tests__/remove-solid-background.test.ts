@@ -18,7 +18,8 @@ class Bitmap {
     fill: Rgba
   ) {
     this.data = new Uint8ClampedArray(width * height * 4);
-    for (let i = 0; i < width * height; i += 1) this.set(i % width, Math.floor(i / width), fill);
+    for (let i = 0; i < width * height; i += 1)
+      this.set(i % width, Math.floor(i / width), fill);
   }
 
   set(x: number, y: number, [r, g, b, a]: Rgba): void {

@@ -96,7 +96,10 @@ describe("decodeImageUploadPayload", () => {
 
   it("refuses anything that is not base64 at all", () => {
     expect(
-      decodeImageUploadPayload({ data: "not base 64!!", contentType: "image/png" })
+      decodeImageUploadPayload({
+        data: "not base 64!!",
+        contentType: "image/png",
+      })
     ).toEqual({ ok: false, error: "That image could not be read" });
     expect(
       decodeImageUploadPayload({ data: "", contentType: "image/png" })
