@@ -83,6 +83,7 @@ export function DateRangeControl({
         from: from.toISOString(),
         to: to.toISOString(),
         granularity: AUTO_GRANULARITY[preset],
+        preset,
       });
     },
     [onChange]
@@ -96,6 +97,7 @@ export function DateRangeControl({
         from: from.toISOString(),
         to: to.toISOString(),
         granularity: g,
+        preset: active,
       });
     },
     [active, onChange]

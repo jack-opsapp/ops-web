@@ -70,4 +70,6 @@ export interface GoogleAdsPageData {
   searchTerms: SearchTermData[];
   dailySpend: DailySpend[];
   conversions: ConversionBreakdown[];
+  /** First/last day with real ad activity in the warehouse; null before import. */
+  history?: { firstDay: string; lastDay: string } | null;
 }

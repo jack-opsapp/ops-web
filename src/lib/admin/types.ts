@@ -272,6 +272,8 @@ export interface DateRangeParams {
   from: string;
   to: string;
   granularity: Granularity;
+  /** The preset chip that produced this range, when one did. */
+  preset?: DatePreset;
 }
 
 // ─── Chart Types ──────────────────────────────────────────────────────────────

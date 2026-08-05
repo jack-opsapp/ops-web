@@ -452,19 +452,8 @@ export async function queryDailySearchTermData(
   });
 }
 
-async function getCostPerConversion(days: AdsDayRange): Promise<ConversionBreakdown[]> {
-  const rows = await queryGoogleAds(`
-    SELECT
-      segments.conversion_action_name,
-      metrics.conversions,
-      metrics.cost_per_conversion,
-      metrics.cost_micros
-    FROM campaign
-    WHERE segments.date DURING ${DURING_MAP[days]}
-      AND segments.conversion_action_name != ''
-  `);
-
-  // Aggregate by conversion action name (multiple campaigns may contribute)
+/** Aggregate per-campaign conversion rows by conversion action name. */
+function aggregateConversionRows(rows: GoogleAdsRow[]): ConversionBreakdown[] {
   const byAction = new Map<string, ConversionBreakdown>();
   for (const row of rows) {
     const name = String(row.segments?.conversionActionName ?? "Unknown");
@@ -486,6 +475,21 @@ async function getCostPerConversion(days: AdsDayRange): Promise<ConversionBreakd
   }
 
   return Array.from(byAction.values()).sort((a, b) => b.conversions - a.conversions);
+}
+
+async function getCostPerConversion(days: AdsDayRange): Promise<ConversionBreakdown[]> {
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.conversion_action_name,
+      metrics.conversions,
+      metrics.cost_per_conversion,
+      metrics.cost_micros
+    FROM campaign
+    WHERE segments.date DURING ${DURING_MAP[days]}
+      AND segments.conversion_action_name != ''
+  `);
+
+  return aggregateConversionRows(rows);
 }
 
 async function getDailySpend(days: AdsDayRange): Promise<DailySpend[]> {
@@ -700,6 +704,107 @@ export async function getDailySpendForRange(
   }));
 }
 
+/**
+ * Get keyword performance for an explicit date range.
+ * Used for range presets wider than the DURING literals (90d/12m/all) —
+ * keywords are not warehoused (by design), so history ranges query live.
+ */
+export async function getKeywordPerformanceForRange(
+  startDate: Date,
+  endDate: Date,
+  limit: number = 50
+): Promise<KeywordPerformance[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      ad_group_criterion.keyword.text,
+      ad_group_criterion.keyword.match_type,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.cost_micros,
+      metrics.conversions,
+      metrics.historical_quality_score
+    FROM keyword_view
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+    ORDER BY metrics.cost_micros DESC
+    LIMIT ${limit}
+  `);
+
+  return rows.map((row) => ({
+    keyword: String(row.adGroupCriterion?.keyword?.text ?? ""),
+    matchType: (row.adGroupCriterion?.keyword?.matchType ?? "BROAD") as KeywordPerformance["matchType"],
+    impressions: Number(row.metrics?.impressions ?? 0),
+    clicks: Number(row.metrics?.clicks ?? 0),
+    cost: microsToDollars(row.metrics?.costMicros),
+    conversions: Number(row.metrics?.conversions ?? 0),
+    qualityScore: row.metrics?.historicalQualityScore != null
+      ? Number(row.metrics.historicalQualityScore)
+      : null,
+  }));
+}
+
+/**
+ * Get search terms for an explicit date range (page-shape rows, aggregated by
+ * Google across the span). Live-path counterpart of getSearchTerms.
+ */
+export async function getSearchTermsForRange(
+  startDate: Date,
+  endDate: Date,
+  limit: number = 50
+): Promise<SearchTermData[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      search_term_view.search_term,
+      campaign.name,
+      ad_group.name,
+      metrics.impressions,
+      metrics.clicks,
+      metrics.cost_micros,
+      metrics.conversions
+    FROM search_term_view
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+    ORDER BY metrics.impressions DESC
+    LIMIT ${limit}
+  `);
+
+  return rows.map((row) => ({
+    searchTerm: String(row.searchTermView?.searchTerm ?? ""),
+    campaignName: String(row.campaign?.name ?? "Unknown"),
+    adGroupName: row.adGroup?.name ? String(row.adGroup.name) : null,
+    impressions: Number(row.metrics?.impressions ?? 0),
+    clicks: Number(row.metrics?.clicks ?? 0),
+    cost: microsToDollars(row.metrics?.costMicros),
+    conversions: Number(row.metrics?.conversions ?? 0),
+  }));
+}
+
+/**
+ * Get conversion-action breakdown for an explicit date range. Conversion
+ * actions are not warehoused, so every range preset sources this live.
+ */
+export async function getCostPerConversionForRange(
+  startDate: Date,
+  endDate: Date
+): Promise<ConversionBreakdown[]> {
+  const start = formatDate(startDate);
+  const end = formatDate(endDate);
+  const rows = await queryGoogleAds(`
+    SELECT
+      segments.conversion_action_name,
+      metrics.conversions,
+      metrics.cost_per_conversion,
+      metrics.cost_micros
+    FROM campaign
+    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+      AND segments.conversion_action_name != ''
+  `);
+
+  return aggregateConversionRows(rows);
+}
+
 // ─── Cached Exports (5-min TTL, matching existing admin query pattern) ────────
 
 export const getCachedAccountSummary = unstable_cache(
@@ -735,5 +840,53 @@ export const getCachedCostPerConversion = unstable_cache(
 export const getCachedDailySpend = unstable_cache(
   (days: AdsDayRange) => getDailySpend(days),
   ["google-ads-daily-spend"],
+  { revalidate: 300 }
+);
+
+// ─── Cached Range Exports (string YYYY-MM-DD args → stable cache keys) ────────
+
+function parseUtcDate(s: string): Date {
+  return new Date(`${s}T00:00:00.000Z`);
+}
+
+export const getCachedAccountSummaryForRange = unstable_cache(
+  (startDate: string, endDate: string) =>
+    getAccountSummaryForRange(parseUtcDate(startDate), parseUtcDate(endDate)),
+  ["google-ads-account-summary-range"],
+  { revalidate: 300 }
+);
+
+export const getCachedCampaignPerformanceForRange = unstable_cache(
+  (startDate: string, endDate: string) =>
+    getCampaignPerformanceForRange(parseUtcDate(startDate), parseUtcDate(endDate)),
+  ["google-ads-campaigns-range"],
+  { revalidate: 300 }
+);
+
+export const getCachedKeywordPerformanceForRange = unstable_cache(
+  (startDate: string, endDate: string, limit?: number) =>
+    getKeywordPerformanceForRange(parseUtcDate(startDate), parseUtcDate(endDate), limit),
+  ["google-ads-keywords-range"],
+  { revalidate: 300 }
+);
+
+export const getCachedSearchTermsForRange = unstable_cache(
+  (startDate: string, endDate: string, limit?: number) =>
+    getSearchTermsForRange(parseUtcDate(startDate), parseUtcDate(endDate), limit),
+  ["google-ads-search-terms-range"],
+  { revalidate: 300 }
+);
+
+export const getCachedCostPerConversionForRange = unstable_cache(
+  (startDate: string, endDate: string) =>
+    getCostPerConversionForRange(parseUtcDate(startDate), parseUtcDate(endDate)),
+  ["google-ads-conversions-range"],
+  { revalidate: 300 }
+);
+
+export const getCachedDailySpendForRange = unstable_cache(
+  (startDate: string, endDate: string) =>
+    getDailySpendForRange(parseUtcDate(startDate), parseUtcDate(endDate)),
+  ["google-ads-daily-spend-range"],
   { revalidate: 300 }
 );
