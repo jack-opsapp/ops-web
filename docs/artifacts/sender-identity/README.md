@@ -39,6 +39,22 @@ cleared, 3 feathered, corner alpha `0`, wordmark alpha `255`, and the ring's
 enclosed counter still `255` — identical to what `make-logo-fixture.ts` gets
 running the same core in Node.
 
+## First-reply subject variables
+
+| File | State |
+| --- | --- |
+| `12-subject-variable-inserted.png` | Straight after clicking the `{address}` chip: the variable landed at the cursor with the space it needed, and the example line says what a lead reads. |
+| `13-subject-plain-no-example.png` | A subject with no variables — the chips wait, the example line stays away. |
+| `14-subject-unfillable-example.png` | A subject that resolves to nothing: the em dash, never a brace. |
+| `15-subject-confirmed-template.png` | The stored template on the confirmed card, with what it resolves to underneath. |
+
+**The insertion is not staged.** `12` was captured after `shot-subject.js` clicked
+the card's own `{address}` chip; the value read back off the field was
+`Canpro Deck and Rail Estimate - {address}` and the example line rendered
+`[example] Canpro Deck and Rail Estimate - 2210 Cedar Hill Rd` — the shipped
+`fillSubjectTemplate`, not a lookalike. `13` reported zero example elements and
+`14` reported `[example] —`.
+
 ## Re-running
 
 ```
@@ -50,6 +66,7 @@ running the same core in Node.
 #   shot-connect.js  → 04
 #   shot-layout.js   → 05, 06
 #   shot-logo.js     → 07, 08, 09, 10
+#   shot-subject.js  → 12, 13, 14, 15
 # and, standalone:
 #   npx tsx docs/artifacts/sender-identity/make-logo-fixture.ts → 11 + the two
 #   loose PNGs (run it first; shot-logo.js uploads the source it writes)
