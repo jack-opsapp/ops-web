@@ -103,6 +103,18 @@ describe("email identity confirmation notification", () => {
     ).toBe("email-identity-confirmation:connection-1:user-1");
   });
 
+  it("reaches the rail as a named entry rather than a raw type string", async () => {
+    const { NOTIF_TYPE_META } = await import(
+      "@/lib/notifications/notification-meta"
+    );
+    const meta = NOTIF_TYPE_META[EMAIL_IDENTITY_CONFIRMATION_TYPE];
+
+    expect(meta).toBeDefined();
+    expect(meta.label).toBe("IDENTITY");
+    // Held leads outrank everything else in the rail's ordering.
+    expect(meta.tone).toBe("critical");
+  });
+
   it("deep-links the operator to the identity card on the live profile section", () => {
     const runtimeSource = readFileSync(
       join(

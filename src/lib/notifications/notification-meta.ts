@@ -102,6 +102,12 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
     icon: "settings-2",
     tone: "critical",
   },
+  // Leads are sitting undelivered until the operator answers this one.
+  email_identity_confirmation_required: {
+    label: "IDENTITY",
+    icon: "settings-2",
+    tone: "critical",
+  },
   projects_needing_tasks: { label: "PLAN", icon: "list-checks", tone: "attn" },
   accounting_import_complete: {
     label: "BOOKS",
