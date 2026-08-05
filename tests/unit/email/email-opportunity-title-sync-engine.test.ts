@@ -1362,6 +1362,7 @@ function makeSupabaseDouble(state: SupabaseState) {
         return { data: true, error: null };
       }
       if (name === "persist_email_connection_sync_completion_as_system") {
+        state.rpcCalls?.push({ name, params });
         await updateConnectionMock(params.p_connection_id, {
           lastSyncedAt: new Date(String(params.p_last_synced_at)),
           historyId: params.p_history_id,
@@ -1376,6 +1377,7 @@ function makeSupabaseDouble(state: SupabaseState) {
         return { data: true, error: null };
       }
       if (name === "persist_email_connection_sync_checkpoint_as_system") {
+        state.rpcCalls?.push({ name, params });
         await updateConnectionMock(params.p_connection_id, {
           historyId: params.p_history_id,
           ...(params.p_clear_recovery
@@ -1832,6 +1834,7 @@ describe("SyncEngine email opportunity title generation", () => {
       opportunities: [],
       threadLinks: [],
       activities: [],
+      rpcCalls: [],
       syncLockResult: null,
     };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
@@ -1885,6 +1888,7 @@ describe("SyncEngine email opportunity title generation", () => {
       opportunities: [],
       threadLinks: [],
       activities: [],
+      rpcCalls: [],
     };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
     const pendingIds = Array.from(
@@ -1931,6 +1935,45 @@ describe("SyncEngine email opportunity title generation", () => {
     ).toEqual({
       providerToken: "sync-token-2",
       pendingLeadSummaryOpportunityIds: pendingIds.slice(5),
+    });
+    expect(state.rpcCalls).toContainEqual({
+      name: "persist_email_connection_sync_checkpoint_as_system",
+      params: expect.objectContaining({
+        p_provider_snapshot_complete: true,
+      }),
+    });
+  });
+
+  it("does not mark provider progress complete while a bounded Gmail cursor remains", async () => {
+    const providerContinuation =
+      'gmail:v1:{"startHistoryId":"100","pageToken":null,"finalHistoryId":"200","pendingMessageIds":["message-2"]}';
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(
+      baseConnection({ historyId: providerContinuation })
+    );
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: providerContinuation,
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result).toMatchObject({ errors: [], continuationPending: true });
+    expect(state.rpcCalls).toContainEqual({
+      name: "persist_email_connection_sync_checkpoint_as_system",
+      params: expect.objectContaining({
+        p_provider_snapshot_complete: false,
+      }),
     });
   });
 
@@ -6282,7 +6325,7 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(updateConnectionMock).not.toHaveBeenCalled();
   });
 
-  it("advances the provider cursor when only derived summary model output violates its contract", async () => {
+  it("completes the mailbox cursor after bounded model-contract disposition", async () => {
     const state: SupabaseState = {
       clients: [],
       opportunities: [
@@ -6355,7 +6398,7 @@ To: Kara Beach <kara.beach@example.com>`,
           reason: "model_contract",
         },
       ],
-      remainingOpportunityIds: ["opp-summary-model-contract"],
+      remainingOpportunityIds: [],
     });
 
     const result = await SyncEngine.runSync("connection-1");
@@ -6364,12 +6407,12 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(result.aiProviderDeferred).toBe(false);
     const persistedHistoryId = updateConnectionMock.mock.calls.at(-1)?.[1]
       ?.historyId as string;
-    expect(persistedHistoryId).toMatch(/^ops-email-sync:v1:/);
-    expect(
-      JSON.parse(persistedHistoryId.slice("ops-email-sync:v1:".length))
-    ).toEqual({
-      providerToken: "sync-token-2",
-      pendingLeadSummaryOpportunityIds: ["opp-summary-model-contract"],
+    expect(persistedHistoryId).toBe("sync-token-2");
+    expect(state.rpcCalls).toContainEqual({
+      name: "persist_email_connection_sync_completion_as_system",
+      params: expect.objectContaining({
+        p_history_id: "sync-token-2",
+      }),
     });
   });
 

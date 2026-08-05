@@ -46,6 +46,7 @@ import {
   decodeEmailSyncContinuation,
   encodeEmailSyncContinuation,
   isEmailSyncContinuationPending,
+  isProviderSyncContinuationPending,
 } from "@/lib/email/email-sync-continuation";
 import { withSerializationRetry } from "@/lib/supabase/serialization-retry";
 import { refreshLeadSummariesForOpportunities } from "./lead-summary-service";
@@ -5847,6 +5848,8 @@ export const SyncEngine = {
             connectionId,
             ownerId: syncLockOwner,
             historyId,
+            providerSnapshotComplete:
+              !isProviderSyncContinuationPending(historyId),
             clearRecovery: gmailRecoveryCheckpoint !== null,
             context: SYNC_LOCK_CONTEXT,
           });

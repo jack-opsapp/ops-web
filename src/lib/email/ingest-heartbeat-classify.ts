@@ -14,13 +14,14 @@ import type { InboxConnectionDownReason } from "@/lib/email/react/templates/Inbo
 /**
  * Staleness ceiling for the `sync_stale` signal.
  *
- * `last_synced_at` only advances when a sync actually runs — the email-sync
- * poll cron or a webhook-triggered sync. The poll cron (vercel.json →
- * /api/cron/email-sync) runs `*​/15 13-23,0-4 * * *`: it is DARK from
- * 05:00–13:00 UTC every day (~8h). A perfectly healthy but quiet inbox
- * therefore legitimately shows zero sync activity across that window — the
- * last overnight poll lands ~04:00 UTC and the next one ~13:00 UTC (a ~9h
- * gap), with no webhook pushes in between because nothing new arrived.
+ * `provider_snapshot_at` advances when owner-fenced provider catch-up
+ * completes, even if derived summary work remains. Legacy rows fall back to
+ * terminal `last_synced_at`. The poll cron (vercel.json → /api/cron/email-sync)
+ * runs `*​/15 13-23,0-4 * * *`: it is DARK from 05:00–13:00 UTC every day
+ * (~8h). A perfectly healthy but quiet inbox therefore legitimately shows
+ * zero provider progress across that window — the last overnight poll lands
+ * ~04:00 UTC and the next one ~13:00 UTC (a ~9h gap), with no webhook pushes
+ * in between because nothing new arrived.
  *
  * A 6h threshold sat INSIDE that dark window, so it fired a false
  * "connection down" alert every quiet night (Canpro got one ~daily from
@@ -63,6 +64,7 @@ export interface ConnectionRow {
   webhook_subscription_id: string | null;
   webhook_expires_at: string | null;
   last_synced_at: string | null;
+  provider_snapshot_at: string | null;
   created_at: string;
 }
 
@@ -78,8 +80,9 @@ export function classifyFailure(
   const expires = conn.webhook_expires_at
     ? new Date(conn.webhook_expires_at).getTime()
     : null;
-  const lastSync = conn.last_synced_at
-    ? new Date(conn.last_synced_at).getTime()
+  const providerProgressAt = conn.provider_snapshot_at ?? conn.last_synced_at;
+  const lastProviderProgress = providerProgressAt
+    ? new Date(providerProgressAt).getTime()
     : null;
 
   // 1) Webhook setup never completed and we're past the grace window.
@@ -114,11 +117,14 @@ export function classifyFailure(
     };
   }
 
-  // 3) Sync hasn't run in 13+ hours despite being active. The threshold must
-  //    clear the nightly email-sync poll blackout (see STALE_SYNC_THRESHOLD_MS)
-  //    so a quiet-but-healthy overnight inbox is never mistaken for an outage.
-  if (lastSync !== null && now - lastSync > STALE_SYNC_THRESHOLD_MS) {
-    const hours = Math.floor((now - lastSync) / (60 * 60 * 1000));
+  // 3) Provider catch-up hasn't completed in 13+ hours despite being active.
+  //    The threshold must clear the nightly email-sync poll blackout (see
+  //    STALE_SYNC_THRESHOLD_MS) so quiet healthy inboxes do not false-alert.
+  if (
+    lastProviderProgress !== null &&
+    now - lastProviderProgress > STALE_SYNC_THRESHOLD_MS
+  ) {
+    const hours = Math.floor((now - lastProviderProgress) / (60 * 60 * 1000));
     return {
       connectionId: conn.id,
       companyId: conn.company_id,

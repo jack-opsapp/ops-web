@@ -20,12 +20,11 @@
  *      these; if it's still null after a day, OAuth scopes or the
  *      provider's API are blocking setup.
  *
- *   3. sync_stale — `last_synced_at` older than STALE_SYNC_THRESHOLD_MS for
- *      an active connection. `last_synced_at` only advances when a sync
- *      actually runs, and the email-sync poll cron is dark 05:00–13:00 UTC,
- *      so the threshold must clear that blackout or a quiet-but-healthy
- *      overnight inbox reads as an outage. See ingest-heartbeat-classify.ts
- *      for the full derivation.
+ *   3. sync_stale — provider progress older than STALE_SYNC_THRESHOLD_MS for
+ *      an active connection. Provider progress advances after provider
+ *      catch-up even when bounded derived work is still pending. The poll cron
+ *      is dark 05:00–13:00 UTC, so the threshold still clears that blackout.
+ *      See ingest-heartbeat-classify.ts for the full derivation.
  *
  * `status='needs_reconnect'` is intentionally skipped here — it has its own
  * notification path inside sync-engine that fires the moment a sync attempt
@@ -326,7 +325,7 @@ async function runHeartbeat(supabase: SupabaseClient) {
       supabase
         .from("email_connections")
         .select(
-          "id, company_id, user_id, email, provider, type, status, sync_enabled, webhook_subscription_id, webhook_expires_at, last_synced_at, created_at"
+          "id, company_id, user_id, email, provider, type, status, sync_enabled, webhook_subscription_id, webhook_expires_at, last_synced_at, provider_snapshot_at, created_at"
         )
         .order("id", { ascending: true })
         .limit(HEARTBEAT_CONNECTION_PAGE_SIZE)

@@ -3933,7 +3933,21 @@ export async function refreshLeadSummariesForOpportunities(input: {
       try {
         const bundle = buildLeadSummaryContext(opportunity, slices);
         if (!bundle) continue;
-        const summary = await generateLeadSummary({ companyName, bundle });
+        let summary: string;
+        try {
+          summary = await generateLeadSummary({ companyName, bundle });
+        } catch (error) {
+          if (
+            !(error instanceof LeadSummaryModelContractError) &&
+            !(error instanceof LeadSummaryModelRefusalError)
+          ) {
+            throw error;
+          }
+          // The targeted continuation has already spent its bounded model
+          // retry. Render only from the same trusted fact bundle so repeated
+          // invalid/refused model output cannot strand this opportunity forever.
+          summary = renderDeterministicLeadSummaryFallback(bundle);
+        }
         await commitLeadSummarySnapshot({
           supabase: input.supabase,
           companyId: input.companyId,
@@ -3968,13 +3982,11 @@ export async function refreshLeadSummariesForOpportunities(input: {
             ...entry,
             reason: "model_contract",
           });
-          result.remainingOpportunityIds.push(opportunity.id);
         } else if (error instanceof LeadSummaryModelRefusalError) {
           result.deferred.push({
             ...entry,
             reason: "model_refusal",
           });
-          result.remainingOpportunityIds.push(opportunity.id);
         } else {
           result.failed.push(entry);
           result.remainingOpportunityIds.push(opportunity.id);

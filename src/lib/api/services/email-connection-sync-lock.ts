@@ -184,6 +184,7 @@ export async function persistEmailConnectionSyncCheckpoint({
   connectionId,
   ownerId,
   historyId,
+  providerSnapshotComplete,
   clearRecovery,
   context,
   client,
@@ -191,6 +192,7 @@ export async function persistEmailConnectionSyncCheckpoint({
   connectionId: string;
   ownerId: string;
   historyId: string;
+  providerSnapshotComplete: boolean;
   clearRecovery: boolean;
   context: string;
   client?: SupabaseClient;
@@ -202,6 +204,7 @@ export async function persistEmailConnectionSyncCheckpoint({
       p_connection_id: connectionId,
       p_owner_id: ownerId,
       p_history_id: historyId,
+      p_provider_snapshot_complete: providerSnapshotComplete,
       p_clear_recovery: clearRecovery,
     }
   );

@@ -7090,6 +7090,7 @@ export type Database = {
           last_synced_at: string | null
           ops_label_id: string | null
           provider: string
+          provider_snapshot_at: string | null
           refresh_token: string
           status: string
           sync_enabled: boolean
@@ -7125,6 +7126,7 @@ export type Database = {
           last_synced_at?: string | null
           ops_label_id?: string | null
           provider?: string
+          provider_snapshot_at?: string | null
           refresh_token: string
           status?: string
           sync_enabled?: boolean
@@ -7160,6 +7162,7 @@ export type Database = {
           last_synced_at?: string | null
           ops_label_id?: string | null
           provider?: string
+          provider_snapshot_at?: string | null
           refresh_token?: string
           status?: string
           sync_enabled?: boolean
@@ -26164,6 +26167,7 @@ export type Database = {
           p_connection_id: string
           p_history_id: string
           p_owner_id: string
+          p_provider_snapshot_complete?: boolean
         }
         Returns: boolean
       }

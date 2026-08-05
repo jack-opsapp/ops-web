@@ -24,6 +24,7 @@ const {
       name: string;
       params: Record<string, unknown>;
     }>,
+    connectionSelects: [] as string[],
     connectionLimits: [] as number[],
     additionalConnections: [] as Array<Record<string, unknown>>,
     additionalCompanies: [] as Array<Record<string, unknown>>,
@@ -72,7 +73,10 @@ vi.mock("@/lib/supabase/server-client", () => ({
       if (table === "email_connections") {
         const healthy = heartbeatState.connectionHealthy;
         const query = {
-          select: () => query,
+          select: (columns: string) => {
+            heartbeatState.connectionSelects.push(columns);
+            return query;
+          },
           order: () => query,
           limit: async (limit: number) => {
             heartbeatState.connectionLimits.push(limit);
@@ -92,6 +96,7 @@ vi.mock("@/lib/supabase/server-client", () => ({
                     ? "2999-01-01T00:00:00.000Z"
                     : null,
                   last_synced_at: healthy ? new Date().toISOString() : null,
+                  provider_snapshot_at: null,
                   created_at: "2020-01-01T00:00:00.000Z",
                   ...heartbeatState.primaryConnectionOverrides,
                 },
@@ -279,6 +284,7 @@ describe("email ingest heartbeat delivery semantics", () => {
     heartbeatState.notificationInserts.length = 0;
     heartbeatState.notificationResolutions.length = 0;
     heartbeatState.rpcCalls.length = 0;
+    heartbeatState.connectionSelects.length = 0;
     heartbeatState.connectionLimits.length = 0;
     heartbeatState.additionalConnections.length = 0;
     heartbeatState.additionalCompanies.length = 0;
@@ -580,6 +586,32 @@ describe("email ingest heartbeat delivery semantics", () => {
         reconnectUrl: "https://ops.test/settings?tab=integrations",
       })
     );
+  });
+
+  it("resolves a stale-sync incident when provider progress is fresh despite pending derived work", async () => {
+    heartbeatState.primaryConnectionOverrides = {
+      webhook_subscription_id: "watch-1",
+      webhook_expires_at: "2999-01-01T00:00:00.000Z",
+      last_synced_at: "2020-01-01T00:00:00.000Z",
+      provider_snapshot_at: new Date().toISOString(),
+    };
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(heartbeatState.notificationInserts).toEqual([]);
+    expect(heartbeatState.connectionSelects[0]).toContain(
+      "provider_snapshot_at"
+    );
+    expect(heartbeatState.notificationResolutions).toEqual([
+      {
+        payload: expect.objectContaining({
+          resolution_reason: "email_ingest_recovered",
+        }),
+        dedupeKeys: ["email-ingest-health:connection-1"],
+      },
+    ]);
+    expect(sendInboxConnectionDownMock).not.toHaveBeenCalled();
   });
 
   it("treats an already-open deduped rail alert as delivered", async () => {
