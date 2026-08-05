@@ -91,23 +91,34 @@ interface GoogleAdsRow {
   };
 }
 
-async function queryGoogleAds(gaql: string): Promise<GoogleAdsRow[]> {
+async function getAccessToken(): Promise<string> {
   const auth = getAuth();
   const client = await auth.getClient();
   const tokenResponse = await client.getAccessToken();
   const accessToken = typeof tokenResponse === "string" ? tokenResponse : tokenResponse?.token;
-
   if (!accessToken) throw new Error("Failed to obtain access token for Google Ads API");
+  return accessToken;
+}
 
-  const customerId = getCustomerId();
+/**
+ * Low-level GAQL search against an explicit customer id. Used by both the
+ * public query path and manager→client resolution (which must not recurse).
+ *
+ * Do NOT send pageSize: the API rejects it with PAGE_SIZE_NOT_SUPPORTED —
+ * responses are fixed at 10,000 rows per page, paged via nextPageToken.
+ * `search` (paginated) instead of `searchStream` (deprecated in v19).
+ */
+async function rawSearch(
+  accessToken: string,
+  customerId: string,
+  gaql: string,
+  loginCustomerId?: string
+): Promise<GoogleAdsRow[]> {
   const developerToken = getDeveloperToken();
 
   const allRows: GoogleAdsRow[] = [];
   let pageToken: string | undefined;
 
-  // Use `search` (paginated) instead of `searchStream` (deprecated in v19).
-  // Do NOT send pageSize: the API rejects it with PAGE_SIZE_NOT_SUPPORTED —
-  // responses are fixed at 10,000 rows per page, paged via nextPageToken.
   do {
     const response = await fetch(
       `${ADS_BASE_URL}/customers/${customerId}/googleAds:search`,
@@ -117,6 +128,7 @@ async function queryGoogleAds(gaql: string): Promise<GoogleAdsRow[]> {
           "Authorization": `Bearer ${accessToken}`,
           "developer-token": developerToken,
           "Content-Type": "application/json",
+          ...(loginCustomerId ? { "login-customer-id": loginCustomerId } : {}),
         },
         body: JSON.stringify({
           query: gaql,
@@ -138,6 +150,110 @@ async function queryGoogleAds(gaql: string): Promise<GoogleAdsRow[]> {
   } while (pageToken);
 
   return allRows;
+}
+
+// ─── Manager → serving-account resolution ─────────────────────────────────────
+
+interface ServingCustomer {
+  /** Customer id metrics queries run against (never a manager account). */
+  servingId: string;
+  /** Manager id sent as login-customer-id, when access flows through one. */
+  loginId?: string;
+}
+
+interface CustomerClientRow {
+  customerClient?: {
+    id?: string;
+    descriptiveName?: string;
+    level?: string | number;
+    manager?: boolean;
+    status?: string;
+  };
+}
+
+let _servingCustomer: Promise<ServingCustomer> | null = null;
+
+/**
+ * Resolve the ad-serving customer account for all metric queries.
+ *
+ * GOOGLE_ADS_CUSTOMER_ID may be a MANAGER account (the account that holds the
+ * developer token — OPS LTD 5448339076). Managers cannot be queried for
+ * metrics (REQUESTED_METRICS_FOR_MANAGER); the data lives in the client
+ * account underneath (OPS 4454506598). When the configured id is a manager,
+ * find its single enabled non-manager client and query that, passing the
+ * manager as login-customer-id. When the configured id is already a client
+ * account, use it directly.
+ *
+ * GOOGLE_ADS_LOGIN_CUSTOMER_ID (optional) forces the login header; it also
+ * disambiguates if a manager ever has multiple enabled clients — in that
+ * ambiguous case this throws, listing candidates, rather than guessing.
+ *
+ * Memoized for the lifetime of the server instance (the account hierarchy is
+ * effectively static). Failures are not cached.
+ */
+async function resolveServingCustomer(accessToken: string): Promise<ServingCustomer> {
+  if (_servingCustomer) return _servingCustomer;
+
+  const resolution = (async (): Promise<ServingCustomer> => {
+    const configuredId = getCustomerId();
+    const loginOverride = process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID || undefined;
+
+    const rows = (await rawSearch(
+      accessToken,
+      configuredId,
+      `SELECT customer_client.id, customer_client.descriptive_name,
+              customer_client.level, customer_client.manager, customer_client.status
+       FROM customer_client`,
+      loginOverride
+    )) as CustomerClientRow[];
+
+    const self = rows
+      .map((r) => r.customerClient)
+      .find((c) => String(c?.id ?? "") === configuredId || Number(c?.level ?? -1) === 0);
+
+    // Configured id is a normal (non-manager) account — query it directly.
+    if (self && self.manager === false) {
+      return { servingId: configuredId, loginId: loginOverride };
+    }
+
+    // Configured id is a manager: pick its single enabled serving client.
+    const candidates = rows
+      .map((r) => r.customerClient)
+      .filter((c): c is NonNullable<typeof c> => !!c)
+      .filter((c) => c.manager === false && c.status === "ENABLED" && c.id);
+
+    if (candidates.length === 1) {
+      return {
+        servingId: String(candidates[0].id),
+        loginId: loginOverride ?? configuredId,
+      };
+    }
+
+    const listing = candidates
+      .map((c) => `${c.id} ("${c.descriptiveName ?? "unnamed"}")`)
+      .join(", ");
+    throw new Error(
+      candidates.length === 0
+        ? `GOOGLE_ADS_CUSTOMER_ID ${configuredId} is a manager account with no enabled client accounts underneath`
+        : `GOOGLE_ADS_CUSTOMER_ID ${configuredId} is a manager account with multiple enabled clients (${listing}) — set GOOGLE_ADS_CUSTOMER_ID to the serving account id and GOOGLE_ADS_LOGIN_CUSTOMER_ID to the manager id`
+    );
+  })();
+
+  // Cache the in-flight promise so parallel cold-start queries share one
+  // discovery call, but never cache a failure.
+  _servingCustomer = resolution;
+  try {
+    return await resolution;
+  } catch (err) {
+    _servingCustomer = null;
+    throw err;
+  }
+}
+
+async function queryGoogleAds(gaql: string): Promise<GoogleAdsRow[]> {
+  const accessToken = await getAccessToken();
+  const { servingId, loginId } = await resolveServingCustomer(accessToken);
+  return rawSearch(accessToken, servingId, gaql, loginId);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
