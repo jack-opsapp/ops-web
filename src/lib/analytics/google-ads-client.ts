@@ -105,7 +105,9 @@ async function queryGoogleAds(gaql: string): Promise<GoogleAdsRow[]> {
   const allRows: GoogleAdsRow[] = [];
   let pageToken: string | undefined;
 
-  // Use `search` (paginated) instead of `searchStream` (deprecated in v19)
+  // Use `search` (paginated) instead of `searchStream` (deprecated in v19).
+  // Do NOT send pageSize: the API rejects it with PAGE_SIZE_NOT_SUPPORTED —
+  // responses are fixed at 10,000 rows per page, paged via nextPageToken.
   do {
     const response = await fetch(
       `${ADS_BASE_URL}/customers/${customerId}/googleAds:search`,
@@ -118,7 +120,6 @@ async function queryGoogleAds(gaql: string): Promise<GoogleAdsRow[]> {
         },
         body: JSON.stringify({
           query: gaql,
-          pageSize: 10000,
           ...(pageToken ? { pageToken } : {}),
         }),
       }
