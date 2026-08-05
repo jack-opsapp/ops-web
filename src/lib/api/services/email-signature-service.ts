@@ -181,8 +181,11 @@ export function createEmailSignatureContent(_input: {
     ? _input.html
     : plainTextToSignatureHtml(inputText);
   const html = sanitizeEmailSignatureHtml(sourceHtml).trim();
+  // An authored plain-text mirror beats one derived from the markup: only
+  // block tags become newlines, so a table-based card would flatten into a
+  // single run-on line in every plain-text send.
   const text = normalizePlainText(
-    html ? emailSignatureHtmlToText(html) : inputText
+    inputText || (html ? emailSignatureHtmlToText(html) : "")
   );
   const hash = createHash("sha256")
     .update(`${html}\u0000${text}`, "utf8")
@@ -358,6 +361,11 @@ interface SaveOpsSignatureInput extends SignatureLookupInput {
   scopeUserId?: string | null;
   html?: string | null;
   text?: string | null;
+  /**
+   * The human moment. Set it when the operator authored or explicitly stood
+   * behind this signature — that is what opens the new-lead outreach gate.
+   */
+  confirmedAt?: string | null;
   actorUserId: string;
 }
 
@@ -502,7 +510,7 @@ export const EmailSignatureService = {
       source: "ops",
       providerIdentity: null,
       fetchedAt: null,
-      confirmedAt: null,
+      confirmedAt: input.confirmedAt ?? null,
       actorUserId: input.actorUserId,
     });
   },

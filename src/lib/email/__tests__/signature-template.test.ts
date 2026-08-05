@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { sanitizeEmailSignatureHtml } from "@/lib/api/services/email-signature-service";
-import { renderSignatureTemplate } from "@/lib/email/signature-template";
+import {
+  describeSignatureTemplate,
+  renderSignatureTemplate,
+} from "@/lib/email/signature-template";
 
 const FULL = {
   name: "Jackson Sweet",
@@ -127,5 +130,64 @@ describe("renderSignatureTemplate", () => {
     });
 
     expect(sanitizeEmailSignatureHtml(html)).toBe(html);
+  });
+});
+
+describe("describeSignatureTemplate", () => {
+  function roundTrip(fields: Parameters<typeof renderSignatureTemplate>[0]) {
+    const rendered = renderSignatureTemplate(fields);
+    return describeSignatureTemplate({
+      ...rendered,
+      companyName: fields.companyName,
+    });
+  }
+
+  it("recovers every field the operator typed", () => {
+    expect(roundTrip(FULL)).toEqual({
+      name: "Jackson Sweet",
+      title: "Owner",
+      phone: "(250) 538-8994",
+      website: "canprodeckandrail.com",
+      includeLogo: true,
+      layout: "logo-left",
+    });
+  });
+
+  it("recovers the stacked arrangement", () => {
+    expect(roundTrip({ ...FULL, layout: "stacked" })).toMatchObject({
+      includeLogo: true,
+      layout: "stacked",
+    });
+  });
+
+  it("recovers a company name that itself contains a comma", () => {
+    expect(
+      roundTrip({
+        name: "Jackson Sweet",
+        title: "Owner",
+        companyName: "Canpro Deck and Rail, Inc.",
+      })
+    ).toMatchObject({ title: "Owner" });
+  });
+
+  it("reads no title when the operator left it blank", () => {
+    expect(roundTrip({ name: "Jackson Sweet", companyName: "Canpro" })).toEqual({
+      name: "Jackson Sweet",
+      title: "",
+      phone: "",
+      website: "",
+      includeLogo: false,
+      layout: "logo-left",
+    });
+  });
+
+  it("returns nothing recoverable from a signature it did not render", () => {
+    expect(
+      describeSignatureTemplate({
+        html: "<div>Jackson<br>OPS</div>",
+        text: "Jackson\nOPS",
+        companyName: "Canpro Deck and Rail",
+      })
+    ).toBeNull();
   });
 });

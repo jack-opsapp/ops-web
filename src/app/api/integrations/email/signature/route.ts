@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { EmailConnectionService } from "@/lib/api/services/email-connection-service";
 import { EmailService } from "@/lib/api/services/email-service";
 import {
   EmailSignatureService,
@@ -15,11 +16,17 @@ import {
   isEmailSignatureProviderMailboxBusyError,
   resolveEmailSignatureForMessage,
 } from "@/lib/email/email-signature-runtime";
+import {
+  describeSignatureTemplate,
+  renderSignatureTemplate,
+} from "@/lib/email/signature-template";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type {
+  EmailIdentityFields,
   EmailSignatureConnectionDescriptor,
+  EmailSignatureLayout,
   EmailSignatureSettingsResponse,
 } from "@/lib/types/email-signature";
 
@@ -31,6 +38,81 @@ interface SignatureScope {
 
 function requiredText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function optionalText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function signatureLayout(value: unknown): EmailSignatureLayout {
+  return value === "stacked" ? "stacked" : "logo-left";
+}
+
+/**
+ * The operator's own particulars, for prefilling a signature they have not
+ * written yet. Read from the authoritative rows rather than trusted from the
+ * request — the same reason the draft prompt loads them (2026-08-02: a
+ * forwarded email's signature became the sender's identity).
+ */
+async function loadIdentityDefaults(scope: SignatureScope): Promise<{
+  companyLogoUrl: string | null;
+  name: string;
+  companyName: string;
+  phone: string;
+  website: string;
+}> {
+  const supabase = getServiceRoleClient();
+  const [user, company] = await Promise.all([
+    supabase
+      .from("users")
+      .select("first_name, last_name, phone")
+      .eq("id", scope.userId)
+      .maybeSingle(),
+    supabase
+      .from("companies")
+      .select("name, phone, website, logo_url")
+      .eq("id", scope.companyId)
+      .maybeSingle(),
+  ]);
+
+  const userRow = (user.data ?? {}) as Record<string, unknown>;
+  const companyRow = (company.data ?? {}) as Record<string, unknown>;
+
+  return {
+    companyLogoUrl: optionalText(companyRow.logo_url) || null,
+    name: [optionalText(userRow.first_name), optionalText(userRow.last_name)]
+      .filter(Boolean)
+      .join(" "),
+    companyName: optionalText(companyRow.name),
+    // A customer calls the business, so the company line leads. The operator's
+    // own number stands in when the company record has none.
+    phone: optionalText(companyRow.phone) || optionalText(userRow.phone),
+    website: optionalText(companyRow.website),
+  };
+}
+
+function identityFields(input: {
+  defaults: Awaited<ReturnType<typeof loadIdentityDefaults>>;
+  saved: EmailSignatureRecord | undefined;
+}): EmailIdentityFields {
+  const { defaults, saved } = input;
+  const described = saved
+    ? describeSignatureTemplate({
+        html: saved.contentHtml,
+        text: saved.contentText,
+        companyName: defaults.companyName,
+      })
+    : null;
+
+  return {
+    name: described?.name || defaults.name,
+    title: described?.title ?? "",
+    companyName: defaults.companyName,
+    phone: described ? described.phone : defaults.phone,
+    website: described ? described.website : defaults.website,
+    includeLogo: described?.includeLogo ?? false,
+    layout: described?.layout ?? "logo-left",
+  };
 }
 
 function providerSource(
@@ -104,6 +186,21 @@ async function loadResponse(
       row.providerIdentity?.trim().toLowerCase() ===
         connection.email.trim().toLowerCase()
   );
+  // Read the confirmation the way the outreach gate reads it — the newest OPS
+  // row that actually carries the stamp, operator scope before mailbox scope.
+  // Reporting the effective row's stamp instead would tell an operator their
+  // outreach is held while it is in fact running on the mailbox signature.
+  const confirmed =
+    rows.find(
+      (row) =>
+        row.source === "ops" &&
+        row.scopeUserId === scope.userId &&
+        row.confirmedAt
+    ) ??
+    rows.find(
+      (row) => row.source === "ops" && row.scopeUserId === null && row.confirmedAt
+    );
+  const defaults = await loadIdentityDefaults(scope);
 
   return {
     connectionId: connection.id,
@@ -131,7 +228,52 @@ async function loadResponse(
       : null,
     providerImportSupported: connection.provider === "gmail",
     missing: effective === null,
+    // Mirrors the outreach gate exactly: only an OPS-authored row in operator
+    // or mailbox scope can carry the confirmation.
+    confirmedAt: confirmed?.confirmedAt ?? null,
+    outreachSubject: connection.outreachSubject?.trim() || null,
+    companyLogoUrl: defaults.companyLogoUrl,
+    fields: identityFields({ defaults, saved: ops }),
   };
+}
+
+/**
+ * Renders the operator's structured fields into the one OPS template. The
+ * logo is taken from the company record, never from the request, so no caller
+ * can plant a remote image in an outbound signature.
+ */
+async function saveStructuredSignature(input: {
+  scope: SignatureScope;
+  fields: Record<string, unknown>;
+  includeLogo: boolean;
+  layout: EmailSignatureLayout;
+}): Promise<{ error: string } | null> {
+  const name = optionalText(input.fields.name);
+  if (!name) return { error: "A name is required" };
+
+  const defaults = await loadIdentityDefaults(input.scope);
+  const rendered = renderSignatureTemplate({
+    name,
+    title: optionalText(input.fields.title),
+    companyName:
+      optionalText(input.fields.companyName) || defaults.companyName,
+    phone: optionalText(input.fields.phone),
+    website: optionalText(input.fields.website),
+    logoUrl: input.includeLogo ? defaults.companyLogoUrl : null,
+    layout: input.layout,
+  });
+
+  await EmailSignatureService.saveOps({
+    companyId: input.scope.companyId,
+    connectionId: input.scope.connectionId,
+    scopeUserId: input.scope.userId,
+    html: rendered.html,
+    text: rendered.text,
+    // Authoring it IS confirming it — there is no separate "I mean it" step.
+    confirmedAt: new Date().toISOString(),
+    actorUserId: input.scope.userId,
+  });
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -201,13 +343,18 @@ export async function PUT(request: NextRequest) {
     unknown
   > | null;
   const connectionId = requiredText(body?.connectionId);
-  if (!connectionId || typeof body?.opsText !== "string") {
+  const fields =
+    body?.fields && typeof body.fields === "object" && !Array.isArray(body.fields)
+      ? (body.fields as Record<string, unknown>)
+      : null;
+  const hasLegacyText = typeof body?.opsText === "string";
+  const hasSubject = typeof body?.outreachSubject === "string";
+  if (!connectionId || (!fields && !hasLegacyText && !hasSubject)) {
     return NextResponse.json(
-      { error: "connectionId and opsText are required" },
+      { error: "connectionId and something to save are required" },
       { status: 400 }
     );
   }
-  const opsText = body.opsText;
 
   const actorResult = await resolveEmailRouteActor(request, {
     claimedCompanyId: requiredText(body?.companyId) ?? undefined,
@@ -230,25 +377,48 @@ export async function PUT(request: NextRequest) {
         return forbiddenConnectionResponse();
       }
       const scope = signatureScope(actorResult.actor, connection.id);
-      if (opsText.trim()) {
-        await EmailSignatureService.saveOps({
-          companyId: scope.companyId,
-          connectionId: scope.connectionId,
-          scopeUserId: scope.userId,
-          text: opsText,
-          actorUserId: scope.userId,
+
+      if (fields) {
+        const failure = await saveStructuredSignature({
+          scope,
+          fields,
+          includeLogo: body?.includeLogo === true,
+          layout: signatureLayout(body?.layout),
         });
-      } else {
-        await EmailSignatureService.deactivate({
-          companyId: scope.companyId,
-          connectionId: scope.connectionId,
-          source: "ops",
-          scopeUserId: scope.userId,
-          actorUserId: scope.userId,
+        if (failure) return NextResponse.json(failure, { status: 400 });
+      } else if (hasLegacyText) {
+        const opsText = body?.opsText as string;
+        if (opsText.trim()) {
+          await EmailSignatureService.saveOps({
+            companyId: scope.companyId,
+            connectionId: scope.connectionId,
+            scopeUserId: scope.userId,
+            text: opsText,
+            confirmedAt: new Date().toISOString(),
+            actorUserId: scope.userId,
+          });
+        } else {
+          await EmailSignatureService.deactivate({
+            companyId: scope.companyId,
+            connectionId: scope.connectionId,
+            source: "ops",
+            scopeUserId: scope.userId,
+            actorUserId: scope.userId,
+          });
+        }
+      }
+
+      if (hasSubject) {
+        await EmailConnectionService.updateConnection(scope.connectionId, {
+          outreachSubject: optionalText(body?.outreachSubject) || null,
         });
       }
+
+      const saved = hasSubject
+        ? ((await EmailService.getConnection(connectionId)) ?? connection)
+        : connection;
       return NextResponse.json(
-        await loadResponse(scope, connection, {
+        await loadResponse(scope, saved, {
           refreshProviderIfMissing: true,
         })
       );
@@ -270,7 +440,11 @@ export async function POST(request: NextRequest) {
     unknown
   > | null;
   const connectionId = requiredText(body?.connectionId);
-  if (!connectionId || body?.action !== "import_provider") {
+  const action = body?.action;
+  if (
+    !connectionId ||
+    (action !== "import_provider" && action !== "confirm_imported")
+  ) {
     return NextResponse.json(
       { error: "Invalid signature action" },
       { status: 400 }
@@ -297,13 +471,50 @@ export async function POST(request: NextRequest) {
       if (allowed.length !== 1 || !connection) {
         return forbiddenConnectionResponse();
       }
+      const scope = signatureScope(actorResult.actor, connection.id);
+
+      if (action === "confirm_imported") {
+        const rows = await EmailSignatureService.listActive({
+          companyId: scope.companyId,
+          connectionId: scope.connectionId,
+        });
+        const mailboxAddress = connection.email.trim().toLowerCase();
+        const imported = rows.find(
+          (row) =>
+            row.source !== "ops" &&
+            row.providerIdentity?.trim().toLowerCase() === mailboxAddress
+        );
+        if (!imported) {
+          return NextResponse.json(
+            { error: "There is no imported signature to confirm" },
+            { status: 409 }
+          );
+        }
+        // Copy the content into operator scope rather than stamping the
+        // provider row. Outreach only trusts an OPS-authored signature, so a
+        // confirmed import has to become one to count.
+        await EmailSignatureService.saveOps({
+          companyId: scope.companyId,
+          connectionId: scope.connectionId,
+          scopeUserId: scope.userId,
+          html: imported.contentHtml,
+          text: imported.contentText,
+          confirmedAt: new Date().toISOString(),
+          actorUserId: scope.userId,
+        });
+        return NextResponse.json(
+          await loadResponse(scope, connection, {
+            refreshProviderIfMissing: false,
+          })
+        );
+      }
+
       if (connection.provider !== "gmail") {
         return NextResponse.json(
           { error: "Provider signature import is unavailable" },
           { status: 409 }
         );
       }
-      const scope = signatureScope(actorResult.actor, connection.id);
       const locked = await runWithEmailConnectionSyncLock({
         connectionId: connection.id,
         context: "email-signature-provider-import",

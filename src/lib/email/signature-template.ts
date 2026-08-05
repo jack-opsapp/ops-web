@@ -208,3 +208,71 @@ export function renderSignatureTemplate(
 
   return { html, text: textLines.join("\n") };
 }
+
+/** The inverse of the render, for reopening the builder on a saved signature. */
+export interface DescribedSignatureTemplate {
+  name: string;
+  title: string;
+  phone: string;
+  website: string;
+  includeLogo: boolean;
+  layout: SignatureTemplateLayout;
+}
+
+function decodeText(value: string): string {
+  return value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+}
+
+/**
+ * Reads a stored signature back into the fields that produced it.
+ *
+ * Only the operator's job title has no home on the `users` row, so without
+ * this the builder would reopen prefilled from the profile and quietly drop
+ * the title — and the phone and website — on the next save. Returns null when
+ * the stored content was not rendered by this template (a legacy pasted
+ * signature, or a provider import), which is the signal to fall back to the
+ * profile defaults.
+ */
+export function describeSignatureTemplate(input: {
+  html: string;
+  text: string;
+  companyName: string;
+}): DescribedSignatureTemplate | null {
+  const lines = input.text
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const companyName = input.companyName.trim();
+  if (lines.length === 0 || !companyName) return null;
+
+  const [name, identity, ...rest] = lines;
+  if (rest.length > 2) return null;
+
+  let title = "";
+  if (identity !== undefined) {
+    const suffix = `, ${companyName}`;
+    if (identity === companyName) {
+      title = "";
+    } else if (identity.endsWith(suffix)) {
+      title = identity.slice(0, -suffix.length);
+    } else {
+      // Some other signature's shape. Guessing would put a company name in the
+      // title field, so report nothing rather than something wrong.
+      return null;
+    }
+  }
+
+  const anchor = input.html.match(/<a\b[^>]*>([^<]*)<\/a>/i);
+  const website = anchor ? decodeText(anchor[1]).trim() : "";
+  const phone = rest.find((line) => line !== website) ?? "";
+
+  const includeLogo = /<img\b/i.test(input.html);
+  const layout: SignatureTemplateLayout =
+    includeLogo && !/<table\b/i.test(input.html) ? "stacked" : "logo-left";
+
+  return { name, title, phone, website, includeLogo, layout };
+}

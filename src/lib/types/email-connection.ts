@@ -161,6 +161,8 @@ export interface UpdateEmailConnection {
   opsLabelId?: string;
   aiReviewEnabled?: boolean;
   aiMemoryEnabled?: boolean;
+  /** Null clears the setting and restores the server-owned default subject. */
+  outreachSubject?: string | null;
   status?: EmailConnectionStatus;
   /**
    * Persisted after a provider token refresh. Sync-path callers must update

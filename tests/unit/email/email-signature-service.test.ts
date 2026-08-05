@@ -124,6 +124,22 @@ describe("effective email signatures", () => {
     expect(first.hash).toMatch(/^[a-f0-9]{64}$/);
   });
 
+  it("keeps an authored plain-text mirror instead of flattening the HTML", () => {
+    // A table-based card flattens to one run-on line, because only block tags
+    // become newlines. When the caller knows the real line breaks, they win.
+    const derived = createEmailSignatureContent({
+      html: "<table><tbody><tr><td>Jackson Sweet</td><td>OPS</td></tr></tbody></table>",
+    });
+    const authored = createEmailSignatureContent({
+      html: "<table><tbody><tr><td>Jackson Sweet</td><td>OPS</td></tr></tbody></table>",
+      text: "Jackson Sweet\nOwner, OPS",
+    });
+
+    expect(derived.text).not.toContain("\n");
+    expect(authored.text).toBe("Jackson Sweet\nOwner, OPS");
+    expect(authored.hash).not.toBe(derived.hash);
+  });
+
   it("prefers operator OPS, then mailbox OPS, then the exact provider identity", () => {
     const provider = signatureRow();
     const mailbox = signatureRow({
