@@ -8,6 +8,7 @@ import type {
   EmailSignatureScope,
   EmailSignatureSettingsResponse,
   SaveEmailIdentityInput,
+  UploadSignatureLogoInput,
 } from "@/lib/types/email-signature";
 import { authedFetch } from "@/lib/utils/authed-fetch";
 
@@ -86,6 +87,34 @@ async function confirmImportedEmailSignature(
   return response.json();
 }
 
+async function uploadSignatureLogo(
+  input: UploadSignatureLogoInput
+): Promise<EmailSignatureSettingsResponse> {
+  const response = await authedFetch(SIGNATURE_ROUTE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...input, action: "upload_signature_logo" }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Failed to upload the logo"));
+  }
+  return response.json();
+}
+
+async function clearSignatureLogo(
+  scope: EmailSignatureScope
+): Promise<EmailSignatureSettingsResponse> {
+  const response = await authedFetch(SIGNATURE_ROUTE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...scope, action: "clear_signature_logo" }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Failed to remove the logo"));
+  }
+  return response.json();
+}
+
 async function importProviderEmailSignature(
   scope: EmailSignatureScope
 ): Promise<EmailSignatureSettingsResponse> {
@@ -158,6 +187,47 @@ export function useConfirmImportedEmailSignature() {
 
   return useMutation({
     mutationFn: confirmImportedEmailSignature,
+    onSuccess: (data, scope) => {
+      queryClient.setQueryData(
+        queryKeys.emailSignatures.detail(
+          scope.companyId,
+          scope.userId,
+          scope.connectionId
+        ),
+        data
+      );
+    },
+  });
+}
+
+/**
+ * Both logo mutations answer with the whole settings state, so the card's
+ * preview redraws off the server's own resolution rather than a local guess at
+ * which mark won.
+ */
+export function useUploadSignatureLogo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: uploadSignatureLogo,
+    onSuccess: (data, input) => {
+      queryClient.setQueryData(
+        queryKeys.emailSignatures.detail(
+          input.companyId,
+          input.userId,
+          input.connectionId
+        ),
+        data
+      );
+    },
+  });
+}
+
+export function useClearSignatureLogo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: clearSignatureLogo,
     onSuccess: (data, scope) => {
       queryClient.setQueryData(
         queryKeys.emailSignatures.detail(

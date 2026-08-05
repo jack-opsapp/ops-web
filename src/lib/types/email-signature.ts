@@ -51,8 +51,12 @@ export interface EmailSignatureSettingsResponse {
   /** When the operator last stood behind this identity. Null gates outreach. */
   confirmedAt: string | null;
   outreachSubject: string | null;
-  /** Null hides the logo control entirely — there is nothing to toggle. */
+  /** The company record's mark. Null and no uploaded mark hides the logo
+   *  control entirely — there is nothing to toggle. */
   companyLogoUrl: string | null;
+  /** The mark uploaded for this mailbox's signature. Beats the company logo
+   *  wherever the signature renders. */
+  signatureLogoUrl: string | null;
   fields: EmailIdentityFields;
 }
 
@@ -105,6 +109,17 @@ export interface SaveEmailIdentityInput extends EmailSignatureScope {
   outreachSubject?: string | null;
   /** Legacy freeform save, kept working for anything still calling it. */
   opsText?: string;
+}
+
+/**
+ * A custom signature mark, sent as bytes rather than a URL. The server stores
+ * it and owns the address — nothing a caller says can end up as an `<img src>`
+ * in outbound mail.
+ */
+export interface UploadSignatureLogoInput extends EmailSignatureScope {
+  /** Base64, with or without its data-url wrapper. */
+  data: string;
+  contentType: string;
 }
 
 /** @deprecated Superseded by {@link SaveEmailIdentityInput}. */

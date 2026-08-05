@@ -16,6 +16,7 @@ const {
   identityRowsMock,
   hasConfirmedIdentityMock,
   resolveIdentityNotificationMock,
+  storeImageObjectMock,
 } = vi.hoisted(() => ({
   getConnectionMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -31,6 +32,11 @@ const {
   identityRowsMock: vi.fn(),
   hasConfirmedIdentityMock: vi.fn(),
   resolveIdentityNotificationMock: vi.fn(),
+  storeImageObjectMock: vi.fn(),
+}));
+
+vi.mock("@/lib/s3/store-image", () => ({
+  storeImageObject: storeImageObjectMock,
 }));
 
 vi.mock("@/lib/notifications/email-identity-confirmation", () => ({
@@ -148,6 +154,10 @@ beforeEach(() => {
   resolveIdentityNotificationMock.mockResolvedValue(undefined);
   saveOpsMock.mockResolvedValue({});
   updateConnectionMock.mockResolvedValue({});
+  storeImageObjectMock.mockResolvedValue({
+    ok: true,
+    url: "https://files.example.com/email-signatures/company-1/mark.png",
+  });
   identityRowsMock.mockImplementation((table: string) =>
     table === "companies"
       ? {
@@ -700,5 +710,162 @@ describe("email identity settings", () => {
     expect(confirm.status).toBe(403);
     expect(updateConnectionMock).not.toHaveBeenCalled();
     expect(saveOpsMock).not.toHaveBeenCalled();
+  });
+});
+
+const STORED_LOGO = "https://files.example.com/email-signatures/company-1/mark.png";
+
+function pngPayload(): string {
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.alloc(64),
+  ]).toString("base64");
+}
+
+describe("custom signature logo", () => {
+  beforeEach(() => {
+    getConnectionMock.mockResolvedValue(ownConnection);
+  });
+
+  it("stores the uploaded mark and hands back the mailbox's new state", async () => {
+    const response = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: pngPayload(),
+        contentType: "image/png",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(storeImageObjectMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentType: "image/png",
+        extension: "png",
+        folder: "email-signatures",
+        companyId: "company-1",
+      })
+    );
+    expect(updateConnectionMock).toHaveBeenCalledWith("connection-1", {
+      signatureLogoUrl: STORED_LOGO,
+    });
+    expect(await response.json()).toMatchObject({
+      signatureLogoUrl: STORED_LOGO,
+      companyLogoUrl: "https://cdn.example.com/canpro.png",
+    });
+  });
+
+  it("takes the payload with its data-url wrapper attached", async () => {
+    const response = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: `data:image/png;base64,${pngPayload()}`,
+        contentType: "image/png",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(storeImageObjectMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores nothing when the bytes are not the image they claim to be", async () => {
+    const response = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: Buffer.from("<svg onload=alert(1)></svg>").toString("base64"),
+        contentType: "image/png",
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "That file is not a PNG image",
+    });
+    expect(storeImageObjectMock).not.toHaveBeenCalled();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("reports a storage failure instead of pointing the signature at nothing", async () => {
+    storeImageObjectMock.mockResolvedValue({
+      ok: false,
+      error: "Folder references a different company",
+    });
+
+    const response = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: pngPayload(),
+        contentType: "image/png",
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("reverts to the company logo without deleting what was stored", async () => {
+    getConnectionMock.mockResolvedValue({
+      ...ownConnection,
+      signatureLogoUrl: STORED_LOGO,
+    });
+
+    const response = await POST(
+      jsonRequest("POST", { action: "clear_signature_logo" })
+    );
+
+    expect(response.status).toBe(200);
+    // Null the column, keep the object: mail already sent still points at it.
+    expect(updateConnectionMock).toHaveBeenCalledWith("connection-1", {
+      signatureLogoUrl: null,
+    });
+    expect(await response.json()).toMatchObject({ signatureLogoUrl: null });
+  });
+
+  it("signs with the uploaded mark over the company logo", async () => {
+    getConnectionMock.mockResolvedValue({
+      ...ownConnection,
+      signatureLogoUrl: STORED_LOGO,
+    });
+
+    await PUT(
+      jsonRequest("PUT", {
+        fields: { name: "Jackson Sweet", companyName: "Canpro" },
+        includeLogo: true,
+      })
+    );
+
+    const saved = saveOpsMock.mock.calls[0][0];
+    expect(saved.html).toContain(STORED_LOGO);
+    expect(saved.html).not.toContain("cdn.example.com");
+  });
+
+  it("reports the uploaded mark on read", async () => {
+    getConnectionMock.mockResolvedValue({
+      ...ownConnection,
+      signatureLogoUrl: STORED_LOGO,
+    });
+
+    expect(await (await GET(getRequest())).json()).toMatchObject({
+      signatureLogoUrl: STORED_LOGO,
+    });
+  });
+
+  it("refuses logo writes on a mailbox the actor cannot manage", async () => {
+    filterAuthorizedConnectionsMock.mockResolvedValue([]);
+
+    const upload = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: pngPayload(),
+        contentType: "image/png",
+      })
+    );
+    const clear = await POST(
+      jsonRequest("POST", { action: "clear_signature_logo" })
+    );
+
+    expect(upload.status).toBe(403);
+    expect(clear.status).toBe(403);
+    expect(storeImageObjectMock).not.toHaveBeenCalled();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
   });
 });

@@ -20,7 +20,9 @@ import {
   describeSignatureTemplate,
   renderSignatureTemplate,
 } from "@/lib/email/signature-template";
+import { decodeImageUploadPayload } from "@/lib/images/image-upload-payload";
 import { resolveEmailIdentityConfirmationNotification } from "@/lib/notifications/email-identity-confirmation";
+import { storeImageObject } from "@/lib/s3/store-image";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import type { EmailConnection } from "@/lib/types/email-connection";
@@ -36,6 +38,9 @@ interface SignatureScope {
   userId: string;
   connectionId: string;
 }
+
+/** Company-scoped by the storage layer; the prefix is only for legibility. */
+const SIGNATURE_LOGO_FOLDER = "email-signatures";
 
 function requiredText(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -131,6 +136,15 @@ function mailboxBusyResponse(): NextResponse {
     { error: "Mailbox is busy. Try again in a few minutes." },
     { status: 409 }
   );
+}
+
+/**
+ * The mark this mailbox signs with. An operator who uploaded one has said, by
+ * uploading it, that it beats whatever the company record carries — the
+ * company logo is the fallback, not the winner.
+ */
+function signatureLogoUrl(connection: EmailConnection): string | null {
+  return connection.signatureLogoUrl?.trim() || null;
 }
 
 function signatureScope(actor: EmailRouteActor, connectionId: string) {
@@ -243,20 +257,23 @@ async function loadResponse(
     confirmedAt: confirmed?.confirmedAt ?? null,
     outreachSubject: connection.outreachSubject?.trim() || null,
     companyLogoUrl: defaults.companyLogoUrl,
+    signatureLogoUrl: signatureLogoUrl(connection),
     fields: identityFields({ defaults, saved: ops }),
   };
 }
 
 /**
  * Renders the operator's structured fields into the one OPS template. The
- * logo is taken from the company record, never from the request, so no caller
- * can plant a remote image in an outbound signature.
+ * logo is taken from what this mailbox has stored — the uploaded signature
+ * mark, else the company record — never from the request, so no caller can
+ * plant a remote image in an outbound signature.
  */
 async function saveStructuredSignature(input: {
   scope: SignatureScope;
   fields: Record<string, unknown>;
   includeLogo: boolean;
   layout: EmailSignatureLayout;
+  signatureLogoUrl: string | null;
 }): Promise<{ error: string } | null> {
   const name = optionalText(input.fields.name);
   if (!name) return { error: "A name is required" };
@@ -269,7 +286,9 @@ async function saveStructuredSignature(input: {
       optionalText(input.fields.companyName) || defaults.companyName,
     phone: optionalText(input.fields.phone),
     website: optionalText(input.fields.website),
-    logoUrl: input.includeLogo ? defaults.companyLogoUrl : null,
+    logoUrl: input.includeLogo
+      ? (input.signatureLogoUrl ?? defaults.companyLogoUrl)
+      : null,
     layout: input.layout,
   });
 
@@ -399,6 +418,7 @@ export async function PUT(request: NextRequest) {
           fields,
           includeLogo: body?.includeLogo === true,
           layout: signatureLayout(body?.layout),
+          signatureLogoUrl: signatureLogoUrl(connection),
         });
         if (failure) return NextResponse.json(failure, { status: 400 });
         identityConfirmed = true;
@@ -469,10 +489,13 @@ export async function POST(request: NextRequest) {
   > | null;
   const connectionId = requiredText(body?.connectionId);
   const action = body?.action;
-  if (
-    !connectionId ||
-    (action !== "import_provider" && action !== "confirm_imported")
-  ) {
+  const actions = [
+    "import_provider",
+    "confirm_imported",
+    "upload_signature_logo",
+    "clear_signature_logo",
+  ];
+  if (!connectionId || typeof action !== "string" || !actions.includes(action)) {
     return NextResponse.json(
       { error: "Invalid signature action" },
       { status: 400 }
@@ -500,6 +523,57 @@ export async function POST(request: NextRequest) {
         return forbiddenConnectionResponse();
       }
       const scope = signatureScope(actorResult.actor, connection.id);
+
+      if (action === "upload_signature_logo") {
+        // The bytes come through OPS rather than straight to storage: the
+        // bucket refuses cross-origin PUTs, and a caller-supplied URL would be
+        // a remote image OPS then embeds in the operator's outbound mail.
+        const decoded = decodeImageUploadPayload({
+          data: body?.data,
+          contentType: body?.contentType,
+        });
+        if (!decoded.ok) {
+          return NextResponse.json({ error: decoded.error }, { status: 400 });
+        }
+
+        const stored = await storeImageObject({
+          buffer: decoded.buffer,
+          contentType: decoded.contentType,
+          extension: decoded.extension,
+          folder: SIGNATURE_LOGO_FOLDER,
+          companyId: scope.companyId,
+        });
+        if (!stored.ok) {
+          return NextResponse.json({ error: stored.error }, { status: 400 });
+        }
+
+        await EmailConnectionService.updateConnection(scope.connectionId, {
+          signatureLogoUrl: stored.url,
+        });
+        return NextResponse.json(
+          await loadResponse(
+            scope,
+            { ...connection, signatureLogoUrl: stored.url },
+            { refreshProviderIfMissing: false }
+          )
+        );
+      }
+
+      if (action === "clear_signature_logo") {
+        // The column goes null; the object stays. Mail already sent still
+        // points at it, and a broken image in a customer's inbox is a worse
+        // trade than an orphaned file.
+        await EmailConnectionService.updateConnection(scope.connectionId, {
+          signatureLogoUrl: null,
+        });
+        return NextResponse.json(
+          await loadResponse(
+            scope,
+            { ...connection, signatureLogoUrl: null },
+            { refreshProviderIfMissing: false }
+          )
+        );
+      }
 
       if (action === "confirm_imported") {
         const rows = await EmailSignatureService.listActive({
