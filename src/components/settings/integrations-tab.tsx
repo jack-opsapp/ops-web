@@ -263,18 +263,19 @@ export function IntegrationsTab() {
   const [justConnected, setJustConnected] = useState(false);
 
   useEffect(() => {
+    // `status` alone, never `tab`: the settings shell canonicalizes the OAuth
+    // callback's legacy `?tab=integrations` to `?section=email` before this tab
+    // is ever mounted, so a `tab` check here reads an already-rewritten URL and
+    // never fires. This tab only renders inside the email section anyway.
     const params = new URLSearchParams(window.location.search);
-    if (
-      params.get("tab") === "integrations" &&
-      params.get("status") === "connected"
-    ) {
+    if (params.get("status") === "connected") {
       toast.success(t("integrations.toast.gmailConnected"));
       setJustConnected(true);
       // Auto-open the wizard for first-time connection
       if (params.get("firstConnect") === "true") {
         setWizardOpen(true);
       }
-      window.history.replaceState({}, "", "/settings?tab=integrations");
+      window.history.replaceState({}, "", "/settings?section=email");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once on mount
   }, []);

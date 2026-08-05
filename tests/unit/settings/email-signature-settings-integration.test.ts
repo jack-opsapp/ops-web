@@ -31,6 +31,14 @@ describe("ProfileTab email signature placement", () => {
     expect(integrationsSource).not.toContain("signatureConnections.map");
   });
 
+  it("reads the connect round-trip from the param the shell does not rewrite", () => {
+    // The shell canonicalizes `?tab=integrations` → `?section=email` before this
+    // tab mounts, so a `tab` check here would never see the connect.
+    expect(integrationsSource).toContain('params.get("status") === "connected"');
+    expect(integrationsSource).not.toContain('params.get("tab") === "integrations"');
+    expect(integrationsSource).toContain('"/settings?section=email"');
+  });
+
   it("asks for the sender identity after a connect, behind the import wizard", () => {
     expect(integrationsSource).toContain("<SenderIdentityConnectStep");
     // Two setups must not compete for the same moment: the import wizard runs
