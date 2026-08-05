@@ -7092,6 +7092,7 @@ export type Database = {
           outreach_subject: string | null
           provider: string
           refresh_token: string
+          signature_logo_url: string | null
           status: string
           sync_enabled: boolean
           sync_filters: Json
@@ -7128,6 +7129,7 @@ export type Database = {
           outreach_subject?: string | null
           provider?: string
           refresh_token: string
+          signature_logo_url?: string | null
           status?: string
           sync_enabled?: boolean
           sync_filters?: Json
@@ -7164,6 +7166,7 @@ export type Database = {
           outreach_subject?: string | null
           provider?: string
           refresh_token?: string
+          signature_logo_url?: string | null
           status?: string
           sync_enabled?: boolean
           sync_filters?: Json
