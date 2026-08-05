@@ -254,6 +254,35 @@ FIRST investigate how the app already uploads/stores the COMPANY logo (find the 
 ### Task C5: Sweep
 `custom-skills:audit-design-system` (zero hardcoded values), full `npx vitest run`, `npx tsc --noEmit`, lint on touched files, screenshots to `docs/artifacts/sender-identity/` (upload state, custom logo in confirmed card, before/after of a white-background logo). Known pre-existing flakes: sendgrid-onboarding-jack timeouts, openai-quota-alert wall-clock. Commit fixes atomically.
 
+## Workstream D — Subject template variables (2026-08-05, Jackson-requested; AFTER C — same card)
+
+> Continue on `feat/signature-logo-studio` (C is complete on it; both features ship as one release). **Skills:** `custom-skills:executing-plans`, `ops-design`, `frontend-design:frontend-design`, `custom-skills:interface-design`, `ops-copywriter:ops-copywriter`; `custom-skills:audit-design-system` final gate.
+
+**Locked decisions (Jackson):** the operator's `outreach_subject` may contain optional tokens — exposed set exactly `{name}` `{address}` `{project}` `{email}` — filled per-lead when the first-reply draft is generated. Example: `Canpro Deck and Rail Estimate - {address}` → "Canpro Deck and Rail Estimate - 2394 Tanner Ridge Place"; a lead with no fillable value gets the token removed ALONG WITH its dangling separator ("… Estimate", never "… Estimate - "). A literal `{…}` must never reach a customer.
+
+**Verified facts:** `learnedNewThreadSubjectFromPreferences` in `src/lib/email/email-subject-policy.ts` ALREADY implements token filling (`LearnedSubjectContext` carries contact/company/address/project/email/number), and `ai-draft-service.ts` already threads that exact context (`subjectContactName`, `recipientCompany`, `opportunityAddress`, `opportunityTitle`, `clientEmail`) to the subject-derivation block (~line 1701). D is a FACTORING + EXPOSURE job, not new machinery. Upstream enrichment rejects locality-only addresses, so `{address}` only fills with a real street address.
+
+### Task D1: Token filling for configured subjects (policy module)
+**Files:** `src/lib/email/email-subject-policy.ts` + its test file.
+1. Factor the fill logic into an exported pure `fillSubjectTemplate(template: string, context: LearnedSubjectContext): string`:
+   - Recognized tokens: `{name}` (maps to `context.contact`), `{address}`, `{project}`, `{email}`. Case-insensitive token names; unknown tokens are treated as unfillable (removed with their separator) — never left literal.
+   - Unfillable-token removal: drop the token plus ONE adjacent separator run (whitespace + one of `- – — · , : |` + whitespace), preferring the separator BEFORE the token; then collapse doubled whitespace and trim stray leading/trailing separators. Property: for any template and any context, the output contains no `{` or `}`.
+   - A template with NO tokens returns unchanged (byte-identical).
+2. Rework `learnedNewThreadSubjectFromPreferences` to use the same helper where equivalent (only if genuinely equivalent — its "pattern must be fillable ENTIRELY" precondition is different semantics; do NOT weaken it. If sharing forces contortions, keep them separate and note it).
+3. In `ai-draft-service.ts` subject derivation: run the resolved `configuredSubject` through `fillSubjectTemplate` with the already-threaded context BEFORE `chooseNewThreadSubject`; `subject_source` stays `"configured"`. A configured subject that becomes empty after filling (pathological all-token template) falls through to the next candidate.
+4. TDD: Jackson's example with address; same template with no address (clean removal, no dangling dash); `{name}` fill; unknown token `{foo}` removed; separator-after variant ("{address} — X Estimate"); no-token template byte-identical; property check on a small fuzz set (no braces in output). Plus one ai-draft-service-level test: configured subject with token → history row records the filled subject, `subject_source: "configured"`.
+Commit: `feat(email): per-lead template variables in the outreach subject`.
+
+### Task D2: Settings card — token chips + example line
+**Files:** `src/components/settings/email-signature-settings.tsx`, dictionaries en+es, component tests.
+- Under the FIRST REPLY SUBJECT input: four chips (`[name]` `[address]` `[project]` `[email]`, chip radius token, mono micro type) that insert the token at the cursor (or append when unfocused); copy via ops-copywriter.
+- One muted example line beneath, shown ONLY when the subject contains ≥1 token: the subject resolved through the REAL `fillSubjectTemplate` with fixed sample context (e.g. name "Sam Carter", address "2210 Cedar Hill Rd", project "Rear deck rebuild", email sample) — prefix per voice, e.g. `[example: …]`.
+- Tests: chip insert at cursor; example renders through the real fill function; example hidden with no tokens; unfillable-sample never shows braces.
+Commit: `feat(settings): subject variable chips with live example`.
+
+### Task D3: Sweep
+`custom-skills:audit-design-system`, full `npx vitest run`, `npx tsc --noEmit`, lint-on-touched, screenshots to `docs/artifacts/sender-identity/` (chips + example line, filled and fallback states). Known flakes per prior waves. Commit fixes atomically.
+
 ## Verification phase (session owner, not executors)
 
 1. Full suite + tsc green in the worktree; diff review of every commit.
