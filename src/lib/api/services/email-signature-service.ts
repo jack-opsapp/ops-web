@@ -668,6 +668,46 @@ export function emailSignatureHtmlToText(html: string): string {
   return htmlToPlainText(sanitizeEmailSignatureHtml(html));
 }
 
+// ── Signature style allowlist ──────────────────────────────────────────────
+// A signature is the one place OPS stores third-party HTML and re-emits it
+// into someone else's inbox, so style values are matched against explicit
+// shapes rather than merely scanned for bad substrings. Nothing here can
+// fetch (`url()`), compute (`calc()`, `expression()`), or lift an element out
+// of flow (`position`) — those properties and value forms simply never match.
+
+/** `12px` / `0.5rem` / `100%` / bare `0`. Never negative, never a function. */
+const CSS_LENGTH = String.raw`\d+(?:\.\d+)?(?:px|pt|em|rem|%)?`;
+/** CSS box shorthand: one to four lengths (`10px`, `0 0 0 14px`). */
+const CSS_BOX_SHORTHAND = new RegExp(
+  `^${CSS_LENGTH}(?:\\s+${CSS_LENGTH}){0,3}$`,
+  "i"
+);
+const CSS_SINGLE_LENGTH = new RegExp(`^${CSS_LENGTH}$`, "i");
+/** `1px solid #6b6b6b` — a width, a named style, and a hex color. Or `none`. */
+const CSS_BORDER = [
+  /^none$/i,
+  /^\d+(?:\.\d+)?(?:px|pt|em|rem)\s+(?:solid|dashed|dotted|double)\s+#[0-9a-f]{3,8}$/i,
+];
+
+const SIGNATURE_BOX_STYLES: Record<string, RegExp[]> = {
+  padding: [CSS_BOX_SHORTHAND],
+  "padding-top": [CSS_SINGLE_LENGTH],
+  "padding-right": [CSS_SINGLE_LENGTH],
+  "padding-bottom": [CSS_SINGLE_LENGTH],
+  "padding-left": [CSS_SINGLE_LENGTH],
+  margin: [CSS_BOX_SHORTHAND],
+  "margin-top": [CSS_SINGLE_LENGTH],
+  "margin-right": [CSS_SINGLE_LENGTH],
+  "margin-bottom": [CSS_SINGLE_LENGTH],
+  "margin-left": [CSS_SINGLE_LENGTH],
+  border: CSS_BORDER,
+  "border-top": CSS_BORDER,
+  "border-right": CSS_BORDER,
+  "border-bottom": CSS_BORDER,
+  "border-left": CSS_BORDER,
+  "max-width": [CSS_SINGLE_LENGTH],
+};
+
 export function sanitizeEmailSignatureHtml(html: string): string {
   return sanitizeHtml(html, {
     allowedTags: [...sanitizeHtml.defaults.allowedTags, "img"],
@@ -699,6 +739,7 @@ export function sanitizeEmailSignatureHtml(html: string): string {
         "white-space": [/^(?:normal|nowrap|pre|pre-wrap)$/i],
         width: [/^\d+(?:\.\d+)?(?:px|pt|em|rem|%)$/i],
         height: [/^\d+(?:\.\d+)?(?:px|pt|em|rem|%)$/i],
+        ...SIGNATURE_BOX_STYLES,
       },
     },
     transformTags: {

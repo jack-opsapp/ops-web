@@ -73,6 +73,41 @@ describe("email signature HTML", () => {
     expect(result).not.toContain("position");
     expect(result).not.toContain("onerror");
   });
+
+  it("keeps the box properties a card layout is built from", () => {
+    const result = sanitizeEmailSignatureHtml(
+      '<table><tbody><tr><td style="padding-right: 14px; border-right: 1px solid #6b6b6b">' +
+        '<img src="https://cdn.example.com/logo.png" alt="OPS" width="96" ' +
+        'style="max-width: 96px"></td>' +
+        '<td style="padding: 0 0 0 14px"><div style="padding-top: 10px; ' +
+        'padding-bottom: 4px; border-top: 1px solid #dddddd; margin-top: 6px">' +
+        "Jackson</div></td></tr></tbody></table>"
+    );
+
+    expect(result).toContain("padding-right:14px");
+    expect(result).toContain("border-right:1px solid #6b6b6b");
+    expect(result).toContain("max-width:96px");
+    expect(result).toContain("padding:0 0 0 14px");
+    expect(result).toContain("padding-top:10px");
+    expect(result).toContain("padding-bottom:4px");
+    expect(result).toContain("border-top:1px solid #dddddd");
+    expect(result).toContain("margin-top:6px");
+  });
+
+  it("refuses style values that can fetch, escape, or overlay", () => {
+    const result = sanitizeEmailSignatureHtml(
+      '<div style="padding-left: expression(alert(1)); ' +
+        "border-right: 1px solid url(https://tracker.example.com/p.gif); " +
+        "max-width: calc(100% - 10px); margin: -400px; " +
+        'position: absolute">Jackson</div>'
+    );
+
+    // `!important` is deliberately not asserted on: sanitize-html evaluates the
+    // declaration value without the flag and re-emits it, for every allowed
+    // property alike. It unlocks no property the allowlist forbids, so the
+    // threat model is unchanged — and this predates the box-property support.
+    expect(result).toBe("<div>Jackson</div>");
+  });
 });
 
 describe("effective email signatures", () => {
