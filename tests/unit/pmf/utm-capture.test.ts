@@ -13,6 +13,8 @@ import {
   readCookieFirstTouch,
   writeCookieFirstTouch,
   captureOnLanding,
+  parseFirstTouchValue,
+  readServerFirstTouch,
   type FirstTouch,
 } from "@/lib/pmf/utm-capture";
 
@@ -287,5 +289,161 @@ describe("captureOnLanding", () => {
     const second = readCookieFirstTouch();
     expect(second!.utm_source).toBe("google");
     expect(second!.utm_medium).toBe("cpc");
+  });
+});
+
+// ─── Server-side reader (Attribution capture P2) ─────────────────────────────
+
+describe("parseFirstTouchValue", () => {
+  it("parses a valid encoded payload", () => {
+    const raw = encodeURIComponent(
+      JSON.stringify({
+        utm_source: "google",
+        gclid: "abc123",
+        captured_at: "2026-08-06T00:00:00.000Z",
+      })
+    );
+    const parsed = parseFirstTouchValue(raw);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.utm_source).toBe("google");
+    expect(parsed!.gclid).toBe("abc123");
+  });
+
+  it("returns null for malformed JSON", () => {
+    expect(parseFirstTouchValue("%7Bnot-json")).toBeNull();
+  });
+
+  it("returns null for a JSON array", () => {
+    expect(parseFirstTouchValue(encodeURIComponent(JSON.stringify([1, 2])))).toBeNull();
+  });
+
+  it("coerces non-string fields to undefined", () => {
+    const raw = encodeURIComponent(JSON.stringify({ utm_source: 123, utm_medium: "cpc" }));
+    const parsed = parseFirstTouchValue(raw);
+    expect(parsed!.utm_source).toBeUndefined();
+    expect(parsed!.utm_medium).toBe("cpc");
+  });
+
+  it("truncates oversized values rather than storing unbounded text", () => {
+    const raw = encodeURIComponent(JSON.stringify({ utm_campaign: "x".repeat(1000) }));
+    expect(parseFirstTouchValue(raw)!.utm_campaign!.length).toBe(512);
+  });
+});
+
+describe("readServerFirstTouch", () => {
+  function header(...touches: Array<Record<string, unknown>>): string {
+    return touches
+      .map((t) => `${COOKIE}=${encodeURIComponent(JSON.stringify(t))}`)
+      .join("; ");
+  }
+
+  it("reads the cookie from a raw Cookie header", () => {
+    const h = header({ utm_source: "meta", captured_at: "2026-08-06T00:00:00.000Z" });
+    expect(readServerFirstTouch(h)!.utm_source).toBe("meta");
+  });
+
+  it("returns null when the cookie is absent", () => {
+    expect(readServerFirstTouch("other=1; another=2")).toBeNull();
+  });
+
+  it("returns null for a null/empty header", () => {
+    expect(readServerFirstTouch(null)).toBeNull();
+    expect(readServerFirstTouch("")).toBeNull();
+  });
+
+  it("ignores cookies whose name merely ends with the cookie name", () => {
+    const h = `not__ops_first_touch=${encodeURIComponent(JSON.stringify({ utm_source: "bad" }))}`;
+    expect(readServerFirstTouch(h)).toBeNull();
+  });
+
+  it("picks the EARLIEST captured_at when a host-only and a domain cookie coexist", () => {
+    // A host-only app.opsapp.co cookie and a .opsapp.co cookie can both be
+    // sent. First-touch semantics must not depend on browser ordering.
+    const h = header(
+      { utm_source: "later", captured_at: "2026-08-06T12:00:00.000Z" },
+      { utm_source: "earlier", captured_at: "2026-08-01T09:00:00.000Z" }
+    );
+    expect(readServerFirstTouch(h)!.utm_source).toBe("earlier");
+  });
+
+  it("skips malformed duplicates and still returns the valid one", () => {
+    const good = encodeURIComponent(JSON.stringify({ utm_source: "google", captured_at: "2026-08-02T00:00:00.000Z" }));
+    const h = `${COOKIE}=%7Bbroken; ${COOKIE}=${good}`;
+    expect(readServerFirstTouch(h)!.utm_source).toBe("google");
+  });
+});
+
+describe("readServerFirstTouch — ops_attribution (marketing-site cookie)", () => {
+  const SITE_COOKIE = "ops_attribution";
+
+  function siteCookie(payload: Record<string, unknown>): string {
+    return `${SITE_COOKIE}=${encodeURIComponent(JSON.stringify(payload))}`;
+  }
+
+  it("reads the marketing-site cookie, mapping first_touch_at to captured_at", () => {
+    // ops-site writes `ops_attribution` (with first_touch_at); ops-web's own
+    // client writes `__ops_first_touch` (with captured_at). Most real traffic
+    // arrives with ONLY the marketing-site cookie, so missing this name would
+    // leave nearly every signup unattributed.
+    const touch = readServerFirstTouch(
+      siteCookie({
+        utm_source: "google",
+        gclid: "Cj0KCQ",
+        landing_url: "/plans?utm_source=google",
+        first_touch_at: "2026-08-06T00:00:00.000Z",
+      })
+    );
+    expect(touch).not.toBeNull();
+    expect(touch!.utm_source).toBe("google");
+    expect(touch!.gclid).toBe("Cj0KCQ");
+    expect(touch!.landing_url).toBe("/plans?utm_source=google");
+    expect(touch!.captured_at).toBe("2026-08-06T00:00:00.000Z");
+  });
+
+  it("prefers the EARLIEST touch when both cookies are present", () => {
+    const header = [
+      `${COOKIE}=${encodeURIComponent(
+        JSON.stringify({ utm_source: "app-direct", captured_at: "2026-08-06T12:00:00.000Z" })
+      )}`,
+      siteCookie({ utm_source: "site-first", first_touch_at: "2026-08-01T09:00:00.000Z" }),
+    ].join("; ");
+    expect(readServerFirstTouch(header)!.utm_source).toBe("site-first");
+  });
+
+  it("ignores a malformed marketing-site cookie", () => {
+    expect(readServerFirstTouch(`${SITE_COOKIE}=%7Bbroken`)).toBeNull();
+  });
+});
+
+describe("readServerFirstTouch — double-encoded marketing-site cookie", () => {
+  // REGRESSION: ops-site writes with encodeURIComponent AND NextResponse.cookies.set
+  // encodes again, so the wire value is DOUBLE percent-encoded. ops-site round-trips
+  // fine (its request parser decodes once, its own code decodes again), but this
+  // reader parses the RAW Cookie header — a single decode leaves '%7B%22...' and
+  // JSON.parse throws, silently yielding zero attribution for every web signup.
+  //
+  // The literal below is copied verbatim from the real Set-Cookie header emitted
+  // by writeAttributionCookie under NODE_ENV=production.
+  const REAL_WIRE_VALUE =
+    "%257B%2522landing_url%2522%253A%2522%252Fplans%253Futm_source%253Dgoogle%2522%252C%2522first_touch_at%2522%253A%25222026-08-06T17%253A20%253A09.413Z%2522%252C%2522utm_source%2522%253A%2522google%2522%252C%2522utm_medium%2522%253A%2522cpc%2522%252C%2522gclid%2522%253A%2522Cj0KCQabc%2522%257D";
+
+  it("parses the real double-encoded value ops-site puts on the wire", () => {
+    const touch = readServerFirstTouch(`ops_attribution=${REAL_WIRE_VALUE}`);
+    expect(touch).not.toBeNull();
+    expect(touch!.utm_source).toBe("google");
+    expect(touch!.utm_medium).toBe("cpc");
+    expect(touch!.gclid).toBe("Cj0KCQabc");
+    expect(touch!.captured_at).toBe("2026-08-06T17:20:09.413Z");
+  });
+
+  it("still parses a singly-encoded value", () => {
+    const single = encodeURIComponent(
+      JSON.stringify({ utm_source: "meta", captured_at: "2026-08-06T00:00:00.000Z" })
+    );
+    expect(readServerFirstTouch(`${COOKIE}=${single}`)!.utm_source).toBe("meta");
+  });
+
+  it("still returns null for genuinely malformed values", () => {
+    expect(readServerFirstTouch(`${COOKIE}=not-json-at-all`)).toBeNull();
   });
 });
