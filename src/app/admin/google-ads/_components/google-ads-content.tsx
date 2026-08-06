@@ -10,6 +10,7 @@ import { KeywordTable } from "./keyword-table";
 import { SearchTermsTable } from "./search-terms-table";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import type { GoogleAdsPageData } from "@/lib/analytics/google-ads-types";
+import { conversionTile, SIGNUP_TILE, INSTALL_TILE } from "@/lib/admin/ads-conversion-tiles";
 import type { ChartDataPoint, DatePreset, DateRangeParams } from "@/lib/admin/types";
 
 // ─── Animation (per design system: EASE_SMOOTH, no spring/bounce) ─────────────
@@ -102,13 +103,10 @@ export function GoogleAdsContent({ initialData, initialRangeKey = "30d" }: Googl
     value: d.spend,
   }));
 
-  // Find signup CPA from conversion breakdown
-  const signupConversion = data.conversions.find(
-    (c) => c.actionName.toLowerCase().includes("signup") || c.actionName.toLowerCase().includes("sign_up") || c.actionName.toLowerCase().includes("trial")
-  );
-  const installConversion = data.conversions.find(
-    (c) => c.actionName.toLowerCase().includes("install")
-  );
+  // Collapse every signup / install conversion action into one number each.
+  const totalSpend = data.summary?.totalSpend ?? 0;
+  const signups = conversionTile(data.conversions, totalSpend, SIGNUP_TILE);
+  const installs = conversionTile(data.conversions, totalSpend, INSTALL_TILE);
 
   // Orientation when the selected window has no activity but history exists.
   const windowEmpty =
@@ -161,15 +159,15 @@ export function GoogleAdsContent({ initialData, initialRangeKey = "30d" }: Googl
         <motion.div variants={variant}>
           <StatCard
             label="Cost per Signup"
-            value={signupConversion ? `$${signupConversion.cpa.toFixed(2)}` : "\u2014"}
-            caption={signupConversion ? `${signupConversion.conversions.toFixed(0)} conversions` : "no signup data"}
+            value={signups.cpa != null ? `$${signups.cpa.toFixed(2)}` : "\u2014"}
+            caption={signups.conversions > 0 ? `${signups.conversions.toFixed(0)} signups` : "no signups this range"}
           />
         </motion.div>
         <motion.div variants={variant}>
           <StatCard
             label="Cost per Install"
-            value={installConversion ? `$${installConversion.cpa.toFixed(2)}` : "\u2014"}
-            caption={installConversion ? `${installConversion.conversions.toFixed(0)} installs` : "no install data"}
+            value={installs.cpa != null ? `$${installs.cpa.toFixed(2)}` : "\u2014"}
+            caption={installs.conversions > 0 ? `${installs.conversions.toFixed(0)} installs` : "no installs this range"}
           />
         </motion.div>
         <motion.div variants={variant}>
