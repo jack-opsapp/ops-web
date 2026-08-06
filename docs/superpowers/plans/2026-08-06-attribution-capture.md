@@ -257,59 +257,16 @@ read first-touch. Extracts the sanitize/parse step into one shared function
 
 ---
 
-## Task 3: Scope the cookie to `.opsapp.co` (ops-web)
+## Task 3: ~~Scope the ops-web cookie to `.opsapp.co`~~ — SUPERSEDED (done differently in Task 2)
 
-Without this, a cookie written on `opsapp.co` is invisible to `app.opsapp.co`, and `ops-web`'s own host-only cookie would shadow the site-written one.
+**Status: resolved during execution. No separate work item.**
 
-**Files:**
-- Modify: `src/lib/pmf/utm-capture.ts` (`writeCookieFirstTouch`)
-- Test: `tests/unit/pmf/utm-capture.test.ts`
+The plan called for `ops-web`'s client-side `writeCookieFirstTouch` to emit `Domain=.opsapp.co`. Executing it surfaced two problems:
 
-**Step 1: Write the failing tests**
+1. **It breaks the existing tests for the wrong reason.** The vitest jsdom origin is `http://localhost/` (set deliberately in `vitest.config.ts` so `localStorage` works). The existing round-trip tests override `window.location` to `app.opsapp.co`, but jsdom's cookie jar is keyed on the real document origin — so a `Domain=.opsapp.co` cookie is rejected and `readCookieFirstTouch()` returns null.
+2. **The narrower scope is actually correct.** `ops-web`'s client writer is documented as defensive-only ("most users land on the marketing site; this catches the rare case where a UTM-tagged URL hits app.opsapp.co directly"). Its cookie only ever needs to be read back by `ops-web` itself. The cross-domain handoff is entirely the **ops-site writer's** job (Task 5), which does set `Domain=.opsapp.co`. Broadening a cookie's scope without need is the wrong default.
 
-```ts
-describe("writeCookieFirstTouch domain scoping", () => {
-  it("scopes to .opsapp.co on an opsapp.co host", () => {
-    // stub document.cookie setter + window.location.hostname = "app.opsapp.co"
-    expect(written).toContain("Domain=.opsapp.co");
-  });
-
-  it("omits Domain on localhost", () => {
-    // hostname = "localhost"
-    expect(written).not.toContain("Domain=");
-  });
-});
-```
-
-Drive the hostname via a stubbed `window.location` in the test (the module reads `window.location` at call time, not import time).
-
-**Step 2: Run — expect failure.**
-
-**Step 3: Implement**
-
-```ts
-/** Cookies must be shared across opsapp.co and app.opsapp.co. A dotted Domain
- *  is invalid on localhost, so it is emitted only for real opsapp.co hosts. */
-function cookieDomainAttr(): string {
-  if (typeof window === "undefined") return "";
-  const host = window.location.hostname;
-  return host === "opsapp.co" || host.endsWith(".opsapp.co") ? "; Domain=.opsapp.co" : "";
-}
-```
-Append `${cookieDomainAttr()}` to the `document.cookie` assignment in `writeCookieFirstTouch`.
-
-**Step 4: Run — expect pass.**
-
-**Step 5: Commit**
-
-```bash
-git add src/lib/pmf/utm-capture.ts tests/unit/pmf/utm-capture.test.ts
-git commit -m "fix(attribution): scope the first-touch cookie to .opsapp.co
-
-A host-only cookie on app.opsapp.co could not see (and would shadow) the one
-the marketing site writes, silently breaking the handoff. Localhost keeps a
-host-only cookie because a dotted domain is invalid there."
-```
+**What the real risk was, and how it is handled:** a host-only cookie and a `.opsapp.co` cookie *can* coexist under the same name (user lands on `app.opsapp.co` first, later visits `opsapp.co`). A parsed cookie store surfaces only one of them, chosen by browser ordering. That is fixed properly in Task 2: `readServerFirstTouch` takes the **raw `Cookie` header**, parses every occurrence, and returns the one with the earliest `captured_at` — so first-touch is deterministic rather than ordering-dependent. Covered by the `picks the EARLIEST captured_at` and `skips malformed duplicates` tests.
 
 ---
 

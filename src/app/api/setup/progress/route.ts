@@ -11,6 +11,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { readServerFirstTouch } from "@/lib/pmf/utm-capture";
+import { recordTrialAttribution } from "@/lib/pmf/record-trial-attribution";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
 
@@ -224,6 +226,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             }
           })();
         }
+      }
+
+      // Attribution capture (Unified Attribution P2).
+      //
+      // The trial_attributions row already exists — companies_seed_trial_attribution
+      // creates one for EVERY company the moment it is inserted, on every
+      // platform. This upgrades that row with the real first-touch payload.
+      //
+      // Read server-side from the request's Cookie header rather than a client
+      // body field: the value is already travelling with the request, so there
+      // is nothing extra to send and nothing to forge independently of the
+      // cookie itself. Runs for both branches above (new company and resumed
+      // setup) and never throws.
+      if (companyId) {
+        await recordTrialAttribution(
+          db,
+          companyId,
+          readServerFirstTouch(req.headers.get("cookie"))
+        );
       }
     }
 
