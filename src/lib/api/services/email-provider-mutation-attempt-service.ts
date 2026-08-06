@@ -65,6 +65,18 @@ export interface EmailProviderMutationAcceptance {
   result: Record<string, unknown>;
 }
 
+/**
+ * Which way a positive provider read settled a quarantined attempt.
+ *
+ * `resource_exists` returns it to the normal completion path; `resource_absent`
+ * withdraws the recorded identity and releases the operation for a fresh
+ * attempt. There is deliberately no verdict for "could not tell" — that case
+ * leaves the row exactly where it is.
+ */
+export type EmailProviderMutationResolutionVerdict =
+  | "resource_exists"
+  | "resource_absent";
+
 export interface EmailProviderMutationAttemptStore {
   prepare(
     input: PrepareEmailProviderMutationAttemptInput
@@ -88,6 +100,16 @@ export interface EmailProviderMutationAttemptStore {
     error: string;
   }): Promise<EmailProviderMutationAttempt>;
   complete(attemptId: string): Promise<EmailProviderMutationAttempt>;
+  /**
+   * Lift a quarantine on the strength of a positive provider read. `evidence`
+   * is the read itself, in words, and the database refuses the call without it.
+   */
+  resolveReconciliation(input: {
+    attemptId: string;
+    verdict: EmailProviderMutationResolutionVerdict;
+    providerResourceId: string | null;
+    evidence: string;
+  }): Promise<EmailProviderMutationAttempt>;
 }
 
 export interface ExecuteEmailProviderMutationInput extends PrepareEmailProviderMutationAttemptInput {
@@ -314,6 +336,25 @@ export class SupabaseEmailProviderMutationAttemptStore implements EmailProviderM
     return this.requiredRpc("complete_email_provider_mutation_attempt", {
       p_attempt_id: attemptId,
     });
+  }
+
+  resolveReconciliation(input: {
+    attemptId: string;
+    verdict: EmailProviderMutationResolutionVerdict;
+    providerResourceId: string | null;
+    evidence: string;
+  }): Promise<EmailProviderMutationAttempt> {
+    return this.requiredRpc(
+      "resolve_email_provider_mutation_reconciliation",
+      {
+        p_attempt_id: input.attemptId,
+        p_verdict: input.verdict,
+        p_provider_resource_id: input.providerResourceId,
+        p_provider_secondary_resource_id: null,
+        p_provider_result: {},
+        p_evidence: input.evidence,
+      }
+    );
   }
 }
 
