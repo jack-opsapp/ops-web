@@ -1787,16 +1787,79 @@ describe("refreshLeadSummariesForOpportunities", () => {
     expect(supabaseRpcMock).not.toHaveBeenCalled();
   });
 
-  it("defers a model-contract omission so derived summary work cannot hold the mailbox cursor", async () => {
+  it("commits the trusted deterministic fallback after repeated conflicting stale-schedule output", async () => {
+    const scheduleDays = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+    ];
+    const activities = scheduleDays.map((day, index) =>
+      emailActivity(
+        OPP_A,
+        `2026-07-21T${String(14 + index).padStart(2, "0")}:00:00.000Z`,
+        index === 0
+          ? `The installation is confirmed for ${day}.`
+          : `The installation was rescheduled to ${day}.`,
+        "outbound"
+      )
+    );
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          correspondence_count: activities.length,
+        }),
+      ],
+    };
+    tables.activities = { rows: activities };
+    tables.opportunity_correspondence_events = {
+      rows: activities.map((activity) => correspondenceEvent(activity)),
+    };
+    openAICreateMock.mockReset();
+    openAICreateMock.mockResolvedValue(
+      modelResponse(
+        "Customer remains in the qualifying stage. The installation remains booked for Monday."
+      )
+    );
+
+    const result = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds: [OPP_A],
+      now: NOW,
+    });
+
+    expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({
+      requested: 1,
+      attempted: 1,
+      written: 1,
+      deferred: [],
+      failed: [],
+      remainingOpportunityIds: [],
+    });
+    expect(supabaseRpcMock).toHaveBeenCalledWith(
+      "commit_lead_summary_snapshot",
+      expect.objectContaining({
+        p_summary: expect.stringMatching(/schedule:.*friday/i),
+      })
+    );
+    expect(supabaseRpcMock.mock.calls.at(-1)?.[1]?.p_summary).not.toMatch(
+      /monday/i
+    );
+  });
+
+  it("terminates a non-repairable model-contract continuation when no trusted fallback exists", async () => {
     tables.opportunities = { rows: [opportunityRow()] };
+    // A non-email note is enough context to attempt a summary, but it is not
+    // authoritative deterministic commercial evidence for the fallback.
     tables.activities = {
       rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
     };
     openAICreateMock.mockReset();
     openAICreateMock.mockRejectedValue(
-      new LeadSummaryModelContractError(
-        "model omitted the current commercial schedule"
-      )
+      new LeadSummaryModelContractError("model response was empty")
     );
 
     const result = await refreshLeadSummariesForOpportunities({
@@ -1810,22 +1873,30 @@ describe("refreshLeadSummariesForOpportunities", () => {
       {
         opportunityId: OPP_A,
         error: expect.stringContaining(
-          "model omitted the current commercial schedule"
+          "deterministic fallback had no current facts"
         ),
         reason: "model_contract",
       },
     ]);
     expect(result.failed).toEqual([]);
     expect(result.written).toBe(0);
-    expect(result.remainingOpportunityIds).toEqual([OPP_A]);
+    expect(result.remainingOpportunityIds).toEqual([]);
     expect(openAICreateMock).toHaveBeenCalledTimes(2);
     expect(supabaseRpcMock).not.toHaveBeenCalled();
   });
 
-  it("defers a model refusal so derived summary work cannot hold the mailbox cursor", async () => {
-    tables.opportunities = { rows: [opportunityRow()] };
-    tables.activities = {
-      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+  it("commits the trusted deterministic fallback after a model refusal", async () => {
+    const activity = emailActivity(
+      OPP_A,
+      "2026-07-21T18:00:00.000Z",
+      "The current scope is composite decking."
+    );
+    tables.opportunities = {
+      rows: [opportunityRow({ correspondence_count: 1 })],
+    };
+    tables.activities = { rows: [activity] };
+    tables.opportunity_correspondence_events = {
+      rows: [correspondenceEvent(activity)],
     };
     openAICreateMock.mockReset();
     openAICreateMock.mockRejectedValue(new LeadSummaryModelRefusalError());
@@ -1837,18 +1908,17 @@ describe("refreshLeadSummariesForOpportunities", () => {
       now: NOW,
     });
 
-    expect(result.deferred).toEqual([
-      {
-        opportunityId: OPP_A,
-        error: expect.stringContaining("model refused summary response"),
-        reason: "model_refusal",
-      },
-    ]);
+    expect(result.deferred).toEqual([]);
     expect(result.failed).toEqual([]);
-    expect(result.written).toBe(0);
-    expect(result.remainingOpportunityIds).toEqual([OPP_A]);
+    expect(result.written).toBe(1);
+    expect(result.remainingOpportunityIds).toEqual([]);
     expect(openAICreateMock).toHaveBeenCalledTimes(1);
-    expect(supabaseRpcMock).not.toHaveBeenCalled();
+    expect(supabaseRpcMock).toHaveBeenCalledWith(
+      "commit_lead_summary_snapshot",
+      expect.objectContaining({
+        p_summary: expect.stringMatching(/composite decking/i),
+      })
+    );
   });
 
   it("routes a non-provider database write failure into failed rather than deferred", async () => {

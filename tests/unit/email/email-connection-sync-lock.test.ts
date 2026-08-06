@@ -399,6 +399,7 @@ describe("email connection sync lock", () => {
       connectionId: "connection-1",
       ownerId: "owner-1",
       historyId: "continuation-20",
+      providerSnapshotComplete: true,
       clearRecovery: false,
       context: "email-sync",
       client: supabase as never,
@@ -443,6 +444,7 @@ describe("email connection sync lock", () => {
         p_connection_id: "connection-1",
         p_owner_id: "owner-1",
         p_history_id: "continuation-20",
+        p_provider_snapshot_complete: true,
         p_clear_recovery: false,
       })
     );

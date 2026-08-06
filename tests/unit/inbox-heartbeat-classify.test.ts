@@ -25,6 +25,7 @@ function baseConn(overrides: Partial<ConnectionRow> = {}): ConnectionRow {
     webhook_subscription_id: "sub-123",
     webhook_expires_at: new Date(NOW + 48 * H).toISOString(),
     last_synced_at: new Date(NOW - 1 * H).toISOString(),
+    provider_snapshot_at: null,
     created_at: new Date(NOW - 30 * 24 * H).toISOString(),
     ...overrides,
   };
@@ -52,6 +53,27 @@ describe("classifyFailure — sync_stale blackout awareness", () => {
     const result = classifyFailure(conn, NOW);
     expect(result?.reason).toBe("sync_stale");
     expect(result?.hoursSilent).toBe(14);
+  });
+
+  it("uses fresh provider progress while derived summaries remain pending", () => {
+    const conn = baseConn({
+      last_synced_at: new Date(NOW - 72 * H).toISOString(),
+      provider_snapshot_at: new Date(NOW - 1 * H).toISOString(),
+    });
+
+    expect(classifyFailure(conn, NOW)).toBeNull();
+  });
+
+  it("reports provider staleness from the provider checkpoint when present", () => {
+    const conn = baseConn({
+      last_synced_at: new Date(NOW - 72 * H).toISOString(),
+      provider_snapshot_at: new Date(NOW - 20 * H).toISOString(),
+    });
+
+    expect(classifyFailure(conn, NOW)).toMatchObject({
+      reason: "sync_stale",
+      hoursSilent: 20,
+    });
   });
 
   it("fires just past the 13h boundary", () => {
