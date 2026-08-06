@@ -1618,3 +1618,68 @@ describe("orphaned mailbox draft cleanup sweep", () => {
     expect(updates).toEqual([]);
   });
 });
+
+describe("orphaned mailbox draft cleanup — production shapes", () => {
+  beforeEach(() => {
+    getDraftMock.mockReset();
+    deleteDraftMock.mockReset();
+    getDraftMock.mockResolvedValue({ id: "r5528848112558729074" });
+    deleteDraftMock.mockResolvedValue(undefined);
+    listKnownSignaturesMock.mockResolvedValue([]);
+  });
+
+  it("deletes an orphan whose object was re-pointed away from older superseded rows", async () => {
+    // Real shape on draft r5528848112558729074: three histories share the
+    // object, and the two older ones are bare `superseded`. Ownership is what
+    // decides — the newest row carries the receipt, so the object is an orphan.
+    const owner = {
+      id: "53e09e3f-3e1f-4290-9582-387b1e33a7bf",
+      thread_id: "19fc50046507256d",
+      mailbox_draft_id: "r5528848112558729074",
+      status: "sent_from_mailbox",
+      created_at: "2026-08-05T23:22:16.142Z",
+      original_draft: DERIVED_DRAFT,
+      sent_provider_message_id: "19fd4817141c585b",
+    };
+    const olderSiblings = [
+      {
+        id: "e7bb98bf-222e-494d-bfe5-530e56a3bb32",
+        thread_id: "19fc50046507256d",
+        mailbox_draft_id: "r5528848112558729074",
+        status: "superseded",
+        created_at: "2026-08-05T23:02:40.487Z",
+        original_draft: DERIVED_DRAFT,
+        sent_provider_message_id: null,
+      },
+      {
+        id: "057f8152-a7a3-435d-8450-a9bcf87a2e6d",
+        thread_id: "19fc50046507256d",
+        mailbox_draft_id: "r5528848112558729074",
+        status: "superseded",
+        created_at: "2026-08-01T17:32:50.985Z",
+        original_draft: DERIVED_DRAFT,
+        sent_provider_message_id: null,
+      },
+    ];
+    const { supabase, updates } = sweepSupabase({
+      terminalRows: [owner, ...olderSiblings],
+      siblingRows: [owner, ...olderSiblings],
+      activityRows: outboundActivity(UNRELATED_SEND),
+    });
+
+    await reconcilePendingMailboxDraftsForConnection({
+      connection: SWEEP_CONNECTION,
+      supabase: supabase as never,
+    });
+
+    // One object, so exactly one provider read and one delete.
+    expect(getDraftMock).toHaveBeenCalledOnce();
+    expect(deleteDraftMock).toHaveBeenCalledOnce();
+    expect(deleteDraftMock).toHaveBeenCalledWith("r5528848112558729074");
+    // All three rows are settled together — the object they name is gone.
+    expect(updates).toHaveLength(1);
+    expect(updates[0].ops.join(" ")).toContain(
+      "in:id:53e09e3f-3e1f-4290-9582-387b1e33a7bf|e7bb98bf-222e-494d-bfe5-530e56a3bb32|057f8152-a7a3-435d-8450-a9bcf87a2e6d"
+    );
+  });
+});

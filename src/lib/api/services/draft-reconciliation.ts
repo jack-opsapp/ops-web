@@ -244,6 +244,7 @@ const ORPHAN_CLEANUP_TERMINAL_STATUSES = [
 
 const ORPHAN_CLEANUP_ROW_LIMIT = 200;
 const ORPHAN_CLEANUP_DRAFT_LIMIT = 25;
+const ORPHAN_CLEANUP_OWNER_ROW_LIMIT = 1_000;
 const ORPHAN_CLEANUP_DEADLINE_MS = 60 * 1000;
 
 function isOrphanCleanupTerminalStatus(status: unknown): boolean {
@@ -930,7 +931,10 @@ async function orphanDeletionAdmissible(input: {
   }
 
   const threadId = String(owner.thread_id ?? "").trim();
-  if (!threadId) return false;
+  const ownerCreatedAt = String(owner.created_at ?? "").trim();
+  // No thread or no placement timestamp means no send can be tied to this
+  // draft, and an unproven draft is never deleted.
+  if (!threadId || !ownerCreatedAt) return false;
 
   const { data, error } = await input.supabase
     .from("activities")
@@ -939,7 +943,7 @@ async function orphanDeletionAdmissible(input: {
     .eq("email_connection_id", input.connection.id)
     .eq("email_thread_id", threadId)
     .eq("direction", "outbound")
-    .gt("created_at", String(owner.created_at ?? ""))
+    .gt("created_at", ownerCreatedAt)
     .not("email_message_id", "is", null)
     .order("created_at", { ascending: false })
     .limit(1);
@@ -1013,12 +1017,17 @@ async function sweepOrphanedMailboxDrafts(input: {
     // object and `reassign_phase_c_mailbox_draft` re-points it at a newer
     // history. Only the newest row describes what the object holds NOW, so
     // every decision below is made about that row and no other.
+    // Newest first under an explicit bound: if a pathological draft id ever
+    // accumulated more histories than one page holds, truncation drops the
+    // oldest rows — never the row that decides ownership.
     const { data: ownerData, error: ownerError } = await supabase
       .from("ai_draft_history")
       .select(historyColumns)
       .eq("company_id", connection.companyId)
       .eq("connection_id", connection.id)
-      .in("mailbox_draft_id", mailboxDraftIds);
+      .in("mailbox_draft_id", mailboxDraftIds)
+      .order("created_at", { ascending: false })
+      .limit(ORPHAN_CLEANUP_OWNER_ROW_LIMIT);
     if (ownerError) throw ownerError;
 
     const rowsByMailboxDraftId = new Map<
