@@ -414,3 +414,36 @@ describe("readServerFirstTouch — ops_attribution (marketing-site cookie)", () 
     expect(readServerFirstTouch(`${SITE_COOKIE}=%7Bbroken`)).toBeNull();
   });
 });
+
+describe("readServerFirstTouch — double-encoded marketing-site cookie", () => {
+  // REGRESSION: ops-site writes with encodeURIComponent AND NextResponse.cookies.set
+  // encodes again, so the wire value is DOUBLE percent-encoded. ops-site round-trips
+  // fine (its request parser decodes once, its own code decodes again), but this
+  // reader parses the RAW Cookie header — a single decode leaves '%7B%22...' and
+  // JSON.parse throws, silently yielding zero attribution for every web signup.
+  //
+  // The literal below is copied verbatim from the real Set-Cookie header emitted
+  // by writeAttributionCookie under NODE_ENV=production.
+  const REAL_WIRE_VALUE =
+    "%257B%2522landing_url%2522%253A%2522%252Fplans%253Futm_source%253Dgoogle%2522%252C%2522first_touch_at%2522%253A%25222026-08-06T17%253A20%253A09.413Z%2522%252C%2522utm_source%2522%253A%2522google%2522%252C%2522utm_medium%2522%253A%2522cpc%2522%252C%2522gclid%2522%253A%2522Cj0KCQabc%2522%257D";
+
+  it("parses the real double-encoded value ops-site puts on the wire", () => {
+    const touch = readServerFirstTouch(`ops_attribution=${REAL_WIRE_VALUE}`);
+    expect(touch).not.toBeNull();
+    expect(touch!.utm_source).toBe("google");
+    expect(touch!.utm_medium).toBe("cpc");
+    expect(touch!.gclid).toBe("Cj0KCQabc");
+    expect(touch!.captured_at).toBe("2026-08-06T17:20:09.413Z");
+  });
+
+  it("still parses a singly-encoded value", () => {
+    const single = encodeURIComponent(
+      JSON.stringify({ utm_source: "meta", captured_at: "2026-08-06T00:00:00.000Z" })
+    );
+    expect(readServerFirstTouch(`${COOKIE}=${single}`)!.utm_source).toBe("meta");
+  });
+
+  it("still returns null for genuinely malformed values", () => {
+    expect(readServerFirstTouch(`${COOKIE}=not-json-at-all`)).toBeNull();
+  });
+});

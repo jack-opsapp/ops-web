@@ -105,6 +105,40 @@ export function readCookieFirstTouch(): FirstTouch | null {
 }
 
 /**
+ * Percent-decode a cookie value until it yields a JSON object.
+ *
+ * The two writers encode to different depths, and this reader sees the RAW
+ * `Cookie` header (no framework parser has decoded anything yet):
+ *
+ *  - `ops_attribution` (ops-site) is **double**-encoded — its helper calls
+ *    `encodeURIComponent` and then `NextResponse.cookies.set` encodes again.
+ *    ops-site itself round-trips fine because its request parser strips one
+ *    layer before its own `decodeURIComponent`. We get neither.
+ *  - `__ops_first_touch` (this app's client writer) is **single**-encoded,
+ *    because `document.cookie` performs no encoding of its own.
+ *
+ * Decoding a fixed number of times would therefore break one writer or the
+ * other. Instead decode until the payload actually starts like JSON, bounded
+ * so a crafted value can't spin. Returns null when it never resolves.
+ */
+function decodeCookiePayload(rawValue: string): string | null {
+  let current = rawValue;
+  for (let i = 0; i < 3; i++) {
+    const trimmed = current.trim();
+    if (trimmed.startsWith("{")) return trimmed;
+    let next: string;
+    try {
+      next = decodeURIComponent(current);
+    } catch {
+      return null; // malformed percent-escape
+    }
+    if (next === current) return null; // fully decoded, still not JSON
+    current = next;
+  }
+  return null;
+}
+
+/**
  * Pure: parse + sanitize one raw (URI-encoded) cookie value into a FirstTouch.
  * Returns null on malformed JSON or a non-object payload.
  *
@@ -114,7 +148,9 @@ export function readCookieFirstTouch(): FirstTouch | null {
  */
 export function parseFirstTouchValue(rawValue: string): FirstTouch | null {
   try {
-    const raw: unknown = JSON.parse(decodeURIComponent(rawValue));
+    const decoded = decodeCookiePayload(rawValue);
+    if (decoded === null) return null;
+    const raw: unknown = JSON.parse(decoded);
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
     const obj = raw as Record<string, unknown>;
     const str = (v: unknown): string | undefined =>
