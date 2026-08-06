@@ -372,3 +372,45 @@ describe("readServerFirstTouch", () => {
     expect(readServerFirstTouch(h)!.utm_source).toBe("google");
   });
 });
+
+describe("readServerFirstTouch — ops_attribution (marketing-site cookie)", () => {
+  const SITE_COOKIE = "ops_attribution";
+
+  function siteCookie(payload: Record<string, unknown>): string {
+    return `${SITE_COOKIE}=${encodeURIComponent(JSON.stringify(payload))}`;
+  }
+
+  it("reads the marketing-site cookie, mapping first_touch_at to captured_at", () => {
+    // ops-site writes `ops_attribution` (with first_touch_at); ops-web's own
+    // client writes `__ops_first_touch` (with captured_at). Most real traffic
+    // arrives with ONLY the marketing-site cookie, so missing this name would
+    // leave nearly every signup unattributed.
+    const touch = readServerFirstTouch(
+      siteCookie({
+        utm_source: "google",
+        gclid: "Cj0KCQ",
+        landing_url: "/plans?utm_source=google",
+        first_touch_at: "2026-08-06T00:00:00.000Z",
+      })
+    );
+    expect(touch).not.toBeNull();
+    expect(touch!.utm_source).toBe("google");
+    expect(touch!.gclid).toBe("Cj0KCQ");
+    expect(touch!.landing_url).toBe("/plans?utm_source=google");
+    expect(touch!.captured_at).toBe("2026-08-06T00:00:00.000Z");
+  });
+
+  it("prefers the EARLIEST touch when both cookies are present", () => {
+    const header = [
+      `${COOKIE}=${encodeURIComponent(
+        JSON.stringify({ utm_source: "app-direct", captured_at: "2026-08-06T12:00:00.000Z" })
+      )}`,
+      siteCookie({ utm_source: "site-first", first_touch_at: "2026-08-01T09:00:00.000Z" }),
+    ].join("; ");
+    expect(readServerFirstTouch(header)!.utm_source).toBe("site-first");
+  });
+
+  it("ignores a malformed marketing-site cookie", () => {
+    expect(readServerFirstTouch(`${SITE_COOKIE}=%7Bbroken`)).toBeNull();
+  });
+});

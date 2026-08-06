@@ -23,6 +23,17 @@ const TTL_DAYS = 30;
 export const FIRST_TOUCH_COOKIE = COOKIE;
 
 /**
+ * The marketing site's attribution cookie (`ops-site/src/lib/spec/attribution.ts`).
+ *
+ * ops-site is where nearly all first touches actually happen, and it writes
+ * THIS name — scoped to `.opsapp.co` so it reaches app.opsapp.co. Its payload
+ * is the same shape as FirstTouch apart from the timestamp key
+ * (`first_touch_at` rather than `captured_at`). Reading only our own cookie
+ * name would leave the great majority of signups unattributed.
+ */
+export const SITE_ATTRIBUTION_COOKIE = "ops_attribution";
+
+/**
  * Per-field cap. A cookie is attacker-controllable, and these values land in
  * Postgres text columns and Stripe metadata (500-char limit), so bound them at
  * the parse boundary rather than trusting the payload.
@@ -118,7 +129,10 @@ export function parseFirstTouchValue(rawValue: string): FirstTouch | null {
       fbclid: str(obj.fbclid),
       landing_url: str(obj.landing_url),
       referrer: str(obj.referrer),
-      captured_at: str(obj.captured_at) ?? new Date().toISOString(),
+      // ops-site's cookie names this field first_touch_at; accept either so
+      // one parser serves both cookies.
+      captured_at:
+        str(obj.captured_at) ?? str(obj.first_touch_at) ?? new Date().toISOString(),
     };
   } catch {
     return null;
@@ -128,12 +142,16 @@ export function parseFirstTouchValue(rawValue: string): FirstTouch | null {
 /**
  * Server-side twin of readCookieFirstTouch, for route handlers.
  *
- * Takes the RAW `Cookie` header rather than a parsed cookie store, because a
- * host-only cookie (written by this app on app.opsapp.co) and a `.opsapp.co`
- * cookie (written by ops-site) can legitimately coexist under the same name.
- * A parsed store surfaces only one of them, chosen by browser ordering — so
- * we parse every occurrence ourselves and return the EARLIEST `captured_at`.
- * That keeps first-touch deterministic instead of ordering-dependent.
+ * Reads BOTH attribution cookies: `ops_attribution` (written by ops-site,
+ * where nearly every real first touch happens) and `__ops_first_touch`
+ * (written by this app when a tagged URL hits app.opsapp.co directly).
+ *
+ * Takes the RAW `Cookie` header rather than a parsed store for two reasons:
+ * duplicates of the same name can legitimately coexist (a host-only cookie
+ * alongside a `.opsapp.co` one), and a parsed store surfaces only whichever
+ * the browser happened to order first. Parsing every occurrence and returning
+ * the EARLIEST `captured_at` keeps first-touch deterministic rather than
+ * ordering-dependent — the touch that actually brought the customer in wins.
  *
  * Returns null when absent or when no occurrence parses.
  */
@@ -148,7 +166,8 @@ export function readServerFirstTouch(
     const eq = trimmed.indexOf("=");
     if (eq === -1) continue;
     // Exact name match — never a suffix match like `not__ops_first_touch`.
-    if (trimmed.slice(0, eq) !== COOKIE) continue;
+    const name = trimmed.slice(0, eq);
+    if (name !== COOKIE && name !== SITE_ATTRIBUTION_COOKIE) continue;
     const parsed = parseFirstTouchValue(trimmed.slice(eq + 1));
     if (parsed) candidates.push(parsed);
   }
