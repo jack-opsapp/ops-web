@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -17,6 +17,20 @@ const hardeningSql = readFileSync(
   ),
   "utf8"
 );
+const conflictTargetRepairPath = join(
+  process.cwd(),
+  "supabase/migrations/20260730220000_fix_manual_outbound_follow_up_conflict_target.sql"
+);
+
+function reconciliationFunction(sqlText: string): string {
+  const start = sqlText.indexOf(
+    "create or replace function public.reconcile_manual_outbound_follow_up_cycle_as_system("
+  );
+  const end = sqlText.indexOf("\nrevoke all on function", start);
+  expect(start).toBeGreaterThanOrEqual(0);
+  expect(end).toBeGreaterThan(start);
+  return sqlText.slice(start, end).replace(/\s+/g, " ").trim();
+}
 
 describe("pipeline follow-up reliability migration", () => {
   it("adds an exact, service-only commercial-outcome recovery identity", () => {
@@ -73,5 +87,29 @@ describe("pipeline follow-up reliability migration", () => {
     expect(hardeningSql).toContain(
       "opportunity_manual_outbound_cycle_receipts_activity_idx"
     );
+  });
+
+  it("targets the exact receipt constraint without colliding with the RPC output name", () => {
+    expect(
+      existsSync(conflictTargetRepairPath),
+      "the forward repair migration must exist"
+    ).toBe(true);
+    const repairSql = readFileSync(conflictTargetRepairPath, "utf8");
+
+    expect(repairSql).toContain(
+      "on conflict on constraint opportunity_manual_outbound_cycle_r_correspondence_event_id_key do nothing"
+    );
+    expect(repairSql).not.toContain(
+      "on conflict (correspondence_event_id) do nothing"
+    );
+    const expectedFunction = reconciliationFunction(sql).replace(
+      "on conflict (correspondence_event_id) do nothing",
+      "on conflict on constraint opportunity_manual_outbound_cycle_r_correspondence_event_id_key do nothing"
+    );
+    expect(reconciliationFunction(repairSql)).toBe(expectedFunction);
+    expect(repairSql).toContain(
+      "from public, anon, authenticated, service_role"
+    );
+    expect(repairSql).toContain("to service_role");
   });
 });

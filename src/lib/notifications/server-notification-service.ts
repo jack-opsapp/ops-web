@@ -6,6 +6,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { verifyAdminAuth } from "@/lib/firebase/admin-verify";
 import { sendOneSignalPush } from "@/lib/integrations/onesignal";
 import { isSafeInternalNotificationActionUrl } from "@/lib/notifications/notification-action-url";
+import {
+  hasEffectiveQuietHoursWindow,
+  isWithinQuietHours,
+  parseTimeOfDaySeconds,
+  resolveQuietHoursTimeZone,
+  secondsOfDayInTimeZone,
+} from "@/lib/notifications/quiet-hours";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
@@ -281,6 +288,67 @@ export async function createTrustedNotifications(
   };
 }
 
+interface QuietHoursCandidate {
+  userId: string;
+  startSeconds: number | null;
+  endSeconds: number | null;
+}
+
+/**
+ * Drop push recipients whose personal quiet-hours window contains "now" in the
+ * company's timezone.
+ *
+ * Push only: the in-app rail row is already the durable audit surface and email
+ * is untouched. Suppressed pushes are dropped, never queued — a notification
+ * that arrives hours late is noise, not service.
+ */
+async function applyQuietHoursToPushRecipients(params: {
+  db: SupabaseClient;
+  companyId: string;
+  candidates: QuietHoursCandidate[];
+}): Promise<string[]> {
+  const allRecipientIds = params.candidates.map(({ userId }) => userId);
+  // Nobody configured a window that can silence anything → skip the company
+  // read entirely. Quiet hours cost zero extra round-trips for most dispatches.
+  if (!params.candidates.some(hasEffectiveQuietHoursWindow)) {
+    return allRecipientIds;
+  }
+
+  const { data, error } = await params.db
+    .from("companies")
+    .select("timezone")
+    .eq("id", params.companyId)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`Company timezone lookup failed: ${error.message}`);
+  }
+
+  const rawTimeZone = (data as { timezone?: unknown } | null)?.timezone;
+  const { timeZone, fallback } = resolveQuietHoursTimeZone(rawTimeZone);
+  if (fallback) {
+    console.warn(
+      `[notifications] quiet_hours_timezone_fallback company=${params.companyId} value=${String(rawTimeZone ?? "")} using=${timeZone}`
+    );
+  }
+
+  const nowSeconds = secondsOfDayInTimeZone(new Date(), timeZone);
+  const delivered: string[] = [];
+  let suppressed = 0;
+  for (const candidate of params.candidates) {
+    if (isWithinQuietHours({ ...candidate, nowSeconds })) {
+      suppressed += 1;
+      continue;
+    }
+    delivered.push(candidate.userId);
+  }
+  if (suppressed > 0) {
+    console.warn(
+      `[notifications] deferred_quiet_hours suppressed=${suppressed} of=${allRecipientIds.length} company=${params.companyId}`
+    );
+  }
+  return delivered;
+}
+
 export async function resolveNotificationPreferences(params: {
   companyId: string;
   recipientUserIds: string[];
@@ -305,7 +373,9 @@ export async function resolveNotificationPreferences(params: {
 
   const { data, error } = await db
     .from("notification_preferences")
-    .select("user_id, push_enabled, email_enabled, channel_preferences")
+    .select(
+      "user_id, push_enabled, email_enabled, channel_preferences, quiet_hours_start, quiet_hours_end"
+    )
     .in("user_id", recipients)
     .eq("company_id", params.companyId);
   if (error) {
@@ -324,6 +394,8 @@ export async function resolveNotificationPreferences(params: {
     emailRecipientIds: [],
   };
 
+  const pushCandidates: QuietHoursCandidate[] = [];
+
   for (const recipientId of recipients) {
     const userPreferences = preferences.get(recipientId);
     const channelPreferences =
@@ -341,12 +413,24 @@ export async function resolveNotificationPreferences(params: {
     // Channel preferences govern external delivery only.
     result.inAppRecipientIds.push(recipientId);
     if (wantsPush && userPreferences?.push_enabled !== false) {
-      result.pushRecipientIds.push(recipientId);
+      pushCandidates.push({
+        userId: recipientId,
+        startSeconds: parseTimeOfDaySeconds(userPreferences?.quiet_hours_start),
+        endSeconds: parseTimeOfDaySeconds(userPreferences?.quiet_hours_end),
+      });
     }
     if (wantsEmail && userPreferences?.email_enabled !== false) {
       result.emailRecipientIds.push(recipientId);
     }
   }
+
+  // Quiet hours are the last gate before the push channel — every dispatch
+  // caller inherits it here rather than re-implementing it per sender.
+  result.pushRecipientIds = await applyQuietHoursToPushRecipients({
+    db,
+    companyId: params.companyId,
+    candidates: pushCandidates,
+  });
   return result;
 }
 

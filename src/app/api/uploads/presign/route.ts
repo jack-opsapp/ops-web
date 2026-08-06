@@ -43,6 +43,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import { getAccessTokenClient } from "@/lib/supabase/accessToken-client";
 import {
   getS3Client,
   S3_BUCKET,
@@ -87,6 +88,8 @@ const PRESIGN_EXPIRY_SECONDS = 7200; // 2 hours — matches Supabase upload-URL 
 const RATE_LIMIT_PER_MINUTE = 30;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CANONICAL_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 function isTrainingDataPath(folder: string): boolean {
   return TRAINING_DATA_PREFIXES.some((prefix) => folder.startsWith(prefix));
@@ -117,6 +120,7 @@ interface AuthContext {
   uid: string;
   userId: string;
   companyId: string;
+  idToken: string;
 }
 
 /**
@@ -169,6 +173,7 @@ async function resolveAuth(
     uid,
     userId: userRow.id as string,
     companyId: userRow.company_id as string,
+    idToken,
   };
 }
 
@@ -224,6 +229,10 @@ interface PresignBody {
   expenseId: string | null;
   uploadId: string | null;
   variant: string | null;
+  targetType: string | null;
+  siteVisitId: string | null;
+  artifactId: string | null;
+  fileSize: number | null;
 }
 
 async function readUrlencodedBody(req: NextRequest): Promise<PresignBody> {
@@ -237,6 +246,10 @@ async function readUrlencodedBody(req: NextRequest): Promise<PresignBody> {
     expenseId: params.get("expenseId"),
     uploadId: params.get("uploadId"),
     variant: params.get("variant"),
+    targetType: params.get("targetType"),
+    siteVisitId: params.get("siteVisitId"),
+    artifactId: params.get("artifactId"),
+    fileSize: parsePositiveInteger(params.get("fileSize")),
   };
 }
 
@@ -250,7 +263,21 @@ async function readJsonBody(req: NextRequest): Promise<PresignBody> {
     expenseId: typeof json.expenseId === "string" ? json.expenseId : null,
     uploadId: typeof json.uploadId === "string" ? json.uploadId : null,
     variant: typeof json.variant === "string" ? json.variant : null,
+    targetType: typeof json.targetType === "string" ? json.targetType : null,
+    siteVisitId:
+      typeof json.siteVisitId === "string" ? json.siteVisitId : null,
+    artifactId: typeof json.artifactId === "string" ? json.artifactId : null,
+    fileSize:
+      typeof json.fileSize === "number" && Number.isSafeInteger(json.fileSize)
+        ? json.fileSize
+        : null,
   };
+}
+
+function parsePositiveInteger(value: string | null): number | null {
+  if (!value || !/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
 // ─── Presign flow (iOS + Web JSON) ──────────────────────────────────────────
@@ -267,9 +294,16 @@ async function handlePresign(
     expenseId,
     uploadId,
     variant,
+    targetType,
+    siteVisitId,
+    artifactId,
+    fileSize,
   } = body;
 
-  if (!fileContentType || (!purpose && !filename)) {
+  if (
+    !fileContentType ||
+    (!purpose && targetType !== "site_visit" && !filename)
+  ) {
     return NextResponse.json(
       { error: "Missing filename or contentType" },
       { status: 400 }
@@ -281,6 +315,75 @@ async function handlePresign(
 
   const limited = await checkRateLimit(auth.uid);
   if (limited) return limited;
+
+  if (targetType) {
+    if (targetType !== "site_visit") {
+      return NextResponse.json(
+        { error: "Unsupported upload target" },
+        { status: 400 }
+      );
+    }
+    if (
+      rawFolder !== null ||
+      !siteVisitId ||
+      !CANONICAL_UUID_RE.test(siteVisitId) ||
+      !artifactId ||
+      !CANONICAL_UUID_RE.test(artifactId) ||
+      !CANONICAL_UUID_RE.test(auth.companyId) ||
+      (variant !== "original" &&
+        variant !== "rendered" &&
+        variant !== "thumbnail") ||
+      !(ALLOWED_IMAGE_TYPES as readonly string[]).includes(fileContentType) ||
+      fileSize === null ||
+      fileSize < 1 ||
+      fileSize > MAX_FILE_SIZE
+    ) {
+      return NextResponse.json(
+        { error: "Invalid site visit upload request" },
+        { status: 400 }
+      );
+    }
+
+    const userScoped = getAccessTokenClient(auth.idToken);
+    const { data: visit, error: visitError } = await userScoped
+      .from("site_visits")
+      .select("id, company_id, deleted_at")
+      .eq("id", siteVisitId)
+      .eq("company_id", auth.companyId)
+      .is("deleted_at", null)
+      .maybeSingle();
+
+    if (visitError) {
+      return NextResponse.json(
+        { error: "Site visit upload not authorized" },
+        { status: 403 }
+      );
+    }
+    if (
+      !visit ||
+      visit.company_id !== auth.companyId ||
+      visit.deleted_at !== null
+    ) {
+      return NextResponse.json(
+        { error: "Site visit unavailable" },
+        { status: 404 }
+      );
+    }
+
+    const ext = defaultExtensionFor(fileContentType);
+    const key = [
+      "site-visits",
+      auth.companyId,
+      siteVisitId,
+      artifactId,
+      `${variant}.${ext}`,
+    ].join("/");
+
+    if (getStorageBackend() === "supabase") {
+      return handlePresignSupabase(key, fileContentType, true);
+    }
+    return handlePresignS3(key, fileContentType, fileSize);
+  }
 
   if (purpose) {
     if (purpose !== "expense_receipt") {
@@ -347,7 +450,8 @@ async function handlePresign(
 
 async function handlePresignS3(
   key: string,
-  fileContentType: string
+  fileContentType: string,
+  contentLength?: number
 ): Promise<NextResponse> {
   // `ContentType` is included in the signed-headers set so the client
   // PUT must declare the same value — preventing a JPEG presign from
@@ -356,11 +460,15 @@ async function handlePresignS3(
     Bucket: S3_BUCKET,
     Key: key,
     ContentType: fileContentType,
+    ...(contentLength === undefined ? {} : { ContentLength: contentLength }),
   });
 
   const uploadUrl = await getSignedUrl(getS3Client(), command, {
     expiresIn: PRESIGN_EXPIRY_SECONDS,
-    signableHeaders: new Set(["content-type"]),
+    signableHeaders: new Set([
+      "content-type",
+      ...(contentLength === undefined ? [] : ["content-length"]),
+    ]),
   });
 
   return NextResponse.json({

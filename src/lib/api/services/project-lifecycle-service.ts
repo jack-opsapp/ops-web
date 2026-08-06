@@ -1129,8 +1129,7 @@ export const ProjectLifecycleService = {
 
   /**
    * Find overdue tasks and propose reassignment.
-   * A task is overdue if its calendar_event end_date has passed
-   * and its status is not complete or cancelled.
+   * A task is overdue if its own end_date has passed and it is still active.
    */
   async detectOverdueTasks(companyId: string): Promise<number> {
     const supabase = requireSupabase();
@@ -1140,17 +1139,19 @@ export const ProjectLifecycleService = {
 
     const now = new Date();
 
-    // Find tasks with calendar events whose end_date has passed
-    // Join project_tasks with calendar_events via calendar_event_id
+    // Scheduling lives directly on project_tasks; oldest overdue work is
+    // processed first when the bounded scan reaches its safety limit.
     const { data: overdueTasks, error: overdueTasksError } = await supabase
       .from("project_tasks")
       .select(
-        "id, custom_title, project_id, task_type_id, team_member_ids, status, calendar_event_id"
+        "id, custom_title, project_id, task_type_id, team_member_ids, status, end_date"
       )
       .eq("company_id", companyId)
-      .not("status", "in", '("completed","cancelled","complete")')
-      .not("calendar_event_id", "is", null)
+      .eq("status", "active")
+      .not("end_date", "is", null)
+      .lt("end_date", now.toISOString())
       .is("deleted_at", null)
+      .order("end_date", { ascending: true })
       .limit(200);
     if (overdueTasksError) {
       throwCronDatabaseOperationError(
@@ -1161,39 +1162,14 @@ export const ProjectLifecycleService = {
 
     if (!overdueTasks || overdueTasks.length === 0) return 0;
 
-    // Fetch calendar events to check end dates
-    const eventIds = overdueTasks
-      .map((t) => t.calendar_event_id as string)
-      .filter(Boolean);
-
-    if (eventIds.length === 0) return 0;
-
-    const { data: events, error: eventsError } = await supabase
-      .from("calendar_events")
-      .select("id, end_date, start_date")
-      .in("id", eventIds)
-      .lt("end_date", now.toISOString());
-    if (eventsError) {
-      throwCronDatabaseOperationError(
-        `Failed to load overdue task calendar events: ${eventsError.message}`,
-        eventsError
-      );
-    }
-
-    if (!events || events.length === 0) return 0;
-
-    const overdueEventIds = new Set(events.map((e) => e.id as string));
-    const eventMap = new Map(events.map((e) => [e.id as string, e]));
-
     // Check for existing pending reassign actions
-    const taskIds = overdueTasks.map((t) => t.id as string);
     const { data: existingActions, error: existingActionsError } =
       await supabase
-      .from("agent_actions")
-      .select("source_id")
-      .eq("company_id", companyId)
-      .eq("action_type", "reassign_task")
-      .eq("status", "pending");
+        .from("agent_actions")
+        .select("source_id")
+        .eq("company_id", companyId)
+        .eq("action_type", "reassign_task")
+        .eq("status", "pending");
     if (existingActionsError) {
       throwCronDatabaseOperationError(
         `Failed to load pending reassignment actions: ${existingActionsError.message}`,
@@ -1262,17 +1238,11 @@ export const ProjectLifecycleService = {
     let proposed = 0;
 
     for (const task of overdueTasks) {
-      const eventId = task.calendar_event_id as string;
-      if (!overdueEventIds.has(eventId)) continue;
-
       const taskId = task.id as string;
       const sourceId = `${taskId}:reassign`;
       if (pendingReassignSourceIds.has(sourceId)) continue;
 
-      const event = eventMap.get(eventId);
-      const endDate = event?.end_date
-        ? new Date(event.end_date as string)
-        : now;
+      const endDate = new Date(task.end_date as string);
       const daysOverdue = Math.max(
         1,
         Math.floor((now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24))

@@ -8,6 +8,7 @@ vi.mock("@/lib/firebase/auth", () => ({
 }));
 
 import {
+  useConfirmImportedEmailSignature,
   useEmailSignature,
   useEmailSignatureConnections,
   useImportProviderEmailSignature,
@@ -155,6 +156,54 @@ describe("email signature hooks", () => {
     expect(JSON.parse(String(init.body))).toEqual({
       ...scope,
       opsText: "Jack\nOPS",
+    });
+  });
+
+  it("saves the structured identity and the outreach subject together", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => signature,
+    });
+
+    const { result } = renderHook(() => useSaveEmailSignature(), { wrapper });
+    await result.current.mutateAsync({
+      ...scope,
+      fields: { name: "Jackson Sweet", companyName: "Canpro" },
+      includeLogo: true,
+      layout: "logo-left",
+      outreachSubject: "Canpro Estimate",
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(String(init.body))).toEqual({
+      ...scope,
+      fields: { name: "Jackson Sweet", companyName: "Canpro" },
+      includeLogo: true,
+      layout: "logo-left",
+      outreachSubject: "Canpro Estimate",
+    });
+  });
+
+  it("confirms an imported signature through the promotion action", async () => {
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => signature,
+    });
+
+    const { result } = renderHook(() => useConfirmImportedEmailSignature(), {
+      wrapper,
+    });
+    await result.current.mutateAsync(scope);
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/integrations/email/signature");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(String(init.body))).toEqual({
+      ...scope,
+      action: "confirm_imported",
     });
   });
 

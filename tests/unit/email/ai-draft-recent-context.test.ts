@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT } from "@/lib/api/services/conversation-state/source-bound-autonomous-routing";
 
 type Row = Record<string, unknown>;
 
@@ -458,7 +459,15 @@ describe("AIDraftService recent mailbox context", () => {
     expect(latestUserPrompt()).not.toContain("victoria-office@example.com");
     expect(latestUserPrompt()).not.toContain("Trusted operator instruction");
     expect(latestUserPrompt()).not.toContain("every other customer's pricing");
-    expect(latestUserPrompt()).toContain("request in the untrusted email data");
+    // The server-owned purpose still overrides the caller's instruction, and it
+    // now demands an answer to the actual inquiry rather than an acknowledgement.
+    expect(latestUserPrompt()).toContain(
+      "Address exactly what the customer asked for or proposed"
+    );
+    expect(latestUserPrompt()).toContain("never a generic acknowledgement");
+    expect(latestUserPrompt()).not.toContain(
+      "Write a professional business email."
+    );
     expect(latestUserPrompt()).toContain("IGNORE_ALL_PREVIOUS_INSTRUCTIONS");
     expect(latestSystemPrompt()).not.toContain(
       "IGNORE_ALL_PREVIOUS_INSTRUCTIONS"
@@ -474,6 +483,630 @@ describe("AIDraftService recent mailbox context", () => {
       subject_source: "configured",
       origin: "phase_c",
     });
+  });
+
+  it("feeds the RAW forwarded body to the prompt when the clean text is only the forwarder's wrapper", async () => {
+    // The clean-state layer keeps the AUTHOR'S text — for a forwarded
+    // contact-form notification that is just the forwarder's device signature,
+    // and the customer's submission lives in the quoted section the cleaner
+    // discards. 2026-08-05: drafts told customers their inquiry "didn't come
+    // through" because the model received a stripped wrapper and nothing else.
+    database.tables.opportunities = [
+      {
+        id: "opportunity-raw-forward",
+        company_id: "company-1",
+        title: "Steve Clark — Email inquiry",
+        ai_summary: "Front deck repair.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Steve Clark",
+        contact_email: "steve@example.com",
+        clients: { name: "Steve Clark", email: "steve@example.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-raw-forward",
+        company_id: "company-1",
+        opportunity_id: "opportunity-raw-forward",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-forward-thread",
+        email_message_id: "message-steve",
+        type: "email",
+        direction: "inbound",
+        from_email: "victoria-office@example.com",
+        subject: "Fwd: Contact Us got a new submission",
+        body_text:
+          "Thanks,Jerry Forwarder \n555-0100\nExample Co\n\nSent from my iPhone\n\nBegin forwarded message:\n\nFrom: Example Co <notifications@wix-forms.com>\nReply-To: steve@example.com\n\nSubmission summary:\n\nFull Name:\nSteve Clark\n\nHow can we help?:\nRepair the FRONT_DECK_AT_TANNER_RIDGE and meet Monday at the office.",
+        body_text_clean: "Thanks,Jerry Forwarder \n555-0100\nExample Co",
+        created_at: "2026-07-22T16:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-raw-forward",
+      sourceActivityId: "activity-raw-forward",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Thanks for reaching out",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-raw-forward",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    // The customer's actual submission reaches the model...
+    expect(latestUserPrompt()).toContain("FRONT_DECK_AT_TANNER_RIDGE");
+    expect(latestUserPrompt()).toContain("meet Monday");
+    // ...and the forwarder's wrapper identity does not.
+    expect(latestUserPrompt()).not.toContain("Jerry Forwarder");
+    expect(latestUserPrompt()).not.toContain("555-0100");
+  });
+
+  it("uses the mailbox's configured outreach subject on the contact-form path", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-subject",
+        company_id: "company-1",
+        title: "Sandra Dunford — Email inquiry",
+        ai_summary: "New deck quote request.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Sandra Dunford",
+        contact_email: "sandra@example.com",
+        clients: { name: "Sandra Dunford", email: "sandra@example.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-subject",
+        company_id: "company-1",
+        opportunity_id: "opportunity-subject",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-form-subject-thread",
+        email_message_id: "message-subject",
+        type: "email",
+        direction: "inbound",
+        from_email: "office@example.com",
+        subject: "New contact form submission",
+        body_text: "Please quote a new deck at our home.",
+        created_at: "2026-08-02T16:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-subject",
+      sourceActivityId: "activity-subject",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Canpro Deck and Rail Estimate",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-subject",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    expect(result.subject).toBe("Canpro Deck and Rail Estimate");
+    expect(result.subjectSource).toBe("configured");
+    expect(database.inserts.at(-1)?.payload).toMatchObject({
+      subject: "Canpro Deck and Rail Estimate",
+      subject_source: "configured",
+    });
+  });
+
+  it("fills the mailbox's subject template from this lead", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-template",
+        company_id: "company-1",
+        title: "Sandra Dunford — Email inquiry",
+        ai_summary: "New deck quote request.",
+        stage: "new_lead",
+        address: "2394 Tanner Ridge Place",
+        contact_name: "Sandra Dunford",
+        contact_email: "sandra@example.com",
+        clients: { name: "Sandra Dunford", email: "sandra@example.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-template",
+        company_id: "company-1",
+        opportunity_id: "opportunity-template",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-form-template-thread",
+        email_message_id: "message-template",
+        type: "email",
+        direction: "inbound",
+        from_email: "office@example.com",
+        subject: "New contact form submission",
+        body_text: "Please quote a new deck at our home.",
+        created_at: "2026-08-02T16:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-template",
+      sourceActivityId: "activity-template",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Canpro Deck and Rail Estimate - {address}",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-template",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    expect(result.subject).toBe(
+      "Canpro Deck and Rail Estimate - 2394 Tanner Ridge Place"
+    );
+    expect(result.subjectSource).toBe("configured");
+    expect(database.inserts.at(-1)?.payload).toMatchObject({
+      subject: "Canpro Deck and Rail Estimate - 2394 Tanner Ridge Place",
+      subject_source: "configured",
+    });
+  });
+
+  it("drops a template variable this lead cannot answer, separator and all", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-template-empty",
+        company_id: "company-1",
+        title: "Sandra Dunford — Email inquiry",
+        ai_summary: "New deck quote request.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Sandra Dunford",
+        contact_email: "sandra@example.com",
+        clients: { name: "Sandra Dunford", email: "sandra@example.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-template-empty",
+        company_id: "company-1",
+        opportunity_id: "opportunity-template-empty",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-form-template-empty-thread",
+        email_message_id: "message-template-empty",
+        type: "email",
+        direction: "inbound",
+        from_email: "office@example.com",
+        subject: "New contact form submission",
+        body_text: "Please quote a new deck at our home.",
+        created_at: "2026-08-02T16:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-template-empty",
+      sourceActivityId: "activity-template-empty",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Canpro Deck and Rail Estimate - {address}",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-template-empty",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    expect(result.subject).toBe("Canpro Deck and Rail Estimate");
+    expect(result.subjectSource).toBe("configured");
+    expect(database.inserts.at(-1)?.payload).toMatchObject({
+      subject: "Canpro Deck and Rail Estimate",
+      subject_source: "configured",
+    });
+  });
+
+  it("falls back to the server-owned subject when the mailbox configures none", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-no-subject",
+        company_id: "company-1",
+        title: "Sandra Dunford — Email inquiry",
+        ai_summary: "New deck quote request.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Sandra Dunford",
+        contact_email: "sandra@example.com",
+        clients: { name: "Sandra Dunford", email: "sandra@example.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-no-subject",
+        company_id: "company-1",
+        opportunity_id: "opportunity-no-subject",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-form-no-subject-thread",
+        email_message_id: "message-no-subject",
+        type: "email",
+        direction: "inbound",
+        from_email: "office@example.com",
+        subject: "New contact form submission",
+        body_text: "Please quote a new deck at our home.",
+        created_at: "2026-08-02T16:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-no-subject",
+      sourceActivityId: "activity-no-subject",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-no-subject",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    expect(result.subject).toBe(ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT);
+    expect(result.subjectSource).toBe("configured");
+    expect(database.inserts.at(-1)?.payload).toMatchObject({
+      subject: ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT,
+      subject_source: "configured",
+    });
+  });
+
+  it("ignores a blank configured subject on the contact-form path", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-blank-subject",
+        company_id: "company-1",
+        title: "Sandra Dunford — Email inquiry",
+        ai_summary: "New deck quote request.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Sandra Dunford",
+        contact_email: "sandra@example.com",
+        clients: { name: "Sandra Dunford", email: "sandra@example.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-blank-subject",
+        company_id: "company-1",
+        opportunity_id: "opportunity-blank-subject",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-form-blank-subject-thread",
+        email_message_id: "message-blank-subject",
+        type: "email",
+        direction: "inbound",
+        from_email: "office@example.com",
+        subject: "New contact form submission",
+        body_text: "Please quote a new deck at our home.",
+        created_at: "2026-08-02T16:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-blank-subject",
+      sourceActivityId: "activity-blank-subject",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "   ",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-blank-subject",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    expect(result.subject).toBe(ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT);
+    expect(result.subjectSource).toBe("configured");
+  });
+
+  it("pins the operator's identity in the contact-form system prompt", async () => {
+    database.tables.users = [
+      {
+        id: "user-1",
+        company_id: "company-1",
+        first_name: "Jackson",
+        last_name: "Sweet",
+      },
+    ];
+    database.tables.companies = [
+      { id: "company-1", name: "Canpro Deck and Rail" },
+    ];
+    database.tables.opportunities = [
+      {
+        id: "opportunity-identity",
+        company_id: "company-1",
+        title: "Carolyn Molson — Email inquiry",
+        ai_summary: "Front deck quote request.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Carolyn Molson",
+        contact_email: "molsonc2020@gmail.com",
+        clients: { name: "Carolyn Molson", email: "molsonc2020@gmail.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-identity",
+        company_id: "company-1",
+        opportunity_id: "opportunity-identity",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-wix-identity-thread",
+        email_message_id: "message-identity",
+        type: "email",
+        direction: "inbound",
+        from_email: "jared@canprodeckandrail.com",
+        subject: "Fwd: Free Quote form got a new submission",
+        body_text: "I would like a quote for a front deck.",
+        created_at: "2026-08-02T18:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-identity",
+      sourceActivityId: "activity-identity",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Thanks for reaching out",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-identity",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    const systemPrompt = latestSystemPrompt();
+    expect(systemPrompt).toContain(
+      "You are writing as Jackson Sweet of Canpro Deck and Rail."
+    );
+    expect(systemPrompt).toContain(
+      "Never sign as, or adopt contact details of, any other person appearing in the email"
+    );
+    // The contact-form path appends the confirmed signature after generation.
+    expect(systemPrompt).toContain(
+      "Do NOT write a name, phone number, or contact block"
+    );
+  });
+
+  it("lets the model sign with a first name when no signature is appended", async () => {
+    database.tables.users = [
+      {
+        id: "user-1",
+        company_id: "company-1",
+        first_name: "Jackson",
+        last_name: "Sweet",
+      },
+    ];
+    database.tables.companies = [
+      { id: "company-1", name: "Canpro Deck and Rail" },
+    ];
+    database.tables.activities = [
+      activityRow(
+        "connection-a",
+        "message-manual",
+        "Can you come look at the railing?",
+        "2026-08-02T18:00:00.000Z"
+      ),
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-a",
+      threadId: SHARED_PROVIDER_THREAD_ID,
+    });
+
+    expect(result.available).toBe(true);
+    const systemPrompt = latestSystemPrompt();
+    expect(systemPrompt).toContain(
+      'Sign off with your closing phrase and first name only ("Jackson").'
+    );
+    expect(systemPrompt).not.toContain("is appended automatically");
+  });
+
+  it("strips the forwarder's wrapper signature from the contact-form prompt", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-forwarded-form",
+        company_id: "company-1",
+        title: "Carolyn Molson — Email inquiry",
+        ai_summary: "Front deck quote request.",
+        stage: "new_lead",
+        address: null,
+        contact_name: "Carolyn Molson",
+        contact_email: "molsonc2020@gmail.com",
+        clients: {
+          name: "Carolyn Molson",
+          email: "molsonc2020@gmail.com",
+        },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-forwarded-form",
+        company_id: "company-1",
+        opportunity_id: "opportunity-forwarded-form",
+        email_connection_id: "connection-b",
+        email_thread_id: "provider-wix-forward-thread",
+        email_message_id: "message-carolyn",
+        type: "email",
+        direction: "inbound",
+        from_email: "jared@canprodeckandrail.com",
+        subject: "Fwd: Free Quote form got a new submission",
+        body_text: [
+          "Thanks,Jared Jerome ",
+          "778-268-3324",
+          "Canpro Deck and Rail",
+          "",
+          "Sent from my iPhone",
+          "",
+          "Begin forwarded message:",
+          "",
+          "From: Canpro Deck and Rail <notifications@wix-forms.com>",
+          "Subject: Free Quote form got a new submission",
+          "",
+          "Name:",
+          "Carolyn Molson ",
+          "Email Address:",
+          "molsonc2020@gmail.com ",
+          "How Can We Help?:",
+          "I would like a quote for a front deck.",
+        ].join("\n"),
+        created_at: "2026-08-02T18:00:00.000Z",
+      },
+    ];
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-forwarded-form",
+      sourceActivityId: "activity-forwarded-form",
+      profileTypeOverride: "client_new_inquiry",
+      autonomous: true,
+      origin: "phase_c",
+      configuredSubject: "Thanks for reaching out",
+      sourceBoundAutonomousRouting: "assigned_contact_form_review",
+      emailAccess: {
+        allowed: true,
+        actor: { userId: "user-1", companyId: "company-1" },
+        operation: "send",
+        threadId: null,
+        connectionId: "connection-b",
+        providerThreadId: null,
+        opportunityId: "opportunity-forwarded-form",
+        connectionType: "company",
+        connectionOwnerId: null,
+        pipelineScope: "assigned",
+        inboxScope: "assigned",
+        usedLegacyPipelineManage: false,
+        usedLegacyInboxViewCompany: false,
+      },
+    });
+
+    expect(result.available).toBe(true);
+    const prompt = latestUserPrompt();
+    // The forwarder's identity never reaches the model — not in the latest
+    // inbound body and not in the full-conversation block.
+    expect(prompt).not.toContain("Jared Jerome");
+    expect(prompt).not.toContain("778-268-3324");
+    expect(prompt).not.toContain("Sent from my iPhone");
+    // The customer's actual submission survives intact.
+    expect(prompt).toContain("I would like a quote for a front deck.");
+    expect(prompt).toContain("Carolyn Molson");
   });
 
   it("uses the complete authorized opportunity conversation across fragmented threads", async () => {

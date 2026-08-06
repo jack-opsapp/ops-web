@@ -42,6 +42,7 @@ const captures = {
   metrics: { value: null as MetricsResp | null },
   recent: [] as AnomalyRow[],
 };
+const OPERATOR_COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 
 const pauseMock = vi.fn(async (_input: unknown) => ({
   state: {
@@ -145,7 +146,7 @@ beforeEach(() => {
   process.env.CRON_SECRET = "test-secret";
   process.env.PMF_OPERATOR_USER_ID = "u-op";
   process.env.PMF_NOTIFICATION_EMAIL = "ops@opsapp.co";
-  process.env.PMF_OPERATOR_COMPANY_ID = "co-op";
+  process.env.PMF_OPERATOR_COMPANY_ID = OPERATOR_COMPANY_ID;
 });
 
 function buildReq(auth?: string): NextRequest {

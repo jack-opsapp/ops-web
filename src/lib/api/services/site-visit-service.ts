@@ -10,11 +10,8 @@ import { requireSupabase, parseDate, parseDateRequired } from "@/lib/supabase/he
 import type {
   SiteVisit,
   CreateSiteVisit,
-  UpdateSiteVisit,
   SiteVisitStatus,
 } from "@/lib/types/pipeline";
-import { ActivityType } from "@/lib/types/pipeline";
-import { OpportunityService } from "./opportunity-service";
 
 // ─── Query Options ────────────────────────────────────────────────────────────
 
@@ -193,57 +190,27 @@ export const SiteVisitService = {
   ): Promise<SiteVisit> {
     const supabase = requireSupabase();
 
-    const now = new Date().toISOString();
-    const row: Record<string, unknown> = {
-      status: "completed",
-      completed_at: now,
-    };
-
-    if (completionData.notes !== undefined) row.notes = completionData.notes;
-    if (completionData.measurements !== undefined) row.measurements = completionData.measurements;
-    if (completionData.photos !== undefined) row.photos = completionData.photos;
-    if (completionData.internalNotes !== undefined) row.internal_notes = completionData.internalNotes;
-
-    const { data, error } = await supabase
-      .from("site_visits")
-      .update(row)
-      .eq("id", id)
-      .select()
-      .single();
-
-    if (error) throw new Error(`Failed to complete site visit: ${error.message}`);
-
-    const visit = mapFromDb(data);
-
-    // Auto-create Activity on opportunity timeline
-    if (visit.opportunityId) {
-      try {
-        await OpportunityService.createActivity({
-          companyId: visit.companyId,
-          opportunityId: visit.opportunityId,
-          clientId: visit.clientId,
-          estimateId: null,
-          invoiceId: null,
-          projectId: visit.projectId,
-          siteVisitId: visit.id,
-          type: ActivityType.SiteVisit,
-          subject: "Site visit completed",
-          content: completionData.notes ?? null,
-          outcome: null,
-          direction: null,
-          durationMinutes: visit.durationMinutes,
-          attachments: completionData.photos ?? [],
-          emailThreadId: null,
-          emailMessageId: null,
-          isRead: true,
-          createdBy: visit.createdBy,
-        });
-      } catch {
-        // Non-fatal — visit is already marked complete
-      }
+    const completion: Record<string, unknown> = {};
+    if (completionData.notes !== undefined) completion.notes = completionData.notes;
+    if (completionData.measurements !== undefined) {
+      completion.measurements = completionData.measurements;
+    }
+    if (completionData.photos !== undefined) completion.photos = completionData.photos;
+    if (completionData.internalNotes !== undefined) {
+      completion.internal_notes = completionData.internalNotes;
     }
 
-    return visit;
+    const { data, error } = await supabase.rpc("complete_site_visit_guarded", {
+      p_site_visit_id: id,
+      p_completion: completion,
+    });
+
+    if (error) throw new Error(`Failed to complete site visit: ${error.message}`);
+    const result = data as { visit?: Record<string, unknown> } | null;
+    if (!result?.visit) {
+      throw new Error("Failed to complete site visit: invalid database response");
+    }
+    return mapFromDb(result.visit);
   },
 
   async cancelSiteVisit(id: string): Promise<SiteVisit> {

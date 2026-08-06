@@ -10,7 +10,8 @@ import { KeywordTable } from "./keyword-table";
 import { SearchTermsTable } from "./search-terms-table";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import type { GoogleAdsPageData } from "@/lib/analytics/google-ads-types";
-import type { ChartDataPoint, DateRangeParams } from "@/lib/admin/types";
+import { conversionTile, SIGNUP_TILE, INSTALL_TILE } from "@/lib/admin/ads-conversion-tiles";
+import type { ChartDataPoint, DatePreset, DateRangeParams } from "@/lib/admin/types";
 
 // ─── Animation (per design system: EASE_SMOOTH, no spring/bounce) ─────────────
 
@@ -43,10 +44,22 @@ const fadeOnly = {
 
 interface GoogleAdsContentProps {
   initialData: GoogleAdsPageData;
+  /** Range preset the server chose for first paint (state-aware default). */
+  initialRangeKey?: string;
 }
 
-export function GoogleAdsContent({ initialData }: GoogleAdsContentProps) {
+const RANGE_CAPTIONS: Record<string, string> = {
+  "7d": "last 7 days",
+  "14d": "last 14 days",
+  "30d": "last 30 days",
+  "90d": "last 90 days",
+  "12m": "last 12 months",
+  all: "all history",
+};
+
+export function GoogleAdsContent({ initialData, initialRangeKey = "30d" }: GoogleAdsContentProps) {
   const [data, setData] = useState(initialData);
+  const [rangeKey, setRangeKey] = useState<string>(initialRangeKey);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -59,14 +72,19 @@ export function GoogleAdsContent({ initialData }: GoogleAdsContentProps) {
   const variant = prefersReducedMotion ? fadeOnly : fadeUp;
 
   const handleRangeChange = useCallback(async (params: DateRangeParams) => {
-    // Map DateRangeParams to AdsDayRange
-    const diffMs = new Date(params.to).getTime() - new Date(params.from).getTime();
-    const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    const days: number = diffDays <= 7 ? 7 : diffDays <= 14 ? 14 : diffDays <= 30 ? 30 : 90;
+    // Prefer the preset chip; fall back to mapping the span for callers
+    // that only provide from/to.
+    let preset = params.preset as string | undefined;
+    if (!preset || !(preset in RANGE_CAPTIONS)) {
+      const diffMs = new Date(params.to).getTime() - new Date(params.from).getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      preset = diffDays <= 7 ? "7d" : diffDays <= 14 ? "14d" : diffDays <= 30 ? "30d" : "90d";
+    }
 
+    setRangeKey(preset);
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/google-ads?days=${days}`);
+      const res = await fetch(`/api/admin/google-ads?preset=${preset}`);
       if (res.ok) {
         const newData: GoogleAdsPageData = await res.json();
         setData(newData);
@@ -85,21 +103,28 @@ export function GoogleAdsContent({ initialData }: GoogleAdsContentProps) {
     value: d.spend,
   }));
 
-  // Find signup CPA from conversion breakdown
-  const signupConversion = data.conversions.find(
-    (c) => c.actionName.toLowerCase().includes("signup") || c.actionName.toLowerCase().includes("sign_up") || c.actionName.toLowerCase().includes("trial")
-  );
-  const installConversion = data.conversions.find(
-    (c) => c.actionName.toLowerCase().includes("install")
-  );
+  // Collapse every signup / install conversion action into one number each.
+  const totalSpend = data.summary?.totalSpend ?? 0;
+  const signups = conversionTile(data.conversions, totalSpend, SIGNUP_TILE);
+  const installs = conversionTile(data.conversions, totalSpend, INSTALL_TILE);
+
+  // Orientation when the selected window has no activity but history exists.
+  const windowEmpty =
+    !data.summary ||
+    (data.summary.totalSpend === 0 &&
+      data.summary.totalClicks === 0 &&
+      data.summary.totalImpressions === 0);
+  const lastActivity = data.history?.lastDay ?? null;
+  const allCampaignsPaused =
+    data.campaigns.length > 0 && data.campaigns.every((c) => c.status === "PAUSED");
 
   return (
     <div className={`p-8 space-y-8 transition-opacity duration-150 ${loading ? "opacity-60" : "opacity-100"}`}>
       {/* Date range + refresh */}
       <div className="flex items-center justify-between">
         <DateRangeControl
-          defaultPreset="30d"
-          presets={["7d", "14d", "30d", "90d"]}
+          defaultPreset={initialRangeKey as DatePreset}
+          presets={["7d", "30d", "90d", "12m", "all"]}
           onChange={handleRangeChange}
         />
         <button
@@ -109,6 +134,12 @@ export function GoogleAdsContent({ initialData }: GoogleAdsContentProps) {
           Refresh
         </button>
       </div>
+
+      {windowEmpty && lastActivity && (
+        <p className="font-mono text-[12px] text-[#6B6B6B]">
+          [{allCampaignsPaused ? "all campaigns paused" : "no ad activity this window"} — last activity {lastActivity}]
+        </p>
+      )}
 
       {/* KPI Cards — staggered entry */}
       <motion.div
@@ -121,22 +152,22 @@ export function GoogleAdsContent({ initialData }: GoogleAdsContentProps) {
           <StatCard
             label="Total Spend"
             value={data.summary ? `$${data.summary.totalSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : "\u2014"}
-            caption="last period"
+            caption={RANGE_CAPTIONS[rangeKey] ?? "selected range"}
             sparklineData={sparklineData}
           />
         </motion.div>
         <motion.div variants={variant}>
           <StatCard
             label="Cost per Signup"
-            value={signupConversion ? `$${signupConversion.cpa.toFixed(2)}` : "\u2014"}
-            caption={signupConversion ? `${signupConversion.conversions.toFixed(0)} conversions` : "no signup data"}
+            value={signups.cpa != null ? `$${signups.cpa.toFixed(2)}` : "\u2014"}
+            caption={signups.conversions > 0 ? `${signups.conversions.toFixed(0)} signups` : "no signups this range"}
           />
         </motion.div>
         <motion.div variants={variant}>
           <StatCard
             label="Cost per Install"
-            value={installConversion ? `$${installConversion.cpa.toFixed(2)}` : "\u2014"}
-            caption={installConversion ? `${installConversion.conversions.toFixed(0)} installs` : "no install data"}
+            value={installs.cpa != null ? `$${installs.cpa.toFixed(2)}` : "\u2014"}
+            caption={installs.conversions > 0 ? `${installs.conversions.toFixed(0)} installs` : "no installs this range"}
           />
         </motion.div>
         <motion.div variants={variant}>

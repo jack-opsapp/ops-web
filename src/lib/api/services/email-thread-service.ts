@@ -58,6 +58,8 @@ import {
   resolveEffectiveSenderEmail,
 } from "@/lib/utils/email-parsing";
 import { assertValidProviderEmailIds } from "@/lib/email/provider-email-ids";
+import { decideClientNameRepair } from "@/lib/email/client-name-repair";
+import { writeFieldProvenance } from "@/lib/email/lead-enrichment";
 import type { NormalizedEmail } from "./email-provider";
 import { listEmailThreadSiblings } from "./email-thread-sibling-service";
 import {
@@ -73,6 +75,7 @@ import {
   CronDatabaseOperationError,
   isDatabasePressureError,
 } from "./cron-workload-control-service";
+import { isEmailSyncContinuationPending } from "@/lib/email/email-sync-continuation";
 
 const EMAIL_THREAD_MAILBOX_BUSY = "EMAIL_THREAD_MAILBOX_BUSY";
 const EMAIL_THREAD_PROVIDER_AUTHORIZATION_REVOKED =
@@ -240,6 +243,23 @@ function setCachedSenderName(key: string, name: string) {
     name,
     expiresAt: Date.now() + SENDER_NAME_CACHE_TTL_MS,
   });
+}
+
+/**
+ * Drop the memoized directory name for one sender. Called after any write to
+ * clients.name — without this a repaired name stays invisible to the rest of
+ * the sync cycle for up to a minute, and every thread touched in that window
+ * gets the old placeholder stamped onto latest_sender_name.
+ */
+function invalidateCachedSenderName(
+  companyId: string,
+  ...emails: Array<string | null | undefined>
+) {
+  for (const email of emails) {
+    const normalized = (email ?? "").toLowerCase().trim();
+    if (!normalized) continue;
+    senderNameCache.delete(`${companyId}::${normalized}`);
+  }
 }
 
 function snippetFromMessage(
@@ -552,6 +572,109 @@ async function resolveClientIdFromEmails(
   const subRow = subClientsRes.data?.[0];
   if (subRow?.client_id) return String(subRow.client_id);
   return null;
+}
+
+// ─── Client-name self-repair ─────────────────────────────────────────────────
+//
+// A lead auto-created from a bare-address sender starts life with a
+// placeholder name. The first later message that carries a real display name
+// repairs it. The replacement never comes from the directory tier — that
+// resolves to clients.name itself, so it would write the placeholder back
+// onto the row and the name would never improve.
+
+async function repairPlaceholderClientName(params: {
+  supabase: ReturnType<typeof requireSupabase>;
+  companyId: string;
+  clientId: string;
+  senderEmail: string;
+  candidateName: string | null;
+  direction: "inbound" | "outbound";
+  senderIsSelf: boolean;
+  providerThreadId: string | null;
+  providerMessageId: string | null;
+}): Promise<void> {
+  if (params.direction !== "inbound" || params.senderIsSelf) return;
+  if (!params.candidateName) return;
+
+  const { data: clientRow } = await params.supabase
+    .from("clients")
+    .select("id, name, email")
+    .eq("id", params.clientId)
+    .eq("company_id", params.companyId)
+    .maybeSingle();
+  if (!clientRow) return;
+
+  const clientEmail = (clientRow.email as string | null) ?? null;
+  const repairInput = {
+    currentName: (clientRow.name as string | null) ?? null,
+    clientEmail,
+    senderEmail: params.senderEmail,
+    candidateName: params.candidateName,
+    direction: params.direction,
+    senderIsSelf: params.senderIsSelf,
+  };
+
+  // Cheap guards first — only pay for the provenance read on a row this would
+  // otherwise rewrite.
+  if (!decideClientNameRepair({ ...repairInput, provenance: null }).repair) {
+    return;
+  }
+
+  const { data: provenanceRow } = await params.supabase
+    .from("lead_field_provenance")
+    .select("source, confirmed_at")
+    .eq("company_id", params.companyId)
+    .eq("entity_type", "client")
+    .eq("entity_id", params.clientId)
+    .eq("field_name", "contact_name")
+    .maybeSingle();
+
+  const decision = decideClientNameRepair({
+    ...repairInput,
+    provenance: provenanceRow
+      ? {
+          source: (provenanceRow.source as string | null) ?? null,
+          confirmedAt: (provenanceRow.confirmed_at as string | null) ?? null,
+        }
+      : null,
+  });
+  if (!decision.repair) return;
+
+  const { error: updateError } = await params.supabase
+    .from("clients")
+    .update({ name: decision.name })
+    .eq("id", params.clientId)
+    .eq("company_id", params.companyId);
+  if (updateError) return;
+
+  invalidateCachedSenderName(
+    params.companyId,
+    params.senderEmail,
+    clientEmail
+  );
+
+  await writeFieldProvenance({
+    supabase: params.supabase,
+    companyId: params.companyId,
+    opportunityId: null,
+    clientId: params.clientId,
+    opportunityUpdates: {},
+    clientUpdates: { name: decision.name },
+    facts: {
+      contactName: decision.name,
+      companyName: null,
+      contactEmail: clientEmail ?? params.senderEmail,
+      contactPhone: null,
+      address: null,
+      estimatedValue: null,
+      description: null,
+      source: "email",
+      sourcePlatform: null,
+      providerThreadId: params.providerThreadId,
+      providerMessageId: params.providerMessageId,
+      extractionSource: "inbound_sender",
+    },
+  });
 }
 
 // ─── Labels (label-toggle helpers) ───────────────────────────────────────────
@@ -1224,6 +1347,16 @@ export const EmailThreadService = {
           ? ""
           : email.fromName
     );
+    // The replacement used by the client-name self-repair. Deliberately NOT
+    // composeSenderName: its first tier is the directory, which resolves to
+    // clients.name — feeding that back in would write the placeholder onto
+    // itself and the name could never improve.
+    const clientNameRepairCandidate =
+      resolved.source === "contact_form"
+        ? (resolved.name ?? "").trim() || null
+        : resolved.source === "forwarded"
+          ? null
+          : (email.fromName ?? "").trim() || null;
     const snippet = snippetFromMessage(
       email.snippet,
       email.bodyText,
@@ -1481,33 +1614,25 @@ export const EmailThreadService = {
         }
       }
 
-      // If this thread links to a client whose name is still a raw email
-      // address, backfill it now that we have the sender's display name.
-      // Skip when senderName itself is an email (composeSenderName fallback)
-      // OR when senderIsSelf (we'd clobber the customer's client.name with
-      // the operator's directory name).
+      // If this thread links to a client whose name is still a placeholder
+      // (a bare address, the mailbox handle, or a generic mailbox label),
+      // repair it now that this message carries a real display name.
       const linkedClientId =
         (update.client_id as string | undefined) ??
         (existing.client_id as string | null) ??
         null;
-      if (
-        linkedClientId &&
-        senderName &&
-        !senderName.includes("@") &&
-        direction === "inbound" &&
-        !senderIsSelf
-      ) {
-        const { data: clientRow } = await supabase
-          .from("clients")
-          .select("id, name")
-          .eq("id", linkedClientId)
-          .single();
-        if (clientRow && clientRow.name?.includes("@")) {
-          await supabase
-            .from("clients")
-            .update({ name: senderName })
-            .eq("id", linkedClientId);
-        }
+      if (linkedClientId) {
+        await repairPlaceholderClientName({
+          supabase,
+          companyId,
+          clientId: linkedClientId,
+          senderEmail,
+          candidateName: clientNameRepairCandidate,
+          direction,
+          senderIsSelf,
+          providerThreadId,
+          providerMessageId: email.id ?? null,
+        });
       }
 
       const { data: updated, error: updError } = await supabase
@@ -1553,29 +1678,20 @@ export const EmailThreadService = {
       )) ??
       null;
 
-    // If the matched client's name is still a raw email address, backfill
-    // it with the sender's display name now that we have it. Skip when
-    // senderName itself is an email (composeSenderName fallback) OR when
-    // senderIsSelf (we'd write the operator's name onto the customer's
-    // client row).
-    if (
-      autoClientId &&
-      senderName &&
-      !senderName.includes("@") &&
-      direction === "inbound" &&
-      !senderIsSelf
-    ) {
-      const { data: clientRow } = await supabase
-        .from("clients")
-        .select("id, name")
-        .eq("id", autoClientId)
-        .single();
-      if (clientRow && clientRow.name?.includes("@")) {
-        await supabase
-          .from("clients")
-          .update({ name: senderName })
-          .eq("id", autoClientId);
-      }
+    // Same repair on the insert branch: a client matched by participant email
+    // may still be carrying the placeholder name it was created with.
+    if (autoClientId) {
+      await repairPlaceholderClientName({
+        supabase,
+        companyId,
+        clientId: autoClientId,
+        senderEmail,
+        candidateName: clientNameRepairCandidate,
+        direction,
+        senderIsSelf,
+        providerThreadId,
+        providerMessageId: email.id ?? null,
+      });
     }
 
     const insert: Record<string, unknown> = {
@@ -2941,12 +3057,17 @@ export const EmailThreadService = {
     companyIds: string[];
     limit?: number;
     concurrency?: number;
-  }): Promise<{ scanned: number; classified: number; errors: number }> {
+  }): Promise<{
+    scanned: number;
+    classified: number;
+    deferred: number;
+    errors: number;
+  }> {
     const companyIds = Array.from(
       new Set(params.companyIds.map((id) => id.trim()).filter(Boolean))
     );
     if (companyIds.length === 0) {
-      return { scanned: 0, classified: 0, errors: 0 };
+      return { scanned: 0, classified: 0, deferred: 0, errors: 0 };
     }
 
     const limit = Math.min(Math.max(params.limit ?? 10, 1), 25);
@@ -2968,7 +3089,51 @@ export const EmailThreadService = {
     }
 
     const threads = (data ?? []).map(mapEmailThreadFromDb);
-    const result = { scanned: 0, classified: 0, errors: 0 };
+    const connectionIds = Array.from(
+      new Set(threads.map((thread) => thread.connectionId))
+    );
+    const continuationPending = new Set<string>();
+    if (connectionIds.length > 0) {
+      const { data: connectionRows, error: connectionError } = await supabase
+        .from("email_connections")
+        .select(
+          "id, history_id, history_recovery_page_token, sync_in_progress_at"
+        )
+        .in("id", connectionIds);
+      if (connectionError) {
+        throw new CronDatabaseOperationError(
+          `retryDirtyClassifications continuation query failed: ${connectionError.message}`,
+          { cause: connectionError }
+        );
+      }
+      const returnedConnectionIds = new Set<string>();
+      for (const row of connectionRows ?? []) {
+        const connectionId = row.id as string;
+        returnedConnectionIds.add(connectionId);
+        if (
+          row.sync_in_progress_at ||
+          row.history_recovery_page_token ||
+          isEmailSyncContinuationPending(
+            (row.history_id as string | null) ?? null
+          )
+        ) {
+          continuationPending.add(connectionId);
+        }
+      }
+      if (returnedConnectionIds.size !== connectionIds.length) {
+        throw new CronDatabaseOperationError(
+          "retryDirtyClassifications connection authority is incomplete",
+          {
+            cause: {
+              requested: connectionIds,
+              returned: returnedConnectionIds,
+            },
+          }
+        );
+      }
+    }
+
+    const result = { scanned: 0, classified: 0, deferred: 0, errors: 0 };
     let cursor = 0;
     let databasePressure: unknown | null = null;
     const worker = async () => {
@@ -2978,6 +3143,10 @@ export const EmailThreadService = {
         if (index >= threads.length) return;
         const thread = threads[index];
         result.scanned++;
+        if (continuationPending.has(thread.connectionId)) {
+          result.deferred++;
+          continue;
+        }
         try {
           await EmailThreadService.classifyAndUpdate(thread);
           result.classified++;

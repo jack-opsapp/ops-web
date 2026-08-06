@@ -45,6 +45,8 @@ import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-
 import {
   decodeEmailSyncContinuation,
   encodeEmailSyncContinuation,
+  isEmailSyncContinuationPending,
+  isProviderSyncContinuationPending,
 } from "@/lib/email/email-sync-continuation";
 import { withSerializationRetry } from "@/lib/supabase/serialization-retry";
 import { refreshLeadSummariesForOpportunities } from "./lead-summary-service";
@@ -57,6 +59,7 @@ import {
   reportOpenAIQuotaExhausted,
   type OpenAIQuotaErrorMetadata,
 } from "@/lib/notifications/openai-quota-alert-service";
+import { getOptionalPmfOperatorIdentity } from "@/lib/pmf/recipients";
 import { persistDeferredLeadClassification } from "./lead-feedback-prior-service";
 import {
   buildEmailOpportunityTitle,
@@ -66,11 +69,15 @@ import {
   type EmailOpportunityUnsafeIdentity,
 } from "@/lib/email/opportunity-title";
 import {
+  buildAISupplementalLeadFacts,
+  hasAISupplementalLeadFacts,
+} from "@/lib/email/ai-supplemental-facts";
+import {
   applyCanonicalLeadEnrichment,
   buildNewClientEnrichmentFields,
   buildNewOpportunityEnrichmentFields,
   leadEnrichmentFactsFromEmail,
-  leadEnrichmentFactsFromImport,
+  resolveAutoCreatedClientName,
   writeFieldProvenance,
   type LeadEnrichmentFacts,
 } from "@/lib/email/lead-enrichment";
@@ -124,6 +131,7 @@ import {
   acquireEmailConnectionSyncLock,
   createEmailConnectionSyncLockRenewer,
   persistEmailConnectionRecoveryCheckpoint,
+  persistEmailConnectionSyncCheckpoint,
   persistEmailConnectionSyncCompletion,
   releaseEmailConnectionSyncLock,
 } from "./email-connection-sync-lock";
@@ -166,6 +174,8 @@ export interface SyncCycleResult {
   /** Count of unmatched threads whose lead classification was durably deferred
    * (marked `email_threads.lead_scan_pending_at`) due to a provider outage. */
   leadScansDeferred: number;
+  /** The durable cursor advanced, but provider or derived work still remains. */
+  continuationPending: boolean;
   errors: string[];
 }
 
@@ -322,6 +332,23 @@ function applyResolvedContactToFacts(
 ): void {
   if (resolved.nameIsVerified && resolved.name) {
     facts.contactName = resolved.name;
+    const nameEvidence = resolved.provenance.find(
+      (entry) => entry.field === "name"
+    );
+    if (nameEvidence?.source === "email_signature") {
+      facts.fieldEvidence = {
+        ...facts.fieldEvidence,
+        contactName: {
+          source: "inbound",
+          confidence: nameEvidence.confidence,
+        },
+      };
+    } else if (nameEvidence?.source === "contact_form") {
+      facts.fieldEvidence = {
+        ...facts.fieldEvidence,
+        contactName: { source: "contact_form", confidence: 1 },
+      };
+    }
   }
   if (resolved.email) facts.contactEmail = resolved.email;
   facts.contactPhone = resolved.phone;
@@ -548,6 +575,7 @@ function emptyResult(): SyncCycleResult {
     invalidProviderEmails: 0,
     aiProviderDeferred: false,
     leadScansDeferred: 0,
+    continuationPending: false,
     errors: [],
   };
 }
@@ -995,14 +1023,21 @@ async function createClient(
     enrichmentFacts !== undefined
       ? enrichmentFacts?.contactEmail
       : (submitter?.email ?? extractSenderEmail(email.from));
-  const senderName =
-    enrichmentFacts?.companyName ??
-    enrichmentFacts?.contactName ??
-    submitter?.company ??
-    submitter?.name ??
-    (enrichmentFacts?.sourcePlatform ? null : email.fromName) ??
-    // P0-C: never fabricate a name from the email local-part ("canprojack").
-    "New Lead";
+  // P0-C: never fabricate a name from the email local-part ("canprojack").
+  // The sender tier goes through displayNameFromMailbox, which rejects a
+  // local-part display name; Gmail synthesizes one for every bare-address
+  // sender.
+  const senderName = resolveAutoCreatedClientName({
+    preferredNames: [
+      enrichmentFacts?.companyName,
+      enrichmentFacts?.contactName,
+      submitter?.company,
+      submitter?.name,
+    ],
+    fromMailbox: email.from,
+    fromName: email.fromName,
+    allowSenderDisplayName: !enrichmentFacts?.sourcePlatform,
+  });
 
   // Check for existing client first to avoid duplicates
   const { data: existingClients, error: existingClientError } = senderEmail
@@ -1100,7 +1135,12 @@ async function createSubClient(
   const supabase = requireSupabase();
   const senderEmail = submitter?.email ?? extractSenderEmail(email.from);
   // P0-C: never fabricate a name from the email local-part.
-  const senderName = submitter?.name || email.fromName || "New Lead";
+  const senderName = resolveAutoCreatedClientName({
+    preferredNames: [submitter?.name],
+    fromMailbox: email.from,
+    fromName: email.fromName,
+    allowSenderDisplayName: true,
+  });
 
   // Check for existing sub-client to avoid duplicates
   const { data: existingSub, error: existingSubError } = await supabase
@@ -1389,13 +1429,14 @@ async function createOpportunity(
   const opportunityEnrichmentFields = titleOptions.enrichmentFacts
     ? buildNewOpportunityEnrichmentFields(titleOptions.enrichmentFacts)
     : {};
+  const generatedTitle = buildEmailOpportunityTitle({
+    kind: titleOptions.kind ?? "email_inquiry",
+    candidates,
+    unsafe: titleOptions.unsafe,
+  });
   const opportunityInsert = {
     client_id: clientId,
-    title: buildEmailOpportunityTitle({
-      kind: titleOptions.kind ?? "email_inquiry",
-      candidates,
-      unsafe: titleOptions.unsafe,
-    }),
+    title: generatedTitle,
     stage: persistedStage,
     source_thread_key: sourceKey,
     ...opportunityEnrichmentFields,
@@ -1554,7 +1595,10 @@ async function createOpportunity(
       companyId,
       opportunityId,
       clientId: null,
-      opportunityUpdates: opportunityEnrichmentFields,
+      opportunityUpdates: {
+        title: generatedTitle,
+        ...opportunityEnrichmentFields,
+      },
       clientUpdates: {},
       facts: titleOptions.enrichmentFacts,
     });
@@ -1828,7 +1872,8 @@ async function linkThread(
     );
   }
   const canonicalOpportunityId = canonicalRows?.[0]?.opportunity_id as
-    string | undefined;
+    | string
+    | undefined;
   if (!canonicalOpportunityId) {
     throw new Error(
       "[sync-engine] linkThread did not persist a canonical provider-thread owner"
@@ -1902,6 +1947,24 @@ async function recordActivityCorrespondenceEvent(
 ): Promise<void> {
   if (!opportunityId) return;
   const supabase = requireSupabase();
+  let linkedContactKind: "high_confidence_related_contact" | null = null;
+  if (direction === "inbound") {
+    const { data: exactThreadRows, error: exactThreadError } = await supabase
+      .from("opportunity_email_threads")
+      .select("opportunity_id")
+      .eq("opportunity_id", opportunityId)
+      .eq("connection_id", connection.id)
+      .eq("thread_id", email.threadId)
+      .limit(1);
+    if (exactThreadError) {
+      throw new LifecyclePersistenceError(
+        `[sync-engine] exact correspondence relationship read failed: ${exactThreadError.message ?? "unknown error"}`
+      );
+    }
+    if (exactThreadRows?.[0]?.opportunity_id === opportunityId) {
+      linkedContactKind = "high_confidence_related_contact";
+    }
+  }
   const profile = connection.syncFilters as Partial<SyncProfile> | null;
   const authoritative = await getCachedOperatorIdentity(connection);
   const result = await OpportunityLifecycleService.recordCorrespondenceEvent({
@@ -1917,6 +1980,7 @@ async function recordActivityCorrespondenceEvent(
     occurredAt: email.date,
     source: "sync_activity",
     applyOpportunityProjection: true,
+    linkedContactKind,
     fromEmail: extractSenderEmail(email.from),
     fromName: email.fromName,
     toEmails: email.to.map(extractSenderEmail),
@@ -2023,9 +2087,9 @@ async function persistDeterministicEmailThreadState(
         }
       );
 
-      const operatorUserId = process.env.PMF_OPERATOR_USER_ID;
-      const operatorCompanyId = process.env.PMF_OPERATOR_COMPANY_ID;
-      if (operatorUserId && operatorCompanyId) {
+      const operatorIdentity = getOptionalPmfOperatorIdentity();
+      if (operatorIdentity) {
+        const { operatorUserId, operatorCompanyId } = operatorIdentity;
         try {
           await getServiceRoleClient().rpc(
             "create_notification_if_new_with_identity",
@@ -2155,7 +2219,8 @@ async function createActivity(
     connection,
     opportunityId,
     ((insertedActivity as Record<string, unknown> | null)?.id as
-      string | null) ?? null,
+      | string
+      | null) ?? null,
     direction
   );
 
@@ -4022,23 +4087,16 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         }
       );
 
-      const aiSupplementalFacts = leadEnrichmentFactsFromImport({
-        contactName: null,
-        contactEmail: null,
-        contactPhone: null,
-        address: null,
-        estimatedValue:
-          deterministicFacts.estimatedValue == null
-            ? classified.estimatedValue
-            : null,
-        description:
-          deterministicFacts.description == null
-            ? classified.description
-            : null,
+      const aiSupplementalFacts = buildAISupplementalLeadFacts({
+        deterministicFacts,
+        classified: {
+          clientName: classified.clientName,
+          estimatedValue: classified.estimatedValue,
+          description: classified.description,
+          confidence: classified.confidence,
+        },
         providerThreadId: classifiedEmail.threadId,
         providerMessageId: classifiedEmail.id,
-        extractionSource: "ai_classified",
-        aiConfidence: classified.confidence,
       });
 
       const relationshipDecision = await findOpportunityRelationshipMatch({
@@ -4123,10 +4181,7 @@ async function persistAIClassifiedUnmatchedInbound(input: {
         facts: deterministicFacts,
         companyId: input.connection.companyId,
       });
-      if (
-        aiSupplementalFacts.estimatedValue != null ||
-        aiSupplementalFacts.description != null
-      ) {
+      if (hasAISupplementalLeadFacts(aiSupplementalFacts)) {
         await applyCanonicalLeadEnrichment({
           supabase: requireSupabase(),
           opportunityId: oppId,
@@ -5771,6 +5826,7 @@ export const SyncEngine = {
         mailboxReconciliation?.gmailCheckpoint ?? null;
       const persistSyncCheckpoint = async () => {
         if (gmailRecoveryCheckpoint?.nextPageToken) {
+          result.continuationPending = true;
           await persistEmailConnectionRecoveryCheckpoint({
             connectionId,
             ownerId: syncLockOwner,
@@ -5782,14 +5838,29 @@ export const SyncEngine = {
           return;
         }
 
+        const historyId = encodeEmailSyncContinuation({
+          providerToken: newSyncToken,
+          pendingLeadSummaryOpportunityIds,
+        });
+        result.continuationPending = isEmailSyncContinuationPending(historyId);
+        if (result.continuationPending) {
+          await persistEmailConnectionSyncCheckpoint({
+            connectionId,
+            ownerId: syncLockOwner,
+            historyId,
+            providerSnapshotComplete:
+              !isProviderSyncContinuationPending(historyId),
+            clearRecovery: gmailRecoveryCheckpoint !== null,
+            context: SYNC_LOCK_CONTEXT,
+          });
+          return;
+        }
+
         await persistEmailConnectionSyncCompletion({
           connectionId,
           ownerId: syncLockOwner,
           lastSyncedAt: new Date(),
-          historyId: encodeEmailSyncContinuation({
-            providerToken: newSyncToken,
-            pendingLeadSummaryOpportunityIds,
-          }),
+          historyId,
           clearRecovery: gmailRecoveryCheckpoint !== null,
           context: SYNC_LOCK_CONTEXT,
         });

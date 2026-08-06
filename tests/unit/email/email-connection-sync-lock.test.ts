@@ -14,6 +14,7 @@ import {
   createEmailConnectionSyncLockRenewer,
   persistEmailConnectionRecoveryCheckpoint,
   persistEmailConnectionSyncCompletion,
+  persistEmailConnectionSyncCheckpoint,
   renewEmailConnectionSyncLock,
   releaseEmailConnectionSyncLock,
   runWithEmailConnectionSyncLock,
@@ -68,6 +69,7 @@ function makeSupabaseDouble(options?: {
       if (
         name === "persist_email_connection_recovery_checkpoint_as_system" ||
         name === "persist_email_connection_sync_completion_as_system" ||
+        name === "persist_email_connection_sync_checkpoint_as_system" ||
         name === "complete_gmail_import_job_as_system"
       ) {
         return {
@@ -393,6 +395,15 @@ describe("email connection sync lock", () => {
       context: "email-sync",
       client: supabase as never,
     });
+    await persistEmailConnectionSyncCheckpoint({
+      connectionId: "connection-1",
+      ownerId: "owner-1",
+      historyId: "continuation-20",
+      providerSnapshotComplete: true,
+      clearRecovery: false,
+      context: "email-sync",
+      client: supabase as never,
+    });
     await completeGmailImportJobUnderSyncLock({
       connectionId: "connection-1",
       ownerId: "owner-1",
@@ -428,6 +439,17 @@ describe("email connection sync lock", () => {
     );
     expect(supabase.rpc).toHaveBeenNthCalledWith(
       3,
+      "persist_email_connection_sync_checkpoint_as_system",
+      expect.objectContaining({
+        p_connection_id: "connection-1",
+        p_owner_id: "owner-1",
+        p_history_id: "continuation-20",
+        p_provider_snapshot_complete: true,
+        p_clear_recovery: false,
+      })
+    );
+    expect(supabase.rpc).toHaveBeenNthCalledWith(
+      4,
       "complete_gmail_import_job_as_system",
       expect.objectContaining({
         p_connection_id: "connection-1",

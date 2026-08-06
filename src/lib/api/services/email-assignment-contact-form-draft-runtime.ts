@@ -16,10 +16,8 @@ import {
 } from "./email-assignment-contact-form-draft-worker";
 import { AIDraftService } from "./ai-draft-service";
 import { EmailService } from "./email-service";
-import {
-  CONTACT_FORM_OUTREACH_SUBJECT,
-  placeNewThreadDraft,
-} from "./mailbox-draft-push";
+import { EmailSignatureService } from "./email-signature-service";
+import { placeNewThreadDraft } from "./mailbox-draft-push";
 import { runWithEmailConnectionSyncLock } from "./email-connection-sync-lock";
 import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
 import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
@@ -27,6 +25,15 @@ import {
   renderMailboxDraftWithSignature,
   resolveEmailSignatureForMessage,
 } from "@/lib/email/email-signature-runtime";
+import { createTrustedNotifications } from "@/lib/notifications/server-notification-service";
+
+/**
+ * Distinct from `email_signature_required` (which the database resolves the
+ * moment ANY signature row exists, including an unconfirmed provider import).
+ * This one stays open until a human has actually stood behind the identity.
+ */
+export const IDENTITY_CONFIRMATION_NOTIFICATION_TYPE =
+  "email_identity_confirmation_required";
 
 interface ClaimRow {
   id: unknown;
@@ -266,6 +273,32 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
       return autonomy.CUSTOMER;
     },
 
+    hasConfirmedIdentity(input) {
+      return EmailSignatureService.hasConfirmedIdentity({
+        companyId: input.companyId,
+        connectionId: input.connectionId,
+        userId: input.userId,
+      });
+    },
+
+    async requestIdentityConfirmation(input) {
+      await createTrustedNotifications(
+        {
+          companyId: input.companyId,
+          recipientUserIds: [input.userId],
+          type: IDENTITY_CONFIRMATION_NOTIFICATION_TYPE,
+          title: "New-lead replies are on hold",
+          body: "Confirm your email signature so OPS can draft them in your name.",
+          persistent: true,
+          actionUrl: `/settings?section=profile&connection=${input.connectionId}`,
+          actionLabel: "CONFIRM SIGNATURE",
+          deepLinkType: "settings",
+          dedupeKey: `email-identity-confirmation:${input.connectionId}:${input.userId}`,
+        },
+        supabase
+      );
+    },
+
     async generateDraft(input) {
       const access = await resolveEmailOpportunityAccess({
         actor: {
@@ -283,8 +316,9 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
         );
       }
       return AIDraftService.generateDraft({
+        // `configuredSubject` arrives resolved from the mailbox's
+        // outreach_subject setting (server-owned constant when unset).
         ...input,
-        configuredSubject: CONTACT_FORM_OUTREACH_SUBJECT,
         emailAccess: access,
         sourceBoundAutonomousRouting: "assigned_contact_form_review",
       });
@@ -304,7 +338,7 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
 
     async beginProviderCreate(input) {
       const { data, error } = await supabase.rpc(
-        "begin_email_assignment_contact_form_draft_provider_create_as_system",
+        "begin_assignment_contact_draft_provider_create_as_system",
         {
           p_queue_id: input.queueId,
           p_holder: input.holder,
@@ -317,7 +351,7 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
 
     async markReconciliationRequired(input) {
       const { data, error } = await supabase.rpc(
-        "mark_email_assignment_contact_form_draft_reconciliation_required_as_system",
+        "mark_assignment_contact_draft_reconciliation_as_system",
         {
           p_queue_id: input.queueId,
           p_holder: input.holder,

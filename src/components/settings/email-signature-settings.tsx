@@ -1,26 +1,56 @@
 "use client";
 
-import { useEffect, useState } from "react";
+/**
+ * Sender identity — the one card that decides how OPS signs for this mailbox.
+ *
+ * The operator meets this once: right after connecting a mailbox, or when the
+ * rail tells them new-lead replies are held. So the card leads with the state
+ * they are in — confirmed, imported-but-unconfirmed, or nothing yet — and only
+ * opens the builder when there is something to build. Fields are inputs; the
+ * card on the sheet is the product.
+ *
+ * The preview sits on the OPS near-white because it is a window into someone
+ * else's inbox, not an OPS surface. Showing near-black signature ink on the
+ * black canvas would be a lie about what the customer receives.
+ */
+
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Loader2,
-  MailCheck,
   Pencil,
   RotateCcw,
+  Upload,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Tag } from "@/components/ui/register-table";
+import { Input } from "@/components/ui/input";
 import { Surface } from "@/components/ui/surface";
-import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Tag } from "@/components/ui/tag";
 import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import {
+  SUBJECT_TEMPLATE_TOKEN_NAMES,
+  fillSubjectTemplate,
+  type LearnedSubjectContext,
+} from "@/lib/email/email-subject-policy";
+import { renderSignatureTemplate } from "@/lib/email/signature-template";
+import {
+  useClearSignatureLogo,
+  useConfirmImportedEmailSignature,
   useEmailSignature,
   useImportProviderEmailSignature,
   useSaveEmailSignature,
+  useUploadSignatureLogo,
 } from "@/lib/hooks/use-email-signature";
-import type { EmailSignatureSource } from "@/lib/types/email-signature";
+import { removeSolidBackground } from "@/lib/images/remove-solid-background";
+import type {
+  EmailIdentityFields,
+  EmailSignatureLayout,
+  EmailSignatureSettingsResponse,
+} from "@/lib/types/email-signature";
+import { cn } from "@/lib/utils/cn";
 
 interface EmailSignatureSettingsProps {
   companyId: string;
@@ -28,19 +58,218 @@ interface EmailSignatureSettingsProps {
   connectionId: string;
   mailbox: string;
   canManage?: boolean;
+  /**
+   * The card the operator was sent here to deal with — the rail's identity
+   * notification deep-links to exactly one mailbox. Lifts it out of a list of
+   * otherwise identical cards; it is not a state of the identity itself.
+   */
+  highlighted?: boolean;
 }
 
-function signatureSourceLabel(
-  source: EmailSignatureSource,
-  t: (key: string, fallback?: string) => string
-) {
-  if (source === "ops") {
-    return t("integrations.signature.source.ops", "OPS SIGNATURE");
-  }
-  if (source === "gmail") {
-    return t("integrations.signature.source.gmail", "GMAIL SIGNATURE");
-  }
-  return t("integrations.signature.source.microsoft365", "OUTLOOK SIGNATURE");
+type Translate = (key: string, fallback?: string) => string;
+
+const EMPTY_FIELDS: EmailIdentityFields = {
+  name: "",
+  title: "",
+  companyName: "",
+  phone: "",
+  website: "",
+  includeLogo: false,
+  layout: "logo-left",
+};
+
+/** Nothing to show yet reads as an em dash, never as prose. */
+function PanelLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="font-mono text-micro uppercase tracking-wider text-text-3">
+      <span className="text-text-mute">{"// "}</span>
+      {children}
+    </p>
+  );
+}
+
+/**
+ * The signature as the customer will see it. The markup comes from the OPS
+ * template over the operator's own fields — never from anything pasted.
+ */
+function SignatureSheet({ html, label }: { html: string; label: string }) {
+  return (
+    <div>
+      <PanelLabel>{label}</PanelLabel>
+      <div className="mt-1 animate-fade-in overflow-x-auto rounded border border-border bg-text-primary p-2 motion-reduce:animate-none">
+        {html.trim() ? (
+          <div
+            data-testid="signature-sheet"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+        ) : (
+          <p className="font-mono text-micro text-text-inverse">—</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The two arrangements, drawn rather than named — the operator is choosing a
+ * shape, and a shape is faster to recognize than a word.
+ */
+function LayoutOption({
+  layout,
+  selected,
+  label,
+  disabled,
+  onSelect,
+}: {
+  layout: EmailSignatureLayout;
+  selected: boolean;
+  label: string;
+  disabled: boolean;
+  onSelect: (layout: EmailSignatureLayout) => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onSelect(layout)}
+      className={cn(
+        // Content-width, not half the card: two arrangements are a pair of
+        // controls, not two bars of empty space.
+        "flex items-center gap-1 rounded border px-1.5 py-1 text-left",
+        "transition-all duration-150 disabled:pointer-events-none disabled:opacity-40",
+        selected
+          ? "border-border-medium bg-surface-active text-text"
+          : "border-border bg-transparent text-text-3 hover:bg-surface-hover-subtle hover:text-text-2"
+      )}
+    >
+      {/* The mark, the hairline, the text block — 2px strokes, the same weight
+          the system draws every other bar at. */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex shrink-0 items-center gap-0.5",
+          layout === "stacked" && "flex-col items-start"
+        )}
+      >
+        {layout === "logo-left" ? (
+          <>
+            <span className="block h-icon-16 w-icon-16 rounded-sm bg-fill-neutral" />
+            <span className="block h-icon-16 w-px bg-border-medium" />
+            <span className="flex flex-col gap-0.5">
+              <span className="block h-[2px] w-3 rounded-bar bg-fill-neutral" />
+              <span className="block h-[2px] w-2 rounded-bar bg-fill-neutral-dim" />
+              <span className="block h-[2px] w-1.5 rounded-bar bg-fill-neutral-dim" />
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="block h-[2px] w-3 rounded-bar bg-fill-neutral" />
+            <span className="block h-[2px] w-2 rounded-bar bg-fill-neutral-dim" />
+            <span className="block h-1.5 w-1.5 rounded-sm bg-fill-neutral" />
+          </>
+        )}
+      </span>
+      <span className="font-mono text-micro uppercase tracking-wider">
+        {label}
+      </span>
+    </button>
+  );
+}
+
+/** Confirmed identity, or the absence of one — the first thing to read. */
+function StateTag({ confirmed, t }: { confirmed: boolean; t: Translate }) {
+  return confirmed ? (
+    <Tag variant="olive">
+      {t("integrations.signature.state.confirmed", "Confirmed")}
+    </Tag>
+  ) : (
+    <Tag variant="tan">
+      {t("integrations.signature.state.unconfirmed", "Not confirmed")}
+    </Tag>
+  );
+}
+
+/**
+ * One detail OPS can pull off the lead itself. Drawn as exactly what it is:
+ * tapping it lands the same characters in the field, so there is no second
+ * syntax to learn and nothing to memorize.
+ */
+function TokenChip({
+  token,
+  disabled,
+  onInsert,
+}: {
+  token: string;
+  disabled: boolean;
+  onInsert: (token: string) => void;
+}) {
+  const label = `{${token}}`;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => onInsert(label)}
+      className={cn(
+        "rounded-chip border border-border bg-transparent px-1.5 py-1",
+        "font-mono text-micro text-text-3 transition-colors duration-150",
+        "hover:bg-surface-hover-subtle hover:text-text-2",
+        "disabled:pointer-events-none disabled:opacity-40"
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+/**
+ * The same subject on a real lead — resolved through the very function that
+ * fills it at send time, never a lookalike. It answers the only question a
+ * variable raises: what does the customer actually read? A subject with
+ * nothing to resolve has nothing to explain, so the line stays away.
+ */
+function SubjectExample({
+  subject,
+  context,
+  label,
+}: {
+  subject: string;
+  context: LearnedSubjectContext;
+  label: string;
+}) {
+  if (!/[{}]/.test(subject)) return null;
+
+  return (
+    <p
+      className="font-mono text-micro text-text-3"
+      data-testid="subject-example"
+    >
+      <span className="text-text-mute">{label} </span>
+      {fillSubjectTemplate(subject, context) || "—"}
+    </p>
+  );
+}
+
+/** Bytes for the JSON route. The server owns the address the mark ends up at —
+ *  a URL from here would be a remote image OPS embeds in outbound mail. */
+async function encodeUpload(blob: Blob): Promise<string> {
+  const reader = new FileReader();
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    reader.onerror = () => reject(new Error("The file could not be read"));
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.readAsDataURL(blob);
+  });
+  return dataUrl.replace(/^data:[^;,]*;base64,/, "");
+}
+
+function hydrationKey(data: EmailSignatureSettingsResponse): string {
+  return [
+    data.confirmedAt ?? "",
+    data.outreachSubject ?? "",
+    JSON.stringify(data.fields),
+  ].join("|");
 }
 
 export function EmailSignatureSettings({
@@ -49,40 +278,239 @@ export function EmailSignatureSettings({
   connectionId,
   mailbox,
   canManage = true,
+  highlighted = false,
 }: EmailSignatureSettingsProps) {
   const { t } = useDictionary("settings");
   const scope = { companyId, userId, connectionId };
   const signature = useEmailSignature(scope);
   const saveSignature = useSaveEmailSignature();
+  const confirmImported = useConfirmImportedEmailSignature();
   const importProvider = useImportProviderEmailSignature();
-  const [opsText, setOpsText] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
+  const uploadLogo = useUploadSignatureLogo();
+  const clearLogo = useClearSignatureLogo();
 
+  const [fields, setFields] = useState<EmailIdentityFields>(EMPTY_FIELDS);
+  const [subject, setSubject] = useState("");
+  const [isBuilding, setIsBuilding] = useState(false);
+  /**
+   * The file the operator actually picked, kept only while a background was
+   * cut out of it. Its presence IS the undo affordance — removal is silent
+   * otherwise, and there is nothing to undo when nothing was removed.
+   */
+  const [uncutLogo, setUncutLogo] = useState<File | null>(null);
+  const hydratedRef = useRef<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const subjectRef = useRef<HTMLInputElement>(null);
+  /**
+   * Where the operator last had the cursor in the subject, kept here rather
+   * than read off focus: tapping a variable moves focus to the chip, and an
+   * untouched field has no cursor to speak of — that one appends.
+   */
+  const subjectCaretRef = useRef<{ start: number; end: number } | null>(null);
+  const insertedCaretRef = useRef<number | null>(null);
+  const variablesLabelId = useId();
+
+  const data = signature.data;
+  const confirmed = Boolean(data?.confirmedAt);
+  const importedSignature = data?.providerSignature ?? null;
+  // One mark, one thumbnail. Which record it came from is OPS's problem, not a
+  // choice to put in front of somebody confirming how they sign an email.
+  const customLogoUrl = data?.signatureLogoUrl ?? null;
+  const logoUrl = customLogoUrl ?? data?.companyLogoUrl ?? null;
+
+  // Re-seed only when the server's answer actually changed, so a background
+  // refetch can never overwrite what the operator is typing. A save does change
+  // it — which is what closes the builder and returns the compact state.
   useEffect(() => {
-    if (signature.data) {
-      setOpsText(signature.data.ops?.text ?? "");
-      if (signature.data.missing) setIsEditing(true);
-    }
-  }, [signature.data]);
+    if (!data) return;
+    const key = hydrationKey(data);
+    if (hydratedRef.current === key) return;
+    hydratedRef.current = key;
+    setFields(data.fields);
+    setSubject(data.outreachSubject ?? "");
+    subjectCaretRef.current = null;
+    setIsBuilding(!data.confirmedAt && !data.providerSignature);
+  }, [data]);
 
-  const savedOpsText = signature.data?.ops?.text ?? "";
-  const canSave =
-    canManage &&
-    !saveSignature.isPending &&
-    opsText !== savedOpsText &&
-    (opsText.trim().length > 0 || savedOpsText.length > 0);
+  // Put the operator back where they were typing, just past what they added.
+  useEffect(() => {
+    const caret = insertedCaretRef.current;
+    if (caret == null) return;
+    insertedCaretRef.current = null;
+    const field = subjectRef.current;
+    if (!field) return;
+    field.focus();
+    field.setSelectionRange(caret, caret);
+  }, [subject]);
+
+  const preview = useMemo(
+    () =>
+      renderSignatureTemplate({
+        name: fields.name,
+        title: fields.title,
+        companyName: fields.companyName,
+        phone: fields.phone,
+        website: fields.website,
+        logoUrl: fields.includeLogo ? logoUrl : null,
+        layout: fields.layout,
+      }),
+    [fields, logoUrl]
+  );
+
+  // A promoted Gmail import — or anything saved before the builder existed —
+  // cannot be re-derived from these fields. Showing the live render then would
+  // be a picture of a signature the customer is not receiving, so the stored
+  // text stands in whenever the two do not match exactly.
+  const storedIsTemplate = Boolean(data?.ops && data.ops.html === preview.html);
+
+  const busy =
+    saveSignature.isPending ||
+    confirmImported.isPending ||
+    importProvider.isPending ||
+    uploadLogo.isPending ||
+    clearLogo.isPending;
+  const editable = canManage && !busy;
+
+  const setField = <K extends keyof EmailIdentityFields>(
+    key: K,
+    value: EmailIdentityFields[K]
+  ) => setFields((current) => ({ ...current, [key]: value }));
+
+  const rememberSubjectCaret = (
+    event: React.SyntheticEvent<HTMLInputElement>
+  ) => {
+    const field = event.currentTarget;
+    subjectCaretRef.current = {
+      start: field.selectionStart ?? field.value.length,
+      end: field.selectionEnd ?? field.value.length,
+    };
+  };
+
+  const insertSubjectToken = (token: string) => {
+    const caret = subjectCaretRef.current;
+    const before = subject.slice(
+      0,
+      Math.min(caret?.start ?? subject.length, subject.length)
+    );
+    const after = subject.slice(
+      Math.min(caret?.end ?? subject.length, subject.length)
+    );
+    // Dropped straight against a word, a variable would read as one word the
+    // moment it fills — so it arrives with the space the operator would type.
+    const lead = before && !/\s$/.test(before) ? " " : "";
+    const trail = after && !/^\s/.test(after) ? " " : "";
+    const caretAfter = before.length + lead.length + token.length;
+
+    subjectCaretRef.current = { start: caretAfter, end: caretAfter };
+    insertedCaretRef.current = caretAfter;
+    setSubject(`${before}${lead}${token}${trail}${after}`);
+  };
+
+  /**
+   * One lead, invented once, so the example never moves under the operator
+   * while they type. Sample data, not copy the product speaks — but it is on
+   * screen, so it speaks the operator's language.
+   */
+  const exampleContext = useMemo<LearnedSubjectContext>(
+    () => ({
+      contact: t("integrations.signature.subject.sample.name", "Sam Carter"),
+      address: t(
+        "integrations.signature.subject.sample.address",
+        "2210 Cedar Hill Rd"
+      ),
+      project: t(
+        "integrations.signature.subject.sample.project",
+        "Rear deck rebuild"
+      ),
+      email: t(
+        "integrations.signature.subject.sample.email",
+        "sam.carter@gmail.com"
+      ),
+    }),
+    [t]
+  );
+  const exampleLabel = t("integrations.signature.subject.example", "[example]");
 
   const handleSave = async () => {
     try {
-      const updated = await saveSignature.mutateAsync({ ...scope, opsText });
-      setIsEditing(updated.missing);
-      toast.success(t("integrations.signature.saved", "Signature saved"));
+      await saveSignature.mutateAsync({
+        ...scope,
+        fields: {
+          name: fields.name,
+          title: fields.title,
+          companyName: fields.companyName,
+          phone: fields.phone,
+          website: fields.website,
+        },
+        includeLogo: fields.includeLogo,
+        layout: fields.layout,
+        outreachSubject: subject,
+      });
+      toast.success(t("integrations.signature.saved", "Identity confirmed"));
     } catch (error) {
       toast.error(
-        t("integrations.signature.saveFailed", "Signature not saved"),
-        {
-          description: error instanceof Error ? error.message : String(error),
-        }
+        t("integrations.signature.saveFailed", "Identity not saved"),
+        { description: error instanceof Error ? error.message : String(error) }
+      );
+    }
+  };
+
+  const sendLogo = async (blob: Blob, fallbackType: string) => {
+    await uploadLogo.mutateAsync({
+      ...scope,
+      data: await encodeUpload(blob),
+      contentType: blob.type || fallbackType,
+    });
+  };
+
+  const logoFailed = (error: unknown) =>
+    toast.error(t("integrations.signature.logo.failed", "Logo not saved"), {
+      description: error instanceof Error ? error.message : String(error),
+    });
+
+  /**
+   * The whole cut happens here, before the upload, and announces nothing. A
+   * background that cannot be cut cleanly is left alone — the operator's file
+   * goes up as it came in.
+   */
+  const handleLogoPicked = async (file: File) => {
+    try {
+      const cut = await removeSolidBackground(file);
+      await sendLogo(cut.blob, file.type);
+      setField("includeLogo", true);
+      setUncutLogo(cut.applied ? file : null);
+    } catch (error) {
+      logoFailed(error);
+    }
+  };
+
+  const handleRestoreLogo = async () => {
+    if (!uncutLogo) return;
+    try {
+      await sendLogo(uncutLogo, uncutLogo.type);
+      setUncutLogo(null);
+    } catch (error) {
+      logoFailed(error);
+    }
+  };
+
+  const handleClearLogo = async () => {
+    try {
+      await clearLogo.mutateAsync(scope);
+      setUncutLogo(null);
+    } catch (error) {
+      logoFailed(error);
+    }
+  };
+
+  const handleConfirmImported = async () => {
+    try {
+      await confirmImported.mutateAsync(scope);
+      toast.success(t("integrations.signature.saved", "Identity confirmed"));
+    } catch (error) {
+      toast.error(
+        t("integrations.signature.saveFailed", "Identity not saved"),
+        { description: error instanceof Error ? error.message : String(error) }
       );
     }
   };
@@ -90,7 +518,6 @@ export function EmailSignatureSettings({
   const handleImport = async () => {
     try {
       const updated = await importProvider.mutateAsync(scope);
-      setIsEditing(updated.missing);
       if (updated.providerImportStatus === "not_configured") {
         toast.error(
           t("integrations.signature.notConfigured", "No Gmail signature found")
@@ -103,54 +530,38 @@ export function EmailSignatureSettings({
     } catch (error) {
       toast.error(
         t("integrations.signature.importFailed", "Signature not imported"),
-        {
-          description: error instanceof Error ? error.message : String(error),
-        }
+        { description: error instanceof Error ? error.message : String(error) }
       );
     }
-  };
-
-  const handleCancel = () => {
-    setOpsText(savedOpsText);
-    setIsEditing(false);
   };
 
   return (
     <Surface
       variant="inset"
-      className="p-2"
+      className={cn(
+        "p-2",
+        highlighted && "border-border-medium bg-surface-active"
+      )}
       data-testid="email-signature-settings"
+      data-highlighted={highlighted || undefined}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="font-mono text-micro uppercase tracking-wider text-text-3">
             <span className="text-text-mute">{"// "}</span>
-            {t("integrations.signature.title", "EMAIL SIGNATURE")}
+            {t("integrations.signature.title", "Sender identity")}
           </h3>
           <p className="mt-1 truncate font-mono text-micro text-text-3">
             {mailbox}
           </p>
         </div>
-
-        {signature.data?.missing ? (
-          <Tag variant="tan">
-            {t("integrations.signature.missing", "NO SIGNATURE")}
-          </Tag>
-        ) : signature.data?.effective ? (
-          <Tag
-            variant={
-              signature.data.effective.source === "ops" ? "olive" : "neutral"
-            }
-          >
-            {signatureSourceLabel(signature.data.effective.source, t)}
-          </Tag>
-        ) : null}
+        {data ? <StateTag confirmed={confirmed} t={t} /> : null}
       </div>
 
       {signature.isLoading ? (
         <div className="mt-2 flex items-center gap-1 text-text-3" role="status">
           <Loader2
-            className="h-4 w-4 animate-spin motion-reduce:animate-none"
+            className="h-icon-16 w-icon-16 animate-spin motion-reduce:animate-none"
             aria-hidden="true"
           />
           <span className="font-mohave text-body-sm">
@@ -163,7 +574,7 @@ export function EmailSignatureSettings({
           role="alert"
         >
           <AlertTriangle
-            className="h-4 w-4 shrink-0 text-rose"
+            className="h-icon-16 w-icon-16 shrink-0 text-rose"
             aria-hidden="true"
           />
           <div className="min-w-0 flex-1">
@@ -180,102 +591,431 @@ export function EmailSignatureSettings({
               className="mt-1"
               onClick={() => signature.refetch()}
             >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              {t("integrations.signature.retry", "RETRY")}
+              <RotateCcw className="h-icon-16 w-icon-16" aria-hidden="true" />
+              {t("integrations.signature.retry", "Retry")}
             </Button>
           </div>
         </div>
-      ) : signature.data ? (
+      ) : data ? (
         <div className="mt-2 space-y-2 border-t border-border pt-2">
-          {signature.data.effective ? (
-            <div>
-              <p className="font-mono text-micro uppercase tracking-wider text-text-3">
-                {t("integrations.signature.preview", "CURRENT SIGNATURE")}
-              </p>
-              <pre className="mt-1 whitespace-pre-wrap break-words font-mohave text-body-sm text-text-2">
-                {signature.data.effective.text}
-              </pre>
-            </div>
-          ) : null}
+          {!confirmed && (
+            <p className="font-mohave text-body-sm text-text-2">
+              {t(
+                "integrations.signature.held",
+                "New-lead replies stay held until you confirm how you sign off."
+              )}
+            </p>
+          )}
 
-          {!isEditing && !signature.data.missing ? (
-            <Button
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={() => setIsEditing(true)}
-              disabled={!canManage}
-            >
-              <Pencil className="h-4 w-4" aria-hidden="true" />
-              {t("integrations.signature.edit", "EDIT SIGNATURE")}
-            </Button>
-          ) : (
+          {isBuilding ? (
             <>
-              <p className="font-mohave text-body-sm text-text-2">
-                {signature.data.provider === "microsoft365"
-                  ? t(
-                      "integrations.signature.microsoft365Help",
-                      "Outlook does not share signatures with OPS. Paste yours below."
-                    )
-                  : t(
-                      "integrations.signature.gmailHelp",
-                      "Import from Gmail or create one here. An OPS signature takes precedence."
-                    )}
-              </p>
+              <div className="grid gap-1 sm:grid-cols-2">
+                <Input
+                  label={t("integrations.signature.fields.name", "Name")}
+                  value={fields.name}
+                  onChange={(event) => setField("name", event.target.value)}
+                  disabled={!editable}
+                />
+                <Input
+                  label={t("integrations.signature.fields.title", "Title")}
+                  helperText={t(
+                    "integrations.signature.fields.optional",
+                    "[optional]"
+                  )}
+                  value={fields.title}
+                  onChange={(event) => setField("title", event.target.value)}
+                  disabled={!editable}
+                />
+                <Input
+                  label={t("integrations.signature.fields.company", "Company")}
+                  value={fields.companyName}
+                  onChange={(event) =>
+                    setField("companyName", event.target.value)
+                  }
+                  disabled={!editable}
+                />
+                <Input
+                  label={t("integrations.signature.fields.phone", "Phone")}
+                  value={fields.phone}
+                  onChange={(event) => setField("phone", event.target.value)}
+                  disabled={!editable}
+                />
+                <Input
+                  className="sm:col-span-2"
+                  label={t("integrations.signature.fields.website", "Website")}
+                  value={fields.website}
+                  onChange={(event) => setField("website", event.target.value)}
+                  disabled={!editable}
+                />
+              </div>
 
-              <Textarea
-                label={t("integrations.signature.opsLabel", "OPS SIGNATURE")}
-                value={opsText}
-                onChange={(event) => setOpsText(event.target.value)}
-                placeholder={t(
-                  "integrations.signature.placeholder",
-                  "Name\nCompany\nPhone"
-                )}
-                disabled={!canManage || saveSignature.isPending}
-                rows={4}
+              {/* No mark anywhere means nothing to show and nothing to
+                  arrange — just the one way to supply one. */}
+              {logoUrl ? (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-1">
+                      {/* On the near-white the signature actually lands on. A
+                          cut-out mark is dark ink on nothing, and would all
+                          but vanish against the OPS canvas. */}
+                      <span className="flex h-icon-24 w-icon-24 shrink-0 items-center justify-center rounded-chip bg-text-primary">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={logoUrl}
+                          alt=""
+                          className="h-icon-20 w-icon-20 object-contain"
+                        />
+                      </span>
+                      <span className="truncate font-mohave text-body-sm text-text-2">
+                        {t("integrations.signature.logo.toggle", "Show logo")}
+                      </span>
+                    </div>
+                    <Switch
+                      checked={fields.includeLogo}
+                      onCheckedChange={(checked) =>
+                        setField("includeLogo", checked)
+                      }
+                      disabled={!editable}
+                      aria-label={t(
+                        "integrations.signature.logo.toggle",
+                        "Show logo"
+                      )}
+                    />
+                  </div>
+
+                  {/* Where the mark comes from only matters while it is on. */}
+                  {fields.includeLogo ? (
+                    <>
+                      <div className="flex flex-wrap items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => logoInputRef.current?.click()}
+                          loading={uploadLogo.isPending}
+                          disabled={!editable}
+                        >
+                          <Upload
+                            className="h-icon-16 w-icon-16"
+                            aria-hidden="true"
+                          />
+                          {t("integrations.signature.logo.replace", "Replace")}
+                        </Button>
+
+                        {customLogoUrl ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleClearLogo}
+                            loading={clearLogo.isPending}
+                            disabled={!editable}
+                          >
+                            {data.companyLogoUrl
+                              ? t(
+                                  "integrations.signature.logo.revert",
+                                  "Use the company logo"
+                                )
+                              : t(
+                                  "integrations.signature.logo.remove",
+                                  "Remove"
+                                )}
+                          </Button>
+                        ) : null}
+                      </div>
+
+                      {/* Its own line, under the controls that persist: what
+                          just happened to the file is a smaller thing than
+                          which file it is. */}
+                      {uncutLogo ? (
+                        <div className="flex animate-fade-in items-center gap-1 motion-reduce:animate-none">
+                          <span className="font-mono text-micro text-text-3">
+                            {t(
+                              "integrations.signature.logo.removed",
+                              "[background removed]"
+                            )}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRestoreLogo}
+                            disabled={!editable}
+                          >
+                            {t("integrations.signature.logo.undo", "Undo")}
+                          </Button>
+                        </div>
+                      ) : null}
+
+                      <div
+                        role="radiogroup"
+                        aria-label={t(
+                          "integrations.signature.layout.label",
+                          "Logo placement"
+                        )}
+                        className="flex gap-1"
+                      >
+                        <LayoutOption
+                          layout="logo-left"
+                          selected={fields.layout === "logo-left"}
+                          label={t(
+                            "integrations.signature.layout.left",
+                            "Logo left"
+                          )}
+                          disabled={!editable}
+                          onSelect={(layout) => setField("layout", layout)}
+                        />
+                        <LayoutOption
+                          layout="stacked"
+                          selected={fields.layout === "stacked"}
+                          label={t(
+                            "integrations.signature.layout.below",
+                            "Logo below"
+                          )}
+                          disabled={!editable}
+                          onSelect={(layout) => setField("layout", layout)}
+                        />
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => logoInputRef.current?.click()}
+                  loading={uploadLogo.isPending}
+                  disabled={!editable}
+                >
+                  <Upload className="h-icon-16 w-icon-16" aria-hidden="true" />
+                  {t("integrations.signature.logo.add", "Add a logo")}
+                </Button>
+              )}
+
+              <input
+                ref={logoInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                data-testid="signature-logo-input"
+                disabled={!editable}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  // Reset first: picking the same file twice must still fire.
+                  event.target.value = "";
+                  if (file) void handleLogoPicked(file);
+                }}
               />
+
+              <SignatureSheet
+                html={preview.html}
+                label={t("integrations.signature.preview", "Preview")}
+              />
+
+              <div className="space-y-1">
+                <Input
+                  ref={subjectRef}
+                  label={t(
+                    "integrations.signature.subject.label",
+                    "First reply subject"
+                  )}
+                  helperText={t(
+                    "integrations.signature.subject.help",
+                    "[the subject line on first replies to new leads]"
+                  )}
+                  placeholder={t(
+                    "integrations.signature.subject.placeholder",
+                    "Thanks for reaching out"
+                  )}
+                  value={subject}
+                  onChange={(event) => setSubject(event.target.value)}
+                  onFocus={rememberSubjectCaret}
+                  onKeyUp={rememberSubjectCaret}
+                  onMouseUp={rememberSubjectCaret}
+                  onSelect={rememberSubjectCaret}
+                  disabled={!editable}
+                />
+
+                {/* The four details OPS already knows about whoever wrote in.
+                    Quiet, because most operators will type a subject and never
+                    need one — and one tap away for the operator who does. */}
+                <div
+                  role="group"
+                  aria-labelledby={variablesLabelId}
+                  className="flex flex-wrap items-center gap-1"
+                >
+                  <span
+                    id={variablesLabelId}
+                    className="font-mono text-micro text-text-mute"
+                  >
+                    {t(
+                      "integrations.signature.subject.variables",
+                      "[filled per lead]"
+                    )}
+                  </span>
+                  {SUBJECT_TEMPLATE_TOKEN_NAMES.map((token) => (
+                    <TokenChip
+                      key={token}
+                      token={token}
+                      disabled={!editable}
+                      onInsert={insertSubjectToken}
+                    />
+                  ))}
+                </div>
+
+                <SubjectExample
+                  subject={subject}
+                  context={exampleContext}
+                  label={exampleLabel}
+                />
+              </div>
 
               <div className="flex flex-wrap items-center gap-1">
                 <Button
                   type="button"
-                  variant="default"
+                  variant="primary"
                   size="sm"
                   onClick={handleSave}
                   loading={saveSignature.isPending}
-                  disabled={!canSave}
+                  disabled={!editable || !fields.name.trim()}
                 >
-                  <MailCheck className="h-4 w-4" aria-hidden="true" />
-                  {t("integrations.signature.save", "SAVE SIGNATURE")}
+                  {t("integrations.signature.save", "Confirm identity")}
                 </Button>
 
-                {signature.data.effective && (
+                {confirmed || importedSignature ? (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={handleCancel}
-                    disabled={saveSignature.isPending}
+                    onClick={() => {
+                      setFields(data.fields);
+                      setSubject(data.outreachSubject ?? "");
+                      setIsBuilding(false);
+                    }}
+                    disabled={busy}
                   >
-                    {t("integrations.signature.cancel", "CANCEL")}
+                    {t("integrations.signature.cancel", "Cancel")}
                   </Button>
-                )}
+                ) : null}
 
-                {signature.data.provider === "gmail" &&
-                  signature.data.providerImportSupported && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleImport}
-                      loading={importProvider.isPending}
-                      disabled={!canManage}
-                    >
-                      {t(
-                        "integrations.signature.importGmail",
-                        "IMPORT FROM GMAIL"
+                {data.providerImportSupported ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleImport}
+                    loading={importProvider.isPending}
+                    disabled={!editable}
+                  >
+                    {t(
+                      "integrations.signature.importGmail",
+                      "Import from Gmail"
+                    )}
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              {confirmed ? (
+                <>
+                  {storedIsTemplate ? (
+                    <SignatureSheet
+                      html={preview.html}
+                      label={t(
+                        "integrations.signature.signsOffAs",
+                        "Signs off as"
                       )}
-                    </Button>
+                    />
+                  ) : (
+                    <div>
+                      <PanelLabel>
+                        {t("integrations.signature.signsOffAs", "Signs off as")}
+                      </PanelLabel>
+                      <pre className="mt-1 whitespace-pre-wrap break-words font-mohave text-body-sm text-text-2">
+                        {data.ops?.text || data.effective?.text || "—"}
+                      </pre>
+                    </div>
                   )}
+                  <div>
+                    <PanelLabel>
+                      {t(
+                        "integrations.signature.subject.label",
+                        "First reply subject"
+                      )}
+                    </PanelLabel>
+                    <p className="mt-1 font-mohave text-body-sm text-text-2">
+                      {data.outreachSubject ?? (
+                        <span className="font-mono text-micro text-text-3">
+                          —
+                        </span>
+                      )}
+                    </p>
+                    {/* A stored subject can carry variables. Left alone it
+                        would read as though braces go out to the customer. */}
+                    <SubjectExample
+                      subject={data.outreachSubject ?? ""}
+                      context={exampleContext}
+                      label={exampleLabel}
+                    />
+                  </div>
+                </>
+              ) : importedSignature ? (
+                <>
+                  <p className="font-mohave text-body-sm text-text-2">
+                    {t(
+                      "integrations.signature.gmailHelp",
+                      "Gmail sent this one over. Confirm it to sign with it, or build your own."
+                    )}
+                  </p>
+                  <div>
+                    <PanelLabel>
+                      {t("integrations.signature.gmailLabel", "From Gmail")}
+                    </PanelLabel>
+                    <pre className="mt-1 whitespace-pre-wrap break-words font-mohave text-body-sm text-text-2">
+                      {importedSignature.text}
+                    </pre>
+                  </div>
+                </>
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-1">
+                {!confirmed && importedSignature ? (
+                  <Button
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    onClick={handleConfirmImported}
+                    loading={confirmImported.isPending}
+                    disabled={!editable}
+                  >
+                    {t("integrations.signature.confirmImported", "Use this")}
+                  </Button>
+                ) : null}
+
+                <Button
+                  type="button"
+                  variant={confirmed ? "default" : "secondary"}
+                  size="sm"
+                  onClick={() => setIsBuilding(true)}
+                  disabled={!editable}
+                >
+                  {confirmed ? (
+                    <>
+                      <Pencil
+                        className="h-icon-16 w-icon-16"
+                        aria-hidden="true"
+                      />
+                      {t("integrations.signature.edit", "Edit identity")}
+                    </>
+                  ) : (
+                    t(
+                      "integrations.signature.buildInstead",
+                      "Build one instead"
+                    )
+                  )}
+                </Button>
               </div>
             </>
           )}

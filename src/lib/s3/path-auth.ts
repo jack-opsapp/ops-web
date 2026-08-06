@@ -17,10 +17,28 @@
  *      `"profiles"` or `"projects/{projectId}"`); callers that include
  *      a different UUID-shaped segment that doesn't match their
  *      companyId are rejected (an attempted cross-tenant write).
+ *
+ * A segment may state the company either bare (`{uuid}`) or in the
+ * bucket's established `company-{uuid}` form. Both are read as the same
+ * claim: the caller's own is containment, anyone else's is a
+ * cross-tenant write and fails closed.
  */
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const COMPANY_PREFIXED_UUID_RE =
+  /^company-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
 const SAFE_SEGMENT_RE = /^[A-Za-z0-9._-]+$/;
+
+/**
+ * The company a single path segment lays claim to, or `null` if it
+ * claims none. `company-` only counts when what follows is a whole UUID
+ * — `company-legacy` is just a folder name and keeps legacy behaviour.
+ */
+function segmentCompanyId(segment: string): string | null {
+  if (UUID_RE.test(segment)) return segment.toLowerCase();
+  const prefixed = COMPANY_PREFIXED_UUID_RE.exec(segment);
+  return prefixed ? prefixed[1].toLowerCase() : null;
+}
 
 export interface FolderAuthSuccess {
   ok: true;
@@ -44,7 +62,10 @@ export type FolderAuthResult = FolderAuthSuccess | FolderAuthFailure;
  *   "projects/abc-123/proj-9"        → ok, "projects/abc-123/proj-9"
  *   "profiles"                       → ok, "profiles/abc-123"
  *   "projects/proj-9"                → ok, "projects/proj-9/abc-123"
+ *   "company-abc-123/logos"          → ok, "company-abc-123/logos"
  *   "projects/00000000-0000-0000-0000-000000000000/x"
+ *                                    → fail (foreign company UUID)
+ *   "company-00000000-0000-0000-0000-000000000000/logos"
  *                                    → fail (foreign company UUID)
  *   "../etc/passwd"                  → fail (traversal)
  *   ""                               → ok, "abc-123"
@@ -85,11 +106,13 @@ export function authorizeFolder(
   // projectIds and entity IDs are also UUIDs, but they're scoped under
   // the caller's company segment if used legitimately. A stray UUID at
   // any position that isn't ours fails closed.)
-  const foreignUuid = segments.find(
-    (seg) => UUID_RE.test(seg) && seg.toLowerCase() !== callerCompanyId.toLowerCase()
-  );
+  const caller = callerCompanyId.toLowerCase();
+  const foreignUuid = segments.find((seg) => {
+    const claimed = segmentCompanyId(seg);
+    return claimed !== null && claimed !== caller;
+  });
   const callerPresent = segments.some(
-    (seg) => seg.toLowerCase() === callerCompanyId.toLowerCase()
+    (seg) => segmentCompanyId(seg) === caller
   );
   if (foreignUuid && !callerPresent) {
     return {

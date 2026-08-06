@@ -30,6 +30,7 @@ import {
   TableMono,
 } from "@/components/ui/register-table";
 import { ImportPipelineWizard } from "./import-pipeline-wizard";
+import { SenderIdentityConnectStep } from "./sender-identity-connect-step";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
@@ -246,8 +247,9 @@ export function IntegrationsTab() {
   const can = usePermissionStore((s) => s.can);
   const canAccessFeature = useFeatureFlagsStore((s) => s.canAccessFeature);
   const phaseCEnabled = canAccessFeature("phase_c");
-  const { company } = useAuthStore();
+  const { company, currentUser } = useAuthStore();
   const companyId = company?.id ?? "";
+  const userId = currentUser?.id ?? "";
   const { data: connections = [], isLoading: connectionsLoading } =
     useGmailConnections();
   const deleteConnection = useDeleteGmailConnection();
@@ -256,19 +258,24 @@ export function IntegrationsTab() {
   const { data: importHistory = [] } = useImportHistory(companyId || undefined);
 
   const [wizardOpen, setWizardOpen] = useState(false);
+  // The connect round-trip is a one-shot signal: the params are stripped on
+  // arrival, so it has to be held in state for the identity step that follows.
+  const [justConnected, setJustConnected] = useState(false);
 
   useEffect(() => {
+    // `status` alone, never `tab`: the settings shell canonicalizes the OAuth
+    // callback's legacy `?tab=integrations` to `?section=email` before this tab
+    // is ever mounted, so a `tab` check here reads an already-rewritten URL and
+    // never fires. This tab only renders inside the email section anyway.
     const params = new URLSearchParams(window.location.search);
-    if (
-      params.get("tab") === "integrations" &&
-      params.get("status") === "connected"
-    ) {
+    if (params.get("status") === "connected") {
       toast.success(t("integrations.toast.gmailConnected"));
+      setJustConnected(true);
       // Auto-open the wizard for first-time connection
       if (params.get("firstConnect") === "true") {
         setWizardOpen(true);
       }
-      window.history.replaceState({}, "", "/settings?tab=integrations");
+      window.history.replaceState({}, "", "/settings?section=email");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once on mount
   }, []);
@@ -379,6 +386,15 @@ export function IntegrationsTab() {
           });
         }}
       />
+
+      {/* Sender identity — the step between connected and writing for you. */}
+      {companyId && userId ? (
+        <SenderIdentityConnectStep
+          companyId={companyId}
+          userId={userId}
+          active={justConnected && !wizardOpen}
+        />
+      ) : null}
 
       {/* Company Gmail */}
       <Card>

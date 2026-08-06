@@ -26,6 +26,7 @@ import {
   buildEmailSyncCronResult,
   type EmailSyncCronResult,
 } from "@/lib/email/email-sync-cron-result";
+import { isEmailSyncContinuationPending } from "@/lib/email/email-sync-continuation";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import {
   SubscriptionPlan,
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
           const { data: connections, error } = await supabase
             .from("email_connections")
             .select(
-              "id, company_id, email, provider, sync_interval_minutes, last_synced_at"
+              "id, company_id, email, provider, sync_interval_minutes, last_synced_at, history_id, history_recovery_page_token"
             )
             .eq("sync_enabled", true)
             .eq("status", "active")
@@ -153,7 +154,12 @@ export async function GET(request: NextRequest) {
               ? new Date(conn.last_synced_at as string).getTime()
               : 0;
 
-            if (now - lastSynced < intervalMs) continue;
+            const continuationPending =
+              Boolean(conn.history_recovery_page_token) ||
+              isEmailSyncContinuationPending(
+                (conn.history_id as string | null) ?? null
+              );
+            if (!continuationPending && now - lastSynced < intervalMs) continue;
 
             try {
               const result = await SyncEngine.runSync(conn.id as string);
@@ -218,6 +224,7 @@ export async function GET(request: NextRequest) {
           let threadClassificationRetry = {
             scanned: 0,
             classified: 0,
+            deferred: 0,
             errors: 0,
           };
           let threadClassificationRetryError: string | null = null;

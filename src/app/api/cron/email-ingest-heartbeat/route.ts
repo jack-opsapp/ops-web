@@ -20,12 +20,11 @@
  *      these; if it's still null after a day, OAuth scopes or the
  *      provider's API are blocking setup.
  *
- *   3. sync_stale — `last_synced_at` older than STALE_SYNC_THRESHOLD_MS for
- *      an active connection. `last_synced_at` only advances when a sync
- *      actually runs, and the email-sync poll cron is dark 05:00–13:00 UTC,
- *      so the threshold must clear that blackout or a quiet-but-healthy
- *      overnight inbox reads as an outage. See ingest-heartbeat-classify.ts
- *      for the full derivation.
+ *   3. sync_stale — provider progress older than STALE_SYNC_THRESHOLD_MS for
+ *      an active connection. Provider progress advances after provider
+ *      catch-up even when bounded derived work is still pending. The poll cron
+ *      is dark 05:00–13:00 UTC, so the threshold still clears that blackout.
+ *      See ingest-heartbeat-classify.ts for the full derivation.
  *
  * `status='needs_reconnect'` is intentionally skipped here — it has its own
  * notification path inside sync-engine that fires the moment a sync attempt
@@ -47,6 +46,7 @@ import {
   type FailureSignal,
 } from "@/lib/email/ingest-heartbeat-classify";
 import { buildReconnectDeepLink } from "@/lib/email/reconnect-deep-link";
+import { getInboxConnectionAlertCopy } from "@/lib/email/inbox-connection-alert-copy";
 import { PersonalEmailConnectionLifecycleService } from "@/lib/api/services/personal-email-connection-lifecycle-service";
 import { runEmailImportProviderOperations } from "@/lib/api/services/email-import-provider-operation-service";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -325,7 +325,7 @@ async function runHeartbeat(supabase: SupabaseClient) {
       supabase
         .from("email_connections")
         .select(
-          "id, company_id, user_id, email, provider, type, status, sync_enabled, webhook_subscription_id, webhook_expires_at, last_synced_at, created_at"
+          "id, company_id, user_id, email, provider, type, status, sync_enabled, webhook_subscription_id, webhook_expires_at, last_synced_at, provider_snapshot_at, created_at"
         )
         .order("id", { ascending: true })
         .limit(HEARTBEAT_CONNECTION_PAGE_SIZE)
@@ -471,17 +471,24 @@ async function runHeartbeat(supabase: SupabaseClient) {
     const recipientEmail = recipient.email;
     const recipientUserId = recipient.id;
 
-    // Email button → authenticated reconnect confirmation. Logged-out users
-    // sign in and return to the same confirmation before provider consent.
-    const reconnectUrl = buildReconnectDeepLink({
-      appUrl,
-      provider: worst.provider,
-      companyId,
-      userId: recipientUserId,
-      type: worst.type,
-      connectionId: worst.connectionId,
-      expectedEmail: worst.email,
+    // Provider failures deep-link to authenticated reconnect confirmation.
+    // A stale-but-authorized mailbox links only to status; OAuth cannot repair
+    // a server-side processing delay.
+    const alertCopy = getInboxConnectionAlertCopy({
+      reason: worst.reason,
+      inboxAddress: worst.email,
     });
+    const reconnectUrl = alertCopy.reconnectRequired
+      ? buildReconnectDeepLink({
+          appUrl,
+          provider: worst.provider,
+          companyId,
+          userId: recipientUserId,
+          type: worst.type,
+          connectionId: worst.connectionId,
+          expectedEmail: worst.email,
+        })
+      : new URL("/settings?tab=integrations", appUrl).toString();
 
     // Notification rail entry — non-technical wording. Uses the in-app
     // settings URL because the user is already authenticated when reading
@@ -493,11 +500,11 @@ async function runHeartbeat(supabase: SupabaseClient) {
           p_user_id: recipientUserId,
           p_company_id: companyId,
           p_type: "system_alert",
-          p_title: "Your inbox stopped sending leads to OPS",
-          p_body: `${worst.email} is disconnected. Reconnect to start capturing leads again.`,
+          p_title: alertCopy.notificationTitle,
+          p_body: alertCopy.notificationBody,
           p_persistent: true,
           p_action_url: "/settings?tab=integrations",
-          p_action_label: "RECONNECT INBOX",
+          p_action_label: alertCopy.notificationActionLabel,
           p_project_id: null,
           p_deep_link_type: null,
           p_dedupe_key: `email-ingest-health:${worst.connectionId}`,

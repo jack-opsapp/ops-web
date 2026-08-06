@@ -15,6 +15,7 @@ const {
   readCronWorkloadCursorMock,
   advanceCronWorkloadCursorMock,
   runOutboundLearningWorkerMock,
+  serviceRoleState,
   supabaseContext,
   serviceRoleClient,
 } = vi.hoisted(() => {
@@ -22,22 +23,27 @@ const {
     current: null,
     seenBySync: null,
   };
+  const serviceRoleState = {
+    connections: [
+      {
+        id: "connection-1",
+        company_id: "company-1",
+        email: "owner@example.com",
+        provider: "gmail",
+        sync_interval_minutes: 15,
+        last_synced_at: null as string | null,
+        history_id: "terminal-history",
+        history_recovery_page_token: null as string | null,
+      },
+    ],
+  };
   const serviceRoleClient = {
     rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
     from: (table: string) => {
       const result =
         table === "email_connections"
           ? {
-              data: [
-                {
-                  id: "connection-1",
-                  company_id: "company-1",
-                  email: "owner@example.com",
-                  provider: "gmail",
-                  sync_interval_minutes: 15,
-                  last_synced_at: null,
-                },
-              ],
+              data: serviceRoleState.connections,
               error: null,
             }
           : {
@@ -80,6 +86,7 @@ const {
     readCronWorkloadCursorMock: vi.fn(),
     advanceCronWorkloadCursorMock: vi.fn(),
     runOutboundLearningWorkerMock: vi.fn(),
+    serviceRoleState,
     supabaseContext,
     serviceRoleClient,
   };
@@ -212,9 +219,13 @@ describe("email sync cron HTTP outcome", () => {
     setSupabaseOverrideMock.mockReset();
     supabaseContext.current = null;
     supabaseContext.seenBySync = null;
+    serviceRoleState.connections[0].last_synced_at = null;
+    serviceRoleState.connections[0].history_id = "terminal-history";
+    serviceRoleState.connections[0].history_recovery_page_token = null;
     retryDirtyClassificationsMock.mockResolvedValue({
       scanned: 0,
       classified: 0,
+      deferred: 0,
       errors: 0,
     });
     retryPendingLeadScansMock.mockResolvedValue({
@@ -285,6 +296,44 @@ describe("email sync cron HTTP outcome", () => {
     expect(body.results[0].errors).toEqual(["cursor intentionally unchanged"]);
   });
 
+  it("continues a nonterminal cursor even inside the ordinary sync interval", async () => {
+    serviceRoleState.connections[0].last_synced_at = new Date().toISOString();
+    serviceRoleState.connections[0].history_id =
+      'gmail:v1:{"startHistoryId":"100","pageToken":null,"finalHistoryId":"200","pendingMessageIds":["message-2"]}';
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 25,
+      newLeads: 0,
+      continuationPending: true,
+      errors: [],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(runSyncMock).toHaveBeenCalledWith("connection-1");
+    expect(body.results[0]).toMatchObject({ continuationPending: true });
+  });
+
+  it("continues an unfinished recovery page even inside the ordinary sync interval", async () => {
+    serviceRoleState.connections[0].last_synced_at = new Date().toISOString();
+    serviceRoleState.connections[0].history_id = "terminal-history";
+    serviceRoleState.connections[0].history_recovery_page_token = "page-2";
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      newLeads: 0,
+      continuationPending: true,
+      errors: [],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(runSyncMock).toHaveBeenCalledWith("connection-1");
+  });
+
   it("includes a stale-sweep failure and returns non-2xx", async () => {
     runSyncMock.mockResolvedValue({
       activitiesCreated: 1,
@@ -315,6 +364,7 @@ describe("email sync cron HTTP outcome", () => {
     retryDirtyClassificationsMock.mockResolvedValue({
       scanned: 2,
       classified: 2,
+      deferred: 0,
       errors: 0,
     });
 
@@ -330,6 +380,7 @@ describe("email sync cron HTTP outcome", () => {
     expect(body.threadClassificationRetry).toEqual({
       scanned: 2,
       classified: 2,
+      deferred: 0,
       errors: 0,
     });
   });
@@ -344,6 +395,7 @@ describe("email sync cron HTTP outcome", () => {
     retryDirtyClassificationsMock.mockResolvedValue({
       scanned: 1,
       classified: 0,
+      deferred: 0,
       errors: 1,
     });
 
@@ -357,6 +409,7 @@ describe("email sync cron HTTP outcome", () => {
       threadClassificationRetry: {
         scanned: 1,
         classified: 0,
+        deferred: 0,
         errors: 1,
       },
     });

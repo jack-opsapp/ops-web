@@ -15,6 +15,11 @@ import {
 } from "@/lib/utils/body-fact-extractors";
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
 import { parsePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
+import {
+  qualifyMailboxDisplayName,
+  rewriteGeneratedEmailOpportunityTitle,
+  type EmailOpportunityIdentitySource,
+} from "@/lib/email/opportunity-title";
 
 type OpportunitySourceValue =
   | "referral"
@@ -52,12 +57,21 @@ export interface LeadEnrichmentFacts {
    * for source='ai'. Null/undefined for every other source.
    */
   aiConfidence?: number | null;
+  /**
+   * Per-field evidence overrides used when one fact is stronger than the rest
+   * of the message. An inbound signed full name, for example, must not raise
+   * the confidence of a phone/address/description extracted from that message.
+   */
+  fieldEvidence?: {
+    contactName?: LeadEnrichmentFieldEvidence;
+  };
 }
 
 export interface ExistingOpportunityForEnrichment {
   company_id?: string | null;
   client_id?: string | null;
   client_ref?: string | null;
+  title?: string | null;
   contact_name?: string | null;
   contact_email?: string | null;
   contact_phone?: string | null;
@@ -86,11 +100,11 @@ export interface LeadEnrichmentUpdateDecision {
 interface LeadEnrichmentFieldProtection {
   opportunity: ReadonlySet<string>;
   client: ReadonlySet<string>;
-  opportunityEvidence: ReadonlyMap<string, LeadEnrichmentFieldEvidence>;
-  clientEvidence: ReadonlyMap<string, LeadEnrichmentFieldEvidence>;
+  opportunityEvidence: ReadonlyMap<string, PersistedLeadFieldEvidence>;
+  clientEvidence: ReadonlyMap<string, PersistedLeadFieldEvidence>;
 }
 
-interface LeadEnrichmentFieldEvidence {
+interface PersistedLeadFieldEvidence {
   valueSnapshot: string | null;
   confidence: number | null;
 }
@@ -147,6 +161,12 @@ export type LeadFieldProvenanceSource =
   | "outbound"
   | "import"
   | "merge";
+
+export interface LeadEnrichmentFieldEvidence {
+  source: LeadFieldProvenanceSource;
+  confidence: number | null;
+  actorUserId?: string | null;
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GENERIC_NAME_RE =
@@ -210,21 +230,46 @@ function displayNameFromMailbox(
   explicitName?: string | null
 ): string | null {
   const email = normalizeEmail(mailbox);
-  const rawLocalPart = localPart(email);
-  const isLocalPartDisplay = (value: string | null): boolean =>
-    Boolean(
-      value && rawLocalPart && value.trim().toLowerCase() === rawLocalPart
-    );
-  const explicit = cleanText(explicitName);
-  if (explicit && !EMAIL_RE.test(explicit) && !isLocalPartDisplay(explicit)) {
-    return explicit;
-  }
+  const explicit = qualifyMailboxDisplayName(explicitName, email);
+  if (explicit) return explicit;
 
   const match = mailbox?.match(/^\s*"?([^"<]+?)"?\s*<[^>]+@[^>]+>/);
-  const candidate = cleanText(match?.[1] ?? null);
-  if (!candidate || EMAIL_RE.test(candidate)) return null;
-  if (isLocalPartDisplay(candidate)) return null;
-  return candidate;
+  return qualifyMailboxDisplayName(match?.[1] ?? null, email);
+}
+
+/**
+ * The name an auto-created client/sub-client row gets when a lead arrives by
+ * email. The chain is: first non-blank supplied name (enrichment company name,
+ * enrichment contact name, contact-form submitter fields), then the sender's
+ * real display name, then the "New Lead" placeholder.
+ *
+ * The sender tier routes through displayNameFromMailbox, which rejects a
+ * display name that is just the mailbox local part. Gmail synthesizes
+ * `fromName` as `from.split("@")[0]` when the From header carries no display
+ * name, so without that guard a bare `canprojack@gmail.com` sender becomes a
+ * client literally named "canprojack".
+ *
+ * `allowSenderDisplayName` is false for known-platform senders (Wix, Houzz,
+ * …) whose display name describes the platform, not the customer.
+ */
+export function resolveAutoCreatedClientName(input: {
+  preferredNames: Array<string | null | undefined>;
+  fromMailbox: string | null | undefined;
+  fromName: string | null | undefined;
+  allowSenderDisplayName: boolean;
+}): string {
+  for (const candidate of input.preferredNames) {
+    const cleaned = cleanText(candidate);
+    if (cleaned) return cleaned;
+  }
+  if (input.allowSenderDisplayName) {
+    const senderDisplayName = displayNameFromMailbox(
+      input.fromMailbox,
+      input.fromName
+    );
+    if (senderDisplayName) return senderDisplayName;
+  }
+  return "New Lead";
 }
 
 function localPartToName(email: string | null): string | null {
@@ -337,16 +382,38 @@ function hasVerifiedContactNameEvidence(facts: LeadEnrichmentFacts): boolean {
   );
 }
 
+/**
+ * Model confidence required before an AI-extracted name may replace a stored
+ * one. Only ever consulted for a name the system itself minted from the email
+ * local part — a real name is never at risk regardless of confidence.
+ */
+const AI_NAME_REPLACE_MIN_CONFIDENCE = 0.8;
+
 function canReplaceContactName(
   name: string | null | undefined,
   email: string | null | undefined,
   facts: LeadEnrichmentFacts
 ): boolean {
   if (isWeakName(name)) return true;
+
+  // Hard floor: anything that is not a name we derived from this exact
+  // mailbox's local part is treated as real and is never replaced by an
+  // extraction. Operator-owned fields are excluded a layer above, and the
+  // valueSnapshot check in hasStrictlyBetterMatchingEvidence fails closed on
+  // any value that changed without provenance.
+  const localPartDerived =
+    isLocalPartDerivedName(name, email) &&
+    normalizeEmail(email) === normalizeEmail(facts.contactEmail);
+  if (!localPartDerived) return false;
+
+  if (hasVerifiedContactNameEvidence(facts)) return true;
+
+  // The AI reviewer is the only signal for a lead that never carried a display
+  // name anywhere — accepted above the confidence floor, and only over a name
+  // the system fabricated in the first place.
   return (
-    hasVerifiedContactNameEvidence(facts) &&
-    normalizeEmail(email) === normalizeEmail(facts.contactEmail) &&
-    isLocalPartDerivedName(name, email)
+    facts.extractionSource === "ai_classified" &&
+    (facts.aiConfidence ?? 0) >= AI_NAME_REPLACE_MIN_CONFIDENCE
   );
 }
 
@@ -379,7 +446,7 @@ function hasStrictlyBetterMatchingEvidence(
   currentValue: unknown,
   fieldName: string,
   incomingConfidence: number | null,
-  evidence: ReadonlyMap<string, LeadEnrichmentFieldEvidence> | undefined
+  evidence: ReadonlyMap<string, PersistedLeadFieldEvidence> | undefined
 ): boolean {
   if (incomingConfidence == null) return false;
   const currentEvidence = evidence?.get(fieldName);
@@ -390,6 +457,15 @@ function hasStrictlyBetterMatchingEvidence(
   // canonical value. If a human or another path changed the field without
   // updating provenance, fail closed instead of overwriting that newer value.
   return snapshotValue(currentValue) === currentEvidence.valueSnapshot;
+}
+
+function sameNormalizedEmailIdentity(
+  currentEmail: string | null | undefined,
+  incomingEmail: string | null | undefined
+): boolean {
+  const current = normalizeEmail(currentEmail);
+  const incoming = normalizeEmail(incomingEmail);
+  return Boolean(current && incoming && current === incoming);
 }
 
 function databaseFailure(operation: string, cause: unknown): Error {
@@ -498,6 +574,7 @@ export function provenanceConfidenceForSource(
 // listed (e.g. source/source_email_id/source_message_id/source_metadata) are
 // plumbing, not customer facts, so they are not provenance-tracked.
 const OPPORTUNITY_PROVENANCE_FIELDS: Record<string, string> = {
+  title: "title",
   contact_name: "contact_name",
   contact_email: "contact_email",
   contact_phone: "contact_phone",
@@ -535,16 +612,12 @@ function buildProvenanceRows(params: {
   opportunityUpdates: Record<string, unknown>;
   clientUpdates: Record<string, unknown>;
   facts: LeadEnrichmentFacts;
-  source: LeadFieldProvenanceSource;
-  confidence: number | null;
   actorUserId: string | null;
   now: string;
 }): ProvenanceUpsertRow[] {
   const rows: ProvenanceUpsertRow[] = [];
   const base = {
     company_id: params.companyId,
-    source: params.source,
-    confidence: params.confidence,
     provider_thread_id: params.facts.providerThreadId,
     provider_message_id: params.facts.providerMessageId,
     actor_user_id: params.actorUserId,
@@ -556,8 +629,16 @@ function buildProvenanceRows(params: {
       OPPORTUNITY_PROVENANCE_FIELDS
     )) {
       if (!(column in params.opportunityUpdates)) continue;
+      const fieldEvidence = provenanceEvidenceForField(
+        params.facts,
+        fieldName,
+        params.actorUserId
+      );
+      const { actorUserId: fieldActorUserId, ...evidence } = fieldEvidence;
       rows.push({
         ...base,
+        ...evidence,
+        actor_user_id: fieldActorUserId ?? base.actor_user_id,
         entity_type: "opportunity",
         entity_id: params.opportunityId,
         field_name: fieldName,
@@ -571,8 +652,16 @@ function buildProvenanceRows(params: {
       CLIENT_PROVENANCE_FIELDS
     )) {
       if (!(column in params.clientUpdates)) continue;
+      const fieldEvidence = provenanceEvidenceForField(
+        params.facts,
+        fieldName,
+        params.actorUserId
+      );
+      const { actorUserId: fieldActorUserId, ...evidence } = fieldEvidence;
       rows.push({
         ...base,
+        ...evidence,
+        actor_user_id: fieldActorUserId ?? base.actor_user_id,
         entity_type: "client",
         entity_id: params.clientId,
         field_name: fieldName,
@@ -718,6 +807,103 @@ export function provenanceConfidenceForFacts(
   return provenanceConfidenceForSource(source);
 }
 
+function provenanceEvidenceForField(
+  facts: LeadEnrichmentFacts,
+  fieldName: string,
+  actorUserId?: string | null
+): LeadEnrichmentFieldEvidence {
+  if (actorUserId) {
+    return { source: "operator", confidence: 1, actorUserId };
+  }
+  if (
+    (fieldName === "contact_name" || fieldName === "title") &&
+    facts.fieldEvidence?.contactName
+  ) {
+    const evidence = facts.fieldEvidence.contactName;
+    const confidence =
+      evidence.confidence == null || !Number.isFinite(evidence.confidence)
+        ? null
+        : Math.min(1, Math.max(0, evidence.confidence));
+    return {
+      source: evidence.source,
+      confidence,
+      actorUserId: evidence.actorUserId ?? null,
+    };
+  }
+  const source = provenanceSourceForFacts(facts);
+  return {
+    source,
+    confidence: provenanceConfidenceForFacts(facts, source),
+  };
+}
+
+function titleIdentitySourceForFacts(
+  facts: LeadEnrichmentFacts
+): EmailOpportunityIdentitySource {
+  switch (facts.extractionSource) {
+    case "contact_form":
+      return "contact_form";
+    case "outbound_recipient":
+      return "outbound_recipient";
+    case "import_payload":
+      return "operator_confirmed";
+    case "inbound_sender":
+    case "historical_metadata":
+    case "ai_classified":
+    default:
+      return "inbound_sender";
+  }
+}
+
+function factsWithExactLinkedClientName(params: {
+  facts: LeadEnrichmentFacts;
+  opportunity: ExistingOpportunityForEnrichment;
+  client: ExistingClientForEnrichment | null;
+}): LeadEnrichmentFacts {
+  const clientName = qualifyMailboxDisplayName(
+    params.client?.name,
+    params.client?.email
+  );
+  if (!clientName) return params.facts;
+  if (
+    !sameNormalizedEmailIdentity(
+      params.client?.email,
+      params.facts.contactEmail
+    )
+  ) {
+    return params.facts;
+  }
+  if (
+    normalizeEmail(params.opportunity.contact_email) &&
+    !sameNormalizedEmailIdentity(
+      params.client?.email,
+      params.opportunity.contact_email
+    )
+  ) {
+    return params.facts;
+  }
+
+  const incomingEvidence = provenanceEvidenceForField(
+    params.facts,
+    "contact_name"
+  );
+  if (params.facts.contactName && (incomingEvidence.confidence ?? 0) >= 0.9) {
+    return params.facts;
+  }
+
+  return {
+    ...params.facts,
+    contactName: clientName,
+    fieldEvidence: {
+      ...params.facts.fieldEvidence,
+      contactName: {
+        source: "merge",
+        confidence: 0.9,
+      },
+    },
+  };
+}
+
 export function buildLeadEnrichmentUpdates(input: {
   existingOpportunity?: ExistingOpportunityForEnrichment | null;
   existingClient?: ExistingClientForEnrichment | null;
@@ -737,6 +923,10 @@ export function buildLeadEnrichmentUpdates(input: {
     facts,
     incomingSource
   );
+  const incomingContactNameEvidence = provenanceEvidenceForField(
+    facts,
+    "contact_name"
+  );
 
   if (existingOpportunity) {
     if (
@@ -747,14 +937,39 @@ export function buildLeadEnrichmentUpdates(input: {
         existingOpportunity.contact_email,
         facts
       ) ||
-        hasStrictlyBetterMatchingEvidence(
+        (hasStrictlyBetterMatchingEvidence(
           existingOpportunity.contact_name,
           "contact_name",
-          incomingConfidence,
+          incomingContactNameEvidence.confidence,
           protectedFields?.opportunityEvidence
-        ))
+        ) &&
+          sameNormalizedEmailIdentity(
+            existingOpportunity.contact_email,
+            facts.contactEmail
+          )))
     ) {
       opportunity.contact_name = facts.contactName;
+    }
+    const nextContactName =
+      typeof opportunity.contact_name === "string"
+        ? opportunity.contact_name
+        : existingOpportunity.contact_name;
+    const titleEvidence =
+      protectedFields?.opportunityEvidence.has("title") === true
+        ? protectedFields.opportunityEvidence.get("title")
+        : undefined;
+    const rewrittenTitle = !protectedFields?.opportunity.has("title")
+      ? rewriteGeneratedEmailOpportunityTitle({
+          currentTitle: existingOpportunity.title,
+          currentContactName: existingOpportunity.contact_name,
+          currentContactEmail: existingOpportunity.contact_email,
+          nextContactName,
+          nextNameSource: titleIdentitySourceForFacts(facts),
+          titleEvidence,
+        })
+      : null;
+    if (rewrittenTitle) {
+      opportunity.title = rewrittenTitle;
     }
     if (
       facts.contactEmail &&
@@ -878,12 +1093,16 @@ export function buildLeadEnrichmentUpdates(input: {
         existingClient.email,
         facts
       ) ||
-        hasStrictlyBetterMatchingEvidence(
+        (hasStrictlyBetterMatchingEvidence(
           existingClient.name,
           "contact_name",
-          incomingConfidence,
+          incomingContactNameEvidence.confidence,
           protectedFields?.clientEvidence
-        ))
+        ) &&
+          sameNormalizedEmailIdentity(
+            existingClient.email,
+            facts.contactEmail
+          )))
     ) {
       client.name = clientName;
     }
@@ -983,8 +1202,8 @@ async function loadProtectedLeadFields(params: {
     : [];
   const opportunity = new Set<string>();
   const client = new Set<string>();
-  const opportunityEvidence = new Map<string, LeadEnrichmentFieldEvidence>();
-  const clientEvidence = new Map<string, LeadEnrichmentFieldEvidence>();
+  const opportunityEvidence = new Map<string, PersistedLeadFieldEvidence>();
+  const clientEvidence = new Map<string, PersistedLeadFieldEvidence>();
   const canonicalFieldName = (fieldName: string): string => {
     switch (fieldName) {
       case "name":
@@ -1085,6 +1304,7 @@ export async function applyCanonicalLeadEnrichment({
     "company_id",
     "client_id",
     "client_ref",
+    "title",
     "contact_name",
     "contact_email",
     "contact_phone",
@@ -1212,11 +1432,16 @@ export async function applyCanonicalLeadEnrichment({
         clientId: resolvedClientId,
       })
     : undefined;
+  const effectiveFacts = factsWithExactLinkedClientName({
+    facts,
+    opportunity: opportunityRow,
+    client: clientRow,
+  });
 
   const updates = buildLeadEnrichmentUpdates({
     existingOpportunity: opportunityRow,
     existingClient: clientRow,
-    facts,
+    facts: effectiveFacts,
     protectedFields,
   });
 
@@ -1278,7 +1503,7 @@ export async function applyCanonicalLeadEnrichment({
       clientId: resolvedClientId,
       opportunityUpdates: updates.opportunity,
       clientUpdates: updates.client,
-      facts,
+      facts: effectiveFacts,
       actorUserId: actorUserId ?? null,
     });
   }
@@ -1304,8 +1529,6 @@ export async function writeFieldProvenance(params: {
   facts: LeadEnrichmentFacts;
   actorUserId?: string | null;
 }): Promise<void> {
-  const source = provenanceSourceForFacts(params.facts, params.actorUserId);
-  const confidence = provenanceConfidenceForFacts(params.facts, source);
   const rows = buildProvenanceRows({
     companyId: params.companyId,
     opportunityId: params.opportunityId,
@@ -1313,8 +1536,6 @@ export async function writeFieldProvenance(params: {
     opportunityUpdates: params.opportunityUpdates,
     clientUpdates: params.clientUpdates,
     facts: params.facts,
-    source,
-    confidence,
     actorUserId: params.actorUserId ?? null,
     now: new Date().toISOString(),
   });

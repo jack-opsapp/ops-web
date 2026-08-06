@@ -7,7 +7,8 @@ import type {
   EmailSignatureConnectionsResponse,
   EmailSignatureScope,
   EmailSignatureSettingsResponse,
-  SaveEmailSignatureInput,
+  SaveEmailIdentityInput,
+  UploadSignatureLogoInput,
 } from "@/lib/types/email-signature";
 import { authedFetch } from "@/lib/utils/authed-fetch";
 
@@ -55,7 +56,7 @@ async function fetchEmailSignatureConnections(
 }
 
 async function saveEmailSignature(
-  input: SaveEmailSignatureInput
+  input: SaveEmailIdentityInput
 ): Promise<EmailSignatureSettingsResponse> {
   const response = await authedFetch(SIGNATURE_ROUTE, {
     method: "PUT",
@@ -66,6 +67,50 @@ async function saveEmailSignature(
     throw new Error(
       await readError(response, "Failed to save email signature")
     );
+  }
+  return response.json();
+}
+
+async function confirmImportedEmailSignature(
+  scope: EmailSignatureScope
+): Promise<EmailSignatureSettingsResponse> {
+  const response = await authedFetch(SIGNATURE_ROUTE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...scope, action: "confirm_imported" }),
+  });
+  if (!response.ok) {
+    throw new Error(
+      await readError(response, "Failed to confirm the imported signature")
+    );
+  }
+  return response.json();
+}
+
+async function uploadSignatureLogo(
+  input: UploadSignatureLogoInput
+): Promise<EmailSignatureSettingsResponse> {
+  const response = await authedFetch(SIGNATURE_ROUTE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...input, action: "upload_signature_logo" }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Failed to upload the logo"));
+  }
+  return response.json();
+}
+
+async function clearSignatureLogo(
+  scope: EmailSignatureScope
+): Promise<EmailSignatureSettingsResponse> {
+  const response = await authedFetch(SIGNATURE_ROUTE, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...scope, action: "clear_signature_logo" }),
+  });
+  if (!response.ok) {
+    throw new Error(await readError(response, "Failed to remove the logo"));
   }
   return response.json();
 }
@@ -125,6 +170,70 @@ export function useSaveEmailSignature() {
           input.companyId,
           input.userId,
           input.connectionId
+        ),
+        data
+      );
+    },
+  });
+}
+
+/**
+ * Standing behind an imported signature. The server promotes the provider's
+ * content into operator scope, so the response is the whole settings state —
+ * written straight into the cache the same way a save is.
+ */
+export function useConfirmImportedEmailSignature() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: confirmImportedEmailSignature,
+    onSuccess: (data, scope) => {
+      queryClient.setQueryData(
+        queryKeys.emailSignatures.detail(
+          scope.companyId,
+          scope.userId,
+          scope.connectionId
+        ),
+        data
+      );
+    },
+  });
+}
+
+/**
+ * Both logo mutations answer with the whole settings state, so the card's
+ * preview redraws off the server's own resolution rather than a local guess at
+ * which mark won.
+ */
+export function useUploadSignatureLogo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: uploadSignatureLogo,
+    onSuccess: (data, input) => {
+      queryClient.setQueryData(
+        queryKeys.emailSignatures.detail(
+          input.companyId,
+          input.userId,
+          input.connectionId
+        ),
+        data
+      );
+    },
+  });
+}
+
+export function useClearSignatureLogo() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: clearSignatureLogo,
+    onSuccess: (data, scope) => {
+      queryClient.setQueryData(
+        queryKeys.emailSignatures.detail(
+          scope.companyId,
+          scope.userId,
+          scope.connectionId
         ),
         data
       );
