@@ -79,6 +79,7 @@ interface GoogleAdsRow {
   adGroup?: { name?: string };
   adGroupCriterion?: { keyword?: { text?: string; matchType?: string } };
   searchTermView?: { searchTerm?: string };
+  conversionAction?: { name?: string; category?: string; status?: string };
   segments?: { date?: string; conversionActionName?: string };
   metrics?: {
     costMicros?: string;
@@ -452,44 +453,94 @@ export async function queryDailySearchTermData(
   });
 }
 
-/** Aggregate per-campaign conversion rows by conversion action name. */
-function aggregateConversionRows(rows: GoogleAdsRow[]): ConversionBreakdown[] {
+/**
+ * Conversion-action name → category (SIGNUP / DOWNLOAD / PURCHASE / ...).
+ * Categories are how the dashboard decides which actions are signups versus
+ * app installs — far sturdier than matching substrings in operator-typed
+ * names ("OPS APP First open" is an install; nothing about it says "install").
+ * Prefers ENABLED rows when a name has been reused across removed actions.
+ */
+async function fetchConversionActionCategories(): Promise<Map<string, string>> {
+  const rows = await queryGoogleAds(`
+    SELECT
+      conversion_action.name,
+      conversion_action.category,
+      conversion_action.status
+    FROM conversion_action
+  `);
+
+  const byName = new Map<string, { category: string; enabled: boolean }>();
+  for (const row of rows) {
+    const name = row.conversionAction?.name;
+    const category = row.conversionAction?.category;
+    if (!name || !category) continue;
+    const enabled = row.conversionAction?.status === "ENABLED";
+    const existing = byName.get(name);
+    if (!existing || (enabled && !existing.enabled)) {
+      byName.set(name, { category, enabled });
+    }
+  }
+
+  return new Map([...byName].map(([name, v]) => [name, v.category]));
+}
+
+/**
+ * Aggregate conversion rows by action name, attaching categories and costing
+ * each action against total account spend for the window.
+ *
+ * Google does NOT attribute cost to individual conversion actions (asking for
+ * cost alongside `segments.conversion_action_name` is rejected outright with
+ * PROHIBITED_SEGMENT_WITH_METRIC_IN_SELECT_OR_WHERE_CLAUSE). So `cost` on every
+ * row is the window's TOTAL account spend — the shared numerator — and `cpa`
+ * is that total divided by the action's own conversions. This matches how the
+ * Google Ads UI reports cost/conv. when segmenting by conversion action.
+ */
+function aggregateConversionRows(
+  rows: GoogleAdsRow[],
+  windowSpend: number,
+  categories: Map<string, string>
+): ConversionBreakdown[] {
   const byAction = new Map<string, ConversionBreakdown>();
   for (const row of rows) {
     const name = String(row.segments?.conversionActionName ?? "Unknown");
+    const conversions = Number(row.metrics?.conversions ?? 0);
     const existing = byAction.get(name);
     if (existing) {
-      existing.conversions += Number(row.metrics?.conversions ?? 0);
-      existing.cost += microsToDollars(row.metrics?.costMicros);
-      existing.cpa = existing.conversions > 0 ? existing.cost / existing.conversions : 0;
+      existing.conversions += conversions;
     } else {
-      const conversions = Number(row.metrics?.conversions ?? 0);
-      const cost = microsToDollars(row.metrics?.costMicros);
       byAction.set(name, {
         actionName: name,
+        category: categories.get(name) ?? null,
         conversions,
-        cost,
-        cpa: conversions > 0 ? cost / conversions : 0,
+        cost: windowSpend,
+        cpa: 0,
       });
     }
   }
 
-  return Array.from(byAction.values()).sort((a, b) => b.conversions - a.conversions);
+  const out = Array.from(byAction.values());
+  for (const action of out) {
+    action.cpa = action.conversions > 0 ? windowSpend / action.conversions : 0;
+  }
+
+  return out.sort((a, b) => b.conversions - a.conversions);
 }
 
 async function getCostPerConversion(days: AdsDayRange): Promise<ConversionBreakdown[]> {
-  const rows = await queryGoogleAds(`
-    SELECT
-      segments.conversion_action_name,
-      metrics.conversions,
-      metrics.cost_per_conversion,
-      metrics.cost_micros
-    FROM campaign
-    WHERE segments.date DURING ${DURING_MAP[days]}
-      AND segments.conversion_action_name != ''
-  `);
+  const [rows, summary, categories] = await Promise.all([
+    queryGoogleAds(`
+      SELECT
+        segments.conversion_action_name,
+        metrics.conversions
+      FROM campaign
+      WHERE segments.date DURING ${DURING_MAP[days]}
+        AND segments.conversion_action_name != ''
+    `),
+    getAccountSummary(days),
+    fetchConversionActionCategories(),
+  ]);
 
-  return aggregateConversionRows(rows);
+  return aggregateConversionRows(rows, summary.totalSpend, categories);
 }
 
 async function getDailySpend(days: AdsDayRange): Promise<DailySpend[]> {
@@ -791,18 +842,20 @@ export async function getCostPerConversionForRange(
 ): Promise<ConversionBreakdown[]> {
   const start = formatDate(startDate);
   const end = formatDate(endDate);
-  const rows = await queryGoogleAds(`
-    SELECT
-      segments.conversion_action_name,
-      metrics.conversions,
-      metrics.cost_per_conversion,
-      metrics.cost_micros
-    FROM campaign
-    WHERE segments.date >= '${start}' AND segments.date <= '${end}'
-      AND segments.conversion_action_name != ''
-  `);
+  const [rows, summary, categories] = await Promise.all([
+    queryGoogleAds(`
+      SELECT
+        segments.conversion_action_name,
+        metrics.conversions
+      FROM campaign
+      WHERE segments.date >= '${start}' AND segments.date <= '${end}'
+        AND segments.conversion_action_name != ''
+    `),
+    getAccountSummaryForRange(startDate, endDate),
+    fetchConversionActionCategories(),
+  ]);
 
-  return aggregateConversionRows(rows);
+  return aggregateConversionRows(rows, summary.totalSpend, categories);
 }
 
 // ─── Cached Exports (5-min TTL, matching existing admin query pattern) ────────
