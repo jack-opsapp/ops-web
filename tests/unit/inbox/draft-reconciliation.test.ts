@@ -174,6 +174,72 @@ describe("classifyDraftOutcome", () => {
     expect(result).toBe<DraftOutcome>("pending");
   });
 
+  // ── used: draft still present but the send provably came from it ─────────
+  // Regression cover for bug be648d50. A present draft object is absence of
+  // proof, not proof of independent authorship: the operator can reuse the
+  // draft's text without consuming the draft resource.
+  it("returns 'used' when the draft is still in the mailbox but the send derives from it", () => {
+    const result = classifyDraftOutcome({
+      draftStillInMailbox: true,
+      hasOutboundAfter: true,
+      daysSinceDraft: 0,
+      outboundDerivedFromDraft: true,
+    });
+    expect(result).toBe<DraftOutcome>("used");
+  });
+
+  it("still returns 'from_scratch' when a present draft has no derivation evidence", () => {
+    const result = classifyDraftOutcome({
+      draftStillInMailbox: true,
+      hasOutboundAfter: true,
+      daysSinceDraft: 0,
+      outboundDerivedFromDraft: false,
+    });
+    expect(result).toBe<DraftOutcome>("from_scratch");
+  });
+
+  it("defaults to 'from_scratch' for a present draft when derivation is unknown", () => {
+    const result = classifyDraftOutcome({
+      draftStillInMailbox: true,
+      hasOutboundAfter: true,
+      daysSinceDraft: 0,
+    });
+    expect(result).toBe<DraftOutcome>("from_scratch");
+  });
+
+  it("keeps a consumed draft as 'used' even without derivation evidence", () => {
+    // A gone draft plus an outbound reply is the strongest proof available;
+    // content evidence is only ever an additional route to the same verdict.
+    const result = classifyDraftOutcome({
+      draftStillInMailbox: false,
+      hasOutboundAfter: true,
+      daysSinceDraft: 0,
+      outboundDerivedFromDraft: false,
+    });
+    expect(result).toBe<DraftOutcome>("used");
+  });
+
+  it("never lets derivation evidence resolve a draft with no outbound reply", () => {
+    // Guards the discarded/replaced protection: without a send there is
+    // nothing to have been sent, whatever the bodies look like.
+    expect(
+      classifyDraftOutcome({
+        draftStillInMailbox: false,
+        hasOutboundAfter: false,
+        daysSinceDraft: 30,
+        outboundDerivedFromDraft: true,
+      })
+    ).toBe<DraftOutcome>("discarded");
+    expect(
+      classifyDraftOutcome({
+        draftStillInMailbox: true,
+        hasOutboundAfter: false,
+        daysSinceDraft: 30,
+        outboundDerivedFromDraft: true,
+      })
+    ).toBe<DraftOutcome>("pending");
+  });
+
   it("uses 14 days as the default TTL when ttlDays is not provided", () => {
     // 13 days → still pending with default 14-day TTL
     const pendingResult = classifyDraftOutcome({
@@ -434,6 +500,215 @@ describe("reconcilePendingMailboxDrafts", () => {
       connectionId: "connection-1",
     });
     expect(updateCalls).toEqual([]);
+  });
+
+  it("files a draft the operator lifted into a fresh compose as sent, not superseded", async () => {
+    // Production regression, bug be648d50. Real row
+    // 53e09e3f-3e1f-4290-9582-387b1e33a7bf: the operator edited our draft and
+    // sent it from Gmail at 00:37:59Z, but the API draft object survived, so
+    // reconciliation called it a from-scratch rewrite 12s later and buried the
+    // row as `superseded` — no sent_at, no final_version, no learning row.
+    const originalDraft =
+      "Hi Steve,\n\nHope you’re doing well, and thanks for reaching out again.\n\n" +
+      "We’d be happy to take a look at the front deck repair at Tanner Ridge. Early next week should work, and I think meeting on site in Central Saanich makes the most sense.\n\n" +
+      "If Monday is best for you, send me a time that works and we can set it up. If another day early next week is better, that works too.\n\nThanks,";
+    const sentBody =
+      "Hi Steve,\r\n\r\nHope you’re doing well, and thanks for reaching out again.\r\n\r\n" +
+      "Happy to take a look at the front deck repair at Tanner Ridge. If you have\r\nany dimensions and photos to share, I could likely get you an idea of\r\n" +
+      "pricing within the next day or two. We can also book a site visit for\r\nFriday if you are available late morning.\r\n\r\n" +
+      "All the best,\r\n\r\nJackson\r\n";
+
+    const pendingRows = [
+      {
+        id: "draft-history-steve",
+        company_id: "company-1",
+        user_id: "user-1",
+        mailbox_draft_id: "r5528848112558729074",
+        source_message_id: null,
+        created_at: "2026-08-05T23:22:16.142Z",
+        profile_type: "client_new_inquiry",
+        opportunity_id: "opportunity-steve",
+        original_draft: originalDraft,
+      },
+    ];
+    const outboundRows = [
+      {
+        id: "activity-steve",
+        direction: "outbound",
+        body_text: sentBody,
+        created_at: "2026-08-06T00:37:59.000Z",
+        subject: "Canpro Deck and Rail Estimate",
+        from_email: "canprojack@gmail.com",
+        to_emails: ["stevecashline@gmail.com"],
+        email_message_id: "19fd4817141c585b",
+        opportunity_id: "opportunity-steve",
+      },
+    ];
+    const updateCalls: Array<Record<string, unknown>> = [];
+
+    // The draft resource is STILL in the mailbox — the condition that used to
+    // force `from_scratch`.
+    getDraftMock.mockResolvedValue({ id: "r5528848112558729074" });
+
+    function queryFor(table: string) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updateCalls.push(payload);
+          return query;
+        }),
+        order: vi.fn(async () => ({
+          data: table === "activities" ? outboundRows : [],
+          error: null,
+        })),
+        limit: vi.fn(async () => ({ data: [], error: null })),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve({
+            data: table === "ai_draft_history" ? pendingRows : [],
+            error: null,
+          }).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    const supabase = {
+      from: vi.fn((table: string) => queryFor(table)),
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          actorUserId: "user-1",
+          opportunityId: "opportunity-steve",
+          assignmentVersion: 1,
+          assignmentEventId: "assignment-event-1",
+          proofType: "native_mailbox_draft",
+        },
+        error: null,
+      }),
+    };
+
+    await reconcilePendingMailboxDrafts({
+      connection: {
+        id: "connection-1",
+        companyId: "company-1",
+        email: "canprojack@gmail.com",
+      } as never,
+      providerThreadId: "19fc50046507256d",
+      supabase: supabase as never,
+    });
+
+    // Resolved as a mailbox send, not a rewrite.
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      "resolve_email_outbound_learning_mailbox_actor_as_system",
+      expect.objectContaining({
+        p_draft_history_id: "draft-history-steve",
+        p_provider_message_id: "19fd4817141c585b",
+        p_outcome: "used",
+      })
+    );
+    // The draft receipt is attached, so the durable queue owns the sent-state
+    // transition (status/sent_at/final_version/sent_provider_message_id).
+    expect(enqueueIfEnabledMock).toHaveBeenCalledTimes(1);
+    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftHistoryId: "draft-history-steve",
+        draftDeliveryChannel: "mailbox",
+        providerMessageId: "19fd4817141c585b",
+        providerThreadId: "19fc50046507256d",
+        opportunityId: "opportunity-steve",
+      })
+    );
+    // The row is never buried; nothing in this file may write its terminal state.
+    expect(updateCalls).toEqual([]);
+  });
+
+  it("still supersedes a genuinely independent reply written in the same voice", async () => {
+    // The false-positive guard: same operator, same stock opener and signature,
+    // but the send reuses none of this draft's wording.
+    const pendingRows = [
+      {
+        id: "draft-history-karan",
+        company_id: "company-1",
+        user_id: "user-1",
+        mailbox_draft_id: "r5118626185896316757",
+        source_message_id: null,
+        created_at: "2026-08-05T23:32:31.649Z",
+        profile_type: "client_new_inquiry",
+        opportunity_id: "opportunity-karan",
+        original_draft:
+          "Hi Karan,\n\nHope your weekend’s going well.\n\n" +
+          "Thanks for reaching out about the backyard project. I saw you’re looking at a 9 ft x 17 ft deck and about 72 ft of fencing in Langford.\n\nThanks,",
+      },
+    ];
+    const outboundRows = [
+      {
+        id: "activity-unrelated",
+        direction: "outbound",
+        body_text:
+          "Hi Karan,\r\n\r\nJust following up here- did you have any questions about the quote?\r\n\r\n" +
+          "Let me know if there's anything we can help with.\r\n\r\nCheers\r\nJackson\r\n",
+        created_at: "2026-08-06T00:31:01.000Z",
+        subject: "Canpro Deck and Rail Estimate",
+        from_email: "canprojack@gmail.com",
+        to_emails: ["karanmendiratta9462@gmail.com"],
+        email_message_id: "19fd47b0a364e45b",
+        opportunity_id: "opportunity-karan",
+      },
+    ];
+    const updateCalls: Array<Record<string, unknown>> = [];
+    getDraftMock.mockResolvedValue({ id: "r5118626185896316757" });
+
+    function queryFor(table: string) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updateCalls.push(payload);
+          return query;
+        }),
+        order: vi.fn(async () => ({
+          data: table === "activities" ? outboundRows : [],
+          error: null,
+        })),
+        limit: vi.fn(async () => ({ data: [], error: null })),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve({
+            data: table === "ai_draft_history" ? pendingRows : [],
+            error: null,
+          }).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    const supabase = {
+      from: vi.fn((table: string) => queryFor(table)),
+      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+
+    await reconcilePendingMailboxDrafts({
+      connection: {
+        id: "connection-1",
+        companyId: "company-1",
+        email: "canprojack@gmail.com",
+      } as never,
+      providerThreadId: "19fc7dcbf29477b8",
+      supabase: supabase as never,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      "resolve_email_outbound_learning_mailbox_actor_as_system",
+      expect.objectContaining({ p_outcome: "from_scratch" })
+    );
+    expect(updateCalls).toContainEqual(
+      expect.objectContaining({ status: "superseded" })
+    );
   });
 
   it("bounds exact provider draft reads under one absolute deadline", async () => {
