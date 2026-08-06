@@ -84,20 +84,47 @@ export function stripRenderedEmailSignature(
   input: SignatureRenderInput
 ): string {
   if (input.contentType === "text") {
-    const signatureText = normalizePlainText(input.signature.text);
-    if (!signatureText) return input.body;
+    // A signature comes back from a provider in more than one clothing: our
+    // own plain-text mirror (what we appended), or the provider composer's own
+    // text/plain rendering of the signature HTML (what a real send carries —
+    // Gmail turns the logo into an "[image: alt]" line and keeps phone and
+    // website joined on one line). Every candidate is derived only from the
+    // known signature, so each remains safe to remove as an anchored suffix.
+    const candidates = knownSignatureTextRenderings(input.signature);
+    if (candidates.length === 0) return input.body;
     const normalizedBody = input.body.replace(/\r\n?/g, "\n").trimEnd();
-    const suffix = `\n\n-- \n${signatureText}`;
-    if (normalizedBody.endsWith(suffix)) {
-      return normalizedBody.slice(0, -suffix.length).trimEnd();
+
+    for (const candidate of candidates) {
+      const suffix = `\n\n-- \n${candidate}`;
+      if (normalizedBody.endsWith(suffix)) {
+        return normalizedBody.slice(0, -suffix.length).trimEnd();
+      }
+      // Provider round-trips commonly flatten the marked HTML block into plain
+      // text. The exact known signature is safe to remove only as an anchored
+      // suffix separated from the authored body by a blank line.
+      const providerFlattenedSuffix = `\n\n${candidate}`;
+      if (normalizedBody.endsWith(providerFlattenedSuffix)) {
+        return normalizedBody
+          .slice(0, -providerFlattenedSuffix.length)
+          .trimEnd();
+      }
     }
-    // Provider round-trips commonly flatten the marked HTML block into plain
-    // text. The exact known signature is safe to remove only as an anchored
-    // suffix separated from the authored body by a blank line.
-    const providerFlattenedSuffix = `\n\n${signatureText}`;
-    if (normalizedBody.endsWith(providerFlattenedSuffix)) {
-      return normalizedBody.slice(0, -providerFlattenedSuffix.length).trimEnd();
+
+    // Providers also take liberties with whitespace alone — extra blank lines
+    // before the block, trailing spaces, a re-wrapped contact line. Matching
+    // collapses whitespace on both sides but still demands the entire known
+    // signature, anchored at the very end, on its own lines, behind a blank
+    // line — so nothing beyond the known signature is ever stripped.
+    for (const candidate of candidates) {
+      const cut = whitespaceNormalizedSignatureCut(normalizedBody, candidate);
+      if (cut !== null) {
+        return normalizedBody
+          .slice(0, cut)
+          .replace(SIGNATURE_SEPARATOR_TAIL, "")
+          .trimEnd();
+      }
     }
+
     return normalizedBody;
   }
 
@@ -685,6 +712,118 @@ export const EmailSignatureService = {
 
 export function emailSignatureHtmlToText(html: string): string {
   return htmlToPlainText(sanitizeEmailSignatureHtml(html));
+}
+
+// ── Provider-rendered signature recognition ────────────────────────────────
+// A sent message read back from the provider carries the signature the way
+// the provider's composer rendered the stored HTML into text/plain, which is
+// not the shape of our authored plain-text mirror. Verified against real
+// Gmail sends (Canpro, Aug 2026): the logo <img> becomes an "[image: alt]"
+// line, every block boundary becomes a single line break, an anchor keeps
+// only its label, and inline runs stay joined — phone and website share one
+// "·" line while the mirror gives each fact its own line.
+
+/** Blank line — optionally an RFC `-- ` delimiter line — ending an authored
+ *  body right before a signature block. */
+const SIGNATURE_SEPARATOR_TAIL = /\n[ \t]*\n(?:-- \n)?$/;
+
+/**
+ * The text/plain rendering a provider composer derives from a signature's
+ * HTML. Line structure mirrors Gmail's, byte for byte on the OPS template.
+ */
+export function emailSignatureHtmlToProviderRenderedText(html: string): string {
+  const sanitized = sanitizeEmailSignatureHtml(html ?? "");
+  if (!sanitized.trim()) return "";
+
+  const withMarkers = sanitized
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<img\b[^>]*>/gi, (tag) => {
+      const alt =
+        /\balt\s*=\s*"([^"]*)"/i.exec(tag)?.[1] ??
+        /\balt\s*=\s*'([^']*)'/i.exec(tag)?.[1] ??
+        "";
+      const label = decodeSignatureEntities(alt).replace(/\s+/g, " ").trim();
+      return label ? `\n[image: ${label}]\n` : "\n";
+    })
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(
+      /<\/(?:p|div|li|tr|td|th|table|thead|tbody|tfoot|ul|ol|blockquote|h[1-6])>/gi,
+      "\n"
+    )
+    .replace(/<[^>]+>/g, "");
+
+  return decodeSignatureEntities(withMarkers)
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** Reverses the entities sanitize-html emits; `&amp;` last so it cannot
+ *  re-decode what the earlier passes just produced. */
+function decodeSignatureEntities(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&amp;/gi, "&");
+}
+
+/**
+ * Every plain-text clothing this known signature is allowed to wear: the
+ * authored mirror we append ourselves, and the provider-composer rendering of
+ * the HTML. Both derive only from the stored signature — never from the body
+ * being matched — which is what keeps removal provably scoped.
+ */
+function knownSignatureTextRenderings(
+  signature: EmailSignatureRenderContent
+): string[] {
+  const renderings: string[] = [];
+  const mirror = normalizePlainText(signature.text);
+  if (mirror) renderings.push(mirror);
+  const providerRendered = normalizePlainText(
+    emailSignatureHtmlToProviderRenderedText(signature.html)
+  );
+  if (providerRendered && !renderings.includes(providerRendered)) {
+    renderings.push(providerRendered);
+  }
+  return renderings;
+}
+
+/**
+ * Anchored-suffix match that tolerates only whitespace differences: extra
+ * blank lines, trailing spaces, a re-wrapped line. Returns the index to cut
+ * at — always a line start whose whitespace-collapsed tail equals the entire
+ * collapsed candidate, preceded by a blank line — or null. Never matches a
+ * partial signature, and never matches past the known signature.
+ */
+function whitespaceNormalizedSignatureCut(
+  body: string,
+  candidate: string
+): number | null {
+  const target = candidate.replace(/\s+/g, " ").trim();
+  if (!target) return null;
+
+  for (let cursor = body.length; cursor > 0; ) {
+    const previousNewline = body.lastIndexOf("\n", cursor - 1);
+    const lineStart = previousNewline + 1;
+    const collapsedTail = body.slice(lineStart).replace(/\s+/g, " ").trim();
+    // Collapsed length only grows as the scan walks upward; past the target
+    // there is nothing left to find.
+    if (collapsedTail.length > target.length) return null;
+    if (
+      collapsedTail === target &&
+      SIGNATURE_SEPARATOR_TAIL.test(body.slice(0, lineStart))
+    ) {
+      return lineStart;
+    }
+    if (previousNewline === -1) return null;
+    cursor = previousNewline;
+  }
+  return null;
 }
 
 // ── Signature style allowlist ──────────────────────────────────────────────

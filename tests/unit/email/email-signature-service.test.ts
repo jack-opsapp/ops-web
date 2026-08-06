@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createEmailSignatureContent,
+  emailSignatureHtmlToProviderRenderedText,
   emailSignatureHtmlToText,
   hasConfirmedEmailIdentity,
   renderEmailBodyWithSignature,
@@ -11,6 +12,7 @@ import {
   stripRenderedEmailSignature,
   type EmailSignatureRecord,
 } from "@/lib/api/services/email-signature-service";
+import { authoredMessageBody } from "@/lib/api/services/conversation-state/message-cleaner";
 
 function signatureRow(
   overrides: Partial<EmailSignatureRecord> = {}
@@ -460,6 +462,144 @@ describe("signature rendering boundary", () => {
         signature,
       })
     ).not.toContain("Previous signature");
+  });
+});
+
+// A sent message read back from the provider carries the signature the way the
+// PROVIDER's composer rendered the HTML into text/plain — not the way our
+// stored plain-text mirror writes it. Gmail (verified against real Canpro
+// sends, Aug 2026): the logo <img> becomes an "[image: alt]" line, block
+// boundaries become single line breaks, an anchor keeps only its label, and
+// inline runs stay joined — so phone and website share one "·" line while the
+// stored mirror gives each fact its own line. The matcher must recognize that
+// rendering, or every recognized send reads as "operator deleted the
+// signature" and learning stays fail-closed forever.
+describe("provider-rendered signature recognition", () => {
+  // The real confirmed Canpro signature row, verbatim.
+  const canproSignature = {
+    html:
+      '<table style="border-collapse:collapse"><tbody><tr><td style="vertical-align:middle;padding-right:14px;border-right:1px solid #6b6b6b"><img src="https://ops-app-files-prod.s3.us-west-2.amazonaws.com/company-a612edc0-5c18-4c4d-af97-55b9410dd077/logos/signature_1785965355793-btqkghoy.png" alt="Canpro Deck and Rail" width="96" /></td><td style="vertical-align:middle;padding-left:14px"><div style="font-family:-apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif;font-size:13px;line-height:1.5;color:#6b6b6b"><div style="font-size:15px;font-weight:bold;color:#1a1a1a">Jackson Sweet</div><div>Canpro Deck and Rail</div><div>(250) 538-8994 · <a href="https://www.canprodeckandrail.com/" rel="noopener noreferrer" style="color:#6b6b6b;text-decoration:none">www.canprodeckandrail.com</a></div></div></td></tr></tbody></table>',
+    text: "Jackson Sweet\nCanpro Deck and Rail\n(250) 538-8994\nwww.canprodeckandrail.com",
+    hash: "a051aabf86cb29868b7d28c7b36a855433347b0b8bec3103225230426b924064",
+  };
+
+  const gmailRenderedBlock =
+    "[image: Canpro Deck and Rail]\n" +
+    "Jackson Sweet\n" +
+    "Canpro Deck and Rail\n" +
+    "(250) 538-8994 · www.canprodeckandrail.com";
+
+  // Gmail message 19fd4817141c585b as synced into activities.body_text — the
+  // operator's real send, one blank line between sign-off and signature.
+  const steveSentBody =
+    "Hi Steve,\r\n\r\nHope you’re doing well, and thanks for reaching out again.\r\n\r\nHappy to take a look at the front deck repair at Tanner Ridge. If you have\r\nany dimensions and photos to share, I could likely get you an idea of\r\npricing within the next day or two. We can also book a site visit for\r\nFriday if you are available late morning.\r\n\r\nAll the best,\r\n\r\nJackson\r\n\r\n[image: Canpro Deck and Rail]\r\nJackson Sweet\r\nCanpro Deck and Rail\r\n(250) 538-8994 · www.canprodeckandrail.com\r\n";
+
+  const steveAuthoredBody =
+    "Hi Steve,\n\nHope you’re doing well, and thanks for reaching out again.\n\nHappy to take a look at the front deck repair at Tanner Ridge. If you have\nany dimensions and photos to share, I could likely get you an idea of\npricing within the next day or two. We can also book a site visit for\nFriday if you are available late morning.\n\nAll the best,\n\nJackson";
+
+  it("derives Gmail's text/plain rendering from the stored signature HTML", () => {
+    expect(emailSignatureHtmlToProviderRenderedText(canproSignature.html)).toBe(
+      gmailRenderedBlock
+    );
+  });
+
+  it("strips the Gmail-rendered signature from a real sent body", () => {
+    expect(
+      stripRenderedEmailSignature({
+        body: steveSentBody,
+        contentType: "text",
+        signature: canproSignature,
+      })
+    ).toBe(steveAuthoredBody);
+  });
+
+  it("strips the rendering even when extra blank lines precede it", () => {
+    // Four of the five real sends carry two blank lines between the sign-off
+    // and the signature block (Gmail message 19fd47b0a364e45b and siblings).
+    const karanTail =
+      "we can book a site visit to go over everything together if you'd like.\r\n\r\nAll the best,\r\n\r\nJackson\r\n\r\n\r\n[image: Canpro Deck and Rail]\r\nJackson Sweet\r\nCanpro Deck and Rail\r\n(250) 538-8994 · www.canprodeckandrail.com\r\n";
+
+    expect(
+      stripRenderedEmailSignature({
+        body: karanTail,
+        contentType: "text",
+        signature: canproSignature,
+      })
+    ).toBe(
+      "we can book a site visit to go over everything together if you'd like.\n\nAll the best,\n\nJackson"
+    );
+  });
+
+  it("strips the rendering when a provider re-wrapped the contact line", () => {
+    const wrapped =
+      "All the best,\n\nJackson\n\n[image: Canpro Deck and Rail]\nJackson Sweet\nCanpro Deck and Rail\n(250) 538-8994 ·\nwww.canprodeckandrail.com";
+
+    expect(
+      stripRenderedEmailSignature({
+        body: wrapped,
+        contentType: "text",
+        signature: canproSignature,
+      })
+    ).toBe("All the best,\n\nJackson");
+  });
+
+  it("never strips when authored text follows the signature block", () => {
+    const body =
+      "All the best,\n\nJackson\n\n" +
+      gmailRenderedBlock +
+      "\n\nPS: the gate code is 4411.";
+
+    expect(
+      stripRenderedEmailSignature({
+        body,
+        contentType: "text",
+        signature: canproSignature,
+      })
+    ).toBe(body);
+  });
+
+  it("never strips a near-miss block that differs from the known signature", () => {
+    const body =
+      "All the best,\n\nJackson\n\n[image: Canpro Deck and Rail]\nJackson Sweet\nCanpro Deck and Rail\n(250) 538-1234 · www.canprodeckandrail.com";
+
+    expect(
+      stripRenderedEmailSignature({
+        body,
+        contentType: "text",
+        signature: canproSignature,
+      })
+    ).toBe(body);
+  });
+
+  it("never strips a signature block that touches the authored text", () => {
+    // Without a blank line the boundary is unproven, so nothing is removed.
+    const body = "All the best,\nJackson\n" + gmailRenderedBlock;
+
+    expect(
+      stripRenderedEmailSignature({
+        body,
+        contentType: "text",
+        signature: canproSignature,
+      })
+    ).toBe(body);
+  });
+
+  it("recognizes the send through the reconciliation seam", () => {
+    // Mirrors authoredBodyWithoutKnownSignature: quote-strip the raw synced
+    // body, then peel known signatures. The result flipping away from the
+    // original is what proves the operator kept the signature — the gate for
+    // sent_from_mailbox learning.
+    const original = authoredMessageBody(steveSentBody, {
+      subject: "Canpro Deck and Rail Estimate",
+    }).trim();
+    const authored = stripKnownRenderedEmailSignatures({
+      body: original,
+      contentType: "text",
+      signatures: [canproSignature],
+    }).trim();
+
+    expect(authored).toBe(steveAuthoredBody);
+    expect(authored).not.toBe(original);
   });
 });
 
