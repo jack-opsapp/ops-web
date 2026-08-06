@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { syncDay } from "@/lib/admin/ads-history-sync";
-import { updateSyncStatus } from "@/lib/admin/ads-history-queries";
+import { getSyncStatus, updateSyncStatus } from "@/lib/admin/ads-history-queries";
+import { dispatchBackfillChunk } from "@/lib/admin/ads-backfill-dispatch";
 import {
   CronDatabaseOperationError,
   runWithCronWorkloadControl,
@@ -9,6 +10,43 @@ import { getAdminSupabase } from "@/lib/supabase/admin-client";
 
 export const maxDuration = 60;
 
+/** A `running` backfill whose heartbeat is older than this is stalled. */
+const BACKFILL_STALE_MS = 10 * 60 * 1000;
+
+/**
+ * Watchdog: revive a stalled backfill chain. The chunk worker heartbeats
+ * after every chunk, so a `running` row with an old `updated_at` means the
+ * chain died between invocations. Re-dispatching resumes from the stored
+ * currentDate (chunk upserts are idempotent). Never throws — the daily sync
+ * must run regardless.
+ */
+async function reviveStalledBackfill(request: NextRequest): Promise<boolean> {
+  try {
+    const status = await getSyncStatus("backfill");
+    if (!status || status.status !== "running" || !status.backfill_progress) {
+      return false;
+    }
+    const heartbeatAge = Date.now() - new Date(status.updated_at).getTime();
+    if (heartbeatAge < BACKFILL_STALE_MS) return false;
+
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) return false;
+
+    console.warn(
+      `[ads-sync] backfill heartbeat is ${Math.round(heartbeatAge / 1000)}s old — re-dispatching chunk worker`
+    );
+    const chunkUrl = new URL(
+      "/api/admin/google-ads/backfill/chunk",
+      request.url
+    ).toString();
+    const result = await dispatchBackfillChunk(chunkUrl, cronSecret);
+    return result.ok;
+  } catch (err) {
+    console.error("[ads-sync] backfill watchdog failed:", err);
+    return false;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -16,6 +54,8 @@ export async function GET(request: NextRequest) {
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const revivedBackfill = await reviveStalledBackfill(request);
 
   try {
     const supabase = getAdminSupabase();
@@ -62,6 +102,7 @@ export async function GET(request: NextRequest) {
           status: alreadyRunning ? "already_running" : "unavailable",
           ran: false,
           reason: controlled.reason,
+          revivedBackfill,
         },
         { status: alreadyRunning ? 200 : 503 }
       );
@@ -71,6 +112,7 @@ export async function GET(request: NextRequest) {
       status: "synced",
       ran: true,
       date: controlled.value.date,
+      revivedBackfill,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

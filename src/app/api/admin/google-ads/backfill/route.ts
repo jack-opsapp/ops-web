@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { requireAdmin } from "@/lib/admin/api-auth";
 import { getSyncStatus, updateSyncStatus } from "@/lib/admin/ads-history-queries";
+import { dispatchBackfillChunk } from "@/lib/admin/ads-backfill-dispatch";
 
 export const maxDuration = 60;
 
@@ -72,26 +73,12 @@ export async function POST(req: NextRequest) {
 
   const chunkUrl = new URL("/api/admin/google-ads/backfill/chunk", req.url).toString();
 
-  // Fire-and-forget the first chunk after the response is sent.
-  // Each chunk worker self-schedules the next chunk, so this one HTTP call
-  // starts a chain of independent function invocations, bypassing the 60s
-  // function limit that would kill a single long-running request.
+  // Fire-and-forget the first chunk after the response is sent. The worker
+  // loops through chunks within its time budget and hands off the remainder;
+  // dispatch verifies the response and retries, marking the run failed loudly
+  // if the baton cannot be passed (never a frozen "running").
   after(async () => {
-    try {
-      await fetch(chunkUrl, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${cronSecret}`,
-          "Content-Type": "application/json",
-        },
-      });
-    } catch (err) {
-      console.error("[backfill] failed to dispatch first chunk:", err);
-      await updateSyncStatus("backfill", {
-        status: "failed",
-        error: `Failed to dispatch chunk worker: ${err instanceof Error ? err.message : String(err)}`,
-      });
-    }
+    await dispatchBackfillChunk(chunkUrl, cronSecret);
   });
 
   return NextResponse.json(

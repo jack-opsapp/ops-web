@@ -7089,9 +7089,11 @@ export type Database = {
           id: string
           last_synced_at: string | null
           ops_label_id: string | null
+          outreach_subject: string | null
           provider: string
           provider_snapshot_at: string | null
           refresh_token: string
+          signature_logo_url: string | null
           status: string
           sync_enabled: boolean
           sync_filters: Json
@@ -7125,9 +7127,11 @@ export type Database = {
           id?: string
           last_synced_at?: string | null
           ops_label_id?: string | null
+          outreach_subject?: string | null
           provider?: string
           provider_snapshot_at?: string | null
           refresh_token: string
+          signature_logo_url?: string | null
           status?: string
           sync_enabled?: boolean
           sync_filters?: Json
@@ -7161,9 +7165,11 @@ export type Database = {
           id?: string
           last_synced_at?: string | null
           ops_label_id?: string | null
+          outreach_subject?: string | null
           provider?: string
           provider_snapshot_at?: string | null
           refresh_token?: string
+          signature_logo_url?: string | null
           status?: string
           sync_enabled?: boolean
           sync_filters?: Json

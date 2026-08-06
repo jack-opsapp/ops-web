@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  AWAITING_IDENTITY_CONFIRMATION,
   EmailAssignmentContactFormDraftWorker,
   type ClaimedEmailAssignmentContactFormDraft,
   type EmailAssignmentContactFormDraftDependencies,
@@ -82,6 +83,7 @@ function makeHarness(input?: {
   jobs?: ClaimedEmailAssignmentContactFormDraft[];
   autonomy?: string;
   authorization?: boolean[];
+  confirmedIdentity?: boolean;
   connection?: EmailConnection | null;
   providerPlacementAttempt?: ContactFormDraftProviderPlacementAttempt | null;
   generatedDraft?: {
@@ -110,6 +112,12 @@ function makeHarness(input?: {
   const getCustomerAutonomy = vi.fn(
     async () => input?.autonomy ?? "auto_draft"
   );
+  const hasConfirmedIdentity = vi.fn<
+    EmailAssignmentContactFormDraftDependencies["hasConfirmedIdentity"]
+  >(async () => input?.confirmedIdentity ?? true);
+  const requestIdentityConfirmation = vi.fn<
+    EmailAssignmentContactFormDraftDependencies["requestIdentityConfirmation"]
+  >(async () => undefined);
   const generateDraft = vi.fn<
     EmailAssignmentContactFormDraftDependencies["generateDraft"]
   >(
@@ -191,6 +199,8 @@ function makeHarness(input?: {
     reauthorize,
     loadConnection,
     getCustomerAutonomy,
+    hasConfirmedIdentity,
+    requestIdentityConfirmation,
     generateDraft,
     prepare,
     resolveSignature,
@@ -212,6 +222,8 @@ function makeHarness(input?: {
     reauthorize,
     loadConnection,
     getCustomerAutonomy,
+    hasConfirmedIdentity,
+    requestIdentityConfirmation,
     generateDraft,
     prepare,
     resolveSignature,
@@ -271,7 +283,7 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     const generatedInput = harness.generateDraft.mock.calls[0]![0];
     expect(generatedInput.threadId).toBeUndefined();
     expect(generatedInput.userInstruction).toContain(
-      "request in the untrusted email data"
+      "Address exactly what the customer asked for or proposed"
     );
     expect(generatedInput.userInstruction).not.toContain(
       "Please quote a new deck"
@@ -362,6 +374,103 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     expect(result.retrying).toBe(1);
     expect(harness.getDraftTransport).not.toHaveBeenCalled();
     expect(harness.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("holds new-lead outreach until the operator confirms their sending identity", async () => {
+    const harness = makeHarness({ confirmedIdentity: false });
+
+    const result = await harness.worker.process();
+
+    expect(harness.hasConfirmedIdentity).toHaveBeenCalledWith({
+      companyId: harness.job.companyId,
+      connectionId: harness.job.connectionId,
+      userId: harness.job.actorUserId,
+    });
+    // Nothing may be written, rendered, or placed on the operator's behalf.
+    expect(harness.generateDraft).not.toHaveBeenCalled();
+    expect(harness.getDraftTransport).not.toHaveBeenCalled();
+    expect(harness.placeDraft).not.toHaveBeenCalled();
+    expect(harness.complete).not.toHaveBeenCalled();
+    // Non-terminal: the queue row waits and carries the reason.
+    expect(harness.fail).toHaveBeenCalledWith({
+      queueId: harness.job.id,
+      holder: "contact-form-worker-1",
+      error: `EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_TEMPORARILY_UNAVAILABLE: ${AWAITING_IDENTITY_CONFIRMATION}`,
+    });
+    expect(result.retrying).toBe(1);
+    expect(result.failed).toBe(0);
+    expect(result.skipped).toBe(0);
+    expect(harness.requestIdentityConfirmation).toHaveBeenCalledWith({
+      companyId: harness.job.companyId,
+      connectionId: harness.job.connectionId,
+      userId: harness.job.actorUserId,
+    });
+  });
+
+  it("holds a resumed prepared draft too — a stored body is still unsigned outreach", async () => {
+    const harness = makeHarness({
+      confirmedIdentity: false,
+      jobs: [
+        claimed({
+          draftHistoryId: "00000000-0000-4000-8000-000000000601",
+          draftBody: "Hi Sandra,\n\nHappy to quote the deck.",
+          draftSubject: "Your deck inquiry",
+        }),
+      ],
+    });
+
+    const result = await harness.worker.process();
+
+    expect(harness.placeDraft).not.toHaveBeenCalled();
+    expect(result.retrying).toBe(1);
+  });
+
+  it("asks for identity confirmation once across repeated held passes", async () => {
+    const harness = makeHarness({
+      confirmedIdentity: false,
+      authorization: [true, true, true, true],
+    });
+
+    await harness.worker.process();
+    await harness.worker.process();
+
+    // The rail prompt is deduped at the database boundary, so the worker calls
+    // on every held pass and the operator still sees exactly one entry.
+    expect(harness.requestIdentityConfirmation).toHaveBeenCalledTimes(2);
+    expect(harness.requestIdentityConfirmation.mock.calls[0]).toEqual(
+      harness.requestIdentityConfirmation.mock.calls[1]
+    );
+  });
+
+  it("keeps holding the job when the identity prompt itself fails", async () => {
+    const harness = makeHarness({ confirmedIdentity: false });
+    harness.requestIdentityConfirmation.mockRejectedValue(
+      new Error("notification transport unavailable")
+    );
+
+    const result = await harness.worker.process();
+
+    expect(result.retrying).toBe(1);
+    expect(harness.fail).toHaveBeenCalledWith({
+      queueId: harness.job.id,
+      holder: "contact-form-worker-1",
+      error: `EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_TEMPORARILY_UNAVAILABLE: ${AWAITING_IDENTITY_CONFIRMATION}`,
+    });
+  });
+
+  it("drafts and appends the signature once identity is confirmed", async () => {
+    const harness = makeHarness({ confirmedIdentity: true });
+
+    const result = await harness.worker.process();
+
+    expect(harness.requestIdentityConfirmation).not.toHaveBeenCalled();
+    expect(harness.generateDraft).toHaveBeenCalledTimes(1);
+    expect(harness.placeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining("— Jackson"),
+      })
+    );
+    expect(result.drafted).toBe(1);
   });
 
   it("keeps a deterministic under-trained writing profile as a terminal safety hold", async () => {
@@ -636,6 +745,67 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     expect(result.drafted).toBe(1);
     expect(harness.placeDraft).toHaveBeenCalledWith(
       expect.objectContaining({ subject: "Thanks for reaching out" })
+    );
+  });
+
+  it("uses the mailbox's configured outreach subject for generation and placement", async () => {
+    const harness = makeHarness({
+      connection: connection({
+        outreachSubject: "  Canpro Deck and Rail Estimate  ",
+      }),
+    });
+    harness.generateDraft.mockResolvedValue({
+      available: true,
+      draft: "Hi Sandra,\n\nHappy to quote the deck.",
+      draftHistoryId: "00000000-0000-4000-8000-000000000601",
+    });
+
+    const result = await harness.worker.process();
+
+    expect(result.drafted).toBe(1);
+    expect(harness.generateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({
+        configuredSubject: "Canpro Deck and Rail Estimate",
+      })
+    );
+    expect(harness.placeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: "Canpro Deck and Rail Estimate" })
+    );
+  });
+
+  it("falls back to the server-owned outreach subject when the mailbox has none", async () => {
+    const harness = makeHarness({
+      connection: connection({ outreachSubject: "   " }),
+    });
+
+    const result = await harness.worker.process();
+
+    expect(result.drafted).toBe(1);
+    expect(harness.generateDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ configuredSubject: "Thanks for reaching out" })
+    );
+  });
+
+  it("resumes a prepared draft under the mailbox's configured outreach subject", async () => {
+    const harness = makeHarness({
+      jobs: [
+        claimed({
+          draftHistoryId: "00000000-0000-4000-8000-000000000601",
+          draftBody: "Hi Sandra,\n\nHappy to quote the deck.",
+          draftSubject: null,
+        }),
+      ],
+      connection: connection({
+        outreachSubject: "Canpro Deck and Rail Estimate",
+      }),
+    });
+
+    const result = await harness.worker.process();
+
+    expect(result.drafted).toBe(1);
+    expect(harness.generateDraft).not.toHaveBeenCalled();
+    expect(harness.placeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: "Canpro Deck and Rail Estimate" })
     );
   });
 

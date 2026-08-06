@@ -48,6 +48,20 @@ export interface EmailConnection {
   opsLabelId: string | null;
   aiReviewEnabled: boolean;
   aiMemoryEnabled: boolean;
+  /**
+   * Operator-chosen subject line for the FIRST outbound email to a new lead.
+   * Contact-form outreach opens a fresh thread, so there is no inbound subject
+   * to reply to. Null/absent falls back to the server-owned default.
+   */
+  outreachSubject?: string | null;
+  /**
+   * The operator's own signature mark, uploaded through the identity settings
+   * and stored by OPS. Independent of `companies.logo_url`: a mailbox signs
+   * with the image the operator chose for signing, which is not always the
+   * image the company uses everywhere else. Null falls back to the company
+   * logo at render time.
+   */
+  signatureLogoUrl?: string | null;
   status: EmailConnectionStatus;
   createdAt: Date;
   updatedAt: Date;
@@ -155,6 +169,11 @@ export interface UpdateEmailConnection {
   opsLabelId?: string;
   aiReviewEnabled?: boolean;
   aiMemoryEnabled?: boolean;
+  /** Null clears the setting and restores the server-owned default subject. */
+  outreachSubject?: string | null;
+  /** Null reverts the signature to the company logo. The object itself stays
+   *  in storage — already-sent mail still points at it. */
+  signatureLogoUrl?: string | null;
   status?: EmailConnectionStatus;
   /**
    * Persisted after a provider token refresh. Sync-path callers must update

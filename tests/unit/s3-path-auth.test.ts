@@ -83,6 +83,58 @@ describe("authorizeFolder", () => {
     const result = authorizeFolder(folder, COMPANY_A);
     expect(result).toEqual({ ok: true, folder });
   });
+
+  // The bucket's public-read policy is written against the established
+  // `company-{uuid}/...` families. A folder already in that shape is
+  // company-scoped by construction, so it must survive untouched —
+  // appending the bare id would push the object out of the public prefix
+  // and every read of it would 403.
+  it("accepts a company-prefixed segment naming the caller, without appending", () => {
+    const result = authorizeFolder(`company-${COMPANY_A}/logos`, COMPANY_A);
+    expect(result).toEqual({ ok: true, folder: `company-${COMPANY_A}/logos` });
+  });
+
+  it("accepts a company-prefixed segment on its own", () => {
+    const result = authorizeFolder(`company-${COMPANY_A}`, COMPANY_A);
+    expect(result).toEqual({ ok: true, folder: `company-${COMPANY_A}` });
+  });
+
+  it("matches a company-prefixed segment case-insensitively", () => {
+    const folder = `company-${COMPANY_A.toUpperCase()}/logos`;
+    const result = authorizeFolder(folder, COMPANY_A);
+    expect(result).toEqual({ ok: true, folder });
+  });
+
+  it("accepts a company-prefixed segment deeper in the path", () => {
+    const folder = `company-${COMPANY_A}/logos/nested`;
+    const result = authorizeFolder(folder, COMPANY_A);
+    expect(result).toEqual({ ok: true, folder });
+  });
+
+  it("rejects a company-prefixed segment naming a different company", () => {
+    const result = authorizeFolder(`company-${COMPANY_B}/logos`, COMPANY_A);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toMatch(/different company/i);
+  });
+
+  it("rejects a company-prefixed foreign id even beside a legitimate segment", () => {
+    const result = authorizeFolder(
+      `company-${COMPANY_B}/logos/${PROJECT_ID}`,
+      COMPANY_A
+    );
+    expect(result.ok).toBe(false);
+  });
+
+  // Only an exact `company-{uuid}` counts as a scope claim. A folder that
+  // merely starts with the word keeps the legacy append behaviour, so no
+  // existing caller silently changes shape.
+  it("appends companyId for a company-prefixed segment that is not a UUID", () => {
+    const result = authorizeFolder("company-legacy/logos", COMPANY_A);
+    expect(result).toEqual({
+      ok: true,
+      folder: `company-legacy/logos/${COMPANY_A}`,
+    });
+  });
 });
 
 describe("sanitizeFilename", () => {

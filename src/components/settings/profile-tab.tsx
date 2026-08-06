@@ -292,6 +292,7 @@ function EmailSignaturesSection({
                     userId={userId}
                     connectionId={conn.id}
                     mailbox={conn.mailbox}
+                    highlighted={conn.id === targetConnectionId}
                   />
                 </div>
               ))}

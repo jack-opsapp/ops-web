@@ -1,17 +1,30 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { importMutate, saveMutate, signatureQuery, toastError, toastSuccess } =
-  vi.hoisted(() => ({
-    signatureQuery: vi.fn(),
-    saveMutate: vi.fn(),
-    importMutate: vi.fn(),
-    toastError: vi.fn(),
-    toastSuccess: vi.fn(),
-  }));
+const {
+  clearLogoMutate,
+  confirmImportedMutate,
+  importMutate,
+  removeBackground,
+  saveMutate,
+  signatureQuery,
+  toastError,
+  toastSuccess,
+  uploadLogoMutate,
+} = vi.hoisted(() => ({
+  signatureQuery: vi.fn(),
+  saveMutate: vi.fn(),
+  confirmImportedMutate: vi.fn(),
+  importMutate: vi.fn(),
+  uploadLogoMutate: vi.fn(),
+  clearLogoMutate: vi.fn(),
+  removeBackground: vi.fn(),
+  toastError: vi.fn(),
+  toastSuccess: vi.fn(),
+}));
 
 vi.mock("@/lib/hooks/use-email-signature", () => ({
   useEmailSignature: (...args: unknown[]) => signatureQuery(...args),
@@ -19,10 +32,27 @@ vi.mock("@/lib/hooks/use-email-signature", () => ({
     mutateAsync: saveMutate,
     isPending: false,
   }),
+  useConfirmImportedEmailSignature: () => ({
+    mutateAsync: confirmImportedMutate,
+    isPending: false,
+  }),
   useImportProviderEmailSignature: () => ({
     mutateAsync: importMutate,
     isPending: false,
   }),
+  useUploadSignatureLogo: () => ({
+    mutateAsync: uploadLogoMutate,
+    isPending: false,
+  }),
+  useClearSignatureLogo: () => ({
+    mutateAsync: clearLogoMutate,
+    isPending: false,
+  }),
+}));
+
+// jsdom has no canvas, and the cut itself is covered by its own unit tests.
+vi.mock("@/lib/images/remove-solid-background", () => ({
+  removeSolidBackground: removeBackground,
 }));
 
 vi.mock("@/i18n/client", () => ({
@@ -36,13 +66,23 @@ vi.mock("@/components/ui/toast", () => ({
 }));
 
 import { EmailSignatureSettings } from "@/components/settings/email-signature-settings";
+import {
+  describeSignatureTemplate,
+  renderSignatureTemplate,
+} from "@/lib/email/signature-template";
 
 const props = {
   companyId: "company-1",
   userId: "user-1",
   connectionId: "connection-1",
-  mailbox: "jack@ops.test",
+  mailbox: "jack@canprodeckandrail.com",
   canManage: true,
+};
+
+const scope = {
+  companyId: props.companyId,
+  userId: props.userId,
+  connectionId: props.connectionId,
 };
 
 function renderWithQuery(ui: ReactElement) {
@@ -52,9 +92,16 @@ function renderWithQuery(ui: ReactElement) {
       mutations: { retry: false },
     },
   });
-  return render(
-    <QueryClientProvider client={client}>{ui}</QueryClientProvider>
+  const wrap = (node: ReactElement) => (
+    <QueryClientProvider client={client}>{node}</QueryClientProvider>
   );
+  const view = render(wrap(ui));
+  // Rerender through the same provider — swapping the root element type would
+  // remount the card and quietly throw away the state under test.
+  return {
+    ...view,
+    rerender: (node: ReactElement) => view.rerender(wrap(node)),
+  };
 }
 
 function loadedSignature(overrides: Record<string, unknown> = {}) {
@@ -63,21 +110,24 @@ function loadedSignature(overrides: Record<string, unknown> = {}) {
       connectionId: props.connectionId,
       mailbox: props.mailbox,
       provider: "gmail",
-      effective: {
-        source: "gmail",
-        html: "<div>Jack<br>OPS</div>",
-        text: "Jack\nOPS",
-        hash: "hash-1",
-      },
+      effective: null,
       ops: null,
-      providerSignature: {
-        source: "gmail",
-        html: "<div>Jack<br>OPS</div>",
-        text: "Jack\nOPS",
-        fetchedAt: "2026-07-14T12:00:00.000Z",
-      },
+      providerSignature: null,
       providerImportSupported: true,
-      missing: false,
+      missing: true,
+      confirmedAt: null,
+      outreachSubject: null,
+      companyLogoUrl: "https://cdn.example.com/canpro.png",
+      signatureLogoUrl: null,
+      fields: {
+        name: "Jackson Sweet",
+        title: "",
+        companyName: "Canpro Deck and Rail",
+        phone: "(250) 538-8994",
+        website: "canprodeckandrail.com",
+        includeLogo: false,
+        layout: "logo-left",
+      },
       ...overrides,
     },
     isLoading: false,
@@ -88,65 +138,288 @@ function loadedSignature(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   signatureQuery.mockReset();
-  saveMutate.mockReset().mockResolvedValue({ missing: false });
+  saveMutate.mockReset().mockResolvedValue({ confirmedAt: "now" });
+  confirmImportedMutate.mockReset().mockResolvedValue({ confirmedAt: "now" });
   importMutate.mockReset().mockResolvedValue({ missing: false });
+  uploadLogoMutate.mockReset().mockResolvedValue({});
+  clearLogoMutate.mockReset().mockResolvedValue({});
+  removeBackground
+    .mockReset()
+    .mockImplementation(async (file: File) => ({ blob: file, applied: false }));
   toastError.mockReset();
   toastSuccess.mockReset();
 });
 
 describe("EmailSignatureSettings", () => {
-  it("shows the effective signature and its source", () => {
+  it("opens prefilled and says what is being held", () => {
     signatureQuery.mockReturnValue(loadedSignature());
 
     renderWithQuery(<EmailSignatureSettings {...props} />);
 
-    expect(screen.getByText("EMAIL SIGNATURE")).toBeInTheDocument();
-    expect(screen.getByText("GMAIL SIGNATURE")).toBeInTheDocument();
+    expect(screen.getByText("Not confirmed")).toBeInTheDocument();
     expect(
       screen.getByText(
-        (_content, element) =>
-          element?.tagName === "PRE" && element.textContent === "Jack\nOPS"
+        "New-lead replies stay held until you confirm how you sign off."
       )
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "EDIT SIGNATURE" })
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toHaveValue("Jackson Sweet");
+    expect(screen.getByLabelText("Company")).toHaveValue(
+      "Canpro Deck and Rail"
+    );
+    expect(screen.getByLabelText("Phone")).toHaveValue("(250) 538-8994");
   });
 
-  it("saves an OPS override for the current mailbox", async () => {
+  it("previews the signature the customer will receive", () => {
+    signatureQuery.mockReturnValue(loadedSignature());
+
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    const sheet = screen.getByTestId("signature-sheet");
+    expect(sheet.textContent).toContain("Jackson Sweet");
+    expect(sheet.textContent).toContain("Canpro Deck and Rail");
+    expect(sheet.querySelector("img")).toBeNull();
+  });
+
+  it("offers a logo instead of a toggle when there is no mark yet", () => {
+    signatureQuery.mockReturnValue(loadedSignature({ companyLogoUrl: null }));
+
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    // Nothing to show and nothing to arrange — just the way to supply one.
+    expect(
+      screen.queryByRole("switch", { name: "Show logo" })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add a logo" })
+    ).toBeInTheDocument();
+  });
+
+  it("offers the two arrangements only once the logo is on", async () => {
     const user = userEvent.setup();
     signatureQuery.mockReturnValue(loadedSignature());
     renderWithQuery(<EmailSignatureSettings {...props} />);
 
-    await user.click(screen.getByRole("button", { name: "EDIT SIGNATURE" }));
-    await user.type(
-      screen.getByRole("textbox", { name: "OPS SIGNATURE" }),
-      "Jackson Sweet\nOPS"
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("switch", { name: "Show logo" }));
+
+    expect(screen.getByRole("radio", { name: "Logo left" })).toHaveAttribute(
+      "aria-checked",
+      "true"
     );
-    await user.click(screen.getByRole("button", { name: "SAVE SIGNATURE" }));
+    expect(screen.getByRole("radio", { name: "Logo below" })).toHaveAttribute(
+      "aria-checked",
+      "false"
+    );
+    expect(
+      screen.getByTestId("signature-sheet").querySelector("img")
+    ).not.toBeNull();
+  });
+
+  it("confirms the signature and the subject in one action", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.type(screen.getByLabelText("Title"), "Owner");
+    await user.click(screen.getByRole("switch", { name: "Show logo" }));
+    await user.click(screen.getByRole("radio", { name: "Logo below" }));
+    await user.type(
+      screen.getByLabelText("First reply subject"),
+      "Canpro Deck and Rail estimate"
+    );
+    await user.click(screen.getByRole("button", { name: "Confirm identity" }));
 
     expect(saveMutate).toHaveBeenCalledWith({
-      companyId: props.companyId,
-      userId: props.userId,
-      connectionId: props.connectionId,
-      opsText: "Jackson Sweet\nOPS",
+      ...scope,
+      fields: {
+        name: "Jackson Sweet",
+        title: "Owner",
+        companyName: "Canpro Deck and Rail",
+        phone: "(250) 538-8994",
+        website: "canprodeckandrail.com",
+      },
+      includeLogo: true,
+      layout: "stacked",
+      outreachSubject: "Canpro Deck and Rail estimate",
     });
+    expect(toastSuccess).toHaveBeenCalledWith("Identity confirmed");
   });
 
-  it("imports a Gmail signature only when the provider supports it", async () => {
+  it("will not confirm an identity with no name on it", async () => {
     const user = userEvent.setup();
     signatureQuery.mockReturnValue(loadedSignature());
     renderWithQuery(<EmailSignatureSettings {...props} />);
 
-    await user.click(screen.getByRole("button", { name: "EDIT SIGNATURE" }));
-    await user.click(screen.getByRole("button", { name: "IMPORT FROM GMAIL" }));
+    await user.clear(screen.getByLabelText("Name"));
 
-    expect(importMutate).toHaveBeenCalledWith({
-      companyId: props.companyId,
-      userId: props.userId,
-      connectionId: props.connectionId,
+    expect(
+      screen.getByRole("button", { name: "Confirm identity" })
+    ).toBeDisabled();
+  });
+
+  it("offers an imported Gmail signature for confirmation before anything else", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        missing: false,
+        providerSignature: {
+          source: "gmail",
+          html: "<div>Jack — Canpro</div>",
+          text: "Jack — Canpro",
+          fetchedAt: "2026-08-03T12:00:00.000Z",
+        },
+      })
+    );
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    expect(screen.getByText("Jack — Canpro")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Use this" }));
+
+    expect(confirmImportedMutate).toHaveBeenCalledWith(scope);
+    expect(toastSuccess).toHaveBeenCalledWith("Identity confirmed");
+  });
+
+  it("lets the operator build their own instead of the import", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        missing: false,
+        providerSignature: {
+          source: "gmail",
+          html: "<div>Jack — Canpro</div>",
+          text: "Jack — Canpro",
+          fetchedAt: "2026-08-03T12:00:00.000Z",
+        },
+      })
+    );
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "Build one instead" }));
+
+    expect(screen.getByLabelText("Name")).toHaveValue("Jackson Sweet");
+  });
+
+  it("collapses to the signature and the subject once confirmed", () => {
+    const confirmedFields = {
+      name: "Jackson Sweet",
+      title: "Owner",
+      companyName: "Canpro Deck and Rail",
+      phone: "(250) 538-8994",
+      website: "canprodeckandrail.com",
+      includeLogo: true,
+      layout: "logo-left" as const,
+    };
+    // The stored row is what the server rendered from these same fields — the
+    // card only draws itself when the two agree byte for byte.
+    const stored = renderSignatureTemplate({
+      ...confirmedFields,
+      logoUrl: "https://cdn.example.com/canpro.png",
     });
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        missing: false,
+        confirmedAt: "2026-08-03T10:00:00.000Z",
+        outreachSubject: "Canpro Deck and Rail estimate",
+        ops: stored,
+        fields: confirmedFields,
+      })
+    );
+
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    expect(screen.getByText("Confirmed")).toBeInTheDocument();
+    expect(screen.getByTestId("signature-sheet").textContent).toContain(
+      "Jackson Sweet"
+    );
+    expect(
+      screen.queryByText(
+        "New-lead replies stay held until you confirm how you sign off."
+      )
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Canpro Deck and Rail estimate")
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Edit identity" })
+    ).toBeInTheDocument();
+  });
+
+  it("draws the card for a stored signature whose address carries a scheme", () => {
+    // The founder's own row: the website came off the company record, so the
+    // stored link keeps the scheme and the trailing slash while the card's
+    // label shows neither. Nothing here is hand-fed — the fields arrive the
+    // way the route sends them, read back out of the stored markup.
+    const companyName = "Canpro Deck and Rail";
+    const signatureLogoUrl = "https://cdn.example.com/signature-mark.png";
+    const stored = renderSignatureTemplate({
+      name: "Jackson Sweet",
+      title: "",
+      companyName,
+      phone: "(250) 538-8994",
+      website: "https://www.canprodeckandrail.com/",
+      logoUrl: signatureLogoUrl,
+      layout: "logo-left",
+    });
+    const described = describeSignatureTemplate({ ...stored, companyName });
+
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        missing: false,
+        confirmedAt: "2026-08-03T10:00:00.000Z",
+        ops: stored,
+        signatureLogoUrl,
+        fields: { ...described, companyName },
+      })
+    );
+
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    const sheet = screen.getByTestId("signature-sheet");
+    expect(sheet.querySelector("img")).toHaveAttribute("src", signatureLogoUrl);
+    expect(sheet.querySelector("a")).toHaveAttribute(
+      "href",
+      "https://www.canprodeckandrail.com/"
+    );
+    expect(sheet.textContent).toContain("(250) 538-8994");
+  });
+
+  it("shows a promoted import as it is stored, not as a rebuilt card", () => {
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        missing: false,
+        confirmedAt: "2026-08-03T10:00:00.000Z",
+        ops: { html: "<div>Jack — Canpro</div>", text: "Jack — Canpro" },
+      })
+    );
+
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    expect(screen.getByText("Jack — Canpro")).toBeInTheDocument();
+    expect(screen.queryByTestId("signature-sheet")).not.toBeInTheDocument();
+  });
+
+  it("reopens the builder from the confirmed state", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        missing: false,
+        confirmedAt: "2026-08-03T10:00:00.000Z",
+        outreachSubject: "Canpro Deck and Rail estimate",
+      })
+    );
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "Edit identity" }));
+
+    expect(screen.getByLabelText("Name")).toHaveValue("Jackson Sweet");
+    expect(screen.getByLabelText("First reply subject")).toHaveValue(
+      "Canpro Deck and Rail estimate"
+    );
   });
 
   it("reports a completed Gmail check with no configured signature", async () => {
@@ -158,34 +431,326 @@ describe("EmailSignatureSettings", () => {
     });
     renderWithQuery(<EmailSignatureSettings {...props} />);
 
-    await user.click(screen.getByRole("button", { name: "EDIT SIGNATURE" }));
-    await user.click(screen.getByRole("button", { name: "IMPORT FROM GMAIL" }));
+    await user.click(screen.getByRole("button", { name: "Import from Gmail" }));
 
     expect(toastError).toHaveBeenCalledWith("No Gmail signature found");
     expect(toastSuccess).not.toHaveBeenCalled();
   });
 
-  it("tells Microsoft 365 users to paste their signature and offers no import", () => {
+  it("offers no Gmail import on a mailbox that cannot supply one", () => {
     signatureQuery.mockReturnValue(
       loadedSignature({
         provider: "microsoft365",
-        effective: null,
-        providerSignature: null,
         providerImportSupported: false,
-        missing: true,
       })
     );
 
     renderWithQuery(<EmailSignatureSettings {...props} />);
 
     expect(
-      screen.getByText(
-        "Outlook does not share signatures with OPS. Paste yours below."
-      )
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /IMPORT/ })
+      screen.queryByRole("button", { name: "Import from Gmail" })
     ).not.toBeInTheDocument();
-    expect(screen.getByText("NO SIGNATURE")).toBeInTheDocument();
+    expect(screen.getByLabelText("Name")).toBeInTheDocument();
+  });
+
+  it("stands out when the rail sent the operator to this exact mailbox", () => {
+    signatureQuery.mockReturnValue(loadedSignature());
+
+    const { rerender } = renderWithQuery(<EmailSignatureSettings {...props} />);
+    expect(screen.getByTestId("email-signature-settings")).not.toHaveAttribute(
+      "data-highlighted"
+    );
+
+    rerender(<EmailSignatureSettings {...props} highlighted />);
+    expect(screen.getByTestId("email-signature-settings")).toHaveAttribute(
+      "data-highlighted",
+      "true"
+    );
+  });
+
+  it("shows the identity read-only to an operator who cannot manage it", () => {
+    signatureQuery.mockReturnValue(loadedSignature());
+
+    renderWithQuery(<EmailSignatureSettings {...props} canManage={false} />);
+
+    expect(screen.getByLabelText("Name")).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Confirm identity" })
+    ).toBeDisabled();
+  });
+});
+
+describe("EmailSignatureSettings subject variables", () => {
+  it("drops a variable where the operator left the cursor", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    const subject = screen.getByLabelText("First reply subject");
+    await user.type(subject, "Canpro Estimate");
+    // Back to just after "Canpro" — mid-subject, not the easy append case.
+    await user.keyboard("{ArrowLeft>9/}");
+    await user.click(screen.getByRole("button", { name: "{address}" }));
+
+    expect(subject).toHaveValue("Canpro {address} Estimate");
+  });
+
+  it("appends a variable to a subject the operator never put a cursor in", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(
+      loadedSignature({ outreachSubject: "Canpro Deck and Rail Estimate" })
+    );
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "{project}" }));
+
+    expect(screen.getByLabelText("First reply subject")).toHaveValue(
+      "Canpro Deck and Rail Estimate {project}"
+    );
+  });
+
+  it("shows what the variable becomes on a real lead", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.type(
+      screen.getByLabelText("First reply subject"),
+      "Canpro Deck and Rail Estimate -"
+    );
+    await user.click(screen.getByRole("button", { name: "{address}" }));
+
+    // Rendered through the real fill function, separator spacing and all.
+    expect(screen.getByTestId("subject-example")).toHaveTextContent(
+      "Canpro Deck and Rail Estimate - 2210 Cedar Hill Rd"
+    );
+  });
+
+  it("says nothing about examples for a plain subject", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.type(
+      screen.getByLabelText("First reply subject"),
+      "Thanks for reaching out"
+    );
+
+    expect(screen.queryByTestId("subject-example")).not.toBeInTheDocument();
+  });
+
+  it("never shows a brace in the example, whatever the operator typed", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.type(
+      screen.getByLabelText("First reply subject"),
+      "Canpro Estimate - {{whatever}"
+    );
+
+    const example = screen.getByTestId("subject-example");
+    expect(example.textContent).not.toMatch(/[{}]/);
+    expect(example).toHaveTextContent("Canpro Estimate");
+  });
+
+  it("shows the confirmed subject as the lead will read it", () => {
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        missing: false,
+        confirmedAt: "2026-08-03T10:00:00.000Z",
+        outreachSubject: "Canpro Deck and Rail Estimate - {address}",
+      })
+    );
+
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    expect(
+      screen.getByText("Canpro Deck and Rail Estimate - {address}")
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("subject-example")).toHaveTextContent(
+      "Canpro Deck and Rail Estimate - 2210 Cedar Hill Rd"
+    );
+  });
+
+  it("gives an operator who cannot manage the mailbox nothing to insert with", () => {
+    signatureQuery.mockReturnValue(loadedSignature());
+
+    renderWithQuery(<EmailSignatureSettings {...props} canManage={false} />);
+
+    expect(screen.getByRole("button", { name: "{address}" })).toBeDisabled();
+  });
+});
+
+const CUSTOM_LOGO = "https://files.example.com/email-signatures/mark.png";
+
+function logoFile(contents: string, type = "image/png"): File {
+  return new File([contents], "logo.png", { type });
+}
+
+function uploadedBytes(call: number): string {
+  const { data } = uploadLogoMutate.mock.calls[call][0] as { data: string };
+  return Buffer.from(data, "base64").toString();
+}
+
+describe("EmailSignatureSettings custom logo", () => {
+  it("sends the operator's own mark and turns it on", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature({ companyLogoUrl: null }));
+    const { rerender } = renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    // The mark appears on the card because the server answered with it.
+    uploadLogoMutate.mockImplementation(async () => {
+      signatureQuery.mockReturnValue(
+        loadedSignature({
+          companyLogoUrl: null,
+          signatureLogoUrl: CUSTOM_LOGO,
+        })
+      );
+      return {};
+    });
+
+    await user.upload(
+      screen.getByTestId("signature-logo-input"),
+      logoFile("MARK-BYTES")
+    );
+    // Reading the file is asynchronous; nothing is sent until it finishes.
+    await waitFor(() => expect(uploadLogoMutate).toHaveBeenCalledTimes(1));
+    rerender(<EmailSignatureSettings {...props} />);
+
+    expect(uploadLogoMutate).toHaveBeenCalledWith({
+      ...scope,
+      data: expect.any(String),
+      contentType: "image/png",
+    });
+    expect(uploadedBytes(0)).toBe("MARK-BYTES");
+    // Supplying a mark is asking for it to show — no second decision.
+    expect(screen.getByRole("switch", { name: "Show logo" })).toBeChecked();
+  });
+
+  it("cuts a solid background out unasked and leaves a way back", async () => {
+    const user = userEvent.setup();
+    removeBackground.mockResolvedValue({
+      blob: logoFile("CUT-BYTES"),
+      applied: true,
+    });
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.upload(
+      screen.getByTestId("signature-logo-input"),
+      logoFile("ORIGINAL-BYTES")
+    );
+
+    expect(await screen.findByText("[background removed]")).toBeInTheDocument();
+    expect(uploadedBytes(0)).toBe("CUT-BYTES");
+
+    await user.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(uploadLogoMutate).toHaveBeenCalledTimes(2));
+
+    // The way back is the file the operator actually picked.
+    expect(uploadedBytes(1)).toBe("ORIGINAL-BYTES");
+    expect(screen.queryByText("[background removed]")).not.toBeInTheDocument();
+  });
+
+  it("says nothing when there was no background to remove", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.upload(
+      screen.getByTestId("signature-logo-input"),
+      logoFile("PHOTO-BYTES")
+    );
+    await waitFor(() => expect(uploadLogoMutate).toHaveBeenCalledTimes(1));
+
+    expect(uploadedBytes(0)).toBe("PHOTO-BYTES");
+    expect(screen.queryByText("[background removed]")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Undo" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("signs with the uploaded mark over the company logo", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(
+      loadedSignature({ signatureLogoUrl: CUSTOM_LOGO })
+    );
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.click(screen.getByRole("switch", { name: "Show logo" }));
+
+    const preview = screen.getByTestId("signature-sheet").querySelector("img");
+    expect(preview?.getAttribute("src")).toBe(CUSTOM_LOGO);
+  });
+
+  it("offers the way back to the company logo, and only then", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(loadedSignature());
+    const { rerender } = renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.click(screen.getByRole("switch", { name: "Show logo" }));
+    expect(
+      screen.queryByRole("button", { name: "Use the company logo" })
+    ).not.toBeInTheDocument();
+
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        signatureLogoUrl: CUSTOM_LOGO,
+        fields: { ...loadedSignature().data.fields, includeLogo: true },
+      })
+    );
+    rerender(<EmailSignatureSettings {...props} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Use the company logo" })
+    );
+    expect(clearLogoMutate).toHaveBeenCalledWith(scope);
+  });
+
+  it("offers removal rather than a revert when there is no company logo", async () => {
+    const user = userEvent.setup();
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        companyLogoUrl: null,
+        signatureLogoUrl: CUSTOM_LOGO,
+      })
+    );
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.click(screen.getByRole("switch", { name: "Show logo" }));
+
+    // Nothing to revert to, so the honest verb is the one on the button.
+    expect(
+      screen.queryByRole("button", { name: "Use the company logo" })
+    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove" }));
+    expect(clearLogoMutate).toHaveBeenCalledWith(scope);
+  });
+
+  it("reports a rejected logo instead of swallowing it", async () => {
+    const user = userEvent.setup();
+    uploadLogoMutate.mockRejectedValue(new Error("Keep the logo under 1 MB"));
+    signatureQuery.mockReturnValue(loadedSignature());
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    await user.upload(
+      screen.getByTestId("signature-logo-input"),
+      logoFile("HUGE")
+    );
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith("Logo not saved", {
+        description: "Keep the logo under 1 MB",
+      })
+    );
+  });
+
+  it("gives an operator who cannot manage the mailbox nothing to upload with", () => {
+    signatureQuery.mockReturnValue(loadedSignature({ companyLogoUrl: null }));
+
+    renderWithQuery(<EmailSignatureSettings {...props} canManage={false} />);
+
+    expect(screen.getByRole("button", { name: "Add a logo" })).toBeDisabled();
   });
 });

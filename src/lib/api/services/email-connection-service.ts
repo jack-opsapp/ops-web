@@ -55,6 +55,8 @@ function mapFromDb(row: Record<string, unknown>): EmailConnection {
     opsLabelId: (row.ops_label_id as string) ?? null,
     aiReviewEnabled: (row.ai_review_enabled as boolean) ?? false,
     aiMemoryEnabled: (row.ai_memory_enabled as boolean) ?? false,
+    outreachSubject: (row.outreach_subject as string) ?? null,
+    signatureLogoUrl: (row.signature_logo_url as string) ?? null,
     status: (row.status as EmailConnection["status"]) ?? "active",
     createdAt: parseDateRequired(row.created_at),
     updatedAt: parseDateRequired(row.updated_at),
@@ -174,6 +176,12 @@ export const EmailConnectionService = {
     }
     if (data.aiMemoryEnabled !== undefined) {
       row.ai_memory_enabled = data.aiMemoryEnabled;
+    }
+    if (data.outreachSubject !== undefined) {
+      row.outreach_subject = data.outreachSubject;
+    }
+    if (data.signatureLogoUrl !== undefined) {
+      row.signature_logo_url = data.signatureLogoUrl;
     }
     if (data.status !== undefined) row.status = data.status;
     if (data.accessToken !== undefined) row.access_token = data.accessToken;

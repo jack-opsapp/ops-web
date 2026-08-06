@@ -14,6 +14,15 @@ function getOpenAI() {
 
 // ─── Constants ─────────────────────────────────────────────────────────────
 
+/**
+ * Analyzed emails a type-specific profile needs before it represents a voice on
+ * its own. Below this it is blended into the general profile at `n / MIN`
+ * weight. Ten emails — the previous bar — is a sample, not a style: a stale
+ * 10-email `client_new_inquiry` profile shadowed a 1,973-email general profile
+ * and drafted lead replies in nobody's voice (2026-08-02).
+ */
+export const TYPE_PROFILE_STANDALONE_MIN = 50;
+
 const CONTRACTION_PATTERNS =
   /\b(don'?t|won'?t|can'?t|isn'?t|aren'?t|wasn'?t|weren'?t|hasn'?t|haven'?t|hadn'?t|wouldn'?t|couldn'?t|shouldn'?t|didn'?t|ain'?t|it'?s|i'?m|i'?ll|i'?ve|i'?d|we'?re|we'?ll|we'?ve|they'?re|they'?ll|they'?ve|you'?re|you'?ll|you'?ve|he'?s|she'?s|that'?s|there'?s|here'?s|what'?s|who'?s|let'?s)\b/gi;
 
@@ -804,7 +813,8 @@ export const WritingProfileService = {
   /**
    * Get the writing profile for draft generation.
    * Supports per-relationship-type profiles with fallback to "general".
-   * If a type-specific profile has <10 emails, blends with the general profile.
+   * A type-specific profile below TYPE_PROFILE_STANDALONE_MIN emails is blended
+   * with the general profile rather than used on its own.
    */
   async getProfile(
     companyId: string,
@@ -825,7 +835,7 @@ export const WritingProfileService = {
 
       if (specificProfile) {
         const emailsAnalyzed = (specificProfile.emails_analyzed as number) || 0;
-        if (emailsAnalyzed >= 10) {
+        if (emailsAnalyzed >= TYPE_PROFILE_STANDALONE_MIN) {
           return specificProfile;
         }
 
@@ -875,14 +885,19 @@ export const WritingProfileService = {
 
   /**
    * Blend a type-specific profile (low email count) with the general profile.
-   * Weight: specific gets emailsAnalyzed/10 weight, general gets the rest.
+   * Weight: specific gets emailsAnalyzed/TYPE_PROFILE_STANDALONE_MIN, general
+   * gets the rest. At the old /10 divisor a 10-email profile took FULL weight,
+   * so a handful of emails erased a thousand-email voice.
    */
   blendProfiles(
     specific: Record<string, unknown>,
     general: Record<string, unknown>,
     specificCount: number
   ): Record<string, unknown> {
-    const weight = specificCount / 10; // 0-1
+    const weight = Math.min(
+      1,
+      Math.max(0, specificCount / TYPE_PROFILE_STANDALONE_MIN)
+    );
     const blend = (s: number | undefined, g: number | undefined) => {
       const sv = s || 0;
       const gv = g || 0;

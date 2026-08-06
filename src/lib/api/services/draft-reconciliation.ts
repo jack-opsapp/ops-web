@@ -65,14 +65,23 @@ export function classifyDraftOutcome(s: {
   hasOutboundAfter: boolean;
   daysSinceDraft: number;
   ttlDays?: number;
+  /**
+   * True when the sent body provably reuses this draft's wording. Supplied by
+   * `outboundBodyDerivedFromDraft`; absent means "no evidence either way".
+   */
+  outboundDerivedFromDraft?: boolean;
 }): DraftOutcome {
   const ttl = s.ttlDays ?? 14;
 
   if (s.hasOutboundAfter) {
     // User replied via their mail client.
-    // Draft still sitting in drafts folder = they wrote a fresh reply (ignored ours).
-    // Draft gone = they used our draft as the base (possibly edited).
-    return s.draftStillInMailbox ? "from_scratch" : "used";
+    // Draft gone = the draft resource was consumed by the send. Strongest proof.
+    if (!s.draftStillInMailbox) return "used";
+    // Draft still sitting in the drafts folder is ABSENCE of proof, not proof
+    // of independent authorship: the operator can lift our wording into a new
+    // compose and leave the API draft behind (bug be648d50 — five real sends
+    // filed as rewrites). Only the sent body can settle it.
+    return s.outboundDerivedFromDraft === true ? "used" : "from_scratch";
   }
 
   // No outbound reply yet.
@@ -83,6 +92,117 @@ export function classifyDraftOutcome(s: {
 
   // Too early to decide (within TTL, or draft still present and awaiting send).
   return "pending";
+}
+
+/**
+ * Minimum verbatim run (normalized characters) that proves the operator's send
+ * reuses this draft's wording rather than merely sharing the author's habits.
+ *
+ * Calibrated on production, not guessed. Company
+ * a612edc0-5c18-4c4d-af97-55b9410dd077, 2026-08-06:
+ *   - 5 true pairs (draft -> the send the operator made in that thread) scored
+ *     54, 64, 86, 151, 174.
+ *   - 245 negative pairs — each draft against 45 unrelated real sends by the
+ *     same operator plus the other four customers' sends, i.e. same voice,
+ *     same stock opener, same signature — topped out at 45.
+ * 50 is the midpoint of that gap: 5/5 true pairs caught, 0/245 false positives.
+ */
+export const DRAFT_DERIVATION_MIN_VERBATIM_RUN = 50;
+
+/** Upper bound on compared text so a pathological body cannot dominate a sync. */
+const DRAFT_DERIVATION_MAX_COMPARE_CHARS = 20_000;
+
+/** A trailing sign-off — the boundary past which nothing is authored content. */
+const DRAFT_DERIVATION_SIGN_OFF =
+  /\b(thanks|thank you|all the best|best regards|regards|cheers|talk soon|sincerely)\b\s*[,!.]?\s*$/i;
+
+const DRAFT_DERIVATION_SALUTATION =
+  /^(hi|hey|hello|dear|good (morning|afternoon|evening))\b/i;
+
+function normalizeForDerivation(body: string): string {
+  return body
+    .replace(/\r\n/g, "\n")
+    .replace(/[‘’‛ʼ]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[–—]/g, "-")
+    .replace(/ /g, " ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, DRAFT_DERIVATION_MAX_COMPARE_CHARS);
+}
+
+/**
+ * Drop the salutation line and everything from the sign-off onward.
+ *
+ * Both are stock scaffolding this operator repeats on every message, so
+ * leaving them in measures their habits instead of reuse of THIS draft — the
+ * difference between a 21-character separation and none at all.
+ */
+function stripDerivationScaffolding(body: string): string {
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  let start = 0;
+  while (start < lines.length && !lines[start].trim()) start += 1;
+  if (start < lines.length && DRAFT_DERIVATION_SALUTATION.test(lines[start].trim())) {
+    start += 1;
+  }
+  let end = lines.length;
+  for (let index = start; index < lines.length; index += 1) {
+    if (DRAFT_DERIVATION_SIGN_OFF.test(lines[index].trim())) {
+      end = index;
+      break;
+    }
+  }
+  return normalizeForDerivation(lines.slice(start, end).join("\n"));
+}
+
+/** Longest common contiguous run, in characters. O(n·m) time, O(m) space. */
+function longestCommonRun(left: string, right: string): number {
+  if (!left || !right) return 0;
+  let previous = new Array<number>(right.length + 1).fill(0);
+  let current = new Array<number>(right.length + 1).fill(0);
+  let best = 0;
+  for (let i = 1; i <= left.length; i += 1) {
+    for (let j = 1; j <= right.length; j += 1) {
+      if (left[i - 1] === right[j - 1]) {
+        current[j] = previous[j - 1] + 1;
+        if (current[j] > best) best = current[j];
+      } else {
+        current[j] = 0;
+      }
+    }
+    const swap = previous;
+    previous = current;
+    current = swap;
+  }
+  return best;
+}
+
+/**
+ * Does the operator's sent message reuse this draft's wording?
+ *
+ * Pure function — no I/O. This is the second admissible proof that the
+ * operator sent our draft; the first is the draft resource being consumed.
+ * Quoted/forwarded content is removed first, so our own text quoted back
+ * inside a reply is never mistaken for authorship.
+ */
+export function outboundBodyDerivedFromDraft(input: {
+  draftBody: string | null | undefined;
+  sentBody: string | null | undefined;
+  subject: string | null | undefined;
+}): boolean {
+  const draftBody = input.draftBody ?? "";
+  const sentBody = input.sentBody ?? "";
+  if (!draftBody.trim() || !sentBody.trim()) return false;
+
+  const authoredSent = authoredMessageBody(sentBody, {
+    subject: input.subject ?? "",
+  });
+  const draft = stripDerivationScaffolding(draftBody);
+  const sent = stripDerivationScaffolding(authoredSent);
+  if (!draft || !sent) return false;
+
+  return longestCommonRun(draft, sent) >= DRAFT_DERIVATION_MIN_VERBATIM_RUN;
 }
 
 // ─── Part B: Reconciliation Runner ──────────────────────────────────────────
@@ -268,7 +388,7 @@ export async function reconcilePendingMailboxDrafts({
   const { data: pendingRows, error: queryErr } = await supabase
     .from("ai_draft_history")
     .select(
-      "id, company_id, user_id, mailbox_draft_id, source_message_id, created_at, profile_type, opportunity_id"
+      "id, company_id, user_id, mailbox_draft_id, source_message_id, created_at, profile_type, opportunity_id, original_draft"
     )
     .eq("company_id", connection.companyId)
     .eq("connection_id", connection.id)
@@ -479,10 +599,21 @@ export async function reconcilePendingMailboxDrafts({
         (now.getTime() - rowCreatedAt.getTime()) / (1000 * 60 * 60 * 24)
       );
 
+      // A present draft resource cannot prove the operator ignored us, so ask
+      // the sent body directly whether it reuses this draft's wording.
+      const outboundDerivedFromDraft = hasOutboundAfter
+        ? outboundBodyDerivedFromDraft({
+            draftBody: row.original_draft as string | null,
+            sentBody: latestOutbound?.body_text as string | null,
+            subject: latestOutbound?.subject as string | null,
+          })
+        : false;
+
       const outcome = classifyDraftOutcome({
         draftStillInMailbox,
         hasOutboundAfter,
         daysSinceDraft,
+        outboundDerivedFromDraft,
       });
 
       switch (outcome) {

@@ -1,20 +1,24 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
+  createTrustedNotificationsMock,
   generateDraftMock,
   getAutonomyMock,
   getConnectionMock,
   getProviderMock,
+  hasConfirmedIdentityMock,
   placeNewThreadDraftMock,
   renderDraftMock,
   resolveEmailOpportunityAccessMock,
   resolveSignatureMock,
   runWithEmailConnectionSyncLockMock,
 } = vi.hoisted(() => ({
+  createTrustedNotificationsMock: vi.fn(),
   generateDraftMock: vi.fn(),
   getAutonomyMock: vi.fn(),
   getConnectionMock: vi.fn(),
   getProviderMock: vi.fn(),
+  hasConfirmedIdentityMock: vi.fn(),
   placeNewThreadDraftMock: vi.fn(),
   renderDraftMock: vi.fn(),
   resolveEmailOpportunityAccessMock: vi.fn(),
@@ -56,7 +60,18 @@ vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
   runWithEmailConnectionSyncLock: runWithEmailConnectionSyncLockMock,
 }));
 
-import { runSupabaseEmailAssignmentContactFormDraftWorker } from "@/lib/api/services/email-assignment-contact-form-draft-runtime";
+vi.mock("@/lib/api/services/email-signature-service", () => ({
+  EmailSignatureService: { hasConfirmedIdentity: hasConfirmedIdentityMock },
+}));
+
+vi.mock("@/lib/notifications/server-notification-service", () => ({
+  createTrustedNotifications: createTrustedNotificationsMock,
+}));
+
+import {
+  IDENTITY_CONFIRMATION_NOTIFICATION_TYPE,
+  runSupabaseEmailAssignmentContactFormDraftWorker,
+} from "@/lib/api/services/email-assignment-contact-form-draft-runtime";
 
 const COMPANY_ID = "00000000-0000-4000-8000-000000000001";
 const CONNECTION_ID = "00000000-0000-4000-8000-000000000101";
@@ -91,13 +106,116 @@ function connection() {
     opsLabelId: null,
     aiReviewEnabled: true,
     aiMemoryEnabled: true,
+    outreachSubject: "Canpro Deck and Rail Estimate",
     status: "active" as const,
     createdAt: new Date("2026-07-15T00:00:00.000Z"),
     updatedAt: new Date("2026-07-15T00:00:00.000Z"),
   };
 }
 
+function claimRpc(overrides: { rejectIdentity?: boolean } = {}) {
+  return vi.fn(async (name: string) => {
+    if (name === "claim_email_assignment_contact_form_drafts") {
+      return {
+        data: [
+          {
+            id: QUEUE_ID,
+            assignment_event_id: "00000000-0000-4000-8000-000000000202",
+            company_id: COMPANY_ID,
+            opportunity_id: OPPORTUNITY_ID,
+            assignment_version: "3",
+            actor_user_id: ACTOR_ID,
+            connection_id: CONNECTION_ID,
+            source_activity_id: "00000000-0000-4000-8000-000000000501",
+            provider_message_id: "provider-message-exact",
+            source_provider_thread_id: "forwarder-thread",
+            customer_email: "sandra@example.com",
+            customer_name: "Sandra Dunford",
+            source_subject: "",
+            source_body_text:
+              "New contact form submission\nName: Sandra Dunford\nEmail: sandra@example.com\nMessage: Please quote a deck.",
+            created_at: "2026-07-15T12:00:00.000Z",
+            attempts: "1",
+            draft_history_id: null,
+            draft_body: null,
+            draft_subject: null,
+          },
+        ],
+        error: null,
+      };
+    }
+    if (name === "fail_email_assignment_contact_form_draft_as_system") {
+      return { data: "retrying", error: null };
+    }
+    if (name === "begin_assignment_contact_draft_provider_create_as_system") {
+      return {
+        data: { attempt_id: PROVIDER_CREATE_ATTEMPT_ID, mode: "create" },
+        error: null,
+      };
+    }
+    return { data: !overrides.rejectIdentity, error: null };
+  });
+}
+
 describe("assignment contact-form draft runtime", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    hasConfirmedIdentityMock.mockResolvedValue(true);
+    createTrustedNotificationsMock.mockResolvedValue({
+      attempted: 1,
+      errors: 0,
+      createdRecipientIds: [ACTOR_ID],
+      createdNotifications: [],
+    });
+  });
+
+  it("holds outreach and raises one deduped rail prompt when identity is unconfirmed", async () => {
+    hasConfirmedIdentityMock.mockResolvedValue(false);
+    getConnectionMock.mockResolvedValue(connection());
+    getAutonomyMock.mockResolvedValue({ CUSTOMER: "auto_draft" });
+    const rpc = claimRpc();
+    const supabase = { rpc } as never;
+
+    const result = await runSupabaseEmailAssignmentContactFormDraftWorker(
+      supabase,
+      { limit: 2, leaseSeconds: 360 }
+    );
+
+    expect(result.retrying).toBe(1);
+    expect(result.drafted).toBe(0);
+    expect(hasConfirmedIdentityMock).toHaveBeenCalledWith({
+      companyId: COMPANY_ID,
+      connectionId: CONNECTION_ID,
+      userId: ACTOR_ID,
+    });
+    expect(generateDraftMock).not.toHaveBeenCalled();
+    expect(placeNewThreadDraftMock).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      "fail_email_assignment_contact_form_draft_as_system",
+      expect.objectContaining({
+        p_queue_id: QUEUE_ID,
+        p_error:
+          "EMAIL_ASSIGNMENT_CONTACT_FORM_DRAFT_TEMPORARILY_UNAVAILABLE: awaiting_identity_confirmation",
+      })
+    );
+    expect(createTrustedNotificationsMock).toHaveBeenCalledTimes(1);
+    expect(createTrustedNotificationsMock.mock.calls[0]![0]).toEqual({
+      companyId: COMPANY_ID,
+      recipientUserIds: [ACTOR_ID],
+      type: IDENTITY_CONFIRMATION_NOTIFICATION_TYPE,
+      title: "New-lead replies are on hold",
+      body: "Confirm your email signature so OPS can draft them in your name.",
+      persistent: true,
+      actionUrl: `/settings?section=profile&connection=${CONNECTION_ID}`,
+      actionLabel: "CONFIRM SIGNATURE",
+      deepLinkType: "settings",
+      dedupeKey: `email-identity-confirmation:${CONNECTION_ID}:${ACTOR_ID}`,
+    });
+    // The worker's own service-role client writes the rail row; the trusted
+    // seam must never silently fall back to a second connection.
+    expect(createTrustedNotificationsMock.mock.calls[0]![1]).toBe(supabase);
+  });
+
   it("maps the durable claim to a review-only provider capability and exact actor RPC lifecycle", async () => {
     const mailboxCheckpoint = vi.fn(async () => undefined);
     runWithEmailConnectionSyncLockMock.mockImplementation(
@@ -195,10 +313,7 @@ describe("assignment contact-form draft runtime", () => {
       if (name === "fail_email_assignment_contact_form_draft_as_system") {
         return { data: "retrying", error: null };
       }
-      if (
-        name ===
-        "begin_assignment_contact_draft_provider_create_as_system"
-      ) {
+      if (name === "begin_assignment_contact_draft_provider_create_as_system") {
         return {
           data: {
             attempt_id: PROVIDER_CREATE_ATTEMPT_ID,
@@ -226,7 +341,9 @@ describe("assignment contact-form draft runtime", () => {
         sourceActivityId: "00000000-0000-4000-8000-000000000501",
         origin: "phase_c",
         autonomous: true,
-        configuredSubject: "Thanks for reaching out",
+        // Resolved by the worker from the mailbox's outreach_subject setting
+        // and threaded through the runtime untouched.
+        configuredSubject: "Canpro Deck and Rail Estimate",
         sourceBoundAutonomousRouting: "assigned_contact_form_review",
         emailAccess: expect.objectContaining({
           operation: "send",

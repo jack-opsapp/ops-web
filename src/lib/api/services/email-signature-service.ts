@@ -84,20 +84,47 @@ export function stripRenderedEmailSignature(
   input: SignatureRenderInput
 ): string {
   if (input.contentType === "text") {
-    const signatureText = normalizePlainText(input.signature.text);
-    if (!signatureText) return input.body;
+    // A signature comes back from a provider in more than one clothing: our
+    // own plain-text mirror (what we appended), or the provider composer's own
+    // text/plain rendering of the signature HTML (what a real send carries —
+    // Gmail turns the logo into an "[image: alt]" line and keeps phone and
+    // website joined on one line). Every candidate is derived only from the
+    // known signature, so each remains safe to remove as an anchored suffix.
+    const candidates = knownSignatureTextRenderings(input.signature);
+    if (candidates.length === 0) return input.body;
     const normalizedBody = input.body.replace(/\r\n?/g, "\n").trimEnd();
-    const suffix = `\n\n-- \n${signatureText}`;
-    if (normalizedBody.endsWith(suffix)) {
-      return normalizedBody.slice(0, -suffix.length).trimEnd();
+
+    for (const candidate of candidates) {
+      const suffix = `\n\n-- \n${candidate}`;
+      if (normalizedBody.endsWith(suffix)) {
+        return normalizedBody.slice(0, -suffix.length).trimEnd();
+      }
+      // Provider round-trips commonly flatten the marked HTML block into plain
+      // text. The exact known signature is safe to remove only as an anchored
+      // suffix separated from the authored body by a blank line.
+      const providerFlattenedSuffix = `\n\n${candidate}`;
+      if (normalizedBody.endsWith(providerFlattenedSuffix)) {
+        return normalizedBody
+          .slice(0, -providerFlattenedSuffix.length)
+          .trimEnd();
+      }
     }
-    // Provider round-trips commonly flatten the marked HTML block into plain
-    // text. The exact known signature is safe to remove only as an anchored
-    // suffix separated from the authored body by a blank line.
-    const providerFlattenedSuffix = `\n\n${signatureText}`;
-    if (normalizedBody.endsWith(providerFlattenedSuffix)) {
-      return normalizedBody.slice(0, -providerFlattenedSuffix.length).trimEnd();
+
+    // Providers also take liberties with whitespace alone — extra blank lines
+    // before the block, trailing spaces, a re-wrapped contact line. Matching
+    // collapses whitespace on both sides but still demands the entire known
+    // signature, anchored at the very end, on its own lines, behind a blank
+    // line — so nothing beyond the known signature is ever stripped.
+    for (const candidate of candidates) {
+      const cut = whitespaceNormalizedSignatureCut(normalizedBody, candidate);
+      if (cut !== null) {
+        return normalizedBody
+          .slice(0, cut)
+          .replace(SIGNATURE_SEPARATOR_TAIL, "")
+          .trimEnd();
+      }
     }
+
     return normalizedBody;
   }
 
@@ -177,12 +204,20 @@ export function createEmailSignatureContent(_input: {
   text?: string | null;
 }): { html: string; text: string; hash: string } {
   const inputText = normalizePlainText(_input.text ?? "");
-  const sourceHtml = _input.html?.trim()
-    ? _input.html
+  // NUL is unstorable in Postgres text ("null character not permitted") and
+  // sanitize-html does not promise to remove it. Only NUL is stripped on the
+  // HTML side — markup legitimately carries tabs and newlines.
+  // eslint-disable-next-line no-control-regex
+  const rawHtml = (_input.html ?? "").replace(/\x00/g, "");
+  const sourceHtml = rawHtml.trim()
+    ? rawHtml
     : plainTextToSignatureHtml(inputText);
   const html = sanitizeEmailSignatureHtml(sourceHtml).trim();
+  // An authored plain-text mirror beats one derived from the markup: only
+  // block tags become newlines, so a table-based card would flatten into a
+  // single run-on line in every plain-text send.
   const text = normalizePlainText(
-    html ? emailSignatureHtmlToText(html) : inputText
+    inputText || (html ? emailSignatureHtmlToText(html) : "")
   );
   const hash = createHash("sha256")
     .update(`${html}\u0000${text}`, "utf8")
@@ -231,12 +266,48 @@ export function resolveEffectiveEmailSignature(
   return provider ? toEffective(provider, "provider") : null;
 }
 
+/**
+ * Has the operator ever stood behind an identity on this mailbox?
+ *
+ * Only an OPS-authored signature counts — operator scope (theirs) or mailbox
+ * scope (the whole mailbox's). A provider-imported block is somebody else's
+ * HTML until a human says otherwise, so it can never satisfy this on its own.
+ * `confirmed_at` is that human moment; a row without it is a draft identity.
+ */
+export function hasConfirmedEmailIdentity(
+  _rows: EmailSignatureRecord[],
+  _context: {
+    companyId: string;
+    connectionId: string;
+    userId?: string | null;
+  }
+): boolean {
+  const scopeUserId = _context.userId?.trim() || null;
+  return _rows.some(
+    (row) =>
+      row.isActive &&
+      row.companyId === _context.companyId &&
+      row.connectionId === _context.connectionId &&
+      Boolean(row.contentHtml || row.contentText) &&
+      row.source === "ops" &&
+      (row.scopeUserId === null ||
+        (scopeUserId !== null && row.scopeUserId === scopeUserId)) &&
+      Boolean(row.confirmedAt)
+  );
+}
+
 function normalizePlainText(value: string): string {
-  return value
-    .replace(/\r\n?/g, "\n")
-    .replace(/[ \t]+$/gm, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  return (
+    value
+      // Postgres cannot store NUL in text columns ("null character not
+      // permitted"), and pasted rich text can smuggle other invisible C0
+      // controls. Newlines and tabs are legitimate here and survive.
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, "")
+      .replace(/\r\n?/g, "\n")
+      .replace(/[ \t]+$/gm, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim()
+  );
 }
 
 function plainTextToSignatureHtml(text: string): string {
@@ -312,6 +383,10 @@ interface EffectiveSignatureLookupInput extends SignatureLookupInput {
   mailboxAddress: string;
 }
 
+interface ConfirmedIdentityLookupInput extends SignatureLookupInput {
+  userId?: string | null;
+}
+
 interface RefreshProviderSignatureInput extends SignatureLookupInput {
   scopeUserId?: string | null;
   mailboxAddress: string;
@@ -324,6 +399,11 @@ interface SaveOpsSignatureInput extends SignatureLookupInput {
   scopeUserId?: string | null;
   html?: string | null;
   text?: string | null;
+  /**
+   * The human moment. Set it when the operator authored or explicitly stood
+   * behind this signature — that is what opens the new-lead outreach gate.
+   */
+  confirmedAt?: string | null;
   actorUserId: string;
 }
 
@@ -449,6 +529,18 @@ export const EmailSignatureService = {
     return resolveEffectiveEmailSignature(rows, input);
   },
 
+  /**
+   * The gate for outbound work that speaks for the operator by name. Autonomous
+   * new-lead outreach must not open a thread on a mailbox whose owner has never
+   * confirmed how they sign off.
+   */
+  async hasConfirmedIdentity(
+    input: ConfirmedIdentityLookupInput
+  ): Promise<boolean> {
+    const rows = await EmailSignatureService.listActive(input);
+    return hasConfirmedEmailIdentity(rows, input);
+  },
+
   async saveOps(input: SaveOpsSignatureInput): Promise<EmailSignatureRecord> {
     return persistSignature({
       ...input,
@@ -456,7 +548,7 @@ export const EmailSignatureService = {
       source: "ops",
       providerIdentity: null,
       fetchedAt: null,
-      confirmedAt: null,
+      confirmedAt: input.confirmedAt ?? null,
       actorUserId: input.actorUserId,
     });
   },
@@ -622,6 +714,158 @@ export function emailSignatureHtmlToText(html: string): string {
   return htmlToPlainText(sanitizeEmailSignatureHtml(html));
 }
 
+// ── Provider-rendered signature recognition ────────────────────────────────
+// A sent message read back from the provider carries the signature the way
+// the provider's composer rendered the stored HTML into text/plain, which is
+// not the shape of our authored plain-text mirror. Verified against real
+// Gmail sends (Canpro, Aug 2026): the logo <img> becomes an "[image: alt]"
+// line, every block boundary becomes a single line break, an anchor keeps
+// only its label, and inline runs stay joined — phone and website share one
+// "·" line while the mirror gives each fact its own line.
+
+/** Blank line — optionally an RFC `-- ` delimiter line — ending an authored
+ *  body right before a signature block. */
+const SIGNATURE_SEPARATOR_TAIL = /\n[ \t]*\n(?:-- \n)?$/;
+
+/**
+ * The text/plain rendering a provider composer derives from a signature's
+ * HTML. Line structure mirrors Gmail's, byte for byte on the OPS template.
+ */
+export function emailSignatureHtmlToProviderRenderedText(html: string): string {
+  const sanitized = sanitizeEmailSignatureHtml(html ?? "");
+  if (!sanitized.trim()) return "";
+
+  const withMarkers = sanitized
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<img\b[^>]*>/gi, (tag) => {
+      const alt =
+        /\balt\s*=\s*"([^"]*)"/i.exec(tag)?.[1] ??
+        /\balt\s*=\s*'([^']*)'/i.exec(tag)?.[1] ??
+        "";
+      const label = decodeSignatureEntities(alt).replace(/\s+/g, " ").trim();
+      return label ? `\n[image: ${label}]\n` : "\n";
+    })
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(
+      /<\/(?:p|div|li|tr|td|th|table|thead|tbody|tfoot|ul|ol|blockquote|h[1-6])>/gi,
+      "\n"
+    )
+    .replace(/<[^>]+>/g, "");
+
+  return decodeSignatureEntities(withMarkers)
+    .split("\n")
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** Reverses the entities sanitize-html emits; `&amp;` last so it cannot
+ *  re-decode what the earlier passes just produced. */
+function decodeSignatureEntities(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#x27;/gi, "'")
+    .replace(/&amp;/gi, "&");
+}
+
+/**
+ * Every plain-text clothing this known signature is allowed to wear: the
+ * authored mirror we append ourselves, and the provider-composer rendering of
+ * the HTML. Both derive only from the stored signature — never from the body
+ * being matched — which is what keeps removal provably scoped.
+ */
+function knownSignatureTextRenderings(
+  signature: EmailSignatureRenderContent
+): string[] {
+  const renderings: string[] = [];
+  const mirror = normalizePlainText(signature.text);
+  if (mirror) renderings.push(mirror);
+  const providerRendered = normalizePlainText(
+    emailSignatureHtmlToProviderRenderedText(signature.html)
+  );
+  if (providerRendered && !renderings.includes(providerRendered)) {
+    renderings.push(providerRendered);
+  }
+  return renderings;
+}
+
+/**
+ * Anchored-suffix match that tolerates only whitespace differences: extra
+ * blank lines, trailing spaces, a re-wrapped line. Returns the index to cut
+ * at — always a line start whose whitespace-collapsed tail equals the entire
+ * collapsed candidate, preceded by a blank line — or null. Never matches a
+ * partial signature, and never matches past the known signature.
+ */
+function whitespaceNormalizedSignatureCut(
+  body: string,
+  candidate: string
+): number | null {
+  const target = candidate.replace(/\s+/g, " ").trim();
+  if (!target) return null;
+
+  for (let cursor = body.length; cursor > 0; ) {
+    const previousNewline = body.lastIndexOf("\n", cursor - 1);
+    const lineStart = previousNewline + 1;
+    const collapsedTail = body.slice(lineStart).replace(/\s+/g, " ").trim();
+    // Collapsed length only grows as the scan walks upward; past the target
+    // there is nothing left to find.
+    if (collapsedTail.length > target.length) return null;
+    if (
+      collapsedTail === target &&
+      SIGNATURE_SEPARATOR_TAIL.test(body.slice(0, lineStart))
+    ) {
+      return lineStart;
+    }
+    if (previousNewline === -1) return null;
+    cursor = previousNewline;
+  }
+  return null;
+}
+
+// ── Signature style allowlist ──────────────────────────────────────────────
+// A signature is the one place OPS stores third-party HTML and re-emits it
+// into someone else's inbox, so style values are matched against explicit
+// shapes rather than merely scanned for bad substrings. Nothing here can
+// fetch (`url()`), compute (`calc()`, `expression()`), or lift an element out
+// of flow (`position`) — those properties and value forms simply never match.
+
+/** `12px` / `0.5rem` / `100%` / bare `0`. Never negative, never a function. */
+const CSS_LENGTH = String.raw`\d+(?:\.\d+)?(?:px|pt|em|rem|%)?`;
+/** CSS box shorthand: one to four lengths (`10px`, `0 0 0 14px`). */
+const CSS_BOX_SHORTHAND = new RegExp(
+  `^${CSS_LENGTH}(?:\\s+${CSS_LENGTH}){0,3}$`,
+  "i"
+);
+const CSS_SINGLE_LENGTH = new RegExp(`^${CSS_LENGTH}$`, "i");
+/** `1px solid #6b6b6b` — a width, a named style, and a hex color. Or `none`. */
+const CSS_BORDER = [
+  /^none$/i,
+  /^\d+(?:\.\d+)?(?:px|pt|em|rem)\s+(?:solid|dashed|dotted|double)\s+#[0-9a-f]{3,8}$/i,
+];
+
+const SIGNATURE_BOX_STYLES: Record<string, RegExp[]> = {
+  padding: [CSS_BOX_SHORTHAND],
+  "padding-top": [CSS_SINGLE_LENGTH],
+  "padding-right": [CSS_SINGLE_LENGTH],
+  "padding-bottom": [CSS_SINGLE_LENGTH],
+  "padding-left": [CSS_SINGLE_LENGTH],
+  margin: [CSS_BOX_SHORTHAND],
+  "margin-top": [CSS_SINGLE_LENGTH],
+  "margin-right": [CSS_SINGLE_LENGTH],
+  "margin-bottom": [CSS_SINGLE_LENGTH],
+  "margin-left": [CSS_SINGLE_LENGTH],
+  border: CSS_BORDER,
+  "border-top": CSS_BORDER,
+  "border-right": CSS_BORDER,
+  "border-bottom": CSS_BORDER,
+  "border-left": CSS_BORDER,
+  "max-width": [CSS_SINGLE_LENGTH],
+};
+
 export function sanitizeEmailSignatureHtml(html: string): string {
   return sanitizeHtml(html, {
     allowedTags: [...sanitizeHtml.defaults.allowedTags, "img"],
@@ -653,6 +897,7 @@ export function sanitizeEmailSignatureHtml(html: string): string {
         "white-space": [/^(?:normal|nowrap|pre|pre-wrap)$/i],
         width: [/^\d+(?:\.\d+)?(?:px|pt|em|rem|%)$/i],
         height: [/^\d+(?:\.\d+)?(?:px|pt|em|rem|%)$/i],
+        ...SIGNATURE_BOX_STYLES,
       },
     },
     transformTags: {

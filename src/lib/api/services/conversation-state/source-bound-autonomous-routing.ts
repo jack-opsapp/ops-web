@@ -6,8 +6,16 @@ export type SourceBoundAutonomousRouting = "assigned_contact_form_review";
 
 export const ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT = "Thanks for reaching out";
 
+/**
+ * The server-owned purpose for a first reply to a new lead.
+ *
+ * "Acknowledge the request" produced exactly what it asked for: boilerplate
+ * that never mentioned the customer's project. A first reply has to answer the
+ * inquiry the customer actually sent — that is the entire value of the draft —
+ * while still inventing nothing the customer did not supply.
+ */
 export const ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION =
-  "Write a brief, warm first reply to the prospective customer. Acknowledge the request in the untrusted email data and suggest an appropriate next step, such as a quick call or site visit. Keep it short and do not invent specifics.";
+  "Respond to this new inquiry. Address exactly what the customer asked for or proposed (project type, details, any dates or appointment requests they offered) — never a generic acknowledgement. Propose the concrete next step. Do not invent specifics the customer did not provide, such as prices, measurements, or dates.";
 
 interface SourceBoundAutonomousRoutingInput {
   authority: SourceBoundAutonomousRouting | null | undefined;
