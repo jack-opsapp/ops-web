@@ -66,7 +66,10 @@ vi.mock("@/components/ui/toast", () => ({
 }));
 
 import { EmailSignatureSettings } from "@/components/settings/email-signature-settings";
-import { renderSignatureTemplate } from "@/lib/email/signature-template";
+import {
+  describeSignatureTemplate,
+  renderSignatureTemplate,
+} from "@/lib/email/signature-template";
 
 const props = {
   companyId: "company-1",
@@ -344,6 +347,45 @@ describe("EmailSignatureSettings", () => {
     expect(
       screen.getByRole("button", { name: "Edit identity" })
     ).toBeInTheDocument();
+  });
+
+  it("draws the card for a stored signature whose address carries a scheme", () => {
+    // The founder's own row: the website came off the company record, so the
+    // stored link keeps the scheme and the trailing slash while the card's
+    // label shows neither. Nothing here is hand-fed — the fields arrive the
+    // way the route sends them, read back out of the stored markup.
+    const companyName = "Canpro Deck and Rail";
+    const signatureLogoUrl = "https://cdn.example.com/signature-mark.png";
+    const stored = renderSignatureTemplate({
+      name: "Jackson Sweet",
+      title: "",
+      companyName,
+      phone: "(250) 538-8994",
+      website: "https://www.canprodeckandrail.com/",
+      logoUrl: signatureLogoUrl,
+      layout: "logo-left",
+    });
+    const described = describeSignatureTemplate({ ...stored, companyName });
+
+    signatureQuery.mockReturnValue(
+      loadedSignature({
+        missing: false,
+        confirmedAt: "2026-08-03T10:00:00.000Z",
+        ops: stored,
+        signatureLogoUrl,
+        fields: { ...described, companyName },
+      })
+    );
+
+    renderWithQuery(<EmailSignatureSettings {...props} />);
+
+    const sheet = screen.getByTestId("signature-sheet");
+    expect(sheet.querySelector("img")).toHaveAttribute("src", signatureLogoUrl);
+    expect(sheet.querySelector("a")).toHaveAttribute(
+      "href",
+      "https://www.canprodeckandrail.com/"
+    );
+    expect(sheet.textContent).toContain("(250) 538-8994");
   });
 
   it("shows a promoted import as it is stored, not as a rebuilt card", () => {

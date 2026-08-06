@@ -219,8 +219,11 @@ export interface DescribedSignatureTemplate {
   layout: SignatureTemplateLayout;
 }
 
-function decodeText(value: string): string {
+/** Reverses `escapeText` and `escapeAttribute`; `&amp;` last, or it re-decodes
+ *  what the earlier passes just produced. */
+function decodeEntities(value: string): string {
   return value
+    .replace(/&quot;/g, '"')
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&amp;/g, "&");
@@ -235,6 +238,11 @@ function decodeText(value: string): string {
  * the stored content was not rendered by this template (a legacy pasted
  * signature, or a provider import), which is the signal to fall back to the
  * profile defaults.
+ *
+ * Contract: what this returns must render back to the very bytes it was read
+ * from. The settings card draws a confirmed signature as a card only when a
+ * re-render matches the stored markup exactly — anything this hands back
+ * approximately costs the operator their card.
  */
 export function describeSignatureTemplate(input: {
   html: string;
@@ -266,9 +274,24 @@ export function describeSignatureTemplate(input: {
     }
   }
 
-  const anchor = input.html.match(/<a\b[^>]*>([^<]*)<\/a>/i);
-  const website = anchor ? decodeText(anchor[1]).trim() : "";
-  const phone = rest.find((line) => line !== website) ?? "";
+  // The address comes off the link, not off the label. The label is the
+  // business-card form — scheme dropped, trailing slash dropped — and a render
+  // rebuilt from it can point somewhere slightly else (`.../` becomes ``, and
+  // an `http://` site gets silently upgraded). The settings card decides
+  // whether to draw the stored signature by re-rendering what it read back and
+  // comparing byte for byte, so "somewhere slightly else" costs the operator
+  // the whole card.
+  const anchor = input.html.match(
+    /<a\b[^>]*?\shref="([^"]*)"[^>]*>([^<]*)<\/a>/i
+  );
+  const href = anchor ? decodeEntities(anchor[1]).trim() : "";
+  const label = anchor ? decodeEntities(anchor[2]).trim() : "";
+  // Hand back the shortest input that reproduces this exact link: the address
+  // as a business card writes it, unless only the full URL renders back to the
+  // same place. Asking the renderer itself keeps the two from drifting apart.
+  const website = resolveWebsite(label).href === href ? label : href;
+  // The website's own line is the label, so that is the line the phone is not.
+  const phone = rest.find((line) => line !== label) ?? "";
 
   const includeLogo = /<img\b/i.test(input.html);
   const layout: SignatureTemplateLayout =
