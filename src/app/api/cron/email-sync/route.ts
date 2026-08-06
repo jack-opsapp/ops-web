@@ -269,7 +269,7 @@ export async function GET(request: NextRequest) {
           // has to be able to see a foreign sync in order to stand down for it.
           // The ledger is unjammed first: a quarantined row would otherwise
           // refuse the placement retry that follows it in this same cycle.
-          let mailboxDraftRecovery = {
+          const mailboxDraftRecovery = {
             connections: 0,
             reconciliation: {
               scanned: 0,
