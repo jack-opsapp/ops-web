@@ -225,11 +225,21 @@ async function deferPhaseCThread(thread: EmailThread): Promise<void> {
   }
 }
 
-async function assertPhaseCSyncTerminal(thread: EmailThread): Promise<void> {
+/**
+ * `ownsMailboxLease` must be set by every caller running INSIDE
+ * `runEmailProviderMailboxOperation`. Taking that lease writes
+ * `sync_in_progress_at`, so without it the check reads the caller's own lock
+ * and refuses the mutation it is already holding the lease to perform.
+ */
+async function assertPhaseCSyncTerminal(
+  thread: EmailThread,
+  options: { ownsMailboxLease?: boolean } = {}
+): Promise<void> {
   const pending = await emailSyncContinuationPendingForConnection({
     supabase: requireSupabase() as never,
     connectionId: thread.connectionId,
     context: "phase-c",
+    ownsMailboxLease: options.ownsMailboxLease,
   });
   if (pending) throw new PhaseCSyncContinuationError();
 }
@@ -334,7 +344,7 @@ async function placePhaseCMailboxDraft(
 
       let mailboxDraftId: string;
       if (existing?.mailbox_draft_id) {
-        await assertPhaseCSyncTerminal(thread);
+        await assertPhaseCSyncTerminal(thread, { ownsMailboxLease: true });
         await checkpoint();
         await provider.updateDraft(
           existing.mailbox_draft_id,
@@ -391,7 +401,7 @@ async function placePhaseCMailboxDraft(
             if (!latestAccess.allowed) {
               throw new PhaseCThreadAuthorizationError(latestAccess.reason);
             }
-            await assertPhaseCSyncTerminal(thread);
+            await assertPhaseCSyncTerminal(thread, { ownsMailboxLease: true });
             await checkpoint();
             const draftId = await provider.createDraft(
               to,

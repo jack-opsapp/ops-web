@@ -53,13 +53,11 @@
  * healthy. Blocked is the exceptional, load-bearing state, so blocked is what
  * is checked in.
  *
- * Verified against prod 2026-07-30: 317 base tables in `public` — 287 fully
- * available to `service_role`, 30 blocked (listed below). The pending
- * site-visit cloud-sync migration explicitly grants service_role all table
- * privileges on its three new tables, so the post-migration totals are 320
- * base tables, 290 fully available, and the same 30 blocked. RLS is not part
- * of this picture: `service_role` carries BYPASSRLS, so table privileges are
- * the only gate.
+ * Verified against prod 2026-08-06: 321 base tables in `public` —
+ * 291 fully available to `service_role` and 30 blocked (listed below).
+ * `site_visit_types` is fully available for account export and closure. RLS
+ * is not part of this picture: `service_role` carries BYPASSRLS, so table
+ * privileges are the only gate.
  */
 
 /** What `service_role` may actually do to one table, per the live catalog. */

@@ -31,6 +31,19 @@ export async function emailSyncContinuationPendingForConnection(input: {
   supabase: ContinuationStateSupabaseLike;
   connectionId: string;
   context: string;
+  /**
+   * True when the caller already holds this connection's mailbox lease.
+   *
+   * Acquiring that lease WRITES `sync_in_progress_at`
+   * (`acquire_email_connection_sync_lock_as_system` sets it to the claim time),
+   * so a lease-holder asking this question is reading its own lock. Left
+   * unqualified it concludes "a sync is running" and the caller blocks on
+   * itself — the deadlock that silently stopped every Phase C mailbox draft
+   * placement. Holding the lease proves the mailbox is ours, not that it is
+   * busy, so only that one condition is waived. The genuine "the mailbox still
+   * has more to fetch" signals below are unaffected.
+   */
+  ownsMailboxLease?: boolean;
 }): Promise<boolean> {
   const { data, error } = await input.supabase
     .from("email_connections")
@@ -46,6 +59,7 @@ export async function emailSyncContinuationPendingForConnection(input: {
   if (!data) {
     throw new Error(`[${input.context}] email connection not found`);
   }
-  if (data.sync_in_progress_at || data.history_recovery_page_token) return true;
+  if (!input.ownsMailboxLease && data.sync_in_progress_at) return true;
+  if (data.history_recovery_page_token) return true;
   return isEmailSyncContinuationPending(data.history_id ?? null);
 }

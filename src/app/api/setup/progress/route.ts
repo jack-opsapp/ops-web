@@ -11,6 +11,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
+import { readServerFirstTouch } from "@/lib/pmf/utm-capture";
+import { recordTrialAttribution } from "@/lib/pmf/record-trial-attribution";
+import { isReferralSourceSlug } from "@/lib/data/referral-sources";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
 
@@ -26,6 +29,7 @@ interface ProgressBody {
     companySize?: string;
     companyAge?: string;
     weatherDependent?: string;
+    referralMethod?: string;
     starfieldAnswers?: Record<string, string | number>;
   };
 }
@@ -113,6 +117,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         if (data.companySize) companyUpdates.company_size = data.companySize;
         if (data.companyAge) companyUpdates.company_age = data.companyAge;
         if (data.weatherDependent) companyUpdates.weather_dependent = data.weatherDependent === "Yes";
+        // Validated against the known slug set — a raw client string must
+        // never reach the column.
+        if (isReferralSourceSlug(data.referralMethod)) {
+          companyUpdates.referral_method = data.referralMethod;
+        }
 
         await db.from("companies").update(companyUpdates).eq("id", companyId);
       } else {
@@ -125,6 +134,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             company_size: data.companySize ?? null,
             company_age: data.companyAge ?? null,
             weather_dependent: data.weatherDependent ? data.weatherDependent === "Yes" : null,
+            referral_method: isReferralSourceSlug(data.referralMethod)
+              ? data.referralMethod
+              : null,
             admin_ids: [userId],
             account_holder_id: userId,
           })
@@ -224,6 +236,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             }
           })();
         }
+      }
+
+      // Attribution capture (Unified Attribution P2).
+      //
+      // The trial_attributions row already exists — companies_seed_trial_attribution
+      // creates one for EVERY company the moment it is inserted, on every
+      // platform. This upgrades that row with the real first-touch payload.
+      //
+      // Read server-side from the request's Cookie header rather than a client
+      // body field: the value is already travelling with the request, so there
+      // is nothing extra to send and nothing to forge independently of the
+      // cookie itself. Runs for both branches above (new company and resumed
+      // setup) and never throws.
+      if (companyId) {
+        await recordTrialAttribution(
+          db,
+          companyId,
+          readServerFirstTouch(req.headers.get("cookie"))
+        );
       }
     }
 

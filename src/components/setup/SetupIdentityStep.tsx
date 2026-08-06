@@ -16,6 +16,7 @@ import { EntityPicker } from "@/components/ui/entity-picker";
 import { cn } from "@/lib/utils/cn";
 import { ChevronDown } from "lucide-react";
 import { INDUSTRIES } from "@/lib/data/industries";
+import { REFERRAL_SOURCES } from "@/lib/data/referral-sources";
 import { useDictionary } from "@/i18n/client";
 
 const COMPANY_SIZES = ["1", "2-3", "4-5", "6-10", "10-20", "20+"] as const;
@@ -27,10 +28,18 @@ function SelectorButton({
   label,
   selected,
   onClick,
+  grow = true,
 }: {
   label: string;
   selected: boolean;
   onClick: () => void;
+  /**
+   * Stretch to fill the row. True for the short fixed-width option rows
+   * (team size, years, weather). Set false where the row holds many options
+   * or a long label — `flex-1` forces every chip onto one line, which
+   * overlaps the text instead of wrapping.
+   */
+  grow?: boolean;
 }) {
   return (
     <button
@@ -39,7 +48,8 @@ function SelectorButton({
       aria-pressed={selected}
       className={cn(
         "px-2 py-1.5 rounded-sm border transition-all duration-150 whitespace-nowrap cursor-pointer text-center",
-        "font-mohave text-body-sm uppercase min-h-[36px] min-w-[56px] flex-1",
+        "font-mohave text-body-sm uppercase min-h-[36px] min-w-[56px]",
+        grow && "flex-1",
         selected
           ? "bg-[rgba(255,255,255,0.10)] border-[rgba(255,255,255,0.30)] text-text"
           : "bg-transparent border-[rgba(255,255,255,0.08)] text-text-3 hover:border-[rgba(255,255,255,0.18)] hover:text-text-2"
@@ -268,12 +278,14 @@ interface IdentityStep2Props {
   companySize: string;
   companyAge: string;
   weatherDependent?: string;
+  referralMethod?: string;
   onUpdate: (data: {
     companyName?: string;
     industries?: string[];
     companySize?: string;
     companyAge?: string;
     weatherDependent?: string;
+    referralMethod?: string;
   }) => void;
 }
 
@@ -283,6 +295,7 @@ export function IdentityStep2({
   companySize,
   companyAge,
   weatherDependent = "",
+  referralMethod = "",
   onUpdate,
 }: IdentityStep2Props) {
   return (
@@ -356,6 +369,33 @@ export function IdentityStep2({
                 label={opt}
                 selected={weatherDependent === opt}
                 onClick={() => onUpdate({ weatherDependent: opt })}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* How'd you find us — optional (Unified Attribution P2).
+            Rides this step rather than owning a screen: it is the only
+            acquisition signal that survives an App Store install, but it is
+            worth nothing to the person answering it. Selecting the active
+            chip clears it — deselection IS the skip, so there is no skip
+            control and nothing gates Continue. */}
+        <div role="group" aria-label="How you found us, optional">
+          <label className="font-mohave text-caption-sm text-text-3 uppercase tracking-[0.08em] mb-1 block">
+            HOW&apos;D YOU FIND US? (OPTIONAL)
+          </label>
+          <div className="flex flex-wrap gap-1">
+            {REFERRAL_SOURCES.map((src) => (
+              <SelectorButton
+                key={src.slug}
+                label={src.label}
+                grow={false}
+                selected={referralMethod === src.slug}
+                onClick={() =>
+                  onUpdate({
+                    referralMethod: referralMethod === src.slug ? "" : src.slug,
+                  })
+                }
               />
             ))}
           </div>
