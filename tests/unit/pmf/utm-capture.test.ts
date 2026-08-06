@@ -13,6 +13,8 @@ import {
   readCookieFirstTouch,
   writeCookieFirstTouch,
   captureOnLanding,
+  parseFirstTouchValue,
+  readServerFirstTouch,
   type FirstTouch,
 } from "@/lib/pmf/utm-capture";
 
@@ -287,5 +289,86 @@ describe("captureOnLanding", () => {
     const second = readCookieFirstTouch();
     expect(second!.utm_source).toBe("google");
     expect(second!.utm_medium).toBe("cpc");
+  });
+});
+
+// ─── Server-side reader (Attribution capture P2) ─────────────────────────────
+
+describe("parseFirstTouchValue", () => {
+  it("parses a valid encoded payload", () => {
+    const raw = encodeURIComponent(
+      JSON.stringify({
+        utm_source: "google",
+        gclid: "abc123",
+        captured_at: "2026-08-06T00:00:00.000Z",
+      })
+    );
+    const parsed = parseFirstTouchValue(raw);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.utm_source).toBe("google");
+    expect(parsed!.gclid).toBe("abc123");
+  });
+
+  it("returns null for malformed JSON", () => {
+    expect(parseFirstTouchValue("%7Bnot-json")).toBeNull();
+  });
+
+  it("returns null for a JSON array", () => {
+    expect(parseFirstTouchValue(encodeURIComponent(JSON.stringify([1, 2])))).toBeNull();
+  });
+
+  it("coerces non-string fields to undefined", () => {
+    const raw = encodeURIComponent(JSON.stringify({ utm_source: 123, utm_medium: "cpc" }));
+    const parsed = parseFirstTouchValue(raw);
+    expect(parsed!.utm_source).toBeUndefined();
+    expect(parsed!.utm_medium).toBe("cpc");
+  });
+
+  it("truncates oversized values rather than storing unbounded text", () => {
+    const raw = encodeURIComponent(JSON.stringify({ utm_campaign: "x".repeat(1000) }));
+    expect(parseFirstTouchValue(raw)!.utm_campaign!.length).toBe(512);
+  });
+});
+
+describe("readServerFirstTouch", () => {
+  function header(...touches: Array<Record<string, unknown>>): string {
+    return touches
+      .map((t) => `${COOKIE}=${encodeURIComponent(JSON.stringify(t))}`)
+      .join("; ");
+  }
+
+  it("reads the cookie from a raw Cookie header", () => {
+    const h = header({ utm_source: "meta", captured_at: "2026-08-06T00:00:00.000Z" });
+    expect(readServerFirstTouch(h)!.utm_source).toBe("meta");
+  });
+
+  it("returns null when the cookie is absent", () => {
+    expect(readServerFirstTouch("other=1; another=2")).toBeNull();
+  });
+
+  it("returns null for a null/empty header", () => {
+    expect(readServerFirstTouch(null)).toBeNull();
+    expect(readServerFirstTouch("")).toBeNull();
+  });
+
+  it("ignores cookies whose name merely ends with the cookie name", () => {
+    const h = `not__ops_first_touch=${encodeURIComponent(JSON.stringify({ utm_source: "bad" }))}`;
+    expect(readServerFirstTouch(h)).toBeNull();
+  });
+
+  it("picks the EARLIEST captured_at when a host-only and a domain cookie coexist", () => {
+    // A host-only app.opsapp.co cookie and a .opsapp.co cookie can both be
+    // sent. First-touch semantics must not depend on browser ordering.
+    const h = header(
+      { utm_source: "later", captured_at: "2026-08-06T12:00:00.000Z" },
+      { utm_source: "earlier", captured_at: "2026-08-01T09:00:00.000Z" }
+    );
+    expect(readServerFirstTouch(h)!.utm_source).toBe("earlier");
+  });
+
+  it("skips malformed duplicates and still returns the valid one", () => {
+    const good = encodeURIComponent(JSON.stringify({ utm_source: "google", captured_at: "2026-08-02T00:00:00.000Z" }));
+    const h = `${COOKIE}=%7Bbroken; ${COOKIE}=${good}`;
+    expect(readServerFirstTouch(h)!.utm_source).toBe("google");
   });
 });
