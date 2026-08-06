@@ -87,7 +87,30 @@ export type RouterOutcome =
    * Phase 3 safety gate doing its job. Surfaces the routing reasons in `detail`.
    */
   | "noop_held_for_review"
+  /**
+   * Placement-only recovery found nothing stranded for the thread's latest
+   * inbound message. Distinct from `noop_off`: autonomy is live, there is
+   * simply no unplaced draft to re-drive, and recovery never mints one.
+   */
+  | "noop_no_stranded_draft"
+  /**
+   * Placement-only recovery reached a thread whose effective level is not
+   * `auto_draft`. Mailbox placement is that level's contract and no other's,
+   * so anything else is left to the pipeline that owns it.
+   */
+  | "noop_placement_not_applicable"
   | "error";
+
+/**
+ * Placement-only mode: re-drive a draft that already exists but never reached
+ * the mailbox. It shares the full routing pre-flight and differs in two ways —
+ * it never calls the draft model, and it never marks the thread dirty on a
+ * deferral, because a recurring sweep doing either would spend money and
+ * manufacture classification work on every cycle.
+ */
+interface RouteOptions {
+  placementOnly?: boolean;
+}
 
 export interface RouterResult {
   outcome: RouterOutcome;
@@ -473,7 +496,10 @@ export const PhaseCAutonomyRouter = {
   /**
    * Core entry point. Non-throwing — all errors are caught and logged.
    */
-  async route(thread: EmailThread): Promise<RouterResult> {
+  async route(
+    thread: EmailThread,
+    options: RouteOptions = {}
+  ): Promise<RouterResult> {
     const category = thread.primaryCategory;
 
     try {
@@ -486,7 +512,7 @@ export const PhaseCAutonomyRouter = {
         await assertPhaseCSyncTerminal(thread);
       } catch (error) {
         if (error instanceof PhaseCSyncContinuationError) {
-          await deferPhaseCThread(thread);
+          if (!options.placementOnly) await deferPhaseCThread(thread);
           return syncIncompleteResult(thread, "off");
         }
         throw error;
@@ -553,6 +579,22 @@ export const PhaseCAutonomyRouter = {
         }
       }
 
+      // Mailbox placement is the `auto_draft` contract. A stranded row under any
+      // other level predates the level it now sits under, and pushing it into
+      // the mailbox would cut across the pipeline that owns the thread today.
+      if (
+        options.placementOnly &&
+        effective !== "auto_draft" &&
+        effective !== "off" &&
+        effective !== "draft_on_request"
+      ) {
+        return {
+          outcome: "noop_placement_not_applicable",
+          category,
+          effectiveLevel: effective,
+        };
+      }
+
       switch (effective) {
         case "off":
           return { outcome: "noop_off", category, effectiveLevel: effective };
@@ -573,7 +615,7 @@ export const PhaseCAutonomyRouter = {
               detail: "actor_identity_invalid",
             };
           }
-          return await this.doAutoDraft(thread, userId, effective);
+          return await this.doAutoDraft(thread, userId, effective, options);
 
         case "auto_send":
           if (!actorContext) {
@@ -636,7 +678,8 @@ export const PhaseCAutonomyRouter = {
   async doAutoDraft(
     thread: EmailThread,
     userId: string,
-    effective: EmailThreadAutonomyLevel
+    effective: EmailThreadAutonomyLevel,
+    options: RouteOptions = {}
   ): Promise<RouterResult> {
     if (thread.latestDirection !== "inbound") {
       return {
@@ -687,6 +730,17 @@ export const PhaseCAutonomyRouter = {
         category: thread.primaryCategory,
         effectiveLevel: effective,
         detail: "existing phase_c draft covers latest inbound (no re-draft)",
+      };
+    }
+
+    if (!draft && options.placementOnly) {
+      // Recovery places what already exists. Nothing stranded covers the latest
+      // inbound message, so drafting one is the classification path's call —
+      // and its cost — not this sweep's.
+      return {
+        outcome: "noop_no_stranded_draft",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
       };
     }
 
@@ -765,7 +819,7 @@ export const PhaseCAutonomyRouter = {
       };
     } catch (err) {
       if (err instanceof PhaseCSyncContinuationError) {
-        await deferPhaseCThread(thread);
+        if (!options.placementOnly) await deferPhaseCThread(thread);
         return syncIncompleteResult(thread, effective);
       }
       if (err instanceof PhaseCThreadAuthorizationError) {
@@ -788,6 +842,24 @@ export const PhaseCAutonomyRouter = {
         detail: err instanceof Error ? err.message : "mailbox draft pending",
       };
     }
+  },
+
+  /**
+   * Re-drive placement for a draft that exists in OPS but never reached the
+   * mailbox — the `draft_placement_pending` outcome, seen again.
+   *
+   * Nothing else retries those rows: the router runs on classification, and a
+   * thread is only reclassified when new inbound mail lands on it, so a
+   * customer who never writes again strands the draft permanently. The bounded
+   * per-connection sweep calls this on a schedule instead of on their behalf.
+   *
+   * Every fence the live path enforces still applies here — terminal sync
+   * outside the mailbox lease, the lease itself around the provider mutation,
+   * current autonomy level, and live actor authorization re-checked while
+   * holding the lease.
+   */
+  async retryStrandedMailboxDraft(thread: EmailThread): Promise<RouterResult> {
+    return this.route(thread, { placementOnly: true });
   },
 
   /**
