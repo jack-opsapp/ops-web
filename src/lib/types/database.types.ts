@@ -1459,6 +1459,7 @@ export type Database = {
           edited_at: string | null
           final_version: string | null
           id: string
+          mailbox_draft_cleanup_at: string | null
           mailbox_draft_id: string | null
           opportunity_id: string | null
           origin: string | null
@@ -1484,6 +1485,7 @@ export type Database = {
           edited_at?: string | null
           final_version?: string | null
           id?: string
+          mailbox_draft_cleanup_at?: string | null
           mailbox_draft_id?: string | null
           opportunity_id?: string | null
           origin?: string | null
@@ -1509,6 +1511,7 @@ export type Database = {
           edited_at?: string | null
           final_version?: string | null
           id?: string
+          mailbox_draft_cleanup_at?: string | null
           mailbox_draft_id?: string | null
           opportunity_id?: string | null
           origin?: string | null
@@ -17756,6 +17759,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      site_visit_types: {
+        Row: {
+          company_id: string
+          created_at: string
+          deleted_at: string | null
+          description_text: string | null
+          fields: Json
+          id: string
+          is_default: boolean
+          is_system_template: boolean
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          deleted_at?: string | null
+          description_text?: string | null
+          fields?: Json
+          id: string
+          is_default?: boolean
+          is_system_template?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          description_text?: string | null
+          fields?: Json
+          id?: string
+          is_default?: boolean
+          is_system_template?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
       site_visits: {
         Row: {

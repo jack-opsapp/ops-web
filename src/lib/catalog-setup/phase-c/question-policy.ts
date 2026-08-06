@@ -138,6 +138,21 @@ const TEMPLATES: Record<GuidedQuestionIntent, QuestionTemplate> = {
         "this product",
       )} is sold?`,
   },
+  material_tracking_scope: {
+    capabilityRef: "static-product-materials/v1",
+    answerKind: "single_choice",
+    prompt: (context) =>
+      `OPS does not track roll or sheet inventory yet. How should ${label(
+        context.productLabel,
+        "this product",
+      )} be handled for now?`,
+    help: () =>
+      "Fixed quantities are supported. Roll tracking, offcuts, coverage calculations, and purchasing automation are not connected yet.",
+    options: [
+      "Keep purchasing and inventory staff-managed",
+      "Add a fixed material quantity per product unit",
+    ],
+  },
   static_material_quantity: {
     capabilityRef: "static-product-materials/v1",
     answerKind: "text",

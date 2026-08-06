@@ -63,7 +63,7 @@
  *
  * ── Derived from the live schema ───────────────────────────────────────────
  * Classification was derived against prod (`ijeekuhbatykdomumfjx`) on
- * 2026-07-29. Three queries reproduce it:
+ * 2026-08-06. Three queries reproduce it:
  *
  *   -- 1. every company-scoped base table, its tenant column type, and whether
  *   --    it can be tombstoned at all
@@ -82,7 +82,7 @@
  *   -- 3. blocking (NO ACTION / RESTRICT) foreign keys between them, which fix
  *   --    the deletion order and expose the two mutual cycles
  *
- * At the time of writing that is 218 in-scope tables — 180 carrying
+ * At the time of writing that is 223 in-scope tables — 185 carrying
  * `company_id` and 38 reaching one by foreign key — plus the `companies` row
  * itself, and 5 auth-identity tables declared out of scope.
  *
@@ -136,7 +136,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-08-01";
+export const MANIFEST_VERSION = "2026-08-06";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -2438,6 +2438,15 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
   },
   {
     table: "site_visit_identity_drafts",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "text",
+    softDeletable: true,
+    deleteStrategy: "soft",
+    export: true,
+  },
+  {
+    table: "site_visit_types",
     scope: "company",
     companyColumn: "company_id",
     companyColumnType: "text",

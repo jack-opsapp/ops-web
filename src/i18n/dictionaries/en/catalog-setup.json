@@ -44,8 +44,6 @@
   "guided.thinking": "CHECKING WHAT'S ALREADY ON FILE",
   "guided.preparing": "Preparing the next question",
   "guided.working": "WORKING…",
-  "guided.workingStatus": "Phase C is working",
-  "guided.workingBody": "Phase C is checking your answer…",
   "guided.factCount": "Confirmed decisions · {count}",
   "guided.answerPlaceholder": "Type your answer",
   "guided.choicePlaceholder": "Pick an option above, or type something else",

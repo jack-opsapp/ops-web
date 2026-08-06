@@ -52,6 +52,7 @@ import {
 import {
   cardEnterVariants,
   cardEnterVariantsReduced,
+  PHASE_C_ANALYSIS_SWEEP_DURATION,
   PHASE_C_RIPPLE_DURATION,
   PHASE_C_TYPEWRITER_INTERVAL_MS,
   REDUCED_DURATION,
@@ -115,6 +116,15 @@ function confirmedDecisionCount(facts: Array<Record<string, unknown>>): number {
       (source.kind === "operator" || source.kind === "upload")
     );
   }).length;
+}
+
+function hasQueuedInput(session: GuidedSession): boolean {
+  return session.conversation.some(
+    (message) =>
+      message.role === "operator" &&
+      message.state === "queued" &&
+      !!message.inputId
+  );
 }
 
 function normalizeSession(value: unknown): GuidedSession {
@@ -596,6 +606,53 @@ function PhaseCActivity({ label }: { label: string }) {
   );
 }
 
+function PhaseCProcessingSweep() {
+  const reduceMotion = useReducedMotion();
+
+  if (reduceMotion) {
+    return (
+      <span
+        aria-hidden
+        data-testid="phase-c-processing-sweep"
+        className="pointer-events-none absolute inset-0 overflow-hidden rounded bg-agent-bg"
+      >
+        <span className="absolute inset-y-0 left-0 flex w-1 items-center justify-around bg-agent-bg-hi">
+          {Array.from({ length: 3 }, (_, index) => (
+            <span key={index} className="h-full w-px bg-agent-border-hi" />
+          ))}
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <span
+      aria-hidden
+      data-testid="phase-c-processing-sweep"
+      className="pointer-events-none absolute inset-0 overflow-hidden rounded"
+    >
+      <motion.span
+        className="absolute inset-y-0 left-0 flex w-1/3 items-stretch justify-end gap-0.5 border-x border-agent-border bg-agent-bg-hi pr-1 will-change-transform"
+        animate={{
+          x: ["-110%", "310%"],
+          opacity: [0, 1, 1, 0],
+        }}
+        transition={{
+          duration: PHASE_C_ANALYSIS_SWEEP_DURATION,
+          ease: EASE_SMOOTH,
+          repeat: Infinity,
+          repeatDelay: PHASE_C_RIPPLE_DURATION / 4,
+          times: [0, 0.18, 0.82, 1],
+        }}
+      >
+        {Array.from({ length: 3 }, (_, index) => (
+          <span key={index} className="h-full w-px bg-agent-border-hi" />
+        ))}
+      </motion.span>
+    </span>
+  );
+}
+
 function PhaseCTypewriter({
   text,
   animate,
@@ -678,6 +735,7 @@ export function GuidedCatalogSetup({
   const [agentAvailable, setAgentAvailable] = useState(true);
   const [busy, setBusy] = useState(true);
   const [messageSaving, setMessageSaving] = useState(false);
+  const [removingInputId, setRemovingInputId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingInput, setEditingInput] = useState<{
     id: string;
@@ -727,7 +785,10 @@ export function GuidedCatalogSetup({
 
   const runTurn = useCallback(
     async (current: GuidedSession) => {
-      if (current.inputRevision <= current.processedInputRevision) {
+      if (
+        current.inputRevision <= current.processedInputRevision ||
+        !hasQueuedInput(current)
+      ) {
         setBusy(false);
         return;
       }
@@ -770,18 +831,32 @@ export function GuidedCatalogSetup({
           setAnimatedMessageId(newestAssistant?.id ?? null);
         }
       } catch (turnError) {
-        setError(
-          turnError instanceof Error
-            ? turnError.message
-            : t("guided.error", "Setup could not continue")
-        );
+        const latest = sessionRef.current;
+        const requestWasSuperseded =
+          !!latest &&
+          (latest.id !== current.id ||
+            latest.version !== current.version ||
+            latest.inputRevision !== current.inputRevision);
+        if (!requestWasSuperseded) {
+          setError(
+            turnError instanceof Error
+              ? turnError.message
+              : t("guided.error", "Setup could not continue")
+          );
+        }
       } finally {
         turnInFlightRef.current = false;
         const latest = sessionRef.current;
+        const requestWasSuperseded =
+          !!latest &&
+          (latest.id !== current.id ||
+            latest.version !== current.version ||
+            latest.inputRevision !== current.inputRevision);
         if (
-          generationSucceeded &&
           latest &&
-          latest.inputRevision > latest.processedInputRevision
+          latest.inputRevision > latest.processedInputRevision &&
+          hasQueuedInput(latest) &&
+          (generationSucceeded || requestWasSuperseded)
         ) {
           void runTurn(latest);
         } else {
@@ -834,6 +909,9 @@ export function GuidedCatalogSetup({
     ) => {
       const current = sessionRef.current;
       if (!current || messageSaving) return false;
+      if (operation === "remove") {
+        setRemovingInputId(expectedInputId ?? null);
+      }
       setMessageSaving(true);
       setError(null);
       try {
@@ -884,9 +962,10 @@ export function GuidedCatalogSetup({
         };
         const result = await save(current, true);
         const next = applySession(result.session);
+        const queuedInputRemains = hasQueuedInput(next);
         setEditingInput(null);
-        setBusy(true);
-        if (!turnInFlightRef.current) {
+        setBusy(queuedInputRemains);
+        if (queuedInputRemains && !turnInFlightRef.current) {
           void runTurn(next);
         }
         return true;
@@ -898,6 +977,9 @@ export function GuidedCatalogSetup({
         );
         return false;
       } finally {
+        if (operation === "remove") {
+          setRemovingInputId(null);
+        }
         setMessageSaving(false);
       }
     },
@@ -1339,6 +1421,10 @@ export function GuidedCatalogSetup({
         message.state === "queued" &&
         !!message.inputId
     );
+  const processingInputId =
+    busy && latestQueuedInput?.inputId !== removingInputId
+      ? latestQueuedInput?.inputId
+      : null;
   return (
     <section
       data-testid="guided-catalog-interview"
@@ -1381,6 +1467,8 @@ export function GuidedCatalogSetup({
         <AnimatePresence initial={false}>
           {conversation.map((message) => {
             const assistant = message.role === "assistant";
+            const processing =
+              !assistant && message.inputId === processingInputId;
             const currentQuestion =
               assistant &&
               question &&
@@ -1404,15 +1492,17 @@ export function GuidedCatalogSetup({
                   assistant ? "text-text" : "flex flex-col items-end text-text"
                 )}
                 data-message-role={message.role}
+                aria-busy={processing || undefined}
               >
                 <div
                   className={cn(
-                    "w-fit max-w-3xl",
+                    "relative w-fit max-w-3xl overflow-hidden",
                     assistant
                       ? "border-l border-agent-border bg-agent-bg px-2 py-1.5"
                       : "rounded border border-glass-border bg-surface-input px-2 py-1.5"
                   )}
                 >
+                  {processing ? <PhaseCProcessingSweep /> : null}
                   <div
                     className={cn(
                       "mb-0.5 font-mono text-micro uppercase tracking-wide",
@@ -1505,23 +1595,6 @@ export function GuidedCatalogSetup({
             );
           })}
         </AnimatePresence>
-
-        {busy ? (
-          <li
-            role="status"
-            aria-label={t("guided.workingStatus", "Phase C is working")}
-            className="mx-auto w-full max-w-4xl font-mono text-micro uppercase tracking-wide text-text-3"
-          >
-            <div className="w-fit border-l border-agent-border bg-agent-bg px-2 py-1">
-              <PhaseCActivity
-                label={t(
-                  "guided.workingBody",
-                  "PHASE C IS CHECKING YOUR MESSAGE"
-                )}
-              />
-            </div>
-          </li>
-        ) : null}
 
         {error ? (
           <li role="alert" className="mx-auto w-full max-w-4xl">

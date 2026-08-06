@@ -45,6 +45,8 @@ export const CARD_STAGGER = 0.05;
 export const REDUCED_DURATION = 0.15;
 /** INTELLIGENCE ripple — one precise pass across the Phase C activity bars. */
 export const PHASE_C_RIPPLE_DURATION = 0.72;
+/** INTELLIGENCE analysis sweep — measured ambient pass over queued operator input. */
+export const PHASE_C_ANALYSIS_SWEEP_DURATION = 1.4;
 /** Typewriter pacing for a newly generated Phase C response. */
 export const PHASE_C_TYPEWRITER_INTERVAL_MS = 18;
 /** Count-up run length for running totals (ms — consumed by rAF, not Framer). */
