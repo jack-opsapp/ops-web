@@ -727,4 +727,6 @@ begin
 end
 $$;
 
+select 'OPS_EXTERNAL_API_SQL_CONTRACT_PASS';
+
 rollback;

@@ -1,24 +1,27 @@
 \set ON_ERROR_STOP on
 
--- Session B waits until Session A has committed the isolated fixture, crosses
--- the advisory barrier only after A holds the quota row, and then attempts the
--- final 50 MiB reservation while A's transaction is still open.
+-- Session B first observes Session A owning the setup barrier, then crosses it
+-- only after A has committed the fixture and holds the quota row. Advisory lock
+-- state is visible immediately; a catalog lookup loop inside one DO statement
+-- would keep one statement snapshot and never observe a newly committed table.
 
-do $wait_for_fixture$
+do $wait_for_writer$
 declare
   v_deadline timestamptz := clock_timestamp() + interval '30 seconds';
 begin
   loop
-    exit when to_regclass(
-      'private.external_intake_upload_concurrency_fixture'
-    ) is not null;
+    if pg_try_advisory_lock(2026072601) then
+      perform pg_advisory_unlock(2026072601);
+    else
+      exit;
+    end if;
     if clock_timestamp() >= v_deadline then
-      raise exception 'external_intake_quota_fixture_timeout';
+      raise exception 'external_intake_quota_writer_timeout';
     end if;
     perform pg_sleep(0.05);
   end loop;
 end;
-$wait_for_fixture$;
+$wait_for_writer$;
 
 select pg_advisory_lock(2026072601);
 select pg_advisory_unlock(2026072601);
