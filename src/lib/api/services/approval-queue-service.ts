@@ -499,6 +499,11 @@ async function executeCreateInvoice(
           recipientName: data.client_name,
           userInstruction: `Write a brief cover email for invoice #${invoice.invoiceNumber} totaling ${totalStr} for project "${data.project_title}". Payment terms: ${data.payment_terms ?? "NET-30"}. Due date: ${dueDateStr}. Keep it professional and concise. Write the email in ${locale === "es" ? "Spanish" : "English"}.`,
           profileTypeOverride: "client_active_project",
+          draftPurpose: {
+            kind: "operational_outbound",
+            verifiedContext: { schedule: true },
+          },
+          signatureWillBeAppended: true,
         });
 
         let draftText: string;

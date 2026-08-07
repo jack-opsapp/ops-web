@@ -211,4 +211,35 @@ describe("buildDraftSystemPrompt — operator identity", () => {
     expect(prompt).toMatch(/never (?:state|claim).*availability/i);
     expect(prompt).toMatch(/verified calendar context/i);
   });
+
+  it("treats proactive operational mail as outbound work, not a customer reply", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      messageKind: "operational_outbound",
+    });
+
+    expect(prompt).toMatch(/outbound message contract/i);
+    expect(prompt).toMatch(/trusted operator instruction/i);
+    expect(prompt).not.toMatch(/first operator reply/i);
+    expect(prompt).not.toMatch(/answer the customer/i);
+  });
+
+  it("allows only server-verified schedule facts for operational mail", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      messageKind: "operational_outbound",
+      verifiedContext: { schedule: true },
+    });
+
+    expect(prompt).toMatch(/schedule facts.*server-verified/i);
+    expect(prompt).toMatch(/state them exactly/i);
+    expect(prompt).toMatch(/do not invent.*date|date.*do not invent/i);
+    expect(prompt).not.toContain(
+      "No verified calendar context is present in this request."
+    );
+  });
 });

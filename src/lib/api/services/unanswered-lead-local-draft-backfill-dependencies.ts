@@ -285,13 +285,8 @@ function stringArray(value: unknown): string[] {
 }
 
 function canonicalIsoTimestamp(value: string): string {
-  const fractionalSeconds = value.match(
-    /\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/i
-  )?.[1];
-  if (
-    fractionalSeconds &&
-    /[1-9]/.test(fractionalSeconds.slice(3))
-  ) {
+  const fractionalSeconds = value.match(/\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/i)?.[1];
+  if (fractionalSeconds && /[1-9]/.test(fractionalSeconds.slice(3))) {
     throw new Error(
       "unanswered lead correspondence timestamp precision is unsupported"
     );
@@ -945,6 +940,8 @@ export function createUnansweredLeadLocalDraftBackfillDependencies(
         sourceActivityId: candidate.sourceActivityId,
         origin: "system_handoff",
         emailAccess,
+        draftPurpose: { kind: "conversation_reply" },
+        signatureWillBeAppended: true,
       });
       const subject = normalizedText(generated.subject);
       const body = normalizedText(generated.draft);

@@ -52,6 +52,7 @@ import {
   createEmailProviderMutationAttemptService,
 } from "./email-provider-mutation-attempt-service";
 import { emailSyncContinuationPendingForConnection } from "@/lib/email/email-sync-continuation-state";
+import { normalizeEmailAddress } from "@/lib/utils/email-parsing";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -145,6 +146,37 @@ function isThreadActionable(thread: EmailThread): boolean {
  * us no message id) also returns "needs draft" — we can't dedup what we can't
  * key, and mailbox draft idempotency still guards provider placement.
  */
+async function latestEmailSource(
+  thread: EmailThread,
+  direction: "inbound" | "outbound"
+): Promise<{
+  sourceMessageId: string | null;
+  sourceActivityId: string | null;
+  sourceCreatedAt: Date | null;
+}> {
+  const { data: latest } = await requireSupabase()
+    .from("activities")
+    .select("id, email_message_id, created_at")
+    .eq("company_id", thread.companyId)
+    .eq("email_connection_id", thread.connectionId)
+    .eq("email_thread_id", thread.providerThreadId)
+    .eq("type", "email")
+    .eq("direction", direction)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return {
+    sourceMessageId: (latest?.email_message_id as string | null) ?? null,
+    sourceActivityId: (latest?.id as string | null) ?? null,
+    sourceCreatedAt:
+      typeof latest?.created_at === "string"
+        ? new Date(latest.created_at)
+        : null,
+  };
+}
+
 async function latestInboundNeedsDraft(
   thread: EmailThread,
   userId: string
@@ -159,22 +191,10 @@ async function latestInboundNeedsDraft(
   } | null;
 }> {
   const supabase = requireSupabase();
-
-  // The provider message id of the most recent inbound message on the thread.
-  const { data: latest } = await supabase
-    .from("activities")
-    .select("id, email_message_id")
-    .eq("company_id", thread.companyId)
-    .eq("email_connection_id", thread.connectionId)
-    .eq("email_thread_id", thread.providerThreadId)
-    .eq("type", "email")
-    .eq("direction", "inbound")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const sourceMessageId = (latest?.email_message_id as string | null) ?? null;
-  const sourceActivityId = (latest?.id as string | null) ?? null;
+  const { sourceMessageId, sourceActivityId } = await latestEmailSource(
+    thread,
+    "inbound"
+  );
 
   // Can't dedup without a stable message key — let the draft proceed. The
   // mailbox placement path still reuses an existing unresolved provider draft
@@ -302,6 +322,99 @@ async function authorizeCurrentPhaseCThread(
     opportunityId: thread.opportunityId ?? undefined,
     supabase: requireSupabase(),
   });
+}
+
+type CanonicalFollowUpRecipientResult =
+  | { ok: true; email: string }
+  | { ok: false; reason: string };
+
+/**
+ * Resolve a stale-lead follow-up recipient from the current opportunity, never
+ * from the thread's accumulated participant/CC history. The exact linked
+ * thread is re-read so stale or crossed linkage fails closed before drafting.
+ */
+async function resolveCanonicalFollowUpRecipient(
+  thread: EmailThread,
+  actorContext: PhaseCEmailActorContext
+): Promise<CanonicalFollowUpRecipientResult> {
+  const opportunityId = thread.opportunityId;
+  if (
+    !opportunityId ||
+    actorContext.companyId !== thread.companyId ||
+    actorContext.connectionId !== thread.connectionId ||
+    actorContext.opportunityId !== opportunityId ||
+    actorContext.internalThreadId !== thread.id ||
+    actorContext.providerThreadId !== thread.providerThreadId
+  ) {
+    return {
+      ok: false,
+      reason: "canonical follow-up recipient linkage is invalid",
+    };
+  }
+
+  const supabase = requireSupabase();
+  const { data: opportunity, error: opportunityError } = await supabase
+    .from("opportunities")
+    .select("contact_email")
+    .eq("id", opportunityId)
+    .eq("company_id", thread.companyId)
+    .maybeSingle();
+  if (opportunityError || !opportunity) {
+    return {
+      ok: false,
+      reason: "canonical follow-up recipient could not be verified",
+    };
+  }
+
+  const email = normalizeEmailAddress(
+    String((opportunity as Record<string, unknown>).contact_email ?? "")
+  );
+  if (!email || !/^[^\s@]+@[^\s@]+$/.test(email)) {
+    return { ok: false, reason: "canonical follow-up recipient is missing" };
+  }
+
+  const internalAddresses = new Set(
+    [actorContext.actorEmailSnapshot, actorContext.clientFacingAddressSnapshot]
+      .map((address) => normalizeEmailAddress(address))
+      .filter(Boolean)
+  );
+  if (internalAddresses.has(email)) {
+    return { ok: false, reason: "canonical follow-up recipient is internal" };
+  }
+
+  const { data: linkedThread, error: linkedThreadError } = await supabase
+    .from("email_threads")
+    .select("participants")
+    .eq("id", thread.id)
+    .eq("company_id", thread.companyId)
+    .eq("connection_id", thread.connectionId)
+    .eq("provider_thread_id", thread.providerThreadId)
+    .eq("opportunity_id", opportunityId)
+    .maybeSingle();
+  if (linkedThreadError || !linkedThread) {
+    return {
+      ok: false,
+      reason: "canonical follow-up recipient linkage is invalid",
+    };
+  }
+
+  const participants = Array.isArray(
+    (linkedThread as Record<string, unknown>).participants
+  )
+    ? ((linkedThread as Record<string, unknown>).participants as unknown[])
+        .filter((participant): participant is string =>
+          Boolean(participant && typeof participant === "string")
+        )
+        .map((participant) => normalizeEmailAddress(participant))
+    : [];
+  if (!participants.includes(email)) {
+    return {
+      ok: false,
+      reason: "canonical follow-up recipient is not on the linked thread",
+    };
+  }
+
+  return { ok: true, email };
 }
 
 async function placePhaseCMailboxDraft(
@@ -779,6 +892,8 @@ export const PhaseCAutonomyRouter = {
           thread.opportunityId && sourceActivityId
             ? sourceActivityId
             : undefined,
+        draftPurpose: { kind: "conversation_reply" },
+        signatureWillBeAppended: true,
       });
 
       if (!generated.available) {
@@ -933,6 +1048,19 @@ export const PhaseCAutonomyRouter = {
 
     const subject = normalizeReplySubject(thread.subject ?? "");
 
+    const accessBeforeSend = await authorizeCurrentPhaseCThread(
+      thread,
+      actorContext.actorUserId,
+      "send"
+    );
+    if (!accessBeforeSend.allowed) {
+      return {
+        outcome: "noop_actor_unavailable",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: accessBeforeSend.reason,
+      };
+    }
     try {
       await assertPhaseCSyncTerminal(thread);
     } catch (error) {
@@ -943,6 +1071,19 @@ export const PhaseCAutonomyRouter = {
       throw error;
     }
 
+    const { sourceActivityId, sourceMessageId } = await latestEmailSource(
+      thread,
+      "inbound"
+    );
+    if (!sourceActivityId || !sourceMessageId) {
+      return {
+        outcome: "error",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: "latest inbound source identity missing",
+      };
+    }
+
     const scheduled = await AutoSendService.scheduleAutoSend({
       category: thread.primaryCategory,
       companyId: thread.companyId,
@@ -950,17 +1091,40 @@ export const PhaseCAutonomyRouter = {
       connectionId: thread.connectionId,
       opportunityId: thread.opportunityId ?? undefined,
       threadId: thread.providerThreadId,
+      inReplyTo: sourceMessageId,
       toEmails,
       subject,
       settings,
+      generation: {
+        kind: "conversation_reply",
+        emailAccess: accessBeforeSend,
+        sourceActivityId,
+        sourceMessageId,
+      },
     });
 
-    if (!scheduled) {
+    if (scheduled.outcome === "no_reply_warranted") {
+      return {
+        outcome: "noop_no_reply_warranted",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: scheduled.reason,
+      };
+    }
+    if (scheduled.outcome === "held_for_review") {
+      return {
+        outcome: "noop_held_for_review",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: scheduled.reason,
+      };
+    }
+    if (scheduled.outcome === "unavailable") {
       return {
         outcome: "error",
         category: thread.primaryCategory,
         effectiveLevel: effective,
-        detail: "auto-send schedule failed",
+        detail: scheduled.reason ?? "auto-send schedule failed",
       };
     }
 
@@ -968,7 +1132,7 @@ export const PhaseCAutonomyRouter = {
       outcome: "auto_sent_scheduled",
       category: thread.primaryCategory,
       effectiveLevel: effective,
-      detail: scheduled.id,
+      detail: scheduled.pending.id,
     };
   },
 
@@ -1090,14 +1254,34 @@ export const PhaseCAutonomyRouter = {
       );
     }
 
-    const toEmails = thread.participants.filter(
-      (p) => p && !p.endsWith(">") // tolerates "Name <email>" formats
+    const subject = normalizeReplySubject(thread.subject ?? "");
+
+    const accessBeforeFollowUp = await authorizeCurrentPhaseCThread(
+      thread,
+      actorContext.actorUserId,
+      "send"
     );
-    if (toEmails.length === 0 && thread.latestSenderEmail) {
-      toEmails.push(thread.latestSenderEmail);
+    if (!accessBeforeFollowUp.allowed) {
+      return {
+        outcome: "noop_actor_unavailable",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: accessBeforeFollowUp.reason,
+      };
     }
 
-    const subject = normalizeReplySubject(thread.subject ?? "");
+    const recipient = await resolveCanonicalFollowUpRecipient(
+      thread,
+      actorContext
+    );
+    if (!recipient.ok) {
+      return {
+        outcome: "error",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: recipient.reason,
+      };
+    }
 
     try {
       await assertPhaseCSyncTerminal(thread);
@@ -1109,6 +1293,29 @@ export const PhaseCAutonomyRouter = {
       throw error;
     }
 
+    const { sourceActivityId, sourceMessageId, sourceCreatedAt } =
+      await latestEmailSource(thread, "outbound");
+    if (
+      !sourceActivityId ||
+      !sourceMessageId ||
+      !sourceCreatedAt ||
+      !Number.isFinite(sourceCreatedAt.getTime())
+    ) {
+      return {
+        outcome: "error",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: "latest outbound source identity missing",
+      };
+    }
+    if (sourceCreatedAt.getTime() >= cutoff) {
+      return {
+        outcome: "noop_not_stale",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+      };
+    }
+
     const scheduled = await AutoSendService.scheduleAutoSend({
       category: thread.primaryCategory,
       companyId: thread.companyId,
@@ -1116,17 +1323,45 @@ export const PhaseCAutonomyRouter = {
       connectionId: thread.connectionId,
       opportunityId: thread.opportunityId ?? undefined,
       threadId: thread.providerThreadId,
-      toEmails,
+      inReplyTo: sourceMessageId,
+      toEmails: [recipient.email],
+      ccEmails: [],
       subject,
       settings,
+      generation: {
+        kind: "auto_follow_up",
+        autonomousRoutingAuthority: "phase_c_stale_lead_follow_up",
+        emailAccess: accessBeforeFollowUp,
+        sourceActivityId,
+        sourceMessageId,
+        followUpSequence: 1,
+        instruction:
+          "Write a brief, natural follow-up after seven days without a response. Advance only the existing lead conversation, do not repeat the original pitch, and ask at most one easy next-step question.",
+      },
     });
 
-    if (!scheduled) {
+    if (scheduled.outcome === "no_reply_warranted") {
+      return {
+        outcome: "noop_no_reply_warranted",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: scheduled.reason,
+      };
+    }
+    if (scheduled.outcome === "held_for_review") {
+      return {
+        outcome: "noop_held_for_review",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: scheduled.reason,
+      };
+    }
+    if (scheduled.outcome === "unavailable") {
       return {
         outcome: "error",
         category: thread.primaryCategory,
         effectiveLevel: effective,
-        detail: "follow-up schedule failed",
+        detail: scheduled.reason ?? "follow-up schedule failed",
       };
     }
 
@@ -1134,7 +1369,7 @@ export const PhaseCAutonomyRouter = {
       outcome: "auto_follow_up_scheduled",
       category: thread.primaryCategory,
       effectiveLevel: effective,
-      detail: scheduled.id,
+      detail: scheduled.pending.id,
     };
   },
 };

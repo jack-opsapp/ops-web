@@ -26,6 +26,10 @@ import {
 } from "./conversation-state/draft-context";
 import { evaluateAutonomyGate } from "./conversation-state/autonomy-gate";
 import {
+  resolveOperationalAutonomousRouting,
+  type OperationalAutonomousRoutingAuthority,
+} from "./conversation-state/operational-autonomous-routing";
+import {
   ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION,
   ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT,
   resolveSourceBoundAutonomousRouting,
@@ -33,7 +37,9 @@ import {
 } from "./conversation-state/source-bound-autonomous-routing";
 import {
   buildDraftSystemPrompt,
+  type DraftMessageKind,
   type DraftOperatorIdentity,
+  type DraftVerifiedContext,
 } from "./conversation-state/draft-system-prompt";
 import { stripForwardWrapper } from "./conversation-state/forward-wrapper";
 import { persistRoutingDecision } from "./conversation-state/persist-routing";
@@ -49,6 +55,7 @@ import {
 } from "@/lib/email/email-subject-policy";
 import type { AllowedEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
+import { extractEmailAddress } from "@/lib/utils/email-parsing";
 
 function getOpenAI() {
   return getDraftingOpenAI();
@@ -220,6 +227,12 @@ export interface AIDraftRequest {
    */
   sourceBoundAutonomousRouting?: SourceBoundAutonomousRouting;
   /**
+   * Narrow server-owned authority for the Phase C stale-lead follow-up queue.
+   * It can reinterpret only an otherwise-safe `update_lead_only` route and is
+   * ignored unless the full assignment/mailbox/thread/lead fence matches.
+   */
+  autonomousRoutingAuthority?: OperationalAutonomousRoutingAuthority;
+  /**
    * P4-B: draft origin, mirrors opportunity_follow_up_drafts.origin vocab
    * ('operator' | 'template_follow_up' | 'phase_c' | 'system_handoff').
    * Persisted to ai_draft_history.origin. Callers: the Phase C router passes
@@ -232,6 +245,30 @@ export interface AIDraftRequest {
    * untrusted compatibility input and this projection wins.
    */
   emailAccess?: AllowedEmailOpportunityAccess;
+  /**
+   * Trusted workflow purpose. Production callers set this explicitly so a
+   * proactive invoice, reminder, or schedule notice is never prompted as a
+   * customer reply. The optional shape preserves compatibility for older
+   * internal/test callers; the service derives the conservative kind from
+   * whether a real conversation source exists.
+   */
+  draftPurpose?: {
+    kind: DraftMessageKind;
+    verifiedContext?: DraftVerifiedContext;
+  };
+  /**
+   * Customer-authored reference text supplied by a trusted server workflow
+   * that does not have a canonical email thread (for example a scheduling
+   * request or a forwarded contact-form submission). This content is data,
+   * never an operator directive, and is serialized only inside the prompt's
+   * untrusted-data envelope.
+   */
+  untrustedMessageContext?: {
+    subject?: string;
+    body: string;
+  };
+  /** The surrounding trusted transport appends the operator's signature. */
+  signatureWillBeAppended?: boolean;
 }
 
 export interface AIDraftResult {
@@ -986,6 +1023,13 @@ export const AIDraftService = {
     const opportunityId = emailAccess?.opportunityId ?? req.opportunityId;
     const threadId = emailAccess?.providerThreadId ?? req.threadId;
     const sourceActivityId = req.sourceActivityId?.trim() || null;
+    const draftPurpose: NonNullable<AIDraftRequest["draftPurpose"]> =
+      req.draftPurpose ?? {
+        kind:
+          sourceActivityId || threadId
+            ? "conversation_reply"
+            : "operational_outbound",
+      };
     const assignedContactFormReview =
       req.sourceBoundAutonomousRouting === "assigned_contact_form_review";
     // A recipient supplied before authorization is never identity evidence.
@@ -1012,6 +1056,9 @@ export const AIDraftService = {
       body_text_clean: string | null;
       created_at: string;
       email_message_id: string | null;
+      email_thread_id: string | null;
+      to_emails: string[] | null;
+      cc_emails: string[] | null;
     }> = [];
 
     let authorizedSourceActivity: (typeof threadMessages)[number] | null = null;
@@ -1020,7 +1067,7 @@ export const AIDraftService = {
         await supabase
           .from("activities")
           .select(
-            "id, opportunity_id, direction, from_email, subject, body_text, body_text_clean, created_at, email_message_id"
+            "id, opportunity_id, direction, from_email, subject, body_text, body_text_clean, created_at, email_message_id, email_thread_id, to_emails, cc_emails"
           )
           .eq("id", sourceActivityId)
           .eq("company_id", companyId)
@@ -1048,7 +1095,7 @@ export const AIDraftService = {
       let messagesQuery = supabase
         .from("activities")
         .select(
-          "id, opportunity_id, direction, from_email, subject, body_text, body_text_clean, created_at, email_message_id"
+          "id, opportunity_id, direction, from_email, subject, body_text, body_text_clean, created_at, email_message_id, email_thread_id, to_emails, cc_emails"
         )
         .eq("company_id", companyId)
         .eq("email_connection_id", connectionId)
@@ -1216,7 +1263,7 @@ export const AIDraftService = {
     // router held for review. Reuses the state already built above (zero extra
     // cost). Manual (operator-initiated) drafts are never gated — the operator
     // is the human review. Returns a deliberate "held" result, not an error.
-    const effectiveAutonomousRouting = resolveSourceBoundAutonomousRouting({
+    const sourceBoundAutonomousRouting = resolveSourceBoundAutonomousRouting({
       authority: req.sourceBoundAutonomousRouting,
       autonomous: req.autonomous === true,
       routing: convRouting,
@@ -1230,13 +1277,32 @@ export const AIDraftService = {
       profileTypeOverride: req.profileTypeOverride,
       emailAccess,
     });
+    const effectiveAutonomousRouting = resolveOperationalAutonomousRouting({
+      authority: req.autonomousRoutingAuthority,
+      autonomous: req.autonomous === true,
+      routing: sourceBoundAutonomousRouting,
+      sourceActivityId,
+      companyId,
+      userId,
+      connectionId,
+      opportunityId,
+      threadId,
+      origin: req.origin,
+      profileTypeOverride: req.profileTypeOverride,
+      draftPurposeKind: draftPurpose.kind,
+      signatureWillBeAppended: req.signatureWillBeAppended === true,
+      emailAccess,
+    });
     const sourceBoundNewThread =
       req.sourceBoundAutonomousRouting === "assigned_contact_form_review" &&
-      effectiveAutonomousRouting === "draft";
+      sourceBoundAutonomousRouting === "draft";
     const effectiveUserInstruction = sourceBoundNewThread
       ? ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION
       : userInstruction;
-    if (req.autonomous === true && convRouting === "update_lead_only") {
+    if (
+      req.autonomous === true &&
+      effectiveAutonomousRouting === "update_lead_only"
+    ) {
       return {
         draft: "",
         draftHistoryId: "",
@@ -1607,14 +1673,76 @@ export const AIDraftService = {
       assignedContactFormReview
         ? (m.body_text ?? m.body_text_clean ?? "")
         : (m.body_text_clean ?? m.body_text ?? "");
+    const normalizedEmail = (value: string | null | undefined): string =>
+      extractEmailAddress(value ?? "")
+        .trim()
+        .toLowerCase();
+    const normalizedRecipients = (value: string[] | null): string[] =>
+      Array.isArray(value)
+        ? value.map((email) => normalizedEmail(email)).filter(Boolean)
+        : [];
+    const sourceParticipantEmail = normalizedEmail(
+      authorizedSourceActivity?.from_email
+    );
+    const sourceConversationId =
+      authorizedSourceActivity?.email_thread_id ??
+      emailAccess?.providerThreadId ??
+      null;
+    const isCurrentConversationMessage = (
+      message: (typeof threadMessages)[number]
+    ): boolean => {
+      if (!authorizedSourceActivity) return true;
+      if (
+        sourceConversationId &&
+        message.email_thread_id !== sourceConversationId
+      ) {
+        return false;
+      }
+      if (message.direction === "inbound") {
+        return normalizedEmail(message.from_email) === sourceParticipantEmail;
+      }
+      const recipients = [
+        ...normalizedRecipients(message.to_emails),
+        ...normalizedRecipients(message.cc_emails),
+      ];
+      // Older activity rows may not carry recipient arrays. The exact provider
+      // thread is then the strongest available conversation boundary.
+      return (
+        recipients.length === 0 || recipients.includes(sourceParticipantEmail)
+      );
+    };
+    const currentConversationMessages = threadMessages.filter(
+      isCurrentConversationMessage
+    );
     const threadContext = threadMessages
       .map((m) => {
-        const dir = m.direction === "outbound" ? "YOU" : "THEM";
+        const scope = isCurrentConversationMessage(m)
+          ? "CURRENT CONVERSATION"
+          : "RELATIONSHIP HISTORY";
+        const direction = m.direction === "outbound" ? "OUTBOUND" : "INBOUND";
+        // Contact-form notifications are forwarded by an operator mailbox.
+        // Their transport sender is not the customer and must not re-enter the
+        // prompt after the wrapper has been stripped.
+        const from =
+          (assignedContactFormReview && m.direction === "inbound"
+            ? normalizedEmail(clientEmail)
+            : normalizedEmail(m.from_email)) || "unknown";
+        const recipients = [
+          ...normalizedRecipients(m.to_emails),
+          ...normalizedRecipients(m.cc_emails),
+        ];
+        const participantLabel = [
+          `FROM ${from}`,
+          recipients.length > 0 ? `TO ${recipients.join(", ")}` : "",
+          m.email_thread_id ? `THREAD ${m.email_thread_id}` : "",
+        ]
+          .filter(Boolean)
+          .join(" | ");
         const canonicalBody = promptBodyText(promptSourceText(m));
         const body = authorizedSourceActivity
           ? canonicalBody
           : canonicalBody.slice(0, 600);
-        return `[${dir}] ${m.subject}\n${body}`;
+        return `[${scope} | ${direction} | ${participantLabel}] ${m.subject}\n${body}`;
       })
       .join("\n---\n");
 
@@ -1627,22 +1755,31 @@ export const AIDraftService = {
     // signature after generation (gated on confirmation), so the model must
     // write no name or contact block of its own.
     const operatorIdentity = await loadDraftOperatorIdentity(companyId, userId);
-    const operatorMessageCount = threadMessages.filter(
+    const progressionMessages = authorizedSourceActivity
+      ? currentConversationMessages
+      : threadMessages;
+    const operatorMessageCount = progressionMessages.filter(
       (message) => message.direction === "outbound"
     ).length;
-    const customerMessageCount = threadMessages.filter(
+    const customerMessageCount = progressionMessages.filter(
       (message) => message.direction === "inbound"
     ).length;
     const systemPrompt = buildDraftSystemPrompt({
       profile,
       operator: operatorIdentity,
-      signatureWillBeAppended: assignedContactFormReview,
-      replyContext: {
-        mode: draftState?.responseMode ?? "answer",
-        isFirstOperatorReply: operatorMessageCount === 0,
-        customerMessageCount,
-        operatorMessageCount,
-      },
+      signatureWillBeAppended:
+        assignedContactFormReview || req.signatureWillBeAppended === true,
+      messageKind: draftPurpose.kind,
+      verifiedContext: draftPurpose.verifiedContext,
+      replyContext:
+        draftPurpose.kind === "conversation_reply"
+          ? {
+              mode: draftState?.responseMode ?? "answer",
+              isFirstOperatorReply: operatorMessageCount === 0,
+              customerMessageCount,
+              operatorMessageCount,
+            }
+          : null,
     });
 
     // ── Build user prompt ──────────────────────────────────────────────
@@ -1650,6 +1787,14 @@ export const AIDraftService = {
       .filter((m) => m.direction === "inbound")
       .pop();
     const promptInbound = authorizedSourceActivity ?? lastInbound;
+    const suppliedInboundBody =
+      req.untrustedMessageContext?.body.trim().slice(0, 12_000) ?? "";
+    const suppliedInbound = suppliedInboundBody
+      ? {
+          subject: req.untrustedMessageContext?.subject?.trim() ?? "",
+          body: suppliedInboundBody,
+        }
+      : null;
 
     let userPrompt: string;
 
@@ -1662,24 +1807,27 @@ export const AIDraftService = {
       ? clientEmail
       : draftState?.recipientEmail || clientEmail;
     const latestInboundText =
-      promptBodyText(
-        (authorizedSourceActivity
-          ? promptSourceText(authorizedSourceActivity)
-          : draftState?.latestCustomerText ||
-            lastInbound?.body_text?.slice(0, 1500)) || ""
-      ) || "(no body)";
+      (promptInbound
+        ? promptBodyText(
+            (authorizedSourceActivity
+              ? promptSourceText(authorizedSourceActivity)
+              : draftState?.latestCustomerText ||
+                lastInbound?.body_text?.slice(0, 1500)) || ""
+          )
+        : suppliedInbound?.body) || "(no body)";
     const fullThreadText = authorizedSourceActivity
       ? threadContext
       : draftState?.cleanThread || threadContext;
     const untrustedReferenceJson = serializeUntrustedPromptData({
       recipientName: promptRecipientName || null,
       recipientEmail: promptRecipientEmail || null,
-      latestInbound: promptInbound
-        ? {
-            subject: promptInbound.subject,
-            body: latestInboundText,
-          }
-        : null,
+      latestInbound:
+        promptInbound || suppliedInbound
+          ? {
+              subject: promptInbound?.subject ?? suppliedInbound?.subject ?? "",
+              body: latestInboundText,
+            }
+          : null,
       fullConversation: fullThreadText || null,
       companyContext: companyContextBlock || null,
       clientHistory: clientContextBlock || null,
@@ -1692,7 +1840,11 @@ export const AIDraftService = {
       attachmentContext: draftState?.attachmentBlock || null,
     });
 
-    if (promptInbound && !sourceBoundNewThread) {
+    if (
+      draftPurpose.kind === "conversation_reply" &&
+      promptInbound &&
+      !sourceBoundNewThread
+    ) {
       userPrompt = `Draft a reply to this email thread.
 
 <UNTRUSTED_EMAIL_DATA_JSON>

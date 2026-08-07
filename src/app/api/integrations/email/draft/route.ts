@@ -27,8 +27,12 @@ import {
   placeNewThreadDraft,
   CONTACT_FORM_OUTREACH_SUBJECT,
 } from "@/lib/api/services/mailbox-draft-push";
-import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
+import {
+  extractContactFormSubmission,
+  extractContactFormSubmissionDisplayText,
+} from "@/lib/utils/email-parsing";
 import { normalizeReplySubject } from "@/lib/email/email-subject-policy";
+import { ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION } from "@/lib/api/services/conversation-state/source-bound-autonomous-routing";
 import {
   renderMailboxDraftWithSignature,
   resolveEmailSignatureForMessage,
@@ -139,6 +143,14 @@ export async function POST(request: NextRequest) {
       (latestInbound?.subject as string) ?? "",
       (latestInbound?.body_text as string) ?? ""
     );
+    const contactFormInquiryText = contactFormSubmitter
+      ? contactFormSubmitter.message?.trim() ||
+        extractContactFormSubmissionDisplayText(
+          (latestInbound?.subject as string) ?? "",
+          (latestInbound?.body_text as string) ?? ""
+        ) ||
+        ""
+      : "";
 
     let replyThread: ReplyThreadRow | null = null;
     const activityThreadId = latestInbound?.email_thread_id as
@@ -308,6 +320,23 @@ export async function POST(request: NextRequest) {
       opportunityId: draftAccess.opportunityId ?? undefined,
       threadId: draftAccess.providerThreadId ?? undefined,
       emailAccess: draftAccess,
+      draftPurpose: { kind: "conversation_reply" },
+      ...(contactFormSubmitter
+        ? {
+            userInstruction: ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION,
+            profileTypeOverride: "client_new_inquiry",
+            configuredSubject: CONTACT_FORM_OUTREACH_SUBJECT,
+            ...(contactFormInquiryText
+              ? {
+                  untrustedMessageContext: {
+                    subject: (latestInbound?.subject as string) ?? "",
+                    body: contactFormInquiryText,
+                  },
+                }
+              : {}),
+          }
+        : {}),
+      signatureWillBeAppended: true,
     });
 
     if (!draftResult.available || !draftResult.draft) {

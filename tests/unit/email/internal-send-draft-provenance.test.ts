@@ -76,6 +76,37 @@ describe("internal email send draft provenance", () => {
     ).toHaveLength(8);
   });
 
+  it("marks only scheduling drafts with authoritative schedule facts as verified", () => {
+    expect(
+      schedulingCommsSource.match(
+        /draftPurpose:\s*\{\s*kind:\s*"operational_outbound",\s*verifiedContext:\s*\{\s*schedule:\s*true\s*\}/g
+      )
+    ).toHaveLength(4);
+  });
+
+  it("keeps reschedule customer text out of the trusted instruction", () => {
+    const rescheduleBlock = functionBlock(
+      schedulingCommsSource,
+      "async detectRescheduleRequest(input:",
+      "async coordinateWithSubcontractor("
+    );
+    const trustedInstruction = functionBlock(
+      rescheduleBlock,
+      "const instructionParts: string[] = [",
+      "const draftResult = await AIDraftService.generateDraft("
+    );
+
+    expect(rescheduleBlock).toContain("untrustedMessageContext");
+    expect(rescheduleBlock).toContain("body: bodyText");
+    expect(rescheduleBlock).toMatch(
+      /firstAlt\s*\?\s*\{\s*verifiedContext:\s*\{\s*schedule:\s*true\s*\}/
+    );
+    expect(trustedInstruction).not.toContain("They wrote:");
+    expect(trustedInstruction).not.toContain("bodyText");
+    expect(trustedInstruction).not.toContain("classification.requestedDate");
+    expect(rescheduleBlock).not.toContain("fallback_two_days");
+  });
+
   it("lets durable approved-action reconciliation own activity persistence", () => {
     expect(approvedActionTransportSource).toContain(
       "reconcileApprovedActionEmail"

@@ -148,6 +148,8 @@ function classifyAttachmentKind(
 }
 
 const DECORATIVE_INLINE_MAX_BYTES = 128_000;
+const DECORATIVE_INLINE_HINT_RE =
+  /(?:^|[\s._@-])(?:logo|signature|footer|brand|tracking|pixel|spacer|social|facebook|instagram|linkedin|youtube)(?:[\s._@-]|$)/i;
 
 function attachmentConversationKey(attachment: RawAttachment): string | null {
   const hash = attachment.contentHash?.trim().toLowerCase();
@@ -158,6 +160,22 @@ function attachmentConversationKey(attachment: RawAttachment): string | null {
   return `inline:${attachment.filename.trim().toLowerCase()}:${attachment.mimeType
     .trim()
     .toLowerCase()}:${attachment.sizeBytes}`;
+}
+
+function isDecorativeInlineAttachment(
+  attachment: RawAttachment,
+  isNewToConversation: boolean
+): boolean {
+  if (
+    attachment.isInline !== true ||
+    attachment.sizeBytes > DECORATIVE_INLINE_MAX_BYTES
+  ) {
+    return false;
+  }
+  if (!isNewToConversation) return true;
+  return DECORATIVE_INLINE_HINT_RE.test(
+    `${attachment.filename} ${attachment.contentId ?? ""}`
+  );
 }
 
 /**
@@ -243,8 +261,10 @@ export function assembleConversationState(
         : true;
       if (conversationKey) seenAttachmentKeys.add(conversationKey);
       const isInline = att.isInline === true;
-      const isDecorativeInline =
-        isInline && att.sizeBytes <= DECORATIVE_INLINE_MAX_BYTES;
+      const isDecorativeInline = isDecorativeInlineAttachment(
+        att,
+        isNewToConversation
+      );
       return {
         filename: att.filename,
         mimeType: att.mimeType,

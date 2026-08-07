@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import type { PhaseCEmailActorContext } from "@/lib/email/phase-c-email-actor";
+import type { AllowedEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
 import { resolveEmailSignatureForMessage } from "@/lib/email/email-signature-runtime";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import { requireSupabase } from "@/lib/supabase/helpers";
@@ -23,6 +24,7 @@ import { reconcileEmailSend } from "./email-send-reconciliation-service";
 import { EmailService } from "./email-service";
 import { renderEmailBodyWithSignature } from "./email-signature-service";
 import { PhaseCCategoryAutonomy } from "./phase-c-category-autonomy-service";
+import type { OperationalAutonomousRoutingAuthority } from "./conversation-state/operational-autonomous-routing";
 
 export interface AutoSendSettings {
   enabled: boolean;
@@ -123,7 +125,13 @@ export interface PhaseCAutoSendIdempotencyInput {
   sourceEmailThreadId: string;
   providerThreadId: string;
   inReplyTo: string | null;
-  draftHistoryId: string;
+  generationKind?:
+    | "conversation_reply"
+    | "auto_follow_up"
+    | "operational_outbound";
+  sourceActivityId?: string | null;
+  followUpSequence?: number | null;
+  draftHistoryId?: string;
 }
 
 export interface ScheduleAutoSendInput {
@@ -140,7 +148,37 @@ export interface ScheduleAutoSendInput {
   ccEmails?: string[];
   subject: string;
   settings: AutoSendSettings;
+  /** Source-bound authorization and message purpose for the draft call. */
+  generation:
+    | {
+        kind: "conversation_reply";
+        emailAccess: AllowedEmailOpportunityAccess;
+        sourceActivityId: string;
+        sourceMessageId: string;
+      }
+    | {
+        kind: "auto_follow_up";
+        autonomousRoutingAuthority: OperationalAutonomousRoutingAuthority;
+        emailAccess: AllowedEmailOpportunityAccess;
+        sourceActivityId: string;
+        sourceMessageId: string;
+        followUpSequence: number;
+        instruction: string;
+      }
+    | {
+        kind: "operational_outbound";
+        autonomousRoutingAuthority: OperationalAutonomousRoutingAuthority;
+        emailAccess: AllowedEmailOpportunityAccess;
+        instruction: string;
+        verifiedSchedule?: boolean;
+      };
 }
+
+export type ScheduleAutoSendResult =
+  | { outcome: "scheduled"; pending: PendingAutoSend }
+  | { outcome: "no_reply_warranted"; reason?: string }
+  | { outcome: "held_for_review"; reason?: string }
+  | { outcome: "unavailable"; reason?: string };
 
 export interface CompleteAutoSendClaimInput {
   id: string;
@@ -174,6 +212,28 @@ export interface AutoSendClaimBatch {
 type SchedulablePhaseCEmailActorContext = PhaseCEmailActorContext & {
   assignmentEventId: string;
 };
+
+type PhaseCAutoSendGeneration = ScheduleAutoSendInput["generation"];
+
+interface PhaseCAutoSendSourceFence {
+  generationKind: PhaseCAutoSendGeneration["kind"];
+  sourceActivityId: string | null;
+  sourceMessageId: string | null;
+  followUpSequence: number | null;
+}
+
+interface PhaseCAutoSendDeliveryFence extends PhaseCAutoSendSourceFence {
+  current: boolean;
+  providerThreadId: string;
+  reason: string | null;
+}
+
+class PhaseCAutoSendSourceCancelledError extends Error {
+  constructor() {
+    super("PHASE_C_AUTO_SEND_SOURCE_STALE");
+    this.name = "PhaseCAutoSendSourceCancelledError";
+  }
+}
 
 type CompanySubscriptionFields = Pick<
   Company,
@@ -389,10 +449,31 @@ function errorMessage(error: unknown): string {
 export function buildPhaseCAutoSendIdempotencyKey(
   input: PhaseCAutoSendIdempotencyInput
 ): string {
+  const generationKind = input.generationKind ?? "operational_outbound";
+  const sourceBound =
+    generationKind === "conversation_reply" ||
+    generationKind === "auto_follow_up";
+  const sourceActivityId = input.sourceActivityId?.trim() || null;
+  const followUpSequence = input.followUpSequence ?? null;
+  if (!sourceBound && !input.draftHistoryId?.trim()) {
+    throw new Error("Operational auto-send requires a draft history id");
+  }
+  if (sourceBound && !sourceActivityId) {
+    throw new Error("Source-bound auto-send requires a source activity id");
+  }
+  if (
+    generationKind === "auto_follow_up" &&
+    (!Number.isInteger(followUpSequence) ||
+      followUpSequence === null ||
+      followUpSequence < 1)
+  ) {
+    throw new Error("Automatic follow-up requires a positive sequence");
+  }
+
   return createHash("sha256")
     .update(
       JSON.stringify([
-        "phase_c_auto_send:v1",
+        "phase_c_auto_send:v2",
         input.companyId,
         input.actorUserId,
         input.assignmentVersion,
@@ -402,10 +483,85 @@ export function buildPhaseCAutoSendIdempotencyKey(
         input.sourceEmailThreadId,
         input.providerThreadId,
         input.inReplyTo,
-        input.draftHistoryId,
+        generationKind,
+        sourceBound ? sourceActivityId : input.draftHistoryId,
+        generationKind === "auto_follow_up" ? followUpSequence : null,
       ])
     )
     .digest("hex");
+}
+
+function sourceFenceForGeneration(
+  generation: PhaseCAutoSendGeneration
+): PhaseCAutoSendSourceFence {
+  if (generation.kind === "conversation_reply") {
+    return {
+      generationKind: generation.kind,
+      sourceActivityId: generation.sourceActivityId.trim(),
+      sourceMessageId: generation.sourceMessageId.trim(),
+      followUpSequence: null,
+    };
+  }
+  if (generation.kind === "auto_follow_up") {
+    return {
+      generationKind: generation.kind,
+      sourceActivityId: generation.sourceActivityId.trim(),
+      sourceMessageId: generation.sourceMessageId.trim(),
+      followUpSequence: generation.followUpSequence,
+    };
+  }
+  return {
+    generationKind: generation.kind,
+    sourceActivityId: null,
+    sourceMessageId: null,
+    followUpSequence: null,
+  };
+}
+
+function mapDeliveryFence(data: unknown): PhaseCAutoSendDeliveryFence | null {
+  const row = firstRow(data);
+  if (!row || typeof row.current !== "boolean") return null;
+  const generationKind = text(row.generation_kind);
+  if (
+    generationKind !== "conversation_reply" &&
+    generationKind !== "auto_follow_up" &&
+    generationKind !== "operational_outbound"
+  ) {
+    return null;
+  }
+  return {
+    current: row.current,
+    reason: nullableText(row.reason),
+    generationKind,
+    sourceActivityId: nullableText(row.source_activity_id),
+    sourceMessageId: nullableText(row.source_message_id),
+    providerThreadId: text(row.provider_thread_id),
+    followUpSequence:
+      row.follow_up_sequence === null || row.follow_up_sequence === undefined
+        ? null
+        : Number(row.follow_up_sequence),
+  };
+}
+
+function latestProviderMessageId(
+  messages: Array<{ id: string; date: Date }>
+): string | null {
+  let latestId: string | null = null;
+  let latestTimestamp = Number.NEGATIVE_INFINITY;
+  let latestTimestampIsAmbiguous = false;
+  for (const message of messages) {
+    const id = message.id.trim();
+    const timestamp = message.date.getTime();
+    if (!id || !Number.isFinite(timestamp)) return null;
+    if (timestamp > latestTimestamp) {
+      latestId = id;
+      latestTimestamp = timestamp;
+      latestTimestampIsAmbiguous = false;
+    } else if (timestamp === latestTimestamp && id !== latestId) {
+      latestTimestampIsAmbiguous = true;
+    }
+  }
+  return latestTimestampIsAmbiguous ? null : latestId;
 }
 
 function actorMatchesSchedule(
@@ -423,6 +579,41 @@ function actorMatchesSchedule(
     actor.connectionId === params.connectionId &&
     actor.opportunityId === params.opportunityId &&
     actor.providerThreadId === params.threadId
+  );
+}
+
+function generationMatchesSchedule(
+  params: ScheduleAutoSendInput,
+  actor: SchedulablePhaseCEmailActorContext
+): boolean {
+  const generation = params.generation;
+  const access = generation.emailAccess;
+  const sourceBound =
+    generation.kind === "conversation_reply" ||
+    generation.kind === "auto_follow_up";
+  return (
+    access.allowed === true &&
+    access.operation === "send" &&
+    access.actor.userId === actor.actorUserId &&
+    access.actor.companyId === actor.companyId &&
+    access.threadId === actor.internalThreadId &&
+    access.connectionId === actor.connectionId &&
+    access.opportunityId === actor.opportunityId &&
+    access.providerThreadId === actor.providerThreadId &&
+    access.pipelineScope === "assigned" &&
+    access.inboxScope === "assigned" &&
+    access.usedLegacyPipelineManage === false &&
+    access.usedLegacyInboxViewCompany === false &&
+    (!sourceBound ||
+      (generation.sourceActivityId.trim().length > 0 &&
+        generation.sourceMessageId.trim().length > 0 &&
+        params.inReplyTo?.trim() === generation.sourceMessageId.trim())) &&
+    (generation.kind !== "auto_follow_up" ||
+      (Number.isInteger(generation.followUpSequence) &&
+        generation.followUpSequence >= 1 &&
+        generation.followUpSequence <= 100)) &&
+    (generation.kind === "conversation_reply" ||
+      generation.autonomousRoutingAuthority === "phase_c_stale_lead_follow_up")
   );
 }
 
@@ -526,13 +717,20 @@ export const AutoSendService = {
 
   async scheduleAutoSend(
     params: ScheduleAutoSendInput
-  ): Promise<PendingAutoSend | null> {
+  ): Promise<ScheduleAutoSendResult> {
     const actor = params.actorContext;
-    if (!actor || !actorMatchesSchedule(params, actor)) {
+    if (
+      !actor ||
+      !actorMatchesSchedule(params, actor) ||
+      !generationMatchesSchedule(params, actor)
+    ) {
       console.warn(
-        "[auto-send] canonical actor context missing or mismatched; schedule suppressed"
+        "[auto-send] canonical actor or generation context missing or mismatched; schedule suppressed"
       );
-      return null;
+      return {
+        outcome: "unavailable",
+        reason: "canonical generation context missing or mismatched",
+      };
     }
 
     const authorizedProfileTypes = PhaseCCategoryAutonomy.profileTypesFor(
@@ -542,46 +740,153 @@ export const AutoSendService = {
       console.warn(
         "[auto-send] category has no authorized draft profile; schedule suppressed"
       );
-      return null;
+      return {
+        outcome: "unavailable",
+        reason: "category has no authorized draft profile",
+      };
     }
 
+    const generation = params.generation;
+    const profileTypeOverride =
+      generation.kind === "conversation_reply"
+        ? authorizedProfileTypes[0]
+        : "client_followup";
+    if (!authorizedProfileTypes.includes(profileTypeOverride)) {
+      return {
+        outcome: "unavailable",
+        reason: "message purpose is outside the category calibration",
+      };
+    }
+
+    const toEmails = normalizeAddresses(params.toEmails);
+    const ccEmails = normalizeAddresses(params.ccEmails);
+    if (toEmails.length === 0) {
+      return { outcome: "unavailable", reason: "recipient missing" };
+    }
+
+    const sourceFence = sourceFenceForGeneration(generation);
+    const sourceBound = sourceFence.sourceActivityId !== null;
+    const sourceIdempotencyKey = sourceBound
+      ? buildPhaseCAutoSendIdempotencyKey({
+          companyId: actor.companyId,
+          actorUserId: actor.actorUserId,
+          assignmentVersion: actor.assignmentVersion,
+          assignmentEventId: actor.assignmentEventId,
+          connectionId: actor.connectionId,
+          opportunityId: actor.opportunityId,
+          sourceEmailThreadId: actor.internalThreadId,
+          providerThreadId: actor.providerThreadId,
+          inReplyTo: params.inReplyTo ?? null,
+          generationKind: sourceFence.generationKind,
+          sourceActivityId: sourceFence.sourceActivityId,
+          followUpSequence: sourceFence.followUpSequence,
+        })
+      : null;
+    const supabase = requireSupabase();
+    if (sourceIdempotencyKey) {
+      const { data: existingData, error: existingError } = await supabase.rpc(
+        "find_phase_c_auto_send_by_identity_as_system",
+        {
+          p_idempotency_key: sourceIdempotencyKey,
+          p_company_id: actor.companyId,
+          p_actor_user_id: actor.actorUserId,
+          p_assignment_version: actor.assignmentVersion,
+          p_assignment_event_id: actor.assignmentEventId,
+          p_connection_id: actor.connectionId,
+          p_opportunity_id: actor.opportunityId,
+          p_source_email_thread_id: actor.internalThreadId,
+          p_reply_provider_thread_id: actor.providerThreadId,
+          p_generation_kind: sourceFence.generationKind,
+          p_source_activity_id: sourceFence.sourceActivityId,
+          p_source_message_id: sourceFence.sourceMessageId,
+          p_follow_up_sequence: sourceFence.followUpSequence,
+        }
+      );
+      if (existingError) {
+        console.error(
+          "[auto-send] source identity lookup failed; schedule suppressed",
+          existingError
+        );
+        return {
+          outcome: "unavailable",
+          reason: existingError.message || "source identity lookup failed",
+        };
+      }
+      const existing = firstRow(existingData);
+      if (existing && text(existing.id)) {
+        return { outcome: "scheduled", pending: mapPendingFromDb(existing) };
+      }
+    }
+
+    const draftPurpose =
+      generation.kind === "conversation_reply"
+        ? ({ kind: "conversation_reply" } as const)
+        : ({
+            kind: "operational_outbound",
+            ...(generation.kind === "operational_outbound" &&
+            generation.verifiedSchedule
+              ? { verifiedContext: { schedule: true } }
+              : {}),
+          } as const);
     const draftResult = await AIDraftService.generateDraft({
       companyId: actor.companyId,
       userId: actor.actorUserId,
       connectionId: actor.connectionId,
       opportunityId: actor.opportunityId,
       threadId: actor.providerThreadId,
-      profileTypeOverride: authorizedProfileTypes[0],
+      profileTypeOverride,
       autonomous: true,
+      origin: "phase_c",
+      emailAccess: generation.emailAccess,
+      ...(generation.kind !== "conversation_reply"
+        ? {
+            autonomousRoutingAuthority: generation.autonomousRoutingAuthority,
+          }
+        : {}),
+      ...(generation.kind === "conversation_reply"
+        ? { sourceActivityId: generation.sourceActivityId }
+        : { userInstruction: generation.instruction }),
+      draftPurpose,
+      signatureWillBeAppended: true,
     });
     if (!draftResult.available || !draftResult.draft) {
+      if (draftResult.noReplyWarranted) {
+        return {
+          outcome: "no_reply_warranted",
+          reason: draftResult.reason,
+        };
+      }
+      if (draftResult.heldForReview) {
+        return { outcome: "held_for_review", reason: draftResult.reason };
+      }
       const log = draftResult.heldForReview ? console.warn : console.error;
       log(
         "[auto-send] draft unavailable; schedule suppressed",
         draftResult.reason
       );
-      return null;
+      return { outcome: "unavailable", reason: draftResult.reason };
     }
     if (!draftResult.draftHistoryId) {
       console.error(
         "[auto-send] draft history fence missing; schedule suppressed"
       );
-      return null;
+      return {
+        outcome: "unavailable",
+        reason: "draft history fence missing",
+      };
     }
-
-    const toEmails = normalizeAddresses(params.toEmails);
-    const ccEmails = normalizeAddresses(params.ccEmails);
-    if (toEmails.length === 0) return null;
 
     const profileType = draftResult.profileType?.trim() || "general";
     if (!authorizedProfileTypes.includes(profileType)) {
       console.warn(
         "[auto-send] generated profile is outside the category calibration; schedule suppressed"
       );
-      return null;
+      return {
+        outcome: "unavailable",
+        reason: "generated profile is outside category calibration",
+      };
     }
     const authoredBody = markdownToEmailHtml(draftResult.draft);
-    const supabase = requireSupabase();
     const connection = await EmailService.getConnection(actor.connectionId);
     if (
       !connection ||
@@ -592,7 +897,10 @@ export const AutoSendService = {
       console.error(
         "[auto-send] canonical mailbox unavailable; schedule suppressed"
       );
-      return null;
+      return {
+        outcome: "unavailable",
+        reason: "canonical mailbox unavailable",
+      };
     }
     const signature = await resolveEmailSignatureForMessage({
       supabase,
@@ -600,7 +908,9 @@ export const AutoSendService = {
       userId: actor.actorUserId,
       refreshProviderIfMissing: true,
     });
-    if (!signature) return null;
+    if (!signature) {
+      return { outcome: "unavailable", reason: "signature unavailable" };
+    }
     const renderedBody = renderEmailBodyWithSignature({
       body: authoredBody,
       contentType: "html",
@@ -618,51 +928,68 @@ export const AutoSendService = {
       delay,
       params.settings
     );
-    const idempotencyKey = buildPhaseCAutoSendIdempotencyKey({
-      companyId: actor.companyId,
-      actorUserId: actor.actorUserId,
-      assignmentVersion: actor.assignmentVersion,
-      assignmentEventId: actor.assignmentEventId,
-      connectionId: actor.connectionId,
-      opportunityId: actor.opportunityId,
-      sourceEmailThreadId: actor.internalThreadId,
-      providerThreadId: actor.providerThreadId,
-      inReplyTo: params.inReplyTo ?? null,
-      draftHistoryId: draftResult.draftHistoryId,
-    });
+    const idempotencyKey =
+      sourceIdempotencyKey ??
+      buildPhaseCAutoSendIdempotencyKey({
+        companyId: actor.companyId,
+        actorUserId: actor.actorUserId,
+        assignmentVersion: actor.assignmentVersion,
+        assignmentEventId: actor.assignmentEventId,
+        connectionId: actor.connectionId,
+        opportunityId: actor.opportunityId,
+        sourceEmailThreadId: actor.internalThreadId,
+        providerThreadId: actor.providerThreadId,
+        inReplyTo: params.inReplyTo ?? null,
+        generationKind: sourceFence.generationKind,
+        sourceActivityId: sourceFence.sourceActivityId,
+        followUpSequence: sourceFence.followUpSequence,
+        draftHistoryId: draftResult.draftHistoryId,
+      });
 
-    const { data, error } = await supabase.rpc("schedule_phase_c_auto_send", {
-      p_idempotency_key: idempotencyKey,
-      p_company_id: actor.companyId,
-      p_actor_user_id: actor.actorUserId,
-      p_assignment_version: actor.assignmentVersion,
-      p_assignment_event_id: actor.assignmentEventId,
-      p_connection_id: actor.connectionId,
-      p_opportunity_id: actor.opportunityId,
-      p_source_email_thread_id: actor.internalThreadId,
-      p_reply_provider_thread_id: actor.providerThreadId,
-      p_in_reply_to: params.inReplyTo ?? null,
-      p_to_emails: toEmails,
-      p_cc_emails: ccEmails,
-      p_subject: params.subject,
-      p_draft_text: draftResult.draft,
-      p_authored_body: authoredBody,
-      p_rendered_body: renderedBody,
-      p_content_type: "html",
-      p_draft_history_id: draftResult.draftHistoryId,
-      p_profile_type_snapshot: profileType,
-      p_learning_authority: "autonomous",
-      p_signature_id: signature?.recordId ?? null,
-      p_signature_content_hash: signature?.hash ?? null,
-      p_rendered_body_hash: renderedBodyHash,
-      p_scheduled_send_at: scheduledAt.toISOString(),
-    });
+    const { data, error } = await supabase.rpc(
+      "schedule_phase_c_auto_send_fenced",
+      {
+        p_idempotency_key: idempotencyKey,
+        p_company_id: actor.companyId,
+        p_actor_user_id: actor.actorUserId,
+        p_assignment_version: actor.assignmentVersion,
+        p_assignment_event_id: actor.assignmentEventId,
+        p_connection_id: actor.connectionId,
+        p_opportunity_id: actor.opportunityId,
+        p_source_email_thread_id: actor.internalThreadId,
+        p_reply_provider_thread_id: actor.providerThreadId,
+        p_in_reply_to: params.inReplyTo ?? null,
+        p_to_emails: toEmails,
+        p_cc_emails: ccEmails,
+        p_subject: params.subject,
+        p_draft_text: draftResult.draft,
+        p_authored_body: authoredBody,
+        p_rendered_body: renderedBody,
+        p_content_type: "html",
+        p_draft_history_id: draftResult.draftHistoryId,
+        p_profile_type_snapshot: profileType,
+        p_learning_authority: "autonomous",
+        p_signature_id: signature.recordId,
+        p_signature_content_hash: signature.hash,
+        p_rendered_body_hash: renderedBodyHash,
+        p_scheduled_send_at: scheduledAt.toISOString(),
+        p_generation_kind: sourceFence.generationKind,
+        p_source_activity_id: sourceFence.sourceActivityId,
+        p_source_message_id: sourceFence.sourceMessageId,
+        p_follow_up_sequence: sourceFence.followUpSequence,
+      }
+    );
     if (error) {
       console.error("[auto-send] schedule RPC rejected source record", error);
-      return null;
+      return {
+        outcome: "unavailable",
+        reason: error.message || "schedule RPC rejected source record",
+      };
     }
     const row = firstRow(data);
-    return row ? mapPendingFromDb(row) : null;
+    return row
+      ? { outcome: "scheduled", pending: mapPendingFromDb(row) }
+      : { outcome: "unavailable", reason: "schedule RPC returned no row" };
   },
 
   async cancelAutoSend(
@@ -767,6 +1094,20 @@ export const AutoSendService = {
         }
 
         const provider = EmailService.getProvider(connection);
+        const cancelForStaleSource = async (): Promise<never> => {
+          const cancelled = await this.cancelAutoSend(
+            source.id,
+            source.companyId,
+            {
+              leaseToken: source.leaseToken,
+              reason: "PHASE_C_AUTO_SEND_SOURCE_STALE",
+            }
+          );
+          if (!cancelled) {
+            throw new Error("PHASE_C_AUTO_SEND_SOURCE_CANCEL_LEASE_INVALID");
+          }
+          throw new PhaseCAutoSendSourceCancelledError();
+        };
         const delivery = new EmailSendDeliveryService({
           intentStore,
           provider,
@@ -783,7 +1124,56 @@ export const AutoSendService = {
               connectionId,
               context: "phase-c-auto-send-delivery",
               client: supabase,
-              run,
+              run: async (checkpoint) => {
+                await checkpoint();
+                const { data: fenceData, error: fenceError } =
+                  await supabase.rpc(
+                    "validate_phase_c_auto_send_source_for_delivery",
+                    {
+                      p_id: source.id,
+                      p_company_id: source.companyId,
+                      p_lease_token: source.leaseToken,
+                    }
+                  );
+                if (fenceError) {
+                  throw new Error(
+                    fenceError.message ||
+                      "PHASE_C_AUTO_SEND_SOURCE_VALIDATION_FAILED"
+                  );
+                }
+                const fence = mapDeliveryFence(fenceData);
+                if (!fence) {
+                  throw new Error("PHASE_C_AUTO_SEND_SOURCE_FENCE_INVALID");
+                }
+                if (!fence.current) {
+                  return cancelForStaleSource();
+                }
+
+                if (
+                  fence.generationKind === "conversation_reply" ||
+                  fence.generationKind === "auto_follow_up"
+                ) {
+                  if (
+                    !fence.sourceMessageId ||
+                    fence.providerThreadId !== source.replyProviderThreadId
+                  ) {
+                    return cancelForStaleSource();
+                  }
+                  await checkpoint();
+                  const providerMessages = await provider.fetchThread(
+                    fence.providerThreadId
+                  );
+                  await checkpoint();
+                  if (
+                    latestProviderMessageId(providerMessages) !==
+                    fence.sourceMessageId
+                  ) {
+                    return cancelForStaleSource();
+                  }
+                }
+
+                return run(checkpoint);
+              },
             }),
         });
         const outcome = await delivery.execute({
@@ -851,6 +1241,9 @@ export const AutoSendService = {
             : `${source.id}: PHASE_C_AUTO_SEND_RETRY_LEASE_INVALID`
         );
       } catch (error) {
+        if (error instanceof PhaseCAutoSendSourceCancelledError) {
+          continue;
+        }
         const deliveryError = errorMessage(error);
         try {
           const retried = await this.retryClaim({

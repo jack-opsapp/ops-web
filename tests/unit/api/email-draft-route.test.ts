@@ -327,6 +327,18 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
     const res = await POST(makeRequest());
     const json = await res.json();
 
+    expect(generateDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftPurpose: { kind: "conversation_reply" },
+        userInstruction: expect.stringContaining(
+          "Address exactly what the customer asked for"
+        ),
+        untrustedMessageContext: {
+          subject: "New contact form",
+          body: "Need a quote for deck resurfacing.",
+        },
+      })
+    );
     expect(placeNewThreadDraftMock).toHaveBeenCalledWith(
       expect.objectContaining({
         connectionId: "conn-1",
@@ -551,6 +563,8 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
       opportunityId: "opp-1",
       threadId: "gmail-thread-x",
       emailAccess: threadAccess,
+      draftPurpose: { kind: "conversation_reply" },
+      signatureWillBeAppended: true,
     });
     expect(createDraft).toHaveBeenCalledWith(
       "bob@acme.com",

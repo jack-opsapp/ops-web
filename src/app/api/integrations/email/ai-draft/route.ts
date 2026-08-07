@@ -91,6 +91,11 @@ export async function POST(request: NextRequest) {
       userInstruction,
       subject,
       configuredSubject,
+      draftPurpose: {
+        kind: access.providerThreadId
+          ? "conversation_reply"
+          : "operational_outbound",
+      },
     });
 
     return NextResponse.json(result);

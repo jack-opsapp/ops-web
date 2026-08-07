@@ -381,6 +381,25 @@ describe("lead one-tap follow-up resolution", () => {
     expect(body).not.toMatch(/quote/i);
   });
 
+  it("derives second follow-up copy from the authoritative unanswered count", () => {
+    const stateAwareInput = {
+      contactName: "Crystal May",
+      opportunityTitle: "Front deck",
+      companyName: "Canpro",
+      unansweredFollowUpCount: 1,
+    } as Parameters<typeof renderLeadFollowUpTemplate>[1] & {
+      unansweredFollowUpCount: number;
+    };
+
+    const body = renderLeadFollowUpTemplate(
+      LEGACY_DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
+      stateAwareInput
+    );
+
+    expect(body).toMatch(/last time/i);
+    expect(body).not.toMatch(/quote/i);
+  });
+
   it("binds review approval to the exact provider reply and rendered content", () => {
     const reviewed = {
       connectionId: "connection-1",

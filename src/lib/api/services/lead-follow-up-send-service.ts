@@ -320,11 +320,17 @@ export function renderLeadFollowUpTemplate(
     opportunityTitle: string | null;
     companyName: string | null;
     sequenceNumber?: number;
+    unansweredFollowUpCount?: number;
   }
 ): string {
+  const unansweredCount = Number(input.unansweredFollowUpCount ?? 0);
+  const sequenceFromState =
+    Number.isSafeInteger(unansweredCount) && unansweredCount >= 0
+      ? unansweredCount + 1
+      : 1;
   let source = resolveLeadFollowUpTemplateForSequence(
     template,
-    input.sequenceNumber ?? 1
+    input.sequenceNumber ?? sequenceFromState
   );
   if (!normalizedText(input.companyName)) {
     source = source.replace(/\s+for\s+{{\s*company_name\s*}}/gi, "");
@@ -612,6 +618,28 @@ async function fetchCanonicalOpportunity(
     throw new LeadFollowUpError("LEAD_FOLLOW_UP_OPPORTUNITY_NOT_FOUND", 404);
   }
   return data as Record<string, unknown>;
+}
+
+async function fetchUnansweredFollowUpCount(
+  supabase: SupabaseClient,
+  opportunityId: string
+): Promise<number> {
+  const state = await supabase
+    .from("opportunity_lifecycle_state")
+    .select("unanswered_follow_up_count")
+    .eq("opportunity_id", opportunityId)
+    .maybeSingle();
+  if (state.error) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_LOOKUP_FAILED", 500);
+  }
+  const count = Number(
+    (state.data as { unanswered_follow_up_count?: number } | null)
+      ?.unanswered_follow_up_count ?? 0
+  );
+  if (!Number.isSafeInteger(count) || count < 0) {
+    throw new LeadFollowUpError("LEAD_FOLLOW_UP_LOOKUP_FAILED", 500);
+  }
+  return count;
 }
 
 export function resultFromSettledLeadFollowUpIntent(
@@ -1088,6 +1116,7 @@ async function ensureFollowUpDraft(
     recipientName: string | null;
     subject: string;
     body: string;
+    sequenceNumber: number;
   }
 ): Promise<FollowUpDraftRow> {
   const loadOpen = () =>
@@ -1161,22 +1190,6 @@ async function ensureFollowUpDraft(
     return refreshed.data as FollowUpDraftRow;
   }
 
-  const state = await supabase
-    .from("opportunity_lifecycle_state")
-    .select("unanswered_follow_up_count")
-    .eq("opportunity_id", input.opportunityId)
-    .maybeSingle();
-  if (state.error) {
-    throw new LeadFollowUpError("LEAD_FOLLOW_UP_DRAFT_LOOKUP_FAILED", 500);
-  }
-  const sequence =
-    Math.max(
-      0,
-      Number(
-        (state.data as { unanswered_follow_up_count?: number } | null)
-          ?.unanswered_follow_up_count ?? 0
-      )
-    ) + 1;
   const inserted = await supabase
     .from("opportunity_follow_up_drafts")
     .insert({
@@ -1186,7 +1199,7 @@ async function ensureFollowUpDraft(
       provider_thread_id: input.providerThreadId,
       source_event_id: input.sourceEventId,
       origin: "template_follow_up",
-      sequence_number: sequence,
+      sequence_number: input.sequenceNumber,
       subject: input.subject,
       original_body: input.body,
       current_body: input.body,
@@ -1429,20 +1442,22 @@ export async function previewLeadFollowUp(input: {
     );
   }
 
-  const [settingsResult, companyResult] = await Promise.all([
-    supabase
-      .from("lead_lifecycle_settings")
-      .select("follow_up_template_body")
-      .eq("company_id", input.actor.companyId)
-      .maybeSingle(),
-    supabase
-      .from("companies")
-      .select(
-        "name, timezone, subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
-      )
-      .eq("id", input.actor.companyId)
-      .single(),
-  ]);
+  const [settingsResult, companyResult, unansweredFollowUpCount] =
+    await Promise.all([
+      supabase
+        .from("lead_lifecycle_settings")
+        .select("follow_up_template_body")
+        .eq("company_id", input.actor.companyId)
+        .maybeSingle(),
+      supabase
+        .from("companies")
+        .select(
+          "name, timezone, subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
+        )
+        .eq("id", input.actor.companyId)
+        .single(),
+      fetchUnansweredFollowUpCount(supabase, input.opportunityId),
+    ]);
   if (settingsResult.error || companyResult.error || !companyResult.data) {
     throw new LeadFollowUpError("LEAD_FOLLOW_UP_LOOKUP_FAILED", 500);
   }
@@ -1496,6 +1511,7 @@ export async function previewLeadFollowUp(input: {
       contactName: normalizedText(opportunity.contact_name),
       opportunityTitle: normalizedText(opportunity.title),
       companyName: normalizedText(companyRow.name),
+      unansweredFollowUpCount,
     }
   );
   const previewedContent = await resolvePreviewedFollowUpContent(supabase, {
@@ -1651,20 +1667,22 @@ export async function sendLeadFollowUp(input: {
     throw new LeadFollowUpError("LEAD_FOLLOW_UP_OPPORTUNITY_STALE", 409);
   }
 
-  const [settingsResult, companyResult] = await Promise.all([
-    supabase
-      .from("lead_lifecycle_settings")
-      .select("follow_up_template_body")
-      .eq("company_id", input.actor.companyId)
-      .maybeSingle(),
-    supabase
-      .from("companies")
-      .select(
-        "name, timezone, subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
-      )
-      .eq("id", input.actor.companyId)
-      .single(),
-  ]);
+  const [settingsResult, companyResult, unansweredFollowUpCount] =
+    await Promise.all([
+      supabase
+        .from("lead_lifecycle_settings")
+        .select("follow_up_template_body")
+        .eq("company_id", input.actor.companyId)
+        .maybeSingle(),
+      supabase
+        .from("companies")
+        .select(
+          "name, timezone, subscription_plan, subscription_status, trial_end_date, seated_employee_ids, admin_ids, max_seats"
+        )
+        .eq("id", input.actor.companyId)
+        .single(),
+      fetchUnansweredFollowUpCount(supabase, input.opportunityId),
+    ]);
   if (settingsResult.error || companyResult.error || !companyResult.data) {
     throw new LeadFollowUpError("LEAD_FOLLOW_UP_LOOKUP_FAILED", 500);
   }
@@ -1734,6 +1752,7 @@ export async function sendLeadFollowUp(input: {
       contactName: normalizedText(opportunity.contact_name),
       opportunityTitle: normalizedText(opportunity.title),
       companyName: normalizedText(companyRow.name),
+      unansweredFollowUpCount,
     }
   );
   const previewedContent = await resolvePreviewedFollowUpContent(supabase, {
@@ -1807,6 +1826,7 @@ export async function sendLeadFollowUp(input: {
     recipientName: normalizedText(opportunity.contact_name),
     subject,
     body: stockBody,
+    sequenceNumber: unansweredFollowUpCount + 1,
   });
   const authored = resolveLeadFollowUpDraftContent(
     {

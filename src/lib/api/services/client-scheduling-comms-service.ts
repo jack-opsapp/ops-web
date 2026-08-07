@@ -554,6 +554,34 @@ export function taskMatchesScheduleChange(
   );
 }
 
+/**
+ * Customer wording may express a preference, but it cannot create schedule
+ * availability. It may only prioritize a date that the authoritative schedule
+ * search already returned.
+ */
+export function prioritizeVerifiedRescheduleAlternatives(
+  alternatives: readonly RescheduleAlternative[],
+  requestedDate: string | null
+): RescheduleAlternative[] {
+  const ordered = [...alternatives];
+  if (!requestedDate) return ordered;
+
+  const requestedDay = requestedDate.split("T")[0];
+  const verifiedRequestedIndex = ordered.findIndex((item) =>
+    item.date.startsWith(requestedDay)
+  );
+  if (verifiedRequestedIndex <= 0) return ordered;
+
+  const [verifiedRequestedAlternative] = ordered.splice(
+    verifiedRequestedIndex,
+    1
+  );
+  if (verifiedRequestedAlternative) {
+    ordered.unshift(verifiedRequestedAlternative);
+  }
+  return ordered;
+}
+
 function taskMatchesScheduleState(
   task: Record<string, unknown>,
   expected: TaskScheduleState
@@ -859,6 +887,11 @@ export const ClientSchedulingCommsService = {
       recipientName: clientName,
       userInstruction: `${instructionParts.join(" ")} Write the email in ${locale === "es" ? "Spanish" : "English"}.`,
       profileTypeOverride: "client_active_project",
+      draftPurpose: {
+        kind: "operational_outbound",
+        verifiedContext: { schedule: true },
+      },
+      signatureWillBeAppended: true,
     });
 
     const draftText = draftResult.available
@@ -1143,6 +1176,11 @@ export const ClientSchedulingCommsService = {
       recipientName: clientName,
       userInstruction: instructionParts.join(" "),
       profileTypeOverride: "client_active_project",
+      draftPurpose: {
+        kind: "operational_outbound",
+        verifiedContext: { schedule: true },
+      },
+      signatureWillBeAppended: true,
     });
 
     const draftText = draftResult.available
@@ -1427,6 +1465,11 @@ export const ClientSchedulingCommsService = {
       recipientName: clientName,
       userInstruction: `${instructionParts.join(" ")} Write the email in ${locale === "es" ? "Spanish" : "English"}.`,
       profileTypeOverride: "client_active_project",
+      draftPurpose: {
+        kind: "operational_outbound",
+        verifiedContext: { schedule: true },
+      },
+      signatureWillBeAppended: true,
     });
 
     const draftText = draftResult.available
@@ -1703,33 +1746,11 @@ export const ClientSchedulingCommsService = {
       }
     }
 
-    if (
-      classification.requestedDate &&
-      !suggestedAlternatives.some((a) =>
-        a.date.startsWith(classification.requestedDate!.split("T")[0])
-      )
-    ) {
-      suggestedAlternatives.unshift({
-        date: classification.requestedDate,
-        team_member_id: crewIds[0] ?? null,
-        team_member_name: null,
-        reasoning: {
-          type: "client_requested",
-          params: {},
-        },
-      });
-    }
-
-    if (suggestedAlternatives.length === 0) {
-      const fallback = new Date();
-      fallback.setDate(fallback.getDate() + 2);
-      suggestedAlternatives.push({
-        date: fallback.toISOString(),
-        team_member_id: crewIds[0] ?? null,
-        team_member_name: null,
-        reasoning: { type: "fallback_two_days", params: {} },
-      });
-    }
+    const orderedSuggestedAlternatives =
+      prioritizeVerifiedRescheduleAlternatives(
+        suggestedAlternatives,
+        classification.requestedDate
+      );
 
     // Reschedule replies stay on the exact inbound connection. Never select a
     // different personal mailbox or arbitrary company fallback.
@@ -1737,20 +1758,18 @@ export const ClientSchedulingCommsService = {
 
     const locale = await getCompanyLocale(companyId);
     const bcp = bcp47(locale);
-    const firstAlt = suggestedAlternatives[0];
-    const altDateDisplay = new Date(firstAlt.date).toLocaleDateString(bcp, {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-    });
+    const firstAlt = orderedSuggestedAlternatives[0] ?? null;
+    const verifiedAlternativeInstruction = firstAlt
+      ? `Propose ${new Date(firstAlt.date).toLocaleDateString(bcp, {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        })} as an alternative${firstAlt.team_member_name ? ` (${firstAlt.team_member_name} available)` : ""}.`
+      : "Do not propose a date or imply availability. Say the team will check the schedule and confirm an option shortly.";
 
     const instructionParts: string[] = [
       "Write an acknowledgment reply to a client who is asking to reschedule their appointment.",
-      `They wrote: "${bodyText.slice(0, 300).replace(/\s+/g, " ")}"`,
-      classification.requestedDate
-        ? `They mentioned ${new Date(classification.requestedDate).toLocaleDateString(bcp, { weekday: "long", month: "long", day: "numeric" })} as a preferred date.`
-        : "They did not specify a new date.",
-      `Propose ${altDateDisplay} as an alternative${firstAlt.team_member_name ? ` (${firstAlt.team_member_name} available)` : ""}.`,
+      verifiedAlternativeInstruction,
       "Be warm and flexible — no pushback on the change. Confirm once they reply.",
       "Keep it concise. No signature.",
       `Write the email in ${locale === "es" ? "Spanish" : "English"}.`,
@@ -1764,6 +1783,15 @@ export const ClientSchedulingCommsService = {
       recipientName: clientName,
       userInstruction: instructionParts.join(" "),
       profileTypeOverride: "client_active_project",
+      draftPurpose: {
+        kind: "operational_outbound",
+        ...(firstAlt ? { verifiedContext: { schedule: true } } : {}),
+      },
+      untrustedMessageContext: {
+        subject,
+        body: bodyText,
+      },
+      signatureWillBeAppended: true,
     });
 
     const taskTitleForFallback =
@@ -1855,14 +1883,14 @@ export const ClientSchedulingCommsService = {
       requested_date: classification.requestedDate,
       requested_timing: classification.requestedTiming,
       requested_reason: classification.reason,
-      suggested_alternatives: suggestedAlternatives,
+      suggested_alternatives: orderedSuggestedAlternatives,
       subject: subjectText,
       reply_draft_text: replyDraft,
       original_reply_draft_text: replyDraft,
       connection_id: connectionId,
       draft_history_id: draftHistoryId,
       classification_confidence: classification.confidence,
-      selected_alternative_index: 0,
+      selected_alternative_index: firstAlt ? 0 : null,
       context_summary_structured: structured,
     };
 
@@ -1995,6 +2023,11 @@ export const ClientSchedulingCommsService = {
       recipientName: subcontractorInfo.name,
       userInstruction: instructionParts.join(" "),
       profileTypeOverride: "subtrade_coordination",
+      draftPurpose: {
+        kind: "operational_outbound",
+        verifiedContext: { schedule: true },
+      },
+      signatureWillBeAppended: true,
     });
 
     const draftText = draftResult.available

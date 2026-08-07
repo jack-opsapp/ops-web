@@ -258,6 +258,30 @@ describe("assembleConversationState — accept signal", () => {
     expect(state.accept.confidence).toBe("high");
     expect(state.accept.evidenceMessageIds).toContain("c1");
   });
+
+  it("uses the latest inbound event when an earlier acceptance is already closed", () => {
+    const state = assembleConversationState(
+      baseInput({
+        rawMessages: [
+          rawMsg({
+            providerMessageId: "c-accept",
+            sentAt: "2026-06-20T15:00:00.000Z",
+            rawBody: "Yes, let's go ahead and book it.",
+          }),
+          rawMsg({
+            providerMessageId: "c-thanks",
+            sentAt: "2026-06-21T15:00:00.000Z",
+            rawBody: "Thanks for the quote.",
+          }),
+        ],
+      })
+    );
+
+    expect(state.accept.confidence).toBe("low");
+    expect(state.accept.evidenceMessageIds).toEqual(["c-thanks"]);
+    expect(state.responseDisposition).toBe("no_reply_required");
+    expect(state.routing).toBe("update_lead_only");
+  });
 });
 
 describe("assembleConversationState — sent ledger", () => {
@@ -432,6 +456,36 @@ describe("assembleConversationState — attachments", () => {
     expect(state.messages[0].attachments[0].requiresInspection).toBe(false);
     expect(state.messages[0].isRealCustomerInbound).toBe(false);
     expect(state.attachmentsRequiringInspection).toHaveLength(0);
+  });
+
+  it("keeps a small one-off inline job photo inspectable", () => {
+    const state = assembleConversationState(
+      baseInput({
+        rawMessages: [
+          rawMsg({
+            providerMessageId: "c1",
+            rawBody: "I pasted the close-up of the damaged post below.",
+            attachments: [
+              {
+                filename: "damaged-post.jpg",
+                mimeType: "image/jpeg",
+                sizeBytes: 42_000,
+                isInline: true,
+                contentId: "image001@mail-client",
+                contentHash: "c".repeat(64),
+              },
+            ],
+          }),
+        ],
+      })
+    );
+
+    const attachment = state.messages[0].attachments[0];
+    expect(attachment.isNewToConversation).toBe(true);
+    expect(attachment.isDecorativeInline).toBe(false);
+    expect(attachment.requiresInspection).toBe(true);
+    expect(state.messages[0].isRealCustomerInbound).toBe(true);
+    expect(state.attachmentsRequiringInspection).toHaveLength(1);
   });
 
   it("keeps a large newly embedded customer photo inspectable", () => {
