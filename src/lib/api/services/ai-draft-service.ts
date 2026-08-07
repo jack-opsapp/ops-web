@@ -568,7 +568,8 @@ export function detectChanges(
  */
 async function analyzeEditWithGPT(
   original: string,
-  edited: string
+  edited: string,
+  options: { required?: boolean } = {}
 ): Promise<{
   toneShift: string | null;
   substitutions: Array<{ from: string; to: string }>;
@@ -577,6 +578,58 @@ async function analyzeEditWithGPT(
 } | null> {
   try {
     const openai = getOpenAI();
+    const responseFormat = {
+      type: "json_schema" as const,
+      json_schema: {
+        name: "draft_edit_analysis",
+        strict: true,
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: [
+            "toneShift",
+            "substitutions",
+            "structureChanges",
+            "contentCorrections",
+          ],
+          properties: {
+            toneShift: {
+              type: ["string", "null"],
+              enum: [
+                "more_formal",
+                "less_formal",
+                "more_direct",
+                "softer",
+                null,
+              ],
+            },
+            substitutions: {
+              type: "array",
+              maxItems: 10,
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: ["from", "to"],
+                properties: {
+                  from: { type: "string", minLength: 1, maxLength: 300 },
+                  to: { type: "string", minLength: 1, maxLength: 300 },
+                },
+              },
+            },
+            structureChanges: {
+              type: "array",
+              maxItems: 10,
+              items: { type: "string", minLength: 1, maxLength: 300 },
+            },
+            contentCorrections: {
+              type: "array",
+              maxItems: 10,
+              items: { type: "string", minLength: 1, maxLength: 300 },
+            },
+          },
+        },
+      },
+    };
     const response = await openai.chat.completions.create({
       model: "gpt-5.4-mini",
       messages: [
@@ -597,17 +650,38 @@ Only include systematic patterns, not one-off edits. substitutions should be wor
         },
       ],
       temperature: 0.1,
-      max_completion_tokens: 200,
-      response_format: { type: "json_object" },
+      // Strict JSON can still be truncated when the completion budget includes
+      // model reasoning. Leave enough headroom for every bounded schema field.
+      max_completion_tokens: 2_500,
+      response_format: responseFormat,
     });
 
-    const content = response.choices[0]?.message?.content;
-    if (!content) return null;
+    const choice = response.choices[0];
+    if (choice?.message?.refusal != null) {
+      throw new Error("Draft edit analysis was refused");
+    }
+    if (choice?.finish_reason !== "stop") {
+      throw new Error(
+        `Draft edit analysis did not complete: ${choice?.finish_reason ?? "missing finish reason"}`
+      );
+    }
+    const content = choice.message?.content;
+    if (!content) {
+      throw new Error("Draft edit analysis response was empty");
+    }
     const parsed = JSON.parse(content) as unknown;
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error("Draft edit analysis must be a JSON object");
     }
     const candidate = parsed as Record<string, unknown>;
+    if (
+      !("toneShift" in candidate) ||
+      !Array.isArray(candidate.substitutions) ||
+      !Array.isArray(candidate.structureChanges) ||
+      !Array.isArray(candidate.contentCorrections)
+    ) {
+      throw new Error("Draft edit analysis is missing required fields");
+    }
     const toneShift =
       typeof candidate.toneShift === "string" && candidate.toneShift.trim()
         ? candidate.toneShift.trim()
@@ -640,6 +714,9 @@ Only include systematic patterns, not one-off edits. substitutions should be wor
     };
   } catch (err) {
     console.error("[ai-draft] GPT edit analysis failed:", err);
+    if (options.required) {
+      throw new Error("Draft edit analysis failed", { cause: err });
+    }
     return null;
   }
 }
@@ -688,7 +765,7 @@ export async function prepareSentDraftOutcome(input: {
     input.analyzeSignificantEdits !== false &&
     !bodyUnchanged &&
     editDistanceValue / originalWordCount > 0.1
-      ? await analyzeEditWithGPT(original, finalVersion)
+      ? await analyzeEditWithGPT(original, finalVersion, { required: true })
       : null;
 
   const changesMade = [...changes];

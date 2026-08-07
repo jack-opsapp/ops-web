@@ -17,26 +17,17 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const { createDraftingCompletion } = vi.hoisted(() => ({
+  createDraftingCompletion: vi.fn(),
+}));
+
 // The GPT analysis client — return a deterministic systematic substitution so
 // the >10% edit-distance branch is exercised without a real network call.
 vi.mock("@/lib/api/services/openai-clients", () => ({
   getDraftingOpenAI: () => ({
     chat: {
       completions: {
-        create: vi.fn(async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  toneShift: null,
-                  substitutions: [],
-                  structureChanges: [],
-                  contentCorrections: [],
-                }),
-              },
-            },
-          ],
-        })),
+        create: createDraftingCompletion,
       },
     },
   }),
@@ -170,6 +161,7 @@ import {
   AIDraftService,
   detectChanges,
   LIFECYCLE_LEARNING_ENABLED,
+  prepareSentDraftOutcome,
 } from "@/lib/api/services/ai-draft-service";
 
 function freshDb(): DbState {
@@ -186,6 +178,23 @@ function freshDb(): DbState {
 
 beforeEach(() => {
   db = freshDb();
+  createDraftingCompletion.mockReset();
+  createDraftingCompletion.mockResolvedValue({
+    choices: [
+      {
+        finish_reason: "stop",
+        message: {
+          content: JSON.stringify({
+            toneShift: null,
+            substitutions: [],
+            structureChanges: [],
+            contentCorrections: [],
+          }),
+          refusal: null,
+        },
+      },
+    ],
+  });
 });
 
 afterEach(() => {
@@ -216,6 +225,99 @@ describe("P4-B — detectChanges subject delta", () => {
   it("emits no subject change when no subjects passed (body-only callers unaffected)", () => {
     const changes = detectChanges("Hi", "Hi");
     expect(changes.some((c) => c.type === "subject")).toBe(false);
+  });
+});
+
+describe("P4-B — significant edit analysis durability", () => {
+  it("preserves factual corrections by requesting strict JSON with completion headroom", async () => {
+    createDraftingCompletion.mockImplementationOnce(async (request) => {
+      const input = request as {
+        max_completion_tokens?: number;
+        response_format?: { type?: string };
+      };
+      const canComplete =
+        input.response_format?.type === "json_schema" &&
+        (input.max_completion_tokens ?? 0) >= 1_000;
+
+      return {
+        choices: [
+          {
+            finish_reason: canComplete ? "stop" : "length",
+            message: {
+              refusal: null,
+              content: canComplete
+                ? JSON.stringify({
+                    toneShift: "more_direct",
+                    substitutions: [],
+                    structureChanges: ["shortened to the permit question"],
+                    contentCorrections: [
+                      "asked whether the permit requires additional qualifications",
+                    ],
+                  })
+                : '{"toneShift":"more_direct","substitutions":[],"structureChanges":[',
+            },
+          },
+        ],
+      };
+    });
+
+    const outcome = await prepareSentDraftOutcome({
+      originalDraft:
+        "Hi Karan, Thanks for the update. We can review the project requirements and follow up with next steps once the details are confirmed.",
+      finalVersion:
+        "Hi Karan, Does the permit require any additional qualifications from us?",
+    });
+
+    expect(outcome.contentCorrections).toEqual([
+      "asked whether the permit requires additional qualifications",
+    ]);
+    expect(outcome.changesMade).toContainEqual({
+      type: "content_correction",
+      from: "",
+      to: "asked whether the permit requires additional qualifications",
+    });
+  });
+
+  it("rejects an incomplete significant-edit analysis so the durable worker can retry", async () => {
+    createDraftingCompletion.mockResolvedValueOnce({
+      choices: [
+        {
+          finish_reason: "length",
+          message: {
+            refusal: null,
+            content:
+              '{"toneShift":null,"substitutions":[],"structureChanges":[],"contentCorrections":[',
+          },
+        },
+      ],
+    });
+
+    await expect(
+      prepareSentDraftOutcome({
+        originalDraft:
+          "Hi Mark, The total is based on the square footage and the quoted unit rate. Let me know if you want the full calculation.",
+        finalVersion: "Hey Mark, 72 square feet at $8.50 is $612 before tax.",
+      })
+    ).rejects.toThrow(/edit analysis/i);
+  });
+
+  it("rejects an empty significant-edit analysis so the durable worker can retry", async () => {
+    createDraftingCompletion.mockResolvedValueOnce({
+      choices: [
+        {
+          finish_reason: "stop",
+          message: { refusal: null, content: "" },
+        },
+      ],
+    });
+
+    await expect(
+      prepareSentDraftOutcome({
+        originalDraft:
+          "Hi Steve, Thanks for the update. Send the photos when you are ready and I will take a look.",
+        finalVersion: "Sounds good, thanks Steve",
+      })
+    ).rejects.toThrow(/edit analysis/i);
   });
 });
 
