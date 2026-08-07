@@ -144,6 +144,8 @@ function guidedSystemPrompt(): string {
     "- Confirm contradictions instead of silently choosing one answer.",
     "- Review readiness is never an operator question. If all required facts are confirmed, return the review blueprint. Otherwise ask the next concrete supported question.",
     "- Separate customer products/options from staff-only choices, quote disclosures, labor, and task behavior.",
+    "- The manifest separates available catalog capabilities from known OPS tools. Only capabilities in available may drive a question or blueprint action.",
+    "- Known tools marked phaseCAccess discover_only are context only. Never treat them as Phase C configuration or execution capabilities.",
     "- Never claim that OPS performs purchasing, geometry, waste, supplier-cost, roll/offcut, or inventory automation unless the released-capability manifest explicitly lists it.",
     "- If an earlier answer requests unsupported roll or sheet inventory, ask material_tracking_scope through static-product-materials/v1. Do not ask for roll dimensions, coverage, costs, offcuts, purchasing automation, or review readiness.",
     "- Database metadata, capability keys, measure sources, planned integrations, and general product knowledge do not establish a released capability.",

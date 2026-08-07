@@ -42,6 +42,7 @@ import type {
   GuidedQuestion,
 } from "@/lib/catalog-setup/phase-c/types";
 import {
+  isGuidedAssistantQuestion,
   normalizeGuidedConversation,
   visibleGuidedConversation,
 } from "@/lib/catalog-setup/phase-c/conversation-history";
@@ -1472,7 +1473,7 @@ export function GuidedCatalogSetup({
             const currentQuestion =
               assistant &&
               question &&
-              message.id === `assistant:${session.version}:${question.id}`
+              isGuidedAssistantQuestion(message, question)
                 ? question
                 : null;
             const currentHelp = currentQuestion?.help

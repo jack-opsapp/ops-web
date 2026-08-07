@@ -31,6 +31,7 @@ const releasedBlueprint = {
         "upsert_supplier_cost_profile",
         "upsert_material_quantity_rule",
         "upsert_capability_binding",
+        "upsert_tax_rate",
       ].includes(action.actionType),
   ),
 };
@@ -256,5 +257,137 @@ describe("Phase C catalog commit service", () => {
     expect(adapter.markActions).not.toHaveBeenCalled();
     expect(adapter.saveCatalog).not.toHaveBeenCalled();
     expect(adapter.finish).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported settings in a saved review before beginning the commit", async () => {
+    const { adapter } = fakeAdapter();
+    const productIndex = releasedBlueprint.actions.findIndex(
+      (action) => action.actionType === "upsert_product",
+    );
+    const productAction = releasedBlueprint.actions[productIndex];
+    vi.mocked(adapter.loadBlueprint).mockResolvedValue({
+      ...releasedBlueprint,
+      actions: releasedBlueprint.actions.map((action, index) =>
+        index === productIndex && productAction
+          ? {
+              ...productAction,
+              payload: {
+                ...productAction.payload,
+                showPricingUnit: false,
+              },
+            }
+          : action,
+      ),
+    });
+
+    await expect(
+      executeGuidedCatalogCommit({
+        sessionId: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+        approvalHash: "sha256:reviewed-plan",
+        adapter,
+      }),
+    ).rejects.toBeInstanceOf(GuidedCapabilityManifestConflictError);
+
+    expect(adapter.begin).not.toHaveBeenCalled();
+    expect(adapter.saveCatalog).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unresolved logical reference before beginning the commit", async () => {
+    const { adapter } = fakeAdapter();
+    vi.mocked(adapter.loadBlueprint).mockResolvedValue({
+      ...releasedBlueprint,
+      actions: releasedBlueprint.actions.map((action) =>
+        action.actionType === "upsert_product"
+          ? {
+              ...action,
+              payload: {
+                ...action.payload,
+                taskTypeClientId: "missing-task-type",
+              },
+            }
+          : action,
+      ),
+    });
+
+    await expect(
+      executeGuidedCatalogCommit({
+        sessionId: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+        approvalHash: "sha256:reviewed-plan",
+        adapter,
+      }),
+    ).rejects.toBeInstanceOf(GuidedCapabilityManifestConflictError);
+
+    expect(adapter.begin).not.toHaveBeenCalled();
+    expect(adapter.saveCatalog).not.toHaveBeenCalled();
+  });
+
+  it("rejects a direct existing UUID reference before beginning the commit", async () => {
+    const { adapter } = fakeAdapter();
+    const taskType = releasedBlueprint.actions.find(
+      (action) =>
+        action.actionType === "reuse_task_type" &&
+        action.clientId &&
+        action.existingId,
+    );
+    if (!taskType?.existingId) {
+      throw new Error("Expected a reusable task type fixture");
+    }
+    vi.mocked(adapter.loadBlueprint).mockResolvedValue({
+      ...releasedBlueprint,
+      actions: releasedBlueprint.actions.map((action) =>
+        action.actionType === "upsert_product"
+          ? {
+              ...action,
+              payload: {
+                ...action.payload,
+                taskTypeClientId: taskType.existingId,
+              },
+            }
+          : action,
+      ),
+    });
+
+    await expect(
+      executeGuidedCatalogCommit({
+        sessionId: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+        approvalHash: "sha256:reviewed-plan",
+        adapter,
+      }),
+    ).rejects.toBeInstanceOf(GuidedCapabilityManifestConflictError);
+
+    expect(adapter.begin).not.toHaveBeenCalled();
+    expect(adapter.saveCatalog).not.toHaveBeenCalled();
+  });
+
+  it("rejects duplicate logical client IDs before beginning the commit", async () => {
+    const { adapter } = fakeAdapter();
+    const taskType = releasedBlueprint.actions.find(
+      (action) => action.actionType === "reuse_task_type" && action.clientId,
+    );
+    if (!taskType) {
+      throw new Error("Expected a reusable task type fixture");
+    }
+    vi.mocked(adapter.loadBlueprint).mockResolvedValue({
+      ...releasedBlueprint,
+      actions: [
+        ...releasedBlueprint.actions,
+        {
+          ...taskType,
+          actionKey: `${taskType.actionKey}:duplicate`,
+          existingId: "00000000-0000-4000-8000-000000000099",
+        },
+      ],
+    });
+
+    await expect(
+      executeGuidedCatalogCommit({
+        sessionId: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+        approvalHash: "sha256:reviewed-plan",
+        adapter,
+      }),
+    ).rejects.toBeInstanceOf(GuidedCapabilityManifestConflictError);
+
+    expect(adapter.begin).not.toHaveBeenCalled();
+    expect(adapter.saveCatalog).not.toHaveBeenCalled();
   });
 });

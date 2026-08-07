@@ -14,6 +14,7 @@ import type { GuidedQuestion } from "./types";
 import {
   CATALOG_CAPABILITY_MANIFEST_REVISION,
 } from "./catalog-capability-manifest";
+import { GuidedQuestionDecisionSchema } from "./schemas";
 import { resolveGuidedQuestion } from "./question-policy";
 
 const ACTIVE_SESSION_STATUSES = [
@@ -81,6 +82,14 @@ export const FIRST_SERVICE_LINE_QUESTION: GuidedQuestion = {
   answerKind: "text",
   factKeys: ["customer_products.first_service_line"],
   help: "Describe the service, or upload a CSV or Excel price sheet.",
+};
+
+export const CAPABILITY_REFRESH_QUESTION: GuidedQuestion = {
+  id: "continue-catalog-setup",
+  prompt: "What should OPS set up or change next?",
+  answerKind: "text",
+  factKeys: ["catalog.setup_continuation"],
+  help: "Your confirmed answers are still here. If nothing else is needed, say so.",
 };
 
 function asRows(value: unknown): Array<Record<string, unknown>> {
@@ -573,6 +582,202 @@ async function repairUnsupportedRollInventoryQuestion(
   return repairedResult.data as Record<string, unknown>;
 }
 
+function needsCapabilityManifestRefresh(
+  row: Record<string, unknown>,
+): boolean {
+  return (
+    typeof row.capability_manifest_revision === "string" &&
+    row.capability_manifest_revision !==
+      CATALOG_CAPABILITY_MANIFEST_REVISION &&
+    row.status !== "committing"
+  );
+}
+
+function refreshedCurrentQuestion(
+  row: Record<string, unknown>,
+): GuidedQuestion | null {
+  if (row.status !== "interviewing") return null;
+  const current = asRows(row.unresolved_questions)[0];
+  if (!current) return null;
+  const parsed = GuidedQuestionDecisionSchema.safeParse({
+    id: current.id,
+    intent: current.intent,
+    capabilityRef: current.capabilityRef,
+    factKeys: current.factKeys,
+    context: current.context ?? {},
+  });
+  return parsed.success ? resolveGuidedQuestion(parsed.data) : null;
+}
+
+export function sameQuestionContract(
+  current: Record<string, unknown> | undefined,
+  next: GuidedQuestion,
+): boolean {
+  return (
+    current?.id === next.id &&
+    current.intent === next.intent &&
+    current.capabilityRef === next.capabilityRef &&
+    current.prompt === next.prompt &&
+    current.answerKind === next.answerKind &&
+    JSON.stringify(current.context ?? {}) ===
+      JSON.stringify(next.context ?? {}) &&
+    JSON.stringify(current.factKeys ?? []) ===
+      JSON.stringify(next.factKeys) &&
+    JSON.stringify(current.options ?? []) ===
+      JSON.stringify(next.options ?? [])
+  );
+}
+
+function markConversationInputsRemoved(
+  conversation: unknown,
+  inputIds: ReadonlySet<string>,
+): unknown {
+  if (!Array.isArray(conversation) || inputIds.size === 0) {
+    return conversation;
+  }
+  return conversation.map((message) => {
+    if (!message || typeof message !== "object" || Array.isArray(message)) {
+      return message;
+    }
+    const row = message as Record<string, unknown>;
+    return typeof row.inputId === "string" && inputIds.has(row.inputId)
+      ? { ...row, state: "removed" }
+      : row;
+  });
+}
+
+async function refreshCapabilityManifest(
+  client: GuidedSetupQueryClient,
+  row: Record<string, unknown>,
+  companyId: string,
+  operatorId: string,
+): Promise<Record<string, unknown>> {
+  if (!needsCapabilityManifestRefresh(row)) return row;
+
+  const previousRevision = String(row.capability_manifest_revision);
+  const currentQuestion = asRows(row.unresolved_questions)[0];
+  const currentQuestionId =
+    typeof currentQuestion?.id === "string"
+      ? currentQuestion.id
+      : null;
+  const nextQuestion =
+    refreshedCurrentQuestion(row) ?? CAPABILITY_REFRESH_QUESTION;
+  const questionChanged = !sameQuestionContract(
+    currentQuestion,
+    nextQuestion,
+  );
+  const inputLedger = normalizeGuidedInputLedger(row.input_ledger);
+  const removedQueuedInputs = questionChanged
+    ? inputLedger.filter((entry) => entry.state === "queued")
+    : [];
+  const removedQueuedInputIds = new Set(
+    removedQueuedInputs.map((entry) => entry.id),
+  );
+  const timestamp = new Date().toISOString();
+  const nextInputLedger = inputLedger.map((entry) =>
+    removedQueuedInputIds.has(entry.id)
+      ? { ...entry, state: "removed" as const, updatedAt: timestamp }
+      : entry,
+  );
+  const processedInputRevision = removedQueuedInputs.reduce(
+    (highest, entry) => Math.max(highest, entry.revision),
+    Number(row.processed_input_revision ?? 0),
+  );
+  const version = Number(row.version ?? 0);
+  const nextVersion = version + 1;
+  const sessionOperatorId =
+    typeof row.operator_id === "string" ? row.operator_id : operatorId;
+  const questionConversation = currentQuestionId
+    ? withoutAssistantQuestion(row.conversation, currentQuestionId)
+    : row.conversation;
+  const conversation = markConversationInputsRemoved(
+    questionConversation,
+    removedQueuedInputIds,
+  );
+  const refreshedResult = await client
+    .from("catalog_guided_setup_sessions")
+    .update({
+      status: "interviewing",
+      version: nextVersion,
+      capability_manifest_revision:
+        CATALOG_CAPABILITY_MANIFEST_REVISION,
+      ...(removedQueuedInputs.length > 0
+        ? {
+            input_ledger: nextInputLedger,
+            processed_input_revision: processedInputRevision,
+          }
+        : {}),
+      unresolved_questions: [nextQuestion],
+      conversation: normalizeGuidedConversation(
+        conversation,
+        [nextQuestion],
+        nextVersion,
+      ),
+      proposed_plan: null,
+      proposed_plan_hash: null,
+      validation_issues: [],
+      approval_hash: null,
+      approved_at: null,
+      sources: [
+        ...asRows(row.sources),
+        {
+          kind: "system_repair",
+          reason: "capability_manifest_refresh",
+          previousRevision,
+          revision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+          ...(removedQueuedInputIds.size > 0
+            ? { removedQueuedInputIds: [...removedQueuedInputIds] }
+            : {}),
+          version: nextVersion,
+        },
+      ],
+      updated_at: timestamp,
+    })
+    .eq("id", String(row.id))
+    .eq("company_id", companyId)
+    .eq("operator_id", sessionOperatorId)
+    .eq("version", version)
+    .eq("capability_manifest_revision", previousRevision)
+    .select("*")
+    .maybeSingle();
+
+  if (refreshedResult.error) {
+    throw new Error(
+      `Failed to refresh guided setup capabilities: ${refreshedResult.error.message ?? "unknown error"}`,
+    );
+  }
+  if (
+    refreshedResult.data &&
+    typeof refreshedResult.data === "object"
+  ) {
+    return refreshedResult.data as Record<string, unknown>;
+  }
+
+  const latestResult = await client
+    .from("catalog_guided_setup_sessions")
+    .select("*")
+    .eq("id", String(row.id))
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (latestResult.error) {
+    throw new Error(
+      `Failed to reload guided setup after capability refresh: ${latestResult.error.message ?? "unknown error"}`,
+    );
+  }
+  if (
+    latestResult.data &&
+    typeof latestResult.data === "object" &&
+    !needsCapabilityManifestRefresh(
+      latestResult.data as Record<string, unknown>,
+    )
+  ) {
+    return latestResult.data as Record<string, unknown>;
+  }
+  throw new Error(
+    "Failed to refresh guided setup capabilities: the session changed in another window",
+  );
+}
+
 export async function startOrResumeGuidedSetupSession({
   token,
   companyId,
@@ -601,6 +806,12 @@ export async function startOrResumeGuidedSetupSession({
       operatorId,
     );
     repairedRow = await repairUnsupportedRollInventoryQuestion(
+      client,
+      repairedRow,
+      companyId,
+      operatorId,
+    );
+    repairedRow = await refreshCapabilityManifest(
       client,
       repairedRow,
       companyId,

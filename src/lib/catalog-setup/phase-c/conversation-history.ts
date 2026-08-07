@@ -33,6 +33,16 @@ function assistantQuestionIdentity(
   return match ? `${match[1]}\u0000${message.content}` : null;
 }
 
+export function isGuidedAssistantQuestion(
+  message: GuidedConversationMessage,
+  question: GuidedQuestion,
+): boolean {
+  return (
+    assistantQuestionIdentity(message) ===
+    assistantQuestionIdentity(assistantMessage(question, 0))
+  );
+}
+
 function deduplicateAssistantQuestions(
   conversation: GuidedConversationMessage[],
 ): GuidedConversationMessage[] {
@@ -50,11 +60,8 @@ function containsAssistantQuestion(
   conversation: GuidedConversationMessage[],
   question: GuidedQuestion,
 ): boolean {
-  const identity = assistantQuestionIdentity(
-    assistantMessage(question, 0),
-  );
-  return conversation.some(
-    (message) => assistantQuestionIdentity(message) === identity,
+  return conversation.some((message) =>
+    isGuidedAssistantQuestion(message, question),
   );
 }
 

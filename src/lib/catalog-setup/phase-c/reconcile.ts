@@ -481,7 +481,6 @@ export function reconcileCatalogStructure(
         payload: {
           familyRef: family.clientId,
           ...(isMove ? { destinationFamilyRef: family.clientId } : {}),
-          label: variant.label,
           supplierSku: variant.supplierSku,
           unitCost: variant.unitCost ?? null,
         },
@@ -586,7 +585,6 @@ export function reconcileCatalogStructure(
         defaultPrice: product.basePrice,
         unitCost: product.unitCost,
         pricingUnit: product.pricingUnit,
-        unit: product.pricingUnit,
         minimumCharge: product.minimumCharge,
         isTaxable: product.isTaxable,
         showInStorefront: product.showInStorefront,

@@ -641,6 +641,8 @@ describe("GuidedCatalogSetup", () => {
       expect(
         screen.queryByTestId("phase-c-processing-sweep")
       ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "YES" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "NO" })).toBeEnabled();
     });
 
     await waitFor(() => expect(finishTurn).toBeDefined());

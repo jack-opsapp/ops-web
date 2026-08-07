@@ -4,6 +4,7 @@ import {
   mutateGuidedSetupInput,
   GuidedSetupInputConflictError,
 } from "../input-service";
+import { CATALOG_CAPABILITY_MANIFEST_REVISION } from "../catalog-capability-manifest";
 
 const COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 const OPERATOR_ID = "d82114aa-7b98-4439-85f0-978f835e0627";
@@ -20,7 +21,7 @@ function createInputClient() {
     processed_input_revision: 0,
     input_ledger: [],
     capability_manifest_revision:
-      "phase-c-capabilities/2026-07-27.1",
+      CATALOG_CAPABILITY_MANIFEST_REVISION,
     conversation: [],
     unresolved_questions: [
       {
