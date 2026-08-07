@@ -5,13 +5,42 @@ export interface PmfRecipients {
   operatorCompanyId: string;
 }
 
-export function getPmfRecipients(): PmfRecipients {
-  const sms = process.env.PMF_NOTIFICATION_SMS;
-  const email = process.env.PMF_NOTIFICATION_EMAIL;
-  const operatorUserId = process.env.PMF_OPERATOR_USER_ID;
-  const operatorCompanyId = process.env.PMF_OPERATOR_COMPANY_ID;
-  if (!sms || !email || !operatorUserId || !operatorCompanyId) {
-    throw new Error('PMF recipients env vars missing');
+export interface PmfOperatorIdentity {
+  operatorUserId: string;
+  operatorCompanyId: string;
+}
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function normalizedEnvironmentValue(name: string): string | null {
+  const value = process.env[name]?.trim();
+  return value ? value : null;
+}
+
+/**
+ * Optional operator identity for server alert paths. Deployment secret editors
+ * commonly preserve a final newline, so normalization must happen before any
+ * value can become a tenant key.
+ */
+export function getOptionalPmfOperatorIdentity(): PmfOperatorIdentity | null {
+  const operatorUserId = normalizedEnvironmentValue("PMF_OPERATOR_USER_ID");
+  const operatorCompanyId = normalizedEnvironmentValue(
+    "PMF_OPERATOR_COMPANY_ID"
+  );
+  if (!operatorUserId || !operatorCompanyId) return null;
+  if (!UUID_PATTERN.test(operatorCompanyId)) {
+    throw new Error("PMF_OPERATOR_COMPANY_ID must be a UUID");
   }
-  return { sms, email, operatorUserId, operatorCompanyId };
+  return { operatorUserId, operatorCompanyId };
+}
+
+export function getPmfRecipients(): PmfRecipients {
+  const sms = normalizedEnvironmentValue("PMF_NOTIFICATION_SMS");
+  const email = normalizedEnvironmentValue("PMF_NOTIFICATION_EMAIL");
+  const identity = getOptionalPmfOperatorIdentity();
+  if (!sms || !email || !identity) {
+    throw new Error("PMF recipients env vars missing");
+  }
+  return { sms, email, ...identity };
 }

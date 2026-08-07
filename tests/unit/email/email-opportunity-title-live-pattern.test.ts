@@ -261,9 +261,11 @@ function makeSupabaseDouble(state: SupabaseState) {
 
     then<TResult1 = unknown, TResult2 = never>(
       onfulfilled?:
-        ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
+        | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
+        | null,
       onrejected?:
-        ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+        | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+        | null
     ) {
       return Promise.resolve(this.result()).then(onfulfilled, onrejected);
     }
@@ -481,7 +483,7 @@ describe("SyncEngine live email opportunity title pattern", () => {
     setSupabaseOverride(null);
   });
 
-  it("labels sent-folder safety-net leads from the external recipient when the operator uses a Gmail mailbox", async () => {
+  it("does not present a bare external-recipient mailbox handle as the customer name", async () => {
     const state: SupabaseState = {
       clients: [],
       opportunities: [],
@@ -508,7 +510,9 @@ describe("SyncEngine live email opportunity title pattern", () => {
 
     expect(result.errors).toEqual([]);
     expect(state.opportunities).toHaveLength(1);
-    expect(state.opportunities[0].title).toBe("runningemu — Estimate");
+    expect(state.opportunities[0].title).toBe("New Lead — Estimate");
     expect(state.opportunities[0].title).not.toContain("Jackson Sweet");
+    expect(state.opportunities[0]).not.toHaveProperty("contact_name");
+    expect(state.clients[0].name).toBe("New Lead");
   });
 });

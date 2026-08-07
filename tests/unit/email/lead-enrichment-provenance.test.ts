@@ -217,6 +217,910 @@ describe("source_message_id / source_metadata fill-blank", () => {
 });
 
 describe("applyCanonicalLeadEnrichment provenance writes", () => {
+  it("promotes stronger same-email signature evidence over a provisional header name", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: "client-1",
+        title: "falkks — Email Inquiry",
+        contact_name: "falkks",
+        contact_email: "falkks1980@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      clientRow: {
+        name: "falkks",
+        email: "falkks1980@gmail.com",
+        phone_number: null,
+        address: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "title",
+          value_snapshot: "falkks — Email Inquiry",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "falkks",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+        {
+          entity_type: "client",
+          entity_id: "client-1",
+          field_name: "contact_name",
+          value_snapshot: "falkks",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      clientId: "client-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "Kevin Falk",
+        contactEmail: "falkks1980@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+        fieldEvidence: {
+          contactName: { source: "inbound", confidence: 0.92 },
+        },
+      }),
+    });
+
+    expect(updates.opportunity.contact_name).toBe("Kevin Falk");
+    expect(updates.opportunity.title).toBe("Kevin Falk — Email Inquiry");
+    expect(updates.client.name).toBe("Kevin Falk");
+    expect(upserts[0].rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_type: "opportunity",
+          field_name: "title",
+          value_snapshot: "Kevin Falk — Email Inquiry",
+          source: "inbound",
+          confidence: 0.92,
+        }),
+        expect.objectContaining({
+          entity_type: "opportunity",
+          field_name: "contact_name",
+          value_snapshot: "Kevin Falk",
+          source: "inbound",
+          confidence: 0.92,
+        }),
+        expect.objectContaining({
+          entity_type: "client",
+          field_name: "contact_name",
+          value_snapshot: "Kevin Falk",
+          source: "inbound",
+          confidence: 0.92,
+        }),
+      ])
+    );
+  });
+
+  it("repairs a legacy generated handle title without title provenance", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: null,
+        title: "Jtblam — Estimate",
+        contact_name: "Jtblam",
+        contact_email: "jtblam@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "Jtblam",
+          source: "outbound",
+          confidence: 0.5,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "James Lam",
+        contactEmail: "jtblam@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+        fieldEvidence: {
+          contactName: { source: "inbound", confidence: 0.92 },
+        },
+      }),
+    });
+
+    expect(updates.opportunity.contact_name).toBe("James Lam");
+    expect(updates.opportunity.title).toBe("James Lam — Estimate");
+  });
+
+  it("promotes an exact linked client's canonical name across the same email identity", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: "client-1",
+        title: "falkks — Email Inquiry",
+        contact_name: "falkks",
+        contact_email: "falkks1980@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      clientRow: {
+        name: "Kevin Falk",
+        email: "falkks1980@gmail.com",
+        phone_number: null,
+        address: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "falkks",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      clientId: "client-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: null,
+        contactEmail: "falkks1980@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+      }),
+    });
+
+    expect(updates.opportunity.contact_name).toBe("Kevin Falk");
+    expect(updates.opportunity.title).toBe("Kevin Falk — Email Inquiry");
+    expect(updates.client).not.toHaveProperty("name");
+    expect(upserts[0].rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_type: "opportunity",
+          field_name: "contact_name",
+          value_snapshot: "Kevin Falk",
+          source: "merge",
+          confidence: 0.9,
+        }),
+        expect.objectContaining({
+          entity_type: "opportunity",
+          field_name: "title",
+          value_snapshot: "Kevin Falk — Email Inquiry",
+          source: "merge",
+          confidence: 0.9,
+        }),
+      ])
+    );
+  });
+
+  it("keeps stronger same-sender signature evidence ahead of linked client directory evidence", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: "client-1",
+        title: "falkks — Email Inquiry",
+        contact_name: "falkks",
+        contact_email: "falkks1980@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      clientRow: {
+        name: "Kevin Falks",
+        email: "falkks1980@gmail.com",
+        phone_number: null,
+        address: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "falkks",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      clientId: "client-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "Kevin Falk",
+        contactEmail: "falkks1980@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+        fieldEvidence: {
+          contactName: { source: "inbound", confidence: 0.92 },
+        },
+      }),
+    });
+
+    expect(updates.opportunity.contact_name).toBe("Kevin Falk");
+    expect(updates.opportunity.title).toBe("Kevin Falk — Email Inquiry");
+    expect(updates.client).not.toHaveProperty("name");
+    expect(upserts[0].rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_type: "opportunity",
+          field_name: "contact_name",
+          value_snapshot: "Kevin Falk",
+          source: "inbound",
+          confidence: 0.92,
+        }),
+        expect.objectContaining({
+          entity_type: "opportunity",
+          field_name: "title",
+          value_snapshot: "Kevin Falk — Email Inquiry",
+          source: "inbound",
+          confidence: 0.92,
+        }),
+      ])
+    );
+  });
+
+  it("never propagates a linked client name across a different email identity", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: "client-1",
+        title: "falkks — Email Inquiry",
+        contact_name: "falkks",
+        contact_email: "falkks1980@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      clientRow: {
+        name: "Other Customer",
+        email: "other.customer@gmail.com",
+        phone_number: null,
+        address: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "falkks",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      clientId: "client-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: null,
+        contactEmail: "falkks1980@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+      }),
+    });
+
+    expect(updates.opportunity).not.toHaveProperty("contact_name");
+    expect(updates.opportunity).not.toHaveProperty("title");
+  });
+
+  it("reconciles a legacy generated title after the contact name was already corrected", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: null,
+        title: "camille.ottenhof — Estimate",
+        contact_name: "Camille Ottenhof",
+        contact_email: "camille.ottenhof@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "Camille Ottenhof",
+        contactEmail: "camille.ottenhof@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+      }),
+    });
+
+    expect(updates.opportunity.title).toBe("Camille Ottenhof — Estimate");
+  });
+
+  it("does not turn a New Lead title back into an unverified header handle", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: null,
+        title: "New Lead — Estimate",
+        contact_name: "Jtblam",
+        contact_email: "jtblam@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "Jtblam",
+        contactEmail: "jtblam@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+      }),
+    });
+
+    expect(updates.opportunity).not.toHaveProperty("title");
+  });
+
+  it("never rewrites an arbitrary human title while promoting the contact name", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: null,
+        title: "Back deck rail replacement",
+        contact_name: "falkks",
+        contact_email: "falkks1980@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "falkks",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "Kevin Falk",
+        contactEmail: "falkks1980@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+        fieldEvidence: {
+          contactName: { source: "inbound", confidence: 0.92 },
+        },
+      }),
+    });
+
+    expect(updates.opportunity.contact_name).toBe("Kevin Falk");
+    expect(updates.opportunity).not.toHaveProperty("title");
+  });
+
+  it("protects a title changed after its OPS provenance snapshot", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: null,
+        title: "Human chosen — Estimate",
+        contact_name: "Jtblam",
+        contact_email: "jtblam@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "title",
+          value_snapshot: "Jtblam — Estimate",
+          source: "outbound",
+          confidence: 0.5,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "Jtblam",
+          source: "outbound",
+          confidence: 0.5,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "James Lam",
+        contactEmail: "jtblam@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+        fieldEvidence: {
+          contactName: { source: "inbound", confidence: 0.92 },
+        },
+      }),
+    });
+
+    expect(updates.opportunity.contact_name).toBe("James Lam");
+    expect(updates.opportunity).not.toHaveProperty("title");
+  });
+
+  it("protects an operator-owned generated-looking title", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: null,
+        title: "Preferred customer label — Estimate",
+        contact_name: "Jtblam",
+        contact_email: "jtblam@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "title",
+          value_snapshot: "Preferred customer label — Estimate",
+          source: "operator",
+          confidence: 1,
+          actor_user_id: "user-1",
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "Jtblam",
+          source: "outbound",
+          confidence: 0.5,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "James Lam",
+        contactEmail: "jtblam@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+        fieldEvidence: {
+          contactName: { source: "inbound", confidence: 0.92 },
+        },
+      }),
+    });
+
+    expect(updates.opportunity.contact_name).toBe("James Lam");
+    expect(updates.opportunity).not.toHaveProperty("title");
+  });
+
+  it("does not let stronger name evidence cross from a different email identity", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: null,
+        contact_name: "falkks",
+        contact_email: "falkks1980@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "falkks",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "James Lam",
+        contactEmail: "other.person@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+        fieldEvidence: {
+          contactName: { source: "inbound", confidence: 0.92 },
+        },
+      }),
+    });
+
+    expect(updates.opportunity).not.toHaveProperty("contact_name");
+    expect(upserts).toHaveLength(0);
+  });
+
+  it("records an approved import actor on name and generated title only", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: null,
+        title: "New Lead — Estimate",
+        contact_name: null,
+        contact_email: null,
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: null,
+        source: "email",
+        source_email_id: null,
+        source_message_id: null,
+        source_metadata: null,
+      },
+      upserts,
+    });
+
+    await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "Kara Beach",
+        contactEmail: "kara.beach@example.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+        extractionSource: "import_payload",
+        fieldEvidence: {
+          contactName: {
+            source: "operator",
+            confidence: 1,
+            actorUserId: "operator-1",
+          },
+        },
+      }),
+    });
+
+    expect(upserts[0].rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field_name: "contact_name",
+          source: "operator",
+          confidence: 1,
+          actor_user_id: "operator-1",
+        }),
+        expect.objectContaining({
+          field_name: "title",
+          source: "operator",
+          confidence: 1,
+          actor_user_id: "operator-1",
+        }),
+        expect.objectContaining({
+          field_name: "contact_email",
+          source: "import",
+          confidence: 0.8,
+          actor_user_id: null,
+        }),
+      ])
+    );
+  });
+
+  it("does not replay equal signature confidence over a newer canonical name", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: null,
+        contact_name: "James Smith",
+        contact_email: "customer@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "newer-message",
+        source_metadata: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "James Smith",
+          source: "inbound",
+          confidence: 0.92,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "Jamie Smith",
+        contactEmail: "customer@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+        providerMessageId: "older-message",
+        fieldEvidence: {
+          contactName: { source: "inbound", confidence: 0.92 },
+        },
+      }),
+    });
+
+    expect(updates.opportunity).not.toHaveProperty("contact_name");
+    expect(upserts).toHaveLength(0);
+  });
+
+  it("requires the persisted snapshot to still match before signature promotion", async () => {
+    const upserts: UpsertCall[] = [];
+    const supabase = fakeSupabase({
+      opportunityRow: {
+        company_id: "company-1",
+        client_id: null,
+        contact_name: "Human Corrected Name",
+        contact_email: "falkks1980@gmail.com",
+        contact_phone: null,
+        address: null,
+        estimated_value: null,
+        detected_value: null,
+        description: "Existing scope",
+        source: "email",
+        source_email_id: "thread-1",
+        source_message_id: "old-message",
+        source_metadata: null,
+      },
+      provenanceRows: [
+        {
+          entity_type: "opportunity",
+          entity_id: "opp-1",
+          field_name: "contact_name",
+          value_snapshot: "falkks",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      upserts,
+    });
+
+    const updates = await applyCanonicalLeadEnrichment({
+      supabase,
+      opportunityId: "opp-1",
+      companyId: "company-1",
+      facts: inboundFacts({
+        contactName: "Kevin Falk",
+        contactEmail: "falkks1980@gmail.com",
+        contactPhone: null,
+        address: null,
+        estimatedValue: null,
+        description: null,
+        sourcePlatform: null,
+        fieldEvidence: {
+          contactName: { source: "inbound", confidence: 0.92 },
+        },
+      }),
+    });
+
+    expect(updates.opportunity).not.toHaveProperty("contact_name");
+    expect(upserts).toHaveLength(0);
+  });
+
   it("derives company scope from the opportunity when the caller omits it", async () => {
     const upserts: UpsertCall[] = [];
     const supabase = fakeSupabase({

@@ -302,6 +302,106 @@ describe("reconcilePendingMailboxDrafts", () => {
     expect(draft.status).toBe("auto_drafted");
   });
 
+  it("learns a consumed total rewrite when the exact source message is persisted", async () => {
+    const draft = pendingDraft({
+      source_message_id: "source-message-1",
+      original_draft:
+        "Hi Steve,\n\nSounds good, thanks for the update. No rush on my end. " +
+        "Send the photos over in a couple of weeks and give me a call when you're ready.\n\nThanks,",
+      created_at: "2026-08-06T02:05:12.693Z",
+    });
+    const source = {
+      id: "source-activity-1",
+      company_id: "company-1",
+      email_connection_id: "conn-1",
+      email_thread_id: "thread-abc",
+      email_message_id: "source-message-1",
+      direction: "inbound",
+      subject: "Re: Need a quote",
+      body_text: "I'll send photos in a couple of weeks.",
+      from_email: "lead@example.com",
+      to_emails: ["ops@example.com"],
+      opportunity_id: "opportunity-1",
+      created_at: "2026-08-06T01:34:29.000Z",
+    };
+    const rewrittenSend = outboundActivity({
+      body_text: "Sounds good, thanks Steve\n\nOld Jackson\nOld OPS",
+      created_at: "2026-08-06T22:17:31.000Z",
+    });
+    getProviderMock.mockReturnValue({
+      // Sending the edited Gmail draft consumed its immutable provider object.
+      getDraft: vi.fn().mockResolvedValue(null),
+    });
+    const supabase = makeSupabaseDouble(
+      state([draft], [source, rewrittenSend])
+    );
+
+    await reconcilePendingMailboxDrafts({
+      connection: makeConnection(),
+      providerThreadId: "thread-abc",
+      supabase: supabase as never,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      "resolve_email_outbound_learning_mailbox_actor_as_system",
+      expect.objectContaining({
+        p_draft_history_id: "draft-row-1",
+        p_provider_message_id: "sent-message-1",
+        p_outcome: "used",
+      })
+    );
+    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftHistoryId: "draft-row-1",
+        providerMessageId: "sent-message-1",
+        authoredBody: "Sounds good, thanks Steve",
+        learningAuthority: "operator_approved",
+      })
+    );
+    // The durable queue owns the edit comparison and terminal transition.
+    expect(draft.status).toBe("auto_drafted");
+  });
+
+  it("rejects a later outbound when an inbound advanced the thread first", async () => {
+    const draft = pendingDraft({
+      source_message_id: "source-message-1",
+      original_draft: "Reply to the first customer message",
+      created_at: "2026-08-06T02:05:12.693Z",
+    });
+    const source = {
+      ...outboundActivity(),
+      id: "source-activity-1",
+      email_message_id: "source-message-1",
+      direction: "inbound",
+      body_text: "First customer message",
+      created_at: "2026-08-06T01:34:29.000Z",
+    };
+    const interveningInbound = {
+      ...source,
+      id: "inbound-activity-2",
+      email_message_id: "inbound-message-2",
+      body_text: "Correction with current details",
+      created_at: "2026-08-06T03:00:00.000Z",
+    };
+    const laterOutbound = outboundActivity({
+      created_at: "2026-08-06T04:00:00.000Z",
+    });
+    getProviderMock.mockReturnValue({
+      getDraft: vi.fn().mockResolvedValue(null),
+    });
+
+    await reconcilePendingMailboxDrafts({
+      connection: makeConnection(),
+      providerThreadId: "thread-abc",
+      supabase: makeSupabaseDouble(
+        state([draft], [source, interveningInbound, laterOutbound])
+      ) as never,
+    });
+
+    expect(enqueueIfEnabledMock).not.toHaveBeenCalled();
+    expect(draft.status).toBe("superseded");
+  });
+
   it("does not attribute a shared-mailbox fresh reply to the stale draft owner", async () => {
     const draft = pendingDraft();
     getProviderMock.mockReturnValue({

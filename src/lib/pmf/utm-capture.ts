@@ -15,6 +15,31 @@
 const COOKIE = "__ops_first_touch";
 const TTL_DAYS = 30;
 
+/**
+ * Canonical first-touch cookie name. Shared verbatim with ops-site, which is
+ * the primary writer (it sets Domain=.opsapp.co so the payload survives the
+ * hop from opsapp.co to app.opsapp.co).
+ */
+export const FIRST_TOUCH_COOKIE = COOKIE;
+
+/**
+ * The marketing site's attribution cookie (`ops-site/src/lib/spec/attribution.ts`).
+ *
+ * ops-site is where nearly all first touches actually happen, and it writes
+ * THIS name — scoped to `.opsapp.co` so it reaches app.opsapp.co. Its payload
+ * is the same shape as FirstTouch apart from the timestamp key
+ * (`first_touch_at` rather than `captured_at`). Reading only our own cookie
+ * name would leave the great majority of signups unattributed.
+ */
+export const SITE_ATTRIBUTION_COOKIE = "ops_attribution";
+
+/**
+ * Per-field cap. A cookie is attacker-controllable, and these values land in
+ * Postgres text columns and Stripe metadata (500-char limit), so bound them at
+ * the parse boundary rather than trusting the payload.
+ */
+const MAX_FIELD_LEN = 512;
+
 export interface FirstTouch {
   utm_source?: string;
   utm_medium?: string;
@@ -76,29 +101,117 @@ export function readCookieFirstTouch(): FirstTouch | null {
     .split("; ")
     .find((c) => c.startsWith(`${COOKIE}=`));
   if (!match) return null;
+  return parseFirstTouchValue(match.substring(COOKIE.length + 1));
+}
+
+/**
+ * Percent-decode a cookie value until it yields a JSON object.
+ *
+ * The two writers encode to different depths, and this reader sees the RAW
+ * `Cookie` header (no framework parser has decoded anything yet):
+ *
+ *  - `ops_attribution` (ops-site) is **double**-encoded — its helper calls
+ *    `encodeURIComponent` and then `NextResponse.cookies.set` encodes again.
+ *    ops-site itself round-trips fine because its request parser strips one
+ *    layer before its own `decodeURIComponent`. We get neither.
+ *  - `__ops_first_touch` (this app's client writer) is **single**-encoded,
+ *    because `document.cookie` performs no encoding of its own.
+ *
+ * Decoding a fixed number of times would therefore break one writer or the
+ * other. Instead decode until the payload actually starts like JSON, bounded
+ * so a crafted value can't spin. Returns null when it never resolves.
+ */
+function decodeCookiePayload(rawValue: string): string | null {
+  let current = rawValue;
+  for (let i = 0; i < 3; i++) {
+    const trimmed = current.trim();
+    if (trimmed.startsWith("{")) return trimmed;
+    let next: string;
+    try {
+      next = decodeURIComponent(current);
+    } catch {
+      return null; // malformed percent-escape
+    }
+    if (next === current) return null; // fully decoded, still not JSON
+    current = next;
+  }
+  return null;
+}
+
+/**
+ * Pure: parse + sanitize one raw (URI-encoded) cookie value into a FirstTouch.
+ * Returns null on malformed JSON or a non-object payload.
+ *
+ * Shared by the browser reader and the server reader so both apply identical
+ * defences: any non-string field becomes undefined (so downstream never sees
+ * e.g. `utm_source = 123`), and every value is length-capped.
+ */
+export function parseFirstTouchValue(rawValue: string): FirstTouch | null {
   try {
-    const value = match.substring(COOKIE.length + 1);
-    const raw: unknown = JSON.parse(decodeURIComponent(value));
+    const decoded = decodeCookiePayload(rawValue);
+    if (decoded === null) return null;
+    const raw: unknown = JSON.parse(decoded);
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
     const obj = raw as Record<string, unknown>;
-    const isStr = (v: unknown): v is string => typeof v === "string";
+    const str = (v: unknown): string | undefined =>
+      typeof v === "string" ? v.slice(0, MAX_FIELD_LEN) : undefined;
     return {
-      utm_source: isStr(obj.utm_source) ? obj.utm_source : undefined,
-      utm_medium: isStr(obj.utm_medium) ? obj.utm_medium : undefined,
-      utm_campaign: isStr(obj.utm_campaign) ? obj.utm_campaign : undefined,
-      utm_content: isStr(obj.utm_content) ? obj.utm_content : undefined,
-      utm_term: isStr(obj.utm_term) ? obj.utm_term : undefined,
-      gclid: isStr(obj.gclid) ? obj.gclid : undefined,
-      fbclid: isStr(obj.fbclid) ? obj.fbclid : undefined,
-      landing_url: isStr(obj.landing_url) ? obj.landing_url : undefined,
-      referrer: isStr(obj.referrer) ? obj.referrer : undefined,
-      captured_at: isStr(obj.captured_at)
-        ? obj.captured_at
-        : new Date().toISOString(),
+      utm_source: str(obj.utm_source),
+      utm_medium: str(obj.utm_medium),
+      utm_campaign: str(obj.utm_campaign),
+      utm_content: str(obj.utm_content),
+      utm_term: str(obj.utm_term),
+      gclid: str(obj.gclid),
+      fbclid: str(obj.fbclid),
+      landing_url: str(obj.landing_url),
+      referrer: str(obj.referrer),
+      // ops-site's cookie names this field first_touch_at; accept either so
+      // one parser serves both cookies.
+      captured_at:
+        str(obj.captured_at) ?? str(obj.first_touch_at) ?? new Date().toISOString(),
     };
   } catch {
     return null;
   }
+}
+
+/**
+ * Server-side twin of readCookieFirstTouch, for route handlers.
+ *
+ * Reads BOTH attribution cookies: `ops_attribution` (written by ops-site,
+ * where nearly every real first touch happens) and `__ops_first_touch`
+ * (written by this app when a tagged URL hits app.opsapp.co directly).
+ *
+ * Takes the RAW `Cookie` header rather than a parsed store for two reasons:
+ * duplicates of the same name can legitimately coexist (a host-only cookie
+ * alongside a `.opsapp.co` one), and a parsed store surfaces only whichever
+ * the browser happened to order first. Parsing every occurrence and returning
+ * the EARLIEST `captured_at` keeps first-touch deterministic rather than
+ * ordering-dependent — the touch that actually brought the customer in wins.
+ *
+ * Returns null when absent or when no occurrence parses.
+ */
+export function readServerFirstTouch(
+  cookieHeader: string | null | undefined
+): FirstTouch | null {
+  if (!cookieHeader) return null;
+
+  const candidates: FirstTouch[] = [];
+  for (const part of cookieHeader.split(";")) {
+    const trimmed = part.trim();
+    const eq = trimmed.indexOf("=");
+    if (eq === -1) continue;
+    // Exact name match — never a suffix match like `not__ops_first_touch`.
+    const name = trimmed.slice(0, eq);
+    if (name !== COOKIE && name !== SITE_ATTRIBUTION_COOKIE) continue;
+    const parsed = parseFirstTouchValue(trimmed.slice(eq + 1));
+    if (parsed) candidates.push(parsed);
+  }
+
+  if (candidates.length === 0) return null;
+  return candidates.reduce((earliest, next) =>
+    next.captured_at < earliest.captured_at ? next : earliest
+  );
 }
 
 /**

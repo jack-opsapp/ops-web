@@ -30,6 +30,7 @@ import {
   isDatabasePressureError,
   runWithCronWorkloadControl,
 } from "@/lib/api/services/cron-workload-control-service";
+import { getOptionalPmfOperatorIdentity } from "@/lib/pmf/recipients";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export const runtime = "nodejs";
@@ -227,9 +228,8 @@ export async function GET(request: NextRequest) {
           sampleEventIds: remaining.slice(0, 10).map((row) => row.id),
         });
 
-        const operatorUserId = process.env.PMF_OPERATOR_USER_ID;
-        const operatorCompanyId = process.env.PMF_OPERATOR_COMPANY_ID;
-        if (!operatorUserId || !operatorCompanyId) {
+        const operatorIdentity = getOptionalPmfOperatorIdentity();
+        if (!operatorIdentity) {
           console.error(
             "[projection-stuck-check] alert skipped — PMF_OPERATOR_USER_ID or PMF_OPERATOR_COMPANY_ID unset"
           );
@@ -243,6 +243,7 @@ export async function GET(request: NextRequest) {
             alerted: false,
           });
         }
+        const { operatorUserId, operatorCompanyId } = operatorIdentity;
 
         const eventNoun =
           remaining.length === 1 ? "email event" : "email events";

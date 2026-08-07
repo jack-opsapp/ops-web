@@ -7,15 +7,43 @@ const keys = [
   "integrations.signature.title",
   "integrations.signature.sectionTitle",
   "integrations.signature.sectionDescription",
-  "integrations.signature.source.ops",
-  "integrations.signature.source.gmail",
-  "integrations.signature.source.microsoft365",
-  "integrations.signature.missing",
+  "integrations.signature.connectStep.title",
+  "integrations.signature.connectStep.body",
+  "integrations.signature.state.confirmed",
+  "integrations.signature.state.unconfirmed",
+  "integrations.signature.held",
+  "integrations.signature.signsOffAs",
   "integrations.signature.preview",
-  "integrations.signature.opsLabel",
-  "integrations.signature.placeholder",
+  "integrations.signature.fields.name",
+  "integrations.signature.fields.title",
+  "integrations.signature.fields.optional",
+  "integrations.signature.fields.company",
+  "integrations.signature.fields.phone",
+  "integrations.signature.fields.website",
+  "integrations.signature.logo.toggle",
+  "integrations.signature.logo.add",
+  "integrations.signature.logo.replace",
+  "integrations.signature.logo.revert",
+  "integrations.signature.logo.remove",
+  "integrations.signature.logo.removed",
+  "integrations.signature.logo.undo",
+  "integrations.signature.logo.failed",
+  "integrations.signature.layout.label",
+  "integrations.signature.layout.left",
+  "integrations.signature.layout.below",
+  "integrations.signature.subject.label",
+  "integrations.signature.subject.help",
+  "integrations.signature.subject.placeholder",
+  "integrations.signature.subject.variables",
+  "integrations.signature.subject.example",
+  "integrations.signature.subject.sample.name",
+  "integrations.signature.subject.sample.address",
+  "integrations.signature.subject.sample.project",
+  "integrations.signature.subject.sample.email",
+  "integrations.signature.gmailLabel",
   "integrations.signature.gmailHelp",
-  "integrations.signature.microsoft365Help",
+  "integrations.signature.confirmImported",
+  "integrations.signature.buildInstead",
   "integrations.signature.importGmail",
   "integrations.signature.edit",
   "integrations.signature.cancel",
@@ -23,14 +51,31 @@ const keys = [
   "integrations.signature.saved",
   "integrations.signature.saveFailed",
   "integrations.signature.imported",
+  "integrations.signature.notConfigured",
   "integrations.signature.importFailed",
   "integrations.signature.loadFailed",
   "integrations.signature.retry",
+] as const;
+
+/** Retired with the freeform textarea — the builder replaced every one. */
+const retiredKeys = [
+  "integrations.signature.source.ops",
+  "integrations.signature.source.gmail",
+  "integrations.signature.source.microsoft365",
+  "integrations.signature.missing",
+  "integrations.signature.opsLabel",
+  "integrations.signature.placeholder",
+  "integrations.signature.microsoft365Help",
 ] as const;
 
 describe("email signature settings dictionaries", () => {
   it.each(keys)("defines %s in English and Spanish", (key) => {
     expect(en[key]).toBeTruthy();
     expect(es[key]).toBeTruthy();
+  });
+
+  it.each(retiredKeys)("carries no dead string for %s", (key) => {
+    expect(key in en).toBe(false);
+    expect(key in es).toBe(false);
   });
 });

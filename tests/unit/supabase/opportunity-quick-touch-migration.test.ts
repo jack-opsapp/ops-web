@@ -33,6 +33,23 @@ function compact(value: string): string {
   return value.replace(/\s+/g, " ").toLowerCase();
 }
 
+function generatedFunctionBlock(name: string): string {
+  const marker = `      ${name}:`;
+  const start = databaseTypes.indexOf(marker);
+  expect(start, `${name} is missing from generated types`).toBeGreaterThanOrEqual(0);
+  const openingBrace = databaseTypes.indexOf("{", start);
+  expect(openingBrace).toBeGreaterThan(start);
+
+  let depth = 0;
+  for (let index = openingBrace; index < databaseTypes.length; index += 1) {
+    if (databaseTypes[index] === "{") depth += 1;
+    if (databaseTypes[index] === "}") depth -= 1;
+    if (depth === 0) return databaseTypes.slice(start, index + 1);
+  }
+
+  throw new Error(`unterminated generated function block: ${name}`);
+}
+
 describe("opportunity quick-touch migration", () => {
   it("widens the activity type constraint without dropping existing activity types", () => {
     const sql = compact(activityTypeMigration);
@@ -250,14 +267,20 @@ describe("opportunity quick-touch migration", () => {
   });
 
   it("keeps generated RPC types aligned with the deployed signatures", () => {
-    expect(databaseTypes).toMatch(
-      /log_opportunity_quick_touch:\s*\{\s*Args:\s*\{\s*p_opportunity_id: string\s*p_request_id: string\s*p_subject: string\s*p_type: string\s*\}\s*Returns: Json/
-    );
-    expect(databaseTypes).toMatch(
-      /undo_opportunity_quick_touch:\s*\{\s*Args:\s*\{\s*p_activity_id: string\s*p_opportunity_id: string\s*\}/
-    );
-    expect(databaseTypes).not.toMatch(
-      /undo_opportunity_quick_touch:[\s\S]{0,250}p_expected_handled_at/
-    );
+    const log = generatedFunctionBlock("log_opportunity_quick_touch");
+    for (const fragment of [
+      "p_opportunity_id: string",
+      "p_request_id: string",
+      "p_subject: string",
+      "p_type: string",
+      "Returns: Json",
+    ]) {
+      expect(log).toContain(fragment);
+    }
+
+    const undo = generatedFunctionBlock("undo_opportunity_quick_touch");
+    expect(undo).toContain("p_activity_id: string");
+    expect(undo).toContain("p_opportunity_id: string");
+    expect(undo).not.toContain("p_expected_handled_at");
   });
 });

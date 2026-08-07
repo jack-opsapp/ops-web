@@ -102,6 +102,10 @@ const CORPORATE_SIGNATURE_ACTION_RE =
   /\b(?:please|call|reply|respond|send|share|confirm|schedule|book|need|want|could|would|should|will|today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b|[?!]/i;
 const BARE_NAME_LINE_RE =
   /^[A-Z][A-Za-z.'’-]{1,39}(?:\s+[A-Z][A-Za-z.'’-]{1,39}){0,3}$/;
+const FULL_SIGNED_NAME_RE =
+  /^\p{L}[\p{L}.'’()-]{0,39}(?:\s+\p{L}[\p{L}.'’()-]{0,39}){1,3}$/u;
+const NON_PERSON_NAME_TOKEN_RE =
+  /^(?:and|the|this|that|these|those|should|would|could|work|works|working|team|everyone|folks|customer|client|owner|principal|president|director|designer|architect|manager|sales|support|office|admin|administrator|company|corporation|corp|inc|incorporated|ltd|limited|llc|group|collective|deck|rail|construction|services?)$/i;
 const ADDRESS_SHAPE_RE =
   /\b\d{1,6}\s+(?:[A-Za-z0-9.'’-]+\s+){0,6}(?:avenue|ave|boulevard|blvd|circle|court|ct|crescent|cr|drive|dr|highway|hwy|lane|ln|place|pl|road|rd|street|st|terrace|trail|way|suite)\b/i;
 const POSTSCRIPT_RE = /^\s*(?:p\.?\s*s\.?|postscript)\b/i;
@@ -131,6 +135,37 @@ function trimTrailingBlankLines(lines: string[]): string[] {
   const out = [...lines];
   while (out.length > 0 && isBlank(out[out.length - 1])) out.pop();
   return out;
+}
+
+/**
+ * Extract a full customer name from an explicit authored sign-off before the
+ * signature block is removed from `cleanBody`. Quote stripping runs first, so
+ * a name found only in quoted history can never become current-message identity.
+ */
+export function extractAuthoredSignatureName(
+  rawBody: string,
+  opts: CleanMessageOptions = {}
+): string | null {
+  const authored = authoredMessageBody(rawBody, opts)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n");
+  const lines = authored.split("\n");
+
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (!SIGNOFF_LINE_RE.test(lines[index] ?? "")) continue;
+    const tail = lines
+      .slice(index + 1)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const candidate = tail[0] ?? "";
+    if (candidate.length > MAX_SIG_LINE_LEN) continue;
+    if (!FULL_SIGNED_NAME_RE.test(candidate)) continue;
+    const tokens = candidate.split(/\s+/);
+    if (tokens.some((token) => NON_PERSON_NAME_TOKEN_RE.test(token))) continue;
+    return candidate.replace(/\s+/g, " ").trim();
+  }
+
+  return null;
 }
 
 function isCorporateSignatureShapedLine(line: string): boolean {

@@ -9,7 +9,10 @@ const requiredProductPayload = {
   minimumCharge: 1500,
   isTaxable: true,
   showInStorefront: true,
-  taskTypeRef: "vinyl-install",
+  kind: "service",
+  type: "LABOR",
+  taskTypeClientId: "vinyl-install",
+  linkedFamilyRef: "vinyl-family",
 };
 
 describe("Phase C semantic validator", () => {
@@ -215,6 +218,252 @@ describe("Phase C semantic validator", () => {
         expect.objectContaining({
           code: "capability_unavailable",
           actionKey: "create:material-rule:vinyl",
+        }),
+      ]),
+    );
+  });
+
+  it("rejects unsupported fields hidden inside an otherwise supported action", () => {
+    const result = validateCatalogAgentTurn({
+      kind: "review",
+      facts: [],
+      blueprint: {
+        version: 1,
+        capabilityRevision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+        summary: "Unsupported quote display promise",
+        ready: true,
+        issues: [],
+        actions: [
+          {
+            actionKey: "create:product:vinyl",
+            group: "CREATE",
+            actionType: "upsert_product",
+            targetKind: "product",
+            clientId: "vinyl",
+            dependsOn: [],
+            payload: {
+              ...requiredProductPayload,
+              showPricingUnit: false,
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "unsupported_action_payload",
+          actionKey: "create:product:vinyl",
+        }),
+      ]),
+    );
+  });
+
+  it("rejects wrong value types and references the executor cannot resolve", () => {
+    const result = validateCatalogAgentTurn({
+      kind: "review",
+      facts: [],
+      blueprint: {
+        version: 1,
+        capabilityRevision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+        summary: "Malformed executable product",
+        ready: true,
+        issues: [],
+        actions: [
+          {
+            actionKey: "create:product:vinyl",
+            group: "CREATE",
+            actionType: "upsert_product",
+            targetKind: "product",
+            clientId: "vinyl",
+            dependsOn: [],
+            payload: {
+              ...requiredProductPayload,
+              basePrice: "11.35",
+              taskTypeRef: "vinyl-install",
+              taskTypeClientId: undefined,
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "unsupported_action_payload",
+          actionKey: "create:product:vinyl",
+        }),
+      ]),
+    );
+  });
+
+  it("rejects structurally valid references that do not resolve inside the blueprint", () => {
+    const result = validateCatalogAgentTurn({
+      kind: "review",
+      facts: [],
+      blueprint: {
+        version: 1,
+        capabilityRevision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+        summary: "Unresolved executor reference",
+        ready: true,
+        issues: [],
+        actions: [
+          {
+            actionKey: "reuse:task-type:vinyl-install",
+            group: "REUSE",
+            actionType: "reuse_task_type",
+            targetKind: "task_type",
+            clientId: "vinyl-install",
+            existingId: "00000000-0000-4000-8000-000000000001",
+            dependsOn: [],
+            payload: {
+              clientId: "vinyl-install",
+              display: "Vinyl Install",
+            },
+          },
+          {
+            actionKey: "create:catalog-family:vinyl-family",
+            group: "CREATE",
+            actionType: "upsert_catalog_family",
+            targetKind: "catalog_item",
+            clientId: "vinyl-family",
+            dependsOn: [],
+            payload: { name: "Vinyl membrane" },
+          },
+          {
+            actionKey: "create:product:vinyl",
+            group: "CREATE",
+            actionType: "upsert_product",
+            targetKind: "product",
+            clientId: "vinyl",
+            dependsOn: [],
+            payload: {
+              ...requiredProductPayload,
+              taskTypeClientId: "missing-task-type",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "unresolved_action_reference",
+          actionKey: "create:product:vinyl",
+        }),
+      ]),
+    );
+  });
+
+  it("rejects an existing UUID used directly instead of its logical client ID", () => {
+    const existingTaskTypeId = "00000000-0000-4000-8000-000000000001";
+    const result = validateCatalogAgentTurn({
+      kind: "review",
+      facts: [],
+      blueprint: {
+        version: 1,
+        capabilityRevision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+        summary: "Direct database reference",
+        ready: true,
+        issues: [],
+        actions: [
+          {
+            actionKey: "reuse:task-type:vinyl-install",
+            group: "REUSE",
+            actionType: "reuse_task_type",
+            targetKind: "task_type",
+            clientId: "vinyl-install",
+            existingId: existingTaskTypeId,
+            dependsOn: [],
+            payload: {
+              clientId: "vinyl-install",
+              display: "Vinyl Install",
+            },
+          },
+          {
+            actionKey: "create:catalog-family:vinyl-family",
+            group: "CREATE",
+            actionType: "upsert_catalog_family",
+            targetKind: "catalog_item",
+            clientId: "vinyl-family",
+            dependsOn: [],
+            payload: { name: "Vinyl membrane" },
+          },
+          {
+            actionKey: "create:product:vinyl",
+            group: "CREATE",
+            actionType: "upsert_product",
+            targetKind: "product",
+            clientId: "vinyl",
+            dependsOn: [],
+            payload: {
+              ...requiredProductPayload,
+              taskTypeClientId: existingTaskTypeId,
+            },
+          },
+        ],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "unresolved_action_reference",
+          actionKey: "create:product:vinyl",
+        }),
+      ]),
+    );
+  });
+
+  it("rejects duplicate logical client IDs as ambiguous", () => {
+    const duplicateTaskType = (suffix: string, existingId: string) => ({
+      actionKey: `reuse:task-type:vinyl-install:${suffix}`,
+      group: "REUSE" as const,
+      actionType: "reuse_task_type" as const,
+      targetKind: "task_type",
+      clientId: "vinyl-install",
+      existingId,
+      dependsOn: [],
+      payload: {
+        clientId: "vinyl-install",
+        display: "Vinyl Install",
+      },
+    });
+    const result = validateCatalogAgentTurn({
+      kind: "review",
+      facts: [],
+      blueprint: {
+        version: 1,
+        capabilityRevision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+        summary: "Ambiguous logical reference",
+        ready: true,
+        issues: [],
+        actions: [
+          duplicateTaskType(
+            "one",
+            "00000000-0000-4000-8000-000000000001",
+          ),
+          duplicateTaskType(
+            "two",
+            "00000000-0000-4000-8000-000000000002",
+          ),
+        ],
+      },
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "unresolved_action_reference",
+          actionKey: "reuse:task-type:vinyl-install:two",
         }),
       ]),
     );

@@ -8,6 +8,7 @@ export type NotificationType =
   | "gmail_sync"
   | "email_sync_complete"
   | "email_signature_required"
+  | "email_identity_confirmation_required"
   | "intel_available"
   | "setup_prompt"
   | "leads_waiting"

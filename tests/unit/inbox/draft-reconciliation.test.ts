@@ -7,16 +7,24 @@
 
 import { beforeEach, describe, it, expect, vi } from "vitest";
 
-const { getDraftMock, enqueueIfEnabledMock, listKnownSignaturesMock } =
-  vi.hoisted(() => ({
-    getDraftMock: vi.fn(),
-    enqueueIfEnabledMock: vi.fn(),
-    listKnownSignaturesMock: vi.fn(),
-  }));
+const {
+  getDraftMock,
+  deleteDraftMock,
+  enqueueIfEnabledMock,
+  listKnownSignaturesMock,
+} = vi.hoisted(() => ({
+  getDraftMock: vi.fn(),
+  deleteDraftMock: vi.fn(),
+  enqueueIfEnabledMock: vi.fn(),
+  listKnownSignaturesMock: vi.fn(),
+}));
 
 vi.mock("@/lib/api/services/email-service", () => ({
   EmailService: {
-    getProvider: () => ({ getDraft: getDraftMock }),
+    getProvider: () => ({
+      getDraft: getDraftMock,
+      deleteDraft: deleteDraftMock,
+    }),
   },
 }));
 
@@ -49,6 +57,7 @@ vi.mock("@/lib/api/services/email-signature-service", async () => {
 import {
   classifyDraftOutcome,
   reconcilePendingMailboxDrafts,
+  reconcilePendingMailboxDraftsForConnection,
   type DraftOutcome,
 } from "@/lib/api/services/draft-reconciliation";
 import * as DraftReconciliationModule from "@/lib/api/services/draft-reconciliation";
@@ -166,6 +175,72 @@ describe("classifyDraftOutcome", () => {
     expect(result).toBe<DraftOutcome>("pending");
   });
 
+  // ── used: draft still present but the send provably came from it ─────────
+  // Regression cover for bug be648d50. A present draft object is absence of
+  // proof, not proof of independent authorship: the operator can reuse the
+  // draft's text without consuming the draft resource.
+  it("returns 'used' when the draft is still in the mailbox but the send derives from it", () => {
+    const result = classifyDraftOutcome({
+      draftStillInMailbox: true,
+      hasOutboundAfter: true,
+      daysSinceDraft: 0,
+      outboundDerivedFromDraft: true,
+    });
+    expect(result).toBe<DraftOutcome>("used");
+  });
+
+  it("still returns 'from_scratch' when a present draft has no derivation evidence", () => {
+    const result = classifyDraftOutcome({
+      draftStillInMailbox: true,
+      hasOutboundAfter: true,
+      daysSinceDraft: 0,
+      outboundDerivedFromDraft: false,
+    });
+    expect(result).toBe<DraftOutcome>("from_scratch");
+  });
+
+  it("defaults to 'from_scratch' for a present draft when derivation is unknown", () => {
+    const result = classifyDraftOutcome({
+      draftStillInMailbox: true,
+      hasOutboundAfter: true,
+      daysSinceDraft: 0,
+    });
+    expect(result).toBe<DraftOutcome>("from_scratch");
+  });
+
+  it("keeps a consumed draft as 'used' even without derivation evidence", () => {
+    // A gone draft plus an outbound reply is the strongest proof available;
+    // content evidence is only ever an additional route to the same verdict.
+    const result = classifyDraftOutcome({
+      draftStillInMailbox: false,
+      hasOutboundAfter: true,
+      daysSinceDraft: 0,
+      outboundDerivedFromDraft: false,
+    });
+    expect(result).toBe<DraftOutcome>("used");
+  });
+
+  it("never lets derivation evidence resolve a draft with no outbound reply", () => {
+    // Guards the discarded/replaced protection: without a send there is
+    // nothing to have been sent, whatever the bodies look like.
+    expect(
+      classifyDraftOutcome({
+        draftStillInMailbox: false,
+        hasOutboundAfter: false,
+        daysSinceDraft: 30,
+        outboundDerivedFromDraft: true,
+      })
+    ).toBe<DraftOutcome>("discarded");
+    expect(
+      classifyDraftOutcome({
+        draftStillInMailbox: true,
+        hasOutboundAfter: false,
+        daysSinceDraft: 30,
+        outboundDerivedFromDraft: true,
+      })
+    ).toBe<DraftOutcome>("pending");
+  });
+
   it("uses 14 days as the default TTL when ttlDays is not provided", () => {
     // 13 days → still pending with default 14-day TTL
     const pendingResult = classifyDraftOutcome({
@@ -188,8 +263,10 @@ describe("classifyDraftOutcome", () => {
 describe("reconcilePendingMailboxDrafts", () => {
   beforeEach(() => {
     getDraftMock.mockReset();
+    deleteDraftMock.mockReset();
     enqueueIfEnabledMock.mockReset();
     getDraftMock.mockResolvedValue(null);
+    deleteDraftMock.mockResolvedValue(undefined);
     enqueueIfEnabledMock.mockResolvedValue({ id: "queue-1" });
     listKnownSignaturesMock.mockResolvedValue([
       {
@@ -199,6 +276,91 @@ describe("reconcilePendingMailboxDrafts", () => {
         contentHash: "a".repeat(64),
       },
     ]);
+  });
+
+  it("deletes and supersedes a partial-context draft when a later inbound exists", async () => {
+    const pendingRows = [
+      {
+        id: "draft-history-stale",
+        company_id: "company-1",
+        user_id: "user-1",
+        mailbox_draft_id: "provider-draft-stale",
+        source_message_id: "provider-inbound-1",
+        created_at: "2026-07-10T09:05:00.000Z",
+        profile_type: "general",
+        opportunity_id: "opportunity-1",
+      },
+    ];
+    const activities = [
+      {
+        id: "activity-in-1",
+        direction: "inbound",
+        body_text: "First message",
+        created_at: "2026-07-10T09:00:00.000Z",
+        subject: "Schedule",
+        from_email: "rose@example.com",
+        to_emails: ["operator@example.com"],
+        email_message_id: "provider-inbound-1",
+        opportunity_id: "opportunity-1",
+      },
+      {
+        id: "activity-in-2",
+        direction: "inbound",
+        body_text: "Correction with current details",
+        created_at: "2026-07-10T09:10:00.000Z",
+        subject: "Re: Schedule",
+        from_email: "rose@example.com",
+        to_emails: ["operator@example.com"],
+        email_message_id: "provider-inbound-2",
+        opportunity_id: "opportunity-1",
+      },
+    ];
+    const updateCalls: Array<Record<string, unknown>> = [];
+    getDraftMock.mockResolvedValue({ id: "provider-draft-stale" });
+
+    function queryFor(table: string) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updateCalls.push(payload);
+          return query;
+        }),
+        order: vi.fn(async () => ({
+          data: table === "activities" ? activities : [],
+          error: null,
+        })),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve({
+            data: table === "ai_draft_history" ? pendingRows : [],
+            error: null,
+          }).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    await reconcilePendingMailboxDrafts({
+      connection: {
+        id: "connection-1",
+        companyId: "company-1",
+        email: "operator@example.com",
+      } as never,
+      providerThreadId: "provider-thread-1",
+      supabase: {
+        from: vi.fn((table: string) => queryFor(table)),
+      } as never,
+    });
+
+    expect(deleteDraftMock).toHaveBeenCalledOnce();
+    expect(deleteDraftMock).toHaveBeenCalledWith("provider-draft-stale");
+    expect(updateCalls).toContainEqual(
+      expect.objectContaining({ status: "superseded" })
+    );
+    expect(enqueueIfEnabledMock).not.toHaveBeenCalled();
   });
 
   it("hands a mailbox-sent AI draft to the durable provider-id queue exactly once", async () => {
@@ -216,6 +378,7 @@ describe("reconcilePendingMailboxDrafts", () => {
     const outboundRows = [
       {
         id: "activity-1",
+        direction: "outbound",
         body_text:
           "Final operator body\n\nThanks,\n\nOld Jackson\nOld OPS LTD.\n\n" +
           "On Tue, Jul 14, 2026, Lead wrote:\n> Prior message",
@@ -338,6 +501,394 @@ describe("reconcilePendingMailboxDrafts", () => {
       connectionId: "connection-1",
     });
     expect(updateCalls).toEqual([]);
+  });
+
+  it("files a draft the operator lifted into a fresh compose as sent, not superseded", async () => {
+    // Production regression, bug be648d50. Real row
+    // 53e09e3f-3e1f-4290-9582-387b1e33a7bf: the operator edited our draft and
+    // sent it from Gmail at 00:37:59Z, but the API draft object survived, so
+    // reconciliation called it a from-scratch rewrite 12s later and buried the
+    // row as `superseded` — no sent_at, no final_version, no learning row.
+    const originalDraft =
+      "Hi Steve,\n\nHope you’re doing well, and thanks for reaching out again.\n\n" +
+      "We’d be happy to take a look at the front deck repair at Tanner Ridge. Early next week should work, and I think meeting on site in Central Saanich makes the most sense.\n\n" +
+      "If Monday is best for you, send me a time that works and we can set it up. If another day early next week is better, that works too.\n\nThanks,";
+    const sentBody =
+      "Hi Steve,\r\n\r\nHope you’re doing well, and thanks for reaching out again.\r\n\r\n" +
+      "Happy to take a look at the front deck repair at Tanner Ridge. If you have\r\nany dimensions and photos to share, I could likely get you an idea of\r\n" +
+      "pricing within the next day or two. We can also book a site visit for\r\nFriday if you are available late morning.\r\n\r\n" +
+      "All the best,\r\n\r\nJackson\r\n";
+
+    const pendingRows = [
+      {
+        id: "draft-history-steve",
+        company_id: "company-1",
+        user_id: "user-1",
+        mailbox_draft_id: "r5528848112558729074",
+        source_message_id: null,
+        created_at: "2026-08-05T23:22:16.142Z",
+        profile_type: "client_new_inquiry",
+        opportunity_id: "opportunity-steve",
+        original_draft: originalDraft,
+      },
+    ];
+    const outboundRows = [
+      {
+        id: "activity-steve",
+        direction: "outbound",
+        body_text: sentBody,
+        created_at: "2026-08-06T00:37:59.000Z",
+        subject: "Canpro Deck and Rail Estimate",
+        from_email: "canprojack@gmail.com",
+        to_emails: ["stevecashline@gmail.com"],
+        email_message_id: "19fd4817141c585b",
+        opportunity_id: "opportunity-steve",
+      },
+    ];
+    const updateCalls: Array<Record<string, unknown>> = [];
+
+    // The draft resource is STILL in the mailbox — the condition that used to
+    // force `from_scratch`.
+    getDraftMock.mockResolvedValue({ id: "r5528848112558729074" });
+
+    function queryFor(table: string) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updateCalls.push(payload);
+          return query;
+        }),
+        order: vi.fn(async () => ({
+          data: table === "activities" ? outboundRows : [],
+          error: null,
+        })),
+        limit: vi.fn(async () => ({ data: [], error: null })),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve({
+            data: table === "ai_draft_history" ? pendingRows : [],
+            error: null,
+          }).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    const supabase = {
+      from: vi.fn((table: string) => queryFor(table)),
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          actorUserId: "user-1",
+          opportunityId: "opportunity-steve",
+          assignmentVersion: 1,
+          assignmentEventId: "assignment-event-1",
+          proofType: "native_mailbox_draft",
+        },
+        error: null,
+      }),
+    };
+
+    await reconcilePendingMailboxDrafts({
+      connection: {
+        id: "connection-1",
+        companyId: "company-1",
+        email: "canprojack@gmail.com",
+      } as never,
+      providerThreadId: "19fc50046507256d",
+      supabase: supabase as never,
+    });
+
+    // Resolved as a mailbox send, not a rewrite.
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      "resolve_email_outbound_learning_mailbox_actor_as_system",
+      expect.objectContaining({
+        p_draft_history_id: "draft-history-steve",
+        p_provider_message_id: "19fd4817141c585b",
+        p_outcome: "used",
+      })
+    );
+    // The draft receipt is attached, so the durable queue owns the sent-state
+    // transition (status/sent_at/final_version/sent_provider_message_id).
+    expect(enqueueIfEnabledMock).toHaveBeenCalledTimes(1);
+    expect(enqueueIfEnabledMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftHistoryId: "draft-history-steve",
+        draftDeliveryChannel: "mailbox",
+        providerMessageId: "19fd4817141c585b",
+        providerThreadId: "19fc50046507256d",
+        opportunityId: "opportunity-steve",
+      })
+    );
+    // The message is already delivered, so the draft object left behind is a
+    // loaded gun: opening and sending it delivers the same reply twice.
+    expect(deleteDraftMock).toHaveBeenCalledOnce();
+    expect(deleteDraftMock).toHaveBeenCalledWith("r5528848112558729074");
+    // The row is never buried; nothing in this file may write its terminal state.
+    expect(updateCalls).toEqual([]);
+  });
+
+  it("keeps reconciliation green when the orphan draft delete is refused", async () => {
+    // Mailbox cleanup is hygiene, not truth. A revoked scope or a provider
+    // blip must never withhold the sync cursor or lose the send we just proved.
+    const originalDraft =
+      "Hi Steve,\n\nHope you’re doing well, and thanks for reaching out again.\n\n" +
+      "We’d be happy to take a look at the front deck repair at Tanner Ridge. Early next week should work, and I think meeting on site in Central Saanich makes the most sense.\n\nThanks,";
+    const sentBody =
+      "Hi Steve,\r\n\r\nHope you’re doing well, and thanks for reaching out again.\r\n\r\n" +
+      "We’d be happy to take a look at the front deck repair at Tanner Ridge. Early\r\nnext week should work, and I think meeting on site in Central Saanich makes\r\nthe most sense.\r\n\r\nAll the best,\r\n\r\nJackson\r\n";
+
+    const pendingRows = [
+      {
+        id: "draft-history-steve",
+        company_id: "company-1",
+        user_id: "user-1",
+        mailbox_draft_id: "r5528848112558729074",
+        source_message_id: null,
+        created_at: "2026-08-05T23:22:16.142Z",
+        profile_type: "client_new_inquiry",
+        opportunity_id: "opportunity-steve",
+        original_draft: originalDraft,
+      },
+    ];
+    const outboundRows = [
+      {
+        id: "activity-steve",
+        direction: "outbound",
+        body_text: sentBody,
+        created_at: "2026-08-06T00:37:59.000Z",
+        subject: "Canpro Deck and Rail Estimate",
+        from_email: "canprojack@gmail.com",
+        to_emails: ["stevecashline@gmail.com"],
+        email_message_id: "19fd4817141c585b",
+        opportunity_id: "opportunity-steve",
+      },
+    ];
+
+    getDraftMock.mockResolvedValue({ id: "r5528848112558729074" });
+    deleteDraftMock.mockRejectedValue(new Error("insufficient permission"));
+
+    function queryFor(table: string) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        update: vi.fn(() => query),
+        order: vi.fn(async () => ({
+          data: table === "activities" ? outboundRows : [],
+          error: null,
+        })),
+        limit: vi.fn(async () => ({ data: [], error: null })),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve({
+            data: table === "ai_draft_history" ? pendingRows : [],
+            error: null,
+          }).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    const supabase = {
+      from: vi.fn((table: string) => queryFor(table)),
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          actorUserId: "user-1",
+          opportunityId: "opportunity-steve",
+          assignmentVersion: 1,
+          assignmentEventId: "assignment-event-1",
+          proofType: "native_mailbox_draft",
+        },
+        error: null,
+      }),
+    };
+
+    await expect(
+      reconcilePendingMailboxDrafts({
+        connection: {
+          id: "connection-1",
+          companyId: "company-1",
+          email: "canprojack@gmail.com",
+        } as never,
+        providerThreadId: "19fc50046507256d",
+        supabase: supabase as never,
+      })
+    ).resolves.toBeUndefined();
+
+    expect(deleteDraftMock).toHaveBeenCalledWith("r5528848112558729074");
+    expect(enqueueIfEnabledMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the mailbox alone when the send already consumed the draft", async () => {
+    // Draft gone is the strongest proof of a send and needs no cleanup — there
+    // is no object left to delete, and a spurious delete call would be noise.
+    const pendingRows = [
+      {
+        id: "draft-history-consumed",
+        company_id: "company-1",
+        user_id: "user-1",
+        mailbox_draft_id: "provider-draft-consumed",
+        source_message_id: null,
+        created_at: "2026-07-10T09:00:00.000Z",
+        profile_type: "client_new_inquiry",
+        opportunity_id: "opportunity-1",
+        original_draft: "Hi there,\n\nHappy to help with the deck.\n\nThanks,",
+      },
+    ];
+    const outboundRows = [
+      {
+        id: "activity-1",
+        direction: "outbound",
+        body_text: "Hi there,\n\nHappy to help with the deck.\n\nThanks,\nJackson",
+        created_at: "2026-07-10T10:00:00.000Z",
+        subject: "Deck",
+        from_email: "operator@example.com",
+        to_emails: ["lead@example.com"],
+        email_message_id: "provider-message-1",
+        opportunity_id: "opportunity-1",
+      },
+    ];
+    getDraftMock.mockResolvedValue(null);
+
+    function queryFor(table: string) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        update: vi.fn(() => query),
+        order: vi.fn(async () => ({
+          data: table === "activities" ? outboundRows : [],
+          error: null,
+        })),
+        limit: vi.fn(async () => ({ data: [], error: null })),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve({
+            data: table === "ai_draft_history" ? pendingRows : [],
+            error: null,
+          }).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    await reconcilePendingMailboxDrafts({
+      connection: {
+        id: "connection-1",
+        companyId: "company-1",
+        email: "operator@example.com",
+      } as never,
+      providerThreadId: "provider-thread-1",
+      supabase: {
+        from: vi.fn((table: string) => queryFor(table)),
+        rpc: vi.fn().mockResolvedValue({
+          data: {
+            actorUserId: "user-1",
+            opportunityId: "opportunity-1",
+            assignmentVersion: 1,
+            assignmentEventId: "assignment-event-1",
+            proofType: "native_mailbox_draft",
+          },
+          error: null,
+        }),
+      } as never,
+    });
+
+    expect(deleteDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("still supersedes a genuinely independent reply written in the same voice", async () => {
+    // The false-positive guard: same operator, same stock opener and signature,
+    // but the send reuses none of this draft's wording.
+    const pendingRows = [
+      {
+        id: "draft-history-karan",
+        company_id: "company-1",
+        user_id: "user-1",
+        mailbox_draft_id: "r5118626185896316757",
+        source_message_id: null,
+        created_at: "2026-08-05T23:32:31.649Z",
+        profile_type: "client_new_inquiry",
+        opportunity_id: "opportunity-karan",
+        original_draft:
+          "Hi Karan,\n\nHope your weekend’s going well.\n\n" +
+          "Thanks for reaching out about the backyard project. I saw you’re looking at a 9 ft x 17 ft deck and about 72 ft of fencing in Langford.\n\nThanks,",
+      },
+    ];
+    const outboundRows = [
+      {
+        id: "activity-unrelated",
+        direction: "outbound",
+        body_text:
+          "Hi Karan,\r\n\r\nJust following up here- did you have any questions about the quote?\r\n\r\n" +
+          "Let me know if there's anything we can help with.\r\n\r\nCheers\r\nJackson\r\n",
+        created_at: "2026-08-06T00:31:01.000Z",
+        subject: "Canpro Deck and Rail Estimate",
+        from_email: "canprojack@gmail.com",
+        to_emails: ["karanmendiratta9462@gmail.com"],
+        email_message_id: "19fd47b0a364e45b",
+        opportunity_id: "opportunity-karan",
+      },
+    ];
+    const updateCalls: Array<Record<string, unknown>> = [];
+    getDraftMock.mockResolvedValue({ id: "r5118626185896316757" });
+
+    function queryFor(table: string) {
+      const query = {
+        select: vi.fn(() => query),
+        eq: vi.fn(() => query),
+        not: vi.fn(() => query),
+        update: vi.fn((payload: Record<string, unknown>) => {
+          updateCalls.push(payload);
+          return query;
+        }),
+        order: vi.fn(async () => ({
+          data: table === "activities" ? outboundRows : [],
+          error: null,
+        })),
+        limit: vi.fn(async () => ({ data: [], error: null })),
+        then: (
+          onfulfilled?: (value: unknown) => unknown,
+          onrejected?: (reason: unknown) => unknown
+        ) =>
+          Promise.resolve({
+            data: table === "ai_draft_history" ? pendingRows : [],
+            error: null,
+          }).then(onfulfilled, onrejected),
+      };
+      return query;
+    }
+
+    const supabase = {
+      from: vi.fn((table: string) => queryFor(table)),
+      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+    };
+
+    await reconcilePendingMailboxDrafts({
+      connection: {
+        id: "connection-1",
+        companyId: "company-1",
+        email: "canprojack@gmail.com",
+      } as never,
+      providerThreadId: "19fc7dcbf29477b8",
+      supabase: supabase as never,
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      "resolve_email_outbound_learning_mailbox_actor_as_system",
+      expect.objectContaining({ p_outcome: "from_scratch" })
+    );
+    expect(updateCalls).toContainEqual(
+      expect.objectContaining({ status: "superseded" })
+    );
+    // No derivation proof means no admissible evidence that this draft's
+    // wording was ever delivered. It stays in the operator's Drafts folder.
+    expect(deleteDraftMock).not.toHaveBeenCalled();
   });
 
   it("bounds exact provider draft reads under one absolute deadline", async () => {
@@ -541,6 +1092,10 @@ describe("reconcilePendingMailboxDrafts", () => {
         select: vi.fn(() => query),
         eq: vi.fn(() => query),
         not: vi.fn(() => query),
+        // The terminal-orphan sweep runs off the same connection entry point
+        // and finds no settled rows here (query 3 resolves empty).
+        in: vi.fn(() => query),
+        is: vi.fn(() => query),
         order: vi.fn(() => query),
         limit: vi.fn(() => query),
         update: vi.fn((payload: Record<string, unknown>) => {
@@ -681,6 +1236,7 @@ describe("reconcilePendingMailboxDrafts", () => {
     const outboundRows = [
       {
         id: "activity-1",
+        direction: "outbound",
         body_text: "Final body\n\nJackson\nOPS LTD.",
         created_at: "2026-07-10T10:00:00.000Z",
         subject: "Final subject",
@@ -746,6 +1302,384 @@ describe("reconcilePendingMailboxDrafts", () => {
         providerMessageId: "immutable-sent-message-1",
         draftHistoryId: "draft-history-new",
       })
+    );
+  });
+});
+
+// ─── Terminal orphan sweep ──────────────────────────────────────────────────
+//
+// A draft the operator lifted into a fresh compose survives the send. Once the
+// history row goes terminal the per-thread reconciler stops looking at it, so
+// the object sits in Drafts reading like an unsent reply. These cover the
+// bounded sweep that closes that gap — including the backlog written before
+// commit cca1120e taught the classifier to read the sent body.
+
+interface SweepFixture {
+  /** Unresolved terminal rows the sweep selects first. */
+  terminalRows: Array<Record<string, unknown>>;
+  /** Every row sharing those draft ids, used to find the object's real owner. */
+  siblingRows?: Array<Record<string, unknown>>;
+  /** Outbound activities returned for the derivation re-check. */
+  activityRows?: Array<Record<string, unknown>>;
+}
+
+function sweepSupabase(fixture: SweepFixture) {
+  const updates: Array<{ payload: Record<string, unknown>; ops: string[] }> = [];
+  const from = vi.fn((table: string) => {
+    const ops: string[] = [];
+    let updatePayload: Record<string, unknown> | null = null;
+    const chain: Record<string, unknown> = {};
+    const record =
+      (name: string) =>
+      (...args: unknown[]) => {
+        ops.push(
+          `${name}:${args
+            .map((arg) => (Array.isArray(arg) ? arg.join("|") : String(arg)))
+            .join(":")}`
+        );
+        return chain;
+      };
+    for (const name of ["select", "eq", "in", "not", "is", "gt", "order", "limit"]) {
+      chain[name] = vi.fn(record(name));
+    }
+    chain.update = vi.fn((payload: Record<string, unknown>) => {
+      updatePayload = payload;
+      return chain;
+    });
+    const resolve = () => {
+      if (updatePayload) {
+        updates.push({ payload: updatePayload, ops: [...ops] });
+        return { data: null, error: null };
+      }
+      if (table === "activities") {
+        return { data: fixture.activityRows ?? [], error: null };
+      }
+      if (table !== "ai_draft_history") return { data: [], error: null };
+      // The owner lookup pulls every row carrying the candidate draft ids.
+      if (ops.some((op) => op.startsWith("in:mailbox_draft_id"))) {
+        return {
+          data: fixture.siblingRows ?? fixture.terminalRows,
+          error: null,
+        };
+      }
+      // The sweep's own candidate query is the one filtering on the marker.
+      if (ops.some((op) => op.startsWith("is:mailbox_draft_cleanup_at"))) {
+        return { data: fixture.terminalRows, error: null };
+      }
+      // Anything else is the pending-thread query: nothing in flight.
+      return { data: [], error: null };
+    };
+    chain.then = (
+      onfulfilled?: (value: unknown) => unknown,
+      onrejected?: (reason: unknown) => unknown
+    ) => Promise.resolve(resolve()).then(onfulfilled, onrejected);
+    return chain;
+  });
+  return {
+    supabase: {
+      from,
+      rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+    },
+    updates,
+  };
+}
+
+const SWEEP_CONNECTION = {
+  id: "connection-1",
+  companyId: "company-1",
+  email: "canprojack@gmail.com",
+} as never;
+
+/** A real draft/send pair from production — a 151-character verbatim run. */
+const DERIVED_DRAFT =
+  "Hi Steve,\n\nHope you’re doing well, and thanks for reaching out again.\n\n" +
+  "We’d be happy to take a look at the front deck repair at Tanner Ridge. Early next week should work, and I think meeting on site in Central Saanich makes the most sense.\n\nThanks,";
+const DERIVED_SEND =
+  "Hi Steve,\r\n\r\nHope you’re doing well, and thanks for reaching out again.\r\n\r\n" +
+  "We’d be happy to take a look at the front deck repair at Tanner Ridge. Early\r\nnext week should work, and I think meeting on site in Central Saanich makes\r\nthe most sense.\r\n\r\nAll the best,\r\n\r\nJackson\r\n";
+const UNRELATED_SEND =
+  "Hi Karan,\r\n\r\nJust following up here- did you have any questions about the quote?\r\n\r\n" +
+  "Let me know if there's anything we can help with.\r\n\r\nCheers\r\nJackson\r\n";
+
+function outboundActivity(bodyText: string) {
+  return [
+    {
+      id: "activity-1",
+      direction: "outbound",
+      body_text: bodyText,
+      created_at: "2026-08-06T00:37:59.000Z",
+      subject: "Canpro Deck and Rail Estimate",
+      from_email: "canprojack@gmail.com",
+      to_emails: ["lead@example.com"],
+      email_message_id: "19fd4817141c585b",
+      opportunity_id: "opportunity-1",
+    },
+  ];
+}
+
+describe("orphaned mailbox draft cleanup sweep", () => {
+  beforeEach(() => {
+    getDraftMock.mockReset();
+    deleteDraftMock.mockReset();
+    enqueueIfEnabledMock.mockReset();
+    getDraftMock.mockResolvedValue({ id: "d1" });
+    deleteDraftMock.mockResolvedValue(undefined);
+    listKnownSignaturesMock.mockResolvedValue([]);
+  });
+
+  it("deletes an orphan left behind by a send the durable queue receipted", async () => {
+    const { supabase, updates } = sweepSupabase({
+      terminalRows: [
+        {
+          id: "h1",
+          thread_id: "t1",
+          mailbox_draft_id: "d1",
+          status: "sent_from_mailbox",
+          created_at: "2026-08-05T23:22:16.142Z",
+          original_draft: DERIVED_DRAFT,
+          sent_provider_message_id: "19fd4817141c585b",
+        },
+      ],
+    });
+
+    await reconcilePendingMailboxDraftsForConnection({
+      connection: SWEEP_CONNECTION,
+      supabase: supabase as never,
+    });
+
+    expect(deleteDraftMock).toHaveBeenCalledOnce();
+    expect(deleteDraftMock).toHaveBeenCalledWith("d1");
+    expect(updates).toHaveLength(1);
+    expect(updates[0].payload).toEqual(
+      expect.objectContaining({
+        mailbox_draft_cleanup_at: expect.any(String),
+      })
+    );
+  });
+
+  it("never touches a draft object a newer pending row still owns", async () => {
+    // The draft id was re-pointed at a fresh placement: the object now holds
+    // unsent wording. An older row's send proves nothing about it.
+    const { supabase, updates } = sweepSupabase({
+      terminalRows: [
+        {
+          id: "h1",
+          thread_id: "t1",
+          mailbox_draft_id: "d1",
+          status: "sent_from_mailbox",
+          created_at: "2026-08-01T10:00:00.000Z",
+          original_draft: DERIVED_DRAFT,
+          sent_provider_message_id: "19fd4817141c585b",
+        },
+      ],
+      siblingRows: [
+        {
+          id: "h1",
+          thread_id: "t1",
+          mailbox_draft_id: "d1",
+          status: "sent_from_mailbox",
+          created_at: "2026-08-01T10:00:00.000Z",
+          original_draft: DERIVED_DRAFT,
+          sent_provider_message_id: "19fd4817141c585b",
+        },
+        {
+          id: "h2",
+          thread_id: "t1",
+          mailbox_draft_id: "d1",
+          status: "auto_drafted",
+          created_at: "2026-08-05T10:00:00.000Z",
+          original_draft: "Hi Steve,\n\nA brand new draft awaiting your send.",
+          sent_provider_message_id: null,
+        },
+      ],
+    });
+
+    await reconcilePendingMailboxDraftsForConnection({
+      connection: SWEEP_CONNECTION,
+      supabase: supabase as never,
+    });
+
+    expect(getDraftMock).not.toHaveBeenCalled();
+    expect(deleteDraftMock).not.toHaveBeenCalled();
+    expect(updates).toEqual([]);
+  });
+
+  it("deletes an orphan from a send this classifier once misfiled as a rewrite", async () => {
+    // The pre-cca1120e backlog: filed `superseded`, no queue receipt, but the
+    // sent body still carries this draft's wording verbatim.
+    const { supabase, updates } = sweepSupabase({
+      terminalRows: [
+        {
+          id: "h1",
+          thread_id: "t1",
+          mailbox_draft_id: "d1",
+          status: "superseded",
+          created_at: "2026-07-27T20:24:14.589Z",
+          original_draft: DERIVED_DRAFT,
+          sent_provider_message_id: null,
+        },
+      ],
+      activityRows: outboundActivity(DERIVED_SEND),
+    });
+
+    await reconcilePendingMailboxDraftsForConnection({
+      connection: SWEEP_CONNECTION,
+      supabase: supabase as never,
+    });
+
+    expect(deleteDraftMock).toHaveBeenCalledWith("d1");
+    expect(updates).toHaveLength(1);
+  });
+
+  it("leaves a draft the operator ignored, and settles it so it is probed once", async () => {
+    const { supabase, updates } = sweepSupabase({
+      terminalRows: [
+        {
+          id: "h1",
+          thread_id: "t1",
+          mailbox_draft_id: "d1",
+          status: "superseded",
+          created_at: "2026-08-05T23:32:31.649Z",
+          original_draft: DERIVED_DRAFT,
+          sent_provider_message_id: null,
+        },
+      ],
+      activityRows: outboundActivity(UNRELATED_SEND),
+    });
+
+    await reconcilePendingMailboxDraftsForConnection({
+      connection: SWEEP_CONNECTION,
+      supabase: supabase as never,
+    });
+
+    expect(deleteDraftMock).not.toHaveBeenCalled();
+    // Settled, not forgotten: a terminal row's verdict can never change, so
+    // the marker keeps the sweep from re-reading this object every sync.
+    expect(updates).toHaveLength(1);
+    expect(updates[0].payload).toEqual(
+      expect.objectContaining({
+        mailbox_draft_cleanup_at: expect.any(String),
+      })
+    );
+  });
+
+  it("refuses to delete a legacy mailbox send that carries no durable receipt", async () => {
+    // Six real rows reached `sent_from_mailbox` when absence from a bounded
+    // listDrafts() page was still treated as proof of a send. That proof was
+    // withdrawn; their drafts may be genuinely unsent operator work.
+    const { supabase, updates } = sweepSupabase({
+      terminalRows: [
+        {
+          id: "h1",
+          thread_id: "t1",
+          mailbox_draft_id: "d1",
+          status: "sent_from_mailbox",
+          created_at: "2026-07-09T12:00:00.000Z",
+          original_draft: DERIVED_DRAFT,
+          sent_provider_message_id: null,
+        },
+      ],
+      activityRows: outboundActivity(UNRELATED_SEND),
+    });
+
+    await reconcilePendingMailboxDraftsForConnection({
+      connection: SWEEP_CONNECTION,
+      supabase: supabase as never,
+    });
+
+    expect(deleteDraftMock).not.toHaveBeenCalled();
+    expect(updates).toHaveLength(1);
+  });
+
+  it("never fails the connection sweep when the provider refuses the cleanup", async () => {
+    getDraftMock.mockRejectedValue(new Error("insufficient permission"));
+    const { supabase, updates } = sweepSupabase({
+      terminalRows: [
+        {
+          id: "h1",
+          thread_id: "t1",
+          mailbox_draft_id: "d1",
+          status: "sent_from_mailbox",
+          created_at: "2026-08-05T23:22:16.142Z",
+          original_draft: DERIVED_DRAFT,
+          sent_provider_message_id: "19fd4817141c585b",
+        },
+      ],
+    });
+
+    await expect(
+      reconcilePendingMailboxDraftsForConnection({
+        connection: SWEEP_CONNECTION,
+        supabase: supabase as never,
+      })
+    ).resolves.toBeUndefined();
+
+    // Unstamped, so the next sweep retries rather than abandoning the orphan.
+    expect(updates).toEqual([]);
+  });
+});
+
+describe("orphaned mailbox draft cleanup — production shapes", () => {
+  beforeEach(() => {
+    getDraftMock.mockReset();
+    deleteDraftMock.mockReset();
+    getDraftMock.mockResolvedValue({ id: "r5528848112558729074" });
+    deleteDraftMock.mockResolvedValue(undefined);
+    listKnownSignaturesMock.mockResolvedValue([]);
+  });
+
+  it("deletes an orphan whose object was re-pointed away from older superseded rows", async () => {
+    // Real shape on draft r5528848112558729074: three histories share the
+    // object, and the two older ones are bare `superseded`. Ownership is what
+    // decides — the newest row carries the receipt, so the object is an orphan.
+    const owner = {
+      id: "53e09e3f-3e1f-4290-9582-387b1e33a7bf",
+      thread_id: "19fc50046507256d",
+      mailbox_draft_id: "r5528848112558729074",
+      status: "sent_from_mailbox",
+      created_at: "2026-08-05T23:22:16.142Z",
+      original_draft: DERIVED_DRAFT,
+      sent_provider_message_id: "19fd4817141c585b",
+    };
+    const olderSiblings = [
+      {
+        id: "e7bb98bf-222e-494d-bfe5-530e56a3bb32",
+        thread_id: "19fc50046507256d",
+        mailbox_draft_id: "r5528848112558729074",
+        status: "superseded",
+        created_at: "2026-08-05T23:02:40.487Z",
+        original_draft: DERIVED_DRAFT,
+        sent_provider_message_id: null,
+      },
+      {
+        id: "057f8152-a7a3-435d-8450-a9bcf87a2e6d",
+        thread_id: "19fc50046507256d",
+        mailbox_draft_id: "r5528848112558729074",
+        status: "superseded",
+        created_at: "2026-08-01T17:32:50.985Z",
+        original_draft: DERIVED_DRAFT,
+        sent_provider_message_id: null,
+      },
+    ];
+    const { supabase, updates } = sweepSupabase({
+      terminalRows: [owner, ...olderSiblings],
+      siblingRows: [owner, ...olderSiblings],
+      activityRows: outboundActivity(UNRELATED_SEND),
+    });
+
+    await reconcilePendingMailboxDraftsForConnection({
+      connection: SWEEP_CONNECTION,
+      supabase: supabase as never,
+    });
+
+    // One object, so exactly one provider read and one delete.
+    expect(getDraftMock).toHaveBeenCalledOnce();
+    expect(deleteDraftMock).toHaveBeenCalledOnce();
+    expect(deleteDraftMock).toHaveBeenCalledWith("r5528848112558729074");
+    // All three rows are settled together — the object they name is gone.
+    expect(updates).toHaveLength(1);
+    expect(updates[0].ops.join(" ")).toContain(
+      "in:id:53e09e3f-3e1f-4290-9582-387b1e33a7bf|e7bb98bf-222e-494d-bfe5-530e56a3bb32|057f8152-a7a3-435d-8450-a9bcf87a2e6d"
     );
   });
 });

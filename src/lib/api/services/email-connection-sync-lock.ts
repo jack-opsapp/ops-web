@@ -180,6 +180,37 @@ export async function persistEmailConnectionSyncCompletion({
   assertOwnerFencedWrite(data, error, context);
 }
 
+export async function persistEmailConnectionSyncCheckpoint({
+  connectionId,
+  ownerId,
+  historyId,
+  providerSnapshotComplete,
+  clearRecovery,
+  context,
+  client,
+}: {
+  connectionId: string;
+  ownerId: string;
+  historyId: string;
+  providerSnapshotComplete: boolean;
+  clearRecovery: boolean;
+  context: string;
+  client?: SupabaseClient;
+}): Promise<void> {
+  const supabase = client ?? requireSupabase();
+  const { data, error } = await supabase.rpc(
+    "persist_email_connection_sync_checkpoint_as_system",
+    {
+      p_connection_id: connectionId,
+      p_owner_id: ownerId,
+      p_history_id: historyId,
+      p_provider_snapshot_complete: providerSnapshotComplete,
+      p_clear_recovery: clearRecovery,
+    }
+  );
+  assertOwnerFencedWrite(data, error, context);
+}
+
 export async function completeGmailImportJobUnderSyncLock({
   connectionId,
   ownerId,

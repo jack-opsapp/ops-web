@@ -12,9 +12,37 @@ vi.mock("@/lib/supabase/accessToken-client", () => ({
 import {
   abandonGuidedSetupSession,
   GuidedSetupSessionVersionConflictError,
+  sameQuestionContract,
   loadCompanyCatalogRowSets,
   startOrResumeGuidedSetupSession,
 } from "../session-service";
+import { CATALOG_CAPABILITY_MANIFEST_REVISION } from "../catalog-capability-manifest";
+
+describe("sameQuestionContract", () => {
+  const question = {
+    id: "material-scope",
+    intent: "material_tracking_scope" as const,
+    capabilityRef: "static-product-materials/v1" as const,
+    context: { productLabel: "vinyl membrane" },
+    prompt: "How should OPS handle vinyl membrane?",
+    answerKind: "single_choice" as const,
+    factKeys: ["materials.vinyl.scope"],
+    options: ["Staff-managed", "Fixed quantity"],
+  };
+
+  it("treats intent and capability ownership as part of the question contract", () => {
+    expect(
+      sameQuestionContract(
+        {
+          ...question,
+          intent: "pricing",
+          capabilityRef: "catalog-core/v1",
+        },
+        question,
+      ),
+    ).toBe(false);
+  });
+});
 
 type Row = Record<string, unknown>;
 type Filter =
@@ -243,7 +271,7 @@ describe("Phase C guided setup session service", () => {
       processedInputRevision: 0,
       inputLedger: [],
       capabilityManifestRevision:
-        "phase-c-capabilities/2026-07-27.1",
+        CATALOG_CAPABILITY_MANIFEST_REVISION,
     });
     expect(result.session.unresolvedQuestions).toEqual([
       {
@@ -325,6 +353,196 @@ describe("Phase C guided setup session service", () => {
     expect(result.session.conversation).toEqual(conversation);
   });
 
+  it("refreshes a supported question when an active session uses an older capability registry", async () => {
+    const { client, updates } = createQueryClient({
+      catalog_guided_setup_sessions: [
+        {
+          id: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+          company_id: "company-1",
+          operator_id: "operator-1",
+          mode: "guided",
+          status: "interviewing",
+          version: 7,
+          capability_manifest_revision: "phase-c-capabilities/2026-07-27.1",
+          facts: [{ key: "pricing.vinyl.base_price", value: 11.35 }],
+          sources: [],
+          conversation: [],
+          unresolved_questions: [
+            {
+              id: "vinyl-pricing",
+              intent: "pricing",
+              capabilityRef: "catalog-core/v1",
+              context: { productLabel: "vinyl membrane" },
+              prompt: "Old pricing prompt",
+              answerKind: "text",
+              factKeys: ["pricing.vinyl.minimum_charge"],
+            },
+          ],
+        },
+      ],
+    });
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    const result = await startOrResumeGuidedSetupSession({
+      token: "token",
+      companyId: "company-1",
+      operatorId: "operator-2",
+    });
+
+    expect(result.session).toMatchObject({
+      status: "interviewing",
+      version: 8,
+      capabilityManifestRevision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+      facts: [{ key: "pricing.vinyl.base_price", value: 11.35 }],
+      unresolvedQuestions: [
+        expect.objectContaining({
+          id: "vinyl-pricing",
+          prompt: "What minimum charge should OPS use for vinyl membrane?",
+        }),
+      ],
+    });
+    expect(updates).toContainEqual(
+      expect.objectContaining({
+        values: expect.objectContaining({
+          capability_manifest_revision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+          version: 8,
+        }),
+      }),
+    );
+  });
+
+  it("reopens an old approved plan when its question or actions are no longer supported", async () => {
+    const facts = [{ key: "customer_products.vinyl.name", value: "Vinyl membrane" }];
+    const { client } = createQueryClient({
+      catalog_guided_setup_sessions: [
+        {
+          id: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+          company_id: "company-1",
+          operator_id: "operator-1",
+          mode: "guided",
+          status: "approved",
+          version: 9,
+          capability_manifest_revision: "phase-c-capabilities/2026-07-27.1",
+          facts,
+          sources: [],
+          conversation: [],
+          unresolved_questions: [],
+          proposed_plan: { version: 1, summary: "Old plan", ready: true, actions: [], issues: [] },
+          proposed_plan_hash: "sha256:old-plan",
+          approval_hash: "sha256:old-plan",
+          validation_issues: [],
+        },
+      ],
+    });
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    const result = await startOrResumeGuidedSetupSession({
+      token: "token",
+      companyId: "company-1",
+      operatorId: "operator-2",
+    });
+
+    expect(result.session).toMatchObject({
+      status: "interviewing",
+      version: 10,
+      capabilityManifestRevision: CATALOG_CAPABILITY_MANIFEST_REVISION,
+      facts,
+      proposedPlan: null,
+      proposedPlanHash: null,
+      approvalHash: null,
+      unresolvedQuestions: [
+        expect.objectContaining({
+          id: "continue-catalog-setup",
+          prompt: "What should OPS set up or change next?",
+        }),
+      ],
+    });
+  });
+
+  it("does not attach a queued answer to a replacement question during capability refresh", async () => {
+    const { client } = createQueryClient({
+      catalog_guided_setup_sessions: [
+        {
+          id: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+          company_id: "company-1",
+          operator_id: "operator-1",
+          mode: "guided",
+          status: "interviewing",
+          version: 4,
+          input_revision: 1,
+          processed_input_revision: 0,
+          capability_manifest_revision: "phase-c-capabilities/2026-07-27.1",
+          facts: [],
+          sources: [],
+          input_ledger: [
+            {
+              id: "input-1",
+              revision: 1,
+              questionId: "quote-display",
+              answer: "Do not show the unit price",
+              displayKind: "text",
+              displayContent: "Do not show the unit price",
+              state: "queued",
+              createdAt: "2026-08-06T20:00:00.000Z",
+              updatedAt: "2026-08-06T20:00:00.000Z",
+            },
+          ],
+          conversation: [
+            {
+              id: "assistant:3:quote-display",
+              role: "assistant",
+              kind: "text",
+              content: "Should quotes show the pricing unit?",
+              version: 3,
+            },
+            {
+              id: "operator-input:input-1",
+              inputId: "input-1",
+              state: "queued",
+              role: "operator",
+              kind: "text",
+              content: "Do not show the unit price",
+              version: 4,
+            },
+          ],
+          unresolved_questions: [
+            {
+              id: "quote-display",
+              intent: "quote_display",
+              capabilityRef: "catalog-core/v1",
+              context: { productLabel: "vinyl membrane" },
+              prompt: "Should quotes show the pricing unit?",
+              answerKind: "boolean",
+              factKeys: ["pricing.vinyl.show_unit"],
+            },
+          ],
+        },
+      ],
+    });
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    const result = await startOrResumeGuidedSetupSession({
+      token: "token",
+      companyId: "company-1",
+      operatorId: "operator-2",
+    });
+
+    expect(result.session).toMatchObject({
+      processedInputRevision: 1,
+      unresolvedQuestions: [
+        expect.objectContaining({ id: "continue-catalog-setup" }),
+      ],
+      inputLedger: [
+        expect.objectContaining({ id: "input-1", state: "removed" }),
+      ],
+    });
+    expect(result.session.conversation).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ inputId: "input-1", state: "removed" }),
+      ]),
+    );
+  });
+
   it("repairs an active session that was stranded on a file question", async () => {
     const { client, updates } = createQueryClient({
       catalog_guided_setup_sessions: [
@@ -388,6 +606,146 @@ describe("Phase C guided setup session service", () => {
             value: "operator-1",
           },
         ]),
+      }),
+    );
+  });
+
+  it("repairs the invalid review-readiness turn after an unsupported roll inventory request", async () => {
+    const inventoryQuestion =
+      "How should OPS handle DekSmart membrane purchasing and inventory for vinyl decking?";
+    const selectedAnswer =
+      "Track membrane as rolls/sheets; purchasing and inventory need roll/sheet dimensions, coverage, and cost details before setup can be ready.";
+    const { client, updates } = createQueryClient({
+      catalog_guided_setup_sessions: [
+        {
+          id: "54ce9e88-5688-4e73-ae4e-a62f85044b77",
+          company_id: "company-1",
+          operator_id: "operator-1",
+          mode: "guided",
+          status: "interviewing",
+          version: 12,
+          facts: [
+            {
+              id: "product-name",
+              key: "customer_products.vinyl.name",
+              value: "68mil Deksmart PVC Membrane",
+              classification: "customer_product",
+              source: { kind: "operator" },
+              confidence: 1,
+              status: "confirmed",
+              contradicts: [],
+            },
+            {
+              id: "unsupported-roll-inventory",
+              key: "materials.vinyl.inventory_policy",
+              value: selectedAnswer,
+              classification: "inventory_rule",
+              source: { kind: "operator" },
+              confidence: 1,
+              status: "confirmed",
+              contradicts: [],
+            },
+            {
+              id: "unsupported-roll-purchasing",
+              key: "materials.vinyl.purchasing_quantity_basis",
+              value: "roll/sheet",
+              classification: "purchasing_rule",
+              source: { kind: "operator" },
+              confidence: 1,
+              status: "confirmed",
+              contradicts: [],
+            },
+          ],
+          sources: [],
+          conversation: [
+            {
+              id: "assistant:10:membrane-inventory",
+              role: "assistant",
+              kind: "text",
+              content: inventoryQuestion,
+              version: 10,
+            },
+            {
+              id: "operator-input:input-1",
+              inputId: "input-1",
+              state: "accepted",
+              role: "operator",
+              kind: "text",
+              content: selectedAnswer,
+              version: 11,
+            },
+            {
+              id: "assistant:11:membrane-inventory",
+              role: "assistant",
+              kind: "text",
+              content: inventoryQuestion,
+              version: 11,
+            },
+            {
+              id: "assistant:12:review-ready",
+              role: "assistant",
+              kind: "text",
+              content: "Is this catalog setup ready for you to review?",
+              version: 12,
+            },
+          ],
+          unresolved_questions: [
+            {
+              id: "review-ready",
+              intent: "review_readiness",
+              capabilityRef: "catalog-core/v1",
+              prompt: "Is this catalog setup ready for you to review?",
+              answerKind: "boolean",
+              factKeys: ["catalog.review"],
+            },
+          ],
+          proposed_plan: null,
+        },
+      ],
+    });
+    mocks.getAccessTokenClient.mockReturnValue(client);
+
+    const result = await startOrResumeGuidedSetupSession({
+      token: "token",
+      companyId: "company-1",
+      operatorId: "operator-2",
+    });
+
+    expect(result.resumed).toBe(true);
+    expect(result.session.version).toBe(13);
+    expect(result.session.unresolvedQuestions).toEqual([
+      expect.objectContaining({
+        intent: "material_tracking_scope",
+        capabilityRef: "static-product-materials/v1",
+        answerKind: "single_choice",
+        options: [
+          "Keep purchasing and inventory staff-managed",
+          "Add a fixed material quantity per product unit",
+        ],
+      }),
+    ]);
+    expect(result.session.facts).toEqual([
+      expect.objectContaining({ id: "product-name" }),
+    ]);
+    expect(
+      result.session.conversation.filter(
+        (message: { content?: string }) =>
+          message.content === inventoryQuestion,
+      ),
+    ).toHaveLength(1);
+    expect(updates).toContainEqual(
+      expect.objectContaining({
+        table: "catalog_guided_setup_sessions",
+        values: expect.objectContaining({
+          version: 13,
+          facts: [expect.objectContaining({ id: "product-name" })],
+          sources: [
+            expect.objectContaining({
+              kind: "system_repair",
+              reason: "unsupported_roll_inventory_review_question",
+            }),
+          ],
+        }),
       }),
     );
   });

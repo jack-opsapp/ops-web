@@ -49,8 +49,12 @@ export interface SearchTermData {
 
 export interface ConversionBreakdown {
   actionName: string;
+  /** Google's own classification: SIGNUP / DOWNLOAD / PURCHASE / ... */
+  category?: string | null;
   conversions: number;
+  /** Window spend / this action's conversions (Google does not cost actions individually). */
   cpa: number;              // dollars
+  /** TOTAL account spend for the window — the shared CPA numerator, not per-action cost. */
   cost: number;             // dollars
 }
 
@@ -70,4 +74,6 @@ export interface GoogleAdsPageData {
   searchTerms: SearchTermData[];
   dailySpend: DailySpend[];
   conversions: ConversionBreakdown[];
+  /** First/last day with real ad activity in the warehouse; null before import. */
+  history?: { firstDay: string; lastDay: string } | null;
 }

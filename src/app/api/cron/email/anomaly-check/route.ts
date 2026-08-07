@@ -25,6 +25,7 @@ import {
   CronDatabaseOperationError,
   runWithCronWorkloadControl,
 } from "@/lib/api/services/cron-workload-control-service";
+import { getOptionalPmfOperatorIdentity } from "@/lib/pmf/recipients";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -265,10 +266,10 @@ async function processEvaluation(
     }
   }
 
-  const operatorUserId = process.env.PMF_OPERATOR_USER_ID;
-  const operatorCompanyId = process.env.PMF_OPERATOR_COMPANY_ID;
+  const operatorIdentity = getOptionalPmfOperatorIdentity();
   let notifId: string | null = null;
-  if (operatorUserId && operatorCompanyId) {
+  if (operatorIdentity) {
+    const { operatorUserId, operatorCompanyId } = operatorIdentity;
     const notifRow = await requireDatabaseResponse(
       "anomaly notification insert failed",
       () =>

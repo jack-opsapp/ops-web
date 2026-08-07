@@ -67,8 +67,27 @@ vi.mock("@/components/ops/line-item-editor", () => ({
     unit: "each",
     isOptional: false,
     isSelected: true,
+    type: "OTHER",
+    taskTypeId: null,
+    taskTypeRef: null,
+    unitId: null,
+    resolvedUnitPrice: null,
+    minimumChargeSnapshot: null,
+    unitCost: null,
+    estimatedHours: null,
+    configuredOptions: {},
+    resolvedOptionsLabel: null,
+    missingRequiredOptions: [],
+    category: null,
+    taxRateId: null,
   }),
-  computeAmount: () => ({ lineTotal: 0, tax: 0 }),
+  computeLinePricingBreakdown: () => ({
+    subtotal: 0,
+    discountAmount: 0,
+    lineTotal: 0,
+    tax: 0,
+    total: 0,
+  }),
 }));
 
 vi.mock("sonner", () => ({
@@ -83,6 +102,7 @@ vi.mock("@/lib/hooks", () => ({
   useClients: () => ({ data: clientsData }),
   useProjects: () => ({ data: { projects: [] } }),
   useProducts: () => ({ data: [] }),
+  useDefaultTaxRate: () => ({ data: null, isLoading: false }),
 }));
 
 const { CreateEstimateForm, createEstimateDefaultsFromMeta } = await import(

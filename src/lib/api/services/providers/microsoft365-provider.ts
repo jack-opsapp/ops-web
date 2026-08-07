@@ -26,6 +26,7 @@ import {
   type SendEmailParams,
   type SendEmailResult,
   type SyncResult,
+  type ThreadDraftProbe,
   type WebhookSubscription,
 } from "../email-provider";
 import { readBoundedResponseBytes } from "./bounded-response";
@@ -1443,6 +1444,34 @@ export class Microsoft365Provider implements EmailProviderInterface {
     }
     if (message.isDraft !== true) return null;
     return this.normalizeM365Draft(message);
+  }
+
+  async findDraftsOnThread(
+    threadId: string,
+    readPolicy: ProviderReadPolicy = {}
+  ): Promise<ThreadDraftProbe> {
+    const effectiveReadPolicy = this.effectiveReadPolicy(
+      readPolicy,
+      `drafts probe (${threadId})`
+    );
+    // Graph filters the Drafts folder by conversation server-side, so this
+    // returns every draft on the conversation and nothing else. Unlike
+    // `listDrafts()` there is no `$top` cap standing between an empty result
+    // and the conclusion that no draft exists here.
+    const data = (await this.graphFetch(
+      `/me/mailFolders/drafts/messages?$select=id,conversationId,isDraft` +
+        `&$filter=${encodeURIComponent(`conversationId eq '${threadId.replace(/'/g, "''")}'`)}`,
+      undefined,
+      "drafts probe",
+      effectiveReadPolicy
+    )) as { value?: Array<Record<string, unknown>> };
+
+    const draftIds = (data.value ?? [])
+      .filter((message) => message.isDraft !== false)
+      .map((message) => (typeof message.id === "string" ? message.id : ""))
+      .filter(Boolean);
+
+    return { present: draftIds.length > 0, draftIds };
   }
 
   async deleteDraft(draftId: string): Promise<void> {

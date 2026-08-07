@@ -34,6 +34,8 @@ import {
   sanitizeContactFormPhoneValue,
 } from "@/lib/utils/email-parsing";
 import { parsePropertyAddressIdentity } from "@/lib/utils/property-address-identity";
+import { qualifyMailboxDisplayName } from "@/lib/email/opportunity-title";
+import { extractAuthoredSignatureName } from "./message-cleaner";
 
 export interface ContactFormSubmitter {
   name?: string | null;
@@ -172,6 +174,29 @@ function isGenericName(value: string): boolean {
   return GENERIC_NAME_RE.test(value.trim());
 }
 
+function normalizedNameKey(value: string | null | undefined): string {
+  return (cleanText(value) ?? "")
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "");
+}
+
+function isOperatorName(value: string, operator: OperatorIdentity): boolean {
+  const candidate = normalizedNameKey(value);
+  if (!candidate) return false;
+  if (
+    operator.companyName &&
+    candidate === normalizedNameKey(operator.companyName)
+  ) {
+    return true;
+  }
+  return (operator.staffMembers ?? []).some(
+    (member) =>
+      Boolean(member.fullName) &&
+      candidate === normalizedNameKey(member.fullName)
+  );
+}
+
 // ── phone shape validation (net-new on top of the shared sanitizer) ──────────
 
 // Reject runs that the digit-count gate accepts but are clearly NOT phones:
@@ -307,16 +332,9 @@ function verifiedDisplayName(
   fromName: string | null | undefined,
   fromEmail?: string | null
 ): string | null {
-  const cleaned = cleanText(fromName);
-  if (!cleaned) return null;
-  if (EMAIL_RE.test(cleaned)) return null;
-  if (isGenericName(cleaned)) return null;
-  const email = normalizeEmail(fromEmail);
-  const rawLocalPart = email?.split("@")[0]?.trim().toLowerCase() ?? "";
-  if (rawLocalPart && cleaned.toLowerCase() === rawLocalPart) {
-    return null;
-  }
-  return cleaned;
+  const qualified = qualifyMailboxDisplayName(fromName, fromEmail);
+  if (!qualified || isGenericName(qualified)) return null;
+  return qualified;
 }
 
 /**
@@ -389,7 +407,23 @@ export function resolveContact(input: ResolveContactInput): ResolvedContact {
     prov.push(provenance("name", "contact_form", 0.95, latestCustomer));
   }
   if (!nameIsVerified) {
+    const matchingSenderMessages = customerMessages
+      .filter((m) => normalizeEmail(m.fromEmail) === email)
+      .sort((left, right) => right.sentAt.localeCompare(left.sentAt));
+    for (const m of matchingSenderMessages) {
+      if (!m.isRealCustomerInbound) continue;
+      const signedName = extractAuthoredSignatureName(m.rawBody);
+      if (!signedName) continue;
+      if (isOperatorName(signedName, operator)) continue;
+      name = signedName;
+      nameIsVerified = true;
+      prov.push(provenance("name", "email_signature", 0.92, m));
+      break;
+    }
+  }
+  if (!nameIsVerified) {
     for (const m of customerMessages) {
+      if (normalizeEmail(m.fromEmail) !== email) continue;
       const verified = verifiedDisplayName(m.fromName, m.fromEmail);
       if (verified) {
         name = verified;

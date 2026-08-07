@@ -1,6 +1,10 @@
 import type { CatalogAgentTurn, CatalogSetupIssue } from "./types";
 import { CatalogAgentTurnSchema } from "./schemas";
 import {
+  unresolvedCatalogActionReferences,
+  validateCatalogActionPayload,
+} from "./action-payload-contracts";
+import {
   CATALOG_CAPABILITY_MANIFEST_REVISION,
   guidedCapability,
   guidedCapabilityForAction,
@@ -19,6 +23,10 @@ const REQUIRED_PRODUCT_FIELDS = [
   "minimumCharge",
   "isTaxable",
   "showInStorefront",
+  "type",
+  "kind",
+  "taskTypeClientId",
+  "linkedFamilyRef",
 ] as const;
 
 function normalized(value: unknown): string {
@@ -102,7 +110,30 @@ export function validateCatalogAgentTurn(
           message:
             "This action describes behavior no released OPS client executes.",
         });
+        continue;
       }
+      const payloadValidation = validateCatalogActionPayload(
+        action.actionType,
+        action.payload,
+      );
+      if (!payloadValidation.success) {
+        issues.push({
+          code: "unsupported_action_payload",
+          severity: "blocker",
+          actionKey: action.actionKey,
+          message: `This action includes settings OPS cannot apply: ${payloadValidation.unsupportedFields.join(", ")}.`,
+        });
+      }
+    }
+    for (const referenceIssue of unresolvedCatalogActionReferences(
+      turn.blueprint.actions,
+    )) {
+      issues.push({
+        code: "unresolved_action_reference",
+        severity: "blocker",
+        actionKey: referenceIssue.actionKey,
+        message: `This action references ${referenceIssue.field}=${referenceIssue.reference}, which the plan does not define.`,
+      });
     }
     const unconfirmedCompanyKnowledge = turn.facts.filter(
       (fact) =>
@@ -145,14 +176,6 @@ export function validateCatalogAgentTurn(
       const missing: string[] = REQUIRED_PRODUCT_FIELDS.filter(
         (field) => !Object.prototype.hasOwnProperty.call(action.payload, field)
       );
-      const hasTaskType =
-        Object.prototype.hasOwnProperty.call(action.payload, "taskTypeRef") ||
-        Object.prototype.hasOwnProperty.call(action.payload, "taskTypeId") ||
-        Object.prototype.hasOwnProperty.call(
-          action.payload,
-          "taskTypeClientId"
-        );
-      if (!hasTaskType) missing.push("taskTypeRef");
       if (missing.length > 0) {
         issues.push({
           code: "incomplete_product_plan",

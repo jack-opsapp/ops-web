@@ -12,6 +12,11 @@ const {
   saveOpsMock,
   refreshProviderMock,
   runWithEmailConnectionSyncLockMock,
+  updateConnectionMock,
+  identityRowsMock,
+  hasConfirmedIdentityMock,
+  resolveIdentityNotificationMock,
+  storeImageObjectMock,
 } = vi.hoisted(() => ({
   getConnectionMock: vi.fn(),
   getConnectionsMock: vi.fn(),
@@ -23,6 +28,20 @@ const {
   saveOpsMock: vi.fn(),
   refreshProviderMock: vi.fn(),
   runWithEmailConnectionSyncLockMock: vi.fn(),
+  updateConnectionMock: vi.fn(),
+  identityRowsMock: vi.fn(),
+  hasConfirmedIdentityMock: vi.fn(),
+  resolveIdentityNotificationMock: vi.fn(),
+  storeImageObjectMock: vi.fn(),
+}));
+
+vi.mock("@/lib/s3/store-image", () => ({
+  storeImageObject: storeImageObjectMock,
+}));
+
+vi.mock("@/lib/notifications/email-identity-confirmation", () => ({
+  resolveEmailIdentityConfirmationNotification:
+    resolveIdentityNotificationMock,
 }));
 
 vi.mock("@/lib/api/services/email-service", () => ({
@@ -43,6 +62,7 @@ vi.mock("@/lib/api/services/email-signature-service", () => ({
     saveOps: saveOpsMock,
     deactivate: vi.fn(),
     refreshProvider: refreshProviderMock,
+    hasConfirmedIdentity: hasConfirmedIdentityMock,
   },
 }));
 
@@ -66,8 +86,24 @@ vi.mock("@/lib/supabase/helpers", () => ({
     callback(),
 }));
 
+vi.mock("@/lib/api/services/email-connection-service", () => ({
+  EmailConnectionService: { updateConnection: updateConnectionMock },
+}));
+
 vi.mock("@/lib/supabase/server-client", () => ({
-  getServiceRoleClient: vi.fn(() => ({ rpc: vi.fn() })),
+  getServiceRoleClient: vi.fn(() => ({
+    rpc: vi.fn(),
+    from: (table: string) => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => ({
+            data: identityRowsMock(table),
+            error: null,
+          }),
+        }),
+      }),
+    }),
+  })),
 }));
 
 import { GET, POST, PUT } from "@/app/api/integrations/email/signature/route";
@@ -114,7 +150,24 @@ beforeEach(() => {
   getProviderMock.mockReturnValue({});
   resolveEmailSignatureForMessageMock.mockResolvedValue(null);
   listActiveMock.mockResolvedValue([]);
+  hasConfirmedIdentityMock.mockResolvedValue(false);
+  resolveIdentityNotificationMock.mockResolvedValue(undefined);
   saveOpsMock.mockResolvedValue({});
+  updateConnectionMock.mockResolvedValue({});
+  storeImageObjectMock.mockResolvedValue({
+    ok: true,
+    url: "https://files.example.com/email-signatures/company-1/mark.png",
+  });
+  identityRowsMock.mockImplementation((table: string) =>
+    table === "companies"
+      ? {
+          name: "Canpro Deck and Rail",
+          phone: "(250) 538-8994",
+          website: "canprodeckandrail.com",
+          logo_url: "https://cdn.example.com/canpro.png",
+        }
+      : { first_name: "Jackson", last_name: "Sweet", phone: "(250) 111-2222" }
+  );
   refreshProviderMock.mockResolvedValue({ status: "not_configured" });
   runWithEmailConnectionSyncLockMock.mockImplementation(
     async ({
@@ -272,6 +325,12 @@ describe("email signature route individual-mailbox ownership", () => {
       allowedCompany,
       ownIndividual,
     ]);
+    // The list carries the gate's answer per mailbox so the post-connect step
+    // can find the one still holding outreach in a single read.
+    hasConfirmedIdentityMock.mockImplementation(
+      async ({ connectionId }: { connectionId: string }) =>
+        connectionId === "company-connection"
+    );
 
     const response = await GET(
       new NextRequest(
@@ -288,12 +347,14 @@ describe("email signature route individual-mailbox ownership", () => {
           mailbox: "user-2@example.com",
           provider: "gmail",
           type: "company",
+          identityConfirmed: true,
         },
         {
           id: "own-connection",
           mailbox: "user-2@example.com",
           provider: "gmail",
           type: "individual",
+          identityConfirmed: false,
         },
       ],
     });
@@ -324,5 +385,518 @@ describe("email signature route individual-mailbox ownership", () => {
       }
     );
     expect(saveOpsMock).not.toHaveBeenCalled();
+  });
+});
+
+const ownConnection = {
+  ...foreignIndividualConnection,
+  userId: "user-1",
+  email: "user-1@example.com",
+  outreachSubject: "Canpro Deck and Rail Estimate",
+};
+
+describe("email identity settings", () => {
+  beforeEach(() => {
+    getConnectionMock.mockResolvedValue(ownConnection);
+  });
+
+  it("returns everything the identity card needs in one read", async () => {
+    listActiveMock.mockResolvedValue([
+      {
+        id: "sig-1",
+        source: "ops",
+        scopeUserId: "user-1",
+        contentHtml:
+          '<div>Jackson Sweet<a href="https://canprodeckandrail.com">' +
+          "canprodeckandrail.com</a></div>",
+        contentText: [
+          "Jackson Sweet",
+          "Owner, Canpro Deck and Rail",
+          "(250) 538-8994",
+          "canprodeckandrail.com",
+        ].join("\n"),
+        confirmedAt: "2026-08-03T10:00:00.000Z",
+      },
+    ]);
+
+    const response = await GET(getRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      confirmedAt: "2026-08-03T10:00:00.000Z",
+      outreachSubject: "Canpro Deck and Rail Estimate",
+      companyLogoUrl: "https://cdn.example.com/canpro.png",
+      fields: {
+        name: "Jackson Sweet",
+        title: "Owner",
+        companyName: "Canpro Deck and Rail",
+        phone: "(250) 538-8994",
+        website: "canprodeckandrail.com",
+      },
+    });
+  });
+
+  it("reports the mailbox confirmation that is holding the gate open", async () => {
+    // Outreach runs on any confirmed OPS row, so an operator whose own row
+    // predates the confirm flow must not be told their identity is unset.
+    listActiveMock.mockResolvedValue([
+      {
+        id: "sig-operator",
+        source: "ops",
+        scopeUserId: "user-1",
+        contentHtml: "<div>Jackson</div>",
+        contentText: "Jackson",
+        confirmedAt: null,
+      },
+      {
+        id: "sig-mailbox",
+        source: "ops",
+        scopeUserId: null,
+        contentHtml: "<div>Canpro Deck and Rail</div>",
+        contentText: "Canpro Deck and Rail",
+        confirmedAt: "2026-08-01T09:00:00.000Z",
+      },
+    ]);
+
+    const body = await (await GET(getRequest())).json();
+
+    expect(body.confirmedAt).toBe("2026-08-01T09:00:00.000Z");
+  });
+
+  it("prefills from the operator and company when no signature exists yet", async () => {
+    const response = await GET(getRequest());
+    const body = await response.json();
+
+    expect(body.confirmedAt).toBeNull();
+    expect(body.fields).toMatchObject({
+      name: "Jackson Sweet",
+      title: "",
+      companyName: "Canpro Deck and Rail",
+      phone: "(250) 538-8994",
+      website: "canprodeckandrail.com",
+      includeLogo: false,
+      layout: "logo-left",
+    });
+  });
+
+  it("renders structured fields through the OPS template and confirms them", async () => {
+    const response = await PUT(
+      jsonRequest("PUT", {
+        fields: {
+          name: "Jackson Sweet",
+          title: "Owner",
+          companyName: "Canpro Deck and Rail",
+          phone: "(250) 538-8994",
+          website: "canprodeckandrail.com",
+        },
+        includeLogo: true,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(saveOpsMock).toHaveBeenCalledTimes(1);
+    const saved = saveOpsMock.mock.calls[0][0];
+    expect(saved.scopeUserId).toBe("user-1");
+    expect(saved.confirmedAt).toEqual(expect.any(String));
+    expect(saved.html).toContain("Jackson Sweet");
+    // Logo comes from the company record — never from the request body.
+    expect(saved.html).toContain("https://cdn.example.com/canpro.png");
+    expect(saved.html).toContain("<table");
+    expect(saved.text).toBe(
+      "Jackson Sweet\nOwner, Canpro Deck and Rail\n(250) 538-8994\ncanprodeckandrail.com"
+    );
+  });
+
+  it("honors the stacked arrangement when the operator picks it", async () => {
+    await PUT(
+      jsonRequest("PUT", {
+        fields: { name: "Jackson Sweet", companyName: "Canpro" },
+        includeLogo: true,
+        layout: "stacked",
+      })
+    );
+
+    expect(saveOpsMock.mock.calls[0][0].html).not.toContain("<table");
+  });
+
+  it("defaults an unrecognized arrangement to the business-card layout", async () => {
+    await PUT(
+      jsonRequest("PUT", {
+        fields: { name: "Jackson Sweet", companyName: "Canpro" },
+        includeLogo: true,
+        layout: "diagonal",
+      })
+    );
+
+    expect(saveOpsMock.mock.calls[0][0].html).toContain("<table");
+  });
+
+  it("never puts a caller-supplied image into the signature", async () => {
+    await PUT(
+      jsonRequest("PUT", {
+        fields: {
+          name: "Jackson Sweet",
+          companyName: "Canpro",
+          logoUrl: "https://tracker.example.com/beacon.gif",
+        },
+        includeLogo: true,
+      })
+    );
+
+    const saved = saveOpsMock.mock.calls[0][0];
+    expect(saved.html).not.toContain("tracker.example.com");
+    expect(saved.html).toContain("https://cdn.example.com/canpro.png");
+  });
+
+  it("leaves the logo out when the operator turns it off", async () => {
+    await PUT(
+      jsonRequest("PUT", {
+        fields: { name: "Jackson Sweet", companyName: "Canpro" },
+        includeLogo: false,
+      })
+    );
+
+    expect(saveOpsMock.mock.calls[0][0].html).not.toContain("<img");
+  });
+
+  it("rejects a structured save with no name", async () => {
+    const response = await PUT(
+      jsonRequest("PUT", { fields: { name: "  ", companyName: "Canpro" } })
+    );
+
+    expect(response.status).toBe(400);
+    expect(saveOpsMock).not.toHaveBeenCalled();
+  });
+
+  it("still accepts the legacy plain-text save and confirms it", async () => {
+    const response = await PUT(jsonRequest("PUT", { opsText: "Jackson\nOPS" }));
+
+    expect(response.status).toBe(200);
+    expect(saveOpsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "Jackson\nOPS",
+        confirmedAt: expect.any(String),
+      })
+    );
+  });
+
+  it("stores the outreach subject trimmed, and blanks it to null", async () => {
+    await PUT(jsonRequest("PUT", { outreachSubject: "  Canpro Estimate  " }));
+    expect(updateConnectionMock).toHaveBeenCalledWith("connection-1", {
+      outreachSubject: "Canpro Estimate",
+    });
+
+    updateConnectionMock.mockClear();
+    await PUT(jsonRequest("PUT", { outreachSubject: "   " }));
+    expect(updateConnectionMock).toHaveBeenCalledWith("connection-1", {
+      outreachSubject: null,
+    });
+  });
+
+  it("saves the signature and the subject in one action", async () => {
+    const response = await PUT(
+      jsonRequest("PUT", {
+        fields: { name: "Jackson Sweet", companyName: "Canpro" },
+        outreachSubject: "Canpro Estimate",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(saveOpsMock).toHaveBeenCalledTimes(1);
+    expect(updateConnectionMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the rail's confirmation prompt the moment identity lands", async () => {
+    await PUT(
+      jsonRequest("PUT", {
+        fields: { name: "Jackson Sweet", companyName: "Canpro" },
+      })
+    );
+
+    expect(resolveIdentityNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: "company-1",
+        connectionId: "connection-1",
+        userId: "user-1",
+      })
+    );
+  });
+
+  it("closes the prompt on a confirmed import too", async () => {
+    listActiveMock.mockResolvedValue([
+      {
+        id: "sig-provider",
+        source: "gmail_send_as",
+        scopeUserId: null,
+        providerIdentity: "user-1@example.com",
+        contentHtml: "<div>Jack from Gmail</div>",
+        contentText: "Jack from Gmail",
+        confirmedAt: null,
+      },
+    ]);
+
+    await POST(jsonRequest("POST", { action: "confirm_imported" }));
+
+    expect(resolveIdentityNotificationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the prompt open when only the subject was saved", async () => {
+    await PUT(jsonRequest("PUT", { outreachSubject: "Canpro Estimate" }));
+
+    expect(resolveIdentityNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a PUT that asks for nothing at all", async () => {
+    const response = await PUT(jsonRequest("PUT", {}));
+
+    expect(response.status).toBe(400);
+    expect(saveOpsMock).not.toHaveBeenCalled();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("promotes an imported signature into operator scope on confirm", async () => {
+    listActiveMock.mockResolvedValue([
+      {
+        id: "sig-provider",
+        source: "gmail_send_as",
+        scopeUserId: null,
+        providerIdentity: "user-1@example.com",
+        contentHtml: "<div>Jack from Gmail</div>",
+        contentText: "Jack from Gmail",
+        confirmedAt: null,
+      },
+    ]);
+
+    const response = await POST(
+      jsonRequest("POST", { action: "confirm_imported" })
+    );
+
+    expect(response.status).toBe(200);
+    // The gate only honors operator/mailbox scope, so stamping the provider row
+    // would confirm nothing. Promotion is what opens the gate.
+    expect(saveOpsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        scopeUserId: "user-1",
+        html: "<div>Jack from Gmail</div>",
+        text: "Jack from Gmail",
+        confirmedAt: expect.any(String),
+      })
+    );
+  });
+
+  it("refuses to confirm an import that is not there", async () => {
+    listActiveMock.mockResolvedValue([]);
+
+    const response = await POST(
+      jsonRequest("POST", { action: "confirm_imported" })
+    );
+
+    expect(response.status).toBe(409);
+    expect(saveOpsMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses identity writes on a mailbox the actor cannot manage", async () => {
+    filterAuthorizedConnectionsMock.mockResolvedValue([]);
+
+    const put = await PUT(
+      jsonRequest("PUT", { outreachSubject: "Canpro Estimate" })
+    );
+    const confirm = await POST(
+      jsonRequest("POST", { action: "confirm_imported" })
+    );
+
+    expect(put.status).toBe(403);
+    expect(confirm.status).toBe(403);
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+    expect(saveOpsMock).not.toHaveBeenCalled();
+  });
+});
+
+const STORED_LOGO = "https://files.example.com/email-signatures/company-1/mark.png";
+
+function pngPayload(): string {
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    Buffer.alloc(64),
+  ]).toString("base64");
+}
+
+describe("custom signature logo", () => {
+  beforeEach(() => {
+    getConnectionMock.mockResolvedValue(ownConnection);
+  });
+
+  it("stores the uploaded mark and hands back the mailbox's new state", async () => {
+    const response = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: pngPayload(),
+        contentType: "image/png",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(storeImageObjectMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contentType: "image/png",
+        extension: "png",
+        folder: "company-company-1/logos",
+        filenamePrefix: "signature_",
+        companyId: "company-1",
+      })
+    );
+    expect(updateConnectionMock).toHaveBeenCalledWith("connection-1", {
+      signatureLogoUrl: STORED_LOGO,
+    });
+    expect(await response.json()).toMatchObject({
+      signatureLogoUrl: STORED_LOGO,
+      companyLogoUrl: "https://cdn.example.com/canpro.png",
+    });
+  });
+
+  // The bucket serves reads by prefix. `email-signatures/...` was not one of
+  // the readable families, so every uploaded mark 403'd in the operator's own
+  // signature. These two facts together pin the stored key:
+  //   here            — the route asks for `company-{id}/logos` + `signature_`
+  //   s3-store-image  — those inputs compose
+  //                     `company-{id}/logos/signature_{ts}-{rand}.{ext}`
+  it("asks storage for the company logo prefix, which reads publicly", async () => {
+    const companyId = "44444444-4444-4444-4444-444444444444";
+    resolveEmailRouteActorMock.mockResolvedValue({
+      ok: true,
+      actor: { userId: "user-1", companyId },
+    });
+
+    const response = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: pngPayload(),
+        contentType: "image/png",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const stored = storeImageObjectMock.mock.calls[0][0];
+    expect(stored.folder).toBe(`company-${companyId}/logos`);
+    expect(stored.filenamePrefix).toBe("signature_");
+    expect(stored.companyId).toBe(companyId);
+    // Never the prefix that shipped broken.
+    expect(stored.folder).not.toContain("email-signatures");
+  });
+
+  it("takes the payload with its data-url wrapper attached", async () => {
+    const response = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: `data:image/png;base64,${pngPayload()}`,
+        contentType: "image/png",
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(storeImageObjectMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores nothing when the bytes are not the image they claim to be", async () => {
+    const response = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: Buffer.from("<svg onload=alert(1)></svg>").toString("base64"),
+        contentType: "image/png",
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "That file is not a PNG image",
+    });
+    expect(storeImageObjectMock).not.toHaveBeenCalled();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("reports a storage failure instead of pointing the signature at nothing", async () => {
+    storeImageObjectMock.mockResolvedValue({
+      ok: false,
+      error: "Folder references a different company",
+    });
+
+    const response = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: pngPayload(),
+        contentType: "image/png",
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(updateConnectionMock).not.toHaveBeenCalled();
+  });
+
+  it("reverts to the company logo without deleting what was stored", async () => {
+    getConnectionMock.mockResolvedValue({
+      ...ownConnection,
+      signatureLogoUrl: STORED_LOGO,
+    });
+
+    const response = await POST(
+      jsonRequest("POST", { action: "clear_signature_logo" })
+    );
+
+    expect(response.status).toBe(200);
+    // Null the column, keep the object: mail already sent still points at it.
+    expect(updateConnectionMock).toHaveBeenCalledWith("connection-1", {
+      signatureLogoUrl: null,
+    });
+    expect(await response.json()).toMatchObject({ signatureLogoUrl: null });
+  });
+
+  it("signs with the uploaded mark over the company logo", async () => {
+    getConnectionMock.mockResolvedValue({
+      ...ownConnection,
+      signatureLogoUrl: STORED_LOGO,
+    });
+
+    await PUT(
+      jsonRequest("PUT", {
+        fields: { name: "Jackson Sweet", companyName: "Canpro" },
+        includeLogo: true,
+      })
+    );
+
+    const saved = saveOpsMock.mock.calls[0][0];
+    expect(saved.html).toContain(STORED_LOGO);
+    expect(saved.html).not.toContain("cdn.example.com");
+  });
+
+  it("reports the uploaded mark on read", async () => {
+    getConnectionMock.mockResolvedValue({
+      ...ownConnection,
+      signatureLogoUrl: STORED_LOGO,
+    });
+
+    expect(await (await GET(getRequest())).json()).toMatchObject({
+      signatureLogoUrl: STORED_LOGO,
+    });
+  });
+
+  it("refuses logo writes on a mailbox the actor cannot manage", async () => {
+    filterAuthorizedConnectionsMock.mockResolvedValue([]);
+
+    const upload = await POST(
+      jsonRequest("POST", {
+        action: "upload_signature_logo",
+        data: pngPayload(),
+        contentType: "image/png",
+      })
+    );
+    const clear = await POST(
+      jsonRequest("POST", { action: "clear_signature_logo" })
+    );
+
+    expect(upload.status).toBe(403);
+    expect(clear.status).toBe(403);
+    expect(storeImageObjectMock).not.toHaveBeenCalled();
+    expect(updateConnectionMock).not.toHaveBeenCalled();
   });
 });

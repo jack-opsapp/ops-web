@@ -3,48 +3,14 @@ import { AdminPageHeader } from "../_components/admin-page-header";
 import { GoogleAdsContent } from "./_components/google-ads-content";
 import { SyncStatusBar } from "./_components/sync-status";
 import { BriefingHero } from "./briefings/_components/briefing-hero";
-import { safe } from "@/lib/utils/safe";
-import {
-  isGoogleAdsConfigured,
-  getCachedAccountSummary,
-  getCachedCampaignPerformance,
-  getCachedKeywordPerformance,
-  getCachedSearchTerms,
-  getCachedDailySpend,
-  getCachedCostPerConversion,
-} from "@/lib/analytics/google-ads-client";
+import { getInitialAdsView, type AdsRangePreset } from "@/lib/admin/google-ads-page-data";
 import type { GoogleAdsPageData } from "@/lib/analytics/google-ads-types";
-
-async function fetchGoogleAdsData(): Promise<GoogleAdsPageData> {
-  if (!isGoogleAdsConfigured()) {
-    return {
-      adsAvailable: false,
-      summary: null,
-      campaigns: [],
-      keywords: [],
-      searchTerms: [],
-      dailySpend: [],
-      conversions: [],
-    };
-  }
-
-  const [summary, campaigns, keywords, searchTerms, dailySpend, conversions] =
-    await Promise.all([
-      safe(getCachedAccountSummary(30), null),
-      safe(getCachedCampaignPerformance(30), []),
-      safe(getCachedKeywordPerformance(30, 50), []),
-      safe(getCachedSearchTerms(30, 50), []),
-      safe(getCachedDailySpend(30), []),
-      safe(getCachedCostPerConversion(30), []),
-    ]);
-
-  return { adsAvailable: true, summary, campaigns, keywords, searchTerms, dailySpend, conversions };
-}
 
 export default async function GoogleAdsPage() {
   let data: GoogleAdsPageData;
+  let initialPreset: AdsRangePreset;
   try {
-    data = await fetchGoogleAdsData();
+    ({ preset: initialPreset, data } = await getInitialAdsView());
   } catch (err: unknown) {
     return (
       <div className="p-8">
@@ -68,8 +34,8 @@ export default async function GoogleAdsPage() {
             </p>
             <ul className="font-mohave text-[13px] text-[#A0A0A0] mt-3 space-y-1">
               <li>GOOGLE_ADS_DEVELOPER_TOKEN</li>
-              <li>GOOGLE_ADS_REFRESH_TOKEN</li>
               <li>GOOGLE_ADS_CUSTOMER_ID</li>
+              <li>FIREBASE_ADMIN_SERVICE_ACCOUNT (or key + email pair)</li>
             </ul>
           </div>
         </div>
@@ -88,7 +54,7 @@ export default async function GoogleAdsPage() {
           <BriefingHero />
         </Suspense>
       </div>
-      <GoogleAdsContent initialData={data} />
+      <GoogleAdsContent initialData={data} initialRangeKey={initialPreset} />
     </div>
   );
 }

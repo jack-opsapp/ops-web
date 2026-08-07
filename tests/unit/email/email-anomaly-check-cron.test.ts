@@ -9,6 +9,7 @@ type Eval = {
   threshold: number;
   context: Record<string, unknown>;
 };
+const OPERATOR_COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 
 const {
   CronDatabaseOperationError,
@@ -96,7 +97,7 @@ describe("email anomaly check cron", () => {
     process.env.CRON_SECRET = "cron-secret";
     process.env.PMF_OPERATOR_USER_ID = "operator-user";
     process.env.PMF_OPERATOR_EMAIL = "operator@example.com";
-    process.env.PMF_OPERATOR_COMPANY_ID = "operator-company";
+    process.env.PMF_OPERATOR_COMPANY_ID = OPERATOR_COMPANY_ID;
     vi.clearAllMocks();
     evals.splice(0, evals.length, makeEval(0), makeEval(1), makeEval(2));
     state.metricsErrors.clear();

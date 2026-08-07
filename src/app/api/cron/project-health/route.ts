@@ -23,6 +23,26 @@ type HealthResult = {
   error?: string;
 };
 
+function reportableHealthResults(results: HealthResult[]): HealthResult[] {
+  return results.filter(
+    (result) =>
+      result.overdueTasks > 0 || result.closableProjects > 0 || result.error
+  );
+}
+
+class ProjectHealthRunError extends Error {
+  readonly results: HealthResult[];
+
+  constructor(results: HealthResult[]) {
+    const failedCount = results.filter((result) => result.error).length;
+    super(
+      `Project health failed for ${failedCount} of ${results.length} companies`
+    );
+    this.name = "ProjectHealthRunError";
+    this.results = reportableHealthResults(results);
+  }
+}
+
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
@@ -45,8 +65,8 @@ export async function GET(request: NextRequest) {
       supabase,
       workloadKey: WORKLOAD_KEY,
       leaseSeconds: 360,
-      work: (lease) =>
-        runBoundedPhaseCCompanyFanout<HealthResult>({
+      work: async (lease) => {
+        const fanout = await runBoundedPhaseCCompanyFanout<HealthResult>({
           supabase,
           workloadKey: WORKLOAD_KEY,
           lease,
@@ -72,7 +92,14 @@ export async function GET(request: NextRequest) {
               error: message,
             };
           },
-        }),
+        });
+
+        if (fanout.results.some((result) => result.error)) {
+          throw new ProjectHealthRunError(fanout.results);
+        }
+
+        return fanout;
+      },
     });
 
     if (controlled.status === "skipped") {
@@ -87,12 +114,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const results = controlled.value.results.filter(
-      (result) =>
-        result.overdueTasks > 0 ||
-        result.closableProjects > 0 ||
-        result.error
-    );
+    const results = reportableHealthResults(controlled.value.results);
 
     console.log(
       `[project-health] Processed ${controlled.value.companyIds.length} companies; ${results.length} had findings or errors`
@@ -100,6 +122,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ ok: true, results });
   } catch (err) {
+    if (err instanceof ProjectHealthRunError) {
+      console.error("[project-health] Failed:", err.message);
+      return NextResponse.json(
+        { ok: false, error: err.message, results: err.results },
+        { status: 500 }
+      );
+    }
+
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[project-health] Failed:", message);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

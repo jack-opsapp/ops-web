@@ -21,7 +21,10 @@ type GuidedQuestionDecision = z.input<
 interface QuestionTemplate {
   capabilityRef: GuidedCapabilityRef;
   answerKind: GuidedQuestion["answerKind"];
-  prompt(context: GuidedQuestionContext): string;
+  prompt(
+    context: GuidedQuestionContext,
+    factKeys: readonly string[],
+  ): string;
   help?(context: GuidedQuestionContext): string;
   options?: readonly string[];
 }
@@ -32,6 +35,47 @@ function label(
 ): string {
   const clean = value?.normalize("NFKC").trim().replace(/\s+/g, " ");
   return clean || fallback;
+}
+
+function pricingPrompt(
+  context: GuidedQuestionContext,
+  factKeys: readonly string[],
+): string {
+  const product = label(context.productLabel, "this product");
+  const missing = new Set(
+    factKeys.map((factKey) =>
+      factKey
+        .normalize("NFKC")
+        .trim()
+        .replace(/([a-z])([A-Z])/g, "$1_$2")
+        .toLocaleLowerCase("en-CA"),
+    ),
+  );
+  const needsBasePrice = [...missing].some((key) =>
+    key.includes("base_price"),
+  );
+  const needsPricingUnit = [...missing].some((key) =>
+    key.includes("pricing_unit"),
+  );
+  const needsMinimumCharge = [...missing].some((key) =>
+    key.includes("minimum_charge"),
+  );
+  const missingCount = [
+    needsBasePrice,
+    needsPricingUnit,
+    needsMinimumCharge,
+  ].filter(Boolean).length;
+
+  if (missingCount === 1 && needsBasePrice) {
+    return `What base price should OPS use for ${product}?`;
+  }
+  if (missingCount === 1 && needsPricingUnit) {
+    return `How should OPS price ${product}: each, hourly, by area, by length, or a flat price?`;
+  }
+  if (missingCount === 1 && needsMinimumCharge) {
+    return `What minimum charge should OPS use for ${product}?`;
+  }
+  return `What base price, unit, and minimum charge should OPS use for ${product}?`;
 }
 
 const TEMPLATES: Record<GuidedQuestionIntent, QuestionTemplate> = {
@@ -93,11 +137,7 @@ const TEMPLATES: Record<GuidedQuestionIntent, QuestionTemplate> = {
   pricing: {
     capabilityRef: "catalog-core/v1",
     answerKind: "text",
-    prompt: (context) =>
-      `What base price, unit, and minimum charge should OPS use for ${label(
-        context.productLabel,
-        "this product",
-      )}?`,
+    prompt: pricingPrompt,
     help: () =>
       "If the final price varies by job, give the normal starting price and what staff adjusts.",
   },
@@ -112,13 +152,13 @@ const TEMPLATES: Record<GuidedQuestionIntent, QuestionTemplate> = {
   },
   tax_treatment: {
     capabilityRef: "catalog-core/v1",
-    answerKind: "single_choice",
+    answerKind: "boolean",
     prompt: (context) =>
-      `How should tax apply to ${label(
+      `Should tax apply to ${label(
         context.productLabel,
         "this product",
       )}?`,
-    options: ["Not taxable", "GST only", "GST and PST"],
+    help: () => "OPS will use the company's default tax rate.",
   },
   storefront_visibility: {
     capabilityRef: "catalog-core/v1",
@@ -137,6 +177,21 @@ const TEMPLATES: Record<GuidedQuestionIntent, QuestionTemplate> = {
         context.productLabel,
         "this product",
       )} is sold?`,
+  },
+  material_tracking_scope: {
+    capabilityRef: "static-product-materials/v1",
+    answerKind: "single_choice",
+    prompt: (context) =>
+      `OPS does not track roll or sheet inventory yet. How should ${label(
+        context.productLabel,
+        "this product",
+      )} be handled for now?`,
+    help: () =>
+      "Fixed quantities are supported. Roll tracking, offcuts, coverage calculations, and purchasing automation are not connected yet.",
+    options: [
+      "Keep purchasing and inventory staff-managed",
+      "Add a fixed material quantity per product unit",
+    ],
   },
   static_material_quantity: {
     capabilityRef: "static-product-materials/v1",
@@ -192,7 +247,7 @@ export function resolveGuidedQuestion(
     intent: decision.intent,
     capabilityRef: decision.capabilityRef,
     ...(Object.keys(context).length > 0 ? { context } : {}),
-    prompt: template.prompt(context),
+    prompt: template.prompt(context, decision.factKeys),
     answerKind: template.answerKind,
     factKeys: decision.factKeys,
     ...(template.options

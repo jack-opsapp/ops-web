@@ -143,7 +143,7 @@ describe("generateGuidedCatalogTurn", () => {
         intent: "pricing",
         capabilityRef: "catalog-core/v1",
         prompt:
-          "What base price, unit, and minimum charge should OPS use for vinyl membrane installation?",
+          "What minimum charge should OPS use for vinyl membrane installation?",
       },
     });
     const args = create.mock.calls[0][0] as {
@@ -158,10 +158,25 @@ describe("generateGuidedCatalogTurn", () => {
     expect(args.messages[0].content).toMatch(
       /confirm.*supplier|supplier.*confirmed/i
     );
+    expect(args.messages[0].content).toMatch(
+      /discover_only.*never.*configur.*execut/i,
+    );
+    expect(args.messages[0].content).not.toMatch(/may accurately explain/i);
     expect(
       args.messages.map((message) => message.content).join("\n")
     ).not.toMatch(/deksmart/i);
-    expect(JSON.parse(args.messages[1].content).responseSchema).toBeTruthy();
+    const modelContext = JSON.parse(args.messages[1].content);
+    expect(modelContext.responseSchema).toBeTruthy();
+    expect(modelContext.releasedCapabilities.knownTools).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Deck Designer",
+          phaseCAccess: "discover_only",
+          canConfigure: false,
+          canExecute: false,
+        }),
+      ]),
+    );
   });
 
   it("treats supplier evidence generically without activating a prescribed brand plan", async () => {

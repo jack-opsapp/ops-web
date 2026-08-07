@@ -193,6 +193,7 @@ interface SupabaseState {
   threadClaimWinnerId?: string;
   estimatedValueUpdateFailuresRemaining?: number;
   provenanceUpserts?: Array<Record<string, unknown>>;
+  provenanceRows?: Array<Record<string, unknown>>;
   recoveryInboxAuthorized?: boolean;
   recoveryIngestAuthorized?: boolean;
   recoveryOpportunityAuthorized?: boolean;
@@ -580,6 +581,21 @@ function makeSupabaseDouble(state: SupabaseState) {
         return { data: match, error: null };
       }
 
+      if (this.table === "lead_field_provenance" && this.action === "select") {
+        const match = (state.provenanceRows ?? []).filter((row) => {
+          for (const [column, value] of this.filters.entries()) {
+            if (
+              String(row[column] ?? "").toLowerCase() !==
+              String(value ?? "").toLowerCase()
+            ) {
+              return false;
+            }
+          }
+          return true;
+        });
+        return { data: match, error: null };
+      }
+
       if (this.table === "clients" && this.action === "select") {
         const match = state.clients.filter((client) => {
           for (const [column, value] of this.filters.entries()) {
@@ -788,9 +804,11 @@ function makeSupabaseDouble(state: SupabaseState) {
 
     then<TResult1 = unknown, TResult2 = never>(
       onfulfilled?:
-        ((value: unknown) => TResult1 | PromiseLike<TResult1>) | null,
+        | ((value: unknown) => TResult1 | PromiseLike<TResult1>)
+        | null,
       onrejected?:
-        ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+        | ((reason: unknown) => TResult2 | PromiseLike<TResult2>)
+        | null
     ) {
       const result = async () => {
         if (
@@ -1351,6 +1369,7 @@ function makeSupabaseDouble(state: SupabaseState) {
         return { data: true, error: null };
       }
       if (name === "persist_email_connection_sync_completion_as_system") {
+        state.rpcCalls?.push({ name, params });
         await updateConnectionMock(params.p_connection_id, {
           lastSyncedAt: new Date(String(params.p_last_synced_at)),
           historyId: params.p_history_id,
@@ -1375,6 +1394,20 @@ function makeSupabaseDouble(state: SupabaseState) {
           ],
           error: null,
         };
+      }
+      if (name === "persist_email_connection_sync_checkpoint_as_system") {
+        state.rpcCalls?.push({ name, params });
+        await updateConnectionMock(params.p_connection_id, {
+          historyId: params.p_history_id,
+          ...(params.p_clear_recovery
+            ? {
+                historyRecoveryAnchor: null,
+                historyRecoveryPageToken: null,
+                historyRecoveryTargetToken: null,
+              }
+            : {}),
+        });
+        return { data: true, error: null };
       }
       if (name === "record_opportunity_correspondence_event") {
         state.rpcCalls?.push({ name, params });
@@ -1530,6 +1563,18 @@ function makeSupabaseDouble(state: SupabaseState) {
               last_outbound_at: opportunity.last_outbound_at ?? null,
               last_message_direction:
                 opportunity.last_message_direction ?? null,
+            },
+          ],
+          error: null,
+        };
+      }
+      if (name === "reconcile_manual_outbound_follow_up_cycle_as_system") {
+        state.rpcCalls?.push({ name, params });
+        return {
+          data: [
+            {
+              correspondence_event_id: params.p_correspondence_event_id,
+              opportunity_id: params.p_opportunity_id,
             },
           ],
           error: null,
@@ -1810,6 +1855,7 @@ describe("SyncEngine email opportunity title generation", () => {
       opportunities: [],
       threadLinks: [],
       activities: [],
+      rpcCalls: [],
       syncLockResult: null,
     };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
@@ -1863,6 +1909,7 @@ describe("SyncEngine email opportunity title generation", () => {
       opportunities: [],
       threadLinks: [],
       activities: [],
+      rpcCalls: [],
     };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
     const pendingIds = Array.from(
@@ -1910,6 +1957,45 @@ describe("SyncEngine email opportunity title generation", () => {
       providerToken: "sync-token-2",
       pendingLeadSummaryOpportunityIds: pendingIds.slice(5),
     });
+    expect(state.rpcCalls).toContainEqual({
+      name: "persist_email_connection_sync_checkpoint_as_system",
+      params: expect.objectContaining({
+        p_provider_snapshot_complete: true,
+      }),
+    });
+  });
+
+  it("does not mark provider progress complete while a bounded Gmail cursor remains", async () => {
+    const providerContinuation =
+      'gmail:v1:{"startHistoryId":"100","pageToken":null,"finalHistoryId":"200","pendingMessageIds":["message-2"]}';
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    getConnectionMock.mockResolvedValue(
+      baseConnection({ historyId: providerContinuation })
+    );
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: providerContinuation,
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result).toMatchObject({ errors: [], continuationPending: true });
+    expect(state.rpcCalls).toContainEqual({
+      name: "persist_email_connection_sync_checkpoint_as_system",
+      params: expect.objectContaining({
+        p_provider_snapshot_complete: false,
+      }),
+    });
   });
 
   it("fails closed instead of truncating an oversized derived-summary continuation", async () => {
@@ -1951,6 +2037,7 @@ describe("SyncEngine email opportunity title generation", () => {
       threadLinks: [],
       activities: [],
       companyMailboxDefaultOwnerId: "user-default-intake",
+      provenanceUpserts: [],
       rpcCalls: [],
     };
     setSupabaseOverride(makeSupabaseDouble(state) as never);
@@ -1986,6 +2073,17 @@ describe("SyncEngine email opportunity title generation", () => {
       email: "kara.beach@example.com",
     });
     expect(state.opportunities[0].title).not.toContain("Jackson Sweet");
+    expect(state.provenanceUpserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_type: "opportunity",
+          entity_id: state.opportunities[0].id,
+          field_name: "title",
+          value_snapshot: "Kara Beach — Estimate",
+          source: "outbound",
+        }),
+      ])
+    );
     expect(state.rpcCalls).toContainEqual({
       name: "create_company_mailbox_email_opportunity_as_system",
       params: expect.objectContaining({
@@ -6328,7 +6426,7 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(updateConnectionMock).not.toHaveBeenCalled();
   });
 
-  it("advances the provider cursor when only derived summary model output violates its contract", async () => {
+  it("completes the mailbox cursor after bounded model-contract disposition", async () => {
     const state: SupabaseState = {
       clients: [],
       opportunities: [
@@ -6401,7 +6499,7 @@ To: Kara Beach <kara.beach@example.com>`,
           reason: "model_contract",
         },
       ],
-      remainingOpportunityIds: ["opp-summary-model-contract"],
+      remainingOpportunityIds: [],
     });
 
     const result = await SyncEngine.runSync("connection-1");
@@ -6410,12 +6508,12 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(result.aiProviderDeferred).toBe(false);
     const persistedHistoryId = updateConnectionMock.mock.calls.at(-1)?.[1]
       ?.historyId as string;
-    expect(persistedHistoryId).toMatch(/^ops-email-sync:v1:/);
-    expect(
-      JSON.parse(persistedHistoryId.slice("ops-email-sync:v1:".length))
-    ).toEqual({
-      providerToken: "sync-token-2",
-      pendingLeadSummaryOpportunityIds: ["opp-summary-model-contract"],
+    expect(persistedHistoryId).toBe("sync-token-2");
+    expect(state.rpcCalls).toContainEqual({
+      name: "persist_email_connection_sync_completion_as_system",
+      params: expect.objectContaining({
+        p_history_id: "sync-token-2",
+      }),
     });
   });
 
@@ -6780,6 +6878,7 @@ To: Kara Beach <kara.beach@example.com>`,
         party_role: "customer",
         is_meaningful: true,
         noise_reason: null,
+        linked_contact_kind: "high_confidence_related_contact",
         source: "sync_activity",
       }),
     ]);
@@ -6793,6 +6892,7 @@ To: Kara Beach <kara.beach@example.com>`,
       params: expect.objectContaining({
         p_opportunity_id: "opp-linked",
         p_provider_message_id: "msg-linked",
+        p_linked_contact_kind: "high_confidence_related_contact",
       }),
     });
     expect(upsertFromEmailMock).toHaveBeenCalledWith(
@@ -7760,6 +7860,122 @@ To: Kara Beach <kara.beach@example.com>`,
     );
   });
 
+  it("promotes a signed full name through live linked-thread enrichment", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [
+        {
+          id: "opp-falkks",
+          company_id: "company-1",
+          stage: "negotiation",
+          client_id: null,
+          title: "falkks — Email Inquiry",
+          contact_name: "falkks",
+          contact_email: "falkks1980@gmail.com",
+          contact_phone: null,
+          address: null,
+          estimated_value: null,
+          detected_value: null,
+          description: "Existing scope",
+          source: "email",
+          source_email_id: "thread-falkks",
+          source_message_id: "older-message",
+          source_metadata: null,
+        },
+      ],
+      provenanceRows: [
+        {
+          company_id: "company-1",
+          entity_type: "opportunity",
+          entity_id: "opp-falkks",
+          field_name: "title",
+          value_snapshot: "falkks — Email Inquiry",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+        {
+          company_id: "company-1",
+          entity_type: "opportunity",
+          entity_id: "opp-falkks",
+          field_name: "contact_name",
+          value_snapshot: "falkks",
+          source: "inbound",
+          confidence: 0.6,
+          actor_user_id: null,
+          confirmed_at: null,
+          confirmed_by: null,
+        },
+      ],
+      provenanceUpserts: [],
+      threadLinks: [
+        {
+          opportunity_id: "opp-falkks",
+          thread_id: "thread-falkks",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-kevin-signature",
+            threadId: "thread-falkks",
+            from: "falkks <falkks1980@gmail.com>",
+            fromName: "falkks",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Re: Estimate follow-up",
+            bodyText: "We'll get it done.\n\nThanks,\nKevin Falk",
+            bodyTextClean: "We'll get it done.\n\nThanks,\nKevin Falk",
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-kevin-signature",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-kevin-signature",
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(state.opportunities[0].contact_name).toBe("Kevin Falk");
+    expect(state.opportunities[0].title).toBe("Kevin Falk — Email Inquiry");
+    expect(state.provenanceUpserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entity_type: "opportunity",
+          entity_id: "opp-falkks",
+          field_name: "title",
+          value_snapshot: "Kevin Falk — Email Inquiry",
+          source: "inbound",
+          confidence: 0.92,
+          provider_message_id: "msg-kevin-signature",
+        }),
+        expect.objectContaining({
+          entity_type: "opportunity",
+          entity_id: "opp-falkks",
+          field_name: "contact_name",
+          value_snapshot: "Kevin Falk",
+          source: "inbound",
+          confidence: 0.92,
+          provider_message_id: "msg-kevin-signature",
+        }),
+      ])
+    );
+  });
+
   it("fails closed without advancing the cursor when a lifecycle stage write is rejected", async () => {
     const state: SupabaseState = {
       clients: [],
@@ -8235,6 +8451,7 @@ describe("SyncEngine Gmail history completeness", () => {
     const first = await firstPromise;
 
     expect(first.errors).toEqual([]);
+    expect(first.continuationPending).toBe(true);
     expect(listThreadIds).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ pageToken: null })
@@ -8257,6 +8474,7 @@ describe("SyncEngine Gmail history completeness", () => {
     const second = await secondPromise;
 
     expect(second.errors).toEqual([]);
+    expect(second.continuationPending).toBe(false);
     expect(fetchNewEmailsSince).toHaveBeenCalledTimes(1);
     expect(listThreadIds).toHaveBeenNthCalledWith(
       2,
@@ -8316,6 +8534,7 @@ describe("SyncEngine Gmail history completeness", () => {
     const result = await SyncEngine.runSync("connection-1");
 
     expect(result.errors).toEqual([]);
+    expect(result.continuationPending).toBe(true);
     expect(listThreadIds).toHaveBeenCalledTimes(10);
     expect(updateConnectionMock).toHaveBeenLastCalledWith(
       "connection-1",
@@ -8538,7 +8757,52 @@ describe("SyncEngine Gmail history completeness", () => {
 });
 
 describe("buildEmailOpportunityTitle unsafe identity filtering", () => {
-  it("rejects operator, company, and platform identities before using a safe local part", () => {
+  it("does not promote a lowercase mailbox handle into a lead title", () => {
+    expect(
+      buildEmailOpportunityTitle({
+        kind: "email_inquiry",
+        candidates: [
+          {
+            source: "inbound_sender",
+            name: "falkks",
+            email: "falkks1980@gmail.com",
+          },
+        ],
+      })
+    ).toBe("New Lead — Email Inquiry");
+  });
+
+  it("does not promote an exact mailbox local-part into a lead title", () => {
+    expect(
+      buildEmailOpportunityTitle({
+        kind: "estimate",
+        candidates: [
+          {
+            source: "outbound_recipient",
+            name: "Jtblam",
+            email: "jtblam@gmail.com",
+          },
+        ],
+      })
+    ).toBe("New Lead — Estimate");
+  });
+
+  it("keeps a person-shaped full display name as a provisional title", () => {
+    expect(
+      buildEmailOpportunityTitle({
+        kind: "email_inquiry",
+        candidates: [
+          {
+            source: "inbound_sender",
+            name: "Kevin Falk",
+            email: "falkks1980@gmail.com",
+          },
+        ],
+      })
+    ).toBe("Kevin Falk — Email Inquiry");
+  });
+
+  it("rejects operator, company, platform, and email-local-part identities", () => {
     expect(
       buildEmailOpportunityTitle({
         kind: "email_inquiry",
@@ -8571,7 +8835,7 @@ describe("buildEmailOpportunityTitle unsafe identity filtering", () => {
           platformEmails: ["notifications@wix-forms.com"],
         },
       })
-    ).toBe("Mara Hill — Email Inquiry");
+    ).toBe("New Lead — Email Inquiry");
   });
 
   it("uses New Lead only when every available identity is unsafe", () => {
@@ -8599,7 +8863,7 @@ describe("buildEmailOpportunityTitle unsafe identity filtering", () => {
     ).toBe("New Lead — Email Inquiry");
   });
 
-  it("rejects company display names derived from unsafe company domains", () => {
+  it("rejects company display names without fabricating a title from email", () => {
     expect(
       buildEmailOpportunityTitle({
         kind: "email_inquiry",
@@ -8619,6 +8883,6 @@ describe("buildEmailOpportunityTitle unsafe identity filtering", () => {
           domains: ["north-ridge.test"],
         },
       })
-    ).toBe("Mara Hill — Email Inquiry");
+    ).toBe("New Lead — Email Inquiry");
   });
 });

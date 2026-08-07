@@ -19,6 +19,7 @@ function normalizedText(value: unknown): string {
 }
 
 function sameNumber(actual: unknown, expected: unknown): boolean {
+  if (expected === null) return actual == null;
   return (
     typeof expected !== "number" ||
     (Number.isFinite(Number(actual)) &&

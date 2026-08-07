@@ -37,6 +37,23 @@ function functionDefinition(source: string, name: string): string {
   return next === -1 ? source.slice(start) : source.slice(start, next);
 }
 
+function generatedFunctionBlock(source: string, name: string): string {
+  const marker = `      ${name}:`;
+  const start = source.indexOf(marker);
+  expect(start, `${name} is missing from generated types`).toBeGreaterThanOrEqual(0);
+  const openingBrace = source.indexOf("{", start);
+  expect(openingBrace).toBeGreaterThan(start);
+
+  let depth = 0;
+  for (let index = openingBrace; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) return source.slice(start, index + 1);
+  }
+
+  throw new Error(`unterminated generated function block: ${name}`);
+}
+
 describe("OpenAI quota notification migration", () => {
   it("preserves the existing boolean RPC and adds a sibling identity-returning RPC", () => {
     const source = migrationSql();
@@ -239,15 +256,25 @@ describe("OpenAI quota notification migration", () => {
 
   it("publishes the two service RPCs in generated database types", () => {
     const types = readFileSync(databaseTypesPath, "utf8");
+    const resolver = generatedFunctionBlock(
+      types,
+      "resolve_openai_quota_notification_as_system"
+    );
 
     expect(types).toContain("create_notification_if_new_with_identity:");
-    expect(types).toContain("resolve_openai_quota_notification_as_system:");
     expect(types).toMatch(
       /create_notification_if_new_with_identity:[\s\S]*?Returns: \{[\s\S]*?created: boolean[\s\S]*?incident_version: number[\s\S]*?notification_id: string/
     );
-    expect(types).toMatch(
-      /resolve_openai_quota_notification_as_system:[\s\S]*?p_notification_id: string[\s\S]*?p_user_id: string[\s\S]*?p_company_id: string[\s\S]*?p_dedupe_key: string[\s\S]*?p_expected_incident_version: number[\s\S]*?Returns: boolean/
-    );
+    for (const fragment of [
+      "p_notification_id: string",
+      "p_user_id: string",
+      "p_company_id: string",
+      "p_dedupe_key: string",
+      "p_expected_incident_version: number",
+      "Returns: boolean",
+    ]) {
+      expect(resolver).toContain(fragment);
+    }
     expect(types).toMatch(
       /notifications: \{[\s\S]*?Row: \{[\s\S]*?incident_version: number/
     );

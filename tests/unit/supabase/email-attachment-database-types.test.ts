@@ -90,6 +90,17 @@ function expectGeneratedTable(input: {
   return table;
 }
 
+function expectGeneratedSetofTableReturn(
+  block: string,
+  table: "email_attachment_scans" | "email_attachment_inspection_jobs"
+): void {
+  expect(block).toContain("Returns: {");
+  expect(block).toContain("id: string");
+  expect(block).toContain("company_id: string");
+  expect(block).toContain(`to: "${table}"`);
+  expect(block).toContain("isSetofReturn: true");
+}
+
 describe("canonical email attachment database types", () => {
   it("matches the durable mailbox-scoped attachment and inspection tables", () => {
     const attachments = expectGeneratedTable({
@@ -241,10 +252,7 @@ describe("canonical email attachment database types", () => {
     expect(claim).toContain("p_worker_id: string");
     expect(claim).toContain("p_limit?: number");
     expect(claim).toContain("p_lease_seconds?: number");
-    expect(claim).toContain(
-      'Returns: Database["public"]["Tables"]["email_attachment_scans"]["Row"][]'
-    );
-    expect(claim).toContain("isSetofReturn: true");
+    expectGeneratedSetofTableReturn(claim, "email_attachment_scans");
 
     const exactClaim = extractBlock(
       databaseTypes,
@@ -260,10 +268,7 @@ describe("canonical email attachment database types", () => {
     ]) {
       expect(exactClaim).toContain(fragment);
     }
-    expect(exactClaim).toContain(
-      'Returns: Database["public"]["Tables"]["email_attachment_scans"]["Row"][]'
-    );
-    expect(exactClaim).toContain("isSetofReturn: true");
+    expectGeneratedSetofTableReturn(exactClaim, "email_attachment_scans");
 
     for (const functionName of [
       "claim_email_attachment_inspection_job",
@@ -275,10 +280,10 @@ describe("canonical email attachment database types", () => {
       );
       expect(inspectionClaim).toContain("p_worker_id: string");
       expect(inspectionClaim).toContain("p_lease_seconds?: number");
-      expect(inspectionClaim).toContain(
-        'Returns: Database["public"]["Tables"]["email_attachment_inspection_jobs"]["Row"][]'
+      expectGeneratedSetofTableReturn(
+        inspectionClaim,
+        "email_attachment_inspection_jobs"
       );
-      expect(inspectionClaim).toContain("isSetofReturn: true");
     }
 
     const refresh = extractBlock(
@@ -329,7 +334,7 @@ describe("canonical email attachment database types", () => {
 
     const reassign = extractBlock(
       databaseTypes,
-      "      reassign_opportunity_email_thread_guarded: {"
+      "      reassign_opportunity_email_thread_guarded:"
     );
     for (const fragment of [
       "p_actor_user_id: string",

@@ -179,7 +179,12 @@ describe("PhaseCAutonomyRouter actor resolution", () => {
       internalThreadId: THREAD_ID,
       providerThreadId: "provider-thread-1",
     });
-    expect(draftSpy).toHaveBeenCalledWith(input, ASSIGNEE_ID, "auto_draft");
+    expect(draftSpy).toHaveBeenCalledWith(
+      input,
+      ASSIGNEE_ID,
+      "auto_draft",
+      expect.anything()
+    );
   });
 
   it("passes the complete immutable actor fence into auto-send scheduling", async () => {
@@ -263,7 +268,12 @@ describe("PhaseCAutonomyRouter actor resolution", () => {
       ASSIGNEE_ID,
       "CUSTOMER"
     );
-    expect(draftSpy).toHaveBeenCalledWith(input, ASSIGNEE_ID, "auto_draft");
+    expect(draftSpy).toHaveBeenCalledWith(
+      input,
+      ASSIGNEE_ID,
+      "auto_draft",
+      expect.anything()
+    );
     expect(scheduleAutoSendMock).not.toHaveBeenCalled();
     expect(result.outcome).toBe("auto_drafted");
   });

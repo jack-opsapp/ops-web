@@ -204,7 +204,10 @@ describe("strict external API rate limiting", () => {
 
   it("fails closed when Supabase exceeds the bounded timeout", async () => {
     const client = {
-      rpc: vi.fn(() => new Promise(() => undefined)),
+      rpc: vi.fn(
+        () =>
+          new Promise<{ data: unknown; error: unknown }>(() => undefined)
+      ),
     };
     const limiter = createStrictRateLimiter({ client, timeoutMs: 10 });
 
