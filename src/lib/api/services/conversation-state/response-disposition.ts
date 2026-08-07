@@ -21,7 +21,7 @@ const QUESTION_RE =
   /\?|^(?:who|what|when|where|why|how|can|could|would|will|do|does|did|is|are|should)\b|\b(?:can|could|would|will) you\b|\bwould you mind\b/i;
 
 const DIRECT_REQUEST_RE =
-  /^(?:please\s+)?(?:send|share|provide|confirm|call|email|text|update|advise|tell|check|review|explain|clarify|include|remove|add|change|revise|forward|reply|respond)\b|^please\s+(?:quote|estimate)\b|^(?:please\s+)?let me know\b|^(?:i|we) need you to\b/i;
+  /(?:^|[.!?;:—–-]\s+|,\s*(?:but|and|so)\s+|,\s+(?=please\b)|\b(?:but|also)\s+)(?:(?:please\s+)?(?:send|share|provide|confirm|call|email|text|update|advise|tell|check|review|explain|clarify|include|remove|add|change|revise|forward|reply|respond)\b|please\s+(?:quote|estimate)\b|(?:please\s+)?let me know\b|(?:i|we) need you to\b)/i;
 
 const SCHEDULE_CONTEXT_RE =
   /\b(?:available|availability|schedule|reschedule|book(?:ing)?|appointment|site visit|walkthrough|meeting|meet|what time|which day|when can|come by|come out|fit (?:me|us) in)\b/i;

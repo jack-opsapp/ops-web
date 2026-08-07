@@ -57,6 +57,21 @@ describe("decideResponseDisposition", () => {
     ).toMatchObject({ disposition: "reply_required", mode: "answer" });
   });
 
+  it.each([
+    "I will send the dimensions tomorrow, but please confirm the address.",
+    "Payment sent. Please confirm receipt.",
+  ])(
+    "lets a later direct request outrank a future-action or completion update: %s",
+    (body) => {
+      expect(
+        decideResponseDisposition({
+          messages: [inbound(body)],
+          accept: noAccept,
+        })
+      ).toMatchObject({ disposition: "reply_required", mode: "answer" });
+    }
+  );
+
   it("requires a reply to a high-confidence acceptance", () => {
     const accept: AcceptSignal = {
       detected: true,
