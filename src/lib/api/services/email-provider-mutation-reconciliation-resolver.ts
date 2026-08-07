@@ -197,16 +197,19 @@ export async function resolveEmailProviderMutationReconciliationForConnection(in
     const cutoff = new Date(
       Date.now() - RECONCILIATION_RESOLVER_WINDOW_DAYS * 86_400_000
     ).toISOString();
-    const { data, error } = await input.supabase
-      .from("email_provider_mutation_attempts")
-      .select("id, operation_key, provider_resource_id")
-      .eq("company_id", input.connection.companyId)
-      .eq("connection_id_snapshot", input.connection.id)
-      .eq("operation_kind", "draft_create")
-      .eq("status", "reconciliation_required")
-      .gte("reconciliation_required_at", cutoff)
-      .order("reconciliation_required_at", { ascending: true })
-      .limit(RECONCILIATION_RESOLVER_ATTEMPT_LIMIT);
+    // The ledger grants service_role nothing — it is reachable only through
+    // SECURITY DEFINER RPCs, reads included. A direct PostgREST select here is
+    // permission denied, which is how this sweep failed on every production
+    // cycle before it scanned a single row.
+    const { data, error } = await input.supabase.rpc(
+      "list_email_provider_mutation_reconciliation_candidates",
+      {
+        p_connection_id: input.connection.id,
+        p_operation_kind: "draft_create",
+        p_since: cutoff,
+        p_limit: RECONCILIATION_RESOLVER_ATTEMPT_LIMIT,
+      }
+    );
     if (error) throw error;
 
     const attempts: QuarantinedAttempt[] = (
