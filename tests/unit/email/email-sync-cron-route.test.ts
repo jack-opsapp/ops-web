@@ -18,6 +18,7 @@ const {
   resolveReconciliationMock,
   recoverStrandedDraftsMock,
   getConnectionMock,
+  getSubscriptionInfoMock,
   serviceRoleState,
   supabaseContext,
   serviceRoleClient,
@@ -39,6 +40,14 @@ const {
         history_recovery_page_token: null as string | null,
       },
     ],
+    companies: [
+      {
+        id: "company-1",
+        subscription_plan: "pro",
+        subscription_status: "active",
+        trial_end_date: null as string | null,
+      },
+    ],
   };
   const serviceRoleClient = {
     rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -50,13 +59,7 @@ const {
               error: null,
             }
           : {
-              data: [
-                {
-                  id: "company-1",
-                  subscription_plan: "pro",
-                  subscription_status: "active",
-                },
-              ],
+              data: serviceRoleState.companies,
               error: null,
             };
       const query = {
@@ -92,6 +95,7 @@ const {
     resolveReconciliationMock: vi.fn(),
     recoverStrandedDraftsMock: vi.fn(),
     getConnectionMock: vi.fn(),
+    getSubscriptionInfoMock: vi.fn(),
     serviceRoleState,
     supabaseContext,
     serviceRoleClient,
@@ -151,7 +155,7 @@ vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
 }));
 
 vi.mock("@/lib/subscription", () => ({
-  getSubscriptionInfo: () => ({ isActive: true }),
+  getSubscriptionInfo: getSubscriptionInfoMock,
 }));
 
 vi.mock("@/lib/supabase/helpers", () => ({
@@ -244,6 +248,8 @@ describe("email sync cron HTTP outcome", () => {
     serviceRoleState.connections[0].last_synced_at = null;
     serviceRoleState.connections[0].history_id = "terminal-history";
     serviceRoleState.connections[0].history_recovery_page_token = null;
+    getSubscriptionInfoMock.mockReset();
+    getSubscriptionInfoMock.mockReturnValue({ isActive: true });
     retryDirtyClassificationsMock.mockResolvedValue({
       scanned: 0,
       classified: 0,
@@ -701,12 +707,38 @@ describe("email sync cron HTTP outcome", () => {
       });
     });
 
-    it("skips a connection this cycle never synced", async () => {
+    it("recovers a connection that was not due for a sync this cycle", async () => {
+      // Recovery must not inherit the sync-interval gate. A mailbox on a
+      // 60-minute interval would otherwise get at most one recovery attempt an
+      // hour, and a connection skipped for any other reason would get none at
+      // all — which is the same "waits for something else to happen" failure
+      // that turned two one-afternoon bugs into a five-day outage. These lanes
+      // run after every lease is released and need no sync to have happened.
       serviceRoleState.connections[0].last_synced_at = new Date().toISOString();
 
       await GET(request());
 
       expect(runSyncMock).not.toHaveBeenCalled();
+      expect(resolveReconciliationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connection: expect.objectContaining({ id: "connection-1" }),
+        })
+      );
+      expect(recoverStrandedDraftsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          companyId: "company-1",
+          connectionId: "connection-1",
+        })
+      );
+    });
+
+    it("leaves a lapsed tenant's mailbox alone", async () => {
+      // The subscription gate is a real fence, not a scheduling detail: no
+      // provider work of any kind for a company that stopped paying.
+      getSubscriptionInfoMock.mockReturnValue({ isActive: false });
+
+      await GET(request());
+
       expect(resolveReconciliationMock).not.toHaveBeenCalled();
       expect(recoverStrandedDraftsMock).not.toHaveBeenCalled();
     });

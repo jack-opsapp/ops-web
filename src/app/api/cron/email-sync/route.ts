@@ -143,9 +143,17 @@ export async function GET(request: NextRequest) {
           const now = Date.now();
           const results: Array<EmailSyncCronResult & { error?: string }> = [];
           let skippedInactive = 0;
-          // Connections this cycle actually touched. Mailbox draft recovery
-          // runs over exactly these, once every lease is released.
-          const syncedConnections: Array<{ id: string; companyId: string }> = [];
+          // Every connection this cycle is allowed to touch. Mailbox draft
+          // recovery runs over all of them once the leases are released —
+          // deliberately NOT just the ones that were due for a sync. Recovery
+          // needs no sync to have happened, and inheriting the sync interval
+          // would put it back to waiting on an unrelated schedule: a 60-minute
+          // mailbox would get one attempt an hour, and a connection skipped for
+          // any other reason would get none.
+          const recoverableConnections: Array<{
+            id: string;
+            companyId: string;
+          }> = [];
 
           for (const conn of connections ?? []) {
             // Skip companies with expired/cancelled subscriptions
@@ -153,6 +161,11 @@ export async function GET(request: NextRequest) {
               skippedInactive++;
               continue;
             }
+
+            recoverableConnections.push({
+              id: conn.id as string,
+              companyId: conn.company_id as string,
+            });
 
             const intervalMs =
               ((conn.sync_interval_minutes as number) ?? 60) * 60 * 1000;
@@ -166,11 +179,6 @@ export async function GET(request: NextRequest) {
                 (conn.history_id as string | null) ?? null
               );
             if (!continuationPending && now - lastSynced < intervalMs) continue;
-
-            syncedConnections.push({
-              id: conn.id as string,
-              companyId: conn.company_id as string,
-            });
 
             try {
               const result = await SyncEngine.runSync(conn.id as string);
@@ -281,9 +289,11 @@ export async function GET(request: NextRequest) {
             placement: { scanned: 0, placed: 0, skipped: 0, failed: 0 },
           };
           let mailboxDraftRecoveryError: string | null = null;
-          for (const synced of syncedConnections) {
+          for (const recoverable of recoverableConnections) {
             try {
-              const connection = await EmailService.getConnection(synced.id);
+              const connection = await EmailService.getConnection(
+                recoverable.id
+              );
               if (!connection) continue;
               mailboxDraftRecovery.connections += 1;
 
