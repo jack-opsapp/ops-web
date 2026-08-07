@@ -57,6 +57,11 @@ function dependencies() {
       .mockResolvedValue(
         attempt("completed", { ...accepted, status: "completed" })
       ),
+    // Lifting a quarantine belongs to the recovery resolver, never to execute()
+    // — nothing on the one-shot create path may talk itself out of a fence.
+    resolveReconciliation: vi
+      .fn()
+      .mockResolvedValue(attempt("provider_rejected")),
   };
   const executeProvider = vi.fn().mockResolvedValue({
     resourceId: "provider-draft-1",

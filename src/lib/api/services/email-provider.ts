@@ -245,6 +245,20 @@ export interface NormalizedDraft {
   updatedAt: Date;
 }
 
+/**
+ * Verdict of a per-conversation draft probe.
+ *
+ * `present: false` is a POSITIVE read that the provider holds no draft pinned
+ * to that thread — the only finding that may license an automated rejection of
+ * a quarantined `draft_create` attempt. `present: true` with an empty
+ * `draftIds` means a draft provably exists but could not be named; callers must
+ * leave such an attempt quarantined rather than guess at its identity.
+ */
+export interface ThreadDraftProbe {
+  present: boolean;
+  draftIds: string[];
+}
+
 /** Result of placing a fresh-outreach draft that starts a NEW provider thread.
  *  `threadId` is the provider thread the draft message was minted into (Gmail
  *  message.threadId / M365 conversationId). Captured so the learning loop can
@@ -428,6 +442,22 @@ export interface EmailProviderInterface {
     draftId: string,
     readPolicy?: ProviderReadPolicy
   ): Promise<NormalizedDraft | null>;
+
+  /**
+   * Ask the provider whether it currently holds any draft pinned to one exact
+   * conversation.
+   *
+   * Unlike `listDrafts()`, this read is scoped to the thread and is never
+   * silently truncated, so an empty result is admissible evidence of absence
+   * rather than a bounded page that happened to miss. It exists for exactly one
+   * caller: resolving a `draft_create` attempt that was quarantined before any
+   * provider resource id was recorded, where the question "did this mutation
+   * actually land?" has no other honest answer.
+   */
+  findDraftsOnThread(
+    threadId: string,
+    readPolicy?: ProviderReadPolicy
+  ): Promise<ThreadDraftProbe>;
 
   /** Delete a draft from the provider. Idempotent on already-gone drafts. */
   deleteDraft(draftId: string): Promise<void>;
