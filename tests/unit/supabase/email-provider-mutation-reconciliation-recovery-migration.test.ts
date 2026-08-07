@@ -1,0 +1,153 @@
+/**
+ * Migration contract — reconciliation recovery
+ *
+ * `reconciliation_required` was a one-way door. Nothing in the database could
+ * leave it: `mark_email_provider_mutation_rejected` refuses any status outside
+ * (attempting, provider_rejected), and no other RPC, cron, or UI transitioned
+ * out. One quarantined row therefore blocked every later attempt on the same
+ * (connection, operation_kind, operation_key) forever, and clearing it took a
+ * hand-written UPDATE against production twice in one day.
+ *
+ * This migration adds the exit, and it is deliberately narrow: the caller must
+ * carry a positive provider read, and an "it isn't there" verdict must name the
+ * exact resource it disproves.
+ */
+
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+const migrationPath = join(
+  process.cwd(),
+  "supabase/migrations/20260806232833_email_provider_mutation_reconciliation_recovery.sql"
+);
+const sql = existsSync(migrationPath)
+  ? readFileSync(migrationPath, "utf8").toLowerCase()
+  : "";
+const compact = sql.replace(/\s+/g, " ");
+
+/** Slice one function definition out of the migration, whitespace-collapsed. */
+function functionBody(name: string, nextName?: string): string {
+  const start = sql.indexOf(`create or replace function ${name}`);
+  if (start < 0) return "";
+  const end = nextName
+    ? sql.indexOf(`create or replace function ${nextName}`)
+    : -1;
+  return (end > start ? sql.slice(start, end) : sql.slice(start)).replace(
+    /\s+/g,
+    " "
+  );
+}
+
+describe("email provider mutation reconciliation recovery migration", () => {
+  it("runs as one transaction", () => {
+    const firstStatement = sql
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line && !line.startsWith("--"));
+    expect(firstStatement).toBe("begin;");
+    expect(sql.trim().endsWith("commit;")).toBe(true);
+  });
+
+  it("adds a service-role-only resolver for quarantined attempts", () => {
+    expect(compact).toContain(
+      "create or replace function public.resolve_email_provider_mutation_reconciliation"
+    );
+    const resolver = functionBody(
+      "public.resolve_email_provider_mutation_reconciliation",
+      "private.notify_email_provider_mutation_reconciliation"
+    );
+    expect(resolver).toContain("security definer");
+    expect(resolver).toContain("set search_path to ''");
+    expect(resolver).toContain(
+      "if coalesce(auth.jwt() ->> 'role', '') <> 'service_role' then"
+    );
+    expect(compact).toContain(
+      "revoke all on function public.resolve_email_provider_mutation_reconciliation"
+    );
+  });
+
+  it("only resolves a row that is actually quarantined", () => {
+    const resolver = functionBody(
+      "public.resolve_email_provider_mutation_reconciliation",
+      "private.notify_email_provider_mutation_reconciliation"
+    );
+    expect(resolver).toContain("for update");
+    expect(resolver).toContain("email_provider_mutation_resolution_invalid");
+    expect(resolver).toContain("existing.status <> 'reconciliation_required'");
+  });
+
+  it("demands recorded evidence for either verdict", () => {
+    const resolver = functionBody(
+      "public.resolve_email_provider_mutation_reconciliation",
+      "private.notify_email_provider_mutation_reconciliation"
+    );
+    // The whole point of the manual recovery standard: no row leaves
+    // quarantine without the provider read that justified it, on the record.
+    expect(resolver).toContain("v_evidence is null");
+    expect(resolver).toContain("invalid_email_provider_mutation_resolution");
+    expect(resolver).toContain(
+      "p_verdict not in ('resource_exists', 'resource_absent')"
+    );
+  });
+
+  it("hands a proven-existing resource back to the normal completion path", () => {
+    const resolver = functionBody(
+      "public.resolve_email_provider_mutation_reconciliation",
+      "private.notify_email_provider_mutation_reconciliation"
+    );
+    expect(resolver).toContain("if p_verdict = 'resource_exists' then");
+    // Landing on provider_accepted (not completed) keeps OPS-side binding
+    // mandatory: complete_email_provider_mutation_attempt still has to run.
+    expect(resolver).toContain("set status = 'provider_accepted'");
+    expect(resolver).toContain("email_provider_mutation_identity_conflict");
+  });
+
+  it("clears the recorded identity when a resource is proven gone", () => {
+    const resolver = functionBody(
+      "public.resolve_email_provider_mutation_reconciliation",
+      "private.notify_email_provider_mutation_reconciliation"
+    );
+    expect(resolver).toContain("set status = 'provider_rejected'");
+    // A rejected row keeping provider_resource_id would be read back by
+    // EmailProviderMutationAttemptService.execute as a durable acceptance, and
+    // reconciliation would bind a draft that no longer exists.
+    expect(resolver).toContain("provider_resource_id = null");
+    expect(resolver).toContain("provider_secondary_resource_id = null");
+    expect(resolver).toContain("provider_accepted_at = null");
+  });
+
+  it("refuses to erase an identity the caller did not disprove", () => {
+    const resolver = functionBody(
+      "public.resolve_email_provider_mutation_reconciliation",
+      "private.notify_email_provider_mutation_reconciliation"
+    );
+    expect(resolver).toContain("email_provider_mutation_absence_contradicted");
+  });
+
+  it("retires the operator alert on any exit from quarantine", () => {
+    const notify = functionBody(
+      "private.notify_email_provider_mutation_reconciliation"
+    );
+    // Previously only `completed` resolved it, so an attempt that unjammed to
+    // provider_rejected left a permanent, undismissable alert behind.
+    expect(notify).toContain("old.status = 'reconciliation_required'");
+    expect(notify).toContain("new.status <> 'reconciliation_required'");
+    expect(notify).toContain("resolved_at = clock_timestamp()");
+  });
+
+  it("gives the individual-mailbox draft alert somewhere to go", () => {
+    const notify = functionBody(
+      "private.notify_email_provider_mutation_reconciliation"
+    );
+    // The old individual branch hard-set both to null, so the operator got a
+    // persistent message with no way to reach the affected conversation.
+    expect(notify).not.toContain("v_action_url := null");
+    expect(notify).toContain("phase-c-reply-draft:");
+    expect(notify).toContain("public.ai_draft_history");
+    expect(notify).toContain("public.email_threads");
+    expect(notify).toContain("'/inbox/'");
+    expect(notify).toContain("'/pipeline?opportunityid='");
+  });
+});

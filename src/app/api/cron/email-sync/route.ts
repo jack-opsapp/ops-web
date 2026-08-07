@@ -20,8 +20,11 @@ import {
   readCronWorkloadCursor,
 } from "@/lib/api/services/cron-workload-cursor-service";
 import { SyncEngine } from "@/lib/api/services/sync-engine";
+import { EmailService } from "@/lib/api/services/email-service";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { EmailOutboundLearningService } from "@/lib/api/services/email-outbound-learning-service";
+import { resolveEmailProviderMutationReconciliationForConnection } from "@/lib/api/services/email-provider-mutation-reconciliation-resolver";
+import { recoverStrandedPhaseCMailboxDraftsForConnection } from "@/lib/api/services/phase-c-draft-placement-recovery";
 import {
   buildEmailSyncCronResult,
   type EmailSyncCronResult,
@@ -140,6 +143,9 @@ export async function GET(request: NextRequest) {
           const now = Date.now();
           const results: Array<EmailSyncCronResult & { error?: string }> = [];
           let skippedInactive = 0;
+          // Connections this cycle actually touched. Mailbox draft recovery
+          // runs over exactly these, once every lease is released.
+          const syncedConnections: Array<{ id: string; companyId: string }> = [];
 
           for (const conn of connections ?? []) {
             // Skip companies with expired/cancelled subscriptions
@@ -160,6 +166,11 @@ export async function GET(request: NextRequest) {
                 (conn.history_id as string | null) ?? null
               );
             if (!continuationPending && now - lastSynced < intervalMs) continue;
+
+            syncedConnections.push({
+              id: conn.id as string,
+              companyId: conn.company_id as string,
+            });
 
             try {
               const result = await SyncEngine.runSync(conn.id as string);
@@ -245,6 +256,87 @@ export async function GET(request: NextRequest) {
               retryError instanceof Error
                 ? retryError.message
                 : "Unknown thread classification retry error";
+          }
+
+          // Mailbox draft recovery. Placement failures used to have no way back:
+          // the router is the only thing that places drafts and it runs on
+          // classification, so a draft stranded on a thread the customer never
+          // wrote to again stayed stranded — and a quarantined mutation ledger
+          // row blocked its operation until someone wrote an UPDATE by hand.
+          //
+          // Both run here, after every sync lease is released, because the
+          // router takes the mailbox lease itself and its sync-terminal fence
+          // has to be able to see a foreign sync in order to stand down for it.
+          // The ledger is unjammed first: a quarantined row would otherwise
+          // refuse the placement retry that follows it in this same cycle.
+          const mailboxDraftRecovery = {
+            connections: 0,
+            reconciliation: {
+              scanned: 0,
+              accepted: 0,
+              rejected: 0,
+              unresolved: 0,
+              failed: 0,
+            },
+            placement: { scanned: 0, placed: 0, skipped: 0, failed: 0 },
+          };
+          let mailboxDraftRecoveryError: string | null = null;
+          for (const synced of syncedConnections) {
+            try {
+              const connection = await EmailService.getConnection(synced.id);
+              if (!connection) continue;
+              mailboxDraftRecovery.connections += 1;
+
+              const reconciliation =
+                await resolveEmailProviderMutationReconciliationForConnection({
+                  connection,
+                  supabase,
+                });
+              mailboxDraftRecovery.reconciliation = {
+                scanned:
+                  mailboxDraftRecovery.reconciliation.scanned +
+                  reconciliation.scanned,
+                accepted:
+                  mailboxDraftRecovery.reconciliation.accepted +
+                  reconciliation.accepted,
+                rejected:
+                  mailboxDraftRecovery.reconciliation.rejected +
+                  reconciliation.rejected,
+                unresolved:
+                  mailboxDraftRecovery.reconciliation.unresolved +
+                  reconciliation.unresolved,
+                failed:
+                  mailboxDraftRecovery.reconciliation.failed +
+                  reconciliation.failed,
+              };
+
+              const placement =
+                await recoverStrandedPhaseCMailboxDraftsForConnection({
+                  companyId: connection.companyId,
+                  connectionId: connection.id,
+                  supabase,
+                });
+              mailboxDraftRecovery.placement = {
+                scanned:
+                  mailboxDraftRecovery.placement.scanned + placement.scanned,
+                placed: mailboxDraftRecovery.placement.placed + placement.placed,
+                skipped:
+                  mailboxDraftRecovery.placement.skipped + placement.skipped,
+                failed:
+                  mailboxDraftRecovery.placement.failed + placement.failed,
+              };
+            } catch (recoveryError) {
+              if (isDatabasePressureError(recoveryError)) throw recoveryError;
+              console.error(
+                "[email-cron-sync] mailbox draft recovery error:",
+                recoveryError
+              );
+              mailboxDraftRecovery.placement.failed += 1;
+              mailboxDraftRecoveryError ??=
+                recoveryError instanceof Error
+                  ? recoveryError.message
+                  : "Unknown mailbox draft recovery error";
+            }
           }
 
           // Drain exact-message classification deferrals and idempotent label
@@ -367,6 +459,14 @@ export async function GET(request: NextRequest) {
             outboundLearning.bookkeepingFailed > 0 ||
             outboundLearningError
               ? 1
+              : 0) +
+            // Silence is what cost five days. A draft that is still not in the
+            // mailbox, or a ledger row still stuck, has to reach the cron
+            // result instead of only a log line.
+            (mailboxDraftRecovery.placement.failed > 0 ||
+            mailboxDraftRecovery.reconciliation.failed > 0 ||
+            mailboxDraftRecoveryError
+              ? 1
               : 0);
 
           return NextResponse.json(
@@ -388,6 +488,8 @@ export async function GET(request: NextRequest) {
               pendingLeadScanSweepError,
               outboundLearning,
               outboundLearningError,
+              mailboxDraftRecovery,
+              mailboxDraftRecoveryError,
               results,
             },
             { status: failed === 0 ? 200 : 503 }
