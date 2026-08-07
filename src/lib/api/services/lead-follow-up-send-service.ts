@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
   DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT,
+  resolveLeadFollowUpTemplateForSequence,
 } from "@/lib/email/opportunity-lifecycle-evaluator";
 import { resolveEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
 import type { EmailRouteActor } from "@/lib/email/email-route-auth";
@@ -318,9 +319,13 @@ export function renderLeadFollowUpTemplate(
     contactName: string | null;
     opportunityTitle: string | null;
     companyName: string | null;
+    sequenceNumber?: number;
   }
 ): string {
-  let source = template;
+  let source = resolveLeadFollowUpTemplateForSequence(
+    template,
+    input.sequenceNumber ?? 1
+  );
   if (!normalizedText(input.companyName)) {
     source = source.replace(/\s+for\s+{{\s*company_name\s*}}/gi, "");
   }

@@ -4,7 +4,10 @@ import type {
   OpportunityLifecycleDecisionAction,
   OpportunityLifecycleStateInput,
 } from "@/lib/email/opportunity-lifecycle-evaluator";
-import { DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT } from "@/lib/email/opportunity-lifecycle-evaluator";
+import {
+  DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT,
+  resolveLeadFollowUpTemplateForSequence,
+} from "@/lib/email/opportunity-lifecycle-evaluator";
 
 interface ActionSupabaseLike {
   from: (table: string) => any;
@@ -287,8 +290,14 @@ function cleanRenderedTemplate(value: string): string {
   return value.replace(/\s+([,.!?;:])/g, "$1").replace(/\s{2,}/g, " ").trim();
 }
 
-function renderFollowUpBody(input: OpportunityLifecycleActionInput): string {
-  const template = input.settings.followUpTemplateBody;
+function renderFollowUpBody(
+  input: OpportunityLifecycleActionInput,
+  sequenceNumber: number
+): string {
+  const template = resolveLeadFollowUpTemplateForSequence(
+    input.settings.followUpTemplateBody,
+    sequenceNumber
+  );
   const replacements: Record<string, string> = {
     first_name: firstName(input.contactName),
     opportunity_title: normalizedText(input.opportunityTitle) ?? "",
@@ -567,8 +576,8 @@ async function createTemplateFollowUpDraft(
     };
   }
 
-  const body = renderFollowUpBody(input);
   const sequence = await nextTemplateSequence(input);
+  const body = renderFollowUpBody(input, sequence);
   const subject =
     normalizedText(input.settings.followUpTemplateSubject) ??
     DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT;

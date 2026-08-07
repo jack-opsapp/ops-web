@@ -87,6 +87,7 @@ export type RouterOutcome =
    * Phase 3 safety gate doing its job. Surfaces the routing reasons in `detail`.
    */
   | "noop_held_for_review"
+  | "noop_no_reply_warranted"
   /**
    * Placement-only recovery found nothing stranded for the thread's latest
    * inbound message. Distinct from `noop_off`: autonomy is live, there is
@@ -150,6 +151,7 @@ async function latestInboundNeedsDraft(
 ): Promise<{
   needsDraft: boolean;
   sourceMessageId: string | null;
+  sourceActivityId: string | null;
   retryDraft: {
     draft: string;
     draftHistoryId: string;
@@ -161,7 +163,7 @@ async function latestInboundNeedsDraft(
   // The provider message id of the most recent inbound message on the thread.
   const { data: latest } = await supabase
     .from("activities")
-    .select("email_message_id")
+    .select("id, email_message_id")
     .eq("company_id", thread.companyId)
     .eq("email_connection_id", thread.connectionId)
     .eq("email_thread_id", thread.providerThreadId)
@@ -172,12 +174,18 @@ async function latestInboundNeedsDraft(
     .maybeSingle();
 
   const sourceMessageId = (latest?.email_message_id as string | null) ?? null;
+  const sourceActivityId = (latest?.id as string | null) ?? null;
 
   // Can't dedup without a stable message key — let the draft proceed. The
   // mailbox placement path still reuses an existing unresolved provider draft
   // for this thread.
   if (!sourceMessageId) {
-    return { needsDraft: true, sourceMessageId, retryDraft: null };
+    return {
+      needsDraft: true,
+      sourceMessageId,
+      sourceActivityId,
+      retryDraft: null,
+    };
   }
 
   // Has any Phase C draft already been generated for this exact inbound
@@ -215,6 +223,7 @@ async function latestInboundNeedsDraft(
   return {
     needsDraft: !matching,
     sourceMessageId,
+    sourceActivityId,
     retryDraft,
   };
 }
@@ -715,10 +724,8 @@ export const PhaseCAutonomyRouter = {
     // P4-A cost guard: short-circuit BEFORE the draft LLM if we already
     // auto-drafted for this exact inbound message. Prevents one-draft-per-resync
     // from re-invoking the model on a thread whose latest message is unchanged.
-    const { needsDraft, retryDraft } = await latestInboundNeedsDraft(
-      thread,
-      userId
-    );
+    const { needsDraft, sourceActivityId, retryDraft } =
+      await latestInboundNeedsDraft(thread, userId);
     let draft: {
       draft: string;
       draftHistoryId: string;
@@ -767,9 +774,22 @@ export const PhaseCAutonomyRouter = {
         // P4-B: stamp ai_draft_history.origin so the Phase C auto-drafts are
         // distinguishable from operator/compose drafts.
         origin: "phase_c",
+        emailAccess: accessBeforeDraft,
+        sourceActivityId:
+          thread.opportunityId && sourceActivityId
+            ? sourceActivityId
+            : undefined,
       });
 
       if (!generated.available) {
+        if (generated.noReplyWarranted) {
+          return {
+            outcome: "noop_no_reply_warranted",
+            category: thread.primaryCategory,
+            effectiveLevel: effective,
+            detail: generated.reason,
+          };
+        }
         // Phase 3: the deterministic router held the thread for review. This is a
         // deliberate, explainable hold — surface it distinctly from errors so the
         // operator (and logs) see WHY autonomy stood down.

@@ -94,6 +94,7 @@ interface DbState {
   priorMailboxDraftRows: Array<Record<string, unknown>>; // provider-draft idempotency
   // P4-A cost-guard fixtures.
   latestInboundMessageId: string | null; // activities latest inbound email_message_id
+  latestInboundActivityId: string | null;
   latestInboundFilters: Record<string, unknown> | null;
   matchingHistoryRow: Record<string, unknown> | null; // ai_draft_history match on source_message_id
   rpcCalls: Array<{ name: string; args: Record<string, unknown> }>;
@@ -142,8 +143,13 @@ vi.mock("@/lib/supabase/helpers", async () => {
         db.latestInboundFilters = { ...filters };
         return {
           data: db.latestInboundMessageId
-            ? { email_message_id: db.latestInboundMessageId }
-            : null,
+            ? {
+                id: db.latestInboundActivityId,
+                email_message_id: db.latestInboundMessageId,
+              }
+            : db.latestInboundActivityId
+              ? { id: db.latestInboundActivityId, email_message_id: null }
+              : null,
           error: null,
         };
       }
@@ -223,18 +229,37 @@ function thread(overrides: Partial<EmailThread> = {}): EmailThread {
   } as unknown as EmailThread;
 }
 
+function allowedAccess() {
+  return {
+    allowed: true as const,
+    actor: { userId: "owner-1", companyId: "co-1" },
+    operation: "send" as const,
+    threadId: "thr-1",
+    connectionId: "conn-1",
+    providerThreadId: "pt-1",
+    opportunityId: "opp-1",
+    connectionType: "company" as const,
+    connectionOwnerId: null,
+    pipelineScope: "all" as const,
+    inboxScope: "all" as const,
+    usedLegacyPipelineManage: false,
+    usedLegacyInboxViewCompany: false,
+  };
+}
+
 beforeEach(() => {
   db = {
     inserts: [],
     updates: [],
     priorMailboxDraftRows: [],
     latestInboundMessageId: null,
+    latestInboundActivityId: "activity-latest",
     latestInboundFilters: null,
     matchingHistoryRow: null,
     rpcCalls: [],
   };
   generateDraftMock.mockReset();
-  accessResolverMock.mockReset().mockResolvedValue({ allowed: true });
+  accessResolverMock.mockReset().mockResolvedValue(allowedAccess());
   createDraftMock.mockReset();
   updateDraftMock.mockReset();
   getConnectionMock.mockReset();
@@ -315,6 +340,12 @@ describe("P4-C — phase_c provider mailbox draft", () => {
       "auto_draft"
     );
     expect(res.outcome).toBe("auto_drafted");
+    expect(generateDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceActivityId: "activity-latest",
+        emailAccess: allowedAccess(),
+      })
+    );
 
     expect(createDraftMock).toHaveBeenCalledTimes(1);
     expect(createDraftMock).toHaveBeenCalledWith(
@@ -606,6 +637,29 @@ describe("P4-C — phase_c provider mailbox draft", () => {
     expect(updateDraftMock).not.toHaveBeenCalled();
   });
 
+  it("treats a deliberate no-reply decision as a clean no-op", async () => {
+    generateDraftMock.mockResolvedValue({
+      available: false,
+      noReplyWarranted: true,
+      reason: "No reply warranted",
+    });
+
+    const result = await PhaseCAutonomyRouter.doAutoDraft(
+      thread(),
+      "owner-1",
+      "auto_draft"
+    );
+
+    expect(result).toEqual({
+      outcome: "noop_no_reply_warranted",
+      category: "CUSTOMER",
+      effectiveLevel: "auto_draft",
+      detail: "No reply warranted",
+    });
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  });
+
   it("places a review-only mailbox draft without blocking on an unconfigured signature", async () => {
     resolveEmailSignatureMock.mockResolvedValue(null);
     generateDraftMock.mockResolvedValue({
@@ -638,7 +692,7 @@ describe("P4-C — phase_c provider mailbox draft", () => {
 
   it("does not write a provider draft after the lead is reassigned during generation", async () => {
     accessResolverMock
-      .mockResolvedValueOnce({ allowed: true })
+      .mockResolvedValueOnce(allowedAccess())
       .mockResolvedValueOnce({
         allowed: false,
         reason: "opportunity_other_assignee",

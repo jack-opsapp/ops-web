@@ -235,8 +235,7 @@ function activityRow(
 
 function latestUserPrompt(): string {
   const request = openAICreateMock.mock.calls.at(-1)?.[0] as
-    | { messages?: Array<{ role: string; content: string }> }
-    | undefined;
+    { messages?: Array<{ role: string; content: string }> } | undefined;
   return (
     request?.messages?.find((message) => message.role === "user")?.content ?? ""
   );
@@ -244,8 +243,7 @@ function latestUserPrompt(): string {
 
 function latestSystemPrompt(): string {
   const request = openAICreateMock.mock.calls.at(-1)?.[0] as
-    | { messages?: Array<{ role: string; content: string }> }
-    | undefined;
+    { messages?: Array<{ role: string; content: string }> } | undefined;
   return (
     request?.messages?.find((message) => message.role === "system")?.content ??
     ""
@@ -314,6 +312,95 @@ beforeEach(() => {
 });
 
 describe("AIDraftService recent mailbox context", () => {
+  it("returns a deliberate no-reply result before calling the model", async () => {
+    database.tables.activities = [
+      activityRow(
+        "connection-b",
+        "message-thanks",
+        "Ok thanks",
+        "2026-07-14T11:00:00.000Z"
+      ),
+    ];
+    buildConversationStateMock.mockResolvedValue({
+      threadId: "thread-b",
+      connectionId: "connection-b",
+      companyId: "company-1",
+      operator: {
+        emails: new Set(["owner@example.com"]),
+        domains: new Set<string>(),
+        phones: new Set<string>(),
+        addresses: new Set<string>(),
+        companyName: "Canpro",
+      },
+      recipient: { email: "customer@example.com", name: "Customer" },
+      messages: [
+        {
+          providerMessageId: "message-thanks",
+          direction: "inbound",
+          partyRole: "customer",
+          fromEmail: "customer@example.com",
+          fromName: "Customer",
+          sentAt: "2026-07-14T11:00:00.000Z",
+          cleanBody: "Ok thanks",
+          rawBody: "Ok thanks",
+          isRealCustomerInbound: true,
+          attachments: [],
+        },
+      ],
+      customerMessages: [
+        {
+          providerMessageId: "message-thanks",
+          direction: "inbound",
+          partyRole: "customer",
+          fromEmail: "customer@example.com",
+          fromName: "Customer",
+          sentAt: "2026-07-14T11:00:00.000Z",
+          cleanBody: "Ok thanks",
+          rawBody: "Ok thanks",
+          isRealCustomerInbound: true,
+          attachments: [],
+        },
+      ],
+      contact: {
+        name: "Customer",
+        nameIsVerified: true,
+        email: "customer@example.com",
+        phone: null,
+        address: null,
+        provenance: [],
+      },
+      stage: "qualifying",
+      accept: {
+        detected: false,
+        confidence: "low",
+        basis: [],
+        evidenceMessageIds: [],
+      },
+      sentLedger: [],
+      attachmentsRequiringInspection: [],
+      routing: "update_lead_only",
+      routingReasons: ["The message closes the loop."],
+      responseDisposition: "no_reply_required",
+      responseMode: "no_reply",
+      confidence: 0.9,
+    });
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      threadId: SHARED_PROVIDER_THREAD_ID,
+      autonomous: true,
+      origin: "phase_c",
+    });
+
+    expect(result.available).toBe(false);
+    expect(result.noReplyWarranted).toBe(true);
+    expect(result.heldForReview).not.toBe(true);
+    expect(openAICreateMock).not.toHaveBeenCalled();
+    expect(database.inserts).toHaveLength(0);
+  });
+
   it("binds a message-scoped system handoff draft to its authorized inbound activity", async () => {
     database.tables.opportunities = [
       {

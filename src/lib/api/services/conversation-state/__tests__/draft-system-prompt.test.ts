@@ -125,4 +125,90 @@ describe("buildDraftSystemPrompt — operator identity", () => {
     expect(prompt).toContain("8. GREETING: Hey {name},");
     expect(prompt).toContain("UNTRUSTED DATA");
   });
+
+  it("allows a complete but direct first reply", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      replyContext: {
+        mode: "answer",
+        isFirstOperatorReply: true,
+        customerMessageCount: 1,
+        operatorMessageCount: 0,
+      },
+    });
+
+    expect(prompt).toMatch(/first operator reply/i);
+    expect(prompt).toMatch(/complete.*direct|direct.*complete/i);
+    expect(prompt).not.toMatch(/1-3 short sentences/i);
+  });
+
+  it("compresses an ongoing reply to the new semantic delta", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      replyContext: {
+        mode: "answer",
+        isFirstOperatorReply: false,
+        customerMessageCount: 4,
+        operatorMessageCount: 3,
+      },
+    });
+
+    expect(prompt).toMatch(/ongoing conversation/i);
+    expect(prompt).toMatch(/1-3 short sentences/i);
+    expect(prompt).toMatch(/55 words/i);
+    expect(prompt).toMatch(/new semantic delta/i);
+    expect(prompt).toMatch(/generic call to action/i);
+  });
+
+  it("turns learned more-direct and shorter edits into active overrides", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: {
+        ...PROFILE,
+        tone_traits: {
+          direct: true,
+          learned_edits: {
+            tone_shift: { preference: "more_direct" },
+          },
+        },
+        vocabulary_preferences: {
+          learned_structure_edits: {
+            length: { preference: "shorter" },
+          },
+        },
+      },
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      replyContext: {
+        mode: "answer",
+        isFirstOperatorReply: false,
+        customerMessageCount: 3,
+        operatorMessageCount: 2,
+      },
+    });
+
+    expect(prompt).toMatch(/edit-derived overrides/i);
+    expect(prompt).toMatch(/more direct/i);
+    expect(prompt).toMatch(/shorter/i);
+  });
+
+  it("forbids schedule claims without verified calendar context", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      replyContext: {
+        mode: "schedule",
+        isFirstOperatorReply: false,
+        customerMessageCount: 2,
+        operatorMessageCount: 1,
+      },
+    });
+
+    expect(prompt).toMatch(/never (?:state|claim).*availability/i);
+    expect(prompt).toMatch(/verified calendar context/i);
+  });
 });

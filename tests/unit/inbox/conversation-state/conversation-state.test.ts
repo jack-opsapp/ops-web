@@ -105,12 +105,23 @@ describe("assembleConversationState — message ordering & recipient", () => {
     const state = assembleConversationState(
       baseInput({
         rawMessages: [
-          rawMsg({ providerMessageId: "c2", sentAt: "2026-06-21T10:00:00.000Z", rawBody: "second" }),
-          rawMsg({ providerMessageId: "c1", sentAt: "2026-06-20T10:00:00.000Z", rawBody: "first" }),
+          rawMsg({
+            providerMessageId: "c2",
+            sentAt: "2026-06-21T10:00:00.000Z",
+            rawBody: "second",
+          }),
+          rawMsg({
+            providerMessageId: "c1",
+            sentAt: "2026-06-20T10:00:00.000Z",
+            rawBody: "first",
+          }),
         ],
       })
     );
-    expect(state.messages.map((m) => m.providerMessageId)).toEqual(["c1", "c2"]);
+    expect(state.messages.map((m) => m.providerMessageId)).toEqual([
+      "c1",
+      "c2",
+    ]);
   });
 
   it("binds recipient to the actual latest inbound sender (not the first)", () => {
@@ -153,7 +164,9 @@ describe("assembleConversationState — clean body", () => {
     ].join("\n");
 
     const state = assembleConversationState(
-      baseInput({ rawMessages: [rawMsg({ providerMessageId: "c1", rawBody: raw })] })
+      baseInput({
+        rawMessages: [rawMsg({ providerMessageId: "c1", rawBody: raw })],
+      })
     );
 
     const m = state.messages[0];
@@ -233,7 +246,12 @@ describe("assembleConversationState — accept signal", () => {
   it("detects a high-confidence accept from explicit language", () => {
     const state = assembleConversationState(
       baseInput({
-        rawMessages: [rawMsg({ providerMessageId: "c1", rawBody: "Yes, let's go ahead and book it." })],
+        rawMessages: [
+          rawMsg({
+            providerMessageId: "c1",
+            rawBody: "Yes, let's go ahead and book it.",
+          }),
+        ],
       })
     );
     expect(state.accept.detected).toBe(true);
@@ -247,7 +265,12 @@ describe("assembleConversationState — sent ledger", () => {
     const state = assembleConversationState(
       baseInput({
         rawMessages: [
-          rawMsg({ providerMessageId: "c1", fromEmail: "sarah@gmail.com", sentAt: "2026-06-20T10:00:00.000Z", rawBody: "Can you quote a fence?" }),
+          rawMsg({
+            providerMessageId: "c1",
+            fromEmail: "sarah@gmail.com",
+            sentAt: "2026-06-20T10:00:00.000Z",
+            rawBody: "Can you quote a fence?",
+          }),
           rawMsg({
             providerMessageId: "o1",
             fromEmail: "canprojack@gmail.com",
@@ -257,20 +280,29 @@ describe("assembleConversationState — sent ledger", () => {
           }),
         ],
         commitments: [
-          { content: "Promised to send the revised quote by Friday", created_at: "2026-06-20T12:05:00.000Z" },
+          {
+            content: "Promised to send the revised quote by Friday",
+            created_at: "2026-06-20T12:05:00.000Z",
+          },
         ],
       })
     );
 
     expect(state.sentLedger.some((e) => e.amount === 3200)).toBe(true);
-    expect(state.sentLedger.some((e) => /revised quote/i.test(e.text))).toBe(true);
+    expect(state.sentLedger.some((e) => /revised quote/i.test(e.text))).toBe(
+      true
+    );
   });
 
   it("never enters a customer's stated budget into the sent ledger", () => {
     const state = assembleConversationState(
       baseInput({
         rawMessages: [
-          rawMsg({ providerMessageId: "c1", fromEmail: "sarah@gmail.com", rawBody: "My budget is around $5,000." }),
+          rawMsg({
+            providerMessageId: "c1",
+            fromEmail: "sarah@gmail.com",
+            rawBody: "My budget is around $5,000.",
+          }),
         ],
       })
     );
@@ -286,7 +318,13 @@ describe("assembleConversationState — attachments", () => {
           rawMsg({
             providerMessageId: "c1",
             rawBody: "",
-            attachments: [{ filename: "deck-sketch.jpg", mimeType: "image/jpeg", sizeBytes: 240_000 }],
+            attachments: [
+              {
+                filename: "deck-sketch.jpg",
+                mimeType: "image/jpeg",
+                sizeBytes: 240_000,
+              },
+            ],
           }),
         ],
       })
@@ -310,7 +348,13 @@ describe("assembleConversationState — attachments", () => {
             fromEmail: "canprojack@gmail.com",
             toEmails: ["sarah@gmail.com"],
             rawBody: "Quote attached.",
-            attachments: [{ filename: "quote.pdf", mimeType: "application/pdf", sizeBytes: 80_000 }],
+            attachments: [
+              {
+                filename: "quote.pdf",
+                mimeType: "application/pdf",
+                sizeBytes: 80_000,
+              },
+            ],
           }),
         ],
       })
@@ -318,6 +362,101 @@ describe("assembleConversationState — attachments", () => {
     expect(state.messages[0].attachments[0].kind).toBe("pdf");
     expect(state.messages[0].attachments[0].requiresInspection).toBe(false);
     expect(state.attachmentsRequiringInspection).toHaveLength(0);
+  });
+
+  it("does not treat repeated attachment content as newly sent on a later reply", () => {
+    const state = assembleConversationState(
+      baseInput({
+        rawMessages: [
+          rawMsg({
+            providerMessageId: "o1",
+            fromEmail: "canprojack@gmail.com",
+            toEmails: ["sarah@gmail.com"],
+            sentAt: "2026-06-20T10:00:00.000Z",
+            rawBody: "Here is the photo.",
+            attachments: [
+              {
+                filename: "IMG_1635.jpeg",
+                mimeType: "image/jpeg",
+                sizeBytes: 240_000,
+                contentHash: "a".repeat(64),
+              },
+            ],
+          }),
+          rawMsg({
+            providerMessageId: "c1",
+            sentAt: "2026-06-20T11:00:00.000Z",
+            rawBody: "Ok thanks",
+            attachments: [
+              {
+                filename: "IMG_1635.jpeg",
+                mimeType: "image/jpeg",
+                sizeBytes: 240_000,
+                contentHash: "a".repeat(64),
+              },
+            ],
+          }),
+        ],
+      })
+    );
+
+    const repeated = state.messages[1].attachments[0];
+    expect(repeated.isNewToConversation).toBe(false);
+    expect(repeated.requiresInspection).toBe(false);
+    expect(state.attachmentsRequiringInspection).toHaveLength(0);
+    expect(state.responseDisposition).toBe("no_reply_required");
+  });
+
+  it("ignores a small inline signature asset as decorative content", () => {
+    const state = assembleConversationState(
+      baseInput({
+        rawMessages: [
+          rawMsg({
+            providerMessageId: "c1",
+            rawBody: "",
+            attachments: [
+              {
+                filename: "company-logo.png",
+                mimeType: "image/png",
+                sizeBytes: 18_000,
+                isInline: true,
+                contentId: "logo@signature",
+              },
+            ],
+          }),
+        ],
+      })
+    );
+
+    expect(state.messages[0].attachments[0].isDecorativeInline).toBe(true);
+    expect(state.messages[0].attachments[0].requiresInspection).toBe(false);
+    expect(state.messages[0].isRealCustomerInbound).toBe(false);
+    expect(state.attachmentsRequiringInspection).toHaveLength(0);
+  });
+
+  it("keeps a large newly embedded customer photo inspectable", () => {
+    const state = assembleConversationState(
+      baseInput({
+        rawMessages: [
+          rawMsg({
+            providerMessageId: "c1",
+            rawBody: "See below.",
+            attachments: [
+              {
+                filename: "deck-photo.jpg",
+                mimeType: "image/jpeg",
+                sizeBytes: 900_000,
+                isInline: true,
+                contentHash: "b".repeat(64),
+              },
+            ],
+          }),
+        ],
+      })
+    );
+
+    expect(state.messages[0].attachments[0].isDecorativeInline).toBe(false);
+    expect(state.messages[0].attachments[0].requiresInspection).toBe(true);
   });
 });
 
@@ -338,7 +477,8 @@ describe("assembleConversationState — attachment inspection pass-through (Phas
                 mimeType: "application/pdf",
                 sizeBytes: 120_000,
                 inspection: {
-                  summary: "Signed estimate #1042, customer signature present, total $8,400",
+                  summary:
+                    "Signed estimate #1042, customer signature present, total $8,400",
                   isSignedEstimate: true,
                   facts: { total: 8400, estimateNumber: "1042" },
                   model: "gpt-5.4",
@@ -377,7 +517,8 @@ describe("assembleConversationState — attachment inspection pass-through (Phas
                 mimeType: "image/jpeg",
                 sizeBytes: 240_000,
                 inspection: {
-                  summary: "Photo of storm-damaged cedar fence, ~3 sections leaning",
+                  summary:
+                    "Photo of storm-damaged cedar fence, ~3 sections leaning",
                   isSignedEstimate: false,
                   facts: {},
                   model: "gpt-5.4",
@@ -403,7 +544,9 @@ describe("assembleConversationState — meaningfulness gate", () => {
     // content — the gate drops it even though the identity-based classifier
     // calls a real sender 'meaningful'.
     const state = assembleConversationState(
-      baseInput({ rawMessages: [rawMsg({ providerMessageId: "c1", rawBody: "   \n  " })] })
+      baseInput({
+        rawMessages: [rawMsg({ providerMessageId: "c1", rawBody: "   \n  " })],
+      })
     );
 
     expect(state.messages[0].partyRole).toBe("customer");

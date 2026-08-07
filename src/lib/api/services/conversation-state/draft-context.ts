@@ -13,7 +13,7 @@
 // fragments into its system/user prompts, falling back to its legacy raw-data
 // path when no state is available.
 
-import type { CleanMessage, ConversationState } from "./types";
+import type { CleanMessage, ConversationState, ResponseMode } from "./types";
 
 export interface DraftStateContext {
   /** Full name of the actual latest inbound sender (who we are replying to). */
@@ -30,6 +30,10 @@ export interface DraftStateContext {
   sentLedgerBlock: string;
   /** "Customer attached — acknowledge" block, or "" when there are none. */
   attachmentBlock: string;
+  responseMode: ResponseMode;
+  isFirstOperatorReply: boolean;
+  operatorMessageCount: number;
+  customerMessageCount: number;
 }
 
 function cmpIso(a: string, b: string): number {
@@ -43,14 +47,19 @@ function firstName(fullName: string | null): string | null {
 }
 
 /** Build the Phase-1 drafting fragments from a resolved ConversationState. */
-export function buildDraftStateContext(state: ConversationState): DraftStateContext {
+export function buildDraftStateContext(
+  state: ConversationState
+): DraftStateContext {
   const recipientName = state.recipient.name ?? null;
   const recipientEmail = state.recipient.email ?? null;
 
   // Clean thread — meaningful clean bodies only, oldest first.
   const cleanThread = state.messages
     .filter((m) => m.cleanBody.trim().length > 0)
-    .map((m) => `[${m.direction === "outbound" ? "YOU" : "THEM"}]\n${m.cleanBody.trim()}`)
+    .map(
+      (m) =>
+        `[${m.direction === "outbound" ? "YOU" : "THEM"}]\n${m.cleanBody.trim()}`
+    )
     .join("\n---\n");
 
   // Latest real customer inbound (the message we are replying to).
@@ -78,12 +87,24 @@ export function buildDraftStateContext(state: ConversationState): DraftStateCont
   // nothing to the conversation. The vision verdict stays INTERNAL — it still
   // drives the signed-estimate→Won path and the held-for-review-if-unreadable
   // gate; it just no longer leaks descriptions into customer-facing text.
-  const attachments = state.attachmentsRequiringInspection;
+  const latestCustomerMessage =
+    latestCustomer.length > 0
+      ? latestCustomer[latestCustomer.length - 1]
+      : null;
+  const attachments = state.attachmentsRequiringInspection.filter(
+    (attachment) =>
+      attachment.isNewToConversation !== false &&
+      attachment.isDecorativeInline !== true &&
+      (attachment.sourceMessageId
+        ? attachment.sourceMessageId ===
+          latestCustomerMessage?.providerMessageId
+        : latestCustomerMessage?.attachments.includes(attachment) === true)
+  );
   const hasSignedEstimate = attachments.some(
     (a) => a.inspection?.isSignedEstimate === true
   );
   const attachmentAck = hasSignedEstimate
-    ? "thanks for the signed estimate — I'll get you on the schedule"
+    ? "thanks for the signed estimate — I'll confirm the next step"
     : "thanks for sending those over";
   const attachmentBlock =
     attachments.length === 0
@@ -94,6 +115,11 @@ export function buildDraftStateContext(state: ConversationState): DraftStateCont
           hasSignedEstimate ? " (one is a signed estimate)" : ""
         }. Acknowledge receipt in ONE short, natural phrase (e.g. "${attachmentAck}"). Do NOT describe or itemize what the attachments show — no play-by-play of the images. Never claim you cannot see them.`;
 
+  const operatorMessageCount = state.messages.filter(
+    (message) => message.direction === "outbound"
+  ).length;
+  const customerMessageCount = state.customerMessages.length;
+
   return {
     recipientName,
     recipientEmail,
@@ -102,5 +128,9 @@ export function buildDraftStateContext(state: ConversationState): DraftStateCont
     latestCustomerText,
     sentLedgerBlock,
     attachmentBlock,
+    responseMode: state.responseMode,
+    isFirstOperatorReply: operatorMessageCount === 0,
+    operatorMessageCount,
+    customerMessageCount,
   };
 }

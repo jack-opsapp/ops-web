@@ -14,18 +14,27 @@
 import type {
   AttachmentRef,
   ConversationState,
+  ResponseDisposition,
+  ResponseMode,
   RoutingDecision,
 } from "./types";
+import { decideResponseDisposition } from "./response-disposition";
 
 /** Everything the router reads — the resolved state minus what it computes. */
 export type RouteInput = Omit<
   ConversationState,
-  "routing" | "routingReasons" | "confidence"
+  | "routing"
+  | "routingReasons"
+  | "responseDisposition"
+  | "responseMode"
+  | "confidence"
 >;
 
 export interface RouteResult {
   routing: RoutingDecision;
   routingReasons: string[];
+  responseDisposition: ResponseDisposition;
+  responseMode: ResponseMode;
   confidence: number; // 0..1
 }
 
@@ -148,6 +157,15 @@ function computeConfidence(input: RouteInput): number {
 export function route(input: RouteInput): RouteResult {
   const reasons: string[] = [];
   let mustReview = false;
+  const response = decideResponseDisposition({
+    messages: input.messages,
+    accept: input.accept,
+  });
+
+  if (response.disposition === "operator_input_required") {
+    mustReview = true;
+    reasons.push(response.reason);
+  }
 
   if (!hasActionableIdentity(input)) {
     mustReview = true;
@@ -186,6 +204,19 @@ export function route(input: RouteInput): RouteResult {
     return {
       routing: "require_human_review",
       routingReasons: reasons,
+      responseDisposition: response.disposition,
+      responseMode: response.mode,
+      confidence,
+    };
+  }
+
+  if (response.disposition === "no_reply_required") {
+    reasons.push(response.reason);
+    return {
+      routing: "update_lead_only",
+      routingReasons: reasons,
+      responseDisposition: response.disposition,
+      responseMode: response.mode,
       confidence,
     };
   }
@@ -197,11 +228,23 @@ export function route(input: RouteInput): RouteResult {
     reasons.push(
       "Customer thread with no inbound awaiting a reply — updating the lead without drafting."
     );
-    return { routing: "update_lead_only", routingReasons: reasons, confidence };
+    return {
+      routing: "update_lead_only",
+      routingReasons: reasons,
+      responseDisposition: response.disposition,
+      responseMode: response.mode,
+      confidence,
+    };
   }
 
   reasons.push(
     "Customer is awaiting a reply with sufficient identity and no unresolved attachments — drafting."
   );
-  return { routing: "draft", routingReasons: reasons, confidence };
+  return {
+    routing: "draft",
+    routingReasons: reasons,
+    responseDisposition: response.disposition,
+    responseMode: response.mode,
+    confidence,
+  };
 }

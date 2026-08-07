@@ -63,9 +63,31 @@ export interface OpportunityLifecycleDecision {
   evidence: Record<string, unknown>;
 }
 
-export const DEFAULT_FOLLOW_UP_TEMPLATE_BODY =
+export const LEGACY_DEFAULT_FOLLOW_UP_TEMPLATE_BODY =
   "Hi {{first_name}}, just checking in to see if you had any questions about the quote. No pressure — I wanted to make sure you had everything you needed.";
+export const DEFAULT_FOLLOW_UP_TEMPLATE_BODY =
+  "Hi {{first_name}}, checking in to see if you'd still like to move ahead. If so, reply here and we'll pick it up.";
+const SECOND_FOLLOW_UP_TEMPLATE_BODY =
+  "Hi {{first_name}}, checking in one last time. If you want to pick this back up, reply here.";
 export const DEFAULT_FOLLOW_UP_TEMPLATE_SUBJECT = "Following up";
+
+/**
+ * Runtime compatibility for settings rows that still contain the retired
+ * quote-assuming default. Company-authored templates are never rewritten.
+ */
+export function resolveLeadFollowUpTemplateForSequence(
+  template: string,
+  sequenceNumber: number
+): string {
+  const normalized = template.trim();
+  const isStock =
+    normalized === LEGACY_DEFAULT_FOLLOW_UP_TEMPLATE_BODY ||
+    normalized === DEFAULT_FOLLOW_UP_TEMPLATE_BODY;
+  if (!isStock) return template;
+  return sequenceNumber >= 2
+    ? SECOND_FOLLOW_UP_TEMPLATE_BODY
+    : DEFAULT_FOLLOW_UP_TEMPLATE_BODY;
+}
 
 export const DEFAULT_LEAD_LIFECYCLE_SETTINGS: LeadLifecycleSettings = {
   followUpAfterDays: 7,

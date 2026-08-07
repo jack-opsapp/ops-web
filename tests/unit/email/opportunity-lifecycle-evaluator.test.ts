@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
+  LEGACY_DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
   DEFAULT_LEAD_LIFECYCLE_SETTINGS,
   evaluateOpportunityLifecycle,
+  resolveLeadFollowUpTemplateForSequence,
   type OpportunityLifecycleMeaningfulEvent,
   type OpportunityLifecycleOpportunity,
 } from "@/lib/email/opportunity-lifecycle-evaluator";
@@ -15,8 +17,30 @@ const settings = {
 
 it("keeps the stock follow-up concise and pressure-free", () => {
   expect(DEFAULT_FOLLOW_UP_TEMPLATE_BODY).toBe(
-    "Hi {{first_name}}, just checking in to see if you had any questions about the quote. No pressure — I wanted to make sure you had everything you needed."
+    "Hi {{first_name}}, checking in to see if you'd still like to move ahead. If so, reply here and we'll pick it up."
   );
+  expect(DEFAULT_FOLLOW_UP_TEMPLATE_BODY).not.toMatch(/quote/i);
+});
+
+it("upgrades the legacy quote-assuming default and varies the second follow-up", () => {
+  expect(
+    resolveLeadFollowUpTemplateForSequence(
+      LEGACY_DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
+      1
+    )
+  ).toBe(DEFAULT_FOLLOW_UP_TEMPLATE_BODY);
+  const second = resolveLeadFollowUpTemplateForSequence(
+    LEGACY_DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
+    2
+  );
+  expect(second).toMatch(/last time/i);
+  expect(second).not.toMatch(/quote/i);
+});
+
+it("preserves a company's custom follow-up template", () => {
+  expect(
+    resolveLeadFollowUpTemplateForSequence("Custom {{first_name}}", 2)
+  ).toBe("Custom {{first_name}}");
 });
 
 function opportunity(

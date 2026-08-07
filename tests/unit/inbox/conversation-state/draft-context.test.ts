@@ -34,7 +34,12 @@ const contact: ResolvedContact = {
   provenance: [],
 };
 
-const noAccept: AcceptSignal = { detected: false, confidence: "low", basis: [], evidenceMessageIds: [] };
+const noAccept: AcceptSignal = {
+  detected: false,
+  confidence: "low",
+  basis: [],
+  evidenceMessageIds: [],
+};
 
 function msg(over: Partial<CleanMessage> = {}): CleanMessage {
   return {
@@ -61,7 +66,8 @@ function state(over: Partial<ConversationState> = {}): ConversationState {
     operator,
     recipient: { email: "sarah@gmail.com", name: "Sarah Lee" },
     messages,
-    customerMessages: over.customerMessages ?? messages.filter((m) => m.isRealCustomerInbound),
+    customerMessages:
+      over.customerMessages ?? messages.filter((m) => m.isRealCustomerInbound),
     contact,
     stage: "quoting",
     accept: noAccept,
@@ -69,6 +75,8 @@ function state(over: Partial<ConversationState> = {}): ConversationState {
     attachmentsRequiringInspection: [],
     routing: "draft",
     routingReasons: [],
+    responseDisposition: "reply_required",
+    responseMode: "answer",
     confidence: 0.9,
     ...over,
   };
@@ -83,7 +91,9 @@ describe("buildDraftStateContext — recipient / greeting", () => {
   });
 
   it("yields a null first name when the recipient name is unknown", () => {
-    const ctx = buildDraftStateContext(state({ recipient: { email: "x@y.com", name: null } }));
+    const ctx = buildDraftStateContext(
+      state({ recipient: { email: "x@y.com", name: null } })
+    );
     expect(ctx.greetingFirstName).toBeNull();
     expect(ctx.recipientEmail).toBe("x@y.com");
   });
@@ -92,11 +102,19 @@ describe("buildDraftStateContext — recipient / greeting", () => {
 describe("buildDraftStateContext — sent ledger (no restate)", () => {
   it("emits a do-not-restate block listing already-sent prices", () => {
     const sentLedger: SentLedgerEntry[] = [
-      { kind: "quote", text: "Quoted $3,200 for 40ft cedar fence", amount: 3200, sentAt: "2026-06-20T00:00:00.000Z", sourceMessageId: "o1" },
+      {
+        kind: "quote",
+        text: "Quoted $3,200 for 40ft cedar fence",
+        amount: 3200,
+        sentAt: "2026-06-20T00:00:00.000Z",
+        sourceMessageId: "o1",
+      },
     ];
     const ctx = buildDraftStateContext(state({ sentLedger }));
     expect(ctx.sentLedgerBlock).not.toBe("");
-    expect(ctx.sentLedgerBlock.toLowerCase()).toMatch(/do not restate|already (sent|provided)/);
+    expect(ctx.sentLedgerBlock.toLowerCase()).toMatch(
+      /do not restate|already (sent|provided)/
+    );
     expect(ctx.sentLedgerBlock).toContain("Quoted $3,200 for 40ft cedar fence");
   });
 
@@ -109,16 +127,75 @@ describe("buildDraftStateContext — sent ledger (no restate)", () => {
 describe("buildDraftStateContext — attachment awareness", () => {
   it("tells the drafter attachments were sent and to acknowledge them naturally", () => {
     const att: AttachmentRef = {
-      filename: "deck-sketch.jpg", mimeType: "image/jpeg", sizeBytes: 1000, kind: "image", requiresInspection: true, inspection: null,
+      filename: "deck-sketch.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 1000,
+      kind: "image",
+      sourceMessageId: "m1",
+      requiresInspection: true,
+      inspection: null,
     };
-    const ctx = buildDraftStateContext(state({ attachmentsRequiringInspection: [att] }));
+    const current = msg({ attachments: [att] });
+    const ctx = buildDraftStateContext(
+      state({
+        messages: [current],
+        customerMessages: [current],
+        attachmentsRequiringInspection: [att],
+      })
+    );
     expect(ctx.attachmentBlock).not.toBe("");
     expect(ctx.attachmentBlock.toLowerCase()).toMatch(/acknowledge/);
-    expect(ctx.attachmentBlock.toLowerCase()).toMatch(/do not describe|no play-by-play/);
+    expect(ctx.attachmentBlock.toLowerCase()).toMatch(
+      /do not describe|no play-by-play/
+    );
   });
 
   it("returns an empty attachment block when there are none", () => {
-    const ctx = buildDraftStateContext(state({ attachmentsRequiringInspection: [] }));
+    const ctx = buildDraftStateContext(
+      state({ attachmentsRequiringInspection: [] })
+    );
+    expect(ctx.attachmentBlock).toBe("");
+  });
+
+  it("does not acknowledge an attachment from an older customer message on a later text-only reply", () => {
+    const oldAttachment: AttachmentRef = {
+      filename: "deck.jpg",
+      mimeType: "image/jpeg",
+      sizeBytes: 300_000,
+      kind: "image",
+      requiresInspection: true,
+      sourceMessageId: "c1",
+      isInline: false,
+      isDecorativeInline: false,
+      isNewToConversation: true,
+      inspection: {
+        summary: "deck photo",
+        isSignedEstimate: false,
+        facts: {},
+        model: "gpt-5.4",
+      },
+    };
+    const first = msg({
+      providerMessageId: "c1",
+      sentAt: "2026-06-29T10:00:00.000Z",
+      cleanBody: "Here is the photo.",
+      attachments: [oldAttachment],
+    });
+    const latest = msg({
+      providerMessageId: "c2",
+      sentAt: "2026-06-29T11:00:00.000Z",
+      cleanBody: "Ok thanks",
+      attachments: [],
+    });
+
+    const ctx = buildDraftStateContext(
+      state({
+        messages: [first, latest],
+        customerMessages: [first, latest],
+        attachmentsRequiringInspection: [oldAttachment],
+      })
+    );
+
     expect(ctx.attachmentBlock).toBe("");
   });
 
@@ -128,6 +205,7 @@ describe("buildDraftStateContext — attachment awareness", () => {
       mimeType: "image/jpeg",
       sizeBytes: 240_000,
       kind: "image",
+      sourceMessageId: "m1",
       requiresInspection: true,
       inspection: {
         summary: "Photo of storm-damaged cedar fence, ~3 sections leaning",
@@ -136,7 +214,14 @@ describe("buildDraftStateContext — attachment awareness", () => {
         model: "gpt-5.4",
       },
     };
-    const ctx = buildDraftStateContext(state({ attachmentsRequiringInspection: [att] }));
+    const current = msg({ attachments: [att] });
+    const ctx = buildDraftStateContext(
+      state({
+        messages: [current],
+        customerMessages: [current],
+        attachmentsRequiringInspection: [att],
+      })
+    );
     // The vision verdict is INTERNAL — it must never leak into the draft as
     // robotic content narration.
     expect(ctx.attachmentBlock).not.toContain("storm-damaged cedar fence");
@@ -151,6 +236,7 @@ describe("buildDraftStateContext — attachment awareness", () => {
       mimeType: "application/pdf",
       sizeBytes: 88_000,
       kind: "pdf",
+      sourceMessageId: "m1",
       requiresInspection: true,
       inspection: {
         summary: "signed estimate #1042, total $8,400",
@@ -159,7 +245,14 @@ describe("buildDraftStateContext — attachment awareness", () => {
         model: "gpt-5.4",
       },
     };
-    const ctx = buildDraftStateContext(state({ attachmentsRequiringInspection: [att] }));
+    const current = msg({ attachments: [att] });
+    const ctx = buildDraftStateContext(
+      state({
+        messages: [current],
+        customerMessages: [current],
+        attachmentsRequiringInspection: [att],
+      })
+    );
     expect(ctx.attachmentBlock.toLowerCase()).toContain("signed estimate");
     // Still no recitation of the parsed figures or filename.
     expect(ctx.attachmentBlock).not.toContain("8,400");
@@ -170,17 +263,26 @@ describe("buildDraftStateContext — attachment awareness", () => {
 describe("buildDraftStateContext — clean thread text", () => {
   it("renders the thread from clean bodies with YOU/THEM markers, newest customer text surfaced", () => {
     const outbound = msg({
-      providerMessageId: "o1", direction: "outbound", partyRole: "operator",
-      fromEmail: "jack@canpro.example", fromName: "Jack", isRealCustomerInbound: false,
-      sentAt: "2026-06-29T10:00:00.000Z", cleanBody: "Here is your quote.",
+      providerMessageId: "o1",
+      direction: "outbound",
+      partyRole: "operator",
+      fromEmail: "jack@canpro.example",
+      fromName: "Jack",
+      isRealCustomerInbound: false,
+      sentAt: "2026-06-29T10:00:00.000Z",
+      cleanBody: "Here is your quote.",
       rawBody: "Here is your quote.\n\nOn ... wrote:\n> old quoted junk",
     });
     const inbound = msg({
-      providerMessageId: "c1", sentAt: "2026-06-29T11:00:00.000Z",
+      providerMessageId: "c1",
+      sentAt: "2026-06-29T11:00:00.000Z",
       cleanBody: "Thanks — can you also do a gate?",
-      rawBody: "Thanks — can you also do a gate?\n\nOn ... Jack wrote:\n> Here is your quote.",
+      rawBody:
+        "Thanks — can you also do a gate?\n\nOn ... Jack wrote:\n> Here is your quote.",
     });
-    const ctx = buildDraftStateContext(state({ messages: [outbound, inbound], customerMessages: [inbound] }));
+    const ctx = buildDraftStateContext(
+      state({ messages: [outbound, inbound], customerMessages: [inbound] })
+    );
 
     expect(ctx.cleanThread).toContain("[YOU]");
     expect(ctx.cleanThread).toContain("[THEM]");
@@ -190,5 +292,17 @@ describe("buildDraftStateContext — clean thread text", () => {
     expect(ctx.cleanThread).not.toMatch(/old quoted junk|On \.\.\. wrote/);
     // latest customer text is the most recent real customer inbound
     expect(ctx.latestCustomerText).toBe("Thanks — can you also do a gate?");
+    expect(ctx.isFirstOperatorReply).toBe(false);
+    expect(ctx.operatorMessageCount).toBe(1);
+    expect(ctx.customerMessageCount).toBe(1);
+    expect(ctx.responseMode).toBe("answer");
+  });
+
+  it("marks a conversation with no prior operator message as the first reply", () => {
+    const ctx = buildDraftStateContext(state());
+
+    expect(ctx.isFirstOperatorReply).toBe(true);
+    expect(ctx.operatorMessageCount).toBe(0);
+    expect(ctx.customerMessageCount).toBe(1);
   });
 });

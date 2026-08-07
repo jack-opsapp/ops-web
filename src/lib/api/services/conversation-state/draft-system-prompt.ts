@@ -8,6 +8,8 @@
 // writing dimensions, and fence customer-supplied text as untrusted data.
 // Nothing here performs I/O.
 
+import type { ResponseMode } from "./types";
+
 /** Raw `agent_writing_profiles` row (WritingProfileService.getProfile). */
 export type DraftWritingProfile = Record<string, unknown> | null;
 
@@ -35,6 +37,101 @@ export interface DraftSystemPromptInput {
    * two identities in one email is the failure mode this prevents.
    */
   signatureWillBeAppended: boolean;
+  replyContext?: DraftReplyContext | null;
+}
+
+export interface DraftReplyContext {
+  mode: ResponseMode;
+  isFirstOperatorReply: boolean;
+  customerMessageCount: number;
+  operatorMessageCount: number;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function preferenceAt(
+  value: unknown,
+  group: string,
+  item: string
+): string | null {
+  const preference = asRecord(
+    asRecord(asRecord(value)[group])[item]
+  ).preference;
+  return typeof preference === "string" && preference.trim()
+    ? preference.trim()
+    : null;
+}
+
+function readablePreference(value: string): string {
+  return value.replaceAll("_", " ");
+}
+
+function editDerivedOverrides(
+  toneTraits: unknown,
+  vocabularyPreferences: Record<string, unknown>
+): string {
+  const tone = preferenceAt(toneTraits, "learned_edits", "tone_shift");
+  const length = preferenceAt(
+    vocabularyPreferences,
+    "learned_structure_edits",
+    "length"
+  );
+  const directives: string[] = [];
+
+  if (tone) {
+    directives.push(
+      tone === "more_direct"
+        ? "- Use a more direct tone. Remove hedging, ceremonial filler, and unnecessary transitions."
+        : `- Apply the learned tone preference: ${readablePreference(tone)}.`
+    );
+  }
+  if (length) {
+    directives.push(
+      length === "shorter"
+        ? "- Make the reply shorter. Keep only the words needed to answer or advance the conversation."
+        : `- Apply the learned length preference: ${readablePreference(length)}.`
+    );
+  }
+
+  return directives.length > 0
+    ? `EDIT-DERIVED OVERRIDES (these outrank historical averages):\n${directives.join("\n")}`
+    : "";
+}
+
+function replyContract(context: DraftReplyContext | null | undefined): string {
+  if (!context) {
+    return `CONVERSATION RESPONSE CONTRACT:
+- Answer only the latest legitimate business need.
+- Never state or claim dates, times, or availability unless verified calendar context explicitly provides them.`;
+  }
+
+  const progression = context.isFirstOperatorReply
+    ? "- This is the FIRST OPERATOR REPLY. Be complete but direct. Establish the needed context once; a natural greeting is allowed."
+    : `- This is an ONGOING CONVERSATION (${context.operatorMessageCount} prior operator message${context.operatorMessageCount === 1 ? "" : "s"}). Write 1-3 short sentences and no more than 55 words before the sign-off.
+- Address only the new semantic delta. Do not restart with small talk, reintroduce the business, recap the thread, repeat a greeting ritual, or add a generic call to action.
+- Ask at most one question, and only when it is necessary to move the work forward.`;
+  const mode =
+    context.mode === "answer"
+      ? "Answer the customer's actual question or request directly."
+      : context.mode === "clarify"
+        ? "Ask the single missing question required to proceed."
+        : context.mode === "schedule"
+          ? "Do not propose or confirm a date until verified schedule context exists."
+          : context.mode === "acknowledge_and_advance"
+            ? "Acknowledge only genuinely new material, then state the concrete next step."
+            : context.mode === "close_loop"
+              ? "Confirm the accepted decision and state the immediate next step."
+              : "Keep any operator-requested acknowledgement to one terse sentence.";
+
+  return `CONVERSATION RESPONSE CONTRACT:
+${progression}
+- RESPONSE MODE — ${context.mode}: ${mode}
+- Conversation progression overrides the global greeting, structure, engagement, and average email-length profile when they conflict.
+- Never state or claim dates, times, or availability unless verified calendar context explicitly provides them. No verified calendar context is present in this request.`;
 }
 
 function operatorIdentityBlock(
@@ -80,38 +177,32 @@ export function buildDraftSystemPrompt(input: DraftSystemPromptInput): string {
   const formality = (profile?.formality_score as number) || 0.6;
   const vocabPrefs =
     (profile?.vocabulary_preferences as Record<string, unknown>) || {};
+  const learnedOverrides = editDerivedOverrides(toneTraits, vocabPrefs);
 
   // Extract 12-dimension sub-objects from vocabulary_preferences
   const paragraphStructure = vocabPrefs.paragraph_structure as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const hedgingTendency =
     typeof vocabPrefs.hedging_tendency === "number"
       ? (vocabPrefs.hedging_tendency as number)
       : null;
   const punctuationHabits = vocabPrefs.punctuation_habits as
-    | Record<string, number>
-    | undefined;
+    Record<string, number> | undefined;
   const vocabComplexity = vocabPrefs.vocabulary_complexity as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const engagementStyle = vocabPrefs.engagement_style as
-    | Record<string, number>
-    | undefined;
+    Record<string, number> | undefined;
   const emailLengthData = vocabPrefs.email_length as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const substitutions = vocabPrefs.substitutions as
-    | Record<string, string>
-    | undefined;
+    Record<string, string> | undefined;
 
   // Extract response_structure from tone_traits (dimension 10)
   const normalizedTraits = Array.isArray(toneTraits)
     ? Object.fromEntries((toneTraits as string[]).map((t) => [t, true]))
     : (toneTraits as Record<string, unknown>);
   const responseStructure = normalizedTraits.response_structure as
-    | Record<string, string>
-    | undefined;
+    Record<string, string> | undefined;
   const traitLabels = Object.entries(normalizedTraits)
     .filter(([k, v]) => k !== "response_structure" && v === true)
     .map(([k]) => k);
@@ -147,6 +238,10 @@ ${
     : ""
 }
 ${operatorIdentityBlock(input.operator, closings[0] || "Cheers,", input.signatureWillBeAppended)}
+
+${replyContract(input.replyContext)}
+
+${learnedOverrides}
 
 RULES:
 - Do NOT mention AI or that this is auto-generated

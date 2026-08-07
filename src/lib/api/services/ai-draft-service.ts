@@ -238,6 +238,7 @@ export interface AIDraftResult {
   draft: string;
   draftHistoryId: string;
   confidence: number;
+  noReplyWarranted?: boolean;
   sources: string[];
   available: boolean;
   reason?: string;
@@ -1120,7 +1121,7 @@ export const AIDraftService = {
       const { data: opp } = await supabase
         .from("opportunities")
         .select(
-          "title, ai_summary, stage, address, contact_name, contact_email, clients!inner(name, email)"
+          "title, stage, address, contact_name, contact_email, clients!inner(name, email)"
         )
         .eq("id", opportunityId)
         .eq("company_id", companyId)
@@ -1147,7 +1148,6 @@ export const AIDraftService = {
         opportunityStage = (opp.stage as string) || "";
         opportunityContext = [
           opp.title ? `Project: ${opp.title}` : "",
-          opp.ai_summary ? `Summary: ${opp.ai_summary}` : "",
           opp.stage ? `Stage: ${opp.stage}` : "",
         ]
           .filter(Boolean)
@@ -1236,6 +1236,20 @@ export const AIDraftService = {
     const effectiveUserInstruction = sourceBoundNewThread
       ? ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION
       : userInstruction;
+    if (req.autonomous === true && convRouting === "update_lead_only") {
+      return {
+        draft: "",
+        draftHistoryId: "",
+        confidence: 0,
+        sources: [],
+        available: false,
+        noReplyWarranted: true,
+        routingReasons: convRoutingReasons,
+        reason:
+          convRoutingReasons.join("; ") ||
+          "No reply is warranted for the latest customer message.",
+      };
+    }
     const gate = evaluateAutonomyGate({
       autonomous: req.autonomous === true,
       routing: effectiveAutonomousRouting,
@@ -1613,10 +1627,22 @@ export const AIDraftService = {
     // signature after generation (gated on confirmation), so the model must
     // write no name or contact block of its own.
     const operatorIdentity = await loadDraftOperatorIdentity(companyId, userId);
+    const operatorMessageCount = threadMessages.filter(
+      (message) => message.direction === "outbound"
+    ).length;
+    const customerMessageCount = threadMessages.filter(
+      (message) => message.direction === "inbound"
+    ).length;
     const systemPrompt = buildDraftSystemPrompt({
       profile,
       operator: operatorIdentity,
       signatureWillBeAppended: assignedContactFormReview,
+      replyContext: {
+        mode: draftState?.responseMode ?? "answer",
+        isFirstOperatorReply: operatorMessageCount === 0,
+        customerMessageCount,
+        operatorMessageCount,
+      },
     });
 
     // ── Build user prompt ──────────────────────────────────────────────
