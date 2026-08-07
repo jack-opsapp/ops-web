@@ -724,15 +724,14 @@ export const PhaseCAutonomyRouter = {
       draftHistoryId: string;
       subject?: string;
     } | null = retryDraft;
-    if (!draft && !needsDraft) {
-      return {
-        outcome: "auto_drafted",
-        category: thread.primaryCategory,
-        effectiveLevel: effective,
-        detail: "existing phase_c draft covers latest inbound (no re-draft)",
-      };
-    }
-
+    // Placement-only is checked FIRST, and deliberately does not care WHY there
+    // is nothing to place. The live path reports an already-covered thread as
+    // `auto_drafted` — true for it, since a draft does cover that inbound — but
+    // the recovery sweep counts that outcome as a placement it performed. Left
+    // below the next branch, every already-healthy thread inflates
+    // `placement.placed` on every cycle, forever, and a real collapse to zero
+    // placements hides inside the noise. These counters are the tripwire for a
+    // repeat of the outage; they have to mean what they say.
     if (!draft && options.placementOnly) {
       // Recovery places what already exists. Nothing stranded covers the latest
       // inbound message, so drafting one is the classification path's call —
@@ -741,6 +740,15 @@ export const PhaseCAutonomyRouter = {
         outcome: "noop_no_stranded_draft",
         category: thread.primaryCategory,
         effectiveLevel: effective,
+      };
+    }
+
+    if (!draft && !needsDraft) {
+      return {
+        outcome: "auto_drafted",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: "existing phase_c draft covers latest inbound (no re-draft)",
       };
     }
 

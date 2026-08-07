@@ -235,7 +235,10 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
       makeThread()
     );
 
-    expect(result.outcome).toBe("auto_drafted");
+    // Reporting this as a placement makes the sweep's counter lie: it claims
+    // work it did not do, every cycle, forever — and a real drop to zero
+    // placements would hide behind the noise. Recovery placed nothing here.
+    expect(result.outcome).toBe("noop_no_stranded_draft");
     expect(generateDraftMock).not.toHaveBeenCalled();
     expect(createDraftMock).not.toHaveBeenCalled();
   });
