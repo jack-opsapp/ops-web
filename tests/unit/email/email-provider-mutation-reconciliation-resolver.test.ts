@@ -87,13 +87,24 @@ function resolverSupabase(input: {
   return {
     rpcCalls,
     supabase: {
-      from: (table: string) =>
-        builder(
-          table === "email_provider_mutation_attempts"
-            ? attemptRows
-            : (input.histories ?? [])
-        ),
+      from: (table: string) => {
+        // Production grants service_role NOTHING on this table — it is
+        // definer-RPC-only by design. A direct read here is permission denied,
+        // which is exactly the failure that shipped and then showed up as
+        // reconciliation.failed on every production cycle.
+        if (table === "email_provider_mutation_attempts") {
+          throw new Error(
+            "permission denied for table email_provider_mutation_attempts"
+          );
+        }
+        return builder(input.histories ?? []);
+      },
       rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
+        // Listing candidates is how the resolver is allowed to read the ledger
+        // at all; `rpcCalls` stays a record of the verdicts it actually issued.
+        if (name === "list_email_provider_mutation_reconciliation_candidates") {
+          return { data: attemptRows, error: null };
+        }
         rpcCalls.push({ name, args });
         const error = input.rpcError?.(args) ?? null;
         return { data: error ? null : [{ id: args.p_attempt_id }], error };
