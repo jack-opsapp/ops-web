@@ -525,9 +525,10 @@ export async function reconcilePendingMailboxDrafts({
   }
 
   // Load the complete persisted thread context before looking at the provider
-  // draft. A Phase C draft is stale as soon as any later inbound or outbound
-  // follows the exact source message it answered. This source-message fence is
-  // independent of when the draft row itself happened to be inserted.
+  // draft. The first activity after the exact source message decides whether
+  // the draft context advanced or the operator resolved it: anything before
+  // placement, or an inbound after placement, makes the draft stale; an
+  // outbound after placement is the candidate send reconciled below.
   const { data: activities, error: activityError } = await supabase
     .from("activities")
     .select(
@@ -558,12 +559,20 @@ export async function reconcilePendingMailboxDrafts({
     if (!source) continue;
     const sourceAt = Date.parse(String(source.created_at ?? ""));
     if (!Number.isFinite(sourceAt)) continue;
+    const draftCreatedAt = Date.parse(String(row.created_at ?? ""));
+    if (!Number.isFinite(draftCreatedAt)) continue;
+    const firstFollowingActivity = threadActivities.find((activity) => {
+      if (activity.email_message_id === sourceMessageId) return false;
+      const activityAt = Date.parse(String(activity.created_at ?? ""));
+      return Number.isFinite(activityAt) && activityAt >= sourceAt;
+    });
+    if (!firstFollowingActivity) continue;
+    const firstFollowingAt = Date.parse(
+      String(firstFollowingActivity.created_at ?? "")
+    );
     if (
-      threadActivities.some(
-        (activity) =>
-          activity.email_message_id !== sourceMessageId &&
-          Date.parse(String(activity.created_at ?? "")) >= sourceAt
-      )
+      firstFollowingAt <= draftCreatedAt ||
+      firstFollowingActivity.direction !== "outbound"
     ) {
       staleDraftHistoryIds.add(String(row.id));
     }
