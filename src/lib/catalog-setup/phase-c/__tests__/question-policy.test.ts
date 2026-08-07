@@ -44,6 +44,52 @@ describe("Phase C server-owned question policy", () => {
     });
   });
 
+  it("asks only for the missing base price after unit and minimum are confirmed", () => {
+    const question = resolveGuidedQuestion({
+      id: "railing-base-price",
+      intent: "pricing",
+      capabilityRef: "catalog-core/v1",
+      factKeys: ["product.railing.base_price"],
+      context: { productLabel: "Canpro railing" },
+    });
+
+    expect(question).toMatchObject({
+      prompt: "What base price should OPS use for Canpro railing?",
+      answerKind: "text",
+      factKeys: ["product.railing.base_price"],
+    });
+    expect(question?.prompt).not.toContain("unit");
+    expect(question?.prompt).not.toContain("minimum charge");
+  });
+
+  it("asks only whether the product is taxable and uses the company default rate", () => {
+    expect(
+      resolveGuidedQuestion({
+        id: "taxable",
+        intent: "tax_treatment",
+        capabilityRef: "catalog-core/v1",
+        factKeys: ["product.vinyl.is_taxable"],
+        context: { productLabel: "Vinyl membrane" },
+      }),
+    ).toMatchObject({
+      prompt: "Should tax apply to Vinyl membrane?",
+      answerKind: "boolean",
+      help: "OPS will use the company's default tax rate.",
+    });
+  });
+
+  it("does not ask for per-product quote unit visibility", () => {
+    expect(
+      resolveGuidedQuestion({
+        id: "quote-unit",
+        intent: "quote_display",
+        capabilityRef: "catalog-core/v1",
+        factKeys: ["product.vinyl.show_pricing_unit"],
+        context: { productLabel: "Vinyl membrane" },
+      }),
+    ).toBeNull();
+  });
+
   it("never resolves Deck Designer geometry while its integration is unavailable", () => {
     expect(
       resolveGuidedQuestion({
@@ -54,6 +100,45 @@ describe("Phase C server-owned question policy", () => {
         context: { productLabel: "Vinyl membrane" },
       }),
     ).toBeNull();
+  });
+
+  it("never asks the operator to decide whether Phase C is ready for review", () => {
+    expect(
+      resolveGuidedQuestion({
+        id: "review-ready",
+        intent: "review_readiness",
+        capabilityRef: "catalog-core/v1",
+        factKeys: ["catalog.review"],
+        context: {},
+      }),
+    ).toBeNull();
+  });
+
+  it("offers only released handling when roll inventory was requested", () => {
+    expect(
+      resolveGuidedQuestion({
+        id: "material-tracking-scope",
+        intent: "material_tracking_scope" as never,
+        capabilityRef: "static-product-materials/v1",
+        factKeys: ["materials.vinyl.inventory_policy"],
+        context: { productLabel: "68mil Deksmart PVC Membrane" },
+      }),
+    ).toEqual({
+      id: "material-tracking-scope",
+      intent: "material_tracking_scope",
+      capabilityRef: "static-product-materials/v1",
+      context: { productLabel: "68mil Deksmart PVC Membrane" },
+      prompt:
+        "OPS does not track roll or sheet inventory yet. How should 68mil Deksmart PVC Membrane be handled for now?",
+      answerKind: "single_choice",
+      factKeys: ["materials.vinyl.inventory_policy"],
+      options: [
+        "Keep purchasing and inventory staff-managed",
+        "Add a fixed material quantity per product unit",
+      ],
+      help:
+        "Fixed quantities are supported. Roll tracking, offcuts, coverage calculations, and purchasing automation are not connected yet.",
+    });
   });
 
   it("fails closed for unknown question intent or capability input", () => {

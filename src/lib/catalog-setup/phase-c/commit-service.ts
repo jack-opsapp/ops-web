@@ -11,6 +11,10 @@ import {
   CATALOG_CAPABILITY_MANIFEST_REVISION,
   guidedCapabilityForAction,
 } from "./catalog-capability-manifest";
+import {
+  unresolvedCatalogActionReferences,
+  validateCatalogActionPayload,
+} from "./action-payload-contracts";
 
 export class GuidedCapabilityManifestConflictError extends Error {
   constructor() {
@@ -236,8 +240,13 @@ export async function executeGuidedCatalogCommit(
       CATALOG_CAPABILITY_MANIFEST_REVISION ||
     blueprint.actions.some(
       (action) =>
-        guidedCapabilityForAction(action.actionType)?.available !== true,
-    )
+        guidedCapabilityForAction(action.actionType)?.available !== true ||
+        !validateCatalogActionPayload(
+          action.actionType,
+          action.payload,
+        ).success,
+    ) ||
+    unresolvedCatalogActionReferences(blueprint.actions).length > 0
   ) {
     throw new GuidedCapabilityManifestConflictError();
   }

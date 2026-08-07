@@ -569,6 +569,7 @@ describe("company data manifest — coverage of the tables the old cascade misse
     ["site_visit_artifacts", "soft", true],
     ["site_visit_checklist_answers", "soft", true],
     ["site_visit_identity_drafts", "soft", true],
+    ["site_visit_types", "soft", true],
     ["sub_clients", "soft", true],
     ["follow_ups", "hard", true],
     ["activities", "hard", true],

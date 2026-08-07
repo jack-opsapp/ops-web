@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GuidedTurnQueryClient } from "../turn-service";
 import { runGuidedSetupTurn } from "../turn-service";
+import { CATALOG_CAPABILITY_MANIFEST_REVISION } from "../catalog-capability-manifest";
 
 const COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 const OPERATOR_ID = "d82114aa-7b98-4439-85f0-978f835e0627";
@@ -16,7 +17,7 @@ function rowWithQueuedInputs() {
     input_revision: 2,
     processed_input_revision: 0,
     capability_manifest_revision:
-      "phase-c-capabilities/2026-07-27.1",
+      CATALOG_CAPABILITY_MANIFEST_REVISION,
     input_ledger: [
       {
         id: "input-1",

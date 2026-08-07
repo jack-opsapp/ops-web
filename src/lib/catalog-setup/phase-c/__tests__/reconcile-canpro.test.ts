@@ -203,7 +203,7 @@ describe("Phase C Canpro vinyl reconciliation", () => {
       ultraVariantActions.filter((action) => action.group === "CREATE"),
     ).toHaveLength(7);
     expect(
-      new Set(ultraVariantActions.map((action) => action.payload.label)).size,
+      new Set(ultraVariantActions.map((action) => action.clientId)).size,
     ).toBe(19);
   });
 
@@ -220,16 +220,16 @@ describe("Phase C Canpro vinyl reconciliation", () => {
       expect.arrayContaining([
         expect.objectContaining({
           existingId: "d08abff0-ea12-4673-927a-0d2db60adbb3",
+          clientId: "smoothback-antique-beige",
           payload: expect.objectContaining({
             destinationFamilyRef: "deksmart-smoothback-60",
-            label: "Antique Beige",
           }),
         }),
         expect.objectContaining({
           existingId: "5a5e9a74-4fd8-45c8-9dce-58e7b79082c0",
+          clientId: "smoothback-dove-grey",
           payload: expect.objectContaining({
             destinationFamilyRef: "deksmart-smoothback-60",
-            label: "Dove Grey",
           }),
         }),
       ]),

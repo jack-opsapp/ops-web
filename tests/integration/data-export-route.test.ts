@@ -163,6 +163,7 @@ describe("POST /api/data/export — coverage", () => {
       "site_visit_artifacts",
       "site_visit_checklist_answers",
       "site_visit_identity_drafts",
+      "site_visit_types",
       "sub_clients",
       "follow_ups",
       "activities",

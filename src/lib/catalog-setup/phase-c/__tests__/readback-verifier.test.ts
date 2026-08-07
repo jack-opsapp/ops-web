@@ -395,4 +395,23 @@ describe("Phase C readback verifier", () => {
       ]),
     );
   });
+
+  it("does not report a cleared minimum charge as verified while a value remains", () => {
+    const { blueprint, live, resolvedIds } = exactFixture();
+    const productAction = blueprint.actions.find(
+      (entry) => entry.actionType === "upsert_product",
+    );
+    if (!productAction) throw new Error("Missing product fixture");
+    productAction.payload.minimumCharge = null;
+
+    expect(
+      verifyCatalogBlueprintReadback({
+        blueprint,
+        snapshot: live,
+        resolvedIds,
+      }),
+    ).toEqual([
+      expect.objectContaining({ code: "product_readback_mismatch" }),
+    ]);
+  });
 });

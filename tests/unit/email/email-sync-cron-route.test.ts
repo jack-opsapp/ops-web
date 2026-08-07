@@ -15,6 +15,10 @@ const {
   readCronWorkloadCursorMock,
   advanceCronWorkloadCursorMock,
   runOutboundLearningWorkerMock,
+  resolveReconciliationMock,
+  recoverStrandedDraftsMock,
+  getConnectionMock,
+  getSubscriptionInfoMock,
   serviceRoleState,
   supabaseContext,
   serviceRoleClient,
@@ -36,6 +40,14 @@ const {
         history_recovery_page_token: null as string | null,
       },
     ],
+    companies: [
+      {
+        id: "company-1",
+        subscription_plan: "pro",
+        subscription_status: "active",
+        trial_end_date: null as string | null,
+      },
+    ],
   };
   const serviceRoleClient = {
     rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
@@ -47,13 +59,7 @@ const {
               error: null,
             }
           : {
-              data: [
-                {
-                  id: "company-1",
-                  subscription_plan: "pro",
-                  subscription_status: "active",
-                },
-              ],
+              data: serviceRoleState.companies,
               error: null,
             };
       const query = {
@@ -86,11 +92,31 @@ const {
     readCronWorkloadCursorMock: vi.fn(),
     advanceCronWorkloadCursorMock: vi.fn(),
     runOutboundLearningWorkerMock: vi.fn(),
+    resolveReconciliationMock: vi.fn(),
+    recoverStrandedDraftsMock: vi.fn(),
+    getConnectionMock: vi.fn(),
+    getSubscriptionInfoMock: vi.fn(),
     serviceRoleState,
     supabaseContext,
     serviceRoleClient,
   };
 });
+
+vi.mock(
+  "@/lib/api/services/email-provider-mutation-reconciliation-resolver",
+  () => ({
+    resolveEmailProviderMutationReconciliationForConnection:
+      resolveReconciliationMock,
+  })
+);
+
+vi.mock("@/lib/api/services/phase-c-draft-placement-recovery", () => ({
+  recoverStrandedPhaseCMailboxDraftsForConnection: recoverStrandedDraftsMock,
+}));
+
+vi.mock("@/lib/api/services/email-service", () => ({
+  EmailService: { getConnection: getConnectionMock },
+}));
 
 vi.mock("@/lib/api/services/sync-engine", () => ({
   SyncEngine: {
@@ -129,7 +155,7 @@ vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
 }));
 
 vi.mock("@/lib/subscription", () => ({
-  getSubscriptionInfo: () => ({ isActive: true }),
+  getSubscriptionInfo: getSubscriptionInfoMock,
 }));
 
 vi.mock("@/lib/supabase/helpers", () => ({
@@ -222,6 +248,8 @@ describe("email sync cron HTTP outcome", () => {
     serviceRoleState.connections[0].last_synced_at = null;
     serviceRoleState.connections[0].history_id = "terminal-history";
     serviceRoleState.connections[0].history_recovery_page_token = null;
+    getSubscriptionInfoMock.mockReset();
+    getSubscriptionInfoMock.mockReturnValue({ isActive: true });
     retryDirtyClassificationsMock.mockResolvedValue({
       scanned: 0,
       classified: 0,
@@ -602,5 +630,149 @@ describe("email sync cron HTTP outcome", () => {
       reason: "control_unavailable",
     });
     expect(runSyncMock).not.toHaveBeenCalled();
+  });
+
+
+  /**
+   * Mailbox draft placement had no recovery path at all: a failed placement was
+   * only ever retried when the customer happened to send another message on the
+   * same thread, and a quarantined mutation ledger row was cleared by hand. Both
+   * now run here, on every cycle, after the sync leases are released.
+   */
+  describe("email sync cron mailbox draft recovery", () => {
+    beforeEach(() => {
+      resolveReconciliationMock.mockReset();
+      recoverStrandedDraftsMock.mockReset();
+      getConnectionMock.mockReset();
+      resolveReconciliationMock.mockResolvedValue({
+        scanned: 0,
+        accepted: 0,
+        rejected: 0,
+        unresolved: 0,
+        failed: 0,
+      });
+      recoverStrandedDraftsMock.mockResolvedValue({
+        scanned: 0,
+        placed: 0,
+        skipped: 0,
+        failed: 0,
+      });
+      getConnectionMock.mockResolvedValue({
+        id: "connection-1",
+        companyId: "company-1",
+        email: "owner@example.com",
+      });
+      runSyncMock.mockResolvedValue({
+        activitiesCreated: 0,
+        newLeads: 0,
+        errors: [],
+      });
+      sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+    });
+
+    it("unjams the ledger before re-driving placement", async () => {
+      const order: string[] = [];
+      resolveReconciliationMock.mockImplementation(async () => {
+        order.push("resolve");
+        return { scanned: 1, accepted: 0, rejected: 1, unresolved: 0, failed: 0 };
+      });
+      recoverStrandedDraftsMock.mockImplementation(async () => {
+        order.push("place");
+        return { scanned: 1, placed: 1, skipped: 0, failed: 0 };
+      });
+
+      const response = await GET(request());
+      const body = await response.json();
+
+      // A quarantined row blocks every later attempt on the same operation key,
+      // so releasing it first is what lets the placement retry in this same cycle
+      // actually reach the provider.
+      expect(order).toEqual(["resolve", "place"]);
+      expect(resolveReconciliationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connection: expect.objectContaining({ id: "connection-1" }),
+        })
+      );
+      expect(recoverStrandedDraftsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          companyId: "company-1",
+          connectionId: "connection-1",
+        })
+      );
+      expect(response.status).toBe(200);
+      expect(body.mailboxDraftRecovery).toMatchObject({
+        connections: 1,
+        reconciliation: { rejected: 1 },
+        placement: { placed: 1 },
+      });
+    });
+
+    it("recovers a connection that was not due for a sync this cycle", async () => {
+      // Recovery must not inherit the sync-interval gate. A mailbox on a
+      // 60-minute interval would otherwise get at most one recovery attempt an
+      // hour, and a connection skipped for any other reason would get none at
+      // all — which is the same "waits for something else to happen" failure
+      // that turned two one-afternoon bugs into a five-day outage. These lanes
+      // run after every lease is released and need no sync to have happened.
+      serviceRoleState.connections[0].last_synced_at = new Date().toISOString();
+
+      await GET(request());
+
+      expect(runSyncMock).not.toHaveBeenCalled();
+      expect(resolveReconciliationMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connection: expect.objectContaining({ id: "connection-1" }),
+        })
+      );
+      expect(recoverStrandedDraftsMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          companyId: "company-1",
+          connectionId: "connection-1",
+        })
+      );
+    });
+
+    it("leaves a lapsed tenant's mailbox alone", async () => {
+      // The subscription gate is a real fence, not a scheduling detail: no
+      // provider work of any kind for a company that stopped paying.
+      getSubscriptionInfoMock.mockReturnValue({ isActive: false });
+
+      await GET(request());
+
+      expect(resolveReconciliationMock).not.toHaveBeenCalled();
+      expect(recoverStrandedDraftsMock).not.toHaveBeenCalled();
+    });
+
+    it("reports placements that are still outstanding", async () => {
+      // The silence is what cost five days. A sweep that keeps failing has to
+      // show up in the cron result rather than logging quietly forever.
+      recoverStrandedDraftsMock.mockResolvedValue({
+        scanned: 2,
+        placed: 0,
+        skipped: 0,
+        failed: 2,
+      });
+
+      const response = await GET(request());
+      const body = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(body).toMatchObject({
+        ok: false,
+        mailboxDraftRecovery: { placement: { failed: 2 } },
+      });
+    });
+
+    it("never lets a recovery failure take down the cron cycle", async () => {
+      recoverStrandedDraftsMock.mockRejectedValue(new Error("recovery exploded"));
+
+      const response = await GET(request());
+      const body = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(body.mailboxDraftRecoveryError).toContain("recovery exploded");
+      // Everything downstream of the recovery lane still ran.
+      expect(runOutboundLearningWorkerMock).toHaveBeenCalled();
+    });
   });
 });

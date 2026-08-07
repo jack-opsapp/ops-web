@@ -494,11 +494,14 @@ describe("GuidedCatalogSetup", () => {
     await screen.findByText("Is GST added on top?");
     fireEvent.click(screen.getByRole("button", { name: "YES" }));
 
-    expect(await screen.findByText("Yes")).toBeInTheDocument();
+    const firstAnswer = await screen.findByText("Yes");
     expect(
-      screen.getByRole("status", { name: "Phase C is working" })
-    ).toBeInTheDocument();
-    expect(screen.getAllByTestId("phase-c-loader-bar")).toHaveLength(5);
+      firstAnswer.closest('[data-message-role="operator"]')
+    ).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByTestId("phase-c-processing-sweep")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/phase c is checking your (answer|message)/i)
+    ).not.toBeInTheDocument();
     const composer = screen.getByRole("textbox");
     expect(composer).toBeEnabled();
     fireEvent.change(composer, {
@@ -552,6 +555,152 @@ describe("GuidedCatalogSetup", () => {
       await Promise.resolve();
     });
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+  });
+
+  it("removes a queued answer without leaving a loader or surfacing its stale turn error", async () => {
+    let finishTurn:
+      ((value: Response | PromiseLike<Response>) => void) | undefined;
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() =>
+        response({ session: baseSession, agentAvailable: true })
+      )
+      .mockImplementationOnce(() =>
+        response({
+          session: {
+            ...baseSession,
+            version: 2,
+            inputRevision: 1,
+            conversation: [
+              ...baseSession.conversation,
+              {
+                id: "operator-input:input-1",
+                inputId: "input-1",
+                state: "queued",
+                role: "operator",
+                kind: "text",
+                content: "Yes",
+                version: 2,
+              },
+            ],
+          },
+          input: { id: "input-1", state: "queued" },
+        })
+      )
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            finishTurn = resolve;
+          })
+      )
+      .mockImplementationOnce((_input, init) => {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          token: "firebase-token",
+          operation: "remove",
+          expectedVersion: 2,
+          expectedInputId: "input-1",
+        });
+        return response({
+          session: {
+            ...baseSession,
+            version: 3,
+            inputRevision: 2,
+            conversation: [
+              ...baseSession.conversation,
+              {
+                id: "operator-input:input-1",
+                inputId: "input-1",
+                state: "removed",
+                role: "operator",
+                kind: "text",
+                content: "Yes",
+                version: 2,
+              },
+            ],
+          },
+          input: null,
+        });
+      });
+
+    renderSetup();
+    await screen.findByText("Is GST added on top?");
+    fireEvent.click(screen.getByRole("button", { name: "YES" }));
+
+    const queuedAnswer = await screen.findByText("Yes");
+    expect(
+      queuedAnswer.closest('[data-message-role="operator"]')
+    ).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByTestId("phase-c-processing-sweep")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/phase c is checking your (answer|message)/i)
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "[ remove ]" }));
+    await waitFor(() => {
+      expect(screen.queryByText("Yes")).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId("phase-c-processing-sweep")
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "YES" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "NO" })).toBeEnabled();
+    });
+
+    await waitFor(() => expect(finishTurn).toBeDefined());
+    await act(async () => {
+      finishTurn!(
+        new Response(JSON.stringify({ error: "Internal error" }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        })
+      );
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toBeEnabled();
+  });
+
+  it("uses a static agent-token processing state when reduced motion is enabled", async () => {
+    mocks.reducedMotion = true;
+    vi.spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() =>
+        response({ session: baseSession, agentAvailable: true })
+      )
+      .mockImplementationOnce(() =>
+        response({
+          session: {
+            ...baseSession,
+            version: 2,
+            inputRevision: 1,
+            conversation: [
+              ...baseSession.conversation,
+              {
+                id: "operator-input:input-1",
+                inputId: "input-1",
+                state: "queued",
+                role: "operator",
+                kind: "text",
+                content: "Yes",
+                version: 2,
+              },
+            ],
+          },
+          input: { id: "input-1", state: "queued" },
+        })
+      )
+      .mockImplementationOnce(() => new Promise<Response>(() => undefined));
+
+    renderSetup();
+    await screen.findByText("Is GST added on top?");
+    fireEvent.click(screen.getByRole("button", { name: "YES" }));
+
+    const sweep = await screen.findByTestId("phase-c-processing-sweep");
+    expect(sweep).toHaveClass("bg-agent-bg");
+    expect(sweep.querySelector(".will-change-transform")).toBeNull();
+    expect(
+      screen.getByText("Yes").closest('[data-message-role="operator"]')
+    ).toHaveAttribute("aria-busy", "true");
   });
 
   it("types only the newly generated Phase C response", async () => {
@@ -885,6 +1034,87 @@ describe("GuidedCatalogSetup", () => {
     expect(assistantMessage).toHaveClass("font-mohave");
     expect(assistantMessage).not.toHaveClass("uppercase");
     expect(assistantMessage).not.toHaveClass("font-cakemono");
+  });
+
+  it("shows a selected quick answer after the question it answered and removes the synthetic repeat", async () => {
+    const inventoryQuestion =
+      "How should OPS handle DekSmart membrane purchasing and inventory for vinyl decking?";
+    const selectedAnswer =
+      "Track membrane as rolls/sheets; purchasing and inventory need roll/sheet dimensions, coverage, and cost details before setup can be ready.";
+    vi.spyOn(globalThis, "fetch").mockImplementationOnce(() =>
+      response({
+        session: {
+          ...baseSession,
+          version: 12,
+          conversation: [
+            {
+              id: "assistant:10:membrane-inventory",
+              role: "assistant",
+              kind: "text",
+              content: inventoryQuestion,
+              version: 10,
+            },
+            {
+              id: "operator-input:input-1",
+              inputId: "input-1",
+              state: "accepted",
+              role: "operator",
+              kind: "text",
+              content: selectedAnswer,
+              version: 11,
+            },
+            {
+              id: "assistant:11:membrane-inventory",
+              role: "assistant",
+              kind: "text",
+              content: inventoryQuestion,
+              version: 11,
+            },
+            {
+              id: "assistant:12:material-tracking-scope",
+              role: "assistant",
+              kind: "text",
+              content:
+                "OPS does not track roll or sheet inventory yet. How should 68mil Deksmart PVC Membrane be handled for now?",
+              version: 12,
+            },
+          ],
+          unresolvedQuestions: [
+            {
+              id: "material-tracking-scope",
+              intent: "material_tracking_scope",
+              capabilityRef: "static-product-materials/v1",
+              prompt:
+                "OPS does not track roll or sheet inventory yet. How should 68mil Deksmart PVC Membrane be handled for now?",
+              answerKind: "single_choice",
+              factKeys: ["materials.vinyl.inventory_policy"],
+              options: [
+                "Keep purchasing and inventory staff-managed",
+                "Add a fixed material quantity per product unit",
+              ],
+            },
+          ],
+        },
+        agentAvailable: true,
+      })
+    );
+
+    renderSetup();
+
+    const question = await screen.findByText(inventoryQuestion);
+    const answer = screen.getByText(selectedAnswer);
+    const nextQuestion = screen.getByText(
+      "OPS does not track roll or sheet inventory yet. How should 68mil Deksmart PVC Membrane be handled for now?"
+    );
+    expect(screen.getAllByText(inventoryQuestion)).toHaveLength(1);
+    expect(
+      question.compareDocumentPosition(answer) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(
+      answer.compareDocumentPosition(nextQuestion) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
   });
 
   it("keeps a failed answer visible and retries the exact answer without duplication", async () => {

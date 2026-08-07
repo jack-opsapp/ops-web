@@ -68,6 +68,75 @@ describe("Phase C durable conversation history", () => {
     ]);
   });
 
+  it("does not manufacture a second copy of the answered question after input persistence bumps the session version", () => {
+    const conversation = [
+      {
+        id: "assistant:4:service",
+        role: "assistant" as const,
+        kind: "text" as const,
+        content: "What service do you want to set up first?",
+        version: 4,
+      },
+      {
+        id: "operator-input:input-1",
+        role: "operator" as const,
+        kind: "text" as const,
+        content: "Vinyl decking",
+        version: 5,
+        inputId: "input-1",
+        state: "queued" as const,
+      },
+    ];
+
+    expect(
+      normalizeGuidedConversation(
+        conversation,
+        [currentQuestion],
+        5,
+      ),
+    ).toEqual(conversation);
+  });
+
+  it("removes a persisted synthetic duplicate while keeping the operator answer in chronological order", () => {
+    const normalized = normalizeGuidedConversation(
+      [
+        {
+          id: "assistant:4:service",
+          role: "assistant",
+          kind: "text",
+          content: "What service do you want to set up first?",
+          version: 4,
+        },
+        {
+          id: "operator-input:input-1",
+          role: "operator",
+          kind: "text",
+          content: "Vinyl decking",
+          version: 5,
+          inputId: "input-1",
+          state: "accepted",
+        },
+        {
+          id: "assistant:5:service",
+          role: "assistant",
+          kind: "text",
+          content: "What service do you want to set up first?",
+          version: 5,
+        },
+      ],
+      [currentQuestion],
+      5,
+    );
+
+    expect(normalized).toEqual([
+      expect.objectContaining({ id: "assistant:4:service" }),
+      expect.objectContaining({
+        id: "operator-input:input-1",
+        content: "Vinyl decking",
+      }),
+    ]);
+  });
+
   it("represents uploads by filename without storing spreadsheet rows in the transcript", () => {
     const conversation = advanceGuidedConversation({
       conversation: [],

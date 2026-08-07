@@ -28,6 +28,7 @@ import {
   type SendEmailParams,
   type SendEmailResult,
   type SyncResult,
+  type ThreadDraftProbe,
   type WebhookSubscription,
 } from "../email-provider";
 import { readBoundedResponseBytes } from "./bounded-response";
@@ -41,6 +42,12 @@ import {
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 const NON_DELIVERY_MESSAGE_LABELS = new Set(["DRAFT", "SPAM", "TRASH"]);
+/**
+ * Page size for the metadata-only drafts index used by `findDraftsOnThread`.
+ * `listDrafts()` caps at 15 because it fetches every draft in full; this index
+ * reads ids only, so it can afford Gmail's maximum page.
+ */
+const DRAFT_INDEX_PAGE_SIZE = 500;
 const MAX_GMAIL_MESSAGE_JSON_BYTES = 80 * 1024 * 1024;
 const GMAIL_ATTACHMENT_JSON_OVERHEAD_BYTES = 64 * 1024;
 const MAX_GMAIL_ATTACHMENTS_PER_MESSAGE = 500;
@@ -958,6 +965,66 @@ export class GmailProvider implements EmailProviderInterface {
       "drafts.get"
     );
     return this.normalizeGmailDraft(full);
+  }
+
+  async findDraftsOnThread(
+    threadId: string,
+    readPolicy: GmailReadPolicy = {}
+  ): Promise<ThreadDraftProbe> {
+    // The thread is the authority, not the Drafts folder. A Gmail reply draft
+    // lives inside its conversation as a DRAFT-labelled message, so
+    // `threads.get` answers "is there a draft here?" completely — no page cap,
+    // nothing to truncate. `fetchThread` cannot be reused: it strips exactly
+    // the DRAFT messages this probe is looking for.
+    const threadRes = await this.gmailFetch(
+      `/threads/${encodeURIComponent(threadId)}?format=minimal`,
+      undefined,
+      { ...readPolicy, context: `threads.get draft probe (${threadId})` }
+    );
+    if (threadRes.status === 404) {
+      // No such conversation, so no draft is pinned to it. Absence proven.
+      await threadRes.body?.cancel().catch(() => undefined);
+      return { present: false, draftIds: [] };
+    }
+    const thread = await this.readGmailJson<{
+      messages?: Array<{ id?: string; labelIds?: string[] }>;
+    }>(threadRes, `threads.get draft probe (${threadId})`);
+
+    const draftMessageIds = new Set(
+      (thread.messages ?? [])
+        .filter((message) =>
+          (message.labelIds ?? []).some(
+            (label) => label.toUpperCase() === "DRAFT"
+          )
+        )
+        .map((message) => (typeof message.id === "string" ? message.id : ""))
+        .filter(Boolean)
+    );
+    if (draftMessageIds.size === 0) return { present: false, draftIds: [] };
+
+    // A draft is definitely there. Name it if the drafts index can — this list
+    // carries metadata only (no per-draft body fetch), so it is cheap enough to
+    // ask for a full page. If our draft still is not in it, existence stands
+    // and identity does not; the caller is told exactly that.
+    const listRes = await this.gmailFetch(
+      `/drafts?maxResults=${DRAFT_INDEX_PAGE_SIZE}`,
+      undefined,
+      { ...readPolicy, context: "drafts.list draft probe" }
+    );
+    const listData = await this.readGmailJson<{
+      drafts?: Array<{ id?: string; message?: { id?: string } }>;
+    }>(listRes, "drafts.list draft probe");
+
+    const draftIds = (listData.drafts ?? [])
+      .filter(
+        (draft) =>
+          typeof draft.message?.id === "string" &&
+          draftMessageIds.has(draft.message.id)
+      )
+      .map((draft) => (typeof draft.id === "string" ? draft.id : ""))
+      .filter(Boolean);
+
+    return { present: true, draftIds };
   }
 
   async deleteDraft(draftId: string): Promise<void> {
