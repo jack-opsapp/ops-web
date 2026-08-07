@@ -55,11 +55,13 @@
  * there as the guard working, not as breakage.
  *
  * Tests cannot reach production, so refreshing those two checked-in artefacts
- * is what forces a new table to be consciously classified. After any migration
- * that adds a company-scoped table, regenerate BOTH the snapshot (see
- * `company-data-scope-snapshot.ts` for the exact queries) and the types; the
- * completeness tests then fail until the table is given a strategy and an
- * export decision here, or an explicit reason for being excluded.
+ * is what forces a new table to be consciously classified. A migration staged
+ * in the same branch is listed separately in
+ * `STAGED_IN_SCOPE_MIGRATION_TABLES` and `UNTYPED_TABLE_ALLOWLIST`; that keeps
+ * export/deletion complete without rewriting a live snapshot with unapplied
+ * schema. After apply, regenerate BOTH the live snapshot (see
+ * `company-data-scope-snapshot.ts` for the exact queries) and the types, then
+ * remove the staged/untyped exceptions in the same release proof.
  *
  * ── Derived from the live schema ───────────────────────────────────────────
  * Classification was derived against prod (`ijeekuhbatykdomumfjx`) on
@@ -111,19 +113,22 @@
  *
  *   depth 5  email_outbound_edit_promotions
  *   depth 4  email_outbound_learning_queue
- *   depth 3  email_conversion_photo_objects, email_send_intents
+ *   depth 3  email_conversion_photo_objects, email_send_intents,
+ *            job_memory_version_evidence
  *   depth 2  approved_action_email_intents,
  *            email_assignment_contact_form_draft_queue,
  *            email_conversion_photo_jobs, opportunity_assignment_deliveries,
- *            pending_auto_sends
+ *            pending_auto_sends, job_memory_versions,
+ *            job_conversation_redaction_events
  *   depth 1  activities, agent_knowledge_graph, agent_memories,
  *            attachment_inspections, email_attachments,
  *            email_import_provider_operations, line_items,
+ *            job_conversation_turns, job_conversation_anchors,
  *            opportunity_assignment_events,
  *            opportunity_conversion_notification_deliveries, portal_sessions,
  *            task_schedule_automation_outbox,
  *            unassigned_lead_assignment_deliveries
- *   depth 0  everything else, then `companies`
+ *   depth 0  job_conversations, everything else, then `companies`
  *
  * Two pairs reference each other, so no ordering can satisfy both directions.
  * `FK_CYCLE_BREAKERS` nulls the nullable side of each cycle first — on rows
@@ -136,7 +141,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-08-06";
+export const MANIFEST_VERSION = "2026-08-07";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -238,10 +243,11 @@ export const COMPANY_DATA_PURGE_FUNCTION = "purge_company_data";
  *
  * ── Why these exist ────────────────────────────────────────────────────────
  * Classification in this manifest says what a table IS. It says nothing about
- * whether the deleting role may touch it. Thirty `public` base tables withhold
- * from `service_role` at least one privilege the cascade needs — fifteen were
- * created by migrations that granted it nothing at all, fifteen more grant
- * SELECT and withhold DELETE. A rehearsal of the cascade against a disposable
+ * whether the deleting role may touch it. Thirty live `public` base tables and
+ * the six staged job-memory tables withhold from `service_role` at least one
+ * privilege the cascade needs — fifteen live tables were created by migrations
+ * that granted it nothing at all, fifteen more grant SELECT and withhold DELETE.
+ * A rehearsal of the cascade against a disposable
  * prod tenant died at
  * acting-step 23 of 198 on the first of them, and would have died on the next
  * fourteen one at a time.
@@ -424,6 +430,36 @@ export const DEFINER_PURGED_TABLES: readonly DefinerPurgedEntry[] = [
     reason:
       "service_role may SELECT but not DELETE staff email aliases. The export still works; the purge does not. Purged through purge_company_rows.",
   },
+  {
+    table: "job_memory_version_evidence",
+    reason:
+      "The staged migration grants service_role SELECT but withholds DELETE from immutable memory evidence. Purged through purge_company_rows.",
+  },
+  {
+    table: "job_memory_versions",
+    reason:
+      "The staged migration grants service_role SELECT but withholds DELETE from immutable memory versions. Purged through purge_company_rows.",
+  },
+  {
+    table: "job_conversation_redaction_events",
+    reason:
+      "The staged migration grants service_role SELECT but withholds DELETE from append-only redaction events. Purged through purge_company_rows.",
+  },
+  {
+    table: "job_conversation_turns",
+    reason:
+      "The staged migration grants service_role SELECT but withholds DELETE from immutable delivered turns. Purged through purge_company_rows.",
+  },
+  {
+    table: "job_conversation_anchors",
+    reason:
+      "The staged migration grants service_role SELECT but withholds DELETE from immutable job anchors. Purged through purge_company_rows.",
+  },
+  {
+    table: "job_conversations",
+    reason:
+      "The staged migration grants service_role SELECT but withholds DELETE from job conversation roots. Purged through purge_company_rows.",
+  },
 ];
 
 let definerPurgedCache: Set<string> | null = null;
@@ -546,8 +582,7 @@ export const PARENT_SCOPED_DATA: readonly ParentScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Lead-to-thread index for the inbox engine.",
+    reason: "Lead-to-thread index for the inbox engine.",
   },
   {
     table: "payment_milestones",
@@ -819,6 +854,60 @@ export const PARENT_SCOPED_DATA: readonly ParentScopedEntry[] = [
 
 export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
   {
+    table: "job_memory_version_evidence",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "job_memory_versions",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "job_conversation_redaction_events",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "job_conversation_turns",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "job_conversation_anchors",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "job_conversations",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
     table: "email_outbound_edit_promotions",
     scope: "company",
     companyColumn: "company_id",
@@ -826,8 +915,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Outbound learning promotions.",
+    reason: "Outbound learning promotions.",
   },
   {
     table: "email_outbound_learning_queue",
@@ -837,8 +925,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Outbound learning work queue.",
+    reason: "Outbound learning work queue.",
   },
   {
     table: "email_conversion_photo_objects",
@@ -859,8 +946,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Outbound send-intent machinery.",
+    reason: "Outbound send-intent machinery.",
   },
   {
     table: "approved_action_email_intents",
@@ -870,8 +956,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Outbound send-intent machinery.",
+    reason: "Outbound send-intent machinery.",
   },
   {
     table: "email_assignment_contact_form_draft_queue",
@@ -881,8 +966,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Draft-generation work queue.",
+    reason: "Draft-generation work queue.",
   },
   {
     table: "email_conversion_photo_jobs",
@@ -892,8 +976,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Lead-to-project photo conversion job queue.",
+    reason: "Lead-to-project photo conversion job queue.",
   },
   {
     table: "opportunity_assignment_deliveries",
@@ -903,8 +986,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Assignment notification delivery receipts.",
+    reason: "Assignment notification delivery receipts.",
   },
   {
     table: "pending_auto_sends",
@@ -914,8 +996,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Auto-send work queue.",
+    reason: "Auto-send work queue.",
   },
   {
     table: "activities",
@@ -934,8 +1015,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Agent-derived knowledge graph, rebuildable machinery.",
+    reason: "Agent-derived knowledge graph, rebuildable machinery.",
   },
   {
     table: "agent_memories",
@@ -945,8 +1025,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Agent memory store, rebuildable machinery.",
+    reason: "Agent memory store, rebuildable machinery.",
   },
   {
     table: "attachment_inspections",
@@ -956,8 +1035,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Attachment scanning machinery.",
+    reason: "Attachment scanning machinery.",
   },
   {
     table: "email_attachments",
@@ -967,8 +1045,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Attachment index for the inbox engine.",
+    reason: "Attachment index for the inbox engine.",
   },
   {
     table: "email_import_provider_operations",
@@ -978,8 +1055,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Provider API call bookkeeping.",
+    reason: "Provider API call bookkeeping.",
   },
   {
     table: "line_items",
@@ -998,8 +1074,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Assignment routing machinery.",
+    reason: "Assignment routing machinery.",
   },
   {
     table: "opportunity_conversion_notification_deliveries",
@@ -1009,8 +1084,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Conversion notification delivery receipts.",
+    reason: "Conversion notification delivery receipts.",
   },
   {
     table: "portal_sessions",
@@ -1020,8 +1094,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Client-portal session records.",
+    reason: "Client-portal session records.",
   },
   {
     table: "task_schedule_automation_outbox",
@@ -1031,8 +1104,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Schedule automation outbox.",
+    reason: "Schedule automation outbox.",
   },
   {
     table: "unassigned_lead_assignment_deliveries",
@@ -1042,8 +1114,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Assignment notification delivery receipts.",
+    reason: "Assignment notification delivery receipts.",
   },
   {
     table: "accept_estimate_to_job_requests",
@@ -1053,8 +1124,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Idempotency records for the estimate-to-job accept RPC.",
+    reason: "Idempotency records for the estimate-to-job accept RPC.",
   },
   {
     table: "accounting_category_mappings",
@@ -1073,8 +1143,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Holds accounting-provider OAuth tokens and realm ids.",
+    reason: "Holds accounting-provider OAuth tokens and realm ids.",
   },
   {
     table: "accounting_sync_events",
@@ -1084,8 +1153,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Accounting sync event log.",
+    reason: "Accounting sync event log.",
   },
   {
     table: "accounting_sync_log",
@@ -1095,8 +1163,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Accounting sync run log.",
+    reason: "Accounting sync run log.",
   },
   {
     table: "accounting_sync_queue",
@@ -1106,8 +1173,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Accounting push/pull work queue.",
+    reason: "Accounting push/pull work queue.",
   },
   {
     table: "accounting_sync_suppressions",
@@ -1117,8 +1183,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Echo-suppression bookkeeping for accounting sync.",
+    reason: "Echo-suppression bookkeeping for accounting sync.",
   },
   {
     table: "activity_comments",
@@ -1137,8 +1202,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "OPS-side feature flag overrides, not customer data.",
+    reason: "OPS-side feature flag overrides, not customer data.",
   },
   {
     table: "agent_actions",
@@ -1148,8 +1212,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Inbox agent action log.",
+    reason: "Inbox agent action log.",
   },
   {
     table: "agent_writing_profiles",
@@ -1159,8 +1222,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Derived writing-style profile for the inbox agent.",
+    reason: "Derived writing-style profile for the inbox agent.",
   },
   {
     table: "ai_draft_history",
@@ -1181,8 +1243,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Product telemetry, not customer data.",
+    reason: "Product telemetry, not customer data.",
   },
   {
     table: "app_events",
@@ -1192,8 +1253,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Product telemetry, not customer data.",
+    reason: "Product telemetry, not customer data.",
   },
   {
     table: "audit_log",
@@ -1214,8 +1274,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "OPS intake record for beta access requests.",
+    reason: "OPS intake record for beta access requests.",
   },
   {
     table: "billing_events",
@@ -1236,8 +1295,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "OPS support intake queue.",
+    reason: "OPS support intake queue.",
   },
   {
     table: "calendar_events",
@@ -1274,8 +1332,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Guided catalog setup transcript.",
+    reason: "Guided catalog setup transcript.",
   },
   {
     table: "catalog_guided_setup_sessions",
@@ -1285,8 +1342,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Guided catalog setup session state.",
+    reason: "Guided catalog setup session state.",
   },
   {
     table: "catalog_inventory_import_rows",
@@ -1296,8 +1352,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Inventory import staging rows.",
+    reason: "Inventory import staging rows.",
   },
   {
     table: "catalog_inventory_imports",
@@ -1307,8 +1362,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Inventory import run bookkeeping.",
+    reason: "Inventory import run bookkeeping.",
   },
   {
     table: "catalog_items",
@@ -1354,8 +1408,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Idempotency records for catalog setup saves.",
+    reason: "Idempotency records for catalog setup saves.",
   },
   {
     table: "catalog_setup_session_locks",
@@ -1365,8 +1418,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Concurrency locks for catalog setup.",
+    reason: "Concurrency locks for catalog setup.",
   },
   {
     table: "catalog_setup_verification_items",
@@ -1376,8 +1428,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Catalog setup checklist state.",
+    reason: "Catalog setup checklist state.",
   },
   {
     table: "catalog_snapshots",
@@ -1495,8 +1546,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Onboarding data-setup request queue.",
+    reason: "Onboarding data-setup request queue.",
   },
   {
     table: "deck_designs",
@@ -1535,8 +1585,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Estimate and invoice numbering counters.",
+    reason: "Estimate and invoice numbering counters.",
   },
   {
     table: "document_templates",
@@ -1555,8 +1604,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Duplicate-lead review queue.",
+    reason: "Duplicate-lead review queue.",
   },
   {
     table: "email_attachment_inspection_jobs",
@@ -1566,8 +1614,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Attachment inspection job queue.",
+    reason: "Attachment inspection job queue.",
   },
   {
     table: "email_attachment_scans",
@@ -1577,8 +1624,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Attachment scan results.",
+    reason: "Attachment scan results.",
   },
   {
     table: "email_autonomy_milestones",
@@ -1588,8 +1634,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Inbox autonomy progression state.",
+    reason: "Inbox autonomy progression state.",
   },
   {
     table: "email_connection_lifecycle_outbox",
@@ -1599,8 +1644,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Connection lifecycle notification outbox.",
+    reason: "Connection lifecycle notification outbox.",
   },
   {
     table: "email_connections",
@@ -1621,8 +1665,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Ingest heartbeat telemetry.",
+    reason: "Ingest heartbeat telemetry.",
   },
   {
     table: "email_ingestion_recovery_queue",
@@ -1632,8 +1675,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Ingest recovery work queue.",
+    reason: "Ingest recovery work queue.",
   },
   {
     table: "email_oauth_states",
@@ -1643,8 +1685,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "OAuth state nonces.",
+    reason: "OAuth state nonces.",
   },
   {
     table: "email_outbound_edit_evidence",
@@ -1654,8 +1695,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Outbound learning evidence.",
+    reason: "Outbound learning evidence.",
   },
   {
     table: "email_outbound_memory_evidence",
@@ -1665,8 +1705,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Outbound learning evidence.",
+    reason: "Outbound learning evidence.",
   },
   {
     table: "email_outbound_writing_samples",
@@ -1676,8 +1715,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Derived writing samples for the inbox agent.",
+    reason: "Derived writing samples for the inbox agent.",
   },
   {
     table: "email_provider_mutation_attempts",
@@ -1687,8 +1725,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Provider mutation attempt log.",
+    reason: "Provider mutation attempt log.",
   },
   {
     table: "email_signature_notification_lifecycle_outbox",
@@ -1698,8 +1735,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Notification outbox.",
+    reason: "Notification outbox.",
   },
   {
     table: "email_signatures",
@@ -1727,8 +1763,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Classifier correction feedback.",
+    reason: "Classifier correction feedback.",
   },
   {
     table: "email_threads",
@@ -1805,8 +1840,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "OPS product-feedback intake.",
+    reason: "OPS product-feedback intake.",
   },
   {
     table: "follow_ups",
@@ -1825,8 +1859,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Derived weather alerts, recomputable.",
+    reason: "Derived weather alerts, recomputable.",
   },
   {
     table: "gmail_import_jobs",
@@ -1836,8 +1869,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Mailbox import job queue.",
+    reason: "Mailbox import job queue.",
   },
   {
     table: "gmail_scan_jobs",
@@ -1847,8 +1879,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Mailbox scan job queue.",
+    reason: "Mailbox scan job queue.",
   },
   {
     table: "graph_entities",
@@ -1858,8 +1889,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Agent knowledge-graph entities, rebuildable machinery.",
+    reason: "Agent knowledge-graph entities, rebuildable machinery.",
   },
   {
     table: "inventory_deductions",
@@ -1887,8 +1917,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Classifier review queue.",
+    reason: "Classifier review queue.",
   },
   {
     table: "lead_disposition_feedback",
@@ -1898,8 +1927,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Classifier training feedback.",
+    reason: "Classifier training feedback.",
   },
   {
     table: "lead_field_provenance",
@@ -1909,8 +1937,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Field-level extraction provenance.",
+    reason: "Field-level extraction provenance.",
   },
   {
     table: "lead_intake_correction_runs",
@@ -1920,8 +1947,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Lead intake correction runs.",
+    reason: "Lead intake correction runs.",
   },
   {
     table: "lead_lifecycle_settings",
@@ -1969,8 +1995,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "OPS onboarding drip send log.",
+    reason: "OPS onboarding drip send log.",
   },
   {
     table: "opportunities",
@@ -1989,8 +2014,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Machine-generated assignment suggestions.",
+    reason: "Machine-generated assignment suggestions.",
   },
   {
     table: "opportunity_conversion_events",
@@ -2000,8 +2024,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Lead-to-project conversion machinery.",
+    reason: "Lead-to-project conversion machinery.",
   },
   {
     table: "opportunity_manual_outbound_cycle_receipts",
@@ -2022,8 +2045,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Correspondence tracking machinery.",
+    reason: "Correspondence tracking machinery.",
   },
   {
     table: "opportunity_dispositions",
@@ -2042,8 +2064,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Machine-generated follow-up drafts.",
+    reason: "Machine-generated follow-up drafts.",
   },
   {
     table: "opportunity_lifecycle_action_audit",
@@ -2053,8 +2074,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Lifecycle action machinery audit.",
+    reason: "Lifecycle action machinery audit.",
   },
   {
     table: "opportunity_lifecycle_state",
@@ -2064,8 +2084,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Derived lifecycle state, recomputable.",
+    reason: "Derived lifecycle state, recomputable.",
   },
   {
     table: "opportunity_merges",
@@ -2075,8 +2094,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Duplicate-merge bookkeeping.",
+    reason: "Duplicate-merge bookkeeping.",
   },
   {
     table: "opportunity_views",
@@ -2086,8 +2104,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Per-user read tracking.",
+    reason: "Per-user read tracking.",
   },
   {
     table: "payment_reminder_generation_claims",
@@ -2097,8 +2114,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Cron claim rows.",
+    reason: "Cron claim rows.",
   },
   {
     table: "payment_review_writeoff_receipts",
@@ -2128,8 +2144,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Auto-send acceptance bookkeeping.",
+    reason: "Auto-send acceptance bookkeeping.",
   },
   {
     table: "pipeline_stage_configs",
@@ -2231,8 +2246,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Mention notification bookkeeping.",
+    reason: "Mention notification bookkeeping.",
   },
   {
     table: "project_notes",
@@ -2269,8 +2283,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Status-change notification outbox.",
+    reason: "Status-change notification outbox.",
   },
   {
     table: "project_tasks",
@@ -2289,8 +2302,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Per-user read tracking.",
+    reason: "Per-user read tracking.",
   },
   {
     table: "projects",
@@ -2309,8 +2321,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "QuickBooks customer match cache.",
+    reason: "QuickBooks customer match cache.",
   },
   {
     table: "qbo_estimate_opportunity_links",
@@ -2320,8 +2331,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: true,
     deleteStrategy: "soft",
     export: false,
-    reason:
-      "QuickBooks link bookkeeping.",
+    reason: "QuickBooks link bookkeeping.",
   },
   {
     table: "qbo_import_runs",
@@ -2331,8 +2341,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "QuickBooks import run log.",
+    reason: "QuickBooks import run log.",
   },
   {
     table: "qbo_item_product_mappings",
@@ -2342,8 +2351,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: true,
     deleteStrategy: "soft",
     export: false,
-    reason:
-      "QuickBooks item mapping bookkeeping.",
+    reason: "QuickBooks item mapping bookkeeping.",
   },
   {
     table: "qbo_staging_customers",
@@ -2353,8 +2361,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "QuickBooks import staging.",
+    reason: "QuickBooks import staging.",
   },
   {
     table: "qbo_staging_estimates",
@@ -2364,8 +2371,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "QuickBooks import staging.",
+    reason: "QuickBooks import staging.",
   },
   {
     table: "qbo_staging_invoices",
@@ -2375,8 +2381,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "QuickBooks import staging.",
+    reason: "QuickBooks import staging.",
   },
   {
     table: "qbo_staging_line_items",
@@ -2386,8 +2391,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "QuickBooks import staging.",
+    reason: "QuickBooks import staging.",
   },
   {
     table: "qbo_staging_payments",
@@ -2397,8 +2401,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "QuickBooks import staging.",
+    reason: "QuickBooks import staging.",
   },
   {
     table: "recurring_expenses",
@@ -2509,8 +2512,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Idempotency records for stock consumption.",
+    reason: "Idempotency records for stock consumption.",
   },
   {
     table: "task_mutation_events",
@@ -2520,8 +2522,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Task mutation event log.",
+    reason: "Task mutation event log.",
   },
   {
     table: "task_recurrences",
@@ -2585,8 +2586,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Pending invite tokens.",
+    reason: "Pending invite tokens.",
   },
   {
     table: "trial_attributions",
@@ -2596,8 +2596,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "OPS marketing attribution, not customer data.",
+    reason: "OPS marketing attribution, not customer data.",
   },
   {
     table: "trial_expiry_notifications",
@@ -2607,8 +2606,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Trial notification bookkeeping.",
+    reason: "Trial notification bookkeeping.",
   },
   {
     table: "unanswered_lead_local_draft_generation_claims",
@@ -2618,8 +2616,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Cron claim rows.",
+    reason: "Cron claim rows.",
   },
   {
     table: "unanswered_lead_message_projections",
@@ -2629,8 +2626,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Derived projections, recomputable.",
+    reason: "Derived projections, recomputable.",
   },
   {
     table: "user_dashboard_preferences",
@@ -2687,8 +2683,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Cached third-party weather data.",
+    reason: "Cached third-party weather data.",
   },
   {
     table: "wizard_analytics",
@@ -2698,8 +2693,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: false,
-    reason:
-      "Wizard telemetry, not customer data.",
+    reason: "Wizard telemetry, not customer data.",
   },
   {
     table: "companies",
@@ -2712,7 +2706,14 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
   },
 ];
 
-export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [];
+export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [
+  "job_conversation_anchors",
+  "job_conversation_redaction_events",
+  "job_conversation_turns",
+  "job_conversations",
+  "job_memory_version_evidence",
+  "job_memory_versions",
+];
 
 export const OUT_OF_SCOPE_TABLES: readonly OutOfScopeEntry[] = [
   {

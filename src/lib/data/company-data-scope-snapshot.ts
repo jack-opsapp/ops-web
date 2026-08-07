@@ -68,6 +68,14 @@
  * The tenant row `companies` is deliberately absent — it carries no
  * `company_id` and no foreign key into scope, so no query can derive it; the
  * manifest adds it explicitly as the root.
+ *
+ * STAGED_IN_SCOPE_MIGRATION_TABLES is deliberately separate from that live
+ * readback. It closes the account-export/purge gap for tables introduced by an
+ * unapplied migration in this branch without pretending those tables already
+ * exist in production. Every staged name must be created by a checked-in
+ * migration, classified in the manifest, and absent from the generated types.
+ * After the migration is applied to the authoritative database, regenerate
+ * both snapshots/types and empty this list in the same release proof.
  */
 
 /** Every table the live schema places inside a company's data. */
@@ -295,6 +303,16 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "users",
   "weather_forecasts",
   "wizard_analytics",
+];
+
+/** Company-scoped tables created by checked-in migrations not yet applied live. */
+export const STAGED_IN_SCOPE_MIGRATION_TABLES: readonly string[] = [
+  "job_conversation_anchors",
+  "job_conversation_redaction_events",
+  "job_conversation_turns",
+  "job_conversations",
+  "job_memory_version_evidence",
+  "job_memory_versions",
 ];
 
 /**

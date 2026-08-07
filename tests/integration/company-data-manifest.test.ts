@@ -17,7 +17,7 @@
  * forces a newly added table to be consciously classified here.
  */
 
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 import path from "path";
 import { describe, expect, it } from "vitest";
 import {
@@ -38,6 +38,7 @@ import {
 import {
   AUTH_IDENTITY_SNAPSHOT,
   IN_SCOPE_SNAPSHOT,
+  STAGED_IN_SCOPE_MIGRATION_TABLES,
 } from "@/lib/data/company-data-scope-snapshot";
 import {
   SERVICE_ROLE_BLOCKED_TABLES,
@@ -45,6 +46,7 @@ import {
 } from "@/lib/data/company-data-privilege-snapshot";
 
 const ROOT = path.resolve(__dirname, "../..");
+const STAGED_IN_SCOPE = new Set(STAGED_IN_SCOPE_MIGRATION_TABLES);
 
 /** Table names the routes used to address that have never existed. */
 const PHANTOM_TABLES = ["estimate_line_items", "invoice_line_items"];
@@ -102,9 +104,30 @@ function readGeneratedTypes(): {
  * by name, which is worth keeping — the guard is about executable code.
  */
 function readRouteSource(route: "delete-account" | "export"): string {
-  return readFileSync(path.join(ROOT, `src/app/api/data/${route}/route.ts`), "utf8")
+  return readFileSync(
+    path.join(ROOT, `src/app/api/data/${route}/route.ts`),
+    "utf8"
+  )
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^\s*\/\/.*$/gm, "");
+}
+
+/** Final checked-in definition after replaying the ordered migration ledger. */
+function readFinalMigrationFunction(name: string): string {
+  const directory = path.join(ROOT, "supabase/migrations");
+  let latest = "";
+
+  for (const file of readdirSync(directory)
+    .filter((entry) => entry.endsWith(".sql"))
+    .sort()) {
+    const source = readFileSync(path.join(directory, file), "utf8");
+    const start = source
+      .toLowerCase()
+      .lastIndexOf(`create or replace function ${name.toLowerCase()}(`);
+    if (start >= 0) latest = source.slice(start);
+  }
+
+  return latest;
 }
 
 describe("company data manifest — PRIMARY guard: the live in-scope snapshot", () => {
@@ -128,7 +151,10 @@ describe("company data manifest — PRIMARY guard: the live in-scope snapshot", 
   it("never classifies a table that is not actually in scope", () => {
     const phantom = [...manifestTables]
       .filter(
-        (table) => !IN_SCOPE_SNAPSHOT.includes(table) && table !== TENANT_TABLE
+        (table) =>
+          !IN_SCOPE_SNAPSHOT.includes(table) &&
+          !STAGED_IN_SCOPE.has(table) &&
+          table !== TENANT_TABLE
       )
       .sort();
 
@@ -137,6 +163,35 @@ describe("company data manifest — PRIMARY guard: the live in-scope snapshot", 
       `Manifest classifies tables the live snapshot does not place in a company's scope. ` +
         `Either they were renamed/dropped, or the snapshot needs regenerating: ${phantom.join(", ")}`
     ).toEqual([]);
+  });
+
+  it("tracks unapplied migration tables without rewriting the live snapshot", () => {
+    const migrationSql = readdirSync(path.join(ROOT, "supabase/migrations"))
+      .filter((entry) => entry.endsWith(".sql"))
+      .sort()
+      .map((entry) =>
+        readFileSync(path.join(ROOT, "supabase/migrations", entry), "utf8")
+      )
+      .join("\n")
+      .toLowerCase();
+
+    expect(new Set(STAGED_IN_SCOPE_MIGRATION_TABLES).size).toBe(
+      STAGED_IN_SCOPE_MIGRATION_TABLES.length
+    );
+    for (const table of STAGED_IN_SCOPE_MIGRATION_TABLES) {
+      expect(IN_SCOPE_SNAPSHOT, `${table} is not live yet`).not.toContain(
+        table
+      );
+      expect(
+        manifestTables,
+        `${table} must be classified before apply`
+      ).toContain(table);
+      expect(
+        UNTYPED_TABLE_ALLOWLIST,
+        `${table} must remain explicitly untyped until types are regenerated`
+      ).toContain(table);
+      expect(migrationSql).toContain(`create table public.${table}`);
+    }
   });
 
   it("adds only the tenant row on top of the derived scope", () => {
@@ -206,7 +261,7 @@ describe("company data manifest — PRIVILEGE guard: what service_role may actua
 
   it("never sends a table down the definer detour it does not need", () => {
     const needless = [...definerPurged]
-      .filter((table) => !blocked.has(table))
+      .filter((table) => !blocked.has(table) && !STAGED_IN_SCOPE.has(table))
       .sort();
 
     expect(
@@ -328,18 +383,15 @@ describe("company data manifest — PRIVILEGE guard: what service_role may actua
     // Either side drifting silently reintroduces it — a table declared here but
     // absent from the allowlist is refused at runtime with 42501, and one in the
     // allowlist but not here is simply never called.
-    const sql = readFileSync(
-      path.join(
-        ROOT,
-        "supabase/migrations/20260731161122_transactional_company_data_purge.sql"
-      ),
-      "utf8"
-    );
+    const sql = readFinalMigrationFunction("public.purge_company_rows");
 
     const array = sql.match(
       /v_allowed constant text\[\] := array\[([\s\S]*?)\];/i
     );
-    expect(array, "could not find the allowlist in the migration").not.toBeNull();
+    expect(
+      array,
+      "could not find the allowlist in the migration"
+    ).not.toBeNull();
 
     const allowlisted = [...array![1].matchAll(/'([a-z0-9_]+)'/g)]
       .map((m) => m[1])
@@ -380,9 +432,7 @@ describe("company data purge — immutable event ledger exception", () => {
       "current_setting('ops.company_data_purge_company_id', true)"
     );
     expect(sql).toContain("old.company_id::text");
-    expect(sql).toContain(
-      "current_setting('request.jwt.claims', true)"
-    );
+    expect(sql).toContain("current_setting('request.jwt.claims', true)");
     expect(sql).toContain("tg_op = 'delete'");
     expect(sql).toContain("return old");
 
@@ -440,9 +490,10 @@ describe("company data manifest — out-of-scope registry", () => {
     const both = OUT_OF_SCOPE_TABLES.filter((e) =>
       manifestTables.has(e.table)
     ).map((e) => e.table);
-    expect(both, `declared out of scope AND classified: ${both.join(", ")}`).toEqual(
-      []
-    );
+    expect(
+      both,
+      `declared out of scope AND classified: ${both.join(", ")}`
+    ).toEqual([]);
   });
 
   it("names only real tables, so a typo cannot be parked here", () => {
@@ -539,7 +590,9 @@ describe("company data manifest — regression guard on the frozen schema", () =
   it("routes address tables only through the manifest", () => {
     for (const route of ["delete-account", "export"] as const) {
       const source = readRouteSource(route);
-      const literals = [...source.matchAll(/\.from\(\s*["'`]([a-z0-9_]+)["'`]/g)]
+      const literals = [
+        ...source.matchAll(/\.from\(\s*["'`]([a-z0-9_]+)["'`]/g),
+      ]
         .map((m) => m[1])
         .filter((table) => table !== "companies" && table !== "users");
       expect(
@@ -562,6 +615,12 @@ describe("company data manifest — coverage of the tables the old cascade misse
   const byTable = manifestByTable();
 
   const expected: Array<[string, "soft" | "hard" | "retain", boolean]> = [
+    ["job_conversations", "hard", true],
+    ["job_conversation_anchors", "hard", true],
+    ["job_conversation_turns", "hard", true],
+    ["job_memory_versions", "hard", true],
+    ["job_memory_version_evidence", "hard", true],
+    ["job_conversation_redaction_events", "hard", true],
     ["expenses", "soft", true],
     ["project_photos", "soft", true],
     ["project_notes", "soft", true],
@@ -592,7 +651,8 @@ describe("company data manifest — coverage of the tables the old cascade misse
   it("keeps the previously-missed tables in the export plan", () => {
     const exported = new Set(exportPlan().map((e) => e.table));
     for (const [table, , wanted] of expected) {
-      if (wanted) expect(exported.has(table), `${table} not exported`).toBe(true);
+      if (wanted)
+        expect(exported.has(table), `${table} not exported`).toBe(true);
     }
   });
 
@@ -634,8 +694,12 @@ describe("company data manifest — coverage of the tables the old cascade misse
         export: true,
       });
       const childIndex = tables.indexOf(child);
-      expect(childIndex, `${child} must be in the purge plan`).toBeGreaterThan(-1);
-      expect(childIndex, `${child} must precede site_visits`).toBeLessThan(parentIndex);
+      expect(childIndex, `${child} must be in the purge plan`).toBeGreaterThan(
+        -1
+      );
+      expect(childIndex, `${child} must precede site_visits`).toBeLessThan(
+        parentIndex
+      );
     }
   });
 });
@@ -713,32 +777,34 @@ describe("company data manifest — strategy integrity", () => {
       (e) => e.deleteStrategy === "retain"
     );
 
-    expect(retained.map((e) => e.table).sort()).toEqual([
-      // Referential integrity — surviving tombstones still point at these.
-      "expense_batches",
-      "expense_categories",
-      // Financial and audit obligations that outlive the account.
-      "audit_log",
-      "billing_events",
-      // OPS's own SPEC sales ledger, enumerated in full.
-      "spec_acceptance_events",
-      "spec_blocked_buyers",
-      "spec_change_orders",
-      "spec_communications",
-      "spec_email_outbox",
-      "spec_feature_acceptance",
-      "spec_internal_notes",
-      "spec_module_entitlements",
-      "spec_owner_approval_requests",
-      "spec_payments",
-      "spec_projects",
-      "spec_referrals",
-      "spec_refund_requests",
-      "spec_retainers",
-      "spec_satisfaction_ratings",
-      "spec_scope_documents",
-      "spec_support_tickets",
-    ].sort());
+    expect(retained.map((e) => e.table).sort()).toEqual(
+      [
+        // Referential integrity — surviving tombstones still point at these.
+        "expense_batches",
+        "expense_categories",
+        // Financial and audit obligations that outlive the account.
+        "audit_log",
+        "billing_events",
+        // OPS's own SPEC sales ledger, enumerated in full.
+        "spec_acceptance_events",
+        "spec_blocked_buyers",
+        "spec_change_orders",
+        "spec_communications",
+        "spec_email_outbox",
+        "spec_feature_acceptance",
+        "spec_internal_notes",
+        "spec_module_entitlements",
+        "spec_owner_approval_requests",
+        "spec_payments",
+        "spec_projects",
+        "spec_referrals",
+        "spec_refund_requests",
+        "spec_retainers",
+        "spec_satisfaction_ratings",
+        "spec_scope_documents",
+        "spec_support_tickets",
+      ].sort()
+    );
 
     for (const entry of retained) {
       expect(entry.reason, `${entry.table}`).toBeTruthy();
@@ -813,8 +879,14 @@ describe("company data manifest — deletion ordering", () => {
     before("email_send_intents", "email_connections");
     before("approved_action_email_intents", "activities");
     before("approved_action_email_intents", "agent_actions");
-    before("opportunity_assignment_deliveries", "opportunity_assignment_events");
-    before("opportunity_assignment_events", "opportunity_assignment_suggestions");
+    before(
+      "opportunity_assignment_deliveries",
+      "opportunity_assignment_events"
+    );
+    before(
+      "opportunity_assignment_events",
+      "opportunity_assignment_suggestions"
+    );
     before("email_conversion_photo_objects", "email_conversion_photo_jobs");
     before("email_conversion_photo_jobs", "email_attachments");
     before("email_conversion_photo_jobs", "opportunity_conversion_events");
@@ -826,6 +898,14 @@ describe("company data manifest — deletion ordering", () => {
     before("portal_sessions", "portal_tokens");
     before("task_schedule_automation_outbox", "task_mutation_events");
     before("email_import_provider_operations", "gmail_scan_jobs");
+    before("job_memory_version_evidence", "job_memory_versions");
+    before("job_memory_versions", "job_conversation_turns");
+    before("job_conversation_redaction_events", "job_conversation_turns");
+    before("job_conversation_turns", "job_conversations");
+    before("job_conversation_anchors", "job_conversations");
+    before("job_conversation_turns", "activities");
+    before("job_conversation_turns", "opportunity_correspondence_events");
+    before("job_conversation_turns", "email_connections");
   });
 
   it("tombstones the company row last", () => {
