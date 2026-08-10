@@ -1,6 +1,9 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { CronDatabaseOperationError } from "./cron-workload-control-service";
+import {
+  CronDatabaseOperationError,
+  supabaseDatabaseOperationCause,
+} from "./cron-workload-control-service";
 
 export const EMAIL_CONNECTION_SYNC_LOCK_TTL_SECONDS = 10 * 60;
 export const EMAIL_CONNECTION_SYNC_LOCK_RENEW_INTERVAL_MS = 2 * 60 * 1000;
@@ -15,24 +18,28 @@ export type EmailConnectionSyncLockRunResult<T> =
   | { acquired: false }
   | { acquired: true; value: T };
 
+type SupabaseDatabaseResponse = {
+  readonly data: unknown;
+  readonly error: { readonly message?: string } | null;
+  readonly status?: number;
+  readonly statusText?: string;
+};
+
 export async function acquireEmailConnectionSyncLock(
   connectionId: string,
   context: string,
   client?: SupabaseClient
 ): Promise<string | null> {
   const supabase = client ?? requireSupabase();
-  let data: unknown;
-  let error: { message?: string } | null;
+  let response: SupabaseDatabaseResponse;
   try {
-    const result = await supabase.rpc(
+    response = await supabase.rpc(
       "acquire_email_connection_sync_lock_as_system",
       {
         p_connection_id: connectionId,
         p_lease_seconds: EMAIL_CONNECTION_SYNC_LOCK_TTL_SECONDS,
       }
     );
-    data = result.data;
-    error = result.error;
   } catch (cause) {
     throw new CronDatabaseOperationError(
       `[${context}] email connection lock acquisition failed`,
@@ -40,10 +47,11 @@ export async function acquireEmailConnectionSyncLock(
     );
   }
 
+  const { data, error } = response;
   if (error) {
     throw new CronDatabaseOperationError(
       `[${context}] email connection lock acquisition failed: ${error.message ?? "unknown error"}`,
-      { cause: error }
+      { cause: supabaseDatabaseOperationCause(response) }
     );
   }
   if (data === null) return null;
@@ -62,10 +70,9 @@ export async function renewEmailConnectionSyncLock(
   client?: SupabaseClient
 ): Promise<void> {
   const supabase = client ?? requireSupabase();
-  let data: unknown;
-  let error: { message?: string } | null;
+  let response: SupabaseDatabaseResponse;
   try {
-    const result = await supabase.rpc(
+    response = await supabase.rpc(
       "renew_email_connection_sync_lock_as_system",
       {
         p_connection_id: connectionId,
@@ -73,8 +80,6 @@ export async function renewEmailConnectionSyncLock(
         p_lease_seconds: EMAIL_CONNECTION_SYNC_LOCK_TTL_SECONDS,
       }
     );
-    data = result.data;
-    error = result.error;
   } catch (cause) {
     throw new CronDatabaseOperationError(
       `[${context}] email connection lock renewal failed`,
@@ -82,10 +87,11 @@ export async function renewEmailConnectionSyncLock(
     );
   }
 
+  const { data, error } = response;
   if (error) {
     throw new CronDatabaseOperationError(
       `[${context}] email connection lock renewal failed: ${error.message ?? "unknown error"}`,
-      { cause: error }
+      { cause: supabaseDatabaseOperationCause(response) }
     );
   }
   if (typeof data !== "boolean") {
@@ -101,14 +107,14 @@ export async function renewEmailConnectionSyncLock(
 }
 
 function assertOwnerFencedWrite(
-  data: unknown,
-  error: { message?: string } | null,
+  response: SupabaseDatabaseResponse,
   context: string
 ): void {
+  const { data, error } = response;
   if (error) {
     throw new CronDatabaseOperationError(
       `[${context}] owner-fenced mailbox write failed: ${error.message ?? "unknown error"}`,
-      { cause: error }
+      { cause: supabaseDatabaseOperationCause(response) }
     );
   }
   if (data !== true) {
@@ -136,7 +142,7 @@ export async function persistEmailConnectionRecoveryCheckpoint({
   client?: SupabaseClient;
 }): Promise<void> {
   const supabase = client ?? requireSupabase();
-  const { data, error } = await supabase.rpc(
+  const response = await supabase.rpc(
     "persist_email_connection_recovery_checkpoint_as_system",
     {
       p_connection_id: connectionId,
@@ -146,7 +152,7 @@ export async function persistEmailConnectionRecoveryCheckpoint({
       p_target_token: targetToken,
     }
   );
-  assertOwnerFencedWrite(data, error, context);
+  assertOwnerFencedWrite(response, context);
 }
 
 export async function persistEmailConnectionSyncCompletion({
@@ -167,7 +173,7 @@ export async function persistEmailConnectionSyncCompletion({
   client?: SupabaseClient;
 }): Promise<void> {
   const supabase = client ?? requireSupabase();
-  const { data, error } = await supabase.rpc(
+  const response = await supabase.rpc(
     "persist_email_connection_sync_completion_as_system",
     {
       p_connection_id: connectionId,
@@ -177,7 +183,7 @@ export async function persistEmailConnectionSyncCompletion({
       p_clear_recovery: clearRecovery,
     }
   );
-  assertOwnerFencedWrite(data, error, context);
+  assertOwnerFencedWrite(response, context);
 }
 
 export async function persistEmailConnectionSyncCheckpoint({
@@ -198,7 +204,7 @@ export async function persistEmailConnectionSyncCheckpoint({
   client?: SupabaseClient;
 }): Promise<void> {
   const supabase = client ?? requireSupabase();
-  const { data, error } = await supabase.rpc(
+  const response = await supabase.rpc(
     "persist_email_connection_sync_checkpoint_as_system",
     {
       p_connection_id: connectionId,
@@ -208,7 +214,7 @@ export async function persistEmailConnectionSyncCheckpoint({
       p_clear_recovery: clearRecovery,
     }
   );
-  assertOwnerFencedWrite(data, error, context);
+  assertOwnerFencedWrite(response, context);
 }
 
 export async function completeGmailImportJobUnderSyncLock({
@@ -254,17 +260,14 @@ export async function completeGmailImportJobUnderSyncLock({
     p_leads_created: leadsCreated,
     p_completed_at: completedAt.toISOString(),
   };
-  let { data, error } = await supabase.rpc(
+  let response = await supabase.rpc(
     "complete_gmail_import_job_as_system",
     args
   );
-  if (error) {
-    ({ data, error } = await supabase.rpc(
-      "complete_gmail_import_job_as_system",
-      args
-    ));
+  if (response.error) {
+    response = await supabase.rpc("complete_gmail_import_job_as_system", args);
   }
-  assertOwnerFencedWrite(data, error, context);
+  assertOwnerFencedWrite(response, context);
 }
 
 export function createEmailConnectionSyncLockRenewer({
@@ -349,19 +352,20 @@ export async function releaseEmailConnectionSyncLock(
 ): Promise<void> {
   try {
     const supabase = client ?? requireSupabase();
-    const { data, error } = await supabase.rpc(
+    const response = await supabase.rpc(
       "release_email_connection_sync_lock_as_system",
       {
         p_connection_id: connectionId,
         p_owner_id: ownerId,
       }
     );
+    const { data, error } = response;
 
     if (error) {
       if (abortOnDatabaseError) {
         throw new CronDatabaseOperationError(
           `[${context}] email connection lock release failed: ${error.message ?? "unknown error"}`,
-          { cause: error }
+          { cause: supabaseDatabaseOperationCause(response) }
         );
       }
       console.error(

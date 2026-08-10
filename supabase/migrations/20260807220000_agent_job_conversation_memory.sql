@@ -204,6 +204,9 @@ create table public.job_conversation_turns (
     ),
   source_activity_id uuid,
   source_correspondence_event_id uuid,
+  subject text,
+  recipient_identities text[] not null default '{}'::text[],
+  cc_recipient_identities text[] not null default '{}'::text[],
   normalized_plain_text text not null,
   original_content_hash text not null
     check (original_content_hash ~ '^sha256:[0-9a-f]{64}$'),
@@ -221,7 +224,10 @@ create table public.job_conversation_turns (
   check (
     (
       participant_resolution_status = 'resolved'
-      and side is not null
+      and (
+        (direction = 'inbound' and side = 'user')
+        or (direction = 'outbound' and side = 'assistant')
+      )
     )
     or
     (
@@ -787,8 +793,11 @@ create or replace function public.ingest_job_conversation_turn_as_system(
   p_provider_message_id text,
   p_source_activity_id uuid,
   p_source_correspondence_event_id uuid,
+  p_subject text,
   p_normalized_plain_text text,
   p_original_content_hash text,
+  p_recipient_identities text[] default '{}'::text[],
+  p_cc_recipient_identities text[] default '{}'::text[],
   p_attachment_evidence_ids text[] default '{}'::text[]
 ) returns table (
   conversation_id uuid,
@@ -825,7 +834,10 @@ begin
      )
      or (
        p_participant_resolution_status = 'resolved'
-       and p_side is null
+       and not (
+         (p_direction = 'inbound' and p_side = 'user')
+         or (p_direction = 'outbound' and p_side = 'assistant')
+       )
      )
      or (
        p_participant_resolution_status in ('unresolved', 'ambiguous')
@@ -1068,6 +1080,9 @@ begin
     provider_message_id,
     source_activity_id,
     source_correspondence_event_id,
+    subject,
+    recipient_identities,
+    cc_recipient_identities,
     normalized_plain_text,
     original_content_hash,
     attachment_evidence_ids
@@ -1085,6 +1100,9 @@ begin
     btrim(p_provider_message_id),
     p_source_activity_id,
     p_source_correspondence_event_id,
+    p_subject,
+    coalesce(p_recipient_identities, '{}'::text[]),
+    coalesce(p_cc_recipient_identities, '{}'::text[]),
     p_normalized_plain_text,
     p_original_content_hash,
     coalesce(p_attachment_evidence_ids, '{}'::text[])
@@ -1118,6 +1136,11 @@ begin
          is distinct from p_source_activity_id
        or v_existing_turn.source_correspondence_event_id
          is distinct from p_source_correspondence_event_id
+       or v_existing_turn.subject is distinct from p_subject
+       or v_existing_turn.recipient_identities
+         is distinct from coalesce(p_recipient_identities, '{}'::text[])
+       or v_existing_turn.cc_recipient_identities
+         is distinct from coalesce(p_cc_recipient_identities, '{}'::text[])
        or v_existing_turn.normalized_plain_text
          is distinct from p_normalized_plain_text
        or v_existing_turn.original_content_hash
@@ -1136,11 +1159,11 @@ $function$;
 
 revoke all on function public.ingest_job_conversation_turn_as_system(
   uuid, text, uuid, text, text, text, text, text, text, timestamptz,
-  uuid, text, uuid, uuid, text, text, text[]
+  uuid, text, uuid, uuid, text, text, text, text[], text[], text[]
 ) from public, anon, authenticated, service_role;
 grant execute on function public.ingest_job_conversation_turn_as_system(
   uuid, text, uuid, text, text, text, text, text, text, timestamptz,
-  uuid, text, uuid, uuid, text, text, text[]
+  uuid, text, uuid, uuid, text, text, text, text[], text[], text[]
 ) to service_role;
 
 -- Account closure is manifest-driven and service_role intentionally has no
@@ -1189,6 +1212,7 @@ declare
     'project_note_mention_events',
     'stage_transitions',
     'user_email_aliases',
+    'agent_control_plane_tenant_roots',
     'job_memory_version_evidence',
     'job_memory_versions',
     'job_conversation_redaction_events',
@@ -1278,7 +1302,7 @@ grant execute on function public.purge_company_rows(text, uuid)
   to service_role;
 
 comment on function public.purge_company_rows(text, uuid) is
-  'Deletes one company''s rows from one of thirty-six allowlisted company-data tables. The transaction-local marker preserves immutable ledgers while account closure erases the exact tenant.';
+  'Deletes one company''s rows from one of thirty-seven allowlisted company-data tables. The transaction-local marker preserves immutable ledgers while account closure erases the exact tenant.';
 
 -- Direct writes remain unavailable even to service_role; future memory-version
 -- writes receive their own optimistic, guarded functions. Service repositories
@@ -1314,12 +1338,12 @@ grant select on table public.job_conversations
 grant select on table public.job_conversation_anchors
   to authenticated, service_role;
 grant select on table public.job_conversation_turns
-  to authenticated, service_role;
+  to service_role;
 grant select on table public.job_memory_versions
-  to authenticated, service_role;
+  to service_role;
 grant select on table public.job_memory_version_evidence
-  to authenticated, service_role;
+  to service_role;
 grant select on table public.job_conversation_redaction_events
-  to authenticated, service_role;
+  to service_role;
 
 commit;

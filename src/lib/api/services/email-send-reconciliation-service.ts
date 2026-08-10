@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { persistCapturedProviderDeliveryTurn } from "@/lib/agent-control-plane/memory/persist-captured-provider-delivery-turn";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import { CronDatabaseOperationError } from "./cron-workload-control-service";
 import { EmailOutboundLearningService } from "./email-outbound-learning-service";
@@ -11,6 +12,7 @@ import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-op
 import type { EmailSendIntent } from "./email-send-intent-service";
 import { EmailThreadService } from "./email-thread-service";
 import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
+import { captureAcceptedOutboundProviderDeliverySource } from "./provider-delivery-source-service";
 
 export interface EmailSendReconciliationResult {
   activityId: string;
@@ -138,6 +140,28 @@ export async function reconcileEmailSend(
   ) {
     throw new Error("EMAIL_SEND_RECONCILIATION_CONNECTION_CONFLICT");
   }
+
+  await captureAcceptedOutboundProviderDeliverySource({
+    supabase,
+    connection,
+    intent: {
+      outboundIntentKind: "email_send_intent",
+      outboundIntentId: intent.id,
+      status: intent.status,
+      companyId: intent.companyId,
+      connectionId: intent.connectionId,
+      providerMessageId: intent.providerMessageId,
+      providerThreadId: intent.acceptedProviderThreadId,
+      providerAcceptedAt: intent.providerAcceptedAt,
+      senderIdentity: intent.clientFromAddressSnapshot,
+      recipientIdentities: intent.toEmails,
+      ccRecipientIdentities: intent.ccEmails,
+      subject: intent.subject,
+      renderedBody: intent.renderedBody,
+      renderedBodyHash: intent.renderedBodyHash,
+      contentType: intent.contentType,
+    },
+  });
 
   const { error: threadClaimError } = await supabase
     .from("opportunity_email_threads")
@@ -308,6 +332,13 @@ export async function reconcileEmailSend(
       `Sent email correspondence persistence failed: ${correspondenceResult.reason}`
     );
   }
+  await persistCapturedProviderDeliveryTurn({
+    supabase,
+    companyId: intent.companyId,
+    connectionId: intent.connectionId,
+    providerMessageId,
+    sourceActivityId: activityId,
+  });
   const followUpOutcome = await reconcileOperatorTemplateFollowUpOutcome({
     supabase,
     intent,

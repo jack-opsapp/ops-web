@@ -141,7 +141,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-08-07";
+export const MANIFEST_VERSION = "2026-08-08";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -429,6 +429,11 @@ export const DEFINER_PURGED_TABLES: readonly DefinerPurgedEntry[] = [
     table: "user_email_aliases",
     reason:
       "service_role may SELECT but not DELETE staff email aliases. The export still works; the purge does not. Purged through purge_company_rows.",
+  },
+  {
+    table: "agent_control_plane_tenant_roots",
+    reason:
+      "The staged migration grants no service-role access to the immutable agent-control-plane purge root. Account closure removes it through purge_company_rows so private agent state is erased under the exact tenant marker.",
   },
   {
     table: "job_memory_version_evidence",
@@ -853,6 +858,17 @@ export const PARENT_SCOPED_DATA: readonly ParentScopedEntry[] = [
 ];
 
 export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
+  {
+    table: "agent_control_plane_tenant_roots",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Tenant-owned purge root for private agent-control-plane state. It contains no customer content and is removed only during full account closure.",
+  },
   {
     table: "job_memory_version_evidence",
     scope: "company",
@@ -2707,6 +2723,7 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
 ];
 
 export const UNTYPED_TABLE_ALLOWLIST: readonly string[] = [
+  "agent_control_plane_tenant_roots",
   "job_conversation_anchors",
   "job_conversation_redaction_events",
   "job_conversation_turns",

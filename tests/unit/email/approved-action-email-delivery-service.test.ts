@@ -1,14 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   ApprovedActionEmailDeliveryService,
   type ApprovedActionEmailIntent,
   type PrepareApprovedActionEmailIntentInput,
 } from "@/lib/api/services/approved-action-email-delivery-service";
-import { mapApprovedActionEmailIntent } from "@/lib/api/services/approved-action-email-intent-service";
+import {
+  ApprovedActionEmailIntentService,
+  mapApprovedActionEmailIntent,
+} from "@/lib/api/services/approved-action-email-intent-service";
 import type { EmailConnectionSyncLockRunResult } from "@/lib/api/services/email-connection-sync-lock";
 import type { EmailProviderMailboxCheckpoint } from "@/lib/api/services/email-provider-mailbox-operation";
 import { ProviderApiError } from "@/lib/api/services/email-provider";
+import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 
 const PREPARE_INPUT: PrepareApprovedActionEmailIntentInput = {
   actionId: "action-1",
@@ -63,7 +68,11 @@ function intent(
     providerMessageId: null,
     acceptedProviderThreadId: null,
     providerAcceptedAt: null,
+    reconciliationAttempts: 0,
+    maxReconciliationAttempts: 8,
     reconciliationLeaseToken: null,
+    reconciliationLeaseExpiresAt: null,
+    reconciliationExhaustedAt: null,
     reconciledActivityId: null,
     lastError: null,
     ...overrides,
@@ -99,6 +108,12 @@ function dependencies() {
         reconciliationLeaseToken: "lease-1",
       })
     ),
+    renewReconciliation: vi.fn().mockResolvedValue(
+      intent("reconciling", {
+        ...accepted,
+        reconciliationLeaseToken: "lease-1",
+      })
+    ),
     completeReconciliation: vi.fn().mockResolvedValue(
       intent("reconciled", {
         ...accepted,
@@ -106,6 +121,9 @@ function dependencies() {
       })
     ),
     failReconciliation: vi
+      .fn()
+      .mockResolvedValue(intent("reconciliation_failed", accepted)),
+    releaseReconciliation: vi
       .fn()
       .mockResolvedValue(intent("reconciliation_failed", accepted)),
   };
@@ -131,10 +149,71 @@ describe("approved-action email delivery", () => {
     const mapped = mapApprovedActionEmailIntent({
       assignment_version: "7",
       assignment_event_id: "assignment-event-7",
+      reconciliation_attempts: 3,
+      max_reconciliation_attempts: 8,
+      reconciliation_lease_expires_at: "2026-08-09T18:13:00.000Z",
+      reconciliation_exhausted_at: "2026-08-09T18:20:00.000Z",
     });
 
     expect(mapped.assignmentVersion).toBe(7);
     expect(mapped.assignmentEventId).toBe("assignment-event-7");
+    expect(mapped.reconciliationAttempts).toBe(3);
+    expect(mapped.maxReconciliationAttempts).toBe(8);
+    expect(mapped.reconciliationLeaseExpiresAt).toBe(
+      "2026-08-09T18:13:00.000Z"
+    );
+    expect(mapped.reconciliationExhaustedAt).toBe("2026-08-09T18:20:00.000Z");
+  });
+
+  it("claims the next cooldown-eligible accepted reconciliation through the bounded RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: null, error: null });
+    const service = new ApprovedActionEmailIntentService({
+      rpc,
+    } as unknown as SupabaseClient);
+
+    await expect(
+      service.claimNextReconciliation({
+        failedBefore: "2026-08-09T18:09:00.000Z",
+        leaseSeconds: 180,
+      })
+    ).resolves.toBeNull();
+
+    expect(rpc).toHaveBeenCalledWith(
+      "claim_next_approved_action_email_reconciliation",
+      {
+        p_failed_before: "2026-08-09T18:09:00.000Z",
+        p_lease_seconds: 180,
+      }
+    );
+  });
+
+  it("renews an exact reconciliation lease through the owner-fenced RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        id: "intent-1",
+        status: "reconciling",
+        reconciliation_lease_token: "lease-1",
+      },
+      error: null,
+    });
+    const service = new ApprovedActionEmailIntentService({
+      rpc,
+    } as unknown as SupabaseClient);
+
+    await service.renewReconciliation({
+      intentId: "intent-1",
+      leaseToken: "lease-1",
+      leaseSeconds: 180,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "renew_approved_action_email_reconciliation",
+      {
+        p_intent_id: "intent-1",
+        p_lease_token: "lease-1",
+        p_lease_seconds: 180,
+      }
+    );
   });
 
   it("persists the durable intent before the only provider call", async () => {
@@ -325,5 +404,56 @@ describe("approved-action email delivery", () => {
     expect(result.state).toBe("reconciled");
     expect(deps.provider.sendEmail).not.toHaveBeenCalled();
     expect(deps.store.claimReconciliation).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases an interactive reconciliation during database pressure without spending retry budget", async () => {
+    const deps = dependencies();
+    const accepted = intent("provider_accepted", {
+      providerMessageId: "sent-message-1",
+      acceptedProviderThreadId: "sent-thread-1",
+      providerAcceptedAt: "2026-07-15T20:00:00.000Z",
+      reconciliationAttempts: 7,
+      maxReconciliationAttempts: 8,
+    });
+    const leased = intent("reconciling", {
+      ...accepted,
+      reconciliationLeaseToken: "lease-1",
+      reconciliationLeaseExpiresAt: "2026-07-15T20:05:00.000Z",
+    });
+    const pressure = new CronDatabaseOperationError(
+      "Approved-action reconciliation database unavailable",
+      { cause: { status: 521, message: "Web server is down" } }
+    );
+    deps.store.prepare.mockResolvedValue(accepted);
+    deps.store.claimReconciliation.mockResolvedValue(leased);
+    deps.store.releaseReconciliation.mockResolvedValue(
+      intent("reconciliation_failed", {
+        ...accepted,
+        reconciliationLeaseToken: null,
+        reconciliationLeaseExpiresAt: null,
+        reconciliationExhaustedAt: null,
+      })
+    );
+    deps.reconcile.mockRejectedValue(pressure);
+
+    const result = await new ApprovedActionEmailDeliveryService(deps).execute(
+      PREPARE_INPUT
+    );
+
+    expect(result).toMatchObject({
+      state: "pending",
+      delivered: true,
+      error: "Approved-action reconciliation database unavailable",
+    });
+    expect(deps.store.releaseReconciliation).toHaveBeenCalledWith({
+      intentId: "intent-1",
+      leaseToken: "lease-1",
+      error: "Approved-action reconciliation database unavailable",
+    });
+    expect(deps.store.failReconciliation).not.toHaveBeenCalled();
+    expect(deps.store.completeReconciliation).not.toHaveBeenCalled();
+    expect(deps.store.claimReconciliation).toHaveBeenCalledTimes(1);
+    expect(deps.reconcile).toHaveBeenCalledTimes(1);
+    expect(deps.provider.sendEmail).not.toHaveBeenCalled();
   });
 });

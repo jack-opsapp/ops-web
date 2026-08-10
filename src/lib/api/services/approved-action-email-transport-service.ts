@@ -12,6 +12,7 @@ import {
   type PrepareApprovedActionEmailIntentInput,
 } from "./approved-action-email-delivery-service";
 import { ApprovedActionEmailIntentService } from "./approved-action-email-intent-service";
+import { runApprovedActionEmailReconciliationRecovery } from "./approved-action-email-reconciliation-recovery-service";
 import { reconcileApprovedActionEmail } from "./approved-action-email-reconciliation-service";
 import { runWithEmailConnectionSyncLock } from "./email-connection-sync-lock";
 import { EmailService } from "./email-service";
@@ -163,30 +164,23 @@ export const ApprovedActionEmailTransportService = {
 
   async recover(limit = 50): Promise<{
     quarantined: number;
-    processed: number;
+    claimed: number;
+    reconciled: number;
     failed: number;
+    exhausted: number;
+    errors: string[];
   }> {
     const supabase = requireSupabase() as unknown as SupabaseClient;
     const store = new ApprovedActionEmailIntentService(supabase);
     const quarantined = await store.quarantineStaleDeliveries();
-    const recoverable = await store.listRecoverable(limit);
-    let processed = 0;
-    let failed = 0;
-    for (const intent of recoverable) {
-      try {
-        await executeApprovedActionEmail({
-          actionId: intent.actionId,
-          executionMode: intent.executionMode,
-        });
-        processed += 1;
-      } catch (error) {
-        failed += 1;
-        console.error("[approved-action-email] recovery failed", {
-          intentId: intent.id,
-          error: error instanceof Error ? error.message : String(error),
-        });
+    const recovery = await runApprovedActionEmailReconciliationRecovery(
+      supabase,
+      {
+        limit,
+        failureCooldownSeconds: 60,
+        leaseSeconds: 180,
       }
-    }
-    return { quarantined, processed, failed };
+    );
+    return { quarantined, ...recovery };
   },
 };

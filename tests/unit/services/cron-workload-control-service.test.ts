@@ -5,6 +5,7 @@ import {
   CronWorkloadControlCompletionError,
   isDatabasePressureError,
   runWithCronWorkloadControl,
+  supabaseDatabaseOperationCause,
   type CronWorkloadControlClient,
 } from "@/lib/api/services/cron-workload-control-service";
 
@@ -132,6 +133,47 @@ describe("isDatabasePressureError", () => {
     expect(
       isDatabasePressureError({ code: "23505", message: "duplicate key" })
     ).toBe(false);
+  });
+
+  it("classifies the outer HTTP status from a real PostgREST response shape", () => {
+    const response = {
+      data: null,
+      error: {
+        code: "",
+        details: "",
+        hint: "",
+        message: "Service unavailable",
+      },
+      count: null,
+      status: 503,
+      statusText: "Service Unavailable",
+    };
+    const error = new CronDatabaseOperationError("Supabase request failed", {
+      cause: supabaseDatabaseOperationCause(response),
+    });
+
+    expect(isDatabasePressureError(error)).toBe(true);
+  });
+
+  it("classifies fetch error codes embedded in real PostgREST details", () => {
+    const response = {
+      data: null,
+      error: {
+        code: "",
+        details:
+          "TypeError: fetch failed\n\nCaused by: Error: getaddrinfo ENOTFOUND db.example.com (ENOTFOUND)",
+        hint: "",
+        message: "TypeError: fetch failed",
+      },
+      count: null,
+      status: 0,
+      statusText: "",
+    };
+    const error = new CronDatabaseOperationError("Supabase request failed", {
+      cause: supabaseDatabaseOperationCause(response),
+    });
+
+    expect(isDatabasePressureError(error)).toBe(true);
   });
 
   it.each([

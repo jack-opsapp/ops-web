@@ -72,7 +72,13 @@ export async function GET(request: NextRequest) {
         for (const row of dueActions ?? []) {
           const actionId = row.id as string;
           try {
-            await ApprovalQueueService.executeAutonomousAction(actionId);
+            const action =
+              await ApprovalQueueService.executeAutonomousAction(actionId);
+            if (action.status !== "executed") {
+              throw new Error(
+                `Action did not reach executed status: ${action.status}`
+              );
+            }
             results.push({ actionId, success: true });
           } catch (err) {
             if (isDatabasePressureError(err)) throw err;
@@ -91,14 +97,20 @@ export async function GET(request: NextRequest) {
         const recovery =
           await ApprovalQueueService.recoverApprovedActionEmails(5);
 
-        return NextResponse.json({
-          ok: true,
-          dueCount: dueActions?.length ?? 0,
-          succeeded,
-          failed,
-          recovery,
-          results,
-        });
+        const ok =
+          failed === 0 && recovery.failed === 0 && recovery.exhausted === 0;
+
+        return NextResponse.json(
+          {
+            ok,
+            dueCount: dueActions?.length ?? 0,
+            succeeded,
+            failed,
+            recovery,
+            results,
+          },
+          { status: ok ? 200 : 503 }
+        );
       },
     });
 

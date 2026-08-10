@@ -1,7 +1,10 @@
 import type { EmailProviderInterface } from "./email-provider";
 import type { EmailConnectionSyncLockRunResult } from "./email-connection-sync-lock";
 import type { EmailProviderMailboxCheckpoint } from "./email-provider-mailbox-operation";
+import { isDatabasePressureError } from "./cron-workload-control-service";
 import { isDefinitiveEmailProviderRejection } from "./email-provider-mutation-attempt-service";
+
+const APPROVED_ACTION_EMAIL_RECONCILIATION_LEASE_SECONDS = 300;
 
 export type ApprovedActionEmailExecutionMode = "manual" | "autonomous";
 
@@ -65,7 +68,11 @@ export interface ApprovedActionEmailIntent {
   providerMessageId: string | null;
   acceptedProviderThreadId: string | null;
   providerAcceptedAt: string | null;
+  reconciliationAttempts: number;
+  maxReconciliationAttempts: number;
   reconciliationLeaseToken: string | null;
+  reconciliationLeaseExpiresAt: string | null;
+  reconciliationExhaustedAt: string | null;
   reconciledActivityId: string | null;
   lastError: string | null;
 }
@@ -96,12 +103,22 @@ export interface ApprovedActionEmailIntentStore {
   claimReconciliation(
     intentId: string
   ): Promise<ApprovedActionEmailIntent | null>;
+  renewReconciliation(input: {
+    intentId: string;
+    leaseToken: string;
+    leaseSeconds: number;
+  }): Promise<ApprovedActionEmailIntent>;
   completeReconciliation(input: {
     intentId: string;
     leaseToken: string;
     activityId: string;
   }): Promise<ApprovedActionEmailIntent>;
   failReconciliation(input: {
+    intentId: string;
+    leaseToken: string;
+    error: string;
+  }): Promise<ApprovedActionEmailIntent>;
+  releaseReconciliation(input: {
     intentId: string;
     leaseToken: string;
     error: string;
@@ -331,24 +348,54 @@ export class ApprovedActionEmailDeliveryService {
         });
       }
 
+      const leaseToken = leased.reconciliationLeaseToken;
+      const reconciliationCheckpoint: EmailProviderMailboxCheckpoint = async (
+        force = false
+      ) => {
+        await checkpoint(force);
+        await this.dependencies.store.renewReconciliation({
+          intentId: leased.id,
+          leaseToken,
+          leaseSeconds: APPROVED_ACTION_EMAIL_RECONCILIATION_LEASE_SECONDS,
+        });
+        await checkpoint(force);
+      };
+
       try {
-        await checkpoint();
+        await reconciliationCheckpoint(true);
         const reconciled = await this.dependencies.reconcile(
           leased,
-          checkpoint
+          reconciliationCheckpoint
         );
-        await checkpoint();
+        await reconciliationCheckpoint(true);
         const completed = await this.dependencies.store.completeReconciliation({
           intentId: leased.id,
-          leaseToken: leased.reconciliationLeaseToken,
+          leaseToken,
           activityId: reconciled.activityId,
         });
         return outcome("reconciled", completed, { delivered: true });
       } catch (error) {
         lastError = errorMessage(error);
+        if (isDatabasePressureError(error)) {
+          try {
+            await this.dependencies.store.releaseReconciliation({
+              intentId: leased.id,
+              leaseToken,
+              error: lastError,
+            });
+          } catch {
+            // If pressure also prevents the owner-fenced release, expiry makes
+            // the intent reclaimable without converting pressure into a real
+            // reconciliation attempt.
+          }
+          return outcome("pending", accepted, {
+            delivered: true,
+            error: lastError,
+          });
+        }
         await this.dependencies.store.failReconciliation({
           intentId: leased.id,
-          leaseToken: leased.reconciliationLeaseToken,
+          leaseToken,
           error: lastError,
         });
       }

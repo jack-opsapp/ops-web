@@ -7,6 +7,7 @@ import { outboundLearningEvidenceKey } from "@/lib/email/outbound-learning-evide
 import {
   CronDatabaseOperationError,
   isDatabasePressureError,
+  supabaseDatabaseOperationCause,
 } from "./cron-workload-control-service";
 
 export const OUTBOUND_LEARNING_PREPARATION_VERSION = "outbound-learning-v1";
@@ -259,17 +260,18 @@ const defaultDependencies: EmailOutboundLearningDependencies = {
 
     if (!job.draftHistoryId) return baseline;
 
-    const { data, error } = await supabase
+    const draftHistoryResponse = await supabase
       .from("ai_draft_history")
       .select("original_draft, subject, status")
       .eq("id", job.draftHistoryId)
       .eq("company_id", job.companyId)
       .eq("user_id", job.userId ?? "")
       .maybeSingle();
+    const { data, error } = draftHistoryResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning draft history lookup failed: ${error.message}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(draftHistoryResponse) }
       );
     }
     if (!data) {
@@ -533,7 +535,7 @@ export class EmailOutboundLearningService {
       throw new Error("Outbound learning clean body is required");
     }
 
-    const { data, error } = await this.supabase.rpc(
+    const enqueueResponse = await this.supabase.rpc(
       "enqueue_email_outbound_learning",
       {
         p_company_id: input.companyId,
@@ -555,11 +557,12 @@ export class EmailOutboundLearningService {
         p_learning_authority: learningAuthority(input.learningAuthority),
       }
     );
+    const { data, error } = enqueueResponse;
 
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning enqueue failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(enqueueResponse) }
       );
     }
     const row = rowsFromRpc(data)[0];
@@ -598,17 +601,18 @@ export class EmailOutboundLearningService {
     jobs: EmailOutboundLearningJob[];
     terminalized: EmailOutboundLearningJob[];
   }> {
-    const { data, error } = await this.supabase.rpc(
+    const claimResponse = await this.supabase.rpc(
       "claim_email_outbound_learning",
       {
         p_limit: input.limit ?? 25,
         p_lease_seconds: input.leaseSeconds ?? 300,
       }
     );
+    const { data, error } = claimResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning claim failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(claimResponse) }
       );
     }
     const rows = rowsFromRpc(data).map(mapJob);
@@ -643,7 +647,7 @@ export class EmailOutboundLearningService {
     }
   ): Promise<EmailOutboundLearningJob> {
     const leaseToken = requireLease(job);
-    const { data, error } = await this.supabase.rpc(
+    const prepareResponse = await this.supabase.rpc(
       "prepare_email_outbound_learning",
       {
         p_job_id: job.id,
@@ -658,10 +662,11 @@ export class EmailOutboundLearningService {
         p_preparation_version: OUTBOUND_LEARNING_PREPARATION_VERSION,
       }
     );
+    const { data, error } = prepareResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning preparation failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(prepareResponse) }
       );
     }
     const row = rowsFromRpc(data)[0];
@@ -675,14 +680,15 @@ export class EmailOutboundLearningService {
     job: EmailOutboundLearningJob
   ): Promise<EmailOutboundLearningJob> {
     const leaseToken = requireLease(job);
-    const { data, error } = await this.supabase.rpc(
+    const applyResponse = await this.supabase.rpc(
       "apply_email_outbound_learning",
       { p_job_id: job.id, p_lease_token: leaseToken }
     );
+    const { data, error } = applyResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning application failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(applyResponse) }
       );
     }
     const row = rowsFromRpc(data)[0];
@@ -697,7 +703,7 @@ export class EmailOutboundLearningService {
     reason: string
   ): Promise<EmailOutboundLearningJob> {
     const leaseToken = requireLease(job);
-    const { data, error } = await this.supabase.rpc(
+    const deferResponse = await this.supabase.rpc(
       "defer_email_outbound_learning",
       {
         p_job_id: job.id,
@@ -706,10 +712,11 @@ export class EmailOutboundLearningService {
         p_delay_seconds: 900,
       }
     );
+    const { data, error } = deferResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning deferral failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(deferResponse) }
       );
     }
     const row = rowsFromRpc(data)[0];
@@ -723,7 +730,7 @@ export class EmailOutboundLearningService {
     errorValue: unknown
   ): Promise<EmailOutboundLearningJob> {
     const leaseToken = requireLease(job);
-    const { data, error } = await this.supabase.rpc(
+    const retryResponse = await this.supabase.rpc(
       "retry_email_outbound_learning",
       {
         p_job_id: job.id,
@@ -731,10 +738,11 @@ export class EmailOutboundLearningService {
         p_error: errorText(errorValue).slice(0, 4000),
       }
     );
+    const { data, error } = retryResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning retry failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(retryResponse) }
       );
     }
     const row = rowsFromRpc(data)[0];
@@ -760,7 +768,7 @@ export class EmailOutboundLearningService {
       throw new Error("Outbound learning diagnostic cursor id is required");
     }
 
-    const { data, error } = await this.supabase.rpc(
+    const diagnoseResponse = await this.supabase.rpc(
       "diagnose_email_outbound_learning",
       {
         p_company_id: input.companyId?.trim() || null,
@@ -770,7 +778,13 @@ export class EmailOutboundLearningService {
         p_before_id: input.before?.id ?? null,
       }
     );
-    if (error) throw error;
+    const { data, error } = diagnoseResponse;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning diagnostics failed: ${errorText(error)}`,
+        { cause: supabaseDatabaseOperationCause(diagnoseResponse) }
+      );
+    }
 
     const items = rowsFromRpc(data).map(mapDiagnostic);
     const last = items.at(-1);
@@ -794,14 +808,20 @@ export class EmailOutboundLearningService {
       throw new Error("Outbound learning requeue reason is required");
     }
 
-    const { data, error } = await this.supabase.rpc(
+    const requeueResponse = await this.supabase.rpc(
       "requeue_failed_email_outbound_learning",
       {
         p_job_id: jobId,
         p_reason: normalizedReason.slice(0, 1000),
       }
     );
-    if (error) throw error;
+    const { data, error } = requeueResponse;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning requeue failed: ${errorText(error)}`,
+        { cause: supabaseDatabaseOperationCause(requeueResponse) }
+      );
+    }
     const row = rowsFromRpc(data)[0];
     if (!row) throw new Error("Outbound learning requeue returned no job");
     return mapJob(row);

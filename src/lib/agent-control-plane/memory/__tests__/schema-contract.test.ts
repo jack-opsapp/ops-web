@@ -68,6 +68,23 @@ describe("agent job conversation memory schema", () => {
         `alter table public.${table} force row level security`
       );
     }
+
+    for (const table of [
+      "job_conversation_turns",
+      "job_memory_versions",
+      "job_memory_version_evidence",
+      "job_conversation_redaction_events",
+    ]) {
+      expect(compact).toContain(
+        `revoke all on table public.${table} from public, anon, authenticated, service_role`
+      );
+      expect(compact).toContain(
+        `grant select on table public.${table} to service_role`
+      );
+      expect(compact).not.toContain(
+        `grant select on table public.${table} to authenticated`
+      );
+    }
   });
 
   it("uses UUID job foreign keys and one unique company/type/source anchor", () => {
@@ -189,7 +206,7 @@ describe("agent job conversation memory schema", () => {
       /job_conversation_turns[\s\S]*?side text[\s\S]*?participant_resolution_status text not null[\s\S]*?participant_resolution_revision text not null[\s\S]*?direction text not null[\s\S]*?channel text not null[\s\S]*?delivered_at timestamptz not null/
     );
     expect(compact).toMatch(
-      /participant_resolution_status = 'resolved'[\s\S]*?side is not null[\s\S]*?participant_resolution_status in \('unresolved', 'ambiguous'\)[\s\S]*?side is null/
+      /participant_resolution_status = 'resolved'[\s\S]*?direction = 'inbound' and side = 'user'[\s\S]*?direction = 'outbound' and side = 'assistant'[\s\S]*?participant_resolution_status in \('unresolved', 'ambiguous'\)[\s\S]*?side is null/
     );
     expect(compact).toMatch(
       /source_connection_id uuid not null[\s\S]*?references public\.email_connections\(id\)/
@@ -197,6 +214,9 @@ describe("agent job conversation memory schema", () => {
     expect(compact).toContain("source_activity_id uuid");
     expect(compact).toContain("source_correspondence_event_id uuid");
     expect(compact).toContain("provider_message_id text not null");
+    expect(compact).toContain("subject text");
+    expect(compact).toContain("recipient_identities text[] not null");
+    expect(compact).toContain("cc_recipient_identities text[] not null");
     expect(compact).toContain("normalized_plain_text text not null");
     expect(compact).toContain("original_content_hash text not null");
     expect(compact).toContain("attachment_evidence_ids text[] not null");
@@ -207,6 +227,18 @@ describe("agent job conversation memory schema", () => {
     expect(ingest).not.toContain("char_length(p_normalized_plain_text)");
     expect(compact).toMatch(
       /create trigger job_conversation_turns_immutable[\s\S]*?before update or delete on public\.job_conversation_turns/
+    );
+    expect(ingest).toContain("p_subject text");
+    expect(ingest).toContain("p_recipient_identities text[]");
+    expect(ingest).toContain("p_cc_recipient_identities text[]");
+    expect(ingest).toContain(
+      "v_existing_turn.subject is distinct from p_subject"
+    );
+    expect(ingest).toContain(
+      "v_existing_turn.recipient_identities is distinct from coalesce(p_recipient_identities, '{}'::text[])"
+    );
+    expect(ingest).toContain(
+      "v_existing_turn.cc_recipient_identities is distinct from coalesce(p_cc_recipient_identities, '{}'::text[])"
     );
   });
 
@@ -223,7 +255,7 @@ describe("agent job conversation memory schema", () => {
       /p_participant_resolution_status not in \(\s*'resolved',\s*'unresolved',\s*'ambiguous'\s*\)/
     );
     expect(ingest).toMatch(
-      /p_participant_resolution_status = 'resolved'[\s\S]*?p_side is null/
+      /p_participant_resolution_status = 'resolved'[\s\S]*?p_direction = 'inbound' and p_side = 'user'[\s\S]*?p_direction = 'outbound' and p_side = 'assistant'/
     );
     expect(ingest).toMatch(
       /p_participant_resolution_status in \('unresolved', 'ambiguous'\)[\s\S]*?p_side is not null/
@@ -374,7 +406,6 @@ describe("agent job conversation memory schema", () => {
     );
     for (const nullableInput of [
       "p_job_kind",
-      "p_side",
       "p_participant_resolution_status",
       "p_direction",
       "p_channel",

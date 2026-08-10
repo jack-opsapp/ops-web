@@ -307,6 +307,7 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
 
 /** Company-scoped tables created by checked-in migrations not yet applied live. */
 export const STAGED_IN_SCOPE_MIGRATION_TABLES: readonly string[] = [
+  "agent_control_plane_tenant_roots",
   "job_conversation_anchors",
   "job_conversation_redaction_events",
   "job_conversation_turns",

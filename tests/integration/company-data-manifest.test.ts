@@ -42,11 +42,13 @@ import {
 } from "@/lib/data/company-data-scope-snapshot";
 import {
   SERVICE_ROLE_BLOCKED_TABLES,
+  STAGED_SERVICE_ROLE_BLOCKED_TABLES,
   blockedPrivilegesByTable,
 } from "@/lib/data/company-data-privilege-snapshot";
 
 const ROOT = path.resolve(__dirname, "../..");
 const STAGED_IN_SCOPE = new Set(STAGED_IN_SCOPE_MIGRATION_TABLES);
+const STAGED_BLOCKED = new Set(STAGED_SERVICE_ROLE_BLOCKED_TABLES);
 
 /** Table names the routes used to address that have never existed. */
 const PHANTOM_TABLES = ["estimate_line_items", "invoice_line_items"];
@@ -261,7 +263,12 @@ describe("company data manifest — PRIVILEGE guard: what service_role may actua
 
   it("never sends a table down the definer detour it does not need", () => {
     const needless = [...definerPurged]
-      .filter((table) => !blocked.has(table) && !STAGED_IN_SCOPE.has(table))
+      .filter(
+        (table) =>
+          !blocked.has(table) &&
+          !STAGED_IN_SCOPE.has(table) &&
+          !STAGED_BLOCKED.has(table)
+      )
       .sort();
 
     expect(
@@ -401,6 +408,27 @@ describe("company data manifest — PRIVILEGE guard: what service_role may actua
       allowlisted,
       `public.purge_company_rows' allowlist and DEFINER_PURGED_TABLES must name the same tables`
     ).toEqual([...definerPurged].sort());
+  });
+
+  it("tracks staged privilege revocations until the live snapshot is regenerated", () => {
+    const migrationSql = readdirSync(path.join(ROOT, "supabase/migrations"))
+      .filter((entry) => entry.endsWith(".sql"))
+      .sort()
+      .map((entry) =>
+        readFileSync(path.join(ROOT, "supabase/migrations", entry), "utf8")
+      )
+      .join("\n")
+      .toLowerCase();
+
+    expect(STAGED_SERVICE_ROLE_BLOCKED_TABLES).toEqual([
+      "agent_control_plane_tenant_roots",
+    ]);
+    expect(DEFINER_PURGED_TABLES.map((entry) => entry.table)).toContain(
+      "agent_control_plane_tenant_roots"
+    );
+    expect(migrationSql.replace(/\s+/g, " ")).toContain(
+      "revoke all on table public.agent_control_plane_tenant_roots from public, anon, authenticated, service_role"
+    );
   });
 
   it("keeps the privilege snapshot itself plausible", () => {

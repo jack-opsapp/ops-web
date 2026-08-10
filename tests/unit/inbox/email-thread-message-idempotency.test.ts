@@ -6,6 +6,7 @@ import {
   EmailThreadParentConflictError,
 } from "@/lib/api/services/email-thread-service";
 import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
+import { isDatabasePressureError } from "@/lib/api/services/cron-workload-error-contract";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 
 type Row = Record<string, unknown>;
@@ -22,6 +23,12 @@ interface State {
   projectionError?: string;
   projectionResult?: Row;
   threadUpdateResult?: Row;
+  threadReadError?: unknown;
+  directoryReadError?: unknown;
+  clientResolutionError?: unknown;
+  clientRepairReadError?: unknown;
+  databaseStatus?: number;
+  databaseStatusText?: string;
 }
 
 function threadRow(overrides: Partial<Row> = {}): Row {
@@ -102,6 +109,19 @@ function email(overrides: Partial<NormalizedEmail> = {}): NormalizedEmail {
 }
 
 function makeSupabaseDouble(state: State) {
+  function result(data: unknown, error: unknown) {
+    return {
+      data,
+      error,
+      ...(error && state.databaseStatus !== undefined
+        ? {
+            status: state.databaseStatus,
+            statusText: state.databaseStatusText ?? "",
+          }
+        : {}),
+    };
+  }
+
   class Query {
     private action: "select" | "insert" | "update" = "select";
     private payload: Row | null = null;
@@ -158,10 +178,24 @@ function makeSupabaseDouble(state: State) {
 
     async maybeSingle() {
       if (this.table === "email_threads") {
-        return { data: state.thread, error: null };
+        return result(state.thread, state.threadReadError ?? null);
       }
       if (this.table === "email_connections") {
         return { data: { email: state.connectionEmail }, error: null };
+      }
+      if (
+        ["clients", "sub_clients", "users"].includes(this.table) &&
+        this.filters.has("email") &&
+        state.directoryReadError
+      ) {
+        return result(null, state.directoryReadError);
+      }
+      if (
+        this.table === "clients" &&
+        this.filters.has("id") &&
+        state.clientRepairReadError
+      ) {
+        return result(null, state.clientRepairReadError);
       }
       return { data: null, error: null };
     }
@@ -208,6 +242,13 @@ function makeSupabaseDouble(state: State) {
           error: null,
         });
       }
+      if (
+        ["clients", "sub_clients"].includes(this.table) &&
+        Array.isArray(this.filters.get("email")) &&
+        state.clientResolutionError
+      ) {
+        return resolve(result(null, state.clientResolutionError));
+      }
       return resolve({ data: [], error: null });
     }
   }
@@ -248,6 +289,158 @@ describe("EmailThreadService.upsertFromEmail message idempotency", () => {
   afterEach(() => {
     setSupabaseOverride(null);
     vi.restoreAllMocks();
+  });
+
+  it("preserves the raw Supabase cause when the canonical thread read is under pressure", async () => {
+    const cause = {
+      code: "",
+      details: null,
+      hint: null,
+      message: "Service unavailable",
+    };
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: null,
+      activities: [],
+      threadReadError: cause,
+      databaseStatus: 503,
+      databaseStatusText: "Service Unavailable",
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const failure = await EmailThreadService.upsertFromEmail({
+      companyId: "company-1",
+      connectionId: "connection-1",
+      providerThreadId: "provider-thread-1",
+      email: email(),
+      direction: "inbound",
+    }).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: cause,
+        status: 503,
+        statusText: "Service Unavailable",
+      },
+    });
+    expect(isDatabasePressureError(failure)).toBe(true);
+  });
+
+  it("does not cache an empty sender identity when the directory is under pressure", async () => {
+    const cause = {
+      code: "",
+      details: null,
+      hint: null,
+      message: "Service unavailable",
+    };
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: threadRow(),
+      activities: [activity()],
+      directoryReadError: cause,
+      databaseStatus: 503,
+      databaseStatusText: "Service Unavailable",
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const failure = await EmailThreadService.upsertFromEmail({
+      companyId: "company-directory-pressure",
+      connectionId: "connection-1",
+      providerThreadId: "provider-thread-1",
+      email: email({
+        from: "Directory Pressure <directory-pressure@example.com>",
+      }),
+      direction: "inbound",
+    }).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: cause,
+        status: 503,
+        statusText: "Service Unavailable",
+      },
+    });
+    expect(isDatabasePressureError(failure)).toBe(true);
+  });
+
+  it("does not silently omit client linkage when participant resolution is under pressure", async () => {
+    const cause = {
+      code: "",
+      details: null,
+      hint: null,
+      message: "Service unavailable",
+    };
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: threadRow({ client_id: null }),
+      activities: [activity()],
+      clientResolutionError: cause,
+      databaseStatus: 503,
+      databaseStatusText: "Service Unavailable",
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const failure = await EmailThreadService.upsertFromEmail({
+      companyId: "company-client-resolution-pressure",
+      connectionId: "connection-1",
+      providerThreadId: "provider-thread-1",
+      email: email({
+        from: "Client Pressure <client-pressure@example.com>",
+      }),
+      direction: "inbound",
+    }).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: cause,
+        status: 503,
+        statusText: "Service Unavailable",
+      },
+    });
+    expect(isDatabasePressureError(failure)).toBe(true);
+  });
+
+  it("does not silently skip a client-name repair read under pressure", async () => {
+    const cause = {
+      code: "",
+      details: null,
+      hint: null,
+      message: "Service unavailable",
+    };
+    const state: State = {
+      connectionEmail: "office@example.com",
+      thread: threadRow({ client_id: "client-1" }),
+      activities: [activity()],
+      clientRepairReadError: cause,
+      databaseStatus: 503,
+      databaseStatusText: "Service Unavailable",
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const failure = await EmailThreadService.upsertFromEmail({
+      companyId: "company-client-repair-pressure",
+      connectionId: "connection-1",
+      providerThreadId: "provider-thread-1",
+      email: email({
+        from: "Repair Pressure <repair-pressure@example.com>",
+        fromName: "Repair Pressure",
+      }),
+      direction: "inbound",
+      clientId: "client-1",
+    }).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: cause,
+        status: 503,
+        statusText: "Service Unavailable",
+      },
+    });
+    expect(isDatabasePressureError(failure)).toBe(true);
   });
 
   it("derives counts and latest state from distinct mailbox-scoped activities on replay", async () => {
