@@ -53,6 +53,7 @@ import {
 } from "./email-provider-mutation-attempt-service";
 import { emailSyncContinuationPendingForConnection } from "@/lib/email/email-sync-continuation-state";
 import { normalizeEmailAddress } from "@/lib/utils/email-parsing";
+import { buildConversationState } from "./conversation-state/conversation-state";
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
@@ -146,35 +147,150 @@ function isThreadActionable(thread: EmailThread): boolean {
  * us no message id) also returns "needs draft" — we can't dedup what we can't
  * key, and mailbox draft idempotency still guards provider placement.
  */
-async function latestEmailSource(
-  thread: EmailThread,
-  direction: "inbound" | "outbound"
-): Promise<{
+interface ExactEmailSourceTurn {
+  resolution:
+    | "resolved"
+    | "missing"
+    | "ambiguous"
+    | "read_error"
+    | "history_read_error";
   sourceMessageId: string | null;
   sourceActivityId: string | null;
   sourceCreatedAt: Date | null;
-}> {
-  const { data: latest } = await requireSupabase()
+  direction: "inbound" | "outbound" | null;
+  fromEmail: string | null;
+  toEmails: string[];
+  ccEmails: string[];
+}
+
+function normalizeSourceRecipients(values: unknown): string[] {
+  if (!Array.isArray(values)) return [];
+  return values
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => normalizeEmailAddress(value))
+    .filter((value) => Boolean(value && /^[^\s@]+@[^\s@]+$/.test(value)));
+}
+
+async function latestEmailSource(
+  thread: EmailThread
+): Promise<ExactEmailSourceTurn> {
+  const { data: sourceRows, error } = await requireSupabase()
     .from("activities")
-    .select("id, email_message_id, created_at")
+    .select(
+      "id, email_message_id, created_at, direction, from_email, to_emails, cc_emails"
+    )
     .eq("company_id", thread.companyId)
     .eq("email_connection_id", thread.connectionId)
     .eq("email_thread_id", thread.providerThreadId)
     .eq("type", "email")
-    .eq("direction", direction)
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .limit(2);
+
+  const unavailable = (
+    resolution: ExactEmailSourceTurn["resolution"]
+  ): ExactEmailSourceTurn => ({
+    resolution,
+    sourceMessageId: null,
+    sourceActivityId: null,
+    sourceCreatedAt: null,
+    direction: null,
+    fromEmail: null,
+    toEmails: [],
+    ccEmails: [],
+  });
+  if (error) {
+    console.error(
+      "[phase-c-router] latest email source load failed:",
+      error.message
+    );
+    return unavailable("read_error");
+  }
+
+  const rows = Array.isArray(sourceRows) ? sourceRows : [];
+  const latest = rows[0] ?? null;
+  if (!latest) return unavailable("missing");
+
+  const latestId =
+    typeof latest.id === "string" && latest.id.trim() ? latest.id.trim() : null;
+  const latestCreatedAt =
+    typeof latest.created_at === "string" ? new Date(latest.created_at) : null;
+  if (
+    !latestId ||
+    !latestCreatedAt ||
+    !Number.isFinite(latestCreatedAt.getTime())
+  ) {
+    return unavailable("missing");
+  }
+
+  const runnerUp = rows[1] ?? null;
+  const runnerUpId =
+    typeof runnerUp?.id === "string" && runnerUp.id.trim()
+      ? runnerUp.id.trim()
+      : null;
+  const runnerUpCreatedAt =
+    typeof runnerUp?.created_at === "string"
+      ? new Date(runnerUp.created_at)
+      : null;
+  if (
+    runnerUpId &&
+    runnerUpId !== latestId &&
+    runnerUpCreatedAt &&
+    Number.isFinite(runnerUpCreatedAt.getTime()) &&
+    runnerUpCreatedAt.getTime() === latestCreatedAt.getTime()
+  ) {
+    return unavailable("ambiguous");
+  }
 
   return {
+    resolution: "resolved",
     sourceMessageId: (latest?.email_message_id as string | null) ?? null,
-    sourceActivityId: (latest?.id as string | null) ?? null,
-    sourceCreatedAt:
-      typeof latest?.created_at === "string"
-        ? new Date(latest.created_at)
+    sourceActivityId: latestId,
+    sourceCreatedAt: latestCreatedAt,
+    direction:
+      latest?.direction === "inbound" || latest?.direction === "outbound"
+        ? latest.direction
         : null,
+    fromEmail:
+      typeof latest?.from_email === "string"
+        ? normalizeEmailAddress(latest.from_email) || null
+        : null,
+    toEmails: normalizeSourceRecipients(latest?.to_emails),
+    ccEmails: normalizeSourceRecipients(latest?.cc_emails),
   };
+}
+
+function inboundSourceRecipient(source: ExactEmailSourceTurn): string | null {
+  const email = source.fromEmail;
+  return email && /^[^\s@]+@[^\s@]+$/.test(email) ? email : null;
+}
+
+function exactSourceMatches(
+  expected: ExactEmailSourceTurn,
+  current: ExactEmailSourceTurn
+): boolean {
+  return (
+    expected.resolution === "resolved" &&
+    current.resolution === "resolved" &&
+    Boolean(expected.sourceActivityId) &&
+    expected.sourceActivityId === current.sourceActivityId &&
+    expected.sourceMessageId === current.sourceMessageId &&
+    expected.direction === current.direction
+  );
+}
+
+function sourceResolutionFailureDetail(source: ExactEmailSourceTurn): string {
+  switch (source.resolution) {
+    case "ambiguous":
+      return "PHASE_C_DRAFT_SOURCE_AMBIGUOUS";
+    case "read_error":
+      return "PHASE_C_DRAFT_SOURCE_READ_FAILED";
+    case "history_read_error":
+      return "PHASE_C_DRAFT_HISTORY_READ_FAILED";
+    case "missing":
+      return "PHASE_C_DRAFT_SOURCE_MISSING";
+    case "resolved":
+      return "PHASE_C_DRAFT_SOURCE_STALE";
+  }
 }
 
 async function latestInboundNeedsDraft(
@@ -184,6 +300,7 @@ async function latestInboundNeedsDraft(
   needsDraft: boolean;
   sourceMessageId: string | null;
   sourceActivityId: string | null;
+  source: ExactEmailSourceTurn;
   retryDraft: {
     draft: string;
     draftHistoryId: string;
@@ -191,10 +308,18 @@ async function latestInboundNeedsDraft(
   } | null;
 }> {
   const supabase = requireSupabase();
-  const { sourceMessageId, sourceActivityId } = await latestEmailSource(
-    thread,
-    "inbound"
-  );
+  const source = await latestEmailSource(thread);
+  const { sourceMessageId, sourceActivityId } = source;
+
+  if (source.resolution !== "resolved") {
+    return {
+      needsDraft: false,
+      sourceMessageId: null,
+      sourceActivityId: null,
+      source,
+      retryDraft: null,
+    };
+  }
 
   // Can't dedup without a stable message key — let the draft proceed. The
   // mailbox placement path still reuses an existing unresolved provider draft
@@ -204,6 +329,7 @@ async function latestInboundNeedsDraft(
       needsDraft: true,
       sourceMessageId,
       sourceActivityId,
+      source,
       retryDraft: null,
     };
   }
@@ -212,7 +338,7 @@ async function latestInboundNeedsDraft(
   // provider message? Any terminal status still suppresses re-drafting: a user
   // who sent, ignored, or deleted the draft should not get the same draft again
   // until a genuinely new inbound message arrives.
-  const { data: matching } = await supabase
+  const { data: matching, error: matchingError } = await supabase
     .from("ai_draft_history")
     .select("id, status, mailbox_draft_id, original_draft, subject")
     .eq("company_id", thread.companyId)
@@ -223,6 +349,20 @@ async function latestInboundNeedsDraft(
     .eq("source_message_id", sourceMessageId)
     .limit(1)
     .maybeSingle();
+
+  if (matchingError) {
+    console.error(
+      "[phase-c-router] draft history lookup failed:",
+      matchingError.message
+    );
+    return {
+      needsDraft: false,
+      sourceMessageId,
+      sourceActivityId,
+      source: { ...source, resolution: "history_read_error" },
+      retryDraft: null,
+    };
+  }
 
   const retryDraft =
     matching?.status === "drafted" &&
@@ -244,6 +384,7 @@ async function latestInboundNeedsDraft(
     needsDraft: !matching,
     sourceMessageId,
     sourceActivityId,
+    source,
     retryDraft,
   };
 }
@@ -259,6 +400,13 @@ class PhaseCSyncContinuationError extends Error {
   constructor() {
     super("mailbox_sync_continuation_pending");
     this.name = "PhaseCSyncContinuationError";
+  }
+}
+
+class PhaseCDraftSourceStaleError extends Error {
+  constructor() {
+    super("PHASE_C_DRAFT_SOURCE_STALE");
+    this.name = "PhaseCDraftSourceStaleError";
   }
 }
 
@@ -324,102 +472,10 @@ async function authorizeCurrentPhaseCThread(
   });
 }
 
-type CanonicalFollowUpRecipientResult =
-  | { ok: true; email: string }
-  | { ok: false; reason: string };
-
-/**
- * Resolve a stale-lead follow-up recipient from the current opportunity, never
- * from the thread's accumulated participant/CC history. The exact linked
- * thread is re-read so stale or crossed linkage fails closed before drafting.
- */
-async function resolveCanonicalFollowUpRecipient(
-  thread: EmailThread,
-  actorContext: PhaseCEmailActorContext
-): Promise<CanonicalFollowUpRecipientResult> {
-  const opportunityId = thread.opportunityId;
-  if (
-    !opportunityId ||
-    actorContext.companyId !== thread.companyId ||
-    actorContext.connectionId !== thread.connectionId ||
-    actorContext.opportunityId !== opportunityId ||
-    actorContext.internalThreadId !== thread.id ||
-    actorContext.providerThreadId !== thread.providerThreadId
-  ) {
-    return {
-      ok: false,
-      reason: "canonical follow-up recipient linkage is invalid",
-    };
-  }
-
-  const supabase = requireSupabase();
-  const { data: opportunity, error: opportunityError } = await supabase
-    .from("opportunities")
-    .select("contact_email")
-    .eq("id", opportunityId)
-    .eq("company_id", thread.companyId)
-    .maybeSingle();
-  if (opportunityError || !opportunity) {
-    return {
-      ok: false,
-      reason: "canonical follow-up recipient could not be verified",
-    };
-  }
-
-  const email = normalizeEmailAddress(
-    String((opportunity as Record<string, unknown>).contact_email ?? "")
-  );
-  if (!email || !/^[^\s@]+@[^\s@]+$/.test(email)) {
-    return { ok: false, reason: "canonical follow-up recipient is missing" };
-  }
-
-  const internalAddresses = new Set(
-    [actorContext.actorEmailSnapshot, actorContext.clientFacingAddressSnapshot]
-      .map((address) => normalizeEmailAddress(address))
-      .filter(Boolean)
-  );
-  if (internalAddresses.has(email)) {
-    return { ok: false, reason: "canonical follow-up recipient is internal" };
-  }
-
-  const { data: linkedThread, error: linkedThreadError } = await supabase
-    .from("email_threads")
-    .select("participants")
-    .eq("id", thread.id)
-    .eq("company_id", thread.companyId)
-    .eq("connection_id", thread.connectionId)
-    .eq("provider_thread_id", thread.providerThreadId)
-    .eq("opportunity_id", opportunityId)
-    .maybeSingle();
-  if (linkedThreadError || !linkedThread) {
-    return {
-      ok: false,
-      reason: "canonical follow-up recipient linkage is invalid",
-    };
-  }
-
-  const participants = Array.isArray(
-    (linkedThread as Record<string, unknown>).participants
-  )
-    ? ((linkedThread as Record<string, unknown>).participants as unknown[])
-        .filter((participant): participant is string =>
-          Boolean(participant && typeof participant === "string")
-        )
-        .map((participant) => normalizeEmailAddress(participant))
-    : [];
-  if (!participants.includes(email)) {
-    return {
-      ok: false,
-      reason: "canonical follow-up recipient is not on the linked thread",
-    };
-  }
-
-  return { ok: true, email };
-}
-
 async function placePhaseCMailboxDraft(
   thread: EmailThread,
   userId: string,
+  source: ExactEmailSourceTurn,
   draft: {
     draft: string;
     draftHistoryId: string;
@@ -427,9 +483,9 @@ async function placePhaseCMailboxDraft(
   }
 ): Promise<{ mailboxDraftId: string }> {
   const supabase = requireSupabase();
-  const to = thread.latestSenderEmail?.trim();
+  const to = inboundSourceRecipient(source);
   if (!to) {
-    throw new Error("no inbound sender on thread");
+    throw new Error("exact inbound source recipient missing");
   }
 
   const connection = await EmailService.getConnection(thread.connectionId);
@@ -462,7 +518,7 @@ async function placePhaseCMailboxDraft(
         ? draft.subject
         : normalizeReplySubject(thread.subject ?? "");
 
-      const { data: priorRows } = await supabase
+      const { data: priorRows, error: priorRowsError } = await supabase
         .from("ai_draft_history")
         .select("id, mailbox_draft_id, status")
         .eq("company_id", thread.companyId)
@@ -470,6 +526,12 @@ async function placePhaseCMailboxDraft(
         .eq("connection_id", thread.connectionId)
         .eq("thread_id", thread.providerThreadId)
         .eq("origin", "phase_c");
+
+      if (priorRowsError) {
+        throw new Error("PHASE_C_DRAFT_HISTORY_READ_FAILED", {
+          cause: priorRowsError,
+        });
+      }
 
       const existing = pickExistingMailboxDraft(
         (priorRows ?? []) as MailboxDraftRow[]
@@ -485,6 +547,10 @@ async function placePhaseCMailboxDraft(
       );
       if (!currentAccess.allowed) {
         throw new PhaseCThreadAuthorizationError(currentAccess.reason);
+      }
+      const currentSource = await latestEmailSource(thread);
+      if (!exactSourceMatches(source, currentSource)) {
+        throw new PhaseCDraftSourceStaleError();
       }
 
       let mailboxDraftId: string;
@@ -546,6 +612,10 @@ async function placePhaseCMailboxDraft(
             if (!latestAccess.allowed) {
               throw new PhaseCThreadAuthorizationError(latestAccess.reason);
             }
+            const latestSource = await latestEmailSource(thread);
+            if (!exactSourceMatches(source, latestSource)) {
+              throw new PhaseCDraftSourceStaleError();
+            }
             await assertPhaseCSyncTerminal(thread, { ownsMailboxLease: true });
             await checkpoint();
             const draftId = await provider.createDraft(
@@ -570,6 +640,10 @@ async function placePhaseCMailboxDraft(
               );
               if (!latestAccess.allowed) {
                 throw new PhaseCThreadAuthorizationError(latestAccess.reason);
+              }
+              const latestSource = await latestEmailSource(thread);
+              if (!exactSourceMatches(source, latestSource)) {
+                throw new PhaseCDraftSourceStaleError();
               }
               await checkpoint();
               await provider.updateDraft(
@@ -803,23 +877,6 @@ export const PhaseCAutonomyRouter = {
     effective: EmailThreadAutonomyLevel,
     options: RouteOptions = {}
   ): Promise<RouterResult> {
-    if (thread.latestDirection !== "inbound") {
-      return {
-        outcome: "noop_not_inbound",
-        category: thread.primaryCategory,
-        effectiveLevel: effective,
-      };
-    }
-
-    if (!thread.latestSenderEmail) {
-      return {
-        outcome: "error",
-        category: thread.primaryCategory,
-        effectiveLevel: effective,
-        detail: "no inbound sender on thread",
-      };
-    }
-
     const accessBeforeDraft = await authorizeCurrentPhaseCThread(
       thread,
       userId,
@@ -837,8 +894,31 @@ export const PhaseCAutonomyRouter = {
     // P4-A cost guard: short-circuit BEFORE the draft LLM if we already
     // auto-drafted for this exact inbound message. Prevents one-draft-per-resync
     // from re-invoking the model on a thread whose latest message is unchanged.
-    const { needsDraft, sourceActivityId, retryDraft } =
+    const { needsDraft, sourceActivityId, source, retryDraft } =
       await latestInboundNeedsDraft(thread, userId);
+    if (source.resolution !== "resolved") {
+      return {
+        outcome: options.placementOnly ? "draft_placement_pending" : "error",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: sourceResolutionFailureDetail(source),
+      };
+    }
+    if (source.direction !== "inbound") {
+      return {
+        outcome: "noop_not_inbound",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+      };
+    }
+    if (!sourceActivityId || !inboundSourceRecipient(source)) {
+      return {
+        outcome: "error",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: "exact inbound source recipient missing",
+      };
+    }
     let draft: {
       draft: string;
       draftHistoryId: string;
@@ -870,6 +950,83 @@ export const PhaseCAutonomyRouter = {
         effectiveLevel: effective,
         detail: "existing phase_c draft covers latest inbound (no re-draft)",
       };
+    }
+
+    if (draft && options.placementOnly) {
+      const conversationState = await buildConversationState(thread.id);
+      if (!conversationState) {
+        return {
+          outcome: "noop_held_for_review",
+          category: thread.primaryCategory,
+          effectiveLevel: effective,
+          detail: "current conversation disposition unavailable",
+        };
+      }
+
+      const currentSource = await latestEmailSource(thread);
+      if (!exactSourceMatches(source, currentSource)) {
+        return {
+          outcome: "draft_placement_pending",
+          category: thread.primaryCategory,
+          effectiveLevel: effective,
+          detail: "PHASE_C_DRAFT_SOURCE_STALE",
+        };
+      }
+
+      if (conversationState.responseDisposition === "no_reply_required") {
+        const { data: superseded, error: supersedeError } =
+          await requireSupabase()
+            .from("ai_draft_history")
+            .update({
+              status: "superseded",
+              discarded_at: new Date().toISOString(),
+            })
+            .eq("id", draft.draftHistoryId)
+            .eq("company_id", thread.companyId)
+            .eq("connection_id", thread.connectionId)
+            .eq("thread_id", thread.providerThreadId)
+            .eq("user_id", userId)
+            .eq("origin", "phase_c")
+            .eq("status", "drafted")
+            .is("mailbox_draft_id", null)
+            .select("id")
+            .maybeSingle();
+        if (supersedeError) {
+          return {
+            outcome: "draft_placement_pending",
+            category: thread.primaryCategory,
+            effectiveLevel: effective,
+            detail: `stranded draft supersede failed: ${supersedeError.message}`,
+          };
+        }
+        if (superseded?.id !== draft.draftHistoryId) {
+          return {
+            outcome: "draft_placement_pending",
+            category: thread.primaryCategory,
+            effectiveLevel: effective,
+            detail: "stranded draft supersede updated no row",
+          };
+        }
+        return {
+          outcome: "noop_no_reply_warranted",
+          category: thread.primaryCategory,
+          effectiveLevel: effective,
+          detail:
+            conversationState.routingReasons.join(" ") ||
+            "latest source does not warrant a reply",
+        };
+      }
+
+      if (conversationState.responseDisposition === "operator_input_required") {
+        return {
+          outcome: "noop_held_for_review",
+          category: thread.primaryCategory,
+          effectiveLevel: effective,
+          detail:
+            conversationState.routingReasons.join(" ") ||
+            "latest source requires operator input",
+        };
+      }
     }
 
     if (!draft) {
@@ -953,7 +1110,12 @@ export const PhaseCAutonomyRouter = {
     }
 
     try {
-      const placed = await placePhaseCMailboxDraft(thread, userId, draft);
+      const placed = await placePhaseCMailboxDraft(
+        thread,
+        userId,
+        source,
+        draft
+      );
       return {
         outcome: "auto_drafted",
         category: thread.primaryCategory,
@@ -1014,7 +1176,16 @@ export const PhaseCAutonomyRouter = {
     actorContext: PhaseCEmailActorContext,
     effective: EmailThreadAutonomyLevel
   ): Promise<RouterResult> {
-    if (thread.latestDirection !== "inbound") {
+    const source = await latestEmailSource(thread);
+    if (source.resolution !== "resolved") {
+      return {
+        outcome: "error",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: sourceResolutionFailureDetail(source),
+      };
+    }
+    if (source.direction !== "inbound") {
       return {
         outcome: "noop_not_inbound",
         category: thread.primaryCategory,
@@ -1035,14 +1206,15 @@ export const PhaseCAutonomyRouter = {
       );
     }
 
-    // Resolve reply recipients from the latest inbound message.
-    const toEmails = thread.latestSenderEmail ? [thread.latestSenderEmail] : [];
-    if (toEmails.length === 0) {
+    // Replies bind to the exact current inbound author, never the thread's
+    // cached sender or cumulative participant history.
+    const sourceRecipient = inboundSourceRecipient(source);
+    if (!sourceRecipient) {
       return {
         outcome: "error",
         category: thread.primaryCategory,
         effectiveLevel: effective,
-        detail: "no inbound sender on thread",
+        detail: "exact inbound source recipient missing",
       };
     }
 
@@ -1071,10 +1243,7 @@ export const PhaseCAutonomyRouter = {
       throw error;
     }
 
-    const { sourceActivityId, sourceMessageId } = await latestEmailSource(
-      thread,
-      "inbound"
-    );
+    const { sourceActivityId, sourceMessageId } = source;
     if (!sourceActivityId || !sourceMessageId) {
       return {
         outcome: "error",
@@ -1092,7 +1261,8 @@ export const PhaseCAutonomyRouter = {
       opportunityId: thread.opportunityId ?? undefined,
       threadId: thread.providerThreadId,
       inReplyTo: sourceMessageId,
-      toEmails,
+      toEmails: [sourceRecipient],
+      ccEmails: [],
       subject,
       settings,
       generation: {
@@ -1230,11 +1400,23 @@ export const PhaseCAutonomyRouter = {
     actorContext: PhaseCEmailActorContext,
     effective: EmailThreadAutonomyLevel
   ): Promise<RouterResult> {
-    const lastOutbound = thread.latestDirection === "outbound";
     const cutoff = Date.now() - STALE_LEAD_DAYS * 86_400_000;
-    const isStale = thread.lastMessageAt.getTime() < cutoff;
+    const source = await latestEmailSource(thread);
+    if (source.resolution !== "resolved") {
+      return {
+        outcome: "error",
+        category: thread.primaryCategory,
+        effectiveLevel: effective,
+        detail: sourceResolutionFailureDetail(source),
+      };
+    }
+    const sourceCreatedAt = source.sourceCreatedAt;
+    const isStale =
+      sourceCreatedAt !== null &&
+      Number.isFinite(sourceCreatedAt.getTime()) &&
+      sourceCreatedAt.getTime() < cutoff;
 
-    if (!lastOutbound || !isStale) {
+    if (source.direction !== "outbound" || !isStale) {
       return {
         outcome: "noop_not_stale",
         category: thread.primaryCategory,
@@ -1270,19 +1452,14 @@ export const PhaseCAutonomyRouter = {
       };
     }
 
-    const recipient = await resolveCanonicalFollowUpRecipient(
-      thread,
-      actorContext
-    );
-    if (!recipient.ok) {
+    if (source.toEmails.length === 0) {
       return {
         outcome: "error",
         category: thread.primaryCategory,
         effectiveLevel: effective,
-        detail: recipient.reason,
+        detail: "latest outbound source recipient missing",
       };
     }
-
     try {
       await assertPhaseCSyncTerminal(thread);
     } catch (error) {
@@ -1293,8 +1470,7 @@ export const PhaseCAutonomyRouter = {
       throw error;
     }
 
-    const { sourceActivityId, sourceMessageId, sourceCreatedAt } =
-      await latestEmailSource(thread, "outbound");
+    const { sourceActivityId, sourceMessageId } = source;
     if (
       !sourceActivityId ||
       !sourceMessageId ||
@@ -1324,8 +1500,8 @@ export const PhaseCAutonomyRouter = {
       opportunityId: thread.opportunityId ?? undefined,
       threadId: thread.providerThreadId,
       inReplyTo: sourceMessageId,
-      toEmails: [recipient.email],
-      ccEmails: [],
+      toEmails: source.toEmails,
+      ccEmails: source.ccEmails,
       subject,
       settings,
       generation: {

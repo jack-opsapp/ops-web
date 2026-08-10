@@ -72,32 +72,46 @@ vi.mock("@/lib/email/email-signature-runtime", () => ({
 
 vi.mock("@/lib/supabase/helpers", () => ({
   requireSupabase: () => ({
-    from: (table: string) => ({
-      select() {
-        return this;
-      },
-      eq() {
-        return this;
-      },
-      order() {
-        return this;
-      },
-      limit() {
-        return this;
-      },
-      async maybeSingle() {
-        return {
-          data:
-            table === "activities"
-              ? {
-                  id: "00000000-0000-4000-8000-000000000009",
-                  email_message_id: "provider-message-1",
-                }
-              : { user_id: connectionOwnerId },
-          error: null,
-        };
-      },
-    }),
+    from: (table: string) => {
+      const activity = {
+        id: "00000000-0000-4000-8000-000000000009",
+        email_message_id: "provider-message-1",
+        direction: "inbound",
+        from_email: "client@example.com",
+        to_emails: ["hello@company.test"],
+        cc_emails: [],
+        created_at: "2026-08-08T18:00:00.000Z",
+      };
+      return {
+        select() {
+          return this;
+        },
+        eq() {
+          return this;
+        },
+        order() {
+          return this;
+        },
+        limit() {
+          return this;
+        },
+        async maybeSingle() {
+          return {
+            data:
+              table === "activities"
+                ? activity
+                : { user_id: connectionOwnerId },
+            error: null,
+          };
+        },
+        then(resolve: (result: { data: unknown[]; error: null }) => unknown) {
+          return resolve({
+            data: table === "activities" ? [activity] : [],
+            error: null,
+          });
+        },
+      };
+    },
   }),
 }));
 

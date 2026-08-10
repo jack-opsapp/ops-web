@@ -27,13 +27,19 @@ const {
   connectionState,
   generateDraftMock,
   threadDirtyUpdateMock,
+  draftHistoryUpdateMock,
   createDraftMock,
   updateDraftMock,
   getConnectionMock,
   accessMock,
   rpcMock,
   draftHistoryRow,
+  draftHistoryLookupError,
+  draftHistoryListError,
+  draftHistoryUpdateResult,
   latestInboundRow,
+  tiedLatestActivityRow,
+  conversationStateMock,
 } = vi.hoisted(() => ({
   actorResolverMock: vi.fn(),
   autonomyGetMock: vi.fn(),
@@ -45,6 +51,7 @@ const {
   },
   generateDraftMock: vi.fn(),
   threadDirtyUpdateMock: vi.fn(),
+  draftHistoryUpdateMock: vi.fn(),
   createDraftMock: vi.fn(),
   updateDraftMock: vi.fn(),
   getConnectionMock: vi.fn(),
@@ -53,9 +60,35 @@ const {
   draftHistoryRow: {
     value: null as Record<string, unknown> | null,
   },
-  latestInboundRow: {
-    value: { email_message_id: "message-1" } as Record<string, unknown> | null,
+  draftHistoryLookupError: {
+    value: null as { message: string } | null,
   },
+  draftHistoryListError: {
+    value: null as { message: string } | null,
+  },
+  draftHistoryUpdateResult: {
+    value: { id: "draft-history-1" } as Record<string, unknown> | null,
+    error: null as { message: string } | null,
+  },
+  latestInboundRow: {
+    value: {
+      id: "activity-1",
+      email_message_id: "message-1",
+      direction: "inbound",
+      from_email: "steve@example.com",
+      to_emails: ["owner@example.com"],
+      cc_emails: [],
+      created_at: "2026-08-06T02:05:00.000Z",
+    } as Record<string, unknown> | null,
+  },
+  tiedLatestActivityRow: {
+    value: null as Record<string, unknown> | null,
+  },
+  conversationStateMock: vi.fn(),
+}));
+
+vi.mock("@/lib/api/services/conversation-state/conversation-state", () => ({
+  buildConversationState: conversationStateMock,
 }));
 
 vi.mock("@/lib/email/phase-c-email-actor", () => ({
@@ -119,12 +152,15 @@ vi.mock("@/lib/supabase/helpers", () => ({
   requireSupabase: () => ({
     rpc: rpcMock,
     from: (table: string) => {
+      let operation: "select" | "update" = "select";
       const chain: Record<string, unknown> = {};
       for (const method of ["select", "eq", "order", "limit", "not", "is"]) {
         chain[method] = () => chain;
       }
       chain.update = (payload: Record<string, unknown>) => {
+        operation = "update";
         if (table === "email_threads") threadDirtyUpdateMock(payload);
+        if (table === "ai_draft_history") draftHistoryUpdateMock(payload);
         return chain;
       };
       chain.maybeSingle = async () => ({
@@ -138,12 +174,45 @@ vi.mock("@/lib/supabase/helpers", () => ({
             : table === "activities"
               ? latestInboundRow.value
               : table === "ai_draft_history"
-                ? draftHistoryRow.value
+                ? operation === "update"
+                  ? draftHistoryUpdateResult.value
+                  : draftHistoryRow.value
                 : null,
-        error: null,
+        error:
+          table === "ai_draft_history" && operation === "update"
+            ? draftHistoryUpdateResult.error
+            : table === "ai_draft_history"
+              ? draftHistoryLookupError.value
+              : null,
       });
-      chain.then = (resolve: (value: { data: null; error: null }) => unknown) =>
-        resolve({ data: null, error: null });
+      chain.then = (
+        resolve: (value: {
+          data: unknown;
+          error: { message: string } | null;
+        }) => unknown
+      ) => {
+        if (table === "activities") {
+          return resolve({
+            data: [latestInboundRow.value, tiedLatestActivityRow.value].filter(
+              Boolean
+            ),
+            error: null,
+          });
+        }
+        if (table === "ai_draft_history" && operation === "update") {
+          return resolve({
+            data: draftHistoryUpdateResult.value,
+            error: draftHistoryUpdateResult.error,
+          });
+        }
+        if (table === "ai_draft_history") {
+          return resolve({
+            data: null,
+            error: draftHistoryListError.value,
+          });
+        }
+        return resolve({ data: null, error: null });
+      };
       return chain;
     },
   }),
@@ -187,7 +256,25 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
     connectionState.recoveryPageToken = null;
     connectionState.syncInProgressAt = null;
     draftHistoryRow.value = { ...STRANDED_ROW };
-    latestInboundRow.value = { email_message_id: "message-1" };
+    draftHistoryLookupError.value = null;
+    draftHistoryListError.value = null;
+    draftHistoryUpdateResult.value = { id: STRANDED_ROW.id };
+    draftHistoryUpdateResult.error = null;
+    latestInboundRow.value = {
+      id: "activity-1",
+      email_message_id: "message-1",
+      direction: "inbound",
+      from_email: "steve@example.com",
+      to_emails: ["owner@example.com"],
+      cc_emails: [],
+      created_at: "2026-08-06T02:05:00.000Z",
+    };
+    tiedLatestActivityRow.value = null;
+    conversationStateMock.mockResolvedValue({
+      responseDisposition: "reply_required",
+      routing: "draft",
+      routingReasons: [],
+    });
     autonomyGetMock.mockResolvedValue({ CUSTOMER: "auto_draft" });
     actorResolverMock.mockResolvedValue({
       kind: "resolved",
@@ -203,9 +290,8 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
   });
 
   it("places the stranded draft without asking the model for a new one", async () => {
-    const result = await PhaseCAutonomyRouter.retryStrandedMailboxDraft(
-      makeThread()
-    );
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
 
     expect(result).toMatchObject({
       outcome: "auto_drafted",
@@ -222,6 +308,117 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
     expect(generateDraftMock).not.toHaveBeenCalled();
   });
 
+  it("makes no history or provider mutation when the draft-history lookup fails", async () => {
+    draftHistoryLookupError.value = { message: "draft ledger unavailable" };
+
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
+
+    expect(result).toMatchObject({
+      outcome: "draft_placement_pending",
+      detail: "PHASE_C_DRAFT_HISTORY_READ_FAILED",
+    });
+    expect(conversationStateMock).not.toHaveBeenCalled();
+    expect(draftHistoryUpdateMock).not.toHaveBeenCalled();
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("makes no provider mutation when existing mailbox-draft history cannot be read", async () => {
+    draftHistoryListError.value = { message: "draft list unavailable" };
+
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
+
+    expect(result).toMatchObject({
+      outcome: "draft_placement_pending",
+      detail: "PHASE_C_DRAFT_HISTORY_READ_FAILED",
+    });
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("supersedes OPS history instead of placing when the exact source no longer warrants a reply", async () => {
+    conversationStateMock.mockResolvedValueOnce({
+      responseDisposition: "no_reply_required",
+      routing: "update_lead_only",
+      routingReasons: ["Latest message closes the loop. No reply needed."],
+    });
+
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
+
+    expect(result).toMatchObject({
+      outcome: "noop_no_reply_warranted",
+      detail: "Latest message closes the loop. No reply needed.",
+    });
+    expect(generateDraftMock).not.toHaveBeenCalled();
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+    expect(draftHistoryUpdateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "superseded" })
+    );
+    expect(threadDirtyUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the stranded draft pending when the guarded supersede updates no row", async () => {
+    conversationStateMock.mockResolvedValueOnce({
+      responseDisposition: "no_reply_required",
+      routing: "update_lead_only",
+      routingReasons: ["Latest message closes the loop. No reply needed."],
+    });
+    draftHistoryUpdateResult.value = null;
+
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
+
+    expect(result).toMatchObject({
+      outcome: "draft_placement_pending",
+      detail: "stranded draft supersede updated no row",
+    });
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("makes no history or provider mutation when conversation state is unavailable", async () => {
+    conversationStateMock.mockResolvedValueOnce(null);
+
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
+
+    expect(result).toMatchObject({
+      outcome: "noop_held_for_review",
+      detail: "current conversation disposition unavailable",
+    });
+    expect(draftHistoryUpdateMock).not.toHaveBeenCalled();
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when two distinct activities share the newest occurrence time", async () => {
+    tiedLatestActivityRow.value = {
+      id: "activity-2",
+      email_message_id: "message-2",
+      direction: "outbound",
+      from_email: "owner@example.com",
+      to_emails: ["steve@example.com"],
+      cc_emails: [],
+      created_at: "2026-08-06T02:05:00.000Z",
+    };
+
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
+
+    expect(result).toMatchObject({
+      outcome: "draft_placement_pending",
+      detail: "PHASE_C_DRAFT_SOURCE_AMBIGUOUS",
+    });
+    expect(conversationStateMock).not.toHaveBeenCalled();
+    expect(draftHistoryUpdateMock).not.toHaveBeenCalled();
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  });
+
   it("spends nothing when no stranded draft covers the latest inbound", async () => {
     // The row exists but already reached the mailbox, so there is nothing to
     // re-drive. Recovery must not read that as licence to draft again.
@@ -231,9 +428,8 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
       status: "auto_drafted",
     };
 
-    const result = await PhaseCAutonomyRouter.retryStrandedMailboxDraft(
-      makeThread()
-    );
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
 
     // Reporting this as a placement makes the sweep's counter lie: it claims
     // work it did not do, every cycle, forever — and a real drop to zero
@@ -246,9 +442,8 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
   it("never drafts from scratch for a thread that has none", async () => {
     draftHistoryRow.value = null;
 
-    const result = await PhaseCAutonomyRouter.retryStrandedMailboxDraft(
-      makeThread()
-    );
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
 
     expect(result.outcome).toBe("noop_no_stranded_draft");
     expect(generateDraftMock).not.toHaveBeenCalled();
@@ -258,9 +453,8 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
   it("leaves the thread clean when the mailbox is still catching up", async () => {
     connectionState.historyId = 'gmail:v1:{"pendingMessageIds":["m-2"]}';
 
-    const result = await PhaseCAutonomyRouter.retryStrandedMailboxDraft(
-      makeThread()
-    );
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
 
     expect(result.outcome).toBe("noop_sync_incomplete");
     // Deferring here would null category_classified_at on every sweep cycle and
@@ -282,6 +476,15 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
   });
 
   it("stands down once the operator has replied themselves", async () => {
+    latestInboundRow.value = {
+      id: "activity-2",
+      email_message_id: "message-2",
+      direction: "outbound",
+      from_email: "owner@example.com",
+      to_emails: ["steve@example.com"],
+      cc_emails: [],
+      created_at: "2026-08-06T02:06:00.000Z",
+    };
     const result = await PhaseCAutonomyRouter.retryStrandedMailboxDraft(
       makeThread({ latestDirection: "outbound" })
     );
@@ -293,9 +496,8 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
   it("stands down once autonomy has been switched off", async () => {
     autonomyGetMock.mockResolvedValue({ CUSTOMER: "off" });
 
-    const result = await PhaseCAutonomyRouter.retryStrandedMailboxDraft(
-      makeThread()
-    );
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
 
     expect(result.outcome).toBe("noop_off");
     expect(createDraftMock).not.toHaveBeenCalled();
@@ -308,9 +510,8 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
     autonomyGetMock.mockResolvedValue({ CUSTOMER: "auto_send" });
     isGraduatedMock.mockResolvedValue({ ready: true });
 
-    const result = await PhaseCAutonomyRouter.retryStrandedMailboxDraft(
-      makeThread()
-    );
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
 
     expect(result.outcome).toBe("noop_placement_not_applicable");
     expect(createDraftMock).not.toHaveBeenCalled();
@@ -319,9 +520,8 @@ describe("PhaseCAutonomyRouter.retryStrandedMailboxDraft", () => {
   it("stands down when the actor can no longer act on the thread", async () => {
     accessMock.mockResolvedValue({ allowed: false, reason: "lead_reassigned" });
 
-    const result = await PhaseCAutonomyRouter.retryStrandedMailboxDraft(
-      makeThread()
-    );
+    const result =
+      await PhaseCAutonomyRouter.retryStrandedMailboxDraft(makeThread());
 
     expect(result.outcome).toBe("noop_actor_unavailable");
     expect(createDraftMock).not.toHaveBeenCalled();

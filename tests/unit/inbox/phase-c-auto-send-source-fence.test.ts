@@ -219,6 +219,16 @@ function queueRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function acquiredReservation(overrides: Record<string, unknown> = {}) {
+  return {
+    disposition: "acquired",
+    generation_token: IDS.lease,
+    to_emails: ["lead@example.com"],
+    cc_emails: [],
+    ...overrides,
+  };
+}
+
 function scheduleInput() {
   return {
     category: "CUSTOMER" as const,
@@ -381,10 +391,18 @@ describe("Phase C delayed auto-send source fences", () => {
     ).not.toBe(first);
   });
 
-  it("reuses an existing source-sequence schedule before generating another draft", async () => {
+  it("reuses a scheduled source reservation before generating another draft", async () => {
     const rpc = vi.fn(async (name: string) => {
-      if (name === "find_phase_c_auto_send_by_identity_as_system") {
-        return { data: queueRow(), error: null };
+      if (name === "reserve_phase_c_auto_send_generation_as_system") {
+        return {
+          data: {
+            disposition: "scheduled",
+            to_emails: ["lead@example.com"],
+            cc_emails: [],
+            pending_auto_send: queueRow(),
+          },
+          error: null,
+        };
       }
       throw new Error(`unexpected RPC: ${name}`);
     });
@@ -402,9 +420,16 @@ describe("Phase C delayed auto-send source fences", () => {
 
   it("reuses an existing conversation-reply schedule before persisting another draft history row", async () => {
     const rpc = vi.fn(async (name: string) => {
-      if (name === "find_phase_c_auto_send_by_identity_as_system") {
+      if (name === "reserve_phase_c_auto_send_generation_as_system") {
         return {
-          data: queueRow({ autonomy_level_snapshot: "auto_send" }),
+          data: {
+            disposition: "scheduled",
+            to_emails: ["lead@example.com"],
+            cc_emails: [],
+            pending_auto_send: queueRow({
+              autonomy_level_snapshot: "auto_send",
+            }),
+          },
           error: null,
         };
       }
@@ -429,10 +454,10 @@ describe("Phase C delayed auto-send source fences", () => {
     expect(generateDraftMock).not.toHaveBeenCalled();
   });
 
-  it("does not treat a nullable composite preflight result as an existing schedule", async () => {
+  it("continues only after acquiring the exact source generation reservation", async () => {
     const rpc = vi.fn(async (name: string) => {
-      if (name === "find_phase_c_auto_send_by_identity_as_system") {
-        return { data: { id: null }, error: null };
+      if (name === "reserve_phase_c_auto_send_generation_as_system") {
+        return { data: acquiredReservation(), error: null };
       }
       if (name === "schedule_phase_c_auto_send_fenced") {
         return { data: queueRow({ status: "pending" }), error: null };
@@ -453,8 +478,8 @@ describe("Phase C delayed auto-send source fences", () => {
 
   it("persists the exact reply activity and provider message through the fenced schedule RPC", async () => {
     const rpc = vi.fn(async (name: string, _args: Record<string, unknown>) => {
-      if (name === "find_phase_c_auto_send_by_identity_as_system") {
-        return { data: null, error: null };
+      if (name === "reserve_phase_c_auto_send_generation_as_system") {
+        return { data: acquiredReservation(), error: null };
       }
       if (name === "schedule_phase_c_auto_send_fenced") {
         return {
@@ -487,6 +512,8 @@ describe("Phase C delayed auto-send source fences", () => {
         p_source_activity_id: IDS.sourceActivity,
         p_source_message_id: "provider-source-1",
         p_follow_up_sequence: null,
+        p_generation_token: IDS.lease,
+        p_arguments_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
       })
     );
   });

@@ -228,6 +228,20 @@ interface PhaseCAutoSendDeliveryFence extends PhaseCAutoSendSourceFence {
   reason: string | null;
 }
 
+interface PhaseCAutoSendGenerationReservation {
+  disposition:
+    | "acquired"
+    | "in_progress"
+    | "scheduled"
+    | "no_reply_warranted"
+    | "held_for_review";
+  generationToken: string | null;
+  toEmails: string[];
+  ccEmails: string[];
+  reason: string | null;
+  pending: PendingAutoSend | null;
+}
+
 class PhaseCAutoSendSourceCancelledError extends Error {
   constructor() {
     super("PHASE_C_AUTO_SEND_SOURCE_STALE");
@@ -350,6 +364,96 @@ function normalizeAddresses(addresses: string[] | undefined): string[] {
   return (addresses ?? [])
     .map((address) => address.trim().toLowerCase())
     .filter(Boolean);
+}
+
+function buildPhaseCAutoSendArgumentsHash(
+  params: ScheduleAutoSendInput
+): string {
+  const generation = params.generation;
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        "phase_c_auto_send_arguments:v1",
+        params.category,
+        params.subject.trim(),
+        params.settings.businessHoursStart,
+        params.settings.businessHoursEnd,
+        params.settings.timezone,
+        params.settings.delayMinMinutes,
+        params.settings.delayMaxMinutes,
+        generation.kind,
+        generation.kind === "operational_outbound"
+          ? generation.verifiedSchedule === true
+          : null,
+        generation.kind === "conversation_reply"
+          ? null
+          : generation.autonomousRoutingAuthority,
+        generation.kind === "conversation_reply"
+          ? null
+          : generation.instruction.trim(),
+        generation.kind === "auto_follow_up"
+          ? generation.followUpSequence
+          : null,
+      ])
+    )
+    .digest("hex");
+}
+
+function mapGenerationReservation(
+  data: unknown
+): PhaseCAutoSendGenerationReservation | null {
+  const row = firstRow(data);
+  if (!row) return null;
+  const disposition = text(row.disposition);
+  if (
+    disposition !== "acquired" &&
+    disposition !== "in_progress" &&
+    disposition !== "scheduled" &&
+    disposition !== "no_reply_warranted" &&
+    disposition !== "held_for_review"
+  ) {
+    return null;
+  }
+  const pendingRow = row.pending_auto_send;
+  return {
+    disposition,
+    generationToken: nullableText(row.generation_token),
+    toEmails: normalizeAddresses(stringArray(row.to_emails)),
+    ccEmails: normalizeAddresses(stringArray(row.cc_emails)),
+    reason: nullableText(row.reason),
+    pending:
+      pendingRow && typeof pendingRow === "object"
+        ? mapPendingFromDb(pendingRow as Record<string, unknown>)
+        : null,
+  };
+}
+
+async function resolveGenerationReservation(input: {
+  idempotencyKey: string | null;
+  generationToken: string | null;
+  argumentsHash: string | null;
+  disposition: "no_reply_warranted" | "held_for_review" | "failed";
+  reason?: string | null;
+}): Promise<void> {
+  if (!input.idempotencyKey || !input.generationToken || !input.argumentsHash) {
+    return;
+  }
+  const { error } = await requireSupabase().rpc(
+    "resolve_phase_c_auto_send_generation_as_system",
+    {
+      p_idempotency_key: input.idempotencyKey,
+      p_generation_token: input.generationToken,
+      p_arguments_hash: input.argumentsHash,
+      p_disposition: input.disposition,
+      p_reason: input.reason ?? null,
+    }
+  );
+  if (error) {
+    console.error(
+      "[auto-send] generation reservation resolution failed",
+      error
+    );
+  }
 }
 
 function mapPendingFromDb(row: Record<string, unknown>): PendingAutoSend {
@@ -758,14 +862,13 @@ export const AutoSendService = {
       };
     }
 
-    const toEmails = normalizeAddresses(params.toEmails);
-    const ccEmails = normalizeAddresses(params.ccEmails);
-    if (toEmails.length === 0) {
-      return { outcome: "unavailable", reason: "recipient missing" };
-    }
-
     const sourceFence = sourceFenceForGeneration(generation);
     const sourceBound = sourceFence.sourceActivityId !== null;
+    let toEmails = normalizeAddresses(params.toEmails);
+    let ccEmails = normalizeAddresses(params.ccEmails);
+    if (!sourceBound && toEmails.length === 0) {
+      return { outcome: "unavailable", reason: "recipient missing" };
+    }
     const sourceIdempotencyKey = sourceBound
       ? buildPhaseCAutoSendIdempotencyKey({
           companyId: actor.companyId,
@@ -782,12 +885,16 @@ export const AutoSendService = {
           followUpSequence: sourceFence.followUpSequence,
         })
       : null;
+    const argumentsHash = sourceBound
+      ? buildPhaseCAutoSendArgumentsHash(params)
+      : null;
+    let generationToken: string | null = null;
     const supabase = requireSupabase();
     if (sourceIdempotencyKey) {
-      const { data: existingData, error: existingError } = await supabase.rpc(
-        "find_phase_c_auto_send_by_identity_as_system",
-        {
+      const { data: reservationData, error: reservationError } =
+        await supabase.rpc("reserve_phase_c_auto_send_generation_as_system", {
           p_idempotency_key: sourceIdempotencyKey,
+          p_arguments_hash: argumentsHash,
           p_company_id: actor.companyId,
           p_actor_user_id: actor.actorUserId,
           p_assignment_version: actor.assignmentVersion,
@@ -800,22 +907,60 @@ export const AutoSendService = {
           p_source_activity_id: sourceFence.sourceActivityId,
           p_source_message_id: sourceFence.sourceMessageId,
           p_follow_up_sequence: sourceFence.followUpSequence,
-        }
-      );
-      if (existingError) {
+        });
+      if (reservationError) {
         console.error(
-          "[auto-send] source identity lookup failed; schedule suppressed",
-          existingError
+          "[auto-send] source generation reservation failed; schedule suppressed",
+          reservationError
         );
         return {
           outcome: "unavailable",
-          reason: existingError.message || "source identity lookup failed",
+          reason:
+            reservationError.message || "source generation reservation failed",
         };
       }
-      const existing = firstRow(existingData);
-      if (existing && text(existing.id)) {
-        return { outcome: "scheduled", pending: mapPendingFromDb(existing) };
+      const reservation = mapGenerationReservation(reservationData);
+      if (!reservation) {
+        return {
+          outcome: "unavailable",
+          reason: "source generation reservation returned invalid data",
+        };
       }
+      if (reservation.disposition === "scheduled") {
+        return reservation.pending
+          ? { outcome: "scheduled", pending: reservation.pending }
+          : {
+              outcome: "unavailable",
+              reason: "scheduled reservation is missing its queue row",
+            };
+      }
+      if (reservation.disposition === "in_progress") {
+        return {
+          outcome: "unavailable",
+          reason: "source generation already in progress",
+        };
+      }
+      if (reservation.disposition === "no_reply_warranted") {
+        return {
+          outcome: "no_reply_warranted",
+          reason: reservation.reason ?? undefined,
+        };
+      }
+      if (reservation.disposition === "held_for_review") {
+        return {
+          outcome: "held_for_review",
+          reason: reservation.reason ?? undefined,
+        };
+      }
+      if (!reservation.generationToken || reservation.toEmails.length === 0) {
+        return {
+          outcome: "unavailable",
+          reason: "source generation reservation is incomplete",
+        };
+      }
+      generationToken = reservation.generationToken;
+      toEmails = reservation.toEmails;
+      ccEmails = reservation.ccEmails;
     }
 
     const draftPurpose =
@@ -828,37 +973,70 @@ export const AutoSendService = {
               ? { verifiedContext: { schedule: true } }
               : {}),
           } as const);
-    const draftResult = await AIDraftService.generateDraft({
-      companyId: actor.companyId,
-      userId: actor.actorUserId,
-      connectionId: actor.connectionId,
-      opportunityId: actor.opportunityId,
-      threadId: actor.providerThreadId,
-      profileTypeOverride,
-      autonomous: true,
-      origin: "phase_c",
-      emailAccess: generation.emailAccess,
-      ...(generation.kind !== "conversation_reply"
-        ? {
-            autonomousRoutingAuthority: generation.autonomousRoutingAuthority,
-          }
-        : {}),
-      ...(generation.kind === "conversation_reply"
-        ? { sourceActivityId: generation.sourceActivityId }
-        : { userInstruction: generation.instruction }),
-      draftPurpose,
-      signatureWillBeAppended: true,
-    });
+    let draftResult: Awaited<ReturnType<typeof AIDraftService.generateDraft>>;
+    try {
+      draftResult = await AIDraftService.generateDraft({
+        companyId: actor.companyId,
+        userId: actor.actorUserId,
+        connectionId: actor.connectionId,
+        opportunityId: actor.opportunityId,
+        threadId: actor.providerThreadId,
+        profileTypeOverride,
+        autonomous: true,
+        origin: "phase_c",
+        emailAccess: generation.emailAccess,
+        ...(generation.kind !== "conversation_reply"
+          ? {
+              autonomousRoutingAuthority: generation.autonomousRoutingAuthority,
+            }
+          : {}),
+        ...(generation.kind === "conversation_reply"
+          ? { sourceActivityId: generation.sourceActivityId }
+          : { userInstruction: generation.instruction }),
+        draftPurpose,
+        signatureWillBeAppended: true,
+      });
+    } catch (error) {
+      await resolveGenerationReservation({
+        idempotencyKey: sourceIdempotencyKey,
+        generationToken,
+        argumentsHash,
+        disposition: "failed",
+        reason: errorMessage(error),
+      });
+      return { outcome: "unavailable", reason: errorMessage(error) };
+    }
     if (!draftResult.available || !draftResult.draft) {
       if (draftResult.noReplyWarranted) {
+        await resolveGenerationReservation({
+          idempotencyKey: sourceIdempotencyKey,
+          generationToken,
+          argumentsHash,
+          disposition: "no_reply_warranted",
+          reason: draftResult.reason,
+        });
         return {
           outcome: "no_reply_warranted",
           reason: draftResult.reason,
         };
       }
       if (draftResult.heldForReview) {
+        await resolveGenerationReservation({
+          idempotencyKey: sourceIdempotencyKey,
+          generationToken,
+          argumentsHash,
+          disposition: "held_for_review",
+          reason: draftResult.reason,
+        });
         return { outcome: "held_for_review", reason: draftResult.reason };
       }
+      await resolveGenerationReservation({
+        idempotencyKey: sourceIdempotencyKey,
+        generationToken,
+        argumentsHash,
+        disposition: "failed",
+        reason: draftResult.reason,
+      });
       const log = draftResult.heldForReview ? console.warn : console.error;
       log(
         "[auto-send] draft unavailable; schedule suppressed",
@@ -867,6 +1045,13 @@ export const AutoSendService = {
       return { outcome: "unavailable", reason: draftResult.reason };
     }
     if (!draftResult.draftHistoryId) {
+      await resolveGenerationReservation({
+        idempotencyKey: sourceIdempotencyKey,
+        generationToken,
+        argumentsHash,
+        disposition: "failed",
+        reason: "draft history fence missing",
+      });
       console.error(
         "[auto-send] draft history fence missing; schedule suppressed"
       );
@@ -878,6 +1063,13 @@ export const AutoSendService = {
 
     const profileType = draftResult.profileType?.trim() || "general";
     if (!authorizedProfileTypes.includes(profileType)) {
+      await resolveGenerationReservation({
+        idempotencyKey: sourceIdempotencyKey,
+        generationToken,
+        argumentsHash,
+        disposition: "failed",
+        reason: "generated profile is outside category calibration",
+      });
       console.warn(
         "[auto-send] generated profile is outside the category calibration; schedule suppressed"
       );
@@ -894,6 +1086,13 @@ export const AutoSendService = {
       connection.companyId !== actor.companyId ||
       connection.status !== "active"
     ) {
+      await resolveGenerationReservation({
+        idempotencyKey: sourceIdempotencyKey,
+        generationToken,
+        argumentsHash,
+        disposition: "failed",
+        reason: "canonical mailbox unavailable",
+      });
       console.error(
         "[auto-send] canonical mailbox unavailable; schedule suppressed"
       );
@@ -909,6 +1108,13 @@ export const AutoSendService = {
       refreshProviderIfMissing: true,
     });
     if (!signature) {
+      await resolveGenerationReservation({
+        idempotencyKey: sourceIdempotencyKey,
+        generationToken,
+        argumentsHash,
+        disposition: "failed",
+        reason: "signature unavailable",
+      });
       return { outcome: "unavailable", reason: "signature unavailable" };
     }
     const renderedBody = renderEmailBodyWithSignature({
@@ -977,9 +1183,18 @@ export const AutoSendService = {
         p_source_activity_id: sourceFence.sourceActivityId,
         p_source_message_id: sourceFence.sourceMessageId,
         p_follow_up_sequence: sourceFence.followUpSequence,
+        p_generation_token: generationToken,
+        p_arguments_hash: argumentsHash,
       }
     );
     if (error) {
+      await resolveGenerationReservation({
+        idempotencyKey: sourceIdempotencyKey,
+        generationToken,
+        argumentsHash,
+        disposition: "failed",
+        reason: error.message || "schedule RPC rejected source record",
+      });
       console.error("[auto-send] schedule RPC rejected source record", error);
       return {
         outcome: "unavailable",
@@ -987,9 +1202,15 @@ export const AutoSendService = {
       };
     }
     const row = firstRow(data);
-    return row
-      ? { outcome: "scheduled", pending: mapPendingFromDb(row) }
-      : { outcome: "unavailable", reason: "schedule RPC returned no row" };
+    if (row) return { outcome: "scheduled", pending: mapPendingFromDb(row) };
+    await resolveGenerationReservation({
+      idempotencyKey: sourceIdempotencyKey,
+      generationToken,
+      argumentsHash,
+      disposition: "failed",
+      reason: "schedule RPC returned no row",
+    });
+    return { outcome: "unavailable", reason: "schedule RPC returned no row" };
   },
 
   async cancelAutoSend(

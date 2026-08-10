@@ -34,6 +34,23 @@ vi.mock("@/lib/email/email-sync-continuation-state", () => ({
 vi.mock("@/lib/supabase/helpers", () => {
   function query(table: string) {
     const filters: Array<[string, unknown]> = [];
+    let orderBy: { column: string; ascending: boolean } | null = null;
+    let rowLimit: number | null = null;
+    const rows = () => {
+      let matching = (tables[table] ?? []).filter((row) =>
+        filters.every(([column, value]) => row[column] === value)
+      );
+      if (orderBy) {
+        const { column, ascending } = orderBy;
+        matching = [...matching].sort((left, right) => {
+          const a = String(left[column] ?? "");
+          const b = String(right[column] ?? "");
+          const comparison = a < b ? -1 : a > b ? 1 : 0;
+          return ascending ? comparison : -comparison;
+        });
+      }
+      return rowLimit === null ? matching : matching.slice(0, rowLimit);
+    };
     const chain = {
       select() {
         return chain;
@@ -42,21 +59,28 @@ vi.mock("@/lib/supabase/helpers", () => {
         filters.push([column, value]);
         return chain;
       },
-      order() {
+      order(column: string, options: { ascending?: boolean } = {}) {
+        orderBy = { column, ascending: options.ascending !== false };
         return chain;
       },
-      limit() {
+      limit(value: number) {
+        rowLimit = value;
         return chain;
       },
       async maybeSingle() {
-        const rows = (tables[table] ?? []).filter((row) =>
-          filters.every(([column, value]) => row[column] === value)
-        );
+        const matching = rows();
         return {
-          data: rows.length === 1 ? rows[0] : null,
+          data: matching.length === 1 ? matching[0] : null,
           error:
-            rows.length > 1 ? { message: `expected one ${table} row` } : null,
+            matching.length > 1
+              ? { message: `expected one ${table} row` }
+              : null,
         };
+      },
+      then(
+        resolve: (result: { data: Row[]; error: null }) => unknown
+      ): unknown {
+        return resolve({ data: rows(), error: null });
       },
     };
     return chain;
@@ -194,6 +218,9 @@ describe("Phase C automatic follow-up safety", () => {
           email_thread_id: "provider-thread-1",
           type: "email",
           direction: "outbound",
+          from_email: "hello@company.test",
+          to_emails: ["Lead Person <LEAD@example.com>"],
+          cc_emails: ["Current CC <CURRENT-CC@example.net>"],
           email_message_id: "provider-message-1",
           created_at: "2026-07-01T00:00:00.000Z",
         },
@@ -218,7 +245,7 @@ describe("Phase C automatic follow-up safety", () => {
     });
   });
 
-  it("sends only to the current linked opportunity contact", async () => {
+  it("uses only the exact outbound source turn recipients", async () => {
     const result = await PhaseCAutonomyRouter.doAutoFollowUp(
       thread(),
       actorContext,
@@ -229,7 +256,7 @@ describe("Phase C automatic follow-up safety", () => {
     expect(scheduleAutoSendMock).toHaveBeenCalledWith(
       expect.objectContaining({
         toEmails: ["lead@example.com"],
-        ccEmails: [],
+        ccEmails: ["current-cc@example.net"],
         inReplyTo: "provider-message-1",
         generation: expect.objectContaining({
           kind: "auto_follow_up",
@@ -242,11 +269,9 @@ describe("Phase C automatic follow-up safety", () => {
     );
   });
 
-  it("fails closed when the canonical opportunity contact is not on the linked thread", async () => {
-    tables.email_threads[0].participants = [
-      "alex@ops.test",
-      "historic-cc@example.com",
-    ];
+  it("does not substitute the opportunity contact when the source recipients differ", async () => {
+    tables.activities[0].to_emails = ["alternate@example.net"];
+    tables.activities[0].cc_emails = [];
 
     const result = await PhaseCAutonomyRouter.doAutoFollowUp(
       thread(),
@@ -254,11 +279,13 @@ describe("Phase C automatic follow-up safety", () => {
       "auto_follow_up"
     );
 
-    expect(result).toMatchObject({
-      outcome: "error",
-      detail: "canonical follow-up recipient is not on the linked thread",
-    });
-    expect(scheduleAutoSendMock).not.toHaveBeenCalled();
+    expect(result.outcome).toBe("auto_follow_up_scheduled");
+    expect(scheduleAutoSendMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toEmails: ["alternate@example.net"],
+        ccEmails: [],
+      })
+    );
   });
 
   it("does not follow up when the exact latest outbound is newer than the stale thread snapshot", async () => {
@@ -274,11 +301,9 @@ describe("Phase C automatic follow-up safety", () => {
     expect(scheduleAutoSendMock).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["assigned operator", "alex@ops.test"],
-    ["sending mailbox", "hello@company.test"],
-  ])("never sends a follow-up to the %s address", async (_label, address) => {
-    tables.opportunities[0].contact_email = address;
+  it("fails closed when the exact outbound source has no recipient", async () => {
+    tables.activities[0].to_emails = [];
+    tables.activities[0].cc_emails = [];
 
     const result = await PhaseCAutonomyRouter.doAutoFollowUp(
       thread(),
@@ -288,8 +313,30 @@ describe("Phase C automatic follow-up safety", () => {
 
     expect(result).toMatchObject({
       outcome: "error",
-      detail: "canonical follow-up recipient is internal",
+      detail: "latest outbound source recipient missing",
     });
     expect(scheduleAutoSendMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves external recipients when the source also contains internal addresses", async () => {
+    tables.activities[0].to_emails = ["lead@example.com", "hello@company.test"];
+    tables.activities[0].cc_emails = [
+      "alex@ops.test",
+      "current-cc@example.net",
+    ];
+
+    const result = await PhaseCAutonomyRouter.doAutoFollowUp(
+      thread(),
+      actorContext,
+      "auto_follow_up"
+    );
+
+    expect(result.outcome).toBe("auto_follow_up_scheduled");
+    expect(scheduleAutoSendMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toEmails: ["lead@example.com", "hello@company.test"],
+        ccEmails: ["alex@ops.test", "current-cc@example.net"],
+      })
+    );
   });
 });

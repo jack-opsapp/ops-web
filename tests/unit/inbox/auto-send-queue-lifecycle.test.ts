@@ -184,15 +184,23 @@ function dbRow(overrides: Record<string, unknown> = {}) {
 }
 
 function makeClient(
-  handler: (name: string, args: Record<string, unknown>) => unknown
+  handler: (name: string, args: Record<string, unknown>) => unknown,
+  reservation: Record<string, unknown> = {
+    disposition: "acquired",
+    generation_token: IDS.lease,
+    to_emails: ["lead@example.com"],
+    cc_emails: [],
+  }
 ) {
-  const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => ({
-    data:
-      name === "find_phase_c_auto_send_by_identity_as_system"
-        ? null
-        : handler(name, args),
-    error: null,
-  }));
+  const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
+    if (name === "reserve_phase_c_auto_send_generation_as_system") {
+      return { data: reservation, error: null };
+    }
+    if (name === "resolve_phase_c_auto_send_generation_as_system") {
+      return { data: true, error: null };
+    }
+    return { data: handler(name, args), error: null };
+  });
   const from = vi.fn(() => {
     throw new Error("direct table access is forbidden in this lifecycle test");
   });
@@ -241,6 +249,14 @@ describe("AutoSendService queue lifecycle", () => {
 
   it("refreshes through the canonical signature resolver and schedules its rendered output", async () => {
     const db = makeClient((name) => {
+      if (name === "reserve_phase_c_auto_send_generation_as_system") {
+        return {
+          disposition: "acquired",
+          generation_token: IDS.lease,
+          to_emails: ["lead@example.com"],
+          cc_emails: [],
+        };
+      }
       if (name === "schedule_phase_c_auto_send_fenced") {
         return dbRow({ status: "pending", lease_token: null });
       }
@@ -306,6 +322,7 @@ describe("AutoSendService queue lifecycle", () => {
       p_learning_authority: "autonomous",
       p_signature_id: IDS.signature,
       p_signature_content_hash: "a".repeat(64),
+      p_generation_token: IDS.lease,
     });
     expect(args.p_idempotency_key).toMatch(/^[0-9a-f]{64}$/);
     expect(args.p_rendered_body_hash).toMatch(/^[0-9a-f]{64}$/);
@@ -314,6 +331,50 @@ describe("AutoSendService queue lifecycle", () => {
     expect(result.pending.actorUserId).toBe(IDS.actor);
     expect(result.pending.categorySnapshot).toBe("CUSTOMER");
     expect(result.pending.autonomyLevelSnapshot).toBe("auto_send");
+  });
+
+  it("does not invoke the model when another scheduler owns the exact source generation", async () => {
+    const db = makeClient(
+      (name) => {
+        throw new Error(`unexpected RPC: ${name}`);
+      },
+      {
+        disposition: "in_progress",
+        to_emails: ["lead@example.com"],
+        cc_emails: [],
+      }
+    );
+    requireSupabaseMock.mockReturnValue(db.client);
+
+    const result = await AutoSendService.scheduleAutoSend(scheduleInput());
+
+    expect(result).toMatchObject({
+      outcome: "unavailable",
+      reason: "source generation already in progress",
+    });
+    expect(generateDraftMock).not.toHaveBeenCalled();
+    expect(db.rpc).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed before the model when the reservation reports argument drift", async () => {
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "reserve_phase_c_auto_send_generation_as_system") {
+        return {
+          data: null,
+          error: { message: "PHASE_C_AUTO_SEND_IDEMPOTENCY_CONFLICT" },
+        };
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    requireSupabaseMock.mockReturnValue({ rpc });
+
+    const result = await AutoSendService.scheduleAutoSend(scheduleInput());
+
+    expect(result).toMatchObject({
+      outcome: "unavailable",
+      reason: "PHASE_C_AUTO_SEND_IDEMPOTENCY_CONFLICT",
+    });
+    expect(generateDraftMock).not.toHaveBeenCalled();
   });
 
   it("passes the narrow stale-lead authority into operational follow-up drafting", async () => {
@@ -374,7 +435,7 @@ describe("AutoSendService queue lifecycle", () => {
     const result = await AutoSendService.scheduleAutoSend(scheduleInput());
 
     expect(result).toMatchObject({ outcome: "unavailable" });
-    expect(db.rpc).toHaveBeenCalledTimes(1);
+    expect(db.rpc).toHaveBeenCalledTimes(2);
     expect(db.rpc).not.toHaveBeenCalledWith(
       "schedule_phase_c_auto_send_fenced",
       expect.any(Object)
@@ -510,7 +571,7 @@ describe("AutoSendService queue lifecycle", () => {
       outcome: "no_reply_warranted",
       reason: "The latest message only closes the loop.",
     });
-    expect(db.rpc).toHaveBeenCalledTimes(1);
+    expect(db.rpc).toHaveBeenCalledTimes(2);
     expect(db.rpc).not.toHaveBeenCalledWith(
       "schedule_phase_c_auto_send_fenced",
       expect.any(Object)

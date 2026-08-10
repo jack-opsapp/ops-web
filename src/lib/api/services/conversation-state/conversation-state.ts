@@ -621,7 +621,7 @@ export async function buildConversationState(
   // 3. Newest thread messages from this mailbox's `activities` ledger.
   //    Fetch newest-first so LIMIT retains current context, then reverse below
   //    before the deterministic core consumes the rows chronologically.
-  const { data: activityRows } = await supabase
+  const { data: activityRows, error: activityError } = await supabase
     .from("activities")
     .select(
       "email_message_id, from_email, to_emails, cc_emails, subject, body_text, body_text_clean, direction, created_at"
@@ -632,6 +632,13 @@ export async function buildConversationState(
     .eq("email_thread_id", t.provider_thread_id)
     .order("created_at", { ascending: false })
     .limit(20);
+  if (activityError) {
+    console.error(
+      "[conversation-state] activity ledger load failed:",
+      activityError.message
+    );
+    return null;
+  }
   const activities = (
     [...(activityRows ?? [])] as unknown as ActivityEmailRow[]
   ).reverse();

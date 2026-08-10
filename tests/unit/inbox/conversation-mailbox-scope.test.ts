@@ -8,6 +8,7 @@ interface TestDatabase {
 
 let database: TestDatabase;
 let inQueries: Array<{ table: string; column: string; values: unknown[] }>;
+let queryErrors: Record<string, { message: string } | null>;
 
 const { fetchOperatorIdentityMock, fetchCommitmentsMock } = vi.hoisted(() => ({
   fetchOperatorIdentityMock: vi.fn(
@@ -93,8 +94,15 @@ vi.mock("@/lib/supabase/helpers", () => {
             : null,
       };
     };
-    chain.then = (resolve: (result: { data: Row[]; error: null }) => void) =>
-      resolve({ data: matchingRows(), error: null });
+    chain.then = (
+      resolve: (result: {
+        data: Row[] | null;
+        error: { message: string } | null;
+      }) => void
+    ) => {
+      const error = queryErrors[table] ?? null;
+      resolve({ data: error ? null : matchingRows(), error });
+    };
 
     return chain;
   }
@@ -174,6 +182,7 @@ function attachmentRow(connectionId: string, filename: string): Row {
 
 beforeEach(() => {
   inQueries = [];
+  queryErrors = {};
   database = {
     tables: {
       email_threads: [
@@ -195,6 +204,23 @@ beforeEach(() => {
 });
 
 describe("buildConversationState mailbox isolation", () => {
+  it("fails closed when the required activity ledger cannot be read", async () => {
+    database.tables.email_threads = [threadRow("thread-a", "connection-a")];
+    database.tables.email_connections = [connectionRow("connection-a")];
+    database.tables.activities = [
+      activityRow(
+        "connection-a",
+        "customer-a@example.com",
+        "This message must not disappear behind a read failure",
+        "2026-07-14T10:00:00.000Z"
+      ),
+    ];
+    queryErrors.activities = { message: "activity ledger unavailable" };
+
+    await expect(buildConversationState("thread-a")).resolves.toBeNull();
+    expect(fetchCommitmentsMock).not.toHaveBeenCalled();
+  });
+
   it("keeps messages and attachments inside the selected connection when provider ids collide", async () => {
     database.tables.activities = [
       activityRow(
