@@ -936,6 +936,21 @@ describe("company data manifest — deletion ordering", () => {
     before("job_conversation_turns", "email_connections");
   });
 
+  it("deletes the complete job-memory ledger before its provider-source purge root", () => {
+    for (const table of [
+      "job_memory_version_evidence",
+      "job_memory_versions",
+      "job_conversation_redaction_events",
+      "job_conversation_turns",
+      "job_conversation_anchors",
+      "job_conversations",
+    ]) {
+      before(table, "agent_control_plane_tenant_roots");
+    }
+
+    before("agent_control_plane_tenant_roots", "activities");
+  });
+
   it("tombstones the company row last", () => {
     expect(COMPANY_SCOPED_DATA[COMPANY_SCOPED_DATA.length - 1].table).toBe(
       TENANT_TABLE

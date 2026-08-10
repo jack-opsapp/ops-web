@@ -3,11 +3,7 @@ import {
   CronDatabaseOperationError,
   supabaseDatabaseOperationCause,
 } from "@/lib/api/services/cron-workload-error-contract";
-import type {
-  ConfirmedCustomerParticipant,
-  ConversationSide,
-  ParticipantResolutionStatus,
-} from "./resolve-participant-side";
+import type { ConfirmedCustomerParticipant } from "./resolve-participant-side";
 
 export interface DurableCorrespondenceEvent {
   readonly id: string;
@@ -21,6 +17,8 @@ export interface DurableCorrespondenceEvent {
 }
 
 export interface DurableEmailTurnSource {
+  readonly providerSourceId: string;
+  readonly providerSourceSha256: string;
   readonly companyId: string;
   readonly activityId: string;
   readonly activityOpportunityId: string | null;
@@ -30,6 +28,10 @@ export interface DurableEmailTurnSource {
   readonly direction: "inbound" | "outbound";
   readonly deliveredAt: string;
   readonly subject: string | null;
+  readonly normalizedSubject: string | null;
+  readonly normalizedPlainText: string;
+  readonly normalizationRevision: string;
+  readonly normalizationStatus: "normalized" | "rejected";
   readonly deliveredContent: {
     readonly mediaType: "text/plain" | "text/html";
     readonly value: string;
@@ -60,23 +62,11 @@ export interface DurableEmailTurnSourceKey {
 export interface IngestConversationTurnInput {
   readonly companyId: string;
   readonly job: JobConversationAnchor;
-  readonly side: ConversationSide | null;
-  readonly participantId: string;
-  readonly participantResolutionStatus: ParticipantResolutionStatus;
-  readonly participantResolutionRevision: string;
-  readonly direction: "inbound" | "outbound";
-  readonly channel: "email";
-  readonly deliveredAt: string;
   readonly sourceConnectionId: string;
   readonly providerMessageId: string;
+  readonly providerDeliverySourceId: string;
+  readonly providerDeliverySourceSha256: string;
   readonly sourceActivityId: string;
-  readonly sourceCorrespondenceEventId: string | null;
-  readonly subject: string | null;
-  readonly recipientIdentities: readonly string[];
-  readonly ccRecipientIdentities: readonly string[];
-  readonly normalizedPlainText: string;
-  readonly originalContentHash: string;
-  readonly attachmentEvidenceIds: readonly string[];
 }
 
 export interface IngestConversationTurnResult {
@@ -140,31 +130,17 @@ export function createTurnRepository(
     async ingest(
       input: IngestConversationTurnInput
     ): Promise<IngestConversationTurnResult> {
-      assertSideInvariant(input);
       const response = await client.rpc(
         "ingest_job_conversation_turn_as_system",
         {
           p_company_id: input.companyId,
           p_job_kind: input.job.kind,
           p_job_id: input.job.id,
-          p_side: input.side,
-          p_participant_id: input.participantId,
-          p_participant_resolution_status: input.participantResolutionStatus,
-          p_participant_resolution_revision:
-            input.participantResolutionRevision,
-          p_direction: input.direction,
-          p_channel: input.channel,
-          p_delivered_at: input.deliveredAt,
           p_source_connection_id: input.sourceConnectionId,
           p_provider_message_id: input.providerMessageId,
+          p_provider_delivery_source_id: input.providerDeliverySourceId,
+          p_provider_delivery_source_sha256: input.providerDeliverySourceSha256,
           p_source_activity_id: input.sourceActivityId,
-          p_source_correspondence_event_id: input.sourceCorrespondenceEventId,
-          p_subject: input.subject,
-          p_normalized_plain_text: input.normalizedPlainText,
-          p_original_content_hash: input.originalContentHash,
-          p_recipient_identities: input.recipientIdentities,
-          p_cc_recipient_identities: input.ccRecipientIdentities,
-          p_attachment_evidence_ids: input.attachmentEvidenceIds,
         }
       );
       if (response.error) {
@@ -257,17 +233,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function assertSideInvariant(input: IngestConversationTurnInput): void {
-  const resolved = input.participantResolutionStatus === "resolved";
-  const expectedSide = input.direction === "inbound" ? "user" : "assistant";
-  if (
-    (resolved && input.side !== expectedSide) ||
-    (!resolved && input.side !== null)
-  ) {
-    throw new Error("DELIVERED_TURN_SIDE_INVALID");
-  }
-}
-
 function stringArray(value: unknown): readonly string[] | null {
   return Array.isArray(value) && value.every((item) => typeof item === "string")
     ? Object.freeze([...value])
@@ -294,6 +259,7 @@ function durableSourceFromRpc(
         ? row.source_correspondence_event
         : undefined;
   const subject = nullableString(row.subject);
+  const normalizedSubject = nullableString(row.normalized_subject);
   const fromEmail = nullableString(row.sender_identity);
   const actorUserId = nullableString(row.actor_user_id);
   const activityOpportunityId = nullableString(row.activity_opportunity_id);
@@ -304,6 +270,9 @@ function durableSourceFromRpc(
   );
   const contentCharset = nullableString(row.content_charset);
   if (
+    typeof row.source_id !== "string" ||
+    typeof row.source_sha256 !== "string" ||
+    !/^sha256:[0-9a-f]{64}$/.test(row.source_sha256) ||
     typeof row.company_id !== "string" ||
     typeof row.source_activity_id !== "string" ||
     typeof row.connection_id !== "string" ||
@@ -311,6 +280,13 @@ function durableSourceFromRpc(
     !(row.direction === "inbound" || row.direction === "outbound") ||
     typeof row.delivered_at !== "string" ||
     subject === undefined ||
+    normalizedSubject === undefined ||
+    typeof row.normalized_plain_text !== "string" ||
+    typeof row.normalization_revision !== "string" ||
+    !(
+      row.normalization_status === "normalized" ||
+      row.normalization_status === "rejected"
+    ) ||
     fromEmail === undefined ||
     actorUserId === undefined ||
     activityOpportunityId === undefined ||
@@ -357,6 +333,8 @@ function durableSourceFromRpc(
   }
 
   return Object.freeze({
+    providerSourceId: row.source_id,
+    providerSourceSha256: row.source_sha256,
     companyId: row.company_id,
     activityId: row.source_activity_id,
     activityOpportunityId,
@@ -366,6 +344,10 @@ function durableSourceFromRpc(
     direction: row.direction,
     deliveredAt: row.delivered_at,
     subject,
+    normalizedSubject,
+    normalizedPlainText: row.normalized_plain_text,
+    normalizationRevision: row.normalization_revision,
+    normalizationStatus: row.normalization_status,
     deliveredContent: Object.freeze({
       mediaType: row.content_media_type,
       value: row.content_value,

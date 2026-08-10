@@ -285,6 +285,16 @@ create table private.agent_provider_delivery_sources (
   delivered_at timestamptz not null,
   subject text not null
     check (octet_length(subject) <= 8192),
+  normalized_subject text
+    check (octet_length(normalized_subject) <= 8192),
+  normalized_plain_text text not null
+    check (octet_length(normalized_plain_text) <= 8388608),
+  normalization_revision text not null
+    check (
+      normalization_revision = 'ops.correspondence.normalized-text.v1'
+    ),
+  normalization_status text not null
+    check (normalization_status in ('normalized', 'rejected')),
   sender_identity text not null
     check (
       sender_identity = lower(btrim(sender_identity))
@@ -353,6 +363,28 @@ create table private.agent_provider_delivery_sources (
     )
   )
 );
+
+-- The memory ledger migration runs first so it can establish the job anchor
+-- and turn tables. Once the immutable provider ledger exists, bind every turn
+-- to the exact captured source and content hash with a tenant-paired FK.
+alter table public.job_conversation_turns
+  add constraint job_conversation_turns_provider_delivery_source_fkey
+  foreign key (
+    company_id,
+    provider_delivery_source_id,
+    provider_delivery_source_sha256
+  ) references private.agent_provider_delivery_sources(
+    company_id,
+    id,
+    source_sha256
+  ) on delete restrict;
+
+create index job_conversation_turns_provider_delivery_source_idx
+  on public.job_conversation_turns (
+    company_id,
+    provider_delivery_source_id,
+    provider_delivery_source_sha256
+  );
 
 comment on table private.agent_provider_delivery_sources is
   'Immutable exact provider message content captured after delivery proof and before mutable OPS email projections. Direct access is denied; account erasure cascades through the tenant ledger root while mailbox disconnect preserves evidence.';
@@ -615,6 +647,10 @@ create or replace function public.capture_agent_provider_delivery_source_as_syst
   p_direction text,
   p_delivered_at timestamptz,
   p_subject text,
+  p_normalized_subject text,
+  p_normalized_plain_text text,
+  p_normalization_revision text,
+  p_normalization_status text,
   p_sender_identity text,
   p_recipient_identities text[],
   p_cc_recipient_identities text[],
@@ -692,6 +728,21 @@ begin
      or p_delivered_at is null
      or p_subject is null
      or octet_length(p_subject) > 8192
+     or octet_length(p_normalized_subject) > 8192
+     or p_normalized_plain_text is null
+     or octet_length(p_normalized_plain_text) > 8388608
+     or p_normalization_revision
+       is distinct from 'ops.correspondence.normalized-text.v1'
+     or p_normalization_status not in ('normalized', 'rejected')
+     or (
+       p_normalization_status = 'rejected'
+       and (
+         p_normalized_subject
+           is distinct from '[SUBJECT OMITTED: UNSAFE SOURCE]'
+         or p_normalized_plain_text
+           is distinct from '[CONTENT OMITTED: UNSAFE SOURCE]'
+       )
+     )
      or not private.agent_provider_email_identity_is_valid(
        p_sender_identity
      )
@@ -1260,6 +1311,10 @@ begin
       'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
     ),
     'subject', p_subject,
+    'normalized_subject', p_normalized_subject,
+    'normalized_plain_text', p_normalized_plain_text,
+    'normalization_revision', p_normalization_revision,
+    'normalization_status', p_normalization_status,
     'sender_identity', p_sender_identity,
     'recipient_identities', to_jsonb(p_recipient_identities),
     'cc_recipient_identities', to_jsonb(p_cc_recipient_identities),
@@ -1291,6 +1346,10 @@ begin
     direction,
     delivered_at,
     subject,
+    normalized_subject,
+    normalized_plain_text,
+    normalization_revision,
+    normalization_status,
     sender_identity,
     recipient_identities,
     cc_recipient_identities,
@@ -1314,6 +1373,10 @@ begin
     p_direction,
     p_delivered_at,
     p_subject,
+    p_normalized_subject,
+    p_normalized_plain_text,
+    p_normalization_revision,
+    p_normalization_status,
     p_sender_identity,
     p_recipient_identities,
     p_cc_recipient_identities,
@@ -1356,6 +1419,14 @@ begin
     if v_existing_source.content_source_kind = p_content_source_kind then
       if v_existing_source.delivered_at is distinct from p_delivered_at
          or v_existing_source.subject is distinct from p_subject
+         or v_existing_source.normalized_subject
+           is distinct from p_normalized_subject
+         or v_existing_source.normalized_plain_text
+           is distinct from p_normalized_plain_text
+         or v_existing_source.normalization_revision
+           is distinct from p_normalization_revision
+         or v_existing_source.normalization_status
+           is distinct from p_normalization_status
          or v_existing_source.sender_identity
            is distinct from p_sender_identity
          or v_existing_source.recipient_identities
@@ -1483,12 +1554,14 @@ end;
 $function$;
 
 revoke all on function public.capture_agent_provider_delivery_source_as_system(
-  uuid, uuid, text, text, text, text, timestamptz, text, text,
+  uuid, uuid, text, text, text, text, timestamptz, text, text, text, text, text,
+  text,
   text[], text[], text, text, text, text, text, text, text, text, uuid,
   boolean, jsonb
 ) from public, anon, authenticated, service_role;
 grant execute on function public.capture_agent_provider_delivery_source_as_system(
-  uuid, uuid, text, text, text, text, timestamptz, text, text,
+  uuid, uuid, text, text, text, text, timestamptz, text, text, text, text, text,
+  text,
   text[], text[], text, text, text, text, text, text, text, text, uuid,
   boolean, jsonb
 ) to service_role;
@@ -1508,6 +1581,10 @@ create or replace function public.read_agent_provider_delivery_source_as_system(
   direction text,
   delivered_at timestamptz,
   subject text,
+  normalized_subject text,
+  normalized_plain_text text,
+  normalization_revision text,
+  normalization_status text,
   sender_identity text,
   recipient_identities text[],
   cc_recipient_identities text[],
@@ -1556,6 +1633,10 @@ begin
          source.direction,
          source.delivered_at,
          source.subject,
+         source.normalized_subject,
+         source.normalized_plain_text,
+         source.normalization_revision,
+         source.normalization_status,
          source.sender_identity,
          source.recipient_identities,
          source.cc_recipient_identities,
@@ -1761,7 +1842,8 @@ grant execute on function public.read_agent_provider_delivery_source_as_system(
 ) to service_role;
 
 comment on function public.capture_agent_provider_delivery_source_as_system(
-  uuid, uuid, text, text, text, text, timestamptz, text, text,
+  uuid, uuid, text, text, text, text, timestamptz, text, text, text, text, text,
+  text,
   text[], text[], text, text, text, text, text, text, text, text, uuid,
   boolean, jsonb
 ) is

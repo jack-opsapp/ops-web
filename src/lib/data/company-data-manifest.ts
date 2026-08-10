@@ -141,7 +141,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-08-08";
+export const MANIFEST_VERSION = "2026-08-10";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -859,17 +859,6 @@ export const PARENT_SCOPED_DATA: readonly ParentScopedEntry[] = [
 
 export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
   {
-    table: "agent_control_plane_tenant_roots",
-    scope: "company",
-    companyColumn: "company_id",
-    companyColumnType: "uuid",
-    softDeletable: false,
-    deleteStrategy: "hard",
-    export: false,
-    reason:
-      "Tenant-owned purge root for private agent-control-plane state. It contains no customer content and is removed only during full account closure.",
-  },
-  {
     table: "job_memory_version_evidence",
     scope: "company",
     companyColumn: "company_id",
@@ -922,6 +911,17 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     softDeletable: false,
     deleteStrategy: "hard",
     export: true,
+  },
+  {
+    table: "agent_control_plane_tenant_roots",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Tenant-owned purge root for private agent-control-plane state. It contains no customer content and is removed only during full account closure.",
   },
   {
     table: "email_outbound_edit_promotions",

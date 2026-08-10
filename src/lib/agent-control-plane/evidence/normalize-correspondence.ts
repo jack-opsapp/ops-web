@@ -20,6 +20,13 @@ import type {
 
 export type { NormalizeCorrespondenceInput } from "./types";
 
+export const CORRESPONDENCE_NORMALIZATION_REVISION =
+  "ops.correspondence.normalized-text.v1";
+export const CORRESPONDENCE_NORMALIZATION_REJECTED_SUBJECT =
+  "[SUBJECT OMITTED: UNSAFE SOURCE]";
+export const CORRESPONDENCE_NORMALIZATION_REJECTED_TEXT =
+  "[CONTENT OMITTED: UNSAFE SOURCE]";
+
 const MAX_ID_LENGTH = 512;
 const MAX_RAW_ID_LENGTH = 2_048;
 const MAX_METADATA_LENGTH = 2_048;

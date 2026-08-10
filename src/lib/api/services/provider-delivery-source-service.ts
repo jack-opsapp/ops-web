@@ -5,6 +5,12 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { MAX_EXACT_CORRESPONDENCE_CONTENT_BYTES } from "@/lib/agent-control-plane/evidence/limits";
+import {
+  CORRESPONDENCE_NORMALIZATION_REJECTED_SUBJECT,
+  CORRESPONDENCE_NORMALIZATION_REJECTED_TEXT,
+  CORRESPONDENCE_NORMALIZATION_REVISION,
+  normalizeCorrespondence,
+} from "@/lib/agent-control-plane/evidence/normalize-correspondence";
 import { hasUnsafeUnicodeControls } from "@/lib/agent-control-plane/evidence/unicode-safety";
 import type {
   EmailConnection,
@@ -363,6 +369,32 @@ async function captureEnvelope(
   }
 ): Promise<ProviderDeliverySourceReceipt> {
   assertContentBound(input.content.value);
+  let normalizedSubject: string | null;
+  let normalizedPlainText: string;
+  let normalizationStatus: "normalized" | "rejected";
+  try {
+    const normalized = normalizeCorrespondence({
+      evidenceId: `provider_delivery_source:${input.connectionId}:${input.providerMessageId}`,
+      companyId: input.companyId,
+      sourceDomain: "email",
+      sourceType: "provider_message",
+      sourceId: `${input.connectionId}:${input.providerMessageId}`,
+      occurredAt: input.deliveredAt.toISOString(),
+      subject: input.subject,
+      content: {
+        mediaType: input.content.mediaType,
+        value: input.content.value,
+      },
+      attachments: [],
+    });
+    normalizedSubject = normalized.subject;
+    normalizedPlainText = normalized.normalizedPlainText;
+    normalizationStatus = "normalized";
+  } catch {
+    normalizedSubject = CORRESPONDENCE_NORMALIZATION_REJECTED_SUBJECT;
+    normalizedPlainText = CORRESPONDENCE_NORMALIZATION_REJECTED_TEXT;
+    normalizationStatus = "rejected";
+  }
   const response = await supabase.rpc(
     "capture_agent_provider_delivery_source_as_system",
     {
@@ -380,6 +412,10 @@ async function captureEnvelope(
       p_direction: input.direction,
       p_delivered_at: input.deliveredAt.toISOString(),
       p_subject: input.subject,
+      p_normalized_subject: normalizedSubject,
+      p_normalized_plain_text: normalizedPlainText,
+      p_normalization_revision: CORRESPONDENCE_NORMALIZATION_REVISION,
+      p_normalization_status: normalizationStatus,
       p_sender_identity: canonicalIdentity(
         input.senderIdentity,
         "SENDER_IDENTITY"

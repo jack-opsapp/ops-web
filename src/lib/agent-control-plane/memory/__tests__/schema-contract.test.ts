@@ -33,6 +33,16 @@ function compactSql(): string {
   return migrationSql().replace(/\s+/g, " ");
 }
 
+function allMigrationSql(): string {
+  const directory = join(process.cwd(), "supabase/migrations");
+  return readdirSync(directory)
+    .filter((file) => file.endsWith(".sql"))
+    .sort()
+    .map((file) => readFileSync(join(directory, file), "utf8"))
+    .join("\n")
+    .toLowerCase();
+}
+
 function functionBody(source: string, name: string): string {
   const start = source.indexOf(`create or replace function ${name}(`);
   if (start < 0) return "";
@@ -228,17 +238,29 @@ describe("agent job conversation memory schema", () => {
     expect(compact).toMatch(
       /create trigger job_conversation_turns_immutable[\s\S]*?before update or delete on public\.job_conversation_turns/
     );
-    expect(ingest).toContain("p_subject text");
-    expect(ingest).toContain("p_recipient_identities text[]");
-    expect(ingest).toContain("p_cc_recipient_identities text[]");
+    expect(ingest).not.toContain("p_subject text");
+    expect(ingest).not.toContain("p_recipient_identities text[]");
+    expect(ingest).not.toContain("p_cc_recipient_identities text[]");
+    expect(ingest).not.toContain("p_normalized_plain_text text");
+    expect(ingest).not.toContain("p_original_content_hash text");
+    expect(ingest).not.toContain("p_attachment_evidence_ids text[]");
     expect(ingest).toContain(
-      "v_existing_turn.subject is distinct from p_subject"
+      "v_existing_turn.subject is distinct from v_provider_source.normalized_subject"
     );
     expect(ingest).toContain(
-      "v_existing_turn.recipient_identities is distinct from coalesce(p_recipient_identities, '{}'::text[])"
+      "v_existing_turn.recipient_identities is distinct from v_provider_source.recipient_identities"
     );
     expect(ingest).toContain(
-      "v_existing_turn.cc_recipient_identities is distinct from coalesce(p_cc_recipient_identities, '{}'::text[])"
+      "v_existing_turn.cc_recipient_identities is distinct from v_provider_source.cc_recipient_identities"
+    );
+    expect(ingest).toContain(
+      "v_existing_turn.normalized_plain_text is distinct from v_provider_source.normalized_plain_text"
+    );
+    expect(ingest).toContain(
+      "v_existing_turn.original_content_hash is distinct from v_provider_source.source_sha256"
+    );
+    expect(ingest).toContain(
+      "v_existing_turn.attachment_evidence_ids is distinct from v_provider_source.attachment_evidence_ids"
     );
   });
 
@@ -249,19 +271,19 @@ describe("agent job conversation memory schema", () => {
       "public.ingest_job_conversation_turn_as_system"
     );
 
-    expect(ingest).toContain("p_participant_resolution_status text");
-    expect(ingest).toContain("p_participant_resolution_status is null");
+    expect(ingest).not.toContain("p_participant_resolution_status text");
+    expect(ingest).not.toContain("p_participant_id text");
+    expect(ingest).not.toContain("p_side text");
+    expect(ingest).toContain("v_participant_resolution_status text");
+    expect(ingest).toContain("v_participant_resolution_revision text");
     expect(ingest).toMatch(
-      /p_participant_resolution_status not in \(\s*'resolved',\s*'unresolved',\s*'ambiguous'\s*\)/
+      /v_provider_source\.direction = 'outbound'[\s\S]*?v_side := 'assistant'[\s\S]*?v_participant_resolution_status := 'resolved'/
     );
     expect(ingest).toMatch(
-      /p_participant_resolution_status = 'resolved'[\s\S]*?p_direction = 'inbound' and p_side = 'user'[\s\S]*?p_direction = 'outbound' and p_side = 'assistant'/
-    );
-    expect(ingest).toMatch(
-      /p_participant_resolution_status in \('unresolved', 'ambiguous'\)[\s\S]*?p_side is not null/
+      /v_provider_source\.direction = 'inbound'[\s\S]*?v_participant_candidate_count = 1[\s\S]*?v_side := 'user'/
     );
     expect(ingest).toContain(
-      "v_existing_turn.participant_resolution_status is distinct from p_participant_resolution_status"
+      "v_existing_turn.participant_resolution_status is distinct from v_participant_resolution_status"
     );
   });
 
@@ -272,13 +294,10 @@ describe("agent job conversation memory schema", () => {
       "public.ingest_job_conversation_turn_as_system"
     );
 
-    expect(compact.match(/\^sha256:\[0-9a-f\]\{64\}\$/g)).toHaveLength(4);
+    expect(compact.match(/\^sha256:\[0-9a-f\]\{64\}\$/g)).toHaveLength(7);
     expect(compact).not.toMatch(/~ '\^\[0-9a-f\]\{64\}\$'/);
     expect(ingest).toContain(
-      "p_original_content_hash !~ '^sha256:[0-9a-f]{64}$'"
-    );
-    expect(ingest).toContain(
-      "v_existing_turn.original_content_hash is distinct from p_original_content_hash"
+      "v_existing_turn.original_content_hash is distinct from v_provider_source.source_sha256"
     );
   });
 
@@ -309,6 +328,137 @@ describe("agent job conversation memory schema", () => {
     expect(compact).toMatch(
       /job_memory_version_evidence[\s\S]*?relationship text not null[\s\S]*?'supports'[\s\S]*?'contradicts'[\s\S]*?'supersedes'/
     );
+  });
+
+  it("uses monotonic turn coverage and a source revision that redactions invalidate", () => {
+    const compact = compactSql();
+
+    expect(compact).toMatch(
+      /job_conversations[\s\S]*?last_turn_sequence bigint not null default 0[\s\S]*?source_state_revision bigint not null default 0/
+    );
+    expect(compact).toMatch(
+      /job_conversation_turns[\s\S]*?turn_sequence bigint not null[\s\S]*?source_state_revision bigint not null/
+    );
+    expect(compact).toContain(
+      "unique (company_id, conversation_id, turn_sequence)"
+    );
+    expect(compact).toMatch(
+      /job_memory_versions[\s\S]*?turn_high_watermark_sequence bigint not null[\s\S]*?source_state_revision bigint not null[\s\S]*?generation_input_hash text not null/
+    );
+    expect(compact).toMatch(
+      /job_conversation_redaction_events[\s\S]*?source_state_revision bigint not null/
+    );
+    expect(compact).toMatch(
+      /create trigger job_conversation_redactions_source_revision[\s\S]*?before insert on public\.job_conversation_redaction_events/
+    );
+  });
+
+  it("binds every turn to the immutable provider-delivery source and hash", () => {
+    const compact = allMigrationSql().replace(/\s+/g, " ");
+    const ingest = functionBody(
+      compact,
+      "public.ingest_job_conversation_turn_as_system"
+    );
+
+    expect(compact).toMatch(
+      /job_conversation_turns[\s\S]*?provider_delivery_source_id uuid not null[\s\S]*?provider_delivery_source_sha256 text not null/
+    );
+    expect(compact).toMatch(
+      /foreign key \(\s*company_id,\s*provider_delivery_source_id,\s*provider_delivery_source_sha256\s*\)[\s\S]*?references private\.agent_provider_delivery_sources\(\s*company_id,\s*id,\s*source_sha256\s*\)/
+    );
+    expect(ingest).toContain("p_provider_delivery_source_id uuid");
+    expect(ingest).toContain("p_provider_delivery_source_sha256 text");
+    expect(ingest).toContain("private.agent_provider_delivery_sources");
+  });
+
+  it("reads one bounded generation snapshot and commits one version atomically", () => {
+    const compact = allMigrationSql().replace(/\s+/g, " ");
+    const snapshot = functionBody(
+      compact,
+      "public.read_job_memory_generation_snapshot_as_system"
+    );
+    const commit = functionBody(
+      compact,
+      "public.commit_job_memory_version_as_system"
+    );
+
+    expect(snapshot).toContain("auth.role()");
+    expect(snapshot).toContain("'service_role'");
+    expect(snapshot).toContain("turn_sequence");
+    expect(snapshot).toContain("source_state_revision");
+    expect(snapshot).toContain("job_conversation_redaction_events");
+    expect(snapshot).toContain("limit p_max_turns");
+    expect(snapshot).toContain("'source_participant_id'");
+    expect(snapshot).toContain("'source_participant_resolution_status'");
+    expect(snapshot).toMatch(
+      /participant_redacted, false\)[\s\S]*?then '\[participant redacted\]'[\s\S]*?then 'unresolved'/
+    );
+
+    expect(commit).toContain("for update");
+    expect(commit).toContain("p_expected_current_memory_version_id");
+    expect(commit).toContain("p_expected_source_state_revision");
+    expect(commit).toContain("'conflict'::text");
+    expect(commit).toContain("extensions.digest");
+    expect(commit).toContain("insert into public.job_memory_versions");
+    expect(commit).toContain("insert into public.job_memory_version_evidence");
+    expect(commit).toContain("update public.job_conversations");
+    expect(commit).toContain("private.agent_provider_delivery_sources");
+
+    for (const name of [
+      "read_job_memory_generation_snapshot_as_system",
+      "commit_job_memory_version_as_system",
+    ]) {
+      expect(compact).toMatch(
+        new RegExp(
+          `revoke all on function public\\.${name}\\([\\s\\S]*?from public, anon, authenticated, service_role`
+        )
+      );
+      expect(compact).toMatch(
+        new RegExp(
+          `grant execute on function public\\.${name}\\([\\s\\S]*?to service_role`
+        )
+      );
+    }
+  });
+
+  it("fails closed when required memory fields or evidence fields are missing", () => {
+    const compact = allMigrationSql().replace(/\s+/g, " ");
+    const commit = functionBody(
+      compact,
+      "public.commit_job_memory_version_as_system"
+    );
+    const requiredKeys = commit.match(
+      /not \(p_memory_document \?& array\[(.*?)\]\)/
+    );
+
+    expect(requiredKeys).not.toBeNull();
+    for (const key of [
+      "schema_version",
+      "facts",
+      "decisions",
+      "commitments",
+      "preferences",
+      "open_questions",
+      "contradictions",
+      "schedule_assertions",
+      "financial_facts",
+      "excluded_assumptions",
+    ]) {
+      expect(requiredKeys![1]).toContain(`'${key}'`);
+    }
+    expect(commit).toContain(
+      "p_memory_document ->> 'schema_version' is distinct from 'ops.job-memory.v1'"
+    );
+    expect(commit).toContain(
+      "jsonb_typeof(p_memory_document -> v_key) is distinct from 'array'"
+    );
+    expect(commit).toContain(
+      "jsonb_typeof(claim.value -> 'evidence') is distinct from 'array'"
+    );
+    expect(commit).toContain(
+      "jsonb_typeof(item.value -> 'competing_claims') is distinct from 'array'"
+    );
+    expect(commit).toContain("link.relationship is null");
   });
 
   it("allows only append-only redaction overlays and forbids direct client writes", () => {
@@ -406,10 +556,8 @@ describe("agent job conversation memory schema", () => {
     );
     for (const nullableInput of [
       "p_job_kind",
-      "p_participant_resolution_status",
-      "p_direction",
-      "p_channel",
-      "p_original_content_hash",
+      "p_provider_delivery_source_id",
+      "p_provider_delivery_source_sha256",
     ]) {
       expect(ingest).toContain(`${nullableInput} is null`);
     }
@@ -459,6 +607,7 @@ describe("agent job conversation memory schema", () => {
     for (const indexFragment of [
       "job_conversation_anchors_conversation_idx on public.job_conversation_anchors (company_id, conversation_id)",
       "job_conversation_turns_conversation_delivered_idx on public.job_conversation_turns (company_id, conversation_id, delivered_at desc, id desc)",
+      "job_conversation_turns_conversation_sequence_idx on public.job_conversation_turns (company_id, conversation_id, turn_sequence)",
       "job_conversation_turns_activity_idx on public.job_conversation_turns (source_activity_id)",
       "job_conversation_turns_correspondence_idx on public.job_conversation_turns (source_correspondence_event_id)",
       "job_memory_versions_conversation_idx on public.job_memory_versions (company_id, conversation_id, version_number desc)",

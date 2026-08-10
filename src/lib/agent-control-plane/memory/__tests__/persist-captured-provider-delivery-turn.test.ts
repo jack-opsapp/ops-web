@@ -10,6 +10,8 @@ const OPPORTUNITY_ID = "00000000-0000-4000-8000-000000000004";
 const EVENT_ID = "00000000-0000-4000-8000-000000000005";
 const CLIENT_ID = "00000000-0000-4000-8000-000000000006";
 const MESSAGE_ID = "provider-message-1";
+const PROVIDER_SOURCE_ID = "00000000-0000-4000-8000-000000000009";
+const PROVIDER_SOURCE_SHA256 = `sha256:${"a".repeat(64)}`;
 
 describe("captured provider delivery turn runtime seam", () => {
   it("preserves database pressure evidence from the durable source RPC", async () => {
@@ -56,6 +58,8 @@ describe("captured provider delivery turn runtime seam", () => {
           return {
             data: [
               {
+                source_id: PROVIDER_SOURCE_ID,
+                source_sha256: PROVIDER_SOURCE_SHA256,
                 company_id: COMPANY_ID,
                 source_activity_id: ACTIVITY_ID,
                 activity_opportunity_id: OPPORTUNITY_ID,
@@ -65,6 +69,10 @@ describe("captured provider delivery turn runtime seam", () => {
                 direction: "inbound",
                 delivered_at: "2026-08-07T18:00:00.000Z",
                 subject: "Site visit details",
+                normalized_subject: "Site visit details",
+                normalized_plain_text: "Please confirm Tuesday.",
+                normalization_revision: "ops.correspondence.normalized-text.v1",
+                normalization_status: "normalized",
                 content_media_type: "text/plain",
                 content_value: "Please confirm Tuesday.",
                 content_charset: "utf-8",
@@ -131,17 +139,16 @@ describe("captured provider delivery turn runtime seam", () => {
       p_provider_message_id: MESSAGE_ID,
       p_source_activity_id: ACTIVITY_ID,
     });
-    expect(rpc.mock.calls[1][1]).toEqual(
-      expect.objectContaining({
-        p_company_id: COMPANY_ID,
-        p_job_kind: "opportunity",
-        p_job_id: OPPORTUNITY_ID,
-        p_side: "user",
-        p_participant_id: `client:${CLIENT_ID}`,
-        p_source_activity_id: ACTIVITY_ID,
-        p_source_correspondence_event_id: EVENT_ID,
-      })
-    );
+    expect(rpc.mock.calls[1][1]).toEqual({
+      p_company_id: COMPANY_ID,
+      p_job_kind: "opportunity",
+      p_job_id: OPPORTUNITY_ID,
+      p_source_connection_id: CONNECTION_ID,
+      p_provider_message_id: MESSAGE_ID,
+      p_provider_delivery_source_id: PROVIDER_SOURCE_ID,
+      p_provider_delivery_source_sha256: PROVIDER_SOURCE_SHA256,
+      p_source_activity_id: ACTIVITY_ID,
+    });
     expect(result).toMatchObject({ inserted: true });
   });
 });

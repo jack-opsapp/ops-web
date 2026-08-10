@@ -10,6 +10,7 @@ import {
   type DurableEmailTurnSource,
   type TurnRepository,
 } from "../turn-repository";
+import { normalizeCorrespondence } from "../../evidence/normalize-correspondence";
 
 const SOURCE_KEY = {
   companyId: "00000000-0000-4000-8000-000000000001",
@@ -24,7 +25,9 @@ const ATTACHMENT_B = "email_attachment:10000000-0000-4000-8000-000000000002";
 function durableSource(
   overrides: Partial<DurableEmailTurnSource> = {}
 ): DurableEmailTurnSource {
-  return {
+  const source: DurableEmailTurnSource = {
+    providerSourceId: "00000000-0000-4000-8000-000000000011",
+    providerSourceSha256: `sha256:${"f".repeat(64)}`,
     companyId: SOURCE_KEY.companyId,
     activityId: SOURCE_KEY.sourceActivityId,
     activityOpportunityId: "00000000-0000-4000-8000-000000000004",
@@ -34,6 +37,10 @@ function durableSource(
     direction: "inbound",
     deliveredAt: "2026-08-07T18:00:00.000Z",
     subject: "Site visit details",
+    normalizedSubject: "Site visit details",
+    normalizedPlainText: "Line one\nLine two",
+    normalizationRevision: "ops.correspondence.normalized-text.v1",
+    normalizationStatus: "normalized",
     deliveredContent: {
       mediaType: "text/plain",
       value: "Line one\r\nLine two\r\n",
@@ -64,9 +71,38 @@ function durableSource(
       },
     ],
     attachmentEnumerationComplete: true,
-    attachmentEvidenceIds: [ATTACHMENT_B, ATTACHMENT_A],
+    attachmentEvidenceIds: [ATTACHMENT_A, ATTACHMENT_B],
     ...overrides,
   };
+  if (
+    !Object.prototype.hasOwnProperty.call(overrides, "normalizedSubject") &&
+    !Object.prototype.hasOwnProperty.call(overrides, "normalizedPlainText")
+  ) {
+    try {
+      const normalized = normalizeCorrespondence({
+        evidenceId: `provider_delivery_source:${source.connectionId}:${source.providerMessageId}`,
+        companyId: source.companyId,
+        sourceDomain: "email",
+        sourceType: "provider_message",
+        sourceId: `${source.connectionId}:${source.providerMessageId}`,
+        occurredAt: source.deliveredAt,
+        subject: source.subject,
+        content: {
+          mediaType: source.deliveredContent.mediaType,
+          value: source.deliveredContent.value,
+        },
+        attachments: [],
+      });
+      return {
+        ...source,
+        normalizedSubject: normalized.subject,
+        normalizedPlainText: normalized.normalizedPlainText,
+      };
+    } catch {
+      // Preserve the malformed source so the unit under test can fail closed.
+    }
+  }
+  return source;
 }
 
 function fakeRepository(input?: {
@@ -88,7 +124,7 @@ function fakeRepository(input?: {
 }
 
 describe("delivered turn ingestion", () => {
-  it("re-reads the durable inbound activity/event and inserts one exact user turn", async () => {
+  it("re-reads the durable source and asks the database to derive one exact turn", async () => {
     const { repository, loadDurableEmailTurnSource, ingest } = fakeRepository();
 
     const result = await ingestDeliveredTurn({
@@ -103,28 +139,16 @@ describe("delivered turn ingestion", () => {
         kind: "opportunity",
         id: "00000000-0000-4000-8000-000000000004",
       },
-      side: "user",
-      participantId: "client:00000000-0000-4000-8000-000000000006",
-      participantResolutionStatus: "resolved",
-      participantResolutionRevision: "job-participant-side:v1",
-      direction: "inbound",
-      channel: "email",
-      deliveredAt: "2026-08-07T18:00:00.000Z",
       sourceConnectionId: SOURCE_KEY.sourceConnectionId,
       providerMessageId: SOURCE_KEY.providerMessageId,
+      providerDeliverySourceId: "00000000-0000-4000-8000-000000000011",
+      providerDeliverySourceSha256: `sha256:${"f".repeat(64)}`,
       sourceActivityId: SOURCE_KEY.sourceActivityId,
-      sourceCorrespondenceEventId: "00000000-0000-4000-8000-000000000005",
-      subject: "Site visit details",
-      recipientIdentities: ["ops_mailbox:00000000-0000-4000-8000-000000000002"],
-      ccRecipientIdentities: [],
-      normalizedPlainText: "Line one\nLine two",
-      originalContentHash: expect.stringMatching(/^sha256:[0-9a-f]{64}$/),
-      attachmentEvidenceIds: [ATTACHMENT_A, ATTACHMENT_B],
     });
     expect(result.inserted).toBe(true);
   });
 
-  it("ingests only a durably reconciled OPS outbound as assistant", async () => {
+  it("does not let the application supply the stored OPS participant", async () => {
     const source = durableSource({
       direction: "outbound",
       fromEmail: "ops@example.com",
@@ -141,14 +165,10 @@ describe("delivered turn ingestion", () => {
 
     await ingestDeliveredTurn({ repository, source: SOURCE_KEY });
 
-    expect(ingest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        side: "assistant",
-        participantId: "ops_user:00000000-0000-4000-8000-000000000009",
-        participantResolutionStatus: "resolved",
-        direction: "outbound",
-      })
-    );
+    const payload = ingest.mock.calls[0][0];
+    expect(payload).not.toHaveProperty("side");
+    expect(payload).not.toHaveProperty("participantId");
+    expect(payload).not.toHaveProperty("direction");
   });
 
   it("ingests a provider-accepted project-only outbound without inventing a correspondence event", async () => {
@@ -182,11 +202,7 @@ describe("delivered turn ingestion", () => {
     expect(ingest).toHaveBeenCalledWith(
       expect.objectContaining({
         job: { kind: "project", id: projectId },
-        side: "assistant",
-        participantId: `ops_user:${actorUserId}`,
-        participantResolutionStatus: "resolved",
-        direction: "outbound",
-        sourceCorrespondenceEventId: null,
+        providerDeliverySourceId: source.providerSourceId,
       })
     );
   });
@@ -222,26 +238,20 @@ describe("delivered turn ingestion", () => {
     expect(ingest).toHaveBeenCalledWith(
       expect.objectContaining({
         job: { kind: "project", id: projectId },
-        side: "assistant",
-        participantId: `ops_user:${actorUserId}`,
-        participantResolutionStatus: "resolved",
-        sourceCorrespondenceEventId: null,
+        providerDeliverySourceId: source.providerSourceId,
       })
     );
   });
 
-  it("keeps an ambiguous inbound participant side null", async () => {
+  it("does not accept caller-selected participant resolution", async () => {
     const source = durableSource({ confirmedCustomerParticipants: [] });
     const { repository, ingest } = fakeRepository({ source });
 
     await ingestDeliveredTurn({ repository, source: SOURCE_KEY });
 
-    expect(ingest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        side: null,
-        participantResolutionStatus: "ambiguous",
-      })
-    );
+    const payload = ingest.mock.calls[0][0];
+    expect(payload).not.toHaveProperty("side");
+    expect(payload).not.toHaveProperty("participantResolutionStatus");
   });
 
   it("replays the same provider source idempotently without changing the payload", async () => {
@@ -273,22 +283,22 @@ describe("delivered turn ingestion", () => {
 
   it("stores exact normalized source content without applying the 60k prompt budget", async () => {
     const bodyText = `BEGIN\r\n${"x".repeat(70_000)}\r\nEND`;
-    const { repository, ingest } = fakeRepository({
-      source: durableSource({
-        deliveredContent: {
-          ...durableSource().deliveredContent,
-          value: bodyText,
-        },
-      }),
+    const source = durableSource({
+      deliveredContent: {
+        ...durableSource().deliveredContent,
+        value: bodyText,
+      },
     });
+    const { repository, ingest } = fakeRepository({ source });
 
     await ingestDeliveredTurn({ repository, source: SOURCE_KEY });
 
-    const payload = ingest.mock.calls[0][0];
-    expect(payload.normalizedPlainText).toBe(
+    const envelope = buildDeliveredEmailSourceEnvelope(source);
+    expect(envelope.normalizedPlainText).toBe(
       `BEGIN\n${"x".repeat(70_000)}\nEND`
     );
-    expect(payload.normalizedPlainText.length).toBeGreaterThan(60_000);
+    expect(envelope.normalizedPlainText.length).toBeGreaterThan(60_000);
+    expect(ingest).toHaveBeenCalledOnce();
   });
 
   it("uses the canonical correspondence normalizer for delivered plain text", () => {
@@ -303,6 +313,15 @@ describe("delivered turn ingestion", () => {
 
     expect(envelope.normalizedPlainText).toBe("Café\nLine two");
   });
+
+  it.each(["2026-08-07T18:00:00+00:00", "2026-08-07T18:00:00.123456+00:00"])(
+    "accepts a PostgREST timestamptz shape: %s",
+    (deliveredAt) => {
+      expect(
+        buildDeliveredEmailSourceEnvelope(durableSource({ deliveredAt }))
+      ).toMatchObject({ normalizedPlainText: "Line one\nLine two" });
+    }
+  );
 
   it("normalizes a captured body above the former one-million-character ceiling", () => {
     const bodyText = `BEGIN\n${"x".repeat(1_000_001)}\nEND`;
@@ -320,15 +339,12 @@ describe("delivered turn ingestion", () => {
     expect(envelope.originalContentHash).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 
-  it("hashes a deterministic canonical provider source envelope", () => {
+  it("uses the immutable provider-ledger hash as the turn content hash", () => {
     const first = buildDeliveredEmailSourceEnvelope(durableSource());
     const replay = buildDeliveredEmailSourceEnvelope(durableSource());
     const changed = buildDeliveredEmailSourceEnvelope(
       durableSource({
-        deliveredContent: {
-          ...durableSource().deliveredContent,
-          value: "Line one\nLine CHANGED\n",
-        },
+        providerSourceSha256: `sha256:${"a".repeat(64)}`,
       })
     );
 
@@ -336,54 +352,45 @@ describe("delivered turn ingestion", () => {
     expect(changed.originalContentHash).not.toBe(first.originalContentHash);
   });
 
-  it("binds exact provider delivery, speaker, subject, recipients, and attachments into the source hash", () => {
-    const base = durableSource();
-    const variants: DurableEmailTurnSource[] = [
-      base,
-      durableSource({ subject: "Changed subject" }),
-      durableSource({
-        deliveredContent: {
-          ...base.deliveredContent,
-          mediaType: "text/html",
-          value: "<p>Line one</p><p>Line two</p>",
-          contentCharset: null,
-          sourceKind: "microsoft_graph_body",
-          selectionRevision: "microsoft-graph-body:v1",
-          providerPartId: null,
-        },
-      }),
-      durableSource({
-        confirmedCustomerParticipants: [
-          {
-            kind: "sub_client",
-            id: "00000000-0000-4000-8000-000000000016",
-          },
-        ],
-      }),
-      durableSource({
-        recipientIdentities: [
-          "ops_mailbox:00000000-0000-4000-8000-000000000012",
-        ],
-      }),
-      durableSource({
-        ccRecipientIdentities: [
-          "related_contact:00000000-0000-4000-8000-000000000013",
-        ],
-      }),
-      durableSource({
-        attachmentEvidenceIds: [
-          "email_attachment:10000000-0000-4000-8000-000000000014",
-        ],
-      }),
-    ];
-
-    const hashes = variants.map(
-      (source) => buildDeliveredEmailSourceEnvelope(source).originalContentHash
-    );
-    expect(new Set(hashes).size).toBe(hashes.length);
+  it("rejects a normalized projection that does not match immutable raw content", () => {
+    expect(() =>
+      buildDeliveredEmailSourceEnvelope(
+        durableSource({ normalizedPlainText: "forged content" })
+      )
+    ).toThrow("DELIVERED_TURN_SOURCE_INVALID");
   });
 
-  it("canonicalizes recipient and attachment identities before hashing and ingest", async () => {
+  it("ingests rejected unsafe content with only the fixed prompt-safe projection", async () => {
+    const source = durableSource({
+      deliveredContent: {
+        ...durableSource().deliveredContent,
+        value: "unsafe\u202econtent",
+      },
+      normalizedSubject: "[SUBJECT OMITTED: UNSAFE SOURCE]",
+      normalizedPlainText: "[CONTENT OMITTED: UNSAFE SOURCE]",
+      normalizationStatus: "rejected",
+    });
+    const { repository, ingest } = fakeRepository({ source });
+
+    await expect(
+      ingestDeliveredTurn({ repository, source: SOURCE_KEY })
+    ).resolves.toMatchObject({ inserted: true });
+    expect(ingest).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a caller-selected omission for content that normalizes safely", () => {
+    expect(() =>
+      buildDeliveredEmailSourceEnvelope(
+        durableSource({
+          normalizedSubject: "[SUBJECT OMITTED: UNSAFE SOURCE]",
+          normalizedPlainText: "[CONTENT OMITTED: UNSAFE SOURCE]",
+          normalizationStatus: "rejected",
+        })
+      )
+    ).toThrow("DELIVERED_TURN_SOURCE_INVALID");
+  });
+
+  it("rejects non-canonical identities instead of rewriting immutable evidence", async () => {
     const source = durableSource({
       recipientIdentities: [
         "ops_mailbox:00000000-0000-4000-8000-000000000022",
@@ -397,20 +404,10 @@ describe("delivered turn ingestion", () => {
     });
     const { repository, ingest } = fakeRepository({ source });
 
-    await ingestDeliveredTurn({ repository, source: SOURCE_KEY });
-
-    expect(ingest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        recipientIdentities: [
-          "ops_mailbox:00000000-0000-4000-8000-000000000002",
-          "ops_mailbox:00000000-0000-4000-8000-000000000022",
-        ],
-        ccRecipientIdentities: [
-          "related_contact:00000000-0000-4000-8000-000000000023",
-        ],
-        attachmentEvidenceIds: [ATTACHMENT_A, ATTACHMENT_B],
-      })
-    );
+    await expect(
+      ingestDeliveredTurn({ repository, source: SOURCE_KEY })
+    ).rejects.toThrow("DELIVERED_TURN_SOURCE_INVALID");
+    expect(ingest).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -425,6 +422,15 @@ describe("delivered turn ingestion", () => {
     {
       label: "a malformed canonical attachment id",
       source: durableSource({ attachmentEvidenceIds: ["attachment-a"] }),
+    },
+    {
+      label: "a rejected source with a malformed delivery timestamp",
+      source: durableSource({
+        deliveredAt: "not-a-timestamp",
+        normalizedSubject: "[SUBJECT OMITTED: UNSAFE SOURCE]",
+        normalizedPlainText: "[CONTENT OMITTED: UNSAFE SOURCE]",
+        normalizationStatus: "rejected",
+      }),
     },
   ])("fails closed for $label", async ({ source }) => {
     const { repository, ingest } = fakeRepository({ source });
@@ -456,100 +462,25 @@ describe("turn repository RPC boundary", () => {
         kind: "opportunity",
         id: "00000000-0000-4000-8000-000000000004",
       },
-      side: null,
-      participantId: "ambiguous:email:customer@example.com",
-      participantResolutionStatus: "ambiguous",
-      participantResolutionRevision: "job-participant-side:v1",
-      direction: "inbound",
-      channel: "email",
-      deliveredAt: "2026-08-07T18:00:00.000Z",
       sourceConnectionId: SOURCE_KEY.sourceConnectionId,
       providerMessageId: SOURCE_KEY.providerMessageId,
+      providerDeliverySourceId: "00000000-0000-4000-8000-000000000011",
+      providerDeliverySourceSha256: `sha256:${"f".repeat(64)}`,
       sourceActivityId: SOURCE_KEY.sourceActivityId,
-      sourceCorrespondenceEventId: "00000000-0000-4000-8000-000000000005",
-      subject: "Site visit details",
-      recipientIdentities: ["ops_mailbox:00000000-0000-4000-8000-000000000002"],
-      ccRecipientIdentities: [],
-      normalizedPlainText: "exact text",
-      originalContentHash: `sha256:${"a".repeat(64)}`,
-      attachmentEvidenceIds: [],
     });
 
     expect(rpc).toHaveBeenCalledWith("ingest_job_conversation_turn_as_system", {
       p_company_id: SOURCE_KEY.companyId,
       p_job_kind: "opportunity",
       p_job_id: "00000000-0000-4000-8000-000000000004",
-      p_side: null,
-      p_participant_id: "ambiguous:email:customer@example.com",
-      p_participant_resolution_status: "ambiguous",
-      p_participant_resolution_revision: "job-participant-side:v1",
-      p_direction: "inbound",
-      p_channel: "email",
-      p_delivered_at: "2026-08-07T18:00:00.000Z",
       p_source_connection_id: SOURCE_KEY.sourceConnectionId,
       p_provider_message_id: SOURCE_KEY.providerMessageId,
+      p_provider_delivery_source_id: "00000000-0000-4000-8000-000000000011",
+      p_provider_delivery_source_sha256: `sha256:${"f".repeat(64)}`,
       p_source_activity_id: SOURCE_KEY.sourceActivityId,
-      p_source_correspondence_event_id: "00000000-0000-4000-8000-000000000005",
-      p_subject: "Site visit details",
-      p_normalized_plain_text: "exact text",
-      p_original_content_hash: `sha256:${"a".repeat(64)}`,
-      p_recipient_identities: [
-        "ops_mailbox:00000000-0000-4000-8000-000000000002",
-      ],
-      p_cc_recipient_identities: [],
-      p_attachment_evidence_ids: [],
     });
     expect(result.inserted).toBe(false);
   });
-
-  it.each([
-    {
-      label: "resolved inbound assistant",
-      input: { direction: "inbound", side: "assistant", status: "resolved" },
-    },
-    {
-      label: "resolved outbound user",
-      input: { direction: "outbound", side: "user", status: "resolved" },
-    },
-    {
-      label: "ambiguous non-null side",
-      input: { direction: "inbound", side: "user", status: "ambiguous" },
-    },
-  ] as const)(
-    "rejects a $label before calling the ingest RPC",
-    async ({ input }) => {
-      const rpc = vi.fn();
-      const repository = createTurnRepository({ rpc });
-
-      await expect(
-        repository.ingest({
-          companyId: SOURCE_KEY.companyId,
-          job: {
-            kind: "opportunity",
-            id: "00000000-0000-4000-8000-000000000004",
-          },
-          side: input.side,
-          participantId: "participant:one",
-          participantResolutionStatus: input.status,
-          participantResolutionRevision: "job-participant-side:v1",
-          direction: input.direction,
-          channel: "email",
-          deliveredAt: "2026-08-07T18:00:00.000Z",
-          sourceConnectionId: SOURCE_KEY.sourceConnectionId,
-          providerMessageId: SOURCE_KEY.providerMessageId,
-          sourceActivityId: SOURCE_KEY.sourceActivityId,
-          sourceCorrespondenceEventId: "00000000-0000-4000-8000-000000000005",
-          subject: "Site visit details",
-          recipientIdentities: [],
-          ccRecipientIdentities: [],
-          normalizedPlainText: "exact text",
-          originalContentHash: `sha256:${"a".repeat(64)}`,
-          attachmentEvidenceIds: [],
-        })
-      ).rejects.toThrow("DELIVERED_TURN_SIDE_INVALID");
-      expect(rpc).not.toHaveBeenCalled();
-    }
-  );
 
   it("projects redactions without mutating the immutable stored turn", () => {
     const turn = {

@@ -21,6 +21,17 @@ describe("agent provider delivery source migration", () => {
     expect(sql).toContain("attachment_enumeration_complete boolean not null");
     expect(sql).toContain("check (attachment_enumeration_complete)");
     expect(sql).toContain("source_sha256 text not null");
+    expect(sql).toContain("normalized_subject text");
+    expect(sql).toContain("normalized_plain_text text not null");
+    expect(sql).toContain("normalization_revision text not null");
+    expect(sql).toContain("normalization_status text not null");
+    expect(sql).toContain("p_normalized_subject text");
+    expect(sql).toContain("p_normalized_plain_text text");
+    expect(sql).toContain("p_normalization_revision text");
+    expect(sql).toContain("p_normalization_status text");
+    expect(sql).toMatch(
+      /v_existing_source\.normalized_plain_text\s+is distinct from p_normalized_plain_text/
+    );
     expect(sql).toContain("octet_length(content_value) <= 8388608");
     expect(sql).toContain("octet_length(p_content_value) > 8388608");
     expect(sql).toContain("extensions.digest");
@@ -406,6 +417,10 @@ describe("agent provider delivery source migration", () => {
       "direction",
       "delivered_at",
       "subject",
+      "normalized_subject",
+      "normalized_plain_text",
+      "normalization_revision",
+      "normalization_status",
       "sender_identity",
       "recipient_identities",
       "cc_recipient_identities",

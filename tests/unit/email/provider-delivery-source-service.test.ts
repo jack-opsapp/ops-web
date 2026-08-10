@@ -342,6 +342,10 @@ describe("provider delivery source capture", () => {
         p_provider_message_id: "provider-message-1",
         p_direction: "inbound",
         p_subject: "Exact subject",
+        p_normalized_subject: "Exact subject",
+        p_normalized_plain_text: "Exact body",
+        p_normalization_revision: "ops.correspondence.normalized-text.v1",
+        p_normalization_status: "normalized",
         p_sender_identity: "jane.doe@example.com",
         p_recipient_identities: ["operator@example.com"],
         p_cc_recipient_identities: ["estimate@example.com"],
@@ -381,6 +385,39 @@ describe("provider delivery source capture", () => {
             from_email: "jane.doe@example.com",
           },
         ],
+      })
+    );
+  });
+
+  it("captures unsafe delivered content with a fixed prompt-safe projection", async () => {
+    const { supabase, rpc } = supabaseRpc();
+    const unsafeEmail = email();
+    unsafeEmail.providerDeliverySource = {
+      ...unsafeEmail.providerDeliverySource!,
+      value: "unsafe\u202econtent",
+    };
+
+    await expect(
+      captureProviderDeliveredEmailSource({
+        supabase,
+        connection: connection(),
+        provider: {
+          providerType: "gmail",
+          getAttachmentsFromMessage: vi.fn(async () => []),
+        },
+        email: unsafeEmail,
+        direction: "inbound",
+      })
+    ).resolves.toMatchObject({ sourceId: SOURCE_ID });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "capture_agent_provider_delivery_source_as_system",
+      expect.objectContaining({
+        p_normalized_subject: "[SUBJECT OMITTED: UNSAFE SOURCE]",
+        p_normalized_plain_text: "[CONTENT OMITTED: UNSAFE SOURCE]",
+        p_normalization_revision: "ops.correspondence.normalized-text.v1",
+        p_normalization_status: "rejected",
+        p_content_value: "unsafe\u202econtent",
       })
     );
   });
