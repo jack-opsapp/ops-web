@@ -25,12 +25,14 @@ import {
   useScheduleMetrics,
 } from "@/lib/hooks";
 import { useScheduledUserEvents } from "@/lib/hooks/use-calendar-user-events";
+import { useBookedVisits } from "@/lib/hooks/use-site-visits";
 import { MetricsHeader } from "@/components/metrics";
 import { useSchedulerShortcuts } from "@/lib/hooks/use-scheduler-shortcuts";
 import {
   type InternalScheduleEvent,
   mapTaskToInternalEvent,
   mapUserEventToInternalEvent,
+  mapSiteVisitToInternalEvent,
 } from "@/lib/utils/schedule-utils";
 import {
   scheduleViewVariants,
@@ -160,6 +162,20 @@ export default function SchedulePage() {
           queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "site_visits",
+          filter: `company_id=eq.${companyId}`,
+        },
+        () => {
+          // Booked-visit reads (the third source + the pipeline booking
+          // slot) key under the siteVisits tree, not calendar.
+          queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.all });
+        }
+      )
       .subscribe();
 
     return () => {
@@ -253,6 +269,11 @@ export default function SchedulePage() {
     rangeEnd
   );
 
+  // Booked site visits — the third source. Guarded read (booked_at
+  // discriminator) so walk-up/legacy captures with junk scheduled_at can
+  // never surface here.
+  const { data: bookedVisits } = useBookedVisits(rangeStart, rangeEnd);
+
   // Team members for timeline
   const { data: teamData } = useTeamMembers();
   const teamMembers: TeamMember[] = useMemo(() => {
@@ -273,8 +294,9 @@ export default function SchedulePage() {
       }));
   }, [teamData]);
 
-  // Map + filter events. Combines ProjectTasks and CalendarUserEvents so the
-  // grid renders both, matching iOS schedule parity.
+  // Map + filter events. Combines ProjectTasks, CalendarUserEvents, and
+  // booked site visits so the grid renders all three sources, matching iOS
+  // schedule parity.
   const events: InternalScheduleEvent[] = useMemo(() => {
     const taskEvents = (scheduledTasks ?? [])
       .map(mapTaskToInternalEvent)
@@ -284,7 +306,13 @@ export default function SchedulePage() {
       mapUserEventToInternalEvent
     );
 
-    let mapped: InternalScheduleEvent[] = [...taskEvents, ...userEvents];
+    const visitEvents = (bookedVisits ?? []).map(mapSiteVisitToInternalEvent);
+
+    let mapped: InternalScheduleEvent[] = [
+      ...taskEvents,
+      ...userEvents,
+      ...visitEvents,
+    ];
 
     if (filterTaskTypes.length > 0) {
       mapped = mapped.filter((e) => filterTaskTypes.includes(e.taskType));
@@ -317,11 +345,19 @@ export default function SchedulePage() {
   }, [
     scheduledTasks,
     scheduledUserEvents,
+    bookedVisits,
     filterTaskTypes,
     filterTeamMemberIds,
     filterProjectIds,
     filterStatuses,
   ]);
+
+  // Crew swimlanes are a task-scheduling surface — appointments stay off it
+  // (the spec's third source covers day / week / month only).
+  const crewEvents = useMemo(
+    () => events.filter((e) => e.kind !== "site_visit"),
+    [events]
+  );
 
   // Adverse-weather forecast for the weather-dependent events in the 6-day
   // window. Fires lazily on load; warning glyphs fade in when it resolves.
@@ -424,7 +460,7 @@ export default function SchedulePage() {
                   {view === "crew" && (
                     <CrewScrollContainer
                       currentDate={currentDate}
-                      events={events}
+                      events={crewEvents}
                       teamMembers={teamMembers}
                       onCurrentDateChange={setCurrentDate}
                       onEventClick={handleEventClick}
@@ -467,7 +503,7 @@ export default function SchedulePage() {
               startDate={timelineStartDate}
               daysShown={7}
               teamMembers={teamMembers}
-              events={events}
+              events={crewEvents}
             />
           )}
         </div>

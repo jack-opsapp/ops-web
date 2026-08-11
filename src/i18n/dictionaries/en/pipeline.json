@@ -263,6 +263,7 @@
   "detail.noResponseSince": "No response since last outbound",
   "nextSteps.bookVisit": "BOOK VISIT",
   "nextSteps.booked": "BOOKED — {slot}",
+  "booking.kindLabel": "// SITE VISIT",
   "booking.titleBook": "BOOK SITE VISIT",
   "booking.titleReschedule": "RESCHEDULE VISIT",
   "booking.date": "Date",

@@ -260,6 +260,7 @@
   "detail.noResponseSince": "Sin respuesta desde el último envío",
   "nextSteps.bookVisit": "AGENDAR VISITA",
   "nextSteps.booked": "AGENDADA — {slot}",
+  "booking.kindLabel": "// VISITA AL SITIO",
   "booking.titleBook": "AGENDAR VISITA AL SITIO",
   "booking.titleReschedule": "REPROGRAMAR VISITA",
   "booking.date": "Fecha",

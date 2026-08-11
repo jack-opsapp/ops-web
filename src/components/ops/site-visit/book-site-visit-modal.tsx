@@ -363,7 +363,16 @@ export function BookSiteVisitModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[440px]">
+      {/* Modal layer (3000) on panel + overlay: booking opens from inside
+          the floating deal window (itself z-[3000]) and from the calendar —
+          the arbitrary value replaces the base z-50 under tailwind-merge,
+          which the named .z-modal class cannot (both classes survive and
+          z-50 wins the cascade), and equal z + later portal order paints
+          the dialog above the window. */}
+      <DialogContent
+        className="z-[3000] max-w-[440px]"
+        overlayClassName="z-[3000]"
+      >
         <DialogHeader>
           <DialogTitle className="uppercase tracking-wider">
             {isReschedule
@@ -393,7 +402,7 @@ export function BookSiteVisitModal({
             />
           </div>
           {isPast && (
-            <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-rose">
+            <span className="font-mono text-micro uppercase tracking-[0.14em] text-rose">
               {t("booking.pastTime", "// PICK A FUTURE TIME")}
             </span>
           )}
@@ -445,7 +454,9 @@ export function BookSiteVisitModal({
                         "h-1.5 w-1.5 shrink-0 rounded-full transition-opacity duration-150",
                         selected ? "opacity-100" : "opacity-30"
                       )}
-                      style={{ backgroundColor: member.userColor ?? "#8A8A8A" }}
+                      style={{
+                        backgroundColor: member.userColor ?? "var(--text-3)",
+                      }}
                     />
                     {fullName}
                   </button>

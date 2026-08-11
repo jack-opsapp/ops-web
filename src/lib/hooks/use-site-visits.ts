@@ -9,11 +9,13 @@ import { queryKeys } from "../api/query-client";
 import {
   SiteVisitService,
   type BookSiteVisitInput,
+  type BookedVisitWithLead,
   type FetchSiteVisitsOptions,
   type RescheduleSiteVisitInput,
 } from "../api/services/site-visit-service";
 import type { CreateSiteVisit, SiteVisit, UpdateSiteVisit } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
+import { usePermissionStore } from "../store/permissions-store";
 
 export function useSiteVisits(options: FetchSiteVisitsOptions = {}) {
   const { company } = useAuthStore();
@@ -121,6 +123,46 @@ function invalidateBookingCaches(
   queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.all });
   queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
   queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+}
+
+/**
+ * Booked appointments in a date window — the schedule calendar's third
+ * source. Scope-aware like the user-events hook: without an `all` view
+ * scope the read narrows to visits the current user is going on.
+ */
+export function useBookedVisits(
+  rangeStart: Date | null,
+  rangeEnd: Date | null
+) {
+  const { company, currentUser } = useAuthStore();
+  const companyId = company?.id ?? "";
+
+  const calendarScope = usePermissionStore(
+    (s) => s.permissions.get("calendar.view")
+  );
+  const tasksScope = usePermissionStore((s) => s.permissions.get("tasks.view"));
+  const hasAllScope = calendarScope === "all" || tasksScope === "all";
+  const scopedUserId = !hasAllScope ? currentUser?.id : undefined;
+
+  const startIso = rangeStart?.toISOString() ?? "";
+  const endIso = rangeEnd?.toISOString() ?? "";
+
+  return useQuery<BookedVisitWithLead[]>({
+    queryKey: [
+      ...queryKeys.siteVisits.bookedRange(companyId, startIso, endIso),
+      scopedUserId ?? "",
+    ],
+    queryFn: () =>
+      SiteVisitService.getBookedVisitsInRange(
+        companyId,
+        rangeStart!,
+        rangeEnd!,
+        scopedUserId ? { assigneeId: scopedUserId } : {}
+      ),
+    enabled: !!companyId && !!rangeStart && !!rangeEnd,
+    // Keep the previous range visible during background refetches on scroll.
+    placeholderData: (previousData) => previousData,
+  });
 }
 
 /**

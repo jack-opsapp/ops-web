@@ -61,6 +61,7 @@ function fakeQueryBuilder(payload: { data: unknown; error: unknown }) {
     "lte",
     "order",
     "limit",
+    "contains",
   ]) {
     builder[method] = record(method);
   }
@@ -404,6 +405,66 @@ describe("SiteVisitService.getBookedVisitsInRange", () => {
     );
     expect(visits[0].bookedAt).toBeNull();
     expect(visits[0].reminderLeadMinutes).toBeNull();
+  });
+
+  it("carries the lead embed through (title, address, client name)", async () => {
+    const { builder } = fakeQueryBuilder({
+      data: [
+        bookedRow({
+          opportunity: {
+            id: OPP_ID,
+            title: "Greenway re-roof",
+            address: "1180 Howe St, Vancouver, BC",
+            client: { name: "Greenway Property Group" },
+          },
+        }),
+      ],
+      error: null,
+    });
+    requireSupabaseMock.mockReturnValue({
+      from: vi.fn().mockReturnValue(builder),
+      rpc: rpcMock,
+    });
+
+    const visits = await SiteVisitService.getBookedVisitsInRange(
+      COMPANY_ID,
+      RANGE_START,
+      RANGE_END
+    );
+    expect(visits[0].lead).toEqual({
+      id: OPP_ID,
+      title: "Greenway re-roof",
+      address: "1180 Howe St, Vancouver, BC",
+      clientName: "Greenway Property Group",
+    });
+
+    // No embed (lead deleted out from under the visit) → null, never a throw.
+    const bare = await SiteVisitService.getBookedVisitsInRange(
+      COMPANY_ID,
+      RANGE_START,
+      RANGE_END
+    );
+    expect(bare[0].lead ?? null).not.toBeUndefined();
+  });
+
+  it("scopes to an assignee when the caller lacks all-visits scope", async () => {
+    const { builder, calls } = fakeQueryBuilder({ data: [], error: null });
+    requireSupabaseMock.mockReturnValue({
+      from: vi.fn().mockReturnValue(builder),
+      rpc: rpcMock,
+    });
+
+    await SiteVisitService.getBookedVisitsInRange(
+      COMPANY_ID,
+      RANGE_START,
+      RANGE_END,
+      { assigneeId: USER_A }
+    );
+
+    expect(calls).toContainEqual({
+      method: "contains",
+      args: ["assignee_ids", [USER_A]],
+    });
   });
 });
 

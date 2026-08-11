@@ -94,6 +94,31 @@ export interface RescheduleSiteVisitInput {
   reminderLeadMinutes?: number;
 }
 
+/** Lead context embedded on calendar reads — a booking is always lead-attached. */
+export interface BookedVisitLead {
+  id: string;
+  title: string;
+  address: string | null;
+  clientName: string | null;
+}
+
+export type BookedVisitWithLead = SiteVisit & {
+  /** Null only if the lead row is unreadable (deleted out from under the visit). */
+  lead: BookedVisitLead | null;
+};
+
+function mapLeadEmbed(row: Record<string, unknown>): BookedVisitLead | null {
+  const lead = row.opportunity as Record<string, unknown> | null | undefined;
+  if (!lead) return null;
+  const client = lead.client as Record<string, unknown> | null | undefined;
+  return {
+    id: lead.id as string,
+    title: (lead.title as string) ?? "",
+    address: (lead.address as string) ?? null,
+    clientName: (client?.name as string) ?? null,
+  };
+}
+
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
 function mapFromDb(row: Record<string, unknown>): SiteVisit {
@@ -384,25 +409,36 @@ export const SiteVisitService = {
   async getBookedVisitsInRange(
     companyId: string,
     rangeStart: Date,
-    rangeEnd: Date
-  ): Promise<SiteVisit[]> {
+    rangeEnd: Date,
+    options: { assigneeId?: string } = {}
+  ): Promise<BookedVisitWithLead[]> {
     const supabase = requireSupabase();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("site_visits")
-      .select("*")
+      .select("*, opportunity:opportunities(id, title, address, client:clients(name))")
       .eq("company_id", companyId)
       .not("booked_at", "is", null)
       .is("deleted_at", null)
       .in("status", ["scheduled", "in_progress"])
       .gte("scheduled_at", rangeStart.toISOString())
-      .lte("scheduled_at", rangeEnd.toISOString())
-      .order("scheduled_at", { ascending: true });
+      .lte("scheduled_at", rangeEnd.toISOString());
+
+    if (options.assigneeId) {
+      query = query.contains("assignee_ids", [options.assigneeId]);
+    }
+
+    const { data, error } = await query.order("scheduled_at", {
+      ascending: true,
+    });
 
     if (error) {
       throw new Error(`Failed to fetch booked visits: ${error.message}`);
     }
-    return (data ?? []).map(mapFromDb);
+    return (data ?? []).map((row) => ({
+      ...mapFromDb(row),
+      lead: mapLeadEmbed(row),
+    }));
   },
 
   /**

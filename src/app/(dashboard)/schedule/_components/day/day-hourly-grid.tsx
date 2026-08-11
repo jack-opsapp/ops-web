@@ -39,6 +39,7 @@ import {
 import { useTeamMembers } from "@/lib/hooks";
 import { UserAvatar } from "@/components/ops/user-avatar";
 import { useDictionary } from "@/i18n/client";
+import { SiteVisitTimedBlock } from "../site-visits/site-visit-event";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -480,17 +481,28 @@ export function DayHourlyGrid({
               bottom: 0,
             }}
           >
-            {columns.map(({ event, columnIndex, totalColumns }) => (
-              <TimedBlock
-                key={event.id}
-                event={event}
-                columnIndex={columnIndex}
-                totalColumns={totalColumns}
-                onClick={onEventClick}
-                onResize={handleResize}
-                t={t}
-              />
-            ))}
+            {columns.map(({ event, columnIndex, totalColumns }) =>
+              event.kind === "site_visit" ? (
+                // Appointments: no drag, no resize handles — the visit
+                // popover owns reschedule/cancel.
+                <SiteVisitTimedBlock
+                  key={event.id}
+                  event={event}
+                  columnIndex={columnIndex}
+                  totalColumns={totalColumns}
+                />
+              ) : (
+                <TimedBlock
+                  key={event.id}
+                  event={event}
+                  columnIndex={columnIndex}
+                  totalColumns={totalColumns}
+                  onClick={onEventClick}
+                  onResize={handleResize}
+                  t={t}
+                />
+              )
+            )}
           </div>
         </div>
       </div>
