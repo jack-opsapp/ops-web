@@ -15,13 +15,29 @@
 
 import "server-only";
 
+import { createHash } from "crypto";
+
 const ONESIGNAL_API_URL = "https://onesignal.com/api/v1/notifications";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-export interface SendOneSignalPushParams {
-  /** OneSignal subscription IDs (`onesignal_player_id` column on users). */
-  playerIds: string[];
+export type OneSignalPushTarget =
+  | {
+      /** OneSignal subscription IDs (`onesignal_player_id` column on users). */
+      playerIds: string[];
+      externalUserIds?: never;
+    }
+  | {
+      /**
+       * OneSignal `external_id` aliases. Both clients register the Supabase
+       * `users.id` as the external id (iOS `OneSignal.login(userId)`), so this
+       * targets users directly without a player-id lookup or staleness risk.
+       */
+      externalUserIds: string[];
+      playerIds?: never;
+    };
+
+export type SendOneSignalPushParams = OneSignalPushTarget & {
   /** Push title. Keep under 60 characters for all-device readability. */
   title: string;
   /** Push body. Keep under 100 characters. */
@@ -30,7 +46,14 @@ export interface SendOneSignalPushParams {
   data: Record<string, unknown>;
   /** iOS badge increment (default: 1). Pass 0 to skip badge update. */
   iosBadgeIncrement?: number;
-}
+  /**
+   * OneSignal idempotency key — must be UUID-shaped. Reused across the
+   * in-helper 5xx/network retries so a delivered-but-unacknowledged send is
+   * never duplicated. Derive from a stable seed via
+   * `deterministicIdempotencyKey` for cron-fired notifications.
+   */
+  idempotencyKey?: string;
+};
 
 export type OneSignalErrorCategory =
   | "non_retryable"   // 4xx — bad request, invalid player_ids, auth failure
@@ -87,11 +110,20 @@ async function postToOneSignal(
   const badgeIncrement = params.iosBadgeIncrement ?? 1;
   const body: Record<string, unknown> = {
     app_id: appId,
-    include_player_ids: params.playerIds,
     headings: { en: params.title },
     contents: { en: params.body },
     data: params.data,
   };
+  if (params.externalUserIds) {
+    body.include_aliases = { external_id: params.externalUserIds };
+    // Alias targeting requires an explicit delivery channel per the API.
+    body.target_channel = "push";
+  } else {
+    body.include_player_ids = params.playerIds;
+  }
+  if (params.idempotencyKey) {
+    body.idempotency_key = params.idempotencyKey;
+  }
   if (badgeIncrement > 0) {
     body.ios_badgeType = "Increase";
     body.ios_badgeCount = badgeIncrement;
@@ -128,6 +160,22 @@ async function postToOneSignal(
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
+ * Derive a stable, UUID-shaped OneSignal idempotency key from a seed.
+ *
+ * OneSignal requires `idempotency_key` to be a UUID, but cron-fired sends need
+ * determinism (same logical prompt → same key across retries and re-runs), so
+ * this hashes the seed and formats the digest with RFC 9562 version/variant
+ * bits rather than generating a random UUID.
+ */
+export function deterministicIdempotencyKey(seed: string): string {
+  const digest = createHash("sha256").update(seed).digest();
+  digest[6] = (digest[6] & 0x0f) | 0x40; // version 4 nibble
+  digest[8] = (digest[8] & 0x3f) | 0x80; // RFC 9562 variant
+  const hex = digest.subarray(0, 16).toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+}
+
+/**
  * Send a push notification to one or more OneSignal subscribers.
  *
  * Always resolves — never throws. Failures are logged with category context
@@ -149,7 +197,10 @@ export async function sendOneSignalPush(
     return { ok: false, category: "env_missing", message: "env vars absent" };
   }
 
-  if (params.playerIds.length === 0) {
+  const targetCount = params.externalUserIds
+    ? params.externalUserIds.length
+    : params.playerIds.length;
+  if (targetCount === 0) {
     return { ok: true }; // no-op, not an error
   }
 
