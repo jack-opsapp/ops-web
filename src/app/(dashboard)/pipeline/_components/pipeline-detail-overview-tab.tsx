@@ -94,7 +94,6 @@ import {
   TextAreaField,
 } from "./lead-field-editors";
 import { PipelineDetailDeckSection } from "./pipeline-detail-deck-section";
-import { CreateSiteVisitModal } from "@/components/ops/site-visit/create-site-visit-modal";
 
 const EMPTY = "—";
 
@@ -836,7 +835,8 @@ function siteVisitChipVariant(status: SiteVisitStatus): ChipVariant {
  * Everything attached to the deal: estimates (list gated on `estimates.view` —
  * the hook returns `undefined` data when denied), the converted project (display
  * + open only — conversion is owned by the won-deal flow, NOT here), and site
- * visits (with a wired **Schedule** affordance via {@link CreateSiteVisitModal}).
+ * visits (read-only history — booking lives on the next-steps strip, the
+ * single state-aware entry point).
  *
  * A **New estimate** action (gated on `estimates.create`) opens the global
  * `CreateEstimateForm` floating window scoped to this deal — a dedicated
@@ -865,7 +865,6 @@ function LinkedSection({
   const openWindow = useWindowStore((s) => s.openWindow);
   const estimatesQuery = useEstimates({ opportunityId: opportunity.id });
   const siteVisitsQuery = useSiteVisits({ opportunityId: opportunity.id });
-  const [scheduling, setScheduling] = useState(false);
 
   const guardedContextMode = assignedContext !== undefined;
   const estimates: Array<Estimate | OpportunityAssignedContextEstimate> =
@@ -946,26 +945,17 @@ function LinkedSection({
             </Stack>
           ) : null}
 
-          {/* ── Site visits ───────────────────────────────────────────── */}
+          {/* ── Site visits ───────────────────────────────────────────────
+              Read-only history (walk-up captures + booked appointments).
+              Booking lives on the next-steps strip — one entry point,
+              state-aware — so no verb belongs on this scan surface. */}
           <Stack gap={1}>
-            <Inline justify="between">
-              <Mono color="text-3" size={11}>
-                {t("overview.siteVisits", "Site visits")}
-              </Mono>
-              {canManage ? (
-                <button
-                  type="button"
-                  onClick={() => setScheduling(true)}
-                  className="inline-flex items-center gap-1 font-mono text-micro uppercase tracking-[0.14em] text-text-3 transition-colors duration-150 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
-                >
-                  <Plus className="h-2.5 w-2.5" strokeWidth={2} />
-                  {t("overview.schedule", "Schedule")}
-                </button>
-              ) : null}
-            </Inline>
+            <Mono color="text-3" size={11}>
+              {t("overview.siteVisits", "Site visits")}
+            </Mono>
             {siteVisits.length === 0 ? (
               <Mono color="text-3" size={11}>
-                {t("overview.noSiteVisits", "[ none scheduled ]")}
+                {t("overview.noSiteVisits", "[ none yet ]")}
               </Mono>
             ) : (
               <Stack gap={0.5}>
@@ -976,16 +966,6 @@ function LinkedSection({
             )}
           </Stack>
         </Stack>
-
-        {canManage ? (
-          <CreateSiteVisitModal
-            opportunityId={opportunity.id}
-            clientId={assignedContext?.contact.id ?? opportunity.clientId}
-            currentStage={opportunity.stage}
-            open={scheduling}
-            onOpenChange={setScheduling}
-          />
-        ) : null}
       </div>
     </Section>
   );
