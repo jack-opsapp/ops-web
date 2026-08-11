@@ -280,7 +280,7 @@ describe("bounded correspondence evidence repository", () => {
           p_permission_snapshot_revision: AUTHORITY_REVISION,
           p_capability_id: "get_correspondence_evidence",
           p_capability_revision: "get_correspondence_evidence:2026-08-07.v1",
-          p_capability_manifest_revision: "2026-08-07.capability-manifest.v1",
+          p_capability_manifest_revision: "2026-08-10.capability-manifest.v2",
           p_required_oauth_scope: "ops.correspondence.read",
           p_inbox_scope: "all",
           p_evidence_ids: ["evidence-1"],

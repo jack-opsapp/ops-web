@@ -233,7 +233,7 @@ begin
        is distinct from
          'get_correspondence_evidence:2026-08-07.v1'
      or p_capability_manifest_revision
-       is distinct from '2026-08-07.capability-manifest.v1'
+       is distinct from '2026-08-10.capability-manifest.v2'
      or p_required_oauth_scope
        is distinct from 'ops.correspondence.read'
      or p_inbox_scope is null

@@ -73,7 +73,7 @@ describe("agent correspondence evidence read migration", () => {
       "p_capability_id is distinct from 'get_correspondence_evidence'"
     );
     expect(compact).toContain("'get_correspondence_evidence:2026-08-07.v1'");
-    expect(compact).toContain("'2026-08-07.capability-manifest.v1'");
+    expect(compact).toContain("'2026-08-10.capability-manifest.v2'");
     expect(compact).toContain("'ops.correspondence.read'");
     expect(compact).toContain("cardinality(p_evidence_ids) > 20");
   });

@@ -5,6 +5,7 @@ import {
   MoneySchema,
   OpaqueIdSchema,
   Rfc3339UtcTimestampSchema,
+  ScheduleInstantSchema,
 } from "@/lib/agent-control-plane/contracts/common";
 import { JobRefSchema } from "@/lib/agent-control-plane/contracts/jobs";
 import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
@@ -201,6 +202,62 @@ const ClientMessageBatchInputSchema = z
   })
   .strict();
 
+const OpportunityRefSchema = z
+  .object({
+    kind: z.literal("opportunity"),
+    id: OpaqueIdSchema,
+  })
+  .strict();
+const UniqueAssigneeIdsSchema = z
+  .array(OpaqueIdSchema)
+  .min(1)
+  .max(MAX_WRITE_ITEMS)
+  .refine(
+    (assigneeIds) => new Set(assigneeIds).size === assigneeIds.length,
+    "Site-visit assignees must be unique"
+  );
+const UniqueSourceEvidenceIdsSchema = z
+  .array(OpaqueIdSchema)
+  .max(20)
+  .refine(
+    (evidenceIds) => new Set(evidenceIds).size === evidenceIds.length,
+    "Source evidence IDs must be unique"
+  );
+const SiteVisitAppointmentFields = {
+  scheduled_start: ScheduleInstantSchema,
+  assignee_ids: UniqueAssigneeIdsSchema.optional(),
+  reminder_lead_minutes: z
+    .number()
+    .int()
+    .min(0)
+    .max(1_440)
+    .nullable()
+    .optional(),
+  source_evidence_ids: UniqueSourceEvidenceIdsSchema.optional(),
+  idempotency_key: IdempotencyKeySchema,
+} as const;
+const SiteVisitBookingInputSchema = z
+  .object({
+    opportunity_ref: OpportunityRefSchema,
+    ...SiteVisitAppointmentFields,
+    duration_minutes: z.number().int().min(15).max(480).default(60),
+  })
+  .strict();
+const SiteVisitRescheduleInputSchema = z
+  .object({
+    site_visit_id: OpaqueIdSchema,
+    ...SiteVisitAppointmentFields,
+    duration_minutes: z.number().int().min(15).max(480).optional(),
+  })
+  .strict();
+const SiteVisitBookingCancellationInputSchema = z
+  .object({
+    site_visit_id: OpaqueIdSchema,
+    source_evidence_ids: UniqueSourceEvidenceIdsSchema.optional(),
+    idempotency_key: IdempotencyKeySchema,
+  })
+  .strict();
+
 function permission(
   permissionName: CapabilityPermissionRequirement["permission"],
   allowedScopes: CapabilityPermissionRequirement["allowedScopes"]
@@ -212,6 +269,7 @@ function writeMetadata(input: {
   operation: "prepare" | "commit";
   riskTier: CapabilityRiskTier;
   maxBatchItems: number;
+  evidenceInput?: "not_required" | "optional" | "required";
   external?: boolean;
 }) {
   return {
@@ -225,7 +283,7 @@ function writeMetadata(input: {
     evidencePolicy: {
       input:
         input.operation === "prepare"
-          ? ("required" as const)
+          ? (input.evidenceInput ?? ("required" as const))
           : ("prepared_change_set" as const),
       output: "required" as const,
       maxEvidenceRefs: 20,
@@ -550,5 +608,183 @@ export const WRITE_CAPABILITY_DEFINITIONS = [
       external: true,
     }),
     rolloutFlag: "agent_control_plane.capability.commit_client_message_batch",
+  },
+  {
+    name: "prepare_site_visit_booking",
+    schemaRevision: CONTRACT_VERSION,
+    operation: "prepare",
+    writeFamily: "site_visit_booking",
+    description:
+      "Preview one lead-attached site-visit booking in the company's timezone. Does not book or change a calendar.",
+    inputSchema: SiteVisitBookingInputSchema,
+    authorization: {
+      variants: [
+        {
+          key: "site_visit_booking",
+          selector: { kind: "always" },
+          requiredOAuthScopes: ["ops.jobs.prepare", "ops.schedule.prepare"],
+          permissionRequirementGroups: [
+            [permission("pipeline.convert", ["all", "assigned"])],
+          ],
+        },
+      ],
+    },
+    confirmationPolicy: prepareConfirmation(),
+    ...writeMetadata({
+      operation: "prepare",
+      riskTier: "high",
+      maxBatchItems: 1,
+      evidenceInput: "optional",
+    }),
+    rolloutFlag: "agent_control_plane.capability.prepare_site_visit_booking",
+  },
+  {
+    name: "commit_site_visit_booking",
+    schemaRevision: CONTRACT_VERSION,
+    operation: "commit",
+    writeFamily: "site_visit_booking",
+    description:
+      "Book one confirmed site visit and return its calendar reconciliation state.",
+    inputSchema: CommitChangeSetInputSchema,
+    authorization: {
+      variants: [
+        {
+          key: "site_visit_booking",
+          selector: { kind: "always" },
+          requiredOAuthScopes: ["ops.jobs.write", "ops.schedule.write"],
+          permissionRequirementGroups: [
+            [permission("pipeline.convert", ["all", "assigned"])],
+          ],
+        },
+      ],
+    },
+    confirmationPolicy: commitConfirmation("prepare_site_visit_booking"),
+    ...writeMetadata({
+      operation: "commit",
+      riskTier: "high",
+      maxBatchItems: 1,
+      external: true,
+    }),
+    rolloutFlag: "agent_control_plane.capability.commit_site_visit_booking",
+  },
+  {
+    name: "prepare_site_visit_reschedule",
+    schemaRevision: CONTRACT_VERSION,
+    operation: "prepare",
+    writeFamily: "site_visit_reschedule",
+    description:
+      "Preview one site-visit reschedule in the company's timezone. Does not change the visit or its calendar event.",
+    inputSchema: SiteVisitRescheduleInputSchema,
+    authorization: {
+      variants: [
+        {
+          key: "site_visit_reschedule",
+          selector: { kind: "always" },
+          requiredOAuthScopes: ["ops.jobs.prepare", "ops.schedule.prepare"],
+          permissionRequirementGroups: [
+            [permission("pipeline.convert", ["all", "assigned"])],
+          ],
+        },
+      ],
+    },
+    confirmationPolicy: prepareConfirmation(),
+    ...writeMetadata({
+      operation: "prepare",
+      riskTier: "high",
+      maxBatchItems: 1,
+      evidenceInput: "optional",
+    }),
+    rolloutFlag: "agent_control_plane.capability.prepare_site_visit_reschedule",
+  },
+  {
+    name: "commit_site_visit_reschedule",
+    schemaRevision: CONTRACT_VERSION,
+    operation: "commit",
+    writeFamily: "site_visit_reschedule",
+    description:
+      "Reschedule one confirmed site visit and return its calendar reconciliation state.",
+    inputSchema: CommitChangeSetInputSchema,
+    authorization: {
+      variants: [
+        {
+          key: "site_visit_reschedule",
+          selector: { kind: "always" },
+          requiredOAuthScopes: ["ops.jobs.write", "ops.schedule.write"],
+          permissionRequirementGroups: [
+            [permission("pipeline.convert", ["all", "assigned"])],
+          ],
+        },
+      ],
+    },
+    confirmationPolicy: commitConfirmation("prepare_site_visit_reschedule"),
+    ...writeMetadata({
+      operation: "commit",
+      riskTier: "high",
+      maxBatchItems: 1,
+      external: true,
+    }),
+    rolloutFlag: "agent_control_plane.capability.commit_site_visit_reschedule",
+  },
+  {
+    name: "prepare_site_visit_booking_cancellation",
+    schemaRevision: CONTRACT_VERSION,
+    operation: "prepare",
+    writeFamily: "site_visit_booking_cancellation",
+    description:
+      "Preview one site-visit cancellation. Does not change the visit or its calendar event.",
+    inputSchema: SiteVisitBookingCancellationInputSchema,
+    authorization: {
+      variants: [
+        {
+          key: "site_visit_booking_cancellation",
+          selector: { kind: "always" },
+          requiredOAuthScopes: ["ops.jobs.prepare", "ops.schedule.prepare"],
+          permissionRequirementGroups: [
+            [permission("pipeline.convert", ["all", "assigned"])],
+          ],
+        },
+      ],
+    },
+    confirmationPolicy: prepareConfirmation(),
+    ...writeMetadata({
+      operation: "prepare",
+      riskTier: "high",
+      maxBatchItems: 1,
+      evidenceInput: "optional",
+    }),
+    rolloutFlag:
+      "agent_control_plane.capability.prepare_site_visit_booking_cancellation",
+  },
+  {
+    name: "commit_site_visit_booking_cancellation",
+    schemaRevision: CONTRACT_VERSION,
+    operation: "commit",
+    writeFamily: "site_visit_booking_cancellation",
+    description:
+      "Cancel one confirmed site-visit booking and return its calendar reconciliation state.",
+    inputSchema: CommitChangeSetInputSchema,
+    authorization: {
+      variants: [
+        {
+          key: "site_visit_booking_cancellation",
+          selector: { kind: "always" },
+          requiredOAuthScopes: ["ops.jobs.write", "ops.schedule.write"],
+          permissionRequirementGroups: [
+            [permission("pipeline.convert", ["all", "assigned"])],
+          ],
+        },
+      ],
+    },
+    confirmationPolicy: commitConfirmation(
+      "prepare_site_visit_booking_cancellation"
+    ),
+    ...writeMetadata({
+      operation: "commit",
+      riskTier: "high",
+      maxBatchItems: 1,
+      external: true,
+    }),
+    rolloutFlag:
+      "agent_control_plane.capability.commit_site_visit_booking_cancellation",
   },
 ] as const satisfies readonly CapabilityDefinition[];

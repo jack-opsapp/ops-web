@@ -237,6 +237,86 @@ const JobParticipantsInputSchema = z
   })
   .strict();
 
+const SiteVisitStatusSchema = z.enum([
+  "scheduled",
+  "in_progress",
+  "completed",
+  "cancelled",
+]);
+const UniqueSiteVisitStatusesSchema = z
+  .array(SiteVisitStatusSchema)
+  .max(4)
+  .refine(
+    (statuses) => new Set(statuses).size === statuses.length,
+    "Site-visit statuses must be unique"
+  );
+const OpportunityRefSchema = z
+  .object({
+    kind: z.literal("opportunity"),
+    id: OpaqueIdSchema,
+  })
+  .strict();
+const SiteVisitListFilters = {
+  assignee_id: OpaqueIdSchema.optional(),
+  opportunity_ref: OpportunityRefSchema.optional(),
+} as const;
+const SiteVisitListInputSchema = z
+  .discriminatedUnion("view", [
+    CursorRequestSchema.extend({
+      view: z.literal("booked_appointments"),
+      from: Rfc3339UtcTimestampSchema,
+      to: Rfc3339UtcTimestampSchema,
+      statuses: UniqueSiteVisitStatusesSchema.default([
+        "scheduled",
+        "in_progress",
+      ]),
+      ...SiteVisitListFilters,
+    }).strict(),
+    CursorRequestSchema.extend({
+      view: z.literal("visit_history"),
+      created_from: Rfc3339UtcTimestampSchema,
+      created_to: Rfc3339UtcTimestampSchema,
+      statuses: UniqueSiteVisitStatusesSchema.optional(),
+      include_unlinked: z.boolean().default(false),
+      ...SiteVisitListFilters,
+    }).strict(),
+  ])
+  .superRefine((input, context) => {
+    const from =
+      input.view === "booked_appointments" ? input.from : input.created_from;
+    const to =
+      input.view === "booked_appointments" ? input.to : input.created_to;
+    const maximumDays = input.view === "booked_appointments" ? 90 : 365;
+    if (!validWindow(from, to, maximumDays)) {
+      context.addIssue({
+        code: "custom",
+        path: [input.view === "booked_appointments" ? "to" : "created_to"],
+        message: `Site-visit window must be positive and no longer than ${maximumDays} days`,
+      });
+    }
+  });
+
+const SiteVisitContextFields = {
+  site_visit_id: OpaqueIdSchema,
+  artifact_evidence_limit: z.number().int().min(0).max(20).default(0),
+  timeline_activity_limit: z.number().int().min(1).max(20).default(10),
+} as const;
+const SiteVisitContextInputSchema = z.discriminatedUnion("anchor", [
+  z
+    .object({
+      anchor: z.literal("opportunity"),
+      opportunity_ref: OpportunityRefSchema,
+      ...SiteVisitContextFields,
+    })
+    .strict(),
+  z
+    .object({
+      anchor: z.literal("unlinked"),
+      ...SiteVisitContextFields,
+    })
+    .strict(),
+]);
+
 function permission(
   permissionName: CapabilityPermissionRequirementName,
   allowedScopes: readonly ("all" | "assigned" | "own")[]
@@ -300,10 +380,7 @@ function readMetadata(input: {
   maxWindowDays?: number;
   evidenceInput?: "not_required" | "optional" | "required";
   auditClass?:
-    | "operational_read"
-    | "sensitive_read"
-    | "evidence_read"
-    | "search_read";
+    "operational_read" | "sensitive_read" | "evidence_read" | "search_read";
   rateLimitBucket?: "lightweight_read" | "evidence_search";
 }) {
   return {
@@ -762,5 +839,131 @@ export const READ_CAPABILITY_DEFINITIONS = [
       auditClass: "sensitive_read",
     }),
     rolloutFlag: "agent_control_plane.capability.resolve_job_participants",
+  },
+  {
+    name: "list_site_visits",
+    schemaRevision: CONTRACT_VERSION,
+    operation: "read",
+    description:
+      "Return non-deleted booked appointments or visit history. Booked mode requires booked_at and defaults to active visits. History uses created_at, never legacy scheduled_at.",
+    inputSchema: SiteVisitListInputSchema,
+    authorization: {
+      variants: [
+        {
+          key: "booked_appointments",
+          selector: {
+            kind: "input_value",
+            field: "view",
+            value: "booked_appointments",
+          },
+          requiredOAuthScopes: [
+            "ops.customers.read",
+            "ops.jobs.read",
+            "ops.schedule.read",
+          ],
+          permissionRequirementGroups: [
+            [
+              permission("calendar.view", ["all", "own"]),
+              permission("clients.view", ["all", "assigned"]),
+              permission("pipeline.view", ["all", "assigned"]),
+            ],
+          ],
+        },
+        {
+          key: "visit_history",
+          selector: {
+            kind: "input_value",
+            field: "view",
+            value: "visit_history",
+          },
+          requiredOAuthScopes: [
+            "ops.customers.read",
+            "ops.jobs.read",
+            "ops.schedule.read",
+          ],
+          permissionRequirementGroups: [
+            [
+              permission("calendar.view", ["all", "own"]),
+              permission("clients.view", ["all", "assigned"]),
+              permission("pipeline.view", ["all", "assigned"]),
+            ],
+          ],
+        },
+        {
+          key: "unlinked_history",
+          selector: {
+            kind: "input_value",
+            field: "include_unlinked",
+            value: true,
+          },
+          requiredOAuthScopes: ["ops.jobs.read"],
+          permissionRequirementGroups: [[permission("pipeline.view", ["all"])]],
+        },
+      ],
+    },
+    ...readMetadata({
+      riskTier: "medium",
+      maxResultItems: 50,
+      maxWindowDays: 365,
+      auditClass: "sensitive_read",
+    }),
+    rolloutFlag: "agent_control_plane.capability.list_site_visits",
+  },
+  {
+    name: "get_site_visit_context",
+    schemaRevision: CONTRACT_VERSION,
+    operation: "read",
+    description:
+      "Return one non-deleted visit's lead, booking, checklist, review-ready artifact, evidence, and timeline context. Excludes deleted satellites.",
+    inputSchema: SiteVisitContextInputSchema,
+    authorization: {
+      variants: [
+        {
+          key: "opportunity",
+          selector: {
+            kind: "input_value",
+            field: "anchor",
+            value: "opportunity",
+          },
+          requiredOAuthScopes: [
+            "ops.customers.read",
+            "ops.jobs.read",
+            "ops.photos.read",
+            "ops.schedule.read",
+          ],
+          permissionRequirementGroups: [
+            [
+              permission("calendar.view", ["all", "own"]),
+              permission("clients.view", ["all", "assigned"]),
+              permission("photos.view", ["all", "assigned"]),
+              permission("pipeline.view", ["all", "assigned"]),
+            ],
+          ],
+        },
+        {
+          key: "unlinked",
+          selector: {
+            kind: "input_value",
+            field: "anchor",
+            value: "unlinked",
+          },
+          requiredOAuthScopes: ["ops.jobs.read", "ops.photos.read"],
+          permissionRequirementGroups: [
+            [
+              permission("photos.view", ["all"]),
+              permission("pipeline.view", ["all"]),
+            ],
+          ],
+        },
+      ],
+    },
+    ...readMetadata({
+      riskTier: "high",
+      maxResultItems: 20,
+      evidenceInput: "optional",
+      auditClass: "evidence_read",
+      rateLimitBucket: "evidence_search",
+    }),
+    rolloutFlag: "agent_control_plane.capability.get_site_visit_context",
   },
 ] as const satisfies readonly CapabilityDefinition[];

@@ -45,10 +45,7 @@ export type CapabilityAuditClass =
   | "mutation_commit"
   | "external_commit";
 export type CapabilityRateLimitBucket =
-  | "lightweight_read"
-  | "evidence_search"
-  | "prepare"
-  | "commit";
+  "lightweight_read" | "evidence_search" | "prepare" | "commit";
 
 /** Structural subset of the MCP ToolAnnotations contract. */
 export interface CapabilityMcpAnnotations {
@@ -68,10 +65,7 @@ export interface CapabilityBounds {
 
 export interface CapabilityEvidencePolicy {
   readonly input:
-    | "not_required"
-    | "optional"
-    | "required"
-    | "prepared_change_set";
+    "not_required" | "optional" | "required" | "prepared_change_set";
   readonly output: "required";
   readonly maxEvidenceRefs: number;
   readonly promptSafeOutput: true;
@@ -126,6 +120,21 @@ export type CapabilityAuthorizationSelector =
       kind: "input_value";
       field: "mode";
       value: "import" | "edit";
+    }>
+  | Readonly<{
+      kind: "input_value";
+      field: "view";
+      value: "booked_appointments" | "visit_history";
+    }>
+  | Readonly<{
+      kind: "input_value";
+      field: "include_unlinked";
+      value: true;
+    }>
+  | Readonly<{
+      kind: "input_value";
+      field: "anchor";
+      value: "opportunity" | "unlinked";
     }>;
 
 export interface CapabilityAuthorizationVariantDefinition {
@@ -190,6 +199,9 @@ const GENERIC_CAPABILITY_PATTERNS = [
   /(^|_)crud(_|$)/,
   /^execute_action$/,
   /^fetch_url$/,
+] as const;
+const PROHIBITED_DOMAIN_CAPABILITY_PATTERNS = [
+  /(^|_)(start_site_visit|complete_site_visit|site_visit_start|site_visit_complete)(_|$)/,
 ] as const;
 
 function requiredNonBlank(value: unknown, field: string): string {
@@ -342,7 +354,10 @@ export function assertCapabilityManifestInvariants(
     const name = requiredNonBlank(entry.name, "capability.name");
     if (
       !CAPABILITY_NAME_PATTERN.test(name) ||
-      GENERIC_CAPABILITY_PATTERNS.some((pattern) => pattern.test(name))
+      GENERIC_CAPABILITY_PATTERNS.some((pattern) => pattern.test(name)) ||
+      PROHIBITED_DOMAIN_CAPABILITY_PATTERNS.some((pattern) =>
+        pattern.test(name)
+      )
     ) {
       throw new TypeError(`${name} is not a permitted capability name`);
     }

@@ -26,6 +26,8 @@ const EXPECTED_CAPABILITIES = [
   ["search_job_history", "read"],
   ["get_correspondence_evidence", "read"],
   ["resolve_job_participants", "read"],
+  ["list_site_visits", "read"],
+  ["get_site_visit_context", "read"],
   ["prepare_project_cost_allocation", "prepare"],
   ["commit_project_cost_allocation", "commit"],
   ["prepare_estimate_import", "prepare"],
@@ -34,6 +36,12 @@ const EXPECTED_CAPABILITIES = [
   ["commit_catalog_service_change", "commit"],
   ["prepare_client_message_batch", "prepare"],
   ["commit_client_message_batch", "commit"],
+  ["prepare_site_visit_booking", "prepare"],
+  ["commit_site_visit_booking", "commit"],
+  ["prepare_site_visit_reschedule", "prepare"],
+  ["commit_site_visit_reschedule", "commit"],
+  ["prepare_site_visit_booking_cancellation", "prepare"],
+  ["commit_site_visit_booking_cancellation", "commit"],
 ] as const;
 
 const EXPECTED_ANNOTATIONS = {
@@ -46,6 +54,8 @@ const EXPECTED_ANNOTATIONS = {
   search_job_history: [true, false, true, false],
   get_correspondence_evidence: [true, false, true, false],
   resolve_job_participants: [true, false, true, false],
+  list_site_visits: [true, false, true, false],
+  get_site_visit_context: [true, false, true, false],
   prepare_project_cost_allocation: [false, false, true, false],
   commit_project_cost_allocation: [false, true, true, false],
   prepare_estimate_import: [false, false, true, false],
@@ -54,6 +64,12 @@ const EXPECTED_ANNOTATIONS = {
   commit_catalog_service_change: [false, true, true, false],
   prepare_client_message_batch: [false, false, true, false],
   commit_client_message_batch: [false, true, true, true],
+  prepare_site_visit_booking: [false, false, true, false],
+  commit_site_visit_booking: [false, true, true, true],
+  prepare_site_visit_reschedule: [false, false, true, false],
+  commit_site_visit_reschedule: [false, true, true, true],
+  prepare_site_visit_booking_cancellation: [false, false, true, false],
+  commit_site_visit_booking_cancellation: [false, true, true, true],
 } as const;
 
 const EXPECTED_POLICY_MATRIX = {
@@ -315,6 +331,59 @@ const EXPECTED_POLICY_MATRIX = {
       ],
     },
   ],
+  list_site_visits: [
+    {
+      key: "booked_appointments",
+      oauth: ["ops.customers.read", "ops.jobs.read", "ops.schedule.read"],
+      groups: [
+        [
+          "calendar.view:all,own",
+          "clients.view:all,assigned",
+          "pipeline.view:all,assigned",
+        ],
+      ],
+    },
+    {
+      key: "visit_history",
+      oauth: ["ops.customers.read", "ops.jobs.read", "ops.schedule.read"],
+      groups: [
+        [
+          "calendar.view:all,own",
+          "clients.view:all,assigned",
+          "pipeline.view:all,assigned",
+        ],
+      ],
+    },
+    {
+      key: "unlinked_history",
+      oauth: ["ops.jobs.read"],
+      groups: [["pipeline.view:all"]],
+    },
+  ],
+  get_site_visit_context: [
+    {
+      key: "opportunity",
+      oauth: [
+        "ops.customers.read",
+        "ops.jobs.read",
+        "ops.photos.read",
+        "ops.schedule.read",
+      ],
+      groups: [
+        [
+          "calendar.view:all,own",
+          "clients.view:all,assigned",
+          "photos.view:all,assigned",
+          "pipeline.view:all,assigned",
+        ],
+      ],
+    },
+    {
+      key: "unlinked",
+      oauth: ["ops.jobs.read", "ops.photos.read"],
+      groups: [["photos.view:all", "pipeline.view:all"]],
+    },
+  ],
   prepare_project_cost_allocation: [
     {
       key: "project_cost_allocation",
@@ -436,6 +505,48 @@ const EXPECTED_POLICY_MATRIX = {
       ],
     },
   ],
+  prepare_site_visit_booking: [
+    {
+      key: "site_visit_booking",
+      oauth: ["ops.jobs.prepare", "ops.schedule.prepare"],
+      groups: [["pipeline.convert:all,assigned"]],
+    },
+  ],
+  commit_site_visit_booking: [
+    {
+      key: "site_visit_booking",
+      oauth: ["ops.jobs.write", "ops.schedule.write"],
+      groups: [["pipeline.convert:all,assigned"]],
+    },
+  ],
+  prepare_site_visit_reschedule: [
+    {
+      key: "site_visit_reschedule",
+      oauth: ["ops.jobs.prepare", "ops.schedule.prepare"],
+      groups: [["pipeline.convert:all,assigned"]],
+    },
+  ],
+  commit_site_visit_reschedule: [
+    {
+      key: "site_visit_reschedule",
+      oauth: ["ops.jobs.write", "ops.schedule.write"],
+      groups: [["pipeline.convert:all,assigned"]],
+    },
+  ],
+  prepare_site_visit_booking_cancellation: [
+    {
+      key: "site_visit_booking_cancellation",
+      oauth: ["ops.jobs.prepare", "ops.schedule.prepare"],
+      groups: [["pipeline.convert:all,assigned"]],
+    },
+  ],
+  commit_site_visit_booking_cancellation: [
+    {
+      key: "site_visit_booking_cancellation",
+      oauth: ["ops.jobs.write", "ops.schedule.write"],
+      groups: [["pipeline.convert:all,assigned"]],
+    },
+  ],
 } as const;
 
 function mutableManifest(): CapabilityManifestEntry[] {
@@ -452,6 +563,11 @@ const CONFIRMED_CHANGE_SET = {
   change_set_id: "change-set-1",
   confirmation_receipt: "confirmation-receipt-1",
   idempotency_key: IDEMPOTENCY_KEY,
+};
+const SITE_VISIT_START = {
+  utc: "2026-08-12T17:00:00Z",
+  local: "2026-08-12T10:00:00",
+  timezone: "America/Vancouver",
 };
 
 const VALID_INPUTS: Readonly<Record<string, unknown>> = {
@@ -475,6 +591,16 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
   search_job_history: { query: "cedar deck" },
   get_correspondence_evidence: { evidence_ids: ["evidence-1"] },
   resolve_job_participants: { job_ref: JOB_REF },
+  list_site_visits: {
+    view: "booked_appointments",
+    from: "2026-08-01T00:00:00Z",
+    to: "2026-08-31T00:00:00Z",
+  },
+  get_site_visit_context: {
+    anchor: "opportunity",
+    opportunity_ref: { kind: "opportunity", id: "opportunity-1" },
+    site_visit_id: "site-visit-1",
+  },
   prepare_project_cost_allocation: {
     allocations: [
       {
@@ -551,23 +677,44 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
     idempotency_key: IDEMPOTENCY_KEY,
   },
   commit_client_message_batch: CONFIRMED_CHANGE_SET,
+  prepare_site_visit_booking: {
+    opportunity_ref: { kind: "opportunity", id: "opportunity-1" },
+    scheduled_start: SITE_VISIT_START,
+    source_evidence_ids: ["evidence-1"],
+    idempotency_key: IDEMPOTENCY_KEY,
+  },
+  commit_site_visit_booking: CONFIRMED_CHANGE_SET,
+  prepare_site_visit_reschedule: {
+    site_visit_id: "site-visit-1",
+    scheduled_start: SITE_VISIT_START,
+    idempotency_key: IDEMPOTENCY_KEY,
+  },
+  commit_site_visit_reschedule: CONFIRMED_CHANGE_SET,
+  prepare_site_visit_booking_cancellation: {
+    site_visit_id: "site-visit-1",
+    idempotency_key: IDEMPOTENCY_KEY,
+  },
+  commit_site_visit_booking_cancellation: CONFIRMED_CHANGE_SET,
 };
 
 describe("agent capability manifest", () => {
-  it("registers exactly the nine initial reads and four current write pairs", () => {
+  it("registers exactly eleven reads and seven write pairs", () => {
     expect(
       CAPABILITY_MANIFEST.map((entry) => [entry.name, entry.operation])
     ).toEqual(EXPECTED_CAPABILITIES);
     expect(
       CAPABILITY_MANIFEST.filter((entry) => entry.operation === "read")
-    ).toHaveLength(9);
+    ).toHaveLength(11);
     expect(
       CAPABILITY_MANIFEST.filter((entry) => entry.operation !== "read")
-    ).toHaveLength(8);
+    ).toHaveLength(14);
 
     const names = CAPABILITY_MANIFEST.map((entry) => entry.name);
     expect(names).not.toContain("prepare_catalog_import");
     expect(names).not.toContain("commit_catalog_import");
+    expect(names).not.toContain("start_site_visit");
+    expect(names).not.toContain("complete_site_visit");
+    expect(names).not.toContain("complete_site_visit_guarded");
   });
 
   it("keeps implementation availability separate from external exposure", () => {
@@ -584,7 +731,7 @@ describe("agent capability manifest", () => {
 
   it("carries immutable, nominal authorization policy variants", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-07.capability-manifest.v1"
+      "2026-08-10.capability-manifest.v2"
     );
     expect(Object.isFrozen(CAPABILITY_MANIFEST)).toBe(true);
 
@@ -932,6 +1079,12 @@ describe("agent capability manifest", () => {
       name: "a generic raw-data capability name",
       mutate(entries: CapabilityManifestEntry[]) {
         entries[0] = { ...entries[0], name: "get_raw_data" };
+      },
+    },
+    {
+      name: "a device-owned site-visit lifecycle capability",
+      mutate(entries: CapabilityManifestEntry[]) {
+        entries[0] = { ...entries[0], name: "prepare_site_visit_start" };
       },
     },
     {
