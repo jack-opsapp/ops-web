@@ -183,6 +183,7 @@ create or replace function public.read_agent_correspondence_evidence_as_system(
   p_actor_user_id uuid,
   p_company_id uuid,
   p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],
   p_capability_id text,
   p_capability_revision text,
   p_capability_manifest_revision text,
@@ -227,13 +228,17 @@ begin
      or p_permission_snapshot_revision is null
      or p_permission_snapshot_revision
        !~ '^sha256:[0-9a-f]{64}$'
+     or p_registered_permission_keys is null
+     or cardinality(p_registered_permission_keys) = 0
+     or cardinality(p_registered_permission_keys) > 256
+     or not ('inbox.view' = any(p_registered_permission_keys))
      or p_capability_id
        is distinct from 'get_correspondence_evidence'
      or p_capability_revision
        is distinct from
          'get_correspondence_evidence:2026-08-07.v1'
      or p_capability_manifest_revision
-       is distinct from '2026-08-10.capability-manifest.v2'
+       is distinct from '2026-08-11.capability-manifest.v3'
      or p_required_oauth_scope
        is distinct from 'ops.correspondence.read'
      or p_inbox_scope is null
@@ -241,6 +246,21 @@ begin
      or p_evidence_ids is null
      or cardinality(p_evidence_ids) < 1
      or cardinality(p_evidence_ids) > 20 then
+    raise exception 'invalid_agent_correspondence_evidence_request'
+      using errcode = '22023';
+  end if;
+
+  if exists (
+    select 1
+    from unnest(p_registered_permission_keys) registry(permission_key)
+    where registry.permission_key is null
+       or registry.permission_key is distinct from btrim(registry.permission_key)
+       or length(registry.permission_key) = 0
+       or length(registry.permission_key) > 128
+  ) or (
+    select count(distinct registry.permission_key)
+    from unnest(p_registered_permission_keys) registry(permission_key)
+  ) <> cardinality(p_registered_permission_keys) then
     raise exception 'invalid_agent_correspondence_evidence_request'
       using errcode = '22023';
   end if;
@@ -268,7 +288,7 @@ begin
     from private.resolve_agent_actor_authority(
       p_actor_user_id,
       p_company_id,
-      array['inbox.view']::text[]
+      p_registered_permission_keys
     ) authority
     cross join lateral jsonb_array_elements(
       authority.effective_permissions
@@ -299,7 +319,7 @@ begin
     where authority.permission_snapshot_revision
             = p_permission_snapshot_revision
       and authority.inbox_scope = p_inbox_scope
-      and turn.id::text = any(p_evidence_ids)
+      and 'job_conversation_turn:' || turn.id::text = any(p_evidence_ids)
       and char_length(
         turn.source_connection_id::text
           || ':' || turn.provider_message_id
@@ -383,8 +403,14 @@ begin
                then '[SUBJECT REDACTED]'::text
              else turn.subject
            end as subject,
-           turn.recipient_identities,
-           turn.cc_recipient_identities,
+           case
+             when participant_redaction.id is not null then '{}'::text[]
+             else turn.recipient_identities
+           end as recipient_identities,
+           case
+             when participant_redaction.id is not null then '{}'::text[]
+             else turn.cc_recipient_identities
+           end as cc_recipient_identities,
            case
              when content_redaction.id is not null
                then '[CONTENT REDACTED]'::text
@@ -458,7 +484,7 @@ begin
       limit 1
     ) participant_redaction on true
   )
-  select turn.id::text,
+  select 'job_conversation_turn:' || turn.id::text,
          turn.company_id,
          turn.source_connection_id::text
            || ':' || turn.provider_message_id,
@@ -503,14 +529,14 @@ end;
 $function$;
 
 revoke all on function public.read_agent_correspondence_evidence_as_system(
-  text, uuid, uuid, text, text, text, text, text, text, text[]
+  text, uuid, uuid, text, text[], text, text, text, text, text, text[]
 ) from public, anon, authenticated, service_role;
 grant execute on function public.read_agent_correspondence_evidence_as_system(
-  text, uuid, uuid, text, text, text, text, text, text, text[]
+  text, uuid, uuid, text, text[], text, text, text, text, text, text[]
 ) to service_role;
 
 comment on function public.read_agent_correspondence_evidence_as_system(
-  text, uuid, uuid, text, text, text, text, text, text, text[]
+  text, uuid, uuid, text, text[], text, text, text, text, text, text[]
 ) is
   'Returns immutable delivered job-turn evidence only after current actor authority and opportunity/project visibility are rechecked in the same statement.';
 

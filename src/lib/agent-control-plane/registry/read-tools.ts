@@ -109,6 +109,7 @@ const ConversationSectionSchema = z.enum([
   "gaps",
   "cross_job_seed",
 ]);
+const DatabaseUuidSchema = z.string().uuid();
 const JobConversationContextInputSchema = z
   .object({
     job_ref: JobRefSchema,
@@ -122,9 +123,34 @@ const JobConversationContextInputSchema = z
         (sections) => new Set(sections).size === sections.length,
         "Conversation sections must be unique"
       )
-      .optional(),
+      .default([
+        "memory",
+        "recent_turns",
+        "participants",
+        "gaps",
+        "cross_job_seed",
+      ]),
   })
-  .strict();
+  .strict()
+  .superRefine((input, context) => {
+    if (!DatabaseUuidSchema.safeParse(input.job_ref.id).success) {
+      context.addIssue({
+        code: "custom",
+        path: ["job_ref", "id"],
+        message: "Job reference must identify a current OPS record",
+      });
+    }
+    if (
+      input.required_through_turn_id !== undefined &&
+      !DatabaseUuidSchema.safeParse(input.required_through_turn_id).success
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["required_through_turn_id"],
+        message: "Required turn must identify an immutable delivered turn",
+      });
+    }
+  });
 
 const CustomerJobsInputSchema = CursorRequestSchema.extend({
   customer_ref: CustomerRefSchema,
@@ -563,7 +589,8 @@ export const READ_CAPABILITY_DEFINITIONS = [
             "ops.jobs.read",
           ],
           [
-            permission("inbox.view", ["all", "assigned", "own"]),
+            permission("clients.view", ["all"]),
+            permission("inbox.view", ["all"]),
             permission("pipeline.view", ["all", "assigned"]),
           ]
         ),
@@ -576,7 +603,8 @@ export const READ_CAPABILITY_DEFINITIONS = [
             "ops.jobs.read",
           ],
           [
-            permission("inbox.view", ["all", "assigned", "own"]),
+            permission("clients.view", ["all"]),
+            permission("inbox.view", ["all"]),
             permission("projects.view", ["all", "assigned"]),
           ]
         ),

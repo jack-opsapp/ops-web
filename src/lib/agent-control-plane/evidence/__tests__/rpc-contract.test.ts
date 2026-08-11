@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 const MIGRATION_SUFFIX = "_agent_correspondence_evidence_read.sql";
 const SIGNATURE =
-  "public.read_agent_correspondence_evidence_as_system( text, uuid, uuid, text, text, text, text, text, text, text[] )";
+  "public.read_agent_correspondence_evidence_as_system( text, uuid, uuid, text, text[], text, text, text, text, text, text[] )";
 
 function migrationSql(): string {
   const directory = join(process.cwd(), "supabase/migrations");
@@ -56,7 +56,10 @@ describe("agent correspondence evidence read migration", () => {
   it("reloads current authority and requires the exact snapshot and inbox scope", () => {
     const compact = compactSql();
     expect(compact).toContain(
-      "from private.resolve_agent_actor_authority( p_actor_user_id, p_company_id, array['inbox.view']::text[] ) authority"
+      "from private.resolve_agent_actor_authority( p_actor_user_id, p_company_id, p_registered_permission_keys ) authority"
+    );
+    expect(compact).toContain(
+      "'inbox.view' = any(p_registered_permission_keys)"
     );
     expect(compact).toContain(
       "authority.permission_snapshot_revision = p_permission_snapshot_revision"
@@ -73,7 +76,7 @@ describe("agent correspondence evidence read migration", () => {
       "p_capability_id is distinct from 'get_correspondence_evidence'"
     );
     expect(compact).toContain("'get_correspondence_evidence:2026-08-07.v1'");
-    expect(compact).toContain("'2026-08-10.capability-manifest.v2'");
+    expect(compact).toContain("'2026-08-11.capability-manifest.v3'");
     expect(compact).toContain("'ops.correspondence.read'");
     expect(compact).toContain("cardinality(p_evidence_ids) > 20");
   });
@@ -81,7 +84,9 @@ describe("agent correspondence evidence read migration", () => {
   it("intersects tenant, requested IDs, and current job visibility in the final statement", () => {
     const compact = compactSql();
     expect(compact).toContain("turn.company_id = p_company_id");
-    expect(compact).toContain("turn.id::text = any(p_evidence_ids)");
+    expect(compact).toContain(
+      "'job_conversation_turn:' || turn.id::text = any(p_evidence_ids)"
+    );
     expect(compact).toContain("anchor.company_id = turn.company_id");
     expect(compact).toContain("anchor.conversation_id = turn.conversation_id");
     expect(compact).toMatch(
@@ -101,6 +106,9 @@ describe("agent correspondence evidence read migration", () => {
 
   it("returns only immutable turn content and immutable attachment evidence IDs", () => {
     const compact = compactSql();
+    expect(compact).toContain(
+      "select 'job_conversation_turn:' || turn.id::text"
+    );
     expect(compact).toContain("turn.normalized_plain_text");
     expect(compact).toContain("turn.original_content_hash");
     expect(compact).toContain("turn.attachment_evidence_ids");
@@ -137,6 +145,12 @@ describe("agent correspondence evidence read migration", () => {
     expect(compact).toContain("'[content redacted]'::text");
     expect(compact).toContain("'[]'::jsonb");
     expect(compact).toContain("'[participant redacted]'::text");
+    expect(compact).toMatch(
+      /when participant_redaction\.id is not null then '\{\}'::text\[\] else turn\.recipient_identities end as recipient_identities/
+    );
+    expect(compact).toMatch(
+      /when participant_redaction\.id is not null then '\{\}'::text\[\] else turn\.cc_recipient_identities end as cc_recipient_identities/
+    );
     expect(compact).toContain("'[subject redacted]'::text");
     expect(compact).toContain("redaction_kinds text[]");
     expect(compact).toContain("'ops.redacted-source-version.v1:'");

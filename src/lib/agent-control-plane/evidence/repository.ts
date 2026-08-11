@@ -6,6 +6,7 @@ import {
   authorizationUnavailable,
   entityNotFound,
 } from "@/lib/agent-control-plane/actor/errors";
+import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
 import { MAX_EXACT_CORRESPONDENCE_CONTENT_BYTES } from "./limits";
 import {
   isAuthorizedCorrespondenceEvidenceRead,
@@ -630,6 +631,7 @@ export function createSupabaseAuthorizedEvidenceLookupAdapter(
         p_company_id: authorization.actorContext.companyId,
         p_permission_snapshot_revision:
           authorization.actorContext.permissionSnapshotRevision,
+        p_registered_permission_keys: [...REGISTERED_ACTOR_PERMISSION_KEYS],
         p_capability_id: authorization.capabilityId,
         p_capability_revision: authorization.capabilityRevision,
         p_capability_manifest_revision:

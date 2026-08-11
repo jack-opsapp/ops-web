@@ -170,7 +170,9 @@ const EXPECTED_POLICY_MATRIX = {
         "ops.customers.read",
         "ops.jobs.read",
       ],
-      groups: [["inbox.view:all,assigned,own", "pipeline.view:all,assigned"]],
+      groups: [
+        ["clients.view:all", "inbox.view:all", "pipeline.view:all,assigned"],
+      ],
     },
     {
       key: "project",
@@ -180,7 +182,9 @@ const EXPECTED_POLICY_MATRIX = {
         "ops.customers.read",
         "ops.jobs.read",
       ],
-      groups: [["inbox.view:all,assigned,own", "projects.view:all,assigned"]],
+      groups: [
+        ["clients.view:all", "inbox.view:all", "projects.view:all,assigned"],
+      ],
     },
   ],
   list_customer_jobs: [
@@ -583,7 +587,12 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
     job_ref: JOB_REF,
     purpose: "schedule_notice",
   },
-  get_job_conversation_context: { job_ref: JOB_REF },
+  get_job_conversation_context: {
+    job_ref: {
+      kind: "project",
+      id: "20000000-0000-4000-8000-000000000001",
+    },
+  },
   list_customer_jobs: {
     customer_ref: { kind: "client", id: "client-1" },
   },
@@ -731,7 +740,7 @@ describe("agent capability manifest", () => {
 
   it("carries immutable, nominal authorization policy variants", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-10.capability-manifest.v2"
+      "2026-08-11.capability-manifest.v3"
     );
     expect(Object.isFrozen(CAPABILITY_MANIFEST)).toBe(true);
 

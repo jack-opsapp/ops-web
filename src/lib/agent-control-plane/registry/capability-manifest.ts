@@ -16,7 +16,7 @@ import { READ_CAPABILITY_DEFINITIONS } from "./read-tools";
 import { WRITE_CAPABILITY_DEFINITIONS } from "./write-tools";
 
 export const CAPABILITY_MANIFEST_REVISION =
-  "2026-08-10.capability-manifest.v2" as const;
+  "2026-08-11.capability-manifest.v3" as const;
 
 function freezeSelector(
   selector: CapabilityAuthorizationSelector

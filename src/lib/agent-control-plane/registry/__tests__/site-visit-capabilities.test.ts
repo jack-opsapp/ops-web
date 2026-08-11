@@ -39,7 +39,7 @@ function policyShape(name: string) {
 describe("site-visit capability boundary", () => {
   it("advances the immutable manifest identity and registers only dark capabilities", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-10.capability-manifest.v2"
+      "2026-08-11.capability-manifest.v3"
     );
 
     expect(

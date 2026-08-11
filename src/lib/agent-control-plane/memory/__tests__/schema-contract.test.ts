@@ -421,6 +421,66 @@ describe("agent job conversation memory schema", () => {
     }
   });
 
+  it("defines a fixed actor-authorized context snapshot instead of reusing the generation read", () => {
+    const compact = allMigrationSql().replace(/\s+/g, " ");
+    const context = functionBody(
+      compact,
+      "public.read_agent_job_conversation_context_as_system"
+    );
+
+    expect(context).toContain("auth.role()");
+    expect(context).toContain("'service_role'");
+    expect(context).toContain("p_request_id text");
+    expect(context).toContain("p_actor_user_id uuid");
+    expect(context).toContain("p_company_id uuid");
+    expect(context).toContain("p_permission_snapshot_revision text");
+    expect(context).toContain("p_capability_id text");
+    expect(context).toContain("p_capability_revision text");
+    expect(context).toContain("p_capability_manifest_revision text");
+    expect(context).toContain("p_required_oauth_scopes text[]");
+    expect(context).toContain("p_job_kind text");
+    expect(context).toContain("p_job_id uuid");
+    expect(context).toContain("p_exact_turn_limit integer");
+    expect(context).toContain("p_required_through_turn_id uuid");
+    expect(context).toContain(
+      "private.resolve_agent_actor_authority( p_actor_user_id, p_company_id"
+    );
+    expect(context).toContain("'inbox.view'");
+    expect(context).toContain("'clients.view'");
+    expect(context).toMatch(
+      /private\.agent_user_can_access_entity\([\s\S]*?p_job_kind[\s\S]*?p_job_id[\s\S]*?'view'/
+    );
+    expect(context).toContain("authority.inbox_scope = 'all'");
+    expect(context).toContain(
+      "authority.permission_snapshot_revision = p_permission_snapshot_revision"
+    );
+    expect(context).toContain(
+      "p_capability_id is distinct from 'get_job_conversation_context'"
+    );
+    expect(context).toContain("'get_job_conversation_context:2026-08-07.v1'");
+    expect(context).toContain("'2026-08-11.capability-manifest.v3'");
+    expect(context).toContain("public.job_conversation_redaction_events");
+    expect(context).toContain("turn.participant_resolution_revision");
+    expect(context).toContain("turn.source_connection_id");
+    expect(context).toContain("turn.provider_message_id");
+    expect(context).toContain("turn.source_activity_id");
+    expect(context).toContain("turn.source_correspondence_event_id");
+    expect(context).toContain("order by turn.turn_sequence desc");
+    expect(context).toContain("limit p_exact_turn_limit");
+    expect(context).toContain("order by recent.turn_sequence");
+    expect(context).toContain("'job_conversation_turn:' || turn.id::text");
+    expect(context).toContain("private.agent_provider_delivery_sources");
+    expect(context).not.toContain(
+      "read_job_memory_generation_snapshot_as_system"
+    );
+    expect(compact).toMatch(
+      /revoke all on function public\.read_agent_job_conversation_context_as_system\([\s\S]*?from public, anon, authenticated, service_role/
+    );
+    expect(compact).toMatch(
+      /grant execute on function public\.read_agent_job_conversation_context_as_system\([\s\S]*?to service_role/
+    );
+  });
+
   it("fails closed when required memory fields or evidence fields are missing", () => {
     const compact = allMigrationSql().replace(/\s+/g, " ");
     const commit = functionBody(
