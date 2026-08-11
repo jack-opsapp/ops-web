@@ -9,7 +9,6 @@ import type {
   OpportunityAssignedContextActivity,
   OpportunityAssignedContextCorrespondence,
   OpportunityAssignedContextFollowUp,
-  OpportunityAssignedContextSiteVisit,
 } from "@/lib/api/services/opportunity-assigned-context-service";
 import {
   ActivityType,
@@ -18,7 +17,6 @@ import {
   OpportunityPriority,
   OpportunitySource,
   OpportunityStage,
-  SiteVisitStatus,
   type Opportunity,
 } from "@/lib/types/pipeline";
 
@@ -40,6 +38,15 @@ vi.mock("@/lib/hooks", () => ({
   useOpportunityFollowUps: () => ({ data: [] }),
   useSiteVisits: () => ({ data: [] }),
   useCompleteFollowUp: () => ({ mutate: completeMutate, isPending: false }),
+}));
+
+// The booking slot reads the lead's open booking via the guarded hook; these
+// projections exercise follow-up signals only — keep the slot empty.
+vi.mock("@/lib/hooks/use-site-visits", () => ({
+  useOpenBooking: () => ({ data: null, isLoading: false }),
+}));
+vi.mock("@/components/ops/site-visit/book-site-visit-modal", () => ({
+  BookSiteVisitModal: () => null,
 }));
 
 const emailActivity: OpportunityAssignedContextActivity = {
@@ -78,18 +85,6 @@ const followUp: OpportunityAssignedContextFollowUp = {
   completionNotes: null,
   assignedTo: "66666666-6666-4666-8666-666666666666",
   createdAt: new Date("2019-12-01T12:00:00.000Z"),
-};
-
-const siteVisit: OpportunityAssignedContextSiteVisit = {
-  id: "77777777-7777-4777-8777-777777777777",
-  scheduledAt: new Date("2030-07-18T17:00:00.000Z"),
-  durationMinutes: 60,
-  status: SiteVisitStatus.Scheduled,
-  notes: null,
-  internalNotes: null,
-  measurements: null,
-  photos: [],
-  completedAt: null,
 };
 
 const opportunity = {
@@ -180,22 +175,19 @@ describe("assigned lead detail projections", () => {
       <PipelineDetailNextSteps
         opportunity={opportunity}
         followUps={[followUp]}
-        siteVisits={[siteVisit]}
         canManage={false}
       />
     );
 
     expect(screen.getByText(/Call Dana/)).toBeInTheDocument();
-    const readOnlyButtons = screen.getAllByRole("button");
-    expect(readOnlyButtons).toHaveLength(1);
-    fireEvent.click(readOnlyButtons[0]);
+    // Read-only: no completion check, no booking affordance — nothing to press.
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
     expect(completeMutate).not.toHaveBeenCalled();
 
     rerender(
       <PipelineDetailNextSteps
         opportunity={opportunity}
         followUps={[followUp]}
-        siteVisits={[siteVisit]}
         canManage
       />
     );

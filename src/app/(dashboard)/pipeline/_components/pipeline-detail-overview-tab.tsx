@@ -159,7 +159,6 @@ export function PipelineDetailOverviewTab({
 
       <LinkedSection
         opportunity={opportunity}
-        canManage={canManage}
         assignedContext={assignedContext}
       />
     </Stack>
@@ -847,11 +846,9 @@ function siteVisitChipVariant(status: SiteVisitStatus): ChipVariant {
  */
 function LinkedSection({
   opportunity,
-  canManage,
   assignedContext,
 }: {
   opportunity: Opportunity;
-  canManage: boolean;
   assignedContext?: OpportunityAssignedContext | null;
 }) {
   const { t } = useDictionary("pipeline");
