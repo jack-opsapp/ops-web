@@ -28,6 +28,10 @@ const DARK_AVAILABILITY = Object.freeze({
   implementation: "unavailable" as const,
   externalExposure: "disabled" as const,
 });
+const INTERNAL_ONLY_AVAILABILITY = Object.freeze({
+  implementation: "available" as const,
+  externalExposure: "disabled" as const,
+});
 const READ_CONFIRMATION = Object.freeze({ kind: "not_required" as const });
 const READ_IDEMPOTENCY = Object.freeze({ kind: "inherent" as const });
 
@@ -151,6 +155,10 @@ const JobConversationContextInputSchema = z
       });
     }
   });
+
+export type GetJobConversationContextInput = Readonly<
+  z.input<typeof JobConversationContextInputSchema>
+>;
 
 const CustomerJobsInputSchema = CursorRequestSchema.extend({
   customer_ref: CustomerRefSchema,
@@ -615,6 +623,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 50,
       auditClass: "sensitive_read",
     }),
+    availability: INTERNAL_ONLY_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.get_job_conversation_context",
   },
   {

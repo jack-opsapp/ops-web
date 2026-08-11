@@ -729,7 +729,10 @@ describe("agent capability manifest", () => {
   it("keeps implementation availability separate from external exposure", () => {
     for (const capability of CAPABILITY_MANIFEST) {
       expect(capability.availability).toEqual({
-        implementation: "unavailable",
+        implementation:
+          capability.name === "get_job_conversation_context"
+            ? "available"
+            : "unavailable",
         externalExposure: "disabled",
       });
       expect(capability.rolloutFlag).toMatch(

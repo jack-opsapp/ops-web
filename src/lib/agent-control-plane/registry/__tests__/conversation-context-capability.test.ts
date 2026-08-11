@@ -84,11 +84,11 @@ describe("get_job_conversation_context capability", () => {
     ).toThrow();
   });
 
-  it("remains dark until the shared handler and external runtime exist", () => {
+  it("is available to the shared service while external exposure remains disabled", () => {
     expect(
       getCapabilityManifestEntry("get_job_conversation_context").availability
     ).toEqual({
-      implementation: "unavailable",
+      implementation: "available",
       externalExposure: "disabled",
     });
   });
