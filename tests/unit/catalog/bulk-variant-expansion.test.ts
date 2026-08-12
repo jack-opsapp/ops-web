@@ -358,8 +358,8 @@ describe("bulk variant expansion planner", () => {
 
     expect(request.companyId).toBe(COMPANY_ID);
     expect(request.idempotencyKey).toBe(REQUEST_ID);
-    expect(request.payload.families[0].source_fingerprint).toMatch(
-      /^[0-9a-f]{16}$/
+    expect(request.payload.families[0].source_fingerprint).toBe(
+      "991f606960790c3513ef956c355759b6e5e6b12d3e4d05481694c9c0533630e2"
     );
     expect(request.payload.families[0].source).toEqual(family());
     expect(JSON.stringify(request.payload.families[0].source)).not.toContain(

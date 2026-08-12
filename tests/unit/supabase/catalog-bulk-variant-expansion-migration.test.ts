@@ -32,6 +32,7 @@ describe("catalog bulk variant expansion migration", () => {
     expect(compact).toContain(
       "jsonb_set(v_existing_response, '{replayed}', 'true'::jsonb, true)"
     );
+    expect(compact).toContain("source_fingerprint', '') !~ '^[0-9a-f]{64}$'");
   });
 
   it("locks deterministically and validates all families before the first mutation", () => {

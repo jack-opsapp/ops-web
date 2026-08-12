@@ -271,7 +271,7 @@ begin
       from jsonb_array_elements(p_payload -> 'families') requested(entry)
      where coalesce(requested.entry ->> 'family_id', '')
              !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-        or coalesce(requested.entry ->> 'source_fingerprint', '') !~ '^[0-9a-f]{16}$'
+        or coalesce(requested.entry ->> 'source_fingerprint', '') !~ '^[0-9a-f]{64}$'
         or jsonb_typeof(coalesce(requested.entry -> 'source', 'null'::jsonb)) <> 'object'
         or requested.entry #>> '{source,id}' <> requested.entry ->> 'family_id'
   ) then
