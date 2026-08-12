@@ -53,4 +53,3 @@
 - Start `npm run dev:webpack`, verify desktop and narrow widths, keyboard/focus, offline state, reduced motion, and capture screenshots/bounding boxes under `docs/artifacts/` when feasible.
 - Re-run the relevant full test suite and distinguish any fresh-origin baseline failures from feature regressions.
 - Commit implementation and Bible documentation atomically. Do not push, deploy, merge, apply migrations, or touch live catalog data.
-

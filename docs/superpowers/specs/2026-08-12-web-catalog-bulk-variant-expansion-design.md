@@ -97,4 +97,3 @@ The successful mutation awaits active TanStack refetches for both catalog stock 
 - Disabled family rows expose their reason; metrics and step state have explicit accessible labels.
 - At narrow widths the dialog becomes one column, metrics wrap, and the family/change/review content owns one vertical scroll region without hiding the footer.
 - All visible and accessible strings are in the catalog dictionaries in English and Spanish.
-
