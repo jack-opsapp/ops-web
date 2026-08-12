@@ -112,6 +112,9 @@ describe("BulkAddVariantsDialog", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    familyHook.data = [safeFamily, unsafeFamily];
+    familyHook.isLoading = false;
+    familyHook.isError = false;
     mutateAsync.mockResolvedValue({
       ok: true,
       replayed: false,
@@ -123,6 +126,19 @@ describe("BulkAddVariantsDialog", () => {
       configurable: true,
       value: true,
     });
+  });
+
+  it("fails closed when family snapshots cannot be read and offers an explicit retry", async () => {
+    familyHook.data = [];
+    familyHook.isError = true;
+    render(<BulkAddVariantsDialog onClose={vi.fn()} />);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Families could not be read safely."
+    );
+    await userEvent.click(screen.getByRole("button", { name: "RETRY" }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "NEXT" })).toBeDisabled();
   });
 
   it("keeps unsafe families visible, searches every family facet, and selects only safe visible rows", async () => {
@@ -169,6 +185,10 @@ describe("BulkAddVariantsDialog", () => {
         /Existing IDs, stock, SKU, history and joins stay unchanged/i
       )
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "APPLY" })).toHaveClass(
+      "motion-reduce:transition-none",
+      "motion-reduce:active:scale-100"
+    );
 
     const familyReview = screen.getByRole("button", { name: /Classic rail/i });
     fireEvent.click(familyReview);

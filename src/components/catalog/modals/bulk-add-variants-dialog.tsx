@@ -56,8 +56,7 @@ const EMPTY_DRAFT: Omit<Draft, "idempotencyKey"> = {
   newValues: [""],
 };
 
-const labelClass =
-  "font-mono text-[11px] uppercase tracking-[0.14em] text-text-3";
+const labelClass = "font-mono text-micro uppercase tracking-widest text-text-3";
 const stepOrder: Stage[] = ["families", "change", "review"];
 
 function newRequestKey(): string {
@@ -157,7 +156,7 @@ function selectionText(selections: BulkVariantOptionSelection[]): string {
 
 function Metric({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded border border-border bg-surface-input px-3 py-2 font-mono text-[12px] tabular-nums text-text">
+    <div className="rounded border border-border bg-surface-input px-3 py-2 font-mono text-caption-sm tabular-nums text-text">
       {children}
     </div>
   );
@@ -170,7 +169,7 @@ function FamilyReview({ plan }: { plan: BulkVariantFamilyPlan }) {
     <section className="rounded border border-border bg-surface-input">
       <button
         type="button"
-        className="flex min-h-10 w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors hover:bg-surface-hover focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+        className="flex min-h-control-40 w-full items-center justify-between gap-3 px-3 py-2 text-left transition-colors ease-smooth hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
         aria-expanded={open}
         aria-label={
           open
@@ -183,7 +182,7 @@ function FamilyReview({ plan }: { plan: BulkVariantFamilyPlan }) {
           <span className="block font-mohave text-body text-text">
             {plan.familyName}
           </span>
-          <span className="block font-mono text-[11px] text-text-3">
+          <span className="block font-mono text-micro text-text-3">
             {plan.newVariants.length}{" "}
             {t("bulkVariants.review.after", "CREATES")}
           </span>
@@ -191,7 +190,7 @@ function FamilyReview({ plan }: { plan: BulkVariantFamilyPlan }) {
         <ChevronDown
           aria-hidden="true"
           className={cn(
-            "h-4 w-4 shrink-0 text-text-3 transition-transform motion-reduce:transition-none",
+            "h-icon-16 w-icon-16 shrink-0 text-text-3 transition-transform ease-smooth motion-reduce:transition-none",
             open && "rotate-180"
           )}
         />
@@ -205,13 +204,13 @@ function FamilyReview({ plan }: { plan: BulkVariantFamilyPlan }) {
             {plan.combinationChanges.map((change) => (
               <div
                 key={change.sourceVariantId}
-                className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]"
+                className="grid gap-2 md:grid-cols-3"
               >
-                <div>
+                <div className="md:col-span-1">
                   <p className={labelClass}>
                     {t("bulkVariants.review.before", "EXISTING")}
                   </p>
-                  <p className="font-mono text-[11px] text-text-3">
+                  <p className="font-mono text-micro text-text-3">
                     {t("bulkVariants.review.sourceSku", {
                       sku:
                         change.sourceSku ??
@@ -222,7 +221,7 @@ function FamilyReview({ plan }: { plan: BulkVariantFamilyPlan }) {
                     {selectionText(change.before) || "—"}
                   </p>
                 </div>
-                <div>
+                <div className="md:col-span-2">
                   <p className={labelClass}>
                     {t("bulkVariants.review.after", "CREATES")}
                   </p>
@@ -451,12 +450,12 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
       <DialogContent
         hideClose
         aria-describedby="bulk-variant-dialog-description"
-        className="flex h-[min(760px,calc(100dvh-32px))] w-[calc(100vw-32px)] max-w-[880px] flex-col overflow-hidden p-0"
+        className="flex h-[85dvh] w-[calc(100vw-32px)] max-w-4xl flex-col overflow-hidden p-0"
       >
         <header className="shrink-0 border-b border-border px-4 py-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <DialogTitle className="font-cakemono text-[18px] font-light uppercase tracking-[0.02em] text-text">
+              <DialogTitle className="font-cakemono text-cake-section uppercase tracking-wide text-text">
                 {t("bulkVariants.title", "Bulk add variants")}
               </DialogTitle>
               <p
@@ -473,9 +472,9 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
               type="button"
               aria-label={t("bulkVariants.close", "Close bulk add variants")}
               onClick={onClose}
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-text-3 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+              className="inline-flex h-control-36 w-control-36 shrink-0 items-center justify-center rounded text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
             >
-              <X className="h-4 w-4" />
+              <X className="h-icon-16 w-icon-16" />
             </button>
           </div>
           <nav
@@ -490,7 +489,7 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
                   key={stage}
                   aria-current={active ? "step" : undefined}
                   className={cn(
-                    "bg-surface-panel px-2 py-2 text-center font-mono text-[11px] tracking-[0.14em] text-text-3",
+                    "bg-surface-panel px-2 py-2 text-center font-mono text-micro tracking-widest text-text-3",
                     reached && "text-text",
                     active && "bg-surface-hover"
                   )}
@@ -513,10 +512,37 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
             <h2
               ref={stageHeadingRef}
               tabIndex={-1}
-              className="mb-3 font-cakemono text-[16px] font-light uppercase tracking-[0.04em] text-text focus:outline-none"
+              className="mb-3 font-cakemono text-cake-section uppercase tracking-wide text-text focus:outline-none"
             >
               {stageTitle}
             </h2>
+
+            {draft.stage !== "families" && familiesQuery.isLoading && (
+              <div className="rounded border border-border px-3 py-8 text-center font-mono text-micro text-text-3">
+                {t("bulkVariants.loading", "READING CURRENT FAMILIES…")}
+              </div>
+            )}
+            {draft.stage !== "families" && familiesQuery.isError && (
+              <div
+                role="alert"
+                className="rounded border border-rose-line bg-rose-soft px-3 py-3"
+              >
+                <p className="font-mohave text-body text-rose">
+                  {t(
+                    "bulkVariants.families.loadError",
+                    "Families could not be read safely."
+                  )}
+                </p>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="mt-2"
+                  onClick={() => familiesQuery.refetch()}
+                >
+                  {t("bulkVariants.action.retry", "RETRY")}
+                </Button>
+              </div>
+            )}
 
             {draft.stage === "families" && (
               <div className="space-y-3">
@@ -537,7 +563,7 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
                   onChange={(event) => setSearch(event.target.value)}
                 />
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-mono text-[11px] tabular-nums text-text-3">
+                  <p className="font-mono text-micro tabular-nums text-text-3">
                     {t("bulkVariants.families.selected", {
                       selected: draft.selectedFamilyIds.length,
                       safe: safeCount,
@@ -559,7 +585,7 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
                 </div>
 
                 {familiesQuery.isLoading ? (
-                  <div className="rounded border border-border px-3 py-8 text-center font-mono text-[11px] text-text-3">
+                  <div className="rounded border border-border px-3 py-8 text-center font-mono text-micro text-text-3">
                     {t("bulkVariants.loading", "READING CURRENT FAMILIES…")}
                   </div>
                 ) : familiesQuery.isError ? (
@@ -583,7 +609,7 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
                     </Button>
                   </div>
                 ) : visible.length === 0 ? (
-                  <div className="rounded border border-border px-3 py-8 text-center font-mono text-[11px] text-text-3">
+                  <div className="rounded border border-border px-3 py-8 text-center font-mono text-micro text-text-3">
                     {t(
                       "bulkVariants.families.noResults",
                       "NO MATCHING FAMILIES"
@@ -601,7 +627,7 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
                         <label
                           key={record.snapshot.id}
                           className={cn(
-                            "flex min-h-12 items-start gap-3 bg-surface-input px-3 py-2 transition-colors",
+                            "flex min-h-6 items-start gap-3 bg-surface-input px-3 py-2 transition-colors ease-smooth",
                             disabled
                               ? "cursor-not-allowed opacity-60"
                               : "cursor-pointer hover:bg-surface-hover"
@@ -623,7 +649,7 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
                             </span>
                             <span
                               id={descriptionId}
-                              className="mt-0.5 block font-mono text-[11px] text-text-3"
+                              className="mt-0.5 block font-mono text-micro text-text-3"
                             >
                               {record.categoryName ?? "—"} ·{" "}
                               {t("bulkVariants.families.variantCount", {
@@ -631,9 +657,9 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
                               })}
                             </span>
                             {record.issue && (
-                              <span className="mt-1 flex items-center gap-1 font-mono text-[11px] text-ops-amber">
+                              <span className="mt-1 flex items-center gap-1 font-mono text-micro text-ops-amber">
                                 <AlertTriangle
-                                  className="h-3.5 w-3.5"
+                                  className="h-icon-16 w-icon-16"
                                   aria-hidden="true"
                                 />
                                 {t(
@@ -651,170 +677,174 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
-            {draft.stage === "change" && (
-              <div className="space-y-4">
-                <p className="max-w-[640px] font-mohave text-body text-text-2">
-                  {t(
-                    "bulkVariants.change.intro",
-                    "Name the option, identify the current source value, then add up to 20 new values."
-                  )}
-                </p>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <Input
-                    label={t("bulkVariants.change.axisName", "Option name")}
-                    placeholder={t(
-                      "bulkVariants.change.axisPlaceholder",
-                      "Top profile"
+            {draft.stage === "change" &&
+              !familiesQuery.isLoading &&
+              !familiesQuery.isError && (
+                <div className="space-y-4">
+                  <p className="max-w-2xl font-mohave text-body text-text-2">
+                    {t(
+                      "bulkVariants.change.intro",
+                      "Name the option, identify the current source value, then add up to 20 new values."
                     )}
-                    value={draft.axisName}
-                    onChange={(event) =>
-                      changeDraft({ axisName: event.target.value })
-                    }
-                  />
-                  <Input
-                    label={t(
-                      "bulkVariants.change.existingValue",
-                      "Existing value"
-                    )}
-                    placeholder={t(
-                      "bulkVariants.change.existingPlaceholder",
-                      "Round top"
-                    )}
-                    value={draft.existingValue}
-                    onChange={(event) =>
-                      changeDraft({ existingValue: event.target.value })
-                    }
-                  />
-                </div>
-                <section>
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <p className={labelClass}>
-                      {t("bulkVariants.change.newValues", "New values")}
-                    </p>
-                    <p className="font-mono text-[11px] tabular-nums text-text-3">
-                      {t("bulkVariants.change.valueLimit", {
-                        n: draft.newValues.length,
-                      })}
-                    </p>
+                  </p>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Input
+                      label={t("bulkVariants.change.axisName", "Option name")}
+                      placeholder={t(
+                        "bulkVariants.change.axisPlaceholder",
+                        "Top profile"
+                      )}
+                      value={draft.axisName}
+                      onChange={(event) =>
+                        changeDraft({ axisName: event.target.value })
+                      }
+                    />
+                    <Input
+                      label={t(
+                        "bulkVariants.change.existingValue",
+                        "Existing value"
+                      )}
+                      placeholder={t(
+                        "bulkVariants.change.existingPlaceholder",
+                        "Round top"
+                      )}
+                      value={draft.existingValue}
+                      onChange={(event) =>
+                        changeDraft({ existingValue: event.target.value })
+                      }
+                    />
                   </div>
-                  <div className="space-y-2">
-                    {draft.newValues.map((value, index) => (
-                      <div key={index} className="flex items-end gap-2">
-                        <Input
-                          label={t("bulkVariants.change.newValue", {
-                            n: index + 1,
-                          })}
-                          aria-label={t("bulkVariants.change.newValue", {
-                            n: index + 1,
-                          })}
-                          placeholder={t(
-                            "bulkVariants.change.newPlaceholder",
-                            "Flat top"
-                          )}
-                          value={value}
-                          onChange={(event) => {
-                            const next = [...draft.newValues];
-                            next[index] = event.target.value;
-                            changeDraft({ newValues: next });
-                          }}
-                          className="w-full"
-                        />
-                        {draft.newValues.length > 1 && (
-                          <button
-                            type="button"
-                            aria-label={t("bulkVariants.change.removeValue", {
+                  <section>
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <p className={labelClass}>
+                        {t("bulkVariants.change.newValues", "New values")}
+                      </p>
+                      <p className="font-mono text-micro tabular-nums text-text-3">
+                        {t("bulkVariants.change.valueLimit", {
+                          n: draft.newValues.length,
+                        })}
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {draft.newValues.map((value, index) => (
+                        <div key={index} className="flex items-end gap-2">
+                          <Input
+                            label={t("bulkVariants.change.newValue", {
                               n: index + 1,
                             })}
-                            className="mb-px inline-flex h-9 w-9 shrink-0 items-center justify-center rounded text-text-3 transition-colors hover:bg-rose-soft hover:text-rose focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
-                            onClick={() =>
-                              changeDraft({
-                                newValues: draft.newValues.filter(
-                                  (_, valueIndex) => valueIndex !== index
-                                ),
-                              })
-                            }
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
+                            aria-label={t("bulkVariants.change.newValue", {
+                              n: index + 1,
+                            })}
+                            placeholder={t(
+                              "bulkVariants.change.newPlaceholder",
+                              "Flat top"
+                            )}
+                            value={value}
+                            onChange={(event) => {
+                              const next = [...draft.newValues];
+                              next[index] = event.target.value;
+                              changeDraft({ newValues: next });
+                            }}
+                            className="w-full"
+                          />
+                          {draft.newValues.length > 1 && (
+                            <button
+                              type="button"
+                              aria-label={t("bulkVariants.change.removeValue", {
+                                n: index + 1,
+                              })}
+                              className="mb-px inline-flex h-control-36 w-control-36 shrink-0 items-center justify-center rounded text-text-3 transition-colors ease-smooth hover:bg-rose-soft hover:text-rose focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                              onClick={() =>
+                                changeDraft({
+                                  newValues: draft.newValues.filter(
+                                    (_, valueIndex) => valueIndex !== index
+                                  ),
+                                })
+                              }
+                            >
+                              <Trash2 className="h-icon-16 w-icon-16" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="mt-2"
+                      disabled={draft.newValues.length >= 20}
+                      onClick={() =>
+                        changeDraft({ newValues: [...draft.newValues, ""] })
+                      }
+                    >
+                      <Plus className="h-icon-16 w-icon-16" />
+                      {t("bulkVariants.change.addValue", "ADD VALUE")}
+                    </Button>
+                  </section>
+                </div>
+              )}
+
+            {draft.stage === "review" &&
+              !familiesQuery.isLoading &&
+              !familiesQuery.isError && (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    <Metric>
+                      {preview.familyCount === 1
+                        ? t("bulkVariants.review.family.one", "1 FAMILY")
+                        : t("bulkVariants.review.family.many", {
+                            n: preview.familyCount,
+                          })}
+                    </Metric>
+                    <Metric>
+                      {preview.existingVariantAssignmentCount === 1
+                        ? t(
+                            "bulkVariants.review.existing.one",
+                            "1 EXISTING VARIANT LABELLED"
+                          )
+                        : t("bulkVariants.review.existing.many", {
+                            n: preview.existingVariantAssignmentCount,
+                          })}
+                    </Metric>
+                    <Metric>
+                      {preview.newVariantCount === 1
+                        ? t("bulkVariants.review.new.one", "1 NEW VARIANT")
+                        : t("bulkVariants.review.new.many", {
+                            n: preview.newVariantCount,
+                          })}
+                    </Metric>
+                    <Metric>
+                      {draft.axisName} · {draft.newValues.join(", ")}
+                    </Metric>
+                  </div>
+                  <div className="rounded border border-border bg-surface-input px-3 py-2">
+                    <p className="font-mohave text-body text-text">
+                      {t(
+                        "bulkVariants.review.preservation",
+                        "Existing IDs, stock, SKU, history and joins stay unchanged."
+                      )}
+                    </p>
+                    <p className="mt-1 font-mohave text-body-sm text-text-2">
+                      {t(
+                        "bulkVariants.review.newDefaults",
+                        "New variants start at 0 with blank SKUs. Safe settings carry forward."
+                      )}
+                    </p>
+                    {preview.skippedExistingCombinationCount > 0 && (
+                      <p className="mt-1 font-mono text-micro text-text-3">
+                        {t("bulkVariants.review.skipped", {
+                          n: preview.skippedExistingCombinationCount,
+                        })}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {preview.familyPlans.map((plan) => (
+                      <FamilyReview key={plan.familyId} plan={plan} />
                     ))}
                   </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-2"
-                    disabled={draft.newValues.length >= 20}
-                    onClick={() =>
-                      changeDraft({ newValues: [...draft.newValues, ""] })
-                    }
-                  >
-                    <Plus className="h-4 w-4" />
-                    {t("bulkVariants.change.addValue", "ADD VALUE")}
-                  </Button>
-                </section>
-              </div>
-            )}
-
-            {draft.stage === "review" && (
-              <div className="space-y-3">
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  <Metric>
-                    {preview.familyCount === 1
-                      ? t("bulkVariants.review.family.one", "1 FAMILY")
-                      : t("bulkVariants.review.family.many", {
-                          n: preview.familyCount,
-                        })}
-                  </Metric>
-                  <Metric>
-                    {preview.existingVariantAssignmentCount === 1
-                      ? t(
-                          "bulkVariants.review.existing.one",
-                          "1 EXISTING VARIANT LABELLED"
-                        )
-                      : t("bulkVariants.review.existing.many", {
-                          n: preview.existingVariantAssignmentCount,
-                        })}
-                  </Metric>
-                  <Metric>
-                    {preview.newVariantCount === 1
-                      ? t("bulkVariants.review.new.one", "1 NEW VARIANT")
-                      : t("bulkVariants.review.new.many", {
-                          n: preview.newVariantCount,
-                        })}
-                  </Metric>
-                  <Metric>
-                    {draft.axisName} · {draft.newValues.join(", ")}
-                  </Metric>
                 </div>
-                <div className="rounded border border-border bg-surface-input px-3 py-2">
-                  <p className="font-mohave text-body text-text">
-                    {t(
-                      "bulkVariants.review.preservation",
-                      "Existing IDs, stock, SKU, history and joins stay unchanged."
-                    )}
-                  </p>
-                  <p className="mt-1 font-mohave text-body-sm text-text-2">
-                    {t(
-                      "bulkVariants.review.newDefaults",
-                      "New variants start at 0 with blank SKUs. Safe settings carry forward."
-                    )}
-                  </p>
-                  {preview.skippedExistingCombinationCount > 0 && (
-                    <p className="mt-1 font-mono text-[11px] text-text-3">
-                      {t("bulkVariants.review.skipped", {
-                        n: preview.skippedExistingCombinationCount,
-                      })}
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {preview.familyPlans.map((plan) => (
-                    <FamilyReview key={plan.familyId} plan={plan} />
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
           </div>
         </main>
 
@@ -823,14 +853,17 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
             <div
               role="status"
               className={cn(
-                "mb-2 flex items-center gap-2 rounded border px-3 py-2 font-mono text-[11px]",
+                "mb-2 flex items-center gap-2 rounded border px-3 py-2 font-mono text-micro",
                 workflowError
                   ? "border-rose-line bg-rose-soft text-rose"
                   : "border-ops-amber/30 bg-ops-amber/15 text-ops-amber"
               )}
             >
               {!online && (
-                <WifiOff className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <WifiOff
+                  className="h-icon-16 w-icon-16 shrink-0"
+                  aria-hidden="true"
+                />
               )}
               {workflowError
                 ? t(workflowError.key, workflowError.params)
@@ -870,7 +903,8 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
                   size="sm"
                   disabled={
                     draft.selectedFamilyIds.length === 0 ||
-                    familiesQuery.isLoading
+                    familiesQuery.isLoading ||
+                    familiesQuery.isError
                   }
                   onClick={() => setStage("change")}
                 >
@@ -878,7 +912,12 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
                 </Button>
               )}
               {draft.stage === "change" && (
-                <Button variant="primary" size="sm" onClick={review}>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  disabled={familiesQuery.isLoading || familiesQuery.isError}
+                  onClick={review}
+                >
                   {t("bulkVariants.action.review", "REVIEW")}
                 </Button>
               )}
@@ -887,7 +926,12 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
                   variant="primary"
                   size="sm"
                   loading={expand.isPending}
-                  disabled={!online || !preview.canApply}
+                  disabled={
+                    !online ||
+                    !preview.canApply ||
+                    familiesQuery.isLoading ||
+                    familiesQuery.isError
+                  }
                   onClick={apply}
                 >
                   {t("bulkVariants.action.apply", "APPLY")}

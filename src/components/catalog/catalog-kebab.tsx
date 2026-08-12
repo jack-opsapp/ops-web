@@ -51,9 +51,9 @@ export function CatalogKebab({
           <button
             type="button"
             aria-label="More"
-            className="inline-flex h-9 w-9 items-center justify-center rounded border border-border text-text-2 transition-colors hover:bg-surface-hover focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            className="inline-flex h-control-36 w-control-36 items-center justify-center rounded border border-border text-text-2 transition-colors ease-smooth hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
-            <MoreVertical className="h-[16px] w-[16px]" />
+            <MoreVertical className="h-icon-16 w-icon-16" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[200px]">
@@ -67,7 +67,7 @@ export function CatalogKebab({
           )}
           {canManage && (
             <>
-              <DropdownMenuLabel className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
+              <DropdownMenuLabel className="font-mono text-micro uppercase tracking-widest text-text-3">
                 <span className="text-text-mute">{"// "}</span>
                 {t("kebab.manage", "MANAGE")}
               </DropdownMenuLabel>
@@ -90,7 +90,7 @@ export function CatalogKebab({
           {segment === "stock" && canManage && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuLabel className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
+              <DropdownMenuLabel className="font-mono text-micro uppercase tracking-widest text-text-3">
                 <span className="text-text-mute">{"// "}</span>
                 {t("kebab.stock", "STOCK")}
               </DropdownMenuLabel>
@@ -102,7 +102,7 @@ export function CatalogKebab({
           {segment === "stock" && (
             <>
               {canManage && <DropdownMenuSeparator />}
-              <DropdownMenuLabel className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
+              <DropdownMenuLabel className="font-mono text-micro uppercase tracking-widest text-text-3">
                 <span className="text-text-mute">{"// "}</span>
                 {t("kebab.views", "VIEWS")}
               </DropdownMenuLabel>
