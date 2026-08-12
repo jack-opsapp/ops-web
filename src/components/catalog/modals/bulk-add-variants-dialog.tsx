@@ -517,12 +517,12 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
               {stageTitle}
             </h2>
 
-            {draft.stage !== "families" && familiesQuery.isLoading && (
+            {draft.stage === "review" && familiesQuery.isLoading && (
               <div className="rounded border border-border px-3 py-8 text-center font-mono text-micro text-text-3">
                 {t("bulkVariants.loading", "READING CURRENT FAMILIES…")}
               </div>
             )}
-            {draft.stage !== "families" && familiesQuery.isError && (
+            {draft.stage === "review" && familiesQuery.isError && (
               <div
                 role="alert"
                 className="rounded border border-rose-line bg-rose-soft px-3 py-3"
@@ -677,112 +677,110 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
               </div>
             )}
 
-            {draft.stage === "change" &&
-              !familiesQuery.isLoading &&
-              !familiesQuery.isError && (
-                <div className="space-y-4">
-                  <p className="max-w-2xl font-mohave text-body text-text-2">
-                    {t(
-                      "bulkVariants.change.intro",
-                      "Name the option, identify the current source value, then add up to 20 new values."
+            {draft.stage === "change" && (
+              <div className="space-y-4">
+                <p className="max-w-2xl font-mohave text-body text-text-2">
+                  {t(
+                    "bulkVariants.change.intro",
+                    "Name the option, identify the current source value, then add up to 20 new values."
+                  )}
+                </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input
+                    label={t("bulkVariants.change.axisName", "Option name")}
+                    placeholder={t(
+                      "bulkVariants.change.axisPlaceholder",
+                      "Top profile"
                     )}
-                  </p>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <Input
-                      label={t("bulkVariants.change.axisName", "Option name")}
-                      placeholder={t(
-                        "bulkVariants.change.axisPlaceholder",
-                        "Top profile"
-                      )}
-                      value={draft.axisName}
-                      onChange={(event) =>
-                        changeDraft({ axisName: event.target.value })
-                      }
-                    />
-                    <Input
-                      label={t(
-                        "bulkVariants.change.existingValue",
-                        "Existing value"
-                      )}
-                      placeholder={t(
-                        "bulkVariants.change.existingPlaceholder",
-                        "Round top"
-                      )}
-                      value={draft.existingValue}
-                      onChange={(event) =>
-                        changeDraft({ existingValue: event.target.value })
-                      }
-                    />
-                  </div>
-                  <section>
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <p className={labelClass}>
-                        {t("bulkVariants.change.newValues", "New values")}
-                      </p>
-                      <p className="font-mono text-micro tabular-nums text-text-3">
-                        {t("bulkVariants.change.valueLimit", {
-                          n: draft.newValues.length,
-                        })}
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      {draft.newValues.map((value, index) => (
-                        <div key={index} className="flex items-end gap-2">
-                          <Input
-                            label={t("bulkVariants.change.newValue", {
-                              n: index + 1,
-                            })}
-                            aria-label={t("bulkVariants.change.newValue", {
-                              n: index + 1,
-                            })}
-                            placeholder={t(
-                              "bulkVariants.change.newPlaceholder",
-                              "Flat top"
-                            )}
-                            value={value}
-                            onChange={(event) => {
-                              const next = [...draft.newValues];
-                              next[index] = event.target.value;
-                              changeDraft({ newValues: next });
-                            }}
-                            className="w-full"
-                          />
-                          {draft.newValues.length > 1 && (
-                            <button
-                              type="button"
-                              aria-label={t("bulkVariants.change.removeValue", {
-                                n: index + 1,
-                              })}
-                              className="mb-px inline-flex h-control-36 w-control-36 shrink-0 items-center justify-center rounded text-text-3 transition-colors ease-smooth hover:bg-rose-soft hover:text-rose focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
-                              onClick={() =>
-                                changeDraft({
-                                  newValues: draft.newValues.filter(
-                                    (_, valueIndex) => valueIndex !== index
-                                  ),
-                                })
-                              }
-                            >
-                              <Trash2 className="h-icon-16 w-icon-16" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="mt-2"
-                      disabled={draft.newValues.length >= 20}
-                      onClick={() =>
-                        changeDraft({ newValues: [...draft.newValues, ""] })
-                      }
-                    >
-                      <Plus className="h-icon-16 w-icon-16" />
-                      {t("bulkVariants.change.addValue", "ADD VALUE")}
-                    </Button>
-                  </section>
+                    value={draft.axisName}
+                    onChange={(event) =>
+                      changeDraft({ axisName: event.target.value })
+                    }
+                  />
+                  <Input
+                    label={t(
+                      "bulkVariants.change.existingValue",
+                      "Existing value"
+                    )}
+                    placeholder={t(
+                      "bulkVariants.change.existingPlaceholder",
+                      "Round top"
+                    )}
+                    value={draft.existingValue}
+                    onChange={(event) =>
+                      changeDraft({ existingValue: event.target.value })
+                    }
+                  />
                 </div>
-              )}
+                <section>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <p className={labelClass}>
+                      {t("bulkVariants.change.newValues", "New values")}
+                    </p>
+                    <p className="font-mono text-micro tabular-nums text-text-3">
+                      {t("bulkVariants.change.valueLimit", {
+                        n: draft.newValues.length,
+                      })}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {draft.newValues.map((value, index) => (
+                      <div key={index} className="flex items-end gap-2">
+                        <Input
+                          label={t("bulkVariants.change.newValue", {
+                            n: index + 1,
+                          })}
+                          aria-label={t("bulkVariants.change.newValue", {
+                            n: index + 1,
+                          })}
+                          placeholder={t(
+                            "bulkVariants.change.newPlaceholder",
+                            "Flat top"
+                          )}
+                          value={value}
+                          onChange={(event) => {
+                            const next = [...draft.newValues];
+                            next[index] = event.target.value;
+                            changeDraft({ newValues: next });
+                          }}
+                          className="w-full"
+                        />
+                        {draft.newValues.length > 1 && (
+                          <button
+                            type="button"
+                            aria-label={t("bulkVariants.change.removeValue", {
+                              n: index + 1,
+                            })}
+                            className="mb-px inline-flex h-control-36 w-control-36 shrink-0 items-center justify-center rounded text-text-3 transition-colors ease-smooth hover:bg-rose-soft hover:text-rose focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+                            onClick={() =>
+                              changeDraft({
+                                newValues: draft.newValues.filter(
+                                  (_, valueIndex) => valueIndex !== index
+                                ),
+                              })
+                            }
+                          >
+                            <Trash2 className="h-icon-16 w-icon-16" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="mt-2"
+                    disabled={draft.newValues.length >= 20}
+                    onClick={() =>
+                      changeDraft({ newValues: [...draft.newValues, ""] })
+                    }
+                  >
+                    <Plus className="h-icon-16 w-icon-16" />
+                    {t("bulkVariants.change.addValue", "ADD VALUE")}
+                  </Button>
+                </section>
+              </div>
+            )}
 
             {draft.stage === "review" &&
               !familiesQuery.isLoading &&

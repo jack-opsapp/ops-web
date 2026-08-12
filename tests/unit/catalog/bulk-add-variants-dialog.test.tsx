@@ -218,6 +218,8 @@ describe("BulkAddVariantsDialog", () => {
     await reachReview();
     first.unmount();
 
+    familyHook.data = [];
+    familyHook.isError = true;
     Object.defineProperty(window.navigator, "onLine", {
       configurable: true,
       value: false,
@@ -228,6 +230,12 @@ describe("BulkAddVariantsDialog", () => {
       screen.getByText("OFFLINE — DRAFT SAVED ON THIS DEVICE")
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "APPLY" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "BACK" }));
+    const optionName = screen.getByLabelText("Option name");
+    expect(optionName).toHaveValue("Top profile");
+    await userEvent.type(optionName, " revised");
+    expect(optionName).toHaveValue("Top profile revised");
   });
 
   it("refreshes stale snapshots without losing the authored change", async () => {
