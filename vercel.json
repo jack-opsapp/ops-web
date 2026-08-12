@@ -211,6 +211,10 @@
     {
       "path": "/api/cron/site-visit-prompts",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/google-calendar-sync",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

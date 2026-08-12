@@ -70,6 +70,11 @@ const guardedProductionRoutes = new Map<string, string>([
   // and cannot live in the overnight email window. Shares the */5 grid with
   // the fire_due_task_reminders DB lane only — inside the 3-lane budget.
   ["/api/cron/site-visit-prompts", "*/5 * * * *"],
+  // Full-day on purpose: booked visits propagate to Google Calendar whenever
+  // they change. Third and final lane on the */5 grid (with
+  // site-visit-prompts + fire_due_task_reminders) — exactly at the 3-lane
+  // budget; the next full-day cron must pick a different grid.
+  ["/api/cron/google-calendar-sync", "*/5 * * * *"],
 ]);
 
 const migrationDirectory = join(process.cwd(), "supabase/migrations");
