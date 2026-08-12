@@ -68,7 +68,8 @@ as $function$
      where attachment.id = p_attachment_id
        and private.email_conversion_photo_attachment_is_base_eligible(attachment.id)
        -- The reply envelope is inbound, but identical bytes already sent by
-       -- the operator in this provider thread remain operator-authored.
+       -- the operator in this provider thread or attributed opportunity remain
+       -- operator-authored even when Gmail splits the reply into a new thread.
        and not exists (
          select 1
            from public.email_attachments outbound_attachment
@@ -79,9 +80,17 @@ as $function$
             and outbound_activity.email_connection_id = outbound_attachment.connection_id
             and outbound_activity.email_message_id = outbound_attachment.message_id
           where outbound_attachment.company_id = attachment.company_id
-            and outbound_attachment.connection_id = attachment.connection_id
-            and outbound_attachment.provider_thread_id is not distinct from attachment.provider_thread_id
             and outbound_attachment.content_sha256 = attachment.content_sha256
+            and (
+              (
+                outbound_attachment.connection_id = attachment.connection_id
+                and outbound_attachment.provider_thread_id is not distinct from attachment.provider_thread_id
+              )
+              or (
+                attachment.opportunity_id is not null
+                and outbound_attachment.opportunity_id is not distinct from attachment.opportunity_id
+              )
+            )
             and outbound_attachment.ingest_status = 'stored'
             and outbound_attachment.occurred_at is not null
             and outbound_activity.direction = 'outbound'
@@ -108,9 +117,17 @@ as $function$
                  and prior_outbound_activity.email_connection_id = prior_outbound_attachment.connection_id
                  and prior_outbound_activity.email_message_id = prior_outbound_attachment.message_id
                where prior_outbound_attachment.company_id = prior_attachment.company_id
-                 and prior_outbound_attachment.connection_id = prior_attachment.connection_id
-                 and prior_outbound_attachment.provider_thread_id is not distinct from prior_attachment.provider_thread_id
                  and prior_outbound_attachment.content_sha256 = prior_attachment.content_sha256
+                 and (
+                   (
+                     prior_outbound_attachment.connection_id = prior_attachment.connection_id
+                     and prior_outbound_attachment.provider_thread_id is not distinct from prior_attachment.provider_thread_id
+                   )
+                   or (
+                     prior_attachment.opportunity_id is not null
+                     and prior_outbound_attachment.opportunity_id is not distinct from prior_attachment.opportunity_id
+                   )
+                 )
                  and prior_outbound_attachment.ingest_status = 'stored'
                  and prior_outbound_attachment.occurred_at is not null
                  and prior_outbound_activity.direction = 'outbound'

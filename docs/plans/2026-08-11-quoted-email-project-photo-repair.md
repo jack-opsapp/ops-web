@@ -4,7 +4,7 @@
 
 **Goal:** Prevent owner-authored images carried inside quoted replies from becoming project photos, and guarantee one email-origin project photo per exact image content hash.
 
-**Architecture:** Filter Gmail inline MIME parts whose content IDs exist only inside structurally quoted HTML before attachment persistence. Add the authoritative safeguard in Postgres: an inbound image is ineligible when the same bytes appeared earlier on an outbound message in the same provider thread, and only the earliest eligible inbound attachment for an opportunity/content hash may materialize. A partial unique index protects the project/hash invariant under concurrency, while the existing revocation and object-cleanup ledgers converge previously published mistakes safely.
+**Architecture:** Filter Gmail inline MIME parts whose content IDs exist only inside structurally quoted HTML before attachment persistence. Add the authoritative safeguard in Postgres: an inbound image is ineligible when the same bytes appeared earlier on an outbound message in the same provider thread or attributed opportunity, and only the earliest eligible inbound attachment for an opportunity/content hash may materialize. A partial unique index protects the project/hash invariant under concurrency, while the existing revocation and object-cleanup ledgers converge previously published mistakes safely.
 
 **Tech Stack:** TypeScript, Vitest, Gmail MIME payloads, Supabase Postgres 17, PL/pgSQL, Supabase Storage cleanup ledger.
 
@@ -63,7 +63,7 @@ Run the command from Step 2. Expected: all Gmail attachment tests pass.
 Assert that the new migration:
 
 - centralizes source eligibility in a private function;
-- rejects an inbound image when identical bytes appeared earlier outbound in the same company/connection/provider thread;
+- rejects an inbound image when identical bytes appeared earlier outbound in the same company and either the same connection/provider thread or the same attributed opportunity;
 - keeps only the earliest eligible inbound attachment for a company/opportunity/content hash;
 - rechecks that eligibility at queue insertion, reconciliation, trigger-driven sibling reconciliation, job identity validation, and completion;
 - adds a partial unique index for one materializing job per company/project/source hash;

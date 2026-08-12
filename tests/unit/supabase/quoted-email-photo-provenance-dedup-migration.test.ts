@@ -35,7 +35,10 @@ describe("quoted email photo provenance and dedup migration", () => {
       /private\.email_conversion_photo_attachment_is_base_eligible\(attachment\.id\)/i
     );
     expect(sourceEligibility).toMatch(
-      /outbound_attachment\.company_id = attachment\.company_id[\s\S]*outbound_attachment\.connection_id = attachment\.connection_id[\s\S]*outbound_attachment\.provider_thread_id is not distinct from attachment\.provider_thread_id[\s\S]*outbound_attachment\.content_sha256 = attachment\.content_sha256/i
+      /outbound_attachment\.company_id = attachment\.company_id[\s\S]*outbound_attachment\.content_sha256 = attachment\.content_sha256[\s\S]*outbound_attachment\.connection_id = attachment\.connection_id[\s\S]*outbound_attachment\.provider_thread_id is not distinct from attachment\.provider_thread_id/i
+    );
+    expect(sourceEligibility).toMatch(
+      /outbound_attachment\.content_sha256 = attachment\.content_sha256[\s\S]*\([\s\S]*outbound_attachment\.connection_id = attachment\.connection_id[\s\S]*outbound_attachment\.provider_thread_id is not distinct from attachment\.provider_thread_id[\s\S]*or[\s\S]*attachment\.opportunity_id is not null[\s\S]*outbound_attachment\.opportunity_id is not distinct from attachment\.opportunity_id[\s\S]*\)/i
     );
     expect(sourceEligibility).toMatch(
       /outbound_activity\.direction = 'outbound'[\s\S]*outbound_attachment\.occurred_at <= attachment\.occurred_at/i
