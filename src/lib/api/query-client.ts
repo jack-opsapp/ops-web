@@ -608,6 +608,8 @@ export const queryKeys = {
       [...queryKeys.catalog.all, "units", companyId] as const,
     families: (companyId: string) =>
       [...queryKeys.catalog.all, "families", companyId] as const,
+    bulkVariantFamilies: (companyId: string) =>
+      [...queryKeys.catalog.all, "bulkVariantFamilies", companyId] as const,
     variantOptions: (itemId: string) =>
       [...queryKeys.catalog.all, "variantOptions", itemId] as const,
     adjustments: (variantId: string, itemId: string) =>

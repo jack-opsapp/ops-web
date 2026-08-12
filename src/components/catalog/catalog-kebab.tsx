@@ -24,6 +24,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import type { CatalogStockRow } from "@/lib/types/catalog";
 import { ManageModal, type ManageTab } from "./modals/manage-modal";
 import { ImportModal } from "./modals/import-modal";
+import { BulkAddVariantsDialog } from "./modals/bulk-add-variants-dialog";
 
 export function CatalogKebab({
   segment,
@@ -41,6 +42,7 @@ export function CatalogKebab({
 
   const [manageTab, setManageTab] = useState<ManageTab | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [bulkVariantsOpen, setBulkVariantsOpen] = useState(false);
 
   return (
     <>
@@ -85,6 +87,18 @@ export function CatalogKebab({
               )}
             </>
           )}
+          {segment === "stock" && canManage && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
+                <span className="text-text-mute">{"// "}</span>
+                {t("kebab.stock", "STOCK")}
+              </DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => setBulkVariantsOpen(true)}>
+                {t("kebab.bulkAddVariants", "Bulk Add Variants")}
+              </DropdownMenuItem>
+            </>
+          )}
           {segment === "stock" && (
             <>
               {canManage && <DropdownMenuSeparator />}
@@ -93,7 +107,11 @@ export function CatalogKebab({
                 {t("kebab.views", "VIEWS")}
               </DropdownMenuLabel>
               <DropdownMenuItem
-                onSelect={() => router.replace("/catalog?segment=stock&view=counts", { scroll: false })}
+                onSelect={() =>
+                  router.replace("/catalog?segment=stock&view=counts", {
+                    scroll: false,
+                  })
+                }
               >
                 {t("kebab.savedCounts", "Saved counts")}
               </DropdownMenuItem>
@@ -108,9 +126,18 @@ export function CatalogKebab({
       </DropdownMenu>
 
       {manageTab && (
-        <ManageModal tab={manageTab} onTabChange={setManageTab} onClose={() => setManageTab(null)} />
+        <ManageModal
+          tab={manageTab}
+          onTabChange={setManageTab}
+          onClose={() => setManageTab(null)}
+        />
       )}
-      {importOpen && <ImportModal rows={rows} onClose={() => setImportOpen(false)} />}
+      {importOpen && (
+        <ImportModal rows={rows} onClose={() => setImportOpen(false)} />
+      )}
+      {bulkVariantsOpen && (
+        <BulkAddVariantsDialog onClose={() => setBulkVariantsOpen(false)} />
+      )}
     </>
   );
 }
