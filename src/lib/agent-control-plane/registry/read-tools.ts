@@ -2,11 +2,14 @@ import { z } from "zod-v4";
 
 import {
   CursorRequestSchema,
-  IanaTimeZoneSchema,
   OpaqueIdSchema,
   Rfc3339UtcTimestampSchema,
 } from "@/lib/agent-control-plane/contracts/common";
 import { JobRefSchema } from "@/lib/agent-control-plane/contracts/jobs";
+import {
+  JobReadinessIssuesInputSchema,
+  ScheduledJobsInputSchema,
+} from "@/lib/agent-control-plane/contracts/schedule";
 import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
 import type {
   CapabilityAuthorizationVariantDefinition,
@@ -57,46 +60,6 @@ function validWindow(from: string, to: string, maximumDays: number): boolean {
   const end = Date.parse(to);
   return end > start && end - start <= maximumDays * DAY_MS;
 }
-
-const ScheduledJobsInputSchema = CursorRequestSchema.extend({
-  from: Rfc3339UtcTimestampSchema,
-  to: Rfc3339UtcTimestampSchema,
-  statuses: z
-    .array(
-      z.enum(["scheduled", "confirmed", "in_progress", "complete", "cancelled"])
-    )
-    .max(5)
-    .optional(),
-  display_timezone: IanaTimeZoneSchema.optional(),
-})
-  .strict()
-  .refine((input) => validWindow(input.from, input.to, 90), {
-    path: ["to"],
-    message: "Schedule window must be positive and no longer than 90 days",
-  });
-
-const ReadinessIssuesInputSchema = CursorRequestSchema.extend({
-  from: Rfc3339UtcTimestampSchema,
-  to: Rfc3339UtcTimestampSchema,
-  rule_codes: z
-    .array(
-      z.enum([
-        "SITE_PHOTOS_MISSING",
-        "CUSTOMER_CONTACT_UNRESOLVED",
-        "SCHEDULE_UNCONFIRMED",
-        "CREW_UNASSIGNED",
-        "ADDRESS_INCOMPLETE",
-      ])
-    )
-    .max(5)
-    .optional(),
-  include_clear: z.boolean().default(false),
-})
-  .strict()
-  .refine((input) => validWindow(input.from, input.to, 90), {
-    path: ["to"],
-    message: "Readiness window must be positive and no longer than 90 days",
-  });
 
 const JobCommunicationContextInputSchema = z
   .object({
@@ -158,6 +121,12 @@ const JobConversationContextInputSchema = z
 
 export type GetJobConversationContextInput = Readonly<
   z.input<typeof JobConversationContextInputSchema>
+>;
+export type ListScheduledJobsInput = Readonly<
+  z.input<typeof ScheduledJobsInputSchema>
+>;
+export type JobReadinessIssuesInput = Readonly<
+  z.input<typeof JobReadinessIssuesInputSchema>
 >;
 
 const CustomerJobsInputSchema = CursorRequestSchema.extend({
@@ -467,6 +436,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       ],
     },
     ...readMetadata({ riskTier: "low", maxResultItems: 50, maxWindowDays: 90 }),
+    availability: INTERNAL_ONLY_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.list_scheduled_jobs",
   },
   {
@@ -474,27 +444,43 @@ export const READ_CAPABILITY_DEFINITIONS = [
     schemaRevision: CONTRACT_VERSION,
     operation: "read",
     description: "Return current readiness issues for scheduled jobs.",
-    inputSchema: ReadinessIssuesInputSchema,
+    inputSchema: JobReadinessIssuesInputSchema,
     authorization: {
       variants: [
         {
-          key: "readiness",
+          key: "readiness_base",
           selector: { kind: "always" },
-          requiredOAuthScopes: [
-            "ops.customer_contacts.read",
-            "ops.customers.read",
-            "ops.jobs.read",
-            "ops.photos.read",
-            "ops.schedule.read",
-          ],
+          requiredOAuthScopes: ["ops.jobs.read", "ops.schedule.read"],
           permissionRequirementGroups: [
             [
               permission("calendar.view", ["all", "own"]),
-              permission("clients.view", ["all", "assigned"]),
-              permission("photos.view", ["all", "assigned"]),
               permission("projects.view", ["all", "assigned"]),
               permission("tasks.view", ["all", "assigned"]),
             ],
+          ],
+        },
+        {
+          key: "readiness_site_photos",
+          selector: {
+            kind: "input_array_contains",
+            field: "rule_codes",
+            value: "SITE_PHOTOS_MISSING",
+          },
+          requiredOAuthScopes: ["ops.photos.read"],
+          permissionRequirementGroups: [
+            [permission("photos.view", ["all", "assigned"])],
+          ],
+        },
+        {
+          key: "readiness_customer",
+          selector: {
+            kind: "input_array_contains",
+            field: "rule_codes",
+            value: "CUSTOMER_RECORD_UNRESOLVED",
+          },
+          requiredOAuthScopes: ["ops.customers.read"],
+          permissionRequirementGroups: [
+            [permission("clients.view", ["all", "assigned"])],
           ],
         },
       ],
@@ -504,6 +490,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 50,
       maxWindowDays: 90,
     }),
+    availability: INTERNAL_ONLY_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.list_job_readiness_issues",
   },
   {

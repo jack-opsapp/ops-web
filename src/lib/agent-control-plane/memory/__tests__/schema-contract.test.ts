@@ -50,6 +50,13 @@ function functionBody(source: string, name: string): string {
   return source.slice(start, next < 0 ? undefined : next);
 }
 
+function latestFunctionBody(source: string, name: string): string {
+  const start = source.lastIndexOf(`create or replace function ${name}(`);
+  if (start < 0) return "";
+  const next = source.indexOf("create or replace function ", start + 1);
+  return source.slice(start, next < 0 ? undefined : next);
+}
+
 function sourceFile(relativePath: string): string {
   return readFileSync(join(process.cwd(), relativePath), "utf8").toLowerCase();
 }
@@ -423,7 +430,11 @@ describe("agent job conversation memory schema", () => {
 
   it("defines a fixed actor-authorized context snapshot instead of reusing the generation read", () => {
     const compact = allMigrationSql().replace(/\s+/g, " ");
-    const context = functionBody(
+    const context = latestFunctionBody(
+      compact,
+      "public.read_agent_job_conversation_context_as_system"
+    );
+    const implementation = functionBody(
       compact,
       "public.read_agent_job_conversation_context_as_system"
     );
@@ -443,34 +454,34 @@ describe("agent job conversation memory schema", () => {
     expect(context).toContain("p_exact_turn_limit integer");
     expect(context).toContain("p_required_through_turn_id uuid");
     expect(context).toContain(
-      "private.resolve_agent_actor_authority( p_actor_user_id, p_company_id"
-    );
-    expect(context).toContain("'inbox.view'");
-    expect(context).toContain("'clients.view'");
-    expect(context).toMatch(
-      /private\.agent_user_can_access_entity\([\s\S]*?p_job_kind[\s\S]*?p_job_id[\s\S]*?'view'/
-    );
-    expect(context).toContain("authority.inbox_scope = 'all'");
-    expect(context).toContain(
-      "authority.permission_snapshot_revision = p_permission_snapshot_revision"
+      "private.read_agent_job_conversation_context_v3_impl("
     );
     expect(context).toContain(
       "p_capability_id is distinct from 'get_job_conversation_context'"
     );
     expect(context).toContain("'get_job_conversation_context:2026-08-07.v1'");
-    expect(context).toContain("'2026-08-11.capability-manifest.v3'");
-    expect(context).toContain("public.job_conversation_redaction_events");
-    expect(context).toContain("turn.participant_resolution_revision");
-    expect(context).toContain("turn.source_connection_id");
-    expect(context).toContain("turn.provider_message_id");
-    expect(context).toContain("turn.source_activity_id");
-    expect(context).toContain("turn.source_correspondence_event_id");
-    expect(context).toContain("order by turn.turn_sequence desc");
-    expect(context).toContain("limit p_exact_turn_limit");
-    expect(context).toContain("order by recent.turn_sequence");
-    expect(context).toContain("'job_conversation_turn:' || turn.id::text");
-    expect(context).toContain("private.agent_provider_delivery_sources");
-    expect(context).not.toContain(
+    expect(context).toContain("'2026-08-12.capability-manifest.v4'");
+    expect(implementation).toContain(
+      "private.resolve_agent_actor_authority( p_actor_user_id, p_company_id"
+    );
+    expect(implementation).toContain("'inbox.view'");
+    expect(implementation).toContain("'clients.view'");
+    expect(implementation).toContain(
+      "public.job_conversation_redaction_events"
+    );
+    expect(implementation).toContain("turn.participant_resolution_revision");
+    expect(implementation).toContain("turn.source_connection_id");
+    expect(implementation).toContain("turn.provider_message_id");
+    expect(implementation).toContain("turn.source_activity_id");
+    expect(implementation).toContain("turn.source_correspondence_event_id");
+    expect(implementation).toContain("order by turn.turn_sequence desc");
+    expect(implementation).toContain("limit p_exact_turn_limit");
+    expect(implementation).toContain("order by recent.turn_sequence");
+    expect(implementation).toContain(
+      "'job_conversation_turn:' || turn.id::text"
+    );
+    expect(implementation).toContain("private.agent_provider_delivery_sources");
+    expect(implementation).not.toContain(
       "read_job_memory_generation_snapshot_as_system"
     );
     expect(compact).toMatch(

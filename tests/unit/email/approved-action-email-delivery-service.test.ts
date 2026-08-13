@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
   ApprovedActionEmailDeliveryService,
+  ApprovedActionEmailExecutionError,
   type ApprovedActionEmailIntent,
   type PrepareApprovedActionEmailIntentInput,
 } from "@/lib/api/services/approved-action-email-delivery-service";
@@ -254,6 +255,63 @@ describe("approved-action email delivery", () => {
 
     expect(deps.provider.sendEmail).not.toHaveBeenCalled();
     expect(deps.reconcile).not.toHaveBeenCalled();
+  });
+
+  it("keeps a pre-provider mailbox checkpoint failure explicitly retryable", async () => {
+    const deps = dependencies();
+    deps.mailboxCheckpoint.mockRejectedValueOnce(
+      new Error("mailbox lease unavailable before provider claim")
+    );
+
+    await expect(
+      new ApprovedActionEmailDeliveryService(deps).execute(PREPARE_INPUT)
+    ).rejects.toMatchObject({
+      name: "ApprovedActionEmailExecutionError",
+      failureDisposition: "pre_provider_retryable",
+      message: "mailbox lease unavailable before provider claim",
+    } satisfies Partial<ApprovedActionEmailExecutionError>);
+
+    expect(deps.store.claimProviderDelivery).not.toHaveBeenCalled();
+    expect(deps.provider.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("marks a claim failure as retryable because no provider call occurred", async () => {
+    const deps = dependencies();
+    deps.store.claimProviderDelivery.mockRejectedValueOnce(
+      new Error("database unavailable during final claim")
+    );
+
+    await expect(
+      new ApprovedActionEmailDeliveryService(deps).execute(PREPARE_INPUT)
+    ).rejects.toMatchObject({
+      name: "ApprovedActionEmailExecutionError",
+      failureDisposition: "pre_provider_retryable",
+      message: "database unavailable during final claim",
+    } satisfies Partial<ApprovedActionEmailExecutionError>);
+
+    expect(deps.mailboxCheckpoint).toHaveBeenCalledTimes(1);
+    expect(deps.provider.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it("never labels a post-provider persistence failure as safe to retry-send", async () => {
+    const deps = dependencies();
+    deps.provider.sendEmail.mockRejectedValueOnce(
+      new ProviderApiError("provider outcome unknown", 503)
+    );
+    deps.store.markDeliveryUnknown.mockRejectedValueOnce(
+      new Error("database unavailable after provider attempt")
+    );
+
+    await expect(
+      new ApprovedActionEmailDeliveryService(deps).execute(PREPARE_INPUT)
+    ).rejects.toMatchObject({
+      name: "ApprovedActionEmailExecutionError",
+      failureDisposition: "provider_outcome_owned",
+      message: "database unavailable after provider attempt",
+    } satisfies Partial<ApprovedActionEmailExecutionError>);
+
+    expect(deps.store.claimProviderDelivery).toHaveBeenCalledTimes(1);
+    expect(deps.provider.sendEmail).toHaveBeenCalledTimes(1);
   });
 
   it("fails busy before claiming delivery or touching the provider", async () => {

@@ -40,9 +40,35 @@ import type {
   StructuredSummary,
   ClientCommsSettings,
   TaskAutomationPersistenceGuard,
+  ScheduleConfirmationPersistenceGuard,
 } from "@/lib/types/approval-queue";
 import { DEFAULT_CLIENT_COMMS_SETTINGS } from "@/lib/types/approval-queue";
 import { TaskAutomationPersistenceService } from "./task-automation-persistence-service";
+import { parseScheduleConfirmationReceipt } from "./schedule-confirmation-receipt";
+import { mintScheduleConfirmationPersistenceGuard } from "./schedule-confirmation-persistence-guard";
+import {
+  isCurrentScheduleUnconfirmationPersistenceGuard,
+  type ScheduleUnconfirmationPersistenceGuard,
+} from "./schedule-unconfirmation-persistence-guard";
+import {
+  mintScheduleDispatchDraftGuard,
+  type ScheduleDispatchDraftGuard,
+} from "./schedule-dispatch-draft-guard";
+
+type GuardedUnconfirmationReceipt = Readonly<{
+  previousConfirmedAt: string;
+  scheduleVersion: number;
+}>;
+const GUARDED_UNCONFIRMATION_RECEIPTS = new WeakSet<object>();
+
+function mintGuardedUnconfirmationReceipt(input: {
+  previousConfirmedAt: string;
+  scheduleVersion: number;
+}): GuardedUnconfirmationReceipt {
+  const receipt = Object.freeze({ ...input });
+  GUARDED_UNCONFIRMATION_RECEIPTS.add(receipt);
+  return receipt;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -146,11 +172,9 @@ async function loadClientCommsSettings(
 
   // ── Appointment confirmation (new schema, fallback: always enabled → draft_on_confirm)
   const acNew = raw.appointment_confirmation as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const acLegacy = raw.appointment_confirmations as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
 
   const acLevel =
     typeof acNew?.level === "string"
@@ -162,21 +186,18 @@ async function loadClientCommsSettings(
   // ── Appointment reminder (new schema, fallback: day_before_reminders)
   const arNew = raw.appointment_reminder as Record<string, unknown> | undefined;
   const arLegacy = raw.day_before_reminders as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
 
   // ── Reschedule request (new schema, fallback: reschedule_requests)
   const rrNew = raw.reschedule_request as Record<string, unknown> | undefined;
   const rrLegacy = raw.reschedule_requests as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
 
   const su = raw.status_update as Record<string, unknown> | undefined;
   const pr = raw.payment_reminder as Record<string, unknown> | undefined;
   const ic = raw.invoice_cover as Record<string, unknown> | undefined;
   const sc = raw.subcontractor_coordination as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
 
   return {
     comms_wizard_completed_at:
@@ -355,10 +376,12 @@ async function getActiveConnectionId(
 
 function formatTime(time: string | null): string | null {
   if (!time) return null;
-  const match = /^(\d{1,2}):(\d{2})/.exec(time);
-  if (!match) return time;
-  const hh = match[1].padStart(2, "0");
-  return `${hh}:${match[2]}`;
+  const match =
+    /^(?:([01]\d|2[0-3])):([0-5]\d)(?::[0-5]\d(?:\.\d{1,6})?)?$/.exec(time);
+  if (!match) {
+    throw new Error("Schedule source contains an invalid wall time");
+  }
+  return `${match[1]}:${match[2]}`;
 }
 
 export type TaskScheduleState = {
@@ -376,6 +399,63 @@ export type ConfirmedScheduleChange = {
   after: TaskScheduleState;
   scheduleVersion: number | null;
 };
+
+type ExactScheduleConfirmation = Readonly<{
+  scheduleVersion: number;
+  confirmedAt: string;
+  confirmedBy: string | null;
+  confirmationOrigin: "manual" | "automatic_grace" | "full_auto";
+}>;
+
+type ScheduleDispatchTerminalDisposition =
+  "no_action" | "phase_disabled" | "access_lost" | "superseded";
+
+type PreparedScheduleDispatch = Readonly<{
+  disposition: "ready";
+  kind: "schedule_confirmation_dispatch" | "schedule_unconfirmation_dispatch";
+  eventId: string;
+  leaseToken: string;
+  companyId: string;
+  actorUserId: string;
+  taskId: string;
+  scheduleVersion: number;
+  confirmationOrigin: "manual" | "automatic_grace" | "full_auto" | null;
+  scheduleUnconfirmationOrigin: "explicit_admin" | "schedule_edit" | null;
+  changeKind: "rescheduled" | "unscheduled" | null;
+  scheduleConfirmedAt: string | null;
+  scheduleConfirmedBy: string | null;
+  previousScheduleConfirmedAt: string | null;
+  confirmationLevel:
+    | "off"
+    | "manual"
+    | "draft_on_confirm"
+    | "auto_send_on_confirm"
+    | "full_auto";
+  rescheduleBehavior: "do_nothing" | "notify" | "draft" | "auto_send";
+  sendDelayMinutes: number;
+  locale: Locale;
+  connectionId: string | null;
+  projectId: string;
+  projectTitle: string;
+  projectAddress: string | null;
+  clientId: string;
+  clientName: string;
+  clientEmail: string;
+  taskTitle: string;
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  scheduledEndTime: string | null;
+  allDay: boolean;
+  durationHours: number;
+  crewNames: string[];
+}>;
+
+type ScheduleDispatchPreparation =
+  | PreparedScheduleDispatch
+  | Readonly<{
+      disposition: ScheduleDispatchTerminalDisposition;
+      reason: string;
+    }>;
 
 export type ConfirmedRescheduleOutcome = {
   actionTaken:
@@ -598,6 +678,30 @@ function taskMatchesScheduleState(
   );
 }
 
+function taskMatchesExactScheduleConfirmation(
+  task: Record<string, unknown>,
+  expected: ExactScheduleConfirmation
+): boolean {
+  const confirmedAt =
+    typeof task.schedule_confirmed_at === "string" &&
+    Number.isFinite(Date.parse(task.schedule_confirmed_at))
+      ? new Date(task.schedule_confirmed_at).toISOString()
+      : null;
+  return (
+    task.schedule_version === expected.scheduleVersion &&
+    task.confirmed_schedule_version === expected.scheduleVersion &&
+    confirmedAt === expected.confirmedAt &&
+    task.schedule_confirmed_by === expected.confirmedBy
+  );
+}
+
+function scheduleConfirmationSourceId(
+  taskId: string,
+  confirmation: ExactScheduleConfirmation
+): string {
+  return `schedule-confirmation:${taskId}:v${confirmation.scheduleVersion}:${confirmation.confirmedAt}`;
+}
+
 /** Normalize a Supabase embedded-join value that may be either an object or
  *  an array (PostgREST returns arrays for to-many and objects for to-one,
  *  but the generated types sometimes type it as an array even when to-one). */
@@ -613,24 +717,594 @@ async function loadCrewNames(
   teamMemberIds: string[]
 ): Promise<string[]> {
   if (teamMemberIds.length === 0) return [];
+  if (teamMemberIds.length > 100) {
+    throw new Error("Schedule crew source exceeds its query bound");
+  }
+  if (teamMemberIds.some((id) => !UUID_PATTERN.test(id))) {
+    throw new Error("Schedule crew source contains an invalid identity");
+  }
+  const uniqueIds = [...new Set(teamMemberIds)];
+  if (uniqueIds.length > 50) {
+    throw new Error("Schedule crew projection exceeds its query bound");
+  }
 
   const supabase = requireSupabase();
   const { data: users } = await supabase
     .from("users")
-    .select("id, first_name, last_name")
+    .select("id, first_name, last_name, is_active")
     .eq("company_id", companyId)
-    .in("id", teamMemberIds)
-    .is("deleted_at", null);
+    .in("id", uniqueIds)
+    .is("deleted_at", null)
+    .eq("is_active", true);
 
   const byId = new Map<string, string>();
   for (const u of users ?? []) {
     const name =
       `${(u.first_name as string) ?? ""} ${(u.last_name as string) ?? ""}`.trim();
-    if (name) byId.set(u.id as string, name);
+    if (name.length >= 1 && name.length <= 256) {
+      byId.set(u.id as string, name);
+    }
   }
-  return teamMemberIds
-    .map((id) => byId.get(id))
-    .filter((n): n is string => !!n);
+  const names = uniqueIds.map((id) => byId.get(id));
+  if (names.some((name) => !name)) {
+    throw new Error("Schedule crew source contains an unavailable identity");
+  }
+  return names as string[];
+}
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CANONICAL_UTC_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const CANONICAL_CIVIL_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const CANONICAL_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
+
+function formatCivilDate(value: string, locale: Locale): string {
+  if (!CANONICAL_CIVIL_DATE_PATTERN.test(value)) {
+    throw new Error("Schedule dispatch has invalid civil date");
+  }
+  const parsed = new Date(`${value}T12:00:00.000Z`);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== value
+  ) {
+    throw new Error("Schedule dispatch has invalid civil date");
+  }
+  return parsed.toLocaleDateString(bcp47(locale), {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function civilDateFromDateCarrier(value: string | null): string | null {
+  if (!value) return null;
+  if (CANONICAL_CIVIL_DATE_PATTERN.test(value)) return value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? null
+    : parsed.toISOString().slice(0, 10);
+}
+
+function preparedString(
+  row: Record<string, unknown>,
+  key: string,
+  max: number,
+  nullable = false
+): string | null {
+  const value = row[key];
+  if (nullable && value === null) return null;
+  if (
+    typeof value !== "string" ||
+    value.length < (nullable ? 0 : 1) ||
+    value.length > max
+  ) {
+    throw new Error(`Schedule dispatch preparation has invalid ${key}`);
+  }
+  return value;
+}
+
+function preparedUuid(
+  row: Record<string, unknown>,
+  key: string,
+  nullable = false
+): string | null {
+  const value = preparedString(row, key, 36, nullable);
+  if (value !== null && !UUID_PATTERN.test(value)) {
+    throw new Error(`Schedule dispatch preparation has invalid ${key}`);
+  }
+  return value;
+}
+
+function parseScheduleDispatchPreparation(
+  input: unknown,
+  expected: Readonly<{
+    eventId: string;
+    leaseToken: string;
+    companyId: string;
+    actorUserId: string;
+    taskId: string;
+    scheduleVersion: number;
+    kind: "schedule_confirmation_dispatch" | "schedule_unconfirmation_dispatch";
+  }>
+): ScheduleDispatchPreparation {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error("Schedule dispatch preparation returned invalid proof");
+  }
+  const row = input as Record<string, unknown>;
+  if (
+    row.disposition === "no_action" ||
+    row.disposition === "phase_disabled" ||
+    row.disposition === "access_lost" ||
+    row.disposition === "superseded"
+  ) {
+    if (typeof row.reason !== "string" || row.reason.length > 256) {
+      throw new Error("Schedule dispatch preparation returned invalid proof");
+    }
+    return { disposition: row.disposition, reason: row.reason };
+  }
+  if (row.disposition !== "ready") {
+    throw new Error("Schedule dispatch preparation returned invalid proof");
+  }
+  const kind = row.kind;
+  const eventId = preparedUuid(row, "event_id")!;
+  const leaseToken = preparedUuid(row, "lease_token")!;
+  const companyId = preparedUuid(row, "company_id")!;
+  const actorUserId = preparedUuid(row, "actor_user_id")!;
+  const taskId = preparedUuid(row, "task_id")!;
+  const scheduleVersion = row.schedule_version;
+  if (
+    kind !== expected.kind ||
+    eventId !== expected.eventId ||
+    leaseToken !== expected.leaseToken ||
+    companyId !== expected.companyId ||
+    actorUserId !== expected.actorUserId ||
+    taskId !== expected.taskId ||
+    scheduleVersion !== expected.scheduleVersion ||
+    !Number.isSafeInteger(scheduleVersion) ||
+    (scheduleVersion as number) < 0
+  ) {
+    throw new Error("Schedule dispatch preparation returned unbound proof");
+  }
+  const confirmationOrigin = row.confirmation_origin;
+  if (
+    confirmationOrigin !== null &&
+    confirmationOrigin !== "manual" &&
+    confirmationOrigin !== "automatic_grace" &&
+    confirmationOrigin !== "full_auto"
+  ) {
+    throw new Error("Schedule dispatch preparation has invalid origin");
+  }
+  const scheduleUnconfirmationOrigin = row.schedule_unconfirmation_origin;
+  if (
+    scheduleUnconfirmationOrigin !== null &&
+    scheduleUnconfirmationOrigin !== "explicit_admin" &&
+    scheduleUnconfirmationOrigin !== "schedule_edit"
+  ) {
+    throw new Error(
+      "Schedule dispatch preparation has invalid unconfirmation origin"
+    );
+  }
+  if (
+    (expected.kind === "schedule_confirmation_dispatch" &&
+      scheduleUnconfirmationOrigin !== null) ||
+    (expected.kind === "schedule_unconfirmation_dispatch" &&
+      (confirmationOrigin !== null || scheduleUnconfirmationOrigin === null))
+  ) {
+    throw new Error("Schedule dispatch preparation has incoherent origin");
+  }
+  const changeKind = row.change_kind;
+  if (
+    (expected.kind === "schedule_confirmation_dispatch" &&
+      changeKind !== null) ||
+    (expected.kind === "schedule_unconfirmation_dispatch" &&
+      changeKind !== "rescheduled" &&
+      changeKind !== "unscheduled") ||
+    (changeKind === "unscheduled" &&
+      scheduleUnconfirmationOrigin !== "schedule_edit")
+  ) {
+    throw new Error("Schedule dispatch preparation has invalid change kind");
+  }
+  const scheduleConfirmedAt = preparedString(
+    row,
+    "schedule_confirmed_at",
+    24,
+    true
+  );
+  const previousScheduleConfirmedAt = preparedString(
+    row,
+    "previous_schedule_confirmed_at",
+    24,
+    true
+  );
+  if (
+    (scheduleConfirmedAt !== null &&
+      (!CANONICAL_UTC_PATTERN.test(scheduleConfirmedAt) ||
+        !Number.isFinite(Date.parse(scheduleConfirmedAt)))) ||
+    (previousScheduleConfirmedAt !== null &&
+      (!CANONICAL_UTC_PATTERN.test(previousScheduleConfirmedAt) ||
+        !Number.isFinite(Date.parse(previousScheduleConfirmedAt))))
+  ) {
+    throw new Error("Schedule dispatch preparation has invalid timestamp");
+  }
+  const scheduleConfirmedBy = preparedUuid(row, "schedule_confirmed_by", true);
+  const confirmationLevel = row.confirmation_level;
+  const rescheduleBehavior = row.reschedule_behavior;
+  const sendDelayMinutes = row.send_delay_minutes;
+  const locale = row.locale;
+  const scheduledTime = preparedString(row, "scheduled_time", 5, true);
+  const scheduledEndTime = preparedString(row, "scheduled_end_time", 5, true);
+  const scheduledDate = preparedString(row, "scheduled_date", 10, true);
+  if (
+    (confirmationLevel !== "off" &&
+      confirmationLevel !== "manual" &&
+      confirmationLevel !== "draft_on_confirm" &&
+      confirmationLevel !== "auto_send_on_confirm" &&
+      confirmationLevel !== "full_auto") ||
+    (rescheduleBehavior !== "do_nothing" &&
+      rescheduleBehavior !== "notify" &&
+      rescheduleBehavior !== "draft" &&
+      rescheduleBehavior !== "auto_send") ||
+    !Number.isSafeInteger(sendDelayMinutes) ||
+    (sendDelayMinutes as number) < 0 ||
+    (sendDelayMinutes as number) > 60 ||
+    (locale !== "en" && locale !== "es") ||
+    (scheduledDate !== null &&
+      (!CANONICAL_CIVIL_DATE_PATTERN.test(scheduledDate) ||
+        civilDateFromDateCarrier(`${scheduledDate}T00:00:00.000Z`) !==
+          scheduledDate)) ||
+    (changeKind === "unscheduled" &&
+      (scheduledDate !== null ||
+        scheduledTime !== null ||
+        scheduledEndTime !== null)) ||
+    (changeKind !== "unscheduled" && scheduledDate === null) ||
+    (scheduledTime !== null && !CANONICAL_TIME_PATTERN.test(scheduledTime)) ||
+    (scheduledEndTime !== null &&
+      !CANONICAL_TIME_PATTERN.test(scheduledEndTime)) ||
+    typeof row.all_day !== "boolean" ||
+    !Number.isSafeInteger(row.duration_hours) ||
+    (row.duration_hours as number) < 8 ||
+    (row.duration_hours as number) > 2920 ||
+    !Array.isArray(row.crew_names) ||
+    row.crew_names.length > 50 ||
+    !row.crew_names.every(
+      (name) =>
+        typeof name === "string" && name.length >= 1 && name.length <= 256
+    )
+  ) {
+    throw new Error("Schedule dispatch preparation has invalid projection");
+  }
+  return {
+    disposition: "ready",
+    kind: expected.kind,
+    eventId,
+    leaseToken,
+    companyId,
+    actorUserId,
+    taskId,
+    scheduleVersion: scheduleVersion as number,
+    confirmationOrigin,
+    scheduleUnconfirmationOrigin,
+    changeKind: changeKind as "rescheduled" | "unscheduled" | null,
+    scheduleConfirmedAt,
+    scheduleConfirmedBy,
+    previousScheduleConfirmedAt,
+    confirmationLevel,
+    rescheduleBehavior,
+    sendDelayMinutes: sendDelayMinutes as number,
+    locale,
+    connectionId: preparedUuid(row, "connection_id", true),
+    projectId: preparedUuid(row, "project_id")!,
+    projectTitle: preparedString(row, "project_title", 1000)!,
+    projectAddress: preparedString(row, "project_address", 2000, true),
+    clientId: preparedUuid(row, "client_id")!,
+    clientName: preparedString(row, "client_name", 1000, true) ?? "",
+    clientEmail: preparedString(row, "client_email", 320)!,
+    taskTitle: preparedString(row, "task_title", 1000)!,
+    scheduledDate,
+    scheduledTime,
+    scheduledEndTime,
+    allDay: row.all_day,
+    durationHours: row.duration_hours as number,
+    crewNames: [...row.crew_names] as string[],
+  };
+}
+
+async function prepareScheduleDispatch(
+  guard: TaskAutomationPersistenceGuard,
+  expected: Omit<
+    Parameters<typeof parseScheduleDispatchPreparation>[1],
+    "eventId" | "leaseToken"
+  >
+): Promise<ScheduleDispatchPreparation> {
+  const supabase = requireSupabase();
+  const { data, error } = await supabase.rpc(
+    "prepare_schedule_dispatch_as_system",
+    {
+      p_event_id: guard.eventId,
+      p_lease_token: guard.leaseToken,
+    }
+  );
+  if (error) {
+    throw new Error(`Schedule dispatch preparation failed: ${error.message}`);
+  }
+  return parseScheduleDispatchPreparation(data, {
+    eventId: guard.eventId,
+    leaseToken: guard.leaseToken,
+    ...expected,
+  });
+}
+
+async function proposePreparedScheduleConfirmation(
+  prepared: PreparedScheduleDispatch,
+  confirmationGuard: ScheduleConfirmationPersistenceGuard
+): Promise<string | null> {
+  if (
+    prepared.kind !== "schedule_confirmation_dispatch" ||
+    !prepared.connectionId ||
+    !prepared.confirmationOrigin ||
+    !prepared.scheduleConfirmedAt
+  ) {
+    throw new Error("Prepared schedule confirmation is incomplete");
+  }
+  const displayDate = formatCivilDate(prepared.scheduledDate!, prepared.locale);
+  const crewListText =
+    prepared.crewNames.length > 0 ? prepared.crewNames.join(", ") : "our crew";
+  const instruction = [
+    "Write an appointment confirmation email. Professional and warm.",
+    `The appointment is confirmed for ${displayDate}${prepared.scheduledTime ? ` at ${prepared.scheduledTime}` : ""}.`,
+    `${crewListText} will be arriving to work on ${prepared.taskTitle.toLowerCase()} at the property${prepared.projectAddress ? ` at ${prepared.projectAddress}` : ""}.`,
+    `Approximate duration is ${prepared.durationHours / 8} day${prepared.durationHours === 8 ? "" : "s"}.`,
+    "Include reasonable access-preparation notes only. Keep it brief. Do not include a signature.",
+  ].join(" ");
+  const subject = await renderServerString(
+    prepared.locale,
+    "server-emails",
+    "appointmentConfirmation.subject",
+    { date: displayDate }
+  );
+  const draftGuard: ScheduleDispatchDraftGuard = mintScheduleDispatchDraftGuard(
+    {
+      eventId: prepared.eventId,
+      leaseToken: prepared.leaseToken,
+      companyId: prepared.companyId,
+      actorUserId: prepared.actorUserId,
+      connectionId: prepared.connectionId,
+      recipientEmail: prepared.clientEmail,
+    }
+  );
+  const draftResult = await AIDraftService.generateDraft({
+    companyId: prepared.companyId,
+    userId: prepared.actorUserId,
+    connectionId: prepared.connectionId,
+    recipientEmail: prepared.clientEmail,
+    recipientName: prepared.clientName,
+    userInstruction: `${instruction} Write the email in ${prepared.locale === "es" ? "Spanish" : "English"}.`,
+    profileTypeOverride: "client_active_project",
+    draftPurpose: {
+      kind: "operational_outbound",
+      verifiedContext: { schedule: true },
+    },
+    signatureWillBeAppended: true,
+    scheduleDispatchDraftGuard: draftGuard,
+  });
+  const draftText = draftResult.available
+    ? draftResult.draft
+    : await renderServerString(
+        prepared.locale,
+        "server-emails",
+        "appointmentConfirmation.fallback",
+        {
+          clientName: prepared.clientName.split(" ")[0] || "",
+          taskTitle: prepared.taskTitle,
+          date: displayDate,
+        }
+      );
+  const draftHistoryId = await ensureApprovalDraftHistory({
+    draftHistoryId: draftResult.draftHistoryId || null,
+    companyId: prepared.companyId,
+    userId: prepared.actorUserId,
+    connectionId: prepared.connectionId,
+    originalDraft: draftText,
+    subject,
+    profileType: "client_active_project",
+    atProposal: true,
+  });
+  const structured: StructuredSummary = {
+    type: "appointment_confirmation",
+    params: {
+      clientName: prepared.clientName || "client",
+      date: displayDate,
+      time: prepared.scheduledTime ?? "",
+      crew: crewListText,
+    },
+  };
+  const actionData: SendAppointmentConfirmationActionData = {
+    task_id: prepared.taskId,
+    schedule_version: prepared.scheduleVersion,
+    confirmed_schedule_version: prepared.scheduleVersion,
+    schedule_confirmed_at: prepared.scheduleConfirmedAt,
+    schedule_confirmed_by: prepared.scheduleConfirmedBy,
+    confirmation_origin: prepared.confirmationOrigin,
+    project_id: prepared.projectId,
+    project_title: prepared.projectTitle,
+    client_id: prepared.clientId,
+    client_name: prepared.clientName,
+    client_email: prepared.clientEmail,
+    task_title: prepared.taskTitle,
+    scheduled_date: prepared.scheduledDate!,
+    scheduled_time: prepared.scheduledTime,
+    scheduled_end_time: prepared.scheduledEndTime,
+    duration_hours: prepared.durationHours,
+    crew_names: prepared.crewNames,
+    project_address: prepared.projectAddress,
+    subject,
+    draft_text: draftText,
+    original_draft_text: draftText,
+    connection_id: prepared.connectionId,
+    draft_history_id: draftHistoryId,
+    context_summary_structured: structured,
+  };
+  return ApprovalQueueService.proposeAction({
+    companyId: prepared.companyId,
+    userId: prepared.actorUserId,
+    actionType: "send_appointment_confirmation",
+    actionData: actionData as unknown as Record<string, unknown>,
+    contextSummary: await renderSummaryFallback(prepared.locale, structured),
+    contextSource: "task_scheduled",
+    sourceId: scheduleConfirmationSourceId(prepared.taskId, {
+      scheduleVersion: prepared.scheduleVersion,
+      confirmedAt: prepared.scheduleConfirmedAt,
+      confirmedBy: prepared.scheduleConfirmedBy,
+      confirmationOrigin: prepared.confirmationOrigin,
+    }),
+    confidence: 0.85,
+    priority: "normal",
+    scheduleConfirmationGuard: confirmationGuard,
+  });
+}
+
+async function proposePreparedScheduleChange(
+  prepared: PreparedScheduleDispatch,
+  guard: ScheduleUnconfirmationPersistenceGuard,
+  _receipt: GuardedUnconfirmationReceipt
+): Promise<string | null> {
+  if (
+    prepared.kind !== "schedule_unconfirmation_dispatch" ||
+    !prepared.connectionId ||
+    !prepared.previousScheduleConfirmedAt ||
+    (prepared.rescheduleBehavior !== "draft" &&
+      prepared.rescheduleBehavior !== "auto_send")
+  ) {
+    throw new Error("Prepared schedule unconfirmation is incomplete");
+  }
+  if (!prepared.changeKind) {
+    throw new Error("Prepared schedule unconfirmation has no change kind");
+  }
+  const isUnscheduled = prepared.changeKind === "unscheduled";
+  const displayNewDate = prepared.scheduledDate
+    ? formatCivilDate(prepared.scheduledDate, prepared.locale)
+    : null;
+  const instruction = (
+    isUnscheduled
+      ? [
+          "Write a brief notice that a previously confirmed visit is no longer scheduled.",
+          `The affected work is ${prepared.taskTitle.toLowerCase()}${prepared.projectAddress ? ` at ${prepared.projectAddress}` : ""}.`,
+          "Do not invent or promise a replacement date. Ask the client to reply with any questions. Do not include a signature.",
+        ]
+      : [
+          "Write a brief schedule change notification.",
+          `The previously confirmed visit changed. The current scheduled date is ${displayNewDate}${prepared.scheduledTime ? ` at ${prepared.scheduledTime}` : ""}.`,
+          `The affected work is ${prepared.taskTitle.toLowerCase()}${prepared.projectAddress ? ` at ${prepared.projectAddress}` : ""}.`,
+          "Confirm only these prepared facts, apologize briefly, and do not include a signature.",
+        ]
+  )
+    .concat(
+      `Write the email in ${prepared.locale === "es" ? "Spanish" : "English"}.`
+    )
+    .join(" ");
+  const subject = await renderServerString(
+    prepared.locale,
+    "server-emails",
+    isUnscheduled ? "scheduleUnscheduled.subject" : "scheduleChanged.subject",
+    { projectTitle: prepared.projectTitle }
+  );
+  const draftGuard = mintScheduleDispatchDraftGuard({
+    eventId: prepared.eventId,
+    leaseToken: prepared.leaseToken,
+    companyId: prepared.companyId,
+    actorUserId: prepared.actorUserId,
+    connectionId: prepared.connectionId,
+    recipientEmail: prepared.clientEmail,
+  });
+  const draftResult = await AIDraftService.generateDraft({
+    companyId: prepared.companyId,
+    userId: prepared.actorUserId,
+    connectionId: prepared.connectionId,
+    recipientEmail: prepared.clientEmail,
+    recipientName: prepared.clientName,
+    userInstruction: instruction,
+    profileTypeOverride: "client_active_project",
+    draftPurpose: {
+      kind: "operational_outbound",
+      verifiedContext: { schedule: true },
+    },
+    signatureWillBeAppended: true,
+    scheduleDispatchDraftGuard: draftGuard,
+  });
+  const draftText = draftResult.available
+    ? draftResult.draft
+    : await renderServerString(
+        prepared.locale,
+        "server-emails",
+        isUnscheduled
+          ? "scheduleUnscheduled.fallback"
+          : "scheduleChanged.fallback",
+        {
+          clientName: prepared.clientName.split(" ")[0] || "",
+          taskTitle: prepared.taskTitle,
+          newDate: displayNewDate ?? "",
+        }
+      );
+  const draftHistoryId = await ensureApprovalDraftHistory({
+    draftHistoryId: draftResult.draftHistoryId || null,
+    companyId: prepared.companyId,
+    userId: prepared.actorUserId,
+    connectionId: prepared.connectionId,
+    originalDraft: draftText,
+    subject,
+    profileType: "client_active_project",
+    atProposal: true,
+  });
+  const structured: StructuredSummary = {
+    type: isUnscheduled ? "schedule_unscheduled" : "schedule_changed",
+    params: {
+      clientName: prepared.clientName || "client",
+      taskTitle: prepared.taskTitle,
+      newDate: displayNewDate ?? "",
+      oldDate: "",
+    },
+  };
+  const actionData: SendScheduleChangedActionData = {
+    task_id: prepared.taskId,
+    schedule_version: prepared.scheduleVersion,
+    previous_schedule_confirmed_at: prepared.previousScheduleConfirmedAt,
+    schedule_unconfirmation_origin:
+      prepared.scheduleUnconfirmationOrigin ?? undefined,
+    project_id: prepared.projectId,
+    project_title: prepared.projectTitle,
+    client_id: prepared.clientId,
+    client_name: prepared.clientName,
+    client_email: prepared.clientEmail,
+    task_title: prepared.taskTitle,
+    original_date: "",
+    original_time: null,
+    change_kind: prepared.changeKind,
+    new_date: prepared.scheduledDate,
+    new_time: prepared.scheduledTime,
+    new_end_time: prepared.scheduledEndTime,
+    crew_names: prepared.crewNames,
+    project_address: prepared.projectAddress,
+    subject,
+    draft_text: draftText,
+    original_draft_text: draftText,
+    connection_id: prepared.connectionId,
+    draft_history_id: draftHistoryId,
+    context_summary_structured: structured,
+  };
+  return ApprovalQueueService.proposeAction({
+    companyId: prepared.companyId,
+    userId: prepared.actorUserId,
+    actionType: "send_schedule_changed",
+    actionData: actionData as unknown as Record<string, unknown>,
+    contextSummary: await renderSummaryFallback(prepared.locale, structured),
+    contextSource: "task_scheduled",
+    sourceId: `task-automation:${guard.eventId}:schedule-unconfirmation`,
+    confidence: 0.8,
+    priority: "normal",
+    taskAutomationGuard: guard,
+  });
 }
 
 // ─── Reschedule Detection Helpers ────────────────────────────────────────
@@ -767,11 +1441,17 @@ export const ClientSchedulingCommsService = {
       autoSendAfterMinutes?: number;
       sourceId?: string;
       expectedSchedule?: TaskScheduleState;
-      expectedConfirmedAt?: string;
+      expectedConfirmation?: ExactScheduleConfirmation;
       prePersistGuard?: () => Promise<boolean>;
       taskAutomationGuard?: TaskAutomationPersistenceGuard;
+      scheduleConfirmationGuard?: ScheduleConfirmationPersistenceGuard;
     } = {}
   ): Promise<string | null> {
+    if (options.scheduleConfirmationGuard || options.taskAutomationGuard) {
+      throw new Error(
+        "Purpose-bound schedule confirmation must use its prepared dispatch path"
+      );
+    }
     const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       companyId,
       "phase_c"
@@ -789,7 +1469,7 @@ export const ClientSchedulingCommsService = {
     const { data: task } = await supabase
       .from("project_tasks")
       .select(
-        "id, project_id, custom_title, start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_version, schedule_confirmed_at, task_types(display)"
+        "id, project_id, custom_title, start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_version, schedule_confirmed_at, schedule_confirmed_by, confirmed_schedule_version, task_types(display)"
       )
       .eq("id", taskId)
       .eq("company_id", companyId)
@@ -799,12 +1479,19 @@ export const ClientSchedulingCommsService = {
     if (!task || !task.start_date) return null;
     if (
       options.expectedSchedule &&
-      (!taskMatchesScheduleState(
+      !taskMatchesScheduleState(
         task as Record<string, unknown>,
         options.expectedSchedule
-      ) ||
-        (options.expectedConfirmedAt !== undefined &&
-          task.schedule_confirmed_at !== options.expectedConfirmedAt))
+      )
+    ) {
+      return null;
+    }
+    if (
+      options.expectedConfirmation &&
+      !taskMatchesExactScheduleConfirmation(
+        task as Record<string, unknown>,
+        options.expectedConfirmation
+      )
     ) {
       return null;
     }
@@ -826,6 +1513,8 @@ export const ClientSchedulingCommsService = {
       .select("id, name, email")
       .eq("id", clientId)
       .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .is("merged_into_client_id", null)
       .maybeSingle();
 
     if (!client || !client.email) return null;
@@ -929,6 +1618,25 @@ export const ClientSchedulingCommsService = {
 
     const actionData: SendAppointmentConfirmationActionData = {
       task_id: taskId,
+      schedule_version:
+        options.expectedConfirmation?.scheduleVersion ??
+        (task.schedule_version as number),
+      confirmed_schedule_version:
+        options.expectedConfirmation?.scheduleVersion ??
+        (task.confirmed_schedule_version as number),
+      schedule_confirmed_at:
+        options.expectedConfirmation?.confirmedAt ??
+        (task.schedule_confirmed_at as string | null) ??
+        "",
+      schedule_confirmed_by:
+        options.expectedConfirmation?.confirmedBy ??
+        (task.schedule_confirmed_by as string | null) ??
+        null,
+      confirmation_origin:
+        options.expectedConfirmation?.confirmationOrigin ??
+        ((task.schedule_confirmed_by as string | null)
+          ? "manual"
+          : "automatic_grace"),
       project_id: projectId,
       project_title: projectTitle,
       client_id: clientId,
@@ -960,7 +1668,7 @@ export const ClientSchedulingCommsService = {
       const { data: current } = await supabase
         .from("project_tasks")
         .select(
-          "start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_confirmed_at"
+          "start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_version, schedule_confirmed_at, schedule_confirmed_by, confirmed_schedule_version"
         )
         .eq("id", taskId)
         .eq("company_id", companyId)
@@ -972,8 +1680,11 @@ export const ClientSchedulingCommsService = {
           current as Record<string, unknown>,
           options.expectedSchedule
         ) ||
-        (options.expectedConfirmedAt !== undefined &&
-          current.schedule_confirmed_at !== options.expectedConfirmedAt)
+        (options.expectedConfirmation !== undefined &&
+          !taskMatchesExactScheduleConfirmation(
+            current as Record<string, unknown>,
+            options.expectedConfirmation
+          ))
       ) {
         return null;
       }
@@ -994,6 +1705,7 @@ export const ClientSchedulingCommsService = {
       priority: "normal",
       autoExecuteAt,
       taskAutomationGuard: options.taskAutomationGuard,
+      scheduleConfirmationGuard: options.scheduleConfirmationGuard,
     });
   },
 
@@ -1081,6 +1793,8 @@ export const ClientSchedulingCommsService = {
       .select("id, name, email")
       .eq("id", clientId)
       .eq("company_id", companyId)
+      .is("deleted_at", null)
+      .is("merged_into_client_id", null)
       .maybeSingle();
 
     if (!client || !client.email) return null;
@@ -2146,6 +2860,185 @@ export const ClientSchedulingCommsService = {
     return loadClientCommsSettings(companyId);
   },
 
+  /**
+   * Purpose-bound confirmation bridge. It owns the guarded stamp, validates
+   * the exact receipt, binds dispatch to that schedule/proof, and recovers the
+   * same durable action on retry after a route or worker interruption.
+   */
+  async confirmTaskScheduleAndDispatch(
+    companyId: string,
+    userId: string,
+    taskId: string,
+    expectedScheduleVersion: number,
+    confirmationKind: "manual" | "automatic"
+  ): Promise<{
+    confirmed: true;
+    alreadyConfirmed: boolean;
+    actionTaken: string;
+    actionId: string | null;
+  }> {
+    if (
+      !Number.isSafeInteger(expectedScheduleVersion) ||
+      expectedScheduleVersion < 0
+    ) {
+      throw new Error("Invalid schedule version");
+    }
+    const supabase = requireSupabase();
+    const rpcArguments = {
+      p_actor_user_id: userId,
+      p_company_id: companyId,
+      p_task_id: taskId,
+      p_expected_schedule_version: expectedScheduleVersion,
+    };
+    const { data, error } =
+      confirmationKind === "manual"
+        ? await supabase.rpc(
+            "confirm_project_task_schedule_as_system",
+            rpcArguments
+          )
+        : await supabase.rpc(
+            "confirm_automatic_project_task_schedule_as_system",
+            rpcArguments
+          );
+    if (error) {
+      throw new Error(`Schedule confirmation conflict: ${error.message}`);
+    }
+    const receipt = parseScheduleConfirmationReceipt(data, {
+      taskId,
+      scheduleVersion: expectedScheduleVersion,
+      confirmationKind,
+      actorUserId: userId,
+    });
+    return {
+      confirmed: true,
+      alreadyConfirmed: !receipt.newly_confirmed,
+      actionTaken: "queued",
+      actionId: null,
+    };
+  },
+
+  async confirmFullAutoScheduleFromLease(
+    eventId: string,
+    leaseToken: string,
+    taskId: string,
+    scheduleVersion: number
+  ): Promise<{
+    disposition:
+      | "processed"
+      | "no_action"
+      | "phase_disabled"
+      | "access_lost"
+      | "superseded";
+    reason: string | null;
+  }> {
+    const supabase = requireSupabase();
+    const { data, error } = await supabase.rpc(
+      "confirm_full_auto_project_task_schedule_as_system",
+      {
+        p_event_id: eventId,
+        p_lease_token: leaseToken,
+        p_task_id: taskId,
+        p_expected_schedule_version: scheduleVersion,
+      }
+    );
+    if (error) {
+      throw new Error(
+        `Full-auto schedule confirmation failed: ${error.message}`
+      );
+    }
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("Full-auto schedule confirmation returned invalid proof");
+    }
+    const row = data as Record<string, unknown>;
+    if (
+      row.disposition !== "processed" &&
+      row.disposition !== "no_action" &&
+      row.disposition !== "phase_disabled" &&
+      row.disposition !== "access_lost" &&
+      row.disposition !== "superseded"
+    ) {
+      throw new Error("Full-auto schedule confirmation returned invalid proof");
+    }
+    if (
+      row.task_id !== taskId ||
+      row.schedule_version !== scheduleVersion ||
+      (row.disposition === "processed" &&
+        (row.confirmation_origin !== "full_auto" ||
+          typeof row.schedule_confirmed_at !== "string" ||
+          !Number.isFinite(Date.parse(row.schedule_confirmed_at)) ||
+          row.schedule_confirmed_by !== null ||
+          row.confirmed_schedule_version !== scheduleVersion))
+    ) {
+      throw new Error("Full-auto schedule confirmation returned invalid proof");
+    }
+    return {
+      disposition: row.disposition,
+      reason: typeof row.reason === "string" ? row.reason : null,
+    };
+  },
+
+  /** Worker-only effect for a DB-authored, leased confirmation proof. */
+  async dispatchConfirmedScheduleProof(
+    companyId: string,
+    userId: string,
+    taskId: string,
+    confirmation: ExactScheduleConfirmation,
+    expectedSchedule: TaskScheduleState,
+    confirmationOrigin: "manual" | "automatic_grace" | "full_auto",
+    taskAutomationGuard: TaskAutomationPersistenceGuard
+  ): Promise<{ actionTaken: string; actionId: string | null }> {
+    if (confirmation.confirmationOrigin !== confirmationOrigin) {
+      throw new Error("Schedule confirmation origin is inconsistent");
+    }
+    const prepared = await prepareScheduleDispatch(taskAutomationGuard, {
+      companyId,
+      actorUserId: userId,
+      taskId,
+      scheduleVersion: confirmation.scheduleVersion,
+      kind: "schedule_confirmation_dispatch",
+    });
+    if (prepared.disposition !== "ready") {
+      return {
+        actionTaken: prepared.disposition,
+        actionId: null,
+      };
+    }
+    if (
+      prepared.confirmationOrigin !== confirmationOrigin ||
+      prepared.scheduleConfirmedAt !== confirmation.confirmedAt ||
+      prepared.scheduleConfirmedBy !== confirmation.confirmedBy ||
+      prepared.scheduledDate !==
+        civilDateFromDateCarrier(expectedSchedule.startDate) ||
+      prepared.scheduledTime !== expectedSchedule.startTime ||
+      prepared.scheduledEndTime !== expectedSchedule.endTime ||
+      prepared.allDay !== expectedSchedule.allDay ||
+      prepared.durationHours / 8 !== expectedSchedule.duration
+    ) {
+      throw new Error(
+        "Prepared schedule confirmation does not match its event"
+      );
+    }
+    const scheduleConfirmationGuard = mintScheduleConfirmationPersistenceGuard({
+      eventId: taskAutomationGuard.eventId,
+      leaseToken: taskAutomationGuard.leaseToken,
+      taskId,
+      scheduleVersion: confirmation.scheduleVersion,
+      confirmedAt: confirmation.confirmedAt,
+      confirmedBy: confirmation.confirmedBy,
+      confirmationOrigin: confirmation.confirmationOrigin,
+    });
+    const actionId = await proposePreparedScheduleConfirmation(
+      prepared,
+      scheduleConfirmationGuard
+    );
+    return {
+      actionTaken: actionId
+        ? prepared.confirmationLevel
+        : "dispatch_unavailable",
+      actionId,
+    };
+  },
+
   // ─── Schedule confirmation dispatcher (S2 amendment) ─────────────────────
 
   /**
@@ -2170,9 +3063,10 @@ export const ClientSchedulingCommsService = {
     options: {
       sourceId?: string;
       expectedSchedule?: TaskScheduleState;
-      expectedConfirmedAt?: string;
+      expectedConfirmation?: ExactScheduleConfirmation;
       prePersistGuard?: () => Promise<boolean>;
       taskAutomationGuard?: TaskAutomationPersistenceGuard;
+      scheduleConfirmationGuard?: ScheduleConfirmationPersistenceGuard;
     } = {}
   ): Promise<{ actionTaken: string; actionId: string | null }> {
     const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
@@ -2202,7 +3096,10 @@ export const ClientSchedulingCommsService = {
       { autoSendAfterMinutes, ...options }
     );
 
-    return { actionTaken: level, actionId };
+    return {
+      actionTaken: actionId ? level : "dispatch_unavailable",
+      actionId,
+    };
   },
 
   /**
@@ -2299,6 +3196,7 @@ export const ClientSchedulingCommsService = {
       prePersistGuard?: () => Promise<boolean>;
       throwOnError?: boolean;
       taskAutomationGuard?: TaskAutomationPersistenceGuard;
+      guardedUnconfirmationReceipt?: GuardedUnconfirmationReceipt;
     } = {}
   ): Promise<ConfirmedRescheduleOutcome> {
     const phaseCEnabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
@@ -2320,7 +3218,16 @@ export const ClientSchedulingCommsService = {
       .is("deleted_at", null)
       .maybeSingle();
 
-    if (!task || !task.schedule_confirmed_at) {
+    const guardedClear = options.guardedUnconfirmationReceipt;
+    const guardedClearIsCurrent =
+      guardedClear !== undefined &&
+      GUARDED_UNCONFIRMATION_RECEIPTS.has(guardedClear) &&
+      task?.schedule_confirmed_at === null &&
+      task.schedule_version === guardedClear.scheduleVersion &&
+      guardedClear.previousConfirmedAt.length > 0;
+    const ordinaryConfirmedReschedule =
+      guardedClear === undefined && task?.schedule_confirmed_at !== null;
+    if (!task || (!guardedClearIsCurrent && !ordinaryConfirmedReschedule)) {
       return { actionTaken: "stale_or_unconfirmed", actionId: null };
     }
     if (
@@ -2415,6 +3322,159 @@ export const ClientSchedulingCommsService = {
     }
   },
 
+  async unconfirmTaskSchedule(
+    companyId: string,
+    userId: string,
+    taskId: string,
+    expectedScheduleVersion: number
+  ): Promise<{
+    unconfirmed: true;
+    alreadyUnconfirmed: boolean;
+    rescheduleAction: string | null;
+    rescheduleActionId: string | null;
+    rescheduleOutcome:
+      ConfirmedRescheduleOutcome["actionTaken"] | "queued" | null;
+  }> {
+    if (
+      !Number.isSafeInteger(expectedScheduleVersion) ||
+      expectedScheduleVersion < 0
+    ) {
+      throw new Error("Invalid schedule version");
+    }
+    const supabase = requireSupabase();
+    const { data, error } = await supabase.rpc(
+      "unconfirm_project_task_schedule_as_system",
+      {
+        p_actor_user_id: userId,
+        p_company_id: companyId,
+        p_task_id: taskId,
+        p_expected_schedule_version: expectedScheduleVersion,
+      }
+    );
+    if (error) {
+      throw new Error(`Schedule unconfirmation conflict: ${error.message}`);
+    }
+    const raw = data as Record<string, unknown> | null;
+    if (
+      !raw ||
+      raw.task_id !== taskId ||
+      raw.schedule_version !== expectedScheduleVersion ||
+      typeof raw.newly_unconfirmed !== "boolean" ||
+      (raw.previous_schedule_confirmed_at !== null &&
+        typeof raw.previous_schedule_confirmed_at !== "string")
+    ) {
+      throw new Error("Invalid schedule unconfirmation receipt");
+    }
+    const previousConfirmedAt = raw.previous_schedule_confirmed_at;
+    if (
+      raw.newly_unconfirmed &&
+      (typeof previousConfirmedAt !== "string" ||
+        !Number.isFinite(Date.parse(previousConfirmedAt)))
+    ) {
+      throw new Error("Invalid schedule unconfirmation receipt");
+    }
+    return {
+      unconfirmed: true,
+      alreadyUnconfirmed: !raw.newly_unconfirmed,
+      rescheduleAction: raw.newly_unconfirmed ? "queued" : null,
+      rescheduleActionId: null,
+      rescheduleOutcome: raw.newly_unconfirmed ? "queued" : null,
+    };
+  },
+
+  /** Worker-only effect for a DB-authored, leased unconfirmation proof. */
+  async dispatchUnconfirmedScheduleProof(
+    companyId: string,
+    userId: string,
+    taskId: string,
+    scheduleVersion: number,
+    previousConfirmedAt: string,
+    taskAutomationGuard: ScheduleUnconfirmationPersistenceGuard
+  ): Promise<ConfirmedRescheduleOutcome> {
+    if (
+      !isCurrentScheduleUnconfirmationPersistenceGuard(taskAutomationGuard) ||
+      taskAutomationGuard.taskId !== taskId ||
+      taskAutomationGuard.scheduleVersion !== scheduleVersion ||
+      taskAutomationGuard.companyId !== companyId ||
+      taskAutomationGuard.actorUserId !== userId ||
+      taskAutomationGuard.previousConfirmedAt !== previousConfirmedAt ||
+      (taskAutomationGuard.unconfirmationOrigin !== "explicit_admin" &&
+        taskAutomationGuard.unconfirmationOrigin !== "schedule_edit")
+    ) {
+      throw new Error("Schedule unconfirmation dispatch guard is invalid");
+    }
+    const prepared = await prepareScheduleDispatch(taskAutomationGuard, {
+      companyId,
+      actorUserId: userId,
+      taskId,
+      scheduleVersion,
+      kind: "schedule_unconfirmation_dispatch",
+    });
+    if (prepared.disposition !== "ready") {
+      return {
+        actionTaken:
+          prepared.disposition === "phase_disabled"
+            ? "phase_c_disabled"
+            : "stale_or_unconfirmed",
+        actionId: null,
+      };
+    }
+    if (
+      prepared.previousScheduleConfirmedAt !== previousConfirmedAt ||
+      prepared.kind !== "schedule_unconfirmation_dispatch" ||
+      prepared.scheduleUnconfirmationOrigin !==
+        taskAutomationGuard.unconfirmationOrigin
+    ) {
+      throw new Error("Prepared schedule unconfirmation is inconsistent");
+    }
+    if (prepared.rescheduleBehavior === "do_nothing") {
+      return { actionTaken: "do_nothing", actionId: null };
+    }
+    const receipt = mintGuardedUnconfirmationReceipt({
+      previousConfirmedAt,
+      scheduleVersion,
+    });
+    // The legacy dispatcher remains the copy/action builder for now, but its
+    // privileged source pre-read is not allowed on a purpose lease. The
+    // prepared projection is the exclusive source; a dedicated builder below
+    // consumes it without querying business tables.
+    if (prepared.rescheduleBehavior === "notify") {
+      const [title, body, actionLabel] = await Promise.all([
+        renderServerString(
+          prepared.locale,
+          "common",
+          `notification.${prepared.scheduledDate ? "confirmedTaskRescheduled" : "confirmedTaskUnscheduled"}.title`
+        ),
+        renderServerString(
+          prepared.locale,
+          "common",
+          `notification.${prepared.scheduledDate ? "confirmedTaskRescheduled" : "confirmedTaskUnscheduled"}.body`
+        ),
+        renderServerString(
+          prepared.locale,
+          "common",
+          `notification.${prepared.scheduledDate ? "confirmedTaskRescheduled" : "confirmedTaskUnscheduled"}.action`
+        ),
+      ]);
+      await TaskAutomationPersistenceService.persistNotification(
+        taskAutomationGuard,
+        { title, body, actionUrl: "/schedule", actionLabel }
+      );
+      return { actionTaken: "notify", actionId: null };
+    }
+    // Draft/auto-send uses the prepared safe projection only. The dedicated
+    // persistence seam is added below; never fall back to service-role reads.
+    const actionId = await proposePreparedScheduleChange(
+      prepared,
+      taskAutomationGuard,
+      receipt
+    );
+    return {
+      actionTaken: prepared.rescheduleBehavior,
+      actionId,
+    };
+  },
+
   // ─── Auto-confirm grace-period candidates ────────────────────────────────
 
   /**
@@ -2447,16 +3507,50 @@ export const ClientSchedulingCommsService = {
       Date.now() - ac.auto_confirm_after_hours * 60 * 60 * 1000
     );
 
-    const { data } = await supabase
+    const { data: unconfirmed, error: unconfirmedError } = await supabase
       .from("project_tasks")
-      .select("id")
+      .select("id, schedule_version")
       .eq("company_id", companyId)
       .is("schedule_confirmed_at", null)
       .is("deleted_at", null)
+      .eq("status", "active")
       .not("start_date", "is", null)
       .lt("updated_at", cutoff.toISOString())
       .limit(500);
+    if (unconfirmedError) {
+      throw new Error(
+        `Failed to list automatic confirmations: ${unconfirmedError.message}`
+      );
+    }
 
-    return (data ?? []).map((row) => ({ taskId: row.id as string }));
+    // A stamp and its dispatch outbox row commit together. Include exact
+    // current automatic proofs as a bounded recovery scan so a pre-deploy
+    // legacy stamp or a previously failed purpose row can be re-enqueued by
+    // the idempotent authority RPC.
+    const remaining = Math.max(0, 500 - (unconfirmed?.length ?? 0));
+    const { data: confirmed, error: confirmedError } = remaining
+      ? await supabase
+          .from("project_tasks")
+          .select("id, schedule_version, confirmed_schedule_version")
+          .eq("company_id", companyId)
+          .is("schedule_confirmed_by", null)
+          .not("schedule_confirmed_at", "is", null)
+          .is("deleted_at", null)
+          .eq("status", "active")
+          .not("start_date", "is", null)
+          .limit(remaining)
+      : { data: [], error: null };
+    if (confirmedError) {
+      throw new Error(
+        `Failed to recover automatic confirmations: ${confirmedError.message}`
+      );
+    }
+
+    return [
+      ...(unconfirmed ?? []),
+      ...(confirmed ?? []).filter(
+        (row) => row.confirmed_schedule_version === row.schedule_version
+      ),
+    ].map((row) => ({ taskId: row.id as string }));
   },
 };

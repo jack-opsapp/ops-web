@@ -135,6 +135,11 @@ export type CapabilityAuthorizationSelector =
       kind: "input_value";
       field: "anchor";
       value: "opportunity" | "unlinked";
+    }>
+  | Readonly<{
+      kind: "input_array_contains";
+      field: "rule_codes";
+      value: "SITE_PHOTOS_MISSING" | "CUSTOMER_RECORD_UNRESOLVED";
     }>;
 
 export interface CapabilityAuthorizationVariantDefinition {
@@ -264,11 +269,7 @@ function assertAuthorization(
       throw new TypeError(`${entry.name} has a duplicate policy variant`);
     }
     keys.add(key);
-    if (
-      typeof variant.selector !== "object" ||
-      variant.selector === null ||
-      typeof variant.selector.kind !== "string"
-    ) {
+    if (!isExactAuthorizationSelector(variant.selector)) {
       throw new TypeError(`${entry.name}.${key} has an invalid selector`);
     }
 
@@ -298,6 +299,79 @@ function assertAuthorization(
         `${entry.name}.${key} uses an unregistered OAuth scope`
       );
     }
+  }
+}
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[]
+): boolean {
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return (
+    actual.length === expected.length &&
+    actual.every((key, index) => key === expected[index])
+  );
+}
+
+function isExactAuthorizationSelector(
+  value: unknown
+): value is CapabilityAuthorizationSelector {
+  if (typeof value !== "object" || value === null) return false;
+  const selector = value as Record<string, unknown>;
+  switch (selector.kind) {
+    case "always":
+      return hasExactKeys(selector, ["kind"]);
+    case "job_kind":
+      return (
+        hasExactKeys(selector, ["kind", "jobKind"]) &&
+        (selector.jobKind === "opportunity" || selector.jobKind === "project")
+      );
+    case "job_section":
+      return (
+        hasExactKeys(selector, ["kind", "jobKind", "section"]) &&
+        (selector.jobKind === "opportunity" ||
+          selector.jobKind === "project") &&
+        [
+          "schedule",
+          "readiness",
+          "participants",
+          "financials",
+          "activity",
+          "conversation",
+        ].includes(selector.section as string)
+      );
+    case "job_purpose":
+      return (
+        hasExactKeys(selector, ["kind", "jobKind", "purpose"]) &&
+        (selector.jobKind === "opportunity" ||
+          selector.jobKind === "project") &&
+        ["schedule_notice", "photo_request", "general"].includes(
+          selector.purpose as string
+        )
+      );
+    case "input_value": {
+      if (!hasExactKeys(selector, ["kind", "field", "value"])) return false;
+      const allowed: Readonly<Record<string, readonly unknown[]>> = {
+        mode: ["import", "edit"],
+        view: ["booked_appointments", "visit_history"],
+        include_unlinked: [true],
+        anchor: ["opportunity", "unlinked"],
+      };
+      return (
+        typeof selector.field === "string" &&
+        allowed[selector.field]?.includes(selector.value) === true
+      );
+    }
+    case "input_array_contains":
+      return (
+        hasExactKeys(selector, ["kind", "field", "value"]) &&
+        selector.field === "rule_codes" &&
+        (selector.value === "SITE_PHOTOS_MISSING" ||
+          selector.value === "CUSTOMER_RECORD_UNRESOLVED")
+      );
+    default:
+      return false;
   }
 }
 

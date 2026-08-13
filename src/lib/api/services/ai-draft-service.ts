@@ -246,6 +246,13 @@ export interface AIDraftRequest {
    */
   emailAccess?: AllowedEmailOpportunityAccess;
   /**
+   * Nominal lease proof for a schedule-purpose draft whose entire prompt-safe
+   * business projection was prepared by the database. It disables every broad
+   * memory/business corpus loader; only the supplied recipient, instruction,
+   * and the operator writing profile may reach the model.
+   */
+  scheduleDispatchDraftGuard?: import("./schedule-dispatch-draft-guard").ScheduleDispatchDraftGuard;
+  /**
    * Trusted workflow purpose. Production callers set this explicitly so a
    * proactive invoice, reminder, or schedule notice is never prompted as a
    * customer reply. The optional shape preserves compatibility for older
@@ -1017,6 +1024,11 @@ export const AIDraftService = {
   async generateDraft(req: AIDraftRequest): Promise<AIDraftResult> {
     const supabase = requireSupabase();
     const emailAccess = req.emailAccess;
+    const { isCurrentScheduleDispatchDraftGuard } =
+      await import("./schedule-dispatch-draft-guard");
+    const purposeBoundScheduleDispatch = isCurrentScheduleDispatchDraftGuard(
+      req.scheduleDispatchDraftGuard
+    );
     const companyId = emailAccess?.actor.companyId ?? req.companyId;
     const userId = emailAccess?.actor.userId ?? req.userId;
     const connectionId = emailAccess?.connectionId ?? req.connectionId;
@@ -1040,6 +1052,21 @@ export const AIDraftService = {
 
     if (sourceActivityId && !emailAccess) {
       throw new Error("Draft source activity requires canonical email access");
+    }
+    if (
+      req.scheduleDispatchDraftGuard !== undefined &&
+      (!purposeBoundScheduleDispatch ||
+        req.companyId !== req.scheduleDispatchDraftGuard.companyId ||
+        req.userId !== req.scheduleDispatchDraftGuard.actorUserId ||
+        req.connectionId !== req.scheduleDispatchDraftGuard.connectionId ||
+        req.recipientEmail?.trim().toLowerCase() !==
+          req.scheduleDispatchDraftGuard.recipientEmail.trim().toLowerCase() ||
+        sourceActivityId !== null ||
+        req.threadId !== undefined ||
+        req.opportunityId !== undefined ||
+        req.draftPurpose?.kind !== "operational_outbound")
+    ) {
+      throw new Error("Schedule dispatch draft authority is invalid");
     }
     if (sourceActivityId && !opportunityId) {
       throw new Error("Draft source activity requires an opportunity");
@@ -1377,14 +1404,21 @@ export const AIDraftService = {
     let projectContextBlock = "";
     let financialContextBlock = "";
     const sources: string[] = ["writing_profile"];
-    const broadContextPermissions = emailAccess
-      ? await resolveAIDraftPromptContextPermissions(userId)
-      : {
-          clientHistory: true,
-          pricingCorpus: true,
-          financialCorpus: true,
-          projectCorpus: true,
-        };
+    const broadContextPermissions = purposeBoundScheduleDispatch
+      ? {
+          clientHistory: false,
+          pricingCorpus: false,
+          financialCorpus: false,
+          projectCorpus: false,
+        }
+      : emailAccess
+        ? await resolveAIDraftPromptContextPermissions(userId)
+        : {
+            clientHistory: true,
+            pricingCorpus: true,
+            financialCorpus: true,
+            projectCorpus: true,
+          };
 
     try {
       const phaseCEnabled =
@@ -1392,7 +1426,7 @@ export const AIDraftService = {
           companyId,
           "phase_c"
         );
-      if (phaseCEnabled) {
+      if (phaseCEnabled && !purposeBoundScheduleDispatch) {
         // ── Semantic memory context ──────────────────────────────────────
         if (clientEmail) {
           const exactSourceIds = Array.from(

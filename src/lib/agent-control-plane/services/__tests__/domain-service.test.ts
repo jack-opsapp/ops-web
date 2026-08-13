@@ -47,6 +47,9 @@ import {
   type JobConversationContextRpcClient,
   type JobConversationContextRpcRequest,
 } from "../job-conversation-context-repository";
+import { createSupabaseScheduledJobsRepository } from "../scheduled-jobs-repository";
+import { createSupabaseJobReadinessRepository } from "../job-readiness-repository";
+import { createOperationalReadCursorCodec } from "../operational-read-cursor";
 
 const ACTOR_ID = "11111111-1111-4111-8111-111111111111";
 const COMPANY_ID = "22222222-2222-4222-8222-222222222222";
@@ -169,14 +172,39 @@ function emptySnapshot() {
 }
 
 function serviceFor(client: StubContextRpcClient): OpsAgentDomainService {
+  const operational = trustedOperationalRepositories();
   const repositories = createOpsAgentDomainRepositories({
     jobConversationContext:
       createSupabaseJobConversationContextRepository(client),
+    ...operational,
   });
   return createOpsAgentDomainService({
     repositories,
     now: () => new Date(FIXED_NOW),
   });
+}
+
+function trustedOperationalRepositories() {
+  const cursorCodec = createOperationalReadCursorCodec({
+    key: new Uint8Array(32).fill(27),
+    keyId: "domain-test-key",
+    version: 1,
+  });
+  const noReadClient = {
+    rpc() {
+      throw new Error("Unexpected operational repository read");
+    },
+  };
+  return {
+    scheduledJobs: createSupabaseScheduledJobsRepository(
+      noReadClient,
+      cursorCodec
+    ),
+    jobReadiness: createSupabaseJobReadinessRepository(
+      noReadClient,
+      cursorCodec
+    ),
+  };
 }
 
 async function actorErrorFrom(promise: Promise<unknown>) {
@@ -272,13 +300,21 @@ describe("OpsAgentDomainService", () => {
     });
     expect(client.calls[0]!.args).not.toHaveProperty("auth_channel");
     expect(client.calls[0]!.args).not.toHaveProperty("oauth_token");
-    expect(Object.keys(service)).toEqual(["getJobConversationContext"]);
+    expect(Object.keys(service)).toEqual([
+      "getJobConversationContext",
+      "listScheduledJobs",
+      "listJobReadinessIssues",
+    ]);
     expect(Object.isFrozen(service)).toBe(true);
     expect(
       CAPABILITY_MANIFEST.filter(
         (capability) => capability.availability.implementation === "available"
       ).map((capability) => capability.name)
-    ).toEqual(["get_job_conversation_context"]);
+    ).toEqual([
+      "list_scheduled_jobs",
+      "list_job_readiness_issues",
+      "get_job_conversation_context",
+    ]);
     expect(
       CAPABILITY_MANIFEST.every(
         (capability) => capability.availability.externalExposure === "disabled"
@@ -380,6 +416,7 @@ describe("OpsAgentDomainService", () => {
     expect(() =>
       createOpsAgentDomainRepositories({
         jobConversationContext: structuralRepository,
+        ...trustedOperationalRepositories(),
       })
     ).toThrow(TypeError);
 
@@ -391,11 +428,13 @@ describe("OpsAgentDomainService", () => {
         jobConversationContext: {
           ...trustedRepository,
         } as JobConversationContextRepository,
+        ...trustedOperationalRepositories(),
       })
     ).toThrow(TypeError);
 
     const repositories = createOpsAgentDomainRepositories({
       jobConversationContext: trustedRepository,
+      ...trustedOperationalRepositories(),
     });
     expect(Object.isFrozen(repositories)).toBe(true);
     expect(() =>
@@ -425,16 +464,20 @@ describe("OpsAgentDomainService", () => {
       ...trustedRepository,
     } as JobConversationContextRepository;
     let repositoryReads = 0;
-    const repositoryInput = Object.defineProperty(
+    const operational = trustedOperationalRepositories();
+    const repositoryInput = Object.defineProperties(
       {},
-      "jobConversationContext",
       {
-        get() {
-          repositoryReads += 1;
-          return repositoryReads === 1
-            ? trustedRepository
-            : structuralRepository;
+        jobConversationContext: {
+          get() {
+            repositoryReads += 1;
+            return repositoryReads === 1
+              ? trustedRepository
+              : structuralRepository;
+          },
         },
+        scheduledJobs: { value: operational.scheduledJobs },
+        jobReadiness: { value: operational.jobReadiness },
       }
     ) as CreateOpsAgentDomainRepositoriesInput;
 
@@ -448,6 +491,7 @@ describe("OpsAgentDomainService", () => {
     } as unknown as JobConversationContextRepository;
     const structuralBundle = {
       jobConversationContext: attackerRepository,
+      ...operational,
     } as OpsAgentDomainRepositories;
     const trustedCatchUp = vi.fn(async () => undefined);
     const attackerCatchUp = vi.fn(async () => {
@@ -500,7 +544,11 @@ describe("OpsAgentDomainService", () => {
     expect(attackerCatchUp).not.toHaveBeenCalled();
     expect(attackerRepository.read).not.toHaveBeenCalled();
     expect(result.generated_at).toBe(FIXED_NOW);
-    expect(Object.keys(service)).toEqual(["getJobConversationContext"]);
+    expect(Object.keys(service)).toEqual([
+      "getJobConversationContext",
+      "listScheduledJobs",
+      "listJobReadinessIssues",
+    ]);
     expect(client.calls).toHaveLength(3);
   });
 

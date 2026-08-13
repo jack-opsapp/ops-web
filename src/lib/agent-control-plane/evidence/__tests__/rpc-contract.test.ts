@@ -23,6 +23,18 @@ function compactSql(): string {
     .replace(/\s+\)/g, " )");
 }
 
+function activeWrapperSql(): string {
+  return readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/20260812120000_agent_operational_schedule_readiness.sql"
+    ),
+    "utf8"
+  )
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 describe("agent correspondence evidence read migration", () => {
   it("is transactional and depends on the actor and immutable-turn foundations", () => {
     const sql = migrationSql();
@@ -72,11 +84,16 @@ describe("agent correspondence evidence read migration", () => {
 
   it("pins the exact capability identity and OAuth scope", () => {
     const compact = compactSql();
+    const wrapper = activeWrapperSql();
     expect(compact).toContain(
       "p_capability_id is distinct from 'get_correspondence_evidence'"
     );
     expect(compact).toContain("'get_correspondence_evidence:2026-08-07.v1'");
     expect(compact).toContain("'2026-08-11.capability-manifest.v3'");
+    expect(wrapper).toContain("'2026-08-12.capability-manifest.v4'");
+    expect(wrapper).toContain(
+      "private.read_agent_correspondence_evidence_v3_impl("
+    );
     expect(compact).toContain("'ops.correspondence.read'");
     expect(compact).toContain("cardinality(p_evidence_ids) > 20");
   });

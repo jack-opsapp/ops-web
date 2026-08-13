@@ -18,6 +18,8 @@ import {
 import type {
   DomainCallOptions,
   GetJobConversationContextInput,
+  JobReadinessIssuesInput,
+  ListScheduledJobsInput,
   OpsAgentDomainService,
 } from "./domain-service";
 import {
@@ -29,8 +31,14 @@ import {
   isTrustedOpsAgentDomainRepositories,
   type OpsAgentDomainRepositories,
 } from "./repositories";
+import { authorizeScheduledJobsRead } from "./scheduled-jobs-authorization";
+import { listScheduledJobs as readScheduledJobs } from "./list-scheduled-jobs";
+import { authorizeJobReadinessRead } from "./job-readiness-authorization";
+import { listJobReadinessIssues as readJobReadinessIssues } from "./list-job-readiness-issues";
 
 const CAPABILITY_ID = "get_job_conversation_context" as const;
+const SCHEDULE_CAPABILITY_ID = "list_scheduled_jobs" as const;
+const READINESS_CAPABILITY_ID = "list_job_readiness_issues" as const;
 
 export interface CreateOpsAgentDomainServiceInput {
   readonly repositories: OpsAgentDomainRepositories;
@@ -100,6 +108,83 @@ function authorizeConversationContextRead(
   });
 }
 
+function resolveAvailableCapability(
+  capabilityId: string,
+  actorContext: ActorContext,
+  input: unknown
+) {
+  if (!isActorContext(actorContext)) {
+    throw authorizationInternal(
+      "unknown-request",
+      "domain_actor_context_source_untrusted"
+    );
+  }
+  let resolved: ReturnType<typeof resolveCapabilityAuthorization>;
+  try {
+    resolved = resolveCapabilityAuthorization(capabilityId, input);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw invalidDomainInput(actorContext.requestId);
+    }
+    throw authorizationInternal(
+      actorContext.requestId,
+      "domain_capability_resolution_failed"
+    );
+  }
+  if (
+    resolved.capability.name !== capabilityId ||
+    resolved.capability.availability.implementation !== "available" ||
+    resolved.variants.length === 0
+  ) {
+    throw authorizationInternal(
+      actorContext.requestId,
+      "domain_capability_unavailable"
+    );
+  }
+  return resolved;
+}
+
+function authorizeScheduleRead(
+  actorContext: ActorContext,
+  input: ListScheduledJobsInput
+) {
+  const resolved = resolveAvailableCapability(
+    SCHEDULE_CAPABILITY_ID,
+    actorContext,
+    input
+  );
+  if (resolved.variants.length !== 1) {
+    throw authorizationInternal(
+      actorContext.requestId,
+      "domain_schedule_variant_invalid"
+    );
+  }
+  return authorizeScheduledJobsRead({
+    authorization: authorizeCapability({
+      actorContext,
+      policy: resolved.variants[0]!.policy,
+    }),
+    rawInput: resolved.parsedInput,
+  });
+}
+
+function authorizeReadinessRead(
+  actorContext: ActorContext,
+  input: JobReadinessIssuesInput
+) {
+  const resolved = resolveAvailableCapability(
+    READINESS_CAPABILITY_ID,
+    actorContext,
+    input
+  );
+  return authorizeJobReadinessRead({
+    authorizations: resolved.variants.map((variant) =>
+      authorizeCapability({ actorContext, policy: variant.policy })
+    ),
+    rawInput: resolved.parsedInput,
+  });
+}
+
 export function createOpsAgentDomainService(
   input: CreateOpsAgentDomainServiceInput
 ): OpsAgentDomainService {
@@ -122,6 +207,17 @@ export function createOpsAgentDomainService(
   ) {
     throw new TypeError("Job conversation context is not implemented");
   }
+  for (const capabilityId of [
+    SCHEDULE_CAPABILITY_ID,
+    READINESS_CAPABILITY_ID,
+  ]) {
+    if (
+      getCapabilityManifestEntry(capabilityId).availability.implementation !==
+      "available"
+    ) {
+      throw new TypeError(`${capabilityId} is not implemented`);
+    }
+  }
 
   const getJobConversationContext = async (
     actorContext: ActorContext,
@@ -139,7 +235,33 @@ export function createOpsAgentDomainService(
       ...(now ? { now } : {}),
     });
 
+  const listScheduledJobs = async (
+    actorContext: ActorContext,
+    domainInput: ListScheduledJobsInput,
+    options?: DomainCallOptions
+  ) =>
+    await readScheduledJobs({
+      authorization: authorizeScheduleRead(actorContext, domainInput),
+      repository: repositories.scheduledJobs,
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(now ? { now } : {}),
+    });
+
+  const listJobReadinessIssues = async (
+    actorContext: ActorContext,
+    domainInput: JobReadinessIssuesInput,
+    options?: DomainCallOptions
+  ) =>
+    await readJobReadinessIssues({
+      authorization: authorizeReadinessRead(actorContext, domainInput),
+      repository: repositories.jobReadiness,
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(now ? { now } : {}),
+    });
+
   return Object.freeze({
     getJobConversationContext,
+    listScheduledJobs,
+    listJobReadinessIssues,
   } satisfies OpsAgentDomainService);
 }

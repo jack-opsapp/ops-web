@@ -16,7 +16,7 @@ import { READ_CAPABILITY_DEFINITIONS } from "./read-tools";
 import { WRITE_CAPABILITY_DEFINITIONS } from "./write-tools";
 
 export const CAPABILITY_MANIFEST_REVISION =
-  "2026-08-11.capability-manifest.v3" as const;
+  "2026-08-12.capability-manifest.v4" as const;
 
 function freezeSelector(
   selector: CapabilityAuthorizationSelector
@@ -95,6 +95,11 @@ function selectorMatches(
   parsedInput: Readonly<Record<string, unknown>>
 ): boolean {
   if (selector.kind === "always") return true;
+
+  if (selector.kind === "input_array_contains") {
+    const values = parsedInput[selector.field];
+    return Array.isArray(values) && values.includes(selector.value);
+  }
 
   if (selector.kind === "input_value") {
     return parsedInput[selector.field] === selector.value;

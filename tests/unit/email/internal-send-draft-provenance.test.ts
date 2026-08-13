@@ -67,21 +67,102 @@ describe("internal email send draft provenance", () => {
   });
 
   it("retains generated history IDs on every approval email action", () => {
+    const schedulingApprovalBlocks = [
+      functionBlock(
+        schedulingCommsSource,
+        "async function proposePreparedScheduleConfirmation(",
+        "async function proposePreparedScheduleChange("
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "async function proposePreparedScheduleChange(",
+        "async function classifyRescheduleWithGPT("
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "  async sendAppointmentConfirmation(",
+        "  async sendScheduleChangedEmail("
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "  async sendScheduleChangedEmail(",
+        "  async sendAppointmentReminder("
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "  async sendDayBeforeReminder(",
+        "  async detectRescheduleRequest(input:"
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "  async detectRescheduleRequest(input:",
+        "  async coordinateWithSubcontractor("
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "  async coordinateWithSubcontractor(",
+        "  async listTasksScheduledForLeadDays("
+      ),
+    ];
+
     expect(paymentReminderSource).toContain("draft_history_id: draftHistoryId");
-    expect(
-      schedulingCommsSource.match(/draft_history_id: draftHistoryId/g)
-    ).toHaveLength(5);
+    for (const approvalBlock of schedulingApprovalBlocks) {
+      expect(approvalBlock).toContain("draft_history_id: draftHistoryId");
+    }
     expect(
       approvalTypesSource.match(/draft_history_id: string \| null;/g)
     ).toHaveLength(8);
   });
 
   it("marks only scheduling drafts with authoritative schedule facts as verified", () => {
-    expect(
-      schedulingCommsSource.match(
-        /draftPurpose:\s*\{\s*kind:\s*"operational_outbound",\s*verifiedContext:\s*\{\s*schedule:\s*true\s*\}/g
-      )
-    ).toHaveLength(4);
+    const directlyVerifiedScheduleBlocks = [
+      functionBlock(
+        schedulingCommsSource,
+        "async function proposePreparedScheduleConfirmation(",
+        "async function proposePreparedScheduleChange("
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "async function proposePreparedScheduleChange(",
+        "async function classifyRescheduleWithGPT("
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "  async sendAppointmentConfirmation(",
+        "  async sendScheduleChangedEmail("
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "  async sendScheduleChangedEmail(",
+        "  async sendAppointmentReminder("
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "  async sendDayBeforeReminder(",
+        "  async detectRescheduleRequest(input:"
+      ),
+      functionBlock(
+        schedulingCommsSource,
+        "  async coordinateWithSubcontractor(",
+        "  async listTasksScheduledForLeadDays("
+      ),
+    ];
+    const verifiedSchedulePurpose =
+      /draftPurpose:\s*\{\s*kind:\s*"operational_outbound",\s*verifiedContext:\s*\{\s*schedule:\s*true\s*\}/;
+
+    for (const scheduleBlock of directlyVerifiedScheduleBlocks) {
+      expect(scheduleBlock).toMatch(verifiedSchedulePurpose);
+    }
+
+    const rescheduleBlock = functionBlock(
+      schedulingCommsSource,
+      "  async detectRescheduleRequest(input:",
+      "  async coordinateWithSubcontractor("
+    );
+    expect(rescheduleBlock).not.toMatch(verifiedSchedulePurpose);
+    expect(rescheduleBlock).toMatch(
+      /\.\.\.\(firstAlt\s*\?\s*\{\s*verifiedContext:\s*\{\s*schedule:\s*true\s*\}/
+    );
   });
 
   it("keeps reschedule customer text out of the trusted instruction", () => {

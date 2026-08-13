@@ -5,6 +5,7 @@ const {
   getServiceRoleClientMock,
   setSupabaseOverrideMock,
   executeAutonomousActionMock,
+  recoverPurposeScheduleEmailActionRetriesMock,
   recoverApprovedActionEmailsMock,
   runWithCronWorkloadControlMock,
   serviceRoleClient,
@@ -25,6 +26,7 @@ const {
     getServiceRoleClientMock: vi.fn(),
     setSupabaseOverrideMock: vi.fn(),
     executeAutonomousActionMock: vi.fn(),
+    recoverPurposeScheduleEmailActionRetriesMock: vi.fn(),
     recoverApprovedActionEmailsMock: vi.fn(),
     runWithCronWorkloadControlMock: vi.fn(),
     serviceRoleClient: { from: vi.fn(() => queryBuilder) },
@@ -41,6 +43,8 @@ vi.mock("@/lib/supabase/helpers", () => ({
 vi.mock("@/lib/api/services/approval-queue-service", () => ({
   ApprovalQueueService: {
     executeAutonomousAction: executeAutonomousActionMock,
+    recoverPurposeScheduleEmailActionRetries:
+      recoverPurposeScheduleEmailActionRetriesMock,
     recoverApprovedActionEmails: recoverApprovedActionEmailsMock,
   },
 }));
@@ -72,6 +76,14 @@ describe("auto execute actions cron", () => {
       error: null,
     });
     executeAutonomousActionMock.mockReset();
+    recoverPurposeScheduleEmailActionRetriesMock.mockReset().mockResolvedValue({
+      selected: 0,
+      reset: 0,
+      skipped: 0,
+      failed: 0,
+      actionIds: [],
+      errors: [],
+    });
     recoverApprovedActionEmailsMock.mockReset().mockResolvedValue({
       claimed: 0,
       reconciled: 0,
@@ -113,6 +125,14 @@ describe("auto execute actions cron", () => {
         exhausted: 0,
         errors: [],
       },
+      purposeRetryRecovery: {
+        selected: 0,
+        reset: 0,
+        skipped: 0,
+        failed: 0,
+        actionIds: [],
+        errors: [],
+      },
       results: [
         { actionId: "action-1", success: true },
         {
@@ -150,7 +170,47 @@ describe("auto execute actions cron", () => {
           exhausted: 1,
           errors: ["intent-1: exhausted"],
         },
+        purposeRetryRecovery: {
+          selected: 0,
+          reset: 0,
+          skipped: 0,
+          failed: 0,
+          actionIds: [],
+          errors: [],
+        },
         results: [],
+      },
+    });
+  });
+
+  it("resets selector results without executing them as autonomous work", async () => {
+    recoverPurposeScheduleEmailActionRetriesMock.mockResolvedValue({
+      selected: 1,
+      reset: 1,
+      skipped: 0,
+      failed: 0,
+      actionIds: ["action-1"],
+      errors: [],
+    });
+    query.limit.mockResolvedValue({
+      data: [{ id: "action-1" }, { id: "action-2" }],
+      error: null,
+    });
+    executeAutonomousActionMock.mockResolvedValue({ status: "executed" });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(200);
+    expect(query.limit).toHaveBeenCalledWith(9);
+    expect(executeAutonomousActionMock).toHaveBeenCalledTimes(1);
+    expect(executeAutonomousActionMock).toHaveBeenCalledWith("action-2");
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      dueCount: 1,
+      purposeRetryRecovery: {
+        selected: 1,
+        reset: 1,
+        actionIds: ["action-1"],
       },
     });
   });

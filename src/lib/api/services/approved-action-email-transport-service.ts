@@ -9,6 +9,7 @@ import {
   type ApprovedActionEmailDeliveryOutcome,
   type ApprovedActionEmailExecutionMode,
   type ApprovedActionEmailIntent,
+  type ApprovedActionEmailIntentStatus,
   type PrepareApprovedActionEmailIntentInput,
 } from "./approved-action-email-delivery-service";
 import { ApprovedActionEmailIntentService } from "./approved-action-email-intent-service";
@@ -22,6 +23,27 @@ import { requireSupabase } from "@/lib/supabase/helpers";
 
 function hash(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+export type ApprovedActionEmailDeliveryBoundary =
+  "pre_provider_retryable" | "provider_outcome_owned" | "unknown";
+
+const PRE_PROVIDER_INTENT_STATUSES = new Set<ApprovedActionEmailIntentStatus>([
+  "awaiting_signature",
+  "prepared",
+]);
+
+/**
+ * Classifies only the durable send-claim boundary. A missing intent or an
+ * awaiting/prepared intent has never reached `claimProviderDelivery`; every
+ * later state is owned by reconciliation and must never authorize a resend.
+ */
+export function approvedActionEmailDeliveryBoundaryForStatus(
+  status: ApprovedActionEmailIntentStatus | null
+): Exclude<ApprovedActionEmailDeliveryBoundary, "unknown"> {
+  return status === null || PRE_PROVIDER_INTENT_STATUSES.has(status)
+    ? "pre_provider_retryable"
+    : "provider_outcome_owned";
 }
 
 function prepareInputFromIntent(
@@ -160,6 +182,26 @@ export const ApprovedActionEmailTransportService = {
       actionId,
       executionMode: "autonomous",
     });
+  },
+
+  /**
+   * Read the durable intent after a transport exception. Lookup failure is an
+   * intentionally opaque `unknown`: callers must preserve the action and let
+   * the transport state machine recover, never guess that a resend is safe.
+   */
+  async inspectDeliveryBoundary(
+    actionId: string
+  ): Promise<ApprovedActionEmailDeliveryBoundary> {
+    try {
+      const supabase = requireSupabase() as unknown as SupabaseClient;
+      const store = new ApprovedActionEmailIntentService(supabase);
+      const intent = await store.getByActionId(actionId);
+      return approvedActionEmailDeliveryBoundaryForStatus(
+        intent?.status ?? null
+      );
+    } catch {
+      return "unknown";
+    }
   },
 
   async recover(limit = 50): Promise<{

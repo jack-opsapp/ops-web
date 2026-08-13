@@ -88,23 +88,25 @@ const EXPECTED_POLICY_MATRIX = {
   ],
   list_job_readiness_issues: [
     {
-      key: "readiness",
-      oauth: [
-        "ops.customer_contacts.read",
-        "ops.customers.read",
-        "ops.jobs.read",
-        "ops.photos.read",
-        "ops.schedule.read",
-      ],
+      key: "readiness_base",
+      oauth: ["ops.jobs.read", "ops.schedule.read"],
       groups: [
         [
           "calendar.view:all,own",
-          "clients.view:all,assigned",
-          "photos.view:all,assigned",
           "projects.view:all,assigned",
           "tasks.view:all,assigned",
         ],
       ],
+    },
+    {
+      key: "readiness_site_photos",
+      oauth: ["ops.photos.read"],
+      groups: [["photos.view:all,assigned"]],
+    },
+    {
+      key: "readiness_customer",
+      oauth: ["ops.customers.read"],
+      groups: [["clients.view:all,assigned"]],
     },
   ],
   get_job_communication_context: [
@@ -729,10 +731,13 @@ describe("agent capability manifest", () => {
   it("keeps implementation availability separate from external exposure", () => {
     for (const capability of CAPABILITY_MANIFEST) {
       expect(capability.availability).toEqual({
-        implementation:
-          capability.name === "get_job_conversation_context"
-            ? "available"
-            : "unavailable",
+        implementation: [
+          "get_job_conversation_context",
+          "list_scheduled_jobs",
+          "list_job_readiness_issues",
+        ].includes(capability.name)
+          ? "available"
+          : "unavailable",
         externalExposure: "disabled",
       });
       expect(capability.rolloutFlag).toMatch(
@@ -743,7 +748,7 @@ describe("agent capability manifest", () => {
 
   it("carries immutable, nominal authorization policy variants", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-11.capability-manifest.v3"
+      "2026-08-12.capability-manifest.v4"
     );
     expect(Object.isFrozen(CAPABILITY_MANIFEST)).toBe(true);
 
@@ -761,6 +766,35 @@ describe("agent capability manifest", () => {
           capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
         });
       }
+    }
+  });
+
+  it("selects and freezes exact conditional readiness policies", () => {
+    const photoOnly = resolveCapabilityAuthorization(
+      "list_job_readiness_issues",
+      {
+        from: "2026-08-01T00:00:00Z",
+        to: "2026-08-31T00:00:00Z",
+        rule_codes: ["SITE_PHOTOS_MISSING"],
+      }
+    );
+    const defaultRules = resolveCapabilityAuthorization(
+      "list_job_readiness_issues",
+      VALID_INPUTS.list_job_readiness_issues
+    );
+
+    expect(photoOnly.variants.map((variant) => variant.key)).toEqual([
+      "readiness_base",
+      "readiness_site_photos",
+    ]);
+    expect(defaultRules.variants.map((variant) => variant.key)).toEqual([
+      "readiness_base",
+      "readiness_site_photos",
+      "readiness_customer",
+    ]);
+    expect(Object.isFrozen(defaultRules.parsedInput.rule_codes)).toBe(true);
+    for (const variant of defaultRules.variants) {
+      expect(Object.isFrozen(variant.selector)).toBe(true);
     }
   });
 
@@ -1169,6 +1203,50 @@ describe("agent capability manifest", () => {
               },
             ],
           },
+        };
+      },
+    },
+    {
+      name: "a forged conditional selector field",
+      mutate(entries: CapabilityManifestEntry[]) {
+        const index = entries.findIndex(
+          (entry) => entry.name === "list_job_readiness_issues"
+        );
+        const entry = entries[index];
+        const variants = [...entry.authorization.variants];
+        variants[1] = {
+          ...variants[1],
+          selector: {
+            kind: "input_array_contains",
+            field: "permissions",
+            value: "SITE_PHOTOS_MISSING",
+          } as never,
+        };
+        entries[index] = {
+          ...entry,
+          authorization: { variants },
+        };
+      },
+    },
+    {
+      name: "a forged conditional selector value",
+      mutate(entries: CapabilityManifestEntry[]) {
+        const index = entries.findIndex(
+          (entry) => entry.name === "list_job_readiness_issues"
+        );
+        const entry = entries[index];
+        const variants = [...entry.authorization.variants];
+        variants[1] = {
+          ...variants[1],
+          selector: {
+            kind: "input_array_contains",
+            field: "rule_codes",
+            value: "ADMIN_BYPASS",
+          } as never,
+        };
+        entries[index] = {
+          ...entry,
+          authorization: { variants },
         };
       },
     },

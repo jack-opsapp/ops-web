@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   dismissAwaitingReply: vi.fn(),
   createNotification: vi.fn(),
   handleRescheduleCascade: vi.fn(),
+  updateTask: vi.fn(),
 }));
 
 vi.mock(
@@ -45,6 +46,11 @@ vi.mock("@/lib/api/services/schedule-optimization-service", () => ({
     handleRescheduleCascade: mocks.handleRescheduleCascade,
   },
 }));
+vi.mock("@/lib/api/services/task-approval-mutation-service", () => ({
+  TaskApprovalMutationService: {
+    updateTask: mocks.updateTask,
+  },
+}));
 
 import { reconcileApprovedActionEmail } from "@/lib/api/services/approved-action-email-reconciliation-service";
 import { isDatabasePressureError } from "@/lib/api/services/cron-workload-control-service";
@@ -60,6 +66,11 @@ beforeEach(() => {
   });
   mocks.dismissAwaitingReply.mockResolvedValue(undefined);
   mocks.createNotification.mockResolvedValue(undefined);
+  mocks.updateTask.mockResolvedValue({
+    changed: true,
+    scheduleChanged: true,
+    scheduleVersion: 2,
+  });
 });
 
 describe("approved-action email reconciliation database boundaries", () => {
@@ -207,6 +218,14 @@ describe("approved-action email reconciliation database boundaries", () => {
       "reschedule_request",
       { throwOnError: true }
     );
+    expect(mocks.updateTask).toHaveBeenCalledWith({
+      actorUserId: "00000000-0000-4000-8000-000000000004",
+      taskId: "00000000-0000-4000-8000-000000000006",
+      patch: {
+        start_date: "2026-08-12T16:00:00.000Z",
+      },
+    });
+    expect(taskBuilder.update).not.toHaveBeenCalled();
     expect(failure).toMatchObject({
       name: "CronDatabaseOperationError",
       cause,

@@ -46,15 +46,26 @@ export async function GET(request: NextRequest) {
       leaseSeconds: 360,
       work: async () => {
         const now = new Date().toISOString();
+        const purposeRetryRecovery =
+          await ApprovalQueueService.recoverPurposeScheduleEmailActionRetries();
+        const purposeRetryActionIds = new Set(purposeRetryRecovery.actionIds);
+        const remainingActionBudget = Math.max(
+          0,
+          10 - purposeRetryActionIds.size
+        );
 
         // Find pending actions whose auto_execute_at has passed
-        const { data: dueActions, error } = await supabase
-          .from("agent_actions")
-          .select("id")
-          .eq("status", "pending")
-          .not("auto_execute_at", "is", null)
-          .lte("auto_execute_at", now)
-          .limit(10);
+        const dueActionResponse =
+          remainingActionBudget > 0
+            ? await supabase
+                .from("agent_actions")
+                .select("id")
+                .eq("status", "pending")
+                .not("auto_execute_at", "is", null)
+                .lte("auto_execute_at", now)
+                .limit(remainingActionBudget)
+            : { data: [], error: null };
+        const { error } = dueActionResponse;
 
         if (error) {
           throw new CronDatabaseOperationError(
@@ -62,6 +73,10 @@ export async function GET(request: NextRequest) {
             { cause: error }
           );
         }
+        const dueActions = (dueActionResponse.data ?? []).filter(
+          (row) =>
+            typeof row.id === "string" && !purposeRetryActionIds.has(row.id)
+        );
 
         const results: Array<{
           actionId: string;
@@ -98,7 +113,10 @@ export async function GET(request: NextRequest) {
           await ApprovalQueueService.recoverApprovedActionEmails(5);
 
         const ok =
-          failed === 0 && recovery.failed === 0 && recovery.exhausted === 0;
+          failed === 0 &&
+          purposeRetryRecovery.failed === 0 &&
+          recovery.failed === 0 &&
+          recovery.exhausted === 0;
 
         return NextResponse.json(
           {
@@ -106,6 +124,7 @@ export async function GET(request: NextRequest) {
             dueCount: dueActions?.length ?? 0,
             succeeded,
             failed,
+            purposeRetryRecovery,
             recovery,
             results,
           },

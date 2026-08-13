@@ -18,6 +18,18 @@ function compactSql(): string {
   return sql().replace(/\s+/g, " ");
 }
 
+function activeWrapperSql(): string {
+  return readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/20260812120000_agent_operational_schedule_readiness.sql"
+    ),
+    "utf8"
+  )
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
 describe("agent job conversation context read migration", () => {
   it("is one transactional, service-role-only fixed RPC", () => {
     const source = sql();
@@ -40,13 +52,18 @@ describe("agent job conversation context read migration", () => {
     );
   });
 
-  it("pins capability v3, every OAuth scope, and the exact manifest-owned permission proof", () => {
+  it("pins the current v4 wrapper while retaining every manifest-owned proof in the private implementation", () => {
     const compact = compactSql();
+    const wrapper = activeWrapperSql();
     expect(compact).toContain(
       "p_capability_id is distinct from 'get_job_conversation_context'"
     );
     expect(compact).toContain("'get_job_conversation_context:2026-08-07.v1'");
     expect(compact).toContain("'2026-08-11.capability-manifest.v3'");
+    expect(wrapper).toContain("'2026-08-12.capability-manifest.v4'");
+    expect(wrapper).toContain(
+      "private.read_agent_job_conversation_context_v3_impl("
+    );
     for (const scope of [
       "ops.correspondence.read",
       "ops.customer_contacts.read",

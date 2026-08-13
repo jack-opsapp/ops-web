@@ -47,24 +47,7 @@ async function findDefaultUserForCompany(
   const supabase = requireSupabase();
 
   const managerIds = await getCompanyManagerUserIds(supabase, companyId);
-  const adminId = managerIds[0] ?? null;
-  if (adminId) return adminId;
-
-  const { data: anyUser, error } = await supabase
-    .from("users")
-    .select("id")
-    .eq("company_id", companyId)
-    .is("deleted_at", null)
-    .limit(1)
-    .maybeSingle();
-  if (error) {
-    throwCronDatabaseOperationError(
-      `auto-confirm user lookup failed for ${companyId}`,
-      error
-    );
-  }
-
-  return (anyUser?.id as string) ?? null;
+  return managerIds[0] ?? null;
 }
 
 async function processCompany(companyId: string): Promise<Result> {
@@ -89,7 +72,9 @@ async function processCompany(companyId: string): Promise<Result> {
       // it between listing and updating, skip.
       const { data: current, error: currentError } = await supabase
         .from("project_tasks")
-        .select("schedule_confirmed_at")
+        .select(
+          "schedule_confirmed_at, confirmed_schedule_version, schedule_version"
+        )
         .eq("id", taskId)
         .eq("company_id", companyId)
         .maybeSingle();
@@ -99,30 +84,19 @@ async function processCompany(companyId: string): Promise<Result> {
           currentError
         );
       }
-
-      if (current?.schedule_confirmed_at) continue;
-
-      const { error: updateError } = await supabase
-        .from("project_tasks")
-        .update({
-          schedule_confirmed_at: new Date().toISOString(),
-          schedule_confirmed_by: null, // null = auto-confirmed
-        })
-        .eq("id", taskId)
-        .eq("company_id", companyId);
-      if (updateError) {
-        throwCronDatabaseOperationError(
-          `auto-confirm task update failed for ${taskId}`,
-          updateError
-        );
+      if (!current) {
+        throw new Error(`Auto-confirm task disappeared: ${taskId}`);
       }
 
-      await ClientSchedulingCommsService.onTaskScheduleConfirmed(
-        companyId,
-        userId,
-        taskId
-      );
-      confirmedCount++;
+      const result =
+        await ClientSchedulingCommsService.confirmTaskScheduleAndDispatch(
+          companyId,
+          userId,
+          taskId,
+          current.schedule_version,
+          "automatic"
+        );
+      if (!result.alreadyConfirmed) confirmedCount++;
     } catch (err) {
       if (isDatabasePressureError(err)) throw err;
       console.error(
@@ -138,9 +112,8 @@ async function processCompany(companyId: string): Promise<Result> {
   // effectively a no-op.
   if (confirmedCount > 0) {
     try {
-      const { NotificationService } = await import(
-        "@/lib/api/services/notification-service"
-      );
+      const { NotificationService } =
+        await import("@/lib/api/services/notification-service");
       await NotificationService.create({
         userId,
         companyId,
@@ -200,8 +173,7 @@ export async function GET(request: NextRequest) {
             companyId,
             tasksChecked: 0,
             tasksConfirmed: 0,
-            error:
-              error instanceof Error ? error.message : "Unknown error",
+            error: error instanceof Error ? error.message : "Unknown error",
           }),
         }),
     });
@@ -220,9 +192,7 @@ export async function GET(request: NextRequest) {
 
     const results = controlled.value.results.filter(
       (result) =>
-        result.tasksChecked > 0 ||
-        result.tasksConfirmed > 0 ||
-        result.error
+        result.tasksChecked > 0 || result.tasksConfirmed > 0 || result.error
     );
     const totalConfirmed = results.reduce((s, r) => s + r.tasksConfirmed, 0);
     const errors = results.filter((r) => r.error);

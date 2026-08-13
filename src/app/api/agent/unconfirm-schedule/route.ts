@@ -55,54 +55,23 @@ export async function POST(request: NextRequest) {
 
     const { data: task } = await supabase
       .from("project_tasks")
-      .select("id, schedule_confirmed_at")
+      .select("id, schedule_confirmed_at, schedule_version")
       .eq("id", taskId)
       .eq("company_id", auth.companyId)
       .is("deleted_at", null)
       .maybeSingle();
 
     if (!task) {
-      return NextResponse.json(
-        { error: "Task not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    const wasConfirmed = !!task.schedule_confirmed_at;
-
-    // Fire the "schedule changed" email propose before clearing the marker —
-    // onConfirmedTaskRescheduled reads schedule_confirmed_at as the gate.
-    // Only report a reschedule action when something was actually done:
-    //   - do_nothing → null (no draft/send, no notification)
-    //   - notify / draft / auto_send → report the behavior name
-    let rescheduleAction: string | null = null;
-    if (wasConfirmed) {
-      const settings = await ClientSchedulingCommsService.getSettings(
-        auth.companyId
-      );
-      const behavior = settings.appointment_confirmation.reschedule_behavior;
-      rescheduleAction = behavior === "do_nothing" ? null : behavior;
-      await ClientSchedulingCommsService.onConfirmedTaskRescheduled(
-        auth.companyId,
-        auth.id,
-        taskId
-      );
-    }
-
-    // Clear the confirmation marker
-    await supabase
-      .from("project_tasks")
-      .update({
-        schedule_confirmed_at: null,
-        schedule_confirmed_by: null,
-      })
-      .eq("id", taskId)
-      .eq("company_id", auth.companyId);
-
-    return NextResponse.json({
-      unconfirmed: true,
-      rescheduleAction,
-    });
+    const result = await ClientSchedulingCommsService.unconfirmTaskSchedule(
+      auth.companyId,
+      auth.id,
+      taskId,
+      task.schedule_version
+    );
+    return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[agent/unconfirm-schedule]", message);

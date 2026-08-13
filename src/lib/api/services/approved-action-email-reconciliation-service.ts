@@ -15,6 +15,7 @@ import { NotificationService } from "./notification-service";
 import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
 import type { ApprovedActionEmailIntent } from "./approved-action-email-delivery-service";
 import { captureAcceptedOutboundProviderDeliverySource } from "./provider-delivery-source-service";
+import { TaskApprovalMutationService } from "./task-approval-mutation-service";
 
 function required(value: string | null, code: string): string {
   if (!value?.trim()) throw new Error(code);
@@ -223,16 +224,14 @@ async function reconcileOpportunity(input: {
   } = input;
   if (!intent.opportunityId) return;
 
-  const linkResponse = await supabase
-    .from("opportunity_email_threads")
-    .upsert(
-      {
-        opportunity_id: intent.opportunityId,
-        thread_id: providerThreadId,
-        connection_id: intent.connectionId,
-      },
-      { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
-    );
+  const linkResponse = await supabase.from("opportunity_email_threads").upsert(
+    {
+      opportunity_id: intent.opportunityId,
+      thread_id: providerThreadId,
+      connection_id: intent.connectionId,
+    },
+    { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
+  );
   const { error: linkError } = linkResponse;
   if (linkError) {
     throw databaseOperationError(
@@ -372,11 +371,10 @@ async function applyPostSendFollowOn(input: {
 
   const taskResponse = await supabase
     .from("project_tasks")
-    .update(update)
+    .select("calendar_event_id")
     .eq("id", taskId)
     .eq("company_id", intent.companyId)
     .eq("project_id", intent.projectId)
-    .select("calendar_event_id")
     .single();
   const { data: task, error: taskError } = taskResponse;
   if (taskError) {
@@ -388,6 +386,17 @@ async function applyPostSendFollowOn(input: {
   if (!task) {
     throw new Error("APPROVED_ACTION_EMAIL_RESCHEDULE_TASK_FAILED");
   }
+
+  await runDatabaseBoundary(
+    "APPROVED_ACTION_EMAIL_RESCHEDULE_TASK_FAILED",
+    () =>
+      TaskApprovalMutationService.updateTask({
+        actorUserId: intent.actorUserId,
+        taskId,
+        patch: update,
+      })
+  );
+
   const calendarEventId = optionalString(task.calendar_event_id);
   if (calendarEventId) {
     const calendarResponse = await supabase
