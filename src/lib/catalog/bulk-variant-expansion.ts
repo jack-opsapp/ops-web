@@ -819,18 +819,20 @@ export function buildBulkVariantFamilyRecords(input: {
           (left, right) =>
             left.sortOrder - right.sortOrder || left.id.localeCompare(right.id)
         )
-        .map((option): BulkVariantOptionSnapshot => ({
-          id: option.id,
-          name: option.name,
-          sortOrder: option.sortOrder,
-          values: (valuesByOption.get(option.id) ?? [])
-            .sort(
-              (left, right) =>
-                left.sortOrder - right.sortOrder ||
-                left.id.localeCompare(right.id)
-            )
-            .map(({ id, value, sortOrder }) => ({ id, value, sortOrder })),
-        }));
+        .map(
+          (option): BulkVariantOptionSnapshot => ({
+            id: option.id,
+            name: option.name,
+            sortOrder: option.sortOrder,
+            values: (valuesByOption.get(option.id) ?? [])
+              .sort(
+                (left, right) =>
+                  left.sortOrder - right.sortOrder ||
+                  left.id.localeCompare(right.id)
+              )
+              .map(({ id, value, sortOrder }) => ({ id, value, sortOrder })),
+          })
+        );
       const variants = input.variants
         .filter(
           (variant) =>
