@@ -8,7 +8,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { FinancialIntelligenceService } from "@/lib/api/services/financial-intelligence-service";
-import { runBoundedPhaseCCompanyFanout } from "@/lib/api/services/cron-company-fanout-service";
+import {
+  runBoundedPhaseCCompanyFanout,
+  type CronCompanyFanoutRetryState,
+} from "@/lib/api/services/cron-company-fanout-service";
 import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
 import { getCompanyManagerUserIds } from "@/lib/api/services/company-managers";
 
@@ -20,8 +23,41 @@ const COMPANY_LIMIT = 3;
 type DigestResult = {
   companyId: string;
   digestProposed: boolean;
+  disposition: "success" | "not_actionable" | "retryable";
+  reason?: "no_admin_user";
   error?: string;
 };
+
+function reportableDigestResults(results: DigestResult[]): DigestResult[] {
+  return results.filter(
+    (result) =>
+      result.digestProposed ||
+      result.disposition === "not_actionable" ||
+      result.error
+  );
+}
+
+class FinancialDigestRunError extends Error {
+  readonly results: DigestResult[];
+  readonly retry: CronCompanyFanoutRetryState;
+
+  constructor(
+    results: DigestResult[],
+    retry: CronCompanyFanoutRetryState,
+    cause?: unknown
+  ) {
+    const failedCount = results.filter(
+      (result) => result.disposition === "retryable"
+    ).length;
+    super(
+      `Financial digest failed for ${failedCount} of ${results.length} companies`,
+      cause === undefined ? undefined : { cause }
+    );
+    this.name = "FinancialDigestRunError";
+    this.results = reportableDigestResults(results);
+    this.retry = retry;
+  }
+}
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -45,8 +81,8 @@ export async function GET(request: NextRequest) {
       supabase,
       workloadKey: WORKLOAD_KEY,
       leaseSeconds: 360,
-      work: (lease) =>
-        runBoundedPhaseCCompanyFanout<DigestResult>({
+      work: async (lease) => {
+        const fanout = await runBoundedPhaseCCompanyFanout<DigestResult>({
           supabase,
           workloadKey: WORKLOAD_KEY,
           lease,
@@ -59,7 +95,8 @@ export async function GET(request: NextRequest) {
               return {
                 companyId,
                 digestProposed: false,
-                error: "No admin user found",
+                disposition: "not_actionable",
+                reason: "no_admin_user",
               };
             }
 
@@ -68,7 +105,11 @@ export async function GET(request: NextRequest) {
                 companyId,
                 adminUserId
               );
-            return { companyId, digestProposed: Boolean(actionId) };
+            return {
+              companyId,
+              digestProposed: Boolean(actionId),
+              disposition: "success",
+            };
           },
           onCompanyError: (companyId, error) => {
             const message =
@@ -80,10 +121,29 @@ export async function GET(request: NextRequest) {
             return {
               companyId,
               digestProposed: false,
+              disposition: "retryable",
               error: message,
             };
           },
-        }),
+          retryPolicy: {
+            maxAttempts: 3,
+            classifyResult: (result) =>
+              result.disposition === "not_actionable"
+                ? "permanent"
+                : result.disposition,
+          },
+        });
+
+        if (fanout.retry?.status === "scheduled") {
+          throw new FinancialDigestRunError(
+            fanout.results,
+            fanout.retry,
+            fanout.failureCause
+          );
+        }
+
+        return fanout;
+      },
     });
 
     if (controlled.status === "skipped") {
@@ -100,19 +160,37 @@ export async function GET(request: NextRequest) {
 
     const results = controlled.value.results;
     const totalProposed = results.filter((r) => r.digestProposed).length;
-    const errors = results.filter((r) => r.error);
+    const errors = results.filter((r) => r.disposition === "retryable");
+    const nonActionable = results.filter(
+      (r) => r.disposition === "not_actionable"
+    ).length;
 
     return NextResponse.json({
-      ok: true,
+      ok: controlled.value.retry?.status !== "exhausted",
       companiesProcessed: controlled.value.companyIds.length,
       digestsProposed: totalProposed,
       errors: errors.length,
-      details: results.filter((r) => r.digestProposed || r.error),
+      nonActionable,
+      retry: controlled.value.retry,
+      details: reportableDigestResults(results),
     });
   } catch (err) {
+    if (err instanceof FinancialDigestRunError) {
+      console.error("[cron/financial-digest]", err.message);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: err.message,
+          retry: err.retry,
+          results: err.results,
+        },
+        { status: 500 }
+      );
+    }
+
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[cron/financial-digest]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   } finally {
     setSupabaseOverride(null);
   }

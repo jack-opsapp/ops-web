@@ -18,9 +18,7 @@ import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-con
 export type BucketName = "dispatch" | "gate" | "field_notes" | "portal";
 
 export type PauseScope =
-  | "global"
-  | `bucket:${BucketName}`
-  | `campaign:${string}`;
+  "global" | `bucket:${BucketName}` | `campaign:${string}`;
 
 export interface PauseState {
   scope: PauseScope;
@@ -319,16 +317,56 @@ export async function pause(input: PauseInput): Promise<PauseResult> {
   }
   const pauseAuditId = (auditRow?.id as string | undefined) ?? null;
 
-  await fanoutPauseNotifications(
-    {
-      scope: input.scope,
-      reason: input.reason,
-      actorEmail: input.actorEmail,
-    },
-    input.abortOnDatabaseError === true
-  );
+  if (input.anomalyLogId && pauseAuditId) {
+    await retryPauseNotificationFanout({
+      anomalyId: input.anomalyLogId,
+      pauseAuditId,
+    });
+  } else {
+    await fanoutPauseNotifications(
+      {
+        scope: input.scope,
+        reason: input.reason,
+        actorEmail: input.actorEmail,
+      },
+      input.abortOnDatabaseError === true
+    );
+  }
 
   return { state: rowToState(data), pauseAuditId };
+}
+
+/**
+ * Completes anomaly-triggered pause notification fanout without touching the
+ * pause state or writing a second audit row. The database function validates
+ * the immutable anomaly/audit pair and uses a permanent event dedupe key.
+ */
+export async function retryPauseNotificationFanout(input: {
+  anomalyId: string;
+  pauseAuditId: string;
+}): Promise<void> {
+  const supabase = getServiceRoleClient();
+  let result: { data: unknown; error: { message?: string } | null };
+  try {
+    result = await supabase.rpc("reconcile_email_pause_notification_fanout", {
+      p_anomaly_id: input.anomalyId,
+      p_pause_audit_id: input.pauseAuditId,
+    });
+  } catch (cause) {
+    throw new CronDatabaseOperationError(
+      "Pause notification reconciliation request failed",
+      { cause }
+    );
+  }
+  if (result.error) {
+    throw new CronDatabaseOperationError(
+      `Pause notification reconciliation failed: ${result.error.message ?? "unknown error"}`,
+      { cause: result.error }
+    );
+  }
+  if (typeof result.data !== "number" || result.data < 0) {
+    throw new Error("Pause notification reconciliation returned invalid data");
+  }
 }
 
 interface ResumeInput {

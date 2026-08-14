@@ -30,9 +30,11 @@ function builder(result: { data: unknown; error: unknown }) {
 
 function db(...results: Array<{ data: unknown; error: unknown }>) {
   const builders = results.map(builder);
+  const pendingBuilders = [...builders];
   return {
+    builders,
     from: vi.fn(() => {
-      const next = builders.shift();
+      const next = pendingBuilders.shift();
       if (!next) throw new Error("Unexpected query");
       return next;
     }),
@@ -47,15 +49,16 @@ beforeEach(() => {
 describe("ScheduleOptimizationService strict cascade mode", () => {
   it("preserves legacy error swallowing by default but propagates for durable workers", async () => {
     const settings = {
-      data: { schedule_optimization_settings: { cascade_detection: true } },
+      data: { schedule_settings: { cascade_detection: true } },
       error: null,
     };
     const failure = {
       data: null,
       error: { code: "XX000", message: "task lookup failed" },
     };
+    const legacySettingsDb = db(settings);
     mocks.requireSupabase
-      .mockReturnValueOnce(db(settings))
+      .mockReturnValueOnce(legacySettingsDb)
       .mockReturnValueOnce(db(failure));
     await expect(
       ScheduleOptimizationService.handleRescheduleCascade(
@@ -65,9 +68,13 @@ describe("ScheduleOptimizationService strict cascade mode", () => {
         "manual_update"
       )
     ).resolves.toEqual({ cascadeProposed: 0 });
+    expect(legacySettingsDb.builders[0].select).toHaveBeenCalledWith(
+      "schedule_settings"
+    );
 
+    const durableSettingsDb = db(settings);
     mocks.requireSupabase
-      .mockReturnValueOnce(db(settings))
+      .mockReturnValueOnce(durableSettingsDb)
       .mockReturnValueOnce(db(failure));
     await expect(
       ScheduleOptimizationService.handleRescheduleCascade(
@@ -78,6 +85,9 @@ describe("ScheduleOptimizationService strict cascade mode", () => {
         { throwOnError: true }
       )
     ).rejects.toThrow("task lookup failed");
+    expect(durableSettingsDb.builders[0].select).toHaveBeenCalledWith(
+      "schedule_settings"
+    );
   });
 
   it("uses the stable worker prefix in every affected-task proposal id", () => {

@@ -54,9 +54,10 @@ describe("cron company fan-out controls", () => {
       from: vi.fn(() => query),
     };
 
-    await expect(
-      listBoundedPhaseCCompanyIds(supabase, 2)
-    ).resolves.toEqual(["company-2", "company-1"]);
+    await expect(listBoundedPhaseCCompanyIds(supabase, 2)).resolves.toEqual([
+      "company-2",
+      "company-1",
+    ]);
 
     expect(supabase.from).toHaveBeenCalledTimes(1);
     expect(supabase.from).toHaveBeenCalledWith("admin_feature_overrides");
@@ -112,10 +113,7 @@ describe("cron company fan-out controls", () => {
 
   it("resumes after the fenced cursor, processes the tail serially, and wraps to null", async () => {
     queryState.result = {
-      data: [
-        { company_id: "company-2" },
-        { company_id: "company-3" },
-      ],
+      data: [{ company_id: "company-2" }, { company_id: "company-3" }],
       error: null,
     };
     const query = phaseCQuery();
@@ -222,10 +220,7 @@ describe("cron company fan-out controls", () => {
 
   it("isolates a non-database company failure and continues the serial page", async () => {
     queryState.result = {
-      data: [
-        { company_id: "company-1" },
-        { company_id: "company-2" },
-      ],
+      data: [{ company_id: "company-1" }, { company_id: "company-2" }],
       error: null,
     };
     const query = phaseCQuery();
@@ -268,6 +263,322 @@ describe("cron company fan-out controls", () => {
       { companyId: "company-2", ok: true },
     ]);
     expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it("durably bounds a poison-company retry without replaying successful page siblings or starving the next page", async () => {
+    queryState.result = {
+      data: [
+        { company_id: "company-1" },
+        { company_id: "company-2" },
+        { company_id: "company-3" },
+      ],
+      error: null,
+    };
+    let storedCursor: string | null = null;
+    const rpc = vi.fn(
+      async (
+        functionName: string,
+        args: Record<string, unknown>
+      ): Promise<{ data: unknown; error: null }> => {
+        if (functionName === "read_cron_workload_cursor_as_system") {
+          return { data: storedCursor, error: null };
+        }
+        expect(args.p_expected_cursor).toBe(storedCursor);
+        storedCursor = (args.p_next_cursor as string | null) ?? null;
+        return { data: true, error: null };
+      }
+    );
+    const from = vi.fn(() => phaseCQuery());
+    const processed: string[] = [];
+    const run = () =>
+      runBoundedPhaseCCompanyFanout({
+        supabase: { from, rpc },
+        workloadKey: "financial-digest",
+        lease,
+        companyLimit: 3,
+        processCompany: async (companyId) => {
+          processed.push(companyId);
+          if (companyId === "company-2") {
+            throw new Error("provider unavailable");
+          }
+          return { companyId, disposition: "success" as const };
+        },
+        onCompanyError: (companyId, error) => ({
+          companyId,
+          disposition: "retryable" as const,
+          error: error instanceof Error ? error.message : "unknown error",
+        }),
+        retryPolicy: {
+          maxAttempts: 3,
+          classifyResult: (result) => result.disposition,
+        },
+      });
+
+    const first = await run();
+    expect(first.retry).toMatchObject({
+      status: "scheduled",
+      scheduled: [{ companyId: "company-2", attempt: 1 }],
+      exhausted: [],
+    });
+    expect(first.cursor.next).toBe("company-3");
+
+    queryState.result = {
+      data: [{ company_id: "company-4" }, { company_id: "company-5" }],
+      error: null,
+    };
+
+    const second = await run();
+    expect(second.retry).toMatchObject({
+      status: "scheduled",
+      scheduled: [{ companyId: "company-2", attempt: 2 }],
+      exhausted: [],
+    });
+
+    queryState.result = {
+      data: [{ company_id: "company-6" }, { company_id: "company-7" }],
+      error: null,
+    };
+
+    const third = await run();
+    expect(third.retry).toMatchObject({
+      status: "exhausted",
+      scheduled: [],
+      exhausted: [{ companyId: "company-2", attempts: 3 }],
+    });
+    expect(storedCursor).toBe("company-7");
+    expect(processed).toEqual([
+      "company-1",
+      "company-2",
+      "company-3",
+      "company-2",
+      "company-4",
+      "company-5",
+      "company-2",
+      "company-6",
+      "company-7",
+    ]);
+    expect(from).toHaveBeenCalledTimes(3);
+
+    queryState.result = {
+      data: [{ company_id: "company-8" }],
+      error: null,
+    };
+    const fourth = await run();
+    expect(fourth.companyIds).toEqual(["company-8"]);
+    expect(processed.at(-1)).toBe("company-8");
+  });
+
+  it("advances the main page immediately while durable retries follow the page cursor", async () => {
+    queryState.result = {
+      data: [
+        { company_id: "company-1" },
+        { company_id: "company-2" },
+        { company_id: "company-3" },
+      ],
+      error: null,
+    };
+    let storedCursor: string | null = null;
+    const rpc = vi.fn(
+      async (
+        functionName: string,
+        args: Record<string, unknown>
+      ): Promise<{ data: unknown; error: null }> => {
+        if (functionName === "read_cron_workload_cursor_as_system") {
+          return { data: storedCursor, error: null };
+        }
+        storedCursor = (args.p_next_cursor as string | null) ?? null;
+        return { data: true, error: null };
+      }
+    );
+    const from = vi.fn(() => phaseCQuery());
+    const processCompany = vi.fn(async (companyId: string) => {
+      if (companyId === "company-2") throw new Error("transient provider error");
+      return { companyId, disposition: "success" as const };
+    });
+
+    const result = await runBoundedPhaseCCompanyFanout({
+      supabase: { from, rpc },
+      workloadKey: "schedule-optimization",
+      lease,
+      companyLimit: 3,
+      processCompany,
+      onCompanyError: (companyId, error) => ({
+        companyId,
+        disposition: "retryable" as const,
+        error: error instanceof Error ? error.message : "unknown error",
+      }),
+      retryPolicy: {
+        maxAttempts: 3,
+        classifyResult: (row) => row.disposition,
+      },
+    });
+
+    expect(result.cursor.next).toBe("company-3");
+    expect(result.retry).toMatchObject({
+      status: "scheduled",
+      scheduled: [{ companyId: "company-2", attempt: 1 }],
+    });
+    expect(storedCursor).toMatch(/^phase-c-fanout:v2:/);
+  });
+
+  it("preserves a null main-page cursor while retrying after wrap-around", async () => {
+    queryState.result = {
+      data: [{ company_id: "company-1" }],
+      error: null,
+    };
+    let storedCursor: string | null = null;
+    const queries: Array<ReturnType<typeof phaseCQuery>> = [];
+    const from = vi.fn(() => {
+      const query = phaseCQuery();
+      queries.push(query);
+      return query;
+    });
+    const rpc = vi.fn(
+      async (
+        functionName: string,
+        args: Record<string, unknown>
+      ): Promise<{ data: unknown; error: null }> => {
+        if (functionName === "read_cron_workload_cursor_as_system") {
+          return { data: storedCursor, error: null };
+        }
+        storedCursor = (args.p_next_cursor as string | null) ?? null;
+        return { data: true, error: null };
+      }
+    );
+    const run = () =>
+      runBoundedPhaseCCompanyFanout({
+        supabase: { from, rpc },
+        workloadKey: "financial-digest",
+        lease,
+        companyLimit: 3,
+        processCompany: async (companyId) => {
+          throw new Error(`temporary failure for ${companyId}`);
+        },
+        onCompanyError: (companyId) => ({
+          companyId,
+          disposition: "retryable" as const,
+        }),
+        retryPolicy: {
+          maxAttempts: 3,
+          classifyResult: (row) => row.disposition,
+        },
+      });
+
+    const first = await run();
+    expect(first.cursor.next).toBeNull();
+    expect(storedCursor).toMatch(/^phase-c-fanout:v2:/);
+    await run();
+
+    expect(queries[1].gt).not.toHaveBeenCalled();
+  });
+
+  it("does not exhaust a company or hide the circuit signal on database pressure", async () => {
+    queryState.result = {
+      data: [{ company_id: "company-1" }],
+      error: null,
+    };
+    let storedCursor: string | null = null;
+    const rpc = vi.fn(
+      async (
+        functionName: string,
+        args: Record<string, unknown>
+      ): Promise<{ data: unknown; error: null }> => {
+        if (functionName === "read_cron_workload_cursor_as_system") {
+          return { data: storedCursor, error: null };
+        }
+        storedCursor = (args.p_next_cursor as string | null) ?? null;
+        return { data: true, error: null };
+      }
+    );
+    let invocation = 0;
+    const run = () =>
+      runBoundedPhaseCCompanyFanout({
+        supabase: { from: vi.fn(() => phaseCQuery()), rpc },
+        workloadKey: "schedule-optimization",
+        lease,
+        companyLimit: 3,
+        processCompany: async (companyId) => {
+          invocation += 1;
+          if (invocation === 3) {
+            throw new CronDatabaseOperationError("database unavailable", {
+              cause: { code: "PGRST002" },
+            });
+          }
+          throw new Error(`temporary provider failure for ${companyId}`);
+        },
+        onCompanyError: (companyId) => ({
+          companyId,
+          disposition: "retryable" as const,
+        }),
+        retryPolicy: {
+          maxAttempts: 3,
+          classifyResult: (row) => row.disposition,
+        },
+      });
+
+    await run();
+    await run();
+    const pressureRun = await run();
+
+    expect(pressureRun.retry).toMatchObject({
+      status: "scheduled",
+      scheduled: [{ companyId: "company-1", attempt: 2 }],
+      exhausted: [],
+    });
+    expect(isDatabasePressureError(pressureRun.failureCause)).toBe(true);
+    expect(storedCursor).toMatch(/^phase-c-fanout:v2:/);
+  });
+
+  it("stops before a fresh failure whose retry could not fit the durable cursor", async () => {
+    const longCompanyId = (suffix: string) => `${suffix}${"x".repeat(126)}`;
+    queryState.result = {
+      data: [
+        { company_id: longCompanyId("a") },
+        { company_id: longCompanyId("b") },
+        { company_id: longCompanyId("c") },
+      ],
+      error: null,
+    };
+    let storedCursor: string | null = null;
+    const rpc = vi.fn(
+      async (
+        functionName: string,
+        args: Record<string, unknown>
+      ): Promise<{ data: unknown; error: null }> => {
+        if (functionName === "read_cron_workload_cursor_as_system") {
+          return { data: storedCursor, error: null };
+        }
+        storedCursor = (args.p_next_cursor as string | null) ?? null;
+        return { data: true, error: null };
+      }
+    );
+    const processCompany = vi.fn(async (companyId: string) => {
+      throw new Error(`temporary failure for ${companyId}`);
+    });
+
+    const result = await runBoundedPhaseCCompanyFanout({
+      supabase: { from: vi.fn(() => phaseCQuery()), rpc },
+      workloadKey: "financial-digest",
+      lease,
+      companyLimit: 3,
+      processCompany,
+      onCompanyError: (companyId) => ({
+        companyId,
+        disposition: "retryable" as const,
+      }),
+      retryPolicy: {
+        maxAttempts: 3,
+        classifyResult: (row) => row.disposition,
+      },
+    });
+
+    expect(processCompany).toHaveBeenCalledTimes(2);
+    expect(result.companyIds).toEqual([
+      longCompanyId("a"),
+      longCompanyId("b"),
+    ]);
+    expect(result.cursor.next).toBe(longCompanyId("b"));
+    expect(storedCursor?.length).toBeLessThanOrEqual(512);
   });
 
   it("distinguishes an exhausted cursor page from an absent cursor and resets it without replay", async () => {

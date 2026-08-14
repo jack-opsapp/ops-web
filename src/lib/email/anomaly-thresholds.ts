@@ -22,7 +22,7 @@ export const VOLUME_CRIT_PCT = 1;
 export const MIN_SENDS_FOR_PCT = 5;
 
 export type AnomalyKind =
-  | "bounce_spike" | "spam_spike" | "delivery_drop" | "volume_drop";
+  "bounce_spike" | "spam_spike" | "delivery_drop" | "volume_drop";
 export type AnomalySeverity = "warn" | "critical";
 
 export interface MetricSnapshot {
@@ -58,17 +58,29 @@ export function evaluateThresholds(s: MetricSnapshot): AnomalyEval[] {
   if (s.totalSent >= MIN_SENDS_FOR_PCT) {
     if (s.bouncePct >= BOUNCE_CRIT_PCT) {
       out.push({
-        kind: "bounce_spike", severity: "critical",
-        metricValue: s.bouncePct, threshold: BOUNCE_CRIT_PCT,
+        kind: "bounce_spike",
+        severity: "critical",
+        metricValue: s.bouncePct,
+        threshold: BOUNCE_CRIT_PCT,
         windowMinutes: s.windowMinutes,
-        context: { total_sent: s.totalSent, total_bounced: s.totalBounced, bounce_pct: s.bouncePct },
+        context: {
+          total_sent: s.totalSent,
+          total_bounced: s.totalBounced,
+          bounce_pct: s.bouncePct,
+        },
       });
     } else if (s.bouncePct >= BOUNCE_WARN_PCT) {
       out.push({
-        kind: "bounce_spike", severity: "warn",
-        metricValue: s.bouncePct, threshold: BOUNCE_WARN_PCT,
+        kind: "bounce_spike",
+        severity: "warn",
+        metricValue: s.bouncePct,
+        threshold: BOUNCE_WARN_PCT,
         windowMinutes: s.windowMinutes,
-        context: { total_sent: s.totalSent, total_bounced: s.totalBounced, bounce_pct: s.bouncePct },
+        context: {
+          total_sent: s.totalSent,
+          total_bounced: s.totalBounced,
+          bounce_pct: s.bouncePct,
+        },
       });
     }
   }
@@ -76,17 +88,29 @@ export function evaluateThresholds(s: MetricSnapshot): AnomalyEval[] {
   if (s.totalDelivered >= MIN_SENDS_FOR_PCT) {
     if (s.spamPct >= SPAM_CRIT_PCT) {
       out.push({
-        kind: "spam_spike", severity: "critical",
-        metricValue: s.spamPct, threshold: SPAM_CRIT_PCT,
+        kind: "spam_spike",
+        severity: "critical",
+        metricValue: s.spamPct,
+        threshold: SPAM_CRIT_PCT,
         windowMinutes: s.windowMinutes,
-        context: { total_delivered: s.totalDelivered, total_spam: s.totalSpam, spam_pct: s.spamPct },
+        context: {
+          total_delivered: s.totalDelivered,
+          total_spam: s.totalSpam,
+          spam_pct: s.spamPct,
+        },
       });
     } else if (s.spamPct >= SPAM_WARN_PCT) {
       out.push({
-        kind: "spam_spike", severity: "warn",
-        metricValue: s.spamPct, threshold: SPAM_WARN_PCT,
+        kind: "spam_spike",
+        severity: "warn",
+        metricValue: s.spamPct,
+        threshold: SPAM_WARN_PCT,
         windowMinutes: s.windowMinutes,
-        context: { total_delivered: s.totalDelivered, total_spam: s.totalSpam, spam_pct: s.spamPct },
+        context: {
+          total_delivered: s.totalDelivered,
+          total_spam: s.totalSpam,
+          spam_pct: s.spamPct,
+        },
       });
     }
   }
@@ -97,20 +121,26 @@ export function evaluateThresholds(s: MetricSnapshot): AnomalyEval[] {
       out.push({
         kind: "delivery_drop",
         severity: deliveryPct < DELIVERY_CRIT_PCT ? "critical" : "warn",
-        metricValue: deliveryPct, threshold: DELIVERY_WARN_PCT,
+        metricValue: deliveryPct,
+        threshold: DELIVERY_WARN_PCT,
         windowMinutes: s.windowMinutes,
-        context: { total_sent: s.totalSent, total_delivered: s.totalDelivered, delivery_pct: deliveryPct },
+        context: {
+          total_sent: s.totalSent,
+          total_delivered: s.totalDelivered,
+          delivery_pct: deliveryPct,
+        },
       });
     }
   }
 
-  if (s.baselineSent !== undefined && s.baselineSent > 0) {
+  if (s.baselineSent !== undefined && s.baselineSent >= MIN_SENDS_FOR_PCT) {
     const ratio = (s.totalSent / s.baselineSent) * 100;
     if (ratio < VOLUME_DROP_PCT) {
       out.push({
         kind: "volume_drop",
         severity: ratio < VOLUME_CRIT_PCT ? "critical" : "warn",
-        metricValue: ratio, threshold: VOLUME_DROP_PCT,
+        metricValue: ratio,
+        threshold: VOLUME_DROP_PCT,
         windowMinutes: s.windowMinutes,
         context: {
           total_sent: s.totalSent,

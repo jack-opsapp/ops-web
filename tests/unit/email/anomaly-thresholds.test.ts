@@ -118,6 +118,16 @@ describe("evaluateThresholds", () => {
     expect(r.find((x) => x.kind === "volume_drop")?.severity).toBe("critical");
   });
 
+  it("low baseline volume suppresses volume drop noise", () => {
+    const r = evaluateThresholds({
+      ...baseSnapshot,
+      totalSent: 0,
+      baselineSent: MIN_SENDS_FOR_PCT - 1,
+      baselineWindowMinutes: 60,
+    });
+    expect(r.find((x) => x.kind === "volume_drop")).toBeUndefined();
+  });
+
   it("no baseline → no volume_drop", () => {
     const r = evaluateThresholds({ ...baseSnapshot, totalSent: 1 });
     expect(r.find((x) => x.kind === "volume_drop")).toBeUndefined();

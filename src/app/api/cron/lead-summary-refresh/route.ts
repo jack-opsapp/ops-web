@@ -24,6 +24,20 @@ export const dynamic = "force-dynamic";
 
 const WORKLOAD_KEY = "lead-summary-refresh";
 
+class LeadSummaryRefreshRunError extends Error {
+  readonly failed: LeadSummaryRunResult["failed"];
+
+  constructor(failed: LeadSummaryRunResult["failed"]) {
+    super(
+      `Lead summary refresh failed for ${failed.length} opportunit${
+        failed.length === 1 ? "y" : "ies"
+      }`
+    );
+    this.name = "LeadSummaryRefreshRunError";
+    this.failed = failed;
+  }
+}
+
 function emptyScheduledResult(): LeadSummaryRunResult {
   return {
     mode: "refresh",
@@ -37,6 +51,7 @@ function emptyScheduledResult(): LeadSummaryRunResult {
     modelCallLimitReached: false,
     skippedInsufficientContext: 0,
     failed: [],
+    deferred: [],
     written: [],
     candidatesPreview: [],
     opportunityWindow: null,
@@ -47,11 +62,7 @@ async function nextPhaseCCompanyId(
   supabase: Parameters<typeof listBoundedPhaseCCompanyIds>[0],
   afterCompanyId: string | null
 ): Promise<string | null> {
-  const after = await listBoundedPhaseCCompanyIds(
-    supabase,
-    1,
-    afterCompanyId
-  );
+  const after = await listBoundedPhaseCCompanyIds(supabase, 1, afterCompanyId);
   if (after[0]) return after[0];
   if (afterCompanyId === null) return null;
   const wrapped = await listBoundedPhaseCCompanyIds(supabase, 1, null);
@@ -158,6 +169,13 @@ export async function GET(request: NextRequest) {
           modelCallLimit: LEAD_SUMMARY_SCHEDULED_MODEL_CALL_LIMIT,
         });
 
+        // Persistence/provenance failures must fail the fenced workload and
+        // hold its cursor. Advancing here would permanently hide stale rows
+        // behind an HTTP 200 even though the derived state never converged.
+        if (result.failed.length > 0) {
+          throw new LeadSummaryRefreshRunError(result.failed);
+        }
+
         let next: string | null;
         if (
           result.companiesEnabled > 0 &&
@@ -166,14 +184,11 @@ export async function GET(request: NextRequest) {
         ) {
           next = encodeLeadSummaryRefreshCursor({
             companyId,
-            afterOpportunityId:
-              result.opportunityWindow.lastOpportunityId,
+            afterOpportunityId: result.opportunityWindow.lastOpportunityId,
           });
         } else {
           const nextCompanyId = await nextPhaseCCompanyId(
-            supabase as Parameters<
-              typeof listBoundedPhaseCCompanyIds
-            >[0],
+            supabase as Parameters<typeof listBoundedPhaseCCompanyIds>[0],
             companyId
           );
           next = nextCompanyId
@@ -225,10 +240,19 @@ export async function GET(request: NextRequest) {
         skippedInsufficientContext: result.skippedInsufficientContext,
         failedCount: result.failed.length,
         failed: result.failed,
+        deferredCount: result.deferred.length,
+        deferred: result.deferred,
       })
     );
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: result.deferred.length === 0, ...result });
   } catch (err) {
+    if (err instanceof LeadSummaryRefreshRunError) {
+      console.error("[cron/lead-summary-refresh]", err.message, err.failed);
+      return NextResponse.json(
+        { ok: false, error: err.message, failed: err.failed },
+        { status: 500 }
+      );
+    }
     const message = err instanceof Error ? err.message : String(err);
     console.error("[cron/lead-summary-refresh]", message);
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
