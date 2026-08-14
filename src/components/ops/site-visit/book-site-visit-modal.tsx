@@ -370,7 +370,7 @@ export function BookSiteVisitModal({
           z-50 wins the cascade), and equal z + later portal order paints
           the dialog above the window. */}
       <DialogContent
-        className="z-[3000] max-w-[440px]"
+        className="z-[3000]"
         overlayClassName="z-[3000]"
       >
         <DialogHeader>
@@ -481,13 +481,14 @@ export function BookSiteVisitModal({
           </div>
         </div>
 
-        {/* Actions */}
-        <div
-          className={cn(
-            "mt-3 flex items-center border-t border-border pt-2",
-            isReschedule ? "justify-between" : "justify-end"
-          )}
-        >
+        {/* Actions.
+            Wraps rather than clips: in reschedule mode the row carries three
+            buttons (CANCEL VISIT + CLOSE + RESCHEDULE) whose combined width
+            exceeds the dialog's content box, which pushed the primary CTA
+            past the panel edge. `ml-auto` on the right group keeps the
+            destructive-left / primary-right grammar on one line when it fits
+            and after wrapping when it does not. */}
+        <div className="mt-3 flex flex-wrap items-center gap-y-2 border-t border-border pt-2">
           {isReschedule && (
             <Button
               type="button"
@@ -501,7 +502,7 @@ export function BookSiteVisitModal({
                 : t("booking.ctaCancelVisit", "CANCEL VISIT")}
             </Button>
           )}
-          <div className="flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1">
             <Button
               type="button"
               variant="ghost"
