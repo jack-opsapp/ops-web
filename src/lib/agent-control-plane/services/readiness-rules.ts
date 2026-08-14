@@ -143,7 +143,7 @@ const CrewAvailableFactSourceSchema = z
     )
   );
 
-const SitePhotoFactSourceSchema = z.union([
+export const SitePhotoFactSourceSchema = z.union([
   z
     .object({ usable_photo_count: z.number().int().safe().nonnegative() })
     .strict(),
@@ -185,7 +185,7 @@ function addSafeCounts(left: number, right: number): number | null {
   return left <= Number.MAX_SAFE_INTEGER - right ? left + right : null;
 }
 
-const RawSitePhotoSourceSchema = z.union([
+export const RawSitePhotoSourceSchema = z.union([
   z
     .object({
       available: z.literal(true),
@@ -295,14 +295,16 @@ const CountFactSchema = z
     /^\d+ scheduled occurrences? (?:is unconfirmed|are unconfirmed|has no assigned crew|have no assigned crew)\.$/
   );
 
+export const SitePhotoReadinessEvaluationSchema = evaluationSchema(
+  "SITE_PHOTOS_MISSING",
+  "site-photos-missing:v1",
+  "warning",
+  z.literal("No usable site photos are on file."),
+  z.literal("Usable site photos are on file.")
+);
+
 export const ReadinessRuleEvaluationSchema = z.union([
-  evaluationSchema(
-    "SITE_PHOTOS_MISSING",
-    "site-photos-missing:v1",
-    "warning",
-    z.literal("No usable site photos are on file."),
-    z.literal("Usable site photos are on file.")
-  ),
+  SitePhotoReadinessEvaluationSchema,
   evaluationSchema(
     "CUSTOMER_RECORD_UNRESOLVED",
     "customer-record-unresolved:v1",
@@ -379,18 +381,7 @@ export function deriveReadinessRuleFacts(
   rawSources: ReadinessRuleRawSources
 ): ReadinessRuleFacts {
   const sources = ReadinessRuleRawSourcesSchema.parse(rawSources);
-  const sitePhotos = isNotEvaluated(sources.site_photos)
-    ? sources.site_photos
-    : {
-        usable_photo_count:
-          sources.site_photos.structured_row_count === 0
-            ? sources.site_photos.legacy_remote_count
-            : sources.site_photos.active_remote_by_source.site_visit +
-              sources.site_photos.active_remote_by_source.in_progress +
-              sources.site_photos.active_remote_by_source.completion +
-              sources.site_photos.active_remote_by_source.other +
-              sources.site_photos.active_remote_by_source.measurement,
-      };
+  const sitePhotos = deriveSitePhotoReadinessFact(sources.site_photos);
   const address = isNotEvaluated(sources.address)
     ? sources.address
     : {
@@ -408,6 +399,26 @@ export function deriveReadinessRuleFacts(
   });
 }
 
+export function deriveSitePhotoReadinessFact(
+  rawSource: RawSitePhotoSource
+): SitePhotoFactSource {
+  const source = RawSitePhotoSourceSchema.parse(rawSource);
+  return SitePhotoFactSourceSchema.parse(
+    isNotEvaluated(source)
+      ? source
+      : {
+          usable_photo_count:
+            source.structured_row_count === 0
+              ? source.legacy_remote_count
+              : source.active_remote_by_source.site_visit +
+                source.active_remote_by_source.in_progress +
+                source.active_remote_by_source.completion +
+                source.active_remote_by_source.other +
+                source.active_remote_by_source.measurement,
+        }
+  );
+}
+
 function evaluationGap(source: NotEvaluatedFactSource) {
   return { code: source.gap_code, source_kind: source.source_kind } as const;
 }
@@ -418,27 +429,7 @@ function evaluateRule(
 ): ReadinessRuleEvaluation {
   switch (code) {
     case "SITE_PHOTOS_MISSING": {
-      const source = facts.site_photos;
-      if (isNotEvaluated(source)) {
-        return {
-          rule_code: code,
-          rule_revision: "site-photos-missing:v1",
-          status: "not_evaluated",
-          severity: "warning",
-          fact: FIXED_NOT_EVALUATED_FACT,
-          gap: evaluationGap(source),
-        };
-      }
-      const issue = source.usable_photo_count === 0;
-      return {
-        rule_code: code,
-        rule_revision: "site-photos-missing:v1",
-        status: issue ? "issue" : "clear",
-        severity: "warning",
-        fact: issue
-          ? "No usable site photos are on file."
-          : "Usable site photos are on file.",
-      };
+      return evaluateSitePhotoReadinessFact(facts.site_photos);
     }
     case "CUSTOMER_RECORD_UNRESOLVED": {
       const source = facts.customer_record;
@@ -543,6 +534,32 @@ function evaluateRule(
   }
 }
 
+export function evaluateSitePhotoReadinessFact(
+  rawFact: SitePhotoFactSource
+): SitePhotoReadinessEvaluation {
+  const source = SitePhotoFactSourceSchema.parse(rawFact);
+  if (isNotEvaluated(source)) {
+    return SitePhotoReadinessEvaluationSchema.parse({
+      rule_code: "SITE_PHOTOS_MISSING",
+      rule_revision: "site-photos-missing:v1",
+      status: "not_evaluated",
+      severity: "warning",
+      fact: FIXED_NOT_EVALUATED_FACT,
+      gap: evaluationGap(source),
+    });
+  }
+  const issue = source.usable_photo_count === 0;
+  return SitePhotoReadinessEvaluationSchema.parse({
+    rule_code: "SITE_PHOTOS_MISSING",
+    rule_revision: "site-photos-missing:v1",
+    status: issue ? "issue" : "clear",
+    severity: "warning",
+    fact: issue
+      ? "No usable site photos are on file."
+      : "Usable site photos are on file.",
+  });
+}
+
 export function evaluateReadinessRules(
   rawFacts: ReadinessRuleFacts,
   rawOptions: EvaluateReadinessRulesOptions = {}
@@ -564,6 +581,11 @@ export function evaluateReadinessRules(
 export type ReadinessRuleFacts = z.infer<typeof ReadinessRuleFactsSchema>;
 export type ReadinessRuleRawSources = z.infer<
   typeof ReadinessRuleRawSourcesSchema
+>;
+export type RawSitePhotoSource = z.infer<typeof RawSitePhotoSourceSchema>;
+export type SitePhotoFactSource = z.infer<typeof SitePhotoFactSourceSchema>;
+export type SitePhotoReadinessEvaluation = z.infer<
+  typeof SitePhotoReadinessEvaluationSchema
 >;
 export type ReadinessRuleEvaluationStatus = z.infer<
   typeof ReadinessRuleEvaluationStatusSchema

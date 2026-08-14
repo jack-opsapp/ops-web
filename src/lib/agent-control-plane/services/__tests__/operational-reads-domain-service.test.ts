@@ -40,6 +40,8 @@ import {
 import type { JobReadinessRepository } from "../job-readiness-repository";
 import type { ScheduledJobsRepository } from "../scheduled-jobs-repository";
 import { createSupabaseJobConversationContextRepository } from "../job-conversation-context-repository";
+import { createSupabaseJobCommunicationContextRepository } from "../job-communication-context-repository";
+import { createSupabaseJobParticipantsRepository } from "../job-participants-repository";
 import { hashOperationalProjection } from "../operational-read-projection";
 import { READINESS_RULES } from "../readiness-rules";
 
@@ -380,6 +382,11 @@ async function trustedRepositories(input?: {
   });
   const scheduleClient = rpcClient(input?.schedules ?? []);
   const readinessClient = rpcClient(input?.readiness ?? []);
+  const noCommunicationReadClient = {
+    rpc() {
+      throw new Error("Unexpected communication repository read");
+    },
+  };
   const repositories = createOpsAgentDomainRepositories({
     jobConversationContext: createSupabaseJobConversationContextRepository({
       rpc() {
@@ -393,6 +400,12 @@ async function trustedRepositories(input?: {
     jobReadiness: createSupabaseJobReadinessRepository(
       readinessClient,
       cursorCodec
+    ),
+    jobCommunicationContext: createSupabaseJobCommunicationContextRepository(
+      noCommunicationReadClient
+    ),
+    jobParticipants: createSupabaseJobParticipantsRepository(
+      noCommunicationReadClient
     ),
   } as CreateOpsAgentDomainRepositoriesInput);
   return { repositories, scheduleClient, readinessClient };
@@ -434,6 +447,8 @@ describe("operational reads domain facade", () => {
       "getJobConversationContext",
       "listScheduledJobs",
       "listJobReadinessIssues",
+      "getJobCommunicationContext",
+      "resolveJobParticipants",
     ]);
     expect(Object.isFrozen(service)).toBe(true);
     expect(Object.keys(service)).not.toEqual(
@@ -454,11 +469,15 @@ describe("operational reads domain facade", () => {
     ).toEqual([
       "list_scheduled_jobs",
       "list_job_readiness_issues",
+      "get_job_communication_context",
       "get_job_conversation_context",
+      "resolve_job_participants",
     ]);
     for (const capabilityName of [
       "list_scheduled_jobs",
       "list_job_readiness_issues",
+      "get_job_communication_context",
+      "resolve_job_participants",
     ]) {
       const capability = CAPABILITY_MANIFEST.find(
         (entry) => entry.name === capabilityName
@@ -650,6 +669,15 @@ describe("operational reads domain facade", () => {
       readinessClient,
       cursorCodec
     );
+    const noTask12ReadClient = {
+      rpc() {
+        throw new Error("Unexpected communication repository read");
+      },
+    };
+    const trustedJobCommunicationContext =
+      createSupabaseJobCommunicationContextRepository(noTask12ReadClient);
+    const trustedJobParticipants =
+      createSupabaseJobParticipantsRepository(noTask12ReadClient);
     const attackerScheduledJobs = {
       read: vi.fn(async () => {
         throw new Error("Attacker schedule repository must never run");
@@ -687,6 +715,12 @@ describe("operational reads domain facade", () => {
               ? trustedJobReadiness
               : attackerJobReadiness;
           },
+        },
+        jobCommunicationContext: {
+          value: trustedJobCommunicationContext,
+        },
+        jobParticipants: {
+          value: trustedJobParticipants,
         },
       }
     ) as CreateOpsAgentDomainRepositoriesInput;

@@ -45,7 +45,10 @@ export type CapabilityAuditClass =
   | "mutation_commit"
   | "external_commit";
 export type CapabilityRateLimitBucket =
-  "lightweight_read" | "evidence_search" | "prepare" | "commit";
+  | "lightweight_read"
+  | "evidence_search"
+  | "prepare"
+  | "commit";
 
 /** Structural subset of the MCP ToolAnnotations contract. */
 export interface CapabilityMcpAnnotations {
@@ -65,7 +68,10 @@ export interface CapabilityBounds {
 
 export interface CapabilityEvidencePolicy {
   readonly input:
-    "not_required" | "optional" | "required" | "prepared_change_set";
+    | "not_required"
+    | "optional"
+    | "required"
+    | "prepared_change_set";
   readonly output: "required";
   readonly maxEvidenceRefs: number;
   readonly promptSafeOutput: true;
@@ -115,6 +121,11 @@ export type CapabilityAuthorizationSelector =
       kind: "job_purpose";
       jobKind: "opportunity" | "project";
       purpose: "schedule_notice" | "photo_request" | "general";
+    }>
+  | Readonly<{
+      kind: "job_participant_purpose";
+      jobKind: "opportunity" | "project";
+      purpose: "schedule" | "assignment";
     }>
   | Readonly<{
       kind: "input_value";
@@ -272,6 +283,16 @@ function assertAuthorization(
     if (!isExactAuthorizationSelector(variant.selector)) {
       throw new TypeError(`${entry.name}.${key} has an invalid selector`);
     }
+    if (
+      (variant.selector.kind === "job_purpose" &&
+        entry.name !== "get_job_communication_context") ||
+      (variant.selector.kind === "job_participant_purpose" &&
+        entry.name !== "resolve_job_participants")
+    ) {
+      throw new TypeError(
+        `${entry.name}.${key} selector is not valid for this capability`
+      );
+    }
 
     const policy = variant.policy;
     if (!isManifestCapabilityPolicy(policy)) {
@@ -349,6 +370,13 @@ function isExactAuthorizationSelector(
         ["schedule_notice", "photo_request", "general"].includes(
           selector.purpose as string
         )
+      );
+    case "job_participant_purpose":
+      return (
+        hasExactKeys(selector, ["kind", "jobKind", "purpose"]) &&
+        (selector.jobKind === "opportunity" ||
+          selector.jobKind === "project") &&
+        ["schedule", "assignment"].includes(selector.purpose as string)
       );
     case "input_value": {
       if (!hasExactKeys(selector, ["kind", "field", "value"])) return false;

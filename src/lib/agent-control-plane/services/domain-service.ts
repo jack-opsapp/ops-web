@@ -1,6 +1,12 @@
 import "server-only";
 
 import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
+import type {
+  JobCommunicationContextInput,
+  JobCommunicationContextResult,
+  JobParticipantsInput,
+  JobParticipantsResult,
+} from "@/lib/agent-control-plane/contracts/communication";
 import type { GetJobConversationContextInput } from "@/lib/agent-control-plane/registry/read-tools";
 import type {
   JobReadinessIssuesInput,
@@ -12,6 +18,8 @@ import type { JobReadinessResult } from "./list-job-readiness-issues";
 
 export type {
   GetJobConversationContextInput,
+  JobCommunicationContextInput,
+  JobParticipantsInput,
   JobReadinessIssuesInput,
   ListScheduledJobsInput,
 };
@@ -41,4 +49,14 @@ export interface OpsAgentDomainService {
     input: JobReadinessIssuesInput,
     options?: DomainCallOptions
   ): Promise<JobReadinessResult>;
+  getJobCommunicationContext(
+    actorContext: ActorContext,
+    input: JobCommunicationContextInput,
+    options?: DomainCallOptions
+  ): Promise<JobCommunicationContextResult>;
+  resolveJobParticipants(
+    actorContext: ActorContext,
+    input: JobParticipantsInput,
+    options?: DomainCallOptions
+  ): Promise<JobParticipantsResult>;
 }

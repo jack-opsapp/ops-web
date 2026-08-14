@@ -12,6 +12,10 @@ import {
   type ActorContext,
 } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import {
+  type JobCommunicationContextInput,
+  type JobParticipantsInput,
+} from "@/lib/agent-control-plane/contracts/communication";
+import {
   getCapabilityManifestEntry,
   resolveCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
@@ -35,10 +39,16 @@ import { authorizeScheduledJobsRead } from "./scheduled-jobs-authorization";
 import { listScheduledJobs as readScheduledJobs } from "./list-scheduled-jobs";
 import { authorizeJobReadinessRead } from "./job-readiness-authorization";
 import { listJobReadinessIssues as readJobReadinessIssues } from "./list-job-readiness-issues";
+import { authorizeJobCommunicationRead } from "./job-communication-authorization";
+import { authorizeJobParticipantsRead } from "./job-participants-authorization";
+import { getJobCommunicationContext as readJobCommunicationContext } from "./get-job-communication-context";
+import { resolveJobParticipants as readJobParticipants } from "./resolve-job-participants";
 
 const CAPABILITY_ID = "get_job_conversation_context" as const;
 const SCHEDULE_CAPABILITY_ID = "list_scheduled_jobs" as const;
 const READINESS_CAPABILITY_ID = "list_job_readiness_issues" as const;
+const COMMUNICATION_CAPABILITY_ID = "get_job_communication_context" as const;
+const PARTICIPANTS_CAPABILITY_ID = "resolve_job_participants" as const;
 
 export interface CreateOpsAgentDomainServiceInput {
   readonly repositories: OpsAgentDomainRepositories;
@@ -185,6 +195,40 @@ function authorizeReadinessRead(
   });
 }
 
+function authorizeCommunicationRead(
+  actorContext: ActorContext,
+  input: JobCommunicationContextInput
+) {
+  const resolved = resolveAvailableCapability(
+    COMMUNICATION_CAPABILITY_ID,
+    actorContext,
+    input
+  );
+  return authorizeJobCommunicationRead({
+    authorizations: resolved.variants.map((variant) =>
+      authorizeCapability({ actorContext, policy: variant.policy })
+    ),
+    rawInput: resolved.parsedInput,
+  });
+}
+
+function authorizeParticipantsRead(
+  actorContext: ActorContext,
+  input: JobParticipantsInput
+) {
+  const resolved = resolveAvailableCapability(
+    PARTICIPANTS_CAPABILITY_ID,
+    actorContext,
+    input
+  );
+  return authorizeJobParticipantsRead({
+    authorizations: resolved.variants.map((variant) =>
+      authorizeCapability({ actorContext, policy: variant.policy })
+    ),
+    rawInput: resolved.parsedInput,
+  });
+}
+
 export function createOpsAgentDomainService(
   input: CreateOpsAgentDomainServiceInput
 ): OpsAgentDomainService {
@@ -210,6 +254,8 @@ export function createOpsAgentDomainService(
   for (const capabilityId of [
     SCHEDULE_CAPABILITY_ID,
     READINESS_CAPABILITY_ID,
+    COMMUNICATION_CAPABILITY_ID,
+    PARTICIPANTS_CAPABILITY_ID,
   ]) {
     if (
       getCapabilityManifestEntry(capabilityId).availability.implementation !==
@@ -259,9 +305,35 @@ export function createOpsAgentDomainService(
       ...(now ? { now } : {}),
     });
 
+  const getJobCommunicationContext = async (
+    actorContext: ActorContext,
+    domainInput: JobCommunicationContextInput,
+    options?: DomainCallOptions
+  ) =>
+    await readJobCommunicationContext({
+      authorization: authorizeCommunicationRead(actorContext, domainInput),
+      repository: repositories.jobCommunicationContext,
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(now ? { now } : {}),
+    });
+
+  const resolveJobParticipants = async (
+    actorContext: ActorContext,
+    domainInput: JobParticipantsInput,
+    options?: DomainCallOptions
+  ) =>
+    await readJobParticipants({
+      authorization: authorizeParticipantsRead(actorContext, domainInput),
+      repository: repositories.jobParticipants,
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(now ? { now } : {}),
+    });
+
   return Object.freeze({
     getJobConversationContext,
     listScheduledJobs,
     listJobReadinessIssues,
+    getJobCommunicationContext,
+    resolveJobParticipants,
   } satisfies OpsAgentDomainService);
 }

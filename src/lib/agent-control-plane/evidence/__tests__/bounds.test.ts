@@ -282,7 +282,7 @@ describe("bounded correspondence evidence repository", () => {
           p_registered_permission_keys: [...REGISTERED_ACTOR_PERMISSION_KEYS],
           p_capability_id: "get_correspondence_evidence",
           p_capability_revision: "get_correspondence_evidence:2026-08-07.v1",
-          p_capability_manifest_revision: "2026-08-12.capability-manifest.v4",
+          p_capability_manifest_revision: CAPABILITY_MANIFEST_REVISION,
           p_required_oauth_scope: "ops.correspondence.read",
           p_inbox_scope: "all",
           p_evidence_ids: ["evidence-1"],

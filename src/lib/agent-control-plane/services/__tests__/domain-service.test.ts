@@ -49,6 +49,8 @@ import {
 } from "../job-conversation-context-repository";
 import { createSupabaseScheduledJobsRepository } from "../scheduled-jobs-repository";
 import { createSupabaseJobReadinessRepository } from "../job-readiness-repository";
+import { createSupabaseJobCommunicationContextRepository } from "../job-communication-context-repository";
+import { createSupabaseJobParticipantsRepository } from "../job-participants-repository";
 import { createOperationalReadCursorCodec } from "../operational-read-cursor";
 
 const ACTOR_ID = "11111111-1111-4111-8111-111111111111";
@@ -204,6 +206,9 @@ function trustedOperationalRepositories() {
       noReadClient,
       cursorCodec
     ),
+    jobCommunicationContext:
+      createSupabaseJobCommunicationContextRepository(noReadClient),
+    jobParticipants: createSupabaseJobParticipantsRepository(noReadClient),
   };
 }
 
@@ -304,6 +309,8 @@ describe("OpsAgentDomainService", () => {
       "getJobConversationContext",
       "listScheduledJobs",
       "listJobReadinessIssues",
+      "getJobCommunicationContext",
+      "resolveJobParticipants",
     ]);
     expect(Object.isFrozen(service)).toBe(true);
     expect(
@@ -313,7 +320,9 @@ describe("OpsAgentDomainService", () => {
     ).toEqual([
       "list_scheduled_jobs",
       "list_job_readiness_issues",
+      "get_job_communication_context",
       "get_job_conversation_context",
+      "resolve_job_participants",
     ]);
     expect(
       CAPABILITY_MANIFEST.every(
@@ -478,6 +487,10 @@ describe("OpsAgentDomainService", () => {
         },
         scheduledJobs: { value: operational.scheduledJobs },
         jobReadiness: { value: operational.jobReadiness },
+        jobCommunicationContext: {
+          value: operational.jobCommunicationContext,
+        },
+        jobParticipants: { value: operational.jobParticipants },
       }
     ) as CreateOpsAgentDomainRepositoriesInput;
 
@@ -548,6 +561,8 @@ describe("OpsAgentDomainService", () => {
       "getJobConversationContext",
       "listScheduledJobs",
       "listJobReadinessIssues",
+      "getJobCommunicationContext",
+      "resolveJobParticipants",
     ]);
     expect(client.calls).toHaveLength(3);
   });

@@ -145,22 +145,48 @@ const EXPECTED_POLICY_MATRIX = {
     {
       key: "opportunity:schedule_notice",
       oauth: ["ops.schedule.read"],
-      groups: [["calendar.view:all,own"]],
+      groups: [
+        [
+          "calendar.view:all,own",
+          "projects.view:all,assigned",
+          "tasks.view:all,assigned",
+        ],
+      ],
     },
     {
       key: "opportunity:photo_request",
-      oauth: ["ops.photos.read"],
-      groups: [["photos.view:all,assigned"]],
+      oauth: ["ops.photos.read", "ops.schedule.read"],
+      groups: [
+        [
+          "calendar.view:all,own",
+          "photos.view:all,assigned",
+          "projects.view:all,assigned",
+          "tasks.view:all,assigned",
+        ],
+      ],
     },
     {
       key: "project:schedule_notice",
       oauth: ["ops.schedule.read"],
-      groups: [["calendar.view:all,own", "tasks.view:all,assigned"]],
+      groups: [
+        [
+          "calendar.view:all,own",
+          "projects.view:all,assigned",
+          "tasks.view:all,assigned",
+        ],
+      ],
     },
     {
       key: "project:photo_request",
-      oauth: ["ops.photos.read"],
-      groups: [["photos.view:all,assigned"]],
+      oauth: ["ops.photos.read", "ops.schedule.read"],
+      groups: [
+        [
+          "calendar.view:all,own",
+          "photos.view:all,assigned",
+          "projects.view:all,assigned",
+          "tasks.view:all,assigned",
+        ],
+      ],
     },
   ],
   get_job_conversation_context: [
@@ -335,6 +361,38 @@ const EXPECTED_POLICY_MATRIX = {
           "projects.view:all,assigned",
         ],
       ],
+    },
+    {
+      key: "opportunity:schedule",
+      oauth: ["ops.jobs.read"],
+      groups: [
+        [
+          "pipeline.view:all,assigned",
+          "projects.view:all,assigned",
+          "tasks.view:all,assigned",
+        ],
+      ],
+    },
+    {
+      key: "opportunity:assignment",
+      oauth: ["ops.jobs.read"],
+      groups: [
+        [
+          "pipeline.view:all,assigned",
+          "projects.view:all,assigned",
+          "tasks.view:all,assigned",
+        ],
+      ],
+    },
+    {
+      key: "project:schedule",
+      oauth: ["ops.jobs.read"],
+      groups: [["projects.view:all,assigned", "tasks.view:all,assigned"]],
+    },
+    {
+      key: "project:assignment",
+      oauth: ["ops.jobs.read"],
+      groups: [["projects.view:all,assigned", "tasks.view:all,assigned"]],
     },
   ],
   list_site_visits: [
@@ -563,7 +621,10 @@ function inputSchema(name: string) {
   return getCapabilityManifestEntry(name).inputSchema;
 }
 
-const JOB_REF = { kind: "project", id: "project-1" } as const;
+const JOB_REF = {
+  kind: "project",
+  id: "20000000-0000-4000-8000-000000000001",
+} as const;
 const IDEMPOTENCY_KEY = "request-00000001";
 const CONFIRMED_CHANGE_SET = {
   change_set_id: "change-set-1",
@@ -735,6 +796,8 @@ describe("agent capability manifest", () => {
           "get_job_conversation_context",
           "list_scheduled_jobs",
           "list_job_readiness_issues",
+          "get_job_communication_context",
+          "resolve_job_participants",
         ].includes(capability.name)
           ? "available"
           : "unavailable",
@@ -748,12 +811,18 @@ describe("agent capability manifest", () => {
 
   it("carries immutable, nominal authorization policy variants", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-12.capability-manifest.v4"
+      "2026-08-13.capability-manifest.v5"
     );
     expect(Object.isFrozen(CAPABILITY_MANIFEST)).toBe(true);
 
     for (const capability of CAPABILITY_MANIFEST) {
-      expect(capability.schemaRevision).toBe(CONTRACT_VERSION);
+      const task12Revision = [
+        "get_job_communication_context",
+        "resolve_job_participants",
+      ].includes(capability.name);
+      expect(capability.schemaRevision).toBe(
+        task12Revision ? "2026-08-13.v1" : CONTRACT_VERSION
+      );
       expect(capability.authorization.variants.length).toBeGreaterThan(0);
       expect(Object.isFrozen(capability)).toBe(true);
       expect(Object.isFrozen(capability.authorization.variants)).toBe(true);
@@ -762,7 +831,7 @@ describe("agent capability manifest", () => {
         expect(isManifestCapabilityPolicy(variant.policy)).toBe(true);
         expect(variant.policy).toMatchObject({
           capabilityId: capability.name,
-          capabilityRevision: `${capability.name}:${CONTRACT_VERSION}`,
+          capabilityRevision: `${capability.name}:${capability.schemaRevision}`,
           capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
         });
       }
@@ -865,18 +934,22 @@ describe("agent capability manifest", () => {
     ]);
   });
 
-  it("adds purpose authority for opportunity schedule and photo communication context", () => {
+  it("adds exact schedule and photo authority to current communication context", () => {
+    const jobRef = {
+      kind: "opportunity" as const,
+      id: "10000000-0000-4000-8000-000000000001",
+    };
     const schedule = resolveCapabilityAuthorization(
       "get_job_communication_context",
       {
-        job_ref: { kind: "opportunity", id: "opportunity-1" },
+        job_ref: jobRef,
         purpose: "schedule_notice",
       }
     );
     const photo = resolveCapabilityAuthorization(
       "get_job_communication_context",
       {
-        job_ref: { kind: "opportunity", id: "opportunity-1" },
+        job_ref: jobRef,
         purpose: "photo_request",
       }
     );
@@ -889,6 +962,84 @@ describe("agent capability manifest", () => {
       "opportunity",
       "opportunity:photo_request",
     ]);
+    expect(schedule.variants[1]?.policy).toMatchObject({
+      requiredOAuthScopes: ["ops.schedule.read"],
+      permissionRequirementGroups: [
+        [
+          { permission: "calendar.view" },
+          { permission: "projects.view" },
+          { permission: "tasks.view" },
+        ],
+      ],
+    });
+    expect(photo.variants[1]?.policy).toMatchObject({
+      requiredOAuthScopes: ["ops.photos.read", "ops.schedule.read"],
+      permissionRequirementGroups: [
+        [
+          { permission: "calendar.view" },
+          { permission: "photos.view" },
+          { permission: "projects.view" },
+          { permission: "tasks.view" },
+        ],
+      ],
+    });
+    expect(Object.isFrozen(schedule.parsedInput.job_ref)).toBe(true);
+  });
+
+  it("adds project and task authority without calendar timing for participant schedule and assignment", () => {
+    const jobRef = {
+      kind: "opportunity" as const,
+      id: "10000000-0000-4000-8000-000000000001",
+    };
+    for (const purpose of ["schedule", "assignment"] as const) {
+      const resolved = resolveCapabilityAuthorization(
+        "resolve_job_participants",
+        { job_ref: jobRef, purpose }
+      );
+      expect(resolved.variants.map((variant) => variant.key)).toEqual([
+        "opportunity",
+        `opportunity:${purpose}`,
+      ]);
+      expect(resolved.variants[1]?.selector).toEqual({
+        kind: "job_participant_purpose",
+        jobKind: "opportunity",
+        purpose,
+      });
+      expect(resolved.variants[1]?.policy.requiredOAuthScopes).toEqual([
+        "ops.jobs.read",
+      ]);
+      expect(
+        resolved.variants[1]?.policy.permissionRequirementGroups[0]?.map(
+          (requirement) => requirement.permission
+        )
+      ).toEqual(["pipeline.view", "projects.view", "tasks.view"]);
+      expect(
+        resolved.variants[1]?.policy.permissionRequirementGroups[0]?.map(
+          (requirement) => requirement.permission
+        )
+      ).not.toContain("calendar.view");
+    }
+  });
+
+  it("accepts only current UUID job inputs for communication and participants", () => {
+    for (const [capability, purpose] of [
+      ["get_job_communication_context", "general"],
+      ["resolve_job_participants", "general"],
+    ] as const) {
+      expect(() =>
+        resolveCapabilityAuthorization(capability, {
+          job_ref: { kind: "project", id: "legacy-project-id" },
+          purpose,
+        })
+      ).toThrow();
+      expect(() =>
+        resolveCapabilityAuthorization(capability, {
+          job_ref: JOB_REF,
+          purpose,
+          as_of: "2026-08-12T00:00:00.000Z",
+        })
+      ).toThrow();
+    }
   });
 
   it("declares the project visibility proof required by every project financial write", () => {
@@ -1248,6 +1399,64 @@ describe("agent capability manifest", () => {
           ...entry,
           authorization: { variants },
         };
+      },
+    },
+    {
+      name: "a forged participant-purpose selector field",
+      mutate(entries: CapabilityManifestEntry[]) {
+        const index = entries.findIndex(
+          (entry) => entry.name === "resolve_job_participants"
+        );
+        const entry = entries[index];
+        const variants = [...entry.authorization.variants];
+        variants[2] = {
+          ...variants[2],
+          selector: {
+            kind: "job_participant_purpose",
+            jobKind: "opportunity",
+            field: "permission",
+            purpose: "schedule",
+          } as never,
+        };
+        entries[index] = { ...entry, authorization: { variants } };
+      },
+    },
+    {
+      name: "a forged participant-purpose selector value",
+      mutate(entries: CapabilityManifestEntry[]) {
+        const index = entries.findIndex(
+          (entry) => entry.name === "resolve_job_participants"
+        );
+        const entry = entries[index];
+        const variants = [...entry.authorization.variants];
+        variants[2] = {
+          ...variants[2],
+          selector: {
+            kind: "job_participant_purpose",
+            jobKind: "opportunity",
+            purpose: "timing",
+          } as never,
+        };
+        entries[index] = { ...entry, authorization: { variants } };
+      },
+    },
+    {
+      name: "a participant-purpose selector attached to another capability",
+      mutate(entries: CapabilityManifestEntry[]) {
+        const index = entries.findIndex(
+          (entry) => entry.name === "get_job_communication_context"
+        );
+        const entry = entries[index];
+        const variants = [...entry.authorization.variants];
+        variants[2] = {
+          ...variants[2],
+          selector: {
+            kind: "job_participant_purpose",
+            jobKind: "opportunity",
+            purpose: "schedule",
+          },
+        };
+        entries[index] = { ...entry, authorization: { variants } };
       },
     },
   ])("rejects $name", ({ mutate }) => {

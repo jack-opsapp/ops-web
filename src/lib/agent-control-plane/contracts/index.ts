@@ -1,4 +1,5 @@
 export * from "./common";
+export * from "./communication";
 export * from "./conversation";
 export * from "./errors";
 export * from "./evidence";

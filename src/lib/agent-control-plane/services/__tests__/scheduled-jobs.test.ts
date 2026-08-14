@@ -118,8 +118,9 @@ async function authorizedRead(
     actorContext: actor,
     policy: resolved.variants[0]!.policy,
   });
-  const { authorizeScheduledJobsRead } =
-    await import("../scheduled-jobs-authorization");
+  const { authorizeScheduledJobsRead } = await import(
+    "../scheduled-jobs-authorization"
+  );
   return authorizeScheduledJobsRead({ authorization, rawInput });
 }
 
@@ -451,6 +452,7 @@ async function repositoryFor(client: StubScheduledJobsRpcClient) {
       key: CURSOR_KEY,
       keyId: "test-key-1",
       version: 1,
+      now: () => new Date(FIXED_NOW),
     })
   );
 }
@@ -468,8 +470,9 @@ async function resultFor(input: {
 }
 
 async function repositoryErrorFrom(promise: Promise<unknown>) {
-  const { ScheduledJobsRepositoryError } =
-    await import("../scheduled-jobs-repository");
+  const { ScheduledJobsRepositoryError } = await import(
+    "../scheduled-jobs-repository"
+  );
   try {
     await promise;
   } catch (error) {
@@ -480,8 +483,9 @@ async function repositoryErrorFrom(promise: Promise<unknown>) {
 }
 
 async function serviceErrorFrom(promise: Promise<unknown>) {
-  const { ScheduledJobsReadError: ErrorClass } =
-    await import("../list-scheduled-jobs");
+  const { ScheduledJobsReadError: ErrorClass } = await import(
+    "../list-scheduled-jobs"
+  );
   try {
     await promise;
   } catch (error) {

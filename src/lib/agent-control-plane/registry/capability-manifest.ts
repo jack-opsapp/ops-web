@@ -16,7 +16,7 @@ import { READ_CAPABILITY_DEFINITIONS } from "./read-tools";
 import { WRITE_CAPABILITY_DEFINITIONS } from "./write-tools";
 
 export const CAPABILITY_MANIFEST_REVISION =
-  "2026-08-12.capability-manifest.v4" as const;
+  "2026-08-13.capability-manifest.v5" as const;
 
 function freezeSelector(
   selector: CapabilityAuthorizationSelector
@@ -108,7 +108,10 @@ function selectorMatches(
   const jobRef = parsedInput.job_ref;
   if (!isRecord(jobRef) || jobRef.kind !== selector.jobKind) return false;
   if (selector.kind === "job_kind") return true;
-  if (selector.kind === "job_purpose") {
+  if (
+    selector.kind === "job_purpose" ||
+    selector.kind === "job_participant_purpose"
+  ) {
     return parsedInput.purpose === selector.purpose;
   }
 

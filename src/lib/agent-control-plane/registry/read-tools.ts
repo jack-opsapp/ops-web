@@ -5,6 +5,10 @@ import {
   OpaqueIdSchema,
   Rfc3339UtcTimestampSchema,
 } from "@/lib/agent-control-plane/contracts/common";
+import {
+  JobCommunicationContextInputSchema,
+  JobParticipantsInputSchema,
+} from "@/lib/agent-control-plane/contracts/communication";
 import { JobRefSchema } from "@/lib/agent-control-plane/contracts/jobs";
 import {
   JobReadinessIssuesInputSchema,
@@ -20,6 +24,7 @@ import type {
 const DAY_MS = 86_400_000;
 const MAX_PROMPT_CHARACTERS = 60_000;
 const MAX_INPUT_BYTES = 32_768;
+const TASK_12_SCHEMA_REVISION = "2026-08-13.v1" as const;
 
 const READ_ANNOTATIONS = Object.freeze({
   readOnlyHint: true,
@@ -60,14 +65,6 @@ function validWindow(from: string, to: string, maximumDays: number): boolean {
   const end = Date.parse(to);
   return end > start && end - start <= maximumDays * DAY_MS;
 }
-
-const JobCommunicationContextInputSchema = z
-  .object({
-    job_ref: JobRefSchema,
-    purpose: z.enum(["schedule_notice", "photo_request", "general"]),
-    as_of: Rfc3339UtcTimestampSchema.optional(),
-  })
-  .strict();
 
 const ConversationSectionSchema = z.enum([
   "memory",
@@ -230,16 +227,6 @@ const CorrespondenceEvidenceInputSchema = z
   })
   .strict();
 
-const JobParticipantsInputSchema = z
-  .object({
-    job_ref: JobRefSchema,
-    purpose: z
-      .enum(["communication", "schedule", "assignment", "general"])
-      .optional(),
-    as_of: Rfc3339UtcTimestampSchema.optional(),
-  })
-  .strict();
-
 const SiteVisitStatusSchema = z.enum([
   "scheduled",
   "in_progress",
@@ -377,13 +364,29 @@ function purposeVariant(
   };
 }
 
+function participantPurposeVariant(
+  jobKind: "opportunity" | "project",
+  purpose: "schedule" | "assignment",
+  requirements: readonly ReturnType<typeof permission>[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key: `${jobKind}:${purpose}`,
+    selector: { kind: "job_participant_purpose", jobKind, purpose },
+    requiredOAuthScopes: ["ops.jobs.read"],
+    permissionRequirementGroups: [requirements],
+  };
+}
+
 function readMetadata(input: {
   riskTier: CapabilityRiskTier;
   maxResultItems: number;
   maxWindowDays?: number;
   evidenceInput?: "not_required" | "optional" | "required";
   auditClass?:
-    "operational_read" | "sensitive_read" | "evidence_read" | "search_read";
+    | "operational_read"
+    | "sensitive_read"
+    | "evidence_read"
+    | "search_read";
   rateLimitBucket?: "lightweight_read" | "evidence_search";
 }) {
   return {
@@ -495,7 +498,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
   },
   {
     name: "get_job_communication_context",
-    schemaRevision: CONTRACT_VERSION,
+    schemaRevision: TASK_12_SCHEMA_REVISION,
     operation: "read",
     description:
       "Return verified facts needed to contact a customer about one job.",
@@ -534,13 +537,22 @@ export const READ_CAPABILITY_DEFINITIONS = [
           "opportunity",
           "schedule_notice",
           ["ops.schedule.read"],
-          [permission("calendar.view", ["all", "own"])]
+          [
+            permission("calendar.view", ["all", "own"]),
+            permission("projects.view", ["all", "assigned"]),
+            permission("tasks.view", ["all", "assigned"]),
+          ]
         ),
         purposeVariant(
           "opportunity",
           "photo_request",
-          ["ops.photos.read"],
-          [permission("photos.view", ["all", "assigned"])]
+          ["ops.photos.read", "ops.schedule.read"],
+          [
+            permission("calendar.view", ["all", "own"]),
+            permission("photos.view", ["all", "assigned"]),
+            permission("projects.view", ["all", "assigned"]),
+            permission("tasks.view", ["all", "assigned"]),
+          ]
         ),
         purposeVariant(
           "project",
@@ -548,14 +560,20 @@ export const READ_CAPABILITY_DEFINITIONS = [
           ["ops.schedule.read"],
           [
             permission("calendar.view", ["all", "own"]),
+            permission("projects.view", ["all", "assigned"]),
             permission("tasks.view", ["all", "assigned"]),
           ]
         ),
         purposeVariant(
           "project",
           "photo_request",
-          ["ops.photos.read"],
-          [permission("photos.view", ["all", "assigned"])]
+          ["ops.photos.read", "ops.schedule.read"],
+          [
+            permission("calendar.view", ["all", "own"]),
+            permission("photos.view", ["all", "assigned"]),
+            permission("projects.view", ["all", "assigned"]),
+            permission("tasks.view", ["all", "assigned"]),
+          ]
         ),
       ],
     },
@@ -564,6 +582,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 1,
       auditClass: "sensitive_read",
     }),
+    availability: INTERNAL_ONLY_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.get_job_communication_context",
   },
   {
@@ -820,7 +839,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
   },
   {
     name: "resolve_job_participants",
-    schemaRevision: CONTRACT_VERSION,
+    schemaRevision: TASK_12_SCHEMA_REVISION,
     operation: "read",
     description:
       "Return evidence-backed participants and safe contact identities for one job.",
@@ -855,6 +874,24 @@ export const READ_CAPABILITY_DEFINITIONS = [
             permission("projects.view", ["all", "assigned"]),
           ]
         ),
+        participantPurposeVariant("opportunity", "schedule", [
+          permission("pipeline.view", ["all", "assigned"]),
+          permission("projects.view", ["all", "assigned"]),
+          permission("tasks.view", ["all", "assigned"]),
+        ]),
+        participantPurposeVariant("opportunity", "assignment", [
+          permission("pipeline.view", ["all", "assigned"]),
+          permission("projects.view", ["all", "assigned"]),
+          permission("tasks.view", ["all", "assigned"]),
+        ]),
+        participantPurposeVariant("project", "schedule", [
+          permission("projects.view", ["all", "assigned"]),
+          permission("tasks.view", ["all", "assigned"]),
+        ]),
+        participantPurposeVariant("project", "assignment", [
+          permission("projects.view", ["all", "assigned"]),
+          permission("tasks.view", ["all", "assigned"]),
+        ]),
       ],
     },
     ...readMetadata({
@@ -862,6 +899,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 50,
       auditClass: "sensitive_read",
     }),
+    availability: INTERNAL_ONLY_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.resolve_job_participants",
   },
   {
