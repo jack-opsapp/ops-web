@@ -66,6 +66,11 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
   task_assigned: { label: "TASK", icon: "square-check", tone: "accent" },
   task_completed: { label: "DONE", icon: "check", tone: "ambient" },
   schedule_change: { label: "SCHEDULE", icon: "calendar-clock", tone: "attn" },
+  site_visit_reminder: {
+    label: "SITE VISIT",
+    icon: "calendar-clock",
+    tone: "attn",
+  },
   expense_submitted: { label: "EXPENSE", icon: "receipt", tone: "attn" },
   expense_approved: { label: "EXP", icon: "receipt-text", tone: "ambient" },
   expense_paid: { label: "PAID", icon: "receipt-text", tone: "ambient" },

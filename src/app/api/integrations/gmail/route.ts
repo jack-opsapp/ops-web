@@ -15,8 +15,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import {
+  GOOGLE_CALENDAR_EVENTS_SCOPE,
+  GOOGLE_GMAIL_SCOPE,
+} from "@/lib/email/calendar-scope";
+import {
   createEmailOAuthState,
   resolveEmailOAuthAlertConnection,
+  resolveEmailOAuthCalendarConnection,
 } from "@/lib/email/email-oauth-state";
 import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
@@ -35,6 +40,9 @@ export async function GET(request: NextRequest) {
   // (alert-email flow). Defaults to wizard so existing in-app callers
   // are unaffected.
   const source = searchParams.get("source") === "alert" ? "alert" : "wizard";
+  // `include_calendar=1` is the incremental-consent lane: same mailbox flow,
+  // widened to calendar.events against one bound existing connection.
+  const includeCalendar = searchParams.get("include_calendar") === "1";
   const connectionId = searchParams.get("connectionId");
   const expectedEmail = searchParams.get("expectedEmail");
   // Optional app-internal path to land on after the callback (e.g.
@@ -126,29 +134,84 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  let calendarBinding: {
+    connectionId: string;
+    expectedEmail: string;
+  } | null = null;
+  if (includeCalendar) {
+    // Alert reconnect links arrive from email and must stay exactly what
+    // they claim to be; the calendar upgrade is its own in-app lane.
+    if (source === "alert") {
+      return NextResponse.json(
+        { error: "Calendar consent cannot ride an alert reconnect" },
+        { status: 400 }
+      );
+    }
+    if (!connectionId) {
+      return NextResponse.json(
+        { error: "Calendar consent requires an existing Gmail connection" },
+        { status: 400 }
+      );
+    }
+    try {
+      calendarBinding = await resolveEmailOAuthCalendarConnection(supabase, {
+        companyId,
+        provider: "gmail",
+        type,
+        connectionId,
+      });
+    } catch (bindingError) {
+      console.error(
+        "[Gmail OAuth] Failed to verify calendar binding:",
+        bindingError
+      );
+      return NextResponse.json(
+        { error: "Failed to verify calendar upgrade" },
+        { status: 500 }
+      );
+    }
+    if (!calendarBinding) {
+      return NextResponse.json(
+        { error: "This mailbox is not ready for calendar sync" },
+        { status: 400 }
+      );
+    }
+  }
+
   let state: string;
   try {
     state = await createEmailOAuthState(
       supabase,
-      source === "alert"
+      calendarBinding
         ? {
             provider: "gmail",
             companyId,
             userId,
             type,
-            source,
-            connectionId: alertBinding!.connectionId,
-            expectedEmail: alertBinding!.expectedEmail,
+            source: "calendar",
+            connectionId: calendarBinding.connectionId,
+            expectedEmail: calendarBinding.expectedEmail,
             returnTo,
           }
-        : {
-            provider: "gmail",
-            companyId,
-            userId,
-            type,
-            source,
-            returnTo,
-          }
+        : source === "alert"
+          ? {
+              provider: "gmail",
+              companyId,
+              userId,
+              type,
+              source,
+              connectionId: alertBinding!.connectionId,
+              expectedEmail: alertBinding!.expectedEmail,
+              returnTo,
+            }
+          : {
+              provider: "gmail",
+              companyId,
+              userId,
+              type,
+              source,
+              returnTo,
+            }
     );
   } catch (error) {
     console.error("[Gmail OAuth] Failed to create one-time state:", error);
@@ -164,9 +227,16 @@ export async function GET(request: NextRequest) {
     response_type: "code",
     // Full mailbox access. Required for: label create/apply, draft create,
     // send email, thread modify. Explicitly granted by user on consent.
-    scope: "https://mail.google.com/",
+    // The calendar lane additionally requests event write access so booked
+    // site visits can land on the mailbox's Google Calendar.
+    scope: includeCalendar
+      ? `${GOOGLE_GMAIL_SCOPE} ${GOOGLE_CALENDAR_EVENTS_SCOPE}`
+      : GOOGLE_GMAIL_SCOPE,
     access_type: "offline",
     prompt: "consent",
+    // Re-consents union with previously granted scopes instead of narrowing
+    // the stored refresh token to only what this round requested.
+    include_granted_scopes: "true",
     state,
   });
 

@@ -11,6 +11,7 @@ import {
 } from "@/lib/utils/schedule-utils";
 import { DayTaskCard } from "./day/day-task-card";
 import { DayHourlyGrid } from "./day/day-hourly-grid";
+import { SiteVisitEventCard } from "./site-visits/site-visit-event";
 import { useScheduleResizeContext } from "./schedule-dnd-shell";
 
 // ── Props ──────────────────────────────────────────────────────────────────
@@ -221,14 +222,24 @@ export function ScheduleGridDay({
               </div>
             ) : (
               <div className="flex flex-col gap-[8px]" key="cards">
-                {dayEvents.map((event, index) => (
-                  <DraggableDayListCard
-                    key={event.id}
-                    event={event}
-                    index={index}
-                    onResize={handleListResize}
-                  />
-                ))}
+                {dayEvents.map((event, index) =>
+                  event.kind === "site_visit" ? (
+                    // Appointments never enter the drag surface — click
+                    // opens the visit popover, not the task side panel.
+                    <SiteVisitEventCard
+                      key={event.id}
+                      event={event}
+                      index={index}
+                    />
+                  ) : (
+                    <DraggableDayListCard
+                      key={event.id}
+                      event={event}
+                      index={index}
+                      onResize={handleListResize}
+                    />
+                  )
+                )}
               </div>
             )}
           </AnimatePresence>

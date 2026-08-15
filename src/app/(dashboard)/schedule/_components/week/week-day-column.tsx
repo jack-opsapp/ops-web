@@ -6,6 +6,7 @@ import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { motion } from "framer-motion";
 import type { InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { DayTaskCard } from "../day/day-task-card";
+import { SiteVisitEventCard } from "../site-visits/site-visit-event";
 
 // ── Props ──────────────────────────────────────────────────────────────────
 
@@ -186,14 +187,20 @@ export function WeekDayColumn({ day, events, onCardResize }: WeekDayColumnProps)
           </div>
         ) : (
           <div className="flex flex-col gap-[6px]">
-            {dayEvents.map((event, idx) => (
-              <DraggableWeekCard
-                key={event.id}
-                event={event}
-                index={idx}
-                onResize={onCardResize}
-              />
-            ))}
+            {dayEvents.map((event, idx) =>
+              event.kind === "site_visit" ? (
+                // Appointments never enter the drag surface — click opens
+                // the visit popover instead of the task side panel.
+                <SiteVisitEventCard key={event.id} event={event} index={idx} />
+              ) : (
+                <DraggableWeekCard
+                  key={event.id}
+                  event={event}
+                  index={idx}
+                  onResize={onCardResize}
+                />
+              )
+            )}
           </div>
         )}
       </div>

@@ -1170,8 +1170,11 @@ export function MonthScrollContainer({
                         const colStart = span.startDayIndex;
                         const colSpan =
                           span.endDayIndex - span.startDayIndex + 1;
+                        // Site visits are appointments — never draggable;
+                        // reschedule lives behind their popover.
                         const isDragDisabled =
-                          !span.isSingleDay && !span.isFirstSegment;
+                          event.kind === "site_visit" ||
+                          (!span.isSingleDay && !span.isFirstSegment);
 
                         if (displayLevel === "compact") {
                           const top = slotIndex * (10 + SLOT_GAP);

@@ -173,7 +173,6 @@ describe("PipelineDetailBody composition", () => {
     expect(childProps.nextSteps).toHaveBeenLastCalledWith(
       expect.objectContaining({
         followUps: assignedContext.followUps,
-        siteVisits: assignedContext.siteVisits,
         canManage: false,
       })
     );
@@ -209,7 +208,7 @@ describe("PipelineDetailBody composition", () => {
       })
     );
     expect(childProps.nextSteps).toHaveBeenLastCalledWith(
-      expect.objectContaining({ followUps: [], siteVisits: [] })
+      expect.objectContaining({ followUps: [] })
     );
     // Redaction is deliberate — it must not dress up as a transient failure.
     expect(
@@ -240,7 +239,6 @@ describe("PipelineDetailBody composition", () => {
     expect(childProps.nextSteps).toHaveBeenLastCalledWith(
       expect.objectContaining({
         followUps: assignedContext.followUps,
-        siteVisits: assignedContext.siteVisits,
       })
     );
   });

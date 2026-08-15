@@ -435,6 +435,18 @@ export const queryKeys = {
       [...queryKeys.siteVisits.lists(), companyId, filters] as const,
     detail: (id: string) =>
       [...queryKeys.siteVisits.all, "detail", id] as const,
+    // Booked appointments only (booked_at discriminator) — the lead's open
+    // booking and the calendar's third-source range read.
+    openBooking: (opportunityId: string) =>
+      [...queryKeys.siteVisits.all, "open-booking", opportunityId] as const,
+    bookedRange: (companyId: string, startIso: string, endIso: string) =>
+      [
+        ...queryKeys.siteVisits.all,
+        "booked-range",
+        companyId,
+        startIso,
+        endIso,
+      ] as const,
   },
 
   // Project Photos

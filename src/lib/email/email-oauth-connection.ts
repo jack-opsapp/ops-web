@@ -15,11 +15,20 @@ interface PersistEmailOAuthConnectionInput {
   accessToken: string;
   refreshToken?: string | null;
   expiresAt: string;
+  /**
+   * Scope list reported by the provider's token response. Persisted whenever
+   * present so `email_connections.granted_scopes` always states what the
+   * stored refresh token can do (the calendar sync trigger and drain both
+   * read it). Null/absent = provider omitted the field; leave the stored
+   * record untouched.
+   */
+  grantedScopes?: string[] | null;
 }
 
 /**
  * Persist provider credentials without ever crossing provider or connection
- * identity boundaries. Alert reconnects update one pre-bound row; wizard
+ * identity boundaries. Alert reconnects update one pre-bound row; calendar
+ * upgrades update one pre-bound row's credentials and grant only; wizard
  * connects upsert only the matching provider/mailbox identity.
  */
 export async function persistEmailOAuthConnection(
@@ -27,6 +36,10 @@ export async function persistEmailOAuthConnection(
   input: PersistEmailOAuthConnectionInput
 ): Promise<void> {
   const normalizedEmail = input.email.trim().toLowerCase();
+  const grantedScopes =
+    input.grantedScopes && input.grantedScopes.length > 0
+      ? input.grantedScopes
+      : null;
   const existingQuery = supabase
     .from("email_connections")
     .select(
@@ -34,6 +47,68 @@ export async function persistEmailOAuthConnection(
     )
     .eq("company_id", input.state.companyId)
     .eq("provider", input.provider);
+
+  if (input.state.source === "calendar") {
+    if (normalizedEmail !== input.state.expectedEmail) {
+      throw new Error("Provider mailbox does not match bound OAuth state");
+    }
+    const { data: existingRow, error: existingError } = await existingQuery
+      .eq("id", input.state.connectionId)
+      .eq("type", input.state.type)
+      .maybeSingle();
+    if (existingError) {
+      throw new Error(
+        `Failed to read bound email connection: ${existingError.message}`
+      );
+    }
+    if (!existingRow) {
+      throw new Error("Bound email connection no longer matches OAuth state");
+    }
+    if (
+      existingRow.status !== "active" &&
+      existingRow.status !== "needs_reconnect"
+    ) {
+      throw new Error("Bound email connection is not upgradeable");
+    }
+    if (existingRow.email.trim().toLowerCase() !== input.state.expectedEmail) {
+      throw new Error("Bound email connection mailbox changed during OAuth");
+    }
+
+    // Credentials and grant only. A scope upgrade must never resurrect
+    // paused sync, reset auto-send configuration, or reassign ownership —
+    // the mailbox keeps running exactly as the operator configured it.
+    const upgradePayload: Record<string, unknown> = {
+      access_token: input.accessToken,
+      refresh_token: input.refreshToken || existingRow.refresh_token || "",
+      expires_at: input.expiresAt,
+      status: "active",
+      updated_at: new Date().toISOString(),
+    };
+    if (grantedScopes) {
+      upgradePayload.granted_scopes = grantedScopes;
+    }
+
+    const { data: updatedRow, error: updateError } = await supabase
+      .from("email_connections")
+      .update(upgradePayload)
+      .eq("id", input.state.connectionId)
+      .eq("company_id", input.state.companyId)
+      .eq("provider", input.provider)
+      .eq("type", input.state.type)
+      .eq("email", existingRow.email)
+      .eq("status", existingRow.status)
+      .select("id")
+      .maybeSingle();
+    if (updateError) {
+      throw new Error(
+        `Failed to update bound email connection: ${updateError.message}`
+      );
+    }
+    if (!updatedRow) {
+      throw new Error("Bound email connection changed during OAuth callback");
+    }
+    return;
+  }
 
   if (input.state.source === "alert") {
     if (normalizedEmail !== input.state.expectedEmail) {
@@ -74,6 +149,7 @@ export async function persistEmailOAuthConnection(
         sync_enabled: true,
         status: "active",
         updated_at: new Date().toISOString(),
+        ...(grantedScopes ? { granted_scopes: grantedScopes } : {}),
       })
       .eq("id", input.state.connectionId)
       .eq("company_id", input.state.companyId)
@@ -123,6 +199,9 @@ export async function persistEmailOAuthConnection(
     sync_enabled: true,
     updated_at: new Date().toISOString(),
   };
+  if (grantedScopes) {
+    upsertPayload.granted_scopes = grantedScopes;
+  }
   if (input.provider === "microsoft365") {
     upsertPayload.sync_interval_minutes = 60;
   }

@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { hasCalendarScope } from "@/lib/email/calendar-scope";
 import { EmailService } from "@/lib/api/services/email-service";
 import { PersonalEmailConnectionLifecycleService } from "@/lib/api/services/personal-email-connection-lifecycle-service";
 import {
@@ -93,6 +94,7 @@ function toDescriptor(
     aiReviewEnabled: includeConfiguration ? connection.aiReviewEnabled : false,
     aiMemoryEnabled: includeConfiguration ? connection.aiMemoryEnabled : false,
     status: connection.status,
+    calendarSyncGranted: hasCalendarScope(connection.grantedScopes),
     createdAt: connection.createdAt,
     updatedAt: connection.updatedAt,
   };
