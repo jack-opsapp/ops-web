@@ -392,7 +392,8 @@ describe("cron company fan-out controls", () => {
     );
     const from = vi.fn(() => phaseCQuery());
     const processCompany = vi.fn(async (companyId: string) => {
-      if (companyId === "company-2") throw new Error("transient provider error");
+      if (companyId === "company-2")
+        throw new Error("transient provider error");
       return { companyId, disposition: "success" as const };
     });
 
@@ -573,12 +574,10 @@ describe("cron company fan-out controls", () => {
     });
 
     expect(processCompany).toHaveBeenCalledTimes(2);
-    expect(result.companyIds).toEqual([
-      longCompanyId("a"),
-      longCompanyId("b"),
-    ]);
+    expect(result.companyIds).toEqual([longCompanyId("a"), longCompanyId("b")]);
     expect(result.cursor.next).toBe(longCompanyId("b"));
-    expect(storedCursor?.length).toBeLessThanOrEqual(512);
+    expect(storedCursor).not.toBeNull();
+    expect((storedCursor as string | null)?.length).toBeLessThanOrEqual(512);
   });
 
   it("distinguishes an exhausted cursor page from an absent cursor and resets it without replay", async () => {

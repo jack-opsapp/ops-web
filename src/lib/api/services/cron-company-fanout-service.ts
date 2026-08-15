@@ -122,16 +122,21 @@ export async function listBoundedPhaseCCompanyIds(
   return companyIds;
 }
 
-export interface RunBoundedPhaseCCompanyFanoutOptions<T> {
+export interface RunBoundedPhaseCCompanyFanoutOptions<
+  TSuccess,
+  TError = TSuccess,
+> {
   supabase: CronCompanyFanoutClient;
   workloadKey: string;
   lease: CronWorkloadLease;
   companyLimit: number;
-  processCompany: (companyId: string) => Promise<T>;
-  onCompanyError: (companyId: string, error: unknown) => T;
+  processCompany: (companyId: string) => Promise<TSuccess>;
+  onCompanyError: (companyId: string, error: unknown) => TError;
   retryPolicy?: {
     maxAttempts: number;
-    classifyResult: (result: T) => "success" | "permanent" | "retryable";
+    classifyResult: (
+      result: TSuccess | TError
+    ) => "success" | "permanent" | "retryable";
   };
 }
 
@@ -159,8 +164,11 @@ interface RetryCursorEnvelope {
   pending: Array<{ companyId: string; attempts: number }>;
 }
 
-function validateRetryPolicy(
-  retryPolicy: RunBoundedPhaseCCompanyFanoutOptions<unknown>["retryPolicy"]
+function validateRetryPolicy<TSuccess, TError>(
+  retryPolicy: RunBoundedPhaseCCompanyFanoutOptions<
+    TSuccess,
+    TError
+  >["retryPolicy"]
 ): void {
   if (
     retryPolicy &&
@@ -253,7 +261,10 @@ function canEncodeRetryCursor(envelope: RetryCursorEnvelope): boolean {
   return `${RETRY_CURSOR_PREFIX}${JSON.stringify(envelope)}`.length <= 512;
 }
 
-export async function runBoundedPhaseCCompanyFanout<T>({
+export async function runBoundedPhaseCCompanyFanout<
+  TSuccess,
+  TError = TSuccess,
+>({
   supabase,
   workloadKey,
   lease,
@@ -261,8 +272,8 @@ export async function runBoundedPhaseCCompanyFanout<T>({
   processCompany,
   onCompanyError,
   retryPolicy,
-}: RunBoundedPhaseCCompanyFanoutOptions<T>): Promise<
-  BoundedPhaseCCompanyFanoutResult<T>
+}: RunBoundedPhaseCCompanyFanoutOptions<TSuccess, TError>): Promise<
+  BoundedPhaseCCompanyFanoutResult<TSuccess | TError>
 > {
   validateCompanyLimit(companyLimit);
   validateRetryPolicy(retryPolicy);
@@ -301,7 +312,7 @@ export async function runBoundedPhaseCCompanyFanout<T>({
       })),
   ];
   const companyIds: string[] = [];
-  const results: T[] = [];
+  const results: Array<TSuccess | TError> = [];
   const nextPending = remainingPending.map((entry) => ({ ...entry }));
   const exhausted: Array<{ companyId: string; attempts: number }> = [];
   const permanentCompanyIds: string[] = [];
@@ -333,7 +344,7 @@ export async function runBoundedPhaseCCompanyFanout<T>({
       break;
     }
     companyIds.push(entry.companyId);
-    let result: T;
+    let result: TSuccess | TError;
     try {
       result = await processCompany(entry.companyId);
     } catch (error) {
