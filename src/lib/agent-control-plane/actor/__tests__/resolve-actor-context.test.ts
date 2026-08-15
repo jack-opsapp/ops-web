@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { AgentErrorSchema } from "@/lib/agent-control-plane/contracts";
-import type { ActorAuthoritySnapshot } from "@/lib/agent-control-plane/actor/authority-repository";
-import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
+import {
+  createSupabaseActorAuthorityRepository,
+  REGISTERED_ACTOR_PERMISSION_KEYS,
+  type ActorAuthoritySnapshot,
+} from "@/lib/agent-control-plane/actor/authority-repository";
 import { ActorAccessError } from "@/lib/agent-control-plane/actor/errors";
 import type { VerifiedActorPrincipal } from "@/lib/agent-control-plane/actor/principal-boundary";
 import {
@@ -11,6 +14,7 @@ import {
 } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import {
   validatedMcpPrincipalFixture,
+  verifiedPhaseCPrincipalFixture,
   verifiedInternalPrincipalFixture,
 } from "./fixtures/verified-principal-fixtures";
 import { StubAuthoritySupabaseRpcClient } from "./fixtures/trusted-repository-fixtures";
@@ -20,6 +24,16 @@ const REQUEST = {
   causationId: "cause-1",
   policyRevision: "actor-policy:v1",
   capabilityManifestRevision: "capabilities:test-v1",
+} as const;
+const PHASE_C_ROUTE = {
+  assignmentVersion: 7,
+  connectionId: "44444444-4444-4444-8444-444444444444",
+  opportunityId: "55555555-5555-4555-8555-555555555555",
+  internalThreadId: "66666666-6666-4666-8666-666666666666",
+  providerThreadId: "provider-thread-1",
+  sourceActivityId: "77777777-7777-4777-8777-777777777777",
+  sourceTurnId: "88888888-8888-4888-8888-888888888888",
+  sourceConversationId: "99999999-9999-4999-8999-999999999999",
 } as const;
 
 function authority(
@@ -190,6 +204,7 @@ describe("resolveActorContext", () => {
     expect(Object.isFrozen(context.membership)).toBe(true);
     expect(Object.isFrozen(context.roleIds)).toBe(true);
     expect(Object.isFrozen(context.effectivePermissions)).toBe(true);
+    expect(Object.getPrototypeOf(context.effectivePermissions)).toBeNull();
     expect(Object.isFrozen(context.configuredPermissions)).toBe(true);
     expect(Object.isFrozen(context.auth)).toBe(true);
     expect("assignments" in context).toBe(false);
@@ -311,6 +326,138 @@ describe("resolveActorContext", () => {
     }
   });
 
+  it("contains hostile authority snapshot traps as a safe unavailable result", async () => {
+    const hostileRoleIds = new Proxy(["33333333-3333-4333-8333-333333333333"], {
+      get(target, property, receiver) {
+        if (property === Symbol.iterator) {
+          throw new Error("private authority snapshot details");
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const repository = new StubAuthoritySupabaseRpcClient(authority());
+    repository.internalResult = authority({ roleIds: hostileRoleIds });
+
+    const error = await rejected(() =>
+      resolveActorContext({
+        principal: internalPrincipal(),
+        authorityRepository: repository.repository,
+        ...REQUEST,
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: "TEMPORARILY_UNAVAILABLE",
+      message: "Authorization is temporarily unavailable.",
+    });
+    expect(JSON.stringify(error.toAgentError())).not.toContain("private");
+  });
+
+  it("never widens permission scope through an accessor-backed authority row", async () => {
+    let scopeReads = 0;
+    const hostilePermission = { permission: "projects.view" } as Record<
+      string,
+      unknown
+    >;
+    Object.defineProperty(hostilePermission, "scope", {
+      enumerable: true,
+      get() {
+        scopeReads += 1;
+        return scopeReads === 1 ? "assigned" : "all";
+      },
+    });
+    const repository = new StubAuthoritySupabaseRpcClient(authority());
+    repository.internalResult = authority({
+      configuredPermissions: ["projects.view"],
+      effectivePermissions: [hostilePermission as never],
+    });
+
+    const error = await rejected(() =>
+      resolveActorContext({
+        principal: internalPrincipal(),
+        authorityRepository: repository.repository,
+        ...REQUEST,
+      })
+    );
+
+    expect(error).toMatchObject({
+      code: "TEMPORARILY_UNAVAILABLE",
+      message: "Authorization is temporarily unavailable.",
+    });
+    expect(scopeReads).toBe(0);
+  });
+
+  it("rejects proxy, symbol, extra, and hidden authority permission rows", async () => {
+    const withSymbol = {
+      permission: "projects.view",
+      scope: "assigned",
+    } as Record<PropertyKey, unknown>;
+    withSymbol[Symbol("private-permission")] = "all";
+    const withHidden = {
+      permission: "projects.view",
+      scope: "assigned",
+    };
+    Object.defineProperty(withHidden, "hidden", {
+      enumerable: false,
+      value: "all",
+    });
+
+    for (const permissionRow of [
+      new Proxy({ permission: "projects.view", scope: "assigned" }, {}),
+      withSymbol,
+      { permission: "projects.view", scope: "assigned", extra: "all" },
+      withHidden,
+    ]) {
+      const repository = new StubAuthoritySupabaseRpcClient(authority());
+      repository.internalResult = authority({
+        configuredPermissions: ["projects.view"],
+        effectivePermissions: [permissionRow as never],
+      });
+
+      const error = await rejected(() =>
+        resolveActorContext({
+          principal: internalPrincipal(),
+          authorityRepository: repository.repository,
+          ...REQUEST,
+        })
+      );
+
+      expect(error).toMatchObject({
+        code: "TEMPORARILY_UNAVAILABLE",
+        message: "Authorization is temporarily unavailable.",
+      });
+    }
+  });
+
+  it("rejects noncanonical actor and company identifiers from authority", async () => {
+    for (const malformed of [
+      authority({ actorUserId: "not-a-uuid" }),
+      authority({ companyId: "not-a-uuid" }),
+      authority({
+        actorUserId: "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
+      }),
+      authority({
+        companyId: "00000000-0000-0000-0000-000000000000",
+      }),
+    ]) {
+      const repository = new StubAuthoritySupabaseRpcClient(authority());
+      repository.internalResult = malformed;
+
+      const error = await rejected(() =>
+        resolveActorContext({
+          principal: internalPrincipal(),
+          authorityRepository: repository.repository,
+          ...REQUEST,
+        })
+      );
+
+      expect(error).toMatchObject({
+        code: "TEMPORARILY_UNAVAILABLE",
+        message: "Authorization is temporarily unavailable.",
+      });
+    }
+  });
+
   it("carries only a validated MCP grant seam and rechecks current actor membership", async () => {
     const repository = new StubAuthoritySupabaseRpcClient(authority());
     const principal = validatedMcpPrincipalFixture({
@@ -333,7 +480,7 @@ describe("resolveActorContext", () => {
       ...REQUEST,
     });
 
-    expect(repository.mcpLookups).toEqual([
+    expect(repository.actorLookups).toEqual([
       {
         actorUserId: "11111111-1111-4111-8111-111111111111",
         companyId: "22222222-2222-4222-8222-222222222222",
@@ -354,6 +501,41 @@ describe("resolveActorContext", () => {
       applicationId: "claude",
       protocolEra: "2026-07-28",
     });
+  });
+
+  it("rechecks routed Phase C actor and company authority with an internal ceiling", async () => {
+    const repository = new StubAuthoritySupabaseRpcClient(authority());
+    const principal = verifiedPhaseCPrincipalFixture({
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      companyId: "22222222-2222-4222-8222-222222222222",
+      applicationId: "phase-c",
+      protocolEra: "internal-v1",
+      ...PHASE_C_ROUTE,
+    });
+
+    const context = await resolveActorContext({
+      principal,
+      authorityRepository: repository.repository,
+      ...REQUEST,
+    });
+
+    expect(repository.actorLookups).toEqual([
+      {
+        actorUserId: "11111111-1111-4111-8111-111111111111",
+        companyId: "22222222-2222-4222-8222-222222222222",
+        registeredPermissionKeys: REGISTERED_ACTOR_PERMISSION_KEYS,
+      },
+    ]);
+    expect(context.auth).toEqual({
+      channel: "internal",
+      scopeCeiling: null,
+    });
+    expect(context.auditClient).toEqual({
+      applicationId: "phase-c",
+      protocolEra: "internal-v1",
+    });
+    expect(context.phaseCRoute).toEqual(PHASE_C_ROUTE);
+    expect(Object.isFrozen(context.phaseCRoute)).toBe(true);
   });
 
   it("fails closed when an MCP authority snapshot does not match its validated grant", async () => {
@@ -427,7 +609,7 @@ describe("resolveActorContext", () => {
           effectivePermissions: [],
         });
       },
-      async resolveMcpAuthority() {
+      async resolveActorAuthority() {
         return null;
       },
     };
@@ -450,6 +632,248 @@ describe("resolveActorContext", () => {
     );
   });
 
+  it("rejects accessor-backed principal and repository seams without invoking them", async () => {
+    const trustedRepository = new StubAuthoritySupabaseRpcClient(authority());
+    const fabricatedRepository = {
+      async resolveInternalAuthority() {
+        return authority({ isAdmin: true });
+      },
+      async resolveActorAuthority() {
+        return authority({ isAdmin: true });
+      },
+    };
+    let principalReads = 0;
+    let repositoryReads = 0;
+    const hostileInput = {
+      ...REQUEST,
+    } as Record<string, unknown>;
+    Object.defineProperties(hostileInput, {
+      principal: {
+        enumerable: true,
+        get() {
+          principalReads += 1;
+          return principalReads === 1
+            ? internalPrincipal()
+            : {
+                kind: "internal",
+                channel: "internal",
+                firebaseSubject: "attacker-subject",
+                applicationId: "attacker-client",
+                protocolEra: "attacker-era",
+              };
+        },
+      },
+      authorityRepository: {
+        enumerable: true,
+        get() {
+          repositoryReads += 1;
+          return repositoryReads === 1
+            ? trustedRepository.repository
+            : fabricatedRepository;
+        },
+      },
+    });
+
+    const error = await rejected(() =>
+      resolveActorContext(hostileInput as never)
+    );
+
+    expect(error).toMatchObject({
+      code: "INTERNAL",
+      message: "Authorization could not be evaluated.",
+    });
+    expect(principalReads).toBe(0);
+    expect(repositoryReads).toBe(0);
+    expect(trustedRepository.internalLookups).toEqual([]);
+    expect(JSON.stringify(error.toAgentError())).not.toContain("attacker");
+  });
+
+  it("rejects non-exact or proxy input before any authority lookup", async () => {
+    const repository = new StubAuthoritySupabaseRpcClient(authority());
+    const base = {
+      principal: internalPrincipal(),
+      authorityRepository: repository.repository,
+      ...REQUEST,
+    };
+    const withSymbol = { ...base } as Record<PropertyKey, unknown>;
+    withSymbol[Symbol("secret-input")] = "private-value";
+    const withNonEnumerable = { ...base };
+    Object.defineProperty(withNonEnumerable, "hidden", {
+      enumerable: false,
+      value: "private-value",
+    });
+    const descriptorTrap = new Proxy(base, {
+      getOwnPropertyDescriptor() {
+        throw new Error("private descriptor details");
+      },
+    });
+
+    for (const malformed of [
+      { ...base, extra: "private-value" },
+      withSymbol,
+      withNonEnumerable,
+      new Proxy(base, {}),
+      descriptorTrap,
+    ]) {
+      const error = await rejected(() =>
+        resolveActorContext(malformed as never)
+      );
+      expect(error).toMatchObject({
+        code: "INTERNAL",
+        message: "Authorization could not be evaluated.",
+      });
+      expect(JSON.stringify(error.toAgentError())).not.toContain("private");
+    }
+
+    expect(repository.internalLookups).toEqual([]);
+  });
+
+  it("keeps one captured actor and capability snapshot across an authority await", async () => {
+    let releaseLookup:
+      | ((result: {
+          data: readonly Readonly<Record<string, unknown>>[];
+          error: null;
+        }) => void)
+      | undefined;
+    const pendingLookup = new Promise<{
+      data: readonly Readonly<Record<string, unknown>>[];
+      error: null;
+    }>((resolve) => {
+      releaseLookup = resolve;
+    });
+    const repository = createSupabaseActorAuthorityRepository({
+      rpc() {
+        return pendingLookup;
+      },
+    });
+    const originalPrincipal = validatedMcpPrincipalFixture({
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      companyId: "22222222-2222-4222-8222-222222222222",
+      oauthGrantId: "grant-original",
+      oauthClientId: "client-original",
+      validatedScopes: ["ops.jobs.read"],
+      tokenId: "token-original",
+      issuer: "https://auth.opsapp.co",
+      audience: "https://mcp.opsapp.co/mcp",
+      grantRevision: "grant-revision-original",
+      applicationId: "claude-original",
+      protocolEra: "2026-07-28",
+    });
+    const mutableInput = {
+      principal: originalPrincipal as VerifiedActorPrincipal,
+      authorityRepository: repository,
+      requestId: "request-original",
+      causationId: "cause-original" as string | null,
+      policyRevision: "policy-original",
+      capabilityManifestRevision: "manifest-original",
+    };
+
+    const resolution = resolveActorContext(mutableInput);
+    mutableInput.principal = verifiedPhaseCPrincipalFixture({
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      companyId: "22222222-2222-4222-8222-222222222222",
+      applicationId: "phase-c-mutated",
+      protocolEra: "mutated-era",
+      ...PHASE_C_ROUTE,
+    });
+    mutableInput.causationId = "cause-mutated";
+    mutableInput.policyRevision = "policy-mutated";
+    mutableInput.capabilityManifestRevision = "manifest-mutated";
+    const snapshot = authority();
+    releaseLookup?.({
+      data: [
+        {
+          actor_user_id: snapshot.actorUserId,
+          company_id: snapshot.companyId,
+          is_active: snapshot.isActive,
+          is_admin: snapshot.isAdmin,
+          role_ids: snapshot.roleIds,
+          configured_permissions: snapshot.configuredPermissions,
+          effective_permissions: snapshot.effectivePermissions,
+          permission_snapshot_revision: snapshot.permissionSnapshotRevision,
+        },
+      ],
+      error: null,
+    });
+
+    await expect(resolution).resolves.toMatchObject({
+      requestId: "request-original",
+      causationId: "cause-original",
+      policyRevision: "policy-original",
+      capabilityManifestRevision: "manifest-original",
+      auth: {
+        channel: "mcp",
+        oauthGrantId: "grant-original",
+      },
+      auditClient: {
+        applicationId: "claude-original",
+        protocolEra: "2026-07-28",
+      },
+    });
+  });
+
+  it("fails closed when an authority await replaces Object.fromEntries", async () => {
+    const originalDescriptor = Object.getOwnPropertyDescriptor(
+      Object,
+      "fromEntries"
+    );
+    if (!originalDescriptor || !("value" in originalDescriptor)) {
+      throw new Error("Object.fromEntries descriptor is unavailable");
+    }
+    const snapshot = authority({
+      configuredPermissions: ["projects.view"],
+      effectivePermissions: [
+        { permission: "projects.view", scope: "assigned" },
+      ],
+    });
+    const repository = createSupabaseActorAuthorityRepository({
+      async rpc() {
+        Object.defineProperty(Object, "fromEntries", {
+          ...originalDescriptor,
+          value() {
+            return { "projects.view": "all" };
+          },
+        });
+        return {
+          data: [
+            {
+              actor_user_id: snapshot.actorUserId,
+              company_id: snapshot.companyId,
+              is_active: snapshot.isActive,
+              is_admin: snapshot.isAdmin,
+              role_ids: snapshot.roleIds,
+              configured_permissions: snapshot.configuredPermissions,
+              effective_permissions: snapshot.effectivePermissions,
+              permission_snapshot_revision: snapshot.permissionSnapshotRevision,
+            },
+          ],
+          error: null,
+        };
+      },
+    });
+
+    let resolution: ActorContext | undefined;
+    let caught: unknown;
+    try {
+      resolution = await resolveActorContext({
+        principal: internalPrincipal(),
+        authorityRepository: repository,
+        ...REQUEST,
+      });
+    } catch (error) {
+      caught = error;
+    } finally {
+      Object.defineProperty(Object, "fromEntries", originalDescriptor);
+    }
+
+    expect(resolution).toBeUndefined();
+    expect(caught).toBeInstanceOf(ActorAccessError);
+    expect(caught).toMatchObject({
+      code: "TEMPORARILY_UNAVAILABLE",
+      message: "Authorization is temporarily unavailable.",
+    });
+  });
+
   it("keeps ActorContext nominal so caller data cannot construct authority", () => {
     if (false) {
       // @ts-expect-error only resolveActorContext can mint the private brand
@@ -468,6 +892,7 @@ describe("resolveActorContext", () => {
         auditClient: { applicationId: null, protocolEra: null },
         policyRevision: "policy-forged",
         capabilityManifestRevision: "manifest-forged",
+        phaseCRoute: null,
       };
       void forged;
     }

@@ -10,6 +10,7 @@ import {
 } from "./errors";
 import type { ActorContext } from "./resolve-actor-context";
 import type { AppPermission, PermissionScope } from "@/lib/types/permissions";
+import { snapshotExactOwnEnumerableData } from "./exact-own-data-snapshot";
 
 export type EntityKind =
   | "opportunity"
@@ -140,6 +141,27 @@ export interface AuthorizeCurrentEntityQueryInput {
   readonly action: EntityAction;
 }
 
+const AUTHORIZE_ENTITY_QUERY_INPUT_KEYS = [
+  "capabilityAuthorization",
+  "authorizationRepository",
+  "entity",
+  "action",
+] as const;
+const AUTHORIZED_CAPABILITY_KEYS = [
+  "actorContext",
+  "capabilityId",
+  "capabilityRevision",
+  "capabilityManifestRevision",
+  "declaredPermissions",
+  "resolvedPermissions",
+  "satisfiedPermissionGroupIndexes",
+  "satisfiedOAuthScopes",
+] as const;
+const ENTITY_AUTHORIZATION_REPOSITORY_KEYS = [
+  "authorizeCurrentEntity",
+] as const;
+const ENTITY_REFERENCE_KEYS = ["kind", "id"] as const;
+
 const ENTITY_ACTION_PERMISSION: Readonly<
   Record<EntityKind, Readonly<Partial<Record<EntityAction, AppPermission>>>>
 > = Object.freeze({
@@ -189,48 +211,84 @@ function permissionFor(
   return ENTITY_ACTION_PERMISSION[kind][action] ?? null;
 }
 
-export async function authorizeCurrentEntityQuery({
-  capabilityAuthorization,
-  authorizationRepository,
-  entity,
-  action,
-}: AuthorizeCurrentEntityQueryInput): Promise<AuthorizedEntityQueryContext> {
-  if (!isAuthorizedCapability(capabilityAuthorization)) {
+export async function authorizeCurrentEntityQuery(
+  input: AuthorizeCurrentEntityQueryInput
+): Promise<AuthorizedEntityQueryContext> {
+  const inputSnapshot = snapshotExactOwnEnumerableData(
+    input,
+    AUTHORIZE_ENTITY_QUERY_INPUT_KEYS
+  );
+  if (!inputSnapshot) {
+    throw authorizationInternal(
+      "unknown-request",
+      "entity_authorization_input_invalid"
+    );
+  }
+
+  const capabilityAuthorization = inputSnapshot.capabilityAuthorization;
+  const authorizationRepository = inputSnapshot.authorizationRepository;
+  const entitySnapshot = snapshotExactOwnEnumerableData(
+    inputSnapshot.entity,
+    ENTITY_REFERENCE_KEYS
+  );
+  const actionValue = inputSnapshot.action;
+  const capabilitySnapshot = snapshotExactOwnEnumerableData(
+    capabilityAuthorization,
+    AUTHORIZED_CAPABILITY_KEYS
+  );
+  const repositorySnapshot = snapshotExactOwnEnumerableData(
+    authorizationRepository,
+    ENTITY_AUTHORIZATION_REPOSITORY_KEYS
+  );
+
+  if (!isAuthorizedCapability(capabilityAuthorization) || !capabilitySnapshot) {
     throw authorizationInternal(
       "unknown-request",
       "entity_capability_authorization_untrusted"
     );
   }
 
-  const { actorContext } = capabilityAuthorization;
-  if (!isTrustedCurrentEntityAuthorizationRepository(authorizationRepository)) {
+  const actorContext = capabilitySnapshot.actorContext as ActorContext;
+  if (
+    !isTrustedCurrentEntityAuthorizationRepository(authorizationRepository) ||
+    !repositorySnapshot ||
+    typeof repositorySnapshot.authorizeCurrentEntity !== "function"
+  ) {
     throw authorizationInternal(
       actorContext.requestId,
       "entity_authorization_repository_untrusted"
     );
   }
+  const entityKind = entitySnapshot?.kind;
+  const entityIdValue = entitySnapshot?.id;
   if (
-    typeof entity !== "object" ||
-    entity === null ||
-    typeof entity.kind !== "string" ||
-    typeof entity.id !== "string" ||
-    typeof action !== "string"
+    !entitySnapshot ||
+    typeof entityKind !== "string" ||
+    typeof entityIdValue !== "string" ||
+    typeof actionValue !== "string"
   ) {
     throw invalidEntityArgument(actorContext.requestId, ["entity"]);
   }
-  const permission = permissionFor(entity.kind, action);
+  const action = actionValue as EntityAction;
+  const permission = permissionFor(entityKind as EntityKind, action);
   if (!permission) {
     throw invalidEntityArgument(actorContext.requestId, ["entity", "action"]);
   }
 
-  const entityId = entity.id.trim().toLowerCase();
+  const entityId = entityIdValue.trim().toLowerCase();
   if (!UUID_PATTERN.test(entityId)) {
     throw invalidEntityArgument(actorContext.requestId, ["entity", "id"]);
   }
 
-  const resolvedScope = capabilityAuthorization.resolvedPermissions[permission];
+  const resolvedPermissions =
+    capabilitySnapshot.resolvedPermissions as Readonly<
+      Record<string, PermissionScope>
+    >;
+  const declaredPermissions =
+    capabilitySnapshot.declaredPermissions as readonly string[];
+  const resolvedScope = resolvedPermissions[permission];
   if (!resolvedScope) {
-    if (capabilityAuthorization.declaredPermissions.includes(permission)) {
+    if (declaredPermissions.includes(permission)) {
       throw entityNotFound(actorContext.requestId, "entity_access_unavailable");
     }
     throw authorizationInternal(
@@ -239,12 +297,19 @@ export async function authorizeCurrentEntityQuery({
     );
   }
 
+  const authorizeCurrentEntity =
+    repositorySnapshot.authorizeCurrentEntity as CurrentEntityAuthorizationRepository["authorizeCurrentEntity"];
+  const actorUserId = actorContext.actorUserId;
+  const companyId = actorContext.companyId;
+  const capabilityId = capabilitySnapshot.capabilityId as string;
+  const capabilityRevision = capabilitySnapshot.capabilityRevision as string;
+
   let allowed: unknown;
   try {
-    allowed = await authorizationRepository.authorizeCurrentEntity({
-      actorUserId: actorContext.actorUserId,
-      companyId: actorContext.companyId,
-      entityKind: entity.kind,
+    allowed = await authorizeCurrentEntity.call(authorizationRepository, {
+      actorUserId,
+      companyId,
+      entityKind: entityKind as EntityKind,
       entityId,
       action,
     });
@@ -268,9 +333,9 @@ export async function authorizeCurrentEntityQuery({
 
   const queryContext = {
     actorContext,
-    capabilityId: capabilityAuthorization.capabilityId,
-    capabilityRevision: capabilityAuthorization.capabilityRevision,
-    entity: Object.freeze({ kind: entity.kind, id: entityId }),
+    capabilityId,
+    capabilityRevision,
+    entity: Object.freeze({ kind: entityKind as EntityKind, id: entityId }),
     action,
     permission,
     resolvedScope,

@@ -66,6 +66,7 @@ const JOB_SUMMARY_CAPABILITY_ID = "get_job_summary" as const;
 const JOB_HISTORY_CAPABILITY_ID = "search_job_history" as const;
 const CORRESPONDENCE_EVIDENCE_CAPABILITY_ID =
   "get_correspondence_evidence" as const;
+const TRUSTED_DOMAIN_SERVICES = new WeakSet<object>();
 
 export interface CreateOpsAgentDomainServiceInput {
   readonly repositories: OpsAgentDomainRepositories;
@@ -469,7 +470,7 @@ export function createOpsAgentDomainService(
       ...(now ? { now } : {}),
     });
 
-  return Object.freeze({
+  const service = {
     getJobConversationContext,
     listScheduledJobs,
     listJobReadinessIssues,
@@ -479,5 +480,17 @@ export function createOpsAgentDomainService(
     getJobSummary,
     searchJobHistory,
     getCorrespondenceEvidence,
-  } satisfies OpsAgentDomainService);
+  } satisfies OpsAgentDomainService;
+  TRUSTED_DOMAIN_SERVICES.add(service);
+  return Object.freeze(service);
+}
+
+export function isTrustedOpsAgentDomainService(
+  value: unknown
+): value is OpsAgentDomainService {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    TRUSTED_DOMAIN_SERVICES.has(value)
+  );
 }

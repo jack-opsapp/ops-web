@@ -5,7 +5,7 @@ import {
   type AgentAuthoritySupabaseRpcClient,
   type AgentAuthoritySupabaseRpcResult,
   type InternalAuthorityLookup,
-  type McpAuthorityLookup,
+  type ActorAuthorityLookup,
 } from "@/lib/agent-control-plane/actor/authority-repository";
 import {
   createSupabaseCurrentEntityAuthorizationRepository,
@@ -33,7 +33,7 @@ export class StubAuthoritySupabaseRpcClient implements AgentAuthoritySupabaseRpc
   mcpResult: ActorAuthoritySnapshot | null;
   failure: unknown | null = null;
   readonly internalLookups: InternalAuthorityLookup[] = [];
-  readonly mcpLookups: McpAuthorityLookup[] = [];
+  readonly actorLookups: ActorAuthorityLookup[] = [];
   readonly repository: ActorAuthorityRepository;
 
   constructor(snapshot: ActorAuthoritySnapshot) {
@@ -62,11 +62,11 @@ export class StubAuthoritySupabaseRpcClient implements AgentAuthoritySupabaseRpc
       };
     }
 
-    this.mcpLookups.push({
+    this.actorLookups.push({
       actorUserId: args.p_actor_user_id as string,
       companyId: args.p_company_id as string,
       registeredPermissionKeys:
-        args.p_registered_permission_keys as McpAuthorityLookup["registeredPermissionKeys"],
+        args.p_registered_permission_keys as ActorAuthorityLookup["registeredPermissionKeys"],
     });
     return {
       data: this.mcpResult ? [authorityRpcRow(this.mcpResult)] : [],

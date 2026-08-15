@@ -17,7 +17,10 @@ import {
   resolveCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import { trustedAuthorityRepositoryForSnapshot } from "@/lib/agent-control-plane/actor/__tests__/fixtures/trusted-repository-fixtures";
-import { verifiedInternalPrincipalFixture } from "@/lib/agent-control-plane/actor/__tests__/fixtures/verified-principal-fixtures";
+import {
+  verifiedInternalPrincipalFixture,
+  verifiedPhaseCPrincipalFixture,
+} from "@/lib/agent-control-plane/actor/__tests__/fixtures/verified-principal-fixtures";
 import { authorizeJobConversationContextRead } from "../job-conversation-context-authorization";
 import { createSupabaseJobConversationContextRepository } from "../job-conversation-context-repository";
 import {
@@ -38,6 +41,8 @@ const TURN_THREE = "66666666-6666-4666-8666-666666666663";
 const CONNECTION_ID = "77777777-7777-4777-8777-777777777777";
 const PROVIDER_SOURCE_ID = "88888888-8888-4888-8888-888888888888";
 const ACTIVITY_ID = "99999999-9999-4999-8999-999999999999";
+const INTERNAL_THREAD_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2";
+const PROVIDER_THREAD_ID = "provider-thread-phase-c";
 const PERMISSION_REVISION = `sha256:${"a".repeat(64)}`;
 const CONTENT_HASH = `sha256:${"b".repeat(64)}`;
 const SOURCE_HASH = `sha256:${"c".repeat(64)}`;
@@ -86,6 +91,42 @@ async function authorizedRead(
     rawInput
   );
   expect(resolved.variants).toHaveLength(1);
+  const authorization = authorizeCapability({
+    actorContext,
+    policy: resolved.variants[0]!.policy,
+  });
+  return authorizeJobConversationContextRead({ authorization, rawInput });
+}
+
+async function authorizedPhaseCRead(requiredThroughTurnId = TURN_THREE) {
+  const actorContext = await resolveActorContext({
+    principal: verifiedPhaseCPrincipalFixture({
+      actorUserId: ACTOR_ID,
+      companyId: COMPANY_ID,
+      assignmentVersion: 7,
+      connectionId: CONNECTION_ID,
+      opportunityId: OPPORTUNITY_ID,
+      internalThreadId: INTERNAL_THREAD_ID,
+      providerThreadId: PROVIDER_THREAD_ID,
+      sourceActivityId: ACTIVITY_ID,
+      sourceTurnId: TURN_THREE,
+      sourceConversationId: CONVERSATION_ID,
+      applicationId: "phase-c",
+      protocolEra: "internal-v1",
+    }),
+    authorityRepository: trustedAuthorityRepositoryForSnapshot(authority()),
+    requestId: "request-phase-c-context-1",
+    policyRevision: "actor-policy:v1",
+    capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
+  });
+  const rawInput = {
+    job_ref: { kind: "opportunity" as const, id: OPPORTUNITY_ID },
+    required_through_turn_id: requiredThroughTurnId,
+  };
+  const resolved = resolveCapabilityAuthorization(
+    "get_job_conversation_context",
+    rawInput
+  );
   const authorization = authorizeCapability({
     actorContext,
     policy: resolved.variants[0]!.policy,
@@ -260,6 +301,52 @@ class StubContextRpcClient {
 }
 
 describe("getJobConversationContext", () => {
+  it("binds Phase C reads to the exact routed source proof and v6 context RPC", async () => {
+    const authorization = await authorizedPhaseCRead();
+    const client = new StubContextRpcClient(
+      snapshot({
+        required_through: { turn_id: TURN_THREE, state: "pending" },
+      })
+    );
+
+    await createSupabaseJobConversationContextRepository(client).read({
+      authorization,
+    });
+
+    expect(client.calls).toEqual([
+      {
+        functionName:
+          "read_agent_phase_c_job_conversation_context_as_system",
+        args: expect.objectContaining({
+          p_capability_manifest_revision:
+            "2026-08-14.capability-manifest.v6",
+          p_job_kind: "opportunity",
+          p_job_id: OPPORTUNITY_ID,
+          p_required_through_turn_id: TURN_THREE,
+          p_phase_c_assignment_version: 7,
+          p_phase_c_connection_id: CONNECTION_ID,
+          p_phase_c_internal_thread_id: INTERNAL_THREAD_ID,
+          p_phase_c_provider_thread_id: PROVIDER_THREAD_ID,
+          p_phase_c_source_activity_id: ACTIVITY_ID,
+          p_phase_c_source_turn_id: TURN_THREE,
+          p_phase_c_source_conversation_id: CONVERSATION_ID,
+        }),
+      },
+    ]);
+  });
+
+  it("rejects a Phase C read whose requested watermark differs from its source turn", async () => {
+    const authorization = await authorizedPhaseCRead(TURN_TWO);
+    const client = new StubContextRpcClient(snapshot());
+
+    await expect(
+      createSupabaseJobConversationContextRepository(client).read({
+        authorization,
+      })
+    ).rejects.toMatchObject({ code: "JOB_CONVERSATION_CONTEXT_INVALID" });
+    expect(client.calls).toEqual([]);
+  });
+
   it("returns the canonical ordered prompt bundle with exact turns and source evidence", async () => {
     const authorization = await authorizedRead();
     const client = new StubContextRpcClient(snapshot());

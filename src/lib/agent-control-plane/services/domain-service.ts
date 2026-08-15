@@ -99,3 +99,7 @@ export interface OpsAgentDomainService {
     options?: DomainCallOptions
   ): Promise<z.infer<typeof CorrespondenceEvidenceResultSchema>>;
 }
+
+export type JobConversationContextDomainResult = Awaited<
+  ReturnType<OpsAgentDomainService["getJobConversationContext"]>
+>;

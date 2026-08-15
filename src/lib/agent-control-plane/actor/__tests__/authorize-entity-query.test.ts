@@ -9,6 +9,7 @@ import {
 import { defineCapabilityPolicyForManifest } from "@/lib/agent-control-plane/actor/capability-policy-boundary";
 import {
   authorizeCurrentEntityQuery,
+  createSupabaseCurrentEntityAuthorizationRepository,
   isAuthorizedEntityQueryContext,
   type AuthorizedEntityQueryContext,
   type EntityAction,
@@ -378,6 +379,147 @@ describe("authorizeCurrentEntityQuery", () => {
     expect(error.auditReasonForLog()).toBe(
       "entity_authorization_repository_untrusted"
     );
+  });
+
+  it("rejects accessor, proxy, symbol, extra, or non-enumerable query input before lookup", async () => {
+    const authorization = await capability("projects.view", "assigned");
+    const rpcClient = new StubEntityAuthorizationSupabaseRpcClient();
+    const base = {
+      capabilityAuthorization: authorization,
+      authorizationRepository: rpcClient.repository,
+      entity: { kind: "project" as const, id: ENTITY_ID },
+      action: "view" as const,
+    };
+    let capabilityReads = 0;
+    const withAccessor = {
+      authorizationRepository: rpcClient.repository,
+      entity: base.entity,
+      action: base.action,
+    } as Record<string, unknown>;
+    Object.defineProperty(withAccessor, "capabilityAuthorization", {
+      enumerable: true,
+      get() {
+        capabilityReads += 1;
+        return authorization;
+      },
+    });
+    const withSymbol = { ...base } as Record<PropertyKey, unknown>;
+    withSymbol[Symbol("query-secret")] = true;
+    const withNonEnumerable = { ...base };
+    Object.defineProperty(withNonEnumerable, "hidden", {
+      enumerable: false,
+      value: true,
+    });
+
+    for (const malformed of [
+      withAccessor,
+      { ...base, extra: true },
+      withSymbol,
+      withNonEnumerable,
+      new Proxy(base, {}),
+      new Proxy(base, {
+        getOwnPropertyDescriptor() {
+          throw new Error("private descriptor details");
+        },
+      }),
+    ]) {
+      const error = await rejected(() =>
+        authorizeCurrentEntityQuery(malformed as never)
+      );
+      expect(error).toMatchObject({
+        code: "INTERNAL",
+        message: "Authorization could not be evaluated.",
+      });
+      expect(JSON.stringify(error.toAgentError())).not.toContain("private");
+    }
+
+    expect(capabilityReads).toBe(0);
+    expect(rpcClient.lookups).toEqual([]);
+  });
+
+  it("rejects non-exact entity references without invoking accessors", async () => {
+    const authorization = await capability("projects.view", "assigned");
+    const rpcClient = new StubEntityAuthorizationSupabaseRpcClient();
+    let kindReads = 0;
+    const accessorEntity = { id: ENTITY_ID } as Record<string, unknown>;
+    Object.defineProperty(accessorEntity, "kind", {
+      enumerable: true,
+      get() {
+        kindReads += 1;
+        return "project";
+      },
+    });
+    const withSymbol = {
+      kind: "project",
+      id: ENTITY_ID,
+    } as Record<PropertyKey, unknown>;
+    withSymbol[Symbol("entity-secret")] = true;
+    const withNonEnumerable = { kind: "project", id: ENTITY_ID };
+    Object.defineProperty(withNonEnumerable, "hidden", {
+      enumerable: false,
+      value: true,
+    });
+
+    for (const entity of [
+      accessorEntity,
+      { kind: "project", id: ENTITY_ID, extra: true },
+      withSymbol,
+      withNonEnumerable,
+      new Proxy({ kind: "project", id: ENTITY_ID }, {}),
+    ]) {
+      const error = await rejected(() =>
+        authorizeCurrentEntityQuery({
+          capabilityAuthorization: authorization,
+          authorizationRepository: rpcClient.repository,
+          entity: entity as never,
+          action: "view",
+        })
+      );
+      expect(error.code).toBe("INVALID_ARGUMENT");
+    }
+
+    expect(kindReads).toBe(0);
+    expect(rpcClient.lookups).toEqual([]);
+  });
+
+  it("keeps the exact entity and capability snapshot while authorization is pending", async () => {
+    const authorization = await capability("pipeline.view", "assigned");
+    let releaseLookup:
+      | ((value: { data: true; error: null }) => void)
+      | undefined;
+    const pendingLookup = new Promise<{ data: true; error: null }>(
+      (resolve) => {
+        releaseLookup = resolve;
+      }
+    );
+    const repository = createSupabaseCurrentEntityAuthorizationRepository({
+      rpc() {
+        return pendingLookup;
+      },
+    });
+    const mutableEntity = {
+      kind: "opportunity" as EntityKind,
+      id: ENTITY_ID,
+    };
+    const mutableInput = {
+      capabilityAuthorization: authorization,
+      authorizationRepository: repository,
+      entity: mutableEntity,
+      action: "view" as EntityAction,
+    };
+
+    const resolution = authorizeCurrentEntityQuery(mutableInput);
+    mutableEntity.kind = "project";
+    mutableEntity.id = "99999999-9999-4999-8999-999999999999";
+    mutableInput.action = "edit";
+    releaseLookup?.({ data: true, error: null });
+
+    await expect(resolution).resolves.toMatchObject({
+      entity: { kind: "opportunity", id: ENTITY_ID },
+      action: "view",
+      permission: "pipeline.view",
+      resolvedScope: "assigned",
+    });
   });
 
   it("never treats a truthy malformed entity RPC result as allow", async () => {

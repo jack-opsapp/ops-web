@@ -10,6 +10,8 @@ import {
 } from "./job-conversation-context-authorization";
 
 const CONTEXT_RPC = "read_agent_job_conversation_context_as_system" as const;
+const PHASE_C_CONTEXT_RPC =
+  "read_agent_phase_c_job_conversation_context_as_system" as const;
 const UuidSchema = z.string().uuid();
 const TimestampSchema = z.string().datetime({ offset: true });
 const Sha256Schema = z.string().regex(/^sha256:[0-9a-f]{64}$/);
@@ -268,7 +270,7 @@ export interface JobConversationContextRpcRequest extends PromiseLike<ContextRpc
 
 export interface JobConversationContextRpcClient {
   rpc(
-    functionName: typeof CONTEXT_RPC,
+    functionName: typeof CONTEXT_RPC | typeof PHASE_C_CONTEXT_RPC,
     args: Readonly<Record<string, unknown>>
   ): JobConversationContextRpcRequest;
 }
@@ -290,10 +292,10 @@ export interface JobConversationContextRepository extends TrustedJobConversation
 export function createSupabaseJobConversationContextRepository(
   client: JobConversationContextRpcClient
 ): JobConversationContextRepository {
-  if (!client || typeof client.rpc !== "function") {
+  const rpc = client?.rpc;
+  if (!client || typeof rpc !== "function") {
     throw new TypeError("A job conversation context RPC client is required");
   }
-
   const repository = {
     async read(input: {
       readonly authorization: AuthorizedJobConversationContextRead;
@@ -305,17 +307,32 @@ export function createSupabaseJobConversationContextRepository(
         );
       }
       const proof = input.authorization;
-      const request = client.rpc(CONTEXT_RPC, {
+      const phaseCRoute = proof.actorContext.phaseCRoute;
+      if (
+        phaseCRoute &&
+        (proof.jobRef.kind !== "opportunity" ||
+          proof.jobRef.id !== phaseCRoute.opportunityId ||
+          proof.requiredThroughTurnId !== phaseCRoute.sourceTurnId)
+      ) {
+        throw new JobConversationContextRepositoryError(
+          "JOB_CONVERSATION_CONTEXT_INVALID"
+        );
+      }
+      const args = Object.freeze({
         p_request_id: proof.actorContext.requestId,
         p_actor_user_id: proof.actorContext.actorUserId,
         p_company_id: proof.actorContext.companyId,
         p_permission_snapshot_revision:
           proof.actorContext.permissionSnapshotRevision,
-        p_registered_permission_keys: [...REGISTERED_ACTOR_PERMISSION_KEYS],
+        p_registered_permission_keys: Object.freeze([
+          ...REGISTERED_ACTOR_PERMISSION_KEYS,
+        ]),
         p_capability_id: proof.capabilityId,
         p_capability_revision: proof.capabilityRevision,
         p_capability_manifest_revision: proof.capabilityManifestRevision,
-        p_required_oauth_scopes: [...proof.requiredOAuthScopes],
+        p_required_oauth_scopes: Object.freeze([
+          ...proof.requiredOAuthScopes,
+        ]),
         p_inbox_scope: proof.inboxScope,
         p_clients_scope: proof.clientsScope,
         p_job_permission: proof.jobPermission,
@@ -323,9 +340,26 @@ export function createSupabaseJobConversationContextRepository(
         p_job_kind: proof.jobRef.kind,
         p_job_id: proof.jobRef.id,
         p_exact_turn_limit: proof.exactTurnLimit,
-        p_sections: [...proof.sections],
+        p_sections: Object.freeze([...proof.sections]),
         p_required_through_turn_id: proof.requiredThroughTurnId,
+        ...(phaseCRoute
+          ? {
+              p_phase_c_assignment_version: phaseCRoute.assignmentVersion,
+              p_phase_c_connection_id: phaseCRoute.connectionId,
+              p_phase_c_internal_thread_id: phaseCRoute.internalThreadId,
+              p_phase_c_provider_thread_id: phaseCRoute.providerThreadId,
+              p_phase_c_source_activity_id: phaseCRoute.sourceActivityId,
+              p_phase_c_source_turn_id: phaseCRoute.sourceTurnId,
+              p_phase_c_source_conversation_id:
+                phaseCRoute.sourceConversationId,
+            }
+          : {}),
       });
+      const request = rpc.call(
+        client,
+        phaseCRoute ? PHASE_C_CONTEXT_RPC : CONTEXT_RPC,
+        args
+      );
       const response =
         input.signal && request.abortSignal
           ? await request.abortSignal(input.signal)
@@ -399,6 +433,9 @@ function assertSnapshotSemantics(
     new Set(snapshot.invalidated_evidence_ids).size !==
       snapshot.invalidated_evidence_ids.length ||
     snapshot.source_state_revision < snapshot.last_turn_sequence ||
+    (proof.actorContext.phaseCRoute !== null &&
+      snapshot.conversation_id !==
+        proof.actorContext.phaseCRoute.sourceConversationId) ||
     snapshot.recent_turns.length + snapshot.recent_turns_omitted_count !==
       (proof.sections.includes("recent_turns")
         ? Math.min(proof.exactTurnLimit, snapshot.last_turn_sequence)
