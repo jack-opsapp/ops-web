@@ -27,6 +27,7 @@ const descriptor = {
   provider: "gmail",
   type: "company",
   userId: null,
+  defaultIntakeOwnerId: null,
   email: "shared@canpro.test",
   syncEnabled: true,
   lastSyncedAt: "2026-07-15T12:00:00.000Z",
@@ -36,6 +37,7 @@ const descriptor = {
   aiReviewEnabled: true,
   aiMemoryEnabled: true,
   status: "active",
+  calendarSyncGranted: false,
   createdAt: "2026-07-01T12:00:00.000Z",
   updatedAt: "2026-07-15T12:00:00.000Z",
 };
