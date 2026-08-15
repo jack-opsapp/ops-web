@@ -1651,6 +1651,14 @@ export interface SiteVisit {
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+  /**
+   * Non-null = a real appointment (scheduled_at is then meaningful).
+   * NULL = walk-up / legacy capture whose scheduled_at defaulted to
+   * created_at and must never reach a scheduling surface.
+   */
+  bookedAt: Date | null;
+  /** Per-booking heads-up override in minutes. NULL = the user's default. */
+  reminderLeadMinutes: number | null;
 }
 
 export interface CreateSiteVisit {

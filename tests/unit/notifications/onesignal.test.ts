@@ -136,6 +136,54 @@ describe("sendOneSignalPush", () => {
     expect(requestCount).toBe(0);
   });
 
+  it("targets external_id aliases when externalUserIds is used", async () => {
+    mockOneSignalSequence([200]);
+    const result = await sendOneSignalPush({
+      externalUserIds: ["user-1", "user-2"],
+      title: "Test push",
+      body: "Test body",
+      data: { type: "test" },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(requestCount).toBe(1);
+    expect(lastRequestBody!.include_aliases).toEqual({
+      external_id: ["user-1", "user-2"],
+    });
+    // Alias targeting requires an explicit channel per the OneSignal API.
+    expect(lastRequestBody!.target_channel).toBe("push");
+    expect(lastRequestBody).not.toHaveProperty("include_player_ids");
+  });
+
+  it("returns {ok: true} immediately for empty externalUserIds without calling fetch", async () => {
+    mockOneSignalSequence([200]);
+    const result = await sendOneSignalPush({
+      externalUserIds: [],
+      title: "Test push",
+      body: "Test body",
+      data: { type: "test" },
+    });
+    expect(result.ok).toBe(true);
+    expect(requestCount).toBe(0);
+  });
+
+  it("passes idempotencyKey through as idempotency_key", async () => {
+    mockOneSignalSequence([200]);
+    await sendOneSignalPush({
+      ...PARAMS,
+      idempotencyKey: "8b7e9a52-4c2d-4d0a-9b7e-1f2a3c4d5e6f",
+    });
+    expect(lastRequestBody!.idempotency_key).toBe(
+      "8b7e9a52-4c2d-4d0a-9b7e-1f2a3c4d5e6f"
+    );
+  });
+
+  it("omits idempotency_key when not provided", async () => {
+    mockOneSignalSequence([200]);
+    await sendOneSignalPush(PARAMS);
+    expect(lastRequestBody).not.toHaveProperty("idempotency_key");
+  });
+
   it("sends correct JSON body including ios_badgeType when iosBadgeIncrement > 0", async () => {
     mockOneSignalSequence([200]);
     await sendOneSignalPush({ ...PARAMS, iosBadgeIncrement: 1 });
@@ -153,5 +201,31 @@ describe("sendOneSignalPush", () => {
     expect(lastRequestBody).toBeTruthy();
     expect(lastRequestBody!.ios_badgeType).toBeUndefined();
     expect(lastRequestBody!.ios_badgeCount).toBeUndefined();
+  });
+});
+
+describe("deterministicIdempotencyKey", () => {
+  it("derives a stable RFC 9562-shaped UUID from a seed", async () => {
+    const { deterministicIdempotencyKey } = await import(
+      "@/lib/notifications/onesignal"
+    );
+    const seed = "site_visit:v-1:heads_up:u-1:1800000000";
+    const key = deterministicIdempotencyKey(seed);
+
+    expect(key).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+    );
+    expect(deterministicIdempotencyKey(seed)).toBe(key);
+  });
+
+  it("produces different UUIDs for different seeds", async () => {
+    const { deterministicIdempotencyKey } = await import(
+      "@/lib/notifications/onesignal"
+    );
+    expect(
+      deterministicIdempotencyKey("site_visit:v-1:heads_up:u-1:1800000000")
+    ).not.toBe(
+      deterministicIdempotencyKey("site_visit:v-1:start:u-1:1800000000")
+    );
   });
 });

@@ -3216,6 +3216,50 @@ export type Database = {
           },
         ]
       }
+      calendar_feed_tokens: {
+        Row: {
+          access_count: number
+          company_id: string
+          created_at: string
+          id: string
+          label: string | null
+          last_accessed_at: string | null
+          revoked_at: string | null
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          access_count?: number
+          company_id: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          last_accessed_at?: string | null
+          revoked_at?: string | null
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          access_count?: number
+          company_id?: string
+          created_at?: string
+          id?: string
+          label?: string | null
+          last_accessed_at?: string | null
+          revoked_at?: string | null
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_feed_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       calendar_user_events: {
         Row: {
           address: string | null
@@ -7091,6 +7135,7 @@ export type Database = {
           default_intake_owner_id: string | null
           email: string
           expires_at: string
+          granted_scopes: string[] | null
           history_id: string | null
           history_recovery_anchor: string | null
           history_recovery_page_token: string | null
@@ -7129,6 +7174,7 @@ export type Database = {
           default_intake_owner_id?: string | null
           email: string
           expires_at: string
+          granted_scopes?: string[] | null
           history_id?: string | null
           history_recovery_anchor?: string | null
           history_recovery_page_token?: string | null
@@ -7167,6 +7213,7 @@ export type Database = {
           default_intake_owner_id?: string | null
           email?: string
           expires_at?: string
+          granted_scopes?: string[] | null
           history_id?: string | null
           history_recovery_anchor?: string | null
           history_recovery_page_token?: string | null
@@ -10331,6 +10378,79 @@ export type Database = {
           },
         ]
       }
+      google_calendar_sync_queue: {
+        Row: {
+          attempts: number
+          company_id: string
+          connection_id: string
+          created_at: string
+          google_calendar_event_id: string | null
+          google_calendar_id: string | null
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          operation: string
+          site_visit_id: string
+          skip_reason: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          company_id: string
+          connection_id: string
+          created_at?: string
+          google_calendar_event_id?: string | null
+          google_calendar_id?: string | null
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          operation: string
+          site_visit_id: string
+          skip_reason?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          google_calendar_event_id?: string | null
+          google_calendar_id?: string | null
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          operation?: string
+          site_visit_id?: string
+          skip_reason?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_sync_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_calendar_sync_queue_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "google_calendar_sync_queue_site_visit_id_fkey"
+            columns: ["site_visit_id"]
+            isOneToOne: false
+            referencedRelation: "site_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       graph_entities: {
         Row: {
           company_id: string
@@ -11608,6 +11728,109 @@ export type Database = {
         }
         Relationships: []
       }
+      meeting_proposals: {
+        Row: {
+          accepted_at: string | null
+          accepted_message_id: string | null
+          company_id: string
+          connection_id: string
+          created_at: string
+          duration_minutes: number
+          id: string
+          opportunity_id: string
+          proposal_text: string
+          proposed_by_user_id: string
+          proposed_start_at: string
+          provider_thread_id: string
+          site_visit_id: string | null
+          source_activity_id: string
+          status: string
+          time_zone: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_message_id?: string | null
+          company_id: string
+          connection_id: string
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          opportunity_id: string
+          proposal_text: string
+          proposed_by_user_id: string
+          proposed_start_at: string
+          provider_thread_id: string
+          site_visit_id?: string | null
+          source_activity_id: string
+          status?: string
+          time_zone: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_message_id?: string | null
+          company_id?: string
+          connection_id?: string
+          created_at?: string
+          duration_minutes?: number
+          id?: string
+          opportunity_id?: string
+          proposal_text?: string
+          proposed_by_user_id?: string
+          proposed_start_at?: string
+          provider_thread_id?: string
+          site_visit_id?: string | null
+          source_activity_id?: string
+          status?: string
+          time_zone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_proposals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_proposals_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "email_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_proposals_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "opportunities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_proposals_proposed_by_user_id_fkey"
+            columns: ["proposed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_proposals_site_visit_id_fkey"
+            columns: ["site_visit_id"]
+            isOneToOne: false
+            referencedRelation: "site_visits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_proposals_source_activity_id_fkey"
+            columns: ["source_activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modules: {
         Row: {
           course_id: string
@@ -11744,6 +11967,7 @@ export type Database = {
           quiet_hours_end: string | null
           quiet_hours_start: string | null
           schedule_changes: boolean | null
+          site_visit_reminder_lead_minutes: number | null
           task_assigned: boolean | null
           task_completed: boolean | null
           team_mentions: boolean | null
@@ -11766,6 +11990,7 @@ export type Database = {
           quiet_hours_end?: string | null
           quiet_hours_start?: string | null
           schedule_changes?: boolean | null
+          site_visit_reminder_lead_minutes?: number | null
           task_assigned?: boolean | null
           task_completed?: boolean | null
           team_mentions?: boolean | null
@@ -11788,6 +12013,7 @@ export type Database = {
           quiet_hours_end?: string | null
           quiet_hours_start?: string | null
           schedule_changes?: boolean | null
+          site_visit_reminder_lead_minutes?: number | null
           task_assigned?: boolean | null
           task_completed?: boolean | null
           team_mentions?: boolean | null
@@ -17815,6 +18041,7 @@ export type Database = {
         Row: {
           activity_id: string | null
           assignee_ids: string[] | null
+          booked_at: string | null
           calendar_event_id: string | null
           client_id: string | null
           client_ref: string | null
@@ -17824,6 +18051,9 @@ export type Database = {
           created_by: string
           deleted_at: string | null
           duration_minutes: number
+          google_calendar_event_id: string | null
+          google_calendar_id: string | null
+          google_calendar_synced_at: string | null
           id: string
           internal_notes: string | null
           measurements: string | null
@@ -17832,6 +18062,7 @@ export type Database = {
           photos: string[] | null
           project_id: string | null
           project_ref: string | null
+          reminder_lead_minutes: number | null
           scheduled_at: string
           status: Database["public"]["Enums"]["site_visit_status"]
           updated_at: string | null
@@ -17839,6 +18070,7 @@ export type Database = {
         Insert: {
           activity_id?: string | null
           assignee_ids?: string[] | null
+          booked_at?: string | null
           calendar_event_id?: string | null
           client_id?: string | null
           client_ref?: string | null
@@ -17848,6 +18080,9 @@ export type Database = {
           created_by: string
           deleted_at?: string | null
           duration_minutes?: number
+          google_calendar_event_id?: string | null
+          google_calendar_id?: string | null
+          google_calendar_synced_at?: string | null
           id?: string
           internal_notes?: string | null
           measurements?: string | null
@@ -17856,6 +18091,7 @@ export type Database = {
           photos?: string[] | null
           project_id?: string | null
           project_ref?: string | null
+          reminder_lead_minutes?: number | null
           scheduled_at: string
           status?: Database["public"]["Enums"]["site_visit_status"]
           updated_at?: string | null
@@ -17863,6 +18099,7 @@ export type Database = {
         Update: {
           activity_id?: string | null
           assignee_ids?: string[] | null
+          booked_at?: string | null
           calendar_event_id?: string | null
           client_id?: string | null
           client_ref?: string | null
@@ -17872,6 +18109,9 @@ export type Database = {
           created_by?: string
           deleted_at?: string | null
           duration_minutes?: number
+          google_calendar_event_id?: string | null
+          google_calendar_id?: string | null
+          google_calendar_synced_at?: string | null
           id?: string
           internal_notes?: string | null
           measurements?: string | null
@@ -17880,6 +18120,7 @@ export type Database = {
           photos?: string[] | null
           project_id?: string | null
           project_ref?: string | null
+          reminder_lead_minutes?: number | null
           scheduled_at?: string
           status?: Database["public"]["Enums"]["site_visit_status"]
           updated_at?: string | null
@@ -22414,6 +22655,28 @@ export type Database = {
         Args: { p_holder: string; p_queue_id: string }
         Returns: Json
       }
+      book_proposed_meeting_as_system: {
+        Args: {
+          p_accepted_message_id: string
+          p_notes: string
+          p_proposal_id: string
+        }
+        Returns: {
+          booked: boolean
+          guard_reason: string
+          site_visit_id: string
+        }[]
+      }
+      book_site_visit: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_duration_minutes?: number
+          p_opportunity_id: string
+          p_reminder_lead_minutes?: number
+          p_scheduled_at: string
+        }
+        Returns: string
+      }
       bulk_update_project_table: { Args: { p_operations: Json }; Returns: Json }
       campaign_engagement_stats: {
         Args: { p_campaign_id: string }
@@ -22483,6 +22746,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      cancel_site_visit_booking: {
+        Args: { p_site_visit_id: string }
+        Returns: string
       }
       catalog_guided_setup_archive_variant: {
         Args: { p_action_key: string; p_session_id: string }
@@ -25527,6 +25794,46 @@ export type Database = {
         Args: { p_design_id: string; p_target_opportunity_id: string }
         Returns: Json
       }
+      list_email_provider_mutation_reconciliation_candidates: {
+        Args: {
+          p_connection_id: string
+          p_limit?: number
+          p_operation_kind?: string
+          p_since?: string
+        }
+        Returns: {
+          actor_user_id: string | null
+          attempt_count: number
+          company_id: string
+          completed_at: string | null
+          connection_id: string | null
+          connection_id_snapshot: string
+          connection_type_snapshot: string
+          created_at: string
+          id: string
+          last_error: string | null
+          mailbox_address_snapshot: string
+          operation_key: string
+          operation_kind: string
+          owner_user_id_snapshot: string | null
+          provider_accepted_at: string | null
+          provider_attempted_at: string | null
+          provider_resource_id: string | null
+          provider_result: Json
+          provider_secondary_resource_id: string | null
+          provider_snapshot: string
+          reconciliation_required_at: string | null
+          request_fingerprint: string
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "email_provider_mutation_attempts"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       list_opportunity_assignment_candidates: {
         Args: { p_opportunity_id: string }
         Returns: Json
@@ -27456,6 +27763,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reschedule_site_visit: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_duration_minutes?: number
+          p_reminder_lead_minutes?: number
+          p_scheduled_at: string
+          p_site_visit_id: string
+        }
+        Returns: string
+      }
       reset_opportunity_table_view: {
         Args: { p_view_id: string }
         Returns: {
@@ -27534,6 +27851,48 @@ export type Database = {
           p_provider_thread_id: string
         }
         Returns: Json
+      }
+      resolve_email_provider_mutation_reconciliation: {
+        Args: {
+          p_attempt_id: string
+          p_evidence?: string
+          p_provider_resource_id?: string
+          p_provider_result?: Json
+          p_provider_secondary_resource_id?: string
+          p_verdict: string
+        }
+        Returns: {
+          actor_user_id: string | null
+          attempt_count: number
+          company_id: string
+          completed_at: string | null
+          connection_id: string | null
+          connection_id_snapshot: string
+          connection_type_snapshot: string
+          created_at: string
+          id: string
+          last_error: string | null
+          mailbox_address_snapshot: string
+          operation_key: string
+          operation_kind: string
+          owner_user_id_snapshot: string | null
+          provider_accepted_at: string | null
+          provider_attempted_at: string | null
+          provider_resource_id: string | null
+          provider_result: Json
+          provider_secondary_resource_id: string | null
+          provider_snapshot: string
+          reconciliation_required_at: string | null
+          request_fingerprint: string
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "email_provider_mutation_attempts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       resolve_openai_quota_notification_as_system: {
         Args: {
@@ -28099,6 +28458,10 @@ export type Database = {
           active: boolean
           jobname: string
         }[]
+      }
+      touch_calendar_feed_token: {
+        Args: { p_token_id: string }
+        Returns: undefined
       }
       undo_lead_archive_feedback: {
         Args: { p_feedback_id: string; p_idempotency_key: string }

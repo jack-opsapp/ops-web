@@ -63,6 +63,11 @@ export interface NotificationPreferences {
   channelPreferences: ChannelPreferences;
   quietHoursStart: string | null;
   quietHoursEnd: string | null;
+  /**
+   * Default heads-up lead for booked site visits, in minutes.
+   * NULL = product default (30). Per-booking overrides live on the visit.
+   */
+  siteVisitReminderLeadMinutes: number | null;
   createdAt: Date;
   updatedAt: Date;
 
@@ -139,6 +144,10 @@ function mapFromDb(row: Record<string, unknown>): NotificationPreferences {
     channelPreferences: channelPrefs,
     quietHoursStart: (row.quiet_hours_start as string) ?? null,
     quietHoursEnd: (row.quiet_hours_end as string) ?? null,
+    siteVisitReminderLeadMinutes:
+      row.site_visit_reminder_lead_minutes == null
+        ? null
+        : Number(row.site_visit_reminder_lead_minutes),
     createdAt: parseDateRequired(row.created_at),
     updatedAt: parseDateRequired(row.updated_at),
 

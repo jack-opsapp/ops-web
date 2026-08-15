@@ -27,6 +27,7 @@ const ALL_TYPES: NotificationType[] = [
   "task_assigned",
   "task_completed",
   "schedule_change",
+  "site_visit_reminder",
   "expense_submitted",
   "expense_approved",
   "expense_paid",

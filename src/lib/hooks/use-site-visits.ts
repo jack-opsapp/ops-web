@@ -8,10 +8,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "../api/query-client";
 import {
   SiteVisitService,
+  type BookSiteVisitInput,
+  type BookedVisitWithLead,
   type FetchSiteVisitsOptions,
+  type RescheduleSiteVisitInput,
 } from "../api/services/site-visit-service";
-import type { CreateSiteVisit, UpdateSiteVisit } from "../types/pipeline";
+import type { CreateSiteVisit, SiteVisit, UpdateSiteVisit } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
+import { usePermissionStore } from "../store/permissions-store";
 
 export function useSiteVisits(options: FetchSiteVisitsOptions = {}) {
   const { company } = useAuthStore();
@@ -102,5 +106,103 @@ export function useCancelSiteVisit() {
       queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.lists() });
       queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.detail(id) });
     },
+  });
+}
+
+// ─── Booking (RPC write path) ───────────────────────────────────────────────
+//
+// Booking side effects are server-owned: the RPC writes the visit, logs the
+// timeline activity, nudges new_lead → qualifying, and enqueues calendar
+// sync. Client-side we only refresh the caches those effects touched —
+// siteVisits (open booking + booked ranges), opportunities (stage + assigned
+// context timeline), and the schedule calendar tree.
+
+function invalidateBookingCaches(
+  queryClient: ReturnType<typeof useQueryClient>
+) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.siteVisits.all });
+  queryClient.invalidateQueries({ queryKey: queryKeys.opportunities.all });
+  queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+}
+
+/**
+ * Booked appointments in a date window — the schedule calendar's third
+ * source. Scope-aware like the user-events hook: without an `all` view
+ * scope the read narrows to visits the current user is going on.
+ */
+export function useBookedVisits(
+  rangeStart: Date | null,
+  rangeEnd: Date | null
+) {
+  const { company, currentUser } = useAuthStore();
+  const companyId = company?.id ?? "";
+
+  const calendarScope = usePermissionStore(
+    (s) => s.permissions.get("calendar.view")
+  );
+  const tasksScope = usePermissionStore((s) => s.permissions.get("tasks.view"));
+  const hasAllScope = calendarScope === "all" || tasksScope === "all";
+  const scopedUserId = !hasAllScope ? currentUser?.id : undefined;
+
+  const startIso = rangeStart?.toISOString() ?? "";
+  const endIso = rangeEnd?.toISOString() ?? "";
+
+  return useQuery<BookedVisitWithLead[]>({
+    queryKey: [
+      ...queryKeys.siteVisits.bookedRange(companyId, startIso, endIso),
+      scopedUserId ?? "",
+    ],
+    queryFn: () =>
+      SiteVisitService.getBookedVisitsInRange(
+        companyId,
+        rangeStart!,
+        rangeEnd!,
+        scopedUserId ? { assigneeId: scopedUserId } : {}
+      ),
+    enabled: !!companyId && !!rangeStart && !!rangeEnd,
+    // Keep the previous range visible during background refetches on scroll.
+    placeholderData: (previousData) => previousData,
+  });
+}
+
+/**
+ * The lead's open booking (one-open-booking rule: at most one `scheduled`
+ * booked visit per lead). Null when the slot is free.
+ */
+export function useOpenBooking(opportunityId: string | undefined) {
+  return useQuery<SiteVisit | null>({
+    queryKey: queryKeys.siteVisits.openBooking(opportunityId ?? ""),
+    queryFn: () => SiteVisitService.fetchOpenBooking(opportunityId!),
+    enabled: !!opportunityId,
+  });
+}
+
+export function useBookSiteVisit() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: BookSiteVisitInput) =>
+      SiteVisitService.bookSiteVisit(input),
+    onSuccess: () => invalidateBookingCaches(queryClient),
+  });
+}
+
+export function useRescheduleSiteVisit() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (input: RescheduleSiteVisitInput) =>
+      SiteVisitService.rescheduleSiteVisit(input),
+    onSuccess: () => invalidateBookingCaches(queryClient),
+  });
+}
+
+export function useCancelSiteVisitBooking() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (siteVisitId: string) =>
+      SiteVisitService.cancelSiteVisitBooking(siteVisitId),
+    onSuccess: () => invalidateBookingCaches(queryClient),
   });
 }
