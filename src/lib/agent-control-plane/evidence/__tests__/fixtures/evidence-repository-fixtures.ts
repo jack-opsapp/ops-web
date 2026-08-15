@@ -60,7 +60,9 @@ async function authorization() {
   });
   const manifestPolicy = getCapabilityManifestEntry(
     "get_correspondence_evidence"
-  ).authorization.variants[0]!.policy;
+  ).authorization.variants.find(
+    (variant) => variant.key === "correspondence_evidence"
+  )!.policy;
   return authorizeCorrespondenceEvidenceRead(
     authorizeCapability({
       actorContext,

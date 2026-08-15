@@ -14,7 +14,12 @@ const CommonClaimsSchema = z
   .object({
     version: z.number().int().positive(),
     key_id: z.string().min(1).max(128),
-    capability_id: z.enum(["list_scheduled_jobs", "list_job_readiness_issues"]),
+    capability_id: z.enum([
+      "list_scheduled_jobs",
+      "list_job_readiness_issues",
+      "list_customer_jobs",
+      "search_job_history",
+    ]),
     schema_revision: z.string().min(1).max(128),
     capability_manifest_revision: z.string().min(1).max(128),
     rule_revisions: z.array(z.string().min(1).max(128)).max(5),
@@ -39,6 +44,26 @@ const ReadinessCursorClaimsSchema = CommonClaimsSchema.extend({
   capability_id: z.literal("list_job_readiness_issues"),
   first_scheduled_start_utc: UTC_SCHEMA,
   project_id: UUID_SCHEMA,
+}).strict();
+const CustomerJobsCursorClaimsSchema = CommonClaimsSchema.extend({
+  capability_id: z.literal("list_customer_jobs"),
+  sort_at: UTC_SCHEMA,
+  job_kind: z.enum(["opportunity", "project"]),
+  job_id: UUID_SCHEMA,
+}).strict();
+const JobHistoryCursorClaimsSchema = CommonClaimsSchema.extend({
+  capability_id: z.literal("search_job_history"),
+  history_revision: z.number().int().nonnegative(),
+  rank_micros: z.number().int().safe().min(0).max(1_000_000),
+  occurred_at: UTC_SCHEMA,
+  source_type: z.enum([
+    "delivered_correspondence",
+    "current_memory_summary",
+    "job_status_event",
+    "task_event",
+    "estimate_document",
+  ]),
+  source_id: z.string().min(1).max(512),
 }).strict();
 const WireSchema = z.discriminatedUnion("c", [
   z
@@ -67,6 +92,42 @@ const WireSchema = z.discriminatedUnion("c", [
       a: UTC_SCHEMA,
     })
     .strict(),
+  z
+    .object({
+      c: z.literal("c"),
+      b: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+      p: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+      i: z.number().int().nonnegative(),
+      e: z.number().int().positive(),
+      r: z.number().int().nonnegative(),
+      t: UTC_SCHEMA,
+      k: z.enum(["opportunity", "project"]),
+      x: UUID_SCHEMA,
+      a: UTC_SCHEMA,
+    })
+    .strict(),
+  z
+    .object({
+      c: z.literal("h"),
+      b: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+      p: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+      i: z.number().int().nonnegative(),
+      e: z.number().int().positive(),
+      r: z.number().int().nonnegative(),
+      h: z.number().int().nonnegative(),
+      m: z.number().int().safe().min(0).max(1_000_000),
+      t: UTC_SCHEMA,
+      s: z.enum([
+        "delivered_correspondence",
+        "current_memory_summary",
+        "job_status_event",
+        "task_event",
+        "estimate_document",
+      ]),
+      x: z.string().min(1).max(512),
+      a: UTC_SCHEMA,
+    })
+    .strict(),
 ]);
 
 export type ScheduledJobsCursorClaims = z.infer<
@@ -75,8 +136,17 @@ export type ScheduledJobsCursorClaims = z.infer<
 export type JobReadinessCursorClaims = z.infer<
   typeof ReadinessCursorClaimsSchema
 >;
+export type CustomerJobsCursorClaims = z.infer<
+  typeof CustomerJobsCursorClaimsSchema
+>;
+export type JobHistoryCursorClaims = z.infer<
+  typeof JobHistoryCursorClaimsSchema
+>;
 export type OperationalReadCursorClaims =
-  ScheduledJobsCursorClaims | JobReadinessCursorClaims;
+  | ScheduledJobsCursorClaims
+  | JobReadinessCursorClaims
+  | CustomerJobsCursorClaims
+  | JobHistoryCursorClaims;
 type CursorRuntimeFields = "version" | "key_id" | "issued_at" | "expires_at";
 type CursorInput<T extends OperationalReadCursorClaims> = T extends unknown
   ? Omit<T, CursorRuntimeFields | "rule_revisions"> &
@@ -104,7 +174,11 @@ export interface OperationalReadCursorCodec {
   decode(input: {
     readonly cursor: string;
     readonly expected: Readonly<{
-      capabilityId: "list_scheduled_jobs" | "list_job_readiness_issues";
+      capabilityId:
+        | "list_scheduled_jobs"
+        | "list_job_readiness_issues"
+        | "list_customer_jobs"
+        | "search_job_history";
       schemaRevision: string;
       capabilityManifestRevision: string;
       ruleRevisions: readonly string[];
@@ -232,7 +306,11 @@ export function createOperationalReadCursorCodec(
       const parsed =
         claims.capability_id === "list_scheduled_jobs"
           ? ScheduledCursorClaimsSchema.safeParse(claims)
-          : ReadinessCursorClaimsSchema.safeParse(claims);
+          : claims.capability_id === "list_job_readiness_issues"
+            ? ReadinessCursorClaimsSchema.safeParse(claims)
+            : claims.capability_id === "list_customer_jobs"
+              ? CustomerJobsCursorClaimsSchema.safeParse(claims)
+              : JobHistoryCursorClaimsSchema.safeParse(claims);
       if (!parsed.success) invalid();
       const binding = bindingDigest({
         capabilityId: parsed.data.capability_id,
@@ -243,9 +321,10 @@ export function createOperationalReadCursorCodec(
         companyId: parsed.data.company_id,
         queryHash: parsed.data.query_hash,
       });
-      const wire =
-        parsed.data.capability_id === "list_scheduled_jobs"
-          ? {
+      const wire = (() => {
+        switch (parsed.data.capability_id) {
+          case "list_scheduled_jobs":
+            return {
               c: "s" as const,
               b: binding,
               p: permissionDigest(
@@ -258,8 +337,9 @@ export function createOperationalReadCursorCodec(
               t: parsed.data.start_utc,
               x: parsed.data.task_id,
               a: parsed.data.read_as_of,
-            }
-          : {
+            };
+          case "list_job_readiness_issues":
+            return {
               c: "r" as const,
               b: binding,
               p: permissionDigest(
@@ -273,6 +353,42 @@ export function createOperationalReadCursorCodec(
               x: parsed.data.project_id,
               a: parsed.data.read_as_of,
             };
+          case "list_customer_jobs":
+            return {
+              c: "c" as const,
+              b: binding,
+              p: permissionDigest(
+                capturedKey,
+                parsed.data.permission_snapshot_revision
+              ),
+              i: parsed.data.issued_at,
+              e: parsed.data.expires_at,
+              r: parsed.data.source_revision,
+              t: parsed.data.sort_at,
+              k: parsed.data.job_kind,
+              x: parsed.data.job_id,
+              a: parsed.data.read_as_of,
+            };
+          case "search_job_history":
+            return {
+              c: "h" as const,
+              b: binding,
+              p: permissionDigest(
+                capturedKey,
+                parsed.data.permission_snapshot_revision
+              ),
+              i: parsed.data.issued_at,
+              e: parsed.data.expires_at,
+              r: parsed.data.source_revision,
+              h: parsed.data.history_revision,
+              m: parsed.data.rank_micros,
+              t: parsed.data.occurred_at,
+              s: parsed.data.source_type,
+              x: parsed.data.source_id,
+              a: parsed.data.read_as_of,
+            };
+        }
+      })();
       const payload = base64UrlEncode(JSON.stringify(wire));
       const signature = base64UrlEncode(
         sign(
@@ -334,9 +450,16 @@ export function createOperationalReadCursorCodec(
       const nowSeconds = Math.floor(
         (capturedNow?.() ?? new Date()).getTime() / 1000
       );
+      const expectedWireKind =
+        expected.capabilityId === "list_scheduled_jobs"
+          ? "s"
+          : expected.capabilityId === "list_job_readiness_issues"
+            ? "r"
+            : expected.capabilityId === "list_customer_jobs"
+              ? "c"
+              : "h";
       if (
-        wire.c !==
-          (expected.capabilityId === "list_scheduled_jobs" ? "s" : "r") ||
+        wire.c !== expectedWireKind ||
         wire.b !== bindingDigest(expected) ||
         wire.i > nowSeconds + 60 ||
         wire.e <= nowSeconds ||
@@ -366,20 +489,42 @@ export function createOperationalReadCursorCodec(
         source_revision: wire.r,
         read_as_of: wire.a,
       };
-      const claims =
-        wire.c === "s"
-          ? {
+      const claims = (() => {
+        switch (wire.c) {
+          case "s":
+            return {
               ...common,
               capability_id: "list_scheduled_jobs" as const,
               start_utc: wire.t,
               task_id: wire.x,
-            }
-          : {
+            };
+          case "r":
+            return {
               ...common,
               capability_id: "list_job_readiness_issues" as const,
               first_scheduled_start_utc: wire.t,
               project_id: wire.x,
             };
+          case "c":
+            return {
+              ...common,
+              capability_id: "list_customer_jobs" as const,
+              sort_at: wire.t,
+              job_kind: wire.k,
+              job_id: wire.x,
+            };
+          case "h":
+            return {
+              ...common,
+              capability_id: "search_job_history" as const,
+              history_revision: wire.h,
+              rank_micros: wire.m,
+              occurred_at: wire.t,
+              source_type: wire.s,
+              source_id: wire.x,
+            };
+        }
+      })();
       return Object.freeze(claims);
     },
   };

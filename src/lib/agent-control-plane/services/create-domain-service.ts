@@ -21,8 +21,12 @@ import {
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import type {
   DomainCallOptions,
+  CorrespondenceEvidenceReadInput,
+  CustomerJobsInput,
   GetJobConversationContextInput,
+  JobHistorySearchInput,
   JobReadinessIssuesInput,
+  JobSummaryInput,
   ListScheduledJobsInput,
   OpsAgentDomainService,
 } from "./domain-service";
@@ -43,12 +47,25 @@ import { authorizeJobCommunicationRead } from "./job-communication-authorization
 import { authorizeJobParticipantsRead } from "./job-participants-authorization";
 import { getJobCommunicationContext as readJobCommunicationContext } from "./get-job-communication-context";
 import { resolveJobParticipants as readJobParticipants } from "./resolve-job-participants";
+import { authorizeCustomerJobsRead } from "./customer-jobs-authorization";
+import { authorizeJobSummaryRead } from "./job-summary-authorization";
+import { authorizeJobHistoryRead } from "./job-history-authorization";
+import { authorizeCorrespondenceEvidencePageRead } from "./correspondence-evidence-page-authorization";
+import { listCustomerJobs as readCustomerJobs } from "./list-customer-jobs";
+import { getJobSummary as readJobSummary } from "./get-job-summary";
+import { searchJobHistory as readJobHistory } from "./search-job-history";
+import { getCorrespondenceEvidence as readCorrespondenceEvidence } from "./get-correspondence-evidence";
 
 const CAPABILITY_ID = "get_job_conversation_context" as const;
 const SCHEDULE_CAPABILITY_ID = "list_scheduled_jobs" as const;
 const READINESS_CAPABILITY_ID = "list_job_readiness_issues" as const;
 const COMMUNICATION_CAPABILITY_ID = "get_job_communication_context" as const;
 const PARTICIPANTS_CAPABILITY_ID = "resolve_job_participants" as const;
+const CUSTOMER_JOBS_CAPABILITY_ID = "list_customer_jobs" as const;
+const JOB_SUMMARY_CAPABILITY_ID = "get_job_summary" as const;
+const JOB_HISTORY_CAPABILITY_ID = "search_job_history" as const;
+const CORRESPONDENCE_EVIDENCE_CAPABILITY_ID =
+  "get_correspondence_evidence" as const;
 
 export interface CreateOpsAgentDomainServiceInput {
   readonly repositories: OpsAgentDomainRepositories;
@@ -229,6 +246,74 @@ function authorizeParticipantsRead(
   });
 }
 
+function authorizeCustomerJobsDomainRead(
+  actorContext: ActorContext,
+  input: CustomerJobsInput
+) {
+  const resolved = resolveAvailableCapability(
+    CUSTOMER_JOBS_CAPABILITY_ID,
+    actorContext,
+    input
+  );
+  return authorizeCustomerJobsRead({
+    authorizations: resolved.variants.map((variant) =>
+      authorizeCapability({ actorContext, policy: variant.policy })
+    ),
+    rawInput: resolved.parsedInput,
+  });
+}
+
+function authorizeJobSummaryDomainRead(
+  actorContext: ActorContext,
+  input: JobSummaryInput
+) {
+  const resolved = resolveAvailableCapability(
+    JOB_SUMMARY_CAPABILITY_ID,
+    actorContext,
+    input
+  );
+  return authorizeJobSummaryRead({
+    authorizations: resolved.variants.map((variant) =>
+      authorizeCapability({ actorContext, policy: variant.policy })
+    ),
+    rawInput: resolved.parsedInput,
+  });
+}
+
+function authorizeJobHistoryDomainRead(
+  actorContext: ActorContext,
+  input: JobHistorySearchInput
+) {
+  const resolved = resolveAvailableCapability(
+    JOB_HISTORY_CAPABILITY_ID,
+    actorContext,
+    input
+  );
+  return authorizeJobHistoryRead({
+    authorizations: resolved.variants.map((variant) =>
+      authorizeCapability({ actorContext, policy: variant.policy })
+    ),
+    rawInput: resolved.parsedInput,
+  });
+}
+
+function authorizeCorrespondenceEvidenceDomainRead(
+  actorContext: ActorContext,
+  input: CorrespondenceEvidenceReadInput
+) {
+  const resolved = resolveAvailableCapability(
+    CORRESPONDENCE_EVIDENCE_CAPABILITY_ID,
+    actorContext,
+    input
+  );
+  return authorizeCorrespondenceEvidencePageRead({
+    authorizations: resolved.variants.map((variant) =>
+      authorizeCapability({ actorContext, policy: variant.policy })
+    ),
+    rawInput: resolved.parsedInput,
+  });
+}
+
 export function createOpsAgentDomainService(
   input: CreateOpsAgentDomainServiceInput
 ): OpsAgentDomainService {
@@ -256,6 +341,10 @@ export function createOpsAgentDomainService(
     READINESS_CAPABILITY_ID,
     COMMUNICATION_CAPABILITY_ID,
     PARTICIPANTS_CAPABILITY_ID,
+    CUSTOMER_JOBS_CAPABILITY_ID,
+    JOB_SUMMARY_CAPABILITY_ID,
+    JOB_HISTORY_CAPABILITY_ID,
+    CORRESPONDENCE_EVIDENCE_CAPABILITY_ID,
   ]) {
     if (
       getCapabilityManifestEntry(capabilityId).availability.implementation !==
@@ -329,11 +418,66 @@ export function createOpsAgentDomainService(
       ...(now ? { now } : {}),
     });
 
+  const listCustomerJobs = async (
+    actorContext: ActorContext,
+    domainInput: CustomerJobsInput,
+    options?: DomainCallOptions
+  ) =>
+    await readCustomerJobs({
+      authorization: authorizeCustomerJobsDomainRead(actorContext, domainInput),
+      repository: repositories.customerJobs,
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(now ? { now } : {}),
+    });
+
+  const getJobSummary = async (
+    actorContext: ActorContext,
+    domainInput: JobSummaryInput,
+    options?: DomainCallOptions
+  ) =>
+    await readJobSummary({
+      authorization: authorizeJobSummaryDomainRead(actorContext, domainInput),
+      repository: repositories.jobSummary,
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(now ? { now } : {}),
+    });
+
+  const searchJobHistory = async (
+    actorContext: ActorContext,
+    domainInput: JobHistorySearchInput,
+    options?: DomainCallOptions
+  ) =>
+    await readJobHistory({
+      authorization: authorizeJobHistoryDomainRead(actorContext, domainInput),
+      repository: repositories.jobHistory,
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(now ? { now } : {}),
+    });
+
+  const getCorrespondenceEvidence = async (
+    actorContext: ActorContext,
+    domainInput: CorrespondenceEvidenceReadInput,
+    options?: DomainCallOptions
+  ) =>
+    await readCorrespondenceEvidence({
+      authorization: authorizeCorrespondenceEvidenceDomainRead(
+        actorContext,
+        domainInput
+      ),
+      repository: repositories.correspondenceEvidence,
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(now ? { now } : {}),
+    });
+
   return Object.freeze({
     getJobConversationContext,
     listScheduledJobs,
     listJobReadinessIssues,
     getJobCommunicationContext,
     resolveJobParticipants,
+    listCustomerJobs,
+    getJobSummary,
+    searchJobHistory,
+    getCorrespondenceEvidence,
   } satisfies OpsAgentDomainService);
 }

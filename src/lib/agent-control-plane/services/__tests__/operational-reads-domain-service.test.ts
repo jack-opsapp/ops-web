@@ -42,6 +42,10 @@ import type { ScheduledJobsRepository } from "../scheduled-jobs-repository";
 import { createSupabaseJobConversationContextRepository } from "../job-conversation-context-repository";
 import { createSupabaseJobCommunicationContextRepository } from "../job-communication-context-repository";
 import { createSupabaseJobParticipantsRepository } from "../job-participants-repository";
+import { createSupabaseCustomerJobsRepository } from "../customer-jobs-repository";
+import { createSupabaseJobSummaryRepository } from "../job-summary-repository";
+import { createSupabaseJobHistoryRepository } from "../job-history-repository";
+import { createSupabaseCorrespondenceEvidencePageRepository } from "../correspondence-evidence-page-repository";
 import { hashOperationalProjection } from "../operational-read-projection";
 import { READINESS_RULES } from "../readiness-rules";
 
@@ -407,6 +411,18 @@ async function trustedRepositories(input?: {
     jobParticipants: createSupabaseJobParticipantsRepository(
       noCommunicationReadClient
     ),
+    customerJobs: createSupabaseCustomerJobsRepository(
+      noCommunicationReadClient,
+      cursorCodec
+    ),
+    jobSummary: createSupabaseJobSummaryRepository(noCommunicationReadClient),
+    jobHistory: createSupabaseJobHistoryRepository(
+      noCommunicationReadClient,
+      cursorCodec
+    ),
+    correspondenceEvidence: createSupabaseCorrespondenceEvidencePageRepository(
+      noCommunicationReadClient
+    ),
   } as CreateOpsAgentDomainRepositoriesInput);
   return { repositories, scheduleClient, readinessClient };
 }
@@ -449,6 +465,10 @@ describe("operational reads domain facade", () => {
       "listJobReadinessIssues",
       "getJobCommunicationContext",
       "resolveJobParticipants",
+      "listCustomerJobs",
+      "getJobSummary",
+      "searchJobHistory",
+      "getCorrespondenceEvidence",
     ]);
     expect(Object.isFrozen(service)).toBe(true);
     expect(Object.keys(service)).not.toEqual(
@@ -471,6 +491,10 @@ describe("operational reads domain facade", () => {
       "list_job_readiness_issues",
       "get_job_communication_context",
       "get_job_conversation_context",
+      "list_customer_jobs",
+      "get_job_summary",
+      "search_job_history",
+      "get_correspondence_evidence",
       "resolve_job_participants",
     ]);
     for (const capabilityName of [
@@ -678,6 +702,18 @@ describe("operational reads domain facade", () => {
       createSupabaseJobCommunicationContextRepository(noTask12ReadClient);
     const trustedJobParticipants =
       createSupabaseJobParticipantsRepository(noTask12ReadClient);
+    const trustedCustomerJobs = createSupabaseCustomerJobsRepository(
+      noTask12ReadClient,
+      cursorCodec
+    );
+    const trustedJobSummary =
+      createSupabaseJobSummaryRepository(noTask12ReadClient);
+    const trustedJobHistory = createSupabaseJobHistoryRepository(
+      noTask12ReadClient,
+      cursorCodec
+    );
+    const trustedCorrespondenceEvidence =
+      createSupabaseCorrespondenceEvidencePageRepository(noTask12ReadClient);
     const attackerScheduledJobs = {
       read: vi.fn(async () => {
         throw new Error("Attacker schedule repository must never run");
@@ -721,6 +757,12 @@ describe("operational reads domain facade", () => {
         },
         jobParticipants: {
           value: trustedJobParticipants,
+        },
+        customerJobs: { value: trustedCustomerJobs },
+        jobSummary: { value: trustedJobSummary },
+        jobHistory: { value: trustedJobHistory },
+        correspondenceEvidence: {
+          value: trustedCorrespondenceEvidence,
         },
       }
     ) as CreateOpsAgentDomainRepositoriesInput;

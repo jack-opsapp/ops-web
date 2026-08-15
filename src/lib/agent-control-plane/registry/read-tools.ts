@@ -9,6 +9,13 @@ import {
   JobCommunicationContextInputSchema,
   JobParticipantsInputSchema,
 } from "@/lib/agent-control-plane/contracts/communication";
+import {
+  CorrespondenceEvidenceReadInputSchema,
+  CustomerJobsInputSchema,
+  JobHistorySearchInputSchema,
+  JobSummaryInputSchema,
+  TASK_13_CAPABILITY_SCHEMA_REVISION,
+} from "@/lib/agent-control-plane/contracts/job-catalog";
 import { JobRefSchema } from "@/lib/agent-control-plane/contracts/jobs";
 import {
   JobReadinessIssuesInputSchema,
@@ -42,23 +49,6 @@ const INTERNAL_ONLY_AVAILABILITY = Object.freeze({
 });
 const READ_CONFIRMATION = Object.freeze({ kind: "not_required" as const });
 const READ_IDEMPOTENCY = Object.freeze({ kind: "inherent" as const });
-
-const CustomerRefSchema = z
-  .object({
-    kind: z.enum(["client", "sub_client"]),
-    id: OpaqueIdSchema,
-  })
-  .strict();
-
-const UniqueJobRefsSchema = z
-  .array(JobRefSchema)
-  .max(50)
-  .refine(
-    (refs) =>
-      new Set(refs.map((reference) => `${reference.kind}:${reference.id}`))
-        .size === refs.length,
-    "Job references must be unique"
-  );
 
 function validWindow(from: string, to: string, maximumDays: number): boolean {
   const start = Date.parse(from);
@@ -125,107 +115,6 @@ export type ListScheduledJobsInput = Readonly<
 export type JobReadinessIssuesInput = Readonly<
   z.input<typeof JobReadinessIssuesInputSchema>
 >;
-
-const CustomerJobsInputSchema = CursorRequestSchema.extend({
-  customer_ref: CustomerRefSchema,
-  lifecycle: z
-    .array(z.enum(["lead", "active", "complete", "cancelled", "archived"]))
-    .max(5)
-    .optional(),
-  statuses: z.array(z.string().min(1).max(64)).max(20).optional(),
-  from: Rfc3339UtcTimestampSchema.optional(),
-  to: Rfc3339UtcTimestampSchema.optional(),
-})
-  .strict()
-  .superRefine((input, context) => {
-    if ((input.from === undefined) !== (input.to === undefined)) {
-      context.addIssue({
-        code: "custom",
-        path: [input.from === undefined ? "from" : "to"],
-        message: "Both date-window bounds are required",
-      });
-      return;
-    }
-    if (input.from && input.to && !validWindow(input.from, input.to, 365)) {
-      context.addIssue({
-        code: "custom",
-        path: ["to"],
-        message: "Customer-job window must be no longer than 365 days",
-      });
-    }
-  });
-
-const JobSummarySectionSchema = z.enum([
-  "identity",
-  "schedule",
-  "readiness",
-  "participants",
-  "financials",
-  "activity",
-  "conversation",
-]);
-const JobSummaryInputSchema = z
-  .object({
-    job_ref: JobRefSchema,
-    sections: z
-      .array(JobSummarySectionSchema)
-      .min(1)
-      .max(7)
-      .refine(
-        (sections) => new Set(sections).size === sections.length,
-        "Summary sections must be unique"
-      )
-      .default(["identity"]),
-  })
-  .strict();
-
-const JobHistorySearchInputSchema = z
-  .object({
-    query: z.string().trim().min(1).max(500),
-    customer_ref: CustomerRefSchema.optional(),
-    job_refs: UniqueJobRefsSchema.optional(),
-    from: Rfc3339UtcTimestampSchema.optional(),
-    to: Rfc3339UtcTimestampSchema.optional(),
-    source_types: z
-      .array(
-        z.enum([
-          "conversation_turn",
-          "memory_summary",
-          "activity",
-          "schedule",
-          "estimate",
-        ])
-      )
-      .max(5)
-      .optional(),
-    cursor: OpaqueIdSchema.optional(),
-    limit: z.number().int().min(1).max(20).default(10),
-  })
-  .strict()
-  .superRefine((input, context) => {
-    if ((input.from === undefined) !== (input.to === undefined)) {
-      context.addIssue({
-        code: "custom",
-        path: [input.from === undefined ? "from" : "to"],
-        message: "Both date-window bounds are required",
-      });
-      return;
-    }
-    if (input.from && input.to && !validWindow(input.from, input.to, 365)) {
-      context.addIssue({
-        code: "custom",
-        path: ["to"],
-        message: "Search window must be no longer than 365 days",
-      });
-    }
-  });
-
-const CorrespondenceEvidenceInputSchema = z
-  .object({
-    evidence_ids: z.array(OpaqueIdSchema).min(1).max(20),
-    mode: z.enum(["excerpt", "full_text"]).default("excerpt"),
-  })
-  .strict();
 
 const SiteVisitStatusSchema = z.enum([
   "scheduled",
@@ -377,16 +266,93 @@ function participantPurposeVariant(
   };
 }
 
+function customerJobKindVariant(
+  jobKind: "opportunity" | "project",
+  requirements: readonly ReturnType<typeof permission>[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key: `${jobKind}_jobs`,
+    selector: { kind: "customer_job_kind", jobKind },
+    requiredOAuthScopes: ["ops.jobs.read"],
+    permissionRequirementGroups: [requirements],
+  };
+}
+
+function summaryReadinessVariant(
+  authority: "site_photos" | "customer" | "schedule",
+  requiredOAuthScopes: readonly string[],
+  requirements: readonly ReturnType<typeof permission>[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key: `project:readiness:${authority}`,
+    selector: { kind: "job_summary_readiness", authority },
+    requiredOAuthScopes,
+    permissionRequirementGroups: [requirements],
+  };
+}
+
+function summaryFinancialVariant(
+  jobKind: "opportunity" | "project",
+  component: "estimate_rollup" | "invoice_rollup",
+  requirements: readonly ReturnType<typeof permission>[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key: `${jobKind}:financials:${component}`,
+    selector: {
+      kind: "job_summary_financial_component",
+      jobKind,
+      component,
+    },
+    requiredOAuthScopes: ["ops.financials.read"],
+    permissionRequirementGroups: [requirements],
+  };
+}
+
+function historyJobKindVariant(
+  jobKind: "opportunity" | "project",
+  requirements: readonly ReturnType<typeof permission>[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key: `${jobKind}_jobs`,
+    selector: { kind: "job_history_job_kind", jobKind },
+    requiredOAuthScopes: ["ops.jobs.read"],
+    permissionRequirementGroups: [requirements],
+  };
+}
+
+function historySourceVariant(
+  key: "correspondence_sources" | "task_event",
+  authority: "correspondence" | "task_event",
+  requiredOAuthScopes: readonly string[],
+  requirements: readonly ReturnType<typeof permission>[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key,
+    selector: { kind: "job_history_source_authority", authority },
+    requiredOAuthScopes,
+    permissionRequirementGroups: [requirements],
+  };
+}
+
+function historyFinancialSourceVariant(
+  jobKind: "opportunity" | "project",
+  requirements: readonly ReturnType<typeof permission>[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key: `${jobKind}:estimate_document`,
+    selector: { kind: "job_history_financial_source", jobKind },
+    requiredOAuthScopes: ["ops.financials.read"],
+    permissionRequirementGroups: [requirements],
+  };
+}
+
 function readMetadata(input: {
   riskTier: CapabilityRiskTier;
   maxResultItems: number;
   maxWindowDays?: number;
   evidenceInput?: "not_required" | "optional" | "required";
   auditClass?:
-    | "operational_read"
-    | "sensitive_read"
-    | "evidence_read"
-    | "search_read";
+    "operational_read" | "sensitive_read" | "evidence_read" | "search_read";
   rateLimitBucket?: "lightweight_read" | "evidence_search";
 }) {
   return {
@@ -634,27 +600,26 @@ export const READ_CAPABILITY_DEFINITIONS = [
   },
   {
     name: "list_customer_jobs",
-    schemaRevision: CONTRACT_VERSION,
+    schemaRevision: TASK_13_CAPABILITY_SCHEMA_REVISION,
     operation: "read",
     description: "Return visible jobs linked to one resolved customer.",
     inputSchema: CustomerJobsInputSchema,
     authorization: {
       variants: [
         {
-          key: "customer_jobs",
+          key: "customer",
           selector: { kind: "always" },
-          requiredOAuthScopes: ["ops.customers.read", "ops.jobs.read"],
+          requiredOAuthScopes: ["ops.customers.read"],
           permissionRequirementGroups: [
-            [
-              permission("clients.view", ["all", "assigned"]),
-              permission("pipeline.view", ["all", "assigned"]),
-            ],
-            [
-              permission("clients.view", ["all", "assigned"]),
-              permission("projects.view", ["all", "assigned"]),
-            ],
+            [permission("clients.view", ["all", "assigned"])],
           ],
         },
+        customerJobKindVariant("opportunity", [
+          permission("pipeline.view", ["all", "assigned"]),
+        ]),
+        customerJobKindVariant("project", [
+          permission("projects.view", ["all", "assigned"]),
+        ]),
       ],
     },
     ...readMetadata({
@@ -662,11 +627,12 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 50,
       maxWindowDays: 365,
     }),
+    availability: INTERNAL_ONLY_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.list_customer_jobs",
   },
   {
     name: "get_job_summary",
-    schemaRevision: CONTRACT_VERSION,
+    schemaRevision: TASK_13_CAPABILITY_SCHEMA_REVISION,
     operation: "read",
     description: "Return selected current facts for one job.",
     inputSchema: JobSummaryInputSchema,
@@ -683,13 +649,25 @@ export const READ_CAPABILITY_DEFINITIONS = [
           [permission("projects.view", ["all", "assigned"])]
         ),
         sectionVariant(
-          "opportunity",
+          "project",
           "schedule",
           ["ops.schedule.read"],
-          [permission("calendar.view", ["all", "own"])]
+          [
+            permission("calendar.view", ["all", "own"]),
+            permission("tasks.view", ["all", "assigned"]),
+          ]
         ),
-        sectionVariant(
-          "project",
+        summaryReadinessVariant(
+          "site_photos",
+          ["ops.photos.read"],
+          [permission("photos.view", ["all", "assigned"])]
+        ),
+        summaryReadinessVariant(
+          "customer",
+          ["ops.customers.read"],
+          [permission("clients.view", ["all", "assigned"])]
+        ),
+        summaryReadinessVariant(
           "schedule",
           ["ops.schedule.read"],
           [
@@ -699,55 +677,63 @@ export const READ_CAPABILITY_DEFINITIONS = [
         ),
         sectionVariant(
           "opportunity",
-          "readiness",
-          ["ops.customers.read"],
-          [permission("clients.view", ["all", "assigned"])]
-        ),
-        sectionVariant(
-          "project",
-          "readiness",
+          "participants",
           [
+            "ops.correspondence.read",
             "ops.customer_contacts.read",
             "ops.customers.read",
-            "ops.photos.read",
-            "ops.schedule.read",
+            "ops.jobs.read",
           ],
           [
-            permission("calendar.view", ["all", "own"]),
             permission("clients.view", ["all", "assigned"]),
-            permission("photos.view", ["all", "assigned"]),
-            permission("tasks.view", ["all", "assigned"]),
+            permission("inbox.view", ["all", "assigned", "own"]),
+            permission("pipeline.view", ["all", "assigned"]),
           ]
         ),
         sectionVariant(
-          "opportunity",
-          "participants",
-          ["ops.customers.read"],
-          [permission("clients.view", ["all", "assigned"])]
-        ),
-        sectionVariant(
           "project",
           "participants",
-          ["ops.customers.read"],
-          [permission("clients.view", ["all", "assigned"])]
+          [
+            "ops.correspondence.read",
+            "ops.customer_contacts.read",
+            "ops.customers.read",
+            "ops.jobs.read",
+          ],
+          [
+            permission("clients.view", ["all", "assigned"]),
+            permission("inbox.view", ["all", "assigned", "own"]),
+            permission("projects.view", ["all", "assigned"]),
+          ]
         ),
+        summaryFinancialVariant("opportunity", "estimate_rollup", [
+          permission("estimates.view", ["all", "assigned"]),
+        ]),
+        summaryFinancialVariant("project", "estimate_rollup", [
+          permission("estimates.view", ["all", "assigned"]),
+          permission("projects.view_financials", ["all"]),
+        ]),
+        summaryFinancialVariant("project", "invoice_rollup", [
+          permission("invoices.view", ["all", "assigned"]),
+          permission("projects.view_financials", ["all"]),
+        ]),
         sectionVariant(
           "opportunity",
-          "financials",
-          ["ops.financials.read"],
-          [permission("estimates.view", ["all", "assigned"])]
-        ),
-        sectionVariant(
-          "project",
-          "financials",
-          ["ops.financials.read"],
-          [permission("projects.view_financials", ["all"])]
+          "activity",
+          ["ops.schedule.read"],
+          [
+            permission("calendar.view", ["all", "own"]),
+            permission("projects.view", ["all", "assigned"]),
+            permission("tasks.view", ["all", "assigned"]),
+          ]
         ),
         sectionVariant(
           "project",
           "activity",
-          ["ops.jobs.read"],
-          [permission("tasks.view", ["all", "assigned"])]
+          ["ops.schedule.read"],
+          [
+            permission("calendar.view", ["all", "own"]),
+            permission("tasks.view", ["all", "assigned"]),
+          ]
         ),
         sectionVariant(
           "opportunity",
@@ -768,37 +754,54 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 1,
       auditClass: "sensitive_read",
     }),
+    availability: INTERNAL_ONLY_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.get_job_summary",
   },
   {
     name: "search_job_history",
-    schemaRevision: CONTRACT_VERSION,
+    schemaRevision: TASK_13_CAPABILITY_SCHEMA_REVISION,
     operation: "read",
     description: "Search bounded job history and return exact evidence links.",
     inputSchema: JobHistorySearchInputSchema,
     authorization: {
       variants: [
         {
-          key: "job_history",
-          selector: { kind: "always" },
-          requiredOAuthScopes: [
-            "ops.correspondence.read",
-            "ops.customers.read",
-            "ops.jobs.read",
-          ],
+          key: "customer_scope",
+          selector: { kind: "job_history_scope", scopeKind: "customer" },
+          requiredOAuthScopes: ["ops.customers.read"],
           permissionRequirementGroups: [
-            [
-              permission("clients.view", ["all", "assigned"]),
-              permission("inbox.view", ["all", "assigned", "own"]),
-              permission("pipeline.view", ["all", "assigned"]),
-            ],
-            [
-              permission("clients.view", ["all", "assigned"]),
-              permission("inbox.view", ["all", "assigned", "own"]),
-              permission("projects.view", ["all", "assigned"]),
-            ],
+            [permission("clients.view", ["all", "assigned"])],
           ],
         },
+        historyJobKindVariant("opportunity", [
+          permission("pipeline.view", ["all", "assigned"]),
+        ]),
+        historyJobKindVariant("project", [
+          permission("projects.view", ["all", "assigned"]),
+        ]),
+        historySourceVariant(
+          "correspondence_sources",
+          "correspondence",
+          ["ops.correspondence.read"],
+          [permission("inbox.view", ["all", "assigned", "own"])]
+        ),
+        historySourceVariant(
+          "task_event",
+          "task_event",
+          ["ops.schedule.read"],
+          [
+            permission("calendar.view", ["all", "own"]),
+            permission("projects.view", ["all", "assigned"]),
+            permission("tasks.view", ["all", "assigned"]),
+          ]
+        ),
+        historyFinancialSourceVariant("opportunity", [
+          permission("estimates.view", ["all", "assigned"]),
+        ]),
+        historyFinancialSourceVariant("project", [
+          permission("estimates.view", ["all", "assigned"]),
+          permission("projects.view_financials", ["all"]),
+        ]),
       ],
     },
     ...readMetadata({
@@ -808,16 +811,33 @@ export const READ_CAPABILITY_DEFINITIONS = [
       auditClass: "search_read",
       rateLimitBucket: "evidence_search",
     }),
+    availability: INTERNAL_ONLY_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.search_job_history",
   },
   {
     name: "get_correspondence_evidence",
-    schemaRevision: CONTRACT_VERSION,
+    schemaRevision: TASK_13_CAPABILITY_SCHEMA_REVISION,
     operation: "read",
     description: "Return bounded exact correspondence for known evidence IDs.",
-    inputSchema: CorrespondenceEvidenceInputSchema,
+    inputSchema: CorrespondenceEvidenceReadInputSchema,
     authorization: {
       variants: [
+        {
+          key: "opportunity_jobs",
+          selector: { kind: "job_kind", jobKind: "opportunity" },
+          requiredOAuthScopes: ["ops.jobs.read"],
+          permissionRequirementGroups: [
+            [permission("pipeline.view", ["all", "assigned"])],
+          ],
+        },
+        {
+          key: "project_jobs",
+          selector: { kind: "job_kind", jobKind: "project" },
+          requiredOAuthScopes: ["ops.jobs.read"],
+          permissionRequirementGroups: [
+            [permission("projects.view", ["all", "assigned"])],
+          ],
+        },
         {
           key: "correspondence_evidence",
           selector: { kind: "always" },
@@ -835,6 +855,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       auditClass: "evidence_read",
       rateLimitBucket: "evidence_search",
     }),
+    availability: INTERNAL_ONLY_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.get_correspondence_evidence",
   },
   {

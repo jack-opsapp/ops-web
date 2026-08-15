@@ -52,6 +52,10 @@ import { createSupabaseJobReadinessRepository } from "../job-readiness-repositor
 import { createSupabaseJobCommunicationContextRepository } from "../job-communication-context-repository";
 import { createSupabaseJobParticipantsRepository } from "../job-participants-repository";
 import { createOperationalReadCursorCodec } from "../operational-read-cursor";
+import { createSupabaseCustomerJobsRepository } from "../customer-jobs-repository";
+import { createSupabaseJobSummaryRepository } from "../job-summary-repository";
+import { createSupabaseJobHistoryRepository } from "../job-history-repository";
+import { createSupabaseCorrespondenceEvidencePageRepository } from "../correspondence-evidence-page-repository";
 
 const ACTOR_ID = "11111111-1111-4111-8111-111111111111";
 const COMPANY_ID = "22222222-2222-4222-8222-222222222222";
@@ -209,6 +213,14 @@ function trustedOperationalRepositories() {
     jobCommunicationContext:
       createSupabaseJobCommunicationContextRepository(noReadClient),
     jobParticipants: createSupabaseJobParticipantsRepository(noReadClient),
+    customerJobs: createSupabaseCustomerJobsRepository(
+      noReadClient,
+      cursorCodec
+    ),
+    jobSummary: createSupabaseJobSummaryRepository(noReadClient),
+    jobHistory: createSupabaseJobHistoryRepository(noReadClient, cursorCodec),
+    correspondenceEvidence:
+      createSupabaseCorrespondenceEvidencePageRepository(noReadClient),
   };
 }
 
@@ -311,6 +323,10 @@ describe("OpsAgentDomainService", () => {
       "listJobReadinessIssues",
       "getJobCommunicationContext",
       "resolveJobParticipants",
+      "listCustomerJobs",
+      "getJobSummary",
+      "searchJobHistory",
+      "getCorrespondenceEvidence",
     ]);
     expect(Object.isFrozen(service)).toBe(true);
     expect(
@@ -322,6 +338,10 @@ describe("OpsAgentDomainService", () => {
       "list_job_readiness_issues",
       "get_job_communication_context",
       "get_job_conversation_context",
+      "list_customer_jobs",
+      "get_job_summary",
+      "search_job_history",
+      "get_correspondence_evidence",
       "resolve_job_participants",
     ]);
     expect(
@@ -491,6 +511,12 @@ describe("OpsAgentDomainService", () => {
           value: operational.jobCommunicationContext,
         },
         jobParticipants: { value: operational.jobParticipants },
+        customerJobs: { value: operational.customerJobs },
+        jobSummary: { value: operational.jobSummary },
+        jobHistory: { value: operational.jobHistory },
+        correspondenceEvidence: {
+          value: operational.correspondenceEvidence,
+        },
       }
     ) as CreateOpsAgentDomainRepositoriesInput;
 
@@ -563,6 +589,10 @@ describe("OpsAgentDomainService", () => {
       "listJobReadinessIssues",
       "getJobCommunicationContext",
       "resolveJobParticipants",
+      "listCustomerJobs",
+      "getJobSummary",
+      "searchJobHistory",
+      "getCorrespondenceEvidence",
     ]);
     expect(client.calls).toHaveLength(3);
   });

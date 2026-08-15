@@ -118,9 +118,8 @@ async function authorizedRead(
     actorContext: actor,
     policy: resolved.variants[0]!.policy,
   });
-  const { authorizeScheduledJobsRead } = await import(
-    "../scheduled-jobs-authorization"
-  );
+  const { authorizeScheduledJobsRead } =
+    await import("../scheduled-jobs-authorization");
   return authorizeScheduledJobsRead({ authorization, rawInput });
 }
 
@@ -470,9 +469,8 @@ async function resultFor(input: {
 }
 
 async function repositoryErrorFrom(promise: Promise<unknown>) {
-  const { ScheduledJobsRepositoryError } = await import(
-    "../scheduled-jobs-repository"
-  );
+  const { ScheduledJobsRepositoryError } =
+    await import("../scheduled-jobs-repository");
   try {
     await promise;
   } catch (error) {
@@ -483,9 +481,8 @@ async function repositoryErrorFrom(promise: Promise<unknown>) {
 }
 
 async function serviceErrorFrom(promise: Promise<unknown>) {
-  const { ScheduledJobsReadError: ErrorClass } = await import(
-    "../list-scheduled-jobs"
-  );
+  const { ScheduledJobsReadError: ErrorClass } =
+    await import("../list-scheduled-jobs");
   try {
     await promise;
   } catch (error) {
@@ -804,6 +801,38 @@ describe("listScheduledJobs", () => {
 
       expect(error.code).toBe("SCHEDULED_JOBS_INVALID");
       expect(client.calls).toHaveLength(1);
+    }
+  );
+
+  it.each([
+    "task_updated_at",
+    "project_updated_at",
+    "schedule_confirmed_at",
+  ] as const)(
+    "rejects a self-hashed proof whose observed %s exceeds read_at",
+    async (field) => {
+      const snapshot = validSnapshot();
+      const malformed = reproofSnapshot({
+        ...snapshot,
+        occurrences: [
+          {
+            ...snapshot.occurrences[0]!,
+            [field]: "2026-08-12T18:00:00.000Z",
+          },
+          snapshot.occurrences[1]!,
+        ],
+      } as ScheduledJobsSnapshot);
+      const client = new StubScheduledJobsRpcClient([
+        { data: malformed, error: null },
+      ]);
+
+      const error = await repositoryErrorFrom(
+        (await repositoryFor(client)).read({
+          authorization: await authorizedRead(),
+        })
+      );
+
+      expect(error.code).toBe("SCHEDULED_JOBS_INVALID");
     }
   );
 

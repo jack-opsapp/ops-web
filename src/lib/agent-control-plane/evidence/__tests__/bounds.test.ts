@@ -108,7 +108,9 @@ async function genericAuthorization(
 
   const manifestPolicy = getCapabilityManifestEntry(
     "get_correspondence_evidence"
-  ).authorization.variants[0]!.policy;
+  ).authorization.variants.find(
+    (variant) => variant.key === "correspondence_evidence"
+  )!.policy;
 
   return authorizeCapability({
     actorContext,
@@ -281,7 +283,7 @@ describe("bounded correspondence evidence repository", () => {
           p_permission_snapshot_revision: AUTHORITY_REVISION,
           p_registered_permission_keys: [...REGISTERED_ACTOR_PERMISSION_KEYS],
           p_capability_id: "get_correspondence_evidence",
-          p_capability_revision: "get_correspondence_evidence:2026-08-07.v1",
+          p_capability_revision: "get_correspondence_evidence:2026-08-14.v1",
           p_capability_manifest_revision: CAPABILITY_MANIFEST_REVISION,
           p_required_oauth_scope: "ops.correspondence.read",
           p_inbox_scope: "all",

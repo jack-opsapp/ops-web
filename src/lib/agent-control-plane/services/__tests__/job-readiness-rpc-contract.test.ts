@@ -413,7 +413,8 @@ describe("job readiness fixed RPC contract", () => {
     ]) {
       const active = compact(functionDefinition(ALL_MIGRATIONS, reader));
       expect(active, `${reader} must have an active definition`).not.toBe("");
-      expect(active).toContain("'2026-08-12.capability-manifest.v4'");
+      expect(active).toContain("'2026-08-14.capability-manifest.v6'");
+      expect(active).not.toContain("'2026-08-12.capability-manifest.v4'");
       expect(active).not.toContain("'2026-08-11.capability-manifest.v3'");
     }
   });

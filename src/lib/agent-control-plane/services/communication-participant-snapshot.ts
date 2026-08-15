@@ -18,6 +18,7 @@ import {
   Rfc3339UtcTimestampSchema,
   SourceVersionSchema,
 } from "@/lib/agent-control-plane/contracts";
+import { CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
 import type { AuthorizedJobCommunicationRead } from "./job-communication-authorization";
 import type { AuthorizedJobParticipantsRead } from "./job-participants-authorization";
 import { RawSitePhotoSourceSchema } from "./readiness-rules";
@@ -422,7 +423,7 @@ export const RawJobCommunicationContextSchema = z.discriminatedUnion(
 
 const CommonProjectionFields = {
   actor_user_id: UUID_SCHEMA,
-  capability_manifest_revision: z.literal("2026-08-13.capability-manifest.v5"),
+  capability_manifest_revision: z.literal(CAPABILITY_MANIFEST_REVISION),
   company_id: UUID_SCHEMA,
   job_ref: CommunicationJobRefSchema,
   permission_snapshot_revision: PERMISSION_REVISION_SCHEMA,

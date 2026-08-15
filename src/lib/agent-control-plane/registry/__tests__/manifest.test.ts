@@ -217,12 +217,19 @@ const EXPECTED_POLICY_MATRIX = {
   ],
   list_customer_jobs: [
     {
-      key: "customer_jobs",
-      oauth: ["ops.customers.read", "ops.jobs.read"],
-      groups: [
-        ["clients.view:all,assigned", "pipeline.view:all,assigned"],
-        ["clients.view:all,assigned", "projects.view:all,assigned"],
-      ],
+      key: "customer",
+      oauth: ["ops.customers.read"],
+      groups: [["clients.view:all,assigned"]],
+    },
+    {
+      key: "opportunity_jobs",
+      oauth: ["ops.jobs.read"],
+      groups: [["pipeline.view:all,assigned"]],
+    },
+    {
+      key: "project_jobs",
+      oauth: ["ops.jobs.read"],
+      groups: [["projects.view:all,assigned"]],
     },
   ],
   get_job_summary: [
@@ -237,61 +244,87 @@ const EXPECTED_POLICY_MATRIX = {
       groups: [["projects.view:all,assigned"]],
     },
     {
-      key: "opportunity:schedule",
-      oauth: ["ops.schedule.read"],
-      groups: [["calendar.view:all,own"]],
-    },
-    {
       key: "project:schedule",
       oauth: ["ops.schedule.read"],
       groups: [["calendar.view:all,own", "tasks.view:all,assigned"]],
     },
     {
-      key: "opportunity:readiness",
+      key: "project:readiness:site_photos",
+      oauth: ["ops.photos.read"],
+      groups: [["photos.view:all,assigned"]],
+    },
+    {
+      key: "project:readiness:customer",
       oauth: ["ops.customers.read"],
       groups: [["clients.view:all,assigned"]],
     },
     {
-      key: "project:readiness",
+      key: "project:readiness:schedule",
+      oauth: ["ops.schedule.read"],
+      groups: [["calendar.view:all,own", "tasks.view:all,assigned"]],
+    },
+    {
+      key: "opportunity:participants",
       oauth: [
+        "ops.correspondence.read",
         "ops.customer_contacts.read",
         "ops.customers.read",
-        "ops.photos.read",
-        "ops.schedule.read",
+        "ops.jobs.read",
       ],
       groups: [
         [
-          "calendar.view:all,own",
           "clients.view:all,assigned",
-          "photos.view:all,assigned",
+          "inbox.view:all,assigned,own",
+          "pipeline.view:all,assigned",
+        ],
+      ],
+    },
+    {
+      key: "project:participants",
+      oauth: [
+        "ops.correspondence.read",
+        "ops.customer_contacts.read",
+        "ops.customers.read",
+        "ops.jobs.read",
+      ],
+      groups: [
+        [
+          "clients.view:all,assigned",
+          "inbox.view:all,assigned,own",
+          "projects.view:all,assigned",
+        ],
+      ],
+    },
+    {
+      key: "opportunity:financials:estimate_rollup",
+      oauth: ["ops.financials.read"],
+      groups: [["estimates.view:all,assigned"]],
+    },
+    {
+      key: "project:financials:estimate_rollup",
+      oauth: ["ops.financials.read"],
+      groups: [["estimates.view:all,assigned", "projects.view_financials:all"]],
+    },
+    {
+      key: "project:financials:invoice_rollup",
+      oauth: ["ops.financials.read"],
+      groups: [["invoices.view:all,assigned", "projects.view_financials:all"]],
+    },
+    {
+      key: "opportunity:activity",
+      oauth: ["ops.schedule.read"],
+      groups: [
+        [
+          "calendar.view:all,own",
+          "projects.view:all,assigned",
           "tasks.view:all,assigned",
         ],
       ],
     },
     {
-      key: "opportunity:participants",
-      oauth: ["ops.customers.read"],
-      groups: [["clients.view:all,assigned"]],
-    },
-    {
-      key: "project:participants",
-      oauth: ["ops.customers.read"],
-      groups: [["clients.view:all,assigned"]],
-    },
-    {
-      key: "opportunity:financials",
-      oauth: ["ops.financials.read"],
-      groups: [["estimates.view:all,assigned"]],
-    },
-    {
-      key: "project:financials",
-      oauth: ["ops.financials.read"],
-      groups: [["projects.view_financials:all"]],
-    },
-    {
       key: "project:activity",
-      oauth: ["ops.jobs.read"],
-      groups: [["tasks.view:all,assigned"]],
+      oauth: ["ops.schedule.read"],
+      groups: [["calendar.view:all,own", "tasks.view:all,assigned"]],
     },
     {
       key: "opportunity:conversation",
@@ -306,23 +339,58 @@ const EXPECTED_POLICY_MATRIX = {
   ],
   search_job_history: [
     {
-      key: "job_history",
-      oauth: ["ops.correspondence.read", "ops.customers.read", "ops.jobs.read"],
+      key: "customer_scope",
+      oauth: ["ops.customers.read"],
+      groups: [["clients.view:all,assigned"]],
+    },
+    {
+      key: "opportunity_jobs",
+      oauth: ["ops.jobs.read"],
+      groups: [["pipeline.view:all,assigned"]],
+    },
+    {
+      key: "project_jobs",
+      oauth: ["ops.jobs.read"],
+      groups: [["projects.view:all,assigned"]],
+    },
+    {
+      key: "correspondence_sources",
+      oauth: ["ops.correspondence.read"],
+      groups: [["inbox.view:all,assigned,own"]],
+    },
+    {
+      key: "task_event",
+      oauth: ["ops.schedule.read"],
       groups: [
         [
-          "clients.view:all,assigned",
-          "inbox.view:all,assigned,own",
-          "pipeline.view:all,assigned",
-        ],
-        [
-          "clients.view:all,assigned",
-          "inbox.view:all,assigned,own",
+          "calendar.view:all,own",
           "projects.view:all,assigned",
+          "tasks.view:all,assigned",
         ],
       ],
     },
+    {
+      key: "opportunity:estimate_document",
+      oauth: ["ops.financials.read"],
+      groups: [["estimates.view:all,assigned"]],
+    },
+    {
+      key: "project:estimate_document",
+      oauth: ["ops.financials.read"],
+      groups: [["estimates.view:all,assigned", "projects.view_financials:all"]],
+    },
   ],
   get_correspondence_evidence: [
+    {
+      key: "opportunity_jobs",
+      oauth: ["ops.jobs.read"],
+      groups: [["pipeline.view:all,assigned"]],
+    },
+    {
+      key: "project_jobs",
+      oauth: ["ops.jobs.read"],
+      groups: [["projects.view:all,assigned"]],
+    },
     {
       key: "correspondence_evidence",
       oauth: ["ops.correspondence.read"],
@@ -657,11 +725,22 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
     },
   },
   list_customer_jobs: {
-    customer_ref: { kind: "client", id: "client-1" },
+    customer_ref: {
+      kind: "client",
+      id: "30000000-0000-4000-8000-000000000001",
+    },
   },
   get_job_summary: { job_ref: JOB_REF },
-  search_job_history: { query: "cedar deck" },
-  get_correspondence_evidence: { evidence_ids: ["evidence-1"] },
+  search_job_history: {
+    query: "cedar deck",
+    scope: { kind: "jobs", job_refs: [JOB_REF] },
+  },
+  get_correspondence_evidence: {
+    job_ref: JOB_REF,
+    evidence_ids: [
+      "job_conversation_turn:40000000-0000-4000-8000-000000000001",
+    ],
+  },
   resolve_job_participants: { job_ref: JOB_REF },
   list_site_visits: {
     view: "booked_appointments",
@@ -797,6 +876,10 @@ describe("agent capability manifest", () => {
           "list_scheduled_jobs",
           "list_job_readiness_issues",
           "get_job_communication_context",
+          "list_customer_jobs",
+          "get_job_summary",
+          "search_job_history",
+          "get_correspondence_evidence",
           "resolve_job_participants",
         ].includes(capability.name)
           ? "available"
@@ -811,7 +894,7 @@ describe("agent capability manifest", () => {
 
   it("carries immutable, nominal authorization policy variants", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-13.capability-manifest.v5"
+      "2026-08-14.capability-manifest.v6"
     );
     expect(Object.isFrozen(CAPABILITY_MANIFEST)).toBe(true);
 
@@ -820,8 +903,18 @@ describe("agent capability manifest", () => {
         "get_job_communication_context",
         "resolve_job_participants",
       ].includes(capability.name);
+      const task13Revision = [
+        "list_customer_jobs",
+        "get_job_summary",
+        "search_job_history",
+        "get_correspondence_evidence",
+      ].includes(capability.name);
       expect(capability.schemaRevision).toBe(
-        task12Revision ? "2026-08-13.v1" : CONTRACT_VERSION
+        task12Revision
+          ? "2026-08-13.v1"
+          : task13Revision
+            ? "2026-08-14.v1"
+            : CONTRACT_VERSION
       );
       expect(capability.authorization.variants.length).toBeGreaterThan(0);
       expect(Object.isFrozen(capability)).toBe(true);
@@ -869,10 +962,13 @@ describe("agent capability manifest", () => {
 
   it("selects only the job-kind policy named by a strictly parsed JobRef", () => {
     const opportunity = resolveCapabilityAuthorization("get_job_summary", {
-      job_ref: { kind: "opportunity", id: "opportunity-1" },
+      job_ref: {
+        kind: "opportunity",
+        id: "10000000-0000-4000-8000-000000000001",
+      },
     });
     const project = resolveCapabilityAuthorization("get_job_summary", {
-      job_ref: { kind: "project", id: "project-1" },
+      job_ref: JOB_REF,
     });
 
     expect(opportunity.variants.map((variant) => variant.key)).toEqual([
@@ -897,12 +993,13 @@ describe("agent capability manifest", () => {
 
   it("adds financial authority only when the financial summary section is requested", () => {
     const baseline = resolveCapabilityAuthorization("get_job_summary", {
-      job_ref: { kind: "project", id: "project-1" },
+      job_ref: JOB_REF,
       sections: ["schedule"],
     });
     const financial = resolveCapabilityAuthorization("get_job_summary", {
-      job_ref: { kind: "project", id: "project-1" },
+      job_ref: JOB_REF,
       sections: ["financials"],
+      financial_components: ["estimate_rollup"],
     });
 
     expect(baseline.variants.map((variant) => variant.key)).toEqual([
@@ -919,13 +1016,17 @@ describe("agent capability manifest", () => {
 
     expect(financial.variants.map((variant) => variant.key)).toEqual([
       "project",
-      "project:financials",
+      "project:financials:estimate_rollup",
     ]);
     expect(financial.variants[1].policy.requiredOAuthScopes).toEqual([
       "ops.financials.read",
     ]);
     expect(financial.variants[1].policy.permissionRequirementGroups).toEqual([
       [
+        {
+          permission: "estimates.view",
+          allowedScopes: ["all", "assigned"],
+        },
         {
           permission: "projects.view_financials",
           allowedScopes: ["all"],
@@ -1198,15 +1299,22 @@ describe("agent capability manifest", () => {
     [
       "list_customer_jobs",
       {
-        customer_ref: { kind: "client", id: "client-1" },
-        from: "2025-01-01T00:00:00Z",
-        to: "2026-01-02T00:00:01Z",
+        customer_ref: {
+          kind: "client",
+          id: "30000000-0000-4000-8000-000000000001",
+        },
+        date_window: {
+          field: "updated_at",
+          from: "2025-01-01T00:00:00Z",
+          to_exclusive: "2026-01-02T00:00:01Z",
+        },
       },
     ],
     [
       "search_job_history",
       {
         query: "a".repeat(501),
+        scope: { kind: "jobs", job_refs: [JOB_REF] },
       },
     ],
     [
@@ -1219,9 +1327,13 @@ describe("agent capability manifest", () => {
     [
       "get_correspondence_evidence",
       {
+        job_ref: JOB_REF,
         evidence_ids: Array.from(
           { length: 21 },
-          (_, index) => `evidence-${index}`
+          (_, index) =>
+            `job_conversation_turn:40000000-0000-4000-8000-${String(
+              index + 1
+            ).padStart(12, "0")}`
         ),
       },
     ],

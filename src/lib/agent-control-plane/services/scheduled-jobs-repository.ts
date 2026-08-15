@@ -360,6 +360,11 @@ function assertSnapshot(
     const readAt = Date.parse(snapshot.read_at);
     const startAt = Date.parse(timing.start_utc);
     const endAt = Date.parse(timing.end_utc_exclusive);
+    const observedMetadataIsCurrent =
+      Date.parse(occurrence.task_updated_at) <= readAt &&
+      Date.parse(occurrence.project_updated_at) <= readAt &&
+      (occurrence.schedule_confirmed_at === null ||
+        Date.parse(occurrence.schedule_confirmed_at) <= readAt);
     const expectedTimingState =
       occurrence.task_status !== "active"
         ? "past"
@@ -389,6 +394,7 @@ function assertSnapshot(
           occurrence.confirmation_state
         )) ||
       occurrence.timing_state !== expectedTimingState ||
+      !observedMetadataIsCurrent ||
       !validStart ||
       !validEnd ||
       occurrenceIds.has(occurrence.occurrence_ref.id) ||

@@ -16,7 +16,7 @@ import { READ_CAPABILITY_DEFINITIONS } from "./read-tools";
 import { WRITE_CAPABILITY_DEFINITIONS } from "./write-tools";
 
 export const CAPABILITY_MANIFEST_REVISION =
-  "2026-08-13.capability-manifest.v5" as const;
+  "2026-08-14.capability-manifest.v6" as const;
 
 function freezeSelector(
   selector: CapabilityAuthorizationSelector
@@ -95,6 +95,108 @@ function selectorMatches(
   parsedInput: Readonly<Record<string, unknown>>
 ): boolean {
   if (selector.kind === "always") return true;
+
+  if (selector.kind === "customer_job_kind") {
+    const jobKinds = parsedInput.job_kinds;
+    return Array.isArray(jobKinds) && jobKinds.includes(selector.jobKind);
+  }
+
+  if (selector.kind === "job_history_scope") {
+    const scope = parsedInput.scope;
+    return isRecord(scope) && scope.kind === selector.scopeKind;
+  }
+
+  if (selector.kind === "job_history_job_kind") {
+    const scope = parsedInput.scope;
+    if (!isRecord(scope)) return false;
+    if (scope.kind === "customer") {
+      return (
+        Array.isArray(scope.job_kinds) &&
+        scope.job_kinds.includes(selector.jobKind)
+      );
+    }
+    if (scope.kind !== "jobs" || !Array.isArray(scope.job_refs)) return false;
+    return scope.job_refs.some(
+      (reference) => isRecord(reference) && reference.kind === selector.jobKind
+    );
+  }
+
+  if (selector.kind === "job_history_source_authority") {
+    const sourceTypes = parsedInput.source_types;
+    if (!Array.isArray(sourceTypes)) return false;
+    if (selector.authority === "correspondence") {
+      return sourceTypes.some(
+        (sourceType) =>
+          sourceType === "delivered_correspondence" ||
+          sourceType === "current_memory_summary"
+      );
+    }
+    return sourceTypes.includes(selector.authority);
+  }
+
+  if (selector.kind === "job_history_financial_source") {
+    const sourceTypes = parsedInput.source_types;
+    const scope = parsedInput.scope;
+    if (
+      !Array.isArray(sourceTypes) ||
+      !sourceTypes.includes("estimate_document") ||
+      !isRecord(scope)
+    ) {
+      return false;
+    }
+    if (scope.kind === "customer") {
+      return (
+        Array.isArray(scope.job_kinds) &&
+        scope.job_kinds.includes(selector.jobKind)
+      );
+    }
+    return (
+      scope.kind === "jobs" &&
+      Array.isArray(scope.job_refs) &&
+      scope.job_refs.some(
+        (reference) =>
+          isRecord(reference) && reference.kind === selector.jobKind
+      )
+    );
+  }
+
+  if (selector.kind === "job_summary_readiness") {
+    const jobRef = parsedInput.job_ref;
+    const sections = parsedInput.sections;
+    const rules = parsedInput.readiness_rule_codes;
+    if (
+      !isRecord(jobRef) ||
+      jobRef.kind !== "project" ||
+      !Array.isArray(sections) ||
+      !sections.includes("readiness") ||
+      !Array.isArray(rules)
+    ) {
+      return false;
+    }
+    if (selector.authority === "site_photos") {
+      return rules.includes("SITE_PHOTOS_MISSING");
+    }
+    if (selector.authority === "customer") {
+      return rules.includes("CUSTOMER_RECORD_UNRESOLVED");
+    }
+    return rules.some((rule) =>
+      ["SCHEDULE_UNCONFIRMED", "CREW_UNASSIGNED"].includes(rule as string)
+    );
+  }
+
+  if (selector.kind === "job_summary_financial_component") {
+    const jobRef = parsedInput.job_ref;
+    const sections = parsedInput.sections;
+    const components = parsedInput.financial_components;
+    return (
+      isRecord(jobRef) &&
+      jobRef.kind === selector.jobKind &&
+      Array.isArray(sections) &&
+      sections.includes("financials") &&
+      Array.isArray(components) &&
+      components.includes(selector.component)
+    );
+  }
 
   if (selector.kind === "input_array_contains") {
     const values = parsedInput[selector.field];

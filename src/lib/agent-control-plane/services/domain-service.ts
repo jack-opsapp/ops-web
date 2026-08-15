@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { z } from "zod-v4";
+
 import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import type {
   JobCommunicationContextInput,
@@ -7,14 +9,24 @@ import type {
   JobParticipantsInput,
   JobParticipantsResult,
 } from "@/lib/agent-control-plane/contracts/communication";
-import type { GetJobConversationContextInput } from "@/lib/agent-control-plane/registry/read-tools";
 import type {
+  CorrespondenceEvidenceReadInputSchema,
+  CorrespondenceEvidenceResultSchema,
+  CustomerJobsInputSchema,
+  CustomerJobsResultSchema,
+  JobHistoryResultSchema,
+  JobHistorySearchInputSchema,
+  JobSummaryInputSchema,
+  JobSummaryResultSchema,
+} from "@/lib/agent-control-plane/contracts/job-catalog";
+import type {
+  GetJobConversationContextInput,
   JobReadinessIssuesInput,
   ListScheduledJobsInput,
 } from "@/lib/agent-control-plane/registry/read-tools";
 import type { JobConversationContextResult } from "./get-job-conversation-context";
-import type { ScheduledJobsResult } from "./list-scheduled-jobs";
 import type { JobReadinessResult } from "./list-job-readiness-issues";
+import type { ScheduledJobsResult } from "./list-scheduled-jobs";
 
 export type {
   GetJobConversationContextInput,
@@ -23,6 +35,13 @@ export type {
   JobReadinessIssuesInput,
   ListScheduledJobsInput,
 };
+
+export type CustomerJobsInput = z.input<typeof CustomerJobsInputSchema>;
+export type JobSummaryInput = z.input<typeof JobSummaryInputSchema>;
+export type JobHistorySearchInput = z.input<typeof JobHistorySearchInputSchema>;
+export type CorrespondenceEvidenceReadInput = z.input<
+  typeof CorrespondenceEvidenceReadInputSchema
+>;
 
 export interface DomainCallOptions {
   readonly signal?: AbortSignal;
@@ -59,4 +78,24 @@ export interface OpsAgentDomainService {
     input: JobParticipantsInput,
     options?: DomainCallOptions
   ): Promise<JobParticipantsResult>;
+  listCustomerJobs(
+    actorContext: ActorContext,
+    input: CustomerJobsInput,
+    options?: DomainCallOptions
+  ): Promise<z.infer<typeof CustomerJobsResultSchema>>;
+  getJobSummary(
+    actorContext: ActorContext,
+    input: JobSummaryInput,
+    options?: DomainCallOptions
+  ): Promise<z.infer<typeof JobSummaryResultSchema>>;
+  searchJobHistory(
+    actorContext: ActorContext,
+    input: JobHistorySearchInput,
+    options?: DomainCallOptions
+  ): Promise<z.infer<typeof JobHistoryResultSchema>>;
+  getCorrespondenceEvidence(
+    actorContext: ActorContext,
+    input: CorrespondenceEvidenceReadInput,
+    options?: DomainCallOptions
+  ): Promise<z.infer<typeof CorrespondenceEvidenceResultSchema>>;
 }

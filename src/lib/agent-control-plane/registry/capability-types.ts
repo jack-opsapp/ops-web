@@ -45,10 +45,7 @@ export type CapabilityAuditClass =
   | "mutation_commit"
   | "external_commit";
 export type CapabilityRateLimitBucket =
-  | "lightweight_read"
-  | "evidence_search"
-  | "prepare"
-  | "commit";
+  "lightweight_read" | "evidence_search" | "prepare" | "commit";
 
 /** Structural subset of the MCP ToolAnnotations contract. */
 export interface CapabilityMcpAnnotations {
@@ -68,10 +65,7 @@ export interface CapabilityBounds {
 
 export interface CapabilityEvidencePolicy {
   readonly input:
-    | "not_required"
-    | "optional"
-    | "required"
-    | "prepared_change_set";
+    "not_required" | "optional" | "required" | "prepared_change_set";
   readonly output: "required";
   readonly maxEvidenceRefs: number;
   readonly promptSafeOutput: true;
@@ -103,6 +97,10 @@ export type CapabilityIdempotencyPolicy =
 export type CapabilityAuthorizationSelector =
   | Readonly<{ kind: "always" }>
   | Readonly<{
+      kind: "customer_job_kind";
+      jobKind: "opportunity" | "project";
+    }>
+  | Readonly<{
       kind: "job_kind";
       jobKind: "opportunity" | "project";
     }>
@@ -126,6 +124,31 @@ export type CapabilityAuthorizationSelector =
       kind: "job_participant_purpose";
       jobKind: "opportunity" | "project";
       purpose: "schedule" | "assignment";
+    }>
+  | Readonly<{
+      kind: "job_summary_readiness";
+      authority: "site_photos" | "customer" | "schedule";
+    }>
+  | Readonly<{
+      kind: "job_summary_financial_component";
+      jobKind: "opportunity" | "project";
+      component: "estimate_rollup" | "invoice_rollup";
+    }>
+  | Readonly<{
+      kind: "job_history_scope";
+      scopeKind: "customer";
+    }>
+  | Readonly<{
+      kind: "job_history_job_kind";
+      jobKind: "opportunity" | "project";
+    }>
+  | Readonly<{
+      kind: "job_history_source_authority";
+      authority: "correspondence" | "task_event";
+    }>
+  | Readonly<{
+      kind: "job_history_financial_source";
+      jobKind: "opportunity" | "project";
     }>
   | Readonly<{
       kind: "input_value";
@@ -287,7 +310,17 @@ function assertAuthorization(
       (variant.selector.kind === "job_purpose" &&
         entry.name !== "get_job_communication_context") ||
       (variant.selector.kind === "job_participant_purpose" &&
-        entry.name !== "resolve_job_participants")
+        entry.name !== "resolve_job_participants") ||
+      (variant.selector.kind === "customer_job_kind" &&
+        entry.name !== "list_customer_jobs") ||
+      ((variant.selector.kind === "job_summary_readiness" ||
+        variant.selector.kind === "job_summary_financial_component") &&
+        entry.name !== "get_job_summary") ||
+      ((variant.selector.kind === "job_history_scope" ||
+        variant.selector.kind === "job_history_job_kind" ||
+        variant.selector.kind === "job_history_source_authority" ||
+        variant.selector.kind === "job_history_financial_source") &&
+        entry.name !== "search_job_history")
     ) {
       throw new TypeError(
         `${entry.name}.${key} selector is not valid for this capability`
@@ -348,6 +381,12 @@ function isExactAuthorizationSelector(
         hasExactKeys(selector, ["kind", "jobKind"]) &&
         (selector.jobKind === "opportunity" || selector.jobKind === "project")
       );
+    case "customer_job_kind":
+    case "job_history_job_kind":
+      return (
+        hasExactKeys(selector, ["kind", "jobKind"]) &&
+        (selector.jobKind === "opportunity" || selector.jobKind === "project")
+      );
     case "job_section":
       return (
         hasExactKeys(selector, ["kind", "jobKind", "section"]) &&
@@ -377,6 +416,37 @@ function isExactAuthorizationSelector(
         (selector.jobKind === "opportunity" ||
           selector.jobKind === "project") &&
         ["schedule", "assignment"].includes(selector.purpose as string)
+      );
+    case "job_summary_readiness":
+      return (
+        hasExactKeys(selector, ["kind", "authority"]) &&
+        ["site_photos", "customer", "schedule"].includes(
+          selector.authority as string
+        )
+      );
+    case "job_summary_financial_component":
+      return (
+        hasExactKeys(selector, ["kind", "jobKind", "component"]) &&
+        (selector.jobKind === "opportunity" ||
+          selector.jobKind === "project") &&
+        ["estimate_rollup", "invoice_rollup"].includes(
+          selector.component as string
+        )
+      );
+    case "job_history_scope":
+      return (
+        hasExactKeys(selector, ["kind", "scopeKind"]) &&
+        selector.scopeKind === "customer"
+      );
+    case "job_history_source_authority":
+      return (
+        hasExactKeys(selector, ["kind", "authority"]) &&
+        ["correspondence", "task_event"].includes(selector.authority as string)
+      );
+    case "job_history_financial_source":
+      return (
+        hasExactKeys(selector, ["kind", "jobKind"]) &&
+        (selector.jobKind === "opportunity" || selector.jobKind === "project")
       );
     case "input_value": {
       if (!hasExactKeys(selector, ["kind", "field", "value"])) return false;
