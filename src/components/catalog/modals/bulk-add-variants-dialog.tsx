@@ -450,7 +450,7 @@ export function BulkAddVariantsDialog({ onClose }: { onClose: () => void }) {
       <DialogContent
         hideClose
         aria-describedby="bulk-variant-dialog-description"
-        className="flex h-[85dvh] w-[calc(100vw-32px)] max-w-4xl flex-col overflow-hidden p-0"
+        className="flex h-[85dvh] w-[calc(100vw-theme(spacing.4))] max-w-4xl flex-col overflow-hidden p-0"
       >
         <header className="shrink-0 border-b border-border px-4 py-3">
           <div className="flex items-start justify-between gap-3">

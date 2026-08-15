@@ -8,7 +8,7 @@
  * Manage items gate on catalog.manage; import on catalog.import.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MoreVertical } from "lucide-react";
 import {
@@ -43,12 +43,19 @@ export function CatalogKebab({
   const [manageTab, setManageTab] = useState<ManageTab | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [bulkVariantsOpen, setBulkVariantsOpen] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+
+  function closeBulkVariants() {
+    setBulkVariantsOpen(false);
+    window.requestAnimationFrame(() => moreButtonRef.current?.focus());
+  }
 
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
+            ref={moreButtonRef}
             type="button"
             aria-label="More"
             className="inline-flex h-control-36 w-control-36 items-center justify-center rounded border border-border text-text-2 transition-colors ease-smooth hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
@@ -136,7 +143,7 @@ export function CatalogKebab({
         <ImportModal rows={rows} onClose={() => setImportOpen(false)} />
       )}
       {bulkVariantsOpen && (
-        <BulkAddVariantsDialog onClose={() => setBulkVariantsOpen(false)} />
+        <BulkAddVariantsDialog onClose={closeBulkVariants} />
       )}
     </>
   );

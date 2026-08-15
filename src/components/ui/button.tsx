@@ -104,7 +104,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         {loading ? (
           <>
             <Loader2
-              className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none"
+              className="h-icon-16 w-icon-16 animate-spin motion-reduce:animate-none"
               aria-hidden="true"
             />
             <span className="sr-only">Loading</span>

@@ -18,7 +18,14 @@ vi.mock("@/components/catalog/modals/import-modal", () => ({
 }));
 
 vi.mock("@/components/catalog/modals/bulk-add-variants-dialog", () => ({
-  BulkAddVariantsDialog: () => <div>Bulk workflow open</div>,
+  BulkAddVariantsDialog: ({ onClose }: { onClose: () => void }) => (
+    <div>
+      Bulk workflow open
+      <button type="button" onClick={onClose}>
+        Close bulk workflow
+      </button>
+    </div>
+  ),
 }));
 
 describe("CatalogKebab bulk variants entry", () => {
@@ -71,5 +78,23 @@ describe("CatalogKebab bulk variants entry", () => {
       screen.getByRole("menuitem", { name: "Bulk Add Variants" })
     );
     expect(await screen.findByText("Bulk workflow open")).toBeInTheDocument();
+  });
+
+  it("returns focus to More when the guided workflow closes", async () => {
+    usePermissionStore.setState({
+      permissions: new Map([["catalog.manage", "all"]]),
+    });
+    render(<CatalogKebab segment="stock" rows={[]} />);
+    const moreButton = screen.getByRole("button", { name: "More" });
+
+    await openMenu();
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: "Bulk Add Variants" })
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Close bulk workflow" })
+    );
+
+    await waitFor(() => expect(moreButton).toHaveFocus());
   });
 });
