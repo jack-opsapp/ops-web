@@ -207,6 +207,14 @@
     {
       "path": "/api/cron/accounting/quickbooks/push-queue",
       "schedule": "14-59/20 13-23,0-4 * * *"
+    },
+    {
+      "path": "/api/cron/site-visit-prompts",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/google-calendar-sync",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

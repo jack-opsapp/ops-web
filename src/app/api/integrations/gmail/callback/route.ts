@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { parseOAuthScopeList } from "@/lib/email/calendar-scope";
 import { consumeEmailOAuthState } from "@/lib/email/email-oauth-state";
 import { persistEmailOAuthConnection } from "@/lib/email/email-oauth-connection";
 import { requireEmailCompanyAccess } from "@/lib/email/email-route-auth";
@@ -21,7 +22,22 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_GMAIL_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_GMAIL_CLIENT_SECRET;
 const GMAIL_OAUTH_CALLBACK_DEADLINE_MS = 45_000;
 
-function errorRedirect(returnTo: string | null | undefined, message: string) {
+/** Where the calendar-upgrade lane lands when its state carried no returnTo. */
+const CALENDAR_SETTINGS_PATH = "/settings?section=email";
+
+function errorRedirect(
+  returnTo: string | null | undefined,
+  message: string,
+  options: { calendarFlow?: boolean } = {}
+) {
+  if (options.calendarFlow) {
+    const url = buildReturnRedirect(
+      getAppUrl(),
+      returnTo || CALENDAR_SETTINGS_PATH,
+      { calendar: "error" }
+    );
+    if (url) return NextResponse.redirect(url);
+  }
   if (returnTo) {
     const url = buildReturnRedirect(getAppUrl(), returnTo, {
       connect_error: "1",
@@ -55,6 +71,7 @@ export async function GET(request: NextRequest) {
   }
 
   const returnTo = state.returnTo ?? null;
+  const calendarFlow = state.source === "calendar";
   const authError = await requireEmailCompanyAccess(
     request,
     state.companyId,
@@ -80,10 +97,12 @@ export async function GET(request: NextRequest) {
   }
 
   // State is consumed even when the operator denied provider consent.
-  if (providerError) return errorRedirect(returnTo, providerError);
-  if (!code) return errorRedirect(returnTo, "missing_params");
+  if (providerError) {
+    return errorRedirect(returnTo, providerError, { calendarFlow });
+  }
+  if (!code) return errorRedirect(returnTo, "missing_params", { calendarFlow });
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-    return errorRedirect(returnTo, "not_configured");
+    return errorRedirect(returnTo, "not_configured", { calendarFlow });
   }
 
   try {
@@ -110,7 +129,9 @@ export async function GET(request: NextRequest) {
         status: tokenResponse.status,
         response: errorData,
       });
-      return errorRedirect(returnTo, "token_exchange_failed");
+      return errorRedirect(returnTo, "token_exchange_failed", {
+        calendarFlow,
+      });
     }
 
     const tokens = await tokenResponse.json();
@@ -124,7 +145,9 @@ export async function GET(request: NextRequest) {
         "[Gmail OAuth] Mailbox profile lookup failed:",
         profileResponse.status
       );
-      return errorRedirect(returnTo, "mailbox_identity_failed");
+      return errorRedirect(returnTo, "mailbox_identity_failed", {
+        calendarFlow,
+      });
     }
 
     const profile = await profileResponse.json();
@@ -133,13 +156,20 @@ export async function GET(request: NextRequest) {
       .toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gmailEmail)) {
       console.error("[Gmail OAuth] Profile returned no valid mailbox email");
-      return errorRedirect(returnTo, "mailbox_identity_failed");
+      return errorRedirect(returnTo, "mailbox_identity_failed", {
+        calendarFlow,
+      });
     }
-    if (state.source === "alert" && gmailEmail !== state.expectedEmail) {
+    if (
+      (state.source === "alert" || state.source === "calendar") &&
+      gmailEmail !== state.expectedEmail
+    ) {
       console.error(
-        "[Gmail OAuth] Reconnect mailbox did not match alert state"
+        "[Gmail OAuth] Consented mailbox did not match bound state"
       );
-      return errorRedirect(returnTo, "mailbox_identity_mismatch");
+      return errorRedirect(returnTo, "mailbox_identity_mismatch", {
+        calendarFlow,
+      });
     }
 
     try {
@@ -152,10 +182,26 @@ export async function GET(request: NextRequest) {
         expiresAt: new Date(
           Date.now() + (tokens.expires_in || 3600) * 1000
         ).toISOString(),
+        // The token response's scope field states what the stored refresh
+        // token can now do; persisting it keeps granted_scopes honest for
+        // the calendar sync trigger and drain.
+        grantedScopes: parseOAuthScopeList(tokens.scope),
       });
     } catch (storageError) {
       console.error("Failed to store Gmail tokens:", storageError);
-      return errorRedirect(returnTo, "storage_failed");
+      return errorRedirect(returnTo, "storage_failed", { calendarFlow });
+    }
+
+    if (state.source === "calendar") {
+      const url = buildReturnRedirect(
+        getAppUrl(),
+        returnTo || CALENDAR_SETTINGS_PATH,
+        { calendar: "connected" }
+      );
+      return NextResponse.redirect(
+        url ??
+          `${getAppUrl()}${CALENDAR_SETTINGS_PATH}&calendar=connected`
+      );
     }
 
     if (state.source === "alert") {
@@ -181,6 +227,6 @@ export async function GET(request: NextRequest) {
     );
   } catch (err) {
     console.error("Gmail OAuth callback error:", err);
-    return errorRedirect(returnTo, "unexpected_error");
+    return errorRedirect(returnTo, "unexpected_error", { calendarFlow });
   }
 }
