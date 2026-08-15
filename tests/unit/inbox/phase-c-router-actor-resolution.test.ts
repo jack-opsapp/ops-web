@@ -229,7 +229,12 @@ describe("PhaseCAutonomyRouter actor resolution", () => {
       input,
       ASSIGNEE_ID,
       "auto_draft",
-      expect.anything()
+      expect.objectContaining({
+        phaseCActorContext: expect.objectContaining({
+          actorUserId: ASSIGNEE_ID,
+          assignmentVersion: 7,
+        }),
+      })
     );
   });
 

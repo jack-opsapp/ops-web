@@ -46,11 +46,7 @@ export const DEFAULT_AUTO_SEND_SETTINGS: AutoSendSettings = {
 };
 
 export type PendingAutoSendStatus =
-  | "pending"
-  | "leased"
-  | "sent"
-  | "cancelled"
-  | "failed";
+  "pending" | "leased" | "sent" | "cancelled" | "failed";
 
 export interface PendingAutoSend {
   id: string;
@@ -126,9 +122,7 @@ export interface PhaseCAutoSendIdempotencyInput {
   providerThreadId: string;
   inReplyTo: string | null;
   generationKind?:
-    | "conversation_reply"
-    | "auto_follow_up"
-    | "operational_outbound";
+    "conversation_reply" | "auto_follow_up" | "operational_outbound";
   sourceActivityId?: string | null;
   followUpSequence?: number | null;
   draftHistoryId?: string;
@@ -984,6 +978,7 @@ export const AutoSendService = {
         profileTypeOverride,
         autonomous: true,
         origin: "phase_c",
+        phaseCActorContext: actor,
         emailAccess: generation.emailAccess,
         ...(generation.kind !== "conversation_reply"
           ? {

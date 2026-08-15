@@ -29,6 +29,7 @@ const {
   getSeasonalPatternsMock,
   getCashFlowProjectionMock,
   checkPermissionByIdMock,
+  runReplyContextShadowMock,
 } = vi.hoisted(() => ({
   openAICreateMock: vi.fn(),
   buildConversationStateMock: vi.fn(),
@@ -43,6 +44,11 @@ const {
   getSeasonalPatternsMock: vi.fn(),
   getCashFlowProjectionMock: vi.fn(),
   checkPermissionByIdMock: vi.fn(),
+  runReplyContextShadowMock: vi.fn(),
+}));
+
+vi.mock("@/lib/api/services/phase-c-reply-context-shadow", () => ({
+  runPhaseCReplyContextShadow: runReplyContextShadowMock,
 }));
 
 vi.mock("@/lib/api/services/openai-clients", () => ({
@@ -235,8 +241,7 @@ function activityRow(
 
 function latestUserPrompt(): string {
   const request = openAICreateMock.mock.calls.at(-1)?.[0] as
-    | { messages?: Array<{ role: string; content: string }> }
-    | undefined;
+    { messages?: Array<{ role: string; content: string }> } | undefined;
   return (
     request?.messages?.find((message) => message.role === "user")?.content ?? ""
   );
@@ -244,8 +249,7 @@ function latestUserPrompt(): string {
 
 function latestSystemPrompt(): string {
   const request = openAICreateMock.mock.calls.at(-1)?.[0] as
-    | { messages?: Array<{ role: string; content: string }> }
-    | undefined;
+    { messages?: Array<{ role: string; content: string }> } | undefined;
   return (
     request?.messages?.find((message) => message.role === "system")?.content ??
     ""
@@ -311,6 +315,8 @@ beforeEach(() => {
     slowMonths: [],
   });
   getCashFlowProjectionMock.mockResolvedValue({ outstanding: 0, overdue: 0 });
+  runReplyContextShadowMock.mockReset();
+  runReplyContextShadowMock.mockResolvedValue(null);
 });
 
 describe("AIDraftService recent mailbox context", () => {
@@ -400,7 +406,180 @@ describe("AIDraftService recent mailbox context", () => {
     expect(result.noReplyWarranted).toBe(true);
     expect(result.heldForReview).not.toBe(true);
     expect(openAICreateMock).not.toHaveBeenCalled();
+    expect(runReplyContextShadowMock).not.toHaveBeenCalled();
     expect(database.inserts).toHaveLength(0);
+  });
+
+  it("shadows only the trusted Phase C reply context without changing or delaying the draft", async () => {
+    database.tables.opportunities = [
+      {
+        id: "opportunity-shadow",
+        company_id: "company-1",
+        title: "Deck repair",
+        stage: "qualifying",
+        contact_name: "Jane Doe",
+        contact_email: "jane@example.com",
+        clients: { name: "Jane Doe", email: "jane@example.com" },
+      },
+    ];
+    database.tables.activities = [
+      {
+        id: "activity-old",
+        company_id: "company-1",
+        opportunity_id: "opportunity-shadow",
+        email_connection_id: "connection-b",
+        email_thread_id: SHARED_PROVIDER_THREAD_ID,
+        email_message_id: "message-old",
+        type: "email",
+        direction: "outbound",
+        from_email: "operator@example.com",
+        subject: "Deck repair",
+        body_text: "I can visit Thursday.",
+        created_at: "2026-07-13T10:00:00.000Z",
+      },
+      {
+        id: "activity-shadow",
+        company_id: "company-1",
+        opportunity_id: "opportunity-shadow",
+        email_connection_id: "connection-b",
+        email_thread_id: SHARED_PROVIDER_THREAD_ID,
+        email_message_id: "message-shadow",
+        type: "email",
+        direction: "inbound",
+        from_email: "jane@example.com",
+        subject: "Re: Deck repair",
+        body_text: "Thursday afternoon works.",
+        created_at: "2026-07-14T10:00:00.000Z",
+      },
+    ];
+    const customerMessage = {
+      providerMessageId: "message-shadow",
+      direction: "inbound" as const,
+      partyRole: "customer" as const,
+      fromEmail: "jane@example.com",
+      fromName: "Jane Doe",
+      sentAt: "2026-07-14T10:00:00.000Z",
+      cleanBody: "Thursday afternoon works.",
+      rawBody: "Thursday afternoon works.",
+      isRealCustomerInbound: true,
+      attachments: [],
+    };
+    buildConversationStateMock.mockResolvedValue({
+      threadId: "thread-b",
+      connectionId: "connection-b",
+      companyId: "company-1",
+      operator: {
+        emails: new Set(["operator@example.com"]),
+        domains: new Set<string>(),
+        phones: new Set<string>(),
+        addresses: new Set<string>(),
+        companyName: "Canpro",
+      },
+      recipient: { email: "jane@example.com", name: "Jane Doe" },
+      messages: [
+        {
+          ...customerMessage,
+          providerMessageId: "message-old",
+          direction: "outbound",
+          partyRole: "operator",
+          fromEmail: "operator@example.com",
+          fromName: "Operator",
+          sentAt: "2026-07-13T10:00:00.000Z",
+          cleanBody: "I can visit Thursday.",
+          rawBody: "I can visit Thursday.",
+          isRealCustomerInbound: false,
+        },
+        customerMessage,
+      ],
+      customerMessages: [customerMessage],
+      contact: {
+        name: "Jane Doe",
+        nameIsVerified: true,
+        email: "jane@example.com",
+        phone: null,
+        address: null,
+        provenance: [],
+      },
+      stage: "qualifying",
+      accept: {
+        detected: false,
+        confidence: "low",
+        basis: [],
+        evidenceMessageIds: [],
+      },
+      sentLedger: [],
+      attachmentsRequiringInspection: [],
+      routing: "draft",
+      routingReasons: [],
+      responseDisposition: "reply_required",
+      responseMode: "schedule",
+      confidence: 1,
+    });
+    runReplyContextShadowMock.mockReturnValueOnce(
+      new Promise(() => {
+        // A stuck shadow must not sit on the customer-facing draft path.
+      })
+    );
+    const routedActor = {
+      actorUserId: "user-1",
+      assignmentVersion: 3,
+      assignmentEventId: null,
+      companyId: "company-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-shadow",
+      internalThreadId: "thread-b",
+      providerThreadId: SHARED_PROVIDER_THREAD_ID,
+      connectionType: "company" as const,
+      actorNameSnapshot: "Operator",
+      actorEmailSnapshot: "operator@example.com",
+      clientFacingAddressSnapshot: "operator@example.com",
+    };
+    const emailAccess = {
+      allowed: true as const,
+      actor: { userId: "user-1", companyId: "company-1" },
+      operation: "send" as const,
+      threadId: "thread-b",
+      connectionId: "connection-b",
+      providerThreadId: SHARED_PROVIDER_THREAD_ID,
+      opportunityId: "opportunity-shadow",
+      connectionType: "company" as const,
+      connectionOwnerId: null,
+      pipelineScope: "assigned" as const,
+      inboxScope: "assigned" as const,
+      usedLegacyPipelineManage: false,
+      usedLegacyInboxViewCompany: false,
+    };
+
+    const result = await AIDraftService.generateDraft({
+      companyId: "company-1",
+      userId: "user-1",
+      connectionId: "connection-b",
+      opportunityId: "opportunity-shadow",
+      threadId: SHARED_PROVIDER_THREAD_ID,
+      sourceActivityId: "activity-shadow",
+      autonomous: true,
+      origin: "phase_c",
+      phaseCActorContext: routedActor,
+      emailAccess,
+      draftPurpose: { kind: "conversation_reply" },
+    });
+
+    expect(result).toMatchObject({ available: true, draft: "Generated reply" });
+    expect(openAICreateMock).toHaveBeenCalledOnce();
+    expect(runReplyContextShadowMock).toHaveBeenCalledWith({
+      routedActor,
+      sourceActivityId: "activity-shadow",
+      controlContext: expect.stringContaining("Thursday afternoon works."),
+      rpcClient: expect.any(Object),
+    });
+    const shadowInput = runReplyContextShadowMock.mock.calls[0]![0] as {
+      controlContext: string;
+    };
+    expect(shadowInput.controlContext).toContain("I can visit Thursday.");
+    expect(shadowInput.controlContext).not.toContain("companyContext");
+    expect(shadowInput.controlContext).not.toContain(
+      "UNTRUSTED_EMAIL_DATA_JSON"
+    );
   });
 
   it("keeps caller-supplied customer wording inside the untrusted data envelope", async () => {

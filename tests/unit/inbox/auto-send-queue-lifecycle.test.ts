@@ -276,6 +276,7 @@ describe("AutoSendService queue lifecycle", () => {
         profileTypeOverride: "client_new_inquiry",
         autonomous: true,
         origin: "phase_c",
+        phaseCActorContext: actorContext,
         emailAccess,
         sourceActivityId: "activity-inbound-1",
         draftPurpose: { kind: "conversation_reply" },

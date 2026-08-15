@@ -10,6 +10,7 @@
 
 import "server-only";
 
+import { after } from "next/server";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { WritingProfileService } from "./writing-profile-service";
 import { MemoryService } from "./memory-service";
@@ -19,6 +20,10 @@ import { FinancialIntelligenceService } from "./financial-intelligence-service";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { getHumanDraftAccuracy } from "./phase-c-draft-accuracy-service";
 import { getDraftingOpenAI } from "./openai-clients";
+import {
+  runPhaseCReplyContextShadow,
+  type RunPhaseCReplyContextShadowInput,
+} from "./phase-c-reply-context-shadow";
 import { buildConversationState } from "./conversation-state/conversation-state";
 import {
   buildDraftStateContext,
@@ -54,6 +59,8 @@ import {
   type NewThreadSubjectSource,
 } from "@/lib/email/email-subject-policy";
 import type { AllowedEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
+import type { PhaseCEmailActorContext } from "@/lib/email/phase-c-email-actor";
+import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
 import { extractEmailAddress } from "@/lib/utils/email-parsing";
 
@@ -82,19 +89,6 @@ export const LIFECYCLE_LEARNING_ENABLED = true;
 
 const MAX_SOURCE_BOUND_CONVERSATION_MESSAGES = 200;
 const MAX_SOURCE_BOUND_CONVERSATION_CHARACTERS = 120_000;
-
-/**
- * Serialize customer/business reference data without allowing its content to
- * manufacture our structural prompt delimiters. JSON quoting separates values
- * from instructions; escaping angle brackets prevents a literal closing tag
- * embedded in an email from ending the untrusted block early.
- */
-function serializeUntrustedPromptData(value: unknown): string {
-  return JSON.stringify(value)
-    .replaceAll("<", "\\u003c")
-    .replaceAll(">", "\\u003e")
-    .replaceAll("&", "\\u0026");
-}
 
 // ─── Output Sanitization ────────────────────────────────────────────────────
 
@@ -239,6 +233,11 @@ export interface AIDraftRequest {
    * 'phase_c'; the compose path passes 'operator'. Omitted → NULL (legacy).
    */
   origin?: "operator" | "template_follow_up" | "phase_c" | "system_handoff";
+  /**
+   * Canonical assignment-fenced Phase C actor proof. Structural lookalikes are
+   * rejected by the shadow boundary and never gain conversation access.
+   */
+  phaseCActorContext?: PhaseCEmailActorContext;
   /**
    * Canonical server-side projection returned by resolveEmailOpportunityAccess.
    * When present, every mailbox/thread/lead/actor identity below is treated as
@@ -1896,7 +1895,7 @@ ${effectiveUserInstruction ? `Purpose: ${effectiveUserInstruction}` : "Write a p
     }
 
     // ── Generate draft ─────────────────────────────────────────────────
-    const response = await getOpenAI().chat.completions.create({
+    const replyDraftPromise = getOpenAI().chat.completions.create({
       // Quality-first: the centralized draft model (see inbox-models.ts).
       model: inboxModel("draft"),
       messages: [
@@ -1906,6 +1905,46 @@ ${effectiveUserInstruction ? `Purpose: ${effectiveUserInstruction}` : "Write a p
       temperature: 0.7,
       max_completion_tokens: 800,
     });
+    if (
+      req.origin === "phase_c" &&
+      req.autonomous === true &&
+      draftPurpose.kind === "conversation_reply" &&
+      sourceActivityId !== null &&
+      emailAccess !== undefined &&
+      req.phaseCActorContext !== undefined
+    ) {
+      const replyContextShadowTask = runPhaseCReplyContextShadow({
+        routedActor: req.phaseCActorContext,
+        sourceActivityId,
+        // Compare like-for-like conversation material. Company, pricing, and
+        // other prompt blocks remain on both eventual paths and must not be
+        // counted as savings from replacing whole-thread conversation history.
+        controlContext: fullThreadText,
+        rpcClient:
+          supabase as unknown as RunPhaseCReplyContextShadowInput["rpcClient"],
+      })
+        .then((observation) => {
+          if (observation) {
+            try {
+              // Shadow output is operational telemetry, not a warning/error.
+              // eslint-disable-next-line no-console
+              console.info("[phase-c-reply-context-shadow]", observation);
+            } catch {
+              // Observability is deliberately unable to affect drafting.
+            }
+          }
+        })
+        .catch(() => undefined);
+      try {
+        // Keep the shadow alive after the response without adding latency to
+        // the customer-facing draft. Direct worker/test calls fall back to the
+        // already-contained promise when no Next request context exists.
+        after(replyContextShadowTask);
+      } catch {
+        void replyContextShadowTask;
+      }
+    }
+    const response = await replyDraftPromise;
 
     const draft = stripMarkdownFences(
       response.choices[0]?.message?.content || ""

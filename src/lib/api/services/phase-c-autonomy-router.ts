@@ -113,6 +113,8 @@ export type RouterOutcome =
  */
 interface RouteOptions {
   placementOnly?: boolean;
+  /** Canonical route proof; never accepted from public/API input. */
+  phaseCActorContext?: PhaseCEmailActorContext;
 }
 
 export interface RouterResult {
@@ -149,11 +151,7 @@ function isThreadActionable(thread: EmailThread): boolean {
  */
 interface ExactEmailSourceTurn {
   resolution:
-    | "resolved"
-    | "missing"
-    | "ambiguous"
-    | "read_error"
-    | "history_read_error";
+    "resolved" | "missing" | "ambiguous" | "read_error" | "history_read_error";
   sourceMessageId: string | null;
   sourceActivityId: string | null;
   sourceCreatedAt: Date | null;
@@ -811,7 +809,10 @@ export const PhaseCAutonomyRouter = {
               detail: "actor_identity_invalid",
             };
           }
-          return await this.doAutoDraft(thread, userId, effective, options);
+          return await this.doAutoDraft(thread, userId, effective, {
+            ...options,
+            phaseCActorContext: actorContext ?? undefined,
+          });
 
         case "auto_send":
           if (!actorContext) {
@@ -1044,6 +1045,7 @@ export const PhaseCAutonomyRouter = {
         // P4-B: stamp ai_draft_history.origin so the Phase C auto-drafts are
         // distinguishable from operator/compose drafts.
         origin: "phase_c",
+        phaseCActorContext: options.phaseCActorContext,
         emailAccess: accessBeforeDraft,
         sourceActivityId:
           thread.opportunityId && sourceActivityId
@@ -1202,7 +1204,8 @@ export const PhaseCAutonomyRouter = {
       return await this.doAutoDraft(
         thread,
         actorContext.actorUserId,
-        "auto_draft"
+        "auto_draft",
+        { phaseCActorContext: actorContext }
       );
     }
 
@@ -1432,7 +1435,8 @@ export const PhaseCAutonomyRouter = {
       return await this.doAutoDraft(
         thread,
         actorContext.actorUserId,
-        "auto_draft"
+        "auto_draft",
+        { phaseCActorContext: actorContext }
       );
     }
 
