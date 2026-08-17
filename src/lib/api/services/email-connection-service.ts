@@ -58,6 +58,7 @@ function mapFromDb(row: Record<string, unknown>): EmailConnection {
     outreachSubject: (row.outreach_subject as string) ?? null,
     signatureLogoUrl: (row.signature_logo_url as string) ?? null,
     status: (row.status as EmailConnection["status"]) ?? "active",
+    grantedScopes: (row.granted_scopes as string[] | null) ?? null,
     createdAt: parseDateRequired(row.created_at),
     updatedAt: parseDateRequired(row.updated_at),
   };

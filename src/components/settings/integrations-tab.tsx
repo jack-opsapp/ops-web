@@ -10,6 +10,7 @@ import {
   Loader2,
   Clock,
   AlertTriangle,
+  CalendarDays,
   CheckCircle,
   Search,
 } from "lucide-react";
@@ -276,6 +277,12 @@ export function IntegrationsTab() {
         setWizardOpen(true);
       }
       window.history.replaceState({}, "", "/settings?section=email");
+    } else if (params.get("calendar") === "connected") {
+      toast.success(t("integrations.toast.calendarConnected"));
+      window.history.replaceState({}, "", "/settings?section=email");
+    } else if (params.get("calendar") === "error") {
+      toast.error(t("integrations.toast.calendarFailed"));
+      window.history.replaceState({}, "", "/settings?section=email");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once on mount
   }, []);
@@ -341,6 +348,22 @@ export function IntegrationsTab() {
           description: err.message,
         }),
     });
+  }
+
+  function handleConnectCalendar(connectionId: string) {
+    if (!can("settings.integrations")) return;
+    if (!companyId || !userId) return;
+    // Incremental consent against the existing mailbox: same OAuth pair,
+    // widened to calendar events, bound server-side to this connection.
+    const params = new URLSearchParams({
+      companyId,
+      userId,
+      type: "company",
+      include_calendar: "1",
+      connectionId,
+      returnTo: "/settings?section=email",
+    });
+    window.location.href = `/api/integrations/gmail?${params.toString()}`;
   }
 
   function handleUpdateSyncInterval(id: string, minutes: number) {
@@ -466,6 +489,56 @@ export function IntegrationsTab() {
                       </Button>
                     </div>
                   </div>
+
+                  {/* Calendar sync — incremental Google consent on this
+                      mailbox. One state-aware row: OFF + CONNECT until the
+                      grant lands, then a quiet ON line. */}
+                  {conn.provider === "gmail" &&
+                    (conn.status === "active" ||
+                      conn.status === "needs_reconnect") && (
+                      <div className="flex items-center justify-between rounded border border-border bg-surface-input px-1.5 py-1">
+                        <div className="flex min-w-0 items-center gap-[6px]">
+                          <CalendarDays
+                            className={cn(
+                              "h-[16px] w-[16px] shrink-0",
+                              conn.calendarSyncGranted
+                                ? "text-olive"
+                                : "text-text-2"
+                            )}
+                          />
+                          <div className="min-w-0">
+                            <span
+                              className={cn(
+                                "block font-mono text-micro uppercase tracking-[0.12em]",
+                                conn.calendarSyncGranted
+                                  ? "text-olive"
+                                  : "text-text-2"
+                              )}
+                            >
+                              {t("integrations.calendarSync")}
+                              {" — "}
+                              {conn.calendarSyncGranted
+                                ? t("integrations.calendarSyncOn")
+                                : t("integrations.calendarSyncOff")}
+                            </span>
+                            <span className="font-mono text-micro text-text-mute">
+                              {t("integrations.calendarSyncDesc")}
+                            </span>
+                          </div>
+                        </div>
+                        {conn.calendarSyncGranted ? (
+                          <Check className="h-[14px] w-[14px] shrink-0 text-olive" />
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleConnectCalendar(conn.id)}
+                          >
+                            {t("integrations.calendarConnect")}
+                          </Button>
+                        )}
+                      </div>
+                    )}
                 </div>
               ))}
             </div>

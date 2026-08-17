@@ -53,10 +53,11 @@
  * healthy. Blocked is the exceptional, load-bearing state, so blocked is what
  * is checked in.
  *
- * Verified against prod 2026-08-06: 321 base tables in `public` —
- * 291 fully available to `service_role` and 30 blocked (listed below).
- * `site_visit_types` is fully available for account export and closure. RLS
- * is not part of this picture: `service_role` carries BYPASSRLS, so table
+ * Verified against prod 2026-08-14: 324 base tables in `public` —
+ * 294 fully available to `service_role` and 30 blocked (listed below).
+ * `calendar_feed_tokens`, `google_calendar_sync_queue`, `meeting_proposals`,
+ * and `site_visit_types` are fully available for account export and closure.
+ * RLS is not part of this picture: `service_role` carries BYPASSRLS, so table
  * privileges are the only gate.
  */
 

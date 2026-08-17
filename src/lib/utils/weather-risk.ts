@@ -43,7 +43,7 @@ export interface WeatherRisk {
 
 /** Just the fields of an event the weather-dependency test reads. */
 export interface WeatherClassifiableEvent {
-  kind: "task" | "personal" | "time_off";
+  kind: "task" | "personal" | "time_off" | "site_visit";
   taskType: string;
   typeLabel: string;
   taskTitle: string;
@@ -236,11 +236,7 @@ export function coveredForecastDates(
  * a lookup backed by the cached weather_forecasts rows.
  */
 export function weatherRiskForEvent(
-  event: {
-    kind: "task" | "personal" | "time_off";
-    taskType: string;
-    typeLabel: string;
-    taskTitle: string;
+  event: WeatherClassifiableEvent & {
     projectId?: string;
     startDate: Date;
     endDate: Date;

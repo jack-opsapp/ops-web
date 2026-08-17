@@ -65,7 +65,7 @@
  *
  * ── Derived from the live schema ───────────────────────────────────────────
  * Classification was derived against prod (`ijeekuhbatykdomumfjx`) on
- * 2026-08-06. Three queries reproduce it:
+ * 2026-08-14. Three queries reproduce it:
  *
  *   -- 1. every company-scoped base table, its tenant column type, and whether
  *   --    it can be tombstoned at all
@@ -84,7 +84,7 @@
  *   -- 3. blocking (NO ACTION / RESTRICT) foreign keys between them, which fix
  *   --    the deletion order and expose the two mutual cycles
  *
- * At the time of writing that is 223 in-scope tables — 185 carrying
+ * At the time of writing that is 226 in-scope tables — 188 carrying
  * `company_id` and 38 reaching one by foreign key — plus the `companies` row
  * itself, and 5 auth-identity tables declared out of scope.
  *
@@ -141,7 +141,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-08-10";
+export const MANIFEST_VERSION = "2026-08-17";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -1323,6 +1323,17 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     export: true,
   },
   {
+    table: "calendar_feed_tokens",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "text",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Bearer-token hashes for external calendar subscription URLs; credentials and access bookkeeping must never leave the system in an export.",
+  },
+  {
     table: "calendar_user_events",
     scope: "company",
     companyColumn: "company_id",
@@ -1898,6 +1909,17 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     reason: "Mailbox scan job queue.",
   },
   {
+    table: "google_calendar_sync_queue",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Durable provider retry queue and delivery bookkeeping for Google Calendar synchronization.",
+  },
+  {
     table: "graph_entities",
     scope: "company",
     companyColumn: "company_id",
@@ -1979,6 +2001,15 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     scope: "company",
     companyColumn: "company_id",
     companyColumnType: "text",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: true,
+  },
+  {
+    table: "meeting_proposals",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
     softDeletable: false,
     deleteStrategy: "hard",
     export: true,

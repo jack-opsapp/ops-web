@@ -62,7 +62,7 @@
  *     AND con.confrelid::regclass::text = 'auth.users'
  *   -- minus anything already in IN_SCOPE_SNAPSHOT
  *
- * Verified against prod 2026-08-06: 223 in scope and
+ * Verified against prod 2026-08-14: 226 in scope and
  * 5 auth-identity tables. The live snapshot includes the normalized
  * site-visit packet tables and the company-owned site_visit_types settings table.
  * The tenant row `companies` is deliberately absent — it carries no
@@ -104,6 +104,7 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "billing_events",
   "bug_reports",
   "calendar_events",
+  "calendar_feed_tokens",
   "calendar_user_events",
   "catalog_categories",
   "catalog_guided_setup_actions",
@@ -181,6 +182,7 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "forecast_alerts",
   "gmail_import_jobs",
   "gmail_scan_jobs",
+  "google_calendar_sync_queue",
   "graph_entities",
   "inventory_deductions",
   "invoices",
@@ -193,6 +195,7 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "line_item_materials",
   "line_item_questions",
   "line_items",
+  "meeting_proposals",
   "notification_preferences",
   "notifications",
   "onboarding_email_log",

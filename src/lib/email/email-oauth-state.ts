@@ -6,7 +6,7 @@ import { sanitizeReturnTo } from "@/lib/utils/oauth-return";
 
 export type EmailOAuthProvider = "gmail" | "microsoft365";
 export type EmailConnectionType = "company" | "individual";
-export type EmailOAuthSource = "wizard" | "alert";
+export type EmailOAuthSource = "wizard" | "alert" | "calendar";
 
 interface EmailOAuthContextBase {
   provider: EmailOAuthProvider;
@@ -24,7 +24,10 @@ export type EmailOAuthContext = EmailOAuthContextBase &
         expectedEmail?: never;
       }
     | {
-        source: "alert";
+        // alert = mailbox reconnect from an email link; calendar = in-app
+        // incremental scope upgrade. Both bind to one exact connection row so
+        // the callback can never write a different mailbox.
+        source: "alert" | "calendar";
         connectionId: string;
         expectedEmail: string;
       }
@@ -71,19 +74,23 @@ export async function createEmailOAuthState(
   const expiresAt = new Date(
     now.getTime() + EMAIL_OAUTH_STATE_TTL_MS
   ).toISOString();
-  const connectionId =
-    context.source === "alert" ? context.connectionId.trim() : null;
-  const expectedEmail =
-    context.source === "alert" ? normalizeEmail(context.expectedEmail) : null;
+  const isBoundSource =
+    context.source === "alert" || context.source === "calendar";
+  const connectionId = isBoundSource ? context.connectionId.trim() : null;
+  const expectedEmail = isBoundSource
+    ? normalizeEmail(context.expectedEmail)
+    : null;
   const returnTo = sanitizeReturnTo(context.returnTo);
   if (
-    context.source === "alert" &&
+    isBoundSource &&
     (!connectionId ||
       !expectedEmail ||
       !EMAIL_ADDRESS_PATTERN.test(expectedEmail))
   ) {
     throw new Error(
-      "Alert email OAuth state requires an exact connection and mailbox"
+      context.source === "alert"
+        ? "Alert email OAuth state requires an exact connection and mailbox"
+        : "Calendar email OAuth state requires an exact connection and mailbox"
     );
   }
 
@@ -144,12 +151,14 @@ export async function consumeEmailOAuthState(
     typeof row.user_id !== "string" ||
     (row.connection_type !== "company" &&
       row.connection_type !== "individual") ||
-    (row.source !== "wizard" && row.source !== "alert");
+    (row.source !== "wizard" &&
+      row.source !== "alert" &&
+      row.source !== "calendar");
   if (commonStateIsInvalid) {
     return null;
   }
 
-  if (row.source === "alert") {
+  if (row.source === "alert" || row.source === "calendar") {
     const expectedEmail =
       typeof row.expected_email === "string"
         ? normalizeEmail(row.expected_email)
@@ -166,7 +175,7 @@ export async function consumeEmailOAuthState(
       companyId: row.company_id,
       userId: row.user_id,
       type: row.connection_type,
-      source: "alert",
+      source: row.source,
       connectionId: row.connection_id,
       expectedEmail,
       returnTo: sanitizeReturnTo(row.return_to),
@@ -227,6 +236,58 @@ export async function resolveEmailOAuthAlertConnection(
   ) {
     return null;
   }
+
+  return { connectionId, expectedEmail };
+}
+
+export interface EmailOAuthCalendarConnectionInput {
+  companyId: string;
+  provider: EmailOAuthProvider;
+  type: EmailConnectionType;
+  connectionId: string;
+}
+
+/**
+ * Resolve an in-app calendar scope upgrade against the current connection
+ * row before minting OAuth state. Unlike alert links, the request comes from
+ * an authenticated settings surface, so the expected mailbox is derived from
+ * the row itself rather than trusted from the caller.
+ *
+ * Status alone gates the upgrade: paused mail sync (`sync_enabled = false`)
+ * must not block widening the grant — the sync toggle governs mail
+ * ingestion, the grant governs what the stored credential can do.
+ */
+export async function resolveEmailOAuthCalendarConnection(
+  supabase: SupabaseClient,
+  input: EmailOAuthCalendarConnectionInput
+): Promise<EmailOAuthAlertConnection | null> {
+  const connectionId = input.connectionId.trim();
+  if (!connectionId) return null;
+
+  const { data, error } = await supabase
+    .from("email_connections")
+    .select("id, email, status")
+    .eq("id", connectionId)
+    .eq("company_id", input.companyId)
+    .eq("provider", input.provider)
+    .eq("type", input.type)
+    .maybeSingle();
+  if (error) {
+    throw new Error(
+      `Failed to verify calendar email connection: ${error.message}`
+    );
+  }
+
+  if (
+    !data ||
+    data.id !== connectionId ||
+    (data.status !== "active" && data.status !== "needs_reconnect")
+  ) {
+    return null;
+  }
+
+  const expectedEmail = normalizeEmail(data.email ?? "");
+  if (!EMAIL_ADDRESS_PATTERN.test(expectedEmail)) return null;
 
   return { connectionId, expectedEmail };
 }

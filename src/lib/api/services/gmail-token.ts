@@ -18,6 +18,35 @@ export interface GmailConnectionRow {
 }
 
 /**
+ * Typed refresh failure so callers can tell a dead grant from a transient
+ * outage. Google reports a revoked/expired refresh token as HTTP 400 with
+ * `{"error": "invalid_grant"}`; anything else (5xx, invalid_client config
+ * errors) is not evidence the operator revoked access.
+ */
+export class GmailTokenRefreshError extends Error {
+  readonly status: number;
+  readonly oauthErrorCode: string | null;
+
+  constructor(status: number, rawBody: string) {
+    super(`Gmail token refresh failed (${status}): ${rawBody.slice(0, 200)}`);
+    this.name = "GmailTokenRefreshError";
+    this.status = status;
+    let code: string | null = null;
+    try {
+      const parsed = JSON.parse(rawBody) as { error?: unknown };
+      if (typeof parsed.error === "string") code = parsed.error;
+    } catch {
+      // Non-JSON body — no OAuth error code to extract.
+    }
+    this.oauthErrorCode = code;
+  }
+
+  get isGrantRevoked(): boolean {
+    return this.oauthErrorCode === "invalid_grant";
+  }
+}
+
+/**
  * Returns a valid Gmail access token, refreshing via OAuth if expired.
  * Persists the new token to Supabase if refreshed.
  */
@@ -62,9 +91,7 @@ export async function getValidGmailToken(
   const rawBody = await response.text();
 
   if (!response.ok) {
-    throw new Error(
-      `Gmail token refresh failed (${response.status}): ${rawBody.slice(0, 200)}`
-    );
+    throw new GmailTokenRefreshError(response.status, rawBody);
   }
 
   let json: { access_token?: string; expires_in?: number };
