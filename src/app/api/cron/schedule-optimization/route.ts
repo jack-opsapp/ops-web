@@ -9,7 +9,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import { ScheduleOptimizationService } from "@/lib/api/services/schedule-optimization-service";
-import { runBoundedPhaseCCompanyFanout } from "@/lib/api/services/cron-company-fanout-service";
+import {
+  runBoundedPhaseCCompanyFanout,
+  type CronCompanyFanoutRetryState,
+} from "@/lib/api/services/cron-company-fanout-service";
 import { runWithCronWorkloadControl } from "@/lib/api/services/cron-workload-control-service";
 import { getCompanyManagerUserIds } from "@/lib/api/services/company-managers";
 
@@ -22,8 +25,42 @@ type OptResult = {
   companyId: string;
   today: { proposed: number; conflicts: number; unassigned: number } | null;
   tomorrow: { proposed: number; conflicts: number; unassigned: number } | null;
+  disposition: "success" | "not_actionable" | "retryable";
+  reason?: "no_admin_user";
   error?: string;
 };
+
+function reportableOptimizationResults(results: OptResult[]): OptResult[] {
+  return results.filter(
+    (result) =>
+      (result.today?.proposed ?? 0) > 0 ||
+      (result.tomorrow?.proposed ?? 0) > 0 ||
+      result.disposition === "not_actionable" ||
+      result.error
+  );
+}
+
+class ScheduleOptimizationRunError extends Error {
+  readonly results: OptResult[];
+  readonly retry: CronCompanyFanoutRetryState;
+
+  constructor(
+    results: OptResult[],
+    retry: CronCompanyFanoutRetryState,
+    cause?: unknown
+  ) {
+    const failedCount = results.filter(
+      (result) => result.disposition === "retryable"
+    ).length;
+    super(
+      `Schedule optimization failed for ${failedCount} of ${results.length} companies`,
+      cause === undefined ? undefined : { cause }
+    );
+    this.name = "ScheduleOptimizationRunError";
+    this.results = reportableOptimizationResults(results);
+    this.retry = retry;
+  }
+}
 
 export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
@@ -51,8 +88,8 @@ export async function GET(request: NextRequest) {
       supabase,
       workloadKey: WORKLOAD_KEY,
       leaseSeconds: 360,
-      work: (lease) =>
-        runBoundedPhaseCCompanyFanout<OptResult>({
+      work: async (lease) => {
+        const fanout = await runBoundedPhaseCCompanyFanout<OptResult>({
           supabase,
           workloadKey: WORKLOAD_KEY,
           lease,
@@ -69,7 +106,8 @@ export async function GET(request: NextRequest) {
                 companyId,
                 today: null,
                 tomorrow: null,
-                error: "No admin user found",
+                disposition: "not_actionable",
+                reason: "no_admin_user",
               };
             }
 
@@ -96,6 +134,7 @@ export async function GET(request: NextRequest) {
               companyId,
               today: todayResult,
               tomorrow: tomorrowResult,
+              disposition: "success",
             };
           },
           onCompanyError: (companyId, error) => {
@@ -109,10 +148,29 @@ export async function GET(request: NextRequest) {
               companyId,
               today: null,
               tomorrow: null,
+              disposition: "retryable",
               error: message,
             };
           },
-        }),
+          retryPolicy: {
+            maxAttempts: 3,
+            classifyResult: (result) =>
+              result.disposition === "not_actionable"
+                ? "permanent"
+                : result.disposition,
+          },
+        });
+
+        if (fanout.retry?.status === "scheduled") {
+          throw new ScheduleOptimizationRunError(
+            fanout.results,
+            fanout.retry,
+            fanout.failureCause
+          );
+        }
+
+        return fanout;
+      },
     });
 
     if (controlled.status === "skipped") {
@@ -129,8 +187,7 @@ export async function GET(request: NextRequest) {
 
     const results = controlled.value.results;
     const totalProposed = results.reduce(
-      (sum, r) =>
-        sum + (r.today?.proposed ?? 0) + (r.tomorrow?.proposed ?? 0),
+      (sum, r) => sum + (r.today?.proposed ?? 0) + (r.tomorrow?.proposed ?? 0),
       0
     );
     const totalConflicts = results.reduce(
@@ -143,26 +200,39 @@ export async function GET(request: NextRequest) {
         sum + (r.today?.unassigned ?? 0) + (r.tomorrow?.unassigned ?? 0),
       0
     );
-    const errors = results.filter((r) => r.error);
+    const errors = results.filter((r) => r.disposition === "retryable");
+    const nonActionable = results.filter(
+      (r) => r.disposition === "not_actionable"
+    ).length;
 
     return NextResponse.json({
-      ok: true,
+      ok: controlled.value.retry?.status !== "exhausted",
       companiesProcessed: controlled.value.companyIds.length,
       optimizationsProposed: totalProposed,
       conflictsFound: totalConflicts,
       unassignedFound: totalUnassigned,
       errors: errors.length,
-      details: results.filter(
-        (r) =>
-          (r.today?.proposed ?? 0) > 0 ||
-          (r.tomorrow?.proposed ?? 0) > 0 ||
-          r.error
-      ),
+      nonActionable,
+      retry: controlled.value.retry,
+      details: reportableOptimizationResults(results),
     });
   } catch (err) {
+    if (err instanceof ScheduleOptimizationRunError) {
+      console.error("[cron/schedule-optimization]", err.message);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: err.message,
+          retry: err.retry,
+          results: err.results,
+        },
+        { status: 500 }
+      );
+    }
+
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[cron/schedule-optimization]", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   } finally {
     setSupabaseOverride(null);
   }

@@ -268,6 +268,16 @@ export interface LeadSummaryRunResult {
   modelCallLimitReached: boolean;
   skippedInsufficientContext: number;
   failed: Array<{ opportunityId: string; error: string }>;
+  /**
+   * Model-only outcomes that exhausted the bounded contract retry and had no
+   * trusted deterministic fallback. They are reported without a write, but do
+   * not hold the durable sweep cursor or starve later opportunities.
+   */
+  deferred: Array<{
+    opportunityId: string;
+    error: string;
+    reason: "model_contract" | "model_refusal";
+  }>;
   /** Written leads (capped at RESULT_LIST_CAP) for observability. */
   written: Array<{ opportunityId: string; title: string }>;
   /** Candidate preview (capped) — populated in dry runs and real runs alike. */
@@ -560,10 +570,7 @@ export function hasSubstantiveLeadContext(
 }
 
 export type LeadStalenessVerdict =
-  | "fresh"
-  | "stale"
-  | "awaiting_event"
-  | "insufficient_context";
+  "fresh" | "stale" | "awaiting_event" | "insufficient_context";
 
 /**
  * Staleness decision for one open lead.
@@ -684,10 +691,7 @@ export interface LeadSummaryContextBundle {
   commercial_context: {
     outcome: "won" | "deferred" | "declined";
     reason:
-      | "customer_committed"
-      | "budget_timing"
-      | "customer_declined"
-      | "price";
+      "customer_committed" | "budget_timing" | "customer_declined" | "price";
     current_price: number | null;
     current_scope: string | null;
     excluded_scope: string | null;
@@ -699,11 +703,7 @@ export interface LeadSummaryContextBundle {
 }
 
 type ConversationFactKind =
-  | "price"
-  | "scope"
-  | "schedule"
-  | "objection"
-  | "next_action";
+  "price" | "scope" | "schedule" | "objection" | "next_action";
 
 const CONVERSATION_FACT_PATTERNS: Record<ConversationFactKind, RegExp> = {
   price:
@@ -4149,11 +4149,46 @@ async function sweepCompany(
         result.skippedInsufficientContext += 1;
         continue;
       }
-      const summary = await generateLeadSummary({
-        companyName,
-        bundle,
-        modelCallBudget: accumulator.modelCallBudget,
-      });
+      let summary: string;
+      try {
+        summary = await generateLeadSummary({
+          companyName,
+          bundle,
+          modelCallBudget: accumulator.modelCallBudget,
+        });
+      } catch (error) {
+        if (
+          !(error instanceof LeadSummaryModelContractError) &&
+          !(error instanceof LeadSummaryModelRefusalError)
+        ) {
+          throw error;
+        }
+        // The scheduled sweep has already spent its bounded model retry.
+        // Resolve from the same trusted fact bundle so a repeatedly invalid or
+        // refused answer cannot strand current price/scope/schedule facts.
+        try {
+          summary = renderDeterministicLeadSummaryFallback(bundle);
+        } catch (fallbackError) {
+          if (
+            !(fallbackError instanceof LeadSummaryModelContractError) &&
+            !(fallbackError instanceof LeadSummaryModelRefusalError)
+          ) {
+            throw fallbackError;
+          }
+          result.deferred.push({
+            opportunityId: candidate.opportunity.id,
+            error:
+              fallbackError instanceof Error
+                ? fallbackError.message
+                : "unknown error",
+            reason:
+              error instanceof LeadSummaryModelRefusalError
+                ? "model_refusal"
+                : "model_contract",
+          });
+          continue;
+        }
+      }
       await commitLeadSummarySnapshot({
         supabase,
         companyId,
@@ -4243,6 +4278,7 @@ export async function runLeadSummaryRefresh(
     modelCallLimitReached: false,
     skippedInsufficientContext: 0,
     failed: [],
+    deferred: [],
     written: [],
     candidatesPreview: [],
     opportunityWindow: null,

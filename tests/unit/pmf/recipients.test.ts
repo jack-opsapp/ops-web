@@ -6,6 +6,7 @@ import {
 } from "@/lib/pmf/recipients";
 
 const OPERATOR_COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
+const OPERATOR_USER_ID = "a6ab38dc-9844-4b72-922f-2d2f70f8e617";
 
 describe("PMF recipient environment normalization", () => {
   const originalEnv = { ...process.env };
@@ -13,7 +14,7 @@ describe("PMF recipient environment normalization", () => {
   beforeEach(() => {
     process.env.PMF_NOTIFICATION_SMS = " +15555550100 ";
     process.env.PMF_NOTIFICATION_EMAIL = " ops@opsapp.co ";
-    process.env.PMF_OPERATOR_USER_ID = " operator-user ";
+    process.env.PMF_OPERATOR_USER_ID = ` ${OPERATOR_USER_ID} `;
     process.env.PMF_OPERATOR_COMPANY_ID = ` ${OPERATOR_COMPANY_ID}\n`;
   });
 
@@ -25,11 +26,11 @@ describe("PMF recipient environment normalization", () => {
     expect(getPmfRecipients()).toEqual({
       sms: "+15555550100",
       email: "ops@opsapp.co",
-      operatorUserId: "operator-user",
+      operatorUserId: OPERATOR_USER_ID,
       operatorCompanyId: OPERATOR_COMPANY_ID,
     });
     expect(getOptionalPmfOperatorIdentity()).toEqual({
-      operatorUserId: "operator-user",
+      operatorUserId: OPERATOR_USER_ID,
       operatorCompanyId: OPERATOR_COMPANY_ID,
     });
   });
@@ -42,6 +43,14 @@ describe("PMF recipient environment normalization", () => {
     );
     expect(() => getOptionalPmfOperatorIdentity()).toThrow(
       "PMF_OPERATOR_COMPANY_ID must be a UUID"
+    );
+  });
+
+  it("rejects a malformed operator user before it reaches a retrying database path", () => {
+    process.env.PMF_OPERATOR_USER_ID = "not-a-user";
+
+    expect(() => getOptionalPmfOperatorIdentity()).toThrow(
+      "PMF_OPERATOR_USER_ID must be a UUID"
     );
   });
 

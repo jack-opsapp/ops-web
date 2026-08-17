@@ -24,7 +24,7 @@ function normalizedEnvironmentValue(name: string): string | null {
  * value can become a tenant key.
  */
 export function getOptionalPmfOperatorIdentity(): PmfOperatorIdentity | null {
-  const operatorUserId = normalizedEnvironmentValue("PMF_OPERATOR_USER_ID");
+  const operatorUserId = getOptionalPmfOperatorUserId();
   const operatorCompanyId = normalizedEnvironmentValue(
     "PMF_OPERATOR_COMPANY_ID"
   );
@@ -33,6 +33,16 @@ export function getOptionalPmfOperatorIdentity(): PmfOperatorIdentity | null {
     throw new Error("PMF_OPERATOR_COMPANY_ID must be a UUID");
   }
   return { operatorUserId, operatorCompanyId };
+}
+
+/** Validated pause/audit actor identity, independent of rail tenant config. */
+export function getOptionalPmfOperatorUserId(): string | null {
+  const operatorUserId = normalizedEnvironmentValue("PMF_OPERATOR_USER_ID");
+  if (!operatorUserId) return null;
+  if (!UUID_PATTERN.test(operatorUserId)) {
+    throw new Error("PMF_OPERATOR_USER_ID must be a UUID");
+  }
+  return operatorUserId;
 }
 
 export function getPmfRecipients(): PmfRecipients {

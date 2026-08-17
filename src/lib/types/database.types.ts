@@ -5270,6 +5270,7 @@ export type Database = {
           id: string
           industries: string[] | null
           industry: string | null
+          invoice_settings: Json
           latitude: number | null
           lifecycle_settings: Json | null
           locale: string
@@ -5283,6 +5284,7 @@ export type Database = {
           precise_scheduling_enabled: boolean | null
           priority_support_period: string | null
           referral_method: string | null
+          schedule_settings: Json
           seat_grace_start_date: string | null
           seated_employee_ids: string[] | null
           skip_weekends_in_auto_schedule: boolean | null
@@ -5327,6 +5329,7 @@ export type Database = {
           id?: string
           industries?: string[] | null
           industry?: string | null
+          invoice_settings?: Json
           latitude?: number | null
           lifecycle_settings?: Json | null
           locale?: string
@@ -5340,6 +5343,7 @@ export type Database = {
           precise_scheduling_enabled?: boolean | null
           priority_support_period?: string | null
           referral_method?: string | null
+          schedule_settings?: Json
           seat_grace_start_date?: string | null
           seated_employee_ids?: string[] | null
           skip_weekends_in_auto_schedule?: boolean | null
@@ -5384,6 +5388,7 @@ export type Database = {
           id?: string
           industries?: string[] | null
           industry?: string | null
+          invoice_settings?: Json
           latitude?: number | null
           lifecycle_settings?: Json | null
           locale?: string
@@ -5397,6 +5402,7 @@ export type Database = {
           precise_scheduling_enabled?: boolean | null
           priority_support_period?: string | null
           referral_method?: string | null
+          schedule_settings?: Json
           seat_grace_start_date?: string | null
           seated_employee_ids?: string[] | null
           skip_weekends_in_auto_schedule?: boolean | null
@@ -22076,6 +22082,10 @@ export type Database = {
         Args: { p_holder: string; p_job_id: string; p_lease_seconds?: number }
         Returns: boolean
       }
+      append_analytics_events: {
+        Args: { p_events: Json; p_expected_subject: string }
+        Returns: Json
+      }
       adopt_orphan_email_activity_as_system: {
         Args: {
           p_activity_id: string
@@ -24591,6 +24601,30 @@ export type Database = {
           notification_id: string
         }[]
       }
+      create_email_anomaly_notification_if_new: {
+        Args: {
+          p_action_label?: string
+          p_action_url?: string
+          p_anomaly_id: string
+          p_body: string
+          p_company_id: string
+          p_persistent?: boolean
+          p_title: string
+          p_user_id: string
+        }
+        Returns: {
+          created: boolean
+          notification_id: string
+        }[]
+      }
+      reconcile_email_pause_notification_fanout: {
+        Args: { p_anomaly_id: string; p_pause_audit_id: string }
+        Returns: number
+      }
+      replace_financial_analysis_memories: {
+        Args: { p_company_id: string; p_memories: Json }
+        Returns: number
+      }
       create_notification_if_new_with_status: {
         Args: {
           p_action_label?: string
@@ -26405,6 +26439,10 @@ export type Database = {
           similarity: number
           source: string
         }[]
+      }
+      merge_company_invoice_settings: {
+        Args: { p_company_id: string; p_patch: Json }
+        Returns: Json
       }
       merge_task_type: {
         Args: {

@@ -53,13 +53,11 @@ vi.mock("@/lib/supabase/server-client", () => ({
 const { runWithCronWorkloadControlMock } = vi.hoisted(() => ({
   runWithCronWorkloadControlMock: vi.fn(),
 }));
-const {
-  readCronWorkloadCursorMock,
-  advanceCronWorkloadCursorMock,
-} = vi.hoisted(() => ({
-  readCronWorkloadCursorMock: vi.fn(),
-  advanceCronWorkloadCursorMock: vi.fn(),
-}));
+const { readCronWorkloadCursorMock, advanceCronWorkloadCursorMock } =
+  vi.hoisted(() => ({
+    readCronWorkloadCursorMock: vi.fn(),
+    advanceCronWorkloadCursorMock: vi.fn(),
+  }));
 vi.mock("@/lib/api/services/cron-workload-control-service", async () => {
   const actual = await vi.importActual<
     typeof import("@/lib/api/services/cron-workload-control-service")
@@ -84,10 +82,7 @@ import {
   LeadSummaryModelRefusalError,
   LEAD_SUMMARY_STALENESS_EPSILON_MS,
 } from "@/lib/api/services/lead-summary-service";
-import {
-  GET,
-  POST,
-} from "@/app/api/cron/lead-summary-refresh/route";
+import { GET, POST } from "@/app/api/cron/lead-summary-refresh/route";
 import { decodeLeadSummaryRefreshCursor } from "@/lib/email/lead-summary-refresh-cursor";
 
 // ─── Chain-level Supabase mock ──────────────────────────────────────────────
@@ -888,8 +883,7 @@ describe("runLeadSummaryRefresh", () => {
     expect(
       hydratedOpportunitySets.every(
         (ids) =>
-          !ids.includes(opportunityIds[4]) &&
-          !ids.includes(opportunityIds[30])
+          !ids.includes(opportunityIds[4]) && !ids.includes(opportunityIds[30])
       )
     ).toBe(true);
   });
@@ -973,7 +967,68 @@ describe("runLeadSummaryRefresh", () => {
     });
   });
 
-  it("isolates a persistent per-lead failure and continues the sweep", async () => {
+  it("commits trusted deterministic facts after the scheduled model repeatedly contradicts the current schedule", async () => {
+    const scheduleDays = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+    ];
+    const activities = scheduleDays.map((day, index) =>
+      emailActivity(
+        OPP_A,
+        `2026-07-21T${String(14 + index).padStart(2, "0")}:00:00.000Z`,
+        index === 0
+          ? `The installation is confirmed for ${day}.`
+          : `The installation was rescheduled to ${day}.`,
+        "outbound"
+      )
+    );
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          ai_summary: "The installation remains booked for Monday.",
+          ai_summary_updated_at: STAMP,
+          correspondence_count: activities.length,
+        }),
+      ],
+    };
+    tables.activities = { rows: activities };
+    tables.opportunity_correspondence_events = {
+      rows: activities.map((activity) => correspondenceEvent(activity)),
+    };
+    openAICreateMock.mockReset();
+    openAICreateMock.mockResolvedValue(
+      modelResponse(
+        "Customer remains in the qualifying stage. The installation remains booked for Saturday."
+      )
+    );
+
+    const result = await runLeadSummaryRefresh({
+      supabase: mockSupabase,
+      mode: "refresh",
+      companyId: COMPANY_ID,
+      now: NOW,
+    });
+
+    expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({
+      summariesWritten: 1,
+      failed: [],
+    });
+    expect(supabaseRpcMock).toHaveBeenCalledWith(
+      "commit_lead_summary_snapshot",
+      expect.objectContaining({
+        p_summary: expect.stringMatching(/schedule:.*friday/i),
+      })
+    );
+    expect(supabaseRpcMock.mock.calls.at(-1)?.[1]?.p_summary).not.toMatch(
+      /saturday/i
+    );
+  });
+
+  it("defers a terminal per-lead model-contract failure and continues the sweep", async () => {
     tables.opportunities = {
       rows: [
         opportunityRow({
@@ -1016,8 +1071,16 @@ describe("runLeadSummaryRefresh", () => {
       now: NOW,
     });
 
-    expect(result.failed).toHaveLength(1);
-    expect(result.failed[0].opportunityId).toBe(OPP_A);
+    expect(result.failed).toEqual([]);
+    expect(result.deferred).toEqual([
+      {
+        opportunityId: OPP_A,
+        error: expect.stringContaining(
+          "deterministic fallback had no current facts"
+        ),
+        reason: "model_contract",
+      },
+    ]);
     expect(result.summariesWritten).toBe(1);
     expect(updateCalls).toHaveLength(0);
     expect(supabaseRpcMock).toHaveBeenCalledTimes(1);
@@ -1330,12 +1393,7 @@ describe("refreshLeadSummariesForOpportunities", () => {
       },
     ];
     const activities = sourceMessages.map((message, index) => ({
-      ...emailActivity(
-        OPP_A,
-        message.at,
-        message.body,
-        message.direction
-      ),
+      ...emailActivity(OPP_A, message.at, message.body, message.direction),
       id: `activity-owen-${index}`,
       subject: "2745 Fernwood project",
       email_message_id: `message-owen-${index}`,
@@ -2213,9 +2271,7 @@ describe("GET /api/cron/lead-summary-refresh", () => {
       .flatMap((call) => call.filters)
       .filter(
         ([kind, column, value]) =>
-          kind === "in" &&
-          column === "opportunity_id" &&
-          Array.isArray(value)
+          kind === "in" && column === "opportunity_id" && Array.isArray(value)
       )
       .map(([, , value]) => value as string[]);
     expect(
@@ -2280,6 +2336,106 @@ describe("GET /api/cron/lead-summary-refresh", () => {
 
     expect(response.status).toBe(500);
     expect(advanceCronWorkloadCursorMock).not.toHaveBeenCalled();
+  });
+
+  it("fails the controlled workload and holds the cursor when a lead cannot be persisted", async () => {
+    vi.stubEnv("CRON_SECRET", "top-secret");
+    vi.stubEnv("LEAD_SUMMARY_REFRESH_ENABLED", "true");
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          ai_summary: "Existing summary.",
+          ai_summary_updated_at: STAMP,
+        }),
+      ],
+    };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+    supabaseRpcMock.mockReset();
+    supabaseRpcMock.mockResolvedValue({
+      data: null,
+      error: {
+        message: "permission denied for table opportunities",
+        code: "42501",
+      },
+    });
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      error: expect.stringContaining(
+        "Lead summary refresh failed for 1 opportunity"
+      ),
+      failed: [
+        {
+          opportunityId: OPP_A,
+          error:
+            "summary write failed: permission denied for table opportunities",
+        },
+      ],
+    });
+    expect(advanceCronWorkloadCursorMock).not.toHaveBeenCalled();
+  });
+
+  it("advances past a terminal model-contract deferral without reporting the summary as successful", async () => {
+    const windowTailId = "route-poison-window-24";
+    vi.stubEnv("CRON_SECRET", "top-secret");
+    vi.stubEnv("LEAD_SUMMARY_REFRESH_ENABLED", "true");
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          ai_summary: "Existing summary.",
+          ai_summary_updated_at: STAMP,
+        }),
+        ...Array.from({ length: 24 }, (_, index) =>
+          opportunityRow({
+            id: `route-poison-window-${String(index + 1).padStart(2, "0")}`,
+            ai_summary: "Current summary.",
+            ai_summary_updated_at: NOW.toISOString(),
+          })
+        ),
+      ],
+    };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+    openAICreateMock.mockReset();
+    openAICreateMock.mockRejectedValue(
+      new LeadSummaryModelContractError("model response was empty")
+    );
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toMatchObject({
+      ok: false,
+      summariesWritten: 0,
+      failed: [],
+      deferred: [
+        {
+          opportunityId: OPP_A,
+          error: expect.stringContaining(
+            "deterministic fallback had no current facts"
+          ),
+          reason: "model_contract",
+        },
+      ],
+    });
+    expect(openAICreateMock).toHaveBeenCalledTimes(2);
+    expect(supabaseRpcMock).not.toHaveBeenCalled();
+    expect(advanceCronWorkloadCursorMock).toHaveBeenCalledTimes(1);
+    expect(
+      decodeLeadSummaryRefreshCursor(
+        advanceCronWorkloadCursorMock.mock.calls[0][4]
+      )
+    ).toEqual({
+      companyId: COMPANY_ID,
+      afterOpportunityId: windowTailId,
+    });
   });
 
   it("returns an idempotent no-op while another refresh owns the lease", async () => {
