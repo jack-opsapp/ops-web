@@ -9,7 +9,7 @@ const effects = vi.hoisted(() => ({
 
 vi.mock("@/lib/api/services/client-scheduling-comms-service", () => ({
   ClientSchedulingCommsService: {
-    onTaskCreatedMaybeFullAuto: effects.fullAuto,
+    confirmFullAutoScheduleFromLease: effects.fullAuto,
     onConfirmedTaskRescheduled: effects.rescheduled,
   },
   taskMatchesScheduleChange: (
@@ -189,8 +189,8 @@ function database(options: {
 beforeEach(() => {
   vi.clearAllMocks();
   effects.fullAuto.mockResolvedValue({
-    actionTaken: "full_auto",
-    actionId: "action-1",
+    disposition: "processed",
+    reason: "confirmed_and_queued",
   });
   effects.rescheduled.mockResolvedValue({
     actionTaken: "draft",
@@ -525,17 +525,10 @@ describe("TaskMutationAutomationOutboxService", () => {
     );
 
     expect(effects.fullAuto).toHaveBeenCalledWith(
-      "company-1",
-      "actor-1",
+      "event-1",
+      "lease-1",
       "task-1",
-      expect.objectContaining({
-        taskAutomationGuard: {
-          eventId: "event-1",
-          leaseToken: "lease-1",
-          taskId: "task-1",
-          scheduleVersion: 7,
-        },
-      })
+      7
     );
     expect(result).toMatchObject({ claimed: 1, completed: 1 });
   });

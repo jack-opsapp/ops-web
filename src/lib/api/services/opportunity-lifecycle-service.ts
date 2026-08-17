@@ -9,6 +9,10 @@ import {
 } from "@/lib/email/provider-email-ids";
 import { resetStaleLifecycleAfterMeaningfulInbound } from "./opportunity-lifecycle-action-service";
 import { reconcileManualOutboundFollowUpCycle } from "./manual-outbound-follow-up-cycle-service";
+import {
+  CronDatabaseOperationError,
+  supabaseDatabaseOperationCause,
+} from "./cron-workload-error-contract";
 
 interface LifecycleSupabaseLike {
   // New P4 tables are not present in generated Supabase types until the schema
@@ -24,6 +28,8 @@ interface LifecycleSupabaseLike {
     // `message` stays non-null so this stays assignable to ActionSupabaseLike;
     // `code` carries the RPC's SQLSTATE for the missing-opportunity mapping.
     error?: { code?: string; message?: string } | null;
+    status?: number;
+    statusText?: string;
   }>;
 }
 
@@ -102,14 +108,16 @@ async function updateLifecycleStateAfterMeaningfulEvent(
   if (!input.opportunityId || !classification.isMeaningful) return;
 
   const occurredAt = iso(input.occurredAt);
-  const { data: current, error: currentError } = await input.supabase
+  const currentResponse = await input.supabase
     .from("opportunity_lifecycle_state")
     .select("last_meaningful_at")
     .eq("opportunity_id", input.opportunityId)
     .maybeSingle();
+  const { data: current, error: currentError } = currentResponse;
   if (currentError) {
-    throw new Error(
-      `Lifecycle state read failed: ${currentError.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `Lifecycle state read failed: ${currentError.message ?? "unknown error"}`,
+      { cause: supabaseDatabaseOperationCause(currentResponse) }
     );
   }
 
@@ -147,12 +155,14 @@ async function updateLifecycleStateAfterMeaningfulEvent(
     updated_at: new Date().toISOString(),
   };
 
-  const { error: lifecycleStateError } = await input.supabase
+  const lifecycleStateResponse = await input.supabase
     .from("opportunity_lifecycle_state")
     .upsert(row, { onConflict: "opportunity_id" });
+  const { error: lifecycleStateError } = lifecycleStateResponse;
   if (lifecycleStateError) {
-    throw new Error(
-      `Lifecycle state upsert failed: ${lifecycleStateError.message ?? "unknown error"}`
+    throw new CronDatabaseOperationError(
+      `Lifecycle state upsert failed: ${lifecycleStateError.message ?? "unknown error"}`,
+      { cause: supabaseDatabaseOperationCause(lifecycleStateResponse) }
     );
   }
 }
@@ -196,7 +206,7 @@ export const OpportunityLifecycleService = {
       existingProviderMessageIds: [],
     });
 
-    const { data, error } = await input.supabase.rpc(
+    const correspondenceResponse = await input.supabase.rpc(
       "record_opportunity_correspondence_event",
       {
         p_company_id: input.companyId,
@@ -221,6 +231,7 @@ export const OpportunityLifecycleService = {
           input.applyOpportunityProjection ?? false,
       }
     );
+    const { data, error } = correspondenceResponse;
 
     if (error) {
       const rpcError = error as {
@@ -241,8 +252,9 @@ export const OpportunityLifecycleService = {
         providerMessageId: providerIds.providerMessageId,
         error,
       });
-      throw new Error(
-        `Correspondence event insert failed: ${message || "unknown error"}`
+      throw new CronDatabaseOperationError(
+        `Correspondence event insert failed: ${message || "unknown error"}`,
+        { cause: supabaseDatabaseOperationCause(correspondenceResponse) }
       );
     }
 

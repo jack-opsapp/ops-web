@@ -10,6 +10,7 @@
 
 import "server-only";
 
+import { after } from "next/server";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { WritingProfileService } from "./writing-profile-service";
 import { MemoryService } from "./memory-service";
@@ -19,12 +20,20 @@ import { FinancialIntelligenceService } from "./financial-intelligence-service";
 import { AutonomyMilestoneService } from "./autonomy-milestone-service";
 import { getHumanDraftAccuracy } from "./phase-c-draft-accuracy-service";
 import { getDraftingOpenAI } from "./openai-clients";
+import {
+  runPhaseCReplyContextShadow,
+  type RunPhaseCReplyContextShadowInput,
+} from "./phase-c-reply-context-shadow";
 import { buildConversationState } from "./conversation-state/conversation-state";
 import {
   buildDraftStateContext,
   type DraftStateContext,
 } from "./conversation-state/draft-context";
 import { evaluateAutonomyGate } from "./conversation-state/autonomy-gate";
+import {
+  resolveOperationalAutonomousRouting,
+  type OperationalAutonomousRoutingAuthority,
+} from "./conversation-state/operational-autonomous-routing";
 import {
   ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION,
   ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT,
@@ -33,7 +42,9 @@ import {
 } from "./conversation-state/source-bound-autonomous-routing";
 import {
   buildDraftSystemPrompt,
+  type DraftMessageKind,
   type DraftOperatorIdentity,
+  type DraftVerifiedContext,
 } from "./conversation-state/draft-system-prompt";
 import { stripForwardWrapper } from "./conversation-state/forward-wrapper";
 import { persistRoutingDecision } from "./conversation-state/persist-routing";
@@ -48,7 +59,10 @@ import {
   type NewThreadSubjectSource,
 } from "@/lib/email/email-subject-policy";
 import type { AllowedEmailOpportunityAccess } from "@/lib/email/email-opportunity-access";
+import type { PhaseCEmailActorContext } from "@/lib/email/phase-c-email-actor";
+import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
 import { checkPermissionById } from "@/lib/supabase/check-permission";
+import { extractEmailAddress } from "@/lib/utils/email-parsing";
 
 function getOpenAI() {
   return getDraftingOpenAI();
@@ -75,19 +89,6 @@ export const LIFECYCLE_LEARNING_ENABLED = true;
 
 const MAX_SOURCE_BOUND_CONVERSATION_MESSAGES = 200;
 const MAX_SOURCE_BOUND_CONVERSATION_CHARACTERS = 120_000;
-
-/**
- * Serialize customer/business reference data without allowing its content to
- * manufacture our structural prompt delimiters. JSON quoting separates values
- * from instructions; escaping angle brackets prevents a literal closing tag
- * embedded in an email from ending the untrusted block early.
- */
-function serializeUntrustedPromptData(value: unknown): string {
-  return JSON.stringify(value)
-    .replaceAll("<", "\\u003c")
-    .replaceAll(">", "\\u003e")
-    .replaceAll("&", "\\u0026");
-}
 
 // ─── Output Sanitization ────────────────────────────────────────────────────
 
@@ -220,6 +221,12 @@ export interface AIDraftRequest {
    */
   sourceBoundAutonomousRouting?: SourceBoundAutonomousRouting;
   /**
+   * Narrow server-owned authority for the Phase C stale-lead follow-up queue.
+   * It can reinterpret only an otherwise-safe `update_lead_only` route and is
+   * ignored unless the full assignment/mailbox/thread/lead fence matches.
+   */
+  autonomousRoutingAuthority?: OperationalAutonomousRoutingAuthority;
+  /**
    * P4-B: draft origin, mirrors opportunity_follow_up_drafts.origin vocab
    * ('operator' | 'template_follow_up' | 'phase_c' | 'system_handoff').
    * Persisted to ai_draft_history.origin. Callers: the Phase C router passes
@@ -227,17 +234,54 @@ export interface AIDraftRequest {
    */
   origin?: "operator" | "template_follow_up" | "phase_c" | "system_handoff";
   /**
+   * Canonical assignment-fenced Phase C actor proof. Structural lookalikes are
+   * rejected by the shadow boundary and never gain conversation access.
+   */
+  phaseCActorContext?: PhaseCEmailActorContext;
+  /**
    * Canonical server-side projection returned by resolveEmailOpportunityAccess.
    * When present, every mailbox/thread/lead/actor identity below is treated as
    * untrusted compatibility input and this projection wins.
    */
   emailAccess?: AllowedEmailOpportunityAccess;
+  /**
+   * Nominal lease proof for a schedule-purpose draft whose entire prompt-safe
+   * business projection was prepared by the database. It disables every broad
+   * memory/business corpus loader; only the supplied recipient, instruction,
+   * and the operator writing profile may reach the model.
+   */
+  scheduleDispatchDraftGuard?: import("./schedule-dispatch-draft-guard").ScheduleDispatchDraftGuard;
+  /**
+   * Trusted workflow purpose. Production callers set this explicitly so a
+   * proactive invoice, reminder, or schedule notice is never prompted as a
+   * customer reply. The optional shape preserves compatibility for older
+   * internal/test callers; the service derives the conservative kind from
+   * whether a real conversation source exists.
+   */
+  draftPurpose?: {
+    kind: DraftMessageKind;
+    verifiedContext?: DraftVerifiedContext;
+  };
+  /**
+   * Customer-authored reference text supplied by a trusted server workflow
+   * that does not have a canonical email thread (for example a scheduling
+   * request or a forwarded contact-form submission). This content is data,
+   * never an operator directive, and is serialized only inside the prompt's
+   * untrusted-data envelope.
+   */
+  untrustedMessageContext?: {
+    subject?: string;
+    body: string;
+  };
+  /** The surrounding trusted transport appends the operator's signature. */
+  signatureWillBeAppended?: boolean;
 }
 
 export interface AIDraftResult {
   draft: string;
   draftHistoryId: string;
   confidence: number;
+  noReplyWarranted?: boolean;
   sources: string[];
   available: boolean;
   reason?: string;
@@ -979,12 +1023,24 @@ export const AIDraftService = {
   async generateDraft(req: AIDraftRequest): Promise<AIDraftResult> {
     const supabase = requireSupabase();
     const emailAccess = req.emailAccess;
+    const { isCurrentScheduleDispatchDraftGuard } =
+      await import("./schedule-dispatch-draft-guard");
+    const purposeBoundScheduleDispatch = isCurrentScheduleDispatchDraftGuard(
+      req.scheduleDispatchDraftGuard
+    );
     const companyId = emailAccess?.actor.companyId ?? req.companyId;
     const userId = emailAccess?.actor.userId ?? req.userId;
     const connectionId = emailAccess?.connectionId ?? req.connectionId;
     const opportunityId = emailAccess?.opportunityId ?? req.opportunityId;
     const threadId = emailAccess?.providerThreadId ?? req.threadId;
     const sourceActivityId = req.sourceActivityId?.trim() || null;
+    const draftPurpose: NonNullable<AIDraftRequest["draftPurpose"]> =
+      req.draftPurpose ?? {
+        kind:
+          sourceActivityId || threadId
+            ? "conversation_reply"
+            : "operational_outbound",
+      };
     const assignedContactFormReview =
       req.sourceBoundAutonomousRouting === "assigned_contact_form_review";
     // A recipient supplied before authorization is never identity evidence.
@@ -995,6 +1051,21 @@ export const AIDraftService = {
 
     if (sourceActivityId && !emailAccess) {
       throw new Error("Draft source activity requires canonical email access");
+    }
+    if (
+      req.scheduleDispatchDraftGuard !== undefined &&
+      (!purposeBoundScheduleDispatch ||
+        req.companyId !== req.scheduleDispatchDraftGuard.companyId ||
+        req.userId !== req.scheduleDispatchDraftGuard.actorUserId ||
+        req.connectionId !== req.scheduleDispatchDraftGuard.connectionId ||
+        req.recipientEmail?.trim().toLowerCase() !==
+          req.scheduleDispatchDraftGuard.recipientEmail.trim().toLowerCase() ||
+        sourceActivityId !== null ||
+        req.threadId !== undefined ||
+        req.opportunityId !== undefined ||
+        req.draftPurpose?.kind !== "operational_outbound")
+    ) {
+      throw new Error("Schedule dispatch draft authority is invalid");
     }
     if (sourceActivityId && !opportunityId) {
       throw new Error("Draft source activity requires an opportunity");
@@ -1011,6 +1082,9 @@ export const AIDraftService = {
       body_text_clean: string | null;
       created_at: string;
       email_message_id: string | null;
+      email_thread_id: string | null;
+      to_emails: string[] | null;
+      cc_emails: string[] | null;
     }> = [];
 
     let authorizedSourceActivity: (typeof threadMessages)[number] | null = null;
@@ -1019,7 +1093,7 @@ export const AIDraftService = {
         await supabase
           .from("activities")
           .select(
-            "id, opportunity_id, direction, from_email, subject, body_text, body_text_clean, created_at, email_message_id"
+            "id, opportunity_id, direction, from_email, subject, body_text, body_text_clean, created_at, email_message_id, email_thread_id, to_emails, cc_emails"
           )
           .eq("id", sourceActivityId)
           .eq("company_id", companyId)
@@ -1047,7 +1121,7 @@ export const AIDraftService = {
       let messagesQuery = supabase
         .from("activities")
         .select(
-          "id, opportunity_id, direction, from_email, subject, body_text, body_text_clean, created_at, email_message_id"
+          "id, opportunity_id, direction, from_email, subject, body_text, body_text_clean, created_at, email_message_id, email_thread_id, to_emails, cc_emails"
         )
         .eq("company_id", companyId)
         .eq("email_connection_id", connectionId)
@@ -1120,7 +1194,7 @@ export const AIDraftService = {
       const { data: opp } = await supabase
         .from("opportunities")
         .select(
-          "title, ai_summary, stage, address, contact_name, contact_email, clients!inner(name, email)"
+          "title, stage, address, contact_name, contact_email, clients!inner(name, email)"
         )
         .eq("id", opportunityId)
         .eq("company_id", companyId)
@@ -1147,7 +1221,6 @@ export const AIDraftService = {
         opportunityStage = (opp.stage as string) || "";
         opportunityContext = [
           opp.title ? `Project: ${opp.title}` : "",
-          opp.ai_summary ? `Summary: ${opp.ai_summary}` : "",
           opp.stage ? `Stage: ${opp.stage}` : "",
         ]
           .filter(Boolean)
@@ -1216,7 +1289,7 @@ export const AIDraftService = {
     // router held for review. Reuses the state already built above (zero extra
     // cost). Manual (operator-initiated) drafts are never gated — the operator
     // is the human review. Returns a deliberate "held" result, not an error.
-    const effectiveAutonomousRouting = resolveSourceBoundAutonomousRouting({
+    const sourceBoundAutonomousRouting = resolveSourceBoundAutonomousRouting({
       authority: req.sourceBoundAutonomousRouting,
       autonomous: req.autonomous === true,
       routing: convRouting,
@@ -1230,12 +1303,45 @@ export const AIDraftService = {
       profileTypeOverride: req.profileTypeOverride,
       emailAccess,
     });
+    const effectiveAutonomousRouting = resolveOperationalAutonomousRouting({
+      authority: req.autonomousRoutingAuthority,
+      autonomous: req.autonomous === true,
+      routing: sourceBoundAutonomousRouting,
+      sourceActivityId,
+      companyId,
+      userId,
+      connectionId,
+      opportunityId,
+      threadId,
+      origin: req.origin,
+      profileTypeOverride: req.profileTypeOverride,
+      draftPurposeKind: draftPurpose.kind,
+      signatureWillBeAppended: req.signatureWillBeAppended === true,
+      emailAccess,
+    });
     const sourceBoundNewThread =
       req.sourceBoundAutonomousRouting === "assigned_contact_form_review" &&
-      effectiveAutonomousRouting === "draft";
+      sourceBoundAutonomousRouting === "draft";
     const effectiveUserInstruction = sourceBoundNewThread
       ? ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION
       : userInstruction;
+    if (
+      req.autonomous === true &&
+      effectiveAutonomousRouting === "update_lead_only"
+    ) {
+      return {
+        draft: "",
+        draftHistoryId: "",
+        confidence: 0,
+        sources: [],
+        available: false,
+        noReplyWarranted: true,
+        routingReasons: convRoutingReasons,
+        reason:
+          convRoutingReasons.join("; ") ||
+          "No reply is warranted for the latest customer message.",
+      };
+    }
     const gate = evaluateAutonomyGate({
       autonomous: req.autonomous === true,
       routing: effectiveAutonomousRouting,
@@ -1297,14 +1403,21 @@ export const AIDraftService = {
     let projectContextBlock = "";
     let financialContextBlock = "";
     const sources: string[] = ["writing_profile"];
-    const broadContextPermissions = emailAccess
-      ? await resolveAIDraftPromptContextPermissions(userId)
-      : {
-          clientHistory: true,
-          pricingCorpus: true,
-          financialCorpus: true,
-          projectCorpus: true,
-        };
+    const broadContextPermissions = purposeBoundScheduleDispatch
+      ? {
+          clientHistory: false,
+          pricingCorpus: false,
+          financialCorpus: false,
+          projectCorpus: false,
+        }
+      : emailAccess
+        ? await resolveAIDraftPromptContextPermissions(userId)
+        : {
+            clientHistory: true,
+            pricingCorpus: true,
+            financialCorpus: true,
+            projectCorpus: true,
+          };
 
     try {
       const phaseCEnabled =
@@ -1312,7 +1425,7 @@ export const AIDraftService = {
           companyId,
           "phase_c"
         );
-      if (phaseCEnabled) {
+      if (phaseCEnabled && !purposeBoundScheduleDispatch) {
         // ── Semantic memory context ──────────────────────────────────────
         if (clientEmail) {
           const exactSourceIds = Array.from(
@@ -1593,14 +1706,76 @@ export const AIDraftService = {
       assignedContactFormReview
         ? (m.body_text ?? m.body_text_clean ?? "")
         : (m.body_text_clean ?? m.body_text ?? "");
+    const normalizedEmail = (value: string | null | undefined): string =>
+      extractEmailAddress(value ?? "")
+        .trim()
+        .toLowerCase();
+    const normalizedRecipients = (value: string[] | null): string[] =>
+      Array.isArray(value)
+        ? value.map((email) => normalizedEmail(email)).filter(Boolean)
+        : [];
+    const sourceParticipantEmail = normalizedEmail(
+      authorizedSourceActivity?.from_email
+    );
+    const sourceConversationId =
+      authorizedSourceActivity?.email_thread_id ??
+      emailAccess?.providerThreadId ??
+      null;
+    const isCurrentConversationMessage = (
+      message: (typeof threadMessages)[number]
+    ): boolean => {
+      if (!authorizedSourceActivity) return true;
+      if (
+        sourceConversationId &&
+        message.email_thread_id !== sourceConversationId
+      ) {
+        return false;
+      }
+      if (message.direction === "inbound") {
+        return normalizedEmail(message.from_email) === sourceParticipantEmail;
+      }
+      const recipients = [
+        ...normalizedRecipients(message.to_emails),
+        ...normalizedRecipients(message.cc_emails),
+      ];
+      // Older activity rows may not carry recipient arrays. The exact provider
+      // thread is then the strongest available conversation boundary.
+      return (
+        recipients.length === 0 || recipients.includes(sourceParticipantEmail)
+      );
+    };
+    const currentConversationMessages = threadMessages.filter(
+      isCurrentConversationMessage
+    );
     const threadContext = threadMessages
       .map((m) => {
-        const dir = m.direction === "outbound" ? "YOU" : "THEM";
+        const scope = isCurrentConversationMessage(m)
+          ? "CURRENT CONVERSATION"
+          : "RELATIONSHIP HISTORY";
+        const direction = m.direction === "outbound" ? "OUTBOUND" : "INBOUND";
+        // Contact-form notifications are forwarded by an operator mailbox.
+        // Their transport sender is not the customer and must not re-enter the
+        // prompt after the wrapper has been stripped.
+        const from =
+          (assignedContactFormReview && m.direction === "inbound"
+            ? normalizedEmail(clientEmail)
+            : normalizedEmail(m.from_email)) || "unknown";
+        const recipients = [
+          ...normalizedRecipients(m.to_emails),
+          ...normalizedRecipients(m.cc_emails),
+        ];
+        const participantLabel = [
+          `FROM ${from}`,
+          recipients.length > 0 ? `TO ${recipients.join(", ")}` : "",
+          m.email_thread_id ? `THREAD ${m.email_thread_id}` : "",
+        ]
+          .filter(Boolean)
+          .join(" | ");
         const canonicalBody = promptBodyText(promptSourceText(m));
         const body = authorizedSourceActivity
           ? canonicalBody
           : canonicalBody.slice(0, 600);
-        return `[${dir}] ${m.subject}\n${body}`;
+        return `[${scope} | ${direction} | ${participantLabel}] ${m.subject}\n${body}`;
       })
       .join("\n---\n");
 
@@ -1613,10 +1788,31 @@ export const AIDraftService = {
     // signature after generation (gated on confirmation), so the model must
     // write no name or contact block of its own.
     const operatorIdentity = await loadDraftOperatorIdentity(companyId, userId);
+    const progressionMessages = authorizedSourceActivity
+      ? currentConversationMessages
+      : threadMessages;
+    const operatorMessageCount = progressionMessages.filter(
+      (message) => message.direction === "outbound"
+    ).length;
+    const customerMessageCount = progressionMessages.filter(
+      (message) => message.direction === "inbound"
+    ).length;
     const systemPrompt = buildDraftSystemPrompt({
       profile,
       operator: operatorIdentity,
-      signatureWillBeAppended: assignedContactFormReview,
+      signatureWillBeAppended:
+        assignedContactFormReview || req.signatureWillBeAppended === true,
+      messageKind: draftPurpose.kind,
+      verifiedContext: draftPurpose.verifiedContext,
+      replyContext:
+        draftPurpose.kind === "conversation_reply"
+          ? {
+              mode: draftState?.responseMode ?? "answer",
+              isFirstOperatorReply: operatorMessageCount === 0,
+              customerMessageCount,
+              operatorMessageCount,
+            }
+          : null,
     });
 
     // ── Build user prompt ──────────────────────────────────────────────
@@ -1624,6 +1820,14 @@ export const AIDraftService = {
       .filter((m) => m.direction === "inbound")
       .pop();
     const promptInbound = authorizedSourceActivity ?? lastInbound;
+    const suppliedInboundBody =
+      req.untrustedMessageContext?.body.trim().slice(0, 12_000) ?? "";
+    const suppliedInbound = suppliedInboundBody
+      ? {
+          subject: req.untrustedMessageContext?.subject?.trim() ?? "",
+          body: suppliedInboundBody,
+        }
+      : null;
 
     let userPrompt: string;
 
@@ -1636,24 +1840,27 @@ export const AIDraftService = {
       ? clientEmail
       : draftState?.recipientEmail || clientEmail;
     const latestInboundText =
-      promptBodyText(
-        (authorizedSourceActivity
-          ? promptSourceText(authorizedSourceActivity)
-          : draftState?.latestCustomerText ||
-            lastInbound?.body_text?.slice(0, 1500)) || ""
-      ) || "(no body)";
+      (promptInbound
+        ? promptBodyText(
+            (authorizedSourceActivity
+              ? promptSourceText(authorizedSourceActivity)
+              : draftState?.latestCustomerText ||
+                lastInbound?.body_text?.slice(0, 1500)) || ""
+          )
+        : suppliedInbound?.body) || "(no body)";
     const fullThreadText = authorizedSourceActivity
       ? threadContext
       : draftState?.cleanThread || threadContext;
     const untrustedReferenceJson = serializeUntrustedPromptData({
       recipientName: promptRecipientName || null,
       recipientEmail: promptRecipientEmail || null,
-      latestInbound: promptInbound
-        ? {
-            subject: promptInbound.subject,
-            body: latestInboundText,
-          }
-        : null,
+      latestInbound:
+        promptInbound || suppliedInbound
+          ? {
+              subject: promptInbound?.subject ?? suppliedInbound?.subject ?? "",
+              body: latestInboundText,
+            }
+          : null,
       fullConversation: fullThreadText || null,
       companyContext: companyContextBlock || null,
       clientHistory: clientContextBlock || null,
@@ -1666,7 +1873,11 @@ export const AIDraftService = {
       attachmentContext: draftState?.attachmentBlock || null,
     });
 
-    if (promptInbound && !sourceBoundNewThread) {
+    if (
+      draftPurpose.kind === "conversation_reply" &&
+      promptInbound &&
+      !sourceBoundNewThread
+    ) {
       userPrompt = `Draft a reply to this email thread.
 
 <UNTRUSTED_EMAIL_DATA_JSON>
@@ -1684,7 +1895,7 @@ ${effectiveUserInstruction ? `Purpose: ${effectiveUserInstruction}` : "Write a p
     }
 
     // ── Generate draft ─────────────────────────────────────────────────
-    const response = await getOpenAI().chat.completions.create({
+    const replyDraftPromise = getOpenAI().chat.completions.create({
       // Quality-first: the centralized draft model (see inbox-models.ts).
       model: inboxModel("draft"),
       messages: [
@@ -1694,6 +1905,46 @@ ${effectiveUserInstruction ? `Purpose: ${effectiveUserInstruction}` : "Write a p
       temperature: 0.7,
       max_completion_tokens: 800,
     });
+    if (
+      req.origin === "phase_c" &&
+      req.autonomous === true &&
+      draftPurpose.kind === "conversation_reply" &&
+      sourceActivityId !== null &&
+      emailAccess !== undefined &&
+      req.phaseCActorContext !== undefined
+    ) {
+      const replyContextShadowTask = runPhaseCReplyContextShadow({
+        routedActor: req.phaseCActorContext,
+        sourceActivityId,
+        // Compare like-for-like conversation material. Company, pricing, and
+        // other prompt blocks remain on both eventual paths and must not be
+        // counted as savings from replacing whole-thread conversation history.
+        controlContext: fullThreadText,
+        rpcClient:
+          supabase as unknown as RunPhaseCReplyContextShadowInput["rpcClient"],
+      })
+        .then((observation) => {
+          if (observation) {
+            try {
+              // Shadow output is operational telemetry, not a warning/error.
+              // eslint-disable-next-line no-console
+              console.info("[phase-c-reply-context-shadow]", observation);
+            } catch {
+              // Observability is deliberately unable to affect drafting.
+            }
+          }
+        })
+        .catch(() => undefined);
+      try {
+        // Keep the shadow alive after the response without adding latency to
+        // the customer-facing draft. Direct worker/test calls fall back to the
+        // already-contained promise when no Next request context exists.
+        after(replyContextShadowTask);
+      } catch {
+        void replyContextShadowTask;
+      }
+    }
+    const response = await replyDraftPromise;
 
     const draft = stripMarkdownFences(
       response.choices[0]?.message?.content || ""

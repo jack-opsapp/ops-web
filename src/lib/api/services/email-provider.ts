@@ -5,6 +5,8 @@
  * Normalizes email operations across providers.
  */
 
+import type { ProviderDeliveredContent } from "./provider-delivery-source-types";
+
 // ─── Typed errors ────────────────────────────────────────────────────────────
 //
 // Sync paths throw these so callers (sync-engine.runSync) can recover or
@@ -110,6 +112,12 @@ export interface NormalizedEmail {
    *  renderer prefers this over running plain-text regex stripping. Omit or
    *  set null/empty when the provider cannot confidently strip. */
   bodyTextClean?: string;
+  /**
+   * Exact provider-delivered body selection and delivery identities. This is
+   * the only body that may seed immutable conversation evidence. `bodyText`
+   * and `bodyTextClean` remain mutable display/classification projections.
+   */
+  providerDeliverySource?: ProviderDeliveredContent;
   /**
    * Provider-verified visible-sender domains. This must come from the provider
    * transport/authentication result, never from message body/header parsing.

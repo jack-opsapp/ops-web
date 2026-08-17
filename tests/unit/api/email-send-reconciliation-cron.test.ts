@@ -7,6 +7,7 @@ import { NextRequest } from "next/server";
 const {
   getServiceRoleClientMock,
   runEmailSendReconciliationRecoveryMock,
+  runApprovedActionEmailReconciliationRecoveryMock,
   runWithCronWorkloadControlMock,
   isDatabasePressureErrorMock,
   runWithSupabaseMock,
@@ -14,6 +15,7 @@ const {
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
   runEmailSendReconciliationRecoveryMock: vi.fn(),
+  runApprovedActionEmailReconciliationRecoveryMock: vi.fn(),
   runWithCronWorkloadControlMock: vi.fn(),
   isDatabasePressureErrorMock: vi.fn(),
   runWithSupabaseMock: vi.fn(),
@@ -37,6 +39,14 @@ vi.mock(
   "@/lib/api/services/email-send-reconciliation-recovery-service",
   () => ({
     runEmailSendReconciliationRecovery: runEmailSendReconciliationRecoveryMock,
+  })
+);
+
+vi.mock(
+  "@/lib/api/services/approved-action-email-reconciliation-recovery-service",
+  () => ({
+    runApprovedActionEmailReconciliationRecovery:
+      runApprovedActionEmailReconciliationRecoveryMock,
   })
 );
 
@@ -78,6 +88,14 @@ describe("email send reconciliation cron", () => {
       failed: 0,
       errors: [],
     });
+    runApprovedActionEmailReconciliationRecoveryMock.mockReset();
+    runApprovedActionEmailReconciliationRecoveryMock.mockResolvedValue({
+      claimed: 0,
+      reconciled: 0,
+      failed: 0,
+      exhausted: 0,
+      errors: [],
+    });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -110,23 +128,44 @@ describe("email send reconciliation cron", () => {
     expect(getServiceRoleClientMock).not.toHaveBeenCalled();
   });
 
-  it("runs the database-only recovery worker in service-role context", async () => {
+  it("runs both accepted-only recovery workers in service-role context and reports truthful totals", async () => {
     runEmailSendReconciliationRecoveryMock.mockResolvedValue({
       claimed: 2,
       reconciled: 2,
       failed: 0,
       errors: [],
     });
+    runApprovedActionEmailReconciliationRecoveryMock.mockResolvedValue({
+      claimed: 3,
+      reconciled: 2,
+      failed: 1,
+      exhausted: 1,
+      errors: ["approved-intent-1: activity insert failed"],
+    });
 
     const response = await GET(request());
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
-      ok: true,
-      claimed: 2,
-      reconciled: 2,
-      failed: 0,
-      errors: [],
+      ok: false,
+      claimed: 5,
+      reconciled: 4,
+      failed: 1,
+      exhausted: 1,
+      errors: ["approved-intent-1: activity insert failed"],
+      emailSend: {
+        claimed: 2,
+        reconciled: 2,
+        failed: 0,
+        errors: [],
+      },
+      approvedAction: {
+        claimed: 3,
+        reconciled: 2,
+        failed: 1,
+        exhausted: 1,
+        errors: ["approved-intent-1: activity insert failed"],
+      },
     });
     expect(runWithSupabaseMock).toHaveBeenCalledWith(
       serviceRoleClient,
@@ -144,6 +183,13 @@ describe("email send reconciliation cron", () => {
       serviceRoleClient,
       { limit: 5, failureCooldownSeconds: 60, leaseSeconds: 180 }
     );
+    expect(
+      runApprovedActionEmailReconciliationRecoveryMock
+    ).toHaveBeenCalledWith(serviceRoleClient, {
+      limit: 5,
+      failureCooldownSeconds: 60,
+      leaseSeconds: 180,
+    });
   });
 
   it("opens the circuit when reconciliation reports database pressure", async () => {
@@ -152,6 +198,23 @@ describe("email send reconciliation cron", () => {
       reconciled: 0,
       failed: 1,
       errors: ["intent-1: PGRST002 schema cache unavailable"],
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(500);
+    expect(
+      runApprovedActionEmailReconciliationRecoveryMock
+    ).not.toHaveBeenCalled();
+  });
+
+  it("opens the circuit when approved-action reconciliation reports database pressure", async () => {
+    runApprovedActionEmailReconciliationRecoveryMock.mockResolvedValue({
+      claimed: 1,
+      reconciled: 0,
+      failed: 1,
+      exhausted: 0,
+      errors: ["approved-intent-1: PGRST002 schema cache unavailable"],
     });
 
     const response = await GET(request());
@@ -174,12 +237,16 @@ describe("email send reconciliation cron", () => {
       reason: "already_running",
     });
     expect(runEmailSendReconciliationRecoveryMock).not.toHaveBeenCalled();
+    expect(
+      runApprovedActionEmailReconciliationRecoveryMock
+    ).not.toHaveBeenCalled();
   });
 
   it("contains no provider-send execution path", () => {
     const source = [
       "src/app/api/cron/email-send-reconciliation/route.ts",
       "src/lib/api/services/email-send-reconciliation-recovery-service.ts",
+      "src/lib/api/services/approved-action-email-reconciliation-recovery-service.ts",
     ]
       .map((path) => readFileSync(resolve(process.cwd(), path), "utf8"))
       .join("\n");

@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { persistCapturedProviderDeliveryTurn } from "@/lib/agent-control-plane/memory/persist-captured-provider-delivery-turn";
 import type { EmailConnection } from "@/lib/types/email-connection";
+import {
+  CronDatabaseOperationError,
+  supabaseDatabaseOperationCause,
+} from "./cron-workload-control-service";
 import { EmailOutboundLearningService } from "./email-outbound-learning-service";
 import type { EmailProviderInterface } from "./email-provider";
 import { applyEmailProviderLabelWriteback } from "./email-provider-label-writeback";
@@ -9,6 +14,8 @@ import { EmailThreadService } from "./email-thread-service";
 import { NotificationService } from "./notification-service";
 import { OpportunityLifecycleService } from "./opportunity-lifecycle-service";
 import type { ApprovedActionEmailIntent } from "./approved-action-email-delivery-service";
+import { captureAcceptedOutboundProviderDeliverySource } from "./provider-delivery-source-service";
+import { TaskApprovalMutationService } from "./task-approval-mutation-service";
 
 function required(value: string | null, code: string): string {
   if (!value?.trim()) throw new Error(code);
@@ -24,6 +31,56 @@ function compatibleNullableIdentity(
   expected: string | null
 ): boolean {
   return value === null || value === expected;
+}
+
+function databaseOperationError(
+  message: string,
+  cause: unknown
+): CronDatabaseOperationError {
+  return cause instanceof CronDatabaseOperationError
+    ? cause
+    : new CronDatabaseOperationError(message, { cause });
+}
+
+async function runDatabaseBoundary<T>(
+  message: string,
+  run: () => Promise<T>
+): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    throw databaseOperationError(message, error);
+  }
+}
+
+async function captureAcceptedDeliverySource(input: {
+  supabase: SupabaseClient;
+  intent: ApprovedActionEmailIntent;
+  connection: EmailConnection;
+}): Promise<void> {
+  const { supabase, intent, connection } = input;
+
+  await captureAcceptedOutboundProviderDeliverySource({
+    supabase,
+    connection,
+    intent: {
+      outboundIntentKind: "approved_action_email_intent",
+      outboundIntentId: intent.id,
+      status: intent.status,
+      companyId: intent.companyId,
+      connectionId: intent.connectionId,
+      providerMessageId: intent.providerMessageId,
+      providerThreadId: intent.acceptedProviderThreadId,
+      providerAcceptedAt: intent.providerAcceptedAt,
+      senderIdentity: intent.clientFromAddressSnapshot,
+      recipientIdentities: intent.toEmails,
+      ccRecipientIdentities: intent.ccEmails,
+      subject: intent.subject,
+      renderedBody: intent.renderedBody,
+      renderedBodyHash: intent.renderedBodyHash,
+      contentType: intent.contentType,
+    },
+  });
 }
 
 async function persistCanonicalActivity(input: {
@@ -61,20 +118,25 @@ async function persistCanonicalActivity(input: {
     draft_history_id: intent.draftHistoryId,
   };
 
-  const { data: inserted, error } = await supabase
+  const insertResponse = await supabase
     .from("activities")
     .insert(row)
     .select("id")
     .single();
+  const { data: inserted, error } = insertResponse;
   if (!error && inserted?.id) return String(inserted.id);
 
   if ((error as { code?: string } | null)?.code !== "23505") {
-    throw new Error(
-      `APPROVED_ACTION_EMAIL_ACTIVITY_PERSISTENCE_FAILED: ${error?.message ?? "missing row"}`
-    );
+    if (error) {
+      throw databaseOperationError(
+        `APPROVED_ACTION_EMAIL_ACTIVITY_PERSISTENCE_FAILED: ${error.message ?? "unknown error"}`,
+        supabaseDatabaseOperationCause(insertResponse)
+      );
+    }
+    throw new Error("APPROVED_ACTION_EMAIL_ACTIVITY_PERSISTENCE_FAILED");
   }
 
-  const { data: candidates, error: lookupError } = await supabase
+  const lookupResponse = await supabase
     .from("activities")
     .select(
       "id, company_id, email_connection_id, email_message_id, email_thread_id, opportunity_id, client_id, invoice_id, project_id, created_by, type, direction"
@@ -83,7 +145,14 @@ async function persistCanonicalActivity(input: {
     .eq("email_connection_id", intent.connectionId)
     .eq("email_message_id", providerMessageId)
     .limit(2);
-  if (lookupError || candidates?.length !== 1) {
+  const { data: candidates, error: lookupError } = lookupResponse;
+  if (lookupError) {
+    throw databaseOperationError(
+      `APPROVED_ACTION_EMAIL_ACTIVITY_LOOKUP_FAILED: ${lookupError.message ?? "unknown error"}`,
+      supabaseDatabaseOperationCause(lookupResponse)
+    );
+  }
+  if (candidates?.length !== 1) {
     throw new Error("APPROVED_ACTION_EMAIL_ACTIVITY_IDENTITY_CONFLICT");
   }
   const candidate = candidates[0] as Record<string, unknown>;
@@ -110,7 +179,7 @@ async function persistCanonicalActivity(input: {
     optionalString(candidate.id),
     "APPROVED_ACTION_EMAIL_ACTIVITY_ID_MISSING"
   );
-  const { error: attributionError } = await supabase
+  const attributionResponse = await supabase
     .from("activities")
     .update({
       opportunity_id: intent.opportunityId,
@@ -125,9 +194,11 @@ async function persistCanonicalActivity(input: {
     .eq("company_id", intent.companyId)
     .eq("email_connection_id", intent.connectionId)
     .eq("email_message_id", providerMessageId);
+  const { error: attributionError } = attributionResponse;
   if (attributionError) {
-    throw new Error(
-      `APPROVED_ACTION_EMAIL_ACTIVITY_ATTRIBUTION_FAILED: ${attributionError.message}`
+    throw databaseOperationError(
+      `APPROVED_ACTION_EMAIL_ACTIVITY_ATTRIBUTION_FAILED: ${attributionError.message ?? "unknown error"}`,
+      supabaseDatabaseOperationCause(attributionResponse)
     );
   }
   return activityId;
@@ -153,59 +224,68 @@ async function reconcileOpportunity(input: {
   } = input;
   if (!intent.opportunityId) return;
 
-  const { error: linkError } = await supabase
-    .from("opportunity_email_threads")
-    .upsert(
-      {
-        opportunity_id: intent.opportunityId,
-        thread_id: providerThreadId,
-        connection_id: intent.connectionId,
-      },
-      { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
-    );
+  const linkResponse = await supabase.from("opportunity_email_threads").upsert(
+    {
+      opportunity_id: intent.opportunityId,
+      thread_id: providerThreadId,
+      connection_id: intent.connectionId,
+    },
+    { onConflict: "thread_id,connection_id", ignoreDuplicates: true }
+  );
+  const { error: linkError } = linkResponse;
   if (linkError) {
-    throw new Error(
-      `APPROVED_ACTION_EMAIL_THREAD_LINK_FAILED: ${linkError.message}`
+    throw databaseOperationError(
+      `APPROVED_ACTION_EMAIL_THREAD_LINK_FAILED: ${linkError.message ?? "unknown error"}`,
+      supabaseDatabaseOperationCause(linkResponse)
     );
   }
-  const { data: canonicalLink, error: canonicalLinkError } = await supabase
+  const canonicalLinkResponse = await supabase
     .from("opportunity_email_threads")
     .select("opportunity_id")
     .eq("connection_id", intent.connectionId)
     .eq("thread_id", providerThreadId)
     .maybeSingle();
-  if (
-    canonicalLinkError ||
-    canonicalLink?.opportunity_id !== intent.opportunityId
-  ) {
+  const { data: canonicalLink, error: canonicalLinkError } =
+    canonicalLinkResponse;
+  if (canonicalLinkError) {
+    throw databaseOperationError(
+      `APPROVED_ACTION_EMAIL_THREAD_LINK_LOOKUP_FAILED: ${canonicalLinkError.message ?? "unknown error"}`,
+      supabaseDatabaseOperationCause(canonicalLinkResponse)
+    );
+  }
+  if (canonicalLink?.opportunity_id !== intent.opportunityId) {
     throw new Error("APPROVED_ACTION_EMAIL_THREAD_LEAD_CONFLICT");
   }
 
-  const correspondence =
-    await OpportunityLifecycleService.recordCorrespondenceEvent({
-      supabase,
-      companyId: intent.companyId,
-      opportunityId: intent.opportunityId,
-      activityId,
-      connectionId: intent.connectionId,
-      providerThreadId,
-      providerMessageId,
-      requireProviderMessageId: true,
-      direction: "outbound",
-      occurredAt: new Date(sentAt),
-      source: "approved_action_email_send",
-      applyOpportunityProjection: true,
-      fromEmail: intent.clientFromAddressSnapshot,
-      fromName: intent.actorNameSnapshot,
-      toEmails: intent.toEmails,
-      ccEmails: intent.ccEmails,
-      subject: intent.subject,
-      bodyText: intent.authoredBody,
-      connectionEmail: connection.email,
-      companyDomains: connection.syncFilters?.companyDomains ?? [],
-      userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
-      knownPlatformSenders: connection.syncFilters?.knownPlatformSenders ?? [],
-    });
+  const correspondence = await runDatabaseBoundary(
+    "APPROVED_ACTION_EMAIL_CORRESPONDENCE_FAILED",
+    () =>
+      OpportunityLifecycleService.recordCorrespondenceEvent({
+        supabase,
+        companyId: intent.companyId,
+        opportunityId: intent.opportunityId,
+        activityId,
+        connectionId: intent.connectionId,
+        providerThreadId,
+        providerMessageId,
+        requireProviderMessageId: true,
+        direction: "outbound",
+        occurredAt: new Date(sentAt),
+        source: "approved_action_email_send",
+        applyOpportunityProjection: true,
+        fromEmail: intent.clientFromAddressSnapshot,
+        fromName: intent.actorNameSnapshot,
+        toEmails: intent.toEmails,
+        ccEmails: intent.ccEmails,
+        subject: intent.subject,
+        bodyText: intent.authoredBody,
+        connectionEmail: connection.email,
+        companyDomains: connection.syncFilters?.companyDomains ?? [],
+        userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
+        knownPlatformSenders:
+          connection.syncFilters?.knownPlatformSenders ?? [],
+      })
+  );
   if (
     !correspondence.created &&
     correspondence.reason !== "duplicate_provider_message_id"
@@ -214,7 +294,6 @@ async function reconcileOpportunity(input: {
       `APPROVED_ACTION_EMAIL_CORRESPONDENCE_FAILED: ${correspondence.reason}`
     );
   }
-
 }
 
 async function applyPostSendFollowOn(input: {
@@ -226,29 +305,33 @@ async function applyPostSendFollowOn(input: {
   const data = intent.actionDataSnapshot;
 
   if (intent.actionType === "send_invoice_email" && intent.invoiceId) {
-    const { error } = await supabase
+    const response = await supabase
       .from("invoices")
       .update({ status: "sent", sent_at: sentAt })
       .eq("id", intent.invoiceId)
       .eq("company_id", intent.companyId)
       .eq("status", "draft");
+    const { error } = response;
     if (error) {
-      throw new Error(
-        `APPROVED_ACTION_EMAIL_INVOICE_STATE_FAILED: ${error.message}`
+      throw databaseOperationError(
+        `APPROVED_ACTION_EMAIL_INVOICE_STATE_FAILED: ${error.message ?? "unknown error"}`,
+        supabaseDatabaseOperationCause(response)
       );
     }
   }
 
   if (intent.actionType === "send_payment_reminder" && intent.invoiceId) {
-    const { error } = await supabase
+    const response = await supabase
       .from("invoices")
       .update({ status: "past_due" })
       .eq("id", intent.invoiceId)
       .eq("company_id", intent.companyId)
       .in("status", ["sent", "awaiting_payment"]);
+    const { error } = response;
     if (error) {
-      throw new Error(
-        `APPROVED_ACTION_EMAIL_REMINDER_STATE_FAILED: ${error.message}`
+      throw databaseOperationError(
+        `APPROVED_ACTION_EMAIL_REMINDER_STATE_FAILED: ${error.message ?? "unknown error"}`,
+        supabaseDatabaseOperationCause(response)
       );
     }
   }
@@ -286,40 +369,62 @@ async function applyPostSendFollowOn(input: {
   if (newEnd) update.end_date = newEnd;
   if (teamMemberId) update.team_member_ids = [teamMemberId];
 
-  const { data: task, error: taskError } = await supabase
+  const taskResponse = await supabase
     .from("project_tasks")
-    .update(update)
+    .select("calendar_event_id")
     .eq("id", taskId)
     .eq("company_id", intent.companyId)
     .eq("project_id", intent.projectId)
-    .select("calendar_event_id")
     .single();
-  if (taskError || !task) {
-    throw new Error(
-      `APPROVED_ACTION_EMAIL_RESCHEDULE_TASK_FAILED: ${taskError?.message ?? "missing task"}`
+  const { data: task, error: taskError } = taskResponse;
+  if (taskError) {
+    throw databaseOperationError(
+      `APPROVED_ACTION_EMAIL_RESCHEDULE_TASK_FAILED: ${taskError.message ?? "unknown error"}`,
+      supabaseDatabaseOperationCause(taskResponse)
     );
   }
+  if (!task) {
+    throw new Error("APPROVED_ACTION_EMAIL_RESCHEDULE_TASK_FAILED");
+  }
+
+  await runDatabaseBoundary(
+    "APPROVED_ACTION_EMAIL_RESCHEDULE_TASK_FAILED",
+    () =>
+      TaskApprovalMutationService.updateTask({
+        actorUserId: intent.actorUserId,
+        taskId,
+        patch: update,
+      })
+  );
+
   const calendarEventId = optionalString(task.calendar_event_id);
   if (calendarEventId) {
-    const { error: calendarError } = await supabase
+    const calendarResponse = await supabase
       .from("calendar_events")
       .update(update)
       .eq("id", calendarEventId)
       .eq("company_id", intent.companyId);
+    const { error: calendarError } = calendarResponse;
     if (calendarError) {
-      throw new Error(
-        `APPROVED_ACTION_EMAIL_RESCHEDULE_CALENDAR_FAILED: ${calendarError.message}`
+      throw databaseOperationError(
+        `APPROVED_ACTION_EMAIL_RESCHEDULE_CALENDAR_FAILED: ${calendarError.message ?? "unknown error"}`,
+        supabaseDatabaseOperationCause(calendarResponse)
       );
     }
   }
 
   const { ScheduleOptimizationService } =
     await import("./schedule-optimization-service");
-  await ScheduleOptimizationService.handleRescheduleCascade(
-    intent.companyId,
-    intent.actorUserId,
-    taskId,
-    "reschedule_request"
+  await runDatabaseBoundary(
+    "APPROVED_ACTION_EMAIL_RESCHEDULE_CASCADE_FAILED",
+    () =>
+      ScheduleOptimizationService.handleRescheduleCascade(
+        intent.companyId,
+        intent.actorUserId,
+        taskId,
+        "reschedule_request",
+        { throwOnError: true }
+      )
   );
 }
 
@@ -379,6 +484,7 @@ export async function reconcileApprovedActionEmail(input: {
   providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
 }): Promise<{ activityId: string }> {
   const { supabase, intent, connection, provider } = input;
+  const checkpoint = input.providerLockCheckpoint ?? (async () => undefined);
   const providerMessageId = required(
     intent.providerMessageId,
     "APPROVED_ACTION_EMAIL_PROVIDER_MESSAGE_ID_MISSING"
@@ -398,6 +504,10 @@ export async function reconcileApprovedActionEmail(input: {
     throw new Error("APPROVED_ACTION_EMAIL_CONNECTION_CONFLICT");
   }
 
+  await checkpoint();
+  await captureAcceptedDeliverySource({ supabase, intent, connection });
+  await checkpoint();
+
   const activityId = await persistCanonicalActivity({
     supabase,
     intent,
@@ -405,6 +515,7 @@ export async function reconcileApprovedActionEmail(input: {
     providerThreadId,
     sentAt,
   });
+  await checkpoint();
   await reconcileOpportunity({
     supabase,
     intent,
@@ -414,45 +525,64 @@ export async function reconcileApprovedActionEmail(input: {
     sentAt,
     connection,
   });
+  await checkpoint();
+  if (intent.opportunityId || intent.projectId) {
+    await persistCapturedProviderDeliveryTurn({
+      supabase,
+      companyId: intent.companyId,
+      connectionId: intent.connectionId,
+      providerMessageId,
+      sourceActivityId: activityId,
+    });
+    await checkpoint();
+  }
 
-  const { threadRow } = await EmailThreadService.upsertFromEmail({
-    companyId: intent.companyId,
-    connectionId: intent.connectionId,
-    providerThreadId,
-    email: {
-      id: providerMessageId,
-      threadId: providerThreadId,
-      from: intent.clientFromAddressSnapshot,
-      fromName: intent.actorNameSnapshot,
-      to: intent.toEmails,
-      cc: intent.ccEmails,
-      subject: intent.subject,
-      snippet: intent.authoredBody,
-      bodyText: intent.authoredBody,
-      date: new Date(sentAt),
-      labelIds: [],
-      isRead: true,
-      hasAttachments: false,
-      sizeEstimate: intent.authoredBody.length,
-    },
-    direction: "outbound",
-    opportunityId: intent.opportunityId,
-    clientId: intent.clientId,
-  });
+  const { threadRow } = await runDatabaseBoundary(
+    "APPROVED_ACTION_EMAIL_THREAD_PERSISTENCE_FAILED",
+    () =>
+      EmailThreadService.upsertFromEmail({
+        companyId: intent.companyId,
+        connectionId: intent.connectionId,
+        providerThreadId,
+        email: {
+          id: providerMessageId,
+          threadId: providerThreadId,
+          from: intent.clientFromAddressSnapshot,
+          fromName: intent.actorNameSnapshot,
+          to: intent.toEmails,
+          cc: intent.ccEmails,
+          subject: intent.subject,
+          snippet: intent.authoredBody,
+          bodyText: intent.authoredBody,
+          date: new Date(sentAt),
+          labelIds: [],
+          isRead: true,
+          hasAttachments: false,
+          sizeEstimate: intent.authoredBody.length,
+        },
+        direction: "outbound",
+        opportunityId: intent.opportunityId,
+        clientId: intent.clientId,
+      })
+  );
+  await checkpoint();
   if (
     threadRow.latestDirection === "outbound" &&
     threadRow.labels.includes("AWAITING_REPLY")
   ) {
-    await EmailThreadService.dismissAwaitingReply(
-      threadRow.id,
-      intent.companyId
+    await runDatabaseBoundary(
+      "APPROVED_ACTION_EMAIL_AWAITING_REPLY_DISMISS_FAILED",
+      () =>
+        EmailThreadService.dismissAwaitingReply(threadRow.id, intent.companyId)
     );
+    await checkpoint();
   }
 
   await applyPostSendFollowOn({ supabase, intent, sentAt });
+  await checkpoint();
 
   if (intent.draftHistoryId) {
-    const { error: draftError } = await supabase
+    const draftResponse = await supabase
       .from("ai_draft_history")
       .update({
         final_version: intent.authoredBody,
@@ -462,31 +592,39 @@ export async function reconcileApprovedActionEmail(input: {
       .eq("id", intent.draftHistoryId)
       .eq("company_id", intent.companyId)
       .eq("user_id", intent.actorUserId);
+    const { error: draftError } = draftResponse;
     if (draftError) {
-      throw new Error(
-        `APPROVED_ACTION_EMAIL_DRAFT_OUTCOME_FAILED: ${draftError.message}`
+      throw databaseOperationError(
+        `APPROVED_ACTION_EMAIL_DRAFT_OUTCOME_FAILED: ${draftError.message ?? "unknown error"}`,
+        supabaseDatabaseOperationCause(draftResponse)
       );
     }
-    await new EmailOutboundLearningService(supabase).enqueueIfEnabled({
-      companyId: intent.companyId,
-      connectionId: intent.connectionId,
-      providerMessageId,
-      providerThreadId,
-      userId: intent.actorUserId,
-      fromEmail: intent.clientFromAddressSnapshot,
-      toEmails: intent.toEmails,
-      subject: intent.subject,
-      bodyText: intent.authoredBody,
-      occurredAt: new Date(sentAt),
-      draftHistoryId: intent.draftHistoryId,
-      draftDeliveryChannel: "ops_send",
-      opportunityId: intent.opportunityId,
-      profileType: intent.profileTypeSnapshot,
-      // Autonomous jobs persist the sent outcome but the outbound worker sets
-      // applyLearning=false for this authority, so they cannot train or
-      // graduate the actor's personal profile.
-      learningAuthority: intent.learningAuthority,
-    });
+    await checkpoint();
+    await runDatabaseBoundary(
+      "APPROVED_ACTION_EMAIL_LEARNING_ENQUEUE_FAILED",
+      () =>
+        new EmailOutboundLearningService(supabase).enqueueIfEnabled({
+          companyId: intent.companyId,
+          connectionId: intent.connectionId,
+          providerMessageId,
+          providerThreadId,
+          userId: intent.actorUserId,
+          fromEmail: intent.clientFromAddressSnapshot,
+          toEmails: intent.toEmails,
+          subject: intent.subject,
+          bodyText: intent.authoredBody,
+          occurredAt: new Date(sentAt),
+          draftHistoryId: intent.draftHistoryId,
+          draftDeliveryChannel: "ops_send",
+          opportunityId: intent.opportunityId,
+          profileType: intent.profileTypeSnapshot,
+          // Autonomous jobs persist the sent outcome but the outbound worker
+          // sets applyLearning=false for this authority, so it cannot train or
+          // graduate the actor's personal profile.
+          learningAuthority: intent.learningAuthority,
+        })
+    );
+    await checkpoint();
   }
 
   if (connection.opsLabelId) {
@@ -502,6 +640,7 @@ export async function reconcileApprovedActionEmail(input: {
       providerLockCheckpoint: input.providerLockCheckpoint,
     });
   }
+  await checkpoint();
   try {
     await notifyActor(intent);
   } catch {

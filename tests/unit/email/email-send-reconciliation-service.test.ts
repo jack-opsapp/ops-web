@@ -12,6 +12,13 @@ vi.mock("@/lib/api/services/opportunity-lifecycle-service", () => ({
 vi.mock("@/lib/api/services/email-provider-label-writeback", () => ({
   applyEmailProviderLabelWriteback: vi.fn(),
 }));
+vi.mock("@/lib/api/services/provider-delivery-source-service", () => ({
+  captureAcceptedOutboundProviderDeliverySource: vi.fn().mockResolvedValue({
+    sourceId: "00000000-0000-4000-8000-000000000003",
+    sourceSha256: `sha256:${"a".repeat(64)}`,
+    inserted: true,
+  }),
+}));
 
 import { reconcileEmailSend } from "@/lib/api/services/email-send-reconciliation-service";
 import type { EmailSendIntent } from "@/lib/api/services/email-send-intent-service";

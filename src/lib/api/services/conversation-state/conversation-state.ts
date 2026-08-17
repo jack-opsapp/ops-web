@@ -51,6 +51,9 @@ export interface RawAttachment {
   filename: string;
   mimeType: string;
   sizeBytes: number;
+  isInline?: boolean;
+  contentId?: string | null;
+  contentHash?: string | null;
   /**
    * The CACHED vision inspection for this attachment, if one exists (Phase 2).
    * The fetch wrapper reads it from `attachment_inspections` — the pure core
@@ -144,6 +147,37 @@ function classifyAttachmentKind(
   return "other";
 }
 
+const DECORATIVE_INLINE_MAX_BYTES = 128_000;
+const DECORATIVE_INLINE_HINT_RE =
+  /(?:^|[\s._@-])(?:logo|signature|footer|brand|tracking|pixel|spacer|social|facebook|instagram|linkedin|youtube)(?:[\s._@-]|$)/i;
+
+function attachmentConversationKey(attachment: RawAttachment): string | null {
+  const hash = attachment.contentHash?.trim().toLowerCase();
+  if (hash) return `sha256:${hash}`;
+  const contentId = attachment.contentId?.trim().toLowerCase();
+  if (contentId) return `cid:${contentId}`;
+  if (!attachment.isInline) return null;
+  return `inline:${attachment.filename.trim().toLowerCase()}:${attachment.mimeType
+    .trim()
+    .toLowerCase()}:${attachment.sizeBytes}`;
+}
+
+function isDecorativeInlineAttachment(
+  attachment: RawAttachment,
+  isNewToConversation: boolean
+): boolean {
+  if (
+    attachment.isInline !== true ||
+    attachment.sizeBytes > DECORATIVE_INLINE_MAX_BYTES
+  ) {
+    return false;
+  }
+  if (!isNewToConversation) return true;
+  return DECORATIVE_INLINE_HINT_RE.test(
+    `${attachment.filename} ${attachment.contentId ?? ""}`
+  );
+}
+
 /**
  * The greeting target: the actual author of the latest inbound message,
  * preferring real customer inbounds over any other inbound (e.g. a forwarder),
@@ -192,6 +226,7 @@ export function assembleConversationState(
   //    stripping (a prior message's clean opening is what a reply inlines).
   const messages: CleanMessage[] = [];
   const priorCleanBodies: string[] = [];
+  const seenAttachmentKeys = new Set<string>();
 
   for (const raw of sorted) {
     const cleanBody = cleanMessageBody(raw.rawBody, {
@@ -220,13 +255,32 @@ export function assembleConversationState(
 
     const attachments: AttachmentRef[] = (raw.attachments ?? []).map((att) => {
       const kind = classifyAttachmentKind(att.mimeType, att.filename);
+      const conversationKey = attachmentConversationKey(att);
+      const isNewToConversation = conversationKey
+        ? !seenAttachmentKeys.has(conversationKey)
+        : true;
+      if (conversationKey) seenAttachmentKeys.add(conversationKey);
+      const isInline = att.isInline === true;
+      const isDecorativeInline = isDecorativeInlineAttachment(
+        att,
+        isNewToConversation
+      );
       return {
         filename: att.filename,
         mimeType: att.mimeType,
         sizeBytes: att.sizeBytes,
         kind,
+        sourceMessageId: raw.providerMessageId,
+        isInline,
+        contentId: att.contentId ?? null,
+        contentHash: att.contentHash ?? null,
+        isNewToConversation,
+        isDecorativeInline,
         requiresInspection:
-          isCustomerInbound && (kind === "image" || kind === "pdf"),
+          isCustomerInbound &&
+          isNewToConversation &&
+          !isDecorativeInline &&
+          (kind === "image" || kind === "pdf"),
         // Thread the CACHED inspection through (Phase 2). The pure core does not
         // inspect; the fetch wrapper supplies any cached inspection on the raw
         // attachment, and the deterministic accept-detector/router read it here.
@@ -238,10 +292,15 @@ export function assembleConversationState(
     // an empty quote-only reply (cleanBody empty, no attachment) is dropped even
     // though the classifier (identity-based) calls it meaningful.
     const hasContent = cleanBody.trim().length > 0;
+    const hasNewCustomerMaterial = attachments.some(
+      (attachment) =>
+        attachment.isNewToConversation !== false &&
+        attachment.isDecorativeInline !== true
+    );
     const isRealCustomerInbound =
       isCustomerInbound &&
       classification.isMeaningful &&
-      (hasContent || attachments.length > 0);
+      (hasContent || hasNewCustomerMaterial);
 
     messages.push({
       providerMessageId: raw.providerMessageId,
@@ -297,9 +356,22 @@ export function assembleConversationState(
     sentLedger,
     attachmentsRequiringInspection,
   };
-  const { routing, routingReasons, confidence } = route(routeInput);
+  const {
+    routing,
+    routingReasons,
+    responseDisposition,
+    responseMode,
+    confidence,
+  } = route(routeInput);
 
-  return { ...routeInput, routing, routingReasons, confidence };
+  return {
+    ...routeInput,
+    routing,
+    routingReasons,
+    responseDisposition,
+    responseMode,
+    confidence,
+  };
 }
 
 // ─── Thin fetch wrapper (separate; the pure core never calls this) ────────────
@@ -375,7 +447,7 @@ async function loadThreadAttachments(
   let attachmentQuery = supabase
     .from("email_attachments")
     .select(
-      "id, message_id, attachment_id, filename, mime_type, detected_mime_type, size_bytes"
+      "id, message_id, attachment_id, filename, mime_type, detected_mime_type, size_bytes, is_inline, content_id, content_sha256"
     )
     .eq("company_id", companyId)
     .eq("connection_id", connectionId)
@@ -401,6 +473,9 @@ async function loadThreadAttachments(
     mime_type: string | null;
     detected_mime_type: string | null;
     size_bytes: number | null;
+    is_inline: boolean | null;
+    content_id: string | null;
+    content_sha256: string | null;
   }>;
   if (rows.length === 0) return byMessageId;
 
@@ -454,6 +529,9 @@ async function loadThreadAttachments(
       filename: row.filename?.trim() || row.attachment_id,
       mimeType: row.detected_mime_type ?? row.mime_type ?? "",
       sizeBytes: typeof row.size_bytes === "number" ? row.size_bytes : 0,
+      isInline: row.is_inline === true,
+      contentId: row.content_id,
+      contentHash: row.content_sha256,
       inspection: inspectionByKey.get(row.id) ?? null,
     });
     byMessageId.set(row.message_id, list);
@@ -543,7 +621,7 @@ export async function buildConversationState(
   // 3. Newest thread messages from this mailbox's `activities` ledger.
   //    Fetch newest-first so LIMIT retains current context, then reverse below
   //    before the deterministic core consumes the rows chronologically.
-  const { data: activityRows } = await supabase
+  const { data: activityRows, error: activityError } = await supabase
     .from("activities")
     .select(
       "email_message_id, from_email, to_emails, cc_emails, subject, body_text, body_text_clean, direction, created_at"
@@ -554,6 +632,13 @@ export async function buildConversationState(
     .eq("email_thread_id", t.provider_thread_id)
     .order("created_at", { ascending: false })
     .limit(20);
+  if (activityError) {
+    console.error(
+      "[conversation-state] activity ledger load failed:",
+      activityError.message
+    );
+    return null;
+  }
   const activities = (
     [...(activityRows ?? [])] as unknown as ActivityEmailRow[]
   ).reverse();

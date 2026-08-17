@@ -18,8 +18,16 @@ import {
   cascadeAutomationSourceId,
   ScheduleOptimizationService,
 } from "@/lib/api/services/schedule-optimization-service";
+import { isDatabasePressureError } from "@/lib/api/services/cron-workload-error-contract";
 
-function builder(result: { data: unknown; error: unknown }) {
+type SupabaseResult = {
+  data: unknown;
+  error: unknown;
+  status?: number;
+  statusText?: string;
+};
+
+function builder(result: SupabaseResult) {
   const value: Record<string, ReturnType<typeof vi.fn>> = {};
   for (const method of ["select", "eq", "is", "single"]) {
     value[method] =
@@ -28,7 +36,7 @@ function builder(result: { data: unknown; error: unknown }) {
   return value;
 }
 
-function db(...results: Array<{ data: unknown; error: unknown }>) {
+function db(...results: SupabaseResult[]) {
   const builders = results.map(builder);
   return {
     from: vi.fn(() => {
@@ -78,6 +86,45 @@ describe("ScheduleOptimizationService strict cascade mode", () => {
         { throwOnError: true }
       )
     ).rejects.toThrow("task lookup failed");
+  });
+
+  it("preserves the raw Supabase cause for strict durable workers", async () => {
+    const settings = {
+      data: { schedule_optimization_settings: { cascade_detection: true } },
+      error: null,
+    };
+    const cause = {
+      data: null,
+      error: {
+        code: "",
+        details: null,
+        hint: null,
+        message: "Service unavailable",
+      },
+      status: 503,
+      statusText: "Service Unavailable",
+    };
+    mocks.requireSupabase
+      .mockReturnValueOnce(db(settings))
+      .mockReturnValueOnce(db(cause));
+
+    const failure = await ScheduleOptimizationService.handleRescheduleCascade(
+      "company-1",
+      "actor-1",
+      "task-1",
+      "manual_update",
+      { throwOnError: true }
+    ).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: cause.error,
+        status: 503,
+        statusText: "Service Unavailable",
+      },
+    });
+    expect(isDatabasePressureError(failure)).toBe(true);
   });
 
   it("uses the stable worker prefix in every affected-task proposal id", () => {

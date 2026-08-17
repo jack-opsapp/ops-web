@@ -302,6 +302,8 @@ export interface ProposeActionParams {
    * schedule version, the actor's current access, and the live worker lease.
    */
   taskAutomationGuard?: TaskAutomationPersistenceGuard;
+  /** Exact current confirmation proof checked atomically with action insert. */
+  scheduleConfirmationGuard?: ScheduleConfirmationPersistenceGuard;
 }
 
 export interface TaskAutomationPersistenceGuard {
@@ -309,6 +311,16 @@ export interface TaskAutomationPersistenceGuard {
   leaseToken: string;
   taskId: string;
   scheduleVersion: number;
+}
+
+export interface ScheduleConfirmationPersistenceGuard {
+  eventId: string;
+  leaseToken: string;
+  taskId: string;
+  scheduleVersion: number;
+  confirmedAt: string;
+  confirmedBy: string | null;
+  confirmationOrigin: "manual" | "automatic_grace" | "full_auto";
 }
 
 export interface QueueFilters {
@@ -596,6 +608,12 @@ export interface StructuredSummary {
  */
 export interface SendScheduleChangedActionData {
   task_id: string;
+  /** Required for purpose-bound unconfirmation actions; absent on legacy rows. */
+  schedule_version?: number;
+  /** Required for purpose-bound unconfirmation actions; absent on legacy rows. */
+  previous_schedule_confirmed_at?: string;
+  /** Immutable authority provenance for a purpose-bound proof clear. */
+  schedule_unconfirmation_origin?: "explicit_admin" | "schedule_edit";
   project_id: string;
   project_title: string;
   client_id: string;
@@ -626,6 +644,11 @@ export interface SendScheduleChangedActionData {
 
 export interface SendAppointmentConfirmationActionData {
   task_id: string;
+  schedule_version: number;
+  confirmed_schedule_version: number;
+  schedule_confirmed_at: string;
+  schedule_confirmed_by: string | null;
+  confirmation_origin: "manual" | "automatic_grace" | "full_auto";
   project_id: string;
   project_title: string;
   client_id: string;
@@ -776,39 +799,25 @@ export interface ProcessRescheduleRequestActionData {
  *   full_auto           → draft + auto-send the moment a task gets a date (gated)
  */
 export type AppointmentConfirmationLevel =
-  | "off"
-  | "manual"
-  | "draft_on_confirm"
-  | "auto_send_on_confirm"
-  | "full_auto";
+  "off" | "manual" | "draft_on_confirm" | "auto_send_on_confirm" | "full_auto";
 
 /** How tasks become "schedule confirmed" */
 export type ConfirmMode = "explicit" | "automatic";
 
 /** Behavior when a confirmed task gets rescheduled */
 export type RescheduleBehavior =
-  | "do_nothing"
-  | "notify"
-  | "draft"
-  | "auto_send";
+  "do_nothing" | "notify" | "draft" | "auto_send";
 
 /** Simple three-level autonomy used by reminders, status updates, etc. */
 export type SimpleAutonomy = "off" | "draft_to_queue" | "auto_send";
 
 /** Cadence presets for project status update emails */
 export type StatusUpdateCadence =
-  | "off"
-  | "weekly"
-  | "biweekly"
-  | "monthly"
-  | "on_stage_change";
+  "off" | "weekly" | "biweekly" | "monthly" | "on_stage_change";
 
 /** Payment reminder escalation presets */
 export type PaymentReminderPreset =
-  | "standard"
-  | "gentle"
-  | "aggressive"
-  | "custom";
+  "standard" | "gentle" | "aggressive" | "custom";
 
 /** How reschedule request detection responds */
 export type RescheduleRequestBehavior = "detect_only" | "detect_and_draft";

@@ -84,15 +84,17 @@ export const AdminFeatureOverrideService = {
    */
   async isFeatureEnabled(
     companyId: string,
-    featureKey: string
+    featureKey: string,
+    signal?: AbortSignal
   ): Promise<boolean> {
     const supabase = getServiceRoleClient();
-    const { data, error } = await supabase
+    let request = supabase
       .from("admin_feature_overrides")
       .select("enabled")
       .eq("company_id", companyId)
-      .eq("feature_key", featureKey)
-      .maybeSingle();
+      .eq("feature_key", featureKey);
+    if (signal) request = request.abortSignal(signal);
+    const { data, error } = await request.maybeSingle();
     if (error) {
       throw new Error(`Failed to read feature override: ${error.message}`);
     }

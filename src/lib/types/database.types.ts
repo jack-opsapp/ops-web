@@ -15756,6 +15756,7 @@ export type Database = {
           project_id: string
           recurrence_id: string | null
           recurrence_origin_date: string | null
+          confirmed_schedule_version: number | null
           schedule_confirmed_at: string | null
           schedule_confirmed_by: string | null
           schedule_locked: boolean
@@ -15790,6 +15791,7 @@ export type Database = {
           project_id: string
           recurrence_id?: string | null
           recurrence_origin_date?: string | null
+          confirmed_schedule_version?: number | null
           schedule_confirmed_at?: string | null
           schedule_confirmed_by?: string | null
           schedule_locked?: boolean
@@ -15824,6 +15826,7 @@ export type Database = {
           project_id?: string
           recurrence_id?: string | null
           recurrence_origin_date?: string | null
+          confirmed_schedule_version?: number | null
           schedule_confirmed_at?: string | null
           schedule_confirmed_by?: string | null
           schedule_locked?: boolean

@@ -5,10 +5,12 @@
 import { randomUUID } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { persistCapturedProviderDeliveryTurn } from "@/lib/agent-control-plane/memory/persist-captured-provider-delivery-turn";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 import { EmailService } from "./email-service";
+import { captureProviderDeliveredEmailSource } from "./provider-delivery-source-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
 import { EmailFilterService } from "./email-filter-service";
 import {
@@ -1999,6 +2001,18 @@ async function recordActivityCorrespondenceEvent(
       `[sync-engine] correspondence event rejected: ${result.reason}`
     );
   }
+  if (!activityId) {
+    throw new LifecyclePersistenceError(
+      "[sync-engine] delivered turn requires a canonical source activity"
+    );
+  }
+  await persistCapturedProviderDeliveryTurn({
+    supabase,
+    companyId: connection.companyId,
+    connectionId: connection.id,
+    providerMessageId: email.id,
+    sourceActivityId: activityId,
+  });
 }
 
 interface ActivityPersistenceOptions {
@@ -2007,6 +2021,34 @@ interface ActivityPersistenceOptions {
   matchConfidence?: string;
   /** A platform thread may contain unrelated form submitters; do not collapse it. */
   skipThreadState?: boolean;
+}
+
+function withAuthoritativeProviderDeliveryTimestamp(
+  email: NormalizedEmail,
+  direction: "inbound" | "outbound"
+): NormalizedEmail {
+  const source = email.providerDeliverySource;
+  if (!source || source.sourceKind !== "microsoft_graph_body") return email;
+  const deliveredAt =
+    direction === "outbound"
+      ? source.providerSentAt
+      : source.providerReceivedAt;
+  if (
+    !(deliveredAt instanceof Date) ||
+    !Number.isFinite(deliveredAt.getTime())
+  ) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] M365 ${direction} message is missing its authoritative provider timestamp`
+    );
+  }
+  return {
+    ...email,
+    date: deliveredAt,
+    providerDeliverySource: {
+      ...source,
+      deliveredAt,
+    },
+  };
 }
 
 async function persistDeterministicEmailThreadState(
@@ -2234,6 +2276,23 @@ async function createActivity(
     executionPolicy
   );
   return true;
+}
+
+async function captureProviderDeliveryBeforeMutableIngest(input: {
+  email: NormalizedEmail;
+  connection: EmailConnection;
+  direction: "inbound" | "outbound";
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint;
+}): Promise<void> {
+  await input.providerLockCheckpoint();
+  await captureProviderDeliveredEmailSource({
+    supabase: requireSupabase(),
+    connection: input.connection,
+    provider: EmailService.getProvider(input.connection),
+    email: input.email,
+    direction: input.direction,
+  });
+  await input.providerLockCheckpoint();
 }
 
 interface PersistInboundActivityResult {
@@ -3396,7 +3455,17 @@ async function processInboundEmail(
     result,
     "sync_inbound_email"
   );
-  email = normalizedEmail;
+  email = withAuthoritativeProviderDeliveryTimestamp(
+    normalizedEmail,
+    "inbound"
+  );
+
+  await captureProviderDeliveryBeforeMutableIngest({
+    email,
+    connection,
+    direction: "inbound",
+    providerLockCheckpoint,
+  });
 
   const supabase = requireSupabase();
 
@@ -4274,7 +4343,10 @@ async function processSentEmail(
     result,
     "sync_sent_email"
   );
-  email = normalizedEmail;
+  email = withAuthoritativeProviderDeliveryTimestamp(
+    normalizedEmail,
+    "outbound"
+  );
   const operatorIdentity = await getCachedOperatorIdentity(connection);
   const routingIdentity = buildLeadRoutingIdentity(
     email,
@@ -4302,6 +4374,13 @@ async function processSentEmail(
   // persistence, relationship matching, or lead projection so an unrelated
   // learning outage can never hold the mailbox cursor on internal mail.
   if (externalRecipients.length === 0) return;
+
+  await captureProviderDeliveryBeforeMutableIngest({
+    email,
+    connection,
+    direction: "outbound",
+    providerLockCheckpoint,
+  });
 
   // Dedup
   const existingActivity =

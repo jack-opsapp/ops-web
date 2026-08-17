@@ -82,6 +82,22 @@ const actorContext = {
   clientFacingAddressSnapshot: "hello@company.test",
 };
 
+const emailAccess = {
+  allowed: true as const,
+  actor: { userId: IDS.actor, companyId: IDS.company },
+  operation: "send" as const,
+  threadId: IDS.internalThread,
+  connectionId: IDS.connection,
+  providerThreadId: "provider-thread-1",
+  opportunityId: IDS.opportunity,
+  connectionType: "company" as const,
+  connectionOwnerId: null,
+  pipelineScope: "assigned" as const,
+  inboxScope: "assigned" as const,
+  usedLegacyPipelineManage: false,
+  usedLegacyInboxViewCompany: false,
+};
+
 const settings = {
   enabled: true,
   businessHoursStart: "00:00",
@@ -168,12 +184,23 @@ function dbRow(overrides: Record<string, unknown> = {}) {
 }
 
 function makeClient(
-  handler: (name: string, args: Record<string, unknown>) => unknown
+  handler: (name: string, args: Record<string, unknown>) => unknown,
+  reservation: Record<string, unknown> = {
+    disposition: "acquired",
+    generation_token: IDS.lease,
+    to_emails: ["lead@example.com"],
+    cc_emails: [],
+  }
 ) {
-  const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => ({
-    data: handler(name, args),
-    error: null,
-  }));
+  const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
+    if (name === "reserve_phase_c_auto_send_generation_as_system") {
+      return { data: reservation, error: null };
+    }
+    if (name === "resolve_phase_c_auto_send_generation_as_system") {
+      return { data: true, error: null };
+    }
+    return { data: handler(name, args), error: null };
+  });
   const from = vi.fn(() => {
     throw new Error("direct table access is forbidden in this lifecycle test");
   });
@@ -192,6 +219,12 @@ function scheduleInput() {
     subject: "Estimate",
     settings,
     actorContext,
+    generation: {
+      kind: "conversation_reply" as const,
+      emailAccess,
+      sourceActivityId: "activity-inbound-1",
+      sourceMessageId: "provider-message-1",
+    },
   };
 }
 
@@ -216,7 +249,15 @@ describe("AutoSendService queue lifecycle", () => {
 
   it("refreshes through the canonical signature resolver and schedules its rendered output", async () => {
     const db = makeClient((name) => {
-      if (name === "schedule_phase_c_auto_send") {
+      if (name === "reserve_phase_c_auto_send_generation_as_system") {
+        return {
+          disposition: "acquired",
+          generation_token: IDS.lease,
+          to_emails: ["lead@example.com"],
+          cc_emails: [],
+        };
+      }
+      if (name === "schedule_phase_c_auto_send_fenced") {
         return dbRow({ status: "pending", lease_token: null });
       }
       throw new Error(`unexpected RPC: ${name}`);
@@ -234,6 +275,12 @@ describe("AutoSendService queue lifecycle", () => {
         threadId: "provider-thread-1",
         profileTypeOverride: "client_new_inquiry",
         autonomous: true,
+        origin: "phase_c",
+        phaseCActorContext: actorContext,
+        emailAccess,
+        sourceActivityId: "activity-inbound-1",
+        draftPurpose: { kind: "conversation_reply" },
+        signatureWillBeAppended: true,
       })
     );
     expect(getConnectionMock).toHaveBeenCalledWith(IDS.connection);
@@ -254,9 +301,9 @@ describe("AutoSendService queue lifecycle", () => {
       },
     });
     expect(db.from).not.toHaveBeenCalled();
-    expect(db.rpc).toHaveBeenCalledTimes(1);
+    expect(db.rpc).toHaveBeenCalledTimes(2);
 
-    const [, args] = db.rpc.mock.calls[0] as [string, Record<string, unknown>];
+    const [, args] = db.rpc.mock.calls[1] as [string, Record<string, unknown>];
     expect(args).toMatchObject({
       p_company_id: IDS.company,
       p_actor_user_id: IDS.actor,
@@ -276,12 +323,102 @@ describe("AutoSendService queue lifecycle", () => {
       p_learning_authority: "autonomous",
       p_signature_id: IDS.signature,
       p_signature_content_hash: "a".repeat(64),
+      p_generation_token: IDS.lease,
     });
     expect(args.p_idempotency_key).toMatch(/^[0-9a-f]{64}$/);
     expect(args.p_rendered_body_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(result?.actorUserId).toBe(IDS.actor);
-    expect(result?.categorySnapshot).toBe("CUSTOMER");
-    expect(result?.autonomyLevelSnapshot).toBe("auto_send");
+    expect(result.outcome).toBe("scheduled");
+    if (result.outcome !== "scheduled") throw new Error("expected schedule");
+    expect(result.pending.actorUserId).toBe(IDS.actor);
+    expect(result.pending.categorySnapshot).toBe("CUSTOMER");
+    expect(result.pending.autonomyLevelSnapshot).toBe("auto_send");
+  });
+
+  it("does not invoke the model when another scheduler owns the exact source generation", async () => {
+    const db = makeClient(
+      (name) => {
+        throw new Error(`unexpected RPC: ${name}`);
+      },
+      {
+        disposition: "in_progress",
+        to_emails: ["lead@example.com"],
+        cc_emails: [],
+      }
+    );
+    requireSupabaseMock.mockReturnValue(db.client);
+
+    const result = await AutoSendService.scheduleAutoSend(scheduleInput());
+
+    expect(result).toMatchObject({
+      outcome: "unavailable",
+      reason: "source generation already in progress",
+    });
+    expect(generateDraftMock).not.toHaveBeenCalled();
+    expect(db.rpc).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed before the model when the reservation reports argument drift", async () => {
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "reserve_phase_c_auto_send_generation_as_system") {
+        return {
+          data: null,
+          error: { message: "PHASE_C_AUTO_SEND_IDEMPOTENCY_CONFLICT" },
+        };
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    requireSupabaseMock.mockReturnValue({ rpc });
+
+    const result = await AutoSendService.scheduleAutoSend(scheduleInput());
+
+    expect(result).toMatchObject({
+      outcome: "unavailable",
+      reason: "PHASE_C_AUTO_SEND_IDEMPOTENCY_CONFLICT",
+    });
+    expect(generateDraftMock).not.toHaveBeenCalled();
+  });
+
+  it("passes the narrow stale-lead authority into operational follow-up drafting", async () => {
+    generateDraftMock.mockResolvedValueOnce({
+      available: true,
+      draft: "Brief follow-up",
+      draftHistoryId: IDS.draftHistory,
+      profileType: "client_followup",
+    });
+    const db = makeClient((name) => {
+      if (name === "schedule_phase_c_auto_send_fenced") {
+        return dbRow({
+          status: "pending",
+          lease_token: null,
+          profile_type_snapshot: "client_followup",
+          autonomy_level_snapshot: "auto_follow_up",
+        });
+      }
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    requireSupabaseMock.mockReturnValue(db.client);
+
+    const result = await AutoSendService.scheduleAutoSend({
+      ...scheduleInput(),
+      generation: {
+        kind: "operational_outbound",
+        autonomousRoutingAuthority: "phase_c_stale_lead_follow_up",
+        emailAccess,
+        instruction: "Write one brief follow-up.",
+      },
+    });
+
+    expect(generateDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        autonomous: true,
+        origin: "phase_c",
+        profileTypeOverride: "client_followup",
+        autonomousRoutingAuthority: "phase_c_stale_lead_follow_up",
+        draftPurpose: { kind: "operational_outbound" },
+        signatureWillBeAppended: true,
+      })
+    );
+    expect(result.outcome).toBe("scheduled");
   });
 
   it("fails closed when the generated profile is outside the scheduled category", async () => {
@@ -298,8 +435,12 @@ describe("AutoSendService queue lifecycle", () => {
 
     const result = await AutoSendService.scheduleAutoSend(scheduleInput());
 
-    expect(result).toBeNull();
-    expect(db.rpc).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ outcome: "unavailable" });
+    expect(db.rpc).toHaveBeenCalledTimes(2);
+    expect(db.rpc).not.toHaveBeenCalledWith(
+      "schedule_phase_c_auto_send_fenced",
+      expect.any(Object)
+    );
     expect(resolveMessageSignatureMock).not.toHaveBeenCalled();
   });
 
@@ -340,7 +481,7 @@ describe("AutoSendService queue lifecycle", () => {
 
     const result = await AutoSendService.scheduleAutoSend(scheduleInput());
 
-    expect(result).toBeNull();
+    expect(result).toMatchObject({ outcome: "unavailable" });
     expect(generateDraftMock).toHaveBeenCalledOnce();
     expect(resolveMessageSignatureMock).toHaveBeenCalledWith({
       supabase: db.client,
@@ -349,7 +490,7 @@ describe("AutoSendService queue lifecycle", () => {
       refreshProviderIfMissing: true,
     });
     expect(db.rpc).not.toHaveBeenCalledWith(
-      "schedule_phase_c_auto_send",
+      "schedule_phase_c_auto_send_fenced",
       expect.any(Object)
     );
     expect(db.from).not.toHaveBeenCalled();
@@ -393,7 +534,7 @@ describe("AutoSendService queue lifecycle", () => {
       userId: "legacy-connection-owner",
     });
 
-    expect(result).toBeNull();
+    expect(result).toMatchObject({ outcome: "unavailable" });
     expect(generateDraftMock).not.toHaveBeenCalled();
     expect(db.rpc).not.toHaveBeenCalled();
   });
@@ -407,9 +548,36 @@ describe("AutoSendService queue lifecycle", () => {
       actorContext: { ...actorContext, assignmentEventId: "" },
     });
 
-    expect(result).toBeNull();
+    expect(result).toMatchObject({ outcome: "unavailable" });
     expect(generateDraftMock).not.toHaveBeenCalled();
     expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns a clean no-reply outcome without touching the outbound queue", async () => {
+    generateDraftMock.mockResolvedValueOnce({
+      available: false,
+      draft: "",
+      draftHistoryId: "",
+      noReplyWarranted: true,
+      reason: "The latest message only closes the loop.",
+    });
+    const db = makeClient((name) => {
+      throw new Error(`unexpected RPC: ${name}`);
+    });
+    requireSupabaseMock.mockReturnValue(db.client);
+
+    const result = await AutoSendService.scheduleAutoSend(scheduleInput());
+
+    expect(result).toEqual({
+      outcome: "no_reply_warranted",
+      reason: "The latest message only closes the loop.",
+    });
+    expect(db.rpc).toHaveBeenCalledTimes(2);
+    expect(db.rpc).not.toHaveBeenCalledWith(
+      "schedule_phase_c_auto_send_fenced",
+      expect.any(Object)
+    );
+    expect(resolveMessageSignatureMock).not.toHaveBeenCalled();
   });
 
   it("claims source records for root delivery without resolving a connection owner or calling a provider", async () => {

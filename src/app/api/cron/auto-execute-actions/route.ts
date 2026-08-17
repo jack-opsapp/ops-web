@@ -46,15 +46,26 @@ export async function GET(request: NextRequest) {
       leaseSeconds: 360,
       work: async () => {
         const now = new Date().toISOString();
+        const purposeRetryRecovery =
+          await ApprovalQueueService.recoverPurposeScheduleEmailActionRetries();
+        const purposeRetryActionIds = new Set(purposeRetryRecovery.actionIds);
+        const remainingActionBudget = Math.max(
+          0,
+          10 - purposeRetryActionIds.size
+        );
 
         // Find pending actions whose auto_execute_at has passed
-        const { data: dueActions, error } = await supabase
-          .from("agent_actions")
-          .select("id")
-          .eq("status", "pending")
-          .not("auto_execute_at", "is", null)
-          .lte("auto_execute_at", now)
-          .limit(10);
+        const dueActionResponse =
+          remainingActionBudget > 0
+            ? await supabase
+                .from("agent_actions")
+                .select("id")
+                .eq("status", "pending")
+                .not("auto_execute_at", "is", null)
+                .lte("auto_execute_at", now)
+                .limit(remainingActionBudget)
+            : { data: [], error: null };
+        const { error } = dueActionResponse;
 
         if (error) {
           throw new CronDatabaseOperationError(
@@ -62,6 +73,10 @@ export async function GET(request: NextRequest) {
             { cause: error }
           );
         }
+        const dueActions = (dueActionResponse.data ?? []).filter(
+          (row) =>
+            typeof row.id === "string" && !purposeRetryActionIds.has(row.id)
+        );
 
         const results: Array<{
           actionId: string;
@@ -72,7 +87,13 @@ export async function GET(request: NextRequest) {
         for (const row of dueActions ?? []) {
           const actionId = row.id as string;
           try {
-            await ApprovalQueueService.executeAutonomousAction(actionId);
+            const action =
+              await ApprovalQueueService.executeAutonomousAction(actionId);
+            if (action.status !== "executed") {
+              throw new Error(
+                `Action did not reach executed status: ${action.status}`
+              );
+            }
             results.push({ actionId, success: true });
           } catch (err) {
             if (isDatabasePressureError(err)) throw err;
@@ -91,14 +112,24 @@ export async function GET(request: NextRequest) {
         const recovery =
           await ApprovalQueueService.recoverApprovedActionEmails(5);
 
-        return NextResponse.json({
-          ok: true,
-          dueCount: dueActions?.length ?? 0,
-          succeeded,
-          failed,
-          recovery,
-          results,
-        });
+        const ok =
+          failed === 0 &&
+          purposeRetryRecovery.failed === 0 &&
+          recovery.failed === 0 &&
+          recovery.exhausted === 0;
+
+        return NextResponse.json(
+          {
+            ok,
+            dueCount: dueActions?.length ?? 0,
+            succeeded,
+            failed,
+            purposeRetryRecovery,
+            recovery,
+            results,
+          },
+          { status: ok ? 200 : 503 }
+        );
       },
     });
 

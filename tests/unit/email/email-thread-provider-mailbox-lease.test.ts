@@ -26,6 +26,7 @@ vi.mock("@/lib/api/services/email-connection-sync-lock", () => ({
 }));
 
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
+import { isDatabasePressureError } from "@/lib/api/services/cron-workload-error-contract";
 
 function connectionRow() {
   return {
@@ -60,6 +61,10 @@ function supabaseDouble(
   options: {
     updateErrorTables?: string[];
     threadLabels?: string[];
+    readErrorTables?: string[];
+    readError?: unknown;
+    readStatus?: number;
+    readStatusText?: string;
   } = {}
 ) {
   const thread = {
@@ -91,9 +96,18 @@ function supabaseDouble(
     }
 
     single() {
+      const error = options.readErrorTables?.includes(this.table)
+        ? (options.readError ?? { message: `${this.table} read unavailable` })
+        : null;
       return Promise.resolve({
         data: this.table === "email_threads" ? thread : connectionRow(),
-        error: null,
+        error,
+        ...(error && options.readStatus !== undefined
+          ? {
+              status: options.readStatus,
+              statusText: options.readStatusText ?? "",
+            }
+          : {}),
       });
     }
 
@@ -389,5 +403,39 @@ describe("EmailThreadService provider mailbox lease", () => {
 
     await expect(run()).rejects.toThrow("mirror update failed");
     expect(events).toHaveLength(1);
+  });
+
+  it("preserves the raw Supabase cause when dismiss readback is under pressure", async () => {
+    const events: string[] = [];
+    const cause = {
+      code: "",
+      details: null,
+      hint: null,
+      message: "Service unavailable",
+    };
+    requireSupabaseMock.mockReturnValue(
+      supabaseDouble(events, {
+        readErrorTables: ["email_threads"],
+        readError: cause,
+        readStatus: 503,
+        readStatusText: "Service Unavailable",
+      })
+    );
+
+    const failure = await EmailThreadService.dismissAwaitingReply(
+      "thread-1",
+      "company-1"
+    ).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: cause,
+        status: 503,
+        statusText: "Service Unavailable",
+      },
+    });
+    expect(isDatabasePressureError(failure)).toBe(true);
+    expect(events).toEqual([]);
   });
 });

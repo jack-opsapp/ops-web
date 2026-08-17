@@ -5,6 +5,7 @@ import {
   runWithCronWorkloadControl,
 } from "@/lib/api/services/cron-workload-control-service";
 import { runEmailSendReconciliationRecovery } from "@/lib/api/services/email-send-reconciliation-recovery-service";
+import { runApprovedActionEmailReconciliationRecovery } from "@/lib/api/services/approved-action-email-reconciliation-recovery-service";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
@@ -37,19 +38,44 @@ export async function GET(request: NextRequest) {
       leaseSeconds: 240,
       work: () =>
         runWithSupabase(supabase, async () => {
-          const result = await runEmailSendReconciliationRecovery(supabase, {
+          const options = {
             limit: 5,
             failureCooldownSeconds: 60,
             leaseSeconds: 180,
-          });
-          const pressureError = result.errors.find(isDatabasePressureError);
+          };
+          const emailSend = await runEmailSendReconciliationRecovery(
+            supabase,
+            options
+          );
+          const emailSendPressure = emailSend.errors.find(
+            isDatabasePressureError
+          );
+          if (emailSendPressure) {
+            throw emailSendPressure;
+          }
+
+          const approvedAction =
+            await runApprovedActionEmailReconciliationRecovery(
+              supabase,
+              options
+            );
+          const errors = [...emailSend.errors, ...approvedAction.errors];
+          const pressureError = errors.find(isDatabasePressureError);
           if (pressureError) {
             // Preserve the exact classified value. Re-wrapping it as a plain
             // Error can discard code/status/cause evidence before the shared
             // circuit records the failure.
             throw pressureError;
           }
-          return result;
+          return {
+            claimed: emailSend.claimed + approvedAction.claimed,
+            reconciled: emailSend.reconciled + approvedAction.reconciled,
+            failed: emailSend.failed + approvedAction.failed,
+            exhausted: approvedAction.exhausted,
+            errors,
+            emailSend,
+            approvedAction,
+          };
         }),
     });
 

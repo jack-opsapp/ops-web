@@ -72,17 +72,46 @@ vi.mock("@/lib/email/email-signature-runtime", () => ({
 
 vi.mock("@/lib/supabase/helpers", () => ({
   requireSupabase: () => ({
-    from: () => ({
-      select() {
-        return this;
-      },
-      eq() {
-        return this;
-      },
-      async maybeSingle() {
-        return { data: { user_id: connectionOwnerId }, error: null };
-      },
-    }),
+    from: (table: string) => {
+      const activity = {
+        id: "00000000-0000-4000-8000-000000000009",
+        email_message_id: "provider-message-1",
+        direction: "inbound",
+        from_email: "client@example.com",
+        to_emails: ["hello@company.test"],
+        cc_emails: [],
+        created_at: "2026-08-08T18:00:00.000Z",
+      };
+      return {
+        select() {
+          return this;
+        },
+        eq() {
+          return this;
+        },
+        order() {
+          return this;
+        },
+        limit() {
+          return this;
+        },
+        async maybeSingle() {
+          return {
+            data:
+              table === "activities"
+                ? activity
+                : { user_id: connectionOwnerId },
+            error: null,
+          };
+        },
+        then(resolve: (result: { data: unknown[]; error: null }) => unknown) {
+          return resolve({
+            data: table === "activities" ? [activity] : [],
+            error: null,
+          });
+        },
+      };
+    },
   }),
 }));
 
@@ -94,6 +123,23 @@ const CONNECTION_ID = "00000000-0000-4000-8000-000000000003";
 const OPPORTUNITY_ID = "00000000-0000-4000-8000-000000000004";
 const THREAD_ID = "00000000-0000-4000-8000-000000000005";
 const ASSIGNEE_ID = "00000000-0000-4000-8000-000000000006";
+const SOURCE_ACTIVITY_ID = "00000000-0000-4000-8000-000000000009";
+
+const allowedSendAccess = {
+  allowed: true as const,
+  actor: { userId: ASSIGNEE_ID, companyId: COMPANY_ID },
+  operation: "send" as const,
+  threadId: THREAD_ID,
+  connectionId: CONNECTION_ID,
+  providerThreadId: "provider-thread-1",
+  opportunityId: OPPORTUNITY_ID,
+  connectionType: "company" as const,
+  connectionOwnerId: null,
+  pipelineScope: "assigned" as const,
+  inboxScope: "assigned" as const,
+  usedLegacyPipelineManage: false,
+  usedLegacyInboxViewCompany: false,
+};
 
 function thread(overrides: Partial<EmailThread> = {}): EmailThread {
   return {
@@ -125,7 +171,7 @@ describe("PhaseCAutonomyRouter actor resolution", () => {
       sampleSize: 20,
     });
     isAutoSendEnabledMock.mockResolvedValue({ enabled: false, settings: null });
-    accessResolverMock.mockResolvedValue({ allowed: true });
+    accessResolverMock.mockResolvedValue(allowedSendAccess);
   });
 
   it("stops before draft work when actor resolution returns typed no-work", async () => {
@@ -183,7 +229,12 @@ describe("PhaseCAutonomyRouter actor resolution", () => {
       input,
       ASSIGNEE_ID,
       "auto_draft",
-      expect.anything()
+      expect.objectContaining({
+        phaseCActorContext: expect.objectContaining({
+          actorUserId: ASSIGNEE_ID,
+          assignmentVersion: 7,
+        }),
+      })
     );
   });
 
@@ -215,7 +266,10 @@ describe("PhaseCAutonomyRouter actor resolution", () => {
         delayMaxMinutes: 60,
       },
     });
-    scheduleAutoSendMock.mockResolvedValue({ id: "pending-1" });
+    scheduleAutoSendMock.mockResolvedValue({
+      outcome: "scheduled",
+      pending: { id: "pending-1" },
+    });
 
     const result = await PhaseCAutonomyRouter.route(thread());
 
@@ -224,9 +278,56 @@ describe("PhaseCAutonomyRouter actor resolution", () => {
       expect.objectContaining({
         actorContext: context,
         category: "CUSTOMER",
+        generation: {
+          kind: "conversation_reply",
+          emailAccess: allowedSendAccess,
+          sourceActivityId: SOURCE_ACTIVITY_ID,
+          sourceMessageId: "provider-message-1",
+        },
+      })
+    );
+    expect(accessResolverMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: { userId: ASSIGNEE_ID, companyId: COMPANY_ID },
+        operation: "send",
+        threadId: THREAD_ID,
+        connectionId: CONNECTION_ID,
+        providerThreadId: "provider-thread-1",
+        opportunityId: OPPORTUNITY_ID,
       })
     );
     expect(globalLevelMock).not.toHaveBeenCalled();
+  });
+
+  it("treats an auto-send no-reply decision as a clean no-op", async () => {
+    const context = {
+      actorUserId: ASSIGNEE_ID,
+      assignmentVersion: 7,
+      assignmentEventId: "00000000-0000-4000-8000-000000000008",
+      companyId: COMPANY_ID,
+      connectionId: CONNECTION_ID,
+      opportunityId: OPPORTUNITY_ID,
+      internalThreadId: THREAD_ID,
+      providerThreadId: "provider-thread-1",
+      connectionType: "company",
+      actorNameSnapshot: "Alex Rivera",
+      actorEmailSnapshot: "alex@ops.test",
+      clientFacingAddressSnapshot: "hello@company.test",
+    };
+    actorResolverMock.mockResolvedValue({ kind: "resolved", context });
+    categoryAutonomyMock.mockResolvedValue({ CUSTOMER: "auto_send" });
+    isAutoSendEnabledMock.mockResolvedValue({ enabled: true, settings: {} });
+    scheduleAutoSendMock.mockResolvedValue({
+      outcome: "no_reply_warranted",
+      reason: "The latest message closes the loop.",
+    });
+
+    const result = await PhaseCAutonomyRouter.route(thread());
+
+    expect(result).toMatchObject({
+      outcome: "noop_no_reply_warranted",
+      detail: "The latest message closes the loop.",
+    });
   });
 
   it("downgrades company auto-send intent when the resolved assignee has not graduated on that mailbox and category", async () => {

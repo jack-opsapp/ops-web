@@ -2,6 +2,7 @@ import "server-only";
 
 import type { TaskAutomationPersistenceGuard } from "@/lib/types/approval-queue";
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { isCurrentScheduleUnconfirmationPersistenceGuard } from "./schedule-unconfirmation-persistence-guard";
 
 export const TaskAutomationPersistenceService = {
   async persistNotification(
@@ -13,20 +14,38 @@ export const TaskAutomationPersistenceService = {
       actionLabel?: string | null;
     }
   ): Promise<{ created: boolean }> {
+    if (
+      "previousConfirmedAt" in guard &&
+      !isCurrentScheduleUnconfirmationPersistenceGuard(guard)
+    ) {
+      throw new Error("Schedule unconfirmation persistence guard is invalid");
+    }
     const supabase = requireSupabase();
-    const { data, error } = await supabase.rpc(
-      "persist_task_automation_notification",
-      {
-        p_event_id: guard.eventId,
-        p_lease_token: guard.leaseToken,
-        p_task_id: guard.taskId,
-        p_task_schedule_version: guard.scheduleVersion,
-        p_title: copy.title,
-        p_body: copy.body,
-        p_action_url: copy.actionUrl ?? "/schedule",
-        p_action_label: copy.actionLabel ?? null,
-      }
-    );
+    const purposeUnconfirmation =
+      isCurrentScheduleUnconfirmationPersistenceGuard(guard);
+    const { data, error } = purposeUnconfirmation
+      ? await supabase.rpc(
+          "persist_schedule_unconfirmation_notification_as_system",
+          {
+            p_event_id: guard.eventId,
+            p_lease_token: guard.leaseToken,
+            p_actor_user_id: guard.actorUserId,
+            p_company_id: guard.companyId,
+            p_task_id: guard.taskId,
+            p_expected_schedule_version: guard.scheduleVersion,
+            p_previous_confirmed_at: guard.previousConfirmedAt,
+          }
+        )
+      : await supabase.rpc("persist_task_automation_notification", {
+          p_event_id: guard.eventId,
+          p_lease_token: guard.leaseToken,
+          p_task_id: guard.taskId,
+          p_task_schedule_version: guard.scheduleVersion,
+          p_title: copy.title,
+          p_body: copy.body,
+          p_action_url: copy.actionUrl ?? "/schedule",
+          p_action_label: copy.actionLabel ?? null,
+        });
     if (error) {
       throw new Error(
         `Failed to persist task automation notification: ${error.message}`

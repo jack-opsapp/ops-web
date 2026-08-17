@@ -10,6 +10,7 @@ import type { EmailConnection } from "@/lib/types/email-connection";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { htmlToPlainText, stripQuotedHtml } from "@/lib/utils/email-parsing";
 import { gmailAuthenticatedFromDomains } from "@/lib/email/provider-authentication";
+import { PROVIDER_DELIVERY_SELECTION_REVISIONS } from "../provider-delivery-source-types";
 import {
   DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES,
   ProviderApiError,
@@ -240,6 +241,47 @@ function attachmentRequestSignal(): AbortSignal {
 
 interface GmailAttachmentCollectionBudget {
   truncated: boolean;
+}
+
+interface GmailTextBodyPart {
+  mediaType: "text/plain" | "text/html";
+  partId: string | null;
+  attachmentId: string | null;
+  inlineData: string | null;
+  contentCharset: string;
+}
+
+function canonicalGmailBodyCharset(
+  headers: Array<{ name?: string; value?: string }>
+): string {
+  const contentType = headers.find(
+    (header) => header.name?.toLowerCase() === "content-type"
+  )?.value;
+  const charsetMatch = contentType?.match(
+    /;\s*charset\s*=\s*(?:"([^"]+)"|'([^']+)'|([^;\s]+))/i
+  );
+  if (!charsetMatch) return "us-ascii";
+  const label = (
+    charsetMatch?.[1] ??
+    charsetMatch?.[2] ??
+    charsetMatch?.[3] ??
+    ""
+  )
+    .trim()
+    .toLowerCase();
+  if (label === "ascii" || label === "us-ascii") return "us-ascii";
+  try {
+    return new TextDecoder(label, { fatal: true }).encoding;
+  } catch (error) {
+    throw new ProviderApiError(
+      `Gmail text MIME part declared unsupported charset ${label}`,
+      502,
+      {
+        charset: label,
+        cause: error instanceof Error ? error.message : String(error),
+      }
+    );
+  }
 }
 
 /**
@@ -627,26 +669,34 @@ export class GmailProvider implements EmailProviderInterface {
     threadId: string,
     readPolicy: ProviderReadPolicy = {}
   ): Promise<NormalizedEmail[]> {
+    const effectiveReadPolicy = this.effectiveReadPolicy(
+      readPolicy,
+      `threads.get (${threadId})`
+    );
     const res = await this.gmailFetch(
       `/threads/${threadId}?format=full`,
       undefined,
-      {
-        ...readPolicy,
-        context: readPolicy.context ?? `threads.get (${threadId})`,
-      }
+      effectiveReadPolicy
     );
     const data = await this.readGmailJson<{
       messages?: Array<Record<string, unknown>>;
     }>(res, `threads.get (${threadId})`);
 
-    return (data.messages || [])
-      .filter(
-        (msg) =>
-          !((msg.labelIds as string[] | undefined) ?? []).some((label) =>
-            NON_DELIVERY_MESSAGE_LABELS.has(label.toUpperCase())
-          )
-      )
-      .map((msg) => this.normalizeGmailMessage(msg));
+    const deliveredMessages = (data.messages || []).filter(
+      (msg) =>
+        !((msg.labelIds as string[] | undefined) ?? []).some((label) =>
+          NON_DELIVERY_MESSAGE_LABELS.has(label.toUpperCase())
+        )
+    );
+    return mapGmailReads(
+      deliveredMessages,
+      (message, _index, messageReadPolicy) =>
+        this.normalizeGmailMessage(message, messageReadPolicy),
+      {
+        deadlineAt: effectiveReadPolicy.deadlineAt,
+        context: effectiveReadPolicy.context,
+      }
+    );
   }
 
   async listThreadIds(options: {
@@ -951,10 +1001,14 @@ export class GmailProvider implements EmailProviderInterface {
     draftId: string,
     readPolicy: GmailReadPolicy = {}
   ): Promise<NormalizedDraft | null> {
+    const effectiveReadPolicy = this.effectiveReadPolicy(
+      readPolicy,
+      `drafts.get (${draftId})`
+    );
     const res = await this.gmailFetch(
       `/drafts/${encodeURIComponent(draftId)}?format=full`,
       undefined,
-      { ...readPolicy, context: `drafts.get (${draftId})` }
+      effectiveReadPolicy
     );
     if (res.status === 404) {
       await res.body?.cancel().catch(() => undefined);
@@ -964,7 +1018,7 @@ export class GmailProvider implements EmailProviderInterface {
       res,
       "drafts.get"
     );
-    return this.normalizeGmailDraft(full);
+    return this.normalizeGmailDraft(full, effectiveReadPolicy);
   }
 
   async findDraftsOnThread(
@@ -1045,9 +1099,10 @@ export class GmailProvider implements EmailProviderInterface {
    * Returns null if the payload is missing (Gmail occasionally returns
    * headerless stubs) — safer to drop than to surface an empty row.
    */
-  private normalizeGmailDraft(
-    draft: Record<string, unknown>
-  ): NormalizedDraft | null {
+  private async normalizeGmailDraft(
+    draft: Record<string, unknown>,
+    readPolicy: GmailReadPolicy
+  ): Promise<NormalizedDraft | null> {
     const id = draft.id as string;
     const msg = (draft.message ?? {}) as Record<string, unknown>;
     if (!msg || !msg.payload) return null;
@@ -1064,7 +1119,11 @@ export class GmailProvider implements EmailProviderInterface {
     // Drafts use the same body extraction as full messages; the clean
     // version would strip quoted content, but for drafts the user just
     // wrote the content so we keep the full body for editing.
-    const { full } = this.extractBodies(payload);
+    const { full } = await this.extractBodies(
+      msg.id as string,
+      payload,
+      readPolicy
+    );
 
     return {
       id,
@@ -1808,7 +1867,7 @@ export class GmailProvider implements EmailProviderInterface {
             message
           );
         }
-        return message;
+        return this.normalizeGmailMessage(message, readPolicy);
       },
       {
         deadlineAt:
@@ -1817,12 +1876,15 @@ export class GmailProvider implements EmailProviderInterface {
       }
     );
 
-    return results
-      .filter((message): message is Record<string, unknown> => message !== null)
-      .map((message) => this.normalizeGmailMessage(message));
+    return results.filter(
+      (message): message is NormalizedEmail => message !== null
+    );
   }
 
-  private normalizeGmailMessage(msg: Record<string, unknown>): NormalizedEmail {
+  private async normalizeGmailMessage(
+    msg: Record<string, unknown>,
+    readPolicy: GmailReadPolicy
+  ): Promise<NormalizedEmail> {
     const payload = msg.payload as Record<string, unknown> | undefined;
     const headers = (payload?.headers || []) as Array<{
       name: string;
@@ -1832,23 +1894,60 @@ export class GmailProvider implements EmailProviderInterface {
       headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ||
       "";
 
-    const { full, clean } = this.extractBodies(payload);
+    const messageId = msg.id as string;
+    const { full, clean, selected } = await this.extractBodies(
+      messageId,
+      payload,
+      readPolicy
+    );
+    const internalDate = msg.internalDate;
+    if (typeof internalDate !== "string" || !/^\d+$/.test(internalDate)) {
+      throw new ProviderApiError(
+        `Gmail message ${messageId} did not contain an exact internalDate`,
+        502,
+        internalDate
+      );
+    }
+    const deliveredAt = new Date(Number(internalDate));
+    if (!Number.isFinite(deliveredAt.getTime())) {
+      throw new ProviderApiError(
+        `Gmail message ${messageId} contained an invalid internalDate`,
+        502,
+        internalDate
+      );
+    }
+    const from = getHeader("From");
+    const to = this.parseAddressList(getHeader("To"));
+    const cc = this.parseAddressList(getHeader("Cc"));
+    const subject = getHeader("Subject");
 
     return {
-      id: msg.id as string,
+      id: messageId,
       threadId: (msg.threadId as string) || "",
-      from: getHeader("From"),
-      fromName: this.extractName(getHeader("From")),
-      to: this.parseAddressList(getHeader("To")),
-      cc: this.parseAddressList(getHeader("Cc")),
-      subject: getHeader("Subject"),
+      from,
+      fromName: this.extractName(from),
+      to,
+      cc,
+      subject,
       snippet: (msg.snippet as string) || "",
       bodyText: full,
       bodyTextClean: clean || undefined,
+      providerDeliverySource: {
+        mediaType: selected.mediaType,
+        value: selected.value,
+        sourceKind: "gmail_mime_part",
+        selectionRevision: PROVIDER_DELIVERY_SELECTION_REVISIONS.gmail,
+        providerPartId: selected.partId,
+        providerBodyAttachmentId: selected.attachmentId,
+        contentCharset: selected.contentCharset,
+        senderIdentity: from,
+        recipientIdentities: to,
+        ccRecipientIdentities: cc,
+        subject,
+        deliveredAt,
+      },
       authenticatedFromDomains: gmailAuthenticatedFromDomains(headers),
-      date: msg.internalDate
-        ? new Date(parseInt(msg.internalDate as string))
-        : new Date(),
+      date: deliveredAt,
       labelIds: (msg.labelIds as string[]) || [],
       isRead: !((msg.labelIds as string[]) || []).includes("UNREAD"),
       hasAttachments: this.hasAttachments(payload),
@@ -1863,10 +1962,41 @@ export class GmailProvider implements EmailProviderInterface {
 
   private parseAddressList(header: string): string[] {
     if (!header) return [];
-    return header
-      .split(",")
-      .map((a) => a.trim())
-      .filter(Boolean);
+    const addresses: string[] = [];
+    let start = 0;
+    let quoted = false;
+    let escaped = false;
+    let angleDepth = 0;
+    let commentDepth = 0;
+
+    for (let index = 0; index < header.length; index += 1) {
+      const character = header[index];
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (quoted && character === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (character === '"' && commentDepth === 0) {
+        quoted = !quoted;
+        continue;
+      }
+      if (quoted) continue;
+      if (character === "<") angleDepth += 1;
+      else if (character === ">" && angleDepth > 0) angleDepth -= 1;
+      else if (character === "(") commentDepth += 1;
+      else if (character === ")" && commentDepth > 0) commentDepth -= 1;
+      else if (character === "," && angleDepth === 0 && commentDepth === 0) {
+        const value = header.slice(start, index).trim();
+        if (value) addresses.push(value);
+        start = index + 1;
+      }
+    }
+    const finalValue = header.slice(start).trim();
+    if (finalValue) addresses.push(finalValue);
+    return addresses;
   }
 
   /**
@@ -1884,16 +2014,42 @@ export class GmailProvider implements EmailProviderInterface {
    *     classification) but still derive `clean` from the HTML side because
    *     only the HTML side preserves quote markers.
    */
-  private extractBodies(payload: Record<string, unknown> | undefined): {
+  private async extractBodies(
+    messageId: string,
+    payload: Record<string, unknown> | undefined,
+    readPolicy: GmailReadPolicy
+  ): Promise<{
     full: string;
     clean: string;
-  } {
-    if (!payload) return { full: "", clean: "" };
-
-    const { plain, html } = this.collectBodyParts(payload);
+    selected: GmailTextBodyPart & { value: string };
+  }> {
+    const bodyParts = payload
+      ? this.collectBodyParts(payload)
+      : { plain: null, html: null };
+    const selectedPart = bodyParts.plain ??
+      bodyParts.html ?? {
+        mediaType: "text/plain" as const,
+        partId: null,
+        attachmentId: null,
+        inlineData: "",
+        contentCharset: "us-ascii",
+      };
+    const selectedValue = await this.materializeBodyPart(
+      messageId,
+      selectedPart,
+      readPolicy
+    );
+    const htmlValue = bodyParts.html
+      ? bodyParts.html === selectedPart
+        ? selectedValue
+        : await this.materializeBodyPart(messageId, bodyParts.html, readPolicy)
+      : "";
 
     // `full` — widest context. Prefer plain when available.
-    const full = plain || (html ? htmlToPlainText(html) : "");
+    const full =
+      selectedPart.mediaType === "text/plain"
+        ? selectedValue
+        : htmlToPlainText(selectedValue);
 
     // `clean` — strip quote markers in HTML space before text conversion.
     // Only useful when we actually have HTML; for plain-only messages let
@@ -1901,12 +2057,78 @@ export class GmailProvider implements EmailProviderInterface {
     // equal to `full` to signal "provider had no structural advantage here",
     // and the route still applies stripQuotedContent as layer 2).
     let clean = full;
-    if (html) {
-      const stripped = stripQuotedHtml(html);
+    if (htmlValue) {
+      const stripped = stripQuotedHtml(htmlValue);
       clean = htmlToPlainText(stripped);
     }
 
-    return { full, clean };
+    return {
+      full,
+      clean,
+      selected: { ...selectedPart, value: selectedValue },
+    };
+  }
+
+  private async materializeBodyPart(
+    messageId: string,
+    part: GmailTextBodyPart,
+    readPolicy: GmailReadPolicy
+  ): Promise<string> {
+    const decode = (bytes: Uint8Array): string => {
+      if (part.contentCharset === "us-ascii") {
+        if (bytes.some((byte) => byte > 0x7f)) {
+          throw new ProviderApiError(
+            `Gmail body part (${messageId}:${part.partId ?? "root"}) contained non-ASCII bytes without a declared charset`,
+            502,
+            { charset: part.contentCharset }
+          );
+        }
+        return Buffer.from(bytes).toString("ascii");
+      }
+      try {
+        return new TextDecoder(part.contentCharset, { fatal: true }).decode(
+          bytes
+        );
+      } catch (error) {
+        throw new ProviderApiError(
+          `Gmail body part (${messageId}:${part.partId ?? "root"}) was not valid ${part.contentCharset}`,
+          502,
+          {
+            charset: part.contentCharset,
+            cause: error instanceof Error ? error.message : String(error),
+          }
+        );
+      }
+    };
+    if (part.inlineData !== null) {
+      return decode(Buffer.from(part.inlineData, "base64url"));
+    }
+    if (!part.attachmentId) return "";
+    const context = `body attachment (${messageId}:${part.attachmentId})`;
+    const response = await this.gmailFetch(
+      `/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(part.attachmentId)}`,
+      undefined,
+      { ...readPolicy, context }
+    );
+    const attachment = await this.readGmailAttachmentJson(
+      response,
+      context,
+      DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES
+    );
+    if (typeof attachment.data !== "string") {
+      throw new ProviderApiError(
+        `Gmail ${context}: response did not contain body bytes`,
+        response.status,
+        attachment
+      );
+    }
+    return decode(
+      this.decodeAttachmentData(
+        attachment.data,
+        DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES,
+        context
+      )
+    );
   }
 
   /**
@@ -1915,28 +2137,49 @@ export class GmailProvider implements EmailProviderInterface {
    * for messages with attachments, so a recursive walk is required.
    */
   private collectBodyParts(payload: Record<string, unknown>): {
-    plain: string;
-    html: string;
+    plain: GmailTextBodyPart | null;
+    html: GmailTextBodyPart | null;
   } {
-    const mimeType = (payload.mimeType as string) || "";
-    const body = payload.body as { data?: string } | undefined;
+    const mimeType = ((payload.mimeType as string) || "").toLowerCase();
+    const body = payload.body as
+      | { data?: string; attachmentId?: string }
+      | undefined;
     const parts = payload.parts as Array<Record<string, unknown>> | undefined;
+    const filename = ((payload.filename as string) || "").trim();
+    const headers = (payload.headers ?? []) as Array<{
+      name?: string;
+      value?: string;
+    }>;
+    const isExplicitAttachment =
+      Boolean(filename) ||
+      headers.some(
+        (header) =>
+          header.name?.toLowerCase() === "content-disposition" &&
+          /\battachment\b/i.test(header.value ?? "")
+      );
 
-    let plain = "";
-    let html = "";
-
-    const decode = (data?: string) =>
-      data ? Buffer.from(data, "base64").toString("utf-8") : "";
-
-    if (mimeType === "text/plain" && body?.data) {
-      plain = decode(body.data);
-    } else if (mimeType === "text/html" && body?.data) {
-      html = decode(body.data);
-    } else if (!parts && body?.data) {
-      // Single-part, unknown mime — heuristically classify.
-      const decoded = decode(body.data);
-      if (decoded.trimStart().startsWith("<")) html = decoded;
-      else plain = decoded;
+    let plain: GmailTextBodyPart | null = null;
+    let html: GmailTextBodyPart | null = null;
+    const hasBodyReference =
+      typeof body?.data === "string" ||
+      (typeof body?.attachmentId === "string" && body.attachmentId.length > 0);
+    if (
+      (mimeType === "text/plain" || mimeType === "text/html") &&
+      hasBodyReference &&
+      !isExplicitAttachment
+    ) {
+      const value: GmailTextBodyPart = {
+        mediaType: mimeType,
+        partId:
+          typeof payload.partId === "string" && payload.partId
+            ? payload.partId
+            : null,
+        attachmentId: body?.attachmentId || null,
+        inlineData: typeof body?.data === "string" ? body.data : null,
+        contentCharset: canonicalGmailBodyCharset(headers),
+      };
+      if (mimeType === "text/plain") plain = value;
+      else html = value;
     }
 
     if (parts) {

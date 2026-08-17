@@ -745,6 +745,11 @@ Key details to include:
           recipientName: invoice.clientName,
           userInstruction: contextInstruction,
           profileTypeOverride: "client_followup",
+          draftPurpose: {
+            kind: "operational_outbound",
+            verifiedContext: { schedule: true },
+          },
+          signatureWillBeAppended: true,
         });
 
         draftText = result.available ? result.draft : fallback;
@@ -1288,13 +1293,13 @@ Key details to include:
         // Check if a similar memory already exists for this client
         const { data: existingMemory, error: existingMemoryError } =
           await supabase
-          .from("agent_memories")
-          .select("id")
-          .eq("company_id", companyId)
-          .eq("memory_type", "fact")
-          .eq("category", "client_preference")
-          .ilike("content", `%Client ${clientName} has a late payment rate%`)
-          .limit(1);
+            .from("agent_memories")
+            .select("id")
+            .eq("company_id", companyId)
+            .eq("memory_type", "fact")
+            .eq("category", "client_preference")
+            .ilike("content", `%Client ${clientName} has a late payment rate%`)
+            .limit(1);
         if (existingMemoryError) {
           throwCronDatabaseOperationError(
             `Failed to load late-payment memory: ${existingMemoryError.message}`,
@@ -1322,13 +1327,13 @@ Key details to include:
           const { error: memoryInsertError } = await supabase
             .from("agent_memories")
             .insert({
-            company_id: companyId,
-            memory_type: "fact",
-            category: "client_preference",
-            content: factContent,
-            confidence: 1.0,
-            source: "database",
-          });
+              company_id: companyId,
+              memory_type: "fact",
+              category: "client_preference",
+              content: factContent,
+              confidence: 1.0,
+              source: "database",
+            });
           if (memoryInsertError) {
             throwCronDatabaseOperationError(
               `Failed to insert late-payment memory: ${memoryInsertError.message}`,

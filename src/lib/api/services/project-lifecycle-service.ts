@@ -936,6 +936,8 @@ export const ProjectLifecycleService = {
       recipientName: projectCtx.client.name ?? undefined,
       userInstruction: `Write a project status update email to the client. Here is the current project status:\n\n${statusSummary}\n\nProject summary: ${projectCtx.summary}\n\nKeep it professional, concise, and action-oriented. Include what's been completed and what's coming next.`,
       profileTypeOverride: "client_active_project",
+      draftPurpose: { kind: "operational_outbound" },
+      signatureWillBeAppended: true,
     });
 
     let draftText: string;

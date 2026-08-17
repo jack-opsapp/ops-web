@@ -17,6 +17,7 @@ import {
   resolveProviderFollowUpContext,
   selectCanonicalLeadFollowUpThread,
 } from "@/lib/api/services/lead-follow-up-send-service";
+import { LEGACY_DEFAULT_FOLLOW_UP_TEMPLATE_BODY } from "@/lib/email/opportunity-lifecycle-evaluator";
 import type { EmailSendIntent } from "@/lib/api/services/email-send-intent-service";
 
 function leadFollowUpIntent(
@@ -363,6 +364,40 @@ describe("lead one-tap follow-up resolution", () => {
         }
       )
     ).toBe("Hi Crystal, just checking on Front deck.");
+  });
+
+  it("replaces the legacy quote-assuming copy with the correct second follow-up", () => {
+    const body = renderLeadFollowUpTemplate(
+      LEGACY_DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
+      {
+        contactName: "Crystal May",
+        opportunityTitle: "Front deck",
+        companyName: "Canpro",
+        sequenceNumber: 2,
+      }
+    );
+
+    expect(body).toMatch(/last time/i);
+    expect(body).not.toMatch(/quote/i);
+  });
+
+  it("derives second follow-up copy from the authoritative unanswered count", () => {
+    const stateAwareInput = {
+      contactName: "Crystal May",
+      opportunityTitle: "Front deck",
+      companyName: "Canpro",
+      unansweredFollowUpCount: 1,
+    } as Parameters<typeof renderLeadFollowUpTemplate>[1] & {
+      unansweredFollowUpCount: number;
+    };
+
+    const body = renderLeadFollowUpTemplate(
+      LEGACY_DEFAULT_FOLLOW_UP_TEMPLATE_BODY,
+      stateAwareInput
+    );
+
+    expect(body).toMatch(/last time/i);
+    expect(body).not.toMatch(/quote/i);
   });
 
   it("binds review approval to the exact provider reply and rendered content", () => {

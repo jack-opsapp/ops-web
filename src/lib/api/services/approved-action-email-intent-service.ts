@@ -6,6 +6,10 @@ import type {
   ApprovedActionEmailIntentStatus,
   PrepareApprovedActionEmailIntentInput,
 } from "./approved-action-email-delivery-service";
+import {
+  CronDatabaseOperationError,
+  supabaseDatabaseOperationCause,
+} from "./cron-workload-control-service";
 
 function text(value: unknown): string {
   return typeof value === "string" ? value : "";
@@ -33,6 +37,19 @@ function firstRow(value: unknown): Record<string, unknown> | null {
   return row && typeof row === "object"
     ? (row as Record<string, unknown>)
     : null;
+}
+
+function iso(value: Date | string): string {
+  return value instanceof Date
+    ? value.toISOString()
+    : new Date(value).toISOString();
+}
+
+function databaseOperationError(
+  message: string,
+  cause: unknown
+): CronDatabaseOperationError {
+  return new CronDatabaseOperationError(message, { cause });
 }
 
 export function mapApprovedActionEmailIntent(
@@ -84,7 +101,13 @@ export function mapApprovedActionEmailIntent(
     providerMessageId: nullableText(row.provider_message_id),
     acceptedProviderThreadId: nullableText(row.accepted_provider_thread_id),
     providerAcceptedAt: nullableText(row.provider_accepted_at),
+    reconciliationAttempts: Number(row.reconciliation_attempts ?? 0),
+    maxReconciliationAttempts: Number(row.max_reconciliation_attempts ?? 8),
     reconciliationLeaseToken: nullableText(row.reconciliation_lease_token),
+    reconciliationLeaseExpiresAt: nullableText(
+      row.reconciliation_lease_expires_at
+    ),
+    reconciliationExhaustedAt: nullableText(row.reconciliation_exhausted_at),
     reconciledActivityId: nullableText(row.reconciled_activity_id),
     lastError: nullableText(row.last_error),
   };
@@ -97,8 +120,14 @@ export class ApprovedActionEmailIntentService implements ApprovedActionEmailInte
     name: string,
     args: Record<string, unknown>
   ): Promise<ApprovedActionEmailIntent> {
-    const { data, error } = await this.supabase.rpc(name, args);
-    if (error) throw new Error(error.message || `${name} failed`);
+    const response = await this.supabase.rpc(name, args);
+    const { data, error } = response;
+    if (error) {
+      throw databaseOperationError(
+        error.message || `${name} failed`,
+        supabaseDatabaseOperationCause(response)
+      );
+    }
     const row = firstRow(data);
     if (!row) throw new Error(`${name} returned no intent`);
     return mapApprovedActionEmailIntent(row);
@@ -108,8 +137,14 @@ export class ApprovedActionEmailIntentService implements ApprovedActionEmailInte
     name: string,
     args: Record<string, unknown>
   ): Promise<ApprovedActionEmailIntent | null> {
-    const { data, error } = await this.supabase.rpc(name, args);
-    if (error) throw new Error(error.message || `${name} failed`);
+    const response = await this.supabase.rpc(name, args);
+    const { data, error } = response;
+    if (error) {
+      throw databaseOperationError(
+        error.message || `${name} failed`,
+        supabaseDatabaseOperationCause(response)
+      );
+    }
     const row = firstRow(data);
     return row ? mapApprovedActionEmailIntent(row) : null;
   }
@@ -201,6 +236,28 @@ export class ApprovedActionEmailIntentService implements ApprovedActionEmailInte
     });
   }
 
+  claimNextReconciliation(input: {
+    failedBefore: Date | string;
+    leaseSeconds: number;
+  }): Promise<ApprovedActionEmailIntent | null> {
+    return this.optionalRpc("claim_next_approved_action_email_reconciliation", {
+      p_failed_before: iso(input.failedBefore),
+      p_lease_seconds: input.leaseSeconds,
+    });
+  }
+
+  renewReconciliation(input: {
+    intentId: string;
+    leaseToken: string;
+    leaseSeconds: number;
+  }): Promise<ApprovedActionEmailIntent> {
+    return this.requiredRpc("renew_approved_action_email_reconciliation", {
+      p_intent_id: input.intentId,
+      p_lease_token: input.leaseToken,
+      p_lease_seconds: input.leaseSeconds,
+    });
+  }
+
   completeReconciliation(input: {
     intentId: string;
     leaseToken: string;
@@ -225,45 +282,99 @@ export class ApprovedActionEmailIntentService implements ApprovedActionEmailInte
     });
   }
 
+  releaseReconciliation(input: {
+    intentId: string;
+    leaseToken: string;
+    error: string;
+  }): Promise<ApprovedActionEmailIntent> {
+    return this.requiredRpc("release_approved_action_email_reconciliation", {
+      p_intent_id: input.intentId,
+      p_lease_token: input.leaseToken,
+      p_error: input.error,
+    });
+  }
+
+  async finalizeExpiredReconciliations(input: {
+    limit: number;
+  }): Promise<number> {
+    const response = await this.supabase.rpc(
+      "finalize_expired_approved_action_email_reconciliations",
+      { p_limit: input.limit }
+    );
+    const { data, error } = response;
+    if (error) {
+      throw databaseOperationError(
+        error.message ||
+          "finalize_expired_approved_action_email_reconciliations failed",
+        supabaseDatabaseOperationCause(response)
+      );
+    }
+    return Number(data ?? 0);
+  }
+
+  async projectNextAlert(): Promise<{
+    processed: boolean;
+    succeeded: boolean;
+    error: string | null;
+  }> {
+    const response = await this.supabase.rpc(
+      "project_next_approved_action_email_reconciliation_alert",
+      {}
+    );
+    const { data, error } = response;
+    if (error) {
+      throw databaseOperationError(
+        error.message ||
+          "project_next_approved_action_email_reconciliation_alert failed",
+        supabaseDatabaseOperationCause(response)
+      );
+    }
+    const row = firstRow(data);
+    if (!row) {
+      throw new Error(
+        "project_next_approved_action_email_reconciliation_alert returned no result"
+      );
+    }
+    return {
+      processed: row.processed === true,
+      succeeded: row.succeeded === true,
+      error: nullableText(row.error),
+    };
+  }
+
   async getByActionId(
     actionId: string
   ): Promise<ApprovedActionEmailIntent | null> {
-    const { data, error } = await this.supabase
+    const response = await this.supabase
       .from("approved_action_email_intents")
       .select("*")
       .eq("action_id", actionId)
       .maybeSingle();
-    if (error) throw new Error(error.message);
+    const { data, error } = response;
+    if (error) {
+      throw databaseOperationError(
+        error.message || "approved action email intent lookup failed",
+        supabaseDatabaseOperationCause(response)
+      );
+    }
     return data
       ? mapApprovedActionEmailIntent(data as Record<string, unknown>)
       : null;
   }
 
-  async listRecoverable(limit = 50): Promise<ApprovedActionEmailIntent[]> {
-    const { data, error } = await this.supabase
-      .from("approved_action_email_intents")
-      .select("*")
-      .in("status", [
-        "awaiting_signature",
-        "prepared",
-        "provider_accepted",
-        "reconciling",
-        "reconciliation_failed",
-      ])
-      .order("updated_at", { ascending: true })
-      .limit(Math.max(1, Math.min(limit, 100)));
-    if (error) throw new Error(error.message);
-    return (data ?? []).map((row) =>
-      mapApprovedActionEmailIntent(row as Record<string, unknown>)
-    );
-  }
-
   async quarantineStaleDeliveries(): Promise<number> {
-    const { data, error } = await this.supabase.rpc(
+    const response = await this.supabase.rpc(
       "quarantine_stale_approved_action_email_deliveries",
       {}
     );
-    if (error) throw new Error(error.message);
+    const { data, error } = response;
+    if (error) {
+      throw databaseOperationError(
+        error.message ||
+          "quarantine_stale_approved_action_email_deliveries failed",
+        supabaseDatabaseOperationCause(response)
+      );
+    }
     return Number(data ?? 0);
   }
 }

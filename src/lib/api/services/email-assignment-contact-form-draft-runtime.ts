@@ -321,6 +321,7 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
         ...input,
         emailAccess: access,
         sourceBoundAutonomousRouting: "assigned_contact_form_review",
+        draftPurpose: { kind: "conversation_reply" },
       });
     },
 

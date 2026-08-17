@@ -136,6 +136,7 @@ describe("POST /api/integrations/email/ai-draft subject provenance", () => {
       userInstruction: "Reply about the assigned inquiry",
       subject: undefined,
       configuredSubject: undefined,
+      draftPurpose: { kind: "operational_outbound" },
     });
     const request = generateDraftMock.mock.calls[0][0];
     expect(request.recipientEmail).toBeUndefined();

@@ -45,6 +45,7 @@ vi.mock("@/i18n/server-render", () => ({
 import {
   buildScheduleChangeDetails,
   ClientSchedulingCommsService,
+  prioritizeVerifiedRescheduleAlternatives,
   scheduleChangeFingerprint,
   type ConfirmedScheduleChange,
 } from "@/lib/api/services/client-scheduling-comms-service";
@@ -141,6 +142,44 @@ beforeEach(() => {
   mocks.renderServerString.mockImplementation(
     async (_locale: string, _namespace: string, key: string) => key
   );
+});
+
+describe("reschedule alternative authority", () => {
+  const verified = [
+    {
+      date: "2026-08-12T16:00:00.000Z",
+      team_member_id: MEMBER_ID,
+      team_member_name: "Jason",
+      reasoning: { type: "assigned_crew_next_gap", params: {} },
+    },
+    {
+      date: "2026-08-14T16:00:00.000Z",
+      team_member_id: OTHER_MEMBER_ID,
+      team_member_name: "Luke",
+      reasoning: { type: "assigned_crew_next_gap", params: {} },
+    },
+  ];
+
+  it("prioritizes a requested day only when it is already a verified crew gap", () => {
+    expect(
+      prioritizeVerifiedRescheduleAlternatives(
+        verified,
+        "2026-08-14T09:00:00.000Z"
+      ).map((item) => item.date)
+    ).toEqual(["2026-08-14T16:00:00.000Z", "2026-08-12T16:00:00.000Z"]);
+  });
+
+  it("never invents the customer's unverified date or a fallback date", () => {
+    expect(
+      prioritizeVerifiedRescheduleAlternatives(
+        verified,
+        "2026-08-20T09:00:00.000Z"
+      )
+    ).toEqual(verified);
+    expect(
+      prioritizeVerifiedRescheduleAlternatives([], "2026-08-20T09:00:00.000Z")
+    ).toEqual([]);
+  });
 });
 
 describe("schedule-change proposal facts", () => {
@@ -338,6 +377,10 @@ describe("confirmed schedule removal", () => {
     expect(mocks.generateDraft).toHaveBeenCalledWith(
       expect.objectContaining({
         userInstruction: expect.stringContaining("no longer scheduled"),
+        draftPurpose: {
+          kind: "operational_outbound",
+          verifiedContext: { schedule: true },
+        },
       })
     );
     const proposal = mocks.proposeAction.mock.calls[0][0];

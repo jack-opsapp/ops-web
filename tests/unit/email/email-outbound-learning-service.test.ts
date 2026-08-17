@@ -7,7 +7,10 @@ import {
   type OutboundMemoryExtraction,
   type OutboundWritingSample,
 } from "@/lib/api/services/email-outbound-learning-service";
-import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "@/lib/api/services/cron-workload-control-service";
 import { outboundLearningEvidenceKey } from "@/lib/email/outbound-learning-evidence";
 
 const WRITING_SAMPLE: OutboundWritingSample = {
@@ -112,6 +115,10 @@ function dbRow(overrides: Record<string, unknown> = {}) {
 
 function clientMock() {
   return { rpc: vi.fn() };
+}
+
+function errorCause(error: unknown): Record<string, unknown> {
+  return (error as { cause: Record<string, unknown> }).cause;
 }
 
 function dependencyMock(
@@ -337,6 +344,84 @@ describe("EmailOutboundLearningService", () => {
         p_draft_delivery_channel: "ops_send",
       })
     );
+  });
+
+  it("preserves the outer Supabase 503 response for mandatory sent-draft enqueue", async () => {
+    const databaseError = {
+      code: "",
+      details: "",
+      hint: "",
+      message: "Service unavailable",
+    };
+    const db = clientMock();
+    db.rpc.mockResolvedValue({
+      data: null,
+      error: databaseError,
+      count: null,
+      status: 503,
+      statusText: "Service Unavailable",
+    });
+    const service = new EmailOutboundLearningService(
+      db as never,
+      dependencyMock({
+        isFeatureEnabled: vi.fn().mockResolvedValue(false),
+      })
+    );
+
+    const failure = await service
+      .enqueueIfEnabled({
+        companyId: "f739fdc2-16b0-434d-9f31-3c58ee795865",
+        connectionId: "22538067-7acc-4799-b912-5edb74e0d3e8",
+        providerMessageId: "provider-message-pressure",
+        userId: "89516663-bb16-4743-aa76-ec68a19d0b3b",
+        bodyText: "I can start Monday.",
+        draftHistoryId: "4d16ed89-5bf5-438c-9388-62c345ab6d55",
+        draftDeliveryChannel: "ops_send",
+      })
+      .catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: databaseError,
+        status: 503,
+        statusText: "Service Unavailable",
+      },
+    });
+    expect(errorCause(failure)).not.toHaveProperty("data");
+    expect(isDatabasePressureError(failure)).toBe(true);
+  });
+
+  it("preserves PostgREST ENOTFOUND details and the outer response while claiming", async () => {
+    const databaseError = {
+      code: "",
+      details:
+        "TypeError: fetch failed\n\nCaused by: Error: getaddrinfo ENOTFOUND db.example.com (ENOTFOUND)",
+      hint: "",
+      message: "TypeError: fetch failed",
+    };
+    const db = clientMock();
+    db.rpc.mockResolvedValue({
+      data: null,
+      error: databaseError,
+      count: null,
+      status: 0,
+      statusText: "",
+    });
+    const service = new EmailOutboundLearningService(db as never);
+
+    const failure = await service.claim().catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: databaseError,
+        status: 0,
+        statusText: "",
+      },
+    });
+    expect(errorCause(failure)).not.toHaveProperty("data");
+    expect(isDatabasePressureError(failure)).toBe(true);
   });
 
   it("claims due and stale-leased jobs through the atomic claim RPC", async () => {

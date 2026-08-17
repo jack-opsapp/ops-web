@@ -53,29 +53,16 @@ export async function POST(request: NextRequest) {
     // Verify the task exists and belongs to the caller's company
     const { data: task, error: taskErr } = await supabase
       .from("project_tasks")
-      .select("id, company_id, schedule_confirmed_at, start_date")
+      .select(
+        "id, company_id, schedule_confirmed_at, confirmed_schedule_version, schedule_version, start_date"
+      )
       .eq("id", taskId)
       .eq("company_id", auth.companyId)
       .is("deleted_at", null)
       .maybeSingle();
 
     if (taskErr || !task) {
-      return NextResponse.json(
-        { error: "Task not found" },
-        { status: 404 }
-      );
-    }
-
-    // Short-circuit: if already confirmed, don't re-fire the dispatcher.
-    // Prevents double-click races from stamping twice or sending duplicate
-    // emails. Return the existing state.
-    if (task.schedule_confirmed_at) {
-      return NextResponse.json({
-        confirmed: true,
-        alreadyConfirmed: true,
-        actionTaken: "already_confirmed",
-        actionId: null,
-      });
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
     // Guard: can't confirm a task that has no scheduled date yet.
@@ -86,28 +73,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Set the confirmed markers
-    await supabase
-      .from("project_tasks")
-      .update({
-        schedule_confirmed_at: new Date().toISOString(),
-        schedule_confirmed_by: auth.id,
-      })
-      .eq("id", taskId)
-      .eq("company_id", auth.companyId);
+    const result =
+      await ClientSchedulingCommsService.confirmTaskScheduleAndDispatch(
+        auth.companyId,
+        auth.id,
+        taskId,
+        task.schedule_version,
+        "manual"
+      );
 
-    const result = await ClientSchedulingCommsService.onTaskScheduleConfirmed(
-      auth.companyId,
-      auth.id,
-      taskId
-    );
-
-    return NextResponse.json({
-      confirmed: true,
-      alreadyConfirmed: false,
-      actionTaken: result.actionTaken,
-      actionId: result.actionId,
-    });
+    return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("[agent/confirm-schedule]", message);

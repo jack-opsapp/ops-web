@@ -74,6 +74,7 @@ import { runEmailProviderMailboxOperation } from "./email-provider-mailbox-opera
 import {
   CronDatabaseOperationError,
   isDatabasePressureError,
+  supabaseDatabaseOperationCause,
 } from "./cron-workload-control-service";
 import { isEmailSyncContinuationPending } from "@/lib/email/email-sync-continuation";
 
@@ -487,6 +488,20 @@ async function resolveSenderNameFromDirectory(
       .maybeSingle(),
   ]);
 
+  for (const [directory, response] of [
+    ["client", clientsRes],
+    ["sub-client", subClientsRes],
+    ["user", usersRes],
+  ] as const) {
+    const { error } = response;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `upsertFromEmail ${directory} directory read failed: ${error.message}`,
+        { cause: supabaseDatabaseOperationCause(response) }
+      );
+    }
+  }
+
   let resolved = "";
   if (clientsRes.data?.name) {
     resolved = String(clientsRes.data.name).trim();
@@ -567,6 +582,19 @@ async function resolveClientIdFromEmails(
       .limit(1),
   ]);
 
+  if (clientsRes.error) {
+    throw new CronDatabaseOperationError(
+      `upsertFromEmail client resolution failed: ${clientsRes.error.message}`,
+      { cause: supabaseDatabaseOperationCause(clientsRes) }
+    );
+  }
+  if (subClientsRes.error) {
+    throw new CronDatabaseOperationError(
+      `upsertFromEmail sub-client resolution failed: ${subClientsRes.error.message}`,
+      { cause: supabaseDatabaseOperationCause(subClientsRes) }
+    );
+  }
+
   const clientRow = clientsRes.data?.[0];
   if (clientRow?.id) return String(clientRow.id);
   const subRow = subClientsRes.data?.[0];
@@ -596,12 +624,19 @@ async function repairPlaceholderClientName(params: {
   if (params.direction !== "inbound" || params.senderIsSelf) return;
   if (!params.candidateName) return;
 
-  const { data: clientRow } = await params.supabase
+  const clientResponse = await params.supabase
     .from("clients")
     .select("id, name, email")
     .eq("id", params.clientId)
     .eq("company_id", params.companyId)
     .maybeSingle();
+  const { data: clientRow, error: clientError } = clientResponse;
+  if (clientError) {
+    throw new CronDatabaseOperationError(
+      `upsertFromEmail client-name repair read failed: ${clientError.message}`,
+      { cause: supabaseDatabaseOperationCause(clientResponse) }
+    );
+  }
   if (!clientRow) return;
 
   const clientEmail = (clientRow.email as string | null) ?? null;
@@ -620,7 +655,7 @@ async function repairPlaceholderClientName(params: {
     return;
   }
 
-  const { data: provenanceRow } = await params.supabase
+  const provenanceResponse = await params.supabase
     .from("lead_field_provenance")
     .select("source, confirmed_at")
     .eq("company_id", params.companyId)
@@ -628,6 +663,13 @@ async function repairPlaceholderClientName(params: {
     .eq("entity_id", params.clientId)
     .eq("field_name", "contact_name")
     .maybeSingle();
+  const { data: provenanceRow, error: provenanceError } = provenanceResponse;
+  if (provenanceError) {
+    throw new CronDatabaseOperationError(
+      `upsertFromEmail client-name provenance read failed: ${provenanceError.message}`,
+      { cause: supabaseDatabaseOperationCause(provenanceResponse) }
+    );
+  }
 
   const decision = decideClientNameRepair({
     ...repairInput,
@@ -640,12 +682,18 @@ async function repairPlaceholderClientName(params: {
   });
   if (!decision.repair) return;
 
-  const { error: updateError } = await params.supabase
+  const updateResponse = await params.supabase
     .from("clients")
     .update({ name: decision.name })
     .eq("id", params.clientId)
     .eq("company_id", params.companyId);
-  if (updateError) return;
+  const { error: updateError } = updateResponse;
+  if (updateError) {
+    throw new CronDatabaseOperationError(
+      `upsertFromEmail client-name repair update failed: ${updateError.message}`,
+      { cause: supabaseDatabaseOperationCause(updateResponse) }
+    );
+  }
 
   invalidateCachedSenderName(
     params.companyId,
@@ -1276,15 +1324,19 @@ export const EmailThreadService = {
     };
 
     // Check existing row
-    const { data: existing, error: existingError } = await supabase
+    const existingResponse = await supabase
       .from("email_threads")
       .select("*")
       .eq("connection_id", connectionId)
       .eq("provider_thread_id", providerThreadId)
       .maybeSingle();
+    const { data: existing, error: existingError } = existingResponse;
 
     if (existingError) {
-      throw new Error(`upsertFromEmail read failed: ${existingError.message}`);
+      throw new CronDatabaseOperationError(
+        `upsertFromEmail read failed: ${existingError.message}`,
+        { cause: supabaseDatabaseOperationCause(existingResponse) }
+      );
     }
 
     // Connection email — needed for both forwarded-sender extraction (so we
@@ -1292,15 +1344,16 @@ export const EmailThreadService = {
     // AND the self-forward guard below. Cached per call; the lookup is one
     // indexed point-read so the cost is negligible vs. the directory
     // queries that follow.
-    const { data: connRow, error: connectionError } = await supabase
+    const connectionResponse = await supabase
       .from("email_connections")
       .select("email")
       .eq("id", connectionId)
       .maybeSingle();
+    const { data: connRow, error: connectionError } = connectionResponse;
     if (connectionError) {
       throw new CronDatabaseOperationError(
         `upsertFromEmail connection read failed: ${connectionError.message}`,
-        { cause: connectionError }
+        { cause: supabaseDatabaseOperationCause(connectionResponse) }
       );
     }
     const connectionEmail =
@@ -1377,7 +1430,7 @@ export const EmailThreadService = {
         });
       }
       if (params.opportunityId && !existing.opportunity_id) {
-        const { data: projection, error: projectionError } = await supabase.rpc(
+        const projectionResponse = await supabase.rpc(
           "attach_email_thread_to_opportunity_as_system",
           {
             p_company_id: companyId,
@@ -1386,6 +1439,8 @@ export const EmailThreadService = {
             p_opportunity_id: params.opportunityId,
           }
         );
+        const { data: projection, error: projectionError } =
+          projectionResponse;
         if (projectionError) {
           if (
             projectionError.message?.includes("email_thread_parent_conflict") ||
@@ -1400,8 +1455,9 @@ export const EmailThreadService = {
               routedOpportunityId: params.opportunityId,
             });
           }
-          throw new Error(
-            `upsertFromEmail opportunity projection failed: ${projectionError.message}`
+          throw new CronDatabaseOperationError(
+            `upsertFromEmail opportunity projection failed: ${projectionError.message}`,
+            { cause: supabaseDatabaseOperationCause(projectionResponse) }
           );
         }
         const projectionReceipt =
@@ -1444,7 +1500,7 @@ export const EmailThreadService = {
       // identities instead of incrementing the thread row again. The mailbox
       // scope is essential: Gmail thread IDs and M365 conversation IDs are only
       // unique inside one connection.
-      const { data: deliveredRows, error: deliveredError } = await supabase
+      const deliveredResponse = await supabase
         .from("activities")
         .select(
           "email_message_id, direction, from_email, subject, content, body_text, created_at, is_read"
@@ -1453,10 +1509,13 @@ export const EmailThreadService = {
         .eq("email_connection_id", connectionId)
         .eq("email_thread_id", providerThreadId)
         .eq("type", "email");
+      const { data: deliveredRows, error: deliveredError } =
+        deliveredResponse;
 
       if (deliveredError) {
-        throw new Error(
-          `upsertFromEmail activity ledger read failed: ${deliveredError.message}`
+        throw new CronDatabaseOperationError(
+          `upsertFromEmail activity ledger read failed: ${deliveredError.message}`,
+          { cause: supabaseDatabaseOperationCause(deliveredResponse) }
         );
       }
 
@@ -1635,15 +1694,20 @@ export const EmailThreadService = {
         });
       }
 
-      const { data: updated, error: updError } = await supabase
+      const updateResponse = await supabase
         .from("email_threads")
         .update(update)
         .eq("id", existing.id as string)
         .select("*")
         .single();
+      const { data: updated, error: updError } = updateResponse;
 
-      if (updError)
-        throw new Error(`upsertFromEmail update failed: ${updError.message}`);
+      if (updError) {
+        throw new CronDatabaseOperationError(
+          `upsertFromEmail update failed: ${updError.message}`,
+          { cause: supabaseDatabaseOperationCause(updateResponse) }
+        );
+      }
       const updatedThread = mapEmailThreadFromDb(updated);
       if (
         params.opportunityId &&
@@ -1717,14 +1781,19 @@ export const EmailThreadService = {
       client_id: autoClientId,
     };
 
-    const { data: inserted, error: insError } = await supabase
+    const insertResponse = await supabase
       .from("email_threads")
       .insert(insert)
       .select("*")
       .single();
+    const { data: inserted, error: insError } = insertResponse;
 
-    if (insError)
-      throw new Error(`upsertFromEmail insert failed: ${insError.message}`);
+    if (insError) {
+      throw new CronDatabaseOperationError(
+        `upsertFromEmail insert failed: ${insError.message}`,
+        { cause: supabaseDatabaseOperationCause(insertResponse) }
+      );
+    }
     return { threadRow: mapEmailThreadFromDb(inserted), isNew: true };
   },
 
@@ -2948,15 +3017,19 @@ export const EmailThreadService = {
     companyId: string
   ): Promise<EmailThreadLabel[]> {
     const supabase = requireSupabase();
-    const { data: row, error: readError } = await supabase
+    const readResponse = await supabase
       .from("email_threads")
       .select("id, labels")
       .eq("id", threadId)
       .eq("company_id", companyId)
       .maybeSingle();
+    const { data: row, error: readError } = readResponse;
 
     if (readError) {
-      throw new Error(`dismissAwaitingReply read failed: ${readError.message}`);
+      throw new CronDatabaseOperationError(
+        `dismissAwaitingReply read failed: ${readError.message}`,
+        { cause: supabaseDatabaseOperationCause(readResponse) }
+      );
     }
     if (!row) throw new Error("dismissAwaitingReply: thread not found");
 
@@ -2965,13 +3038,15 @@ export const EmailThreadService = {
     if (!current.includes("AWAITING_REPLY")) return current;
 
     const next = current.filter((l) => l !== "AWAITING_REPLY");
-    const { error: updateError } = await supabase
+    const updateResponse = await supabase
       .from("email_threads")
       .update({ labels: next })
       .eq("id", threadId);
+    const { error: updateError } = updateResponse;
     if (updateError) {
-      throw new Error(
-        `dismissAwaitingReply mirror update failed: ${updateError.message}`
+      throw new CronDatabaseOperationError(
+        `dismissAwaitingReply mirror update failed: ${updateError.message}`,
+        { cause: supabaseDatabaseOperationCause(updateResponse) }
       );
     }
     return next;

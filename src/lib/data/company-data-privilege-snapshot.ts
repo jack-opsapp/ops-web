@@ -80,36 +80,175 @@ export interface ServiceRolePrivileges {
  *   delete: false   later. Silent until the step actually runs.
  */
 export const SERVICE_ROLE_BLOCKED_TABLES: readonly ServiceRolePrivileges[] = [
-  { table: "email_assignment_contact_form_draft_queue", select: false, update: false, delete: false },
-  { table: "email_conversion_photo_jobs", select: true, update: false, delete: false },
-  { table: "email_conversion_photo_objects", select: true, update: false, delete: false },
-  { table: "email_import_provider_operations", select: false, update: false, delete: false },
-  { table: "email_ingestion_recovery_queue", select: true, update: true, delete: false },
-  { table: "email_outbound_edit_evidence", select: false, update: false, delete: false },
-  { table: "email_outbound_edit_promotions", select: false, update: false, delete: false },
-  { table: "email_outbound_learning_queue", select: false, update: false, delete: false },
-  { table: "email_outbound_memory_evidence", select: false, update: false, delete: false },
-  { table: "email_outbound_writing_samples", select: false, update: false, delete: false },
-  { table: "email_provider_mutation_attempts", select: false, update: false, delete: false },
+  {
+    table: "email_assignment_contact_form_draft_queue",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "email_conversion_photo_jobs",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "email_conversion_photo_objects",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "email_import_provider_operations",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "email_ingestion_recovery_queue",
+    select: true,
+    update: true,
+    delete: false,
+  },
+  {
+    table: "email_outbound_edit_evidence",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "email_outbound_edit_promotions",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "email_outbound_learning_queue",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "email_outbound_memory_evidence",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "email_outbound_writing_samples",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "email_provider_mutation_attempts",
+    select: false,
+    update: false,
+    delete: false,
+  },
   { table: "email_send_intents", select: true, update: true, delete: false },
-  { table: "email_signature_notification_lifecycle_outbox", select: true, update: false, delete: false },
+  {
+    table: "email_signature_notification_lifecycle_outbox",
+    select: true,
+    update: false,
+    delete: false,
+  },
   { table: "email_signatures", select: true, update: false, delete: false },
-  { table: "lead_intake_correction_runs", select: true, update: false, delete: false },
-  { table: "opportunity_assignment_deliveries", select: true, update: false, delete: false },
-  { table: "opportunity_assignment_events", select: true, update: false, delete: false },
-  { table: "opportunity_assignment_suggestions", select: true, update: true, delete: false },
-  { table: "opportunity_conversion_events", select: true, update: false, delete: false },
-  { table: "opportunity_conversion_notification_deliveries", select: false, update: false, delete: false },
-  { table: "opportunity_manual_outbound_cycle_receipts", select: true, update: false, delete: false },
-  { table: "phase_c_category_auto_send_acceptances", select: false, update: false, delete: false },
-  { table: "project_note_mention_events", select: true, update: false, delete: false },
-  { table: "project_status_lifecycle_outbox", select: false, update: false, delete: false },
+  {
+    table: "lead_intake_correction_runs",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "opportunity_assignment_deliveries",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "opportunity_assignment_events",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "opportunity_assignment_suggestions",
+    select: true,
+    update: true,
+    delete: false,
+  },
+  {
+    table: "opportunity_conversion_events",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "opportunity_conversion_notification_deliveries",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "opportunity_manual_outbound_cycle_receipts",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "phase_c_category_auto_send_acceptances",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "project_note_mention_events",
+    select: true,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "project_status_lifecycle_outbox",
+    select: false,
+    update: false,
+    delete: false,
+  },
   { table: "stage_transitions", select: true, update: false, delete: false },
-  { table: "task_mutation_events", select: false, update: false, delete: false },
-  { table: "task_schedule_automation_outbox", select: false, update: false, delete: false },
-  { table: "unassigned_lead_assignment_deliveries", select: false, update: false, delete: false },
+  {
+    table: "task_mutation_events",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "task_schedule_automation_outbox",
+    select: false,
+    update: false,
+    delete: false,
+  },
+  {
+    table: "unassigned_lead_assignment_deliveries",
+    select: false,
+    update: false,
+    delete: false,
+  },
   { table: "user_email_aliases", select: true, update: false, delete: false },
-  { table: "user_permission_change_deliveries", select: false, update: false, delete: false },
+  {
+    table: "user_permission_change_deliveries",
+    select: false,
+    update: false,
+    delete: false,
+  },
+];
+
+/**
+ * Live tables whose DELETE privilege is revoked by an unapplied migration in
+ * this branch. Keep these separate from the generated production snapshot;
+ * after apply, regenerate the snapshot and remove the staged entry.
+ */
+export const STAGED_SERVICE_ROLE_BLOCKED_TABLES: readonly string[] = [
+  "agent_control_plane_tenant_roots",
 ];
 
 /** Table name → the privileges `service_role` holds on it. */

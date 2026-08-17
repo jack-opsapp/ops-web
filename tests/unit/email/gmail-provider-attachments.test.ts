@@ -303,11 +303,23 @@ describe("GmailProvider attachments", () => {
     };
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: string | URL | Request) =>
-        String(input).includes("/threads/")
-          ? response({ messages: [bodyOnly] })
-          : response(bodyOnly)
-      )
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("/threads/")) {
+          return response({ messages: [bodyOnly] });
+        }
+        if (url.includes("/attachments/large-plain-body")) {
+          return response({
+            data: Buffer.from("Long plain message").toString("base64url"),
+          });
+        }
+        if (url.includes("/attachments/large-html-body")) {
+          return response({
+            data: Buffer.from("<p>Long HTML message</p>").toString("base64url"),
+          });
+        }
+        return response(bodyOnly);
+      })
     );
 
     const provider = new GmailProvider(connection());
@@ -316,6 +328,7 @@ describe("GmailProvider attachments", () => {
     ).resolves.toEqual([]);
     const emails = await provider.fetchThread("thread-1");
     expect(emails[0]?.hasAttachments).toBe(false);
+    expect(emails[0]?.bodyText).toBe("Long plain message");
   });
 
   it("aborts an attachment JSON response before buffering past its encoded limit", async () => {

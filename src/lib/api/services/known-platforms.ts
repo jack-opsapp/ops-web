@@ -33,6 +33,7 @@ const PLATFORM_DOMAINS: Record<string, PlatformMatch> = {
   // CRM / lead generation
   'hubspot.com': { category: 'crm_lead_gen', platformName: 'HubSpot' },
   'salesforce.com': { category: 'crm_lead_gen', platformName: 'Salesforce' },
+  'getjobber.com': { category: 'crm_lead_gen', platformName: 'Jobber' },
   'thumbtack.com': { category: 'crm_lead_gen', platformName: 'Thumbtack' },
   'homeadvisor.com': { category: 'crm_lead_gen', platformName: 'HomeAdvisor' },
   'houzz.com': { category: 'crm_lead_gen', platformName: 'Houzz' },
