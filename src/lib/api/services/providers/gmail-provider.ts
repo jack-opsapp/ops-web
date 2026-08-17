@@ -1386,12 +1386,32 @@ export class GmailProvider implements EmailProviderInterface {
   ): Set<string> {
     if (!payload) return new Set();
 
+    // Only an inline HTML body can be inspected synchronously during
+    // attachment enumeration. Attachment-hosted bodies and undecodable
+    // charsets yield no quote evidence, so every inline image is kept —
+    // dropping a real attachment is worse than keeping a quoted one.
     const { html } = this.collectBodyParts(payload);
-    if (!html) return new Set();
+    if (!html || html.inlineData === null) return new Set();
 
-    const allContentIds = contentIdsReferencedByHtml(html);
+    let value: string;
+    try {
+      const bytes = Buffer.from(html.inlineData, "base64url");
+      if (html.contentCharset === "us-ascii") {
+        if (bytes.some((byte) => byte > 0x7f)) return new Set();
+        value = bytes.toString("ascii");
+      } else {
+        value = new TextDecoder(html.contentCharset, { fatal: true }).decode(
+          bytes
+        );
+      }
+    } catch {
+      return new Set();
+    }
+    if (!value) return new Set();
+
+    const allContentIds = contentIdsReferencedByHtml(value);
     const authoredContentIds = contentIdsReferencedByHtml(
-      stripQuotedHtml(html)
+      stripQuotedHtml(value)
     );
 
     return new Set(
