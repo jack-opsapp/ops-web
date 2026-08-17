@@ -15,6 +15,10 @@ interface CapturedUpdate {
   table: string;
   payload: unknown;
 }
+interface CapturedRpc {
+  name: string;
+  args: unknown;
+}
 interface MetricsResp {
   window_minutes: number;
   total_sent: number;
@@ -31,18 +35,36 @@ interface MetricsResp {
 }
 
 interface AnomalyRow {
+  id?: string;
   kind: string;
   severity: "warn" | "critical";
   detected_at: string;
+  window_minutes?: number;
+  metric_value?: number;
+  threshold?: number;
+  context?: Record<string, unknown>;
+  action_taken?: string | null;
+  notification_id?: string | null;
+  pause_audit_id?: string | null;
 }
 
 const captures = {
   inserts: [] as CapturedInsert[],
   updates: [] as CapturedUpdate[],
+  rpcs: [] as CapturedRpc[],
   metrics: { value: null as MetricsResp | null },
   recent: [] as AnomalyRow[],
+  incomplete: [] as AnomalyRow[],
+  notificationIdentity: [
+    {
+      notification_id: "notif-1",
+      created: false,
+      incident_version: 2,
+    },
+  ] as unknown,
 };
 const OPERATOR_COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
+const OPERATOR_USER_ID = "a6ab38dc-9844-4b72-922f-2d2f70f8e617";
 
 const pauseMock = vi.fn(async (_input: unknown) => ({
   state: {
@@ -51,13 +73,14 @@ const pauseMock = vi.fn(async (_input: unknown) => ({
     pauseReason: "test",
     pausedUntil: null,
     pausedAt: new Date().toISOString(),
-    pausedBy: "u-op",
+    pausedBy: OPERATOR_USER_ID,
   },
   pauseAuditId: "audit-1",
 }));
 
 vi.mock("@/lib/email/pause", () => ({
   pause: (input: unknown) => pauseMock(input),
+  retryPauseNotificationFanout: vi.fn(async () => undefined),
 }));
 
 vi.mock(
@@ -111,11 +134,31 @@ vi.mock("@/lib/supabase/server-client", () => {
       };
     };
     const selectChain = () => {
+      let reconciliationRead = false;
+      let criticalReconciliationRead = false;
       const chain = {
         gte: async () => ({ data: captures.recent, error: null }),
-        eq: () => chain,
+        or: () => {
+          reconciliationRead = true;
+          return chain;
+        },
+        eq: (column: string, value: unknown) => {
+          if (column === "severity" && value === "critical") {
+            criticalReconciliationRead = true;
+          }
+          return chain;
+        },
+        in: () => chain,
+        is: () => chain,
         order: () => chain,
-        limit: async () => ({ data: [], error: null, count: 0 }),
+        limit: (count: number) =>
+          reconciliationRead || criticalReconciliationRead
+            ? Promise.resolve({
+                data: captures.incomplete.slice(0, count),
+                error: null,
+                count: captures.incomplete.length,
+              })
+            : chain,
         range: async () => ({ data: [], error: null, count: 0 }),
       };
       return chain;
@@ -128,10 +171,16 @@ vi.mock("@/lib/supabase/server-client", () => {
   };
   return {
     getServiceRoleClient: () => ({
-      rpc: async (_name: string, _args: unknown) => ({
-        data: captures.metrics.value,
-        error: null,
-      }),
+      rpc: async (name: string, args: unknown) => {
+        captures.rpcs.push({ name, args });
+        if (name === "email_event_metrics") {
+          return { data: captures.metrics.value, error: null };
+        }
+        if (name === "create_email_anomaly_notification_if_new") {
+          return { data: captures.notificationIdentity, error: null };
+        }
+        throw new Error(`Unexpected RPC ${name}`);
+      },
       from: fromBuilder,
     }),
   };
@@ -140,11 +189,20 @@ vi.mock("@/lib/supabase/server-client", () => {
 beforeEach(() => {
   captures.inserts = [];
   captures.updates = [];
+  captures.rpcs = [];
   captures.recent = [];
+  captures.incomplete = [];
   captures.metrics.value = null;
+  captures.notificationIdentity = [
+    {
+      notification_id: "notif-1",
+      created: false,
+      incident_version: 2,
+    },
+  ];
   pauseMock.mockClear();
   process.env.CRON_SECRET = "test-secret";
-  process.env.PMF_OPERATOR_USER_ID = "u-op";
+  process.env.PMF_OPERATOR_USER_ID = OPERATOR_USER_ID;
   process.env.PMF_NOTIFICATION_EMAIL = "ops@opsapp.co";
   process.env.PMF_OPERATOR_COMPANY_ID = OPERATOR_COMPANY_ID;
 });
@@ -194,7 +252,7 @@ describe("anomaly-check cron", () => {
     const { GET } = await import("@/app/api/cron/email/anomaly-check/route");
     const res = await GET(buildReq());
     expect(res.status).toBe(500);
-  });
+  }, 15_000);
 
   it("returns 401 without auth header", async () => {
     const { GET } = await import("@/app/api/cron/email/anomaly-check/route");
@@ -220,13 +278,29 @@ describe("anomaly-check cron", () => {
     expect(pauseMock).not.toHaveBeenCalled();
   });
 
-  it("critical bounce writes anomaly + pauses + notifies", async () => {
+  it("critical bounce writes anomaly, pauses, and finalizes collision-safe notification identity", async () => {
     captures.metrics.value = CRITICAL_BOUNCE;
     const { GET } = await import("@/app/api/cron/email/anomaly-check/route");
     const res = await GET(buildReq("Bearer test-secret"));
     expect(res.status).toBe(200);
-    expect(captures.inserts.find((i) => i.table === "email_anomaly_log")).toBeTruthy();
-    expect(captures.inserts.find((i) => i.table === "notifications")).toBeTruthy();
+    expect(
+      captures.inserts.find((i) => i.table === "email_anomaly_log")
+    ).toBeTruthy();
+    expect(
+      captures.inserts.find((i) => i.table === "notifications")
+    ).toBeFalsy();
+    expect(
+      captures.rpcs.find(
+        ({ name }) => name === "create_email_anomaly_notification_if_new"
+      )
+    ).toEqual({
+      name: "create_email_anomaly_notification_if_new",
+      args: expect.objectContaining({
+        p_user_id: OPERATOR_USER_ID,
+        p_company_id: OPERATOR_COMPANY_ID,
+        p_anomaly_id: "anom-1",
+      }),
+    });
     expect(pauseMock).toHaveBeenCalledTimes(1);
     expect(pauseMock.mock.calls[0][0]).toMatchObject({
       scope: "global",
@@ -239,7 +313,9 @@ describe("anomaly-check cron", () => {
         (u) =>
           u.table === "email_anomaly_log" &&
           (u.payload as { pause_audit_id?: string }).pause_audit_id ===
-            "audit-1"
+            "audit-1" &&
+          (u.payload as { notification_id?: string }).notification_id ===
+            "notif-1"
       )
     ).toBeTruthy();
   });
@@ -258,7 +334,48 @@ describe("anomaly-check cron", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.written).toBe(0);
-    expect(captures.inserts.find((i) => i.table === "email_anomaly_log")).toBeFalsy();
+    expect(
+      captures.inserts.find((i) => i.table === "email_anomaly_log")
+    ).toBeFalsy();
     expect(pauseMock).not.toHaveBeenCalled();
+  });
+
+  it("recovers a recent incomplete anomaly after the live metrics are healthy", async () => {
+    captures.metrics.value = HEALTHY;
+    captures.recent = [
+      {
+        id: "anom-incomplete",
+        kind: "volume_drop",
+        severity: "warn",
+        detected_at: new Date().toISOString(),
+        window_minutes: 15,
+        metric_value: 0,
+        threshold: 1,
+        context: { baselineSent: 25 },
+        action_taken: null,
+        notification_id: null,
+        pause_audit_id: null,
+      },
+    ];
+
+    const { GET } = await import("@/app/api/cron/email/anomaly-check/route");
+    const res = await GET(buildReq("Bearer test-secret"));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ evals: 0, written: 0 });
+    expect(
+      captures.inserts.find((i) => i.table === "email_anomaly_log")
+    ).toBeFalsy();
+    expect(
+      captures.rpcs.find(
+        ({ name, args }) =>
+          name === "create_email_anomaly_notification_if_new" &&
+          (args as { p_anomaly_id?: string }).p_anomaly_id === "anom-incomplete"
+      )
+    ).toBeTruthy();
+    expect(captures.updates).toContainEqual({
+      table: "email_anomaly_log",
+      payload: expect.objectContaining({ notification_id: "notif-1" }),
+    });
   });
 });

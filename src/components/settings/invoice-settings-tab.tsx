@@ -10,27 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { SegmentControl } from "@/components/ui/segment-control";
 
-// ─── Section header (canonical `// TITLE`) ──────────────────────────────────
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-      <span className="text-text-mute">{"// "}</span>
-      {children}
-    </span>
-  );
-}
-
 // ─── Types ──────────────────────────────────────────────────────────────────
-
-interface ReminderSettings {
-  enabled: boolean;
-  reminder_days: [number, number, number, number];
-  max_reminders: number;
-  skip_weekends: boolean;
-  excluded_client_ids: string[];
-  late_payment_threshold: number;
-}
 
 interface InvoiceConfig {
   default_payment_terms: string;
@@ -39,17 +19,7 @@ interface InvoiceConfig {
   auto_suggest_from_estimate: boolean;
   high_value_threshold: number;
   include_cover_email: boolean;
-  reminder_settings?: ReminderSettings;
 }
-
-const DEFAULT_REMINDER: ReminderSettings = {
-  enabled: true,
-  reminder_days: [7, 14, 30, 45],
-  max_reminders: 4,
-  skip_weekends: false,
-  excluded_client_ids: [],
-  late_payment_threshold: 50,
-};
 
 const DEFAULT_CONFIG: InvoiceConfig = {
   default_payment_terms: "NET-30",
@@ -58,7 +28,6 @@ const DEFAULT_CONFIG: InvoiceConfig = {
   auto_suggest_from_estimate: true,
   high_value_threshold: 5000,
   include_cover_email: true,
-  reminder_settings: DEFAULT_REMINDER,
 };
 
 const PAYMENT_TERMS_OPTIONS = [
@@ -67,6 +36,39 @@ const PAYMENT_TERMS_OPTIONS = [
   { value: "NET-45", labelKey: "invoiceSettings.terms.net45" },
   { value: "NET-60", labelKey: "invoiceSettings.terms.net60" },
 ];
+
+function projectInvoiceConfig(value: unknown): InvoiceConfig {
+  const source =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Partial<InvoiceConfig>)
+      : {};
+  return {
+    default_payment_terms:
+      typeof source.default_payment_terms === "string"
+        ? source.default_payment_terms
+        : DEFAULT_CONFIG.default_payment_terms,
+    default_tax_rate:
+      typeof source.default_tax_rate === "number"
+        ? source.default_tax_rate
+        : DEFAULT_CONFIG.default_tax_rate,
+    auto_suggest_on_completion:
+      typeof source.auto_suggest_on_completion === "boolean"
+        ? source.auto_suggest_on_completion
+        : DEFAULT_CONFIG.auto_suggest_on_completion,
+    auto_suggest_from_estimate:
+      typeof source.auto_suggest_from_estimate === "boolean"
+        ? source.auto_suggest_from_estimate
+        : DEFAULT_CONFIG.auto_suggest_from_estimate,
+    high_value_threshold:
+      typeof source.high_value_threshold === "number"
+        ? source.high_value_threshold
+        : DEFAULT_CONFIG.high_value_threshold,
+    include_cover_email:
+      typeof source.include_cover_email === "boolean"
+        ? source.include_cover_email
+        : DEFAULT_CONFIG.include_cover_email,
+  };
+}
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
@@ -88,17 +90,14 @@ export function InvoiceSettingsTab() {
       const { getIdToken } = await import("@/lib/firebase/auth");
       const idToken = await getIdToken();
 
-      const res = await fetch(
-        `/api/settings/invoice?companyId=${companyId}`,
-        {
-          headers: { Authorization: `Bearer ${idToken}` },
-        }
-      );
+      const res = await fetch(`/api/settings/invoice?companyId=${companyId}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
 
       if (res.ok) {
         const data = await res.json();
         if (data.config) {
-          setConfig({ ...DEFAULT_CONFIG, ...data.config });
+          setConfig(projectInvoiceConfig(data.config));
         }
       }
     } catch {
@@ -147,39 +146,23 @@ export function InvoiceSettingsTab() {
     setDirty(true);
   }
 
-  const reminder = config.reminder_settings ?? DEFAULT_REMINDER;
-
-  function updateReminder(partial: Partial<ReminderSettings>) {
-    setConfig((prev) => ({
-      ...prev,
-      reminder_settings: { ...(prev.reminder_settings ?? DEFAULT_REMINDER), ...partial },
-    }));
-    setDirty(true);
-  }
-
-  function updateReminderDay(index: number, value: number) {
-    const days = [...reminder.reminder_days] as [number, number, number, number];
-    days[index] = Math.max(1, Math.min(365, value));
-    updateReminder({ reminder_days: days });
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-[20px] h-[20px] text-text-3 animate-spin" />
+        <Loader2 className="h-[20px] w-[20px] animate-spin text-text-3" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8 max-w-[640px]">
+    <div className="max-w-[640px] space-y-8">
       {/* Header + Save */}
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="font-mohave text-body-lg text-text uppercase">
+          <h2 className="font-mohave text-body-lg uppercase text-text">
             {t("invoiceSettings.title")}
           </h2>
-          <p className="font-mono text-[13px] text-text-2 mt-0.5">
+          <p className="mt-0.5 font-mono text-[13px] text-text-2">
             {t("invoiceSettings.subtitle")}
           </p>
         </div>
@@ -188,16 +171,16 @@ export function InvoiceSettingsTab() {
           onClick={handleSave}
           disabled={!dirty || saving}
           loading={saving}
-          className="gap-2 shrink-0"
+          className="shrink-0 gap-2"
         >
-          {!saving && <Save className="w-[16px] h-[16px]" />}
+          {!saving && <Save className="h-[16px] w-[16px]" />}
           {t("invoiceSettings.save")}
         </Button>
       </div>
 
       {/* Default Payment Terms */}
       <div className="space-y-2">
-        <label className="font-mohave text-body-sm text-text uppercase block">
+        <label className="block font-mohave text-body-sm uppercase text-text">
           {t("invoiceSettings.paymentTerms")}
         </label>
         <p className="font-mono text-[12px] text-text-3">
@@ -217,13 +200,13 @@ export function InvoiceSettingsTab() {
 
       {/* Default Tax Rate */}
       <div className="space-y-2">
-        <label className="font-mohave text-body-sm text-text uppercase block">
+        <label className="block font-mohave text-body-sm uppercase text-text">
           {t("invoiceSettings.taxRate")}
         </label>
         <p className="font-mono text-[12px] text-text-3">
           {t("invoiceSettings.taxRateDesc")}
         </p>
-        <div className="flex items-center gap-2 mt-2">
+        <div className="mt-2 flex items-center gap-2">
           <div className="w-[120px]">
             <Input
               type="number"
@@ -239,7 +222,7 @@ export function InvoiceSettingsTab() {
               min={0}
               max={100}
               step={0.01}
-              className="font-mono tabular-nums text-right [color-scheme:dark]"
+              className="text-right font-mono tabular-nums [color-scheme:dark]"
             />
           </div>
           <span className="font-mono text-[13px] text-text-3">%</span>
@@ -248,13 +231,13 @@ export function InvoiceSettingsTab() {
 
       {/* High-Value Threshold */}
       <div className="space-y-2">
-        <label className="font-mohave text-body-sm text-text uppercase block">
+        <label className="block font-mohave text-body-sm uppercase text-text">
           {t("invoiceSettings.highValueThreshold")}
         </label>
         <p className="font-mono text-[12px] text-text-3">
           {t("invoiceSettings.highValueThresholdDesc")}
         </p>
-        <div className="flex items-center gap-2 mt-2">
+        <div className="mt-2 flex items-center gap-2">
           <span className="font-mono text-[13px] text-text-3">$</span>
           <div className="w-[160px]">
             <Input
@@ -270,7 +253,7 @@ export function InvoiceSettingsTab() {
               }
               min={0}
               step={100}
-              className="font-mono tabular-nums text-right [color-scheme:dark]"
+              className="text-right font-mono tabular-nums [color-scheme:dark]"
             />
           </div>
         </div>
@@ -299,123 +282,6 @@ export function InvoiceSettingsTab() {
         checked={config.include_cover_email}
         onChange={(v) => updateConfig({ include_cover_email: v })}
       />
-
-      {/* ── Payment Reminders Section ── */}
-      <div className="border-t border-line pt-8 space-y-6">
-        <div className="space-y-1">
-          <SectionLabel>{t("invoiceSettings.reminders")}</SectionLabel>
-          <p className="font-mono text-[13px] text-text-2">
-            {t("invoiceSettings.remindersDesc")}
-          </p>
-        </div>
-
-        {/* Toggle: Enable reminders */}
-        <ToggleSetting
-          label={t("invoiceSettings.enableReminders")}
-          description={t("invoiceSettings.enableRemindersDesc")}
-          checked={reminder.enabled}
-          onChange={(v) => updateReminder({ enabled: v })}
-        />
-
-        {/* Reminder schedule — 4 numeric inputs */}
-        {reminder.enabled && (
-          <>
-            <div className="space-y-3">
-              <label className="font-mohave text-body-sm text-text uppercase block">
-                {t("invoiceSettings.reminderSchedule")}
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { key: "invoiceSettings.level1Days", index: 0 },
-                  { key: "invoiceSettings.level2Days", index: 1 },
-                  { key: "invoiceSettings.level3Days", index: 2 },
-                  { key: "invoiceSettings.level4Days", index: 3 },
-                ].map(({ key, index }) => (
-                  <div key={index}>
-                    <span className="font-mono text-[11px] text-text-3 block mb-1">
-                      {t(key)}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-[80px]">
-                        <Input
-                          type="number"
-                          value={reminder.reminder_days[index]}
-                          onChange={(e) =>
-                            updateReminderDay(index, Number(e.target.value) || 1)
-                          }
-                          min={1}
-                          max={365}
-                          className="font-mono tabular-nums text-right [color-scheme:dark]"
-                        />
-                      </div>
-                      <span className="font-mono text-[12px] text-text-3">
-                        {t("invoiceSettings.days")}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Max reminders per invoice */}
-            <div className="space-y-2">
-              <label className="font-mohave text-body-sm text-text uppercase block">
-                {t("invoiceSettings.maxReminders")}
-              </label>
-              <div className="mt-1">
-                <SegmentControl
-                  options={[1, 2, 3, 4].map((n) => ({
-                    value: String(n),
-                    label: String(n),
-                  }))}
-                  value={String(reminder.max_reminders)}
-                  onChange={(v) => updateReminder({ max_reminders: Number(v) })}
-                />
-              </div>
-            </div>
-
-            {/* Toggle: Skip weekends */}
-            <ToggleSetting
-              label={t("invoiceSettings.skipWeekends")}
-              description={t("invoiceSettings.skipWeekendsDesc")}
-              checked={reminder.skip_weekends}
-              onChange={(v) => updateReminder({ skip_weekends: v })}
-            />
-
-            {/* Late payment threshold */}
-            <div className="space-y-2">
-              <label className="font-mohave text-body-sm text-text uppercase block">
-                {t("invoiceSettings.lateThreshold")}
-              </label>
-              <p className="font-mono text-[12px] text-text-3">
-                {t("invoiceSettings.lateThresholdDesc")}
-              </p>
-              <div className="flex items-center gap-2 mt-2">
-                <div className="w-[80px]">
-                  <Input
-                    type="number"
-                    value={reminder.late_payment_threshold}
-                    onChange={(e) =>
-                      updateReminder({
-                        late_payment_threshold: Math.max(
-                          0,
-                          Math.min(100, Number(e.target.value) || 0)
-                        ),
-                      })
-                    }
-                    min={0}
-                    max={100}
-                    className="font-mono tabular-nums text-right [color-scheme:dark]"
-                  />
-                </div>
-                <span className="font-mono text-[13px] text-text-3">
-                  {t("invoiceSettings.lateThresholdSuffix")}
-                </span>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
     </div>
   );
 }
@@ -435,18 +301,19 @@ function ToggleSetting({
 }) {
   return (
     <div className="flex items-start gap-4">
-      <div className="flex-1 min-w-0">
-        <span className="font-mohave text-body-sm text-text uppercase block">
+      <div className="min-w-0 flex-1">
+        <span className="block font-mohave text-body-sm uppercase text-text">
           {label}
         </span>
-        <p className="font-mono text-[12px] text-text-3 mt-0.5">
+        <p className="mt-0.5 font-mono text-[12px] text-text-3">
           {description}
         </p>
       </div>
       <Switch
+        aria-label={label}
         checked={checked}
         onCheckedChange={onChange}
-        className="shrink-0 mt-0.5"
+        className="mt-0.5 shrink-0"
       />
     </div>
   );

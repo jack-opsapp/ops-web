@@ -14,7 +14,10 @@ export type AscChannel =
  * channel here; the ASA-paid vs organic split happens later, once Apple Ads
  * campaign data is joined.
  */
-export function mapAppStoreSourceToChannel(sourceType: string | null, _info: string | null): AscChannel {
+export function mapAppStoreSourceToChannel(
+  sourceType: string | null,
+  _info: string | null
+): AscChannel {
   const s = (sourceType ?? "").trim().toLowerCase().replace(/\s+/g, " ");
   if (s === "") return "unavailable";
   if (s === "app store search") return "app_store_search";
@@ -47,7 +50,10 @@ export interface ParsedRow {
  * @param text     decompressed `.txt` (tab-delimited, first line = header)
  * @param aliases  canonicalName -> additional normalized header aliases
  */
-export function parseTsv(text: string, aliases: Record<string, string[]>): ParsedRow[] {
+export function parseTsv(
+  text: string,
+  aliases: Record<string, string[]>
+): ParsedRow[] {
   const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
   if (lines.length < 2) return [];
 
@@ -57,8 +63,12 @@ export function parseTsv(text: string, aliases: Record<string, string[]>): Parse
   const resolve: Record<string, number> = {};
   for (const [canon, alist] of Object.entries(aliases)) {
     const candidates = [norm(canon.replace(/_/g, " ")), ...alist.map(norm)];
-    const idx = headers.findIndex((h) => candidates.includes(h));
-    if (idx >= 0) resolve[canon] = idx;
+    for (const candidate of candidates) {
+      const idx = headers.indexOf(candidate);
+      if (idx < 0) continue;
+      resolve[canon] = idx;
+      break;
+    }
   }
 
   return lines.slice(1).map((line) => {

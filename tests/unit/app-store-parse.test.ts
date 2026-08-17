@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { parseTsv, mapAppStoreSourceToChannel } from "@/lib/analytics/app-store-parse";
+import {
+  parseTsv,
+  mapAppStoreSourceToChannel,
+} from "@/lib/analytics/app-store-parse";
 
 describe("mapAppStoreSourceToChannel", () => {
   it.each([
@@ -17,7 +20,9 @@ describe("mapAppStoreSourceToChannel", () => {
   });
 
   it("is case/whitespace tolerant", () => {
-    expect(mapAppStoreSourceToChannel("  app store SEARCH ", null)).toBe("app_store_search");
+    expect(mapAppStoreSourceToChannel("  app store SEARCH ", null)).toBe(
+      "app_store_search"
+    );
   });
 
   it("treats null source as unavailable", () => {
@@ -27,6 +32,7 @@ describe("mapAppStoreSourceToChannel", () => {
 
 const ALIASES = {
   reporting_date: ["date"],
+  engagement_type: ["engagement type", "event", "event type"],
   source_type: ["source type"],
   counts: ["counts"],
   unique_counts: ["unique counts", "unique devices"],
@@ -34,7 +40,8 @@ const ALIASES = {
 
 describe("parseTsv (header-name based, drift-tolerant)", () => {
   it("maps the documented header order and parses thousands separators", () => {
-    const tsv = "Date\tSource Type\tCounts\tUnique Counts\n2026-06-01\tApp Store Search\t1,234\t1000";
+    const tsv =
+      "Date\tSource Type\tCounts\tUnique Counts\n2026-06-01\tApp Store Search\t1,234\t1000";
     const rows = parseTsv(tsv, ALIASES);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
@@ -46,21 +53,44 @@ describe("parseTsv (header-name based, drift-tolerant)", () => {
   });
 
   it("survives reordered columns (maps by name, not index)", () => {
-    const tsv = "Unique Counts\tCounts\tSource Type\tDate\n5\t9\tApp Store Browse\t2026-06-02";
+    const tsv =
+      "Unique Counts\tCounts\tSource Type\tDate\n5\t9\tApp Store Browse\t2026-06-02";
     const rows = parseTsv(tsv, ALIASES);
-    expect(rows[0]).toMatchObject({ counts: 9, unique_counts: 5, source_type: "App Store Browse", reporting_date: "2026-06-02" });
+    expect(rows[0]).toMatchObject({
+      counts: 9,
+      unique_counts: 5,
+      source_type: "App Store Browse",
+      reporting_date: "2026-06-02",
+    });
   });
 
   it("keeps unknown columns in raw and never drops them", () => {
-    const tsv = "Date\tSource Type\tCounts\tNew Apple Column\n2026-06-03\tWeb Referrer\t3\tXYZ";
+    const tsv =
+      "Date\tSource Type\tCounts\tNew Apple Column\n2026-06-03\tWeb Referrer\t3\tXYZ";
     const rows = parseTsv(tsv, ALIASES);
-    expect((rows[0].raw as Record<string, string>)["new apple column"]).toBe("XYZ");
+    expect((rows[0].raw as Record<string, string>)["new apple column"]).toBe(
+      "XYZ"
+    );
   });
 
   it("handles the 'Unique Devices' alias for unique_counts", () => {
-    const tsv = "Date\tSource Type\tCounts\tUnique Devices\n2026-06-04\tApp Store Search\t7\t4";
+    const tsv =
+      "Date\tSource Type\tCounts\tUnique Devices\n2026-06-04\tApp Store Search\t7\t4";
     const rows = parseTsv(tsv, ALIASES);
     expect(rows[0].unique_counts).toBe(4);
+  });
+
+  it("prefers the canonical header over an earlier fallback alias", () => {
+    const tsv = [
+      "Date\tEvent\tEngagement Type\tPage Type\tSource Type\tCounts\tUnique Counts",
+      "2026-07-23\tTap\tGet\tProduct Page\tApp Store Search\t8\t8",
+      "2026-07-23\tTap\tOpen\tProduct Page\tApp Store Search\t4\t4",
+    ].join("\n");
+
+    const rows = parseTsv(tsv, ALIASES);
+
+    expect(rows.map((row) => row.engagement_type)).toEqual(["Get", "Open"]);
+    expect(rows.map((row) => row.raw.event)).toEqual(["Tap", "Tap"]);
   });
 
   it("returns [] for header-only or empty input", () => {
@@ -69,7 +99,8 @@ describe("parseTsv (header-name based, drift-tolerant)", () => {
   });
 
   it("defaults missing numerics to 0 and missing dimensions to empty string in raw", () => {
-    const tsv = "Date\tSource Type\tCounts\tUnique Counts\n2026-06-05\tApp Store Search\t\t";
+    const tsv =
+      "Date\tSource Type\tCounts\tUnique Counts\n2026-06-05\tApp Store Search\t\t";
     const rows = parseTsv(tsv, ALIASES);
     expect(rows[0].counts).toBe(0);
     expect(rows[0].unique_counts).toBe(0);

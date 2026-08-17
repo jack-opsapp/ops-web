@@ -20,12 +20,16 @@ import {
   type AnomalyEval,
   type MetricSnapshot,
 } from "@/lib/email/anomaly-thresholds";
-import { pause } from "@/lib/email/pause";
+import { pause, retryPauseNotificationFanout } from "@/lib/email/pause";
 import {
   CronDatabaseOperationError,
   runWithCronWorkloadControl,
 } from "@/lib/api/services/cron-workload-control-service";
-import { getOptionalPmfOperatorIdentity } from "@/lib/pmf/recipients";
+import {
+  getOptionalPmfOperatorIdentity,
+  getOptionalPmfOperatorUserId,
+  type PmfOperatorIdentity,
+} from "@/lib/pmf/recipients";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -47,6 +51,21 @@ interface MetricsResp {
   total_click: number;
   click_pct: number;
   error_events: number;
+}
+
+interface AnomalyLogRow {
+  id: string;
+  kind: AnomalyEval["kind"];
+  severity: AnomalyEval["severity"];
+  detected_at: string;
+  window_minutes: number;
+  metric_value: number;
+  threshold: number;
+  context: Record<string, unknown>;
+  action_taken: string | null;
+  notification_id: string | null;
+  pause_audit_id: string | null;
+  resolved_at: string | null;
 }
 
 type DatabaseResponse<T> = {
@@ -156,10 +175,6 @@ async function runAnomalyCheck(db: SupabaseClient) {
   };
 
   const evals = evaluateThresholds(snapshot);
-  if (evals.length === 0) {
-    return { ok: true, evals: 0, written: 0 };
-  }
-
   const sinceIso = new Date(
     Date.now() - DEDUP_WINDOW_MINUTES * 60 * 1000
   ).toISOString();
@@ -168,15 +183,103 @@ async function runAnomalyCheck(db: SupabaseClient) {
     () =>
       db
         .from("email_anomaly_log")
-        .select("kind, severity, detected_at")
+        .select(
+          "id, kind, severity, detected_at, window_minutes, metric_value, threshold, context, action_taken, notification_id, pause_audit_id, resolved_at"
+        )
         .gte("detected_at", sinceIso)
   );
 
+  const incomplete = await requireDatabaseResponse(
+    "anomaly reconciliation lookup failed",
+    () =>
+      db
+        .from("email_anomaly_log")
+        .select(
+          "id, kind, severity, detected_at, window_minutes, metric_value, threshold, context, action_taken, notification_id, pause_audit_id, resolved_at"
+        )
+        .or(
+          "notification_id.is.null,and(severity.eq.critical,pause_audit_id.is.null)"
+        )
+        .is("resolved_at", null)
+        .order("detected_at", { ascending: true })
+        .limit(100)
+  );
+
+  const recentRows = (recent ?? []) as AnomalyLogRow[];
+  const reconciliationRows = new Map<string, AnomalyLogRow>();
+  for (const row of [
+    ...((incomplete ?? []) as AnomalyLogRow[]),
+    ...recentRows,
+  ]) {
+    reconciliationRows.set(row.id, row);
+  }
+  const requiresNotificationIdentity =
+    evals.length > 0 ||
+    [...reconciliationRows.values()].some(
+      (row) =>
+        row.notification_id === null ||
+        (isCriticalPauseAnomaly(anomalyEvalFromLogRow(row)) &&
+          row.pause_audit_id === null)
+    );
+  let operatorIdentity: PmfOperatorIdentity | null = null;
+  let pauseActorUserId: string | null = null;
+  if (requiresNotificationIdentity) {
+    try {
+      operatorIdentity = getOptionalPmfOperatorIdentity();
+    } catch (error) {
+      console.error(
+        "[anomaly-check] operator identity configuration invalid:",
+        error
+      );
+    }
+  }
+  try {
+    pauseActorUserId = getOptionalPmfOperatorUserId();
+  } catch (error) {
+    console.error("[anomaly-check] pause actor configuration invalid:", error);
+  }
+
+  // When notification identity is not configured, a page of old warn rows
+  // must not hide later critical pause recovery. Fetch that lane separately.
+  const incompleteCritical = await requireDatabaseResponse(
+    "critical anomaly reconciliation lookup failed",
+    () =>
+      db
+        .from("email_anomaly_log")
+        .select(
+          "id, kind, severity, detected_at, window_minutes, metric_value, threshold, context, action_taken, notification_id, pause_audit_id, resolved_at"
+        )
+        .eq("severity", "critical")
+        .in("kind", ["bounce_spike", "spam_spike"])
+        .is("pause_audit_id", null)
+        .is("resolved_at", null)
+        .order("detected_at", { ascending: true })
+        .limit(100)
+  );
+  for (const row of (incompleteCritical ?? []) as AnomalyLogRow[]) {
+    reconciliationRows.set(row.id, row);
+  }
+
+  for (const row of reconciliationRows.values()) {
+    if (row.resolved_at !== null && row.resolved_at !== undefined) continue;
+    if (!needsReconciliation(row, operatorIdentity)) continue;
+    await finalizeAnomalyRow(db, anomalyEvalFromLogRow(row), {
+      anomalyId: row.id,
+      actionTaken: row.action_taken,
+      notificationId: row.notification_id,
+      pauseAuditId: row.pause_audit_id,
+      operatorIdentity,
+      pauseActorUserId,
+      recoverPauseAudit: true,
+    });
+  }
+
+  if (evals.length === 0) {
+    return { ok: true, evals: 0, written: 0 };
+  }
+
   const recentByKind = new Map<string, "warn" | "critical">();
-  for (const r of (recent ?? []) as Array<{
-    kind: string;
-    severity: "warn" | "critical";
-  }>) {
+  for (const r of recentRows) {
     const prev = recentByKind.get(r.kind);
     if (!prev || severityRank(r.severity) >= severityRank(prev)) {
       recentByKind.set(r.kind, r.severity);
@@ -187,7 +290,15 @@ async function runAnomalyCheck(db: SupabaseClient) {
   for (let index = 0; index < evals.length; index += 2) {
     const batch = evals.slice(index, index + 2);
     const settled = await Promise.allSettled(
-      batch.map((ev) => processEvaluation(db, ev, recentByKind))
+      batch.map((ev) =>
+        processEvaluation(
+          db,
+          ev,
+          recentByKind,
+          operatorIdentity,
+          pauseActorUserId
+        )
+      )
     );
     const failure = settled.find(
       (result): result is PromiseRejectedResult => result.status === "rejected"
@@ -206,7 +317,9 @@ async function runAnomalyCheck(db: SupabaseClient) {
 async function processEvaluation(
   db: SupabaseClient,
   ev: AnomalyEval,
-  recentByKind: Map<string, "warn" | "critical">
+  recentByKind: Map<string, "warn" | "critical">,
+  operatorIdentity: PmfOperatorIdentity | null,
+  pauseActorUserId: string | null
 ): Promise<number> {
   const recentSev = recentByKind.get(ev.kind);
   if (recentSev && severityRank(recentSev) >= severityRank(ev.severity)) {
@@ -233,66 +346,179 @@ async function processEvaluation(
   if (!logRow) throw new Error("Anomaly log insert returned no row");
   const anomalyId = logRow.id as string;
 
-  let pauseAuditId: string | null = null;
-  let actionTaken: string | null = null;
-  if (
+  await finalizeAnomalyRow(db, ev, {
+    anomalyId,
+    actionTaken: null,
+    notificationId: null,
+    pauseAuditId: null,
+    operatorIdentity,
+    pauseActorUserId,
+    recoverPauseAudit: false,
+  });
+
+  return 1;
+}
+
+function isCriticalPauseAnomaly(ev: AnomalyEval): boolean {
+  return (
     ev.severity === "critical" &&
     (ev.kind === "bounce_spike" || ev.kind === "spam_spike")
+  );
+}
+
+function needsReconciliation(
+  row: AnomalyLogRow,
+  operatorIdentity: PmfOperatorIdentity | null
+): boolean {
+  const missingNotification =
+    operatorIdentity !== null && row.notification_id === null;
+  const missingPauseOutcome =
+    isCriticalPauseAnomaly(anomalyEvalFromLogRow(row)) &&
+    (row.action_taken == null ||
+      row.action_taken?.startsWith("pause skipped:") ||
+      row.action_taken?.startsWith("pause attempt failed:") ||
+      (row.pause_audit_id === null &&
+        row.action_taken?.startsWith("pause(global)")));
+  return missingNotification || missingPauseOutcome;
+}
+
+function anomalyEvalFromLogRow(row: AnomalyLogRow): AnomalyEval {
+  return {
+    kind: row.kind,
+    severity: row.severity,
+    windowMinutes: row.window_minutes,
+    metricValue: Number(row.metric_value),
+    threshold: Number(row.threshold),
+    context: row.context ?? {},
+  };
+}
+
+async function findPauseAuditId(
+  db: SupabaseClient,
+  anomalyId: string
+): Promise<string | null> {
+  const auditRow = await requireDatabaseResponse(
+    "anomaly pause audit recovery failed",
+    () =>
+      db
+        .from("email_pause_audit_log")
+        .select("id")
+        .eq("anomaly_log_id", anomalyId)
+        .eq("action", "pause")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+  );
+  if (!auditRow) return null;
+  const id = (auditRow as { id?: unknown }).id;
+  if (typeof id !== "string" || id === "") {
+    throw new Error("Anomaly pause audit recovery returned an invalid id");
+  }
+  return id;
+}
+
+async function finalizeAnomalyRow(
+  db: SupabaseClient,
+  ev: AnomalyEval,
+  state: {
+    anomalyId: string;
+    actionTaken: string | null;
+    notificationId: string | null;
+    pauseAuditId: string | null;
+    operatorIdentity: PmfOperatorIdentity | null;
+    pauseActorUserId: string | null;
+    recoverPauseAudit: boolean;
+  }
+): Promise<void> {
+  const anomalyId = state.anomalyId;
+  let pauseAuditId = state.pauseAuditId;
+  let actionTaken = state.actionTaken;
+
+  if (
+    state.recoverPauseAudit &&
+    (actionTaken?.startsWith("pause skipped:") ||
+      actionTaken?.startsWith("pause attempt failed:"))
   ) {
-    const operatorUserId = process.env.PMF_OPERATOR_USER_ID;
-    const operatorEmail = process.env.PMF_NOTIFICATION_EMAIL;
-    if (!operatorUserId || !operatorEmail) {
-      actionTaken =
-        "pause skipped: PMF_OPERATOR_USER_ID or PMF_NOTIFICATION_EMAIL unset (cannot record actor)";
-      console.error("[anomaly-check] pause skipped — missing actor env vars");
-    } else {
-      try {
-        const result = await pause({
-          scope: "global",
-          reason: `auto: ${ev.kind} ${ev.metricValue}% over ${ev.threshold}%`,
-          actorUserId: operatorUserId,
-          actorEmail: operatorEmail,
-          severity: "critical",
-          anomalyLogId: anomalyId,
-          abortOnDatabaseError: true,
-        });
-        pauseAuditId = result.pauseAuditId;
-        actionTaken = `pause(global) by anomaly ${ev.kind}@${ev.metricValue}% [audit ${pauseAuditId ?? "unknown"}]`;
-      } catch (err) {
-        if (err instanceof CronDatabaseOperationError) throw err;
-        actionTaken = `pause attempt failed: ${err instanceof Error ? err.message : String(err)}`;
-        console.error("[anomaly-check] pause failed:", err);
+    actionTaken = null;
+  }
+
+  if (isCriticalPauseAnomaly(ev)) {
+    if (pauseAuditId !== null) {
+      actionTaken = `pause(global) by anomaly ${ev.kind}@${ev.metricValue}% [audit ${pauseAuditId}]`;
+    } else if (state.recoverPauseAudit) {
+      pauseAuditId = await findPauseAuditId(db, anomalyId);
+      if (pauseAuditId) {
+        actionTaken = `pause(global) by anomaly ${ev.kind}@${ev.metricValue}% [audit ${pauseAuditId}]`;
+      }
+    }
+
+    if (state.recoverPauseAudit && pauseAuditId !== null) {
+      await retryPauseNotificationFanout({
+        anomalyId,
+        pauseAuditId,
+      });
+    }
+
+    if (actionTaken === null) {
+      const operatorUserId = state.pauseActorUserId;
+      const operatorEmail = process.env.PMF_NOTIFICATION_EMAIL?.trim();
+      if (!operatorUserId || !operatorEmail) {
+        actionTaken =
+          "pause skipped: PMF_OPERATOR_USER_ID or PMF_NOTIFICATION_EMAIL unset (cannot record actor)";
+        console.error("[anomaly-check] pause skipped — missing actor env vars");
+      } else {
+        try {
+          const result = await pause({
+            scope: "global",
+            reason: `auto: ${ev.kind} ${ev.metricValue}% over ${ev.threshold}%`,
+            actorUserId: operatorUserId,
+            actorEmail: operatorEmail,
+            severity: "critical",
+            anomalyLogId: anomalyId,
+            abortOnDatabaseError: true,
+          });
+          pauseAuditId = result.pauseAuditId;
+          actionTaken = `pause(global) by anomaly ${ev.kind}@${ev.metricValue}% [audit ${pauseAuditId ?? "unknown"}]`;
+        } catch (err) {
+          if (err instanceof CronDatabaseOperationError) throw err;
+          actionTaken = `pause attempt failed: ${err instanceof Error ? err.message : String(err)}`;
+          console.error("[anomaly-check] pause failed:", err);
+        }
       }
     }
   }
 
-  const operatorIdentity = getOptionalPmfOperatorIdentity();
-  let notifId: string | null = null;
-  if (operatorIdentity) {
-    const { operatorUserId, operatorCompanyId } = operatorIdentity;
-    const notifRow = await requireDatabaseResponse(
-      "anomaly notification insert failed",
+  let notifId = state.notificationId;
+  if (notifId === null && state.operatorIdentity) {
+    const { operatorUserId, operatorCompanyId } = state.operatorIdentity;
+    const notificationResult = await requireDatabaseResponse(
+      "anomaly notification identity write failed",
       () =>
-        db
-          .from("notifications")
-          .insert({
-            user_id: operatorUserId,
-            company_id: operatorCompanyId,
-            type: "email_anomaly",
-            title: `${ev.severity === "critical" ? "CRITICAL" : "WARN"} :: ${labelForKind(ev.kind)}`,
-            body: `${ev.metricValue.toFixed(2)} (threshold ${ev.threshold}) over ${ev.windowMinutes}m`,
-            is_read: false,
-            persistent: ev.severity === "critical",
-            action_url: "/admin/email?tab=event-monitor",
-            action_label: "VIEW MONITOR",
-          })
-          .select("id")
-          .single()
+        db.rpc("create_email_anomaly_notification_if_new", {
+          p_anomaly_id: anomalyId,
+          p_user_id: operatorUserId,
+          p_company_id: operatorCompanyId,
+          p_title: `${ev.severity === "critical" ? "CRITICAL" : "WARN"} :: ${labelForKind(ev.kind)}`,
+          p_body: `${ev.metricValue.toFixed(2)} (threshold ${ev.threshold}) over ${ev.windowMinutes}m`,
+          p_persistent: ev.severity === "critical",
+          p_action_url: "/admin/email?tab=event-monitor",
+          p_action_label: "VIEW MONITOR",
+        })
     );
-    if (!notifRow) {
-      throw new Error("Anomaly notification insert returned no row");
+    const rawNotification = Array.isArray(notificationResult)
+      ? notificationResult[0]
+      : notificationResult;
+    if (
+      rawNotification === null ||
+      typeof rawNotification !== "object" ||
+      typeof (rawNotification as Record<string, unknown>).notification_id !==
+        "string" ||
+      (rawNotification as Record<string, unknown>).notification_id === "" ||
+      typeof (rawNotification as Record<string, unknown>).created !== "boolean"
+    ) {
+      throw new Error("Anomaly notification identity response was invalid");
     }
-    notifId = (notifRow?.id as string | undefined) ?? null;
+    notifId = (rawNotification as { notification_id: string }).notification_id;
   }
 
   await requireDatabaseResponse("anomaly log finalization failed", () =>
@@ -305,8 +531,6 @@ async function processEvaluation(
       })
       .eq("id", anomalyId)
   );
-
-  return 1;
 }
 
 function labelForKind(k: AnomalyEval["kind"]): string {
