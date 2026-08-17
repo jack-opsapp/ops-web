@@ -42,6 +42,28 @@ import {
 
 const GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me";
 const NON_DELIVERY_MESSAGE_LABELS = new Set(["DRAFT", "SPAM", "TRASH"]);
+
+function normalizeInlineContentId(value: string): string {
+  const trimmed = value.trim().replace(/^<|>$/g, "");
+  try {
+    return decodeURIComponent(trimmed).toLowerCase();
+  } catch {
+    return trimmed.toLowerCase();
+  }
+}
+
+function contentIdsReferencedByHtml(html: string): Set<string> {
+  const references = new Set<string>();
+  const decodedAngles = html.replace(/&lt;/gi, "<").replace(/&gt;/gi, ">");
+  const cidPattern = /\bcid\s*:\s*<?([^"'<>\s)]+)>?/gi;
+
+  for (const match of decodedAngles.matchAll(cidPattern)) {
+    const contentId = normalizeInlineContentId(match[1] ?? "");
+    if (contentId) references.add(contentId);
+  }
+
+  return references;
+}
 /**
  * Page size for the metadata-only drafts index used by `findDraftsOnThread`.
  * `listDrafts()` caps at 15 because it fetches every draft in full; this index
@@ -1269,6 +1291,7 @@ export class GmailProvider implements EmailProviderInterface {
 
     const messageAttachments: EmailAttachmentMeta[] = [];
     const budget: GmailAttachmentCollectionBudget = { truncated: false };
+    const quotedOnlyContentIds = this.quotedOnlyInlineContentIds(payload);
     this.collectAttachmentParts(
       payload,
       msgId,
@@ -1276,7 +1299,8 @@ export class GmailProvider implements EmailProviderInterface {
       date,
       messageAttachments,
       cacheInlineData,
-      budget
+      budget,
+      quotedOnlyContentIds
     );
     out.push(...messageAttachments);
     if (budget.truncated) {
@@ -1298,6 +1322,26 @@ export class GmailProvider implements EmailProviderInterface {
     }
   }
 
+  private quotedOnlyInlineContentIds(
+    payload: Record<string, unknown> | undefined
+  ): Set<string> {
+    if (!payload) return new Set();
+
+    const { html } = this.collectBodyParts(payload);
+    if (!html) return new Set();
+
+    const allContentIds = contentIdsReferencedByHtml(html);
+    const authoredContentIds = contentIdsReferencedByHtml(
+      stripQuotedHtml(html)
+    );
+
+    return new Set(
+      [...allContentIds].filter(
+        (contentId) => !authoredContentIds.has(contentId)
+      )
+    );
+  }
+
   /**
    * Recursively walk a Gmail message payload and collect every part that
    * is a real downloadable MIME part. Normal text/HTML body parts can also use
@@ -1311,15 +1355,15 @@ export class GmailProvider implements EmailProviderInterface {
     date: Date,
     out: EmailAttachmentMeta[],
     cacheInlineData = false,
-    budget: GmailAttachmentCollectionBudget = { truncated: false }
+    budget: GmailAttachmentCollectionBudget = { truncated: false },
+    quotedOnlyContentIds: ReadonlySet<string> = new Set()
   ): void {
     if (!payload || budget.truncated) return;
 
     const mimeType = ((payload.mimeType as string) || "").toLowerCase();
     const filename = (payload.filename as string) || "";
     const body = payload.body as
-      | { attachmentId?: string; data?: string; size?: number }
-      | undefined;
+      { attachmentId?: string; data?: string; size?: number } | undefined;
     const partId = (payload.partId as string) || null;
     const headers = (payload.headers ?? []) as Array<{
       name?: string;
@@ -1339,7 +1383,13 @@ export class GmailProvider implements EmailProviderInterface {
       (!isTextBody || hasAttachmentEvidence)
     );
 
-    if (isAttachmentPart) {
+    const isQuotedOnlyInlinePart = Boolean(
+      contentId &&
+      !/\battachment\b/.test(disposition) &&
+      quotedOnlyContentIds.has(normalizeInlineContentId(contentId))
+    );
+
+    if (isAttachmentPart && !isQuotedOnlyInlinePart) {
       if (out.length >= MAX_GMAIL_ATTACHMENTS_PER_MESSAGE) {
         budget.truncated = true;
         return;
@@ -1386,7 +1436,8 @@ export class GmailProvider implements EmailProviderInterface {
           date,
           out,
           cacheInlineData,
-          budget
+          budget,
+          quotedOnlyContentIds
         );
         if (budget.truncated) break;
       }
@@ -1524,8 +1575,7 @@ export class GmailProvider implements EmailProviderInterface {
     const body = payload.body as { data?: string } | undefined;
     if (payload.partId === partId && body?.data) return body.data;
     for (const part of (payload.parts as
-      | Array<Record<string, unknown>>
-      | undefined) ?? []) {
+      Array<Record<string, unknown>> | undefined) ?? []) {
       const found = this.findInlinePartData(part, partId);
       if (found) return found;
     }
@@ -1959,8 +2009,7 @@ export class GmailProvider implements EmailProviderInterface {
     const filename = ((payload.filename as string) || "").trim();
     const partId = (payload.partId as string) || "";
     const body = payload.body as
-      | { attachmentId?: string; data?: string }
-      | undefined;
+      { attachmentId?: string; data?: string } | undefined;
     const headers = (payload.headers ?? []) as Array<{
       name?: string;
       value?: string;
