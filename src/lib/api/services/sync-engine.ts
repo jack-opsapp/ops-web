@@ -2002,17 +2002,29 @@ async function recordActivityCorrespondenceEvent(
     );
   }
   if (!activityId) {
-    throw new LifecyclePersistenceError(
-      "[sync-engine] delivered turn requires a canonical source activity"
+    // No canonical activity row exists for this message (dedupe and
+    // review-hold paths). The delivered-turn shadow record needs one, so
+    // skip it; catch-up memory ingest recovers the turn from the exact
+    // captured source later. Never abort the ingest pipeline for it.
+    console.error(
+      `[sync-engine] delivered turn skipped (non-fatal): no canonical source activity for ${email.id}`
+    );
+    return;
+  }
+  try {
+    await persistCapturedProviderDeliveryTurn({
+      supabase,
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      providerMessageId: email.id,
+      sourceActivityId: activityId,
+    });
+  } catch (error) {
+    console.error(
+      `[sync-engine] delivered turn persistence failed (non-fatal): ${email.id}`,
+      error
     );
   }
-  await persistCapturedProviderDeliveryTurn({
-    supabase,
-    companyId: connection.companyId,
-    connectionId: connection.id,
-    providerMessageId: email.id,
-    sourceActivityId: activityId,
-  });
 }
 
 interface ActivityPersistenceOptions {
@@ -2285,13 +2297,24 @@ async function captureProviderDeliveryBeforeMutableIngest(input: {
   providerLockCheckpoint: EmailProviderMailboxCheckpoint;
 }): Promise<void> {
   await input.providerLockCheckpoint();
-  await captureProviderDeliveredEmailSource({
-    supabase: requireSupabase(),
-    connection: input.connection,
-    provider: EmailService.getProvider(input.connection),
-    email: input.email,
-    direction: input.direction,
-  });
+  try {
+    await captureProviderDeliveredEmailSource({
+      supabase: requireSupabase(),
+      connection: input.connection,
+      provider: EmailService.getProvider(input.connection),
+      email: input.email,
+      direction: input.direction,
+    });
+  } catch (error) {
+    // The delivered-source capture is a shadow memory layer. A capture
+    // failure means a memory evidence gap (recoverable via catch-up), never
+    // a reason to hold the mailbox cursor or abort lead/activity ingest.
+    // Only the lease checkpoints around it may abort processing.
+    console.error(
+      `[sync-engine] provider delivery capture failed (non-fatal): ${input.email.id}`,
+      error
+    );
+  }
   await input.providerLockCheckpoint();
 }
 
@@ -3460,12 +3483,18 @@ async function processInboundEmail(
     "inbound"
   );
 
-  await captureProviderDeliveryBeforeMutableIngest({
-    email,
-    connection,
-    direction: "inbound",
-    providerLockCheckpoint,
-  });
+  if (!executionPolicy.providerMutationsDisabled) {
+    // Exact-recovery ingestion replays a durably stored message and must not
+    // touch the provider at all; source capture enumerates attachments
+    // through the provider client, so it is skipped here. Catch-up memory
+    // ingest recovers the delivered-source evidence for these messages.
+    await captureProviderDeliveryBeforeMutableIngest({
+      email,
+      connection,
+      direction: "inbound",
+      providerLockCheckpoint,
+    });
+  }
 
   const supabase = requireSupabase();
 

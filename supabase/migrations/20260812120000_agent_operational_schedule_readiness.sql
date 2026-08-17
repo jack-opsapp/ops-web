@@ -2725,12 +2725,12 @@ begin
            task.start_date at time zone 'UTC',
            'YYYY-MM-DD'
          )
-         and p_action_data ->> 'new_time' is not distinct from case
+         and p_action_data ->> 'new_time' is not distinct from (case
            when task.start_time is null then null
-           else to_char(task.start_time, 'HH24:MI') end
-         and p_action_data ->> 'new_end_time' is not distinct from case
+           else to_char(task.start_time, 'HH24:MI') end)
+         and p_action_data ->> 'new_end_time' is not distinct from (case
            when task.end_time is null then null
-           else to_char(task.end_time, 'HH24:MI') end
+           else to_char(task.end_time, 'HH24:MI') end)
     )
     and cardinality(coalesce(task.team_member_ids, array[]::text[])) <= 100
     and (

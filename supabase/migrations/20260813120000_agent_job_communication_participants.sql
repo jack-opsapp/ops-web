@@ -305,10 +305,10 @@ begin
      or p_clients_scope not in ('all', 'assigned')
      or p_job_kind not in ('opportunity', 'project')
      or p_job_id is null
-     or p_job_permission is distinct from case p_job_kind
+     or p_job_permission is distinct from (case p_job_kind
        when 'opportunity' then 'pipeline.view'
        when 'project' then 'projects.view'
-     end
+     end)
      or p_job_scope not in ('all', 'assigned')
      or p_projects_scope is not null
         and p_projects_scope not in ('all', 'assigned')

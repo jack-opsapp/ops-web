@@ -1384,10 +1384,10 @@ begin
     if v_latest_timestamp_count is distinct from 1
        or v_latest_activity_id is distinct from fence.source_activity_id
        or v_latest_message_id is distinct from fence.source_message_id
-       or v_latest_direction is distinct from case fence.generation_kind
+       or v_latest_direction is distinct from (case fence.generation_kind
          when 'conversation_reply' then 'inbound'
          else 'outbound'
-       end then
+       end) then
       raise exception 'EMAIL_SEND_PHASE_C_SOURCE_STALE'
         using errcode = '40001';
     end if;

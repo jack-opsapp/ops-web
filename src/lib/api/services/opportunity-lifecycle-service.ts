@@ -11,8 +11,22 @@ import { resetStaleLifecycleAfterMeaningfulInbound } from "./opportunity-lifecyc
 import { reconcileManualOutboundFollowUpCycle } from "./manual-outbound-follow-up-cycle-service";
 import {
   CronDatabaseOperationError,
+  isDatabasePressureError,
   supabaseDatabaseOperationCause,
 } from "./cron-workload-error-contract";
+
+/**
+ * Escalate only genuine database pressure to the cron workload contract
+ * (which aborts the whole run and backs off). Ordinary application-level
+ * rejections stay plain errors so the sync engine records them against the
+ * one connection, holds its cursor, and repairs on the next cycle.
+ */
+function databaseOperationFailure(message: string, response: unknown): Error {
+  const cause = supabaseDatabaseOperationCause(response);
+  const escalated = new CronDatabaseOperationError(message, { cause });
+  if (isDatabasePressureError(escalated)) return escalated;
+  return new Error(message, { cause });
+}
 
 interface LifecycleSupabaseLike {
   // New P4 tables are not present in generated Supabase types until the schema
@@ -115,9 +129,9 @@ async function updateLifecycleStateAfterMeaningfulEvent(
     .maybeSingle();
   const { data: current, error: currentError } = currentResponse;
   if (currentError) {
-    throw new CronDatabaseOperationError(
+    throw databaseOperationFailure(
       `Lifecycle state read failed: ${currentError.message ?? "unknown error"}`,
-      { cause: supabaseDatabaseOperationCause(currentResponse) }
+      currentResponse
     );
   }
 
@@ -160,9 +174,9 @@ async function updateLifecycleStateAfterMeaningfulEvent(
     .upsert(row, { onConflict: "opportunity_id" });
   const { error: lifecycleStateError } = lifecycleStateResponse;
   if (lifecycleStateError) {
-    throw new CronDatabaseOperationError(
+    throw databaseOperationFailure(
       `Lifecycle state upsert failed: ${lifecycleStateError.message ?? "unknown error"}`,
-      { cause: supabaseDatabaseOperationCause(lifecycleStateResponse) }
+      lifecycleStateResponse
     );
   }
 }
@@ -252,9 +266,9 @@ export const OpportunityLifecycleService = {
         providerMessageId: providerIds.providerMessageId,
         error,
       });
-      throw new CronDatabaseOperationError(
+      throw databaseOperationFailure(
         `Correspondence event insert failed: ${message || "unknown error"}`,
-        { cause: supabaseDatabaseOperationCause(correspondenceResponse) }
+        correspondenceResponse
       );
     }
 

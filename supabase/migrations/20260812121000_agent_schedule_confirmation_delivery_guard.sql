@@ -380,10 +380,10 @@ begin
          or new.executed_at is distinct from old.executed_at
          or new.execution_result is distinct from old.execution_result
          or new.review_notes is distinct from old.review_notes
-         or new.auto_execute_at is distinct from case
+         or new.auto_execute_at is distinct from (case
            when old.reviewed_by is not null then null
            else old.auto_execute_at
-         end
+         end)
          or exists (
            select 1
            from public.approved_action_email_intents intent
@@ -690,14 +690,14 @@ begin
       task.start_date at time zone 'UTC',
       'YYYY-MM-DD'
     )
-    and v_data ->> 'scheduled_time' is not distinct from case
+    and v_data ->> 'scheduled_time' is not distinct from (case
       when task.start_time is null then null
       else to_char(task.start_time, 'HH24:MI')
-    end
-    and v_data ->> 'scheduled_end_time' is not distinct from case
+    end)
+    and v_data ->> 'scheduled_end_time' is not distinct from (case
       when task.end_time is null then null
       else to_char(task.end_time, 'HH24:MI')
-    end
+    end)
     and v_data ->> 'duration_hours' is not distinct from
       (greatest(coalesce(task.duration, 1), 1) * 8)::text
     and private.schedule_dispatch_crew_names_are_current(
@@ -1061,14 +1061,14 @@ begin
         task.start_date at time zone 'UTC',
         'YYYY-MM-DD'
       )
-      and v_data ->> 'new_time' is not distinct from case
+      and v_data ->> 'new_time' is not distinct from (case
         when task.start_time is null then null
         else to_char(task.start_time, 'HH24:MI')
-      end
-      and v_data ->> 'new_end_time' is not distinct from case
+      end)
+      and v_data ->> 'new_end_time' is not distinct from (case
         when task.end_time is null then null
         else to_char(task.end_time, 'HH24:MI')
-      end
+      end)
       or v_unconfirmation_origin = 'schedule_edit'
          and v_data ->> 'change_kind' = 'unscheduled'
          and task.start_date is null

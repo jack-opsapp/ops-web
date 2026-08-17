@@ -112,10 +112,10 @@ begin
      or p_job_kind not in ('opportunity', 'project')
      or p_job_id is null
      or p_job_permission is null
-     or p_job_permission is distinct from case p_job_kind
+     or p_job_permission is distinct from (case p_job_kind
        when 'opportunity' then 'pipeline.view'
        when 'project' then 'projects.view'
-     end
+     end)
      or p_job_scope is null
      or p_job_scope not in ('all', 'assigned')
      or p_exact_turn_limit is null
