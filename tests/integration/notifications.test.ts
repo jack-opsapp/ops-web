@@ -209,7 +209,9 @@ function miniEmailReact(): ReactElement {
 
 const RECIPIENT_SMS = "+15555550123";
 const RECIPIENT_EMAIL = "pmf-integration@ops.test";
-const OPERATOR_UID = "operator-integration-uid";
+// Canonical operator fixture identity — `getPmfRecipients` rejects
+// non-UUID operator ids, so both values must be real UUIDs.
+const OPERATOR_UID = "a6ab38dc-9844-4b72-922f-2d2f70f8e617";
 const OPERATOR_COMPANY = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 
 beforeEach(() => {
@@ -224,14 +226,17 @@ beforeEach(() => {
 
   // Env vars — real `getPmfRecipients` reads these. Task 24's fix requires
   // all four present or it throws at `sendPmfNotification` call time.
-  process.env.PMF_NOTIFICATION_SMS = RECIPIENT_SMS;
-  process.env.PMF_NOTIFICATION_EMAIL = RECIPIENT_EMAIL;
-  process.env.PMF_OPERATOR_USER_ID = OPERATOR_UID;
-  process.env.PMF_OPERATOR_COMPANY_ID = OPERATOR_COMPANY;
+  // Stubbed (not assigned) so `unstubAllEnvs` restores them and this file
+  // never leaks PMF env into other files sharing the worker process.
+  vi.stubEnv("PMF_NOTIFICATION_SMS", RECIPIENT_SMS);
+  vi.stubEnv("PMF_NOTIFICATION_EMAIL", RECIPIENT_EMAIL);
+  vi.stubEnv("PMF_OPERATOR_USER_ID", OPERATOR_UID);
+  vi.stubEnv("PMF_OPERATOR_COMPANY_ID", OPERATOR_COMPANY);
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.unstubAllEnvs();
 });
 
 // ─── Tests ──────────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@
  * alert, the missing-operator-env fallback, and incident resolution that
  * re-arms the dedupe key once no stuck rows remain.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const rpcMock = vi.fn();
@@ -47,6 +47,9 @@ const notificationsUpdate: CapturedNotificationsUpdate = {
   eqs: [],
   isCalls: [],
 };
+// Canonical operator fixture identity — `getOptionalPmfOperatorIdentity`
+// rejects non-UUID operator ids, so both values must be real UUIDs.
+const OPERATOR_USER_ID = "a6ab38dc-9844-4b72-922f-2d2f70f8e617";
 const OPERATOR_COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 let stuckRowsResponse: { data: unknown; error: { message: string } | null } = {
   data: [],
@@ -123,9 +126,11 @@ beforeEach(() => {
   notificationsUpdate.eqs.length = 0;
   notificationsUpdate.isCalls.length = 0;
   stuckRowsResponse = { data: [], error: null };
-  process.env.CRON_SECRET = "test-secret";
-  process.env.PMF_OPERATOR_USER_ID = "operator-user";
-  process.env.PMF_OPERATOR_COMPANY_ID = OPERATOR_COMPANY_ID;
+  // Stubbed (not assigned) so `unstubAllEnvs` restores them and this file
+  // never leaks PMF env into other files sharing the worker process.
+  vi.stubEnv("CRON_SECRET", "test-secret");
+  vi.stubEnv("PMF_OPERATOR_USER_ID", OPERATOR_USER_ID);
+  vi.stubEnv("PMF_OPERATOR_COMPANY_ID", OPERATOR_COMPANY_ID);
   workloadControlState.workError = null;
   runWithCronWorkloadControlMock.mockImplementation(
     async ({ work }: { work: () => Promise<unknown> }) => {
@@ -161,6 +166,10 @@ beforeEach(() => {
       ? buildEventsBuilder()
       : buildNotificationsBuilder()
   );
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("projection-stuck-check cron", () => {
@@ -242,7 +251,7 @@ describe("projection-stuck-check cron", () => {
       Record<string, unknown>,
     ];
     expect(rpcName).toBe("create_notification_if_new_with_identity");
-    expect(rpcArgs.p_user_id).toBe("operator-user");
+    expect(rpcArgs.p_user_id).toBe(OPERATOR_USER_ID);
     expect(rpcArgs.p_company_id).toBe(OPERATOR_COMPANY_ID);
     expect(rpcArgs.p_type).toBe("system_alert");
     expect(rpcArgs.p_title).toBe("CRITICAL :: EMAIL PROJECTION STUCK");
