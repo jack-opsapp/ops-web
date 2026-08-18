@@ -79,7 +79,17 @@ interface Op {
 type Failure = { message: string; code?: string; details?: string } | null;
 
 interface DbOptions {
-  /** Per-table, per-kind failures. Key: `${table}:${kind}`. */
+  /**
+   * Per-call-site failures. Key: `${table}:${kind}`, where `kind` names the
+   * individual call rather than just the verb — the route reads `users`
+   * twice for different columns, and those two reads fail independently:
+   *
+   *   users:lookup      auth_id -> user resolution
+   *   users:onboarding  onboarding_completed merge read
+   *   users:update      setup_progress / onboarding_completed write
+   *   user_roles:select existing-role probe
+   *   user_roles:upsert Unassigned role seed
+   */
   fail?: Record<string, Failure>;
   /** Existing public.user_roles row for the caller, or null for none. */
   existingRole?: { role_id: string } | null;
@@ -93,7 +103,24 @@ function makeDb(options: DbOptions = {}) {
   const failureFor = (table: string, kind: Op["kind"]): Failure =>
     options.fail?.[`${table}:${kind}`] ?? null;
 
+  /**
+   * Names the call site a select belongs to, so a test can fail exactly one
+   * read. Both `users` reads hit the same table; only the column list tells
+   * them apart.
+   */
+  const selectLane = (table: string, columns: string) =>
+    table === "users"
+      ? columns.includes("onboarding_completed")
+        ? "users:onboarding"
+        : "users:lookup"
+      : `${table}:select`;
+
   const resolveSelect = (table: string, columns: string) => {
+    // A query failure returns no rows AND an error. Reading only `data` makes
+    // it indistinguishable from an empty result — the defect under test.
+    const failure = options.fail?.[selectLane(table, columns)];
+    if (failure) return { data: null, error: failure };
+
     if (table === "users") {
       if (columns.includes("onboarding_completed")) {
         return { data: { onboarding_completed: { ios: true } }, error: null };
@@ -283,5 +310,128 @@ describe("POST /api/employee-setup/complete — Unassigned role fallback", () =>
         "is_company_admin" in o.payload
     );
     expect(adminGrant).toBeUndefined();
+  });
+});
+
+// ─── Unchecked query results ──────────────────────────────────────────────────
+//
+// Same defect class as the role write above: the call discards its `{ error }`,
+// so a failed query is indistinguishable from an empty result. Each read below
+// feeds a decision that silently goes the wrong way when the read fails.
+
+describe("POST /api/employee-setup/complete — unchecked query results", () => {
+  it("reports a failed user lookup as a server error, not a missing user", async () => {
+    const db = makeDb({
+      fail: {
+        "users:lookup": {
+          message: "canceling statement due to statement timeout",
+          code: "57014",
+        },
+      },
+    });
+    getServiceRoleClientMock.mockReturnValue(db.client);
+
+    const res = await POST(request());
+
+    // A 404 tells the client the account does not exist — a permanent answer
+    // to a transient fault. The employee-setup UI treats it as terminal.
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringContaining("canceling statement due to statement timeout"),
+    });
+
+    // Nothing may be written off a user row that never resolved.
+    expect(db.ops).toHaveLength(0);
+  });
+
+  it("aborts instead of clobbering onboarding flags when the merge read fails", async () => {
+    const db = makeDb({
+      fail: {
+        "users:onboarding": {
+          message: "canceling statement due to statement timeout",
+          code: "57014",
+        },
+      },
+    });
+    getServiceRoleClientMock.mockReturnValue(db.client);
+
+    const res = await POST(request());
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringContaining("canceling statement due to statement timeout"),
+    });
+
+    // This read is the ONLY source of the platform flags already on the row.
+    // Defaulting to {} and writing anyway replaces { ios: true } with
+    // { web: true } — the user loses their iOS onboarding state for good.
+    // The route is idempotent, so aborting costs a retry and nothing else.
+    expect(
+      db.ops.filter((o) => o.table === "users" && o.kind === "update")
+    ).toHaveLength(0);
+  });
+
+  it("merges the web flag into flags set by other platforms", async () => {
+    const db = makeDb();
+    getServiceRoleClientMock.mockReturnValue(db.client);
+
+    const res = await POST(request());
+    expect(res.status).toBe(200);
+
+    const write = db.ops.find(
+      (o) => o.table === "users" && o.kind === "update"
+    );
+    expect(write!.payload.onboarding_completed).toEqual({
+      ios: true,
+      web: true,
+    });
+  });
+
+  it("fails the request when the setup-progress write fails", async () => {
+    const db = makeDb({
+      existingRole: null,
+      fail: { "users:update": { message: "deadlock detected", code: "40P01" } },
+    });
+    getServiceRoleClientMock.mockReturnValue(db.client);
+
+    const res = await POST(request());
+
+    // Returning success here sends the user back through employee setup on
+    // their next sign-in, because the completion flag never landed.
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringContaining("deadlock detected"),
+    });
+
+    expect(db.ops.find((o) => o.table === "user_roles")).toBeUndefined();
+    expect(dispatchRoleNeededNotificationMock).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed role probe instead of demoting the user to Unassigned", async () => {
+    const db = makeDb({
+      // The row exists. The read of it is what fails.
+      existingRole: { role_id: PRESET_ROLE_IDS.OPERATOR },
+      fail: {
+        "user_roles:select": {
+          message: "canceling statement due to statement timeout",
+          code: "57014",
+        },
+      },
+    });
+    getServiceRoleClientMock.mockReturnValue(db.client);
+
+    const res = await POST(request());
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toMatchObject({
+      error: expect.stringContaining("canceling statement due to statement timeout"),
+    });
+
+    // A failed probe reads as "no role row", and the seed upserts on the
+    // user_id unique index — so it REPLACES the operator's real role with
+    // Unassigned and strips every permission they had. guard_user_roles_
+    // final_state() only protects admins, so nothing downstream catches it.
+    expect(db.ops.find((o) => o.table === "user_roles")).toBeUndefined();
+    expect(dispatchRoleNeededNotificationMock).not.toHaveBeenCalled();
   });
 });
