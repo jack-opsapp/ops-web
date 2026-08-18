@@ -11,6 +11,7 @@ export const SUPPORTED_READ_SCOPES = Object.freeze([
   "ops.jobs.read",
   "ops.schedule.read",
   "ops.customers.read",
+  "ops.customer_contacts.read",
   "ops.photos.read",
   "ops.correspondence.read",
   "ops.financials.read",
@@ -28,6 +29,8 @@ export const SCOPE_CONSENT_LABELS: Readonly<
   "ops.jobs.read": "See your jobs and their status",
   "ops.schedule.read": "See your schedule and who's assigned",
   "ops.customers.read": "See your clients and their jobs",
+  "ops.customer_contacts.read":
+    "See who to contact on a job and how to reach them",
   "ops.photos.read": "See which jobs are missing photos",
   "ops.correspondence.read": "See client email history on your jobs",
   "ops.financials.read": "See estimate and invoice summaries on your jobs",
