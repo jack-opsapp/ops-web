@@ -14,6 +14,12 @@ import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { readServerFirstTouch } from "@/lib/pmf/utm-capture";
 import { recordTrialAttribution } from "@/lib/pmf/record-trial-attribution";
 import { isReferralSourceSlug } from "@/lib/data/referral-sources";
+import {
+  COMPANY_CODE_MAX_ATTEMPTS,
+  generateCompanyCode,
+  isCompanyCodeCollision,
+} from "@/lib/data/company-code";
+import { PRESET_ROLE_IDS } from "@/lib/types/permissions";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
 
@@ -125,23 +131,48 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         await db.from("companies").update(companyUpdates).eq("id", companyId);
       } else {
-        // Create new company
-        const { data: newCompany, error: companyError } = await db
-          .from("companies")
-          .insert({
-            name: data.companyName ?? "Untitled Company",
-            industries: data.industries?.length ? data.industries : [],
-            company_size: data.companySize ?? null,
-            company_age: data.companyAge ?? null,
-            weather_dependent: data.weatherDependent ? data.weatherDependent === "Yes" : null,
-            referral_method: isReferralSourceSlug(data.referralMethod)
-              ? data.referralMethod
-              : null,
-            admin_ids: [userId],
-            account_holder_id: userId,
-          })
-          .select("id")
-          .single();
+        // Create new company. The crew join code is minted as part of the insert
+        // so a company never exists without one — the same property the iOS RPC
+        // `create_company_for_owner` guarantees. Without a code the owner's crew
+        // has no way to join.
+        const companyPayload = {
+          name: data.companyName ?? "Untitled Company",
+          industries: data.industries?.length ? data.industries : [],
+          company_size: data.companySize ?? null,
+          company_age: data.companyAge ?? null,
+          weather_dependent: data.weatherDependent ? data.weatherDependent === "Yes" : null,
+          referral_method: isReferralSourceSlug(data.referralMethod)
+            ? data.referralMethod
+            : null,
+          admin_ids: [userId],
+          account_holder_id: userId,
+        };
+
+        let newCompany: { id: string } | null = null;
+        let companyError: {
+          message?: string | null;
+          code?: string | null;
+          details?: string | null;
+        } | null = null;
+
+        for (let attempt = 0; attempt < COMPANY_CODE_MAX_ATTEMPTS; attempt += 1) {
+          const { data: inserted, error } = await db
+            .from("companies")
+            .insert({ ...companyPayload, company_code: generateCompanyCode() })
+            .select("id")
+            .single();
+
+          if (!error && inserted) {
+            newCompany = inserted as { id: string };
+            companyError = null;
+            break;
+          }
+
+          companyError = error;
+          // Only a collision on the company-code index is retryable; every other
+          // failure is terminal and must not be masked by 20 more attempts.
+          if (!isCompanyCodeCollision(error)) break;
+        }
 
         if (companyError || !newCompany) {
           return NextResponse.json(
@@ -162,14 +193,49 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           console.error("[api/setup/progress] Failed to initialize company defaults:", rpcError);
         }
 
-        // Link user to company
-        await db
+        // Seed the Owner role row BEFORE linking the user to the company.
+        //
+        // ORDER IS LOAD-BEARING. The constraint trigger
+        // `private.guard_user_roles_final_state()` rejects any direct user_roles
+        // write whose target is already a company admin (`target_is_admin`,
+        // SQLSTATE 42501). It tests admin-ness through
+        // `private.permission_user_is_admin(u.id, u.company_id)`, which compares
+        // `u.company_id = p_company_id` — while company_id is still NULL that
+        // comparison is NULL, so the user reads as a non-admin and the write is
+        // legal. The update below is precisely what makes them an admin, so this
+        // row can never be written after it. (The iOS RPC reaches the same state
+        // from the other side: it clears company_id and forces the trigger
+        // IMMEDIATE around its own insert.)
+        const { error: roleError } = await db.from("user_roles").upsert(
+          { user_id: userId, role_id: PRESET_ROLE_IDS.OWNER },
+          { onConflict: "user_id" }
+        );
+        if (roleError) {
+          // Fatal, deliberately. A swallowed failure here is exactly what left
+          // five production account holders with no role row and no permissions.
+          return NextResponse.json(
+            { error: `Failed to assign owner role: ${roleError.message}` },
+            { status: 500 }
+          );
+        }
+
+        // Link user to company and set the denormalized owner labels the rest of
+        // the product reads (`role`, `user_type`).
+        const { error: linkError } = await db
           .from("users")
           .update({
             company_id: companyId,
             is_company_admin: true,
+            role: "owner",
+            user_type: "company",
           })
           .eq("id", userId);
+        if (linkError) {
+          return NextResponse.json(
+            { error: `Failed to link user to company: ${linkError.message}` },
+            { status: 500 }
+          );
+        }
 
         // Day 0 founder welcome — fire-and-forget after company creation.
         // Per spec §3 + decision log #25/#26: only fire when the inserting
