@@ -184,6 +184,7 @@ describe("projection-stuck-check cron", () => {
   it("scans exactly the outage predicate: meaningful, unprojected, older than 5 minutes", async () => {
     const before = Date.now();
     await GET(buildRequest("Bearer test-secret"));
+    const after = Date.now();
     expect(eventsQuery.eqs).toContainEqual(["is_meaningful", true]);
     expect(eventsQuery.eqs).toContainEqual([
       "opportunity_projection_applied",
@@ -192,9 +193,13 @@ describe("projection-stuck-check cron", () => {
     expect(eventsQuery.lts).toHaveLength(1);
     const [column, thresholdIso] = eventsQuery.lts[0];
     expect(column).toBe("created_at");
+    // The route samples its own clock at some instant inside the awaited call,
+    // so bound the threshold by the measured [before, after] window — never by
+    // a fixed allowance for event-loop latency, which machine load can exceed.
+    const fiveMinutesMs = 5 * 60 * 1000;
     const threshold = Date.parse(thresholdIso as string);
-    expect(before - threshold).toBeGreaterThanOrEqual(5 * 60 * 1000 - 50);
-    expect(before - threshold).toBeLessThan(5 * 60 * 1000 + 5_000);
+    expect(threshold).toBeGreaterThanOrEqual(before - fiveMinutesMs);
+    expect(threshold).toBeLessThanOrEqual(after - fiveMinutesMs);
     expect(eventsQuery.limits).toEqual([50]);
     expect(runWithCronWorkloadControlMock).toHaveBeenCalledWith(
       expect.objectContaining({
