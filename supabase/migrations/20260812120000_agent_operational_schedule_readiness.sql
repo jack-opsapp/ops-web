@@ -3693,10 +3693,10 @@ as $function$
     from probes probe
   ), matching as (
     select distinct
-           (p_local - offset.utc_offset) at time zone 'UTC' as instant
-    from possible_offset offset
+           (p_local - tz.utc_offset) at time zone 'UTC' as instant
+    from possible_offset tz
     where (
-      (p_local - offset.utc_offset) at time zone 'UTC'
+      (p_local - tz.utc_offset) at time zone 'UTC'
     ) at time zone p_timezone = p_local
   )
   select case when count(*) = 1 then min(instant) else null end
@@ -3737,11 +3737,11 @@ as $function$
     from probes probe
   ), exact_match as materialized (
     select distinct
-           (local.value - offset.utc_offset) at time zone 'UTC' as instant
+           (local.value - tz.utc_offset) at time zone 'UTC' as instant
     from local_value local
-    cross join possible_offset offset
+    cross join possible_offset tz
     where (
-      (local.value - offset.utc_offset) at time zone 'UTC'
+      (local.value - tz.utc_offset) at time zone 'UTC'
     ) at time zone p_timezone = local.value
   ), boundary as materialized (
     select min(match.instant) as instant from exact_match match
