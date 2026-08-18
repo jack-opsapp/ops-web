@@ -17,7 +17,8 @@ export const REFRESH_TOKEN_PREFIX = "ops_mcp_rt_" as const;
 export const AUTHORIZATION_CODE_PREFIX = "ops_mcp_ac_" as const;
 
 export const ACCESS_TOKEN_TTL_SECONDS = 600 as const;
-export const REFRESH_TOKEN_TTL_SECONDS = (30 * 24 * 60 * 60) as const;
+// 30 days.
+export const REFRESH_TOKEN_TTL_SECONDS = 2_592_000 as const;
 export const AUTHORIZATION_CODE_TTL_SECONDS = 300 as const;
 
 const SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
