@@ -84,12 +84,12 @@ describe("get_job_conversation_context capability", () => {
     ).toThrow();
   });
 
-  it("is available to the shared service while external exposure remains disabled", () => {
+  it("is available to the shared service and externally exposed (P1 mount)", () => {
     expect(
       getCapabilityManifestEntry("get_job_conversation_context").availability
     ).toEqual({
       implementation: "available",
-      externalExposure: "disabled",
+      externalExposure: "enabled",
     });
   });
 });

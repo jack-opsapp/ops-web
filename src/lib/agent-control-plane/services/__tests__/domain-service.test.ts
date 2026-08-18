@@ -346,7 +346,11 @@ describe("OpsAgentDomainService", () => {
     ]);
     expect(
       CAPABILITY_MANIFEST.every(
-        (capability) => capability.availability.externalExposure === "disabled"
+        (capability) =>
+          capability.availability.externalExposure ===
+          (capability.availability.implementation === "available"
+            ? "enabled"
+            : "disabled")
       )
     ).toBe(true);
   });

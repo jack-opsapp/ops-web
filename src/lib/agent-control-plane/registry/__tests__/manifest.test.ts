@@ -869,22 +869,25 @@ describe("agent capability manifest", () => {
   });
 
   it("keeps implementation availability separate from external exposure", () => {
+    // P1 MCP mount (2026-08-18): the nine implemented reads are externally
+    // exposed; everything else stays dark. Implemented-and-exposed move
+    // together for reads by deliberate choice, never by construction — the
+    // manifest invariant still rejects exposing an unimplemented capability.
     for (const capability of CAPABILITY_MANIFEST) {
+      const implemented = [
+        "get_job_conversation_context",
+        "list_scheduled_jobs",
+        "list_job_readiness_issues",
+        "get_job_communication_context",
+        "list_customer_jobs",
+        "get_job_summary",
+        "search_job_history",
+        "get_correspondence_evidence",
+        "resolve_job_participants",
+      ].includes(capability.name);
       expect(capability.availability).toEqual({
-        implementation: [
-          "get_job_conversation_context",
-          "list_scheduled_jobs",
-          "list_job_readiness_issues",
-          "get_job_communication_context",
-          "list_customer_jobs",
-          "get_job_summary",
-          "search_job_history",
-          "get_correspondence_evidence",
-          "resolve_job_participants",
-        ].includes(capability.name)
-          ? "available"
-          : "unavailable",
-        externalExposure: "disabled",
+        implementation: implemented ? "available" : "unavailable",
+        externalExposure: implemented ? "enabled" : "disabled",
       });
       expect(capability.rolloutFlag).toMatch(
         /^agent_control_plane\.capability\.[a-z][a-z0-9_]*$/

@@ -508,12 +508,16 @@ describe("operational reads domain facade", () => {
       );
       expect(capability?.availability).toEqual({
         implementation: "available",
-        externalExposure: "disabled",
+        externalExposure: "enabled",
       });
     }
     expect(
       CAPABILITY_MANIFEST.every(
-        (capability) => capability.availability.externalExposure === "disabled"
+        (capability) =>
+          capability.availability.externalExposure ===
+          (capability.availability.implementation === "available"
+            ? "enabled"
+            : "disabled")
       )
     ).toBe(true);
   });

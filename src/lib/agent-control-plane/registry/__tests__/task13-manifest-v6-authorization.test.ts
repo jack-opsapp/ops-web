@@ -131,7 +131,7 @@ describe("Task 13 manifest v6 availability", () => {
       expect(entry.schemaRevision).toBe(TASK_13_SCHEMA_REVISION);
       expect(entry.availability).toEqual({
         implementation: "available",
-        externalExposure: "disabled",
+        externalExposure: "enabled",
       });
       expect(entry.bounds.maxOutputCharacters).toBe(60_000);
       expect(entry.evidencePolicy).toMatchObject({

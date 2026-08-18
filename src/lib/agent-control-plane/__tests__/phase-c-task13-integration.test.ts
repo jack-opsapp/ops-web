@@ -32,7 +32,7 @@ describe("Phase C and Task 13 integration", () => {
       expect(capability.operation).toBe("read");
       expect(capability.availability).toEqual({
         implementation: "available",
-        externalExposure: "disabled",
+        externalExposure: "enabled",
       });
     }
   });

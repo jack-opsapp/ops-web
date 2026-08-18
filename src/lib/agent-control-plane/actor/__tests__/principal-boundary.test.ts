@@ -145,7 +145,10 @@ describe("verified principal source boundary", () => {
       const isApprovedAdapter =
         relative === "src/lib/agent-control-plane/adapters/internal.ts" ||
         relative.startsWith("src/lib/agent-control-plane/adapters/internal/") ||
-        relative.startsWith("src/lib/agent-control-plane/oauth/");
+        relative.startsWith("src/lib/agent-control-plane/oauth/") ||
+        // The MCP transport's bearer gate: resolves a validated OAuth grant
+        // row to the branded principal. Exactly one file, not the mcp/ tree.
+        relative === "src/lib/agent-control-plane/mcp/bearer.ts";
       const isBoundaryItself = relative.endsWith(
         "src/lib/agent-control-plane/actor/principal-boundary.ts"
       );

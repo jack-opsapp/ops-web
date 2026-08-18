@@ -216,12 +216,16 @@ describe("Task 13 job-catalog domain facade", () => {
       );
       expect(capability?.availability).toEqual({
         implementation: "available",
-        externalExposure: "disabled",
+        externalExposure: "enabled",
       });
     }
     expect(
       CAPABILITY_MANIFEST.every(
-        (capability) => capability.availability.externalExposure === "disabled"
+        (capability) =>
+          capability.availability.externalExposure ===
+          (capability.availability.implementation === "available"
+            ? "enabled"
+            : "disabled")
       )
     ).toBe(true);
   });
@@ -443,7 +447,7 @@ describe("Task 13 job-catalog domain facade", () => {
       expect(
         CAPABILITY_MANIFEST.find((entry) => entry.name === capabilityName)
           ?.availability.externalExposure
-      ).toBe("disabled");
+      ).toBe("enabled");
     }
   });
 });
