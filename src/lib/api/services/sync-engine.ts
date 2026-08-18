@@ -109,6 +109,10 @@ import {
   isRecruitingProviderNoise,
 } from "@/lib/email/opportunity-correspondence-classifier";
 import {
+  buildDeterministicContactFormLead,
+  partitionUnmatchedLeadContexts,
+} from "@/lib/email/contact-form-lead-gate";
+import {
   extractEmailAddress,
   type ContactFormSubmissionIdentity,
 } from "@/lib/utils/email-parsing";
@@ -4101,8 +4105,26 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       context,
     ])
   );
+  // Website contact-form submissions are leads by construction — a human
+  // asked to be contacted. Claim them deterministically so a sub-threshold
+  // model verdict can never discard one: the reviewer keeps only what it
+  // scores as a lead, and the mailbox cursor then advances past the rest.
+  const { deterministicContexts, aiCandidateContexts } =
+    partitionUnmatchedLeadContexts(input.contexts);
+
+  const deterministicLeads = deterministicContexts.flatMap((context) => {
+    const lead = buildDeterministicContactFormLead(context);
+    if (!lead) return [];
+    console.log("[email-ingest] contact-form-lead-claimed", {
+      messageId: context.email.id,
+      threadId: context.email.threadId,
+      contactEmail: lead.clientEmail,
+    });
+    return [lead];
+  });
+
   const aiResult = await AISyncReviewer.reviewUnmatchedEmails(
-    input.contexts.map((context) => context.email),
+    aiCandidateContexts.map((context) => context.email),
     input.connection,
     {
       name: input.companyName,
@@ -4115,6 +4137,26 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       await getCachedOperatorIdentity(input.connection)
     )
   );
+
+  // Safety net: an unmatched inbound the reviewer neither promoted nor
+  // deferred is otherwise dropped with no record anywhere, and the cursor
+  // moves past it permanently. Surface the discard so it is auditable and
+  // recoverable instead of silently lost.
+  const promotedOrDeferred = new Set<string>([
+    ...aiResult.classifiedLeads.map((lead) => lead.email.id),
+    ...(aiResult.deferredClassifications ?? []).map(
+      (deferred) => deferred.email.id
+    ),
+  ]);
+  for (const context of aiCandidateContexts) {
+    if (promotedOrDeferred.has(context.email.id)) continue;
+    console.warn("[email-ingest] unmatched-inbound-discarded", {
+      messageId: context.email.id,
+      threadId: context.email.threadId,
+      sender: context.email.from,
+      subject: context.email.subject,
+    });
+  }
 
   for (const deferred of aiResult.deferredClassifications ?? []) {
     await input.providerLockCheckpoint();
@@ -4142,7 +4184,10 @@ async function persistAIClassifiedUnmatchedInbound(input: {
     input.result.needsReview += 1;
   }
 
-  for (const classified of aiResult.classifiedLeads) {
+  // Deterministic submissions persist through the identical path as
+  // model-classified leads — same enrichment, correspondence events and
+  // projections — so there is no second lead-creation path to drift.
+  for (const classified of [...deterministicLeads, ...aiResult.classifiedLeads]) {
     await input.providerLockCheckpoint();
     try {
       const classifiedEmail = normalizeProviderBackedEmailForSync(
