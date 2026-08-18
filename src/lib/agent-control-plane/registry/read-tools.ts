@@ -43,9 +43,12 @@ const DARK_AVAILABILITY = Object.freeze({
   implementation: "unavailable" as const,
   externalExposure: "disabled" as const,
 });
-const INTERNAL_ONLY_AVAILABILITY = Object.freeze({
+// P1 MCP mount (2026-08-18): the nine v6 reads are externally exposed. The
+// manifest constant IS the rollout control — the MCP transport registers
+// exactly the entries carrying this availability.
+const EXTERNAL_READ_AVAILABILITY = Object.freeze({
   implementation: "available" as const,
-  externalExposure: "disabled" as const,
+  externalExposure: "enabled" as const,
 });
 const READ_CONFIRMATION = Object.freeze({ kind: "not_required" as const });
 const READ_IDEMPOTENCY = Object.freeze({ kind: "inherent" as const });
@@ -405,7 +408,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       ],
     },
     ...readMetadata({ riskTier: "low", maxResultItems: 50, maxWindowDays: 90 }),
-    availability: INTERNAL_ONLY_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.list_scheduled_jobs",
   },
   {
@@ -459,7 +462,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 50,
       maxWindowDays: 90,
     }),
-    availability: INTERNAL_ONLY_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.list_job_readiness_issues",
   },
   {
@@ -548,7 +551,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 1,
       auditClass: "sensitive_read",
     }),
-    availability: INTERNAL_ONLY_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.get_job_communication_context",
   },
   {
@@ -595,7 +598,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 50,
       auditClass: "sensitive_read",
     }),
-    availability: INTERNAL_ONLY_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.get_job_conversation_context",
   },
   {
@@ -627,7 +630,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 50,
       maxWindowDays: 365,
     }),
-    availability: INTERNAL_ONLY_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.list_customer_jobs",
   },
   {
@@ -754,7 +757,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 1,
       auditClass: "sensitive_read",
     }),
-    availability: INTERNAL_ONLY_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.get_job_summary",
   },
   {
@@ -811,7 +814,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       auditClass: "search_read",
       rateLimitBucket: "evidence_search",
     }),
-    availability: INTERNAL_ONLY_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.search_job_history",
   },
   {
@@ -855,7 +858,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       auditClass: "evidence_read",
       rateLimitBucket: "evidence_search",
     }),
-    availability: INTERNAL_ONLY_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.get_correspondence_evidence",
   },
   {
@@ -920,7 +923,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       maxResultItems: 50,
       auditClass: "sensitive_read",
     }),
-    availability: INTERNAL_ONLY_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.resolve_job_participants",
   },
   {

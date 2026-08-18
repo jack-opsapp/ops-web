@@ -36,16 +36,19 @@ vi.mock("@/lib/agent-control-plane/registry/capability-manifest", async () => {
   return {
     ...actual,
     get CAPABILITY_MANIFEST() {
+      // Authoritative in both directions so these tests pin transport
+      // behavior as a function of manifest state, independent of the real
+      // manifest's current exposure choices.
       return actual.CAPABILITY_MANIFEST.map((entry) =>
-        exposedOverride.has(entry.name)
-          ? Object.freeze({
-              ...entry,
-              availability: Object.freeze({
-                implementation: "available" as const,
-                externalExposure: "enabled" as const,
-              }),
-            })
-          : entry
+        Object.freeze({
+          ...entry,
+          availability: Object.freeze({
+            implementation: entry.availability.implementation,
+            externalExposure: exposedOverride.has(entry.name)
+              ? ("enabled" as const)
+              : ("disabled" as const),
+          }),
+        })
       );
     },
   };
@@ -229,7 +232,7 @@ beforeEach(() => {
 });
 
 describe("externallyExposedReadCapabilities", () => {
-  it("is empty while every manifest entry is internal-only", () => {
+  it("is empty when no manifest entry is externally exposed", () => {
     expect(externallyExposedReadCapabilities()).toEqual([]);
   });
 
@@ -620,5 +623,119 @@ describe("/api/mcp route gate", () => {
     );
     expect(authedGet.status).toBe(405);
     expect(authedGet.headers.get("allow")).toBe("POST");
+  });
+});
+
+describe("per-capability dispatch across the nine reads", () => {
+  const U = "55555555-5555-4555-8555-555555555555";
+  const MINIMAL_INPUTS: Readonly<
+    Record<string, { input: unknown; method: string }>
+  > = Object.freeze({
+    get_job_conversation_context: {
+      input: { job_ref: { kind: "opportunity", id: U } },
+      method: "getJobConversationContext",
+    },
+    list_scheduled_jobs: {
+      input: {
+        from: "2026-08-01T00:00:00.000Z",
+        to: "2026-08-15T00:00:00.000Z",
+      },
+      method: "listScheduledJobs",
+    },
+    list_job_readiness_issues: {
+      input: {
+        from: "2026-08-01T00:00:00.000Z",
+        to: "2026-08-15T00:00:00.000Z",
+      },
+      method: "listJobReadinessIssues",
+    },
+    get_job_communication_context: {
+      input: { job_ref: { kind: "project", id: U }, purpose: "general" },
+      method: "getJobCommunicationContext",
+    },
+    resolve_job_participants: {
+      input: { job_ref: { kind: "project", id: U } },
+      method: "resolveJobParticipants",
+    },
+    list_customer_jobs: {
+      input: { customer_ref: { kind: "client", id: U } },
+      method: "listCustomerJobs",
+    },
+    get_job_summary: {
+      input: { job_ref: { kind: "project", id: U } },
+      method: "getJobSummary",
+    },
+    search_job_history: {
+      input: {
+        query: "deck",
+        scope: { kind: "jobs", job_refs: [{ kind: "project", id: U }] },
+      },
+      method: "searchJobHistory",
+    },
+    get_correspondence_evidence: {
+      input: {
+        job_ref: { kind: "project", id: U },
+        evidence_ids: [`job_conversation_turn:${U}`],
+      },
+      method: "getCorrespondenceEvidence",
+    },
+  });
+
+  it("covers every capability name exactly once", () => {
+    expect(Object.keys(MINIMAL_INPUTS).sort()).toEqual(
+      [...CAPABILITY_NAMES].sort()
+    );
+  });
+
+  for (const name of CAPABILITY_NAMES) {
+    it(`dispatches ${name} to its domain method with valid minimal input`, async () => {
+      exposedOverride = new Set([name]);
+      const fixture = MINIMAL_INPUTS[name]!;
+      const domainResult = { capability: name };
+      const { service, calls } = fakeDomainService(() => domainResult);
+      const { payload } = await callTool(
+        buildHandler(service),
+        name,
+        fixture.input
+      );
+      const result = payload?.result as {
+        content: Array<{ type: string; text: string }>;
+        isError?: boolean;
+      };
+      expect(result.isError).toBeUndefined();
+      expect(result.content[0]?.text).toBe(
+        serializeUntrustedPromptData(domainResult)
+      );
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.method).toBe(fixture.method);
+      expect(calls[0]?.actorContext).toBe(FAKE_ACTOR_CONTEXT);
+    });
+  }
+});
+
+describe("real manifest exposure state (P1 ship pin)", () => {
+  it("exposes exactly the nine v6 reads externally", async () => {
+    const actual = await vi.importActual<
+      typeof import("@/lib/agent-control-plane/registry/capability-manifest")
+    >("@/lib/agent-control-plane/registry/capability-manifest");
+    const exposed = actual.CAPABILITY_MANIFEST.filter(
+      (entry) =>
+        entry.availability.implementation === "available" &&
+        entry.availability.externalExposure === "enabled"
+    );
+    expect(exposed.map((entry) => entry.name).sort()).toEqual(
+      [...CAPABILITY_NAMES].sort()
+    );
+    for (const entry of exposed) {
+      expect(entry.operation).toBe("read");
+      expect(entry.annotations.readOnlyHint).toBe(true);
+      expect(entry.annotations.destructiveHint).toBe(false);
+    }
+    const writesExposed = actual.CAPABILITY_MANIFEST.filter(
+      (entry) =>
+        entry.operation !== "read" &&
+        entry.availability.externalExposure === "enabled"
+    );
+    expect(writesExposed).toEqual([]);
   });
 });
