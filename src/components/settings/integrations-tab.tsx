@@ -48,6 +48,7 @@ import { useDictionary } from "@/i18n/client";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { AutoSendSettings } from "./auto-send-settings";
 import { AutonomyStatusPanel } from "./autonomy-status-panel";
+import { ConnectedAgentsSection } from "./connected-agents-section";
 import { useRouter } from "next/navigation";
 import { useFeatureFlagsStore } from "@/lib/store/feature-flags-store";
 import { authedFetch } from "@/lib/utils/authed-fetch";
@@ -840,6 +841,11 @@ export function IntegrationsTab() {
 
       {/* AI Setup Card — Phase C only */}
       {phaseCEnabled && <AiSetupCard />}
+
+      {/* Connected agents — external MCP grants issued in this operator's
+          name. Last card on the tab: a review surface consulted rarely, so it
+          never takes space from the connections the operator sets up first. */}
+      <ConnectedAgentsSection />
     </div>
   );
 }
