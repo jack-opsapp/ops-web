@@ -4320,7 +4320,7 @@ begin
       ) > 100 then false else exists (
         select 1
         from unnest(
-          coalesce(candidate.team_member_ids, array[]::text[])[1:100]
+          (coalesce(candidate.team_member_ids, array[]::text[]))[1:100]
         ) raw_member(user_id)
         left join public.users crew_user
           on pg_input_is_valid(raw_member.user_id, 'uuid')
@@ -4340,7 +4340,7 @@ begin
       ) > 100 then 0 else (
         select count(distinct crew_user.id)::integer
         from unnest(
-          coalesce(candidate.team_member_ids, array[]::text[])[1:100]
+          (coalesce(candidate.team_member_ids, array[]::text[]))[1:100]
         ) raw_member(user_id)
         join public.users crew_user
           on pg_input_is_valid(raw_member.user_id, 'uuid')
@@ -4383,7 +4383,7 @@ begin
     cross join lateral (
       select distinct raw_member.user_id
       from unnest(
-        coalesce(retained.team_member_ids, array[]::text[])[1:100]
+        (coalesce(retained.team_member_ids, array[]::text[]))[1:100]
       ) raw_member(user_id)
       where raw_member.user_id is not null
     ) member
@@ -5191,7 +5191,7 @@ begin
            ) > 100 then false else exists (
              select 1
              from unnest(
-               coalesce(task.team_member_ids, array[]::text[])[1:100]
+               (coalesce(task.team_member_ids, array[]::text[]))[1:100]
              ) member(user_id)
              left join public.users crew_user
                on pg_input_is_valid(member.user_id, 'uuid')
@@ -5208,7 +5208,7 @@ begin
            ) > 100 then null else exists (
              select 1
              from unnest(
-               coalesce(task.team_member_ids, array[]::text[])[1:100]
+               (coalesce(task.team_member_ids, array[]::text[]))[1:100]
              ) member(user_id)
              join public.users crew_user
                on crew_user.id::text = member.user_id
@@ -5445,7 +5445,7 @@ begin
     left join lateral unnest(
       case
         when source.legacy_count <= 100 then
-          coalesce(source.project_images, array[]::text[])[1:100]
+          (coalesce(source.project_images, array[]::text[]))[1:100]
         else array[]::text[]
       end
     ) legacy(url) on true

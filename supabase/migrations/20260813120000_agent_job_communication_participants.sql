@@ -960,9 +960,9 @@ begin
            greatest(coalesce(task.duration, 1), 1) as duration,
            case when cardinality(coalesce(
              task.team_member_ids, array[]::text[]
-           )) <= 100 then coalesce(
+           )) <= 100 then (coalesce(
              task.team_member_ids, array[]::text[]
-           )[1:100] else array[]::text[] end as team_member_ids,
+           ))[1:100] else array[]::text[] end as team_member_ids,
            cardinality(coalesce(
              task.team_member_ids, array[]::text[]
            )) > 100 as assignment_source_over_bound,
@@ -1191,7 +1191,7 @@ begin
       case when cardinality(
         coalesce(occurrence.team_member_ids, array[]::text[])
       ) <= 100 then
-        coalesce(occurrence.team_member_ids, array[]::text[])[1:100]
+        (coalesce(occurrence.team_member_ids, array[]::text[]))[1:100]
       else array[]::text[] end
     ) with ordinality member(user_id, ordinality)
   ), valid_crew as materialized (
@@ -1283,9 +1283,9 @@ begin
     cross join lateral unnest(
       case when cardinality(coalesce(
         task.team_member_ids, array[]::text[]
-      )) <= 100 then coalesce(
+      )) <= 100 then (coalesce(
         task.team_member_ids, array[]::text[]
-      )[1:100] else array[]::text[] end
+      ))[1:100] else array[]::text[] end
     ) with ordinality member(user_id, ordinality)
     group by task.id, member.user_id
   ), participant_assignment_valid as materialized (
@@ -1597,14 +1597,14 @@ begin
              as source_query_bound,
            coalesce(source.legacy_count <= 100 and exists (
              select 1
-             from unnest(coalesce(source.project_images, array[]::text[])[1:100])
+             from unnest((coalesce(source.project_images, array[]::text[]))[1:100])
                legacy(url)
              where legacy.url is null
                 or octet_length(legacy.url) not between 1 and 2048
            ), false) as source_data_invalid,
            case when source.legacy_count <= 100 then (
              select count(*)::integer
-             from unnest(coalesce(source.project_images, array[]::text[])[1:100])
+             from unnest((coalesce(source.project_images, array[]::text[]))[1:100])
                legacy(url)
              where case
                when octet_length(legacy.url) between 1 and 2048
@@ -2255,7 +2255,8 @@ begin
                when p_purpose = 'schedule_notice'
                  then array['site_photos']
                else array[]::text[]
-             end as context_raw,
+             end
+           end as context_raw,
            coalesce((
              select max(participant.participant_total)
              from raw_participant participant

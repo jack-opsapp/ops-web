@@ -3119,9 +3119,9 @@ begin
     cross join lateral unnest(
       case when cardinality(coalesce(
         schedule.team_member_ids, array[]::text[]
-      )) <= 100 then coalesce(
+      )) <= 100 then (coalesce(
         schedule.team_member_ids, array[]::text[]
-      )[1:100] else array[]::text[] end
+      ))[1:100] else array[]::text[] end
     ) member(user_id)
   ), summary_schedule_assignment_state as materialized (
     select schedule.task_id,
@@ -3448,9 +3448,9 @@ begin
              task.team_member_ids, array[]::text[]
            )) > 100 then false else exists (
              select 1
-             from unnest(coalesce(
+             from unnest((coalesce(
                task.team_member_ids, array[]::text[]
-             )[1:100]) member(user_id)
+             ))[1:100]) member(user_id)
              join public.users crew_user
                on pg_input_is_valid(member.user_id, 'uuid')
               and crew_user.id::text = member.user_id
@@ -3462,9 +3462,9 @@ begin
              task.team_member_ids, array[]::text[]
            )) > 100 then false else exists (
              select 1
-             from unnest(coalesce(
+             from unnest((coalesce(
                task.team_member_ids, array[]::text[]
-             )[1:100]) member(user_id)
+             ))[1:100]) member(user_id)
              left join public.users crew_user
                on pg_input_is_valid(member.user_id, 'uuid')
               and crew_user.id::text = member.user_id
@@ -3596,7 +3596,7 @@ begin
     ) source on true
     left join lateral unnest(
       case when source.legacy_count <= 100 then
-        coalesce(source.project_images, array[]::text[])[1:100]
+        (coalesce(source.project_images, array[]::text[]))[1:100]
       else array[]::text[] end
     ) legacy(url) on true
     group by source.legacy_count
