@@ -295,8 +295,11 @@ describe("job readiness fixed RPC contract", () => {
     expect(RPC.slice(photoPartition, lateLegacySource + 800)).toContain(
       "photo.structured_row_count = 0"
     );
+    // Matches the 9103efcf parse repair: PostgreSQL requires parentheses
+    // around a function call before subscripting, so the slice reads
+    // (coalesce(...))[1:100] in the applied SQL.
     expect(RPC).toContain(
-      "when source.legacy_count <= 100 then coalesce(source.project_images, array[]::text[])[1:100]"
+      "when source.legacy_count <= 100 then (coalesce(source.project_images, array[]::text[]))[1:100]"
     );
     expect(RPC).toContain("coalesce(legacy.source_query_bound, false)");
     expect(RPC).toContain("coalesce(legacy.source_data_invalid, false)");
