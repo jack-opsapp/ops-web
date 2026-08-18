@@ -390,10 +390,24 @@ async function captureEnvelope(
     normalizedSubject = normalized.subject;
     normalizedPlainText = normalized.normalizedPlainText;
     normalizationStatus = "normalized";
-  } catch {
+  } catch (error) {
     normalizedSubject = CORRESPONDENCE_NORMALIZATION_REJECTED_SUBJECT;
     normalizedPlainText = CORRESPONDENCE_NORMALIZATION_REJECTED_TEXT;
     normalizationStatus = "rejected";
+    // A rejection stores placeholders in place of the subject and body, so the
+    // reason has to survive here or it is unrecoverable. Identifiers and the
+    // thrown reason only — never the message content.
+    console.warn(
+      "[provider-delivery-source] correspondence normalization rejected",
+      JSON.stringify({
+        companyId: input.companyId,
+        connectionId: input.connectionId,
+        providerMessageId: input.providerMessageId,
+        mediaType: input.content.mediaType,
+        contentBytes: Buffer.byteLength(input.content.value, "utf8"),
+        reason: error instanceof Error ? error.message : String(error),
+      })
+    );
   }
   const response = await supabase.rpc(
     "capture_agent_provider_delivery_source_as_system",

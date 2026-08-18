@@ -951,3 +951,108 @@ describe("normalizeCorrespondence", () => {
     expect(() => normalizeCorrespondence(source(overrides))).toThrow(TypeError);
   });
 });
+
+// Escaped rather than literal so the direction of the source file itself never
+// depends on the characters under test.
+const ARABIC_GREETING = "مرحبا";
+const HEBREW_GREETING = "שלום";
+const ARABIC_INDIC_THREE = "٣";
+
+function html(value: string): NormalizeCorrespondenceInput {
+  return source({ content: { mediaType: "text/html", value } });
+}
+
+describe("normalizeCorrespondence direction handling", () => {
+  it.each([
+    ["an explicit left-to-right body", '<body dir="ltr">Deck is done.</body>'],
+    [
+      "the Apple Mail default direction",
+      '<body dir="auto"><div dir="auto">Deck is done.</div></body>',
+    ],
+    [
+      "an auto direction that resolves left-to-right",
+      `<body dir="auto">Deck is done. ${ARABIC_GREETING}</body>`,
+    ],
+    [
+      "an auto direction opening with a weak Arabic-Indic digit",
+      `<body dir="auto">${ARABIC_INDIC_THREE} Deck is done.</body>`,
+    ],
+    [
+      "a left-to-right direction inherited by descendants",
+      '<body dir="ltr"><div><p>Deck is done.</p></div></body>',
+    ],
+  ])("reads %s", (_label, value) => {
+    expect(
+      normalizeCorrespondence(html(value)).normalizedPlainText
+    ).toContain("Deck is done.");
+  });
+
+  it.each([
+    ["an explicit right-to-left body", '<body dir="rtl">Deck is done.</body>'],
+    [
+      "a right-to-left direction in any letter case",
+      '<body dir=" RTL ">Deck is done.</body>',
+    ],
+    [
+      "an auto direction resolving right-to-left from Arabic",
+      `<body dir="auto">${ARABIC_GREETING} Deck is done.</body>`,
+    ],
+    [
+      "an auto direction resolving right-to-left from Hebrew",
+      `<body dir="auto">${HEBREW_GREETING} Deck is done.</body>`,
+    ],
+    [
+      "an auto direction resolving right-to-left past a directed descendant",
+      `<body dir="auto"><span dir="ltr">Deck is done.</span> ${ARABIC_GREETING}</body>`,
+    ],
+    [
+      "a right-to-left direction inherited by a nested element",
+      '<div dir="rtl"><p>Deck is done.</p></div>',
+    ],
+    [
+      "an unrecognised direction whose fallback mail clients disagree on",
+      '<body dir="banana">Deck is done.</body>',
+    ],
+    [
+      "an auto direction reversing flex order",
+      `<div dir="auto" style="display:flex"><span>${ARABIC_GREETING}</span><span>DO NOT</span></div>`,
+    ],
+    [
+      "bidi isolation under an accepted direction",
+      '<div dir="ltr"><bdi>LAVORPPA</bdi></div>',
+    ],
+    [
+      "a bidi override under an accepted direction",
+      '<div dir="auto"><bdo dir="ltr">LAVORPPA</bdo></div>',
+    ],
+  ])("rejects %s instead of trusting reordered text", (_label, value) => {
+    expect(() => normalizeCorrespondence(html(value))).toThrow(
+      /cannot be evaluated safely/i
+    );
+  });
+
+  it("reads an auto direction carrying no strong directional character", () => {
+    expect(
+      normalizeCorrespondence(html('<body dir="auto">123 — 456</body>'))
+        .normalizedPlainText
+    ).toBe("123 — 456");
+  });
+
+  it("reads a realistic Apple Mail body end to end", () => {
+    const normalized = normalizeCorrespondence(
+      html(
+        `<html><head><meta charset="utf-8"></head>
+         <body dir="auto">
+           <div dir="auto">Hi Jackson,</div>
+           <div dir="auto"><br></div>
+           <div dir="auto">Deck is done. Invoice attached.</div>
+           <div dir="auto">— Dave</div>
+         </body></html>`
+      )
+    );
+    expect(normalized.normalizedPlainText).toBe(
+      "Hi Jackson,\nDeck is done. Invoice attached.\n— Dave"
+    );
+    expect(normalized.subject).toBe("Deck repair");
+  });
+});

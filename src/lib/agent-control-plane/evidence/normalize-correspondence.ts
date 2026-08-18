@@ -200,6 +200,18 @@ const SAFE_TEXT_FONT_FAMILIES = new Set([
   "ui-serif",
   "verdana",
 ]);
+// A right-to-left base direction reorders neutral characters, so rendered text
+// can say something the character sequence does not. Direction therefore has to
+// resolve to a known value before any text is trusted. These are the Unicode
+// ranges whose letters carry a strong RTL bidirectional class (R or AL).
+// Membership is only ever tested on characters that are already letters, which
+// is what keeps the weak classes out: Arabic-Indic digits (AN) and Arabic and
+// Hebrew combining marks (NSM) sit inside these ranges but are not letters, and
+// the Unicode Bidirectional Algorithm does not treat them as strong either.
+const STRONG_RTL_LETTER =
+  /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufeff\u{10800}-\u{10fff}\u{1e800}-\u{1efff}]/u;
+const STRONG_DIRECTIONAL_LETTER = /[\p{L}\p{Nl}]/u;
+type ResolvedDirection = "ltr" | "rtl";
 const NON_TEXT_TAGS = new Set([
   "script",
   "style",
@@ -1237,6 +1249,65 @@ function normalizeHtmlText(value: string): string {
     if (elements.length > MAX_HTML_ELEMENTS) {
       throw new TypeError("content HTML is too complex");
     }
+
+    // `dir="auto"` takes its direction from the first strong directional
+    // character in the element's own text, per the HTML directionality
+    // algorithm. Text that carries its own `dir` does not contribute — those
+    // elements resolve on their own pass — and neither does text inside
+    // subtrees that render nothing.
+    const autoDirectionCache = new WeakMap<Element, ResolvedDirection>();
+    const resolvedAutoDirection = (element: Element): ResolvedDirection => {
+      const cached = autoDirectionCache.get(element);
+      if (cached) return cached;
+      const firstStrongDirection = (node: Node): ResolvedDirection | null => {
+        if (node.nodeType === DomNode.TEXT_NODE) {
+          for (const character of node.nodeValue ?? "") {
+            if (!STRONG_DIRECTIONAL_LETTER.test(character)) continue;
+            return STRONG_RTL_LETTER.test(character) ? "rtl" : "ltr";
+          }
+          return null;
+        }
+        if (node.nodeType !== DomNode.ELEMENT_NODE) return null;
+        const candidate = node as Element;
+        if (candidate !== element && candidate.hasAttribute("dir")) return null;
+        if (NON_TEXT_TAGS.has(candidate.tagName.toLowerCase())) return null;
+        for (const child of Array.from(candidate.childNodes)) {
+          const direction = firstStrongDirection(child);
+          if (direction) return direction;
+        }
+        return null;
+      };
+      // No strong character means nothing can reorder, so `auto` renders `ltr`.
+      const direction = firstStrongDirection(element) ?? "ltr";
+      autoDirectionCache.set(element, direction);
+      return direction;
+    };
+
+    // The direction an element authors for itself, or null when it authors
+    // none and inherits from its ancestors.
+    const authoredDirection = (element: Element): ResolvedDirection | null => {
+      if (!element.hasAttribute("dir")) return null;
+      const value = (element.getAttribute("dir") ?? "").trim().toLowerCase();
+      if (value === "ltr") return "ltr";
+      if (value === "rtl") return "rtl";
+      if (value === "auto") return resolvedAutoDirection(element);
+      // The spec resolves an unrecognised `dir` by inheritance, but mail
+      // clients disagree on that fallback, so the rendered order is unknowable.
+      return indeterminateCss();
+    };
+
+    const inheritedDirectionCache = new WeakMap<Element, ResolvedDirection>();
+    const inheritedDirection = (element: Element): ResolvedDirection => {
+      const cached = inheritedDirectionCache.get(element);
+      if (cached) return cached;
+      const parent = element.parentElement;
+      const direction =
+        authoredDirection(element) ??
+        (parent ? inheritedDirection(parent) : "ltr");
+      inheritedDirectionCache.set(element, direction);
+      return direction;
+    };
+
     for (const element of elements) {
       const inlineStyle = element.getAttribute("style") ?? "";
       assertSupportedCssDeclarations(inlineStyle);
@@ -1258,7 +1329,7 @@ function normalizeHtmlText(value: string): string {
       ].some((candidate) => candidate?.trim());
       if (
         ["bdi", "bdo"].includes(tagName) ||
-        element.hasAttribute("dir") ||
+        authoredDirection(element) === "rtl" ||
         ["del", "s", "strike"].includes(tagName) ||
         ["select", "textarea"].includes(tagName) ||
         (["meter", "progress"].includes(tagName) &&
@@ -1387,16 +1458,10 @@ function normalizeHtmlText(value: string): string {
     const renderedSeparator = (element: Element): "" | "\n" | "\t" => {
       const style = styleFor(element);
       const display = style.display.trim().toLowerCase();
-      let authoredDirection = "";
-      let directionElement: Element | null = element;
-      while (directionElement && !authoredDirection) {
-        authoredDirection = (
-          directionElement.getAttribute("dir") ?? ""
-        ).toLowerCase();
-        directionElement = directionElement.parentElement;
-      }
       const direction =
-        style.direction.trim().toLowerCase() || authoredDirection;
+        style.direction.trim().toLowerCase() === "rtl"
+          ? "rtl"
+          : inheritedDirection(element);
       if (
         [
           "flex",
