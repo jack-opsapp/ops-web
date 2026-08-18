@@ -235,14 +235,14 @@ Single mode-aware floating window for all project interactions (`src/components/
 
 ## Notification Rail
 
-The header contains a notification rail (left side of TopBar). When building features that produce user-facing events, create notifications:
+The header contains a notification rail (left side of TopBar). When building features that produce user-facing events, create notifications — but the write lane depends on where the code runs. **The 2026-07-15 hardening revoked INSERT on `public.notifications` from the app roles (`anon`/`authenticated`).** A direct `supabase.from("notifications").insert(...)` from browser code fails with `42501`, and supabase-js surfaces that only through the `{ error }` return value — code written that way drops its notifications silently (bug `e302355c`).
+
+**Server-side code (API routes, crons, services running on the service-role client): insert directly.** `service_role` holds INSERT — this is the lane for nearly all notification creation. Prefer the existing helpers (`NotificationService` in `src/lib/api/services/notification-service.ts`, the `notification-dispatch.ts` helpers) before hand-rolling an insert:
 
 ```typescript
-import { NotificationService } from "@/lib/api/services/notification-service";
-
-// Standard dismissible notification
+// Server-side only (service-role client)
 await supabase.from("notifications").insert({
-  user_id: userId,
+  user_id: userId,       // recipient
   company_id: companyId,
   type: "mention",
   title: "Task completed",
@@ -252,22 +252,11 @@ await supabase.from("notifications").insert({
   action_url: "/projects/abc",
   action_label: "View Project",
 });
-
-// Persistent notification (stays until resolved)
-await supabase.from("notifications").insert({
-  user_id: userId,
-  company_id: companyId,
-  type: "role_needed",
-  title: "Email scan complete",
-  body: "12 new leads found from inbox scan",
-  is_read: false,
-  persistent: true,  // Cannot be dismissed by user
-  action_url: "/pipeline",
-  action_label: "View Results",
-});
 ```
 
-**When to use persistent:** Long-running operations the user initiated and is waiting on (scans, imports, AI analysis). Resolve by setting `is_read = true` programmatically when the user acts on it.
+**Browser code: never insert into `notifications` directly** — it fails silently. Route the event through an API route (server lane above) or a narrow SECURITY DEFINER RPC. The RPC archetype is `request_lockout_admin_notification` (`src/components/lockout/request-button.tsx`); the doctrine for new ones — actor from `private.get_current_user_id()`, recipients derived server-side from underlying rows or `users_with_permission` (never caller input), fixed server-side copy, server-literal `type`, internal-path-or-NULL `action_url`, dedupe where persistent — is in `ops-software-bible/07_SPECIALIZED_FEATURES.md` §14.
+
+**When to use persistent:** Long-running operations the user initiated and is waiting on (scans, imports, AI analysis). Resolve by setting `is_read = true` programmatically when the user acts on it. `persistent: true` cannot be dismissed by the user.
 
 **When to use standard:** Informational events (task completed, expense approved, new comment). User can dismiss.
 
