@@ -208,12 +208,25 @@ function snapshotExactDenseDataArray(
   }
 }
 
-function snapshotCanonicalUuidArray(value: unknown): readonly string[] | null {
+// Role identifiers are opaque catalog keys, not tenancy claims: the seven
+// global OPS roles are seeded as zero-prefix sentinel UUIDs (version and
+// variant nibbles 0), which the strict RFC-4122 canonical pattern rejects.
+// Requiring hex UUID *shape* keeps injection defense; requiring version
+// nibbles here would (and, until the 2026-08-18 MCP mount E2E, silently did)
+// reject every OPS user's authority row. Actor and company identifiers keep
+// the strict canonical check.
+const ROLE_UUID_SHAPE_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+function snapshotRoleUuidArray(value: unknown): readonly string[] | null {
   const values = snapshotExactDenseDataArray(value, MAX_AUTHORITY_ARRAY_ITEMS);
   if (!values) return null;
   for (let index = 0; index < values.length; index += 1) {
     const item = values[index];
-    if (typeof item !== "string" || !regexpTest(CANONICAL_UUID_PATTERN, item)) {
+    if (
+      typeof item !== "string" ||
+      !regexpTest(ROLE_UUID_SHAPE_PATTERN, item)
+    ) {
       return null;
     }
   }
@@ -285,7 +298,7 @@ function authoritySnapshotFromRpcData(
   const companyId = values?.company_id;
   const isActive = values?.is_active;
   const isAdmin = values?.is_admin;
-  const roleIds = snapshotCanonicalUuidArray(values?.role_ids);
+  const roleIds = snapshotRoleUuidArray(values?.role_ids);
   const configuredPermissions = snapshotConfiguredPermissions(
     values?.configured_permissions
   );

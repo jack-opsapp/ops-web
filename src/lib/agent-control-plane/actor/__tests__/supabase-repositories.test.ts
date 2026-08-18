@@ -104,6 +104,35 @@ describe("Supabase actor authority repository", () => {
     ).rejects.toBeTruthy();
   });
 
+  it("accepts the seeded global sentinel role ids every OPS user carries", async () => {
+    // The seven global OPS roles are zero-prefix sentinel UUIDs (version and
+    // variant nibbles 0). Regression for the 2026-08-18 MCP mount E2E find:
+    // the strict RFC-4122 canonical check here rejected every real user's
+    // authority row. Role ids are opaque catalog keys — shape-only checking.
+    const rpc = vi.fn(async () => ({
+      data: [
+        {
+          ...AUTHORITY_ROW,
+          role_ids: [
+            "00000000-0000-0000-0000-000000000002",
+            "00000000-0000-0000-0000-0000000000a1",
+          ],
+        },
+      ],
+      error: null,
+    }));
+    const repository = createSupabaseActorAuthorityRepository({ rpc });
+    const snapshot = await repository.resolveActorAuthority({
+      actorUserId: ACTOR_ID,
+      companyId: COMPANY_ID,
+      registeredPermissionKeys: ["projects.view"],
+    });
+    expect(snapshot?.roleIds).toEqual([
+      "00000000-0000-0000-0000-000000000002",
+      "00000000-0000-0000-0000-0000000000a1",
+    ]);
+  });
+
   it("rejects an accessor-backed admin field without invoking it", async () => {
     let adminReads = 0;
     const hostileRow = {
