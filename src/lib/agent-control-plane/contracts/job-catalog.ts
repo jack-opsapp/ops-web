@@ -261,10 +261,16 @@ function lifecycleMatchesStatus(input: {
   readonly status: z.infer<typeof JobStatusSchema>;
 }): boolean {
   if (input.lifecycle_state === "archived") {
+    // A project's archival IS a status value, so the coupling is exact.
+    // An opportunity's archival is `opportunities.archived_at` — a dimension
+    // independent of stage that this contract's `status` does not carry, so
+    // an archived opportunity legitimately reports any stage. Requiring
+    // stage 'discarded' here rejected every archived-but-not-discarded lead
+    // and failed the whole read (found on Maverick, 2026-08-18: a
+    // `new_lead` with archived_at set).
     return (
       (input.status.kind === "project" && input.status.value === "archived") ||
-      (input.status.kind === "opportunity" &&
-        input.status.value === "discarded")
+      input.status.kind === "opportunity"
     );
   }
   const terminal =

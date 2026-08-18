@@ -601,7 +601,10 @@ function isNotFound(error: unknown): boolean {
     const value = error as Readonly<Record<string, unknown>>;
     return (
       value.code === "P0002" &&
-      value.message === "agent_job_history_not_found_or_not_visible"
+      // The shipped RPC (ledger 20260814120000) raises the scope-prefixed
+      // form; this mapper was written against the unprefixed name and so
+      // downgraded every privacy-safe not-found to TEMPORARILY_UNAVAILABLE.
+      value.message === "agent_job_history_scope_not_found_or_not_visible"
     );
   } catch {
     return false;

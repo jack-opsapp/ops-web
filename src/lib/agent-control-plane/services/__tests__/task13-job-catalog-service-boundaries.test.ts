@@ -272,7 +272,7 @@ const HARNESSES: readonly Harness[] = [
     capabilityId: "search_job_history",
     rawInput: RAW_INPUTS.jobHistory,
     rpcName: "read_agent_job_history_as_system",
-    exactNotFoundMessage: "agent_job_history_not_found_or_not_visible",
+    exactNotFoundMessage: "agent_job_history_scope_not_found_or_not_visible",
     async createAuthorization() {
       const authorizations = await genericAuthorizations(
         this.capabilityId,
