@@ -3823,8 +3823,21 @@ begin
      or timestamp with time zone '2026-11-01 11:30:00+00'
        at time zone 'UTC'
        is distinct from timestamp '2026-11-01 11:30:00' then
-    raise exception 'operational_timezone_rules_unavailable'
-      using errcode = '55000';
+    -- DATED BACKSTOP (2026-08-17, Jackson's ship ruling; bug_reports follow-up
+    -- filed): the platform tzdb predates the 2026c permanent-DST rules and the
+    -- Supabase build refresh is pending (support ticket open). Booking horizons
+    -- keep the damage window empty until at least mid-September: stale and
+    -- current rules agree for every instant before 2026-11-01, and no
+    -- November-or-later schedule realistically enters the system before then.
+    -- Until 2026-09-15 this check therefore WARNS instead of failing; from
+    -- 2026-09-15 it hard-fails exactly as originally written, so stale rules
+    -- can never overlap real November scheduling. Restore the unconditional
+    -- raise the moment the platform tzdb is current.
+    if clock_timestamp() >= timestamptz '2026-09-15 00:00:00+00' then
+      raise exception 'operational_timezone_rules_unavailable'
+        using errcode = '55000';
+    end if;
+    raise warning 'operational_timezone_rules_stale: platform tzdb predates 2026c; hard enforcement resumes 2026-09-15';
   end if;
 end;
 $function$;
