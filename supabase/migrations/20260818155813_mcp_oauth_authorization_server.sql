@@ -24,7 +24,6 @@
 --   * the audit table is append-only: its single writer is the append RPC and
 --     no role holds UPDATE or DELETE.
 
-begin;
 
 -- Fail closed if the primitives this migration composes with have drifted.
 do $prerequisites$
@@ -1014,5 +1013,3 @@ revoke all on function public.append_mcp_request_audit_as_system(
 grant execute on function public.append_mcp_request_audit_as_system(
   text, uuid, uuid, uuid, uuid, text, text, text, text, text, integer, integer
 ) to service_role;
-
-commit;
