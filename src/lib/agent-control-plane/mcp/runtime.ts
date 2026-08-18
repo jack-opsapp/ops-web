@@ -71,11 +71,44 @@ export function getMcpServerRuntime(): McpServerRuntime {
 
   const supabase = getServiceRoleClient();
   const rpcClient: McpRpcClient = Object.freeze({
-    rpc(
+    async rpc(
       functionName: string,
       args: Readonly<Record<string, unknown>>
-    ): PromiseLike<{ readonly data: unknown; readonly error: unknown }> {
-      return supabase.rpc(functionName, args as Record<string, unknown>);
+    ): Promise<{ readonly data: unknown; readonly error: unknown }> {
+      try {
+        const { data, error } = await supabase.rpc(
+          functionName,
+          args as Record<string, unknown>
+        );
+        if (error != null) {
+          const shaped = error as {
+            code?: string;
+            message?: string;
+            details?: string;
+            hint?: string;
+          };
+          console.error(
+            JSON.stringify({
+              at: "mcp_runtime_rpc",
+              fn: functionName,
+              errorCode: shaped.code ?? "unknown",
+              message: shaped.message ?? null,
+              details: shaped.details ?? null,
+              hint: shaped.hint ?? null,
+            })
+          );
+        }
+        return { data, error };
+      } catch (thrown) {
+        console.error(
+          JSON.stringify({
+            at: "mcp_runtime_rpc",
+            fn: functionName,
+            thrown: thrown instanceof Error ? thrown.message : "unknown",
+          })
+        );
+        throw thrown;
+      }
     },
   });
 

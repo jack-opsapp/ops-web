@@ -1,6 +1,5 @@
 import "server-only";
 
-import { ActorAccessError } from "@/lib/agent-control-plane/actor/errors";
 import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
 import { CAPABILITY_MANIFEST } from "@/lib/agent-control-plane/registry/capability-manifest";
@@ -56,6 +55,65 @@ interface ErrorEnvelope {
   readonly code: string;
   readonly message: string;
   readonly retryable: boolean;
+}
+
+const CONTRACT_ERROR_CODES: ReadonlySet<string> = new Set([
+  "UNAUTHENTICATED",
+  "INSUFFICIENT_SCOPE",
+  "FORBIDDEN",
+  "NOT_FOUND",
+  "INVALID_ARGUMENT",
+  "RESULT_TOO_LARGE",
+  "AMBIGUOUS",
+  "STALE_CONTEXT",
+  "RATE_LIMITED",
+  "TEMPORARILY_UNAVAILABLE",
+  "INTERNAL",
+]);
+
+interface ContractErrorEnvelope {
+  readonly contract_version: string;
+  readonly request_id: string;
+  readonly code: string;
+  readonly message: string;
+  readonly retryable: boolean;
+}
+
+/**
+ * Every domain read failure — ActorAccessError and each service's typed
+ * *ReadError — carries the same contract shape via toAgentError(). Anything
+ * that produces a well-formed envelope with a known stable code is a domain
+ * answer, not an internal fault; everything else collapses to INTERNAL.
+ */
+function contractErrorEnvelope(error: unknown): ContractErrorEnvelope | null {
+  if (!(error instanceof Error)) return null;
+  const candidate = error as Error & { toAgentError?: unknown };
+  if (typeof candidate.toAgentError !== "function") return null;
+  let envelope: unknown;
+  try {
+    envelope = candidate.toAgentError();
+  } catch {
+    return null;
+  }
+  if (typeof envelope !== "object" || envelope === null) return null;
+  const record = envelope as Readonly<Record<string, unknown>>;
+  if (
+    typeof record.contract_version !== "string" ||
+    typeof record.request_id !== "string" ||
+    typeof record.code !== "string" ||
+    !CONTRACT_ERROR_CODES.has(record.code) ||
+    typeof record.message !== "string" ||
+    typeof record.retryable !== "boolean"
+  ) {
+    return null;
+  }
+  return {
+    contract_version: record.contract_version,
+    request_id: record.request_id,
+    code: record.code,
+    message: record.message,
+    retryable: record.retryable,
+  };
 }
 
 function internalEnvelope(requestId: string): ErrorEnvelope {
@@ -198,14 +256,15 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
           await audit("ok", null, serialized.length);
           return textResult(serialized, false);
         } catch (error) {
-          if (error instanceof ActorAccessError) {
-            const envelope = error.toAgentError();
+          const envelope = contractErrorEnvelope(error);
+          if (envelope) {
             const serialized = serializeUntrustedPromptData(envelope);
             const outcome =
-              error.code === "FORBIDDEN" || error.code === "INSUFFICIENT_SCOPE"
+              envelope.code === "FORBIDDEN" ||
+              envelope.code === "INSUFFICIENT_SCOPE"
                 ? ("forbidden" as const)
                 : ("domain_error" as const);
-            await audit(outcome, error.code, serialized.length);
+            await audit(outcome, envelope.code, serialized.length);
             return textResult(serialized, true);
           }
           const serialized = serializeUntrustedPromptData(

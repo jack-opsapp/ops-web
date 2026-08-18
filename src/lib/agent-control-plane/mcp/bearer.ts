@@ -131,11 +131,27 @@ export async function resolveMcpBearer(
       capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
     });
   } catch (error) {
-    if (
-      error instanceof ActorAccessError &&
-      error.code === "TEMPORARILY_UNAVAILABLE"
-    ) {
-      return { kind: "unavailable", requestId };
+    if (error instanceof ActorAccessError) {
+      console.error(
+        JSON.stringify({
+          at: "mcp_bearer_authority",
+          requestId,
+          code: error.code,
+          reason: error.auditReasonForLog(),
+        })
+      );
+      if (error.code === "TEMPORARILY_UNAVAILABLE") {
+        return { kind: "unavailable", requestId };
+      }
+    } else {
+      console.error(
+        JSON.stringify({
+          at: "mcp_bearer_authority",
+          requestId,
+          code: "UNTYPED",
+          reason: error instanceof Error ? error.name : "unknown",
+        })
+      );
     }
     // Any authority failure — inactive user, membership loss, company
     // mismatch against the grant — is terminal for this connection.
