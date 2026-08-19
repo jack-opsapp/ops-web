@@ -1,23 +1,32 @@
 /**
  * Integration test — POST /api/setup/progress, step "company"
  *
- * Regression cover for the web-signup hole that left five production account
- * holders with no `user_roles` row, no `role`/`user_type`, and no company join
- * code (bug bb4775c1-07a5-444c-a9b2-952e9b9b2f0e).
+ * Regression cover for two related web-signup holes:
  *
- * Verifies:
- *   1. Creating a company writes the Owner `user_roles` row, sets role/user_type,
- *      and mints a company_code.
- *   2. The role row is written BEFORE the users update that sets
- *      is_company_admin — the ordering the user_roles constraint trigger
- *      requires. This is the assertion that actually protects the fix: get the
- *      order wrong in prod and the write raises `target_is_admin` (42501).
- *   3. A role-write failure is FATAL (500), not swallowed.
- *   4. A company-code collision retries with a fresh code.
- *   5. A non-collision insert error is terminal — it does not burn 20 attempts.
+ *  1. bug bb4775c1-07a5-444c-a9b2-952e9b9b2f0e — the step wrote the company but
+ *     never wrote a `user_roles` row, never set `role`/`user_type`, and never
+ *     minted a `company_code`, leaving five production account holders with no
+ *     permissions.
+ *  2. The partial-state gap that survived that fix — the step still spanned four
+ *     autocommit statements, so a failure after the company insert left the
+ *     company committed with the user unlinked, and the retry minted a SECOND
+ *     company. One production account holder accumulated five orphan companies
+ *     in 33 seconds and never got into the product.
+ *
+ * Both are now closed by `public.create_company_for_owner_by_id`, which does the
+ * company + join code + Owner role row + owner labels + defaults in ONE
+ * transaction and ADOPTS an existing unlinked company instead of duplicating it.
+ *
+ * These tests therefore assert the route's half of that contract:
+ *   - it delegates creation to the RPC and never writes the company, the role
+ *     row, or the owner labels itself (any direct write is a partial-state
+ *     regression);
+ *   - a retry cannot produce a second company;
+ *   - the RPC's typed errors map to the right status codes.
  *
  * External boundaries mocked: verifyAuthToken, findUserByAuth,
- * getServiceRoleClient, and the PMF attribution helpers (fire-and-forget).
+ * getServiceRoleClient, the PMF attribution helpers, and the SendGrid dispatch
+ * behind the fire-and-forget day-0 welcome.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -53,14 +62,17 @@ vi.mock("@/lib/pmf/record-trial-attribution", () => ({
   recordTrialAttribution: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/email/sendgrid", () => ({
+  sendOnboardingDay0Welcome: vi.fn().mockResolvedValue({ status: "skipped" }),
+}));
+
 import { POST } from "@/app/api/setup/progress/route";
-import { PRESET_ROLE_IDS } from "@/lib/types/permissions";
-import { COMPANY_CODE_ALPHABET, COMPANY_CODE_LENGTH } from "@/lib/data/company-code";
 
 // ─── Recording Supabase double ────────────────────────────────────────────────
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 const COMPANY_ID = "22222222-2222-4222-8222-222222222222";
+const CREATE_RPC = "create_company_for_owner_by_id";
 
 interface Op {
   table: string;
@@ -68,70 +80,66 @@ interface Op {
   payload: Record<string, unknown>;
 }
 
+interface RpcCall {
+  fn: string;
+  args: Record<string, unknown>;
+}
+
 type Failure = { message: string; code?: string; details?: string } | null;
 
 interface DbOptions {
-  /** Per-table, per-kind failures. Key: `${table}:${kind}`. */
-  fail?: Record<string, Failure>;
-  /** Number of leading `companies:insert` calls that collide on the code index. */
-  companyCodeCollisions?: number;
+  /** Error returned by the create RPC. */
+  rpcError?: Failure;
+  /** Payload returned by the create RPC. */
+  rpcResult?: Record<string, unknown> | null;
 }
 
 function makeDb(options: DbOptions = {}) {
   const ops: Op[] = [];
-  let companyInserts = 0;
-
-  const failureFor = (table: string, kind: Op["kind"]): Failure =>
-    options.fail?.[`${table}:${kind}`] ?? null;
+  const rpcs: RpcCall[] = [];
 
   const builder = (table: string) => ({
     insert(payload: Record<string, unknown>) {
       ops.push({ table, kind: "insert", payload });
-      if (table === "companies") {
-        companyInserts += 1;
-        if (companyInserts <= (options.companyCodeCollisions ?? 0)) {
-          return {
-            select: () => ({
-              single: async () => ({
-                data: null,
-                error: {
-                  code: "23505",
-                  message:
-                    'duplicate key value violates unique constraint "idx_companies_company_code"',
-                  details: null,
-                },
-              }),
-            }),
-          };
-        }
-      }
-      const failure = failureFor(table, "insert");
       return {
         select: () => ({
-          single: async () => ({
-            data: failure ? null : { id: COMPANY_ID },
-            error: failure,
-          }),
+          single: async () => ({ data: { id: "log-id" }, error: null }),
         }),
       };
     },
     upsert(payload: Record<string, unknown>) {
       ops.push({ table, kind: "upsert", payload });
-      return Promise.resolve({ data: null, error: failureFor(table, "upsert") });
+      return Promise.resolve({ data: null, error: null });
     },
     update(payload: Record<string, unknown>) {
       ops.push({ table, kind: "update", payload });
-      return {
-        eq: async () => ({ data: null, error: failureFor(table, "update") }),
-      };
+      return { eq: async () => ({ data: null, error: null }) };
     },
   });
 
   return {
     ops,
+    rpcs,
     client: {
       from: (table: string) => builder(table),
-      rpc: async () => ({ data: null, error: null }),
+      rpc: async (fn: string, args: Record<string, unknown>) => {
+        rpcs.push({ fn, args });
+        if (fn === CREATE_RPC) {
+          if (options.rpcError) return { data: null, error: options.rpcError };
+          return {
+            data:
+              options.rpcResult === undefined
+                ? {
+                    company_id: COMPANY_ID,
+                    company_code: "AB34CD78",
+                    already_existed: false,
+                  }
+                : options.rpcResult,
+            error: null,
+          };
+        }
+        return { data: null, error: null };
+      },
     },
   };
 }
@@ -144,11 +152,11 @@ function request(body: Record<string, unknown>) {
   });
 }
 
-const companyStep = () =>
+const companyStep = (data: Record<string, unknown> = {}) =>
   request({
     token: "tok",
     step: "company",
-    data: { companyName: "Brittlewood Appliances" },
+    data: { companyName: "Brittlewood Appliances", ...data },
   });
 
 beforeEach(() => {
@@ -163,97 +171,130 @@ beforeEach(() => {
 });
 
 describe("POST /api/setup/progress — company step", () => {
-  it("writes the Owner role row, owner labels, and a company code", async () => {
+  it("delegates company creation to the atomic RPC with the owner and profile", async () => {
     const db = makeDb();
     getServiceRoleClientMock.mockReturnValue(db.client);
 
-    const res = await POST(companyStep());
+    const res = await POST(
+      companyStep({
+        industries: ["Appliance Repair"],
+        companySize: "2-5",
+        companyAge: "1-3",
+        weatherDependent: "Yes",
+      })
+    );
     expect(res.status).toBe(200);
 
-    const companyInsert = db.ops.find((o) => o.table === "companies" && o.kind === "insert");
-    expect(companyInsert).toBeDefined();
-    const code = companyInsert!.payload.company_code as string;
-    expect(code).toHaveLength(COMPANY_CODE_LENGTH);
-    expect([...code].every((ch) => COMPANY_CODE_ALPHABET.includes(ch))).toBe(true);
-
-    const roleWrite = db.ops.find((o) => o.table === "user_roles");
-    expect(roleWrite).toBeDefined();
-    expect(roleWrite!.payload).toMatchObject({
-      user_id: USER_ID,
-      role_id: PRESET_ROLE_IDS.OWNER,
-    });
-
-    const link = db.ops.find(
-      (o) => o.table === "users" && o.kind === "update" && "company_id" in o.payload
-    );
-    expect(link!.payload).toMatchObject({
-      company_id: COMPANY_ID,
-      is_company_admin: true,
-      role: "owner",
-      user_type: "company",
+    const create = db.rpcs.find((r) => r.fn === CREATE_RPC);
+    expect(create).toBeDefined();
+    expect(create!.args).toMatchObject({
+      p_user_id: USER_ID,
+      p_name: "Brittlewood Appliances",
+      p_industries: ["Appliance Repair"],
+      p_company_size: "2-5",
+      p_company_age: "1-3",
+      p_weather_dependent: true,
     });
   });
 
-  it("writes the role row BEFORE the user becomes an admin", async () => {
+  it("never writes the company, role row, or owner labels itself", async () => {
+    // Every one of these writes was its own autocommit statement before the RPC.
+    // A direct write here means the partial-state gap is back: the company can
+    // commit while the role row or the link fails.
     const db = makeDb();
     getServiceRoleClientMock.mockReturnValue(db.client);
 
     await POST(companyStep());
 
-    const roleIdx = db.ops.findIndex((o) => o.table === "user_roles");
-    const adminIdx = db.ops.findIndex(
-      (o) => o.table === "users" && o.kind === "update" && o.payload.is_company_admin === true
-    );
-
-    expect(roleIdx).toBeGreaterThanOrEqual(0);
-    expect(adminIdx).toBeGreaterThanOrEqual(0);
-    // guard_user_roles_final_state() raises target_is_admin if this order flips.
-    expect(roleIdx).toBeLessThan(adminIdx);
+    expect(db.ops.find((o) => o.table === "companies")).toBeUndefined();
+    expect(db.ops.find((o) => o.table === "user_roles")).toBeUndefined();
+    expect(
+      db.ops.find(
+        (o) =>
+          o.table === "users" &&
+          ("company_id" in o.payload ||
+            "is_company_admin" in o.payload ||
+            "user_type" in o.payload)
+      )
+    ).toBeUndefined();
   });
 
-  it("fails the request when the role write fails", async () => {
+  it("does not create a second company when a retry adopts the first", async () => {
+    // The retry path. The previous attempt died after the company insert, so the
+    // RPC adopts that orphan and reports already_existed. The route must treat
+    // this as success and must not insert anything of its own.
     const db = makeDb({
-      fail: { "user_roles:upsert": { message: "target_is_admin", code: "42501" } },
-    });
-    getServiceRoleClientMock.mockReturnValue(db.client);
-
-    const res = await POST(companyStep());
-    expect(res.status).toBe(500);
-    await expect(res.json()).resolves.toMatchObject({
-      error: expect.stringContaining("target_is_admin"),
-    });
-
-    // The user must NOT be linked to a company it has no role in.
-    const link = db.ops.find(
-      (o) => o.table === "users" && o.kind === "update" && "company_id" in o.payload
-    );
-    expect(link).toBeUndefined();
-  });
-
-  it("retries with a fresh code when the company code collides", async () => {
-    const db = makeDb({ companyCodeCollisions: 2 });
-    getServiceRoleClientMock.mockReturnValue(db.client);
-
-    const res = await POST(companyStep());
-    expect(res.status).toBe(200);
-
-    const inserts = db.ops.filter((o) => o.table === "companies" && o.kind === "insert");
-    expect(inserts).toHaveLength(3);
-    const codes = inserts.map((o) => o.payload.company_code as string);
-    expect(new Set(codes).size).toBe(3);
-  });
-
-  it("does not retry a non-collision insert failure", async () => {
-    const db = makeDb({
-      fail: {
-        "companies:insert": { message: "null value in column violates not-null", code: "23502" },
+      rpcResult: {
+        company_id: COMPANY_ID,
+        company_code: "AB34CD78",
+        already_existed: true,
       },
     });
     getServiceRoleClientMock.mockReturnValue(db.client);
 
     const res = await POST(companyStep());
+
+    expect(res.status).toBe(200);
+    expect(db.rpcs.filter((r) => r.fn === CREATE_RPC)).toHaveLength(1);
+    expect(db.ops.find((o) => o.table === "companies")).toBeUndefined();
+  });
+
+  it("leaves no partial writes behind when the RPC fails", async () => {
+    const db = makeDb({
+      rpcError: { message: "target_is_admin", code: "42501" },
+    });
+    getServiceRoleClientMock.mockReturnValue(db.client);
+
+    const res = await POST(companyStep());
     expect(res.status).toBe(500);
-    expect(db.ops.filter((o) => o.table === "companies" && o.kind === "insert")).toHaveLength(1);
+
+    // Neither the link nor the progress write may happen on a failed company step.
+    expect(db.ops.find((o) => o.table === "users")).toBeUndefined();
     expect(db.ops.find((o) => o.table === "user_roles")).toBeUndefined();
+  });
+
+  it.each([
+    ["NO_USER_ROW", 409],
+    ["ALREADY_IN_COMPANY", 409],
+    ["INVALID_NAME", 400],
+    ["USER_INACTIVE", 403],
+    ["something unexpected exploded", 500],
+  ])("maps RPC error %s to HTTP %i", async (token, status) => {
+    const db = makeDb({ rpcError: { message: token } });
+    getServiceRoleClientMock.mockReturnValue(db.client);
+
+    const res = await POST(companyStep());
+    expect(res.status).toBe(status);
+  });
+
+  it("falls back to a placeholder name rather than tripping INVALID_NAME", async () => {
+    // The RPC rejects a blank name. A whitespace-only submission must not turn
+    // into a 400 that strands the user on the company step.
+    const db = makeDb();
+    getServiceRoleClientMock.mockReturnValue(db.client);
+
+    const res = await POST(companyStep({ companyName: "   " }));
+
+    expect(res.status).toBe(200);
+    const create = db.rpcs.find((r) => r.fn === CREATE_RPC);
+    expect(create!.args.p_name).toBe("Untitled Company");
+  });
+
+  it("updates in place — and calls no create RPC — when the user already has a company", async () => {
+    findUserByAuthMock.mockResolvedValue({
+      id: USER_ID,
+      email: "owner@example.com",
+      company_id: COMPANY_ID,
+      setup_progress: {},
+    });
+    const db = makeDb();
+    getServiceRoleClientMock.mockReturnValue(db.client);
+
+    const res = await POST(companyStep());
+
+    expect(res.status).toBe(200);
+    expect(db.rpcs.find((r) => r.fn === CREATE_RPC)).toBeUndefined();
+    const update = db.ops.find((o) => o.table === "companies" && o.kind === "update");
+    expect(update!.payload).toMatchObject({ name: "Brittlewood Appliances" });
   });
 });

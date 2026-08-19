@@ -4,6 +4,9 @@
  * Incrementally saves setup progress for each onboarding step.
  * - Verifies Firebase/Supabase auth token
  * - Persists step-specific data (identity, company, starfield)
+ * - Company creation goes through the `create_company_for_owner_by_id` RPC so
+ *   the company, its join code, the Owner role row, the owner labels, and the
+ *   company defaults all land in ONE transaction (or none of them do)
  * - Tracks which steps have been completed via setup_progress JSONB
  */
 
@@ -14,12 +17,6 @@ import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { readServerFirstTouch } from "@/lib/pmf/utm-capture";
 import { recordTrialAttribution } from "@/lib/pmf/record-trial-attribution";
 import { isReferralSourceSlug } from "@/lib/data/referral-sources";
-import {
-  COMPANY_CODE_MAX_ATTEMPTS,
-  generateCompanyCode,
-  isCompanyCodeCollision,
-} from "@/lib/data/company-code";
-import { PRESET_ROLE_IDS } from "@/lib/types/permissions";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
 
@@ -45,6 +42,13 @@ interface ProgressBody {
 interface SetupProgress {
   steps?: Record<string, boolean>;
   starfield_answers?: Record<string, string | number>;
+}
+
+/** Return contract of public.create_company_for_owner_by_id. */
+interface CreateCompanyForOwnerResult {
+  company_id: string;
+  company_code: string;
+  already_existed: boolean;
 }
 
 // ─── Route Handler ───────────────────────────────────────────────────────────
@@ -131,116 +135,78 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         await db.from("companies").update(companyUpdates).eq("id", companyId);
       } else {
-        // Create new company. The crew join code is minted as part of the insert
-        // so a company never exists without one — the same property the iOS RPC
-        // `create_company_for_owner` guarantees. Without a code the owner's crew
-        // has no way to join.
-        const companyPayload = {
-          name: data.companyName ?? "Untitled Company",
-          industries: data.industries?.length ? data.industries : [],
-          company_size: data.companySize ?? null,
-          company_age: data.companyAge ?? null,
-          weather_dependent: data.weatherDependent ? data.weatherDependent === "Yes" : null,
-          referral_method: isReferralSourceSlug(data.referralMethod)
-            ? data.referralMethod
-            : null,
-          admin_ids: [userId],
-          account_holder_id: userId,
-        };
-
-        let newCompany: { id: string } | null = null;
-        let companyError: {
-          message?: string | null;
-          code?: string | null;
-          details?: string | null;
-        } | null = null;
-
-        for (let attempt = 0; attempt < COMPANY_CODE_MAX_ATTEMPTS; attempt += 1) {
-          const { data: inserted, error } = await db
-            .from("companies")
-            .insert({ ...companyPayload, company_code: generateCompanyCode() })
-            .select("id")
-            .single();
-
-          if (!error && inserted) {
-            newCompany = inserted as { id: string };
-            companyError = null;
-            break;
-          }
-
-          companyError = error;
-          // Only a collision on the company-code index is retryable; every other
-          // failure is terminal and must not be masked by 20 more attempts.
-          if (!isCompanyCodeCollision(error)) break;
-        }
-
-        if (companyError || !newCompany) {
-          return NextResponse.json(
-            {
-              error: `Failed to create company: ${companyError?.message ?? "Unknown error"}`,
-            },
-            { status: 500 }
-          );
-        }
-
-        companyId = newCompany.id as string;
-
-        // Seed default task types, inventory units, and company settings
-        const { error: rpcError } = await db.rpc("initialize_company_defaults", {
-          p_company_id: companyId,
-        });
-        if (rpcError) {
-          console.error("[api/setup/progress] Failed to initialize company defaults:", rpcError);
-        }
-
-        // Seed the Owner role row BEFORE linking the user to the company.
+        // One transaction: company row + crew join code + Owner `user_roles`
+        // row + owner labels + `initialize_company_defaults`.
         //
-        // ORDER IS LOAD-BEARING. The constraint trigger
-        // `private.guard_user_roles_final_state()` rejects any direct user_roles
-        // write whose target is already a company admin (`target_is_admin`,
-        // SQLSTATE 42501). It tests admin-ness through
-        // `private.permission_user_is_admin(u.id, u.company_id)`, which compares
-        // `u.company_id = p_company_id` — while company_id is still NULL that
-        // comparison is NULL, so the user reads as a non-admin and the write is
-        // legal. The update below is precisely what makes them an admin, so this
-        // row can never be written after it. (The iOS RPC reaches the same state
-        // from the other side: it clears company_id and forces the trigger
-        // IMMEDIATE around its own insert.)
-        const { error: roleError } = await db.from("user_roles").upsert(
-          { user_id: userId, role_id: PRESET_ROLE_IDS.OWNER },
-          { onConflict: "user_id" }
+        // This replaces four separate autocommit statements. If the role write
+        // or the user link failed, the company was already committed while the
+        // user stayed unlinked — and the retry re-entered this same branch and
+        // minted a SECOND company, orphaning the first. One production account
+        // holder accumulated five orphan companies in 33 seconds that way and
+        // never got into the product at all.
+        //
+        // The RPC also ADOPTS an existing unlinked company held by this owner
+        // rather than inserting another, so a retry after any partial failure
+        // completes the orphan instead of duplicating it.
+        //
+        // `create_company_for_owner` (the iOS/authenticated twin) cannot be
+        // reused here: it resolves its caller via `auth.jwt() ->> 'sub'` and
+        // raises NO_JWT under the service-role client this route uses. This is
+        // its service-role twin — the owner is named explicitly, which is why
+        // EXECUTE on it is granted to service_role alone.
+        const { data: createResult, error: createError } = await db.rpc(
+          "create_company_for_owner_by_id",
+          {
+            p_user_id: userId,
+            p_name: data.companyName?.trim() || "Untitled Company",
+            p_industries: data.industries?.length ? data.industries : [],
+            p_company_size: data.companySize ?? null,
+            p_company_age: data.companyAge ?? null,
+            p_weather_dependent: data.weatherDependent
+              ? data.weatherDependent === "Yes"
+              : null,
+            // Validated against the known slug set — a raw client string must
+            // never reach the column.
+            p_referral_method: isReferralSourceSlug(data.referralMethod)
+              ? data.referralMethod
+              : null,
+          }
         );
-        if (roleError) {
-          // Fatal, deliberately. A swallowed failure here is exactly what left
-          // five production account holders with no role row and no permissions.
+
+        if (createError) {
+          const message = createError.message ?? "";
+          // Typed tokens raised by the RPC. NO_USER_ROW is the sync-user race
+          // and ALREADY_IN_COMPANY a stale read — both are retryable by the
+          // client, so they must not read as server faults.
+          const status =
+            message.includes("NO_USER_ROW") || message.includes("ALREADY_IN_COMPANY")
+              ? 409
+              : message.includes("INVALID_NAME")
+                ? 400
+                : message.includes("USER_INACTIVE")
+                  ? 403
+                  : 500;
           return NextResponse.json(
-            { error: `Failed to assign owner role: ${roleError.message}` },
+            { error: `Failed to create company: ${message || "Unknown error"}` },
+            { status }
+          );
+        }
+
+        const created = createResult as CreateCompanyForOwnerResult | null;
+        if (!created?.company_id) {
+          return NextResponse.json(
+            { error: "Failed to create company: no company id returned." },
             { status: 500 }
           );
         }
 
-        // Link user to company and set the denormalized owner labels the rest of
-        // the product reads (`role`, `user_type`).
-        const { error: linkError } = await db
-          .from("users")
-          .update({
-            company_id: companyId,
-            is_company_admin: true,
-            role: "owner",
-            user_type: "company",
-          })
-          .eq("id", userId);
-        if (linkError) {
-          return NextResponse.json(
-            { error: `Failed to link user to company: ${linkError.message}` },
-            { status: 500 }
-          );
-        }
+        companyId = created.company_id;
 
         // Day 0 founder welcome — fire-and-forget after company creation.
         // Per spec §3 + decision log #25/#26: only fire when the inserting
-        // user IS the new company's account_holder (which is always true here
-        // because we set `account_holder_id: userId` on the INSERT above) and
+        // user IS the new company's account_holder (always true here: the RPC
+        // sets `account_holder_id` to this user, and only ever adopts a
+        // company already held by them) and
         // when the operator email isn't on the internal allowlist.
         // Failure does NOT roll back signup; cron will retry up to 3 times
         // within day_slot_expires_at if the async fails.
