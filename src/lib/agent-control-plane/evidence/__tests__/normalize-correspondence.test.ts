@@ -1056,3 +1056,91 @@ describe("normalizeCorrespondence direction handling", () => {
     expect(normalized.subject).toBe("Deck repair");
   });
 });
+
+describe("normalizeCorrespondence cosmetic CSS acceptance", () => {
+  const html = (body: string): NormalizeCorrespondenceInput =>
+    source({ content: { mediaType: "text/html", value: `<html><body>${body}</body></html>` } });
+
+  it("reads a message whose links carry text-decoration", () => {
+    const normalized = normalizeCorrespondence(
+      html(`<p style="color:#111"><a href="https://example.com" style="text-decoration:underline;color:#0645ad">Approve the quote</a></p>`)
+    );
+    expect(normalized.normalizedPlainText).toContain("Approve the quote");
+  });
+
+  it("reads a message using clear and box-shadow layout", () => {
+    const normalized = normalizeCorrespondence(
+      html(`<div style="box-shadow:0 1px 2px rgba(0,0,0,.2)"><p style="color:#111">Deck is ready</p></div><div style="clear:both"></div>`)
+    );
+    expect(normalized.normalizedPlainText).toContain("Deck is ready");
+  });
+
+  it("still rejects a floated box carrying text, which can reverse reading order", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        html(`<div><span style="float:right">APPROVE</span><span>DO NOT</span></div>`)
+      )
+    ).toThrow(/cannot be evaluated safely/);
+  });
+
+  it("reads a message whose floated boxes carry no text", () => {
+    const normalized = normalizeCorrespondence(
+      html(`<div style="float:left"><img src="https://example.com/logo.png" width="40"></div><p style="color:#111">Invoice attached</p><div style="clear:both"></div>`)
+    );
+    expect(normalized.normalizedPlainText).toContain("Invoice attached");
+  });
+
+  it("still rejects a rule-set float that cannot be tied to its elements", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        html(`<style>.r { float:right }</style><div><span class="r">APPROVE</span><span>DO NOT</span></div>`)
+      )
+    ).toThrow(/cannot be evaluated safely/);
+  });
+
+  it("reads a message whose style block carries CSS comments", () => {
+    const normalized = normalizeCorrespondence(
+      html(`<style>/* preheader */ .lead { color:#111; } /* end */</style><p class="lead">Comment tolerant</p>`)
+    );
+    expect(normalized.normalizedPlainText).toContain("Comment tolerant");
+  });
+
+  it("preserves quoted selector text that merely looks like comment syntax", () => {
+    const normalized = normalizeCorrespondence(
+      html(`<style>[data-tag="/*"] { color:#111 } .lead { color:#111 }</style><p class="lead">Quoted slash star</p>`)
+    );
+    expect(normalized.normalizedPlainText).toContain("Quoted slash star");
+  });
+
+  it("still rejects a declaration a comment tries to split", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        html(`<p style="letter-spacing/**/:-9999px;color:#111">Collapsed</p>`)
+      )
+    ).toThrow(/cannot be evaluated safely/);
+  });
+
+  it("still rejects struck-through text decoration", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        html(`<p style="text-decoration:line-through;color:#111">Removed clause</p>`)
+      )
+    ).toThrow(/cannot be evaluated safely/);
+  });
+
+  it("still rejects text-shadow and letter-spacing concealment vectors", () => {
+    for (const declaration of ["text-shadow:0 0 3px #fff", "letter-spacing:-9999px", "text-transform:uppercase"]) {
+      expect(() =>
+        normalizeCorrespondence(html(`<p style="${declaration};color:#111">Vector</p>`))
+      ).toThrow(/cannot be evaluated safely/);
+    }
+  });
+
+  it("still rejects an unterminated comment hiding the rest of a style block", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        html(`<p style="color:#111;/* letter-spacing:-9999px">Truncated</p>`)
+      )
+    ).not.toThrow();
+  });
+});

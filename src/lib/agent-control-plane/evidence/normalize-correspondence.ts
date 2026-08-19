@@ -43,7 +43,18 @@ const INLINE_HIDDEN_STYLE =
 const UNRESOLVED_VISIBILITY_STYLE =
   /(?:^|[;{])\s*(?:-webkit-text-fill-color|background(?:-color)?|block-size|bottom|clip(?:-path)?|color|content-visibility|display|filter|font(?:-size)?|height|inline-size|inset(?:-[a-z]+)?|left|line-height|margin(?:-[a-z]+)?|max-(?:block-size|height|inline-size|width)|min-(?:block-size|height|inline-size|width)|opacity|overflow(?:-[xy])?|position|right|rotate|scale|text-indent|top|transform|translate|visibility|width)\s*:[^;{}]*(?:var|calc|min|max|clamp|round|mod|rem|sin|cos|tan|asin|acos|atan|atan2|pow|sqrt|hypot|log|exp|abs|sign)\s*\(/i;
 const UNSUPPORTED_VISIBILITY_DECLARATION =
-  /(?:^|[;{])\s*(?:-moz-opacity|-webkit-(?:clip-path|filter|text-security|transform)|-webkit-mask(?:-[a-z]+)?|-webkit-text-stroke(?:-[a-z]+)?|animation(?:-[a-z]+)?|backface-visibility|background-blend-mode|content|direction|flex-(?:direction|flow)|float|grid-[a-z-]+|inset-(?:block|inline)(?:-(?:end|start))?|letter-spacing|margin-(?:block|inline)(?:-(?:end|start))?|mask(?:-[a-z]+)?|mix-blend-mode|order|text-decoration(?:-[a-z]+)?|text-overflow|text-shadow|text-transform|transition(?:-[a-z]+)?|unicode-bidi|word-spacing|writing-mode|z-index|zoom)\s*:/i;
+  /(?:^|[;{])\s*(?:-moz-opacity|-webkit-(?:clip-path|filter|text-security|transform)|-webkit-mask(?:-[a-z]+)?|-webkit-text-stroke(?:-[a-z]+)?|animation(?:-[a-z]+)?|backface-visibility|background-blend-mode|content|direction|flex-(?:direction|flow)|grid-[a-z-]+|inset-(?:block|inline)(?:-(?:end|start))?|letter-spacing|margin-(?:block|inline)(?:-(?:end|start))?|mask(?:-[a-z]+)?|mix-blend-mode|order|text-overflow|text-shadow|text-transform|transition(?:-[a-z]+)?|unicode-bidi|word-spacing|writing-mode|z-index|zoom)\s*:/i;
+// A float takes its box out of normal flow, so a floated box carrying text can
+// render that text before content that precedes it in source order — the agent
+// would read a different sentence than the recipient sees. A floated box with
+// no text of its own only reflows its neighbours and cannot reorder any text,
+// which is the shape real mail uses for logos, spacers and image columns.
+const FLOAT_DECLARATION = /(?:^|[;{])\s*float\s*:\s*(?!none\b)[a-z]/i;
+// `text-decoration` itself neither hides nor reveals text, but `line-through`
+// renders content as struck — the same semantic the `del`/`s`/`strike` tags are
+// rejected for below. Only that value stays indeterminate.
+const STRUCK_TEXT_DECORATION =
+  /(?:^|[;{])\s*text-decoration(?:-line)?\s*:[^;{}]*\bline-through\b/i;
 const UNSUPPORTED_CSS_AT_RULE = /@[a-z-]+\b/i;
 const OUTLOOK_CONDITIONAL_MARKUP =
   /(?:<!--|<!)[^>]{0,128}\[\s*if\b|\[\s*endif\s*\][^>]{0,128}(?:-->|>)/i;
@@ -93,7 +104,9 @@ const SUPPORTED_CSS_DECLARATIONS = new Set([
   "border-top-width",
   "border-width",
   "bottom",
+  "box-shadow",
   "box-sizing",
+  "clear",
   "clip",
   "clip-path",
   "color",
@@ -101,6 +114,7 @@ const SUPPORTED_CSS_DECLARATIONS = new Set([
   "cursor",
   "display",
   "filter",
+  "float",
   "font",
   "font-family",
   "font-feature-settings",
@@ -162,6 +176,11 @@ const SUPPORTED_CSS_DECLARATIONS = new Set([
   "scale",
   "table-layout",
   "text-align",
+  "text-decoration",
+  "text-decoration-color",
+  "text-decoration-line",
+  "text-decoration-style",
+  "text-decoration-thickness",
   "text-indent",
   "text-rendering",
   "top",
@@ -317,10 +336,54 @@ function indeterminateCss(): never {
   throw new TypeError("content CSS cannot be evaluated safely");
 }
 
+/**
+ * Strip CSS comments so every guard below sees what the renderer sees. A
+ * comment is legal between a property name and its colon, so matching on raw
+ * text let `letter-spacing/*x*​/: -9999px` slip past declaration guards while
+ * still applying in a mail client. Callers must pass the stripped text to the
+ * visibility regexes, not just to declaration parsing.
+ *
+ * Quoted strings are preserved verbatim — `/*` inside a quoted value is
+ * content, not a comment — and an unterminated comment runs to the end, both
+ * matching CSS tokenization.
+ */
+function cssWithoutComments(value: string): string {
+  if (!value.includes("/*")) return value;
+  let out = "";
+  let quote: string | null = null;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index]!;
+    if (quote !== null) {
+      out += character;
+      if (character === "\\") {
+        out += value[index + 1] ?? "";
+        index += 1;
+      } else if (character === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      out += character;
+      continue;
+    }
+    if (character === "/" && value[index + 1] === "*") {
+      const close = value.indexOf("*/", index + 2);
+      if (close === -1) return out;
+      index = close + 1;
+      continue;
+    }
+    out += character;
+  }
+  return out;
+}
+
 function assertSupportedCssDeclarations(value: string): void {
   // CSS escapes can disguise both property names and selectors. The evidence
   // boundary only accepts declarations whose visibility impact we model.
-  if (value.includes("\\") || /\/\*|\*\//.test(value)) {
+  // Comments are stripped by the caller before any guard runs.
+  if (value.includes("\\")) {
     return indeterminateCss();
   }
   for (const match of value.matchAll(
@@ -866,6 +929,33 @@ function hasNonZeroLayoutLength(value: string): boolean {
   return Math.abs(scalar) > 0.01;
 }
 
+/**
+ * Margins are the most common declaration in real mail, and an ordinary one
+ * cannot conceal anything — it only adds space. Two magnitudes can:
+ *
+ * - any negative margin, which drags a box back over the text preceding it;
+ * - a positive margin large enough to push content off the canvas.
+ *
+ * Anything under 100 units is too small to do either in any unit mail uses, so
+ * it short-circuits before conversion — font-relative units such as `ex` and
+ * `em` have no reliable pixel equivalent, and `0.8ex` on a Gmail quote must not
+ * cost the whole message. Larger values go through the same far-offscreen
+ * conversion the positioned-offset check uses, and an unparseable value stays
+ * indeterminate exactly as before.
+ */
+function marginConcealsContent(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized || normalized === "auto" || normalized === "normal") {
+    return false;
+  }
+  const scalar = cssScalar(normalized);
+  if (scalar === null) return indeterminateCss();
+  if (Math.abs(scalar) <= 0.01) return false;
+  if (scalar < 0) return true;
+  if (scalar < 100) return false;
+  return isFarOffscreen(normalized);
+}
+
 function expandedInsetPercentages(value: string): readonly number[] | null {
   const match = value.trim().match(/^inset\(([^)]*)\)$/i);
   if (!match) return null;
@@ -1213,7 +1303,7 @@ function hasOffscreenLayout(
     return indeterminateCss();
   }
   if (
-    (!hasOnlyDefaultBodyMargin && margins.some(hasNonZeroLayoutLength)) ||
+    (!hasOnlyDefaultBodyMargin && margins.some(marginConcealsContent)) ||
     hasNonZeroLayoutLength(style.textIndent) ||
     !isIdentityTransformInPlane(style.transform) ||
     !isIdentityIndividualScaleInPlane(style.getPropertyValue("scale")) ||
@@ -1309,13 +1399,18 @@ function normalizeHtmlText(value: string): string {
     };
 
     for (const element of elements) {
-      const inlineStyle = element.getAttribute("style") ?? "";
+      const inlineStyle = cssWithoutComments(
+        element.getAttribute("style") ?? ""
+      );
       assertSupportedCssDeclarations(inlineStyle);
       if (
         UNRESOLVED_VISIBILITY_STYLE.test(inlineStyle) ||
         UNSUPPORTED_VISIBILITY_DECLARATION.test(inlineStyle) ||
+        STRUCK_TEXT_DECORATION.test(inlineStyle) ||
         UNSUPPORTED_LAYOUT_DISPLAY.test(inlineStyle) ||
-        SYMBOL_FONT_DECLARATION.test(inlineStyle)
+        SYMBOL_FONT_DECLARATION.test(inlineStyle) ||
+        (FLOAT_DECLARATION.test(inlineStyle) &&
+          (element.textContent ?? "").trim().length > 0)
       ) {
         return indeterminateCss();
       }
@@ -1356,11 +1451,15 @@ function normalizeHtmlText(value: string): string {
       }
     }
     for (const styleElement of Array.from(document.querySelectorAll("style"))) {
-      const cssText = styleElement.textContent ?? "";
+      const cssText = cssWithoutComments(styleElement.textContent ?? "");
       assertSupportedCssDeclarations(cssText);
       if (
         UNRESOLVED_VISIBILITY_STYLE.test(cssText) ||
         UNSUPPORTED_VISIBILITY_DECLARATION.test(cssText) ||
+        STRUCK_TEXT_DECORATION.test(cssText) ||
+        // A rule-set float cannot be tied to its elements before the cascade
+        // runs, so it stays indeterminate regardless of where it lands.
+        FLOAT_DECLARATION.test(cssText) ||
         UNSUPPORTED_CSS_AT_RULE.test(cssText) ||
         UNSUPPORTED_LAYOUT_DISPLAY.test(cssText) ||
         SYMBOL_FONT_DECLARATION.test(cssText) ||
