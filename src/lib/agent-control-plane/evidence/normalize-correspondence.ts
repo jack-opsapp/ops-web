@@ -50,6 +50,26 @@ const UNSUPPORTED_VISIBILITY_DECLARATION =
 // no text of its own only reflows its neighbours and cannot reorder any text,
 // which is the shape real mail uses for logos, spacers and image columns.
 const FLOAT_DECLARATION = /(?:^|[;{])\s*float\s*:\s*(?!none\b)[a-z]/i;
+// Replaced elements whose alternative text renders in place of the media.
+const MEDIA_ALTERNATIVE_TAGS = new Set(["embed", "img", "picture", "video"]);
+// Ordered by how the recipient encounters them: `alt` renders in the media's
+// place, `title` surfaces on hover, and the rest are exposed by assistive
+// technology. All are readable by someone, so none may be silently dropped.
+const MEDIA_ALTERNATIVE_ATTRIBUTES = [
+  "alt",
+  "title",
+  "aria-label",
+  "placeholder",
+  "value",
+] as const;
+
+function mediaAlternativeText(element: Element): string | null {
+  for (const attribute of MEDIA_ALTERNATIVE_ATTRIBUTES) {
+    const value = element.getAttribute(attribute);
+    if (value && value.trim()) return value.trim();
+  }
+  return null;
+}
 // `text-decoration` itself neither hides nor reveals text, but `line-through`
 // renders content as struck — the same semantic the `del`/`s`/`strike` tags are
 // rejected for below. Only that value stays indeterminate.
@@ -1435,9 +1455,7 @@ function normalizeHtmlText(value: string): string {
             "hidden") ||
         (["canvas", "iframe", "math", "object", "svg"].includes(tagName) &&
           ((element.textContent ?? "").trim().length > 0 ||
-            visibleAlternative)) ||
-        (["embed", "img", "picture", "video"].includes(tagName) &&
-          visibleAlternative)
+            visibleAlternative))
       ) {
         return indeterminateCss();
       }
@@ -1666,9 +1684,7 @@ function normalizeHtmlText(value: string): string {
       return alpha;
     };
 
-    const hidesSubtree = (element: Element): boolean => {
-      const tagName = element.tagName.toLowerCase();
-      if (NON_TEXT_TAGS.has(tagName)) return true;
+    const hidesOwnBox = (element: Element): boolean => {
       const inlineStyle = element.getAttribute("style") ?? "";
       if (
         element.hasAttribute("hidden") ||
@@ -1685,8 +1701,13 @@ function normalizeHtmlText(value: string): string {
         style.display === "none" ||
         style.contentVisibility === "hidden" ||
         opacity <= 0.01 ||
-        hasOffscreenLayout(style, tagName)
+        hasOffscreenLayout(style, element.tagName.toLowerCase())
       );
+    };
+
+    const hidesSubtree = (element: Element): boolean => {
+      if (NON_TEXT_TAGS.has(element.tagName.toLowerCase())) return true;
+      return hidesOwnBox(element);
     };
 
     const textIsVisible = (element: Element): boolean => {
@@ -1768,6 +1789,19 @@ function normalizeHtmlText(value: string): string {
 
       const element = node as Element;
       const tagName = element.tagName.toLowerCase();
+      // A replaced element's alternative text renders to the recipient whenever
+      // the media itself does not — a blocked image shows its alt. Admit it as
+      // evidence positioned exactly where it renders, so the agent reads the
+      // same words the recipient can, rather than discarding the message or
+      // silently dropping the alternative. Media hidden in its own right
+      // contributes nothing, as its alternative never renders either.
+      if (MEDIA_ALTERNATIVE_TAGS.has(tagName)) {
+        const alternative = mediaAlternativeText(element);
+        if (alternative && !ancestorHidden && !hidesOwnBox(element)) {
+          output.push(` ${alternative} `);
+        }
+        return;
+      }
       const hidden = ancestorHidden || hidesSubtree(element);
       if (hidden) return;
       if (tagName === "br") {
