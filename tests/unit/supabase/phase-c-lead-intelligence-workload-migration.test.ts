@@ -87,6 +87,12 @@ describe("Phase C lead intelligence workload migration", () => {
     expect(source).toContain(
       "create or replace function public.record_opportunity_lifecycle_decision"
     );
+    expect(source).toContain(
+      "create or replace function public.settle_opportunity_lifecycle_decision"
+    );
+    expect(source).toMatch(
+      /grant execute on function public\.settle_opportunity_lifecycle_decision[\s\S]*?to service_role/i
+    );
   });
 
   it("replaces the permanent manual freeze with a source-event correction boundary", () => {

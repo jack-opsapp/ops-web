@@ -708,6 +708,42 @@ as $function$
   end;
 $function$;
 
+create or replace function public.settle_opportunity_lifecycle_decision(
+  p_company_id uuid,
+  p_opportunity_id uuid,
+  p_decision_id uuid,
+  p_status text,
+  p_guard_reason text default null
+) returns public.opportunity_lifecycle_decisions
+language plpgsql
+security definer
+set search_path = ''
+as $function$
+declare
+  v_decision public.opportunity_lifecycle_decisions%rowtype;
+begin
+  if coalesce(auth.role(), '') <> 'service_role' then
+    raise exception 'access_denied' using errcode = '42501';
+  end if;
+  if p_status not in ('applied', 'skipped', 'failed') then
+    raise exception 'invalid_lifecycle_decision_settlement' using errcode = '22023';
+  end if;
+
+  update public.opportunity_lifecycle_decisions decision
+     set status = p_status,
+         guard_reason = nullif(btrim(p_guard_reason), ''),
+         applied_at = case when p_status = 'applied' then coalesce(decision.applied_at, now()) else decision.applied_at end
+   where decision.id = p_decision_id
+     and decision.company_id = p_company_id
+     and decision.opportunity_id = p_opportunity_id
+  returning decision.* into v_decision;
+  if not found then
+    raise exception 'lifecycle_decision_not_found' using errcode = 'P0002';
+  end if;
+  return v_decision;
+end;
+$function$;
+
 create or replace function public.apply_phase_c_opportunity_stage_decision(
   p_company_id uuid,
   p_opportunity_id uuid,
@@ -958,7 +994,7 @@ revoke all on table public.opportunity_phase_c_work from public, anon, authentic
 revoke all on table public.opportunity_lifecycle_decisions from public, anon, authenticated;
 revoke all on table public.phase_c_bilateral_event_handoffs from public, anon, authenticated;
 grant select, insert, update on table public.opportunity_phase_c_work to service_role;
-grant select, insert, update on table public.opportunity_lifecycle_decisions to service_role;
+grant select, insert on table public.opportunity_lifecycle_decisions to service_role;
 grant select, insert, update on table public.phase_c_bilateral_event_handoffs to service_role;
 
 revoke all on function private.enqueue_opportunity_phase_c_work() from public;
@@ -990,6 +1026,13 @@ revoke all on function public.record_opportunity_lifecycle_decision(
 ) from public, anon, authenticated;
 grant execute on function public.record_opportunity_lifecycle_decision(
   uuid, uuid, uuid, text, text, text, text, numeric, uuid[], text[], text, text, text
+) to service_role;
+
+revoke all on function public.settle_opportunity_lifecycle_decision(
+  uuid, uuid, uuid, text, text
+) from public, anon, authenticated;
+grant execute on function public.settle_opportunity_lifecycle_decision(
+  uuid, uuid, uuid, text, text
 ) to service_role;
 
 revoke all on function public.apply_phase_c_opportunity_stage_decision(

@@ -98,6 +98,136 @@ export interface AppliedPhaseCStageDecision {
   decisionId: string;
 }
 
+export type PhaseCLifecycleDecisionKind =
+  | "stage"
+  | "commercial_outcome"
+  | "event_handoff";
+
+export type PhaseCLifecycleDecisionStatus = "proposed" | "review";
+
+export interface PhaseCLifecycleDecisionReceipt {
+  id: string;
+  status: string;
+}
+
+/**
+ * Persist an immutable lifecycle proposal or review before a downstream side
+ * effect is attempted. Replays must carry the same evidence and conclusion;
+ * the database rejects a conflicting interpretation for the same source.
+ */
+export async function recordPhaseCLifecycleDecision(input: {
+  supabase: PhaseCLifecycleSupabaseLike;
+  companyId: string;
+  opportunityId: string;
+  sourceEventId: string;
+  decisionKind: PhaseCLifecycleDecisionKind;
+  decisionKey: string;
+  proposedStage?: string | null;
+  proposedOutcome?: string | null;
+  confidence: number;
+  evidenceEventIds: string[];
+  evidenceMessageIds: string[];
+  reason: string;
+  status?: PhaseCLifecycleDecisionStatus;
+  reviewReason?: string | null;
+}): Promise<PhaseCLifecycleDecisionReceipt> {
+  const evidenceEventIds = normalizedUnique(input.evidenceEventIds);
+  const evidenceMessageIds = normalizedUnique(input.evidenceMessageIds);
+  const status = input.status ?? "proposed";
+  if (!evidenceEventIds.includes(input.sourceEventId)) {
+    throw new Error(
+      "Phase C lifecycle decision source event must be included in evidence"
+    );
+  }
+  if (evidenceMessageIds.length === 0) {
+    throw new Error("Phase C lifecycle decision has no message evidence");
+  }
+  if (
+    !Number.isFinite(input.confidence) ||
+    input.confidence < 0 ||
+    input.confidence > 1
+  ) {
+    throw new Error("Phase C lifecycle decision confidence is invalid");
+  }
+  if (!input.decisionKey.trim() || !input.reason.trim()) {
+    throw new Error("Phase C lifecycle decision has no key or reason");
+  }
+  if (status === "review" && !input.reviewReason?.trim()) {
+    throw new Error("Phase C lifecycle review has no review reason");
+  }
+
+  const response = await input.supabase.rpc(
+    "record_opportunity_lifecycle_decision",
+    {
+      p_company_id: input.companyId,
+      p_opportunity_id: input.opportunityId,
+      p_source_event_id: input.sourceEventId,
+      p_decision_kind: input.decisionKind,
+      p_decision_key: input.decisionKey.trim(),
+      p_proposed_stage: input.proposedStage ?? null,
+      p_proposed_outcome: input.proposedOutcome ?? null,
+      p_confidence: input.confidence,
+      p_evidence_event_ids: evidenceEventIds,
+      p_evidence_message_ids: evidenceMessageIds,
+      p_reason: input.reason.trim(),
+      p_status: status,
+      p_review_reason: input.reviewReason?.trim() || null,
+    }
+  );
+  if (response.error) {
+    throw new Error(
+      `Phase C lifecycle decision persistence failed: ${response.error.message ?? "unknown error"}`
+    );
+  }
+  const receipt = (
+    Array.isArray(response.data) ? response.data[0] : response.data
+  ) as { id?: unknown; status?: unknown } | null | undefined;
+  if (!receipt || typeof receipt.id !== "string" || !receipt.id.trim()) {
+    throw new Error(
+      "Phase C lifecycle decision persistence returned no receipt"
+    );
+  }
+  return {
+    id: receipt.id,
+    status: typeof receipt.status === "string" ? receipt.status : status,
+  };
+}
+
+export async function settlePhaseCLifecycleDecision(input: {
+  supabase: PhaseCLifecycleSupabaseLike;
+  companyId: string;
+  opportunityId: string;
+  decisionId: string;
+  status: "applied" | "skipped" | "failed";
+  guardReason?: string | null;
+}): Promise<void> {
+  const response = await input.supabase.rpc(
+    "settle_opportunity_lifecycle_decision",
+    {
+      p_company_id: input.companyId,
+      p_opportunity_id: input.opportunityId,
+      p_decision_id: input.decisionId,
+      p_status: input.status,
+      p_guard_reason: input.guardReason?.trim() || null,
+    }
+  );
+  if (response.error) {
+    throw new Error(
+      `Phase C lifecycle decision settlement failed: ${response.error.message ?? "unknown error"}`
+    );
+  }
+  const settled = (
+    Array.isArray(response.data) ? response.data[0] : response.data
+  ) as { id?: unknown; status?: unknown } | null | undefined;
+  if (
+    !settled ||
+    settled.id !== input.decisionId ||
+    settled.status !== input.status
+  ) {
+    throw new Error("Phase C lifecycle decision settlement returned no result");
+  }
+}
+
 /**
  * This intentionally uses two transactions. The immutable proposal receipt
  * commits first, so a crash or provider/runtime interruption before the guarded
@@ -143,39 +273,20 @@ export async function recordAndApplyPhaseCStageDecision(input: {
     throw new Error("Phase C stage decision has no reason");
   }
 
-  const receiptResponse = await input.supabase.rpc(
-    "record_opportunity_lifecycle_decision",
-    {
-      p_company_id: input.companyId,
-      p_opportunity_id: input.opportunityId,
-      p_source_event_id: input.sourceEventId,
-      p_decision_kind: "stage",
-      p_decision_key: "active_stage",
-      p_proposed_stage: input.proposedStage,
-      p_proposed_outcome: null,
-      p_confidence: input.confidence,
-      p_evidence_event_ids: evidenceEventIds,
-      p_evidence_message_ids: evidenceMessageIds,
-      p_reason: input.reason.trim(),
-      p_status: "proposed",
-      p_review_reason: null,
-    }
-  );
-  if (receiptResponse.error) {
-    throw new Error(
-      `Phase C lifecycle decision persistence failed: ${receiptResponse.error.message ?? "unknown error"}`
-    );
-  }
-  const receipt = (
-    Array.isArray(receiptResponse.data)
-      ? receiptResponse.data[0]
-      : receiptResponse.data
-  ) as { id?: unknown } | null | undefined;
-  if (!receipt || typeof receipt.id !== "string" || !receipt.id.trim()) {
-    throw new Error(
-      "Phase C lifecycle decision persistence returned no receipt"
-    );
-  }
+  const receipt = await recordPhaseCLifecycleDecision({
+    supabase: input.supabase,
+    companyId: input.companyId,
+    opportunityId: input.opportunityId,
+    sourceEventId: input.sourceEventId,
+    decisionKind: "stage",
+    decisionKey: "active_stage",
+    proposedStage: input.proposedStage,
+    proposedOutcome: null,
+    confidence: input.confidence,
+    evidenceEventIds,
+    evidenceMessageIds,
+    reason: input.reason,
+  });
 
   const applyResponse = await input.supabase.rpc(
     "apply_phase_c_opportunity_stage_decision",
@@ -210,10 +321,7 @@ export async function recordAndApplyPhaseCStageDecision(input: {
     typeof applied.changed !== "boolean" ||
     typeof applied.stage !== "string" ||
     typeof applied.stage_manually_set !== "boolean" ||
-    !(
-      applied.guard_reason === null ||
-      typeof applied.guard_reason === "string"
-    )
+    !(applied.guard_reason === null || typeof applied.guard_reason === "string")
   ) {
     throw new Error("Phase C lifecycle decision apply returned no result");
   }
