@@ -54,6 +54,13 @@ describe("Phase C lead intelligence workload migration", () => {
     expect(source).toContain("next_attempt_at");
     expect(source).toContain("last_error_code");
     expect(source).toContain("last_error_message");
+    expect(source).toContain("component_errors jsonb not null");
+    expect(source).toMatch(
+      /component_errors = work\.component_errors[\s\S]*?\|\| coalesce\(p_component_errors/i
+    );
+    expect(source).toMatch(
+      /component_errors = work\.component_errors - p_component/i
+    );
   });
 
   it("requires every material component to acknowledge the exact event before work completes", () => {

@@ -245,6 +245,7 @@ export async function recordAndApplyPhaseCStageDecision(input: {
   expectedAssignmentVersion: number;
   confidence: number;
   reason: string;
+  decisionKey?: string;
 }): Promise<AppliedPhaseCStageDecision> {
   const evidenceEventIds = normalizedUnique(input.evidenceEventIds);
   const evidenceMessageIds = normalizedUnique(input.evidenceMessageIds);
@@ -279,7 +280,7 @@ export async function recordAndApplyPhaseCStageDecision(input: {
     opportunityId: input.opportunityId,
     sourceEventId: input.sourceEventId,
     decisionKind: "stage",
-    decisionKey: "active_stage",
+    decisionKey: input.decisionKey?.trim() || "active_stage",
     proposedStage: input.proposedStage,
     proposedOutcome: null,
     confidence: input.confidence,

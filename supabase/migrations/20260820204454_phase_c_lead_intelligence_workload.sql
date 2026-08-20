@@ -22,6 +22,7 @@ create table if not exists public.opportunity_phase_c_work (
   event_handoff_completed_event_id uuid
     references public.opportunity_correspondence_events(id) on delete set null,
   component_outcomes jsonb not null default '{}'::jsonb,
+  component_errors jsonb not null default '{}'::jsonb,
   attempt_count integer not null default 0 check (attempt_count >= 0),
   next_attempt_at timestamptz not null default now(),
   lease_owner text,
@@ -251,6 +252,9 @@ begin
         required_activity_id = excluded.required_activity_id,
         required_connection_id = excluded.required_connection_id,
         required_provider_thread_id = excluded.required_provider_thread_id,
+        component_errors = '{}'::jsonb,
+        last_error_code = null,
+        last_error_message = null,
         next_attempt_at = least(
           public.opportunity_phase_c_work.next_attempt_at,
           excluded.next_attempt_at
@@ -395,7 +399,8 @@ create or replace function public.claim_opportunity_phase_c_work(
   required_connection_id uuid,
   required_provider_thread_id text,
   attempt_count integer,
-  component_outcomes jsonb
+  component_outcomes jsonb,
+  component_errors jsonb
 )
 language plpgsql
 security definer
@@ -447,7 +452,8 @@ begin
          leased.required_connection_id,
          leased.required_provider_thread_id,
          leased.attempt_count,
-         leased.component_outcomes
+         leased.component_outcomes,
+         leased.component_errors
     from leased
    order by leased.required_event_at, leased.opportunity_id;
 end;
@@ -532,6 +538,7 @@ begin
            ),
            true
          ),
+         component_errors = work.component_errors - p_component,
          last_error_code = null,
          last_error_message = null,
          updated_at = now()
@@ -569,7 +576,8 @@ create or replace function public.fail_opportunity_phase_c_work(
   p_worker_id text,
   p_error_code text,
   p_error_message text,
-  p_retry_seconds integer default 60
+  p_retry_seconds integer default 60,
+  p_component_errors jsonb default '{}'::jsonb
 ) returns text
 language plpgsql
 security definer
@@ -583,6 +591,7 @@ begin
   end if;
   if nullif(btrim(p_error_code), '') is null
     or p_retry_seconds < 1 or p_retry_seconds > 86400
+    or jsonb_typeof(coalesce(p_component_errors, '{}'::jsonb)) <> 'object'
   then
     raise exception 'invalid_phase_c_retry' using errcode = '22023';
   end if;
@@ -593,6 +602,8 @@ begin
          next_attempt_at = now() + make_interval(secs => p_retry_seconds),
          last_error_code = left(btrim(p_error_code), 160),
          last_error_message = left(coalesce(p_error_message, ''), 2000),
+         component_errors = work.component_errors
+           || coalesce(p_component_errors, '{}'::jsonb),
          completed_at = null,
          updated_at = now()
    where work.company_id = p_company_id
@@ -1017,10 +1028,10 @@ grant execute on function public.acknowledge_opportunity_phase_c_component(
 ) to service_role;
 
 revoke all on function public.fail_opportunity_phase_c_work(
-  uuid, uuid, uuid, text, text, text, integer
+  uuid, uuid, uuid, text, text, text, integer, jsonb
 ) from public, anon, authenticated;
 grant execute on function public.fail_opportunity_phase_c_work(
-  uuid, uuid, uuid, text, text, text, integer
+  uuid, uuid, uuid, text, text, text, integer, jsonb
 ) to service_role;
 
 revoke all on function public.record_opportunity_lifecycle_decision(
