@@ -11,6 +11,7 @@ const {
   runWithCronWorkloadControlMock,
   isDatabasePressureErrorMock,
   runWithSupabaseMock,
+  observedWorkFailures,
   serviceRoleClient,
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
@@ -19,6 +20,7 @@ const {
   runWithCronWorkloadControlMock: vi.fn(),
   isDatabasePressureErrorMock: vi.fn(),
   runWithSupabaseMock: vi.fn(),
+  observedWorkFailures: [] as unknown[],
   serviceRoleClient: { kind: "service-role-client" },
 }));
 
@@ -68,12 +70,20 @@ describe("email send reconciliation cron", () => {
     runWithSupabaseMock.mockImplementation(
       async (_client: unknown, work: () => Promise<unknown>) => work()
     );
+    observedWorkFailures.length = 0;
     runWithCronWorkloadControlMock.mockReset();
     runWithCronWorkloadControlMock.mockImplementation(
-      async ({ work }: { work: () => Promise<unknown> }) => ({
-        status: "completed",
-        value: await work(),
-      })
+      async ({ work }: { work: () => Promise<unknown> }) => {
+        try {
+          return {
+            status: "completed",
+            value: await work(),
+          };
+        } catch (error) {
+          observedWorkFailures.push(error);
+          throw error;
+        }
+      }
     );
     isDatabasePressureErrorMock.mockReset();
     isDatabasePressureErrorMock.mockImplementation((error: unknown) =>
@@ -190,6 +200,60 @@ describe("email send reconciliation cron", () => {
       failureCooldownSeconds: 60,
       leaseSeconds: 180,
     });
+    expect(observedWorkFailures).toHaveLength(1);
+    expect(observedWorkFailures[0]).toBeInstanceOf(Error);
+  });
+
+  it("logs bounded structured details when recovery reports non-throwing failures", async () => {
+    const errors = Array.from(
+      { length: 12 },
+      (_, index) => `intent-${index}: ${"x".repeat(600)}`
+    );
+    runEmailSendReconciliationRecoveryMock.mockResolvedValue({
+      claimed: 12,
+      reconciled: 0,
+      failed: 12,
+      errors,
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(observedWorkFailures).toHaveLength(1);
+
+    const structuredLog = vi
+      .mocked(console.error)
+      .mock.calls.find(
+        ([scope]) => scope === "[cron/email-send-reconciliation]"
+      );
+    expect(structuredLog).toBeDefined();
+    expect(structuredLog).toHaveLength(2);
+
+    const details = JSON.parse(String(structuredLog?.[1])) as {
+      event: string;
+      claimed: number;
+      reconciled: number;
+      failed: number;
+      exhausted: number;
+      errors: Array<{ source: string; message: string }>;
+      omittedErrorCount: number;
+    };
+    expect(details).toMatchObject({
+      event: "email_send_reconciliation_failed",
+      claimed: 12,
+      reconciled: 0,
+      failed: 12,
+      exhausted: 0,
+      omittedErrorCount: 2,
+    });
+    expect(details.errors).toHaveLength(10);
+    expect(details.errors[0]).toEqual({
+      source: "email_send",
+      message: `intent-0: ${"x".repeat(490)}`,
+    });
+    expect(details.errors.every(({ message }) => message.length <= 500)).toBe(
+      true
+    );
   });
 
   it("opens the circuit when reconciliation reports database pressure", async () => {
