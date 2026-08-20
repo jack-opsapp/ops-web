@@ -1,8 +1,7 @@
 # OPS Web — API Reference
 
-> All requests go to `https://opsapp.co/api/1.1/`
-> Auth: Bearer token via `Authorization` header (API token from `/wf/generate-api-token`)
-> All deletes are soft deletes (PATCH with `deletedAt` timestamp)
+> Legacy Bubble endpoints documented below use `https://opsapp.co/api/1.1/`, API-token bearer authorization from `/wf/generate-api-token`, and soft deletes via PATCH with `deletedAt`.
+> First-party Next.js endpoints use `https://app.opsapp.co/api/...`. The production remote MCP resource is `POST https://app.opsapp.co/api/mcp` with OPS OAuth bearer authorization.
 
 ---
 
