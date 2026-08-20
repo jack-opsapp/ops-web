@@ -45,7 +45,7 @@
 Pin independently derived literals for:
 
 - the three closed customer lookup modes;
-- NFKC/whitespace/control/bidi/token/length rules;
+- NFKC/whitespace/control/bidi/token/length rules, including one-character rejection and the two-character exact/prefix-only boundary;
 - strict exact email and NANP phone inputs;
 - unique/default customer/job kinds and query fields;
 - job status/kind/date-window coupling;
@@ -141,8 +141,8 @@ Add nominal claim variants for customer/job discovery and prove:
 - correct round trip;
 - exact capability/schema/manifest/ranking binding;
 - actor/company/query/permission/source/read-at binding;
-- customer rank/name/kind/id keyset binding;
-- job rank/field/value/date/kind/id keyset binding;
+- customer rank ordinal/kind/id keyset binding;
+- job rank ordinal/kind/id keyset binding;
 - one-hour TTL;
 - stale permission is distinguished from malformed/tampered cursor;
 - cross-capability replay fails.
@@ -262,8 +262,9 @@ Pin behavior, not arbitrary source formatting:
 - Phase C context wrapper remains coherent under v7;
 - same-statement actor, permission, entity, source-fence, and DB-clock capture;
 - exact selected capability/OAuth/permission arguments;
-- 26th source sentinel before expensive aggregation;
+- a 501-candidate materialized source gate before ranking, plus `limit + 1` page sentinel before aggregation;
 - deterministic exact/prefix/token ranking and literal wildcard escaping;
+- all-token matching only when every token is at least three characters, with indexed exact/prefix behavior for two-character queries;
 - per-source filtering before opportunity/project pairing;
 - no raw contact values or forbidden fields in JSON;
 - mandatory child/collection proofs and canonical locators;
