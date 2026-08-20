@@ -31,6 +31,12 @@ jobs:
         with:
           node-version: 20
           cache: 'npm'
+      - name: Start PostgreSQL for migration contracts
+        run: sudo systemctl start postgresql.service
+      - name: Test email attachment reconciliation migration
+        run: >-
+          sudo -u postgres psql -X -v ON_ERROR_STOP=1
+          -f tests/sql/email-conversion-photo-related-attachment-shadowing-contract.sql
       - run: npm ci
       - run: npm run lint
       - run: npm run type-check
