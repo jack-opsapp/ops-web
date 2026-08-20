@@ -6325,7 +6325,7 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(updateConnectionMock).not.toHaveBeenCalled();
   });
 
-  it("completes the mailbox cursor after bounded model-contract disposition", async () => {
+  it("persists the mailbox continuation after a bounded model-contract disposition", async () => {
     const state: SupabaseState = {
       clients: [],
       opportunities: [
@@ -6398,7 +6398,7 @@ To: Kara Beach <kara.beach@example.com>`,
           reason: "model_contract",
         },
       ],
-      remainingOpportunityIds: [],
+      remainingOpportunityIds: ["opp-summary-model-contract"],
     });
 
     const result = await SyncEngine.runSync("connection-1");
@@ -6407,11 +6407,13 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(result.aiProviderDeferred).toBe(false);
     const persistedHistoryId = updateConnectionMock.mock.calls.at(-1)?.[1]
       ?.historyId as string;
-    expect(persistedHistoryId).toBe("sync-token-2");
+    expect(persistedHistoryId).toContain("sync-token-2");
+    expect(persistedHistoryId).toContain("opp-summary-model-contract");
+    expect(result.continuationPending).toBe(true);
     expect(state.rpcCalls).toContainEqual({
-      name: "persist_email_connection_sync_completion_as_system",
+      name: "persist_email_connection_sync_checkpoint_as_system",
       params: expect.objectContaining({
-        p_history_id: "sync-token-2",
+        p_history_id: expect.stringContaining("opp-summary-model-contract"),
       }),
     });
   });

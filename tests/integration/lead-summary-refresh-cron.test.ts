@@ -1908,7 +1908,7 @@ describe("refreshLeadSummariesForOpportunities", () => {
     );
   });
 
-  it("terminates a non-repairable model-contract continuation when no trusted fallback exists", async () => {
+  it("keeps a non-repairable model-contract continuation pending when no trusted fallback exists", async () => {
     tables.opportunities = { rows: [opportunityRow()] };
     // A non-email note is enough context to attempt a summary, but it is not
     // authoritative deterministic commercial evidence for the fallback.
@@ -1938,9 +1938,81 @@ describe("refreshLeadSummariesForOpportunities", () => {
     ]);
     expect(result.failed).toEqual([]);
     expect(result.written).toBe(0);
-    expect(result.remainingOpportunityIds).toEqual([]);
+    expect(result.remainingOpportunityIds).toEqual([OPP_A]);
     expect(openAICreateMock).toHaveBeenCalledTimes(2);
     expect(supabaseRpcMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes Crystal's material reply with trusted facts after a model-contract failure", async () => {
+    const crystalActivity = {
+      ...emailActivity(
+        OPP_A,
+        "2026-08-20T15:13:00.000Z",
+        "I'd like to set up a call to discuss moving forward with your quote."
+      ),
+      subject: "Re: Crystal Elton quote",
+      email_thread_id: "19edbe2358597058",
+      email_message_id: "1a01fbc3eba7a4fb",
+    };
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          title: "Crystal Elton — Deck quote",
+          contact_name: "Crystal Elton",
+          contact_email: "crystal.elton@example.com",
+          stage: "quoted",
+          correspondence_count: 1,
+          ai_summary: "Quote sent; awaiting a reply.",
+          ai_summary_updated_at: "2026-08-19T18:00:00.000Z",
+        }),
+      ],
+    };
+    tables.clients = {
+      rows: [
+        {
+          id: "client-1",
+          company_id: COMPANY_ID,
+          email: "crystal.elton@example.com",
+          deleted_at: null,
+        },
+      ],
+    };
+    tables.activities = { rows: [crystalActivity] };
+    tables.opportunity_correspondence_events = {
+      rows: [
+        correspondenceEvent(crystalActivity, {
+          from_email: "crystal.elton@example.com",
+        }),
+      ],
+    };
+    openAICreateMock.mockReset();
+    openAICreateMock.mockRejectedValue(
+      new LeadSummaryModelContractError(
+        "model repeated a superseded commercial schedule"
+      )
+    );
+
+    const refreshed = await refreshLeadSummariesForOpportunities({
+      supabase: mockSupabase,
+      companyId: COMPANY_ID,
+      opportunityIds: [OPP_A],
+      now: new Date("2026-08-20T15:20:00.000Z"),
+    });
+
+    expect(refreshed).toMatchObject({
+      written: 1,
+      failed: [],
+      deferred: [],
+      remainingOpportunityIds: [],
+    });
+    expect(supabaseRpcMock).toHaveBeenCalledWith(
+      "commit_lead_summary_snapshot",
+      expect.objectContaining({
+        p_company_id: COMPANY_ID,
+        p_opportunity_id: OPP_A,
+        p_summary: expect.stringMatching(/quoted[\s\S]*call/i),
+      })
+    );
   });
 
   it("commits the trusted deterministic fallback after a model refusal", async () => {

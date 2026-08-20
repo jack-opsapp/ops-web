@@ -3812,9 +3812,10 @@ export interface TargetedLeadSummaryRefreshResult {
   /**
    * Per-opportunity summaries skipped because the AI provider was unavailable
    * (quota / outage / transport) or returned an unusable model-contract answer.
-   * These are deferrable derived-data failures: the summary stays dirty and
-   * recovers on the next inbound message or refresh, while the sync cycle
-   * advances its cursor instead of replaying already-persisted email work.
+   * These are deferrable derived-data failures: the summary stays dirty in the
+   * durable continuation until a canonical summary snapshot commits. The
+   * provider token may advance inside that continuation, but end-to-end sync
+   * completion cannot silently discard the summary work.
    */
   deferred: Array<{
     opportunityId: string;
@@ -3982,11 +3983,13 @@ export async function refreshLeadSummariesForOpportunities(input: {
             ...entry,
             reason: "model_contract",
           });
+          result.remainingOpportunityIds.push(opportunity.id);
         } else if (error instanceof LeadSummaryModelRefusalError) {
           result.deferred.push({
             ...entry,
             reason: "model_refusal",
           });
+          result.remainingOpportunityIds.push(opportunity.id);
         } else {
           result.failed.push(entry);
           result.remainingOpportunityIds.push(opportunity.id);
