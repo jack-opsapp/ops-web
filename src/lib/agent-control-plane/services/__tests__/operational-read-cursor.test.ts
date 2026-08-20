@@ -40,6 +40,68 @@ const CLAIMS = {
   project_id: "33333333-3333-4333-8333-333333333333",
 } as const;
 
+const CUSTOMER_DISCOVERY_EXPECTED = {
+  capabilityId: "search_customers" as const,
+  schemaRevision: "2026-08-20.v1",
+  capabilityManifestRevision: "2026-08-20.capability-manifest.v7",
+  rankingRevision: "customer-discovery-ranking:v1" as const,
+  ruleRevisions: [],
+  actorUserId: EXPECTED.actorUserId,
+  companyId: EXPECTED.companyId,
+  permissionSnapshotRevision: EXPECTED.permissionSnapshotRevision,
+  queryHash: `sha256:${"c".repeat(64)}`,
+} as const;
+
+const CUSTOMER_DISCOVERY_CLAIMS = {
+  capability_id: CUSTOMER_DISCOVERY_EXPECTED.capabilityId,
+  schema_revision: CUSTOMER_DISCOVERY_EXPECTED.schemaRevision,
+  capability_manifest_revision:
+    CUSTOMER_DISCOVERY_EXPECTED.capabilityManifestRevision,
+  ranking_revision: CUSTOMER_DISCOVERY_EXPECTED.rankingRevision,
+  rule_revisions: [],
+  actor_user_id: CUSTOMER_DISCOVERY_EXPECTED.actorUserId,
+  company_id: CUSTOMER_DISCOVERY_EXPECTED.companyId,
+  permission_snapshot_revision:
+    CUSTOMER_DISCOVERY_EXPECTED.permissionSnapshotRevision,
+  query_hash: CUSTOMER_DISCOVERY_EXPECTED.queryHash,
+  source_revision: 92,
+  read_as_of: "2026-08-12T17:59:58.000Z",
+  rank_ordinal: 17,
+  customer_kind: "sub_client" as const,
+  customer_id: "44444444-4444-4444-8444-444444444444",
+} as const;
+
+const JOB_DISCOVERY_EXPECTED = {
+  capabilityId: "search_jobs" as const,
+  schemaRevision: "2026-08-20.v1",
+  capabilityManifestRevision: "2026-08-20.capability-manifest.v7",
+  rankingRevision: "job-discovery-ranking:v1" as const,
+  ruleRevisions: [],
+  actorUserId: EXPECTED.actorUserId,
+  companyId: EXPECTED.companyId,
+  permissionSnapshotRevision: EXPECTED.permissionSnapshotRevision,
+  queryHash: `sha256:${"d".repeat(64)}`,
+} as const;
+
+const JOB_DISCOVERY_CLAIMS = {
+  capability_id: JOB_DISCOVERY_EXPECTED.capabilityId,
+  schema_revision: JOB_DISCOVERY_EXPECTED.schemaRevision,
+  capability_manifest_revision:
+    JOB_DISCOVERY_EXPECTED.capabilityManifestRevision,
+  ranking_revision: JOB_DISCOVERY_EXPECTED.rankingRevision,
+  rule_revisions: [],
+  actor_user_id: JOB_DISCOVERY_EXPECTED.actorUserId,
+  company_id: JOB_DISCOVERY_EXPECTED.companyId,
+  permission_snapshot_revision:
+    JOB_DISCOVERY_EXPECTED.permissionSnapshotRevision,
+  query_hash: JOB_DISCOVERY_EXPECTED.queryHash,
+  source_revision: 93,
+  read_as_of: "2026-08-12T17:59:57.000Z",
+  rank_ordinal: 23,
+  job_kind: "project" as const,
+  job_id: "55555555-5555-4555-8555-555555555555",
+} as const;
+
 function codec(key = KEY, version = 1) {
   return createOperationalReadCursorCodec({
     key,
@@ -55,6 +117,18 @@ function payload(cursor: string) {
     string,
     unknown
   >;
+}
+
+function mutateSignedPayload(
+  cursor: string,
+  mutation: Readonly<Record<string, unknown>>
+): string {
+  const payloadStart = cursor.lastIndexOf(":") + 1;
+  const signatureStart = cursor.indexOf(".", payloadStart);
+  const mutatedPayload = Buffer.from(
+    JSON.stringify({ ...payload(cursor), ...mutation })
+  ).toString("base64url");
+  return `${cursor.slice(0, payloadStart)}${mutatedPayload}${cursor.slice(signatureStart)}`;
 }
 
 describe("operational read cursor", () => {
@@ -130,5 +204,176 @@ describe("operational read cursor", () => {
         createOperationalReadCursorCodec({ key: KEY, keyId, version: 1 })
       ).toThrow(TypeError);
     }
+  });
+
+  it("round-trips the bounded customer-discovery rank and identity tuple", () => {
+    const cursorCodec = codec();
+    const cursor = cursorCodec.encode(CUSTOMER_DISCOVERY_CLAIMS);
+
+    expect(cursor.length).toBeLessThanOrEqual(512);
+    expect(
+      cursorCodec.decode({
+        cursor,
+        expected: CUSTOMER_DISCOVERY_EXPECTED,
+      })
+    ).toMatchObject(CUSTOMER_DISCOVERY_CLAIMS);
+    expect(payload(cursor)).toMatchObject({
+      c: "u",
+      o: 17,
+      k: "sub_client",
+      x: CUSTOMER_DISCOVERY_CLAIMS.customer_id,
+    });
+  });
+
+  it("round-trips the bounded job-discovery rank and identity tuple", () => {
+    const cursorCodec = codec();
+    const cursor = cursorCodec.encode(JOB_DISCOVERY_CLAIMS);
+
+    expect(cursor.length).toBeLessThanOrEqual(512);
+    expect(
+      cursorCodec.decode({ cursor, expected: JOB_DISCOVERY_EXPECTED })
+    ).toMatchObject(JOB_DISCOVERY_CLAIMS);
+    expect(payload(cursor)).toMatchObject({
+      c: "j",
+      o: 23,
+      k: "project",
+      x: JOB_DISCOVERY_CLAIMS.job_id,
+    });
+  });
+
+  it("authenticates every customer-discovery source and keyset wire field", () => {
+    const cursorCodec = codec();
+    const cursor = cursorCodec.encode(CUSTOMER_DISCOVERY_CLAIMS);
+    const mutations = [
+      { r: 94 },
+      { a: "2026-08-12T17:59:56.000Z" },
+      { o: 18 },
+      { k: "client" },
+      { x: "66666666-6666-4666-8666-666666666666" },
+    ] as const;
+
+    for (const mutation of mutations) {
+      expect(() =>
+        cursorCodec.decode({
+          cursor: mutateSignedPayload(cursor, mutation),
+          expected: CUSTOMER_DISCOVERY_EXPECTED,
+        })
+      ).toThrow(OperationalReadCursorError);
+    }
+  });
+
+  it("authenticates every job-discovery source and keyset wire field", () => {
+    const cursorCodec = codec();
+    const cursor = cursorCodec.encode(JOB_DISCOVERY_CLAIMS);
+    const mutations = [
+      { r: 94 },
+      { a: "2026-08-12T17:59:56.000Z" },
+      { o: 24 },
+      { k: "opportunity" },
+      { x: "77777777-7777-4777-8777-777777777777" },
+    ] as const;
+
+    for (const mutation of mutations) {
+      expect(() =>
+        cursorCodec.decode({
+          cursor: mutateSignedPayload(cursor, mutation),
+          expected: JOB_DISCOVERY_EXPECTED,
+        })
+      ).toThrow(OperationalReadCursorError);
+    }
+  });
+
+  it.each([
+    ["schema", { schemaRevision: "2026-08-20.v2" }],
+    [
+      "manifest",
+      { capabilityManifestRevision: "2026-08-21.capability-manifest.v8" },
+    ],
+    ["ranking", { rankingRevision: "customer-discovery-ranking:v2" }],
+    ["actor", { actorUserId: "99999999-9999-4999-8999-999999999999" }],
+    ["company", { companyId: "99999999-9999-4999-8999-999999999999" }],
+    ["query", { queryHash: `sha256:${"e".repeat(64)}` }],
+  ])(
+    "binds customer discovery to the expected %s identity",
+    (_label, change) => {
+      const cursorCodec = codec();
+      const cursor = cursorCodec.encode(CUSTOMER_DISCOVERY_CLAIMS);
+
+      expect(() =>
+        cursorCodec.decode({
+          cursor,
+          expected: {
+            ...CUSTOMER_DISCOVERY_EXPECTED,
+            ...change,
+          } as unknown as typeof CUSTOMER_DISCOVERY_EXPECTED,
+        })
+      ).toThrow(OperationalReadCursorError);
+    }
+  );
+
+  it("distinguishes discovery permission drift from malformed or cross-capability replay", () => {
+    const cursorCodec = codec();
+    const cursor = cursorCodec.encode(CUSTOMER_DISCOVERY_CLAIMS);
+
+    expect(() =>
+      cursorCodec.decode({
+        cursor,
+        expected: {
+          ...CUSTOMER_DISCOVERY_EXPECTED,
+          permissionSnapshotRevision: `sha256:${"f".repeat(64)}`,
+        },
+      })
+    ).toThrow(OperationalReadCursorPermissionStaleError);
+    expect(() =>
+      cursorCodec.decode({ cursor, expected: JOB_DISCOVERY_EXPECTED })
+    ).toThrow(OperationalReadCursorError);
+  });
+
+  it("rejects out-of-bound or caller-expanded discovery keysets", () => {
+    const cursorCodec = codec();
+
+    for (const rank_ordinal of [0, 501]) {
+      expect(() =>
+        cursorCodec.encode({
+          ...CUSTOMER_DISCOVERY_CLAIMS,
+          rank_ordinal,
+        })
+      ).toThrow(OperationalReadCursorError);
+    }
+    expect(() =>
+      cursorCodec.encode({
+        ...JOB_DISCOVERY_CLAIMS,
+        normalized_match_value: "caller-selected-sort-key",
+      } as typeof JOB_DISCOVERY_CLAIMS)
+    ).toThrow(OperationalReadCursorError);
+  });
+
+  it("supports exactly a one-hour maximum cursor lifetime", () => {
+    let clock = NOW;
+    const cursorCodec = createOperationalReadCursorCodec({
+      key: KEY,
+      keyId: "task11-key",
+      version: 1,
+      ttlSeconds: 3_600,
+      now: () => clock,
+    });
+    const cursor = cursorCodec.encode(CUSTOMER_DISCOVERY_CLAIMS);
+
+    clock = new Date("2026-08-12T18:59:59.000Z");
+    expect(
+      cursorCodec.decode({ cursor, expected: CUSTOMER_DISCOVERY_EXPECTED })
+    ).toMatchObject(CUSTOMER_DISCOVERY_CLAIMS);
+    clock = new Date("2026-08-12T19:00:00.000Z");
+    expect(() =>
+      cursorCodec.decode({ cursor, expected: CUSTOMER_DISCOVERY_EXPECTED })
+    ).toThrow(OperationalReadCursorError);
+    expect(() =>
+      createOperationalReadCursorCodec({
+        key: KEY,
+        keyId: "task11-key",
+        version: 1,
+        ttlSeconds: 3_601,
+      })
+    ).toThrow(TypeError);
   });
 });

@@ -19,6 +19,8 @@ const CommonClaimsSchema = z
       "list_job_readiness_issues",
       "list_customer_jobs",
       "search_job_history",
+      "search_customers",
+      "search_jobs",
     ]),
     schema_revision: z.string().min(1).max(128),
     capability_manifest_revision: z.string().min(1).max(128),
@@ -64,6 +66,20 @@ const JobHistoryCursorClaimsSchema = CommonClaimsSchema.extend({
     "estimate_document",
   ]),
   source_id: z.string().min(1).max(512),
+}).strict();
+const CustomerDiscoveryCursorClaimsSchema = CommonClaimsSchema.extend({
+  capability_id: z.literal("search_customers"),
+  ranking_revision: z.literal("customer-discovery-ranking:v1"),
+  rank_ordinal: z.number().int().min(1).max(500),
+  customer_kind: z.enum(["client", "sub_client"]),
+  customer_id: UUID_SCHEMA,
+}).strict();
+const JobDiscoveryCursorClaimsSchema = CommonClaimsSchema.extend({
+  capability_id: z.literal("search_jobs"),
+  ranking_revision: z.literal("job-discovery-ranking:v1"),
+  rank_ordinal: z.number().int().min(1).max(500),
+  job_kind: z.enum(["opportunity", "project"]),
+  job_id: UUID_SCHEMA,
 }).strict();
 const WireSchema = z.discriminatedUnion("c", [
   z
@@ -128,6 +144,34 @@ const WireSchema = z.discriminatedUnion("c", [
       a: UTC_SCHEMA,
     })
     .strict(),
+  z
+    .object({
+      c: z.literal("u"),
+      b: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+      p: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+      i: z.number().int().nonnegative(),
+      e: z.number().int().positive(),
+      r: z.number().int().nonnegative(),
+      o: z.number().int().min(1).max(500),
+      k: z.enum(["client", "sub_client"]),
+      x: UUID_SCHEMA,
+      a: UTC_SCHEMA,
+    })
+    .strict(),
+  z
+    .object({
+      c: z.literal("j"),
+      b: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+      p: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+      i: z.number().int().nonnegative(),
+      e: z.number().int().positive(),
+      r: z.number().int().nonnegative(),
+      o: z.number().int().min(1).max(500),
+      k: z.enum(["opportunity", "project"]),
+      x: UUID_SCHEMA,
+      a: UTC_SCHEMA,
+    })
+    .strict(),
 ]);
 
 export type ScheduledJobsCursorClaims = z.infer<
@@ -142,11 +186,19 @@ export type CustomerJobsCursorClaims = z.infer<
 export type JobHistoryCursorClaims = z.infer<
   typeof JobHistoryCursorClaimsSchema
 >;
+export type CustomerDiscoveryCursorClaims = z.infer<
+  typeof CustomerDiscoveryCursorClaimsSchema
+>;
+export type JobDiscoveryCursorClaims = z.infer<
+  typeof JobDiscoveryCursorClaimsSchema
+>;
 export type OperationalReadCursorClaims =
   | ScheduledJobsCursorClaims
   | JobReadinessCursorClaims
   | CustomerJobsCursorClaims
-  | JobHistoryCursorClaims;
+  | JobHistoryCursorClaims
+  | CustomerDiscoveryCursorClaims
+  | JobDiscoveryCursorClaims;
 type CursorRuntimeFields = "version" | "key_id" | "issued_at" | "expires_at";
 type CursorInput<T extends OperationalReadCursorClaims> = T extends unknown
   ? Omit<T, CursorRuntimeFields | "rule_revisions"> &
@@ -169,24 +221,41 @@ export class OperationalReadCursorPermissionStaleError extends Error {
   }
 }
 
+interface CommonOperationalReadCursorExpectation {
+  readonly schemaRevision: string;
+  readonly capabilityManifestRevision: string;
+  readonly ruleRevisions: readonly string[];
+  readonly actorUserId: string;
+  readonly companyId: string;
+  readonly permissionSnapshotRevision: string;
+  readonly queryHash: string;
+}
+
+export type OperationalReadCursorExpectation =
+  | (CommonOperationalReadCursorExpectation &
+      Readonly<{
+        capabilityId:
+          | "list_scheduled_jobs"
+          | "list_job_readiness_issues"
+          | "list_customer_jobs"
+          | "search_job_history";
+      }>)
+  | (CommonOperationalReadCursorExpectation &
+      Readonly<{
+        capabilityId: "search_customers";
+        rankingRevision: "customer-discovery-ranking:v1";
+      }>)
+  | (CommonOperationalReadCursorExpectation &
+      Readonly<{
+        capabilityId: "search_jobs";
+        rankingRevision: "job-discovery-ranking:v1";
+      }>);
+
 export interface OperationalReadCursorCodec {
   encode(claims: OperationalReadCursorInputClaims): string;
   decode(input: {
     readonly cursor: string;
-    readonly expected: Readonly<{
-      capabilityId:
-        | "list_scheduled_jobs"
-        | "list_job_readiness_issues"
-        | "list_customer_jobs"
-        | "search_job_history";
-      schemaRevision: string;
-      capabilityManifestRevision: string;
-      ruleRevisions: readonly string[];
-      actorUserId: string;
-      companyId: string;
-      permissionSnapshotRevision: string;
-      queryHash: string;
-    }>;
+    readonly expected: OperationalReadCursorExpectation;
   }): OperationalReadCursorClaims;
 }
 
@@ -224,23 +293,26 @@ function bindingDigest(input: {
   readonly capabilityId: string;
   readonly schemaRevision: string;
   readonly capabilityManifestRevision: string;
+  readonly rankingRevision?: string;
   readonly ruleRevisions: readonly string[];
   readonly actorUserId: string;
   readonly companyId: string;
   readonly queryHash: string;
 }): string {
+  const binding: unknown[] = [
+    input.capabilityId,
+    input.schemaRevision,
+    input.capabilityManifestRevision,
+    input.ruleRevisions,
+    input.actorUserId,
+    input.companyId,
+    input.queryHash,
+  ];
+  if (input.rankingRevision !== undefined) {
+    binding.push(input.rankingRevision);
+  }
   return createHash("sha256")
-    .update(
-      JSON.stringify([
-        input.capabilityId,
-        input.schemaRevision,
-        input.capabilityManifestRevision,
-        input.ruleRevisions,
-        input.actorUserId,
-        input.companyId,
-        input.queryHash,
-      ])
-    )
+    .update(JSON.stringify(binding))
     .digest("base64url");
 }
 
@@ -303,19 +375,34 @@ export function createOperationalReadCursorCodec(
         issued_at: issuedAt,
         expires_at: issuedAt + capturedTtl,
       };
-      const parsed =
-        claims.capability_id === "list_scheduled_jobs"
-          ? ScheduledCursorClaimsSchema.safeParse(claims)
-          : claims.capability_id === "list_job_readiness_issues"
-            ? ReadinessCursorClaimsSchema.safeParse(claims)
-            : claims.capability_id === "list_customer_jobs"
-              ? CustomerJobsCursorClaimsSchema.safeParse(claims)
-              : JobHistoryCursorClaimsSchema.safeParse(claims);
+      const parsed = (() => {
+        switch (claims.capability_id) {
+          case "list_scheduled_jobs":
+            return ScheduledCursorClaimsSchema.safeParse(claims);
+          case "list_job_readiness_issues":
+            return ReadinessCursorClaimsSchema.safeParse(claims);
+          case "list_customer_jobs":
+            return CustomerJobsCursorClaimsSchema.safeParse(claims);
+          case "search_job_history":
+            return JobHistoryCursorClaimsSchema.safeParse(claims);
+          case "search_customers":
+            return CustomerDiscoveryCursorClaimsSchema.safeParse(claims);
+          case "search_jobs":
+            return JobDiscoveryCursorClaimsSchema.safeParse(claims);
+          default:
+            return { success: false as const };
+        }
+      })();
       if (!parsed.success) invalid();
       const binding = bindingDigest({
         capabilityId: parsed.data.capability_id,
         schemaRevision: parsed.data.schema_revision,
         capabilityManifestRevision: parsed.data.capability_manifest_revision,
+        rankingRevision:
+          parsed.data.capability_id === "search_customers" ||
+          parsed.data.capability_id === "search_jobs"
+            ? parsed.data.ranking_revision
+            : undefined,
         ruleRevisions: parsed.data.rule_revisions,
         actorUserId: parsed.data.actor_user_id,
         companyId: parsed.data.company_id,
@@ -387,6 +474,38 @@ export function createOperationalReadCursorCodec(
               x: parsed.data.source_id,
               a: parsed.data.read_as_of,
             };
+          case "search_customers":
+            return {
+              c: "u" as const,
+              b: binding,
+              p: permissionDigest(
+                capturedKey,
+                parsed.data.permission_snapshot_revision
+              ),
+              i: parsed.data.issued_at,
+              e: parsed.data.expires_at,
+              r: parsed.data.source_revision,
+              o: parsed.data.rank_ordinal,
+              k: parsed.data.customer_kind,
+              x: parsed.data.customer_id,
+              a: parsed.data.read_as_of,
+            };
+          case "search_jobs":
+            return {
+              c: "j" as const,
+              b: binding,
+              p: permissionDigest(
+                capturedKey,
+                parsed.data.permission_snapshot_revision
+              ),
+              i: parsed.data.issued_at,
+              e: parsed.data.expires_at,
+              r: parsed.data.source_revision,
+              o: parsed.data.rank_ordinal,
+              k: parsed.data.job_kind,
+              x: parsed.data.job_id,
+              a: parsed.data.read_as_of,
+            };
         }
       })();
       const payload = base64UrlEncode(JSON.stringify(wire));
@@ -450,14 +569,22 @@ export function createOperationalReadCursorCodec(
       const nowSeconds = Math.floor(
         (capturedNow?.() ?? new Date()).getTime() / 1000
       );
-      const expectedWireKind =
-        expected.capabilityId === "list_scheduled_jobs"
-          ? "s"
-          : expected.capabilityId === "list_job_readiness_issues"
-            ? "r"
-            : expected.capabilityId === "list_customer_jobs"
-              ? "c"
-              : "h";
+      const expectedWireKind = (() => {
+        switch (expected.capabilityId) {
+          case "list_scheduled_jobs":
+            return "s";
+          case "list_job_readiness_issues":
+            return "r";
+          case "list_customer_jobs":
+            return "c";
+          case "search_job_history":
+            return "h";
+          case "search_customers":
+            return "u";
+          case "search_jobs":
+            return "j";
+        }
+      })();
       if (
         wire.c !== expectedWireKind ||
         wire.b !== bindingDigest(expected) ||
@@ -522,6 +649,24 @@ export function createOperationalReadCursorCodec(
               occurred_at: wire.t,
               source_type: wire.s,
               source_id: wire.x,
+            };
+          case "u":
+            return {
+              ...common,
+              capability_id: "search_customers" as const,
+              ranking_revision: "customer-discovery-ranking:v1" as const,
+              rank_ordinal: wire.o,
+              customer_kind: wire.k,
+              customer_id: wire.x,
+            };
+          case "j":
+            return {
+              ...common,
+              capability_id: "search_jobs" as const,
+              ranking_revision: "job-discovery-ranking:v1" as const,
+              rank_ordinal: wire.o,
+              job_kind: wire.k,
+              job_id: wire.x,
             };
         }
       })();
