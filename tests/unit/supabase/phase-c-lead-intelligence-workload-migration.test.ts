@@ -121,7 +121,9 @@ describe("Phase C lead intelligence workload migration", () => {
 
   it("uses durable review decisions for ambiguous identity, authority, or acceptance", () => {
     expect(source).toContain("decision_kind text not null");
-    expect(source).toMatch(/status in \('proposed', 'applied', 'skipped', 'review', 'failed'\)/i);
+    expect(source).toMatch(
+      /status in \('proposed', 'applied', 'skipped', 'review', 'failed'\)/i
+    );
     expect(source).toContain("review_reason text");
     expect(source).toContain("review_required_at timestamptz");
     expect(source).toContain("opportunity_lifecycle_decisions_review_idx");
@@ -133,11 +135,18 @@ describe("Phase C lead intelligence workload migration", () => {
     );
     expect(source).toContain("idempotency_key text not null unique");
     expect(source).toContain("proposal_event_id uuid not null");
-    expect(source).toContain("acceptance_event_id uuid not null");
+    expect(source).toMatch(/acceptance_event_id uuid\s+references/i);
+    expect(source).toMatch(
+      /status <> 'ready'[\s\S]*?acceptance_event_id is not null[\s\S]*?proposal_event_id <> acceptance_event_id/i
+    );
     expect(source).toContain("event_timezone text");
     expect(source).toContain("attendees jsonb not null default '[]'::jsonb");
-    expect(source).toMatch(/status in \('ready', 'review', 'consumed', 'cancelled'\)/i);
-    expect(source).not.toMatch(/insert into public\.(site_visits|calendar_events)/i);
+    expect(source).toMatch(
+      /status in \('ready', 'review', 'consumed', 'cancelled'\)/i
+    );
+    expect(source).not.toMatch(
+      /insert into public\.(site_visits|calendar_events)/i
+    );
     expect(source).not.toMatch(/google_calendar_sync_queue/i);
   });
 
@@ -147,7 +156,9 @@ describe("Phase C lead intelligence workload migration", () => {
       "opportunity_lifecycle_decisions",
       "phase_c_bilateral_event_handoffs",
     ]) {
-      expect(source).toContain(`alter table public.${table} enable row level security`);
+      expect(source).toContain(
+        `alter table public.${table} enable row level security`
+      );
       expect(source).toMatch(
         new RegExp(
           `revoke all on table public\\.${table} from public, anon, authenticated`,
@@ -168,8 +179,14 @@ describe("Phase C lead intelligence workload migration", () => {
     expect(source).toContain("opportunity_phase_c_work_due_idx");
     expect(source).toContain("opportunity_lifecycle_decisions_review_idx");
     expect(source).toContain("phase_c_bilateral_event_handoffs_ready_idx");
-    expect(source).toContain("opportunity_lifecycle_decisions_source_event_idx");
-    expect(source).toContain("phase_c_bilateral_event_handoffs_proposal_event_idx");
-    expect(source).toContain("phase_c_bilateral_event_handoffs_acceptance_event_idx");
+    expect(source).toContain(
+      "opportunity_lifecycle_decisions_source_event_idx"
+    );
+    expect(source).toContain(
+      "phase_c_bilateral_event_handoffs_proposal_event_idx"
+    );
+    expect(source).toContain(
+      "phase_c_bilateral_event_handoffs_acceptance_event_idx"
+    );
   });
 });

@@ -126,7 +126,7 @@ create table if not exists public.phase_c_bilateral_event_handoffs (
     on delete set null,
   proposal_event_id uuid not null
     references public.opportunity_correspondence_events(id) on delete restrict,
-  acceptance_event_id uuid not null
+  acceptance_event_id uuid
     references public.opportunity_correspondence_events(id) on delete restrict,
   requested_owner_user_id uuid references public.users(id) on delete set null,
   event_kind text not null,
@@ -165,13 +165,15 @@ create table if not exists public.phase_c_bilateral_event_handoffs (
       and ends_at > starts_at
       and nullif(btrim(event_timezone), '') is not null
       and requested_owner_user_id is not null
+      and acceptance_event_id is not null
+      and proposal_event_id <> acceptance_event_id
     )
   ),
   constraint phase_c_bilateral_event_handoffs_review_check check (
     status <> 'review' or nullif(btrim(review_reason), '') is not null
   ),
   constraint phase_c_bilateral_event_handoffs_distinct_evidence_check check (
-    proposal_event_id <> acceptance_event_id
+    acceptance_event_id is null or proposal_event_id <> acceptance_event_id
   ),
   constraint phase_c_bilateral_event_handoffs_opportunity_company_fkey
     foreign key (company_id, opportunity_id)
