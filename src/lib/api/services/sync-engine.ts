@@ -43,6 +43,10 @@ import { resolveSyncEngineEmailActor } from "@/lib/email/sync-engine-email-actor
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
 import { createEmailOpportunityNotification } from "@/lib/email/email-opportunity-notification";
 import { createEmailSyncCompleteNotification } from "@/lib/email/email-sync-complete-notification";
+import {
+  loadPhaseCStageDecisionEvidence,
+  recordAndApplyPhaseCStageDecision,
+} from "@/lib/email/phase-c-lifecycle-decision";
 import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-health";
 import {
   decodeEmailSyncContinuation,
@@ -6561,10 +6565,13 @@ export const SyncEngine = {
                 sr.terminalFlag || "ai_evaluated",
               ];
 
-              // Only write stage if it actually changed AND user hasn't manually set it
+              // Stage proposals are recorded even when the lead carries a
+              // historical manual flag. The guarded decision RPC compares the
+              // exact source event against the manual correction boundary, so
+              // newer evidence may advance an active stage while a same/later
+              // operator correction remains authoritative.
               if (
                 sr.newStage &&
-                !oppData?.stage_manually_set &&
                 sr.newStage !== oppData?.stage &&
                 isAllowedAutomatedEmailStageTransition(
                   oppData.stage as string,
@@ -6602,37 +6609,33 @@ export const SyncEngine = {
               }
 
               if (requestedStage) {
-                const { data: transitionRows, error: transitionError } =
-                  await supabase.rpc(
-                    "apply_email_opportunity_stage_transition",
-                    {
-                      p_company_id: connection.companyId,
-                      p_opportunity_id: oppId,
-                      p_to_stage: requestedStage,
-                      p_expected_stage: oppData.stage,
-                      p_expected_assignment_version: oppData.assignment_version,
-                      p_ai_signal: sr.terminalFlag || "ai_evaluated",
-                    }
-                  );
-                if (transitionError) {
-                  throw new CronDatabaseOperationError(
-                    `[sync-engine] AI stage transition failed for opportunity ${oppId}: ${transitionError.message ?? "unknown error"}`,
-                    { cause: transitionError }
-                  );
-                }
-                if (!transitionRows) {
-                  throw new LifecyclePersistenceError(
-                    `[sync-engine] AI stage transition failed for opportunity ${oppId}: RPC returned no rows`
-                  );
-                }
-                const transition = Array.isArray(transitionRows)
-                  ? transitionRows[0]
-                  : transitionRows;
-                if (!transition) {
-                  throw new LifecyclePersistenceError(
-                    `[sync-engine] AI stage transition returned no opportunity for ${oppId}`
-                  );
-                }
+                const providerThreadIds =
+                  typeof evaluationTarget === "string"
+                    ? [evaluationTarget]
+                    : (evaluationTarget?.messages.map(
+                        (message) => message.threadId
+                      ) ?? []);
+                const evidence = await loadPhaseCStageDecisionEvidence({
+                  supabase,
+                  companyId: connection.companyId,
+                  opportunityId: oppId,
+                  connectionId: connection.id,
+                  providerThreadIds,
+                });
+                const transition = await recordAndApplyPhaseCStageDecision({
+                  supabase,
+                  companyId: connection.companyId,
+                  opportunityId: oppId,
+                  sourceEventId: evidence.sourceEventId,
+                  evidenceEventIds: evidence.evidenceEventIds,
+                  evidenceMessageIds: evidence.evidenceMessageIds,
+                  proposedStage: requestedStage,
+                  expectedStage: oppData.stage as string,
+                  expectedAssignmentVersion:
+                    oppData.assignment_version as number,
+                  confidence: 0.8,
+                  reason: "strict_singleton_model_stage_classification",
+                });
                 if (transition.changed) result.stageChanges++;
               }
             }

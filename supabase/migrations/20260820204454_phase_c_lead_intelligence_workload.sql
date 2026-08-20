@@ -842,7 +842,13 @@ begin
            when 'negotiation' then 75
          end,
          ai_stage_confidence = v_decision.confidence,
-         ai_stage_signals = array[v_decision.reason],
+         ai_stage_signals = array(
+           select distinct signal
+             from unnest(
+               coalesce(opportunity.ai_stage_signals, '{}'::text[])
+               || array[v_decision.reason]
+             ) signal
+         ),
          updated_at = now()
    where opportunity.id = p_opportunity_id
      and opportunity.company_id = p_company_id;

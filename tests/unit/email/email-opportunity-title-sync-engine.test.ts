@@ -1562,6 +1562,83 @@ function makeSupabaseDouble(state: SupabaseState) {
         };
       }
       state.rpcCalls?.push({ name, params });
+      if (name === "record_opportunity_lifecycle_decision") {
+        return {
+          data: {
+            id: `phase-c-decision-${
+              (state.rpcCalls ?? []).filter(
+                (call) =>
+                  call.name === "record_opportunity_lifecycle_decision"
+              ).length
+            }`,
+            status: params.p_status,
+          },
+          error: null,
+        };
+      }
+      if (name === "apply_phase_c_opportunity_stage_decision") {
+        if (state.opportunityStageUpdateError) {
+          return {
+            data: null,
+            error: { message: state.opportunityStageUpdateError },
+          };
+        }
+        const opportunity = state.opportunities.find(
+          (row) => row.id === params.p_opportunity_id
+        );
+        const receipt = [...(state.rpcCalls ?? [])]
+          .reverse()
+          .find(
+            (call) =>
+              call.name === "record_opportunity_lifecycle_decision" &&
+              call.params.p_opportunity_id === params.p_opportunity_id
+          );
+        if (!opportunity || !receipt) {
+          return { data: null, error: { message: "decision_not_found" } };
+        }
+        const fromStage = String(opportunity.stage ?? "new_lead");
+        const proposedStage = String(receipt.params.p_proposed_stage);
+        const sourceEvent = (state.correspondenceEvents ?? []).find(
+          (event) => event.id === receipt.params.p_source_event_id
+        );
+        const manualBoundaryAt = opportunity.stage_manual_boundary_at;
+        const evidenceIsNewer =
+          !manualBoundaryAt ||
+          Date.parse(String(sourceEvent?.occurred_at ?? "")) >
+            Date.parse(String(manualBoundaryAt));
+        const changed =
+          fromStage === params.p_expected_stage &&
+          !["won", "lost", "discarded"].includes(fromStage) &&
+          fromStage !== proposedStage &&
+          (!opportunity.stage_manually_set || evidenceIsNewer);
+        if (changed) {
+          opportunity.stage = proposedStage;
+          opportunity.stage_manually_set = false;
+          opportunity.stage_entered_at = "2026-08-20T15:13:01.000Z";
+          state.stageTransitions ??= [];
+          state.stageTransitions.push({
+            company_id: params.p_company_id,
+            opportunity_id: params.p_opportunity_id,
+            from_stage: fromStage,
+            to_stage: proposedStage,
+          });
+        }
+        return {
+          data: [
+            {
+              changed,
+              stage: opportunity.stage,
+              stage_manually_set: Boolean(opportunity.stage_manually_set),
+              guard_reason: changed
+                ? null
+                : opportunity.stage_manually_set && !evidenceIsNewer
+                  ? "manual_correction_is_newer"
+                  : "snapshot_mismatch",
+            },
+          ],
+          error: null,
+        };
+      }
       if (
         name === "apply_email_opportunity_stage_transition" &&
         state.opportunityStageUpdateError
@@ -6241,6 +6318,117 @@ To: Kara Beach <kara.beach@example.com>`,
       opportunityIds: ["opp-stage-refresh"],
     });
     expect(state.stageTransitions).toEqual([]);
+  });
+
+  it("records Crystal's evidence before advancing an older manually pinned quote to negotiation", async () => {
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-crystal",
+          company_id: "company-1",
+          name: "Crystal Elton",
+          email: "crystal.elton@example.com",
+          deleted_at: null,
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-crystal",
+          company_id: "company-1",
+          client_id: "client-crystal",
+          title: "Crystal Elton — Deck quote",
+          contact_email: "crystal.elton@example.com",
+          stage: "quoted",
+          stage_manually_set: true,
+          stage_manual_boundary_at: "2026-08-19T18:00:00.000Z",
+          assignment_version: 4,
+          archived_at: null,
+          deleted_at: null,
+        },
+      ],
+      projects: [],
+      threadLinks: [
+        {
+          opportunity_id: "opp-crystal",
+          thread_id: "19edbe2358597058",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+      stageTransitions: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const crystalReply = baseEmail({
+      id: "1a01fbc3eba7a4fb",
+      threadId: "19edbe2358597058",
+      from: "Crystal Elton <crystal.elton@example.com>",
+      fromName: "Crystal Elton",
+      to: ["jackson@canprodeckandrail.com"],
+      subject: "Re: Deck quote",
+      bodyText:
+        "I'd like to set up a call to discuss moving forward with your quote.",
+      snippet: "I'd like to set up a call to discuss moving forward.",
+      date: new Date("2026-08-20T15:13:00.000Z"),
+      labelIds: ["INBOX"],
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [crystalReply],
+        nextSyncToken: "sync-token-crystal",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-crystal",
+      })),
+    });
+    evaluateStagesWithSummaryMock.mockResolvedValue([
+      {
+        threadId: "19edbe2358597058",
+        newStage: "negotiation",
+        terminalFlag: null,
+        summary: "Crystal wants to discuss moving forward with the quote.",
+      },
+    ]);
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(state.opportunities[0]).toMatchObject({
+      stage: "negotiation",
+      stage_manually_set: false,
+    });
+    expect(state.projects).toEqual([]);
+    const recordedAt = state.rpcCalls!.findIndex(
+      (call) => call.name === "record_opportunity_lifecycle_decision"
+    );
+    const appliedAt = state.rpcCalls!.findIndex(
+      (call) => call.name === "apply_phase_c_opportunity_stage_decision"
+    );
+    expect(recordedAt).toBeGreaterThan(-1);
+    expect(appliedAt).toBeGreaterThan(recordedAt);
+    expect(state.rpcCalls![recordedAt].params).toMatchObject({
+      p_opportunity_id: "opp-crystal",
+      p_proposed_stage: "negotiation",
+      p_confidence: 0.8,
+      p_evidence_message_ids: ["1a01fbc3eba7a4fb"],
+    });
+    expect(
+      state.rpcCalls!.some(
+        (call) => call.name === "apply_email_opportunity_stage_transition"
+      )
+    ).toBe(false);
+    expect(
+      state.rpcCalls!.some(
+        (call) =>
+          call.name === "record_phase_c_bilateral_event_handoff" ||
+          call.name.includes("site_visit") ||
+          call.name.includes("calendar")
+      )
+    ).toBe(false);
   });
 
   it("keeps the provider cursor unchanged when the complete lead summary cannot be committed", async () => {
