@@ -17,6 +17,7 @@ import {
   MAX_DISCOVERY_OUTPUT_CHARACTERS,
   SearchCustomersInputSchema,
   SearchJobsInputSchema,
+  discoveryPromptSerializedLength,
   type CustomerDiscoveryData,
   type CustomerDiscoveryMatch,
   type CustomerDiscoveryResult,
@@ -1486,14 +1487,15 @@ describe("discovery AgentResult contracts", () => {
     ).toBe(false);
   });
 
-  it("rejects serialized AgentResults above 60,000 characters", () => {
-    const matches = Array.from({ length: 25 }, (_, index) => ({
+  it("rejects AgentResults whose exact escaped prompt exceeds 60,000 characters", () => {
+    const matches = Array.from({ length: 12 }, (_, index) => ({
       ...opportunityJobMatch(index + 1),
-      display_title: "t".repeat(1_000),
-      address: "a".repeat(2_000),
+      display_title: "<>&".repeat(333),
+      address: "<>&".repeat(666),
     }));
     const oversized = resultEnvelope("job", jobData(matches));
-    expect(JSON.stringify(oversized).length).toBeGreaterThan(60_000);
+    expect(JSON.stringify(oversized).length).toBeLessThanOrEqual(60_000);
+    expect(discoveryPromptSerializedLength(oversized)).toBeGreaterThan(60_000);
     const parsed = JobDiscoveryResultSchema.safeParse(oversized);
     expect(parsed.success).toBe(false);
     if (parsed.success) return;
