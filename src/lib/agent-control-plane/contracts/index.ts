@@ -1,6 +1,7 @@
 export * from "./common";
 export * from "./communication";
 export * from "./conversation";
+export * from "./discovery";
 export * from "./errors";
 export * from "./evidence";
 export * from "./jobs";
