@@ -210,6 +210,8 @@ const HYPOTHETICAL_DEFERRAL_PREFIX_RE =
   /\b(?:if|unless|in case|depending on|may|might|could|would)\b[\s\S]*$/i;
 const DIRECT_DEFERRAL_REQUEST_RE =
   /\b(?:please|can you|could you|would you|can we|could we|would we|would it be possible to|we need to|we have to|we must|we would like to|i would like to|would like to|let'?s)\s+(?:delay|postpone|defer|pause|revisit|wait|hold off|put (?:this|it) off)\b/i;
+const DELIBERATED_SAVINGS_DEFERRAL_RE =
+  /\b(?:we|i)(?:['’]ve| have)?\b.{0,180}\b(?:talked|discussed|decid(?:e|ed)|think it makes sense|need|want|plan)\b.{0,180}\b(?:hold(?:ing)?\s+(?:on|off)|save(?:\s+up|ing))\b/i;
 const INABILITY_TO_PROCEED_RE =
   /\b(?:can(?:not|['’]t)|can not|unable to|not able to|won(?:not|['’]t) be able to)\s+(?:afford|swing|do\b|proceed|move (?:ahead|forward)|go ahead|start|schedule|fund|pay|make (?:it|this) work)\b/i;
 const DEFERRAL_CAUSE_RE =
@@ -409,6 +411,7 @@ function hasDeferralAction(body: string): boolean {
   ) {
     return false;
   }
+  if (DELIBERATED_SAVINGS_DEFERRAL_RE.test(body)) return true;
   for (const match of body.matchAll(DEFERRAL_ACTION_VERB_RE)) {
     const matchIndex = match.index ?? 0;
     const clause = clauseAroundMatch(body, matchIndex, match[0].length);

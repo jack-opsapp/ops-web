@@ -369,7 +369,8 @@ export function useStageTransition({
         return;
       }
 
-      /** `duplicate`/`other` leave the lead on the board — say so plainly. */
+      /** Backward-compatible copy for an older server receipt. New discard
+       * reasons all return `discarded` and therefore use `stageLine`. */
       const outcomeStateLine = (outcome: LeadDispositionOutcome): string => {
         switch (outcome) {
           case "lost":

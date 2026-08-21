@@ -6,9 +6,8 @@
  *
  *   - `apply_lead_disposition_feedback` writes the learning-evidence row AND
  *     the mapped lifecycle change in ONE transaction. The reason → outcome
- *     mapping is server-owned (spam/vendor_sales/… → `discarded`, `not_a_fit`
- *     → `lost` + disqualified, `duplicate`/`other` → review, no lifecycle
- *     change), so the client never derives the target stage itself.
+ *     mapping is server-owned. Every reason in the discard surface moves the
+ *     lead to `discarded`; the client never derives the target stage itself.
  *   - `undo_lead_disposition_feedback` retracts that evidence and restores the
  *     prior stage/lost fields. Idempotent — a double-undo replays safely.
  *
@@ -26,7 +25,7 @@
 
 import { requireSupabase } from "@/lib/supabase/helpers";
 
-/** The nine operator-selectable Phase C reasons. */
+/** The ten operator-selectable Phase C reasons. */
 export type LeadDiscardReasonCode =
   | "spam"
   | "job_applicant"
@@ -36,6 +35,7 @@ export type LeadDiscardReasonCode =
   | "test_traffic"
   | "duplicate"
   | "not_a_fit"
+  | "created_by_error"
   | "other";
 
 /**
@@ -58,7 +58,7 @@ export interface LeadDispositionFeedbackResult {
   outcome: LeadDispositionOutcome;
   priorStage: string;
   currentStage: string;
-  /** False for `duplicate`/`other` — the lead stays exactly where it is. */
+  /** True when the authoritative transaction changed the lead lifecycle. */
   lifecycleChanged: boolean;
   /** True when the idempotency key replayed a prior write. */
   idempotentReplay: boolean;

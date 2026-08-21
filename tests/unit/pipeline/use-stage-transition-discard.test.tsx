@@ -283,13 +283,13 @@ describe("useStageTransition — discard capture (Phase C ON)", () => {
     expect(pushUndo).toHaveBeenCalledTimes(1);
   });
 
-  it("carries the outcome copy when the server routes the lead somewhere else", async () => {
+  it("keeps duplicate discards on the discarded lifecycle", async () => {
     applyMutateAsync.mockResolvedValue({
       feedbackId: "fb-2",
-      outcome: "duplicate_review",
+      outcome: "discarded",
       priorStage: "negotiation",
-      currentStage: "negotiation",
-      lifecycleChanged: false,
+      currentStage: "discarded",
+      lifecycleChanged: true,
       idempotentReplay: false,
     });
     discard(makeOpp());
@@ -299,7 +299,7 @@ describe("useStageTransition — discard capture (Phase C ON)", () => {
     });
 
     expect(confirmCaptureToast.mock.calls[0]![1]).toMatchObject({
-      stateLine: "Duplicate review — stays on board",
+      stateLine: EXPECTED_STAGE_LINE,
       reasonLabel: "duplicate",
     });
   });
