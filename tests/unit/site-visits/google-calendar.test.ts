@@ -27,11 +27,7 @@ const LEAD = {
 
 describe("buildSiteVisitCalendarEvent", () => {
   it("builds the full event from the visit window and lead identity", () => {
-    const event = buildSiteVisitCalendarEvent(
-      VISIT,
-      LEAD,
-      "https://app.test"
-    );
+    const event = buildSiteVisitCalendarEvent(VISIT, LEAD, "https://app.test");
 
     expect(event).toEqual({
       summary: "Site visit — Faye Keys",
@@ -67,6 +63,21 @@ describe("buildSiteVisitCalendarEvent", () => {
       "https://app.test"
     );
     expect(event).not.toHaveProperty("location");
+  });
+
+  it("preserves the canonical Phase C appointment title and location", () => {
+    const event = buildSiteVisitCalendarEvent(
+      {
+        ...VISIT,
+        appointmentTitle: "Call — Faye Keys",
+        appointmentLocation: "Microsoft Teams",
+      },
+      LEAD,
+      "https://app.test"
+    );
+
+    expect(event.summary).toBe("Call — Faye Keys");
+    expect(event.location).toBe("Microsoft Teams");
   });
 });
 

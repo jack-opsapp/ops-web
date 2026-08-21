@@ -198,6 +198,40 @@ describe("opportunity correspondence classifier", () => {
     });
   });
 
+  it("excludes a landlord's property-administration message from the sales lifecycle", () => {
+    expect(
+      classifyOpportunityCorrespondence({
+        ...baseInput,
+        fromEmail: "landlord@example.net",
+        subject: "August rent and lease renewal",
+        bodyText:
+          "As your landlord, I am sending the rental statement and tenancy agreement renewal. The monthly rent is due Friday.",
+      })
+    ).toMatchObject({
+      partyRole: "unknown",
+      isMeaningful: false,
+      noiseReason: "administrative_non_customer",
+      customerEmail: null,
+    });
+  });
+
+  it("keeps a property manager's explicit trades inquiry as customer correspondence", () => {
+    expect(
+      classifyOpportunityCorrespondence({
+        ...baseInput,
+        fromEmail: "manager@example.net",
+        subject: "Deck repair quote",
+        bodyText:
+          "I am the property manager. Please quote the deck repair and railing replacement at 18 Cedar Road.",
+      })
+    ).toMatchObject({
+      partyRole: "customer",
+      isMeaningful: true,
+      noiseReason: null,
+      customerEmail: "manager@example.net",
+    });
+  });
+
   it("excludes duplicate provider message ids", () => {
     expect(
       classifyOpportunityCorrespondence({

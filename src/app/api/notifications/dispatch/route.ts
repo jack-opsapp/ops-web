@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { dispatchNotificationEvent } from "@/lib/notifications/dispatch-notification-event";
 import { parseNotificationDispatchRequest } from "@/lib/notifications/notification-dispatch-policy";
 import { resolveNotificationRouteActor } from "@/lib/notifications/server-notification-service";
+import { getAccessTokenClient } from "@/lib/supabase/accessToken-client";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -31,8 +32,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const db = getServiceRoleClient();
+    const authorization = req.headers.get("authorization");
+    const idToken = authorization?.startsWith("Bearer ")
+      ? authorization.slice("Bearer ".length).trim()
+      : "";
+    if (!idToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const result = await dispatchNotificationEvent({
       db,
+      actorDb: getAccessTokenClient(idToken),
       actor: actorResolution.actor,
       request: parsed.value,
     });

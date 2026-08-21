@@ -25,6 +25,8 @@ import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { EmailOutboundLearningService } from "@/lib/api/services/email-outbound-learning-service";
 import { resolveEmailProviderMutationReconciliationForConnection } from "@/lib/api/services/email-provider-mutation-reconciliation-resolver";
 import { recoverStrandedPhaseCMailboxDraftsForConnection } from "@/lib/api/services/phase-c-draft-placement-recovery";
+import { createPhaseCLeadIntelligenceWorkService } from "@/lib/api/services/phase-c-lead-intelligence-work-runtime";
+import { createPhaseCBilateralEventConsumerService } from "@/lib/api/services/phase-c-bilateral-event-consumer-runtime";
 import {
   buildEmailSyncCronResult,
   type EmailSyncCronResult,
@@ -329,7 +331,8 @@ export async function GET(request: NextRequest) {
               mailboxDraftRecovery.placement = {
                 scanned:
                   mailboxDraftRecovery.placement.scanned + placement.scanned,
-                placed: mailboxDraftRecovery.placement.placed + placement.placed,
+                placed:
+                  mailboxDraftRecovery.placement.placed + placement.placed,
                 skipped:
                   mailboxDraftRecovery.placement.skipped + placement.skipped,
                 failed:
@@ -409,6 +412,75 @@ export async function GET(request: NextRequest) {
                 : "Unknown pending lead-scan sweep error";
           }
 
+          // Meaningful opportunity correspondence independently enqueues this
+          // evidence-fenced workload. Drain a deliberately small batch inside
+          // the existing email-sync lease: summary, active-stage decisions,
+          // guarded commercial conversion, and the provider-agnostic bilateral
+          // event handoff each commit before their exact high-water mark is
+          // acknowledged. Failures retain the marker for backoff/replay.
+          let leadIntelligence = {
+            claimed: 0,
+            completed: 0,
+            superseded: 0,
+            retrying: 0,
+            failed: 0,
+            componentsApplied: 0,
+            componentsReviewed: 0,
+            componentsSkippedAsComplete: 0,
+            errors: [] as Array<{ opportunityId: string; error: string }>,
+          };
+          let leadIntelligenceError: string | null = null;
+          try {
+            leadIntelligence = await createPhaseCLeadIntelligenceWorkService({
+              supabase,
+            }).runWorker({ limit: 2, leaseSeconds: 300 });
+          } catch (workError) {
+            if (isDatabasePressureError(workError)) throw workError;
+            console.error(
+              "[email-cron-sync] lead intelligence worker error:",
+              workError
+            );
+            leadIntelligenceError =
+              workError instanceof Error
+                ? workError.message
+                : "Unknown lead intelligence worker error";
+          }
+
+          // P1-16 only records an immutable bilateral appointment handoff.
+          // P1-17 consumes it through an independent, atomic authority and
+          // conflict boundary. Terminal outcomes remain leased until their
+          // durable rail item and quiet-hours-aware push path both settle.
+          let bilateralAppointments = {
+            claimed: 0,
+            booked: 0,
+            reviewed: 0,
+            cancelled: 0,
+            notified: 0,
+            pushed: 0,
+            retrying: 0,
+            failed: 0,
+            errors: [] as Array<{ handoffId: string; error: string }>,
+          };
+          let bilateralAppointmentsError: string | null = null;
+          try {
+            bilateralAppointments =
+              await createPhaseCBilateralEventConsumerService({
+                supabase,
+              }).runWorker({ limit: 2, leaseSeconds: 180 });
+          } catch (appointmentError) {
+            if (isDatabasePressureError(appointmentError)) {
+              throw appointmentError;
+            }
+            console.error(
+              "[email-cron-sync] bilateral appointment worker error:",
+              appointmentError
+            );
+            bilateralAppointmentsError =
+              appointmentError instanceof Error
+                ? appointmentError.message
+                : "Unknown bilateral appointment worker error";
+          }
+
           // Drain a small durable outbound-learning batch after mailbox sync. Model
           // work never runs on the irreversible send route; the worker persists its
           // prepared payload, then one database transaction applies evidence
@@ -465,6 +537,18 @@ export async function GET(request: NextRequest) {
             (pendingLeadScanSweep.errors.length > 0 || pendingLeadScanSweepError
               ? 1
               : 0) +
+            (leadIntelligence.retrying > 0 ||
+            leadIntelligence.failed > 0 ||
+            leadIntelligence.errors.length > 0 ||
+            leadIntelligenceError
+              ? 1
+              : 0) +
+            (bilateralAppointments.retrying > 0 ||
+            bilateralAppointments.failed > 0 ||
+            bilateralAppointments.errors.length > 0 ||
+            bilateralAppointmentsError
+              ? 1
+              : 0) +
             (outboundLearning.terminalFailed > 0 ||
             outboundLearning.bookkeepingFailed > 0 ||
             outboundLearningError
@@ -496,6 +580,10 @@ export async function GET(request: NextRequest) {
               ingestionRecoveryError,
               pendingLeadScanSweep,
               pendingLeadScanSweepError,
+              leadIntelligence,
+              leadIntelligenceError,
+              bilateralAppointments,
+              bilateralAppointmentsError,
               outboundLearning,
               outboundLearningError,
               mailboxDraftRecovery,

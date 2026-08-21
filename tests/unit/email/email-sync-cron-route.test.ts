@@ -15,6 +15,7 @@ const {
   readCronWorkloadCursorMock,
   advanceCronWorkloadCursorMock,
   runOutboundLearningWorkerMock,
+  runLeadIntelligenceWorkerMock,
   resolveReconciliationMock,
   recoverStrandedDraftsMock,
   getConnectionMock,
@@ -92,6 +93,7 @@ const {
     readCronWorkloadCursorMock: vi.fn(),
     advanceCronWorkloadCursorMock: vi.fn(),
     runOutboundLearningWorkerMock: vi.fn(),
+    runLeadIntelligenceWorkerMock: vi.fn(),
     resolveReconciliationMock: vi.fn(),
     recoverStrandedDraftsMock: vi.fn(),
     getConnectionMock: vi.fn(),
@@ -142,6 +144,12 @@ vi.mock("@/lib/api/services/email-outbound-learning-service", () => ({
   EmailOutboundLearningService: class EmailOutboundLearningService {
     runWorker = runOutboundLearningWorkerMock;
   },
+}));
+
+vi.mock("@/lib/api/services/phase-c-lead-intelligence-work-runtime", () => ({
+  createPhaseCLeadIntelligenceWorkService: () => ({
+    runWorker: runLeadIntelligenceWorkerMock,
+  }),
 }));
 
 vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
@@ -200,6 +208,7 @@ describe("email sync cron HTTP outcome", () => {
     readCronWorkloadCursorMock.mockReset();
     advanceCronWorkloadCursorMock.mockReset();
     runOutboundLearningWorkerMock.mockReset();
+    runLeadIntelligenceWorkerMock.mockReset();
     runWithCronWorkloadControlMock.mockReset();
     runWithCronWorkloadControlMock.mockImplementation(
       async ({
@@ -222,6 +231,17 @@ describe("email sync cron HTTP outcome", () => {
       bookkeepingFailed: 0,
       terminalFailed: 0,
       failed: 0,
+      errors: [],
+    });
+    runLeadIntelligenceWorkerMock.mockResolvedValue({
+      claimed: 0,
+      completed: 0,
+      superseded: 0,
+      retrying: 0,
+      failed: 0,
+      componentsApplied: 0,
+      componentsReviewed: 0,
+      componentsSkippedAsComplete: 0,
       errors: [],
     });
     isDatabasePressureErrorMock.mockReset();
@@ -469,6 +489,40 @@ describe("email sync cron HTTP outcome", () => {
       errors: [],
     });
     expect(body.pendingLeadScanSweepError).toBeNull();
+  });
+
+  it("drains durable Phase C lead intelligence and surfaces retrying work", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      newLeads: 0,
+      errors: [],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+    runLeadIntelligenceWorkerMock.mockResolvedValue({
+      claimed: 1,
+      completed: 0,
+      superseded: 0,
+      retrying: 1,
+      failed: 0,
+      componentsApplied: 1,
+      componentsReviewed: 0,
+      componentsSkippedAsComplete: 0,
+      errors: [{ opportunityId: "opportunity-1", error: "model unavailable" }],
+    });
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(runLeadIntelligenceWorkerMock).toHaveBeenCalledWith({
+      limit: 2,
+      leaseSeconds: 300,
+    });
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      ok: false,
+      leadIntelligence: { claimed: 1, retrying: 1 },
+      leadIntelligenceError: null,
+    });
   });
 
   it("drains exact-message classification and label recovery for active companies", async () => {

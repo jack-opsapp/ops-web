@@ -504,6 +504,46 @@ describe("opportunity relationship matching", () => {
     });
   });
 
+  it("links a co-owner only through their persisted exact sub-client email", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "Jennifer Vornbrock",
+        contactEmail: "jennifer.coowner@example.com",
+        address: "2745 Fernwood Rd",
+      }),
+      candidates: [
+        candidate({
+          contactEmail: "owen@example.com",
+          subClientEmails: ["jennifer.coowner@example.com"],
+          address: "2745 Fernwood Road, Victoria BC",
+        }),
+      ],
+    });
+
+    expect(decision).toMatchObject({
+      action: "link",
+      opportunityId: "opp-active",
+      confidence: "existing_sub_client",
+    });
+  });
+
+  it("never links a same-name sender without email, phone, address, or thread proof", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "John Carter",
+        contactEmail: "unrelated@example.net",
+        contactPhone: null,
+        address: null,
+        participantEmails: ["unrelated@example.net"],
+        description: "Following up.",
+        subject: "Hello",
+      }),
+      candidates: [candidate({ contactEmail: "john@example.com" })],
+    });
+
+    expect(decision).toMatchObject({ action: "create_new" });
+  });
+
   it("reconciles a fragmented Owen-style thread through an exact CC participant and carries the unlinked accepted project", () => {
     const decision = decideOpportunityRelationshipMatch({
       facts: facts({

@@ -3,7 +3,11 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { sendOneSignalPush } from "@/lib/integrations/onesignal";
-import type { NotificationDispatchRequest } from "@/lib/notifications/notification-dispatch-policy";
+import { dispatchCrewNotificationEvent } from "@/lib/notifications/dispatch-crew-notification-event";
+import {
+  isCrewNotificationDispatchRequest,
+  type NotificationDispatchRequest,
+} from "@/lib/notifications/notification-dispatch-policy";
 import { resolveNotificationEvent } from "@/lib/notifications/notification-event-resolver";
 import {
   createTrustedNotifications,
@@ -22,9 +26,25 @@ export type NotificationEventDispatchResult =
  */
 export async function dispatchNotificationEvent(params: {
   db: SupabaseClient;
+  actorDb?: SupabaseClient;
   actor: NotificationRouteActor;
   request: NotificationDispatchRequest;
 }): Promise<NotificationEventDispatchResult> {
+  if (isCrewNotificationDispatchRequest(params.request)) {
+    if (!params.actorDb) {
+      return {
+        ok: false,
+        status: 500,
+        reason: "Authenticated notification proof client is missing",
+      };
+    }
+    return dispatchCrewNotificationEvent({
+      db: params.db,
+      actorDb: params.actorDb,
+      actor: params.actor,
+      request: params.request,
+    });
+  }
   const resolved = await resolveNotificationEvent(params);
   if (!resolved.ok) return resolved;
 

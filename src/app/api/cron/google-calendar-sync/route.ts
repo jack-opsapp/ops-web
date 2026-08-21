@@ -87,6 +87,8 @@ interface VisitRow {
   deleted_at: string | null;
   google_calendar_event_id: string | null;
   google_calendar_id: string | null;
+  appointment_title: string | null;
+  appointment_location: string | null;
 }
 
 interface LeadRow {
@@ -195,7 +197,7 @@ export async function GET(request: NextRequest) {
           supabase
             .from("site_visits")
             .select(
-              "id, opportunity_id, scheduled_at, duration_minutes, status, booked_at, deleted_at, google_calendar_event_id, google_calendar_id"
+              "id, opportunity_id, scheduled_at, duration_minutes, status, booked_at, deleted_at, google_calendar_event_id, google_calendar_id, appointment_title, appointment_location"
             )
             .in("id", visitIds),
         ]);
@@ -219,10 +221,7 @@ export async function GET(request: NextRequest) {
           ])
         );
         const visitsById = new Map(
-          ((visitsResult.data ?? []) as VisitRow[]).map((row) => [
-            row.id,
-            row,
-          ])
+          ((visitsResult.data ?? []) as VisitRow[]).map((row) => [row.id, row])
         );
 
         const leadIds = [
@@ -342,7 +341,15 @@ async function processRow(
   if (row.operation === "delete") {
     return processDelete(supabase, row, connection, visit, now);
   }
-  return processUpsert(supabase, row, connection, visit, leadsById, appUrl, now);
+  return processUpsert(
+    supabase,
+    row,
+    connection,
+    visit,
+    leadsById,
+    appUrl,
+    now
+  );
 }
 
 async function acquireAccessToken(
@@ -408,6 +415,8 @@ async function processUpsert(
       id: visit.id,
       scheduledAt: visit.scheduled_at,
       durationMinutes: visit.duration_minutes,
+      appointmentTitle: visit.appointment_title,
+      appointmentLocation: visit.appointment_location,
     },
     { id: lead.id, title: lead.title, address: lead.address },
     appUrl
@@ -424,11 +433,7 @@ async function processUpsert(
 
   let response: Response;
   if (existingEventId) {
-    response = await patchCalendarEvent(
-      requestOptions,
-      existingEventId,
-      event
-    );
+    response = await patchCalendarEvent(requestOptions, existingEventId, event);
     if (response.status === 404 || response.status === 410) {
       // The operator deleted the event in Google; OPS is the source of
       // truth for the booking, so the event comes back.
