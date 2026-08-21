@@ -264,6 +264,7 @@ describe("operational read cursor", () => {
       "2026-08-12T17:59:58Z",
       "2026-08-12T17:59:58.1Z",
       "2026-08-12T17:59:58.123456Z",
+      "0000-08-12T17:59:58.000Z",
     ]) {
       expect(() =>
         cursorCodec.encode({

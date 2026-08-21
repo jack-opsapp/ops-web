@@ -599,6 +599,11 @@ describe("discovery input contracts", () => {
         to_exclusive: "2026-08-20T00:00:00.000Z",
       },
       {
+        field: "updated_at",
+        from: "0000-08-19T00:00:00.000Z",
+        to_exclusive: "0001-08-20T00:00:00.000Z",
+      },
+      {
         field: "started_at",
         from: "2026-08-19T00:00:00.000Z",
         to_exclusive: "2026-08-20T00:00:00.000Z",
@@ -615,6 +620,7 @@ describe("discovery input contracts", () => {
       "2026-08-14T10:00:00Z",
       "2026-08-14T10:00:00.1Z",
       "2026-08-14T10:00:00.123456Z",
+      "0000-08-14T10:00:00.000Z",
     ]) {
       const match = opportunityJobMatch();
       expect(
