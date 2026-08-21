@@ -6,24 +6,44 @@ import { format } from "prettier";
 const EXPECTED_SOURCE_SHA256 =
   "7570877e0fa197c45338f7c41a02636da4e14c8dba6a3611a01cd30bf329d5ca";
 const EXPECTED_SOURCE_HEADER = "# DerivedAge-15.0.0.txt";
+const EXPECTED_PROPERTY_SHA256 =
+  "e05c0a2811d113dae4abd832884199a3ea8d187ee1b872d8240a788a96540bfd";
+const EXPECTED_PROPERTY_HEADER = "# PropList-15.0.0.txt";
 
-const [sourceArgument, typescriptArgument, sqlArgument] = process.argv.slice(2);
-if (!sourceArgument || !typescriptArgument || !sqlArgument) {
+const [sourceArgument, propertyArgument, typescriptArgument, sqlArgument] =
+  process.argv.slice(2);
+if (
+  !sourceArgument ||
+  !propertyArgument ||
+  !typescriptArgument ||
+  !sqlArgument
+) {
   throw new TypeError(
-    "Usage: node generate-discovery-unicode15.mjs <DerivedAge-15.0.0.txt> <typescript-output> <sql-output>"
+    "Usage: node generate-discovery-unicode15.mjs <DerivedAge-15.0.0.txt> <PropList-15.0.0.txt> <typescript-output> <sql-output>"
   );
 }
 
 const sourcePath = resolve(sourceArgument);
+const propertyPath = resolve(propertyArgument);
 const typescriptPath = resolve(typescriptArgument);
 const sqlPath = resolve(sqlArgument);
 const source = readFileSync(sourcePath, "utf8");
+const propertySource = readFileSync(propertyPath, "utf8");
 const sourceSha256 = createHash("sha256").update(source).digest("hex");
+const propertySha256 = createHash("sha256")
+  .update(propertySource)
+  .digest("hex");
 if (!source.startsWith(EXPECTED_SOURCE_HEADER)) {
   throw new TypeError("The Unicode source is not DerivedAge 15.0.0");
 }
 if (sourceSha256 !== EXPECTED_SOURCE_SHA256) {
   throw new TypeError("The Unicode source checksum is not approved");
+}
+if (!propertySource.startsWith(EXPECTED_PROPERTY_HEADER)) {
+  throw new TypeError("The Unicode property source is not PropList 15.0.0");
+}
+if (propertySha256 !== EXPECTED_PROPERTY_SHA256) {
+  throw new TypeError("The Unicode property checksum is not approved");
 }
 
 const sourceRanges = [];
@@ -57,14 +77,65 @@ if (mergedRanges.length !== 715) {
   throw new TypeError("The frozen Unicode range count changed unexpectedly");
 }
 
+const noncharacterRanges = [];
+for (const line of propertySource.split(/\r?\n/u)) {
+  const match = line.match(
+    /^([0-9A-F]+)(?:\.\.([0-9A-F]+))?\s*;\s*Noncharacter_Code_Point\b/u
+  );
+  if (!match) continue;
+  noncharacterRanges.push([
+    Number.parseInt(match[1], 16),
+    Number.parseInt(match[2] ?? match[1], 16),
+  ]);
+}
+noncharacterRanges.sort((left, right) => left[0] - right[0]);
+const noncharacterScalarCount = noncharacterRanges.reduce(
+  (count, [start, end]) => count + end - start + 1,
+  0
+);
+if (noncharacterScalarCount !== 66) {
+  throw new TypeError(
+    "The frozen Unicode noncharacter set changed unexpectedly"
+  );
+}
+
+const interchangeRanges = [];
+let noncharacterIndex = 0;
+for (const [start, end] of mergedRanges) {
+  let cursor = start;
+  while (
+    noncharacterIndex < noncharacterRanges.length &&
+    noncharacterRanges[noncharacterIndex][1] < cursor
+  ) {
+    noncharacterIndex += 1;
+  }
+  let candidateIndex = noncharacterIndex;
+  while (
+    candidateIndex < noncharacterRanges.length &&
+    noncharacterRanges[candidateIndex][0] <= end
+  ) {
+    const [excludedStart, excludedEnd] = noncharacterRanges[candidateIndex];
+    if (excludedStart > cursor) {
+      interchangeRanges.push([cursor, Math.min(end, excludedStart - 1)]);
+    }
+    cursor = Math.max(cursor, excludedEnd + 1);
+    if (cursor > end) break;
+    candidateIndex += 1;
+  }
+  if (cursor <= end) interchangeRanges.push([cursor, end]);
+}
+
 const hexadecimal = (value) => `0x${value.toString(16).padStart(6, "0")}`;
-const typescriptRanges = mergedRanges
+const typescriptRanges = interchangeRanges
   .map(([start, end]) => `  ${hexadecimal(start)}, ${hexadecimal(end)},`)
   .join("\n");
 const typescript = `/**
- * Generated from Unicode 15.0.0 DerivedAge.txt.
- * Source: https://www.unicode.org/Public/15.0.0/ucd/DerivedAge.txt
- * SHA-256: ${EXPECTED_SOURCE_SHA256}
+ * Generated from Unicode 15.0.0 DerivedAge.txt minus the 66 reserved
+ * Noncharacter_Code_Point values in PropList.txt.
+ * Sources: https://www.unicode.org/Public/15.0.0/ucd/DerivedAge.txt
+ *          https://www.unicode.org/Public/15.0.0/ucd/PropList.txt
+ * SHA-256 (DerivedAge): ${EXPECTED_SOURCE_SHA256}
+ * SHA-256 (PropList): ${EXPECTED_PROPERTY_SHA256}
  *
  * OPS discovery freezes this repertoire because production PostgreSQL uses
  * ICU Unicode 15.0 while the pinned Node runtime uses newer Unicode tables.
@@ -109,11 +180,12 @@ export function discoveryTextUsesUnicode15(value: string): boolean {
 }
 `;
 
-const sqlRanges = mergedRanges
+const sqlRanges = interchangeRanges
   .map(([start, end]) => `[${start},${end + 1})`)
   .join(",");
-const sql = `-- Generated from Unicode 15.0.0 DerivedAge.txt.
--- SHA-256: ${EXPECTED_SOURCE_SHA256}
+const sql = `-- Generated from Unicode 15.0.0 DerivedAge.txt minus Noncharacter_Code_Point.
+-- SHA-256 (DerivedAge): ${EXPECTED_SOURCE_SHA256}
+-- SHA-256 (PropList): ${EXPECTED_PROPERTY_SHA256}
 '{${sqlRanges}}'::int4multirange
 `;
 

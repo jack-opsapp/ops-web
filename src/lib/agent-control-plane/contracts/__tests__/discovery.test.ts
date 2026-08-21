@@ -28,6 +28,7 @@ import {
   type SearchCustomersInput,
   type SearchJobsInput,
 } from "../discovery";
+import { discoveryTextUsesUnicode15 } from "../discovery-unicode15";
 
 const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
 const ACTOR_ID = "22222222-2222-4222-8222-222222222222";
@@ -324,6 +325,41 @@ describe("discovery input contracts", () => {
           display_title: `Cedar${postUnicode15CodePoint}Street`,
         }).success
       ).toBe(false);
+    }
+  });
+
+  it("excludes reserved noncharacters while retaining private-use scalars", () => {
+    for (const noncharacter of [
+      "\u{fdd0}",
+      "\u{fdef}",
+      "\u{fffe}",
+      "\u{ffff}",
+      "\u{1fffe}",
+      "\u{1ffff}",
+      "\u{10fffe}",
+      "\u{10ffff}",
+    ]) {
+      expect(discoveryTextUsesUnicode15(noncharacter)).toBe(false);
+      expect(
+        DiscoveryTextQuerySchema.safeParse(`Acme${noncharacter}Construction`)
+          .success
+      ).toBe(false);
+    }
+    for (const privateUseScalar of [
+      "\u{e000}",
+      "\u{f8ff}",
+      "\u{f0000}",
+      "\u{ffffd}",
+      "\u{100000}",
+      "\u{10fffd}",
+    ]) {
+      expect(discoveryTextUsesUnicode15(privateUseScalar)).toBe(true);
+      expect(
+        CustomerDiscoveryMatchSchema.safeParse({
+          ...primaryCustomerMatch(),
+          display_name: `Acme${privateUseScalar}Construction`,
+        }).success
+      ).toBe(true);
     }
   });
 
