@@ -454,9 +454,12 @@ describe("agent job conversation memory schema", () => {
     expect(context).toContain("p_exact_turn_limit integer");
     expect(context).toContain("p_required_through_turn_id uuid");
     expect(context).toContain(
-      "private.reprove_agent_read_jsonb_for_manifest( private.read_agent_job_conversation_context_v6_bridge("
+      "private.reprove_agent_read_jsonb_for_manifest( private.read_agent_job_conversation_context_as_system_v6_core("
     );
     expect(context).toContain("), p_capability_manifest_revision );");
+    expect(context).toContain(
+      "p_capability_manifest_revision is distinct from '2026-08-20.capability-manifest.v7'"
+    );
     expect(implementation).toContain(
       "p_capability_id is distinct from 'get_job_conversation_context'"
     );
