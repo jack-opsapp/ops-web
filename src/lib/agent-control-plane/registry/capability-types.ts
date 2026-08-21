@@ -45,7 +45,10 @@ export type CapabilityAuditClass =
   | "mutation_commit"
   | "external_commit";
 export type CapabilityRateLimitBucket =
-  "lightweight_read" | "evidence_search" | "prepare" | "commit";
+  | "lightweight_read"
+  | "evidence_search"
+  | "prepare"
+  | "commit";
 
 /** Structural subset of the MCP ToolAnnotations contract. */
 export interface CapabilityMcpAnnotations {
@@ -65,7 +68,10 @@ export interface CapabilityBounds {
 
 export interface CapabilityEvidencePolicy {
   readonly input:
-    "not_required" | "optional" | "required" | "prepared_change_set";
+    | "not_required"
+    | "optional"
+    | "required"
+    | "prepared_change_set";
   readonly output: "required";
   readonly maxEvidenceRefs: number;
   readonly promptSafeOutput: true;

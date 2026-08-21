@@ -315,11 +315,9 @@ describe("getJobConversationContext", () => {
 
     expect(client.calls).toEqual([
       {
-        functionName:
-          "read_agent_phase_c_job_conversation_context_as_system",
+        functionName: "read_agent_phase_c_job_conversation_context_as_system",
         args: expect.objectContaining({
-          p_capability_manifest_revision:
-            "2026-08-20.capability-manifest.v7",
+          p_capability_manifest_revision: "2026-08-20.capability-manifest.v7",
           p_job_kind: "opportunity",
           p_job_id: OPPORTUNITY_ID,
           p_required_through_turn_id: TURN_THREE,
