@@ -260,6 +260,12 @@ function lifecycleMatchesStatus(input: {
   readonly lifecycle_state: z.infer<typeof NormalizedJobLifecycleStateSchema>;
   readonly status: z.infer<typeof JobStatusSchema>;
 }): boolean {
+  if (
+    input.status.kind === "opportunity" &&
+    input.status.value === "discarded"
+  ) {
+    return input.lifecycle_state === "archived";
+  }
   if (input.lifecycle_state === "archived") {
     // A project's archival IS a status value, so the coupling is exact.
     // An opportunity's archival is `opportunities.archived_at` — a dimension

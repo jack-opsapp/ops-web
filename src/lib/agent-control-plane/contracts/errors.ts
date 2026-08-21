@@ -15,6 +15,7 @@ export const AGENT_ERROR_CODES = [
   "FORBIDDEN",
   "NOT_FOUND",
   "INVALID_ARGUMENT",
+  "RESULT_TOO_LARGE",
   "AMBIGUOUS",
   "STALE_CONTEXT",
   "CONFIRMATION_REQUIRED",
@@ -169,6 +170,11 @@ const InvalidArgumentErrorSchema = AgentErrorBaseSchema.extend({
   details: InvalidArgumentErrorDetailsSchema,
 }).strict();
 
+const ResultTooLargeErrorSchema = AgentErrorBaseSchema.extend({
+  code: z.literal("RESULT_TOO_LARGE"),
+  details: z.never().optional(),
+}).strict();
+
 const AmbiguousErrorSchema = AgentErrorBaseSchema.extend({
   code: z.literal("AMBIGUOUS"),
   details: AmbiguousErrorDetailsSchema,
@@ -215,6 +221,7 @@ export const AgentErrorSchema = z.discriminatedUnion("code", [
   ForbiddenErrorSchema,
   NotFoundErrorSchema,
   InvalidArgumentErrorSchema,
+  ResultTooLargeErrorSchema,
   AmbiguousErrorSchema,
   StaleContextErrorSchema,
   ConfirmationRequiredErrorSchema,

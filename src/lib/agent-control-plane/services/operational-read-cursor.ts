@@ -4,9 +4,14 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import { z } from "zod-v4";
 
+import { DiscoveryMillisecondUtcTimestampSchema } from "@/lib/agent-control-plane/contracts/discovery";
+
 const MAX_CURSOR_AGE_SECONDS = 15 * 60;
 const CURSOR_PREFIX = "ops_cursor";
 const UUID_SCHEMA = z.string().uuid();
+const DISCOVERY_UUID_SCHEMA = UUID_SCHEMA.refine(
+  (value) => value === value.toLowerCase()
+);
 const UTC_SCHEMA = z.string().datetime({ offset: false });
 const KEY_ID_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
 
@@ -69,17 +74,19 @@ const JobHistoryCursorClaimsSchema = CommonClaimsSchema.extend({
 }).strict();
 const CustomerDiscoveryCursorClaimsSchema = CommonClaimsSchema.extend({
   capability_id: z.literal("search_customers"),
+  read_as_of: DiscoveryMillisecondUtcTimestampSchema,
   ranking_revision: z.literal("customer-discovery-ranking:v1"),
   rank_ordinal: z.number().int().min(1).max(500),
   customer_kind: z.enum(["client", "sub_client"]),
-  customer_id: UUID_SCHEMA,
+  customer_id: DISCOVERY_UUID_SCHEMA,
 }).strict();
 const JobDiscoveryCursorClaimsSchema = CommonClaimsSchema.extend({
   capability_id: z.literal("search_jobs"),
+  read_as_of: DiscoveryMillisecondUtcTimestampSchema,
   ranking_revision: z.literal("job-discovery-ranking:v1"),
   rank_ordinal: z.number().int().min(1).max(500),
   job_kind: z.enum(["opportunity", "project"]),
-  job_id: UUID_SCHEMA,
+  job_id: DISCOVERY_UUID_SCHEMA,
 }).strict();
 const WireSchema = z.discriminatedUnion("c", [
   z
@@ -154,7 +161,7 @@ const WireSchema = z.discriminatedUnion("c", [
       r: z.number().int().nonnegative(),
       o: z.number().int().min(1).max(500),
       k: z.enum(["client", "sub_client"]),
-      x: UUID_SCHEMA,
+      x: DISCOVERY_UUID_SCHEMA,
       a: UTC_SCHEMA,
     })
     .strict(),
@@ -168,7 +175,7 @@ const WireSchema = z.discriminatedUnion("c", [
       r: z.number().int().nonnegative(),
       o: z.number().int().min(1).max(500),
       k: z.enum(["opportunity", "project"]),
-      x: UUID_SCHEMA,
+      x: DISCOVERY_UUID_SCHEMA,
       a: UTC_SCHEMA,
     })
     .strict(),
@@ -289,16 +296,19 @@ function invalid(): never {
   throw new OperationalReadCursorError();
 }
 
-function bindingDigest(input: {
-  readonly capabilityId: string;
-  readonly schemaRevision: string;
-  readonly capabilityManifestRevision: string;
-  readonly rankingRevision?: string;
-  readonly ruleRevisions: readonly string[];
-  readonly actorUserId: string;
-  readonly companyId: string;
-  readonly queryHash: string;
-}): string {
+function bindingDigest(
+  key: Uint8Array,
+  input: {
+    readonly capabilityId: string;
+    readonly schemaRevision: string;
+    readonly capabilityManifestRevision: string;
+    readonly rankingRevision?: string;
+    readonly ruleRevisions: readonly string[];
+    readonly actorUserId: string;
+    readonly companyId: string;
+    readonly queryHash: string;
+  }
+): string {
   const binding: unknown[] = [
     input.capabilityId,
     input.schemaRevision,
@@ -311,7 +321,8 @@ function bindingDigest(input: {
   if (input.rankingRevision !== undefined) {
     binding.push(input.rankingRevision);
   }
-  return createHash("sha256")
+  return createHmac("sha256", key)
+    .update("operational-read-binding\0")
     .update(JSON.stringify(binding))
     .digest("base64url");
 }
@@ -394,7 +405,7 @@ export function createOperationalReadCursorCodec(
         }
       })();
       if (!parsed.success) invalid();
-      const binding = bindingDigest({
+      const binding = bindingDigest(capturedKey, {
         capabilityId: parsed.data.capability_id,
         schemaRevision: parsed.data.schema_revision,
         capabilityManifestRevision: parsed.data.capability_manifest_revision,
@@ -587,7 +598,7 @@ export function createOperationalReadCursorCodec(
       })();
       if (
         wire.c !== expectedWireKind ||
-        wire.b !== bindingDigest(expected) ||
+        wire.b !== bindingDigest(capturedKey, expected) ||
         wire.i > nowSeconds + 60 ||
         wire.e <= nowSeconds ||
         wire.e - wire.i > capturedTtl

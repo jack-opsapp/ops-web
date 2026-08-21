@@ -1,6 +1,10 @@
 import { z } from "zod-v4";
 
-import { CursorPageSchema, OpaqueIdSchema } from "./common";
+import {
+  CursorPageSchema,
+  OpaqueIdSchema,
+  Rfc3339UtcTimestampSchema,
+} from "./common";
 import { createAgentResultSchema } from "./evidence";
 import {
   CurrentJobDateWindowSchema,
@@ -35,7 +39,7 @@ const MAX_DISCOVERY_QUERY_TOKENS = 8;
 const MIN_DISCOVERY_TOKEN_SCALARS = 2;
 const MAX_DISCOVERY_TOKEN_SCALARS = 64;
 const FORBIDDEN_CONTROL_OR_BIDI_PATTERN =
-  /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
+  /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/u;
 const SIGNED_DISCOVERY_CURSOR_PATTERN =
   /^ops_cursor:v[1-9][0-9]*:[A-Za-z0-9_-]{1,32}:[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 
@@ -55,6 +59,31 @@ function hasUnpairedSurrogate(value: string): boolean {
 
 function scalarLength(value: string): number {
   return Array.from(value).length;
+}
+
+const UTF8_ENCODER = new TextEncoder();
+
+function safeReturnedBusinessStringSchema(
+  maximumCharacters: number,
+  maximumUtf8Bytes: number
+) {
+  return z
+    .string()
+    .trim()
+    .min(1)
+    .max(maximumCharacters)
+    .superRefine((value, context) => {
+      if (
+        FORBIDDEN_CONTROL_OR_BIDI_PATTERN.test(value) ||
+        hasUnpairedSurrogate(value) ||
+        UTF8_ENCODER.encode(value).length > maximumUtf8Bytes
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Returned business text is unsafe or exceeds its byte bound",
+        });
+      }
+    });
 }
 
 function normalizeDiscoveryText(value: string): string {
@@ -108,9 +137,23 @@ export const DiscoveryTextQuerySchema = SafeRawDiscoveryTextSchema.transform(
   })
 );
 
-const ExactEmailQuerySchema = DiscoveryTextQuerySchema.pipe(
-  z.string().email()
-).transform((value) => value.toLowerCase());
+const EXACT_DISCOVERY_EMAIL_PATTERN =
+  /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+const ExactEmailQuerySchema = SafeRawDiscoveryTextSchema.transform(
+  normalizeDiscoveryText
+).superRefine((value, context) => {
+  const length = scalarLength(value);
+  if (
+    length < 3 ||
+    length > MAX_DISCOVERY_QUERY_SCALARS ||
+    !EXACT_DISCOVERY_EMAIL_PATTERN.test(value)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Email lookup requires an exact normalized address",
+    });
+  }
+});
 
 function normalizedNanpPhone(value: string): string | null {
   if (!/^[+0-9(). -]+$/u.test(value)) return null;
@@ -126,19 +169,27 @@ function normalizedNanpPhone(value: string): string | null {
   return `+1${national}`;
 }
 
-const ExactPhoneQuerySchema = DiscoveryTextQuerySchema.transform(
-  (value, context) => {
-    const normalized = normalizedNanpPhone(value);
-    if (normalized === null) {
-      context.addIssue({
-        code: "custom",
-        message: "Phone lookup requires an exact NANP number",
-      });
-      return z.NEVER;
-    }
-    return normalized;
+const ExactPhoneQuerySchema = SafeRawDiscoveryTextSchema.transform(
+  normalizeDiscoveryText
+).transform((value, context) => {
+  const length = scalarLength(value);
+  if (length < 2 || length > MAX_DISCOVERY_QUERY_SCALARS) {
+    context.addIssue({
+      code: "custom",
+      message: "Phone lookup exceeds the discovery query bound",
+    });
+    return z.NEVER;
   }
-);
+  const normalized = normalizedNanpPhone(value);
+  if (normalized === null) {
+    context.addIssue({
+      code: "custom",
+      message: "Phone lookup requires an exact NANP number",
+    });
+    return z.NEVER;
+  }
+  return normalized;
+});
 
 const SignedDiscoveryCursorSchema = z
   .string()
@@ -234,8 +285,36 @@ const ProjectStatusesSchema = uniqueEnumArray(
   ProjectStatusSchema.options.length,
   "Project statuses must be unique"
 );
+
+function opportunityStageCanMatchLifecycle(
+  stage: z.infer<typeof OpportunityStageSchema>,
+  lifecycle: z.infer<typeof NormalizedJobLifecycleStateSchema>
+): boolean {
+  if (stage === "discarded") return lifecycle === "archived";
+  if (stage === "won" || stage === "lost") {
+    return lifecycle === "terminal" || lifecycle === "archived";
+  }
+  return lifecycle === "active" || lifecycle === "archived";
+}
+
+function projectStatusCanMatchLifecycle(
+  status: z.infer<typeof ProjectStatusSchema>,
+  lifecycle: z.infer<typeof NormalizedJobLifecycleStateSchema>
+): boolean {
+  if (status === "archived") return lifecycle === "archived";
+  if (status === "completed" || status === "closed") {
+    return lifecycle === "terminal";
+  }
+  return lifecycle === "active";
+}
+export const DiscoveryMillisecondUtcTimestampSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+  .pipe(Rfc3339UtcTimestampSchema);
 const DiscoveryJobDateWindowSchema = CurrentJobDateWindowSchema.safeExtend({
   field: z.enum(["created_at", "updated_at"]),
+  from: DiscoveryMillisecondUtcTimestampSchema,
+  to_exclusive: DiscoveryMillisecondUtcTimestampSchema,
 }).strict();
 
 const SearchJobsInputBaseSchema = z
@@ -298,6 +377,32 @@ const SearchJobsInputBaseSchema = z
         message: "Project statuses require project jobs",
       });
     }
+    if (input.lifecycle_states !== undefined) {
+      const opportunityCanMatch =
+        input.job_kinds.includes("opportunity") &&
+        (input.opportunity_stages === undefined ||
+          input.opportunity_stages.some((stage) =>
+            input.lifecycle_states!.some((lifecycle) =>
+              opportunityStageCanMatchLifecycle(stage, lifecycle)
+            )
+          ));
+      const projectCanMatch =
+        input.job_kinds.includes("project") &&
+        (input.project_statuses === undefined ||
+          input.project_statuses.some((status) =>
+            input.lifecycle_states!.some((lifecycle) =>
+              projectStatusCanMatchLifecycle(status, lifecycle)
+            )
+          ));
+      if (!opportunityCanMatch && !projectCanMatch) {
+        context.addIssue({
+          code: "custom",
+          path: ["lifecycle_states"],
+          message:
+            "Lifecycle and status filters cannot match any selected job kind",
+        });
+      }
+    }
   });
 
 export const SearchJobsInputSchema = SearchJobsInputBaseSchema.transform(
@@ -323,7 +428,7 @@ const CustomerMatchBasisSchema = z
   })
   .strict();
 const CustomerMatchSharedShape = {
-  display_name: z.string().trim().min(1).max(1_000),
+  display_name: safeReturnedBusinessStringSchema(1_000, 1_000),
   match_basis: CustomerMatchBasisSchema,
   content_kind: z.literal("untrusted_business_data"),
   visibility_reason: z.literal("current_actor_authorized"),
@@ -333,39 +438,68 @@ const CustomerMatchSharedShape = {
 const ClientCustomerRefSchema = CustomerRefSchema.options[0];
 const SubClientCustomerRefSchema = CustomerRefSchema.options[1];
 
-export const CustomerDiscoveryMatchSchema = z.union([
-  z
-    .object({
-      customer_ref: ClientCustomerRefSchema,
-      display_name: CustomerMatchSharedShape.display_name,
-      relationship: z.object({ kind: z.literal("primary_client") }).strict(),
-      match_basis: CustomerMatchSharedShape.match_basis,
-      content_kind: CustomerMatchSharedShape.content_kind,
-      visibility_reason: CustomerMatchSharedShape.visibility_reason,
-      evidence_ids: CustomerMatchSharedShape.evidence_ids,
+export const CustomerDiscoveryMatchSchema = z
+  .union([
+    z
+      .object({
+        customer_ref: ClientCustomerRefSchema,
+        display_name: CustomerMatchSharedShape.display_name,
+        relationship: z.object({ kind: z.literal("primary_client") }).strict(),
+        match_basis: CustomerMatchSharedShape.match_basis,
+        content_kind: CustomerMatchSharedShape.content_kind,
+        visibility_reason: CustomerMatchSharedShape.visibility_reason,
+        evidence_ids: CustomerMatchSharedShape.evidence_ids,
+      })
+      .strict(),
+    z
+      .object({
+        customer_ref: SubClientCustomerRefSchema,
+        display_name: CustomerMatchSharedShape.display_name,
+        relationship: z
+          .object({
+            kind: z.literal("sub_client"),
+            parent_client_ref: ClientCustomerRefSchema,
+            parent_display_name: safeReturnedBusinessStringSchema(1_000, 1_000),
+          })
+          .strict(),
+        match_basis: CustomerMatchSharedShape.match_basis,
+        content_kind: CustomerMatchSharedShape.content_kind,
+        visibility_reason: CustomerMatchSharedShape.visibility_reason,
+        evidence_ids: CustomerMatchSharedShape.evidence_ids,
+      })
+      .strict(),
+  ])
+  .superRefine((match, context) => {
+    const ids = [
+      match.customer_ref.id,
+      ...(match.relationship.kind === "sub_client"
+        ? [match.relationship.parent_client_ref.id]
+        : []),
+    ];
+    if (ids.some((id) => !isCanonicalLowercaseUuid(id))) {
+      context.addIssue({
+        code: "custom",
+        path: ["customer_ref"],
+        message: "Discovery UUID identities must use canonical lowercase text",
+      });
+    }
+  });
+
+const JobStatusSchema = CustomerJobSchema.shape.status;
+const JobDatesSchema = z.discriminatedUnion("kind", [
+  CustomerJobSchema.shape.dates.options[0]
+    .safeExtend({
+      created_at: DiscoveryMillisecondUtcTimestampSchema,
+      updated_at: DiscoveryMillisecondUtcTimestampSchema,
     })
     .strict(),
-  z
-    .object({
-      customer_ref: SubClientCustomerRefSchema,
-      display_name: CustomerMatchSharedShape.display_name,
-      relationship: z
-        .object({
-          kind: z.literal("sub_client"),
-          parent_client_ref: ClientCustomerRefSchema,
-          parent_display_name: z.string().trim().min(1).max(1_000),
-        })
-        .strict(),
-      match_basis: CustomerMatchSharedShape.match_basis,
-      content_kind: CustomerMatchSharedShape.content_kind,
-      visibility_reason: CustomerMatchSharedShape.visibility_reason,
-      evidence_ids: CustomerMatchSharedShape.evidence_ids,
+  CustomerJobSchema.shape.dates.options[1]
+    .safeExtend({
+      created_at: DiscoveryMillisecondUtcTimestampSchema,
+      updated_at: DiscoveryMillisecondUtcTimestampSchema,
     })
     .strict(),
 ]);
-
-const JobStatusSchema = CustomerJobSchema.shape.status;
-const JobDatesSchema = CustomerJobSchema.shape.dates;
 const JobConversionSchema = CustomerJobSchema.shape.conversion;
 
 const JobDiscoveryMatchBasisSchema = z.discriminatedUnion("kind", [
@@ -403,10 +537,20 @@ function valuesAreUnique(values: readonly string[]): boolean {
   return new Set(values).size === values.length;
 }
 
+function isCanonicalLowercaseUuid(value: string): boolean {
+  return value === value.toLowerCase();
+}
+
 function lifecycleMatchesStatus(input: {
   readonly lifecycle_state: z.infer<typeof NormalizedJobLifecycleStateSchema>;
   readonly status: z.infer<typeof JobStatusSchema>;
 }): boolean {
+  if (
+    input.status.kind === "opportunity" &&
+    input.status.value === "discarded"
+  ) {
+    return input.lifecycle_state === "archived";
+  }
   if (input.lifecycle_state === "archived") {
     return (
       (input.status.kind === "project" && input.status.value === "archived") ||
@@ -424,8 +568,8 @@ export const JobDiscoveryMatchSchema = z
   .object({
     job_ref: CurrentJobRefSchema,
     anchor_refs: z.array(CurrentJobRefSchema).min(1).max(2),
-    display_title: z.string().trim().min(1).max(1_000),
-    address: z.string().trim().min(1).max(2_000).nullable(),
+    display_title: safeReturnedBusinessStringSchema(1_000, 1_000),
+    address: safeReturnedBusinessStringSchema(2_000, 2_000).nullable(),
     lifecycle_state: NormalizedJobLifecycleStateSchema,
     status: JobStatusSchema,
     dates: JobDatesSchema,
@@ -437,6 +581,20 @@ export const JobDiscoveryMatchSchema = z
   })
   .strict()
   .superRefine((match, context) => {
+    const identityIds = [
+      match.job_ref.id,
+      ...match.anchor_refs.map((reference) => reference.id),
+      ...(match.conversion.state === "converted"
+        ? [match.conversion.opportunity_ref.id, match.conversion.project_ref.id]
+        : []),
+    ];
+    if (identityIds.some((id) => !isCanonicalLowercaseUuid(id))) {
+      context.addIssue({
+        code: "custom",
+        path: ["job_ref"],
+        message: "Discovery UUID identities must use canonical lowercase text",
+      });
+    }
     if (
       match.job_ref.kind !== match.status.kind ||
       match.job_ref.kind !== match.dates.kind
@@ -512,7 +670,7 @@ export const DiscoveryGapSchema = z.enum([
 ]);
 const DiscoveryGapsSchema = z
   .array(DiscoveryGapSchema)
-  .max(2)
+  .max(1)
   .refine(valuesAreUnique, "Discovery gaps must be unique");
 
 function discoveryDataSchema<TMatchSchema extends z.ZodType>(
@@ -537,14 +695,25 @@ function discoveryDataSchema<TMatchSchema extends z.ZodType>(
         });
       }
       if (
+        data.gaps.length > 0 &&
+        (data.matches.length > 0 ||
+          data.returned_match_count !== 0 ||
+          data.result_budget_omitted_count !== 0)
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["gaps"],
+          message: "Discovery source gaps require an empty terminal result",
+        });
+      }
+      if (
         data.result_budget_omitted_count >
         MAX_DISCOVERY_MATCHES - data.matches.length
       ) {
         context.addIssue({
           code: "custom",
           path: ["result_budget_omitted_count"],
-          message:
-            "Budget omissions cannot exceed the retained discovery page",
+          message: "Budget omissions cannot exceed the retained discovery page",
         });
       }
       if (!valuesAreUnique(data.matches.map(identity))) {
@@ -645,6 +814,19 @@ function projectionEvidenceId(
   return `evidence:${kind}_discovery_projection:${projectionSourceId(reference, ordinal)}`;
 }
 
+function projectionOrdinal(
+  source: DiscoverySourceAtom | undefined,
+  reference: DiscoveryProjectionReference
+): number | null {
+  if (source === undefined) return null;
+  const prefix = `${reference.kind}:${reference.id}:ordinal:`;
+  if (!source.source_id.startsWith(prefix)) return null;
+  const suffix = source.source_id.slice(prefix.length);
+  if (!/^(?:[1-9][0-9]{0,2})$/.test(suffix)) return null;
+  const ordinal = Number(suffix);
+  return ordinal <= 500 ? ordinal : null;
+}
+
 function collectionEvidenceId(
   kind: "customer" | "job",
   companyId: string
@@ -715,6 +897,7 @@ function validateDiscoveryResult<
       readonly source_versions: readonly DiscoverySourceAtom[];
     };
     readonly data: {
+      readonly gaps: readonly string[];
       readonly matches: readonly TMatch[];
       readonly result_budget_omitted_count: number;
     };
@@ -723,6 +906,10 @@ function validateDiscoveryResult<
       readonly code: string;
       readonly message: string;
     }[];
+    readonly page: {
+      readonly next_cursor: string | null;
+      readonly has_more: boolean;
+    };
   },
   kind: "customer" | "job",
   referenceForMatch: (match: TMatch) => DiscoveryProjectionReference,
@@ -753,8 +940,17 @@ function validateDiscoveryResult<
     expectedCollectionEvidenceId,
     result.freshness.read_at
   );
+  const childOrdinals = result.data.matches.map((match, index) =>
+    projectionOrdinal(sources[index + 2], referenceForMatch(match))
+  );
+  const childOrdinalsAreContiguous = childOrdinals.every(
+    (ordinal, index) =>
+      ordinal !== null &&
+      (index === 0 || ordinal === childOrdinals[index - 1]! + 1)
+  );
   const childrenAreCanonical = result.data.matches.every((match, index) => {
-    const ordinal = index + 1;
+    const ordinal = childOrdinals[index];
+    if (typeof ordinal !== "number") return false;
     const reference = referenceForMatch(match);
     const expectedEvidenceId = projectionEvidenceId(kind, reference, ordinal);
     const childSource = sources[index + 2];
@@ -774,12 +970,12 @@ function validateDiscoveryResult<
     );
   });
   if (
-    !z.string().uuid().safeParse(result.company_id).success ||
     sources.length !== result.data.matches.length + 2 ||
     result.evidence.length !== result.data.matches.length + 1 ||
     !fenceIsCanonical ||
     !collectionIsCanonical ||
     !collectionEvidenceIsCanonical ||
+    !childOrdinalsAreContiguous ||
     !childrenAreCanonical
   ) {
     context.addIssue({
@@ -787,6 +983,19 @@ function validateDiscoveryResult<
       path: ["evidence"],
       message:
         "Discovery proofs must follow the exact ordered projection identity contract",
+    });
+  }
+
+  if (
+    result.data.gaps.length > 0 &&
+    (result.page.next_cursor !== null ||
+      result.page.has_more ||
+      result.warnings.length > 0)
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["page"],
+      message: "Discovery source gaps require a terminal warning-free page",
     });
   }
 
@@ -816,7 +1025,10 @@ function validateDiscoveryResult<
   }
 }
 
-const DiscoveryCompanyIdSchema = z.string().uuid();
+const DiscoveryCompanyIdSchema = z
+  .string()
+  .uuid()
+  .refine(isCanonicalLowercaseUuid, "Company UUID must use lowercase text");
 
 export const CustomerDiscoveryResultSchema = createAgentResultSchema(
   CustomerDiscoveryDataSchema

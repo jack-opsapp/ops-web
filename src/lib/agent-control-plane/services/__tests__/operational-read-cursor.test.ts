@@ -194,10 +194,11 @@ describe("operational read cursor", () => {
     ).toThrow(OperationalReadCursorError);
   });
 
-  it("uses a key-scoped HMAC permission digest and rejects unsafe key IDs", () => {
+  it("uses key-scoped HMAC binding and permission digests and rejects unsafe key IDs", () => {
     const firstCursor = codec(new Uint8Array(32).fill(17)).encode(CLAIMS);
     const secondCursor = codec(new Uint8Array(32).fill(18)).encode(CLAIMS);
 
+    expect(payload(firstCursor).b).not.toBe(payload(secondCursor).b);
     expect(payload(firstCursor).p).not.toBe(payload(secondCursor).p);
     for (const keyId of ["bad:key", "bad.key", "bad=key", "bad key"]) {
       expect(() =>
@@ -239,6 +240,44 @@ describe("operational read cursor", () => {
       k: "project",
       x: JOB_DISCOVERY_CLAIMS.job_id,
     });
+  });
+
+  it("rejects noncanonical discovery UUIDs before signing", () => {
+    const cursorCodec = codec();
+    expect(() =>
+      cursorCodec.encode({
+        ...CUSTOMER_DISCOVERY_CLAIMS,
+        customer_id: "aaaaaaaa-4444-4444-8444-444444444444".toUpperCase(),
+      })
+    ).toThrow(OperationalReadCursorError);
+    expect(() =>
+      cursorCodec.encode({
+        ...JOB_DISCOVERY_CLAIMS,
+        job_id: "bbbbbbbb-5555-4555-8555-555555555555".toUpperCase(),
+      })
+    ).toThrow(OperationalReadCursorError);
+  });
+
+  it("rejects noncanonical discovery read timestamps before signing", () => {
+    const cursorCodec = codec();
+    for (const read_as_of of [
+      "2026-08-12T17:59:58Z",
+      "2026-08-12T17:59:58.1Z",
+      "2026-08-12T17:59:58.123456Z",
+    ]) {
+      expect(() =>
+        cursorCodec.encode({
+          ...CUSTOMER_DISCOVERY_CLAIMS,
+          read_as_of,
+        })
+      ).toThrow(OperationalReadCursorError);
+      expect(() =>
+        cursorCodec.encode({
+          ...JOB_DISCOVERY_CLAIMS,
+          read_as_of,
+        })
+      ).toThrow(OperationalReadCursorError);
+    }
   });
 
   it("authenticates every customer-discovery source and keyset wire field", () => {

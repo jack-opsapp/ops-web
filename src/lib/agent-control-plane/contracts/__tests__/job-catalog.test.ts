@@ -545,6 +545,12 @@ describe("Task 13 customer-job result contract", () => {
         jobs: [{ ...archivedOpportunity, lifecycle_state: "terminal" }],
       }).success
     ).toBe(false);
+    expect(
+      CustomerJobsDataSchema.safeParse({
+        ...customerJobsData(),
+        jobs: [{ ...archivedOpportunity, lifecycle_state: "active" }],
+      }).success
+    ).toBe(false);
   });
 
   it("represents a converted opportunity whose project was not returned without leaking the project ref", () => {

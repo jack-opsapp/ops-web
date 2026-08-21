@@ -7,6 +7,7 @@ import {
   CustomerDiscoveryResultSchema,
   DISCOVERY_CAPABILITY_SCHEMA_REVISION,
   DISCOVERY_PROMPT_SAFETY_DIRECTIVE,
+  DISCOVERY_RESULT_BUDGET_WARNING,
   DiscoveryTextQuerySchema,
   JOB_DISCOVERY_RANKING_REVISION,
   JobDiscoveryDataSchema,
@@ -16,11 +17,11 @@ import {
   MAX_DISCOVERY_OUTPUT_CHARACTERS,
   SearchCustomersInputSchema,
   SearchJobsInputSchema,
-    type CustomerDiscoveryData,
-    type CustomerDiscoveryMatch,
-    type CustomerDiscoveryResult,
-    type JobDiscoveryData,
-    type JobDiscoveryMatch,
+  type CustomerDiscoveryData,
+  type CustomerDiscoveryMatch,
+  type CustomerDiscoveryResult,
+  type JobDiscoveryData,
+  type JobDiscoveryMatch,
   type JobDiscoveryResult,
   type ParsedSearchCustomersInput,
   type ParsedSearchJobsInput,
@@ -227,8 +228,12 @@ function jobData(matches: JobDiscoveryMatch[] = [opportunityJobMatch()]) {
 
 function resultEnvelope(
   kind: "customer" | "job",
-  data: ReturnType<typeof customerData> | ReturnType<typeof jobData>
+  data: ReturnType<typeof customerData> | ReturnType<typeof jobData>,
+  ordinals: readonly number[] = data.matches.map((_, index) => index + 1)
 ) {
+  if (ordinals.length !== data.matches.length) {
+    throw new Error("Every discovery test match requires one proof ordinal");
+  }
   const collectionType = `${kind}_discovery_collection_projection`;
   const childType = `${kind}_discovery_projection`;
   const collectionProofId = collectionEvidenceId(kind);
@@ -240,9 +245,10 @@ function resultEnvelope(
   const childSources = data.matches.map((match, index) => {
     const reference =
       "customer_ref" in match ? match.customer_ref : match.job_ref;
+    const ordinal = ordinals[index]!;
     return sourceVersion(
       childType,
-      projectionSourceId(reference, index + 1),
+      projectionSourceId(reference, ordinal),
       (index + 1).toString(16).padStart(64, "0")
     );
   });
@@ -301,6 +307,7 @@ describe("discovery input contracts", () => {
       "a\u0085b",
       "safe\u202Eunsafe",
       "safe\u2066unsafe",
+      "safe\uFEFFunsafe",
       `bad${String.fromCharCode(0xd800)}surrogate`,
       "Acme x",
       "one two three four five six seven eight nine",
@@ -333,6 +340,13 @@ describe("discovery input contracts", () => {
         query: "Dispatch@EXAMPLE.COM",
       }).query
     ).toBe("dispatch@example.com");
+    const longExactEmail = `${"a".repeat(50)}@${"b".repeat(20)}.example`;
+    expect(
+      SearchCustomersInputSchema.parse({
+        lookup: "exact_email",
+        query: longExactEmail.toUpperCase(),
+      }).query
+    ).toBe(longExactEmail);
     expect(
       SearchCustomersInputSchema.parse({
         lookup: "exact_phone",
@@ -345,6 +359,11 @@ describe("discovery input contracts", () => {
         query: "604.555.0123",
       }).query
     ).toBe("+16045550123");
+    for (const query of ["604 5 550123", "604 555 0 123", "+1 6 04 555 0123"]) {
+      expect(
+        SearchCustomersInputSchema.parse({ lookup: "exact_phone", query }).query
+      ).toBe("+16045550123");
+    }
     expect(
       SearchCustomersInputSchema.safeParse({
         lookup: "fuzzy_email",
@@ -360,6 +379,9 @@ describe("discovery input contracts", () => {
       "dispatch@example",
       "dispatch @example.com",
       "dispatch@example.com extra",
+      "a@b-.com",
+      "a@b--.com",
+      "a@b-.cde",
     ]) {
       expect(
         SearchCustomersInputSchema.safeParse({
@@ -491,7 +513,51 @@ describe("discovery input contracts", () => {
     ).toBe(false);
   });
 
-  it("accepts only positive UTC date windows no longer than 365 days", () => {
+  it("rejects lifecycle and status filters when no selected branch can match", () => {
+    for (const input of [
+      {
+        job_kinds: ["opportunity"],
+        lifecycle_states: ["active"],
+        opportunity_stages: ["won"],
+      },
+      {
+        job_kinds: ["opportunity"],
+        lifecycle_states: ["terminal"],
+        opportunity_stages: ["discarded"],
+      },
+      {
+        job_kinds: ["project"],
+        lifecycle_states: ["active"],
+        project_statuses: ["completed"],
+      },
+      {
+        job_kinds: ["opportunity", "project"],
+        lifecycle_states: ["active"],
+        opportunity_stages: ["won"],
+        project_statuses: ["closed"],
+      },
+    ]) {
+      expect(SearchJobsInputSchema.safeParse(input).success).toBe(false);
+    }
+
+    expect(
+      SearchJobsInputSchema.safeParse({
+        job_kinds: ["opportunity", "project"],
+        lifecycle_states: ["active"],
+        opportunity_stages: ["won"],
+        project_statuses: ["in_progress"],
+      }).success
+    ).toBe(true);
+    expect(
+      SearchJobsInputSchema.safeParse({
+        job_kinds: ["opportunity", "project"],
+        lifecycle_states: ["active"],
+        opportunity_stages: ["won"],
+      }).success
+    ).toBe(true);
+  });
+
+  it("accepts only positive millisecond-exact UTC date windows no longer than 365 days", () => {
     expect(
       SearchJobsInputSchema.safeParse({
         date_window: {
@@ -518,6 +584,21 @@ describe("discovery input contracts", () => {
         to_exclusive: "2026-08-20T00:00:00-07:00",
       },
       {
+        field: "updated_at",
+        from: "2026-08-19T00:00:00.1234Z",
+        to_exclusive: "2026-08-20T00:00:00.000Z",
+      },
+      {
+        field: "updated_at",
+        from: "2026-08-19T00:00:00.123456Z",
+        to_exclusive: "2026-08-20T00:00:00.000Z",
+      },
+      {
+        field: "updated_at",
+        from: "2026-08-19T00:00:00Z",
+        to_exclusive: "2026-08-20T00:00:00.000Z",
+      },
+      {
         field: "started_at",
         from: "2026-08-19T00:00:00.000Z",
         to_exclusive: "2026-08-20T00:00:00.000Z",
@@ -526,6 +607,22 @@ describe("discovery input contracts", () => {
       expect(SearchJobsInputSchema.safeParse({ date_window }).success).toBe(
         false
       );
+    }
+  });
+
+  it("requires proof-visible job timestamps to use one millisecond UTC representation", () => {
+    for (const updatedAt of [
+      "2026-08-14T10:00:00Z",
+      "2026-08-14T10:00:00.1Z",
+      "2026-08-14T10:00:00.123456Z",
+    ]) {
+      const match = opportunityJobMatch();
+      expect(
+        JobDiscoveryMatchSchema.safeParse({
+          ...match,
+          dates: { ...match.dates, updated_at: updatedAt },
+        }).success
+      ).toBe(false);
     }
   });
 
@@ -578,6 +675,29 @@ describe("discovery match contracts", () => {
     }
   });
 
+  it("requires canonical lowercase UUID identities on every discovery card", () => {
+    const upperClient = primaryCustomerMatch();
+    upperClient.customer_ref.id =
+      "a3333333-3333-4333-8333-333333333333".toUpperCase();
+    expect(CustomerDiscoveryMatchSchema.safeParse(upperClient).success).toBe(
+      false
+    );
+
+    const upperParent = subCustomerMatch();
+    upperParent.relationship.parent_client_ref.id =
+      "b4444444-4444-4444-8444-444444444444".toUpperCase();
+    expect(CustomerDiscoveryMatchSchema.safeParse(upperParent).success).toBe(
+      false
+    );
+
+    const upperJob = convertedProjectMatch();
+    upperJob.anchor_refs[0]!.id =
+      "c6666666-6666-4666-8666-666666666666".toUpperCase();
+    upperJob.conversion.opportunity_ref.id =
+      upperJob.conversion.opportunity_ref.id.toUpperCase();
+    expect(JobDiscoveryMatchSchema.safeParse(upperJob).success).toBe(false);
+  });
+
   it("pins customer match tiers without exposing scores", () => {
     for (const kind of [
       "exact_name",
@@ -606,6 +726,61 @@ describe("discovery match contracts", () => {
         },
       }).success
     ).toBe(false);
+  });
+
+  it("rejects unsafe or byte-oversized returned business strings", () => {
+    const unpairedSurrogate = String.fromCharCode(0xd800);
+    for (const displayName of [
+      `Acme\u061c Construction`,
+      `Acme\u200e Construction`,
+      `Acme\u200f Construction`,
+      `Acme\u202e Construction`,
+      `Acme\uFEFF Construction`,
+      `Acme\nConstruction`,
+      `Acme${unpairedSurrogate}Construction`,
+      "é".repeat(501),
+    ]) {
+      expect(
+        CustomerDiscoveryMatchSchema.safeParse({
+          ...primaryCustomerMatch(),
+          display_name: displayName,
+        }).success
+      ).toBe(false);
+    }
+    for (const parentDisplayName of [
+      `Acme\u2066 Construction`,
+      `Acme${unpairedSurrogate}Construction`,
+      "é".repeat(501),
+    ]) {
+      const match = subCustomerMatch();
+      expect(
+        CustomerDiscoveryMatchSchema.safeParse({
+          ...match,
+          relationship: {
+            ...match.relationship,
+            parent_display_name: parentDisplayName,
+          },
+        }).success
+      ).toBe(false);
+    }
+    for (const mutation of [
+      { display_title: `Cedar\u061c Street` },
+      { display_title: `Cedar\u200e Street` },
+      { display_title: `Cedar\u200f Street` },
+      { display_title: `Cedar\u202e Street` },
+      { display_title: `Cedar\uFEFF Street` },
+      { display_title: `Cedar${unpairedSurrogate} Street` },
+      { display_title: "é".repeat(501) },
+      { address: `100 Cedar\u0000 Street` },
+      { address: "é".repeat(1_001) },
+    ]) {
+      expect(
+        JobDiscoveryMatchSchema.safeParse({
+          ...opportunityJobMatch(),
+          ...mutation,
+        }).success
+      ).toBe(false);
+    }
   });
 
   it("accepts address-backed job matches and canonical converted projects", () => {
@@ -700,6 +875,23 @@ describe("discovery match contracts", () => {
     ).toBe(true);
   });
 
+  it("treats discarded opportunities as archived rather than active or terminal", () => {
+    const discarded = {
+      ...opportunityJobMatch(),
+      lifecycle_state: "archived" as const,
+      status: { kind: "opportunity" as const, value: "discarded" as const },
+    };
+    expect(JobDiscoveryMatchSchema.safeParse(discarded).success).toBe(true);
+    for (const lifecycleState of ["active", "terminal"] as const) {
+      expect(
+        JobDiscoveryMatchSchema.safeParse({
+          ...discarded,
+          lifecycle_state: lifecycleState,
+        }).success
+      ).toBe(false);
+    }
+  });
+
   it("rejects converted aliases claimed by more than one result card", () => {
     const duplicateOpportunityAlias = {
       ...opportunityJobMatch(1, 2),
@@ -742,19 +934,21 @@ describe("discovery match contracts", () => {
 });
 
 describe("discovery AgentResult contracts", () => {
-  it("requires exact returned counts and fixed proof-bound gaps", () => {
+  it("requires exact returned counts and terminal proof-bound gaps", () => {
     expect(CustomerDiscoveryDataSchema.safeParse(customerData()).success).toBe(
       true
     );
     expect(JobDiscoveryDataSchema.safeParse(jobData()).success).toBe(true);
-    for (const gaps of [
-      ["SOURCE_QUERY_BOUND"],
-      ["SOURCE_DATA_INVALID"],
-      ["SOURCE_QUERY_BOUND", "SOURCE_DATA_INVALID"],
-    ]) {
+    for (const gaps of [["SOURCE_QUERY_BOUND"], ["SOURCE_DATA_INVALID"]]) {
       expect(
         CustomerDiscoveryDataSchema.safeParse({
-          ...customerData(),
+          ...customerData([]),
+          gaps,
+        }).success
+      ).toBe(true);
+      expect(
+        JobDiscoveryDataSchema.safeParse({
+          ...jobData([]),
           gaps,
         }).success
       ).toBe(true);
@@ -767,8 +961,49 @@ describe("discovery AgentResult contracts", () => {
         ...customerData(),
         gaps: ["SOURCE_QUERY_BOUND", "SOURCE_QUERY_BOUND"],
       },
+      {
+        ...customerData([]),
+        gaps: ["SOURCE_QUERY_BOUND", "SOURCE_DATA_INVALID"],
+      },
+      {
+        ...customerData(),
+        gaps: ["SOURCE_QUERY_BOUND"],
+      },
+      {
+        ...customerData([]),
+        gaps: ["SOURCE_DATA_INVALID"],
+        result_budget_omitted_count: 1,
+      },
     ]) {
       expect(CustomerDiscoveryDataSchema.safeParse(data).success).toBe(false);
+    }
+  });
+
+  it("requires gap results to be terminal, warning-free collection proofs", () => {
+    for (const kind of ["customer", "job"] as const) {
+      const data =
+        kind === "customer"
+          ? { ...customerData([]), gaps: ["SOURCE_QUERY_BOUND"] }
+          : { ...jobData([]), gaps: ["SOURCE_DATA_INVALID"] };
+      const result = resultEnvelope(kind, data);
+      const schema =
+        kind === "customer"
+          ? CustomerDiscoveryResultSchema
+          : JobDiscoveryResultSchema;
+
+      expect(schema.safeParse(result).success).toBe(true);
+      expect(
+        schema.safeParse({
+          ...result,
+          page: { next_cursor: SIGNED_CURSOR, has_more: true },
+        }).success
+      ).toBe(false);
+      expect(
+        schema.safeParse({
+          ...result,
+          warnings: [DISCOVERY_RESULT_BUDGET_WARNING],
+        }).success
+      ).toBe(false);
     }
   });
 
@@ -784,6 +1019,18 @@ describe("discovery AgentResult contracts", () => {
       CustomerDiscoveryDataSchema.safeParse(customerData(twentyFiveCustomers))
         .success
     ).toBe(true);
+    const fullTwentyFiveResult = resultEnvelope(
+      "customer",
+      customerData(twentyFiveCustomers)
+    );
+    expect(JSON.stringify(fullTwentyFiveResult).length).toBeLessThanOrEqual(
+      60_000
+    );
+    expect(
+      CustomerDiscoveryResultSchema.safeParse(fullTwentyFiveResult).success
+    ).toBe(true);
+    expect(fullTwentyFiveResult.evidence).toHaveLength(26);
+    expect(fullTwentyFiveResult.freshness.source_versions).toHaveLength(27);
     expect(
       CustomerDiscoveryDataSchema.safeParse(customerData(twentySixCustomers))
         .success
@@ -838,6 +1085,48 @@ describe("discovery AgentResult contracts", () => {
     ).toBe(false);
   });
 
+  it("accepts canonical customer continuation pages with global proof ordinals", () => {
+    const result = resultEnvelope(
+      "customer",
+      customerData([primaryCustomerMatch(41), primaryCustomerMatch(42)]),
+      [41, 42]
+    );
+
+    expect(CustomerDiscoveryResultSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("accepts canonical job continuation pages through global ordinal 500", () => {
+    const result = resultEnvelope(
+      "job",
+      jobData([opportunityJobMatch(1, 499), opportunityJobMatch(2, 500)]),
+      [499, 500]
+    );
+
+    expect(JobDiscoveryResultSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("rejects noncontiguous and out-of-range global proof ordinals", () => {
+    const cases = [
+      CustomerDiscoveryResultSchema.safeParse(
+        resultEnvelope(
+          "customer",
+          customerData([primaryCustomerMatch(41), primaryCustomerMatch(43)]),
+          [41, 43]
+        )
+      ),
+      CustomerDiscoveryResultSchema.safeParse(
+        resultEnvelope("customer", customerData([primaryCustomerMatch(0)]), [0])
+      ),
+      JobDiscoveryResultSchema.safeParse(
+        resultEnvelope("job", jobData([opportunityJobMatch(1, 501)]), [501])
+      ),
+    ];
+
+    for (const parsed of cases) {
+      expect(parsed.success).toBe(false);
+    }
+  });
+
   it("couples ordered matches to exact projection identities and locators", () => {
     const result = resultEnvelope(
       "customer",
@@ -873,9 +1162,17 @@ describe("discovery AgentResult contracts", () => {
         ...result,
         evidence: result.evidence.map((evidence, index) =>
           index === 1
-            ? { ...evidence, ...secondChildSource, evidence_id: evidence.evidence_id }
+            ? {
+                ...evidence,
+                ...secondChildSource,
+                evidence_id: evidence.evidence_id,
+              }
             : index === 2
-              ? { ...evidence, ...firstChildSource, evidence_id: evidence.evidence_id }
+              ? {
+                  ...evidence,
+                  ...firstChildSource,
+                  evidence_id: evidence.evidence_id,
+                }
               : evidence
         ),
       },
@@ -894,7 +1191,9 @@ describe("discovery AgentResult contracts", () => {
       {
         ...result,
         evidence: result.evidence.map((evidence, index) =>
-          index === 1 ? { ...evidence, locator: "ops://noncanonical" } : evidence
+          index === 1
+            ? { ...evidence, locator: "ops://noncanonical" }
+            : evidence
         ),
       },
       {
@@ -937,7 +1236,10 @@ describe("discovery AgentResult contracts", () => {
   });
 
   it("rejects contact values from every public proof metadata channel", () => {
-    const result = resultEnvelope("customer", customerData([subCustomerMatch()]));
+    const result = resultEnvelope(
+      "customer",
+      customerData([subCustomerMatch()])
+    );
     const childSource = result.freshness.source_versions[2]!;
     const contactEvidenceId = "dispatch@example.com";
     const contactVersion = "dispatch@example.com";
@@ -946,8 +1248,11 @@ describe("discovery AgentResult contracts", () => {
         ...result,
         freshness: {
           ...result.freshness,
-          source_versions: result.freshness.source_versions.map((source, index) =>
-            index === 2 ? { ...source, source_id: "dispatch@example.com" } : source
+          source_versions: result.freshness.source_versions.map(
+            (source, index) =>
+              index === 2
+                ? { ...source, source_id: "dispatch@example.com" }
+                : source
           ),
         },
         evidence: result.evidence.map((evidence, index) =>
@@ -968,18 +1273,23 @@ describe("discovery AgentResult contracts", () => {
         ...result,
         data: {
           ...result.data,
-          matches: [{ ...result.data.matches[0]!, evidence_ids: [contactEvidenceId] }],
+          matches: [
+            { ...result.data.matches[0]!, evidence_ids: [contactEvidenceId] },
+          ],
         },
         evidence: result.evidence.map((evidence, index) =>
-          index === 1 ? { ...evidence, evidence_id: contactEvidenceId } : evidence
+          index === 1
+            ? { ...evidence, evidence_id: contactEvidenceId }
+            : evidence
         ),
       },
       {
         ...result,
         freshness: {
           ...result.freshness,
-          source_versions: result.freshness.source_versions.map((source, index) =>
-            index === 2 ? { ...childSource, version: contactVersion } : source
+          source_versions: result.freshness.source_versions.map(
+            (source, index) =>
+              index === 2 ? { ...childSource, version: contactVersion } : source
           ),
         },
         evidence: result.evidence.map((evidence, index) =>
@@ -1013,9 +1323,9 @@ describe("discovery AgentResult contracts", () => {
       }),
       warnings: [RESULT_BUDGET_WARNING],
     };
-    expect(CustomerDiscoveryResultSchema.safeParse(maximallyPruned).success).toBe(
-      true
-    );
+    expect(
+      CustomerDiscoveryResultSchema.safeParse(maximallyPruned).success
+    ).toBe(true);
 
     const cases = [
       resultEnvelope("customer", {
@@ -1078,7 +1388,12 @@ describe("discovery AgentResult contracts", () => {
     }));
     const oversized = resultEnvelope("job", jobData(matches));
     expect(JSON.stringify(oversized).length).toBeGreaterThan(60_000);
-    expect(JobDiscoveryResultSchema.safeParse(oversized).success).toBe(false);
+    const parsed = JobDiscoveryResultSchema.safeParse(oversized);
+    expect(parsed.success).toBe(false);
+    if (parsed.success) return;
+    expect(parsed.error.issues.map(({ message }) => message)).toContain(
+      "Discovery result exceeds the prompt-safe character budget"
+    );
   });
 
   it("exports concrete normalized data and result types", () => {

@@ -304,6 +304,7 @@ describe("OPS agent control-plane v1 contracts", () => {
       "FORBIDDEN",
       "NOT_FOUND",
       "INVALID_ARGUMENT",
+      "RESULT_TOO_LARGE",
       "AMBIGUOUS",
       "STALE_CONTEXT",
       "CONFIRMATION_REQUIRED",
@@ -314,6 +315,9 @@ describe("OPS agent control-plane v1 contracts", () => {
       "INTERNAL",
     ]);
     expect(AgentErrorCodeSchema.parse("STALE_CONTEXT")).toBe("STALE_CONTEXT");
+    expect(AgentErrorCodeSchema.parse("RESULT_TOO_LARGE")).toBe(
+      "RESULT_TOO_LARGE"
+    );
     expect(AgentErrorCodeSchema.safeParse("DATABASE_ERROR").success).toBe(
       false
     );
@@ -371,6 +375,19 @@ describe("OPS agent control-plane v1 contracts", () => {
       AgentErrorSchema.safeParse({
         ...base,
         code: "FORBIDDEN",
+        details: {},
+      }).success
+    ).toBe(false);
+    expect(
+      AgentErrorSchema.safeParse({
+        ...base,
+        code: "RESULT_TOO_LARGE",
+      }).success
+    ).toBe(true);
+    expect(
+      AgentErrorSchema.safeParse({
+        ...base,
+        code: "RESULT_TOO_LARGE",
         details: {},
       }).success
     ).toBe(false);
