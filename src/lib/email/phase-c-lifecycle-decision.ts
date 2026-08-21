@@ -1,5 +1,4 @@
-interface PhaseCLifecycleSupabaseLike {
-  from(table: string): any;
+interface PhaseCLifecycleRpcSupabaseLike {
   rpc(
     name: string,
     args: Record<string, unknown>
@@ -7,6 +6,10 @@ interface PhaseCLifecycleSupabaseLike {
     data?: unknown;
     error?: { message?: string | null } | null;
   }>;
+}
+
+interface PhaseCLifecycleSupabaseLike extends PhaseCLifecycleRpcSupabaseLike {
+  from(table: string): any;
 }
 
 interface StageEvidenceRow {
@@ -116,7 +119,7 @@ export interface PhaseCLifecycleDecisionReceipt {
  * the database rejects a conflicting interpretation for the same source.
  */
 export async function recordPhaseCLifecycleDecision(input: {
-  supabase: PhaseCLifecycleSupabaseLike;
+  supabase: PhaseCLifecycleRpcSupabaseLike;
   companyId: string;
   opportunityId: string;
   sourceEventId: string;
@@ -194,7 +197,7 @@ export async function recordPhaseCLifecycleDecision(input: {
 }
 
 export async function settlePhaseCLifecycleDecision(input: {
-  supabase: PhaseCLifecycleSupabaseLike;
+  supabase: PhaseCLifecycleRpcSupabaseLike;
   companyId: string;
   opportunityId: string;
   decisionId: string;
@@ -234,7 +237,7 @@ export async function settlePhaseCLifecycleDecision(input: {
  * apply leaves an independently observable decision that can be replayed.
  */
 export async function recordAndApplyPhaseCStageDecision(input: {
-  supabase: PhaseCLifecycleSupabaseLike;
+  supabase: PhaseCLifecycleRpcSupabaseLike;
   companyId: string;
   opportunityId: string;
   sourceEventId: string;
