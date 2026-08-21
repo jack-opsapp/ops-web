@@ -20,11 +20,11 @@ const INTERNAL_READS = [
 ] as const;
 
 describe("Phase C and Task 13 integration", () => {
-  it("keeps the Phase C seams while exposing only the complete internal v6 read set", () => {
+  it("keeps the Phase C seams while exposing only the complete v7 read set", () => {
     expect(createInternalPhaseCAdapter).toBeTypeOf("function");
     expect(observeReplyContextShadow).toBeTypeOf("function");
     expect(CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-14.capability-manifest.v6"
+      "2026-08-20.capability-manifest.v7"
     );
 
     for (const capabilityName of INTERNAL_READS) {

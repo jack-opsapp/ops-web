@@ -16,6 +16,12 @@ import {
   JobSummaryInputSchema,
   TASK_13_CAPABILITY_SCHEMA_REVISION,
 } from "@/lib/agent-control-plane/contracts/job-catalog";
+import {
+  DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+  MAX_DISCOVERY_MATCHES,
+  SearchCustomersInputSchema,
+  SearchJobsInputSchema,
+} from "@/lib/agent-control-plane/contracts/discovery";
 import { JobRefSchema } from "@/lib/agent-control-plane/contracts/jobs";
 import {
   JobReadinessIssuesInputSchema,
@@ -276,6 +282,32 @@ function customerJobKindVariant(
   return {
     key: `${jobKind}_jobs`,
     selector: { kind: "customer_job_kind", jobKind },
+    requiredOAuthScopes: ["ops.jobs.read"],
+    permissionRequirementGroups: [requirements],
+  };
+}
+
+function customerDiscoveryVariant(
+  lookup: "name" | "exact_contact",
+  requiredOAuthScopes: readonly string[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key: lookup,
+    selector: { kind: "customer_discovery_lookup", lookup },
+    requiredOAuthScopes,
+    permissionRequirementGroups: [
+      [permission("clients.view", ["all", "assigned"])],
+    ],
+  };
+}
+
+function jobDiscoveryVariant(
+  jobKind: "opportunity" | "project",
+  requirements: readonly ReturnType<typeof permission>[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key: `${jobKind}_jobs`,
+    selector: { kind: "job_discovery_kind", jobKind },
     requiredOAuthScopes: ["ops.jobs.read"],
     permissionRequirementGroups: [requirements],
   };
@@ -860,6 +892,54 @@ export const READ_CAPABILITY_DEFINITIONS = [
     }),
     availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.get_correspondence_evidence",
+  },
+  {
+    name: "search_customers",
+    schemaRevision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+    operation: "read",
+    description: "Find visible customers by name or an exact contact lookup.",
+    inputSchema: SearchCustomersInputSchema,
+    authorization: {
+      variants: [
+        customerDiscoveryVariant("name", ["ops.customers.read"]),
+        customerDiscoveryVariant("exact_contact", [
+          "ops.customer_contacts.read",
+          "ops.customers.read",
+        ]),
+      ],
+    },
+    ...readMetadata({
+      riskTier: "high",
+      maxResultItems: MAX_DISCOVERY_MATCHES,
+      auditClass: "search_read",
+      rateLimitBucket: "evidence_search",
+    }),
+    rolloutFlag: "agent_control_plane.capability.search_customers",
+  },
+  {
+    name: "search_jobs",
+    schemaRevision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+    operation: "read",
+    description: "Find visible opportunities and projects by job facts.",
+    inputSchema: SearchJobsInputSchema,
+    authorization: {
+      variants: [
+        jobDiscoveryVariant("opportunity", [
+          permission("pipeline.view", ["all", "assigned"]),
+        ]),
+        jobDiscoveryVariant("project", [
+          permission("projects.view", ["all", "assigned"]),
+        ]),
+      ],
+    },
+    ...readMetadata({
+      riskTier: "medium",
+      maxResultItems: MAX_DISCOVERY_MATCHES,
+      maxWindowDays: 365,
+      auditClass: "search_read",
+      rateLimitBucket: "evidence_search",
+    }),
+    rolloutFlag: "agent_control_plane.capability.search_jobs",
   },
   {
     name: "resolve_job_participants",

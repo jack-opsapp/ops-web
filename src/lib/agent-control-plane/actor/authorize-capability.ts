@@ -29,6 +29,7 @@ export interface AuthorizedCapability extends AuthorizedCapabilityBrand {
   readonly capabilityId: string;
   readonly capabilityRevision: string;
   readonly capabilityManifestRevision: string;
+  readonly declaredOAuthScopes: readonly string[];
   readonly declaredPermissions: readonly string[];
   readonly resolvedPermissions: Readonly<Record<string, PermissionScope>>;
   readonly satisfiedPermissionGroupIndexes: readonly number[];
@@ -74,12 +75,12 @@ export function authorizeCapability({
     );
   }
 
-  const requiredOAuthScopes = policy.requiredOAuthScopes;
+  const declaredOAuthScopes = Object.freeze([...policy.requiredOAuthScopes]);
 
   let satisfiedOAuthScopes: readonly string[] = Object.freeze([]);
   if (actorContext.auth.channel === "mcp") {
     const ceiling = new Set(actorContext.auth.scopeCeiling);
-    const missing = requiredOAuthScopes.filter((scope) => !ceiling.has(scope));
+    const missing = declaredOAuthScopes.filter((scope) => !ceiling.has(scope));
     if (missing.length > 0) {
       const requiredScope = missing.join(" ");
       throw insufficientOAuthScope(
@@ -88,7 +89,7 @@ export function authorizeCapability({
         `Bearer error="insufficient_scope", scope="${requiredScope}"`
       );
     }
-    satisfiedOAuthScopes = requiredOAuthScopes;
+    satisfiedOAuthScopes = declaredOAuthScopes;
   }
 
   const resolvedPermissions: Record<string, PermissionScope> = {};
@@ -146,6 +147,7 @@ export function authorizeCapability({
     capabilityId: policy.capabilityId.trim(),
     capabilityRevision: policy.capabilityRevision.trim(),
     capabilityManifestRevision: policy.capabilityManifestRevision.trim(),
+    declaredOAuthScopes,
     declaredPermissions,
     resolvedPermissions: Object.freeze(resolvedPermissions),
     satisfiedPermissionGroupIndexes: Object.freeze(

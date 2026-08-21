@@ -36,7 +36,7 @@ export const TASK_13_TURN_EVIDENCE_ID =
   `job_conversation_turn:${TASK_13_TURN_ID}` as const;
 export const TASK_13_PERMISSION_REVISION = `sha256:${"a".repeat(64)}`;
 export const TASK_13_MANIFEST_REVISION =
-  "2026-08-14.capability-manifest.v6" as const;
+  "2026-08-20.capability-manifest.v7" as const;
 export const TASK_13_READ_AT = "2026-08-14T17:59:59.000Z";
 export const TASK_13_GENERATED_AT = "2026-08-14T18:00:00.000Z";
 export const TASK_13_SOURCE_REVISION = 83;

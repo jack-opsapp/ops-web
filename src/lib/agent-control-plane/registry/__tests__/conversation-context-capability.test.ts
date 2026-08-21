@@ -32,7 +32,7 @@ function permissionMatrix(kind: "opportunity" | "project") {
 describe("get_job_conversation_context capability", () => {
   it("bumps the manifest revision when its authority contract changes", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-14.capability-manifest.v6"
+      "2026-08-20.capability-manifest.v7"
     );
   });
 

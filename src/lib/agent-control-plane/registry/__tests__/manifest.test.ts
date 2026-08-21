@@ -4,7 +4,10 @@ import {
   defineCapabilityPolicyForManifest,
   isManifestCapabilityPolicy,
 } from "@/lib/agent-control-plane/actor/capability-policy-boundary";
-import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts";
+import {
+  CONTRACT_VERSION,
+  DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+} from "@/lib/agent-control-plane/contracts";
 import {
   CAPABILITY_MANIFEST,
   CAPABILITY_MANIFEST_REVISION,
@@ -25,6 +28,8 @@ const EXPECTED_CAPABILITIES = [
   ["get_job_summary", "read"],
   ["search_job_history", "read"],
   ["get_correspondence_evidence", "read"],
+  ["search_customers", "read"],
+  ["search_jobs", "read"],
   ["resolve_job_participants", "read"],
   ["list_site_visits", "read"],
   ["get_site_visit_context", "read"],
@@ -53,6 +58,8 @@ const EXPECTED_ANNOTATIONS = {
   get_job_summary: [true, false, true, false],
   search_job_history: [true, false, true, false],
   get_correspondence_evidence: [true, false, true, false],
+  search_customers: [true, false, true, false],
+  search_jobs: [true, false, true, false],
   resolve_job_participants: [true, false, true, false],
   list_site_visits: [true, false, true, false],
   get_site_visit_context: [true, false, true, false],
@@ -395,6 +402,30 @@ const EXPECTED_POLICY_MATRIX = {
       key: "correspondence_evidence",
       oauth: ["ops.correspondence.read"],
       groups: [["inbox.view:all,assigned,own"]],
+    },
+  ],
+  search_customers: [
+    {
+      key: "name",
+      oauth: ["ops.customers.read"],
+      groups: [["clients.view:all,assigned"]],
+    },
+    {
+      key: "exact_contact",
+      oauth: ["ops.customer_contacts.read", "ops.customers.read"],
+      groups: [["clients.view:all,assigned"]],
+    },
+  ],
+  search_jobs: [
+    {
+      key: "opportunity_jobs",
+      oauth: ["ops.jobs.read"],
+      groups: [["pipeline.view:all,assigned"]],
+    },
+    {
+      key: "project_jobs",
+      oauth: ["ops.jobs.read"],
+      groups: [["projects.view:all,assigned"]],
     },
   ],
   resolve_job_participants: [
@@ -741,6 +772,13 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
       "job_conversation_turn:40000000-0000-4000-8000-000000000001",
     ],
   },
+  search_customers: {
+    lookup: "name",
+    query: "Acme Construction",
+  },
+  search_jobs: {
+    query: "Cedar deck",
+  },
   resolve_job_participants: { job_ref: JOB_REF },
   list_site_visits: {
     view: "booked_appointments",
@@ -849,13 +887,13 @@ const VALID_INPUTS: Readonly<Record<string, unknown>> = {
 };
 
 describe("agent capability manifest", () => {
-  it("registers exactly eleven reads and seven write pairs", () => {
+  it("registers exactly thirteen reads and seven write pairs", () => {
     expect(
       CAPABILITY_MANIFEST.map((entry) => [entry.name, entry.operation])
     ).toEqual(EXPECTED_CAPABILITIES);
     expect(
       CAPABILITY_MANIFEST.filter((entry) => entry.operation === "read")
-    ).toHaveLength(11);
+    ).toHaveLength(13);
     expect(
       CAPABILITY_MANIFEST.filter((entry) => entry.operation !== "read")
     ).toHaveLength(14);
@@ -897,7 +935,7 @@ describe("agent capability manifest", () => {
 
   it("carries immutable, nominal authorization policy variants", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-14.capability-manifest.v6"
+      "2026-08-20.capability-manifest.v7"
     );
     expect(Object.isFrozen(CAPABILITY_MANIFEST)).toBe(true);
 
@@ -912,12 +950,17 @@ describe("agent capability manifest", () => {
         "search_job_history",
         "get_correspondence_evidence",
       ].includes(capability.name);
+      const discoveryRevision = ["search_customers", "search_jobs"].includes(
+        capability.name
+      );
       expect(capability.schemaRevision).toBe(
         task12Revision
           ? "2026-08-13.v1"
           : task13Revision
             ? "2026-08-14.v1"
-            : CONTRACT_VERSION
+            : discoveryRevision
+              ? DISCOVERY_CAPABILITY_SCHEMA_REVISION
+              : CONTRACT_VERSION
       );
       expect(capability.authorization.variants.length).toBeGreaterThan(0);
       expect(Object.isFrozen(capability)).toBe(true);

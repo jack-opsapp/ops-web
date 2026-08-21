@@ -97,6 +97,14 @@ export type CapabilityIdempotencyPolicy =
 export type CapabilityAuthorizationSelector =
   | Readonly<{ kind: "always" }>
   | Readonly<{
+      kind: "customer_discovery_lookup";
+      lookup: "name" | "exact_contact";
+    }>
+  | Readonly<{
+      kind: "job_discovery_kind";
+      jobKind: "opportunity" | "project";
+    }>
+  | Readonly<{
       kind: "customer_job_kind";
       jobKind: "opportunity" | "project";
     }>
@@ -313,6 +321,10 @@ function assertAuthorization(
         entry.name !== "resolve_job_participants") ||
       (variant.selector.kind === "customer_job_kind" &&
         entry.name !== "list_customer_jobs") ||
+      (variant.selector.kind === "customer_discovery_lookup" &&
+        entry.name !== "search_customers") ||
+      (variant.selector.kind === "job_discovery_kind" &&
+        entry.name !== "search_jobs") ||
       ((variant.selector.kind === "job_summary_readiness" ||
         variant.selector.kind === "job_summary_financial_component") &&
         entry.name !== "get_job_summary") ||
@@ -376,11 +388,17 @@ function isExactAuthorizationSelector(
   switch (selector.kind) {
     case "always":
       return hasExactKeys(selector, ["kind"]);
+    case "customer_discovery_lookup":
+      return (
+        hasExactKeys(selector, ["kind", "lookup"]) &&
+        (selector.lookup === "name" || selector.lookup === "exact_contact")
+      );
     case "job_kind":
       return (
         hasExactKeys(selector, ["kind", "jobKind"]) &&
         (selector.jobKind === "opportunity" || selector.jobKind === "project")
       );
+    case "job_discovery_kind":
     case "customer_job_kind":
     case "job_history_job_kind":
       return (

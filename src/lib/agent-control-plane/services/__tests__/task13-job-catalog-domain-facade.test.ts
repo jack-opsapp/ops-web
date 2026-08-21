@@ -55,7 +55,7 @@ import {
   TASK_13_JOB_SUMMARY_INPUT,
 } from "./fixtures/task13-job-catalog-fixtures";
 
-const TASK_13_MANIFEST_REVISION = "2026-08-14.capability-manifest.v6" as const;
+const TASK_13_MANIFEST_REVISION = "2026-08-20.capability-manifest.v7" as const;
 const TASK_13_CAPABILITIES = [
   "list_customer_jobs",
   "get_job_summary",

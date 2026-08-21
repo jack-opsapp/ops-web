@@ -16,7 +16,7 @@ import { READ_CAPABILITY_DEFINITIONS } from "./read-tools";
 import { WRITE_CAPABILITY_DEFINITIONS } from "./write-tools";
 
 export const CAPABILITY_MANIFEST_REVISION =
-  "2026-08-14.capability-manifest.v6" as const;
+  "2026-08-20.capability-manifest.v7" as const;
 
 function freezeSelector(
   selector: CapabilityAuthorizationSelector
@@ -95,6 +95,18 @@ function selectorMatches(
   parsedInput: Readonly<Record<string, unknown>>
 ): boolean {
   if (selector.kind === "always") return true;
+
+  if (selector.kind === "customer_discovery_lookup") {
+    const lookup = parsedInput.lookup;
+    return selector.lookup === "name"
+      ? lookup === "name"
+      : lookup === "exact_email" || lookup === "exact_phone";
+  }
+
+  if (selector.kind === "job_discovery_kind") {
+    const jobKinds = parsedInput.job_kinds;
+    return Array.isArray(jobKinds) && jobKinds.includes(selector.jobKind);
+  }
 
   if (selector.kind === "customer_job_kind") {
     const jobKinds = parsedInput.job_kinds;

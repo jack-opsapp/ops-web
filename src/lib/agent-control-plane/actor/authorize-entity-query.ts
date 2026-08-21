@@ -152,6 +152,7 @@ const AUTHORIZED_CAPABILITY_KEYS = [
   "capabilityId",
   "capabilityRevision",
   "capabilityManifestRevision",
+  "declaredOAuthScopes",
   "declaredPermissions",
   "resolvedPermissions",
   "satisfiedPermissionGroupIndexes",
