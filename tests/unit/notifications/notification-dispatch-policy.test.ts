@@ -118,6 +118,90 @@ describe("parseNotificationDispatchRequest", () => {
     ).toBe(false);
   });
 
+  it("accepts only proof ids for crew lifecycle events", () => {
+    for (const eventType of [
+      "task_completed",
+      "task_rescheduled",
+      "task_assigned",
+    ] as const) {
+      expect(
+        parseNotificationDispatchRequest({ eventType, taskId: EVENT_ID })
+      ).toEqual({
+        ok: true,
+        value: { eventType, taskId: EVENT_ID },
+      });
+    }
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "project_completed",
+        projectId: PROJECT_ID,
+      })
+    ).toEqual({
+      ok: true,
+      value: { eventType: "project_completed", projectId: PROJECT_ID },
+    });
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "project_assigned",
+        projectId: PROJECT_ID,
+      })
+    ).toEqual({
+      ok: true,
+      value: { eventType: "project_assigned", projectId: PROJECT_ID },
+    });
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "dependency_ready",
+        completedTaskId: EVENT_ID,
+      })
+    ).toEqual({
+      ok: true,
+      value: { eventType: "dependency_ready", completedTaskId: EVENT_ID },
+    });
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "schedule_run_summary",
+        taskIds: [EVENT_ID, PROJECT_ID],
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        eventType: "schedule_run_summary",
+        taskIds: [EVENT_ID, PROJECT_ID],
+      },
+    });
+  });
+
+  it("rejects recipient, copy, duplicate, malformed, or oversized crew claims", () => {
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "task_assigned",
+        taskId: EVENT_ID,
+        userIds: [USER_ID],
+      }).ok
+    ).toBe(false);
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "task_rescheduled",
+        taskId: "not-a-uuid",
+      }).ok
+    ).toBe(false);
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "schedule_run_summary",
+        taskIds: [EVENT_ID, EVENT_ID],
+      }).ok
+    ).toBe(false);
+    expect(
+      parseNotificationDispatchRequest({
+        eventType: "schedule_run_summary",
+        taskIds: Array.from({ length: 501 }, (_, index) =>
+          index === 0 ? EVENT_ID : PROJECT_ID
+        ),
+      }).ok
+    ).toBe(false);
+  });
+
   it("rejects unknown events and non-UUID evidence", () => {
     expect(
       parseNotificationDispatchRequest({
