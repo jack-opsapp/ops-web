@@ -1,11 +1,15 @@
 -- Phase 1 MCP discovery reads and capability-manifest v7 compatibility.
 --
--- Every public reader remains a fixed service-role boundary. Existing v6
--- readers are preserved as private frozen cores and receive only a literal v6
--- manifest from a v7-only public wrapper. JSON readers are recursively
--- re-proved under v7 before returning. Discovery searches capture actor,
+-- Every public reader remains a fixed service-role boundary. During the
+-- zero-downtime manifest cutover, existing readers accept only exact v6 or v7:
+-- v6 callers receive the frozen v6 core result unchanged, while v7 callers
+-- receive that same literal-v6 result recursively re-proved under v7. New
+-- discovery readers remain v7-only. Discovery searches capture actor,
 -- permission, company, source revision, visible rows, and database time in one
 -- statement and return bounded atomic claims rather than prompt-ready copy.
+-- Remove v6 acceptance only in a later migration after every v6 application
+-- instance, background job, prepared call, and signed cursor is drained. The
+-- private v6 cores must remain while any v7 wrapper still delegates to them.
 
 begin;
 
@@ -857,7 +861,8 @@ declare
   v_changed boolean;
   v_manifest_count integer;
 begin
-  if p_capability_manifest_revision not in (
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
     '2026-08-14.capability-manifest.v6',
     '2026-08-20.capability-manifest.v7'
   ) then
@@ -1150,16 +1155,21 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $function$
+declare
+  v_v6_result jsonb;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
-  if p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_job_communication_context_request'
       using errcode = '22023';
   end if;
-  return private.reprove_agent_read_jsonb_for_manifest(
+  v_v6_result :=
     private.read_agent_job_communication_context_as_system_v6_core(
       p_request_id,
       p_actor_user_id,
@@ -1181,8 +1191,14 @@ begin
       p_job_kind,
       p_job_id,
       p_purpose
-    ),
-    p_capability_manifest_revision
+    );
+  if p_capability_manifest_revision =
+       '2026-08-14.capability-manifest.v6' then
+    return v_v6_result;
+  end if;
+  return private.reprove_agent_read_jsonb_for_manifest(
+    v_v6_result,
+    '2026-08-20.capability-manifest.v7'
   );
 end;
 $function$;
@@ -1221,17 +1237,21 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $function$
+declare
+  v_v6_result jsonb;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
-  if p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_job_participants_request'
       using errcode = '22023';
   end if;
-  return private.reprove_agent_read_jsonb_for_manifest(
-    private.read_agent_job_participants_as_system_v6_core(
+  v_v6_result := private.read_agent_job_participants_as_system_v6_core(
       p_request_id,
       p_actor_user_id,
       p_company_id,
@@ -1250,8 +1270,14 @@ begin
       p_job_kind,
       p_job_id,
       p_purpose
-    ),
-    p_capability_manifest_revision
+    );
+  if p_capability_manifest_revision =
+       '2026-08-14.capability-manifest.v6' then
+    return v_v6_result;
+  end if;
+  return private.reprove_agent_read_jsonb_for_manifest(
+    v_v6_result,
+    '2026-08-20.capability-manifest.v7'
   );
 end;
 $function$;
@@ -1292,16 +1318,21 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $function$
+declare
+  v_v6_result jsonb;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
-  if p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_job_conversation_context_request'
       using errcode = '22023';
   end if;
-  return private.reprove_agent_read_jsonb_for_manifest(
+  v_v6_result :=
     private.read_agent_job_conversation_context_as_system_v6_core(
       p_request_id,
       p_actor_user_id,
@@ -1321,8 +1352,14 @@ begin
       p_exact_turn_limit,
       p_sections,
       p_required_through_turn_id
-    ),
-    p_capability_manifest_revision
+    );
+  if p_capability_manifest_revision =
+       '2026-08-14.capability-manifest.v6' then
+    return v_v6_result;
+  end if;
+  return private.reprove_agent_read_jsonb_for_manifest(
+    v_v6_result,
+    '2026-08-20.capability-manifest.v7'
   );
 end;
 $function$;
@@ -1365,17 +1402,21 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $function$
+declare
+  v_v6_result jsonb;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
-  if p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_scheduled_jobs_request'
       using errcode = '22023';
   end if;
-  return private.reprove_agent_read_jsonb_for_manifest(
-    private.read_agent_scheduled_jobs_as_system_v6_core(
+  v_v6_result := private.read_agent_scheduled_jobs_as_system_v6_core(
       p_request_id,
       p_actor_user_id,
       p_company_id,
@@ -1398,8 +1439,14 @@ begin
       p_cursor_start_utc,
       p_cursor_task_id,
       p_limit
-    ),
-    p_capability_manifest_revision
+    );
+  if p_capability_manifest_revision =
+       '2026-08-14.capability-manifest.v6' then
+    return v_v6_result;
+  end if;
+  return private.reprove_agent_read_jsonb_for_manifest(
+    v_v6_result,
+    '2026-08-20.capability-manifest.v7'
   );
 end;
 $function$;
@@ -1444,16 +1491,21 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $function$
+declare
+  v_v6_result jsonb;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
-  if p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_job_readiness_request'
       using errcode = '22023';
   end if;
-  return private.reprove_agent_read_jsonb_for_manifest(
+  v_v6_result :=
     private.read_agent_job_readiness_issues_as_system_v6_core(
       p_request_id,
       p_actor_user_id,
@@ -1477,8 +1529,14 @@ begin
       p_cursor_first_scheduled_start_utc,
       p_cursor_project_id,
       p_scan_limit
-    ),
-    p_capability_manifest_revision
+    );
+  if p_capability_manifest_revision =
+       '2026-08-14.capability-manifest.v6' then
+    return v_v6_result;
+  end if;
+  return private.reprove_agent_read_jsonb_for_manifest(
+    v_v6_result,
+    '2026-08-20.capability-manifest.v7'
   );
 end;
 $function$;
@@ -1537,8 +1595,11 @@ begin
   if p_capability_id is distinct from 'get_correspondence_evidence'
      or p_capability_revision is distinct from
        'get_correspondence_evidence:2026-08-14.v1'
-     or p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+     or p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_correspondence_evidence_request'
       using errcode = '22023';
   end if;
@@ -1615,16 +1676,21 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $function$
+declare
+  v_v6_result jsonb;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
-  if p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_job_conversation_context_request'
       using errcode = '22023';
   end if;
-  return private.reprove_agent_read_jsonb_for_manifest(
+  v_v6_result :=
     private.read_agent_phase_c_job_conversation_context_as_system_v6_core(
       p_request_id,
       p_actor_user_id,
@@ -1651,8 +1717,14 @@ begin
       p_phase_c_source_activity_id,
       p_phase_c_source_turn_id,
       p_phase_c_source_conversation_id
-    ),
-    p_capability_manifest_revision
+    );
+  if p_capability_manifest_revision =
+       '2026-08-14.capability-manifest.v6' then
+    return v_v6_result;
+  end if;
+  return private.reprove_agent_read_jsonb_for_manifest(
+    v_v6_result,
+    '2026-08-20.capability-manifest.v7'
   );
 end;
 $function$;
@@ -1702,17 +1774,21 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $function$
+declare
+  v_v6_result jsonb;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
-  if p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_customer_jobs_request'
       using errcode = '22023';
   end if;
-  return private.reprove_agent_read_jsonb_for_manifest(
-    private.read_agent_customer_jobs_as_system_v6_core(
+  v_v6_result := private.read_agent_customer_jobs_as_system_v6_core(
       p_request_id,
       p_actor_user_id,
       p_company_id,
@@ -1740,8 +1816,14 @@ begin
       p_cursor_job_kind,
       p_cursor_job_id,
       p_limit
-    ),
-    p_capability_manifest_revision
+    );
+  if p_capability_manifest_revision =
+       '2026-08-14.capability-manifest.v6' then
+    return v_v6_result;
+  end if;
+  return private.reprove_agent_read_jsonb_for_manifest(
+    v_v6_result,
+    '2026-08-20.capability-manifest.v7'
   );
 end;
 $function$;
@@ -1788,17 +1870,21 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $function$
+declare
+  v_v6_result jsonb;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
-  if p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_job_summary_request'
       using errcode = '22023';
   end if;
-  return private.reprove_agent_read_jsonb_for_manifest(
-    private.read_agent_job_summary_as_system_v6_core(
+  v_v6_result := private.read_agent_job_summary_as_system_v6_core(
       p_request_id,
       p_actor_user_id,
       p_company_id,
@@ -1823,8 +1909,14 @@ begin
       p_sections,
       p_readiness_rule_codes,
       p_financial_components
-    ),
-    p_capability_manifest_revision
+    );
+  if p_capability_manifest_revision =
+       '2026-08-14.capability-manifest.v6' then
+    return v_v6_result;
+  end if;
+  return private.reprove_agent_read_jsonb_for_manifest(
+    v_v6_result,
+    '2026-08-20.capability-manifest.v7'
   );
 end;
 $function$;
@@ -1861,16 +1953,21 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $function$
+declare
+  v_v6_result jsonb;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
-  if p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_correspondence_evidence_request'
       using errcode = '22023';
   end if;
-  return private.reprove_agent_read_jsonb_for_manifest(
+  v_v6_result :=
     private.read_agent_correspondence_evidence_page_as_system_v6_core(
       p_request_id,
       p_actor_user_id,
@@ -1888,8 +1985,14 @@ begin
       p_job_id,
       p_evidence_ids,
       p_mode
-    ),
-    p_capability_manifest_revision
+    );
+  if p_capability_manifest_revision =
+       '2026-08-14.capability-manifest.v6' then
+    return v_v6_result;
+  end if;
+  return private.reprove_agent_read_jsonb_for_manifest(
+    v_v6_result,
+    '2026-08-20.capability-manifest.v7'
   );
 end;
 $function$;
@@ -1944,17 +2047,21 @@ stable
 security definer
 set search_path = pg_catalog, public, private
 as $function$
+declare
+  v_v6_result jsonb;
 begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
-  if p_capability_manifest_revision is distinct from
-       '2026-08-20.capability-manifest.v7' then
+  if p_capability_manifest_revision is null
+     or p_capability_manifest_revision not in (
+       '2026-08-14.capability-manifest.v6',
+       '2026-08-20.capability-manifest.v7'
+     ) then
     raise exception 'invalid_agent_job_history_request'
       using errcode = '22023';
   end if;
-  return private.reprove_agent_read_jsonb_for_manifest(
-    private.read_agent_job_history_as_system_v6_core(
+  v_v6_result := private.read_agent_job_history_as_system_v6_core(
       p_request_id,
       p_actor_user_id,
       p_company_id,
@@ -1989,8 +2096,14 @@ begin
       p_cursor_source_type,
       p_cursor_source_id,
       p_limit
-    ),
-    p_capability_manifest_revision
+    );
+  if p_capability_manifest_revision =
+       '2026-08-14.capability-manifest.v6' then
+    return v_v6_result;
+  end if;
+  return private.reprove_agent_read_jsonb_for_manifest(
+    v_v6_result,
+    '2026-08-20.capability-manifest.v7'
   );
 end;
 $function$;

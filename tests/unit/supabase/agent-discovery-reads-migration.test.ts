@@ -122,6 +122,15 @@ describe("MCP discovery read migration", () => {
     ).not.toBe("");
     expect(SQL).toMatch(/(?:^|\n)begin;\s/);
     expect(SQL.trim().endsWith("commit;")).toBe(true);
+    expect(COMPACT_SQL).toContain(
+      "remove v6 acceptance only in a later migration after every v6 application"
+    );
+    expect(COMPACT_SQL).toContain(
+      "instance, background job, prepared call, and signed cursor is drained"
+    );
+    expect(COMPACT_SQL).toContain(
+      "private v6 cores must remain while any v7 wrapper still delegates to them"
+    );
     expect(SQL).toContain("do $prerequisites$");
     for (const prerequisite of [
       "private.resolve_agent_actor_authority(uuid,uuid,text[])",
@@ -435,7 +444,7 @@ describe("MCP discovery read migration", () => {
     }
   });
 
-  it("preserves every active v6 read privately and exposes only v7 reproof wrappers", () => {
+  it("preserves every active v6 read behind exact v6-or-v7 cutover wrappers", () => {
     expect(REPROOF).toContain(`'${MANIFEST_V7}'`);
     expect(REPROOF).toContain(`'${MANIFEST_V6}'`);
     expect(REPROOF).toContain("private.canonical_agent_projection_json(");
@@ -463,11 +472,16 @@ describe("MCP discovery read migration", () => {
       const wrapper = ACTIVE_JSON_WRAPPERS[name];
       expect(wrapper, `${name} needs a current wrapper`).not.toBe("");
       expect(wrapper).toContain("auth.role() is distinct from 'service_role'");
+      expect(wrapper).toContain("p_capability_manifest_revision is null or");
       expect(wrapper).toContain(
-        `p_capability_manifest_revision is distinct from '${MANIFEST_V7}'`
+        `p_capability_manifest_revision not in ( '${MANIFEST_V6}', '${MANIFEST_V7}' )`
+      );
+      expect(wrapper).toContain(`v_v6_result := private.${name}_v6_core(`);
+      expect(wrapper).toContain(
+        `if p_capability_manifest_revision = '${MANIFEST_V6}' then return v_v6_result; end if;`
       );
       expect(wrapper).toContain(
-        "private.reprove_agent_read_jsonb_for_manifest("
+        `return private.reprove_agent_read_jsonb_for_manifest( v_v6_result, '${MANIFEST_V7}' );`
       );
       expect(wrapper).toContain(`'${MANIFEST_V6}'`);
       expect(wrapper).not.toMatch(
@@ -486,7 +500,7 @@ describe("MCP discovery read migration", () => {
     }
   });
 
-  it("keeps the active raw evidence helper operational through an exact v7-to-v6 bridge", () => {
+  it("keeps the active raw evidence helper operational for exact v6 or v7 callers", () => {
     const wrapper = compact(
       functionDefinition(
         SQL,
@@ -499,8 +513,9 @@ describe("MCP discovery read migration", () => {
     expect(wrapper).toContain(
       "p_capability_revision is distinct from 'get_correspondence_evidence:2026-08-14.v1'"
     );
+    expect(wrapper).toContain("p_capability_manifest_revision is null or");
     expect(wrapper).toContain(
-      `p_capability_manifest_revision is distinct from '${MANIFEST_V7}'`
+      `p_capability_manifest_revision not in ( '${MANIFEST_V6}', '${MANIFEST_V7}' )`
     );
     expect(wrapper).toContain(
       "private.read_agent_correspondence_evidence_as_system_v6_core("
@@ -511,7 +526,7 @@ describe("MCP discovery read migration", () => {
     );
   });
 
-  it("keeps the Phase C route and source fence in the same v7 context statement", () => {
+  it("keeps the Phase C route and source fence in the same dual-manifest context statement", () => {
     const wrapper = compact(
       functionDefinition(
         SQL,
@@ -521,14 +536,20 @@ describe("MCP discovery read migration", () => {
     const corePatch = compact(
       functionDefinition(SQL, "pg_temp.agent_bridge_phase_c_v6_core")
     );
+    expect(wrapper).toContain("p_capability_manifest_revision is null or");
     expect(wrapper).toContain(
-      `p_capability_manifest_revision is distinct from '${MANIFEST_V7}'`
+      `p_capability_manifest_revision not in ( '${MANIFEST_V6}', '${MANIFEST_V7}' )`
     );
     expect(wrapper).toContain(
-      "private.read_agent_phase_c_job_conversation_context_as_system_v6_core("
+      "v_v6_result := private.read_agent_phase_c_job_conversation_context_as_system_v6_core("
     );
     expect(wrapper).toContain(`'${MANIFEST_V6}'`);
-    expect(wrapper).toContain("private.reprove_agent_read_jsonb_for_manifest(");
+    expect(wrapper).toContain(
+      `if p_capability_manifest_revision = '${MANIFEST_V6}' then return v_v6_result; end if;`
+    );
+    expect(wrapper).toContain(
+      `return private.reprove_agent_read_jsonb_for_manifest( v_v6_result, '${MANIFEST_V7}' );`
+    );
     expect(corePatch).toContain("pg_get_functiondef(");
     expect(corePatch).toContain(
       "private.read_agent_job_conversation_context_as_system_v6_core("
@@ -551,6 +572,10 @@ describe("MCP discovery read migration", () => {
       );
       expect(rpc).toContain("set plan_cache_mode = force_custom_plan");
       expect(rpc).toContain("auth.role() is distinct from 'service_role'");
+      expect(rpc).toContain(
+        `p_capability_manifest_revision is distinct from '${MANIFEST_V7}'`
+      );
+      expect(rpc).not.toContain(`'${MANIFEST_V6}'`);
       expect(COMPACT_SQL).toMatch(
         new RegExp(
           `revoke all on function public\\.${name}\\([\\s\\S]*?from public, anon, authenticated, service_role;`
