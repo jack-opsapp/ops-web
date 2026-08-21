@@ -120,14 +120,17 @@ describe("requested scope resolution", () => {
     { label: "an empty string", requested: "" },
     { label: "a whitespace-only string", requested: "   " },
     { label: "a tab-and-newline string", requested: "\t\n " },
-  ])("defaults $label to the full read set in canonical order", ({ requested }) => {
-    expect(resolveRequestedScopes(requested)).toEqual(CANONICAL_ORDER);
-  });
+  ])(
+    "defaults $label to the full read set in canonical order",
+    ({ requested }) => {
+      expect(resolveRequestedScopes(requested)).toEqual(CANONICAL_ORDER);
+    }
+  );
 
   it("preserves canonical order regardless of the order requested", () => {
-    expect(
-      resolveRequestedScopes("ops.financials.read ops.jobs.read")
-    ).toEqual(["ops.jobs.read", "ops.financials.read"]);
+    expect(resolveRequestedScopes("ops.financials.read ops.jobs.read")).toEqual(
+      ["ops.jobs.read", "ops.financials.read"]
+    );
     expect(
       resolveRequestedScopes(
         "ops.photos.read ops.correspondence.read ops.schedule.read"
@@ -137,14 +140,16 @@ describe("requested scope resolution", () => {
       "ops.photos.read",
       "ops.correspondence.read",
     ]);
-    expect(resolveRequestedScopes([...CANONICAL_ORDER].reverse().join(" "))).toEqual(
-      CANONICAL_ORDER
-    );
+    expect(
+      resolveRequestedScopes([...CANONICAL_ORDER].reverse().join(" "))
+    ).toEqual(CANONICAL_ORDER);
   });
 
   it("collapses duplicates and tolerates irregular whitespace between entries", () => {
     expect(
-      resolveRequestedScopes("  ops.jobs.read   ops.jobs.read\tops.photos.read ")
+      resolveRequestedScopes(
+        "  ops.jobs.read   ops.jobs.read\tops.photos.read "
+      )
     ).toEqual(["ops.jobs.read", "ops.photos.read"]);
   });
 
@@ -211,7 +216,7 @@ describe("requested scope resolution", () => {
 });
 
 describe("capability manifest consistency", () => {
-  it("implements exactly the nine v6 reads the mount can expose", () => {
+  it("implements eleven reads while discovery remains outside the external mount", () => {
     expect(IMPLEMENTED_READS.map((definition) => definition.name)).toEqual([
       "list_scheduled_jobs",
       "list_job_readiness_issues",
@@ -221,6 +226,8 @@ describe("capability manifest consistency", () => {
       "get_job_summary",
       "search_job_history",
       "get_correspondence_evidence",
+      "search_customers",
+      "search_jobs",
       "resolve_job_participants",
     ]);
   });

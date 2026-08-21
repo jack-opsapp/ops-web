@@ -222,7 +222,7 @@ describe("Task 13 job-catalog domain facade", () => {
     }
   );
 
-  it("keeps the four capabilities available only through the internal domain catalog", () => {
+  it("keeps Task 13 exposed while discovery remains internal-only", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(TASK_13_MANIFEST_REVISION);
     for (const capabilityName of TASK_13_CAPABILITIES) {
       const capability = CAPABILITY_MANIFEST.find(
@@ -233,13 +233,20 @@ describe("Task 13 job-catalog domain facade", () => {
         externalExposure: "enabled",
       });
     }
+    for (const capabilityName of ["search_customers", "search_jobs"]) {
+      expect(
+        CAPABILITY_MANIFEST.find((entry) => entry.name === capabilityName)
+          ?.availability
+      ).toEqual({
+        implementation: "available",
+        externalExposure: "disabled",
+      });
+    }
     expect(
       CAPABILITY_MANIFEST.every(
         (capability) =>
-          capability.availability.externalExposure ===
-          (capability.availability.implementation === "available"
-            ? "enabled"
-            : "disabled")
+          capability.availability.externalExposure !== "enabled" ||
+          capability.availability.implementation === "available"
       )
     ).toBe(true);
   });
