@@ -609,6 +609,47 @@ describe("runWithCronWorkloadControl", () => {
     );
   });
 
+  it("records deterministic PostgREST contract failures without opening the database circuit", async () => {
+    const client = createClient([
+      { data: acquiredLease, error: null },
+      { data: true, error: null },
+    ]);
+    const contractFailure = new CronDatabaseOperationError(
+      "anomaly notification identity write failed: Could not find the function public.create_email_anomaly_notification_if_new(p_action_label, p_action_url, p_anomaly_id, p_body, p_company_id, p_persistent, p_title, p_user_id) in the schema cache",
+      {
+        cause: {
+          code: "PGRST202",
+          details:
+            "Searched for the function public.create_email_anomaly_notification_if_new with the supplied parameters, but no matches were found in the schema cache.",
+          hint: null,
+          message:
+            "Could not find the function public.create_email_anomaly_notification_if_new(p_action_label, p_action_url, p_anomaly_id, p_body, p_company_id, p_persistent, p_title, p_user_id) in the schema cache",
+        },
+      }
+    );
+
+    await expect(
+      runWithCronWorkloadControl({
+        supabase: client,
+        workloadKey: "email-anomaly-check",
+        leaseSeconds: 360,
+        ownerToken: acquiredLease.owner_token,
+        work: async () => {
+          throw contractFailure;
+        },
+      })
+    ).rejects.toBe(contractFailure);
+
+    expect(client.rpc).toHaveBeenNthCalledWith(
+      2,
+      "complete_cron_workload_lease_as_system",
+      expect.objectContaining({
+        p_succeeded: false,
+        p_database_pressure: false,
+      })
+    );
+  });
+
   it("rejects a stale or unreachable completion after successful work", async () => {
     const staleClient = createClient([
       { data: acquiredLease, error: null },

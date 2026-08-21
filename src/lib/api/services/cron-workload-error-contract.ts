@@ -44,6 +44,11 @@ type PressureEvidence = {
   databaseContext: boolean;
 };
 
+// PGRST2xx contract errors also say "in the schema cache". Match only
+// availability language so a missing function or column cannot open circuits.
+const SCHEMA_CACHE_AVAILABILITY_PATTERN =
+  /schema cache (?:is )?(?:unavailable|unreachable)|schema cache (?:failed to load|load failed)|(?:could not|failed to) load the schema cache/;
+
 function collectPressureEvidence(
   value: unknown,
   seen: Set<unknown>,
@@ -121,7 +126,8 @@ export function isDatabasePressureError(error: unknown): boolean {
       (item.databaseContext &&
         (isCode || isStatus) &&
         /^(?:502|503|504|521|522|524|525)$/.test(normalized)) ||
-      /schema cache|could not query the database|cannot connect to the database|remaining connection slots/.test(
+      SCHEMA_CACHE_AVAILABILITY_PATTERN.test(normalized) ||
+      /could not query the database|cannot connect to the database|remaining connection slots/.test(
         normalized
       ) ||
       (item.databaseContext &&
