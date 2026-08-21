@@ -387,7 +387,10 @@ function readMetadata(input: {
   maxWindowDays?: number;
   evidenceInput?: "not_required" | "optional" | "required";
   auditClass?:
-    "operational_read" | "sensitive_read" | "evidence_read" | "search_read";
+    | "operational_read"
+    | "sensitive_read"
+    | "evidence_read"
+    | "search_read";
   rateLimitBucket?: "lightweight_read" | "evidence_search";
 }) {
   return {
@@ -897,7 +900,8 @@ export const READ_CAPABILITY_DEFINITIONS = [
     name: "search_customers",
     schemaRevision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
     operation: "read",
-    description: "Find visible customers by name or an exact contact lookup.",
+    description:
+      "Find customers you can access by name, exact email, or exact phone. Contact values are never returned.",
     inputSchema: SearchCustomersInputSchema,
     authorization: {
       variants: [
@@ -920,7 +924,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
     name: "search_jobs",
     schemaRevision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
     operation: "read",
-    description: "Find visible opportunities and projects by job facts.",
+    description: "Find jobs you can access by title, address, status, or date.",
     inputSchema: SearchJobsInputSchema,
     authorization: {
       variants: [

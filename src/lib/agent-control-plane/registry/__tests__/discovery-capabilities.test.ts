@@ -45,6 +45,8 @@ describe("discovery manifest v7", () => {
     }
 
     expect(getCapabilityManifestEntry("search_customers")).toMatchObject({
+      description:
+        "Find customers you can access by name, exact email, or exact phone. Contact values are never returned.",
       schemaRevision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
       operation: "read",
       riskTier: "high",
@@ -61,6 +63,8 @@ describe("discovery manifest v7", () => {
       },
     });
     expect(getCapabilityManifestEntry("search_jobs")).toMatchObject({
+      description:
+        "Find jobs you can access by title, address, status, or date.",
       schemaRevision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
       operation: "read",
       riskTier: "medium",

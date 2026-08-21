@@ -10,6 +10,12 @@ import type {
   JobParticipantsResult,
 } from "@/lib/agent-control-plane/contracts/communication";
 import type {
+  CustomerDiscoveryResultSchema,
+  JobDiscoveryResultSchema,
+  SearchCustomersInputSchema,
+  SearchJobsInputSchema,
+} from "@/lib/agent-control-plane/contracts/discovery";
+import type {
   CorrespondenceEvidenceReadInputSchema,
   CorrespondenceEvidenceResultSchema,
   CustomerJobsInputSchema,
@@ -42,6 +48,8 @@ export type JobHistorySearchInput = z.input<typeof JobHistorySearchInputSchema>;
 export type CorrespondenceEvidenceReadInput = z.input<
   typeof CorrespondenceEvidenceReadInputSchema
 >;
+export type SearchCustomersInput = z.input<typeof SearchCustomersInputSchema>;
+export type SearchJobsInput = z.input<typeof SearchJobsInputSchema>;
 
 export interface DomainCallOptions {
   readonly signal?: AbortSignal;
@@ -98,6 +106,16 @@ export interface OpsAgentDomainService {
     input: CorrespondenceEvidenceReadInput,
     options?: DomainCallOptions
   ): Promise<z.infer<typeof CorrespondenceEvidenceResultSchema>>;
+  searchCustomers(
+    actorContext: ActorContext,
+    input: SearchCustomersInput,
+    options?: DomainCallOptions
+  ): Promise<z.infer<typeof CustomerDiscoveryResultSchema>>;
+  searchJobs(
+    actorContext: ActorContext,
+    input: SearchJobsInput,
+    options?: DomainCallOptions
+  ): Promise<z.infer<typeof JobDiscoveryResultSchema>>;
 }
 
 export type JobConversationContextDomainResult = Awaited<

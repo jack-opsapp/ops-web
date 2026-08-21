@@ -4,9 +4,11 @@ import { createSupabaseActorAuthorityRepository } from "@/lib/agent-control-plan
 import { createSupabaseCorrespondenceEvidencePageRepository } from "@/lib/agent-control-plane/services/correspondence-evidence-page-repository";
 import { createOpsAgentDomainService } from "@/lib/agent-control-plane/services/create-domain-service";
 import { createSupabaseCustomerJobsRepository } from "@/lib/agent-control-plane/services/customer-jobs-repository";
+import { createSupabaseCustomerDiscoveryRepository } from "@/lib/agent-control-plane/services/customer-discovery-repository";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
+import { createSupabaseJobDiscoveryRepository } from "@/lib/agent-control-plane/services/job-discovery-repository";
 import { createSupabaseJobParticipantsRepository } from "@/lib/agent-control-plane/services/job-participants-repository";
 import { createSupabaseJobReadinessRepository } from "@/lib/agent-control-plane/services/job-readiness-repository";
 import { createSupabaseJobSummaryRepository } from "@/lib/agent-control-plane/services/job-summary-repository";
@@ -71,6 +73,11 @@ export function createInternalPhaseCAdapterRuntime(
     jobHistory: createSupabaseJobHistoryRepository(rpcClient, cursorCodec),
     correspondenceEvidence:
       createSupabaseCorrespondenceEvidencePageRepository(rpcClient),
+    customerDiscovery: createSupabaseCustomerDiscoveryRepository(
+      rpcClient,
+      cursorCodec
+    ),
+    jobDiscovery: createSupabaseJobDiscoveryRepository(rpcClient, cursorCodec),
   });
   const domainService = createOpsAgentDomainService({ repositories });
   const authorityRepository = createSupabaseActorAuthorityRepository(rpcClient);

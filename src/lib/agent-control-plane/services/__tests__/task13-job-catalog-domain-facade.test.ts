@@ -40,6 +40,8 @@ import { createSupabaseCorrespondenceEvidencePageRepository } from "../correspon
 import { createSupabaseCustomerJobsRepository } from "../customer-jobs-repository";
 import { createSupabaseJobHistoryRepository } from "../job-history-repository";
 import { createSupabaseJobSummaryRepository } from "../job-summary-repository";
+import { createSupabaseCustomerDiscoveryRepository } from "../customer-discovery-repository";
+import { createSupabaseJobDiscoveryRepository } from "../job-discovery-repository";
 import {
   correspondenceEvidenceSnapshot,
   customerJobsSnapshot,
@@ -72,6 +74,8 @@ const FINAL_REPOSITORY_KEYS = [
   "jobSummary",
   "jobHistory",
   "correspondenceEvidence",
+  "customerDiscovery",
+  "jobDiscovery",
 ] as const;
 const FINAL_SERVICE_KEYS = [
   "getJobConversationContext",
@@ -83,6 +87,8 @@ const FINAL_SERVICE_KEYS = [
   "getJobSummary",
   "searchJobHistory",
   "getCorrespondenceEvidence",
+  "searchCustomers",
+  "searchJobs",
 ] as const;
 
 function noReadClient() {
@@ -122,6 +128,14 @@ function trustedRepositoryInput(): CreateOpsAgentDomainRepositoriesInput {
     jobHistory: createSupabaseJobHistoryRepository(noReadClient(), cursorCodec),
     correspondenceEvidence:
       createSupabaseCorrespondenceEvidencePageRepository(noReadClient()),
+    customerDiscovery: createSupabaseCustomerDiscoveryRepository(
+      noReadClient(),
+      cursorCodec
+    ),
+    jobDiscovery: createSupabaseJobDiscoveryRepository(
+      noReadClient(),
+      cursorCodec
+    ),
   };
 }
 

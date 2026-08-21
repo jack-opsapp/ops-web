@@ -14,7 +14,7 @@ function cursorCodec() {
 }
 
 describe("internal Phase C adapter runtime", () => {
-  it("constructs the complete trusted nine-repository graph without reading", () => {
+  it("constructs the complete trusted eleven-repository graph without reading", () => {
     const rpc = vi.fn();
 
     const adapter = createInternalPhaseCAdapterRuntime({
