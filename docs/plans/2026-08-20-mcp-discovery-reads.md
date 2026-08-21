@@ -16,6 +16,8 @@
 
 **Isolated worktree:** `/Users/jacksonsweet/Projects/OPS/ops-web/.worktrees/mcp-discovery-reads`
 
+**Execution status (2026-08-21):** Local implementation is complete through Task 9's code gates. Commits `133c33e8` through `cbca923f` contain the contracts, v7 policies, signed cursors, repositories/services/facades, MCP integration, frozen Unicode 15.0 boundary, migration, adversarial tests, and internal-only manifest promotion. Fresh proof: 78 files / 1,946 tests green; Node 22 TypeScript green; all 60 changed format-eligible files Prettier-clean; diff and worktree clean; PostgreSQL 17 compile, 143/143 statement parse, and 38/38 planner matrix green; independent P0/P1 review none. Migration SHA-256: `92416045d100971f9ce4b890de57881e421bf05c8867b11a5aebab5b7afda72d`. The migration is unapplied, the branch is unpushed/undeployed, external exposure is disabled, and production remains the existing nine-read surface.
+
 ---
 
 ## Non-negotiable boundaries
