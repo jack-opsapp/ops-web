@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // The discard capture toast IS the undo toast: one surface that offers the
-// nine reasons while the discard is still reversible. Its close callback is
+// ten reasons while the discard is still reversible. Its close callback is
 // the "operator ignored it" signal, so it must fire exactly once no matter
 // which way the toast leaves the screen — and never after a confirmed reason.
 
@@ -52,7 +52,7 @@ const baseBodyProps = {
 };
 
 describe("<DiscardFeedbackToastBody> — pending capture", () => {
-  it("renders all nine reasons in the locked frequency order", () => {
+  it("renders all ten reasons in the locked frequency order", () => {
     render(
       <DiscardFeedbackToastBody {...baseBodyProps} state={{ kind: "pending" }} />
     );
@@ -66,12 +66,13 @@ describe("<DiscardFeedbackToastBody> — pending capture", () => {
       "test_traffic",
       "duplicate",
       "not_a_fit",
+      "created_by_error",
       "other",
     ]);
 
     const group = screen.getByRole("group", { name: "Discard reason" });
     const chips = within(group).getAllByRole("button");
-    expect(chips).toHaveLength(9);
+    expect(chips).toHaveLength(10);
     expect(chips.map((chip) => chip.textContent)).toEqual([
       "Spam",
       "Sales pitch",
@@ -81,6 +82,7 @@ describe("<DiscardFeedbackToastBody> — pending capture", () => {
       "Test",
       "Duplicate",
       "Not a fit",
+      "Created by error",
       "Other",
     ]);
   });

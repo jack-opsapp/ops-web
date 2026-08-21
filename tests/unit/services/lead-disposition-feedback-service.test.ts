@@ -80,9 +80,9 @@ describe("applyLeadDispositionFeedback", () => {
       data: [
         {
           ...ROW,
-          outcome: "duplicate_review",
-          current_stage: "new_lead",
-          lifecycle_changed: false,
+          outcome: "discarded",
+          current_stage: "discarded",
+          lifecycle_changed: true,
           idempotent_replay: true,
         },
       ],
@@ -97,10 +97,10 @@ describe("applyLeadDispositionFeedback", () => {
       })
     ).resolves.toEqual({
       feedbackId: "fb-1",
-      outcome: "duplicate_review",
+      outcome: "discarded",
       priorStage: "new_lead",
-      currentStage: "new_lead",
-      lifecycleChanged: false,
+      currentStage: "discarded",
+      lifecycleChanged: true,
       idempotentReplay: true,
     });
   });

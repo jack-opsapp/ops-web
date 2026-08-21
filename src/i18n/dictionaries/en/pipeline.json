@@ -464,6 +464,7 @@
   "discardFeedback.reason.testTraffic": "Test",
   "discardFeedback.reason.duplicate": "Duplicate",
   "discardFeedback.reason.notAFit": "Not a fit",
+  "discardFeedback.reason.createdByError": "Created by error",
   "discardFeedback.reason.other": "Other",
   "discardFeedback.outcome.lost": "Marked lost — disqualified",
   "discardFeedback.outcome.duplicate": "Duplicate review — stays on board",

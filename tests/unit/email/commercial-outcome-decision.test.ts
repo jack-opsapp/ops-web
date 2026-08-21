@@ -560,6 +560,34 @@ describe("detectCommercialOutcome — real lead lifecycle regressions", () => {
     });
   });
 
+  it("archives Kayla's firm save-and-return-next-summer decision as not now", () => {
+    const result = detectCommercialOutcome({
+      now: NOW,
+      messages: [
+        message(
+          "kayla-not-now",
+          "2026-07-25T01:20:57.000Z",
+          "inbound",
+          "We've talked about it and think it makes sense for us to hold on this year and save up a bit so we can do the decking and the railings at the same time. When do you recommend us reaching back out to you if we were wanting to do it next summer?"
+        ),
+        message(
+          "operator-april-guidance",
+          "2026-07-25T01:33:54.000Z",
+          "outbound",
+          "Around April is when you should reach out, as we start to book up from early May. Look forward to connecting next year."
+        ),
+      ],
+    });
+
+    expect(result).toMatchObject({
+      outcome: "deferred",
+      reasonCode: "budget_timing",
+      decisiveMessageId: "kayla-not-now",
+      decisiveSignals: ["budget_timing_deferral"],
+      followUpAt: "2027-06-01T01:20:57.000Z",
+    });
+  });
+
   it("keeps a decisive rejection without a stated reason distinct from price", () => {
     const result = detectCommercialOutcome({
       now: NOW,

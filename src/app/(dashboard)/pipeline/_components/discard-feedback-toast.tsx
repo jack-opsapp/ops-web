@@ -79,7 +79,7 @@ export type DiscardFeedbackTranslate = (
 
 /**
  * Chip order is frequency, not the enum: what operators actually discard, most
- * often first. All nine stay visible — an expander would cost a second tap on
+ * often first. All ten stay visible — an expander would cost a second tap on
  * the only interaction this feature has.
  */
 export const DISCARD_REASON_ORDER: readonly LeadDiscardReasonCode[] = [
@@ -91,6 +91,7 @@ export const DISCARD_REASON_ORDER: readonly LeadDiscardReasonCode[] = [
   "test_traffic",
   "duplicate",
   "not_a_fit",
+  "created_by_error",
   "other",
 ];
 
@@ -103,6 +104,7 @@ export const DISCARD_REASON_DICT_KEYS: Record<LeadDiscardReasonCode, string> = {
   test_traffic: "discardFeedback.reason.testTraffic",
   duplicate: "discardFeedback.reason.duplicate",
   not_a_fit: "discardFeedback.reason.notAFit",
+  created_by_error: "discardFeedback.reason.createdByError",
   other: "discardFeedback.reason.other",
 };
 
@@ -119,6 +121,7 @@ export const DISCARD_REASON_FALLBACK_LABELS: Record<
   test_traffic: "Test",
   duplicate: "Duplicate",
   not_a_fit: "Not a fit",
+  created_by_error: "Created by error",
   other: "Other",
 };
 

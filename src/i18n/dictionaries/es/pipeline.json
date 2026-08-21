@@ -461,6 +461,7 @@
   "discardFeedback.reason.testTraffic": "Prueba",
   "discardFeedback.reason.duplicate": "Duplicado",
   "discardFeedback.reason.notAFit": "No encaja",
+  "discardFeedback.reason.createdByError": "Creado por error",
   "discardFeedback.reason.other": "Otro",
   "discardFeedback.outcome.lost": "Marcado perdido — descalificado",
   "discardFeedback.outcome.duplicate": "Revisión de duplicado — sigue en el tablero",
