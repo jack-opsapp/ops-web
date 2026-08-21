@@ -30,7 +30,7 @@ function requirementLabels(
 }
 
 describe("discovery manifest v7", () => {
-  it("mints every policy under immutable v7 while both discovery reads remain dark", () => {
+  it("mints every policy under immutable v7 with discovery internal-only", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(EXPECTED_MANIFEST_REVISION);
     expect(Object.isFrozen(CAPABILITY_MANIFEST)).toBe(true);
 
@@ -58,7 +58,7 @@ describe("discovery manifest v7", () => {
       auditClass: "search_read",
       rateLimitBucket: "evidence_search",
       availability: {
-        implementation: "unavailable",
+        implementation: "available",
         externalExposure: "disabled",
       },
     });
@@ -77,7 +77,7 @@ describe("discovery manifest v7", () => {
       auditClass: "search_read",
       rateLimitBucket: "evidence_search",
       availability: {
-        implementation: "unavailable",
+        implementation: "available",
         externalExposure: "disabled",
       },
     });

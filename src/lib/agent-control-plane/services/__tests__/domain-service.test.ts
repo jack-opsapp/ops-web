@@ -354,15 +354,20 @@ describe("OpsAgentDomainService", () => {
       "get_job_summary",
       "search_job_history",
       "get_correspondence_evidence",
+      "search_customers",
+      "search_jobs",
       "resolve_job_participants",
     ]);
     expect(
       CAPABILITY_MANIFEST.every(
         (capability) =>
           capability.availability.externalExposure ===
-          (capability.availability.implementation === "available"
-            ? "enabled"
-            : "disabled")
+          (capability.name === "search_customers" ||
+          capability.name === "search_jobs"
+            ? "disabled"
+            : capability.availability.implementation === "available"
+              ? "enabled"
+              : "disabled")
       )
     ).toBe(true);
   });
