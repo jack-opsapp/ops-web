@@ -126,6 +126,18 @@ describe("Phase C lead intelligence workload migration", () => {
     expect(source).toContain("'stage_regression_blocked'::text");
   });
 
+  it("loads the lifecycle decision row and source timestamp with valid PL/pgSQL targets", () => {
+    expect(source).not.toMatch(
+      /select decision,\s*source_event\.occurred_at\s+into v_decision,\s*v_source_event_at/i
+    );
+    expect(source).toMatch(
+      /select decision\.\* into v_decision[\s\S]*?for update of decision/i
+    );
+    expect(source).toMatch(
+      /select source_event\.occurred_at into v_source_event_at[\s\S]*?source_event\.id = v_decision\.source_event_id/i
+    );
+  });
+
   it("uses durable review decisions for ambiguous identity, authority, or acceptance", () => {
     expect(source).toContain("decision_kind text not null");
     expect(source).toMatch(

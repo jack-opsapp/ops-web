@@ -786,12 +786,8 @@ begin
     raise exception 'assignment_snapshot_required' using errcode = '22023';
   end if;
 
-  select decision, source_event.occurred_at
-    into v_decision, v_source_event_at
+  select decision.* into v_decision
     from public.opportunity_lifecycle_decisions decision
-    join public.opportunity_correspondence_events source_event
-      on source_event.id = decision.source_event_id
-     and source_event.company_id = decision.company_id
    where decision.id = p_decision_id
      and decision.company_id = p_company_id
      and decision.opportunity_id = p_opportunity_id
@@ -799,6 +795,11 @@ begin
   if not found then
     raise exception 'lifecycle_decision_not_found' using errcode = 'P0002';
   end if;
+
+  select source_event.occurred_at into v_source_event_at
+    from public.opportunity_correspondence_events source_event
+   where source_event.id = v_decision.source_event_id
+     and source_event.company_id = v_decision.company_id;
   if v_decision.decision_kind <> 'stage'
     or v_decision.status not in ('proposed', 'applied', 'skipped')
     or private.phase_c_active_stage_rank(v_decision.proposed_stage) is null
