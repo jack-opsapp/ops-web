@@ -18043,6 +18043,11 @@ export type Database = {
       site_visits: {
         Row: {
           activity_id: string | null
+          appointment_attendees: Json | null
+          appointment_handoff_id: string | null
+          appointment_kind: string | null
+          appointment_location: string | null
+          appointment_title: string | null
           assignee_ids: string[] | null
           booked_at: string | null
           calendar_event_id: string | null
@@ -18072,6 +18077,11 @@ export type Database = {
         }
         Insert: {
           activity_id?: string | null
+          appointment_attendees?: Json | null
+          appointment_handoff_id?: string | null
+          appointment_kind?: string | null
+          appointment_location?: string | null
+          appointment_title?: string | null
           assignee_ids?: string[] | null
           booked_at?: string | null
           calendar_event_id?: string | null
@@ -18101,6 +18111,11 @@ export type Database = {
         }
         Update: {
           activity_id?: string | null
+          appointment_attendees?: Json | null
+          appointment_handoff_id?: string | null
+          appointment_kind?: string | null
+          appointment_location?: string | null
+          appointment_title?: string | null
           assignee_ids?: string[] | null
           booked_at?: string | null
           calendar_event_id?: string | null
@@ -18129,6 +18144,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "site_visits_appointment_handoff_id_fkey"
+            columns: ["appointment_handoff_id"]
+            isOneToOne: true
+            referencedRelation: "phase_c_bilateral_event_handoffs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "site_visits_activity_id_fkey"
             columns: ["activity_id"]

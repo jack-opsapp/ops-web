@@ -28,6 +28,8 @@ export interface CalendarEventVisit {
   id: string;
   scheduledAt: string;
   durationMinutes: number | null;
+  appointmentTitle?: string | null;
+  appointmentLocation?: string | null;
 }
 
 export interface CalendarEventLead {
@@ -56,10 +58,13 @@ export function buildSiteVisitCalendarEvent(
   const startMs = Date.parse(visit.scheduledAt);
   const durationMinutes = visit.durationMinutes ?? DEFAULT_DURATION_MINUTES;
   const endMs = startMs + durationMinutes * 60_000;
-  const address = lead.address?.trim() ?? "";
+  const address =
+    visit.appointmentLocation?.trim() || lead.address?.trim() || "";
+  const summary =
+    visit.appointmentTitle?.trim() || `Site visit — ${lead.title}`;
 
   const event: GoogleCalendarEventPayload = {
-    summary: `Site visit — ${lead.title}`,
+    summary,
     description: `Open in OPS: ${appUrl}/pipeline?opportunityId=${lead.id}`,
     start: { dateTime: new Date(startMs).toISOString() },
     end: { dateTime: new Date(endMs).toISOString() },

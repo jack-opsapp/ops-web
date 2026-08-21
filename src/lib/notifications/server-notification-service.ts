@@ -180,6 +180,11 @@ export async function createTrustedNotifications(
   const isSupportedDurableIdentity =
     (notificationType === "data_review_resolved" &&
       dedupeKey.startsWith("data_review_resolution:v1:")) ||
+    ((notificationType === "phase_c_appointment_booked" ||
+      notificationType === "phase_c_appointment_review") &&
+      /^phase-c-bilateral:v1:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:(?:consumed|review)$/i.test(
+        dedupeKey
+      )) ||
     (notificationType === "mention" &&
       /^mention-edit:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         dedupeKey
@@ -404,8 +409,7 @@ export async function resolveNotificationPreferences(params: {
         ? (userPreferences.channel_preferences as Record<string, unknown>)
         : null;
     const eventPreference = channelPreferences?.[params.preferenceKey] as
-      | { push?: boolean; email?: boolean }
-      | undefined;
+      { push?: boolean; email?: boolean } | undefined;
     const wantsPush = eventPreference?.push !== false;
     const wantsEmail = eventPreference?.email === true;
 
