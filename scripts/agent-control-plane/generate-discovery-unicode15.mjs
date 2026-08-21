@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { format } from "prettier";
 
 const EXPECTED_SOURCE_SHA256 =
   "7570877e0fa197c45338f7c41a02636da4e14c8dba6a3611a01cd30bf329d5ca";
@@ -116,5 +117,9 @@ const sql = `-- Generated from Unicode 15.0.0 DerivedAge.txt.
 '{${sqlRanges}}'::int4multirange
 `;
 
-writeFileSync(typescriptPath, typescript, "utf8");
+writeFileSync(
+  typescriptPath,
+  await format(typescript, { filepath: typescriptPath }),
+  "utf8"
+);
 writeFileSync(sqlPath, sql, "utf8");
