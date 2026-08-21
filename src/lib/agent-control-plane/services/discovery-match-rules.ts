@@ -1,3 +1,5 @@
+import { discoveryTextUsesUnicode15 } from "@/lib/agent-control-plane/contracts/discovery-unicode15";
+
 const FORBIDDEN_CONTROL_OR_BIDI_PATTERN =
   /[\u0000-\u001f\u007f-\u009f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/u;
 const UTF8_ENCODER = new TextEncoder();
@@ -21,7 +23,8 @@ function hasUnpairedSurrogate(value: string): boolean {
 export function normalizeSearchableText(value: string): string | null {
   if (
     FORBIDDEN_CONTROL_OR_BIDI_PATTERN.test(value) ||
-    hasUnpairedSurrogate(value)
+    hasUnpairedSurrogate(value) ||
+    !discoveryTextUsesUnicode15(value)
   ) {
     return null;
   }

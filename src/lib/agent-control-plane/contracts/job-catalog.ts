@@ -26,9 +26,9 @@ export const JOB_CATALOG_PROMPT_SAFETY_DIRECTIVE =
 
 const DAY_MILLISECONDS = 86_400_000;
 const DatabaseUuidSchema = z.string().uuid();
-const CivilDateSchema = z
+export const CivilDateSchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .regex(/^(?!0000)\d{4}-\d{2}-\d{2}$/)
   .refine((value) => {
     const [yearText, monthText, dayText] = value.split("-");
     const year = Number(yearText);

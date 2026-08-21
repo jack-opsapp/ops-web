@@ -449,6 +449,20 @@ describe("Task 13 customer-job result contract", () => {
           {
             ...convertedProjectJob(),
             dates: {
+              ...convertedProjectJob().dates,
+              start_date: "0000-01-01",
+            },
+          },
+        ],
+      }).success
+    ).toBe(false);
+    expect(
+      CustomerJobsDataSchema.safeParse({
+        ...customerJobsData(),
+        jobs: [
+          {
+            ...convertedProjectJob(),
+            dates: {
               kind: "project",
               created_at: "2026-06-01T10:00:00.000Z",
               updated_at: "2026-08-14T11:00:00.000Z",

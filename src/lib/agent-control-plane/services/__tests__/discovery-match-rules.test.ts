@@ -76,6 +76,31 @@ describe("discovery match rules", () => {
     ).toBe("all_tokens_title");
   });
 
+  it("rejects text outside the frozen production Unicode 15.0 repertoire", () => {
+    for (const postUnicode15CodePoint of [
+      "\u{1c89}",
+      "\u{a7cb}",
+      "\u{a7cc}",
+      "\u{16ea0}",
+    ]) {
+      expect(
+        customerNameMatchBasisFits({
+          displayName: `Acme${postUnicode15CodePoint}Construction`,
+          canonicalQuery: "acme construction",
+          claimedBasis: "all_tokens_name",
+        })
+      ).toBe(false);
+      expect(
+        expectedJobTextMatchBasis({
+          displayTitle: `Cedar${postUnicode15CodePoint}Street`,
+          address: null,
+          canonicalQuery: "cedar street",
+          queryFields: ["title"],
+        })
+      ).toBeNull();
+    }
+  });
+
   it("orders customer matches by tier, kind, UTF-8 C bytes, then UUID", () => {
     const base = {
       customer_ref: {

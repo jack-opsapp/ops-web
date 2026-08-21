@@ -1,5 +1,7 @@
 import { z } from "zod-v4";
 
+import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
+
 import {
   CursorPageSchema,
   OpaqueIdSchema,
@@ -17,6 +19,7 @@ import {
   OpportunityStageSchema,
   ProjectStatusSchema,
 } from "./job-catalog";
+import { discoveryTextUsesUnicode15 } from "./discovery-unicode15";
 
 export const DISCOVERY_CAPABILITY_SCHEMA_REVISION = "2026-08-20.v1" as const;
 export const CUSTOMER_DISCOVERY_RANKING_REVISION =
@@ -32,6 +35,10 @@ export const DISCOVERY_RESULT_BUDGET_WARNING = Object.freeze({
   message:
     "Some matches were omitted to keep this result within 60,000 characters.",
 } as const);
+
+export function discoveryPromptSerializedLength(value: unknown): number {
+  return serializeUntrustedPromptData(value).length;
+}
 
 const DEFAULT_DISCOVERY_LIMIT = 10;
 const MAX_DISCOVERY_QUERY_SCALARS = 200;
@@ -69,13 +76,14 @@ function safeReturnedBusinessStringSchema(
 ) {
   return z
     .string()
-    .trim()
     .min(1)
     .max(maximumCharacters)
     .superRefine((value, context) => {
       if (
+        value.trim() !== value ||
         FORBIDDEN_CONTROL_OR_BIDI_PATTERN.test(value) ||
         hasUnpairedSurrogate(value) ||
+        !discoveryTextUsesUnicode15(value) ||
         UTF8_ENCODER.encode(value).length > maximumUtf8Bytes
       ) {
         context.addIssue({
@@ -93,7 +101,8 @@ function normalizeDiscoveryText(value: string): string {
 const SafeRawDiscoveryTextSchema = z.string().superRefine((value, context) => {
   if (
     FORBIDDEN_CONTROL_OR_BIDI_PATTERN.test(value) ||
-    hasUnpairedSurrogate(value)
+    hasUnpairedSurrogate(value) ||
+    !discoveryTextUsesUnicode15(value)
   ) {
     context.addIssue({
       code: "custom",
@@ -138,14 +147,17 @@ export const DiscoveryTextQuerySchema = SafeRawDiscoveryTextSchema.transform(
 );
 
 const EXACT_DISCOVERY_EMAIL_PATTERN =
-  /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+  /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 const ExactEmailQuerySchema = SafeRawDiscoveryTextSchema.transform(
   normalizeDiscoveryText
 ).superRefine((value, context) => {
   const length = scalarLength(value);
+  const localPartLength = value.indexOf("@");
   if (
     length < 3 ||
     length > MAX_DISCOVERY_QUERY_SCALARS ||
+    localPartLength < 1 ||
+    localPartLength > 64 ||
     !EXACT_DISCOVERY_EMAIL_PATTERN.test(value)
   ) {
     context.addIssue({
@@ -1016,7 +1028,9 @@ function validateDiscoveryResult<
     });
   }
 
-  if (JSON.stringify(result).length > MAX_DISCOVERY_OUTPUT_CHARACTERS) {
+  if (
+    discoveryPromptSerializedLength(result) > MAX_DISCOVERY_OUTPUT_CHARACTERS
+  ) {
     context.addIssue({
       code: "custom",
       path: [],

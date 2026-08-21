@@ -17,6 +17,10 @@ import {
   JobDiscoveryRepositoryError,
 } from "../job-discovery-repository";
 import {
+  hashOperationalProjection,
+  type CanonicalProjection,
+} from "../operational-read-projection";
+import {
   AtomicDiscoveryClaim,
   CAPABILITY_MANIFEST_REVISION,
   DISCOVERY_ACTOR_ID,
@@ -84,6 +88,16 @@ function selectionAnchors(claim: AtomicDiscoveryClaim) {
       anchors: Array<Record<string, unknown>>;
     }
   ).anchors;
+}
+
+function recoupleExistingProjection(claim: AtomicDiscoveryClaim): void {
+  const hash = hashOperationalProjection(
+    claim.proof.projection as CanonicalProjection
+  );
+  claim.proof.source_content_hash = hash;
+  claim.proof.source_version.version = `${claim.proof.source_version.source_type}:v1:${hash}`;
+  claim.source_version.version = claim.proof.source_version.version;
+  claim.evidence[0]!.version = claim.proof.source_version.version;
 }
 
 describe("customer discovery repository boundary", () => {
@@ -515,12 +529,16 @@ describe("customer discovery repository boundary", () => {
       customer_kinds: ["client"],
       limit: 1,
     });
-    for (const bidiControl of [
-      "\u061c",
-      "\u200e",
-      "\u200f",
-      "\u202e",
-      "\uFEFF",
+    for (const unsafeDisplayName of [
+      "Dispatch\u061c Team",
+      "Dispatch\u200e Team",
+      "Dispatch\u200f Team",
+      "Dispatch\u202e Team",
+      "Dispatch\uFEFF Team",
+      "\uFEFFDispatch Team",
+      "Dispatch Team\uFEFF",
+      " Dispatch Team",
+      "Dispatch Team ",
     ]) {
       const wire = cloneDiscoveryFixture(
         customerDiscoverySnapshot(authorization, [
@@ -528,7 +546,7 @@ describe("customer discovery repository boundary", () => {
         ])
       ) as MutableSnapshot;
       const claim = claims(wire)[0]!;
-      claim.raw.display_name = `Dispatch${bidiControl} Team`;
+      claim.raw.display_name = unsafeDisplayName;
       recoupleDiscoveryClaim(claim, "match");
       recoupleDiscoveryCollection(wire);
 
@@ -586,6 +604,50 @@ describe("job discovery repository boundary", () => {
     ) as MutableSnapshot;
     const claim = claims(wire)[0]!;
     delete claim.selection_witness;
+    recoupleDiscoveryClaim(claim, "match");
+    recoupleDiscoveryCollection(wire);
+
+    await expect(
+      jobRepository(
+        new StubDiscoveryRpcClient([{ data: wire, error: null }])
+      ).read({ authorization })
+    ).rejects.toMatchObject({ code: "JOB_DISCOVERY_INVALID" });
+  });
+
+  it("rejects a fully rehashed witness whose unsafe edge text was pre-sanitized in its projection", async () => {
+    const authorization = await jobDiscoveryAuthorization();
+    const wire = cloneDiscoveryFixture(
+      jobDiscoverySnapshot(authorization)
+    ) as MutableSnapshot;
+    const claim = claims(wire)[0]!;
+    const originalTitle = selectionAnchors(claim)[0]!.display_title as string;
+    selectionAnchors(claim)[0]!.display_title = `\uFEFF${originalTitle}`;
+    recoupleDiscoveryClaim(claim, "match");
+    const proofWitness = claim.proof.projection.selection_witness as {
+      anchors: Array<Record<string, unknown>>;
+    };
+    proofWitness.anchors[0]!.display_title = originalTitle;
+    recoupleExistingProjection(claim);
+    recoupleDiscoveryCollection(wire);
+
+    await expect(
+      jobRepository(
+        new StubDiscoveryRpcClient([{ data: wire, error: null }])
+      ).read({ authorization })
+    ).rejects.toMatchObject({ code: "JOB_DISCOVERY_INVALID" });
+  });
+
+  it("rejects year zero in a fully rehashed project selection witness", async () => {
+    const authorization = await jobDiscoveryAuthorization();
+    const wire = cloneDiscoveryFixture(
+      jobDiscoverySnapshot(authorization, [convertedProjectDiscoveryMatch()])
+    ) as MutableSnapshot;
+    const claim = claims(wire)[0]!;
+    const rawDates = claim.raw.dates as Record<string, unknown>;
+    rawDates.start_date = "0000-01-01";
+    const projectAnchor = selectionAnchors(claim)[1]!;
+    const witnessDates = projectAnchor.dates as Record<string, unknown>;
+    witnessDates.start_date = "0000-01-01";
     recoupleDiscoveryClaim(claim, "match");
     recoupleDiscoveryCollection(wire);
 
@@ -831,16 +893,20 @@ describe("job discovery repository boundary", () => {
       lifecycle_states: ["active"],
       limit: 1,
     });
-    for (const bidiControl of [
-      "\u061c",
-      "\u200e",
-      "\u200f",
-      "\u202e",
-      "\uFEFF",
+    for (const unsafeDisplayTitle of [
+      "Cedar\u061c Street",
+      "Cedar\u200e Street",
+      "Cedar\u200f Street",
+      "Cedar\u202e Street",
+      "Cedar\uFEFF Street",
+      "\uFEFFCedar Street",
+      "Cedar Street\uFEFF",
+      " Cedar Street",
+      "Cedar Street ",
     ]) {
       const match = {
         ...opportunityDiscoveryMatch(),
-        display_title: `Cedar${bidiControl} Street`,
+        display_title: unsafeDisplayTitle,
         match_basis: {
           ranking_revision: JOB_DISCOVERY_RANKING_REVISION,
           kind: "filter_only" as const,

@@ -5,6 +5,7 @@ import {
   DISCOVERY_RESULT_BUDGET_WARNING,
   MAX_DISCOVERY_OUTPUT_CHARACTERS,
 } from "@/lib/agent-control-plane/contracts/discovery";
+import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
 import { createSupabaseCustomerDiscoveryRepository } from "../customer-discovery-repository";
 import { createSupabaseJobDiscoveryRepository } from "../job-discovery-repository";
 import {
@@ -200,14 +201,14 @@ describe("customer discovery service", () => {
     });
     const matches = Array.from({ length: 25 }, (_, index) => ({
       ...customerDiscoveryMatch(index + 1, { kind: "sub_client" }),
-      display_name: `Acme Construction ${String(index + 1).padStart(2, "0")}-${"x".repeat(970)}`,
+      display_name: `Acme Construction ${String(index + 1).padStart(2, "0")}-${"<>&".repeat(323)}`,
       relationship: {
         kind: "sub_client" as const,
         parent_client_ref: {
           kind: "client" as const,
           id: "a1000000-0000-4000-8000-000000000003",
         },
-        parent_display_name: "p".repeat(1_000),
+        parent_display_name: "<>&".repeat(333),
       },
     }));
     const snapshot = customerDiscoverySnapshot(authorization, matches);
@@ -217,7 +218,7 @@ describe("customer discovery service", () => {
       now: () => GENERATED_AT,
     });
 
-    expect(JSON.stringify(result).length).toBeLessThanOrEqual(
+    expect(serializeUntrustedPromptData(result).length).toBeLessThanOrEqual(
       MAX_DISCOVERY_OUTPUT_CHARACTERS
     );
     expect(result.data.returned_match_count).toBeGreaterThan(0);
@@ -426,8 +427,8 @@ describe("job discovery service", () => {
     });
     const matches = Array.from({ length: 25 }, (_, index) => ({
       ...opportunityDiscoveryMatch(index + 1),
-      display_title: `Cedar Street ${String(index + 1).padStart(2, "0")}-${"t".repeat(970)}`,
-      address: "a".repeat(2_000),
+      display_title: `Cedar Street ${String(index + 1).padStart(2, "0")}-${"<>&".repeat(323)}`,
+      address: "<>&".repeat(666),
     }));
     const snapshot = jobDiscoverySnapshot(authorization, matches);
     const result = await searchJobs({
@@ -436,7 +437,7 @@ describe("job discovery service", () => {
       now: () => GENERATED_AT,
     });
 
-    expect(JSON.stringify(result).length).toBeLessThanOrEqual(
+    expect(serializeUntrustedPromptData(result).length).toBeLessThanOrEqual(
       MAX_DISCOVERY_OUTPUT_CHARACTERS
     );
     expect(result.data.returned_match_count).toBeGreaterThan(0);

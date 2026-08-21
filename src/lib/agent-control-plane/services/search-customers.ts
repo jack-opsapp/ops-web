@@ -10,6 +10,7 @@ import {
   DISCOVERY_PROMPT_SAFETY_DIRECTIVE,
   DISCOVERY_RESULT_BUDGET_WARNING,
   MAX_DISCOVERY_OUTPUT_CHARACTERS,
+  discoveryPromptSerializedLength,
   type CustomerDiscoveryResult,
 } from "@/lib/agent-control-plane/contracts/discovery";
 import {
@@ -218,7 +219,9 @@ function reduceToBudget(input: {
     retainedCount: input.snapshot.match_claims.length,
     characterBounded: false,
   });
-  if (JSON.stringify(full).length <= MAX_DISCOVERY_OUTPUT_CHARACTERS) {
+  if (
+    discoveryPromptSerializedLength(full) <= MAX_DISCOVERY_OUTPUT_CHARACTERS
+  ) {
     return parseResult(full);
   }
 
@@ -236,7 +239,8 @@ function reduceToBudget(input: {
     if (
       middle > 0 &&
       candidate.page.next_cursor !== null &&
-      JSON.stringify(candidate).length <= MAX_DISCOVERY_OUTPUT_CHARACTERS
+      discoveryPromptSerializedLength(candidate) <=
+        MAX_DISCOVERY_OUTPUT_CHARACTERS
     ) {
       best = parseResult(candidate);
       bestCount = middle;

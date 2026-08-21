@@ -297,6 +297,34 @@ describe("discovery input contracts", () => {
       `50% \\x __ "drop table"`
     );
     expect(DiscoveryTextQuerySchema.parse("  Acmé  LTD  ")).toBe("acmé ltd");
+    expect(DiscoveryTextQuerySchema.parse("  İnşaat ΣΟΣ  ")).toBe("i̇nşaat σος");
+  });
+
+  it("freezes discovery text to the production Unicode 15.0 repertoire", () => {
+    for (const postUnicode15CodePoint of [
+      "\u{1c89}",
+      "\u{a7cb}",
+      "\u{a7cc}",
+      "\u{16ea0}",
+    ]) {
+      expect(
+        DiscoveryTextQuerySchema.safeParse(
+          `Acme${postUnicode15CodePoint}Construction`
+        ).success
+      ).toBe(false);
+      expect(
+        CustomerDiscoveryMatchSchema.safeParse({
+          ...primaryCustomerMatch(),
+          display_name: `Acme${postUnicode15CodePoint}Construction`,
+        }).success
+      ).toBe(false);
+      expect(
+        JobDiscoveryMatchSchema.safeParse({
+          ...opportunityJobMatch(),
+          display_title: `Cedar${postUnicode15CodePoint}Street`,
+        }).success
+      ).toBe(false);
+    }
   });
 
   it("rejects unsafe controls, bidi controls, malformed Unicode, and query bounds", () => {
@@ -347,6 +375,13 @@ describe("discovery input contracts", () => {
         query: longExactEmail.toUpperCase(),
       }).query
     ).toBe(longExactEmail);
+    const maximumLocalPartEmail = `${"a".repeat(64)}@example.com`;
+    expect(
+      SearchCustomersInputSchema.parse({
+        lookup: "exact_email",
+        query: maximumLocalPartEmail,
+      }).query
+    ).toBe(maximumLocalPartEmail);
     expect(
       SearchCustomersInputSchema.parse({
         lookup: "exact_phone",
@@ -379,6 +414,10 @@ describe("discovery input contracts", () => {
       "dispatch@example",
       "dispatch @example.com",
       "dispatch@example.com extra",
+      ".dispatch@example.com",
+      "dispatch.@example.com",
+      "dis..patch@example.com",
+      `${"a".repeat(65)}@example.com`,
       "a@b-.com",
       "a@b--.com",
       "a@b-.cde",
@@ -630,6 +669,15 @@ describe("discovery input contracts", () => {
         }).success
       ).toBe(false);
     }
+    const project = convertedProjectMatch();
+    for (const dates of [
+      { ...project.dates, start_date: "0000-01-01" },
+      { ...project.dates, end_date: "0000-12-31" },
+    ]) {
+      expect(
+        JobDiscoveryMatchSchema.safeParse({ ...project, dates }).success
+      ).toBe(false);
+    }
   });
 
   it("exports distinct raw and normalized input types", () => {
@@ -742,6 +790,10 @@ describe("discovery match contracts", () => {
       `Acme\u200f Construction`,
       `Acme\u202e Construction`,
       `Acme\uFEFF Construction`,
+      `\uFEFFAcme Construction`,
+      `Acme Construction\uFEFF`,
+      ` Acme Construction`,
+      `Acme Construction `,
       `Acme\nConstruction`,
       `Acme${unpairedSurrogate}Construction`,
       "é".repeat(501),
@@ -755,6 +807,10 @@ describe("discovery match contracts", () => {
     }
     for (const parentDisplayName of [
       `Acme\u2066 Construction`,
+      `\uFEFFAcme Construction`,
+      `Acme Construction\uFEFF`,
+      ` Acme Construction`,
+      `Acme Construction `,
       `Acme${unpairedSurrogate}Construction`,
       "é".repeat(501),
     ]) {
@@ -775,9 +831,17 @@ describe("discovery match contracts", () => {
       { display_title: `Cedar\u200f Street` },
       { display_title: `Cedar\u202e Street` },
       { display_title: `Cedar\uFEFF Street` },
+      { display_title: `\uFEFFCedar Street` },
+      { display_title: `Cedar Street\uFEFF` },
+      { display_title: ` Cedar Street` },
+      { display_title: `Cedar Street ` },
       { display_title: `Cedar${unpairedSurrogate} Street` },
       { display_title: "é".repeat(501) },
       { address: `100 Cedar\u0000 Street` },
+      { address: `\uFEFF100 Cedar Street` },
+      { address: `100 Cedar Street\uFEFF` },
+      { address: ` 100 Cedar Street` },
+      { address: `100 Cedar Street ` },
       { address: "é".repeat(1_001) },
     ]) {
       expect(

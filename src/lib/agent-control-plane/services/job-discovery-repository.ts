@@ -4,6 +4,7 @@ import { z } from "zod-v4";
 
 import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
 import {
+  CivilDateSchema,
   CurrentJobRefSchema,
   EvidenceRefSchema,
   NormalizedJobLifecycleStateSchema,
@@ -101,7 +102,6 @@ const ProjectionProofSchema = z
     projection: z.record(z.string(), z.unknown()),
   })
   .strict();
-const CivilDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const SelectionMatchBasisSchema = z.discriminatedUnion("kind", [
   z
     .object({
@@ -126,8 +126,8 @@ const SelectionMatchBasisSchema = z.discriminatedUnion("kind", [
     .strict(),
 ]);
 const SelectionAnchorSharedShape = {
-  display_title: z.string().trim().min(1).max(1_000),
-  address: z.string().trim().min(1).max(2_000).nullable(),
+  display_title: z.string().min(1).max(1_000),
+  address: z.string().min(1).max(2_000).nullable(),
   lifecycle_state: NormalizedJobLifecycleStateSchema,
   match_basis: SelectionMatchBasisSchema,
 };
