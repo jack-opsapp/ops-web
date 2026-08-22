@@ -12,6 +12,21 @@ import { useAuthStore } from "../store/auth-store";
 import type { BrowserUpdateEmailConnection } from "../types/email-connection";
 import { authedFetch } from "../utils/authed-fetch";
 
+export interface GmailManualSyncResponse {
+  ok: boolean;
+  state: "complete" | "continuing" | "partial" | "failed";
+  retryable: boolean;
+  connectionsProcessed: number;
+  failedConnections: number;
+  pendingConnections: number;
+  totalActivitiesCreated: number;
+  results: Array<{
+    matched?: number;
+    needsReview?: number;
+    newLeads?: number;
+  }>;
+}
+
 /**
  * Fetch all Gmail connections for the current company.
  */
@@ -89,18 +104,13 @@ export function useTriggerGmailSync() {
         const data = await response.json().catch(() => ({}));
         throw new Error((data as { error?: string }).error ?? "Sync failed");
       }
-      return response.json();
+      return (await response.json()) as GmailManualSyncResponse;
     },
-    onSuccess: (data: {
-      ok: boolean;
-      results: Array<{
-        matched?: number;
-        needsReview?: number;
-        newLeads?: number;
-      }>;
-    }) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["inboxLeads", company?.id] });
       queryClient.invalidateQueries({ queryKey: ["activities"] });
+
+      if (data.state !== "complete") return;
 
       const results = data.results ?? [];
       const totalMatched = results.reduce(

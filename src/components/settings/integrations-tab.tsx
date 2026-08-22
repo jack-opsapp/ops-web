@@ -343,7 +343,11 @@ export function IntegrationsTab() {
   function handleSync() {
     if (!can("settings.integrations")) return;
     triggerSync.mutate(undefined, {
-      onSuccess: () => toast.success(t("integrations.toast.syncTriggered")),
+      onSuccess: (data) => {
+        if (data.state !== "complete") {
+          toast.success(t("integrations.toast.syncTriggered"));
+        }
+      },
       onError: (err) =>
         toast.error(t("integrations.toast.syncFailed"), {
           description: err.message,
