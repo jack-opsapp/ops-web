@@ -46,6 +46,8 @@ import { createSupabaseCustomerJobsRepository } from "../customer-jobs-repositor
 import { createSupabaseJobSummaryRepository } from "../job-summary-repository";
 import { createSupabaseJobHistoryRepository } from "../job-history-repository";
 import { createSupabaseCorrespondenceEvidencePageRepository } from "../correspondence-evidence-page-repository";
+import { createSupabaseCustomerDiscoveryRepository } from "../customer-discovery-repository";
+import { createSupabaseJobDiscoveryRepository } from "../job-discovery-repository";
 import { hashOperationalProjection } from "../operational-read-projection";
 import { READINESS_RULES } from "../readiness-rules";
 
@@ -423,6 +425,14 @@ async function trustedRepositories(input?: {
     correspondenceEvidence: createSupabaseCorrespondenceEvidencePageRepository(
       noCommunicationReadClient
     ),
+    customerDiscovery: createSupabaseCustomerDiscoveryRepository(
+      noCommunicationReadClient,
+      cursorCodec
+    ),
+    jobDiscovery: createSupabaseJobDiscoveryRepository(
+      noCommunicationReadClient,
+      cursorCodec
+    ),
   } as CreateOpsAgentDomainRepositoriesInput);
   return { repositories, scheduleClient, readinessClient };
 }
@@ -438,7 +448,7 @@ async function actorErrorFrom(promise: Promise<unknown>) {
 }
 
 describe("operational reads domain facade", () => {
-  it("exposes exactly the implemented domain methods and keeps both new capabilities internal-only", async () => {
+  it("exposes exactly the implemented domain methods and all eleven reads", async () => {
     type ExpectedScheduleMethod = (
       actor: ActorContext,
       input: ListScheduledJobsInput,
@@ -469,6 +479,8 @@ describe("operational reads domain facade", () => {
       "getJobSummary",
       "searchJobHistory",
       "getCorrespondenceEvidence",
+      "searchCustomers",
+      "searchJobs",
     ]);
     expect(Object.isFrozen(service)).toBe(true);
     expect(Object.keys(service)).not.toEqual(
@@ -495,6 +507,8 @@ describe("operational reads domain facade", () => {
       "get_job_summary",
       "search_job_history",
       "get_correspondence_evidence",
+      "search_customers",
+      "search_jobs",
       "resolve_job_participants",
     ]);
     for (const capabilityName of [
@@ -718,6 +732,14 @@ describe("operational reads domain facade", () => {
     );
     const trustedCorrespondenceEvidence =
       createSupabaseCorrespondenceEvidencePageRepository(noTask12ReadClient);
+    const trustedCustomerDiscovery = createSupabaseCustomerDiscoveryRepository(
+      noTask12ReadClient,
+      cursorCodec
+    );
+    const trustedJobDiscovery = createSupabaseJobDiscoveryRepository(
+      noTask12ReadClient,
+      cursorCodec
+    );
     const attackerScheduledJobs = {
       read: vi.fn(async () => {
         throw new Error("Attacker schedule repository must never run");
@@ -768,6 +790,8 @@ describe("operational reads domain facade", () => {
         correspondenceEvidence: {
           value: trustedCorrespondenceEvidence,
         },
+        customerDiscovery: { value: trustedCustomerDiscovery },
+        jobDiscovery: { value: trustedJobDiscovery },
       }
     ) as CreateOpsAgentDomainRepositoriesInput;
     const repositories = createOpsAgentDomainRepositories(repositoryInput);

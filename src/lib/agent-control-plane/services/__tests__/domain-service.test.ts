@@ -56,6 +56,8 @@ import { createSupabaseCustomerJobsRepository } from "../customer-jobs-repositor
 import { createSupabaseJobSummaryRepository } from "../job-summary-repository";
 import { createSupabaseJobHistoryRepository } from "../job-history-repository";
 import { createSupabaseCorrespondenceEvidencePageRepository } from "../correspondence-evidence-page-repository";
+import { createSupabaseCustomerDiscoveryRepository } from "../customer-discovery-repository";
+import { createSupabaseJobDiscoveryRepository } from "../job-discovery-repository";
 
 const ACTOR_ID = "11111111-1111-4111-8111-111111111111";
 const COMPANY_ID = "22222222-2222-4222-8222-222222222222";
@@ -221,6 +223,14 @@ function trustedOperationalRepositories() {
     jobHistory: createSupabaseJobHistoryRepository(noReadClient, cursorCodec),
     correspondenceEvidence:
       createSupabaseCorrespondenceEvidencePageRepository(noReadClient),
+    customerDiscovery: createSupabaseCustomerDiscoveryRepository(
+      noReadClient,
+      cursorCodec
+    ),
+    jobDiscovery: createSupabaseJobDiscoveryRepository(
+      noReadClient,
+      cursorCodec
+    ),
   };
 }
 
@@ -327,6 +337,8 @@ describe("OpsAgentDomainService", () => {
       "getJobSummary",
       "searchJobHistory",
       "getCorrespondenceEvidence",
+      "searchCustomers",
+      "searchJobs",
     ]);
     expect(Object.isFrozen(service)).toBe(true);
     expect(
@@ -342,6 +354,8 @@ describe("OpsAgentDomainService", () => {
       "get_job_summary",
       "search_job_history",
       "get_correspondence_evidence",
+      "search_customers",
+      "search_jobs",
       "resolve_job_participants",
     ]);
     expect(
@@ -521,6 +535,8 @@ describe("OpsAgentDomainService", () => {
         correspondenceEvidence: {
           value: operational.correspondenceEvidence,
         },
+        customerDiscovery: { value: operational.customerDiscovery },
+        jobDiscovery: { value: operational.jobDiscovery },
       }
     ) as CreateOpsAgentDomainRepositoriesInput;
 
@@ -597,6 +613,8 @@ describe("OpsAgentDomainService", () => {
       "getJobSummary",
       "searchJobHistory",
       "getCorrespondenceEvidence",
+      "searchCustomers",
+      "searchJobs",
     ]);
     expect(client.calls).toHaveLength(3);
   });

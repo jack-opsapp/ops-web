@@ -112,10 +112,11 @@ describe("authorizeCapability", () => {
     const context = await actor({
       permissions: { "projects.view": "assigned" },
     });
+    const manifestPolicy = policy();
 
     const authorization = authorizeCapability({
       actorContext: context,
-      policy: policy(),
+      policy: manifestPolicy,
     });
 
     expect(authorization).toMatchObject({
@@ -123,10 +124,15 @@ describe("authorizeCapability", () => {
       capabilityId: "get_job_summary",
       capabilityRevision: "get_job_summary:v1",
       capabilityManifestRevision: MANIFEST_REVISION,
+      declaredOAuthScopes: ["ops.jobs.read"],
       resolvedPermissions: { "projects.view": "assigned" },
       satisfiedOAuthScopes: [],
     });
+    expect(authorization.declaredOAuthScopes).not.toBe(
+      manifestPolicy.requiredOAuthScopes
+    );
     expect(Object.isFrozen(authorization)).toBe(true);
+    expect(Object.isFrozen(authorization.declaredOAuthScopes)).toBe(true);
     expect(Object.isFrozen(authorization.resolvedPermissions)).toBe(true);
     expect(Object.isFrozen(authorization.satisfiedOAuthScopes)).toBe(true);
   });
@@ -270,6 +276,10 @@ describe("authorizeCapability", () => {
       "projects.view_financials": "all",
     });
     expect(authorization.satisfiedOAuthScopes).toEqual([
+      "ops.financials.read",
+      "ops.jobs.read",
+    ]);
+    expect(authorization.declaredOAuthScopes).toEqual([
       "ops.financials.read",
       "ops.jobs.read",
     ]);
@@ -438,6 +448,7 @@ describe("authorizeCapability", () => {
         capabilityId: "get_job_summary",
         capabilityRevision: "get_job_summary:v1",
         capabilityManifestRevision: MANIFEST_REVISION,
+        declaredOAuthScopes: [],
         resolvedPermissions: {},
         declaredPermissions: [],
         satisfiedPermissionGroupIndexes: [],

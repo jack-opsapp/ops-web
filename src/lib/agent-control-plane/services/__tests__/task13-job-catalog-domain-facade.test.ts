@@ -40,6 +40,8 @@ import { createSupabaseCorrespondenceEvidencePageRepository } from "../correspon
 import { createSupabaseCustomerJobsRepository } from "../customer-jobs-repository";
 import { createSupabaseJobHistoryRepository } from "../job-history-repository";
 import { createSupabaseJobSummaryRepository } from "../job-summary-repository";
+import { createSupabaseCustomerDiscoveryRepository } from "../customer-discovery-repository";
+import { createSupabaseJobDiscoveryRepository } from "../job-discovery-repository";
 import {
   correspondenceEvidenceSnapshot,
   customerJobsSnapshot,
@@ -55,7 +57,7 @@ import {
   TASK_13_JOB_SUMMARY_INPUT,
 } from "./fixtures/task13-job-catalog-fixtures";
 
-const TASK_13_MANIFEST_REVISION = "2026-08-14.capability-manifest.v6" as const;
+const TASK_13_MANIFEST_REVISION = "2026-08-20.capability-manifest.v7" as const;
 const TASK_13_CAPABILITIES = [
   "list_customer_jobs",
   "get_job_summary",
@@ -72,6 +74,8 @@ const FINAL_REPOSITORY_KEYS = [
   "jobSummary",
   "jobHistory",
   "correspondenceEvidence",
+  "customerDiscovery",
+  "jobDiscovery",
 ] as const;
 const FINAL_SERVICE_KEYS = [
   "getJobConversationContext",
@@ -83,6 +87,8 @@ const FINAL_SERVICE_KEYS = [
   "getJobSummary",
   "searchJobHistory",
   "getCorrespondenceEvidence",
+  "searchCustomers",
+  "searchJobs",
 ] as const;
 
 function noReadClient() {
@@ -122,6 +128,14 @@ function trustedRepositoryInput(): CreateOpsAgentDomainRepositoriesInput {
     jobHistory: createSupabaseJobHistoryRepository(noReadClient(), cursorCodec),
     correspondenceEvidence:
       createSupabaseCorrespondenceEvidencePageRepository(noReadClient()),
+    customerDiscovery: createSupabaseCustomerDiscoveryRepository(
+      noReadClient(),
+      cursorCodec
+    ),
+    jobDiscovery: createSupabaseJobDiscoveryRepository(
+      noReadClient(),
+      cursorCodec
+    ),
   };
 }
 
@@ -208,7 +222,7 @@ describe("Task 13 job-catalog domain facade", () => {
     }
   );
 
-  it("keeps the four capabilities available only through the internal domain catalog", () => {
+  it("keeps Task 13 and discovery exposed as read-only capabilities", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(TASK_13_MANIFEST_REVISION);
     for (const capabilityName of TASK_13_CAPABILITIES) {
       const capability = CAPABILITY_MANIFEST.find(
@@ -219,13 +233,20 @@ describe("Task 13 job-catalog domain facade", () => {
         externalExposure: "enabled",
       });
     }
+    for (const capabilityName of ["search_customers", "search_jobs"]) {
+      expect(
+        CAPABILITY_MANIFEST.find((entry) => entry.name === capabilityName)
+          ?.availability
+      ).toEqual({
+        implementation: "available",
+        externalExposure: "enabled",
+      });
+    }
     expect(
       CAPABILITY_MANIFEST.every(
         (capability) =>
-          capability.availability.externalExposure ===
-          (capability.availability.implementation === "available"
-            ? "enabled"
-            : "disabled")
+          capability.availability.externalExposure !== "enabled" ||
+          capability.availability.implementation === "available"
       )
     ).toBe(true);
   });

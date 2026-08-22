@@ -87,6 +87,7 @@ function proofMatchesPolicy(
     proof.capabilityRevision === policy.capabilityRevision &&
     proof.capabilityManifestRevision === CAPABILITY_MANIFEST_REVISION &&
     policy.capabilityManifestRevision === CAPABILITY_MANIFEST_REVISION &&
+    sameStrings(proof.declaredOAuthScopes, policy.requiredOAuthScopes) &&
     sameStrings(proof.declaredPermissions, expectedPermissions) &&
     sameStrings(Object.keys(proof.resolvedPermissions), expectedPermissions) &&
     proof.satisfiedPermissionGroupIndexes.length === 1 &&
@@ -106,7 +107,8 @@ export function authorizeTask13CapabilityReadInternal<
   readonly capabilityId: TCapabilityId;
   readonly errorNamespace: string;
   readonly authorizations:
-    AuthorizedCapability | readonly AuthorizedCapability[];
+    | AuthorizedCapability
+    | readonly AuthorizedCapability[];
   readonly rawInput: unknown;
 }): Task13AuthorizedReadBase<TCapabilityId, TQuery> {
   const authorizations = Object.freeze(
@@ -235,7 +237,8 @@ function scope<T extends PermissionScope>(
 
 export function authorizeCustomerJobsRead(input: {
   readonly authorizations:
-    AuthorizedCapability | readonly AuthorizedCapability[];
+    | AuthorizedCapability
+    | readonly AuthorizedCapability[];
   readonly rawInput: unknown;
 }): AuthorizedCustomerJobsRead {
   const base = authorizeTask13CapabilityReadInternal<

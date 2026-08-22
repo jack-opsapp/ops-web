@@ -45,6 +45,8 @@ const DOMAIN_METHOD_BY_CAPABILITY: Readonly<
   get_job_summary: "getJobSummary",
   search_job_history: "searchJobHistory",
   get_correspondence_evidence: "getCorrespondenceEvidence",
+  search_customers: "searchCustomers",
+  search_jobs: "searchJobs",
 });
 
 const DOMAIN_CALL_TIMEOUT_MS = 25_000;
@@ -152,6 +154,10 @@ function textResult(
     : { content: [{ type: "text" as const, text: serialized }] };
 }
 
+function utf8ByteLength(serialized: string): number {
+  return new TextEncoder().encode(serialized).byteLength;
+}
+
 export interface CreateOpsMcpServerInput {
   readonly requestId: string;
   readonly actorContext: ActorContext;
@@ -216,7 +222,12 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
       async (args: unknown) => {
         const startedAt = Date.now();
         const audit = (
-          outcome: "ok" | "domain_error" | "forbidden" | "rate_limited" | "internal",
+          outcome:
+            | "ok"
+            | "domain_error"
+            | "forbidden"
+            | "rate_limited"
+            | "internal",
           errorCode: string | null,
           resultBytes: number | null
         ) =>
@@ -238,6 +249,7 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
         try {
           const rate = await checkCapabilityRate({
             bucket: entry.rateLimitBucket,
+            actorUserId: grantFacts.actorUserId,
             grantId: grantFacts.grantId,
             companyId: grantFacts.companyId,
           });
@@ -245,7 +257,11 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
             const serialized = serializeUntrustedPromptData(
               rateLimitedEnvelope(requestId, rate.retryAfterSec)
             );
-            await audit("rate_limited", "RATE_LIMITED", serialized.length);
+            await audit(
+              "rate_limited",
+              "RATE_LIMITED",
+              utf8ByteLength(serialized)
+            );
             return textResult(serialized, true);
           }
 
@@ -253,7 +269,7 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
             signal: AbortSignal.timeout(DOMAIN_CALL_TIMEOUT_MS),
           });
           const serialized = serializeUntrustedPromptData(result);
-          await audit("ok", null, serialized.length);
+          await audit("ok", null, utf8ByteLength(serialized));
           return textResult(serialized, false);
         } catch (error) {
           const envelope = contractErrorEnvelope(error);
@@ -264,13 +280,13 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
               envelope.code === "INSUFFICIENT_SCOPE"
                 ? ("forbidden" as const)
                 : ("domain_error" as const);
-            await audit(outcome, envelope.code, serialized.length);
+            await audit(outcome, envelope.code, utf8ByteLength(serialized));
             return textResult(serialized, true);
           }
           const serialized = serializeUntrustedPromptData(
             internalEnvelope(requestId)
           );
-          await audit("internal", "INTERNAL", serialized.length);
+          await audit("internal", "INTERNAL", utf8ByteLength(serialized));
           return textResult(serialized, true);
         }
       }

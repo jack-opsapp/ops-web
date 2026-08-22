@@ -16,6 +16,12 @@ import {
   JobSummaryInputSchema,
   TASK_13_CAPABILITY_SCHEMA_REVISION,
 } from "@/lib/agent-control-plane/contracts/job-catalog";
+import {
+  DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+  MAX_DISCOVERY_MATCHES,
+  SearchCustomersInputSchema,
+  SearchJobsInputSchema,
+} from "@/lib/agent-control-plane/contracts/discovery";
 import { JobRefSchema } from "@/lib/agent-control-plane/contracts/jobs";
 import {
   JobReadinessIssuesInputSchema,
@@ -43,7 +49,7 @@ const DARK_AVAILABILITY = Object.freeze({
   implementation: "unavailable" as const,
   externalExposure: "disabled" as const,
 });
-// P1 MCP mount (2026-08-18): the nine v6 reads are externally exposed. The
+// MCP mount: all eleven implemented reads are externally exposed. The
 // manifest constant IS the rollout control — the MCP transport registers
 // exactly the entries carrying this availability.
 const EXTERNAL_READ_AVAILABILITY = Object.freeze({
@@ -281,6 +287,32 @@ function customerJobKindVariant(
   };
 }
 
+function customerDiscoveryVariant(
+  lookup: "name" | "exact_contact",
+  requiredOAuthScopes: readonly string[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key: lookup,
+    selector: { kind: "customer_discovery_lookup", lookup },
+    requiredOAuthScopes,
+    permissionRequirementGroups: [
+      [permission("clients.view", ["all", "assigned"])],
+    ],
+  };
+}
+
+function jobDiscoveryVariant(
+  jobKind: "opportunity" | "project",
+  requirements: readonly ReturnType<typeof permission>[]
+): CapabilityAuthorizationVariantDefinition {
+  return {
+    key: `${jobKind}_jobs`,
+    selector: { kind: "job_discovery_kind", jobKind },
+    requiredOAuthScopes: ["ops.jobs.read"],
+    permissionRequirementGroups: [requirements],
+  };
+}
+
 function summaryReadinessVariant(
   authority: "site_photos" | "customer" | "schedule",
   requiredOAuthScopes: readonly string[],
@@ -355,7 +387,10 @@ function readMetadata(input: {
   maxWindowDays?: number;
   evidenceInput?: "not_required" | "optional" | "required";
   auditClass?:
-    "operational_read" | "sensitive_read" | "evidence_read" | "search_read";
+    | "operational_read"
+    | "sensitive_read"
+    | "evidence_read"
+    | "search_read";
   rateLimitBucket?: "lightweight_read" | "evidence_search";
 }) {
   return {
@@ -860,6 +895,57 @@ export const READ_CAPABILITY_DEFINITIONS = [
     }),
     availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.get_correspondence_evidence",
+  },
+  {
+    name: "search_customers",
+    schemaRevision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+    operation: "read",
+    description:
+      "Find customers you can access by name, exact email, or exact phone. Contact values are never returned.",
+    inputSchema: SearchCustomersInputSchema,
+    authorization: {
+      variants: [
+        customerDiscoveryVariant("name", ["ops.customers.read"]),
+        customerDiscoveryVariant("exact_contact", [
+          "ops.customer_contacts.read",
+          "ops.customers.read",
+        ]),
+      ],
+    },
+    ...readMetadata({
+      riskTier: "high",
+      maxResultItems: MAX_DISCOVERY_MATCHES,
+      auditClass: "search_read",
+      rateLimitBucket: "evidence_search",
+    }),
+    availability: EXTERNAL_READ_AVAILABILITY,
+    rolloutFlag: "agent_control_plane.capability.search_customers",
+  },
+  {
+    name: "search_jobs",
+    schemaRevision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+    operation: "read",
+    description: "Find jobs you can access by title, address, status, or date.",
+    inputSchema: SearchJobsInputSchema,
+    authorization: {
+      variants: [
+        jobDiscoveryVariant("opportunity", [
+          permission("pipeline.view", ["all", "assigned"]),
+        ]),
+        jobDiscoveryVariant("project", [
+          permission("projects.view", ["all", "assigned"]),
+        ]),
+      ],
+    },
+    ...readMetadata({
+      riskTier: "medium",
+      maxResultItems: MAX_DISCOVERY_MATCHES,
+      maxWindowDays: 365,
+      auditClass: "search_read",
+      rateLimitBucket: "evidence_search",
+    }),
+    availability: EXTERNAL_READ_AVAILABILITY,
+    rolloutFlag: "agent_control_plane.capability.search_jobs",
   },
   {
     name: "resolve_job_participants",

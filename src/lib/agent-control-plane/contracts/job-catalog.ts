@@ -26,9 +26,9 @@ export const JOB_CATALOG_PROMPT_SAFETY_DIRECTIVE =
 
 const DAY_MILLISECONDS = 86_400_000;
 const DatabaseUuidSchema = z.string().uuid();
-const CivilDateSchema = z
+export const CivilDateSchema = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .regex(/^(?!0000)\d{4}-\d{2}-\d{2}$/)
   .refine((value) => {
     const [yearText, monthText, dayText] = value.split("-");
     const year = Number(yearText);
@@ -260,6 +260,12 @@ function lifecycleMatchesStatus(input: {
   readonly lifecycle_state: z.infer<typeof NormalizedJobLifecycleStateSchema>;
   readonly status: z.infer<typeof JobStatusSchema>;
 }): boolean {
+  if (
+    input.status.kind === "opportunity" &&
+    input.status.value === "discarded"
+  ) {
+    return input.lifecycle_state === "archived";
+  }
   if (input.lifecycle_state === "archived") {
     // A project's archival IS a status value, so the coupling is exact.
     // An opportunity's archival is `opportunities.archived_at` — a dimension

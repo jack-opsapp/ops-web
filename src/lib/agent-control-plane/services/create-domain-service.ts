@@ -29,6 +29,8 @@ import type {
   JobSummaryInput,
   ListScheduledJobsInput,
   OpsAgentDomainService,
+  SearchCustomersInput,
+  SearchJobsInput,
 } from "./domain-service";
 import {
   getJobConversationContext as readJobConversationContext,
@@ -55,6 +57,10 @@ import { listCustomerJobs as readCustomerJobs } from "./list-customer-jobs";
 import { getJobSummary as readJobSummary } from "./get-job-summary";
 import { searchJobHistory as readJobHistory } from "./search-job-history";
 import { getCorrespondenceEvidence as readCorrespondenceEvidence } from "./get-correspondence-evidence";
+import { authorizeCustomerDiscoveryRead } from "./customer-discovery-authorization";
+import { authorizeJobDiscoveryRead } from "./job-discovery-authorization";
+import { searchCustomers as readCustomerDiscovery } from "./search-customers";
+import { searchJobs as readJobDiscovery } from "./search-jobs";
 
 const CAPABILITY_ID = "get_job_conversation_context" as const;
 const SCHEDULE_CAPABILITY_ID = "list_scheduled_jobs" as const;
@@ -66,6 +72,8 @@ const JOB_SUMMARY_CAPABILITY_ID = "get_job_summary" as const;
 const JOB_HISTORY_CAPABILITY_ID = "search_job_history" as const;
 const CORRESPONDENCE_EVIDENCE_CAPABILITY_ID =
   "get_correspondence_evidence" as const;
+const CUSTOMER_DISCOVERY_CAPABILITY_ID = "search_customers" as const;
+const JOB_DISCOVERY_CAPABILITY_ID = "search_jobs" as const;
 const TRUSTED_DOMAIN_SERVICES = new WeakSet<object>();
 
 export interface CreateOpsAgentDomainServiceInput {
@@ -315,6 +323,47 @@ function authorizeCorrespondenceEvidenceDomainRead(
   });
 }
 
+function authorizeCustomerDiscoveryDomainRead(
+  actorContext: ActorContext,
+  input: SearchCustomersInput
+) {
+  const resolved = resolveAvailableCapability(
+    CUSTOMER_DISCOVERY_CAPABILITY_ID,
+    actorContext,
+    input
+  );
+  if (resolved.variants.length !== 1) {
+    throw authorizationInternal(
+      actorContext.requestId,
+      "domain_customer_discovery_variant_invalid"
+    );
+  }
+  return authorizeCustomerDiscoveryRead({
+    authorization: authorizeCapability({
+      actorContext,
+      policy: resolved.variants[0]!.policy,
+    }),
+    rawInput: resolved.parsedInput,
+  });
+}
+
+function authorizeJobDiscoveryDomainRead(
+  actorContext: ActorContext,
+  input: SearchJobsInput
+) {
+  const resolved = resolveAvailableCapability(
+    JOB_DISCOVERY_CAPABILITY_ID,
+    actorContext,
+    input
+  );
+  return authorizeJobDiscoveryRead({
+    authorizations: resolved.variants.map((variant) =>
+      authorizeCapability({ actorContext, policy: variant.policy })
+    ),
+    rawInput: resolved.parsedInput,
+  });
+}
+
 export function createOpsAgentDomainService(
   input: CreateOpsAgentDomainServiceInput
 ): OpsAgentDomainService {
@@ -470,6 +519,33 @@ export function createOpsAgentDomainService(
       ...(now ? { now } : {}),
     });
 
+  const searchCustomers = async (
+    actorContext: ActorContext,
+    domainInput: SearchCustomersInput,
+    options?: DomainCallOptions
+  ) =>
+    await readCustomerDiscovery({
+      authorization: authorizeCustomerDiscoveryDomainRead(
+        actorContext,
+        domainInput
+      ),
+      repository: repositories.customerDiscovery,
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(now ? { now } : {}),
+    });
+
+  const searchJobs = async (
+    actorContext: ActorContext,
+    domainInput: SearchJobsInput,
+    options?: DomainCallOptions
+  ) =>
+    await readJobDiscovery({
+      authorization: authorizeJobDiscoveryDomainRead(actorContext, domainInput),
+      repository: repositories.jobDiscovery,
+      ...(options?.signal ? { signal: options.signal } : {}),
+      ...(now ? { now } : {}),
+    });
+
   const service = {
     getJobConversationContext,
     listScheduledJobs,
@@ -480,6 +556,8 @@ export function createOpsAgentDomainService(
     getJobSummary,
     searchJobHistory,
     getCorrespondenceEvidence,
+    searchCustomers,
+    searchJobs,
   } satisfies OpsAgentDomainService;
   TRUSTED_DOMAIN_SERVICES.add(service);
   return Object.freeze(service);

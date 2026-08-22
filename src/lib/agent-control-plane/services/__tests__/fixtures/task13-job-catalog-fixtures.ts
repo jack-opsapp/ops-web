@@ -36,7 +36,7 @@ export const TASK_13_TURN_EVIDENCE_ID =
   `job_conversation_turn:${TASK_13_TURN_ID}` as const;
 export const TASK_13_PERMISSION_REVISION = `sha256:${"a".repeat(64)}`;
 export const TASK_13_MANIFEST_REVISION =
-  "2026-08-14.capability-manifest.v6" as const;
+  "2026-08-20.capability-manifest.v7" as const;
 export const TASK_13_READ_AT = "2026-08-14T17:59:59.000Z";
 export const TASK_13_GENERATED_AT = "2026-08-14T18:00:00.000Z";
 export const TASK_13_SOURCE_REVISION = 83;
@@ -89,7 +89,10 @@ export const TASK_13_EVIDENCE_INPUT =
   });
 
 export type Task13Capability =
-  "customer_jobs" | "job_summary" | "job_history" | "correspondence_evidence";
+  | "customer_jobs"
+  | "job_summary"
+  | "job_history"
+  | "correspondence_evidence";
 
 export type Task13Authorization = Readonly<{
   actorContext: ActorContext;
@@ -338,7 +341,9 @@ export function task13EvidenceRef(input: {
   evidenceId: string;
   sourceVersion: ReturnType<typeof task13SourceVersion>;
   trust?:
-    "authoritative_ops" | "delivered_correspondence" | "model_transcribed";
+    | "authoritative_ops"
+    | "delivered_correspondence"
+    | "model_transcribed";
 }) {
   return {
     evidence_id: input.evidenceId,
@@ -379,7 +384,9 @@ function atomicClaim(input: {
   sourceRevision?: number | null;
   historyRevision?: number;
   trust?:
-    "authoritative_ops" | "delivered_correspondence" | "model_transcribed";
+    | "authoritative_ops"
+    | "delivered_correspondence"
+    | "model_transcribed";
 }): AtomicTask13Claim {
   const projection: Record<string, unknown> = {
     actor_user_id: input.authorization.actorContext.actorUserId,
@@ -1114,7 +1121,8 @@ export function correspondenceEvidenceSnapshot(
 
 export function recoupleTopClaim(snapshot: Record<string, unknown>): void {
   const top = (snapshot.collection_claim ?? snapshot.summary_claim) as
-    AtomicTask13Claim | undefined;
+    | AtomicTask13Claim
+    | undefined;
   if (!top) throw new TypeError("Task 13 fixture lacks a top claim");
   const childClaims = (snapshot.job_claims ??
     snapshot.section_claims ??

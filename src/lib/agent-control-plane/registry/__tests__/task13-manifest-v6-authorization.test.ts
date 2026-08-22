@@ -16,7 +16,7 @@ import {
 } from "../capability-manifest";
 
 const TASK_13_SCHEMA_REVISION = "2026-08-14.v1" as const;
-const TASK_13_MANIFEST_REVISION = "2026-08-14.capability-manifest.v6" as const;
+const TASK_13_MANIFEST_REVISION = "2026-08-20.capability-manifest.v7" as const;
 const TASK_13_CAPABILITIES = [
   "list_customer_jobs",
   "get_job_summary",
@@ -123,7 +123,7 @@ async function authorizeAllBeforeRead(input: {
   return authorizations;
 }
 
-describe("Task 13 manifest v6 availability", () => {
+describe("Task 13 compatibility under manifest v7", () => {
   it("exposes the complete Task 13 bundle to internal callers only", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(TASK_13_MANIFEST_REVISION);
     for (const capabilityId of TASK_13_CAPABILITIES) {

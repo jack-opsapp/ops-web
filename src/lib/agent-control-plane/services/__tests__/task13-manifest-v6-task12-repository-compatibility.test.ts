@@ -31,7 +31,7 @@ const CONTACTABILITY_DIGEST = `sha256:${"b".repeat(64)}`;
 const READ_AT = "2026-08-14T18:00:00.000Z";
 const SOURCE_REVISION = 74;
 const CONTACTABILITY_REVISION = 20;
-const TASK_13_MANIFEST_REVISION = "2026-08-14.capability-manifest.v6" as const;
+const TASK_13_MANIFEST_REVISION = "2026-08-20.capability-manifest.v7" as const;
 const TASK_12_MANIFEST_REVISION = "2026-08-13.capability-manifest.v5" as const;
 const JOB_REF = { kind: "project" as const, id: PROJECT_ID };
 const PARTICIPANTS_INPUT = { job_ref: JOB_REF, purpose: "general" as const };
@@ -271,12 +271,12 @@ function clientFor(data: unknown) {
   };
 }
 
-describe("Task 13 manifest v6 compatibility for Task 12 repositories", () => {
-  it("requires the process-wide capability manifest to be v6", () => {
+describe("Task 12 repository compatibility under manifest v7", () => {
+  it("requires the process-wide capability manifest to be v7", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(TASK_13_MANIFEST_REVISION);
   });
 
-  it("accepts communication and participant wrappers rebound consistently to v6", async () => {
+  it("accepts communication and participant wrappers rebound consistently to v7", async () => {
     const participants = await participantsAuthorization();
     const communication = await communicationAuthorization();
     const participantsRepository = createSupabaseJobParticipantsRepository(
@@ -315,7 +315,7 @@ describe("Task 13 manifest v6 compatibility for Task 12 repositories", () => {
     });
   });
 
-  it("rejects fully recoupled v5 projections presented with v6 authorizations", async () => {
+  it("rejects fully recoupled v5 projections presented with v7 authorizations", async () => {
     const participants = await participantsAuthorization();
     const communication = await communicationAuthorization();
     const participantsRepository = createSupabaseJobParticipantsRepository(

@@ -36,6 +36,14 @@ import {
   isTrustedCorrespondenceEvidencePageRepository,
   type CorrespondenceEvidencePageRepository,
 } from "./correspondence-evidence-page-repository";
+import {
+  isTrustedCustomerDiscoveryRepository,
+  type CustomerDiscoveryRepository,
+} from "./customer-discovery-repository";
+import {
+  isTrustedJobDiscoveryRepository,
+  type JobDiscoveryRepository,
+} from "./job-discovery-repository";
 
 declare const TRUSTED_OPS_AGENT_DOMAIN_REPOSITORIES: unique symbol;
 const TRUSTED_REPOSITORY_BUNDLES = new WeakSet<object>();
@@ -54,6 +62,8 @@ export interface OpsAgentDomainRepositories extends TrustedOpsAgentDomainReposit
   readonly jobSummary: JobSummaryRepository;
   readonly jobHistory: JobHistoryRepository;
   readonly correspondenceEvidence: CorrespondenceEvidencePageRepository;
+  readonly customerDiscovery: CustomerDiscoveryRepository;
+  readonly jobDiscovery: JobDiscoveryRepository;
 }
 
 export interface CreateOpsAgentDomainRepositoriesInput {
@@ -66,6 +76,8 @@ export interface CreateOpsAgentDomainRepositoriesInput {
   readonly jobSummary: JobSummaryRepository;
   readonly jobHistory: JobHistoryRepository;
   readonly correspondenceEvidence: CorrespondenceEvidencePageRepository;
+  readonly customerDiscovery: CustomerDiscoveryRepository;
+  readonly jobDiscovery: JobDiscoveryRepository;
 }
 
 export function createOpsAgentDomainRepositories(
@@ -80,6 +92,8 @@ export function createOpsAgentDomainRepositories(
   const jobSummary = input?.jobSummary;
   const jobHistory = input?.jobHistory;
   const correspondenceEvidence = input?.correspondenceEvidence;
+  const customerDiscovery = input?.customerDiscovery;
+  const jobDiscovery = input?.jobDiscovery;
   if (!isTrustedJobConversationContextRepository(jobConversationContext)) {
     throw new TypeError(
       "A trusted job conversation context repository is required"
@@ -113,6 +127,12 @@ export function createOpsAgentDomainRepositories(
       "A trusted correspondence-evidence repository is required"
     );
   }
+  if (!isTrustedCustomerDiscoveryRepository(customerDiscovery)) {
+    throw new TypeError("A trusted customer-discovery repository is required");
+  }
+  if (!isTrustedJobDiscoveryRepository(jobDiscovery)) {
+    throw new TypeError("A trusted job-discovery repository is required");
+  }
 
   const repositories = {
     jobConversationContext,
@@ -124,6 +144,8 @@ export function createOpsAgentDomainRepositories(
     jobSummary,
     jobHistory,
     correspondenceEvidence,
+    customerDiscovery,
+    jobDiscovery,
   };
   TRUSTED_REPOSITORY_BUNDLES.add(repositories);
   return Object.freeze(repositories) as OpsAgentDomainRepositories;
