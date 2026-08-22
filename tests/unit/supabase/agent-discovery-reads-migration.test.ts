@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 const MIGRATION_NAME =
   "20260822015049_agent_discovery_reads_20260820220000.sql";
+const INDEX_WRITER_ACL_REPAIR_NAME =
+  "20260822015939_agent_discovery_index_writer_acl_20260822015828.sql";
 const MIGRATION_PATH = join(
   process.cwd(),
   "supabase/migrations",
@@ -44,6 +46,12 @@ function count(value: string, expression: RegExp): number {
 const RAW_SQL = rawSource();
 const SQL = RAW_SQL.toLowerCase();
 const COMPACT_SQL = compact(SQL);
+const INDEX_WRITER_ACL_REPAIR_SQL = compact(
+  readFileSync(
+    join(process.cwd(), "supabase/migrations", INDEX_WRITER_ACL_REPAIR_NAME),
+    "utf8"
+  ).toLowerCase()
+);
 const CUSTOMER_RPC = compact(
   functionDefinition(SQL, "public.read_agent_customer_discovery_as_system")
 );
@@ -254,6 +262,34 @@ describe("MCP discovery read migration", () => {
     expect(COMPACT_SQL).toContain("set_config(");
     expect(COMPACT_SQL).not.toContain("extensions.gin_trgm_ops");
     expect(count(COMPACT_SQL, /\) gin_trgm_ops/g)).toBe(6);
+  });
+
+  it("lets every source-table DML role maintain discovery expression indexes", () => {
+    for (const signature of [
+      "private.agent_trim_discovery_display_text(text)",
+      "private.agent_discovery_unicode15_text_is_supported(text)",
+      "private.agent_normalize_discovery_text(text)",
+      "private.agent_normalize_discovery_email(text)",
+      "private.agent_normalize_discovery_phone(text)",
+      "private.agent_discovery_opportunity_source_is_invalid( uuid, uuid, uuid, uuid, text, text, text, timestamptz, timestamptz, timestamptz )",
+      "private.agent_discovery_project_source_is_invalid( text, uuid, text, text, text, timestamptz, timestamptz, timestamptz, timestamptz )",
+      "private.agent_uuid_from_legacy_text(text)",
+    ]) {
+      expect(COMPACT_SQL).toContain(
+        `grant execute on function ${signature} to anon, authenticated, service_role;`
+      );
+      expect(INDEX_WRITER_ACL_REPAIR_SQL).toContain(
+        `grant execute on function ${signature} to anon, authenticated, service_role;`
+      );
+    }
+    expect(COMPACT_SQL).not.toContain(
+      "grant execute on function private.agent_normalize_discovery_text(text) to public"
+    );
+    expect(INDEX_WRITER_ACL_REPAIR_SQL).toContain("begin;");
+    expect(INDEX_WRITER_ACL_REPAIR_SQL.endsWith("commit;")).toBe(true);
+    expect(INDEX_WRITER_ACL_REPAIR_SQL).not.toContain(
+      "grant execute on function private.agent_normalize_discovery_text(text) to public"
+    );
   });
 
   it("canonicalizes every proof-bearing display edge without changing interiors", () => {

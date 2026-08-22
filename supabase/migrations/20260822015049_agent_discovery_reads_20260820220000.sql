@@ -493,6 +493,33 @@ revoke all on function private.agent_discovery_project_source_is_invalid(
   timestamptz
 ) from public, anon, authenticated, service_role;
 
+-- These pure, immutable helpers are evaluated by PostgreSQL while maintaining
+-- discovery expression and partial indexes. Every role with DML privileges on
+-- the indexed source tables must be able to execute the complete helper graph;
+-- otherwise an otherwise-authorized write fails before RLS can complete.
+-- The private schema is not exposed through PostgREST, and the helpers accept
+-- only caller-supplied scalars, so this grant exposes no operational rows.
+grant execute on function private.agent_trim_discovery_display_text(text)
+  to anon, authenticated, service_role;
+grant execute on function private.agent_discovery_unicode15_text_is_supported(text)
+  to anon, authenticated, service_role;
+grant execute on function private.agent_normalize_discovery_text(text)
+  to anon, authenticated, service_role;
+grant execute on function private.agent_normalize_discovery_email(text)
+  to anon, authenticated, service_role;
+grant execute on function private.agent_normalize_discovery_phone(text)
+  to anon, authenticated, service_role;
+grant execute on function private.agent_discovery_opportunity_source_is_invalid(
+  uuid, uuid, uuid, uuid, text, text, text, timestamptz, timestamptz,
+  timestamptz
+) to anon, authenticated, service_role;
+grant execute on function private.agent_discovery_project_source_is_invalid(
+  text, uuid, text, text, text, timestamptz, timestamptz, timestamptz,
+  timestamptz
+) to anon, authenticated, service_role;
+grant execute on function private.agent_uuid_from_legacy_text(text)
+  to anon, authenticated, service_role;
+
 -- Exact/prefix btrees keep two-character searches indexed. Trigram indexes
 -- serve literal all-token matching. Every index excludes retired rows.
 create index if not exists clients_agent_discovery_name_prefix_idx
