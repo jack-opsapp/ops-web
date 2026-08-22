@@ -32,19 +32,23 @@ function dependencies(input?: {
 }) {
   const jobs = input?.jobs ?? [work()];
   const completed = new Set(input?.completed ?? []);
-  const acknowledge = vi.fn(async ({ component }) => {
+  const acknowledge = vi.fn<
+    PhaseCLeadIntelligenceWorkDependencies["acknowledge"]
+  >(async ({ component }) => {
     completed.add(component);
-    return completed.size === 4
-      ? ("completed" as const)
-      : ("acknowledged" as const);
+    return completed.size === 4 ? "completed" : "acknowledged";
   });
-  const fail = vi.fn(async () => "retry_scheduled" as const);
+  const fail = vi.fn<PhaseCLeadIntelligenceWorkDependencies["fail"]>(
+    async () => "retry_scheduled"
+  );
   const processComponent =
     input?.process ??
-    vi.fn(async ({ component }) => ({
-      outcome: component === "event_handoff" ? "review" : "applied",
-      detail: { component },
-    }));
+    vi.fn<PhaseCLeadIntelligenceWorkDependencies["processComponent"]>(
+      async ({ component }) => ({
+        outcome: component === "event_handoff" ? "review" : "applied",
+        detail: { component },
+      })
+    );
 
   const value: PhaseCLeadIntelligenceWorkDependencies = {
     workerId: () => "phase-c-worker-test",
