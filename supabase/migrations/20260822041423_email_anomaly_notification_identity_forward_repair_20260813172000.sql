@@ -1,5 +1,9 @@
 begin;
 
+-- Production advanced past the historical 20260813172000 migration without
+-- applying it. Replay the complete additive contract under the current ledger
+-- so fresh installs and the live database converge on the same definitions.
+
 -- A notification belongs to one immutable anomaly event. Read/resolution state
 -- is presentation state and must never permit a second row for the same event.
 create unique index if not exists notifications_email_anomaly_event_unique
@@ -208,5 +212,137 @@ revoke all on function public.reconcile_email_pause_notification_fanout(
 grant execute on function public.reconcile_email_pause_notification_fanout(
   uuid, uuid
 ) to service_role;
+
+do $postflight$
+begin
+  if not exists (
+    select 1
+    from pg_catalog.pg_index as target_index
+    join pg_catalog.pg_class as index_relation
+      on index_relation.oid = target_index.indexrelid
+    join pg_catalog.pg_namespace as index_namespace
+      on index_namespace.oid = index_relation.relnamespace
+    join pg_catalog.pg_class as source_relation
+      on source_relation.oid = target_index.indrelid
+    join pg_catalog.pg_namespace as source_namespace
+      on source_namespace.oid = source_relation.relnamespace
+    where index_namespace.nspname = 'public'
+      and index_relation.relname = 'notifications_email_anomaly_event_unique'
+      and source_namespace.nspname = 'public'
+      and source_relation.relname = 'notifications'
+      and target_index.indisunique
+      and target_index.indisvalid
+      and target_index.indisready
+      and target_index.indnkeyatts = 2
+      and not (0 = any(target_index.indkey::smallint[]))
+      and (
+        select pg_catalog.array_agg(
+          source_attribute.attname::text
+          order by key_column.ordinality
+        )
+        from pg_catalog.unnest(target_index.indkey::smallint[])
+          with ordinality as key_column(attnum, ordinality)
+        join pg_catalog.pg_attribute as source_attribute
+          on source_attribute.attrelid = target_index.indrelid
+         and source_attribute.attnum = key_column.attnum
+      ) = array['type', 'dedupe_key']::text[]
+      and pg_catalog.pg_get_expr(
+        target_index.indpred,
+        target_index.indrelid,
+        true
+      ) = 'type = ''email_anomaly''::text AND dedupe_key IS NOT NULL'
+  ) then
+    raise exception 'email anomaly notification event index postflight failed'
+      using errcode = '55000';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_catalog.pg_index as target_index
+    join pg_catalog.pg_class as index_relation
+      on index_relation.oid = target_index.indexrelid
+    join pg_catalog.pg_namespace as index_namespace
+      on index_namespace.oid = index_relation.relnamespace
+    join pg_catalog.pg_class as source_relation
+      on source_relation.oid = target_index.indrelid
+    join pg_catalog.pg_namespace as source_namespace
+      on source_namespace.oid = source_relation.relnamespace
+    where index_namespace.nspname = 'public'
+      and index_relation.relname = 'notifications_email_pause_anomaly_unique'
+      and source_namespace.nspname = 'public'
+      and source_relation.relname = 'notifications'
+      and target_index.indisunique
+      and target_index.indisvalid
+      and target_index.indisready
+      and target_index.indnkeyatts = 4
+      and not (0 = any(target_index.indkey::smallint[]))
+      and (
+        select pg_catalog.array_agg(
+          source_attribute.attname::text
+          order by key_column.ordinality
+        )
+        from pg_catalog.unnest(target_index.indkey::smallint[])
+          with ordinality as key_column(attnum, ordinality)
+        join pg_catalog.pg_attribute as source_attribute
+          on source_attribute.attrelid = target_index.indrelid
+         and source_attribute.attnum = key_column.attnum
+      ) = array['user_id', 'company_id', 'type', 'dedupe_key']::text[]
+      and pg_catalog.pg_get_expr(
+        target_index.indpred,
+        target_index.indrelid,
+        true
+      ) = 'type = ''email_pause''::text AND dedupe_key ~~ ''email-pause-anomaly:%''::text'
+  ) then
+    raise exception 'email anomaly pause index postflight failed'
+      using errcode = '55000';
+  end if;
+
+  if pg_catalog.to_regprocedure(
+       'public.create_email_anomaly_notification_if_new(uuid,uuid,uuid,text,text,boolean,text,text)'
+     ) is null
+     or pg_catalog.to_regprocedure(
+       'public.reconcile_email_pause_notification_fanout(uuid,uuid)'
+     ) is null then
+    raise exception 'email anomaly notification identity repair postflight failed'
+      using errcode = '55000';
+  end if;
+
+  if not pg_catalog.has_function_privilege(
+       'service_role',
+       'public.create_email_anomaly_notification_if_new(uuid,uuid,uuid,text,text,boolean,text,text)',
+       'execute'
+     )
+     or pg_catalog.has_function_privilege(
+       'anon',
+       'public.create_email_anomaly_notification_if_new(uuid,uuid,uuid,text,text,boolean,text,text)',
+       'execute'
+     )
+     or pg_catalog.has_function_privilege(
+       'authenticated',
+       'public.create_email_anomaly_notification_if_new(uuid,uuid,uuid,text,text,boolean,text,text)',
+       'execute'
+     )
+     or not pg_catalog.has_function_privilege(
+       'service_role',
+       'public.reconcile_email_pause_notification_fanout(uuid,uuid)',
+       'execute'
+     )
+     or pg_catalog.has_function_privilege(
+       'anon',
+       'public.reconcile_email_pause_notification_fanout(uuid,uuid)',
+       'execute'
+     )
+     or pg_catalog.has_function_privilege(
+       'authenticated',
+       'public.reconcile_email_pause_notification_fanout(uuid,uuid)',
+       'execute'
+     ) then
+    raise exception 'email anomaly notification identity repair ACL postflight failed'
+      using errcode = '42501';
+  end if;
+end
+$postflight$;
+
+notify pgrst, 'reload schema';
 
 commit;
