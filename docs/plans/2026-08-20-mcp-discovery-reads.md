@@ -247,7 +247,7 @@ git commit -m "feat(agent-control-plane): derive bounded discovery results"
 
 **Files:**
 
-- Create: `supabase/migrations/20260820220000_agent_discovery_reads.sql`
+- Create: `supabase/migrations/20260822015049_agent_discovery_reads_20260820220000.sql`
 - Create: `tests/unit/supabase/agent-discovery-reads-migration.test.ts`
 - Modify: only prior static assertions that intentionally pin the active manifest wrapper.
 
@@ -300,7 +300,7 @@ Run SQL grammar/catalog-equivalent verification if a disposable Postgres is avai
 ### Step 5: Commit
 
 ```bash
-git add supabase/migrations/20260820220000_agent_discovery_reads.sql \
+git add supabase/migrations/20260822015049_agent_discovery_reads_20260820220000.sql \
   tests/unit/supabase/agent-discovery-reads-migration.test.ts \
   tests/unit/supabase/job-readiness-rpc-contract.test.ts \
   tests/unit/supabase/agent-job-catalog-reads-migration.test.ts

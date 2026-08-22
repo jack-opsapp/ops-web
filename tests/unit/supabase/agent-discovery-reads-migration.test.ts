@@ -3,7 +3,8 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const MIGRATION_NAME = "20260820220000_agent_discovery_reads.sql";
+const MIGRATION_NAME =
+  "20260822015049_agent_discovery_reads_20260820220000.sql";
 const MIGRATION_PATH = join(
   process.cwd(),
   "supabase/migrations",
