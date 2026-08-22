@@ -1,6 +1,6 @@
 # OPS MCP Complete Read Catalogue — P2 Design
 
-**Status:** Written design for Jackson's review, based on the product boundary approved on 2026-08-22. This document does not authorize a database apply, push, deployment, OAuth grant change, or production exposure.
+**Status:** Approved for local implementation by Jackson on 2026-08-22. This approval covers the isolated branch build only; it does not authorize a database apply, push, deployment, OAuth grant change, or production exposure.
 
 ## 1. Outcome
 
