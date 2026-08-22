@@ -119,7 +119,11 @@ export async function POST(request: NextRequest) {
       if (activeConnectionIds.length === 0) {
         return NextResponse.json({
           ok: true,
+          state: "complete",
+          retryable: false,
           connectionsProcessed: 0,
+          failedConnections: 0,
+          pendingConnections: 0,
           totalActivitiesCreated: 0,
           results: [],
         });
@@ -150,6 +154,7 @@ export async function POST(request: NextRequest) {
         matched: number;
         needsReview: number;
         newLeads: number;
+        continuationPending: boolean;
         error?: string;
       }> = [];
 
@@ -163,6 +168,7 @@ export async function POST(request: NextRequest) {
             matched: result.matched,
             needsReview: result.needsReview,
             newLeads: result.newLeads,
+            continuationPending: result.continuationPending,
             ...(result.errors.length > 0
               ? { error: result.errors.join("; ") }
               : {}),
@@ -175,6 +181,7 @@ export async function POST(request: NextRequest) {
             matched: 0,
             needsReview: 0,
             newLeads: 0,
+            continuationPending: false,
             error: err instanceof Error ? err.message : "Unknown error",
           });
         }
@@ -184,13 +191,37 @@ export async function POST(request: NextRequest) {
         (s, r) => s + r.activitiesCreated,
         0
       );
+      const failedConnections = results.filter(
+        (result) => result.error !== undefined
+      ).length;
+      const pendingConnections = results.filter(
+        (result) => result.continuationPending
+      ).length;
+      const state =
+        failedConnections > 0
+          ? failedConnections === results.length
+            ? "failed"
+            : "partial"
+          : pendingConnections > 0
+            ? "continuing"
+            : "complete";
 
-      return NextResponse.json({
-        ok: true,
-        connectionsProcessed: results.length,
-        totalActivitiesCreated: totalActivities,
-        results,
-      });
+      return NextResponse.json(
+        {
+          ok: failedConnections === 0,
+          state,
+          retryable: failedConnections > 0,
+          connectionsProcessed: results.length,
+          failedConnections,
+          pendingConnections,
+          totalActivitiesCreated: totalActivities,
+          results,
+        },
+        {
+          status:
+            failedConnections > 0 ? 503 : pendingConnections > 0 ? 202 : 200,
+        }
+      );
     } catch (err) {
       console.error("[gmail-manual-sync]", err);
       return NextResponse.json(
