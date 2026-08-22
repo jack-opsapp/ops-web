@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/api/services/email-service", () => ({ EmailService: {} }));
@@ -13,6 +14,7 @@ import {
   ApprovedActionEmailReconciliationRecoveryService,
   type ApprovedActionEmailReconciliationRecoveryDependencies,
 } from "@/lib/api/services/approved-action-email-reconciliation-recovery-service";
+import { ApprovedActionEmailIntentService } from "@/lib/api/services/approved-action-email-intent-service";
 import type { ApprovedActionEmailIntent } from "@/lib/api/services/approved-action-email-delivery-service";
 import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
 import type { EmailConnectionSyncLockRunResult } from "@/lib/api/services/email-connection-sync-lock";
@@ -169,6 +171,63 @@ function dependencies() {
 
 describe("ApprovedActionEmailReconciliationRecoveryService", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("treats an all-null composite claim as no work", async () => {
+    const rpc = vi.fn(async (name: string) => {
+      if (name === "finalize_expired_approved_action_email_reconciliations") {
+        return { data: 0, error: null };
+      }
+      if (name === "claim_next_approved_action_email_reconciliation") {
+        return {
+          data: {
+            id: null,
+            action_id: null,
+            connection_id: null,
+            company_id: null,
+            status: null,
+            reconciliation_lease_token: null,
+          },
+          error: null,
+        };
+      }
+      if (name === "project_next_approved_action_email_reconciliation_alert") {
+        return {
+          data: { processed: false, succeeded: true, error: null },
+          error: null,
+        };
+      }
+      throw new Error(`Unexpected RPC: ${name}`);
+    });
+    const intentStore = new ApprovedActionEmailIntentService({
+      rpc,
+    } as unknown as SupabaseClient);
+    const getConnection = vi.fn();
+    const reconcile = vi.fn();
+    const runWithMailboxLease = vi.fn();
+    const service = new ApprovedActionEmailReconciliationRecoveryService({
+      intentStore,
+      getConnection,
+      getProvider: vi.fn(),
+      reconcile,
+      runWithMailboxLease,
+      now: () => new Date("2026-08-22T04:28:00.000Z"),
+    } as ApprovedActionEmailReconciliationRecoveryDependencies);
+
+    await expect(service.process({ limit: 5 })).resolves.toEqual({
+      claimed: 0,
+      reconciled: 0,
+      failed: 0,
+      exhausted: 0,
+      errors: [],
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      "claim_next_approved_action_email_reconciliation",
+      expect.any(Object)
+    );
+    expect(getConnection).not.toHaveBeenCalled();
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(runWithMailboxLease).not.toHaveBeenCalled();
+  });
 
   it("replays one accepted provider identity without requiring an active mailbox or exposing a send method", async () => {
     const deps = dependencies();

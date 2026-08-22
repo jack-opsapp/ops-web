@@ -39,6 +39,27 @@ function firstRow(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+const EMPTY_OPTIONAL_INTENT_KEYS = [
+  "id",
+  "action_id",
+  "company_id",
+  "connection_id",
+  "status",
+  "reconciliation_lease_token",
+] as const;
+
+function isAllNullOptionalIntentRow(row: Record<string, unknown>): boolean {
+  const values = Object.values(row);
+  return (
+    values.length > 0 &&
+    values.every((value) => value === null) &&
+    EMPTY_OPTIONAL_INTENT_KEYS.every(
+      (key) =>
+        Object.prototype.hasOwnProperty.call(row, key) && row[key] === null
+    )
+  );
+}
+
 function iso(value: Date | string): string {
   return value instanceof Date
     ? value.toISOString()
@@ -146,7 +167,11 @@ export class ApprovedActionEmailIntentService implements ApprovedActionEmailInte
       );
     }
     const row = firstRow(data);
-    return row ? mapApprovedActionEmailIntent(row) : null;
+    if (!row || isAllNullOptionalIntentRow(row)) return null;
+    if (!nullableText(row.id)) {
+      throw new Error(`${name} returned an invalid intent`);
+    }
+    return mapApprovedActionEmailIntent(row);
   }
 
   prepare(

@@ -188,6 +188,32 @@ describe("approved-action email delivery", () => {
     );
   });
 
+  it("rejects a partial optional RPC row instead of hiding it as no work", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        id: null,
+        action_id: null,
+        company_id: "company-1",
+        connection_id: null,
+        status: null,
+        reconciliation_lease_token: null,
+      },
+      error: null,
+    });
+    const service = new ApprovedActionEmailIntentService({
+      rpc,
+    } as unknown as SupabaseClient);
+
+    await expect(
+      service.claimNextReconciliation({
+        failedBefore: "2026-08-09T18:09:00.000Z",
+        leaseSeconds: 180,
+      })
+    ).rejects.toThrow(
+      "claim_next_approved_action_email_reconciliation returned an invalid intent"
+    );
+  });
+
   it("renews an exact reconciliation lease through the owner-fenced RPC", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: {
