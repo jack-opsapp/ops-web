@@ -15,6 +15,42 @@ begin;
 
 create extension if not exists pg_trgm with schema extensions;
 
+-- Supabase projects may already have pg_trgm installed in public, while new
+-- projects install it in extensions. Do not relocate the shared extension:
+-- resolve its actual operator-class schema, verify the GIN class belongs to
+-- that extension namespace, and expose only that schema for the index DDL in
+-- this transaction.
+do $pg_trgm_schema$
+declare
+  v_pg_trgm_schema text;
+begin
+  select namespace.nspname
+  into v_pg_trgm_schema
+  from pg_catalog.pg_extension extension
+  join pg_catalog.pg_namespace namespace
+    on namespace.oid = extension.extnamespace
+  join pg_catalog.pg_opclass operator_class
+    on operator_class.opcnamespace = namespace.oid
+   and operator_class.opcname = 'gin_trgm_ops'
+  join pg_catalog.pg_am access_method
+    on access_method.oid = operator_class.opcmethod
+   and access_method.amname = 'gin'
+  where extension.extname = 'pg_trgm';
+
+  if v_pg_trgm_schema is null then
+    raise exception 'agent_discovery_reads_prerequisite_missing: %',
+      'pg_trgm gin_trgm_ops'
+      using errcode = '55000';
+  end if;
+
+  perform pg_catalog.set_config(
+    'search_path',
+    pg_catalog.format('pg_catalog,%I,pg_temp', v_pg_trgm_schema),
+    true
+  );
+end;
+$pg_trgm_schema$;
+
 do $prerequisites$
 declare
   v_signature text;
@@ -469,7 +505,7 @@ create index if not exists clients_agent_discovery_name_prefix_idx
 create index if not exists clients_agent_discovery_name_trgm_idx
   on public.clients using gin (
     (private.agent_normalize_discovery_text(name) collate "C")
-      extensions.gin_trgm_ops
+      gin_trgm_ops
   )
   where deleted_at is null and merged_into_client_id is null;
 create index if not exists clients_agent_discovery_exact_email_idx
@@ -498,7 +534,7 @@ create index if not exists sub_clients_agent_discovery_name_prefix_idx
 create index if not exists sub_clients_agent_discovery_name_trgm_idx
   on public.sub_clients using gin (
     (private.agent_normalize_discovery_text(name) collate "C")
-      extensions.gin_trgm_ops
+      gin_trgm_ops
   ) where deleted_at is null;
 create index if not exists sub_clients_agent_discovery_exact_email_idx
   on public.sub_clients (
@@ -524,7 +560,7 @@ create index if not exists opportunities_agent_discovery_title_prefix_idx
 create index if not exists opportunities_agent_discovery_title_trgm_idx
   on public.opportunities using gin (
     (private.agent_normalize_discovery_text(title) collate "C")
-      extensions.gin_trgm_ops
+      gin_trgm_ops
   ) where deleted_at is null and merged_into_opportunity_id is null;
 create index if not exists opportunities_agent_discovery_address_prefix_idx
   on public.opportunities (
@@ -536,7 +572,7 @@ create index if not exists opportunities_agent_discovery_address_prefix_idx
 create index if not exists opportunities_agent_discovery_address_trgm_idx
   on public.opportunities using gin (
     (private.agent_normalize_discovery_text(address) collate "C")
-      extensions.gin_trgm_ops
+      gin_trgm_ops
   ) where deleted_at is null and merged_into_opportunity_id is null
     ;
 create index if not exists opportunities_agent_discovery_created_keyset_idx
@@ -584,7 +620,7 @@ create index if not exists projects_agent_discovery_title_prefix_idx
 create index if not exists projects_agent_discovery_title_trgm_idx
   on public.projects using gin (
     (private.agent_normalize_discovery_text(title) collate "C")
-      extensions.gin_trgm_ops
+      gin_trgm_ops
   ) where deleted_at is null;
 create index if not exists projects_agent_discovery_address_prefix_idx
   on public.projects (
@@ -595,7 +631,7 @@ create index if not exists projects_agent_discovery_address_prefix_idx
 create index if not exists projects_agent_discovery_address_trgm_idx
   on public.projects using gin (
     (private.agent_normalize_discovery_text(address) collate "C")
-      extensions.gin_trgm_ops
+      gin_trgm_ops
   ) where deleted_at is null;
 create index if not exists projects_agent_discovery_created_keyset_idx
   on public.projects (

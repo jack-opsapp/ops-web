@@ -247,6 +247,14 @@ describe("MCP discovery read migration", () => {
     }
   });
 
+  it("uses the installed pg_trgm operator-class schema instead of assuming extensions", () => {
+    expect(COMPACT_SQL).toContain("pg_catalog.pg_extension");
+    expect(COMPACT_SQL).toContain("pg_catalog.pg_opclass");
+    expect(COMPACT_SQL).toContain("set_config(");
+    expect(COMPACT_SQL).not.toContain("extensions.gin_trgm_ops");
+    expect(count(COMPACT_SQL, /\) gin_trgm_ops/g)).toBe(6);
+  });
+
   it("canonicalizes every proof-bearing display edge without changing interiors", () => {
     for (const expression of [
       "ranked.display_name",
