@@ -49,11 +49,7 @@ const DARK_AVAILABILITY = Object.freeze({
   implementation: "unavailable" as const,
   externalExposure: "disabled" as const,
 });
-const INTERNAL_READ_AVAILABILITY = Object.freeze({
-  implementation: "available" as const,
-  externalExposure: "disabled" as const,
-});
-// P1 MCP mount (2026-08-18): the nine v6 reads are externally exposed. The
+// MCP mount: all eleven implemented reads are externally exposed. The
 // manifest constant IS the rollout control — the MCP transport registers
 // exactly the entries carrying this availability.
 const EXTERNAL_READ_AVAILABILITY = Object.freeze({
@@ -922,7 +918,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       auditClass: "search_read",
       rateLimitBucket: "evidence_search",
     }),
-    availability: INTERNAL_READ_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.search_customers",
   },
   {
@@ -948,7 +944,7 @@ export const READ_CAPABILITY_DEFINITIONS = [
       auditClass: "search_read",
       rateLimitBucket: "evidence_search",
     }),
-    availability: INTERNAL_READ_AVAILABILITY,
+    availability: EXTERNAL_READ_AVAILABILITY,
     rolloutFlag: "agent_control_plane.capability.search_jobs",
   },
   {

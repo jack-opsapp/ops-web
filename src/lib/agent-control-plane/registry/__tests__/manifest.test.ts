@@ -907,9 +907,8 @@ describe("agent capability manifest", () => {
   });
 
   it("keeps implementation availability separate from external exposure", () => {
-    // The original nine reads remain externally exposed. Discovery is fully
-    // implemented but stays internal-only until its database rollout and
-    // production acceptance gates are separately authorized.
+    // All eleven implemented reads are externally exposed. Every unavailable
+    // read and every mutation remains dark.
     for (const capability of CAPABILITY_MANIFEST) {
       const externallyExposed = [
         "get_job_conversation_context",
@@ -920,14 +919,12 @@ describe("agent capability manifest", () => {
         "get_job_summary",
         "search_job_history",
         "get_correspondence_evidence",
+        "search_customers",
+        "search_jobs",
         "resolve_job_participants",
       ].includes(capability.name);
-      const internalDiscovery = ["search_customers", "search_jobs"].includes(
-        capability.name
-      );
       expect(capability.availability).toEqual({
-        implementation:
-          externallyExposed || internalDiscovery ? "available" : "unavailable",
+        implementation: externallyExposed ? "available" : "unavailable",
         externalExposure: externallyExposed ? "enabled" : "disabled",
       });
       expect(capability.rolloutFlag).toMatch(

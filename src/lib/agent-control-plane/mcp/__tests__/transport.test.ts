@@ -293,7 +293,7 @@ describe("tool listing", () => {
     }
   });
 
-  it("lists all nine with JSON-serializable schemas when all are exposed", async () => {
+  it("lists the original nine with JSON-serializable schemas when exposed", async () => {
     exposedOverride = new Set(CAPABILITY_NAMES);
     const { service } = fakeDomainService(() => ({}));
     const { payload } = await listTools(buildHandler(service));
@@ -757,7 +757,7 @@ describe("/api/mcp route gate", () => {
   });
 });
 
-describe("per-capability dispatch across the nine reads", () => {
+describe("per-capability dispatch across the original nine reads", () => {
   const U = "55555555-5555-4555-8555-555555555555";
   const MINIMAL_INPUTS: Readonly<
     Record<string, { input: unknown; method: string }>
@@ -845,7 +845,7 @@ describe("per-capability dispatch across the nine reads", () => {
 });
 
 describe("real manifest exposure state (P1 ship pin)", () => {
-  it("keeps the established nine reads externally callable under the v7 manifest", async () => {
+  it("keeps all eleven reads externally callable under the v7 manifest", async () => {
     const actual = await vi.importActual<
       typeof import("@/lib/agent-control-plane/registry/capability-manifest")
     >("@/lib/agent-control-plane/registry/capability-manifest");
@@ -858,7 +858,7 @@ describe("real manifest exposure state (P1 ship pin)", () => {
       "2026-08-20.capability-manifest.v7"
     );
     expect(exposed.map((entry) => entry.name).sort()).toEqual(
-      [...CAPABILITY_NAMES].sort()
+      [...ALL_READ_CAPABILITY_NAMES].sort()
     );
     for (const entry of exposed) {
       expect(entry.operation).toBe("read");
@@ -876,7 +876,7 @@ describe("real manifest exposure state (P1 ship pin)", () => {
         (candidate) => candidate.name === capabilityName
       );
       expect(entry?.operation).toBe("read");
-      expect(entry?.availability.externalExposure).toBe("disabled");
+      expect(entry?.availability.externalExposure).toBe("enabled");
       expect(entry?.annotations.readOnlyHint).toBe(true);
       expect(entry?.annotations.destructiveHint).toBe(false);
     }

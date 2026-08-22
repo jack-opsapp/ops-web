@@ -30,7 +30,7 @@ function requirementLabels(
 }
 
 describe("discovery manifest v7", () => {
-  it("mints every policy under immutable v7 with discovery internal-only", () => {
+  it("mints every policy under immutable v7 with discovery externally exposed", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(EXPECTED_MANIFEST_REVISION);
     expect(Object.isFrozen(CAPABILITY_MANIFEST)).toBe(true);
 
@@ -59,7 +59,7 @@ describe("discovery manifest v7", () => {
       rateLimitBucket: "evidence_search",
       availability: {
         implementation: "available",
-        externalExposure: "disabled",
+        externalExposure: "enabled",
       },
     });
     expect(getCapabilityManifestEntry("search_jobs")).toMatchObject({
@@ -78,7 +78,7 @@ describe("discovery manifest v7", () => {
       rateLimitBucket: "evidence_search",
       availability: {
         implementation: "available",
-        externalExposure: "disabled",
+        externalExposure: "enabled",
       },
     });
   });

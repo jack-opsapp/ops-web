@@ -16,7 +16,7 @@ import {
 
 /**
  * The consent surface must publish exactly the union of every OAuth scope the
- * nine implemented v6 reads require — no less, or a fully consented connection
+ * eleven implemented reads require — no less, or a fully consented connection
  * still gets `insufficient_scope`; no more, or consent over-grants.
  */
 const CANONICAL_ORDER: readonly string[] = [
@@ -30,8 +30,8 @@ const CANONICAL_ORDER: readonly string[] = [
 ];
 
 /**
- * The nine v6 reads are the ones the domain service implements; the two
- * site-visit capabilities remain dark. Only the implemented set can ever be
+ * The original nine v6 reads and the two v7 discovery reads are implemented;
+ * the two site-visit capabilities remain dark. Only the implemented set can be
  * dispatched through the MCP mount, so it is the set the consent grant must
  * be able to satisfy.
  */
@@ -216,7 +216,7 @@ describe("requested scope resolution", () => {
 });
 
 describe("capability manifest consistency", () => {
-  it("implements eleven reads while discovery remains outside the external mount", () => {
+  it("implements the complete eleven-read external mount", () => {
     expect(IMPLEMENTED_READS.map((definition) => definition.name)).toEqual([
       "list_scheduled_jobs",
       "list_job_readiness_issues",

@@ -362,12 +362,9 @@ describe("OpsAgentDomainService", () => {
       CAPABILITY_MANIFEST.every(
         (capability) =>
           capability.availability.externalExposure ===
-          (capability.name === "search_customers" ||
-          capability.name === "search_jobs"
-            ? "disabled"
-            : capability.availability.implementation === "available"
-              ? "enabled"
-              : "disabled")
+          (capability.availability.implementation === "available"
+            ? "enabled"
+            : "disabled")
       )
     ).toBe(true);
   });

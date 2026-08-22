@@ -448,7 +448,7 @@ async function actorErrorFrom(promise: Promise<unknown>) {
 }
 
 describe("operational reads domain facade", () => {
-  it("exposes exactly the implemented domain methods and keeps both new capabilities internal-only", async () => {
+  it("exposes exactly the implemented domain methods and all eleven reads", async () => {
     type ExpectedScheduleMethod = (
       actor: ActorContext,
       input: ListScheduledJobsInput,
@@ -529,12 +529,9 @@ describe("operational reads domain facade", () => {
       CAPABILITY_MANIFEST.every(
         (capability) =>
           capability.availability.externalExposure ===
-          (capability.name === "search_customers" ||
-          capability.name === "search_jobs"
-            ? "disabled"
-            : capability.availability.implementation === "available"
-              ? "enabled"
-              : "disabled")
+          (capability.availability.implementation === "available"
+            ? "enabled"
+            : "disabled")
       )
     ).toBe(true);
   });

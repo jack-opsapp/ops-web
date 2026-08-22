@@ -222,7 +222,7 @@ describe("Task 13 job-catalog domain facade", () => {
     }
   );
 
-  it("keeps Task 13 exposed while discovery remains internal-only", () => {
+  it("keeps Task 13 and discovery exposed as read-only capabilities", () => {
     expect(CAPABILITY_MANIFEST_REVISION).toBe(TASK_13_MANIFEST_REVISION);
     for (const capabilityName of TASK_13_CAPABILITIES) {
       const capability = CAPABILITY_MANIFEST.find(
@@ -239,7 +239,7 @@ describe("Task 13 job-catalog domain facade", () => {
           ?.availability
       ).toEqual({
         implementation: "available",
-        externalExposure: "disabled",
+        externalExposure: "enabled",
       });
     }
     expect(
