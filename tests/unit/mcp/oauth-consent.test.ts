@@ -1,7 +1,15 @@
 import { createHash } from "node:crypto";
 
 import { NextResponse } from "next/server";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 /**
  * MCP OAuth consent surface — context + decision endpoints (P1 plan Task 5).
@@ -34,7 +42,10 @@ vi.mock("@/lib/utils/ratelimit", () => ({
 
 import { POST as contextPOST } from "@/app/api/mcp/oauth/authorize/context/route";
 import { POST as decisionPOST } from "@/app/api/mcp/oauth/authorize/decision/route";
-import { SUPPORTED_READ_SCOPES } from "@/lib/agent-control-plane/mcp/oauth/scopes";
+import {
+  SCOPE_CONSENT_LABELS,
+  SUPPORTED_READ_SCOPES,
+} from "@/lib/agent-control-plane/mcp/oauth/scopes";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -48,6 +59,11 @@ const CODE_CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 const USER_ID = "8e811f98-9f2b-4f64-b409-ed56074b7dc8";
 const COMPANY_ID = "ddee107c-33cd-483e-8278-0f8d8a180181";
 const COMPANY_NAME = "MAVERICK PROJECTS LTD";
+const CONSENT_CATALOG_REVISION = "2026-08-22.mcp-consent-catalog.v1";
+const EXPOSURE_REVISION = "2026-08-22.mcp-exposure.v1";
+const CONSENT_PREVIEW =
+  "ops_mcp_cp_dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+const CONSENT_PREVIEW_EXPIRES_AT = "2026-08-23T07:05:00.000Z";
 
 const CLIENT_ROW = {
   client_id: CLIENT_ID,
@@ -55,7 +71,31 @@ const CLIENT_ROW = {
   redirect_uris: [REDIRECT_URI],
   token_endpoint_auth_method: "none",
   scope: SUPPORTED_READ_SCOPES.join(" "),
+  scope_ceiling: [...SUPPORTED_READ_SCOPES],
+  consent_catalog_revision: "2026-08-22.mcp-consent-catalog.v1",
+  exposure_revision: "2026-08-22.mcp-exposure.v1",
   disabled: false,
+};
+
+const CONSUMED_PREVIEW_ROW = {
+  client_id: CLIENT_ID,
+  user_id: USER_ID,
+  company_id: COMPANY_ID,
+  client_name: "Claude",
+  company_name: COMPANY_NAME,
+  redirect_uri: REDIRECT_URI,
+  response_type: "code",
+  scopes: [...SUPPORTED_READ_SCOPES],
+  accepted_labels: SUPPORTED_READ_SCOPES.map(
+    (scope) => SCOPE_CONSENT_LABELS[scope]
+  ),
+  consent_catalog_revision: CONSENT_CATALOG_REVISION,
+  exposure_revision: EXPOSURE_REVISION,
+  state: "opaque-anti-csrf-state",
+  code_challenge: CODE_CHALLENGE,
+  code_challenge_method: "S256",
+  resource: RESOURCE,
+  expires_at: CONSENT_PREVIEW_EXPIRES_AT,
 };
 
 let originalAppUrl: string | undefined;
@@ -101,16 +141,6 @@ function contextBody(overrides: Record<string, unknown> = {}) {
   return {
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
-    scope: SUPPORTED_READ_SCOPES.join(" "),
-    ...overrides,
-  };
-}
-
-function decisionBody(overrides: Record<string, unknown> = {}) {
-  return {
-    decision: "approve",
-    client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
     response_type: "code",
     scope: SUPPORTED_READ_SCOPES.join(" "),
     state: "opaque-anti-csrf-state",
@@ -119,6 +149,32 @@ function decisionBody(overrides: Record<string, unknown> = {}) {
     resource: RESOURCE,
     ...overrides,
   };
+}
+
+function decisionBody(overrides: Record<string, unknown> = {}) {
+  return {
+    decision: "approve",
+    consent_preview: CONSENT_PREVIEW,
+    ...overrides,
+  };
+}
+
+function mockConsumedPreview(overrides: Record<string, unknown>): void {
+  mocks.rpc.mockImplementation(async (fn: string) => {
+    if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+      return {
+        data: [{ ...CONSUMED_PREVIEW_ROW, ...overrides }],
+        error: null,
+      };
+    }
+    if (fn === "get_mcp_oauth_client_as_system") {
+      return { data: [CLIENT_ROW], error: null };
+    }
+    if (fn === "create_mcp_oauth_authorization_code_as_system") {
+      return { data: null, error: null };
+    }
+    return { data: null, error: null };
+  });
 }
 
 function createCodeArgs(): Record<string, unknown> {
@@ -151,6 +207,22 @@ beforeEach(() => {
     if (fn === "create_mcp_oauth_authorization_code_as_system") {
       return { data: null, error: null };
     }
+    if (fn === "issue_mcp_oauth_consent_preview_as_system") {
+      return {
+        data: [
+          {
+            client_name: "Claude",
+            company_name: COMPANY_NAME,
+            expires_at: CONSENT_PREVIEW_EXPIRES_AT,
+            rate_limited: false,
+          },
+        ],
+        error: null,
+      };
+    }
+    if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+      return { data: [CONSUMED_PREVIEW_ROW], error: null };
+    }
     return { data: null, error: null };
   });
   mocks.from.mockImplementation(() =>
@@ -170,7 +242,9 @@ describe("MCP OAuth consent — authentication", () => {
       NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     );
 
-    const response = await contextPOST(post("/api/mcp/oauth/authorize/context", contextBody()));
+    const response = await contextPOST(
+      post("/api/mcp/oauth/authorize/context", contextBody())
+    );
 
     expect(response.status).toBe(401);
     expect(mocks.rpc).not.toHaveBeenCalled();
@@ -203,6 +277,10 @@ describe("MCP OAuth consent — context", () => {
     const json = await response.json();
     expect(json.clientName).toBe("Claude");
     expect(json.companyName).toBe(COMPANY_NAME);
+    expect(json.consentCatalogRevision).toBe(CONSENT_CATALOG_REVISION);
+    expect(json.exposureRevision).toBe(EXPOSURE_REVISION);
+    expect(json.consentPreview).toMatch(/^ops_mcp_cp_[A-Za-z0-9_-]{43}$/);
+    expect(json.expiresAt).toBe(CONSENT_PREVIEW_EXPIRES_AT);
     expect(json.scopes.map((s: { scope: string }) => s.scope)).toEqual([
       ...SUPPORTED_READ_SCOPES,
     ]);
@@ -211,14 +289,41 @@ describe("MCP OAuth consent — context", () => {
       expect(line.label.length).toBeGreaterThan(0);
     }
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+    const issueCall = mocks.rpc.mock.calls.find(
+      ([fn]) => fn === "issue_mcp_oauth_consent_preview_as_system"
+    );
+    expect(issueCall).toBeTruthy();
+    expect(issueCall?.[1]).toMatchObject({
+      p_client_id: CLIENT_ID,
+      p_user_id: USER_ID,
+      p_company_id: COMPANY_ID,
+      p_redirect_uri: REDIRECT_URI,
+      p_response_type: "code",
+      p_scopes: [...SUPPORTED_READ_SCOPES],
+      p_accepted_labels: SUPPORTED_READ_SCOPES.map(
+        (scope) => SCOPE_CONSENT_LABELS[scope]
+      ),
+      p_consent_catalog_revision: CONSENT_CATALOG_REVISION,
+      p_exposure_revision: EXPOSURE_REVISION,
+      p_state: "opaque-anti-csrf-state",
+      p_code_challenge: CODE_CHALLENGE,
+      p_code_challenge_method: "S256",
+      p_resource: RESOURCE,
+    });
+    expect(issueCall?.[1]?.p_preview_hash).toBe(
+      createHash("sha256")
+        .update(json.consentPreview as string, "utf8")
+        .digest("hex")
+    );
+    expect(issueCall?.[1]?.p_preview_hash).not.toBe(json.consentPreview);
   });
 
   it("defaults to the full read set when scope is omitted", async () => {
     const response = await contextPOST(
-      post("/api/mcp/oauth/authorize/context", {
-        client_id: CLIENT_ID,
-        redirect_uri: REDIRECT_URI,
-      })
+      post(
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ scope: undefined })
+      )
     );
 
     expect(response.status).toBe(200);
@@ -238,10 +343,7 @@ describe("MCP OAuth consent — context", () => {
   });
 
   it("rejects a disabled client with the uniform error", async () => {
-    mocks.rpc.mockImplementation(async () => ({
-      data: [{ ...CLIENT_ROW, disabled: true }],
-      error: null,
-    }));
+    mocks.rpc.mockImplementation(async () => ({ data: [], error: null }));
 
     const response = await contextPOST(
       post("/api/mcp/oauth/authorize/context", contextBody())
@@ -253,7 +355,10 @@ describe("MCP OAuth consent — context", () => {
 
   it("rejects a malformed client id with the uniform error", async () => {
     const response = await contextPOST(
-      post("/api/mcp/oauth/authorize/context", contextBody({ client_id: "claude" }))
+      post(
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ client_id: "claude" })
+      )
     );
 
     expect(response.status).toBe(400);
@@ -274,10 +379,7 @@ describe("MCP OAuth consent — context", () => {
   });
 
   it("rejects an allowlisted redirect the client never registered", async () => {
-    mocks.rpc.mockImplementation(async () => ({
-      data: [{ ...CLIENT_ROW, redirect_uris: ["https://claude.com/api/mcp/auth_callback"] }],
-      error: null,
-    }));
+    mocks.rpc.mockImplementation(async () => ({ data: [], error: null }));
 
     const response = await contextPOST(
       post("/api/mcp/oauth/authorize/context", contextBody())
@@ -299,14 +401,40 @@ describe("MCP OAuth consent — context", () => {
     expect(await response.json()).toEqual({ error: "invalid_request" });
   });
 
+  it("rejects a scope outside the dynamically registered client's immutable ceiling", async () => {
+    mocks.rpc.mockImplementation(async () => ({ data: [], error: null }));
+
+    const response = await contextPOST(
+      post(
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ scope: "ops.schedule.read" })
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_request" });
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
   it("never reveals which check failed", async () => {
     const rejections = await Promise.all([
-      contextPOST(post("/api/mcp/oauth/authorize/context", contextBody({ client_id: "nope" }))),
       contextPOST(
-        post("/api/mcp/oauth/authorize/context", contextBody({ redirect_uri: FOREIGN_REDIRECT }))
+        post(
+          "/api/mcp/oauth/authorize/context",
+          contextBody({ client_id: "nope" })
+        )
       ),
       contextPOST(
-        post("/api/mcp/oauth/authorize/context", contextBody({ scope: "ops.everything" }))
+        post(
+          "/api/mcp/oauth/authorize/context",
+          contextBody({ redirect_uri: FOREIGN_REDIRECT })
+        )
+      ),
+      contextPOST(
+        post(
+          "/api/mcp/oauth/authorize/context",
+          contextBody({ scope: "ops.everything" })
+        )
       ),
     ]);
 
@@ -315,6 +443,48 @@ describe("MCP OAuth consent — context", () => {
       expect(body).toEqual({ error: "invalid_request" });
     }
   });
+
+  const invalidAuthorizationCases: Array<[string, Record<string, unknown>]> = [
+    ["implicit response type", { response_type: "token" }],
+    ["absent response type", { response_type: undefined }],
+    ["downgraded PKCE method", { code_challenge_method: "plain" }],
+    ["absent PKCE method", { code_challenge_method: undefined }],
+    ["absent code challenge", { code_challenge: undefined }],
+    ["short code challenge", { code_challenge: "too-short" }],
+    ["oversized state", { state: "s".repeat(2049) }],
+    ["control-character state", { state: `abc${String.fromCharCode(0)}def` }],
+    ["newline state", { state: "abc\ndef" }],
+    ["DEL-character state", { state: `abc${String.fromCharCode(0x7f)}def` }],
+    ["non-string state", { state: 42 }],
+    ["foreign audience", { resource: "https://evil.example.com/api/mcp" }],
+    ["wrong path audience", { resource: `${APP_URL}/api/other` }],
+    ["unparseable audience", { resource: "not-a-url" }],
+  ];
+
+  for (const [name, overrides] of invalidAuthorizationCases) {
+    it(`rejects ${name} before issuing a preview`, async () => {
+      const body = contextBody();
+      for (const [key, value] of Object.entries(overrides)) {
+        if (value === undefined) {
+          delete (body as Record<string, unknown>)[key];
+        } else {
+          (body as Record<string, unknown>)[key] = value;
+        }
+      }
+
+      const response = await contextPOST(
+        post("/api/mcp/oauth/authorize/context", body)
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "invalid_request" });
+      expect(
+        mocks.rpc.mock.calls.some(
+          ([fn]) => fn === "issue_mcp_oauth_consent_preview_as_system"
+        )
+      ).toBe(false);
+    });
+  }
 });
 
 // ─── Decision endpoint — approve ─────────────────────────────────────────────
@@ -340,7 +510,9 @@ describe("MCP OAuth consent — approve", () => {
     const args = createCodeArgs();
 
     // The raw code never reaches storage — only its SHA-256 digest.
-    const expectedHash = createHash("sha256").update(code as string, "utf8").digest("hex");
+    const expectedHash = createHash("sha256")
+      .update(code as string, "utf8")
+      .digest("hex");
     expect(args.p_code_hash).toBe(expectedHash);
     expect(args.p_code_hash).not.toBe(code);
     expect(String(args.p_code_hash)).toMatch(/^[0-9a-f]{64}$/);
@@ -352,6 +524,13 @@ describe("MCP OAuth consent — approve", () => {
 
     // Scopes land in canonical order, not request order.
     expect(args.p_scopes).toEqual([...SUPPORTED_READ_SCOPES]);
+    expect(args.p_accepted_labels).toEqual(
+      SUPPORTED_READ_SCOPES.map((scope) => SCOPE_CONSENT_LABELS[scope])
+    );
+    expect(args.p_consent_catalog_revision).toBe(
+      "2026-08-22.mcp-consent-catalog.v1"
+    );
+    expect(args.p_exposure_revision).toBe("2026-08-22.mcp-exposure.v1");
 
     expect(args.p_redirect_uri).toBe(REDIRECT_URI);
     expect(args.p_code_challenge).toBe(CODE_CHALLENGE);
@@ -364,32 +543,38 @@ describe("MCP OAuth consent — approve", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
-  it("defaults the audience to the configured resource when absent", async () => {
-    const body = decisionBody();
-    delete (body as Record<string, unknown>).resource;
-
-    const response = await decisionPOST(post("/api/mcp/oauth/authorize/decision", body));
+  it("uses the audience from the consumed snapshot", async () => {
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
 
     expect(response.status).toBe(200);
     expect(createCodeArgs().p_resource).toBe(RESOURCE);
   });
 
-  it("preserves the canonical scope order when the request scrambles it", async () => {
+  it("canonicalizes scrambled scopes before storing the visible preview", async () => {
     const scrambled = [...SUPPORTED_READ_SCOPES].reverse().join(" ");
 
-    const response = await decisionPOST(
-      post("/api/mcp/oauth/authorize/decision", decisionBody({ scope: scrambled }))
+    const response = await contextPOST(
+      post(
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ scope: scrambled })
+      )
     );
 
     expect(response.status).toBe(200);
-    expect(createCodeArgs().p_scopes).toEqual([...SUPPORTED_READ_SCOPES]);
+    const issueCall = mocks.rpc.mock.calls.find(
+      ([fn]) => fn === "issue_mcp_oauth_consent_preview_as_system"
+    );
+    expect(issueCall?.[1]?.p_scopes).toEqual([...SUPPORTED_READ_SCOPES]);
   });
 
-  it("omits state from the redirect when the client sent none", async () => {
-    const body = decisionBody();
-    delete (body as Record<string, unknown>).state;
+  it("omits state from the redirect when the stored snapshot has none", async () => {
+    mockConsumedPreview({ state: null });
 
-    const response = await decisionPOST(post("/api/mcp/oauth/authorize/decision", body));
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
 
     expect(response.status).toBe(200);
     const { redirect_to: redirectTo } = await response.json();
@@ -397,16 +582,19 @@ describe("MCP OAuth consent — approve", () => {
     expect(redirectTo.startsWith(`${REDIRECT_URI}?code=`)).toBe(true);
   });
 
-  it("accepts a non-canonical resource that canonicalizes to the audience", async () => {
-    const response = await decisionPOST(
+  it("canonicalizes the resource before storing the visible preview", async () => {
+    const response = await contextPOST(
       post(
-        "/api/mcp/oauth/authorize/decision",
-        decisionBody({ resource: "https://APP.OPSAPP.CO:443/api/mcp/" })
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ resource: "https://APP.OPSAPP.CO:443/api/mcp/" })
       )
     );
 
     expect(response.status).toBe(200);
-    expect(createCodeArgs().p_resource).toBe(RESOURCE);
+    const issueCall = mocks.rpc.mock.calls.find(
+      ([fn]) => fn === "issue_mcp_oauth_consent_preview_as_system"
+    );
+    expect(issueCall?.[1]?.p_resource).toBe(RESOURCE);
   });
 });
 
@@ -415,7 +603,10 @@ describe("MCP OAuth consent — approve", () => {
 describe("MCP OAuth consent — deny", () => {
   it("returns an access_denied redirect carrying state, minting nothing", async () => {
     const response = await decisionPOST(
-      post("/api/mcp/oauth/authorize/decision", decisionBody({ decision: "deny" }))
+      post(
+        "/api/mcp/oauth/authorize/decision",
+        decisionBody({ decision: "deny" })
+      )
     );
 
     expect(response.status).toBe(200);
@@ -434,11 +625,15 @@ describe("MCP OAuth consent — deny", () => {
     ).toBe(false);
   });
 
-  it("omits state from the denial redirect when the client sent none", async () => {
-    const body = decisionBody({ decision: "deny" });
-    delete (body as Record<string, unknown>).state;
+  it("omits state from the denial redirect when the snapshot has none", async () => {
+    mockConsumedPreview({ state: null });
 
-    const response = await decisionPOST(post("/api/mcp/oauth/authorize/decision", body));
+    const response = await decisionPOST(
+      post(
+        "/api/mcp/oauth/authorize/decision",
+        decisionBody({ decision: "deny" })
+      )
+    );
 
     const { redirect_to: redirectTo } = await response.json();
     expect(redirectTo).toBe(`${REDIRECT_URI}?error=access_denied`);
@@ -448,25 +643,83 @@ describe("MCP OAuth consent — deny", () => {
 // ─── Decision endpoint — parameter tampering ─────────────────────────────────
 
 describe("MCP OAuth consent — decision rejects tampering", () => {
+  it("rejects a different allowed scope set than the exact labels shown in context", async () => {
+    const shownScope = SUPPORTED_READ_SCOPES[0];
+    const substitutedScopes = SUPPORTED_READ_SCOPES.slice(0, 2).join(" ");
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+        return {
+          data: [
+            {
+              ...CONSUMED_PREVIEW_ROW,
+              scopes: [shownScope],
+              accepted_labels: [SCOPE_CONSENT_LABELS[shownScope]],
+            },
+          ],
+          error: null,
+        };
+      }
+      if (fn === "get_mcp_oauth_client_as_system") {
+        return { data: [CLIENT_ROW], error: null };
+      }
+      if (fn === "create_mcp_oauth_authorization_code_as_system") {
+        return { data: null, error: null };
+      }
+      return { data: null, error: null };
+    });
+
+    const response = await decisionPOST(
+      post(
+        "/api/mcp/oauth/authorize/decision",
+        decisionBody({ scope: substitutedScopes })
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_request" });
+    expect(
+      mocks.rpc.mock.calls.some(
+        ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"
+      )
+    ).toBe(false);
+  });
+
+  it("rejects an expired, unknown, cross-actor, or already-consumed preview", async () => {
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+        return { data: [], error: null };
+      }
+      return { data: null, error: null };
+    });
+
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_request" });
+    expect(
+      mocks.rpc.mock.calls.some(
+        ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"
+      )
+    ).toBe(false);
+  });
+
   const tamperCases: Array<[string, Record<string, unknown>]> = [
-    ["implicit response_type", { response_type: "token" }],
-    ["absent response_type", { response_type: undefined }],
-    ["downgraded PKCE method", { code_challenge_method: "plain" }],
-    ["absent PKCE method", { code_challenge_method: undefined }],
-    ["absent code challenge", { code_challenge: undefined }],
-    ["short code challenge", { code_challenge: "too-short" }],
-    ["oversized state", { state: "s".repeat(2049) }],
-    ["control-character state", { state: "abc def" }],
-    ["newline state", { state: "abc\ndef" }],
-    ["DEL-character state", { state: `abc${String.fromCharCode(0x7f)}def` }],
-    ["non-string state", { state: 42 }],
-    ["foreign audience", { resource: "https://evil.example.com/api/mcp" }],
-    ["wrong path audience", { resource: `${APP_URL}/api/other` }],
-    ["unparseable audience", { resource: "not-a-url" }],
-    ["scope escalation", { scope: "ops.jobs.read ops.invoices.write" }],
-    ["malformed client id", { client_id: "claude" }],
-    ["unknown decision verb", { decision: "maybe" }],
-    ["absent decision verb", { decision: undefined }],
+    ["an echoed client id", { client_id: CLIENT_ID }],
+    ["an echoed scope", { scope: SUPPORTED_READ_SCOPES[0] }],
+    ["an echoed redirect", { redirect_uri: REDIRECT_URI }],
+    [
+      "an echoed preview expiry",
+      { consent_preview_expires_at: CONSENT_PREVIEW_EXPIRES_AT },
+    ],
+    [
+      "an echoed consent revision",
+      { consent_catalog_revision: CONSENT_CATALOG_REVISION },
+    ],
+    ["an echoed exposure revision", { exposure_revision: EXPOSURE_REVISION }],
+    ["an unknown decision verb", { decision: "maybe" }],
+    ["a malformed preview", { consent_preview: "ops_mcp_cp_short" }],
   ];
 
   for (const [name, overrides] of tamperCases) {
@@ -477,7 +730,9 @@ describe("MCP OAuth consent — decision rejects tampering", () => {
         else (body as Record<string, unknown>)[key] = value;
       }
 
-      const response = await decisionPOST(post("/api/mcp/oauth/authorize/decision", body));
+      const response = await decisionPOST(
+        post("/api/mcp/oauth/authorize/decision", body)
+      );
 
       expect(response.status).toBe(400);
       const json = await response.json();
@@ -485,14 +740,89 @@ describe("MCP OAuth consent — decision rejects tampering", () => {
       expect(json).not.toHaveProperty("redirect_to");
       expect(
         mocks.rpc.mock.calls.some(
-          ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"
+          ([fn]) =>
+            fn === "consume_mcp_oauth_consent_preview_as_system" ||
+            fn === "create_mcp_oauth_authorization_code_as_system"
         )
       ).toBe(false);
     });
   }
 
+  for (const missingKey of ["decision", "consent_preview"] as const) {
+    it(`rejects an absent ${missingKey} with 400 and no database call`, async () => {
+      const body = decisionBody();
+      delete (body as Record<string, unknown>)[missingKey];
+
+      const response = await decisionPOST(
+        post("/api/mcp/oauth/authorize/decision", body)
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "invalid_request" });
+      expect(mocks.rpc).not.toHaveBeenCalled();
+    });
+  }
+
+  it("rejects a stale consent or exposure revision from the consumed snapshot", async () => {
+    mockConsumedPreview({
+      consent_catalog_revision: "2026-08-21.mcp-consent-catalog.v0",
+    });
+
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
+
+    expect(response.status).toBe(400);
+    expect(createCodeArgs).toThrow("authorization code RPC was never called");
+  });
+
+  it("rejects labels that differ from the exact active consent catalogue", async () => {
+    mockConsumedPreview({
+      accepted_labels: SUPPORTED_READ_SCOPES.map(() => "Different label"),
+    });
+
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
+
+    expect(response.status).toBe(400);
+    expect(createCodeArgs).toThrow("authorization code RPC was never called");
+  });
+
+  it("rejects a client whose immutable revisions differ from the preview", async () => {
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+        return { data: [CONSUMED_PREVIEW_ROW], error: null };
+      }
+      if (fn === "get_mcp_oauth_client_as_system") {
+        return {
+          data: [
+            {
+              ...CLIENT_ROW,
+              exposure_revision: "2026-08-21.mcp-exposure.v0",
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
+
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
+
+    expect(response.status).toBe(400);
+    expect(createCodeArgs).toThrow("authorization code RPC was never called");
+  });
+
   it("rejects an unknown client without minting a code", async () => {
-    mocks.rpc.mockImplementation(async () => ({ data: [], error: null }));
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+        return { data: [CONSUMED_PREVIEW_ROW], error: null };
+      }
+      return { data: [], error: null };
+    });
 
     const response = await decisionPOST(
       post("/api/mcp/oauth/authorize/decision", decisionBody())
@@ -503,10 +833,23 @@ describe("MCP OAuth consent — decision rejects tampering", () => {
   });
 
   it("rejects an allowlisted redirect the client never registered", async () => {
-    mocks.rpc.mockImplementation(async () => ({
-      data: [{ ...CLIENT_ROW, redirect_uris: ["https://claude.com/api/mcp/auth_callback"] }],
-      error: null,
-    }));
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+        return { data: [CONSUMED_PREVIEW_ROW], error: null };
+      }
+      if (fn === "get_mcp_oauth_client_as_system") {
+        return {
+          data: [
+            {
+              ...CLIENT_ROW,
+              redirect_uris: ["https://claude.com/api/mcp/auth_callback"],
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
 
     const response = await decisionPOST(
       post("/api/mcp/oauth/authorize/decision", decisionBody())
@@ -515,6 +858,38 @@ describe("MCP OAuth consent — decision rejects tampering", () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "invalid_request" });
   });
+
+  it("does not mint a code for a scope outside the stored client ceiling", async () => {
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === "get_mcp_oauth_client_as_system") {
+        return {
+          data: [
+            {
+              ...CLIENT_ROW,
+              scope: "ops.jobs.read",
+              scope_ceiling: ["ops.jobs.read"],
+            },
+          ],
+          error: null,
+        };
+      }
+      if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+        return { data: [CONSUMED_PREVIEW_ROW], error: null };
+      }
+      if (fn === "create_mcp_oauth_authorization_code_as_system") {
+        return { data: null, error: null };
+      }
+      return { data: null, error: null };
+    });
+
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_request" });
+    expect(createCodeArgs).toThrow("authorization code RPC was never called");
+  });
 });
 
 // ─── Open-redirect containment ───────────────────────────────────────────────
@@ -522,11 +897,9 @@ describe("MCP OAuth consent — decision rejects tampering", () => {
 describe("MCP OAuth consent — a non-allowlisted redirect is never navigated", () => {
   for (const decision of ["approve", "deny"] as const) {
     it(`never returns a redirect_to for a foreign target on ${decision}`, async () => {
+      mockConsumedPreview({ redirect_uri: FOREIGN_REDIRECT });
       const response = await decisionPOST(
-        post(
-          "/api/mcp/oauth/authorize/decision",
-          decisionBody({ decision, redirect_uri: FOREIGN_REDIRECT })
-        )
+        post("/api/mcp/oauth/authorize/decision", decisionBody({ decision }))
       );
 
       expect(response.status).toBe(400);
@@ -538,11 +911,11 @@ describe("MCP OAuth consent — a non-allowlisted redirect is never navigated", 
   }
 
   it("never returns a redirect_to for a scheme-relative target", async () => {
+    mockConsumedPreview({
+      redirect_uri: "//evil.example.com/api/mcp/auth_callback",
+    });
     const response = await decisionPOST(
-      post(
-        "/api/mcp/oauth/authorize/decision",
-        decisionBody({ redirect_uri: "//evil.example.com/api/mcp/auth_callback" })
-      )
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
     );
 
     expect(response.status).toBe(400);
@@ -550,11 +923,9 @@ describe("MCP OAuth consent — a non-allowlisted redirect is never navigated", 
   });
 
   it("never returns a redirect_to for a javascript: target", async () => {
+    mockConsumedPreview({ redirect_uri: "javascript:alert(1)" });
     const response = await decisionPOST(
-      post(
-        "/api/mcp/oauth/authorize/decision",
-        decisionBody({ redirect_uri: "javascript:alert(1)" })
-      )
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
     );
 
     expect(response.status).toBe(400);
@@ -565,8 +936,75 @@ describe("MCP OAuth consent — a non-allowlisted redirect is never navigated", 
 // ─── Rate limiting ───────────────────────────────────────────────────────────
 
 describe("MCP OAuth consent — rate limiting", () => {
+  it("keys preview issuance on the actor and company across all clients", async () => {
+    await contextPOST(post("/api/mcp/oauth/authorize/context", contextBody()));
+    await contextPOST(
+      post(
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ client_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee" })
+      )
+    );
+
+    const expectedLimit = {
+      key: `mcp-oauth-consent-preview:${USER_ID}:${COMPANY_ID}`,
+      limit: 30,
+      windowSec: 300,
+    };
+    expect(mocks.rateLimit).toHaveBeenNthCalledWith(1, expectedLimit);
+    expect(mocks.rateLimit).toHaveBeenNthCalledWith(2, expectedLimit);
+    expect(JSON.stringify(mocks.rateLimit.mock.calls[0]?.[0])).not.toContain(
+      CLIENT_ID
+    );
+  });
+
+  it("returns 429 and performs no preview RPC when issuance is exceeded", async () => {
+    mocks.rateLimit.mockResolvedValue({
+      exceeded: true,
+      count: 31,
+      retryAfterSec: 75,
+    });
+
+    const response = await contextPOST(
+      post("/api/mcp/oauth/authorize/context", contextBody())
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("75");
+    expect(await response.json()).toEqual({ error: "rate_limited" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
+  it("returns 429 without a proof when the database cardinality ceiling wins", async () => {
+    mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === "issue_mcp_oauth_consent_preview_as_system") {
+        return {
+          data: [
+            {
+              client_name: "Claude",
+              company_name: COMPANY_NAME,
+              expires_at: CONSENT_PREVIEW_EXPIRES_AT,
+              rate_limited: true,
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
+
+    const response = await contextPOST(
+      post("/api/mcp/oauth/authorize/context", contextBody())
+    );
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).toBe("300");
+    expect(await response.json()).toEqual({ error: "rate_limited" });
+  });
+
   it("keys the decision limiter on the authenticated user at 30 per 300s", async () => {
-    await decisionPOST(post("/api/mcp/oauth/authorize/decision", decisionBody()));
+    await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
 
     expect(mocks.rateLimit).toHaveBeenCalledWith({
       key: `mcp-oauth-decision:${USER_ID}`,

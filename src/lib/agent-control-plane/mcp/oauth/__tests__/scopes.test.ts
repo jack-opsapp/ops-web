@@ -3,11 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   SCOPE_CONSENT_LABELS,
   SUPPORTED_READ_SCOPES,
+  areScopesWithinCeiling,
   isSupportedReadScope,
-  resolveRequestedScopes,
+  resolveRequestedScopes as resolveRequestedScopesForExposure,
   scopesToParameter,
   type SupportedReadScope,
 } from "@/lib/agent-control-plane/mcp/oauth/scopes";
+import {
+  MCP_EXPOSURE_V1,
+  type McpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import { READ_CAPABILITY_DEFINITIONS } from "@/lib/agent-control-plane/registry/read-tools";
 import {
   CAPABILITY_OAUTH_SCOPES,
@@ -28,6 +33,10 @@ const CANONICAL_ORDER: readonly string[] = [
   "ops.correspondence.read",
   "ops.financials.read",
 ];
+
+function resolveRequestedScopes(rawScope: string | null | undefined) {
+  return resolveRequestedScopesForExposure(rawScope, MCP_EXPOSURE_V1);
+}
 
 /**
  * The original nine v6 reads and the two v7 discovery reads are implemented;
@@ -122,6 +131,50 @@ describe("consent labels", () => {
 });
 
 describe("requested scope resolution", () => {
+  it("rejects a newly exposed scope for an old client ceiling without changing that ceiling", () => {
+    const oldCeiling = Object.freeze([...MCP_EXPOSURE_V1.grantableScopes]);
+    const expandedExposure: McpExposure = Object.freeze({
+      revision: "test.mcp-exposure.v2",
+      toolIds: Object.freeze(["synthetic_read"]),
+      grantableScopes: Object.freeze([
+        ...MCP_EXPOSURE_V1.grantableScopes,
+        "ops.tasks.read",
+      ]),
+    });
+    const requested = resolveRequestedScopesForExposure(
+      "ops.tasks.read",
+      expandedExposure
+    );
+
+    expect(requested).toEqual(["ops.tasks.read"]);
+    expect(areScopesWithinCeiling(requested ?? [], oldCeiling)).toBe(false);
+    expect(oldCeiling).toEqual(MCP_EXPOSURE_V1.grantableScopes);
+    expect(
+      areScopesWithinCeiling(requested ?? [], expandedExposure.grantableScopes)
+    ).toBe(true);
+  });
+
+  it("uses only the exact injected exposure and never the full registered vocabulary", () => {
+    const syntheticExposure: McpExposure = Object.freeze({
+      revision: "test.mcp-exposure.v2",
+      toolIds: Object.freeze(["synthetic_read"]),
+      grantableScopes: Object.freeze(["ops.tasks.read", "ops.catalog.read"]),
+    });
+
+    expect(
+      resolveRequestedScopesForExposure(undefined, syntheticExposure)
+    ).toBe(syntheticExposure.grantableScopes);
+    expect(
+      resolveRequestedScopesForExposure(
+        "ops.catalog.read ops.tasks.read",
+        syntheticExposure
+      )
+    ).toEqual(["ops.tasks.read", "ops.catalog.read"]);
+    expect(
+      resolveRequestedScopesForExposure("ops.jobs.read", syntheticExposure)
+    ).toBeNull();
+  });
+
   it.each([
     { label: "null", requested: null },
     { label: "undefined", requested: undefined },

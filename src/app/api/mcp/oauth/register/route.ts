@@ -23,8 +23,10 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   McpOAuthStoreError,
   registerClient,
+  resolveActiveMcpConsentCatalog,
   validateClientRegistration,
 } from "@/lib/agent-control-plane/mcp/oauth";
+import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { rateLimit } from "@/lib/utils/ratelimit";
 
@@ -98,7 +100,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const validated = validateClientRegistration(payload);
+  const exposure = resolveActiveMcpExposure();
+  const consentCatalog = resolveActiveMcpConsentCatalog();
+  const validated = validateClientRegistration(
+    payload,
+    exposure,
+    consentCatalog
+  );
   if (!validated.ok) {
     return registrationError(
       400,
@@ -113,6 +121,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       clientName: registration.clientName,
       redirectUris: registration.redirectUris,
       scope: registration.scope,
+      scopeCeiling: registration.scopeCeiling,
+      consentCatalogRevision: registration.consentCatalogRevision,
+      exposureRevision: registration.exposureRevision,
       softwareId: registration.softwareId,
       softwareVersion: registration.softwareVersion,
     });

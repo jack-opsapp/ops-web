@@ -22,15 +22,14 @@
 
 import { NextResponse } from "next/server";
 
-import {
-  resolveMcpOAuthConfig,
-  SUPPORTED_READ_SCOPES,
-} from "@/lib/agent-control-plane/mcp/oauth";
+import { resolveMcpOAuthConfig } from "@/lib/agent-control-plane/mcp/oauth";
+import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const DISCOVERY_CACHE_CONTROL = "public, max-age=300";
 
 export async function GET(): Promise<NextResponse> {
   const config = resolveMcpOAuthConfig();
+  const exposure = resolveActiveMcpExposure();
   return NextResponse.json(
     {
       issuer: config.issuer,
@@ -38,7 +37,7 @@ export async function GET(): Promise<NextResponse> {
       token_endpoint: config.tokenEndpoint,
       registration_endpoint: config.registrationEndpoint,
       revocation_endpoint: config.revocationEndpoint,
-      scopes_supported: [...SUPPORTED_READ_SCOPES],
+      scopes_supported: [...exposure.grantableScopes],
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],

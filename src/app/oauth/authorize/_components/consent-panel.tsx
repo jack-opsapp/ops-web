@@ -7,6 +7,13 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { Button } from "@/components/ui/button";
 import { getIdToken } from "@/lib/firebase/auth";
 import { useAuthStore } from "@/lib/store/auth-store";
+import {
+  buildConsentDecisionBody,
+  parseConsentContext,
+  type ConsentAuthorizationParameters,
+  type ConsentContext,
+  type ConsentDecision,
+} from "./consent-protocol";
 
 /**
  * The consent decision surface for the OPS remote MCP mount.
@@ -24,30 +31,9 @@ import { useAuthStore } from "@/lib/store/auth-store";
  * invalid state — an unvalidated redirect target is never navigated.
  */
 
-export interface ConsentPanelProps {
-  readonly clientId: string | null;
-  readonly redirectUri: string | null;
-  readonly responseType: string | null;
-  readonly scope: string | null;
-  readonly state: string | null;
-  readonly codeChallenge: string | null;
-  readonly codeChallengeMethod: string | null;
-  readonly resource: string | null;
-}
-
-interface ConsentScopeLine {
-  readonly scope: string;
-  readonly label: string;
-}
-
-interface ConsentContext {
-  readonly clientName: string;
-  readonly companyName: string;
-  readonly scopes: readonly ConsentScopeLine[];
-}
+export type ConsentPanelProps = ConsentAuthorizationParameters;
 
 type Phase = "verifying" | "ready" | "invalid";
-type Decision = "approve" | "deny";
 
 const CONTEXT_ENDPOINT = "/api/mcp/oauth/authorize/context";
 const DECISION_ENDPOINT = "/api/mcp/oauth/authorize/decision";
@@ -59,31 +45,6 @@ const DISPLAY_TITLE =
   "font-cakemono font-light text-cake-display uppercase tracking-wider text-text";
 /** DESIGN.md §4 — Mohave 400 14px, sentence-case content and entity names. */
 const BODY_TEXT = "font-mohave text-card-body";
-
-function parseContext(value: unknown): ConsentContext | null {
-  if (typeof value !== "object" || value === null) return null;
-  const record = value as Record<string, unknown>;
-  if (typeof record.clientName !== "string" || record.clientName === "") {
-    return null;
-  }
-  if (typeof record.companyName !== "string" || record.companyName === "") {
-    return null;
-  }
-  if (!Array.isArray(record.scopes) || record.scopes.length === 0) return null;
-  const scopes: ConsentScopeLine[] = [];
-  for (const entry of record.scopes) {
-    if (typeof entry !== "object" || entry === null) return null;
-    const line = entry as Record<string, unknown>;
-    if (typeof line.scope !== "string" || line.scope === "") return null;
-    if (typeof line.label !== "string" || line.label === "") return null;
-    scopes.push({ scope: line.scope, label: line.label });
-  }
-  return {
-    clientName: record.clientName,
-    companyName: record.companyName,
-    scopes,
-  };
-}
 
 function readRedirectTarget(value: unknown): string | null {
   if (typeof value !== "object" || value === null) return null;
@@ -116,7 +77,7 @@ function ConsentPanelBody({
 
   const [phase, setPhase] = useState<Phase>("verifying");
   const [context, setContext] = useState<ConsentContext | null>(null);
-  const [pending, setPending] = useState<Decision | null>(null);
+  const [pending, setPending] = useState<ConsentDecision | null>(null);
 
   // The context probe and every navigation must fire exactly once, even
   // though the auth store settles across several renders.
@@ -158,7 +119,9 @@ function ConsentPanelBody({
           if (leavingRef.current) return;
           leavingRef.current = true;
           const here = `${window.location.pathname}${window.location.search}`;
-          window.location.replace(`/login?redirect=${encodeURIComponent(here)}`);
+          window.location.replace(
+            `/login?redirect=${encodeURIComponent(here)}`
+          );
           return;
         }
 
@@ -171,7 +134,12 @@ function ConsentPanelBody({
           body: JSON.stringify({
             client_id: clientId,
             redirect_uri: redirectUri,
+            response_type: responseType,
             scope,
+            state,
+            code_challenge: codeChallenge,
+            code_challenge_method: codeChallengeMethod,
+            resource,
           }),
         });
         if (cancelled) return;
@@ -179,7 +147,7 @@ function ConsentPanelBody({
           setPhase("invalid");
           return;
         }
-        const parsed = parseContext(await response.json());
+        const parsed = parseConsentContext(await response.json());
         if (cancelled) return;
         if (!parsed) {
           setPhase("invalid");
@@ -195,11 +163,22 @@ function ConsentPanelBody({
     return () => {
       cancelled = true;
     };
-  }, [isLoadingAuth, isAuthenticated, clientId, redirectUri, scope]);
+  }, [
+    isLoadingAuth,
+    isAuthenticated,
+    clientId,
+    redirectUri,
+    responseType,
+    scope,
+    state,
+    codeChallenge,
+    codeChallengeMethod,
+    resource,
+  ]);
 
   const submit = useCallback(
-    async (decision: Decision) => {
-      if (pending !== null || leavingRef.current) return;
+    async (decision: ConsentDecision) => {
+      if (pending !== null || leavingRef.current || context === null) return;
       setPending(decision);
       try {
         const idToken = await getIdToken();
@@ -214,17 +193,7 @@ function ConsentPanelBody({
             Authorization: `Bearer ${idToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            decision,
-            client_id: clientId,
-            redirect_uri: redirectUri,
-            response_type: responseType,
-            scope,
-            state,
-            code_challenge: codeChallenge,
-            code_challenge_method: codeChallengeMethod,
-            resource,
-          }),
+          body: JSON.stringify(buildConsentDecisionBody(decision, context)),
         });
         if (!response.ok) {
           setPending(null);
@@ -243,18 +212,7 @@ function ConsentPanelBody({
         setPhase("invalid");
       }
     },
-    [
-      pending,
-      leaveTo,
-      clientId,
-      redirectUri,
-      responseType,
-      scope,
-      state,
-      codeChallenge,
-      codeChallengeMethod,
-      resource,
-    ]
+    [pending, context, leaveTo]
   );
 
   if (phase === "invalid") {

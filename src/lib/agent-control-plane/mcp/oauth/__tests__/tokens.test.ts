@@ -7,15 +7,23 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   AUTHORIZATION_CODE_PREFIX,
   AUTHORIZATION_CODE_TTL_SECONDS,
+  CONSENT_PREVIEW_PREFIX,
+  CONSENT_PREVIEW_TTL_SECONDS,
   REFRESH_TOKEN_PREFIX,
   REFRESH_TOKEN_TTL_SECONDS,
   credentialDigest,
+  isConsentSnapshotValidForExposure,
   isSha256Hex,
   mintCredential,
   secretsEqual,
   sha256Hex,
   type CredentialPrefix,
 } from "@/lib/agent-control-plane/mcp/oauth/tokens";
+import { resolveActiveMcpConsentCatalog } from "@/lib/agent-control-plane/mcp/oauth/scope-catalog";
+import {
+  MCP_EXPOSURE_V1,
+  type McpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const BASE64URL_SECRET = /^[A-Za-z0-9_-]{43}$/;
 const VALID_SECRET = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
@@ -24,6 +32,7 @@ const ALL_PREFIXES: readonly CredentialPrefix[] = [
   ACCESS_TOKEN_PREFIX,
   REFRESH_TOKEN_PREFIX,
   AUTHORIZATION_CODE_PREFIX,
+  CONSENT_PREVIEW_PREFIX,
 ];
 
 describe("MCP OAuth credential minting", () => {
@@ -31,11 +40,13 @@ describe("MCP OAuth credential minting", () => {
     expect(ACCESS_TOKEN_PREFIX).toBe("ops_mcp_at_");
     expect(REFRESH_TOKEN_PREFIX).toBe("ops_mcp_rt_");
     expect(AUTHORIZATION_CODE_PREFIX).toBe("ops_mcp_ac_");
+    expect(CONSENT_PREVIEW_PREFIX).toBe("ops_mcp_cp_");
     expect(new Set(ALL_PREFIXES).size).toBe(ALL_PREFIXES.length);
 
     expect(ACCESS_TOKEN_TTL_SECONDS).toBe(600);
     expect(REFRESH_TOKEN_TTL_SECONDS).toBe(30 * 24 * 60 * 60);
     expect(AUTHORIZATION_CODE_TTL_SECONDS).toBe(300);
+    expect(CONSENT_PREVIEW_TTL_SECONDS).toBe(300);
   });
 
   it.each(ALL_PREFIXES)(
@@ -62,6 +73,94 @@ describe("MCP OAuth credential minting", () => {
       Array.from({ length: 64 }, () => mintCredential(REFRESH_TOKEN_PREFIX))
     );
     expect(batch.size).toBe(64);
+  });
+});
+
+describe("immutable consent claims", () => {
+  const claims = Object.freeze({
+    scopes: Object.freeze(["ops.jobs.read", "ops.schedule.read"]),
+    acceptedLabels: Object.freeze([
+      "See your jobs and their status",
+      "See your schedule and who's assigned",
+    ]),
+    consentCatalogRevision: "2026-08-22.mcp-consent-catalog.v1",
+    exposureRevision: "2026-08-22.mcp-exposure.v1",
+  });
+
+  it("accepts exact code claims only under the active exposure revision", () => {
+    expect(
+      isConsentSnapshotValidForExposure(
+        claims,
+        MCP_EXPOSURE_V1,
+        resolveActiveMcpConsentCatalog(),
+        { requireActiveExposureRevision: true }
+      )
+    ).toBe(true);
+    expect(
+      isConsentSnapshotValidForExposure(
+        { ...claims, exposureRevision: "test.mcp-exposure.v0" },
+        MCP_EXPOSURE_V1,
+        resolveActiveMcpConsentCatalog(),
+        { requireActiveExposureRevision: true }
+      )
+    ).toBe(false);
+  });
+
+  it("keeps an old grant refreshable without adding an expanded exposure scope", () => {
+    const expandedExposure: McpExposure = Object.freeze({
+      revision: "test.mcp-exposure.v2",
+      toolIds: Object.freeze(["synthetic_read"]),
+      grantableScopes: Object.freeze([
+        ...MCP_EXPOSURE_V1.grantableScopes,
+        "ops.tasks.read",
+      ]),
+    });
+
+    expect(
+      isConsentSnapshotValidForExposure(
+        claims,
+        expandedExposure,
+        resolveActiveMcpConsentCatalog(),
+        { requireActiveExposureRevision: false }
+      )
+    ).toBe(true);
+    expect(claims.scopes).toEqual(["ops.jobs.read", "ops.schedule.read"]);
+    expect(claims.scopes).not.toContain("ops.tasks.read");
+  });
+
+  it("fails closed for a widened scope, mismatched label, or wrong consent catalogue", () => {
+    const catalog = resolveActiveMcpConsentCatalog();
+    expect(
+      isConsentSnapshotValidForExposure(
+        {
+          ...claims,
+          scopes: [...claims.scopes, "ops.tasks.read"],
+          acceptedLabels: [
+            ...claims.acceptedLabels,
+            "See tasks and work that needs attention",
+          ],
+        },
+        MCP_EXPOSURE_V1,
+        catalog,
+        { requireActiveExposureRevision: false }
+      )
+    ).toBe(false);
+    expect(
+      isConsentSnapshotValidForExposure(
+        { ...claims, acceptedLabels: ["Wrong", claims.acceptedLabels[1]!] },
+        MCP_EXPOSURE_V1,
+        catalog,
+        { requireActiveExposureRevision: false }
+      )
+    ).toBe(false);
+    expect(
+      isConsentSnapshotValidForExposure(
+        { ...claims, consentCatalogRevision: "test.wrong" },
+        MCP_EXPOSURE_V1,
+        catalog,
+        { requireActiveExposureRevision: false }
+      )
+    ).toBe(false);
   });
 });
 

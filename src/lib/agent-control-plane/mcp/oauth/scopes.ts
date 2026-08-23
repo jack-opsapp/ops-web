@@ -1,6 +1,9 @@
 import "server-only";
 
-import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  MCP_EXPOSURE_V1,
+  type McpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   MCP_SCOPE_CONSENT_LABELS,
   type LabelledMcpScope,
@@ -13,10 +16,8 @@ import {
  * vocabulary.
  */
 
-const ACTIVE_MCP_EXPOSURE = resolveActiveMcpExposure();
-
 export const SUPPORTED_READ_SCOPES =
-  ACTIVE_MCP_EXPOSURE.grantableScopes as readonly LabelledMcpScope[];
+  MCP_EXPOSURE_V1.grantableScopes as readonly LabelledMcpScope[];
 
 export type SupportedReadScope = (typeof SUPPORTED_READ_SCOPES)[number];
 
@@ -26,7 +27,14 @@ const SUPPORTED_READ_SCOPE_SET: ReadonlySet<string> = new Set(
 
 export const SCOPE_CONSENT_LABELS: Readonly<
   Record<SupportedReadScope, string>
-> = MCP_SCOPE_CONSENT_LABELS;
+> = Object.freeze(
+  Object.fromEntries(
+    SUPPORTED_READ_SCOPES.map((scope) => [
+      scope,
+      MCP_SCOPE_CONSENT_LABELS[scope],
+    ])
+  ) as Record<SupportedReadScope, string>
+);
 
 export function isSupportedReadScope(
   value: string
@@ -41,24 +49,43 @@ export function isSupportedReadScope(
  * client asking for authority we do not issue hears "no" explicitly.
  */
 export function resolveRequestedScopes(
-  rawScope: string | null | undefined
-): readonly SupportedReadScope[] | null {
+  rawScope: string | null | undefined,
+  exposure: McpExposure
+): readonly LabelledMcpScope[] | null {
   if (rawScope == null || rawScope.trim() === "") {
-    return SUPPORTED_READ_SCOPES;
+    return exposure.grantableScopes as readonly LabelledMcpScope[];
   }
   const requested = rawScope.trim().split(/\s+/);
   if (requested.length > 32) return null;
-  const resolved = new Set<SupportedReadScope>();
+  const grantable = new Set<string>(exposure.grantableScopes);
+  const resolved = new Set<LabelledMcpScope>();
   for (const scope of requested) {
-    if (!isSupportedReadScope(scope)) return null;
-    resolved.add(scope);
+    if (
+      !grantable.has(scope) ||
+      !Object.prototype.hasOwnProperty.call(MCP_SCOPE_CONSENT_LABELS, scope)
+    ) {
+      return null;
+    }
+    resolved.add(scope as LabelledMcpScope);
   }
   if (resolved.size === 0) return null;
   return Object.freeze(
-    SUPPORTED_READ_SCOPES.filter((scope) => resolved.has(scope))
+    exposure.grantableScopes.filter((scope) =>
+      resolved.has(scope as LabelledMcpScope)
+    ) as LabelledMcpScope[]
   );
 }
 
 export function scopesToParameter(scopes: readonly string[]): string {
   return scopes.join(" ");
+}
+
+/** Exact subset check for an immutable dynamically registered client ceiling. */
+export function areScopesWithinCeiling(
+  scopes: readonly string[],
+  scopeCeiling: readonly string[]
+): boolean {
+  if (scopes.length === 0 || scopeCeiling.length === 0) return false;
+  const ceiling = new Set(scopeCeiling);
+  return scopes.every((scope) => ceiling.has(scope));
 }

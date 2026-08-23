@@ -42,6 +42,7 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   AUTHORIZATION_CODE_PREFIX,
   REFRESH_TOKEN_PREFIX,
+  SCOPE_CONSENT_LABELS,
   SUPPORTED_READ_SCOPES,
   mintCredential,
   resolveMcpOAuthConfig,
@@ -71,6 +72,9 @@ const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const CALLBACK_TWIN = "https://claude.com/api/mcp/auth_callback";
 const CODE_VERIFIER = "ops-mcp-verifier-0123456789abcdefghijklmnopqrstuvwxyz";
 const SCOPES = [...SUPPORTED_READ_SCOPES];
+const ACCEPTED_LABELS = SCOPES.map((scope) => SCOPE_CONSENT_LABELS[scope]);
+const CONSENT_CATALOG_REVISION = "2026-08-22.mcp-consent-catalog.v1";
+const EXPOSURE_REVISION = "2026-08-22.mcp-exposure.v1";
 const SCOPE_PARAMETER = SCOPES.join(" ");
 
 const config = resolveMcpOAuthConfig();
@@ -87,6 +91,9 @@ interface ClientRow {
   redirect_uris: string[];
   token_endpoint_auth_method: "none";
   scope: string;
+  scope_ceiling: string[];
+  consent_catalog_revision: string;
+  exposure_revision: string;
   disabled: boolean;
 }
 
@@ -94,6 +101,9 @@ interface CodeRow {
   user_id: string;
   company_id: string;
   scopes: string[];
+  accepted_labels: string[];
+  consent_catalog_revision: string;
+  exposure_revision: string;
   code_challenge: string;
   resource: string;
 }
@@ -104,6 +114,9 @@ interface RotatedRow {
   user_id: string;
   company_id: string;
   scopes: string[];
+  accepted_labels: string[];
+  consent_catalog_revision: string;
+  exposure_revision: string;
   revision: string;
   issuer: string;
   audience: string;
@@ -136,6 +149,9 @@ function defaultClientRow(): ClientRow {
     redirect_uris: [CALLBACK],
     token_endpoint_auth_method: "none",
     scope: SCOPE_PARAMETER,
+    scope_ceiling: SCOPES,
+    consent_catalog_revision: CONSENT_CATALOG_REVISION,
+    exposure_revision: EXPOSURE_REVISION,
     disabled: false,
   };
 }
@@ -145,6 +161,9 @@ function defaultCodeRow(): CodeRow {
     user_id: USER_ID,
     company_id: COMPANY_ID,
     scopes: SCOPES,
+    accepted_labels: ACCEPTED_LABELS,
+    consent_catalog_revision: CONSENT_CATALOG_REVISION,
+    exposure_revision: EXPOSURE_REVISION,
     code_challenge: s256Challenge(CODE_VERIFIER),
     resource: RESOURCE,
   };
@@ -157,6 +176,9 @@ function defaultRotatedRow(): RotatedRow {
     user_id: USER_ID,
     company_id: COMPANY_ID,
     scopes: SCOPES,
+    accepted_labels: ACCEPTED_LABELS,
+    consent_catalog_revision: CONSENT_CATALOG_REVISION,
+    exposure_revision: EXPOSURE_REVISION,
     revision: REVISION,
     issuer: config.issuer,
     audience: RESOURCE,
@@ -181,6 +203,9 @@ function fakeRpc(fn: string, args: Record<string, unknown>) {
             grant_types: ["authorization_code", "refresh_token"],
             response_types: ["code"],
             scope: args.p_scope,
+            scope_ceiling: args.p_scope_ceiling,
+            consent_catalog_revision: args.p_consent_catalog_revision,
+            exposure_revision: args.p_exposure_revision,
             created_at: "2026-08-18T12:00:00.000Z",
           },
         ],
@@ -361,6 +386,9 @@ describe("POST /api/mcp/oauth/register", () => {
       p_client_name: "Claude",
       p_redirect_uris: [CALLBACK],
       p_scope: SCOPE_PARAMETER,
+      p_scope_ceiling: SCOPES,
+      p_consent_catalog_revision: CONSENT_CATALOG_REVISION,
+      p_exposure_revision: EXPOSURE_REVISION,
       p_software_id: "claude-connector",
       p_software_version: null,
     });
@@ -479,12 +507,14 @@ describe("POST /api/mcp/oauth/token (authorization_code)", () => {
     expect(mint.args.p_refresh_hash).not.toBe(body.refresh_token);
     expect(mint.args.p_user_id).toBe(USER_ID);
     expect(mint.args.p_company_id).toBe(COMPANY_ID);
-    expect(mint.args.p_scopes).toEqual(SCOPES);
+    expect(mint.args).not.toHaveProperty("p_scopes");
+    expect(mint.args.p_active_exposure_revision).toBe(EXPOSURE_REVISION);
+    expect(mint.args.p_active_grantable_scopes).toEqual(SCOPES);
     expect(mint.args.p_issuer).toBe(config.issuer);
     expect(mint.args.p_audience).toBe(RESOURCE);
-    expect(
-      Date.parse(String(mint.args.p_refresh_expires_at))
-    ).toBeGreaterThan(Date.parse(String(mint.args.p_access_expires_at)));
+    expect(Date.parse(String(mint.args.p_refresh_expires_at))).toBeGreaterThan(
+      Date.parse(String(mint.args.p_access_expires_at))
+    );
 
     // The secrets themselves must never reach the store.
     expect(JSON.stringify(state.calls)).not.toContain(body.access_token);
@@ -684,6 +714,8 @@ describe("POST /api/mcp/oauth/token (refresh_token)", () => {
 
     const rotate = lastCallTo("rotate_mcp_oauth_refresh_token_as_system");
     expect(rotate.args.p_presented_hash).toBe(sha256Hex(presented));
+    expect(rotate.args.p_client_id).toBe(CLIENT_ID);
+    expect(rotate.args.p_active_grantable_scopes).toEqual(SCOPES);
     expect(rotate.args.p_new_access_hash).toBe(sha256Hex(body.access_token));
     expect(rotate.args.p_new_refresh_hash).toBe(sha256Hex(body.refresh_token));
     expect(rotate.args.p_new_refresh_hash).not.toBe(body.refresh_token);
@@ -828,7 +860,10 @@ describe("POST /api/mcp/oauth/revoke", () => {
 
   it("answers 200 when no token is presented at all", async () => {
     const response = await revokePost(
-      formRequest("/api/mcp/oauth/revoke", form({ token_type_hint: "refresh_token" }))
+      formRequest(
+        "/api/mcp/oauth/revoke",
+        form({ token_type_hint: "refresh_token" })
+      )
     );
     expect(response.status).toBe(200);
     expect(callsTo("revoke_mcp_oauth_token_as_system")).toHaveLength(0);

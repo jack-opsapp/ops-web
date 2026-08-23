@@ -41,13 +41,21 @@ import {
   credentialDigest,
   getClient,
   isAllowlistedRedirectUri,
+  isConsentSnapshotValidForExposure,
   mintCredential,
   mintGrant,
   resolveMcpOAuthConfig,
+  resolveActiveMcpConsentCatalog,
+  resolveMcpConsentCatalogRevision,
   rotateRefreshToken,
   sha256Hex,
   verifyS256Challenge,
 } from "@/lib/agent-control-plane/mcp/oauth";
+import {
+  resolveActiveMcpExposure,
+  type McpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import type { McpConsentCatalog } from "@/lib/agent-control-plane/mcp/oauth/scope-catalog";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { rateLimit } from "@/lib/utils/ratelimit";
 
@@ -156,7 +164,9 @@ type RpcClient = ReturnType<typeof getServiceRoleClient>;
 
 async function exchangeAuthorizationCode(
   rpc: RpcClient,
-  params: URLSearchParams
+  params: URLSearchParams,
+  exposure: McpExposure,
+  consentCatalog: McpConsentCatalog
 ): Promise<NextResponse> {
   const code = present(params, "code");
   const redirectUri = present(params, "redirect_uri");
@@ -201,6 +211,22 @@ async function exchangeAuthorizationCode(
     return tokenError(400, "invalid_grant");
   }
 
+  if (
+    !isConsentSnapshotValidForExposure(
+      {
+        scopes: codeRow.scopes,
+        acceptedLabels: codeRow.accepted_labels,
+        consentCatalogRevision: codeRow.consent_catalog_revision,
+        exposureRevision: codeRow.exposure_revision,
+      },
+      exposure,
+      consentCatalog,
+      { requireActiveExposureRevision: true }
+    )
+  ) {
+    return tokenError(400, "invalid_grant");
+  }
+
   if (!verifyS256Challenge(codeVerifier, codeRow.code_challenge)) {
     return tokenError(400, "invalid_grant");
   }
@@ -222,7 +248,8 @@ async function exchangeAuthorizationCode(
     clientId,
     userId: codeRow.user_id,
     companyId: codeRow.company_id,
-    scopes: codeRow.scopes,
+    activeExposureRevision: exposure.revision,
+    activeGrantableScopes: exposure.grantableScopes,
     accessHash: minted.accessHash,
     refreshHash: minted.refreshHash,
     issuer: config.issuer,
@@ -240,7 +267,8 @@ async function exchangeAuthorizationCode(
 
 async function exchangeRefreshToken(
   rpc: RpcClient,
-  params: URLSearchParams
+  params: URLSearchParams,
+  exposure: McpExposure
 ): Promise<NextResponse> {
   const presented = present(params, "refresh_token");
   const clientId = present(params, "client_id");
@@ -264,6 +292,8 @@ async function exchangeRefreshToken(
   const minted = mintPair();
   const rotated = await rotateRefreshToken(rpc, {
     presentedHash,
+    clientId,
+    activeGrantableScopes: exposure.grantableScopes,
     newAccessHash: minted.accessHash,
     newRefreshHash: minted.refreshHash,
     accessExpiresAt: minted.accessExpiresAt,
@@ -279,11 +309,33 @@ async function exchangeRefreshToken(
     return tokenError(400, "invalid_grant");
   }
 
-  // A refresh token presented under a different client_id than the one it was
-  // issued to. The rotation has already happened (the RPC keys on the token
-  // hash alone), which costs the legitimate holder a re-auth — a denial, not
-  // a disclosure. Nothing is returned to the presenter.
+  // Defence in depth: the RPC binds the presented token to this client before
+  // rotation; reject any malformed result that violates that binding.
   if (rotated.client_id !== clientId) {
+    return tokenError(400, "invalid_grant");
+  }
+
+  let consentCatalog: McpConsentCatalog;
+  try {
+    consentCatalog = resolveMcpConsentCatalogRevision(
+      rotated.consent_catalog_revision
+    );
+  } catch {
+    return tokenError(400, "invalid_grant");
+  }
+  if (
+    !isConsentSnapshotValidForExposure(
+      {
+        scopes: rotated.scopes,
+        acceptedLabels: rotated.accepted_labels,
+        consentCatalogRevision: rotated.consent_catalog_revision,
+        exposureRevision: rotated.exposure_revision,
+      },
+      exposure,
+      consentCatalog,
+      { requireActiveExposureRevision: false }
+    )
+  ) {
     return tokenError(400, "invalid_grant");
   }
 
@@ -336,9 +388,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   try {
     const rpc = getServiceRoleClient();
+    const exposure = resolveActiveMcpExposure();
+    const consentCatalog = resolveActiveMcpConsentCatalog();
     return grantType === "authorization_code"
-      ? await exchangeAuthorizationCode(rpc, params)
-      : await exchangeRefreshToken(rpc, params);
+      ? await exchangeAuthorizationCode(rpc, params, exposure, consentCatalog)
+      : await exchangeRefreshToken(rpc, params, exposure);
   } catch (error) {
     console.error(
       "[mcp-oauth-token] exchange failed",

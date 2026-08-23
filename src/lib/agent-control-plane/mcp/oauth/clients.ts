@@ -1,6 +1,11 @@
 import "server-only";
 
+import {
+  consentSnapshotForExposure,
+  type McpConsentCatalog,
+} from "./scope-catalog";
 import { resolveRequestedScopes, scopesToParameter } from "./scopes";
+import type { McpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 /**
  * Dynamic client registration policy (RFC 7591) for the MCP mount.
@@ -39,6 +44,9 @@ export interface ValidatedClientRegistration {
   readonly clientName: string;
   readonly redirectUris: readonly string[];
   readonly scope: string;
+  readonly scopeCeiling: readonly string[];
+  readonly consentCatalogRevision: string;
+  readonly exposureRevision: string;
   readonly softwareId: string | null;
   readonly softwareVersion: string | null;
 }
@@ -95,7 +103,9 @@ function stringArray(value: unknown): readonly string[] | null {
  * validated exactly.
  */
 export function validateClientRegistration(
-  payload: unknown
+  payload: unknown,
+  exposure: McpExposure,
+  consentCatalog: McpConsentCatalog
 ): ClientRegistrationResult {
   if (
     typeof payload !== "object" ||
@@ -132,7 +142,7 @@ export function validateClientRegistration(
   if (authMethod !== undefined && authMethod !== "none") {
     return reject(
       "invalid_client_metadata",
-      "Only public clients (token_endpoint_auth_method \"none\") are supported."
+      'Only public clients (token_endpoint_auth_method "none") are supported.'
     );
   }
 
@@ -162,7 +172,7 @@ export function validateClientRegistration(
     ) {
       return reject(
         "invalid_client_metadata",
-        "response_types must be exactly [\"code\"]."
+        'response_types must be exactly ["code"].'
       );
     }
   }
@@ -173,7 +183,11 @@ export function validateClientRegistration(
   if (scopeValue !== undefined && typeof scopeValue !== "string") {
     return reject("invalid_client_metadata", "scope must be a string.");
   }
-  const resolvedScopes = resolveRequestedScopes(scopeValue as string | undefined);
+  const exposureSnapshot = consentSnapshotForExposure(exposure, consentCatalog);
+  const resolvedScopes = resolveRequestedScopes(
+    scopeValue as string | undefined,
+    exposure
+  );
   if (!resolvedScopes) {
     return reject(
       "invalid_client_metadata",
@@ -193,6 +207,9 @@ export function validateClientRegistration(
       clientName,
       redirectUris: Object.freeze([...redirectUris]),
       scope: scopesToParameter(resolvedScopes),
+      scopeCeiling: resolvedScopes,
+      consentCatalogRevision: exposureSnapshot.consentCatalogRevision,
+      exposureRevision: exposureSnapshot.exposureRevision,
       softwareId,
       softwareVersion,
     }),

@@ -3,14 +3,27 @@ import { describe, expect, it } from "vitest";
 import {
   REDIRECT_URI_ALLOWLIST,
   isAllowlistedRedirectUri,
-  validateClientRegistration,
+  validateClientRegistration as validateClientRegistrationForExposure,
   type ClientRegistrationResult,
 } from "@/lib/agent-control-plane/mcp/oauth/clients";
+import { resolveActiveMcpConsentCatalog } from "@/lib/agent-control-plane/mcp/oauth/scope-catalog";
 import { SUPPORTED_READ_SCOPES } from "@/lib/agent-control-plane/mcp/oauth/scopes";
+import {
+  MCP_EXPOSURE_V1,
+  type McpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const CLAUDE_CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const CLAUDE_COM_CALLBACK = "https://claude.com/api/mcp/auth_callback";
 const FULL_SCOPE = SUPPORTED_READ_SCOPES.join(" ");
+
+function validateClientRegistration(payload: unknown) {
+  return validateClientRegistrationForExposure(
+    payload,
+    MCP_EXPOSURE_V1,
+    resolveActiveMcpConsentCatalog()
+  );
+}
 
 /** The exact payload claude.ai posts to /register for a custom connector. */
 function claudePayload(
@@ -84,7 +97,11 @@ describe("Claude connector redirect allowlist", () => {
       uri: "http://claude.ai/api/mcp/auth_callback",
       allowed: false,
     },
-    { label: "a loopback redirect", uri: "http://127.0.0.1:8976/callback", allowed: false },
+    {
+      label: "a loopback redirect",
+      uri: "http://127.0.0.1:8976/callback",
+      allowed: false,
+    },
     { label: "an empty string", uri: "", allowed: false },
   ])("exact-matches $label", ({ uri, allowed }) => {
     expect(isAllowlistedRedirectUri(uri)).toBe(allowed);
@@ -101,6 +118,9 @@ describe("dynamic client registration — accepted shapes", () => {
       clientName: "Claude",
       redirectUris: [CLAUDE_CALLBACK],
       scope: FULL_SCOPE,
+      scopeCeiling: SUPPORTED_READ_SCOPES,
+      consentCatalogRevision: "2026-08-22.mcp-consent-catalog.v1",
+      exposureRevision: "2026-08-22.mcp-exposure.v1",
       softwareId: null,
       softwareVersion: null,
     });
@@ -130,6 +150,9 @@ describe("dynamic client registration — accepted shapes", () => {
       clientName: "Claude",
       redirectUris: [CLAUDE_CALLBACK],
       scope: FULL_SCOPE,
+      scopeCeiling: SUPPORTED_READ_SCOPES,
+      consentCatalogRevision: "2026-08-22.mcp-consent-catalog.v1",
+      exposureRevision: "2026-08-22.mcp-exposure.v1",
       softwareId: null,
       softwareVersion: null,
     });
@@ -150,6 +173,45 @@ describe("dynamic client registration — accepted shapes", () => {
         )
       ).scope
     ).toBe("ops.jobs.read ops.financials.read");
+    expect(
+      expectAccepted(
+        validateClientRegistration(
+          claudePayload({ scope: "ops.financials.read ops.jobs.read" })
+        )
+      ).scopeCeiling
+    ).toEqual(["ops.jobs.read", "ops.financials.read"]);
+  });
+
+  it("allows a fresh registration to request a newly exposed scope without widening v1", () => {
+    const expandedExposure: McpExposure = Object.freeze({
+      revision: "test.mcp-exposure.v2",
+      toolIds: Object.freeze(["synthetic_read"]),
+      grantableScopes: Object.freeze([
+        ...MCP_EXPOSURE_V1.grantableScopes,
+        "ops.tasks.read",
+      ]),
+    });
+
+    expect(
+      expectAccepted(
+        validateClientRegistrationForExposure(
+          claudePayload({ scope: "ops.tasks.read" }),
+          expandedExposure,
+          resolveActiveMcpConsentCatalog()
+        )
+      )
+    ).toMatchObject({
+      scope: "ops.tasks.read",
+      scopeCeiling: ["ops.tasks.read"],
+      exposureRevision: "test.mcp-exposure.v2",
+    });
+    expect(
+      validateClientRegistrationForExposure(
+        claudePayload({ scope: "ops.tasks.read" }),
+        MCP_EXPOSURE_V1,
+        resolveActiveMcpConsentCatalog()
+      ).ok
+    ).toBe(false);
   });
 
   it("accepts authorization_code without refresh_token", () => {

@@ -12,7 +12,6 @@ import {
   getCapabilityManifestEntry,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import {
-  ACTIVE_MCP_EXPOSURE_REVISION,
   MCP_EXPOSURE_CATALOG,
   MCP_EXPOSURE_V1,
   assertMcpExposureInvariants,
@@ -106,9 +105,14 @@ describe("immutable MCP exposure catalogue", () => {
     expect(Object.isFrozen(first.grantableScopes)).toBe(true);
   });
 
-  it("makes OAuth compatibility views use the active object's exact scope array and neutral labels", () => {
+  it("makes OAuth compatibility views use the v1 scope array and only its neutral labels", () => {
     expect(SUPPORTED_READ_SCOPES).toBe(MCP_EXPOSURE_V1.grantableScopes);
-    expect(SCOPE_CONSENT_LABELS).toBe(MCP_SCOPE_CONSENT_LABELS);
+    expect(Object.keys(SCOPE_CONSENT_LABELS)).toEqual(
+      MCP_EXPOSURE_V1.grantableScopes
+    );
+    for (const scope of MCP_EXPOSURE_V1.grantableScopes) {
+      expect(SCOPE_CONSENT_LABELS[scope]).toBe(MCP_SCOPE_CONSENT_LABELS[scope]);
+    }
   });
 
   it("resolves every tool to one implemented read, label, required scope, and static method", () => {

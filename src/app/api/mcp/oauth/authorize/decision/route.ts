@@ -7,49 +7,45 @@ import {
 import {
   AUTHORIZATION_CODE_PREFIX,
   AUTHORIZATION_CODE_TTL_SECONDS,
+  CONSENT_PREVIEW_PREFIX,
+  areScopesWithinCeiling,
   canonicalizeResourceUri,
+  consentLabelsForScopes,
+  consumeConsentPreview,
   createAuthorizationCode,
+  credentialDigest,
   getClient,
   isAllowlistedRedirectUri,
-  isValidCodeChallenge,
   mintCredential,
+  resolveActiveMcpConsentCatalog,
   resolveMcpOAuthConfig,
   resolveRequestedScopes,
   sha256Hex,
   type McpOAuthRpcClient,
 } from "@/lib/agent-control-plane/mcp/oauth";
+import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { rateLimit } from "@/lib/utils/ratelimit";
 
 /**
- * The consent decision endpoint for the MCP OAuth mount (P1 plan §D5, Task 5).
+ * Consent decision for the MCP OAuth mount (P1 plan §D5, Task 5).
  *
- * This is where consent becomes authority, so it trusts nothing that came
- * before it. Every authorization parameter is re-validated here from scratch,
- * independent of whatever the context endpoint said a moment earlier — the
- * page is a browser surface and its POST body is attacker-shaped input.
+ * The browser returns only its decision and the one-time opaque preview it
+ * received. The full authorization request, exact visible labels, actor,
+ * company, client revisions, redirect, resource, state, and PKCE challenge
+ * come from the consumed service-role database snapshot. No browser-echoed
+ * authorization field can widen or replace what the operator saw.
  *
- * The single hardest rule: a validation failure returns a 400 body, never a
- * redirect. Redirecting on a failure would mean navigating to a target that
- * failed validation, which is the open-redirect this allowlist exists to
- * prevent. Only a request that passed every check earns a `redirect_to`, and
- * that value is always built from the allowlisted, client-registered URI.
- *
- * The grant binds `(user, company, client)` from the authenticated session.
- * Company is never read from the request — an operator cannot consent on
- * behalf of a company they are not in, because the request cannot name one.
+ * A validation failure returns a 400 body, never a redirect. Only a consumed
+ * snapshot whose registered redirect remains allowlisted can produce a
+ * `redirect_to`.
  */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-const MAX_STATE_LENGTH = 2048;
 const DECISION_RATE_LIMIT = 30;
 const DECISION_RATE_WINDOW_SECONDS = 300;
-
 const NO_STORE = { "Cache-Control": "no-store" } as const;
 
 function invalidRequest(): NextResponse {
@@ -66,22 +62,18 @@ function serverError(): NextResponse {
   );
 }
 
-/**
- * `state` is echoed back into a URL we hand the browser. Control characters
- * are the header/URL-splitting vector, so they are rejected outright rather
- * than stripped — mirrors the loop in `safeRedirectPath`.
- */
-function isSafeState(value: string): boolean {
-  if (value.length > MAX_STATE_LENGTH) return false;
-  for (let i = 0; i < value.length; i++) {
-    const code = value.charCodeAt(i);
-    if (code < 0x20 || code === 0x7f) return false;
-  }
-  return true;
-}
-
 function stateSuffix(state: string | null): string {
   return state === null ? "" : `&state=${encodeURIComponent(state)}`;
+}
+
+function sameStrings(
+  left: readonly string[],
+  right: readonly string[]
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => value === right[index])
+  );
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -112,83 +104,98 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   } catch {
     return invalidRequest();
   }
-  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+  if (
+    typeof payload !== "object" ||
+    payload === null ||
+    Array.isArray(payload)
+  ) {
     return invalidRequest();
   }
   const body = payload as Readonly<Record<string, unknown>>;
-
-  // ── Client identity ──────────────────────────────────────────────────────
-  const clientId = body.client_id;
-  if (typeof clientId !== "string" || !UUID_PATTERN.test(clientId)) {
+  const bodyKeys = Object.keys(body).sort();
+  if (
+    bodyKeys.length !== 2 ||
+    bodyKeys[0] !== "consent_preview" ||
+    bodyKeys[1] !== "decision"
+  ) {
     return invalidRequest();
   }
 
-  // ── Redirect target ──────────────────────────────────────────────────────
-  const redirectUri = body.redirect_uri;
-  if (typeof redirectUri !== "string" || !isAllowlistedRedirectUri(redirectUri)) {
-    return invalidRequest();
-  }
-
-  // ── Response type ────────────────────────────────────────────────────────
-  if (body.response_type !== "code") return invalidRequest();
-
-  // ── PKCE (S256 only; `plain` is never accepted) ──────────────────────────
-  const codeChallenge = body.code_challenge;
-  if (!isValidCodeChallenge(codeChallenge)) return invalidRequest();
-  if (body.code_challenge_method !== "S256") return invalidRequest();
-
-  // ── Scope ceiling ────────────────────────────────────────────────────────
-  const rawScope = body.scope;
-  if (rawScope !== undefined && rawScope !== null && typeof rawScope !== "string") {
-    return invalidRequest();
-  }
-  const scopes = resolveRequestedScopes(
-    typeof rawScope === "string" ? rawScope : null
-  );
-  if (!scopes) return invalidRequest();
-
-  // ── CSRF state (optional, echoed verbatim) ───────────────────────────────
-  const rawState = body.state;
-  let state: string | null = null;
-  if (rawState !== undefined && rawState !== null) {
-    if (typeof rawState !== "string" || !isSafeState(rawState)) {
-      return invalidRequest();
-    }
-    state = rawState.length > 0 ? rawState : null;
-  }
-
-  // ── RFC 8707 audience (optional; compared canonically, never byte-wise) ──
-  const config = resolveMcpOAuthConfig();
-  const rawResource = body.resource;
-  let resource = config.resource;
-  if (rawResource !== undefined && rawResource !== null) {
-    if (typeof rawResource !== "string") return invalidRequest();
-    const canonical = canonicalizeResourceUri(rawResource);
-    if (canonical === null || canonical !== config.resource) {
-      return invalidRequest();
-    }
-    resource = canonical;
-  }
-
-  // ── Decision ─────────────────────────────────────────────────────────────
   const decision = body.decision;
-  if (decision !== "approve" && decision !== "deny") return invalidRequest();
+  if (decision !== "approve" && decision !== "deny") {
+    return invalidRequest();
+  }
+  const previewDigest =
+    typeof body.consent_preview === "string"
+      ? credentialDigest(body.consent_preview, CONSENT_PREVIEW_PREFIX)
+      : null;
+  if (previewDigest === null) return invalidRequest();
 
   const rpcClient = getServiceRoleClient() as unknown as McpOAuthRpcClient;
+  let preview;
+  try {
+    preview = await consumeConsentPreview(rpcClient, {
+      previewHash: previewDigest,
+      userId: auth.id,
+      companyId: auth.companyId,
+    });
+  } catch {
+    return serverError();
+  }
+
+  const exposure = resolveActiveMcpExposure();
+  const consentCatalog = resolveActiveMcpConsentCatalog();
+  const scopes = preview
+    ? resolveRequestedScopes(preview.scopes.join(" "), exposure)
+    : null;
+  const acceptedLabels = scopes
+    ? consentLabelsForScopes(scopes, consentCatalog)
+    : null;
+  const config = resolveMcpOAuthConfig();
+  if (
+    !preview ||
+    preview.user_id !== auth.id ||
+    preview.company_id !== auth.companyId ||
+    preview.response_type !== "code" ||
+    scopes === null ||
+    acceptedLabels === null ||
+    !sameStrings(preview.scopes, scopes) ||
+    !sameStrings(preview.accepted_labels, acceptedLabels) ||
+    preview.consent_catalog_revision !== consentCatalog.revision ||
+    preview.exposure_revision !== exposure.revision ||
+    preview.code_challenge_method !== "S256" ||
+    canonicalizeResourceUri(preview.resource) !== config.resource ||
+    preview.resource !== config.resource ||
+    !isAllowlistedRedirectUri(preview.redirect_uri)
+  ) {
+    return invalidRequest();
+  }
 
   let client;
   try {
-    client = await getClient(rpcClient, clientId);
+    client = await getClient(rpcClient, preview.client_id);
   } catch {
     return serverError();
   }
   if (!client || client.disabled) return invalidRequest();
-  if (!client.redirect_uris.includes(redirectUri)) return invalidRequest();
+  if (!client.redirect_uris.includes(preview.redirect_uri)) {
+    return invalidRequest();
+  }
+  if (client.client_name !== preview.client_name) return invalidRequest();
+  if (
+    client.consent_catalog_revision !== preview.consent_catalog_revision ||
+    client.exposure_revision !== preview.exposure_revision
+  ) {
+    return invalidRequest();
+  }
+  if (!areScopesWithinCeiling(scopes, client.scope_ceiling)) {
+    return invalidRequest();
+  }
 
   if (decision === "deny") {
     return NextResponse.json(
       {
-        redirect_to: `${redirectUri}?error=access_denied${stateSuffix(state)}`,
+        redirect_to: `${preview.redirect_uri}?error=access_denied${stateSuffix(preview.state)}`,
       },
       { headers: NO_STORE }
     );
@@ -197,16 +204,17 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const code = mintCredential(AUTHORIZATION_CODE_PREFIX);
   try {
     await createAuthorizationCode(rpcClient, {
-      // Only the digest is ever stored; the raw code exists solely inside the
-      // redirect we are about to hand back.
       codeHash: sha256Hex(code),
-      clientId,
-      userId: auth.id,
-      companyId: auth.companyId,
-      scopes,
-      redirectUri,
-      codeChallenge,
-      resource,
+      clientId: preview.client_id,
+      userId: preview.user_id,
+      companyId: preview.company_id,
+      scopes: preview.scopes,
+      acceptedLabels: preview.accepted_labels,
+      consentCatalogRevision: preview.consent_catalog_revision,
+      exposureRevision: preview.exposure_revision,
+      redirectUri: preview.redirect_uri,
+      codeChallenge: preview.code_challenge,
+      resource: preview.resource,
       expiresAt: new Date(Date.now() + AUTHORIZATION_CODE_TTL_SECONDS * 1000),
     });
   } catch {
@@ -215,7 +223,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json(
     {
-      redirect_to: `${redirectUri}?code=${encodeURIComponent(code)}${stateSuffix(state)}`,
+      redirect_to: `${preview.redirect_uri}?code=${encodeURIComponent(code)}${stateSuffix(preview.state)}`,
     },
     { headers: NO_STORE }
   );
