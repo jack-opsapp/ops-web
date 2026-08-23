@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
 
-import { recordMcpAudit, type McpAuditOutcome } from "@/lib/agent-control-plane/mcp/audit";
+import {
+  recordMcpAudit,
+  type McpAuditOutcome,
+} from "@/lib/agent-control-plane/mcp/audit";
 import {
   resolveMcpBearer,
   type McpBearerResolution,
 } from "@/lib/agent-control-plane/mcp/bearer";
-import {
-  resolveMcpOAuthConfig,
-  SUPPORTED_READ_SCOPES,
-} from "@/lib/agent-control-plane/mcp/oauth";
+import { resolveMcpOAuthConfig } from "@/lib/agent-control-plane/mcp/oauth";
 import { checkTransportRate } from "@/lib/agent-control-plane/mcp/rate-limit";
 import {
   getMcpServerRuntime,
@@ -17,6 +17,7 @@ import {
 } from "@/lib/agent-control-plane/mcp/runtime";
 import { createMcpHandler } from "@/lib/agent-control-plane/mcp/sdk";
 import { createOpsMcpServer } from "@/lib/agent-control-plane/mcp/server-factory";
+import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,9 +40,10 @@ const JSON_HEADERS = Object.freeze({
   "Content-Type": "application/json",
   "Cache-Control": "no-store",
 });
+const ACTIVE_MCP_EXPOSURE = resolveActiveMcpExposure();
 
 function scopeParameter(): string {
-  return SUPPORTED_READ_SCOPES.join(" ");
+  return ACTIVE_MCP_EXPOSURE.grantableScopes.join(" ");
 }
 
 function bearerChallenge(invalidToken: boolean): string {
@@ -200,16 +202,13 @@ async function gate(request: Request): Promise<
         });
         return {
           kind: "response",
-          response: new Response(
-            JSON.stringify({ error: "rate_limited" }),
-            {
-              status: 429,
-              headers: {
-                ...JSON_HEADERS,
-                "Retry-After": String(Math.max(1, rate.retryAfterSec)),
-              },
-            }
-          ),
+          response: new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429,
+            headers: {
+              ...JSON_HEADERS,
+              "Retry-After": String(Math.max(1, rate.retryAfterSec)),
+            },
+          }),
         };
       }
       return { kind: "authenticated", runtime: runtimeRef, resolution };
@@ -233,6 +232,7 @@ export async function POST(request: Request): Promise<Response> {
         protocolEra: ctx.era,
         domainService: runtimeRef.domainService,
         auditRpcClient: runtimeRef.rpcClient,
+        exposure: ACTIVE_MCP_EXPOSURE,
       }),
     {
       legacy: "stateless",

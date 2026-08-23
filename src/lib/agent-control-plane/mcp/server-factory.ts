@@ -2,28 +2,37 @@ import "server-only";
 
 import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
-import { CAPABILITY_MANIFEST } from "@/lib/agent-control-plane/registry/capability-manifest";
+import { getCapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-manifest";
 import type { CapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-types";
+import type { McpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import type { OpsAgentDomainService } from "@/lib/agent-control-plane/services/domain-service";
 import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
 import { auditInputDigest, recordMcpAudit } from "./audit";
 import type { McpGrantFacts } from "./bearer";
+import { resolveDomainReadMethod } from "./domain-dispatch";
 import type { McpOAuthRpcClient } from "./oauth";
 import { checkCapabilityRate } from "./rate-limit";
 import { McpServer } from "./sdk";
 
 /**
- * The only tools an external host can ever see: read capabilities whose
- * server-owned manifest entry is BOTH implemented and externally exposed.
- * Flipping a capability's externalExposure is the rollout control — nothing
- * here can widen past the manifest.
+ * Resolve the immutable exposure's ordered tool IDs against the active
+ * manifest. Legacy v7 externalExposure fields are compatibility bytes only;
+ * they can neither widen nor narrow registration.
  */
-export function externallyExposedReadCapabilities(): readonly CapabilityManifestEntry[] {
-  return CAPABILITY_MANIFEST.filter(
-    (entry) =>
-      entry.operation === "read" &&
-      entry.availability.implementation === "available" &&
-      entry.availability.externalExposure === "enabled"
+export function externallyExposedReadCapabilities(
+  exposure: McpExposure
+): readonly CapabilityManifestEntry[] {
+  return Object.freeze(
+    exposure.toolIds.map((toolId) => {
+      const entry = getCapabilityManifestEntry(toolId);
+      if (
+        entry.operation !== "read" ||
+        entry.availability.implementation !== "available"
+      ) {
+        throw new TypeError("MCP exposure contains a non-callable read");
+      }
+      return entry;
+    })
   );
 }
 
@@ -32,22 +41,6 @@ type DomainReadMethod = (
   input: never,
   options?: { signal?: AbortSignal }
 ) => Promise<unknown>;
-
-const DOMAIN_METHOD_BY_CAPABILITY: Readonly<
-  Record<string, keyof OpsAgentDomainService>
-> = Object.freeze({
-  get_job_conversation_context: "getJobConversationContext",
-  list_scheduled_jobs: "listScheduledJobs",
-  list_job_readiness_issues: "listJobReadinessIssues",
-  get_job_communication_context: "getJobCommunicationContext",
-  resolve_job_participants: "resolveJobParticipants",
-  list_customer_jobs: "listCustomerJobs",
-  get_job_summary: "getJobSummary",
-  search_job_history: "searchJobHistory",
-  get_correspondence_evidence: "getCorrespondenceEvidence",
-  search_customers: "searchCustomers",
-  search_jobs: "searchJobs",
-});
 
 const DOMAIN_CALL_TIMEOUT_MS = 25_000;
 
@@ -165,6 +158,7 @@ export interface CreateOpsMcpServerInput {
   readonly protocolEra: "legacy" | "modern";
   readonly domainService: OpsAgentDomainService;
   readonly auditRpcClient: McpOAuthRpcClient;
+  readonly exposure: McpExposure;
 }
 
 /**
@@ -181,6 +175,7 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
     protocolEra,
     domainService,
     auditRpcClient,
+    exposure,
   } = input;
 
   const server = new McpServer(
@@ -197,11 +192,8 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
     }
   );
 
-  for (const entry of externallyExposedReadCapabilities()) {
-    const methodName = DOMAIN_METHOD_BY_CAPABILITY[entry.name];
-    if (!methodName) {
-      throw new TypeError(`No domain method for capability ${entry.name}`);
-    }
+  for (const entry of externallyExposedReadCapabilities(exposure)) {
+    const methodName = resolveDomainReadMethod(entry.name);
     const method = domainService[methodName].bind(
       domainService
     ) as DomainReadMethod;

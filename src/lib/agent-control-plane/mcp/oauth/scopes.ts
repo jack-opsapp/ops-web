@@ -1,21 +1,22 @@
 import "server-only";
 
+import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  MCP_SCOPE_CONSENT_LABELS,
+  type LabelledMcpScope,
+} from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
+
 /**
- * OAuth scopes for the P1 read-only MCP surface: exactly the union of
- * requiredOAuthScopes across the nine externally exposable v6 reads —
- * nothing broader is grantable. Consent labels are plain OPS voice:
- * concrete, read-only-honest, no tech vocabulary.
+ * Compatibility views over the active immutable MCP exposure: exactly the
+ * union required by its eleven read tools, with nothing broader grantable.
+ * Consent labels remain concrete, read-only-honest, and free of technical
+ * vocabulary.
  */
 
-export const SUPPORTED_READ_SCOPES = Object.freeze([
-  "ops.jobs.read",
-  "ops.schedule.read",
-  "ops.customers.read",
-  "ops.customer_contacts.read",
-  "ops.photos.read",
-  "ops.correspondence.read",
-  "ops.financials.read",
-] as const);
+const ACTIVE_MCP_EXPOSURE = resolveActiveMcpExposure();
+
+export const SUPPORTED_READ_SCOPES =
+  ACTIVE_MCP_EXPOSURE.grantableScopes as readonly LabelledMcpScope[];
 
 export type SupportedReadScope = (typeof SUPPORTED_READ_SCOPES)[number];
 
@@ -25,16 +26,7 @@ const SUPPORTED_READ_SCOPE_SET: ReadonlySet<string> = new Set(
 
 export const SCOPE_CONSENT_LABELS: Readonly<
   Record<SupportedReadScope, string>
-> = Object.freeze({
-  "ops.jobs.read": "See your jobs and their status",
-  "ops.schedule.read": "See your schedule and who's assigned",
-  "ops.customers.read": "See your clients and their jobs",
-  "ops.customer_contacts.read":
-    "See who to contact on a job and how to reach them",
-  "ops.photos.read": "See which jobs are missing photos",
-  "ops.correspondence.read": "See client email history on your jobs",
-  "ops.financials.read": "See estimate and invoice summaries on your jobs",
-});
+> = MCP_SCOPE_CONSENT_LABELS;
 
 export function isSupportedReadScope(
   value: string

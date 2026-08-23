@@ -12,7 +12,7 @@ import {
   type CapabilityDefinition,
   type CapabilityManifestEntry,
 } from "./capability-types";
-import { READ_CAPABILITY_DEFINITIONS } from "./read-tools";
+import { READ_CAPABILITY_DEFINITIONS } from "./read-capabilities";
 import { WRITE_CAPABILITY_DEFINITIONS } from "./write-tools";
 
 export const CAPABILITY_MANIFEST_REVISION =

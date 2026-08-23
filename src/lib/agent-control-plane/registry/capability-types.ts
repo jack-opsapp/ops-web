@@ -5,30 +5,12 @@ import {
   type CapabilityPermissionRequirement,
   type ManifestCapabilityPolicy,
 } from "@/lib/agent-control-plane/actor/capability-policy-boundary";
+import { REGISTERED_MCP_SCOPES } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 /*
  * This is deliberately not an open string registry. Adding a scope changes
  * the external consent surface and must ship as a reviewed manifest revision.
  */
-export const CAPABILITY_OAUTH_SCOPES = Object.freeze([
-  "ops.catalog.prepare",
-  "ops.catalog.read",
-  "ops.catalog.write",
-  "ops.communications.prepare",
-  "ops.communications.send",
-  "ops.correspondence.read",
-  "ops.customer_contacts.read",
-  "ops.customers.read",
-  "ops.financials.prepare",
-  "ops.financials.read",
-  "ops.financials.write",
-  "ops.jobs.prepare",
-  "ops.jobs.read",
-  "ops.jobs.write",
-  "ops.photos.read",
-  "ops.schedule.prepare",
-  "ops.schedule.read",
-  "ops.schedule.write",
-] as const);
+export const CAPABILITY_OAUTH_SCOPES = REGISTERED_MCP_SCOPES;
 
 const CAPABILITY_OAUTH_SCOPE_SET = new Set<string>(CAPABILITY_OAUTH_SCOPES);
 
@@ -36,6 +18,9 @@ export type CapabilityOperation = "read" | "prepare" | "commit";
 export type CapabilityRiskTier = "low" | "medium" | "high" | "critical";
 export type CapabilityImplementationAvailability = "unavailable" | "available";
 export type CapabilityExternalExposure = "disabled" | "enabled";
+export interface CapabilityImplementationState {
+  readonly implementation: CapabilityImplementationAvailability;
+}
 export type CapabilityAuditClass =
   | "operational_read"
   | "sensitive_read"
@@ -237,6 +222,19 @@ interface CapabilityBase {
 export interface CapabilityDefinition extends CapabilityBase {
   readonly authorization: CapabilityAuthorizationDefinition;
 }
+
+/** Frozen v7 definition shape retained only for byte-compatible manifests. */
+export type LegacyCapabilityDefinition = CapabilityDefinition;
+
+/**
+ * V8 candidates carry implementation truth only. External rollout belongs to
+ * the separately versioned MCP exposure catalogue, never to policy bytes.
+ */
+export type ImplementationOnlyCapabilityDefinition = Omit<
+  CapabilityDefinition,
+  "availability"
+> &
+  Readonly<{ availability: CapabilityImplementationState }>;
 
 export interface CapabilityManifestEntry extends CapabilityBase {
   readonly authorization: CapabilityAuthorizationManifest;
