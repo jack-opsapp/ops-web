@@ -6,5 +6,7 @@ export * from "./errors";
 export * from "./evidence";
 export * from "./jobs";
 export * from "./job-catalog";
+export * from "./p2-common";
+export * from "./p2-proof";
 export * from "./schedule";
 export * from "./version";

@@ -18,6 +18,18 @@
 
 **Execution mode:** Subagent-driven in this session. One integration owner controls aggregate manifest/exposure/OAuth/runtime files; domain owners touch only their vertical slice until the final integration task.
 
+## Execution log
+
+### Task 3 migration reservations — 2026-08-23
+
+Generated in exact eventual ledger order with Supabase CLI `2.115.0`:
+
+1. `supabase/migrations/20260823072825_agent_manifest_v8_compatibility.sql` — reserved empty; do not populate or commit before Task 25.
+2. `supabase/migrations/20260823072831_agent_read_domain_revisions.sql`
+3. `supabase/migrations/20260823072837_mcp_oauth_consent_catalog_versioning.sql`
+4. `supabase/migrations/20260823072843_agent_mcp_durable_rate_limit.sql`
+5. `supabase/migrations/20260823072849_agent_mcp_evidence_nonce_ledger.sql`
+
 ---
 
 ## Non-negotiable execution boundary
