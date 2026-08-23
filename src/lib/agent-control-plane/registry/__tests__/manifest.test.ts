@@ -49,6 +49,23 @@ const EXPECTED_CAPABILITIES = [
   ["commit_site_visit_booking_cancellation", "commit"],
 ] as const;
 
+const EXPECTED_DARK_WRITE_CAPABILITIES = [
+  "prepare_project_cost_allocation",
+  "commit_project_cost_allocation",
+  "prepare_estimate_import",
+  "commit_estimate_import",
+  "prepare_catalog_service_change",
+  "commit_catalog_service_change",
+  "prepare_client_message_batch",
+  "commit_client_message_batch",
+  "prepare_site_visit_booking",
+  "commit_site_visit_booking",
+  "prepare_site_visit_reschedule",
+  "commit_site_visit_reschedule",
+  "prepare_site_visit_booking_cancellation",
+  "commit_site_visit_booking_cancellation",
+] as const;
+
 const EXPECTED_ANNOTATIONS = {
   list_scheduled_jobs: [true, false, true, false],
   list_job_readiness_issues: [true, false, true, false],
@@ -930,6 +947,18 @@ describe("agent capability manifest", () => {
       expect(capability.rolloutFlag).toMatch(
         /^agent_control_plane\.capability\.[a-z][a-z0-9_]*$/
       );
+    }
+
+    expect(
+      CAPABILITY_MANIFEST.filter((entry) => entry.operation !== "read").map(
+        (entry) => entry.name
+      )
+    ).toEqual(EXPECTED_DARK_WRITE_CAPABILITIES);
+    for (const name of EXPECTED_DARK_WRITE_CAPABILITIES) {
+      expect(getCapabilityManifestEntry(name).availability).toEqual({
+        implementation: "unavailable",
+        externalExposure: "disabled",
+      });
     }
   });
 

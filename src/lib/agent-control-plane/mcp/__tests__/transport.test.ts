@@ -27,8 +27,30 @@ const CAPABILITY_NAMES = [
 ] as const;
 const DISCOVERY_CAPABILITY_NAMES = ["search_customers", "search_jobs"] as const;
 const ALL_READ_CAPABILITY_NAMES = [
-  ...CAPABILITY_NAMES,
-  ...DISCOVERY_CAPABILITY_NAMES,
+  "list_scheduled_jobs",
+  "list_job_readiness_issues",
+  "get_job_communication_context",
+  "get_job_conversation_context",
+  "list_customer_jobs",
+  "get_job_summary",
+  "search_job_history",
+  "get_correspondence_evidence",
+  "search_customers",
+  "search_jobs",
+  "resolve_job_participants",
+] as const;
+const EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD = [
+  ["list_scheduled_jobs", "listScheduledJobs"],
+  ["list_job_readiness_issues", "listJobReadinessIssues"],
+  ["get_job_communication_context", "getJobCommunicationContext"],
+  ["get_job_conversation_context", "getJobConversationContext"],
+  ["list_customer_jobs", "listCustomerJobs"],
+  ["get_job_summary", "getJobSummary"],
+  ["search_job_history", "searchJobHistory"],
+  ["get_correspondence_evidence", "getCorrespondenceEvidence"],
+  ["search_customers", "searchCustomers"],
+  ["search_jobs", "searchJobs"],
+  ["resolve_job_participants", "resolveJobParticipants"],
 ] as const;
 
 type ExposureOverride = ReadonlySet<string>;
@@ -757,7 +779,7 @@ describe("/api/mcp route gate", () => {
   });
 });
 
-describe("per-capability dispatch across the original nine reads", () => {
+describe("per-capability dispatch across the complete v7 eleven-read map", () => {
   const U = "55555555-5555-4555-8555-555555555555";
   const MINIMAL_INPUTS: Readonly<
     Record<string, { input: unknown; method: string }>
@@ -810,17 +832,32 @@ describe("per-capability dispatch across the original nine reads", () => {
       },
       method: "getCorrespondenceEvidence",
     },
+    search_customers: {
+      input: { lookup: "name", query: "Acme" },
+      method: "searchCustomers",
+    },
+    search_jobs: {
+      input: { query: "Cedar Street" },
+      method: "searchJobs",
+    },
   });
 
-  it("covers every capability name exactly once", () => {
+  it("pins every capability-to-domain-method mapping exactly once", () => {
+    expect(
+      ALL_READ_CAPABILITY_NAMES.map((name) => [
+        name,
+        MINIMAL_INPUTS[name]!.method,
+      ])
+    ).toEqual(EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD);
     expect(Object.keys(MINIMAL_INPUTS).sort()).toEqual(
-      [...CAPABILITY_NAMES].sort()
+      [...ALL_READ_CAPABILITY_NAMES].sort()
     );
   });
 
-  for (const name of CAPABILITY_NAMES) {
+  for (const name of ALL_READ_CAPABILITY_NAMES) {
     it(`dispatches ${name} to its domain method with valid minimal input`, async () => {
       exposedOverride = new Set([name]);
+      implementationOverride = new Set([name]);
       const fixture = MINIMAL_INPUTS[name]!;
       const domainResult = { capability: name };
       const { service, calls } = fakeDomainService(() => domainResult);

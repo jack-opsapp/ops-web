@@ -92,9 +92,17 @@ describe("supported read scopes", () => {
 
 describe("consent labels", () => {
   it("covers exactly the supported read scopes", () => {
-    expect(Object.keys(SCOPE_CONSENT_LABELS).sort()).toEqual(
-      [...SUPPORTED_READ_SCOPES].sort()
-    );
+    expect(SCOPE_CONSENT_LABELS).toEqual({
+      "ops.jobs.read": "See your jobs and their status",
+      "ops.schedule.read": "See your schedule and who's assigned",
+      "ops.customers.read": "See your clients and their jobs",
+      "ops.customer_contacts.read":
+        "See who to contact on a job and how to reach them",
+      "ops.photos.read": "See which jobs are missing photos",
+      "ops.correspondence.read": "See client email history on your jobs",
+      "ops.financials.read": "See estimate and invoice summaries on your jobs",
+    });
+    expect(Object.keys(SCOPE_CONSENT_LABELS)).toEqual(CANONICAL_ORDER);
     expect(Object.isFrozen(SCOPE_CONSENT_LABELS)).toBe(true);
   });
 

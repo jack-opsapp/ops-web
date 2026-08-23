@@ -18,6 +18,11 @@ const SITE_VISIT_CAPABILITIES = [
   ["commit_site_visit_booking_cancellation", "commit"],
 ] as const;
 
+const DARK_SITE_VISIT_READS = [
+  "list_site_visits",
+  "get_site_visit_context",
+] as const;
+
 const IDEMPOTENCY_KEY = "request-00000001";
 const SOURCE_EVIDENCE_IDS = ["evidence-site-visit-1"];
 
@@ -47,6 +52,14 @@ describe("site-visit capability boundary", () => {
         SITE_VISIT_CAPABILITIES.some(([name]) => name === entry.name)
       ).map((entry) => [entry.name, entry.operation])
     ).toEqual(SITE_VISIT_CAPABILITIES);
+
+    expect(
+      CAPABILITY_MANIFEST.filter(
+        (entry) =>
+          entry.operation === "read" &&
+          entry.availability.implementation === "unavailable"
+      ).map((entry) => entry.name)
+    ).toEqual(DARK_SITE_VISIT_READS);
 
     for (const [name] of SITE_VISIT_CAPABILITIES) {
       expect(getCapabilityManifestEntry(name).availability).toEqual({
