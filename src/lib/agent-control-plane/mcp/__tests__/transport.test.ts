@@ -4,6 +4,7 @@ import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor
 import { ActorAccessError } from "@/lib/agent-control-plane/actor/errors";
 import type { OpsAgentDomainService } from "@/lib/agent-control-plane/services/domain-service";
 import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
+import { DurableMcpRateLimitUnavailableError } from "@/lib/agent-control-plane/mcp/durable-rate-limit";
 
 /**
  * Transport-layer proof for the MCP mount:
@@ -84,7 +85,12 @@ vi.mock("@/lib/agent-control-plane/registry/capability-manifest", async () => {
   };
 });
 
-const rateDecision = { exceeded: false, retryAfterSec: 0 };
+const rateDecision = {
+  exceeded: false,
+  retryAfterSec: 0,
+  durableAuditRecorded: false,
+};
+let rateFailure: Error | null = null;
 const capabilityRateCalls: Array<Record<string, unknown>> = [];
 vi.mock("@/lib/agent-control-plane/mcp/rate-limit", async () => {
   const actual = await vi.importActual<
@@ -94,6 +100,7 @@ vi.mock("@/lib/agent-control-plane/mcp/rate-limit", async () => {
     ...actual,
     checkCapabilityRate: vi.fn(async (input: Record<string, unknown>) => {
       capabilityRateCalls.push(input);
+      if (rateFailure) throw rateFailure;
       return { ...rateDecision };
     }),
   };
@@ -179,6 +186,13 @@ function fakeDomainService(
 const FAKE_RPC = Object.freeze({
   rpc: async () => ({ data: null, error: null }),
 });
+const FAKE_DURABLE_LIMITER = Object.freeze({
+  consume: async () => ({
+    allowed: true,
+    remainingUnits: 1,
+    resetAt: "2026-08-23T18:21:00.000Z",
+  }),
+});
 
 function buildHandler(domain: OpsAgentDomainService) {
   return createMcpHandler(
@@ -190,6 +204,7 @@ function buildHandler(domain: OpsAgentDomainService) {
         protocolEra: ctx.era,
         domainService: domain,
         auditRpcClient: FAKE_RPC,
+        durableRateLimiter: FAKE_DURABLE_LIMITER,
         exposure: Object.freeze({
           revision: "test.mcp-exposure",
           toolIds: Object.freeze([...overrides.activeToolIds]),
@@ -276,6 +291,8 @@ beforeEach(() => {
   capabilityRateCalls.length = 0;
   rateDecision.exceeded = false;
   rateDecision.retryAfterSec = 0;
+  rateDecision.durableAuditRecorded = false;
+  rateFailure = null;
 });
 
 describe("externallyExposedReadCapabilities", () => {
@@ -410,6 +427,10 @@ describe("tool dispatch", () => {
     );
     expect(audit?.inputSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(capabilityRateCalls[0]).toMatchObject({
+      requestId: "req-test",
+      capabilityId: "list_scheduled_jobs",
+      protocolEra: expect.stringMatching(/legacy|modern/),
+      durableLimiter: FAKE_DURABLE_LIMITER,
       bucket: "lightweight_read",
       actorUserId: GRANT_FACTS.actorUserId,
       grantId: GRANT_FACTS.grantId,
@@ -453,6 +474,8 @@ describe("tool dispatch", () => {
       expect(calls[0]?.method).toBe(fixture.method);
       expect(calls[0]?.signal).toBeInstanceOf(AbortSignal);
       expect(capabilityRateCalls[0]).toMatchObject({
+        capabilityId: fixture.name,
+        durableLimiter: FAKE_DURABLE_LIMITER,
         bucket: "evidence_search",
         actorUserId: GRANT_FACTS.actorUserId,
         grantId: GRANT_FACTS.grantId,
@@ -553,6 +576,67 @@ describe("tool dispatch", () => {
     ).toBe(true);
   });
 
+  it("does not append a duplicate audit when the durable denial was recorded atomically", async () => {
+    overrides.activeToolIds = new Set(["search_job_history"]);
+    rateDecision.exceeded = true;
+    rateDecision.retryAfterSec = 30;
+    rateDecision.durableAuditRecorded = true;
+    const { service, calls } = fakeDomainService(() => ({}));
+
+    const { payload } = await callTool(
+      buildHandler(service),
+      "search_job_history",
+      {
+        query: "deck",
+        scope: {
+          kind: "jobs",
+          job_refs: [
+            { kind: "project", id: "55555555-5555-4555-8555-555555555555" },
+          ],
+        },
+      }
+    );
+
+    const result = payload?.result as {
+      content: Array<{ type: string; text: string }>;
+      isError?: boolean;
+    };
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0]?.text ?? "{}").code).toBe(
+      "RATE_LIMITED"
+    );
+    expect(calls).toHaveLength(0);
+    expect(auditRecords).toEqual([]);
+  });
+
+  it("fails closed with a privacy-safe unavailable envelope when the durable limiter fails", async () => {
+    overrides.activeToolIds = new Set(["list_scheduled_jobs"]);
+    rateFailure = new DurableMcpRateLimitUnavailableError();
+    const { service, calls } = fakeDomainService(() => ({}));
+
+    const { payload } = await callTool(
+      buildHandler(service),
+      "list_scheduled_jobs",
+      { from: "2026-08-01T00:00:00.000Z", to: "2026-08-02T00:00:00.000Z" }
+    );
+
+    const result = payload?.result as {
+      content: Array<{ type: string; text: string }>;
+      isError?: boolean;
+    };
+    expect(result.isError).toBe(true);
+    const envelope = JSON.parse(result.content[0]?.text ?? "{}");
+    expect(envelope.code).toBe("TEMPORARILY_UNAVAILABLE");
+    expect(result.content[0]?.text).not.toContain("private bucket");
+    expect(calls).toHaveLength(0);
+    expect(auditRecords).toContainEqual(
+      expect.objectContaining({
+        outcome: "internal",
+        errorCode: "TEMPORARILY_UNAVAILABLE",
+      })
+    );
+  });
+
   it("rejects calls to unexposed capabilities without confirming their existence", async () => {
     overrides.activeToolIds = new Set(["list_scheduled_jobs"]);
     const { service, calls } = fakeDomainService(() => ({}));
@@ -586,6 +670,7 @@ describe("/api/mcp route gate", () => {
         domainService: fakeDomainService(() => ({ ok: true })).service,
         authorityRepository: {},
         rpcClient: FAKE_RPC,
+        durableRateLimiter: FAKE_DURABLE_LIMITER,
       }),
     }));
     vi.doMock("@/lib/agent-control-plane/mcp/bearer", () => ({
@@ -685,6 +770,7 @@ describe("/api/mcp route gate", () => {
         domainService: fakeDomainService(() => ({})).service,
         authorityRepository: {},
         rpcClient: FAKE_RPC,
+        durableRateLimiter: FAKE_DURABLE_LIMITER,
       }),
     }));
     vi.doMock("@/lib/agent-control-plane/mcp/bearer", () => ({

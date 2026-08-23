@@ -18,6 +18,10 @@ import { createOperationalReadCursorCodec } from "@/lib/agent-control-plane/serv
 import { createOpsAgentDomainRepositories } from "@/lib/agent-control-plane/services/repositories";
 import { createSupabaseScheduledJobsRepository } from "@/lib/agent-control-plane/services/scheduled-jobs-repository";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import {
+  createDurableMcpRateLimiter,
+  type DurableMcpRateLimiter,
+} from "./durable-rate-limit";
 import type { McpOAuthRpcClient } from "./oauth";
 
 const OPERATIONAL_READ_CURSOR_KEY_ENV =
@@ -35,6 +39,7 @@ export interface McpServerRuntime {
   readonly domainService: OpsAgentDomainService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
+  readonly durableRateLimiter: DurableMcpRateLimiter;
 }
 
 let cachedRuntime: McpServerRuntime | null = null;
@@ -141,6 +146,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
     domainService: createOpsAgentDomainService({ repositories }),
     authorityRepository: createSupabaseActorAuthorityRepository(rpcClient),
     rpcClient,
+    durableRateLimiter: createDurableMcpRateLimiter(rpcClient),
   });
   return cachedRuntime;
 }

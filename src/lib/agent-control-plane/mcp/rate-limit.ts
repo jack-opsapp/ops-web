@@ -3,6 +3,11 @@ import "server-only";
 import type { CapabilityRateLimitBucket } from "@/lib/agent-control-plane/registry/capability-types";
 import { rateLimit } from "@/lib/utils/ratelimit";
 
+import type {
+  DurableMcpRateLimitBucket,
+  DurableMcpRateLimiter,
+} from "./durable-rate-limit";
+
 /**
  * Foundation-spec 13.3 ceilings for the P1 read surface. Sliding windows via
  * the shared limiter (Vercel KV when provisioned; per-instance in-memory
@@ -38,6 +43,8 @@ export const TRANSPORT_REQUESTS_PER_MINUTE = 300 as const;
 export interface McpRateDecision {
   readonly exceeded: boolean;
   readonly retryAfterSec: number;
+  /** The durable SQL transaction already appended the denial audit. */
+  readonly durableAuditRecorded?: true;
 }
 
 export async function checkTransportRate(
@@ -52,11 +59,42 @@ export async function checkTransportRate(
 }
 
 export async function checkCapabilityRate(input: {
+  readonly durableLimiter: DurableMcpRateLimiter;
   readonly bucket: CapabilityRateLimitBucket;
+  readonly requestId: string;
   readonly actorUserId: string;
   readonly grantId: string;
   readonly companyId: string;
+  readonly capabilityId: string;
+  readonly protocolEra: "legacy" | "modern";
 }): Promise<McpRateDecision> {
+  if (
+    input.bucket !== "lightweight_read" &&
+    input.bucket !== "evidence_search"
+  ) {
+    throw new TypeError("MCP read capability has an invalid rate policy");
+  }
+  const durable = await input.durableLimiter.consume({
+    requestId: input.requestId,
+    grantId: input.grantId,
+    actorUserId: input.actorUserId,
+    companyId: input.companyId,
+    capabilityId: input.capabilityId,
+    protocolEra: input.protocolEra,
+    bucket: input.bucket as DurableMcpRateLimitBucket,
+  });
+  if (!durable.allowed) {
+    const resetAtMs = Date.parse(durable.resetAt);
+    const retryAfterSec = Number.isFinite(resetAtMs)
+      ? Math.max(1, Math.min(60, Math.ceil((resetAtMs - Date.now()) / 1_000)))
+      : 1;
+    return {
+      exceeded: true,
+      retryAfterSec,
+      durableAuditRecorded: true,
+    };
+  }
+
   const limits =
     input.bucket === "evidence_search"
       ? BUCKET_LIMITS.evidence_search

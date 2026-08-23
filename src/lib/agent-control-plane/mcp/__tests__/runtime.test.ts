@@ -22,6 +22,7 @@ describe("MCP production runtime", () => {
     const runtime = runtimeModule.getMcpServerRuntime();
     expect(runtimeModule.getMcpServerRuntime()).toBe(runtime);
     expect(Object.isFrozen(runtime)).toBe(true);
+    expect(Object.isFrozen(runtime.durableRateLimiter)).toBe(true);
     expect(Object.keys(runtime.domainService)).toEqual([
       "getJobConversationContext",
       "listScheduledJobs",
@@ -36,6 +37,54 @@ describe("MCP production runtime", () => {
       "searchJobs",
     ]);
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("shares the service-role transport with the strict durable limiter adapter", async () => {
+    vi.resetModules();
+    vi.stubEnv(CURSOR_KEY_ENV, "ab".repeat(32));
+    const rpc = vi.fn(async (functionName: string) => {
+      if (functionName === "consume_agent_mcp_rate_limit_as_system") {
+        return {
+          data: [
+            {
+              allowed: true,
+              remaining_units: 119,
+              reset_at: "2026-08-23T18:21:00.000Z",
+            },
+          ],
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    });
+    vi.doMock("@/lib/supabase/server-client", () => ({
+      getServiceRoleClient: () => ({ rpc }),
+    }));
+    const runtimeModule = await import("../runtime");
+    const runtime = runtimeModule.getMcpServerRuntime();
+
+    await expect(
+      runtime.durableRateLimiter.consume({
+        requestId: "req-runtime-rate",
+        grantId: "11111111-1111-4111-8111-111111111111",
+        actorUserId: "22222222-2222-4222-8222-222222222222",
+        companyId: "33333333-3333-4333-8333-333333333333",
+        capabilityId: "list_scheduled_jobs",
+        protocolEra: "modern",
+        bucket: "lightweight_read",
+      })
+    ).resolves.toEqual({
+      allowed: true,
+      remainingUnits: 119,
+      resetAt: "2026-08-23T18:21:00.000Z",
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      "consume_agent_mcp_rate_limit_as_system",
+      expect.objectContaining({
+        p_capability_id: "list_scheduled_jobs",
+        p_policy_id: "mcp-lightweight-read:2026-08-23.v1",
+      })
+    );
   });
 
   it("remains unusable without an exact cursor key", async () => {

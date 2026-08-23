@@ -9,6 +9,10 @@ import type { OpsAgentDomainService } from "@/lib/agent-control-plane/services/d
 import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
 import { auditInputDigest, recordMcpAudit } from "./audit";
 import type { McpGrantFacts } from "./bearer";
+import {
+  DurableMcpRateLimitUnavailableError,
+  type DurableMcpRateLimiter,
+} from "./durable-rate-limit";
 import { resolveDomainReadMethod } from "./domain-dispatch";
 import type { McpOAuthRpcClient } from "./oauth";
 import { checkCapabilityRate } from "./rate-limit";
@@ -121,6 +125,16 @@ function internalEnvelope(requestId: string): ErrorEnvelope {
   };
 }
 
+function temporarilyUnavailableEnvelope(requestId: string): ErrorEnvelope {
+  return {
+    contract_version: CONTRACT_VERSION,
+    request_id: requestId,
+    code: "TEMPORARILY_UNAVAILABLE",
+    message: "The request could not be completed right now.",
+    retryable: true,
+  };
+}
+
 function rateLimitedEnvelope(
   requestId: string,
   retryAfterSec: number
@@ -158,6 +172,7 @@ export interface CreateOpsMcpServerInput {
   readonly protocolEra: "legacy" | "modern";
   readonly domainService: OpsAgentDomainService;
   readonly auditRpcClient: McpOAuthRpcClient;
+  readonly durableRateLimiter: DurableMcpRateLimiter;
   readonly exposure: McpExposure;
 }
 
@@ -175,6 +190,7 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
     protocolEra,
     domainService,
     auditRpcClient,
+    durableRateLimiter,
     exposure,
   } = input;
 
@@ -240,20 +256,26 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
 
         try {
           const rate = await checkCapabilityRate({
+            durableLimiter: durableRateLimiter,
             bucket: entry.rateLimitBucket,
+            requestId,
             actorUserId: grantFacts.actorUserId,
             grantId: grantFacts.grantId,
             companyId: grantFacts.companyId,
+            capabilityId: entry.name,
+            protocolEra,
           });
           if (rate.exceeded) {
             const serialized = serializeUntrustedPromptData(
               rateLimitedEnvelope(requestId, rate.retryAfterSec)
             );
-            await audit(
-              "rate_limited",
-              "RATE_LIMITED",
-              utf8ByteLength(serialized)
-            );
+            if (!rate.durableAuditRecorded) {
+              await audit(
+                "rate_limited",
+                "RATE_LIMITED",
+                utf8ByteLength(serialized)
+              );
+            }
             return textResult(serialized, true);
           }
 
@@ -264,6 +286,17 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
           await audit("ok", null, utf8ByteLength(serialized));
           return textResult(serialized, false);
         } catch (error) {
+          if (error instanceof DurableMcpRateLimitUnavailableError) {
+            const serialized = serializeUntrustedPromptData(
+              temporarilyUnavailableEnvelope(requestId)
+            );
+            await audit(
+              "internal",
+              "TEMPORARILY_UNAVAILABLE",
+              utf8ByteLength(serialized)
+            );
+            return textResult(serialized, true);
+          }
           const envelope = contractErrorEnvelope(error);
           if (envelope) {
             const serialized = serializeUntrustedPromptData(envelope);

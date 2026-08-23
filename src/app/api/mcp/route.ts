@@ -232,6 +232,7 @@ export async function POST(request: Request): Promise<Response> {
         protocolEra: ctx.era,
         domainService: runtimeRef.domainService,
         auditRpcClient: runtimeRef.rpcClient,
+        durableRateLimiter: runtimeRef.durableRateLimiter,
         exposure: ACTIVE_MCP_EXPOSURE,
       }),
     {
