@@ -201,7 +201,7 @@ do $unexpected_trigger_collision$
 begin
   if (
     select coalesce(
-      array_agg(trigger_row.tgname order by trigger_row.tgname),
+      array_agg(trigger_row.tgname::text order by trigger_row.tgname),
       array[]::text[]
     )
     from pg_catalog.pg_trigger trigger_row
@@ -224,7 +224,7 @@ do $missing_trigger_collision$
 begin
   if (
     select coalesce(
-      array_agg(trigger_row.tgname order by trigger_row.tgname),
+      array_agg(trigger_row.tgname::text order by trigger_row.tgname),
       array[]::text[]
     )
     from pg_catalog.pg_trigger trigger_row
@@ -302,9 +302,7 @@ begin
   if not exists (
     select 1
     from pg_catalog.pg_attribute attribute
-    cross join lateral pg_catalog.aclexplode(
-      coalesce(attribute.attacl, array[]::aclitem[])
-    ) acl
+    cross join lateral pg_catalog.aclexplode(attribute.attacl) acl
     where attribute.attrelid = 'private.mcp_oauth_clients'::regclass
       and attribute.attname = 'client_name'
       and acl.grantee = 'authenticated'::regrole

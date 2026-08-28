@@ -542,6 +542,9 @@ describe("MCP OAuth consent-catalogue migration", () => {
     const runtime = compact(runtimeSql());
     expect(runtime).toContain("unexpected_oauth_trigger_collision_survived");
     expect(runtime).toContain("missing_oauth_trigger_collision_survived");
+    expect(runtime.match(/array_agg\(trigger_row\.tgname::text/g)?.length).toBe(
+      2
+    );
   });
 
   it("postflights a closed-world owned function catalogue", () => {
@@ -622,11 +625,15 @@ describe("MCP OAuth consent-catalogue migration", () => {
       );
     }
     expect(postflight).toContain("attribute.attacl");
+    expect(postflight).toContain("pg_catalog.aclexplode(attribute.attacl)");
+    expect(postflight).not.toContain("array[]::aclitem[]");
     expect(postflight).toContain("mcp_oauth_consent_column_acl_failed");
     expect(postflight).toMatch(/acl\.grantee <> relation\.relowner/i);
 
     const runtime = compact(runtimeSql());
     expect(runtime).toContain("legacy_column_acl_collision_survived");
+    expect(runtime).toContain("pg_catalog.aclexplode(attribute.attacl)");
+    expect(runtime).not.toContain("array[]::aclitem[]");
     expect(runtime).toMatch(
       /grant select \(client_name\) on private\.mcp_oauth_clients to authenticated/i
     );

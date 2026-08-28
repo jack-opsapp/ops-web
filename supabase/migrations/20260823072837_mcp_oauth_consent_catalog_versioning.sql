@@ -2944,9 +2944,7 @@ begin
     from pg_catalog.pg_attribute attribute
     join pg_catalog.pg_class relation
       on relation.oid = attribute.attrelid
-    cross join lateral pg_catalog.aclexplode(
-      coalesce(attribute.attacl, array[]::aclitem[])
-    ) acl
+    cross join lateral pg_catalog.aclexplode(attribute.attacl) acl
     left join pg_catalog.pg_roles role_row
       on role_row.oid = acl.grantee
     where attribute.attrelid = v_oid
