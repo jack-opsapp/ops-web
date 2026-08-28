@@ -49,7 +49,7 @@ import {
 } from "@/lib/api/services/phase-c-pipeline-helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
-  ProviderApiError,
+  ProviderThreadTombstoneError,
   type NormalizedEmail,
 } from "@/lib/api/services/email-provider";
 import { requireEmailPipelineSecret } from "@/lib/email/email-route-auth";
@@ -584,10 +584,7 @@ async function runPhaseCEntry(
             : fetched;
           return { threadId: target.logicalThreadId, messages };
         } catch (error) {
-          if (
-            error instanceof ProviderApiError &&
-            (error.providerStatus === 404 || error.providerStatus === 410)
-          ) {
+          if (error instanceof ProviderThreadTombstoneError) {
             return { threadId: target.logicalThreadId, messages: null };
           }
           throw error;

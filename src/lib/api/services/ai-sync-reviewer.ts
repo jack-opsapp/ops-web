@@ -19,7 +19,10 @@ import {
   resolvePersistedEmailAuthorship,
   type IngestionOperatorIdentity,
 } from "@/lib/email/email-ingestion-routing";
-import type { NormalizedEmail } from "./email-provider";
+import {
+  ProviderThreadTombstoneError,
+  type NormalizedEmail,
+} from "./email-provider";
 import type {
   EmailConnection,
   SyncProfile,
@@ -368,6 +371,7 @@ export const AISyncReviewer = {
     const threadInputs: StageEvaluationThreadInput[] = [];
 
     const providerMessagesByThreadId = new Map<string, NormalizedEmail[]>();
+    const providerThreadTombstones = new Set<string>();
     const providerThreadIds = activeLeadTargets.filter(
       (target): target is string => typeof target === "string"
     );
@@ -386,6 +390,10 @@ export const AISyncReviewer = {
             try {
               messages = await provider.fetchThread(threadId);
             } catch (err) {
+              if (err instanceof ProviderThreadTombstoneError) {
+                providerThreadTombstones.add(threadId);
+                continue;
+              }
               throw new Error(
                 `[ai-sync-reviewer] failed to fetch thread ${threadId}: ${err instanceof Error ? err.message : "unknown error"}`,
                 { cause: err }
@@ -400,6 +408,12 @@ export const AISyncReviewer = {
 
     for (const target of activeLeadTargets) {
       const threadId = typeof target === "string" ? target : target.threadId;
+      if (
+        typeof target === "string" &&
+        providerThreadTombstones.has(threadId)
+      ) {
+        continue;
+      }
       const messages =
         typeof target === "string"
           ? (providerMessagesByThreadId.get(threadId) ?? [])
