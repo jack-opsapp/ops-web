@@ -138,7 +138,7 @@ begin
        select pg_catalog.count(distinct requested.kind)
        from pg_catalog.unnest(p_job_kinds) requested(kind)
      ) <> pg_catalog.cardinality(p_job_kinds)
-     or p_job_kinds is distinct from pg_catalog.coalesce((
+     or p_job_kinds is distinct from coalesce((
        select pg_catalog.array_agg(requested.kind order by requested.kind)
        from pg_catalog.unnest(p_job_kinds) requested(kind)
      ), array[]::text[])
@@ -227,7 +227,7 @@ begin
     from pg_catalog.unnest(p_registered_permission_keys)
       registry(permission_key)
   ) <> pg_catalog.cardinality(p_registered_permission_keys)
-  or p_registered_permission_keys is distinct from pg_catalog.coalesce((
+  or p_registered_permission_keys is distinct from coalesce((
     select pg_catalog.array_agg(
       registry.permission_key order by registry.permission_key
     )
@@ -482,7 +482,7 @@ begin
                  or suppression.expires_at > p_read_at
                )
            ) as suppressed,
-           pg_catalog.coalesce(revision.source_revision, 0)::bigint
+           coalesce(revision.source_revision, 0)::bigint
              as contactability_revision
     from contact_selector_gate contact
     left join private.agent_contactability_address_revisions revision
@@ -497,7 +497,7 @@ begin
               from contact_retained) as returned_count,
            (select pg_catalog.count(*) > p_item_limit
               from contact_selector_gate) as source_has_more,
-           pg_catalog.coalesce((
+           coalesce((
              select pg_catalog.jsonb_agg(
                pg_catalog.jsonb_build_object(
                  'contact_ref', pg_catalog.jsonb_build_object(
@@ -543,7 +543,7 @@ begin
              extensions.digest(
                pg_catalog.convert_to(
                  private.canonical_agent_projection_json(
-                   pg_catalog.coalesce((
+                   coalesce((
                      select pg_catalog.jsonb_agg(
                        pg_catalog.jsonb_build_object(
                          'address_sha256', contact.address_sha256,
@@ -565,15 +565,15 @@ begin
              ),
              'hex'
            ) as contactability_digest,
-           pg_catalog.coalesce(
+           coalesce(
              (select pg_catalog.max(contact.contactability_revision)
                 from contact_detail_gate contact),
              0
            )::bigint as contactability_revision,
-           pg_catalog.coalesce(
+           coalesce(
              (select pg_catalog.bool_or(
                 contact.safe_display_name is null
-                or pg_catalog.nullif(
+                or nullif(
                   pg_catalog.btrim(contact.title),
                   ''
                 ) is not null and contact.safe_title is null
@@ -671,7 +671,7 @@ begin
               from duplicate_retained) as returned_count,
            (select pg_catalog.count(*) > p_item_limit
               from duplicate_selector_gate) as source_has_more,
-           pg_catalog.coalesce((
+           coalesce((
              select pg_catalog.jsonb_agg(
                pg_catalog.jsonb_build_object(
                  'customer_ref', pg_catalog.jsonb_build_object(
@@ -690,7 +690,7 @@ begin
            ),
              '[]'::jsonb
            ) as candidates,
-           pg_catalog.coalesce(
+           coalesce(
              (select pg_catalog.bool_or(
                 duplicate.safe_candidate_name is null
                 or duplicate.confidence is null
@@ -703,7 +703,7 @@ begin
   ), opportunity_raw_source_gate as materialized (
     select opportunity.id as raw_job_id,
            opportunity.stage as status,
-           pg_catalog.coalesce(
+           coalesce(
              opportunity.project_ref,
              opportunity.project_id
            ) as linked_project_id,
@@ -716,7 +716,7 @@ begin
       on opportunity.company_id = p_company_id
      and opportunity.deleted_at is null
      and opportunity.merged_into_opportunity_id is null
-     and pg_catalog.coalesce(
+     and coalesce(
        opportunity.client_ref,
        opportunity.client_id
      ) = customer.parent_client_id
@@ -760,7 +760,7 @@ begin
   ), project_raw_source_gate as materialized (
     select project.id as raw_job_id,
            project.status,
-           pg_catalog.coalesce(
+           coalesce(
              project.opportunity_ref,
              project.opportunity_id
            ) as linked_opportunity_id,
@@ -807,19 +807,19 @@ begin
     select case when project.raw_job_id is not null
              then 'project' else 'opportunity'
            end as canonical_job_kind,
-           pg_catalog.coalesce(
+           coalesce(
              project.raw_job_id,
              opportunity.raw_job_id
            ) as canonical_job_id,
            'opportunity'::text as raw_job_kind,
            opportunity.raw_job_id,
-           pg_catalog.coalesce(project.status, opportunity.status) as status,
+           coalesce(project.status, opportunity.status) as status,
            opportunity.source_data_invalid
-             or pg_catalog.coalesce(project.source_data_invalid, false)
+             or coalesce(project.source_data_invalid, false)
              as source_data_invalid,
            opportunity.client_mirror_conflict
              or opportunity.project_mirror_conflict
-             or pg_catalog.coalesce(
+             or coalesce(
                project.opportunity_mirror_conflict,
                false
              ) as canonical_conflict
@@ -827,7 +827,7 @@ begin
     left join project_authorized project
       on project.raw_job_id = opportunity.linked_project_id
      and project.linked_opportunity_id = opportunity.raw_job_id
-     and project.client_id = pg_catalog.coalesce(
+     and project.client_id = coalesce(
        opportunity.client_ref,
        opportunity.client_id
      )
@@ -840,13 +840,13 @@ begin
            project.raw_job_id,
            project.status,
            project.source_data_invalid
-             or pg_catalog.coalesce(opportunity.source_data_invalid, false),
+             or coalesce(opportunity.source_data_invalid, false),
            project.opportunity_mirror_conflict
-             or pg_catalog.coalesce(
+             or coalesce(
                opportunity.client_mirror_conflict,
                false
              )
-             or pg_catalog.coalesce(
+             or coalesce(
                opportunity.project_mirror_conflict,
                false
              )
@@ -854,7 +854,7 @@ begin
     left join opportunity_authorized opportunity
       on opportunity.raw_job_id = project.linked_opportunity_id
      and opportunity.linked_project_id = project.raw_job_id
-     and pg_catalog.coalesce(
+     and coalesce(
        opportunity.client_ref,
        opportunity.client_id
      ) = project.client_id
@@ -886,16 +886,16 @@ begin
     from canonical_job job
     group by job.job_kind, job.status
   ), job_package as materialized (
-    select pg_catalog.coalesce(
+    select coalesce(
       pg_catalog.jsonb_agg(
         pg_catalog.jsonb_build_object(
           'kind', requested.kind,
-          'total_count', pg_catalog.coalesce((
+          'total_count', coalesce((
             select pg_catalog.sum(status.status_count)::integer
             from job_status_count status
             where status.job_kind = requested.kind
           ), 0),
-          'status_counts', pg_catalog.coalesce((
+          'status_counts', coalesce((
             select pg_catalog.jsonb_agg(
               pg_catalog.jsonb_build_object(
                 'status', status.status,
@@ -949,13 +949,13 @@ begin
               from project_authorized)
              as project_authorized_inspected_count,
            jobs.kinds as job_kinds,
-           pg_catalog.coalesce((
+           coalesce((
              select pg_catalog.bool_or(
                ranked.source_data_invalid
              )
              from ranked_job_candidate ranked
            ), false) as job_data_invalid,
-           pg_catalog.coalesce((
+           coalesce((
              select pg_catalog.bool_or(
                ranked.canonical_conflict
                or ranked.canonical_job_count > 2
@@ -979,7 +979,7 @@ begin
            ) as safe_parent_name,
            private.agent_p2_optional_canonical_text(
              case when 'business_address' = any(p_sections) then
-               case when pg_catalog.nullif(
+               case when nullif(
                  pg_catalog.btrim(customer.selected_sub_client_address),
                  ''
                ) is not null then customer.selected_sub_client_address
@@ -990,7 +990,7 @@ begin
              true
            ) as safe_address,
            case when 'business_address' = any(p_sections) then
-             case when pg_catalog.nullif(
+             case when nullif(
                pg_catalog.btrim(customer.selected_sub_client_address),
                ''
              ) is not null then customer.selected_sub_client_address
@@ -1155,7 +1155,7 @@ begin
            )
            or (
              'business_address' = any(p_sections)
-             and pg_catalog.nullif(
+             and nullif(
                pg_catalog.btrim(final.effective_address),
                ''
              ) is not null
@@ -1163,7 +1163,7 @@ begin
            )
            or (
              'business_notes' = any(p_sections)
-             and pg_catalog.nullif(
+             and nullif(
                pg_catalog.btrim(final.parent_notes),
                ''
              ) is not null
@@ -1291,7 +1291,7 @@ begin
        select pg_catalog.count(distinct requested.kind)
        from pg_catalog.unnest(p_job_kinds) requested(kind)
      ) <> pg_catalog.cardinality(p_job_kinds)
-     or p_job_kinds is distinct from pg_catalog.coalesce((
+     or p_job_kinds is distinct from coalesce((
        select pg_catalog.array_agg(requested.kind order by requested.kind)
        from pg_catalog.unnest(p_job_kinds) requested(kind)
      ), array[]::text[])
@@ -1344,7 +1344,7 @@ begin
     select pg_catalog.count(distinct registry.permission_key)
     from pg_catalog.unnest(p_registered_permission_keys) registry(permission_key)
   ) <> pg_catalog.cardinality(p_registered_permission_keys)
-  or p_registered_permission_keys is distinct from pg_catalog.coalesce((
+  or p_registered_permission_keys is distinct from coalesce((
     select pg_catalog.array_agg(
       registry.permission_key order by registry.permission_key
     )
@@ -1478,7 +1478,7 @@ begin
                else role_row.rolname end as role_name
       from pg_catalog.pg_proc function_row
       cross join lateral pg_catalog.aclexplode(
-        pg_catalog.coalesce(
+        coalesce(
           function_row.proacl,
           pg_catalog.acldefault('f', function_row.proowner)
         )
@@ -1517,7 +1517,7 @@ declare
   v_expected_acl text[];
   v_actual_signatures text[];
 begin
-  select pg_catalog.coalesce(
+  select coalesce(
            pg_catalog.array_agg(
              namespace.nspname || '.' || function_row.proname || '(' ||
              pg_catalog.replace(
@@ -1623,7 +1623,7 @@ begin
         expected.signature;
     end if;
 
-    select pg_catalog.coalesce(
+    select coalesce(
              pg_catalog.array_agg(entry.value order by entry.value),
              array[]::text[]
            )
@@ -1631,13 +1631,13 @@ begin
     from (
       select distinct
         case when acl.grantee = 0 then 'PUBLIC'
-          else pg_catalog.coalesce(
+          else coalesce(
             role_row.rolname,
             'OID:' || acl.grantee::text
           ) end || ':' || acl.privilege_type || ':' ||
           acl.is_grantable::text as value
       from pg_catalog.aclexplode(
-        pg_catalog.coalesce(
+        coalesce(
           v_function_acl,
           pg_catalog.acldefault('f', v_function_owner)
         )

@@ -28,7 +28,7 @@ begin
       select 1
       from pg_catalog.pg_proc function_row
       cross join lateral pg_catalog.aclexplode(
-        pg_catalog.coalesce(
+        coalesce(
           function_row.proacl,
           pg_catalog.acldefault('f', function_row.proowner)
         )

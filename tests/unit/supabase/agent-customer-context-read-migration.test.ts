@@ -71,6 +71,20 @@ const PUBLIC_SIGNATURE =
   "public.read_agent_customer_context_as_system(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],text,text,text,text,uuid,text[],text,text[],integer,integer)";
 
 describe("P2 customer-context read migration", () => {
+  it("does not schema-qualify PostgreSQL parser-only SQL forms", () => {
+    for (const sql of [SQL, RUNTIME_SQL, REPLAY_RUNTIME_SQL]) {
+      for (const parserOnlyForm of [
+        "nullif",
+        "coalesce",
+        "greatest",
+        "least",
+        "substring",
+      ]) {
+        expect(sql).not.toContain(`pg_catalog.${parserOnlyForm}(`);
+      }
+    }
+  });
+
   it("uses one generated guarded migration with exact private/public functions", () => {
     expect(migrationNames).toHaveLength(1);
     expect(migrationNames[0]).toMatch(

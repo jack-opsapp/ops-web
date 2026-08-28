@@ -784,7 +784,7 @@ begin
             '8a000000-0000-4000-8000-000000000001'::uuid
       and opportunity.deleted_at is null
       and opportunity.merged_into_opportunity_id is null
-      and pg_catalog.coalesce(
+      and coalesce(
         opportunity.client_ref,
         opportunity.client_id
       ) = '8a200000-0000-4000-8000-000000000001'::uuid
