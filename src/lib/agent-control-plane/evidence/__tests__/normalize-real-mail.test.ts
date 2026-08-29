@@ -142,6 +142,65 @@ describe("real-world HTML mail normalizes instead of rejecting", () => {
     ).toThrow(TypeError);
   });
 
+  // A rule that can only ever apply while the reader hovers, focuses, clicks
+  // or revisits never renders in the message as read, so nothing it declares
+  // — float included — can change the order the recipient saw.
+  it("reads mail whose hover rule floats", () => {
+    const normalized = normalizeCorrespondence(
+      htmlSource(
+        `<html><head><style>a:hover { float: left }</style></head>` +
+          `<body><p>We can be on site Thursday morning.</p>` +
+          `<a href="https://example.com/quote">View quote</a></body></html>`
+      )
+    );
+
+    expect(normalized.normalizedPlainText).toContain(
+      "We can be on site Thursday morning."
+    );
+    expect(normalized.normalizedPlainText).toContain("View quote");
+  });
+
+  it("reads mail whose hover rule floats alongside static rules", () => {
+    const normalized = normalizeCorrespondence(
+      htmlSource(
+        `<html><head><style>` +
+          `td { padding: 12px }` +
+          `a:hover { float: right; letter-spacing: 2px }` +
+          `a:focus { float: left }` +
+          `</style></head>` +
+          `<body><table><tr><td><p>Invoice 4821 is ready.</p></td></tr></table>` +
+          `<a href="https://example.com/quote">View quote</a></body></html>`
+      )
+    );
+
+    expect(normalized.normalizedPlainText).toContain("Invoice 4821 is ready.");
+    expect(normalized.normalizedPlainText).toContain("View quote");
+  });
+
+  it("reads a stylesheet rule that explicitly clears a float", () => {
+    const normalized = normalizeCorrespondence(
+      htmlSource(
+        `<html><head><style>p { float: none }</style></head>` +
+          `<body><p>Cedar, 24 feet, finished last week.</p></body></html>`
+      )
+    );
+
+    expect(normalized.normalizedPlainText).toContain(
+      "Cedar, 24 feet, finished last week."
+    );
+  });
+
+  it("reads an inline float:none on an element that carries text", () => {
+    const normalized = normalizeCorrespondence(
+      htmlSource(
+        `<div style="float:none"><span>DO NOT</span><span>APPROVE</span></div>`
+      )
+    );
+
+    expect(normalized.normalizedPlainText).toContain("DO NOT");
+    expect(normalized.normalizedPlainText).toContain("APPROVE");
+  });
+
   it("reads ordinary inline-styled table mail", () => {
     const normalized = normalizeCorrespondence(
       htmlSource(`
@@ -191,6 +250,90 @@ describe("concealment still rejects after the real-mail relaxations", () => {
         htmlSource(
           `<html><head><style>p:first-child { mso-hide: all }</style></head>` +
             `<body><p>concealed</p><p>visible</p></body></html>`
+        )
+      )
+    ).toThrow(TypeError);
+  });
+
+  // Deliberate policy, not an oversight. A static float rule names elements
+  // this boundary cannot bind to text before the cascade runs, so it cannot
+  // prove the matched boxes are text-free — and dropping the float would make
+  // the agent read a different order than the recipient saw.
+  it("still rejects a static element float rule in a stylesheet", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(
+          `<html><head><style>p { float: left }</style></head>` +
+            `<body><p>APPROVE</p><p>DO NOT</p></body></html>`
+        )
+      )
+    ).toThrow(TypeError);
+  });
+
+  it("still rejects a static class float rule in a stylesheet", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(
+          `<html><head><style>.btn { float: left }</style></head>` +
+            `<body><p class="btn">APPROVE</p><p>DO NOT</p></body></html>`
+        )
+      )
+    ).toThrow(TypeError);
+  });
+
+  it("still rejects a float rule whose selector list also applies statically", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(
+          `<html><head><style>.btn:hover, .btn { float: left }</style></head>` +
+            `<body><p class="btn">APPROVE</p><p>DO NOT</p></body></html>`
+        )
+      )
+    ).toThrow(TypeError);
+  });
+
+  // An attribute selector matches its quoted value as data. `[title=":hover"]`
+  // applies to the message as read, so it must not read as hover-only and
+  // smuggle a float past the guard.
+  it("still rejects a float rule whose dynamic pseudo-class is quoted data", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(
+          `<html><head><style>p[title=":hover"] { float: left }</style></head>` +
+            `<body><p title=":hover">APPROVE</p><p>DO NOT</p></body></html>`
+        )
+      )
+    ).toThrow(TypeError);
+  });
+
+  it("still rejects a float rule whose attribute selector is unterminated", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(
+          `<html><head><style>p[title=":hover" { float: left }</style></head>` +
+            `<body><p>APPROVE</p><p>DO NOT</p></body></html>`
+        )
+      )
+    ).toThrow(TypeError);
+  });
+
+  it("still rejects a float wrapped in a media query", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(
+          `<html><head><style>@media screen { a:hover { float: left } }</style></head>` +
+            `<body><p>DO NOT</p><a href="https://example.com">APPROVE</a></body></html>`
+        )
+      )
+    ).toThrow(TypeError);
+  });
+
+  it("still rejects a float rule behind a negated dynamic pseudo-class", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(
+          `<html><head><style>a:not(:hover) { float: left }</style></head>` +
+            `<body><a href="https://example.com">APPROVE</a><p>DO NOT</p></body></html>`
         )
       )
     ).toThrow(TypeError);

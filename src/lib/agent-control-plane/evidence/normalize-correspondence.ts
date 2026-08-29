@@ -307,6 +307,10 @@ const VISIBILITY_NEUTRAL_CSS_DECLARATIONS = new Set([
 // Pseudo-classes that describe a reader interacting with the message. None of
 // them apply to the static reading the evidence boundary records.
 const DYNAMIC_PSEUDO_CLASS = /:(?:hover|focus|active|visited)\b/gi;
+// Attribute selectors can quote anything, `[title=":hover"]` included. Their
+// contents are matched as data, never as pseudo-classes, so they come out
+// before a branch is read for dynamic pseudo-classes.
+const ATTRIBUTE_SELECTOR = /\[[^\]]*\]/g;
 const CSS_DECLARATION_NAME = /(?:^|[;{])\s*((?:--|-?[a-z])[a-z0-9-]*)\s*:/gi;
 
 /**
@@ -316,8 +320,9 @@ const CSS_DECLARATION_NAME = /(?:^|[;{])\s*((?:--|-?[a-z])[a-z0-9-]*)\s*:/gi;
  * Evaluated per selector-list branch on purpose: in `.x:hover, .x { … }` the
  * second branch applies statically, so the rule is NOT dynamic-only and must
  * still be resolved. A branch qualifies only when a dynamic pseudo-class was
- * actually removed from it AND nothing unresolvable is left behind — so
- * `:not(:hover)` keeps its colon and fails closed.
+ * actually removed from OUTSIDE its attribute selectors AND nothing
+ * unresolvable is left behind — so `:not(:hover)` keeps its colon and
+ * `[title=":hover"]` keeps its static match, and both fail closed.
  */
 function isDynamicOnlySelector(selectorText: string): boolean {
   const branches = selectorText
@@ -326,9 +331,71 @@ function isDynamicOnlySelector(selectorText: string): boolean {
     .filter(Boolean);
   if (branches.length === 0) return false;
   return branches.every((branch) => {
-    const stripped = branch.replace(DYNAMIC_PSEUDO_CLASS, "");
-    return stripped !== branch && !stripped.includes(":");
+    // An unbalanced bracket leaves quoted data indistinguishable from a real
+    // pseudo-class, so it fails closed rather than guessing.
+    const withoutAttributes = branch.replace(ATTRIBUTE_SELECTOR, "");
+    if (/[[\]]/.test(withoutAttributes)) return false;
+    const stripped = withoutAttributes.replace(DYNAMIC_PSEUDO_CLASS, "");
+    return stripped !== withoutAttributes && !stripped.includes(":");
   });
+}
+
+/**
+ * The stylesheet with every rule that can only ever apply while the reader
+ * hovers, focuses, clicks, or revisits removed.
+ *
+ * Such a rule never renders in the message as read, so nothing it declares
+ * can change what the recipient saw. It has to be dropped before the
+ * declaration guards run, not after: those guards read declarations without
+ * knowing which selector carried them, so a rule that cannot apply would
+ * otherwise reject the whole message for a style nobody ever renders.
+ *
+ * Fails closed. Escapes can disguise a selector, and at-rules, nesting and
+ * unbalanced braces put rules where a flat scan cannot read their prelude —
+ * each of those returns the sheet untouched, so the guards still see all of
+ * it and can only reject more. Comments must already be stripped.
+ */
+function cssWithoutDynamicOnlyRules(value: string): string {
+  if (!value.includes("{") || value.includes("\\") || value.includes("@")) {
+    return value;
+  }
+  let out = "";
+  let prelude = "";
+  let body = "";
+  let quote: string | null = null;
+  let depth = 0;
+  for (const character of value) {
+    if (quote) {
+      if (depth === 0) prelude += character;
+      else body += character;
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      if (depth === 0) prelude += character;
+      else body += character;
+      continue;
+    }
+    if (character === "{") {
+      depth += 1;
+      if (depth > 1) return value;
+      body = "";
+      continue;
+    }
+    if (character === "}") {
+      depth -= 1;
+      if (depth !== 0) return value;
+      if (!isDynamicOnlySelector(prelude)) out += `${prelude}{${body}}`;
+      prelude = "";
+      body = "";
+      continue;
+    }
+    if (depth === 0) prelude += character;
+    else body += character;
+  }
+  if (quote !== null || depth !== 0) return value;
+  return out + prelude;
 }
 
 /**
@@ -1652,14 +1719,26 @@ function normalizeHtmlText(value: string): string {
       }
     }
     for (const styleElement of Array.from(document.querySelectorAll("style"))) {
-      const cssText = cssWithoutComments(styleElement.textContent ?? "");
+      // Rules that can only apply while the reader hovers, focuses, clicks or
+      // revisits come out before any declaration guard reads the sheet. The
+      // guards judge declarations without their selector, so a rule that never
+      // renders in the message as read would otherwise reject the message for
+      // a style nobody ever sees.
+      const cssText = cssWithoutDynamicOnlyRules(
+        cssWithoutComments(styleElement.textContent ?? "")
+      );
       assertSupportedCssDeclarations(cssText);
       if (
         UNRESOLVED_VISIBILITY_STYLE.test(cssText) ||
         UNSUPPORTED_VISIBILITY_DECLARATION.test(cssText) ||
         STRUCK_TEXT_DECORATION.test(cssText) ||
-        // A rule-set float cannot be tied to its elements before the cascade
-        // runs, so it stays indeterminate regardless of where it lands.
+        // A float that survives the strip above is one the static reading can
+        // render. A rule-set float cannot be tied to its elements before the
+        // cascade runs, so this guard cannot prove the matched boxes carry no
+        // text of their own — and a floated box that does carry text renders
+        // it ahead of content preceding it in source order. Reading past the
+        // float would hand the agent a different sentence than the recipient
+        // saw, so it stays indeterminate wherever it lands. Deliberate.
         FLOAT_DECLARATION.test(cssText) ||
         UNSUPPORTED_CSS_AT_RULE.test(cssText) ||
         UNSUPPORTED_LAYOUT_DISPLAY.test(cssText) ||
