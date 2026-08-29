@@ -13,7 +13,18 @@ import {
   SALES_DOCUMENT_MAX_PAGE_ITEMS,
   SALES_DOCUMENT_MAX_SOURCE_ROWS,
   SALES_DOCUMENT_SCHEMA_REVISION,
+  ListPaymentsInputSchema,
+  ListPaymentsResultSchema,
+  PAYMENT_FETCH_LIMIT,
+  PAYMENT_MAX_DATE_WINDOW_DAYS,
+  PAYMENT_MAX_PAGE_ITEMS,
+  PAYMENT_MAX_SOURCE_ROWS,
+  PAYMENT_METHOD_CATEGORIES,
+  PAYMENT_READ_SCHEMA_REVISION,
+  PAYMENT_RECONCILIATION_STATES,
+  PaymentLedgerItemSchema,
   SalesDocumentHeaderSchema,
+  assertNoPaymentForbiddenFields,
   assertNoSalesDocumentForbiddenFields,
 } from "../sales-documents";
 
@@ -29,6 +40,11 @@ const UUID = {
 const READ_AT = "2026-08-28T12:00:00.000Z";
 const REVISIONS = [
   { domain: "legacy_operational", source_revision: 7 },
+  { domain: "sales_documents", source_revision: 11 },
+] as const;
+const PAYMENT_REVISIONS = [
+  { domain: "legacy_operational", source_revision: 7 },
+  { domain: "payments", source_revision: 13 },
   { domain: "sales_documents", source_revision: 11 },
 ] as const;
 
@@ -326,6 +342,209 @@ describe("P2 sales-document outputs", () => {
         false
       );
       expect(() => assertNoSalesDocumentForbiddenFields(candidate)).toThrow();
+    }
+  });
+});
+
+function paymentItem(overrides: Readonly<Record<string, unknown>> = {}) {
+  return {
+    payment_ref: { kind: "payment", id: UUID.documentA },
+    invoice_ref: { kind: "invoice", id: UUID.documentB },
+    customer_ref: { kind: "customer", id: UUID.customer },
+    job_ref: { kind: "project", id: UUID.job },
+    amount: money(25_000),
+    payment_date: "2026-08-22",
+    method_category: "card",
+    reconciliation_state: "applied",
+    voided_at: null,
+    content_kind: "untrusted_business_data",
+    ...overrides,
+  } as const;
+}
+
+function paymentProof(
+  fill: string,
+  collection?: { count: number; more: boolean }
+) {
+  return {
+    proof_ref: `ops_proof:v1:${fill.repeat(64)}`,
+    read_at: READ_AT,
+    source_revisions: PAYMENT_REVISIONS,
+    ...(collection
+      ? { returned_count: collection.count, has_more: collection.more }
+      : {}),
+  };
+}
+
+function paymentEvidence(fill: string) {
+  return {
+    evidence_ref: `ops_evidence:v1:${fill.repeat(64)}`,
+    source_domain: "payments",
+    source_type: "payment",
+    occurred_at: READ_AT,
+  };
+}
+
+describe("P2 payment read contract", () => {
+  it("pins strict defaults, filters, and the 25/26/501 bounds", () => {
+    expect(PAYMENT_READ_SCHEMA_REVISION).toBe("2026-08-22.v1");
+    expect(PAYMENT_MAX_PAGE_ITEMS).toBe(25);
+    expect(PAYMENT_FETCH_LIMIT).toBe(26);
+    expect(PAYMENT_MAX_SOURCE_ROWS).toBe(501);
+    expect(PAYMENT_MAX_DATE_WINDOW_DAYS).toBe(366);
+    expect(PAYMENT_METHOD_CATEGORIES).toEqual([
+      "bank",
+      "card",
+      "cash",
+      "check",
+      "other",
+    ]);
+    expect(PAYMENT_RECONCILIATION_STATES).toEqual(["applied", "voided"]);
+    expect(ListPaymentsInputSchema.parse({})).toEqual({
+      method_categories: [...PAYMENT_METHOD_CATEGORIES],
+      reconciliation_states: [...PAYMENT_RECONCILIATION_STATES],
+      limit: 25,
+    });
+
+    const valid = {
+      invoice_ref: { kind: "invoice", id: UUID.documentB },
+      customer_ref: { kind: "customer", id: UUID.customer },
+      job_ref: { kind: "project", id: UUID.job },
+      payment_date_window: {
+        start_date: "2026-08-01",
+        end_date: "2026-08-31",
+      },
+      method_categories: ["bank", "card"],
+      reconciliation_states: ["applied", "voided"],
+      limit: 25,
+    } as const;
+    expect(ListPaymentsInputSchema.safeParse(valid).success).toBe(true);
+    for (const invalid of [
+      { ...valid, method_categories: ["card", "bank"] },
+      { ...valid, method_categories: ["card", "card"] },
+      { ...valid, method_categories: ["credit_card"] },
+      { ...valid, reconciliation_states: [] },
+      {
+        ...valid,
+        payment_date_window: {
+          start_date: "2026-09-01",
+          end_date: "2026-08-31",
+        },
+      },
+      {
+        ...valid,
+        payment_date_window: {
+          start_date: "2025-01-01",
+          end_date: "2026-01-03",
+        },
+      },
+      { ...valid, limit: 26 },
+      { ...valid, payment_method: "stripe" },
+      { ...valid, company_id: UUID.customer },
+    ]) {
+      expect(ListPaymentsInputSchema.safeParse(invalid).success).toBe(false);
+    }
+  });
+
+  it("returns only canonical money, normalized method, linked refs, and coupled void state", () => {
+    expect(PaymentLedgerItemSchema.parse(paymentItem()).amount).toEqual(
+      MoneySchema.parse(money(25_000))
+    );
+    expect(
+      PaymentLedgerItemSchema.safeParse(
+        paymentItem({
+          reconciliation_state: "voided",
+          voided_at: "2026-08-23T09:00:00.000Z",
+        })
+      ).success
+    ).toBe(true);
+    for (const invalid of [
+      paymentItem({ reconciliation_state: "voided", voided_at: null }),
+      paymentItem({
+        reconciliation_state: "applied",
+        voided_at: "2026-08-23T09:00:00.000Z",
+      }),
+      paymentItem({ method_category: "credit_card" }),
+      paymentItem({ amount: { amount: 250, currency: "CAD" } }),
+      paymentItem({ amount: money(0) }),
+      paymentItem({ amount: money(-1) }),
+      paymentItem({ payment_date: "2026-02-30" }),
+    ]) {
+      expect(PaymentLedgerItemSchema.safeParse(invalid).success).toBe(false);
+    }
+  });
+
+  it("couples exact revisions, currency, date/ID order, proof, evidence, and cursor", () => {
+    const secondId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const items = [
+      paymentItem(),
+      paymentItem({
+        payment_ref: { kind: "payment", id: secondId },
+        payment_date: "2026-08-21",
+        amount: money(10_000),
+      }),
+    ];
+    const result = {
+      items,
+      item_proofs: [paymentProof("a"), paymentProof("b")],
+      evidence: [paymentEvidence("c"), paymentEvidence("d")],
+      collection_proof: paymentProof("e", { count: 2, more: false }),
+      next_cursor: null,
+    };
+    expect(ListPaymentsResultSchema.parse(result)).toEqual(result);
+    for (const invalid of [
+      { ...result, items: [...items].reverse() },
+      {
+        ...result,
+        items: [items[0], paymentItem({ amount: money(10_000, "USD") })],
+      },
+      {
+        ...result,
+        item_proofs: [
+          { ...result.item_proofs[0], source_revisions: REVISIONS },
+          result.item_proofs[1],
+        ],
+      },
+      {
+        ...result,
+        items: [
+          paymentItem({
+            reconciliation_state: "voided",
+            voided_at: "2026-08-28T12:00:00.001Z",
+          }),
+          items[1],
+        ],
+      },
+      { ...result, evidence: [result.evidence[0]] },
+      { ...result, next_cursor: "too-short" },
+    ]) {
+      expect(ListPaymentsResultSchema.safeParse(invalid).success).toBe(false);
+    }
+  });
+
+  it("excludes references, provider identifiers, actors, raw methods, and instruments", () => {
+    for (const field of [
+      "reference_number",
+      "payment_reference",
+      "provider_id",
+      "provider_transaction_id",
+      "qb_id",
+      "sage_id",
+      "stripe_payment_intent",
+      "created_by",
+      "voided_by",
+      "actor_user_id",
+      "payment_method",
+      "raw_method",
+      "instrument",
+      "card_last_four",
+      "bank_account",
+      "check_number",
+      "notes",
+    ]) {
+      const candidate = { ...paymentItem(), [field]: "forbidden" };
+      expect(PaymentLedgerItemSchema.safeParse(candidate).success).toBe(false);
+      expect(() => assertNoPaymentForbiddenFields(candidate)).toThrow();
     }
   });
 });
