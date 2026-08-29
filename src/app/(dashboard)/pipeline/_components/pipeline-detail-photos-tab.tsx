@@ -43,12 +43,38 @@ interface PhotoRecord {
   removable: boolean;
 }
 
-function collectPhotos(
+/** The lead's own contact identity, used to name a familiar sender. */
+export interface PhotoLeadContact {
+  email: string | null;
+  name: string | null;
+}
+
+/**
+ * Who sent this photo, in as few words as possible: the customer's first name
+ * when the sender IS the lead's contact, otherwise their bare address. Null
+ * when there is nothing trustworthy to show.
+ */
+function senderLabel(
+  fromEmail: string | null,
+  leadContact: PhotoLeadContact,
+): string | null {
+  const sender = fromEmail?.trim().toLowerCase() ?? "";
+  if (!sender) return null;
+  const contactEmail = leadContact.email?.trim().toLowerCase() ?? "";
+  if (contactEmail && sender === contactEmail) {
+    const firstName = leadContact.name?.trim().split(/\s+/)[0];
+    if (firstName) return firstName;
+  }
+  return fromEmail?.trim() || null;
+}
+
+export function collectPhotos(
   leadImages: string[],
   activities: Activity[],
   siteVisits: Array<{ photos: string[]; scheduledAt: Date | string }>,
   locale: Locale,
-  t: (key: string, fallback?: string) => string,
+  t: (key: string, fallbackOrParams?: string | Record<string, unknown>) => string,
+  leadContact: PhotoLeadContact = { email: null, name: null },
 ): PhotoRecord[] {
   const photos: PhotoRecord[] = [];
 
@@ -66,13 +92,25 @@ function collectPhotos(
 
   for (const a of activities) {
     if (a.type !== ActivityType.Email) continue;
+    // Bug 288f2607. Company-sent images are correspondence, not lead photos:
+    // the crew photo you emailed a customer does not belong in their gallery.
+    // The project-conversion pipeline already refuses outbound; this makes the
+    // web grid agree.
+    if (a.direction === "outbound") continue;
+    const sender = senderLabel(a.fromEmail, leadContact);
     for (const url of a.attachments) {
       if (IMG_RE.test(url)) {
         const d = new Date(a.createdAt);
+        const day = d.toLocaleDateString(getDateLocale(locale), {
+          month: "short",
+          day: "numeric",
+        });
         dated.push({
           url,
           date: d,
-          source: `${t("detail.photoEmailSource", "Email")} — ${d.toLocaleDateString(getDateLocale(locale), { month: "short", day: "numeric" })}`,
+          source: sender
+            ? `${t("detail.photoEmailSourceFrom", { name: sender })} · ${day}`
+            : `${t("detail.photoEmailSource", "Email")} — ${day}`,
           removable: false,
         });
       }
@@ -251,8 +289,20 @@ export function PipelineDetailPhotosTab({
         siteVisits ?? [],
         locale,
         t,
+        {
+          email: opportunity.contactEmail ?? null,
+          name: opportunity.contactName ?? null,
+        },
       ),
-    [opportunity.images, activities, siteVisits, locale, t]
+    [
+      opportunity.images,
+      opportunity.contactEmail,
+      opportunity.contactName,
+      activities,
+      siteVisits,
+      locale,
+      t,
+    ]
   );
 
   const handleNavigate = useCallback((idx: number) => {

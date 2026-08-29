@@ -2257,7 +2257,10 @@ async function createActivity(
       to_emails: toEmails,
       cc_emails: ccEmails,
       has_attachments: normalizedEmail.hasAttachments,
-      attachment_count: normalizedEmail.hasAttachments ? 1 : 0, // provider doesn't give exact count yet
+      // Provisional: the provider gives no exact count at ingest. Attachment
+      // ingestion corrects this to the real number once it enumerates the
+      // message (see attachment-ingestion-service updateActivityAttachmentRollup).
+      attachment_count: normalizedEmail.hasAttachments ? 1 : 0,
       match_needs_review: extra?.matchNeedsReview || false,
       suggested_client_id: extra?.suggestedClientId || null,
       match_confidence: extra?.matchConfidence || "pattern",
