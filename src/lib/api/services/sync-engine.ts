@@ -49,6 +49,7 @@ import {
 } from "@/lib/email/phase-c-lifecycle-decision";
 import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-health";
 import {
+  applyLeadSummaryDeferralCap,
   decodeEmailSyncContinuation,
   encodeEmailSyncContinuation,
   isEmailSyncContinuationPending,
@@ -184,6 +185,10 @@ export interface SyncCycleResult {
   /** Count of unmatched threads whose lead classification was durably deferred
    * (marked `email_threads.lead_scan_pending_at`) due to a provider outage. */
   leadScansDeferred: number;
+  /** Leads dropped from the continuation envelope after exhausting their
+   * bounded summary-refresh budget for a model reason. Derived data never
+   * holds mailbox liveness hostage; the quarantine row owns the follow-up. */
+  leadSummariesQuarantined: number;
   /** The durable cursor advanced, but provider or derived work still remains. */
   continuationPending: boolean;
   errors: string[];
@@ -585,6 +590,7 @@ function emptyResult(): SyncCycleResult {
     invalidProviderEmails: 0,
     aiProviderDeferred: false,
     leadScansDeferred: 0,
+    leadSummariesQuarantined: 0,
     continuationPending: false,
     errors: [],
   };
@@ -5847,6 +5853,55 @@ export const SyncEngine = {
         persistedSyncContinuation?.providerToken ?? connection.historyId;
       let pendingLeadSummaryOpportunityIds =
         persistedSyncContinuation?.pendingLeadSummaryOpportunityIds ?? [];
+      let pendingLeadSummaryAttempts =
+        persistedSyncContinuation?.pendingLeadSummaryAttempts ?? {};
+
+      /**
+       * Fold one refresh cycle's deferrals into the bounded attempt budget and
+       * quarantine anything that exhausted it. Derived summary work must never
+       * hold the mailbox cursor hostage (0700468d): this can only ever REMOVE
+       * ids from the envelope, so the worst case is a completed sync plus an
+       * explicit, owned quarantine row.
+       */
+      const applySummaryDeferralBudget = async (
+        summaryRefresh: Awaited<
+          ReturnType<typeof refreshLeadSummariesForOpportunities>
+        >
+      ): Promise<void> => {
+        const capped = applyLeadSummaryDeferralCap({
+          remainingOpportunityIds: summaryRefresh.remainingOpportunityIds,
+          deferred: summaryRefresh.deferred,
+          attempts: pendingLeadSummaryAttempts,
+        });
+        pendingLeadSummaryOpportunityIds = capped.pendingOpportunityIds;
+        pendingLeadSummaryAttempts = capped.attempts;
+        for (const record of capped.quarantined) {
+          // Quarantine bookkeeping is derived-data hygiene. It must never fail
+          // a sync that has already persisted its mailbox work.
+          try {
+            const { error } = await requireSupabase().rpc(
+              "upsert_lead_summary_refresh_quarantine",
+              {
+                p_opportunity_id: record.opportunityId,
+                p_company_id: connection.companyId,
+                p_reason: record.reason,
+                p_last_error: record.lastError,
+                p_deferral_count: record.deferralCount,
+              }
+            );
+            if (error) throw error;
+            result.leadSummariesQuarantined++;
+          } catch (quarantineError) {
+            console.error(
+              "[sync-engine] lead summary quarantine write failed:",
+              record.opportunityId,
+              quarantineError instanceof Error
+                ? quarantineError.message
+                : quarantineError
+            );
+          }
+        }
+      };
 
       // Step 1: Fetch new emails since last sync (inbox + sent)
       //
@@ -5998,6 +6053,7 @@ export const SyncEngine = {
         const historyId = encodeEmailSyncContinuation({
           providerToken: newSyncToken,
           pendingLeadSummaryOpportunityIds,
+          pendingLeadSummaryAttempts,
         });
         result.continuationPending = isEmailSyncContinuationPending(historyId);
         if (result.continuationPending) {
@@ -6040,8 +6096,7 @@ export const SyncEngine = {
                 .join("; ")}`
             );
           }
-          pendingLeadSummaryOpportunityIds =
-            summaryRefresh.remainingOpportunityIds;
+          await applySummaryDeferralBudget(summaryRefresh);
 
           const providerFailure = summaryRefresh.deferred.find(
             (failure) => failure.reason === "provider_unavailable"
@@ -6676,8 +6731,7 @@ export const SyncEngine = {
                 );
               }
             }
-            pendingLeadSummaryOpportunityIds =
-              summaryRefresh.remainingOpportunityIds;
+            await applySummaryDeferralBudget(summaryRefresh);
           }
         }
       } catch (aiErr) {

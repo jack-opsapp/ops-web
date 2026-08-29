@@ -282,6 +282,14 @@ export interface LeadSummaryRunResult {
   written: Array<{ opportunityId: string; title: string }>;
   /** Candidate preview (capped) — populated in dry runs and real runs alike. */
   candidatesPreview: Array<{ opportunityId: string; title: string }>;
+  /**
+   * Stale leads deliberately skipped this run because their summary exhausted
+   * its bounded refresh budget and no newer source evidence has arrived. The
+   * nightly health audit reads this to see non-convergence explicitly instead
+   * of inferring it from a silently missing write.
+   */
+  quarantined: Array<{ opportunityId: string; reason: string }>;
+  quarantinedCount: number;
   opportunityWindow: {
     companyId: string;
     afterOpportunityId: string | null;
@@ -3973,6 +3981,65 @@ async function commitLeadSummarySnapshot(input: {
   }
 }
 
+/**
+ * Read the quarantine ledger for a bounded set of opportunities. A read failure
+ * is fatal on purpose: guessing "not quarantined" would re-admit a lead that
+ * cannot converge and re-open the very loop this ledger exists to close.
+ */
+async function loadLeadSummaryQuarantine(
+  supabase: LeadSummarySupabaseLike,
+  companyId: string,
+  opportunityIds: string[]
+): Promise<Map<string, { reason: string; quarantined_at: string }>> {
+  const byOpportunity = new Map<
+    string,
+    { reason: string; quarantined_at: string }
+  >();
+  if (opportunityIds.length === 0) return byOpportunity;
+  const { data, error } = await supabase
+    .from("lead_summary_refresh_quarantine")
+    .select("opportunity_id, reason, quarantined_at")
+    .eq("company_id", companyId)
+    .in("opportunity_id", opportunityIds);
+  if (error) {
+    throw new CronDatabaseOperationError(
+      `[lead-summary] quarantine read failed for ${companyId}: ${error.message ?? "unknown error"}`,
+      { cause: error }
+    );
+  }
+  for (const row of (data ?? []) as Array<{
+    opportunity_id: string;
+    reason: string;
+    quarantined_at: string;
+  }>) {
+    byOpportunity.set(row.opportunity_id, {
+      reason: row.reason,
+      quarantined_at: row.quarantined_at,
+    });
+  }
+  return byOpportunity;
+}
+
+/**
+ * Free a lead for one more bounded round. Non-fatal: failing to release must
+ * never block the refresh that newer evidence just earned — the worst case is
+ * the lead is admitted anyway and the row is cleared on the next pass.
+ */
+async function releaseLeadSummaryQuarantine(
+  supabase: LeadSummarySupabaseLike,
+  opportunityId: string
+): Promise<void> {
+  const { error } = await supabase.rpc(
+    "release_lead_summary_refresh_quarantine",
+    { p_opportunity_id: opportunityId }
+  );
+  if (error) {
+    console.warn(
+      `[lead-summary] quarantine release failed for ${opportunityId}: ${error.message ?? "unknown error"}`
+    );
+  }
+}
+
 export interface TargetedLeadSummaryRefreshResult {
   requested: number;
   attempted: number;
@@ -4063,6 +4130,19 @@ export async function refreshLeadSummariesForOpportunities(input: {
       : "Unknown company";
 
   const nowIso = (input.now ?? new Date()).toISOString();
+
+  // Every caller of the targeted path is driven by concrete new evidence for
+  // these exact leads — new mail, a new attachment, Phase C work, or an
+  // operator asking. That evidence is precisely what re-arms a quarantined
+  // lead, so release it here and give it one more bounded round.
+  const quarantined = await loadLeadSummaryQuarantine(
+    input.supabase,
+    input.companyId,
+    opportunityIds
+  );
+  for (const opportunityId of quarantined.keys()) {
+    await releaseLeadSummaryQuarantine(input.supabase, opportunityId);
+  }
 
   const batchIds = opportunityIds.slice(0, TARGETED_SUMMARY_MAX_PER_CYCLE);
   result.attempted = batchIds.length;
@@ -4262,6 +4342,7 @@ async function sweepCompany(
     opportunity: OpportunityRow;
     slices: LeadSummaryContextSlices;
     stampMs: number | null;
+    latestContextAtMs: number | null;
   }> = [];
   for (const opportunity of opportunities) {
     const slices = slicesByOpportunity.get(opportunity.id);
@@ -4278,6 +4359,7 @@ async function sweepCompany(
         opportunity,
         slices,
         stampMs: parseMs(opportunity.ai_summary_updated_at),
+        latestContextAtMs: aggregates.latestContextAtMs,
       });
     } catch (error) {
       // Treat a corrupt evidence boundary as a failure for this lead only.
@@ -4289,6 +4371,45 @@ async function sweepCompany(
       });
       continue;
     }
+  }
+
+  // A quarantined lead exhausted its bounded refresh budget. It stays out of
+  // the sweep — burning model budget hourly on a summary that cannot converge
+  // helps nobody — until source evidence NEWER than the quarantine arrives,
+  // which re-arms exactly one more bounded round.
+  const quarantineByOpportunity = await loadLeadSummaryQuarantine(
+    supabase,
+    companyId,
+    candidates.map((candidate) => candidate.opportunity.id)
+  );
+  if (quarantineByOpportunity.size > 0) {
+    const admitted: typeof candidates = [];
+    for (const candidate of candidates) {
+      const quarantine = quarantineByOpportunity.get(candidate.opportunity.id);
+      if (!quarantine) {
+        admitted.push(candidate);
+        continue;
+      }
+      const quarantinedAtMs = parseMs(quarantine.quarantined_at);
+      const hasNewerEvidence =
+        candidate.latestContextAtMs !== null &&
+        quarantinedAtMs !== null &&
+        candidate.latestContextAtMs > quarantinedAtMs;
+      if (!hasNewerEvidence) {
+        result.quarantinedCount += 1;
+        if (result.quarantined.length < RESULT_LIST_CAP) {
+          result.quarantined.push({
+            opportunityId: candidate.opportunity.id,
+            reason: quarantine.reason,
+          });
+        }
+        continue;
+      }
+      await releaseLeadSummaryQuarantine(supabase, candidate.opportunity.id);
+      admitted.push(candidate);
+    }
+    candidates.length = 0;
+    candidates.push(...admitted);
   }
 
   // Stalest first: never-stamped leads lead the queue, then oldest stamps.
@@ -4458,6 +4579,8 @@ export async function runLeadSummaryRefresh(
     deferred: [],
     written: [],
     candidatesPreview: [],
+    quarantined: [],
+    quarantinedCount: 0,
     opportunityWindow: null,
   };
 
