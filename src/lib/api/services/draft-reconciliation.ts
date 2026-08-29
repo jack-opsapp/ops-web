@@ -223,7 +223,14 @@ interface ResolvedMailboxLearningActor {
   opportunityId: string | null;
   assignmentVersion: number | null;
   assignmentEventId: string | null;
-  proofType: "native_mailbox_draft" | "personal_mailbox_owner";
+  proofType:
+    | "native_mailbox_draft"
+    | "personal_mailbox_owner"
+    // A shared mailbox send cannot name its author, so a rewrite on a
+    // company-type connection is anchored on the current exact assignee who
+    // owns the OPS draft on that very thread — the same inference the
+    // `native_mailbox_draft` arm already trusts for reused drafts.
+    | "company_mailbox_assignee";
 }
 
 const DRAFT_RECONCILIATION_READ_DEADLINE_MS = 2 * 60 * 1000;
@@ -367,9 +374,11 @@ async function resolveMailboxLearningActor(input: {
   if (
     typeof row.actorUserId !== "string" ||
     !row.actorUserId ||
-    !["native_mailbox_draft", "personal_mailbox_owner"].includes(
-      String(row.proofType ?? "")
-    )
+    ![
+      "native_mailbox_draft",
+      "personal_mailbox_owner",
+      "company_mailbox_assignee",
+    ].includes(String(row.proofType ?? ""))
   ) {
     return null;
   }
