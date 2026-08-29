@@ -1153,10 +1153,10 @@ describe("AIDraftService recent mailbox context", () => {
 
     expect(result.available).toBe(true);
     expect(result.subject).toBe(ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT);
-    expect(result.subjectSource).toBe("configured");
+    expect(result.subjectSource).toBe("fallback");
     expect(database.inserts.at(-1)?.payload).toMatchObject({
       subject: ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT,
-      subject_source: "configured",
+      subject_source: "fallback",
     });
   });
 
@@ -1221,7 +1221,7 @@ describe("AIDraftService recent mailbox context", () => {
 
     expect(result.available).toBe(true);
     expect(result.subject).toBe(ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT);
-    expect(result.subjectSource).toBe("configured");
+    expect(result.subjectSource).toBe("fallback");
   });
 
   it("pins the operator's identity in the contact-form system prompt", async () => {
