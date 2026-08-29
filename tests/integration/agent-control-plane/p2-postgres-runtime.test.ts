@@ -25,7 +25,7 @@ const MIGRATIONS = [
   ],
   [
     "20260823072837_mcp_oauth_consent_catalog_versioning.sql",
-    "60f2949445ac84dfa0a0b59416815d2dc3a998f6a2639459a766ce06c02bfffd",
+    "8982be2396494d8256b88aba99a31977028d5c5eac2876f11b716732be2fa86a",
   ],
   [
     "20260823072843_agent_mcp_durable_rate_limit.sql",
@@ -458,6 +458,8 @@ const DROPDB =
 const PG_HOST = process.env.OPS_PGHOST ?? "/tmp";
 const PG_PORT = process.env.OPS_PGPORT ?? "55414";
 const PG_USER = process.env.OPS_PGUSER ?? process.env.USER ?? "postgres";
+const PRODUCTION_DATABASE_LOCALE_PROVIDER = "i";
+const PRODUCTION_DATABASE_LOCALE = "en-US";
 const RELEASE_BOOTSTRAP_OAUTH_SENTINELS_SQL = `
 begin;
 delete from private.mcp_oauth_tokens
@@ -540,6 +542,42 @@ async function runStatement(database: string, sql: string) {
       cwd: ROOT,
       maxBuffer: 64 * 1024 * 1024,
       timeout: PSQL_TIMEOUT_MS,
+      killSignal: "SIGTERM",
+    }
+  );
+}
+
+async function queryScalar(database: string, sql: string): Promise<string> {
+  const { stdout } = await execFileAsync(
+    PSQL,
+    databaseArgs(database).concat("-X", "-Atqc", sql),
+    {
+      cwd: ROOT,
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: LIFECYCLE_TIMEOUT_MS,
+      killSignal: "SIGTERM",
+    }
+  );
+  return stdout.trim();
+}
+
+async function createDatabase(
+  database: string,
+  localeArgs: readonly string[] = []
+) {
+  await execFileAsync(
+    CREATEDB,
+    databaseArgs().concat(
+      "-T",
+      "template0",
+      "-E",
+      "UTF8",
+      ...localeArgs,
+      database
+    ),
+    {
+      cwd: ROOT,
+      timeout: LIFECYCLE_TIMEOUT_MS,
       killSignal: "SIGTERM",
     }
   );
@@ -790,15 +828,7 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
           // cleanup eligible before CREATEDB starts so a server-side success
           // followed by a client timeout cannot strand a disposable database.
           created = true;
-          await execFileAsync(
-            CREATEDB,
-            databaseArgs().concat("-T", "template0", "-E", "UTF8", database),
-            {
-              cwd: ROOT,
-              timeout: LIFECYCLE_TIMEOUT_MS,
-              killSignal: "SIGTERM",
-            }
-          );
+          await createDatabase(database);
           await runFile(database, BASELINE);
           appliedMigrations.push(MIGRATIONS[0][0]);
           await runFixtureGroup(database, FIXTURE_GROUPS[0], executedFixtures);
@@ -842,6 +872,87 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
         );
       },
       20 * 60 * 1000
+    );
+
+    it(
+      "applies the consent catalogue under production ICU ordering",
+      async () => {
+        const database = databaseName();
+        let created = false;
+        let primary: PrimaryOutcome = { failed: false };
+        try {
+          assertSafeLocalPostgresTarget(PG_HOST, PG_PORT);
+          created = true;
+          await createDatabase(database, [
+            "--locale-provider=icu",
+            `--icu-locale=${PRODUCTION_DATABASE_LOCALE}`,
+          ]);
+
+          expect(
+            await queryScalar(
+              database,
+              `select datlocprovider::text || ':' || datlocale
+               from pg_catalog.pg_database
+               where datname = current_database()`
+            )
+          ).toBe(
+            `${PRODUCTION_DATABASE_LOCALE_PROVIDER}:${PRODUCTION_DATABASE_LOCALE}`
+          );
+          expect(
+            await queryScalar(
+              database,
+              `select pg_catalog.string_agg(signature, '|' order by signature)
+               from (values
+                 ('private.mcp_oauth_scope_array(text)'),
+                 ('private.mcp_oauth_scope_array_is_valid(text[])')
+               ) expected(signature)`
+            )
+          ).toBe(
+            "private.mcp_oauth_scope_array_is_valid(text[])|" +
+              "private.mcp_oauth_scope_array(text)"
+          );
+          expect(
+            await queryScalar(
+              database,
+              `select pg_catalog.string_agg(signature, '|' order by proname)
+               from (values
+                 ('mcp_oauth_scope_array',
+                  'private.mcp_oauth_scope_array(text)'),
+                 ('mcp_oauth_scope_array_is_valid',
+                  'private.mcp_oauth_scope_array_is_valid(text[])')
+               ) actual(proname, signature)`
+            )
+          ).toBe(
+            "private.mcp_oauth_scope_array(text)|" +
+              "private.mcp_oauth_scope_array_is_valid(text[])"
+          );
+
+          await runFile(database, BASELINE);
+          await runFile(
+            database,
+            join(ROOT, "supabase/migrations", MIGRATIONS[1][0])
+          );
+          await runFile(
+            database,
+            join(ROOT, "supabase/migrations", MIGRATIONS[2][0])
+          );
+          await runFile(
+            database,
+            join(
+              ROOT,
+              "tests/sql",
+              "agent-mcp-oauth-consent-catalog-runtime.sql"
+            )
+          );
+        } catch (error) {
+          primary = { failed: true, error };
+        }
+        await settleWithCleanup(
+          primary,
+          created ? () => dropDatabase(database) : undefined
+        );
+      },
+      5 * 60 * 1000
     );
   });
 });

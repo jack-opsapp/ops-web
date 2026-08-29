@@ -489,6 +489,29 @@ describe("MCP OAuth consent-catalogue migration", () => {
     );
   });
 
+  it("uses one C-collated canonical key for the production signature audit", () => {
+    const postflight = postflightSql();
+    const signatureAudit = postflight.match(
+      /v_expected_function_signatures := array\[[\s\S]*?raise exception 'mcp_oauth_consent_function_signature_set_failed'/i
+    );
+
+    expect(signatureAudit).toBeTruthy();
+    const audit = signatureAudit?.[0] ?? "";
+
+    // Production's ICU en-US collation orders the full `scope_array(...)`
+    // signature differently from its `scope_array_is_valid` proname prefix.
+    // Both sides must sort the same rendered signature deterministically.
+    expect(audit).toMatch(
+      /array_agg\(\s*expected\.signature order by expected\.signature collate "C"\s*\)/i
+    );
+    expect(audit).toMatch(
+      /array_agg\(\s*catalogued\.signature order by catalogued\.signature collate "C"\s*\)/i
+    );
+    expect(audit).not.toMatch(
+      /order by namespace\.nspname, function_row\.proname/i
+    );
+  });
+
   it("rejects every unexpected non-owner ACL entry on replay", () => {
     const postflight = compact(migrationSql()).slice(
       compact(migrationSql()).indexOf("do $postflight$")

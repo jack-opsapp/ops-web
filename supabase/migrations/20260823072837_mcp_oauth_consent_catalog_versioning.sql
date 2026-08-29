@@ -2078,50 +2078,55 @@ begin
     'public.rotate_mcp_oauth_refresh_token_as_system(text,uuid,text[],text,text,timestamp with time zone,timestamp with time zone)',
     'public.resolve_mcp_oauth_access_token_as_system(text)'
   ]::text[];
-  select pg_catalog.array_agg(expected.signature order by expected.signature)
+  select pg_catalog.array_agg(
+    expected.signature order by expected.signature collate "C"
+  )
   into v_expected_function_signatures
   from pg_catalog.unnest(v_expected_function_signatures) expected(signature);
 
   select coalesce(
     pg_catalog.array_agg(
+      catalogued.signature
+      order by catalogued.signature collate "C"
+    ),
+    array[]::text[]
+  )
+  into v_function_signatures
+  from (
+    select
       namespace.nspname || '.' || function_row.proname || '(' ||
       pg_catalog.regexp_replace(
         pg_catalog.oidvectortypes(function_row.proargtypes),
         ',[[:space:]]*',
         ',',
         'g'
-      ) || ')'
-      order by namespace.nspname, function_row.proname,
-        function_row.proargtypes::text
-    ),
-    array[]::text[]
-  )
-  into v_function_signatures
-  from pg_catalog.pg_proc function_row
-  join pg_catalog.pg_namespace namespace
-    on namespace.oid = function_row.pronamespace
-  where (
-    namespace.nspname = 'private'
-    and function_row.proname in (
-      'mcp_oauth_scope_array',
-      'mcp_oauth_scope_array_is_valid',
-      'mcp_oauth_labels_for_scopes',
-      'enforce_mcp_oauth_consent_immutability'
+      ) || ')' as signature
+    from pg_catalog.pg_proc function_row
+    join pg_catalog.pg_namespace namespace
+      on namespace.oid = function_row.pronamespace
+    where (
+      namespace.nspname = 'private'
+      and function_row.proname in (
+        'mcp_oauth_scope_array',
+        'mcp_oauth_scope_array_is_valid',
+        'mcp_oauth_labels_for_scopes',
+        'enforce_mcp_oauth_consent_immutability'
+      )
+    ) or (
+      namespace.nspname = 'public'
+      and function_row.proname in (
+        'register_mcp_oauth_client_as_system',
+        'get_mcp_oauth_client_as_system',
+        'issue_mcp_oauth_consent_preview_as_system',
+        'consume_mcp_oauth_consent_preview_as_system',
+        'create_mcp_oauth_authorization_code_as_system',
+        'consume_mcp_oauth_authorization_code_as_system',
+        'mint_mcp_oauth_grant_as_system',
+        'rotate_mcp_oauth_refresh_token_as_system',
+        'resolve_mcp_oauth_access_token_as_system'
+      )
     )
-  ) or (
-    namespace.nspname = 'public'
-    and function_row.proname in (
-      'register_mcp_oauth_client_as_system',
-      'get_mcp_oauth_client_as_system',
-      'issue_mcp_oauth_consent_preview_as_system',
-      'consume_mcp_oauth_consent_preview_as_system',
-      'create_mcp_oauth_authorization_code_as_system',
-      'consume_mcp_oauth_authorization_code_as_system',
-      'mint_mcp_oauth_grant_as_system',
-      'rotate_mcp_oauth_refresh_token_as_system',
-      'resolve_mcp_oauth_access_token_as_system'
-    )
-  );
+  ) catalogued;
   if v_function_signatures is distinct from
       v_expected_function_signatures then
     raise exception 'mcp_oauth_consent_function_signature_set_failed';
