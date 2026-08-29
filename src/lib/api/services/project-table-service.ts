@@ -1,4 +1,5 @@
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { LeadWonPromptService } from "./lead-won-prompt-service";
 import { ProjectStatus } from "@/lib/types/models";
 import type { Database } from "@/lib/types/database.types";
 import {
@@ -330,6 +331,9 @@ export const ProjectTableService = {
     if (!updatedAt) {
       throw new ProjectTableMutationError("Project status response missing updated_at", "UNKNOWN");
     }
+    // Bug 9a89b951 / D3: successful human status write → propose winning the
+    // linked lead (fire-and-forget; see lead-won-prompt-service).
+    void LeadWonPromptService.propose(params.projectId, params.status);
     return { updatedAt };
   },
 
@@ -342,6 +346,19 @@ export const ProjectTableService = {
     });
 
     if (error) throw normalizeProjectTableMutationError(error);
-    return normalizeBulkResult(data);
+    const result = normalizeBulkResult(data);
+
+    // Bug 9a89b951 / D3: propose for each project whose STATUS op succeeded
+    // (covers the bulk bar and bulk undo). The store queues proposals and
+    // presents them one at a time; duplicates and non-proposing statuses are
+    // filtered downstream.
+    const succeededIds = new Set(result.success.map((item) => item.projectId));
+    for (const operation of params.operations) {
+      if (operation.action === "status" && succeededIds.has(operation.projectId)) {
+        void LeadWonPromptService.propose(operation.projectId, operation.status);
+      }
+    }
+
+    return result;
   },
 };
