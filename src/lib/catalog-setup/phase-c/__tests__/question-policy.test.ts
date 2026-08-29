@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveGuidedQuestion } from "../question-policy";
+import {
+  narrowGuidedQuestionToUnresolvedFacts,
+  resolveGuidedQuestion,
+} from "../question-policy";
 
 describe("Phase C server-owned question policy", () => {
   it("replaces model-written supplier copy with the exact supported question", () => {
@@ -151,5 +154,83 @@ describe("Phase C server-owned question policy", () => {
         context: {},
       }),
     ).toBeNull();
+  });
+
+  describe("narrowGuidedQuestionToUnresolvedFacts", () => {
+    const fact = (
+      key: string,
+      status: "confirmed" | "unresolved" | "contradicted",
+    ) => ({
+      id: `fact-${key}-${status}`,
+      classification: "pricing_rule" as const,
+      key,
+      value: status === "confirmed" ? "x" : null,
+      source: { kind: "operator" as const },
+      confidence: 1,
+      status,
+      contradicts: [],
+    });
+    const question = resolveGuidedQuestion({
+      id: "railings-base-price-per-linear-foot",
+      intent: "pricing",
+      capabilityRef: "catalog-core/v1",
+      factKeys: [
+        "railings.base_price",
+        "railings.pricing_unit",
+        "railings.minimum_charge",
+      ],
+      context: { productLabel: "Railings" },
+    })!;
+
+    it("re-resolves the prompt against only the still-unresolved facts", () => {
+      const narrowed = narrowGuidedQuestionToUnresolvedFacts(question, [
+        fact("railings.pricing_unit", "confirmed"),
+        fact("railings.minimum_charge", "confirmed"),
+        fact("railings.base_price", "unresolved"),
+      ]);
+      expect(narrowed).toMatchObject({
+        id: "railings-base-price-per-linear-foot",
+        factKeys: ["railings.base_price"],
+        prompt: "What base price should OPS use for Railings?",
+      });
+    });
+
+    it("returns null when nothing is confirmed (question stands as asked)", () => {
+      expect(
+        narrowGuidedQuestionToUnresolvedFacts(question, [
+          fact("railings.base_price", "unresolved"),
+        ]),
+      ).toBeNull();
+    });
+
+    it("returns null when every fact key is already confirmed", () => {
+      expect(
+        narrowGuidedQuestionToUnresolvedFacts(question, [
+          fact("railings.base_price", "confirmed"),
+          fact("railings.pricing_unit", "confirmed"),
+          fact("railings.minimum_charge", "confirmed"),
+        ]),
+      ).toBeNull();
+    });
+
+    it("keeps contradicted keys — only confirmed facts narrow the ask", () => {
+      const narrowed = narrowGuidedQuestionToUnresolvedFacts(question, [
+        fact("railings.pricing_unit", "confirmed"),
+        fact("railings.minimum_charge", "contradicted"),
+      ]);
+      expect(narrowed?.factKeys).toEqual([
+        "railings.base_price",
+        "railings.minimum_charge",
+      ]);
+    });
+
+    it("returns null for a question without a decision contract", () => {
+      const legacy = { ...question, intent: undefined, capabilityRef: undefined };
+      expect(
+        narrowGuidedQuestionToUnresolvedFacts(legacy, [
+          fact("railings.pricing_unit", "confirmed"),
+        ]),
+      ).toBeNull();
+    });
   });
 });
