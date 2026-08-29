@@ -2871,6 +2871,88 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(state.correspondenceProjectionApplications).toBe(1);
   });
 
+  it("holds a review-verdict classified lead instead of creating a duplicate client", async () => {
+    // Bug 3799225e. A `review` verdict used to fall through to the create
+    // branch and spawn a brand-new client anyway — the path that produced
+    // "ELAINE BEATTIE" beside Mark Vanderwerf's existing won lead.
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      correspondenceEvents: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const reviewEmail = baseEmail({
+      id: "msg-review-subcontact",
+      threadId: "thread-review-subcontact",
+      from: "Elaine <bruceelainebeattie5@gmail.com>",
+      fromName: "Elaine",
+      to: ["jackson@canprodeckandrail.com"],
+      subject: "Deck",
+      bodyText: "The plywood will be on the deck today ready for the vinyl.",
+      snippet: "The plywood will be on the deck today.",
+      labelIds: ["INBOX"],
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [reviewEmail],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({
+      clientId: null,
+      subClientId: "sub-bruce-elaine",
+      confidence: "name",
+      needsReview: true,
+      suggestedClientId: "client-mark",
+      reason:
+        'Name matches sub-contact "Bruce And Elaine" of existing client — needs review',
+      action: "review",
+    });
+    reviewUnmatchedEmailsMock.mockResolvedValue({
+      classifiedLeads: [
+        {
+          email: reviewEmail,
+          clientName: "Elaine",
+          clientEmail: "bruceelainebeattie5@gmail.com",
+          clientPhone: null,
+          address: null,
+          description: "Deck readiness note",
+          stage: "new_lead",
+          terminalFlag: null,
+          estimatedValue: null,
+          confidence: 0.93,
+        },
+      ],
+      newLeadsClassified: 1,
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(state.opportunities).toHaveLength(0);
+    expect(state.clients).toHaveLength(0);
+    expect(result.newLeads).toBe(0);
+    expect(result.needsReview).toBeGreaterThanOrEqual(1);
+    expect(state.activities).toEqual([
+      expect.objectContaining({
+        email_message_id: "msg-review-subcontact",
+        opportunity_id: null,
+        match_needs_review: true,
+        suggested_client_id: "client-mark",
+        match_confidence: "name",
+      }),
+    ]);
+  });
+
   it("durably holds a feedback-deferred message without creating a lead", async () => {
     const state: SupabaseState = {
       clients: [],
