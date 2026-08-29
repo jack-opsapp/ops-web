@@ -812,8 +812,11 @@ export async function reconcilePendingMailboxDrafts({
         case "from_scratch": {
           // User sent a fresh reply, ignoring our draft. Upgrade the generic
           // sync receipt to human-authored only after the exact configured
-          // signature is removed. Do not attach the ignored AI draft: that
-          // would register a bogus 100% rewrite and poison edit learning.
+          // signature is removed. Do not attach the ignored AI draft as the
+          // sent draft: that would register a bogus 100% rewrite and poison
+          // edit learning. It travels instead on `replacedDraftHistoryId`, the
+          // memory-only lane, so the correction the operator actually made is
+          // still learned.
           const providerMessageId = latestOutbound?.email_message_id as
             | string
             | null;
@@ -858,6 +861,7 @@ export async function reconcilePendingMailboxDrafts({
                   cleanBody,
                   occurredAt: latestOutbound?.created_at as string,
                   labelIds: ["SENT"],
+                  replacedDraftHistoryId: row.id as string,
                   opportunityId: resolvedActor.opportunityId,
                   profileType: (row.profile_type as string | null) ?? "general",
                   learningAuthority: preparedBody.signatureRemoved

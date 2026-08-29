@@ -9,6 +9,8 @@
  * side must accept it — while still refusing proof types nobody minted.
  */
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { beforeEach, describe, it, expect, vi } from "vitest";
 
 const {
@@ -219,5 +221,74 @@ describe("from_scratch learning actor on a company mailbox", () => {
     expect(updateCalls).toContainEqual(
       expect.objectContaining({ status: "superseded" })
     );
+  });
+});
+
+/**
+ * The proof a rewrite carries is re-validated in four places. All four have to
+ * admit `company_mailbox_assignee` or the actor RPC's answer is thrown away
+ * again — the actor resolver, the shape constraint, the proof binder and the
+ * runtime guard.
+ */
+describe("company-mailbox rewrite proof chain (migration contract)", () => {
+  const actorSql = readFileSync(
+    resolve(
+      process.cwd(),
+      "supabase/migrations/20260830103000_learning_actor_from_scratch_company_assignee.sql"
+    ),
+    "utf8"
+  );
+  const lessonSql = readFileSync(
+    resolve(
+      process.cwd(),
+      "supabase/migrations/20260830103100_learning_queue_replaced_draft_lesson.sql"
+    ),
+    "utf8"
+  );
+
+  it("resolves the actor for a rewrite instead of refusing the outcome", () => {
+    expect(actorSql.trimStart()).toMatch(/^--/);
+    expect(actorSql).toContain(
+      "create or replace function public.resolve_email_outbound_learning_mailbox_actor_as_system"
+    );
+    expect(actorSql).toContain("when p_outcome = 'used' then 'native_mailbox_draft'");
+    expect(actorSql).toContain("else 'company_mailbox_assignee'");
+    // The refusal this bug was made of.
+    expect(actorSql).not.toContain("if p_outcome <> 'used' then");
+    // Every downstream authority check survives.
+    expect(actorSql).toContain("o.assigned_to is distinct from v_actor_id");
+    expect(actorSql).toContain("o.assignment_version <= 0");
+    expect(actorSql).toContain("private.user_can_send_opportunity_inbox");
+  });
+
+  it("records the replaced draft and admits its proof through binder and guard", () => {
+    expect(lessonSql).toContain(
+      "add column if not exists replaced_draft_history_id uuid"
+    );
+    expect(lessonSql).toContain(
+      "add constraint email_outbound_learning_actor_proof_check"
+    );
+    expect(lessonSql).toContain(
+      "v_proof_type := 'company_mailbox_assignee';"
+    );
+    expect(lessonSql).toContain(
+      "elsif q.actor_proof_type = 'company_mailbox_assignee' then"
+    );
+    expect(lessonSql).toContain("p_replaced_draft_history_id uuid default null");
+    // The shared-mailbox arm is only ever attributable through assignment.
+    expect(lessonSql).toContain("and assignment_version_snapshot is not null");
+  });
+
+  it("does not widen autonomy graduation", () => {
+    // Blast radius is training data. Neither file redefines the graduation
+    // scope enumerator or the accuracy readers, so those still count only the
+    // pre-existing proof types and no rewrite can graduate an actor.
+    for (const sql of [actorSql, lessonSql]) {
+      expect(sql).not.toContain(
+        "function public.list_phase_c_graduation_actor_scopes_as_system"
+      );
+      expect(sql).not.toContain("function public.get_human_draft_accuracy");
+      expect(sql).not.toContain("private.phase_c_actor_mailbox_category_graduated");
+    }
   });
 });

@@ -25,6 +25,23 @@ export type OutboundLearningAuthority =
   | "operator_approved"
   | "autonomous";
 
+/**
+ * What the send teaches us.
+ *
+ * `standard` — the operator's own outbound, judged on its own terms.
+ * `replacement` — the operator threw an OPS draft away and wrote their own.
+ *   The lesson is the delta, so extraction gets the replaced draft as context.
+ *   The replaced draft is never attached as the sent draft: that would book a
+ *   100% rewrite against edit statistics and poison the writing profile.
+ */
+export type OutboundLearningLessonKind = "standard" | "replacement";
+
+/** Upper bound on replaced-draft context handed to extraction. */
+const REPLACED_DRAFT_CONTEXT_MAX_CHARS = 4_000;
+
+/** Upper bound on correction facts mined from one replacement. */
+const REPLACEMENT_LESSON_FACT_LIMIT = 20;
+
 export interface OutboundWritingSample {
   profileType: string;
   formalityScore: number;
@@ -99,6 +116,12 @@ export interface EmailOutboundLearningJob {
   cleanBody: string | null;
   draftHistoryId: string | null;
   followUpDraftId: string | null;
+  /**
+   * The OPS draft this send replaced, when reconciliation recorded one.
+   * Optional on the type because a job shaped before the column existed
+   * carries no value at all; `mapJob` always populates it for live reads.
+   */
+  replacedDraftHistoryId?: string | null;
   draftDeliveryChannel: OutboundDraftDeliveryChannel | null;
   opportunityId: string | null;
   profileType: string;
@@ -141,6 +164,11 @@ export interface EnqueueEmailOutboundLearningInput {
   labelIds?: string[];
   draftHistoryId?: string | null;
   followUpDraftId?: string | null;
+  /**
+   * The OPS draft this send replaced. Recorded as provenance for the
+   * replacement lesson — never as the sent draft.
+   */
+  replacedDraftHistoryId?: string | null;
   draftDeliveryChannel?: OutboundDraftDeliveryChannel | null;
   opportunityId?: string | null;
   profileType?: string | null;
@@ -158,6 +186,9 @@ export interface EmailOutboundLearningDependencies {
     to: string[];
     subject: string;
     bodyText: string;
+    /** Body of the OPS draft this send replaced, when there was one. */
+    replacedDraft: string | null;
+    lessonKind: OutboundLearningLessonKind;
   }): Promise<OutboundMemoryExtraction>;
   prepareDraftOutcome(
     job: EmailOutboundLearningJob,
@@ -243,8 +274,57 @@ const defaultDependencies: EmailOutboundLearningDependencies = {
     );
   },
   prepareMemoryExtraction: async (input) => {
-    const { MemoryService } = await import("./memory-service");
-    return MemoryService.prepareOutboundEmailLearning(input);
+    const { MemoryService, generateEmbedding } =
+      await import("./memory-service");
+    // Facts are extracted from what the operator actually sent, never from the
+    // draft they rejected: only the delivered message is true.
+    const base = await MemoryService.prepareOutboundEmailLearning({
+      from: input.from,
+      to: input.to,
+      subject: input.subject,
+      bodyText: input.bodyText,
+    });
+    const replacedDraft = input.replacedDraft?.trim();
+    if (input.lessonKind !== "replacement" || !replacedDraft) return base;
+
+    // A rewrite is the operator correcting us. Mine the delta — the
+    // qualification we missed, the arithmetic we got wrong, the tone we
+    // over-wrote — and file it as durable correction memory. This is the
+    // memory-only lane: the outcome that carries edit statistics is computed
+    // from the sent draft, which a rewrite deliberately does not have.
+    const { prepareSentDraftOutcome } = await import("./ai-draft-service");
+    const replacement = await prepareSentDraftOutcome({
+      originalDraft: replacedDraft,
+      originalSubject: input.subject,
+      finalVersion: input.bodyText,
+      finalSubject: input.subject,
+      analyzeSignificantEdits: true,
+    });
+
+    const seen = new Set(base.facts.map((fact) => fact.evidenceKey));
+    const facts = [...base.facts];
+    for (const correction of replacement.contentCorrections) {
+      if (facts.length - base.facts.length >= REPLACEMENT_LESSON_FACT_LIMIT) {
+        break;
+      }
+      const content = correction.trim().replace(/\s+/g, " ");
+      if (!content) continue;
+      const evidenceKey = await outboundLearningEvidenceKey(
+        "draft-replacement-correction",
+        [content]
+      );
+      if (!evidenceKey || seen.has(evidenceKey)) continue;
+      seen.add(evidenceKey);
+      facts.push({
+        evidenceKey,
+        type: "fact",
+        category: "correction",
+        content,
+        confidence: 0.9,
+        embedding: await generateEmbedding(`correction: ${content}`),
+      });
+    }
+    return { facts, edges: base.edges };
   },
   prepareDraftOutcome: async (job, supabase, options) => {
     const baseline: OutboundDraftOutcome = {
@@ -378,6 +458,7 @@ function mapJob(row: QueueDbRow): EmailOutboundLearningJob {
     cleanBody: stringOrNull(row.clean_body),
     draftHistoryId: stringOrNull(row.draft_history_id),
     followUpDraftId: stringOrNull(row.follow_up_draft_id),
+    replacedDraftHistoryId: stringOrNull(row.replaced_draft_history_id),
     draftDeliveryChannel: draftDeliveryChannel(row.draft_delivery_channel),
     opportunityId: stringOrNull(row.opportunity_id),
     profileType: profileType(row.profile_type),
@@ -551,6 +632,12 @@ export class EmailOutboundLearningService {
         p_occurred_at: occurredAtIso(input.occurredAt),
         p_draft_history_id: input.draftHistoryId ?? null,
         p_follow_up_draft_id: input.followUpDraftId ?? null,
+        // Sent only when a replaced draft exists. The parameter defaults to
+        // NULL server-side, so an ordinary send keeps the exact pre-existing
+        // call shape and the replacement lane is the only thing that changes.
+        ...(input.replacedDraftHistoryId
+          ? { p_replaced_draft_history_id: input.replacedDraftHistoryId }
+          : {}),
         p_opportunity_id: input.opportunityId ?? null,
         p_draft_delivery_channel: input.draftDeliveryChannel ?? null,
         p_profile_type: profileType(input.profileType),
@@ -827,6 +914,35 @@ export class EmailOutboundLearningService {
     return mapJob(row);
   }
 
+  /**
+   * Body of the OPS draft this send replaced, bounded for prompt use.
+   *
+   * Scoped to the job's company so a pointer can never read another tenant's
+   * draft, and absent content is not an error: a replacement whose draft body
+   * is gone simply degrades to a standard lesson.
+   */
+  private async loadReplacedDraftBody(
+    job: EmailOutboundLearningJob
+  ): Promise<string | null> {
+    if (!job.replacedDraftHistoryId) return null;
+    const response = await this.supabase
+      .from("ai_draft_history")
+      .select("original_draft")
+      .eq("id", job.replacedDraftHistoryId)
+      .eq("company_id", job.companyId)
+      .maybeSingle();
+    const { data, error } = response;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning replaced draft lookup failed: ${errorText(error)}`,
+        { cause: supabaseDatabaseOperationCause(response) }
+      );
+    }
+    const body = stringOrNull(data?.original_draft)?.trim();
+    if (!body) return null;
+    return body.slice(0, REPLACED_DRAFT_CONTEXT_MAX_CHARS);
+  }
+
   async runWorker(
     input: {
       limit?: number;
@@ -883,6 +999,12 @@ export class EmailOutboundLearningService {
               result.deferred++;
               return;
             }
+            // Only a pending full-body extraction can use the replaced draft,
+            // so nothing else pays for the read.
+            const replacedDraft =
+              applyFullBodyLearning && !job.memoryExtraction
+                ? await this.loadReplacedDraftBody(job)
+                : null;
             const [writingSample, rawMemoryExtraction, draftOutcome] =
               await Promise.all([
                 applyFullBodyLearning
@@ -899,6 +1021,8 @@ export class EmailOutboundLearningService {
                       to: job.toEmails,
                       subject: job.subject ?? "",
                       bodyText: job.cleanBody,
+                      replacedDraft,
+                      lessonKind: replacedDraft ? "replacement" : "standard",
                     }))
                   : null,
                 job.draftOutcome ??
