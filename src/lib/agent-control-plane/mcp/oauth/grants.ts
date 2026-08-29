@@ -18,68 +18,226 @@ export interface McpOAuthRpcClient {
 const UuidSchema = z.uuid();
 const Sha256HexSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const TimestampSchema = z.string().min(1);
-const ScopesSchema = z.array(z.string().min(1)).min(1).max(32);
+const PREVIEW_TIMESTAMP_PATTERN =
+  /^((?!0000)\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|[+-](\d{2}):(\d{2}))$/;
+const RevisionIdSchema = z.string().regex(/^[0-9a-z][0-9a-z._:-]{0,127}$/);
+const ScopesSchema = z
+  .array(z.string().min(1).max(128))
+  .min(1)
+  .max(32)
+  .refine((scopes) => new Set(scopes).size === scopes.length);
+const AcceptedLabelsSchema = z
+  .array(
+    z
+      .string()
+      .min(1)
+      .max(256)
+      .refine((label) => label === label.trim())
+  )
+  .min(1)
+  .max(32);
+const PkceChallengeSchema = z.string().regex(/^[A-Za-z0-9._~-]{43,128}$/);
+const ConsentStateSchema = z
+  .string()
+  .max(2048)
+  .refine((value) => {
+    for (let index = 0; index < value.length; index += 1) {
+      const code = value.charCodeAt(index);
+      if (code < 0x20 || code === 0x7f) return false;
+    }
+    return true;
+  })
+  .nullable();
 
-const RegisteredClientRowSchema = z.object({
-  client_id: UuidSchema,
-  client_name: z.string().min(1),
-  redirect_uris: z.array(z.string().min(1)).min(1),
-  token_endpoint_auth_method: z.literal("none"),
-  grant_types: z.array(z.string().min(1)).min(1),
-  response_types: z.array(z.string().min(1)).min(1),
-  scope: z.string().min(1),
-  created_at: TimestampSchema,
+function canonicalPreviewTimestamp(value: string): string | null {
+  const match = PREVIEW_TIMESTAMP_PATTERN.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const offsetHour = match[9] === undefined ? 0 : Number(match[9]);
+  const offsetMinute = match[10] === undefined ? 0 : Number(match[10]);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const monthDays = [
+    31,
+    leapYear ? 29 : 28,
+    31,
+    30,
+    31,
+    30,
+    31,
+    31,
+    30,
+    31,
+    30,
+    31,
+  ] as const;
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > monthDays[month - 1] ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    offsetHour > 14 ||
+    offsetMinute > 59 ||
+    (offsetHour === 14 && offsetMinute !== 0)
+  ) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return null;
+  const canonical = parsed.toISOString();
+  return /^(?!0000)\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(canonical)
+    ? canonical
+    : null;
+}
+
+const PreviewTimestampSchema = z.string().transform((value, context) => {
+  const canonical = canonicalPreviewTimestamp(value);
+  if (canonical === null) {
+    context.addIssue({
+      code: "custom",
+      message: "Invalid preview timestamp",
+    });
+    return z.NEVER;
+  }
+  return canonical;
 });
 
-const ClientRowSchema = z.object({
-  client_id: UuidSchema,
-  client_name: z.string().min(1),
-  redirect_uris: z.array(z.string().min(1)).min(1),
-  token_endpoint_auth_method: z.literal("none"),
-  scope: z.string().min(1),
-  disabled: z.boolean(),
+function consentSnapshotAligned(row: {
+  readonly scopes: readonly string[];
+  readonly accepted_labels: readonly string[];
+}): boolean {
+  return row.scopes.length === row.accepted_labels.length;
+}
+
+function clientScopeAligned(row: {
+  readonly scope: string;
+  readonly scope_ceiling: readonly string[];
+}): boolean {
+  return row.scope === row.scope_ceiling.join(" ");
+}
+
+const RegisteredClientRowSchema = z
+  .object({
+    client_id: UuidSchema,
+    client_name: z.string().min(1),
+    redirect_uris: z.array(z.string().min(1)).min(1),
+    token_endpoint_auth_method: z.literal("none"),
+    grant_types: z.array(z.string().min(1)).min(1),
+    response_types: z.array(z.string().min(1)).min(1),
+    scope: z.string().min(1),
+    scope_ceiling: ScopesSchema,
+    consent_catalog_revision: RevisionIdSchema,
+    exposure_revision: RevisionIdSchema,
+    created_at: TimestampSchema,
+  })
+  .refine(clientScopeAligned);
+
+const ClientRowSchema = z
+  .object({
+    client_id: UuidSchema,
+    client_name: z.string().min(1),
+    redirect_uris: z.array(z.string().min(1)).min(1),
+    token_endpoint_auth_method: z.literal("none"),
+    scope: z.string().min(1),
+    scope_ceiling: ScopesSchema,
+    consent_catalog_revision: RevisionIdSchema,
+    exposure_revision: RevisionIdSchema,
+    disabled: z.boolean(),
+  })
+  .refine(clientScopeAligned);
+
+const IssuedConsentPreviewRowSchema = z.object({
+  client_name: z.string().min(1).max(256),
+  company_name: z.string().min(1).max(512),
+  expires_at: PreviewTimestampSchema,
+  rate_limited: z.boolean(),
 });
 
-const ConsumedCodeRowSchema = z.object({
-  user_id: UuidSchema,
-  company_id: UuidSchema,
-  scopes: ScopesSchema,
-  code_challenge: z.string().min(43).max(128),
-  resource: z.string().min(1),
-});
+const ConsumedConsentPreviewRowSchema = z
+  .object({
+    client_id: UuidSchema,
+    user_id: UuidSchema,
+    company_id: UuidSchema,
+    client_name: z.string().min(1).max(256),
+    company_name: z.string().min(1).max(512),
+    redirect_uri: z.string().min(1).max(2048),
+    response_type: z.literal("code"),
+    scopes: ScopesSchema,
+    accepted_labels: AcceptedLabelsSchema,
+    consent_catalog_revision: RevisionIdSchema,
+    exposure_revision: RevisionIdSchema,
+    state: ConsentStateSchema,
+    code_challenge: PkceChallengeSchema,
+    code_challenge_method: z.literal("S256"),
+    resource: z.string().min(1).max(2048),
+    expires_at: PreviewTimestampSchema,
+  })
+  .refine(consentSnapshotAligned);
+
+const ConsumedCodeRowSchema = z
+  .object({
+    user_id: UuidSchema,
+    company_id: UuidSchema,
+    scopes: ScopesSchema,
+    accepted_labels: AcceptedLabelsSchema,
+    consent_catalog_revision: RevisionIdSchema,
+    exposure_revision: RevisionIdSchema,
+    code_challenge: z.string().min(43).max(128),
+    resource: z.string().min(1),
+  })
+  .refine(consentSnapshotAligned);
 
 const MintedGrantRowSchema = z.object({
   grant_id: UuidSchema,
   revision: z.string().regex(/^[0-9a-f]{32}$/),
 });
 
-const RotatedGrantRowSchema = z.object({
-  grant_id: UuidSchema,
-  client_id: UuidSchema,
-  user_id: UuidSchema,
-  company_id: UuidSchema,
-  scopes: ScopesSchema,
-  revision: z.string().regex(/^[0-9a-f]{32}$/),
-  issuer: z.string().min(1),
-  audience: z.string().min(1),
-  reuse_detected: z.boolean(),
-});
+const RotatedGrantRowSchema = z
+  .object({
+    grant_id: UuidSchema,
+    client_id: UuidSchema,
+    user_id: UuidSchema,
+    company_id: UuidSchema,
+    scopes: ScopesSchema,
+    accepted_labels: AcceptedLabelsSchema,
+    consent_catalog_revision: RevisionIdSchema,
+    exposure_revision: RevisionIdSchema,
+    revision: z.string().regex(/^[0-9a-f]{32}$/),
+    issuer: z.string().min(1),
+    audience: z.string().min(1),
+    reuse_detected: z.boolean(),
+  })
+  .refine(consentSnapshotAligned);
 
-const ResolvedAccessTokenRowSchema = z.object({
-  grant_id: UuidSchema,
-  client_id: UuidSchema,
-  client_name: z.string().min(1),
-  user_id: UuidSchema,
-  company_id: UuidSchema,
-  scopes: ScopesSchema,
-  revision: z.string().regex(/^[0-9a-f]{32}$/),
-  issuer: z.string().min(1),
-  audience: z.string().min(1),
-  expires_at: TimestampSchema,
-  token_revoked: z.boolean(),
-  grant_revoked: z.boolean(),
-  client_disabled: z.boolean(),
-});
+const ResolvedAccessTokenRowSchema = z
+  .object({
+    grant_id: UuidSchema,
+    client_id: UuidSchema,
+    client_name: z.string().min(1),
+    user_id: UuidSchema,
+    company_id: UuidSchema,
+    scopes: ScopesSchema,
+    accepted_labels: AcceptedLabelsSchema,
+    consent_catalog_revision: RevisionIdSchema,
+    exposure_revision: RevisionIdSchema,
+    revision: z.string().regex(/^[0-9a-f]{32}$/),
+    issuer: z.string().min(1),
+    audience: z.string().min(1),
+    expires_at: TimestampSchema,
+    token_revoked: z.boolean(),
+    grant_revoked: z.boolean(),
+    client_disabled: z.boolean(),
+  })
+  .refine(consentSnapshotAligned);
 
 const GrantListRowSchema = z.object({
   grant_id: UuidSchema,
@@ -91,6 +249,12 @@ const GrantListRowSchema = z.object({
 
 export type RegisteredClientRow = z.infer<typeof RegisteredClientRowSchema>;
 export type ClientRow = z.infer<typeof ClientRowSchema>;
+export type IssuedConsentPreviewRow = z.infer<
+  typeof IssuedConsentPreviewRowSchema
+>;
+export type ConsumedConsentPreviewRow = z.infer<
+  typeof ConsumedConsentPreviewRowSchema
+>;
 export type ConsumedCodeRow = z.infer<typeof ConsumedCodeRowSchema>;
 export type MintedGrantRow = z.infer<typeof MintedGrantRowSchema>;
 export type RotatedGrantRow = z.infer<typeof RotatedGrantRowSchema>;
@@ -155,6 +319,9 @@ export async function registerClient(
     clientName: string;
     redirectUris: readonly string[];
     scope: string;
+    scopeCeiling: readonly string[];
+    consentCatalogRevision: string;
+    exposureRevision: string;
     softwareId: string | null;
     softwareVersion: string | null;
   }
@@ -163,6 +330,9 @@ export async function registerClient(
     p_client_name: input.clientName,
     p_redirect_uris: input.redirectUris,
     p_scope: input.scope,
+    p_scope_ceiling: input.scopeCeiling,
+    p_consent_catalog_revision: input.consentCatalogRevision,
+    p_exposure_revision: input.exposureRevision,
     p_software_id: input.softwareId,
     p_software_version: input.softwareVersion,
   });
@@ -183,6 +353,74 @@ export async function getClient(
   return optionalSingleRow(data, ClientRowSchema, "get_mcp_oauth_client");
 }
 
+export async function issueConsentPreview(
+  client: McpOAuthRpcClient,
+  input: {
+    previewHash: string;
+    clientId: string;
+    userId: string;
+    companyId: string;
+    redirectUri: string;
+    responseType: "code";
+    scopes: readonly string[];
+    acceptedLabels: readonly string[];
+    consentCatalogRevision: string;
+    exposureRevision: string;
+    state: string | null;
+    codeChallenge: string;
+    codeChallengeMethod: "S256";
+    resource: string;
+    expiresAt: Date;
+  }
+): Promise<IssuedConsentPreviewRow | null> {
+  const data = await callRpc(
+    client,
+    "issue_mcp_oauth_consent_preview_as_system",
+    {
+      p_preview_hash: input.previewHash,
+      p_client_id: input.clientId,
+      p_user_id: input.userId,
+      p_company_id: input.companyId,
+      p_redirect_uri: input.redirectUri,
+      p_response_type: input.responseType,
+      p_scopes: input.scopes,
+      p_accepted_labels: input.acceptedLabels,
+      p_consent_catalog_revision: input.consentCatalogRevision,
+      p_exposure_revision: input.exposureRevision,
+      p_state: input.state,
+      p_code_challenge: input.codeChallenge,
+      p_code_challenge_method: input.codeChallengeMethod,
+      p_resource: input.resource,
+      p_expires_at: input.expiresAt.toISOString(),
+    }
+  );
+  return optionalSingleRow(
+    data,
+    IssuedConsentPreviewRowSchema,
+    "issue_mcp_oauth_consent_preview"
+  );
+}
+
+export async function consumeConsentPreview(
+  client: McpOAuthRpcClient,
+  input: { previewHash: string; userId: string; companyId: string }
+): Promise<ConsumedConsentPreviewRow | null> {
+  const data = await callRpc(
+    client,
+    "consume_mcp_oauth_consent_preview_as_system",
+    {
+      p_preview_hash: input.previewHash,
+      p_user_id: input.userId,
+      p_company_id: input.companyId,
+    }
+  );
+  return optionalSingleRow(
+    data,
+    ConsumedConsentPreviewRowSchema,
+    "consume_mcp_oauth_consent_preview"
+  );
+}
+
 export async function createAuthorizationCode(
   client: McpOAuthRpcClient,
   input: {
@@ -191,6 +429,9 @@ export async function createAuthorizationCode(
     userId: string;
     companyId: string;
     scopes: readonly string[];
+    acceptedLabels: readonly string[];
+    consentCatalogRevision: string;
+    exposureRevision: string;
     redirectUri: string;
     codeChallenge: string;
     resource: string;
@@ -203,6 +444,9 @@ export async function createAuthorizationCode(
     p_user_id: input.userId,
     p_company_id: input.companyId,
     p_scopes: input.scopes,
+    p_accepted_labels: input.acceptedLabels,
+    p_consent_catalog_revision: input.consentCatalogRevision,
+    p_exposure_revision: input.exposureRevision,
     p_redirect_uri: input.redirectUri,
     p_code_challenge: input.codeChallenge,
     p_resource: input.resource,
@@ -237,7 +481,8 @@ export async function mintGrant(
     clientId: string;
     userId: string;
     companyId: string;
-    scopes: readonly string[];
+    activeExposureRevision: string;
+    activeGrantableScopes: readonly string[];
     accessHash: string;
     refreshHash: string;
     issuer: string;
@@ -251,7 +496,8 @@ export async function mintGrant(
     p_client_id: input.clientId,
     p_user_id: input.userId,
     p_company_id: input.companyId,
-    p_scopes: input.scopes,
+    p_active_exposure_revision: input.activeExposureRevision,
+    p_active_grantable_scopes: input.activeGrantableScopes,
     p_access_hash: input.accessHash,
     p_refresh_hash: input.refreshHash,
     p_issuer: input.issuer,
@@ -266,6 +512,8 @@ export async function rotateRefreshToken(
   client: McpOAuthRpcClient,
   input: {
     presentedHash: string;
+    clientId: string;
+    activeGrantableScopes: readonly string[];
     newAccessHash: string;
     newRefreshHash: string;
     accessExpiresAt: Date;
@@ -277,6 +525,8 @@ export async function rotateRefreshToken(
     "rotate_mcp_oauth_refresh_token_as_system",
     {
       p_presented_hash: input.presentedHash,
+      p_client_id: input.clientId,
+      p_active_grantable_scopes: input.activeGrantableScopes,
       p_new_access_hash: input.newAccessHash,
       p_new_refresh_hash: input.newRefreshHash,
       p_access_expires_at: input.accessExpiresAt.toISOString(),

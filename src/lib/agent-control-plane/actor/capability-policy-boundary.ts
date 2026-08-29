@@ -12,6 +12,7 @@ const CAPABILITY_ID_PATTERN = /^[a-z][a-z0-9_]{0,127}$/;
 
 declare const MANIFEST_CAPABILITY_POLICY: unique symbol;
 const MANIFEST_CAPABILITY_POLICIES = new WeakSet<object>();
+const ACTIVE_MANIFEST_CAPABILITY_POLICIES = new WeakSet<object>();
 
 interface ManifestCapabilityPolicyBrand {
   readonly [MANIFEST_CAPABILITY_POLICY]: true;
@@ -47,9 +48,9 @@ function requiredNonBlank(value: string, field: string): string {
 }
 
 /**
- * Task 4's server-owned capability manifest is the only production caller of
- * this authority-minting boundary. A source-boundary regression test prevents
- * tool handlers and adapters from defining their own authorization policy.
+ * Creates a nominal, immutable policy. Creation alone does not make a policy
+ * authorizable: the central capability manifest must activate the exact
+ * object after its complete invariants pass.
  */
 export function defineCapabilityPolicyForManifest(
   definition: ManifestCapabilityPolicyDefinition
@@ -185,5 +186,28 @@ export function isManifestCapabilityPolicy(
     typeof value === "object" &&
     value !== null &&
     MANIFEST_CAPABILITY_POLICIES.has(value)
+  );
+}
+
+/**
+ * Activates one exact nominal policy after central manifest validation. A
+ * source-boundary regression test keeps this call inside the manifest module.
+ */
+export function activateCapabilityPolicyForManifest(
+  policy: ManifestCapabilityPolicy
+): ManifestCapabilityPolicy {
+  if (!isManifestCapabilityPolicy(policy)) {
+    throw new TypeError("manifest capability policy is untrusted");
+  }
+  ACTIVE_MANIFEST_CAPABILITY_POLICIES.add(policy);
+  return policy;
+}
+
+export function isActiveManifestCapabilityPolicy(
+  value: unknown
+): value is ManifestCapabilityPolicy {
+  return (
+    isManifestCapabilityPolicy(value) &&
+    ACTIVE_MANIFEST_CAPABILITY_POLICIES.has(value)
   );
 }

@@ -4,9 +4,11 @@ import {
   McpOAuthStoreError,
   appendRequestAudit,
   consumeAuthorizationCode,
+  consumeConsentPreview,
   createAuthorizationCode,
   getClient,
   listGrantsForUser,
+  issueConsentPreview,
   mintGrant,
   registerClient,
   resolveAccessToken,
@@ -22,6 +24,7 @@ const COMPANY_ID = "33333333-3333-4333-8333-333333333333";
 const GRANT_ID = "44444444-4444-4444-8444-444444444444";
 const REVISION = "0123456789abcdef0123456789abcdef";
 const CODE_HASH = "a".repeat(64);
+const PREVIEW_HASH = "9".repeat(64);
 const ACCESS_HASH = "b".repeat(64);
 const REFRESH_HASH = "c".repeat(64);
 const PRESENTED_HASH = "d".repeat(64);
@@ -32,9 +35,16 @@ const REDIRECT_URI = "https://claude.ai/api/mcp/auth_callback";
 const RESOURCE = "https://app.opsapp.co/api/mcp";
 const ISSUER = "https://app.opsapp.co";
 const SCOPES = ["ops.jobs.read", "ops.schedule.read"] as const;
+const ACCEPTED_LABELS = [
+  "See your jobs and their status",
+  "See your schedule and who's assigned",
+] as const;
+const CONSENT_CATALOG_REVISION = "2026-08-22.mcp-consent-catalog.v1";
+const EXPOSURE_REVISION = "2026-08-22.mcp-exposure.v1";
 const SCOPE_PARAMETER = "ops.jobs.read ops.schedule.read";
 const CREATED_AT = "2026-08-18T12:00:00+00:00";
 const CODE_EXPIRES_AT = new Date("2026-08-18T12:05:00.000Z");
+const PREVIEW_EXPIRES_AT = new Date("2026-08-18T12:04:00.000Z");
 const ACCESS_EXPIRES_AT = new Date("2026-08-18T12:10:00.000Z");
 const REFRESH_EXPIRES_AT = new Date("2026-09-17T12:00:00.000Z");
 
@@ -46,6 +56,9 @@ const REGISTERED_CLIENT_ROW = {
   grant_types: ["authorization_code", "refresh_token"],
   response_types: ["code"],
   scope: SCOPE_PARAMETER,
+  scope_ceiling: [...SCOPES],
+  consent_catalog_revision: CONSENT_CATALOG_REVISION,
+  exposure_revision: EXPOSURE_REVISION,
   created_at: CREATED_AT,
 };
 
@@ -55,13 +68,38 @@ const CLIENT_ROW = {
   redirect_uris: [REDIRECT_URI],
   token_endpoint_auth_method: "none",
   scope: SCOPE_PARAMETER,
+  scope_ceiling: [...SCOPES],
+  consent_catalog_revision: CONSENT_CATALOG_REVISION,
+  exposure_revision: EXPOSURE_REVISION,
   disabled: false,
+};
+
+const CONSUMED_CONSENT_PREVIEW_ROW = {
+  client_id: CLIENT_ID,
+  user_id: USER_ID,
+  company_id: COMPANY_ID,
+  client_name: "Claude",
+  company_name: "Maverick Projects Ltd",
+  redirect_uri: REDIRECT_URI,
+  response_type: "code",
+  scopes: [...SCOPES],
+  accepted_labels: [...ACCEPTED_LABELS],
+  consent_catalog_revision: CONSENT_CATALOG_REVISION,
+  exposure_revision: EXPOSURE_REVISION,
+  state: "opaque-state",
+  code_challenge: CODE_CHALLENGE,
+  code_challenge_method: "S256",
+  resource: RESOURCE,
+  expires_at: PREVIEW_EXPIRES_AT.toISOString(),
 };
 
 const CONSUMED_CODE_ROW = {
   user_id: USER_ID,
   company_id: COMPANY_ID,
   scopes: [...SCOPES],
+  accepted_labels: [...ACCEPTED_LABELS],
+  consent_catalog_revision: CONSENT_CATALOG_REVISION,
+  exposure_revision: EXPOSURE_REVISION,
   code_challenge: CODE_CHALLENGE,
   resource: RESOURCE,
 };
@@ -74,6 +112,9 @@ const ROTATED_GRANT_ROW = {
   user_id: USER_ID,
   company_id: COMPANY_ID,
   scopes: [...SCOPES],
+  accepted_labels: [...ACCEPTED_LABELS],
+  consent_catalog_revision: CONSENT_CATALOG_REVISION,
+  exposure_revision: EXPOSURE_REVISION,
   revision: REVISION,
   issuer: ISSUER,
   audience: RESOURCE,
@@ -87,6 +128,9 @@ const RESOLVED_ACCESS_TOKEN_ROW = {
   user_id: USER_ID,
   company_id: COMPANY_ID,
   scopes: [...SCOPES],
+  accepted_labels: [...ACCEPTED_LABELS],
+  consent_catalog_revision: CONSENT_CATALOG_REVISION,
+  exposure_revision: EXPOSURE_REVISION,
   revision: REVISION,
   issuer: ISSUER,
   audience: RESOURCE,
@@ -108,8 +152,29 @@ const REGISTER_INPUT = {
   clientName: "Claude",
   redirectUris: [REDIRECT_URI],
   scope: SCOPE_PARAMETER,
+  scopeCeiling: [...SCOPES],
+  consentCatalogRevision: CONSENT_CATALOG_REVISION,
+  exposureRevision: EXPOSURE_REVISION,
   softwareId: null,
   softwareVersion: null,
+};
+
+const ISSUE_CONSENT_PREVIEW_INPUT = {
+  previewHash: PREVIEW_HASH,
+  clientId: CLIENT_ID,
+  userId: USER_ID,
+  companyId: COMPANY_ID,
+  redirectUri: REDIRECT_URI,
+  responseType: "code" as const,
+  scopes: [...SCOPES],
+  acceptedLabels: [...ACCEPTED_LABELS],
+  consentCatalogRevision: CONSENT_CATALOG_REVISION,
+  exposureRevision: EXPOSURE_REVISION,
+  state: "opaque-state",
+  codeChallenge: CODE_CHALLENGE,
+  codeChallengeMethod: "S256" as const,
+  resource: RESOURCE,
+  expiresAt: PREVIEW_EXPIRES_AT,
 };
 
 const CREATE_CODE_INPUT = {
@@ -118,6 +183,9 @@ const CREATE_CODE_INPUT = {
   userId: USER_ID,
   companyId: COMPANY_ID,
   scopes: [...SCOPES],
+  acceptedLabels: [...ACCEPTED_LABELS],
+  consentCatalogRevision: CONSENT_CATALOG_REVISION,
+  exposureRevision: EXPOSURE_REVISION,
   redirectUri: REDIRECT_URI,
   codeChallenge: CODE_CHALLENGE,
   resource: RESOURCE,
@@ -129,7 +197,8 @@ const MINT_GRANT_INPUT = {
   clientId: CLIENT_ID,
   userId: USER_ID,
   companyId: COMPANY_ID,
-  scopes: [...SCOPES],
+  activeExposureRevision: EXPOSURE_REVISION,
+  activeGrantableScopes: [...SCOPES],
   accessHash: ACCESS_HASH,
   refreshHash: REFRESH_HASH,
   issuer: ISSUER,
@@ -140,6 +209,8 @@ const MINT_GRANT_INPUT = {
 
 const ROTATE_INPUT = {
   presentedHash: PRESENTED_HASH,
+  clientId: CLIENT_ID,
+  activeGrantableScopes: [...SCOPES],
   newAccessHash: ACCESS_HASH,
   newRefreshHash: REFRESH_HASH,
   accessExpiresAt: ACCESS_EXPIRES_AT,
@@ -223,6 +294,22 @@ const OPERATIONS: readonly StoreOperation[] = [
     invoke: (client) => getClient(client, CLIENT_ID),
   },
   {
+    label: "issueConsentPreview",
+    functionName: "issue_mcp_oauth_consent_preview_as_system",
+    invoke: (client) =>
+      issueConsentPreview(client, ISSUE_CONSENT_PREVIEW_INPUT),
+  },
+  {
+    label: "consumeConsentPreview",
+    functionName: "consume_mcp_oauth_consent_preview_as_system",
+    invoke: (client) =>
+      consumeConsentPreview(client, {
+        previewHash: PREVIEW_HASH,
+        userId: USER_ID,
+        companyId: COMPANY_ID,
+      }),
+  },
+  {
     label: "createAuthorizationCode",
     functionName: "create_mcp_oauth_authorization_code_as_system",
     invoke: (client) => createAuthorizationCode(client, CREATE_CODE_INPUT),
@@ -255,7 +342,8 @@ const OPERATIONS: readonly StoreOperation[] = [
   {
     label: "revokeGrant",
     functionName: "revoke_mcp_oauth_grant_as_system",
-    invoke: (client) => revokeGrant(client, { grantId: GRANT_ID, userId: USER_ID }),
+    invoke: (client) =>
+      revokeGrant(client, { grantId: GRANT_ID, userId: USER_ID }),
   },
   {
     label: "revokeTokenByHash",
@@ -275,59 +363,62 @@ const OPERATIONS: readonly StoreOperation[] = [
   },
 ];
 
-describe.each(OPERATIONS)("$label transport failures", ({ functionName, invoke }) => {
-  it("fails closed when the RPC returns an error", async () => {
-    const { client, calls } = clientReturning({
-      data: null,
-      error: { code: "42501", message: "access_denied" },
+describe.each(OPERATIONS)(
+  "$label transport failures",
+  ({ functionName, invoke }) => {
+    it("fails closed when the RPC returns an error", async () => {
+      const { client, calls } = clientReturning({
+        data: null,
+        error: { code: "42501", message: "access_denied" },
+      });
+
+      await expect(invoke(client)).rejects.toBeInstanceOf(McpOAuthStoreError);
+      expect(calls.map((call) => call.functionName)).toEqual([functionName]);
     });
 
-    await expect(invoke(client)).rejects.toBeInstanceOf(McpOAuthStoreError);
-    expect(calls.map((call) => call.functionName)).toEqual([functionName]);
-  });
+    it("fails closed when the RPC throws synchronously", async () => {
+      const { client } = clientFailing("throws");
 
-  it("fails closed when the RPC throws synchronously", async () => {
-    const { client } = clientFailing("throws");
-
-    await expect(invoke(client)).rejects.toBeInstanceOf(McpOAuthStoreError);
-  });
-
-  it("fails closed when the RPC rejects", async () => {
-    const { client } = clientFailing("rejects");
-
-    await expect(invoke(client)).rejects.toBeInstanceOf(McpOAuthStoreError);
-  });
-
-  it("fails closed when the RPC resolves to a malformed envelope", async () => {
-    const client: McpOAuthRpcClient = {
-      rpc: () => Promise.resolve(undefined as unknown as never),
-    };
-
-    await expect(invoke(client)).rejects.toBeInstanceOf(McpOAuthStoreError);
-  });
-
-  it("names the operation without leaking the database failure detail", async () => {
-    const { client } = clientReturning({
-      data: null,
-      error: {
-        code: "42501",
-        message: "permission denied for table mcp_oauth_tokens",
-        details: "user postgres",
-      },
+      await expect(invoke(client)).rejects.toBeInstanceOf(McpOAuthStoreError);
     });
 
-    const failure = await invoke(client).then(
-      () => null,
-      (error: unknown) => error
-    );
+    it("fails closed when the RPC rejects", async () => {
+      const { client } = clientFailing("rejects");
 
-    expect(failure).toBeInstanceOf(McpOAuthStoreError);
-    expect((failure as Error).name).toBe("McpOAuthStoreError");
-    expect((failure as Error).message).toBe(
-      `MCP OAuth store operation failed: ${functionName}`
-    );
-  });
-});
+      await expect(invoke(client)).rejects.toBeInstanceOf(McpOAuthStoreError);
+    });
+
+    it("fails closed when the RPC resolves to a malformed envelope", async () => {
+      const client: McpOAuthRpcClient = {
+        rpc: () => Promise.resolve(undefined as unknown as never),
+      };
+
+      await expect(invoke(client)).rejects.toBeInstanceOf(McpOAuthStoreError);
+    });
+
+    it("names the operation without leaking the database failure detail", async () => {
+      const { client } = clientReturning({
+        data: null,
+        error: {
+          code: "42501",
+          message: "permission denied for table mcp_oauth_tokens",
+          details: "user postgres",
+        },
+      });
+
+      const failure = await invoke(client).then(
+        () => null,
+        (error: unknown) => error
+      );
+
+      expect(failure).toBeInstanceOf(McpOAuthStoreError);
+      expect((failure as Error).name).toBe("McpOAuthStoreError");
+      expect((failure as Error).message).toBe(
+        `MCP OAuth store operation failed: ${functionName}`
+      );
+    });
+  }
+);
 
 describe("registerClient", () => {
   it("passes the registration through under the exact RPC parameter names", async () => {
@@ -340,6 +431,9 @@ describe("registerClient", () => {
       clientName: "Claude",
       redirectUris: [REDIRECT_URI],
       scope: SCOPE_PARAMETER,
+      scopeCeiling: [...SCOPES],
+      consentCatalogRevision: CONSENT_CATALOG_REVISION,
+      exposureRevision: EXPOSURE_REVISION,
       softwareId: "anthropic-claude",
       softwareVersion: "2.0.0",
     });
@@ -351,6 +445,9 @@ describe("registerClient", () => {
           p_client_name: "Claude",
           p_redirect_uris: [REDIRECT_URI],
           p_scope: SCOPE_PARAMETER,
+          p_scope_ceiling: [...SCOPES],
+          p_consent_catalog_revision: CONSENT_CATALOG_REVISION,
+          p_exposure_revision: EXPOSURE_REVISION,
           p_software_id: "anthropic-claude",
           p_software_version: "2.0.0",
         },
@@ -396,6 +493,14 @@ describe("registerClient", () => {
     {
       label: "a row with no redirect URIs",
       data: [{ ...REGISTERED_CLIENT_ROW, redirect_uris: [] }],
+    },
+    {
+      label: "a row missing the immutable scope ceiling",
+      data: [without(REGISTERED_CLIENT_ROW, "scope_ceiling")],
+    },
+    {
+      label: "a row whose scope string disagrees with its immutable ceiling",
+      data: [{ ...REGISTERED_CLIENT_ROW, scope: "ops.jobs.read" }],
     },
   ])("rejects $label", async ({ data }) => {
     const { client } = clientReturning({ data, error: null });
@@ -448,10 +553,21 @@ describe("getClient", () => {
     { label: "two rows", data: rowsOf(CLIENT_ROW, 2) },
     { label: "a non-array result", data: CLIENT_ROW },
     { label: "a null row", data: [null] },
-    { label: "a row missing disabled", data: [without(CLIENT_ROW, "disabled")] },
+    {
+      label: "a row missing disabled",
+      data: [without(CLIENT_ROW, "disabled")],
+    },
     {
       label: "a row whose disabled flag is a string",
       data: [{ ...CLIENT_ROW, disabled: "false" }],
+    },
+    {
+      label: "a row missing its registration exposure revision",
+      data: [without(CLIENT_ROW, "exposure_revision")],
+    },
+    {
+      label: "a row whose scope string disagrees with its immutable ceiling",
+      data: [{ ...CLIENT_ROW, scope: "ops.jobs.read" }],
     },
   ])("rejects $label", async ({ data }) => {
     const { client } = clientReturning({ data, error: null });
@@ -479,6 +595,9 @@ describe("createAuthorizationCode", () => {
           p_user_id: USER_ID,
           p_company_id: COMPANY_ID,
           p_scopes: [...SCOPES],
+          p_accepted_labels: [...ACCEPTED_LABELS],
+          p_consent_catalog_revision: CONSENT_CATALOG_REVISION,
+          p_exposure_revision: EXPOSURE_REVISION,
           p_redirect_uri: REDIRECT_URI,
           p_code_challenge: CODE_CHALLENGE,
           p_resource: RESOURCE,
@@ -487,6 +606,184 @@ describe("createAuthorizationCode", () => {
       },
     ]);
   });
+});
+
+describe("consent preview", () => {
+  it("issues the complete short-lived visible snapshot under exact RPC names", async () => {
+    const issuedRow = {
+      client_name: CONSUMED_CONSENT_PREVIEW_ROW.client_name,
+      company_name: CONSUMED_CONSENT_PREVIEW_ROW.company_name,
+      expires_at: "2026-08-18T12:04:00+00:00",
+      rate_limited: false,
+    };
+    const { client, calls } = clientReturning({
+      data: [issuedRow],
+      error: null,
+    });
+
+    await expect(
+      issueConsentPreview(client, ISSUE_CONSENT_PREVIEW_INPUT)
+    ).resolves.toEqual({
+      ...issuedRow,
+      expires_at: "2026-08-18T12:04:00.000Z",
+    });
+    expect(calls).toEqual([
+      {
+        functionName: "issue_mcp_oauth_consent_preview_as_system",
+        args: {
+          p_preview_hash: PREVIEW_HASH,
+          p_client_id: CLIENT_ID,
+          p_user_id: USER_ID,
+          p_company_id: COMPANY_ID,
+          p_redirect_uri: REDIRECT_URI,
+          p_response_type: "code",
+          p_scopes: [...SCOPES],
+          p_accepted_labels: [...ACCEPTED_LABELS],
+          p_consent_catalog_revision: CONSENT_CATALOG_REVISION,
+          p_exposure_revision: EXPOSURE_REVISION,
+          p_state: "opaque-state",
+          p_code_challenge: CODE_CHALLENGE,
+          p_code_challenge_method: "S256",
+          p_resource: RESOURCE,
+          p_expires_at: PREVIEW_EXPIRES_AT.toISOString(),
+        },
+      },
+    ]);
+  });
+
+  it("returns the durable database rate-limit decision exactly", async () => {
+    const { client } = clientReturning({
+      data: [
+        {
+          client_name: CONSUMED_CONSENT_PREVIEW_ROW.client_name,
+          company_name: CONSUMED_CONSENT_PREVIEW_ROW.company_name,
+          expires_at: "2026-08-18T12:04:00+00:00",
+          rate_limited: true,
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      issueConsentPreview(client, ISSUE_CONSENT_PREVIEW_INPUT)
+    ).resolves.toMatchObject({
+      rate_limited: true,
+      expires_at: "2026-08-18T12:04:00.000Z",
+    });
+  });
+
+  it("consumes once under the authenticated actor/company and rejects malformed wire", async () => {
+    const { client, calls } = clientReturning({
+      data: [CONSUMED_CONSENT_PREVIEW_ROW],
+      error: null,
+    });
+
+    await expect(
+      consumeConsentPreview(client, {
+        previewHash: PREVIEW_HASH,
+        userId: USER_ID,
+        companyId: COMPANY_ID,
+      })
+    ).resolves.toEqual(CONSUMED_CONSENT_PREVIEW_ROW);
+    expect(calls).toEqual([
+      {
+        functionName: "consume_mcp_oauth_consent_preview_as_system",
+        args: {
+          p_preview_hash: PREVIEW_HASH,
+          p_user_id: USER_ID,
+          p_company_id: COMPANY_ID,
+        },
+      },
+    ]);
+
+    const { client: malformed } = clientReturning({
+      data: [
+        {
+          ...CONSUMED_CONSENT_PREVIEW_ROW,
+          accepted_labels: [ACCEPTED_LABELS[0]],
+        },
+      ],
+      error: null,
+    });
+    await expect(
+      consumeConsentPreview(malformed, {
+        previewHash: PREVIEW_HASH,
+        userId: USER_ID,
+        companyId: COMPANY_ID,
+      })
+    ).rejects.toBeInstanceOf(McpOAuthStoreError);
+  });
+
+  it("canonicalizes PostgREST offset timestamps without broadening the browser wire", async () => {
+    const { client } = clientReturning({
+      data: [
+        {
+          ...CONSUMED_CONSENT_PREVIEW_ROW,
+          expires_at: "0001-01-01T00:00:00.123456+00:00",
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      consumeConsentPreview(client, {
+        previewHash: PREVIEW_HASH,
+        userId: USER_ID,
+        companyId: COMPANY_ID,
+      })
+    ).resolves.toMatchObject({ expires_at: "0001-01-01T00:00:00.123Z" });
+  });
+
+  it.each([
+    "not-an-instant",
+    "infinity",
+    "0000-01-01T00:00:00+00:00",
+    "10000-01-01T00:00:00+00:00",
+    "0001-01-01T00:00:00+14:00",
+    "2026-02-30T00:00:00+00:00",
+    "2026-08-18T25:00:00+00:00",
+  ])("rejects malformed or non-AD preview timestamp %s", async (expiresAt) => {
+    const { client } = clientReturning({
+      data: [
+        {
+          ...CONSUMED_CONSENT_PREVIEW_ROW,
+          expires_at: expiresAt,
+        },
+      ],
+      error: null,
+    });
+
+    await expect(
+      consumeConsentPreview(client, {
+        previewHash: PREVIEW_HASH,
+        userId: USER_ID,
+        companyId: COMPANY_ID,
+      })
+    ).rejects.toBeInstanceOf(McpOAuthStoreError);
+  });
+
+  it.each([" leading label", "trailing label "])(
+    "rejects accepted-label whitespace drift: %s",
+    async (label) => {
+      const { client } = clientReturning({
+        data: [
+          {
+            ...CONSUMED_CONSENT_PREVIEW_ROW,
+            accepted_labels: [label, ACCEPTED_LABELS[1]],
+          },
+        ],
+        error: null,
+      });
+
+      await expect(
+        consumeConsentPreview(client, {
+          previewHash: PREVIEW_HASH,
+          userId: USER_ID,
+          companyId: COMPANY_ID,
+        })
+      ).rejects.toBeInstanceOf(McpOAuthStoreError);
+    }
+  );
 });
 
 describe("consumeAuthorizationCode", () => {
@@ -518,19 +815,20 @@ describe("consumeAuthorizationCode", () => {
   it.each([
     { label: "an expired, replayed, or unknown code", data: [] },
     { label: "a null result", data: null },
-  ])("returns null for $label so the caller can answer invalid_grant", async ({
-    data,
-  }) => {
-    const { client } = clientReturning({ data, error: null });
+  ])(
+    "returns null for $label so the caller can answer invalid_grant",
+    async ({ data }) => {
+      const { client } = clientReturning({ data, error: null });
 
-    await expect(
-      consumeAuthorizationCode(client, {
-        codeHash: CODE_HASH,
-        clientId: CLIENT_ID,
-        redirectUri: REDIRECT_URI,
-      })
-    ).resolves.toBeNull();
-  });
+      await expect(
+        consumeAuthorizationCode(client, {
+          codeHash: CODE_HASH,
+          clientId: CLIENT_ID,
+          redirectUri: REDIRECT_URI,
+        })
+      ).resolves.toBeNull();
+    }
+  );
 
   it.each([
     { label: "two rows", data: rowsOf(CONSUMED_CODE_ROW, 2) },
@@ -550,6 +848,14 @@ describe("consumeAuthorizationCode", () => {
     {
       label: "a row whose user_id is not a UUID",
       data: [{ ...CONSUMED_CODE_ROW, user_id: "user-1" }],
+    },
+    {
+      label: "a row whose accepted labels do not align with its scopes",
+      data: [{ ...CONSUMED_CODE_ROW, accepted_labels: [ACCEPTED_LABELS[0]] }],
+    },
+    {
+      label: "a row missing its immutable consent revision",
+      data: [without(CONSUMED_CODE_ROW, "consent_catalog_revision")],
     },
   ])("rejects $label", async ({ data }) => {
     const { client } = clientReturning({ data, error: null });
@@ -581,7 +887,8 @@ describe("mintGrant", () => {
           p_client_id: CLIENT_ID,
           p_user_id: USER_ID,
           p_company_id: COMPANY_ID,
-          p_scopes: [...SCOPES],
+          p_active_exposure_revision: EXPOSURE_REVISION,
+          p_active_grantable_scopes: [...SCOPES],
           p_access_hash: ACCESS_HASH,
           p_refresh_hash: REFRESH_HASH,
           p_issuer: ISSUER,
@@ -633,6 +940,8 @@ describe("rotateRefreshToken", () => {
         functionName: "rotate_mcp_oauth_refresh_token_as_system",
         args: {
           p_presented_hash: PRESENTED_HASH,
+          p_client_id: CLIENT_ID,
+          p_active_grantable_scopes: [...SCOPES],
           p_new_access_hash: ACCESS_HASH,
           p_new_refresh_hash: REFRESH_HASH,
           p_access_expires_at: "2026-08-18T12:10:00.000Z",
@@ -650,9 +959,9 @@ describe("rotateRefreshToken", () => {
       error: null,
     });
 
-    await expect(rotateRefreshToken(client, ROTATE_INPUT)).resolves.toMatchObject(
-      { grant_id: GRANT_ID, reuse_detected: true }
-    );
+    await expect(
+      rotateRefreshToken(client, ROTATE_INPUT)
+    ).resolves.toMatchObject({ grant_id: GRANT_ID, reuse_detected: true });
   });
 
   it.each([
@@ -687,6 +996,14 @@ describe("rotateRefreshToken", () => {
           scopes: Array.from({ length: 33 }, () => "ops.jobs.read"),
         },
       ],
+    },
+    {
+      label: "a row whose accepted labels do not align with its scopes",
+      data: [{ ...ROTATED_GRANT_ROW, accepted_labels: [ACCEPTED_LABELS[0]] }],
+    },
+    {
+      label: "a row missing its immutable exposure revision",
+      data: [without(ROTATED_GRANT_ROW, "exposure_revision")],
     },
   ])("rejects $label", async ({ data }) => {
     const { client } = clientReturning({ data, error: null });
@@ -728,11 +1045,13 @@ describe("resolveAccessToken", () => {
       error: null,
     });
 
-    await expect(resolveAccessToken(client, TOKEN_HASH)).resolves.toMatchObject({
-      token_revoked: true,
-      grant_revoked: true,
-      client_disabled: true,
-    });
+    await expect(resolveAccessToken(client, TOKEN_HASH)).resolves.toMatchObject(
+      {
+        token_revoked: true,
+        grant_revoked: true,
+        client_disabled: true,
+      }
+    );
   });
 
   it.each([
@@ -767,6 +1086,15 @@ describe("resolveAccessToken", () => {
       label: "a row missing the revocation flag",
       data: [without(RESOLVED_ACCESS_TOKEN_ROW, "grant_revoked")],
     },
+    {
+      label: "a row whose accepted labels do not align with its scopes",
+      data: [
+        {
+          ...RESOLVED_ACCESS_TOKEN_ROW,
+          accepted_labels: [ACCEPTED_LABELS[0]],
+        },
+      ],
+    },
   ])("rejects $label", async ({ data }) => {
     const { client } = clientReturning({ data, error: null });
 
@@ -798,7 +1126,7 @@ describe("revokeGrant", () => {
     { label: "false", data: false },
     { label: "null", data: null },
     { label: "an empty array", data: [] },
-    { label: "the string \"true\"", data: "true" },
+    { label: 'the string "true"', data: "true" },
     { label: "the number 1", data: 1 },
   ])("reports no revocation when the RPC answers $label", async ({ data }) => {
     const { client } = clientReturning({ data, error: null });

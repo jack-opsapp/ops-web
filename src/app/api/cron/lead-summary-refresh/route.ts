@@ -172,6 +172,8 @@ function emptyScheduledResult(): LeadSummaryRunResult {
     deferred: [],
     written: [],
     candidatesPreview: [],
+    quarantined: [],
+    quarantinedCount: 0,
     opportunityWindow: null,
   };
 }
@@ -392,6 +394,11 @@ export async function GET(request: NextRequest) {
         deferredCount: result.deferred.length,
         deferred: result.deferred,
         queue: result.queue,
+        // Non-convergence is surfaced explicitly, not inferred from a missing
+        // write. HTTP stays 200: a per-lead data issue is not a workload
+        // failure and must not trip the circuit.
+        quarantinedCount: result.quarantinedCount,
+        quarantined: result.quarantined,
       })
     );
     return NextResponse.json({ ok: result.deferred.length === 0, ...result });

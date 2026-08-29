@@ -11,7 +11,8 @@ import { verifiedInternalPrincipalFixture } from "@/lib/agent-control-plane/acto
 import { resolveActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import {
   CAPABILITY_MANIFEST_REVISION,
-  getCapabilityManifestEntry,
+  V7_CAPABILITY_MANIFEST_REVISION,
+  getV7CapabilityManifestEntry,
   resolveCapabilityAuthorization,
 } from "../capability-manifest";
 
@@ -125,9 +126,9 @@ async function authorizeAllBeforeRead(input: {
 
 describe("Task 13 compatibility under manifest v7", () => {
   it("exposes the complete Task 13 bundle to internal callers only", () => {
-    expect(CAPABILITY_MANIFEST_REVISION).toBe(TASK_13_MANIFEST_REVISION);
+    expect(V7_CAPABILITY_MANIFEST_REVISION).toBe(TASK_13_MANIFEST_REVISION);
     for (const capabilityId of TASK_13_CAPABILITIES) {
-      const entry = getCapabilityManifestEntry(capabilityId);
+      const entry = getV7CapabilityManifestEntry(capabilityId);
       expect(entry.schemaRevision).toBe(TASK_13_SCHEMA_REVISION);
       expect(entry.availability).toEqual({
         implementation: "available",
@@ -631,16 +632,19 @@ describe("Task 13 nominal domain-read proofs", () => {
           job_kinds: ["opportunity", "project"],
         },
         authorize: async (authorizations) => {
-          const module =
+          const authorizationModule =
             await import("../../services/customer-jobs-authorization");
-          const proof = module.authorizeCustomerJobsRead({
+          const proof = authorizationModule.authorizeCustomerJobsRead({
             authorizations,
             rawInput: {
               customer_ref: { kind: "client", id: CLIENT_ID },
               job_kinds: ["opportunity", "project"],
             },
           });
-          return [proof, module.isAuthorizedCustomerJobsRead] as const;
+          return [
+            proof,
+            authorizationModule.isAuthorizedCustomerJobsRead,
+          ] as const;
         },
       },
       {
@@ -651,9 +655,9 @@ describe("Task 13 nominal domain-read proofs", () => {
           financial_components: ["estimate_rollup", "invoice_rollup"],
         },
         authorize: async (authorizations) => {
-          const module =
+          const authorizationModule =
             await import("../../services/job-summary-authorization");
-          const proof = module.authorizeJobSummaryRead({
+          const proof = authorizationModule.authorizeJobSummaryRead({
             authorizations,
             rawInput: {
               job_ref: { kind: "project", id: PROJECT_ID },
@@ -661,7 +665,10 @@ describe("Task 13 nominal domain-read proofs", () => {
               financial_components: ["estimate_rollup", "invoice_rollup"],
             },
           });
-          return [proof, module.isAuthorizedJobSummaryRead] as const;
+          return [
+            proof,
+            authorizationModule.isAuthorizedJobSummaryRead,
+          ] as const;
         },
       },
       {
@@ -675,9 +682,9 @@ describe("Task 13 nominal domain-read proofs", () => {
           source_types: ["delivered_correspondence", "estimate_document"],
         },
         authorize: async (authorizations) => {
-          const module =
+          const authorizationModule =
             await import("../../services/job-history-authorization");
-          const proof = module.authorizeJobHistoryRead({
+          const proof = authorizationModule.authorizeJobHistoryRead({
             authorizations,
             rawInput: {
               query: "approved",
@@ -688,7 +695,10 @@ describe("Task 13 nominal domain-read proofs", () => {
               source_types: ["delivered_correspondence", "estimate_document"],
             },
           });
-          return [proof, module.isAuthorizedJobHistoryRead] as const;
+          return [
+            proof,
+            authorizationModule.isAuthorizedJobHistoryRead,
+          ] as const;
         },
       },
       {
@@ -698,18 +708,19 @@ describe("Task 13 nominal domain-read proofs", () => {
           evidence_ids: [`job_conversation_turn:${TURN_ID}`],
         },
         authorize: async (authorizations) => {
-          const module =
+          const authorizationModule =
             await import("../../services/correspondence-evidence-page-authorization");
-          const proof = module.authorizeCorrespondenceEvidencePageRead({
-            authorizations,
-            rawInput: {
-              job_ref: { kind: "project", id: PROJECT_ID },
-              evidence_ids: [`job_conversation_turn:${TURN_ID}`],
-            },
-          });
+          const proof =
+            authorizationModule.authorizeCorrespondenceEvidencePageRead({
+              authorizations,
+              rawInput: {
+                job_ref: { kind: "project", id: PROJECT_ID },
+                evidence_ids: [`job_conversation_turn:${TURN_ID}`],
+              },
+            });
           return [
             proof,
-            module.isAuthorizedCorrespondenceEvidencePageRead,
+            authorizationModule.isAuthorizedCorrespondenceEvidencePageRead,
           ] as const;
         },
       },
@@ -728,7 +739,7 @@ describe("Task 13 nominal domain-read proofs", () => {
       expect(isNominal(Object.assign({}, proof as object))).toBe(false);
       expect(proof).toMatchObject({
         capabilityId: testCase.capabilityId,
-        capabilityManifestRevision: TASK_13_MANIFEST_REVISION,
+        capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
       });
     }
   });

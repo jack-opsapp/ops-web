@@ -316,8 +316,9 @@ export function createSupabaseEmailAssignmentContactFormDraftDependencies(
         );
       }
       return AIDraftService.generateDraft({
-        // `configuredSubject` arrives resolved from the mailbox's
-        // outreach_subject setting (server-owned constant when unset).
+        // `configuredSubject` carries the operator's own outreach_subject
+        // setting and is absent when unset — the constant must not pre-empt
+        // the draft service's ranking from out here (4da75e71).
         ...input,
         emailAccess: access,
         sourceBoundAutonomousRouting: "assigned_contact_form_review",

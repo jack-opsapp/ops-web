@@ -37,6 +37,18 @@ jobs:
         run: >-
           sudo -u postgres psql -X -v ON_ERROR_STOP=1
           -f tests/sql/email-conversion-photo-related-attachment-shadowing-contract.sql
+      - name: Test phase C work claim null-safety migration
+        run: >-
+          sudo -u postgres psql -X -v ON_ERROR_STOP=1
+          -f tests/sql/phase-c-claim-null-safe-contract.sql
+      - name: Test contact-form provenance gate migration
+        run: >-
+          sudo -u postgres psql -X -v ON_ERROR_STOP=1
+          -f tests/sql/contact-form-provenance-gate-contract.sql
+      - name: Test delivery-source normalization re-projection migration
+        run: >-
+          sudo -u postgres psql -X -v ON_ERROR_STOP=1
+          -f tests/sql/delivery-source-reprojection-contract.sql
       - run: npm ci
       - run: npm run lint
       - run: npm run type-check

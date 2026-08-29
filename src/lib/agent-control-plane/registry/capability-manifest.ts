@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  activateCapabilityPolicyForManifest,
   defineCapabilityPolicyForManifest,
   type ManifestCapabilityPolicy,
   type ManifestCapabilityPolicyDefinition,
@@ -11,12 +12,31 @@ import {
   type CapabilityAuthorizationVariant,
   type CapabilityDefinition,
   type CapabilityManifestEntry,
+  type LegacyCapabilityManifestEntry,
 } from "./capability-types";
-import { READ_CAPABILITY_DEFINITIONS } from "./read-tools";
+import {
+  CURRENT_PRODUCTION_READ_CAPABILITIES,
+  V7_READ_CAPABILITY_DEFINITIONS,
+} from "./read-capabilities";
+import {
+  P2_READ_CAPABILITY_CANDIDATES,
+  RESERVED_P2_MANIFEST_REVISION,
+} from "./read-capabilities/p2";
 import { WRITE_CAPABILITY_DEFINITIONS } from "./write-tools";
 
-export const CAPABILITY_MANIFEST_REVISION =
+export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
+export const CAPABILITY_MANIFEST_REVISION = RESERVED_P2_MANIFEST_REVISION;
+
+function activateManifestPolicies(
+  entries: readonly CapabilityManifestEntry[]
+): void {
+  for (const entry of entries) {
+    for (const variant of entry.authorization.variants) {
+      activateCapabilityPolicyForManifest(variant.policy);
+    }
+  }
+}
 
 function freezeSelector(
   selector: CapabilityAuthorizationSelector
@@ -26,25 +46,47 @@ function freezeSelector(
 
 function mintPolicy(
   capability: CapabilityDefinition,
-  variant: CapabilityDefinition["authorization"]["variants"][number]
+  variant: CapabilityDefinition["authorization"]["variants"][number],
+  manifestRevision: string
 ): ManifestCapabilityPolicy {
   const definition: ManifestCapabilityPolicyDefinition = {
     capabilityId: capability.name,
     capabilityRevision: `${capability.name}:${capability.schemaRevision}`,
-    capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
+    capabilityManifestRevision: manifestRevision,
     requiredOAuthScopes: variant.requiredOAuthScopes,
     permissionRequirementGroups: variant.permissionRequirementGroups,
   };
   return defineCapabilityPolicyForManifest(definition);
 }
 
-function mintEntry(definition: CapabilityDefinition): CapabilityManifestEntry {
+function mintVariants(
+  definition: CapabilityDefinition,
+  manifestRevision: string
+): readonly CapabilityAuthorizationVariant[] {
+  return Object.freeze(
+    definition.authorization.variants.map((variant) =>
+      Object.freeze({
+        key: variant.key,
+        selector: freezeSelector(variant.selector),
+        policy: mintPolicy(definition, variant, manifestRevision),
+      })
+    )
+  );
+}
+
+function mintV7Entry(
+  definition: CapabilityDefinition
+): LegacyCapabilityManifestEntry {
   const variants: readonly CapabilityAuthorizationVariant[] = Object.freeze(
     definition.authorization.variants.map((variant) =>
       Object.freeze({
         key: variant.key,
         selector: freezeSelector(variant.selector),
-        policy: mintPolicy(definition, variant),
+        policy: mintPolicy(
+          definition,
+          variant,
+          V7_CAPABILITY_MANIFEST_REVISION
+        ),
       })
     )
   );
@@ -61,15 +103,53 @@ function mintEntry(definition: CapabilityDefinition): CapabilityManifestEntry {
   });
 }
 
-const definitions: readonly CapabilityDefinition[] = [
-  ...READ_CAPABILITY_DEFINITIONS,
+function mintV8Entry(
+  definition: CapabilityDefinition
+): CapabilityManifestEntry {
+  return Object.freeze({
+    ...definition,
+    bounds: Object.freeze({ ...definition.bounds }),
+    evidencePolicy: Object.freeze({ ...definition.evidencePolicy }),
+    annotations: Object.freeze({ ...definition.annotations }),
+    confirmationPolicy: Object.freeze({ ...definition.confirmationPolicy }),
+    idempotencyPolicy: Object.freeze({ ...definition.idempotencyPolicy }),
+    availability: Object.freeze({
+      implementation: definition.availability.implementation,
+    }),
+    authorization: Object.freeze({
+      variants: mintVariants(definition, CAPABILITY_MANIFEST_REVISION),
+    }),
+  });
+}
+
+const v7Definitions: readonly CapabilityDefinition[] = [
+  ...V7_READ_CAPABILITY_DEFINITIONS,
   ...WRITE_CAPABILITY_DEFINITIONS,
 ];
-const manifestEntries = definitions.map(mintEntry);
+const v7ManifestEntries = v7Definitions.map(mintV7Entry);
+assertCapabilityManifestInvariants(
+  v7ManifestEntries,
+  V7_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(v7ManifestEntries);
+
+export const V7_CAPABILITY_MANIFEST: readonly LegacyCapabilityManifestEntry[] =
+  Object.freeze(v7ManifestEntries);
+
+const V7_CAPABILITY_BY_NAME = new Map(
+  V7_CAPABILITY_MANIFEST.map((entry) => [entry.name, entry] as const)
+);
+
+const manifestEntries: readonly CapabilityManifestEntry[] = [
+  ...CURRENT_PRODUCTION_READ_CAPABILITIES.map(mintV8Entry),
+  ...P2_READ_CAPABILITY_CANDIDATES,
+  ...WRITE_CAPABILITY_DEFINITIONS.map(mintV8Entry),
+];
 assertCapabilityManifestInvariants(
   manifestEntries,
   CAPABILITY_MANIFEST_REVISION
 );
+activateManifestPolicies(manifestEntries);
 
 export const CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
   Object.freeze(manifestEntries);
@@ -86,6 +166,14 @@ export function getCapabilityManifestEntry(
   return entry;
 }
 
+export function getV7CapabilityManifestEntry(
+  name: string
+): LegacyCapabilityManifestEntry {
+  const entry = V7_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -94,7 +182,9 @@ function selectorMatches(
   selector: CapabilityAuthorizationSelector,
   parsedInput: Readonly<Record<string, unknown>>
 ): boolean {
-  if (selector.kind === "always") return true;
+  if (selector.kind === "always" || selector.kind === "input_always") {
+    return true;
+  }
 
   if (selector.kind === "customer_discovery_lookup") {
     const lookup = parsedInput.lookup;
@@ -219,6 +309,64 @@ function selectorMatches(
     return parsedInput[selector.field] === selector.value;
   }
 
+  if (selector.kind === "input_object_discriminator") {
+    const selected = parsedInput[selector.field];
+    return (
+      isRecord(selected) && selected[selector.discriminator] === selector.value
+    );
+  }
+
+  if (selector.kind === "input_array_object_discriminator") {
+    const selected = parsedInput[selector.field];
+    return (
+      Array.isArray(selected) &&
+      selected.some(
+        (value) =>
+          isRecord(value) && value[selector.discriminator] === selector.value
+      )
+    );
+  }
+
+  if (selector.kind === "input_source_kind") {
+    const sourceKinds = parsedInput.source_kinds;
+    return Array.isArray(sourceKinds)
+      ? sourceKinds.includes(selector.value)
+      : parsedInput.source_kind === selector.value;
+  }
+
+  if (selector.kind === "input_source_and_job_kind") {
+    const reference = parsedInput.job_ref;
+    if (!isRecord(reference) || reference.kind !== selector.jobKind) {
+      return false;
+    }
+    if ("source" in selector) {
+      return parsedInput.source === selector.source;
+    }
+    const sourceKinds = parsedInput.source_kinds;
+    return Array.isArray(sourceKinds)
+      ? sourceKinds.includes(selector.sourceKind)
+      : parsedInput.source_kind === selector.sourceKind;
+  }
+
+  if (selector.kind === "site_visit_context_artifact_sections") {
+    const sections = parsedInput[selector.field];
+    return (
+      parsedInput.anchor === selector.anchor &&
+      Array.isArray(sections) &&
+      selector.values.every((value) => sections.includes(value))
+    );
+  }
+
+  if (
+    selector.kind === "operational_overview_component" ||
+    selector.kind === "work_queue_source"
+  ) {
+    const selected = parsedInput[selector.field];
+    return selected === undefined
+      ? selector.defaultWhenOmitted
+      : Array.isArray(selected) && selected.includes(selector.value);
+  }
+
   const jobRef = parsedInput.job_ref;
   if (!isRecord(jobRef) || jobRef.kind !== selector.jobKind) return false;
   if (selector.kind === "job_kind") return true;
@@ -251,16 +399,10 @@ export interface ResolvedCapabilityAuthorization {
   readonly variants: readonly CapabilityAuthorizationVariant[];
 }
 
-/**
- * Parses caller input first, then selects only manifest-owned policy variants.
- * Callers can choose domain arguments; they cannot submit a permission or
- * policy name. A handler must authorize every returned variant before reading.
- */
-export function resolveCapabilityAuthorization(
-  capabilityName: string,
+function resolveAuthorizationFromEntry(
+  capability: CapabilityManifestEntry,
   rawInput: unknown
 ): ResolvedCapabilityAuthorization {
-  const capability = getCapabilityManifestEntry(capabilityName);
   const parsed = capability.inputSchema.parse(rawInput);
   if (!isRecord(parsed)) {
     throw new TypeError("Capability input must resolve to an object");
@@ -277,4 +419,34 @@ export function resolveCapabilityAuthorization(
   }
 
   return Object.freeze({ capability, parsedInput, variants });
+}
+
+/**
+ * Parses caller input first, then selects only manifest-owned policy variants.
+ * Callers can choose domain arguments; they cannot submit a permission or
+ * policy name. A handler must authorize every returned variant before reading.
+ */
+export function resolveCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+/**
+ * Compatibility-only resolver for proving the frozen v7 authorization bytes.
+ * Runtime callers must use resolveCapabilityAuthorization and the active
+ * manifest revision.
+ */
+export function resolveV7CapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getV7CapabilityManifestEntry(capabilityName),
+    rawInput
+  );
 }

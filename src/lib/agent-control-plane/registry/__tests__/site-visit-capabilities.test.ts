@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CAPABILITY_MANIFEST,
-  CAPABILITY_MANIFEST_REVISION,
-  getCapabilityManifestEntry,
-  resolveCapabilityAuthorization,
+  V7_CAPABILITY_MANIFEST as CAPABILITY_MANIFEST,
+  V7_CAPABILITY_MANIFEST_REVISION as CAPABILITY_MANIFEST_REVISION,
+  getV7CapabilityManifestEntry as getCapabilityManifestEntry,
+  resolveV7CapabilityAuthorization as resolveCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 
 const SITE_VISIT_CAPABILITIES = [
@@ -16,6 +16,11 @@ const SITE_VISIT_CAPABILITIES = [
   ["commit_site_visit_reschedule", "commit"],
   ["prepare_site_visit_booking_cancellation", "prepare"],
   ["commit_site_visit_booking_cancellation", "commit"],
+] as const;
+
+const DARK_SITE_VISIT_READS = [
+  "list_site_visits",
+  "get_site_visit_context",
 ] as const;
 
 const IDEMPOTENCY_KEY = "request-00000001";
@@ -47,6 +52,14 @@ describe("site-visit capability boundary", () => {
         SITE_VISIT_CAPABILITIES.some(([name]) => name === entry.name)
       ).map((entry) => [entry.name, entry.operation])
     ).toEqual(SITE_VISIT_CAPABILITIES);
+
+    expect(
+      CAPABILITY_MANIFEST.filter(
+        (entry) =>
+          entry.operation === "read" &&
+          entry.availability.implementation === "unavailable"
+      ).map((entry) => entry.name)
+    ).toEqual(DARK_SITE_VISIT_READS);
 
     for (const [name] of SITE_VISIT_CAPABILITIES) {
       expect(getCapabilityManifestEntry(name).availability).toEqual({

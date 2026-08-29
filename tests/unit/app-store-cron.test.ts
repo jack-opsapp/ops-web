@@ -13,7 +13,8 @@ const mocks = vi.hoisted(() => {
   return {
     isConfigured: vi.fn(),
     bootstrapIfNeeded: vi.fn(),
-    syncOnce: vi.fn(),
+    runSync: vi.fn(),
+    getAscSyncStatus: vi.fn(),
     updateAscSyncStatus: vi.fn(),
     runWithCronWorkloadControl: vi.fn(),
     observedWorkFailures: [] as unknown[],
@@ -30,9 +31,10 @@ vi.mock("@/lib/analytics/app-store-client", () => ({
 }));
 vi.mock("@/lib/admin/app-store-sync", () => ({
   bootstrapIfNeeded: mocks.bootstrapIfNeeded,
-  syncOnce: mocks.syncOnce,
+  runSync: mocks.runSync,
 }));
 vi.mock("@/lib/admin/app-store-queries", () => ({
+  getAscSyncStatus: mocks.getAscSyncStatus,
   updateAscSyncStatus: mocks.updateAscSyncStatus,
 }));
 vi.mock("@/lib/supabase/admin-client", () => ({
@@ -66,11 +68,20 @@ beforeEach(() => {
   mocks.isConfigured.mockReturnValue(true);
   mocks.bootstrapIfNeeded.mockReset();
   mocks.bootstrapIfNeeded.mockResolvedValue(undefined);
-  mocks.syncOnce.mockReset();
-  mocks.syncOnce.mockResolvedValue({
+  mocks.runSync.mockReset();
+  mocks.runSync.mockResolvedValue({
     segmentsProcessed: 1,
     rowsIngested: 4,
     lastDate: "2026-07-23",
+    cursorAfter: null,
+  });
+  mocks.getAscSyncStatus.mockReset();
+  mocks.getAscSyncStatus.mockResolvedValue({
+    job_name: "app-store-sync",
+    status: "complete",
+    last_synced_date: "2026-07-20",
+    last_run_at: null,
+    error: null,
   });
   mocks.updateAscSyncStatus.mockReset();
   mocks.updateAscSyncStatus.mockResolvedValue(undefined);
@@ -127,6 +138,7 @@ describe("app-store-sync cron", () => {
       segmentsProcessed: 1,
       rowsIngested: 4,
       lastDate: "2026-07-23",
+      cursorAfter: null,
     });
     expect(mocks.runWithCronWorkloadControl).toHaveBeenCalledWith({
       supabase: mocks.adminClient,
@@ -135,7 +147,7 @@ describe("app-store-sync cron", () => {
       work: expect.any(Function),
     });
     expect(mocks.bootstrapIfNeeded).toHaveBeenCalledWith(mocks.adminClient);
-    expect(mocks.syncOnce).toHaveBeenCalledWith(
+    expect(mocks.runSync).toHaveBeenCalledWith(
       mocks.adminClient,
       workloadLease
     );
@@ -145,12 +157,102 @@ describe("app-store-sync cron", () => {
         "app-store-sync",
         {
           status: "complete",
-          last_synced_date: "2026-07-23",
           error: null,
+          last_synced_date: "2026-07-23",
         },
         mocks.adminClient,
       ],
     ]);
+  });
+
+  it("does not null out last_synced_date when the run ingested nothing", async () => {
+    mocks.runSync.mockResolvedValue({
+      segmentsProcessed: 0,
+      rowsIngested: 0,
+      lastDate: null,
+      cursorAfter: null,
+    });
+
+    const res = await GET(req("Bearer s3cret"));
+
+    expect(res.status).toBe(200);
+    expect(mocks.updateAscSyncStatus.mock.calls[1][1]).toEqual({
+      status: "complete",
+      error: null,
+      last_synced_date: "2026-07-20",
+    });
+  });
+
+  it("omits last_synced_date entirely when nothing is known yet", async () => {
+    mocks.getAscSyncStatus.mockResolvedValue(null);
+    mocks.runSync.mockResolvedValue({
+      segmentsProcessed: 0,
+      rowsIngested: 0,
+      lastDate: null,
+      cursorAfter: null,
+    });
+
+    await GET(req("Bearer s3cret"));
+
+    const completeCall = mocks.updateAscSyncStatus.mock.calls[1];
+    expect(completeCall[1]).toEqual({ status: "complete", error: null });
+    expect(completeCall[1]).not.toHaveProperty("last_synced_date");
+  });
+
+  it("keeps the stored date when a restatement segment reports an older one", async () => {
+    mocks.runSync.mockResolvedValue({
+      segmentsProcessed: 1,
+      rowsIngested: 2,
+      lastDate: "2026-07-01",
+      cursorAfter: null,
+    });
+
+    await GET(req("Bearer s3cret"));
+
+    expect(mocks.updateAscSyncStatus.mock.calls[1][1]).toEqual({
+      status: "complete",
+      error: null,
+      last_synced_date: "2026-07-20",
+    });
+  });
+
+  it("adopts the run date when no status row exists yet", async () => {
+    mocks.getAscSyncStatus.mockResolvedValue(null);
+
+    await GET(req("Bearer s3cret"));
+
+    expect(mocks.updateAscSyncStatus.mock.calls[1][1]).toEqual({
+      status: "complete",
+      error: null,
+      last_synced_date: "2026-07-23",
+    });
+  });
+
+  it("persists the full cause chain when a fact upsert fails", async () => {
+    const pgError = {
+      code: "21000",
+      message:
+        "ON CONFLICT DO UPDATE command cannot affect row a second time",
+      hint: "Ensure that no rows proposed for insertion within the same command have duplicate constrained values.",
+    };
+    const wrapped = new Error(
+      "App Store asc_discovery_engagement fact upsert failed",
+      { cause: pgError }
+    );
+    mocks.runSync.mockRejectedValue(wrapped);
+
+    const res = await GET(req("Bearer s3cret"));
+
+    expect(res.status).toBe(500);
+    const failedCall = mocks.updateAscSyncStatus.mock.calls[1];
+    expect(failedCall[1].status).toBe("failed");
+    expect(failedCall[1].error).toContain(
+      "App Store asc_discovery_engagement fact upsert failed"
+    );
+    expect(failedCall[1].error).toContain(
+      "ON CONFLICT DO UPDATE command cannot affect row a second time"
+    );
+    expect(failedCall[1].error).toContain("21000");
   });
 
   it("returns an idempotent no-op while another app-store sync owns the lease", async () => {
@@ -168,7 +270,7 @@ describe("app-store-sync cron", () => {
       reason: "already_running",
     });
     expect(mocks.bootstrapIfNeeded).not.toHaveBeenCalled();
-    expect(mocks.syncOnce).not.toHaveBeenCalled();
+    expect(mocks.runSync).not.toHaveBeenCalled();
   });
 
   it.each(["circuit_open", "control_unavailable"] as const)(
@@ -191,7 +293,7 @@ describe("app-store-sync cron", () => {
         reason,
       });
       expect(mocks.bootstrapIfNeeded).not.toHaveBeenCalled();
-      expect(mocks.syncOnce).not.toHaveBeenCalled();
+      expect(mocks.runSync).not.toHaveBeenCalled();
     }
   );
 
@@ -204,7 +306,7 @@ describe("app-store-sync cron", () => {
       "app store request lookup failed",
       { cause: raw }
     );
-    mocks.syncOnce.mockRejectedValue(pressure);
+    mocks.runSync.mockRejectedValue(pressure);
 
     const res = await GET(req("Bearer s3cret"));
 
@@ -223,7 +325,7 @@ describe("app-store-sync cron", () => {
       new Error("ASC GET reports -> 504"),
       { status: 504 }
     );
-    mocks.syncOnce.mockRejectedValue(providerError);
+    mocks.runSync.mockRejectedValue(providerError);
 
     const res = await GET(req("Bearer s3cret"));
 

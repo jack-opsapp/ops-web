@@ -7,6 +7,7 @@ import { useSetupGate } from "@/hooks/useSetupGate";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { useDictionary } from "@/i18n/client";
 import { OpsLockup, LogoLoader } from "@/components/brand";
+import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 
 // Routes within (auth) group that authenticated users CAN access
 const authenticatedAllowedRoutes = [
@@ -43,13 +44,23 @@ function AuthRouteGate({ children }: { children: React.ReactNode }) {
   // An authenticated user who lands on a non-allowed (auth) route (e.g. /login,
   // /register) is forwarded to where they actually belong. For a not-yet-
   // onboarded user that's their onboarding step (/account-type for company-less
-  // signups), matching the destination the register/login pages push to — so
-  // the two never race to different routes. Completed users go to /dashboard.
+  // signups). Completed users follow the same sanitized post-auth destination
+  // as the login page and middleware, so those redirect owners cannot race and
+  // discard a pending deep link (including an MCP authorization continuation).
   useEffect(() => {
     if (!isLoading && isAuthenticated && !isAllowedWhenAuthenticated) {
-      router.replace(onboardingRoute ?? "/dashboard");
+      const postAuthRedirect = safeRedirectPath(
+        new URLSearchParams(window.location.search).get("redirect")
+      );
+      router.replace(onboardingRoute ?? postAuthRedirect);
     }
-  }, [isLoading, isAuthenticated, isAllowedWhenAuthenticated, onboardingRoute, router]);
+  }, [
+    isLoading,
+    isAuthenticated,
+    isAllowedWhenAuthenticated,
+    onboardingRoute,
+    router,
+  ]);
 
   if (isLoading) {
     return (

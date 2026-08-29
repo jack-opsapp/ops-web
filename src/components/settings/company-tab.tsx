@@ -90,7 +90,7 @@ function IndustryPicker({
       </div>
 
       {/* Scrollable options grid */}
-      <div className="max-h-[180px] overflow-y-auto scrollbar-hide rounded border border-border bg-surface-input/50 p-1">
+      <div className="max-h-[180px] overflow-y-auto scrollbar-hide rounded border border-border bg-surface-input p-1">
         <div className="flex flex-wrap gap-[4px]">
           {filtered.map((ind) => {
             const isSelected = industries.includes(ind);

@@ -434,6 +434,8 @@ describe("mapOpportunityToTableRow", () => {
       clientNameMap,
       assigneeNameMap,
       stageConfigBySlug,
+      siteVisitGlanceByOpportunity: new Map(),
+      deckMarkersByOpportunity: new Map(),
       now: NOW,
     });
 
@@ -499,6 +501,8 @@ describe("mapOpportunityToTableRow", () => {
       clientNameMap: new Map(),
       assigneeNameMap: new Map(),
       stageConfigBySlug,
+      siteVisitGlanceByOpportunity: new Map(),
+      deckMarkersByOpportunity: new Map(),
       now: NOW,
     });
 
@@ -506,6 +510,79 @@ describe("mapOpportunityToTableRow", () => {
     expect(row.winProbabilityIsFallback).toBe(false);
     // 20000 × 75% = 15000
     expect(row.weightedValue).toBe(15000);
+  });
+
+  it("stamps the site-visit and deck glance fields from their maps", () => {
+    const opp = makeOpportunity();
+
+    const row = mapOpportunityToTableRow(opp, {
+      clientNameMap: new Map(),
+      assigneeNameMap: new Map(),
+      stageConfigBySlug: new Map(),
+      siteVisitGlanceByOpportunity: new Map([
+        [
+          opp.id,
+          {
+            nextAt: new Date("2026-08-25T17:00:00.000Z"),
+            lastCompletedAt: new Date("2026-08-12T18:30:00.000Z"),
+            count: 3,
+          },
+        ],
+      ]),
+      deckMarkersByOpportunity: new Map([
+        [opp.id, { count: 2, latestTitle: "Rear deck", latestVersion: 4 }],
+      ]),
+      now: NOW,
+    });
+
+    expect(row.siteVisitNextAt).toBe("2026-08-25T17:00:00.000Z");
+    expect(row.siteVisitCompletedAt).toBe("2026-08-12T18:30:00.000Z");
+    expect(row.siteVisitCount).toBe(3);
+    expect(row.deckDesignCount).toBe(2);
+    expect(row.deckLatestTitle).toBe("Rear deck");
+    expect(row.deckLatestVersion).toBe(4);
+  });
+
+  it("leaves the glance fields empty when the lead is in neither map", () => {
+    // The common case: most leads have no visit and no deck. An absent key
+    // must read as "nothing to show", never as a crash or a stale neighbour.
+    const row = mapOpportunityToTableRow(makeOpportunity(), {
+      clientNameMap: new Map(),
+      assigneeNameMap: new Map(),
+      stageConfigBySlug: new Map(),
+      siteVisitGlanceByOpportunity: new Map(),
+      deckMarkersByOpportunity: new Map(),
+      now: NOW,
+    });
+
+    expect(row.siteVisitNextAt).toBeNull();
+    expect(row.siteVisitCompletedAt).toBeNull();
+    expect(row.siteVisitCount).toBe(0);
+    expect(row.deckDesignCount).toBe(0);
+    expect(row.deckLatestTitle).toBeNull();
+    expect(row.deckLatestVersion).toBeNull();
+  });
+
+  it("does not read another lead's glance entry", () => {
+    const row = mapOpportunityToTableRow(makeOpportunity(), {
+      clientNameMap: new Map(),
+      assigneeNameMap: new Map(),
+      stageConfigBySlug: new Map(),
+      siteVisitGlanceByOpportunity: new Map([
+        [
+          "some-other-lead",
+          { nextAt: new Date("2026-08-25T17:00:00.000Z"), lastCompletedAt: null, count: 1 },
+        ],
+      ]),
+      deckMarkersByOpportunity: new Map([
+        ["some-other-lead", { count: 9, latestTitle: "Wrong", latestVersion: 1 }],
+      ]),
+      now: NOW,
+    });
+
+    expect(row.siteVisitNextAt).toBeNull();
+    expect(row.siteVisitCount).toBe(0);
+    expect(row.deckDesignCount).toBe(0);
   });
 
   it("null-safely handles missing dates, names, stage config, value, source, and priority", () => {
@@ -526,6 +603,8 @@ describe("mapOpportunityToTableRow", () => {
       clientNameMap: new Map(),
       assigneeNameMap: new Map(),
       stageConfigBySlug: new Map(), // no config for new_lead
+      siteVisitGlanceByOpportunity: new Map(),
+      deckMarkersByOpportunity: new Map(),
       now: NOW,
     });
 

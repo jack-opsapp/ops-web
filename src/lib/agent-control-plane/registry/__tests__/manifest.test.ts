@@ -9,14 +9,14 @@ import {
   DISCOVERY_CAPABILITY_SCHEMA_REVISION,
 } from "@/lib/agent-control-plane/contracts";
 import {
-  CAPABILITY_MANIFEST,
-  CAPABILITY_MANIFEST_REVISION,
-  getCapabilityManifestEntry,
-  resolveCapabilityAuthorization,
+  V7_CAPABILITY_MANIFEST as CAPABILITY_MANIFEST,
+  V7_CAPABILITY_MANIFEST_REVISION as CAPABILITY_MANIFEST_REVISION,
+  getV7CapabilityManifestEntry as getCapabilityManifestEntry,
+  resolveV7CapabilityAuthorization as resolveCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import {
   assertCapabilityManifestInvariants,
-  type CapabilityManifestEntry,
+  type LegacyCapabilityManifestEntry as CapabilityManifestEntry,
 } from "@/lib/agent-control-plane/registry/capability-types";
 
 const EXPECTED_CAPABILITIES = [
@@ -47,6 +47,23 @@ const EXPECTED_CAPABILITIES = [
   ["commit_site_visit_reschedule", "commit"],
   ["prepare_site_visit_booking_cancellation", "prepare"],
   ["commit_site_visit_booking_cancellation", "commit"],
+] as const;
+
+const EXPECTED_DARK_WRITE_CAPABILITIES = [
+  "prepare_project_cost_allocation",
+  "commit_project_cost_allocation",
+  "prepare_estimate_import",
+  "commit_estimate_import",
+  "prepare_catalog_service_change",
+  "commit_catalog_service_change",
+  "prepare_client_message_batch",
+  "commit_client_message_batch",
+  "prepare_site_visit_booking",
+  "commit_site_visit_booking",
+  "prepare_site_visit_reschedule",
+  "commit_site_visit_reschedule",
+  "prepare_site_visit_booking_cancellation",
+  "commit_site_visit_booking_cancellation",
 ] as const;
 
 const EXPECTED_ANNOTATIONS = {
@@ -930,6 +947,18 @@ describe("agent capability manifest", () => {
       expect(capability.rolloutFlag).toMatch(
         /^agent_control_plane\.capability\.[a-z][a-z0-9_]*$/
       );
+    }
+
+    expect(
+      CAPABILITY_MANIFEST.filter((entry) => entry.operation !== "read").map(
+        (entry) => entry.name
+      )
+    ).toEqual(EXPECTED_DARK_WRITE_CAPABILITIES);
+    for (const name of EXPECTED_DARK_WRITE_CAPABILITIES) {
+      expect(getCapabilityManifestEntry(name).availability).toEqual({
+        implementation: "unavailable",
+        externalExposure: "disabled",
+      });
     }
   });
 

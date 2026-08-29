@@ -11,6 +11,7 @@ import {
   normalizeGuidedConversation,
 } from "./conversation-history";
 import { normalizeGuidedInputLedger } from "./input-ledger";
+import { narrowGuidedQuestionToUnresolvedFacts } from "./question-policy";
 import {
   CatalogFactSchema,
   CatalogBlueprintSchema,
@@ -277,6 +278,19 @@ export async function runGuidedSetupTurn({
     },
     turn
   );
+  // A question may only ask for facts still unresolved after this turn's
+  // facts merge — otherwise the deterministic template regenerates the
+  // already-answered sentence under a fresh model-minted id and the
+  // transcript shows the question again after the operator's reply
+  // (bug 986009b0, session 3af7b940 ords 7–9).
+  const nextQuestion =
+    reduced.unresolvedQuestions.length > 0
+      ? (narrowGuidedQuestionToUnresolvedFacts(
+          reduced.unresolvedQuestions[0],
+          reduced.facts,
+        ) ?? reduced.unresolvedQuestions[0])
+      : null;
+  const nextUnresolvedQuestions = nextQuestion ? [nextQuestion] : [];
   const nextVersion = version + 1;
   const nextPlanHash = reduced.proposedPlan
     ? hashPlan(reduced.proposedPlan)
@@ -349,14 +363,14 @@ export async function runGuidedSetupTurn({
       ? acceptGuidedConversationInputs({
           conversation,
           acceptedInputIds,
-          nextQuestion: reduced.unresolvedQuestions[0] ?? null,
+          nextQuestion: nextQuestion,
           nextVersion,
         })
       : advanceGuidedConversation({
           conversation,
           currentQuestion: unresolvedQuestions[0] ?? null,
           answer: turnAnswer,
-          nextQuestion: reduced.unresolvedQuestions[0] ?? null,
+          nextQuestion: nextQuestion,
           nextVersion,
         });
   const nextInputLedger =
@@ -385,7 +399,7 @@ export async function runGuidedSetupTurn({
       facts: reduced.facts,
       sources: nextSources,
       conversation: nextConversation,
-      unresolved_questions: reduced.unresolvedQuestions,
+      unresolved_questions: nextUnresolvedQuestions,
       contradictions: reduced.contradictions,
       proposed_plan: reduced.proposedPlan,
       proposed_plan_hash: nextPlanHash,

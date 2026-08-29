@@ -454,16 +454,19 @@ describe("agent job conversation memory schema", () => {
     expect(context).toContain("p_exact_turn_limit integer");
     expect(context).toContain("p_required_through_turn_id uuid");
     expect(context).toContain(
-      "v_v6_result := private.read_agent_job_conversation_context_as_system_v6_core("
+      "v_result := private.read_agent_job_conversation_context_as_system_v7_core("
     );
     expect(context).toContain(
-      "p_capability_manifest_revision is null or p_capability_manifest_revision not in ( '2026-08-14.capability-manifest.v6', '2026-08-20.capability-manifest.v7' )"
+      "p_capability_manifest_revision is null or p_capability_manifest_revision not in ( '2026-08-14.capability-manifest.v6', '2026-08-20.capability-manifest.v7', '2026-08-22.capability-manifest.v8' )"
     );
     expect(context).toContain(
-      "if p_capability_manifest_revision = '2026-08-14.capability-manifest.v6' then return v_v6_result; end if;"
+      "case when p_capability_manifest_revision = '2026-08-22.capability-manifest.v8' then '2026-08-20.capability-manifest.v7' else p_capability_manifest_revision end"
     );
     expect(context).toContain(
-      "return private.reprove_agent_read_jsonb_for_manifest( v_v6_result, '2026-08-20.capability-manifest.v7' );"
+      "if p_capability_manifest_revision in ( '2026-08-14.capability-manifest.v6', '2026-08-20.capability-manifest.v7' ) then return v_result; end if;"
+    );
+    expect(context).toContain(
+      "return private.reprove_agent_read_jsonb_for_manifest( v_result, '2026-08-22.capability-manifest.v8' );"
     );
     expect(implementation).toContain(
       "p_capability_id is distinct from 'get_job_conversation_context'"

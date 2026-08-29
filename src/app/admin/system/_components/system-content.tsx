@@ -11,9 +11,9 @@ interface SystemContentProps {
   dataQuality: DataQualityIssue[];
   tableStats: TableStats[];
   integrations: {
-    portalEnabled: number;
+    portalInUse: number;
     brandingConfigured: number;
-    gmailConnected: number;
+    emailConnected: number;
     accountingConnected: number;
     total: number;
   };
@@ -111,7 +111,7 @@ function AuditLogTab({ entries }: { entries: AuditLogEntry[] }) {
             </span>
             <span className="font-mono text-[12px] text-[#6B6B6B] truncate">{entry.record_id}</span>
             <span className="font-mono text-[12px] text-[#6B6B6B]">
-              [{new Date(entry.created_at).toLocaleString()}]
+              [{new Date(entry.changed_at).toLocaleString()}]
             </span>
             <span className="font-mohave text-[12px] text-[#6F94B0]">
               {expandedId === entry.id ? "COLLAPSE" : "EXPAND"}
@@ -178,9 +178,9 @@ function DataQualityTab({ issues }: { issues: DataQualityIssue[] }) {
 
 function IntegrationsTab({ data }: { data: SystemContentProps["integrations"] }) {
   const items = [
-    { label: "Portal Enabled", count: data.portalEnabled, total: data.total },
+    { label: "Portal In Use", count: data.portalInUse, total: data.total },
     { label: "Portal Branding Configured", count: data.brandingConfigured, total: data.total },
-    { label: "Gmail Connected", count: data.gmailConnected, total: data.total },
+    { label: "Email Connected", count: data.emailConnected, total: data.total },
     { label: "Accounting Connected", count: data.accountingConnected, total: data.total },
   ];
 

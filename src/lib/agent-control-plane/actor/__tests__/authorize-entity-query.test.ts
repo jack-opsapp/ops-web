@@ -6,7 +6,10 @@ import {
   authorizeCapability,
   type AuthorizedCapability,
 } from "@/lib/agent-control-plane/actor/authorize-capability";
-import { defineCapabilityPolicyForManifest } from "@/lib/agent-control-plane/actor/capability-policy-boundary";
+import {
+  activateCapabilityPolicyForManifest,
+  defineCapabilityPolicyForManifest,
+} from "@/lib/agent-control-plane/actor/capability-policy-boundary";
 import {
   authorizeCurrentEntityQuery,
   createSupabaseCurrentEntityAuthorizationRepository,
@@ -69,20 +72,22 @@ async function capability(
 
   return authorizeCapability({
     actorContext,
-    policy: defineCapabilityPolicyForManifest({
-      capabilityId: "entity_test",
-      capabilityRevision: "entity_test:v1",
-      capabilityManifestRevision: MANIFEST_REVISION,
-      requiredOAuthScopes: ["ops.jobs.read"],
-      permissionRequirementGroups: [
-        [
-          {
-            permission,
-            allowedScopes: ["all", "assigned", "own"],
-          },
+    policy: activateCapabilityPolicyForManifest(
+      defineCapabilityPolicyForManifest({
+        capabilityId: "entity_test",
+        capabilityRevision: "entity_test:v1",
+        capabilityManifestRevision: MANIFEST_REVISION,
+        requiredOAuthScopes: ["ops.jobs.read"],
+        permissionRequirementGroups: [
+          [
+            {
+              permission,
+              allowedScopes: ["all", "assigned", "own"],
+            },
+          ],
         ],
-      ],
-    }),
+      })
+    ),
   });
 }
 
@@ -315,26 +320,28 @@ describe("authorizeCurrentEntityQuery", () => {
     });
     const authorization = authorizeCapability({
       actorContext,
-      policy: defineCapabilityPolicyForManifest({
-        capabilityId: "get_job_summary",
-        capabilityRevision: "get_job_summary:v1",
-        capabilityManifestRevision: MANIFEST_REVISION,
-        requiredOAuthScopes: ["ops.jobs.read"],
-        permissionRequirementGroups: [
-          [
-            {
-              permission: "pipeline.view",
-              allowedScopes: ["all", "assigned"],
-            },
+      policy: activateCapabilityPolicyForManifest(
+        defineCapabilityPolicyForManifest({
+          capabilityId: "get_job_summary",
+          capabilityRevision: "get_job_summary:v1",
+          capabilityManifestRevision: MANIFEST_REVISION,
+          requiredOAuthScopes: ["ops.jobs.read"],
+          permissionRequirementGroups: [
+            [
+              {
+                permission: "pipeline.view",
+                allowedScopes: ["all", "assigned"],
+              },
+            ],
+            [
+              {
+                permission: "projects.view",
+                allowedScopes: ["all", "assigned"],
+              },
+            ],
           ],
-          [
-            {
-              permission: "projects.view",
-              allowedScopes: ["all", "assigned"],
-            },
-          ],
-        ],
-      }),
+        })
+      ),
     });
     const rpcClient = new StubEntityAuthorizationSupabaseRpcClient();
 

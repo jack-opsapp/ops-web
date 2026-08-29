@@ -31,7 +31,9 @@ const CONTACTABILITY_DIGEST = `sha256:${"b".repeat(64)}`;
 const READ_AT = "2026-08-14T18:00:00.000Z";
 const SOURCE_REVISION = 74;
 const CONTACTABILITY_REVISION = 20;
-const TASK_13_MANIFEST_REVISION = "2026-08-20.capability-manifest.v7" as const;
+const ACTIVE_MANIFEST_REVISION = "2026-08-22.capability-manifest.v8" as const;
+const FROZEN_V7_MANIFEST_REVISION =
+  "2026-08-20.capability-manifest.v7" as const;
 const TASK_12_MANIFEST_REVISION = "2026-08-13.capability-manifest.v5" as const;
 const JOB_REF = { kind: "project" as const, id: PROJECT_ID };
 const PARTICIPANTS_INPUT = { job_ref: JOB_REF, purpose: "general" as const };
@@ -271,21 +273,21 @@ function clientFor(data: unknown) {
   };
 }
 
-describe("Task 12 repository compatibility under manifest v7", () => {
-  it("requires the process-wide capability manifest to be v7", () => {
-    expect(CAPABILITY_MANIFEST_REVISION).toBe(TASK_13_MANIFEST_REVISION);
+describe("Task 12 repository compatibility under the active manifest", () => {
+  it("requires the process-wide capability manifest to be v8", () => {
+    expect(CAPABILITY_MANIFEST_REVISION).toBe(ACTIVE_MANIFEST_REVISION);
   });
 
-  it("accepts communication and participant wrappers rebound consistently to v7", async () => {
+  it("accepts communication and participant wrappers rebound consistently to the active manifest", async () => {
     const participants = await participantsAuthorization();
     const communication = await communicationAuthorization();
     const participantsRepository = createSupabaseJobParticipantsRepository(
-      clientFor(participantsSnapshot(participants, TASK_13_MANIFEST_REVISION))
+      clientFor(participantsSnapshot(participants, ACTIVE_MANIFEST_REVISION))
     );
     const communicationRepository =
       createSupabaseJobCommunicationContextRepository(
         clientFor(
-          communicationSnapshot(communication, TASK_13_MANIFEST_REVISION)
+          communicationSnapshot(communication, ACTIVE_MANIFEST_REVISION)
         )
       );
 
@@ -296,7 +298,7 @@ describe("Task 12 repository compatibility under manifest v7", () => {
       collection_claim: {
         proof: {
           projection: {
-            capability_manifest_revision: TASK_13_MANIFEST_REVISION,
+            capability_manifest_revision: ACTIVE_MANIFEST_REVISION,
           },
         },
       },
@@ -308,39 +310,45 @@ describe("Task 12 repository compatibility under manifest v7", () => {
       context_claim: {
         proof: {
           projection: {
-            capability_manifest_revision: TASK_13_MANIFEST_REVISION,
+            capability_manifest_revision: ACTIVE_MANIFEST_REVISION,
           },
         },
       },
     });
   });
 
-  it("rejects fully recoupled v5 projections presented with v7 authorizations", async () => {
-    const participants = await participantsAuthorization();
-    const communication = await communicationAuthorization();
-    const participantsRepository = createSupabaseJobParticipantsRepository(
-      clientFor(participantsSnapshot(participants, TASK_12_MANIFEST_REVISION))
-    );
-    const communicationRepository =
-      createSupabaseJobCommunicationContextRepository(
-        clientFor(
-          communicationSnapshot(communication, TASK_12_MANIFEST_REVISION)
-        )
+  it.each([
+    ["frozen v7", FROZEN_V7_MANIFEST_REVISION],
+    ["Task 12 v5", TASK_12_MANIFEST_REVISION],
+  ] as const)(
+    "rejects fully recoupled %s projections presented with active authorizations",
+    async (_label, manifestRevision) => {
+      const participants = await participantsAuthorization();
+      const communication = await communicationAuthorization();
+      const participantsRepository = createSupabaseJobParticipantsRepository(
+        clientFor(participantsSnapshot(participants, manifestRevision))
       );
+      const communicationRepository =
+        createSupabaseJobCommunicationContextRepository(
+          clientFor(communicationSnapshot(communication, manifestRevision))
+        );
 
-    await expect(
-      participantsRepository.read({ authorization: participants })
-    ).rejects.toEqual(
-      expect.objectContaining<Partial<JobParticipantsRepositoryError>>({
-        code: "JOB_PARTICIPANTS_INVALID",
-      })
-    );
-    await expect(
-      communicationRepository.read({ authorization: communication })
-    ).rejects.toEqual(
-      expect.objectContaining<Partial<JobCommunicationContextRepositoryError>>({
-        code: "JOB_COMMUNICATION_CONTEXT_INVALID",
-      })
-    );
-  });
+      await expect(
+        participantsRepository.read({ authorization: participants })
+      ).rejects.toEqual(
+        expect.objectContaining<Partial<JobParticipantsRepositoryError>>({
+          code: "JOB_PARTICIPANTS_INVALID",
+        })
+      );
+      await expect(
+        communicationRepository.read({ authorization: communication })
+      ).rejects.toEqual(
+        expect.objectContaining<
+          Partial<JobCommunicationContextRepositoryError>
+        >({
+          code: "JOB_COMMUNICATION_CONTEXT_INVALID",
+        })
+      );
+    }
+  );
 });

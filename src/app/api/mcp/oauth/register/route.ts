@@ -1,17 +1,17 @@
 /**
  * POST /api/mcp/oauth/register
  *
- * RFC 7591 dynamic client registration — the registration path Claude uses
- * by default for custom connectors. Public clients only: no secret is
+ * RFC 7591 dynamic client registration — the registration path supported by
+ * Claude custom connectors and Codex native clients. Public clients only: no secret is
  * generated, stored, or returned, and `token_endpoint_auth_method` is fixed
  * at "none". PKCE S256 (enforced at the authorize/token endpoints) is the
  * only client proof this server accepts.
  *
- * Policy lives in `validateClientRegistration`: the redirect-URI allowlist
- * is exact-match against Anthropic's published connector callback, grant and
- * response types are pinned, and the requested scope is clamped to the read
- * scopes this server issues. Anything else is rejected with an RFC 7591
- * error body — never a partial registration.
+ * Policy lives in `validateClientRegistration`: Claude callbacks are exact
+ * hosted URLs, while Codex registers one tightly constrained loopback URL
+ * after binding its ephemeral port. Grant and response types are pinned, and
+ * requested scope is clamped to the read scopes this server issues. Anything
+ * else is rejected with an RFC 7591 error body — never a partial registration.
  *
  * Rate limit: 10 registrations per hour per IP. Registration is unauthenticated
  * by definition (that is the point of DCR), so the IP window is the only
@@ -23,8 +23,10 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   McpOAuthStoreError,
   registerClient,
+  resolveActiveMcpConsentCatalog,
   validateClientRegistration,
 } from "@/lib/agent-control-plane/mcp/oauth";
+import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { rateLimit } from "@/lib/utils/ratelimit";
 
@@ -98,7 +100,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const validated = validateClientRegistration(payload);
+  const exposure = resolveActiveMcpExposure();
+  const consentCatalog = resolveActiveMcpConsentCatalog();
+  const validated = validateClientRegistration(
+    payload,
+    exposure,
+    consentCatalog
+  );
   if (!validated.ok) {
     return registrationError(
       400,
@@ -113,6 +121,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       clientName: registration.clientName,
       redirectUris: registration.redirectUris,
       scope: registration.scope,
+      scopeCeiling: registration.scopeCeiling,
+      consentCatalogRevision: registration.consentCatalogRevision,
+      exposureRevision: registration.exposureRevision,
       softwareId: registration.softwareId,
       softwareVersion: registration.softwareVersion,
     });

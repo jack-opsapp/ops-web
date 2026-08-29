@@ -76,7 +76,7 @@ import {
   isDatabasePressureError,
   supabaseDatabaseOperationCause,
 } from "./cron-workload-control-service";
-import { isEmailSyncContinuationPending } from "@/lib/email/email-sync-continuation";
+import { isProviderSyncContinuationPending } from "@/lib/email/email-sync-continuation";
 
 const EMAIL_THREAD_MAILBOX_BUSY = "EMAIL_THREAD_MAILBOX_BUSY";
 const EMAIL_THREAD_PROVIDER_AUTHORIZATION_REVOKED =
@@ -3185,10 +3185,15 @@ export const EmailThreadService = {
       for (const row of connectionRows ?? []) {
         const connectionId = row.id as string;
         returnedConnectionIds.add(connectionId);
+        // Provider scope, not complete scope: classification reads the
+        // conversation snapshot, and derived lead summaries are computed FROM
+        // that snapshot — they can never make it less current. Gating on them
+        // let one non-converging summary freeze this queue for days
+        // (0700468d). Mailbox-fetch state below still defers.
         if (
           row.sync_in_progress_at ||
           row.history_recovery_page_token ||
-          isEmailSyncContinuationPending(
+          isProviderSyncContinuationPending(
             (row.history_id as string | null) ?? null
           )
         ) {

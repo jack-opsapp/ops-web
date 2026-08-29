@@ -44,6 +44,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDictionary } from "@/i18n/client";
 import { toast } from "@/components/ui/toast";
+import { showUndoToast } from "@/components/ui/toast-undo";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   selectCanConvertOpportunity,
@@ -144,6 +145,7 @@ export function useStageTransition({
   const canEdit = usePermissionStore(selectCanEditOpportunity);
   const canConvert = usePermissionStore(selectCanConvertOpportunity);
   const pushUndo = useUndoStore((s) => s.pushUndo);
+  const undoEntry = useUndoStore((s) => s.undoEntry);
 
   const moveStage = useMoveOpportunityStage();
   const applyFeedback = useApplyLeadDispositionFeedback();
@@ -226,12 +228,7 @@ export function useStageTransition({
           { id, stage: OpportunityStage.Discarded, userId: currentUser?.id },
           {
             onSuccess: () => {
-              // Silent when the capture toast already announced the discard —
-              // a second success toast for the same action is noise.
-              if (announce) {
-                toast.success(title, { description: stageLine });
-              }
-              pushUndo({
+              const entryId = pushUndo({
                 label: undoLabel,
                 inverseFn: async () => {
                   await moveStage.mutateAsync({
@@ -241,6 +238,19 @@ export function useStageTransition({
                   });
                 },
               });
+              // Silent when the capture toast already announced the discard —
+              // it carried its own visible UNDO for its whole lifetime, and a
+              // second toast after that one closes is noise. The entry still
+              // reaches the top bar's Cmd+Z on both branches.
+              if (announce) {
+                showUndoToast({
+                  title,
+                  description: stageLine,
+                  undoLabel: t("table.undo.action"),
+                  onUndo: () => undoEntry(entryId),
+                  variant: "success",
+                });
+              }
             },
             onError: (error) => {
               toast.error(t("toast.failedMove"), {
@@ -346,10 +356,16 @@ export function useStageTransition({
               idempotencyKey: crypto.randomUUID(),
             });
             invalidateOpportunities();
-            toast.success(title, { description: stageLine });
-            pushUndo({
+            const entryId = pushUndo({
               label: undoLabel,
               inverseFn: retractFeedback(result.feedbackId),
+            });
+            showUndoToast({
+              title,
+              description: stageLine,
+              undoLabel: t("table.undo.action"),
+              onUndo: () => undoEntry(entryId),
+              variant: "success",
             });
           } catch (error) {
             const code = feedbackErrorCode(error);
@@ -480,6 +496,7 @@ export function useStageTransition({
       pushUndo,
       queryClient,
       t,
+      undoEntry,
       undoFeedback,
     ]
   );
@@ -531,10 +548,13 @@ export function useStageTransition({
               : "";
             const fromStage = getStageDisplayName(previousStage);
             const toStage = getStageDisplayName(newStage);
-            toast.success(`${clientName}${value ? ` · ${value}` : ""}`, {
-              description: `${fromStage} → ${toStage}`,
-            });
-            pushUndo({
+            // The undo entry still lands on the global stack (top bar Cmd+Z
+            // and the undo button read it); the toast just makes the SAME
+            // entry clickable at the moment of the move. `undoEntry(entryId)`
+            // targets this action specifically, so whichever affordance the
+            // operator uses first consumes it and the other no-ops — a stage
+            // move can never be reversed twice.
+            const entryId = pushUndo({
               label: `${clientName} → ${toStage}`,
               inverseFn: async () => {
                 await moveStage.mutateAsync({
@@ -543,6 +563,14 @@ export function useStageTransition({
                   userId: currentUser?.id,
                 });
               },
+            });
+            showUndoToast({
+              title: `${clientName}${value ? ` · ${value}` : ""}`,
+              description: `${fromStage} → ${toStage}`,
+              undoLabel: t("table.undo.action"),
+              onUndo: () => undoEntry(entryId),
+              // Keeps the olive success rail this toast had as `toast.success`.
+              variant: "success",
             });
           },
           onError: (error) => {
@@ -565,6 +593,7 @@ export function useStageTransition({
       t,
       clientNameMap,
       pushUndo,
+      undoEntry,
       beginDiscardCapture,
     ]
   );
@@ -740,11 +769,7 @@ export function useStageTransition({
               updateOpportunity.mutate({ id, data: updateData });
             }
 
-            toast.success(t("toast.dealMarkedLost"), {
-              description: oppTitle,
-            });
-
-            pushUndo({
+            const entryId = pushUndo({
               label: `${clientName} → ${toStage}`,
               inverseFn: async () => {
                 await moveStage.mutateAsync({
@@ -753,6 +778,13 @@ export function useStageTransition({
                   userId: currentUser?.id,
                 });
               },
+            });
+            showUndoToast({
+              title: t("toast.dealMarkedLost"),
+              description: oppTitle,
+              undoLabel: t("table.undo.action"),
+              onUndo: () => undoEntry(entryId),
+              variant: "success",
             });
           },
           onError: (error) => {
@@ -784,6 +816,7 @@ export function useStageTransition({
       t,
       clientNameMap,
       pushUndo,
+      undoEntry,
       preflightQuery.data,
     ]
   );

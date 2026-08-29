@@ -13,6 +13,8 @@
 // fragments into its system/user prompts, falling back to its legacy raw-data
 // path when no state is available.
 
+import { stripQuotedContentStrict } from "@/lib/utils/email-parsing";
+
 import type { CleanMessage, ConversationState, ResponseMode } from "./types";
 
 export interface DraftStateContext {
@@ -44,6 +46,57 @@ function firstName(fullName: string | null): string | null {
   if (!fullName) return null;
   const first = fullName.trim().split(/\s+/)[0];
   return first && first.length > 0 ? first : null;
+}
+
+/**
+ * The words that end an email rather than name its author. Mirrors the sign-off
+ * family in draft-reconciliation; kept local so neither file can silently
+ * change the other's meaning.
+ */
+const CLOSING_LINE =
+  /^(thanks|thank you|thanks so much|many thanks|all the best|best|best regards|kind regards|warm regards|regards|cheers|talk soon|sincerely|yours truly|respectfully|cordially|appreciate it|much appreciated)$/i;
+
+/** One or two capitalized name words — "Mark", "Anne-Marie O'Brien". */
+const NAME_LINE = /^[A-Z][A-Za-z'’-]{0,23}(?: [A-Z][A-Za-z'’-]{0,23})?$/;
+
+const MAX_SIGN_OFF_NAME_LENGTH = 24;
+
+/**
+ * The name the customer signed off with.
+ *
+ * `activities` does not persist a sender display name, so on most real threads
+ * the provider identity yields no name at all and the drafter opens with a bare
+ * "Hi," — to a customer who typed their own name at the bottom of the message.
+ * Read from the RAW body: the clean body has the signature block removed, which
+ * is precisely where the name lives. Quoted history is cut first so the name of
+ * whoever wrote earlier in the chain can never be mistaken for this sender's.
+ *
+ * Returns null on anything short of certainty. A wrong name is worse than none.
+ */
+function signOffName(rawBody: string): string | null {
+  const authored = stripQuotedContentStrict(rawBody ?? "", "");
+  if (!authored.trim()) return null;
+
+  const lines = authored
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0) return null;
+
+  const candidate = lines[lines.length - 1].replace(/[.,;:!?]+$/, "").trim();
+  if (
+    !candidate ||
+    candidate.length > MAX_SIGN_OFF_NAME_LENGTH ||
+    candidate.includes("@") ||
+    /\d/.test(candidate) ||
+    CLOSING_LINE.test(candidate) ||
+    !NAME_LINE.test(candidate)
+  ) {
+    return null;
+  }
+
+  return candidate;
 }
 
 /** Build the Phase-1 drafting fragments from a resolved ConversationState. */
@@ -120,10 +173,17 @@ export function buildDraftStateContext(
   ).length;
   const customerMessageCount = state.customerMessages.length;
 
+  // The provider display name when there is one; otherwise the name the
+  // customer signed. Never the linked client record — that is how a reply ends
+  // up greeting the account holder instead of the person who wrote.
+  const greetingFirstName =
+    firstName(recipientName) ??
+    (latestCustomerMessage ? signOffName(latestCustomerMessage.rawBody) : null);
+
   return {
     recipientName,
     recipientEmail,
-    greetingFirstName: firstName(recipientName),
+    greetingFirstName,
     cleanThread,
     latestCustomerText,
     sentLedgerBlock,

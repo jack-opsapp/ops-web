@@ -2,6 +2,12 @@ import "server-only";
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
+import {
+  consentLabelsForScopes,
+  type McpConsentCatalog,
+} from "./scope-catalog";
+import type { McpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+
 /**
  * Opaque bearer credentials for the MCP OAuth surface. Every credential is
  * 256 bits of entropy rendered base64url behind a greppable prefix; storage
@@ -15,11 +21,13 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 export const ACCESS_TOKEN_PREFIX = "ops_mcp_at_" as const;
 export const REFRESH_TOKEN_PREFIX = "ops_mcp_rt_" as const;
 export const AUTHORIZATION_CODE_PREFIX = "ops_mcp_ac_" as const;
+export const CONSENT_PREVIEW_PREFIX = "ops_mcp_cp_" as const;
 
 export const ACCESS_TOKEN_TTL_SECONDS = 600 as const;
 // 30 days.
 export const REFRESH_TOKEN_TTL_SECONDS = 2_592_000 as const;
 export const AUTHORIZATION_CODE_TTL_SECONDS = 300 as const;
+export const CONSENT_PREVIEW_TTL_SECONDS = 300 as const;
 
 const SECRET_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
@@ -27,7 +35,8 @@ const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
 export type CredentialPrefix =
   | typeof ACCESS_TOKEN_PREFIX
   | typeof REFRESH_TOKEN_PREFIX
-  | typeof AUTHORIZATION_CODE_PREFIX;
+  | typeof AUTHORIZATION_CODE_PREFIX
+  | typeof CONSENT_PREVIEW_PREFIX;
 
 export function mintCredential(prefix: CredentialPrefix): string {
   return `${prefix}${randomBytes(32).toString("base64url")}`;
@@ -63,4 +72,48 @@ export function secretsEqual(left: string, right: string): boolean {
   const rightBytes = Buffer.from(right, "utf8");
   if (leftBytes.byteLength !== rightBytes.byteLength) return false;
   return timingSafeEqual(leftBytes, rightBytes);
+}
+
+export interface ImmutableConsentClaims {
+  readonly scopes: readonly string[];
+  readonly acceptedLabels: readonly string[];
+  readonly consentCatalogRevision: string;
+  readonly exposureRevision: string;
+}
+
+/**
+ * Validate persisted authority against the exact active exposure selected by
+ * the route. Refresh may preserve an older exposure revision, but it can
+ * never add a scope or change the accepted labels stored on the grant.
+ */
+export function isConsentSnapshotValidForExposure(
+  claims: ImmutableConsentClaims,
+  activeExposure: McpExposure,
+  consentCatalog: McpConsentCatalog,
+  options: { readonly requireActiveExposureRevision: boolean }
+): boolean {
+  if (claims.consentCatalogRevision !== consentCatalog.revision) return false;
+  if (
+    options.requireActiveExposureRevision &&
+    claims.exposureRevision !== activeExposure.revision
+  ) {
+    return false;
+  }
+  const grantable = new Set<string>(activeExposure.grantableScopes);
+  if (
+    claims.scopes.length === 0 ||
+    claims.scopes.some((scope) => !grantable.has(scope))
+  ) {
+    return false;
+  }
+  const expectedLabels = consentLabelsForScopes(claims.scopes, consentCatalog);
+  if (
+    !expectedLabels ||
+    expectedLabels.length !== claims.acceptedLabels.length
+  ) {
+    return false;
+  }
+  return expectedLabels.every(
+    (label, index) => label === claims.acceptedLabels[index]
+  );
 }

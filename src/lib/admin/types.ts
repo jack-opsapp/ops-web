@@ -202,11 +202,11 @@ export const TARGET_USER_TYPE_LABELS: Record<string, string> = {
 export interface PromoCode {
   id: string;
   code: string;
-  discount_percent: number | null;
-  discount_amount: number | null;
-  usage_count: number;
+  discount_type: string | null;
+  discount_value: number | null;
+  current_uses: number;
   max_uses: number | null;
-  active: boolean;
+  is_active: boolean;
   created_at: string;
 }
 
@@ -219,7 +219,7 @@ export interface AuditLogEntry {
   action: string;
   old_data: Record<string, unknown> | null;
   new_data: Record<string, unknown> | null;
-  created_at: string;
+  changed_at: string;
 }
 
 export interface DataQualityIssue {

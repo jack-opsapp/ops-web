@@ -161,11 +161,17 @@ describe("Phase C reply context shadow service", () => {
     const runtimeInput = createRuntime.mock.calls[0]![0];
     expect(Object.keys(runtimeInput).sort()).toEqual([
       "cursorCodec",
+      "p2CursorKey",
       "rpcClient",
     ]);
     expect(isTrustedOperationalReadCursorCodec(runtimeInput.cursorCodec)).toBe(
       true
     );
+    expect(runtimeInput.p2CursorKey).toMatchObject({
+      keyId: "phase-c-p2",
+      key: expect.any(Uint8Array),
+    });
+    expect(runtimeInput.p2CursorKey.key).toHaveLength(32);
     expect(getJobConversationContext).toHaveBeenCalledWith({
       routedActor: ACTOR,
       sourceActivityId: SOURCE_ACTIVITY_ID,

@@ -32,7 +32,7 @@ describe("mapAppStoreSourceToChannel", () => {
 
 const ALIASES = {
   reporting_date: ["date"],
-  engagement_type: ["engagement type", "event", "event type"],
+  engagement_type: ["event", "event type"],
   source_type: ["source type"],
   counts: ["counts"],
   unique_counts: ["unique counts", "unique devices"],
@@ -80,17 +80,30 @@ describe("parseTsv (header-name based, drift-tolerant)", () => {
     expect(rows[0].unique_counts).toBe(4);
   });
 
-  it("prefers the canonical header over an earlier fallback alias", () => {
+  it("resolves aliases in declared priority order, canonical header last", () => {
     const tsv = [
       "Date\tEvent\tEngagement Type\tPage Type\tSource Type\tCounts\tUnique Counts",
       "2026-07-23\tTap\tGet\tProduct Page\tApp Store Search\t8\t8",
       "2026-07-23\tTap\tOpen\tProduct Page\tApp Store Search\t4\t4",
     ].join("\n");
+    const rows = parseTsv(tsv, {
+      ...ALIASES,
+      engagement_type: ["event", "event type"],
+    });
+    // Event column wins; the tap-subtype column stays available in raw.
+    expect(rows.map((r) => r.engagement_type)).toEqual(["Tap", "Tap"]);
+    expect(
+      rows.map((r) => (r.raw as Record<string, string>)["engagement type"])
+    ).toEqual(["Get", "Open"]);
+  });
 
-    const rows = parseTsv(tsv, ALIASES);
-
-    expect(rows.map((row) => row.engagement_type)).toEqual(["Get", "Open"]);
-    expect(rows.map((row) => row.raw.event)).toEqual(["Tap", "Tap"]);
+  it("falls back to the canonical header when no alias header exists", () => {
+    const tsv = "Date\tEngagement Type\tCounts\n2026-07-23\tImpression\t3";
+    const rows = parseTsv(tsv, {
+      ...ALIASES,
+      engagement_type: ["event", "event type"],
+    });
+    expect(rows[0].engagement_type).toBe("Impression");
   });
 
   it("returns [] for header-only or empty input", () => {

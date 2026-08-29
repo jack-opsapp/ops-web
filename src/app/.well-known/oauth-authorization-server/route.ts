@@ -8,10 +8,9 @@
  * Deliberate omissions:
  *   - `client_id_metadata_document_supported` is NOT advertised. Accepting
  *     CIMD means fetching remote client metadata (an SSRF surface) to serve
- *     exactly one connection; Claude's documented fallback when CIMD is
- *     unadvertised is dynamic client registration, which it supports out of
- *     the box. Adding the key later is a one-line change plus the SSRF
- *     hardening that decision requires.
+ *     supported connectors. Both Claude and Codex use dynamic client
+ *     registration when CIMD is unadvertised. Adding the key later requires
+ *     the SSRF hardening appropriate for remote metadata retrieval.
  *   - No `token_endpoint_auth_signing_alg_values_supported`, no JWKS: tokens
  *     are opaque, hashed at rest, and resolved from the grant row on every
  *     call, so there is no signing key to publish.
@@ -22,15 +21,14 @@
 
 import { NextResponse } from "next/server";
 
-import {
-  resolveMcpOAuthConfig,
-  SUPPORTED_READ_SCOPES,
-} from "@/lib/agent-control-plane/mcp/oauth";
+import { resolveMcpOAuthConfig } from "@/lib/agent-control-plane/mcp/oauth";
+import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const DISCOVERY_CACHE_CONTROL = "public, max-age=300";
 
 export async function GET(): Promise<NextResponse> {
   const config = resolveMcpOAuthConfig();
+  const exposure = resolveActiveMcpExposure();
   return NextResponse.json(
     {
       issuer: config.issuer,
@@ -38,7 +36,7 @@ export async function GET(): Promise<NextResponse> {
       token_endpoint: config.tokenEndpoint,
       registration_endpoint: config.registrationEndpoint,
       revocation_endpoint: config.revocationEndpoint,
-      scopes_supported: [...SUPPORTED_READ_SCOPES],
+      scopes_supported: [...exposure.grantableScopes],
       response_types_supported: ["code"],
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],

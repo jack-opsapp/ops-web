@@ -10,7 +10,11 @@ function normalizeEvidencePart(value: string): string {
  * authoritative and keeps distinct long model outputs from collapsing.
  */
 export async function outboundLearningEvidenceKey(
-  kind: "fact" | "edge" | "draft-correction",
+  kind:
+    | "fact"
+    | "edge"
+    | "draft-correction"
+    | "draft-replacement-correction",
   parts: string[]
 ): Promise<string> {
   const normalized = parts.map(normalizeEvidencePart).join("\u001f");

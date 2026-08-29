@@ -356,7 +356,7 @@ export function DocumentTemplatesTab() {
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
-            className="h-[56px] rounded-chip bg-surface-input/40 border border-border-subtle"
+            className="h-[56px] rounded-chip bg-fill-neutral-dim border border-border-subtle"
           />
         ))}
       </div>

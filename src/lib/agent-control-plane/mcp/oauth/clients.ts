@@ -1,16 +1,20 @@
 import "server-only";
 
+import {
+  consentSnapshotForExposure,
+  type McpConsentCatalog,
+} from "./scope-catalog";
 import { resolveRequestedScopes, scopesToParameter } from "./scopes";
+import type { McpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 /**
  * Dynamic client registration policy (RFC 7591) for the MCP mount.
  *
- * P1 accepts exactly the Claude custom-connector client shape: a public
- * client (no secret), authorization-code + refresh, redirecting only to
- * Anthropic's published claude.ai callback. The claude.com twin is
- * third-party-reported and unverified on Anthropic pages; allowlisting it
- * is free insurance and still exact-match. CIMD is deliberately not
- * offered — Claude's documented fallback when CIMD is unadvertised is DCR.
+ * The MCP mount accepts public authorization-code clients from two connector
+ * families. Claude uses exact hosted HTTPS callbacks. Codex DCR binds an
+ * ephemeral port first, then registers one literal IPv4 loopback callback.
+ * That Codex URI is stored and compared byte-for-byte for the rest of the
+ * grant. CIMD and redirect equivalence are deliberately not offered.
  */
 
 export const REDIRECT_URI_ALLOWLIST = Object.freeze([
@@ -22,6 +26,10 @@ const REDIRECT_URI_ALLOWSET: ReadonlySet<string> = new Set(
   REDIRECT_URI_ALLOWLIST
 );
 
+const MAX_REDIRECT_URI_LENGTH = 2_048;
+const CODEX_LOOPBACK_REDIRECT_PATTERN =
+  /^http:\/\/127\.0\.0\.1:([1-9][0-9]{0,4})\/callback\/[A-Za-z0-9_-]{8,128}$/u;
+
 const ALLOWED_GRANT_TYPES: ReadonlySet<string> = new Set([
   "authorization_code",
   "refresh_token",
@@ -32,13 +40,24 @@ const MAX_CLIENT_NAME_LENGTH = 256;
 const MAX_SOFTWARE_FIELD_LENGTH = 128;
 
 export function isAllowlistedRedirectUri(value: string): boolean {
-  return REDIRECT_URI_ALLOWSET.has(value);
+  if (value.length > MAX_REDIRECT_URI_LENGTH) return false;
+  if (REDIRECT_URI_ALLOWSET.has(value)) return true;
+
+  // Validate raw text rather than a parsed URL. URL parsers normalize unsafe
+  // numeric aliases such as 127.1 and 2130706433 into the loopback address.
+  const match = CODEX_LOOPBACK_REDIRECT_PATTERN.exec(value);
+  if (!match) return false;
+  const port = Number(match[1]);
+  return Number.isSafeInteger(port) && port >= 1 && port <= 65_535;
 }
 
 export interface ValidatedClientRegistration {
   readonly clientName: string;
   readonly redirectUris: readonly string[];
   readonly scope: string;
+  readonly scopeCeiling: readonly string[];
+  readonly consentCatalogRevision: string;
+  readonly exposureRevision: string;
   readonly softwareId: string | null;
   readonly softwareVersion: string | null;
 }
@@ -95,7 +114,9 @@ function stringArray(value: unknown): readonly string[] | null {
  * validated exactly.
  */
 export function validateClientRegistration(
-  payload: unknown
+  payload: unknown,
+  exposure: McpExposure,
+  consentCatalog: McpConsentCatalog
 ): ClientRegistrationResult {
   if (
     typeof payload !== "object" ||
@@ -123,16 +144,31 @@ export function validateClientRegistration(
     if (!isAllowlistedRedirectUri(uri)) {
       return reject(
         "invalid_redirect_uri",
-        "This authorization server only accepts the Claude connector callback."
+        "This authorization server does not accept the requested redirect URI."
       );
     }
+  }
+  const codexRedirectCount = redirectUris.filter(
+    (uri) => !REDIRECT_URI_ALLOWSET.has(uri)
+  ).length;
+  if (codexRedirectCount > 0 && codexRedirectCount < redirectUris.length) {
+    return reject(
+      "invalid_redirect_uri",
+      "redirect_uris must use one connector callback family."
+    );
+  }
+  if (codexRedirectCount > 1) {
+    return reject(
+      "invalid_redirect_uri",
+      "Codex registration must use exactly one loopback redirect URI."
+    );
   }
 
   const authMethod = record.token_endpoint_auth_method;
   if (authMethod !== undefined && authMethod !== "none") {
     return reject(
       "invalid_client_metadata",
-      "Only public clients (token_endpoint_auth_method \"none\") are supported."
+      'Only public clients (token_endpoint_auth_method "none") are supported.'
     );
   }
 
@@ -162,7 +198,7 @@ export function validateClientRegistration(
     ) {
       return reject(
         "invalid_client_metadata",
-        "response_types must be exactly [\"code\"]."
+        'response_types must be exactly ["code"].'
       );
     }
   }
@@ -173,7 +209,11 @@ export function validateClientRegistration(
   if (scopeValue !== undefined && typeof scopeValue !== "string") {
     return reject("invalid_client_metadata", "scope must be a string.");
   }
-  const resolvedScopes = resolveRequestedScopes(scopeValue as string | undefined);
+  const exposureSnapshot = consentSnapshotForExposure(exposure, consentCatalog);
+  const resolvedScopes = resolveRequestedScopes(
+    scopeValue as string | undefined,
+    exposure
+  );
   if (!resolvedScopes) {
     return reject(
       "invalid_client_metadata",
@@ -193,6 +233,9 @@ export function validateClientRegistration(
       clientName,
       redirectUris: Object.freeze([...redirectUris]),
       scope: scopesToParameter(resolvedScopes),
+      scopeCeiling: resolvedScopes,
+      consentCatalogRevision: exposureSnapshot.consentCatalogRevision,
+      exposureRevision: exposureSnapshot.exposureRevision,
       softwareId,
       softwareVersion,
     }),

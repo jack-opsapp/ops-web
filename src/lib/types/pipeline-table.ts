@@ -35,6 +35,7 @@ export type PipelineTableColumnId =
   | "age_in_stage"
   | "last_activity"
   | "next_follow_up"
+  | "site_visit"
   | "expected_close"
   | "assignee"
   | "source"
@@ -51,6 +52,7 @@ export const PIPELINE_TABLE_COLUMN_IDS = [
   "age_in_stage",
   "last_activity",
   "next_follow_up",
+  "site_visit",
   "expected_close",
   "assignee",
   "source",
@@ -196,6 +198,18 @@ export const PIPELINE_TABLE_COLUMNS: PipelineTableColumnConfig[] = [
     maxWidth: 160,
   },
   {
+    // Read-only: visits are booked from the lead's detail next-steps strip,
+    // never typed into a table cell. Narrower than the editable date columns —
+    // it carries "Aug 25" or "DONE Aug 12", never a picker.
+    id: "site_visit",
+    labelKey: "table.column.site_visit",
+    kind: "date",
+    sortable: true,
+    minWidth: 96,
+    width: 120,
+    maxWidth: 160,
+  },
+  {
     id: "expected_close",
     labelKey: "table.column.expected_close",
     kind: "date",
@@ -264,6 +278,16 @@ export interface PipelineTableRow {
   ageInStageDays: number | null;
   lastActivityAt: string | null;
   nextFollowUpAt: string | null;
+  /** Soonest booked, unresolved site visit (ISO), else null. */
+  siteVisitNextAt: string | null;
+  /** Most recent completed site visit (ISO), else null. */
+  siteVisitCompletedAt: string | null;
+  /** Non-cancelled site visits on this lead. */
+  siteVisitCount: number;
+  /** Lead-attached deck designs. 0 when the lead has none. */
+  deckDesignCount: number;
+  deckLatestTitle: string | null;
+  deckLatestVersion: number | null;
   expectedCloseDate: string | null;
   assignedTo: string | null;
   assignmentVersion: number;
@@ -299,6 +323,7 @@ export const DEFAULT_PIPELINE_TABLE_COLUMNS: PipelineTableColumnId[] = [
   "value",
   "age_in_stage",
   "next_follow_up",
+  "site_visit",
   "assignee",
 ];
 

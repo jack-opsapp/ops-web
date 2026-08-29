@@ -6,7 +6,10 @@ import {
   authorizeCapability,
   type AuthorizedCapability,
 } from "@/lib/agent-control-plane/actor/authorize-capability";
-import { defineCapabilityPolicyForManifest } from "@/lib/agent-control-plane/actor/capability-policy-boundary";
+import {
+  activateCapabilityPolicyForManifest,
+  defineCapabilityPolicyForManifest,
+} from "@/lib/agent-control-plane/actor/capability-policy-boundary";
 import { ActorAccessError } from "@/lib/agent-control-plane/actor/errors";
 import { resolveActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import {
@@ -114,22 +117,24 @@ async function genericAuthorization(
 
   return authorizeCapability({
     actorContext,
-    policy: defineCapabilityPolicyForManifest({
-      capabilityId: input.capabilityId ?? manifestPolicy.capabilityId,
-      capabilityRevision:
-        input.capabilityRevision ?? manifestPolicy.capabilityRevision,
-      capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
-      requiredOAuthScopes:
-        input.requiredOAuthScopes ?? manifestPolicy.requiredOAuthScopes,
-      permissionRequirementGroups: [
-        [
-          {
-            permission: "inbox.view",
-            allowedScopes: ["all", "assigned", "own"],
-          },
+    policy: activateCapabilityPolicyForManifest(
+      defineCapabilityPolicyForManifest({
+        capabilityId: input.capabilityId ?? manifestPolicy.capabilityId,
+        capabilityRevision:
+          input.capabilityRevision ?? manifestPolicy.capabilityRevision,
+        capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
+        requiredOAuthScopes:
+          input.requiredOAuthScopes ?? manifestPolicy.requiredOAuthScopes,
+        permissionRequirementGroups: [
+          [
+            {
+              permission: "inbox.view",
+              allowedScopes: ["all", "assigned", "own"],
+            },
+          ],
         ],
-      ],
-    }),
+      })
+    ),
   });
 }
 

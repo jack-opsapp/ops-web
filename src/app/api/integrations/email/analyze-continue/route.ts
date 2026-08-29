@@ -45,7 +45,7 @@ import {
 } from "@/lib/types/email-import";
 import type { DeepExtractionInput } from "@/lib/api/services/email-ai-classifier";
 import {
-  ProviderApiError,
+  ProviderThreadTombstoneError,
   type NormalizedEmail,
 } from "@/lib/api/services/email-provider";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -788,10 +788,7 @@ async function runPhaseB(
             context: `Phase B thread hydration (${providerThreadId})`,
           });
         } catch (error) {
-          if (
-            error instanceof ProviderApiError &&
-            (error.providerStatus === 404 || error.providerStatus === 410)
-          ) {
+          if (error instanceof ProviderThreadTombstoneError) {
             return { lead, fetchedMessages: null };
           }
           throw error;

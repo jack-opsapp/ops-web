@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CAPABILITY_MANIFEST_REVISION,
-  getCapabilityManifestEntry,
-  resolveCapabilityAuthorization,
+  V7_CAPABILITY_MANIFEST_REVISION as CAPABILITY_MANIFEST_REVISION,
+  getV7CapabilityManifestEntry as getCapabilityManifestEntry,
+  resolveV7CapabilityAuthorization as resolveCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 
 const OPPORTUNITY_ID = "10000000-0000-4000-8000-000000000001";

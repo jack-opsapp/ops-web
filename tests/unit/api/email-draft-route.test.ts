@@ -340,6 +340,13 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
         },
       })
     );
+    // `configuredSubject` is the OPERATOR's per-mailbox outreach setting, and it
+    // outranks a learned subject. Re-injecting the server's own constant there
+    // would hand the top rank back to the constant and make everything the
+    // profile learned about naming a new conversation unreachable (4da75e71).
+    expect(generateDraftMock.mock.calls[0][0]).not.toHaveProperty(
+      "configuredSubject"
+    );
     expect(placeNewThreadDraftMock).toHaveBeenCalledWith(
       expect.objectContaining({
         connectionId: "conn-1",

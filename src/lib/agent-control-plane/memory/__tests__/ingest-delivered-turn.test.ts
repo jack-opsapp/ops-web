@@ -10,7 +10,12 @@ import {
   type DurableEmailTurnSource,
   type TurnRepository,
 } from "../turn-repository";
-import { normalizeCorrespondence } from "../../evidence/normalize-correspondence";
+import {
+  CORRESPONDENCE_NORMALIZATION_REVISION,
+  normalizeCorrespondence,
+} from "../../evidence/normalize-correspondence";
+
+const LEGACY_NORMALIZATION_REVISION = "ops.correspondence.normalized-text.v1";
 
 const SOURCE_KEY = {
   companyId: "00000000-0000-4000-8000-000000000001",
@@ -39,7 +44,7 @@ function durableSource(
     subject: "Site visit details",
     normalizedSubject: "Site visit details",
     normalizedPlainText: "Line one\nLine two",
-    normalizationRevision: "ops.correspondence.normalized-text.v1",
+    normalizationRevision: CORRESPONDENCE_NORMALIZATION_REVISION,
     normalizationStatus: "normalized",
     deliveredContent: {
       mediaType: "text/plain",
@@ -385,6 +390,76 @@ describe("delivered turn ingestion", () => {
           normalizedSubject: "[SUBJECT OMITTED: UNSAFE SOURCE]",
           normalizedPlainText: "[CONTENT OMITTED: UNSAFE SOURCE]",
           normalizationStatus: "rejected",
+        })
+      )
+    ).toThrow("DELIVERED_TURN_SOURCE_INVALID");
+  });
+
+  it("re-projects a stored projection left behind by an older revision", () => {
+    // The v1 normalizer rejected constructs real mail uses, so rows captured
+    // under it carry a stale reading of bytes that are still intact. The
+    // retained bytes are the authority — re-project rather than refuse the
+    // evidence (8db73af6).
+    const envelope = buildDeliveredEmailSourceEnvelope(
+      durableSource({
+        normalizationRevision: LEGACY_NORMALIZATION_REVISION,
+        normalizedPlainText: "Line one",
+      })
+    );
+
+    expect(envelope.normalizedPlainText).toBe("Line one\nLine two");
+  });
+
+  it("re-projects an older revision's omission when the bytes read safely", () => {
+    const envelope = buildDeliveredEmailSourceEnvelope(
+      durableSource({
+        normalizationRevision: LEGACY_NORMALIZATION_REVISION,
+        normalizedSubject: "[SUBJECT OMITTED: UNSAFE SOURCE]",
+        normalizedPlainText: "[CONTENT OMITTED: UNSAFE SOURCE]",
+        normalizationStatus: "rejected",
+      })
+    );
+
+    expect(envelope.subject).toBe("Site visit details");
+    expect(envelope.normalizedPlainText).toBe("Line one\nLine two");
+  });
+
+  it("keeps the omission when an older revision's bytes still read unsafely", () => {
+    const envelope = buildDeliveredEmailSourceEnvelope(
+      durableSource({
+        deliveredContent: {
+          ...durableSource().deliveredContent,
+          value: "unsafe\u202econtent",
+        },
+        normalizationRevision: LEGACY_NORMALIZATION_REVISION,
+        normalizedSubject: "Site visit details",
+        normalizedPlainText: "Line one\nLine two",
+        normalizationStatus: "normalized",
+      })
+    );
+
+    expect(envelope.subject).toBe("[SUBJECT OMITTED: UNSAFE SOURCE]");
+    expect(envelope.normalizedPlainText).toBe(
+      "[CONTENT OMITTED: UNSAFE SOURCE]"
+    );
+  });
+
+  it("refuses a revision it has never written", () => {
+    expect(() =>
+      buildDeliveredEmailSourceEnvelope(
+        durableSource({
+          normalizationRevision: "ops.correspondence.normalized-text.v9",
+        })
+      )
+    ).toThrow("DELIVERED_TURN_SOURCE_INVALID");
+  });
+
+  it("still refuses a forged projection stamped with the current revision", () => {
+    expect(() =>
+      buildDeliveredEmailSourceEnvelope(
+        durableSource({
+          normalizationRevision: CORRESPONDENCE_NORMALIZATION_REVISION,
+          normalizedPlainText: "forged content",
         })
       )
     ).toThrow("DELIVERED_TURN_SOURCE_INVALID");

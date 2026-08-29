@@ -7,6 +7,7 @@ import {
   type AuthorizedCapability,
 } from "@/lib/agent-control-plane/actor/authorize-capability";
 import {
+  activateCapabilityPolicyForManifest,
   defineCapabilityPolicyForManifest,
   type ManifestCapabilityPolicy,
   type ManifestCapabilityPolicyDefinition,
@@ -78,21 +79,23 @@ async function actor(input: {
 function policy(
   overrides: Partial<ManifestCapabilityPolicyDefinition> = {}
 ): ManifestCapabilityPolicy {
-  return defineCapabilityPolicyForManifest({
-    capabilityId: "get_job_summary",
-    capabilityRevision: "get_job_summary:v1",
-    capabilityManifestRevision: MANIFEST_REVISION,
-    requiredOAuthScopes: ["ops.jobs.read"],
-    permissionRequirementGroups: [
-      [
-        {
-          permission: "projects.view",
-          allowedScopes: ["all", "assigned"],
-        },
+  return activateCapabilityPolicyForManifest(
+    defineCapabilityPolicyForManifest({
+      capabilityId: "get_job_summary",
+      capabilityRevision: "get_job_summary:v1",
+      capabilityManifestRevision: MANIFEST_REVISION,
+      requiredOAuthScopes: ["ops.jobs.read"],
+      permissionRequirementGroups: [
+        [
+          {
+            permission: "projects.view",
+            allowedScopes: ["all", "assigned"],
+          },
+        ],
       ],
-    ],
-    ...overrides,
-  });
+      ...overrides,
+    })
+  );
 }
 
 async function rejected(

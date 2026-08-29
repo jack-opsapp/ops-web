@@ -27,6 +27,8 @@ import {
   type PipelineStageConfig,
 } from "@/lib/types/pipeline";
 import type { PipelineTableRow } from "@/lib/types/pipeline-table";
+import type { SiteVisitGlance } from "@/lib/utils/site-visit-glance";
+import type { DeckMarkerSummary } from "@/lib/api/services/deck-design-service";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -187,6 +189,13 @@ export interface MapOpportunityToTableRowArgs {
   assigneeNameMap: Map<string, string>;
   /** Stage slug → per-company stage config (win prob + stale threshold). */
   stageConfigBySlug: Map<string, PipelineStageConfig>;
+  /**
+   * `opportunityId` → site-visit glance. Absent = the lead has no live visits;
+   * the row's visit fields go null/0 rather than throwing.
+   */
+  siteVisitGlanceByOpportunity: ReadonlyMap<string, SiteVisitGlance>;
+  /** `opportunityId` → deck marker summary. Absent = the lead has no decks. */
+  deckMarkersByOpportunity: ReadonlyMap<string, DeckMarkerSummary>;
   /** Injected clock for all aging / forecast derivations. */
   now: Date;
 }
@@ -199,7 +208,17 @@ export function mapOpportunityToTableRow(
   opp: Opportunity,
   args: MapOpportunityToTableRowArgs
 ): PipelineTableRow {
-  const { clientNameMap, assigneeNameMap, stageConfigBySlug, now } = args;
+  const {
+    clientNameMap,
+    assigneeNameMap,
+    stageConfigBySlug,
+    siteVisitGlanceByOpportunity,
+    deckMarkersByOpportunity,
+    now,
+  } = args;
+
+  const siteVisitGlance = siteVisitGlanceByOpportunity.get(opp.id);
+  const deckMarkers = deckMarkersByOpportunity.get(opp.id);
 
   const stageConfig = stageConfigBySlug.get(opp.stage);
   const { value: winProbabilityResolved, isFallback } = resolveWinProbability(
@@ -221,6 +240,12 @@ export function mapOpportunityToTableRow(
     ageInStageDays: ageInStageDays(opp.stageEnteredAt, now),
     lastActivityAt: toIso(opp.lastActivityAt),
     nextFollowUpAt: toIso(opp.nextFollowUpAt),
+    siteVisitNextAt: toIso(siteVisitGlance?.nextAt ?? null),
+    siteVisitCompletedAt: toIso(siteVisitGlance?.lastCompletedAt ?? null),
+    siteVisitCount: siteVisitGlance?.count ?? 0,
+    deckDesignCount: deckMarkers?.count ?? 0,
+    deckLatestTitle: deckMarkers?.latestTitle ?? null,
+    deckLatestVersion: deckMarkers?.latestVersion ?? null,
     expectedCloseDate: toIso(opp.expectedCloseDate),
     assignedTo: opp.assignedTo,
     assignmentVersion: opp.assignmentVersion,

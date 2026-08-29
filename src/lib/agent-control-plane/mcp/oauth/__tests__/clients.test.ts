@@ -3,14 +3,28 @@ import { describe, expect, it } from "vitest";
 import {
   REDIRECT_URI_ALLOWLIST,
   isAllowlistedRedirectUri,
-  validateClientRegistration,
+  validateClientRegistration as validateClientRegistrationForExposure,
   type ClientRegistrationResult,
 } from "@/lib/agent-control-plane/mcp/oauth/clients";
+import { resolveActiveMcpConsentCatalog } from "@/lib/agent-control-plane/mcp/oauth/scope-catalog";
 import { SUPPORTED_READ_SCOPES } from "@/lib/agent-control-plane/mcp/oauth/scopes";
+import {
+  MCP_EXPOSURE_V1,
+  type McpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const CLAUDE_CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const CLAUDE_COM_CALLBACK = "https://claude.com/api/mcp/auth_callback";
+const CODEX_CALLBACK = "http://127.0.0.1:51759/callback/lwaKvnR9ZEom";
 const FULL_SCOPE = SUPPORTED_READ_SCOPES.join(" ");
+
+function validateClientRegistration(payload: unknown) {
+  return validateClientRegistrationForExposure(
+    payload,
+    MCP_EXPOSURE_V1,
+    resolveActiveMcpConsentCatalog()
+  );
+}
 
 /** The exact payload claude.ai posts to /register for a custom connector. */
 function claudePayload(
@@ -22,6 +36,22 @@ function claudePayload(
     grant_types: ["authorization_code", "refresh_token"],
     response_types: ["code"],
     client_name: "Claude",
+    ...overrides,
+  };
+}
+
+/** The exact payload Codex posts after binding its ephemeral loopback port. */
+function codexPayload(
+  overrides: Readonly<Record<string, unknown>> = {}
+): Record<string, unknown> {
+  return {
+    client_name: "Codex",
+    redirect_uris: [CODEX_CALLBACK],
+    grant_types: ["authorization_code", "refresh_token"],
+    token_endpoint_auth_method: "none",
+    response_types: ["code"],
+    scope: "ops.jobs.read",
+    application_type: "native",
     ...overrides,
   };
 }
@@ -42,7 +72,7 @@ function expectRejected(result: ClientRegistrationResult) {
   return result.rejection;
 }
 
-describe("Claude connector redirect allowlist", () => {
+describe("connector redirect policy", () => {
   it("allowlists exactly the two published callback URLs", () => {
     expect([...REDIRECT_URI_ALLOWLIST]).toEqual([
       CLAUDE_CALLBACK,
@@ -54,6 +84,21 @@ describe("Claude connector redirect allowlist", () => {
   it.each([
     { label: "the claude.ai callback", uri: CLAUDE_CALLBACK, allowed: true },
     { label: "the claude.com twin", uri: CLAUDE_COM_CALLBACK, allowed: true },
+    {
+      label: "the captured Codex loopback callback",
+      uri: CODEX_CALLBACK,
+      allowed: true,
+    },
+    {
+      label: "the lowest valid Codex loopback port",
+      uri: "http://127.0.0.1:1/callback/abcdefgh",
+      allowed: true,
+    },
+    {
+      label: "the highest valid Codex loopback port",
+      uri: "http://127.0.0.1:65535/callback/abcdefgh",
+      allowed: true,
+    },
     {
       label: "a trailing slash variant",
       uri: `${CLAUDE_CALLBACK}/`,
@@ -84,7 +129,11 @@ describe("Claude connector redirect allowlist", () => {
       uri: "http://claude.ai/api/mcp/auth_callback",
       allowed: false,
     },
-    { label: "a loopback redirect", uri: "http://127.0.0.1:8976/callback", allowed: false },
+    {
+      label: "a loopback redirect without a callback id",
+      uri: "http://127.0.0.1:8976/callback",
+      allowed: false,
+    },
     { label: "an empty string", uri: "", allowed: false },
   ])("exact-matches $label", ({ uri, allowed }) => {
     expect(isAllowlistedRedirectUri(uri)).toBe(allowed);
@@ -101,6 +150,9 @@ describe("dynamic client registration — accepted shapes", () => {
       clientName: "Claude",
       redirectUris: [CLAUDE_CALLBACK],
       scope: FULL_SCOPE,
+      scopeCeiling: SUPPORTED_READ_SCOPES,
+      consentCatalogRevision: "2026-08-22.mcp-consent-catalog.v1",
+      exposureRevision: "2026-08-22.mcp-exposure.v1",
       softwareId: null,
       softwareVersion: null,
     });
@@ -121,6 +173,20 @@ describe("dynamic client registration — accepted shapes", () => {
     ]);
   });
 
+  it("accepts the captured Codex DCR payload and preserves its callback bytes", () => {
+    const registration = expectAccepted(
+      validateClientRegistration(codexPayload())
+    );
+
+    expect(registration).toMatchObject({
+      clientName: "Codex",
+      redirectUris: [CODEX_CALLBACK],
+      scope: "ops.jobs.read",
+      scopeCeiling: ["ops.jobs.read"],
+    });
+    expect(registration).not.toHaveProperty("applicationType");
+  });
+
   it("defaults every optional member the RFC lets a client omit", () => {
     const registration = expectAccepted(
       validateClientRegistration({ redirect_uris: [CLAUDE_CALLBACK] })
@@ -130,6 +196,9 @@ describe("dynamic client registration — accepted shapes", () => {
       clientName: "Claude",
       redirectUris: [CLAUDE_CALLBACK],
       scope: FULL_SCOPE,
+      scopeCeiling: SUPPORTED_READ_SCOPES,
+      consentCatalogRevision: "2026-08-22.mcp-consent-catalog.v1",
+      exposureRevision: "2026-08-22.mcp-exposure.v1",
       softwareId: null,
       softwareVersion: null,
     });
@@ -150,6 +219,45 @@ describe("dynamic client registration — accepted shapes", () => {
         )
       ).scope
     ).toBe("ops.jobs.read ops.financials.read");
+    expect(
+      expectAccepted(
+        validateClientRegistration(
+          claudePayload({ scope: "ops.financials.read ops.jobs.read" })
+        )
+      ).scopeCeiling
+    ).toEqual(["ops.jobs.read", "ops.financials.read"]);
+  });
+
+  it("allows a fresh registration to request a newly exposed scope without widening v1", () => {
+    const expandedExposure: McpExposure = Object.freeze({
+      revision: "test.mcp-exposure.v2",
+      toolIds: Object.freeze(["synthetic_read"]),
+      grantableScopes: Object.freeze([
+        ...MCP_EXPOSURE_V1.grantableScopes,
+        "ops.tasks.read",
+      ]),
+    });
+
+    expect(
+      expectAccepted(
+        validateClientRegistrationForExposure(
+          claudePayload({ scope: "ops.tasks.read" }),
+          expandedExposure,
+          resolveActiveMcpConsentCatalog()
+        )
+      )
+    ).toMatchObject({
+      scope: "ops.tasks.read",
+      scopeCeiling: ["ops.tasks.read"],
+      exposureRevision: "test.mcp-exposure.v2",
+    });
+    expect(
+      validateClientRegistrationForExposure(
+        claudePayload({ scope: "ops.tasks.read" }),
+        MCP_EXPOSURE_V1,
+        resolveActiveMcpConsentCatalog()
+      ).ok
+    ).toBe(false);
   });
 
   it("accepts authorization_code without refresh_token", () => {
@@ -214,14 +322,31 @@ describe("dynamic client registration — rejected redirect URIs", () => {
       payload: claudePayload({
         redirect_uris: ["https://evil.example/api/mcp/auth_callback"],
       }),
-      description: /only accepts the Claude connector callback/,
+      description: /does not accept the requested redirect URI/,
     },
     {
       label: "an allowlisted callback smuggled alongside a foreign one",
       payload: claudePayload({
         redirect_uris: [CLAUDE_CALLBACK, "https://evil.example/callback"],
       }),
-      description: /only accepts the Claude connector callback/,
+      description: /does not accept the requested redirect URI/,
+    },
+    {
+      label: "a hosted callback mixed with a Codex loopback callback",
+      payload: claudePayload({
+        redirect_uris: [CLAUDE_CALLBACK, CODEX_CALLBACK],
+      }),
+      description: /one connector callback family/,
+    },
+    {
+      label: "two distinct Codex loopback callbacks",
+      payload: codexPayload({
+        redirect_uris: [
+          CODEX_CALLBACK,
+          "http://127.0.0.1:51760/callback/anotherCodexId",
+        ],
+      }),
+      description: /exactly one loopback redirect URI/,
     },
     {
       label: "an empty redirect_uris array",
@@ -270,6 +395,70 @@ describe("dynamic client registration — rejected redirect URIs", () => {
 
     expect(rejection.error).toBe("invalid_redirect_uri");
     expect(rejection.errorDescription).toMatch(description);
+  });
+});
+
+describe("Codex loopback redirect hardening", () => {
+  it.each([
+    ["HTTPS loopback", "https://127.0.0.1:51759/callback/lwaKvnR9ZEom"],
+    ["uppercase scheme", "HTTP://127.0.0.1:51759/callback/lwaKvnR9ZEom"],
+    ["FTP scheme", "ftp://127.0.0.1:51759/callback/lwaKvnR9ZEom"],
+    ["scheme-relative URI", "//127.0.0.1:51759/callback/lwaKvnR9ZEom"],
+    ["javascript URI", "javascript:alert(1)"],
+    ["localhost alias", "http://localhost:51759/callback/lwaKvnR9ZEom"],
+    ["IPv6 loopback", "http://[::1]:51759/callback/lwaKvnR9ZEom"],
+    [
+      "IPv4-mapped IPv6",
+      "http://[::ffff:127.0.0.1]:51759/callback/lwaKvnR9ZEom",
+    ],
+    ["different IPv4 host", "http://127.0.0.2:51759/callback/lwaKvnR9ZEom"],
+    [
+      "look-alike host",
+      "http://127.0.0.1.evil.example:51759/callback/lwaKvnR9ZEom",
+    ],
+    ["short IPv4", "http://127.1:51759/callback/lwaKvnR9ZEom"],
+    ["decimal IPv4", "http://2130706433:51759/callback/lwaKvnR9ZEom"],
+    ["octal IPv4", "http://0177.0.0.1:51759/callback/lwaKvnR9ZEom"],
+    ["hex IPv4", "http://0x7f000001:51759/callback/lwaKvnR9ZEom"],
+    ["encoded host", "http://%31%32%37.0.0.1:51759/callback/lwaKvnR9ZEom"],
+    ["fullwidth host", "http://１２７.０.０.１:51759/callback/lwaKvnR9ZEom"],
+    ["Unicode-dot host", "http://127。0。0。1:51759/callback/lwaKvnR9ZEom"],
+    ["missing port", "http://127.0.0.1/callback/lwaKvnR9ZEom"],
+    ["empty port", "http://127.0.0.1:/callback/lwaKvnR9ZEom"],
+    ["zero port", "http://127.0.0.1:0/callback/lwaKvnR9ZEom"],
+    ["overflow port", "http://127.0.0.1:65536/callback/lwaKvnR9ZEom"],
+    ["signed port", "http://127.0.0.1:+51759/callback/lwaKvnR9ZEom"],
+    ["zero-padded port", "http://127.0.0.1:05175/callback/lwaKvnR9ZEom"],
+    ["decimal port", "http://127.0.0.1:51759.0/callback/lwaKvnR9ZEom"],
+    ["missing callback id", "http://127.0.0.1:51759/callback"],
+    ["empty callback id", "http://127.0.0.1:51759/callback/"],
+    ["short callback id", "http://127.0.0.1:51759/callback/short"],
+    ["wrong path case", "http://127.0.0.1:51759/Callback/lwaKvnR9ZEom"],
+    [
+      "extra path segment",
+      "http://127.0.0.1:51759/callback/lwaKvnR9ZEom/extra",
+    ],
+    ["dot in callback id", "http://127.0.0.1:51759/callback/lwaKvnR9.ZEom"],
+    ["encoded callback path", "http://127.0.0.1:51759/%63allback/lwaKvnR9ZEom"],
+    ["encoded callback id", "http://127.0.0.1:51759/callback/%6cwaKvnR9ZEom"],
+    ["encoded slash", "http://127.0.0.1:51759/callback/lwaKvnR9%2FZEom"],
+    ["query string", `${CODEX_CALLBACK}?next=https://evil.example`],
+    ["fragment", `${CODEX_CALLBACK}#fragment`],
+    ["userinfo", "http://user@127.0.0.1:51759/callback/lwaKvnR9ZEom"],
+    ["backslash path", "http://127.0.0.1:51759/callback\\lwaKvnR9ZEom"],
+    ["CRLF suffix", `${CODEX_CALLBACK}\r\nX-Injected:true`],
+    ["NUL suffix", `${CODEX_CALLBACK}${String.fromCharCode(0)}`],
+    [
+      "oversized callback id",
+      `http://127.0.0.1:51759/callback/${"a".repeat(129)}`,
+    ],
+    ["oversized URI", `http://127.0.0.1:51759/callback/${"a".repeat(2050)}`],
+  ])("rejects %s", (_label, uri) => {
+    const rejection = expectRejected(
+      validateClientRegistration(codexPayload({ redirect_uris: [uri] }))
+    );
+
+    expect(rejection.error).toBe("invalid_redirect_uri");
   });
 });
 

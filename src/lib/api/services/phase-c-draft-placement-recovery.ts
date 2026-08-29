@@ -41,6 +41,8 @@ export const PHASE_C_PLACEMENT_RECOVERY_CANDIDATE_LIMIT = 200;
 export const PHASE_C_PLACEMENT_RECOVERY_THREAD_LIMIT = 10;
 /** Wall-clock ceiling, so a slow mailbox cannot eat the cron invocation. */
 export const PHASE_C_PLACEMENT_RECOVERY_DEADLINE_MS = 2 * 60 * 1000;
+/** Rows terminalized per cycle once they age past the placement window. */
+export const PHASE_C_PLACEMENT_AGE_OUT_LIMIT = 50;
 
 export interface StrandedDraftRecoverySummary {
   /** Distinct threads driven through placement. */
@@ -51,6 +53,8 @@ export interface StrandedDraftRecoverySummary {
   skipped: number;
   /** Placement is still outstanding; the next cycle retries. */
   failed: number;
+  /** Rows terminalized because they aged past the placement window. */
+  agedOut: number;
 }
 
 const EMAIL_THREAD_COLUMNS = "*";
@@ -77,6 +81,7 @@ export async function recoverStrandedPhaseCMailboxDraftsForConnection(input: {
     placed: 0,
     skipped: 0,
     failed: 0,
+    agedOut: 0,
   };
 
   try {
@@ -101,6 +106,67 @@ export async function recoverStrandedPhaseCMailboxDraftsForConnection(input: {
       .order("created_at", { ascending: false })
       .limit(PHASE_C_PLACEMENT_RECOVERY_CANDIDATE_LIMIT);
     if (candidateError) throw candidateError;
+
+    // The window is a scan bound, so anything older left the scan set forever
+    // while still sitting at status='drafted' — five real rows from 2026-08-05
+    // and 08-06 were invisible to this sweep permanently. They cannot simply be
+    // placed: a three-week-old automatic reply reads worse than no reply. So
+    // they are terminalized here instead, which is a disposition the operator
+    // can see rather than a row waiting on a sweep that will never look at it.
+    //
+    // Scoped exactly like the placement scan above, `thread_id is not null`
+    // included: the contact-form draft worker also writes origin='phase_c'
+    // rows, its drafts open a new conversation and carry no thread, and its own
+    // durable queue owns their lifecycle.
+    try {
+      const { data: agedRows, error: agedError } = await input.supabase
+        .from("ai_draft_history")
+        .select("id, created_at")
+        .eq("company_id", input.companyId)
+        .eq("connection_id", input.connectionId)
+        .eq("origin", "phase_c")
+        .eq("status", "drafted")
+        .is("mailbox_draft_id", null)
+        .not("thread_id", "is", null)
+        .lt("created_at", cutoff)
+        .order("created_at", { ascending: true })
+        .limit(PHASE_C_PLACEMENT_AGE_OUT_LIMIT);
+      if (agedError) throw agedError;
+
+      for (const agedRow of (agedRows ?? []) as Array<Record<string, unknown>>) {
+        const agedId = text(agedRow.id);
+        if (!agedId) continue;
+        const { error: supersedeError } = await input.supabase
+          .from("ai_draft_history")
+          .update({
+            status: "superseded",
+            discarded_at: new Date().toISOString(),
+          })
+          .eq("id", agedId);
+        if (supersedeError) {
+          summary.failed += 1;
+          console.warn(
+            `[phase-c-placement-recovery] age-out write failed for draft ${agedId}`,
+            supersedeError
+          );
+          continue;
+        }
+        summary.agedOut += 1;
+        console.warn(
+          `[phase-c-placement-recovery] aged out stranded draft ${agedId} created ${
+            text(agedRow.created_at) ?? "unknown"
+          }`
+        );
+      }
+    } catch (ageOutFailure) {
+      // Age-out is bookkeeping. Placement retry is the sweep's actual job, so a
+      // failure here must not cost the connection its retry cycle.
+      summary.failed += 1;
+      console.warn(
+        `[phase-c-placement-recovery] age-out pass failed for connection ${input.connectionId}`,
+        ageOutFailure
+      );
+    }
 
     // Several stranded rows can share a thread — one per inbound message the
     // customer sent. Placement is decided per thread by the router, which picks

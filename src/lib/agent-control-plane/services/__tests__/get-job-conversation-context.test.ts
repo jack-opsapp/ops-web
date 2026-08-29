@@ -301,7 +301,7 @@ class StubContextRpcClient {
 }
 
 describe("getJobConversationContext", () => {
-  it("binds Phase C reads to the exact routed source proof and v7 context RPC", async () => {
+  it("binds Phase C reads to the exact routed source proof and active context RPC", async () => {
     const authorization = await authorizedPhaseCRead();
     const client = new StubContextRpcClient(
       snapshot({
@@ -317,7 +317,7 @@ describe("getJobConversationContext", () => {
       {
         functionName: "read_agent_phase_c_job_conversation_context_as_system",
         args: expect.objectContaining({
-          p_capability_manifest_revision: "2026-08-20.capability-manifest.v7",
+          p_capability_manifest_revision: CAPABILITY_MANIFEST_REVISION,
           p_job_kind: "opportunity",
           p_job_id: OPPORTUNITY_ID,
           p_required_through_turn_id: TURN_THREE,

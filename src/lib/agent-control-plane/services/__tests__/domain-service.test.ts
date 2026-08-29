@@ -23,6 +23,7 @@ import {
   CAPABILITY_MANIFEST,
   CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
+import { MCP_EXPOSURE_V1 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   createOpsAgentDomainService,
   type CreateOpsAgentDomainServiceInput,
@@ -341,11 +342,7 @@ describe("OpsAgentDomainService", () => {
       "searchJobs",
     ]);
     expect(Object.isFrozen(service)).toBe(true);
-    expect(
-      CAPABILITY_MANIFEST.filter(
-        (capability) => capability.availability.implementation === "available"
-      ).map((capability) => capability.name)
-    ).toEqual([
+    expect(MCP_EXPOSURE_V1.toolIds).toEqual([
       "list_scheduled_jobs",
       "list_job_readiness_issues",
       "get_job_communication_context",
@@ -358,15 +355,13 @@ describe("OpsAgentDomainService", () => {
       "search_jobs",
       "resolve_job_participants",
     ]);
-    expect(
-      CAPABILITY_MANIFEST.every(
-        (capability) =>
-          capability.availability.externalExposure ===
-          (capability.availability.implementation === "available"
-            ? "enabled"
-            : "disabled")
-      )
-    ).toBe(true);
+    for (const capabilityName of MCP_EXPOSURE_V1.toolIds) {
+      const capability = CAPABILITY_MANIFEST.find(
+        (entry) => entry.name === capabilityName
+      );
+      expect(capability?.operation).toBe("read");
+      expect(capability?.availability.implementation).toBe("available");
+    }
   });
 
   it("maps strict input rejection once for every channel before any repository read", async () => {

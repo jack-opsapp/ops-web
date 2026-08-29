@@ -1,21 +1,23 @@
 import "server-only";
 
+import {
+  MCP_EXPOSURE_V1,
+  type McpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  MCP_SCOPE_CONSENT_LABELS,
+  type LabelledMcpScope,
+} from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
+
 /**
- * OAuth scopes for the P1 read-only MCP surface: exactly the union of
- * requiredOAuthScopes across the nine externally exposable v6 reads —
- * nothing broader is grantable. Consent labels are plain OPS voice:
- * concrete, read-only-honest, no tech vocabulary.
+ * Compatibility views over the active immutable MCP exposure: exactly the
+ * union required by its eleven read tools, with nothing broader grantable.
+ * Consent labels remain concrete, read-only-honest, and free of technical
+ * vocabulary.
  */
 
-export const SUPPORTED_READ_SCOPES = Object.freeze([
-  "ops.jobs.read",
-  "ops.schedule.read",
-  "ops.customers.read",
-  "ops.customer_contacts.read",
-  "ops.photos.read",
-  "ops.correspondence.read",
-  "ops.financials.read",
-] as const);
+export const SUPPORTED_READ_SCOPES =
+  MCP_EXPOSURE_V1.grantableScopes as readonly LabelledMcpScope[];
 
 export type SupportedReadScope = (typeof SUPPORTED_READ_SCOPES)[number];
 
@@ -25,16 +27,14 @@ const SUPPORTED_READ_SCOPE_SET: ReadonlySet<string> = new Set(
 
 export const SCOPE_CONSENT_LABELS: Readonly<
   Record<SupportedReadScope, string>
-> = Object.freeze({
-  "ops.jobs.read": "See your jobs and their status",
-  "ops.schedule.read": "See your schedule and who's assigned",
-  "ops.customers.read": "See your clients and their jobs",
-  "ops.customer_contacts.read":
-    "See who to contact on a job and how to reach them",
-  "ops.photos.read": "See which jobs are missing photos",
-  "ops.correspondence.read": "See client email history on your jobs",
-  "ops.financials.read": "See estimate and invoice summaries on your jobs",
-});
+> = Object.freeze(
+  Object.fromEntries(
+    SUPPORTED_READ_SCOPES.map((scope) => [
+      scope,
+      MCP_SCOPE_CONSENT_LABELS[scope],
+    ])
+  ) as Record<SupportedReadScope, string>
+);
 
 export function isSupportedReadScope(
   value: string
@@ -49,24 +49,43 @@ export function isSupportedReadScope(
  * client asking for authority we do not issue hears "no" explicitly.
  */
 export function resolveRequestedScopes(
-  rawScope: string | null | undefined
-): readonly SupportedReadScope[] | null {
+  rawScope: string | null | undefined,
+  exposure: McpExposure
+): readonly LabelledMcpScope[] | null {
   if (rawScope == null || rawScope.trim() === "") {
-    return SUPPORTED_READ_SCOPES;
+    return exposure.grantableScopes as readonly LabelledMcpScope[];
   }
   const requested = rawScope.trim().split(/\s+/);
   if (requested.length > 32) return null;
-  const resolved = new Set<SupportedReadScope>();
+  const grantable = new Set<string>(exposure.grantableScopes);
+  const resolved = new Set<LabelledMcpScope>();
   for (const scope of requested) {
-    if (!isSupportedReadScope(scope)) return null;
-    resolved.add(scope);
+    if (
+      !grantable.has(scope) ||
+      !Object.prototype.hasOwnProperty.call(MCP_SCOPE_CONSENT_LABELS, scope)
+    ) {
+      return null;
+    }
+    resolved.add(scope as LabelledMcpScope);
   }
   if (resolved.size === 0) return null;
   return Object.freeze(
-    SUPPORTED_READ_SCOPES.filter((scope) => resolved.has(scope))
+    exposure.grantableScopes.filter((scope) =>
+      resolved.has(scope as LabelledMcpScope)
+    ) as LabelledMcpScope[]
   );
 }
 
 export function scopesToParameter(scopes: readonly string[]): string {
   return scopes.join(" ");
+}
+
+/** Exact subset check for an immutable dynamically registered client ceiling. */
+export function areScopesWithinCeiling(
+  scopes: readonly string[],
+  scopeCeiling: readonly string[]
+): boolean {
+  if (scopes.length === 0 || scopeCeiling.length === 0) return false;
+  const ceiling = new Set(scopeCeiling);
+  return scopes.every((scope) => ceiling.has(scope));
 }

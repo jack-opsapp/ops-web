@@ -16,6 +16,7 @@ import {
   type AuthorizedJobHistoryRead,
 } from "./job-history-authorization";
 import {
+  FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION,
   hashOperationalReadQuery,
   isTrustedOperationalReadCursorCodec,
   OperationalReadCursorError,
@@ -248,11 +249,14 @@ function canonicalInput(proof: AuthorizedJobHistoryRead) {
   return query;
 }
 
-function queryHash(proof: AuthorizedJobHistoryRead): string {
+function queryHash(
+  proof: AuthorizedJobHistoryRead,
+  capabilityManifestRevision = proof.capabilityManifestRevision
+): string {
   return hashOperationalReadQuery({
     capability_id: proof.capabilityId,
     schema_revision: TASK_13_CAPABILITY_SCHEMA_REVISION,
-    capability_manifest_revision: proof.capabilityManifestRevision,
+    capability_manifest_revision: capabilityManifestRevision,
     query: canonicalInput(proof),
   });
 }
@@ -273,7 +277,9 @@ function assertEvidence(input: {
   readonly evidenceId: string;
   readonly readAt: string;
   readonly trust:
-    "authoritative_ops" | "delivered_correspondence" | "model_transcribed";
+    | "authoritative_ops"
+    | "delivered_correspondence"
+    | "model_transcribed";
 }): void {
   if (
     input.evidence.evidence_id !== input.evidenceId ||
@@ -294,16 +300,20 @@ function assertAtomicClaim(input: {
   readonly proof: AuthorizedJobHistoryRead;
   readonly snapshot: RawJobHistorySnapshot;
   readonly sourceType:
-    "job_history_event_projection" | "job_history_collection_projection";
+    | "job_history_event_projection"
+    | "job_history_collection_projection";
   readonly sourceId: string;
   readonly evidenceId: string;
   readonly versionPrefix:
-    "job-history-event-projection:v1" | "job-history-collection-projection:v1";
+    | "job-history-event-projection:v1"
+    | "job-history-collection-projection:v1";
   readonly payloadKey: "event" | "collection";
   readonly expectedRaw: CanonicalProjection;
   readonly retainedProofSources: readonly SourceVersion[];
   readonly trust:
-    "authoritative_ops" | "delivered_correspondence" | "model_transcribed";
+    | "authoritative_ops"
+    | "delivered_correspondence"
+    | "model_transcribed";
 }): void {
   const expectedProjection = {
     actor_user_id: input.proof.actorContext.actorUserId,
@@ -660,6 +670,10 @@ export function createSupabaseJobHistoryRepository(
       }
 
       const hash = queryHash(proof);
+      const frozenV7QueryHash = queryHash(
+        proof,
+        FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION
+      );
       let decoded: JobHistoryCursorClaims | null = null;
       if (proof.query.cursor) {
         try {
@@ -675,6 +689,7 @@ export function createSupabaseJobHistoryRepository(
               permissionSnapshotRevision:
                 proof.actorContext.permissionSnapshotRevision,
               queryHash: hash,
+              frozenV7QueryHash,
             },
           });
           if (claims.capability_id !== "search_job_history") invalid();

@@ -23,6 +23,7 @@ import {
   type AuthorizedJobDiscoveryRead,
 } from "./job-discovery-authorization";
 import {
+  FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION,
   hashOperationalReadQuery,
   isTrustedOperationalReadCursorCodec,
   type JobDiscoveryCursorClaims,
@@ -281,11 +282,14 @@ function canonicalInput(proof: AuthorizedJobDiscoveryRead) {
   return query;
 }
 
-function queryHash(proof: AuthorizedJobDiscoveryRead): string {
+function queryHash(
+  proof: AuthorizedJobDiscoveryRead,
+  capabilityManifestRevision = proof.capabilityManifestRevision
+): string {
   return hashOperationalReadQuery({
     capability_id: proof.capabilityId,
     schema_revision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
-    capability_manifest_revision: proof.capabilityManifestRevision,
+    capability_manifest_revision: capabilityManifestRevision,
     query: canonicalInput(proof),
   });
 }
@@ -946,6 +950,10 @@ export function createSupabaseJobDiscoveryRepository(
       }
 
       const hash = queryHash(proof);
+      const frozenV7QueryHash = queryHash(
+        proof,
+        FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION
+      );
       let decoded: JobDiscoveryCursorClaims | null = null;
       if (proof.query.cursor) {
         try {
@@ -962,6 +970,7 @@ export function createSupabaseJobDiscoveryRepository(
               permissionSnapshotRevision:
                 proof.actorContext.permissionSnapshotRevision,
               queryHash: hash,
+              frozenV7QueryHash,
             },
           });
           if (claims.capability_id !== "search_jobs") invalid();

@@ -2,28 +2,47 @@ import "server-only";
 
 import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
-import { CAPABILITY_MANIFEST } from "@/lib/agent-control-plane/registry/capability-manifest";
+import { getCapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-manifest";
 import type { CapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-types";
+import {
+  resolveActiveMcpExposure,
+  type McpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import type { OpsAgentDomainService } from "@/lib/agent-control-plane/services/domain-service";
 import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
 import { auditInputDigest, recordMcpAudit } from "./audit";
 import type { McpGrantFacts } from "./bearer";
+import {
+  DurableMcpRateLimitUnavailableError,
+  type DurableMcpRateLimiter,
+} from "./durable-rate-limit";
+import {
+  resolveDomainReadMethod,
+  type McpDomainMethodName,
+} from "./domain-dispatch";
 import type { McpOAuthRpcClient } from "./oauth";
 import { checkCapabilityRate } from "./rate-limit";
 import { McpServer } from "./sdk";
 
 /**
- * The only tools an external host can ever see: read capabilities whose
- * server-owned manifest entry is BOTH implemented and externally exposed.
- * Flipping a capability's externalExposure is the rollout control — nothing
- * here can widen past the manifest.
+ * Resolve the immutable exposure's ordered tool IDs against the active
+ * manifest. Legacy v7 externalExposure fields are compatibility bytes only;
+ * they can neither widen nor narrow registration.
  */
-export function externallyExposedReadCapabilities(): readonly CapabilityManifestEntry[] {
-  return CAPABILITY_MANIFEST.filter(
-    (entry) =>
-      entry.operation === "read" &&
-      entry.availability.implementation === "available" &&
-      entry.availability.externalExposure === "enabled"
+export function externallyExposedReadCapabilities(
+  exposure: McpExposure
+): readonly CapabilityManifestEntry[] {
+  return Object.freeze(
+    exposure.toolIds.map((toolId) => {
+      const entry = getCapabilityManifestEntry(toolId);
+      if (
+        entry.operation !== "read" ||
+        entry.availability.implementation !== "available"
+      ) {
+        throw new TypeError("MCP exposure contains a non-callable read");
+      }
+      return entry;
+    })
   );
 }
 
@@ -32,22 +51,6 @@ type DomainReadMethod = (
   input: never,
   options?: { signal?: AbortSignal }
 ) => Promise<unknown>;
-
-const DOMAIN_METHOD_BY_CAPABILITY: Readonly<
-  Record<string, keyof OpsAgentDomainService>
-> = Object.freeze({
-  get_job_conversation_context: "getJobConversationContext",
-  list_scheduled_jobs: "listScheduledJobs",
-  list_job_readiness_issues: "listJobReadinessIssues",
-  get_job_communication_context: "getJobCommunicationContext",
-  resolve_job_participants: "resolveJobParticipants",
-  list_customer_jobs: "listCustomerJobs",
-  get_job_summary: "getJobSummary",
-  search_job_history: "searchJobHistory",
-  get_correspondence_evidence: "getCorrespondenceEvidence",
-  search_customers: "searchCustomers",
-  search_jobs: "searchJobs",
-});
 
 const DOMAIN_CALL_TIMEOUT_MS = 25_000;
 
@@ -128,6 +131,16 @@ function internalEnvelope(requestId: string): ErrorEnvelope {
   };
 }
 
+function temporarilyUnavailableEnvelope(requestId: string): ErrorEnvelope {
+  return {
+    contract_version: CONTRACT_VERSION,
+    request_id: requestId,
+    code: "TEMPORARILY_UNAVAILABLE",
+    message: "The request could not be completed right now.",
+    retryable: true,
+  };
+}
+
 function rateLimitedEnvelope(
   requestId: string,
   retryAfterSec: number
@@ -165,6 +178,7 @@ export interface CreateOpsMcpServerInput {
   readonly protocolEra: "legacy" | "modern";
   readonly domainService: OpsAgentDomainService;
   readonly auditRpcClient: McpOAuthRpcClient;
+  readonly durableRateLimiter: DurableMcpRateLimiter;
 }
 
 /**
@@ -181,7 +195,9 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
     protocolEra,
     domainService,
     auditRpcClient,
+    durableRateLimiter,
   } = input;
+  const exposure = resolveActiveMcpExposure();
 
   const server = new McpServer(
     { name: "OPS", version: CONTRACT_VERSION },
@@ -197,14 +213,16 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
     }
   );
 
-  for (const entry of externallyExposedReadCapabilities()) {
-    const methodName = DOMAIN_METHOD_BY_CAPABILITY[entry.name];
-    if (!methodName) {
-      throw new TypeError(`No domain method for capability ${entry.name}`);
+  const domainMethods = domainService as unknown as Partial<
+    Record<McpDomainMethodName, DomainReadMethod>
+  >;
+  for (const entry of externallyExposedReadCapabilities(exposure)) {
+    const methodName = resolveDomainReadMethod(entry.name);
+    const selectedMethod = domainMethods[methodName];
+    if (typeof selectedMethod !== "function") {
+      throw new TypeError("MCP exposure has no constructed domain method");
     }
-    const method = domainService[methodName].bind(
-      domainService
-    ) as DomainReadMethod;
+    const method = selectedMethod.bind(domainService) as DomainReadMethod;
 
     server.registerTool(
       entry.name,
@@ -248,20 +266,26 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
 
         try {
           const rate = await checkCapabilityRate({
+            durableLimiter: durableRateLimiter,
             bucket: entry.rateLimitBucket,
+            requestId,
             actorUserId: grantFacts.actorUserId,
             grantId: grantFacts.grantId,
             companyId: grantFacts.companyId,
+            capabilityId: entry.name,
+            protocolEra,
           });
           if (rate.exceeded) {
             const serialized = serializeUntrustedPromptData(
               rateLimitedEnvelope(requestId, rate.retryAfterSec)
             );
-            await audit(
-              "rate_limited",
-              "RATE_LIMITED",
-              utf8ByteLength(serialized)
-            );
+            if (!rate.durableAuditRecorded) {
+              await audit(
+                "rate_limited",
+                "RATE_LIMITED",
+                utf8ByteLength(serialized)
+              );
+            }
             return textResult(serialized, true);
           }
 
@@ -272,6 +296,17 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
           await audit("ok", null, utf8ByteLength(serialized));
           return textResult(serialized, false);
         } catch (error) {
+          if (error instanceof DurableMcpRateLimitUnavailableError) {
+            const serialized = serializeUntrustedPromptData(
+              temporarilyUnavailableEnvelope(requestId)
+            );
+            await audit(
+              "internal",
+              "TEMPORARILY_UNAVAILABLE",
+              utf8ByteLength(serialized)
+            );
+            return textResult(serialized, true);
+          }
           const envelope = contractErrorEnvelope(error);
           if (envelope) {
             const serialized = serializeUntrustedPromptData(envelope);

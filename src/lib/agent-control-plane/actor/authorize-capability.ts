@@ -1,12 +1,16 @@
 import "server-only";
 
+// Ensures the only authorizable policy identities are the exact entries that
+// survived central manifest validation and activation.
+import "@/lib/agent-control-plane/registry/capability-manifest";
+
 import {
   actorForbidden,
   authorizationInternal,
   insufficientOAuthScope,
 } from "./errors";
 import {
-  isManifestCapabilityPolicy,
+  isActiveManifestCapabilityPolicy,
   type ManifestCapabilityPolicy,
 } from "./capability-policy-boundary";
 import { isActorContext, type ActorContext } from "./resolve-actor-context";
@@ -59,7 +63,7 @@ export function authorizeCapability({
       "actor_context_source_untrusted"
     );
   }
-  if (!isManifestCapabilityPolicy(policy)) {
+  if (!isActiveManifestCapabilityPolicy(policy)) {
     throw authorizationInternal(
       actorContext.requestId,
       "capability_policy_source_untrusted"

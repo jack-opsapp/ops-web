@@ -19,3 +19,15 @@ export function useOpportunityDeckDesigns(opportunityId: string | undefined) {
     enabled: !!opportunityId,
   });
 }
+
+/**
+ * Every lead-attached deck in the company, for the board's and table's deck
+ * glyph. One shared cache entry serves every card on the surface, so the
+ * glance layer costs one request no matter how many leads are rendered.
+ */
+export function useLeadDeckMarkers() {
+  return useQuery({
+    queryKey: queryKeys.opportunities.deckMarkers(),
+    queryFn: () => DeckDesignService.fetchLeadDeckMarkers(),
+  });
+}

@@ -67,6 +67,19 @@ function enqueue(result: DbResult): void {
   resultQueue.push(result);
 }
 
+interface SendOutcomeShape {
+  deduped: boolean;
+  attempted: string[];
+  failed: string[];
+}
+
+/** A send that reached at least one channel successfully. */
+const DELIVERED: SendOutcomeShape = {
+  deduped: false,
+  attempted: ["sms"],
+  failed: [],
+};
+
 const sendPmfNotificationMock =
   vi.fn<
     (opts: {
@@ -77,8 +90,43 @@ const sendPmfNotificationMock =
       emailReact?: unknown;
       inAppTitle?: string;
       inAppBody?: string;
-    }) => Promise<void>
+      dedupMs?: number;
+    }) => Promise<SendOutcomeShape>
   >();
+
+// ─── Fenced cursor RPC state ────────────────────────────────────────────────
+
+interface RpcCall {
+  fn: string;
+  args: Record<string, unknown>;
+}
+
+const rpcCalls: RpcCall[] = [];
+let storedCursor: string | null = null;
+let nextAdvanceResult: { data: unknown; error: unknown } = {
+  data: true,
+  error: null,
+};
+
+function advanceCalls(): RpcCall[] {
+  return rpcCalls.filter(
+    (c) => c.fn === "advance_cron_workload_cursor_as_system"
+  );
+}
+
+/** The `.gte`/`.lt` bounds the route applied to the event queries. */
+function windowBounds(): { from?: string; to?: string } {
+  const gte = recordedCalls.find(
+    (c) => c.method === "gte" && c.args[0] === "created_at"
+  );
+  const lt = recordedCalls.find(
+    (c) => c.method === "lt" && c.args[0] === "created_at"
+  );
+  return {
+    from: gte?.args[1] as string | undefined,
+    to: lt?.args[1] as string | undefined,
+  };
+}
 
 let nextComputePmfStateResult: PmfState | Error = makeState();
 
@@ -107,19 +155,47 @@ vi.mock("@/lib/supabase/admin-client", () => ({
   getAdminSupabase: () => makeMockClient(),
 }));
 
+const workloadLease = {
+  ownerToken: "00000000-0000-4000-8000-0000000000c1",
+  fenceToken: 3,
+  globalFenceToken: 5,
+  expiresAt: "2099-01-01T00:00:00.000Z",
+  signal: new AbortController().signal,
+};
+
 interface MockBuilder {
   select: (cols?: string) => MockBuilder;
   insert: (rows: unknown) => Promise<DbResult>;
   eq: (col: string, val: unknown) => MockBuilder;
   gte: (col: string, val: unknown) => MockBuilder;
+  lt: (col: string, val: unknown) => MockBuilder;
   or: (filter: string) => MockBuilder;
   limit: (n: number) => MockBuilder;
   order: (col: string, opts?: unknown) => MockBuilder;
   then: (onFulfilled: (v: DbResult) => unknown) => Promise<unknown>;
 }
 
-function makeMockClient(): { from: (table: string) => MockBuilder } {
+function makeMockClient(): {
+  from: (table: string) => MockBuilder;
+  rpc: (fn: string, args: Record<string, unknown>) => Promise<{
+    data: unknown;
+    error: unknown;
+  }>;
+} {
   return {
+    async rpc(fn: string, args: Record<string, unknown>) {
+      rpcCalls.push({ fn, args });
+      if (fn === "read_cron_workload_cursor_as_system") {
+        return { data: storedCursor, error: null };
+      }
+      if (fn === "advance_cron_workload_cursor_as_system") {
+        if (!nextAdvanceResult.error && nextAdvanceResult.data === true) {
+          storedCursor = (args.p_next_cursor as string | null) ?? null;
+        }
+        return nextAdvanceResult;
+      }
+      return { data: null, error: null };
+    },
     from(table: string): MockBuilder {
       const record = (method: string, ...args: unknown[]) =>
         recordedCalls.push({ table, method, args });
@@ -147,6 +223,10 @@ function makeMockClient(): { from: (table: string) => MockBuilder } {
         },
         gte: (col, val) => {
           record("gte", col, val);
+          return builder;
+        },
+        lt: (col, val) => {
+          record("lt", col, val);
           return builder;
         },
         or: (filter) => {
@@ -295,16 +375,19 @@ describe("GET /api/cron/pmf/threshold-check", () => {
   beforeEach(() => {
     recordedCalls.length = 0;
     resultQueue = [];
+    rpcCalls.length = 0;
+    storedCursor = null;
+    nextAdvanceResult = { data: true, error: null };
     sendPmfNotificationMock.mockReset();
-    sendPmfNotificationMock.mockResolvedValue(undefined);
+    sendPmfNotificationMock.mockResolvedValue(DELIVERED);
     workloadControlMocks.runWithCronWorkloadControl.mockReset();
     workloadControlMocks.observedWorkFailures.length = 0;
     workloadControlMocks.runWithCronWorkloadControl.mockImplementation(
-      async ({ work }: { work: () => Promise<unknown> }) => {
+      async ({ work }: { work: (lease: typeof workloadLease) => Promise<unknown> }) => {
         try {
           return {
             status: "completed",
-            value: await work(),
+            value: await work(workloadLease),
           };
         } catch (error) {
           workloadControlMocks.observedWorkFailures.push(error);
@@ -778,12 +861,15 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       refunds: number;
       sent: number;
     };
-    expect(json).toEqual({
+    expect(json).toMatchObject({
       ok: true,
       transitions: 0,
       inbound: 0,
       refunds: 0,
       sent: 0,
+      // A quiet run still closes its scan window, so the next run starts here.
+      cursorAdvanced: true,
+      truncated: false,
     });
     expect(sendPmfNotificationMock).not.toHaveBeenCalled();
   });
@@ -862,5 +948,280 @@ describe("GET /api/cron/pmf/threshold-check", () => {
       "new_inbound_prospect-99",
       "refund_refund-99",
     ]);
+  });
+
+  // ─── Durable event cursor (bug b71728ed) ──────────────────────────────────
+  //
+  // The pressure-safe hourly schedule ("57 13-14,16-23,0-4 * * *") left 84% of
+  // each day outside the old fixed 15-minute lookback — the 04:57→13:57 gap
+  // alone is nine hours. Each run now scans the half-open window
+  // [eventsThrough, runStart) tracked in the fenced cron workload cursor.
+
+  it("bootstraps a 10h lookback and advances the cursor to the run start", async () => {
+    seedQueue({ prior: null });
+    storedCursor = null;
+    const before = Date.now();
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    const after = Date.now();
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      window: { from: string; to: string };
+      cursorAdvanced: boolean;
+      truncated: boolean;
+    };
+
+    const from = new Date(json.window.from).getTime();
+    const to = new Date(json.window.to).getTime();
+    expect(to - from).toBe(10 * 60 * 60 * 1000);
+    expect(to).toBeGreaterThanOrEqual(before);
+    expect(to).toBeLessThanOrEqual(after);
+    expect(json.truncated).toBe(false);
+    expect(json.cursorAdvanced).toBe(true);
+
+    // The window bounds are exactly what the event queries filtered on.
+    expect(windowBounds()).toEqual({ from: json.window.from, to: json.window.to });
+
+    const advance = advanceCalls();
+    expect(advance).toHaveLength(1);
+    expect(advance[0].args.p_workload_key).toBe("pmf-threshold-check");
+    expect(advance[0].args.p_expected_cursor).toBeNull();
+    expect(JSON.parse(advance[0].args.p_next_cursor as string)).toEqual({
+      eventsThrough: json.window.to,
+    });
+  });
+
+  it("resumes from a stored cursor verbatim and closes the window at the run start", async () => {
+    seedQueue({ prior: null });
+    const storedAt = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+    const cursorBefore = JSON.stringify({ eventsThrough: storedAt });
+    storedCursor = cursorBefore;
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    const json = (await res.json()) as { window: { from: string; to: string } };
+
+    expect(json.window.from).toBe(storedAt);
+    const bounds = windowBounds();
+    expect(bounds.from).toBe(storedAt);
+    expect(bounds.to).toBe(json.window.to);
+    // Refunds use received_at, and must carry the same half-open window.
+    expect(
+      recordedCalls.filter(
+        (c) => c.method === "gte" && c.args[0] === "received_at"
+      )[0].args[1]
+    ).toBe(storedAt);
+    expect(
+      recordedCalls.filter(
+        (c) => c.method === "lt" && c.args[0] === "received_at"
+      )[0].args[1]
+    ).toBe(json.window.to);
+    expect(advanceCalls()[0].args.p_expected_cursor).toBe(cursorBefore);
+  });
+
+  it("caps catch-up at 7 days and reports the window as truncated", async () => {
+    seedQueue({ prior: null });
+    storedCursor = JSON.stringify({
+      eventsThrough: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    const json = (await res.json()) as {
+      window: { from: string; to: string };
+      truncated: boolean;
+    };
+
+    expect(json.truncated).toBe(true);
+    expect(
+      new Date(json.window.to).getTime() - new Date(json.window.from).getTime()
+    ).toBe(7 * 24 * 60 * 60 * 1000);
+  });
+
+  it("re-bootstraps from an unparseable cursor instead of throwing", async () => {
+    seedQueue({ prior: null });
+    storedCursor = "not json at all";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    const json = (await res.json()) as { window: { from: string; to: string } };
+
+    expect(res.status).toBe(200);
+    expect(
+      new Date(json.window.to).getTime() - new Date(json.window.from).getTime()
+    ).toBe(10 * 60 * 60 * 1000);
+    warn.mockRestore();
+  });
+
+  it("holds the cursor when an event alert reaches no channel at all", async () => {
+    seedQueue({
+      prior: null,
+      inbound: [
+        {
+          id: "p-hold",
+          company: "HOLD CO",
+          name: "Hold",
+          source: "direct",
+          first_contact_direction: "inbound",
+          first_contact_at: "2026-04-22T12:00:00.000Z",
+        },
+      ],
+    });
+    sendPmfNotificationMock.mockResolvedValue({
+      deduped: false,
+      attempted: ["sms", "email"],
+      failed: ["sms", "email"],
+    });
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    const json = (await res.json()) as { cursorAdvanced: boolean };
+
+    expect(json.cursorAdvanced).toBe(false);
+    expect(advanceCalls()).toHaveLength(0);
+  });
+
+  it("advances the cursor when an event alert lands on at least one channel", async () => {
+    seedQueue({
+      prior: null,
+      inbound: [
+        {
+          id: "p-partial",
+          company: "PARTIAL CO",
+          name: "Partial",
+          source: "direct",
+          first_contact_direction: "inbound",
+          first_contact_at: "2026-04-22T12:00:00.000Z",
+        },
+      ],
+    });
+    sendPmfNotificationMock.mockResolvedValue({
+      deduped: false,
+      attempted: ["sms", "email"],
+      failed: ["sms"],
+    });
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    const json = (await res.json()) as { cursorAdvanced: boolean };
+
+    expect(json.cursorAdvanced).toBe(true);
+    expect(advanceCalls()).toHaveLength(1);
+  });
+
+  it("advances the cursor when every event alert deduped", async () => {
+    seedQueue({
+      prior: null,
+      inbound: [
+        {
+          id: "p-dedup",
+          company: "DEDUP CO",
+          name: "Dedup",
+          source: "direct",
+          first_contact_direction: "inbound",
+          first_contact_at: "2026-04-22T12:00:00.000Z",
+        },
+      ],
+    });
+    sendPmfNotificationMock.mockResolvedValue({
+      deduped: true,
+      attempted: [],
+      failed: [],
+    });
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+    expect(((await res.json()) as { cursorAdvanced: boolean }).cursorAdvanced).toBe(
+      true
+    );
+  });
+
+  it("holds the cursor for event sends only — a failed transition send does not block it", async () => {
+    seedQueue({ prior: makeState({ marker1: "amber" }) });
+    nextComputePmfStateResult = makeState({ marker1: "green" });
+    sendPmfNotificationMock.mockResolvedValue({
+      deduped: false,
+      attempted: ["sms"],
+      failed: ["sms"],
+    });
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+    const json = (await res.json()) as {
+      transitions: number;
+      cursorAdvanced: boolean;
+    };
+
+    expect(json.transitions).toBe(1);
+    // Snapshot diffs are never lost — only delayed — so they do not gate the
+    // event cursor.
+    expect(json.cursorAdvanced).toBe(true);
+  });
+
+  it("gives event alerts a 7-day dedup horizon and leaves transitions on the default", async () => {
+    seedQueue({
+      prior: makeState({ marker1: "amber" }),
+      inbound: [
+        {
+          id: "p-dedupms",
+          company: "DEDUPMS CO",
+          name: "Dedupms",
+          source: "direct",
+          first_contact_direction: "inbound",
+          first_contact_at: "2026-04-22T12:00:00.000Z",
+        },
+      ],
+      refunds: [
+        { id: "r-1", amount_cents: 4900, company_id: "c-1", occurred_at: "x" },
+      ],
+    });
+    nextComputePmfStateResult = makeState({ marker1: "green" });
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+    const byTrigger = new Map(
+      sendPmfNotificationMock.mock.calls.map(([opts]) => [opts.trigger, opts])
+    );
+    const sevenDays = 7 * 24 * 60 * 60 * 1000;
+    expect(byTrigger.get("new_inbound_p-dedupms")?.dedupMs).toBe(sevenDays);
+    expect(byTrigger.get("refund_r-1")?.dedupMs).toBe(sevenDays);
+    expect(byTrigger.get("marker_1_amber_to_green")?.dedupMs).toBeUndefined();
+  });
+
+  it("produces contiguous windows across consecutive runs — no gap, no overlap", async () => {
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+
+    seedQueue({ prior: null });
+    const first = (await (
+      await GET(buildReq(`Bearer ${VALID_SECRET}`))
+    ).json()) as { window: { from: string; to: string } };
+
+    recordedCalls.length = 0;
+    seedQueue({ prior: null });
+    const second = (await (
+      await GET(buildReq(`Bearer ${VALID_SECRET}`))
+    ).json()) as { window: { from: string; to: string } };
+
+    expect(second.window.from).toBe(first.window.to);
+    expect(new Date(second.window.to).getTime()).toBeGreaterThanOrEqual(
+      new Date(second.window.from).getTime()
+    );
+  });
+
+  it("surfaces a lost cursor compare-and-swap as a failed run", async () => {
+    seedQueue({ prior: null });
+    nextAdvanceResult = { data: false, error: null };
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { GET } = await import("@/app/api/cron/pmf/threshold-check/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+    expect(res.status).toBe(500);
+    errorSpy.mockRestore();
   });
 });

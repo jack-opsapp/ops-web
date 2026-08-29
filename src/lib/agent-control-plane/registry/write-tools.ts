@@ -10,8 +10,8 @@ import {
 import { JobRefSchema } from "@/lib/agent-control-plane/contracts/jobs";
 import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
 import type {
-  CapabilityDefinition,
   CapabilityRiskTier,
+  LegacyCapabilityDefinition,
 } from "./capability-types";
 
 const MAX_PROMPT_CHARACTERS = 60_000;
@@ -787,4 +787,4 @@ export const WRITE_CAPABILITY_DEFINITIONS = [
     rolloutFlag:
       "agent_control_plane.capability.commit_site_visit_booking_cancellation",
   },
-] as const satisfies readonly CapabilityDefinition[];
+] as const satisfies readonly LegacyCapabilityDefinition[];

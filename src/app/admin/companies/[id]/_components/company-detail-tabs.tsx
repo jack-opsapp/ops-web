@@ -27,8 +27,8 @@ interface CompanyDetailTabsProps {
   projects: { id: string; title: string; status: string; created_at: string }[];
   usageTimeline: { projects: ChartDataPoint[]; tasks: ChartDataPoint[]; clients: ChartDataPoint[] };
   pipeline: { id: string; stage: string; value: number; created_at: string }[];
-  estimates: { id: string; status: string; total_amount: number; created_at: string }[];
-  invoices: { id: string; status: string; total_amount: number; created_at: string }[];
+  estimates: { id: string; status: string; total: number; created_at: string }[];
+  invoices: { id: string; status: string; total: number; created_at: string }[];
   recentPayments: { id: string; amount: number; created_at: string }[];
 }
 
@@ -215,8 +215,8 @@ function PipelineTab({
     stages[stage].value += p.value ?? 0;
   }
 
-  const estimateTotal = estimates.reduce((s, e) => s + (e.total_amount ?? 0), 0);
-  const invoiceTotal = invoices.reduce((s, i) => s + (i.total_amount ?? 0), 0);
+  const estimateTotal = estimates.reduce((s, e) => s + (e.total ?? 0), 0);
+  const invoiceTotal = invoices.reduce((s, i) => s + (i.total ?? 0), 0);
   const paymentTotal = recentPayments.reduce((s, p) => s + (p.amount ?? 0), 0);
 
   return (

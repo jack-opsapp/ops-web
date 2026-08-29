@@ -42,6 +42,7 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   AUTHORIZATION_CODE_PREFIX,
   REFRESH_TOKEN_PREFIX,
+  SCOPE_CONSENT_LABELS,
   SUPPORTED_READ_SCOPES,
   mintCredential,
   resolveMcpOAuthConfig,
@@ -69,8 +70,16 @@ const GRANT_ID = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
 const REVISION = "a1b2c3d4e5f60718293a4b5c6d7e8f90";
 const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const CALLBACK_TWIN = "https://claude.com/api/mcp/auth_callback";
+const CODEX_CALLBACK = "http://127.0.0.1:51759/callback/lwaKvnR9ZEom";
+const CODEX_WRONG_PORT_CALLBACK =
+  "http://127.0.0.1:51760/callback/lwaKvnR9ZEom";
+const CODEX_WRONG_ID_CALLBACK =
+  "http://127.0.0.1:51759/callback/anotherCodexId";
 const CODE_VERIFIER = "ops-mcp-verifier-0123456789abcdefghijklmnopqrstuvwxyz";
 const SCOPES = [...SUPPORTED_READ_SCOPES];
+const ACCEPTED_LABELS = SCOPES.map((scope) => SCOPE_CONSENT_LABELS[scope]);
+const CONSENT_CATALOG_REVISION = "2026-08-22.mcp-consent-catalog.v1";
+const EXPOSURE_REVISION = "2026-08-22.mcp-exposure.v1";
 const SCOPE_PARAMETER = SCOPES.join(" ");
 
 const config = resolveMcpOAuthConfig();
@@ -87,6 +96,9 @@ interface ClientRow {
   redirect_uris: string[];
   token_endpoint_auth_method: "none";
   scope: string;
+  scope_ceiling: string[];
+  consent_catalog_revision: string;
+  exposure_revision: string;
   disabled: boolean;
 }
 
@@ -94,6 +106,9 @@ interface CodeRow {
   user_id: string;
   company_id: string;
   scopes: string[];
+  accepted_labels: string[];
+  consent_catalog_revision: string;
+  exposure_revision: string;
   code_challenge: string;
   resource: string;
 }
@@ -104,6 +119,9 @@ interface RotatedRow {
   user_id: string;
   company_id: string;
   scopes: string[];
+  accepted_labels: string[];
+  consent_catalog_revision: string;
+  exposure_revision: string;
   revision: string;
   issuer: string;
   audience: string;
@@ -136,6 +154,9 @@ function defaultClientRow(): ClientRow {
     redirect_uris: [CALLBACK],
     token_endpoint_auth_method: "none",
     scope: SCOPE_PARAMETER,
+    scope_ceiling: SCOPES,
+    consent_catalog_revision: CONSENT_CATALOG_REVISION,
+    exposure_revision: EXPOSURE_REVISION,
     disabled: false,
   };
 }
@@ -145,6 +166,9 @@ function defaultCodeRow(): CodeRow {
     user_id: USER_ID,
     company_id: COMPANY_ID,
     scopes: SCOPES,
+    accepted_labels: ACCEPTED_LABELS,
+    consent_catalog_revision: CONSENT_CATALOG_REVISION,
+    exposure_revision: EXPOSURE_REVISION,
     code_challenge: s256Challenge(CODE_VERIFIER),
     resource: RESOURCE,
   };
@@ -157,6 +181,9 @@ function defaultRotatedRow(): RotatedRow {
     user_id: USER_ID,
     company_id: COMPANY_ID,
     scopes: SCOPES,
+    accepted_labels: ACCEPTED_LABELS,
+    consent_catalog_revision: CONSENT_CATALOG_REVISION,
+    exposure_revision: EXPOSURE_REVISION,
     revision: REVISION,
     issuer: config.issuer,
     audience: RESOURCE,
@@ -181,6 +208,9 @@ function fakeRpc(fn: string, args: Record<string, unknown>) {
             grant_types: ["authorization_code", "refresh_token"],
             response_types: ["code"],
             scope: args.p_scope,
+            scope_ceiling: args.p_scope_ceiling,
+            consent_catalog_revision: args.p_consent_catalog_revision,
+            exposure_revision: args.p_exposure_revision,
             created_at: "2026-08-18T12:00:00.000Z",
           },
         ],
@@ -361,6 +391,9 @@ describe("POST /api/mcp/oauth/register", () => {
       p_client_name: "Claude",
       p_redirect_uris: [CALLBACK],
       p_scope: SCOPE_PARAMETER,
+      p_scope_ceiling: SCOPES,
+      p_consent_catalog_revision: CONSENT_CATALOG_REVISION,
+      p_exposure_revision: EXPOSURE_REVISION,
       p_software_id: "claude-connector",
       p_software_version: null,
     });
@@ -377,6 +410,38 @@ describe("POST /api/mcp/oauth/register", () => {
     });
     expect(body).not.toHaveProperty("client_secret");
     expect(JSON.stringify(body)).not.toContain("client_secret");
+  });
+
+  it("registers the captured Codex native DCR payload without changing its callback", async () => {
+    const response = await registerPost(
+      jsonRequest("/api/mcp/oauth/register", {
+        client_name: "Codex",
+        redirect_uris: [CODEX_CALLBACK],
+        grant_types: ["authorization_code", "refresh_token"],
+        token_endpoint_auth_method: "none",
+        response_types: ["code"],
+        scope: "ops.jobs.read",
+        application_type: "native",
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(
+      lastCallTo("register_mcp_oauth_client_as_system").args
+    ).toMatchObject({
+      p_client_name: "Codex",
+      p_redirect_uris: [CODEX_CALLBACK],
+      p_scope: "ops.jobs.read",
+      p_scope_ceiling: ["ops.jobs.read"],
+    });
+    const body = await response.json();
+    expect(body).toMatchObject({
+      client_id: CLIENT_ID,
+      client_name: "Codex",
+      redirect_uris: [CODEX_CALLBACK],
+      token_endpoint_auth_method: "none",
+    });
+    expect(body).not.toHaveProperty("client_secret");
   });
 
   it("rejects a redirect URI that is not the Claude connector callback", async () => {
@@ -479,17 +544,69 @@ describe("POST /api/mcp/oauth/token (authorization_code)", () => {
     expect(mint.args.p_refresh_hash).not.toBe(body.refresh_token);
     expect(mint.args.p_user_id).toBe(USER_ID);
     expect(mint.args.p_company_id).toBe(COMPANY_ID);
-    expect(mint.args.p_scopes).toEqual(SCOPES);
+    expect(mint.args).not.toHaveProperty("p_scopes");
+    expect(mint.args.p_active_exposure_revision).toBe(EXPOSURE_REVISION);
+    expect(mint.args.p_active_grantable_scopes).toEqual(SCOPES);
     expect(mint.args.p_issuer).toBe(config.issuer);
     expect(mint.args.p_audience).toBe(RESOURCE);
-    expect(
-      Date.parse(String(mint.args.p_refresh_expires_at))
-    ).toBeGreaterThan(Date.parse(String(mint.args.p_access_expires_at)));
+    expect(Date.parse(String(mint.args.p_refresh_expires_at))).toBeGreaterThan(
+      Date.parse(String(mint.args.p_access_expires_at))
+    );
 
     // The secrets themselves must never reach the store.
     expect(JSON.stringify(state.calls)).not.toContain(body.access_token);
     expect(JSON.stringify(state.calls)).not.toContain(body.refresh_token);
   });
+
+  it("exchanges a Codex code against the exact registered loopback callback", async () => {
+    state.clientRow = {
+      ...defaultClientRow(),
+      client_name: "Codex",
+      redirect_uris: [CODEX_CALLBACK],
+    };
+    const { body: requestBody } = codeExchangeBody({
+      redirect_uri: CODEX_CALLBACK,
+    });
+
+    const response = await tokenPost(
+      formRequest("/api/mcp/oauth/token", requestBody)
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      lastCallTo("consume_mcp_oauth_authorization_code_as_system").args
+        .p_redirect_uri
+    ).toBe(CODEX_CALLBACK);
+  });
+
+  it.each([
+    ["another loopback port", CODEX_WRONG_PORT_CALLBACK],
+    ["another callback id", CODEX_WRONG_ID_CALLBACK],
+  ])(
+    "does not treat %s as the registered Codex callback",
+    async (_label, redirectUri) => {
+      state.clientRow = {
+        ...defaultClientRow(),
+        client_name: "Codex",
+        redirect_uris: [CODEX_CALLBACK],
+      };
+      const { body: requestBody } = codeExchangeBody({
+        redirect_uri: redirectUri,
+      });
+
+      const response = await tokenPost(
+        formRequest("/api/mcp/oauth/token", requestBody)
+      );
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({
+        error: "invalid_grant",
+      });
+      expect(
+        callsTo("consume_mcp_oauth_authorization_code_as_system")
+      ).toHaveLength(0);
+    }
+  );
 
   it("answers 401 invalid_client for an unknown client", async () => {
     state.clientRow = null;
@@ -684,6 +801,8 @@ describe("POST /api/mcp/oauth/token (refresh_token)", () => {
 
     const rotate = lastCallTo("rotate_mcp_oauth_refresh_token_as_system");
     expect(rotate.args.p_presented_hash).toBe(sha256Hex(presented));
+    expect(rotate.args.p_client_id).toBe(CLIENT_ID);
+    expect(rotate.args.p_active_grantable_scopes).toEqual(SCOPES);
     expect(rotate.args.p_new_access_hash).toBe(sha256Hex(body.access_token));
     expect(rotate.args.p_new_refresh_hash).toBe(sha256Hex(body.refresh_token));
     expect(rotate.args.p_new_refresh_hash).not.toBe(body.refresh_token);
@@ -828,7 +947,10 @@ describe("POST /api/mcp/oauth/revoke", () => {
 
   it("answers 200 when no token is presented at all", async () => {
     const response = await revokePost(
-      formRequest("/api/mcp/oauth/revoke", form({ token_type_hint: "refresh_token" }))
+      formRequest(
+        "/api/mcp/oauth/revoke",
+        form({ token_type_hint: "refresh_token" })
+      )
     );
     expect(response.status).toBe(200);
     expect(callsTo("revoke_mcp_oauth_token_as_system")).toHaveLength(0);
