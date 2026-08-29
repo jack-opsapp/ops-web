@@ -1282,13 +1282,23 @@ export default function PipelinePage() {
                       type="button"
                       onClick={() => setReviewPanelOpen(true)}
                       title={t("gmail.reviewEmailsHint")}
-                      className="flex h-[26px] shrink-0 items-center gap-1.5 rounded-chip border border-border px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                      // The label collapses below xl, so the accessible name
+                      // has to come from aria-label — otherwise the button
+                      // announces as its bare count.
+                      aria-label={t("gmail.reviewEmails")}
+                      className="flex h-[28px] shrink-0 items-center gap-1.5 rounded-chip border border-border px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                     >
                       <Mail
                         className="h-[11px] w-[11px] shrink-0"
                         strokeWidth={1.5}
                       />
-                      {t("gmail.reviewEmails")}
+                      {/* Row 1's widest optional label. Dropping it below xl
+                          saves ~70px — the margin that keeps the row one line
+                          from ~950px up. Icon + tabular count stay at every
+                          width, so the control is still recognizable. */}
+                      <span className="hidden xl:inline">
+                        {t("gmail.reviewEmails")}
+                      </span>
                       <span className="rounded-bar bg-surface-active px-1 font-mono text-micro tabular-nums text-text">
                         {reviewCount > 99 ? "99+" : reviewCount}
                       </span>
