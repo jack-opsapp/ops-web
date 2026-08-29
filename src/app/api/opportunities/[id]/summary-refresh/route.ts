@@ -13,6 +13,13 @@ function bearerToken(request: NextRequest): string | null {
   if (!authorization?.startsWith("Bearer ")) return null;
   return authorization.slice("Bearer ".length).trim() || null;
 }
+/**
+ * A burst of consecutive activity writes must cost ONE model call, not N. A
+ * summary refreshed inside this window is still current enough; the write is
+ * coalesced onto the durable queue and drained by the recurring cron.
+ */
+const DEBOUNCE_WINDOW_MS = 90_000;
+
 function rpcErrorStatus(code: string | undefined): number {
   if (code === "42501") return 403;
   if (code === "P0002") return 404;
@@ -62,9 +69,52 @@ export async function POST(
     );
   }
 
+  const serviceDb = getServiceRoleClient();
+
+  // Debounce: a summary written moments ago is still current. Coalesce this
+  // request onto the durable queue instead of paying for a second model call.
+  const { data: existing } = await serviceDb
+    .from("opportunities")
+    .select("ai_summary_updated_at")
+    .eq("id", opportunityId)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  const lastWrittenAt = Date.parse(
+    (existing as { ai_summary_updated_at?: string | null } | null)
+      ?.ai_summary_updated_at ?? ""
+  );
+  if (
+    Number.isFinite(lastWrittenAt) &&
+    Date.now() - lastWrittenAt < DEBOUNCE_WINDOW_MS
+  ) {
+    const { error: queueError } = await serviceDb
+      .from("lead_summary_refresh_requests")
+      .upsert(
+        {
+          opportunity_id: opportunityId,
+          company_id: companyId,
+          requested_at: new Date().toISOString(),
+        },
+        { onConflict: "opportunity_id" }
+      );
+    if (queueError) {
+      console.error("[lead-summary] Debounced enqueue failed", {
+        code: queueError.code ?? "unknown",
+      });
+      return NextResponse.json(
+        { error: "Unable to refresh summary" },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json(
+      { ok: true, refreshed: false, reason: "debounced" },
+      { status: 202 }
+    );
+  }
+
   try {
     const result = await refreshLeadSummariesForOpportunities({
-      supabase: getServiceRoleClient(),
+      supabase: serviceDb,
       companyId,
       opportunityIds: [opportunityId],
     });

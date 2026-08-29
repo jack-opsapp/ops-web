@@ -94,6 +94,7 @@ interface TableConfig {
   maybeSingleRow?: unknown;
   error?: { message: string } | null;
   updateError?: { message: string } | null;
+  deleteError?: { message: string } | null;
 }
 
 let tables: Record<string, TableConfig>;
@@ -103,6 +104,7 @@ let updateCalls: Array<{
   payload: Record<string, unknown>;
   filters: RecordedFilter[];
 }>;
+let deleteCalls: Array<{ table: string; filters: RecordedFilter[] }>;
 
 function makeChain(table: string) {
   const cfg = tables[table] ?? {};
@@ -128,6 +130,13 @@ function makeChain(table: string) {
             typeof candidate === "string" &&
             typeof value === "string" &&
             candidate > value
+          );
+        }
+        if (kind === "lte") {
+          return (
+            typeof candidate === "string" &&
+            typeof value === "string" &&
+            candidate <= value
           );
         }
         if (kind === "is" && value === null) {
@@ -159,6 +168,10 @@ function makeChain(table: string) {
       filters.push(["gt", column, value]);
       return chain;
     },
+    lte: (column: string, value: unknown) => {
+      filters.push(["lte", column, value]);
+      return chain;
+    },
     not: (column: string, operator: string, value: unknown) => {
       filters.push(["not", column, `${operator}:${String(value)}`]);
       return chain;
@@ -183,6 +196,23 @@ function makeChain(table: string) {
       error: cfg.error ?? null,
     }),
     then: (resolve: (value: unknown) => unknown) => resolve(resolveSelect()),
+    delete: () => {
+      const call = { table, filters: [] as RecordedFilter[] };
+      deleteCalls.push(call);
+      const deleteChain: any = {
+        eq: (column: string, value: unknown) => {
+          call.filters.push(["eq", column, value]);
+          return deleteChain;
+        },
+        in: (column: string, value: unknown) => {
+          call.filters.push(["in", column, value]);
+          return deleteChain;
+        },
+        then: (resolve: (value: unknown) => unknown) =>
+          resolve({ data: null, error: cfg.deleteError ?? null }),
+      };
+      return deleteChain;
+    },
     update: (payload: Record<string, unknown>) => {
       const call = { table, payload, filters: [] as RecordedFilter[] };
       updateCalls.push(call);
@@ -351,6 +381,7 @@ function baseTables(overrides: Record<string, TableConfig> = {}) {
     stage_transitions: { rows: [] },
     site_visits: { rows: [] },
     email_threads: { rows: [] },
+    lead_summary_refresh_requests: { rows: [] },
     ...overrides,
   };
 }
@@ -359,6 +390,7 @@ beforeEach(() => {
   tables = baseTables();
   selectCalls = [];
   updateCalls = [];
+  deleteCalls = [];
   supabaseFromMock.mockReset();
   supabaseFromMock.mockImplementation((table: string) => makeChain(table));
   openAICreateMock.mockReset();
@@ -2570,5 +2602,155 @@ describe("POST /api/cron/lead-summary-refresh", () => {
     });
     expect(openAICreateMock).not.toHaveBeenCalled();
     expect(updateCalls).toHaveLength(0);
+  });
+});
+
+// ─── Durable refresh queue (bug a2042514) ────────────────────────────────────
+
+describe("lead-summary refresh queue drain", () => {
+  const OLD_REQUEST = "2026-07-21T19:00:00.000Z"; // well outside the quiet period
+  const OPP_C = "cccccccc-cccc-cccc-cccc-cccccccccccc";
+
+  function queueRow(opportunityId: string, requestedAt: string) {
+    return {
+      opportunity_id: opportunityId,
+      company_id: COMPANY_ID,
+      requested_at: requestedAt,
+    };
+  }
+
+  function queueDeletes() {
+    return deleteCalls.filter(
+      (call) => call.table === "lead_summary_refresh_requests"
+    );
+  }
+
+  beforeEach(() => {
+    vi.stubEnv("CRON_SECRET", "top-secret");
+    vi.stubEnv("LEAD_SUMMARY_REFRESH_ENABLED", "true");
+  });
+
+  it("drains a quiet queue row and clears it once the summary is written", async () => {
+    tables.lead_summary_refresh_requests = {
+      rows: [queueRow(OPP_A, OLD_REQUEST)],
+    };
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          ai_summary: "Existing summary.",
+          ai_summary_updated_at: STAMP,
+        }),
+      ],
+    };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.queue).toMatchObject({ scanned: 1, attempted: 1, written: 1 });
+    expect(queueDeletes()).toHaveLength(1);
+    expect(queueDeletes()[0].filters).toEqual(
+      expect.arrayContaining([
+        ["eq", "company_id", COMPANY_ID],
+        ["in", "opportunity_id", [OPP_A]],
+      ])
+    );
+  });
+
+  it("leaves a lead alone while it is still being worked on", async () => {
+    // Inside the quiet period: the operator may still be logging more.
+    tables.lead_summary_refresh_requests = {
+      rows: [queueRow(OPP_A, new Date().toISOString())],
+    };
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.queue).toMatchObject({ scanned: 0, attempted: 0, drained: 0 });
+    expect(queueDeletes()).toHaveLength(0);
+  });
+
+  it("keeps a queue row whose summary could not be persisted", async () => {
+    tables.lead_summary_refresh_requests = {
+      rows: [queueRow(OPP_A, OLD_REQUEST)],
+    };
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          ai_summary: "Existing summary.",
+          ai_summary_updated_at: STAMP,
+        }),
+      ],
+    };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+    supabaseRpcMock.mockReset();
+    supabaseRpcMock.mockResolvedValue({
+      data: null,
+      error: {
+        message: "permission denied for table opportunities",
+        code: "42501",
+      },
+    });
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+
+    // The rotation surfaces the same persistence failure and holds the cursor;
+    // what matters here is that the queue row survives for the next attempt.
+    expect(response.status).toBe(500);
+    expect(queueDeletes()).toHaveLength(0);
+  });
+
+  it("spends the whole model budget on the queue and holds the rotation cursor", async () => {
+    tables.lead_summary_refresh_requests = {
+      rows: [
+        queueRow(OPP_A, OLD_REQUEST),
+        queueRow(OPP_B, OLD_REQUEST),
+        queueRow(OPP_C, OLD_REQUEST),
+        queueRow("dddddddd-dddd-dddd-dddd-dddddddddddd", OLD_REQUEST),
+        queueRow("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", OLD_REQUEST),
+      ],
+    };
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.queue).toMatchObject({ scanned: 5, attempted: 5 });
+    // The rotation never ran — the budget was spent on freshly-touched leads.
+    expect(body.leadsScanned).toBe(0);
+    expect(body.candidates).toBe(0);
+    const advance = advanceCronWorkloadCursorMock.mock.calls.at(-1);
+    expect(advance?.[4]).toBe(advance?.[3]);
+  });
+
+  it("leaves budget for the rotation when the queue is short", async () => {
+    tables.lead_summary_refresh_requests = {
+      rows: [queueRow(OPP_A, OLD_REQUEST)],
+    };
+    tables.opportunities = {
+      rows: [
+        opportunityRow({
+          ai_summary: "Existing summary.",
+          ai_summary_updated_at: STAMP,
+        }),
+      ],
+    };
+    tables.activities = {
+      rows: [noteActivity(OPP_A, "2026-07-21T18:00:00.000Z")],
+    };
+
+    const response = await GET(cronRequest("Bearer top-secret"));
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.queue.attempted).toBe(1);
+    // The sweep still ran with the remaining budget.
+    expect(body.leadsScanned).toBeGreaterThan(0);
   });
 });

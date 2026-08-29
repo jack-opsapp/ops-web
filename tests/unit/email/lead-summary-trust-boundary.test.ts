@@ -2870,7 +2870,9 @@ type TableName =
   | "opportunity_correspondence_events"
   | "stage_transitions"
   | "site_visits"
-  | "email_threads";
+  | "email_threads"
+  | "projects"
+  | "project_notes";
 
 interface RangeCall {
   table: TableName;
@@ -2890,6 +2892,8 @@ function pagedSupabase(input: {
     stage_transitions: [],
     site_visits: [],
     email_threads: [],
+    projects: [],
+    project_notes: [],
   };
 
   return {
