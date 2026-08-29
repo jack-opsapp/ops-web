@@ -43,28 +43,39 @@ export async function GET(
     // Pipeline data
     const { getAdminSupabase } = await import("@/lib/supabase/admin-client");
     const db = getAdminSupabase();
+    const read = async <T extends { error: { message?: string } | null }>(
+      operation: string,
+      pending: PromiseLike<T>
+    ): Promise<T> => {
+      const result = await pending;
+      if (result.error) throw new Error(`Admin company query failed [${operation}]: ${result.error.message ?? "unknown error"}`);
+      return result;
+    };
+
     const [
       { data: pipelineData },
       { data: estimateData },
       { data: invoiceData },
       { data: paymentData },
     ] = await Promise.all([
-      db.from("pipeline_references").select("id, stage, value, created_at")
-        .eq("company_id", id).is("deleted_at", null),
-      db.from("estimates").select("id, status, total_amount, created_at")
-        .eq("company_id", id).is("deleted_at", null),
-      db.from("invoices").select("id, status, total_amount, created_at")
-        .eq("company_id", id).is("deleted_at", null),
-      db.from("payments").select("id, amount, created_at")
-        .eq("company_id", id).is("deleted_at", null)
-        .order("created_at", { ascending: false }).limit(10),
+      read("opportunities", db.from("opportunities").select("id, stage, estimated_value, created_at")
+        .eq("company_id", id).is("deleted_at", null).is("archived_at", null)),
+      read("estimates", db.from("estimates").select("id, status, total, created_at")
+        .eq("company_id", id).is("deleted_at", null)),
+      read("invoices", db.from("invoices").select("id, status, total, created_at")
+        .eq("company_id", id).is("deleted_at", null)),
+      read("payments", db.from("payments").select("id, amount, created_at")
+        .eq("company_id", id).is("voided_at", null)
+        .order("created_at", { ascending: false }).limit(10)),
     ]);
 
     return NextResponse.json({
       ...detail,
       usersWithAuth,
       usageTimeline,
-      pipeline: pipelineData ?? [],
+      pipeline: (pipelineData ?? []).map((p) => ({
+        id: p.id, stage: p.stage, value: p.estimated_value ?? 0, created_at: p.created_at,
+      })),
       estimates: estimateData ?? [],
       invoices: invoiceData ?? [],
       recentPayments: paymentData ?? [],

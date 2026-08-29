@@ -68,12 +68,12 @@ export default async function PlatformHealthPage() {
           </p>
           <div className="grid grid-cols-4 gap-4">
             <StatCard
-              label="Portal Enabled"
-              value={portalStats.portalEnabled}
+              label="Portal In Use"
+              value={portalStats.portalInUse}
               caption={`of ${portalStats.total} companies`}
             />
             <StatCard label="Branding Configured" value={portalStats.brandingConfigured} />
-            <StatCard label="Gmail Connected" value={portalStats.gmailConnected} />
+            <StatCard label="Email Connected" value={portalStats.emailConnected} />
             <StatCard label="Accounting Connected" value={portalStats.accountingConnected} />
           </div>
         </div>
