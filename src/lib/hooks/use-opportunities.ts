@@ -30,7 +30,7 @@ import type {
   StageTransition,
   OpportunityStage,
 } from "../types/pipeline";
-import { OpportunityStage as Stage } from "../types/pipeline";
+import { ActivityType, OpportunityStage as Stage } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 import {
   selectCanConvertOpportunity,
@@ -663,7 +663,7 @@ export function useCreateActivity() {
         //
         // Email activities are excluded: those already ride the durable email
         // cycle's own summary writer.
-        if (variables.type !== "email") {
+        if (variables.type !== ActivityType.Email) {
           void requestEagerLeadSummaryRefresh(variables.opportunityId);
         }
       }
