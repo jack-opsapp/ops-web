@@ -773,16 +773,55 @@ describe("EmailAssignmentContactFormDraftWorker", () => {
     );
   });
 
-  it("falls back to the server-owned outreach subject when the mailbox has none", async () => {
+  it("leaves the configured-subject rank empty when the mailbox has none", async () => {
     const harness = makeHarness({
       connection: connection({ outreachSubject: "   " }),
+    });
+    harness.generateDraft.mockResolvedValue({
+      available: true,
+      draft: "Hi Sandra,\n\nHappy to quote the deck.",
+      draftHistoryId: "00000000-0000-4000-8000-000000000601",
     });
 
     const result = await harness.worker.process();
 
     expect(result.drafted).toBe(1);
-    expect(harness.generateDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ configuredSubject: "Thanks for reaching out" })
+    // `configuredSubject` is the rank reserved for the operator's own
+    // per-mailbox setting, and it outranks everything the profile has learned.
+    // An unset setting must arrive unset, or the server-owned constant sits
+    // above every learned subject forever (4da75e71).
+    const [request] = harness.generateDraft.mock.calls[0] ?? [];
+    expect(request).toBeDefined();
+    expect(request?.configuredSubject).toBeUndefined();
+    // Dropping the pre-collapse costs the mailbox nothing: the draft service
+    // ranks down to the same constant, and placement still never goes out
+    // subject-less.
+    expect(harness.placeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: "Thanks for reaching out" })
+    );
+  });
+
+  it("resumes a stored draft under the server-owned subject when the mailbox has none", async () => {
+    const harness = makeHarness({
+      jobs: [
+        claimed({
+          draftHistoryId: "00000000-0000-4000-8000-000000000601",
+          draftBody: "Hi Sandra,\n\nHappy to quote the deck.",
+          draftSubject: null,
+        }),
+      ],
+      connection: connection({ outreachSubject: null }),
+    });
+
+    const result = await harness.worker.process();
+
+    expect(result.drafted).toBe(1);
+    // The resume lane bypasses the draft service entirely, so no ranking will
+    // ever run for it — the constant is the legitimate last resort at this
+    // point of use, and placement must not go out empty.
+    expect(harness.generateDraft).not.toHaveBeenCalled();
+    expect(harness.placeDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ subject: "Thanks for reaching out" })
     );
   });
 
