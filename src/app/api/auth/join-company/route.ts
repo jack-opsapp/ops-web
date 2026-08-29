@@ -17,6 +17,7 @@ import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { parseDate } from "@/lib/supabase/helpers";
 import { normalizeImageUrl } from "@/lib/utils/image-url";
 import { sendOneSignalPush } from "@/lib/notifications/onesignal";
+import { filterPushRecipientsByQuietHours } from "@/lib/notifications/server-notification-service";
 import { buildMemberJoinedCopy } from "@/lib/notifications/notification-copy";
 import type {
   User,
@@ -270,16 +271,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const copy = buildMemberJoinedCopy({ firstName, roleName, wasSeated });
         const actionUrl = `/settings?tab=team&assignRole=${memberId}`;
 
-        // Look up admin OneSignal player IDs
-        const { data: adminRows } = await db
-          .from("users")
-          .select("id, onesignal_player_id")
-          .in("id", adminIds);
-
-        const adminPlayerIds: string[] = (adminRows ?? [])
-          .map((r) => r.onesignal_player_id as string | null)
-          .filter((v): v is string => !!v);
-
         // Create a web rail notification for each admin via the dedup RPC
         for (const adminId of adminIds) {
           const { error: notifError } = await db.rpc("create_notification_if_new", {
@@ -301,20 +292,42 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           }
         }
 
-        // One push request targeting all admin player_ids at once
-        if (adminPlayerIds.length > 0) {
-          await sendOneSignalPush({
-            playerIds: adminPlayerIds,
-            title: copy.title,
-            body: copy.body,
-            data: {
-              type: "member_joined",
-              memberId,
-              companyId,
-              wasSeated,
-              roleAssigned: !!roleName && roleName.toLowerCase() !== "unassigned",
-            },
-          });
+        // Quiet hours gate the push only — every rail row above already
+        // landed. This route pushes by player id and never passed through
+        // resolveNotificationPreferences (bug 42aa787c), so look up player ids
+        // for the admins who survive the window.
+        const pushAdminIds = await filterPushRecipientsByQuietHours({
+          companyId,
+          recipientUserIds: adminIds,
+          db,
+        });
+
+        if (pushAdminIds.length > 0) {
+          // Look up OneSignal player IDs for the admins who survive the window
+          const { data: adminRows } = await db
+            .from("users")
+            .select("id, onesignal_player_id")
+            .in("id", pushAdminIds);
+
+          const adminPlayerIds: string[] = (adminRows ?? [])
+            .map((r) => r.onesignal_player_id as string | null)
+            .filter((v): v is string => !!v);
+
+          // One push request targeting all admin player_ids at once
+          if (adminPlayerIds.length > 0) {
+            await sendOneSignalPush({
+              playerIds: adminPlayerIds,
+              title: copy.title,
+              body: copy.body,
+              data: {
+                type: "member_joined",
+                memberId,
+                companyId,
+                wasSeated,
+                roleAssigned: !!roleName && roleName.toLowerCase() !== "unassigned",
+              },
+            });
+          }
         }
       }
     } catch (notifyErr) {

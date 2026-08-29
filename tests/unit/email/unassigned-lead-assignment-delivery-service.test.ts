@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
@@ -33,6 +33,10 @@ interface ClaimResponse {
 }
 
 interface RpcOptions {
+  /** Quiet-hours fixtures: `notification_preferences` rows for the recipient. */
+  preferences?: Array<Record<string, unknown>>;
+  /** `companies.timezone` used to evaluate any configured window. */
+  timezone?: string;
   claims?: Array<Record<string, unknown>>;
   claimResponses?: ClaimResponse[];
   claimError?: { message: string; code?: string; status?: number } | null;
@@ -40,6 +44,36 @@ interface RpcOptions {
   completeData?: Record<string, unknown>;
   failError?: { message: string; code?: string; status?: number } | null;
   failTerminal?: boolean;
+}
+
+/**
+ * Quiet-hours reads (`notification_preferences`, then `companies` only when a
+ * window is configured). Default fixture: no preference rows at all, which is
+ * production reality for every Canpro user today — nobody is suppressed, so the
+ * existing push assertions in this file are unaffected.
+ */
+function quietHoursFrom(options: {
+  preferences?: Array<Record<string, unknown>>;
+  timezone?: string;
+}) {
+  return (table: string) => {
+    const result =
+      table === "notification_preferences"
+        ? { data: options.preferences ?? [], error: null }
+        : table === "companies"
+          ? { data: { timezone: options.timezone ?? "UTC" }, error: null }
+          : { data: null, error: null };
+    const builder: Record<string, unknown> = {};
+    for (const method of ["select", "in", "eq", "is", "limit"]) {
+      builder[method] = () => builder;
+    }
+    builder.maybeSingle = async () => result;
+    builder.then = (
+      resolve: (value: typeof result) => unknown,
+      reject: (reason: unknown) => unknown
+    ) => Promise.resolve(result).then(resolve, reject);
+    return builder;
+  };
 }
 
 function rpcClient(options: RpcOptions = {}) {
@@ -75,7 +109,8 @@ function rpcClient(options: RpcOptions = {}) {
     throw new Error(`Unexpected RPC ${name}`);
   });
 
-  return { rpc, client: { rpc } as unknown as SupabaseClient };
+  const from = vi.fn(quietHoursFrom(options));
+  return { rpc, from, client: { rpc, from } as unknown as SupabaseClient };
 }
 
 describe("UnassignedLeadAssignmentDeliveryService", () => {
@@ -515,5 +550,99 @@ describe("buildUnassignedLeadAssignmentPushBody", () => {
     expect(body.length).toBeLessThanOrEqual(50);
     expect(() => encodeURIComponent(body)).not.toThrow();
     expect(body.endsWith("…")).toBe(true);
+  });
+});
+
+/**
+ * Quiet hours (bug 42aa787c). This worker derives its recipient from the RPC
+ * claim, so before the shared filter landed it pushed straight through a crew
+ * member's window. Suppression drops the PUSH only — the delivery still
+ * completes and the rail row this delivery references is untouched.
+ */
+describe("UnassignedLeadAssignmentDeliveryService quiet hours", () => {
+  const sendPush = vi.fn();
+
+  const quietWindow = [
+    {
+      user_id: visibleClaim.recipient_user_id,
+      quiet_hours_start: "22:00:00",
+      quiet_hours_end: "07:00:00",
+    },
+  ];
+
+  beforeEach(() => {
+    sendPush.mockReset();
+    vi.useFakeTimers({ toFake: ["Date"] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("suppresses the push inside the window and still completes the delivery", async () => {
+    // 23:00 UTC sits inside 22:00–07:00.
+    vi.setSystemTime(new Date("2026-01-15T23:00:00Z"));
+    const { client, rpc } = rpcClient({
+      claims: [visibleClaim],
+      timezone: "UTC",
+      preferences: quietWindow,
+    });
+
+    const result = await UnassignedLeadAssignmentDeliveryService.processBatch(
+      client,
+      { limit: 1, workerId: "worker-1" },
+      { sendPush }
+    );
+
+    expect(sendPush).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      claimed: 1,
+      delivered: 1,
+      pushed: 0,
+      pushSuppressed: 1,
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      "complete_unassigned_lead_assignment_delivery",
+      expect.objectContaining({ p_push_state: "suppressed" })
+    );
+  });
+
+  it("sends the push outside the window", async () => {
+    // 12:00 UTC sits outside 22:00–07:00.
+    vi.setSystemTime(new Date("2026-01-15T12:00:00Z"));
+    sendPush.mockResolvedValue({ ok: true, recipients: 1 });
+    const { client } = rpcClient({
+      claims: [visibleClaim],
+      timezone: "UTC",
+      preferences: quietWindow,
+    });
+
+    const result = await UnassignedLeadAssignmentDeliveryService.processBatch(
+      client,
+      { limit: 1, workerId: "worker-1" },
+      { sendPush }
+    );
+
+    expect(sendPush).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserIds: [visibleClaim.recipient_user_id],
+      })
+    );
+    expect(result).toMatchObject({ pushed: 1 });
+  });
+
+  it("pushes normally when the recipient has no window configured", async () => {
+    vi.setSystemTime(new Date("2026-01-15T23:00:00Z"));
+    sendPush.mockResolvedValue({ ok: true, recipients: 1 });
+    const { client } = rpcClient({ claims: [visibleClaim], timezone: "UTC" });
+
+    const result = await UnassignedLeadAssignmentDeliveryService.processBatch(
+      client,
+      { limit: 1, workerId: "worker-1" },
+      { sendPush }
+    );
+
+    expect(sendPush).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ pushed: 1 });
   });
 });
