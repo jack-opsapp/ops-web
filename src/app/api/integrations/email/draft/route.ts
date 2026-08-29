@@ -427,7 +427,12 @@ export async function POST(request: NextRequest) {
         ? {
             userInstruction: ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION,
             profileTypeOverride: "client_new_inquiry",
-            configuredSubject: CONTACT_FORM_OUTREACH_SUBJECT,
+            // No `configuredSubject`. That rank belongs to the operator's own
+            // per-mailbox outreach setting; handing it the server's constant
+            // puts the constant above everything the profile has learned about
+            // naming a new conversation (4da75e71). The constant is already the
+            // last-resort fallback inside the draft service, and it still backs
+            // the placement below when a draft comes back without a subject.
             ...(contactFormInquiryText
               ? {
                   untrustedMessageContext: {
