@@ -179,7 +179,7 @@ async function main(): Promise<void> {
     if (remaining <= 0) break;
 
     const { data, error } = await supabase.rpc(
-      "list_agent_provider_delivery_sources_for_renormalization_as_system",
+      "list_delivery_sources_for_renormalization_as_system",
       {
         p_limit: Math.min(PAGE_SIZE, remaining),
         p_before_delivered_at: cursorDeliveredAt,

@@ -260,6 +260,7 @@ create table private.agent_provider_outbound_authority_attestations (
 -- all of which are what this contract exercises from here down.
 
 \ir ../../supabase/migrations/20260830113400_delivery_source_normalization_reprojection.sql
+\ir ../../supabase/migrations/20260830113700_shorten_renormalization_list_fn_name.sql
 
 -- ── Fixtures ───────────────────────────────────────────────────────────────
 insert into public.email_connections (id, company_id, provider)
@@ -279,7 +280,7 @@ declare
       || 'boolean,jsonb)'
   )::regprocedure;
   v_list regprocedure :=
-    'public.list_agent_provider_delivery_sources_for_renormalization_as_system(integer,timestamptz,uuid)'::regprocedure;
+    'public.list_delivery_sources_for_renormalization_as_system(integer,timestamptz,uuid)'::regprocedure;
   v_reproject regprocedure :=
     'public.reproject_agent_provider_delivery_source_as_system(uuid,uuid,text,text,text,text)'::regprocedure;
   v_function regprocedure;
@@ -700,7 +701,7 @@ declare
   v_rejected integer;
 begin
   select count(*) into v_rejected
-    from public.list_agent_provider_delivery_sources_for_renormalization_as_system(
+    from public.list_delivery_sources_for_renormalization_as_system(
       100,
       null,
       null
@@ -749,7 +750,7 @@ declare
   v_count integer;
 begin
   select count(*) into v_count
-    from public.list_agent_provider_delivery_sources_for_renormalization_as_system(
+    from public.list_delivery_sources_for_renormalization_as_system(
       100,
       null,
       null
@@ -759,7 +760,7 @@ begin
   end if;
 
   select * into v_listed
-    from public.list_agent_provider_delivery_sources_for_renormalization_as_system(
+    from public.list_delivery_sources_for_renormalization_as_system(
       100,
       null,
       null
@@ -772,7 +773,7 @@ begin
 
   -- The keyset cursor excludes the page it was taken from.
   select count(*) into v_count
-    from public.list_agent_provider_delivery_sources_for_renormalization_as_system(
+    from public.list_delivery_sources_for_renormalization_as_system(
       100,
       v_listed.delivered_at,
       v_listed.source_id

@@ -202,9 +202,30 @@ describe("delivery-source normalization re-projection migration", () => {
       "public.reproject_agent_provider_delivery_source_as_system(uuid, uuid, text, text, text, text)",
     ]) {
       expect(sql).toContain(`revoke all on function ${fn}`);
-      expect(sql).toContain(`grant execute on function ${fn}`);
-      expect(sql).toContain(`) to service_role;`);
     }
+  });
+
+  it("renames the list function below the 63-char identifier limit (forward repair 113700)", () => {
+    const rename = readFileSync(
+      resolve(
+        __dirname,
+        "../../../supabase/migrations/20260830113700_shorten_renormalization_list_fn_name.sql",
+      ),
+      "utf8",
+    );
+    expect(rename).toContain("rename to list_delivery_sources_for_renormalization_as_system");
+    expect("list_delivery_sources_for_renormalization_as_system".length).toBeLessThanOrEqual(63);
+  });
+
+  it("keeps every backfill entry point service_role-gated in the migration body", () => {
+    const sql = migrationStatements();
+    for (const fn of [
+      "public.list_agent_provider_delivery_sources_for_renormalization_as_system(integer, timestamptz, uuid)",
+      "public.reproject_agent_provider_delivery_source_as_system(uuid, uuid, text, text, text, text)",
+    ]) {
+      expect(sql).toContain(`grant execute on function ${fn}`);
+    }
+    expect(sql).toContain(`) to service_role;`);
     expect(
       sql.match(
         /if auth\.role\(\) is distinct from 'service_role' then\s*raise exception 'access_denied' using errcode = '42501';/g
