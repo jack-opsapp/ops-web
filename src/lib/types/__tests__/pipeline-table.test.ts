@@ -190,6 +190,7 @@ describe("pipeline-table column model", () => {
         "value",
         "age_in_stage",
         "next_follow_up",
+        "site_visit",
         "assignee",
       ]);
     });
