@@ -40,8 +40,8 @@ describe("P2 purchase-order candidates", () => {
     ]) {
       expect(Object.isFrozen(candidate)).toBe(true);
       expect(
-        CAPABILITY_MANIFEST.some((entry) => entry.name === candidate.name)
-      ).toBe(false);
+        CAPABILITY_MANIFEST.find((entry) => entry.name === candidate.name)
+      ).toBe(candidate);
     }
   });
 

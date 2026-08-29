@@ -28,10 +28,10 @@ describe("P2 payment candidate", () => {
     });
     expect(Object.isFrozen(LIST_PAYMENTS_CANDIDATE)).toBe(true);
     expect(
-      CAPABILITY_MANIFEST.some(
+      CAPABILITY_MANIFEST.find(
         (entry) => entry.name === LIST_PAYMENTS_CANDIDATE.name
       )
-    ).toBe(false);
+    ).toBe(LIST_PAYMENTS_CANDIDATE);
   });
 
   it("requires payment OAuth, full finance, invoice all|assigned, and exact linked job authority", () => {

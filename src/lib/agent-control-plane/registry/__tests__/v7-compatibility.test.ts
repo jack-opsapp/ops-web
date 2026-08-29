@@ -13,8 +13,8 @@ import {
   SUPPORTED_READ_SCOPES,
 } from "@/lib/agent-control-plane/mcp/oauth/scopes";
 import {
-  CAPABILITY_MANIFEST,
-  CAPABILITY_MANIFEST_REVISION,
+  V7_CAPABILITY_MANIFEST as CAPABILITY_MANIFEST,
+  V7_CAPABILITY_MANIFEST_REVISION as CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 
 const EXPECTED_DEFINITIONS = [

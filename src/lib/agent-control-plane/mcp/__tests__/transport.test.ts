@@ -961,31 +961,33 @@ describe("per-capability dispatch across the complete v7 eleven-read map", () =>
   }
 });
 
-describe("real manifest exposure state (P1 ship pin)", () => {
-  it("keeps all eleven reads externally callable under the v7 manifest", async () => {
+describe("real manifest and exposure state (P1 ship pin)", () => {
+  it("keeps exactly the original eleven reads externally callable under exposure v1", async () => {
     const actual = await vi.importActual<
       typeof import("@/lib/agent-control-plane/registry/capability-manifest")
     >("@/lib/agent-control-plane/registry/capability-manifest");
-    const exposed = actual.CAPABILITY_MANIFEST.filter(
-      (entry) =>
-        entry.availability.implementation === "available" &&
-        entry.availability.externalExposure === "enabled"
+    const exposureModule = await vi.importActual<
+      typeof import("@/lib/agent-control-plane/registry/mcp-exposure-catalog")
+    >("@/lib/agent-control-plane/registry/mcp-exposure-catalog");
+    const exposed = exposureModule.MCP_EXPOSURE_V1.toolIds.map((toolId) =>
+      actual.CAPABILITY_MANIFEST.find((entry) => entry.name === toolId)
     );
     expect(actual.CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-20.capability-manifest.v7"
+      "2026-08-22.capability-manifest.v8"
     );
-    expect(exposed.map((entry) => entry.name).sort()).toEqual(
+    expect(exposed.map((entry) => entry?.name).sort()).toEqual(
       [...ALL_READ_CAPABILITY_NAMES].sort()
     );
     for (const entry of exposed) {
-      expect(entry.operation).toBe("read");
-      expect(entry.annotations.readOnlyHint).toBe(true);
-      expect(entry.annotations.destructiveHint).toBe(false);
+      expect(entry?.availability.implementation).toBe("available");
+      expect(entry?.operation).toBe("read");
+      expect(entry?.annotations.readOnlyHint).toBe(true);
+      expect(entry?.annotations.destructiveHint).toBe(false);
     }
-    const writesExposed = actual.CAPABILITY_MANIFEST.filter(
-      (entry) =>
-        entry.operation !== "read" &&
-        entry.availability.externalExposure === "enabled"
+    const writesExposed = exposureModule.MCP_EXPOSURE_V1.toolIds.filter(
+      (toolId) =>
+        actual.CAPABILITY_MANIFEST.find((entry) => entry.name === toolId)
+          ?.operation !== "read"
     );
     expect(writesExposed).toEqual([]);
     for (const capabilityName of DISCOVERY_CAPABILITY_NAMES) {
@@ -993,7 +995,7 @@ describe("real manifest exposure state (P1 ship pin)", () => {
         (candidate) => candidate.name === capabilityName
       );
       expect(entry?.operation).toBe("read");
-      expect(entry?.availability.externalExposure).toBe("enabled");
+      expect(exposureModule.MCP_EXPOSURE_V1.toolIds).toContain(capabilityName);
       expect(entry?.annotations.readOnlyHint).toBe(true);
       expect(entry?.annotations.destructiveHint).toBe(false);
     }

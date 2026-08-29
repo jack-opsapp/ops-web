@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ActorAuthoritySnapshot } from "@/lib/agent-control-plane/actor/authority-repository";
 import { authorizeCapability } from "@/lib/agent-control-plane/actor/authorize-capability";
 import {
+  activateCapabilityPolicyForManifest,
   defineCapabilityPolicyForManifest,
   type ManifestCapabilityPolicy,
 } from "@/lib/agent-control-plane/actor/capability-policy-boundary";
@@ -24,18 +25,23 @@ const COMPANY_ID = "22222222-2222-4222-8222-222222222222";
 const MANIFEST_REVISION = "2026-08-22.capability-manifest.v8";
 
 function policy(): ManifestCapabilityPolicy {
-  return defineCapabilityPolicyForManifest({
-    capabilityId: "list_tasks",
-    capabilityRevision: "list_tasks:2026-08-22.v1",
-    capabilityManifestRevision: MANIFEST_REVISION,
-    requiredOAuthScopes: ["ops.tasks.read"],
-    permissionRequirementGroups: [
-      [
-        { permission: "projects.view", allowedScopes: ["all", "assigned"] },
-        { permission: "tasks.view", allowedScopes: ["all", "assigned"] },
+  return activateCapabilityPolicyForManifest(
+    defineCapabilityPolicyForManifest({
+      capabilityId: "list_tasks",
+      capabilityRevision: "list_tasks:2026-08-22.v1",
+      capabilityManifestRevision: MANIFEST_REVISION,
+      requiredOAuthScopes: ["ops.tasks.read"],
+      permissionRequirementGroups: [
+        [
+          {
+            permission: "projects.view",
+            allowedScopes: ["all", "assigned"],
+          },
+          { permission: "tasks.view", allowedScopes: ["all", "assigned"] },
+        ],
       ],
-    ],
-  });
+    })
+  );
 }
 
 async function authorization() {

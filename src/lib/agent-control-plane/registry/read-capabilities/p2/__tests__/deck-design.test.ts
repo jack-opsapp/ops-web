@@ -30,10 +30,10 @@ describe("P2 deck-design geometry candidate", () => {
       },
     });
     expect(
-      CAPABILITY_MANIFEST.some(
+      CAPABILITY_MANIFEST.find(
         (capability) => capability.name === "get_deck_design_geometry"
       )
-    ).toBe(false);
+    ).toBe(GET_DECK_DESIGN_GEOMETRY_CANDIDATE);
   });
 
   it("pins one nominal policy variant for each opaque anchor", () => {

@@ -98,9 +98,9 @@ describe("P2 integration-health candidate", () => {
     });
     expect(Object.isFrozen(GET_INTEGRATION_HEALTH_CANDIDATE)).toBe(true);
     expect(
-      CAPABILITY_MANIFEST.some(
+      CAPABILITY_MANIFEST.find(
         (entry) => entry.name === GET_INTEGRATION_HEALTH_CANDIDATE.name
       )
-    ).toBe(false);
+    ).toBe(GET_INTEGRATION_HEALTH_CANDIDATE);
   });
 });

@@ -87,6 +87,7 @@ export type CapabilityIdempotencyPolicy =
 
 export type CapabilityAuthorizationSelector =
   | Readonly<{ kind: "always" }>
+  | Readonly<{ kind: "input_always" }>
   | Readonly<{
       kind: "customer_discovery_lookup";
       lookup: "name" | "exact_contact";
@@ -151,28 +152,111 @@ export type CapabilityAuthorizationSelector =
     }>
   | Readonly<{
       kind: "input_value";
-      field: "mode";
-      value: "import" | "edit";
-    }>
-  | Readonly<{
-      kind: "input_value";
-      field: "view";
-      value: "booked_appointments" | "visit_history";
-    }>
-  | Readonly<{
-      kind: "input_value";
-      field: "include_unlinked";
-      value: true;
-    }>
-  | Readonly<{
-      kind: "input_value";
-      field: "anchor";
-      value: "opportunity" | "unlinked";
+      field: "anchor" | "include_unlinked" | "mode" | "source" | "view";
+      value:
+        | true
+        | "booked_appointments"
+        | "company"
+        | "edit"
+        | "import"
+        | "opportunity"
+        | "self"
+        | "site_visit_artifact"
+        | "unlinked"
+        | "visit_history";
     }>
   | Readonly<{
       kind: "input_array_contains";
-      field: "rule_codes";
-      value: "SITE_PHOTOS_MISSING" | "CUSTOMER_RECORD_UNRESOLVED";
+      field: "document_kinds" | "job_kinds" | "rule_codes" | "sections";
+      value:
+        | "CUSTOMER_RECORD_UNRESOLVED"
+        | "SITE_PHOTOS_MISSING"
+        | "contacts"
+        | "costs"
+        | "estimate"
+        | "financial_origin"
+        | "invoice"
+        | "opportunity"
+        | "project"
+        | "schedule"
+        | "supplier_costs";
+    }>
+  | Readonly<{
+      kind: "input_object_discriminator";
+      field: "document_ref" | "expense_ref" | "job_ref" | "view";
+      discriminator: "kind";
+      value:
+        | "company"
+        | "estimate"
+        | "expense"
+        | "invoice"
+        | "job"
+        | "mine"
+        | "opportunity"
+        | "pending_approval"
+        | "project"
+        | "reimbursement_batches"
+        | "schedule_window";
+    }>
+  | Readonly<{
+      kind: "input_array_object_discriminator";
+      field: "integrations";
+      discriminator: "integration_type";
+      value: "accounting" | "mailbox";
+    }>
+  | Readonly<{
+      kind: "input_source_kind";
+      value:
+        | "deck_design"
+        | "email_attachment"
+        | "expense_receipt"
+        | "generated_estimate"
+        | "generated_invoice"
+        | "project_photo"
+        | "site_visit_artifact";
+    }>
+  | Readonly<{
+      kind: "input_source_and_job_kind";
+      sourceKind: "project_note";
+      jobKind: "opportunity" | "project";
+    }>
+  | Readonly<{
+      kind: "input_source_and_job_kind";
+      source: "job_artifact";
+      jobKind: "opportunity" | "project";
+    }>
+  | Readonly<{
+      kind: "site_visit_context_artifact_sections";
+      anchor: "opportunity" | "unlinked";
+      field: "sections";
+      values: readonly ("artifact_summary" | "deck_design_refs")[];
+    }>
+  | Readonly<{
+      kind: "operational_overview_component";
+      field: "components";
+      value:
+        | "financial_attention"
+        | "integration_attention"
+        | "schedule_readiness"
+        | "stock_attention"
+        | "unresolved_correspondence"
+        | "work_due";
+      defaultWhenOmitted: true;
+    }>
+  | Readonly<{
+      kind: "work_queue_source";
+      field: "sources";
+      value:
+        | "commitment"
+        | "correspondence"
+        | "expense"
+        | "financial_document"
+        | "lead"
+        | "match_review"
+        | "payment"
+        | "schedule"
+        | "task";
+      defaultWhenOmitted: true;
     }>;
 
 export interface CapabilityAuthorizationVariantDefinition {
@@ -212,15 +296,16 @@ interface CapabilityBase {
   readonly annotations: CapabilityMcpAnnotations;
   readonly confirmationPolicy: CapabilityConfirmationPolicy;
   readonly idempotencyPolicy: CapabilityIdempotencyPolicy;
-  readonly availability: Readonly<{
-    implementation: CapabilityImplementationAvailability;
-    externalExposure: CapabilityExternalExposure;
-  }>;
+  readonly availability: CapabilityImplementationState;
   readonly rolloutFlag: string;
 }
 
 export interface CapabilityDefinition extends CapabilityBase {
   readonly authorization: CapabilityAuthorizationDefinition;
+  readonly availability: Readonly<{
+    implementation: CapabilityImplementationAvailability;
+    externalExposure: CapabilityExternalExposure;
+  }>;
 }
 
 /** Frozen v7 definition shape retained only for byte-compatible manifests. */
@@ -239,6 +324,13 @@ export type ImplementationOnlyCapabilityDefinition = Omit<
 export interface CapabilityManifestEntry extends CapabilityBase {
   readonly authorization: CapabilityAuthorizationManifest;
 }
+
+/** Exact frozen v7 entry shape, retained only for compatibility proof. */
+export type LegacyCapabilityManifestEntry = Omit<
+  CapabilityManifestEntry,
+  "availability"
+> &
+  Readonly<{ availability: CapabilityDefinition["availability"] }>;
 
 const CAPABILITY_NAME_PATTERN = /^[a-z][a-z0-9_]{0,127}$/;
 const GENERIC_CAPABILITY_PATTERNS = [
@@ -265,6 +357,13 @@ function requiredNonBlank(value: unknown, field: string): string {
 function requiredPositiveInteger(value: unknown, field: string): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
     throw new TypeError(`${field} must be a positive integer`);
+  }
+  return value;
+}
+
+function requiredNonNegativeInteger(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    throw new TypeError(`${field} must be a non-negative safe integer`);
   }
   return value;
 }
@@ -336,7 +435,25 @@ function assertAuthorization(
         variant.selector.kind === "job_history_job_kind" ||
         variant.selector.kind === "job_history_source_authority" ||
         variant.selector.kind === "job_history_financial_source") &&
-        entry.name !== "search_job_history")
+        entry.name !== "search_job_history") ||
+      (variant.selector.kind === "input_always" &&
+        entry.name !== "list_payments") ||
+      ((variant.selector.kind === "input_source_kind" ||
+        (variant.selector.kind === "input_source_and_job_kind" &&
+          "sourceKind" in variant.selector)) &&
+        entry.name !== "list_job_artifacts" &&
+        entry.name !== "get_job_artifact_evidence") ||
+      (variant.selector.kind === "input_source_and_job_kind" &&
+        "source" in variant.selector &&
+        entry.name !== "get_deck_design_geometry") ||
+      (variant.selector.kind === "site_visit_context_artifact_sections" &&
+        entry.name !== "get_site_visit_context") ||
+      (variant.selector.kind === "input_array_object_discriminator" &&
+        entry.name !== "get_integration_health") ||
+      (variant.selector.kind === "operational_overview_component" &&
+        entry.name !== "get_operational_overview") ||
+      (variant.selector.kind === "work_queue_source" &&
+        entry.name !== "list_work_queue")
     ) {
       throw new TypeError(
         `${entry.name}.${key} selector is not valid for this capability`
@@ -391,6 +508,7 @@ function isExactAuthorizationSelector(
   const selector = value as Record<string, unknown>;
   switch (selector.kind) {
     case "always":
+    case "input_always":
       return hasExactKeys(selector, ["kind"]);
     case "customer_discovery_lookup":
       return (
@@ -473,22 +591,145 @@ function isExactAuthorizationSelector(
     case "input_value": {
       if (!hasExactKeys(selector, ["kind", "field", "value"])) return false;
       const allowed: Readonly<Record<string, readonly unknown[]>> = {
-        mode: ["import", "edit"],
-        view: ["booked_appointments", "visit_history"],
-        include_unlinked: [true],
         anchor: ["opportunity", "unlinked"],
+        include_unlinked: [true],
+        mode: ["import", "edit"],
+        source: ["site_visit_artifact"],
+        view: ["booked_appointments", "company", "self", "visit_history"],
       };
       return (
         typeof selector.field === "string" &&
         allowed[selector.field]?.includes(selector.value) === true
       );
     }
-    case "input_array_contains":
+    case "input_array_contains": {
+      if (!hasExactKeys(selector, ["kind", "field", "value"])) return false;
+      const allowed: Readonly<Record<string, readonly unknown[]>> = {
+        document_kinds: ["estimate", "invoice"],
+        job_kinds: ["opportunity", "project"],
+        rule_codes: ["CUSTOMER_RECORD_UNRESOLVED", "SITE_PHOTOS_MISSING"],
+        sections: [
+          "contacts",
+          "costs",
+          "financial_origin",
+          "schedule",
+          "supplier_costs",
+        ],
+      };
       return (
-        hasExactKeys(selector, ["kind", "field", "value"]) &&
-        selector.field === "rule_codes" &&
-        (selector.value === "SITE_PHOTOS_MISSING" ||
-          selector.value === "CUSTOMER_RECORD_UNRESOLVED")
+        typeof selector.field === "string" &&
+        allowed[selector.field]?.includes(selector.value) === true
+      );
+    }
+    case "input_object_discriminator": {
+      if (
+        !hasExactKeys(selector, ["kind", "field", "discriminator", "value"]) ||
+        selector.discriminator !== "kind"
+      ) {
+        return false;
+      }
+      const allowed: Readonly<Record<string, readonly unknown[]>> = {
+        document_ref: ["estimate", "invoice"],
+        expense_ref: ["expense"],
+        job_ref: ["opportunity", "project"],
+        view: [
+          "company",
+          "job",
+          "mine",
+          "pending_approval",
+          "reimbursement_batches",
+          "schedule_window",
+        ],
+      };
+      return (
+        typeof selector.field === "string" &&
+        allowed[selector.field]?.includes(selector.value) === true
+      );
+    }
+    case "input_array_object_discriminator":
+      return (
+        hasExactKeys(selector, ["kind", "field", "discriminator", "value"]) &&
+        selector.field === "integrations" &&
+        selector.discriminator === "integration_type" &&
+        (selector.value === "accounting" || selector.value === "mailbox")
+      );
+    case "input_source_kind":
+      return (
+        hasExactKeys(selector, ["kind", "value"]) &&
+        [
+          "deck_design",
+          "email_attachment",
+          "expense_receipt",
+          "generated_estimate",
+          "generated_invoice",
+          "project_photo",
+          "site_visit_artifact",
+        ].includes(selector.value as string)
+      );
+    case "input_source_and_job_kind":
+      if (
+        selector.jobKind !== "opportunity" &&
+        selector.jobKind !== "project"
+      ) {
+        return false;
+      }
+      if (hasExactKeys(selector, ["kind", "jobKind", "sourceKind"])) {
+        return selector.sourceKind === "project_note";
+      }
+      return (
+        hasExactKeys(selector, ["kind", "jobKind", "source"]) &&
+        selector.source === "job_artifact"
+      );
+    case "site_visit_context_artifact_sections":
+      return (
+        hasExactKeys(selector, ["anchor", "field", "kind", "values"]) &&
+        (selector.anchor === "opportunity" || selector.anchor === "unlinked") &&
+        selector.field === "sections" &&
+        Array.isArray(selector.values) &&
+        selector.values.length === 1 &&
+        (selector.values[0] === "artifact_summary" ||
+          selector.values[0] === "deck_design_refs")
+      );
+    case "operational_overview_component":
+      return (
+        hasExactKeys(selector, [
+          "defaultWhenOmitted",
+          "field",
+          "kind",
+          "value",
+        ]) &&
+        selector.defaultWhenOmitted === true &&
+        selector.field === "components" &&
+        [
+          "financial_attention",
+          "integration_attention",
+          "schedule_readiness",
+          "stock_attention",
+          "unresolved_correspondence",
+          "work_due",
+        ].includes(selector.value as string)
+      );
+    case "work_queue_source":
+      return (
+        hasExactKeys(selector, [
+          "defaultWhenOmitted",
+          "field",
+          "kind",
+          "value",
+        ]) &&
+        selector.defaultWhenOmitted === true &&
+        selector.field === "sources" &&
+        [
+          "commitment",
+          "correspondence",
+          "expense",
+          "financial_document",
+          "lead",
+          "match_review",
+          "payment",
+          "schedule",
+          "task",
+        ].includes(selector.value as string)
       );
     default:
       return false;
@@ -611,7 +852,7 @@ export function assertCapabilityManifestInvariants(
     ) {
       throw new TypeError(`${name} evidence policy is unsafe`);
     }
-    requiredPositiveInteger(
+    requiredNonNegativeInteger(
       entry.evidencePolicy.maxEvidenceRefs,
       `${name}.maxEvidenceRefs`
     );
@@ -633,6 +874,7 @@ export function assertCapabilityManifestInvariants(
     }
     rolloutFlags.add(rolloutFlag);
     if (
+      "externalExposure" in entry.availability &&
       entry.availability.externalExposure === "enabled" &&
       entry.availability.implementation !== "available"
     ) {
@@ -640,7 +882,6 @@ export function assertCapabilityManifestInvariants(
         `${name} cannot expose an unavailable implementation`
       );
     }
-
     assertAnnotations(entry);
     assertAuthorization(entry, manifestRevision);
     assertConfirmation(entry);

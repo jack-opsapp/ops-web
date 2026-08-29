@@ -13,7 +13,10 @@ import {
   DurableMcpRateLimitUnavailableError,
   type DurableMcpRateLimiter,
 } from "./durable-rate-limit";
-import { resolveDomainReadMethod } from "./domain-dispatch";
+import {
+  resolveDomainReadMethod,
+  type McpDomainMethodName,
+} from "./domain-dispatch";
 import type { McpOAuthRpcClient } from "./oauth";
 import { checkCapabilityRate } from "./rate-limit";
 import { McpServer } from "./sdk";
@@ -208,11 +211,16 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
     }
   );
 
+  const domainMethods = domainService as unknown as Partial<
+    Record<McpDomainMethodName, DomainReadMethod>
+  >;
   for (const entry of externallyExposedReadCapabilities(exposure)) {
     const methodName = resolveDomainReadMethod(entry.name);
-    const method = domainService[methodName].bind(
-      domainService
-    ) as DomainReadMethod;
+    const selectedMethod = domainMethods[methodName];
+    if (typeof selectedMethod !== "function") {
+      throw new TypeError("MCP exposure has no constructed domain method");
+    }
+    const method = selectedMethod.bind(domainService) as DomainReadMethod;
 
     server.registerTool(
       entry.name,

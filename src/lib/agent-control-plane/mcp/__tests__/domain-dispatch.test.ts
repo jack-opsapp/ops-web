@@ -6,6 +6,7 @@ import {
   resolveDomainReadMethod,
 } from "@/lib/agent-control-plane/mcp/domain-dispatch";
 import type { CurrentProductionMcpToolId } from "@/lib/agent-control-plane/registry/read-capabilities/current-production";
+import type { P2ReadCapabilityId } from "@/lib/agent-control-plane/registry/read-capabilities/p2";
 
 const EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD = [
   ["list_scheduled_jobs", "listScheduledJobs"],
@@ -19,13 +20,36 @@ const EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD = [
   ["search_customers", "searchCustomers"],
   ["search_jobs", "searchJobs"],
   ["resolve_job_participants", "resolveJobParticipants"],
+  ["get_customer_context", "getCustomerContext"],
+  ["list_tasks", "listTasks"],
+  ["get_task_context", "getTaskContext"],
+  ["list_job_artifacts", "listJobArtifacts"],
+  ["get_job_artifact_evidence", "getJobArtifactEvidence"],
+  ["list_site_visits", "listSiteVisits"],
+  ["get_site_visit_context", "getSiteVisitContext"],
+  ["get_deck_design_geometry", "getDeckDesignGeometry"],
+  ["list_sales_documents", "listSalesDocuments"],
+  ["get_sales_document", "getSalesDocument"],
+  ["list_payments", "listPayments"],
+  ["list_expenses", "listExpenses"],
+  ["get_expense_context", "getExpenseContext"],
+  ["list_work_queue", "listWorkQueue"],
+  ["search_catalog_items", "searchCatalogItems"],
+  ["get_catalog_item", "getCatalogItem"],
+  ["list_purchase_orders", "listPurchaseOrders"],
+  ["get_purchase_order", "getPurchaseOrder"],
+  ["get_company_context", "getCompanyContext"],
+  ["list_team_members", "listTeamMembers"],
+  ["list_team_availability", "listTeamAvailability"],
+  ["get_integration_health", "getIntegrationHealth"],
+  ["get_operational_overview", "getOperationalOverview"],
 ] as const;
 
 describe("typed MCP domain dispatch", () => {
-  it("pins the complete static eleven-read map in external order", () => {
-    expectTypeOf<
-      keyof typeof DOMAIN_METHOD_BY_CAPABILITY
-    >().toEqualTypeOf<CurrentProductionMcpToolId>();
+  it("pins all thirty-four implemented reads in canonical manifest order", () => {
+    expectTypeOf<keyof typeof DOMAIN_METHOD_BY_CAPABILITY>().toEqualTypeOf<
+      CurrentProductionMcpToolId | P2ReadCapabilityId
+    >();
     expect(Object.entries(DOMAIN_METHOD_BY_CAPABILITY)).toEqual(
       EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD
     );

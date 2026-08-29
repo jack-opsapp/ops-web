@@ -6,7 +6,12 @@ import { createSupabaseCorrespondenceEvidencePageRepository } from "@/lib/agent-
 import { createOpsAgentDomainService } from "@/lib/agent-control-plane/services/create-domain-service";
 import { createSupabaseCustomerJobsRepository } from "@/lib/agent-control-plane/services/customer-jobs-repository";
 import { createSupabaseCustomerDiscoveryRepository } from "@/lib/agent-control-plane/services/customer-discovery-repository";
-import type { OpsAgentDomainService } from "@/lib/agent-control-plane/services/domain-service";
+import { createOpsAgentP2DomainService } from "@/lib/agent-control-plane/services/p2/domain-service";
+import { createSupabaseOpsAgentP2Repositories } from "@/lib/agent-control-plane/services/p2/repositories";
+import {
+  createOpsAgentReadCatalogueService,
+  type OpsAgentReadCatalogueService,
+} from "@/lib/agent-control-plane/services/read-catalogue-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -36,7 +41,7 @@ interface McpRpcClient {
 }
 
 export interface McpServerRuntime {
-  readonly domainService: OpsAgentDomainService;
+  readonly domainService: OpsAgentReadCatalogueService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -70,8 +75,9 @@ export function getMcpServerRuntime(): McpServerRuntime {
   if (!CURSOR_KEY_PATTERN.test(rawKey)) {
     throw new TypeError("MCP operational read cursor key is not provisioned");
   }
+  const cursorKey = Uint8Array.from(Buffer.from(rawKey, "hex"));
   const cursorCodec = createOperationalReadCursorCodec({
-    key: Uint8Array.from(Buffer.from(rawKey, "hex")),
+    key: cursorKey,
     keyId: "mcp-operational-read",
     version: 1,
   });
@@ -142,8 +148,17 @@ export function getMcpServerRuntime(): McpServerRuntime {
     jobDiscovery: createSupabaseJobDiscoveryRepository(rpcClient, cursorCodec),
   });
 
+  const currentProduction = createOpsAgentDomainService({ repositories });
+  const p2 = createOpsAgentP2DomainService({
+    repositories: createSupabaseOpsAgentP2Repositories(rpcClient),
+    cursorKey: { keyId: "mcp-p2-read", key: cursorKey },
+  });
+
   cachedRuntime = Object.freeze({
-    domainService: createOpsAgentDomainService({ repositories }),
+    domainService: createOpsAgentReadCatalogueService({
+      currentProduction,
+      p2,
+    }),
     authorityRepository: createSupabaseActorAuthorityRepository(rpcClient),
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

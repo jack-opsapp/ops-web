@@ -5,7 +5,7 @@ import {
   type AuthorizedCapability,
 } from "@/lib/agent-control-plane/actor/authorize-capability";
 import {
-  isManifestCapabilityPolicy,
+  isActiveManifestCapabilityPolicy,
   type ManifestCapabilityPolicy,
 } from "@/lib/agent-control-plane/actor/capability-policy-boundary";
 
@@ -84,7 +84,7 @@ export function assertP2ReadPolicyBinding(input: {
 }): P2ValidatedReadPolicyBinding {
   if (
     !isAuthorizedCapability(input.authorization) ||
-    !isManifestCapabilityPolicy(input.policy)
+    !isActiveManifestCapabilityPolicy(input.policy)
   ) {
     throw new P2ReadAuthorizationError();
   }

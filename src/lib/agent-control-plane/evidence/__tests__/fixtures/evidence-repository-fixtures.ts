@@ -1,6 +1,9 @@
 import type { ActorAuthoritySnapshot } from "@/lib/agent-control-plane/actor/authority-repository";
 import { authorizeCapability } from "@/lib/agent-control-plane/actor/authorize-capability";
-import { defineCapabilityPolicyForManifest } from "@/lib/agent-control-plane/actor/capability-policy-boundary";
+import {
+  activateCapabilityPolicyForManifest,
+  defineCapabilityPolicyForManifest,
+} from "@/lib/agent-control-plane/actor/capability-policy-boundary";
 import { resolveActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import { verifiedInternalPrincipalFixture } from "@/lib/agent-control-plane/actor/__tests__/fixtures/verified-principal-fixtures";
 import { trustedAuthorityRepositoryForSnapshot } from "@/lib/agent-control-plane/actor/__tests__/fixtures/trusted-repository-fixtures";
@@ -66,20 +69,22 @@ async function authorization() {
   return authorizeCorrespondenceEvidenceRead(
     authorizeCapability({
       actorContext,
-      policy: defineCapabilityPolicyForManifest({
-        capabilityId: manifestPolicy.capabilityId,
-        capabilityRevision: manifestPolicy.capabilityRevision,
-        capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
-        requiredOAuthScopes: manifestPolicy.requiredOAuthScopes,
-        permissionRequirementGroups: [
-          [
-            {
-              permission: "inbox.view",
-              allowedScopes: ["all", "assigned", "own"],
-            },
+      policy: activateCapabilityPolicyForManifest(
+        defineCapabilityPolicyForManifest({
+          capabilityId: manifestPolicy.capabilityId,
+          capabilityRevision: manifestPolicy.capabilityRevision,
+          capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
+          requiredOAuthScopes: manifestPolicy.requiredOAuthScopes,
+          permissionRequirementGroups: [
+            [
+              {
+                permission: "inbox.view",
+                allowedScopes: ["all", "assigned", "own"],
+              },
+            ],
           ],
-        ],
-      }),
+        })
+      ),
     })
   );
 }

@@ -20,6 +20,7 @@ import {
   CAPABILITY_MANIFEST,
   CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
+import { MCP_EXPOSURE_V1 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   createOpsAgentDomainService,
   type CreateOpsAgentDomainServiceInput,
@@ -494,11 +495,7 @@ describe("operational reads domain facade", () => {
         "repository",
       ])
     );
-    expect(
-      CAPABILITY_MANIFEST.filter(
-        (capability) => capability.availability.implementation === "available"
-      ).map((capability) => capability.name)
-    ).toEqual([
+    expect(MCP_EXPOSURE_V1.toolIds).toEqual([
       "list_scheduled_jobs",
       "list_job_readiness_issues",
       "get_job_communication_context",
@@ -516,24 +513,15 @@ describe("operational reads domain facade", () => {
       "list_job_readiness_issues",
       "get_job_communication_context",
       "resolve_job_participants",
-    ]) {
+    ] as const) {
       const capability = CAPABILITY_MANIFEST.find(
         (entry) => entry.name === capabilityName
       );
       expect(capability?.availability).toEqual({
         implementation: "available",
-        externalExposure: "enabled",
       });
+      expect(MCP_EXPOSURE_V1.toolIds).toContain(capabilityName);
     }
-    expect(
-      CAPABILITY_MANIFEST.every(
-        (capability) =>
-          capability.availability.externalExposure ===
-          (capability.availability.implementation === "available"
-            ? "enabled"
-            : "disabled")
-      )
-    ).toBe(true);
   });
 
   it("returns identical parsed schedule and readiness results for distinct internal, OPS API, and MCP actors", async () => {

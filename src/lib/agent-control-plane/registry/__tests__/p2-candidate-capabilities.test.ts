@@ -4,11 +4,14 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { z } from "zod-v4";
 
-import { isManifestCapabilityPolicy } from "@/lib/agent-control-plane/actor/capability-policy-boundary";
 import {
-  RESERVED_P2_MANIFEST_REVISION,
+  isActiveManifestCapabilityPolicy,
+  isManifestCapabilityPolicy,
+} from "@/lib/agent-control-plane/actor/capability-policy-boundary";
+import {
   mintP2CandidateCapability,
-} from "@/lib/agent-control-plane/registry/read-capabilities/p2";
+  RESERVED_P2_MANIFEST_REVISION,
+} from "@/lib/agent-control-plane/registry/read-capabilities/p2/candidate-policy";
 import { CAPABILITY_MANIFEST } from "../capability-manifest";
 import type { ImplementationOnlyCapabilityDefinition } from "../capability-types";
 
@@ -94,6 +97,7 @@ describe("P2 isolated candidate policy harness", () => {
 
     const policy = candidate.authorization.variants[0]!.policy;
     expect(isManifestCapabilityPolicy(policy)).toBe(true);
+    expect(isActiveManifestCapabilityPolicy(policy)).toBe(false);
     expect(policy).toMatchObject({
       capabilityId: CANDIDATE_NAME,
       capabilityRevision: `${CANDIDATE_NAME}:2026-08-22.v1`,

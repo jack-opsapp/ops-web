@@ -4,7 +4,9 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  activateCapabilityPolicyForManifest,
   defineCapabilityPolicyForManifest,
+  isActiveManifestCapabilityPolicy,
   isManifestCapabilityPolicy,
   type ManifestCapabilityPolicy,
   type ManifestCapabilityPolicyDefinition,
@@ -44,7 +46,13 @@ describe("manifest capability policy boundary", () => {
     const policy = defineCapabilityPolicyForManifest(definition());
 
     expect(isManifestCapabilityPolicy(policy)).toBe(true);
+    expect(isActiveManifestCapabilityPolicy(policy)).toBe(false);
     expect(isManifestCapabilityPolicy({ ...policy })).toBe(false);
+    expect(() =>
+      activateCapabilityPolicyForManifest({ ...policy } as never)
+    ).toThrow(TypeError);
+    expect(activateCapabilityPolicyForManifest(policy)).toBe(policy);
+    expect(isActiveManifestCapabilityPolicy(policy)).toBe(true);
     expect(Object.isFrozen(policy)).toBe(true);
     expect(Object.isFrozen(policy.requiredOAuthScopes)).toBe(true);
     expect(Object.isFrozen(policy.permissionRequirementGroups)).toBe(true);
@@ -157,11 +165,12 @@ describe("manifest capability policy boundary", () => {
     expect(() => defineCapabilityPolicyForManifest(value)).toThrow(TypeError);
   });
 
-  it("keeps the authority-minting factory at the exact server-owned manifest boundary", () => {
+  it("keeps nominal policy minting inside the manifest and closed P2 definition harness", () => {
     const sourceRoot = join(process.cwd(), "src");
     const allowedProductionCallers = new Set([
       "lib/agent-control-plane/actor/capability-policy-boundary.ts",
       "lib/agent-control-plane/registry/capability-manifest.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/candidate-policy.ts",
     ]);
 
     const productionCallers = sourceFiles(sourceRoot)
@@ -178,5 +187,58 @@ describe("manifest capability policy boundary", () => {
     expect(productionCallers).toContain(
       "lib/agent-control-plane/actor/capability-policy-boundary.ts"
     );
+  });
+
+  it("keeps policy activation at the exact central manifest boundary", () => {
+    const sourceRoot = join(process.cwd(), "src");
+    const allowedProductionCallers = new Set([
+      "lib/agent-control-plane/actor/capability-policy-boundary.ts",
+      "lib/agent-control-plane/registry/capability-manifest.ts",
+    ]);
+
+    const productionCallers = sourceFiles(sourceRoot)
+      .filter((path) => /\.(?:ts|tsx)$/.test(path))
+      .filter((path) => !path.includes("/__tests__/"))
+      .filter((path) =>
+        readFileSync(path, "utf8").includes(
+          "activateCapabilityPolicyForManifest"
+        )
+      )
+      .map((path) => relative(sourceRoot, path));
+
+    expect(new Set(productionCallers)).toEqual(allowedProductionCallers);
+  });
+
+  it("keeps the P2 candidate minter inside the exact closed definition set", () => {
+    const sourceRoot = join(process.cwd(), "src");
+    const allowedProductionCallers = new Set([
+      "lib/agent-control-plane/registry/read-capabilities/p2/artifacts.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/availability.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/candidate-policy.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/catalog.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/company.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/customer-context.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/deck-design.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/expenses.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/integrations.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/overview.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/payments.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/purchasing.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/sales.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/site-visits.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/tasks.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/team.ts",
+      "lib/agent-control-plane/registry/read-capabilities/p2/work-queue.ts",
+    ]);
+
+    const productionCallers = sourceFiles(sourceRoot)
+      .filter((path) => /\.(?:ts|tsx)$/.test(path))
+      .filter((path) => !path.includes("/__tests__/"))
+      .filter((path) =>
+        readFileSync(path, "utf8").includes("mintP2CandidateCapability")
+      )
+      .map((path) => relative(sourceRoot, path));
+
+    expect(new Set(productionCallers)).toEqual(allowedProductionCallers);
   });
 });

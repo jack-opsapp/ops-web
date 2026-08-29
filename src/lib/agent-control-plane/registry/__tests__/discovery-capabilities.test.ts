@@ -6,10 +6,10 @@ import {
   MAX_DISCOVERY_OUTPUT_CHARACTERS,
 } from "@/lib/agent-control-plane/contracts/discovery";
 import {
-  CAPABILITY_MANIFEST,
-  CAPABILITY_MANIFEST_REVISION,
-  getCapabilityManifestEntry,
-  resolveCapabilityAuthorization,
+  V7_CAPABILITY_MANIFEST as CAPABILITY_MANIFEST,
+  V7_CAPABILITY_MANIFEST_REVISION as CAPABILITY_MANIFEST_REVISION,
+  getV7CapabilityManifestEntry as getCapabilityManifestEntry,
+  resolveV7CapabilityAuthorization as resolveCapabilityAuthorization,
 } from "../capability-manifest";
 
 const EXPECTED_MANIFEST_REVISION = "2026-08-20.capability-manifest.v7" as const;

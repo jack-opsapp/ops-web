@@ -16,6 +16,12 @@ import {
   isTrustedOperationalReadCursorCodec,
   type OperationalReadCursorCodec,
 } from "@/lib/agent-control-plane/services/operational-read-cursor";
+import {
+  createOpsAgentP2DomainService,
+  type P2CursorKey,
+} from "@/lib/agent-control-plane/services/p2/domain-service";
+import { createSupabaseOpsAgentP2Repositories } from "@/lib/agent-control-plane/services/p2/repositories";
+import { createOpsAgentReadCatalogueService } from "@/lib/agent-control-plane/services/read-catalogue-service";
 import { createOpsAgentDomainRepositories } from "@/lib/agent-control-plane/services/repositories";
 import { createSupabaseScheduledJobsRepository } from "@/lib/agent-control-plane/services/scheduled-jobs-repository";
 import {
@@ -37,6 +43,7 @@ export interface InternalPhaseCRuntimeRpcClient {
 export interface CreateInternalPhaseCAdapterRuntimeInput {
   readonly rpcClient: InternalPhaseCRuntimeRpcClient;
   readonly cursorCodec: OperationalReadCursorCodec;
+  readonly p2CursorKey: P2CursorKey;
 }
 
 /**
@@ -79,7 +86,15 @@ export function createInternalPhaseCAdapterRuntime(
     ),
     jobDiscovery: createSupabaseJobDiscoveryRepository(rpcClient, cursorCodec),
   });
-  const domainService = createOpsAgentDomainService({ repositories });
+  const currentProduction = createOpsAgentDomainService({ repositories });
+  const p2 = createOpsAgentP2DomainService({
+    repositories: createSupabaseOpsAgentP2Repositories(rpcClient),
+    cursorKey: input.p2CursorKey,
+  });
+  const domainService = createOpsAgentReadCatalogueService({
+    currentProduction,
+    p2,
+  });
   const authorityRepository = createSupabaseActorAuthorityRepository(rpcClient);
   const sourceTurnRepository = createPhaseCSourceTurnRepository(
     createSupabasePhaseCSourceTurnReadAdapter(rpcClient)

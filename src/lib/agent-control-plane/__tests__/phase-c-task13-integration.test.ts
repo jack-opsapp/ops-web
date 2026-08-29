@@ -6,6 +6,7 @@ import {
   CAPABILITY_MANIFEST_REVISION,
   getCapabilityManifestEntry,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
+import { MCP_EXPOSURE_V1 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const INTERNAL_READS = [
   "get_job_conversation_context",
@@ -20,11 +21,11 @@ const INTERNAL_READS = [
 ] as const;
 
 describe("Phase C and Task 13 integration", () => {
-  it("keeps the Phase C seams while exposing only the complete v7 read set", () => {
+  it("keeps the Phase C seams under v8 while exposure v1 remains unchanged", () => {
     expect(createInternalPhaseCAdapter).toBeTypeOf("function");
     expect(observeReplyContextShadow).toBeTypeOf("function");
     expect(CAPABILITY_MANIFEST_REVISION).toBe(
-      "2026-08-20.capability-manifest.v7"
+      "2026-08-22.capability-manifest.v8"
     );
 
     for (const capabilityName of INTERNAL_READS) {
@@ -32,8 +33,9 @@ describe("Phase C and Task 13 integration", () => {
       expect(capability.operation).toBe("read");
       expect(capability.availability).toEqual({
         implementation: "available",
-        externalExposure: "enabled",
       });
+      expect(MCP_EXPOSURE_V1.toolIds).toContain(capabilityName);
     }
+    expect(MCP_EXPOSURE_V1.toolIds).toHaveLength(11);
   });
 });

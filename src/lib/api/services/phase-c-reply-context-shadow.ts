@@ -107,15 +107,22 @@ function snapshotInput(
   }
 }
 
-function operationalReadCursorCodec() {
+function operationalReadCursorConfiguration() {
   const rawKey = process.env[OPERATIONAL_READ_CURSOR_KEY_ENV]?.trim() ?? "";
   if (!CURSOR_KEY_PATTERN.test(rawKey)) {
     throw new TypeError("Phase C shadow cursor configuration is unavailable");
   }
-  return createOperationalReadCursorCodec({
-    key: Uint8Array.from(Buffer.from(rawKey, "hex")),
-    keyId: "phase-c-shadow",
-    version: 1,
+  const key = Uint8Array.from(Buffer.from(rawKey, "hex"));
+  return Object.freeze({
+    cursorCodec: createOperationalReadCursorCodec({
+      key,
+      keyId: "phase-c-shadow",
+      version: 1,
+    }),
+    p2CursorKey: Object.freeze({
+      keyId: "phase-c-p2",
+      key: Uint8Array.from(key),
+    }),
   });
 }
 
@@ -129,7 +136,8 @@ function boundedRpcClient(
       args: Readonly<Record<string, unknown>>
     ): PromiseLike<{ readonly data: unknown; readonly error: unknown }> {
       const request = client.rpc.call(client, functionName, args) as
-        AbortableRpcRequest | undefined;
+        | AbortableRpcRequest
+        | undefined;
       if (!request || typeof request.then !== "function") {
         return Promise.reject(new TypeError("Phase C shadow RPC unavailable"));
       }
@@ -190,12 +198,13 @@ export async function runPhaseCReplyContextShadow(
       observeReplyContextShadow({
         controlContext: snapshot.controlContext,
         loadBoundedContext: async () => {
+          const cursorConfiguration = operationalReadCursorConfiguration();
           const adapter = createInternalPhaseCAdapterRuntime({
             rpcClient: boundedRpcClient(
               snapshot.rpcClient,
               abortController.signal
             ),
-            cursorCodec: operationalReadCursorCodec(),
+            ...cursorConfiguration,
           });
           return adapter.getJobConversationContext({
             routedActor: snapshot.routedActor,

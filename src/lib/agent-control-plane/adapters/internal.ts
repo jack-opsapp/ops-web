@@ -21,6 +21,7 @@ import type {
   JobConversationContextDomainResult,
   OpsAgentDomainService,
 } from "@/lib/agent-control-plane/services/domain-service";
+import { isTrustedOpsAgentReadCatalogueService } from "@/lib/agent-control-plane/services/read-catalogue-service";
 import {
   isTrustedPhaseCSourceTurnRepository,
   type PhaseCSourceTurnRepository,
@@ -110,7 +111,8 @@ export function createInternalPhaseCAdapter(
   const authorityRepository = input?.authorityRepository;
   const sourceTurnRepository = input?.sourceTurnRepository;
   if (
-    !isTrustedOpsAgentDomainService(domainService) ||
+    (!isTrustedOpsAgentDomainService(domainService) &&
+      !isTrustedOpsAgentReadCatalogueService(domainService)) ||
     !isTrustedActorAuthorityRepository(authorityRepository) ||
     !isTrustedPhaseCSourceTurnRepository(sourceTurnRepository)
   ) {

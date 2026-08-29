@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  CAPABILITY_MANIFEST,
-  CAPABILITY_MANIFEST_REVISION,
-  getCapabilityManifestEntry,
-  resolveCapabilityAuthorization,
+  V7_CAPABILITY_MANIFEST as CAPABILITY_MANIFEST,
+  V7_CAPABILITY_MANIFEST_REVISION as CAPABILITY_MANIFEST_REVISION,
+  getV7CapabilityManifestEntry as getCapabilityManifestEntry,
+  resolveV7CapabilityAuthorization as resolveCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 
 const SITE_VISIT_CAPABILITIES = [

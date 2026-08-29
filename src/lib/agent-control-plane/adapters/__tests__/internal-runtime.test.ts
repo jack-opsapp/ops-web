@@ -14,12 +14,13 @@ function cursorCodec() {
 }
 
 describe("internal Phase C adapter runtime", () => {
-  it("constructs the complete trusted eleven-repository graph without reading", () => {
+  it("constructs both trusted read catalogues without reading", () => {
     const rpc = vi.fn();
 
     const adapter = createInternalPhaseCAdapterRuntime({
       rpcClient: { rpc },
       cursorCodec: cursorCodec(),
+      p2CursorKey: { keyId: "phase-c-p2", key: CURSOR_KEY },
     });
 
     expect(Object.isFrozen(adapter)).toBe(true);
@@ -35,6 +36,23 @@ describe("internal Phase C adapter runtime", () => {
       createInternalPhaseCAdapterRuntime({
         rpcClient: { rpc },
         cursorCodec: structuralCopy as ReturnType<typeof cursorCodec>,
+        p2CursorKey: { keyId: "phase-c-p2", key: CURSOR_KEY },
+      })
+    ).toThrow(TypeError);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed P2 cursor key before reading", () => {
+    const rpc = vi.fn();
+
+    expect(() =>
+      createInternalPhaseCAdapterRuntime({
+        rpcClient: { rpc },
+        cursorCodec: cursorCodec(),
+        p2CursorKey: {
+          keyId: "phase-c-p2",
+          key: new Uint8Array(31).fill(23),
+        },
       })
     ).toThrow(TypeError);
     expect(rpc).not.toHaveBeenCalled();

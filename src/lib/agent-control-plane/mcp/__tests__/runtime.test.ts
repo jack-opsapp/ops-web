@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 describe("MCP production runtime", () => {
-  it("constructs and caches the complete eleven-repository graph without reading", async () => {
+  it("constructs and caches all thirty-four read methods without reading", async () => {
     vi.resetModules();
     vi.stubEnv(CURSOR_KEY_ENV, "ab".repeat(32));
     const rpc = vi.fn(async () => ({ data: null, error: null }));
@@ -35,6 +35,29 @@ describe("MCP production runtime", () => {
       "getCorrespondenceEvidence",
       "searchCustomers",
       "searchJobs",
+      "getCustomerContext",
+      "listTasks",
+      "getTaskContext",
+      "listJobArtifacts",
+      "getJobArtifactEvidence",
+      "listSiteVisits",
+      "getSiteVisitContext",
+      "getDeckDesignGeometry",
+      "listSalesDocuments",
+      "getSalesDocument",
+      "listPayments",
+      "listExpenses",
+      "getExpenseContext",
+      "listWorkQueue",
+      "searchCatalogItems",
+      "getCatalogItem",
+      "listPurchaseOrders",
+      "getPurchaseOrder",
+      "getCompanyContext",
+      "listTeamMembers",
+      "listTeamAvailability",
+      "getIntegrationHealth",
+      "getOperationalOverview",
     ]);
     expect(rpc).not.toHaveBeenCalled();
   });
