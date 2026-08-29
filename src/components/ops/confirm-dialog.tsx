@@ -24,6 +24,15 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: "destructive" | "default";
   onConfirm: () => void;
+  /**
+   * Fired when the operator clicks the cancel BUTTON specifically — not when
+   * the dialog closes any other way (Escape still routes only through
+   * onOpenChange). Radix closes the dialog itself right after this fires.
+   * Callers that must distinguish an explicit decline from a mere dismissal
+   * (the lead-won prompt's KEEP OPEN records a permanent never-ask-again)
+   * use this; every existing caller ignores it.
+   */
+  onCancel?: () => void;
   loading?: boolean;
 }
 
@@ -36,6 +45,7 @@ function ConfirmDialog({
   cancelLabel = "Cancel",
   variant = "destructive",
   onConfirm,
+  onCancel,
   loading = false,
 }: ConfirmDialogProps) {
   return (
@@ -60,7 +70,9 @@ function ConfirmDialog({
           </div>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>{cancelLabel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading} onClick={onCancel}>
+            {cancelLabel}
+          </AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
