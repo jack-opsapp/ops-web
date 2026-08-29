@@ -116,7 +116,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
           <button
             data-no-select
             onClick={(e) => { e.stopPropagation(); onOpenActionMenu(project.id, e); }}
-            className="flex items-center justify-center w-6 h-6 rounded-sm text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+            className="flex items-center justify-center w-6 h-6 rounded-sm text-text-3 hover:text-text hover:bg-fill-neutral-dim transition-colors"
           >
             <MoreHorizontal className="w-[14px] h-[14px]" />
           </button>
@@ -175,7 +175,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
         const pct = (completedTasks / totalTasks) * 100;
         return (
           <div className="flex items-center gap-1.5">
-            <div className="flex-1 h-[2px] bg-[rgba(255,255,255,0.06)] rounded-full overflow-hidden">
+            <div className="flex-1 h-[2px] bg-fill-neutral-dim rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all"
                 style={{ width: `${pct}%`, backgroundColor: projectProgressColor(project.status, completedTasks / totalTasks) }}
@@ -339,7 +339,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
 
       case "pipeline":
         return project.opportunityId ? (
-          <span className="inline-flex px-1.5 py-0.5 rounded-sm bg-[rgba(255,255,255,0.06)] border border-border-subtle font-mono text-micro text-text-3 uppercase tracking-wider">
+          <span className="inline-flex px-1.5 py-0.5 rounded-sm bg-fill-neutral-dim border border-border-subtle font-mono text-micro text-text-3 uppercase tracking-wider">
             Linked
           </span>
         ) : (
@@ -379,7 +379,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
       className={cn(
         "border-b border-border-subtle transition-colors duration-100",
         "hover:bg-surface-hover-subtle",
-        isSelected && "bg-[rgba(255,255,255,0.08)]",
+        isSelected && "bg-surface-active",
         isArchived && "opacity-50",
       )}
       style={{ borderLeft: `3px solid ${statusColor}` }}
