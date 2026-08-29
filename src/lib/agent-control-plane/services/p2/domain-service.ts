@@ -1,7 +1,10 @@
 import "server-only";
 
 import { authorizeCapability } from "@/lib/agent-control-plane/actor/authorize-capability";
-import { authorizationInternal } from "@/lib/agent-control-plane/actor/errors";
+import {
+  ActorAccessError,
+  authorizationInternal,
+} from "@/lib/agent-control-plane/actor/errors";
 import {
   isActorContext,
   type ActorContext,
@@ -51,6 +54,7 @@ import {
   P2_READ_CAPABILITY_IDS,
   type P2ReadCapabilityId,
 } from "@/lib/agent-control-plane/registry/read-capabilities/p2";
+import { selectedDeckDesignGeometryVariantKeys } from "@/lib/agent-control-plane/registry/read-capabilities/p2/deck-design";
 import type { DomainCallOptions } from "../domain-service";
 import { authorizeGetJobArtifactEvidenceRead } from "./artifacts/artifact-authorization";
 import { authorizeListJobArtifactsRead } from "./artifacts/artifact-authorization";
@@ -271,6 +275,13 @@ interface P2AuthorizationBinding {
   readonly authorizations: Readonly<Record<string, unknown>>;
 }
 
+function isNominalAlternativeDenial(error: unknown): error is ActorAccessError {
+  return (
+    error instanceof ActorAccessError &&
+    (error.code === "FORBIDDEN" || error.code === "INSUFFICIENT_SCOPE")
+  );
+}
+
 function bindP2Authorization(
   capabilityId: P2ReadCapabilityId,
   actorContext: ActorContext,
@@ -294,6 +305,77 @@ function bindP2Authorization(
       "p2_domain_capability_unavailable"
     );
   }
+
+  if (capabilityId === "get_deck_design_geometry") {
+    const selection = selectedDeckDesignGeometryVariantKeys(
+      resolved.parsedInput as DeckDesignGeometryInput
+    );
+    const variantsByKey = new Map(
+      resolved.variants.map((variant) => [variant.key, variant] as const)
+    );
+    const declaredKeys = [
+      ...selection.required,
+      ...selection.alternatives.flat(),
+    ];
+    const declaredKeySet = new Set<string>(declaredKeys);
+    if (
+      selection.alternatives.some((alternative) => alternative.length === 0) ||
+      declaredKeySet.size !== declaredKeys.length ||
+      declaredKeys.length !== resolved.variants.length ||
+      declaredKeys.some((key) => !variantsByKey.has(key)) ||
+      resolved.variants.some((variant) => !declaredKeySet.has(variant.key))
+    ) {
+      throw authorizationInternal(
+        actorContext.requestId,
+        "p2_domain_authorization_selection_invalid"
+      );
+    }
+
+    const authorizationEntries: [string, unknown][] = [];
+    for (const key of selection.required) {
+      authorizationEntries.push([
+        key,
+        authorizeCapability({
+          actorContext,
+          policy: variantsByKey.get(key)!.policy,
+        }),
+      ]);
+    }
+
+    let firstAlternativeDenial: ActorAccessError | undefined;
+    for (const alternative of selection.alternatives) {
+      const alternativeEntries: [string, unknown][] = [];
+      try {
+        for (const key of alternative) {
+          alternativeEntries.push([
+            key,
+            authorizeCapability({
+              actorContext,
+              policy: variantsByKey.get(key)!.policy,
+            }),
+          ]);
+        }
+      } catch (error) {
+        if (!isNominalAlternativeDenial(error)) throw error;
+        firstAlternativeDenial ??= error;
+        continue;
+      }
+      authorizationEntries.push(...alternativeEntries);
+    }
+    if (authorizationEntries.length === 0) {
+      if (firstAlternativeDenial) throw firstAlternativeDenial;
+      throw authorizationInternal(
+        actorContext.requestId,
+        "p2_domain_authorization_alternative_missing"
+      );
+    }
+
+    return Object.freeze({
+      query: resolved.parsedInput,
+      authorizations: Object.freeze(Object.fromEntries(authorizationEntries)),
+    });
+  }
+
   return Object.freeze({
     query: resolved.parsedInput,
     authorizations: Object.freeze(
