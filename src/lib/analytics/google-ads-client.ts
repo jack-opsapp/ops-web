@@ -102,6 +102,23 @@ async function getAccessToken(): Promise<string> {
 }
 
 /**
+ * A non-OK response from the Google Ads API. Typed so callers can classify
+ * standing access conditions (401/403 authorization failures) apart from
+ * transient or code failures without string-matching. The message template is
+ * byte-identical to the untyped throw it replaces.
+ */
+export class GoogleAdsApiError extends Error {
+  readonly status: number;
+  readonly body: string;
+  constructor(status: number, body: string) {
+    super(`Google Ads API error (${status}): ${body}`);
+    this.name = "GoogleAdsApiError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
+/**
  * Low-level GAQL search against an explicit customer id. Used by both the
  * public query path and manager→client resolution (which must not recurse).
  *
@@ -140,7 +157,7 @@ async function rawSearch(
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new Error(`Google Ads API error (${response.status}): ${errorBody}`);
+      throw new GoogleAdsApiError(response.status, errorBody);
     }
 
     const data = await response.json();
