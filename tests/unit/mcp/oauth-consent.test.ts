@@ -53,6 +53,11 @@ const APP_URL = "https://app.opsapp.co";
 const RESOURCE = `${APP_URL}/api/mcp`;
 const CLIENT_ID = "11111111-2222-4333-8444-555555555555";
 const REDIRECT_URI = "https://claude.ai/api/mcp/auth_callback";
+const CODEX_REDIRECT_URI = "http://127.0.0.1:51759/callback/lwaKvnR9ZEom";
+const CODEX_WRONG_PORT_REDIRECT_URI =
+  "http://127.0.0.1:51760/callback/lwaKvnR9ZEom";
+const CODEX_WRONG_ID_REDIRECT_URI =
+  "http://127.0.0.1:51759/callback/anotherCodexId";
 const FOREIGN_REDIRECT = "https://evil.example.com/api/mcp/auth_callback";
 /** RFC 7636 appendix B challenge — 43 chars, valid PKCE charset. */
 const CODE_CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
@@ -96,6 +101,18 @@ const CONSUMED_PREVIEW_ROW = {
   code_challenge_method: "S256",
   resource: RESOURCE,
   expires_at: CONSENT_PREVIEW_EXPIRES_AT,
+};
+
+const CODEX_CLIENT_ROW = {
+  ...CLIENT_ROW,
+  client_name: "Codex",
+  redirect_uris: [CODEX_REDIRECT_URI],
+};
+
+const CODEX_CONSUMED_PREVIEW_ROW = {
+  ...CONSUMED_PREVIEW_ROW,
+  client_name: "Codex",
+  redirect_uri: CODEX_REDIRECT_URI,
 };
 
 let originalAppUrl: string | undefined;
@@ -169,6 +186,42 @@ function mockConsumedPreview(overrides: Record<string, unknown>): void {
     }
     if (fn === "get_mcp_oauth_client_as_system") {
       return { data: [CLIENT_ROW], error: null };
+    }
+    if (fn === "create_mcp_oauth_authorization_code_as_system") {
+      return { data: null, error: null };
+    }
+    return { data: null, error: null };
+  });
+}
+
+function useCodexConsentRpc(
+  previewOverrides: Record<string, unknown> = {},
+  issuePreviewAvailable = true
+): void {
+  mocks.rpc.mockImplementation(async (fn: string) => {
+    if (fn === "get_mcp_oauth_client_as_system") {
+      return { data: [CODEX_CLIENT_ROW], error: null };
+    }
+    if (fn === "issue_mcp_oauth_consent_preview_as_system") {
+      return {
+        data: issuePreviewAvailable
+          ? [
+              {
+                client_name: "Codex",
+                company_name: COMPANY_NAME,
+                expires_at: CONSENT_PREVIEW_EXPIRES_AT,
+                rate_limited: false,
+              },
+            ]
+          : [],
+        error: null,
+      };
+    }
+    if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+      return {
+        data: [{ ...CODEX_CONSUMED_PREVIEW_ROW, ...previewOverrides }],
+        error: null,
+      };
     }
     if (fn === "create_mcp_oauth_authorization_code_as_system") {
       return { data: null, error: null };
@@ -316,6 +369,41 @@ describe("MCP OAuth consent — context", () => {
         .digest("hex")
     );
     expect(issueCall?.[1]?.p_preview_hash).not.toBe(json.consentPreview);
+  });
+
+  it("stores the captured Codex callback byte-for-byte in the consent preview", async () => {
+    useCodexConsentRpc();
+
+    const response = await contextPOST(
+      post(
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ redirect_uri: CODEX_REDIRECT_URI })
+      )
+    );
+
+    expect(response.status).toBe(200);
+    const issueCall = mocks.rpc.mock.calls.find(
+      ([fn]) => fn === "issue_mcp_oauth_consent_preview_as_system"
+    );
+    expect(issueCall?.[1]?.p_redirect_uri).toBe(CODEX_REDIRECT_URI);
+  });
+
+  it("lets the store reject a valid-shaped Codex callback that was never registered", async () => {
+    useCodexConsentRpc({}, false);
+
+    const response = await contextPOST(
+      post(
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ redirect_uri: CODEX_WRONG_PORT_REDIRECT_URI })
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_request" });
+    const issueCall = mocks.rpc.mock.calls.find(
+      ([fn]) => fn === "issue_mcp_oauth_consent_preview_as_system"
+    );
+    expect(issueCall?.[1]?.p_redirect_uri).toBe(CODEX_WRONG_PORT_REDIRECT_URI);
   });
 
   it("defaults to the full read set when scope is omitted", async () => {
@@ -543,6 +631,45 @@ describe("MCP OAuth consent — approve", () => {
     expect(response.headers.get("Cache-Control")).toBe("no-store");
   });
 
+  it("approves Codex with the exact registered loopback callback", async () => {
+    useCodexConsentRpc();
+
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
+
+    expect(response.status).toBe(200);
+    const { redirect_to: redirectTo } = await response.json();
+    const url = new URL(redirectTo);
+    expect(`${url.origin}${url.pathname}`).toBe(CODEX_REDIRECT_URI);
+    expect(url.searchParams.get("code")).toMatch(
+      /^ops_mcp_ac_[A-Za-z0-9_-]{43}$/
+    );
+    expect(createCodeArgs().p_redirect_uri).toBe(CODEX_REDIRECT_URI);
+  });
+
+  it.each([
+    ["another loopback port", CODEX_WRONG_PORT_REDIRECT_URI],
+    ["another callback id", CODEX_WRONG_ID_REDIRECT_URI],
+  ])(
+    "never treats %s as the registered Codex callback",
+    async (_label, redirectUri) => {
+      useCodexConsentRpc({ redirect_uri: redirectUri });
+
+      const response = await decisionPOST(
+        post("/api/mcp/oauth/authorize/decision", decisionBody())
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "invalid_request" });
+      expect(
+        mocks.rpc.mock.calls.some(
+          ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"
+        )
+      ).toBe(false);
+    }
+  );
+
   it("uses the audience from the consumed snapshot", async () => {
     const response = await decisionPOST(
       post("/api/mcp/oauth/authorize/decision", decisionBody())
@@ -618,6 +745,28 @@ describe("MCP OAuth consent — deny", () => {
     expect(url.searchParams.get("state")).toBe("opaque-anti-csrf-state");
     expect(url.searchParams.get("code")).toBeNull();
 
+    expect(
+      mocks.rpc.mock.calls.some(
+        ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"
+      )
+    ).toBe(false);
+  });
+
+  it("denies Codex back to the exact registered loopback callback", async () => {
+    useCodexConsentRpc();
+
+    const response = await decisionPOST(
+      post(
+        "/api/mcp/oauth/authorize/decision",
+        decisionBody({ decision: "deny" })
+      )
+    );
+
+    expect(response.status).toBe(200);
+    const { redirect_to: redirectTo } = await response.json();
+    expect(redirectTo).toBe(
+      `${CODEX_REDIRECT_URI}?error=access_denied&state=opaque-anti-csrf-state`
+    );
     expect(
       mocks.rpc.mock.calls.some(
         ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"

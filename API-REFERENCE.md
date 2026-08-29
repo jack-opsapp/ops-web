@@ -3,6 +3,8 @@
 > Legacy Bubble endpoints documented below use `https://opsapp.co/api/1.1/`, API-token bearer authorization from `/wf/generate-api-token`, and soft deletes via PATCH with `deletedAt`.
 > First-party Next.js endpoints use `https://app.opsapp.co/api/...`. The production remote MCP resource is `POST https://app.opsapp.co/api/mcp` with OPS OAuth bearer authorization.
 
+**MCP connector compatibility (local candidate, 2026-08-29):** The authorization server retains RFC 7591 DCR and PKCE S256. Claude registration is restricted to its two exact hosted callbacks. Codex desktop registration additionally accepts exactly one raw `http://127.0.0.1:<1-65535>/callback/<bounded-base64url-id>` callback after Codex binds the port. The URI remains byte-exact through consent, authorization code creation, and token exchange; there is no wildcard-port matching, `localhost` alias, CIMD, or issuer-response support. This change is unpushed, undeployed, and unapplied in production.
+
 ---
 
 ## 1. Projects

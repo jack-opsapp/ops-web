@@ -70,6 +70,11 @@ const GRANT_ID = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
 const REVISION = "a1b2c3d4e5f60718293a4b5c6d7e8f90";
 const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const CALLBACK_TWIN = "https://claude.com/api/mcp/auth_callback";
+const CODEX_CALLBACK = "http://127.0.0.1:51759/callback/lwaKvnR9ZEom";
+const CODEX_WRONG_PORT_CALLBACK =
+  "http://127.0.0.1:51760/callback/lwaKvnR9ZEom";
+const CODEX_WRONG_ID_CALLBACK =
+  "http://127.0.0.1:51759/callback/anotherCodexId";
 const CODE_VERIFIER = "ops-mcp-verifier-0123456789abcdefghijklmnopqrstuvwxyz";
 const SCOPES = [...SUPPORTED_READ_SCOPES];
 const ACCEPTED_LABELS = SCOPES.map((scope) => SCOPE_CONSENT_LABELS[scope]);
@@ -407,6 +412,38 @@ describe("POST /api/mcp/oauth/register", () => {
     expect(JSON.stringify(body)).not.toContain("client_secret");
   });
 
+  it("registers the captured Codex native DCR payload without changing its callback", async () => {
+    const response = await registerPost(
+      jsonRequest("/api/mcp/oauth/register", {
+        client_name: "Codex",
+        redirect_uris: [CODEX_CALLBACK],
+        grant_types: ["authorization_code", "refresh_token"],
+        token_endpoint_auth_method: "none",
+        response_types: ["code"],
+        scope: "ops.jobs.read",
+        application_type: "native",
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(
+      lastCallTo("register_mcp_oauth_client_as_system").args
+    ).toMatchObject({
+      p_client_name: "Codex",
+      p_redirect_uris: [CODEX_CALLBACK],
+      p_scope: "ops.jobs.read",
+      p_scope_ceiling: ["ops.jobs.read"],
+    });
+    const body = await response.json();
+    expect(body).toMatchObject({
+      client_id: CLIENT_ID,
+      client_name: "Codex",
+      redirect_uris: [CODEX_CALLBACK],
+      token_endpoint_auth_method: "none",
+    });
+    expect(body).not.toHaveProperty("client_secret");
+  });
+
   it("rejects a redirect URI that is not the Claude connector callback", async () => {
     const response = await registerPost(
       jsonRequest("/api/mcp/oauth/register", {
@@ -520,6 +557,56 @@ describe("POST /api/mcp/oauth/token (authorization_code)", () => {
     expect(JSON.stringify(state.calls)).not.toContain(body.access_token);
     expect(JSON.stringify(state.calls)).not.toContain(body.refresh_token);
   });
+
+  it("exchanges a Codex code against the exact registered loopback callback", async () => {
+    state.clientRow = {
+      ...defaultClientRow(),
+      client_name: "Codex",
+      redirect_uris: [CODEX_CALLBACK],
+    };
+    const { body: requestBody } = codeExchangeBody({
+      redirect_uri: CODEX_CALLBACK,
+    });
+
+    const response = await tokenPost(
+      formRequest("/api/mcp/oauth/token", requestBody)
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      lastCallTo("consume_mcp_oauth_authorization_code_as_system").args
+        .p_redirect_uri
+    ).toBe(CODEX_CALLBACK);
+  });
+
+  it.each([
+    ["another loopback port", CODEX_WRONG_PORT_CALLBACK],
+    ["another callback id", CODEX_WRONG_ID_CALLBACK],
+  ])(
+    "does not treat %s as the registered Codex callback",
+    async (_label, redirectUri) => {
+      state.clientRow = {
+        ...defaultClientRow(),
+        client_name: "Codex",
+        redirect_uris: [CODEX_CALLBACK],
+      };
+      const { body: requestBody } = codeExchangeBody({
+        redirect_uri: redirectUri,
+      });
+
+      const response = await tokenPost(
+        formRequest("/api/mcp/oauth/token", requestBody)
+      );
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toEqual({
+        error: "invalid_grant",
+      });
+      expect(
+        callsTo("consume_mcp_oauth_authorization_code_as_system")
+      ).toHaveLength(0);
+    }
+  );
 
   it("answers 401 invalid_client for an unknown client", async () => {
     state.clientRow = null;
