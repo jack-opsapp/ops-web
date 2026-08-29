@@ -43,6 +43,20 @@ export interface SendOptions {
   dedupMs?: number;
 }
 
+/**
+ * What a send actually did. Callers that own an at-least-once cursor (the PMF
+ * threshold check) must be able to tell "delivered or deduped" from "reached
+ * nobody" — a window may only be marked scanned once its alerts landed.
+ */
+export interface SendOutcome {
+  /** True when the dedup window short-circuited the send; nothing was tried. */
+  deduped: boolean;
+  /** Channels this send entered, in fan-out order. */
+  attempted: NotificationChannel[];
+  /** Subset of `attempted` that failed after retries. */
+  failed: NotificationChannel[];
+}
+
 const DEFAULT_DEDUP: Record<NotificationKind, number> = {
   threshold_alert: 4 * 60 * 60 * 1000,
   daily_digest: 0,
@@ -124,16 +138,23 @@ export async function withRetry<T>(
   throw lastErr;
 }
 
-export async function sendPmfNotification(opts: SendOptions): Promise<void> {
+export async function sendPmfNotification(
+  opts: SendOptions
+): Promise<SendOutcome> {
   const dedupMs = opts.dedupMs ?? DEFAULT_DEDUP[opts.kind];
-  if (await hasRecentSend(opts.kind, opts.trigger, dedupMs)) return;
+  if (await hasRecentSend(opts.kind, opts.trigger, dedupMs)) {
+    return { deduped: true, attempted: [], failed: [] };
+  }
 
   const recipients = getPmfRecipients();
   const sb = getAdminSupabase();
+  const attempted: NotificationChannel[] = [];
+  const failed: NotificationChannel[] = [];
 
   // SMS — only for threshold alerts.
   if (opts.kind === "threshold_alert" && opts.smsBody) {
     const smsBody = opts.smsBody;
+    attempted.push("sms");
     try {
       await withRetry(() => sendSms(recipients.sms, smsBody));
       await logSend({
@@ -152,12 +173,14 @@ export async function sendPmfNotification(opts: SendOptions): Promise<void> {
         payload: { body: smsBody },
         error: errorMessage(e),
       });
+      failed.push("sms");
     }
   }
 
   // Email.
   if (opts.emailSubject && opts.emailReact) {
     const subject = opts.emailSubject;
+    attempted.push("email");
     const html = await render(opts.emailReact);
     try {
       await withRetry(() =>
@@ -179,12 +202,14 @@ export async function sendPmfNotification(opts: SendOptions): Promise<void> {
         payload: { subject },
         error: errorMessage(e),
       });
+      failed.push("email");
     }
   }
 
   // In-app rail — only for threshold alerts.
   if (opts.kind === "threshold_alert" && opts.inAppTitle) {
     const title = opts.inAppTitle;
+    attempted.push("in_app");
     try {
       const { error } = await sb.from("notifications").insert({
         user_id: recipients.operatorUserId,
@@ -214,6 +239,9 @@ export async function sendPmfNotification(opts: SendOptions): Promise<void> {
         payload: { title },
         error: errorMessage(e),
       });
+      failed.push("in_app");
     }
   }
+
+  return { deduped: false, attempted, failed };
 }
