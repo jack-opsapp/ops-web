@@ -7,6 +7,7 @@ export { Paragraph } from "./Paragraph";
 export { Button } from "./Button";
 export { Divider } from "./Divider";
 export { Spacer } from "./Spacer";
+export { Preview } from "./Preview";
 export { InfoBlock } from "./InfoBlock";
 export { Footer } from "./Footer";
 export { ComplianceFooter } from "./ComplianceFooter";
