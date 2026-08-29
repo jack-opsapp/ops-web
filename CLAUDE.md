@@ -186,6 +186,7 @@ When spawning a follow-up chat, fresh worktree, or background task (e.g. via `mc
 - **Text ladder:** `#EDEDED` / `#B5B5B5` / `#8A8A8A` / `#6A6A6A` (text-mute decorative only — `//` slashes, separators)
 - **Earth tones (semantic):** `olive #9DB582` / `tan #C4A868` / `rose #B58289` / `brick #93321A` (border-only)
 - **Border radius:** `panel: 10` / `modal: 12` / `btn: 5` / `chip: 4` / `bar: 2` / `sidebar: 6`. No 999px pills except avatars.
+- **Slash-opacity is banned on string color tokens.** Tailwind's `/NN` modifier REPLACES the alpha of any token defined as an rgba string (`bg-fill-neutral-dim/60` compiles to 60% white, not 60% of 6%) and silently DROPS the declaration for `var()` tokens (`bg-rose-soft/30` emits no CSS at all). Only tokens declared with `<alpha-value>` (e.g. `ops-accent`) scale correctly. Pick the token whose designed value matches the intent instead — `surface-hover-subtle` 3%, `surface-input` 4%, `border-border-subtle` 5%, `fill-neutral-dim` 6%. `scripts/check-slash-opacity.mjs` (first step of `prebuild`) fails the build on violations.
 - **Depth:** borders-only, zero box-shadows on dark backgrounds
 - **Primary button:** outlined at rest with `text-ops-accent border-ops-accent` → fills to `bg-ops-accent text-black` on hover
 - **Text alignment:** left only, never center
