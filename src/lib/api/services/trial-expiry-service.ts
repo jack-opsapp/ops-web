@@ -24,6 +24,7 @@ import {
   sendTrialExpiryReengagement,
 } from "@/lib/email/sendgrid";
 import { sendOneSignalPush } from "@/lib/integrations/onesignal";
+import { filterPushRecipientsByQuietHours } from "@/lib/notifications/server-notification-service";
 import {
   detectCompanyTimezone,
   formatTrialEndDisplay,
@@ -436,22 +437,32 @@ export const TrialExpiryService = {
 
     // ─── Send push (only for discount_3d per spec) ─────────────────────────
     if (shouldSendPush(type)) {
-      const pushCopy = buildPushCopy(type, remaining, sinceExpiry);
-      const pushResult = await sendOneSignalPush({
+      // Quiet hours: this sweep pushes every active admin directly and never
+      // passed through resolveNotificationPreferences (bug 42aa787c). The email
+      // and the in-app rows below are unaffected — push only.
+      const pushTargets = await filterPushRecipientsByQuietHours({
+        companyId: company.id,
         recipientUserIds: activeAdmins.map((u) => u.id),
-        title: pushCopy.title,
-        body: pushCopy.body,
-        data: {
-          type: "trial_expiry",
-          screen: "subscription",
-          promo_code: promoCodes?.code50 ?? "",
-        },
+        db: supabase,
       });
-      if (!pushResult.ok) {
-        console.error(
-          `[trial-expiry] Push failed for company ${company.id}:`,
-          pushResult.error
-        );
+      if (pushTargets.length > 0) {
+        const pushCopy = buildPushCopy(type, remaining, sinceExpiry);
+        const pushResult = await sendOneSignalPush({
+          recipientUserIds: pushTargets,
+          title: pushCopy.title,
+          body: pushCopy.body,
+          data: {
+            type: "trial_expiry",
+            screen: "subscription",
+            promo_code: promoCodes?.code50 ?? "",
+          },
+        });
+        if (!pushResult.ok) {
+          console.error(
+            `[trial-expiry] Push failed for company ${company.id}:`,
+            pushResult.error
+          );
+        }
       }
     }
 

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const effects = vi.hoisted(() => ({
   fullAuto: vi.fn(),
@@ -68,11 +68,16 @@ const claim = {
 };
 
 function query(result: { data: unknown; error: unknown }) {
-  const builder: Record<string, ReturnType<typeof vi.fn>> = {};
-  for (const method of ["select", "eq", "is"]) {
+  const builder: Record<string, unknown> = {};
+  for (const method of ["select", "eq", "is", "in"]) {
     builder[method] = vi.fn(() => builder);
   }
   builder.maybeSingle = vi.fn(async () => result);
+  // The quiet-hours filter awaits the builder directly (no maybeSingle).
+  builder.then = (
+    resolve: (value: typeof result) => unknown,
+    reject: (reason: unknown) => unknown
+  ) => Promise.resolve(result).then(resolve, reject);
   return builder;
 }
 
@@ -89,6 +94,10 @@ function database(options: {
   claimRejection?: unknown;
   taskError?: unknown;
   notificationProof?: Record<string, unknown>;
+  /** `notification_preferences` rows backing the quiet-hours gate. */
+  quietHoursPreferences?: Array<Record<string, unknown>>;
+  /** `companies.timezone` used to evaluate any configured window. */
+  timezone?: string;
 }) {
   const permissions = [...(options.permissions ?? [])];
   const claimBatches = [
@@ -178,6 +187,20 @@ function database(options: {
           options.actor === undefined
             ? { id: "actor-1", company_id: "company-1", is_active: true }
             : options.actor,
+        error: null,
+      });
+    }
+    if (table === "notification_preferences") {
+      // Default: nobody has a window — production reality today, so every
+      // existing push assertion in this file is unaffected.
+      return query({
+        data: options.quietHoursPreferences ?? [],
+        error: null,
+      });
+    }
+    if (table === "companies") {
+      return query({
+        data: { timezone: options.timezone ?? "UTC" },
         error: null,
       });
     }
@@ -696,5 +719,128 @@ describe("TaskMutationAutomationOutboxService", () => {
       expect.objectContaining({ p_disposition: "superseded" })
     );
     expect(result).toMatchObject({ superseded: 1, completed: 0 });
+  });
+});
+
+/**
+ * Quiet hours (bug 42aa787c). `persist_task_mutation_notification_as_system`
+ * computes wants_push + push_enabled only — it never reads the quiet-hours
+ * window — so this outbox was the core crew leak: every task assignment,
+ * completion and reschedule pushed straight through a crew member's night.
+ * The rail rows the RPC writes are untouched; only the push is dropped.
+ */
+describe("task notification quiet hours", () => {
+  const notificationClaim = {
+    ...claim,
+    kind: "task_assigned",
+    actor_user_id: null,
+  };
+
+  const proofFor = (recipients: string[]) => ({
+    disposition: "processed",
+    type: "task_assigned",
+    title: "New Task Assignment",
+    body: "A team member assigned you Site visit on Canpro shop.",
+    push_title: "New Task Assignment",
+    push_body: "A team member assigned you Site visit on Canpro shop.",
+    project_id: "project-1",
+    action_url: "/dashboard?openProject=project-1&mode=view",
+    action_label: "View Task",
+    push_recipient_ids: recipients,
+  });
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("pushes only the recipient outside the window", async () => {
+    // 23:00 UTC: inside recipient-1's 22:00–07:00, outside recipient-2's
+    // 01:00–06:00.
+    vi.setSystemTime(new Date("2026-01-15T23:00:00Z"));
+    const fake = database({
+      claims: [notificationClaim],
+      notificationProof: proofFor(["recipient-1", "recipient-2"]),
+      timezone: "UTC",
+      quietHoursPreferences: [
+        {
+          user_id: "recipient-1",
+          quiet_hours_start: "22:00:00",
+          quiet_hours_end: "07:00:00",
+        },
+        {
+          user_id: "recipient-2",
+          quiet_hours_start: "01:00:00",
+          quiet_hours_end: "06:00:00",
+        },
+      ],
+    });
+
+    const result = await TaskMutationAutomationOutboxService.processBatch(
+      fake.client as never,
+      { limit: 1 }
+    );
+
+    expect(effects.push).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientUserIds: ["recipient-2"] })
+    );
+    expect(fake.rpc).toHaveBeenCalledWith(
+      "complete_task_schedule_automation_event",
+      expect.objectContaining({ p_disposition: "processed" })
+    );
+    expect(result).toMatchObject({ claimed: 1, completed: 1 });
+  });
+
+  it("skips the push entirely when every recipient is inside the window", async () => {
+    vi.setSystemTime(new Date("2026-01-15T23:00:00Z"));
+    const fake = database({
+      claims: [notificationClaim],
+      notificationProof: proofFor(["recipient-1"]),
+      timezone: "UTC",
+      quietHoursPreferences: [
+        {
+          user_id: "recipient-1",
+          quiet_hours_start: "22:00:00",
+          quiet_hours_end: "07:00:00",
+        },
+      ],
+    });
+
+    const result = await TaskMutationAutomationOutboxService.processBatch(
+      fake.client as never,
+      { limit: 1 }
+    );
+
+    expect(effects.push).not.toHaveBeenCalled();
+    // The event still completes — the rail rows already exist and a dropped
+    // push is never retried.
+    expect(fake.rpc).toHaveBeenCalledWith(
+      "complete_task_schedule_automation_event",
+      expect.objectContaining({ p_disposition: "processed" })
+    );
+    expect(result).toMatchObject({ claimed: 1, completed: 1 });
+  });
+
+  it("pushes every recipient when nobody has a window", async () => {
+    vi.setSystemTime(new Date("2026-01-15T23:00:00Z"));
+    const fake = database({
+      claims: [notificationClaim],
+      notificationProof: proofFor(["recipient-1", "recipient-2"]),
+      timezone: "UTC",
+    });
+
+    await TaskMutationAutomationOutboxService.processBatch(
+      fake.client as never,
+      { limit: 1 }
+    );
+
+    expect(effects.push).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recipientUserIds: ["recipient-1", "recipient-2"],
+      })
+    );
   });
 });

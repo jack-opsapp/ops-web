@@ -549,10 +549,22 @@ export async function dispatchRoleNeededNotification(
     db
   );
 
-  const pushResult =
+  // Quiet hours: this sender had no preference gate at all — the rail rows
+  // above are the durable surface and always land; the push respects the
+  // admin's window like every other event-driven push (bug 42aa787c).
+  const pushTargets =
     rail.errors === 0 && rail.createdRecipientIds.length > 0
-      ? await sendOneSignalPush({
+      ? await filterPushRecipientsByQuietHours({
+          companyId,
           recipientUserIds: rail.createdRecipientIds,
+          db,
+        })
+      : [];
+
+  const pushResult =
+    pushTargets.length > 0
+      ? await sendOneSignalPush({
+          recipientUserIds: pushTargets,
           title,
           body: "Tap to assign their role.",
           data: {

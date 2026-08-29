@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { sendOneSignalPush } from "@/lib/integrations/onesignal";
+import { filterPushRecipientsByQuietHours } from "@/lib/notifications/server-notification-service";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import {
   ClientSchedulingCommsService,
@@ -384,7 +385,17 @@ async function processTaskNotificationClaim(
     throw new Error("Task notification kind did not match immutable proof");
   }
 
-  if (persisted.pushRecipientIds.length > 0) {
+  // Quiet hours: the RPC computes wants_push + push_enabled only, so a crew
+  // member's window was ignored on every task assignment, completion and
+  // reschedule — the core leak in bug 42aa787c. The rail rows the RPC already
+  // wrote stay put; only the push is dropped.
+  const pushTargets = await filterPushRecipientsByQuietHours({
+    companyId: claim.company_id,
+    recipientUserIds: persisted.pushRecipientIds,
+    db,
+  });
+
+  if (pushTargets.length > 0) {
     const pushType =
       persisted.type === "task_assigned"
         ? "taskAssignment"
@@ -403,7 +414,7 @@ async function processTaskNotificationClaim(
             screen,
           };
     const push = await sendOneSignalPush({
-      recipientUserIds: persisted.pushRecipientIds,
+      recipientUserIds: pushTargets,
       title: persisted.pushTitle!,
       body: persisted.pushBody!,
       data: pushData,
@@ -414,7 +425,7 @@ async function processTaskNotificationClaim(
 
   await complete(db, claim, "processed", {
     notificationType: persisted.type,
-    pushRecipients: persisted.pushRecipientIds.length,
+    pushRecipients: pushTargets.length,
   });
   result.completed += 1;
 }
