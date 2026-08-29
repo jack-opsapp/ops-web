@@ -63,6 +63,32 @@ function setRedirectContext(ctx: RedirectContext) {
   try { sessionStorage.setItem(REDIRECT_CTX_KEY, JSON.stringify(ctx)); } catch {}
 }
 
+/**
+ * MCP authorization carries a single-use OAuth request in the login return
+ * path. Keep that handoff in this tab: a Firebase full-page redirect can lose
+ * its browser storage result and strand the user back on /login, while the
+ * popup transport completes the same Firebase sign-in without navigating away
+ * from the preserved connector request.
+ */
+function requiresSamePageOAuth(ctx: RedirectContext): boolean {
+  return (
+    ctx.redirectTo === "/oauth/authorize" ||
+    ctx.redirectTo?.startsWith("/oauth/authorize?") === true
+  );
+}
+
+async function signInWithPopupTransport(
+  provider: GoogleAuthProvider | OAuthProvider
+): Promise<void> {
+  try {
+    const { signInWithPopup } = await import("firebase/auth");
+    await signInWithPopup(auth, provider);
+  } catch (err) {
+    clearRedirectContext();
+    throw err;
+  }
+}
+
 /** Read the redirect context once and delete it. Returns null if none. */
 export function consumeRedirectContext(): RedirectContext | null {
   try {
@@ -121,14 +147,11 @@ export function clearRedirectContext(): void {
  */
 export async function signInWithGoogle(ctx: RedirectContext): Promise<void> {
   setRedirectContext(ctx);
-  if (process.env.NODE_ENV === "development") {
-    try {
-      const { signInWithPopup } = await import("firebase/auth");
-      await signInWithPopup(auth, googleProvider);
-    } catch (err) {
-      clearRedirectContext();
-      throw err;
-    }
+  if (
+    process.env.NODE_ENV === "development" ||
+    requiresSamePageOAuth(ctx)
+  ) {
+    await signInWithPopupTransport(googleProvider);
     return;
   }
   setRedirectFlag();
@@ -138,14 +161,11 @@ export async function signInWithGoogle(ctx: RedirectContext): Promise<void> {
 /** Sign in with Apple. See `signInWithGoogle` for the dev/prod rationale. */
 export async function signInWithApple(ctx: RedirectContext): Promise<void> {
   setRedirectContext(ctx);
-  if (process.env.NODE_ENV === "development") {
-    try {
-      const { signInWithPopup } = await import("firebase/auth");
-      await signInWithPopup(auth, appleProvider);
-    } catch (err) {
-      clearRedirectContext();
-      throw err;
-    }
+  if (
+    process.env.NODE_ENV === "development" ||
+    requiresSamePageOAuth(ctx)
+  ) {
+    await signInWithPopupTransport(appleProvider);
     return;
   }
   setRedirectFlag();
