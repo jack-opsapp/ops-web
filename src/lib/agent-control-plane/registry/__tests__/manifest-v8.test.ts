@@ -71,12 +71,21 @@ const EXPECTED_DARK_WRITES = [
   "commit_site_visit_booking_cancellation",
 ] as const;
 
-function serializedManifestProjection(
-  manifest: typeof V7_CAPABILITY_MANIFEST
-): string {
+function serializedManifestProjection<
+  T extends { readonly inputSchema: unknown },
+>(manifest: readonly T[]): string {
   return JSON.stringify(
     manifest.map(({ inputSchema: _inputSchema, ...entry }) => entry)
   );
+}
+
+function serializedP2AuthorizationProjection(
+  candidate: (typeof P2_READ_CAPABILITY_CANDIDATES)[number]
+): string {
+  return JSON.stringify({
+    name: candidate.name,
+    authorization: candidate.authorization,
+  });
 }
 
 describe("immutable v8 capability manifest", () => {
@@ -133,6 +142,173 @@ describe("immutable v8 capability manifest", () => {
         );
       }
     }
+  });
+
+  it("pins the complete v8 manifest and every P2 authorization projection byte-for-byte", () => {
+    const serializedManifest =
+      serializedManifestProjection(CAPABILITY_MANIFEST);
+    const manifestDigest = createHash("sha256")
+      .update(serializedManifest)
+      .digest("hex");
+    const authorizationDigests = P2_READ_CAPABILITY_CANDIDATES.map(
+      (candidate) => {
+        const serialized = serializedP2AuthorizationProjection(candidate);
+        return {
+          name: candidate.name,
+          byteLength: new TextEncoder().encode(serialized).byteLength,
+          sha256: createHash("sha256").update(serialized).digest("hex"),
+        };
+      }
+    );
+
+    expect({
+      byteLength: new TextEncoder().encode(serializedManifest).byteLength,
+      sha256: manifestDigest,
+    }).toEqual({
+      byteLength: 121_464,
+      sha256:
+        "f9d0228eb5dd1c577a78860c5f14131ab86387eab9c48adfd52daa59130e9289",
+    });
+    expect(authorizationDigests).toEqual([
+      {
+        name: "get_customer_context",
+        byteLength: 1_879,
+        sha256:
+          "166de5d84f972b58c19007a45a7fda5d3cd0f0f17d64253830a77e4647b94807",
+      },
+      {
+        name: "list_tasks",
+        byteLength: 1_021,
+        sha256:
+          "9d38ff44c52bf179e53b896fe6cbb19d713d3011959a98b0ee0f9d0909197863",
+      },
+      {
+        name: "get_task_context",
+        byteLength: 1_667,
+        sha256:
+          "664b817b8946089ae2cfa463e529544a2c72e287d3dd3e2ce6b917bcdbd357aa",
+      },
+      {
+        name: "list_job_artifacts",
+        byteLength: 5_190,
+        sha256:
+          "17a53755d2f626801ee14ec8e5842b5dde938efa9cad44403e0b55470d515d3d",
+      },
+      {
+        name: "get_job_artifact_evidence",
+        byteLength: 5_351,
+        sha256:
+          "09c1e7953d4f6dc4ee888ab81711ca87f5c14882841996762254a7386c8d60ed",
+      },
+      {
+        name: "list_site_visits",
+        byteLength: 1_669,
+        sha256:
+          "5a36fae49d01f0e5286c9efa6f75f878e336ece7e1bbcfc399e3add80f28d31f",
+      },
+      {
+        name: "get_site_visit_context",
+        byteLength: 3_205,
+        sha256:
+          "41919f4d1166c3bcc259d21adbe299da8565c53e0a058fe53279503a7f212ff1",
+      },
+      {
+        name: "get_deck_design_geometry",
+        byteLength: 3_688,
+        sha256:
+          "cae82cdb55e204c71033125886a486fe4378086fd802ba1cf6761f0452deda86",
+      },
+      {
+        name: "list_sales_documents",
+        byteLength: 1_575,
+        sha256:
+          "5c50f81403bc23d2b06bd26f05f367fbf848c658a20b816efa148ed77a6e9a4e",
+      },
+      {
+        name: "get_sales_document",
+        byteLength: 1_619,
+        sha256:
+          "ffb316d0f0d55c82f74c320d2754b39fda7958d7db876f4e838c18659707fed2",
+      },
+      {
+        name: "list_payments",
+        byteLength: 832,
+        sha256:
+          "0be43f2e3268c7a445181164285bd4d795a4f432137d14117ee7634af68a8e29",
+      },
+      {
+        name: "list_expenses",
+        byteLength: 2_503,
+        sha256:
+          "ff5f5cf95090aab67f146c17b83ebe068fca6efb832ca1cd7925f232bd5ec26d",
+      },
+      {
+        name: "get_expense_context",
+        byteLength: 677,
+        sha256:
+          "ff706ed1965627425c9143d4168141f4e85dd495484c5598a76141ce12d0d513",
+      },
+      {
+        name: "list_work_queue",
+        byteLength: 5_360,
+        sha256:
+          "c9b94368a1cbbc7fb223a57614ace93aa69aeb0189e973777c86468fcf6e716a",
+      },
+      {
+        name: "search_catalog_items",
+        byteLength: 475,
+        sha256:
+          "4e85c75bd028ab46532bd5c7c81c1a7725f6bec9566c7770f45fb40c50f4dd1f",
+      },
+      {
+        name: "get_catalog_item",
+        byteLength: 940,
+        sha256:
+          "e18da8b70e7b7897cd9535d4830af60bb0ae549fb917cc3b0649a033bdb641f3",
+      },
+      {
+        name: "list_purchase_orders",
+        byteLength: 888,
+        sha256:
+          "3b3fbcf0c79e17e31fdbb8c412a4a8ff2b3a83271050557f90486ed6ede12ba7",
+      },
+      {
+        name: "get_purchase_order",
+        byteLength: 878,
+        sha256:
+          "95c68e5d32c098516e382dad05d985918de9aaf54da0f5d977eb99f26a8ad7b9",
+      },
+      {
+        name: "get_company_context",
+        byteLength: 413,
+        sha256:
+          "d8a042532f61c25d93aca9bc60139939269b00be5849438567c6335b085641b1",
+      },
+      {
+        name: "list_team_members",
+        byteLength: 394,
+        sha256:
+          "0b69e4db86e5893fa15183a39609e1cf8bf678d00a2ff3f9d6fc0851eec86ef9",
+      },
+      {
+        name: "list_team_availability",
+        byteLength: 895,
+        sha256:
+          "e68eede08a33896e925b8fd64f0c9140685947cef3607f1ec67da8fa42941c0a",
+      },
+      {
+        name: "get_integration_health",
+        byteLength: 1_125,
+        sha256:
+          "0990e923b187938adf49d08c81393c04da5ed4fd57fe18f5eeac9238d9ad66d6",
+      },
+      {
+        name: "get_operational_overview",
+        byteLength: 4_570,
+        sha256:
+          "327c81912e8b8246617fa5683595b6442d686ca8806cb5ba50f804e6939cd5ee",
+      },
+    ]);
   });
 
   it("preserves the complete v7 manifest projection byte-for-byte", () => {

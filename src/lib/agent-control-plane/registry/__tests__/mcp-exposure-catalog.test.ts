@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import { describe, expect, expectTypeOf, it } from "vitest";
 
@@ -103,6 +105,22 @@ describe("immutable MCP exposure catalogue", () => {
     expect(Object.isFrozen(first)).toBe(true);
     expect(Object.isFrozen(first.toolIds)).toBe(true);
     expect(Object.isFrozen(first.grantableScopes)).toBe(true);
+  });
+
+  it("keeps active exposure selection inside the server factory boundary", () => {
+    const sourceRoot = path.join(process.cwd(), "src/lib/agent-control-plane");
+    const serverFactory = readFileSync(
+      path.join(sourceRoot, "mcp/server-factory.ts"),
+      "utf8"
+    );
+    const route = readFileSync(
+      path.join(process.cwd(), "src/app/api/mcp/route.ts"),
+      "utf8"
+    );
+
+    expect(serverFactory).toContain("resolveActiveMcpExposure()");
+    expect(serverFactory).not.toContain("readonly exposure: McpExposure");
+    expect(route).not.toMatch(/createOpsMcpServer\(\{[\s\S]*?exposure:/);
   });
 
   it("makes OAuth compatibility views use the v1 scope array and only its neutral labels", () => {

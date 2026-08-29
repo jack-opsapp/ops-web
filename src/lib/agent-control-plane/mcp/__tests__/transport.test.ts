@@ -85,6 +85,22 @@ vi.mock("@/lib/agent-control-plane/registry/capability-manifest", async () => {
   };
 });
 
+vi.mock("@/lib/agent-control-plane/registry/mcp-exposure-catalog", async () => {
+  const actual = await vi.importActual<
+    typeof import("@/lib/agent-control-plane/registry/mcp-exposure-catalog")
+  >("@/lib/agent-control-plane/registry/mcp-exposure-catalog");
+  return {
+    ...actual,
+    resolveActiveMcpExposure: vi.fn(() =>
+      Object.freeze({
+        revision: "test.mcp-exposure",
+        toolIds: Object.freeze([...overrides.activeToolIds]),
+        grantableScopes: actual.MCP_EXPOSURE_V1.grantableScopes,
+      })
+    ),
+  };
+});
+
 const rateDecision = {
   exceeded: false,
   retryAfterSec: 0,
@@ -194,31 +210,26 @@ const FAKE_DURABLE_LIMITER = Object.freeze({
   }),
 });
 
-function buildHandler(domain: OpsAgentDomainService) {
+function buildHandler(
+  domain: OpsAgentDomainService,
+  callerToolIds: ReadonlySet<string> = overrides.activeToolIds
+) {
+  const serverInput = {
+    requestId: "req-test",
+    actorContext: FAKE_ACTOR_CONTEXT,
+    grantFacts: GRANT_FACTS,
+    protocolEra: "legacy" as const,
+    domainService: domain,
+    auditRpcClient: FAKE_RPC,
+    durableRateLimiter: FAKE_DURABLE_LIMITER,
+    exposure: Object.freeze({
+      revision: "caller-shaped.mcp-exposure",
+      toolIds: Object.freeze([...callerToolIds]),
+      grantableScopes: MCP_EXPOSURE_V1.grantableScopes,
+    }),
+  };
   return createMcpHandler(
-    (ctx) =>
-      createOpsMcpServer({
-        requestId: "req-test",
-        actorContext: FAKE_ACTOR_CONTEXT,
-        grantFacts: GRANT_FACTS,
-        protocolEra: ctx.era,
-        domainService: domain,
-        auditRpcClient: FAKE_RPC,
-        durableRateLimiter: FAKE_DURABLE_LIMITER,
-        exposure: Object.freeze({
-          revision: "test.mcp-exposure",
-          toolIds: Object.freeze([...overrides.activeToolIds]),
-          grantableScopes: Object.freeze([
-            "ops.jobs.read",
-            "ops.schedule.read",
-            "ops.customers.read",
-            "ops.customer_contacts.read",
-            "ops.photos.read",
-            "ops.correspondence.read",
-            "ops.financials.read",
-          ]),
-        }),
-      }),
+    (ctx) => createOpsMcpServer({ ...serverInput, protocolEra: ctx.era }),
     { legacy: "stateless" }
   );
 }
@@ -315,6 +326,18 @@ describe("externallyExposedReadCapabilities", () => {
 });
 
 describe("tool listing", () => {
+  it("does not let extra caller-shaped exposure data widen registration", async () => {
+    overrides.activeToolIds = new Set(["list_scheduled_jobs"]);
+    const callerToolIds = new Set(["list_tasks"]);
+    const { service } = fakeDomainService(() => ({}));
+    const { payload } = await listTools(buildHandler(service, callerToolIds));
+    const result = payload?.result as { tools: Array<{ name: string }> };
+
+    expect(result.tools.map((tool) => tool.name)).toEqual([
+      "list_scheduled_jobs",
+    ]);
+  });
+
   it("lists zero tools when nothing is exposed", async () => {
     const { service } = fakeDomainService(() => ({}));
     const { status, payload } = await listTools(buildHandler(service));

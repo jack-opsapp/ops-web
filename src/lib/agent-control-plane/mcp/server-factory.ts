@@ -4,7 +4,10 @@ import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor
 import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
 import { getCapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-manifest";
 import type { CapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-types";
-import type { McpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  resolveActiveMcpExposure,
+  type McpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import type { OpsAgentDomainService } from "@/lib/agent-control-plane/services/domain-service";
 import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
 import { auditInputDigest, recordMcpAudit } from "./audit";
@@ -176,7 +179,6 @@ export interface CreateOpsMcpServerInput {
   readonly domainService: OpsAgentDomainService;
   readonly auditRpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
-  readonly exposure: McpExposure;
 }
 
 /**
@@ -194,8 +196,8 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
     domainService,
     auditRpcClient,
     durableRateLimiter,
-    exposure,
   } = input;
+  const exposure = resolveActiveMcpExposure();
 
   const server = new McpServer(
     { name: "OPS", version: CONTRACT_VERSION },
