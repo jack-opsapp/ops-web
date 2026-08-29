@@ -230,9 +230,146 @@ describe("real-world HTML mail normalizes instead of rejecting", () => {
     );
     expect(normalized.normalizedPlainText).toContain("Canpro Deck and Rail");
   });
+
+  it("reads a quoted body carrying the Apple Mail U+FEFF marker", () => {
+    const normalized = normalizeCorrespondence({
+      ...htmlSource(""),
+      content: {
+        mediaType: "text/plain",
+        value:
+          "Hi Steve, just touching base here.\r\n\r\n" +
+          "> On Aug 5, 2026, at 5:38 PM, Jackson Sweet wrote:\r\n" +
+          ">\r\n> \uFEFF\r\n>\r\n> Happy to take a look at the front deck repair.\r\n",
+      },
+    });
+
+    expect(normalized.normalizedPlainText).toContain(
+      "Hi Steve, just touching base here."
+    );
+    expect(normalized.normalizedPlainText).toContain(
+      "Happy to take a look at the front deck repair."
+    );
+    expect(normalized.normalizedPlainText).not.toContain("\uFEFF");
+  });
+
+  it("reads HTML whose quoted block carries the Apple Mail U+FEFF marker", () => {
+    const normalized = normalizeCorrespondence(
+      htmlSource(
+        `<body dir="auto">Thanks<div>We close on the house in September</div>` +
+          `<blockquote type="cite"><div dir="ltr">\uFEFF<div dir="auto">` +
+          `Hi Steve, just touching base here.</div></div></blockquote></body>`
+      )
+    );
+
+    expect(normalized.normalizedPlainText).toContain(
+      "We close on the house in September"
+    );
+    expect(normalized.normalizedPlainText).toContain(
+      "Hi Steve, just touching base here."
+    );
+    expect(normalized.normalizedPlainText).not.toContain("\uFEFF");
+  });
+
+  it("reads a preheader padded with zero-width spaces", () => {
+    const normalized = normalizeCorrespondence(
+      htmlSource(
+        `<body><span>${"\u200B".repeat(120)}</span>` +
+          `<p>Your deck estimate is attached.</p></body>`
+      )
+    );
+
+    expect(normalized.normalizedPlainText).toContain(
+      "Your deck estimate is attached."
+    );
+    expect(normalized.normalizedPlainText).not.toContain("\u200B");
+  });
+
+  it("reads a legacy table sized with width and height attributes", () => {
+    const normalized = normalizeCorrespondence(
+      htmlSource(
+        `<table width="100%"><tr><td width="166" height="40px">` +
+          `Thanks for reaching out about the railing quote.</td></tr>` +
+          `<tr><td width="600">We can be on site Thursday morning.</td></tr></table>`
+      )
+    );
+
+    expect(normalized.normalizedPlainText).toContain(
+      "Thanks for reaching out about the railing quote."
+    );
+    expect(normalized.normalizedPlainText).toContain(
+      "We can be on site Thursday morning."
+    );
+  });
+
+  it("reads a legacy cell that suppresses wrapping", () => {
+    const normalized = normalizeCorrespondence(
+      htmlSource(
+        `<table><tr><td nowrap>Invoice 1042 is due Friday.</td></tr></table>`
+      )
+    );
+
+    expect(normalized.normalizedPlainText).toContain(
+      "Invoice 1042 is due Friday."
+    );
+  });
 });
 
 describe("concealment still rejects after the real-mail relaxations", () => {
+  it("still rejects a left-to-right bidi mark", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(`<p>Deposit is \u200E(1,500) due Friday</p>`)
+      )
+    ).toThrow(TypeError);
+  });
+
+  it("still rejects a right-to-left bidi mark", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(`<p>Deposit is \u200F(1,500)\u200F due Friday</p>`)
+      )
+    ).toThrow(TypeError);
+  });
+
+  it("still rejects a bidi override", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(`<p>Deposit is \u202E005,1\u202C due Friday</p>`)
+      )
+    ).toThrow(TypeError);
+  });
+
+  it("still rejects a legacy colour attribute the contrast pass cannot see", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(
+          `<table width="100%" bgcolor="white"><tr><td width="600">` +
+            `<font color="white">Customer approved Tuesday</font></td></tr></table>`
+        )
+      )
+    ).toThrow(TypeError);
+  });
+
+  it("still rejects a legacy geometry attribute that collapses its box", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(
+          `<table width="100%"><tr><td height="0">Customer approved Tuesday</td></tr></table>`
+        )
+      )
+    ).toThrow(TypeError);
+  });
+
+  it("still rejects a legacy geometry attribute this boundary cannot parse", () => {
+    expect(() =>
+      normalizeCorrespondence(
+        htmlSource(
+          `<table width="*"><tr><td>Customer approved Tuesday</td></tr></table>`
+        )
+      )
+    ).toThrow(TypeError);
+  });
+
   it("rejects a hover rule that also conceals", () => {
     expect(() =>
       normalizeCorrespondence(

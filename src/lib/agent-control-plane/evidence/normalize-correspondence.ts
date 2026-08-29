@@ -10,7 +10,10 @@ import {
   SHA256_SOURCE_VERSION_PATTERN,
   sourceVersionForCorrespondence,
 } from "./source-version";
-import { hasUnsafeUnicodeControls } from "./unicode-safety";
+import {
+  hasUnsafeUnicodeControls,
+  stripInertZeroWidthInvisibles,
+} from "./unicode-safety";
 import type {
   CorrespondenceAttachmentInput,
   NormalizeCorrespondenceInput,
@@ -478,16 +481,41 @@ const NON_TEXT_TAGS = new Set([
   "link",
   "meta",
 ]);
-const LEGACY_VISIBILITY_ATTRIBUTES = [
+/**
+ * Presentational markup the visibility pass is blind to. This DOM does not
+ * fold presentational attributes into computed style, so a colour authored
+ * this way never reaches the contrast check — `<table bgcolor="white">` around
+ * `<font color="white">` hides text the pass would otherwise score legible.
+ * `size` is the same blindness one axis over: it sets a font size the
+ * zero-font guards never observe. All of them stay indeterminate.
+ */
+const LEGACY_UNEVALUABLE_ATTRIBUTES = [
   "background",
   "bgcolor",
   "color",
-  "height",
-  "nowrap",
   "size",
   "text",
-  "width",
 ] as const;
+
+/**
+ * Presentational geometry, which is a sizing hint rather than a clip: HTML
+ * grows a cell to fit its content and neither attribute implies overflow
+ * clipping, so a positive value cannot conceal a character. Table mail is
+ * built out of these — `<table width="100%">` appears in nearly every styled
+ * message — and refusing them withheld whole messages over layout alone.
+ *
+ * A zero, negative, empty or unparseable value is exactly the collapsed-box
+ * shape this boundary will not reason about, so it stays indeterminate.
+ * `nowrap` is absent from both lists: it chooses line breaks and cannot change
+ * which characters render.
+ */
+const LEGACY_GEOMETRY_ATTRIBUTES = ["height", "width"] as const;
+const LEGACY_POSITIVE_GEOMETRY = /^\+?(\d+(?:\.\d+)?|\.\d+)(?:px|%)?$/i;
+
+function isInertLegacyGeometry(value: string): boolean {
+  const match = value.trim().match(LEGACY_POSITIVE_GEOMETRY);
+  return match !== null && Number.parseFloat(match[1]!) > 0;
+}
 const BLOCK_DISPLAY_VALUES = new Set([
   "block",
   "flow-root",
@@ -658,7 +686,14 @@ function assertSupportedCssDeclarations(value: string): void {
 }
 
 function cleanControls(value: string, allowTextWhitespace = false): string {
-  const transportNormalized = value.replace(/\r\n?/g, "\n");
+  // Zero-width BN invisibles come out before the guard reads the text. They
+  // paint nothing and the bidi algorithm discards them before it orders
+  // anything, so removing them cannot change the reading — and refusing them
+  // withheld ordinary mail: Apple Mail marks every quoted body with U+FEFF.
+  // The bidi marks are NOT in that set and still reject here.
+  const transportNormalized = stripInertZeroWidthInvisibles(
+    value.replace(/\r\n?/g, "\n")
+  );
   if (hasUnsafeUnicodeControls(transportNormalized, { allowTextWhitespace })) {
     throw new TypeError("content contains unsafe Unicode controls");
   }
@@ -1709,13 +1744,23 @@ function normalizeHtmlText(value: string): string {
       ) {
         return indeterminateCss();
       }
-      if (
-        !NON_TEXT_TAGS.has(tagName) &&
-        LEGACY_VISIBILITY_ATTRIBUTES.some((attribute) =>
-          element.hasAttribute(attribute)
-        )
-      ) {
-        return indeterminateCss();
+      if (!NON_TEXT_TAGS.has(tagName)) {
+        if (
+          LEGACY_UNEVALUABLE_ATTRIBUTES.some((attribute) =>
+            element.hasAttribute(attribute)
+          )
+        ) {
+          return indeterminateCss();
+        }
+        if (
+          LEGACY_GEOMETRY_ATTRIBUTES.some(
+            (attribute) =>
+              element.hasAttribute(attribute) &&
+              !isInertLegacyGeometry(element.getAttribute(attribute) ?? "")
+          )
+        ) {
+          return indeterminateCss();
+        }
       }
     }
     for (const styleElement of Array.from(document.querySelectorAll("style"))) {

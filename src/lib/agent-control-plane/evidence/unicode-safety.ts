@@ -25,6 +25,28 @@ export function hasUnsafeUnicodeControls(
   return false;
 }
 
+/**
+ * Zero-width code points whose Unicode bidi class is BN. UAX#9 rule X9 removes
+ * BN characters before the bidi algorithm assigns any order, and neither one
+ * paints a glyph — so deleting them cannot change the characters a reader sees
+ * or the order they see them in.
+ *
+ * Delivered mail carries them constantly and innocently: Apple Mail marks a
+ * quoted body with U+FEFF, and preheader padding is built out of U+200B. A
+ * reading of that mail is cleaned of them rather than refused.
+ *
+ * The bidi MARKS are deliberately absent from this set. U+200E is class L and
+ * U+200F is class R — both strong directional characters that can reorder a
+ * run of neutrals — so they stay unsafe alongside the embeddings, overrides
+ * and isolates. This set is for correspondence bodies only; identifiers keep
+ * rejecting every control, zero-width ones included.
+ */
+const INERT_ZERO_WIDTH_INVISIBLES = /[\u200b\ufeff]/g;
+
+export function stripInertZeroWidthInvisibles(value: string): string {
+  return value.replace(INERT_ZERO_WIDTH_INVISIBLES, "");
+}
+
 export function stripUnsafeUnicodeControls(value: string): string {
   return value.replace(UNSAFE_UNICODE_CONTROLS, (character) =>
     character === "\n" || character === "\t" ? character : ""
