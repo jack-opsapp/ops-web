@@ -48,7 +48,7 @@ export function AccountingTotals({
         className
       )}
     >
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-b border-line/60 pb-2">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-b border-border-subtle pb-2">
         <Cell
           label={t("rail.totalEstimates", "[ESTIMATES]")}
           value={formatCurrency(estimatesTotal)}

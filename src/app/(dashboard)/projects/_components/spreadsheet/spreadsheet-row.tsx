@@ -378,7 +378,7 @@ export const SpreadsheetRow = memo(function SpreadsheetRow({
     <tr
       className={cn(
         "border-b border-border-subtle transition-colors duration-100",
-        "hover:bg-fill-neutral-dim/50",
+        "hover:bg-surface-hover-subtle",
         isSelected && "bg-[rgba(255,255,255,0.08)]",
         isArchived && "opacity-50",
       )}
