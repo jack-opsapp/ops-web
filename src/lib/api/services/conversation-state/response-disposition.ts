@@ -9,6 +9,12 @@ import { isMaterialDecisionReversal } from "./accept-detector";
 export interface ResponseDispositionInput {
   messages: CleanMessage[];
   accept: AcceptSignal;
+  /**
+   * Whether the server can actually READ this lead's schedule. `true` unlocks a
+   * scheduling reply (the drafter is handed verified calendar facts); `false`
+   * or `null` — unprobed, or the read failed — keeps the historical hold.
+   */
+  scheduleFactsAvailable: boolean | null;
 }
 
 export interface ResponseDispositionDecision {
@@ -107,6 +113,17 @@ export function decideResponseDisposition(
     SCHEDULE_PROPOSAL_QUESTION_RE.test(body) ||
     (SCHEDULE_CONTEXT_RE.test(body) && asksForAction)
   ) {
+    // A scheduling question is answerable ONLY when the server can read the
+    // calendar it would be answered from. Verified schedule facts turn the
+    // historical blanket hold into a draft; anything else still holds.
+    if (input.scheduleFactsAvailable === true) {
+      return {
+        disposition: "reply_required",
+        mode: "schedule",
+        reason:
+          "Scheduling question with server-verified schedule context available.",
+      };
+    }
     return {
       disposition: "operator_input_required",
       mode: "schedule",

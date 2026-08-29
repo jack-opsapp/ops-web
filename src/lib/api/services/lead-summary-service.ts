@@ -89,6 +89,9 @@ const EMAILS_IN_PROMPT = 40;
 const CONVERSATION_FOLD_FACTS_PER_KIND = 3;
 const COMMERCIAL_PRICE_FACT_CAP = 12;
 const NON_EMAIL_ACTIVITIES_IN_PROMPT = 15;
+const PROJECT_NOTE_CONTENT_CAP = 300;
+const PROJECT_NOTES_IN_PROMPT = 5;
+const PROJECT_NOTES_PER_OPPORTUNITY = 10;
 const STAGE_MOVES_IN_PROMPT = 5;
 const SITE_VISITS_IN_PROMPT = 3;
 const THREAD_SUMMARIES_IN_PROMPT = 3;
@@ -144,10 +147,13 @@ interface OpportunityRow {
   assignment_version: number;
   correspondence_count: number;
   updated_at: string;
+  /** Legacy-shaped project linkage; both directions are followed (see slices). */
+  project_id: string | null;
+  project_ref: string | null;
 }
 
 const OPPORTUNITY_FIELDS =
-  "id, company_id, client_id, client_ref, title, stage, stage_entered_at, created_at, contact_name, contact_email, address, source, description, estimated_value, detected_value, actual_value, ai_summary, ai_summary_updated_at, assignment_version, correspondence_count, updated_at";
+  "id, company_id, client_id, client_ref, title, stage, stage_entered_at, created_at, contact_name, contact_email, address, source, description, estimated_value, detected_value, actual_value, ai_summary, ai_summary_updated_at, assignment_version, correspondence_count, updated_at, project_id, project_ref";
 
 interface ActivityRow {
   id: string;
@@ -217,12 +223,28 @@ interface CorrespondenceEventRow {
   subject: string | null;
 }
 
+/**
+ * A note on the lead's linked project. `project_notes` is the iOS-canonical
+ * activity timeline: `event_kind` NULL is a person writing, anything else is a
+ * system event. Until now the summary engine never read this table at all, so
+ * work logged from the field was invisible to the lead summary.
+ */
+interface ProjectNoteRow {
+  id: string;
+  project_id: string;
+  content: string | null;
+  event_kind: string | null;
+  created_at: string;
+}
+
 export interface LeadSummaryContextSlices {
   activities: ActivityRow[];
   correspondenceEvents: CorrespondenceEventRow[];
   stageTransitions: StageTransitionRow[];
   siteVisits: SiteVisitRow[];
   threadSummaries: ThreadSummaryRow[];
+  /** Newest-first notes on the lead's linked project(s). */
+  projectNotes?: ProjectNoteRow[];
   /** Persisted opportunity, primary-client, and alternate-contact identities. */
   customerEmails?: string[];
 }
@@ -506,6 +528,8 @@ export function trustedLeadEmailMessages(
 export interface LeadContextAggregates {
   activityCount: number;
   siteVisitCount: number;
+  /** Notes on the lead's linked project(s) — work logged from the field. */
+  projectNoteCount: number;
   /** Transitions with a non-null from_stage — real moves, not the creation row. */
   realStageMoveCount: number;
   /** Newest context timestamp across all sources + stage_entered_at (ms). */
@@ -537,9 +561,13 @@ export function computeLeadContextAggregates(
     consider(visit.completed_at);
     consider(visit.created_at);
   }
+  // A note logged on the project makes the summary stale, same as any other
+  // durable event. This is the whole point of reading the table.
+  for (const note of slices.projectNotes ?? []) consider(note.created_at);
   return {
     activityCount: trustedActivities.length,
     siteVisitCount: slices.siteVisits.length,
+    projectNoteCount: (slices.projectNotes ?? []).length,
     realStageMoveCount: slices.stageTransitions.filter(
       (transition) => transition.from_stage !== null
     ).length,
@@ -558,10 +586,12 @@ export function hasSubstantiveLeadContext(
   aggregates: Pick<
     LeadContextAggregates,
     "activityCount" | "siteVisitCount" | "realStageMoveCount"
-  >
+  > &
+    Partial<Pick<LeadContextAggregates, "projectNoteCount">>
 ): boolean {
   if (aggregates.activityCount > 0) return true;
   if (aggregates.siteVisitCount > 0) return true;
+  if ((aggregates.projectNoteCount ?? 0) > 0) return true;
   if (aggregates.realStageMoveCount > 0) return true;
   return (
     typeof opportunity.description === "string" &&
@@ -664,6 +694,8 @@ export interface LeadSummaryContextBundle {
     outcome: string | null;
     duration_min: number | null;
   }>;
+  /** Newest notes/events from the linked project's own timeline. */
+  project_activity: Array<{ at: string; note: string | null; event: string | null }>;
   emails: Array<{
     at: string;
     dir: "inbound" | "outbound";
@@ -1613,6 +1645,7 @@ export function buildLeadSummaryContext(
     completeEmailHistory.length === 0 &&
     nonEmailSourceActivities.length === 0 &&
     slices.siteVisits.length === 0 &&
+    (slices.projectNotes ?? []).length === 0 &&
     !opportunity.description?.trim()
   ) {
     return null;
@@ -1677,6 +1710,23 @@ export function buildLeadSummaryContext(
       ),
       outcome: clip(activity.outcome, 200),
       duration_min: activity.duration_minutes,
+    }));
+
+  // The project's own timeline. A user note (`event_kind` NULL) is somebody
+  // writing; anything else is a system event and is rendered as such, so the
+  // model never mistakes "status_change" for something a person said.
+  const projectActivity = (slices.projectNotes ?? [])
+    .slice()
+    .sort((a, b) => byNewestFirst(a.created_at, b.created_at))
+    .slice(0, PROJECT_NOTES_IN_PROMPT)
+    .reverse()
+    .map((note) => ({
+      at: note.created_at,
+      note:
+        note.event_kind === null
+          ? clip(note.content, PROJECT_NOTE_CONTENT_CAP)
+          : null,
+      event: note.event_kind,
     }));
 
   const stageHistory = slices.stageTransitions
@@ -1795,6 +1845,7 @@ export function buildLeadSummaryContext(
     stage_history: stageHistory,
     site_visits: siteVisits,
     activity: nonEmailActivity,
+    project_activity: projectActivity,
     emails,
     conversation_fold: conversationFold,
     email_thread_summaries: threadSummaries,
@@ -3518,7 +3569,8 @@ export async function fetchLeadSummaryContextSlices(
   companyId: string,
   opportunityIds: string[],
   opportunityIdentities: Array<
-    Pick<OpportunityRow, "id" | "client_id" | "client_ref" | "contact_email">
+    Pick<OpportunityRow, "id" | "client_id" | "client_ref" | "contact_email"> &
+      Partial<Pick<OpportunityRow, "project_id" | "project_ref">>
   > = []
 ): Promise<Map<string, LeadSummaryContextSlices>> {
   const slicesByOpportunity = new Map<string, LeadSummaryContextSlices>();
@@ -3529,6 +3581,7 @@ export async function fetchLeadSummaryContextSlices(
       stageTransitions: [],
       siteVisits: [],
       threadSummaries: [],
+      projectNotes: [],
       customerEmails: [],
     });
   }
@@ -3697,6 +3750,96 @@ export async function fetchLeadSummaryContextSlices(
   });
   for (const row of threadSummaries) {
     slicesByOpportunity.get(row.opportunity_id)?.threadSummaries.push(row);
+  }
+
+  // ── Project notes ───────────────────────────────────────────────────────
+  //
+  // `project_notes` is the iOS-canonical project timeline and was never read
+  // here, so work logged in the field never reached the lead summary. The
+  // linkage is legacy-shaped in both directions (`opportunities.project_id` /
+  // `project_ref` are uuid; `projects.opportunity_id` is TEXT while
+  // `projects.opportunity_ref` is uuid), so both edges are followed.
+  const opportunityIdsByProject = new Map<string, Set<string>>();
+  const linkProject = (projectId: unknown, opportunityId: string) => {
+    if (typeof projectId !== "string" || !projectId.trim()) return;
+    const linked = opportunityIdsByProject.get(projectId) ?? new Set<string>();
+    linked.add(opportunityId);
+    opportunityIdsByProject.set(projectId, linked);
+  };
+  for (const identity of opportunityIdentities) {
+    if (!slicesByOpportunity.has(identity.id)) continue;
+    linkProject(identity.project_id, identity.id);
+    linkProject(identity.project_ref, identity.id);
+  }
+
+  const linkedProjects = await fetchAllContextPages<{
+    id: string;
+    opportunity_id: string | null;
+    opportunity_ref: string | null;
+  }>({
+    table: "projects",
+    companyId,
+    opportunityIds,
+    buildQuery: (opportunityBatch) =>
+      supabase
+        .from("projects")
+        .select("id, opportunity_id, opportunity_ref")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("opportunity_ref", opportunityBatch)
+        .order("id", { ascending: true }),
+  });
+  const legacyLinkedProjects = await fetchAllContextPages<{
+    id: string;
+    opportunity_id: string | null;
+    opportunity_ref: string | null;
+  }>({
+    table: "projects",
+    companyId,
+    opportunityIds,
+    buildQuery: (opportunityBatch) =>
+      supabase
+        .from("projects")
+        .select("id, opportunity_id, opportunity_ref")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("opportunity_id", opportunityBatch)
+        .order("id", { ascending: true }),
+  });
+  for (const project of [...linkedProjects, ...legacyLinkedProjects]) {
+    const owner = project.opportunity_ref ?? project.opportunity_id;
+    if (typeof owner !== "string" || !slicesByOpportunity.has(owner)) continue;
+    linkProject(project.id, owner);
+  }
+
+  const projectIds = [...opportunityIdsByProject.keys()];
+  if (projectIds.length > 0) {
+    const projectNotes = await fetchAllContextPages<ProjectNoteRow>({
+      table: "project_notes",
+      companyId,
+      opportunityIds: projectIds,
+      buildQuery: (projectBatch) =>
+        supabase
+          .from("project_notes")
+          .select("id, project_id, content, event_kind, created_at")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .in("project_id", projectBatch)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true }),
+    });
+    for (const note of projectNotes) {
+      for (const owner of opportunityIdsByProject.get(note.project_id) ?? []) {
+        const slice = slicesByOpportunity.get(owner);
+        if (
+          !slice ||
+          slice.projectNotes!.length >= PROJECT_NOTES_PER_OPPORTUNITY
+        ) {
+          continue;
+        }
+        slice.projectNotes!.push(note);
+      }
+    }
   }
 
   return slicesByOpportunity;

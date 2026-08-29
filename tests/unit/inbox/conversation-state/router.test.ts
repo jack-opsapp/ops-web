@@ -113,6 +113,7 @@ function build(over: Partial<RouteInput> = {}): RouteInput {
     accept: noAccept,
     sentLedger: [],
     attachmentsRequiringInspection: [],
+    scheduleFactsAvailable: null,
     ...over,
   };
 }

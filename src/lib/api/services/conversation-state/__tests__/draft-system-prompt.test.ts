@@ -212,6 +212,71 @@ describe("buildDraftSystemPrompt — operator identity", () => {
     expect(prompt).toMatch(/verified calendar context/i);
   });
 
+  it("lets a verified schedule reply state real bookings, tentatively only", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      verifiedContext: { schedule: true },
+      replyContext: {
+        mode: "schedule",
+        isFirstOperatorReply: false,
+        customerMessageCount: 2,
+        operatorMessageCount: 1,
+      },
+    });
+
+    expect(prompt).toContain(
+      "Answer the scheduling question using ONLY the server-verified schedule facts provided. State existing bookings exactly. New times may be proposed only as tentative options requiring confirmation — never as confirmed."
+    );
+    expect(prompt).not.toContain(
+      "Do not propose or confirm a date until verified schedule context exists."
+    );
+    expect(prompt).not.toContain(
+      "No verified calendar context is present in this request."
+    );
+  });
+
+  it("keeps the schedule ban when no verified context accompanies the reply", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      replyContext: {
+        mode: "schedule",
+        isFirstOperatorReply: false,
+        customerMessageCount: 2,
+        operatorMessageCount: 1,
+      },
+    });
+
+    expect(prompt).toContain(
+      "Do not propose or confirm a date until verified schedule context exists."
+    );
+    expect(prompt).toContain(
+      "No verified calendar context is present in this request."
+    );
+    expect(prompt).not.toMatch(/server-verified schedule facts provided/);
+  });
+
+  it("does not unlock schedule wording for other modes under verified context", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      verifiedContext: { schedule: true },
+      replyContext: {
+        mode: "answer",
+        isFirstOperatorReply: false,
+        customerMessageCount: 2,
+        operatorMessageCount: 1,
+      },
+    });
+
+    expect(prompt).toContain("RESPONSE MODE — answer");
+    expect(prompt).not.toMatch(/server-verified schedule facts provided/);
+  });
+
   it("treats proactive operational mail as outbound work, not a customer reply", () => {
     const prompt = buildDraftSystemPrompt({
       profile: PROFILE,

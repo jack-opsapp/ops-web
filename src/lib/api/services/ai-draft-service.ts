@@ -46,9 +46,14 @@ import {
   type DraftOperatorIdentity,
   type DraftVerifiedContext,
 } from "./conversation-state/draft-system-prompt";
+import { buildScheduleContextBlock } from "./conversation-state/schedule-context";
+import { loadDraftScheduleContext } from "./draft-schedule-context-service";
 import { stripForwardWrapper } from "./conversation-state/forward-wrapper";
 import { persistRoutingDecision } from "./conversation-state/persist-routing";
-import type { ConversationState } from "./conversation-state/types";
+import type {
+  ConversationState,
+  ResponseMode,
+} from "./conversation-state/types";
 import { inboxModel } from "./conversation-state/inbox-models";
 import {
   chooseNewThreadSubject,
@@ -316,6 +321,12 @@ export interface AIDraftResult {
    */
   heldForReview?: boolean;
   routingReasons?: string[];
+  /**
+   * The deterministic response mode this conversation reply was drafted under.
+   * Auto-send reads it: a `schedule` reply is NEVER eligible for autonomous
+   * sending, however confident the draft looks.
+   */
+  responseMode?: ResponseMode;
 }
 
 /**
@@ -1783,6 +1794,46 @@ export const AIDraftService = {
       sources.push("thread_history");
     }
 
+    // ── Server-verified schedule context ───────────────────────────────
+    // A scheduling reply may state calendar facts ONLY when the server read
+    // them here and now. The block is TRUSTED server data: it goes outside the
+    // untrusted-email envelope, and it carries its own rules (existing bookings
+    // may be stated exactly; a new time is only ever a tentative option).
+    let scheduleContextBlock: string | null = null;
+    const replyResponseMode = draftState?.responseMode;
+    if (
+      draftPurpose.kind === "conversation_reply" &&
+      replyResponseMode === "schedule" &&
+      opportunityId
+    ) {
+      const schedule = await loadDraftScheduleContext({
+        companyId,
+        opportunityId,
+      });
+      if (schedule.available && schedule.facts) {
+        scheduleContextBlock = buildScheduleContextBlock(schedule.facts);
+        sources.push("verified_schedule");
+      } else if (req.autonomous === true) {
+        // The facts were readable when the router said "draft" and are not
+        // readable now. Hold — an autonomous reply never guesses at a date.
+        console.warn(
+          "[ai-draft] schedule context unavailable at draft time; holding"
+        );
+        return {
+          draft: "",
+          draftHistoryId: "",
+          confidence: 0,
+          sources,
+          available: false,
+          noReplyWarranted: false,
+          heldForReview: true,
+          responseMode: replyResponseMode,
+          routingReasons: convRoutingReasons,
+          reason: "schedule context unavailable — held for review",
+        };
+      }
+    }
+
     // ── Build system prompt with all 12 writing dimensions ─────────────
     // The contact-form outreach path appends the operator's confirmed
     // signature after generation (gated on confirmation), so the model must
@@ -1803,7 +1854,9 @@ export const AIDraftService = {
       signatureWillBeAppended:
         assignedContactFormReview || req.signatureWillBeAppended === true,
       messageKind: draftPurpose.kind,
-      verifiedContext: draftPurpose.verifiedContext,
+      verifiedContext: scheduleContextBlock
+        ? { ...draftPurpose.verifiedContext, schedule: true }
+        : draftPurpose.verifiedContext,
       replyContext:
         draftPurpose.kind === "conversation_reply"
           ? {
@@ -1883,7 +1936,7 @@ export const AIDraftService = {
 <UNTRUSTED_EMAIL_DATA_JSON>
 ${untrustedReferenceJson}
 </UNTRUSTED_EMAIL_DATA_JSON>
-${effectiveUserInstruction ? `\nTrusted operator instruction:\n${effectiveUserInstruction}` : ""}`;
+${scheduleContextBlock ? `\nTrusted server-verified schedule context:\n${scheduleContextBlock}` : ""}${effectiveUserInstruction ? `\nTrusted operator instruction:\n${effectiveUserInstruction}` : ""}`;
     } else {
       userPrompt = `Draft a new email.
 
@@ -2101,6 +2154,10 @@ ${effectiveUserInstruction ? `Purpose: ${effectiveUserInstruction}` : "Write a p
       subject: derivedSubject || undefined,
       subjectSource: derivedSubject ? subjectSource : undefined,
       sourceMessageId,
+      // Auto-send reads this: a `schedule` reply is never auto-send eligible.
+      ...(draftPurpose.kind === "conversation_reply" && draftState
+        ? { responseMode: draftState.responseMode }
+        : {}),
     };
   },
 

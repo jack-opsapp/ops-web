@@ -2257,7 +2257,10 @@ async function createActivity(
       to_emails: toEmails,
       cc_emails: ccEmails,
       has_attachments: normalizedEmail.hasAttachments,
-      attachment_count: normalizedEmail.hasAttachments ? 1 : 0, // provider doesn't give exact count yet
+      // Provisional: the provider gives no exact count at ingest. Attachment
+      // ingestion corrects this to the real number once it enumerates the
+      // message (see attachment-ingestion-service updateActivityAttachmentRollup).
+      attachment_count: normalizedEmail.hasAttachments ? 1 : 0,
       match_needs_review: extra?.matchNeedsReview || false,
       suggested_client_id: extra?.suggestedClientId || null,
       match_confidence: extra?.matchConfidence || "pattern",
@@ -4139,7 +4142,12 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       input.connection,
       input.profile,
       await getCachedOperatorIdentity(input.connection)
-    )
+    ),
+    // Stage B reads full provider threads; hand it the lease this sync owns.
+    {
+      supabase: requireSupabase(),
+      providerLockCheckpoint: input.providerLockCheckpoint,
+    }
   );
 
   // Safety net: an unmatched inbound the reviewer neither promoted nor
@@ -4191,7 +4199,22 @@ async function persistAIClassifiedUnmatchedInbound(input: {
   // Deterministic submissions persist through the identical path as
   // model-classified leads — same enrichment, correspondence events and
   // projections — so there is no second lead-creation path to drift.
-  for (const classified of [...deterministicLeads, ...aiResult.classifiedLeads]) {
+  // A contact-form submission is a lead by construction — a human asked to be
+  // contacted — so it is never diverted to review. Only the MODEL-classified
+  // half is subject to the matcher's review verdict below.
+  const persistenceQueue = [
+    ...deterministicLeads.map((classified) => ({
+      classified,
+      aiClassified: false,
+    })),
+    ...aiResult.classifiedLeads.map((classified) => ({
+      classified,
+      aiClassified: true,
+    })),
+  ];
+  let reviewDiverted = 0;
+
+  for (const { classified, aiClassified } of persistenceQueue) {
     await input.providerLockCheckpoint();
     try {
       const classifiedEmail = normalizeProviderBackedEmailForSync(
@@ -4262,6 +4285,42 @@ async function persistAIClassifiedUnmatchedInbound(input: {
           await getCachedOperatorIdentity(input.connection)
         ),
       });
+
+      // Bug 3799225e. A `review` verdict used to fall straight through to the
+      // `else` branch below and create a brand-new client anyway — the exact
+      // path that spawned "ELAINE BEATTIE" alongside Mark Vanderwerf's won
+      // lead. A medium-confidence match is a QUESTION, not an answer: persist
+      // the correspondence for a human to confirm and create nothing.
+      if (
+        aiClassified &&
+        matchResult.action === "review" &&
+        relationshipDecision.action !== "link"
+      ) {
+        const reviewPersistence = await createOrAdoptInboundActivity({
+          email: effectiveEmail,
+          connection: input.connection,
+          opportunityId: null,
+          extra: {
+            matchNeedsReview: true,
+            suggestedClientId: matchResult.suggestedClientId,
+            matchConfidence: matchResult.confidence,
+            ...(!routingIdentity.mayInheritProviderThread
+              ? { skipThreadState: true }
+              : {}),
+          },
+          executionPolicy: input.executionPolicy,
+          existingOrphanActivity,
+          recoveryActorUserId: input.recoveryActorUserId,
+          syncLockOwner: input.syncLockOwner,
+          contactFormRecipient: contactFormSubmitter?.email ?? null,
+        });
+        reviewDiverted += 1;
+        if (reviewPersistence.persisted) {
+          input.result.needsReview += 1;
+          if (reviewPersistence.created) input.result.activitiesCreated++;
+        }
+        continue;
+      }
 
       let clientId =
         matchResult.action === "link" ||
@@ -4401,7 +4460,11 @@ async function persistAIClassifiedUnmatchedInbound(input: {
     }
   }
 
-  input.result.newLeads += aiResult.newLeadsClassified;
+  // Leads diverted to review created nothing, so they are not new leads.
+  input.result.newLeads += Math.max(
+    0,
+    aiResult.newLeadsClassified - reviewDiverted
+  );
 }
 
 async function processSentEmail(

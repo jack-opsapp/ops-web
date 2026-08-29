@@ -292,6 +292,7 @@
   "detail.you": "You",
   "detail.unknown": "Unknown",
   "detail.photoEmailSource": "Email",
+  "detail.photoEmailSourceFrom": "Email · {name}",
   "detail.photoSiteVisitSource": "Site visit",
   "detail.photoLeadSource": "Photo",
   "detail.addPhotos": "Add photos",

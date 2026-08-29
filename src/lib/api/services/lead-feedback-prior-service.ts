@@ -44,7 +44,13 @@ export type LeadFeedbackReviewReason =
   | "feedback_boundary"
   | "duplicate_feedback"
   | "neutral_feedback"
-  | "positive_feedback_conflict";
+  | "positive_feedback_conflict"
+  /**
+   * The classifier landed between the review floor and the auto-create
+   * threshold. Not confident enough to create a lead, not weak enough to
+   * discard in silence — a person decides.
+   */
+  | "borderline_confidence";
 
 export interface LeadFeedbackPriorDecision {
   outcome: "lead" | "not_lead" | "defer";
@@ -522,7 +528,9 @@ export async function persistDeferredLeadClassification(input: {
         ? "A prior correction says this may be a real inquiry."
         : input.decision.reviewReason === "neutral_feedback"
           ? "A prior correction requires a human decision."
-          : "Past lead corrections put this message on hold.";
+          : input.decision.reviewReason === "borderline_confidence"
+            ? "The classifier could not confidently decide whether this is a lead."
+            : "Past lead corrections put this message on hold.";
   const { error } = await client
     .from("email_threads")
     .update({

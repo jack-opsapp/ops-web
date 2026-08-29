@@ -160,6 +160,7 @@ export function route(input: RouteInput): RouteResult {
   const response = decideResponseDisposition({
     messages: input.messages,
     accept: input.accept,
+    scheduleFactsAvailable: input.scheduleFactsAvailable,
   });
 
   if (response.disposition === "operator_input_required") {

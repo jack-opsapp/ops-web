@@ -92,6 +92,12 @@ export interface AssembleConversationStateInput {
   stage: LeadStage;
   contactFormSubmitter?: ContactFormSubmitter | null;
   commitments?: CommitmentRecord[];
+  /**
+   * Whether this lead's schedule is verifiably readable. The fetch wrapper
+   * probes it; callers that never probe leave it `null`, which preserves the
+   * historical "hold every scheduling question" behavior exactly.
+   */
+  scheduleFactsAvailable?: boolean | null;
 }
 
 // ─── Small pure helpers ───────────────────────────────────────────────────────
@@ -355,6 +361,7 @@ export function assembleConversationState(
     accept,
     sentLedger,
     attachmentsRequiringInspection,
+    scheduleFactsAvailable: input.scheduleFactsAvailable ?? null,
   };
   const {
     routing,
@@ -385,6 +392,7 @@ import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
 import type { SyncProfile } from "@/lib/types/email-connection";
 import { fetchOperatorIdentity } from "./operator-identity";
 import { fetchCommitments } from "./sent-ledger";
+import { probeScheduleFactsAvailable } from "../draft-schedule-context-service";
 
 const LEAD_STAGES: ReadonlySet<LeadStage> = new Set<LeadStage>([
   "new_lead",
@@ -685,6 +693,14 @@ export async function buildConversationState(
     stage = coerceStage((opp as { stage?: string | null } | null)?.stage);
   }
 
+  // 6b. Can this lead's schedule be READ? A scheduling question is only
+  //     answerable from facts the server can actually see; an unlinked thread
+  //     or a failed probe stays `null` and the router holds it, exactly as it
+  //     did before verified schedule context existed.
+  const scheduleFactsAvailable = t.opportunity_id
+    ? await probeScheduleFactsAvailable(t.company_id, t.opportunity_id)
+    : null;
+
   // 7. Contact-form submitter (re-parsed; not persisted separately).
   const contactFormSubmitter = deriveContactFormSubmitter(activities);
 
@@ -705,5 +721,6 @@ export async function buildConversationState(
     stage,
     contactFormSubmitter,
     commitments,
+    scheduleFactsAvailable,
   });
 }

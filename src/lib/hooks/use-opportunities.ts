@@ -30,7 +30,7 @@ import type {
   StageTransition,
   OpportunityStage,
 } from "../types/pipeline";
-import { OpportunityStage as Stage } from "../types/pipeline";
+import { ActivityType, OpportunityStage as Stage } from "../types/pipeline";
 import { useAuthStore } from "../store/auth-store";
 import {
   selectCanConvertOpportunity,
@@ -655,9 +655,40 @@ export function useCreateActivity() {
         queryClient.invalidateQueries({
           queryKey: queryKeys.opportunities.detail(variables.opportunityId),
         });
+        // Bug a2042514. Logging a call, a note, or a site visit changed what is
+        // true about the lead, but the summary only caught up on the next
+        // recurring sweep — up to an hour later, and only if the lead came up
+        // in the rotation. Nudge the eager endpoint now; it debounces server
+        // side, so two rapid logs cost one model call, not two.
+        //
+        // Email activities are excluded: those already ride the durable email
+        // cycle's own summary writer.
+        if (variables.type !== ActivityType.Email) {
+          void requestEagerLeadSummaryRefresh(variables.opportunityId);
+        }
       }
     },
   });
+}
+
+/**
+ * Best-effort eager Phase C summary refresh. Never blocks or fails the write —
+ * the durable queue behind the endpoint catches anything this misses.
+ */
+async function requestEagerLeadSummaryRefresh(
+  opportunityId: string
+): Promise<void> {
+  try {
+    const { getIdToken } = await import("@/lib/firebase/auth");
+    const idToken = await getIdToken();
+    if (!idToken) return;
+    await fetch(`/api/opportunities/${opportunityId}/summary-refresh`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${idToken}` },
+    });
+  } catch {
+    // Eager refresh is an optimization, not a guarantee.
+  }
 }
 
 /**

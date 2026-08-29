@@ -553,6 +553,47 @@ export function decideOpportunityRelationshipMatch({
     }
   }
 
+  // Terminal-relationship tier (bug 3799225e).
+  //
+  // The tiers above require an ACTIVE relationship, so Mark Vanderwerf's won
+  // opportunity with its completed project was rejected outright — and Elaine's
+  // "the plywood will be on the deck today" spawned a duplicate lead instead of
+  // attaching to the job it was obviously about. Post-completion chatter
+  // (warranty, photos, readiness notes) belongs on the record it refers to.
+  //
+  // Deliberately narrower than the active tiers: an EXACT email on a terminal
+  // relationship only, no address conflict, and a unique hit. Ambiguity keeps
+  // today's behavior and creates nothing.
+  if (contactEmail) {
+    const terminalMatches = sortedCandidates.filter((candidate) => {
+      if (!isTerminalOpportunity(candidate) && !hasClosedProject(candidate)) {
+        return false;
+      }
+      if (hasConflictingJobAddress(address, candidate)) return false;
+      const emails = normalizedCandidateEmails(candidate);
+      return (
+        emails.contactEmail === contactEmail ||
+        emails.clientEmails.has(contactEmail) ||
+        emails.subClientEmails.has(contactEmail)
+      );
+    });
+    if (terminalMatches.length === 1) {
+      const candidate = terminalMatches[0];
+      return linkDecision(
+        candidate,
+        "existing_sub_client",
+        "Exact contact matched a terminal customer relationship — attaching correspondence to the existing record",
+        [
+          `email:${contactEmail}`,
+          `stage:${normalizedStage(candidate) || "unknown"}`,
+          ...(hasClosedProject(candidate)
+            ? [`project_status:${normalizedProjectStatus(candidate)}`]
+            : []),
+        ]
+      );
+    }
+  }
+
   const participantMatches = new Map<
     string,
     {

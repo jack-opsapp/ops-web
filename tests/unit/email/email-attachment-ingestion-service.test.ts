@@ -71,6 +71,12 @@ class FakeRepository implements AttachmentActivityRepository {
     activityId: string;
     canonicalUrls: string[];
   }> = [];
+  rollups: Array<{
+    companyId: string;
+    activityId: string;
+    attachmentCount: number;
+  }> = [];
+  rollupError: Error | null = null;
   records = new Map<string, CanonicalAttachmentRecord>();
 
   async resolveExactActivity(): Promise<ExactEmailActivity | null> {
@@ -124,6 +130,15 @@ class FakeRepository implements AttachmentActivityRepository {
     canonicalUrls: string[];
   }): Promise<void> {
     this.projections.push(input);
+  }
+
+  async updateActivityAttachmentRollup(input: {
+    companyId: string;
+    activityId: string;
+    attachmentCount: number;
+  }): Promise<void> {
+    this.rollups.push(input);
+    if (this.rollupError) throw this.rollupError;
   }
 }
 

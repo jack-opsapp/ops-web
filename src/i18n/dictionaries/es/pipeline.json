@@ -289,6 +289,7 @@
   "detail.you": "Tú",
   "detail.unknown": "Desconocido",
   "detail.photoEmailSource": "Correo",
+  "detail.photoEmailSourceFrom": "Correo · {name}",
   "detail.photoSiteVisitSource": "Visita al sitio",
   "detail.photoLeadSource": "Foto",
   "detail.addPhotos": "Añadir fotos",
