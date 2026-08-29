@@ -172,6 +172,16 @@ export function DiscardFeedbackToastBody({
   return (
     // pl-2 mirrors `[data-sonner-toast].ops-toast [data-content]` so the
     // content column sits on the same rhythm as every other OPS toast.
+    //
+    // HOVER-BRIDGE NOTE: the OPS toast rail claims `[data-sonner-toast]::after`,
+    // so Sonner's stock hover bridge (the invisible strip spanning the --gap
+    // between stacked toasts) is re-homed in globals.css onto
+    // `.ops-toast [data-content]::after`. `toast.custom` bodies render NO
+    // [data-content] wrapper, so this toast has no bridge: the gap above it
+    // stays pointer-dead and crossing it can collapse the stack mid-read.
+    // Re-homing the bridge here would need this div to be statically
+    // positioned so its ::after resolved against the toast <li> — but the
+    // `relative` below anchors the reason-swap layers and is load-bearing.
     <div className="relative w-full min-w-0 pl-2">
       <div className="flex items-start justify-between gap-2">
         <span className="min-w-0 flex-1 truncate font-mohave text-[12px] font-medium uppercase leading-[1.1] tracking-[0.08em] text-text">

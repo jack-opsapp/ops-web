@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { useReducedMotion } from "framer-motion";
-import { CalendarClock, Mail } from "lucide-react";
+import { CalendarClock, Mail, MapPin, PencilRuler } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import { EntityPicker } from "@/components/ui/entity-picker";
@@ -23,11 +23,14 @@ import {
 } from "@/lib/types/pipeline";
 import {
   daysOverdue,
+  formatDate,
   formatShortDay,
   formatTimeAgo,
   isDateOverdue,
   isDateToday,
 } from "@/lib/utils/date";
+import { useSiteVisits, useLeadDeckMarkers } from "@/lib/hooks";
+import { deriveSiteVisitGlance } from "@/lib/utils/site-visit-glance";
 import {
   AddressAutocomplete,
   type AddressSelection,
@@ -153,6 +156,39 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   const { t } = useDictionary("pipeline");
   const reduced = useReducedMotion();
 
+  // ── Site-visit + deck glance ────────────────────────────────────────────
+  // Both reads are company-wide and shared through the TanStack cache, so a
+  // board of any size costs one request each. RLS (company isolation +
+  // assigned-lead scope) already returns exactly the rows this operator may
+  // see — there is deliberately no client-side permission filtering here.
+  const { data: siteVisitsData } = useSiteVisits();
+  const { data: deckMarkersData } = useLeadDeckMarkers();
+  // One clock per mount, mirroring the table hook: "today" must not shift
+  // between the tone decision and the rendered date.
+  const glanceNow = useMemo(() => new Date(), []);
+
+  const siteVisitGlance = useMemo(() => {
+    const rows = (siteVisitsData ?? []).filter(
+      (visit) => visit.opportunityId === opportunity.id
+    );
+    if (rows.length === 0) return null;
+    const glance = deriveSiteVisitGlance(rows, glanceNow);
+    return glance.count > 0 ? glance : null;
+  }, [siteVisitsData, opportunity.id, glanceNow]);
+
+  const deckGlance = useMemo(() => {
+    // Markers arrive ordered `updated_at` desc, so the first match is latest.
+    const rows = (deckMarkersData ?? []).filter(
+      (marker) => marker.opportunityId === opportunity.id
+    );
+    if (rows.length === 0) return null;
+    return {
+      count: rows.length,
+      latestTitle: rows[0]!.title || null,
+      latestVersion: rows[0]!.version,
+    };
+  }, [deckMarkersData, opportunity.id]);
+
   if (density === "compact") {
     const cardEdgeBorder = isSelected
       ? `2px solid ${stageColor}`
@@ -228,7 +264,47 @@ export const PipelineCardContent = memo(function PipelineCardContent({
   });
   const leadNeedsReply = leadChaseState === "your_move";
   const leadIsWaiting = leadChaseState === "waiting";
-  const hasSignals = hasEmailSignal || hasFollowUpSignal || leadIsWaiting;
+  // ── Site-visit + deck tokens ────────────────────────────────────────────
+  // Two states, told apart by FORM as well as tone so the reading survives a
+  // monochrome scan: an upcoming visit reads as a date ("Aug 25"), a past one
+  // reads as elapsed time ("3d ago"). Tan only when it is today — the one case
+  // where the operator may still need to move.
+  const siteVisitUpcomingAt = siteVisitGlance?.nextAt ?? null;
+  const siteVisitDoneAt = siteVisitUpcomingAt
+    ? null
+    : (siteVisitGlance?.lastCompletedAt ?? null);
+  const hasSiteVisitSignal = Boolean(siteVisitUpcomingAt || siteVisitDoneAt);
+  const siteVisitToday = isDateToday(siteVisitUpcomingAt);
+  const siteVisitText = siteVisitUpcomingAt
+    ? formatDate(siteVisitUpcomingAt, "MMM d")
+    : siteVisitDoneAt
+      ? formatTimeAgo(siteVisitDoneAt)
+      : "";
+  const siteVisitTone = siteVisitToday ? "text-tan" : "text-text-3";
+  const siteVisitTitle = siteVisitUpcomingAt
+    ? t("card.siteVisitBooked", {
+        date: formatDate(siteVisitUpcomingAt, "MMM d, yyyy"),
+      })
+    : siteVisitDoneAt
+      ? t("card.siteVisitDone", {
+          date: formatDate(siteVisitDoneAt, "MMM d, yyyy"),
+        })
+      : "";
+
+  const hasDeckSignal = Boolean(deckGlance);
+  const deckTitle = deckGlance
+    ? t("card.deckDesign", {
+        title: deckGlance.latestTitle ?? "",
+        version: deckGlance.latestVersion,
+      })
+    : "";
+
+  const hasSignals =
+    hasEmailSignal ||
+    hasFollowUpSignal ||
+    leadIsWaiting ||
+    hasSiteVisitSignal ||
+    hasDeckSignal;
   const followUpOverdue = isDateOverdue(followUpDate);
   const followUpToday = isDateToday(followUpDate);
   // Follow-up tone mirrors the board card: overdue = rose, due today = tan,
@@ -410,6 +486,13 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                   t("card.emailCount", "{count} emails"),
                   { count: String(opportunity.correspondenceCount) }
                 )}
+                hasSiteVisitSignal={hasSiteVisitSignal}
+                siteVisitText={siteVisitText}
+                siteVisitTone={siteVisitTone}
+                siteVisitTitle={siteVisitTitle}
+                hasDeckSignal={hasDeckSignal}
+                deckCount={deckGlance?.count ?? 0}
+                deckTitle={deckTitle}
               />
               <PipelineCardActions
                 opportunityId={opportunity.id}
@@ -480,6 +563,13 @@ export const PipelineCardContent = memo(function PipelineCardContent({
                       t("card.emailCount", "{count} emails"),
                       { count: String(opportunity.correspondenceCount) }
                     )}
+                    hasSiteVisitSignal={hasSiteVisitSignal}
+                    siteVisitText={siteVisitText}
+                    siteVisitTone={siteVisitTone}
+                    siteVisitTitle={siteVisitTitle}
+                    hasDeckSignal={hasDeckSignal}
+                    deckCount={deckGlance?.count ?? 0}
+                    deckTitle={deckTitle}
                   />
                 </div>
               )}
@@ -995,6 +1085,13 @@ function SignalLine({
   followUpText,
   followUpTone,
   emailTitle,
+  hasSiteVisitSignal,
+  siteVisitText,
+  siteVisitTone,
+  siteVisitTitle,
+  hasDeckSignal,
+  deckCount,
+  deckTitle,
 }: {
   hasEmailSignal: boolean;
   hasFollowUpSignal: boolean;
@@ -1004,13 +1101,36 @@ function SignalLine({
   followUpText: string;
   followUpTone: string;
   emailTitle: string;
+  hasSiteVisitSignal: boolean;
+  siteVisitText: string;
+  siteVisitTone: string;
+  siteVisitTitle: string;
+  hasDeckSignal: boolean;
+  deckCount: number;
+  deckTitle: string;
 }) {
-  if (!hasEmailSignal && !hasFollowUpSignal && !chaseStateControl) return null;
+  if (
+    !hasEmailSignal &&
+    !hasFollowUpSignal &&
+    !chaseStateControl &&
+    !hasSiteVisitSignal &&
+    !hasDeckSignal
+  )
+    return null;
+
+  // Separator rhythm: a `·` appears between any two tokens that both render.
+  const needsSeparatorBeforeSiteVisit = hasEmailSignal || hasFollowUpSignal;
+  const needsSeparatorBeforeDeck =
+    hasEmailSignal || hasFollowUpSignal || hasSiteVisitSignal;
 
   return (
     <div className="flex min-w-0 items-center gap-1 font-mono text-micro text-text-3 [font-feature-settings:'tnum'_1,'zero'_1]">
       {chaseStateControl}
-      {chaseStateControl && (hasEmailSignal || hasFollowUpSignal) ? (
+      {chaseStateControl &&
+      (hasEmailSignal ||
+        hasFollowUpSignal ||
+        hasSiteVisitSignal ||
+        hasDeckSignal) ? (
         <span aria-hidden="true" className="shrink-0 text-text-mute">
           ·
         </span>
@@ -1053,6 +1173,48 @@ function SignalLine({
             strokeWidth={1.5}
           />
           <span className="truncate">{followUpText}</span>
+        </span>
+      )}
+      {hasSiteVisitSignal && needsSeparatorBeforeSiteVisit && (
+        <span aria-hidden="true" className="shrink-0 text-text-mute">
+          ·
+        </span>
+      )}
+      {hasSiteVisitSignal && (
+        <span
+          className={cn(
+            "inline-flex min-w-0 items-center gap-1",
+            siteVisitTone
+          )}
+          title={siteVisitTitle}
+        >
+          <MapPin
+            aria-hidden="true"
+            className="h-3 w-3 shrink-0"
+            strokeWidth={1.5}
+          />
+          <span className="truncate">{siteVisitText}</span>
+        </span>
+      )}
+      {hasDeckSignal && needsSeparatorBeforeDeck && (
+        <span aria-hidden="true" className="shrink-0 text-text-mute">
+          ·
+        </span>
+      )}
+      {hasDeckSignal && (
+        <span
+          className="inline-flex shrink-0 items-center gap-1 text-text-3"
+          title={deckTitle}
+        >
+          <PencilRuler
+            aria-hidden="true"
+            className="h-3 w-3 shrink-0"
+            strokeWidth={1.5}
+          />
+          {/* A bare "1" beside one glyph says nothing the glyph did not. */}
+          {deckCount > 1 ? (
+            <span className="tabular-nums">{deckCount}</span>
+          ) : null}
         </span>
       )}
     </div>

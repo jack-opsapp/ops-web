@@ -7,7 +7,7 @@ import {
   GuidedQuestionDecisionSchema,
   GuidedQuestionContextSchema,
 } from "./schemas";
-import type { GuidedQuestion } from "./types";
+import type { CatalogFact, GuidedQuestion } from "./types";
 import type { z } from "zod";
 
 type GuidedQuestionContext = z.infer<
@@ -255,4 +255,37 @@ export function resolveGuidedQuestion(
       : {}),
     ...(help ? { help } : {}),
   };
+}
+
+/**
+ * Re-resolve a question so it asks only for facts still unresolved after the
+ * turn's facts merge. Prevents the persisted-duplicate class where the model
+ * re-asks under a fresh id with stale-broad factKeys and the deterministic
+ * template regenerates the identical sentence (bug 986009b0). Returns null
+ * when there is nothing to narrow — caller keeps the question as asked.
+ */
+export function narrowGuidedQuestionToUnresolvedFacts(
+  question: GuidedQuestion | null,
+  facts: CatalogFact[],
+): GuidedQuestion | null {
+  if (!question?.intent || !question.capabilityRef) return null;
+  const confirmed = new Set(
+    facts
+      .filter((fact) => fact.status === "confirmed")
+      .map((fact) => fact.key),
+  );
+  const remaining = question.factKeys.filter((key) => !confirmed.has(key));
+  if (
+    remaining.length === 0 ||
+    remaining.length === question.factKeys.length
+  ) {
+    return null;
+  }
+  return resolveGuidedQuestion({
+    id: question.id,
+    intent: question.intent,
+    capabilityRef: question.capabilityRef,
+    factKeys: remaining,
+    context: question.context ?? {},
+  });
 }

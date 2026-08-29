@@ -35,6 +35,25 @@ export interface OpportunityDeckDesign {
   edges: DeckWireEdgeInput[];
 }
 
+/**
+ * The scan-level projection: just enough to answer "has this lead got a deck?"
+ * for every lead on the board at once. Deliberately excludes `drawing_data`
+ * and `thumbnail_url` — the board renders a glyph, not a drawing.
+ */
+export interface LeadDeckMarker {
+  id: string;
+  opportunityId: string;
+  title: string;
+  version: number;
+  updatedAt: Date | null;
+}
+
+export interface DeckMarkerSummary {
+  count: number;
+  latestTitle: string | null;
+  latestVersion: number | null;
+}
+
 function asInputArray<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
 }
@@ -82,4 +101,60 @@ export const DeckDesignService = {
       mapDeckDesignFromDb(row as Record<string, unknown>)
     );
   },
+
+  /**
+   * Every lead-attached deck in the company, newest first — the board's
+   * scan-level source. One cheap company-wide read beats one query per card:
+   * RLS (`company_isolation` + `assigned_lead_scope_*`) returns exactly the
+   * rows the caller may see, so there is never client-side filtering to do.
+   */
+  async fetchLeadDeckMarkers(): Promise<LeadDeckMarker[]> {
+    const supabase = requireSupabase();
+
+    const { data, error } = await supabase
+      .from("deck_designs")
+      .select("id, opportunity_id, title, version, updated_at")
+      .not("opportunity_id", "is", null)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false, nullsFirst: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch lead deck markers: ${error.message}`);
+    }
+
+    return (data ?? []).map((row) => {
+      const record = row as Record<string, unknown>;
+      return {
+        id: record.id as string,
+        opportunityId: record.opportunity_id as string,
+        title: (record.title as string) ?? "",
+        version: Number(record.version ?? 1),
+        updatedAt: parseDate(record.updated_at),
+      };
+    });
+  },
 };
+
+/**
+ * Collapse markers to one summary per lead. The query already ordered by
+ * `updated_at` desc, so the FIRST marker seen for a lead is its latest — no
+ * re-sorting, and the summary stays stable for a given response.
+ */
+export function buildDeckMarkerMap(
+  markers: LeadDeckMarker[]
+): Map<string, DeckMarkerSummary> {
+  const summaries = new Map<string, DeckMarkerSummary>();
+  for (const marker of markers) {
+    const existing = summaries.get(marker.opportunityId);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+    summaries.set(marker.opportunityId, {
+      count: 1,
+      latestTitle: marker.title || null,
+      latestVersion: marker.version,
+    });
+  }
+  return summaries;
+}

@@ -42,6 +42,8 @@ const linkMutate = vi.fn((_vars, opts) => opts?.onSuccess?.());
 const moveMutate = vi.fn((_vars, opts) => opts?.onSuccess?.());
 const moveMutateAsync = vi.fn(async () => {});
 const updateMutate = vi.fn();
+const applyFeedbackMutateAsync = vi.fn(async () => ({ feedbackId: "fb-1" }));
+const undoFeedbackMutateAsync = vi.fn(async () => {});
 const preflightHook = vi.fn(
   (
     id: string | undefined
@@ -61,10 +63,15 @@ vi.mock("@/lib/hooks", () => ({
   useConvertOpportunityToProject: () => ({ mutate: convertMutate }),
   useLinkOpportunityToExistingProject: () => ({ mutate: linkMutate }),
   useConversionPreflight: (id: string | undefined) => preflightHook(id),
-  // Discard-only dependencies — never reached by the Won/Lost/active-move
-  // paths under test, but the hook resolves them on every render.
-  useApplyLeadDispositionFeedback: () => ({ mutateAsync: vi.fn() }),
-  useUndoLeadDispositionFeedback: () => ({ mutateAsync: vi.fn() }),
+  // Discard dependencies. Hoisted to module scope (rather than a fresh
+  // `vi.fn()` per render) so the discard tests can drive the feedback
+  // contract's success and rejection branches.
+  useApplyLeadDispositionFeedback: () => ({
+    mutateAsync: applyFeedbackMutateAsync,
+  }),
+  useUndoLeadDispositionFeedback: () => ({
+    mutateAsync: undoFeedbackMutateAsync,
+  }),
 }));
 
 vi.mock("@/i18n/client", () => ({
@@ -76,12 +83,39 @@ vi.mock("@/i18n/client", () => ({
 
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
-vi.mock("@/components/ui/toast", () => ({
-  toast: {
-    success: (...a: unknown[]) => toastSuccess(...a),
-    error: (...a: unknown[]) => toastError(...a),
-  },
-}));
+const toastBase = vi.fn();
+// Sonner's `toast` is a callable with variant methods hung off it. The base
+// call matters here: `showUndoToast` (the undo toast an active stage move now
+// renders) invokes `toast(title, opts)` directly.
+vi.mock("@/components/ui/toast", () => {
+  const toast = Object.assign(
+    (...a: unknown[]) => toastBase(...a),
+    {
+      success: (...a: unknown[]) => toastSuccess(...a),
+      error: (...a: unknown[]) => toastError(...a),
+    }
+  );
+  return { toast };
+});
+
+// A DELEGATING spy: the real `showUndoToast` still runs (so the assertions
+// that read the emitted `toast.success` payload keep exercising the actual
+// variant routing and action wiring), while tests can also assert directly on
+// whether a mutation rendered an undo affordance at all.
+const showUndoToastSpy = vi.fn();
+vi.mock("@/components/ui/toast-undo", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/components/ui/toast-undo")>(
+      "@/components/ui/toast-undo"
+    );
+  return {
+    ...actual,
+    showUndoToast: (options: Parameters<typeof actual.showUndoToast>[0]) => {
+      showUndoToastSpy(options);
+      return actual.showUndoToast(options);
+    },
+  };
+});
 
 vi.mock("@/lib/store/auth-store", () => ({
   useAuthStore: () => ({ currentUser: { id: "user-1" } }),
@@ -117,10 +151,15 @@ vi.mock("@/lib/store/permissions-store", async () => {
   };
 });
 
-const pushUndo = vi.fn();
+const pushUndo = vi.fn(() => "undo-entry-1");
+const undoEntry = vi.fn(async () => {});
 vi.mock("@/stores/undo-store", () => ({
-  useUndoStore: (selector: (s: { pushUndo: typeof pushUndo }) => unknown) =>
-    selector({ pushUndo }),
+  useUndoStore: (
+    selector: (s: {
+      pushUndo: typeof pushUndo;
+      undoEntry: typeof undoEntry;
+    }) => unknown
+  ) => selector({ pushUndo, undoEntry }),
 }));
 
 const PREFLIGHT: ConversionPreflight = {
@@ -511,6 +550,184 @@ describe("useStageTransition — Won (single atomic win+convert)", () => {
         longitude: -123.0,
       },
     });
+  });
+});
+
+describe("useStageTransition — active-move undo toast", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id ? PREFLIGHT : undefined,
+      isLoading: false,
+    }));
+  });
+
+  it("renders a VISIBLE undo action instead of a bare success toast", async () => {
+    const opp = makeOpp({ stage: OpportunityStage.Negotiation });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() =>
+      result.current.requestStageChange(opp.id, OpportunityStage.Quoting)
+    );
+
+    // The old toast carried no way back — the undo entry was pushed but
+    // invisible. The move now renders through showUndoToast, which must still
+    // emit the SUCCESS variant so the olive status rail survives the change.
+    expect(toastBase).not.toHaveBeenCalled();
+    expect(toastSuccess).toHaveBeenCalledTimes(1);
+
+    const [title, options] = toastSuccess.mock.calls[0] as [
+      string,
+      { description?: string; action?: { label: string; onClick: () => void } },
+    ];
+    expect(title).toContain("Acme");
+    expect(options.description).toBe("Negotiation → Quoting");
+    expect(options.action?.label).toBeTruthy();
+  });
+
+  it("undo action targets the pushed entry so the top bar can't undo it twice", async () => {
+    const opp = makeOpp({ stage: OpportunityStage.Negotiation });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() =>
+      result.current.requestStageChange(opp.id, OpportunityStage.Quoting)
+    );
+
+    // The same entry backs both affordances: the global stack (Cmd+Z) and the
+    // toast. The toast must consume it BY ID, never pop the stack blindly.
+    expect(pushUndo).toHaveBeenCalledTimes(1);
+    const entryId = pushUndo.mock.results[0].value;
+
+    const [, options] = toastSuccess.mock.calls[0] as [
+      string,
+      { action?: { onClick: () => void } },
+    ];
+    await act(async () => {
+      options.action?.onClick();
+    });
+
+    expect(undoEntry).toHaveBeenCalledWith(entryId);
+  });
+});
+
+describe("useStageTransition — undo contract on the terminal paths", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    permissionState.permissions = new Map([
+      ["pipeline.convert", "assigned"],
+      ["pipeline.manage", "all"],
+    ]);
+    permissionState.configuredPermissions = new Set(["pipeline.convert"]);
+    preflightHook.mockImplementation((id: string | undefined) => ({
+      data: id ? PREFLIGHT : undefined,
+      isLoading: false,
+    }));
+    applyFeedbackMutateAsync.mockImplementation(async () => ({
+      feedbackId: "fb-1",
+    }));
+    convertMutate.mockImplementation((_vars, opts) =>
+      opts?.onSuccess?.({ projectId: "proj-new", projectAccessible: true })
+    );
+  });
+
+  it("Lost confirm renders a visible undo that consumes the pushed entry", async () => {
+    const opp = makeOpp();
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() => result.current.requestStageChange(opp.id, OpportunityStage.Lost));
+    act(() => result.current.confirmTransition({ lostReason: "Price" }));
+
+    // Marking a deal lost has a true inverse (move the stage back), so it owes
+    // the operator the same visible UNDO an active move gives them.
+    expect(showUndoToastSpy).toHaveBeenCalledTimes(1);
+    const options = showUndoToastSpy.mock.calls[0]![0] as {
+      title: string;
+      description?: string;
+      onUndo: () => void;
+    };
+    expect(options.title).toBe("toast.dealMarkedLost");
+    expect(options.description).toBe(opp.title);
+
+    const entryId = pushUndo.mock.results[0]!.value;
+    await act(async () => {
+      options.onUndo();
+    });
+    expect(undoEntry).toHaveBeenCalledWith(entryId);
+  });
+
+  it("Won confirm offers no undo toast — the inverse would not un-create the project", () => {
+    const opp = makeOpp();
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    act(() => result.current.requestStageChange(opp.id, OpportunityStage.Won));
+    act(() => result.current.confirmTransition({ actualValue: 12500 }));
+
+    // Deliberate: `moveStage` back to the prior stage does NOT unwind the
+    // project the convert RPC just minted, so a visible UNDO here would
+    // promise a reversal the handler cannot deliver.
+    expect(showUndoToastSpy).not.toHaveBeenCalled();
+    expect(pushUndo).toHaveBeenCalledTimes(1);
+  });
+
+  it("discard records the audit row and renders a visible undo", async () => {
+    const opp = makeOpp({ stage: OpportunityStage.Negotiation });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    await act(async () => {
+      result.current.requestStageChange(opp.id, OpportunityStage.Discarded);
+    });
+
+    expect(applyFeedbackMutateAsync).toHaveBeenCalledTimes(1);
+    expect(showUndoToastSpy).toHaveBeenCalledTimes(1);
+    const options = showUndoToastSpy.mock.calls[0]![0] as {
+      title: string;
+      description?: string;
+      onUndo: () => void;
+    };
+    expect(options.title).toContain("Acme");
+    expect(options.description).toBe("Negotiation → Discarded");
+
+    const entryId = pushUndo.mock.results[0]!.value;
+    await act(async () => {
+      options.onUndo();
+    });
+    expect(undoEntry).toHaveBeenCalledWith(entryId);
+  });
+
+  it("discard falls back to a plain move on an unknown feedback error and still shows undo", async () => {
+    applyFeedbackMutateAsync.mockRejectedValueOnce(new Error("network down"));
+    const opp = makeOpp({ stage: OpportunityStage.Negotiation });
+    const { result } = renderHook(() =>
+      useStageTransition({ opportunities: [opp] })
+    );
+
+    await act(async () => {
+      result.current.requestStageChange(opp.id, OpportunityStage.Discarded);
+    });
+
+    // The discard must never fail to happen because the feedback contract was
+    // unavailable — and the fallback owes the same visible undo as the path
+    // it replaced.
+    expect(moveMutate).toHaveBeenCalledTimes(1);
+    expect(moveMutate.mock.calls[0]![0]).toMatchObject({
+      id: opp.id,
+      stage: OpportunityStage.Discarded,
+    });
+    expect(showUndoToastSpy).toHaveBeenCalledTimes(1);
+    const options = showUndoToastSpy.mock.calls[0]![0] as {
+      description?: string;
+    };
+    expect(options.description).toBe("Negotiation → Discarded");
   });
 });
 
