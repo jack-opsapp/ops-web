@@ -354,6 +354,52 @@ async function applyQuietHoursToPushRecipients(params: {
   return delivered;
 }
 
+/**
+ * Quiet-hours gate for push senders that do not flow through
+ * `resolveNotificationPreferences` (the delivery workers, the task-mutation
+ * outbox, trial expiry, role-needed). Reads each recipient's quiet-hours window
+ * and drops the ones whose window contains "now" in the company's timezone.
+ *
+ * Push only; rail rows are untouched. Zero extra round-trips when nobody has a
+ * window configured — `applyQuietHoursToPushRecipients` skips the company read.
+ *
+ * Callers own recipient derivation (each already knows who should be notified);
+ * this is strictly the last gate before the push channel. Bug 42aa787c.
+ */
+export async function filterPushRecipientsByQuietHours(params: {
+  companyId: string;
+  recipientUserIds: string[];
+  db?: SupabaseClient;
+}): Promise<string[]> {
+  const unique = [...new Set(params.recipientUserIds)].filter(Boolean);
+  if (unique.length === 0) return [];
+  const db = params.db ?? getServiceRoleClient();
+  const { data, error } = await db
+    .from("notification_preferences")
+    .select("user_id, quiet_hours_start, quiet_hours_end")
+    .in("user_id", unique)
+    .eq("company_id", params.companyId);
+  if (error) {
+    throw new Error(`Quiet-hours preference lookup failed: ${error.message}`);
+  }
+  const byUser = new Map(
+    (data ?? []).map((row) => [String(row.user_id), row as Record<string, unknown>])
+  );
+  const candidates: QuietHoursCandidate[] = unique.map((userId) => {
+    const row = byUser.get(userId);
+    return {
+      userId,
+      startSeconds: parseTimeOfDaySeconds(row?.quiet_hours_start),
+      endSeconds: parseTimeOfDaySeconds(row?.quiet_hours_end),
+    };
+  });
+  return applyQuietHoursToPushRecipients({
+    db,
+    companyId: params.companyId,
+    candidates,
+  });
+}
+
 export async function resolveNotificationPreferences(params: {
   companyId: string;
   recipientUserIds: string[];
