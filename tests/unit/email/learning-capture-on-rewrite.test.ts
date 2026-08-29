@@ -305,10 +305,12 @@ describe("outcome classification regressions (DEFECT 1)", () => {
 
 describe("outbound learning enqueue — replaced draft provenance", () => {
   async function enqueueWith(replacedDraftHistoryId: string | null) {
-    const rpc = vi.fn(async () => ({
-      data: [{ id: "job-1", status: "pending" }],
-      error: null,
-    }));
+    const rpc = vi.fn(
+      async (_name: string, _args: Record<string, unknown>) => ({
+        data: [{ id: "job-1", status: "pending" }],
+        error: null,
+      })
+    );
     const LearningService = await realLearningService();
     await new LearningService({ rpc } as never).enqueue({
       companyId: "company-1",
@@ -413,7 +415,7 @@ describe("outbound learning worker — replacement lesson preparation", () => {
       facts: [],
       edges: [],
     }));
-    const prepareDraftOutcome = vi.fn(async () => ({
+    const prepareDraftOutcome = vi.fn(async (_job: { draftHistoryId: string | null }) => ({
       finalVersion: OPERATOR_REWRITE,
       editDistance: 0,
       changesMade: [],
