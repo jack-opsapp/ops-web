@@ -20,6 +20,9 @@ describe("email outbound learning service contract", () => {
     expect(source).toContain("prepareSentDraftOutcome");
     expect(source).toContain("p_draft_outcome");
     expect(source).toContain("authoredMessageBody");
+    // Subject learning is a dedicated learner call, never a re-entry into the
+    // monolithic profile update the queue exists to replace (4da75e71).
+    expect(source).toContain("WritingProfileService.learnNewThreadSubject(");
     expect(source).not.toContain("WritingProfileService.updateFromEmail(");
     expect(source).not.toContain("MemoryService.processOutboundEmail(");
   });

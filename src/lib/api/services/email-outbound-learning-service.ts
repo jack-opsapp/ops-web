@@ -9,6 +9,7 @@ import {
   isDatabasePressureError,
   supabaseDatabaseOperationCause,
 } from "./cron-workload-control-service";
+import type { SubjectLearningContext } from "./writing-profile-service";
 
 export const OUTBOUND_LEARNING_PREPARATION_VERSION = "outbound-learning-v1";
 
@@ -197,6 +198,19 @@ export interface EmailOutboundLearningDependencies {
   ): Promise<OutboundDraftOutcome>;
   prepareCorrectionEmbedding(content: string): Promise<number[] | null>;
   afterApplied?(job: EmailOutboundLearningJob): Promise<void>;
+  /**
+   * Teach the profile how this operator titles a NEW conversation, from a send
+   * that just taught it their body style.
+   *
+   * Optional in the same spirit as `afterApplied`: a caller that supplies its
+   * own dependency set is declaring which effects it wants, and an omitted
+   * learner simply means this send teaches no subject. Production constructs
+   * the service with the defaults below, so the live worker always learns.
+   */
+  learnSubjectPreference?(input: {
+    job: EmailOutboundLearningJob;
+    context: SubjectLearningContext;
+  }): Promise<void>;
 }
 
 export interface EmailOutboundLearningWorkerResult {
@@ -381,6 +395,20 @@ const defaultDependencies: EmailOutboundLearningDependencies = {
   prepareCorrectionEmbedding: async (content) => {
     const { generateEmbedding } = await import("./memory-service");
     return generateEmbedding(`correction: ${content}`);
+  },
+  learnSubjectPreference: async ({ job, context }) => {
+    const { WritingProfileService } = await import("./writing-profile-service");
+    await WritingProfileService.learnNewThreadSubject({
+      companyId: job.companyId,
+      userId: job.userId ?? "",
+      profileType: job.profileType,
+      subject: job.subject,
+      context,
+      // Deliberately unstated. The queue holds one send, not its thread, so it
+      // cannot prove this send opened anything — and asserting that it did
+      // would file every reply as new-thread evidence. The learner reads the
+      // subject's own shape instead, where a `Re:`/`Fwd:` prefix is proof.
+    });
   },
   afterApplied: async (job) => {
     if (!job.userId || job.learningAuthority === "autonomous") return;
@@ -943,6 +971,95 @@ export class EmailOutboundLearningService {
     return body.slice(0, REPLACED_DRAFT_CONTEXT_MAX_CHARS);
   }
 
+  /**
+   * This lead's own values, so the learner stores a shape and never a
+   * customer's identity: the merge substitutes each value it recognizes in the
+   * subject for the matching token.
+   *
+   * The five fields are exactly the ones a draft resolves at send time. A sixth
+   * would be worse than useless — a learned pattern only speaks when every
+   * token in it can be filled for the NEXT lead, so a token draft time never
+   * supplies would silence the pattern forever.
+   *
+   * Scoped to the job's company so a pointer can never read another tenant's
+   * lead, and a missing opportunity is not an error: the send still learns,
+   * from the recipient address alone.
+   */
+  private async loadSubjectLearningContext(
+    job: EmailOutboundLearningJob
+  ): Promise<SubjectLearningContext> {
+    const recipient = stringOrNull(job.toEmails[0]);
+    if (!job.opportunityId) return { email: recipient };
+
+    const response = await this.supabase
+      .from("opportunities")
+      .select(
+        "title, address, contact_name, contact_email, clients(name, email)"
+      )
+      .eq("id", job.opportunityId)
+      .eq("company_id", job.companyId)
+      .maybeSingle();
+    const { data, error } = response;
+    if (error || !data) return { email: recipient };
+
+    const clientValue = data.clients as unknown;
+    const client = (
+      Array.isArray(clientValue) ? clientValue[0] : clientValue
+    ) as Record<string, unknown> | null;
+    return {
+      contact: stringOrNull(data.contact_name),
+      company: stringOrNull(client?.name),
+      address: stringOrNull(data.address),
+      project: stringOrNull(data.title),
+      email:
+        recipient ??
+        stringOrNull(data.contact_email) ??
+        stringOrNull(client?.email),
+    };
+  }
+
+  /**
+   * Learn this send's subject, after its effects have already committed.
+   *
+   * Gated on `applyFullBodyLearning` — the same bar the body sample clears —
+   * because that flag is what proves the operator wrote this message rather
+   * than approving one of ours. Learning an approved OPS subject would teach
+   * the profile our own server constant back to itself, which is the exact loop
+   * that left `subject_preferences` speaking for nobody (4da75e71).
+   *
+   * Nothing here may fail the send: the apply transaction is committed by the
+   * time this runs, and a subject we could not file is not worth replaying
+   * every receipt, profile, and memory effect to retry.
+   */
+  private async learnSubjectPreference(
+    job: EmailOutboundLearningJob
+  ): Promise<void> {
+    const learn = this.dependencies.learnSubjectPreference;
+    if (
+      !learn ||
+      !job.userId ||
+      job.applyFullBodyLearning !== true ||
+      !job.subject?.trim()
+    ) {
+      return;
+    }
+    try {
+      const context = await this.loadSubjectLearningContext(job);
+      // Bind the worker's own service-role client for the learner: the merge is
+      // service-role only, and resolving it from ambient async context would
+      // make subject learning depend on how far away the caller bound a client.
+      // Imported here rather than at module scope so this server-only service
+      // keeps its static graph free of the browser Supabase client.
+      const { runWithSupabase } = await import("@/lib/supabase/helpers");
+      await runWithSupabase(this.supabase, () => learn({ job, context }));
+    } catch (error) {
+      console.error("[outbound-learning] subject preference learning failed", {
+        jobId: job.id,
+        error: errorText(error),
+      });
+    }
+  }
+
   async runWorker(
     input: {
       limit?: number;
@@ -1113,6 +1230,7 @@ export class EmailOutboundLearningService {
           }
 
           const appliedJob = await this.apply(preparedJob);
+          await this.learnSubjectPreference(appliedJob);
           if (
             this.dependencies.afterApplied &&
             appliedJob.learningAuthority !== "autonomous"
