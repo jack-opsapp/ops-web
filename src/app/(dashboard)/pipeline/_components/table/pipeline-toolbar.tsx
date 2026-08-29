@@ -55,7 +55,13 @@ export function PipelineToolbar({
   const { t } = useDictionary("pipeline");
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
+    // 8px between controls below xl, 16px from xl up. These are icon-only
+    // buttons at that width (their labels gate at 2xl), so the tighter gap
+    // reads as one instrument group rather than cramped — and it returns
+    // ~24-32px to the row, the margin that keeps the cluster on one line at
+    // 1000px once REVIEW EMAILS is present. The Workbar's own cluster gap is
+    // shared across surfaces and deliberately untouched.
+    <div className="flex min-w-0 flex-wrap items-center gap-1 xl:gap-2">
       <button
         type="button"
         aria-label={t("table.toolbar.group")}

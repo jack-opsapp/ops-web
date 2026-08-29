@@ -1256,7 +1256,14 @@ export default function PipelinePage() {
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder={t("search.placeholder")}
                   aria-label={t("search.placeholder")}
-                  wrapperClassName="w-[240px] max-w-full"
+                  // 184px below xl, the canonical 240 from xl up. The filters
+                  // cell floors at two nowrap picker chips (~235px) and the
+                  // right cluster needs ~390px on one line (~440 with REVIEW
+                  // EMAILS), which together overran the 880px this row gets at
+                  // a 1000px viewport. Reclaiming 56px here is what buys the
+                  // single line; 184 stays on the 8px rhythm and still shows
+                  // ~18 mono characters, so search remains genuinely usable.
+                  wrapperClassName="w-[184px] max-w-full xl:w-[240px]"
                 />
               }
               filters={
