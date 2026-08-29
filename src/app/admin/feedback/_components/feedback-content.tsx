@@ -216,12 +216,18 @@ function PromoCodesTab({ codes }: { codes: PromoCode[] }) {
         <div key={c.id} className="grid grid-cols-6 px-6 items-center h-14 border-b border-white/[0.05] last:border-0">
           <span className="font-mohave text-[14px] text-[#EDEDED] font-mono">{c.code}</span>
           <span className="font-mohave text-[14px] text-[#A0A0A0]">
-            {c.discount_percent ? `${c.discount_percent}%` : c.discount_amount ? `$${c.discount_amount}` : "—"}
+            {c.discount_value == null
+              ? "—"
+              : c.discount_type === "percent" || c.discount_type === "percentage"
+                ? `${c.discount_value}%`
+                : `$${c.discount_value}`}
           </span>
-          <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.usage_count}</span>
+          <span className="font-mohave text-[14px] text-[#A0A0A0]">
+            {c.current_uses}{c.max_uses != null ? ` / ${c.max_uses}` : ""}
+          </span>
           <span className="font-mohave text-[14px] text-[#A0A0A0]">{c.max_uses ?? "∞"}</span>
-          <span className={`font-mohave text-[13px] ${c.active ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
-            {c.active ? "ACTIVE" : "INACTIVE"}
+          <span className={`font-mohave text-[13px] ${c.is_active ? "text-[#9DB582]" : "text-[#6B6B6B]"}`}>
+            {c.is_active ? "ACTIVE" : "INACTIVE"}
           </span>
           <span className="font-mono text-[12px] text-[#6B6B6B]">
             [{new Date(c.created_at).toLocaleDateString()}]

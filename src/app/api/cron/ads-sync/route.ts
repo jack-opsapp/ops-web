@@ -3,6 +3,10 @@ import { syncDay } from "@/lib/admin/ads-history-sync";
 import { getSyncStatus, updateSyncStatus } from "@/lib/admin/ads-history-queries";
 import { dispatchBackfillChunk } from "@/lib/admin/ads-backfill-dispatch";
 import {
+  classifyGoogleAdsAccessFailure,
+  reportAdsProviderHealth,
+} from "@/lib/admin/ads-provider-health";
+import {
   CronDatabaseOperationError,
   runWithCronWorkloadControl,
 } from "@/lib/api/services/cron-workload-control-service";
@@ -79,10 +83,26 @@ export async function GET(request: NextRequest) {
             error: null,
           });
 
-          return { date: dateStr };
+          await reportAdsProviderHealth(supabase, { blocked: false });
+          return { date: dateStr, degraded: null as string | null };
         } catch (error) {
           if (error instanceof CronDatabaseOperationError) {
             throw error;
+          }
+          // A blocked account/token is a standing operator condition, not a
+          // defect: record it truthfully and degrade instead of 500ing on
+          // every scheduled run (bug 964cf782).
+          const accessReason = classifyGoogleAdsAccessFailure(error);
+          if (accessReason) {
+            await updateSyncStatus("daily-sync", {
+              status: "failed",
+              error: accessReason,
+            });
+            await reportAdsProviderHealth(supabase, {
+              blocked: true,
+              reason: accessReason,
+            });
+            return { date: null, degraded: accessReason };
           }
           const message =
             error instanceof Error ? error.message : String(error);
@@ -105,6 +125,18 @@ export async function GET(request: NextRequest) {
           revivedBackfill,
         },
         { status: alreadyRunning ? 200 : 503 }
+      );
+    }
+
+    if (controlled.value.degraded) {
+      return NextResponse.json(
+        {
+          status: "degraded",
+          ran: true,
+          reason: controlled.value.degraded,
+          revivedBackfill,
+        },
+        { status: 200 }
       );
     }
 

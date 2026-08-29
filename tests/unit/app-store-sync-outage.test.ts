@@ -87,6 +87,10 @@ function builder(table: string) {
       calls.push({ table, method: "update", args });
       return query;
     },
+    delete(...args: unknown[]) {
+      calls.push({ table, method: "delete", args });
+      return query;
+    },
     eq(...args: unknown[]) {
       calls.push({ table, method: "eq", args });
       return query;
@@ -202,7 +206,7 @@ describe("app-store sync outage bounds", () => {
             id: "report-provider-1",
             attributes: {
               category: "APP_STORE_ENGAGEMENT",
-              name: "Engagement",
+              name: "App Store Discovery and Engagement Standard",
             },
           },
         ],
@@ -314,7 +318,7 @@ describe("app-store sync outage bounds", () => {
         data: [
           {
             id: "report-provider-1",
-            attributes: { name: "Engagement" },
+            attributes: { name: "App Store Discovery and Engagement Standard" },
           },
         ],
       })
@@ -352,7 +356,7 @@ describe("app-store sync outage bounds", () => {
     expect(mocks.advanceCronWorkloadCursor).not.toHaveBeenCalled();
   });
 
-  it("preserves canonical engagement identities through segment completion", async () => {
+  it("collapses colliding engagement identities through segment completion", async () => {
     results.asc_report_requests = [
       {
         data: [
@@ -379,7 +383,7 @@ describe("app-store sync outage bounds", () => {
             id: "report-provider-1",
             attributes: {
               category: "APP_STORE_ENGAGEMENT",
-              name: "Engagement",
+              name: "App Store Discovery and Engagement Standard",
             },
           },
         ],
@@ -424,9 +428,20 @@ describe("app-store sync outage bounds", () => {
     );
     const facts = (factUpsert?.args[0] ?? []) as Array<{
       engagement_type: string | null;
+      counts: number;
+      unique_counts: number;
     }>;
-    expect(facts.map((fact) => fact.engagement_type)).toEqual(["Get", "Open"]);
-    expect(result).toMatchObject({ segmentsProcessed: 1, rowsIngested: 2 });
+    // engagement_type resolves from Apple's Event column, so both subtype rows
+    // share one conflict identity and are summed into a single upserted fact —
+    // the batch can no longer raise Postgres 21000.
+    expect(facts.map((fact) => fact.engagement_type)).toEqual(["Tap"]);
+    expect(facts[0]).toMatchObject({ counts: 12, unique_counts: 12 });
+    expect(result).toMatchObject({ segmentsProcessed: 1, rowsIngested: 1 });
+    expect(
+      calls.some(
+        ({ table, method }) => table === "asc_raw_rows" && method === "delete"
+      )
+    ).toBe(true);
     expect(
       calls.some(
         ({ table, method, args }) =>

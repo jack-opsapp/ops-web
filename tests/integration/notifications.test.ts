@@ -390,8 +390,13 @@ describe("sendPmfNotification — integration (transport boundaries)", () => {
       await vi.advanceTimersByTimeAsync(1_000);
       await vi.advanceTimersByTimeAsync(5_000);
       // The function must not throw to the caller — it swallows per-channel
-      // failure and logs it.
-      await expect(p).resolves.toBeUndefined();
+      // failure, logs it, and reports the outcome so cursor-owning callers can
+      // decide whether the window was actually delivered.
+      await expect(p).resolves.toEqual({
+        deduped: false,
+        attempted: ["email"],
+        failed: ["email"],
+      });
 
       // Retried: at least 2 calls (unit test confirms exact = 3; we assert
       // the ≥ 2 lower bound here for robustness against retry-count tuning).

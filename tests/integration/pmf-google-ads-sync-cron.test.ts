@@ -49,6 +49,7 @@ let nextControlSkip:
   | "control_unavailable"
   | null = null;
 let lastWorkError: unknown = null;
+const healthReports: Array<{ blocked: boolean; reason?: string }> = [];
 
 // ─── Mocks ───────────────────────────────────────────────────────────────────
 
@@ -84,14 +85,36 @@ vi.mock(
   }
 );
 
-vi.mock("@/lib/analytics/google-ads-client", () => ({
-  isGoogleAdsConfigured: () => isConfigured,
-  queryDailyAccountData: async (start: Date, end: Date) => {
-    queryCalls.push({ start, end });
-    if (nextQueryError) throw nextQueryError;
-    return nextRows;
-  },
-}));
+vi.mock("@/lib/analytics/google-ads-client", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/analytics/google-ads-client")>();
+  return {
+    // The real typed error — the provider-health classifier instanceof-checks it.
+    GoogleAdsApiError: actual.GoogleAdsApiError,
+    isGoogleAdsConfigured: () => isConfigured,
+    queryDailyAccountData: async (start: Date, end: Date) => {
+      queryCalls.push({ start, end });
+      if (nextQueryError) throw nextQueryError;
+      return nextRows;
+    },
+  };
+});
+
+// Real classifier, recorded reporter: the degrade decision is under test, the
+// shared state write is covered by tests/unit/admin/ads-provider-health.test.ts.
+vi.mock("@/lib/admin/ads-provider-health", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/lib/admin/ads-provider-health")>();
+  return {
+    ...actual,
+    reportAdsProviderHealth: async (
+      _sb: unknown,
+      next: { blocked: boolean; reason?: string }
+    ) => {
+      healthReports.push(next);
+    },
+  };
+});
 
 interface MockBuilder {
   upsert: (
@@ -146,6 +169,7 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
     nextQueryError = null;
     nextControlSkip = null;
     lastWorkError = null;
+    healthReports.length = 0;
     isConfigured = true;
     nextRows = [];
     process.env.CRON_SECRET = VALID_SECRET;
@@ -284,8 +308,10 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
     // Google response body — including customer ID and request diagnostics —
     // into the Error message. The route must NOT echo that back in the HTTP
     // response body, but MUST log it server-side for debugging.
+    // A 5xx is a transient provider fault, NOT a standing access condition, so
+    // it must still surface as a 500 rather than degrade.
     const leakyMessage =
-      'Google Ads API error (401): {"error":{"code":401,"message":"Request had invalid authentication credentials.","status":"UNAUTHENTICATED","details":[{"customerId":"1234567890","requestId":"abc-secret-request-id"}]}}';
+      'Google Ads API error (500): {"error":{"code":500,"message":"Internal error encountered.","status":"INTERNAL","details":[{"customerId":"1234567890","requestId":"abc-secret-request-id"}]}}';
     nextQueryError = new Error(leakyMessage);
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -311,8 +337,67 @@ describe("GET /api/cron/pmf/google-ads-sync", () => {
     // The query was attempted; no upsert happened because the throw came first.
     expect(queryCalls).toHaveLength(1);
     expect(upsertCalls).toHaveLength(0);
+    // A transient provider fault is not a standing access condition.
+    expect(healthReports).toHaveLength(0);
 
     errorSpy.mockRestore();
+  });
+
+  it("degrades with 200 and writes no spend row when account access is blocked", async () => {
+    // Bug 964cf782: for four weeks this returned 500 on every scheduled run
+    // and the PMF dashboard silently lost its spend series.
+    const leakyMessage =
+      'Google Ads API error (403): {"error":{"code":403,"status":"PERMISSION_DENIED","details":[{"errors":[{"errorCode":{"authorizationError":"DEVELOPER_TOKEN_NOT_APPROVED"}}],"customerId":"1234567890","requestId":"abc-secret-request-id"}]}}';
+    nextQueryError = new Error(leakyMessage);
+
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      ok: boolean;
+      ran: boolean;
+      degraded: string;
+      reason: string;
+    };
+    expect(json.ok).toBe(false);
+    expect(json.ran).toBe(true);
+    expect(json.degraded).toBe("provider_access");
+    expect(json.reason).toContain("DEVELOPER_TOKEN_NOT_APPROVED");
+    // The one-line reason carries the marker, never the raw response body.
+    expect(json.reason).not.toContain("customerId");
+    expect(json.reason).not.toContain("requestId");
+
+    // A missing day truthfully means "not synced"; a zero row would claim
+    // "checked, no spend". Never blur the two.
+    expect(upsertCalls).toHaveLength(0);
+    expect(healthReports).toEqual([
+      {
+        blocked: true,
+        reason: expect.stringContaining("DEVELOPER_TOKEN_NOT_APPROVED"),
+      },
+    ]);
+  });
+
+  it("records provider health as healthy after a successful sync", async () => {
+    nextRows = [
+      {
+        date: expectedYesterdayStr(),
+        spend: 12.34,
+        clicks: 5,
+        impressions: 100,
+        conversions: 1,
+        cpa: 0,
+        ctr: 0,
+      },
+    ];
+
+    const { GET } = await import("@/app/api/cron/pmf/google-ads-sync/route");
+    const res = await GET(buildReq(`Bearer ${VALID_SECRET}`));
+
+    expect(res.status).toBe(200);
+    expect(upsertCalls).toHaveLength(1);
+    expect(healthReports).toEqual([{ blocked: false }]);
   });
 
   it("tags a Supabase upsert failure as database pressure without leaking it", async () => {

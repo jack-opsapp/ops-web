@@ -449,3 +449,117 @@ describe("sendPmfNotification — channel gating", () => {
     expect(logRowsFor("in_app").length).toBe(1);
   });
 });
+
+// ─── Tests: send outcome (bug b71728ed — at-least-once event delivery) ───────
+
+describe("sendPmfNotification — send outcome", () => {
+  it("reports a dedup short-circuit with no attempted channels", async () => {
+    resultQueue = [{ data: [{ id: "prior" }], error: null }];
+
+    const { sendPmfNotification } =
+      await import("@/lib/notifications/pmf-send");
+    const outcome = await sendPmfNotification({
+      kind: "threshold_alert",
+      trigger: "new_inbound_1",
+      smsBody: "PMF :: INBOUND",
+    });
+
+    expect(outcome).toEqual({ deduped: true, attempted: [], failed: [] });
+  });
+
+  it("reports every attempted channel as succeeded when all deliver", async () => {
+    sendSmsMock.mockResolvedValue({ sid: "SM123" });
+    sendTransactionalEmailMock.mockResolvedValue(undefined);
+    resultQueue = [{ data: [], error: null }];
+
+    const { sendPmfNotification } =
+      await import("@/lib/notifications/pmf-send");
+    const outcome = await sendPmfNotification({
+      kind: "threshold_alert",
+      trigger: "new_inbound_1",
+      smsBody: "PMF :: INBOUND",
+      emailSubject: "PMF alert",
+      emailReact: {
+        type: "div",
+        props: {},
+        key: null,
+      } as unknown as React.ReactElement,
+      inAppTitle: "// PMF — INBOUND",
+    });
+
+    expect(outcome.deduped).toBe(false);
+    expect(outcome.attempted).toEqual(["sms", "email", "in_app"]);
+    expect(outcome.failed).toEqual([]);
+  });
+
+  it("reports a total delivery failure when every attempted channel fails", async () => {
+    vi.useFakeTimers();
+    sendSmsMock.mockRejectedValue(new Error("twilio down"));
+    resultQueue = [{ data: [], error: null }];
+
+    const { sendPmfNotification } =
+      await import("@/lib/notifications/pmf-send");
+    const pending = sendPmfNotification({
+      kind: "threshold_alert",
+      trigger: "new_inbound_1",
+      smsBody: "PMF :: INBOUND",
+    });
+    await vi.runAllTimersAsync();
+    const outcome = await pending;
+    vi.useRealTimers();
+
+    expect(outcome.deduped).toBe(false);
+    expect(outcome.attempted).toEqual(["sms"]);
+    expect(outcome.failed).toEqual(["sms"]);
+  });
+
+  it("reports a partial failure so the caller does not re-scan the window", async () => {
+    vi.useFakeTimers();
+    sendSmsMock.mockRejectedValue(new Error("twilio down"));
+    sendTransactionalEmailMock.mockResolvedValue(undefined);
+    resultQueue = [{ data: [], error: null }];
+
+    const { sendPmfNotification } =
+      await import("@/lib/notifications/pmf-send");
+    const pending = sendPmfNotification({
+      kind: "threshold_alert",
+      trigger: "new_inbound_1",
+      smsBody: "PMF :: INBOUND",
+      emailSubject: "PMF alert",
+      emailReact: {
+        type: "div",
+        props: {},
+        key: null,
+      } as unknown as React.ReactElement,
+    });
+    await vi.runAllTimersAsync();
+    const outcome = await pending;
+    vi.useRealTimers();
+
+    expect(outcome.attempted).toEqual(["sms", "email"]);
+    expect(outcome.failed).toEqual(["sms"]);
+  });
+
+  it("does not report an ungated channel as attempted", async () => {
+    sendTransactionalEmailMock.mockResolvedValue(undefined);
+    resultQueue = [{ data: [], error: null }];
+
+    const { sendPmfNotification } =
+      await import("@/lib/notifications/pmf-send");
+    const outcome = await sendPmfNotification({
+      kind: "daily_digest",
+      trigger: "digest",
+      smsBody: "ignored for digests",
+      emailSubject: "PMF daily",
+      emailReact: {
+        type: "div",
+        props: {},
+        key: null,
+      } as unknown as React.ReactElement,
+      inAppTitle: "ignored for digests",
+    });
+
+    expect(outcome.attempted).toEqual(["email"]);
+    expect(outcome.failed).toEqual([]);
+  });
+});
