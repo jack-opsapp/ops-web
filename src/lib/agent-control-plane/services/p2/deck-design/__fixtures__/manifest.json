@@ -1,0 +1,64 @@
+{
+  "fixture_revision": "deck-geometry-golden:2026-08-22.v1",
+  "calculator_revision": "deck-geometry-calculator:2026-08-22.v1",
+  "producers": [
+    {
+      "repository": "ops-decks-ios",
+      "producer_code_commit": "6f76e07ef54799e7bf9f4e0a4760c69ae08a61d9",
+      "generated_artifact_commit": "c1262418cdf6aefaacc42b6b283ae0878e0e4e88",
+      "files": [
+        {
+          "path": "ops-decks-ios/adjacent-faces-no-surfaces.json",
+          "sha256": "5e8c0d1d009183740af6774ec6687c2724be30d19c0fc4ab72fa04d3b6cb5025"
+        },
+        {
+          "path": "ops-decks-ios/legacy-self-intersection.json",
+          "sha256": "404a9cc7e77a1ec60f5dc38359b66370a9e7ed63a0993d2ae5f4b89bae99c8d8"
+        },
+        {
+          "path": "ops-decks-ios/missing-and-stale-dimensions.json",
+          "sha256": "5a4b29d48ba18b128d9cee0c8397de0320817904a9664c43b3ba93c71c4a1185"
+        },
+        {
+          "path": "ops-decks-ios/multi-level-connection.json",
+          "sha256": "8357c870423b4fac3fbc524aaf51877315c05a48d3fe1dc5cdd0f8e657ad1f3a"
+        },
+        {
+          "path": "ops-decks-ios/single-level-gate-stair-parapet.json",
+          "sha256": "774fd843f4b7db6bfc073bb6b00d83dd28248433f82f897a1dea148f21f63c74"
+        },
+        {
+          "path": "ops-decks-ios/surface-hole.json",
+          "sha256": "f1b3ef191763621fe0b88a379b6d011d3d0f85ea6df5479789fd8f459ff7799f"
+        }
+      ]
+    },
+    {
+      "repository": "ops-ios",
+      "producer_code_commit": "2a5f15accd02e7de0f344ee55305bfb6b6c23507",
+      "generated_artifact_commit": "d095939fdd3a648c2d233517995ee44c8a017578",
+      "files": [
+        {
+          "path": "ops-ios/adjacent-faces-no-surfaces.json",
+          "sha256": "f2b801d9ac5a232b7e4e5c1b1d54e2336a82fb300dbb8bd6c0e4baf00dd3cbdd"
+        },
+        {
+          "path": "ops-ios/legacy-self-intersection.json",
+          "sha256": "05241c09c79343d035873bce7ca1120e4cbe01c3da86878ac62f4ef1194185b4"
+        },
+        {
+          "path": "ops-ios/missing-and-stale-dimensions.json",
+          "sha256": "baf9222ca75ce78c778a787df4e42fe408fb73cb46144d7d5e2ff64fb83626a6"
+        },
+        {
+          "path": "ops-ios/multi-level-connection.json",
+          "sha256": "1a0af7f0687fef6fbe8f14ef0a35393d9fc01f4e1929bc8be40a5e462fa90822"
+        },
+        {
+          "path": "ops-ios/single-level-gate-stair-parapet.json",
+          "sha256": "630cacdcc29be5fef38a383f81b3126017cda1793f7c1728e06d7cf98f8b5969"
+        }
+      ]
+    }
+  ]
+}
