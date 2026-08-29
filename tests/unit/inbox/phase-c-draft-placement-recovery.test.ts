@@ -63,17 +63,35 @@ function recoverySupabase(input: {
     supabase: {
       from(table: string) {
         const chain: Record<string, unknown> = {};
-        for (const method of ["select", "eq", "not", "is", "gte", "in", "order"]) {
+        // `lt` marks the age-out read, which scans older rows than the
+        // placement candidate read and must not be served the same rows.
+        let agingOut = false;
+        for (const method of [
+          "select",
+          "eq",
+          "not",
+          "is",
+          "gte",
+          "lt",
+          "in",
+          "order",
+          "update",
+        ]) {
           chain[method] = (...args: unknown[]) => {
             filters.push({ table, method, args });
+            if (method === "lt") agingOut = true;
             return chain;
           };
         }
         chain.limit = async () => ({
           data:
-            table === "ai_draft_history" ? input.candidates : (input.threads ?? []),
+            table === "ai_draft_history"
+              ? agingOut
+                ? []
+                : input.candidates
+              : (input.threads ?? []),
           error:
-            table === "ai_draft_history" && input.historyError
+            table === "ai_draft_history" && !agingOut && input.historyError
               ? { message: input.historyError }
               : null,
         });
@@ -104,7 +122,13 @@ describe("recoverStrandedPhaseCMailboxDraftsForConnection", () => {
       supabase,
     });
 
-    expect(summary).toEqual({ scanned: 0, placed: 0, skipped: 0, failed: 0 });
+    expect(summary).toEqual({
+      scanned: 0,
+      placed: 0,
+      skipped: 0,
+      failed: 0,
+      agedOut: 0,
+    });
     expect(retryMock).not.toHaveBeenCalled();
   });
 

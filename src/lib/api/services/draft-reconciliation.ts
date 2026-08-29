@@ -223,7 +223,14 @@ interface ResolvedMailboxLearningActor {
   opportunityId: string | null;
   assignmentVersion: number | null;
   assignmentEventId: string | null;
-  proofType: "native_mailbox_draft" | "personal_mailbox_owner";
+  proofType:
+    | "native_mailbox_draft"
+    | "personal_mailbox_owner"
+    // A shared mailbox send cannot name its author, so a rewrite on a
+    // company-type connection is anchored on the current exact assignee who
+    // owns the OPS draft on that very thread — the same inference the
+    // `native_mailbox_draft` arm already trusts for reused drafts.
+    | "company_mailbox_assignee";
 }
 
 const DRAFT_RECONCILIATION_READ_DEADLINE_MS = 2 * 60 * 1000;
@@ -367,9 +374,11 @@ async function resolveMailboxLearningActor(input: {
   if (
     typeof row.actorUserId !== "string" ||
     !row.actorUserId ||
-    !["native_mailbox_draft", "personal_mailbox_owner"].includes(
-      String(row.proofType ?? "")
-    )
+    ![
+      "native_mailbox_draft",
+      "personal_mailbox_owner",
+      "company_mailbox_assignee",
+    ].includes(String(row.proofType ?? ""))
   ) {
     return null;
   }
@@ -803,8 +812,11 @@ export async function reconcilePendingMailboxDrafts({
         case "from_scratch": {
           // User sent a fresh reply, ignoring our draft. Upgrade the generic
           // sync receipt to human-authored only after the exact configured
-          // signature is removed. Do not attach the ignored AI draft: that
-          // would register a bogus 100% rewrite and poison edit learning.
+          // signature is removed. Do not attach the ignored AI draft as the
+          // sent draft: that would register a bogus 100% rewrite and poison
+          // edit learning. It travels instead on `replacedDraftHistoryId`, the
+          // memory-only lane, so the correction the operator actually made is
+          // still learned.
           const providerMessageId = latestOutbound?.email_message_id as
             | string
             | null;
@@ -849,6 +861,7 @@ export async function reconcilePendingMailboxDrafts({
                   cleanBody,
                   occurredAt: latestOutbound?.created_at as string,
                   labelIds: ["SENT"],
+                  replacedDraftHistoryId: row.id as string,
                   opportunityId: resolvedActor.opportunityId,
                   profileType: (row.profile_type as string | null) ?? "general",
                   learningAuthority: preparedBody.signatureRemoved

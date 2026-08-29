@@ -1,6 +1,7 @@
 "use client";
 
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
+import { PencilRuler } from "lucide-react";
 import { useDictionary } from "@/i18n/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils/cn";
@@ -31,6 +32,7 @@ import { CellDate } from "./cells/cell-date";
 import { CellNumber } from "./cells/cell-number";
 import { CellPriority } from "./cells/cell-priority";
 import { CellRelation } from "./cells/cell-relation";
+import { CellSiteVisit } from "./cells/cell-site-visit";
 import { CellStageAction } from "./cells/cell-stage-action";
 import { CellText } from "./cells/cell-text";
 import { EditableCellClient } from "./cells/editable-cell-client";
@@ -42,6 +44,50 @@ import type {
 } from "./pipeline-table";
 import type { LeadAccess } from "@/lib/permissions/lead-access-policy";
 import { LeadChaseControl } from "../lead-chase-control";
+
+/**
+ * The deal cell's deck marker. Renders nothing when the lead has no deck, so
+ * the overwhelming majority of rows are unchanged; the count appears only when
+ * there is more than one, because "1" beside a single glyph says nothing the
+ * glyph did not already say.
+ */
+function DeckGlyph({
+  count,
+  title,
+  version,
+}: {
+  count: number;
+  title: string | null;
+  version: number | null;
+}) {
+  const { t } = useDictionary("pipeline");
+  // `> 0` rather than `< 1`: a row built by an older fixture (or any partial
+  // row) leaves this undefined, and `undefined < 1` is false — which would
+  // render a glyph for a lead that has no deck at all.
+  if (!(count > 0)) return null;
+
+  const label = t("card.deckDesign", {
+    title: title ?? "",
+    version: version ?? 1,
+  });
+
+  return (
+    <span
+      title={label}
+      className="flex shrink-0 items-center gap-0.5 text-text-mute"
+    >
+      <PencilRuler
+        aria-hidden="true"
+        className="h-[12px] w-[12px] shrink-0"
+        strokeWidth={1.5}
+      />
+      {count > 1 ? (
+        <span className="font-mono text-micro tabular-nums">{count}</span>
+      ) : null}
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}
 
 /**
  * Map a column to its presentational cell. Inline-editable columns route through
@@ -67,6 +113,14 @@ function renderReadOnlyCell(
           <div className="min-w-0 flex-1">
             <CellText value={row.title} />
           </div>
+          {/* A deck is evidence attached to THIS deal, not a dimension worth a
+              column of its own (17 company-wide) — so it rides the deal cell as
+              a quiet glyph rather than claiming scan-level width. */}
+          <DeckGlyph
+            count={row.deckDesignCount}
+            title={row.deckLatestTitle}
+            version={row.deckLatestVersion}
+          />
           {chaseControl}
         </div>
       );
@@ -91,6 +145,13 @@ function renderReadOnlyCell(
       return <CellDate value={row.lastActivityAt} />;
     case "next_follow_up":
       return <CellDate value={row.nextFollowUpAt} />;
+    case "site_visit":
+      return (
+        <CellSiteVisit
+          nextAt={row.siteVisitNextAt}
+          completedAt={row.siteVisitCompletedAt}
+        />
+      );
     case "expected_close":
       return <CellDate value={row.expectedCloseDate} />;
     case "assignee":

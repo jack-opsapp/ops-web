@@ -134,8 +134,12 @@ export interface EmailAssignmentContactFormDraftDependencies {
     recipientEmail: string;
     recipientName?: string;
     userInstruction: string;
-    /** Resolved from the mailbox's outreach_subject setting; never customer text. */
-    configuredSubject: string;
+    /**
+     * The operator's own per-mailbox outreach_subject setting, verbatim; absent
+     * when unset. Never customer text, and never the server-owned constant —
+     * see `operatorOutreachSubject`.
+     */
+    configuredSubject?: string;
     profileTypeOverride: "client_new_inquiry";
     autonomous: true;
     origin: "phase_c";
@@ -340,17 +344,35 @@ function parseSubmitter(
 }
 
 /**
- * The subject line for a first outreach email. New-lead outreach opens a fresh
- * thread, so there is no inbound subject to reply to — the operator's
- * per-mailbox setting decides, and the server-owned constant is the fallback.
+ * The operator's own per-mailbox outreach setting, or null when unset. New-lead
+ * outreach opens a fresh thread, so there is no inbound subject to reply to and
+ * this setting decides the name of the conversation.
+ *
+ * This is the only value that may occupy `configuredSubject` on a draft
+ * request. That rank outranks everything the mailbox profile has learned about
+ * naming a new conversation, so collapsing an unset setting to the server-owned
+ * constant here would park the constant permanently above every learned subject
+ * (4da75e71) — the same defeat deca0728 removed from the source-bound lane.
+ * Unset must travel as unset and let the draft service rank.
  */
-function resolveOutreachSubject(connection: EmailConnection): string {
-  return connection.outreachSubject?.trim() || CONTACT_FORM_OUTREACH_SUBJECT;
+function operatorOutreachSubject(connection: EmailConnection): string | null {
+  return connection.outreachSubject?.trim() || null;
+}
+
+/**
+ * The subject actually written onto the provider draft. Every path into this
+ * one has either already passed the draft service's ranking or bypassed it
+ * entirely by resuming a stored draft, so the server-owned constant is the
+ * legitimate last resort at this point of use: the mailbox must never receive a
+ * subject-less draft.
+ */
+function placementOutreachSubject(connection: EmailConnection): string {
+  return operatorOutreachSubject(connection) ?? CONTACT_FORM_OUTREACH_SUBJECT;
 }
 
 function preparedFromClaim(
   job: ClaimedEmailAssignmentContactFormDraft,
-  outreachSubject: string
+  placementSubject: string
 ): PreparedContactFormDraft | null {
   if (!job.draftHistoryId) return null;
   const body = job.draftBody?.trim();
@@ -360,7 +382,7 @@ function preparedFromClaim(
   return {
     draftHistoryId: job.draftHistoryId,
     body: job.draftBody as string,
-    subject: job.draftSubject?.trim() || outreachSubject,
+    subject: job.draftSubject?.trim() || placementSubject,
   };
 }
 
@@ -580,8 +602,9 @@ export class EmailAssignmentContactFormDraftWorker {
           );
         }
 
-        const outreachSubject = resolveOutreachSubject(connection);
-        let prepared = preparedFromClaim(job, outreachSubject);
+        const operatorSubject = operatorOutreachSubject(connection);
+        const placementSubject = placementOutreachSubject(connection);
+        let prepared = preparedFromClaim(job, placementSubject);
         if (!prepared) {
           const generated = await this.dependencies.generateDraft({
             companyId: job.companyId,
@@ -597,7 +620,9 @@ export class EmailAssignmentContactFormDraftWorker {
                 }
               : {}),
             userInstruction: buildContactFormDraftInstruction(),
-            configuredSubject: outreachSubject,
+            // Omitted when the operator has set nothing, so a learned subject
+            // can reach the top of the ranking on this lane (4da75e71).
+            ...(operatorSubject ? { configuredSubject: operatorSubject } : {}),
             profileTypeOverride: "client_new_inquiry",
             autonomous: true,
             origin: "phase_c",
@@ -641,7 +666,7 @@ export class EmailAssignmentContactFormDraftWorker {
           prepared = {
             draftHistoryId: generated.draftHistoryId,
             body: generated.draft,
-            subject: generated.subject?.trim() || outreachSubject,
+            subject: generated.subject?.trim() || placementSubject,
           };
         }
 

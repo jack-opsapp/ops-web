@@ -230,6 +230,9 @@ export const queryKeys = {
       ] as const,
     deckDesigns: (opportunityId: string) =>
       [...queryKeys.opportunities.all, "deckDesigns", opportunityId] as const,
+    /** Company-wide lead-deck markers — the board's scan-level read. */
+    deckMarkers: () =>
+      [...queryKeys.opportunities.all, "deckDesigns", "markers"] as const,
   },
 
   // Tasks

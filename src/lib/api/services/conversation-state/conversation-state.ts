@@ -92,6 +92,12 @@ export interface AssembleConversationStateInput {
   stage: LeadStage;
   contactFormSubmitter?: ContactFormSubmitter | null;
   commitments?: CommitmentRecord[];
+  /**
+   * Provider id of the message this draft answers, when the caller is bound to
+   * an exact source. It decides WHO gets greeted; without it the thread's
+   * newest customer voice does, which is only correct on a two-party thread.
+   */
+  sourceProviderMessageId?: string | null;
 }
 
 // ─── Small pure helpers ───────────────────────────────────────────────────────
@@ -182,12 +188,31 @@ function isDecorativeInlineAttachment(
  * The greeting target: the actual author of the latest inbound message,
  * preferring real customer inbounds over any other inbound (e.g. a forwarder),
  * and never the linked client. Null email/name when there is no inbound.
+ *
+ * When the draft is bound to an exact source message, that message's author is
+ * the target instead. A multi-party thread — the contractor who looped us in
+ * AND the homeowner who asked — has more than one "latest inbound", and the
+ * newest of them is frequently not the person the reply is for.
  */
-function deriveRecipient(messages: CleanMessage[]): {
+function deriveRecipient(
+  messages: CleanMessage[],
+  sourceProviderMessageId?: string | null
+): {
   email: string | null;
   name: string | null;
 } {
   const inbound = messages.filter((m) => m.direction === "inbound");
+
+  const sourceId = (sourceProviderMessageId ?? "").trim();
+  if (sourceId) {
+    const source = inbound.find((m) => m.providerMessageId === sourceId);
+    // An id that names no inbound in this thread proves nothing; fall through
+    // rather than greeting nobody.
+    if (source) {
+      return { email: source.fromEmail || null, name: source.fromName };
+    }
+  }
+
   const customer = inbound.filter((m) => m.isRealCustomerInbound);
   const pool = customer.length > 0 ? customer : inbound;
   if (pool.length === 0) return { email: null, name: null };
@@ -321,7 +346,7 @@ export function assembleConversationState(
 
   // 3. Roll-ups.
   const customerMessages = messages.filter((m) => m.isRealCustomerInbound);
-  const recipient = deriveRecipient(messages);
+  const recipient = deriveRecipient(messages, input.sourceProviderMessageId);
 
   const contact = resolveContact({
     messages,
@@ -570,7 +595,9 @@ function deriveContactFormSubmitter(
  * Returns null when the thread or its connection cannot be loaded.
  */
 export async function buildConversationState(
-  threadId: string
+  threadId: string,
+  /** Provider id of the exact message being answered — see deriveRecipient. */
+  sourceProviderMessageId?: string | null
 ): Promise<ConversationState | null> {
   const supabase = requireSupabase();
 
@@ -705,5 +732,6 @@ export async function buildConversationState(
     stage,
     contactFormSubmitter,
     commitments,
+    sourceProviderMessageId,
   });
 }

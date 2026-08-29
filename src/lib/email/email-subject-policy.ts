@@ -50,6 +50,30 @@ function normalizeNewThreadSubject(subject: string | null | undefined): string {
   return stripReplyPrefixes(cleanSubject(subject));
 }
 
+/**
+ * One outbound subject, judged as learning evidence. A thread-opening send is
+ * the only subject worth learning from, and a `Re:`/`Fwd:` prefix is proof the
+ * send is not one. Returns the whitespace-normalized subject, or null when this
+ * subject may not train the profile.
+ *
+ * The learner's SQL merge mirrors these three checks so a subject that reaches
+ * the database through any path is held to the same bar.
+ */
+export function normalizeLearnedSubjectExample(
+  rawSubject: string | null | undefined
+): string | null {
+  const subject = cleanSubject(rawSubject);
+  if (
+    !subject ||
+    subject.length > MAX_SUBJECT_LENGTH ||
+    REPLY_PREFIX.test(subject) ||
+    FORWARD_PREFIX.test(subject)
+  ) {
+    return null;
+  }
+  return subject;
+}
+
 export function normalizeLearnedSubjectExamples(
   subjects: readonly string[]
 ): string[] {
@@ -57,15 +81,8 @@ export function normalizeLearnedSubjectExamples(
   const normalized: string[] = [];
 
   for (const rawSubject of subjects) {
-    const subject = cleanSubject(rawSubject);
-    if (
-      !subject ||
-      subject.length > MAX_SUBJECT_LENGTH ||
-      REPLY_PREFIX.test(subject) ||
-      FORWARD_PREFIX.test(subject)
-    ) {
-      continue;
-    }
+    const subject = normalizeLearnedSubjectExample(rawSubject);
+    if (!subject) continue;
 
     const key = subject.toLocaleLowerCase();
     if (seen.has(key)) continue;

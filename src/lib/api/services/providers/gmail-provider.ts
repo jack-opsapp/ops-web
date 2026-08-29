@@ -17,6 +17,7 @@ import {
   ProviderAttachmentTooLargeError,
   ProviderAuthError,
   ProviderScopeError,
+  ProviderThreadTombstoneError,
   SyncTokenExpiredError,
   type CreateNewThreadDraftResult,
   type EmailAttachmentMeta,
@@ -364,6 +365,41 @@ function throwForGmailError(
   throw new ProviderApiError(`Gmail ${context}: ${message}`, status, body);
 }
 
+function isConfirmedGmailThreadTombstone(
+  error: unknown
+): error is ProviderApiError & { providerStatus: 404 | 410 } {
+  if (
+    !(error instanceof ProviderApiError) ||
+    (error.providerStatus !== 404 && error.providerStatus !== 410)
+  ) {
+    return false;
+  }
+
+  const providerError = (
+    error.providerBody as {
+      error?: {
+        code?: unknown;
+        status?: unknown;
+        errors?: Array<{ reason?: unknown }>;
+      };
+    } | null
+  )?.error;
+  if (!providerError) return false;
+
+  const codeMatches =
+    providerError.code === undefined ||
+    providerError.code === error.providerStatus;
+  const reason = providerError.errors?.[0]?.reason;
+  const status = providerError.status;
+  return (
+    codeMatches &&
+    (reason === "notFound" ||
+      reason === "gone" ||
+      status === "NOT_FOUND" ||
+      status === "GONE")
+  );
+}
+
 export class GmailProvider implements EmailProviderInterface {
   readonly providerType = "gmail" as const;
   private connection: EmailConnection;
@@ -700,9 +736,22 @@ export class GmailProvider implements EmailProviderInterface {
       undefined,
       effectiveReadPolicy
     );
-    const data = await this.readGmailJson<{
-      messages?: Array<Record<string, unknown>>;
-    }>(res, `threads.get (${threadId})`);
+    let data: { messages?: Array<Record<string, unknown>> };
+    try {
+      data = await this.readGmailJson<{
+        messages?: Array<Record<string, unknown>>;
+      }>(res, `threads.get (${threadId})`);
+    } catch (error) {
+      if (isConfirmedGmailThreadTombstone(error)) {
+        throw new ProviderThreadTombstoneError(
+          error.message,
+          error.providerStatus,
+          error.providerBody,
+          { cause: error }
+        );
+      }
+      throw error;
+    }
 
     const deliveredMessages = (data.messages || []).filter(
       (msg) =>

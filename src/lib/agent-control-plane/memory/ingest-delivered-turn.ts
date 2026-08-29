@@ -13,6 +13,22 @@ import type {
   TurnRepository,
 } from "./turn-repository";
 
+// Every normalization revision this system has ever stamped on a stored row,
+// oldest first. A row carrying an older revision predates a normalizer repair,
+// so its projection is stale by construction — the retained source bytes are
+// the authority and get re-projected here, exactly as
+// `capture_agent_provider_delivery_source_as_system` re-projects the ledger row
+// itself when a re-capture arrives with identical bytes
+// (20260830113400_delivery_source_normalization_reprojection.sql). A row at the
+// CURRENT revision whose projection disagrees with a re-projection of its own
+// bytes is not stale: that projection did not come from those bytes, and it
+// stays a hard failure. A revision this build has never written is refused
+// outright.
+const KNOWN_CORRESPONDENCE_NORMALIZATION_REVISIONS: readonly string[] = [
+  "ops.correspondence.normalized-text.v1",
+  CORRESPONDENCE_NORMALIZATION_REVISION,
+];
+
 export interface DeliveredEmailSourceEnvelope {
   readonly subject: string | null;
   readonly recipientIdentities: readonly string[];
@@ -54,7 +70,9 @@ export function buildDeliveredEmailSourceEnvelope(
       "ops_rendered_outbound",
     ].includes(source.deliveredContent.sourceKind) ||
     !source.deliveredContent.selectionRevision.trim() ||
-    source.normalizationRevision !== CORRESPONDENCE_NORMALIZATION_REVISION ||
+    !KNOWN_CORRESPONDENCE_NORMALIZATION_REVISIONS.includes(
+      source.normalizationRevision
+    ) ||
     !["normalized", "rejected"].includes(source.normalizationStatus)
   ) {
     throw new Error("DELIVERED_TURN_SOURCE_INVALID");
@@ -89,15 +107,27 @@ export function buildDeliveredEmailSourceEnvelope(
           CORRESPONDENCE_NORMALIZATION_REJECTED_SUBJECT &&
         source.normalizedPlainText ===
           CORRESPONDENCE_NORMALIZATION_REJECTED_TEXT;
-  if (!projectionMatches) {
+  if (
+    !projectionMatches &&
+    source.normalizationRevision === CORRESPONDENCE_NORMALIZATION_REVISION
+  ) {
     throw new Error("DELIVERED_TURN_SOURCE_INVALID");
   }
 
+  // Projection drift under an older revision is re-projected, never trusted as
+  // stored: the turn reads what this build's normalizer makes of the retained
+  // bytes. The content hash is the ledger's capture-time digest, which the
+  // re-projection deliberately leaves alone, so it stays correct either way.
   return Object.freeze({
-    subject: source.normalizedSubject,
+    subject: projectionMatches
+      ? source.normalizedSubject
+      : (normalized?.subject ?? CORRESPONDENCE_NORMALIZATION_REJECTED_SUBJECT),
     recipientIdentities,
     ccRecipientIdentities,
-    normalizedPlainText: source.normalizedPlainText,
+    normalizedPlainText: projectionMatches
+      ? source.normalizedPlainText
+      : (normalized?.normalizedPlainText ??
+        CORRESPONDENCE_NORMALIZATION_REJECTED_TEXT),
     originalContentHash: source.providerSourceSha256,
     attachmentEvidenceIds,
   });

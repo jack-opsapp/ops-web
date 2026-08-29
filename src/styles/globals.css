@@ -492,19 +492,47 @@
   }
 
   /* Left status rail — applied via ::after so it sits above glass-dense's
-   * ::before highlight gradient. */
+   * ::before highlight gradient.
+   *
+   * `height: auto` is LOAD-BEARING. Sonner ships its own
+   * `:where([data-sonner-toast])::after` (the invisible hover bridge that
+   * spans the --gap between stacked toasts) declaring
+   * `height: calc(var(--gap) + 1px)`. `:where()` has zero specificity, so
+   * every property we declare wins — but `height` was NOT declared here, so
+   * Sonner's value leaked in and over-constrained top/bottom/height. Per CSS
+   * absolute positioning, an over-constrained box drops `bottom` and honors
+   * `height`, collapsing the full-height rail into a ~9-15px nub pinned to
+   * the top-left corner. Declaring `height: auto` restores top/bottom
+   * resolution, so the rail spans the toast at any content height. */
   [data-sonner-toast].ops-toast::after {
     content: "";
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
+    height: auto;
     width: 3px;
     border-top-left-radius: 12px;
     border-bottom-left-radius: 12px;
     background: var(--text-mute, #6A6A6A);
     pointer-events: none;
     z-index: 1;
+  }
+
+  /* Sonner's hover bridge, re-homed. Claiming ::after for the status rail
+   * displaced the stock bridge, so the --gap between stacked toasts became
+   * dead space: crossing it with the pointer collapsed the stack mid-read.
+   * [data-content] is statically positioned, so its ::after resolves against
+   * the toast <li> (position: relative) — same geometry Sonner intended.
+   * Absolutely positioned children are not flex items, so this adds nothing
+   * to the content column's layout. */
+  [data-sonner-toast].ops-toast [data-content]::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: calc(var(--gap, 8px) + 1px);
+    bottom: 100%;
   }
   [data-sonner-toast][data-type="success"].ops-toast::after {
     background: var(--color-olive, #9DB582); /* olive */

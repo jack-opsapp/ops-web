@@ -19,11 +19,16 @@ import {
 const CATEGORY_ENGAGEMENT = "APP_STORE_ENGAGEMENT"; // impressions + product page views
 const CATEGORY_COMMERCE = "APP_STORE_COMMERCE"; // downloads
 
-// Header aliases (normalized: lowercase, single-spaced). Canonical name itself is
-// always tried (with underscores → spaces), so only ADDITIONAL aliases go here.
+// Header aliases (normalized: lowercase, single-spaced). Alias order IS the
+// resolution priority; the canonical name (with underscores → spaces) is the
+// final fallback. `engagement_type` must resolve from Apple's `Event` column
+// (Impression / Page view / Tap) — the taxonomy the fact table, the dashboard
+// and `asc_conversion_daily` consume — never from `Engagement Type`, which
+// carries only the tap subtype (Get / Open / Re-download) and is preserved in
+// `asc_raw_rows.raw`.
 const ENGAGEMENT_ALIASES: Record<string, string[]> = {
   reporting_date: ["date"],
-  engagement_type: ["engagement type", "event", "event type"],
+  engagement_type: ["event", "event type"],
   page_type: ["page type"],
   source_type: ["source type"],
   source_info: ["source info", "source"],
@@ -151,10 +156,46 @@ export function toDownloadFact(r: ParsedRow, segmentId: string) {
   };
 }
 
-const ENGAGEMENT_CONFLICT =
+/** Mirrors the live `asc_de_uk` unique index (9 columns, NULLS NOT DISTINCT). */
+export const ENGAGEMENT_CONFLICT =
   "granularity,reporting_date,engagement_type,page_type,source_type,source_info,device,platform_version,territory";
-const DOWNLOAD_CONFLICT =
+/** Mirrors the live `asc_dl_uk` unique index (10 columns, NULLS NOT DISTINCT). */
+export const DOWNLOAD_CONFLICT =
   "granularity,reporting_date,download_type,page_type,source_type,source_info,campaign,device,platform_version,territory";
+
+/**
+ * Collapse a parsed fact batch to one row per ON CONFLICT identity, summing
+ * counts. Required for correctness (Apple splits one identity across subtype
+ * rows the fact grain drops) AND to prevent Postgres 21000 ("ON CONFLICT DO
+ * UPDATE command cannot affect row a second time") on batched upserts against
+ * the NULLS NOT DISTINCT unique indexes (asc_de_uk / asc_dl_uk).
+ * unique_counts summed across dropped dimensions is Apple's coarser-grain
+ * upper bound — same property every existing dashboard aggregate already has.
+ */
+export function aggregateFactsByConflictIdentity<
+  T extends { counts: number; unique_counts: number }
+>(facts: T[], identityColumns: readonly string[]): T[] {
+  const byKey = new Map<string, T>();
+  for (const fact of facts) {
+    const record = fact as Record<string, unknown>;
+    const key = JSON.stringify(
+      identityColumns.map((column) => {
+        const value = record[column];
+        return value === null || value === undefined
+          ? { n: true }
+          : { v: value };
+      })
+    );
+    const existing = byKey.get(key);
+    if (!existing) {
+      byKey.set(key, { ...fact });
+      continue;
+    }
+    existing.counts += fact.counts;
+    existing.unique_counts += fact.unique_counts;
+  }
+  return [...byKey.values()];
+}
 
 // ─── Bootstrap ───────────────────────────────────────────────────────────────
 
@@ -218,6 +259,15 @@ interface ListResponse<A> {
 }
 
 const APP_STORE_WORKLOAD_KEY = "app-store-sync";
+
+/** Exactly one report per category feeds the fact tables. The other reports in
+ * each category (Detailed variants, Web Preview, Retention Messaging) restate
+ * the same totals at different grains — ingesting them into the same
+ * conflict identity double-counts or overwrites. */
+const REPORT_ALLOWLIST: Record<string, string> = {
+  [CATEGORY_ENGAGEMENT]: "App Store Discovery and Engagement Standard",
+  [CATEGORY_COMMERCE]: "App Store Downloads Standard",
+};
 const MAX_REQUESTS_PER_RUN = 1;
 const MAX_INSTANCES_PER_RUN = 2;
 const MAX_SEGMENTS_PER_RUN = 1;
@@ -326,6 +376,9 @@ export interface SyncResult {
   segmentsProcessed: number;
   rowsIngested: number;
   lastDate: string | null;
+  /** The cursor this step persisted. `null` means the walk completed a full
+   * cycle and the next step restarts from the first report request. */
+  cursorAfter: string | null;
 }
 
 /**
@@ -372,7 +425,7 @@ export async function syncOnce(
       rawCursor,
       null
     );
-    return { segmentsProcessed, rowsIngested, lastDate };
+    return { segmentsProcessed, rowsIngested, lastDate, cursorAfter: null };
   }
 
   const categories = [
@@ -415,23 +468,72 @@ export async function syncOnce(
     >(reportPagePath);
     const report = reportPage.data.slice(0, 1)[0];
     if (!report) {
-      const nextCursor = nextReportOrCategory(
-        req.id,
-        categoryIndex,
-        reportPage.links?.next
+      const nextCursor = serializeSyncCursor(
+        nextReportOrCategory(req.id, categoryIndex, reportPage.links?.next)
       );
       await advanceCronWorkloadCursor(
         client,
         APP_STORE_WORKLOAD_KEY,
         lease,
         rawCursor,
-        serializeSyncCursor(nextCursor)
+        nextCursor
       );
-      return { segmentsProcessed, rowsIngested, lastDate };
+      return {
+        segmentsProcessed,
+        rowsIngested,
+        lastDate,
+        cursorAfter: nextCursor,
+      };
+    }
+    if (report.attributes.name !== REPORT_ALLOWLIST[category]) {
+      // Not the canonical report for this category — walk past it without
+      // recording it, so its rows never reach the shared fact identity.
+      const nextCursor = serializeSyncCursor(
+        nextReportOrCategory(req.id, categoryIndex, reportPage.links?.next)
+      );
+      await advanceCronWorkloadCursor(
+        client,
+        APP_STORE_WORKLOAD_KEY,
+        lease,
+        rawCursor,
+        nextCursor
+      );
+      return {
+        segmentsProcessed,
+        rowsIngested,
+        lastDate,
+        cursorAfter: nextCursor,
+      };
     }
     reportId = report.id;
     reportName = report.attributes.name;
     reportNext = reportPage.links?.next;
+  } else {
+    // Resumed inside a report whose name the cursor does not carry. Confirm it
+    // is still allowlisted; this unpins any cursor parked in a Detailed or
+    // Web Preview report before the allowlist existed.
+    const detail = await ascGet<{ data: { attributes: { name?: string } } }>(
+      `/v1/analyticsReports/${reportId}`
+    );
+    if (detail.data.attributes.name !== REPORT_ALLOWLIST[category]) {
+      const nextCursor = serializeSyncCursor(
+        nextReportOrCategory(req.id, categoryIndex, reportNext)
+      );
+      await advanceCronWorkloadCursor(
+        client,
+        APP_STORE_WORKLOAD_KEY,
+        lease,
+        rawCursor,
+        nextCursor
+      );
+      return {
+        segmentsProcessed,
+        rowsIngested,
+        lastDate,
+        cursorAfter: nextCursor,
+      };
+    }
+    reportName = detail.data.attributes.name;
   }
 
   const reportPayload: Record<string, unknown> = {
@@ -537,7 +639,7 @@ export async function syncOnce(
     );
     if (segExisting?.state === "processed") {
       if (segmentPage.links?.next) {
-        const nextCursor: AppStoreSyncCursor = {
+        const nextCursor = serializeSyncCursor({
           requestId: req.id,
           categoryIndex,
           reportId,
@@ -545,15 +647,20 @@ export async function syncOnce(
           instancePage: instancePagePath,
           instanceOffset: absoluteIndex,
           segmentPage: segmentPage.links.next,
-        };
+        });
         await advanceCronWorkloadCursor(
           client,
           APP_STORE_WORKLOAD_KEY,
           lease,
           rawCursor,
-          serializeSyncCursor(nextCursor)
+          nextCursor
         );
-        return { segmentsProcessed, rowsIngested, lastDate };
+        return {
+          segmentsProcessed,
+          rowsIngested,
+          lastDate,
+          cursorAfter: nextCursor,
+        };
       }
       continue;
     }
@@ -582,6 +689,12 @@ export async function syncOnce(
     const text = await downloadSegment(segment.attributes.url);
     const parsed = parseTsv(text, aliases);
     if (parsed.length > 0) {
+      // Replace semantics: a retry of the same segment converges instead of
+      // amplifying the stored raw rows.
+      await checkedDatabaseResult(
+        "raw report-row replace",
+        client.from("asc_raw_rows").delete().eq("segment_id", segRow.id)
+      );
       await checkedDatabaseResult(
         "raw report-row insert",
         client.from("asc_raw_rows").insert(
@@ -595,13 +708,16 @@ export async function syncOnce(
           }))
         )
       );
-      const facts = parsed
-        .map((row) =>
-          kind === "discovery_engagement"
-            ? toEngagementFact(row, segRow.id)
-            : toDownloadFact(row, segRow.id)
-        )
-        .filter((fact) => fact.reporting_date);
+      const facts = aggregateFactsByConflictIdentity(
+        parsed
+          .map((row) =>
+            kind === "discovery_engagement"
+              ? toEngagementFact(row, segRow.id)
+              : toDownloadFact(row, segRow.id)
+          )
+          .filter((fact) => fact.reporting_date),
+        conflict.split(",")
+      );
       if (facts.length > 0) {
         await checkedDatabaseResult(
           `${table} fact upsert`,
@@ -635,7 +751,7 @@ export async function syncOnce(
 
     segmentsProcessed = 1;
     lastDate = inst.attributes.processingDate;
-    const nextCursor = segmentPage.links?.next
+    const nextCursor = serializeSyncCursor(segmentPage.links?.next
       ? {
           requestId: req.id,
           categoryIndex,
@@ -654,34 +770,74 @@ export async function syncOnce(
           instanceNext: instancePage.links?.next,
           nextOffset: absoluteIndex + 1,
           pageLength: pageInstances.length,
-        });
+        }));
     await advanceCronWorkloadCursor(
       client,
       APP_STORE_WORKLOAD_KEY,
       lease,
       rawCursor,
-      serializeSyncCursor(nextCursor)
+      nextCursor
     );
-    return { segmentsProcessed, rowsIngested, lastDate };
+    return {
+      segmentsProcessed,
+      rowsIngested,
+      lastDate,
+      cursorAfter: nextCursor,
+    };
   }
 
-  const nextCursor = nextInstanceOrReport({
-    requestId: req.id,
-    categoryIndex,
-    reportId,
-    reportNext,
-    instancePage: instancePagePath,
-    instanceNext: instancePage.links?.next,
-    nextOffset: instanceOffset + instances.length,
-    pageLength: pageInstances.length,
-  });
+  const nextCursor = serializeSyncCursor(
+    nextInstanceOrReport({
+      requestId: req.id,
+      categoryIndex,
+      reportId,
+      reportNext,
+      instancePage: instancePagePath,
+      instanceNext: instancePage.links?.next,
+      nextOffset: instanceOffset + instances.length,
+      pageLength: pageInstances.length,
+    })
+  );
   await advanceCronWorkloadCursor(
     client,
     APP_STORE_WORKLOAD_KEY,
     lease,
     rawCursor,
-    serializeSyncCursor(nextCursor)
+    nextCursor
   );
 
-  return { segmentsProcessed, rowsIngested, lastDate };
+  return { segmentsProcessed, rowsIngested, lastDate, cursorAfter: nextCursor };
+}
+
+const SYNC_BUDGET_MS = 240_000;
+const MAX_STEPS_PER_RUN = 60;
+
+/** Loop bounded sync steps until the walk completes a full cycle, the time
+ * budget is spent, the step cap is reached, or the lease aborts. Each step is
+ * individually cursor-durable, so a mid-loop crash resumes exactly. */
+export async function runSync(
+  client: AdminClient,
+  lease: CronWorkloadLease,
+  budgetMs = SYNC_BUDGET_MS
+): Promise<SyncResult> {
+  const startedAt = Date.now();
+  const total: SyncResult = {
+    segmentsProcessed: 0,
+    rowsIngested: 0,
+    lastDate: null,
+    cursorAfter: null,
+  };
+  for (let step = 0; step < MAX_STEPS_PER_RUN; step += 1) {
+    if (lease.signal.aborted) break;
+    if (step > 0 && Date.now() - startedAt >= budgetMs) break;
+    const result = await syncOnce(client, lease);
+    total.segmentsProcessed += result.segmentsProcessed;
+    total.rowsIngested += result.rowsIngested;
+    if (result.lastDate && (!total.lastDate || result.lastDate > total.lastDate)) {
+      total.lastDate = result.lastDate;
+    }
+    total.cursorAfter = result.cursorAfter;
+    if (result.cursorAfter === null) break; // full cycle complete
+  }
+  return total;
 }

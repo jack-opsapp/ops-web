@@ -130,10 +130,14 @@ export async function POST(request: NextRequest) {
 
     // Phase C observability: record the webhook hit so the heartbeat cron
     // can detect long zero-event windows even if downstream sync fails.
+    const advertisedHistoryId =
+      typeof data.historyId === "string" || typeof data.historyId === "number"
+        ? String(data.historyId).trim()
+        : null;
     console.log("[email-ingest] webhook", {
       provider: "gmail",
       email,
-      historyId: data.historyId ?? null,
+      historyId: advertisedHistoryId,
       at: new Date().toISOString(),
     });
 
@@ -153,6 +157,36 @@ export async function POST(request: NextRequest) {
     }
 
     for (const conn of connections) {
+      // Record the advertised position BEFORE any dispatch decision (86c758b1).
+      //
+      // This notification is the only thing that knows the mailbox reached
+      // historyId N. Both exits below — the 30-second debounce and, downstream,
+      // a manual sync rejected because another pass holds the mailbox lease —
+      // drop that fact on the floor, and the mailbox then sits at the older
+      // in-flight position until the next cron interval. Persisting it as a
+      // monotone high-water mark lets the sync engine notice it finished behind
+      // the mailbox and drain the difference before reporting completion.
+      //
+      // Failure here is logged and ignored. This is advisory observability on
+      // the path that acks Pub/Sub; letting it 500 would only convert a bad
+      // write into a redelivery storm.
+      if (advertisedHistoryId) {
+        const { error: highWaterError } = await supabase.rpc(
+          "record_email_webhook_high_water",
+          {
+            p_connection_id: conn.id,
+            p_history_id: advertisedHistoryId,
+          }
+        );
+        if (highWaterError) {
+          console.error(
+            "[Gmail Webhook] high-water record failed:",
+            conn.id,
+            highWaterError.message
+          );
+        }
+      }
+
       // Debounce: skip if synced within last 30 seconds
       if (conn.last_synced_at) {
         const lastSync = new Date(conn.last_synced_at);

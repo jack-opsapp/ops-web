@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AISyncReviewer } from "@/lib/api/services/ai-sync-reviewer";
+import {
+  ProviderApiError,
+  ProviderThreadTombstoneError,
+} from "@/lib/api/services/email-provider";
 import type { EmailConnection } from "@/lib/types/email-connection";
 
 const createMock = vi.hoisted(() => vi.fn());
@@ -51,6 +55,7 @@ vi.mock("@/lib/api/services/email-ai-classifier", async (importOriginal) => {
 const connection = {
   id: "connection-1",
   companyId: "company-1",
+  provider: "gmail",
   email: "canprojack@gmail.com",
   syncFilters: {},
 } as EmailConnection;
@@ -674,6 +679,126 @@ describe("AISyncReviewer terminal stage guard", () => {
     ).rejects.toThrow(
       "failed to fetch thread thread-1: temporary Gmail failure"
     );
+  });
+
+  it.each([404, 410] as const)(
+    "skips a provider-confirmed thread tombstone with status %i",
+    async (providerStatus) => {
+      fetchThreadMock.mockRejectedValue(
+        new ProviderThreadTombstoneError(
+          `Gmail threads.get (thread-missing): Requested entity was not found`,
+          providerStatus
+        )
+      );
+
+      const result = await AISyncReviewer.evaluateStagesWithSummary(
+        ["thread-missing"],
+        connection,
+        { name: "Canpro Deck and Rail" },
+        inheritedMailboxOperation
+      );
+
+      expect(result).toEqual([]);
+      expect(createMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it("continues stage review for a healthy peer after a provider thread tombstone", async () => {
+    fetchThreadMock.mockImplementation(async (threadId: string) => {
+      if (threadId === "thread-missing") {
+        throw new ProviderThreadTombstoneError(
+          "Gmail threads.get (thread-missing): Requested entity was not found",
+          404
+        );
+      }
+      return [
+        {
+          ...unmatchedEmail,
+          id: "message-healthy",
+          threadId: "thread-healthy",
+        },
+      ];
+    });
+    createMock.mockResolvedValue(
+      stageEvaluationResponse([
+        {
+          tid: "k0",
+          stage: "qualifying",
+          flag: null,
+          summary: "The customer supplied project details.",
+        },
+      ])
+    );
+
+    const result = await AISyncReviewer.evaluateStagesWithSummary(
+      ["thread-missing", "thread-healthy"],
+      connection,
+      { name: "Canpro Deck and Rail" },
+      inheritedMailboxOperation
+    );
+
+    expect(result).toEqual([
+      {
+        threadId: "thread-healthy",
+        newStage: "qualifying",
+        terminalFlag: null,
+        summary: "The customer supplied project details.",
+      },
+    ]);
+  });
+
+  it("fails closed for a typed provider error that is not a tombstone", async () => {
+    fetchThreadMock.mockRejectedValue(
+      new ProviderApiError("Gmail threads.get failed upstream", 503)
+    );
+
+    await expect(
+      AISyncReviewer.evaluateStagesWithSummary(
+        ["thread-1"],
+        connection,
+        { name: "Canpro Deck and Rail" },
+        inheritedMailboxOperation
+      )
+    ).rejects.toThrow(
+      "failed to fetch thread thread-1: Gmail threads.get failed upstream"
+    );
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for a generic Gmail 404 without explicit thread-tombstone provenance", async () => {
+    fetchThreadMock.mockRejectedValue(
+      new ProviderApiError("Gmail token refresh failed (404)", 404)
+    );
+
+    await expect(
+      AISyncReviewer.evaluateStagesWithSummary(
+        ["thread-1"],
+        connection,
+        { name: "Canpro Deck and Rail" },
+        inheritedMailboxOperation
+      )
+    ).rejects.toThrow(
+      "failed to fetch thread thread-1: Gmail token refresh failed (404)"
+    );
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed for a Microsoft mailbox 404 because it is not a thread tombstone", async () => {
+    fetchThreadMock.mockRejectedValue(
+      new ProviderApiError("Microsoft Graph mailbox was not found", 404)
+    );
+
+    await expect(
+      AISyncReviewer.evaluateStagesWithSummary(
+        ["conversation-1"],
+        { ...connection, provider: "microsoft365" },
+        { name: "Canpro Deck and Rail" },
+        inheritedMailboxOperation
+      )
+    ).rejects.toThrow(
+      "failed to fetch thread conversation-1: Microsoft Graph mailbox was not found"
+    );
+    expect(createMock).not.toHaveBeenCalled();
   });
 
   it("evaluates every active thread when more than twenty arrive in one sync", async () => {

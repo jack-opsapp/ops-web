@@ -54,6 +54,17 @@ export interface PipelineFocusedColumnProps extends FocusedColumnActionHandlers 
 
 const FOCUSED_LIST_END_PADDING = "pb-[360px]";
 
+/**
+ * Top rhythm for every focused-column state.
+ *
+ * The scroll `<section>` clears the sticky column header with `pt-[68px]`;
+ * this is the breathing room BELOW that, so the first card starts on the same
+ * line as the empty/error states' first line instead of sitting flush against
+ * the column title. One constant so the four states (populated, loading,
+ * empty, error) can never drift apart again. `pt-3` = 24px on the OPS scale.
+ */
+const FOCUSED_LIST_START_PADDING = "pt-3";
+
 export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
   stage,
   opportunities,
@@ -145,7 +156,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         <div
           role="alert"
           data-testid="pipeline-focused-error"
-          className={`flex min-h-full flex-col items-start gap-3 ${FOCUSED_LIST_END_PADDING} pt-[24px]`}
+          className={`flex min-h-full flex-col items-start gap-3 ${FOCUSED_LIST_END_PADDING} ${FOCUSED_LIST_START_PADDING}`}
         >
           <p className="font-mono text-caption-sm uppercase tracking-[0.16em] text-text">
             {t("focused.error.title", "// PIPELINE UNREACHABLE")}
@@ -162,7 +173,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         </div>
       ) : isLoading ? (
         <div
-          className={`flex min-h-full flex-col gap-2 ${FOCUSED_LIST_END_PADDING}`}
+          className={`flex min-h-full flex-col gap-2 ${FOCUSED_LIST_END_PADDING} ${FOCUSED_LIST_START_PADDING}`}
         >
           {[0, 1, 2].map((index) => (
             <FocusedLoadingCard key={index} stageColor={stageColor} />
@@ -170,7 +181,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         </div>
       ) : opportunities.length > 0 ? (
         <div
-          className={`flex min-h-full flex-col gap-2 ${FOCUSED_LIST_END_PADDING}`}
+          className={`flex min-h-full flex-col gap-2 ${FOCUSED_LIST_END_PADDING} ${FOCUSED_LIST_START_PADDING}`}
         >
           {opportunities.map((opportunity) => {
             const clientName =
@@ -229,7 +240,7 @@ export const PipelineFocusedColumn = memo(function PipelineFocusedColumn({
         </div>
       ) : (
         <div
-          className={`flex min-h-full flex-col items-start gap-3 ${FOCUSED_LIST_END_PADDING} pt-[24px]`}
+          className={`flex min-h-full flex-col items-start gap-3 ${FOCUSED_LIST_END_PADDING} ${FOCUSED_LIST_START_PADDING}`}
         >
           <p className="font-mono text-caption-sm uppercase tracking-[0.16em] text-text">
             {emptyTitle}

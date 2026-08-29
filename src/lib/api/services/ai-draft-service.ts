@@ -1266,7 +1266,12 @@ export const AIDraftService = {
           internalThreadId = (threadRow?.id as string | undefined) ?? null;
         }
         if (internalThreadId) {
-          const convState = await buildConversationState(internalThreadId);
+          // The exact message this draft answers decides who gets greeted.
+          // Without it a multi-party thread greets whoever spoke last.
+          const convState = await buildConversationState(
+            internalThreadId,
+            authorizedSourceActivity?.email_message_id ?? null
+          );
           if (convState) {
             draftState = buildDraftStateContext(convState);
             convRouting = convState.routing;
@@ -2034,22 +2039,31 @@ ${effectiveUserInstruction ? `Purpose: ${effectiveUserInstruction}` : "Write a p
     // lead before ranking: a variable this lead cannot answer leaves with its
     // separator, and a template that empties out yields to the next candidate.
     const configuredSubject = fillSubjectTemplate(
-      (sourceBoundNewThread
-        ? req.configuredSubject?.trim() || ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT
-        : req.configuredSubject) ?? "",
+      req.configuredSubject ?? "",
       subjectContext
     );
     const newThreadSubject = chooseNewThreadSubject({
       operatorSubject: req.subject,
       // The caller's configured subject IS the operator's per-mailbox outreach
-      // setting. The server-owned constant is the fallback, never the override.
+      // setting. The server-owned constant is the fallback, never the override:
+      // occupying the `configured` rank with it made a learned subject
+      // unreachable forever.
       configuredSubject,
       learnedSubject,
-      generatedSubject: contextualNewThreadSubject({
-        opportunityTitle,
-        userInstruction: effectiveUserInstruction,
-      }),
-      fallback: "Your inquiry",
+      // The source-bound contact-form lane has nothing operator-authored to
+      // generate from — `effectiveUserInstruction` is our own server prompt and
+      // the opportunity title is an internal artifact ("Sandra Dunford — Email
+      // inquiry"). Neither belongs in a customer's inbox, so that lane ranks
+      // straight from learned down to the server-owned constant.
+      generatedSubject: sourceBoundNewThread
+        ? null
+        : contextualNewThreadSubject({
+            opportunityTitle,
+            userInstruction: effectiveUserInstruction,
+          }),
+      fallback: sourceBoundNewThread
+        ? ASSIGNED_CONTACT_FORM_REVIEW_SUBJECT
+        : "Your inquiry",
     });
     const derivedSubject = baseSubject
       ? normalizeReplySubject(baseSubject)

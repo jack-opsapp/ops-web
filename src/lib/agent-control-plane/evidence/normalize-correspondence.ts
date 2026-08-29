@@ -10,7 +10,10 @@ import {
   SHA256_SOURCE_VERSION_PATTERN,
   sourceVersionForCorrespondence,
 } from "./source-version";
-import { hasUnsafeUnicodeControls } from "./unicode-safety";
+import {
+  hasUnsafeUnicodeControls,
+  stripInertZeroWidthInvisibles,
+} from "./unicode-safety";
 import type {
   CorrespondenceAttachmentInput,
   NormalizeCorrespondenceInput,
@@ -20,8 +23,18 @@ import type {
 
 export type { NormalizeCorrespondenceInput } from "./types";
 
+// Stamped on every projection this module produces, and bound to the database
+// by `20260830113400_delivery_source_normalization_reprojection.sql`: the CHECK
+// on `private.agent_provider_delivery_sources.normalization_revision` admits
+// exactly the literals listed there. Bumping this constant therefore means
+// widening that CHECK first — the migration must be APPLIED BEFORE code
+// carrying the new literal is deployed, or every delivery-source capture fails
+// on a check violation (a full evidence-capture outage). The same migration
+// makes a re-capture whose bytes are unchanged re-project in place instead of
+// raising `agent_provider_delivery_source_idempotency_conflict`, which is what
+// lets an older stored projection be replaced by this revision's reading.
 export const CORRESPONDENCE_NORMALIZATION_REVISION =
-  "ops.correspondence.normalized-text.v1";
+  "ops.correspondence.normalized-text.v2";
 export const CORRESPONDENCE_NORMALIZATION_REJECTED_SUBJECT =
   "[SUBJECT OMITTED: UNSAFE SOURCE]";
 export const CORRESPONDENCE_NORMALIZATION_REJECTED_TEXT =
@@ -76,8 +89,6 @@ function mediaAlternativeText(element: Element): string | null {
 const STRUCK_TEXT_DECORATION =
   /(?:^|[;{])\s*text-decoration(?:-line)?\s*:[^;{}]*\bline-through\b/i;
 const UNSUPPORTED_CSS_AT_RULE = /@[a-z-]+\b/i;
-const OUTLOOK_CONDITIONAL_MARKUP =
-  /(?:<!--|<!)[^>]{0,128}\[\s*if\b|\[\s*endif\s*\][^>]{0,128}(?:-->|>)/i;
 const UNSUPPORTED_LAYOUT_DISPLAY =
   /(?:^|[;{])\s*display\s*:\s*(?:flex|grid|inline-flex|inline-grid)\b/i;
 const SYMBOL_FONT_DECLARATION =
@@ -85,7 +96,10 @@ const SYMBOL_FONT_DECLARATION =
 const ZERO_FONT_SHORTHAND =
   /(?:^|[;{])\s*font\s*:\s*(?:(?:normal|italic|oblique|small-caps|bold|bolder|lighter|[1-9]00)\s+)*0(?:\.0+)?(?:[a-z%]+)?(?:\s*\/\s*0(?:\.0+)?(?:[a-z%]+)?)?/i;
 const SUPPORTED_CSS_DECLARATIONS = new Set([
+  "-ms-interpolation-mode",
+  "-ms-text-size-adjust",
   "-webkit-text-fill-color",
+  "-webkit-text-size-adjust",
   "background",
   "background-attachment",
   "background-clip",
@@ -174,6 +188,9 @@ const SUPPORTED_CSS_DECLARATIONS = new Set([
   "min-inline-size",
   "min-width",
   "mso-hide",
+  "mso-line-height-rule",
+  "mso-table-lspace",
+  "mso-table-rspace",
   "opacity",
   "outline",
   "outline-color",
@@ -213,6 +230,196 @@ const SUPPORTED_CSS_DECLARATIONS = new Set([
   "word-break",
   "word-wrap",
 ]);
+/**
+ * Declarations that cannot hide, reveal, strike, or reorder text on their own.
+ *
+ * A style rule built entirely from these cannot conceal anything no matter
+ * which elements it lands on, so its selector never has to be resolvable —
+ * which is what lets `td:first-child { padding-left: 0 }` and the rest of
+ * ordinary styled mail through the selector guard below.
+ *
+ * Anything that participates in the concealment machinery is deliberately
+ * absent: `color`/`background*` (contrast), `display`/`visibility`/`opacity`,
+ * every sizing and offset property, `margin` (negative-margin concealment),
+ * `text-indent`, the transform family, `filter`, `clip*`, `overflow`,
+ * `line-height`, `font*` (zero-size and symbol fonts), `text-decoration`
+ * (line-through), and `mso-hide`.
+ */
+const VISIBILITY_NEUTRAL_CSS_DECLARATIONS = new Set([
+  "-ms-interpolation-mode",
+  "-ms-text-size-adjust",
+  "-webkit-text-size-adjust",
+  "border",
+  "border-bottom",
+  "border-bottom-color",
+  "border-bottom-left-radius",
+  "border-bottom-right-radius",
+  "border-bottom-style",
+  "border-bottom-width",
+  "border-collapse",
+  "border-color",
+  "border-left",
+  "border-left-color",
+  "border-left-style",
+  "border-left-width",
+  "border-radius",
+  "border-right",
+  "border-right-color",
+  "border-right-style",
+  "border-right-width",
+  "border-spacing",
+  "border-style",
+  "border-top",
+  "border-top-color",
+  "border-top-left-radius",
+  "border-top-right-radius",
+  "border-top-style",
+  "border-top-width",
+  "border-width",
+  "box-shadow",
+  "box-sizing",
+  "clear",
+  "cursor",
+  "hyphens",
+  "list-style",
+  "list-style-image",
+  "list-style-position",
+  "list-style-type",
+  "mso-table-lspace",
+  "mso-table-rspace",
+  "outline",
+  "outline-color",
+  "outline-offset",
+  "outline-style",
+  "outline-width",
+  "overflow-wrap",
+  "padding",
+  "padding-bottom",
+  "padding-left",
+  "padding-right",
+  "padding-top",
+  "pointer-events",
+  "table-layout",
+  "text-align",
+  "text-rendering",
+  "vertical-align",
+  "white-space",
+  "word-break",
+  "word-wrap",
+]);
+// Pseudo-classes that describe a reader interacting with the message. None of
+// them apply to the static reading the evidence boundary records.
+const DYNAMIC_PSEUDO_CLASS = /:(?:hover|focus|active|visited)\b/gi;
+// Attribute selectors can quote anything, `[title=":hover"]` included. Their
+// contents are matched as data, never as pseudo-classes, so they come out
+// before a branch is read for dynamic pseudo-classes.
+const ATTRIBUTE_SELECTOR = /\[[^\]]*\]/g;
+const CSS_DECLARATION_NAME = /(?:^|[;{])\s*((?:--|-?[a-z])[a-z0-9-]*)\s*:/gi;
+
+/**
+ * True when the rule can only ever apply while the reader hovers, focuses,
+ * clicks, or revisits — never in the message as read.
+ *
+ * Evaluated per selector-list branch on purpose: in `.x:hover, .x { … }` the
+ * second branch applies statically, so the rule is NOT dynamic-only and must
+ * still be resolved. A branch qualifies only when a dynamic pseudo-class was
+ * actually removed from OUTSIDE its attribute selectors AND nothing
+ * unresolvable is left behind — so `:not(:hover)` keeps its colon and
+ * `[title=":hover"]` keeps its static match, and both fail closed.
+ */
+function isDynamicOnlySelector(selectorText: string): boolean {
+  const branches = selectorText
+    .split(",")
+    .map((branch) => branch.trim())
+    .filter(Boolean);
+  if (branches.length === 0) return false;
+  return branches.every((branch) => {
+    // An unbalanced bracket leaves quoted data indistinguishable from a real
+    // pseudo-class, so it fails closed rather than guessing.
+    const withoutAttributes = branch.replace(ATTRIBUTE_SELECTOR, "");
+    if (/[[\]]/.test(withoutAttributes)) return false;
+    const stripped = withoutAttributes.replace(DYNAMIC_PSEUDO_CLASS, "");
+    return stripped !== withoutAttributes && !stripped.includes(":");
+  });
+}
+
+/**
+ * The stylesheet with every rule that can only ever apply while the reader
+ * hovers, focuses, clicks, or revisits removed.
+ *
+ * Such a rule never renders in the message as read, so nothing it declares
+ * can change what the recipient saw. It has to be dropped before the
+ * declaration guards run, not after: those guards read declarations without
+ * knowing which selector carried them, so a rule that cannot apply would
+ * otherwise reject the whole message for a style nobody ever renders.
+ *
+ * Fails closed. Escapes can disguise a selector, and at-rules, nesting and
+ * unbalanced braces put rules where a flat scan cannot read their prelude —
+ * each of those returns the sheet untouched, so the guards still see all of
+ * it and can only reject more. Comments must already be stripped.
+ */
+function cssWithoutDynamicOnlyRules(value: string): string {
+  if (!value.includes("{") || value.includes("\\") || value.includes("@")) {
+    return value;
+  }
+  let out = "";
+  let prelude = "";
+  let body = "";
+  let quote: string | null = null;
+  let depth = 0;
+  for (const character of value) {
+    if (quote) {
+      if (depth === 0) prelude += character;
+      else body += character;
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      if (depth === 0) prelude += character;
+      else body += character;
+      continue;
+    }
+    if (character === "{") {
+      depth += 1;
+      if (depth > 1) return value;
+      body = "";
+      continue;
+    }
+    if (character === "}") {
+      depth -= 1;
+      if (depth !== 0) return value;
+      if (!isDynamicOnlySelector(prelude)) out += `${prelude}{${body}}`;
+      prelude = "";
+      body = "";
+      continue;
+    }
+    if (depth === 0) prelude += character;
+    else body += character;
+  }
+  if (quote !== null || depth !== 0) return value;
+  return out + prelude;
+}
+
+/**
+ * True when the rule declares at least one property and every property it
+ * declares is visibility-neutral. An empty declaration list is deliberately
+ * NOT neutral: a rule whose declarations the parser dropped is a rule this
+ * boundary cannot reason about.
+ */
+function isVisibilityNeutralRule(style: CSSStyleDeclaration): boolean {
+  if (style.getPropertyValue("mso-hide").trim()) return false;
+  const declarations = style.cssText ?? "";
+  let declared = 0;
+  for (const match of declarations.matchAll(CSS_DECLARATION_NAME)) {
+    declared += 1;
+    if (!VISIBILITY_NEUTRAL_CSS_DECLARATIONS.has(match[1]!.toLowerCase())) {
+      return false;
+    }
+  }
+  return declared > 0;
+}
+
 const SAFE_TEXT_FONT_FAMILIES = new Set([
   "-apple-system",
   "arial",
@@ -274,16 +481,41 @@ const NON_TEXT_TAGS = new Set([
   "link",
   "meta",
 ]);
-const LEGACY_VISIBILITY_ATTRIBUTES = [
+/**
+ * Presentational markup the visibility pass is blind to. This DOM does not
+ * fold presentational attributes into computed style, so a colour authored
+ * this way never reaches the contrast check — `<table bgcolor="white">` around
+ * `<font color="white">` hides text the pass would otherwise score legible.
+ * `size` is the same blindness one axis over: it sets a font size the
+ * zero-font guards never observe. All of them stay indeterminate.
+ */
+const LEGACY_UNEVALUABLE_ATTRIBUTES = [
   "background",
   "bgcolor",
   "color",
-  "height",
-  "nowrap",
   "size",
   "text",
-  "width",
 ] as const;
+
+/**
+ * Presentational geometry, which is a sizing hint rather than a clip: HTML
+ * grows a cell to fit its content and neither attribute implies overflow
+ * clipping, so a positive value cannot conceal a character. Table mail is
+ * built out of these — `<table width="100%">` appears in nearly every styled
+ * message — and refusing them withheld whole messages over layout alone.
+ *
+ * A zero, negative, empty or unparseable value is exactly the collapsed-box
+ * shape this boundary will not reason about, so it stays indeterminate.
+ * `nowrap` is absent from both lists: it chooses line breaks and cannot change
+ * which characters render.
+ */
+const LEGACY_GEOMETRY_ATTRIBUTES = ["height", "width"] as const;
+const LEGACY_POSITIVE_GEOMETRY = /^\+?(\d+(?:\.\d+)?|\.\d+)(?:px|%)?$/i;
+
+function isInertLegacyGeometry(value: string): boolean {
+  const match = value.trim().match(LEGACY_POSITIVE_GEOMETRY);
+  return match !== null && Number.parseFloat(match[1]!) > 0;
+}
 const BLOCK_DISPLAY_VALUES = new Set([
   "block",
   "flow-root",
@@ -399,6 +631,42 @@ function cssWithoutComments(value: string): string {
   return out;
 }
 
+/**
+ * The declaration bodies of a stylesheet, without its selectors. An inline
+ * `style` attribute has no braces and is entirely declarations.
+ *
+ * Selectors must be excluded before declarations are scanned: `a:hover { … }`
+ * otherwise reads as a declaration named `a`, which rejected essentially every
+ * styled email for a property nobody wrote. Anything unbalanced falls back to
+ * scanning the whole text, which can only reject more.
+ */
+function cssDeclarationRegions(value: string): string[] {
+  if (!value.includes("{")) return [value];
+  const regions: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const character of value) {
+    if (character === "{") {
+      depth += 1;
+      if (depth === 1) {
+        current = "";
+        continue;
+      }
+    } else if (character === "}") {
+      depth -= 1;
+      if (depth < 0) return [value];
+      if (depth === 0) {
+        regions.push(current);
+        current = "";
+        continue;
+      }
+    }
+    if (depth > 0) current += character;
+  }
+  if (depth !== 0) return [value];
+  return regions;
+}
+
 function assertSupportedCssDeclarations(value: string): void {
   // CSS escapes can disguise both property names and selectors. The evidence
   // boundary only accepts declarations whose visibility impact we model.
@@ -406,17 +674,26 @@ function assertSupportedCssDeclarations(value: string): void {
   if (value.includes("\\")) {
     return indeterminateCss();
   }
-  for (const match of value.matchAll(
-    /(?:^|[;{])\s*((?:--|-?[a-z])[a-z0-9-]*)\s*:/gi
-  )) {
-    if (!SUPPORTED_CSS_DECLARATIONS.has(match[1]!.toLowerCase())) {
-      return indeterminateCss();
+  for (const region of cssDeclarationRegions(value)) {
+    for (const match of region.matchAll(
+      /(?:^|[;{])\s*((?:--|-?[a-z])[a-z0-9-]*)\s*:/gi
+    )) {
+      if (!SUPPORTED_CSS_DECLARATIONS.has(match[1]!.toLowerCase())) {
+        return indeterminateCss();
+      }
     }
   }
 }
 
 function cleanControls(value: string, allowTextWhitespace = false): string {
-  const transportNormalized = value.replace(/\r\n?/g, "\n");
+  // Zero-width BN invisibles come out before the guard reads the text. They
+  // paint nothing and the bidi algorithm discards them before it orders
+  // anything, so removing them cannot change the reading — and refusing them
+  // withheld ordinary mail: Apple Mail marks every quoted body with U+FEFF.
+  // The bidi marks are NOT in that set and still reject here.
+  const transportNormalized = stripInertZeroWidthInvisibles(
+    value.replace(/\r\n?/g, "\n")
+  );
   if (hasUnsafeUnicodeControls(transportNormalized, { allowTextWhitespace })) {
     throw new TypeError("content contains unsafe Unicode controls");
   }
@@ -1341,19 +1618,27 @@ function hasOffscreenLayout(
 }
 
 function normalizeHtmlText(value: string): string {
-  if (OUTLOOK_CONDITIONAL_MARKUP.test(value)) return indeterminateCss();
+  // Outlook conditional markup needs no special handling: the canonical
+  // rendering is a non-Outlook client, and an HTML parser IS that client.
+  // A downlevel-hidden block (`<!--[if mso]> … <![endif]-->`) parses as a
+  // comment and drops out, exactly as Gmail renders it; a downlevel-revealed
+  // block (`<![if !mso]> … <![endif]>`) parses as bogus comments around its
+  // content, so the content survives — again exactly as Gmail renders it.
+  // Stripping these with a regex instead would delete the visible half of the
+  // `<!--[if !mso]><!-->` pattern, which is the opposite of what the reader
+  // sees.
   const dom = new JSDOM(value, { contentType: "text/html" });
   try {
     const { document, Node: DomNode } = dom.window;
-    if (
-      Array.from(document.querySelectorAll("link[rel]")).some((link) =>
-        (link.getAttribute("rel") ?? "")
-          .toLowerCase()
-          .split(/\s+/)
-          .includes("stylesheet")
-      )
-    ) {
-      return indeterminateCss();
+    // A linked stylesheet is inert here. Mail clients do not fetch external
+    // CSS, this DOM has no resource loader, and a declaration that never
+    // arrives cannot conceal anything. Drop the nodes so nothing downstream
+    // can treat them as a live sheet.
+    for (const link of Array.from(document.querySelectorAll("link[rel]"))) {
+      const relations = (link.getAttribute("rel") ?? "")
+        .toLowerCase()
+        .split(/\s+/);
+      if (relations.includes("stylesheet")) link.remove();
     }
     const elements = Array.from(document.querySelectorAll("*"));
     if (elements.length > MAX_HTML_ELEMENTS) {
@@ -1459,24 +1744,46 @@ function normalizeHtmlText(value: string): string {
       ) {
         return indeterminateCss();
       }
-      if (
-        !NON_TEXT_TAGS.has(tagName) &&
-        LEGACY_VISIBILITY_ATTRIBUTES.some((attribute) =>
-          element.hasAttribute(attribute)
-        )
-      ) {
-        return indeterminateCss();
+      if (!NON_TEXT_TAGS.has(tagName)) {
+        if (
+          LEGACY_UNEVALUABLE_ATTRIBUTES.some((attribute) =>
+            element.hasAttribute(attribute)
+          )
+        ) {
+          return indeterminateCss();
+        }
+        if (
+          LEGACY_GEOMETRY_ATTRIBUTES.some(
+            (attribute) =>
+              element.hasAttribute(attribute) &&
+              !isInertLegacyGeometry(element.getAttribute(attribute) ?? "")
+          )
+        ) {
+          return indeterminateCss();
+        }
       }
     }
     for (const styleElement of Array.from(document.querySelectorAll("style"))) {
-      const cssText = cssWithoutComments(styleElement.textContent ?? "");
+      // Rules that can only apply while the reader hovers, focuses, clicks or
+      // revisits come out before any declaration guard reads the sheet. The
+      // guards judge declarations without their selector, so a rule that never
+      // renders in the message as read would otherwise reject the message for
+      // a style nobody ever sees.
+      const cssText = cssWithoutDynamicOnlyRules(
+        cssWithoutComments(styleElement.textContent ?? "")
+      );
       assertSupportedCssDeclarations(cssText);
       if (
         UNRESOLVED_VISIBILITY_STYLE.test(cssText) ||
         UNSUPPORTED_VISIBILITY_DECLARATION.test(cssText) ||
         STRUCK_TEXT_DECORATION.test(cssText) ||
-        // A rule-set float cannot be tied to its elements before the cascade
-        // runs, so it stays indeterminate regardless of where it lands.
+        // A float that survives the strip above is one the static reading can
+        // render. A rule-set float cannot be tied to its elements before the
+        // cascade runs, so this guard cannot prove the matched boxes carry no
+        // text of their own — and a floated box that does carry text renders
+        // it ahead of content preceding it in source order. Reading past the
+        // float would hand the agent a different sentence than the recipient
+        // saw, so it stays indeterminate wherever it lands. Deliberate.
         FLOAT_DECLARATION.test(cssText) ||
         UNSUPPORTED_CSS_AT_RULE.test(cssText) ||
         UNSUPPORTED_LAYOUT_DISPLAY.test(cssText) ||
@@ -1499,9 +1806,21 @@ function normalizeHtmlText(value: string): string {
         }
         if ("selectorText" in rule && "style" in rule) {
           const styleRule = rule as CSSStyleRule;
-          if (styleRule.selectorText.includes(":")) {
+          // A selector this boundary cannot resolve is only a problem when the
+          // rule could conceal something. `a:hover { color: … }` never applies
+          // to the static reading, and `td:first-child { padding-left: 0 }`
+          // cannot hide text wherever it lands — both are in essentially every
+          // styled business email. Anything that can conceal still has to name
+          // its elements in a selector we can resolve.
+          const dynamicOnly = isDynamicOnlySelector(styleRule.selectorText);
+          if (
+            styleRule.selectorText.includes(":") &&
+            !dynamicOnly &&
+            !isVisibilityNeutralRule(styleRule.style)
+          ) {
             return indeterminateCss();
           }
+          if (dynamicOnly) continue;
           if (UNRESOLVED_VISIBILITY_STYLE.test(styleRule.cssText)) {
             throw new TypeError("content CSS cannot be evaluated safely");
           }

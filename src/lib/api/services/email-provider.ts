@@ -68,10 +68,28 @@ export class ProviderApiError extends Error {
   constructor(
     message: string,
     public readonly providerStatus: number,
-    public readonly providerBody?: unknown
+    public readonly providerBody?: unknown,
+    options?: ErrorOptions
   ) {
-    super(message);
+    super(message, options);
     this.name = "ProviderApiError";
+  }
+}
+
+/**
+ * The provider positively confirmed that one requested thread no longer
+ * exists. Callers may omit derived work for that thread without treating a
+ * broader provider, mailbox, credential, or persistence failure as success.
+ */
+export class ProviderThreadTombstoneError extends ProviderApiError {
+  constructor(
+    message: string,
+    providerStatus: 404 | 410,
+    providerBody?: unknown,
+    options?: ErrorOptions
+  ) {
+    super(message, providerStatus, providerBody, options);
+    this.name = "ProviderThreadTombstoneError";
   }
 }
 

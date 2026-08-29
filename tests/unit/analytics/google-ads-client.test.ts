@@ -202,6 +202,55 @@ describe("google-ads-client request layer", () => {
     ).rejects.toThrow(/multiple enabled clients[\s\S]*4454506598[\s\S]*1111111111/);
   });
 
+  it("rejects a non-OK response with a typed GoogleAdsApiError", async () => {
+    const errorBody = JSON.stringify({
+      error: {
+        code: 403,
+        status: "PERMISSION_DENIED",
+        details: [
+          {
+            errors: [
+              {
+                errorCode: { authorizationError: "DEVELOPER_TOKEN_NOT_APPROVED" },
+                message:
+                  "The developer token is only approved for use with test accounts.",
+              },
+            ],
+          },
+        ],
+      },
+    });
+    requests = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        ({
+          ok: false,
+          status: 403,
+          json: async () => ({}),
+          text: async () => errorBody,
+        }) as unknown as Response
+      )
+    );
+    const client = await importClient();
+
+    const failure = await client
+      .queryDailyAccountData(
+        new Date("2026-08-01T00:00:00Z"),
+        new Date("2026-08-01T00:00:00Z")
+      )
+      .catch((error) => error);
+
+    expect(failure).toBeInstanceOf(client.GoogleAdsApiError);
+    expect(failure.status).toBe(403);
+    expect(failure.body).toBe(errorBody);
+    expect(failure.name).toBe("GoogleAdsApiError");
+    // Message template is unchanged from the untyped throw it replaces.
+    expect(failure.message).toBe(
+      `Google Ads API error (403): ${errorBody}`
+    );
+  });
+
   it("does not cache a failed resolution", async () => {
     // First attempt: manager with no clients → throws.
     installFetch([customerClientRow(MANAGER_ID, 0, true, "ENABLED", "OPS LTD")]);

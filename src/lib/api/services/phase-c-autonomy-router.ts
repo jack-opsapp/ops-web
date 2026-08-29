@@ -438,8 +438,202 @@ async function assertPhaseCSyncTerminal(
     connectionId: thread.connectionId,
     context: "phase-c",
     ownsMailboxLease: options.ownsMailboxLease,
+    // Provider scope only. A summary-only continuation is DERIVED from the
+    // mailbox snapshot, so it can never make that snapshot less current —
+    // treating it as "sync incomplete" froze Phase C drafting on the primary
+    // mailbox for a week while the provider itself was fully caught up.
+    scope: "provider",
   });
   if (pending) throw new PhaseCSyncContinuationError();
+}
+
+/** Levels at which OPS had committed to acting on the thread itself. */
+function autonomyLevelExpectsAction(
+  level: EmailThreadAutonomyLevel
+): boolean {
+  return (
+    level === "auto_draft" ||
+    level === "auto_send" ||
+    level === "auto_archive" ||
+    level === "auto_follow_up"
+  );
+}
+
+/**
+ * Reason detail, said the way an operator would say it. The raw code stays in
+ * the router result and the log line for diagnosis.
+ */
+function actorUnavailableReasonCopy(detail: string): string {
+  switch (detail) {
+    case "opportunity_unassigned":
+    case "opportunity_required":
+    case "assignment_contract_unavailable":
+    case "assignment_stale":
+    case "personal_owner_not_assignee":
+    case "personal_connection_owner_missing":
+      return "no one is assigned to the lead";
+    default:
+      return "the assigned operator cannot send from this mailbox";
+  }
+}
+
+/**
+ * The company operator who can act on an unowned lead. Same resolution the
+ * lead-lifecycle review notifications already use: the recorded company admin,
+ * falling back to an active admin user.
+ */
+async function resolvePhaseCAlertRecipient(
+  companyId: string
+): Promise<string | null> {
+  const supabase = requireSupabase();
+
+  const { data: company, error: companyError } = await supabase
+    .from("companies")
+    .select("admin_ids")
+    .eq("id", companyId)
+    .maybeSingle();
+  if (companyError) {
+    console.error(
+      "[phase-c-router] company operator read failed",
+      companyError.message
+    );
+  }
+  const recordedAdminId = (company?.admin_ids as string[] | null)?.[0] ?? null;
+  if (recordedAdminId) return recordedAdminId;
+
+  const { data: adminRows, error: adminError } = await supabase
+    .from("users")
+    .select("id, deleted_at, is_active")
+    .eq("company_id", companyId)
+    .eq("is_company_admin", true)
+    .limit(5);
+  if (adminError) {
+    console.error(
+      "[phase-c-router] fallback operator read failed",
+      adminError.message
+    );
+    return null;
+  }
+
+  const candidates = (adminRows ?? []) as Array<{
+    id: string;
+    deleted_at: string | null;
+    is_active: boolean | null;
+  }>;
+  const active = candidates.find(
+    (row) => row.deleted_at === null && row.is_active !== false
+  );
+  return active?.id ?? null;
+}
+
+/**
+ * Leave a trace when Phase C owed this thread an action and had no actor to
+ * perform it. One OPEN alert per thread: a recurring condition re-uses the
+ * standing alert rather than stacking a new one every sweep.
+ *
+ * Never throws — a routing decision must not fail because its alert could not
+ * be written.
+ */
+async function reportPhaseCActorUnavailable(
+  thread: EmailThread,
+  detail: string
+): Promise<void> {
+  const dedupeKey = `phase-c-actor-unavailable:${thread.id}`;
+  try {
+    const recipientUserId = await resolvePhaseCAlertRecipient(thread.companyId);
+    if (!recipientUserId) return;
+
+    const supabase = requireSupabase();
+    const { data: existing, error: existingError } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("user_id", recipientUserId)
+      .eq("company_id", thread.companyId)
+      .eq("type", "system")
+      .eq("dedupe_key", dedupeKey)
+      .is("resolved_at", null)
+      .limit(1);
+    if (existingError) {
+      console.error(
+        "[phase-c-router] actor-unavailable alert dedupe read failed",
+        existingError.message
+      );
+      return;
+    }
+    if (Array.isArray(existing) && existing.length > 0) return;
+
+    const { error: insertError } = await supabase.from("notifications").insert({
+      user_id: recipientUserId,
+      company_id: thread.companyId,
+      type: "system",
+      title: "Reply waiting, no owner",
+      body: `OPS did not draft this customer reply because ${actorUnavailableReasonCopy(detail)}.`,
+      is_read: false,
+      persistent: true,
+      deep_link_type: "inbox",
+      action_url: `/inbox/${thread.id}`,
+      action_label: "Assign this lead",
+      dedupe_key: dedupeKey,
+      resolved_at: null,
+    });
+    if (insertError) {
+      console.error(
+        "[phase-c-router] actor-unavailable alert insert failed",
+        insertError.message
+      );
+    }
+  } catch (error) {
+    console.error(
+      "[phase-c-router] actor-unavailable alert failed for thread",
+      thread.id,
+      error instanceof Error ? error.message : error
+    );
+  }
+}
+
+/**
+ * `noop_actor_unavailable` used to be silent: the outcome was returned and the
+ * thread was dropped until new mail happened to arrive. On an actionable
+ * customer thread at a level that promised action, that is a reply the operator
+ * never learns about. Raise one standing alert and re-arm the thread so the
+ * router runs again as soon as an assignee exists.
+ */
+async function actorUnavailableResult(
+  thread: EmailThread,
+  effectiveLevel: EmailThreadAutonomyLevel,
+  detail: string,
+  options: RouteOptions
+): Promise<RouterResult> {
+  const result: RouterResult = {
+    outcome: "noop_actor_unavailable",
+    category: thread.primaryCategory,
+    effectiveLevel,
+    detail,
+  };
+
+  const owesAction =
+    !options.placementOnly &&
+    thread.primaryCategory === "CUSTOMER" &&
+    isThreadActionable(thread) &&
+    autonomyLevelExpectsAction(effectiveLevel);
+  if (!owesAction) return result;
+
+  console.warn(
+    "[phase-c-router] actor unavailable on actionable customer thread",
+    thread.id,
+    detail
+  );
+  await reportPhaseCActorUnavailable(thread, detail);
+  try {
+    await deferPhaseCThread(thread);
+  } catch (error) {
+    console.error(
+      "[phase-c-router] actor-unavailable deferral failed for thread",
+      thread.id,
+      error instanceof Error ? error.message : error
+    );
+  }
+  return result;
 }
 
 function syncIncompleteResult(
@@ -733,12 +927,12 @@ export const PhaseCAutonomyRouter = {
           providerThreadId: thread.providerThreadId,
         });
         if (actorResolution.kind === "no_work") {
-          return {
-            outcome: "noop_actor_unavailable",
-            category,
-            effectiveLevel: declared,
-            detail: actorResolution.reason,
-          };
+          return await actorUnavailableResult(
+            thread,
+            declared,
+            actorResolution.reason,
+            options
+          );
         }
         actorContext = actorResolution.context;
         userId = actorContext.actorUserId;
@@ -755,12 +949,12 @@ export const PhaseCAutonomyRouter = {
       let effective = declared;
       if (declared === "auto_send" || declared === "auto_follow_up") {
         if (!userId) {
-          return {
-            outcome: "noop_actor_unavailable",
-            category,
-            effectiveLevel: declared,
-            detail: "actor_identity_invalid",
-          };
+          return await actorUnavailableResult(
+            thread,
+            declared,
+            "actor_identity_invalid",
+            options
+          );
         }
         const categoryGraduation = await PhaseCCategoryAutonomy.isGraduated(
           thread.companyId,
@@ -802,12 +996,12 @@ export const PhaseCAutonomyRouter = {
 
         case "auto_draft":
           if (!userId) {
-            return {
-              outcome: "noop_actor_unavailable",
-              category,
-              effectiveLevel: effective,
-              detail: "actor_identity_invalid",
-            };
+            return await actorUnavailableResult(
+              thread,
+              effective,
+              "actor_identity_invalid",
+              options
+            );
           }
           return await this.doAutoDraft(thread, userId, effective, {
             ...options,
@@ -816,23 +1010,23 @@ export const PhaseCAutonomyRouter = {
 
         case "auto_send":
           if (!actorContext) {
-            return {
-              outcome: "noop_actor_unavailable",
-              category,
-              effectiveLevel: effective,
-              detail: "actor_identity_invalid",
-            };
+            return await actorUnavailableResult(
+              thread,
+              effective,
+              "actor_identity_invalid",
+              options
+            );
           }
           return await this.doAutoSend(thread, actorContext, effective);
 
         case "auto_archive":
           if (!actorContext) {
-            return {
-              outcome: "noop_actor_unavailable",
-              category,
-              effectiveLevel: effective,
-              detail: "actor_identity_invalid",
-            };
+            return await actorUnavailableResult(
+              thread,
+              effective,
+              "actor_identity_invalid",
+              options
+            );
           }
           return await this.doAutoArchive(
             thread,
@@ -842,12 +1036,12 @@ export const PhaseCAutonomyRouter = {
 
         case "auto_follow_up":
           if (!actorContext) {
-            return {
-              outcome: "noop_actor_unavailable",
-              category,
-              effectiveLevel: effective,
-              detail: "actor_identity_invalid",
-            };
+            return await actorUnavailableResult(
+              thread,
+              effective,
+              "actor_identity_invalid",
+              options
+            );
           }
           return await this.doAutoFollowUp(thread, actorContext, effective);
       }

@@ -5,6 +5,7 @@
 // response structure, tone markers, email length per context.
 
 import { requireSupabase } from "@/lib/supabase/helpers";
+import { normalizeLearnedSubjectExample } from "@/lib/email/email-subject-policy";
 import { getSyncOpenAI } from "./openai-clients";
 
 // Uses OPENAI_API_KEY_SYNC — writing profile analysis runs during ongoing sync.
@@ -558,7 +559,126 @@ async function deepToneAnalysis(
 
 // ─── Service ────────────────────────────────────────────────────────────────
 
+/**
+ * Body style and subject style are learned from the same send but are not the
+ * same transaction: a subject the learner cannot use must never cost the
+ * profile the body it just analyzed. Failures are surfaced by the learner and
+ * stop here.
+ */
+async function learnSubjectFromSample(
+  companyId: string,
+  userId: string,
+  email: {
+    subject?: string | null;
+    isThreadOpening?: boolean;
+    subjectContext?: SubjectLearningContext;
+  },
+  profileType: string
+): Promise<void> {
+  if (!email.subject) return;
+  await WritingProfileService.learnNewThreadSubject({
+    companyId,
+    userId,
+    profileType,
+    subject: email.subject,
+    context: email.subjectContext,
+    isThreadOpening: email.isThreadOpening,
+  });
+}
+
+/** The lead fields a learned subject pattern may name, by their token. */
+export interface SubjectLearningContext {
+  contact?: string | null;
+  company?: string | null;
+  address?: string | null;
+  project?: string | null;
+  email?: string | null;
+  number?: string | null;
+}
+
+export interface LearnNewThreadSubjectInput {
+  companyId: string;
+  userId: string;
+  /** Defaults to the general profile, matching the rest of this service. */
+  profileType?: string;
+  subject: string | null | undefined;
+  /** This lead's values, so the stored pattern keeps nobody's identity. */
+  context?: SubjectLearningContext;
+  /**
+   * Whether this send opened its thread. Callers that know (they hold the
+   * thread's outbound history) should say so. Left undefined, the subject's own
+   * shape decides: a `Re:`/`Fwd:` prefix is proof the send answered something,
+   * and only a prefix-free subject is treated as thread-opening.
+   */
+  isThreadOpening?: boolean;
+  /** Compute the pattern and return it without writing. */
+  dryRun?: boolean;
+}
+
+export interface LearnNewThreadSubjectResult {
+  learned: boolean;
+  reason?: string;
+  /** The de-identified pattern the merge stored (or would store). */
+  pattern?: string | null;
+  count?: number | null;
+  error?: string;
+}
+
 export const WritingProfileService = {
+  /**
+   * Learn one new-thread subject from an outbound send.
+   *
+   * Subject choice is the one voice dimension the profile could never learn:
+   * `subject_preferences` had a reader and no writer, so every mailbox drafted
+   * new-lead outreach under a server constant forever (4da75e71). Thread-opening
+   * sends are the evidence — they are the operator writing a subject from
+   * nothing, which is exactly the moment a draft has to imitate.
+   *
+   * The merge is deliberately a small dedicated RPC rather than a change to the
+   * learning-apply function: subject evidence arrives on its own cadence and
+   * must never be able to fail a body-learning transaction.
+   */
+  async learnNewThreadSubject(
+    input: LearnNewThreadSubjectInput
+  ): Promise<LearnNewThreadSubjectResult> {
+    const subject = normalizeLearnedSubjectExample(input.subject);
+    if (!subject || input.isThreadOpening === false) {
+      return { learned: false, reason: "not_thread_opening" };
+    }
+
+    const supabase = requireSupabase();
+    const { data, error } = await supabase.rpc(
+      "merge_agent_writing_profile_subject_preferences",
+      {
+        p_company_id: input.companyId,
+        p_user_id: input.userId,
+        p_profile_type: input.profileType?.trim() || "general",
+        p_subject: subject,
+        p_context: (input.context ?? {}) as Record<string, unknown>,
+        p_is_thread_opening: input.isThreadOpening ?? null,
+        p_dry_run: input.dryRun === true,
+      }
+    );
+
+    if (error) {
+      // Surfaced, never swallowed: a silent merge failure is how
+      // subject_preferences stayed empty on every row in the first place.
+      console.error(
+        "[writing-profile] subject preference merge failed:",
+        error.message
+      );
+      return { learned: false, reason: "merge_failed", error: error.message };
+    }
+
+    const result = (data ?? {}) as Record<string, unknown>;
+    return {
+      learned: result.learned === true,
+      reason: typeof result.reason === "string" ? result.reason : undefined,
+      pattern: typeof result.pattern === "string" ? result.pattern : null,
+      count: typeof result.count === "number" ? result.count : null,
+    };
+  },
+
   /**
    * Deterministically extract one clean outbound sample without touching the
    * database. The outbound-learning worker persists this payload before the
@@ -591,7 +711,19 @@ export const WritingProfileService = {
   async updateFromEmail(
     companyId: string,
     userId: string,
-    email: { bodyText: string },
+    email: {
+      bodyText: string;
+      /**
+       * The subject this send carried. Present only for real sends — pasted
+       * writing samples have no subject — and it is the only evidence the
+       * profile has for how this operator names a NEW conversation.
+       */
+      subject?: string | null;
+      /** Left undefined, the subject's own shape decides (see the learner). */
+      isThreadOpening?: boolean;
+      /** This lead's values, so the stored pattern keeps nobody's identity. */
+      subjectContext?: SubjectLearningContext;
+    },
     profileType: string = "general"
   ): Promise<void> {
     const supabase = requireSupabase();
@@ -651,6 +783,7 @@ export const WritingProfileService = {
         tone_traits: {},
         vocabulary_preferences: vocabPrefs,
       });
+      await learnSubjectFromSample(companyId, userId, email, profileType);
       return;
     }
 
@@ -803,6 +936,8 @@ export const WritingProfileService = {
         updated_at: new Date().toISOString(),
       })
       .eq("id", profile.id);
+
+    await learnSubjectFromSample(companyId, userId, email, profileType);
 
     // Every 25 emails, do deeper tone + response structure analysis via GPT
     if (analyzed % 25 === 0) {

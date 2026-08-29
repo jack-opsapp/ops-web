@@ -328,17 +328,18 @@ The PMF tracking deck is the operator's primary operating surface during the pre
 ### Cron schedule (registered in `vercel.json`)
 | Path | Schedule (UTC) | Purpose |
 |------|----------------|---------|
-| `/api/cron/pmf/threshold-check` | `*/15 * * * *` | Detect state transitions + event-driven alerts |
-| `/api/cron/pmf/daily-digest` | `0 15 * * *` | 7am PT daily recap email |
-| `/api/cron/pmf/weekly-digest` | `0 15 * * 1` | Mon 7am PT weekly recap + cohorts |
-| `/api/cron/pmf/cleanup-snapshots` | `30 14 * * *` | Prune snapshots older than 30 days |
-| `/api/cron/pmf/google-ads-sync` | `15 14 * * *` | Daily ad spend sync |
+| `/api/cron/pmf/threshold-check` | `57 13-14,16-23,0-4 * * *` | Detect state transitions + event-driven alerts. Hourly within the active window — deliberate database-pressure containment. The handler is cadence-independent: events are scanned over contiguous half-open windows tracked in a durable event cursor, so there are no blind spots between runs. |
+| `/api/cron/pmf/daily-digest` | `59 15 * * *` | Daily recap email |
+| `/api/cron/pmf/weekly-digest` | `14 7 * * 1` | Monday weekly recap + cohorts |
+| `/api/cron/pmf/cleanup-snapshots` | `4 11 * * *` | Prune snapshots older than 30 days |
+| `/api/cron/pmf/google-ads-sync` | `24 10 * * *` | Daily ad spend sync |
 
 ### Source of truth rules
 - **Billing events / MRR:** `billing_events` table, written by the Stripe webhook at `/api/webhooks/stripe/route.ts` (layered — NOT a separate endpoint). Do not compute MRR from `companies.subscription_status` alone.
 - **Retention cohorts:** `pmf_retention_cohorts` RPC (migration `20260422120001_pmf_retention_cohorts_rpc.sql` — must be applied to prod before weekly digest runs)
 - **Attribution:** UTM cookies on `try-ops` landing → `/api/admin/pmf/attributions/seed` → `trial_attributions` table
-- **Threshold snapshots:** `pmf_threshold_snapshots` — written every 15 min by threshold-check cron, consumed by next run's diff
+- **Threshold snapshots:** `pmf_threshold_snapshots` — written on every scheduled run (hourly active window) by threshold-check cron, consumed by next run's diff. A skipped hour delays a transition alert; it never loses one.
+- **Event scan cursor:** the threshold-check cron stores `{"eventsThrough":"<ISO>"}` in the fenced `pmf-threshold-check` workload cursor and scans `[eventsThrough, runStart)`. Consecutive runs are contiguous — no gaps, no double-counting, off-hours activity caught up by the next run. The cursor advances only when every event alert deduped or landed on at least one channel; event triggers are unique ids deduped over 7 days, so a re-scan retries exactly what never delivered.
 
 ### Environment variables
 | Name | Purpose |

@@ -204,7 +204,10 @@ export {
   useAddOpportunityImages,
   useRemoveOpportunityImage,
 } from "./use-opportunities";
-export { useOpportunityDeckDesigns } from "./use-opportunity-deck-designs";
+export {
+  useOpportunityDeckDesigns,
+  useLeadDeckMarkers,
+} from "./use-opportunity-deck-designs";
 
 // Lead disposition feedback (Phase C discard capture)
 export {
