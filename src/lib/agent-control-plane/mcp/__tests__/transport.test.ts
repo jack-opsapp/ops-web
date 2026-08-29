@@ -363,11 +363,11 @@ describe("tool listing", () => {
     }
   });
 
-  it("fails closed when exposure names an unavailable implementation", () => {
+  it("fails closed when exposure names a dark implementation", () => {
     expect(() =>
       externallyExposedReadCapabilities({
         revision: "test.mcp-exposure",
-        toolIds: ["list_site_visits"],
+        toolIds: ["prepare_site_visit_booking"],
         grantableScopes: ["ops.jobs.read"],
       })
     ).toThrow(TypeError);
