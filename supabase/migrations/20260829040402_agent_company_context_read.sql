@@ -236,8 +236,17 @@ begin
       8000,
       true
     ) end;
+  if pg_catalog.cardinality(
+       coalesce(v_source.industries, array[]::text[])
+     ) > 16 then
+    raise exception 'agent_company_context_source_invalid'
+      using errcode = '22000';
+  end if;
   select coalesce(
-           pg_catalog.array_agg(distinct projected.value order by projected.value),
+           pg_catalog.array_agg(
+             distinct projected.value collate "C"
+             order by projected.value collate "C"
+           ),
            array[]::text[]
          ),
          coalesce(pg_catalog.bool_or(projected.value is null), false)
@@ -305,6 +314,8 @@ begin
      or v_currency_code !~ '^[A-Z]{3}$'
      or v_source.default_work_start is null
      or v_source.default_work_end is null
+     or v_source.default_work_start = time '24:00:00'
+     or v_source.default_work_end = time '24:00:00'
      or v_source.default_work_start >= v_source.default_work_end
      or v_inventory_mode not in ('off', 'tracked')
      or v_source.catalog_setup_completed_at is not null

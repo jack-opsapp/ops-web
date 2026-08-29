@@ -122,7 +122,10 @@ describe("P2 company-context read migration", () => {
       "'content_kind', 'untrusted_business_data'",
       "agent_company_context_source_invalid",
       "else array[v_source.industry]::text[]",
+      "pg_catalog.cardinality( coalesce(v_source.industries, array[]::text[]) ) > 16",
+      'order by projected.value collate "c"',
       "pg_catalog.cardinality(v_industries) = 0",
+      "time '24:00:00'",
       "v_currency_code is null",
     ]) {
       expect(PRIVATE_SUMMARY).toContain(field);

@@ -270,6 +270,8 @@ begin
            case
              when pg_catalog.btrim(coalesce(member.role, '')) = ''
                then 'unassigned'
+             when pg_catalog.lower(pg_catalog.btrim(member.role)) = 'admin'
+               then 'office'
              else pg_catalog.lower(pg_catalog.btrim(member.role))
            end as team_label
     from cursor_guard context

@@ -43,6 +43,18 @@ const IndustryTextSchema = createP2CanonicalTextSchema({
   maximumUtf8Bytes: 256,
 });
 
+function compareUnicodeScalarText(left: string, right: string) {
+  const leftScalars = Array.from(left, (scalar) => scalar.codePointAt(0)!);
+  const rightScalars = Array.from(right, (scalar) => scalar.codePointAt(0)!);
+  const length = Math.min(leftScalars.length, rightScalars.length);
+  for (let index = 0; index < length; index += 1) {
+    if (leftScalars[index] !== rightScalars[index]) {
+      return leftScalars[index]! - rightScalars[index]!;
+    }
+  }
+  return leftScalars.length - rightScalars.length;
+}
+
 const CanonicalIndustriesSchema = z
   .array(IndustryTextSchema)
   .min(1)
@@ -50,7 +62,10 @@ const CanonicalIndustriesSchema = z
   .refine(
     (values) =>
       new Set(values).size === values.length &&
-      values.every((value, index) => index === 0 || values[index - 1]! < value),
+      values.every(
+        (value, index) =>
+          index === 0 || compareUnicodeScalarText(values[index - 1]!, value) < 0
+      ),
     "COMPANY_INDUSTRY_VECTOR_NOT_CANONICAL"
   );
 

@@ -83,11 +83,15 @@ insert into public.companies (
 insert into public.users (
   id,
   company_id,
+  first_name,
+  last_name,
   is_active,
   is_company_admin
 ) values (
   '91100000-0000-4000-8000-000000000001',
   '91000000-0000-4000-8000-000000000001',
+  'Review',
+  'Operator',
   true,
   false
 );
@@ -329,6 +333,110 @@ begin
   end if;
 end;
 $legacy_industry_fallback_contract$;
+
+do $bounded_unicode_industries_contract$
+declare
+  v_payload jsonb;
+  v_snapshot text;
+begin
+  update public.companies
+  set industries = array[E'\uE000', '😀']::text[]
+  where id = '91000000-0000-4000-8000-000000000001';
+  select permission_snapshot_revision into strict v_snapshot
+  from private.resolve_agent_actor_authority(
+    '91100000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000001',
+    array['settings.company']::text[]
+  );
+  select public.read_agent_company_context_as_system(
+    'company-context-unicode-industries',
+    '91100000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000001',
+    '91400000-0000-4000-8000-000000000001',
+    '91300000-0000-4000-8000-000000000001',
+    'dddddddddddddddddddddddddddddddd',
+    array['ops.company.read']::text[],
+    v_snapshot,
+    array['settings.company']::text[],
+    'get_company_context',
+    'get_company_context:2026-08-22.v1',
+    '2026-08-22.capability-manifest.v8',
+    array['ops.company.read']::text[],
+    'all'
+  ) into strict v_payload;
+  if v_payload #> '{result,profile,industries}' is distinct from
+       pg_catalog.jsonb_build_array(E'\uE000', '😀') then
+    raise exception
+      'agent_company_context_runtime_failed: unicode_industry_order %',
+      v_payload;
+  end if;
+
+  update public.companies
+  set industries = array_fill('decks'::text, array[17])
+  where id = '91000000-0000-4000-8000-000000000001';
+  begin
+    perform public.read_agent_company_context_as_system(
+      'company-context-unbounded-industries',
+      '91100000-0000-4000-8000-000000000001',
+      '91000000-0000-4000-8000-000000000001',
+      '91400000-0000-4000-8000-000000000001',
+      '91300000-0000-4000-8000-000000000001',
+      'dddddddddddddddddddddddddddddddd',
+      array['ops.company.read']::text[],
+      v_snapshot,
+      array['settings.company']::text[],
+      'get_company_context',
+      'get_company_context:2026-08-22.v1',
+      '2026-08-22.capability-manifest.v8',
+      array['ops.company.read']::text[],
+      'all'
+    );
+    raise exception
+      'agent_company_context_runtime_failed: raw_industry_bound_missing';
+  exception
+    when sqlstate '22000' then null;
+  end;
+end;
+$bounded_unicode_industries_contract$;
+
+do $noncanonical_work_window_contract$
+declare
+  v_snapshot text;
+begin
+  update public.companies
+  set industries = array['decks']::text[],
+      default_work_end = time '24:00:00'
+  where id = '91000000-0000-4000-8000-000000000001';
+  select permission_snapshot_revision into strict v_snapshot
+  from private.resolve_agent_actor_authority(
+    '91100000-0000-4000-8000-000000000001',
+    '91000000-0000-4000-8000-000000000001',
+    array['settings.company']::text[]
+  );
+  begin
+    perform public.read_agent_company_context_as_system(
+      'company-context-noncanonical-work-window',
+      '91100000-0000-4000-8000-000000000001',
+      '91000000-0000-4000-8000-000000000001',
+      '91400000-0000-4000-8000-000000000001',
+      '91300000-0000-4000-8000-000000000001',
+      'dddddddddddddddddddddddddddddddd',
+      array['ops.company.read']::text[],
+      v_snapshot,
+      array['settings.company']::text[],
+      'get_company_context',
+      'get_company_context:2026-08-22.v1',
+      '2026-08-22.capability-manifest.v8',
+      array['ops.company.read']::text[],
+      'all'
+    );
+    raise exception
+      'agent_company_context_runtime_failed: 24_hour_visible';
+  exception
+    when sqlstate '22000' then null;
+  end;
+end;
+$noncanonical_work_window_contract$;
 
 do $revoked_grant_contract$
 declare

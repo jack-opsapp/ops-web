@@ -310,6 +310,12 @@ insert into public.users(
     null, '#ABCDEF', 'owner', true, true, null
   ),
   (
+    '91100000-0000-4000-8000-000000000006',
+    '91000000-0000-4000-8000-000000000001',
+    'Jordan', 'Admin',
+    null, null, 'admin', true, true, null
+  ),
+  (
     '91100000-0000-4000-8000-000000000004',
     '91000000-0000-4000-8000-000000000001',
     'Inactive', 'Member',
@@ -411,7 +417,7 @@ begin
 
   if v_payload ->> 'ranking_revision' is distinct from
        'team-member-order:2026-08-22.v1'
-     or (v_payload ->> 'source_inspected')::integer <> 3
+     or (v_payload ->> 'source_inspected')::integer <> 4
      or (v_payload ->> 'source_has_more')::boolean is not true
      or pg_catalog.jsonb_array_length(v_payload -> 'rows') <> 2
      or v_payload -> 'rows' -> 0 -> 'item' ->> 'display_name'
@@ -523,9 +529,14 @@ declare
   v_payload jsonb;
 begin
   select payload into strict v_payload from agent_team_second_page;
-  if pg_catalog.jsonb_array_length(v_payload -> 'rows') <> 1
+  if pg_catalog.jsonb_array_length(v_payload -> 'rows') <> 2
      or v_payload -> 'rows' -> 0 -> 'item' ->> 'display_name'
+       is distinct from 'Jordan Admin'
+     or v_payload -> 'rows' -> 0 -> 'item' ->> 'team_label'
+       is distinct from 'office'
+     or v_payload -> 'rows' -> 1 -> 'item' ->> 'display_name'
        is distinct from 'Zoe Field'
+     or v_payload::text ~ '"team_label": "admin"'
      or (v_payload ->> 'source_has_more')::boolean
      or v_payload ->> 'read_at' is distinct from (
        select payload ->> 'read_at' from agent_team_first_page

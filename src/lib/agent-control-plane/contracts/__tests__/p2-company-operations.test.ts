@@ -147,6 +147,12 @@ describe("P2 company operations contracts", () => {
   });
 
   it("requires canonical regional, working-window, industry, and asset values", () => {
+    const scalarOrdered = validResult();
+    (scalarOrdered.profile.industries as unknown as string[]) = ["\uE000", "😀"];
+    expect(CompanyContextResultSchema.parse(scalarOrdered)).toEqual(
+      scalarOrdered
+    );
+
     for (const mutate of [
       (value: ReturnType<typeof validResult>) => {
         (value.profile.industries as unknown as string[]).reverse();
@@ -168,6 +174,9 @@ describe("P2 company operations contracts", () => {
       },
       (value: ReturnType<typeof validResult>) => {
         (value.working_window.end_local as string) = "08:00:00";
+      },
+      (value: ReturnType<typeof validResult>) => {
+        (value.working_window.end_local as string) = "24:00:00";
       },
       (value: ReturnType<typeof validResult>) => {
         if (value.public_assets.logo.state === "available") {
@@ -297,6 +306,16 @@ describe("P2 team directory contracts", () => {
       mutate(value);
       expect(() => ListTeamMembersResultSchema.parse(value)).toThrow();
     }
+  });
+
+  it("accepts admin members only through the non-authority office label", () => {
+    const coarsened = structuredClone(validTeamResult());
+    (coarsened.items[0].team_label as string) = "office";
+    expect(ListTeamMembersResultSchema.parse(coarsened)).toEqual(coarsened);
+
+    const leakedAuthority = structuredClone(coarsened);
+    (leakedAuthority.items[0].team_label as string) = "admin";
+    expect(() => ListTeamMembersResultSchema.parse(leakedAuthority)).toThrow();
   });
 
   it("couples item, evidence, collection, cursor, and exact company+team revisions", () => {
