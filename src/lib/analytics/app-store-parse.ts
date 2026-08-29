@@ -59,11 +59,19 @@ export function parseTsv(
 
   const headers = lines[0].split("\t").map(norm);
 
-  // canonical -> column index
+  // canonical -> column index. Alias order IS the resolution priority; the
+  // canonical header (underscores -> spaces) is the final fallback. Apple's
+  // Standard engagement report carries BOTH `Event` (Impression / Page view /
+  // Tap - the taxonomy the fact table and dashboard consume) and
+  // `Engagement Type` (tap subtype: Get / Open / ...), so priority must be
+  // declared, never inferred from file header order.
   const resolve: Record<string, number> = {};
   for (const [canon, alist] of Object.entries(aliases)) {
-    const candidates = [norm(canon.replace(/_/g, " ")), ...alist.map(norm)];
+    const candidates = [...alist.map(norm), norm(canon.replace(/_/g, " "))];
+    const seen = new Set<string>();
     for (const candidate of candidates) {
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
       const idx = headers.indexOf(candidate);
       if (idx < 0) continue;
       resolve[canon] = idx;
