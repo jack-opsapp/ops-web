@@ -1266,7 +1266,12 @@ export const AIDraftService = {
           internalThreadId = (threadRow?.id as string | undefined) ?? null;
         }
         if (internalThreadId) {
-          const convState = await buildConversationState(internalThreadId);
+          // The exact message this draft answers decides who gets greeted.
+          // Without it a multi-party thread greets whoever spoke last.
+          const convState = await buildConversationState(
+            internalThreadId,
+            authorizedSourceActivity?.email_message_id ?? null
+          );
           if (convState) {
             draftState = buildDraftStateContext(convState);
             convRouting = convState.routing;

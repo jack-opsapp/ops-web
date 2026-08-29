@@ -2059,7 +2059,7 @@ describe("AIDraftService recent mailbox context", () => {
     expect(result.subjectSource).toBe("thread");
     expect(latestUserPrompt()).toContain("MAILBOX_B_CONTENT");
     expect(latestUserPrompt()).not.toContain("PRIVATE_MAILBOX_A_CONTENT");
-    expect(buildConversationStateMock).toHaveBeenCalledWith("thread-b");
+    expect(buildConversationStateMock.mock.calls[0]?.[0]).toBe("thread-b");
 
     const historyInsert = database.inserts.find(
       (entry) => entry.table === "ai_draft_history"
