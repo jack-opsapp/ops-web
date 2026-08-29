@@ -283,7 +283,9 @@ insert into private.agent_read_domain_revisions(
   ('91000000-0000-4000-8000-000000000001', 'company', 7),
   ('91000000-0000-4000-8000-000000000001', 'team', 0),
   ('92000000-0000-4000-8000-000000000001', 'company', 9),
-  ('92000000-0000-4000-8000-000000000001', 'team', 0);
+  ('92000000-0000-4000-8000-000000000001', 'team', 0)
+on conflict(company_id, domain) do update
+  set source_revision = excluded.source_revision;
 
 insert into public.users(
   id, company_id, first_name, last_name, profile_image_url, user_color,
@@ -347,9 +349,18 @@ insert into public.user_permission_overrides(
 );
 
 insert into private.mcp_oauth_clients(
-  client_id, scope_ceiling, consent_catalog_revision, exposure_revision
+  client_id, client_name, redirect_uris, token_endpoint_auth_method,
+  grant_types, response_types, scope, registration_source,
+  scope_ceiling, consent_catalog_revision, exposure_revision
 ) values (
   '91300000-0000-4000-8000-000000000001',
+  'Team members runtime',
+  array['https://team-members-runtime.ops.invalid/callback']::text[],
+  'none',
+  array['authorization_code', 'refresh_token']::text[],
+  array['code']::text[],
+  'ops.team.read',
+  'manual',
   array['ops.team.read']::text[],
   '2026-08-22.mcp-consent-catalog.v1',
   '2026-08-22.mcp-exposure.v1'

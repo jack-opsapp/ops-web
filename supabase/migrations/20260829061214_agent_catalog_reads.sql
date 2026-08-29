@@ -439,7 +439,9 @@ begin
            private.agent_p2_optional_canonical_text(
              recipe.product_name, 256, 1024, true
            ) as safe_product_name,
-           private.agent_p2_catalog_milliunits_v1(recipe.quantity_value)
+           private.agent_p2_catalog_float8_milliunits_v1(
+             recipe.quantity_value
+           )
              as quantity_milliunits,
            unit_row.display as raw_unit_label,
            case when unit_row.id is null then null
@@ -1241,6 +1243,31 @@ begin
 end;
 $function$;
 
+create or replace function private.agent_p2_catalog_float8_milliunits_v1(
+  p_value double precision
+) returns bigint
+language plpgsql
+immutable
+strict
+parallel safe
+security invoker
+set search_path = ''
+set extra_float_digits = 3
+as $function$
+begin
+  if p_value in (
+    'NaN'::double precision,
+    'Infinity'::double precision,
+    '-Infinity'::double precision
+  ) then
+    return null;
+  end if;
+  return private.agent_p2_catalog_milliunits_v1(
+    p_value::text::numeric
+  );
+end;
+$function$;
+
 create or replace function private.agent_p2_catalog_normalized_text_v1(
   p_value text
 ) returns text
@@ -1624,8 +1651,10 @@ as $function$
                unit_row.abbreviation, 160, 640, true
              )
            end as unit_abbreviation,
-           private.agent_p2_catalog_milliunits_v1(variant.quantity) as quantity_milliunits,
-           private.agent_p2_catalog_milliunits_v1(
+           private.agent_p2_catalog_float8_milliunits_v1(
+             variant.quantity
+           ) as quantity_milliunits,
+           private.agent_p2_catalog_float8_milliunits_v1(
              coalesce(
                variant.warning_threshold,
                family.default_warning_threshold,
@@ -1638,7 +1667,7 @@ as $function$
              when category.default_warning_threshold is not null then 'category'
              else 'none'
            end as warning_origin,
-           private.agent_p2_catalog_milliunits_v1(
+           private.agent_p2_catalog_float8_milliunits_v1(
              coalesce(
                variant.critical_threshold,
                family.default_critical_threshold,
@@ -2268,6 +2297,7 @@ begin
   foreach v_signature in array array[
     'private.agent_p2_catalog_hash_ref(text,jsonb)',
     'private.agent_p2_catalog_milliunits_v1(numeric)',
+    'private.agent_p2_catalog_float8_milliunits_v1(double precision)',
     'private.agent_p2_catalog_normalized_text_v1(text)',
     'private.agent_p2_catalog_expected_candidate_v1(text,jsonb)',
     'private.agent_p2_catalog_proof_candidates_v1(jsonb,jsonb)',
@@ -2403,6 +2433,37 @@ begin
   if v_invalid is not null then
     raise exception 'agent_catalog_reads_postflight_invalid: %',
       pg_catalog.array_to_string(v_invalid, ',')
+      using errcode = '55000';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_catalog.pg_proc procedure
+    where procedure.oid = pg_catalog.to_regprocedure(
+      'private.agent_p2_catalog_float8_milliunits_v1(double precision)'
+    )
+      and procedure.provolatile = 'i'
+      and procedure.proisstrict
+      and procedure.proparallel = 's'
+      and not procedure.prosecdef
+      and procedure.proconfig @> array[
+        'search_path=""', 'extra_float_digits=3'
+      ]::text[]
+      and pg_catalog.cardinality(procedure.proconfig) = 2
+      and not pg_catalog.has_function_privilege(
+        'public', procedure.oid, 'EXECUTE'
+      )
+      and not pg_catalog.has_function_privilege(
+        'anon', procedure.oid, 'EXECUTE'
+      )
+      and not pg_catalog.has_function_privilege(
+        'authenticated', procedure.oid, 'EXECUTE'
+      )
+      and not pg_catalog.has_function_privilege(
+        'service_role', procedure.oid, 'EXECUTE'
+      )
+  ) then
+    raise exception 'agent_catalog_float8_milliunits_postflight_invalid'
       using errcode = '55000';
   end if;
 end;

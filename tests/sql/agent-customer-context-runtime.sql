@@ -81,27 +81,29 @@ begin
 end;
 $catalog_contract$;
 
-set local role authenticated;
-
 do $application_acl$
+declare
+  v_signatures oid[] := array[
+    pg_catalog.to_regprocedure(
+      'private.agent_p2_customer_summary_v1(uuid,uuid,uuid,uuid,text,text[],text[],text,text[],text,text,text,text,uuid,text[],text,text[],timestamp with time zone,integer,integer)'
+    )::oid,
+    pg_catalog.to_regprocedure(
+      'public.read_agent_customer_context_as_system(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],text,text,text,text,uuid,text[],text,text[],integer,integer)'
+    )::oid
+  ];
 begin
-  if pg_catalog.has_function_privilege(
-       current_user,
-       'private.agent_p2_customer_summary_v1(uuid,uuid,uuid,uuid,text,text[],text[],text,text[],text,text,text,text,uuid,text[],text,text[],timestamp with time zone,integer,integer)',
-       'EXECUTE'
-     )
-     or pg_catalog.has_function_privilege(
-       current_user,
-       'public.read_agent_customer_context_as_system(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],text,text,text,text,uuid,text[],text,text[],integer,integer)',
-       'EXECUTE'
-     ) then
+  if exists (
+    select 1
+    from pg_catalog.unnest(v_signatures) signature_row(signature)
+    where pg_catalog.has_function_privilege(
+      'authenticated', signature_row.signature, 'EXECUTE'
+    )
+  ) then
     raise exception
       'agent_customer_context_runtime_failed: authenticated execute';
   end if;
 end;
 $application_acl$;
-
-reset role;
 
 select pg_catalog.set_config(
   'request.jwt.claim.role',
@@ -121,6 +123,15 @@ insert into public.companies (
   '8a000000-0000-4000-8000-000000000001',
   'Customer context runtime company'
 );
+
+insert into private.agent_operational_read_revisions (
+  company_id,
+  source_revision
+) values (
+  '8a000000-0000-4000-8000-000000000001',
+  0
+)
+on conflict (company_id) do nothing;
 
 insert into public.users (
   id,
@@ -728,6 +739,105 @@ begin
   end if;
 end;
 $projection_contract$;
+
+alter table public.projects
+  disable trigger projects_normalize_opportunity_link;
+update public.projects
+set opportunity_id = 'legacy:provider-project-opportunity'
+where id = '8a500000-0000-4000-8000-000000000001';
+alter table public.projects
+  enable trigger projects_normalize_opportunity_link;
+
+do $legacy_project_mirror_contract$
+declare
+  v_revision text;
+  v_result jsonb;
+begin
+  if (select project.opportunity_id
+      from public.projects project
+      where project.id = '8a500000-0000-4000-8000-000000000001')
+       is distinct from 'legacy:provider-project-opportunity' then
+    raise exception
+      'agent_customer_context_runtime_failed: malformed mirror not persisted';
+  end if;
+  if not exists (
+    select 1
+    from pg_catalog.pg_trigger trigger_row
+    where trigger_row.tgrelid = 'public.projects'::pg_catalog.regclass
+      and trigger_row.tgname = 'projects_normalize_opportunity_link'
+      and trigger_row.tgenabled = 'O'
+      and not trigger_row.tgisinternal
+      and trigger_row.tgfoid = pg_catalog.to_regprocedure(
+        'public.normalize_project_opportunity_link()'
+      )
+      and trigger_row.tgtype::integer = 23
+      and trigger_row.tgnargs = 0
+      and (
+        select pg_catalog.array_agg(attribute.attname order by ordinal.position)
+        from pg_catalog.unnest(trigger_row.tgattr::smallint[])
+          with ordinality ordinal(value, position)
+        join pg_catalog.pg_attribute attribute
+          on attribute.attrelid = trigger_row.tgrelid
+         and attribute.attnum = ordinal.value
+      ) = array['opportunity_id','opportunity_ref','company_id']::name[]
+  ) then
+    raise exception
+      'agent_customer_context_runtime_failed: project mirror triggers not restored';
+  end if;
+
+  select authority.permission_snapshot_revision
+  into strict v_revision
+  from private.resolve_agent_actor_authority(
+    '8a100000-0000-4000-8000-000000000001',
+    '8a000000-0000-4000-8000-000000000001',
+    array['clients.view', 'pipeline.view', 'projects.view']::text[]
+  ) authority;
+
+  begin
+    v_result := public.read_agent_customer_context_as_system(
+      'customer-context-runtime-malformed-legacy-project-mirror',
+      '8a100000-0000-4000-8000-000000000001',
+      '8a000000-0000-4000-8000-000000000001',
+      '8ab00000-0000-4000-8000-000000000001',
+      '8ac00000-0000-4000-8000-000000000001',
+      'dddddddddddddddddddddddddddddddd',
+      array[
+        'ops.customer_contacts.read',
+        'ops.customers.read',
+        'ops.jobs.read'
+      ]::text[],
+      v_revision,
+      array['clients.view', 'pipeline.view', 'projects.view']::text[],
+      'get_customer_context',
+      'get_customer_context:2026-08-22.v1',
+      '2026-08-22.capability-manifest.v8',
+      array['ops.customers.read', 'ops.jobs.read']::text[],
+      'all',
+      null,
+      'assigned',
+      'client',
+      '8a200000-0000-4000-8000-000000000001',
+      array['job_rollup']::text[],
+      null,
+      array['project']::text[],
+      501,
+      25
+    );
+
+    raise exception
+      'agent_customer_context_runtime_failed: malformed legacy project mirror accepted';
+  exception when sqlstate '22000' then
+    if sqlerrm is distinct from 'agent_customer_context_source_data_invalid'
+    then
+      raise;
+    end if;
+  end;
+
+  update public.projects
+  set opportunity_id = '8a400000-0000-4000-8000-000000000001'
+  where id = '8a500000-0000-4000-8000-000000000001';
+end;
+$legacy_project_mirror_contract$;
 
 select pg_catalog.set_config('enable_seqscan', 'off', true);
 

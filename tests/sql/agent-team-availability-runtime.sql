@@ -369,6 +369,9 @@ for each row execute function private.bump_agent_read_domain_revision(
 \ir ../../supabase/migrations/20260829063450_agent_team_sources.sql
 \ir ../../supabase/migrations/20260829074110_agent_availability_sources.sql
 \ir ../../supabase/migrations/20260829074111_agent_team_availability_read.sql
+\endif
+
+begin;
 
 create function private.test_team_availability_call(
   p_actor_user_id uuid,
@@ -438,9 +441,6 @@ begin
   );
 end;
 $$;
-\endif
-
-begin;
 
 set local statement_timeout = '30s';
 set local lock_timeout = '5s';
@@ -577,12 +577,21 @@ insert into public.user_permission_overrides(
   );
 
 insert into private.mcp_oauth_clients(
-  client_id, scope_ceiling, consent_catalog_revision, exposure_revision
+  client_id, client_name, redirect_uris, token_endpoint_auth_method,
+  grant_types, response_types, scope, registration_source,
+  scope_ceiling, consent_catalog_revision, exposure_revision
 ) values
   (
     '70000000-0000-4000-8000-000000000001',
+    'Team availability runtime',
+    array['https://team-availability-runtime.ops.invalid/callback']::text[],
+    'none',
+    array['authorization_code', 'refresh_token']::text[],
+    array['code']::text[],
+    'ops.team.read',
+    'manual',
     array['ops.team.read'],
-    'consent-v1',
+    '2026-08-22.mcp-consent-catalog.v1',
     '2026-08-22.mcp-exposure.v1'
   );
 
@@ -597,8 +606,11 @@ insert into private.mcp_oauth_grants(
     '70000000-0000-4000-8000-000000000001',
     array['ops.team.read'],
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    array['ops.team.read'],
-    'consent-v1',
+    private.mcp_oauth_labels_for_scopes(
+      array['ops.team.read']::text[],
+      '2026-08-22.mcp-consent-catalog.v1'
+    ),
+    '2026-08-22.mcp-consent-catalog.v1',
     '2026-08-22.mcp-exposure.v1'
   ),
   (
@@ -608,8 +620,11 @@ insert into private.mcp_oauth_grants(
     '70000000-0000-4000-8000-000000000001',
     array['ops.team.read'],
     'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    array['ops.team.read'],
-    'consent-v1',
+    private.mcp_oauth_labels_for_scopes(
+      array['ops.team.read']::text[],
+      '2026-08-22.mcp-consent-catalog.v1'
+    ),
+    '2026-08-22.mcp-consent-catalog.v1',
     '2026-08-22.mcp-exposure.v1'
   ),
   (
@@ -619,19 +634,29 @@ insert into private.mcp_oauth_grants(
     '70000000-0000-4000-8000-000000000001',
     array['ops.team.read'],
     'cccccccccccccccccccccccccccccccc',
-    array['ops.team.read'],
-    'consent-v1',
+    private.mcp_oauth_labels_for_scopes(
+      array['ops.team.read']::text[],
+      '2026-08-22.mcp-consent-catalog.v1'
+    ),
+    '2026-08-22.mcp-consent-catalog.v1',
     '2026-08-22.mcp-exposure.v1'
   );
 
 -- UTC-encoded civil dates intentionally prove the operational schedule rule.
+insert into public.projects(id, company_id, title) values (
+  '94000000-0000-4000-8000-000000000001',
+  'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  'Availability fixture project'
+);
+
 insert into public.project_tasks(
-  id, company_id, status, team_member_ids, start_date, end_date,
+  id, company_id, project_id, status, team_member_ids, start_date, end_date,
   duration, start_time, end_time, all_day
 ) values
   (
     '90000000-0000-4000-8000-000000000001',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '94000000-0000-4000-8000-000000000001',
     'active',
     array['11111111-1111-4111-8111-111111111111'],
     timestamptz '2026-11-02 00:00:00+00',
@@ -641,6 +666,7 @@ insert into public.project_tasks(
   (
     '90000000-0000-4000-8000-000000000002',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '94000000-0000-4000-8000-000000000001',
     'active',
     array['11111111-1111-4111-8111-111111111111'],
     timestamptz '2026-11-03 00:00:00+00',
@@ -650,6 +676,7 @@ insert into public.project_tasks(
   (
     '90000000-0000-4000-8000-000000000003',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '94000000-0000-4000-8000-000000000001',
     'active',
     array['11111111-1111-4111-8111-111111111111'],
     timestamptz '2026-11-03 00:00:00+00',
@@ -659,6 +686,7 @@ insert into public.project_tasks(
   (
     '90000000-0000-4000-8000-000000000004',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '94000000-0000-4000-8000-000000000001',
     'completed',
     array['11111111-1111-4111-8111-111111111111'],
     timestamptz '2026-11-03 00:00:00+00',
@@ -668,6 +696,7 @@ insert into public.project_tasks(
   (
     '90000000-0000-4000-8000-000000000005',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '94000000-0000-4000-8000-000000000001',
     'cancelled',
     array['11111111-1111-4111-8111-111111111111'],
     timestamptz '2026-11-03 00:00:00+00',
@@ -677,7 +706,7 @@ insert into public.project_tasks(
 
 insert into public.site_visits(
   id, company_id, scheduled_at, duration_minutes, assignee_ids,
-  status, booked_at
+  status, booked_at, created_by
 ) values (
   '91000000-0000-4000-8000-000000000001',
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
@@ -685,7 +714,8 @@ insert into public.site_visits(
   90,
   array['11111111-1111-4111-8111-111111111111'],
   'scheduled',
-  timestamptz '2026-10-20 12:00:00+00'
+  timestamptz '2026-10-20 12:00:00+00',
+  '11111111-1111-4111-8111-111111111111'
 );
 
 insert into public.calendar_user_events(
@@ -759,7 +789,8 @@ begin
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     '80000000-0000-4000-8000-000000000001',
     'company', 'all', 'all',
-    date '2026-11-01', date '2026-11-03', 2
+    date '2026-11-01', date '2026-11-03', 2,
+    null, '[]'::jsonb, null, null
   );
 
   if v_first ->> 'view' <> 'company'
@@ -905,7 +936,8 @@ begin
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     '80000000-0000-4000-8000-000000000002',
     'self', null, 'own',
-    date '2026-11-02', date '2026-11-02', 1
+    date '2026-11-02', date '2026-11-02', 1,
+    null, '[]'::jsonb, null, null
   );
   if v_self ->> 'view' <> 'self'
      or v_self -> 'team_scope' <> 'null'::jsonb
@@ -922,7 +954,8 @@ begin
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     '80000000-0000-4000-8000-000000000001',
     'company', 'all', 'all',
-    date '2026-11-01', date '2026-11-03', 10
+    date '2026-11-01', date '2026-11-03', 10,
+    null, '[]'::jsonb, null, null
   );
   select jsonb_agg(row.value -> 'item' order by row.ordinality)
     into v_utc_items
@@ -935,7 +968,8 @@ begin
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     '80000000-0000-4000-8000-000000000001',
     'company', 'all', 'all',
-    date '2026-11-01', date '2026-11-03', 10
+    date '2026-11-01', date '2026-11-03', 10,
+    null, '[]'::jsonb, null, null
   );
   select jsonb_agg(row.value -> 'item' order by row.ordinality)
     into v_other_items
@@ -993,14 +1027,16 @@ begin
     'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     '80000000-0000-4000-8000-000000000003',
     'self', null, 'own',
-    date '2026-03-08', date '2026-03-08', 1
+    date '2026-03-08', date '2026-03-08', 1,
+    null, '[]'::jsonb, null, null
   );
   v_fall := private.test_team_availability_call(
     '55555555-5555-4555-8555-555555555555',
     'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
     '80000000-0000-4000-8000-000000000003',
     'self', null, 'own',
-    date '2026-11-01', date '2026-11-01', 1
+    date '2026-11-01', date '2026-11-01', 1,
+    null, '[]'::jsonb, null, null
   );
   if v_spring #>> '{rows,0,item,days,0,working_minutes}' <> '180'
      or v_spring #>> '{rows,0,item,days,0,state}' <> 'available'
@@ -1020,7 +1056,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       '80000000-0000-4000-8000-000000000002',
       'company', 'all', 'all',
-      date '2026-11-02', date '2026-11-02', 1
+      date '2026-11-02', date '2026-11-02', 1,
+      null, '[]'::jsonb, null, null
     );
     raise exception 'agent_availability_runtime_failed: team_inference';
   exception when insufficient_privilege then
@@ -1036,7 +1073,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       '80000000-0000-4000-8000-000000000002',
       'self', null, 'own',
-      date '2026-11-02', date '2026-11-02', 1
+      date '2026-11-02', date '2026-11-02', 1,
+      null, '[]'::jsonb, null, null
     );
     raise exception 'agent_availability_runtime_failed: inactive_actor';
   exception when no_data_found then
@@ -1092,11 +1130,12 @@ begin
   where company_id = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 
   insert into public.project_tasks(
-    id, company_id, status, team_member_ids, start_date, end_date,
+    id, company_id, project_id, status, team_member_ids, start_date, end_date,
     duration, all_day
   ) values (
     '93000000-0000-4000-8000-000000000001',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '94000000-0000-4000-8000-000000000001',
     'active',
     array['11111111-1111-4111-8111-111111111111'],
     timestamptz '2026-11-02 00:00:00+00',
@@ -1148,7 +1187,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       '80000000-0000-4000-8000-000000000001',
       'company', 'all', 'all',
-      date '2026-11-02', date '2026-11-02', 10
+      date '2026-11-02', date '2026-11-02', 10,
+      null, '[]'::jsonb, null, null
     );
     raise exception 'agent_availability_runtime_failed: invalid_source_accepted';
   exception when data_exception then
@@ -1166,7 +1206,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       '80000000-0000-4000-8000-000000000001',
       'company', 'all', 'all',
-      date '2026-11-02', date '2026-11-02', 10
+      date '2026-11-02', date '2026-11-02', 10,
+      null, '[]'::jsonb, null, null
     );
     raise exception
       'agent_availability_runtime_failed: invalid_timezone_accepted';
@@ -1199,7 +1240,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       '80000000-0000-4000-8000-000000000001',
       'company', 'all', 'all',
-      date '2026-11-02', date '2026-11-02', 10
+      date '2026-11-02', date '2026-11-02', 10,
+      null, '[]'::jsonb, null, null
     );
     raise exception 'agent_availability_runtime_failed: member_bound_accepted';
   exception when program_limit_exceeded then
@@ -1242,7 +1284,8 @@ begin
       'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
       '80000000-0000-4000-8000-000000000001',
       'self', null, 'all',
-      date '2026-11-02', date '2026-11-02', 1
+      date '2026-11-02', date '2026-11-02', 1,
+      null, '[]'::jsonb, null, null
     );
     raise exception 'agent_availability_runtime_failed: schedule_bound_accepted';
   exception when program_limit_exceeded then

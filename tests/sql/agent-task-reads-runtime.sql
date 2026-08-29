@@ -156,6 +156,14 @@ insert into public.companies (id, name) values
     'Task read tenant-move company'
   );
 
+insert into private.agent_operational_read_revisions (
+  company_id,
+  source_revision
+) values
+  ('8b000000-0000-4000-8000-000000000001', 0),
+  ('8c000000-0000-4000-8000-000000000001', 0)
+on conflict (company_id) do nothing;
+
 insert into public.users (
   id,
   company_id,
@@ -386,7 +394,11 @@ insert into public.estimates (
   client_id,
   project_id,
   project_ref,
-  estimate_number
+  estimate_number,
+  status,
+  issue_date,
+  total,
+  updated_at
 ) values
   (
     '8b500000-0000-4000-8000-000000000001',
@@ -394,7 +406,8 @@ insert into public.estimates (
     '8b200000-0000-4000-8000-000000000001',
     'legacy-not-a-uuid',
     '8b400000-0000-4000-8000-000000000001',
-    'RUNTIME-EST-1'
+    'RUNTIME-EST-1', 'draft', date '2026-08-29', 0,
+    pg_catalog.statement_timestamp()
   ),
   (
     '8b500000-0000-4000-8000-000000000002',
@@ -402,7 +415,8 @@ insert into public.estimates (
     '8b200000-0000-4000-8000-000000000001',
     '8b400000-0000-4000-8000-000000000003',
     '8b400000-0000-4000-8000-000000000003',
-    'RUNTIME-EST-2'
+    'RUNTIME-EST-2', 'draft', date '2026-08-29', 0,
+    pg_catalog.statement_timestamp()
   ),
   (
     '8b500000-0000-4000-8000-000000000003',
@@ -410,7 +424,8 @@ insert into public.estimates (
     '8b200000-0000-4000-8000-000000000001',
     '8b400000-0000-4000-8000-000000000004',
     '8b400000-0000-4000-8000-000000000004',
-    'RUNTIME-EST-3'
+    'RUNTIME-EST-3', 'draft', date '2026-08-29', 0,
+    pg_catalog.statement_timestamp()
   ),
   (
     '8b500000-0000-4000-8000-000000000004',
@@ -418,7 +433,8 @@ insert into public.estimates (
     '8b200000-0000-4000-8000-000000000001',
     '8b400000-0000-4000-8000-000000000005',
     '8b400000-0000-4000-8000-000000000005',
-    'RUNTIME-EST-4'
+    'RUNTIME-EST-4', 'draft', date '2026-08-29', 0,
+    pg_catalog.statement_timestamp()
   ),
   (
     '8b500000-0000-4000-8000-000000000005',
@@ -426,44 +442,48 @@ insert into public.estimates (
     '8b200000-0000-4000-8000-000000000001',
     '8b400000-0000-4000-8000-000000000002',
     '8b400000-0000-4000-8000-000000000002',
-    'RUNTIME-EST-5'
+    'RUNTIME-EST-5', 'draft', date '2026-08-29', 0,
+    pg_catalog.statement_timestamp()
   );
 
 insert into public.line_items (
   id,
   company_id,
   estimate_id,
-  name
+  name,
+  quantity,
+  unit_price,
+  sort_order
 ) values
   (
     '8b510000-0000-4000-8000-000000000001',
     '8b000000-0000-4000-8000-000000000001',
     '8b500000-0000-4000-8000-000000000001',
-    'Glass railing installation'
+    'Glass railing installation', 1, 0, 0
   ),
   (
     '8b510000-0000-4000-8000-000000000002',
     '8b000000-0000-4000-8000-000000000001',
     '8b500000-0000-4000-8000-000000000002',
-    'Completed-assignment financial origin'
+    'Completed-assignment financial origin', 1, 0, 0
   ),
   (
     '8b510000-0000-4000-8000-000000000003',
     '8b000000-0000-4000-8000-000000000001',
     '8b500000-0000-4000-8000-000000000003',
-    'Mention financial origin'
+    'Mention financial origin', 1, 0, 0
   ),
   (
     '8b510000-0000-4000-8000-000000000004',
     '8b000000-0000-4000-8000-000000000001',
     '8b500000-0000-4000-8000-000000000004',
-    'Cancelled-assignment financial origin'
+    'Cancelled-assignment financial origin', 1, 0, 0
   ),
   (
     '8b510000-0000-4000-8000-000000000005',
     '8b000000-0000-4000-8000-000000000001',
     '8b500000-0000-4000-8000-000000000005',
-    'Unrelated financial origin'
+    'Unrelated financial origin', 1, 0, 0
   );
 
 insert into public.catalog_items (

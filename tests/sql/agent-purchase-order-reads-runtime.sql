@@ -143,11 +143,21 @@ insert into public.user_permission_overrides(
     'finances.view', 'all', true
   );
 insert into private.mcp_oauth_clients(
-  client_id, scope_ceiling, consent_catalog_revision, exposure_revision
+  client_id, client_name, redirect_uris, token_endpoint_auth_method,
+  grant_types, response_types, scope, registration_source,
+  scope_ceiling, consent_catalog_revision, exposure_revision
 ) values (
   'a1930000-0000-4000-8000-000000000001',
+  'Purchase order runtime',
+  array['https://purchase-order-runtime.ops.invalid/callback']::text[],
+  'none',
+  array['authorization_code', 'refresh_token']::text[],
+  array['code']::text[],
+  'ops.catalog_costs.read ops.purchasing.read',
+  'manual',
   array['ops.catalog_costs.read', 'ops.purchasing.read'],
-  'consent-v1', 'exposure-v1'
+  '2026-08-22.mcp-consent-catalog.v1',
+  '2026-08-22.mcp-exposure.v1'
 );
 insert into private.mcp_oauth_grants(
   id, user_id, company_id, client_id, scopes, revision, accepted_labels,
@@ -159,8 +169,12 @@ insert into private.mcp_oauth_grants(
   'a1930000-0000-4000-8000-000000000001',
   array['ops.catalog_costs.read', 'ops.purchasing.read'],
   '0123456789abcdef0123456789abcdef',
-  array['ops.catalog_costs.read', 'ops.purchasing.read'],
-  'consent-v1', 'exposure-v1'
+  private.mcp_oauth_labels_for_scopes(
+    array['ops.catalog_costs.read', 'ops.purchasing.read']::text[],
+    '2026-08-22.mcp-consent-catalog.v1'
+  ),
+  '2026-08-22.mcp-consent-catalog.v1',
+  '2026-08-22.mcp-exposure.v1'
 );
 
 insert into public.catalog_units(
@@ -215,13 +229,14 @@ insert into public.catalog_variant_option_values(
 );
 insert into public.catalog_supplier_cost_profiles(
   id, company_id, catalog_variant_id, profile_key, label, unit_cost,
-  currency_code, is_default, activation_rule, source, updated_at
+  currency_code, is_default, activation_rule, source, created_at, updated_at
 ) values (
   'a1917000-0000-4000-8000-000000000001',
   'a1900000-0000-4000-8000-000000000001',
   'a1913000-0000-4000-8000-000000000001',
   'PRIVATE-PROFILE', 'CanPro', 8.25, 'CAD', true,
   '{"private":"activation"}', '{"provider":"private"}',
+  '2026-08-28 12:00:00+00',
   '2026-08-28 12:00:00+00'
 );
 

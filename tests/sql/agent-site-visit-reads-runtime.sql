@@ -165,6 +165,14 @@ insert into public.companies (id, name, bubble_id) values
     'agent-site-visit-runtime-other-company'
   );
 
+insert into private.agent_operational_read_revisions (
+  company_id,
+  source_revision
+) values (
+  '8e000000-0000-4000-8000-000000000001',
+  0
+) on conflict (company_id) do nothing;
+
 insert into public.users (
   id,
   company_id,
@@ -321,6 +329,12 @@ insert into public.opportunities (id, company_id, client_ref, title) values
     '8e000000-0000-4000-8000-000000000001',
     '8e200000-0000-4000-8000-000000000001',
     'Carly Hunter deck'
+  ),
+  (
+    '8e300000-0000-4000-8000-000000000009',
+    '8e000000-0000-4000-8000-000000000001',
+    '8e200000-0000-4000-8000-000000000001',
+    'Carly Hunter historical converted deck'
   ),
   (
     '8e300000-0000-4000-8000-000000000002',
@@ -1535,7 +1549,7 @@ select pg_catalog.md5(
        case_fixture.row_assignee::text,
        array[case_fixture.row_assignee::text]::text[],
        case_fixture.window_from + series.value * interval '1 millisecond',
-       case_fixture.row_status
+       case_fixture.row_status::public.site_visit_status
 from agent_site_visit_hostile_cases case_fixture
 cross join pg_catalog.generate_series(1, 501) series(value);
 set local session_replication_role = origin;
@@ -2042,7 +2056,8 @@ begin
      or v_public_result::text like '%private-original.jpg%'
      or v_public_result::text like '%raw_geometry_secret%' then
     raise exception
-      'agent_site_visit_runtime_failed: unsafe or incomplete context projection';
+      'agent_site_visit_runtime_failed: unsafe or incomplete context projection: %',
+      v_result;
   end if;
 end;
 $context_result_contract$;
@@ -2283,6 +2298,15 @@ begin
 end;
 $oauth_assertion$;
 
+-- The following rollback-only authority probes deliberately create states
+-- rejected by the production immutable-snapshot triggers and checks. Match the
+-- task/artifact fixtures by bypassing those guards only for this hostile setup.
+alter table private.mcp_oauth_clients
+  drop constraint mcp_oauth_clients_scope_ceiling_valid;
+alter table private.mcp_oauth_grants
+  drop constraint mcp_oauth_grants_consent_snapshot_valid;
+set local session_replication_role = replica;
+
 do $current_oauth_state_contract$
 begin
   update private.mcp_oauth_clients
@@ -2348,6 +2372,8 @@ begin
    where id = '8e130000-0000-4000-8000-000000000001';
 end;
 $current_oauth_state_contract$;
+
+set local session_replication_role = origin;
 
 -- Task 10's private helper owns the raw artifact sentinel. Task 12 neither
 -- catches nor remaps it in SQL: a context statement must propagate the exact

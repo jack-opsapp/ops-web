@@ -28,6 +28,8 @@ declare
   v_acl_entries text[];
   v_expected text[];
   v_trigger_name text;
+  v_actual_sibling_triggers text[];
+  v_expected_sibling_triggers text[];
 begin
   if pg_catalog.current_setting('server_version_num')::integer < 170000
      or pg_catalog.current_setting('server_version_num')::integer >= 180000 then
@@ -112,18 +114,47 @@ begin
     end if;
   end loop;
 
-  if (
-    select pg_catalog.count(*)
-    from pg_catalog.pg_trigger trigger_row
-    where not trigger_row.tgisinternal
-      and trigger_row.tgname in (
-        'project_tasks_bump_agent_task_revision',
-        'project_tasks_bump_agent_site_visit_revision',
-        'site_visits_bump_agent_site_visit_revision',
-        'users_bump_agent_team_revision'
-      )
-  ) <> 4 then
-    raise exception 'agent_availability_replay_failed: sibling_trigger_loss';
+  select pg_catalog.array_agg(
+           trigger_row.tgname order by trigger_row.tgname collate "C"
+         )
+    into v_actual_sibling_triggers
+  from pg_catalog.pg_trigger trigger_row
+  join pg_catalog.pg_class relation_row
+    on relation_row.oid = trigger_row.tgrelid
+  join pg_catalog.pg_namespace namespace_row
+    on namespace_row.oid = relation_row.relnamespace
+  where not trigger_row.tgisinternal
+    and trigger_row.tgenabled = 'O'
+    and trigger_row.tgtype = 29
+    and namespace_row.nspname = 'public'
+    and trigger_row.tgname in (
+      'project_tasks_bump_agent_task_revision',
+      'project_tasks_bump_agent_site_visit_revision',
+      'site_visits_bump_agent_site_visit_revision',
+      'site_visits_bump_agent_deck_design_revisions',
+      'users_bump_agent_team_revision'
+    )
+    and relation_row.relname = case trigger_row.tgname
+      when 'users_bump_agent_team_revision' then 'users'
+      when 'site_visits_bump_agent_site_visit_revision' then 'site_visits'
+      when 'site_visits_bump_agent_deck_design_revisions' then 'site_visits'
+      else 'project_tasks'
+    end;
+  v_expected_sibling_triggers := array[
+      'project_tasks_bump_agent_site_visit_revision',
+      'project_tasks_bump_agent_task_revision',
+      case when pg_catalog.to_regprocedure(
+        'private.bump_agent_deck_design_source_revisions()'
+      ) is null
+        then 'site_visits_bump_agent_site_visit_revision'
+        else 'site_visits_bump_agent_deck_design_revisions'
+      end,
+      'users_bump_agent_team_revision'
+    ]::text[];
+  if v_actual_sibling_triggers is distinct from
+       v_expected_sibling_triggers then
+    raise exception 'agent_availability_replay_failed: sibling_trigger_loss:%',
+      v_actual_sibling_triggers;
   end if;
 
   if exists (

@@ -340,8 +340,11 @@ describe("P2 legacy attention projection migration", () => {
   it("ships a PostgreSQL runtime fixture for ACL, authority, bounds, and deterministic envelopes", () => {
     expect(RUNTIME_SQL).not.toBe("");
     expect(RUNTIME_SQL).toContain("begin;");
-    expect(RUNTIME_SQL).toContain("set local role authenticated");
+    expect(RUNTIME_SQL).not.toContain("set local role authenticated");
     expect(RUNTIME_SQL).toContain("has_function_privilege");
+    expect(RUNTIME_SQL).toContain(
+      "'authenticated', signature_row.signature, 'execute'"
+    );
     expect(RUNTIME_SQL).toContain(
       "array['search_path=', 'search_path=\"\"']::text[]"
     );

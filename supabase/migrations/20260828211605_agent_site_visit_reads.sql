@@ -1751,7 +1751,7 @@ begin
     with raw_checklist_gate as materialized (
       select answer.*
       from public.site_visit_checklist_answers answer
-      where answer.company_id = p_company_id
+      where answer.company_id = p_company_id::text
         and answer.site_visit_id = v_visit.id
         and answer.deleted_at is null
       order by answer.sort_order, answer.id

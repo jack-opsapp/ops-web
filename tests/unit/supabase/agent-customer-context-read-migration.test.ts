@@ -317,6 +317,18 @@ describe("P2 customer-context read migration", () => {
     );
     expect(PRIVATE_SUMMARY).toContain("canonical_job_rank = 1");
     expect(PRIVATE_SUMMARY).toContain("canonical_job_count > 2");
+    expect(PRIVATE_SUMMARY).toContain(
+      "coalesce( project.opportunity_ref, private.agent_uuid_from_legacy_text(project.opportunity_id) ) as linked_opportunity_id"
+    );
+    expect(PRIVATE_SUMMARY).toContain(
+      "project.opportunity_ref is distinct from private.agent_uuid_from_legacy_text(project.opportunity_id) as opportunity_mirror_conflict"
+    );
+    expect(PRIVATE_SUMMARY).not.toContain(
+      "coalesce( project.opportunity_ref, project.opportunity_id )"
+    );
+    expect(COMPACT).toContain(
+      "('function', 'private.agent_uuid_from_legacy_text(text)')"
+    );
   });
 
   it("emits only the exact customer/selected legacy revisions, private notes marker, and proof digest", () => {
@@ -368,7 +380,10 @@ describe("P2 customer-context read migration", () => {
     expect(RUNTIME_SQL).not.toBe("");
     expect(RUNTIME_SQL.startsWith("begin;")).toBe(true);
     expect(RUNTIME_SQL.endsWith("rollback;")).toBe(true);
-    expect(RUNTIME_SQL).toContain("set local role authenticated");
+    expect(RUNTIME_SQL).toContain("v_signatures oid[] := array[");
+    expect(RUNTIME_SQL).toContain(
+      "has_function_privilege( 'authenticated', signature_row.signature, 'execute' )"
+    );
     expect(RUNTIME_SQL).toContain("has_function_privilege");
     expect(RUNTIME_SQL).toContain(PRIVATE_SIGNATURE);
     expect(RUNTIME_SQL).toContain(PUBLIC_SIGNATURE);
@@ -377,6 +392,22 @@ describe("P2 customer-context read migration", () => {
     expect(RUNTIME_SQL).toContain("suppressed address leaked");
     expect(RUNTIME_SQL).toContain("duplicate address leaked");
     expect(RUNTIME_SQL).toContain("unauthorized job count leaked");
+    expect(RUNTIME_SQL).toContain("malformed legacy project mirror accepted");
+    expect(RUNTIME_SQL).toContain(
+      "disable trigger projects_normalize_opportunity_link"
+    );
+    expect(RUNTIME_SQL).toContain(
+      "enable trigger projects_normalize_opportunity_link"
+    );
+    expect(RUNTIME_SQL).toContain("projects_normalize_opportunity_link");
+    expect(RUNTIME_SQL).toContain(
+      "public.normalize_project_opportunity_link()"
+    );
+    expect(RUNTIME_SQL).toContain("malformed mirror not persisted");
+    expect(RUNTIME_SQL).toContain(
+      "insert into private.agent_operational_read_revisions"
+    );
+    expect(RUNTIME_SQL).toContain("on conflict (company_id) do nothing");
     expect(RUNTIME_SQL).toContain("source bound not enforced");
     expect(RUNTIME_SQL).toContain("stale oauth grant allowed");
     expect(RUNTIME_SQL).toContain("revoked oauth grant allowed");

@@ -114,12 +114,13 @@ insert into public.catalog_stock_units (
 );
 insert into public.catalog_supplier_cost_profiles (
   id, company_id, catalog_variant_id, profile_key, label, unit_cost,
-  currency_code, is_default
+  currency_code, is_default, created_at, updated_at
 ) values (
   'c18b0000-0000-4000-8000-000000000001',
   'c1800000-0000-4000-8000-000000000001',
   'c1840000-0000-4000-8000-000000000001',
-  'runtime', 'Runtime supplier', 8.25, 'CAD', true
+  'runtime', 'Runtime supplier', 8.25, 'CAD', true,
+  pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp()
 );
 insert into public.products (
   id, company_id, name, linked_catalog_item_id, is_active

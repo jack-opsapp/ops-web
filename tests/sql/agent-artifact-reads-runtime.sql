@@ -1205,6 +1205,7 @@ begin
 end;
 $dual_parent_deck_current_project_authority$;
 
+set local session_replication_role = replica;
 update private.mcp_oauth_clients
    set scope = 'ops.customers.read ops.files.read ops.schedule.read ops.site_visits.read',
        scope_ceiling = array[
@@ -1225,6 +1226,7 @@ update private.mcp_oauth_grants
          consent_catalog_revision
        )
  where id = '8d130000-0000-4000-8000-000000000001';
+set local session_replication_role = origin;
 
 do $site_visit_anchor_contract$
 declare
@@ -1416,6 +1418,7 @@ begin
 end;
 $site_visit_anchor_contract$;
 
+set local session_replication_role = replica;
 update private.mcp_oauth_clients
    set scope = 'ops.files.read',
        scope_ceiling = array['ops.files.read']::text[]
@@ -1427,6 +1430,7 @@ update private.mcp_oauth_grants
          consent_catalog_revision
        )
  where id = '8d130000-0000-4000-8000-000000000001';
+set local session_replication_role = origin;
 
 -- Production-shaped hostile planner corpus. Every family has one requested
 -- row behind 20,000 same-company rows for a different job. Trigger side
@@ -1492,7 +1496,7 @@ select (
 from pg_catalog.generate_series(1, 20000) series(value);
 
 insert into public.project_photos (
-  id, company_id, project_id, source, caption, taken_at, created_at,
+  id, company_id, project_id, source, caption, taken_at, created_at, updated_at,
   is_client_visible, url
 ) values (
   '8d710000-0000-4000-8000-000000000001',
@@ -1500,11 +1504,12 @@ insert into public.project_photos (
   '8d400000-0000-4000-8000-000000000001',
   'other', 'Requested planner photo',
   timestamptz '2027-01-01 00:00:00+00',
+  timestamptz '2027-01-01 00:00:00+00',
   timestamptz '2027-01-01 00:00:00+00', true,
   'https://planner.invalid/photo/requested'
 );
 insert into public.project_photos (
-  id, company_id, project_id, source, caption, taken_at, created_at,
+  id, company_id, project_id, source, caption, taken_at, created_at, updated_at,
   is_client_visible, url
 )
 select (
@@ -1516,6 +1521,7 @@ select (
        'other', 'Planner photo ' || series.value::text,
        timestamptz '2027-01-01 00:00:00+00' +
          series.value * interval '1 second',
+       timestamptz '2027-01-01 00:00:00+00',
        timestamptz '2027-01-01 00:00:00+00', false,
        'https://planner.invalid/photo/' || series.value::text
 from pg_catalog.generate_series(1, 20000) series(value);
@@ -1673,19 +1679,23 @@ select (
 from pg_catalog.generate_series(1, 20000) series(value);
 
 insert into public.estimates (
-  id, company_id, opportunity_id, project_ref, title, estimate_number,
+  id, company_id, opportunity_id, project_ref, client_id, title, estimate_number,
+  status, issue_date, total,
   pdf_storage_path, created_at, updated_at
 ) values (
   '8d790000-0000-4000-8000-000000000001',
   '8d000000-0000-4000-8000-000000000001',
   '8d300000-0000-4000-8000-000000000001',
   '8d400000-0000-4000-8000-000000000001',
-  'Requested estimate', 'EST-PLAN-REQUESTED', 'planner/requested-estimate.pdf',
-  timestamptz '2027-01-01 00:00:00+00',
+  '8d200000-0000-4000-8000-000000000001',
+  'Requested estimate', 'EST-PLAN-REQUESTED',
+  'draft', date '2027-01-01', 0,
+  'planner/requested-estimate.pdf', timestamptz '2027-01-01 00:00:00+00',
   timestamptz '2027-01-01 00:00:00+00'
 );
 insert into public.estimates (
-  id, company_id, opportunity_id, project_ref, title, estimate_number,
+  id, company_id, opportunity_id, project_ref, client_id, title, estimate_number,
+  status, issue_date, total,
   pdf_storage_path, created_at, updated_at
 )
 select (
@@ -1695,8 +1705,10 @@ select (
        '8d000000-0000-4000-8000-000000000001',
        '8d300000-0000-4000-8000-000000000003',
        '8d4f0000-0000-4000-8000-000000000001',
+       '8d200000-0000-4000-8000-000000000001',
        'Planner estimate ' || series.value::text,
        'EST-PLAN-' || series.value::text,
+       'draft', date '2027-01-01', 0,
        'planner/estimate-' || series.value::text || '.pdf',
        timestamptz '2027-01-01 00:00:00+00',
        timestamptz '2027-01-01 00:00:00+00' +
@@ -1704,19 +1716,23 @@ select (
 from pg_catalog.generate_series(1, 20000) series(value);
 
 insert into public.invoices (
-  id, company_id, opportunity_id, project_ref, subject, invoice_number,
+  id, company_id, opportunity_id, project_ref, client_id, subject, invoice_number,
+  status, issue_date, due_date, total, amount_paid, balance_due,
   pdf_storage_path, created_at, updated_at
 ) values (
   '8d7a0000-0000-4000-8000-000000000001',
   '8d000000-0000-4000-8000-000000000001',
   '8d300000-0000-4000-8000-000000000001',
   '8d400000-0000-4000-8000-000000000001',
-  'Requested invoice', 'INV-PLAN-REQUESTED', 'planner/requested-invoice.pdf',
-  timestamptz '2027-01-01 00:00:00+00',
+  '8d200000-0000-4000-8000-000000000001',
+  'Requested invoice', 'INV-PLAN-REQUESTED',
+  'draft', date '2027-01-01', date '2027-01-31', 0, 0, 0,
+  'planner/requested-invoice.pdf', timestamptz '2027-01-01 00:00:00+00',
   timestamptz '2027-01-01 00:00:00+00'
 );
 insert into public.invoices (
-  id, company_id, opportunity_id, project_ref, subject, invoice_number,
+  id, company_id, opportunity_id, project_ref, client_id, subject, invoice_number,
+  status, issue_date, due_date, total, amount_paid, balance_due,
   pdf_storage_path, created_at, updated_at
 )
 select (
@@ -1726,8 +1742,10 @@ select (
        '8d000000-0000-4000-8000-000000000001',
        '8d300000-0000-4000-8000-000000000003',
        '8d4f0000-0000-4000-8000-000000000001',
+       '8d200000-0000-4000-8000-000000000001',
        'Planner invoice ' || series.value::text,
        'INV-PLAN-' || series.value::text,
+       'draft', date '2027-01-01', date '2027-01-31', 0, 0, 0,
        'planner/invoice-' || series.value::text || '.pdf',
        timestamptz '2027-01-01 00:00:00+00',
        timestamptz '2027-01-01 00:00:00+00' +
@@ -1735,17 +1753,20 @@ select (
 from pg_catalog.generate_series(1, 20000) series(value);
 
 insert into public.expenses (
-  id, company_id, submitted_by, receipt_image_url, created_at, updated_at
+  id, company_id, submitted_by, amount, status, receipt_image_url,
+  created_at, updated_at
 ) values (
   '8d7b0000-0000-4000-8000-000000000001',
   '8d000000-0000-4000-8000-000000000001',
   '8d100000-0000-4000-8000-000000000001',
+  0, 'draft',
   'https://planner.invalid/receipt/requested.jpg',
   timestamptz '2027-01-01 00:00:00+00',
   timestamptz '2027-01-01 00:00:00+00'
 );
 insert into public.expenses (
-  id, company_id, submitted_by, receipt_image_url, created_at, updated_at
+  id, company_id, submitted_by, amount, status, receipt_image_url,
+  created_at, updated_at
 )
 select (
          '8d7b0001-0000-4000-8000-' ||
@@ -1753,6 +1774,7 @@ select (
        )::uuid,
        '8d000000-0000-4000-8000-000000000001',
        '8d100000-0000-4000-8000-000000000001',
+       0, 'draft',
        'https://planner.invalid/receipt/' || series.value::text || '.jpg',
        timestamptz '2027-01-01 00:00:00+00',
        timestamptz '2027-01-01 00:00:00+00' +
@@ -1760,14 +1782,14 @@ select (
 from pg_catalog.generate_series(1, 20000) series(value);
 
 insert into public.expense_project_allocations (
-  id, expense_id, project_id
+  id, expense_id, project_id, percentage
 ) values (
   '8d7c0000-0000-4000-8000-000000000001',
   '8d7b0000-0000-4000-8000-000000000001',
-  '8d400000-0000-4000-8000-000000000001'
+  '8d400000-0000-4000-8000-000000000001', 100
 );
 insert into public.expense_project_allocations (
-  id, expense_id, project_id
+  id, expense_id, project_id, percentage
 )
 select (
          '8d7c0001-0000-4000-8000-' ||
@@ -1777,7 +1799,7 @@ select (
          '8d7b0001-0000-4000-8000-' ||
          pg_catalog.lpad(pg_catalog.to_hex(series.value), 12, '0')
        )::uuid,
-       '8d4f0000-0000-4000-8000-000000000001'
+       '8d4f0000-0000-4000-8000-000000000001', 100
 from pg_catalog.generate_series(1, 20000) series(value);
 
 set local session_replication_role = origin;

@@ -44,8 +44,8 @@ create table if not exists public.catalog_categories (
   id uuid primary key,
   company_id uuid not null,
   name text not null,
-  default_critical_threshold numeric,
-  default_warning_threshold numeric,
+  default_critical_threshold double precision,
+  default_warning_threshold double precision,
   deleted_at timestamptz,
   created_at timestamptz not null default pg_catalog.statement_timestamp(),
   updated_at timestamptz not null default pg_catalog.statement_timestamp()
@@ -69,10 +69,10 @@ create table if not exists public.catalog_items (
   notes text,
   external_id text,
   external_source text,
-  default_price numeric(14,2),
-  default_unit_cost numeric(14,4),
-  default_critical_threshold numeric,
-  default_warning_threshold numeric,
+  default_price numeric,
+  default_unit_cost numeric,
+  default_critical_threshold double precision,
+  default_warning_threshold double precision,
   default_unit_id uuid,
   image_url text,
   is_active boolean not null default true,
@@ -85,12 +85,12 @@ create table if not exists public.catalog_variants (
   company_id uuid not null,
   catalog_item_id uuid not null,
   sku text,
-  quantity numeric not null default 0,
+  quantity double precision not null default 0,
   unit_id uuid,
-  price_override numeric(14,2),
-  unit_cost_override numeric(14,4),
-  warning_threshold numeric,
-  critical_threshold numeric,
+  price_override numeric,
+  unit_cost_override numeric,
+  warning_threshold double precision,
+  critical_threshold double precision,
   external_id text,
   external_source text,
   is_active boolean not null default true,
@@ -131,8 +131,8 @@ create table if not exists public.catalog_tags (
   id uuid primary key,
   company_id uuid not null,
   name text not null,
-  warning_threshold numeric,
-  critical_threshold numeric,
+  warning_threshold double precision,
+  critical_threshold double precision,
   deleted_at timestamptz,
   created_at timestamptz not null default pg_catalog.statement_timestamp(),
   updated_at timestamptz not null default pg_catalog.statement_timestamp()
@@ -190,7 +190,7 @@ create table if not exists public.product_materials (
   product_id uuid not null,
   catalog_item_id uuid,
   catalog_variant_id uuid,
-  quantity_per_unit numeric not null default 1,
+  quantity_per_unit double precision not null default 1,
   unit_id uuid,
   notes text,
   deleted_at timestamptz,
@@ -217,9 +217,19 @@ create table if not exists private.agent_read_domain_revisions (
 );
 create table if not exists private.mcp_oauth_clients (
   client_id uuid primary key,
+  client_name text not null,
+  redirect_uris text[] not null,
+  token_endpoint_auth_method text not null,
+  grant_types text[] not null,
+  response_types text[] not null,
+  scope text not null,
+  registration_source text not null,
+  software_id text,
+  software_version text,
   scope_ceiling text[] not null,
   consent_catalog_revision text not null,
   exposure_revision text not null,
+  created_at timestamptz not null default pg_catalog.statement_timestamp(),
   disabled_at timestamptz
 );
 create table if not exists private.mcp_oauth_grants (
@@ -229,6 +239,8 @@ create table if not exists private.mcp_oauth_grants (
   client_id uuid not null,
   scopes text[] not null,
   revision text not null,
+  created_at timestamptz not null default pg_catalog.statement_timestamp(),
+  last_used_at timestamptz,
   revoked_at timestamptz,
   accepted_labels text[] not null,
   consent_catalog_revision text not null,
@@ -453,11 +465,21 @@ insert into public.user_permission_overrides(
     'finances.view', 'all', true
   );
 insert into private.mcp_oauth_clients(
-  client_id, scope_ceiling, consent_catalog_revision, exposure_revision
+  client_id, client_name, redirect_uris, token_endpoint_auth_method,
+  grant_types, response_types, scope, registration_source,
+  scope_ceiling, consent_catalog_revision, exposure_revision
 ) values (
   'c1803000-0000-4000-8000-000000000001',
+  'Catalog runtime',
+  array['https://catalog-runtime.ops.invalid/callback']::text[],
+  'none',
+  array['authorization_code', 'refresh_token']::text[],
+  array['code']::text[],
+  'ops.catalog.read ops.catalog_costs.read',
+  'manual',
   array['ops.catalog.read', 'ops.catalog_costs.read'],
-  'consent-v1', 'exposure-v1'
+  '2026-08-22.mcp-consent-catalog.v1',
+  '2026-08-22.mcp-exposure.v1'
 );
 insert into private.mcp_oauth_grants(
   id, user_id, company_id, client_id, scopes, revision, accepted_labels,
@@ -469,8 +491,12 @@ insert into private.mcp_oauth_grants(
   'c1803000-0000-4000-8000-000000000001',
   array['ops.catalog.read', 'ops.catalog_costs.read'],
   '0123456789abcdef0123456789abcdef',
-  array['ops.catalog.read', 'ops.catalog_costs.read'],
-  'consent-v1', 'exposure-v1'
+  private.mcp_oauth_labels_for_scopes(
+    array['ops.catalog.read', 'ops.catalog_costs.read']::text[],
+    '2026-08-22.mcp-consent-catalog.v1'
+  ),
+  '2026-08-22.mcp-consent-catalog.v1',
+  '2026-08-22.mcp-exposure.v1'
 );
 
 insert into public.catalog_categories(
@@ -574,13 +600,14 @@ insert into public.catalog_stock_units(
   );
 insert into public.catalog_supplier_cost_profiles(
   id, company_id, catalog_variant_id, profile_key, label, unit_cost,
-  currency_code, is_default, activation_rule, source, updated_at
+  currency_code, is_default, activation_rule, source, created_at, updated_at
 ) values (
   'c18b0000-0000-4000-8000-000000000001',
   'c1800000-0000-4000-8000-000000000001',
   'c1840000-0000-4000-8000-000000000001',
   'PRIVATE-PROFILE-KEY', 'CanPro', 8.25, 'CAD', true,
   '{"private":"activation"}', '{"provider":"private"}',
+  '2026-08-22 12:00:00+00',
   '2026-08-22 12:00:00+00'
 );
 insert into public.products(
@@ -692,6 +719,143 @@ as $$
     501, 50, 51, 32, 33, 128, 129, 64, 65, 100, 101, 64, 65
   );
 $$;
+
+do $live_double_precision_values_fail_closed$
+declare
+  v_invalid boolean;
+begin
+  perform pg_catalog.set_config('extra_float_digits', '-15', true);
+  if private.agent_p2_catalog_float8_milliunits_v1(1.234::double precision)
+       is distinct from 1234
+     or private.agent_p2_catalog_float8_milliunits_v1(0.1::double precision)
+       is distinct from 100 then
+    raise exception 'ordinary_float8_milliunit_roundtrip_mismatch';
+  end if;
+  if private.agent_p2_catalog_float8_milliunits_v1(
+       1.0000000000000002::double precision
+     ) is not null then
+    raise exception 'ambient_guc_float8_precision_erasure_accepted';
+  end if;
+  if pg_catalog.current_setting('extra_float_digits') <> '-15' then
+    raise exception 'float8_helper_did_not_restore_caller_guc';
+  end if;
+  if private.agent_p2_catalog_float8_milliunits_v1(
+       9007199254740.992::double precision
+     ) is not null then
+    raise exception 'float8_safe_integer_overflow_accepted';
+  end if;
+  if private.agent_p2_catalog_float8_milliunits_v1(
+       1000000000000.0004::double precision
+     ) is not null then
+    raise exception 'float8_fractional_milliunit_accepted';
+  end if;
+
+  update public.catalog_variants
+     set quantity = 1.0000000000000002::double precision
+   where id = 'c1840000-0000-4000-8000-000000000001';
+  select source.source_invalid
+    into strict v_invalid
+    from private.agent_p2_catalog_variant_source_v1(
+      'c1800000-0000-4000-8000-000000000001',
+      null, null, null,
+      'c1840000-0000-4000-8000-000000000001',
+      501
+    ) source;
+  if not v_invalid then
+    raise exception 'precision_erasing_catalog_quantity_did_not_fail_closed';
+  end if;
+
+  update public.catalog_variants
+     set quantity = 9007199254740.992::double precision
+   where id = 'c1840000-0000-4000-8000-000000000001';
+  select source.source_invalid
+    into strict v_invalid
+    from private.agent_p2_catalog_variant_source_v1(
+      'c1800000-0000-4000-8000-000000000001',
+      null, null, null,
+      'c1840000-0000-4000-8000-000000000001',
+      501
+    ) source;
+  if not v_invalid then
+    raise exception 'finite_float8_safe_integer_overflow_did_not_fail_closed';
+  end if;
+
+  update public.catalog_variants
+     set quantity = 10,
+         warning_threshold = 1.0000000000000002::double precision
+   where id = 'c1840000-0000-4000-8000-000000000001';
+  select source.source_invalid
+    into strict v_invalid
+    from private.agent_p2_catalog_variant_source_v1(
+      'c1800000-0000-4000-8000-000000000001',
+      null, null, null,
+      'c1840000-0000-4000-8000-000000000001',
+      501
+    ) source;
+  if not v_invalid then
+    raise exception 'finite_float8_fractional_milliunit_did_not_fail_closed';
+  end if;
+
+  update public.catalog_variants
+     set quantity = 'Infinity'::double precision,
+         warning_threshold = 20
+   where id = 'c1840000-0000-4000-8000-000000000001';
+  select source.source_invalid
+    into strict v_invalid
+    from private.agent_p2_catalog_variant_source_v1(
+      'c1800000-0000-4000-8000-000000000001',
+      null, null, null,
+      'c1840000-0000-4000-8000-000000000001',
+      501
+    ) source;
+  if not v_invalid then
+    raise exception 'infinite_catalog_quantity_did_not_fail_closed';
+  end if;
+
+  update public.catalog_variants
+     set quantity = 10,
+         warning_threshold = 'NaN'::double precision,
+         critical_threshold = '-Infinity'::double precision
+   where id = 'c1840000-0000-4000-8000-000000000001';
+  select source.source_invalid
+    into strict v_invalid
+    from private.agent_p2_catalog_variant_source_v1(
+      'c1800000-0000-4000-8000-000000000001',
+      null, null, null,
+      'c1840000-0000-4000-8000-000000000001',
+      501
+    ) source;
+  if not v_invalid then
+    raise exception 'nonfinite_catalog_threshold_did_not_fail_closed';
+  end if;
+
+  update public.catalog_variants
+     set warning_threshold = 20,
+         critical_threshold = 5
+   where id = 'c1840000-0000-4000-8000-000000000001';
+  update public.product_materials
+     set quantity_per_unit = 1.0000000000000002::double precision
+   where id = 'c18d0000-0000-4000-8000-000000000001';
+  begin
+    perform pg_temp.task18_catalog_detail(
+      (select snapshot_revision from task18_authority),
+      (select base_candidates from task18_authority),
+      'catalog_family',
+      'c1830000-0000-4000-8000-000000000001',
+      false
+    );
+    raise exception 'precision_erasing_recipe_quantity_accepted';
+  exception
+    when sqlstate '22023' then
+      if sqlerrm <> 'agent_catalog_source_data_invalid' then
+        raise;
+      end if;
+  end;
+  update public.product_materials
+     set quantity_per_unit = 2.5
+   where id = 'c18d0000-0000-4000-8000-000000000001';
+end;
+$live_double_precision_values_fail_closed$;
 
 do $base_catalog_authority$
 declare
@@ -1032,7 +1196,7 @@ begin
   begin
     insert into public.catalog_supplier_cost_profiles(
       id, company_id, catalog_variant_id, profile_key, label, unit_cost,
-      currency_code, is_default, updated_at
+      currency_code, is_default, created_at, updated_at
     )
     select (
              'c18b1000-0000-4000-8000-' ||
@@ -1043,6 +1207,7 @@ begin
            'attention-' || series.value,
            'Supplier ' || series.value,
            8.25, 'CAD', false,
+           '2026-08-22 12:00:00+00'::timestamptz,
            '2026-08-22 12:00:00+00'::timestamptz
     from pg_catalog.generate_series(1, 64) series(value);
     perform private.agent_p2_catalog_attention_v1(

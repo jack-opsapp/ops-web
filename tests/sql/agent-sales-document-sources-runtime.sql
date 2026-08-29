@@ -54,7 +54,8 @@ insert into public.estimates (
   title,
   total,
   status,
-  issue_date
+  issue_date,
+  updated_at
 ) values (
   'd1100000-0000-4000-8000-000000000001',
   'd1000000-0000-4000-8000-000000000001',
@@ -63,7 +64,8 @@ insert into public.estimates (
   'Runtime estimate',
   1250.00,
   'sent',
-  date '2026-08-20'
+  date '2026-08-20',
+  pg_catalog.statement_timestamp()
 );
 
 insert into public.invoices (
@@ -77,7 +79,8 @@ insert into public.invoices (
   balance_due,
   status,
   issue_date,
-  due_date
+  due_date,
+  updated_at
 ) values (
   'd1300000-0000-4000-8000-000000000001',
   'd1000000-0000-4000-8000-000000000001',
@@ -89,7 +92,8 @@ insert into public.invoices (
   1000.00,
   'partially_paid',
   date '2026-08-21',
-  date '2026-09-20'
+  date '2026-09-20',
+  pg_catalog.statement_timestamp()
 );
 
 insert into public.line_items (

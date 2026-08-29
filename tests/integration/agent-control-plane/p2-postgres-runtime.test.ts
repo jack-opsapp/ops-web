@@ -1,0 +1,837 @@
+import { execFile } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
+import { realpathSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+
+import { describe, expect, it } from "vitest";
+
+const execFileAsync = promisify(execFile);
+
+const RUNNER_FILE = fileURLToPath(import.meta.url);
+const ROOT = resolve(dirname(RUNNER_FILE), "../../..");
+const PSQL_TIMEOUT_MS = 120_000;
+const LIFECYCLE_TIMEOUT_MS = 30_000;
+const MIGRATIONS = [
+  [
+    "20260823072825_agent_manifest_v8_compatibility.sql",
+    "c9fddfa48cf77b85693dbcc1082c7493401427fda4e5c2e3d0ea98b8d0673ba5",
+  ],
+  [
+    "20260823072831_agent_read_domain_revisions.sql",
+    "977e61251919856075cb0393c3a452b78247cd0833e7a0dbb18b0ba3c86e0057",
+  ],
+  [
+    "20260823072837_mcp_oauth_consent_catalog_versioning.sql",
+    "60f2949445ac84dfa0a0b59416815d2dc3a998f6a2639459a766ce06c02bfffd",
+  ],
+  [
+    "20260823072843_agent_mcp_durable_rate_limit.sql",
+    "18b8ac95361da13dda69b018e043e2c2ef3c9fb809dabb1f912dba6b3e987ad5",
+  ],
+  [
+    "20260823072849_agent_mcp_evidence_nonce_ledger.sql",
+    "eb6b2a84c08ed4447163a1c60a14c67df47652dbc3f39383304abba0a7e147b0",
+  ],
+  [
+    "20260823080451_agent_p2_legacy_attention_projections.sql",
+    "2647dff9c4ee46d6b2aa776aa51f1b32c6a66d010bad75faadf0f4dc241bcb97",
+  ],
+  [
+    "20260823100016_agent_customer_context_sources.sql",
+    "824fe77f29908954e6951bc74896825bedbfc81f6c758dc56cc82c4e9d627550",
+  ],
+  [
+    "20260823100019_agent_customer_context_read.sql",
+    "8d16397e350e6f3149bc5c2c7e424b16ec1b38a3c50fd5811efb060a8e6135ed",
+  ],
+  [
+    "20260827233026_agent_task_sources.sql",
+    "8403e385c25e21e8a7246d8b829698bc8c4ac991ec6cdbbb26fbf5fd14b6b2ef",
+  ],
+  [
+    "20260827233034_agent_task_reads.sql",
+    "68f9b54d90c056052ab37cece857ca868e7d676b310a7e3ebe7ec5a915e67ae5",
+  ],
+  [
+    "20260827233630_agent_artifact_sources.sql",
+    "b587a36f3999e6af42c93ec21aa04906dadf8c5b1aecc54f5734db5ffd794049",
+  ],
+  [
+    "20260827233640_agent_artifact_reads.sql",
+    "20b916059f35d0c3580edc37151ac2ae5e8a9d3bd39e47417fcd8cedda721b8c",
+  ],
+  [
+    "20260828211556_agent_site_visit_sources.sql",
+    "031c222afc64fc0278782fa6432bc82b2dc8ab481725f50444ff8329a15afa32",
+  ],
+  [
+    "20260828211605_agent_site_visit_reads.sql",
+    "5c8d9284e8573501ab34a8c9d35b5ebf7c7e63e1d69d1610637b4d16b6d172d9",
+  ],
+  [
+    "20260829011311_agent_deck_design_sources.sql",
+    "23f0127151dffdf6545434adae18c98793361ef3c53f89e516008cb51691f517",
+  ],
+  [
+    "20260829011319_agent_deck_design_geometry_read.sql",
+    "8e3b2dff5b3f33203be3fc14fb25625e0bbfba4915b60ea1c785cc955dad6d97",
+  ],
+  [
+    "20260829013804_agent_mcp_evidence_redemption_rpc.sql",
+    "441a6ce8d26bc7814a9cce622c0eae0eab423f134ca07e9a3011ec4b41465be6",
+  ],
+  [
+    "20260829024746_agent_sales_document_sources.sql",
+    "93c0f605dab1d1441a21585b414a5e4d506cbf7e40f658e8b4cecd7f0c7fd8cc",
+  ],
+  [
+    "20260829024749_agent_sales_document_reads.sql",
+    "96b68ed8123bd9863f4cfbd94d79a7bebbb563441ea3fd48da42ff1e67be6409",
+  ],
+  [
+    "20260829040045_agent_expense_reimbursement_sources.sql",
+    "6b0f02888b66bb1e0ce4ae4ac009621cdbbf49769de28d896a19ab1ce8cfcaf3",
+  ],
+  [
+    "20260829040046_agent_expense_reads.sql",
+    "e6e765e3c677fae19b0f65bbf878e59a0a0e90b55c4f837e7c642fd1b7587ec8",
+  ],
+  [
+    "20260829040356_agent_company_sources.sql",
+    "7364fb8746b5c461e3a83bb28037f6a11f0388c83a8fa301107884093d4cc6fd",
+  ],
+  [
+    "20260829040402_agent_company_context_read.sql",
+    "081ce68053a1c7c3e94f9b4f314780871934e8ac05d9a999c9878428d8ef761d",
+  ],
+  [
+    "20260829061203_agent_catalog_sources.sql",
+    "c9b0ae07aedde2610880ca249686d46e74a24eb10fc1c62f11359228e4cc37a9",
+  ],
+  [
+    "20260829061214_agent_catalog_reads.sql",
+    "5863ce2d76da78fa3d7d7faa7036e426c9a2a66ddd584a6bcfccb4b3df73fe66",
+  ],
+  [
+    "20260829063450_agent_team_sources.sql",
+    "38f87419d7b22eb5f788277bd77502f38f94b6e8bf6c8b93defb7cbb170dbb93",
+  ],
+  [
+    "20260829063451_agent_team_members_read.sql",
+    "d13dfc1db41d600b061970f8e4871d386680fa5e94da766d1e38acdbea251b57",
+  ],
+  [
+    "20260829074110_agent_availability_sources.sql",
+    "f99f1659e0615c7c7b1a7b33f71d99e4b4c68378f649d411687ba988cc1367de",
+  ],
+  [
+    "20260829074111_agent_team_availability_read.sql",
+    "b7277c75f684868dab212bce2e3eb401093a4c3c0eda0792b193a0cf589ad8b6",
+  ],
+  [
+    "20260829081500_agent_payment_sources.sql",
+    "cbf4da71b7ee9768ddb569fed89bfccd3871a8d1ff5c93d79f901f5189c2a6c4",
+  ],
+  [
+    "20260829081501_agent_payment_read.sql",
+    "f3b6da180a0f56263ad51f72882e0f8b63667896a42efdd0cbe543c936483f8d",
+  ],
+  [
+    "20260829091311_agent_purchasing_sources.sql",
+    "7b6cf1df590902b381262be93156fd8b116a77f9e4a1b66aa2d60607ac1877e8",
+  ],
+  [
+    "20260829091329_agent_purchase_order_reads.sql",
+    "6668c537b5bfb600616865c71ad72c6ac4143d469673cfb048d6b600b63a51cf",
+  ],
+  [
+    "20260829102510_agent_integration_health_sources.sql",
+    "96539e1f461547d61f44231416c8a25dd51d646255d2ff827b5637feed2e16f1",
+  ],
+  [
+    "20260829102520_agent_integration_health_read.sql",
+    "ba5ba06b232a1a67bcb189a5a6dc5a69e76d3dcedb5bf9496a02d40fef31aa97",
+  ],
+  [
+    "20260829110000_agent_work_queue_sources.sql",
+    "59f2aab22c36e141db0e871fd51167472c2276b4ee8203d6ae91436a2991e1b5",
+  ],
+  [
+    "20260829110001_agent_work_queue_read.sql",
+    "f4820a04058b3d3794615ff3efae3a96c036f76da0d90e2d293cc2df7e5179c6",
+  ],
+  [
+    "20260829110002_agent_operational_overview_read.sql",
+    "16dcf0e3cb55e29dd250bf50871ec0db76a46929123d969d8ef8eca588527815",
+  ],
+] as const;
+
+const FIXTURE_GROUPS = [
+  [
+    "agent-manifest-v8-compatibility-runtime.sql",
+    "agent-manifest-v8-compatibility-replay-runtime.sql",
+  ],
+  ["agent-read-domain-revisions-runtime.sql"],
+  ["agent-mcp-oauth-consent-catalog-runtime.sql"],
+  ["agent-mcp-rate-limiter-runtime.sql"],
+  ["agent-p2-legacy-attention-projections-runtime.sql"],
+  [
+    "agent-customer-context-runtime.sql",
+    "agent-customer-context-replay-runtime.sql",
+  ],
+  ["agent-task-reads-runtime.sql"],
+  [
+    "agent-artifact-reads-runtime.sql",
+    "agent-artifact-reads-replay-runtime.sql",
+  ],
+  ["agent-site-visit-reads-runtime.sql"],
+  [
+    "agent-deck-design-geometry-runtime.sql",
+    "agent-deck-design-geometry-replay-runtime.sql",
+  ],
+  ["agent-mcp-evidence-runtime.sql", "agent-mcp-evidence-replay-runtime.sql"],
+  [
+    "agent-sales-document-sources-runtime.sql",
+    "agent-sales-document-reads-runtime.sql",
+    "agent-sales-document-reads-replay-runtime.sql",
+  ],
+  ["agent-expense-reads-runtime.sql", "agent-expense-reads-replay-runtime.sql"],
+  [
+    "agent-company-context-runtime.sql",
+    "agent-company-context-replay-runtime.sql",
+  ],
+  [
+    "agent-catalog-sources-runtime.sql",
+    "agent-catalog-reads-runtime.sql",
+    "agent-catalog-reads-replay-runtime.sql",
+  ],
+  ["agent-team-members-runtime.sql", "agent-team-members-replay-runtime.sql"],
+  [
+    "agent-team-availability-runtime.sql",
+    "agent-team-availability-replay-runtime.sql",
+  ],
+  ["agent-payment-reads-runtime.sql", "agent-payment-reads-replay-runtime.sql"],
+  [
+    "agent-purchase-order-reads-runtime.sql",
+    "agent-purchase-order-reads-replay-runtime.sql",
+  ],
+  [
+    "agent-integration-health-runtime.sql",
+    "agent-integration-health-replay-runtime.sql",
+  ],
+  [
+    "agent-work-queue-reads-runtime.sql",
+    "agent-work-queue-reads-replay-runtime.sql",
+  ],
+  [
+    "agent-operational-overview-runtime.sql",
+    "agent-operational-overview-replay-runtime.sql",
+  ],
+] as const;
+
+const FIXTURES = [
+  [
+    "agent-manifest-v8-compatibility-runtime.sql",
+    "8437d418028558b3102a60bc65b29859e5a76c937eb3eb80c9c47c1304473c49",
+  ],
+  [
+    "agent-manifest-v8-compatibility-replay-runtime.sql",
+    "32a482695d37290e4bcb96f71be0e12844f373e16435b6f64e93b8cddc837c60",
+  ],
+  [
+    "agent-read-domain-revisions-runtime.sql",
+    "edd21da1cdedd8a53f3da0274d61aa4c2c427c019d0eb66b847653a8580b5949",
+  ],
+  [
+    "agent-mcp-oauth-consent-catalog-runtime.sql",
+    "521c3fb7818100fca0b3f0b73cd548519554268a11c0895a22dc4e80e438f2de",
+  ],
+  [
+    "agent-mcp-rate-limiter-runtime.sql",
+    "8370e4bf14bad400bd758ef1ff68214b13028ef12bbd9fcdb9645d7f0142d4b5",
+  ],
+  [
+    "agent-p2-legacy-attention-projections-runtime.sql",
+    "37d13356b2f3b80f608e8c5bb9326eb3d934f71ba7e6b89cd60464d13e8c01f0",
+  ],
+  [
+    "agent-customer-context-runtime.sql",
+    "31897871066d95653e5e20bd88867dc631b33f860f2ef27a96d125bfe9b381cd",
+  ],
+  [
+    "agent-customer-context-replay-runtime.sql",
+    "64f594ddda91b9422f866d602ba914bb4adefbc9a7a977403adecd2f538b490e",
+  ],
+  [
+    "agent-task-reads-runtime.sql",
+    "ecd8d42db813b4cbb39900bb863dc1626693e39811edf212db4fead25a25982b",
+  ],
+  [
+    "agent-artifact-reads-runtime.sql",
+    "8a75f9b4a3a7828d7d8010cb010c6570f0d04797147eab80a4eee9dcf513d35e",
+  ],
+  [
+    "agent-artifact-reads-replay-runtime.sql",
+    "be8d75fc884ef8be9c870e8b5047635d19b1df89a63a360b545ec054399e558b",
+  ],
+  [
+    "agent-site-visit-reads-runtime.sql",
+    "345aca0d360e22e70ee2ef02d4abac17e4fcf9a15302ef04634471d90d824702",
+  ],
+  [
+    "agent-deck-design-geometry-runtime.sql",
+    "49965299f575e3256e6e9ec0e03ad824d43580e19e9dad848c725c035917625c",
+  ],
+  [
+    "agent-deck-design-geometry-replay-runtime.sql",
+    "f4195fbb1a6825281f46dd849e4e462e1427c1fc3ba7341e01ad765e8070beca",
+  ],
+  [
+    "agent-mcp-evidence-runtime.sql",
+    "7aa92f0625224eec3032440904620b3d3459c42e40d0911759cf1f2da0eb6cd6",
+  ],
+  [
+    "agent-mcp-evidence-replay-runtime.sql",
+    "4dcd39c5d3ab23c3bbba84a7d3473bd97262cf4aa2dd45c2a18a4b9a57f8b5a4",
+  ],
+  [
+    "agent-sales-document-sources-runtime.sql",
+    "c8aa802712e54413a708296fd86fb0ab4b326f5de1192036cd36911448492db3",
+  ],
+  [
+    "agent-sales-document-reads-runtime.sql",
+    "2fd9bc3a0546adc61540f770c856a0744dc25dc0ca0cdcd34af53956a9b04df7",
+  ],
+  [
+    "agent-sales-document-reads-replay-runtime.sql",
+    "f8852d551161fe2fcf853fa7fc8a484ab84674ced74241907921ef9fd54b20d0",
+  ],
+  [
+    "agent-expense-reads-runtime.sql",
+    "8793c715ac9ecba67881e6a57f2900d2fad85979757b974685b85dec50aaa791",
+  ],
+  [
+    "agent-expense-reads-replay-runtime.sql",
+    "aab6a67bf504efb8eaaef187e04430bff048b749a9e29d85283fa0806081140b",
+  ],
+  [
+    "agent-company-context-runtime.sql",
+    "8c12d2cbe3baca1726a07646d435765c9981b40b7074952700104a7f4aa75c74",
+  ],
+  [
+    "agent-company-context-replay-runtime.sql",
+    "84c42dd198655aa15df72b4e682f0ade88464333be5b6efa3857c1e1f711f90e",
+  ],
+  [
+    "agent-catalog-sources-runtime.sql",
+    "32dbb006aace054b160c99489b8f1b9975370c8474c63e077bc94a0e65447666",
+  ],
+  [
+    "agent-catalog-reads-runtime.sql",
+    "f457c321c5e82213ee427cf6733e41d7af132586d34bf3a2cfc34a7574bc2afb",
+  ],
+  [
+    "agent-catalog-reads-replay-runtime.sql",
+    "9d99accb8a13e43af7e772f9a8ea88c95234023578beb6a23e6183812a8eef7b",
+  ],
+  [
+    "agent-team-members-runtime.sql",
+    "1f08eadcfb21bb59896fe08cbbd50deacff7b7c5afa1199e4481468447fb945d",
+  ],
+  [
+    "agent-team-members-replay-runtime.sql",
+    "88cef1f01e78427eea9791504eb813ac3150e910835051b6755192431d77c0cd",
+  ],
+  [
+    "agent-team-availability-runtime.sql",
+    "159cb3fceecd4dcfb37a4785e215d7937fca394216159a085134243b21dbec1c",
+  ],
+  [
+    "agent-team-availability-replay-runtime.sql",
+    "9d2ac6f0f929c070017f7665b7ccacd1be0cad82beb3557a21e2d03200dbcdaf",
+  ],
+  [
+    "agent-payment-reads-runtime.sql",
+    "4efe3fea8c14c22b3b07ae477f29aa6a48d8f92dd4b189943741420019b2facf",
+  ],
+  [
+    "agent-payment-reads-replay-runtime.sql",
+    "5df3594b15f488139f606769a382b4ca85ef55c33f8b2a4de8ee35943631aba0",
+  ],
+  [
+    "agent-purchase-order-reads-runtime.sql",
+    "c110836967c5b21fc3c9648f1e05eec54c1da03524f8d0088467d630ce2717ff",
+  ],
+  [
+    "agent-purchase-order-reads-replay-runtime.sql",
+    "cf5fa5f5cdfe88b563a93b7949464d6cba0d99fa301f4a6de15cbeebb238dd97",
+  ],
+  [
+    "agent-integration-health-runtime.sql",
+    "f20cf53966018be9299c6315b67448aa2c87fe5988c19350e57a7932d89cdade",
+  ],
+  [
+    "agent-integration-health-replay-runtime.sql",
+    "9ea572c8b2dde20dfb85525af86b15db521723b19b3d002c43e5dca9d183204d",
+  ],
+  [
+    "agent-work-queue-reads-runtime.sql",
+    "23b45bbd8591fef70178fa4386941e0deadb9240e4e8c487ead63609f0e973f9",
+  ],
+  [
+    "agent-work-queue-reads-replay-runtime.sql",
+    "9c546ae93fe3665597850962946ceb26980af467ecf8dcf5bda166e267a12e1c",
+  ],
+  [
+    "agent-operational-overview-runtime.sql",
+    "0fffabbc24c373cb2551c1c8264480fa23afaaced8d1f03b1872e1f4cb5f5f4f",
+  ],
+  [
+    "agent-operational-overview-replay-runtime.sql",
+    "9d059d0576a4e175f639a52f7986b20744235869202159aade5ba01150b5336c",
+  ],
+] as const;
+
+const BASELINE_SHA256 =
+  "2d3880dc56ba664b844f24fb0af68337011c3264a17d49a9a0d471bacbe73ec6";
+const BASELINE_PREREQUISITES = [
+  [
+    "20260818155813_mcp_oauth_authorization_server.sql",
+    "c4fbd3a4a624a25b88d81d4c1feaf46b668ba1e5978ee60677e9f7445c1c9b0a",
+  ],
+] as const;
+
+const FIXTURE_CHECKPOINT_MIGRATIONS = [
+  "20260823072825_agent_manifest_v8_compatibility.sql",
+  "20260823072831_agent_read_domain_revisions.sql",
+  "20260823072837_mcp_oauth_consent_catalog_versioning.sql",
+  "20260823072843_agent_mcp_durable_rate_limit.sql",
+  "20260823080451_agent_p2_legacy_attention_projections.sql",
+  "20260823100019_agent_customer_context_read.sql",
+  "20260827233034_agent_task_reads.sql",
+  "20260827233640_agent_artifact_reads.sql",
+  "20260828211605_agent_site_visit_reads.sql",
+  "20260829011319_agent_deck_design_geometry_read.sql",
+  "20260829013804_agent_mcp_evidence_redemption_rpc.sql",
+  "20260829024749_agent_sales_document_reads.sql",
+  "20260829040046_agent_expense_reads.sql",
+  "20260829040402_agent_company_context_read.sql",
+  "20260829061214_agent_catalog_reads.sql",
+  "20260829063451_agent_team_members_read.sql",
+  "20260829074111_agent_team_availability_read.sql",
+  "20260829081501_agent_payment_read.sql",
+  "20260829091329_agent_purchase_order_reads.sql",
+  "20260829102520_agent_integration_health_read.sql",
+  "20260829110001_agent_work_queue_read.sql",
+  "20260829110002_agent_operational_overview_read.sql",
+] as const;
+
+const BASELINE = join(
+  ROOT,
+  "tests/sql/agent-p2-full-wave-postgres17-baseline.sql"
+);
+const RUN_POSTGRES = process.env.OPS_RUN_P2_POSTGRES_RUNTIME === "1";
+const PSQL =
+  process.env.OPS_PSQL_BIN ?? "/opt/homebrew/opt/postgresql@17/bin/psql";
+const CREATEDB =
+  process.env.OPS_CREATEDB_BIN ??
+  join(
+    dirname(PSQL),
+    process.platform === "win32" ? "createdb.exe" : "createdb"
+  );
+const DROPDB =
+  process.env.OPS_DROPDB_BIN ??
+  join(dirname(PSQL), process.platform === "win32" ? "dropdb.exe" : "dropdb");
+const PG_HOST = process.env.OPS_PGHOST ?? "/tmp";
+const PG_PORT = process.env.OPS_PGPORT ?? "55414";
+const PG_USER = process.env.OPS_PGUSER ?? process.env.USER ?? "postgres";
+const RELEASE_BOOTSTRAP_OAUTH_SENTINELS_SQL = `
+begin;
+delete from private.mcp_oauth_tokens
+where grant_id = '44444444-4444-4444-8444-444444444444'::uuid;
+delete from private.mcp_oauth_authorization_codes
+where code_hash = repeat('a', 64);
+delete from private.mcp_oauth_grants
+where id = '44444444-4444-4444-8444-444444444444'::uuid;
+delete from private.mcp_oauth_clients
+where client_id = '11111111-1111-4111-8111-111111111111'::uuid;
+delete from private.agent_read_domain_revisions
+where company_id = '33333333-3333-4333-8333-333333333333'::uuid;
+delete from public.users
+where id = '22222222-2222-4222-8222-222222222222'::uuid
+  and company_id = '33333333-3333-4333-8333-333333333333'::uuid;
+delete from public.companies
+where id = '33333333-3333-4333-8333-333333333333'::uuid;
+commit;
+`;
+
+function assertSafeLocalPostgresTarget(host: string, port: string): void {
+  let canonicalHost: string;
+  try {
+    canonicalHost = realpathSync.native(host);
+  } catch {
+    throw new Error("P2 PostgreSQL runtime requires a local temporary socket");
+  }
+  const localSocket =
+    isAbsolute(host) &&
+    (canonicalHost === "/tmp" ||
+      canonicalHost.startsWith("/tmp/") ||
+      canonicalHost === "/private/tmp" ||
+      canonicalHost.startsWith("/private/tmp/"));
+  if (!localSocket) {
+    throw new Error("P2 PostgreSQL runtime requires a local temporary socket");
+  }
+  const numericPort = Number(port);
+  if (
+    !/^[0-9]{1,5}$/.test(port) ||
+    !Number.isSafeInteger(numericPort) ||
+    numericPort < 1 ||
+    numericPort > 65_535 ||
+    numericPort === 5_432
+  ) {
+    throw new Error("P2 PostgreSQL runtime requires a non-default test port");
+  }
+}
+
+function databaseName(): string {
+  return `p2_wave_${process.pid}_${randomBytes(6).toString("hex")}`;
+}
+
+function databaseArgs(database?: string): string[] {
+  return ["-h", PG_HOST, "-p", PG_PORT, "-U", PG_USER].concat(
+    database ? ["-d", database] : []
+  );
+}
+
+async function runFile(
+  database: string,
+  file: string,
+  variables: string[] = []
+) {
+  const args = databaseArgs(database).concat("-X", "-v", "ON_ERROR_STOP=1");
+  for (const variable of variables) args.push("-v", variable);
+  args.push("-f", file);
+  await execFileAsync(PSQL, args, {
+    cwd: ROOT,
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: PSQL_TIMEOUT_MS,
+    killSignal: "SIGTERM",
+  });
+}
+
+async function runStatement(database: string, sql: string) {
+  await execFileAsync(
+    PSQL,
+    databaseArgs(database).concat("-X", "-v", "ON_ERROR_STOP=1", "-c", sql),
+    {
+      cwd: ROOT,
+      maxBuffer: 64 * 1024 * 1024,
+      timeout: PSQL_TIMEOUT_MS,
+      killSignal: "SIGTERM",
+    }
+  );
+}
+
+async function runFixtureGroup(
+  database: string,
+  group: readonly string[],
+  executedFixtures: Set<string>
+) {
+  for (const fixture of fixtureExecutionPlan(group)) {
+    const variables = fixture.includes("manifest-v8")
+      ? ["agent_mcp_manifest_v8_bootstrap=0"]
+      : [];
+    await runFile(database, join(ROOT, "tests/sql", fixture), variables);
+    executedFixtures.add(fixture);
+  }
+}
+
+function fixtureExecutionPlan(group: readonly string[]): readonly string[] {
+  if (group.length === 1) return group;
+  if (group.length === 2) return [group[0], group[1], group[0]];
+  if (group.length === 3) return [group[0], group[1], group[2], group[1]];
+  throw new Error(`unsupported P2 fixture group length: ${group.length}`);
+}
+
+async function dropDatabase(database: string) {
+  if (!/^p2_wave_[0-9]+_[0-9a-f]{12}$/.test(database)) {
+    throw new Error(`refusing to drop non-P2 database: ${database}`);
+  }
+  await execFileAsync(
+    DROPDB,
+    databaseArgs().concat("--if-exists", "--force", database),
+    { cwd: ROOT, timeout: LIFECYCLE_TIMEOUT_MS, killSignal: "SIGTERM" }
+  );
+}
+
+type PrimaryOutcome =
+  | { readonly failed: false }
+  | { readonly failed: true; readonly error: unknown };
+
+async function settleWithCleanup(
+  primary: PrimaryOutcome,
+  cleanup: (() => Promise<void>) | undefined
+): Promise<void> {
+  let cleanupOutcome: PrimaryOutcome = { failed: false };
+  if (cleanup) {
+    try {
+      await cleanup();
+    } catch (error) {
+      cleanupOutcome = { failed: true, error };
+    }
+  }
+
+  if (primary.failed && cleanupOutcome.failed) {
+    throw new AggregateError(
+      [primary.error, cleanupOutcome.error],
+      "P2 PostgreSQL runtime and disposable database cleanup both failed"
+    );
+  }
+  if (primary.failed) throw primary.error;
+  if (cleanupOutcome.failed) throw cleanupOutcome.error;
+}
+
+describe("P2 PostgreSQL 17 full-wave ledger", () => {
+  it("pins the exact ordered 38-file ledger and canonical baseline", async () => {
+    expect(MIGRATIONS).toHaveLength(38);
+    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(38);
+    expect(FIXTURE_GROUPS.flat()).toHaveLength(40);
+    expect(FIXTURES).toHaveLength(40);
+    expect(FIXTURE_GROUPS.flat()).toEqual(FIXTURES.map(([name]) => name));
+    expect(FIXTURE_CHECKPOINT_MIGRATIONS).toHaveLength(FIXTURE_GROUPS.length);
+    expect(new Set(FIXTURE_CHECKPOINT_MIGRATIONS).size).toBe(
+      FIXTURE_CHECKPOINT_MIGRATIONS.length
+    );
+    const migrationNames = MIGRATIONS.map(([name]) => name);
+    const checkpointIndexes = FIXTURE_CHECKPOINT_MIGRATIONS.map((name) =>
+      migrationNames.indexOf(name)
+    );
+    expect(
+      checkpointIndexes.every(
+        (index, position) =>
+          index >= 0 &&
+          (position === 0 || index > checkpointIndexes[position - 1])
+      )
+    ).toBe(true);
+    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(40);
+    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(40);
+    expect(FIXTURE_GROUPS.every((group) => group.length <= 3)).toBe(true);
+    expect(fixtureExecutionPlan(FIXTURE_GROUPS[11])).toEqual([
+      "agent-sales-document-sources-runtime.sql",
+      "agent-sales-document-reads-runtime.sql",
+      "agent-sales-document-reads-replay-runtime.sql",
+      "agent-sales-document-reads-runtime.sql",
+    ]);
+    expect(fixtureExecutionPlan(FIXTURE_GROUPS[14])).toEqual([
+      "agent-catalog-sources-runtime.sql",
+      "agent-catalog-reads-runtime.sql",
+      "agent-catalog-reads-replay-runtime.sql",
+      "agent-catalog-reads-runtime.sql",
+    ]);
+    expect(() => assertSafeLocalPostgresTarget("/tmp", "55414")).not.toThrow();
+    expect(() =>
+      assertSafeLocalPostgresTarget("/private/tmp", "55414")
+    ).not.toThrow();
+    expect(() => assertSafeLocalPostgresTarget("db.ops.test", "55414")).toThrow(
+      "local temporary socket"
+    );
+    expect(() => assertSafeLocalPostgresTarget("/tmp", "5432")).toThrow(
+      "non-default test port"
+    );
+    expect(() => assertSafeLocalPostgresTarget("/tmp", "65536")).toThrow(
+      "non-default test port"
+    );
+    expect(() => assertSafeLocalPostgresTarget("/tmp", "0")).toThrow(
+      "non-default test port"
+    );
+    expect(() =>
+      assertSafeLocalPostgresTarget("/tmp/../var/run/postgresql", "55414")
+    ).toThrow("local temporary socket");
+
+    const primaryFailure = new Error("primary failure");
+    const cleanupFailure = new Error("cleanup failure");
+    const aggregate = await settleWithCleanup(
+      { failed: true, error: primaryFailure },
+      async () => {
+        throw cleanupFailure;
+      }
+    ).catch((error: unknown) => error);
+    expect(aggregate).toBeInstanceOf(AggregateError);
+    expect((aggregate as AggregateError).errors).toEqual([
+      primaryFailure,
+      cleanupFailure,
+    ]);
+    await expect(
+      settleWithCleanup({ failed: false }, async () => {
+        throw cleanupFailure;
+      })
+    ).rejects.toBe(cleanupFailure);
+    let caughtUndefinedCleanup = false;
+    try {
+      await settleWithCleanup({ failed: false }, async () => {
+        throw undefined;
+      });
+    } catch (error) {
+      caughtUndefinedCleanup = true;
+      expect(error).toBeUndefined();
+    }
+    expect(caughtUndefinedCleanup).toBe(true);
+    expect(PSQL_TIMEOUT_MS).toBe(120_000);
+    expect(LIFECYCLE_TIMEOUT_MS).toBe(30_000);
+    await expect(readFile(RUNNER_FILE, "utf8")).resolves.not.toContain(
+      ["process", "cwd()"].join(".")
+    );
+
+    const baselineBytes = await readFile(BASELINE);
+    expect(baselineBytes.toString("utf8")).toContain(
+      "agent_p2_full_wave_baseline_ready"
+    );
+    expect(createHash("sha256").update(baselineBytes).digest("hex")).toBe(
+      BASELINE_SHA256
+    );
+
+    for (const [name, expectedHash] of MIGRATIONS) {
+      const bytes = await readFile(join(ROOT, "supabase/migrations", name));
+      expect(createHash("sha256").update(bytes).digest("hex"), name).toBe(
+        expectedHash
+      );
+    }
+    for (const [name, expectedHash] of BASELINE_PREREQUISITES) {
+      const bytes = await readFile(join(ROOT, "supabase/migrations", name));
+      expect(createHash("sha256").update(bytes).digest("hex"), name).toBe(
+        expectedHash
+      );
+    }
+    for (const [name, expectedHash] of FIXTURES) {
+      const bytes = await readFile(join(ROOT, "tests/sql", name));
+      expect(createHash("sha256").update(bytes).digest("hex"), name).toBe(
+        expectedHash
+      );
+    }
+  });
+
+  describe.runIf(RUN_POSTGRES)("live disposable database", () => {
+    it(
+      "applies the exact wave and keeps all runtime and replay proofs green",
+      async () => {
+        const database = databaseName();
+        let created = false;
+        let primary: PrimaryOutcome = { failed: false };
+        const appliedMigrations: string[] = [];
+        const executedFixtures = new Set<string>();
+        try {
+          assertSafeLocalPostgresTarget(PG_HOST, PG_PORT);
+          const { stdout: version } = await execFileAsync(
+            PSQL,
+            databaseArgs("postgres").concat(
+              "-X",
+              "-Atqc",
+              "show server_version_num"
+            ),
+            {
+              cwd: ROOT,
+              timeout: LIFECYCLE_TIMEOUT_MS,
+              killSignal: "SIGTERM",
+            }
+          );
+          expect(Number(version.trim())).toBeGreaterThanOrEqual(170000);
+          expect(Number(version.trim())).toBeLessThan(180000);
+
+          const { stdout: roles } = await execFileAsync(
+            PSQL,
+            databaseArgs("postgres").concat(
+              "-X",
+              "-Atqc",
+              `select coalesce(
+                 pg_catalog.string_agg(
+                   role.rolname || ':' ||
+                   role.rolcanlogin::text || ':' ||
+                   role.rolsuper::text || ':' ||
+                   role.rolinherit::text || ':' ||
+                   role.rolbypassrls::text || ':' ||
+                   role.rolcreaterole::text || ':' ||
+                   role.rolcreatedb::text || ':' ||
+                   role.rolreplication::text,
+                   ',' order by role.rolname collate "C"
+                 ),
+                 ''
+               )
+               from pg_catalog.pg_roles as role
+               where role.rolname = any (
+                 array['anon', 'authenticated', 'service_role']::text[]
+               )`
+            ),
+            {
+              cwd: ROOT,
+              timeout: LIFECYCLE_TIMEOUT_MS,
+              killSignal: "SIGTERM",
+            }
+          );
+          expect(roles.trim()).toBe(
+            "anon:false:false:true:false:false:false:false," +
+              "authenticated:false:false:true:false:false:false:false," +
+              "service_role:false:false:true:true:false:false:false"
+          );
+
+          // The generated name is already closed and collision-resistant. Mark
+          // cleanup eligible before CREATEDB starts so a server-side success
+          // followed by a client timeout cannot strand a disposable database.
+          created = true;
+          await execFileAsync(
+            CREATEDB,
+            databaseArgs().concat("-T", "template0", "-E", "UTF8", database),
+            {
+              cwd: ROOT,
+              timeout: LIFECYCLE_TIMEOUT_MS,
+              killSignal: "SIGTERM",
+            }
+          );
+          await runFile(database, BASELINE);
+          appliedMigrations.push(MIGRATIONS[0][0]);
+          await runFixtureGroup(database, FIXTURE_GROUPS[0], executedFixtures);
+
+          // The canonical baseline installs migration 1 through its existing
+          // v6/v7/v8 continuity fixture; the remaining files apply here in
+          // their immutable ledger order. Each fixture group executes at its
+          // last migration dependency, before later domain triggers can alter
+          // the historical slice contract it is proving.
+          for (const [name] of MIGRATIONS.slice(1)) {
+            await runFile(database, join(ROOT, "supabase/migrations", name));
+            appliedMigrations.push(name);
+            const checkpointIndex = FIXTURE_CHECKPOINT_MIGRATIONS.indexOf(
+              name as (typeof FIXTURE_CHECKPOINT_MIGRATIONS)[number]
+            );
+            if (checkpointIndex >= 0) {
+              await runFixtureGroup(
+                database,
+                FIXTURE_GROUPS[checkpointIndex],
+                executedFixtures
+              );
+            }
+            if (name === "20260823072843_agent_mcp_durable_rate_limit.sql") {
+              await runStatement(
+                database,
+                RELEASE_BOOTSTRAP_OAUTH_SENTINELS_SQL
+              );
+            }
+          }
+
+          expect(appliedMigrations).toEqual(MIGRATIONS.map(([name]) => name));
+          expect([...executedFixtures].sort()).toEqual(
+            [...FIXTURE_GROUPS.flat()].sort()
+          );
+        } catch (error) {
+          primary = { failed: true, error };
+        }
+        await settleWithCleanup(
+          primary,
+          created ? () => dropDatabase(database) : undefined
+        );
+      },
+      20 * 60 * 1000
+    );
+  });
+});

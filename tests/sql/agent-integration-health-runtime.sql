@@ -220,6 +220,9 @@ as $$ select p_value::text $$;
 
 \ir ../../supabase/migrations/20260829102510_agent_integration_health_sources.sql
 \ir ../../supabase/migrations/20260829102520_agent_integration_health_read.sql
+\endif
+
+begin;
 
 create function private.test_integration_health_call(
   p_actor_user_id uuid,
@@ -281,9 +284,6 @@ begin
   );
 end;
 $$;
-\endif
-
-begin;
 
 set local statement_timeout = '30s';
 set local lock_timeout = '5s';
@@ -334,29 +334,35 @@ begin
 end;
 $catalog_contract$;
 
-insert into public.companies(id) values
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
-  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+insert into public.companies(id,name) values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Integration Primary'),
+  ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','Integration Secondary');
 
-insert into public.users(id, company_id, is_active) values
+insert into public.users(
+  id, company_id, first_name, last_name, is_active
+) values
   (
     '11111111-1111-4111-8111-111111111111',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'Primary', 'Operator',
     true
   ),
   (
     '22222222-2222-4222-8222-222222222222',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'Mailbox', 'Owner',
     true
   ),
   (
     '33333333-3333-4333-8333-333333333333',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'Other', 'Operator',
     true
   ),
   (
     '44444444-4444-4444-8444-444444444444',
     'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    'Bound', 'Operator',
     true
   );
 
@@ -365,7 +371,9 @@ insert into private.agent_read_domain_revisions(
 )
 select company.id, domain.domain, 0
 from public.companies company
-cross join private.agent_read_domains domain;
+cross join private.agent_read_domains domain
+on conflict(company_id, domain) do update
+  set source_revision = excluded.source_revision;
 
 insert into public.user_permission_overrides(
   id, user_id, company_id, permission, scope, granted
@@ -414,11 +422,20 @@ insert into public.user_permission_overrides(
   );
 
 insert into private.mcp_oauth_clients(
-  client_id, scope_ceiling, consent_catalog_revision, exposure_revision
+  client_id, client_name, redirect_uris, token_endpoint_auth_method,
+  grant_types, response_types, scope, registration_source,
+  scope_ceiling, consent_catalog_revision, exposure_revision
 ) values (
   '60000000-0000-4000-8000-000000000001',
+  'Integration health runtime',
+  array['https://integration-health-runtime.ops.invalid/callback']::text[],
+  'none',
+  array['authorization_code', 'refresh_token']::text[],
+  array['code']::text[],
+  'ops.integrations.read',
+  'manual',
   array['ops.integrations.read'],
-  'consent-v1',
+  '2026-08-22.mcp-consent-catalog.v1',
   '2026-08-22.mcp-exposure.v1'
 );
 
@@ -433,8 +450,11 @@ insert into private.mcp_oauth_grants(
     '60000000-0000-4000-8000-000000000001',
     array['ops.integrations.read'],
     'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-    array['ops.integrations.read'],
-    'consent-v1',
+    private.mcp_oauth_labels_for_scopes(
+      array['ops.integrations.read']::text[],
+      '2026-08-22.mcp-consent-catalog.v1'
+    ),
+    '2026-08-22.mcp-consent-catalog.v1',
     '2026-08-22.mcp-exposure.v1'
   ),
   (
@@ -444,8 +464,11 @@ insert into private.mcp_oauth_grants(
     '60000000-0000-4000-8000-000000000001',
     array['ops.integrations.read'],
     'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    array['ops.integrations.read'],
-    'consent-v1',
+    private.mcp_oauth_labels_for_scopes(
+      array['ops.integrations.read']::text[],
+      '2026-08-22.mcp-consent-catalog.v1'
+    ),
+    '2026-08-22.mcp-consent-catalog.v1',
     '2026-08-22.mcp-exposure.v1'
   ),
   (
@@ -455,8 +478,11 @@ insert into private.mcp_oauth_grants(
     '60000000-0000-4000-8000-000000000001',
     array['ops.integrations.read'],
     'cccccccccccccccccccccccccccccccc',
-    array['ops.integrations.read'],
-    'consent-v1',
+    private.mcp_oauth_labels_for_scopes(
+      array['ops.integrations.read']::text[],
+      '2026-08-22.mcp-consent-catalog.v1'
+    ),
+    '2026-08-22.mcp-consent-catalog.v1',
     '2026-08-22.mcp-exposure.v1'
   );
 
@@ -471,7 +497,7 @@ insert into public.accounting_connections(
 );
 
 insert into public.email_connections(
-  id, company_id, type, user_id, provider, status, sync_enabled,
+  id, company_id, type, user_id, email, provider, status, sync_enabled,
   webhook_subscription_id, webhook_expires_at, provider_snapshot_at,
   granted_scopes, created_at
 ) values
@@ -479,6 +505,7 @@ insert into public.email_connections(
     '90000000-0000-4000-8000-000000000001',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'individual', '22222222-2222-4222-8222-222222222222',
+    'operator-mailbox@ops.test',
     'gmail', 'active', true, 'self-webhook',
     pg_catalog.statement_timestamp() + interval '1 day',
     pg_catalog.statement_timestamp() - interval '1 hour',
@@ -488,7 +515,8 @@ insert into public.email_connections(
   (
     '90000000-0000-4000-8000-000000000002',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    'company', null, 'gmail', 'paused', true, 'company-webhook',
+    'company', null, 'company-mailbox@ops.test',
+    'gmail', 'paused', true, 'company-webhook',
     pg_catalog.statement_timestamp() + interval '1 day',
     pg_catalog.statement_timestamp() - interval '2 hours',
     array['mail.read'], pg_catalog.statement_timestamp() - interval '2 days'
@@ -497,6 +525,7 @@ insert into public.email_connections(
     '90000000-0000-4000-8000-000000000003',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     'individual', '33333333-3333-4333-8333-333333333333',
+    'other-mailbox@ops.test',
     'gmail', 'error', true, 'other-webhook',
     pg_catalog.statement_timestamp() + interval '1 day',
     pg_catalog.statement_timestamp() - interval '3 hours',
@@ -812,7 +841,7 @@ $health_contract$;
 
 -- Prove the physical 501 source-row ceiling in a separate company.
 insert into public.email_connections(
-  id, company_id, type, user_id, provider, status, sync_enabled,
+  id, company_id, type, user_id, email, provider, status, sync_enabled,
   webhook_subscription_id, webhook_expires_at, provider_snapshot_at,
   granted_scopes, created_at
 )
@@ -826,6 +855,7 @@ select (
        'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
        'individual',
        '44444444-4444-4444-8444-444444444444',
+       'bound-' || series.value::text || '@ops.test',
        'gmail', 'active', true,
        'bound-webhook-' || series.value::text,
        pg_catalog.statement_timestamp() + interval '1 day',

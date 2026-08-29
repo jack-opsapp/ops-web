@@ -10,31 +10,77 @@ set local request.jwt.claim.role = 'service_role';
 insert into public.companies(id, name) values
   ('11111111-1111-1111-1111-111111111111', 'Alpha'),
   ('22222222-2222-2222-2222-222222222222', 'Bravo');
-insert into public.users(id, company_id, permission_scopes) values (
+insert into public.users(id, company_id, first_name, last_name) values (
   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   '11111111-1111-1111-1111-111111111111',
-  '{"calendar.view":"all","clients.view":"all","deck_builder.view":"all","pipeline.view":"all","projects.view":"all"}'::jsonb
+  'Deck',
+  'Operator'
 );
-insert into public.clients(id, company_id) values
-  ('dddddddd-dddd-dddd-dddd-dddddddddd01', '11111111-1111-1111-1111-111111111111'),
-  ('dddddddd-dddd-dddd-dddd-dddddddddd02', '22222222-2222-2222-2222-222222222222');
-insert into public.opportunities(id, company_id, client_id, assigned_to) values
-  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', '11111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddd01', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02', '11111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddd01', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
-  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03', '22222222-2222-2222-2222-222222222222', 'dddddddd-dddd-dddd-dddd-dddddddddd02', null);
-insert into public.projects(id, company_id, assigned_to) values
-  ('ffffffff-ffff-ffff-ffff-fffffffffff1', '11111111-1111-1111-1111-111111111111', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-  ('ffffffff-ffff-ffff-ffff-fffffffffff2', '11111111-1111-1111-1111-111111111111', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'),
-  ('ffffffff-ffff-ffff-ffff-fffffffffff3', '22222222-2222-2222-2222-222222222222', null);
+insert into public.user_permission_overrides (
+  user_id, company_id, permission, scope, granted
+) values
+  (
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '11111111-1111-1111-1111-111111111111',
+    'calendar.view', 'all', true
+  ),
+  (
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '11111111-1111-1111-1111-111111111111',
+    'clients.view', 'all', true
+  ),
+  (
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '11111111-1111-1111-1111-111111111111',
+    'deck_builder.view', 'all', true
+  ),
+  (
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '11111111-1111-1111-1111-111111111111',
+    'pipeline.view', 'all', true
+  ),
+  (
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    '11111111-1111-1111-1111-111111111111',
+    'projects.view', 'all', true
+  );
+insert into public.clients(id, company_id, name) values
+  (
+    'dddddddd-dddd-dddd-dddd-dddddddddd01',
+    '11111111-1111-1111-1111-111111111111',
+    'Alpha client'
+  ),
+  (
+    'dddddddd-dddd-dddd-dddd-dddddddddd02',
+    '22222222-2222-2222-2222-222222222222',
+    'Bravo client'
+  );
+insert into public.opportunities(
+  id, company_id, client_id, assigned_to, title
+) values
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', '11111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddd01', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Assigned opportunity'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02', '11111111-1111-1111-1111-111111111111', 'dddddddd-dddd-dddd-dddd-dddddddddd01', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Hidden opportunity'),
+  ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03', '22222222-2222-2222-2222-222222222222', 'dddddddd-dddd-dddd-dddd-dddddddddd02', null, 'Foreign opportunity');
+insert into public.projects(id, company_id, title) values
+  ('ffffffff-ffff-ffff-ffff-fffffffffff1', '11111111-1111-1111-1111-111111111111', 'Assigned project'),
+  ('ffffffff-ffff-ffff-ffff-fffffffffff2', '11111111-1111-1111-1111-111111111111', 'Hidden project'),
+  ('ffffffff-ffff-ffff-ffff-fffffffffff3', '22222222-2222-2222-2222-222222222222', 'Foreign project');
+insert into public.project_tasks(
+  id, company_id, project_id, team_member_ids
+) values
+  ('f1000000-0000-4000-8000-000000000001', '11111111-1111-1111-1111-111111111111', 'ffffffff-ffff-ffff-ffff-fffffffffff1', array['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa']),
+  ('f1000000-0000-4000-8000-000000000002', '11111111-1111-1111-1111-111111111111', 'ffffffff-ffff-ffff-ffff-fffffffffff2', array['bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb']),
+  ('f1000000-0000-4000-8000-000000000003', '22222222-2222-2222-2222-222222222222', 'ffffffff-ffff-ffff-ffff-fffffffffff3', array[]::text[]);
 
 insert into public.site_visits(
-  id, company_id, opportunity_id, client_ref, assignee_ids, created_by
+  id, company_id, opportunity_id, client_ref, assignee_ids, created_by,
+  scheduled_at
 ) values
-  ('20000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', 'dddddddd-dddd-dddd-dddd-dddddddddd01', array['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'], 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-  ('20000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', 'dddddddd-dddd-dddd-dddd-dddddddddd01', array['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'], 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'),
-  ('20000000-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', null, null, '{}', null),
-  ('20000000-0000-0000-0000-000000000004', '22222222-2222-2222-2222-222222222222', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03', 'dddddddd-dddd-dddd-dddd-dddddddddd02', '{}', null),
-  ('20000000-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', null, null, '{}', null);
+  ('20000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', 'dddddddd-dddd-dddd-dddd-dddddddddd01', array['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'], 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', timestamptz '2026-08-29 12:00:00+00'),
+  ('20000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', 'dddddddd-dddd-dddd-dddd-dddddddddd01', array['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'], 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', timestamptz '2026-08-29 13:00:00+00'),
+  ('20000000-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', null, null, '{}', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', timestamptz '2026-08-29 14:00:00+00'),
+  ('20000000-0000-0000-0000-000000000004', '22222222-2222-2222-2222-222222222222', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03', 'dddddddd-dddd-dddd-dddd-dddddddddd02', '{}', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', timestamptz '2026-08-29 15:00:00+00'),
+  ('20000000-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', null, null, '{}', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', timestamptz '2026-08-29 16:00:00+00');
 
 insert into public.deck_designs(
   id, company_id, project_id, opportunity_id, title, drawing_data
@@ -50,13 +96,13 @@ insert into public.deck_designs(
 
 insert into public.site_visit_artifacts(
   id, company_id, site_visit_id, deck_design_id, opportunity_id,
-  kind, source, title, captured_at
+  kind, source, created_by, title, captured_at
 ) values
-  ('30000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', '20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', 'deck_design', 'deck_builder', 'Carly bridge', statement_timestamp()),
-  ('30000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', '20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', null, 'deck_design', 'deck_builder', 'Parentless bridge', statement_timestamp()),
-  ('30000000-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', '20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000003', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', 'deck_design', 'deck_builder', 'Conflict bridge', statement_timestamp()),
-  ('30000000-0000-0000-0000-000000000004', '22222222-2222-2222-2222-222222222222', '20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000004', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03', 'deck_design', 'deck_builder', 'Bravo bridge', statement_timestamp()),
-  ('30000000-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', '20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000006', null, 'deck_design', 'deck_builder', 'Matrix bridge', statement_timestamp());
+  ('30000000-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', '20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', 'deck_design', 'deck_builder', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Carly bridge', statement_timestamp()),
+  ('30000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', '20000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000002', null, 'deck_design', 'deck_builder', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Parentless bridge', statement_timestamp()),
+  ('30000000-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', '20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000003', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01', 'deck_design', 'deck_builder', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Conflict bridge', statement_timestamp()),
+  ('30000000-0000-0000-0000-000000000004', '22222222-2222-2222-2222-222222222222', '20000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000004', 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee03', 'deck_design', 'deck_builder', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Bravo bridge', statement_timestamp()),
+  ('30000000-0000-0000-0000-000000000005', '11111111-1111-1111-1111-111111111111', '20000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000006', null, 'deck_design', 'deck_builder', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Matrix bridge', statement_timestamp());
 
 insert into private.agent_operational_read_revisions(company_id, source_revision)
 values
@@ -77,10 +123,22 @@ cross join (values ('artifacts'), ('deck_designs'), ('site_visits')) domain(doma
 on conflict(company_id, domain) do nothing;
 
 insert into private.mcp_oauth_clients(
-  client_id, scope_ceiling, consent_catalog_revision, exposure_revision
+  client_id, client_name, redirect_uris, token_endpoint_auth_method,
+  grant_types, response_types, scope, registration_source,
+  scope_ceiling, consent_catalog_revision, exposure_revision
 ) values (
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-  array['ops.customers.read','ops.files.read','ops.jobs.read','ops.schedule.read','ops.site_visits.read'],
+  'Deck geometry runtime',
+  array['https://deck-geometry-runtime.ops.invalid/callback']::text[],
+  'none',
+  array['authorization_code', 'refresh_token']::text[],
+  array['code']::text[],
+  'ops.customers.read ops.files.read ops.jobs.read ops.schedule.read ops.site_visits.read',
+  'manual',
+  array[
+    'ops.customers.read', 'ops.files.read', 'ops.jobs.read',
+    'ops.schedule.read', 'ops.site_visits.read'
+  ]::text[],
   '2026-08-22.mcp-consent-catalog.v1',
   '2026-08-22.mcp-exposure.v1'
 );
@@ -92,17 +150,37 @@ insert into private.mcp_oauth_grants(
   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   '11111111-1111-1111-1111-111111111111',
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-  array['ops.customers.read','ops.files.read','ops.jobs.read','ops.schedule.read','ops.site_visits.read'],
+  array[
+    'ops.customers.read', 'ops.files.read', 'ops.jobs.read',
+    'ops.schedule.read', 'ops.site_visits.read'
+  ]::text[],
   'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-  array['ops.customers.read','ops.files.read','ops.jobs.read','ops.schedule.read','ops.site_visits.read'],
+  private.mcp_oauth_labels_for_scopes(
+    array[
+      'ops.customers.read', 'ops.files.read', 'ops.jobs.read',
+      'ops.schedule.read', 'ops.site_visits.read'
+    ]::text[],
+    '2026-08-22.mcp-consent-catalog.v1'
+  ),
   '2026-08-22.mcp-consent-catalog.v1',
   '2026-08-22.mcp-exposure.v1'
 );
 insert into private.mcp_oauth_clients(
-  client_id, scope_ceiling, consent_catalog_revision, exposure_revision
+  client_id, client_name, redirect_uris, token_endpoint_auth_method,
+  grant_types, response_types, scope, registration_source,
+  scope_ceiling, consent_catalog_revision, exposure_revision
 ) values (
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc',
-  array['ops.files.read','ops.jobs.read','ops.site_visits.read'],
+  'Deck geometry runtime restricted',
+  array['https://deck-geometry-runtime-restricted.ops.invalid/callback']::text[],
+  'none',
+  array['authorization_code', 'refresh_token']::text[],
+  array['code']::text[],
+  'ops.files.read ops.jobs.read ops.site_visits.read',
+  'manual',
+  array[
+    'ops.files.read', 'ops.jobs.read', 'ops.site_visits.read'
+  ]::text[],
   '2026-08-22.mcp-consent-catalog.v1',
   '2026-08-22.mcp-exposure.v1'
 );
@@ -114,9 +192,16 @@ insert into private.mcp_oauth_grants(
   'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   '11111111-1111-1111-1111-111111111111',
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc',
-  array['ops.files.read','ops.jobs.read','ops.site_visits.read'],
+  array[
+    'ops.files.read', 'ops.jobs.read', 'ops.site_visits.read'
+  ]::text[],
   'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-  array['ops.files.read','ops.jobs.read','ops.site_visits.read'],
+  private.mcp_oauth_labels_for_scopes(
+    array[
+      'ops.files.read', 'ops.jobs.read', 'ops.site_visits.read'
+    ]::text[],
+    '2026-08-22.mcp-consent-catalog.v1'
+  ),
   '2026-08-22.mcp-consent-catalog.v1',
   '2026-08-22.mcp-exposure.v1'
 );
@@ -706,10 +791,10 @@ $proof$;
 -- Current permissions outside a variant's allowed scope set are not part of
 -- the nominal authorization bytes. Optional disallowed scopes must neither
 -- broaden authority nor hide a legitimate base-group read.
-update public.users
-set permission_scopes = permission_scopes ||
-  '{"pipeline.view":"own"}'::jsonb
-where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+update public.user_permission_overrides
+set scope = 'own'
+where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+  and permission = 'pipeline.view';
 truncate task13_context;
 insert into task13_context
 select permission_snapshot_revision
@@ -736,10 +821,13 @@ begin
 end
 $proof$;
 
-update public.users
-set permission_scopes = permission_scopes ||
-  '{"pipeline.view":"all","projects.view":"own"}'::jsonb
-where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+update public.user_permission_overrides
+set scope = case permission
+  when 'pipeline.view' then 'all'
+  when 'projects.view' then 'own'
+end
+where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+  and permission in ('pipeline.view', 'projects.view');
 truncate task13_context;
 insert into task13_context
 select permission_snapshot_revision
@@ -834,10 +922,10 @@ begin
 end
 $proof$;
 
-update public.users
-set permission_scopes = permission_scopes ||
-  '{"projects.view":"all"}'::jsonb
-where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+update public.user_permission_overrides
+set scope = 'all'
+where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+  and permission = 'projects.view';
 truncate task13_context;
 insert into task13_context
 select permission_snapshot_revision
@@ -882,9 +970,10 @@ $proof$;
 update private.mcp_oauth_grants set revoked_at = null
 where id = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 
-update public.users
-set permission_scopes = permission_scopes || '{"projects.view":"assigned"}'::jsonb
-where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+update public.user_permission_overrides
+set scope = 'assigned'
+where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+  and permission = 'projects.view';
 do $proof$
 begin
   perform pg_temp.task13_job_call(
@@ -897,9 +986,10 @@ begin
 exception when no_data_found then null;
 end
 $proof$;
-update public.users
-set permission_scopes = permission_scopes || '{"projects.view":"all"}'::jsonb
-where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+update public.user_permission_overrides
+set scope = 'all'
+where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+  and permission = 'projects.view';
 
 -- Soft-deleted designs and bridges are never source candidates.
 update public.deck_designs set deleted_at = statement_timestamp()
@@ -938,9 +1028,10 @@ where id = '30000000-0000-0000-0000-000000000001';
 
 -- Parentless designs require deck_builder=all; retained conflicting parents
 -- are additional authority dependencies after a design is converted.
-update public.users
-set permission_scopes = permission_scopes || '{"deck_builder.view":"assigned"}'::jsonb
-where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+update public.user_permission_overrides
+set scope = 'assigned'
+where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+  and permission = 'deck_builder.view';
 truncate task13_context;
 insert into task13_context
 select permission_snapshot_revision
@@ -961,10 +1052,13 @@ begin
 exception when no_data_found then null;
 end
 $proof$;
-update public.users
-set permission_scopes = permission_scopes ||
-  '{"deck_builder.view":"all","pipeline.view":"assigned"}'::jsonb
-where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+update public.user_permission_overrides
+set scope = case permission
+  when 'deck_builder.view' then 'all'
+  when 'pipeline.view' then 'assigned'
+end
+where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+  and permission in ('deck_builder.view', 'pipeline.view');
 truncate task13_context;
 insert into task13_context
 select permission_snapshot_revision
@@ -985,9 +1079,10 @@ begin
 exception when no_data_found then null;
 end
 $proof$;
-update public.users
-set permission_scopes = permission_scopes || '{"pipeline.view":"all"}'::jsonb
-where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+update public.user_permission_overrides
+set scope = 'all'
+where user_id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+  and permission = 'pipeline.view';
 truncate task13_context;
 insert into task13_context
 select permission_snapshot_revision
@@ -1002,13 +1097,15 @@ from private.resolve_agent_actor_authority(
 do $proof$
 begin
   insert into public.site_visit_artifacts(
-    id, company_id, site_visit_id, deck_design_id, kind, source
+    id, company_id, site_visit_id, deck_design_id, kind, source, created_by,
+    captured_at
   ) values (
     '30000000-0000-0000-0000-000000000010',
     '22222222-2222-2222-2222-222222222222',
     '20000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000001',
-    'deck_design', 'deck_builder'
+    'deck_design', 'deck_builder', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+    pg_catalog.statement_timestamp()
   );
   raise exception 'cross-company artifact link accepted';
 exception when check_violation then null;
@@ -1027,14 +1124,15 @@ do $proof$
 begin
   insert into public.site_visit_artifacts(
     id, company_id, site_visit_id, deck_design_id, opportunity_id,
-    kind, source
+    kind, source, created_by, captured_at
   ) values (
     '30000000-0000-0000-0000-000000000011',
     '11111111-1111-1111-1111-111111111111',
     '20000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000001',
     'eeeeeeee-eeee-eeee-eeee-eeeeeeeeee02',
-    'deck_design', 'deck_builder'
+    'deck_design', 'deck_builder', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    pg_catalog.statement_timestamp()
   );
 exception when others then
   raise exception 'converted provenance rejected: %', sqlerrm;
@@ -1151,6 +1249,9 @@ begin
     from private.agent_read_domain_revisions
     where company_id = '11111111-1111-1111-1111-111111111111'
       and domain = 'artifacts';
+    if v_field = 'updated_at' then
+      execute 'alter table public.deck_designs disable trigger deck_designs_set_updated_at';
+    end if;
     execute case v_field
       when 'project_id' then $$update public.deck_designs set project_id='ffffffff-ffff-ffff-ffff-fffffffffff1' where id='10000000-0000-0000-0000-000000000005'$$
       when 'opportunity_id' then $$update public.deck_designs set opportunity_id='eeeeeeee-eeee-eeee-eeee-eeeeeeeeee01' where id='10000000-0000-0000-0000-000000000005'$$
@@ -1161,6 +1262,9 @@ begin
       when 'updated_at' then $$update public.deck_designs set updated_at=updated_at+interval '1 second' where id='10000000-0000-0000-0000-000000000005'$$
       when 'deleted_at' then $$update public.deck_designs set deleted_at=statement_timestamp() where id='10000000-0000-0000-0000-000000000005'$$
     end;
+    if v_field = 'updated_at' then
+      execute 'alter table public.deck_designs enable trigger deck_designs_set_updated_at';
+    end if;
     select source_revision into v_after_deck
     from private.agent_read_domain_revisions
     where company_id = '11111111-1111-1111-1111-111111111111'
@@ -1173,7 +1277,13 @@ begin
        or v_after_artifact <> v_before_artifact + (
          case when v_field in ('drawing_data','version') then 0 else 1 end
        ) then
-      raise exception 'deck field matrix incomplete: %', v_field;
+      raise exception
+        'deck field matrix incomplete: %, deck %->%, artifact %->%',
+        v_field,
+        v_before_deck,
+        v_after_deck,
+        v_before_artifact,
+        v_after_artifact;
     end if;
   end loop;
 
@@ -1287,13 +1397,15 @@ begin
   from private.agent_read_domain_revisions
   where company_id = '11111111-1111-1111-1111-111111111111';
   insert into public.site_visit_artifacts(
-    id, company_id, site_visit_id, deck_design_id, kind, source
+    id, company_id, site_visit_id, deck_design_id, kind, source, created_by,
+    captured_at
   ) values (
     '30000000-0000-0000-0000-000000000012',
     '11111111-1111-1111-1111-111111111111',
     '20000000-0000-0000-0000-000000000001',
     '10000000-0000-0000-0000-000000000006',
-    'deck_design', 'deck_builder'
+    'deck_design', 'deck_builder', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    pg_catalog.statement_timestamp()
   );
   delete from public.site_visit_artifacts
   where id = '30000000-0000-0000-0000-000000000012';
@@ -1347,13 +1459,13 @@ begin
       when 'client_id' then $$update public.site_visits set client_id='dddddddd-dddd-dddd-dddd-dddddddddd01' where id='20000000-0000-0000-0000-000000000005'$$
       when 'client_ref' then $$update public.site_visits set client_ref='dddddddd-dddd-dddd-dddd-dddddddddd01' where id='20000000-0000-0000-0000-000000000005'$$
       when 'scheduled_at' then $$update public.site_visits set scheduled_at=statement_timestamp() where id='20000000-0000-0000-0000-000000000005'$$
-      when 'duration_minutes' then $$update public.site_visits set duration_minutes=60 where id='20000000-0000-0000-0000-000000000005'$$
+      when 'duration_minutes' then $$update public.site_visits set duration_minutes=61 where id='20000000-0000-0000-0000-000000000005'$$
       when 'assignee_ids' then $$update public.site_visits set assignee_ids=array['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'] where id='20000000-0000-0000-0000-000000000005'$$
       when 'status' then $$update public.site_visits set status='completed' where id='20000000-0000-0000-0000-000000000005'$$
       when 'completed_at' then $$update public.site_visits set completed_at=statement_timestamp() where id='20000000-0000-0000-0000-000000000005'$$
       when 'notes' then $$update public.site_visits set notes='matrix' where id='20000000-0000-0000-0000-000000000005'$$
       when 'measurements' then $$update public.site_visits set measurements='{"width":12.5}' where id='20000000-0000-0000-0000-000000000005'$$
-      when 'created_by' then $$update public.site_visits set created_by='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' where id='20000000-0000-0000-0000-000000000005'$$
+      when 'created_by' then $$update public.site_visits set created_by='cccccccc-cccc-cccc-cccc-cccccccccccc' where id='20000000-0000-0000-0000-000000000005'$$
       when 'created_at' then $$update public.site_visits set created_at=created_at+interval '1 second' where id='20000000-0000-0000-0000-000000000005'$$
       when 'updated_at' then $$update public.site_visits set updated_at=updated_at+interval '1 second' where id='20000000-0000-0000-0000-000000000005'$$
       when 'deleted_at' then $$update public.site_visits set deleted_at=statement_timestamp() where id='20000000-0000-0000-0000-000000000005'$$
@@ -1382,14 +1494,14 @@ begin
       when 'project_ref' then $$update public.site_visits set project_ref=null where id='20000000-0000-0000-0000-000000000005'$$
       when 'client_id' then $$update public.site_visits set client_id=null where id='20000000-0000-0000-0000-000000000005'$$
       when 'client_ref' then $$update public.site_visits set client_ref=null where id='20000000-0000-0000-0000-000000000005'$$
-      when 'scheduled_at' then $$update public.site_visits set scheduled_at=null where id='20000000-0000-0000-0000-000000000005'$$
-      when 'duration_minutes' then $$update public.site_visits set duration_minutes=null where id='20000000-0000-0000-0000-000000000005'$$
+      when 'scheduled_at' then $$update public.site_visits set scheduled_at=scheduled_at-interval '1 second' where id='20000000-0000-0000-0000-000000000005'$$
+      when 'duration_minutes' then $$update public.site_visits set duration_minutes=60 where id='20000000-0000-0000-0000-000000000005'$$
       when 'assignee_ids' then $$update public.site_visits set assignee_ids='{}' where id='20000000-0000-0000-0000-000000000005'$$
       when 'status' then $$update public.site_visits set status='scheduled' where id='20000000-0000-0000-0000-000000000005'$$
       when 'completed_at' then $$update public.site_visits set completed_at=null where id='20000000-0000-0000-0000-000000000005'$$
       when 'notes' then $$update public.site_visits set notes=null where id='20000000-0000-0000-0000-000000000005'$$
       when 'measurements' then $$update public.site_visits set measurements=null where id='20000000-0000-0000-0000-000000000005'$$
-      when 'created_by' then $$update public.site_visits set created_by=null where id='20000000-0000-0000-0000-000000000005'$$
+      when 'created_by' then $$update public.site_visits set created_by='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' where id='20000000-0000-0000-0000-000000000005'$$
       when 'created_at' then $$update public.site_visits set created_at=created_at-interval '1 second' where id='20000000-0000-0000-0000-000000000005'$$
       when 'updated_at' then $$update public.site_visits set updated_at=updated_at-interval '1 second' where id='20000000-0000-0000-0000-000000000005'$$
       when 'deleted_at' then $$update public.site_visits set deleted_at=null where id='20000000-0000-0000-0000-000000000005'$$
@@ -1438,9 +1550,11 @@ begin
   from private.agent_read_domain_revisions
   where company_id='11111111-1111-1111-1111-111111111111'
     and domain='site_visits';
-  insert into public.site_visits(id, company_id) values (
+  insert into public.site_visits(id, company_id, created_by, scheduled_at) values (
     '20000000-0000-0000-0000-000000000099',
-    '11111111-1111-1111-1111-111111111111'
+    '11111111-1111-1111-1111-111111111111',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    timestamptz '2026-08-29 17:00:00+00'
   );
   delete from public.site_visits
   where id = '20000000-0000-0000-0000-000000000099';
@@ -1491,7 +1605,7 @@ $proof$;
 
 -- An ordinary table writer can perform DML; the owner-only trigger helper
 -- still advances the private revision fence.
-set local role ordinary_writer;
+set local role authenticated;
 do $proof$
 begin
   insert into public.deck_designs(
@@ -1516,13 +1630,15 @@ select md5('task13-noise-design-' || value)::uuid,
        '{}'
 from pg_catalog.generate_series(1, 501) value;
 insert into public.site_visit_artifacts(
-  id, company_id, site_visit_id, deck_design_id, kind, source
+  id, company_id, site_visit_id, deck_design_id, kind, source, created_by,
+  captured_at
 )
 select md5('task13-noise-artifact-' || value)::uuid,
        '11111111-1111-1111-1111-111111111111',
        '20000000-0000-0000-0000-000000000002',
        md5('task13-noise-design-' || value)::uuid,
-       'deck_design', 'deck_builder'
+       'deck_design', 'deck_builder', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+       pg_catalog.statement_timestamp()
 from pg_catalog.generate_series(1, 501) value;
 analyze public.site_visit_artifacts;
 set local enable_seqscan = off;

@@ -46,10 +46,14 @@ declare
   v_revision_a bigint;
   v_revision_b bigint;
 begin
-  insert into public.companies(id) values(v_company_a),(v_company_b);
+  insert into public.companies(id,name) values
+    (v_company_a,'Work Queue Source A'),
+    (v_company_b,'Work Queue Source B');
   insert into private.agent_read_domain_revisions(
     company_id,domain,source_revision
-  ) values(v_company_a,'work_queue',0),(v_company_b,'work_queue',0);
+  ) values(v_company_a,'work_queue',0),(v_company_b,'work_queue',0)
+  on conflict(company_id,domain) do update
+    set source_revision=excluded.source_revision;
 
   insert into public.activities(
     id,company_id,type,created_at,email_connection_id,match_needs_review
@@ -73,11 +77,14 @@ begin
   where id='90000000-0000-4000-8000-000000000011';
 
   insert into public.email_threads(
-    id,company_id,connection_id,next_commitment_due_at,
+    id,company_id,connection_id,provider_thread_id,subject,
+    first_message_at,last_message_at,next_commitment_due_at,
     has_unresolved_commitments
   ) values(
     '90000000-0000-4000-8000-000000000012',v_company_a,
     '90000000-0000-4000-8000-000000000021',
+    'trigger:commitment','Trigger commitment',
+    pg_catalog.statement_timestamp(),pg_catalog.statement_timestamp(),
     pg_catalog.statement_timestamp(),true
   );
   update public.email_threads set has_unresolved_commitments=false
@@ -90,9 +97,10 @@ begin
   where id='90000000-0000-4000-8000-000000000012';
 
   insert into public.opportunities(
-    id,company_id,stage,next_follow_up_at
+    id,company_id,title,stage,next_follow_up_at
   ) values(
-    '90000000-0000-4000-8000-000000000013',v_company_a,'lead',
+    '90000000-0000-4000-8000-000000000013',v_company_a,
+    'Trigger opportunity','lead',
     pg_catalog.statement_timestamp()
   );
   update public.opportunities
@@ -104,9 +112,12 @@ begin
   delete from public.opportunities
   where id='90000000-0000-4000-8000-000000000013';
 
-  insert into public.email_connections(id,company_id,type,user_id) values(
+  insert into public.email_connections(
+    id,company_id,type,user_id,email
+  ) values(
     '90000000-0000-4000-8000-000000000021',v_company_a::text,
-    'individual','90000000-0000-4000-8000-000000000022'
+    'individual','90000000-0000-4000-8000-000000000022',
+    'trigger-owner@ops.test'
   );
   update public.email_connections
   set user_id='90000000-0000-4000-8000-000000000023'
@@ -114,8 +125,9 @@ begin
   delete from public.email_connections
   where id='90000000-0000-4000-8000-000000000021';
 
-  insert into public.projects(id,company_id) values(
-    '90000000-0000-4000-8000-000000000031',v_company_a
+  insert into public.projects(id,company_id,title) values(
+    '90000000-0000-4000-8000-000000000031',v_company_a,
+    'Trigger project'
   );
   insert into public.project_tasks(
     id,company_id,project_id,team_member_ids
@@ -129,10 +141,12 @@ begin
   delete from public.project_tasks
   where id='90000000-0000-4000-8000-000000000032';
   insert into public.project_notes(
-    id,company_id,project_id,mentioned_user_ids
+    id,company_id,project_id,author_id,content,mentioned_user_ids
   ) values(
     '90000000-0000-4000-8000-000000000033',v_company_b,
-    '90000000-0000-4000-8000-000000000031',array[]::text[]
+    '90000000-0000-4000-8000-000000000031',
+    '90000000-0000-4000-8000-000000000022','Trigger project note',
+    array[]::text[]
   );
   update public.project_notes
   set mentioned_user_ids=array['90000000-0000-4000-8000-000000000022']
@@ -193,7 +207,14 @@ $work_queue_acl_proof$;
 -- The work queue must never infer that the hidden helper row belongs to its
 -- own global keyset.
 create or replace function private.agent_p2_task_attention_v1(
-  uuid,uuid,text,text[],text,text,timestamptz,integer
+  p_actor_user_id uuid,
+  p_company_id uuid,
+  p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],
+  p_tasks_scope text,
+  p_projects_scope text,
+  p_read_at timestamptz,
+  p_limit integer
 ) returns jsonb
 language sql stable security definer set search_path = ''
 as $task_helper_bounded_slice_fixture$
@@ -223,10 +244,10 @@ as $task_helper_bounded_slice_fixture$
 $task_helper_bounded_slice_fixture$;
 
 create or replace function private.agent_p2_legacy_schedule_attention_v1(
-  p_actor uuid,
-  p_company uuid,
-  p_revision text,
-  p_keys text[],
+  p_actor_user_id uuid,
+  p_company_id uuid,
+  p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],
   p_calendar_scope text,
   p_projects_scope text,
   p_tasks_scope text,
@@ -250,7 +271,10 @@ end;
 $schedule_helper_asymmetric_scope_fixture$;
 
 create or replace function private.user_can_view_inbox_connection(
-  uuid,uuid,uuid,uuid
+  p_actor_user_id uuid,
+  p_company_id uuid,
+  p_connection_id uuid,
+  p_opportunity_id uuid
 ) returns boolean
 language sql stable set search_path = ''
 as $inbox_visibility_fixture$
@@ -261,7 +285,11 @@ as $inbox_visibility_fixture$
 $inbox_visibility_fixture$;
 
 create or replace function private.agent_user_can_access_entity(
-  uuid,uuid,text,uuid,text
+  p_actor_user_id uuid,
+  p_actor_company_id uuid,
+  p_entity_kind text,
+  p_entity_id uuid,
+  p_action text
 ) returns boolean
 language sql stable set search_path = ''
 as $entity_visibility_fixture$
@@ -272,7 +300,15 @@ as $entity_visibility_fixture$
 $entity_visibility_fixture$;
 
 create or replace function private.agent_p2_legacy_correspondence_attention_v1(
-  uuid,uuid,text,text[],text,text,text,timestamptz,integer
+  p_actor_user_id uuid,
+  p_company_id uuid,
+  p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],
+  p_inbox_scope text,
+  p_email_scope text,
+  p_pipeline_scope text,
+  p_read_at timestamptz,
+  p_limit integer
 ) returns jsonb
 language sql stable set search_path = ''
 as $correspondence_own_scope_fixture$
@@ -290,7 +326,14 @@ as $correspondence_own_scope_fixture$
 $correspondence_own_scope_fixture$;
 
 create or replace function private.agent_p2_expense_attention_v1(
-  uuid,uuid,text,text[],jsonb,timestamptz,integer,integer
+  p_actor_user_id uuid,
+  p_company_id uuid,
+  p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],
+  p_authorization_candidate jsonb,
+  p_read_at timestamptz,
+  p_limit integer,
+  p_source_limit integer
 ) returns jsonb
 language plpgsql stable set search_path = ''
 as $expense_collision_fixture$
@@ -351,8 +394,10 @@ declare
   v_read_at timestamptz;
 begin
   perform pg_catalog.set_config('request.jwt.claim.role','service_role',true);
-  insert into public.companies(id) values(v_company);
-  insert into public.users(id,company_id) values(v_actor,v_company);
+  insert into public.companies(id,name)
+  values(v_company,'Work Queue Runtime');
+  insert into public.users(id,company_id,first_name,last_name)
+  values(v_actor,v_company,'Queue','Reader');
   insert into public.user_permission_overrides(
     user_id,company_id,permission,scope,granted
   ) values
@@ -361,25 +406,44 @@ begin
     (v_actor,v_company,'pipeline.view','all',true),
     (v_actor,v_company,'projects.view','all',true);
   insert into private.mcp_oauth_clients(
-    client_id,scope_ceiling,consent_catalog_revision,exposure_revision
-  ) values(v_client,v_scopes,'consent:v1','exposure:v1');
+    client_id,client_name,redirect_uris,token_endpoint_auth_method,
+    grant_types,response_types,scope,registration_source,
+    scope_ceiling,consent_catalog_revision,exposure_revision
+  ) values(
+    v_client,'Work queue runtime',
+    array['https://work-queue-runtime.ops.invalid/callback']::text[],
+    'none',array['authorization_code','refresh_token']::text[],
+    array['code']::text[],pg_catalog.array_to_string(v_scopes,' '),'manual',
+    v_scopes,'2026-08-22.mcp-consent-catalog.v1',
+    '2026-08-22.mcp-exposure.v1'
+  );
   insert into private.mcp_oauth_grants(
     id,user_id,company_id,client_id,scopes,revision,accepted_labels,
     consent_catalog_revision,exposure_revision
   ) values(
     v_grant,v_actor,v_company,v_client,v_scopes,
-    '11111111111111111111111111111111',v_scopes,'consent:v1','exposure:v1'
+    '11111111111111111111111111111111',
+    private.mcp_oauth_labels_for_scopes(
+      v_scopes,'2026-08-22.mcp-consent-catalog.v1'
+    ),
+    '2026-08-22.mcp-consent-catalog.v1',
+    '2026-08-22.mcp-exposure.v1'
   );
   insert into private.agent_read_domain_revisions(company_id,domain,source_revision)
-  values(v_company,'work_queue',1);
+  values(v_company,'work_queue',1)
+  on conflict(company_id,domain) do update
+    set source_revision=excluded.source_revision;
 
   insert into public.email_threads(
-    id,company_id,connection_id,provider_thread_id,
-    next_commitment_due_at,has_unresolved_commitments
+    id,company_id,connection_id,provider_thread_id,subject,
+    first_message_at,last_message_at,next_commitment_due_at,
+    has_unresolved_commitments
   )
   select ('20000000-0000-4000-8000-' || pg_catalog.lpad(value::text,12,'0'))::uuid,
          v_company,v_connection,
          case when value=1 then 'provider:opaque-thread' else 'provider:' || value end,
+         'Commitment ' || value::text,
+         pg_catalog.statement_timestamp(),pg_catalog.statement_timestamp(),
          pg_catalog.date_trunc('milliseconds',pg_catalog.statement_timestamp())
            + value * interval '1 minute',true
   from pg_catalog.generate_series(1,26) value;
@@ -519,10 +583,17 @@ begin
     (v_actor,v_company,'projects.view_financials','all',true),
     (v_actor,v_company,'tasks.view','assigned',true);
   insert into private.mcp_oauth_clients(
-    client_id,scope_ceiling,consent_catalog_revision,exposure_revision
+    client_id,client_name,redirect_uris,token_endpoint_auth_method,
+    grant_types,response_types,scope,registration_source,
+    scope_ceiling,consent_catalog_revision,exposure_revision
   ) values(
-    '10000000-0000-4000-8000-000000000013',v_all_scopes,
-    'consent:v1','exposure:v1'
+    '10000000-0000-4000-8000-000000000013',
+    'Work queue all-source runtime',
+    array['https://work-queue-all-runtime.ops.invalid/callback']::text[],
+    'none',array['authorization_code','refresh_token']::text[],
+    array['code']::text[],pg_catalog.array_to_string(v_all_scopes,' '),'manual',
+    v_all_scopes,'2026-08-22.mcp-consent-catalog.v1',
+    '2026-08-22.mcp-exposure.v1'
   );
   insert into private.mcp_oauth_grants(
     id,user_id,company_id,client_id,scopes,revision,accepted_labels,
@@ -530,14 +601,19 @@ begin
   ) values(
     '10000000-0000-4000-8000-000000000014',v_actor,v_company,
     '10000000-0000-4000-8000-000000000013',v_all_scopes,
-    '22222222222222222222222222222222',v_all_scopes,
-    'consent:v1','exposure:v1'
+    '22222222222222222222222222222222',
+    private.mcp_oauth_labels_for_scopes(
+      v_all_scopes,'2026-08-22.mcp-consent-catalog.v1'
+    ),
+    '2026-08-22.mcp-consent-catalog.v1',
+    '2026-08-22.mcp-exposure.v1'
   );
   insert into private.agent_read_domain_revisions(company_id,domain,source_revision)
   values
     (v_company,'tasks',2),(v_company,'sales_documents',3),
     (v_company,'payments',4),(v_company,'expenses',5)
-  on conflict(company_id,domain) do update set source_revision=excluded.source_revision;
+  on conflict(company_id,domain) do update
+    set source_revision=excluded.source_revision;
   insert into private.agent_operational_read_revisions(company_id,source_revision)
   values(v_company,6);
   insert into private.agent_job_history_revisions(company_id,history_revision)
@@ -581,15 +657,20 @@ begin
   exception when insufficient_privilege then null;
   end;
 
-  insert into public.email_connections(id,company_id,type,user_id) values
-    (v_connection,v_company::text,'individual',v_actor::text),
+  insert into public.email_connections(
+    id,company_id,type,user_id,email
+  ) values
+    (v_connection,v_company::text,'individual',v_actor::text,
+     'actor-mailbox@ops.test'),
     ('10000000-0000-4000-8000-000000000025',v_company::text,'individual',
-     '10000000-0000-4000-8000-000000000099');
-  insert into public.opportunities(id,company_id,stage) values
-    ('70000000-0000-4000-8000-000000000001',v_company,'lead'),
-    ('70000000-0000-4000-8000-000000000002',v_company,'lead');
-  insert into public.projects(id,company_id) values(
-    '70000000-0000-4000-8000-000000000003',v_company
+     '10000000-0000-4000-8000-000000000099','other-mailbox@ops.test');
+  insert into public.opportunities(id,company_id,title,stage) values
+    ('70000000-0000-4000-8000-000000000001',v_company,
+     'Hidden opportunity','lead'),
+    ('70000000-0000-4000-8000-000000000002',v_company,
+     'Visible opportunity','lead');
+  insert into public.projects(id,company_id,title) values(
+    '70000000-0000-4000-8000-000000000003',v_company,'Queue project'
   );
   insert into public.project_tasks(
     id,company_id,project_id,team_member_ids
@@ -600,13 +681,13 @@ begin
   insert into public.email_threads(
     id,company_id,connection_id,opportunity_id,provider_thread_id,
     next_commitment_due_at,has_unresolved_commitments,subject,
-    latest_snippet,last_message_at,unread_count
+    latest_snippet,first_message_at,last_message_at,unread_count
   ) values(
     '80000000-0000-4000-8000-000000000001',v_company,
     '10000000-0000-4000-8000-000000000025',null,'provider:other-mailbox',
     pg_catalog.date_trunc('milliseconds',pg_catalog.statement_timestamp())-
       interval '2 minutes',true,'other mailbox subject','private snippet',
-    pg_catalog.statement_timestamp(),1
+    pg_catalog.statement_timestamp(),pg_catalog.statement_timestamp(),1
   );
   insert into public.activities(
     id,company_id,type,created_at,email_connection_id,email_thread_id,
@@ -623,10 +704,12 @@ begin
   -- and provider identifier must both be omitted.
   insert into public.email_threads(
     id,company_id,connection_id,opportunity_id,provider_thread_id,
-    has_unresolved_commitments
+    subject,first_message_at,last_message_at,has_unresolved_commitments
   ) values(
     '70000000-0000-4000-8000-000000000010',v_company,v_connection,
-    '70000000-0000-4000-8000-000000000001','provider:hidden-job',false
+    '70000000-0000-4000-8000-000000000001','provider:hidden-job',
+    'Hidden mapped thread',pg_catalog.statement_timestamp(),
+    pg_catalog.statement_timestamp(),false
   );
   insert into public.activities(
     id,company_id,type,created_at,email_connection_id,email_thread_id,
@@ -658,10 +741,13 @@ begin
 
   insert into public.email_threads(
     id,company_id,connection_id,opportunity_id,provider_thread_id,
-    next_commitment_due_at,has_unresolved_commitments
+    subject,first_message_at,last_message_at,next_commitment_due_at,
+    has_unresolved_commitments
   ) values(
     '20000000-0000-4000-8000-000000000097',v_company,v_connection,
     '70000000-0000-4000-8000-000000000001','provider:hidden-invalid',
+    'Hidden invalid thread',pg_catalog.statement_timestamp(),
+    pg_catalog.statement_timestamp(),
     'infinity'::timestamptz,true
   );
   v_first := public.read_agent_work_queue_as_system(
@@ -724,10 +810,13 @@ begin
   begin
     insert into public.email_threads(
       id,company_id,connection_id,provider_thread_id,
-      next_commitment_due_at,has_unresolved_commitments
+      subject,first_message_at,last_message_at,next_commitment_due_at,
+      has_unresolved_commitments
     ) values(
       '20000000-0000-4000-8000-000000000099',v_company,v_connection,
-      'provider:infinite-commitment','infinity'::timestamptz,true
+      'provider:infinite-commitment','Infinite commitment',
+      pg_catalog.statement_timestamp(),pg_catalog.statement_timestamp(),
+      'infinity'::timestamptz,true
     );
     perform public.read_agent_work_queue_as_system(
       v_company,v_actor,'10000000-0000-4000-8000-000000000014',
@@ -1004,11 +1093,14 @@ begin
   end;
 
   insert into public.email_threads(
-    id,company_id,connection_id,provider_thread_id,
-    next_commitment_due_at,has_unresolved_commitments
+    id,company_id,connection_id,provider_thread_id,subject,
+    first_message_at,last_message_at,next_commitment_due_at,
+    has_unresolved_commitments
   )
   select ('40000000-0000-4000-8000-' || pg_catalog.lpad(value::text,12,'0'))::uuid,
          v_company,'10000000-0000-4000-8000-000000000015'::uuid,'bound:' || value,
+         'Bound commitment ' || value::text,
+         pg_catalog.statement_timestamp(),pg_catalog.statement_timestamp(),
          pg_catalog.date_trunc('milliseconds',pg_catalog.statement_timestamp())
            + value * interval '1 minute',true
   from pg_catalog.generate_series(1,475) value;

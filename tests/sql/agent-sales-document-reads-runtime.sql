@@ -473,9 +473,10 @@ $catalog_contract$;
 insert into public.companies(id, name, currency_code) values
   ('11111111-1111-4111-8111-111111111111', 'Alpha', 'CAD'),
   ('22222222-2222-4222-8222-222222222222', 'Bravo', 'USD');
-insert into public.users(id, company_id) values (
+insert into public.users(id, company_id, first_name, last_name) values (
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-  '11111111-1111-4111-8111-111111111111'
+  '11111111-1111-4111-8111-111111111111',
+  'Sales', 'Reader'
 );
 insert into public.user_permission_overrides(
   id, user_id, company_id, permission, scope, granted
@@ -486,20 +487,23 @@ insert into public.user_permission_overrides(
   ('a0000000-0000-4000-8000-000000000004','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','projects.view','assigned',true),
   ('a0000000-0000-4000-8000-000000000005','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','projects.view_financials','all',true);
 
-insert into public.clients(id, company_id) values
-  ('dddddddd-dddd-4ddd-8ddd-dddddddddd01','11111111-1111-4111-8111-111111111111'),
-  ('dddddddd-dddd-4ddd-8ddd-dddddddddd02','22222222-2222-4222-8222-222222222222');
-insert into public.opportunities(id, company_id) values
-  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01','11111111-1111-4111-8111-111111111111'),
-  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee02','11111111-1111-4111-8111-111111111111');
-insert into public.projects(id, company_id) values
-  ('f1111111-1111-4111-8111-111111111111','11111111-1111-4111-8111-111111111111'),
-  ('f2222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111');
-insert into private.test_entity_access values
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','opportunity','eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01',true),
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','opportunity','eeeeeeee-eeee-4eee-8eee-eeeeeeeeee02',false),
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','project','f1111111-1111-4111-8111-111111111111',true),
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','project','f2222222-2222-4222-8222-222222222222',false);
+insert into public.clients(id, company_id, name) values
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddd01','11111111-1111-4111-8111-111111111111','Alpha client'),
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddd02','22222222-2222-4222-8222-222222222222','Bravo client');
+insert into public.opportunities(id, company_id, title, assigned_to) values
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01','11111111-1111-4111-8111-111111111111','Assigned opportunity','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee02','11111111-1111-4111-8111-111111111111','Hidden opportunity',null);
+insert into public.projects(id, company_id, title) values
+  ('f1111111-1111-4111-8111-111111111111','11111111-1111-4111-8111-111111111111','Assigned project'),
+  ('f2222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111','Hidden project');
+insert into public.project_tasks(
+  id, company_id, project_id, team_member_ids
+) values (
+  'f1111111-1111-4111-8111-111111111112',
+  '11111111-1111-4111-8111-111111111111',
+  'f1111111-1111-4111-8111-111111111111',
+  array['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa']::text[]
+);
 
 insert into public.estimates(
   id, company_id, opportunity_id, project_id, project_ref, client_id,
@@ -522,12 +526,12 @@ insert into public.invoices(
 
 insert into public.line_items(
   id, company_id, estimate_id, invoice_id, name, description, quantity,
-  unit, unit_price, line_total, discount_percent, is_taxable, is_optional,
+  unit, unit_price, discount_percent, is_taxable, is_optional,
   is_selected, sort_order
 ) values
-  ('30000000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','10000000-0000-4000-8000-000000000002',null,'Rail','Guard rail',12.500,'ft',100.00,1250.00,0,true,false,true,2),
-  ('30000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','10000000-0000-4000-8000-000000000002',null,'Decking','Deck surface',10.000,'sq ft',125.00,1250.00,0,true,false,true,1),
-  ('30000000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111',null,'20000000-0000-4000-8000-000000000001','Invoice work',null,1.000,'each',3000.00,3000.00,0,true,false,true,0);
+  ('30000000-0000-4000-8000-000000000002','11111111-1111-4111-8111-111111111111','10000000-0000-4000-8000-000000000002',null,'Rail','Guard rail',12.500,'ft',100.00,0,true,false,true,2),
+  ('30000000-0000-4000-8000-000000000001','11111111-1111-4111-8111-111111111111','10000000-0000-4000-8000-000000000002',null,'Decking','Deck surface',10.000,'sq ft',125.00,0,true,false,true,1),
+  ('30000000-0000-4000-8000-000000000003','11111111-1111-4111-8111-111111111111',null,'20000000-0000-4000-8000-000000000001','Invoice work',null,1.000,'each',3000.00,0,true,false,true,0);
 insert into public.payment_milestones(
   id, estimate_id, name, type, value, amount, sort_order, invoice_id,
   paid_at, expected_date
@@ -541,9 +545,18 @@ insert into private.agent_operational_read_revisions(
   ('11111111-1111-4111-8111-111111111111', 17),
   ('22222222-2222-4222-8222-222222222222', 23);
 insert into private.mcp_oauth_clients(
-  client_id, scope_ceiling, consent_catalog_revision, exposure_revision
+  client_id, client_name, redirect_uris, token_endpoint_auth_method,
+  grant_types, response_types, scope, registration_source,
+  scope_ceiling, consent_catalog_revision, exposure_revision
 ) values (
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  'Sales document runtime',
+  array['https://sales-document-runtime.ops.invalid/callback']::text[],
+  'none',
+  array['authorization_code', 'refresh_token']::text[],
+  array['code']::text[],
+  'ops.financial_documents.read',
+  'manual',
   array['ops.financial_documents.read']::text[],
   '2026-08-22.mcp-consent-catalog.v1',
   '2026-08-22.mcp-exposure.v1'
@@ -772,19 +785,21 @@ declare
   v_after jsonb;
 begin
   v_before := pg_temp.task14_list();
-  update private.test_entity_access
-  set can_view = true
-  where entity_kind = 'project'
-    and entity_id = 'f2222222-2222-4222-8222-222222222222';
+  insert into public.project_tasks(
+    id, company_id, project_id, team_member_ids
+  ) values (
+    'f2222222-2222-4222-8222-222222222223',
+    '11111111-1111-4111-8111-111111111111',
+    'f2222222-2222-4222-8222-222222222222',
+    array['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa']::text[]
+  );
   v_after := pg_temp.task14_list();
   if pg_catalog.jsonb_array_length(v_after -> 'rows') <>
        pg_catalog.jsonb_array_length(v_before -> 'rows') + 1 then
     raise exception 'assigned_membership_required_failed';
   end if;
-  update private.test_entity_access
-  set can_view = false
-  where entity_kind = 'project'
-    and entity_id = 'f2222222-2222-4222-8222-222222222222';
+  delete from public.project_tasks
+  where id = 'f2222222-2222-4222-8222-222222222223';
   raise notice 'assigned_membership_required';
 end;
 $assigned_membership_required$;

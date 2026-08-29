@@ -420,10 +420,7 @@ describe("P2 site-visit read SQL body", () => {
     expect(CONTEXT_PRIVATE).toContain("'measurements' = any(p_sections)");
     expect(CONTEXT_PRIVATE).toContain("'checklist_answers' = any(p_sections)");
     expect(CONTEXT_PRIVATE).toContain("'checklist_summary' = any(p_sections)");
-    expect(CONTEXT_PRIVATE).toContain("answer.company_id = p_company_id");
-    expect(CONTEXT_PRIVATE).not.toContain(
-      "answer.company_id = p_company_id::text"
-    );
+    expect(CONTEXT_PRIVATE).toContain("answer.company_id = p_company_id::text");
     expect(CONTEXT_PRIVATE).toContain(
       "p_checklist_answer_fetch_limit = p_checklist_answer_limit + 1"
     );

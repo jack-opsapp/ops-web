@@ -97,30 +97,32 @@ begin
 end;
 $text_helper_contract$;
 
-set local role authenticated;
-
 do $application_acl$
+declare
+  v_signatures oid[] := array[
+    pg_catalog.to_regprocedure(
+      'private.agent_p2_legacy_lead_attention_v1(uuid,uuid,text,text[],text,timestamp with time zone,integer)'
+    )::oid,
+    pg_catalog.to_regprocedure(
+      'private.agent_p2_legacy_correspondence_attention_v1(uuid,uuid,text,text[],text,text,text,timestamp with time zone,integer)'
+    )::oid,
+    pg_catalog.to_regprocedure(
+      'private.agent_p2_legacy_schedule_attention_v1(uuid,uuid,text,text[],text,text,text,timestamp with time zone,integer)'
+    )::oid
+  ];
 begin
-  if pg_catalog.has_function_privilege(
-    current_user,
-    'private.agent_p2_legacy_lead_attention_v1(uuid,uuid,text,text[],text,timestamp with time zone,integer)',
-    'EXECUTE'
-  ) or pg_catalog.has_function_privilege(
-    current_user,
-    'private.agent_p2_legacy_correspondence_attention_v1(uuid,uuid,text,text[],text,text,text,timestamp with time zone,integer)',
-    'EXECUTE'
-  ) or pg_catalog.has_function_privilege(
-    current_user,
-    'private.agent_p2_legacy_schedule_attention_v1(uuid,uuid,text,text[],text,text,text,timestamp with time zone,integer)',
-    'EXECUTE'
+  if exists (
+    select 1
+    from pg_catalog.unnest(v_signatures) signature_row(signature)
+    where pg_catalog.has_function_privilege(
+      'authenticated', signature_row.signature, 'EXECUTE'
+    )
   ) then
     raise exception
       'agent_p2_legacy_attention_runtime_failed: authenticated execute';
   end if;
 end;
 $application_acl$;
-
-reset role;
 
 select pg_catalog.set_config(
   'request.jwt.claim.role', 'service_role', true
@@ -251,6 +253,7 @@ insert into public.email_threads (
   company_id,
   connection_id,
   provider_thread_id,
+  subject,
   first_message_at,
   last_message_at,
   opportunity_id,
@@ -262,6 +265,7 @@ select pg_catalog.md5('agent-p2-attention-' || source.ordinality::text)::uuid,
        '22222222-2222-4222-8222-222222222222'::uuid,
        '33333333-3333-4333-8333-333333333333'::uuid,
        'agent-p2-attention-' || source.ordinality::text,
+       'Attention fixture ' || source.ordinality::text,
        pg_catalog.statement_timestamp() - interval '1 day',
        pg_catalog.statement_timestamp() - interval '1 day',
        '44444444-4444-4444-8444-444444444444'::uuid,

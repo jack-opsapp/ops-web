@@ -534,9 +534,18 @@ end;
 $source_revision_contract$;
 
 insert into private.mcp_oauth_clients(
-  client_id, scope_ceiling, consent_catalog_revision, exposure_revision
+  client_id, client_name, redirect_uris, token_endpoint_auth_method,
+  grant_types, response_types, scope, registration_source,
+  scope_ceiling, consent_catalog_revision, exposure_revision
 ) values (
   '16700000-0000-4000-8000-000000000001',
+  'Expense runtime',
+  array['https://expense-runtime.ops.invalid/callback']::text[],
+  'none',
+  array['authorization_code', 'refresh_token']::text[],
+  array['code']::text[],
+  'ops.expenses.read ops.jobs.read',
+  'manual',
   array['ops.expenses.read','ops.jobs.read']::text[],
   '2026-08-22.mcp-consent-catalog.v1',
   '2026-08-22.mcp-exposure.v1'

@@ -285,6 +285,9 @@ describe("P2 task read migration", () => {
       );
       expect(value).toContain("private.agent_read_domain_revisions");
       expect(value).toContain("private.agent_operational_read_revisions");
+      expect(RUNTIME_SQL).toContain(
+        "insert into private.agent_operational_read_revisions"
+      );
       expect(value).toContain("private.agent_user_can_access_entity(");
     }
   });

@@ -587,10 +587,13 @@ insert into public.projects (id, company_id, title, status) values (
   '22222222-2222-4222-8222-222222222222',
   'Task 11 evidence project', 'in_progress'
 );
-insert into public.email_connections (id, company_id, type, user_id) values (
+insert into public.email_connections (
+  id, company_id, type, user_id, email
+) values (
   '66666666-6666-4666-8666-666666666666',
   '22222222-2222-4222-8222-222222222222',
-  'gmail', '11111111-1111-4111-8111-111111111111'
+  'company', '11111111-1111-4111-8111-111111111111',
+  'task11-evidence@ops.test'
 );
 insert into public.email_attachments (
   id, company_id, connection_id, opportunity_id, attribution_status,
@@ -623,13 +626,14 @@ insert into public.attachment_inspections (
 );
 insert into public.project_photos (
   id, company_id, project_id, source, caption, taken_at, created_at,
-  is_client_visible, url
+  updated_at, is_client_visible, url
 ) values (
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   '22222222-2222-4222-8222-222222222222',
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   'other', 'Non-deliverable runtime photo',
-  pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp(), false,
+  pg_catalog.statement_timestamp(), pg_catalog.statement_timestamp(),
+  pg_catalog.statement_timestamp(), false,
   'https://fixture.invalid/non-deliverable.jpg'
 );
 

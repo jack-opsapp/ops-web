@@ -30,6 +30,12 @@ Generated in exact eventual ledger order with Supabase CLI `2.115.0`:
 4. `supabase/migrations/20260823072843_agent_mcp_durable_rate_limit.sql`
 5. `supabase/migrations/20260823072849_agent_mcp_evidence_nonce_ledger.sql`
 
+### Task 12 site-visit reads — 2026-08-28
+
+- Generated `20260828211556_agent_site_visit_sources.sql` and `20260828211605_agent_site_visit_reads.sql` with Supabase CLI `2.115.0`.
+- Proved the bounded contracts, current OAuth/entity authority, private artifact boundary, ACLs, indexes, churn, and plans in focused tests and a disposable PostgreSQL 17 database.
+- Committed locally in `f9f857fd` after independent P0/P1 review; unapplied to live/production, unpushed, undeployed, and absent from exposure v1.
+
 ---
 
 ## Non-negotiable execution boundary

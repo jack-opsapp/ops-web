@@ -12,6 +12,7 @@ begin
       ('function', 'private.agent_user_can_access_entity(uuid,uuid,text,uuid,text)'),
       ('function', 'private.agent_normalize_discovery_email(text)'),
       ('function', 'private.agent_normalize_discovery_phone(text)'),
+      ('function', 'private.agent_uuid_from_legacy_text(text)'),
       ('function', 'private.agent_p2_optional_canonical_text(text,integer,integer,boolean)'),
       ('function', 'private.agent_rfc3339_utc(timestamp with time zone)'),
       ('function', 'private.canonical_agent_projection_json(jsonb)'),
@@ -762,7 +763,7 @@ begin
            project.status,
            coalesce(
              project.opportunity_ref,
-             project.opportunity_id
+             private.agent_uuid_from_legacy_text(project.opportunity_id)
            ) as linked_opportunity_id,
            project.opportunity_ref,
            project.opportunity_id,
@@ -783,7 +784,8 @@ begin
            project.opportunity_ref is not null
              and project.opportunity_id is not null
              and project.opportunity_ref is distinct from
-               project.opportunity_id as opportunity_mirror_conflict,
+               private.agent_uuid_from_legacy_text(project.opportunity_id)
+               as opportunity_mirror_conflict,
            project.status not in (
              'rfq',
              'estimated',

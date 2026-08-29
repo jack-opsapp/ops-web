@@ -53,14 +53,19 @@ create table private.mcp_oauth_grants (
   consent_catalog_revision text not null,
   exposure_revision text not null
 );
-create table private.test_operational_overview_control (
+create table if not exists private.test_operational_overview_control (
   singleton boolean primary key default true check (singleton),
   force_bound boolean not null default false,
   force_invalid boolean not null default false,
   purchase_orders_inspected integer not null default 2,
   purchase_lines_inspected integer not null default 3
 );
-insert into private.test_operational_overview_control(singleton) values (true);
+insert into private.test_operational_overview_control(singleton) values (true)
+on conflict(singleton) do update
+  set force_bound = false,
+      force_invalid = false,
+      purchase_orders_inspected = 2,
+      purchase_lines_inspected = 3;
 
 create function private.resolve_agent_actor_authority(
   p_actor_user_id uuid,
@@ -222,8 +227,12 @@ end;
 $$;
 
 create function private.agent_p2_sales_document_attention_v1(
-  uuid,uuid,uuid,uuid,text,text[],text,text[],jsonb,text[],timestamptz,
-  integer,integer
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_authorization_candidates jsonb,
+  p_document_kinds text[],p_as_of timestamptz,p_source_limit integer,
+  p_item_limit integer
 ) returns jsonb
 language plpgsql stable set search_path = ''
 as $$
@@ -246,7 +255,11 @@ end;
 $$;
 
 create function private.agent_p2_payment_attention_v1(
-  uuid,uuid,uuid,uuid,text,text[],text,text[],jsonb,timestamptz,integer
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_authorization_candidate jsonb,
+  p_read_at timestamptz,p_source_limit integer
 ) returns jsonb
 language sql stable set search_path = ''
 as $$
@@ -274,7 +287,10 @@ as $$
 $$;
 
 create function private.agent_p2_expense_attention_v1(
-  uuid,uuid,text,text[],jsonb,timestamptz,integer,integer
+  p_actor_user_id uuid,p_company_id uuid,
+  p_permission_snapshot_revision text,p_registered_permission_keys text[],
+  p_authorization_candidate jsonb,p_read_at timestamptz,p_limit integer,
+  p_source_limit integer
 ) returns jsonb
 language sql stable set search_path = ''
 as $$
@@ -288,8 +304,12 @@ as $$
 $$;
 
 create function private.agent_p2_catalog_attention_v1(
-  uuid,uuid,uuid,uuid,text,text[],text,text[],jsonb,boolean,timestamptz,
-  integer,integer,integer
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_authorization_candidates jsonb,
+  p_include_supplier_costs boolean,p_read_at timestamptz,
+  p_item_limit integer,p_page_fetch_limit integer,p_source_limit integer
 ) returns jsonb
 language sql stable set search_path = ''
 as $$
@@ -305,8 +325,13 @@ as $$
 $$;
 
 create function private.agent_p2_purchase_order_attention_v1(
-  uuid,uuid,uuid,uuid,text,text[],text,text[],jsonb,text,date,integer,boolean,
-  timestamptz,integer,integer,integer,integer
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_authorization_candidates jsonb,
+  p_attention_kind text,p_as_of date,p_due_soon_days integer,
+  p_include_costs boolean,p_read_at timestamptz,p_item_limit integer,
+  p_page_fetch_limit integer,p_source_limit integer,p_line_fetch_limit integer
 ) returns jsonb
 language sql stable set search_path = ''
 as $$
@@ -337,7 +362,12 @@ as $$
 $$;
 
 create function private.agent_p2_integration_health_summary_v1(
-  uuid,uuid,uuid,uuid,text,text[],text,text[],text[],text,text,text,jsonb,integer
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_required_oauth_scopes text[],
+  p_settings_integrations_scope text,p_accounting_scope text,
+  p_email_scope text,p_selections jsonb,p_source_limit integer
 ) returns jsonb
 language sql stable set search_path = ''
 as $$
@@ -372,7 +402,10 @@ as $$
 $$;
 
 create function private.agent_p2_legacy_schedule_attention_v1(
-  uuid,uuid,text,text[],text,text,text,timestamptz,integer
+  p_actor_user_id uuid,p_company_id uuid,
+  p_permission_snapshot_revision text,p_registered_permission_keys text[],
+  p_calendar_scope text,p_projects_scope text,p_tasks_scope text,
+  p_read_at timestamptz,p_limit integer
 ) returns jsonb
 language sql stable set search_path = ''
 as $$
@@ -395,8 +428,12 @@ as $$
 $$;
 
 create function private.agent_p2_work_queue_attention_v1(
-  uuid,uuid,uuid,uuid,text,text[],text,text[],jsonb,text[],timestamptz,
-  integer,integer
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_authorized_sources jsonb,
+  p_sources text[],p_read_at timestamptz,p_source_limit integer,
+  p_item_limit integer
 ) returns jsonb
 language sql stable set search_path = ''
 as $$
@@ -440,22 +477,319 @@ $$;
 
 begin;
 
+-- The full-wave path already has every production dependency installed. Its
+-- runtime proof replaces only the bounded upstream projections, inside this
+-- rollback-only transaction, so deterministic overview behavior is exercised
+-- without persisting test doubles or weakening the production functions.
+create table if not exists private.test_operational_overview_control (
+  singleton boolean primary key default true check (singleton),
+  force_bound boolean not null default false,
+  force_invalid boolean not null default false,
+  purchase_orders_inspected integer not null default 2,
+  purchase_lines_inspected integer not null default 3
+);
+insert into private.test_operational_overview_control(singleton) values (true)
+on conflict(singleton) do update
+  set force_bound = false,
+      force_invalid = false,
+      purchase_orders_inspected = 2,
+      purchase_lines_inspected = 3;
+
+create or replace function private.test_operational_overview_cards(
+  p_count integer
+) returns jsonb
+language sql immutable strict set search_path = ''
+as $$
+  select coalesce(
+    pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('ordinal', source.value)
+      order by source.value),
+    '[]'::jsonb
+  )
+  from pg_catalog.generate_series(1, p_count) source(value);
+$$;
+
+create or replace function private.test_operational_overview_fail_if_requested()
+returns void
+language plpgsql stable set search_path = ''
+as $$
+declare
+  v_control private.test_operational_overview_control%rowtype;
+begin
+  select * into strict v_control
+  from private.test_operational_overview_control;
+  if v_control.force_bound then
+    raise exception 'test_domain_source_bound' using errcode = '54000';
+  end if;
+  if v_control.force_invalid then
+    raise exception 'test_domain_source_invalid' using errcode = '22000';
+  end if;
+end;
+$$;
+
+create or replace function private.agent_p2_sales_document_attention_v1(
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_authorization_candidates jsonb,
+  p_document_kinds text[],p_as_of timestamptz,p_source_limit integer,
+  p_item_limit integer
+) returns jsonb
+language plpgsql stable set search_path = ''
+as $$
+begin
+  perform private.test_operational_overview_fail_if_requested();
+  return pg_catalog.jsonb_build_object(
+    'read_at', private.agent_rfc3339_utc($11),
+    'source_revisions', pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'domain','legacy_operational','source_revision',2
+      ),
+      pg_catalog.jsonb_build_object(
+        'domain','sales_documents','source_revision',3
+      )
+    ),
+    'source_inspected', 4,
+    'cards', private.test_operational_overview_cards(1)
+  );
+end;
+$$;
+
+create or replace function private.agent_p2_payment_attention_v1(
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_authorization_candidate jsonb,
+  p_read_at timestamptz,p_source_limit integer
+) returns jsonb
+language sql stable set search_path = ''
+as $$
+  select pg_catalog.jsonb_build_object(
+    'read_at', private.agent_rfc3339_utc($10),
+    'source_revisions', pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'domain','legacy_operational','source_revision',2
+      ),
+      pg_catalog.jsonb_build_object('domain','payments','source_revision',5),
+      pg_catalog.jsonb_build_object(
+        'domain','sales_documents','source_revision',3
+      )
+    ),
+    'source_inspected', 6,
+    'summaries', pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'reconciliation_state','applied','payment_count',4
+      ),
+      pg_catalog.jsonb_build_object(
+        'reconciliation_state','voided','payment_count',2
+      )
+    )
+  );
+$$;
+
+create or replace function private.agent_p2_expense_attention_v1(
+  p_actor_user_id uuid,p_company_id uuid,
+  p_permission_snapshot_revision text,p_registered_permission_keys text[],
+  p_authorization_candidate jsonb,p_read_at timestamptz,p_limit integer,
+  p_source_limit integer
+) returns jsonb
+language sql stable set search_path = ''
+as $$
+  select pg_catalog.jsonb_build_object(
+    'read_at', private.agent_rfc3339_utc($6),
+    'source_revisions', pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object('domain','expenses','source_revision',4)
+    ),
+    'cards', private.test_operational_overview_cards(1)
+  );
+$$;
+
+create or replace function private.agent_p2_catalog_attention_v1(
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_authorization_candidates jsonb,
+  p_include_supplier_costs boolean,p_read_at timestamptz,
+  p_item_limit integer,p_page_fetch_limit integer,p_source_limit integer
+) returns jsonb
+language sql stable set search_path = ''
+as $$
+  select pg_catalog.jsonb_build_object(
+    'read_at', private.agent_rfc3339_utc($11),
+    'source_revisions', pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object('domain','catalog','source_revision',6)
+    ),
+    'source_inspected', 30,
+    'has_more', true,
+    'items', private.test_operational_overview_cards(25)
+  );
+$$;
+
+create or replace function private.agent_p2_purchase_order_attention_v1(
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_authorization_candidates jsonb,
+  p_attention_kind text,p_as_of date,p_due_soon_days integer,
+  p_include_costs boolean,p_read_at timestamptz,p_item_limit integer,
+  p_page_fetch_limit integer,p_source_limit integer,p_line_fetch_limit integer
+) returns jsonb
+language sql stable set search_path = ''
+as $$
+  select pg_catalog.jsonb_build_object(
+    'read_at', private.agent_rfc3339_utc($14),
+    'source_revisions', pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'domain','purchasing','source_revision',8
+      )
+    ),
+    'source_inspected', pg_catalog.jsonb_build_object(
+      'orders',(
+        select control.purchase_orders_inspected
+        from private.test_operational_overview_control control
+      ),
+      'lines',(
+        select control.purchase_lines_inspected
+        from private.test_operational_overview_control control
+      ),
+      'catalog_costs',0
+    ),
+    'has_more', false,
+    'items', case when $10 = 'overdue'
+      then private.test_operational_overview_cards(2)
+      else private.test_operational_overview_cards(1)
+    end
+  );
+$$;
+
+create or replace function private.agent_p2_integration_health_summary_v1(
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_required_oauth_scopes text[],
+  p_settings_integrations_scope text,p_accounting_scope text,
+  p_email_scope text,p_selections jsonb,p_source_limit integer
+) returns jsonb
+language sql stable set search_path = ''
+as $$
+  select pg_catalog.jsonb_build_object(
+    'read_at', private.agent_rfc3339_utc(
+      pg_catalog.date_trunc('milliseconds',pg_catalog.statement_timestamp())
+    ),
+    'source_revisions', pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object('domain','company','source_revision',1),
+      pg_catalog.jsonb_build_object(
+        'domain','integrations','source_revision',9
+      )
+    ),
+    'source_inspected', pg_catalog.jsonb_build_object(
+      'accounting',1,'mailbox',1
+    ),
+    'rows', pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'item',pg_catalog.jsonb_build_object('reason_code','connected')
+      ),
+      pg_catalog.jsonb_build_object(
+        'item',pg_catalog.jsonb_build_object('reason_code','not_configured')
+      ),
+      pg_catalog.jsonb_build_object(
+        'item',pg_catalog.jsonb_build_object('reason_code','sync_stale')
+      ),
+      pg_catalog.jsonb_build_object(
+        'item',pg_catalog.jsonb_build_object('reason_code','not_configured')
+      )
+    )
+  );
+$$;
+
+create or replace function private.agent_p2_legacy_schedule_attention_v1(
+  p_actor_user_id uuid,p_company_id uuid,
+  p_permission_snapshot_revision text,p_registered_permission_keys text[],
+  p_calendar_scope text,p_projects_scope text,p_tasks_scope text,
+  p_read_at timestamptz,p_limit integer
+) returns jsonb
+language sql stable set search_path = ''
+as $$
+  select pg_catalog.jsonb_build_object(
+    'projection_revision','agent-p2-legacy-schedule-attention:v1',
+    'read_at',private.agent_rfc3339_utc($8),
+    'source_versions',pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'source_domain','operations',
+        'source_type','operational_read_revision',
+        'source_id','private.agent_operational_read_revisions',
+        'version','revision:2'
+      )
+    ),
+    'source_inspected_count',0,
+    'returned_count',0,
+    'has_more',false,
+    'cards','[]'::jsonb
+  );
+$$;
+
+create or replace function private.agent_p2_work_queue_attention_v1(
+  p_actor_user_id uuid,p_company_id uuid,p_oauth_grant_id uuid,
+  p_oauth_client_id uuid,p_grant_revision text,
+  p_granted_scope_ceiling text[],p_permission_snapshot_revision text,
+  p_registered_permission_keys text[],p_authorized_sources jsonb,
+  p_sources text[],p_read_at timestamptz,p_source_limit integer,
+  p_item_limit integer
+) returns jsonb
+language sql stable set search_path = ''
+as $$
+  select pg_catalog.jsonb_build_object(
+    'read_at',private.agent_rfc3339_utc($11),
+    'source_revisions',case when $10 = array['task','lead']::text[]
+      then pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object(
+          'domain','legacy_operational','source_revision',2
+        ),
+        pg_catalog.jsonb_build_object('domain','tasks','source_revision',7),
+        pg_catalog.jsonb_build_object(
+          'domain','work_queue','source_revision',13
+        )
+      )
+      else pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object(
+          'domain','legacy_job_history','source_revision',11
+        ),
+        pg_catalog.jsonb_build_object(
+          'domain','legacy_operational','source_revision',2
+        ),
+        pg_catalog.jsonb_build_object(
+          'domain','work_queue','source_revision',13
+        )
+      )
+    end,
+    'source_inspected',case when $10 = array['task','lead']::text[]
+      then 5 else 4 end,
+    'returned_count',case when $10 = array['task','lead']::text[]
+      then 3 else 2 end,
+    'has_more',false,
+    'cards',private.test_operational_overview_cards(
+      case when $10 = array['task','lead']::text[] then 3 else 2 end
+    )
+  );
+$$;
+
 set local statement_timeout = '30s';
 set local lock_timeout = '5s';
 set local request.jwt.claim.role = 'service_role';
 set local timezone = 'UTC';
 
-insert into public.companies(id) values
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
-insert into public.users(id,company_id,is_active) values
+insert into public.companies(id,name) values
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Operational Overview');
+insert into public.users(id,company_id,first_name,last_name,is_active) values
   (
     '11111111-1111-4111-8111-111111111111',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'Overview', 'Reader',
     true
   ),
   (
     '22222222-2222-4222-8222-222222222222',
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'Other', 'Reader',
     true
   );
 
@@ -495,9 +829,18 @@ insert into public.user_permission_overrides(
 );
 
 insert into private.mcp_oauth_clients(
-  client_id,scope_ceiling,consent_catalog_revision,exposure_revision
+  client_id,client_name,redirect_uris,token_endpoint_auth_method,
+  grant_types,response_types,scope,registration_source,
+  scope_ceiling,consent_catalog_revision,exposure_revision
 ) values (
   '33333333-3333-4333-8333-333333333333',
+  'Operational overview runtime',
+  array['https://operational-overview-runtime.ops.invalid/callback']::text[],
+  'none',
+  array['authorization_code','refresh_token']::text[],
+  array['code']::text[],
+  'ops.catalog.read ops.correspondence.read ops.expenses.read ops.financial_documents.read ops.integrations.read ops.jobs.read ops.operations.read ops.payments.read ops.purchasing.read ops.schedule.read ops.tasks.read',
+  'manual',
   array[
     'ops.catalog.read',
     'ops.correspondence.read',
@@ -511,8 +854,8 @@ insert into private.mcp_oauth_clients(
     'ops.schedule.read',
     'ops.tasks.read'
   ]::text[],
-  'consent-v1',
-  'exposure-v1'
+  '2026-08-22.mcp-consent-catalog.v1',
+  '2026-08-22.mcp-exposure.v1'
 );
 insert into private.mcp_oauth_grants(
   id,user_id,company_id,client_id,scopes,revision,accepted_labels,
@@ -537,21 +880,24 @@ insert into private.mcp_oauth_grants(
       'ops.tasks.read'
     ]::text[],
     'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-    array[
-      'ops.catalog.read',
-      'ops.correspondence.read',
-      'ops.expenses.read',
-      'ops.financial_documents.read',
-      'ops.integrations.read',
-      'ops.jobs.read',
-      'ops.operations.read',
-      'ops.payments.read',
-      'ops.purchasing.read',
-      'ops.schedule.read',
-      'ops.tasks.read'
-    ]::text[],
-    'consent-v1',
-    'exposure-v1'
+    private.mcp_oauth_labels_for_scopes(
+      array[
+        'ops.catalog.read',
+        'ops.correspondence.read',
+        'ops.expenses.read',
+        'ops.financial_documents.read',
+        'ops.integrations.read',
+        'ops.jobs.read',
+        'ops.operations.read',
+        'ops.payments.read',
+        'ops.purchasing.read',
+        'ops.schedule.read',
+        'ops.tasks.read'
+      ]::text[],
+      '2026-08-22.mcp-consent-catalog.v1'
+    ),
+    '2026-08-22.mcp-consent-catalog.v1',
+    '2026-08-22.mcp-exposure.v1'
   ),
   (
     '55555555-5555-4555-8555-555555555555',
@@ -560,9 +906,12 @@ insert into private.mcp_oauth_grants(
     '33333333-3333-4333-8333-333333333333',
     array['ops.operations.read']::text[],
     'cccccccccccccccccccccccccccccccc',
-    array['ops.operations.read']::text[],
-    'consent-v1',
-    'exposure-v1'
+    private.mcp_oauth_labels_for_scopes(
+      array['ops.operations.read']::text[],
+      '2026-08-22.mcp-consent-catalog.v1'
+    ),
+    '2026-08-22.mcp-consent-catalog.v1',
+    '2026-08-22.mcp-exposure.v1'
   );
 
 create function private.test_operational_overview_call(

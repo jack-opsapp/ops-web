@@ -91,6 +91,27 @@ describe("P2 catalogue read SQL", () => {
     expect(SQL).toContain("do $postflight$");
   });
 
+  it("keeps the standalone OAuth bootstrap compatible with its full client insert", () => {
+    for (const clientColumn of [
+      "client_name text not null",
+      "redirect_uris text[] not null",
+      "token_endpoint_auth_method text not null",
+      "grant_types text[] not null",
+      "response_types text[] not null",
+      "scope text not null",
+      "registration_source text not null",
+      "scope_ceiling text[] not null",
+      "consent_catalog_revision text not null",
+      "exposure_revision text not null",
+    ]) {
+      expect(RUNTIME).toContain(clientColumn);
+    }
+    expect(RUNTIME).toContain(
+      "insert into private.mcp_oauth_clients( client_id, client_name, redirect_uris, token_endpoint_auth_method, grant_types, response_types, scope, registration_source, scope_ceiling, consent_catalog_revision, exposure_revision )"
+    );
+    expect(RUNTIME).toContain("private.mcp_oauth_labels_for_scopes(");
+  });
+
   it("defines fixed invoker projections and exactly two service-only public RPCs", () => {
     for (const value of [LIST_PRIVATE, DETAIL_PRIVATE, ATTENTION_PRIVATE]) {
       expect(value).not.toBe("");
@@ -150,9 +171,11 @@ describe("P2 catalogue read SQL", () => {
     expect(COMPACT).toContain(
       "create or replace function private.agent_p2_catalog_milliunits_v1( p_value numeric )"
     );
-    expect(COMPACT).not.toContain(
-      "private.agent_p2_catalog_milliunits_v1( p_value double precision )"
+    expect(COMPACT).toContain(
+      "create or replace function private.agent_p2_catalog_float8_milliunits_v1( p_value double precision )"
     );
+    expect(COMPACT).toContain("set extra_float_digits = 3");
+    expect(COMPACT).toContain("p_value::text::numeric");
     expect(ATTENTION_PRIVATE).toContain("limit p_page_fetch_limit");
     expect(ATTENTION_PRIVATE).not.toContain("limit p_item_limit");
     expect(ATTENTION_PRIVATE).toContain("limit 65");
@@ -180,6 +203,26 @@ describe("P2 catalogue read SQL", () => {
       "value_row.sort_order, value_row.id, assignment.id limit 129"
     );
     expect(VARIANT_SOURCE_PRIVATE).toContain("labels.label_count >= 129");
+  });
+
+  it("round-trips every live double-precision quantity before the exact milliunit boundary", () => {
+    for (const convertedValue of [
+      "private.agent_p2_catalog_float8_milliunits_v1( recipe.quantity_value )",
+      "private.agent_p2_catalog_float8_milliunits_v1( variant.quantity )",
+      "private.agent_p2_catalog_float8_milliunits_v1( coalesce( variant.warning_threshold, family.default_warning_threshold, category.default_warning_threshold ) )",
+      "private.agent_p2_catalog_float8_milliunits_v1( coalesce( variant.critical_threshold, family.default_critical_threshold, category.default_critical_threshold ) )",
+    ]) {
+      expect(COMPACT).toContain(convertedValue);
+    }
+    expect(COMPACT).toContain(
+      "if p_value in ( 'nan'::double precision, 'infinity'::double precision, '-infinity'::double precision ) then return null"
+    );
+    expect(COMPACT).not.toContain("quantity_value::numeric");
+    expect(COMPACT).not.toContain("variant.quantity::numeric");
+    expect(MIGRATION).toBe(BODY);
+    expect(read(RUNTIME_PATH)).toContain(
+      "$live_double_precision_values_fail_closed$"
+    );
   });
 
   it("binds canonical opaque proof/evidence and omits private/provider/cost data by default", () => {

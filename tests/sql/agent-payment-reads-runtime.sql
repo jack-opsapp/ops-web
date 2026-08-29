@@ -104,9 +104,10 @@ insert into public.companies(id, name, currency_code) values
   ('11111111-1111-4111-8111-111111111111', 'Alpha', 'CAD'),
   ('22222222-2222-4222-8222-222222222222', 'Bravo', 'USD');
 
-insert into public.users(id, company_id) values (
+insert into public.users(id, company_id, first_name, last_name) values (
   'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-  '11111111-1111-4111-8111-111111111111'
+  '11111111-1111-4111-8111-111111111111',
+  'Payment', 'Reader'
 );
 
 insert into public.user_permission_overrides(
@@ -117,23 +118,25 @@ insert into public.user_permission_overrides(
   ('a1000000-0000-4000-8000-000000000003','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','pipeline.view','assigned',true),
   ('a1000000-0000-4000-8000-000000000004','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','projects.view','assigned',true);
 
-insert into public.clients(id, company_id) values
-  ('dddddddd-dddd-4ddd-8ddd-dddddddddd01','11111111-1111-4111-8111-111111111111'),
-  ('dddddddd-dddd-4ddd-8ddd-dddddddddd02','22222222-2222-4222-8222-222222222222');
+insert into public.clients(id, company_id, name) values
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddd01','11111111-1111-4111-8111-111111111111','Payment client'),
+  ('dddddddd-dddd-4ddd-8ddd-dddddddddd02','22222222-2222-4222-8222-222222222222','Other payment client');
 
-insert into public.opportunities(id, company_id) values
-  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01','11111111-1111-4111-8111-111111111111'),
-  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee02','11111111-1111-4111-8111-111111111111');
+insert into public.opportunities(id, company_id, title, assigned_to) values
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01','11111111-1111-4111-8111-111111111111','Assigned opportunity','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+  ('eeeeeeee-eeee-4eee-8eee-eeeeeeeeee02','11111111-1111-4111-8111-111111111111','Hidden opportunity',null);
 
-insert into public.projects(id, company_id) values
-  ('f1111111-1111-4111-8111-111111111111','11111111-1111-4111-8111-111111111111'),
-  ('f2222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111');
-
-insert into private.test_entity_access values
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','opportunity','eeeeeeee-eeee-4eee-8eee-eeeeeeeeee01',true),
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','opportunity','eeeeeeee-eeee-4eee-8eee-eeeeeeeeee02',false),
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','project','f1111111-1111-4111-8111-111111111111',true),
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','project','f2222222-2222-4222-8222-222222222222',false);
+insert into public.projects(id, company_id, title) values
+  ('f1111111-1111-4111-8111-111111111111','11111111-1111-4111-8111-111111111111','Assigned project'),
+  ('f2222222-2222-4222-8222-222222222222','11111111-1111-4111-8111-111111111111','Hidden project');
+insert into public.project_tasks(
+  id, company_id, project_id, team_member_ids
+) values (
+  'f1111111-1111-4111-8111-111111111113',
+  '11111111-1111-4111-8111-111111111111',
+  'f1111111-1111-4111-8111-111111111111',
+  array['aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa']::text[]
+);
 
 insert into public.invoices(
   id, company_id, opportunity_id, project_id, project_ref, client_id,
@@ -164,9 +167,18 @@ insert into private.agent_operational_read_revisions(
   ('22222222-2222-4222-8222-222222222222', 23);
 
 insert into private.mcp_oauth_clients(
-  client_id, scope_ceiling, consent_catalog_revision, exposure_revision
+  client_id, client_name, redirect_uris, token_endpoint_auth_method,
+  grant_types, response_types, scope, registration_source,
+  scope_ceiling, consent_catalog_revision, exposure_revision
 ) values (
   'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  'Payment runtime',
+  array['https://payment-runtime.ops.invalid/callback']::text[],
+  'none',
+  array['authorization_code', 'refresh_token']::text[],
+  array['code']::text[],
+  'ops.payments.read',
+  'manual',
   array['ops.payments.read']::text[],
   '2026-08-22.mcp-consent-catalog.v1',
   '2026-08-22.mcp-exposure.v1'

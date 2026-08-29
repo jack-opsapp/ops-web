@@ -98,11 +98,11 @@ begin
 end;
 $assert$;
 
-insert into public.companies (id)
-values ('6a100000-0000-4000-8000-000000000002');
+insert into public.companies (id, name)
+values ('6a100000-0000-4000-8000-000000000002', 'Domain Revision Active');
 
-insert into public.companies (id)
-values ('6a100000-0000-4000-8000-000000000003');
+insert into public.companies (id, name)
+values ('6a100000-0000-4000-8000-000000000003', 'Domain Revision Deleted');
 
 delete from public.companies
 where id = '6a100000-0000-4000-8000-000000000003';
@@ -131,8 +131,8 @@ $assert$;
 
 grant insert on public.companies to authenticated;
 set local role authenticated;
-insert into public.companies (id)
-values ('6a100000-0000-4000-8000-000000000004');
+insert into public.companies (id, name)
+values ('6a100000-0000-4000-8000-000000000004', 'Domain Revision Authenticated');
 reset role;
 
 do $assert$
