@@ -743,6 +743,34 @@ describe("P2 task read migration", () => {
     }
   });
 
+  it("keeps the task attention signature while accepting only the signed cursor window", () => {
+    expect(ATTENTION_PRIVATE).toContain("not pg_catalog.isfinite(p_read_at)");
+    expect(ATTENTION_PRIVATE).toContain(
+      "p_read_at is distinct from pg_catalog.date_trunc( 'milliseconds', p_read_at )"
+    );
+    expect(ATTENTION_PRIVATE).toContain(
+      "extract( year from p_read_at at time zone 'utc' ) not between 1 and 9999"
+    );
+    expect(ATTENTION_PRIVATE).toContain(
+      "p_read_at > pg_catalog.statement_timestamp()"
+    );
+    expect(ATTENTION_PRIVATE).toContain(
+      "p_read_at <= pg_catalog.statement_timestamp() - interval '15 minutes'"
+    );
+    expect(ATTENTION_PRIVATE).not.toContain(
+      "p_read_at is distinct from pg_catalog.date_trunc( 'milliseconds', pg_catalog.statement_timestamp() )"
+    );
+    for (const marker of [
+      "task attention cursor-window accepted",
+      "task attention future read-at accepted",
+      "task attention expired read-at accepted",
+      "task attention non-millisecond read-at accepted",
+      "task attention non-finite read-at accepted",
+    ]) {
+      expect(RUNTIME_SQL).toContain(marker);
+    }
+  });
+
   it("mints exact task and legacy revision proofs without exposing private source identifiers", () => {
     for (const value of [LIST_PRIVATE, DETAIL_PRIVATE]) {
       expect(value).toContain("'domain', 'tasks'");

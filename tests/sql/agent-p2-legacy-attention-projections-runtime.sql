@@ -37,7 +37,10 @@ begin
     where procedure.oid = pg_catalog.to_regprocedure(v_signature);
     if v_volatility is distinct from 's'
        or v_security_definer
-       or not ('search_path=' = any(coalesce(v_config, array[]::text[]))) then
+       or not (
+         coalesce(v_config, array[]::text[])
+         && array['search_path=', 'search_path=""']::text[]
+       ) then
       raise exception
         'agent_p2_legacy_attention_runtime_failed: unsafe attributes %',
         v_signature;
@@ -84,7 +87,10 @@ begin
      or not v_is_strict
      or v_parallel is distinct from 's'
      or v_security_definer
-     or not ('search_path=' = any(coalesce(v_config, array[]::text[]))) then
+     or not (
+       coalesce(v_config, array[]::text[])
+       && array['search_path=', 'search_path=""']::text[]
+     ) then
     raise exception
       'agent_p2_legacy_attention_runtime_failed: unsafe text helper attributes';
   end if;
@@ -145,6 +151,97 @@ begin
   end if;
 end;
 $unicode_projection_contract$;
+
+create function pg_temp.assert_legacy_attention_read_at(
+  p_kind text,
+  p_read_at timestamptz,
+  p_expect_window_valid boolean,
+  p_rejection_marker text
+) returns void
+language plpgsql
+set search_path = ''
+as $function$
+begin
+  begin
+    if p_kind = 'lead' then
+      perform private.agent_p2_legacy_lead_attention_v1(
+        '11111111-1111-4111-8111-111111111111',
+        '22222222-2222-4222-8222-222222222222',
+        'invalid', array['pipeline.view'], 'all', p_read_at, 1
+      );
+    elsif p_kind = 'correspondence' then
+      perform private.agent_p2_legacy_correspondence_attention_v1(
+        '11111111-1111-4111-8111-111111111111',
+        '22222222-2222-4222-8222-222222222222',
+        'invalid', array['email.view','inbox.view','pipeline.view'],
+        'all', 'all', 'all', p_read_at, 1
+      );
+    elsif p_kind = 'schedule' then
+      perform private.agent_p2_legacy_schedule_attention_v1(
+        '11111111-1111-4111-8111-111111111111',
+        '22222222-2222-4222-8222-222222222222',
+        'invalid', array['calendar.view','projects.view','tasks.view'],
+        'all', 'all', 'all', p_read_at, 1
+      );
+    else
+      raise exception 'unknown legacy attention kind';
+    end if;
+    raise exception 'legacy attention request unexpectedly authorized';
+  exception
+    when sqlstate '42501' then
+      if not p_expect_window_valid then
+        raise exception '%', p_rejection_marker;
+      end if;
+    when sqlstate '22023' then
+      if p_expect_window_valid then
+        raise exception
+          'agent_p2_legacy_attention_runtime_failed: legacy attention cursor-window rejected';
+      end if;
+  end;
+end;
+$function$;
+
+do $signed_cursor_window_contract$
+declare
+  v_kind text;
+  v_now constant timestamptz := pg_catalog.date_trunc(
+    'milliseconds', pg_catalog.statement_timestamp()
+  );
+begin
+  foreach v_kind in array array['lead','correspondence','schedule']::text[] loop
+    perform pg_temp.assert_legacy_attention_read_at(
+      v_kind,
+      v_now - interval '14 minutes',
+      true,
+      'agent_p2_legacy_attention_runtime_failed: legacy attention cursor-window accepted'
+    );
+    perform pg_temp.assert_legacy_attention_read_at(
+      v_kind,
+      v_now + interval '1 millisecond',
+      false,
+      'agent_p2_legacy_attention_runtime_failed: legacy attention future read-at accepted'
+    );
+    perform pg_temp.assert_legacy_attention_read_at(
+      v_kind,
+      v_now - interval '15 minutes',
+      false,
+      'agent_p2_legacy_attention_runtime_failed: legacy attention expired read-at accepted'
+    );
+    perform pg_temp.assert_legacy_attention_read_at(
+      v_kind,
+      v_now - interval '1 microsecond',
+      false,
+      'agent_p2_legacy_attention_runtime_failed: legacy attention non-millisecond read-at accepted'
+    );
+    perform pg_temp.assert_legacy_attention_read_at(
+      v_kind,
+      'infinity'::timestamptz,
+      false,
+      'agent_p2_legacy_attention_runtime_failed: legacy attention non-finite read-at accepted'
+    );
+  end loop;
+end;
+$signed_cursor_window_contract$;
 
 -- The correspondence fence must stop at the first 501 broad index matches,
 -- even when every early row will later be rejected as future-snoozed/non-due.

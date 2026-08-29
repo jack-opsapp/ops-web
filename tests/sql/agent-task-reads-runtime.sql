@@ -2870,6 +2870,77 @@ begin
 end;
 $attention_contract$;
 
+create function pg_temp.assert_task_attention_read_at(
+  p_read_at timestamptz,
+  p_expect_window_valid boolean,
+  p_rejection_marker text
+) returns void
+language plpgsql
+set search_path = ''
+as $function$
+begin
+  begin
+    perform private.agent_p2_task_attention_v1(
+      '11111111-1111-4111-8111-111111111111',
+      '22222222-2222-4222-8222-222222222222',
+      'sha256:' || pg_catalog.repeat('0', 64),
+      array[
+        'calendar.view','estimates.view','projects.view',
+        'projects.view_financials','tasks.view'
+      ]::text[],
+      'all', 'assigned', p_read_at, 25
+    );
+    if not p_expect_window_valid then
+      raise exception '%', p_rejection_marker;
+    end if;
+  exception
+    when sqlstate '42501' then
+      if not p_expect_window_valid then
+        raise exception '%', p_rejection_marker;
+      end if;
+    when sqlstate '22023' then
+      if p_expect_window_valid then
+        raise exception
+          'agent_task_runtime_failed: task attention cursor-window rejected';
+      end if;
+  end;
+end;
+$function$;
+
+do $task_attention_signed_cursor_window_contract$
+declare
+  v_now constant timestamptz := pg_catalog.date_trunc(
+    'milliseconds', pg_catalog.statement_timestamp()
+  );
+begin
+  perform pg_temp.assert_task_attention_read_at(
+    v_now - interval '14 minutes',
+    true,
+    'agent_task_runtime_failed: task attention cursor-window accepted'
+  );
+  perform pg_temp.assert_task_attention_read_at(
+    v_now + interval '1 millisecond',
+    false,
+    'agent_task_runtime_failed: task attention future read-at accepted'
+  );
+  perform pg_temp.assert_task_attention_read_at(
+    v_now - interval '15 minutes',
+    false,
+    'agent_task_runtime_failed: task attention expired read-at accepted'
+  );
+  perform pg_temp.assert_task_attention_read_at(
+    v_now - interval '1 microsecond',
+    false,
+    'agent_task_runtime_failed: task attention non-millisecond read-at accepted'
+  );
+  perform pg_temp.assert_task_attention_read_at(
+    'infinity'::timestamptz,
+    false,
+    'agent_task_runtime_failed: task attention non-finite read-at accepted'
+  );
+end;
+$task_attention_signed_cursor_window_contract$;
+
 create function pg_temp.read_task_cursor_seed()
 returns jsonb
 language sql

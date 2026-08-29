@@ -43,6 +43,7 @@ $prerequisites$;
 -- Each adapter freezes at most 501 canonical source matches before invoking
 -- any row-level authority helper. These exact partial order indexes make the
 -- LIMIT a physical bound rather than a post-filter promise.
+drop index if exists public.opportunities_agent_p2_legacy_attention_idx;
 create index opportunities_agent_p2_legacy_attention_idx
   on public.opportunities (
     company_id,
@@ -57,6 +58,7 @@ create index opportunities_agent_p2_legacy_attention_idx
     and merged_into_opportunity_id is null
     and stage not in ('won', 'lost', 'discarded');
 
+drop index if exists public.email_threads_agent_p2_legacy_attention_idx;
 create index email_threads_agent_p2_legacy_attention_idx
   on public.email_threads (
     company_id,
@@ -71,6 +73,7 @@ create index email_threads_agent_p2_legacy_attention_idx
       or next_commitment_due_at is not null
     );
 
+drop index if exists public.project_tasks_agent_p2_legacy_attention_idx;
 create index project_tasks_agent_p2_legacy_attention_idx
   on public.project_tasks (company_id, start_date, id)
   where deleted_at is null
@@ -150,9 +153,14 @@ begin
      or p_registered_permission_keys is null
      or p_pipeline_scope not in ('all', 'assigned')
      or p_read_at is null
+     or not pg_catalog.isfinite(p_read_at)
      or p_read_at is distinct from pg_catalog.date_trunc(
-       'milliseconds', pg_catalog.statement_timestamp()
+       'milliseconds', p_read_at
      )
+     or extract(year from p_read_at at time zone 'UTC')
+          not between 1 and 9999
+     or p_read_at > pg_catalog.statement_timestamp()
+     or p_read_at <= pg_catalog.statement_timestamp() - interval '15 minutes'
      or p_limit is null
      or p_limit not between 1 and 25 then
     raise exception 'invalid_agent_p2_legacy_lead_attention_request'
@@ -370,9 +378,14 @@ begin
      or p_email_scope not in ('all', 'own')
      or p_pipeline_scope not in ('all', 'assigned')
      or p_read_at is null
+     or not pg_catalog.isfinite(p_read_at)
      or p_read_at is distinct from pg_catalog.date_trunc(
-       'milliseconds', pg_catalog.statement_timestamp()
+       'milliseconds', p_read_at
      )
+     or extract(year from p_read_at at time zone 'UTC')
+          not between 1 and 9999
+     or p_read_at > pg_catalog.statement_timestamp()
+     or p_read_at <= pg_catalog.statement_timestamp() - interval '15 minutes'
      or p_limit is null
      or p_limit not between 1 and 25 then
     raise exception 'invalid_agent_p2_legacy_correspondence_attention_request'
@@ -604,9 +617,14 @@ begin
      or p_projects_scope not in ('all', 'assigned')
      or p_tasks_scope not in ('all', 'assigned')
      or p_read_at is null
+     or not pg_catalog.isfinite(p_read_at)
      or p_read_at is distinct from pg_catalog.date_trunc(
-       'milliseconds', pg_catalog.statement_timestamp()
+       'milliseconds', p_read_at
      )
+     or extract(year from p_read_at at time zone 'UTC')
+          not between 1 and 9999
+     or p_read_at > pg_catalog.statement_timestamp()
+     or p_read_at <= pg_catalog.statement_timestamp() - interval '15 minutes'
      or p_limit is null
      or p_limit not between 1 and 25 then
     raise exception 'invalid_agent_p2_legacy_schedule_attention_request'

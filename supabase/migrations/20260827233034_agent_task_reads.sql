@@ -2350,8 +2350,10 @@ begin
      or p_read_at is null
      or not pg_catalog.isfinite(p_read_at)
      or p_read_at is distinct from pg_catalog.date_trunc(
-       'milliseconds', pg_catalog.statement_timestamp()
+       'milliseconds', p_read_at
      )
+     or p_read_at > pg_catalog.statement_timestamp()
+     or p_read_at <= pg_catalog.statement_timestamp() - interval '15 minutes'
      or p_limit is null
      or p_limit not between 1 and 25
      or not ('tasks.view' = any(p_registered_permission_keys))

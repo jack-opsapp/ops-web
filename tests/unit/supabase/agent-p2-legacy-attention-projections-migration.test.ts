@@ -144,6 +144,37 @@ describe("P2 legacy attention projection migration", () => {
     }
   });
 
+  it("accepts only the canonical signed-cursor read-at window", () => {
+    for (const kind of ["lead", "correspondence", "schedule"] as const) {
+      const definition = FUNCTIONS[kind];
+      expect(definition).toContain("not pg_catalog.isfinite(p_read_at)");
+      expect(definition).toContain(
+        "p_read_at is distinct from pg_catalog.date_trunc( 'milliseconds', p_read_at )"
+      );
+      expect(definition).toContain(
+        "extract(year from p_read_at at time zone 'utc') not between 1 and 9999"
+      );
+      expect(definition).toContain(
+        "p_read_at > pg_catalog.statement_timestamp()"
+      );
+      expect(definition).toContain(
+        "p_read_at <= pg_catalog.statement_timestamp() - interval '15 minutes'"
+      );
+      expect(definition).not.toContain(
+        "p_read_at is distinct from pg_catalog.date_trunc( 'milliseconds', pg_catalog.statement_timestamp() )"
+      );
+    }
+    for (const marker of [
+      "legacy attention cursor-window accepted",
+      "legacy attention future read-at accepted",
+      "legacy attention expired read-at accepted",
+      "legacy attention non-millisecond read-at accepted",
+      "legacy attention non-finite read-at accepted",
+    ]) {
+      expect(RUNTIME_SQL).toContain(marker);
+    }
+  });
+
   it("projects optional display text through the exact P2 Unicode boundary", () => {
     expect(FUNCTIONS.canonicalText).toContain(
       "language plpgsql immutable strict parallel safe security invoker set search_path = ''"
@@ -203,6 +234,13 @@ describe("P2 legacy attention projection migration", () => {
       "thread.snoozed_until <= p_read_at"
     );
 
+    for (const indexName of [
+      "opportunities_agent_p2_legacy_attention_idx",
+      "email_threads_agent_p2_legacy_attention_idx",
+      "project_tasks_agent_p2_legacy_attention_idx",
+    ]) {
+      expect(COMPACT_SQL).toContain(`drop index if exists public.${indexName}`);
+    }
     expect(COMPACT_SQL).toContain(
       "create index opportunities_agent_p2_legacy_attention_idx"
     );
@@ -304,6 +342,9 @@ describe("P2 legacy attention projection migration", () => {
     expect(RUNTIME_SQL).toContain("begin;");
     expect(RUNTIME_SQL).toContain("set local role authenticated");
     expect(RUNTIME_SQL).toContain("has_function_privilege");
+    expect(RUNTIME_SQL).toContain(
+      "array['search_path=', 'search_path=\"\"']::text[]"
+    );
     for (const signature of Object.values(SIGNATURES)) {
       expect(RUNTIME_SQL).toContain(signature);
     }
