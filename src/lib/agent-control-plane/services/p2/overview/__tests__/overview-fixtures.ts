@@ -151,6 +151,15 @@ const FIXTURE_REVISIONS = Object.freeze({
   Record<string, readonly OperationalOverviewRevision[]>
 >);
 
+const FIXTURE_SOURCE_INSPECTED = Object.freeze({
+  financial_attention: 10,
+  integration_attention: 2,
+  schedule_readiness: 1,
+  stock_attention: 40,
+  unresolved_correspondence: 4,
+  work_due: 5,
+} as const satisfies Readonly<Record<string, number>>);
+
 export function overviewItems(
   authorization: AuthorizedOperationalOverviewRead
 ): readonly OperationalOverviewComponentItem[] {
@@ -177,25 +186,38 @@ export function overviewRawSnapshot(input: {
 }) {
   const authorization = input.authorization;
   const items = overviewItems(authorization);
-  const sourceInspected = authorization.authorizedComponents.length;
+  const componentSourceInspected = authorization.authorizedComponents.map(
+    ({ component }) => ({
+      component,
+      source_inspected: FIXTURE_SOURCE_INSPECTED[component],
+    })
+  );
+  const sourceInspected = componentSourceInspected.reduce(
+    (total, inspection) => total + inspection.source_inspected,
+    0
+  );
   const context = operationalOverviewProofContext({
     authorization,
     readAt: OVERVIEW_READ_AT,
-    sourceInspected,
+    componentSourceInspected,
   });
-  const rows = items.map((item) => {
+  const rows = items.map((item, index) => {
     const sourceRevisions = FIXTURE_REVISIONS[item.component];
+    const sourceInspected = componentSourceInspected[index]!.source_inspected;
     return {
       item,
+      source_inspected: sourceInspected,
       source_revisions: sourceRevisions,
       proof_ref: operationalOverviewEntityProofRef({
         context,
         item,
+        sourceInspected,
         sourceRevisions,
       }),
       evidence_ref: operationalOverviewEvidenceRef({
         context,
         component: item.component,
+        sourceInspected,
         sourceRevisions,
       }),
     };
@@ -224,6 +246,7 @@ export function overviewRawSnapshot(input: {
     component: row.item.component,
     proof_ref: row.proof_ref,
     evidence_ref: row.evidence_ref,
+    source_inspected: row.source_inspected,
     source_revisions: row.source_revisions,
   }));
   return {
@@ -245,6 +268,7 @@ export function overviewRawSnapshot(input: {
     warnings: authorization.warnings.map((warning) => ({ ...warning })),
     read_at: OVERVIEW_READ_AT,
     source_revisions: sourceRevisions,
+    component_source_inspected: componentSourceInspected,
     source_inspected: sourceInspected,
     rows,
     collection_proof_ref: operationalOverviewCollectionProofRef({

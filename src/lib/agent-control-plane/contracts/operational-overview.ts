@@ -32,6 +32,48 @@ export const OperationalOverviewComponentSchema = z.enum(
   OPERATIONAL_OVERVIEW_COMPONENTS
 );
 
+export const OPERATIONAL_OVERVIEW_COMPONENT_SOURCE_INSPECTION_CAPS =
+  Object.freeze({
+    financial_attention: (P2_MAX_SOURCE_ROWS - 1) * 2,
+    integration_attention: (P2_MAX_SOURCE_ROWS - 1) * 2,
+    schedule_readiness: P2_MAX_SOURCE_ROWS - 1,
+    stock_attention: (P2_MAX_SOURCE_ROWS - 1) * 5,
+    unresolved_correspondence: (P2_MAX_SOURCE_ROWS - 1) * 9,
+    work_due: (P2_MAX_SOURCE_ROWS - 1) * 9,
+  } as const satisfies Readonly<Record<OperationalOverviewComponent, number>>);
+
+export const OperationalOverviewComponentSourceInspectionSchema = z
+  .object({
+    component: OperationalOverviewComponentSchema,
+    source_inspected: z.number().int().safe().nonnegative(),
+  })
+  .strict()
+  .superRefine((inspection, context) => {
+    if (
+      inspection.source_inspected >
+      OPERATIONAL_OVERVIEW_COMPONENT_SOURCE_INSPECTION_CAPS[
+        inspection.component
+      ]
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "OPERATIONAL_OVERVIEW_COMPONENT_SOURCE_INSPECTION_BOUND",
+      });
+    }
+  });
+
+export const OperationalOverviewComponentSourceInspectionVectorSchema = z
+  .array(OperationalOverviewComponentSourceInspectionSchema)
+  .max(OPERATIONAL_OVERVIEW_MAX_COMPONENTS)
+  .refine(
+    (values) =>
+      values.every(
+        (value, index) =>
+          index === 0 || values[index - 1]!.component < value.component
+      ),
+    "OPERATIONAL_OVERVIEW_COMPONENT_SOURCE_INSPECTION_NOT_CANONICAL"
+  );
+
 const ExplicitComponentsSchema = z
   .array(OperationalOverviewComponentSchema)
   .min(1)
@@ -301,6 +343,9 @@ export type OperationalOverviewComponent = z.infer<
 >;
 export type OperationalOverviewComponentItem = z.infer<
   typeof OperationalOverviewComponentItemSchema
+>;
+export type OperationalOverviewComponentSourceInspection = z.infer<
+  typeof OperationalOverviewComponentSourceInspectionSchema
 >;
 export type OperationalOverviewRevision = z.infer<
   typeof P2DomainRevisionSchema

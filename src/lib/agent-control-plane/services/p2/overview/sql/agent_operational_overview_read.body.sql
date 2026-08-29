@@ -402,6 +402,7 @@ declare
   v_children jsonb := '[]'::jsonb;
   v_revision_vectors jsonb[] := array[]::jsonb[];
   v_source_revisions jsonb := '[]'::jsonb;
+  v_component_source_inspected jsonb := '[]'::jsonb;
   v_source_inspected bigint := 0;
   v_component_authorization jsonb;
   v_component text;
@@ -412,7 +413,8 @@ declare
   v_attention_count integer;
   v_count_is_bounded boolean;
   v_item jsonb;
-  v_proof_context jsonb;
+  v_request_proof_context jsonb;
+  v_collection_proof_context jsonb;
   v_proof_ref text;
   v_evidence_ref text;
   v_sales jsonb;
@@ -1138,6 +1140,10 @@ begin
                '^(0|[1-9][0-9]{0,2})$',
              false
            )
+           or (v_purchase_overdue #>> '{source_inspected,orders}')::integer
+                >= p_source_limit
+           or (v_purchase_overdue #>> '{source_inspected,lines}')::integer
+                >= p_source_limit
            or not coalesce(
              v_purchase_overdue #>> '{source_inspected,catalog_costs}' ~
                '^(0|[1-9][0-9]{0,2})$',
@@ -1155,6 +1161,10 @@ begin
                '^(0|[1-9][0-9]{0,2})$',
              false
            )
+           or (v_purchase_due_soon #>> '{source_inspected,orders}')::integer
+                >= p_source_limit
+           or (v_purchase_due_soon #>> '{source_inspected,lines}')::integer
+                >= p_source_limit
            or not coalesce(
              v_purchase_due_soon #>> '{source_inspected,catalog_costs}' ~
                '^(0|[1-9][0-9]{0,2})$',
@@ -1373,7 +1383,15 @@ begin
        or pg_catalog.jsonb_array_length(v_component_revisions) < 1
        or v_attention_total < 0
        or v_component_inspected < 0
-       or v_component_inspected > 9007199254740991
+       or v_component_inspected > (case v_component
+         when 'financial_attention' then 1000
+         when 'integration_attention' then 1000
+         when 'schedule_readiness' then 500
+         when 'stock_attention' then 2500
+         when 'unresolved_correspondence' then 4500
+         when 'work_due' then 4500
+         else -1
+       end)
        or v_count_is_bounded and v_attention_total < p_item_limit then
       raise exception 'agent_operational_overview_source_data_invalid'
         using errcode = '22000';
@@ -1397,6 +1415,7 @@ begin
     v_component_result := pg_catalog.jsonb_build_object(
       'item', v_item,
       'component_authorization', v_component_authorization,
+      'source_inspected', v_component_inspected,
       'source_revisions', v_component_revisions
     );
     v_internal_rows := v_internal_rows ||
@@ -1405,6 +1424,11 @@ begin
       v_revision_vectors,
       v_component_revisions
     );
+    v_component_source_inspected := v_component_source_inspected ||
+      pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+        'component', v_component,
+        'source_inspected', v_component_inspected
+      ));
     v_source_inspected := v_source_inspected + v_component_inspected;
     if v_source_inspected > 9007199254740991 then
       raise exception 'agent_operational_overview_source_data_invalid'
@@ -1424,7 +1448,7 @@ begin
       using errcode = '22000';
   end if;
 
-  v_proof_context := pg_catalog.jsonb_build_object(
+  v_request_proof_context := pg_catalog.jsonb_build_object(
     'request_id', p_request_id,
     'company_id', p_company_id,
     'actor_user_id', p_actor_user_id,
@@ -1436,10 +1460,14 @@ begin
     'capability_id', p_capability_id,
     'capability_revision', p_capability_revision,
     'capability_manifest_revision', p_capability_manifest_revision,
+    'read_at', private.agent_rfc3339_utc(v_read_at)
+  );
+  v_collection_proof_context := v_request_proof_context ||
+    pg_catalog.jsonb_build_object(
     'selections', p_selections,
     'authorized_components', p_authorized_components,
     'warnings', p_warnings,
-    'read_at', private.agent_rfc3339_utc(v_read_at),
+    'component_source_inspected', v_component_source_inspected,
     'source_inspected', v_source_inspected
   );
 
@@ -1451,27 +1479,32 @@ begin
     v_component_revisions := v_component_result -> 'source_revisions';
     v_component_authorization :=
       v_component_result -> 'component_authorization';
+    v_component_inspected :=
+      (v_component_result ->> 'source_inspected')::bigint;
     v_component := v_item ->> 'component';
     v_proof_ref := private.agent_p2_operational_overview_hash_ref_v1(
       'ops_proof:v1:',
-      v_proof_context || pg_catalog.jsonb_build_object(
+      v_request_proof_context || pg_catalog.jsonb_build_object(
         'proof_kind', 'operational_overview_entity',
         'component_authorization', v_component_authorization,
+        'source_inspected', v_component_inspected,
         'source_revisions', v_component_revisions,
         'item', v_item
       )
     );
     v_evidence_ref := private.agent_p2_operational_overview_hash_ref_v1(
       'ops_evidence:v1:',
-      v_proof_context || pg_catalog.jsonb_build_object(
+      v_request_proof_context || pg_catalog.jsonb_build_object(
         'proof_kind', 'operational_overview_evidence',
         'component_authorization', v_component_authorization,
+        'source_inspected', v_component_inspected,
         'source_revisions', v_component_revisions
       )
     );
     v_rows := v_rows || pg_catalog.jsonb_build_array(
       pg_catalog.jsonb_build_object(
         'item', v_item,
+        'source_inspected', v_component_inspected,
         'source_revisions', v_component_revisions,
         'proof_ref', v_proof_ref,
         'evidence_ref', v_evidence_ref
@@ -1482,6 +1515,7 @@ begin
         'component', v_component,
         'proof_ref', v_proof_ref,
         'evidence_ref', v_evidence_ref,
+        'source_inspected', v_component_inspected,
         'source_revisions', v_component_revisions
       )
     );
@@ -1489,7 +1523,7 @@ begin
 
   v_proof_ref := private.agent_p2_operational_overview_hash_ref_v1(
     'ops_proof:v1:',
-    v_proof_context || pg_catalog.jsonb_build_object(
+    v_collection_proof_context || pg_catalog.jsonb_build_object(
       'proof_kind', 'operational_overview_collection',
       'source_revisions', v_source_revisions,
       'returned_count', pg_catalog.jsonb_array_length(v_rows),
@@ -1498,7 +1532,7 @@ begin
     )
   );
 
-  return v_proof_context || pg_catalog.jsonb_build_object(
+  return v_collection_proof_context || pg_catalog.jsonb_build_object(
     'source_revisions', v_source_revisions,
     'rows', v_rows,
     'collection_proof_ref', v_proof_ref

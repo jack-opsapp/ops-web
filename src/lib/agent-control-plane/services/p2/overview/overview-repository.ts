@@ -8,12 +8,14 @@ import {
   OPERATIONAL_OVERVIEW_MAX_ATTENTION_COUNT,
   OPERATIONAL_OVERVIEW_MAX_COMPONENTS,
   OPERATIONAL_OVERVIEW_MAX_SOURCE_ROWS,
+  OperationalOverviewComponentSourceInspectionVectorSchema,
   OperationalOverviewComponentItemSchema,
   OperationalOverviewComponentSchema,
   OperationalOverviewRevisionVectorSchema,
   GetOperationalOverviewResultSchema,
   assertNoOperationalOverviewForbiddenFields,
   type OperationalOverviewComponent,
+  type OperationalOverviewComponentSourceInspection,
   type OperationalOverviewResult,
 } from "@/lib/agent-control-plane/contracts/operational-overview";
 import {
@@ -114,6 +116,7 @@ const ItemRevisionVectorSchema = OperationalOverviewRevisionVectorSchema.refine(
 const RawRowSchema = z
   .object({
     item: OperationalOverviewComponentItemSchema,
+    source_inspected: z.number().int().safe().nonnegative(),
     source_revisions: ItemRevisionVectorSchema,
     proof_ref: P2ProofRefSchema,
     evidence_ref: P2EvidenceRefSchema,
@@ -139,6 +142,8 @@ const RawSnapshotSchema = z
     warnings: WarningVectorSchema,
     read_at: P2CanonicalTimestampSchema,
     source_revisions: OperationalOverviewRevisionVectorSchema,
+    component_source_inspected:
+      OperationalOverviewComponentSourceInspectionVectorSchema,
     source_inspected: z.number().int().safe().nonnegative(),
     rows: z.array(RawRowSchema).max(OPERATIONAL_OVERVIEW_MAX_COMPONENTS),
     collection_proof_ref: P2ProofRefSchema,
@@ -148,6 +153,7 @@ const RawSnapshotSchema = z
 type RawSnapshot = z.infer<typeof RawSnapshotSchema>;
 
 export interface OperationalOverviewProofBinding {
+  readonly componentSourceInspected: readonly OperationalOverviewComponentSourceInspection[];
   readonly sourceInspected: number;
 }
 
@@ -317,6 +323,18 @@ function assertSnapshot(
         row.item.component !==
         authorization.authorizedComponents[index]?.component
     ) ||
+    !sameCanonical(
+      snapshot.component_source_inspected,
+      snapshot.rows.map((row) => ({
+        component: row.item.component,
+        source_inspected: row.source_inspected,
+      }))
+    ) ||
+    snapshot.source_inspected !==
+      snapshot.component_source_inspected.reduce(
+        (total, inspection) => total + inspection.source_inspected,
+        0
+      ) ||
     (snapshot.rows.length === 0 &&
       (snapshot.source_revisions.length !== 0 ||
         snapshot.source_inspected !== 0))
@@ -330,7 +348,7 @@ function assertSnapshot(
   const context = operationalOverviewProofContext({
     authorization,
     readAt: snapshot.read_at,
-    sourceInspected: snapshot.source_inspected,
+    componentSourceInspected: snapshot.component_source_inspected,
   });
   const revisionByDomain = new Map<string, number>();
   for (const [index, row] of snapshot.rows.entries()) {
@@ -349,12 +367,14 @@ function assertSnapshot(
         operationalOverviewEntityProofRef({
           context,
           item: row.item,
+          sourceInspected: row.source_inspected,
           sourceRevisions: row.source_revisions,
         }) ||
       row.evidence_ref !==
         operationalOverviewEvidenceRef({
           context,
           component,
+          sourceInspected: row.source_inspected,
           sourceRevisions: row.source_revisions,
         }) ||
       component !== authorization.authorizedComponents[index]?.component
@@ -370,6 +390,7 @@ function assertSnapshot(
     component: row.item.component,
     proof_ref: row.proof_ref,
     evidence_ref: row.evidence_ref,
+    source_inspected: row.source_inspected,
     source_revisions: row.source_revisions,
   }));
   if (
@@ -408,7 +429,10 @@ function assertSnapshot(
   assertNoOperationalOverviewForbiddenFields(value);
   return deepFreeze({
     value,
-    proofBinding: { sourceInspected: snapshot.source_inspected },
+    proofBinding: {
+      componentSourceInspected: snapshot.component_source_inspected,
+      sourceInspected: snapshot.source_inspected,
+    },
   });
 }
 

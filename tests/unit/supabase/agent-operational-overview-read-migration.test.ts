@@ -144,6 +144,8 @@ describe("P2 operational-overview read migration", () => {
       "'component_authorization'",
       "'source_revisions', v_component_revisions",
       "'source_revisions', v_source_revisions",
+      "'component_source_inspected', v_component_source_inspected",
+      "'source_inspected', v_component_inspected",
       "'request_id', p_request_id",
       "private.canonical_agent_projection_json(",
       "'returned_count', pg_catalog.jsonb_array_length(v_rows)",
@@ -152,6 +154,20 @@ describe("P2 operational-overview read migration", () => {
       expect(COMPACT).toContain(expected);
     }
     expect(COMPACT).toContain("'source_inspected', v_source_inspected");
+    for (const cap of [
+      "when 'financial_attention' then 1000",
+      "when 'integration_attention' then 1000",
+      "when 'schedule_readiness' then 500",
+      "when 'stock_attention' then 2500",
+      "when 'unresolved_correspondence' then 4500",
+      "when 'work_due' then 4500",
+      "(v_purchase_overdue #>> '{source_inspected,orders}')::integer >= p_source_limit",
+      "(v_purchase_overdue #>> '{source_inspected,lines}')::integer >= p_source_limit",
+      "(v_purchase_due_soon #>> '{source_inspected,orders}')::integer >= p_source_limit",
+      "(v_purchase_due_soon #>> '{source_inspected,lines}')::integer >= p_source_limit",
+    ]) {
+      expect(COMPACT).toContain(cap);
+    }
     for (const exactVector of [
       "array[ 'expenses', 'legacy_operational', 'payments', 'sales_documents' ]::text[]",
       "array['company', 'integrations']::text[]",
@@ -198,6 +214,8 @@ describe("P2 operational-overview read migration", () => {
       "set_config('timezone','asia/kathmandu'",
       "agent_operational_overview_source_query_bound",
       "overview-runtime-explicit-denied",
+      "overview-runtime-purchase-orders-bound",
+      "overview-runtime-purchase-lines-bound",
       "rollback;",
     ]) {
       expect(RUNTIME.toLowerCase()).toContain(expected);

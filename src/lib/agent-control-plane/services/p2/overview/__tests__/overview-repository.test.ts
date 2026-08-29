@@ -80,7 +80,11 @@ describe("operational overview repository", () => {
     expect(result.value.collection_proof.source_revisions).toEqual(
       raw.source_revisions
     );
-    expect(result.proofBinding.sourceInspected).toBe(2);
+    expect(result.proofBinding.componentSourceInspected).toEqual([
+      { component: "integration_attention", source_inspected: 2 },
+      { component: "schedule_readiness", source_inspected: 1 },
+    ]);
+    expect(result.proofBinding.sourceInspected).toBe(3);
     expect(Object.isFrozen(result.value)).toBe(true);
     expect(isTrustedOperationalOverviewRepository(repository)).toBe(true);
   });
@@ -104,6 +108,7 @@ describe("operational overview repository", () => {
     expect(result.value.evidence).toEqual([]);
     expect(result.value.collection_proof.source_revisions).toEqual([]);
     expect(result.value.warnings).toHaveLength(6);
+    expect(result.proofBinding.componentSourceInspected).toEqual([]);
     expect(result.proofBinding.sourceInspected).toBe(0);
   });
 
@@ -157,6 +162,19 @@ describe("operational overview repository", () => {
       (value) => {
         value.source_inspected = -1;
       },
+      (value) => {
+        const rows = value.rows as Array<Record<string, unknown>>;
+        rows[0]!.source_inspected = Number.MAX_SAFE_INTEGER;
+      },
+      (value) => {
+        value.component_source_inspected = [
+          {
+            component: "integration_attention",
+            source_inspected: 1001,
+          },
+        ];
+        value.source_inspected = 1001;
+      },
     ];
 
     for (const mutate of mutations) {
@@ -169,6 +187,48 @@ describe("operational overview repository", () => {
         code: "OPERATIONAL_OVERVIEW_INVALID",
       });
     }
+  });
+
+  it("rejects equal-total inspection redistribution and authorization redistribution", async () => {
+    const authorization = await overviewAuthorization({
+      query: {
+        components: ["integration_attention", "schedule_readiness"],
+      },
+    });
+    const base = overviewRawSnapshot({ authorization });
+
+    const redistributedInspection = structuredClone(base);
+    redistributedInspection.rows[0]!.source_inspected = 1;
+    redistributedInspection.rows[1]!.source_inspected = 2;
+    redistributedInspection.component_source_inspected = [
+      { component: "integration_attention", source_inspected: 1 },
+      { component: "schedule_readiness", source_inspected: 2 },
+    ];
+    expect(redistributedInspection.source_inspected).toBe(
+      base.source_inspected
+    );
+    await expect(
+      createSupabaseOperationalOverviewRepository(
+        clientFor(redistributedInspection)
+      ).read({ authorization })
+    ).rejects.toMatchObject({ code: "OPERATIONAL_OVERVIEW_INVALID" });
+
+    const redistributedAuthorization = structuredClone(base);
+    const first = redistributedAuthorization.authorized_components[0]!;
+    const second = redistributedAuthorization.authorized_components[1]!;
+    redistributedAuthorization.authorized_components[0] = {
+      ...first,
+      resolved_permission_scopes: second.resolved_permission_scopes,
+    };
+    redistributedAuthorization.authorized_components[1] = {
+      ...second,
+      resolved_permission_scopes: first.resolved_permission_scopes,
+    };
+    await expect(
+      createSupabaseOperationalOverviewRepository(
+        clientFor(redistributedAuthorization)
+      ).read({ authorization })
+    ).rejects.toMatchObject({ code: "OPERATIONAL_OVERVIEW_INVALID" });
   });
 
   it("maps only fixed database bounds and invalid-source states", async () => {

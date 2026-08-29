@@ -3,10 +3,12 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import {
+  OperationalOverviewComponentSourceInspectionVectorSchema,
   OperationalOverviewComponentItemSchema,
   OperationalOverviewRevisionVectorSchema,
   type OperationalOverviewComponent,
   type OperationalOverviewComponentItem,
+  type OperationalOverviewComponentSourceInspection,
   type OperationalOverviewRevision,
 } from "@/lib/agent-control-plane/contracts/operational-overview";
 import { P2CanonicalTimestampSchema } from "@/lib/agent-control-plane/contracts/p2-common";
@@ -42,6 +44,7 @@ export interface OperationalOverviewProofContext {
   }>[];
   readonly warnings: AuthorizedOperationalOverviewRead["warnings"];
   readonly read_at: string;
+  readonly component_source_inspected: readonly OperationalOverviewComponentSourceInspection[];
   readonly source_inspected: number;
 }
 
@@ -49,6 +52,7 @@ export interface OperationalOverviewProofChild {
   readonly component: OperationalOverviewComponent;
   readonly proof_ref: string;
   readonly evidence_ref: string;
+  readonly source_inspected: number;
   readonly source_revisions: readonly OperationalOverviewRevision[];
 }
 
@@ -94,20 +98,69 @@ function componentAuthorization(
   return authorization;
 }
 
+function componentInspection(
+  context: OperationalOverviewProofContext,
+  component: OperationalOverviewComponent
+) {
+  const inspection = context.component_source_inspected.find(
+    (candidate) => candidate.component === component
+  );
+  if (!inspection) {
+    throw new TypeError("OPERATIONAL_OVERVIEW_SOURCE_INSPECTION_INVALID");
+  }
+  return inspection;
+}
+
+function requestProofIdentity(context: OperationalOverviewProofContext) {
+  return {
+    request_id: context.request_id,
+    company_id: context.company_id,
+    actor_user_id: context.actor_user_id,
+    oauth_grant_id: context.oauth_grant_id,
+    oauth_client_id: context.oauth_client_id,
+    grant_revision: context.grant_revision,
+    granted_scope_ceiling: context.granted_scope_ceiling,
+    permission_snapshot_revision: context.permission_snapshot_revision,
+    capability_id: context.capability_id,
+    capability_revision: context.capability_revision,
+    capability_manifest_revision: context.capability_manifest_revision,
+    read_at: context.read_at,
+  } as const;
+}
+
 export function operationalOverviewProofContext(input: {
   readonly authorization: AuthorizedOperationalOverviewRead;
   readonly readAt: string;
-  readonly sourceInspected: number;
+  readonly componentSourceInspected: readonly OperationalOverviewComponentSourceInspection[];
 }): OperationalOverviewProofContext {
   if (!isAuthorizedOperationalOverviewRead(input.authorization)) {
     throw new TypeError("OPERATIONAL_OVERVIEW_AUTHORIZATION_INVALID");
   }
   const readAt = P2CanonicalTimestampSchema.parse(input.readAt);
+  let componentSourceInspected: readonly OperationalOverviewComponentSourceInspection[];
+  try {
+    componentSourceInspected =
+      OperationalOverviewComponentSourceInspectionVectorSchema.parse(
+        input.componentSourceInspected
+      );
+  } catch {
+    throw new TypeError("OPERATIONAL_OVERVIEW_SOURCE_INSPECTION_INVALID");
+  }
+  const expectedComponents = input.authorization.authorizedComponents.map(
+    (component) => component.component
+  );
+  const inspectedComponents = componentSourceInspected.map(
+    (inspection) => inspection.component
+  );
+  const sourceInspected = componentSourceInspected.reduce(
+    (total, inspection) => total + inspection.source_inspected,
+    0
+  );
   if (
-    !Number.isSafeInteger(input.sourceInspected) ||
-    input.sourceInspected < 0 ||
-    (input.authorization.authorizedComponents.length === 0 &&
-      input.sourceInspected !== 0)
+    JSON.stringify(inspectedComponents) !==
+      JSON.stringify(expectedComponents) ||
+    !Number.isSafeInteger(sourceInspected) ||
+    sourceInspected < 0
   ) {
     throw new TypeError("OPERATIONAL_OVERVIEW_SOURCE_INSPECTION_INVALID");
   }
@@ -141,22 +194,31 @@ export function operationalOverviewProofContext(input: {
     ),
     warnings: input.authorization.warnings.map((warning) => ({ ...warning })),
     read_at: readAt,
-    source_inspected: input.sourceInspected,
+    component_source_inspected: componentSourceInspected.map((inspection) => ({
+      ...inspection,
+    })),
+    source_inspected: sourceInspected,
   });
 }
 
 export function operationalOverviewEntityProofRef(input: {
   readonly context: OperationalOverviewProofContext;
   readonly item: OperationalOverviewComponentItem;
+  readonly sourceInspected: number;
   readonly sourceRevisions: readonly OperationalOverviewRevision[];
 }) {
   const item = OperationalOverviewComponentItemSchema.parse(input.item);
   const authorization = componentAuthorization(input.context, item.component);
+  const inspection = componentInspection(input.context, item.component);
   const sourceRevisions = exactItemRevisions(input.sourceRevisions);
+  if (input.sourceInspected !== inspection.source_inspected) {
+    throw new TypeError("OPERATIONAL_OVERVIEW_SOURCE_INSPECTION_INVALID");
+  }
   return proofRef({
-    ...input.context,
+    ...requestProofIdentity(input.context),
     proof_kind: "operational_overview_entity",
     component_authorization: authorization,
+    source_inspected: inspection.source_inspected,
     source_revisions: sourceRevisions,
     item,
   });
@@ -165,14 +227,20 @@ export function operationalOverviewEntityProofRef(input: {
 export function operationalOverviewEvidenceRef(input: {
   readonly context: OperationalOverviewProofContext;
   readonly component: OperationalOverviewComponent;
+  readonly sourceInspected: number;
   readonly sourceRevisions: readonly OperationalOverviewRevision[];
 }) {
   const authorization = componentAuthorization(input.context, input.component);
+  const inspection = componentInspection(input.context, input.component);
   const sourceRevisions = exactItemRevisions(input.sourceRevisions);
+  if (input.sourceInspected !== inspection.source_inspected) {
+    throw new TypeError("OPERATIONAL_OVERVIEW_SOURCE_INSPECTION_INVALID");
+  }
   return evidenceRef({
-    ...input.context,
+    ...requestProofIdentity(input.context),
     proof_kind: "operational_overview_evidence",
     component_authorization: authorization,
+    source_inspected: inspection.source_inspected,
     source_revisions: sourceRevisions,
   });
 }
@@ -193,6 +261,8 @@ export function operationalOverviewCollectionProofRef(input: {
     input.children.some(
       (child, index) =>
         child.component !== authorizedComponents[index] ||
+        child.source_inspected !==
+          input.context.component_source_inspected[index]?.source_inspected ||
         !P2ProofRefSchema.safeParse(child.proof_ref).success ||
         !P2EvidenceRefSchema.safeParse(child.evidence_ref).success ||
         exactItemRevisions(child.source_revisions).length === 0
@@ -219,7 +289,12 @@ export function operationalOverviewCollectionProofRef(input: {
   }
 
   return proofRef({
-    ...input.context,
+    ...requestProofIdentity(input.context),
+    selections: input.context.selections,
+    authorized_components: input.context.authorized_components,
+    warnings: input.context.warnings,
+    component_source_inspected: input.context.component_source_inspected,
+    source_inspected: input.context.source_inspected,
     proof_kind: "operational_overview_collection",
     source_revisions: sourceRevisions,
     returned_count: input.children.length,

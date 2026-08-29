@@ -114,7 +114,7 @@ function validateResult(input: {
   const context = operationalOverviewProofContext({
     authorization: input.authorization,
     readAt: value.collection_proof.read_at,
-    sourceInspected: input.proofBinding.sourceInspected,
+    componentSourceInspected: input.proofBinding.componentSourceInspected,
   });
   const children = value.items.map((item, index) => {
     const proof = value.item_proofs[index]!;
@@ -124,12 +124,18 @@ function validateResult(input: {
         operationalOverviewEntityProofRef({
           context,
           item,
+          sourceInspected:
+            input.proofBinding.componentSourceInspected[index]!
+              .source_inspected,
           sourceRevisions: proof.source_revisions,
         }) ||
       evidence.evidence_ref !==
         operationalOverviewEvidenceRef({
           context,
           component: item.component,
+          sourceInspected:
+            input.proofBinding.componentSourceInspected[index]!
+              .source_inspected,
           sourceRevisions: proof.source_revisions,
         })
     ) {
@@ -139,6 +145,8 @@ function validateResult(input: {
       component: item.component,
       proof_ref: proof.proof_ref,
       evidence_ref: evidence.evidence_ref,
+      source_inspected:
+        input.proofBinding.componentSourceInspected[index]!.source_inspected,
       source_revisions: proof.source_revisions,
     };
   });

@@ -56,7 +56,9 @@ create table private.mcp_oauth_grants (
 create table private.test_operational_overview_control (
   singleton boolean primary key default true check (singleton),
   force_bound boolean not null default false,
-  force_invalid boolean not null default false
+  force_invalid boolean not null default false,
+  purchase_orders_inspected integer not null default 2,
+  purchase_lines_inspected integer not null default 3
 );
 insert into private.test_operational_overview_control(singleton) values (true);
 
@@ -316,7 +318,15 @@ as $$
       )
     ),
     'source_inspected', pg_catalog.jsonb_build_object(
-      'orders',2,'lines',3,'catalog_costs',0
+      'orders',(
+        select control.purchase_orders_inspected
+        from private.test_operational_overview_control control
+      ),
+      'lines',(
+        select control.purchase_lines_inspected
+        from private.test_operational_overview_control control
+      ),
+      'catalog_costs',0
     ),
     'has_more', false,
     'items', case when $10 = 'overdue'
@@ -664,6 +674,7 @@ declare
   v_result jsonb;
   v_second jsonb;
   v_context jsonb;
+  v_request_context jsonb;
   v_children jsonb;
   v_expected_ref text;
   v_row jsonb;
@@ -715,6 +726,13 @@ begin
   if pg_catalog.jsonb_array_length(v_result -> 'rows') <> 6
      or v_result -> 'warnings' <> '[]'::jsonb
      or (v_result ->> 'source_inspected')::integer <> 61
+     or v_result #>> '{component_source_inspected,0,component}' <>
+          'financial_attention'
+     or v_result #>> '{component_source_inspected,0,source_inspected}' <> '10'
+     or v_result #>> '{component_source_inspected,5,component}' <> 'work_due'
+     or v_result #>> '{component_source_inspected,5,source_inspected}' <> '5'
+     or v_result #>> '{rows,0,source_inspected}' <> '10'
+     or v_result #>> '{rows,3,source_inspected}' <> '40'
      or v_result #>> '{rows,0,item,component}' <> 'financial_attention'
      or v_result #>> '{rows,0,item,attention_count}' <> '5'
      or v_result #>> '{rows,0,item,count_state}' <> 'exact'
@@ -754,6 +772,7 @@ begin
                'component',row.value #>> '{item,component}',
                'proof_ref',row.value -> 'proof_ref',
                'evidence_ref',row.value -> 'evidence_ref',
+               'source_inspected',row.value -> 'source_inspected',
                'source_revisions',row.value -> 'source_revisions'
              ) order by row.ordinality
            ),
@@ -775,6 +794,10 @@ begin
   if v_result ->> 'collection_proof_ref' is distinct from v_expected_ref then
     raise exception 'agent_operational_overview_runtime_failed: collection_hash';
   end if;
+  v_request_context := v_context - array[
+    'selections','authorized_components','warnings',
+    'component_source_inspected','source_inspected'
+  ];
 
   for v_row in
     select row.value
@@ -788,9 +811,10 @@ begin
           v_row #>> '{item,component}';
     v_expected_ref := private.agent_p2_operational_overview_hash_ref_v1(
       'ops_proof:v1:',
-      v_context || pg_catalog.jsonb_build_object(
+      v_request_context || pg_catalog.jsonb_build_object(
         'proof_kind','operational_overview_entity',
         'component_authorization',v_authorization,
+        'source_inspected',v_row -> 'source_inspected',
         'source_revisions',v_row -> 'source_revisions',
         'item',v_row -> 'item'
       )
@@ -826,6 +850,7 @@ begin
   );
   if v_result -> 'rows' <> '[]'::jsonb
      or v_result -> 'source_revisions' <> '[]'::jsonb
+     or v_result -> 'component_source_inspected' <> '[]'::jsonb
      or v_result ->> 'source_inspected' <> '0'
      or pg_catalog.jsonb_array_length(v_result -> 'warnings') <> 6
      or v_result ->> 'collection_proof_ref' !~
@@ -878,6 +903,39 @@ begin
   end;
   update private.test_operational_overview_control
     set force_invalid = false;
+
+  update private.test_operational_overview_control
+    set purchase_orders_inspected = 501;
+  begin
+    perform private.test_operational_overview_call(
+      'overview-runtime-purchase-orders-bound',
+      '11111111-1111-4111-8111-111111111111',
+      '44444444-4444-4444-8444-444444444444',
+      pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+        'component','stock_attention','origin','explicit'
+      ))
+    );
+    raise exception 'agent_operational_overview_runtime_failed: purchase_orders_allowed';
+  exception when sqlstate '22000' then
+    if sqlerrm <> 'agent_operational_overview_source_data_invalid' then raise; end if;
+  end;
+  update private.test_operational_overview_control
+    set purchase_orders_inspected = 2,purchase_lines_inspected = 501;
+  begin
+    perform private.test_operational_overview_call(
+      'overview-runtime-purchase-lines-bound',
+      '11111111-1111-4111-8111-111111111111',
+      '44444444-4444-4444-8444-444444444444',
+      pg_catalog.jsonb_build_array(pg_catalog.jsonb_build_object(
+        'component','stock_attention','origin','explicit'
+      ))
+    );
+    raise exception 'agent_operational_overview_runtime_failed: purchase_lines_allowed';
+  exception when sqlstate '22000' then
+    if sqlerrm <> 'agent_operational_overview_source_data_invalid' then raise; end if;
+  end;
+  update private.test_operational_overview_control
+    set purchase_lines_inspected = 3;
 
   perform pg_catalog.set_config('request.jwt.claim.role','authenticated',true);
   begin
