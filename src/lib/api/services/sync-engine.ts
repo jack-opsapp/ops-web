@@ -194,6 +194,108 @@ export interface SyncCycleResult {
   errors: string[];
 }
 
+/**
+ * How many extra bounded incremental passes one cycle may spend catching up to
+ * a webhook-advertised position before it hands the remainder back to the
+ * scheduler. In practice one pass suffices — a fresh `history.list` read returns
+ * the mailbox's current historyId, which is by definition at or beyond anything
+ * a prior push advertised — so this budget exists to bound the pathological
+ * case (mail arriving faster than a pass can walk it), never the normal one.
+ */
+const WEBHOOK_HIGH_WATER_MAX_DRAIN_PASSES = 3;
+
+/**
+ * Gmail historyIds are uint64 decimal strings. They routinely outgrow the
+ * exact-integer range of a JS number, and they cross digit-width boundaries
+ * constantly, so neither `Number()` nor a plain string compare is safe.
+ * Anything that is not a bounded run of digits is not a historyId at all.
+ */
+const GMAIL_HISTORY_ID_PATTERN = /^[0-9]{1,32}$/;
+
+function normalizedGmailHistoryId(
+  value: string | null | undefined
+): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!GMAIL_HISTORY_ID_PATTERN.test(trimmed)) return null;
+  // Strip leading zeros so magnitude comparison can go by digit count first.
+  return trimmed.replace(/^0+(?=[0-9])/, "");
+}
+
+function compareGmailHistoryIds(left: string, right: string): number {
+  if (left.length !== right.length) return left.length < right.length ? -1 : 1;
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+export type WebhookHighWaterDrainDecision = {
+  action: "complete" | "drain" | "exhausted";
+};
+
+/**
+ * Decide whether a finished Gmail incremental pass may report the mailbox
+ * complete, owes another bounded drain pass, or has spent its budget while
+ * still behind the last position a provider push advertised (bug 86c758b1).
+ *
+ * Fails open in every ambiguous case. A high-water mark is advisory
+ * observability written by a webhook, never a cursor: reading it can only ever
+ * ADD a bounded fetch, so an absent, malformed, or out-of-range value must
+ * degrade to today's behaviour rather than hold the mailbox open. The one thing
+ * it must never do is let a pass that is knowably behind claim completion.
+ */
+export function decideWebhookHighWaterDrain(input: {
+  /** The plain historyId the pass settled on, or null when it produced a
+   * structured continuation cursor (already continuation-pending on its own). */
+  passHistoryId: string | null;
+  /** The highest historyId any push has advertised for this connection. */
+  highWaterHistoryId: string | null | undefined;
+  /** Extra drain passes already spent this cycle. */
+  passesRun: number;
+  maxPasses?: number;
+}): WebhookHighWaterDrainDecision {
+  const pass = normalizedGmailHistoryId(input.passHistoryId);
+  const highWater = normalizedGmailHistoryId(input.highWaterHistoryId);
+  if (!pass || !highWater) return { action: "complete" };
+  if (compareGmailHistoryIds(highWater, pass) <= 0) {
+    return { action: "complete" };
+  }
+
+  const maxPasses = input.maxPasses ?? WEBHOOK_HIGH_WATER_MAX_DRAIN_PASSES;
+  return input.passesRun < maxPasses
+    ? { action: "drain" }
+    : { action: "exhausted" };
+}
+
+/**
+ * Read the highest historyId a provider push has advertised for this
+ * connection, or null when none has (or the read fails).
+ *
+ * Deliberately non-fatal in every failure mode, including a missing column: the
+ * mark is advisory, so a build running ahead of its migration must degrade to
+ * the pre-existing behaviour rather than fail a mailbox sync. PostgREST reports
+ * an unknown column through `{ error }` rather than by throwing, so this
+ * destructures it explicitly.
+ */
+async function readWebhookHistoryHighWater(
+  connectionId: string
+): Promise<string | null> {
+  const { data, error } = await requireSupabase()
+    .from("email_connections")
+    .select("webhook_history_high_water")
+    .eq("id", connectionId)
+    .maybeSingle();
+  if (error) {
+    console.error(
+      "[sync-engine] webhook high-water read failed (non-fatal):",
+      connectionId,
+      error.message
+    );
+    return null;
+  }
+  const highWater = (data as { webhook_history_high_water?: unknown } | null)
+    ?.webhook_history_high_water;
+  return typeof highWater === "string" ? highWater : null;
+}
+
 /** A semantic opportunity write failed, so the provider cursor must not move. */
 class LifecyclePersistenceError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -5985,6 +6087,94 @@ export const SyncEngine = {
           }
         }
 
+      // ── Webhook high-water drain (86c758b1) ──────────────────────────────
+      //
+      // A Gmail push advertises the mailbox historyId at the moment mail
+      // landed, and the webhook route now records it as a monotone high-water
+      // mark. When a push arrives while this pass holds the mailbox lease — the
+      // common case during a burst — its manual sync is rejected and that
+      // position exists nowhere else. Finishing the pass at a lower historyId
+      // and declaring the mailbox complete leaves the newer mail invisible
+      // until the next cron interval.
+      //
+      // So: if the mark is ahead of where this pass landed, keep walking. Each
+      // drain pass is the provider's own bounded incremental fetch — the same
+      // pagination, page caps, and continuation cursor the main pass used — and
+      // its mail joins this cycle's discovery below, so nothing is processed
+      // twice or on a second code path. One pass is normally enough (a fresh
+      // history read returns the mailbox's current historyId), so the budget is
+      // purely a bound on the pathological case.
+      //
+      // Every ambiguity fails open to today's behaviour. The one outcome that
+      // is not allowed is a pass that knows it is behind reporting completion:
+      // that is the bug. When the budget runs out the cycle persists a
+      // checkpoint instead, which leaves `last_synced_at` unadvanced and the
+      // provider snapshot marked incomplete, so the remainder is handed back to
+      // the scheduler rather than silently forgotten.
+      let webhookDrainPending = false;
+      if (
+        provider.providerType === "gmail" &&
+        !mailboxReconciliation &&
+        // A structured continuation is already pending on its own terms; the
+        // scheduler re-drives it next tick without any help from the mark.
+        !isProviderSyncContinuationPending(inboxResult.nextSyncToken)
+      ) {
+        const webhookHighWater =
+          await readWebhookHistoryHighWater(connectionId);
+        const drainedEmails: NormalizedEmail[] = [];
+        let drainPassesRun = 0;
+        let drainToken = inboxResult.nextSyncToken;
+
+        for (;;) {
+          const decision = decideWebhookHighWaterDrain({
+            passHistoryId: drainToken,
+            highWaterHistoryId: webhookHighWater,
+            passesRun: drainPassesRun,
+          });
+          if (decision.action === "complete") break;
+          if (decision.action === "exhausted") {
+            webhookDrainPending = true;
+            break;
+          }
+
+          let drainResult: SyncResult;
+          try {
+            drainResult = await provider.fetchNewEmailsSince(drainToken);
+          } catch (drainError) {
+            // The main pass already succeeded and its mail must still land.
+            // Abandon the drain, keep the last token the provider actually
+            // returned (so the cursor never advances past unfetched mail), and
+            // report the mailbox as still owing work. Deliberately no
+            // reconnect marking here: an auth or scope failure is diagnosed and
+            // marked by the main fetch path on the next cycle, and a transient
+            // blip must not be able to disconnect a mailbox from a best-effort
+            // catch-up pass.
+            webhookDrainPending = true;
+            console.error(
+              "[sync-engine] webhook high-water drain pass failed (non-fatal):",
+              connectionId,
+              drainError instanceof Error ? drainError.message : drainError
+            );
+            break;
+          }
+
+          drainPassesRun += 1;
+          drainedEmails.push(...drainResult.emails);
+          drainToken = drainResult.nextSyncToken;
+          await renewSyncLeaseIfNeeded();
+
+          if (isProviderSyncContinuationPending(drainToken)) break;
+        }
+
+        if (drainPassesRun > 0) {
+          inboxResult = {
+            ...inboxResult,
+            emails: [...inboxResult.emails, ...drainedEmails],
+            nextSyncToken: drainToken,
+          };
+        }
+      }
+
       // Discovery buckets are not authoritative direction. Gmail labels can
       // overlap and aliases/forwarding can surface operator-authored messages in
       // an INBOX history result. Dedupe across both provider reads, then retain
@@ -6055,14 +6245,23 @@ export const SyncEngine = {
           pendingLeadSummaryOpportunityIds,
           pendingLeadSummaryAttempts,
         });
-        result.continuationPending = isEmailSyncContinuationPending(historyId);
+        // A pass that ran out of drain budget while still behind the webhook
+        // high-water has NOT caught the mailbox up, whatever its cursor says.
+        // It records a checkpoint rather than a completion: `last_synced_at`
+        // stays where it was, the provider snapshot is not marked current, and
+        // the connection stays visibly behind instead of quietly claiming to be
+        // finished. Derived summary bookkeeping is untouched — with no drain
+        // pending this collapses to exactly the previous expression.
+        result.continuationPending =
+          isEmailSyncContinuationPending(historyId) || webhookDrainPending;
         if (result.continuationPending) {
           await persistEmailConnectionSyncCheckpoint({
             connectionId,
             ownerId: syncLockOwner,
             historyId,
             providerSnapshotComplete:
-              !isProviderSyncContinuationPending(historyId),
+              !isProviderSyncContinuationPending(historyId) &&
+              !webhookDrainPending,
             clearRecovery: gmailRecoveryCheckpoint !== null,
             context: SYNC_LOCK_CONTEXT,
           });
