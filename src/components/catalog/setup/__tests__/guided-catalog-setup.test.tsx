@@ -972,6 +972,14 @@ describe("GuidedCatalogSetup", () => {
 
     const toggle = screen.getByRole("button", { name: /options/i });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    // DESIGN.md §9: Cake Mono uppercase is reserved for the compact
+    // disclosure label; §4: the count is a number, so it stays mono.
+    expect(toggle).toHaveClass("font-cakemono", "text-cake-badge", "uppercase");
+    expect(toggle).not.toHaveClass("font-mono", "text-micro");
+    const optionCount = toggle.querySelector(".font-mono");
+    expect(optionCount).not.toBeNull();
+    expect(optionCount).toHaveClass("tabular-nums");
+    expect(optionCount?.textContent).toContain("3");
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     await waitFor(() => {
@@ -1458,6 +1466,11 @@ describe("GuidedCatalogSetup", () => {
       "!min-h-control-32"
     );
     expect(field).not.toHaveClass("bg-glass-fill");
+    // DESIGN.md §9: the entry field is a 32px one-line dock. OPS overrides
+    // Tailwind's numeric spacing scale (8 = 64px), so the height cap must
+    // come from the control token, never a numeric utility.
+    expect(field).toHaveClass("max-h-control-32");
+    expect(field).not.toHaveClass("max-h-8");
     expect(field).toHaveAttribute("placeholder", "Type your answer");
     expect(screen.getByTestId("guided-catalog-composer")).toHaveClass(
       "rounded",
