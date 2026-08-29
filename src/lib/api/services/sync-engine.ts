@@ -4139,7 +4139,12 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       input.connection,
       input.profile,
       await getCachedOperatorIdentity(input.connection)
-    )
+    ),
+    // Stage B reads full provider threads; hand it the lease this sync owns.
+    {
+      supabase: requireSupabase(),
+      providerLockCheckpoint: input.providerLockCheckpoint,
+    }
   );
 
   // Safety net: an unmatched inbound the reviewer neither promoted nor

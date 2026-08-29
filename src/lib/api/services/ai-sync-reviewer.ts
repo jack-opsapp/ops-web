@@ -11,7 +11,11 @@ import {
   coerceAIStageForOpportunityPersistence,
   type AIClassifiedActiveStage,
   type AITerminalReviewFlag,
+  type ClassificationResult,
+  type ThreadContextReclassificationInput,
+  type ThreadContextReclassificationResult,
 } from "./email-ai-classifier";
+import { cleanMessageBody } from "./conversation-state/message-cleaner";
 import { EmailService } from "./email-service";
 import { getSyncOpenAI } from "./openai-clients";
 import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
@@ -148,6 +152,219 @@ function emptyReviewResult(): AIReviewResult {
   };
 }
 
+// ─── Stage B: full-thread-context lead verification ──────────────────────────
+//
+// Bug d1eaebe1. The ongoing-sync lead lane judged each unmatched inbound in
+// isolation — subject plus one capped body. The company's OWN landlord writing
+// "the door was left open today" therefore became a CUSTOMER lead at 1.00
+// confidence: every operator reply that made the relationship obvious was
+// invisible to the model.
+//
+// Stage B re-reads the whole provider thread — including the company's outbound
+// messages — for any Stage-A "lead", and can return `personal_or_admin`: mail
+// about RUNNING the company, not about selling work.
+
+/** Verdicts below this stay a silent non-lead — today's floor, now logged. */
+const BORDERLINE_REVIEW_FLOOR = 0.5;
+
+/**
+ * Confidence ceiling for a Stage-A "lead" whose thread could NOT be verified.
+ * Deliberately below the 0.7 default threshold: an unverified single-message
+ * lead may no longer auto-create a client — it falls into the review band.
+ */
+const UNVERIFIED_LEAD_CONFIDENCE_CEILING = 0.69;
+
+/** Newest-biased context window: the opening message plus the last five. */
+const THREAD_CONTEXT_RECENT_MESSAGES = 5;
+const THREAD_CONTEXT_WINDOW = THREAD_CONTEXT_RECENT_MESSAGES + 1;
+const THREAD_CONTEXT_BODY_CHARS = 700;
+const THREAD_CONTEXT_MAX_PARTICIPANTS = 6;
+
+function threadContextBody(message: NormalizedEmail): string {
+  const raw = message.bodyText || message.snippet || "";
+  const cleaned = cleanMessageBody(raw, {
+    subject: message.subject,
+    providerCleanBody: message.bodyTextClean ?? null,
+  });
+  return (cleaned || raw).slice(0, THREAD_CONTEXT_BODY_CHARS);
+}
+
+/** Newest-biased slice: the first message plus the most recent five. */
+function threadContextWindow(messages: NormalizedEmail[]): NormalizedEmail[] {
+  const ordered = [...messages].sort(
+    (left, right) => left.date.getTime() - right.date.getTime()
+  );
+  if (ordered.length <= THREAD_CONTEXT_WINDOW) return ordered;
+  return [ordered[0], ...ordered.slice(-THREAD_CONTEXT_RECENT_MESSAGES)];
+}
+
+async function applyThreadContextReclassification(input: {
+  classifications: ClassificationResult[];
+  emails: NormalizedEmail[];
+  connection: EmailConnection;
+  context: {
+    companyName: string;
+    industry: string;
+    ownerEmail: string;
+    companyDomains: string[];
+  };
+  operator: IngestionOperatorIdentity;
+  openaiClient: import("openai").default;
+  mailboxOperation: {
+    supabase?: SupabaseClient;
+    providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
+  };
+}): Promise<ClassificationResult[]> {
+  const leadIndexes: number[] = [];
+  input.classifications.forEach((classification, index) => {
+    if (classification.verdict === "lead") leadIndexes.push(index);
+  });
+  if (leadIndexes.length === 0) return input.classifications;
+
+  // Reading a provider thread requires the mailbox lease. A caller that owns
+  // neither the lease checkpoint nor a client must never acquire one behind the
+  // running sync's back, so Stage A stands exactly as it did before this pass.
+  if (
+    !input.mailboxOperation.providerLockCheckpoint &&
+    !input.mailboxOperation.supabase
+  ) {
+    return input.classifications;
+  }
+
+  const threadIds = [
+    ...new Set(
+      leadIndexes
+        .map((index) => input.emails[index].threadId)
+        .filter((threadId) => typeof threadId === "string" && threadId.trim())
+    ),
+  ];
+
+  const messagesByThreadId = new Map<string, NormalizedEmail[]>();
+  let providerFailed = false;
+  if (threadIds.length > 0) {
+    try {
+      await runEmailProviderMailboxOperation({
+        supabase: input.mailboxOperation.supabase,
+        connectionId: input.connection.id,
+        context: "ai-sync-lead-thread-context",
+        busyError: "AI_SYNC_REVIEW_MAILBOX_BUSY",
+        providerLockCheckpoint: input.mailboxOperation.providerLockCheckpoint,
+        run: async (checkpoint) => {
+          const provider = EmailService.getProvider(input.connection);
+          for (const threadId of threadIds) {
+            await checkpoint();
+            messagesByThreadId.set(
+              threadId,
+              await provider.fetchThread(threadId)
+            );
+            await checkpoint();
+          }
+        },
+      });
+    } catch (err) {
+      providerFailed = true;
+      console.error(
+        "[ai-sync-reviewer] thread-context fetch failed; unverified leads capped:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
+  // Every lead that Stage B could not verify keeps its verdict but loses the
+  // confidence to auto-create on its own.
+  const capped = new Set<number>(providerFailed ? leadIndexes : []);
+  const items: ThreadContextReclassificationInput[] = [];
+  const indexById = new Map<string, number>();
+
+  if (!providerFailed) {
+    for (const index of leadIndexes) {
+      const email = input.emails[index];
+      const messages = messagesByThreadId.get(email.threadId) ?? [];
+      // A single-message thread carries nothing Stage A did not already see.
+      if (messages.length <= 1) continue;
+      indexById.set(email.id, index);
+      items.push({
+        id: email.id,
+        subj: email.subject,
+        participants: [...new Set([email.from, ...email.to])].slice(
+          0,
+          THREAD_CONTEXT_MAX_PARTICIPANTS
+        ),
+        msgs: threadContextWindow(messages).map((message) => ({
+          dir:
+            resolvePersistedEmailAuthorship(message, input.operator)
+              .direction === "outbound"
+              ? ("YOU" as const)
+              : ("THEM" as const),
+          from: message.from,
+          date: message.date.toISOString(),
+          body: threadContextBody(message),
+        })),
+      });
+    }
+  }
+
+  const verified = new Map<number, ThreadContextReclassificationResult>();
+  if (items.length > 0) {
+    try {
+      const results = await EmailAIClassifier.reclassifyWithThreadContext(
+        items,
+        input.context,
+        input.openaiClient
+      );
+      const resultById = new Map(results.map((result) => [result.id, result]));
+      for (const item of items) {
+        const index = indexById.get(item.id);
+        if (index === undefined) continue;
+        const result = resultById.get(item.id);
+        if (!result) {
+          capped.add(index);
+          continue;
+        }
+        verified.set(index, result);
+      }
+    } catch (err) {
+      for (const index of indexById.values()) capped.add(index);
+      console.error(
+        "[ai-sync-reviewer] thread-context reclassification failed; unverified leads capped:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
+  return input.classifications.map((classification, index) => {
+    const result = verified.get(index);
+    if (result) {
+      // `personal_or_admin` is not-a-lead downstream, exactly like `skip`.
+      const verdict: ClassificationResult["verdict"] =
+        result.verdict === "lead"
+          ? "lead"
+          : result.verdict === "biz"
+            ? "biz"
+            : "skip";
+      if (verdict !== classification.verdict) {
+        console.log("[ai-sync-reviewer] thread-context-verdict-changed", {
+          messageId: classification.id,
+          from: classification.verdict,
+          to: result.verdict,
+          confidence: result.confidence,
+        });
+      }
+      return { ...classification, verdict, confidence: result.confidence };
+    }
+    if (capped.has(index)) {
+      return {
+        ...classification,
+        confidence: Math.min(
+          classification.confidence,
+          UNVERIFIED_LEAD_CONFIDENCE_CEILING
+        ),
+      };
+    }
+    return classification;
+  });
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export const AISyncReviewer = {
@@ -160,7 +377,16 @@ export const AISyncReviewer = {
     unmatchedEmails: NormalizedEmail[],
     connection: EmailConnection,
     companyContext: { name: string; industry: string; domains: string[] },
-    authoritativeOperator?: IngestionOperatorIdentity
+    authoritativeOperator?: IngestionOperatorIdentity,
+    /**
+     * The running sync's mailbox lease. Stage B reads full provider threads,
+     * which requires it; without a lease context Stage B is skipped entirely
+     * rather than acquiring one behind the caller's back.
+     */
+    mailboxOperation: {
+      supabase?: SupabaseClient;
+      providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
+    } = {}
   ): Promise<AIReviewResult> {
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       connection.companyId,
@@ -185,6 +411,13 @@ export const AISyncReviewer = {
       sourceEmailById.set(sourceEmail.id, sourceEmail);
     }
 
+    const operatorIdentity: IngestionOperatorIdentity = authoritativeOperator ?? {
+      connectionEmail: connection.email,
+      companyDomains:
+        connection.syncFilters?.companyDomains ?? companyContext.domains,
+      userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
+    };
+
     const classificationInputs = unmatchedEmails.map((e) => ({
       id: e.id,
       threadId: e.threadId,
@@ -196,15 +429,7 @@ export const AISyncReviewer = {
       // it is capped to 1500 chars inside classifySingleBatch.
       body: e.bodyTextClean || e.bodyText || e.snippet,
       date: e.date.toISOString(),
-      direction: resolvePersistedEmailAuthorship(
-        e,
-        authoritativeOperator ?? {
-          connectionEmail: connection.email,
-          companyDomains:
-            connection.syncFilters?.companyDomains ?? companyContext.domains,
-          userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
-        }
-      ).direction,
+      direction: resolvePersistedEmailAuthorship(e, operatorIdentity).direction,
     }));
     const classifications = await EmailAIClassifier.classifyBatch(
       classificationInputs,
@@ -235,7 +460,7 @@ export const AISyncReviewer = {
       classificationById.set(classification.id, classification);
     }
 
-    const orderedClassifications = unmatchedEmails.map((sourceEmail) => {
+    const stageAClassifications = unmatchedEmails.map((sourceEmail) => {
       const classification = classificationById.get(sourceEmail.id);
       if (!classification) {
         throw new Error(
@@ -243,6 +468,24 @@ export const AISyncReviewer = {
         );
       }
       return classification;
+    });
+
+    // Stage B — re-judge every "lead" with the FULL thread, the company's own
+    // replies included. This is what separates a customer from the company's
+    // own landlord, bank, or insurer.
+    const orderedClassifications = await applyThreadContextReclassification({
+      classifications: stageAClassifications,
+      emails: unmatchedEmails,
+      connection,
+      context: {
+        companyName: companyContext.name,
+        industry: companyContext.industry,
+        ownerEmail: connection.email,
+        companyDomains: companyContext.domains,
+      },
+      operator: operatorIdentity,
+      openaiClient: syncClient,
+      mailboxOperation,
     });
 
     const baselines: LeadFeedbackBaseline[] = orderedClassifications.map(
@@ -271,8 +514,42 @@ export const AISyncReviewer = {
       );
     }
 
+    // The borderline band. Jackson's optimistic bias stands: an above-threshold
+    // lead still auto-creates. What used to vanish in silence — a "lead" the
+    // prior scored between the review floor and the threshold — now goes to a
+    // human instead of being discarded with only a log line.
+    const effectiveDecisions = priorDecisions.map((decision, index) => {
+      if (
+        decision.outcome !== "not_lead" ||
+        orderedClassifications[index].verdict !== "lead"
+      ) {
+        return decision;
+      }
+      if (
+        decision.adjustedLeadScore >= BORDERLINE_REVIEW_FLOOR &&
+        decision.adjustedLeadScore < threshold
+      ) {
+        console.log("[ai-sync-reviewer] borderline-lead-deferred", {
+          messageId: orderedClassifications[index].id,
+          adjustedLeadScore: decision.adjustedLeadScore,
+          threshold,
+        });
+        return {
+          ...decision,
+          outcome: "defer" as const,
+          reviewReason: "borderline_confidence" as const,
+        };
+      }
+      console.log("[ai-sync-reviewer] sub-threshold-lead-discarded", {
+        messageId: orderedClassifications[index].id,
+        adjustedLeadScore: decision.adjustedLeadScore,
+        floor: BORDERLINE_REVIEW_FLOOR,
+      });
+      return decision;
+    });
+
     const leads = orderedClassifications.filter(
-      (_, index) => priorDecisions[index].outcome === "lead"
+      (_, index) => effectiveDecisions[index].outcome === "lead"
     );
 
     // Build classified leads with their source emails for persistence
@@ -304,12 +581,12 @@ export const AISyncReviewer = {
         (c) => c.duplicateOf.length > 0
       ).length,
       deferredClassifications: orderedClassifications.flatMap((_, index) =>
-        priorDecisions[index].outcome === "defer"
+        effectiveDecisions[index].outcome === "defer"
           ? [
               {
                 email: unmatchedEmails[index],
                 baseline: baselines[index],
-                decision: priorDecisions[index],
+                decision: effectiveDecisions[index],
               },
             ]
           : []

@@ -101,6 +101,14 @@ export interface ClassifyResult {
 
 // ─── System prompt ───────────────────────────────────────────────────────────
 
+// v4 (2026-08-28): PERSONAL now names the company-administrative counterparty
+// explicitly — the company's OWN landlord/property manager, bank, insurer,
+// accountant, or utility writing about the company's own premises or accounts.
+// Before this, the landlord of the company's own shop reporting "the door was
+// left open today" classified as CUSTOMER at 1.00 confidence and spawned a lead
+// (bug d1eaebe1): the category table only described who SELLS to the company,
+// never who the company is a TENANT or account-holder of.
+//
 // v3 (2026-05-12): added explicit ball_in_court resolution. The LLM
 // decides whose turn it is BEFORE setting AWAITING_REPLY so the rail
 // predicate (P3-1-1 rail collapse) can trust the label without falling
@@ -111,7 +119,7 @@ export interface ClassifyResult {
 // 20260428061836_collapse_lead_client_to_customer migration. Pre-v2 the LLM
 // kept emitting LEAD/CLIENT, validateCategory passed them through, the DB
 // CHECK constraint rejected the UPDATE, and threads stayed pinned at OTHER.
-const CLASSIFIER_VERSION = "v3";
+const CLASSIFIER_VERSION = "v4";
 
 const SYSTEM_PROMPT = `You are Phase C — an email triage agent for a trades/construction business (decking, roofing, HVAC, plumbing, electrical, landscaping, etc.).
 
@@ -139,7 +147,7 @@ MARKETING         Promotional emails, newsletters, cold outreach, product pitche
 
 RECEIPT           Pure transactional confirmations, shipping notices, order receipts, invoice copies from vendors, bank statements, credit card alerts, subscription renewals, software license receipts.
 
-PERSONAL          Non-business correspondence — family, friends, personal scheduling unrelated to the trade business.
+PERSONAL          Non-business correspondence — family, friends, personal scheduling — AND company-administrative counterparties: the company's own landlord/property manager, bank, insurer, accountant, utility, writing about the company's own premises or accounts (the company is the tenant/customer here, not the hired trade).
 
 INTERNAL          Emails between employees of the company itself (owner ↔ office admin ↔ crew lead). No external party is the primary recipient.
 
