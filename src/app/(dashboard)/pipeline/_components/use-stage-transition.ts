@@ -228,12 +228,7 @@ export function useStageTransition({
           { id, stage: OpportunityStage.Discarded, userId: currentUser?.id },
           {
             onSuccess: () => {
-              // Silent when the capture toast already announced the discard —
-              // a second success toast for the same action is noise.
-              if (announce) {
-                toast.success(title, { description: stageLine });
-              }
-              pushUndo({
+              const entryId = pushUndo({
                 label: undoLabel,
                 inverseFn: async () => {
                   await moveStage.mutateAsync({
@@ -243,6 +238,19 @@ export function useStageTransition({
                   });
                 },
               });
+              // Silent when the capture toast already announced the discard —
+              // it carried its own visible UNDO for its whole lifetime, and a
+              // second toast after that one closes is noise. The entry still
+              // reaches the top bar's Cmd+Z on both branches.
+              if (announce) {
+                showUndoToast({
+                  title,
+                  description: stageLine,
+                  undoLabel: t("table.undo.action"),
+                  onUndo: () => undoEntry(entryId),
+                  variant: "success",
+                });
+              }
             },
             onError: (error) => {
               toast.error(t("toast.failedMove"), {
@@ -348,10 +356,16 @@ export function useStageTransition({
               idempotencyKey: crypto.randomUUID(),
             });
             invalidateOpportunities();
-            toast.success(title, { description: stageLine });
-            pushUndo({
+            const entryId = pushUndo({
               label: undoLabel,
               inverseFn: retractFeedback(result.feedbackId),
+            });
+            showUndoToast({
+              title,
+              description: stageLine,
+              undoLabel: t("table.undo.action"),
+              onUndo: () => undoEntry(entryId),
+              variant: "success",
             });
           } catch (error) {
             const code = feedbackErrorCode(error);
@@ -482,6 +496,7 @@ export function useStageTransition({
       pushUndo,
       queryClient,
       t,
+      undoEntry,
       undoFeedback,
     ]
   );
@@ -754,11 +769,7 @@ export function useStageTransition({
               updateOpportunity.mutate({ id, data: updateData });
             }
 
-            toast.success(t("toast.dealMarkedLost"), {
-              description: oppTitle,
-            });
-
-            pushUndo({
+            const entryId = pushUndo({
               label: `${clientName} → ${toStage}`,
               inverseFn: async () => {
                 await moveStage.mutateAsync({
@@ -767,6 +778,13 @@ export function useStageTransition({
                   userId: currentUser?.id,
                 });
               },
+            });
+            showUndoToast({
+              title: t("toast.dealMarkedLost"),
+              description: oppTitle,
+              undoLabel: t("table.undo.action"),
+              onUndo: () => undoEntry(entryId),
+              variant: "success",
             });
           },
           onError: (error) => {
@@ -798,6 +816,7 @@ export function useStageTransition({
       t,
       clientNameMap,
       pushUndo,
+      undoEntry,
       preflightQuery.data,
     ]
   );
