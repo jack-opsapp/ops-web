@@ -171,9 +171,7 @@ describe("P2 catalogue read SQL", () => {
   });
 
   it("physically bounds nested tag and option-assignment fan-out before aggregation", () => {
-    expect(VARIANT_SOURCE_PRIVATE).toContain(
-      "order by item_tag.id limit 65"
-    );
+    expect(VARIANT_SOURCE_PRIVATE).toContain("order by item_tag.id limit 65");
     expect(VARIANT_SOURCE_PRIVATE).toContain("source.tag_count >= 65");
     expect(VARIANT_SOURCE_PRIVATE).toContain(
       "with raw_label_values as materialized"
