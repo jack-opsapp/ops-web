@@ -4,16 +4,13 @@ import type { McpBearerResolution } from "@/lib/agent-control-plane/mcp/bearer";
 import type { McpEvidenceRedemptionResult } from "@/lib/agent-control-plane/mcp/evidence-redemption";
 import { createMcpEvidenceTokenCodec } from "@/lib/agent-control-plane/mcp/evidence-token";
 import type { McpServerRuntime } from "@/lib/agent-control-plane/mcp/runtime";
+import * as evidenceRoute from "@/app/api/mcp/evidence/[token]/route";
 import {
-  DELETE,
-  GET,
-  HEAD,
-  PATCH,
-  POST,
-  PUT,
   createEvidenceGetHandler,
   type EvidenceRouteDependencies,
-} from "@/app/api/mcp/evidence/[token]/route";
+} from "@/lib/agent-control-plane/mcp/evidence-route";
+
+const { DELETE, GET, HEAD, PATCH, POST, PUT } = evidenceRoute;
 
 const ACTOR_ID = "11111111-1111-4111-8111-111111111111";
 const COMPANY_ID = "22222222-2222-4222-8222-222222222222";
@@ -134,6 +131,22 @@ function dependencies(
 
 describe("GET /api/mcp/evidence/[token]", () => {
   beforeEach(() => vi.restoreAllMocks());
+
+  it("exports only fields supported by the Next route-module contract", () => {
+    expect(Object.keys(evidenceRoute).sort()).toEqual(
+      [
+        "DELETE",
+        "GET",
+        "HEAD",
+        "PATCH",
+        "POST",
+        "PUT",
+        "dynamic",
+        "maxDuration",
+        "runtime",
+      ].sort()
+    );
+  });
 
   it("redeems once and streams exact verified bytes with no-store, no-range, and no-redirect headers", async () => {
     const deps = dependencies();
