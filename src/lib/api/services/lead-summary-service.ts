@@ -3112,9 +3112,11 @@ const SUMMARY_PROMPT_TAIL_RE =
 const SUMMARY_INLINE_SIGNATURE_RE =
   /[?!]\s*(?=[A-Z][A-Za-z.'’-]+(?:\s+[A-Z][A-Za-z.'’-]+){1,3}\s+(?:(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}|[\w.+-]+@))/;
 
+const DETERMINISTIC_FRAGMENT_CAP = 280;
+
 function deterministicSummaryFragment(
   value: string | null | undefined,
-  options: { stripMoney?: boolean } = {}
+  options: { stripMoney?: boolean; cap?: number } = {}
 ): string | null {
   if (!value) return null;
   let source = value.normalize("NFKC");
@@ -3159,7 +3161,155 @@ function deterministicSummaryFragment(
     .replace(/\s+/g, " ")
     .replace(/^[\s,–—:-]+|[\s,–—:-]+$/g, "")
     .trim();
-  return clip(normalized, 280);
+  return clip(normalized, options.cap ?? DETERMINISTIC_FRAGMENT_CAP);
+}
+
+/**
+ * Does this rendered schedule clause satisfy the same anchor check the
+ * validators will run on the finished summary? Mirrors the clause shape
+ * `renderDeterministicLeadSummaryFallback` builds so the two can never
+ * disagree.
+ */
+function scheduleFragmentSatisfiesValidator(
+  fragment: string,
+  schedule: string
+): boolean {
+  return summaryCarriesSchedule(
+    `${
+      scheduleExpectsTentativeAssertion(schedule)
+        ? "Requested schedule"
+        : "Schedule"
+    }: ${fragment}.`,
+    schedule
+  );
+}
+
+/**
+ * Schedule clauses are validated by ANCHOR (calendar date, time, qualifier),
+ * not by token overlap, so the fixed-length head clip can silently delete the
+ * one token `summaryCarriesSchedule` looks for. The validator then reports the
+ * current schedule as omitted and the deterministic fallback throws instead of
+ * converging — one half of the ×681 refresh loop (0700468d).
+ *
+ * Prefer the shortest faithful rendering that actually satisfies the anchor
+ * check: the head clip, else the first anchor-bearing sentence, else the tail
+ * window. Every candidate is a normalized excerpt of the resolved schedule
+ * fact — no anchor is invented, and a schedule with no anchors at all keeps the
+ * historical head-clip behaviour.
+ */
+function deterministicScheduleFragment(schedule: string): string | null {
+  const head = deterministicSummaryFragment(schedule);
+  if (!head || scheduleFragmentSatisfiesValidator(head, schedule)) return head;
+
+  const full = deterministicSummaryFragment(schedule, {
+    cap: Number.MAX_SAFE_INTEGER,
+  });
+  if (!full || full.length <= head.length) return head;
+
+  for (const sentence of full.split(/(?<=\.)\s+/)) {
+    const candidate = clip(sentence.trim(), DETERMINISTIC_FRAGMENT_CAP);
+    if (candidate && scheduleFragmentSatisfiesValidator(candidate, schedule)) {
+      return candidate;
+    }
+  }
+  const tail = clip(
+    full.slice(-DETERMINISTIC_FRAGMENT_CAP).trim(),
+    DETERMINISTIC_FRAGMENT_CAP
+  );
+  return tail && scheduleFragmentSatisfiesValidator(tail, schedule)
+    ? tail
+    : head;
+}
+
+/**
+ * The deterministic fallback states ONLY resolved current facts. A superseded
+ * entry that the emitted current fact itself already carries is therefore not
+ * evidence of repetition — it is an earlier revision of the same fact ("wood
+ * railing" → "glass railing"), and on a long-history lead nearly every
+ * superseded entry overlaps its own successor that way.
+ *
+ * Left in place the contract is unsatisfiable: omit the current fact and
+ * validation reports an omission, state it and validation reports a
+ * repetition. That deadlock — amplified because the validators judge against
+ * the FULL untruncated superseded history while the lead has years of it — is
+ * what looped lead-summary refresh 681 times without ever converging
+ * (0700468d).
+ *
+ * Only self-tripping entries are dropped. A superseded fact genuinely distinct
+ * from the current one still rejects, and this narrowing applies exclusively to
+ * the deterministic renderer's own output — model-authored summaries are still
+ * judged against the unfiltered full context.
+ */
+function fallbackCurrentFactValidationContext(
+  context: LeadSummaryCurrentFactContext,
+  emitted: {
+    price: number | null;
+    scope: string | null;
+    schedule: string | null;
+    scheduleClauseCarriesSchedule: boolean;
+    objection: string | null;
+    nextAction: string | null;
+  }
+): LeadSummaryCurrentFactContext {
+  if (!context) return context;
+  return {
+    ...context,
+    /**
+     * `summaryCarriesSchedule` re-parses the WHOLE summary into clauses and
+     * fails if any of them reads as a contradicting schedule assertion. The
+     * renderer's own scope clause trips that constantly — "install", "start"
+     * and "date" are schedule-assertion vocabulary, and a deck scope says
+     * "install" almost every time — so a schedule the renderer demonstrably
+     * did state was reported as omitted.
+     *
+     * When the emitted schedule clause satisfies the anchor contract on its
+     * own, the whole-summary re-parse can only add false contradictions, so
+     * the clause-level proof stands in for it. If the clause does NOT satisfy
+     * it, the contract is left in place and still throws.
+     */
+    schedule: emitted.scheduleClauseCarriesSchedule ? null : context.schedule,
+    superseded_prices: context.superseded_prices.filter(
+      (price) =>
+        emitted.price === null ||
+        Math.round(price * 100) !== Math.round(emitted.price * 100)
+    ),
+    superseded_scopes: context.superseded_scopes.filter(
+      (scope) =>
+        !emitted.scope || !summaryCarriesSpecificFact(emitted.scope, scope, 2)
+    ),
+    superseded_schedules: context.superseded_schedules.filter(
+      (schedule) =>
+        !emitted.schedule || !summaryCarriesSchedule(emitted.schedule, schedule)
+    ),
+    resolved_objections: context.resolved_objections.filter(
+      (objection) =>
+        !emitted.objection ||
+        !summaryCarriesSpecificFact(emitted.objection, objection, 2)
+    ),
+    superseded_next_actions: context.superseded_next_actions.filter(
+      (action) =>
+        !emitted.nextAction ||
+        !summaryCarriesSpecificFact(emitted.nextAction, action, 2)
+    ),
+  };
+}
+
+/**
+ * Commercial twin of `fallbackCurrentFactValidationContext`: the renderer emits
+ * the resolved current price, so a superseded price equal to it cannot be
+ * evidence that the renderer repeated stale money.
+ */
+function fallbackCommercialValidationContext(
+  context: LeadSummaryContextBundle["commercial_context"],
+  emittedPrice: number | null
+): LeadSummaryContextBundle["commercial_context"] {
+  if (!context || emittedPrice === null) return context;
+  return {
+    ...context,
+    superseded_prices: context.superseded_prices.filter(
+      (price) => Math.round(price * 100) !== Math.round(emittedPrice * 100)
+    ),
+  };
 }
 
 function formattedSummaryAmount(amount: number): string {
@@ -3234,7 +3384,7 @@ export function renderDeterministicLeadSummaryFallback(
     commercial?.excluded_scope
   );
   if (excludedScope) clauses.push(`Excluded scope: ${excludedScope}`);
-  const scheduleFact = deterministicSummaryFragment(schedule);
+  const scheduleFact = schedule ? deterministicScheduleFragment(schedule) : null;
   if (scheduleFact) {
     clauses.push(
       `${scheduleExpectsTentativeAssertion(schedule ?? "") ? "Requested schedule" : "Schedule"}: ${scheduleFact}`
@@ -3251,8 +3401,32 @@ export function renderDeterministicLeadSummaryFallback(
   }
 
   const summary = `${statusSentence} ${clauses.join("; ")}.`;
-  validateCommercialSummary(summary, fullCommercialValidationContext(bundle));
-  validateCurrentFactSummary(summary, fullCurrentFactValidationContext(bundle));
+  const emitted = {
+    price: currentPrice,
+    scope,
+    schedule: scheduleFact,
+    scheduleClauseCarriesSchedule: Boolean(
+      schedule &&
+        scheduleFact &&
+        scheduleFragmentSatisfiesValidator(scheduleFact, schedule)
+    ),
+    objection: objectionFact,
+    nextAction: nextActionFact,
+  };
+  validateCommercialSummary(
+    summary,
+    fallbackCommercialValidationContext(
+      fullCommercialValidationContext(bundle),
+      currentPrice
+    )
+  );
+  validateCurrentFactSummary(
+    summary,
+    fallbackCurrentFactValidationContext(
+      fullCurrentFactValidationContext(bundle),
+      emitted
+    )
+  );
   return summary;
 }
 
