@@ -566,10 +566,23 @@ export function decideOpportunityRelationshipMatch({
   // today's behavior and creates nothing.
   if (contactEmail) {
     const terminalMatches = sortedCandidates.filter((candidate) => {
+      // Archived is not terminal-but-linkable: the operator removed it from
+      // the pipeline on purpose, and correspondence must not resurrect it.
+      if (isArchived(candidate)) return false;
       if (!isTerminalOpportunity(candidate) && !hasClosedProject(candidate)) {
         return false;
       }
       if (hasConflictingJobAddress(address, candidate)) return false;
+      // A same-address hit whose scope reads as NEW work is an inquiry, not
+      // post-completion chatter -- the closed-relationship path below turns it
+      // into a fresh lead that still points at the prior record.
+      if (
+        address &&
+        candidateAddressSet(candidate).has(address) &&
+        !hasMeaningfulScopeOverlap(facts, candidate)
+      ) {
+        return false;
+      }
       const emails = normalizedCandidateEmails(candidate);
       return (
         emails.contactEmail === contactEmail ||
