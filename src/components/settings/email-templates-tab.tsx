@@ -163,7 +163,7 @@ function TemplateFormModal({
           />
 
           {/* Merge Fields Reference */}
-          <div className="rounded-panel border border-border-subtle bg-surface-input/40 px-2.5 py-2">
+          <div className="rounded-panel border border-border-subtle bg-fill-neutral-dim px-2.5 py-2">
             <span className="mb-1.5 block font-mono text-micro uppercase tracking-[0.16em] text-text-3">
               <span className="text-text-mute">{"// "}</span>
               {t("mergeFields.title")}
@@ -298,7 +298,7 @@ export function EmailTemplatesTab() {
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-[56px] rounded-chip bg-surface-input/40 border border-border-subtle animate-pulse"
+              className="h-[56px] rounded-chip bg-fill-neutral-dim border border-border-subtle animate-pulse"
             />
           ))}
         </div>
