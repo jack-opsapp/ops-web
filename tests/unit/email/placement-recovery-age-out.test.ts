@@ -272,3 +272,233 @@ describe("phase c actor-unavailable is surfaced and re-deferred", () => {
     expect(threadUpdates).toHaveLength(0);
   });
 });
+
+// ─── Placement-recovery age-out (bf45611d residual) ────────────────────────
+
+import {
+  recoverStrandedPhaseCMailboxDraftsForConnection,
+  PHASE_C_PLACEMENT_RECOVERY_WINDOW_DAYS,
+} from "@/lib/api/services/phase-c-draft-placement-recovery";
+
+interface RecoveryQueryLog {
+  table: string;
+  filters: Record<string, unknown>;
+  updates: Record<string, unknown> | null;
+}
+
+function recoverySupabase(options: {
+  windowedThreadIds: string[];
+  agedOutRows: Array<{ id: string; created_at: string }>;
+  threadRows: Array<Record<string, unknown>>;
+  agedOutUpdateError?: { message: string };
+}) {
+  const log: RecoveryQueryLog[] = [];
+  return {
+    log,
+    client: {
+      from(table: string) {
+        const entry: RecoveryQueryLog = { table, filters: {}, updates: null };
+        log.push(entry);
+        const builder: Record<string, unknown> = {
+          select(columns: string) {
+            entry.filters.select = columns;
+            return builder;
+          },
+          update(payload: Record<string, unknown>) {
+            entry.updates = payload;
+            return builder;
+          },
+          eq(column: string, value: unknown) {
+            entry.filters[column] = value;
+            return builder;
+          },
+          is(column: string, value: unknown) {
+            entry.filters[`is:${column}`] = value;
+            return builder;
+          },
+          not(column: string, operator: string, value: unknown) {
+            entry.filters[`not:${column}`] = `${operator}:${String(value)}`;
+            return builder;
+          },
+          in(column: string, values: unknown[]) {
+            entry.filters[`in:${column}`] = values;
+            return builder;
+          },
+          gte(column: string, value: unknown) {
+            entry.filters[`gte:${column}`] = value;
+            return builder;
+          },
+          lt(column: string, value: unknown) {
+            entry.filters[`lt:${column}`] = value;
+            return builder;
+          },
+          order() {
+            return builder;
+          },
+          limit(count: number) {
+            entry.filters.limit = count;
+            return builder;
+          },
+          then(resolve: (result: { data: unknown; error: unknown }) => unknown) {
+            if (entry.table === "email_threads") {
+              return resolve({ data: options.threadRows, error: null });
+            }
+            if (entry.updates) {
+              return resolve({
+                data: null,
+                error: options.agedOutUpdateError ?? null,
+              });
+            }
+            if (entry.filters["lt:created_at"]) {
+              return resolve({ data: options.agedOutRows, error: null });
+            }
+            return resolve({
+              data: options.windowedThreadIds.map((id) => ({ thread_id: id })),
+              error: null,
+            });
+          },
+        };
+        return builder;
+      },
+    },
+  };
+}
+
+const RECOVERY_COMPANY_ID = "00000000-0000-4000-8000-0000000000b1";
+const RECOVERY_CONNECTION_ID = "00000000-0000-4000-8000-0000000000b3";
+
+describe("stranded phase c drafts older than the recovery window age out", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("terminalizes rows the sweep can never reach again", async () => {
+    const harness = recoverySupabase({
+      windowedThreadIds: [],
+      agedOutRows: [
+        { id: "draft-old-1", created_at: "2026-08-05T18:00:00.000Z" },
+        { id: "draft-old-2", created_at: "2026-08-06T09:00:00.000Z" },
+      ],
+      threadRows: [],
+    });
+
+    const summary = await recoverStrandedPhaseCMailboxDraftsForConnection({
+      companyId: RECOVERY_COMPANY_ID,
+      connectionId: RECOVERY_CONNECTION_ID,
+      supabase: harness.client as never,
+    });
+
+    expect(summary.agedOut).toBe(2);
+    expect(summary.placed).toBe(0);
+
+    const ageOutRead = harness.log.find(
+      (entry) => entry.table === "ai_draft_history" && entry.filters["lt:created_at"]
+    );
+    expect(ageOutRead).toBeTruthy();
+    expect(ageOutRead!.filters).toMatchObject({
+      company_id: RECOVERY_COMPANY_ID,
+      connection_id: RECOVERY_CONNECTION_ID,
+      origin: "phase_c",
+      status: "drafted",
+      "is:mailbox_draft_id": null,
+      limit: 50,
+    });
+    // The contact-form worker owns the thread-less phase_c rows and retries
+    // them from its own durable queue. Two owners on one row is a bug.
+    expect(ageOutRead!.filters["not:thread_id"]).toBe("is:null");
+
+    const supersedes = harness.log.filter((entry) => entry.updates);
+    expect(supersedes).toHaveLength(2);
+    for (const entry of supersedes) {
+      expect(entry.updates).toMatchObject({ status: "superseded" });
+      expect(String(entry.updates!.discarded_at)).toMatch(
+        /^\d{4}-\d{2}-\d{2}T/
+      );
+    }
+    expect(supersedes.map((entry) => entry.filters.id)).toEqual([
+      "draft-old-1",
+      "draft-old-2",
+    ]);
+  });
+
+  it("leaves rows inside the window to placement retry", async () => {
+    const retry = vi
+      .spyOn(PhaseCAutonomyRouter, "retryStrandedMailboxDraft")
+      .mockResolvedValue({
+        outcome: "auto_drafted",
+        category: "CUSTOMER",
+        effectiveLevel: "auto_draft",
+      });
+    const harness = recoverySupabase({
+      windowedThreadIds: ["provider-thread-fresh"],
+      agedOutRows: [],
+      threadRows: [
+        {
+          id: THREAD_ID,
+          company_id: RECOVERY_COMPANY_ID,
+          connection_id: RECOVERY_CONNECTION_ID,
+          provider_thread_id: "provider-thread-fresh",
+          primary_category: "CUSTOMER",
+          archived_at: null,
+          snoozed_until: null,
+        },
+      ],
+    });
+
+    const summary = await recoverStrandedPhaseCMailboxDraftsForConnection({
+      companyId: RECOVERY_COMPANY_ID,
+      connectionId: RECOVERY_CONNECTION_ID,
+      supabase: harness.client as never,
+    });
+
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(summary.placed).toBe(1);
+    expect(summary.agedOut).toBe(0);
+    expect(harness.log.some((entry) => entry.updates)).toBe(false);
+  });
+
+  it("cuts the age-out at the same window placement retry uses", async () => {
+    const harness = recoverySupabase({
+      windowedThreadIds: [],
+      agedOutRows: [],
+      threadRows: [],
+    });
+
+    await recoverStrandedPhaseCMailboxDraftsForConnection({
+      companyId: RECOVERY_COMPANY_ID,
+      connectionId: RECOVERY_CONNECTION_ID,
+      supabase: harness.client as never,
+    });
+
+    const windowed = harness.log.find(
+      (entry) => entry.filters["gte:created_at"]
+    );
+    const agedOut = harness.log.find((entry) => entry.filters["lt:created_at"]);
+    expect(windowed!.filters["gte:created_at"]).toBe(
+      agedOut!.filters["lt:created_at"]
+    );
+
+    const cutoffAgeDays =
+      (Date.now() - Date.parse(String(agedOut!.filters["lt:created_at"]))) /
+      86_400_000;
+    expect(cutoffAgeDays).toBeCloseTo(PHASE_C_PLACEMENT_RECOVERY_WINDOW_DAYS, 2);
+  });
+
+  it("never throws when an age-out write fails", async () => {
+    const harness = recoverySupabase({
+      windowedThreadIds: [],
+      agedOutRows: [{ id: "draft-old-1", created_at: "2026-08-05T18:00:00.000Z" }],
+      threadRows: [],
+      agedOutUpdateError: { message: "permission denied" },
+    });
+
+    const summary = await recoverStrandedPhaseCMailboxDraftsForConnection({
+      companyId: RECOVERY_COMPANY_ID,
+      connectionId: RECOVERY_CONNECTION_ID,
+      supabase: harness.client as never,
+    });
+
+    expect(summary.agedOut).toBe(0);
+    expect(summary.failed).toBeGreaterThanOrEqual(1);
+  });
+});
