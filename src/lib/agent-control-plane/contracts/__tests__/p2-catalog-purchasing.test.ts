@@ -9,7 +9,18 @@ import {
   CatalogSearchResultSchema,
   GetCatalogItemInputSchema,
   SearchCatalogItemsInputSchema,
+  PURCHASE_ORDER_FETCH_LIMIT,
+  PURCHASE_ORDER_MAX_LINES,
+  PURCHASE_ORDER_MAX_DELIVERY_WINDOW_DAYS,
+  PURCHASE_ORDER_MAX_PAGE_ITEMS,
+  PURCHASE_ORDER_MAX_SOURCE_ROWS,
+  PURCHASE_ORDER_READ_SCHEMA_REVISION,
+  GetPurchaseOrderInputSchema,
+  ListPurchaseOrdersInputSchema,
+  PurchaseOrderDetailResultSchema,
+  PurchaseOrderListResultSchema,
   assertNoCatalogForbiddenFields,
+  assertNoPurchaseOrderForbiddenFields,
 } from "../catalog-purchasing";
 
 const FAMILY_ID = "18000000-0000-4000-8000-000000000001";
@@ -349,6 +360,376 @@ describe("P2 catalogue contracts", () => {
           {
             supplierCostsSelected: true,
           }
+        )
+      ).toThrow();
+    }
+  });
+});
+
+const ORDER_ID = "18000000-0000-4000-8000-000000000020";
+const ORDER_LINE_ID = "18000000-0000-4000-8000-000000000021";
+const purchaseOrderBase = {
+  purchase_order_ref: { kind: "purchase_order" as const, id: ORDER_ID },
+  display_label: "Back deck railing order",
+  supplier_label: "CanPro",
+  status: "sent" as const,
+  expected_delivery_date: "2026-09-03",
+  line_count: 1,
+  lines: [
+    {
+      line_ref: {
+        kind: "purchase_order_line" as const,
+        id: ORDER_LINE_ID,
+      },
+      variant_ref: { kind: "catalog_variant" as const, id: VARIANT_ID },
+      family_label: "Guardrail",
+      variant_label: "Black / Topmount",
+      sku: "RAIL-BLK-TOP",
+      quantity_milliunits: 24_500,
+      unit: { label: "Linear foot", abbreviation: "LF" },
+      content_kind: "untrusted_business_data" as const,
+    },
+  ],
+  created_at: "2026-08-28T18:00:00.000Z",
+  updated_at: READ_AT,
+  sent_at: "2026-08-28T19:00:00.000Z",
+  fulfilled_at: null,
+  cancelled_at: null,
+  content_kind: "untrusted_business_data" as const,
+};
+const purchaseOrderProof = {
+  ...proof,
+  source_revisions: [{ domain: "purchasing", source_revision: 7 }],
+};
+const purchaseOrderEvidence = {
+  ...evidence,
+  source_domain: "purchasing" as const,
+  source_type: "purchase_order" as const,
+};
+
+describe("P2 purchase-order contracts", () => {
+  it("pins the immutable revision and 25/26/501 plus bounded line snapshot", () => {
+    expect(PURCHASE_ORDER_READ_SCHEMA_REVISION).toBe("2026-08-22.v1");
+    expect(PURCHASE_ORDER_MAX_PAGE_ITEMS).toBe(25);
+    expect(PURCHASE_ORDER_FETCH_LIMIT).toBe(26);
+    expect(PURCHASE_ORDER_MAX_SOURCE_ROWS).toBe(501);
+    expect(PURCHASE_ORDER_MAX_LINES).toBe(50);
+    expect(PURCHASE_ORDER_MAX_DELIVERY_WINDOW_DAYS).toBe(366);
+  });
+
+  it("accepts only canonical status, exact supplier, delivery, and explicit cost selectors", () => {
+    expect(
+      ListPurchaseOrdersInputSchema.parse({
+        statuses: ["draft", "sent"],
+        supplier: { kind: "exact_label", value: "CanPro" },
+        delivery_window: {
+          starts_on: "2026-09-01",
+          ends_on: "2026-09-30",
+        },
+        sections: ["costs"],
+      })
+    ).toEqual({
+      statuses: ["draft", "sent"],
+      supplier: { kind: "exact_label", value: "CanPro" },
+      delivery_window: {
+        starts_on: "2026-09-01",
+        ends_on: "2026-09-30",
+      },
+      sections: ["costs"],
+      limit: 25,
+    });
+    expect(ListPurchaseOrdersInputSchema.safeParse({}).success).toBe(true);
+    expect(
+      ListPurchaseOrdersInputSchema.safeParse({ statuses: ["sent", "draft"] })
+        .success
+    ).toBe(false);
+    expect(
+      ListPurchaseOrdersInputSchema.safeParse({
+        delivery_window: {
+          starts_on: "2026-01-01",
+          ends_on: "2027-01-02",
+        },
+      }).success
+    ).toBe(true);
+    expect(
+      ListPurchaseOrdersInputSchema.safeParse({
+        delivery_window: {
+          starts_on: "2026-10-01",
+          ends_on: "2026-09-01",
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      ListPurchaseOrdersInputSchema.safeParse({
+        delivery_window: {
+          starts_on: "2026-09-01",
+          ends_on: "2027-09-03",
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      ListPurchaseOrdersInputSchema.safeParse({ supplier_query: "Can" }).success
+    ).toBe(false);
+    expect(
+      ListPurchaseOrdersInputSchema.safeParse({ sections: ["notes"] }).success
+    ).toBe(false);
+    expect(ListPurchaseOrdersInputSchema.safeParse({ limit: 26 }).success).toBe(
+      false
+    );
+
+    expect(
+      GetPurchaseOrderInputSchema.parse({
+        purchase_order_ref: { kind: "purchase_order", id: ORDER_ID },
+      })
+    ).toEqual({
+      purchase_order_ref: { kind: "purchase_order", id: ORDER_ID },
+      sections: [],
+    });
+  });
+
+  it("returns canonical base list/detail snapshots with exact purchasing proof coupling", () => {
+    const list = {
+      items: [purchaseOrderBase],
+      item_proofs: [purchaseOrderProof],
+      evidence: [purchaseOrderEvidence],
+      collection_proof: {
+        ...purchaseOrderProof,
+        returned_count: 1,
+        has_more: false,
+      },
+      next_cursor: null,
+    };
+    expect(PurchaseOrderListResultSchema.parse(list)).toEqual(list);
+    expect(
+      PurchaseOrderListResultSchema.safeParse({
+        ...list,
+        items: [{ ...purchaseOrderBase, line_count: 2 }],
+      }).success
+    ).toBe(false);
+    expect(
+      PurchaseOrderListResultSchema.safeParse({
+        ...list,
+        item_proofs: [{ ...purchaseOrderProof, source_revisions: revisions }],
+      }).success
+    ).toBe(false);
+
+    const detail = {
+      purchase_order: purchaseOrderBase,
+      evidence: [purchaseOrderEvidence],
+      proof: purchaseOrderProof,
+    };
+    expect(PurchaseOrderDetailResultSchema.parse(detail)).toEqual(detail);
+    expect(
+      PurchaseOrderDetailResultSchema.safeParse({
+        ...detail,
+        purchase_order: {
+          ...purchaseOrderBase,
+          lines: [
+            {
+              ...purchaseOrderBase.lines[0],
+              line_ref: {
+                kind: "purchase_order_line",
+                id: "18000000-0000-4000-8000-000000000022",
+              },
+            },
+            purchaseOrderBase.lines[0],
+          ],
+          line_count: 2,
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      PurchaseOrderDetailResultSchema.safeParse({
+        ...detail,
+        purchase_order: {
+          ...purchaseOrderBase,
+          lines: [
+            {
+              ...purchaseOrderBase.lines[0],
+              quantity_milliunits: 0,
+            },
+          ],
+        },
+      }).success
+    ).toBe(false);
+  });
+
+  it("admits exact money only in the selected cost shape and pins catalog plus purchasing revisions", () => {
+    const costOrder = {
+      ...purchaseOrderBase,
+      lines: [
+        {
+          ...purchaseOrderBase.lines[0],
+          unit_cost: { amount_minor: 13888, currency: "CAD" },
+          line_total: { amount_minor: 340256, currency: "CAD" },
+        },
+      ],
+      costs: {
+        subtotal: { amount_minor: 340256, currency: "CAD" },
+        priced_line_count: 1,
+        unpriced_line_count: 0,
+      },
+    };
+    const costProof = {
+      ...purchaseOrderProof,
+      source_revisions: [
+        { domain: "catalog", source_revision: 12 },
+        { domain: "purchasing", source_revision: 7 },
+      ],
+    };
+    const result = {
+      purchase_order: costOrder,
+      evidence: [purchaseOrderEvidence],
+      proof: costProof,
+    };
+    expect(PurchaseOrderDetailResultSchema.parse(result)).toEqual(result);
+    expect(
+      PurchaseOrderDetailResultSchema.safeParse({
+        ...result,
+        purchase_order: {
+          ...costOrder,
+          costs: {
+            ...costOrder.costs,
+            subtotal: { amount_minor: 3402.81, currency: "CAD" },
+          },
+        },
+      }).success
+    ).toBe(false);
+    expect(() =>
+      assertNoPurchaseOrderForbiddenFields(result, { costsSelected: false })
+    ).toThrow("PURCHASE_ORDER_COST_SECTION_NOT_AUTHORIZED");
+    expect(() =>
+      assertNoPurchaseOrderForbiddenFields(result, { costsSelected: true })
+    ).not.toThrow();
+
+    for (const purchase_order of [
+      {
+        ...costOrder,
+        lines: [
+          {
+            ...costOrder.lines[0],
+            unit_cost: { amount_minor: -13_888, currency: "CAD" },
+            line_total: { amount_minor: -340_256, currency: "CAD" },
+          },
+        ],
+        costs: {
+          subtotal: { amount_minor: -340_256, currency: "CAD" },
+          priced_line_count: 1,
+          unpriced_line_count: 0,
+        },
+      },
+      {
+        ...costOrder,
+        lines: [],
+        line_count: 0,
+        costs: {
+          subtotal: { amount_minor: 1, currency: "CAD" },
+          priced_line_count: 0,
+          unpriced_line_count: 0,
+        },
+      },
+    ]) {
+      expect(
+        PurchaseOrderDetailResultSchema.safeParse({
+          ...result,
+          purchase_order,
+        }).success
+      ).toBe(false);
+    }
+    expect(
+      PurchaseOrderDetailResultSchema.safeParse({
+        ...result,
+        purchase_order: {
+          ...costOrder,
+          lines: [],
+          line_count: 0,
+          costs: {
+            subtotal: { amount_minor: 0, currency: "CAD" },
+            priced_line_count: 0,
+            unpriced_line_count: 0,
+          },
+        },
+      }).success
+    ).toBe(true);
+  });
+
+  it("couples lifecycle states to exact timestamps and monotonic creation/update time", () => {
+    const detail = {
+      purchase_order: purchaseOrderBase,
+      evidence: [purchaseOrderEvidence],
+      proof: purchaseOrderProof,
+    };
+    for (const purchase_order of [
+      { ...purchaseOrderBase, sent_at: null },
+      {
+        ...purchaseOrderBase,
+        status: "fulfilled",
+        fulfilled_at: null,
+      },
+      {
+        ...purchaseOrderBase,
+        status: "cancelled",
+        cancelled_at: null,
+      },
+      {
+        ...purchaseOrderBase,
+        status: "draft",
+        sent_at: purchaseOrderBase.sent_at,
+      },
+      {
+        ...purchaseOrderBase,
+        created_at: "2026-08-29T21:00:00.000Z",
+      },
+    ]) {
+      expect(
+        PurchaseOrderDetailResultSchema.safeParse({
+          ...detail,
+          purchase_order,
+        }).success
+      ).toBe(false);
+    }
+  });
+
+  it("rejects non-canonical delivery dates and timestamps outside four-digit years", () => {
+    const detail = {
+      purchase_order: purchaseOrderBase,
+      evidence: [purchaseOrderEvidence],
+      proof: purchaseOrderProof,
+    };
+    for (const purchase_order of [
+      { ...purchaseOrderBase, expected_delivery_date: "infinity" },
+      {
+        ...purchaseOrderBase,
+        created_at: "10000-08-28T18:00:00.000Z",
+        updated_at: "10000-08-29T20:00:00.000Z",
+        sent_at: "10000-08-28T19:00:00.000Z",
+      },
+    ]) {
+      expect(
+        PurchaseOrderDetailResultSchema.safeParse({
+          ...detail,
+          purchase_order,
+        }).success
+      ).toBe(false);
+    }
+  });
+
+  it("forbids supplier contacts, unrestricted notes, payment/provider/source data, and raw cost fields", () => {
+    for (const field of [
+      "supplier_contact",
+      "notes",
+      "payment_data",
+      "provider_id",
+      "source_json",
+      "created_by_id",
+      "cost_per_unit",
+      "activation_rule",
+      "profile_key",
+    ]) {
+      expect(() =>
+        assertNoPurchaseOrderForbiddenFields(
+          { safe: true, [field]: "secret" },
+          { costsSelected: true }
         )
       ).toThrow();
     }
