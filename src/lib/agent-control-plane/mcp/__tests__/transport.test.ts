@@ -827,7 +827,7 @@ describe("/api/mcp route gate", () => {
   });
 
   it("serves an authenticated tools/list through the real factory", async () => {
-    overrides.activeToolIds = new Set(["list_scheduled_jobs"]);
+    overrides.activeToolIds = new Set(ALL_READ_CAPABILITY_NAMES);
     const route = await loadRoute({
       configured: true,
       resolution: {
