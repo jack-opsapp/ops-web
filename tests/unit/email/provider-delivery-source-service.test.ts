@@ -8,6 +8,7 @@ import {
   ProviderDeliverySourceError,
   readProviderDeliverySource,
 } from "@/lib/api/services/provider-delivery-source-service";
+import { CORRESPONDENCE_NORMALIZATION_REVISION } from "@/lib/agent-control-plane/evidence/normalize-correspondence";
 import { resolveParticipantSide } from "@/lib/agent-control-plane/memory/resolve-participant-side";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 import type { EmailConnection } from "@/lib/types/email-connection";
@@ -344,7 +345,7 @@ describe("provider delivery source capture", () => {
         p_subject: "Exact subject",
         p_normalized_subject: "Exact subject",
         p_normalized_plain_text: "Exact body",
-        p_normalization_revision: "ops.correspondence.normalized-text.v1",
+        p_normalization_revision: CORRESPONDENCE_NORMALIZATION_REVISION,
         p_normalization_status: "normalized",
         p_sender_identity: "jane.doe@example.com",
         p_recipient_identities: ["operator@example.com"],
@@ -415,7 +416,7 @@ describe("provider delivery source capture", () => {
       expect.objectContaining({
         p_normalized_subject: "[SUBJECT OMITTED: UNSAFE SOURCE]",
         p_normalized_plain_text: "[CONTENT OMITTED: UNSAFE SOURCE]",
-        p_normalization_revision: "ops.correspondence.normalized-text.v1",
+        p_normalization_revision: CORRESPONDENCE_NORMALIZATION_REVISION,
         p_normalization_status: "rejected",
         p_content_value: "unsafe\u202econtent",
       })

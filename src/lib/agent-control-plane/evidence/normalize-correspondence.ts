@@ -20,17 +20,18 @@ import type {
 
 export type { NormalizeCorrespondenceInput } from "./types";
 
-// DO NOT BUMP THIS WITHOUT THE COMPANION MIGRATION.
-// `private.agent_provider_delivery_sources.normalization_revision` carries a
-// CHECK pinning it to this exact literal
-// (20260807224500_agent_provider_delivery_sources.sql:292), so changing the
-// constant alone makes every delivery-source capture fail on a check
-// violation — a full evidence-capture outage. Widening that CHECK, and
-// deciding how `capture_agent_provider_delivery_source_as_system` should
-// treat a re-projected body (today it raises
-// `agent_provider_delivery_source_idempotency_conflict`), are prerequisites.
+// Stamped on every projection this module produces, and bound to the database
+// by `20260830113400_delivery_source_normalization_reprojection.sql`: the CHECK
+// on `private.agent_provider_delivery_sources.normalization_revision` admits
+// exactly the literals listed there. Bumping this constant therefore means
+// widening that CHECK first — the migration must be APPLIED BEFORE code
+// carrying the new literal is deployed, or every delivery-source capture fails
+// on a check violation (a full evidence-capture outage). The same migration
+// makes a re-capture whose bytes are unchanged re-project in place instead of
+// raising `agent_provider_delivery_source_idempotency_conflict`, which is what
+// lets an older stored projection be replaced by this revision's reading.
 export const CORRESPONDENCE_NORMALIZATION_REVISION =
-  "ops.correspondence.normalized-text.v1";
+  "ops.correspondence.normalized-text.v2";
 export const CORRESPONDENCE_NORMALIZATION_REJECTED_SUBJECT =
   "[SUBJECT OMITTED: UNSAFE SOURCE]";
 export const CORRESPONDENCE_NORMALIZATION_REJECTED_TEXT =
