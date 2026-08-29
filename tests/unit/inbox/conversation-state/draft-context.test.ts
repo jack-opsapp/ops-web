@@ -73,6 +73,7 @@ function state(over: Partial<ConversationState> = {}): ConversationState {
     accept: noAccept,
     sentLedger: [],
     attachmentsRequiringInspection: [],
+    scheduleFactsAvailable: null,
     routing: "draft",
     routingReasons: [],
     responseDisposition: "reply_required",

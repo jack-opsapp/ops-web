@@ -172,6 +172,13 @@ export type ScheduleAutoSendResult =
   | { outcome: "scheduled"; pending: PendingAutoSend }
   | { outcome: "no_reply_warranted"; reason?: string }
   | { outcome: "held_for_review"; reason?: string }
+  /**
+   * The draft exists and is good, but its response mode is permanently outside
+   * auto-send. Today that is exactly one case: a SCHEDULE reply. Callers fall
+   * back to auto-draft behavior — the draft is placed for the operator, and no
+   * `pending_auto_sends` row is ever created.
+   */
+  | { outcome: "draft_only"; reason?: string }
   | { outcome: "unavailable"; reason?: string };
 
 export interface CompleteAutoSendClaimInput {
@@ -1053,6 +1060,25 @@ export const AutoSendService = {
       return {
         outcome: "unavailable",
         reason: "draft history fence missing",
+      };
+    }
+
+    // A scheduling reply is NEVER auto-sent. Verified schedule context lets the
+    // agent DRAFT one, but any proposed window still needs a human to stand
+    // behind it — a booking the operator never agreed to is worse than a slow
+    // reply. The reservation resolves terminally so this source is not retried
+    // into the send queue; the draft itself is placed by the auto-draft path.
+    if (draftResult.responseMode === "schedule") {
+      await resolveGenerationReservation({
+        idempotencyKey: sourceIdempotencyKey,
+        generationToken,
+        argumentsHash,
+        disposition: "held_for_review",
+        reason: "schedule replies are never auto-sent",
+      });
+      return {
+        outcome: "draft_only",
+        reason: "schedule replies are never auto-sent",
       };
     }
 

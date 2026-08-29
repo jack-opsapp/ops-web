@@ -44,7 +44,11 @@ describe("decideResponseDisposition", () => {
     "We will review this and get back to you.",
   ])("does not manufacture a reply to a closed-loop message: %s", (body) => {
     expect(
-      decideResponseDisposition({ messages: [inbound(body)], accept: noAccept })
+      decideResponseDisposition({
+        messages: [inbound(body)],
+        accept: noAccept,
+        scheduleFactsAvailable: null,
+      })
     ).toMatchObject({ disposition: "no_reply_required", mode: "no_reply" });
   });
 
@@ -53,6 +57,7 @@ describe("decideResponseDisposition", () => {
       decideResponseDisposition({
         messages: [inbound("Thanks — can you also install the gate?")],
         accept: noAccept,
+        scheduleFactsAvailable: null,
       })
     ).toMatchObject({ disposition: "reply_required", mode: "answer" });
   });
@@ -67,6 +72,7 @@ describe("decideResponseDisposition", () => {
         decideResponseDisposition({
           messages: [inbound(body)],
           accept: noAccept,
+          scheduleFactsAvailable: null,
         })
       ).toMatchObject({ disposition: "reply_required", mode: "answer" });
     }
@@ -84,6 +90,7 @@ describe("decideResponseDisposition", () => {
       decideResponseDisposition({
         messages: [inbound("Yes, let's go ahead with the quote.")],
         accept,
+        scheduleFactsAvailable: null,
       })
     ).toMatchObject({ disposition: "reply_required", mode: "close_loop" });
   });
@@ -109,6 +116,7 @@ describe("decideResponseDisposition", () => {
           }),
         ],
         accept,
+        scheduleFactsAvailable: null,
       })
     ).toMatchObject({ disposition: "no_reply_required", mode: "no_reply" });
   });
@@ -122,6 +130,7 @@ describe("decideResponseDisposition", () => {
       decideResponseDisposition({
         messages: [inbound(body)],
         accept: noAccept,
+        scheduleFactsAvailable: null,
       })
     ).toMatchObject({
       disposition: "operator_input_required",
@@ -134,6 +143,7 @@ describe("decideResponseDisposition", () => {
       decideResponseDisposition({
         messages: [inbound("Are you available August 13 or 14?")],
         accept: noAccept,
+        scheduleFactsAvailable: null,
       })
     ).toMatchObject({
       disposition: "operator_input_required",
@@ -146,6 +156,7 @@ describe("decideResponseDisposition", () => {
       decideResponseDisposition({
         messages: [inbound("Let's move it to Thursday at 8.")],
         accept: noAccept,
+        scheduleFactsAvailable: null,
       })
     ).toMatchObject({
       disposition: "operator_input_required",
@@ -158,7 +169,11 @@ describe("decideResponseDisposition", () => {
     "Thanks for coming by Tuesday.",
   ])("does not treat an ordinary weekday mention as scheduling: %s", (body) => {
     expect(
-      decideResponseDisposition({ messages: [inbound(body)], accept: noAccept })
+      decideResponseDisposition({
+        messages: [inbound(body)],
+        accept: noAccept,
+        scheduleFactsAvailable: null,
+      })
     ).toMatchObject({ disposition: "no_reply_required", mode: "no_reply" });
   });
 
@@ -167,6 +182,7 @@ describe("decideResponseDisposition", () => {
       decideResponseDisposition({
         messages: [inbound("We reviewed the estimate on Monday.")],
         accept: noAccept,
+        scheduleFactsAvailable: null,
       })
     ).toMatchObject({
       disposition: "operator_input_required",
@@ -179,6 +195,7 @@ describe("decideResponseDisposition", () => {
       decideResponseDisposition({
         messages: [inbound("Can you send the revised quote by Tuesday?")],
         accept: noAccept,
+        scheduleFactsAvailable: null,
       })
     ).toMatchObject({ disposition: "reply_required", mode: "answer" });
   });
@@ -195,6 +212,7 @@ describe("decideResponseDisposition", () => {
         decideResponseDisposition({
           messages: [inbound(body)],
           accept: noAccept,
+          scheduleFactsAvailable: null,
         })
       ).toMatchObject({
         disposition: "operator_input_required",
@@ -214,6 +232,7 @@ describe("decideResponseDisposition", () => {
         decideResponseDisposition({
           messages: [inbound(body)],
           accept: noAccept,
+          scheduleFactsAvailable: null,
         })
       ).toMatchObject({ disposition: "reply_required", mode: "answer" });
     }
@@ -224,6 +243,7 @@ describe("decideResponseDisposition", () => {
       decideResponseDisposition({
         messages: [inbound("The measurements changed after the site visit.")],
         accept: noAccept,
+        scheduleFactsAvailable: null,
       })
     ).toMatchObject({
       disposition: "operator_input_required",
@@ -254,6 +274,7 @@ describe("decideResponseDisposition", () => {
           }),
         ],
         accept: noAccept,
+        scheduleFactsAvailable: null,
       })
     ).toMatchObject({
       disposition: "reply_required",

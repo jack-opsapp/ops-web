@@ -177,6 +177,16 @@ export interface ConversationState {
   /** What the operator has ALREADY sent (prices/quotes/promises) — the drafter must not restate these. */
   sentLedger: SentLedgerEntry[];
   attachmentsRequiringInspection: AttachmentRef[];
+  /**
+   * Whether this lead's schedule could be READ from the database at routing
+   * time. `true` = the calendar is verifiably legible (an empty calendar still
+   * counts — "nothing booked" is a fact); `false`/`null` = unprobed or the read
+   * failed, so a scheduling question stays held for a human.
+   *
+   * Deterministic input, not a model output: the drafter may only state
+   * schedule facts the server actually read.
+   */
+  scheduleFactsAvailable: boolean | null;
   routing: RoutingDecision;
   routingReasons: string[];
   responseDisposition: ResponseDisposition;

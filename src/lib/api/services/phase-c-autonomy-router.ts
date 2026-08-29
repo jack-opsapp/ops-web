@@ -1292,6 +1292,17 @@ export const PhaseCAutonomyRouter = {
         detail: scheduled.reason,
       };
     }
+    if (scheduled.outcome === "draft_only") {
+      // A schedule reply: drafted, never auto-sent. Fall through to the same
+      // auto-draft behavior the disabled-auto-send path uses. The draft the
+      // generation just persisted is reused there — no second model call.
+      return await this.doAutoDraft(
+        thread,
+        actorContext.actorUserId,
+        "auto_draft",
+        { phaseCActorContext: actorContext }
+      );
+    }
     if (scheduled.outcome === "unavailable") {
       return {
         outcome: "error",
@@ -1535,6 +1546,16 @@ export const PhaseCAutonomyRouter = {
         effectiveLevel: effective,
         detail: scheduled.reason,
       };
+    }
+    if (scheduled.outcome === "draft_only") {
+      // Unreachable for a follow-up (response modes are a conversation-reply
+      // concept), but the fence is absolute: never auto-send, draft instead.
+      return await this.doAutoDraft(
+        thread,
+        actorContext.actorUserId,
+        "auto_draft",
+        { phaseCActorContext: actorContext }
+      );
     }
     if (scheduled.outcome === "unavailable") {
       return {

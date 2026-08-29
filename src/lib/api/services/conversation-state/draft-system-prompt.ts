@@ -141,7 +141,9 @@ ${scheduleRule(scheduleVerified)}`;
       : context.mode === "clarify"
         ? "Ask the single missing question required to proceed."
         : context.mode === "schedule"
-          ? "Do not propose or confirm a date until verified schedule context exists."
+          ? scheduleVerified
+            ? "Answer the scheduling question using ONLY the server-verified schedule facts provided. State existing bookings exactly. New times may be proposed only as tentative options requiring confirmation — never as confirmed."
+            : "Do not propose or confirm a date until verified schedule context exists."
           : context.mode === "acknowledge_and_advance"
             ? "Acknowledge only genuinely new material, then state the concrete next step."
             : context.mode === "close_loop"
