@@ -14,6 +14,7 @@ import { BugReportDrawer } from "@/components/ops/bug-report-drawer";
 import { CreateCluster } from "@/components/ops/create-menu/create-cluster";
 import { NotificationsDrawer } from "@/components/layouts/notifications-drawer";
 import { DuplicateReviewSheet } from "@/components/ops/duplicate-review-sheet";
+import { LeadWonPromptHost } from "@/components/ops/lead-won-prompt-host";
 import { useActionPrompts } from "@/hooks/useActionPrompts";
 import { useWindowStore } from "@/stores/window-store";
 import { CreateTaskForm } from "@/components/ops/create-task-modal";
@@ -340,6 +341,9 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
       <CreateCluster />
       <BugReportDrawer />
       <DuplicateReviewSheet />
+      {/* Lead-won prompt — asks when a lead-linked project goes active
+          (bug 9a89b951, D3). Renders nothing until a proposal is pending. */}
+      <LeadWonPromptHost />
       <WindowDock />
 
       {/* Entity detail popovers — accessible from any page via widget clicks.
