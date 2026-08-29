@@ -416,4 +416,61 @@ describe("operational read cursor", () => {
       })
     ).toThrow(TypeError);
   });
+
+  it("accepts only the frozen v7 binding during the v8 manifest transition", () => {
+    const cursorCodec = codec();
+    const activeV8Expected = {
+      ...CUSTOMER_DISCOVERY_EXPECTED,
+      capabilityManifestRevision: "2026-08-22.capability-manifest.v8",
+      queryHash: `sha256:${"d".repeat(64)}`,
+      frozenV7QueryHash: CUSTOMER_DISCOVERY_EXPECTED.queryHash,
+    } as const;
+    const v7Cursor = cursorCodec.encode(CUSTOMER_DISCOVERY_CLAIMS);
+
+    expect(
+      cursorCodec.decode({ cursor: v7Cursor, expected: activeV8Expected })
+    ).toMatchObject(CUSTOMER_DISCOVERY_CLAIMS);
+    expect(() =>
+      cursorCodec.decode({
+        cursor: v7Cursor,
+        expected: {
+          ...activeV8Expected,
+          permissionSnapshotRevision: `sha256:${"f".repeat(64)}`,
+        },
+      })
+    ).toThrow(OperationalReadCursorPermissionStaleError);
+
+    const v8Claims = {
+      ...CUSTOMER_DISCOVERY_CLAIMS,
+      capability_manifest_revision:
+        "2026-08-22.capability-manifest.v8" as const,
+      query_hash: activeV8Expected.queryHash,
+    };
+    const v8Cursor = cursorCodec.encode(v8Claims);
+    expect(
+      cursorCodec.decode({ cursor: v8Cursor, expected: activeV8Expected })
+    ).toMatchObject(v8Claims);
+    expect(() =>
+      cursorCodec.decode({
+        cursor: v8Cursor,
+        expected: CUSTOMER_DISCOVERY_EXPECTED,
+      })
+    ).toThrow(OperationalReadCursorError);
+
+    for (const capability_manifest_revision of [
+      "2026-08-14.capability-manifest.v6",
+      "2026-08-29.capability-manifest.v9",
+    ]) {
+      const incompatibleCursor = cursorCodec.encode({
+        ...CUSTOMER_DISCOVERY_CLAIMS,
+        capability_manifest_revision,
+      });
+      expect(() =>
+        cursorCodec.decode({
+          cursor: incompatibleCursor,
+          expected: activeV8Expected,
+        })
+      ).toThrow(OperationalReadCursorError);
+    }
+  });
 });

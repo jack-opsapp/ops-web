@@ -510,6 +510,7 @@ export function createSupabaseScheduledJobsRepository(
               permissionSnapshotRevision:
                 proof.actorContext.permissionSnapshotRevision,
               queryHash: hash,
+              frozenV7QueryHash: hash,
             },
           });
         } catch (error) {

@@ -16,6 +16,7 @@ import {
   CAPABILITY_MANIFEST,
   CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
+import { MCP_EXPOSURE_V1 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   createOpsAgentDomainService,
   type CreateOpsAgentDomainServiceInput,
@@ -57,7 +58,8 @@ import {
   TASK_13_JOB_SUMMARY_INPUT,
 } from "./fixtures/task13-job-catalog-fixtures";
 
-const TASK_13_MANIFEST_REVISION = "2026-08-20.capability-manifest.v7" as const;
+const TASK_13_ACTIVE_MANIFEST_REVISION =
+  "2026-08-22.capability-manifest.v8" as const;
 const TASK_13_CAPABILITIES = [
   "list_customer_jobs",
   "get_job_summary",
@@ -223,32 +225,35 @@ describe("Task 13 job-catalog domain facade", () => {
   );
 
   it("keeps Task 13 and discovery exposed as read-only capabilities", () => {
-    expect(CAPABILITY_MANIFEST_REVISION).toBe(TASK_13_MANIFEST_REVISION);
+    expect(CAPABILITY_MANIFEST_REVISION).toBe(TASK_13_ACTIVE_MANIFEST_REVISION);
+    const exposedToolIds = new Set(MCP_EXPOSURE_V1.toolIds);
     for (const capabilityName of TASK_13_CAPABILITIES) {
       const capability = CAPABILITY_MANIFEST.find(
         (entry) => entry.name === capabilityName
       );
       expect(capability?.availability).toEqual({
         implementation: "available",
-        externalExposure: "enabled",
       });
+      expect(capability?.operation).toBe("read");
+      expect(exposedToolIds.has(capabilityName)).toBe(true);
     }
-    for (const capabilityName of ["search_customers", "search_jobs"]) {
-      expect(
-        CAPABILITY_MANIFEST.find((entry) => entry.name === capabilityName)
-          ?.availability
-      ).toEqual({
+    for (const capabilityName of ["search_customers", "search_jobs"] as const) {
+      const capability = CAPABILITY_MANIFEST.find(
+        (entry) => entry.name === capabilityName
+      );
+      expect(capability?.availability).toEqual({
         implementation: "available",
-        externalExposure: "enabled",
       });
+      expect(capability?.operation).toBe("read");
+      expect(exposedToolIds.has(capabilityName)).toBe(true);
     }
-    expect(
-      CAPABILITY_MANIFEST.every(
-        (capability) =>
-          capability.availability.externalExposure !== "enabled" ||
-          capability.availability.implementation === "available"
-      )
-    ).toBe(true);
+    for (const capabilityName of MCP_EXPOSURE_V1.toolIds) {
+      const capability = CAPABILITY_MANIFEST.find(
+        (entry) => entry.name === capabilityName
+      );
+      expect(capability?.operation).toBe("read");
+      expect(capability?.availability.implementation).toBe("available");
+    }
   });
 
   it("captures all four repository getters and the final bundle exactly once before trust validation", () => {
@@ -363,7 +368,7 @@ describe("Task 13 job-catalog domain facade", () => {
     ).toThrow(TypeError);
   });
 
-  it("returns identical parsed Task 13 results for internal, OPS API, and direct MCP actor contexts while external exposure stays disabled", async () => {
+  it("returns identical parsed Task 13 results for internal, OPS API, and direct MCP actor contexts while canonical exposure stays enabled", async () => {
     const [
       customerAuthorization,
       summaryAuthorization,
@@ -465,10 +470,7 @@ describe("Task 13 job-catalog domain facade", () => {
     expect(historyClient.calls).toHaveLength(3);
     expect(evidenceClient.calls).toHaveLength(3);
     for (const capabilityName of TASK_13_CAPABILITIES) {
-      expect(
-        CAPABILITY_MANIFEST.find((entry) => entry.name === capabilityName)
-          ?.availability.externalExposure
-      ).toBe("enabled");
+      expect(MCP_EXPOSURE_V1.toolIds).toContain(capabilityName);
     }
   });
 });

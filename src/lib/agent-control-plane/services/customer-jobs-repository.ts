@@ -16,6 +16,7 @@ import {
   type AuthorizedCustomerJobsRead,
 } from "./customer-jobs-authorization";
 import {
+  FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION,
   hashOperationalReadQuery,
   isTrustedOperationalReadCursorCodec,
   OperationalReadCursorError,
@@ -196,11 +197,14 @@ function canonicalInput(proof: AuthorizedCustomerJobsRead) {
   return query;
 }
 
-function queryHash(proof: AuthorizedCustomerJobsRead): string {
+function queryHash(
+  proof: AuthorizedCustomerJobsRead,
+  capabilityManifestRevision = proof.capabilityManifestRevision
+): string {
   return hashOperationalReadQuery({
     capability_id: proof.capabilityId,
     schema_revision: TASK_13_CAPABILITY_SCHEMA_REVISION,
-    capability_manifest_revision: proof.capabilityManifestRevision,
+    capability_manifest_revision: capabilityManifestRevision,
     query: canonicalInput(proof),
   });
 }
@@ -237,11 +241,13 @@ function assertAtomicClaim(input: {
   readonly proof: AuthorizedCustomerJobsRead;
   readonly snapshot: RawCustomerJobsSnapshot;
   readonly sourceType:
-    "customer_job_projection" | "customer_jobs_collection_projection";
+    | "customer_job_projection"
+    | "customer_jobs_collection_projection";
   readonly sourceId: string;
   readonly evidenceId: string;
   readonly versionPrefix:
-    "customer-job-projection:v1" | "customer-jobs-collection-projection:v1";
+    | "customer-job-projection:v1"
+    | "customer-jobs-collection-projection:v1";
   readonly payloadKey: "job" | "collection";
   readonly expectedRaw: CanonicalProjection;
   readonly retainedProofSources: readonly SourceVersion[];
@@ -560,6 +566,10 @@ export function createSupabaseCustomerJobsRepository(
       }
 
       const hash = queryHash(proof);
+      const frozenV7QueryHash = queryHash(
+        proof,
+        FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION
+      );
       let decoded: CustomerJobsCursorClaims | null = null;
       if (proof.query.cursor) {
         try {
@@ -575,6 +585,7 @@ export function createSupabaseCustomerJobsRepository(
               permissionSnapshotRevision:
                 proof.actorContext.permissionSnapshotRevision,
               queryHash: hash,
+              frozenV7QueryHash,
             },
           });
           if (claims.capability_id !== "list_customer_jobs") invalid();

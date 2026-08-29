@@ -18,6 +18,7 @@ import {
   type AuthorizedCustomerDiscoveryRead,
 } from "./customer-discovery-authorization";
 import {
+  FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION,
   hashOperationalReadQuery,
   isTrustedOperationalReadCursorCodec,
   OperationalReadCursorError,
@@ -212,11 +213,14 @@ function canonicalInput(proof: AuthorizedCustomerDiscoveryRead) {
   return query;
 }
 
-function queryHash(proof: AuthorizedCustomerDiscoveryRead): string {
+function queryHash(
+  proof: AuthorizedCustomerDiscoveryRead,
+  capabilityManifestRevision = proof.capabilityManifestRevision
+): string {
   return hashOperationalReadQuery({
     capability_id: proof.capabilityId,
     schema_revision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
-    capability_manifest_revision: proof.capabilityManifestRevision,
+    capability_manifest_revision: capabilityManifestRevision,
     query: canonicalInput(proof),
   });
 }
@@ -728,6 +732,10 @@ export function createSupabaseCustomerDiscoveryRepository(
       }
 
       const hash = queryHash(proof);
+      const frozenV7QueryHash = queryHash(
+        proof,
+        FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION
+      );
       let decoded: CustomerDiscoveryCursorClaims | null = null;
       if (proof.query.cursor) {
         try {
@@ -744,6 +752,7 @@ export function createSupabaseCustomerDiscoveryRepository(
               permissionSnapshotRevision:
                 proof.actorContext.permissionSnapshotRevision,
               queryHash: hash,
+              frozenV7QueryHash,
             },
           });
           if (claims.capability_id !== "search_customers") invalid();

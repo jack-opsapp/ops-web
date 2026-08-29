@@ -177,7 +177,7 @@ function expectedCommonArgs(authorization: Task13Authorization) {
 }
 
 describe("Task 13 customer-jobs repository", () => {
-  it("calls the fixed current-only RPC with exact v7 authority, input, and null cursor bindings", async () => {
+  it("calls the fixed current-only RPC with exact active authority, input, and null cursor bindings", async () => {
     const authorization = await task13Authorization("customer_jobs");
     const snapshot = customerJobsSnapshot(authorization);
     const client = new StubTask13RpcClient([{ data: snapshot, error: null }]);

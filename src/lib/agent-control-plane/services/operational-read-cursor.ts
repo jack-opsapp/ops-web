@@ -8,6 +8,10 @@ import { DiscoveryMillisecondUtcTimestampSchema } from "@/lib/agent-control-plan
 
 const MAX_CURSOR_AGE_SECONDS = 15 * 60;
 const CURSOR_PREFIX = "ops_cursor";
+export const FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION =
+  "2026-08-20.capability-manifest.v7" as const;
+const ACTIVE_V8_MANIFEST_REVISION =
+  "2026-08-22.capability-manifest.v8" as const;
 const UUID_SCHEMA = z.string().uuid();
 const DISCOVERY_UUID_SCHEMA = UUID_SCHEMA.refine(
   (value) => value === value.toLowerCase()
@@ -236,6 +240,7 @@ interface CommonOperationalReadCursorExpectation {
   readonly companyId: string;
   readonly permissionSnapshotRevision: string;
   readonly queryHash: string;
+  readonly frozenV7QueryHash?: string;
 }
 
 export type OperationalReadCursorExpectation =
@@ -335,6 +340,31 @@ function permissionDigest(
     .update("permission-snapshot\0")
     .update(permissionSnapshotRevision)
     .digest("base64url");
+}
+
+function resolveCursorBindingExpectation(input: {
+  readonly key: Uint8Array;
+  readonly wireBinding: string;
+  readonly expected: OperationalReadCursorExpectation;
+}): OperationalReadCursorExpectation | null {
+  if (input.wireBinding === bindingDigest(input.key, input.expected)) {
+    return input.expected;
+  }
+  if (
+    input.expected.capabilityManifestRevision !== ACTIVE_V8_MANIFEST_REVISION ||
+    typeof input.expected.frozenV7QueryHash !== "string" ||
+    !/^sha256:[a-f0-9]{64}$/.test(input.expected.frozenV7QueryHash)
+  ) {
+    return null;
+  }
+  const frozenV7Expectation = {
+    ...input.expected,
+    capabilityManifestRevision: FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION,
+    queryHash: input.expected.frozenV7QueryHash,
+  } as OperationalReadCursorExpectation;
+  return input.wireBinding === bindingDigest(input.key, frozenV7Expectation)
+    ? frozenV7Expectation
+    : null;
 }
 
 export function hashOperationalReadQuery(value: unknown): string {
@@ -596,9 +626,14 @@ export function createOperationalReadCursorCodec(
             return "j";
         }
       })();
+      const bindingExpectation = resolveCursorBindingExpectation({
+        key: capturedKey,
+        wireBinding: wire.b,
+        expected,
+      });
       if (
         wire.c !== expectedWireKind ||
-        wire.b !== bindingDigest(capturedKey, expected) ||
+        bindingExpectation === null ||
         wire.i > nowSeconds + 60 ||
         wire.e <= nowSeconds ||
         wire.e - wire.i > capturedTtl
@@ -614,14 +649,15 @@ export function createOperationalReadCursorCodec(
       const common = {
         version: capturedVersion,
         key_id: capturedKeyId,
-        capability_id: expected.capabilityId,
-        schema_revision: expected.schemaRevision,
-        capability_manifest_revision: expected.capabilityManifestRevision,
-        rule_revisions: [...expected.ruleRevisions],
-        actor_user_id: expected.actorUserId,
-        company_id: expected.companyId,
+        capability_id: bindingExpectation.capabilityId,
+        schema_revision: bindingExpectation.schemaRevision,
+        capability_manifest_revision:
+          bindingExpectation.capabilityManifestRevision,
+        rule_revisions: [...bindingExpectation.ruleRevisions],
+        actor_user_id: bindingExpectation.actorUserId,
+        company_id: bindingExpectation.companyId,
         permission_snapshot_revision: expected.permissionSnapshotRevision,
-        query_hash: expected.queryHash,
+        query_hash: bindingExpectation.queryHash,
         issued_at: wire.i,
         expires_at: wire.e,
         source_revision: wire.r,

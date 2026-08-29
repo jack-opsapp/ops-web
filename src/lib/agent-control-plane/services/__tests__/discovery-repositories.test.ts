@@ -21,6 +21,10 @@ import {
   type CanonicalProjection,
 } from "../operational-read-projection";
 import {
+  FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION,
+  hashOperationalReadQuery,
+} from "../operational-read-cursor";
+import {
   AtomicDiscoveryClaim,
   CAPABILITY_MANIFEST_REVISION,
   DISCOVERY_ACTOR_ID,
@@ -1421,6 +1425,102 @@ describe("discovery proof, order, and cursor coupling", () => {
       p_cursor_customer_kind: "client",
     });
     expect(client.calls[0]!.args).not.toHaveProperty("p_cursor");
+  });
+
+  it("continues a frozen v7 customer cursor under v8 and reissues only v8", async () => {
+    const codec = discoveryCursorCodec({
+      now: () => new Date(DISCOVERY_GENERATED_AT),
+    });
+    const initialAuthorization = await customerDiscoveryAuthorization();
+    const { cursor: _initialCursor, ...canonicalQuery } =
+      initialAuthorization.query;
+    const v7QueryHash = hashOperationalReadQuery({
+      capability_id: initialAuthorization.capabilityId,
+      schema_revision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+      capability_manifest_revision:
+        FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION,
+      query: canonicalQuery,
+    });
+    const boundary = customerDiscoveryMatch(2).customer_ref;
+    const v7Cursor = codec.encode({
+      capability_id: "search_customers",
+      schema_revision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+      capability_manifest_revision:
+        FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION,
+      ranking_revision: CUSTOMER_DISCOVERY_RANKING_REVISION,
+      rule_revisions: [],
+      actor_user_id: initialAuthorization.actorContext.actorUserId,
+      company_id: initialAuthorization.actorContext.companyId,
+      permission_snapshot_revision:
+        initialAuthorization.actorContext.permissionSnapshotRevision,
+      query_hash: v7QueryHash,
+      source_revision: DISCOVERY_SOURCE_REVISION,
+      read_as_of: DISCOVERY_READ_AT,
+      rank_ordinal: 2,
+      customer_kind: boundary.kind,
+      customer_id: boundary.id,
+    });
+    const continued = await customerDiscoveryAuthorization({
+      ...DISCOVERY_CUSTOMER_INPUT,
+      cursor: v7Cursor,
+    });
+    const client = new StubDiscoveryRpcClient([
+      {
+        data: customerDiscoverySnapshot(
+          continued,
+          [customerDiscoveryMatch(3), customerDiscoveryMatch(4)],
+          { startOrdinal: 3, hasMore: true, authorizedCandidateCount: 5 }
+        ),
+        error: null,
+      },
+    ]);
+
+    const result = await customerRepository(client, codec).read({
+      authorization: continued,
+    });
+
+    expect(client.calls[0]!.args).toMatchObject({
+      p_capability_manifest_revision: CAPABILITY_MANIFEST_REVISION,
+      p_cursor_rank_ordinal: 2,
+      p_cursor_customer_kind: boundary.kind,
+      p_cursor_customer_id: boundary.id,
+    });
+    expect(result.page.next_cursor).toMatch(/^ops_cursor:/);
+    const currentQueryHash = hashOperationalReadQuery({
+      capability_id: continued.capabilityId,
+      schema_revision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+      capability_manifest_revision: CAPABILITY_MANIFEST_REVISION,
+      query: canonicalQuery,
+    });
+    const activeExpectation = {
+      capabilityId: continued.capabilityId,
+      schemaRevision: DISCOVERY_CAPABILITY_SCHEMA_REVISION,
+      capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
+      rankingRevision: CUSTOMER_DISCOVERY_RANKING_REVISION,
+      ruleRevisions: [],
+      actorUserId: continued.actorContext.actorUserId,
+      companyId: continued.actorContext.companyId,
+      permissionSnapshotRevision:
+        continued.actorContext.permissionSnapshotRevision,
+      queryHash: currentQueryHash,
+    } as const;
+    expect(
+      codec.decode({
+        cursor: result.page.next_cursor!,
+        expected: activeExpectation,
+      }).capability_manifest_revision
+    ).toBe(CAPABILITY_MANIFEST_REVISION);
+    expect(() =>
+      codec.decode({
+        cursor: result.page.next_cursor!,
+        expected: {
+          ...activeExpectation,
+          capabilityManifestRevision:
+            FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION,
+          queryHash: v7QueryHash,
+        },
+      })
+    ).toThrow();
   });
 
   it("decodes job cursors into exact RPC claims and binds the last retained identity", async () => {

@@ -14,6 +14,7 @@ import {
   type AuthorizedJobReadinessRead,
 } from "./job-readiness-authorization";
 import {
+  FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION,
   hashOperationalReadQuery,
   isTrustedOperationalReadCursorCodec,
   OperationalReadCursorError,
@@ -195,12 +196,15 @@ function ruleRevisions(proof: AuthorizedJobReadinessRead): readonly string[] {
   return proof.query.rule_codes.map((code) => revisionByCode.get(code)!);
 }
 
-function queryHash(proof: AuthorizedJobReadinessRead): string {
+function queryHash(
+  proof: AuthorizedJobReadinessRead,
+  capabilityManifestRevision = proof.capabilityManifestRevision
+): string {
   const { cursor: _cursor, ...query } = proof.query;
   return hashOperationalReadQuery({
     capability_id: proof.capabilityId,
     schema_revision: CONTRACT_VERSION,
-    capability_manifest_revision: proof.capabilityManifestRevision,
+    capability_manifest_revision: capabilityManifestRevision,
     rule_revisions: ruleRevisions(proof),
     query,
   });
@@ -440,6 +444,10 @@ export function createSupabaseJobReadinessRepository(
       }
       const revisions = ruleRevisions(proof);
       const hash = queryHash(proof);
+      const frozenV7QueryHash = queryHash(
+        proof,
+        FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION
+      );
       const cursor =
         input.cursor === undefined ? proof.query.cursor : input.cursor;
       let decoded: ReturnType<OperationalReadCursorCodec["decode"]> | null =
@@ -458,6 +466,7 @@ export function createSupabaseJobReadinessRepository(
               permissionSnapshotRevision:
                 proof.actorContext.permissionSnapshotRevision,
               queryHash: hash,
+              frozenV7QueryHash,
             },
           });
         } catch (error) {
