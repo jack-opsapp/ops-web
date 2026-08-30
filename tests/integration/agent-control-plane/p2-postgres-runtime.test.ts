@@ -171,6 +171,10 @@ const MIGRATIONS = [
     "20260829192448_mcp_oauth_codex_dcr_callbacks.sql",
     "5a26ff566858e06994f50652c94d7afc3c4a0d1b6bc3891897bcf2e9868831a9",
   ],
+  [
+    "20260830113800_mcp_oauth_chatgpt_rfc9207_callback.sql",
+    "2e0893b8312fb0cbb264228a4ac97155c2649aefd6e42040cc5b1369a09f7e59",
+  ],
 ] as const;
 
 const FIXTURE_GROUPS = [
@@ -235,6 +239,7 @@ const FIXTURE_GROUPS = [
     "agent-operational-overview-replay-runtime.sql",
   ],
   ["agent-mcp-oauth-codex-dcr-runtime.sql"],
+  ["agent-mcp-oauth-chatgpt-rfc9207-runtime.sql"],
 ] as const;
 
 const FIXTURES = [
@@ -402,6 +407,10 @@ const FIXTURES = [
     "agent-mcp-oauth-codex-dcr-runtime.sql",
     "0040c68912e0d470d813ab7cfdfafbecf999111779077a6e8fb6b06dd9b186c0",
   ],
+  [
+    "agent-mcp-oauth-chatgpt-rfc9207-runtime.sql",
+    "354e0915a8d365da9c8445ec29ffb487291de84d9644443487883ffd1e587c18",
+  ],
 ] as const;
 
 const BASELINE_SHA256 =
@@ -437,6 +446,7 @@ const FIXTURE_CHECKPOINT_MIGRATIONS = [
   "20260829110001_agent_work_queue_read.sql",
   "20260829110002_agent_operational_overview_read.sql",
   "20260829192448_mcp_oauth_codex_dcr_callbacks.sql",
+  "20260830113800_mcp_oauth_chatgpt_rfc9207_callback.sql",
 ] as const;
 
 const BASELINE = join(
@@ -643,11 +653,11 @@ async function settleWithCleanup(
 }
 
 describe("P2 PostgreSQL 17 full-wave ledger", () => {
-  it("pins the exact ordered 39-file ledger and canonical baseline", async () => {
-    expect(MIGRATIONS).toHaveLength(39);
-    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(39);
-    expect(FIXTURE_GROUPS.flat()).toHaveLength(41);
-    expect(FIXTURES).toHaveLength(41);
+  it("pins the exact ordered 40-file ledger and canonical baseline", async () => {
+    expect(MIGRATIONS).toHaveLength(40);
+    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(40);
+    expect(FIXTURE_GROUPS.flat()).toHaveLength(42);
+    expect(FIXTURES).toHaveLength(42);
     expect(FIXTURE_GROUPS.flat()).toEqual(FIXTURES.map(([name]) => name));
     expect(FIXTURE_CHECKPOINT_MIGRATIONS).toHaveLength(FIXTURE_GROUPS.length);
     expect(new Set(FIXTURE_CHECKPOINT_MIGRATIONS).size).toBe(
@@ -664,8 +674,8 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
           (position === 0 || index > checkpointIndexes[position - 1])
       )
     ).toBe(true);
-    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(41);
-    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(41);
+    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(42);
+    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(42);
     expect(FIXTURE_GROUPS.every((group) => group.length <= 3)).toBe(true);
     expect(fixtureExecutionPlan(FIXTURE_GROUPS[11])).toEqual([
       "agent-sales-document-sources-runtime.sql",

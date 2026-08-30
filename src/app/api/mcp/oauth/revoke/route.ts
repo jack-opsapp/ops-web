@@ -3,7 +3,7 @@
  *
  * RFC 7009 token revocation. Presenting either half of a grant — access or
  * refresh token — revokes the grant and its whole token family, so a user
- * disconnecting the connector in Claude kills the connection immediately
+ * disconnecting the connector in its host kills the connection immediately
  * rather than waiting out an access token's ten minutes.
  *
  * The response is always `200 {}`: an unknown, malformed, already-revoked or

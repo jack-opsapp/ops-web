@@ -20,9 +20,9 @@ import {
  *
  * One question, one panel: who is asking, which OPS company it touches, what
  * it can do (read-only), exactly what it can see, then approve or deny. No
- * dashboard chrome — an operator arriving here from Claude is mid-handshake,
- * not navigating the product, so navigation would only offer ways to abandon
- * the flow halfway.
+ * dashboard chrome — an operator arriving here from a connector is
+ * mid-handshake, not navigating the product, so navigation would only offer
+ * ways to abandon the flow halfway.
  *
  * Trust boundary: this component never decides anything. It carries the raw
  * authorization parameters to two Firebase-authenticated endpoints that
@@ -226,7 +226,7 @@ function ConsentPanelBody({
           This connection request is invalid or expired.
         </p>
         <p className="mt-3 font-mono text-micro text-text-3">
-          [close this tab and reconnect from Claude]
+          [close this tab and reconnect]
         </p>
       </ConsentShell>
     );

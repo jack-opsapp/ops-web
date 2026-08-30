@@ -47,6 +47,7 @@ export {
   type ClientRegistrationResult,
   type ValidatedClientRegistration,
 } from "./clients";
+export { buildAuthorizationResponseUrl } from "./authorization-response";
 export {
   SCOPE_CONSENT_LABELS,
   SUPPORTED_READ_SCOPES,

@@ -10,7 +10,10 @@ import {
   V7_CAPABILITY_MANIFEST,
   V7_CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
-import { MCP_EXPOSURE_V1 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  MCP_EXPOSURE_V1,
+  MCP_EXPOSURE_V2,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   P2_READ_CAPABILITY_CANDIDATES,
   P2_READ_CAPABILITY_IDS,
@@ -323,7 +326,7 @@ describe("immutable v8 capability manifest", () => {
     );
   });
 
-  it("keeps the external exposure frozen at eleven reads and seven scopes", () => {
+  it("keeps v1 frozen while v2 exposes every implemented read and only read scopes", () => {
     expect(MCP_EXPOSURE_V1.toolIds).toHaveLength(11);
     expect(MCP_EXPOSURE_V1.grantableScopes).toHaveLength(7);
     expect(MCP_EXPOSURE_V1.toolIds).toEqual(EXPECTED_V8_READS.slice(0, 11));
@@ -332,6 +335,13 @@ describe("immutable v8 capability manifest", () => {
     }
     for (const p2Read of EXPECTED_V8_READS.slice(11)) {
       expect(MCP_EXPOSURE_V1.toolIds).not.toContain(p2Read);
+    }
+
+    expect(MCP_EXPOSURE_V2.toolIds).toEqual(EXPECTED_V8_READS);
+    expect(MCP_EXPOSURE_V2.toolIds).toHaveLength(34);
+    expect(MCP_EXPOSURE_V2.grantableScopes).toHaveLength(20);
+    for (const scope of MCP_EXPOSURE_V2.grantableScopes) {
+      expect(scope).toMatch(/^ops\.[a-z_]+\.read$/);
     }
   });
 });

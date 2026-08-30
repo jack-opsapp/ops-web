@@ -9,6 +9,7 @@ import {
   type ActorContext,
 } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import { CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
+import { resolveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   ACCESS_TOKEN_PREFIX,
   credentialDigest,
@@ -30,6 +31,7 @@ export interface McpGrantFacts {
   readonly actorUserId: string;
   readonly companyId: string;
   readonly scopes: readonly string[];
+  readonly exposureRevision: string;
   readonly tokenId: string;
   readonly expiresAtEpochSeconds: number;
 }
@@ -97,6 +99,11 @@ export async function resolveMcpBearer(
   ) {
     return { kind: "invalid_token" };
   }
+  try {
+    resolveMcpExposure(row.exposure_revision);
+  } catch {
+    return { kind: "invalid_token" };
+  }
 
   const grantFacts: McpGrantFacts = Object.freeze({
     grantId: row.grant_id,
@@ -105,6 +112,7 @@ export async function resolveMcpBearer(
     actorUserId: row.user_id,
     companyId: row.company_id,
     scopes: Object.freeze([...row.scopes]),
+    exposureRevision: row.exposure_revision,
     tokenId: digest,
     expiresAtEpochSeconds: Math.floor(expiresAtMs / 1000),
   });

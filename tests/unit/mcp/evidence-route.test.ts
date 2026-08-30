@@ -69,6 +69,7 @@ function authenticated(): Extract<
       actorUserId: ACTOR_ID,
       companyId: COMPANY_ID,
       scopes: ["ops.correspondence.read", "ops.files.read"],
+      exposureRevision: "2026-08-22.mcp-exposure.v1",
       tokenId: TOKEN_HASH,
       expiresAtEpochSeconds: NOW_SECONDS + 3600,
     },

@@ -3,7 +3,20 @@
 > Legacy Bubble endpoints documented below use `https://opsapp.co/api/1.1/`, API-token bearer authorization from `/wf/generate-api-token`, and soft deletes via PATCH with `deletedAt`.
 > First-party Next.js endpoints use `https://app.opsapp.co/api/...`. The production remote MCP resource is `POST https://app.opsapp.co/api/mcp` with OPS OAuth bearer authorization.
 
-**MCP connector compatibility (local candidate, 2026-08-29):** The authorization server retains RFC 7591 DCR and PKCE S256. Claude registration is restricted to its two exact hosted callbacks. Codex desktop registration additionally accepts exactly one raw `http://127.0.0.1:<1-65535>/callback/<bounded-base64url-id>` callback after Codex binds the port. The URI remains byte-exact through consent, authorization code creation, and token exchange; there is no wildcard-port matching, `localhost` alias, CIMD, or issuer-response support. This change is unpushed, undeployed, and unapplied in production.
+**MCP read-only connector contract (v2, 2026-08-29):** Newly registered and consented Claude, ChatGPT, and Codex connectors receive immutable exposure `2026-08-29.mcp-exposure.v2`: exactly 34 read tools and 20 business-data scopes. Existing v1 clients, grants, access tokens, and refresh families remain pinned to their original 11-tool/7-scope exposure and never widen silently. Moving a host from v1 to v2 requires fresh DCR and operator consent. Every request resolves the grant's stored exposure revision before registering tools; an unknown revision fails closed.
+
+All externally callable business tools are reads. No tool can create, update, delete, prepare, commit, or send company data; there is no arbitrary SQL, table browser, or unrestricted export. Private OAuth issuance/revocation, immutable audit append, durable rate limiting, and single-use evidence-token redemption may mutate security bookkeeping only.
+
+The authorization server retains RFC 7591 DCR, authorization-code flow, PKCE S256, exact RFC 8707 resource binding, rotating refresh tokens, and RFC 7009 revocation. `offline_access` is not an OPS business-data scope; persistent access uses the existing rotating refresh-token grant. Registrations must contain callbacks from one connector family only: Claude's exact hosted callback set, ChatGPT's exact stable callback `https://chatgpt.com/connector_platform_oauth_redirect`, or one exact Codex loopback callback `http://127.0.0.1:<1-65535>/callback/<bounded-base64url-id>`. Redirect bytes remain exact through consent, authorization-code creation, and token exchange. Every successful or denied authorization response includes the exact issuer `iss=https://app.opsapp.co`. Wildcard ports, `localhost`, callback templates/IDs, mixed families, query/fragment variants, and CIMD remain rejected.
+
+**V2 tools by domain:**
+
+- Schedule and jobs: `list_scheduled_jobs`, `list_job_readiness_issues`, `get_job_communication_context`, `get_job_conversation_context`, `list_customer_jobs`, `get_job_summary`, `search_job_history`, `get_correspondence_evidence`, `search_customers`, `search_jobs`, `resolve_job_participants`
+- Customer, task, artifact, visit, and deck context: `get_customer_context`, `list_tasks`, `get_task_context`, `list_job_artifacts`, `get_job_artifact_evidence`, `list_site_visits`, `get_site_visit_context`, `get_deck_design_geometry`
+- Financial and operational data: `list_sales_documents`, `get_sales_document`, `list_payments`, `list_expenses`, `get_expense_context`, `list_work_queue`
+- Catalogue, purchasing, company, team, and integrations: `search_catalog_items`, `get_catalog_item`, `list_purchase_orders`, `get_purchase_order`, `get_company_context`, `list_team_members`, `list_team_availability`, `get_integration_health`, `get_operational_overview`
+
+**V2 grantable read scopes:** `ops.jobs.read`, `ops.schedule.read`, `ops.customers.read`, `ops.customer_contacts.read`, `ops.photos.read`, `ops.correspondence.read`, `ops.financials.read`, `ops.tasks.read`, `ops.site_visits.read`, `ops.files.read`, `ops.financial_documents.read`, `ops.payments.read`, `ops.expenses.read`, `ops.catalog.read`, `ops.purchasing.read`, `ops.catalog_costs.read`, `ops.company.read`, `ops.team.read`, `ops.integrations.read`, `ops.operations.read`.
 
 ---
 
@@ -12,17 +25,18 @@
 **Service:** `src/lib/api/services/project-service.ts`
 **Hooks:** `src/lib/hooks/use-projects.ts`
 
-| Method | HTTP | Endpoint | Hook | Trigger |
-|--------|------|----------|------|---------|
-| `fetchProjects` | GET | `/obj/project` | `useProjects()` | Mount: Dashboard, Projects, Job Board, Pipeline, Map |
-| `fetchUserProjects` | GET | `/obj/project` | `useUserProjects()` | Mount: filtered by userId in teamMembers |
-| `fetchProject` | GET | `/obj/project/{id}` | `useProject(id)` | Mount: Project Detail page |
-| `createProject` | POST | `/obj/project` | `useCreateProject()` | Form submit: CreateProjectModal, /projects/new |
-| `updateProject` | PATCH | `/obj/project/{id}` | `useUpdateProject()` | Form submit: Project Detail edit |
+| Method                | HTTP  | Endpoint            | Hook                       | Trigger                                                    |
+| --------------------- | ----- | ------------------- | -------------------------- | ---------------------------------------------------------- |
+| `fetchProjects`       | GET   | `/obj/project`      | `useProjects()`            | Mount: Dashboard, Projects, Job Board, Pipeline, Map       |
+| `fetchUserProjects`   | GET   | `/obj/project`      | `useUserProjects()`        | Mount: filtered by userId in teamMembers                   |
+| `fetchProject`        | GET   | `/obj/project/{id}` | `useProject(id)`           | Mount: Project Detail page                                 |
+| `createProject`       | POST  | `/obj/project`      | `useCreateProject()`       | Form submit: CreateProjectModal, /projects/new             |
+| `updateProject`       | PATCH | `/obj/project/{id}` | `useUpdateProject()`       | Form submit: Project Detail edit                           |
 | `updateProjectStatus` | PATCH | `/obj/project/{id}` | `useUpdateProjectStatus()` | Drag-drop: Pipeline, Job Board. Bulk action: Projects page |
-| `deleteProject` | PATCH | `/obj/project/{id}` | `useDeleteProject()` | Button: Project Detail delete, Projects bulk delete |
+| `deleteProject`       | PATCH | `/obj/project/{id}` | `useDeleteProject()`       | Button: Project Detail delete, Projects bulk delete        |
 
 **Query invalidation on mutation:**
+
 - Create → invalidates project lists
 - Update → invalidates project detail + lists (optimistic)
 - Delete → invalidates all project caches (optimistic removal)
@@ -34,19 +48,20 @@
 **Service:** `src/lib/api/services/task-service.ts`
 **Hooks:** `src/lib/hooks/use-tasks.ts`
 
-| Method | HTTP | Endpoint | Hook | Trigger |
-|--------|------|----------|------|---------|
-| `fetchTasks` | GET | `/obj/task` | `useTasks()` | Mount: Dashboard (upcoming tasks) |
-| `fetchProjectTasks` | GET | `/obj/task` | `useProjectTasks(projectId)` | Mount: Project Detail task list |
-| `fetchTask` | GET | `/obj/task/{id}` | `useTask(id)` | Mount: task detail views |
-| `createTask` | POST | `/obj/task` | `useCreateTask()` | Form submit: task creation |
-| `createTaskWithEvent` | POST | `/obj/calendarevent` then `/obj/task` | `useCreateTaskWithEvent()` | Form submit: task with scheduled date (creates event first, links to task) |
-| `updateTask` | PATCH | `/obj/task/{id}` | `useUpdateTask()` | Form submit: task edit |
-| `updateTaskStatus` | PATCH | `/obj/task/{id}` | `useUpdateTaskStatus()` | Dropdown: task status change |
-| `deleteTask` | PATCH | `/obj/task/{id}` + optionally `/obj/calendarevent/{id}` | `useDeleteTask()` | Button: task delete (also soft-deletes linked calendar event) |
-| `reorderTasks` | PATCH | `/obj/task/{id}` (parallel) | `useReorderTasks()` | Drag: task list reorder (updates taskIndex on each) |
+| Method                | HTTP  | Endpoint                                                | Hook                         | Trigger                                                                    |
+| --------------------- | ----- | ------------------------------------------------------- | ---------------------------- | -------------------------------------------------------------------------- |
+| `fetchTasks`          | GET   | `/obj/task`                                             | `useTasks()`                 | Mount: Dashboard (upcoming tasks)                                          |
+| `fetchProjectTasks`   | GET   | `/obj/task`                                             | `useProjectTasks(projectId)` | Mount: Project Detail task list                                            |
+| `fetchTask`           | GET   | `/obj/task/{id}`                                        | `useTask(id)`                | Mount: task detail views                                                   |
+| `createTask`          | POST  | `/obj/task`                                             | `useCreateTask()`            | Form submit: task creation                                                 |
+| `createTaskWithEvent` | POST  | `/obj/calendarevent` then `/obj/task`                   | `useCreateTaskWithEvent()`   | Form submit: task with scheduled date (creates event first, links to task) |
+| `updateTask`          | PATCH | `/obj/task/{id}`                                        | `useUpdateTask()`            | Form submit: task edit                                                     |
+| `updateTaskStatus`    | PATCH | `/obj/task/{id}`                                        | `useUpdateTaskStatus()`      | Dropdown: task status change                                               |
+| `deleteTask`          | PATCH | `/obj/task/{id}` + optionally `/obj/calendarevent/{id}` | `useDeleteTask()`            | Button: task delete (also soft-deletes linked calendar event)              |
+| `reorderTasks`        | PATCH | `/obj/task/{id}` (parallel)                             | `useReorderTasks()`          | Drag: task list reorder (updates taskIndex on each)                        |
 
 **Query invalidation on mutation:**
+
 - Create → invalidates task lists + project lists
 - Update → invalidates task detail + lists (optimistic)
 - Status change → invalidates task lists + project lists (optimistic)
@@ -60,19 +75,20 @@
 **Service:** `src/lib/api/services/client-service.ts`
 **Hooks:** `src/lib/hooks/use-clients.ts`
 
-| Method | HTTP | Endpoint | Hook | Trigger |
-|--------|------|----------|------|---------|
-| `fetchClients` | GET | `/obj/client` | `useClients()` | Mount: Dashboard, Clients page, Pipeline |
-| `fetchClient` | GET | `/obj/client/{id}` | `useClient(id)` | Mount: Client Detail page |
-| `createClient` | POST | `/obj/client` | `useCreateClient()` | Form submit: CreateClientModal, /clients/new |
-| `updateClient` | PATCH | `/obj/client/{id}` | `useUpdateClient()` | Form submit: Client Detail edit |
-| `deleteClient` | PATCH | `/obj/client/{id}` | `useDeleteClient()` | Button: Client Detail delete |
-| `fetchSubClients` | GET | `/obj/subclient` | `useSubClients(clientId)` | Mount: Client Detail contacts list |
-| `createSubClient` | POST | `/obj/subclient` | `useCreateSubClient()` | Form submit: add contact on Client Detail |
-| `updateSubClient` | PATCH | `/obj/subclient/{id}` | `useUpdateSubClient()` | Form submit: edit contact |
-| `deleteSubClient` | PATCH | `/obj/subclient/{id}` | `useDeleteSubClient()` | Button: remove contact |
+| Method            | HTTP  | Endpoint              | Hook                      | Trigger                                      |
+| ----------------- | ----- | --------------------- | ------------------------- | -------------------------------------------- |
+| `fetchClients`    | GET   | `/obj/client`         | `useClients()`            | Mount: Dashboard, Clients page, Pipeline     |
+| `fetchClient`     | GET   | `/obj/client/{id}`    | `useClient(id)`           | Mount: Client Detail page                    |
+| `createClient`    | POST  | `/obj/client`         | `useCreateClient()`       | Form submit: CreateClientModal, /clients/new |
+| `updateClient`    | PATCH | `/obj/client/{id}`    | `useUpdateClient()`       | Form submit: Client Detail edit              |
+| `deleteClient`    | PATCH | `/obj/client/{id}`    | `useDeleteClient()`       | Button: Client Detail delete                 |
+| `fetchSubClients` | GET   | `/obj/subclient`      | `useSubClients(clientId)` | Mount: Client Detail contacts list           |
+| `createSubClient` | POST  | `/obj/subclient`      | `useCreateSubClient()`    | Form submit: add contact on Client Detail    |
+| `updateSubClient` | PATCH | `/obj/subclient/{id}` | `useUpdateSubClient()`    | Form submit: edit contact                    |
+| `deleteSubClient` | PATCH | `/obj/subclient/{id}` | `useDeleteSubClient()`    | Button: remove contact                       |
 
 **Query invalidation on mutation:**
+
 - Create client → invalidates client lists
 - Update client → invalidates client detail + lists (optimistic)
 - Delete client → invalidates all client caches
@@ -85,16 +101,17 @@
 **Service:** `src/lib/api/services/calendar-service.ts`
 **Hooks:** `src/lib/hooks/use-calendar.ts`
 
-| Method | HTTP | Endpoint | Hook | Trigger |
-|--------|------|----------|------|---------|
-| `fetchEventsForDateRange` | GET | `/obj/calendarevent` | `useCalendarEventsForRange(start, end)` | Mount: Dashboard (current week), Calendar page (visible range) |
-| `fetchCalendarEvents` | GET | `/obj/calendarevent` | `useCalendarEvents(options)` | Mount: filtered queries (by project, team member, etc.) |
-| `fetchCalendarEvent` | GET | `/obj/calendarevent/{id}` | `useCalendarEvent(id)` | Mount: event detail |
-| `createCalendarEvent` | POST | `/obj/calendarevent` | `useCreateCalendarEvent()` | Click: Calendar page create |
-| `updateCalendarEvent` | PATCH | `/obj/calendarevent/{id}` | `useUpdateCalendarEvent()` | Form submit: Calendar event edit (optimistic) |
-| `deleteCalendarEvent` | PATCH | `/obj/calendarevent/{id}` | `useDeleteCalendarEvent()` | Button: Calendar event delete |
+| Method                    | HTTP  | Endpoint                  | Hook                                    | Trigger                                                        |
+| ------------------------- | ----- | ------------------------- | --------------------------------------- | -------------------------------------------------------------- |
+| `fetchEventsForDateRange` | GET   | `/obj/calendarevent`      | `useCalendarEventsForRange(start, end)` | Mount: Dashboard (current week), Calendar page (visible range) |
+| `fetchCalendarEvents`     | GET   | `/obj/calendarevent`      | `useCalendarEvents(options)`            | Mount: filtered queries (by project, team member, etc.)        |
+| `fetchCalendarEvent`      | GET   | `/obj/calendarevent/{id}` | `useCalendarEvent(id)`                  | Mount: event detail                                            |
+| `createCalendarEvent`     | POST  | `/obj/calendarevent`      | `useCreateCalendarEvent()`              | Click: Calendar page create                                    |
+| `updateCalendarEvent`     | PATCH | `/obj/calendarevent/{id}` | `useUpdateCalendarEvent()`              | Form submit: Calendar event edit (optimistic)                  |
+| `deleteCalendarEvent`     | PATCH | `/obj/calendarevent/{id}` | `useDeleteCalendarEvent()`              | Button: Calendar event delete                                  |
 
 **Query invalidation on mutation:**
+
 - Create → invalidates calendar lists
 - Update → invalidates calendar detail + lists (optimistic)
 - Delete → invalidates calendar lists + task lists
@@ -106,26 +123,27 @@
 **Service:** `src/lib/api/services/user-service.ts`
 **Hooks:** `src/lib/hooks/use-users.ts`
 
-| Method | HTTP | Endpoint | Hook | Trigger |
-|--------|------|----------|------|---------|
-| `fetchUsers` | GET | `/obj/user` | `useTeamMembers()` | Mount: Dashboard (crew status), Team page |
-| `fetchUser` | GET | `/obj/user/{id}` | `useUser(id)` / `useCurrentUser()` | Mount: Settings Profile tab |
-| `updateUser` | PATCH | `/obj/user/{id}` | `useUpdateUser()` | Form submit: Settings profile, photo upload callback |
-| `updateUserRole` | PATCH | `/obj/user/{id}` | `useUpdateUserRole()` | Dropdown: Team page role change |
-| `markTutorialCompleted` | PATCH | `/obj/user/{id}` | `useMarkTutorialCompleted()` | Button: tutorial completion |
-| `sendInvite` | POST | `/wf/send_invite` | `useSendInvite()` | Form submit: Team page invite form |
+| Method                  | HTTP  | Endpoint          | Hook                               | Trigger                                              |
+| ----------------------- | ----- | ----------------- | ---------------------------------- | ---------------------------------------------------- |
+| `fetchUsers`            | GET   | `/obj/user`       | `useTeamMembers()`                 | Mount: Dashboard (crew status), Team page            |
+| `fetchUser`             | GET   | `/obj/user/{id}`  | `useUser(id)` / `useCurrentUser()` | Mount: Settings Profile tab                          |
+| `updateUser`            | PATCH | `/obj/user/{id}`  | `useUpdateUser()`                  | Form submit: Settings profile, photo upload callback |
+| `updateUserRole`        | PATCH | `/obj/user/{id}`  | `useUpdateUserRole()`              | Dropdown: Team page role change                      |
+| `markTutorialCompleted` | PATCH | `/obj/user/{id}`  | `useMarkTutorialCompleted()`       | Button: tutorial completion                          |
+| `sendInvite`            | POST  | `/wf/send_invite` | `useSendInvite()`                  | Form submit: Team page invite form                   |
 
 **Auth-specific methods (called directly, not via hooks):**
 
-| Method | HTTP | Endpoint | Called From |
-|--------|------|----------|-------------|
-| `loginWithGoogle` | POST | `/wf/login_google` | AuthProvider after Firebase Google sign-in |
-| `loginWithToken` | POST | `/wf/generate-api-token` → GET `/obj/user/{id}` → GET `/obj/company/{id}` | Login page email/password submit (`useLogin()`) |
-| `signup` | POST | `/wf/signup` | Register page form submit (`useSignup()`) + direct call after Firebase |
-| `resetPassword` | POST | `/wf/reset_pw` | Login page forgot password (`useResetPassword()`) |
-| `joinCompany` | POST | `/wf/join_company` | Onboarding company code entry (`useJoinCompany()`) |
+| Method            | HTTP | Endpoint                                                                  | Called From                                                            |
+| ----------------- | ---- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `loginWithGoogle` | POST | `/wf/login_google`                                                        | AuthProvider after Firebase Google sign-in                             |
+| `loginWithToken`  | POST | `/wf/generate-api-token` → GET `/obj/user/{id}` → GET `/obj/company/{id}` | Login page email/password submit (`useLogin()`)                        |
+| `signup`          | POST | `/wf/signup`                                                              | Register page form submit (`useSignup()`) + direct call after Firebase |
+| `resetPassword`   | POST | `/wf/reset_pw`                                                            | Login page forgot password (`useResetPassword()`)                      |
+| `joinCompany`     | POST | `/wf/join_company`                                                        | Onboarding company code entry (`useJoinCompany()`)                     |
 
 **Query invalidation on mutation:**
+
 - Update user → invalidates user detail, lists, current user (optimistic)
 - Role change → invalidates user detail + lists
 - Send invite → invalidates user lists
@@ -139,26 +157,27 @@
 **Service:** `src/lib/api/services/company-service.ts`
 **Hooks:** `src/lib/hooks/use-company.ts`
 
-| Method | HTTP | Endpoint | Hook | Trigger |
-|--------|------|----------|------|---------|
-| `fetchCompany` | GET | `/obj/company/{id}` | `useCompany()` / `useCompanyById(id)` | Mount: Settings page (all tabs) |
-| `updateCompany` | PATCH | `/obj/company/{id}` | `useUpdateCompany()` | Form submit: Settings Company tab, logo upload callback |
-| `updateDefaultProjectColor` | PATCH | `/obj/company/{id}` | `useUpdateDefaultProjectColor()` | Click: Settings color picker |
-| `fetchSubscriptionInfo` | POST | `/wf/fetch_subscription_info` | `useSubscriptionInfo()` | Mount: Settings Subscription tab (staleTime: 30s) |
-| `completeSubscription` | POST | `/wf/complete_subscription` | `useCompleteSubscription()` | Stripe payment flow completion |
-| `cancelSubscription` | POST | `/wf/cancel_subscription` | `useCancelSubscription()` | Button: cancel subscription |
-| `addSeatedEmployee` | PATCH | `/obj/company/{id}` | `useAddSeatedEmployee()` | Team management: add seat |
-| `removeSeatedEmployee` | PATCH | `/obj/company/{id}` | `useRemoveSeatedEmployee()` | Team management: remove seat |
+| Method                      | HTTP  | Endpoint                      | Hook                                  | Trigger                                                 |
+| --------------------------- | ----- | ----------------------------- | ------------------------------------- | ------------------------------------------------------- |
+| `fetchCompany`              | GET   | `/obj/company/{id}`           | `useCompany()` / `useCompanyById(id)` | Mount: Settings page (all tabs)                         |
+| `updateCompany`             | PATCH | `/obj/company/{id}`           | `useUpdateCompany()`                  | Form submit: Settings Company tab, logo upload callback |
+| `updateDefaultProjectColor` | PATCH | `/obj/company/{id}`           | `useUpdateDefaultProjectColor()`      | Click: Settings color picker                            |
+| `fetchSubscriptionInfo`     | POST  | `/wf/fetch_subscription_info` | `useSubscriptionInfo()`               | Mount: Settings Subscription tab (staleTime: 30s)       |
+| `completeSubscription`      | POST  | `/wf/complete_subscription`   | `useCompleteSubscription()`           | Stripe payment flow completion                          |
+| `cancelSubscription`        | POST  | `/wf/cancel_subscription`     | `useCancelSubscription()`             | Button: cancel subscription                             |
+| `addSeatedEmployee`         | PATCH | `/obj/company/{id}`           | `useAddSeatedEmployee()`              | Team management: add seat                               |
+| `removeSeatedEmployee`      | PATCH | `/obj/company/{id}`           | `useRemoveSeatedEmployee()`           | Team management: remove seat                            |
 
 **S3 presigned URL methods:**
 
-| Method | HTTP | Endpoint | Used By |
-|--------|------|----------|---------|
+| Method                   | HTTP | Endpoint                        | Used By                                          |
+| ------------------------ | ---- | ------------------------------- | ------------------------------------------------ |
 | `getPresignedUrlProfile` | POST | `/wf/get_presigned_url_profile` | `useImageUpload()` — profile photo, company logo |
-| `getPresignedUrlProject` | POST | `/wf/get_presigned_url` | `useImageUpload()` — project images |
-| `registerProjectImages` | POST | `/wf/upload_project_images` | After S3 upload — registers URLs with Bubble |
+| `getPresignedUrlProject` | POST | `/wf/get_presigned_url`         | `useImageUpload()` — project images              |
+| `registerProjectImages`  | POST | `/wf/upload_project_images`     | After S3 upload — registers URLs with Bubble     |
 
 **Query invalidation on mutation:**
+
 - Update company → invalidates company detail (optimistic)
 - Subscription changes → invalidates company + subscription caches
 
@@ -169,14 +188,14 @@
 **Service:** `src/lib/api/services/task-type-service.ts`
 **Hooks:** `src/lib/hooks/use-task-types.ts`
 
-| Method | HTTP | Endpoint | Hook | Trigger |
-|--------|------|----------|------|---------|
-| `fetchTaskTypes` | GET | `/obj/tasktype` | `useTaskTypes()` | Mount: task creation forms (type dropdown) |
-| `fetchTaskType` | GET | `/obj/tasktype/{id}` | `useTaskType(id)` | Mount: task type detail |
-| `createTaskType` | POST | `/obj/tasktype` | `useCreateTaskType()` | Form submit: admin settings |
-| `updateTaskType` | PATCH | `/obj/tasktype/{id}` | `useUpdateTaskType()` | Form submit: admin settings (optimistic) |
-| `deleteTaskType` | PATCH | `/obj/tasktype/{id}` | `useDeleteTaskType()` | Button: admin settings |
-| `createDefaultTaskTypes` | POST | `/obj/tasktype` (×6) | `useCreateDefaultTaskTypes()` | Auto: company onboarding setup |
+| Method                   | HTTP  | Endpoint             | Hook                          | Trigger                                    |
+| ------------------------ | ----- | -------------------- | ----------------------------- | ------------------------------------------ |
+| `fetchTaskTypes`         | GET   | `/obj/tasktype`      | `useTaskTypes()`              | Mount: task creation forms (type dropdown) |
+| `fetchTaskType`          | GET   | `/obj/tasktype/{id}` | `useTaskType(id)`             | Mount: task type detail                    |
+| `createTaskType`         | POST  | `/obj/tasktype`      | `useCreateTaskType()`         | Form submit: admin settings                |
+| `updateTaskType`         | PATCH | `/obj/tasktype/{id}` | `useUpdateTaskType()`         | Form submit: admin settings (optimistic)   |
+| `deleteTaskType`         | PATCH | `/obj/tasktype/{id}` | `useDeleteTaskType()`         | Button: admin settings                     |
+| `createDefaultTaskTypes` | POST  | `/obj/tasktype` (×6) | `useCreateDefaultTaskTypes()` | Auto: company onboarding setup             |
 
 **Default types created:** Quote, Installation, Repair, Inspection, Consultation, Follow-up
 
@@ -187,10 +206,10 @@
 **Service:** `src/lib/api/services/image-service.ts`
 **Hooks:** `src/lib/hooks/use-image-upload.ts`
 
-| Method | HTTP | Endpoint | Hook | Trigger |
-|--------|------|----------|------|---------|
-| `uploadImage` | POST → PUT | `/wf/get_upload_url` → S3 presigned PUT | `useImageUpload()` | Click: Settings profile photo, company logo |
-| `uploadMultipleImages` | POST → PUT | `/wf/get_upload_url` → S3 (parallel) | `useMultiImageUpload()` | Click: project image gallery |
+| Method                 | HTTP       | Endpoint                                | Hook                    | Trigger                                     |
+| ---------------------- | ---------- | --------------------------------------- | ----------------------- | ------------------------------------------- |
+| `uploadImage`          | POST → PUT | `/wf/get_upload_url` → S3 presigned PUT | `useImageUpload()`      | Click: Settings profile photo, company logo |
+| `uploadMultipleImages` | POST → PUT | `/wf/get_upload_url` → S3 (parallel)    | `useMultiImageUpload()` | Click: project image gallery                |
 
 **Upload flow:** Get presigned URL from Bubble → compress image client-side (Canvas API) → PUT to S3 → return S3 URL → pass to update mutation
 
@@ -202,13 +221,13 @@
 
 All data fetching uses TanStack Query v5 with these defaults:
 
-| Setting | Value | Purpose |
-|---------|-------|---------|
-| `staleTime` | 5 minutes | Data considered fresh for 5min — no refetch on mount |
-| `gcTime` | 30 minutes | Unused cache entries garbage collected after 30min |
-| `refetchOnWindowFocus` | true | Refetches stale queries when user returns to tab |
-| `refetchOnReconnect` | true | Refetches stale queries when internet reconnects |
-| `retry` | 1 | One retry on failure |
+| Setting                | Value      | Purpose                                              |
+| ---------------------- | ---------- | ---------------------------------------------------- |
+| `staleTime`            | 5 minutes  | Data considered fresh for 5min — no refetch on mount |
+| `gcTime`               | 30 minutes | Unused cache entries garbage collected after 30min   |
+| `refetchOnWindowFocus` | true       | Refetches stale queries when user returns to tab     |
+| `refetchOnReconnect`   | true       | Refetches stale queries when internet reconnects     |
+| `retry`                | 1          | One retry on failure                                 |
 
 ### When Data Syncs
 
@@ -223,22 +242,24 @@ All data fetching uses TanStack Query v5 with these defaults:
 
 The top bar shows real-time sync status:
 
-| State | Condition | Icon |
-|-------|-----------|------|
-| **Synced** | `isFetching === 0` and `isMutating === 0` and online | Checkmark |
-| **Syncing** | `isFetching > 0` and online | Spinning arrow |
-| **Pending** | `isMutating > 0` and online | Clock |
-| **Offline** | `navigator.onLine === false` | WifiOff |
+| State       | Condition                                            | Icon           |
+| ----------- | ---------------------------------------------------- | -------------- |
+| **Synced**  | `isFetching === 0` and `isMutating === 0` and online | Checkmark      |
+| **Syncing** | `isFetching > 0` and online                          | Spinning arrow |
+| **Pending** | `isMutating > 0` and online                          | Clock          |
+| **Offline** | `navigator.onLine === false`                         | WifiOff        |
 
 ### Connectivity Monitoring
 
 `useConnectivity()` hook listens to browser `online`/`offline` events:
+
 - **Goes offline** → persistent error toast: "No internet connection"
 - **Comes back online** → success toast: "Back online" → TanStack auto-refetches stale queries
 
 ### Global 401 Handling
 
 If any API call returns a 401 (BubbleUnauthorizedError):
+
 1. Clears `ops-auth-token` and `__session` cookies
 2. Clears auth store (Zustand)
 3. Signs out of Firebase
@@ -247,6 +268,7 @@ If any API call returns a 401 (BubbleUnauthorizedError):
 ### Rate Limiting
 
 The Bubble API client includes rate limiting:
+
 - Tracks request timestamps in a sliding window
 - Delays requests if approaching Bubble's rate limit
 - Retries on 429 responses with exponential backoff

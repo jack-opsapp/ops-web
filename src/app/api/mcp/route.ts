@@ -27,13 +27,14 @@ export const maxDuration = 60;
  * The OPS remote MCP endpoint. Dark to unauthenticated traffic by
  * construction: the bearer gate answers before any JSON-RPC parsing, and no
  * response on an unauthenticated path names a capability, tool, or schema.
- * Claude's OAuth flow is triggered exclusively by the transport-level 401
- * challenge below.
+ * Connector OAuth discovery is triggered exclusively by the transport-level
+ * 401 challenge below.
  */
 
 const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
   "https://claude.ai",
   "https://claude.com",
+  "https://chatgpt.com",
 ]);
 
 const JSON_HEADERS = Object.freeze({

@@ -15,20 +15,19 @@
 
 import { NextResponse } from "next/server";
 
-import {
-  resolveMcpOAuthConfig,
-  SUPPORTED_READ_SCOPES,
-} from "@/lib/agent-control-plane/mcp/oauth";
+import { resolveMcpOAuthConfig } from "@/lib/agent-control-plane/mcp/oauth";
+import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const DISCOVERY_CACHE_CONTROL = "public, max-age=300";
 
 export async function GET(): Promise<NextResponse> {
   const config = resolveMcpOAuthConfig();
+  const exposure = resolveActiveMcpExposure();
   return NextResponse.json(
     {
       resource: config.resource,
       authorization_servers: [config.issuer],
-      scopes_supported: [...SUPPORTED_READ_SCOPES],
+      scopes_supported: [...exposure.grantableScopes],
       bearer_methods_supported: ["header"],
       resource_name: "OPS",
     },

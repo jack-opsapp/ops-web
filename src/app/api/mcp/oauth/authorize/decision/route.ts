@@ -9,6 +9,7 @@ import {
   AUTHORIZATION_CODE_TTL_SECONDS,
   CONSENT_PREVIEW_PREFIX,
   areScopesWithinCeiling,
+  buildAuthorizationResponseUrl,
   canonicalizeResourceUri,
   consentLabelsForScopes,
   consumeConsentPreview,
@@ -60,10 +61,6 @@ function serverError(): NextResponse {
     { error: "server_error" },
     { status: 500, headers: NO_STORE }
   );
-}
-
-function stateSuffix(state: string | null): string {
-  return state === null ? "" : `&state=${encodeURIComponent(state)}`;
 }
 
 function sameStrings(
@@ -195,7 +192,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   if (decision === "deny") {
     return NextResponse.json(
       {
-        redirect_to: `${preview.redirect_uri}?error=access_denied${stateSuffix(preview.state)}`,
+        redirect_to: buildAuthorizationResponseUrl({
+          redirectUri: preview.redirect_uri,
+          issuer: config.issuer,
+          state: preview.state,
+          response: { kind: "error", error: "access_denied" },
+        }),
       },
       { headers: NO_STORE }
     );
@@ -223,7 +225,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json(
     {
-      redirect_to: `${preview.redirect_uri}?code=${encodeURIComponent(code)}${stateSuffix(preview.state)}`,
+      redirect_to: buildAuthorizationResponseUrl({
+        redirectUri: preview.redirect_uri,
+        issuer: config.issuer,
+        state: preview.state,
+        response: { kind: "code", code },
+      }),
     },
     { headers: NO_STORE }
   );

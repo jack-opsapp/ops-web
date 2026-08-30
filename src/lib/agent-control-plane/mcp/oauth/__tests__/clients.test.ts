@@ -15,6 +15,8 @@ import {
 
 const CLAUDE_CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const CLAUDE_COM_CALLBACK = "https://claude.com/api/mcp/auth_callback";
+const CHATGPT_CALLBACK =
+  "https://chatgpt.com/connector_platform_oauth_redirect";
 const CODEX_CALLBACK = "http://127.0.0.1:51759/callback/lwaKvnR9ZEom";
 const FULL_SCOPE = SUPPORTED_READ_SCOPES.join(" ");
 
@@ -73,10 +75,11 @@ function expectRejected(result: ClientRegistrationResult) {
 }
 
 describe("connector redirect policy", () => {
-  it("allowlists exactly the two published callback URLs", () => {
+  it("allowlists exactly the three published hosted callback URLs", () => {
     expect([...REDIRECT_URI_ALLOWLIST]).toEqual([
       CLAUDE_CALLBACK,
       CLAUDE_COM_CALLBACK,
+      CHATGPT_CALLBACK,
     ]);
     expect(Object.isFrozen(REDIRECT_URI_ALLOWLIST)).toBe(true);
   });
@@ -84,6 +87,11 @@ describe("connector redirect policy", () => {
   it.each([
     { label: "the claude.ai callback", uri: CLAUDE_CALLBACK, allowed: true },
     { label: "the claude.com twin", uri: CLAUDE_COM_CALLBACK, allowed: true },
+    {
+      label: "the stable ChatGPT callback",
+      uri: CHATGPT_CALLBACK,
+      allowed: true,
+    },
     {
       label: "the captured Codex loopback callback",
       uri: CODEX_CALLBACK,
@@ -127,6 +135,31 @@ describe("connector redirect policy", () => {
     {
       label: "the plaintext scheme",
       uri: "http://claude.ai/api/mcp/auth_callback",
+      allowed: false,
+    },
+    {
+      label: "a callback-ID-specific ChatGPT URI",
+      uri: "https://chatgpt.com/connector/oauth/callback-id",
+      allowed: false,
+    },
+    {
+      label: "a wildcard ChatGPT callback",
+      uri: "https://chatgpt.com/connector/oauth/*",
+      allowed: false,
+    },
+    {
+      label: "a templated ChatGPT callback",
+      uri: "https://chatgpt.com/connector/oauth/{callback_id}",
+      allowed: false,
+    },
+    {
+      label: "a ChatGPT callback query variant",
+      uri: `${CHATGPT_CALLBACK}?next=/`,
+      allowed: false,
+    },
+    {
+      label: "a ChatGPT look-alike host",
+      uri: "https://chatgpt.com.evil.example/connector_platform_oauth_redirect",
       allowed: false,
     },
     {
@@ -185,6 +218,22 @@ describe("dynamic client registration — accepted shapes", () => {
       scopeCeiling: ["ops.jobs.read"],
     });
     expect(registration).not.toHaveProperty("applicationType");
+  });
+
+  it("accepts ChatGPT DCR with only the exact stable callback", () => {
+    const registration = expectAccepted(
+      validateClientRegistration(
+        claudePayload({
+          client_name: "ChatGPT",
+          redirect_uris: [CHATGPT_CALLBACK],
+        })
+      )
+    );
+
+    expect(registration).toMatchObject({
+      clientName: "ChatGPT",
+      redirectUris: [CHATGPT_CALLBACK],
+    });
   });
 
   it("defaults every optional member the RFC lets a client omit", () => {
@@ -335,6 +384,20 @@ describe("dynamic client registration — rejected redirect URIs", () => {
       label: "a hosted callback mixed with a Codex loopback callback",
       payload: claudePayload({
         redirect_uris: [CLAUDE_CALLBACK, CODEX_CALLBACK],
+      }),
+      description: /one connector callback family/,
+    },
+    {
+      label: "a Claude callback mixed with the ChatGPT callback",
+      payload: claudePayload({
+        redirect_uris: [CLAUDE_CALLBACK, CHATGPT_CALLBACK],
+      }),
+      description: /one connector callback family/,
+    },
+    {
+      label: "the ChatGPT callback mixed with a Codex loopback callback",
+      payload: claudePayload({
+        redirect_uris: [CHATGPT_CALLBACK, CODEX_CALLBACK],
       }),
       description: /one connector callback family/,
     },

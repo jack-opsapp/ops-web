@@ -5,7 +5,7 @@ import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
 import { getCapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-manifest";
 import type { CapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-types";
 import {
-  resolveActiveMcpExposure,
+  resolveMcpExposure,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import type { OpsAgentDomainService } from "@/lib/agent-control-plane/services/domain-service";
@@ -197,7 +197,7 @@ export function createOpsMcpServer(input: CreateOpsMcpServerInput): McpServer {
     auditRpcClient,
     durableRateLimiter,
   } = input;
-  const exposure = resolveActiveMcpExposure();
+  const exposure = resolveMcpExposure(grantFacts.exposureRevision);
 
   const server = new McpServer(
     { name: "OPS", version: CONTRACT_VERSION },

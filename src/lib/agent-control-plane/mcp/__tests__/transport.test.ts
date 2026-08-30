@@ -91,13 +91,16 @@ vi.mock("@/lib/agent-control-plane/registry/mcp-exposure-catalog", async () => {
   >("@/lib/agent-control-plane/registry/mcp-exposure-catalog");
   return {
     ...actual,
-    resolveActiveMcpExposure: vi.fn(() =>
-      Object.freeze({
-        revision: "test.mcp-exposure",
+    resolveMcpExposure: vi.fn((revision: string) => {
+      if (revision !== "test.mcp-exposure") {
+        return actual.resolveMcpExposure(revision);
+      }
+      return Object.freeze({
+        revision,
         toolIds: Object.freeze([...overrides.activeToolIds]),
         grantableScopes: actual.MCP_EXPOSURE_V1.grantableScopes,
-      })
-    ),
+      });
+    }),
   };
 });
 
@@ -150,6 +153,7 @@ const GRANT_FACTS: McpGrantFacts = Object.freeze({
   actorUserId: "33333333-3333-4333-8333-333333333333",
   companyId: "44444444-4444-4444-8444-444444444444",
   scopes: Object.freeze(["ops.jobs.read", "ops.schedule.read"]),
+  exposureRevision: "test.mcp-exposure",
   tokenId: "a".repeat(64),
   expiresAtEpochSeconds: 4_000_000_000,
 });
@@ -781,6 +785,14 @@ describe("/api/mcp route gate", () => {
   it("allows the claude.ai origin through to the auth gate", async () => {
     const route = await loadRoute({ configured: true });
     const response = await route.POST(mcpPost({ Origin: "https://claude.ai" }));
+    expect(response.status).toBe(401);
+  });
+
+  it("allows the chatgpt.com origin through to the auth gate", async () => {
+    const route = await loadRoute({ configured: true });
+    const response = await route.POST(
+      mcpPost({ Origin: "https://chatgpt.com" })
+    );
     expect(response.status).toBe(401);
   });
 

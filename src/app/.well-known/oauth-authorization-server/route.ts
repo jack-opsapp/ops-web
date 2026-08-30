@@ -41,6 +41,7 @@ export async function GET(): Promise<NextResponse> {
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none"],
+      authorization_response_iss_parameter_supported: true,
     },
     { headers: { "Cache-Control": DISCOVERY_CACHE_CONTROL } }
   );

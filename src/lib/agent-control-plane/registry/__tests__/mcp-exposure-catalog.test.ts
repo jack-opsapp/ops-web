@@ -1,7 +1,4 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import path from "node:path";
-
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { DOMAIN_METHOD_BY_CAPABILITY } from "@/lib/agent-control-plane/mcp/domain-dispatch";
@@ -16,6 +13,7 @@ import {
 import {
   MCP_EXPOSURE_CATALOG,
   MCP_EXPOSURE_V1,
+  MCP_EXPOSURE_V2,
   assertMcpExposureInvariants,
   resolveActiveMcpExposure,
   resolveMcpExposureRevision,
@@ -28,7 +26,7 @@ import {
   REGISTERED_MCP_SCOPES,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
-const EXPECTED_EXPOSURE = {
+const EXPECTED_EXPOSURE_V1 = {
   revision: "2026-08-22.mcp-exposure.v1",
   toolIds: [
     "list_scheduled_jobs",
@@ -51,6 +49,68 @@ const EXPECTED_EXPOSURE = {
     "ops.photos.read",
     "ops.correspondence.read",
     "ops.financials.read",
+  ],
+} as const;
+
+const EXPECTED_EXPOSURE_V2 = {
+  revision: "2026-08-29.mcp-exposure.v2",
+  toolIds: [
+    "list_scheduled_jobs",
+    "list_job_readiness_issues",
+    "get_job_communication_context",
+    "get_job_conversation_context",
+    "list_customer_jobs",
+    "get_job_summary",
+    "search_job_history",
+    "get_correspondence_evidence",
+    "search_customers",
+    "search_jobs",
+    "resolve_job_participants",
+    "get_customer_context",
+    "list_tasks",
+    "get_task_context",
+    "list_job_artifacts",
+    "get_job_artifact_evidence",
+    "list_site_visits",
+    "get_site_visit_context",
+    "get_deck_design_geometry",
+    "list_sales_documents",
+    "get_sales_document",
+    "list_payments",
+    "list_expenses",
+    "get_expense_context",
+    "list_work_queue",
+    "search_catalog_items",
+    "get_catalog_item",
+    "list_purchase_orders",
+    "get_purchase_order",
+    "get_company_context",
+    "list_team_members",
+    "list_team_availability",
+    "get_integration_health",
+    "get_operational_overview",
+  ],
+  grantableScopes: [
+    "ops.jobs.read",
+    "ops.schedule.read",
+    "ops.customers.read",
+    "ops.customer_contacts.read",
+    "ops.photos.read",
+    "ops.correspondence.read",
+    "ops.financials.read",
+    "ops.tasks.read",
+    "ops.site_visits.read",
+    "ops.files.read",
+    "ops.financial_documents.read",
+    "ops.payments.read",
+    "ops.expenses.read",
+    "ops.catalog.read",
+    "ops.purchasing.read",
+    "ops.catalog_costs.read",
+    "ops.company.read",
+    "ops.team.read",
+    "ops.integrations.read",
+    "ops.operations.read",
   ],
 } as const;
 
@@ -86,7 +146,7 @@ function invariantInput(): MutableInvariantInput {
 
 describe("immutable MCP exposure catalogue", () => {
   it("pins the exact v1 bytes, order, and digest independently", () => {
-    expect(MCP_EXPOSURE_V1).toEqual(EXPECTED_EXPOSURE);
+    expect(MCP_EXPOSURE_V1).toEqual(EXPECTED_EXPOSURE_V1);
     const serialized = JSON.stringify(MCP_EXPOSURE_V1);
     expect(new TextEncoder().encode(serialized)).toHaveLength(488);
     expect(createHash("sha256").update(serialized).digest("hex")).toBe(
@@ -94,33 +154,37 @@ describe("immutable MCP exposure catalogue", () => {
     );
   });
 
-  it("deep-freezes and referentially reuses one active exposure object", () => {
+  it("pins the exact v2 bytes, order, and digest independently", () => {
+    expect(MCP_EXPOSURE_V2).toEqual(EXPECTED_EXPOSURE_V2);
+    const serialized = JSON.stringify(MCP_EXPOSURE_V2);
+    expect(new TextEncoder().encode(serialized)).toHaveLength(1_259);
+    expect(createHash("sha256").update(serialized).digest("hex")).toBe(
+      "a94f0429f65bf8ff01cb52868b1ae59a2bea760a442b05a39b8b17c011e9201d"
+    );
+  });
+
+  it("keeps v1 and v2 deeply frozen while referentially reusing active v2", () => {
     const first = resolveActiveMcpExposure();
     const second = resolveActiveMcpExposure();
 
     expectTypeOf(resolveActiveMcpExposure).toEqualTypeOf<() => McpExposure>();
-    expect(first).toBe(MCP_EXPOSURE_V1);
+    expect(first).toBe(MCP_EXPOSURE_V2);
     expect(second).toBe(first);
-    expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V1.revision]).toBe(first);
-    expect(Object.isFrozen(first)).toBe(true);
-    expect(Object.isFrozen(first.toolIds)).toBe(true);
-    expect(Object.isFrozen(first.grantableScopes)).toBe(true);
-  });
-
-  it("keeps active exposure selection inside the server factory boundary", () => {
-    const sourceRoot = path.join(process.cwd(), "src/lib/agent-control-plane");
-    const serverFactory = readFileSync(
-      path.join(sourceRoot, "mcp/server-factory.ts"),
-      "utf8"
+    expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V1.revision]).toBe(
+      MCP_EXPOSURE_V1
     );
-    const route = readFileSync(
-      path.join(process.cwd(), "src/app/api/mcp/route.ts"),
-      "utf8"
+    expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V2.revision]).toBe(
+      MCP_EXPOSURE_V2
     );
-
-    expect(serverFactory).toContain("resolveActiveMcpExposure()");
-    expect(serverFactory).not.toContain("readonly exposure: McpExposure");
-    expect(route).not.toMatch(/createOpsMcpServer\(\{[\s\S]*?exposure:/);
+    expect(Object.keys(MCP_EXPOSURE_CATALOG)).toEqual([
+      MCP_EXPOSURE_V1.revision,
+      MCP_EXPOSURE_V2.revision,
+    ]);
+    for (const exposure of [MCP_EXPOSURE_V1, MCP_EXPOSURE_V2]) {
+      expect(Object.isFrozen(exposure)).toBe(true);
+      expect(Object.isFrozen(exposure.toolIds)).toBe(true);
+      expect(Object.isFrozen(exposure.grantableScopes)).toBe(true);
+    }
   });
 
   it("makes OAuth compatibility views use the v1 scope array and only its neutral labels", () => {
@@ -134,15 +198,28 @@ describe("immutable MCP exposure catalogue", () => {
   });
 
   it("resolves every tool to one implemented read, label, required scope, and static method", () => {
-    expect(() => assertMcpExposureInvariants(invariantInput())).not.toThrow();
-    for (const toolId of MCP_EXPOSURE_V1.toolIds) {
+    const input = invariantInput();
+    input.exposure = {
+      revision: MCP_EXPOSURE_V2.revision,
+      toolIds: [...MCP_EXPOSURE_V2.toolIds],
+      grantableScopes: [...MCP_EXPOSURE_V2.grantableScopes],
+    };
+    expect(() => assertMcpExposureInvariants(input)).not.toThrow();
+    for (const toolId of MCP_EXPOSURE_V2.toolIds) {
       const entry = getCapabilityManifestEntry(toolId);
       expect(entry.operation).toBe("read");
       expect(entry.availability.implementation).toBe("available");
+      expect(entry.annotations).toEqual({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+      });
       expect(DOMAIN_METHOD_BY_CAPABILITY).toHaveProperty(toolId);
     }
-    for (const scope of MCP_EXPOSURE_V1.grantableScopes) {
+    for (const scope of MCP_EXPOSURE_V2.grantableScopes) {
       expect(MCP_SCOPE_CONSENT_LABELS).toHaveProperty(scope);
+      expect(MCP_SCOPE_OPERATION_BY_ID[scope]).toBe("read");
     }
   });
 
@@ -177,9 +254,13 @@ describe("immutable MCP exposure catalogue", () => {
     {
       name: "an unavailable read",
       mutate(input: MutableInvariantInput) {
-        input.exposure.toolIds = [
-          "list_site_visits",
-          ...input.exposure.toolIds.slice(1),
+        const [first, ...remaining] = input.manifestEntries;
+        input.manifestEntries = [
+          {
+            ...first!,
+            availability: { implementation: "unavailable" },
+          },
+          ...remaining,
         ];
       },
     },

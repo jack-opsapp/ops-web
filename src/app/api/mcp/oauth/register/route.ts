@@ -2,16 +2,17 @@
  * POST /api/mcp/oauth/register
  *
  * RFC 7591 dynamic client registration — the registration path supported by
- * Claude custom connectors and Codex native clients. Public clients only: no secret is
+ * Claude, ChatGPT, and Codex connectors. Public clients only: no secret is
  * generated, stored, or returned, and `token_endpoint_auth_method` is fixed
  * at "none". PKCE S256 (enforced at the authorize/token endpoints) is the
  * only client proof this server accepts.
  *
  * Policy lives in `validateClientRegistration`: Claude callbacks are exact
- * hosted URLs, while Codex registers one tightly constrained loopback URL
- * after binding its ephemeral port. Grant and response types are pinned, and
- * requested scope is clamped to the read scopes this server issues. Anything
- * else is rejected with an RFC 7591 error body — never a partial registration.
+ * hosted URLs, ChatGPT has one exact stable callback, and Codex registers one
+ * tightly constrained loopback URL after binding its ephemeral port. Grant
+ * and response types are pinned, and requested scope is clamped to the read
+ * scopes this server issues. Anything else is rejected with an RFC 7591 error
+ * body — never a partial registration.
  *
  * Rate limit: 10 registrations per hour per IP. Registration is unauthenticated
  * by definition (that is the point of DCR), so the IP window is the only

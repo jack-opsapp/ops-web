@@ -4,11 +4,11 @@
 
 **Goal:** Make all 34 implemented OPS read capabilities available to newly consented Claude and ChatGPT/Codex connectors, then prove every tool against the Maverick sandbox company.
 
-**Architecture:** Add an immutable `2026-08-29.mcp-exposure.v2` catalogue revision containing the exact 34 manifest-v8 reads and their exact 20 read scopes. Keep exposure v1 byte-for-byte unchanged. Carry each validated grant's stored exposure revision into the request boundary and build that request's MCP server from the exact pinned catalogue revision. New DCR and consent flows select active v2; existing v1 clients, grants, access tokens, refresh tokens, and consent snapshots remain v1 and cannot gain a tool or scope silently. The current database schema already stores non-null exposure and consent revisions generically, so this is a code-only release with no migration.
+**Architecture:** Add an immutable `2026-08-29.mcp-exposure.v2` catalogue revision containing the exact 34 manifest-v8 reads and their exact 20 read scopes. Keep exposure v1 byte-for-byte unchanged. Carry each validated grant's stored exposure revision into the request boundary and build that request's MCP server from the exact pinned catalogue revision. New DCR and consent flows select active v2; existing v1 clients, grants, access tokens, refresh tokens, and consent snapshots remain v1 and cannot gain a tool or scope silently. The exposure revision itself needs no schema or data migration. ChatGPT web compatibility additionally requires RFC 9207 issuer identification plus one exact stable ChatGPT callback; ship that as a narrow application change and an append-only replacement of the service-role registration RPC's callback policy.
 
 **Tech Stack:** Next.js App Router, TypeScript, Vitest, OAuth 2.0 DCR + PKCE S256, MCP Streamable HTTP, PostgreSQL 17/Supabase, Vercel.
 
-**Design System:** N/A — no visual surface or new user-facing copy. The existing consent catalogue already contains labels for all 20 read scopes.
+**Design System:** The only touched visual surface is the existing Connected Agents access register. Preserve its current layout and tokens; add byte-identical mappings for the 13 already-approved consent labels so v2 grants never expose raw scope codes. No new copy or styling is introduced.
 
 **Required Skills:** `superpowers:test-driven-development`, `custom-skills:writing-plans`, `custom-skills:executing-plans`, `supabase:supabase`, `plugin-dev:mcp-integration`, `superpowers:verification-before-completion`, `vercel:verification`, `vercel:deployments-cicd`, `superpowers:finishing-a-development-branch`.
 
@@ -57,7 +57,40 @@
 3. Reassert that fresh DCR, blank-scope resolution, consent preview, authorization code, access token, and bearer challenge all use the same active-v2 scope ceiling.
 4. Reassert that old v1 refresh preserves its original exact scope set and exposure revision without widening.
 
-### Task 4: Verify the complete local boundary
+### Task 4: Complete ChatGPT web OAuth compatibility
+
+**Files:**
+
+- Modify: `src/lib/agent-control-plane/mcp/oauth/__tests__/clients.test.ts`
+- Modify: `tests/unit/mcp/oauth-routes.test.ts`
+- Modify: `tests/unit/mcp/oauth-consent.test.ts`
+- Modify: `src/lib/agent-control-plane/mcp/oauth/clients.ts`
+- Create: `src/lib/agent-control-plane/mcp/oauth/authorization-response.ts`
+- Modify: `src/app/.well-known/oauth-authorization-server/route.ts`
+- Modify: `src/app/api/mcp/oauth/authorize/decision/route.ts`
+- Create: `supabase/migrations/20260830113800_mcp_oauth_chatgpt_rfc9207_callback.sql`
+- Modify: the focused MCP OAuth PostgreSQL runtime test
+
+1. Write failing tests for the exact stable callback `https://chatgpt.com/connector_platform_oauth_redirect`, callback-family purity, rejection of callback-ID/wildcard/look-alike variants, and exact redirect binding through token exchange.
+2. Write failing discovery and consent-decision tests proving `authorization_response_iss_parameter_supported: true` is advertised only when every successful and explicit-error authorization redirect carries the exact configured issuer in `iss`.
+3. Add one shared authorization-response URL builder that uses URL encoding and appends exact `iss`, optional exact `state`, and exactly one of `code` or `error`.
+4. Keep DCR, public clients, PKCE S256, exact redirect matching, resource binding, and refresh-token rotation unchanged. Do not add CIMD or wildcard callback IDs.
+5. Add the exact ChatGPT callback to both the TypeScript and service-role SQL policies, while accepting only one pure connector family per registration: Claude's exact hosted pair, one exact ChatGPT callback, or one exact Codex loopback callback.
+6. Keep the 20 OPS read scopes as the authority catalogue. OPS already issues and rotates refresh tokens for authorization-code grants; verify that behavior rather than inventing a data-access `offline_access` permission.
+
+### Task 5: Keep the Connected Agents register human-readable
+
+**Files:**
+
+- Modify: `src/components/settings/connected-agents-section.tsx`
+- Create/modify: focused Connected Agents unit test
+
+1. Write a failing behavior-level test for all 20 active v2 scopes.
+2. Add the remaining 13 existing consent-label mappings byte-for-byte.
+3. Prove the rendered scope summary contains all approved labels and no raw `ops.*` identifiers.
+4. Recheck the touched component against the OPS design system; make no layout, colour, spacing, radius, type, or motion change.
+
+### Task 6: Verify the complete local boundary
 
 **Files:**
 
@@ -65,11 +98,11 @@
 
 1. Run the focused registry, bearer, transport, OAuth scope/client/grant/route/consent, manifest-v8, and metadata suites.
 2. Run all MCP and agent-control-plane suites, TypeScript, lint for touched files, and the production build with the repository's Node 22 runtime.
-3. Run the PostgreSQL migration wave/runtime suites to prove the already-live generic revision schema accepts v2 without DDL and all 34 read RPC contracts remain valid.
+3. Run the PostgreSQL migration wave/runtime suites to prove the generic revision schema accepts v2 without DDL, the exact ChatGPT callback policy is enforced at the database boundary, and all 34 read RPC contracts remain valid.
 4. Run independent security review for existing-grant non-widening, unknown-revision failure, scope/tool parity, cross-company isolation, writes remaining absent, and rollback safety.
 5. Confirm this change creates no new vendor, subscription, database tier, or paid infrastructure cost; it uses normal existing Vercel and Supabase request capacity.
 
-### Task 5: Release and verify production
+### Task 7: Release and verify production
 
 **Files:**
 
@@ -79,11 +112,11 @@
 
 1. Record immutable v1/v2 behavior, the exact full read catalogue, connector re-consent requirement, and existing-grant safety without claiming live proof early.
 2. Commit OPS-Web and Bible changes atomically in their isolated worktrees.
-3. Push the verified OPS-Web change to main under Jackson's explicit release approval and verify the exact Vercel deployment SHA, READY state, production alias, metadata, unauthenticated challenge, and runtime logs.
+3. Apply the verified append-only callback-policy migration, then push the verified OPS-Web change to main under Jackson's explicit release approval and verify the exact Vercel deployment SHA, READY state, production alias, metadata, unauthenticated challenge, and runtime logs.
 4. Push the Bible update only after its status matches verified production reality.
-5. Rollback remains a code-only active-revision change: v1 stays compiled, immutable, and immediately selectable without schema or data rollback.
+5. Immediate rollback promotes the known pre-v2/pre-RFC9207 production deployment (or deploys a full code revert), then disables/revokes newly registered ChatGPT/v2 clients and grants and applies a forward database migration restoring the prior callback policy. Changing only the active pointer is insufficient because a grant-pinned v2 server intentionally continues honoring already-issued v2 grants. Never advertise RFC 9207 support from code that omits `iss`.
 
-### Task 6: Re-consent Maverick and exercise all 34 reads
+### Task 8: Re-consent Maverick and exercise all 34 reads
 
 **Files:**
 

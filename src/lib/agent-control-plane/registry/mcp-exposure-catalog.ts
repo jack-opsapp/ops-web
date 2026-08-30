@@ -53,11 +53,74 @@ export const MCP_EXPOSURE_V1 = Object.freeze({
   ] as const),
 } as const satisfies McpExposure);
 
-export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V1.revision;
+export const MCP_EXPOSURE_V2 = Object.freeze({
+  revision: "2026-08-29.mcp-exposure.v2",
+  toolIds: Object.freeze([
+    "list_scheduled_jobs",
+    "list_job_readiness_issues",
+    "get_job_communication_context",
+    "get_job_conversation_context",
+    "list_customer_jobs",
+    "get_job_summary",
+    "search_job_history",
+    "get_correspondence_evidence",
+    "search_customers",
+    "search_jobs",
+    "resolve_job_participants",
+    "get_customer_context",
+    "list_tasks",
+    "get_task_context",
+    "list_job_artifacts",
+    "get_job_artifact_evidence",
+    "list_site_visits",
+    "get_site_visit_context",
+    "get_deck_design_geometry",
+    "list_sales_documents",
+    "get_sales_document",
+    "list_payments",
+    "list_expenses",
+    "get_expense_context",
+    "list_work_queue",
+    "search_catalog_items",
+    "get_catalog_item",
+    "list_purchase_orders",
+    "get_purchase_order",
+    "get_company_context",
+    "list_team_members",
+    "list_team_availability",
+    "get_integration_health",
+    "get_operational_overview",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: Object.freeze([
+    "ops.jobs.read",
+    "ops.schedule.read",
+    "ops.customers.read",
+    "ops.customer_contacts.read",
+    "ops.photos.read",
+    "ops.correspondence.read",
+    "ops.financials.read",
+    "ops.tasks.read",
+    "ops.site_visits.read",
+    "ops.files.read",
+    "ops.financial_documents.read",
+    "ops.payments.read",
+    "ops.expenses.read",
+    "ops.catalog.read",
+    "ops.purchasing.read",
+    "ops.catalog_costs.read",
+    "ops.company.read",
+    "ops.team.read",
+    "ops.integrations.read",
+    "ops.operations.read",
+  ] as const),
+} as const satisfies McpExposure);
+
+export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V2.revision;
 
 export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
   Object.freeze({
     [MCP_EXPOSURE_V1.revision]: MCP_EXPOSURE_V1,
+    [MCP_EXPOSURE_V2.revision]: MCP_EXPOSURE_V2,
   });
 
 function requiredNonBlank(value: unknown, field: string): string {
@@ -170,6 +233,7 @@ function validateExposure(exposure: McpExposure): void {
 }
 
 validateExposure(MCP_EXPOSURE_V1);
+validateExposure(MCP_EXPOSURE_V2);
 
 /** Pure exact-revision seam for catalogue invariants and adversarial tests. */
 export function resolveMcpExposureRevision(
@@ -181,12 +245,14 @@ export function resolveMcpExposureRevision(
   return exposure;
 }
 
-/** Resolve only the code-owned active revision or fail closed at startup. */
-export function resolveActiveMcpExposure(): McpExposure {
-  const exposure = resolveMcpExposureRevision(
-    MCP_EXPOSURE_CATALOG,
-    ACTIVE_MCP_EXPOSURE_REVISION
-  );
+/** Resolve one code-owned immutable revision or fail closed. */
+export function resolveMcpExposure(revision: string): McpExposure {
+  const exposure = resolveMcpExposureRevision(MCP_EXPOSURE_CATALOG, revision);
   validateExposure(exposure);
   return exposure;
+}
+
+/** Resolve only the code-owned active revision or fail closed at startup. */
+export function resolveActiveMcpExposure(): McpExposure {
+  return resolveMcpExposure(ACTIVE_MCP_EXPOSURE_REVISION);
 }

@@ -10,21 +10,24 @@ import type { McpExposure } from "@/lib/agent-control-plane/registry/mcp-exposur
 /**
  * Dynamic client registration policy (RFC 7591) for the MCP mount.
  *
- * The MCP mount accepts public authorization-code clients from two connector
- * families. Claude uses exact hosted HTTPS callbacks. Codex DCR binds an
- * ephemeral port first, then registers one literal IPv4 loopback callback.
- * That Codex URI is stored and compared byte-for-byte for the rest of the
- * grant. CIMD and redirect equivalence are deliberately not offered.
+ * The MCP mount accepts public authorization-code clients from three connector
+ * families. Claude uses its two exact hosted HTTPS callbacks, ChatGPT uses
+ * its exact RFC 9207 stable callback, and Codex DCR binds an ephemeral port
+ * before registering one literal IPv4 loopback callback. Every URI is stored
+ * and compared byte-for-byte for the rest of the grant. CIMD and redirect
+ * equivalence are deliberately not offered.
  */
 
 export const REDIRECT_URI_ALLOWLIST = Object.freeze([
   "https://claude.ai/api/mcp/auth_callback",
   "https://claude.com/api/mcp/auth_callback",
+  "https://chatgpt.com/connector_platform_oauth_redirect",
 ] as const);
 
-const REDIRECT_URI_ALLOWSET: ReadonlySet<string> = new Set(
-  REDIRECT_URI_ALLOWLIST
+const CLAUDE_REDIRECT_URI_SET: ReadonlySet<string> = new Set(
+  REDIRECT_URI_ALLOWLIST.slice(0, 2)
 );
+const CHATGPT_REDIRECT_URI = REDIRECT_URI_ALLOWLIST[2];
 
 const MAX_REDIRECT_URI_LENGTH = 2_048;
 const CODEX_LOOPBACK_REDIRECT_PATTERN =
@@ -39,16 +42,27 @@ const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
 const MAX_CLIENT_NAME_LENGTH = 256;
 const MAX_SOFTWARE_FIELD_LENGTH = 128;
 
-export function isAllowlistedRedirectUri(value: string): boolean {
-  if (value.length > MAX_REDIRECT_URI_LENGTH) return false;
-  if (REDIRECT_URI_ALLOWSET.has(value)) return true;
+type ConnectorCallbackFamily = "claude" | "chatgpt" | "codex";
+
+function connectorCallbackFamily(
+  value: string
+): ConnectorCallbackFamily | null {
+  if (CLAUDE_REDIRECT_URI_SET.has(value)) return "claude";
+  if (value === CHATGPT_REDIRECT_URI) return "chatgpt";
 
   // Validate raw text rather than a parsed URL. URL parsers normalize unsafe
   // numeric aliases such as 127.1 and 2130706433 into the loopback address.
   const match = CODEX_LOOPBACK_REDIRECT_PATTERN.exec(value);
-  if (!match) return false;
+  if (!match) return null;
   const port = Number(match[1]);
-  return Number.isSafeInteger(port) && port >= 1 && port <= 65_535;
+  return Number.isSafeInteger(port) && port >= 1 && port <= 65_535
+    ? "codex"
+    : null;
+}
+
+export function isAllowlistedRedirectUri(value: string): boolean {
+  if (value.length > MAX_REDIRECT_URI_LENGTH) return false;
+  return connectorCallbackFamily(value) !== null;
 }
 
 export interface ValidatedClientRegistration {
@@ -148,19 +162,27 @@ export function validateClientRegistration(
       );
     }
   }
-  const codexRedirectCount = redirectUris.filter(
-    (uri) => !REDIRECT_URI_ALLOWSET.has(uri)
-  ).length;
-  if (codexRedirectCount > 0 && codexRedirectCount < redirectUris.length) {
+  const callbackFamilies = new Set(
+    redirectUris.map((uri) => connectorCallbackFamily(uri))
+  );
+  if (callbackFamilies.size !== 1) {
     return reject(
       "invalid_redirect_uri",
       "redirect_uris must use one connector callback family."
     );
   }
-  if (codexRedirectCount > 1) {
+  const callbackFamily = callbackFamilies.values().next().value as
+    | ConnectorCallbackFamily
+    | undefined;
+  if (
+    (callbackFamily === "codex" || callbackFamily === "chatgpt") &&
+    redirectUris.length !== 1
+  ) {
     return reject(
       "invalid_redirect_uri",
-      "Codex registration must use exactly one loopback redirect URI."
+      callbackFamily === "codex"
+        ? "Codex registration must use exactly one loopback redirect URI."
+        : "ChatGPT registration must use exactly one redirect URI."
     );
   }
 

@@ -42,13 +42,13 @@ import {
   ACCESS_TOKEN_TTL_SECONDS,
   AUTHORIZATION_CODE_PREFIX,
   REFRESH_TOKEN_PREFIX,
-  SCOPE_CONSENT_LABELS,
   SUPPORTED_READ_SCOPES,
   mintCredential,
   resolveMcpOAuthConfig,
   s256Challenge,
   sha256Hex,
 } from "@/lib/agent-control-plane/mcp/oauth";
+import { MCP_SCOPE_CONSENT_LABELS } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
 import { GET as authorizationServerGet } from "@/app/.well-known/oauth-authorization-server/route";
 import {
@@ -70,16 +70,40 @@ const GRANT_ID = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
 const REVISION = "a1b2c3d4e5f60718293a4b5c6d7e8f90";
 const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
 const CALLBACK_TWIN = "https://claude.com/api/mcp/auth_callback";
+const CHATGPT_CALLBACK =
+  "https://chatgpt.com/connector_platform_oauth_redirect";
 const CODEX_CALLBACK = "http://127.0.0.1:51759/callback/lwaKvnR9ZEom";
 const CODEX_WRONG_PORT_CALLBACK =
   "http://127.0.0.1:51760/callback/lwaKvnR9ZEom";
 const CODEX_WRONG_ID_CALLBACK =
   "http://127.0.0.1:51759/callback/anotherCodexId";
 const CODE_VERIFIER = "ops-mcp-verifier-0123456789abcdefghijklmnopqrstuvwxyz";
-const SCOPES = [...SUPPORTED_READ_SCOPES];
-const ACCEPTED_LABELS = SCOPES.map((scope) => SCOPE_CONSENT_LABELS[scope]);
+const V1_SCOPES = [...SUPPORTED_READ_SCOPES];
+const SCOPES = [
+  "ops.jobs.read",
+  "ops.schedule.read",
+  "ops.customers.read",
+  "ops.customer_contacts.read",
+  "ops.photos.read",
+  "ops.correspondence.read",
+  "ops.financials.read",
+  "ops.tasks.read",
+  "ops.site_visits.read",
+  "ops.files.read",
+  "ops.financial_documents.read",
+  "ops.payments.read",
+  "ops.expenses.read",
+  "ops.catalog.read",
+  "ops.purchasing.read",
+  "ops.catalog_costs.read",
+  "ops.company.read",
+  "ops.team.read",
+  "ops.integrations.read",
+  "ops.operations.read",
+] as const;
+const ACCEPTED_LABELS = SCOPES.map((scope) => MCP_SCOPE_CONSENT_LABELS[scope]);
 const CONSENT_CATALOG_REVISION = "2026-08-22.mcp-consent-catalog.v1";
-const EXPOSURE_REVISION = "2026-08-22.mcp-exposure.v1";
+const EXPOSURE_REVISION = "2026-08-29.mcp-exposure.v2";
 const SCOPE_PARAMETER = SCOPES.join(" ");
 
 const config = resolveMcpOAuthConfig();
@@ -154,7 +178,7 @@ function defaultClientRow(): ClientRow {
     redirect_uris: [CALLBACK],
     token_endpoint_auth_method: "none",
     scope: SCOPE_PARAMETER,
-    scope_ceiling: SCOPES,
+    scope_ceiling: [...SCOPES],
     consent_catalog_revision: CONSENT_CATALOG_REVISION,
     exposure_revision: EXPOSURE_REVISION,
     disabled: false,
@@ -165,7 +189,7 @@ function defaultCodeRow(): CodeRow {
   return {
     user_id: USER_ID,
     company_id: COMPANY_ID,
-    scopes: SCOPES,
+    scopes: [...SCOPES],
     accepted_labels: ACCEPTED_LABELS,
     consent_catalog_revision: CONSENT_CATALOG_REVISION,
     exposure_revision: EXPOSURE_REVISION,
@@ -180,7 +204,7 @@ function defaultRotatedRow(): RotatedRow {
     client_id: CLIENT_ID,
     user_id: USER_ID,
     company_id: COMPANY_ID,
-    scopes: SCOPES,
+    scopes: [...SCOPES],
     accepted_labels: ACCEPTED_LABELS,
     consent_catalog_revision: CONSENT_CATALOG_REVISION,
     exposure_revision: EXPOSURE_REVISION,
@@ -351,6 +375,7 @@ describe("OAuth discovery documents", () => {
       grant_types_supported: ["authorization_code", "refresh_token"],
       code_challenge_methods_supported: ["S256"],
       token_endpoint_auth_methods_supported: ["none"],
+      authorization_response_iss_parameter_supported: true,
     });
     expect(body).not.toHaveProperty("client_id_metadata_document_supported");
   });
@@ -442,6 +467,26 @@ describe("POST /api/mcp/oauth/register", () => {
       token_endpoint_auth_method: "none",
     });
     expect(body).not.toHaveProperty("client_secret");
+  });
+
+  it("registers ChatGPT DCR with the exact stable RFC 9207 callback", async () => {
+    const response = await registerPost(
+      jsonRequest("/api/mcp/oauth/register", {
+        ...validPayload,
+        client_name: "ChatGPT",
+        redirect_uris: [CHATGPT_CALLBACK],
+      })
+    );
+
+    expect(response.status).toBe(201);
+    expect(
+      lastCallTo("register_mcp_oauth_client_as_system").args.p_redirect_uris
+    ).toEqual([CHATGPT_CALLBACK]);
+    await expect(response.json()).resolves.toMatchObject({
+      client_name: "ChatGPT",
+      redirect_uris: [CHATGPT_CALLBACK],
+      token_endpoint_auth_method: "none",
+    });
   });
 
   it("rejects a redirect URI that is not the Claude connector callback", async () => {
@@ -577,6 +622,48 @@ describe("POST /api/mcp/oauth/token (authorization_code)", () => {
       lastCallTo("consume_mcp_oauth_authorization_code_as_system").args
         .p_redirect_uri
     ).toBe(CODEX_CALLBACK);
+  });
+
+  it("exchanges a ChatGPT code against only the exact registered stable callback", async () => {
+    state.clientRow = {
+      ...defaultClientRow(),
+      client_name: "ChatGPT",
+      redirect_uris: [CHATGPT_CALLBACK],
+    };
+    const { body: requestBody } = codeExchangeBody({
+      redirect_uri: CHATGPT_CALLBACK,
+    });
+
+    const response = await tokenPost(
+      formRequest("/api/mcp/oauth/token", requestBody)
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      lastCallTo("consume_mcp_oauth_authorization_code_as_system").args
+        .p_redirect_uri
+    ).toBe(CHATGPT_CALLBACK);
+  });
+
+  it("rejects ChatGPT callback-ID URLs even when the stable callback is registered", async () => {
+    state.clientRow = {
+      ...defaultClientRow(),
+      client_name: "ChatGPT",
+      redirect_uris: [CHATGPT_CALLBACK],
+    };
+    const { body: requestBody } = codeExchangeBody({
+      redirect_uri: "https://chatgpt.com/connector/oauth/callback-id",
+    });
+
+    const response = await tokenPost(
+      formRequest("/api/mcp/oauth/token", requestBody)
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "invalid_grant" });
+    expect(
+      callsTo("consume_mcp_oauth_authorization_code_as_system")
+    ).toHaveLength(0);
   });
 
   it.each([
@@ -806,6 +893,39 @@ describe("POST /api/mcp/oauth/token (refresh_token)", () => {
     expect(rotate.args.p_new_access_hash).toBe(sha256Hex(body.access_token));
     expect(rotate.args.p_new_refresh_hash).toBe(sha256Hex(body.refresh_token));
     expect(rotate.args.p_new_refresh_hash).not.toBe(body.refresh_token);
+  });
+
+  it("refreshes a historical v1 grant without widening its seven scopes or revision", async () => {
+    const v1Labels = V1_SCOPES.map((scope) => MCP_SCOPE_CONSENT_LABELS[scope]);
+    state.clientRow = {
+      ...defaultClientRow(),
+      scope: V1_SCOPES.join(" "),
+      scope_ceiling: V1_SCOPES,
+      exposure_revision: "2026-08-22.mcp-exposure.v1",
+    };
+    state.rotatedRow = {
+      ...defaultRotatedRow(),
+      scopes: V1_SCOPES,
+      accepted_labels: v1Labels,
+      exposure_revision: "2026-08-22.mcp-exposure.v1",
+    };
+
+    const { body: requestBody } = refreshBody();
+    const response = await tokenPost(
+      formRequest("/api/mcp/oauth/token", requestBody)
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.scope).toBe(V1_SCOPES.join(" "));
+    expect(body.scope).not.toContain("ops.tasks.read");
+    expect(
+      lastCallTo("rotate_mcp_oauth_refresh_token_as_system").args
+        .p_active_grantable_scopes
+    ).toEqual(SCOPES);
+    expect(state.rotatedRow.exposure_revision).toBe(
+      "2026-08-22.mcp-exposure.v1"
+    );
   });
 
   it("answers invalid_grant when the store reports refresh reuse", async () => {

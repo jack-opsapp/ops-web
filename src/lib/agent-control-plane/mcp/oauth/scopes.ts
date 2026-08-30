@@ -10,10 +10,10 @@ import {
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
 /**
- * Compatibility views over the active immutable MCP exposure: exactly the
- * union required by its eleven read tools, with nothing broader grantable.
- * Consent labels remain concrete, read-only-honest, and free of technical
- * vocabulary.
+ * Frozen compatibility views over immutable exposure v1: exactly the union
+ * required by its eleven read tools. Active registration and consent resolve
+ * their scope ceiling from the selected exposure instead; retaining these
+ * exports keeps historical v1 grants and callers byte-compatible.
  */
 
 export const SUPPORTED_READ_SCOPES =

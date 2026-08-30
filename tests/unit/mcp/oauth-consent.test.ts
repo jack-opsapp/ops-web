@@ -42,10 +42,8 @@ vi.mock("@/lib/utils/ratelimit", () => ({
 
 import { POST as contextPOST } from "@/app/api/mcp/oauth/authorize/context/route";
 import { POST as decisionPOST } from "@/app/api/mcp/oauth/authorize/decision/route";
-import {
-  SCOPE_CONSENT_LABELS,
-  SUPPORTED_READ_SCOPES,
-} from "@/lib/agent-control-plane/mcp/oauth/scopes";
+import { resolveMcpOAuthConfig } from "@/lib/agent-control-plane/mcp/oauth";
+import { MCP_SCOPE_CONSENT_LABELS } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -53,6 +51,8 @@ const APP_URL = "https://app.opsapp.co";
 const RESOURCE = `${APP_URL}/api/mcp`;
 const CLIENT_ID = "11111111-2222-4333-8444-555555555555";
 const REDIRECT_URI = "https://claude.ai/api/mcp/auth_callback";
+const CHATGPT_REDIRECT_URI =
+  "https://chatgpt.com/connector_platform_oauth_redirect";
 const CODEX_REDIRECT_URI = "http://127.0.0.1:51759/callback/lwaKvnR9ZEom";
 const CODEX_WRONG_PORT_REDIRECT_URI =
   "http://127.0.0.1:51760/callback/lwaKvnR9ZEom";
@@ -65,7 +65,29 @@ const USER_ID = "8e811f98-9f2b-4f64-b409-ed56074b7dc8";
 const COMPANY_ID = "ddee107c-33cd-483e-8278-0f8d8a180181";
 const COMPANY_NAME = "MAVERICK PROJECTS LTD";
 const CONSENT_CATALOG_REVISION = "2026-08-22.mcp-consent-catalog.v1";
-const EXPOSURE_REVISION = "2026-08-22.mcp-exposure.v1";
+const EXPOSURE_REVISION = "2026-08-29.mcp-exposure.v2";
+const ACTIVE_READ_SCOPES = [
+  "ops.jobs.read",
+  "ops.schedule.read",
+  "ops.customers.read",
+  "ops.customer_contacts.read",
+  "ops.photos.read",
+  "ops.correspondence.read",
+  "ops.financials.read",
+  "ops.tasks.read",
+  "ops.site_visits.read",
+  "ops.files.read",
+  "ops.financial_documents.read",
+  "ops.payments.read",
+  "ops.expenses.read",
+  "ops.catalog.read",
+  "ops.purchasing.read",
+  "ops.catalog_costs.read",
+  "ops.company.read",
+  "ops.team.read",
+  "ops.integrations.read",
+  "ops.operations.read",
+] as const;
 const CONSENT_PREVIEW =
   "ops_mcp_cp_dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
 const CONSENT_PREVIEW_EXPIRES_AT = "2026-08-23T07:05:00.000Z";
@@ -75,10 +97,10 @@ const CLIENT_ROW = {
   client_name: "Claude",
   redirect_uris: [REDIRECT_URI],
   token_endpoint_auth_method: "none",
-  scope: SUPPORTED_READ_SCOPES.join(" "),
-  scope_ceiling: [...SUPPORTED_READ_SCOPES],
+  scope: ACTIVE_READ_SCOPES.join(" "),
+  scope_ceiling: [...ACTIVE_READ_SCOPES],
   consent_catalog_revision: "2026-08-22.mcp-consent-catalog.v1",
-  exposure_revision: "2026-08-22.mcp-exposure.v1",
+  exposure_revision: EXPOSURE_REVISION,
   disabled: false,
 };
 
@@ -90,9 +112,9 @@ const CONSUMED_PREVIEW_ROW = {
   company_name: COMPANY_NAME,
   redirect_uri: REDIRECT_URI,
   response_type: "code",
-  scopes: [...SUPPORTED_READ_SCOPES],
-  accepted_labels: SUPPORTED_READ_SCOPES.map(
-    (scope) => SCOPE_CONSENT_LABELS[scope]
+  scopes: [...ACTIVE_READ_SCOPES],
+  accepted_labels: ACTIVE_READ_SCOPES.map(
+    (scope) => MCP_SCOPE_CONSENT_LABELS[scope]
   ),
   consent_catalog_revision: CONSENT_CATALOG_REVISION,
   exposure_revision: EXPOSURE_REVISION,
@@ -113,6 +135,18 @@ const CODEX_CONSUMED_PREVIEW_ROW = {
   ...CONSUMED_PREVIEW_ROW,
   client_name: "Codex",
   redirect_uri: CODEX_REDIRECT_URI,
+};
+
+const CHATGPT_CLIENT_ROW = {
+  ...CLIENT_ROW,
+  client_name: "ChatGPT",
+  redirect_uris: [CHATGPT_REDIRECT_URI],
+};
+
+const CHATGPT_CONSUMED_PREVIEW_ROW = {
+  ...CONSUMED_PREVIEW_ROW,
+  client_name: "ChatGPT",
+  redirect_uri: CHATGPT_REDIRECT_URI,
 };
 
 let originalAppUrl: string | undefined;
@@ -159,7 +193,7 @@ function contextBody(overrides: Record<string, unknown> = {}) {
     client_id: CLIENT_ID,
     redirect_uri: REDIRECT_URI,
     response_type: "code",
-    scope: SUPPORTED_READ_SCOPES.join(" "),
+    scope: ACTIVE_READ_SCOPES.join(" "),
     state: "opaque-anti-csrf-state",
     code_challenge: CODE_CHALLENGE,
     code_challenge_method: "S256",
@@ -230,12 +264,33 @@ function useCodexConsentRpc(
   });
 }
 
+function useChatGPTConsentRpc(): void {
+  mocks.rpc.mockImplementation(async (fn: string) => {
+    if (fn === "get_mcp_oauth_client_as_system") {
+      return { data: [CHATGPT_CLIENT_ROW], error: null };
+    }
+    if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+      return { data: [CHATGPT_CONSUMED_PREVIEW_ROW], error: null };
+    }
+    if (fn === "create_mcp_oauth_authorization_code_as_system") {
+      return { data: null, error: null };
+    }
+    return { data: null, error: null };
+  });
+}
+
 function createCodeArgs(): Record<string, unknown> {
   const call = mocks.rpc.mock.calls.find(
     ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"
   );
   if (!call) throw new Error("authorization code RPC was never called");
   return call[1] as Record<string, unknown>;
+}
+
+function expectExactIssuer(url: URL): void {
+  expect(url.searchParams.getAll("iss")).toEqual([
+    resolveMcpOAuthConfig().issuer,
+  ]);
 }
 
 beforeEach(() => {
@@ -335,7 +390,7 @@ describe("MCP OAuth consent — context", () => {
     expect(json.consentPreview).toMatch(/^ops_mcp_cp_[A-Za-z0-9_-]{43}$/);
     expect(json.expiresAt).toBe(CONSENT_PREVIEW_EXPIRES_AT);
     expect(json.scopes.map((s: { scope: string }) => s.scope)).toEqual([
-      ...SUPPORTED_READ_SCOPES,
+      ...ACTIVE_READ_SCOPES,
     ]);
     for (const line of json.scopes) {
       expect(typeof line.label).toBe("string");
@@ -352,9 +407,9 @@ describe("MCP OAuth consent — context", () => {
       p_company_id: COMPANY_ID,
       p_redirect_uri: REDIRECT_URI,
       p_response_type: "code",
-      p_scopes: [...SUPPORTED_READ_SCOPES],
-      p_accepted_labels: SUPPORTED_READ_SCOPES.map(
-        (scope) => SCOPE_CONSENT_LABELS[scope]
+      p_scopes: [...ACTIVE_READ_SCOPES],
+      p_accepted_labels: ACTIVE_READ_SCOPES.map(
+        (scope) => MCP_SCOPE_CONSENT_LABELS[scope]
       ),
       p_consent_catalog_revision: CONSENT_CATALOG_REVISION,
       p_exposure_revision: EXPOSURE_REVISION,
@@ -416,7 +471,7 @@ describe("MCP OAuth consent — context", () => {
 
     expect(response.status).toBe(200);
     const json = await response.json();
-    expect(json.scopes).toHaveLength(SUPPORTED_READ_SCOPES.length);
+    expect(json.scopes).toHaveLength(ACTIVE_READ_SCOPES.length);
   });
 
   it("rejects an unknown client with the uniform error", async () => {
@@ -591,6 +646,7 @@ describe("MCP OAuth consent — approve", () => {
     const url = new URL(redirectTo);
     expect(`${url.origin}${url.pathname}`).toBe(REDIRECT_URI);
     expect(url.searchParams.get("state")).toBe("opaque-anti-csrf-state");
+    expectExactIssuer(url);
     const code = url.searchParams.get("code");
     expect(code).toBeTruthy();
     expect(code).toMatch(/^ops_mcp_ac_[A-Za-z0-9_-]{43}$/);
@@ -611,14 +667,14 @@ describe("MCP OAuth consent — approve", () => {
     expect(args.p_company_id).toBe(COMPANY_ID);
 
     // Scopes land in canonical order, not request order.
-    expect(args.p_scopes).toEqual([...SUPPORTED_READ_SCOPES]);
+    expect(args.p_scopes).toEqual([...ACTIVE_READ_SCOPES]);
     expect(args.p_accepted_labels).toEqual(
-      SUPPORTED_READ_SCOPES.map((scope) => SCOPE_CONSENT_LABELS[scope])
+      ACTIVE_READ_SCOPES.map((scope) => MCP_SCOPE_CONSENT_LABELS[scope])
     );
     expect(args.p_consent_catalog_revision).toBe(
       "2026-08-22.mcp-consent-catalog.v1"
     );
-    expect(args.p_exposure_revision).toBe("2026-08-22.mcp-exposure.v1");
+    expect(args.p_exposure_revision).toBe(EXPOSURE_REVISION);
 
     expect(args.p_redirect_uri).toBe(REDIRECT_URI);
     expect(args.p_code_challenge).toBe(CODE_CHALLENGE);
@@ -642,10 +698,30 @@ describe("MCP OAuth consent — approve", () => {
     const { redirect_to: redirectTo } = await response.json();
     const url = new URL(redirectTo);
     expect(`${url.origin}${url.pathname}`).toBe(CODEX_REDIRECT_URI);
+    expectExactIssuer(url);
     expect(url.searchParams.get("code")).toMatch(
       /^ops_mcp_ac_[A-Za-z0-9_-]{43}$/
     );
     expect(createCodeArgs().p_redirect_uri).toBe(CODEX_REDIRECT_URI);
+  });
+
+  it("approves ChatGPT through the exact stable callback with issuer identification", async () => {
+    useChatGPTConsentRpc();
+
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
+
+    expect(response.status).toBe(200);
+    const { redirect_to: redirectTo } = await response.json();
+    const url = new URL(redirectTo);
+    expect(`${url.origin}${url.pathname}`).toBe(CHATGPT_REDIRECT_URI);
+    expectExactIssuer(url);
+    expect(url.searchParams.get("state")).toBe("opaque-anti-csrf-state");
+    expect(url.searchParams.get("code")).toMatch(
+      /^ops_mcp_ac_[A-Za-z0-9_-]{43}$/
+    );
+    expect(createCodeArgs().p_redirect_uri).toBe(CHATGPT_REDIRECT_URI);
   });
 
   it.each([
@@ -680,7 +756,7 @@ describe("MCP OAuth consent — approve", () => {
   });
 
   it("canonicalizes scrambled scopes before storing the visible preview", async () => {
-    const scrambled = [...SUPPORTED_READ_SCOPES].reverse().join(" ");
+    const scrambled = [...ACTIVE_READ_SCOPES].reverse().join(" ");
 
     const response = await contextPOST(
       post(
@@ -693,7 +769,7 @@ describe("MCP OAuth consent — approve", () => {
     const issueCall = mocks.rpc.mock.calls.find(
       ([fn]) => fn === "issue_mcp_oauth_consent_preview_as_system"
     );
-    expect(issueCall?.[1]?.p_scopes).toEqual([...SUPPORTED_READ_SCOPES]);
+    expect(issueCall?.[1]?.p_scopes).toEqual([...ACTIVE_READ_SCOPES]);
   });
 
   it("omits state from the redirect when the stored snapshot has none", async () => {
@@ -743,6 +819,7 @@ describe("MCP OAuth consent — deny", () => {
     expect(`${url.origin}${url.pathname}`).toBe(REDIRECT_URI);
     expect(url.searchParams.get("error")).toBe("access_denied");
     expect(url.searchParams.get("state")).toBe("opaque-anti-csrf-state");
+    expectExactIssuer(url);
     expect(url.searchParams.get("code")).toBeNull();
 
     expect(
@@ -764,9 +841,11 @@ describe("MCP OAuth consent — deny", () => {
 
     expect(response.status).toBe(200);
     const { redirect_to: redirectTo } = await response.json();
-    expect(redirectTo).toBe(
-      `${CODEX_REDIRECT_URI}?error=access_denied&state=opaque-anti-csrf-state`
-    );
+    const url = new URL(redirectTo);
+    expect(`${url.origin}${url.pathname}`).toBe(CODEX_REDIRECT_URI);
+    expect(url.searchParams.get("error")).toBe("access_denied");
+    expect(url.searchParams.get("state")).toBe("opaque-anti-csrf-state");
+    expectExactIssuer(url);
     expect(
       mocks.rpc.mock.calls.some(
         ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"
@@ -785,7 +864,11 @@ describe("MCP OAuth consent — deny", () => {
     );
 
     const { redirect_to: redirectTo } = await response.json();
-    expect(redirectTo).toBe(`${REDIRECT_URI}?error=access_denied`);
+    const url = new URL(redirectTo);
+    expect(`${url.origin}${url.pathname}`).toBe(REDIRECT_URI);
+    expect(url.searchParams.get("error")).toBe("access_denied");
+    expectExactIssuer(url);
+    expect(url.searchParams.has("state")).toBe(false);
   });
 });
 
@@ -793,8 +876,8 @@ describe("MCP OAuth consent — deny", () => {
 
 describe("MCP OAuth consent — decision rejects tampering", () => {
   it("rejects a different allowed scope set than the exact labels shown in context", async () => {
-    const shownScope = SUPPORTED_READ_SCOPES[0];
-    const substitutedScopes = SUPPORTED_READ_SCOPES.slice(0, 2).join(" ");
+    const shownScope = ACTIVE_READ_SCOPES[0];
+    const substitutedScopes = ACTIVE_READ_SCOPES.slice(0, 2).join(" ");
     mocks.rpc.mockImplementation(async (fn: string) => {
       if (fn === "consume_mcp_oauth_consent_preview_as_system") {
         return {
@@ -802,7 +885,7 @@ describe("MCP OAuth consent — decision rejects tampering", () => {
             {
               ...CONSUMED_PREVIEW_ROW,
               scopes: [shownScope],
-              accepted_labels: [SCOPE_CONSENT_LABELS[shownScope]],
+              accepted_labels: [MCP_SCOPE_CONSENT_LABELS[shownScope]],
             },
           ],
           error: null,
@@ -856,7 +939,7 @@ describe("MCP OAuth consent — decision rejects tampering", () => {
 
   const tamperCases: Array<[string, Record<string, unknown>]> = [
     ["an echoed client id", { client_id: CLIENT_ID }],
-    ["an echoed scope", { scope: SUPPORTED_READ_SCOPES[0] }],
+    ["an echoed scope", { scope: ACTIVE_READ_SCOPES[0] }],
     ["an echoed redirect", { redirect_uri: REDIRECT_URI }],
     [
       "an echoed preview expiry",
@@ -927,7 +1010,7 @@ describe("MCP OAuth consent — decision rejects tampering", () => {
 
   it("rejects labels that differ from the exact active consent catalogue", async () => {
     mockConsumedPreview({
-      accepted_labels: SUPPORTED_READ_SCOPES.map(() => "Different label"),
+      accepted_labels: ACTIVE_READ_SCOPES.map(() => "Different label"),
     });
 
     const response = await decisionPOST(

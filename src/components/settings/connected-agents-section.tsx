@@ -35,32 +35,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { toast } from "@/components/ui/toast";
+import { connectedAgentScopeLine } from "@/components/settings/connected-agent-scope-labels";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { authedFetch } from "@/lib/utils/authed-fetch";
 
 const GRANTS_ENDPOINT = "/api/mcp/oauth/grants";
 const GRANTS_QUERY_KEY = ["mcpOAuthGrants"] as const;
-
-/**
- * Verbatim mirror of SCOPE_CONSENT_LABELS
- * (`src/lib/agent-control-plane/mcp/oauth/scopes.ts`). That module is
- * `server-only` and cannot cross into a client component, and the grants API
- * returns raw scope strings — so the label text is restated here. It must
- * stay byte-identical to the server constant: an operator has to read the
- * same sentence when granting access and when reviewing it. An unrecognized
- * scope falls through to its raw name rather than rendering blank, so a scope
- * added server-side degrades to something truthful instead of disappearing.
- */
-const SCOPE_LABELS: Readonly<Record<string, string>> = Object.freeze({
-  "ops.jobs.read": "See your jobs and their status",
-  "ops.schedule.read": "See your schedule and who's assigned",
-  "ops.customers.read": "See your clients and their jobs",
-  "ops.customer_contacts.read":
-    "See who to contact on a job and how to reach them",
-  "ops.photos.read": "See which jobs are missing photos",
-  "ops.correspondence.read": "See client email history on your jobs",
-  "ops.financials.read": "See estimate and invoice summaries on your jobs",
-});
 
 interface GrantRow {
   readonly grantId: string;
@@ -112,10 +92,6 @@ function formatTimeAgo(iso: string | null): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)} min ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
-}
-
-function scopeLine(scopes: readonly string[]): string {
-  return scopes.map((scope) => SCOPE_LABELS[scope] ?? scope).join(" · ");
 }
 
 export function ConnectedAgentsSection() {
@@ -172,7 +148,7 @@ export function ConnectedAgentsSection() {
         ...grant,
         connected: formatTimeAgo(grant.createdAt),
         lastUsed: formatTimeAgo(grant.lastUsedAt),
-        scopeText: scopeLine(grant.scopes),
+        scopeText: connectedAgentScopeLine(grant.scopes),
       })),
     [grants]
   );
