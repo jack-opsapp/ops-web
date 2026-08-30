@@ -193,7 +193,7 @@ const MIGRATIONS = [
   ],
   [
     "20260830170000_agent_site_visit_nullable_client_visibility.sql",
-    "ed141647730b08ef0f1292f733d8212b485ace494c221d893ce76e305b12b462",
+    "b2b8fb251cee5eba4d4cf780b157fc3288e5e3a0daab947ce22865e59bf5d6f9",
   ],
 ] as const;
 
@@ -490,11 +490,11 @@ const FIXTURES = [
   ],
   [
     "agent-site-visit-nullable-client-runtime.sql",
-    "23d51f2e96afe08f7a2a1f0bc342b4cbc46ebd7044f9122d3a4e3a78b9591722",
+    "83a85b73b0ea04b80b344edae827c096f9c9dc9a2ad0cbadd0a01f69801b2b6e",
   ],
   [
     "agent-site-visit-nullable-client-replay-runtime.sql",
-    "598ad844220b57ac83ef35d854cc6fe5ffc835dac285e3957339195273020b9c",
+    "ced8ddebc81d877cd872c46543cc3d70e8dd7a29f346bd7aff57754daff93565",
   ],
 ] as const;
 
@@ -879,6 +879,223 @@ end;
 $postgres_uuid_restore$;
 `;
 
+const SITE_VISIT_ADVERSARIAL_DRIFT_SQL = `
+create table private.agent_site_visit_adversarial_guard as
+with protected(function_signature) as (values
+  ('private.agent_p2_site_visit_list_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,uuid,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid,timestamp with time zone)'),
+  ('private.agent_p2_site_visit_context_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,uuid,text,uuid,text[],integer,integer,integer,integer,integer,timestamp with time zone)'),
+  ('private.agent_p2_site_visit_attention_v1(uuid,uuid,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,timestamp with time zone,integer,integer)')
+)
+select protected.function_signature,
+       procedure.oid as function_oid,
+       pg_catalog.to_jsonb(procedure) - 'prosrc' as metadata,
+       extensions.digest(
+         pg_catalog.convert_to(procedure.prosrc, 'UTF8'),
+         'sha256'
+       ) as original_source_digest,
+       pg_catalog.pg_get_functiondef(procedure.oid) as original_definition
+from protected
+join pg_catalog.pg_proc procedure
+  on procedure.oid = pg_catalog.to_regprocedure(
+    protected.function_signature
+  )::oid;
+
+do $site_visit_drift$
+declare
+  v_signature constant text :=
+    'private.agent_p2_site_visit_list_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,uuid,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid,timestamp with time zone)';
+  v_expected_fragment constant text :=
+    '  with current_authority as materialized (';
+  v_drifted_fragment constant text :=
+    '  /* adversarial site-visit source drift */\n  with current_authority as materialized (';
+  v_definition text;
+  v_drifted_definition text;
+  v_expected_count integer;
+  v_drifted_count integer;
+  v_guard_count integer;
+  v_guard record;
+  v_current record;
+begin
+  select pg_catalog.count(*)
+    into strict v_guard_count
+  from private.agent_site_visit_adversarial_guard;
+  if v_guard_count is distinct from 3 then
+    raise exception
+      'agent_site_visit_adversarial_guard_count: %',
+      v_guard_count;
+  end if;
+
+  select * into strict v_guard
+  from private.agent_site_visit_adversarial_guard
+  where function_signature = v_signature;
+
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure(v_signature)::oid
+         )
+    into strict v_definition;
+  v_expected_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_expected_fragment, '')
+    )
+  ) / pg_catalog.length(v_expected_fragment);
+  v_drifted_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_drifted_fragment, '')
+    )
+  ) / pg_catalog.length(v_drifted_fragment);
+  if v_expected_count is distinct from 1
+     or v_drifted_count is distinct from 0 then
+    raise exception
+      'agent_site_visit_adversarial_setup_failed: % %',
+      v_expected_count,
+      v_drifted_count;
+  end if;
+
+  v_drifted_definition := pg_catalog.replace(
+    v_definition,
+    v_expected_fragment,
+    v_drifted_fragment
+  );
+  execute v_drifted_definition;
+
+  select procedure.oid as function_oid,
+         pg_catalog.to_jsonb(procedure) - 'prosrc' as metadata,
+         extensions.digest(
+           pg_catalog.convert_to(procedure.prosrc, 'UTF8'),
+           'sha256'
+         ) as source_digest,
+         procedure.prosrc
+    into strict v_current
+  from pg_catalog.pg_proc procedure
+  where procedure.oid = pg_catalog.to_regprocedure(v_signature)::oid;
+
+  if v_current.function_oid is distinct from v_guard.function_oid
+     or v_current.metadata is distinct from v_guard.metadata
+     or v_current.source_digest is not distinct from
+          v_guard.original_source_digest
+     or v_current.prosrc not like
+          '%/* adversarial site-visit source drift */%' then
+    raise exception 'agent_site_visit_adversarial_drift_failed';
+  end if;
+end;
+$site_visit_drift$;
+`;
+
+const SITE_VISIT_ADVERSARIAL_VERIFY_SQL = `
+do $site_visit_drift_verify$
+declare
+  v_guard record;
+  v_current record;
+  v_verified_count integer := 0;
+begin
+  for v_guard in
+    select *
+    from private.agent_site_visit_adversarial_guard
+    order by function_signature collate "C"
+  loop
+    select procedure.oid as function_oid,
+           pg_catalog.to_jsonb(procedure) - 'prosrc' as metadata,
+           extensions.digest(
+             pg_catalog.convert_to(procedure.prosrc, 'UTF8'),
+             'sha256'
+           ) as source_digest,
+           procedure.prosrc
+      into strict v_current
+    from pg_catalog.pg_proc procedure
+    where procedure.oid = pg_catalog.to_regprocedure(
+      v_guard.function_signature
+    )::oid;
+
+    if v_current.function_oid is distinct from v_guard.function_oid
+       or v_current.metadata is distinct from v_guard.metadata
+       or v_guard.function_signature like
+            'private.agent_p2_site_visit_list_v1(%'
+          and (
+            v_current.source_digest is not distinct from
+              v_guard.original_source_digest
+            or v_current.prosrc not like
+              '%/* adversarial site-visit source drift */%'
+          )
+       or v_guard.function_signature not like
+            'private.agent_p2_site_visit_list_v1(%'
+          and (
+            v_current.source_digest is distinct from
+              v_guard.original_source_digest
+            or v_current.prosrc like
+              '%/* adversarial site-visit source drift */%'
+          ) then
+      raise exception
+        'agent_site_visit_adversarial_abort_mutated_source: %',
+        v_guard.function_signature;
+    end if;
+    v_verified_count := v_verified_count + 1;
+  end loop;
+
+  if v_verified_count is distinct from 3 then
+    raise exception
+      'agent_site_visit_adversarial_abort_count: %',
+      v_verified_count;
+  end if;
+end;
+$site_visit_drift_verify$;
+`;
+
+const SITE_VISIT_ADVERSARIAL_RESTORE_SQL = `
+do $site_visit_restore$
+declare
+  v_signature constant text :=
+    'private.agent_p2_site_visit_list_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,uuid,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid,timestamp with time zone)';
+  v_guard record;
+  v_current record;
+  v_restored_count integer := 0;
+begin
+  select * into strict v_guard
+  from private.agent_site_visit_adversarial_guard
+  where function_signature = v_signature;
+  execute v_guard.original_definition;
+
+  for v_guard in
+    select *
+    from private.agent_site_visit_adversarial_guard
+    order by function_signature collate "C"
+  loop
+    select procedure.oid as function_oid,
+           pg_catalog.to_jsonb(procedure) - 'prosrc' as metadata,
+           extensions.digest(
+             pg_catalog.convert_to(procedure.prosrc, 'UTF8'),
+             'sha256'
+           ) as source_digest,
+           procedure.prosrc
+      into strict v_current
+    from pg_catalog.pg_proc procedure
+    where procedure.oid = pg_catalog.to_regprocedure(
+      v_guard.function_signature
+    )::oid;
+
+    if v_current.function_oid is distinct from v_guard.function_oid
+       or v_current.metadata is distinct from v_guard.metadata
+       or v_current.source_digest is distinct from
+            v_guard.original_source_digest
+       or v_current.prosrc like
+            '%/* adversarial site-visit source drift */%' then
+      raise exception
+        'agent_site_visit_adversarial_restore_failed: %',
+        v_guard.function_signature;
+    end if;
+    v_restored_count := v_restored_count + 1;
+  end loop;
+
+  if v_restored_count is distinct from 3 then
+    raise exception
+      'agent_site_visit_adversarial_restore_count: %',
+      v_restored_count;
+  end if;
+
+  drop table private.agent_site_visit_adversarial_guard;
+end;
+$site_visit_restore$;
+`;
+
 function assertSafeLocalPostgresTarget(host: string, port: string): void {
   let canonicalHost: string;
   try {
@@ -936,16 +1153,22 @@ async function runFile(
 async function expectMigrationSourceDrift(
   database: string,
   migrationName: string,
-  expectedMarker: string
+  expectedMarker: string,
+  expectedSqlState?: string
 ): Promise<void> {
   const replayError = await runFile(
     database,
-    join(ROOT, "supabase/migrations", migrationName)
+    join(ROOT, "supabase/migrations", migrationName),
+    ["VERBOSITY=verbose"]
   ).catch((error: unknown) => error);
   expect(replayError).toBeInstanceOf(Error);
-  expect(
-    String((replayError as { readonly stderr?: unknown }).stderr ?? replayError)
-  ).toContain(expectedMarker);
+  const stderr = String(
+    (replayError as { readonly stderr?: unknown }).stderr ?? replayError
+  );
+  expect(stderr).toContain(expectedMarker);
+  if (expectedSqlState) {
+    expect(stderr).toContain(`ERROR:  ${expectedSqlState}: ${expectedMarker}`);
+  }
 }
 
 async function runStatement(database: string, sql: string) {
@@ -1283,6 +1506,20 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
           // last migration dependency, before later domain triggers can alter
           // the historical slice contract it is proving.
           for (const [name] of MIGRATIONS.slice(1)) {
+            if (
+              name ===
+              "20260830170000_agent_site_visit_nullable_client_visibility.sql"
+            ) {
+              await runStatement(database, SITE_VISIT_ADVERSARIAL_DRIFT_SQL);
+              await expectMigrationSourceDrift(
+                database,
+                name,
+                "agent_site_visit_nullable_client_source_drift",
+                "55000"
+              );
+              await runStatement(database, SITE_VISIT_ADVERSARIAL_VERIFY_SQL);
+              await runStatement(database, SITE_VISIT_ADVERSARIAL_RESTORE_SQL);
+            }
             await runFile(database, join(ROOT, "supabase/migrations", name));
             appliedMigrations.push(name);
             const checkpointIndex = FIXTURE_CHECKPOINT_MIGRATIONS.indexOf(

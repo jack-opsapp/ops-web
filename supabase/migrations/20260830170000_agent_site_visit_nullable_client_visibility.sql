@@ -5,8 +5,9 @@ set local lock_timeout = '5s';
 
 -- An opportunity can exist before OPS resolves a customer record. Repair the
 -- three live site-visit projections so that a NULL client does not erase an
--- otherwise visible opportunity-linked visit. A non-NULL client remains a
--- mandatory active, same-company, actor-visible authority edge.
+-- otherwise visible opportunity-linked visit. Any client edge on the visit or
+-- linked opportunity must resolve consistently to one active, same-company,
+-- actor-visible client; the unlinked variant has no client edge at all.
 create temporary table agent_site_visit_nullable_client_expected (
   function_signature text primary key,
   pre_repair_sha256 text not null,
@@ -22,19 +23,19 @@ insert into agent_site_visit_nullable_client_expected values
   (
     'private.agent_p2_site_visit_list_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,uuid,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid,timestamp with time zone)',
     '43bde004cd4a44b3b67d94ace66bfd2708660c6019f2f1706d226e284ef01416',
-    'd52e4a17c838086d02c97f0669943fed4434fdfd3fde905239474ffc7cdb3831',
+    '5d5d360bfdb238bc0c930f84b9d1c4b10813e4f62361c5ebc30e1d7af5d2193e',
     'plpgsql', 's', 'u', false, false
   ),
   (
     'private.agent_p2_site_visit_context_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,uuid,text,uuid,text[],integer,integer,integer,integer,integer,timestamp with time zone)',
     '2459fd55d792a79dfbf6648402486586d5eed730cf00cae24d7b797cb0108b9e',
-    'c41abd99c3658703c9378f669c5ab35152df6d25a7b5b057ab05bcb8c002289e',
+    'b1e99528351b7b90c332bae60b101003b94bff3d33f089fe4b57def0298e7cbe',
     'plpgsql', 's', 'u', false, false
   ),
   (
     'private.agent_p2_site_visit_attention_v1(uuid,uuid,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,timestamp with time zone,integer,integer)',
     'cc27147a5e58ae386522b0e6e67d96743532739acb30abd8f058e4a66f9cdfbd',
-    '3729dd47600185ee4cc4d4daf0b5d83e3b6fe87761f9df660341f96bd5d50d82',
+    '05e16807368b3ce462483ea3016c697b4c501d17c8b8086e3383785b9708f267',
     'plpgsql', 's', 'u', false, false
   );
 
@@ -72,6 +73,35 @@ $old_list_client_row$
   (
     'private.agent_p2_site_visit_list_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,uuid,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid,timestamp with time zone)',
     3,
+$old_list_client_reference$
+               visit.opportunity_id,
+               coalesce(
+                 visit.client_ref,$old_list_client_reference$,
+$new_list_client_reference$
+               visit.opportunity_id,
+               (
+                 visit.client_ref is not null
+                 or visit.client_id is not null
+               ) as has_client_reference,
+               (
+                 visit.client_id is not null
+                 and private.agent_p2_site_visit_uuid_from_text(
+                   visit.client_id
+                 ) is null
+                 or visit.client_ref is not null
+                    and visit.client_id is not null
+                    and visit.client_ref is distinct from
+                      private.agent_p2_site_visit_uuid_from_text(
+                        visit.client_id
+                      )
+               ) as client_reference_invalid,
+               coalesce(
+                 visit.client_ref,$new_list_client_reference$,
+    2
+  ),
+  (
+    'private.agent_p2_site_visit_list_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,uuid,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid,timestamp with time zone)',
+    4,
 $old_list_client_acl$        and private.agent_user_can_access_entity(
           p_actor_user_id,
           p_company_id,
@@ -80,16 +110,71 @@ $old_list_client_acl$        and private.agent_user_can_access_entity(
           'view'
         )$old_list_client_acl$,
 $new_list_client_acl$        and (
-          raw.client_id is null
-          or client.id is not null
+          not raw.has_client_reference
+          and opportunity.client_ref is null
+          and opportunity.client_id is null
+          or not raw.client_reference_invalid
+             and (
+               opportunity.client_ref is null
+               or opportunity.client_id is null
+               or opportunity.client_ref = opportunity.client_id
+             )
+             and (
+               raw.client_id is null
+               or coalesce(
+                    opportunity.client_ref,
+                    opportunity.client_id
+                  ) is null
+               or raw.client_id = coalesce(
+                    opportunity.client_ref,
+                    opportunity.client_id
+                  )
+             )
+             and coalesce(
+               raw.client_id,
+               opportunity.client_ref,
+               opportunity.client_id
+             ) is not null
+             and client.id is not null
              and private.agent_user_can_access_entity(
                p_actor_user_id,
                p_company_id,
                'client',
-               raw.client_id,
+               coalesce(
+                 raw.client_id,
+                 opportunity.client_ref,
+                 opportunity.client_id
+               ),
                'view'
              )
         )$new_list_client_acl$,
+    1
+  ),
+  (
+    'private.agent_p2_site_visit_list_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,uuid,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid,timestamp with time zone)',
+    5,
+$old_list_effective_client_join$    left join public.clients client
+      on client.id = raw.client_id$old_list_effective_client_join$,
+$new_list_effective_client_join$    left join public.clients client
+      on client.id = coalesce(
+        raw.client_id,
+        opportunity.client_ref,
+        opportunity.client_id
+      )$new_list_effective_client_join$,
+    1
+  ),
+  (
+    'private.agent_p2_site_visit_list_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,uuid,uuid,integer,integer,integer,timestamp with time zone,jsonb,timestamp with time zone,uuid,timestamp with time zone)',
+    6,
+$old_list_unlinked$        or raw.opportunity_id is null
+           and raw.project_ref is null
+           and raw.project_id is null
+           and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'$old_list_unlinked$,
+$new_list_unlinked$        or raw.opportunity_id is null
+           and raw.project_ref is null
+           and raw.project_id is null
+           and not raw.has_client_reference
+           and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'$new_list_unlinked$,
     1
   ),
   (
@@ -104,6 +189,33 @@ $old_context_client_row$
   (
     'private.agent_p2_site_visit_context_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,uuid,text,uuid,text[],integer,integer,integer,integer,integer,timestamp with time zone)',
     2,
+$old_context_client_reference$    select visit.*,
+           coalesce(
+             visit.client_ref,$old_context_client_reference$,
+$new_context_client_reference$    select visit.*,
+           (
+             visit.client_ref is not null
+             or visit.client_id is not null
+           ) as has_client_reference,
+           (
+             visit.client_id is not null
+             and private.agent_p2_site_visit_uuid_from_text(
+               visit.client_id
+             ) is null
+             or visit.client_ref is not null
+                and visit.client_id is not null
+                and visit.client_ref is distinct from
+                  private.agent_p2_site_visit_uuid_from_text(
+                    visit.client_id
+                  )
+           ) as client_reference_invalid,
+           coalesce(
+             visit.client_ref,$new_context_client_reference$,
+    1
+  ),
+  (
+    'private.agent_p2_site_visit_context_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,uuid,text,uuid,text[],integer,integer,integer,integer,integer,timestamp with time zone)',
+    3,
 $old_context_client_acl$      and private.agent_user_can_access_entity(
         p_actor_user_id,
         p_company_id,
@@ -112,16 +224,98 @@ $old_context_client_acl$      and private.agent_user_can_access_entity(
         'view'
       )$old_context_client_acl$,
 $new_context_client_acl$      and (
-        source.resolved_client_id is null
-        or client.id is not null
+        not source.has_client_reference
+        and opportunity.client_ref is null
+        and opportunity.client_id is null
+        or not source.client_reference_invalid
+           and (
+             opportunity.client_ref is null
+             or opportunity.client_id is null
+             or opportunity.client_ref = opportunity.client_id
+           )
+           and (
+             source.resolved_client_id is null
+             or coalesce(
+                  opportunity.client_ref,
+                  opportunity.client_id
+                ) is null
+             or source.resolved_client_id = coalesce(
+                  opportunity.client_ref,
+                  opportunity.client_id
+                )
+           )
+           and coalesce(
+             source.resolved_client_id,
+             opportunity.client_ref,
+             opportunity.client_id
+           ) is not null
+           and client.id is not null
            and private.agent_user_can_access_entity(
              p_actor_user_id,
              p_company_id,
              'client',
-             source.resolved_client_id,
+             coalesce(
+               source.resolved_client_id,
+               opportunity.client_ref,
+               opportunity.client_id
+             ),
              'view'
            )
       )$new_context_client_acl$,
+    1
+  ),
+  (
+    'private.agent_p2_site_visit_context_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,uuid,text,uuid,text[],integer,integer,integer,integer,integer,timestamp with time zone)',
+    4,
+$old_context_effective_client$  ), selected_visit as materialized (
+    select source.*
+    from visit_source_gate source$old_context_effective_client$,
+$new_context_effective_client$  ), selected_visit as materialized (
+    select source.*,
+           coalesce(
+             source.resolved_client_id,
+             opportunity.client_ref,
+             opportunity.client_id
+           ) as effective_client_id
+    from visit_source_gate source$new_context_effective_client$,
+    1
+  ),
+  (
+    'private.agent_p2_site_visit_context_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,uuid,text,uuid,text[],integer,integer,integer,integer,integer,timestamp with time zone)',
+    5,
+$old_context_effective_client_join$    left join public.clients client
+      on client.id = source.resolved_client_id$old_context_effective_client_join$,
+$new_context_effective_client_join$    left join public.clients client
+      on client.id = coalesce(
+        source.resolved_client_id,
+        opportunity.client_ref,
+        opportunity.client_id
+      )$new_context_effective_client_join$,
+    1
+  ),
+  (
+    'private.agent_p2_site_visit_context_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,uuid,text,uuid,text[],integer,integer,integer,integer,integer,timestamp with time zone)',
+    6,
+$old_context_unlinked$      or p_expected_anchor = 'unlinked'
+         and source.opportunity_id is null
+         and source.project_ref is null
+         and source.project_id is null
+         and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'$old_context_unlinked$,
+$new_context_unlinked$      or p_expected_anchor = 'unlinked'
+         and source.opportunity_id is null
+         and source.project_ref is null
+         and source.project_id is null
+         and not source.has_client_reference
+         and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'$new_context_unlinked$,
+    1
+  ),
+  (
+    'private.agent_p2_site_visit_context_v1(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],jsonb,uuid,text,uuid,text[],integer,integer,integer,integer,integer,timestamp with time zone)',
+    7,
+$old_context_effective_projection$           selected.resolved_client_id,
+           selected.site_visit_revision,$old_context_effective_projection$,
+$new_context_effective_projection$           selected.effective_client_id as resolved_client_id,
+           selected.site_visit_revision,$new_context_effective_projection$,
     1
   ),
   (
@@ -147,6 +341,35 @@ $old_attention_client_row$
   (
     'private.agent_p2_site_visit_attention_v1(uuid,uuid,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,timestamp with time zone,integer,integer)',
     3,
+$old_attention_client_reference$
+               visit.opportunity_id,
+               coalesce(
+                 visit.client_ref,$old_attention_client_reference$,
+$new_attention_client_reference$
+               visit.opportunity_id,
+               (
+                 visit.client_ref is not null
+                 or visit.client_id is not null
+               ) as has_client_reference,
+               (
+                 visit.client_id is not null
+                 and private.agent_p2_site_visit_uuid_from_text(
+                   visit.client_id
+                 ) is null
+                 or visit.client_ref is not null
+                    and visit.client_id is not null
+                    and visit.client_ref is distinct from
+                      private.agent_p2_site_visit_uuid_from_text(
+                        visit.client_id
+                      )
+               ) as client_reference_invalid,
+               coalesce(
+                 visit.client_ref,$new_attention_client_reference$,
+    2
+  ),
+  (
+    'private.agent_p2_site_visit_attention_v1(uuid,uuid,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,timestamp with time zone,integer,integer)',
+    4,
 $old_attention_client_acl$        and private.agent_user_can_access_entity(
           p_actor_user_id,
           p_company_id,
@@ -155,16 +378,71 @@ $old_attention_client_acl$        and private.agent_user_can_access_entity(
           'view'
         )$old_attention_client_acl$,
 $new_attention_client_acl$        and (
-          raw.client_id is null
-          or client.id is not null
+          not raw.has_client_reference
+          and opportunity.client_ref is null
+          and opportunity.client_id is null
+          or not raw.client_reference_invalid
+             and (
+               opportunity.client_ref is null
+               or opportunity.client_id is null
+               or opportunity.client_ref = opportunity.client_id
+             )
+             and (
+               raw.client_id is null
+               or coalesce(
+                    opportunity.client_ref,
+                    opportunity.client_id
+                  ) is null
+               or raw.client_id = coalesce(
+                    opportunity.client_ref,
+                    opportunity.client_id
+                  )
+             )
+             and coalesce(
+               raw.client_id,
+               opportunity.client_ref,
+               opportunity.client_id
+             ) is not null
+             and client.id is not null
              and private.agent_user_can_access_entity(
                p_actor_user_id,
                p_company_id,
                'client',
-               raw.client_id,
+               coalesce(
+                 raw.client_id,
+                 opportunity.client_ref,
+                 opportunity.client_id
+               ),
                'view'
              )
         )$new_attention_client_acl$,
+    1
+  ),
+  (
+    'private.agent_p2_site_visit_attention_v1(uuid,uuid,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,timestamp with time zone,integer,integer)',
+    5,
+$old_attention_effective_client_join$    left join public.clients client
+      on client.id = raw.client_id$old_attention_effective_client_join$,
+$new_attention_effective_client_join$    left join public.clients client
+      on client.id = coalesce(
+        raw.client_id,
+        opportunity.client_ref,
+        opportunity.client_id
+      )$new_attention_effective_client_join$,
+    1
+  ),
+  (
+    'private.agent_p2_site_visit_attention_v1(uuid,uuid,text,text[],jsonb,text,timestamp with time zone,timestamp with time zone,text[],boolean,timestamp with time zone,integer,integer)',
+    6,
+$old_attention_unlinked$        or raw.opportunity_id is null
+           and raw.project_ref is null
+           and raw.project_id is null
+           and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'$old_attention_unlinked$,
+$new_attention_unlinked$        or raw.opportunity_id is null
+           and raw.project_ref is null
+           and raw.project_id is null
+           and not raw.has_client_reference
+           and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'$new_attention_unlinked$,
     1
   );
 
@@ -205,7 +483,7 @@ join pg_catalog.pg_proc procedure
 do $repair_agent_site_visit_nullable_client$
 declare
   v_expected_function_count constant integer := 3;
-  v_expected_replacement_count constant integer := 8;
+  v_expected_replacement_count constant integer := 19;
   v_expected_owner oid := (
     select role.oid
     from pg_catalog.pg_roles role

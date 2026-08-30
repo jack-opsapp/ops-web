@@ -521,6 +521,22 @@ begin
       (
         select visit.id,
                visit.opportunity_id,
+               (
+                 visit.client_ref is not null
+                 or visit.client_id is not null
+               ) as has_client_reference,
+               (
+                 visit.client_id is not null
+                 and private.agent_p2_site_visit_uuid_from_text(
+                   visit.client_id
+                 ) is null
+                 or visit.client_ref is not null
+                    and visit.client_id is not null
+                    and visit.client_ref is distinct from
+                      private.agent_p2_site_visit_uuid_from_text(
+                        visit.client_id
+                      )
+               ) as client_reference_invalid,
                coalesce(
                  visit.client_ref,
                  private.agent_p2_site_visit_uuid_from_text(visit.client_id)
@@ -595,6 +611,22 @@ begin
       (
         select visit.id,
                visit.opportunity_id,
+               (
+                 visit.client_ref is not null
+                 or visit.client_id is not null
+               ) as has_client_reference,
+               (
+                 visit.client_id is not null
+                 and private.agent_p2_site_visit_uuid_from_text(
+                   visit.client_id
+                 ) is null
+                 or visit.client_ref is not null
+                    and visit.client_id is not null
+                    and visit.client_ref is distinct from
+                      private.agent_p2_site_visit_uuid_from_text(
+                        visit.client_id
+                      )
+               ) as client_reference_invalid,
                coalesce(
                  visit.client_ref,
                  private.agent_p2_site_visit_uuid_from_text(visit.client_id)
@@ -716,7 +748,11 @@ begin
      and opportunity.deleted_at is null
      and opportunity.merged_into_opportunity_id is null
     left join public.clients client
-      on client.id = raw.client_id
+      on client.id = coalesce(
+        raw.client_id,
+        opportunity.client_ref,
+        opportunity.client_id
+      )
      and client.company_id = p_company_id
      and client.deleted_at is null
      and client.merged_into_client_id is null
@@ -739,19 +775,48 @@ begin
           'view'
         )
         and (
-          raw.client_id is null
-          or client.id is not null
+          not raw.has_client_reference
+          and opportunity.client_ref is null
+          and opportunity.client_id is null
+          or not raw.client_reference_invalid
+             and (
+               opportunity.client_ref is null
+               or opportunity.client_id is null
+               or opportunity.client_ref = opportunity.client_id
+             )
+             and (
+               raw.client_id is null
+               or coalesce(
+                    opportunity.client_ref,
+                    opportunity.client_id
+                  ) is null
+               or raw.client_id = coalesce(
+                    opportunity.client_ref,
+                    opportunity.client_id
+                  )
+             )
+             and coalesce(
+               raw.client_id,
+               opportunity.client_ref,
+               opportunity.client_id
+             ) is not null
+             and client.id is not null
              and private.agent_user_can_access_entity(
                p_actor_user_id,
                p_company_id,
                'client',
-               raw.client_id,
+               coalesce(
+                 raw.client_id,
+                 opportunity.client_ref,
+                 opportunity.client_id
+               ),
                'view'
              )
         )
         or raw.opportunity_id is null
            and raw.project_ref is null
            and raw.project_id is null
+           and not raw.has_client_reference
            and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'
       )
   ), authorized_state as materialized (
@@ -1514,6 +1579,22 @@ begin
       )
   ), visit_source_gate as materialized (
     select visit.*,
+           (
+             visit.client_ref is not null
+             or visit.client_id is not null
+           ) as has_client_reference,
+           (
+             visit.client_id is not null
+             and private.agent_p2_site_visit_uuid_from_text(
+               visit.client_id
+             ) is null
+             or visit.client_ref is not null
+                and visit.client_id is not null
+                and visit.client_ref is distinct from
+                  private.agent_p2_site_visit_uuid_from_text(
+                    visit.client_id
+                  )
+           ) as client_reference_invalid,
            coalesce(
              visit.client_ref,
              private.agent_p2_site_visit_uuid_from_text(visit.client_id)
@@ -1527,7 +1608,12 @@ begin
      and visit.deleted_at is null
     limit 1
   ), selected_visit as materialized (
-    select source.*
+    select source.*,
+           coalesce(
+             source.resolved_client_id,
+             opportunity.client_ref,
+             opportunity.client_id
+           ) as effective_client_id
     from visit_source_gate source
     left join public.opportunities opportunity
       on opportunity.id = source.opportunity_id
@@ -1535,7 +1621,11 @@ begin
      and opportunity.deleted_at is null
      and opportunity.merged_into_opportunity_id is null
     left join public.clients client
-      on client.id = source.resolved_client_id
+      on client.id = coalesce(
+        source.resolved_client_id,
+        opportunity.client_ref,
+        opportunity.client_id
+      )
      and client.company_id = p_company_id
      and client.deleted_at is null
      and client.merged_into_client_id is null
@@ -1559,13 +1649,41 @@ begin
         'view'
       )
       and (
-        source.resolved_client_id is null
-        or client.id is not null
+        not source.has_client_reference
+        and opportunity.client_ref is null
+        and opportunity.client_id is null
+        or not source.client_reference_invalid
+           and (
+             opportunity.client_ref is null
+             or opportunity.client_id is null
+             or opportunity.client_ref = opportunity.client_id
+           )
+           and (
+             source.resolved_client_id is null
+             or coalesce(
+                  opportunity.client_ref,
+                  opportunity.client_id
+                ) is null
+             or source.resolved_client_id = coalesce(
+                  opportunity.client_ref,
+                  opportunity.client_id
+                )
+           )
+           and coalesce(
+             source.resolved_client_id,
+             opportunity.client_ref,
+             opportunity.client_id
+           ) is not null
+           and client.id is not null
            and private.agent_user_can_access_entity(
              p_actor_user_id,
              p_company_id,
              'client',
-             source.resolved_client_id,
+             coalesce(
+               source.resolved_client_id,
+               opportunity.client_ref,
+               opportunity.client_id
+             ),
              'view'
            )
       )
@@ -1573,6 +1691,7 @@ begin
          and source.opportunity_id is null
          and source.project_ref is null
          and source.project_id is null
+         and not source.has_client_reference
          and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'
     )
   ), projected_visit as materialized (
@@ -1602,7 +1721,7 @@ begin
            ) as completed_at,
            selected.notes,
            selected.measurements,
-           selected.resolved_client_id,
+           selected.effective_client_id as resolved_client_id,
            selected.site_visit_revision,
            selected.artifact_revision
     from selected_visit selected
@@ -2280,6 +2399,22 @@ begin
       (
         select visit.id,
                visit.opportunity_id,
+               (
+                 visit.client_ref is not null
+                 or visit.client_id is not null
+               ) as has_client_reference,
+               (
+                 visit.client_id is not null
+                 and private.agent_p2_site_visit_uuid_from_text(
+                   visit.client_id
+                 ) is null
+                 or visit.client_ref is not null
+                    and visit.client_id is not null
+                    and visit.client_ref is distinct from
+                      private.agent_p2_site_visit_uuid_from_text(
+                        visit.client_id
+                      )
+               ) as client_reference_invalid,
                coalesce(
                  visit.client_ref,
                  private.agent_p2_site_visit_uuid_from_text(visit.client_id)
@@ -2331,6 +2466,22 @@ begin
       (
         select visit.id,
                visit.opportunity_id,
+               (
+                 visit.client_ref is not null
+                 or visit.client_id is not null
+               ) as has_client_reference,
+               (
+                 visit.client_id is not null
+                 and private.agent_p2_site_visit_uuid_from_text(
+                   visit.client_id
+                 ) is null
+                 or visit.client_ref is not null
+                    and visit.client_id is not null
+                    and visit.client_ref is distinct from
+                      private.agent_p2_site_visit_uuid_from_text(
+                        visit.client_id
+                      )
+               ) as client_reference_invalid,
                coalesce(
                  visit.client_ref,
                  private.agent_p2_site_visit_uuid_from_text(visit.client_id)
@@ -2409,7 +2560,11 @@ begin
      and opportunity.deleted_at is null
      and opportunity.merged_into_opportunity_id is null
     left join public.clients client
-      on client.id = raw.client_id
+      on client.id = coalesce(
+        raw.client_id,
+        opportunity.client_ref,
+        opportunity.client_id
+      )
      and client.company_id = p_company_id
      and client.deleted_at is null
      and client.merged_into_client_id is null
@@ -2439,19 +2594,48 @@ begin
           'view'
         )
         and (
-          raw.client_id is null
-          or client.id is not null
+          not raw.has_client_reference
+          and opportunity.client_ref is null
+          and opportunity.client_id is null
+          or not raw.client_reference_invalid
+             and (
+               opportunity.client_ref is null
+               or opportunity.client_id is null
+               or opportunity.client_ref = opportunity.client_id
+             )
+             and (
+               raw.client_id is null
+               or coalesce(
+                    opportunity.client_ref,
+                    opportunity.client_id
+                  ) is null
+               or raw.client_id = coalesce(
+                    opportunity.client_ref,
+                    opportunity.client_id
+                  )
+             )
+             and coalesce(
+               raw.client_id,
+               opportunity.client_ref,
+               opportunity.client_id
+             ) is not null
+             and client.id is not null
              and private.agent_user_can_access_entity(
                p_actor_user_id,
                p_company_id,
                'client',
-               raw.client_id,
+               coalesce(
+                 raw.client_id,
+                 opportunity.client_ref,
+                 opportunity.client_id
+               ),
                'view'
              )
         )
         or raw.opportunity_id is null
            and raw.project_ref is null
            and raw.project_id is null
+           and not raw.has_client_reference
            and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'
       )
   ), bounded_source as materialized (

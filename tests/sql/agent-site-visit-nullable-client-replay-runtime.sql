@@ -55,6 +55,7 @@ declare
   v_before_count integer;
   v_preserved_count integer;
   v_nullable_client_gate_count integer;
+  v_effective_context_count integer;
 begin
   select pg_catalog.count(*)::integer into v_before_count
   from agent_site_visit_nullable_client_replay_before;
@@ -92,12 +93,32 @@ begin
   select pg_catalog.count(*)::integer into v_nullable_client_gate_count
   from agent_site_visit_nullable_client_replay_before before_row
   join pg_catalog.pg_proc procedure on procedure.oid = before_row.oid
-  where procedure.prosrc like '%client_id is null%'
-     or procedure.prosrc like '%resolved_client_id is null%';
+  where procedure.prosrc like '%has_client_reference%'
+    and procedure.prosrc like '%client_reference_invalid%'
+    and procedure.prosrc like '%opportunity.client_ref%'
+    and procedure.prosrc like '%opportunity.client_id%'
+    and procedure.prosrc like
+      '%opportunity.client_ref = opportunity.client_id%'
+    and (
+      procedure.prosrc like '%not raw.has_client_reference%'
+      and procedure.prosrc like
+        '%raw.project_id is null%not raw.has_client_reference%'
+      or procedure.prosrc like '%not source.has_client_reference%'
+         and procedure.prosrc like
+           '%source.project_id is null%not source.has_client_reference%'
+    );
+
+  select pg_catalog.count(*)::integer into v_effective_context_count
+  from agent_site_visit_nullable_client_replay_before before_row
+  join pg_catalog.pg_proc procedure on procedure.oid = before_row.oid
+  where procedure.proname = 'agent_p2_site_visit_context_v1'
+    and procedure.prosrc like
+      '%selected.effective_client_id as resolved_client_id%';
 
   if v_before_count is distinct from 3
      or v_preserved_count is distinct from v_before_count
      or v_nullable_client_gate_count is distinct from 3
+     or v_effective_context_count is distinct from 1
      or exists (
        select 1
        from agent_site_visit_nullable_client_replay_before before_row
@@ -124,10 +145,11 @@ begin
              )
      ) then
     raise exception
-      'agent_site_visit_nullable_client_replay_failed: before=% preserved=% gates=%',
+      'agent_site_visit_nullable_client_replay_failed: before=% preserved=% gates=% context=%',
       v_before_count,
       v_preserved_count,
-      v_nullable_client_gate_count;
+      v_nullable_client_gate_count,
+      v_effective_context_count;
   end if;
 end;
 $agent_site_visit_nullable_client_replay$;

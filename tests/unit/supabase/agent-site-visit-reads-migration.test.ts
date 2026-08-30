@@ -56,8 +56,59 @@ function repairNullableClientVisibility(value: string) {
   );
   repaired = replaceExactly(
     repaired,
+    `               visit.opportunity_id,
+               coalesce(
+                 visit.client_ref,`,
+    `               visit.opportunity_id,
+               (
+                 visit.client_ref is not null
+                 or visit.client_id is not null
+               ) as has_client_reference,
+               (
+                 visit.client_id is not null
+                 and private.agent_p2_site_visit_uuid_from_text(
+                   visit.client_id
+                 ) is null
+                 or visit.client_ref is not null
+                    and visit.client_id is not null
+                    and visit.client_ref is distinct from
+                      private.agent_p2_site_visit_uuid_from_text(
+                        visit.client_id
+                      )
+               ) as client_reference_invalid,
+               coalesce(
+                 visit.client_ref,`,
+    4
+  );
+  repaired = replaceExactly(
+    repaired,
     "\n        and client.id is not null",
     "",
+    2
+  );
+  repaired = replaceExactly(
+    repaired,
+    `    left join public.clients client
+      on client.id = raw.client_id`,
+    `    left join public.clients client
+      on client.id = coalesce(
+        raw.client_id,
+        opportunity.client_ref,
+        opportunity.client_id
+      )`,
+    2
+  );
+  repaired = replaceExactly(
+    repaired,
+    `        or raw.opportunity_id is null
+           and raw.project_ref is null
+           and raw.project_id is null
+           and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'`,
+    `        or raw.opportunity_id is null
+           and raw.project_ref is null
+           and raw.project_id is null
+           and not raw.has_client_reference
+           and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'`,
     2
   );
   repaired = replaceExactly(
@@ -70,17 +121,71 @@ function repairNullableClientVisibility(value: string) {
           'view'
         )`,
     `        and (
-          raw.client_id is null
-          or client.id is not null
+          not raw.has_client_reference
+          and opportunity.client_ref is null
+          and opportunity.client_id is null
+          or not raw.client_reference_invalid
+             and (
+               opportunity.client_ref is null
+               or opportunity.client_id is null
+               or opportunity.client_ref = opportunity.client_id
+             )
+             and (
+               raw.client_id is null
+               or coalesce(
+                    opportunity.client_ref,
+                    opportunity.client_id
+                  ) is null
+               or raw.client_id = coalesce(
+                    opportunity.client_ref,
+                    opportunity.client_id
+                  )
+             )
+             and coalesce(
+               raw.client_id,
+               opportunity.client_ref,
+               opportunity.client_id
+             ) is not null
+             and client.id is not null
              and private.agent_user_can_access_entity(
                p_actor_user_id,
                p_company_id,
                'client',
-               raw.client_id,
+               coalesce(
+                 raw.client_id,
+                 opportunity.client_ref,
+                 opportunity.client_id
+               ),
                'view'
              )
         )`,
     2
+  );
+  repaired = replaceExactly(
+    repaired,
+    `    select visit.*,
+           coalesce(
+             visit.client_ref,`,
+    `    select visit.*,
+           (
+             visit.client_ref is not null
+             or visit.client_id is not null
+           ) as has_client_reference,
+           (
+             visit.client_id is not null
+             and private.agent_p2_site_visit_uuid_from_text(
+               visit.client_id
+             ) is null
+             or visit.client_ref is not null
+                and visit.client_id is not null
+                and visit.client_ref is distinct from
+                  private.agent_p2_site_visit_uuid_from_text(
+                    visit.client_id
+                  )
+           ) as client_reference_invalid,
+           coalesce(
+             visit.client_ref,`,
+    1
   );
   repaired = replaceExactly(
     repaired,
@@ -90,7 +195,49 @@ function repairNullableClientVisibility(value: string) {
     "",
     1
   );
-  return replaceExactly(
+  repaired = replaceExactly(
+    repaired,
+    `  ), selected_visit as materialized (
+    select source.*
+    from visit_source_gate source`,
+    `  ), selected_visit as materialized (
+    select source.*,
+           coalesce(
+             source.resolved_client_id,
+             opportunity.client_ref,
+             opportunity.client_id
+           ) as effective_client_id
+    from visit_source_gate source`,
+    1
+  );
+  repaired = replaceExactly(
+    repaired,
+    `    left join public.clients client
+      on client.id = source.resolved_client_id`,
+    `    left join public.clients client
+      on client.id = coalesce(
+        source.resolved_client_id,
+        opportunity.client_ref,
+        opportunity.client_id
+      )`,
+    1
+  );
+  repaired = replaceExactly(
+    repaired,
+    `      or p_expected_anchor = 'unlinked'
+         and source.opportunity_id is null
+         and source.project_ref is null
+         and source.project_id is null
+         and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'`,
+    `      or p_expected_anchor = 'unlinked'
+         and source.opportunity_id is null
+         and source.project_ref is null
+         and source.project_id is null
+         and not source.has_client_reference
+         and p_resolved_permission_scopes ->> 'pipeline.view' = 'all'`,
+    1
+  );
+  repaired = replaceExactly(
     repaired,
     `      and private.agent_user_can_access_entity(
         p_actor_user_id,
@@ -100,16 +247,52 @@ function repairNullableClientVisibility(value: string) {
         'view'
       )`,
     `      and (
-        source.resolved_client_id is null
-        or client.id is not null
+        not source.has_client_reference
+        and opportunity.client_ref is null
+        and opportunity.client_id is null
+        or not source.client_reference_invalid
+           and (
+             opportunity.client_ref is null
+             or opportunity.client_id is null
+             or opportunity.client_ref = opportunity.client_id
+           )
+           and (
+             source.resolved_client_id is null
+             or coalesce(
+                  opportunity.client_ref,
+                  opportunity.client_id
+                ) is null
+             or source.resolved_client_id = coalesce(
+                  opportunity.client_ref,
+                  opportunity.client_id
+                )
+           )
+           and coalesce(
+             source.resolved_client_id,
+             opportunity.client_ref,
+             opportunity.client_id
+           ) is not null
+           and client.id is not null
            and private.agent_user_can_access_entity(
              p_actor_user_id,
              p_company_id,
              'client',
-             source.resolved_client_id,
+             coalesce(
+               source.resolved_client_id,
+               opportunity.client_ref,
+               opportunity.client_id
+             ),
              'view'
            )
       )`,
+    1
+  );
+  return replaceExactly(
+    repaired,
+    `           selected.resolved_client_id,
+           selected.site_visit_revision,`,
+    `           selected.effective_client_id as resolved_client_id,
+           selected.site_visit_revision,`,
     1
   );
 }
