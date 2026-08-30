@@ -4,9 +4,11 @@ import {
   CorrespondenceEvidenceDataSchema,
   CorrespondenceEvidenceReadInputSchema,
   CorrespondenceEvidenceResultSchema,
+  ConversationTurnEvidenceIdSchema,
   CustomerJobsDataSchema,
   CustomerJobsInputSchema,
   CustomerJobsResultSchema,
+  CurrentJobRefSchema,
   JobHistoryDataSchema,
   JobHistoryResultSchema,
   JobHistorySearchInputSchema,
@@ -308,6 +310,26 @@ function correspondenceEvidenceData(mode: "excerpt" | "full_text" = "excerpt") {
 }
 
 describe("Task 13 customer-job input contract", () => {
+  it("accepts canonical lowercase PostgreSQL UUID identities", () => {
+    for (const id of [
+      "d0000000-0000-4000-d000-00000000000b",
+      "00000000-0000-0000-0000-000000000001",
+    ]) {
+      expect(CurrentJobRefSchema.parse({ kind: "project", id })).toEqual({
+        kind: "project",
+        id,
+      });
+    }
+    for (const id of [
+      "D0000000-0000-4000-D000-00000000000B",
+      "d0000000-0000-4000-d000-00000000000z",
+    ]) {
+      expect(
+        CurrentJobRefSchema.safeParse({ kind: "project", id }).success
+      ).toBe(false);
+    }
+  });
+
   it("materializes current-only defaults with exact normalized filters", () => {
     const parsed: ParsedCustomerJobsInput = CustomerJobsInputSchema.parse({
       customer_ref: { kind: "client", id: CLIENT_ID },
@@ -1919,6 +1941,23 @@ describe("Task 13 job-history result contract", () => {
 });
 
 describe("Task 13 correspondence-evidence input contract", () => {
+  it("accepts prefixed lowercase PostgreSQL turn UUIDs without RFC bit restrictions", () => {
+    for (const id of [
+      "job_conversation_turn:d0000000-0000-4000-d000-00000000000b",
+      "job_conversation_turn:00000000-0000-0000-0000-000000000001",
+    ]) {
+      expect(ConversationTurnEvidenceIdSchema.parse(id)).toBe(id);
+    }
+    for (const id of [
+      "job_conversation_turn:D0000000-0000-4000-D000-00000000000B",
+      "job_conversation_turn:d0000000-0000-4000-d000-00000000000z",
+    ]) {
+      expect(ConversationTurnEvidenceIdSchema.safeParse(id).success).toBe(
+        false
+      );
+    }
+  });
+
   it("requires a current job anchor and exact unique delivered-turn IDs", () => {
     const parsed: ParsedCorrespondenceEvidenceReadInput =
       CorrespondenceEvidenceReadInputSchema.parse({

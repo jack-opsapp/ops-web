@@ -21,6 +21,10 @@ const REPLAY_PATH = join(
   process.cwd(),
   "tests/sql/agent-payment-reads-replay-runtime.sql"
 );
+const FINANCIAL_TOMBSTONE_PATH = join(
+  process.cwd(),
+  "supabase/migrations/20260830150000_agent_mcp_financial_tombstones.sql"
+);
 
 function read(path: string) {
   try {
@@ -32,6 +36,26 @@ function read(path: string) {
 
 function compact(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function tagged(sql: string, tag: string) {
+  const delimiter = `$${tag}$`;
+  const start = sql.indexOf(delimiter);
+  if (start < 0) return "";
+  const bodyStart = start + delimiter.length;
+  const end = sql.indexOf(delimiter, bodyStart);
+  return end < 0 ? "" : sql.slice(bodyStart, end);
+}
+
+function replaceExactly(
+  source: string,
+  oldFragment: string,
+  newFragment: string,
+  expectedCount: number
+) {
+  const count = source.split(oldFragment).length - 1;
+  if (count !== expectedCount || newFragment === "") return "";
+  return source.split(oldFragment).join(newFragment);
 }
 
 function definition(sql: string, name: string) {
@@ -47,6 +71,19 @@ function definition(sql: string, name: string) {
 
 const BODY = read(BODY_PATH);
 const MIGRATION = read(MIGRATION_PATH);
+const FINANCIAL_TOMBSTONE = read(FINANCIAL_TOMBSTONE_PATH);
+const ORDERED_MIGRATION = replaceExactly(
+  MIGRATION,
+  "       select pg_catalog.array_agg(scope.value order by scope.value)",
+  '       select pg_catalog.array_agg(\n         scope.value order by scope.value collate "C"\n       )',
+  1
+);
+const TOMBSTONED_MIGRATION = replaceExactly(
+  ORDERED_MIGRATION,
+  tagged(FINANCIAL_TOMBSTONE, "old_payment"),
+  tagged(FINANCIAL_TOMBSTONE, "new_payment"),
+  1
+);
 const SQL = BODY.toLowerCase();
 const COMPACT = compact(BODY);
 const CONTEXT = compact(
@@ -70,10 +107,12 @@ const RESERVED = readdirSync(join(process.cwd(), "supabase/migrations")).filter(
 );
 
 describe("P2 payment read SQL", () => {
-  it("byte-matches its one generated reservation", () => {
+  it("matches its immutable reservation plus the ordered tombstone repairs", () => {
     expect(RESERVED).toEqual([MIGRATION_NAME]);
     expect(BODY).not.toBe("");
-    expect(MIGRATION).toBe(BODY);
+    expect(FINANCIAL_TOMBSTONE).not.toBe("");
+    expect(MIGRATION).not.toBe(BODY);
+    expect(TOMBSTONED_MIGRATION).toBe(BODY);
     expect(SQL).toMatch(/(?:^|\n)begin;\s/);
     expect(SQL.trim().endsWith("commit;")).toBe(true);
     expect(SQL).toContain("task 15 canonical payment read body");

@@ -493,6 +493,27 @@ async function serviceErrorFrom(promise: Promise<unknown>) {
 }
 
 describe("listScheduledJobs", () => {
+  it("accepts a non-RFC PostgreSQL task UUID through the repository and cursor", async () => {
+    const postgresTaskId = "d5000000-0000-4000-d500-000000000005";
+    const replaced = JSON.parse(
+      JSON.stringify(validSnapshot()).replaceAll(TASK_TWO_ID, postgresTaskId)
+    ) as ScheduledJobsSnapshot;
+    const snapshot = reproofSnapshot(replaced);
+    const repository = await repositoryFor(
+      new StubScheduledJobsRpcClient([{ data: snapshot, error: null }])
+    );
+
+    await expect(
+      repository.read({ authorization: await authorizedRead() })
+    ).resolves.toMatchObject({
+      occurrences: [
+        expect.any(Object),
+        { occurrence_ref: { id: postgresTaskId } },
+      ],
+      page: { has_more: true, next_cursor: expect.any(String) },
+    });
+  });
+
   it("returns an empty terminal page with only the source fence proof", async () => {
     const snapshot = validSnapshot();
     const emptySnapshot: ScheduledJobsSnapshot = {

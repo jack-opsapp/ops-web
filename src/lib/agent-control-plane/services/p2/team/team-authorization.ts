@@ -11,6 +11,7 @@ import {
   type TeamDirectoryAuthorizationVariantKey,
 } from "@/lib/agent-control-plane/registry/read-capabilities/p2/team";
 import { assertP2ReadPolicyBinding } from "../shared/authorize-read";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 
 const AUTHORIZED_TEAM_DIRECTORY_READS = new WeakSet<object>();
 const CANONICAL_UUID_PATTERN =
@@ -48,12 +49,6 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   seen.add(value);
   for (const child of Object.values(value)) deepFreeze(child, seen);
   return Object.freeze(value);
-}
-
-function sortedUnique(values: readonly string[]): readonly string[] {
-  return Object.freeze(
-    [...new Set(values)].sort((left, right) => left.localeCompare(right))
-  );
 }
 
 function exactAuthorizationRecord(
@@ -140,7 +135,7 @@ export function authorizeTeamDirectoryRead(input: {
       oauthGrantId: auth.oauthGrantId,
       oauthClientId: auth.oauthClientId,
       grantRevision: auth.grantRevision,
-      grantedScopeCeiling: sortedUnique(auth.scopeCeiling),
+      grantedScopeCeiling: canonicalizeAgentMachineStringSet(auth.scopeCeiling),
       teamScope: "all" as const,
       query,
       variantKeys: ["team"] as const,

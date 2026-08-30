@@ -8,6 +8,8 @@ import {
 
 const OPPORTUNITY_ID = "10000000-0000-4000-8000-000000000001";
 const PROJECT_ID = "20000000-0000-4000-8000-000000000001";
+const POSTGRES_JOB_ID = "d0000000-0000-4000-d000-00000000000b";
+const POSTGRES_TURN_ID = "00000000-0000-0000-0000-000000000001";
 
 function permissionMatrix(kind: "opportunity" | "project") {
   const resolved = resolveCapabilityAuthorization(
@@ -82,6 +84,36 @@ describe("get_job_conversation_context capability", () => {
         required_through_turn_id: "not-a-turn-id",
       })
     ).toThrow();
+  });
+
+  it("accepts lowercase PostgreSQL job and turn UUIDs without RFC bit restrictions", () => {
+    const capability = getCapabilityManifestEntry(
+      "get_job_conversation_context"
+    );
+
+    expect(
+      capability.inputSchema.parse({
+        job_ref: { kind: "project", id: POSTGRES_JOB_ID },
+        required_through_turn_id: POSTGRES_TURN_ID,
+      })
+    ).toMatchObject({
+      job_ref: { id: POSTGRES_JOB_ID },
+      required_through_turn_id: POSTGRES_TURN_ID,
+    });
+
+    for (const id of [POSTGRES_JOB_ID.toUpperCase(), `${POSTGRES_JOB_ID}x`]) {
+      expect(
+        capability.inputSchema.safeParse({
+          job_ref: { kind: "project", id },
+        }).success
+      ).toBe(false);
+      expect(
+        capability.inputSchema.safeParse({
+          job_ref: { kind: "project", id: POSTGRES_JOB_ID },
+          required_through_turn_id: id,
+        }).success
+      ).toBe(false);
+    }
   });
 
   it("is available to the shared service and externally exposed (P1 mount)", () => {

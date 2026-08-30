@@ -10,6 +10,7 @@ import {
   ARTIFACT_COMPANY_ID,
   ARTIFACT_EVIDENCE_REF,
   ARTIFACT_GRANT_ID,
+  ARTIFACT_JOB_ID,
   ARTIFACT_OCCURRED_AT,
   ARTIFACT_PERMISSION_REVISION,
   ARTIFACT_PROOF_REF,
@@ -21,6 +22,7 @@ import {
   listArtifactsAuthorization,
 } from "./artifact-fixtures";
 import {
+  artifactEvidenceRef,
   artifactExactEntityProofRef,
   artifactExactProofContext,
   artifactListCollectionProofRef,
@@ -80,28 +82,30 @@ function binding(authorization: ListAuthorization | ExactAuthorization) {
   } as const;
 }
 
-function predecessor() {
+function predecessor(evidenceRef = ARTIFACT_EVIDENCE_REF) {
   return {
-    order: [
-      ARTIFACT_OCCURRED_AT,
-      "project_photo",
-      ARTIFACT_EVIDENCE_REF,
-    ] as const,
-    tie_breaker: ARTIFACT_EVIDENCE_REF,
+    order: [ARTIFACT_OCCURRED_AT, "project_photo", evidenceRef] as const,
+    tie_breaker: evidenceRef,
   };
 }
 
 function listRaw(
   authorization: ListAuthorization,
-  overrides: Readonly<Record<string, unknown>> = {}
+  overrides: Readonly<Record<string, unknown>> = {},
+  sourceId = ARTIFACT_SOURCE_ID
 ) {
   const sourceInspected = 1;
   const sourceHasMore = false;
-  const artifact = artifactMetadata();
   const sourceIdentity = {
     source_kind: "project_photo" as const,
-    source_id: ARTIFACT_SOURCE_ID,
+    source_id: sourceId,
   };
+  const evidenceRef = artifactEvidenceRef({
+    companyId: ARTIFACT_COMPANY_ID,
+    jobRef: authorization.query.job_ref,
+    sourceIdentity,
+  });
+  const artifact = artifactMetadata({ evidence_ref: evidenceRef });
   const context = artifactListProofContext({
     authorization,
     cursor: null,
@@ -117,10 +121,10 @@ function listRaw(
   });
   const row = {
     artifact,
-    source_id: ARTIFACT_SOURCE_ID,
+    source_id: sourceId,
     proof_ref: proofRef,
-    evidence_ref: ARTIFACT_EVIDENCE_REF,
-    predecessor: predecessor(),
+    evidence_ref: evidenceRef,
+    predecessor: predecessor(evidenceRef),
   };
   return {
     ...binding(authorization),
@@ -141,10 +145,10 @@ function listRaw(
         {
           artifact_ref: {
             source_kind: artifact.source_kind,
-            evidence_ref: ARTIFACT_EVIDENCE_REF,
+            evidence_ref: evidenceRef,
           },
           proof_ref: proofRef,
-          evidence_ref: ARTIFACT_EVIDENCE_REF,
+          evidence_ref: evidenceRef,
         },
       ],
     }),
@@ -154,9 +158,9 @@ function listRaw(
 
 function exactRaw(
   authorization: ExactAuthorization,
-  overrides: Readonly<Record<string, unknown>> = {}
+  overrides: Readonly<Record<string, unknown>> = {},
+  sourceId = ARTIFACT_SOURCE_ID
 ) {
-  const artifact = artifactMetadata();
   const content = {
     kind: "binary_resource" as const,
     delivery_state: "ready_for_single_use_delivery" as const,
@@ -165,8 +169,14 @@ function exactRaw(
   };
   const sourceIdentity = {
     source_kind: "project_photo" as const,
-    source_id: ARTIFACT_SOURCE_ID,
+    source_id: sourceId,
   };
+  const evidenceRef = artifactEvidenceRef({
+    companyId: ARTIFACT_COMPANY_ID,
+    jobRef: authorization.query.job_ref,
+    sourceIdentity,
+  });
+  const artifact = artifactMetadata({ evidence_ref: evidenceRef });
   const context = artifactExactProofContext({
     authorization,
     readAt: ARTIFACT_READ_AT,
@@ -177,11 +187,11 @@ function exactRaw(
     ...binding(authorization),
     job_ref: authorization.query.job_ref,
     selected_source_kind: "project_photo",
-    requested_evidence_ref: ARTIFACT_EVIDENCE_REF,
+    requested_evidence_ref: authorization.query.evidence_ref,
     source_inspected: 1,
     artifact,
     content,
-    source_id: ARTIFACT_SOURCE_ID,
+    source_id: sourceId,
     proof_ref: artifactExactEntityProofRef({
       context,
       sourceIdentity,
@@ -193,6 +203,43 @@ function exactRaw(
 }
 
 describe("P2 artifact list repository", () => {
+  it.each([
+    "d0000000-0000-4000-d000-00000000000b",
+    "d0000000-0000-4000-d000-00000000000b:",
+    "d0000000-0000-4000-d000-00000000000b:00000000-0000-0000-0000-000000000001",
+  ])("accepts the PostgreSQL artifact source identity %s", async (sourceId) => {
+    const authorization = await listArtifactsAuthorization();
+    const repository = createSupabaseArtifactReadRepository(
+      new StubRpcClient([
+        { data: listRaw(authorization, {}, sourceId), error: null },
+      ])
+    );
+
+    await expect(
+      repository.list({ authorization, cursor: null })
+    ).resolves.toMatchObject({ state: "found" });
+  });
+
+  it.each([
+    "D0000000-0000-4000-D000-00000000000B",
+    "d0000000-0000-4000-d000-00000000000z:",
+    "d0000000-0000-4000-d000-00000000000b:00000000-0000-0000-0000-00000000000z",
+  ])(
+    "rejects the noncanonical artifact source identity %s",
+    async (sourceId) => {
+      const authorization = await listArtifactsAuthorization();
+      const repository = createSupabaseArtifactReadRepository(
+        new StubRpcClient([
+          { data: listRaw(authorization, {}, sourceId), error: null },
+        ])
+      );
+
+      await expect(
+        repository.list({ authorization, cursor: null })
+      ).rejects.toThrow(ArtifactReadRepositoryError);
+    }
+  );
+
   it("calls only the fixed metadata RPC with exact actor/grant/policy/job/source and 25/26/501 bounds", async () => {
     const authorization = await listArtifactsAuthorization();
     const client = new StubRpcClient([
@@ -218,6 +265,18 @@ describe("P2 artifact list repository", () => {
         p_oauth_grant_id: ARTIFACT_GRANT_ID,
         p_oauth_client_id: ARTIFACT_CLIENT_ID,
         p_grant_revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        p_granted_scope_ceiling: [
+          "ops.catalog.read",
+          "ops.catalog_costs.read",
+          "ops.correspondence.read",
+          "ops.customers.read",
+          "ops.expenses.read",
+          "ops.files.read",
+          "ops.financial_documents.read",
+          "ops.jobs.read",
+          "ops.schedule.read",
+          "ops.site_visits.read",
+        ],
         p_permission_snapshot_revision: ARTIFACT_PERMISSION_REVISION,
         p_capability_id: "list_job_artifacts",
         p_job_kind: "project",
@@ -242,6 +301,13 @@ describe("P2 artifact list repository", () => {
     const invalid = [
       listRaw(authorization, {
         actor_user_id: "99999999-9999-4999-8999-999999999999",
+      }),
+      listRaw(authorization, {
+        granted_scope_ceiling: [
+          "ops.catalog_costs.read",
+          "ops.catalog.read",
+          ...authorization.grantedScopeCeiling.slice(2),
+        ],
       }),
       listRaw(authorization, { source_inspected: 501 }),
       listRaw(authorization, { source_kinds: ["project_note"] }),
@@ -364,6 +430,30 @@ describe("P2 artifact list repository", () => {
 });
 
 describe("P2 exact artifact evidence-source repository", () => {
+  it("accepts a composite source ID containing non-RFC PostgreSQL UUIDs", async () => {
+    const sourceId =
+      "d0000000-0000-4000-d000-00000000000b:00000000-0000-0000-0000-000000000001";
+    const evidenceRef = artifactEvidenceRef({
+      companyId: ARTIFACT_COMPANY_ID,
+      jobRef: { kind: "project", id: ARTIFACT_JOB_ID },
+      sourceIdentity: { source_kind: "project_photo", source_id: sourceId },
+    });
+    const authorization = await exactArtifactAuthorization({
+      job_ref: { kind: "project", id: ARTIFACT_JOB_ID },
+      source_kind: "project_photo",
+      evidence_ref: evidenceRef,
+    });
+    const repository = createSupabaseArtifactReadRepository(
+      new StubRpcClient([
+        { data: exactRaw(authorization, {}, sourceId), error: null },
+      ])
+    );
+
+    await expect(repository.get({ authorization })).resolves.toMatchObject({
+      state: "found",
+    });
+  });
+
   it("calls only the fixed exact-source RPC and never returns a locator for binary evidence", async () => {
     const authorization = await exactArtifactAuthorization();
     const client = new StubRpcClient([

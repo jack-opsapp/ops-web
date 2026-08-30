@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
+import { isCanonicalPostgresUuid } from "@/lib/agent-control-plane/contracts/postgres-uuid";
 import { JobMemoryDocumentSchema } from "@/lib/agent-control-plane/memory/memory-schema";
 import {
   isAuthorizedJobConversationContextRead,
@@ -12,7 +13,9 @@ import {
 const CONTEXT_RPC = "read_agent_job_conversation_context_as_system" as const;
 const PHASE_C_CONTEXT_RPC =
   "read_agent_phase_c_job_conversation_context_as_system" as const;
-const UuidSchema = z.string().uuid();
+const UuidSchema = z
+  .string()
+  .refine(isCanonicalPostgresUuid, "UUID must use canonical PostgreSQL text");
 const TimestampSchema = z.string().datetime({ offset: true });
 const Sha256Schema = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const TurnProjectionRevisionSchema = z
@@ -21,10 +24,28 @@ const TurnProjectionRevisionSchema = z
 const EvidenceProjectionRevisionSchema = z
   .string()
   .regex(/^job-conversation-evidence-projection:v2:[1-9][0-9]*$/);
+const JOB_CONVERSATION_TURN_PREFIX = "job_conversation_turn:";
+const CUSTOMER_JOB_HISTORY_PREFIX = "customer_job_history:";
+
+function hasCanonicalPostgresUuidSuffix(
+  value: string,
+  prefix: string
+): boolean {
+  return (
+    value.startsWith(prefix) &&
+    isCanonicalPostgresUuid(value.slice(prefix.length))
+  );
+}
+
 const EvidenceIdSchema = z
   .string()
-  .regex(
-    /^job_conversation_turn:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+  .refine((value) =>
+    hasCanonicalPostgresUuidSuffix(value, JOB_CONVERSATION_TURN_PREFIX)
+  );
+const CustomerJobHistoryEvidenceIdSchema = z
+  .string()
+  .refine((value) =>
+    hasCanonicalPostgresUuidSuffix(value, CUSTOMER_JOB_HISTORY_PREFIX)
   );
 const RedactionKindSchema = z.enum([
   "content_redacted",
@@ -131,11 +152,7 @@ const ParticipantEvidenceSchema = z
 
 const CrossJobEvidenceSchema = z
   .object({
-    evidence_id: z
-      .string()
-      .regex(
-        /^customer_job_history:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
-      ),
+    evidence_id: CustomerJobHistoryEvidenceIdSchema,
     source_domain: z.literal("customer_jobs"),
     source_type: z.literal("visible_prior_job_snapshot"),
     source_id: UuidSchema,
@@ -182,11 +199,7 @@ const LatestVisiblePriorJobSchema = z
 const RelationshipContinuitySchema = z
   .object({
     marker: z.literal("returning_customer"),
-    evidence_id: z
-      .string()
-      .regex(
-        /^customer_job_history:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
-      ),
+    evidence_id: CustomerJobHistoryEvidenceIdSchema,
   })
   .strict();
 
@@ -330,9 +343,7 @@ export function createSupabaseJobConversationContextRepository(
         p_capability_id: proof.capabilityId,
         p_capability_revision: proof.capabilityRevision,
         p_capability_manifest_revision: proof.capabilityManifestRevision,
-        p_required_oauth_scopes: Object.freeze([
-          ...proof.requiredOAuthScopes,
-        ]),
+        p_required_oauth_scopes: Object.freeze([...proof.requiredOAuthScopes]),
         p_inbox_scope: proof.inboxScope,
         p_clients_scope: proof.clientsScope,
         p_job_permission: proof.jobPermission,

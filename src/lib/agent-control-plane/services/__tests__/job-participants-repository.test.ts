@@ -251,6 +251,16 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
+function replaceSnapshotId<T>(
+  value: T,
+  current: string,
+  replacement: string
+): T {
+  return JSON.parse(
+    JSON.stringify(value).replaceAll(current, replacement)
+  ) as T;
+}
+
 function recoupleParticipantAndCollection(
   snapshot: ReturnType<typeof validSnapshot>
 ) {
@@ -278,6 +288,33 @@ function recoupleParticipantAndCollection(
 }
 
 describe("job participants repository", () => {
+  it("accepts a non-RFC PostgreSQL participant UUID and rejects noncanonical text", async () => {
+    const postgresId = "d4000000-0000-4000-d400-000000000004";
+    const authorization = await authorizedRead();
+    const valid = replaceSnapshotId(validSnapshot(), CLIENT_ID, postgresId);
+    recoupleParticipantAndCollection(valid);
+
+    await expect(
+      createSupabaseJobParticipantsRepository(
+        new StubRpcClient({ data: valid, error: null })
+      ).read({ authorization })
+    ).resolves.toMatchObject({
+      participant_claims: [
+        { raw: { participant_ref: { kind: "client", id: postgresId } } },
+      ],
+    });
+
+    for (const id of [postgresId.toUpperCase(), `${postgresId}x`]) {
+      const invalid = replaceSnapshotId(validSnapshot(), CLIENT_ID, id);
+      recoupleParticipantAndCollection(invalid);
+      await expect(
+        createSupabaseJobParticipantsRepository(
+          new StubRpcClient({ data: invalid, error: null })
+        ).read({ authorization })
+      ).rejects.toMatchObject({ code: "JOB_PARTICIPANTS_INVALID" });
+    }
+  });
+
   it("uses the exact current-only service-role RPC and returns only a nominal repository", async () => {
     const authorization = await authorizedRead();
     const client = new StubRpcClient({ data: validSnapshot(), error: null });

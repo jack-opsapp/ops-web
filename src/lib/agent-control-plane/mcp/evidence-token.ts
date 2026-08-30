@@ -10,6 +10,7 @@ import {
 import { z } from "zod-v4";
 
 import { ArtifactSourceKindSchema } from "@/lib/agent-control-plane/contracts/job-artifacts";
+import { PostgresUuidSchema } from "@/lib/agent-control-plane/contracts/postgres-uuid";
 
 export const EVIDENCE_TOKEN_MAX_TTL_SECONDS = 5 * 60;
 const EVIDENCE_TOKEN_PREFIX = "ops_mcp_ev1" as const;
@@ -23,7 +24,7 @@ const TOKEN_PATTERN =
   /^ops_mcp_ev1\.([A-Za-z0-9_-]{1,4096})\.([A-Za-z0-9_-]{43})$/;
 const VERIFIED_EVIDENCE_TOKENS = new WeakSet<object>();
 
-const UuidSchema = z.string().regex(CANONICAL_UUID_PATTERN);
+const OAuthUuidSchema = z.string().regex(CANONICAL_UUID_PATTERN);
 const AudienceSchema = z
   .string()
   .min(1)
@@ -60,12 +61,12 @@ const WireClaimsSchema = z
   .object({
     v: z.literal(1),
     aud: AudienceSchema,
-    client_id: UuidSchema,
-    grant_id: UuidSchema,
-    actor_user_id: UuidSchema,
-    company_id: UuidSchema,
+    client_id: OAuthUuidSchema,
+    grant_id: OAuthUuidSchema,
+    actor_user_id: PostgresUuidSchema,
+    company_id: PostgresUuidSchema,
     parent_kind: z.enum(["opportunity", "project"]),
-    parent_id: UuidSchema,
+    parent_id: PostgresUuidSchema,
     source_kind: ArtifactSourceKindSchema,
     evidence_ref: z.string().regex(EVIDENCE_REF_PATTERN),
     source_revisions: SourceRevisionsSchema,

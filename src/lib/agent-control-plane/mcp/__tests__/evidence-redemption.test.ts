@@ -19,9 +19,9 @@ import {
 } from "../evidence-redemption";
 import { createMcpEvidenceTokenCodec } from "../evidence-token";
 
-const ACTOR_ID = "11111111-1111-4111-8111-111111111111";
-const COMPANY_ID = "22222222-2222-4222-8222-222222222222";
-const JOB_ID = "33333333-3333-4333-8333-333333333333";
+const ACTOR_ID = "d1111111-1111-4111-d111-111111111111";
+const COMPANY_ID = "00000000-0000-0000-0000-000000000001";
+const JOB_ID = "ffffffff-ffff-ffff-ffff-ffffffffffff";
 const GRANT_ID = "44444444-4444-4444-8444-444444444444";
 const CLIENT_ID = "55555555-5555-4555-8555-555555555555";
 const EVIDENCE_REF = `ops_evidence:v1:${"a".repeat(64)}`;
@@ -143,7 +143,7 @@ function codec() {
 }
 
 describe("MCP evidence issuance", () => {
-  it("requires nominal artifact authority, charges its own durable bucket, and returns an opaque single-use resource link", async () => {
+  it("issues for PostgreSQL-shaped non-RFC actor, company, and parent IDs", async () => {
     const proof = await authorization();
     const consume = vi.fn().mockResolvedValue({
       allowed: true,
@@ -242,7 +242,7 @@ describe("MCP evidence issuance", () => {
 });
 
 describe("MCP evidence redemption adapter", () => {
-  it("maps a verified token and current bearer into the one fixed no-retry RPC", async () => {
+  it("redeems PostgreSQL-shaped non-RFC actor, company, and parent IDs through the one fixed no-retry RPC", async () => {
     const actorContext = await context();
     const verified = codec().issue({
       audience:

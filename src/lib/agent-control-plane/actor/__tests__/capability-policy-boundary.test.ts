@@ -71,6 +71,19 @@ describe("manifest capability policy boundary", () => {
     }
   });
 
+  it("canonicalizes OAuth scopes with the cross-runtime machine order", () => {
+    const policy = defineCapabilityPolicyForManifest(
+      definition({
+        requiredOAuthScopes: ["ops.catalog_costs.read", "ops.catalog.read"],
+      })
+    );
+
+    expect(policy.requiredOAuthScopes).toEqual([
+      "ops.catalog.read",
+      "ops.catalog_costs.read",
+    ]);
+  });
+
   it.each([
     {
       name: "an empty OAuth ceiling",

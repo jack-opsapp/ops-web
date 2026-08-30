@@ -7,6 +7,7 @@ import {
   EvidenceRefSchema,
   SourceVersionSchema,
 } from "@/lib/agent-control-plane/contracts";
+import { PostgresUuidSchema } from "@/lib/agent-control-plane/contracts/postgres-uuid";
 import { ReadinessRuleCodeSchema } from "@/lib/agent-control-plane/contracts/schedule";
 import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
 import {
@@ -31,7 +32,7 @@ import {
 } from "./readiness-rules";
 
 const RPC_NAME = "read_agent_job_readiness_issues_as_system" as const;
-const UUID_SCHEMA = z.string().uuid();
+const UUID_SCHEMA = PostgresUuidSchema;
 const SHA256_SCHEMA = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const SOURCE_FENCE_ID = "private.agent_operational_read_revisions";
 const SOURCE_FENCE_SCHEMA = SourceVersionSchema.refine(

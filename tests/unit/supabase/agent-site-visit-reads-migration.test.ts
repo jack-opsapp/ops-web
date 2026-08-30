@@ -30,6 +30,16 @@ function compact(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function replaceExactly(
+  value: string,
+  oldFragment: string,
+  newFragment: string,
+  expectedCount: number
+) {
+  expect(value.split(oldFragment).length - 1).toBe(expectedCount);
+  return value.split(oldFragment).join(newFragment);
+}
+
 function canonicalTimestamp(expression: string) {
   return `pg_catalog.date_bin( interval '1 millisecond', ${expression}, timestamptz '2000-01-01 00:00:00+00' )`;
 }
@@ -128,10 +138,23 @@ const RESERVED_MIGRATIONS = readdirSync(
 ).filter((name) => name.endsWith("_agent_site_visit_reads.sql"));
 
 describe("P2 site-visit read SQL body", () => {
-  it("is the single official generated reservation and byte-matches its guarded sidecar", () => {
+  it("keeps the official reservation immutable and derives the current body exactly", () => {
     expect(RESERVED_MIGRATIONS).toEqual([MIGRATION_NAME]);
     expect(BODY_EXACT).not.toBe("");
-    expect(MIGRATION_EXACT).toBe(BODY_EXACT);
+    const canonicallyOrdered = replaceExactly(
+      MIGRATION_EXACT,
+      "scope.value order by scope.value)",
+      'scope.value order by scope.value collate "C")',
+      2
+    );
+    expect(
+      replaceExactly(
+        canonicallyOrdered,
+        "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        1
+      )
+    ).toBe(BODY_EXACT);
     expect(SQL).toMatch(/(?:^|\n)begin;\s/);
     expect(SQL.trim().endsWith("commit;")).toBe(true);
     expect(SQL).toContain("task 12 canonical site-visit read body");

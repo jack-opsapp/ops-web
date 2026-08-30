@@ -14,6 +14,7 @@ import type {
   CapabilityAuthorizationVariantDefinition,
   CapabilityRiskTier,
 } from "@/lib/agent-control-plane/registry/capability-types";
+import { PostgresUuidSchema } from "@/lib/agent-control-plane/contracts/postgres-uuid";
 
 const DAY_MS = 86_400_000;
 const MAX_PROMPT_CHARACTERS = 60_000;
@@ -51,7 +52,7 @@ const ConversationSectionSchema = z.enum([
   "gaps",
   "cross_job_seed",
 ]);
-const DatabaseUuidSchema = z.string().uuid();
+const DatabaseUuidSchema = PostgresUuidSchema;
 export const JobConversationContextInputSchema = z
   .object({
     job_ref: JobRefSchema,

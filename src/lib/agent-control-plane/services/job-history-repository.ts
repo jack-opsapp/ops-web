@@ -5,6 +5,7 @@ import { z } from "zod-v4";
 import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
 import {
   EvidenceRefSchema,
+  PostgresUuidSchema,
   SourceVersionSchema,
 } from "@/lib/agent-control-plane/contracts";
 import {
@@ -32,7 +33,7 @@ import {
 
 const RPC_NAME = "read_agent_job_history_as_system" as const;
 const HISTORY_DEFAULT_WINDOW_MILLISECONDS = 365 * 24 * 60 * 60 * 1_000;
-const UUID_SCHEMA = z.string().uuid();
+const UUID_SCHEMA = PostgresUuidSchema;
 const SHA256_SCHEMA = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const UTC_SCHEMA = z.string().datetime({ offset: false });
 const JOB_KIND_SCHEMA = z.enum(["opportunity", "project"]);

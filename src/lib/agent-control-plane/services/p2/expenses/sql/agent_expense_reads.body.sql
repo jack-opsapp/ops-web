@@ -806,7 +806,9 @@ begin
      or pg_catalog.jsonb_typeof(p_authorization_candidate)
           is distinct from 'object'
      or p_granted_scope_ceiling is distinct from (
-       select pg_catalog.array_agg(scope.value order by scope.value)
+       select pg_catalog.array_agg(
+         scope.value order by scope.value collate "C"
+       )
        from (
          select distinct source.value
          from pg_catalog.unnest(p_granted_scope_ceiling) source(value)
@@ -856,7 +858,9 @@ begin
   end if;
 
   select coalesce(
-           pg_catalog.array_agg(scope.value order by scope.value),
+           pg_catalog.array_agg(
+             scope.value order by scope.value collate "C"
+           ),
            array[]::text[]
          )
     into v_required_scopes

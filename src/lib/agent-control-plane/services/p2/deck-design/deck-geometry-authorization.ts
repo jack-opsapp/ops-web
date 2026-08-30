@@ -18,6 +18,7 @@ import {
 } from "@/lib/agent-control-plane/registry/read-capabilities/p2/deck-design";
 import type { PermissionScope } from "@/lib/types/permissions";
 import { assertP2ReadPolicyBinding } from "../shared/authorize-read";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 
 const AUTHORIZED_DECK_GEOMETRY_READS = new WeakSet<object>();
 const CANONICAL_UUID_PATTERN =
@@ -262,7 +263,7 @@ function bindPolicy(input: {
     oauthGrantId: auth.oauthGrantId,
     oauthClientId: auth.oauthClientId,
     grantRevision: auth.grantRevision,
-    grantedScopeCeiling: sortedUnique(auth.scopeCeiling),
+    grantedScopeCeiling: canonicalizeAgentMachineStringSet(auth.scopeCeiling),
     authorizationCandidate,
   });
 }

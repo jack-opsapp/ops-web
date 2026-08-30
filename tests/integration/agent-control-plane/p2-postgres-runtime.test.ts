@@ -179,6 +179,18 @@ const MIGRATIONS = [
     "20260830120000_agent_mcp_scope_set_binding.sql",
     "2b547aa95aeb8b7b665707f12119432d0d106958192277a8ec64204bdd51c25b",
   ],
+  [
+    "20260830140000_agent_mcp_scope_canonical_order.sql",
+    "62f72279370c1cd17068e0b88f0f3cb3194a415fc0a7acc3cb4138d043d13463",
+  ],
+  [
+    "20260830150000_agent_mcp_financial_tombstones.sql",
+    "5295e822b9f2549014423b8b64230bfb292dfead6014e04646dd19414499d077",
+  ],
+  [
+    "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
+    "636a8e9d7f178d8339a3458658130463fe5cedf47716a0ed447bc20c98e1dc06",
+  ],
 ] as const;
 
 const FIXTURE_GROUPS = [
@@ -248,6 +260,18 @@ const FIXTURE_GROUPS = [
     "agent-mcp-scope-set-binding-runtime.sql",
     "agent-mcp-scope-set-binding-replay-runtime.sql",
     "agent-mcp-scope-set-binding-boundaries-runtime.sql",
+  ],
+  [
+    "agent-mcp-scope-canonical-order-runtime.sql",
+    "agent-mcp-scope-canonical-order-replay-runtime.sql",
+  ],
+  [
+    "agent-mcp-financial-tombstone-runtime.sql",
+    "agent-mcp-financial-tombstone-replay-runtime.sql",
+  ],
+  [
+    "agent-mcp-postgres-uuid-runtime.sql",
+    "agent-mcp-postgres-uuid-replay-runtime.sql",
   ],
 ] as const;
 
@@ -432,6 +456,30 @@ const FIXTURES = [
     "agent-mcp-scope-set-binding-boundaries-runtime.sql",
     "2bcc16fed29cfdfcdb5f04c678919d5685845f7842ce14fbf2d85cf82997e13c",
   ],
+  [
+    "agent-mcp-scope-canonical-order-runtime.sql",
+    "ac7009b32d4cff23291a09d51c595d7cbdd10f89153275038c300fb50057e7bd",
+  ],
+  [
+    "agent-mcp-scope-canonical-order-replay-runtime.sql",
+    "306073dbd5dc435578394ca117b5c053303c1583e5c0652e30c1ca77c1a64009",
+  ],
+  [
+    "agent-mcp-financial-tombstone-runtime.sql",
+    "41a57c2f2a1ed2051944ed18736538e08a1723a49ee6b2eec03f8c4160b0e1e5",
+  ],
+  [
+    "agent-mcp-financial-tombstone-replay-runtime.sql",
+    "471b4185649177907baae770fa1efc9554d8240904d39c913c1391f2e79e0f9f",
+  ],
+  [
+    "agent-mcp-postgres-uuid-runtime.sql",
+    "59fcf872ea583e2f2df889fb1c70865ef5c74f670942dc15196047e9cd5ce55b",
+  ],
+  [
+    "agent-mcp-postgres-uuid-replay-runtime.sql",
+    "76d34ce0e1294fc3c80def189b4994ae8be78ae9daaf6af288addc485c98a440",
+  ],
 ] as const;
 
 const BASELINE_SHA256 =
@@ -469,6 +517,9 @@ const FIXTURE_CHECKPOINT_MIGRATIONS = [
   "20260829192448_mcp_oauth_codex_dcr_callbacks.sql",
   "20260830113800_mcp_oauth_chatgpt_rfc9207_callback.sql",
   "20260830120000_agent_mcp_scope_set_binding.sql",
+  "20260830140000_agent_mcp_scope_canonical_order.sql",
+  "20260830150000_agent_mcp_financial_tombstones.sql",
+  "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
 ] as const;
 
 const BASELINE = join(
@@ -538,6 +589,279 @@ end;
 $scope_set_binding_drift$;
 `;
 
+const SCOPE_CANONICAL_ORDER_ADVERSARIAL_DRIFT_SQL = `
+do $scope_canonical_order_drift$
+declare
+  v_signature constant text :=
+    'private.agent_p2_catalog_read_context_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],jsonb,boolean)';
+  v_expected_fragment constant text :=
+    'scope.value order by scope.value collate "C"';
+  v_drifted_fragment constant text :=
+    'scope.value order by scope.value collate "C" nulls first';
+  v_definition text;
+  v_drifted_definition text;
+  v_expected_count integer;
+  v_drifted_count integer;
+begin
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure(v_signature)::oid
+         )
+    into strict v_definition;
+
+  v_expected_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_expected_fragment, '')
+    )
+  ) / pg_catalog.length(v_expected_fragment);
+  v_drifted_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_drifted_fragment, '')
+    )
+  ) / pg_catalog.length(v_drifted_fragment);
+  if v_expected_count is distinct from 1
+     or v_drifted_count is distinct from 0 then
+    raise exception
+      'agent_mcp_scope_canonical_order_adversarial_setup_failed: % %',
+      v_expected_count, v_drifted_count;
+  end if;
+
+  v_drifted_definition := pg_catalog.replace(
+    v_definition,
+    v_expected_fragment,
+    v_drifted_fragment
+  );
+  if v_drifted_definition is not distinct from v_definition then
+    raise exception 'agent_mcp_scope_canonical_order_adversarial_setup_failed';
+  end if;
+  execute v_drifted_definition;
+end;
+$scope_canonical_order_drift$;
+`;
+
+const SCOPE_CANONICAL_ORDER_ADVERSARIAL_RESTORE_SQL = `
+do $scope_canonical_order_restore$
+declare
+  v_signature constant text :=
+    'private.agent_p2_catalog_read_context_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],jsonb,boolean)';
+  v_expected_fragment constant text :=
+    'scope.value order by scope.value collate "C" nulls first';
+  v_restored_fragment constant text :=
+    'scope.value order by scope.value collate "C"';
+  v_definition text;
+  v_restored_definition text;
+  v_expected_count integer;
+begin
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure(v_signature)::oid
+         )
+    into strict v_definition;
+
+  v_expected_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_expected_fragment, '')
+    )
+  ) / pg_catalog.length(v_expected_fragment);
+  if v_expected_count is distinct from 1 then
+    raise exception
+      'agent_mcp_scope_canonical_order_adversarial_restore_failed: %',
+      v_expected_count;
+  end if;
+
+  v_restored_definition := pg_catalog.replace(
+    v_definition,
+    v_expected_fragment,
+    v_restored_fragment
+  );
+  if v_restored_definition is not distinct from v_definition then
+    raise exception 'agent_mcp_scope_canonical_order_adversarial_restore_failed';
+  end if;
+  execute v_restored_definition;
+end;
+$scope_canonical_order_restore$;
+`;
+
+const FINANCIAL_TOMBSTONE_ADVERSARIAL_DRIFT_SQL = `
+do $financial_tombstone_drift$
+declare
+  v_signature constant text :=
+    'private.agent_p2_payment_source_v1(uuid,uuid,uuid,text,uuid,date,date,text[],text[],text,timestamp with time zone,integer)';
+  v_expected_fragment constant text :=
+    'parent_invoice.deleted_at is not null';
+  v_drifted_fragment constant text :=
+    'parent_invoice.deleted_at is not null\n          and true';
+  v_definition text;
+  v_drifted_definition text;
+  v_expected_count integer;
+  v_drifted_count integer;
+begin
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure(v_signature)::oid
+         )
+    into strict v_definition;
+
+  v_expected_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_expected_fragment, '')
+    )
+  ) / pg_catalog.length(v_expected_fragment);
+  v_drifted_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_drifted_fragment, '')
+    )
+  ) / pg_catalog.length(v_drifted_fragment);
+  if v_expected_count is distinct from 1
+     or v_drifted_count is distinct from 0 then
+    raise exception
+      'agent_mcp_financial_tombstone_adversarial_setup_failed: % %',
+      v_expected_count, v_drifted_count;
+  end if;
+
+  v_drifted_definition := pg_catalog.replace(
+    v_definition,
+    v_expected_fragment,
+    v_drifted_fragment
+  );
+  if v_drifted_definition is not distinct from v_definition then
+    raise exception 'agent_mcp_financial_tombstone_adversarial_setup_failed';
+  end if;
+  execute v_drifted_definition;
+end;
+$financial_tombstone_drift$;
+`;
+
+const FINANCIAL_TOMBSTONE_ADVERSARIAL_RESTORE_SQL = `
+do $financial_tombstone_restore$
+declare
+  v_signature constant text :=
+    'private.agent_p2_payment_source_v1(uuid,uuid,uuid,text,uuid,date,date,text[],text[],text,timestamp with time zone,integer)';
+  v_expected_fragment constant text :=
+    'parent_invoice.deleted_at is not null\n          and true';
+  v_restored_fragment constant text :=
+    'parent_invoice.deleted_at is not null';
+  v_definition text;
+  v_restored_definition text;
+  v_expected_count integer;
+begin
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure(v_signature)::oid
+         )
+    into strict v_definition;
+
+  v_expected_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_expected_fragment, '')
+    )
+  ) / pg_catalog.length(v_expected_fragment);
+  if v_expected_count is distinct from 1 then
+    raise exception
+      'agent_mcp_financial_tombstone_adversarial_restore_failed: %',
+      v_expected_count;
+  end if;
+
+  v_restored_definition := pg_catalog.replace(
+    v_definition,
+    v_expected_fragment,
+    v_restored_fragment
+  );
+  if v_restored_definition is not distinct from v_definition then
+    raise exception 'agent_mcp_financial_tombstone_adversarial_restore_failed';
+  end if;
+  execute v_restored_definition;
+end;
+$financial_tombstone_restore$;
+`;
+
+const POSTGRES_UUID_ADVERSARIAL_DRIFT_SQL = `
+do $postgres_uuid_drift$
+declare
+  v_signature constant text :=
+    'private.agent_p2_artifact_uuid_from_text(text)';
+  v_expected_fragment constant text :=
+    'if p_value !~\n    ''^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$''';
+  v_drifted_fragment constant text :=
+    'if p_value !~\n    /* adversarial drift */\n    ''^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$''';
+  v_definition text;
+  v_drifted_definition text;
+  v_expected_count integer;
+  v_drifted_count integer;
+begin
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure(v_signature)::oid
+         )
+    into strict v_definition;
+
+  v_expected_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_expected_fragment, '')
+    )
+  ) / pg_catalog.length(v_expected_fragment);
+  v_drifted_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_drifted_fragment, '')
+    )
+  ) / pg_catalog.length(v_drifted_fragment);
+  if v_expected_count is distinct from 1
+     or v_drifted_count is distinct from 0 then
+    raise exception
+      'agent_mcp_postgres_uuid_adversarial_setup_failed: % %',
+      v_expected_count, v_drifted_count;
+  end if;
+
+  v_drifted_definition := pg_catalog.replace(
+    v_definition,
+    v_expected_fragment,
+    v_drifted_fragment
+  );
+  if v_drifted_definition is not distinct from v_definition then
+    raise exception 'agent_mcp_postgres_uuid_adversarial_setup_failed';
+  end if;
+  execute v_drifted_definition;
+end;
+$postgres_uuid_drift$;
+`;
+
+const POSTGRES_UUID_ADVERSARIAL_RESTORE_SQL = `
+do $postgres_uuid_restore$
+declare
+  v_signature constant text :=
+    'private.agent_p2_artifact_uuid_from_text(text)';
+  v_expected_fragment constant text :=
+    'if p_value !~\n    /* adversarial drift */\n    ''^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$''';
+  v_restored_fragment constant text :=
+    'if p_value !~\n    ''^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$''';
+  v_definition text;
+  v_restored_definition text;
+  v_expected_count integer;
+begin
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure(v_signature)::oid
+         )
+    into strict v_definition;
+
+  v_expected_count := (
+    pg_catalog.length(v_definition) - pg_catalog.length(
+      pg_catalog.replace(v_definition, v_expected_fragment, '')
+    )
+  ) / pg_catalog.length(v_expected_fragment);
+  if v_expected_count is distinct from 1 then
+    raise exception
+      'agent_mcp_postgres_uuid_adversarial_restore_failed: %',
+      v_expected_count;
+  end if;
+
+  v_restored_definition := pg_catalog.replace(
+    v_definition,
+    v_expected_fragment,
+    v_restored_fragment
+  );
+  if v_restored_definition is not distinct from v_definition then
+    raise exception 'agent_mcp_postgres_uuid_adversarial_restore_failed';
+  end if;
+  execute v_restored_definition;
+end;
+$postgres_uuid_restore$;
+`;
+
 function assertSafeLocalPostgresTarget(host: string, port: string): void {
   let canonicalHost: string;
   try {
@@ -590,6 +914,21 @@ async function runFile(
     timeout: PSQL_TIMEOUT_MS,
     killSignal: "SIGTERM",
   });
+}
+
+async function expectMigrationSourceDrift(
+  database: string,
+  migrationName: string,
+  expectedMarker: string
+): Promise<void> {
+  const replayError = await runFile(
+    database,
+    join(ROOT, "supabase/migrations", migrationName)
+  ).catch((error: unknown) => error);
+  expect(replayError).toBeInstanceOf(Error);
+  expect(
+    String((replayError as { readonly stderr?: unknown }).stderr ?? replayError)
+  ).toContain(expectedMarker);
 }
 
 async function runStatement(database: string, sql: string) {
@@ -701,11 +1040,11 @@ async function settleWithCleanup(
 }
 
 describe("P2 PostgreSQL 17 full-wave ledger", () => {
-  it("pins the exact ordered 41-file ledger and canonical baseline", async () => {
-    expect(MIGRATIONS).toHaveLength(41);
-    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(41);
-    expect(FIXTURE_GROUPS.flat()).toHaveLength(45);
-    expect(FIXTURES).toHaveLength(45);
+  it("pins the exact ordered 44-file ledger and canonical baseline", async () => {
+    expect(MIGRATIONS).toHaveLength(44);
+    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(44);
+    expect(FIXTURE_GROUPS.flat()).toHaveLength(51);
+    expect(FIXTURES).toHaveLength(51);
     expect(FIXTURE_GROUPS.flat()).toEqual(FIXTURES.map(([name]) => name));
     expect(FIXTURE_CHECKPOINT_MIGRATIONS).toHaveLength(FIXTURE_GROUPS.length);
     expect(new Set(FIXTURE_CHECKPOINT_MIGRATIONS).size).toBe(
@@ -722,8 +1061,8 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
           (position === 0 || index > checkpointIndexes[position - 1])
       )
     ).toBe(true);
-    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(45);
-    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(45);
+    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(51);
+    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(51);
     expect(FIXTURE_GROUPS.every((group) => group.length <= 3)).toBe(true);
     expect(fixtureExecutionPlan(FIXTURE_GROUPS[11])).toEqual([
       "agent-sales-document-sources-runtime.sql",
@@ -736,6 +1075,31 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
       "agent-catalog-reads-runtime.sql",
       "agent-catalog-reads-replay-runtime.sql",
       "agent-catalog-reads-runtime.sql",
+    ]);
+    expect(MIGRATIONS.slice(-3).map(([name]) => name)).toEqual([
+      "20260830140000_agent_mcp_scope_canonical_order.sql",
+      "20260830150000_agent_mcp_financial_tombstones.sql",
+      "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
+    ]);
+    expect(FIXTURE_CHECKPOINT_MIGRATIONS.slice(-3)).toEqual([
+      "20260830140000_agent_mcp_scope_canonical_order.sql",
+      "20260830150000_agent_mcp_financial_tombstones.sql",
+      "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
+    ]);
+    expect(fixtureExecutionPlan(FIXTURE_GROUPS[25])).toEqual([
+      "agent-mcp-scope-canonical-order-runtime.sql",
+      "agent-mcp-scope-canonical-order-replay-runtime.sql",
+      "agent-mcp-scope-canonical-order-runtime.sql",
+    ]);
+    expect(fixtureExecutionPlan(FIXTURE_GROUPS[26])).toEqual([
+      "agent-mcp-financial-tombstone-runtime.sql",
+      "agent-mcp-financial-tombstone-replay-runtime.sql",
+      "agent-mcp-financial-tombstone-runtime.sql",
+    ]);
+    expect(fixtureExecutionPlan(FIXTURE_GROUPS[27])).toEqual([
+      "agent-mcp-postgres-uuid-runtime.sql",
+      "agent-mcp-postgres-uuid-replay-runtime.sql",
+      "agent-mcp-postgres-uuid-runtime.sql",
     ]);
     expect(() => assertSafeLocalPostgresTarget("/tmp", "55414")).not.toThrow();
     expect(() =>
@@ -915,6 +1279,54 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
                 RELEASE_BOOTSTRAP_OAUTH_SENTINELS_SQL
               );
             }
+            if (name === "20260830140000_agent_mcp_scope_canonical_order.sql") {
+              await runStatement(
+                database,
+                SCOPE_CANONICAL_ORDER_ADVERSARIAL_DRIFT_SQL
+              );
+              await expectMigrationSourceDrift(
+                database,
+                name,
+                "agent_mcp_scope_canonical_order_source_drift"
+              );
+              await runStatement(
+                database,
+                SCOPE_CANONICAL_ORDER_ADVERSARIAL_RESTORE_SQL
+              );
+              await runFile(database, join(ROOT, "supabase/migrations", name));
+            }
+            if (name === "20260830150000_agent_mcp_financial_tombstones.sql") {
+              await runStatement(
+                database,
+                FINANCIAL_TOMBSTONE_ADVERSARIAL_DRIFT_SQL
+              );
+              await expectMigrationSourceDrift(
+                database,
+                name,
+                "agent_mcp_financial_tombstone_source_drift"
+              );
+              await runStatement(
+                database,
+                FINANCIAL_TOMBSTONE_ADVERSARIAL_RESTORE_SQL
+              );
+              await runFile(database, join(ROOT, "supabase/migrations", name));
+            }
+            if (
+              name ===
+              "20260830160000_agent_mcp_postgres_uuid_compatibility.sql"
+            ) {
+              await runStatement(database, POSTGRES_UUID_ADVERSARIAL_DRIFT_SQL);
+              await expectMigrationSourceDrift(
+                database,
+                name,
+                "agent_mcp_postgres_uuid_source_drift"
+              );
+              await runStatement(
+                database,
+                POSTGRES_UUID_ADVERSARIAL_RESTORE_SQL
+              );
+              await runFile(database, join(ROOT, "supabase/migrations", name));
+            }
           }
 
           expect(appliedMigrations).toEqual(MIGRATIONS.map(([name]) => name));
@@ -923,21 +1335,11 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
           );
 
           await runStatement(database, SCOPE_SET_BINDING_ADVERSARIAL_DRIFT_SQL);
-          const driftReplayError = await runFile(
+          await expectMigrationSourceDrift(
             database,
-            join(
-              ROOT,
-              "supabase/migrations",
-              "20260830120000_agent_mcp_scope_set_binding.sql"
-            )
-          ).catch((error: unknown) => error);
-          expect(driftReplayError).toBeInstanceOf(Error);
-          expect(
-            String(
-              (driftReplayError as { readonly stderr?: unknown }).stderr ??
-                driftReplayError
-            )
-          ).toContain("agent_mcp_scope_set_binding_source_drift");
+            "20260830120000_agent_mcp_scope_set_binding.sql",
+            "agent_mcp_scope_set_binding_source_drift"
+          );
         } catch (error) {
           primary = { failed: true, error };
         }
@@ -950,7 +1352,7 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
     );
 
     it(
-      "applies the consent catalogue under production ICU ordering",
+      "applies consent and scope canonical order under production ICU ordering",
       async () => {
         const database = databaseName();
         let created = false;
@@ -1003,20 +1405,60 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
           );
 
           await runFile(database, BASELINE);
-          await runFile(
-            database,
-            join(ROOT, "supabase/migrations", MIGRATIONS[1][0])
+          const scopeCanonicalOrderIndex = MIGRATIONS.findIndex(
+            ([name]) =>
+              name === "20260830140000_agent_mcp_scope_canonical_order.sql"
           );
-          await runFile(
-            database,
-            join(ROOT, "supabase/migrations", MIGRATIONS[2][0])
+          expect(scopeCanonicalOrderIndex).toBeGreaterThan(2);
+          for (const [name] of MIGRATIONS.slice(
+            1,
+            scopeCanonicalOrderIndex + 1
+          )) {
+            await runFile(database, join(ROOT, "supabase/migrations", name));
+            if (
+              name === "20260823072837_mcp_oauth_consent_catalog_versioning.sql"
+            ) {
+              await runFile(
+                database,
+                join(
+                  ROOT,
+                  "tests/sql",
+                  "agent-mcp-oauth-consent-catalog-runtime.sql"
+                )
+              );
+            }
+            if (name === "20260823072843_agent_mcp_durable_rate_limit.sql") {
+              await runStatement(
+                database,
+                RELEASE_BOOTSTRAP_OAUTH_SENTINELS_SQL
+              );
+            }
+          }
+          expect(MIGRATIONS[scopeCanonicalOrderIndex][0]).toBe(
+            "20260830140000_agent_mcp_scope_canonical_order.sql"
           );
           await runFile(
             database,
             join(
               ROOT,
               "tests/sql",
-              "agent-mcp-oauth-consent-catalog-runtime.sql"
+              "agent-mcp-scope-canonical-order-runtime.sql"
+            )
+          );
+          await runFile(
+            database,
+            join(
+              ROOT,
+              "tests/sql",
+              "agent-mcp-scope-canonical-order-replay-runtime.sql"
+            )
+          );
+          await runFile(
+            database,
+            join(
+              ROOT,
+              "tests/sql",
+              "agent-mcp-scope-canonical-order-runtime.sql"
             )
           );
         } catch (error) {

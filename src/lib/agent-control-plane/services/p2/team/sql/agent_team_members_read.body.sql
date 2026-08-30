@@ -137,7 +137,9 @@ begin
     from pg_catalog.unnest(p_granted_scope_ceiling) scope(value)
   ) <> pg_catalog.cardinality(p_granted_scope_ceiling)
   or p_granted_scope_ceiling is distinct from (
-    select pg_catalog.array_agg(scope.value order by scope.value)
+    select pg_catalog.array_agg(
+      scope.value order by scope.value collate "C"
+    )
     from pg_catalog.unnest(p_granted_scope_ceiling) scope(value)
   )
   or exists (

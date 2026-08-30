@@ -6,6 +6,7 @@ import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/acto
 import {
   EvidenceRefSchema,
   IanaTimeZoneSchema,
+  PostgresUuidSchema,
   SourceVersionSchema,
 } from "@/lib/agent-control-plane/contracts";
 import { ScheduledJobOccurrenceSchema } from "@/lib/agent-control-plane/contracts/schedule";
@@ -27,7 +28,7 @@ import {
 } from "./operational-read-cursor";
 
 const RPC_NAME = "read_agent_scheduled_jobs_as_system" as const;
-const UUID_SCHEMA = z.string().uuid();
+const UUID_SCHEMA = PostgresUuidSchema;
 const SOURCE_FENCE_ID = "private.agent_operational_read_revisions";
 const SCHEDULE_RULE_REVISIONS: readonly string[] = Object.freeze([]);
 const SHA256_SCHEMA = z.string().regex(/^sha256:[0-9a-f]{64}$/);

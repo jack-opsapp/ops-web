@@ -25,6 +25,15 @@ function read(path: string) {
 function compact(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
+function replaceExactly(
+  value: string,
+  oldFragment: string,
+  newFragment: string,
+  expectedCount: number
+) {
+  expect(value.split(oldFragment).length - 1).toBe(expectedCount);
+  return value.split(oldFragment).join(newFragment);
+}
 function definition(sql: string, name: string) {
   const marker = `create or replace function ${name}(`;
   const start = sql.lastIndexOf(marker);
@@ -68,11 +77,17 @@ describe("P2 artifact read SQL body", () => {
     expect(SQL.trim().endsWith("commit;")).toBe(true);
     expect(SQL).toContain("task 10 canonical artifact read body");
     expect(migrationNames).toHaveLength(1);
+    const historical = readFileSync(
+      join(process.cwd(), "supabase/migrations", migrationNames[0]!),
+      "utf8"
+    ).toLowerCase();
     expect(
-      readFileSync(
-        join(process.cwd(), "supabase/migrations", migrationNames[0]!),
-        "utf8"
-      ).toLowerCase()
+      replaceExactly(
+        historical,
+        "if p_value !~*\n    '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'",
+        "if p_value !~\n    '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'",
+        1
+      )
     ).toBe(SQL);
     for (const value of [
       PRIVATE_EVIDENCE,

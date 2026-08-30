@@ -429,15 +429,12 @@ describe("resolveActorContext", () => {
     }
   });
 
-  it("rejects noncanonical actor and company identifiers from authority", async () => {
+  it("rejects malformed actor and company identifiers from authority", async () => {
     for (const malformed of [
       authority({ actorUserId: "not-a-uuid" }),
       authority({ companyId: "not-a-uuid" }),
       authority({
         actorUserId: "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA",
-      }),
-      authority({
-        companyId: "00000000-0000-0000-0000-000000000000",
       }),
     ]) {
       const repository = new StubAuthoritySupabaseRpcClient(authority());
@@ -456,6 +453,33 @@ describe("resolveActorContext", () => {
         message: "Authorization is temporarily unavailable.",
       });
     }
+  });
+
+  it("accepts lowercase PostgreSQL UUID actor and company identities", async () => {
+    const actorUserId = "d1111111-1111-4111-d111-111111111111";
+    const companyId = "00000000-0000-0000-0000-000000000001";
+    const currentAuthority = authority({ actorUserId, companyId });
+    const repository = new StubAuthoritySupabaseRpcClient(currentAuthority);
+    repository.mcpResult = currentAuthority;
+    const principal = validatedMcpPrincipalFixture({
+      actorUserId,
+      companyId,
+      oauthGrantId: "grant-1",
+      oauthClientId: "client-1",
+      validatedScopes: ["ops.jobs.read"],
+      tokenId: "token-1",
+      issuer: "https://auth.opsapp.co",
+      audience: "https://mcp.opsapp.co/mcp",
+      grantRevision: "grant-revision-4",
+    });
+
+    await expect(
+      resolveActorContext({
+        principal,
+        authorityRepository: repository.repository,
+        ...REQUEST,
+      })
+    ).resolves.toMatchObject({ actorUserId, companyId });
   });
 
   it("carries only a validated MCP grant seam and rechecks current actor membership", async () => {

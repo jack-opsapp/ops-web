@@ -15,6 +15,7 @@ import {
 import {
   EvidenceRefSchema,
   OpaqueIdSchema,
+  PostgresUuidSchema,
   Rfc3339UtcTimestampSchema,
   SourceVersionSchema,
 } from "@/lib/agent-control-plane/contracts";
@@ -23,7 +24,7 @@ import type { AuthorizedJobCommunicationRead } from "./job-communication-authori
 import type { AuthorizedJobParticipantsRead } from "./job-participants-authorization";
 import { RawSitePhotoSourceSchema } from "./readiness-rules";
 
-const UUID_SCHEMA = z.string().uuid();
+const UUID_SCHEMA = PostgresUuidSchema;
 const SHA256_SCHEMA = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const PERMISSION_REVISION_SCHEMA = SHA256_SCHEMA;
 const SOURCE_REVISION_SCHEMA = z.number().int().safe().nonnegative();

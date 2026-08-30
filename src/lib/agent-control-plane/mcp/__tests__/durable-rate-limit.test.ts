@@ -8,8 +8,8 @@ import {
 const IDENTITY = Object.freeze({
   requestId: "req-durable-1",
   grantId: "11111111-1111-4111-8111-111111111111",
-  actorUserId: "22222222-2222-4222-8222-222222222222",
-  companyId: "33333333-3333-4333-8333-333333333333",
+  actorUserId: "d2222222-2222-4222-d222-222222222222",
+  companyId: "00000000-0000-0000-0000-000000000001",
   capabilityId: "search_jobs",
   protocolEra: "modern" as const,
 });
@@ -80,6 +80,20 @@ describe("durable MCP rate-limit adapter", () => {
       p_policy_id: "mcp-lightweight-read:2026-08-23.v1",
       p_requested_units: 1,
     });
+  });
+
+  it("keeps the OAuth grant id on the strict RFC boundary", async () => {
+    const rpc = vi.fn(async () => ({ data: [], error: null }));
+    const limiter = createDurableMcpRateLimiter({ rpc });
+
+    await expect(
+      limiter.consume({
+        ...IDENTITY,
+        grantId: "d1111111-1111-4111-d111-111111111111",
+        bucket: "evidence_search",
+      })
+    ).rejects.toBeInstanceOf(DurableMcpRateLimitUnavailableError);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it.each([

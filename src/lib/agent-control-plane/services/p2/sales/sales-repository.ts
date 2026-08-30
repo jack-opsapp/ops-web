@@ -223,12 +223,14 @@ export interface SalesDocumentListRepositoryPage {
 export type SalesDocumentListRepositoryResult =
   | Readonly<{ state: "found"; page: SalesDocumentListRepositoryPage }>
   | Readonly<{ state: "source_bound" }>
+  | Readonly<{ state: "source_invalid" }>
   | Readonly<{ state: "stale" }>;
 
 export type SalesDocumentDetailRepositoryResult =
   | Readonly<{ state: "found"; value: GetSalesDocumentResult }>
   | Readonly<{ state: "not_found" }>
   | Readonly<{ state: "source_bound" }>
+  | Readonly<{ state: "source_invalid" }>
   | Readonly<{ state: "stale" }>;
 
 export interface SalesDocumentReadRepository {
@@ -386,7 +388,7 @@ function predecessorComesBefore(
 function knownErrorState(
   error: unknown,
   detail: boolean
-): "not_found" | "source_bound" | "stale" | null {
+): "not_found" | "source_bound" | "source_invalid" | "stale" | null {
   try {
     if (typeof error !== "object" || error === null || Array.isArray(error)) {
       return null;
@@ -405,6 +407,12 @@ function knownErrorState(
         record.message === "agent_sales_document_result_bound")
     ) {
       return "source_bound";
+    }
+    if (
+      record.code === "22023" &&
+      record.message === "agent_sales_document_source_data_invalid"
+    ) {
+      return "source_invalid";
     }
     if (
       record.code === "40001" &&
@@ -549,7 +557,11 @@ export function createSupabaseSalesDocumentReadRepository(
       );
       if (response.error) {
         const state = knownErrorState(response.error, false);
-        if (state === "source_bound" || state === "stale") {
+        if (
+          state === "source_bound" ||
+          state === "source_invalid" ||
+          state === "stale"
+        ) {
           return deepFreeze({ state });
         }
         throw new SalesDocumentReadRepositoryError(

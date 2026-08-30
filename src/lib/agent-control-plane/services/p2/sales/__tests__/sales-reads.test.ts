@@ -294,6 +294,13 @@ describe("P2 sales-document read services", () => {
         "RESULT_TOO_LARGE",
       ],
       [
+        {
+          code: "22023",
+          message: "agent_sales_document_source_data_invalid",
+        },
+        "TEMPORARILY_UNAVAILABLE",
+      ],
+      [
         { code: "40001", message: "agent_sales_document_read_stale" },
         "STALE_CONTEXT",
       ],
@@ -305,6 +312,29 @@ describe("P2 sales-document read services", () => {
         getSalesDocument({ authorization: detailAuthorization, repository })
       ).rejects.toMatchObject({ code });
     }
+  });
+
+  it("maps list source-invalid data to a retryable temporary-unavailable error", async () => {
+    const authorization = await listSalesAuthorization({
+      document_kinds: ["estimate"],
+      limit: 1,
+    });
+    const repository = createSupabaseSalesDocumentReadRepository(
+      new StubRpcClient({
+        data: null,
+        error: {
+          code: "22023",
+          message: "agent_sales_document_source_data_invalid",
+        },
+      })
+    );
+
+    await expect(
+      listSalesDocuments({ authorization, repository, cursors })
+    ).rejects.toMatchObject({
+      code: "TEMPORARILY_UNAVAILABLE",
+      retryable: true,
+    });
   });
 
   it("rejects reconstructed authority and untrusted repositories", async () => {

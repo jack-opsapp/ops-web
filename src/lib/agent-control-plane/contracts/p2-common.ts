@@ -4,6 +4,7 @@ import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json
 
 import { discoveryTextUsesUnicode15 } from "./discovery-unicode15";
 import { ContractSlugSchema, MoneySchema, OpaqueIdSchema } from "./common";
+import { PostgresUuidSchema } from "./postgres-uuid";
 
 export const P2_MAX_PAGE_ITEMS = 25;
 export const P2_FETCH_LIMIT = P2_MAX_PAGE_ITEMS + 1;
@@ -11,17 +12,13 @@ export const P2_MAX_SOURCE_ROWS = 501;
 export const P2_CURSOR_TTL_SECONDS = 15 * 60;
 export const P2_MAX_SERIALIZED_CHARACTERS = 60_000;
 
-const P2_CANONICAL_UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const P2_CANONICAL_TIMESTAMP_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 const P2_FORBIDDEN_CONTROL_OR_BIDI_PATTERN =
   /[\u0000-\u001f\u007f-\u009f\u00ad\u034f\u061c\u180e\u200b\u200e\u200f\u202a-\u202e\u2060-\u206f\ufeff\ufff9-\ufffb\u{e0000}-\u{e007f}]/u;
 const UTF8_ENCODER = new TextEncoder();
 
-export const P2CanonicalUuidSchema = z
-  .string()
-  .regex(P2_CANONICAL_UUID_PATTERN);
+export const P2CanonicalUuidSchema = PostgresUuidSchema;
 
 export const P2CanonicalTimestampSchema = z
   .string()

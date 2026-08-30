@@ -4,6 +4,7 @@ import { z } from "zod-v4";
 
 import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
 import {
+  isCanonicalPostgresUuid,
   P2CanonicalTimestampSchema,
   P2CanonicalUuidSchema,
   P2DomainRevisionVectorSchema,
@@ -83,13 +84,21 @@ const ExactArtifactRevisionsSchema = P2DomainRevisionVectorSchema.refine(
     revisions[1]?.domain === "legacy_operational",
   "ARTIFACT_REVISION_VECTOR_INVALID"
 );
-const CANONICAL_SOURCE_ID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?::(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})?)?$/;
+function isCanonicalArtifactSourceId(value: string): boolean {
+  const parts = value.split(":");
+  return (
+    isCanonicalPostgresUuid(parts[0]) &&
+    (parts.length === 1 ||
+      (parts.length === 2 &&
+        (parts[1] === "" || isCanonicalPostgresUuid(parts[1]))))
+  );
+}
+
 const ArtifactSourceIdSchema = z
   .string()
   .min(36)
   .max(73)
-  .regex(CANONICAL_SOURCE_ID_PATTERN);
+  .refine(isCanonicalArtifactSourceId, "ARTIFACT_SOURCE_ID_NOT_CANONICAL");
 const PredecessorSchema = z
   .object({
     order: z.tuple([
@@ -304,7 +313,8 @@ function exactBinding(
     | z.infer<typeof RawListSnapshotSchema>
     | z.infer<typeof RawExactSnapshotSchema>,
   authorization:
-    AuthorizedListJobArtifactsRead | AuthorizedGetJobArtifactEvidenceRead
+    | AuthorizedListJobArtifactsRead
+    | AuthorizedGetJobArtifactEvidenceRead
 ) {
   return (
     snapshot.company_id === authorization.actorContext.companyId &&
@@ -369,7 +379,8 @@ function knownErrorState(
 
 function commonArguments(
   authorization:
-    AuthorizedListJobArtifactsRead | AuthorizedGetJobArtifactEvidenceRead
+    | AuthorizedListJobArtifactsRead
+    | AuthorizedGetJobArtifactEvidenceRead
 ) {
   return {
     p_request_id: authorization.actorContext.requestId,

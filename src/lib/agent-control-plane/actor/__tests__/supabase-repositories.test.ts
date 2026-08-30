@@ -133,6 +133,33 @@ describe("Supabase actor authority repository", () => {
     ]);
   });
 
+  it("accepts lowercase PostgreSQL UUID actor and company identities", async () => {
+    const postgresActorId = "d1111111-1111-4111-d111-111111111111";
+    const postgresCompanyId = "00000000-0000-0000-0000-000000000001";
+    const rpc = vi.fn(async () => ({
+      data: [
+        {
+          ...AUTHORITY_ROW,
+          actor_user_id: postgresActorId,
+          company_id: postgresCompanyId,
+        },
+      ],
+      error: null,
+    }));
+    const repository = createSupabaseActorAuthorityRepository({ rpc });
+
+    await expect(
+      repository.resolveActorAuthority({
+        actorUserId: postgresActorId,
+        companyId: postgresCompanyId,
+        registeredPermissionKeys: ["projects.view"],
+      })
+    ).resolves.toMatchObject({
+      actorUserId: postgresActorId,
+      companyId: postgresCompanyId,
+    });
+  });
+
   it("rejects an accessor-backed admin field without invoking it", async () => {
     let adminReads = 0;
     const hostileRow = {

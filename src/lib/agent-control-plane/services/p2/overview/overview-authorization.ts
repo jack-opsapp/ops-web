@@ -22,6 +22,7 @@ import {
 } from "@/lib/agent-control-plane/registry/read-capabilities/p2/overview";
 import type { PermissionScope } from "@/lib/types/permissions";
 import { assertP2ReadPolicyBinding } from "../shared/authorize-read";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 
 const AUTHORIZED_OPERATIONAL_OVERVIEW_READS = new WeakSet<object>();
 const UUID_PATTERN =
@@ -73,10 +74,6 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   seen.add(value);
   for (const child of Object.values(value)) deepFreeze(child, seen);
   return Object.freeze(value);
-}
-
-function sortedUnique(values: readonly string[]) {
-  return Object.freeze([...new Set(values)].sort());
 }
 
 function isNominalDenial(error: unknown) {
@@ -238,7 +235,7 @@ export function authorizeOperationalOverviewRead(input: {
     oauthGrantId: auth.oauthGrantId,
     oauthClientId: auth.oauthClientId,
     grantRevision: auth.grantRevision,
-    grantedScopeCeiling: sortedUnique(auth.scopeCeiling),
+    grantedScopeCeiling: canonicalizeAgentMachineStringSet(auth.scopeCeiling),
     query,
     selections,
     authorizedComponents,

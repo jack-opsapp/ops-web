@@ -2,6 +2,7 @@ import "server-only";
 
 import { types as nodeTypes } from "node:util";
 
+import { isCanonicalPostgresUuid } from "@/lib/agent-control-plane/contracts/postgres-uuid";
 import {
   ALL_PERMISSIONS,
   type AppPermission,
@@ -18,10 +19,6 @@ const defineProperty = Object.defineProperty;
 const objectFreeze = Object.freeze;
 const reflectOwnKeys = Reflect.ownKeys;
 const numberIsSafeInteger = Number.isSafeInteger;
-const regexpTest = Function.call.bind(RegExp.prototype.test) as (
-  pattern: RegExp,
-  value: string
-) => boolean;
 const stringTrim = Function.call.bind(String.prototype.trim) as (
   value: string
 ) => string;
@@ -62,8 +59,6 @@ const AUTHORITY_ROW_KEYS = [
   "permission_snapshot_revision",
 ] as const;
 const EFFECTIVE_PERMISSION_ROW_KEYS = ["permission", "scope"] as const;
-const CANONICAL_UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAX_AUTHORITY_ARRAY_ITEMS = 256;
 const MAX_AUTHORITY_REVISION_CHARACTERS = 256;
 const REGISTERED_PERMISSION_KEY_SET = new Set<string>(
@@ -208,25 +203,17 @@ function snapshotExactDenseDataArray(
   }
 }
 
-// Role identifiers are opaque catalog keys, not tenancy claims: the seven
-// global OPS roles are seeded as zero-prefix sentinel UUIDs (version and
-// variant nibbles 0), which the strict RFC-4122 canonical pattern rejects.
-// Requiring hex UUID *shape* keeps injection defense; requiring version
-// nibbles here would (and, until the 2026-08-18 MCP mount E2E, silently did)
-// reject every OPS user's authority row. Actor and company identifiers keep
-// the strict canonical check.
-const ROLE_UUID_SHAPE_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
+// PostgreSQL UUID columns accept every 128-bit value, including the seeded
+// zero-prefix role sentinels and legacy actor/company identifiers whose
+// version or variant nibbles are outside RFC-4122. The shared canonical
+// PostgreSQL shape check keeps lowercase/hyphen/injection defenses without
+// rejecting values the database itself stores and emits.
 function snapshotRoleUuidArray(value: unknown): readonly string[] | null {
   const values = snapshotExactDenseDataArray(value, MAX_AUTHORITY_ARRAY_ITEMS);
   if (!values) return null;
   for (let index = 0; index < values.length; index += 1) {
     const item = values[index];
-    if (
-      typeof item !== "string" ||
-      !regexpTest(ROLE_UUID_SHAPE_PATTERN, item)
-    ) {
+    if (typeof item !== "string" || !isCanonicalPostgresUuid(item)) {
       return null;
     }
   }
@@ -309,9 +296,9 @@ function authoritySnapshotFromRpcData(
   if (
     !values ||
     typeof actorUserId !== "string" ||
-    !regexpTest(CANONICAL_UUID_PATTERN, actorUserId) ||
+    !isCanonicalPostgresUuid(actorUserId) ||
     typeof companyId !== "string" ||
-    !regexpTest(CANONICAL_UUID_PATTERN, companyId) ||
+    !isCanonicalPostgresUuid(companyId) ||
     typeof isActive !== "boolean" ||
     typeof isAdmin !== "boolean" ||
     !roleIds ||

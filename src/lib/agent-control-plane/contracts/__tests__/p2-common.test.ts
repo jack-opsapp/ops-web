@@ -132,10 +132,16 @@ describe("P2 common contracts", () => {
     );
   });
 
-  it("accepts only canonical UUID, UTC time, and Unicode text", () => {
+  it("accepts lowercase PostgreSQL UUIDs, UTC time, and Unicode text", () => {
     expect(
       P2CanonicalUuidSchema.parse("de305d54-75b4-431b-adb2-eb6b9e546014")
     ).toBe("de305d54-75b4-431b-adb2-eb6b9e546014");
+    expect(
+      P2CanonicalUuidSchema.parse("d0000000-0000-4000-d000-00000000000b")
+    ).toBe("d0000000-0000-4000-d000-00000000000b");
+    expect(
+      P2CanonicalUuidSchema.parse("00000000-0000-0000-0000-000000000001")
+    ).toBe("00000000-0000-0000-0000-000000000001");
     expect(
       P2CanonicalUuidSchema.safeParse("DE305D54-75B4-431B-ADB2-EB6B9E546014")
         .success

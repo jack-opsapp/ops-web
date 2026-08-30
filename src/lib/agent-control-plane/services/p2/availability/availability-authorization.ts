@@ -11,6 +11,7 @@ import {
   type TeamAvailabilityAuthorizationVariantKey,
 } from "@/lib/agent-control-plane/registry/read-capabilities/p2/availability";
 import { assertP2ReadPolicyBinding } from "../shared/authorize-read";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 
 const AUTHORIZED_TEAM_AVAILABILITY_READS = new WeakSet<object>();
 const CANONICAL_UUID_PATTERN =
@@ -164,7 +165,7 @@ export function authorizeTeamAvailabilityRead(input: {
       oauthGrantId: auth.oauthGrantId,
       oauthClientId: auth.oauthClientId,
       grantRevision: auth.grantRevision,
-      grantedScopeCeiling: sortedUnique(auth.scopeCeiling),
+      grantedScopeCeiling: canonicalizeAgentMachineStringSet(auth.scopeCeiling),
       availabilityScope: query.view,
       calendarScope,
       teamScope: query.view === "company" ? ("all" as const) : null,

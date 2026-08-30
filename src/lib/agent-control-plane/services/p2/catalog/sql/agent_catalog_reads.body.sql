@@ -1426,7 +1426,9 @@ begin
      or p_include_supplier_costs and
           not ('ops.catalog_costs.read' = any(p_granted_scope_ceiling))
      or p_granted_scope_ceiling is distinct from (
-       select pg_catalog.array_agg(scope.value order by scope.value)
+       select pg_catalog.array_agg(
+         scope.value order by scope.value collate "C"
+       )
        from (
          select distinct source.value
          from pg_catalog.unnest(p_granted_scope_ceiling) source(value)

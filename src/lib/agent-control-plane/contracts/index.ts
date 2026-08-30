@@ -8,5 +8,6 @@ export * from "./jobs";
 export * from "./job-catalog";
 export * from "./p2-common";
 export * from "./p2-proof";
+export * from "./postgres-uuid";
 export * from "./schedule";
 export * from "./version";

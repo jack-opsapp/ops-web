@@ -21,6 +21,7 @@ import {
 } from "@/lib/agent-control-plane/registry/read-capabilities/p2/expenses";
 import type { PermissionScope } from "@/lib/types/permissions";
 import { assertP2ReadPolicyBinding } from "../shared/authorize-read";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 
 const AUTHORIZED_LIST_EXPENSE_READS = new WeakSet<object>();
 const AUTHORIZED_EXPENSE_CONTEXT_READS = new WeakSet<object>();
@@ -238,7 +239,7 @@ function bindCandidate(input: {
     oauthGrantId: auth.oauthGrantId,
     oauthClientId: auth.oauthClientId,
     grantRevision: auth.grantRevision,
-    grantedScopeCeiling: sortedUnique(auth.scopeCeiling),
+    grantedScopeCeiling: canonicalizeAgentMachineStringSet(auth.scopeCeiling),
     authorizationCandidate,
   } as const;
 }

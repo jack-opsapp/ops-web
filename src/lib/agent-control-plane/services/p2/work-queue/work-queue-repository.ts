@@ -33,6 +33,7 @@ import {
 } from "./work-queue-proof";
 import { deepFreezeWorkQueue } from "./work-queue-budget";
 import { canonicalizeP2DomainRevisions } from "../shared/domain-revisions";
+import { canonicalOperationalProjection } from "@/lib/agent-control-plane/services/operational-read-projection";
 
 const RPC = "read_agent_work_queue_as_system" as const;
 const TRUSTED = new WeakSet<object>();
@@ -203,6 +204,16 @@ export class WorkQueueRepositoryError extends Error {
 }
 function same(a: unknown, b: unknown) {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+function sameJson(a: unknown, b: unknown) {
+  try {
+    return (
+      canonicalOperationalProjection(a as never) ===
+      canonicalOperationalProjection(b as never)
+    );
+  } catch {
+    return false;
+  }
 }
 const SOURCE_REVISION_DOMAINS: Readonly<
   Record<WorkQueueCard["source"], readonly string[]>
@@ -429,7 +440,7 @@ export function createWorkQueueRepository(
             authorization.grantedScopeCeiling
           ) ||
           !same(snapshot.selections, authorization.selections) ||
-          !same(snapshot.authorized_sources, authorizations) ||
+          !sameJson(snapshot.authorized_sources, authorizations) ||
           !same(snapshot.warnings, authorization.warnings) ||
           !same(
             snapshot.source_slices.map(({ source }) => source),

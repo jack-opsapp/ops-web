@@ -503,6 +503,25 @@ describe("P2 sales-document repository", () => {
     }
   });
 
+  it("classifies the exact detail source-data error without collapsing it into a repository failure", async () => {
+    const authorization = await getSalesAuthorization();
+    const repository = createSupabaseSalesDocumentReadRepository(
+      new StubRpcClient([
+        {
+          data: null,
+          error: {
+            code: "22023",
+            message: "agent_sales_document_source_data_invalid",
+          },
+        },
+      ])
+    );
+
+    await expect(repository.get({ authorization })).resolves.toEqual({
+      state: "source_invalid",
+    });
+  });
+
   it("maps only exact privacy-safe terminal errors and rejects borrowed authorization or abortion", async () => {
     const listAuthorization = await listSalesAuthorization({
       document_kinds: ["estimate"],
@@ -512,6 +531,13 @@ describe("P2 sales-document repository", () => {
       [
         { code: "54000", message: "agent_sales_document_source_bound" },
         "source_bound",
+      ],
+      [
+        {
+          code: "22023",
+          message: "agent_sales_document_source_data_invalid",
+        },
+        "source_invalid",
       ],
       [{ code: "40001", message: "agent_sales_document_read_stale" }, "stale"],
     ] as const) {

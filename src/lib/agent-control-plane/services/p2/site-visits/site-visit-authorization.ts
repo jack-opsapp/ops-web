@@ -17,6 +17,7 @@ import {
 } from "@/lib/agent-control-plane/registry/read-capabilities/p2/site-visits";
 import type { PermissionScope } from "@/lib/types/permissions";
 import { assertP2ReadPolicyBinding } from "../shared/authorize-read";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 
 const AUTHORIZED_LIST_SITE_VISITS_READS = new WeakSet<object>();
 const AUTHORIZED_SITE_VISIT_CONTEXT_READS = new WeakSet<object>();
@@ -141,10 +142,12 @@ function assertMcpActor(actorContext: ActorContext) {
 
 function bindVariants(input: {
   readonly candidate:
-    typeof LIST_SITE_VISITS_CANDIDATE | typeof GET_SITE_VISIT_CONTEXT_CANDIDATE;
+    | typeof LIST_SITE_VISITS_CANDIDATE
+    | typeof GET_SITE_VISIT_CONTEXT_CANDIDATE;
   readonly capabilityId: "get_site_visit_context" | "list_site_visits";
   readonly capabilityRevision:
-    "get_site_visit_context:2026-08-22.v1" | "list_site_visits:2026-08-22.v1";
+    | "get_site_visit_context:2026-08-22.v1"
+    | "list_site_visits:2026-08-22.v1";
   readonly variantKeys: readonly string[];
   readonly authorizations: unknown;
 }) {
@@ -284,7 +287,7 @@ function bindVariants(input: {
     oauthGrantId: auth.oauthGrantId,
     oauthClientId: auth.oauthClientId,
     grantRevision: auth.grantRevision,
-    grantedScopeCeiling: sortedUnique(auth.scopeCeiling),
+    grantedScopeCeiling: canonicalizeAgentMachineStringSet(auth.scopeCeiling),
   } as const;
 }
 

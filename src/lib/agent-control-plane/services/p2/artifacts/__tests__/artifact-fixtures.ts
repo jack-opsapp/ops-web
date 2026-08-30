@@ -44,6 +44,8 @@ export const ARTIFACT_SOURCE_REVISIONS = Object.freeze([
 ] as const);
 
 const OAUTH_SCOPES = [
+  "ops.catalog_costs.read",
+  "ops.catalog.read",
   "ops.correspondence.read",
   "ops.customers.read",
   "ops.expenses.read",

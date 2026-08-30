@@ -17,6 +17,7 @@ import {
 } from "@/lib/agent-control-plane/registry/read-capabilities/p2/tasks";
 import type { PermissionScope } from "@/lib/types/permissions";
 import { assertP2ReadPolicyBinding } from "../shared/authorize-read";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 
 const AUTHORIZED_LIST_TASKS_READS = new WeakSet<object>();
 const AUTHORIZED_TASK_CONTEXT_READS = new WeakSet<object>();
@@ -154,10 +155,12 @@ function assertMcpActor(actorContext: ActorContext) {
 
 function bindVariants(input: {
   readonly candidate:
-    typeof LIST_TASKS_CANDIDATE | typeof GET_TASK_CONTEXT_CANDIDATE;
+    | typeof LIST_TASKS_CANDIDATE
+    | typeof GET_TASK_CONTEXT_CANDIDATE;
   readonly capabilityId: "get_task_context" | "list_tasks";
   readonly capabilityRevision:
-    "get_task_context:2026-08-22.v1" | "list_tasks:2026-08-22.v1";
+    | "get_task_context:2026-08-22.v1"
+    | "list_tasks:2026-08-22.v1";
   readonly variantKeys: readonly string[];
   readonly authorizations: unknown;
 }) {
@@ -246,7 +249,7 @@ function bindVariants(input: {
     oauthGrantId: auth.oauthGrantId,
     oauthClientId: auth.oauthClientId,
     grantRevision: auth.grantRevision,
-    grantedScopeCeiling: sortedUnique(auth.scopeCeiling),
+    grantedScopeCeiling: canonicalizeAgentMachineStringSet(auth.scopeCeiling),
   } as const;
 }
 

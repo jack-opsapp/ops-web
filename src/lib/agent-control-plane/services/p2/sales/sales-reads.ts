@@ -113,8 +113,16 @@ function exactStateRecord(
 function parseListRepositoryResult(
   raw: unknown
 ): SalesDocumentListRepositoryResult {
-  const record = exactStateRecord(raw, ["source_bound", "stale"]);
-  if (record.state === "source_bound" || record.state === "stale") {
+  const record = exactStateRecord(raw, [
+    "source_bound",
+    "source_invalid",
+    "stale",
+  ]);
+  if (
+    record.state === "source_bound" ||
+    record.state === "source_invalid" ||
+    record.state === "stale"
+  ) {
     return deepFreeze({ state: record.state });
   }
   if (
@@ -132,10 +140,16 @@ function parseListRepositoryResult(
 function parseDetailRepositoryResult(
   raw: unknown
 ): SalesDocumentDetailRepositoryResult {
-  const record = exactStateRecord(raw, ["not_found", "source_bound", "stale"]);
+  const record = exactStateRecord(raw, [
+    "not_found",
+    "source_bound",
+    "source_invalid",
+    "stale",
+  ]);
   if (
     record.state === "not_found" ||
     record.state === "source_bound" ||
+    record.state === "source_invalid" ||
     record.state === "stale"
   ) {
     return deepFreeze({ state: record.state });
@@ -298,6 +312,9 @@ export async function listSalesDocuments(input: {
   if (result.state === "source_bound") {
     throw readError("RESULT_TOO_LARGE", authorization);
   }
+  if (result.state === "source_invalid") {
+    throw readError("TEMPORARILY_UNAVAILABLE", authorization);
+  }
   if (result.state === "stale") {
     throw readError("STALE_CONTEXT", authorization);
   }
@@ -353,6 +370,9 @@ export async function getSalesDocument(input: {
   if (result.state === "not_found") throw readError("NOT_FOUND", authorization);
   if (result.state === "source_bound") {
     throw readError("RESULT_TOO_LARGE", authorization);
+  }
+  if (result.state === "source_invalid") {
+    throw readError("TEMPORARILY_UNAVAILABLE", authorization);
   }
   if (result.state === "stale") {
     throw readError("STALE_CONTEXT", authorization);

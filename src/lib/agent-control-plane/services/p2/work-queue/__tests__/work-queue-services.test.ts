@@ -151,6 +151,71 @@ function snapshotFor(input: {
 }
 
 describe("work queue repository and service", () => {
+  it("accepts JSONB object key reordering but rejects authority drift", async () => {
+    const auth = await authorization();
+    const base = snapshotFor({
+      authorization: auth,
+      items: [],
+      revisions: REVISIONS,
+      slices: [
+        {
+          source: "task",
+          source_inspected: 0,
+          bounded_count: 0,
+          truncated: false,
+        },
+      ],
+      hasMore: false,
+      cursor: null,
+    });
+    const scopes = base.authorized_sources[0]!.resolved_permission_scopes;
+    const reversedScopes = Object.fromEntries(
+      Object.entries(scopes).reverse()
+    ) as typeof scopes;
+    const rpc = vi.fn(() =>
+      Promise.resolve({
+        data: {
+          ...base,
+          authorized_sources: [
+            {
+              ...base.authorized_sources[0]!,
+              resolved_permission_scopes: reversedScopes,
+            },
+          ],
+        },
+        error: null,
+      })
+    );
+    const repository = createWorkQueueRepository({ rpc } as never);
+
+    await expect(
+      repository.list({ authorization: auth, cursor: null })
+    ).resolves.toMatchObject({ state: "found", units: [] });
+
+    for (const driftedScopes of [
+      { ...scopes, [Object.keys(scopes)[0]!]: "own" },
+      Object.fromEntries(Object.entries(scopes).slice(1)),
+    ] as (typeof scopes)[]) {
+      rpc.mockImplementationOnce(() =>
+        Promise.resolve({
+          data: {
+            ...base,
+            authorized_sources: [
+              {
+                ...base.authorized_sources[0]!,
+                resolved_permission_scopes: driftedScopes,
+              },
+            ],
+          },
+          error: null,
+        })
+      );
+      await expect(
+        repository.list({ authorization: auth, cursor: null })
+      ).rejects.toThrow("WORK_QUEUE_READ_FAILED");
+    }
+  });
+
   it("uses one RPC and preserves atomic item/proof/evidence coupling", async () => {
     const auth = await authorization();
     const item = {

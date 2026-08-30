@@ -18,6 +18,7 @@ import {
   isAuthorizedGetJobArtifactEvidenceRead,
   type AuthorizedGetJobArtifactEvidenceRead,
 } from "@/lib/agent-control-plane/services/p2/artifacts/artifact-authorization";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 import type { PermissionScope } from "@/lib/types/permissions";
 import { auditInputDigest, recordMcpAudit } from "./audit";
 import type { McpGrantFacts } from "./bearer";
@@ -184,9 +185,7 @@ export class EvidenceRedemptionUnavailableError extends Error {
 }
 
 function sortedUnique(values: readonly string[]): readonly string[] {
-  return Object.freeze(
-    [...new Set(values)].sort((left, right) => left.localeCompare(right))
-  );
+  return canonicalizeAgentMachineStringSet(values);
 }
 
 function sameStrings(left: readonly string[], right: readonly string[]) {

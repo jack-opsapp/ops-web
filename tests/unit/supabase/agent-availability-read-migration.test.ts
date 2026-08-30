@@ -21,13 +21,31 @@ const BODY = readFileSync(
 const SQL = MIGRATION.toLowerCase();
 const COMPACT = SQL.replace(/\s+/g, " ").trim();
 
+function replaceExactly(
+  value: string,
+  oldFragment: string,
+  newFragment: string,
+  expectedCount: number
+) {
+  expect(value.split(oldFragment).length - 1).toBe(expectedCount);
+  return value.split(oldFragment).join(newFragment);
+}
+
 describe("P2 team-availability read migration", () => {
-  it("uses one generated, byte-identical, transactional migration", () => {
+  it("keeps the generated reservation immutable and derives the current body exactly", () => {
     expect(migrationNames).toHaveLength(1);
     expect(migrationNames[0]).toMatch(
       /^\d{14}_agent_team_availability_read\.sql$/
     );
-    expect(MIGRATION).toBe(BODY);
+    expect(MIGRATION).not.toBe(BODY);
+    expect(
+      replaceExactly(
+        MIGRATION,
+        "    select pg_catalog.array_agg(scope.value order by scope.value)",
+        '    select pg_catalog.array_agg(\n      scope.value order by scope.value collate "C"\n    )',
+        1
+      )
+    ).toBe(BODY);
     expect(SQL).toMatch(/(?:^|\n)begin;\s/);
     expect(SQL.trim().endsWith("commit;")).toBe(true);
     expect(SQL).toContain("do $prerequisites$");

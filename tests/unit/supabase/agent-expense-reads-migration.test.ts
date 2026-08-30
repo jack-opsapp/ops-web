@@ -34,6 +34,31 @@ function compact(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function replaceExactly(
+  value: string,
+  oldFragment: string,
+  newFragment: string,
+  expectedCount: number
+) {
+  expect(value.split(oldFragment).length - 1).toBe(expectedCount);
+  return value.split(oldFragment).join(newFragment);
+}
+
+function currentBodyFromReservation(value: string) {
+  const ceilingOrdered = replaceExactly(
+    value,
+    "       select pg_catalog.array_agg(scope.value order by scope.value)",
+    '       select pg_catalog.array_agg(\n         scope.value order by scope.value collate "C"\n       )',
+    1
+  );
+  return replaceExactly(
+    ceilingOrdered,
+    "           pg_catalog.array_agg(scope.value order by scope.value),",
+    '           pg_catalog.array_agg(\n             scope.value order by scope.value collate "C"\n           ),',
+    1
+  );
+}
+
 function definition(sql: string, name: string) {
   const marker = `create or replace function ${name}(`;
   const start = sql.lastIndexOf(marker);
@@ -67,10 +92,11 @@ const RESERVED = readdirSync(join(process.cwd(), "supabase/migrations")).filter(
 );
 
 describe("P2 expense read SQL", () => {
-  it("uses one generated reservation byte-identical to its guarded body", () => {
+  it("keeps its generated reservation immutable and derives the current body exactly", () => {
     expect(RESERVED).toEqual([MIGRATION_NAME]);
     expect(BODY_EXACT).not.toBe("");
-    expect(MIGRATION_EXACT).toBe(BODY_EXACT);
+    expect(MIGRATION_EXACT).not.toBe(BODY_EXACT);
+    expect(currentBodyFromReservation(MIGRATION_EXACT)).toBe(BODY_EXACT);
     expect(SQL).toMatch(/(?:^|\n)begin;\s/);
     expect(SQL.trim().endsWith("commit;")).toBe(true);
     expect(SQL).toContain("task 16 canonical expense read body");

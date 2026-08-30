@@ -283,6 +283,17 @@ function snapshot(overrides: Readonly<Record<string, unknown>> = {}) {
   };
 }
 
+function replaceSnapshotIds<T>(
+  value: T,
+  replacements: readonly (readonly [string, string])[]
+): T {
+  let serialized = JSON.stringify(value);
+  for (const [current, replacement] of replacements) {
+    serialized = serialized.replaceAll(current, replacement);
+  }
+  return JSON.parse(serialized) as T;
+}
+
 class StubContextRpcClient {
   readonly calls: {
     functionName: string;
@@ -301,6 +312,54 @@ class StubContextRpcClient {
 }
 
 describe("getJobConversationContext", () => {
+  it("accepts non-RFC PostgreSQL UUIDs in conversation and prefixed evidence identities", async () => {
+    const postgresConversationId = "d4000000-0000-4000-d400-000000000004";
+    const postgresTurnId = "d6000000-0000-4000-d600-000000000006";
+    const postgresCustomerId = "d9000000-0000-4000-d900-000000000009";
+    const raw = replaceSnapshotIds(snapshot(), [
+      [CONVERSATION_ID, postgresConversationId],
+      [TURN_ONE, postgresTurnId],
+      [CLIENT_ID, postgresCustomerId],
+    ]);
+    const authorization = await authorizedRead();
+    const repository = createSupabaseJobConversationContextRepository(
+      new StubContextRpcClient(raw)
+    );
+
+    await expect(repository.read({ authorization })).resolves.toMatchObject({
+      conversation_id: postgresConversationId,
+      active_evidence: [
+        {
+          evidence_id: `job_conversation_turn:${postgresTurnId}`,
+          source_id: postgresTurnId,
+        },
+      ],
+      cross_job_seed: {
+        evidence: {
+          evidence_id: `customer_job_history:${postgresCustomerId}`,
+          source_id: postgresCustomerId,
+        },
+      },
+    });
+  });
+
+  it.each([
+    "D4000000-0000-4000-D400-000000000004",
+    "d4000000-0000-4000-d400-00000000000z",
+  ])(
+    "rejects the noncanonical conversation UUID %s",
+    async (conversationId) => {
+      const authorization = await authorizedRead();
+      const repository = createSupabaseJobConversationContextRepository(
+        new StubContextRpcClient(snapshot({ conversation_id: conversationId }))
+      );
+
+      await expect(repository.read({ authorization })).rejects.toMatchObject({
+        code: "JOB_CONVERSATION_CONTEXT_INVALID",
+      });
+    }
+  );
+
   it("binds Phase C reads to the exact routed source proof and active context RPC", async () => {
     const authorization = await authorizedPhaseCRead();
     const client = new StubContextRpcClient(

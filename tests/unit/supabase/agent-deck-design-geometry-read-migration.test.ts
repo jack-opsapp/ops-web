@@ -34,6 +34,16 @@ function compact(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function replaceExactly(
+  value: string,
+  oldFragment: string,
+  newFragment: string,
+  expectedCount: number
+) {
+  expect(value.split(oldFragment).length - 1).toBe(expectedCount);
+  return value.split(oldFragment).join(newFragment);
+}
+
 function definition(sql: string, name: string) {
   const marker = `create or replace function ${name}(`;
   const start = sql.lastIndexOf(marker);
@@ -65,10 +75,18 @@ const RESERVED_MIGRATIONS = readdirSync(
 ).filter((name) => name.endsWith("_agent_deck_design_geometry_read.sql"));
 
 describe("P2 deck-design geometry read SQL body", () => {
-  it("is the single CLI-generated reservation and byte-matches its guarded sidecar", () => {
+  it("keeps the CLI-generated reservation immutable and derives the current body exactly", () => {
     expect(RESERVED_MIGRATIONS).toEqual([MIGRATION_NAME]);
     expect(BODY_EXACT).not.toBe("");
-    expect(MIGRATION_EXACT).toBe(BODY_EXACT);
+    expect(MIGRATION_EXACT).not.toBe(BODY_EXACT);
+    expect(
+      replaceExactly(
+        MIGRATION_EXACT,
+        "       select pg_catalog.array_agg(scope.value order by scope.value)",
+        '       select pg_catalog.array_agg(\n         scope.value order by scope.value collate "C"\n       )',
+        1
+      )
+    ).toBe(BODY_EXACT);
     expect(SQL).toMatch(/(?:^|\n)begin;\s/);
     expect(SQL.trim().endsWith("commit;")).toBe(true);
     expect(SQL).toContain("task 13 canonical deck-design geometry read body");

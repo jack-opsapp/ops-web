@@ -67,8 +67,8 @@ security invoker
 set search_path = ''
 as $function$
 begin
-  if p_value !~*
-    '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
+  if p_value !~
+    '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
     return null;
   end if;
   return pg_catalog.lower(p_value)::uuid;

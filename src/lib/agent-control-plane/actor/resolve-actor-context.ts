@@ -2,6 +2,9 @@ import "server-only";
 
 import { types as nodeTypes } from "node:util";
 
+import { isCanonicalPostgresUuid } from "@/lib/agent-control-plane/contracts/postgres-uuid";
+import type { AppPermission, PermissionScope } from "@/lib/types/permissions";
+
 import type {
   ActorAuthorityRepository,
   ActorAuthoritySnapshot,
@@ -25,7 +28,6 @@ import {
   type PhaseCRouteProof,
   type VerifiedActorPrincipal,
 } from "./principal-boundary";
-import type { AppPermission, PermissionScope } from "@/lib/types/permissions";
 import {
   snapshotExactOwnEnumerableData,
   snapshotHasExactlyKeys,
@@ -51,10 +53,6 @@ const objectHasOwn = Object.hasOwn;
 const reflectApply = Reflect.apply;
 const reflectOwnKeys = Reflect.ownKeys;
 const numberIsSafeInteger = Number.isSafeInteger;
-const regexpTest = Function.call.bind(RegExp.prototype.test) as (
-  pattern: RegExp,
-  value: string
-) => boolean;
 const stringTrim = Function.call.bind(String.prototype.trim) as (
   value: string
 ) => string;
@@ -266,8 +264,6 @@ const VALID_PERMISSION_SCOPES = new Set<PermissionScope>([
 const REGISTERED_PERMISSION_KEY_SET = new Set<string>(
   REGISTERED_ACTOR_PERMISSION_KEYS
 );
-const CANONICAL_UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const EFFECTIVE_PERMISSION_ROW_KEYS = ["permission", "scope"] as const;
 declare const RESOLVED_ACTOR_CONTEXT: unique symbol;
 const RESOLVED_ACTOR_CONTEXTS = new WeakSet<object>();
@@ -510,9 +506,9 @@ function normalizeAuthority(snapshot: ActorAuthoritySnapshot): {
     snapshot.isActive !== true ||
     typeof snapshot.isAdmin !== "boolean" ||
     typeof snapshot.actorUserId !== "string" ||
-    !regexpTest(CANONICAL_UUID_PATTERN, snapshot.actorUserId) ||
+    !isCanonicalPostgresUuid(snapshot.actorUserId) ||
     typeof snapshot.companyId !== "string" ||
-    !regexpTest(CANONICAL_UUID_PATTERN, snapshot.companyId) ||
+    !isCanonicalPostgresUuid(snapshot.companyId) ||
     !nonBlank(snapshot.permissionSnapshotRevision) ||
     !roleIdValues ||
     !configuredPermissionValues ||
@@ -721,10 +717,7 @@ function snapshotPhaseCRoute(
   for (let index = 0; index < uuidKeys.length; index += 1) {
     const key = uuidKeys[index];
     const value = route[key];
-    if (
-      typeof value !== "string" ||
-      !regexpTest(CANONICAL_UUID_PATTERN, value)
-    ) {
+    if (typeof value !== "string" || !isCanonicalPostgresUuid(value)) {
       return null;
     }
   }

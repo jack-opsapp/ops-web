@@ -1,5 +1,6 @@
 import "server-only";
 
+import { canonicalizeAgentMachineStringSet } from "../canonical-order";
 import { REGISTERED_ACTOR_PERMISSION_KEYS } from "./authority-repository";
 import type { AppPermission, PermissionScope } from "@/lib/types/permissions";
 
@@ -90,8 +91,8 @@ export function defineCapabilityPolicyForManifest(
   if (new Set(normalizedOAuthScopes).size !== normalizedOAuthScopes.length) {
     throw new TypeError("requiredOAuthScope is duplicated");
   }
-  const requiredOAuthScopes = Object.freeze(
-    normalizedOAuthScopes.sort((left, right) => left.localeCompare(right))
+  const requiredOAuthScopes = canonicalizeAgentMachineStringSet(
+    normalizedOAuthScopes
   );
 
   if (

@@ -102,6 +102,146 @@ const JOB_DISCOVERY_CLAIMS = {
   job_id: "55555555-5555-4555-8555-555555555555",
 } as const;
 
+const POSTGRES_ACTOR_ID = "d1000000-0000-4000-d100-000000000001";
+const POSTGRES_COMPANY_ID = "d2000000-0000-4000-d200-000000000002";
+const POSTGRES_ENTITY_ID = "d3000000-0000-4000-d300-000000000003";
+
+const POSTGRES_CURSOR_CASES = [
+  {
+    name: "scheduled jobs",
+    claims: {
+      capability_id: "list_scheduled_jobs",
+      schema_revision: "2026-08-07.v1",
+      capability_manifest_revision: "2026-08-12.capability-manifest.v4",
+      rule_revisions: [],
+      actor_user_id: POSTGRES_ACTOR_ID,
+      company_id: POSTGRES_COMPANY_ID,
+      permission_snapshot_revision: EXPECTED.permissionSnapshotRevision,
+      query_hash: `sha256:${"1".repeat(64)}`,
+      source_revision: 41,
+      read_as_of: "2026-08-12T17:59:59.000Z",
+      start_utc: "2026-08-19T16:00:00.000Z",
+      task_id: POSTGRES_ENTITY_ID,
+    },
+    expected: {
+      capabilityId: "list_scheduled_jobs",
+      schemaRevision: "2026-08-07.v1",
+      capabilityManifestRevision: "2026-08-12.capability-manifest.v4",
+      ruleRevisions: [],
+      actorUserId: POSTGRES_ACTOR_ID,
+      companyId: POSTGRES_COMPANY_ID,
+      permissionSnapshotRevision: EXPECTED.permissionSnapshotRevision,
+      queryHash: `sha256:${"1".repeat(64)}`,
+    },
+    invalidIdentity: { task_id: POSTGRES_ENTITY_ID.toUpperCase() },
+  },
+  {
+    name: "job readiness",
+    claims: {
+      ...CLAIMS,
+      actor_user_id: POSTGRES_ACTOR_ID,
+      company_id: POSTGRES_COMPANY_ID,
+      project_id: POSTGRES_ENTITY_ID,
+    },
+    expected: {
+      ...EXPECTED,
+      actorUserId: POSTGRES_ACTOR_ID,
+      companyId: POSTGRES_COMPANY_ID,
+    },
+    invalidIdentity: { project_id: `${POSTGRES_ENTITY_ID}x` },
+  },
+  {
+    name: "customer jobs",
+    claims: {
+      capability_id: "list_customer_jobs",
+      schema_revision: "2026-08-14.v1",
+      capability_manifest_revision: "2026-08-20.capability-manifest.v7",
+      rule_revisions: [],
+      actor_user_id: POSTGRES_ACTOR_ID,
+      company_id: POSTGRES_COMPANY_ID,
+      permission_snapshot_revision: EXPECTED.permissionSnapshotRevision,
+      query_hash: `sha256:${"2".repeat(64)}`,
+      source_revision: 42,
+      read_as_of: "2026-08-12T17:59:59.000Z",
+      sort_at: "2026-08-11T16:00:00.000Z",
+      job_kind: "project",
+      job_id: POSTGRES_ENTITY_ID,
+    },
+    expected: {
+      capabilityId: "list_customer_jobs",
+      schemaRevision: "2026-08-14.v1",
+      capabilityManifestRevision: "2026-08-20.capability-manifest.v7",
+      ruleRevisions: [],
+      actorUserId: POSTGRES_ACTOR_ID,
+      companyId: POSTGRES_COMPANY_ID,
+      permissionSnapshotRevision: EXPECTED.permissionSnapshotRevision,
+      queryHash: `sha256:${"2".repeat(64)}`,
+    },
+    invalidIdentity: { job_id: POSTGRES_ENTITY_ID.toUpperCase() },
+  },
+  {
+    name: "job history",
+    claims: {
+      capability_id: "search_job_history",
+      schema_revision: "2026-08-14.v1",
+      capability_manifest_revision: "2026-08-20.capability-manifest.v7",
+      rule_revisions: [],
+      actor_user_id: POSTGRES_ACTOR_ID,
+      company_id: POSTGRES_COMPANY_ID,
+      permission_snapshot_revision: EXPECTED.permissionSnapshotRevision,
+      query_hash: `sha256:${"3".repeat(64)}`,
+      source_revision: 43,
+      read_as_of: "2026-08-12T17:59:59.000Z",
+      history_revision: 9,
+      rank_micros: 900_000,
+      occurred_at: "2026-08-10T16:00:00.000Z",
+      source_type: "delivered_correspondence",
+      source_id: "job-history-match:1",
+    },
+    expected: {
+      capabilityId: "search_job_history",
+      schemaRevision: "2026-08-14.v1",
+      capabilityManifestRevision: "2026-08-20.capability-manifest.v7",
+      ruleRevisions: [],
+      actorUserId: POSTGRES_ACTOR_ID,
+      companyId: POSTGRES_COMPANY_ID,
+      permissionSnapshotRevision: EXPECTED.permissionSnapshotRevision,
+      queryHash: `sha256:${"3".repeat(64)}`,
+    },
+    invalidIdentity: { company_id: `${POSTGRES_COMPANY_ID}x` },
+  },
+  {
+    name: "customer discovery",
+    claims: {
+      ...CUSTOMER_DISCOVERY_CLAIMS,
+      actor_user_id: POSTGRES_ACTOR_ID,
+      company_id: POSTGRES_COMPANY_ID,
+      customer_id: POSTGRES_ENTITY_ID,
+    },
+    expected: {
+      ...CUSTOMER_DISCOVERY_EXPECTED,
+      actorUserId: POSTGRES_ACTOR_ID,
+      companyId: POSTGRES_COMPANY_ID,
+    },
+    invalidIdentity: { customer_id: POSTGRES_ENTITY_ID.toUpperCase() },
+  },
+  {
+    name: "job discovery",
+    claims: {
+      ...JOB_DISCOVERY_CLAIMS,
+      actor_user_id: POSTGRES_ACTOR_ID,
+      company_id: POSTGRES_COMPANY_ID,
+      job_id: POSTGRES_ENTITY_ID,
+    },
+    expected: {
+      ...JOB_DISCOVERY_EXPECTED,
+      actorUserId: POSTGRES_ACTOR_ID,
+      companyId: POSTGRES_COMPANY_ID,
+    },
+    invalidIdentity: { job_id: `${POSTGRES_ENTITY_ID}x` },
+  },
+] as const;
+
 function codec(key = KEY, version = 1) {
   return createOperationalReadCursorCodec({
     key,
@@ -132,6 +272,27 @@ function mutateSignedPayload(
 }
 
 describe("operational read cursor", () => {
+  it.each(POSTGRES_CURSOR_CASES)(
+    "round-trips PostgreSQL UUIDs in the $name cursor family",
+    ({ claims, expected }) => {
+      const cursorCodec = codec();
+      const cursor = cursorCodec.encode(claims as never);
+
+      expect(
+        cursorCodec.decode({ cursor, expected: expected as never })
+      ).toMatchObject(claims);
+    }
+  );
+
+  it.each(POSTGRES_CURSOR_CASES)(
+    "rejects noncanonical database UUIDs in the $name cursor family",
+    ({ claims, invalidIdentity }) => {
+      expect(() =>
+        codec().encode({ ...claims, ...invalidIdentity } as never)
+      ).toThrow(OperationalReadCursorError);
+    }
+  );
+
   it("round-trips all trusted bindings in a prompt-contract-safe token", () => {
     const cursorCodec = codec();
     const cursor = cursorCodec.encode(CLAIMS);
@@ -240,6 +401,19 @@ describe("operational read cursor", () => {
       k: "project",
       x: JOB_DISCOVERY_CLAIMS.job_id,
     });
+  });
+
+  it("round-trips a canonical PostgreSQL job UUID", () => {
+    const cursorCodec = codec();
+    const postgresUuid = "d2000000-0000-4000-d200-000000000004";
+    const cursor = cursorCodec.encode({
+      ...JOB_DISCOVERY_CLAIMS,
+      job_id: postgresUuid,
+    });
+
+    expect(
+      cursorCodec.decode({ cursor, expected: JOB_DISCOVERY_EXPECTED })
+    ).toMatchObject({ job_id: postgresUuid });
   });
 
   it("rejects noncanonical discovery UUIDs before signing", () => {

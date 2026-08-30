@@ -9,6 +9,7 @@ import {
   EvidenceRefSchema,
   NormalizedJobLifecycleStateSchema,
   OpportunityStageSchema,
+  P2CanonicalUuidSchema,
   ProjectStatusSchema,
   SourceVersionSchema,
 } from "@/lib/agent-control-plane/contracts";
@@ -43,10 +44,7 @@ import {
 } from "./discovery-match-rules";
 
 const RPC_NAME = "read_agent_job_discovery_as_system" as const;
-const UUID_SCHEMA = z
-  .string()
-  .uuid()
-  .refine((value) => value === value.toLowerCase());
+const UUID_SCHEMA = P2CanonicalUuidSchema;
 const SHA256_SCHEMA = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const UTC_SCHEMA = DiscoveryMillisecondUtcTimestampSchema;
 const SOURCE_FENCE_SCHEMA = SourceVersionSchema.refine(

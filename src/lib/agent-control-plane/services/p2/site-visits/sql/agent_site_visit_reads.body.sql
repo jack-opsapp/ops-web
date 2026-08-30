@@ -51,7 +51,7 @@ security invoker
 set search_path = ''
 as $function$
   select case
-    when p_value ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    when p_value ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
       then p_value::uuid
   end;
 $function$;
@@ -420,7 +420,7 @@ begin
   end if;
 
   if p_granted_scope_ceiling is distinct from (
-       select pg_catalog.array_agg(scope.value order by scope.value)
+       select pg_catalog.array_agg(scope.value order by scope.value collate "C")
        from (
          select distinct value
          from pg_catalog.unnest(p_granted_scope_ceiling) value
@@ -1401,7 +1401,7 @@ begin
   end if;
 
   if p_granted_scope_ceiling is distinct from (
-       select pg_catalog.array_agg(scope.value order by scope.value)
+       select pg_catalog.array_agg(scope.value order by scope.value collate "C")
        from (
          select distinct value
          from pg_catalog.unnest(p_granted_scope_ceiling) value

@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod-v4";
 
+import { PostgresUuidSchema } from "@/lib/agent-control-plane/contracts/postgres-uuid";
 import type { McpOAuthRpcClient } from "./oauth";
 
 export const DURABLE_MCP_RATE_LIMIT_POLICIES = Object.freeze({
@@ -41,13 +42,13 @@ export class DurableMcpRateLimitUnavailableError extends Error {
   }
 }
 
-const CanonicalUuidSchema = z.uuid();
+const OAuthUuidSchema = z.uuid();
 const InputSchema = z
   .object({
     requestId: z.string().trim().min(1).max(128),
-    grantId: CanonicalUuidSchema,
-    actorUserId: CanonicalUuidSchema,
-    companyId: CanonicalUuidSchema,
+    grantId: OAuthUuidSchema,
+    actorUserId: PostgresUuidSchema,
+    companyId: PostgresUuidSchema,
     capabilityId: z.string().regex(/^[a-z][a-z0-9_]{0,127}$/),
     protocolEra: z.enum(["legacy", "modern"]),
     bucket: z.enum(["lightweight_read", "evidence_search"]),

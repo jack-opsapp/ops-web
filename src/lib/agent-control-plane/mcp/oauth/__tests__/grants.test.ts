@@ -1032,6 +1032,38 @@ describe("resolveAccessToken", () => {
     expect(row).toEqual(RESOLVED_ACCESS_TOKEN_ROW);
   });
 
+  it("accepts PostgreSQL UUID identities while keeping OAuth ids RFC-shaped", async () => {
+    const databaseIdentityRow = {
+      ...RESOLVED_ACCESS_TOKEN_ROW,
+      user_id: "d2222222-2222-4222-d222-222222222222",
+      company_id: "00000000-0000-0000-0000-000000000001",
+    };
+    const { client } = clientReturning({
+      data: [databaseIdentityRow],
+      error: null,
+    });
+
+    await expect(resolveAccessToken(client, TOKEN_HASH)).resolves.toEqual(
+      databaseIdentityRow
+    );
+  });
+
+  it("rejects a non-RFC OAuth grant id even when database identities are valid", async () => {
+    const { client } = clientReturning({
+      data: [
+        {
+          ...RESOLVED_ACCESS_TOKEN_ROW,
+          grant_id: "d4444444-4444-4444-d444-444444444444",
+        },
+      ],
+      error: null,
+    });
+
+    await expect(resolveAccessToken(client, TOKEN_HASH)).rejects.toBeInstanceOf(
+      McpOAuthStoreError
+    );
+  });
+
   it("returns the revocation and disablement flags untouched for the caller to enforce", async () => {
     const { client } = clientReturning({
       data: [

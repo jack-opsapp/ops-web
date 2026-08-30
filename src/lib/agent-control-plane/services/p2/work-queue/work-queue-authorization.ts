@@ -19,6 +19,7 @@ import {
 import { LIST_WORK_QUEUE_CANDIDATE } from "@/lib/agent-control-plane/registry/read-capabilities/p2/work-queue";
 import type { PermissionScope } from "@/lib/types/permissions";
 import { assertP2ReadPolicyBinding } from "../shared/authorize-read";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 
 const AUTHORIZED_WORK_QUEUE_READS = new WeakSet<object>();
 const UUID_PATTERN =
@@ -199,7 +200,7 @@ export function authorizeWorkQueueRead(input: {
     oauthGrantId: auth.oauthGrantId,
     oauthClientId: auth.oauthClientId,
     grantRevision: auth.grantRevision,
-    grantedScopeCeiling: [...new Set(auth.scopeCeiling)].sort(),
+    grantedScopeCeiling: canonicalizeAgentMachineStringSet(auth.scopeCeiling),
     query,
     selections,
     authorizedSources,

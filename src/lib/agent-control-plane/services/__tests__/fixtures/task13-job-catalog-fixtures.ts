@@ -1065,6 +1065,10 @@ export function correspondenceEvidenceSnapshot(
     ),
   ]
 ) {
+  const requestedJob = structuredClone(authorization.query.job_ref) as {
+    readonly kind: "opportunity" | "project";
+    readonly id: string;
+  };
   const evidenceClaims = raws.map((raw) =>
     atomicClaim({
       authorization,
@@ -1081,7 +1085,7 @@ export function correspondenceEvidenceSnapshot(
   );
   const gaps: readonly string[] = [];
   const collectionRaw = {
-    requested_job: structuredClone(authorization.query.job_ref),
+    requested_job: requestedJob,
     requested_evidence_count: raws.length,
     returned_evidence_count: raws.length,
     gaps,
@@ -1089,9 +1093,9 @@ export function correspondenceEvidenceSnapshot(
   const collectionClaim = atomicClaim({
     authorization,
     sourceType: "correspondence_evidence_collection_projection",
-    sourceId: `project:${TASK_13_PROJECT_ID}`,
+    sourceId: `${requestedJob.kind}:${requestedJob.id}`,
     versionPrefix: "correspondence-evidence-collection-projection:v1",
-    evidenceId: `evidence:correspondence_evidence_collection_projection:project:${TASK_13_PROJECT_ID}`,
+    evidenceId: `evidence:correspondence_evidence_collection_projection:${requestedJob.kind}:${requestedJob.id}`,
     raw: collectionRaw,
     payloadKey: "collection",
     retainedProofSources: evidenceClaims.map((claim) => claim.source_version),
@@ -1103,7 +1107,7 @@ export function correspondenceEvidenceSnapshot(
     permission_snapshot_revision: TASK_13_PERMISSION_REVISION,
     read_at: TASK_13_READ_AT,
     history_fence: task13HistoryFence(),
-    requested_job: structuredClone(authorization.query.job_ref),
+    requested_job: requestedJob,
     evidence_claims: evidenceClaims,
     requested_evidence_count: raws.length,
     returned_evidence_count: raws.length,

@@ -258,7 +258,9 @@ begin
           <> pg_catalog.cardinality(p_document_kinds)
      or not ('ops.financial_documents.read' = any(p_granted_scope_ceiling))
      or p_granted_scope_ceiling is distinct from (
-       select pg_catalog.array_agg(scope.value order by scope.value)
+       select pg_catalog.array_agg(
+         scope.value order by scope.value collate "C"
+       )
        from (
          select distinct source.value
          from pg_catalog.unnest(p_granted_scope_ceiling) source(value)
@@ -473,6 +475,35 @@ begin
     where 'estimate' = any(p_document_kinds)
       and estimate.company_id = p_company_id
       and estimate.deleted_at is null
+      and not exists (
+        select 1
+        from public.clients parent_client
+        where parent_client.id = coalesce(
+                estimate.client_ref,
+                estimate.client_id
+              )
+          and parent_client.company_id = p_company_id
+          and (
+            parent_client.deleted_at is not null
+               and parent_client.merged_into_client_id is null
+            or parent_client.merged_into_client_id is not null
+               and exists (
+                 select 1
+                 from public.clients merge_target
+                 where merge_target.id =
+                       parent_client.merged_into_client_id
+                   and merge_target.id is distinct from parent_client.id
+                   and merge_target.company_id = p_company_id
+                   and merge_target.deleted_at is null
+                   and merge_target.merged_into_client_id is null
+               )
+          )
+          and (
+            estimate.client_ref is null
+            or estimate.client_id is null
+            or estimate.client_ref = estimate.client_id
+          )
+      )
       and (p_document_id is null or estimate.id = p_document_id)
     order by pg_catalog.date_bin(
                interval '1 millisecond',
@@ -515,6 +546,35 @@ begin
     where 'invoice' = any(p_document_kinds)
       and invoice.company_id = p_company_id
       and invoice.deleted_at is null
+      and not exists (
+        select 1
+        from public.clients parent_client
+        where parent_client.id = coalesce(
+                invoice.client_ref,
+                invoice.client_id
+              )
+          and parent_client.company_id = p_company_id
+          and (
+            parent_client.deleted_at is not null
+               and parent_client.merged_into_client_id is null
+            or parent_client.merged_into_client_id is not null
+               and exists (
+                 select 1
+                 from public.clients merge_target
+                 where merge_target.id =
+                       parent_client.merged_into_client_id
+                   and merge_target.id is distinct from parent_client.id
+                   and merge_target.company_id = p_company_id
+                   and merge_target.deleted_at is null
+                   and merge_target.merged_into_client_id is null
+               )
+          )
+          and (
+            invoice.client_ref is null
+            or invoice.client_id is null
+            or invoice.client_ref = invoice.client_id
+          )
+      )
       and (p_document_id is null or invoice.id = p_document_id)
     order by pg_catalog.date_bin(
                interval '1 millisecond',

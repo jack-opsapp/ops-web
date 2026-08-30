@@ -33,7 +33,6 @@ import { discoveryTextUsesUnicode15 } from "../discovery-unicode15";
 
 const COMPANY_ID = "11111111-1111-4111-8111-111111111111";
 const ACTOR_ID = "22222222-2222-4222-8222-222222222222";
-const CLIENT_ID = "33333333-3333-4333-8333-333333333333";
 const PARENT_CLIENT_ID = "44444444-4444-4444-8444-444444444444";
 const SUB_CLIENT_ID = "55555555-5555-4555-8555-555555555555";
 const OPPORTUNITY_ID = "66666666-6666-4666-8666-666666666666";
@@ -90,8 +89,11 @@ function projectionEvidenceId(
   return `evidence:${kind}_discovery_projection:${projectionSourceId(reference, ordinal)}`;
 }
 
-function collectionEvidenceId(kind: "customer" | "job"): string {
-  return `evidence:${kind}_discovery_collection_projection:company:${COMPANY_ID}`;
+function collectionEvidenceId(
+  kind: "customer" | "job",
+  companyId = COMPANY_ID
+): string {
+  return `evidence:${kind}_discovery_collection_projection:company:${companyId}`;
 }
 
 function evidenceRef(
@@ -231,17 +233,18 @@ function jobData(matches: JobDiscoveryMatch[] = [opportunityJobMatch()]) {
 function resultEnvelope(
   kind: "customer" | "job",
   data: ReturnType<typeof customerData> | ReturnType<typeof jobData>,
-  ordinals: readonly number[] = data.matches.map((_, index) => index + 1)
+  ordinals: readonly number[] = data.matches.map((_, index) => index + 1),
+  companyId = COMPANY_ID
 ) {
   if (ordinals.length !== data.matches.length) {
     throw new Error("Every discovery test match requires one proof ordinal");
   }
   const collectionType = `${kind}_discovery_collection_projection`;
   const childType = `${kind}_discovery_projection`;
-  const collectionProofId = collectionEvidenceId(kind);
+  const collectionProofId = collectionEvidenceId(kind, companyId);
   const collectionSource = sourceVersion(
     collectionType,
-    `company:${COMPANY_ID}`,
+    `company:${companyId}`,
     "c".repeat(64)
   );
   const childSources = data.matches.map((match, index) => {
@@ -258,7 +261,7 @@ function resultEnvelope(
     contract_version: "2026-08-07.v1",
     request_id: `request-${kind}-discovery-contract`,
     generated_at: NOW,
-    company_id: COMPANY_ID,
+    company_id: companyId,
     actor: {
       user_id: ACTOR_ID,
       permission_snapshot_revision: `sha256:${"a".repeat(64)}`,
@@ -1041,6 +1044,29 @@ describe("discovery match contracts", () => {
 });
 
 describe("discovery AgentResult contracts", () => {
+  it("accepts lowercase PostgreSQL company UUIDs without RFC bit restrictions", () => {
+    for (const companyId of [
+      "d0000000-0000-4000-d000-00000000000b",
+      "00000000-0000-0000-0000-000000000001",
+    ]) {
+      expect(
+        CustomerDiscoveryResultSchema.safeParse(
+          resultEnvelope("customer", customerData(), undefined, companyId)
+        ).success
+      ).toBe(true);
+    }
+    for (const companyId of [
+      "D0000000-0000-4000-D000-00000000000B",
+      "d0000000-0000-4000-d000-00000000000z",
+    ]) {
+      expect(
+        CustomerDiscoveryResultSchema.safeParse(
+          resultEnvelope("customer", customerData(), undefined, companyId)
+        ).success
+      ).toBe(false);
+    }
+  });
+
   it("requires exact returned counts and terminal proof-bound gaps", () => {
     expect(CustomerDiscoveryDataSchema.safeParse(customerData()).success).toBe(
       true

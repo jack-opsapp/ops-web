@@ -5,6 +5,7 @@ import { z } from "zod-v4";
 import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
 import {
   EvidenceRefSchema,
+  PostgresUuidSchema,
   SourceVersionSchema,
 } from "@/lib/agent-control-plane/contracts";
 import { CorrespondenceEvidenceItemSchema } from "@/lib/agent-control-plane/contracts/job-catalog";
@@ -19,7 +20,7 @@ import {
 } from "./operational-read-projection";
 
 const RPC_NAME = "read_agent_correspondence_evidence_page_as_system" as const;
-const UUID_SCHEMA = z.string().uuid();
+const UUID_SCHEMA = PostgresUuidSchema;
 const SHA256_SCHEMA = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const UTC_SCHEMA = z.string().datetime({ offset: false });
 const JOB_REF_SCHEMA = z
@@ -100,7 +101,8 @@ export type CorrespondenceEvidenceSnapshot = Readonly<
 type RawCorrespondenceEvidenceSnapshot = z.infer<typeof RawSnapshotSchema>;
 type SourceVersion = z.infer<typeof SourceVersionSchema>;
 type AtomicClaim =
-  z.infer<typeof EvidenceClaimSchema> | z.infer<typeof CollectionClaimSchema>;
+  | z.infer<typeof EvidenceClaimSchema>
+  | z.infer<typeof CollectionClaimSchema>;
 
 export class CorrespondenceEvidencePageRepositoryError extends Error {
   readonly code:

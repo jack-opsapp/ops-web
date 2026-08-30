@@ -5,6 +5,7 @@ import { z } from "zod-v4";
 import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
 import {
   EvidenceRefSchema,
+  PostgresUuidSchema,
   SourceVersionSchema,
 } from "@/lib/agent-control-plane/contracts";
 import { JobSummarySectionResultSchema } from "@/lib/agent-control-plane/contracts/job-catalog";
@@ -21,7 +22,7 @@ import {
 import { ReadinessRuleRawSourcesSchema } from "./readiness-rules";
 
 const RPC_NAME = "read_agent_job_summary_as_system" as const;
-const UUID_SCHEMA = z.string().uuid();
+const UUID_SCHEMA = PostgresUuidSchema;
 const SHA256_SCHEMA = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const UTC_SCHEMA = z.string().datetime({ offset: false });
 const JOB_REF_SCHEMA = z
@@ -407,11 +408,14 @@ export type JobSummaryParticipantSourcesValue = z.infer<
 type SourceVersion = z.infer<typeof SourceVersionSchema>;
 type RawJobSummarySnapshot = z.infer<typeof RawSnapshotSchema>;
 type AtomicClaim =
-  z.infer<typeof SectionClaimSchema> | z.infer<typeof SummaryClaimSchema>;
+  | z.infer<typeof SectionClaimSchema>
+  | z.infer<typeof SummaryClaimSchema>;
 
 export class JobSummaryRepositoryError extends Error {
   readonly code:
-    "JOB_SUMMARY_READ_FAILED" | "JOB_SUMMARY_NOT_FOUND" | "JOB_SUMMARY_INVALID";
+    | "JOB_SUMMARY_READ_FAILED"
+    | "JOB_SUMMARY_NOT_FOUND"
+    | "JOB_SUMMARY_INVALID";
 
   constructor(code: JobSummaryRepositoryError["code"], options?: ErrorOptions) {
     super(code, options);
@@ -501,11 +505,13 @@ function assertAtomicClaim(input: {
   readonly proof: AuthorizedJobSummaryRead;
   readonly snapshot: RawJobSummarySnapshot;
   readonly sourceType:
-    "job_summary_section_projection" | "job_summary_projection";
+    | "job_summary_section_projection"
+    | "job_summary_projection";
   readonly sourceId: string;
   readonly evidenceId: string;
   readonly versionPrefix:
-    "job-summary-section-projection:v1" | "job-summary-projection:v1";
+    | "job-summary-section-projection:v1"
+    | "job-summary-projection:v1";
   readonly payloadKey: "section" | "summary";
   readonly expectedRaw: CanonicalProjection;
   readonly retainedProofSources: readonly SourceVersion[];

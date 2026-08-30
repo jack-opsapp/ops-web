@@ -31,6 +31,7 @@ import {
   TASK_13_ACTOR_ID,
   TASK_13_CLIENT_ID,
   TASK_13_COMPANY_ID,
+  TASK_13_CONVERSATION_ID,
   TASK_13_CUSTOMER_JOBS_INPUT,
   TASK_13_EVIDENCE_INPUT,
   TASK_13_GENERATED_AT,
@@ -44,6 +45,7 @@ import {
   TASK_13_READ_AT,
   TASK_13_SOURCE_REVISION,
   TASK_13_TURN_EVIDENCE_ID,
+  TASK_13_TURN_ID,
   type AtomicTask13Claim,
   type Task13Authorization,
   type Task13Capability,
@@ -162,6 +164,17 @@ function childClaims(snapshot: Record<string, unknown>): AtomicTask13Claim[] {
   return claims as AtomicTask13Claim[];
 }
 
+function replaceFixtureIds<T>(
+  value: T,
+  replacements: readonly (readonly [string, string])[]
+): T {
+  let serialized = JSON.stringify(value);
+  for (const [current, replacement] of replacements) {
+    serialized = serialized.replaceAll(current, replacement);
+  }
+  return JSON.parse(serialized) as T;
+}
+
 function expectedCommonArgs(authorization: Task13Authorization) {
   return {
     p_request_id: "request-task13-catalog",
@@ -177,6 +190,30 @@ function expectedCommonArgs(authorization: Task13Authorization) {
 }
 
 describe("Task 13 customer-jobs repository", () => {
+  it("accepts a non-RFC PostgreSQL job UUID in the repository projection", async () => {
+    const postgresProjectId = "d6000000-0000-4000-d600-000000000006";
+    const authorization = await task13Authorization("customer_jobs");
+    const job = replaceFixtureIds(convertedCustomerJob(), [
+      [TASK_13_PROJECT_ID, postgresProjectId],
+    ]);
+    const snapshot = customerJobsSnapshot(authorization, [job], {
+      hasMore: true,
+    });
+
+    await expect(
+      repositoryRead({
+        kind: "customer_jobs",
+        repository: await repositoryFor(
+          "customer_jobs",
+          new StubTask13RpcClient([{ data: snapshot, error: null }])
+        ),
+        authorization,
+      })
+    ).resolves.toMatchObject({
+      job_claims: [{ raw: { job_ref: { id: postgresProjectId } } }],
+    });
+  });
+
   it("calls the fixed current-only RPC with exact active authority, input, and null cursor bindings", async () => {
     const authorization = await task13Authorization("customer_jobs");
     const snapshot = customerJobsSnapshot(authorization);
@@ -361,6 +398,44 @@ describe("Task 13 customer-jobs repository", () => {
 });
 
 describe("Task 13 job-summary repository", () => {
+  it("accepts non-RFC PostgreSQL conversation and turn UUIDs", async () => {
+    const postgresConversationId = "d7000000-0000-4000-d700-000000000007";
+    const postgresTurnId = "d8000000-0000-4000-d800-000000000008";
+    const postgresProjectId = "d6000000-0000-4000-d600-000000000006";
+    const authorization = await task13Authorization("job_summary", {
+      job_ref: { kind: "project", id: postgresProjectId },
+      sections: ["conversation"],
+    });
+    const section = replaceFixtureIds(conversationSummarySectionRaw(), [
+      [TASK_13_PROJECT_ID, postgresProjectId],
+      [TASK_13_CONVERSATION_ID, postgresConversationId],
+      [TASK_13_TURN_ID, postgresTurnId],
+    ]);
+    const snapshot = jobSummarySnapshot(authorization, [section]);
+
+    await expect(
+      repositoryRead({
+        kind: "job_summary",
+        repository: await repositoryFor(
+          "job_summary",
+          new StubTask13RpcClient([{ data: snapshot, error: null }])
+        ),
+        authorization,
+      })
+    ).resolves.toMatchObject({
+      section_claims: [
+        {
+          raw: {
+            value: {
+              conversation_id: postgresConversationId,
+              turn_high_watermark_id: postgresTurnId,
+            },
+          },
+        },
+      ],
+    });
+  });
+
   it("calls one fixed RPC and returns every requested section as an atomic claim", async () => {
     const authorization = await task13Authorization("job_summary");
     const snapshot = jobSummarySnapshot(authorization);
@@ -972,6 +1047,47 @@ describe("Task 13 job-summary repository", () => {
 });
 
 describe("Task 13 job-history repository", () => {
+  it("accepts non-RFC PostgreSQL conversation and delivered-turn UUIDs", async () => {
+    const postgresConversationId = "d7000000-0000-4000-d700-000000000007";
+    const postgresTurnId = "d8000000-0000-4000-d800-000000000008";
+    const postgresProjectId = "d6000000-0000-4000-d600-000000000006";
+    const authorization = await task13Authorization("job_history", {
+      ...TASK_13_JOB_HISTORY_INPUT,
+      scope: {
+        kind: "jobs",
+        job_refs: [{ kind: "project", id: postgresProjectId }],
+      },
+    });
+    const event = replaceFixtureIds(deliveredHistoryEvent(), [
+      [TASK_13_PROJECT_ID, postgresProjectId],
+      [TASK_13_CONVERSATION_ID, postgresConversationId],
+      [TASK_13_TURN_ID, postgresTurnId],
+    ]);
+    const snapshot = jobHistorySnapshot(authorization, [event]);
+
+    await expect(
+      repositoryRead({
+        kind: "job_history",
+        repository: await repositoryFor(
+          "job_history",
+          new StubTask13RpcClient([{ data: snapshot, error: null }])
+        ),
+        authorization,
+      })
+    ).resolves.toMatchObject({
+      event_claims: [
+        {
+          raw: {
+            conversation_id: postgresConversationId,
+            correspondence_evidence_ids: [
+              `job_conversation_turn:${postgresTurnId}`,
+            ],
+          },
+        },
+      ],
+    });
+  });
+
   it("passes exact search data and returns a signed cursor bound to both source fences", async () => {
     const authorization = await task13Authorization("job_history");
     const snapshot = jobHistorySnapshot(
@@ -1325,6 +1441,35 @@ describe("Task 13 job-history repository", () => {
 });
 
 describe("Task 13 correspondence-evidence repository", () => {
+  it("accepts a prefixed non-RFC PostgreSQL delivered-turn UUID", async () => {
+    const postgresTurnId = "d8000000-0000-4000-d800-000000000008";
+    const evidenceId = `job_conversation_turn:${postgresTurnId}`;
+    const postgresProjectId = "d6000000-0000-4000-d600-000000000006";
+    const authorization = await task13Authorization("correspondence_evidence", {
+      job_ref: { kind: "project", id: postgresProjectId },
+      evidence_ids: [evidenceId],
+      mode: "excerpt",
+    });
+    const raw = replaceFixtureIds(correspondenceEvidenceRaw(), [
+      [TASK_13_PROJECT_ID, postgresProjectId],
+      [TASK_13_TURN_EVIDENCE_ID, evidenceId],
+    ]);
+    const snapshot = correspondenceEvidenceSnapshot(authorization, [raw]);
+
+    await expect(
+      repositoryRead({
+        kind: "correspondence_evidence",
+        repository: await repositoryFor(
+          "correspondence_evidence",
+          new StubTask13RpcClient([{ data: snapshot, error: null }])
+        ),
+        authorization,
+      })
+    ).resolves.toMatchObject({
+      evidence_claims: [{ raw: { evidence_id: evidenceId } }],
+    });
+  });
+
   it("binds the requested job, IDs, and mode into one fixed all-or-error read", async () => {
     const authorization = await task13Authorization("correspondence_evidence");
     const snapshot = correspondenceEvidenceSnapshot(authorization);

@@ -4,6 +4,7 @@ import {
   isAuthorizedCapability,
   type AuthorizedCapability,
 } from "@/lib/agent-control-plane/actor/authorize-capability";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 import {
   isActiveManifestCapabilityPolicy,
   type ManifestCapabilityPolicy,
@@ -89,7 +90,9 @@ export function assertP2ReadPolicyBinding(input: {
     throw new P2ReadAuthorizationError();
   }
 
-  const expectedOAuth = uniqueSorted(input.expected.requiredOAuthScopes);
+  const expectedOAuth = canonicalizeAgentMachineStringSet(
+    input.expected.requiredOAuthScopes
+  );
   const expectedPermissions = uniqueSorted(input.expected.declaredPermissions);
   const expectedResolvedKeys = uniqueSorted(
     input.expected.resolvedPermissionKeys

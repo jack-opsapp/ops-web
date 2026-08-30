@@ -105,6 +105,54 @@ function recoupleExistingProjection(claim: AtomicDiscoveryClaim): void {
 }
 
 describe("customer discovery repository boundary", () => {
+  it("accepts non-RFC PostgreSQL customer UUIDs and rejects noncanonical text", async () => {
+    const authorization = await customerDiscoveryAuthorization({
+      ...DISCOVERY_CUSTOMER_INPUT,
+      limit: 1,
+    });
+    const postgresId = "d2000000-0000-4000-d200-000000000004";
+    const match = {
+      ...customerDiscoveryMatch(1),
+      customer_ref: { kind: "client" as const, id: postgresId },
+      evidence_ids: [
+        `evidence:customer_discovery_projection:client:${postgresId}:ordinal:1`,
+      ],
+    };
+
+    await expect(
+      customerRepository(
+        new StubDiscoveryRpcClient([
+          {
+            data: customerDiscoverySnapshot(authorization, [match]),
+            error: null,
+          },
+        ])
+      ).read({ authorization })
+    ).resolves.toMatchObject({
+      match_claims: [{ raw: { customer_ref: { id: postgresId } } }],
+    });
+
+    for (const id of [postgresId.toUpperCase(), `${postgresId}x`]) {
+      const invalidMatch = {
+        ...match,
+        customer_ref: { kind: "client" as const, id },
+        evidence_ids: [
+          `evidence:customer_discovery_projection:client:${id}:ordinal:1`,
+        ],
+      };
+      await expect(
+        customerRepository(
+          new StubDiscoveryRpcClient([
+            {
+              data: customerDiscoverySnapshot(authorization, [invalidMatch]),
+              error: null,
+            },
+          ])
+        ).read({ authorization })
+      ).rejects.toMatchObject({ code: "CUSTOMER_DISCOVERY_INVALID" });
+    }
+  });
+
   it("uses the exact current-only RPC and server-owned argument map", async () => {
     const authorization = await customerDiscoveryAuthorization();
     const client = new StubDiscoveryRpcClient([
@@ -735,6 +783,57 @@ describe("job discovery repository boundary", () => {
     expect(snapshot.match_claims[0]!.raw.conversion.state).toBe("converted");
     expect(snapshot.match_claims[0]!.raw.anchor_refs).toHaveLength(2);
   });
+
+  it.each([
+    {
+      date_window: {
+        field: "updated_at",
+        from: "2026-01-01T00:00:00.000Z",
+        to_exclusive: "2027-01-01T00:00:00.000Z",
+      },
+      limit: 3,
+    },
+    { lifecycle_states: ["active"], limit: 3 },
+  ] as const)(
+    "accepts PostgreSQL UUIDs and mints discovery cursors for %#",
+    async (query) => {
+      const authorization = await jobDiscoveryAuthorization(query);
+      const matches = [4, 7, 8].map((suffix, index) => {
+        const id = `d2000000-0000-4000-d200-${String(suffix).padStart(12, "0")}`;
+        const jobRef = { kind: "opportunity" as const, id };
+        return {
+          ...opportunityDiscoveryMatch(index + 1),
+          job_ref: jobRef,
+          anchor_refs: [jobRef],
+          match_basis: {
+            ranking_revision: JOB_DISCOVERY_RANKING_REVISION,
+            kind: "filter_only" as const,
+            field: "none" as const,
+          },
+          evidence_ids: [
+            `evidence:job_discovery_projection:opportunity:${id}:ordinal:${index + 1}`,
+          ],
+        };
+      });
+      const wire = jobDiscoverySnapshot(authorization, matches, {
+        hasMore: true,
+      });
+
+      await expect(
+        jobRepository(
+          new StubDiscoveryRpcClient([{ data: wire, error: null }])
+        ).read({ authorization })
+      ).resolves.toMatchObject({
+        returned_match_count: 3,
+        boundary_cursors: [
+          expect.any(String),
+          expect.any(String),
+          expect.any(String),
+        ],
+        page: { has_more: true, next_cursor: expect.any(String) },
+      });
+    }
+  );
 
   it("rejects a fully rehashed opportunity/project alias collision", async () => {
     const authorization = await jobDiscoveryAuthorization();

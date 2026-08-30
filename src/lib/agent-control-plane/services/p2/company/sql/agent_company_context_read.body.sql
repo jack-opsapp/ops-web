@@ -111,7 +111,9 @@ begin
        or granted.scope is distinct from pg_catalog.btrim(granted.scope)
        or pg_catalog.octet_length(granted.scope) not between 1 and 128
   ) or p_granted_scope_ceiling is distinct from (
-    select pg_catalog.array_agg(granted.scope order by granted.scope)
+    select pg_catalog.array_agg(
+      granted.scope order by granted.scope collate "C"
+    )
     from (
       select distinct source.scope
       from pg_catalog.unnest(p_granted_scope_ceiling) source(scope)
@@ -475,7 +477,9 @@ begin
        or granted.scope is distinct from pg_catalog.btrim(granted.scope)
        or pg_catalog.octet_length(granted.scope) not between 1 and 128
   ) or p_granted_scope_ceiling is distinct from (
-    select pg_catalog.array_agg(granted.scope order by granted.scope)
+    select pg_catalog.array_agg(
+      granted.scope order by granted.scope collate "C"
+    )
     from (
       select distinct source.scope
       from pg_catalog.unnest(p_granted_scope_ceiling) source(scope)

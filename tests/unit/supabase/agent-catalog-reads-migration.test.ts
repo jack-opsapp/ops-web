@@ -34,6 +34,25 @@ function compact(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
+function replaceExactly(
+  value: string,
+  oldFragment: string,
+  newFragment: string,
+  expectedCount: number
+) {
+  expect(value.split(oldFragment).length - 1).toBe(expectedCount);
+  return value.split(oldFragment).join(newFragment);
+}
+
+function currentBodyFromReservation(value: string) {
+  return replaceExactly(
+    value,
+    "       select pg_catalog.array_agg(scope.value order by scope.value)",
+    '       select pg_catalog.array_agg(\n         scope.value order by scope.value collate "C"\n       )',
+    1
+  );
+}
+
 function definition(sql: string, name: string) {
   const marker = `create or replace function ${name}(`;
   const start = sql.lastIndexOf(marker);
@@ -80,10 +99,11 @@ const RESERVED = readdirSync(join(process.cwd(), "supabase/migrations")).filter(
 );
 
 describe("P2 catalogue read SQL", () => {
-  it("byte-matches its one generated reservation", () => {
+  it("keeps its generated reservation immutable and derives the current body exactly", () => {
     expect(RESERVED).toEqual([MIGRATION_NAME]);
     expect(BODY).not.toBe("");
-    expect(MIGRATION).toBe(BODY);
+    expect(MIGRATION).not.toBe(BODY);
+    expect(currentBodyFromReservation(MIGRATION)).toBe(BODY);
     expect(SQL).toMatch(/(?:^|\n)begin;\s/);
     expect(SQL.trim().endsWith("commit;")).toBe(true);
     expect(SQL).toContain("task 18 canonical catalogue read body");
@@ -219,7 +239,7 @@ describe("P2 catalogue read SQL", () => {
     );
     expect(COMPACT).not.toContain("quantity_value::numeric");
     expect(COMPACT).not.toContain("variant.quantity::numeric");
-    expect(MIGRATION).toBe(BODY);
+    expect(currentBodyFromReservation(MIGRATION)).toBe(BODY);
     expect(read(RUNTIME_PATH)).toContain(
       "$live_double_precision_values_fail_closed$"
     );

@@ -5,6 +5,7 @@ import { z } from "zod-v4";
 import { REGISTERED_ACTOR_PERMISSION_KEYS } from "@/lib/agent-control-plane/actor/authority-repository";
 import {
   EvidenceRefSchema,
+  PostgresUuidSchema,
   SourceVersionSchema,
 } from "@/lib/agent-control-plane/contracts";
 import {
@@ -37,10 +38,7 @@ import {
 } from "./discovery-match-rules";
 
 const RPC_NAME = "read_agent_customer_discovery_as_system" as const;
-const UUID_SCHEMA = z
-  .string()
-  .uuid()
-  .refine((value) => value === value.toLowerCase());
+const UUID_SCHEMA = PostgresUuidSchema;
 const SHA256_SCHEMA = z.string().regex(/^sha256:[0-9a-f]{64}$/);
 const UTC_SCHEMA = DiscoveryMillisecondUtcTimestampSchema;
 const SOURCE_FENCE_SCHEMA = SourceVersionSchema.refine(

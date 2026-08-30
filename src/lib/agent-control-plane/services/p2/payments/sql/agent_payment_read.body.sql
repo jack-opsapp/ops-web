@@ -200,6 +200,41 @@ begin
      and invoice.company_id = p_company_id
      and invoice.deleted_at is null
     where source.company_id = p_company_id
+      and not exists (
+        select 1
+        from public.invoices parent_invoice
+        where parent_invoice.id = source.invoice_id
+          and parent_invoice.company_id = p_company_id
+          and parent_invoice.deleted_at is not null
+          and coalesce(
+                parent_invoice.client_ref,
+                parent_invoice.client_id
+              ) = source.client_id
+          and (
+            parent_invoice.client_ref is null
+            or parent_invoice.client_id is null
+            or parent_invoice.client_ref = parent_invoice.client_id
+          )
+          and exists (
+            select 1
+            from public.clients parent_client
+            where parent_client.id = source.client_id
+              and parent_client.company_id = p_company_id
+              and (
+                parent_client.merged_into_client_id is null
+                or exists (
+                  select 1
+                  from public.clients merge_target
+                  where merge_target.id =
+                        parent_client.merged_into_client_id
+                    and merge_target.id is distinct from parent_client.id
+                    and merge_target.company_id = p_company_id
+                    and merge_target.deleted_at is null
+                    and merge_target.merged_into_client_id is null
+                )
+              )
+          )
+      )
       and (p_invoice_id is null or source.invoice_id = p_invoice_id)
       and (p_client_id is null or source.client_id = p_client_id)
       and (p_start_date is null or source.payment_date >= p_start_date)
@@ -469,7 +504,9 @@ begin
           is distinct from 'object'
      or not ('ops.payments.read' = any(p_granted_scope_ceiling))
      or p_granted_scope_ceiling is distinct from (
-       select pg_catalog.array_agg(scope.value order by scope.value)
+       select pg_catalog.array_agg(
+         scope.value order by scope.value collate "C"
+       )
        from (
          select distinct source.value
          from pg_catalog.unnest(p_granted_scope_ceiling) source(value)

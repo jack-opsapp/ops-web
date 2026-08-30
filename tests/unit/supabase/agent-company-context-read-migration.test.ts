@@ -34,6 +34,15 @@ function read(path: string) {
 function compact(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
+function replaceExactly(
+  value: string,
+  oldFragment: string,
+  newFragment: string,
+  expectedCount: number
+) {
+  expect(value.split(oldFragment).length - 1).toBe(expectedCount);
+  return value.split(oldFragment).join(newFragment);
+}
 function definition(sql: string, name: string) {
   const marker = `create or replace function ${name}(`;
   const start = sql.lastIndexOf(marker);
@@ -66,12 +75,20 @@ const PUBLIC_SIGNATURE =
   "public.read_agent_company_context_as_system(text,uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,text[],text)";
 
 describe("P2 company-context read migration", () => {
-  it("uses one generated, byte-identical, transactional migration and runtime pair", () => {
+  it("keeps its generated reservation immutable and derives the current body exactly", () => {
     expect(migrationNames).toHaveLength(1);
     expect(migrationNames[0]).toMatch(
       /^\d{14}_agent_company_context_read\.sql$/
     );
-    expect(MIGRATION).toBe(BODY);
+    expect(MIGRATION).not.toBe(BODY);
+    expect(
+      replaceExactly(
+        MIGRATION,
+        "    select pg_catalog.array_agg(granted.scope order by granted.scope)",
+        '    select pg_catalog.array_agg(\n      granted.scope order by granted.scope collate "C"\n    )',
+        2
+      )
+    ).toBe(BODY);
     expect(MIGRATION.toLowerCase()).toMatch(/(?:^|\n)begin;\s/);
     expect(MIGRATION.trim().toLowerCase().endsWith("commit;")).toBe(true);
     expect(read(RUNTIME_PATH)).not.toBe("");

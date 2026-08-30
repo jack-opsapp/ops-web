@@ -2,6 +2,8 @@ import "server-only";
 
 import { z } from "zod-v4";
 
+import { PostgresUuidSchema } from "@/lib/agent-control-plane/contracts/postgres-uuid";
+
 /**
  * Typed access to the mcp_oauth system RPCs. Every row that crosses this
  * boundary is validated exactly; a malformed database result is an internal
@@ -15,7 +17,7 @@ export interface McpOAuthRpcClient {
   ): PromiseLike<{ readonly data: unknown; readonly error: unknown }>;
 }
 
-const UuidSchema = z.uuid();
+const OAuthUuidSchema = z.uuid();
 const Sha256HexSchema = z.string().regex(/^[0-9a-f]{64}$/);
 const TimestampSchema = z.string().min(1);
 const PREVIEW_TIMESTAMP_PATTERN =
@@ -127,7 +129,7 @@ function clientScopeAligned(row: {
 
 const RegisteredClientRowSchema = z
   .object({
-    client_id: UuidSchema,
+    client_id: OAuthUuidSchema,
     client_name: z.string().min(1),
     redirect_uris: z.array(z.string().min(1)).min(1),
     token_endpoint_auth_method: z.literal("none"),
@@ -143,7 +145,7 @@ const RegisteredClientRowSchema = z
 
 const ClientRowSchema = z
   .object({
-    client_id: UuidSchema,
+    client_id: OAuthUuidSchema,
     client_name: z.string().min(1),
     redirect_uris: z.array(z.string().min(1)).min(1),
     token_endpoint_auth_method: z.literal("none"),
@@ -164,9 +166,9 @@ const IssuedConsentPreviewRowSchema = z.object({
 
 const ConsumedConsentPreviewRowSchema = z
   .object({
-    client_id: UuidSchema,
-    user_id: UuidSchema,
-    company_id: UuidSchema,
+    client_id: OAuthUuidSchema,
+    user_id: PostgresUuidSchema,
+    company_id: PostgresUuidSchema,
     client_name: z.string().min(1).max(256),
     company_name: z.string().min(1).max(512),
     redirect_uri: z.string().min(1).max(2048),
@@ -185,8 +187,8 @@ const ConsumedConsentPreviewRowSchema = z
 
 const ConsumedCodeRowSchema = z
   .object({
-    user_id: UuidSchema,
-    company_id: UuidSchema,
+    user_id: PostgresUuidSchema,
+    company_id: PostgresUuidSchema,
     scopes: ScopesSchema,
     accepted_labels: AcceptedLabelsSchema,
     consent_catalog_revision: RevisionIdSchema,
@@ -197,16 +199,16 @@ const ConsumedCodeRowSchema = z
   .refine(consentSnapshotAligned);
 
 const MintedGrantRowSchema = z.object({
-  grant_id: UuidSchema,
+  grant_id: OAuthUuidSchema,
   revision: z.string().regex(/^[0-9a-f]{32}$/),
 });
 
 const RotatedGrantRowSchema = z
   .object({
-    grant_id: UuidSchema,
-    client_id: UuidSchema,
-    user_id: UuidSchema,
-    company_id: UuidSchema,
+    grant_id: OAuthUuidSchema,
+    client_id: OAuthUuidSchema,
+    user_id: PostgresUuidSchema,
+    company_id: PostgresUuidSchema,
     scopes: ScopesSchema,
     accepted_labels: AcceptedLabelsSchema,
     consent_catalog_revision: RevisionIdSchema,
@@ -220,11 +222,11 @@ const RotatedGrantRowSchema = z
 
 const ResolvedAccessTokenRowSchema = z
   .object({
-    grant_id: UuidSchema,
-    client_id: UuidSchema,
+    grant_id: OAuthUuidSchema,
+    client_id: OAuthUuidSchema,
     client_name: z.string().min(1),
-    user_id: UuidSchema,
-    company_id: UuidSchema,
+    user_id: PostgresUuidSchema,
+    company_id: PostgresUuidSchema,
     scopes: ScopesSchema,
     accepted_labels: AcceptedLabelsSchema,
     consent_catalog_revision: RevisionIdSchema,
@@ -240,7 +242,7 @@ const ResolvedAccessTokenRowSchema = z
   .refine(consentSnapshotAligned);
 
 const GrantListRowSchema = z.object({
-  grant_id: UuidSchema,
+  grant_id: OAuthUuidSchema,
   client_name: z.string().min(1),
   scopes: ScopesSchema,
   created_at: TimestampSchema,

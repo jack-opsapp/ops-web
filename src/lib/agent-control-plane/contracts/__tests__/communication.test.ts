@@ -16,6 +16,8 @@ const OPS_USER_ID = "44444444-4444-4444-8444-444444444444";
 const TASK_ID = "55555555-5555-4555-8555-555555555555";
 const RELATED_CONTACT_ID = "66666666-6666-4666-8666-666666666666";
 const UNKNOWN_PARTICIPANT_ID = `unknown:sha256:${"a".repeat(64)}`;
+const POSTGRES_UUID = "d0000000-0000-4000-d000-00000000000b";
+const NIL_POSTGRES_UUID = "00000000-0000-0000-0000-000000000000";
 
 function emailChannel() {
   return {
@@ -118,6 +120,43 @@ function scheduledOccurrence() {
 }
 
 describe("Task 12 communication inputs", () => {
+  it("accepts lowercase PostgreSQL UUIDs without RFC version or variant bits", () => {
+    expect(
+      JobCommunicationContextInputSchema.parse({
+        job_ref: { kind: "project", id: POSTGRES_UUID },
+        purpose: "general",
+      })
+    ).toMatchObject({ job_ref: { id: POSTGRES_UUID } });
+    expect(
+      JobParticipantsInputSchema.parse({
+        job_ref: { kind: "opportunity", id: NIL_POSTGRES_UUID },
+      })
+    ).toMatchObject({ job_ref: { id: NIL_POSTGRES_UUID } });
+    expect(
+      JobParticipantSchema.parse({
+        ...primaryClientParticipant(),
+        participant_ref: { kind: "client", id: POSTGRES_UUID },
+      })
+    ).toMatchObject({ participant_ref: { id: POSTGRES_UUID } });
+  });
+
+  it("rejects uppercase and malformed PostgreSQL UUID text", () => {
+    for (const id of [POSTGRES_UUID.toUpperCase(), `${POSTGRES_UUID}x`]) {
+      expect(
+        JobCommunicationContextInputSchema.safeParse({
+          job_ref: { kind: "project", id },
+          purpose: "general",
+        }).success
+      ).toBe(false);
+      expect(
+        JobParticipantSchema.safeParse({
+          ...primaryClientParticipant(),
+          participant_ref: { kind: "client", id },
+        }).success
+      ).toBe(false);
+    }
+  });
+
   it("accepts only current UUID-anchored job communication requests", () => {
     expect(
       JobCommunicationContextInputSchema.parse({

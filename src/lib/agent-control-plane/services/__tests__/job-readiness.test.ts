@@ -282,6 +282,23 @@ function validSnapshot(hasMore = false): JobReadinessSnapshot {
   };
 }
 
+function replaceAndReproofReadinessProject(
+  snapshot: JobReadinessSnapshot,
+  replacement: string
+): JobReadinessSnapshot {
+  const originalCandidate = snapshot.candidates[0]!;
+  const reproofed = reproofReadinessSnapshot(snapshot, {
+    ...originalCandidate,
+    job_ref: { ...originalCandidate.job_ref, id: replacement },
+  });
+  return {
+    ...reproofed,
+    next_scan_cursor_claims: snapshot.next_scan_cursor_claims
+      ? { ...snapshot.next_scan_cursor_claims, project_id: replacement }
+      : null,
+  };
+}
+
 function largeReadinessSnapshot(
   startIndex = 0,
   count = 16
@@ -530,6 +547,29 @@ async function serviceErrorFrom(promise: Promise<unknown>) {
 }
 
 describe("listJobReadinessIssues", () => {
+  it("accepts a non-RFC PostgreSQL project UUID through the repository and cursor", async () => {
+    const postgresProjectId = "d3000000-0000-4000-d300-000000000003";
+    const snapshot = replaceAndReproofReadinessProject(
+      validSnapshot(false),
+      postgresProjectId
+    );
+    const repository = await repositoryFor(
+      new StubJobReadinessRpcClient([{ data: snapshot, error: null }])
+    );
+
+    await expect(
+      repository.read({ authorization: await authorizedRead() })
+    ).resolves.toMatchObject({
+      candidates: [
+        {
+          job_ref: { id: postgresProjectId },
+          boundary_cursor: expect.any(String),
+        },
+      ],
+      page: { has_more: false, next_cursor: null },
+    });
+  });
+
   it("returns an empty terminal page with only the source fence proof", async () => {
     const snapshot = validSnapshot(false);
     const emptySnapshot: JobReadinessSnapshot = {

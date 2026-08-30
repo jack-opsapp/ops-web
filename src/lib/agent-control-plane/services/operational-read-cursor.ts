@@ -5,6 +5,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod-v4";
 
 import { DiscoveryMillisecondUtcTimestampSchema } from "@/lib/agent-control-plane/contracts/discovery";
+import { PostgresUuidSchema } from "@/lib/agent-control-plane/contracts/postgres-uuid";
 
 const MAX_CURSOR_AGE_SECONDS = 15 * 60;
 const CURSOR_PREFIX = "ops_cursor";
@@ -12,10 +13,7 @@ export const FROZEN_V7_OPERATIONAL_CURSOR_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
 const ACTIVE_V8_MANIFEST_REVISION =
   "2026-08-22.capability-manifest.v8" as const;
-const UUID_SCHEMA = z.string().uuid();
-const DISCOVERY_UUID_SCHEMA = UUID_SCHEMA.refine(
-  (value) => value === value.toLowerCase()
-);
+const UUID_SCHEMA = PostgresUuidSchema;
 const UTC_SCHEMA = z.string().datetime({ offset: false });
 const KEY_ID_PATTERN = /^[A-Za-z0-9_-]{1,32}$/;
 
@@ -82,7 +80,7 @@ const CustomerDiscoveryCursorClaimsSchema = CommonClaimsSchema.extend({
   ranking_revision: z.literal("customer-discovery-ranking:v1"),
   rank_ordinal: z.number().int().min(1).max(500),
   customer_kind: z.enum(["client", "sub_client"]),
-  customer_id: DISCOVERY_UUID_SCHEMA,
+  customer_id: UUID_SCHEMA,
 }).strict();
 const JobDiscoveryCursorClaimsSchema = CommonClaimsSchema.extend({
   capability_id: z.literal("search_jobs"),
@@ -90,7 +88,7 @@ const JobDiscoveryCursorClaimsSchema = CommonClaimsSchema.extend({
   ranking_revision: z.literal("job-discovery-ranking:v1"),
   rank_ordinal: z.number().int().min(1).max(500),
   job_kind: z.enum(["opportunity", "project"]),
-  job_id: DISCOVERY_UUID_SCHEMA,
+  job_id: UUID_SCHEMA,
 }).strict();
 const WireSchema = z.discriminatedUnion("c", [
   z
@@ -165,7 +163,7 @@ const WireSchema = z.discriminatedUnion("c", [
       r: z.number().int().nonnegative(),
       o: z.number().int().min(1).max(500),
       k: z.enum(["client", "sub_client"]),
-      x: DISCOVERY_UUID_SCHEMA,
+      x: UUID_SCHEMA,
       a: UTC_SCHEMA,
     })
     .strict(),
@@ -179,7 +177,7 @@ const WireSchema = z.discriminatedUnion("c", [
       r: z.number().int().nonnegative(),
       o: z.number().int().min(1).max(500),
       k: z.enum(["opportunity", "project"]),
-      x: DISCOVERY_UUID_SCHEMA,
+      x: UUID_SCHEMA,
       a: UTC_SCHEMA,
     })
     .strict(),

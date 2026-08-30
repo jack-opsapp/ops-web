@@ -13,6 +13,9 @@ const KEY = Uint8Array.from(Buffer.from("11".repeat(32), "hex"));
 const OTHER_KEY = Uint8Array.from(Buffer.from("22".repeat(32), "hex"));
 const NOW_SECONDS = 1_787_899_200;
 const NONCE = Uint8Array.from(Buffer.from("33".repeat(32), "hex"));
+const POSTGRES_ACTOR_ID = "d3333333-3333-4333-d333-333333333333";
+const POSTGRES_COMPANY_ID = "00000000-0000-0000-0000-000000000001";
+const POSTGRES_PARENT_ID = "ffffffff-ffff-ffff-ffff-ffffffffffff";
 
 const input = {
   audience: "https://app.opsapp.co/api/mcp",
@@ -68,6 +71,47 @@ describe("single-use MCP evidence tokens", () => {
     expect(Object.isFrozen(verified.claims)).toBe(true);
     expect(Object.isFrozen(verified.claims.parent)).toBe(true);
     expect(Object.isFrozen(verified.claims.sourceRevisions)).toBe(true);
+  });
+
+  it("round-trips PostgreSQL-shaped non-RFC actor, company, and parent IDs", () => {
+    const postgresInput = {
+      ...input,
+      actorUserId: POSTGRES_ACTOR_ID,
+      companyId: POSTGRES_COMPANY_ID,
+      parent: { ...input.parent, id: POSTGRES_PARENT_ID },
+    };
+
+    const issued = codec().issue(postgresInput);
+
+    expect(codec().verify(issued.token).claims).toMatchObject({
+      actorUserId: POSTGRES_ACTOR_ID,
+      companyId: POSTGRES_COMPANY_ID,
+      parent: { kind: "project", id: POSTGRES_PARENT_ID },
+    });
+    expect(() =>
+      codec().issue({
+        ...postgresInput,
+        actorUserId: POSTGRES_ACTOR_ID.toUpperCase(),
+      })
+    ).toThrow(EvidenceTokenError);
+    expect(() => codec().verify(`${issued.token}.extra`)).toThrow(
+      EvidenceTokenError
+    );
+  });
+
+  it("keeps OAuth client and grant IDs RFC-strict", () => {
+    expect(() =>
+      codec().issue({
+        ...input,
+        clientId: "d1111111-1111-4111-d111-111111111111",
+      })
+    ).toThrow(EvidenceTokenError);
+    expect(() =>
+      codec().issue({
+        ...input,
+        grantId: "00000000-0000-0000-0000-000000000001",
+      })
+    ).toThrow(EvidenceTokenError);
   });
 
   it("enforces a five-minute maximum and rejects expired, future, forged, altered, or non-canonical tokens", () => {

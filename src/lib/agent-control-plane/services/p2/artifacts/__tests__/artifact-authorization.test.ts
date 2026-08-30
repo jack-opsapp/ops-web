@@ -40,6 +40,11 @@ const ALL_SCOPES = [
   "ops.schedule.read",
   "ops.site_visits.read",
 ] as const;
+const GRANTED_SCOPES = [
+  "ops.catalog_costs.read",
+  ...ALL_SCOPES,
+  "ops.catalog.read",
+] as const;
 
 function authority(): ActorAuthoritySnapshot {
   return {
@@ -87,7 +92,7 @@ async function actorContext() {
       companyId: COMPANY_ID,
       oauthGrantId: GRANT_ID,
       oauthClientId: CLIENT_ID,
-      validatedScopes: [...ALL_SCOPES],
+      validatedScopes: [...GRANTED_SCOPES],
       tokenId: "77777777-7777-4777-8777-777777777777",
       issuer: "https://app.opsapp.co",
       audience: "https://app.opsapp.co/api/mcp",
@@ -210,6 +215,11 @@ describe("P2 artifact nominal authorization", () => {
       oauthGrantId: GRANT_ID,
       oauthClientId: CLIENT_ID,
       grantRevision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      grantedScopeCeiling: [
+        "ops.catalog.read",
+        "ops.catalog_costs.read",
+        ...ALL_SCOPES,
+      ],
       requiredOAuthScopes: [...ALL_SCOPES],
       resolvedPermissionScopes: {
         "calendar.view": "all",

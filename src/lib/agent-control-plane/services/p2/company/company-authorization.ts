@@ -11,6 +11,7 @@ import {
   type CompanyContextAuthorizationVariantKey,
 } from "@/lib/agent-control-plane/registry/read-capabilities/p2/company";
 import { assertP2ReadPolicyBinding } from "../shared/authorize-read";
+import { canonicalizeAgentMachineStringSet } from "@/lib/agent-control-plane/canonical-order";
 
 const AUTHORIZED_COMPANY_CONTEXT_READS = new WeakSet<object>();
 const CANONICAL_UUID_PATTERN =
@@ -48,12 +49,6 @@ function deepFreeze<T>(value: T, seen = new WeakSet<object>()): T {
   seen.add(value);
   for (const child of Object.values(value)) deepFreeze(child, seen);
   return Object.freeze(value);
-}
-
-function sortedUnique(values: readonly string[]): readonly string[] {
-  return Object.freeze(
-    [...new Set(values)].sort((left, right) => left.localeCompare(right))
-  );
 }
 
 function exactAuthorizationRecord(
@@ -139,7 +134,7 @@ export function authorizeCompanyContextRead(input: {
       oauthGrantId: auth.oauthGrantId,
       oauthClientId: auth.oauthClientId,
       grantRevision: auth.grantRevision,
-      grantedScopeCeiling: sortedUnique(auth.scopeCeiling),
+      grantedScopeCeiling: canonicalizeAgentMachineStringSet(auth.scopeCeiling),
       settingsCompanyScope: "all" as const,
       query,
       variantKeys: ["company"] as const,

@@ -20,6 +20,7 @@ import {
   ProjectStatusSchema,
 } from "./job-catalog";
 import { discoveryTextUsesUnicode15 } from "./discovery-unicode15";
+import { isCanonicalPostgresUuid, PostgresUuidSchema } from "./postgres-uuid";
 
 export const DISCOVERY_CAPABILITY_SCHEMA_REVISION = "2026-08-20.v1" as const;
 export const CUSTOMER_DISCOVERY_RANKING_REVISION =
@@ -488,7 +489,7 @@ export const CustomerDiscoveryMatchSchema = z
         ? [match.relationship.parent_client_ref.id]
         : []),
     ];
-    if (ids.some((id) => !isCanonicalLowercaseUuid(id))) {
+    if (ids.some((id) => !isCanonicalPostgresUuid(id))) {
       context.addIssue({
         code: "custom",
         path: ["customer_ref"],
@@ -549,10 +550,6 @@ function valuesAreUnique(values: readonly string[]): boolean {
   return new Set(values).size === values.length;
 }
 
-function isCanonicalLowercaseUuid(value: string): boolean {
-  return value === value.toLowerCase();
-}
-
 function lifecycleMatchesStatus(input: {
   readonly lifecycle_state: z.infer<typeof NormalizedJobLifecycleStateSchema>;
   readonly status: z.infer<typeof JobStatusSchema>;
@@ -600,7 +597,7 @@ export const JobDiscoveryMatchSchema = z
         ? [match.conversion.opportunity_ref.id, match.conversion.project_ref.id]
         : []),
     ];
-    if (identityIds.some((id) => !isCanonicalLowercaseUuid(id))) {
+    if (identityIds.some((id) => !isCanonicalPostgresUuid(id))) {
       context.addIssue({
         code: "custom",
         path: ["job_ref"],
@@ -1039,10 +1036,7 @@ function validateDiscoveryResult<
   }
 }
 
-const DiscoveryCompanyIdSchema = z
-  .string()
-  .uuid()
-  .refine(isCanonicalLowercaseUuid, "Company UUID must use lowercase text");
+const DiscoveryCompanyIdSchema = PostgresUuidSchema;
 
 export const CustomerDiscoveryResultSchema = createAgentResultSchema(
   CustomerDiscoveryDataSchema

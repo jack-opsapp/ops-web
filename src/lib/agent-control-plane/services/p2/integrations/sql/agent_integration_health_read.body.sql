@@ -104,7 +104,7 @@ begin
     from pg_catalog.unnest(p_granted_scope_ceiling) scope(value)
   ) <> pg_catalog.cardinality(p_granted_scope_ceiling)
   or p_granted_scope_ceiling is distinct from (
-    select pg_catalog.array_agg(scope.value order by scope.value)
+    select pg_catalog.array_agg(scope.value order by scope.value collate "C")
     from pg_catalog.unnest(p_granted_scope_ceiling) scope(value)
   )
   or exists (
@@ -322,7 +322,7 @@ begin
              or source.mailbox_type = 'individual' and (
                source.user_id is null
                or source.user_id !~
-                 '^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+                 '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
              )
              or source.webhook_subscription_id is not null and (
                source.webhook_subscription_id is distinct from
