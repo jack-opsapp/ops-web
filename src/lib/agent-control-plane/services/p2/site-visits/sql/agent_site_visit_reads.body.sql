@@ -681,7 +681,6 @@ begin
       )
       and (
         raw.opportunity_id is not null
-        and raw.client_id is not null
         or p_view_kind = 'visit_history'
            and p_include_unlinked
            and raw.opportunity_id is null
@@ -723,9 +722,7 @@ begin
      and client.merged_into_client_id is null
     where (
         raw.opportunity_id is not null
-        and raw.client_id is not null
         and opportunity.id is not null
-        and client.id is not null
         and (
           p_resolved_permission_scopes ->> 'calendar.view' = 'all'
           or private.agent_p2_site_visit_uuid_from_text(raw.created_by) =
@@ -741,12 +738,16 @@ begin
           raw.opportunity_id,
           'view'
         )
-        and private.agent_user_can_access_entity(
-          p_actor_user_id,
-          p_company_id,
-          'client',
-          raw.client_id,
-          'view'
+        and (
+          raw.client_id is null
+          or client.id is not null
+             and private.agent_user_can_access_entity(
+               p_actor_user_id,
+               p_company_id,
+               'client',
+               raw.client_id,
+               'view'
+             )
         )
         or raw.opportunity_id is null
            and raw.project_ref is null
@@ -1542,8 +1543,6 @@ begin
       p_expected_anchor = 'opportunity'
       and source.opportunity_id = p_expected_opportunity_id
       and opportunity.id is not null
-      and source.resolved_client_id is not null
-      and client.id is not null
       and (
         p_resolved_permission_scopes ->> 'calendar.view' = 'all'
         or private.agent_p2_site_visit_uuid_from_text(source.created_by) =
@@ -1559,12 +1558,16 @@ begin
         source.opportunity_id,
         'view'
       )
-      and private.agent_user_can_access_entity(
-        p_actor_user_id,
-        p_company_id,
-        'client',
-        source.resolved_client_id,
-        'view'
+      and (
+        source.resolved_client_id is null
+        or client.id is not null
+           and private.agent_user_can_access_entity(
+             p_actor_user_id,
+             p_company_id,
+             'client',
+             source.resolved_client_id,
+             'view'
+           )
       )
       or p_expected_anchor = 'unlinked'
          and source.opportunity_id is null
@@ -2391,7 +2394,6 @@ begin
       )
       and (
         raw.opportunity_id is not null
-        and raw.client_id is not null
         or p_view_kind = 'visit_history'
            and p_include_unlinked
            and raw.opportunity_id is null
@@ -2420,9 +2422,7 @@ begin
       )
       and (
         raw.opportunity_id is not null
-        and raw.client_id is not null
         and opportunity.id is not null
-        and client.id is not null
         and (
           p_resolved_permission_scopes ->> 'calendar.view' = 'all'
           or private.agent_p2_site_visit_uuid_from_text(raw.created_by) =
@@ -2438,12 +2438,16 @@ begin
           raw.opportunity_id,
           'view'
         )
-        and private.agent_user_can_access_entity(
-          p_actor_user_id,
-          p_company_id,
-          'client',
-          raw.client_id,
-          'view'
+        and (
+          raw.client_id is null
+          or client.id is not null
+             and private.agent_user_can_access_entity(
+               p_actor_user_id,
+               p_company_id,
+               'client',
+               raw.client_id,
+               'view'
+             )
         )
         or raw.opportunity_id is null
            and raw.project_ref is null

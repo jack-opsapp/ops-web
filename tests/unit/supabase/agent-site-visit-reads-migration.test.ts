@@ -44,6 +44,76 @@ function canonicalTimestamp(expression: string) {
   return `pg_catalog.date_bin( interval '1 millisecond', ${expression}, timestamptz '2000-01-01 00:00:00+00' )`;
 }
 
+function repairNullableClientVisibility(value: string) {
+  let repaired = replaceExactly(
+    value,
+    `        raw.opportunity_id is not null
+        and raw.client_id is not null
+`,
+    `        raw.opportunity_id is not null
+`,
+    4
+  );
+  repaired = replaceExactly(
+    repaired,
+    "\n        and client.id is not null",
+    "",
+    2
+  );
+  repaired = replaceExactly(
+    repaired,
+    `        and private.agent_user_can_access_entity(
+          p_actor_user_id,
+          p_company_id,
+          'client',
+          raw.client_id,
+          'view'
+        )`,
+    `        and (
+          raw.client_id is null
+          or client.id is not null
+             and private.agent_user_can_access_entity(
+               p_actor_user_id,
+               p_company_id,
+               'client',
+               raw.client_id,
+               'view'
+             )
+        )`,
+    2
+  );
+  repaired = replaceExactly(
+    repaired,
+    `
+      and source.resolved_client_id is not null
+      and client.id is not null`,
+    "",
+    1
+  );
+  return replaceExactly(
+    repaired,
+    `      and private.agent_user_can_access_entity(
+        p_actor_user_id,
+        p_company_id,
+        'client',
+        source.resolved_client_id,
+        'view'
+      )`,
+    `      and (
+        source.resolved_client_id is null
+        or client.id is not null
+           and private.agent_user_can_access_entity(
+             p_actor_user_id,
+             p_company_id,
+             'client',
+             source.resolved_client_id,
+             'view'
+           )
+      )`,
+    1
+  );
+}
+
 function definition(sql: string, name: string) {
   const marker = `create or replace function ${name}(`;
   const start = sql.lastIndexOf(marker);
@@ -147,14 +217,15 @@ describe("P2 site-visit read SQL body", () => {
       'scope.value order by scope.value collate "C")',
       2
     );
-    expect(
-      replaceExactly(
-        canonicallyOrdered,
-        "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-        "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-        1
-      )
-    ).toBe(BODY_EXACT);
+    const postgresUuidCompatible = replaceExactly(
+      canonicallyOrdered,
+      "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      1
+    );
+    expect(repairNullableClientVisibility(postgresUuidCompatible)).toBe(
+      BODY_EXACT
+    );
     expect(SQL).toMatch(/(?:^|\n)begin;\s/);
     expect(SQL.trim().endsWith("commit;")).toBe(true);
     expect(SQL).toContain("task 12 canonical site-visit read body");

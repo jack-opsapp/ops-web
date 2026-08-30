@@ -3,6 +3,7 @@ import "server-only";
 import {
   assertP2NoForbiddenFields,
   P2_MAX_SERIALIZED_CHARACTERS,
+  type AgentError,
 } from "@/lib/agent-control-plane/contracts";
 import {
   GetSiteVisitContextResultSchema,
@@ -15,6 +16,7 @@ import {
   P2RepositoryBoundaryError,
   readThroughP2RepositoryBoundary,
 } from "../shared/repository-boundary";
+import { toP2ReadAgentError } from "../shared/read-error-transport";
 import {
   measureP2SerializedCharacters,
   P2ResultBudgetError,
@@ -72,6 +74,15 @@ export class SiteVisitReadError extends Error {
     this.retryable =
       input.code === "STALE_CONTEXT" ||
       input.code === "TEMPORARILY_UNAVAILABLE";
+  }
+
+  toAgentError(): AgentError {
+    return toP2ReadAgentError({
+      code: this.code,
+      requestId: this.requestId,
+      message: this.message,
+      retryable: this.retryable,
+    });
   }
 }
 
@@ -148,7 +159,8 @@ function parseContextRepositoryResult(
 function visitError(
   code: SiteVisitReadError["code"],
   authorization:
-    AuthorizedListSiteVisitsRead | AuthorizedGetSiteVisitContextRead
+    | AuthorizedListSiteVisitsRead
+    | AuthorizedGetSiteVisitContextRead
 ): SiteVisitReadError {
   return new SiteVisitReadError({
     code,

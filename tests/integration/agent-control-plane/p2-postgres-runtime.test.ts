@@ -191,6 +191,10 @@ const MIGRATIONS = [
     "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
     "636a8e9d7f178d8339a3458658130463fe5cedf47716a0ed447bc20c98e1dc06",
   ],
+  [
+    "20260830170000_agent_site_visit_nullable_client_visibility.sql",
+    "ed141647730b08ef0f1292f733d8212b485ace494c221d893ce76e305b12b462",
+  ],
 ] as const;
 
 const FIXTURE_GROUPS = [
@@ -272,6 +276,10 @@ const FIXTURE_GROUPS = [
   [
     "agent-mcp-postgres-uuid-runtime.sql",
     "agent-mcp-postgres-uuid-replay-runtime.sql",
+  ],
+  [
+    "agent-site-visit-nullable-client-runtime.sql",
+    "agent-site-visit-nullable-client-replay-runtime.sql",
   ],
 ] as const;
 
@@ -480,6 +488,14 @@ const FIXTURES = [
     "agent-mcp-postgres-uuid-replay-runtime.sql",
     "76d34ce0e1294fc3c80def189b4994ae8be78ae9daaf6af288addc485c98a440",
   ],
+  [
+    "agent-site-visit-nullable-client-runtime.sql",
+    "23d51f2e96afe08f7a2a1f0bc342b4cbc46ebd7044f9122d3a4e3a78b9591722",
+  ],
+  [
+    "agent-site-visit-nullable-client-replay-runtime.sql",
+    "598ad844220b57ac83ef35d854cc6fe5ffc835dac285e3957339195273020b9c",
+  ],
 ] as const;
 
 const BASELINE_SHA256 =
@@ -520,6 +536,7 @@ const FIXTURE_CHECKPOINT_MIGRATIONS = [
   "20260830140000_agent_mcp_scope_canonical_order.sql",
   "20260830150000_agent_mcp_financial_tombstones.sql",
   "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
+  "20260830170000_agent_site_visit_nullable_client_visibility.sql",
 ] as const;
 
 const BASELINE = join(
@@ -1040,11 +1057,11 @@ async function settleWithCleanup(
 }
 
 describe("P2 PostgreSQL 17 full-wave ledger", () => {
-  it("pins the exact ordered 44-file ledger and canonical baseline", async () => {
-    expect(MIGRATIONS).toHaveLength(44);
-    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(44);
-    expect(FIXTURE_GROUPS.flat()).toHaveLength(51);
-    expect(FIXTURES).toHaveLength(51);
+  it("pins the exact ordered 45-file ledger and canonical baseline", async () => {
+    expect(MIGRATIONS).toHaveLength(45);
+    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(45);
+    expect(FIXTURE_GROUPS.flat()).toHaveLength(53);
+    expect(FIXTURES).toHaveLength(53);
     expect(FIXTURE_GROUPS.flat()).toEqual(FIXTURES.map(([name]) => name));
     expect(FIXTURE_CHECKPOINT_MIGRATIONS).toHaveLength(FIXTURE_GROUPS.length);
     expect(new Set(FIXTURE_CHECKPOINT_MIGRATIONS).size).toBe(
@@ -1061,8 +1078,8 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
           (position === 0 || index > checkpointIndexes[position - 1])
       )
     ).toBe(true);
-    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(51);
-    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(51);
+    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(53);
+    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(53);
     expect(FIXTURE_GROUPS.every((group) => group.length <= 3)).toBe(true);
     expect(fixtureExecutionPlan(FIXTURE_GROUPS[11])).toEqual([
       "agent-sales-document-sources-runtime.sql",
@@ -1077,14 +1094,14 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
       "agent-catalog-reads-runtime.sql",
     ]);
     expect(MIGRATIONS.slice(-3).map(([name]) => name)).toEqual([
-      "20260830140000_agent_mcp_scope_canonical_order.sql",
       "20260830150000_agent_mcp_financial_tombstones.sql",
       "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
+      "20260830170000_agent_site_visit_nullable_client_visibility.sql",
     ]);
     expect(FIXTURE_CHECKPOINT_MIGRATIONS.slice(-3)).toEqual([
-      "20260830140000_agent_mcp_scope_canonical_order.sql",
       "20260830150000_agent_mcp_financial_tombstones.sql",
       "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
+      "20260830170000_agent_site_visit_nullable_client_visibility.sql",
     ]);
     expect(fixtureExecutionPlan(FIXTURE_GROUPS[25])).toEqual([
       "agent-mcp-scope-canonical-order-runtime.sql",
@@ -1100,6 +1117,11 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
       "agent-mcp-postgres-uuid-runtime.sql",
       "agent-mcp-postgres-uuid-replay-runtime.sql",
       "agent-mcp-postgres-uuid-runtime.sql",
+    ]);
+    expect(fixtureExecutionPlan(FIXTURE_GROUPS[28])).toEqual([
+      "agent-site-visit-nullable-client-runtime.sql",
+      "agent-site-visit-nullable-client-replay-runtime.sql",
+      "agent-site-visit-nullable-client-runtime.sql",
     ]);
     expect(() => assertSafeLocalPostgresTarget("/tmp", "55414")).not.toThrow();
     expect(() =>

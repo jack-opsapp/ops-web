@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { AgentErrorSchema } from "@/lib/agent-control-plane/contracts/errors";
 import { measureP2SerializedCharacters } from "../../shared/result-budget";
 import { createSiteVisitListCursorService } from "../site-visit-cursor";
 import { createSupabaseSiteVisitReadRepository } from "../site-visit-repository";
@@ -405,6 +406,32 @@ describe("P2 get_site_visit_context service", () => {
     }
     expect(caught).toBeInstanceOf(SiteVisitReadError);
     expect(caught).toMatchObject({ code: "NOT_FOUND" });
+    expect(
+      AgentErrorSchema.parse((caught as SiteVisitReadError).toAgentError())
+    ).toEqual({
+      contract_version: "2026-08-07.v1",
+      request_id: "request-site-visit-read",
+      code: "NOT_FOUND",
+      message: "Site-visit context was not found.",
+      retryable: false,
+    });
     expect(JSON.stringify(caught)).not.toContain("site_visits");
+  });
+
+  it("maps markerless stale state to a valid retryable unavailable envelope", () => {
+    expect(
+      AgentErrorSchema.parse(
+        new SiteVisitReadError({
+          code: "STALE_CONTEXT",
+          requestId: "request-site-visit-read",
+        }).toAgentError()
+      )
+    ).toEqual({
+      contract_version: "2026-08-07.v1",
+      request_id: "request-site-visit-read",
+      code: "TEMPORARILY_UNAVAILABLE",
+      message: "Site-visit context changed. Start the read again.",
+      retryable: true,
+    });
   });
 });
