@@ -15,6 +15,7 @@ import {
   P2RepositoryBoundaryError,
   readThroughP2RepositoryBoundary,
 } from "../shared/repository-boundary";
+import { toP2ReadAgentError } from "../shared/read-error-transport";
 import {
   measureP2SerializedCharacters,
   P2ResultBudgetError,
@@ -65,6 +66,15 @@ export class TaskReadError extends Error {
     this.retryable =
       input.code === "STALE_CONTEXT" ||
       input.code === "TEMPORARILY_UNAVAILABLE";
+  }
+
+  toAgentError() {
+    return toP2ReadAgentError({
+      code: this.code,
+      requestId: this.requestId,
+      message: this.message,
+      retryable: this.retryable,
+    });
   }
 }
 

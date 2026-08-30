@@ -4,6 +4,7 @@ import {
   CatalogItemDetailResultSchema,
   CatalogSearchResultSchema,
 } from "@/lib/agent-control-plane/contracts/catalog-purchasing";
+import { AgentErrorSchema } from "@/lib/agent-control-plane/contracts/errors";
 import {
   createCatalogCursorService,
   type CatalogCursorContext,
@@ -491,26 +492,44 @@ describe("P2 catalogue repository and services", () => {
 
   it("maps hidden, 501-bound, stale, invalid-cursor, and transport states without leaking source rows", async () => {
     const detailAuthorization = await getCatalogAuthorization();
-    for (const [error, code] of [
+    for (const [error, code, publicCode] of [
       [
         {
           code: "P0002",
           message: "agent_catalog_item_not_found_or_not_visible",
         },
         "NOT_FOUND",
+        "NOT_FOUND",
       ],
       [
         { code: "54000", message: "agent_catalog_source_bound" },
         "RESULT_TOO_LARGE",
+        "RESULT_TOO_LARGE",
       ],
-      [{ code: "40001", message: "agent_catalog_read_stale" }, "STALE_CONTEXT"],
+      [
+        { code: "40001", message: "agent_catalog_read_stale" },
+        "STALE_CONTEXT",
+        "TEMPORARILY_UNAVAILABLE",
+      ],
     ] as const) {
       const repository = createSupabaseCatalogReadRepository(
         new StubRpcClient({ data: null, error })
       );
-      await expect(
-        getCatalogItem({ authorization: detailAuthorization, repository })
-      ).rejects.toMatchObject({ code });
+      let caught: unknown;
+      try {
+        await getCatalogItem({
+          authorization: detailAuthorization,
+          repository,
+        });
+      } catch (readError) {
+        caught = readError;
+      }
+      expect(caught).toBeInstanceOf(CatalogReadError);
+      expect(caught).toMatchObject({ code });
+      const agentError = (caught as CatalogReadError).toAgentError();
+      expect(AgentErrorSchema.parse(agentError)).toEqual(agentError);
+      expect(agentError.code).toBe(publicCode);
+      expect(agentError.code).not.toBe("INTERNAL");
     }
 
     const searchAuthorization = await searchCatalogAuthorization({
@@ -519,13 +538,26 @@ describe("P2 catalogue repository and services", () => {
     const repository = createSupabaseCatalogReadRepository(
       new StubRpcClient({ data: null, error: null })
     );
-    await expect(
-      searchCatalogItems({
+    let cursorError: unknown;
+    try {
+      await searchCatalogItems({
         authorization: searchAuthorization,
         repository,
         cursors,
-      })
-    ).rejects.toMatchObject({ code: "INVALID_CURSOR" });
+      });
+    } catch (readError) {
+      cursorError = readError;
+    }
+    expect(cursorError).toBeInstanceOf(CatalogReadError);
+    expect(cursorError).toMatchObject({ code: "INVALID_CURSOR" });
+    const cursorAgentError = (cursorError as CatalogReadError).toAgentError();
+    expect(AgentErrorSchema.parse(cursorAgentError)).toEqual(cursorAgentError);
+    expect(cursorAgentError).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      details: {
+        field_issues: [{ path: ["cursor"], code: "INVALID_CURSOR" }],
+      },
+    });
   });
 
   it("rejects proof tampering, cost injection, reconstructed authority, and untrusted repositories", async () => {

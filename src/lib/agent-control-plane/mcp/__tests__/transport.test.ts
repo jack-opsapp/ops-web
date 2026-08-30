@@ -5,6 +5,8 @@ import { ActorAccessError } from "@/lib/agent-control-plane/actor/errors";
 import type { OpsAgentDomainService } from "@/lib/agent-control-plane/services/domain-service";
 import { serializeUntrustedPromptData } from "@/lib/prompt-safety/untrusted-json";
 import { DurableMcpRateLimitUnavailableError } from "@/lib/agent-control-plane/mcp/durable-rate-limit";
+import { CatalogReadError } from "@/lib/agent-control-plane/services/p2/catalog/catalog-reads";
+import { ExpenseReadError } from "@/lib/agent-control-plane/services/p2/expenses/expense-reads";
 
 /**
  * Transport-layer proof for the MCP mount:
@@ -98,7 +100,7 @@ vi.mock("@/lib/agent-control-plane/registry/mcp-exposure-catalog", async () => {
       return Object.freeze({
         revision,
         toolIds: Object.freeze([...overrides.activeToolIds]),
-        grantableScopes: actual.MCP_EXPOSURE_V1.grantableScopes,
+        grantableScopes: actual.MCP_EXPOSURE_V2.grantableScopes,
       });
     }),
   };
@@ -199,6 +201,9 @@ function fakeDomainService(
     getCorrespondenceEvidence: make("getCorrespondenceEvidence"),
     searchCustomers: make("searchCustomers"),
     searchJobs: make("searchJobs"),
+    searchCatalogItems: make("searchCatalogItems"),
+    getCatalogItem: make("getCatalogItem"),
+    getExpenseContext: make("getExpenseContext"),
   } as unknown as OpsAgentDomainService;
   return { service, calls };
 }
@@ -545,6 +550,206 @@ describe("tool dispatch", () => {
     expect(envelope.request_id).toBe("req-test");
     expect(auditRecords.some((record) => record.outcome === "forbidden")).toBe(
       true
+    );
+  });
+
+  it("preserves insufficient-scope details as a forbidden domain response", async () => {
+    overrides.activeToolIds = new Set(["list_scheduled_jobs"]);
+    const { service } = fakeDomainService(
+      () =>
+        new ActorAccessError({
+          requestId: "req-test",
+          code: "INSUFFICIENT_SCOPE",
+          message: "Additional authorization is required.",
+          retryable: false,
+          auditReason: "test_scope",
+          requiredScope: "ops.schedule.read",
+          wwwAuthenticate:
+            'Bearer scope="ops.schedule.read", resource="https://app.opsapp.co/api/mcp"',
+        })
+    );
+    const { payload } = await callTool(
+      buildHandler(service),
+      "list_scheduled_jobs",
+      { from: "2026-08-01T00:00:00.000Z", to: "2026-08-02T00:00:00.000Z" }
+    );
+    const result = payload?.result as {
+      content: Array<{ type: string; text: string }>;
+      isError?: boolean;
+    };
+
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0]?.text ?? "{}")).toMatchObject({
+      code: "INSUFFICIENT_SCOPE",
+      details: { required_scope: "ops.schedule.read" },
+    });
+    expect(auditRecords).toContainEqual(
+      expect.objectContaining({
+        outcome: "forbidden",
+        errorCode: "INSUFFICIENT_SCOPE",
+      })
+    );
+  });
+
+  it("returns an expense domain error instead of collapsing it to INTERNAL", async () => {
+    overrides.activeToolIds = new Set(["get_expense_context"]);
+    const { service } = fakeDomainService(
+      () =>
+        new ExpenseReadError({
+          code: "NOT_FOUND",
+          requestId: "req-test",
+        })
+    );
+    const { payload } = await callTool(
+      buildHandler(service),
+      "get_expense_context",
+      {
+        expense_ref: {
+          kind: "expense",
+          id: "55555555-5555-4555-8555-555555555555",
+        },
+      }
+    );
+    const result = payload?.result as {
+      content: Array<{ type: string; text: string }>;
+      isError?: boolean;
+    };
+
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0]?.text ?? "{}")).toEqual({
+      contract_version: "2026-08-07.v1",
+      request_id: "req-test",
+      code: "NOT_FOUND",
+      message: "Expense not found.",
+      retryable: false,
+    });
+    expect(auditRecords).toContainEqual(
+      expect.objectContaining({
+        tool: "get_expense_context",
+        outcome: "domain_error",
+        errorCode: "NOT_FOUND",
+      })
+    );
+  });
+
+  it("returns catalog NOT_FOUND as a domain error instead of INTERNAL", async () => {
+    overrides.activeToolIds = new Set(["get_catalog_item"]);
+    const { service } = fakeDomainService(
+      () =>
+        new CatalogReadError({
+          code: "NOT_FOUND",
+          requestId: "req-test",
+        })
+    );
+    const { payload } = await callTool(
+      buildHandler(service),
+      "get_catalog_item",
+      {
+        item_ref: {
+          kind: "catalog_variant",
+          id: "d1000000-0000-4000-d100-000000000004",
+        },
+      }
+    );
+    const result = payload?.result as {
+      content: Array<{ type: string; text: string }>;
+      isError?: boolean;
+    };
+
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0]?.text ?? "{}")).toEqual({
+      contract_version: "2026-08-07.v1",
+      request_id: "req-test",
+      code: "NOT_FOUND",
+      message: "Catalog item not found.",
+      retryable: false,
+    });
+    expect(auditRecords).toContainEqual(
+      expect.objectContaining({
+        tool: "get_catalog_item",
+        outcome: "domain_error",
+        errorCode: "NOT_FOUND",
+      })
+    );
+    expect(auditRecords).not.toContainEqual(
+      expect.objectContaining({ outcome: "internal", errorCode: "INTERNAL" })
+    );
+  });
+
+  it("retains contract-safe INVALID_ARGUMENT details from a P2 read error", async () => {
+    overrides.activeToolIds = new Set(["search_catalog_items"]);
+    const { service } = fakeDomainService(
+      () =>
+        new CatalogReadError({
+          code: "INVALID_CURSOR",
+          requestId: "req-test",
+        })
+    );
+    const { payload } = await callTool(
+      buildHandler(service),
+      "search_catalog_items",
+      {
+        active_state: "active",
+        stock_states: ["critical", "normal", "untracked", "warning"],
+        low_stock_only: false,
+        limit: 25,
+      }
+    );
+    const result = payload?.result as {
+      content: Array<{ type: string; text: string }>;
+      isError?: boolean;
+    };
+
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0]?.text ?? "{}")).toMatchObject({
+      code: "INVALID_ARGUMENT",
+      details: {
+        field_issues: [
+          {
+            path: ["cursor"],
+            code: "INVALID_CURSOR",
+            message: "This catalog page expired. Start again.",
+          },
+        ],
+      },
+    });
+    expect(auditRecords).toContainEqual(
+      expect.objectContaining({
+        tool: "search_catalog_items",
+        outcome: "domain_error",
+        errorCode: "INVALID_ARGUMENT",
+      })
+    );
+  });
+
+  it("collapses a malformed toAgentError result to INTERNAL", async () => {
+    overrides.activeToolIds = new Set(["list_scheduled_jobs"]);
+    class MalformedReadError extends Error {
+      toAgentError() {
+        return {
+          contract_version: "2026-08-07.v1",
+          request_id: "req-test",
+          code: "STALE_CONTEXT",
+          message: "stale",
+          retryable: true,
+        };
+      }
+    }
+    const { service } = fakeDomainService(() => new MalformedReadError());
+    const { payload } = await callTool(
+      buildHandler(service),
+      "list_scheduled_jobs",
+      { from: "2026-08-01T00:00:00.000Z", to: "2026-08-02T00:00:00.000Z" }
+    );
+    const result = payload?.result as {
+      content: Array<{ type: string; text: string }>;
+      isError?: boolean;
+    };
+
+    expect(result.isError).toBe(true);
+    expect(JSON.parse(result.content[0]?.text ?? "{}").code).toBe("INTERNAL");
+    expect(auditRecords).toContainEqual(
+      expect.objectContaining({ outcome: "internal", errorCode: "INTERNAL" })
     );
   });
 

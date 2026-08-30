@@ -1,6 +1,10 @@
 import "server-only";
 
 import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
+import {
+  AgentErrorSchema,
+  type AgentError,
+} from "@/lib/agent-control-plane/contracts/errors";
 import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
 import { getCapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-manifest";
 import type { CapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-types";
@@ -76,21 +80,13 @@ const CONTRACT_ERROR_CODES: ReadonlySet<string> = new Set([
   "INTERNAL",
 ]);
 
-interface ContractErrorEnvelope {
-  readonly contract_version: string;
-  readonly request_id: string;
-  readonly code: string;
-  readonly message: string;
-  readonly retryable: boolean;
-}
-
 /**
  * Every domain read failure — ActorAccessError and each service's typed
  * *ReadError — carries the same contract shape via toAgentError(). Anything
  * that produces a well-formed envelope with a known stable code is a domain
  * answer, not an internal fault; everything else collapses to INTERNAL.
  */
-function contractErrorEnvelope(error: unknown): ContractErrorEnvelope | null {
+function contractErrorEnvelope(error: unknown): AgentError | null {
   if (!(error instanceof Error)) return null;
   const candidate = error as Error & { toAgentError?: unknown };
   if (typeof candidate.toAgentError !== "function") return null;
@@ -100,25 +96,10 @@ function contractErrorEnvelope(error: unknown): ContractErrorEnvelope | null {
   } catch {
     return null;
   }
-  if (typeof envelope !== "object" || envelope === null) return null;
-  const record = envelope as Readonly<Record<string, unknown>>;
-  if (
-    typeof record.contract_version !== "string" ||
-    typeof record.request_id !== "string" ||
-    typeof record.code !== "string" ||
-    !CONTRACT_ERROR_CODES.has(record.code) ||
-    typeof record.message !== "string" ||
-    typeof record.retryable !== "boolean"
-  ) {
+  const parsed = AgentErrorSchema.safeParse(envelope);
+  if (!parsed.success || !CONTRACT_ERROR_CODES.has(parsed.data.code))
     return null;
-  }
-  return {
-    contract_version: record.contract_version,
-    request_id: record.request_id,
-    code: record.code,
-    message: record.message,
-    retryable: record.retryable,
-  };
+  return parsed.data;
 }
 
 function internalEnvelope(requestId: string): ErrorEnvelope {

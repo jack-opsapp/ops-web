@@ -10,6 +10,7 @@ import {
 } from "@/lib/agent-control-plane/contracts/work-queue";
 import { P2ReadCursorError } from "../shared/cursor";
 import { readThroughP2RepositoryBoundary } from "../shared/repository-boundary";
+import { toP2ReadAgentError } from "../shared/read-error-transport";
 import { measureP2SerializedCharacters } from "../shared/result-budget";
 import {
   isAuthorizedWorkQueueRead,
@@ -39,11 +40,31 @@ export class WorkQueueReadError extends Error {
     | "TEMPORARILY_UNAVAILABLE"
     | "INTERNAL";
   readonly requestId: string;
+  readonly retryable: boolean;
+
   constructor(code: WorkQueueReadError["code"], requestId: string) {
-    super(code);
+    const messages = {
+      INVALID_CURSOR: "This work queue page expired. Start again.",
+      STALE_CONTEXT: "Work queue changed. Start again.",
+      RESULT_TOO_LARGE: "Work queue is too large. Narrow the filters.",
+      TEMPORARILY_UNAVAILABLE: "Work queue couldn't load. Try again.",
+      INTERNAL: "Work queue couldn't load. Try again.",
+    } as const;
+    super(messages[code]);
     this.name = "WorkQueueReadError";
     this.code = code;
     this.requestId = requestId;
+    this.retryable =
+      code === "STALE_CONTEXT" || code === "TEMPORARILY_UNAVAILABLE";
+  }
+
+  toAgentError() {
+    return toP2ReadAgentError({
+      code: this.code,
+      requestId: this.requestId,
+      message: this.message,
+      retryable: this.retryable,
+    });
   }
 }
 type CursorService = ReturnType<typeof createWorkQueueCursorService>;

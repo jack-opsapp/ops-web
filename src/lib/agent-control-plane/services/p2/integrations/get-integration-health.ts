@@ -10,6 +10,7 @@ import {
   P2RepositoryBoundaryError,
   readThroughP2RepositoryBoundary,
 } from "../shared/repository-boundary";
+import { toP2ReadAgentError } from "../shared/read-error-transport";
 import { measureP2SerializedCharacters } from "../shared/result-budget";
 import {
   isAuthorizedIntegrationHealthRead,
@@ -49,6 +50,15 @@ export class IntegrationHealthReadError extends Error {
     this.code = input.code;
     this.requestId = input.requestId;
     this.retryable = input.code === "TEMPORARILY_UNAVAILABLE";
+  }
+
+  toAgentError() {
+    return toP2ReadAgentError({
+      code: this.code,
+      requestId: this.requestId,
+      message: this.message,
+      retryable: this.retryable,
+    });
   }
 }
 
