@@ -697,7 +697,7 @@ begin
         ) duplicate
       ) as has_duplicate
     )
-    select pg_catalog.count(*)::integer,
+    select pg_catalog.count(projection.id)::integer,
            coalesce(
              pg_catalog.jsonb_agg(
                projection.cost_item
@@ -707,7 +707,7 @@ begin
                         projection.safe_label collate "C",
                         projection.currency_code,
                         projection.amount_minor
-             ),
+             ) filter (where projection.id is not null),
              '[]'::jsonb
            ),
            coalesce(
@@ -715,8 +715,8 @@ begin
            ) or duplicate.has_duplicate
       into v_supplier_cost_count, v_supplier_costs,
            v_supplier_cost_invalid
-    from cost_projection projection
-    cross join duplicate_state duplicate
+    from duplicate_state duplicate
+    left join cost_projection projection on true
     group by duplicate.has_duplicate;
     if v_supplier_cost_count >= p_supplier_cost_fetch_limit then
       raise exception 'agent_catalog_result_bound'

@@ -195,6 +195,10 @@ const MIGRATIONS = [
     "20260830170000_agent_site_visit_nullable_client_visibility.sql",
     "b2b8fb251cee5eba4d4cf780b157fc3288e5e3a0daab947ce22865e59bf5d6f9",
   ],
+  [
+    "20260830180000_agent_catalog_empty_supplier_costs.sql",
+    "2455abc75ee9786863fd186815812c40209e671b7866b9927dec1aa02af7d08f",
+  ],
 ] as const;
 
 const FIXTURE_GROUPS = [
@@ -280,6 +284,10 @@ const FIXTURE_GROUPS = [
   [
     "agent-site-visit-nullable-client-runtime.sql",
     "agent-site-visit-nullable-client-replay-runtime.sql",
+  ],
+  [
+    "agent-catalog-empty-supplier-costs-runtime.sql",
+    "agent-catalog-empty-supplier-costs-replay-runtime.sql",
   ],
 ] as const;
 
@@ -382,7 +390,7 @@ const FIXTURES = [
   ],
   [
     "agent-catalog-reads-runtime.sql",
-    "f457c321c5e82213ee427cf6733e41d7af132586d34bf3a2cfc34a7574bc2afb",
+    "55be25a5fe300825e829100e20ff6f1f040a6f5664f9633f267ef424a74e0a3e",
   ],
   [
     "agent-catalog-reads-replay-runtime.sql",
@@ -496,6 +504,14 @@ const FIXTURES = [
     "agent-site-visit-nullable-client-replay-runtime.sql",
     "ced8ddebc81d877cd872c46543cc3d70e8dd7a29f346bd7aff57754daff93565",
   ],
+  [
+    "agent-catalog-empty-supplier-costs-runtime.sql",
+    "6df36f988049a052ba1728c711b08cd45f59d3c55640b0685557e41f8a917cbc",
+  ],
+  [
+    "agent-catalog-empty-supplier-costs-replay-runtime.sql",
+    "39e2f0359cc7ffc560b2ca04dc4853cb60030cb54707f4c49da13a2cea7f48c4",
+  ],
 ] as const;
 
 const BASELINE_SHA256 =
@@ -537,6 +553,7 @@ const FIXTURE_CHECKPOINT_MIGRATIONS = [
   "20260830150000_agent_mcp_financial_tombstones.sql",
   "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
   "20260830170000_agent_site_visit_nullable_client_visibility.sql",
+  "20260830180000_agent_catalog_empty_supplier_costs.sql",
 ] as const;
 
 const BASELINE = join(
@@ -877,6 +894,158 @@ begin
   execute v_restored_definition;
 end;
 $postgres_uuid_restore$;
+`;
+
+const CATALOG_EMPTY_COSTS_ADVERSARIAL_DRIFT_SQL = `
+do $catalog_empty_costs_drift$
+declare
+  v_signature constant text :=
+    'private.agent_p2_catalog_detail_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer)';
+  v_expected_fragment constant text :=
+    'left join cost_projection projection on true';
+  v_drifted_fragment constant text :=
+    'left join cost_projection projection on true /* adversarial drift */';
+  v_definition text;
+  v_drifted_definition text;
+begin
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure(v_signature)::oid
+         )
+    into strict v_definition;
+  if (
+       pg_catalog.length(v_definition) - pg_catalog.length(
+         pg_catalog.replace(v_definition, v_expected_fragment, '')
+       )
+     ) / pg_catalog.length(v_expected_fragment) is distinct from 1
+     or pg_catalog.strpos(v_definition, v_drifted_fragment) <> 0 then
+    raise exception 'agent_catalog_empty_costs_adversarial_setup_failed';
+  end if;
+  v_drifted_definition := pg_catalog.replace(
+    v_definition, v_expected_fragment, v_drifted_fragment
+  );
+  if v_drifted_definition is not distinct from v_definition then
+    raise exception 'agent_catalog_empty_costs_adversarial_setup_failed';
+  end if;
+  execute v_drifted_definition;
+end;
+$catalog_empty_costs_drift$;
+`;
+
+const CATALOG_EMPTY_COSTS_ADVERSARIAL_RESTORE_SQL = `
+do $catalog_empty_costs_restore$
+declare
+  v_signature constant text :=
+    'private.agent_p2_catalog_detail_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer)';
+  v_expected_fragment constant text :=
+    'left join cost_projection projection on true /* adversarial drift */';
+  v_restored_fragment constant text :=
+    'left join cost_projection projection on true';
+  v_definition text;
+  v_restored_definition text;
+begin
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure(v_signature)::oid
+         )
+    into strict v_definition;
+  if (
+       pg_catalog.length(v_definition) - pg_catalog.length(
+         pg_catalog.replace(v_definition, v_expected_fragment, '')
+       )
+     ) / pg_catalog.length(v_expected_fragment) is distinct from 1 then
+    raise exception 'agent_catalog_empty_costs_adversarial_restore_failed';
+  end if;
+  v_restored_definition := pg_catalog.replace(
+    v_definition, v_expected_fragment, v_restored_fragment
+  );
+  if v_restored_definition is not distinct from v_definition then
+    raise exception 'agent_catalog_empty_costs_adversarial_restore_failed';
+  end if;
+  execute v_restored_definition;
+end;
+$catalog_empty_costs_restore$;
+`;
+
+const CATALOG_EMPTY_COSTS_ACL_ADVERSARIAL_DRIFT_SQL = `
+do $catalog_empty_costs_acl_drift$
+declare
+  v_signature constant text :=
+    'private.agent_p2_catalog_detail_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer)';
+  v_role_name constant text :=
+    'p2_catalog_acl_' || pg_catalog.substr(
+      pg_catalog.md5(pg_catalog.current_database()), 1, 16
+    );
+begin
+  if exists (
+    select 1 from pg_catalog.pg_roles role
+    where role.rolname = v_role_name
+  ) then
+    raise exception 'agent_catalog_empty_costs_acl_adversarial_setup_failed';
+  end if;
+
+  execute pg_catalog.format(
+    'create role %I nologin noinherit nosuperuser nocreatedb ' ||
+    'nocreaterole noreplication nobypassrls',
+    v_role_name
+  );
+  execute pg_catalog.format(
+    'grant execute on function %s to %I', v_signature, v_role_name
+  );
+
+  if not pg_catalog.has_function_privilege(
+    v_role_name,
+    pg_catalog.to_regprocedure(v_signature)::oid,
+    'EXECUTE'
+  ) then
+    raise exception 'agent_catalog_empty_costs_acl_adversarial_setup_failed';
+  end if;
+end;
+$catalog_empty_costs_acl_drift$;
+`;
+
+const CATALOG_EMPTY_COSTS_ACL_ADVERSARIAL_RESTORE_SQL = `
+do $catalog_empty_costs_acl_restore$
+declare
+  v_signature constant text :=
+    'private.agent_p2_catalog_detail_v1(uuid,uuid,uuid,uuid,text,text[],text,text[],text,text,text,jsonb,text,uuid,boolean,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer,integer)';
+  v_role_name constant text :=
+    'p2_catalog_acl_' || pg_catalog.substr(
+      pg_catalog.md5(pg_catalog.current_database()), 1, 16
+    );
+begin
+  if not exists (
+       select 1 from pg_catalog.pg_roles role
+       where role.rolname = v_role_name
+     )
+     or not pg_catalog.has_function_privilege(
+       v_role_name,
+       pg_catalog.to_regprocedure(v_signature)::oid,
+       'EXECUTE'
+     ) then
+    raise exception 'agent_catalog_empty_costs_acl_adversarial_restore_failed';
+  end if;
+
+  execute pg_catalog.format(
+    'revoke all privileges on function %s from %I',
+    v_signature,
+    v_role_name
+  );
+  if pg_catalog.has_function_privilege(
+    v_role_name,
+    pg_catalog.to_regprocedure(v_signature)::oid,
+    'EXECUTE'
+  ) then
+    raise exception 'agent_catalog_empty_costs_acl_adversarial_restore_failed';
+  end if;
+
+  execute pg_catalog.format('drop role %I', v_role_name);
+  if exists (
+    select 1 from pg_catalog.pg_roles role
+    where role.rolname = v_role_name
+  ) then
+    raise exception 'agent_catalog_empty_costs_acl_adversarial_restore_failed';
+  end if;
+end;
+$catalog_empty_costs_acl_restore$;
 `;
 
 const SITE_VISIT_ADVERSARIAL_DRIFT_SQL = `
@@ -1281,10 +1450,10 @@ async function settleWithCleanup(
 
 describe("P2 PostgreSQL 17 full-wave ledger", () => {
   it("pins the exact ordered 45-file ledger and canonical baseline", async () => {
-    expect(MIGRATIONS).toHaveLength(45);
-    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(45);
-    expect(FIXTURE_GROUPS.flat()).toHaveLength(53);
-    expect(FIXTURES).toHaveLength(53);
+    expect(MIGRATIONS).toHaveLength(46);
+    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(46);
+    expect(FIXTURE_GROUPS.flat()).toHaveLength(55);
+    expect(FIXTURES).toHaveLength(55);
     expect(FIXTURE_GROUPS.flat()).toEqual(FIXTURES.map(([name]) => name));
     expect(FIXTURE_CHECKPOINT_MIGRATIONS).toHaveLength(FIXTURE_GROUPS.length);
     expect(new Set(FIXTURE_CHECKPOINT_MIGRATIONS).size).toBe(
@@ -1301,8 +1470,8 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
           (position === 0 || index > checkpointIndexes[position - 1])
       )
     ).toBe(true);
-    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(53);
-    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(53);
+    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(55);
+    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(55);
     expect(FIXTURE_GROUPS.every((group) => group.length <= 3)).toBe(true);
     expect(fixtureExecutionPlan(FIXTURE_GROUPS[11])).toEqual([
       "agent-sales-document-sources-runtime.sql",
@@ -1317,14 +1486,14 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
       "agent-catalog-reads-runtime.sql",
     ]);
     expect(MIGRATIONS.slice(-3).map(([name]) => name)).toEqual([
-      "20260830150000_agent_mcp_financial_tombstones.sql",
       "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
       "20260830170000_agent_site_visit_nullable_client_visibility.sql",
+      "20260830180000_agent_catalog_empty_supplier_costs.sql",
     ]);
     expect(FIXTURE_CHECKPOINT_MIGRATIONS.slice(-3)).toEqual([
-      "20260830150000_agent_mcp_financial_tombstones.sql",
       "20260830160000_agent_mcp_postgres_uuid_compatibility.sql",
       "20260830170000_agent_site_visit_nullable_client_visibility.sql",
+      "20260830180000_agent_catalog_empty_supplier_costs.sql",
     ]);
     expect(fixtureExecutionPlan(FIXTURE_GROUPS[25])).toEqual([
       "agent-mcp-scope-canonical-order-runtime.sql",
@@ -1345,6 +1514,11 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
       "agent-site-visit-nullable-client-runtime.sql",
       "agent-site-visit-nullable-client-replay-runtime.sql",
       "agent-site-visit-nullable-client-runtime.sql",
+    ]);
+    expect(fixtureExecutionPlan(FIXTURE_GROUPS[29])).toEqual([
+      "agent-catalog-empty-supplier-costs-runtime.sql",
+      "agent-catalog-empty-supplier-costs-replay-runtime.sql",
+      "agent-catalog-empty-supplier-costs-runtime.sql",
     ]);
     expect(() => assertSafeLocalPostgresTarget("/tmp", "55414")).not.toThrow();
     expect(() =>
@@ -1583,6 +1757,43 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
               await runStatement(
                 database,
                 POSTGRES_UUID_ADVERSARIAL_RESTORE_SQL
+              );
+              await runFile(database, join(ROOT, "supabase/migrations", name));
+            }
+            if (
+              name === "20260830180000_agent_catalog_empty_supplier_costs.sql"
+            ) {
+              await runStatement(
+                database,
+                CATALOG_EMPTY_COSTS_ACL_ADVERSARIAL_DRIFT_SQL
+              );
+              try {
+                await expectMigrationSourceDrift(
+                  database,
+                  name,
+                  "agent_catalog_empty_supplier_costs_security_identity_drift",
+                  "55000"
+                );
+              } finally {
+                await runStatement(
+                  database,
+                  CATALOG_EMPTY_COSTS_ACL_ADVERSARIAL_RESTORE_SQL
+                );
+              }
+              await runFile(database, join(ROOT, "supabase/migrations", name));
+              await runStatement(
+                database,
+                CATALOG_EMPTY_COSTS_ADVERSARIAL_DRIFT_SQL
+              );
+              await expectMigrationSourceDrift(
+                database,
+                name,
+                "agent_catalog_empty_supplier_costs_source_drift",
+                "55000"
+              );
+              await runStatement(
+                database,
+                CATALOG_EMPTY_COSTS_ADVERSARIAL_RESTORE_SQL
               );
               await runFile(database, join(ROOT, "supabase/migrations", name));
             }

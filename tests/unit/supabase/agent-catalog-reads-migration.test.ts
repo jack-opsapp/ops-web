@@ -45,10 +45,56 @@ function replaceExactly(
 }
 
 function currentBodyFromReservation(value: string) {
-  return replaceExactly(
+  const scopeCanonical = replaceExactly(
     value,
     "       select pg_catalog.array_agg(scope.value order by scope.value)",
     '       select pg_catalog.array_agg(\n         scope.value order by scope.value collate "C"\n       )',
+    1
+  );
+  return replaceExactly(
+    scopeCanonical,
+    `    select pg_catalog.count(*)::integer,
+           coalesce(
+             pg_catalog.jsonb_agg(
+               projection.cost_item
+               order by projection.catalog_variant_id,
+                        projection.is_default desc,
+                        projection.effective_at desc,
+                        projection.safe_label collate "C",
+                        projection.currency_code,
+                        projection.amount_minor
+             ),
+             '[]'::jsonb
+           ),
+           coalesce(
+             pg_catalog.bool_or(projection.source_invalid), false
+           ) or duplicate.has_duplicate
+      into v_supplier_cost_count, v_supplier_costs,
+           v_supplier_cost_invalid
+    from cost_projection projection
+    cross join duplicate_state duplicate
+    group by duplicate.has_duplicate;`,
+    `    select pg_catalog.count(projection.id)::integer,
+           coalesce(
+             pg_catalog.jsonb_agg(
+               projection.cost_item
+               order by projection.catalog_variant_id,
+                        projection.is_default desc,
+                        projection.effective_at desc,
+                        projection.safe_label collate "C",
+                        projection.currency_code,
+                        projection.amount_minor
+             ) filter (where projection.id is not null),
+             '[]'::jsonb
+           ),
+           coalesce(
+             pg_catalog.bool_or(projection.source_invalid), false
+           ) or duplicate.has_duplicate
+      into v_supplier_cost_count, v_supplier_costs,
+           v_supplier_cost_invalid
+    from duplicate_state duplicate
+    left join cost_projection projection on true
+    group by duplicate.has_duplicate;`,
     1
   );
 }

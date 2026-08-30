@@ -452,6 +452,30 @@ describe("P2 catalogue repository and services", () => {
     });
   });
 
+  it("returns an authorized empty supplier-cost collection with count zero", async () => {
+    const authorization = await getCatalogAuthorization({
+      includeCosts: true,
+    });
+    const source: CatalogDetailWithCosts = {
+      ...detailSource(true),
+      supplier_costs: [],
+    };
+    const repository = createSupabaseCatalogReadRepository(
+      new StubRpcClient({
+        data: rawDetail(authorization, source),
+        error: null,
+      })
+    );
+
+    const result = await getCatalogItem({ authorization, repository });
+
+    if (!("supplier_costs" in result)) {
+      throw new Error("supplier cost section missing");
+    }
+    expect(result.supplier_costs).toEqual([]);
+    expect(Object.isFrozen(result)).toBe(true);
+  });
+
   it("rejects an indivisible detail result above the exact serializer budget", async () => {
     const authorization = await getCatalogAuthorization();
     const largeLabel = "😀".repeat(256);

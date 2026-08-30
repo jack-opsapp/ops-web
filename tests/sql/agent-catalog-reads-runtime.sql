@@ -421,6 +421,7 @@ set local request.jwt.claim.role = 'service_role';
 
 -- Required proof ledger markers: runtime_requires_postgresql_17,
 -- base_catalog_authority, supplier_cost_authority,
+-- supplier_cost_empty_is_canonical,
 -- supplier_cost_redacted_by_default, source_501_fails_closed, page_25_26,
 -- keyset_has_no_duplicates, detail_child_bounds,
 -- exact_money_rejects_fractional_minor, attention_is_bounded,
@@ -1080,6 +1081,28 @@ begin
   end;
 end;
 $supplier_cost_authority$;
+
+\if :{?agent_catalog_empty_supplier_costs_repaired}
+do $supplier_cost_empty_is_canonical$
+declare
+  v_result jsonb;
+begin
+  v_result := pg_temp.task18_catalog_detail(
+    (select snapshot_revision from task18_authority),
+    (select cost_candidates from task18_authority),
+    'catalog_variant',
+    'c1840000-0000-4000-8000-000000000002',
+    true
+  );
+  if v_result #> '{result,supplier_costs}' is distinct from '[]'::jsonb
+     or v_result #>> '{source_inspected,supplier_costs}' <> '0'
+     or v_result #> '{selected_authorization_variants}' <>
+          '["catalog", "supplier_costs"]'::jsonb then
+    raise exception 'supplier_cost_empty_is_canonical';
+  end if;
+end;
+$supplier_cost_empty_is_canonical$;
+\endif
 
 do $exact_money_rejects_fractional_minor$
 begin
