@@ -1,10 +1,6 @@
 import "server-only";
 
-import {
-  CONTRACT_VERSION,
-  P2_MAX_SERIALIZED_CHARACTERS,
-  type AgentError,
-} from "@/lib/agent-control-plane/contracts";
+import { P2_MAX_SERIALIZED_CHARACTERS } from "@/lib/agent-control-plane/contracts";
 import {
   GetExpenseContextResultSchema,
   ListExpensesResultSchema,
@@ -17,6 +13,7 @@ import {
   P2RepositoryBoundaryError,
   readThroughP2RepositoryBoundary,
 } from "../shared/repository-boundary";
+import { toP2ReadAgentError } from "../shared/read-error-transport";
 import {
   P2ResultBudgetError,
   measureP2SerializedCharacters,
@@ -77,40 +74,13 @@ export class ExpenseReadError extends Error {
       input.code === "TEMPORARILY_UNAVAILABLE";
   }
 
-  toAgentError(): AgentError {
-    const base = {
-      contract_version: CONTRACT_VERSION,
-      request_id: this.requestId,
+  toAgentError() {
+    return toP2ReadAgentError({
+      code: this.code,
+      requestId: this.requestId,
       message: this.message,
       retryable: this.retryable,
-    } as const;
-    if (this.code === "INVALID_CURSOR") {
-      return {
-        ...base,
-        code: "INVALID_ARGUMENT",
-        details: {
-          field_issues: [
-            {
-              path: ["cursor"],
-              code: "INVALID_CURSOR",
-              message: this.message,
-            },
-          ],
-        },
-      };
-    }
-    if (this.code === "NOT_FOUND") return { ...base, code: "NOT_FOUND" };
-    if (this.code === "RESULT_TOO_LARGE") {
-      return { ...base, code: "RESULT_TOO_LARGE" };
-    }
-    if (
-      this.code === "SOURCE_DATA_INVALID" ||
-      this.code === "STALE_CONTEXT" ||
-      this.code === "TEMPORARILY_UNAVAILABLE"
-    ) {
-      return { ...base, code: "TEMPORARILY_UNAVAILABLE" };
-    }
-    return { ...base, code: "INTERNAL" };
+    });
   }
 }
 
