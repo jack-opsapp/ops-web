@@ -51,12 +51,14 @@ interface TaskAutomationClaim {
 export interface TaskAutomationBatchResult {
   claimed: number;
   completed: number;
+  degraded: number;
   superseded: number;
   skipped: number;
   requeued: number;
   failed: number;
   terminalFailed: number;
   errors: Array<{ eventId: string; message: string }>;
+  warnings: Array<{ eventId: string; message: string }>;
 }
 
 const TASK_FIELDS =
@@ -127,6 +129,23 @@ function isTaskNotificationKind(
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function boundedProviderFailureDetail(error: unknown): string {
+  let detail: string | undefined;
+  if (error instanceof Error) {
+    detail = error.message;
+  } else if (typeof error === "string") {
+    detail = error;
+  } else {
+    try {
+      detail = JSON.stringify(error);
+    } catch {
+      detail = String(error);
+    }
+  }
+  const normalized = detail?.trim() || "Unknown OneSignal failure";
+  return normalized.slice(0, 1000);
 }
 
 async function taskAutomationDatabaseOperation<T>(
@@ -395,6 +414,8 @@ async function processTaskNotificationClaim(
     db,
   });
 
+  let pushDelivery: "delivered" | "suppressed" | "failed" = "suppressed";
+  let pushFailure: { status: number | null; detail: string } | undefined;
   if (pushTargets.length > 0) {
     const pushType =
       persisted.type === "task_assigned"
@@ -420,14 +441,33 @@ async function processTaskNotificationClaim(
       data: pushData,
       idempotencyKey: claim.event_id,
     });
-    if (!push.ok) throw new Error("Task notification push failed");
+    if (push.ok) {
+      pushDelivery = "delivered";
+    } else {
+      pushDelivery = "failed";
+      pushFailure = {
+        status: typeof push.status === "number" ? push.status : null,
+        detail: boundedProviderFailureDetail(push.error),
+      };
+    }
   }
 
   await complete(db, claim, "processed", {
+    deliveryState: pushFailure ? "degraded" : "complete",
     notificationType: persisted.type,
+    inAppDelivery: "persisted",
+    pushDelivery,
     pushRecipients: pushTargets.length,
+    ...(pushFailure ? { pushFailure } : {}),
   });
   result.completed += 1;
+  if (pushFailure) {
+    result.degraded += 1;
+    result.warnings.push({
+      eventId: claim.event_id,
+      message: `Task notification push failed after in-app persistence: ${pushFailure.detail}`,
+    });
+  }
 }
 
 async function actorCanEditTask(
@@ -874,12 +914,14 @@ export const TaskMutationAutomationOutboxService = {
     const result: TaskAutomationBatchResult = {
       claimed: 0,
       completed: 0,
+      degraded: 0,
       superseded: 0,
       skipped: 0,
       requeued: 0,
       failed: 0,
       terminalFailed: terminalized,
       errors: [],
+      warnings: [],
     };
 
     // A lease starts only when its event is about to be processed. Claiming a

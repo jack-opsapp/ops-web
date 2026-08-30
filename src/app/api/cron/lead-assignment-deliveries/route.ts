@@ -94,6 +94,7 @@ export async function GET(request: NextRequest) {
             taskAutomation.errors.length === 0 &&
             taskAutomation.requeued === 0 &&
             taskAutomation.failed === 0 &&
+            taskAutomation.degraded === 0 &&
             taskAutomation.terminalFailed === 0 &&
             conversionNotifications.errors.length === 0 &&
             conversionNotifications.requeued === 0 &&
