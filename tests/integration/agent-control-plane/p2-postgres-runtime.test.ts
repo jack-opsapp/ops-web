@@ -175,6 +175,10 @@ const MIGRATIONS = [
     "20260830113800_mcp_oauth_chatgpt_rfc9207_callback.sql",
     "2e0893b8312fb0cbb264228a4ac97155c2649aefd6e42040cc5b1369a09f7e59",
   ],
+  [
+    "20260830120000_agent_mcp_scope_set_binding.sql",
+    "2b547aa95aeb8b7b665707f12119432d0d106958192277a8ec64204bdd51c25b",
+  ],
 ] as const;
 
 const FIXTURE_GROUPS = [
@@ -240,6 +244,11 @@ const FIXTURE_GROUPS = [
   ],
   ["agent-mcp-oauth-codex-dcr-runtime.sql"],
   ["agent-mcp-oauth-chatgpt-rfc9207-runtime.sql"],
+  [
+    "agent-mcp-scope-set-binding-runtime.sql",
+    "agent-mcp-scope-set-binding-replay-runtime.sql",
+    "agent-mcp-scope-set-binding-boundaries-runtime.sql",
+  ],
 ] as const;
 
 const FIXTURES = [
@@ -269,7 +278,7 @@ const FIXTURES = [
   ],
   [
     "agent-customer-context-runtime.sql",
-    "31897871066d95653e5e20bd88867dc631b33f860f2ef27a96d125bfe9b381cd",
+    "eb8cbd6fe9f999ae4c951a7d806937e26c38216f8a6b94a9be25f3ddd2afc80f",
   ],
   [
     "agent-customer-context-replay-runtime.sql",
@@ -277,11 +286,11 @@ const FIXTURES = [
   ],
   [
     "agent-task-reads-runtime.sql",
-    "ecd8d42db813b4cbb39900bb863dc1626693e39811edf212db4fead25a25982b",
+    "7dec7dac2085c85c130374e13cb4df4827fb33618df43cd684861049229fe3fb",
   ],
   [
     "agent-artifact-reads-runtime.sql",
-    "8a75f9b4a3a7828d7d8010cb010c6570f0d04797147eab80a4eee9dcf513d35e",
+    "5be7ed6a294933b1dfa906bf063ec9bf05cc45a6ee588e1b5a91a1dfb852ff64",
   ],
   [
     "agent-artifact-reads-replay-runtime.sql",
@@ -289,7 +298,7 @@ const FIXTURES = [
   ],
   [
     "agent-site-visit-reads-runtime.sql",
-    "345aca0d360e22e70ee2ef02d4abac17e4fcf9a15302ef04634471d90d824702",
+    "792fca871ccbafeadf8901d61a223d777d4afb2c39247258d6a0687117a5e383",
   ],
   [
     "agent-deck-design-geometry-runtime.sql",
@@ -411,6 +420,18 @@ const FIXTURES = [
     "agent-mcp-oauth-chatgpt-rfc9207-runtime.sql",
     "354e0915a8d365da9c8445ec29ffb487291de84d9644443487883ffd1e587c18",
   ],
+  [
+    "agent-mcp-scope-set-binding-runtime.sql",
+    "8f006536e42ba6eaaffcba33c2fd07cee8c4cbcd59f085e0b8f443f3d2cad4af",
+  ],
+  [
+    "agent-mcp-scope-set-binding-replay-runtime.sql",
+    "53688e6da2a88781b1b41bc2df27d28131b495c693cb1d9b45539c2f8adae9c5",
+  ],
+  [
+    "agent-mcp-scope-set-binding-boundaries-runtime.sql",
+    "2bcc16fed29cfdfcdb5f04c678919d5685845f7842ce14fbf2d85cf82997e13c",
+  ],
 ] as const;
 
 const BASELINE_SHA256 =
@@ -447,6 +468,7 @@ const FIXTURE_CHECKPOINT_MIGRATIONS = [
   "20260829110002_agent_operational_overview_read.sql",
   "20260829192448_mcp_oauth_codex_dcr_callbacks.sql",
   "20260830113800_mcp_oauth_chatgpt_rfc9207_callback.sql",
+  "20260830120000_agent_mcp_scope_set_binding.sql",
 ] as const;
 
 const BASELINE = join(
@@ -488,6 +510,32 @@ where id = '22222222-2222-4222-8222-222222222222'::uuid
 delete from public.companies
 where id = '33333333-3333-4333-8333-333333333333'::uuid;
 commit;
+`;
+
+const SCOPE_SET_BINDING_ADVERSARIAL_DRIFT_SQL = `
+do $scope_set_binding_drift$
+declare
+  v_signature constant text :=
+    'private.agent_p2_company_summary_v1(uuid,uuid,uuid,uuid,text,text[],text[],text,text[],text,timestamp with time zone)';
+  v_definition text;
+  v_drifted_definition text;
+begin
+  select pg_catalog.pg_get_functiondef(
+           pg_catalog.to_regprocedure(v_signature)::oid
+         )
+    into strict v_definition;
+
+  v_drifted_definition := pg_catalog.replace(
+    v_definition,
+    'private.agent_mcp_oauth_scope_sets_equal(oauth_grant.scopes, p_granted_scope_ceiling)',
+    'private.agent_mcp_oauth_scope_sets_equal(oauth_grant.scopes, oauth_grant.scopes)'
+  );
+  if v_drifted_definition is not distinct from v_definition then
+    raise exception 'agent_mcp_scope_set_binding_adversarial_setup_failed';
+  end if;
+  execute v_drifted_definition;
+end;
+$scope_set_binding_drift$;
 `;
 
 function assertSafeLocalPostgresTarget(host: string, port: string): void {
@@ -653,11 +701,11 @@ async function settleWithCleanup(
 }
 
 describe("P2 PostgreSQL 17 full-wave ledger", () => {
-  it("pins the exact ordered 40-file ledger and canonical baseline", async () => {
-    expect(MIGRATIONS).toHaveLength(40);
-    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(40);
-    expect(FIXTURE_GROUPS.flat()).toHaveLength(42);
-    expect(FIXTURES).toHaveLength(42);
+  it("pins the exact ordered 41-file ledger and canonical baseline", async () => {
+    expect(MIGRATIONS).toHaveLength(41);
+    expect(new Set(MIGRATIONS.map(([name]) => name)).size).toBe(41);
+    expect(FIXTURE_GROUPS.flat()).toHaveLength(45);
+    expect(FIXTURES).toHaveLength(45);
     expect(FIXTURE_GROUPS.flat()).toEqual(FIXTURES.map(([name]) => name));
     expect(FIXTURE_CHECKPOINT_MIGRATIONS).toHaveLength(FIXTURE_GROUPS.length);
     expect(new Set(FIXTURE_CHECKPOINT_MIGRATIONS).size).toBe(
@@ -674,8 +722,8 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
           (position === 0 || index > checkpointIndexes[position - 1])
       )
     ).toBe(true);
-    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(42);
-    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(42);
+    expect(new Set(FIXTURE_GROUPS.flat()).size).toBe(45);
+    expect(new Set(FIXTURES.map(([name]) => name)).size).toBe(45);
     expect(FIXTURE_GROUPS.every((group) => group.length <= 3)).toBe(true);
     expect(fixtureExecutionPlan(FIXTURE_GROUPS[11])).toEqual([
       "agent-sales-document-sources-runtime.sql",
@@ -873,6 +921,23 @@ describe("P2 PostgreSQL 17 full-wave ledger", () => {
           expect([...executedFixtures].sort()).toEqual(
             [...FIXTURE_GROUPS.flat()].sort()
           );
+
+          await runStatement(database, SCOPE_SET_BINDING_ADVERSARIAL_DRIFT_SQL);
+          const driftReplayError = await runFile(
+            database,
+            join(
+              ROOT,
+              "supabase/migrations",
+              "20260830120000_agent_mcp_scope_set_binding.sql"
+            )
+          ).catch((error: unknown) => error);
+          expect(driftReplayError).toBeInstanceOf(Error);
+          expect(
+            String(
+              (driftReplayError as { readonly stderr?: unknown }).stderr ??
+                driftReplayError
+            )
+          ).toContain("agent_mcp_scope_set_binding_source_drift");
         } catch (error) {
           primary = { failed: true, error };
         }

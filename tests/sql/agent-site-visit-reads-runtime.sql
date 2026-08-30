@@ -1,5 +1,13 @@
 begin;
 
+\if :{?agent_mcp_scope_set_binding_post_repair}
+-- Preserve the historical cross-company read-isolation rows after the final
+-- schema adds a stricter write-time deck bridge constraint. Transactional DDL
+-- is rolled back with the fixture.
+alter table public.site_visit_artifacts disable trigger
+  site_visit_artifacts_enforce_agent_deck_bridge_company;
+\endif
+
 -- Task 12 rollback-only PostgreSQL 17 acceptance fixture. It proves the
 -- database contract in a disposable database and never commits fixture rows.
 do $catalog_contract$

@@ -1,5 +1,14 @@
 begin;
 
+\if :{?agent_mcp_scope_set_binding_post_repair}
+-- The final schema adds a stricter write-time bridge constraint after this
+-- historical read fixture's checkpoint. Disable only that constraint inside
+-- this rollback transaction so its adversarial read-isolation rows remain
+-- available to the post-repair execution pass.
+alter table public.site_visit_artifacts disable trigger
+  site_visit_artifacts_enforce_agent_deck_bridge_company;
+\endif
+
 -- Task 10 rollback-only PostgreSQL 17 acceptance fixture. It proves the
 -- private source fence, both fixed public readers, nominal visit anchors,
 -- tenant isolation, grant revocation, cursor invalidation, hard bounds, and

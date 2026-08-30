@@ -841,6 +841,11 @@ $legacy_project_mirror_contract$;
 
 select pg_catalog.set_config('enable_seqscan', 'off', true);
 
+\if :{?agent_mcp_scope_set_binding_post_repair}
+-- Later migrations intentionally alter final-schema planning. The dedicated
+-- post-repair boundary pass reuses this behavioral fixture but leaves the
+-- historical checkpoint's exact plan proof at its original execution point.
+\else
 do $plan_contract$
 declare
   v_plan json;
@@ -975,6 +980,7 @@ begin
   end if;
 end;
 $plan_contract$;
+\endif
 
 do $stale_authority_contract$
 declare
