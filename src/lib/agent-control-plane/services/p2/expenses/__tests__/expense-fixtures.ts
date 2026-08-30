@@ -53,6 +53,7 @@ const DEFAULT_PERMISSIONS: ExpensePermissions = Object.freeze({
 function authority(input: {
   readonly actorUserId: string;
   readonly permissions: ExpensePermissions;
+  readonly isAdmin?: boolean;
 }): ActorAuthoritySnapshot {
   const entries = Object.entries(input.permissions).filter(
     (entry): entry is [string, PermissionScope] => entry[1] !== null
@@ -61,7 +62,7 @@ function authority(input: {
     actorUserId: input.actorUserId,
     companyId: EXPENSE_COMPANY_ID,
     isActive: true,
-    isAdmin: false,
+    isAdmin: input.isAdmin ?? false,
     roleIds: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
     configuredPermissions: entries.map(([permission]) => permission),
     effectivePermissions: entries.map(([permission, scope]) => ({
@@ -76,6 +77,7 @@ async function actorContext(input: {
   readonly actorUserId?: string;
   readonly permissions?: ExpensePermissions;
   readonly oauthScopes?: readonly string[];
+  readonly isAdmin?: boolean;
 }) {
   const actorUserId = input.actorUserId ?? EXPENSE_ACTOR_ID;
   return resolveActorContext({
@@ -97,6 +99,7 @@ async function actorContext(input: {
       authority({
         actorUserId,
         permissions: input.permissions ?? DEFAULT_PERMISSIONS,
+        isAdmin: input.isAdmin,
       })
     ),
     requestId: "request-expense-read",
@@ -113,6 +116,7 @@ export async function expenseCandidateAuthorization(input: {
   readonly actorUserId?: string;
   readonly permissions?: ExpensePermissions;
   readonly oauthScopes?: readonly string[];
+  readonly isAdmin?: boolean;
 }) {
   const context = await actorContext(input);
   const policy = input.candidate.authorization.variants.find(
@@ -124,7 +128,8 @@ export async function expenseCandidateAuthorization(input: {
 
 export async function listExpenseAuthorization(
   rawQuery: unknown = {},
-  permissions: ExpensePermissions = DEFAULT_PERMISSIONS
+  permissions: ExpensePermissions = DEFAULT_PERMISSIONS,
+  isAdmin = false
 ) {
   const query = ListExpensesInputSchema.parse(rawQuery);
   const [key] = selectedListExpensesVariantKeys(query);
@@ -135,13 +140,15 @@ export async function listExpenseAuthorization(
         candidate: LIST_EXPENSES_CANDIDATE,
         key,
         permissions,
+        isAdmin,
       }),
     },
   });
 }
 
 export async function getExpenseAuthorization(
-  permissions: ExpensePermissions = DEFAULT_PERMISSIONS
+  permissions: ExpensePermissions = DEFAULT_PERMISSIONS,
+  isAdmin = false
 ) {
   const query = GetExpenseContextInputSchema.parse({
     expense_ref: { kind: "expense", id: EXPENSE_ID },
@@ -154,6 +161,7 @@ export async function getExpenseAuthorization(
         candidate: GET_EXPENSE_CONTEXT_CANDIDATE,
         key,
         permissions,
+        isAdmin,
       }),
     },
   });

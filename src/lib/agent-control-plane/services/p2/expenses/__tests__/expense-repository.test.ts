@@ -321,6 +321,49 @@ describe("P2 expense repository", () => {
     }
   });
 
+  it("sends database-canonical admin groups for detail and reimbursement batches", async () => {
+    const detailAuthorization = await getExpenseAuthorization(
+      { "expenses.view": "all", "expenses.approve": "all" },
+      true
+    );
+    const batchAuthorization = await listExpenseAuthorization(
+      { view: { kind: "reimbursement_batches" } },
+      { "expenses.view": "all", "expenses.approve": "all" },
+      true
+    );
+    const client = new StubRpcClient([
+      { data: detailRaw(detailAuthorization), error: null },
+      {
+        data: null,
+        error: { code: "54000", message: "agent_expense_source_query_bound" },
+      },
+    ]);
+    const repository = createSupabaseExpenseReadRepository(client);
+
+    await expect(
+      repository.get({ authorization: detailAuthorization })
+    ).resolves.toMatchObject({ state: "found" });
+    await expect(
+      repository.list({ authorization: batchAuthorization, cursor: null })
+    ).resolves.toEqual({ state: "source_bound" });
+
+    expect(client.calls).toHaveLength(2);
+    for (const [call, variantKey] of [
+      [client.calls[0], "expense"],
+      [client.calls[1], "reimbursement_batches"],
+    ] as const) {
+      expect(call?.args.p_authorization_candidate).toEqual({
+        variant_key: variantKey,
+        required_oauth_scopes: ["ops.expenses.read"],
+        resolved_permission_scopes: {
+          "expenses.approve": "all",
+          "expenses.view": "all",
+        },
+        satisfied_permission_group_indexes: [0, 1],
+      });
+    }
+  });
+
   it("maps only exact hidden, 501/result, stale, and invalid-source errors", async () => {
     const listAuthorization = await listExpenseAuthorization();
     for (const [error, state] of [

@@ -4,6 +4,7 @@ import {
   GetExpenseContextResultSchema,
   ListExpensesResultSchema,
 } from "@/lib/agent-control-plane/contracts/expenses";
+import { AgentErrorSchema } from "@/lib/agent-control-plane/contracts/errors";
 import { createExpenseCursorService } from "../expense-cursor";
 import {
   ExpenseReadError,
@@ -161,6 +162,46 @@ const cursors = createExpenseCursorService({
 });
 
 describe("P2 expense read services", () => {
+  it.each([
+    ["INTERNAL", "INTERNAL"],
+    ["INVALID_CURSOR", "INVALID_ARGUMENT"],
+    ["NOT_FOUND", "NOT_FOUND"],
+    ["RESULT_TOO_LARGE", "RESULT_TOO_LARGE"],
+    ["SOURCE_DATA_INVALID", "TEMPORARILY_UNAVAILABLE"],
+    ["STALE_CONTEXT", "TEMPORARILY_UNAVAILABLE"],
+    ["TEMPORARILY_UNAVAILABLE", "TEMPORARILY_UNAVAILABLE"],
+  ] as const)(
+    "serializes %s as the contract-safe %s agent error",
+    (code, publicCode) => {
+      const error = new ExpenseReadError({
+        code,
+        requestId: "request-expense-read",
+      });
+      const envelope = AgentErrorSchema.parse(error.toAgentError());
+
+      expect(envelope).toMatchObject({
+        contract_version: "2026-08-07.v1",
+        request_id: "request-expense-read",
+        code: publicCode,
+        message: error.message,
+        retryable: error.retryable,
+      });
+      if (code === "INVALID_CURSOR") {
+        expect(envelope).toMatchObject({
+          details: {
+            field_issues: [
+              {
+                path: ["cursor"],
+                code: "INVALID_CURSOR",
+                message: "This expense page expired. Start again.",
+              },
+            ],
+          },
+        });
+      }
+    }
+  );
+
   it("returns a strict proof-coupled list and an opaque continuation cursor", async () => {
     const authorization = await listExpenseAuthorization({
       view: { kind: "mine" },

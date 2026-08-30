@@ -94,6 +94,34 @@ describe("P2 expense nominal authorization", () => {
     expect(Object.isFrozen(proof.authorizationCandidate)).toBe(true);
   });
 
+  it("serializes only permission groups consistent with an admin's resolved scopes", async () => {
+    const permissions = {
+      "expenses.view": "all" as const,
+      "expenses.approve": "all" as const,
+    };
+    const detail = await getExpenseAuthorization(permissions, true);
+    const batches = await listExpenseAuthorization(
+      { view: { kind: "reimbursement_batches" } },
+      permissions,
+      true
+    );
+
+    expect(detail.authorizationCandidate).toMatchObject({
+      resolvedPermissionScopes: {
+        "expenses.approve": "all",
+        "expenses.view": "all",
+      },
+      satisfiedPermissionGroupIndexes: [0, 1],
+    });
+    expect(batches.authorizationCandidate).toMatchObject({
+      resolvedPermissionScopes: {
+        "expenses.approve": "all",
+        "expenses.view": "all",
+      },
+      satisfiedPermissionGroupIndexes: [0, 1],
+    });
+  });
+
   it("rejects absent approval, company-own, missing job scope, missing OAuth, and borrowed proofs", async () => {
     await expect(
       listExpenseAuthorization(

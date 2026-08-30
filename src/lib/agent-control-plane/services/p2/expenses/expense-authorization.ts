@@ -141,6 +141,31 @@ function declaredPermissions(policy: {
   );
 }
 
+function canonicalSatisfiedPermissionGroupIndexes(input: {
+  readonly policy: {
+    readonly permissionRequirementGroups: readonly (readonly {
+      readonly permission: string;
+      readonly allowedScopes: readonly PermissionScope[];
+    }[])[];
+  };
+  readonly resolvedPermissions: Readonly<Record<string, PermissionScope>>;
+}): readonly number[] {
+  const indexes = input.policy.permissionRequirementGroups.flatMap(
+    (requirements, index) =>
+      requirements.every((requirement) => {
+        const resolvedScope = input.resolvedPermissions[requirement.permission];
+        return (
+          resolvedScope !== undefined &&
+          requirement.allowedScopes.includes(resolvedScope)
+        );
+      })
+        ? [index]
+        : []
+  );
+  if (indexes.length === 0) throw new ExpenseReadAuthorizationError();
+  return Object.freeze(indexes);
+}
+
 function scope(
   permissions: Readonly<Record<string, PermissionScope>>,
   key: "expenses.approve" | "expenses.view" | "projects.view"
@@ -211,6 +236,11 @@ function bindCandidate(input: {
   if (expensesViewScope !== "all" && expensesViewScope !== "own") {
     throw new ExpenseReadAuthorizationError();
   }
+  const satisfiedPermissionGroupIndexes =
+    canonicalSatisfiedPermissionGroupIndexes({
+      policy,
+      resolvedPermissions: binding.resolvedPermissions,
+    });
   const authorizationCandidate = deepFreeze({
     variantKey: input.variantKey as
       | ExpenseAuthorizationVariantKey
@@ -221,9 +251,7 @@ function bindCandidate(input: {
         left.localeCompare(right)
       )
     ),
-    satisfiedPermissionGroupIndexes: [
-      ...nominal.satisfiedPermissionGroupIndexes,
-    ],
+    satisfiedPermissionGroupIndexes: [...satisfiedPermissionGroupIndexes],
     expensesViewScope,
     expensesApproveScope:
       expensesApproveScope === "all" || expensesApproveScope === "assigned"
