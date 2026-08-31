@@ -20,7 +20,7 @@ import { useSetupStore } from "@/stores/setup-store";
 import { useResetPassword } from "@/lib/hooks/use-users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { trackLogin } from "@/lib/analytics/analytics";
+import { trackLogin } from "@/lib/analytics/product-events";
 import { useDictionary } from "@/i18n/client";
 import { JoinTeamPrompt } from "@/components/auth/join-team-prompt";
 

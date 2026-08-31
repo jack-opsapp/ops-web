@@ -18,7 +18,7 @@ import { StarfieldQuestion } from "@/stores/setup-store";
 import {
   trackStarfieldNodeFocused,
   trackStarfieldQuestionAnswered,
-} from "@/lib/analytics/analytics";
+} from "@/lib/analytics/product-events";
 import { LikertResponse } from "./starfield/LikertResponse";
 import { ForcedChoiceResponse } from "./starfield/ForcedChoiceResponse";
 import { SituationalResponse } from "./starfield/SituationalResponse";

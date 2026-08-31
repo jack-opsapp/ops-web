@@ -75,7 +75,6 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import { getUserFullName } from "@/lib/types/models";
 import type { User } from "@/lib/types/models";
 import { getSubscriptionInfo } from "@/lib/subscription";
-import { trackScreenView } from "@/lib/analytics/analytics";
 import { useDictionary, useLocale } from "@/i18n/client";
 import { getDateLocale } from "@/i18n/date-utils";
 import { toast } from "@/components/ui/toast";
@@ -425,8 +424,6 @@ export function TeamSection() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
   const stripRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { trackScreenView("team"); }, []);
 
   // Auto-open invite on ?action=invite (legacy /team?action=invite parity).
   useEffect(() => {

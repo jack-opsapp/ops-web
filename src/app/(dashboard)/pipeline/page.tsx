@@ -11,7 +11,6 @@ import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { authedFetch } from "@/lib/utils/authed-fetch";
 import { matchesAllTokens } from "@/lib/utils/search";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { trackScreenView } from "@/lib/analytics/analytics";
 import { useUndoStore } from "@/stores/undo-store";
 import { toast } from "@/components/ui/toast";
 import { showUndoToast } from "@/components/ui/toast-undo";
@@ -273,11 +272,6 @@ export default function PipelinePage() {
   // ── Undo store ────────────────────────────────────────────────────────
   const pushUndo = useUndoStore((s) => s.pushUndo);
   const undoEntry = useUndoStore((s) => s.undoEntry);
-
-  // ── Track screen view ─────────────────────────────────────────────────
-  useEffect(() => {
-    trackScreenView("pipeline");
-  }, []);
 
   // ── Handle ?action=new from FAB navigation ────────────────────────────
   const searchParams = useSearchParams();
