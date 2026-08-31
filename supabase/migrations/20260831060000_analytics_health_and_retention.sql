@@ -176,6 +176,13 @@ begin
     from public.asc_sync_status as sync
     where sync.job_name = 'app-store-sync'
     limit 1
+  ), eligible_attributions as (
+    select attribution.*
+    from public.trial_attributions as attribution
+    join public.companies as company
+      on company.id = attribution.company_id
+    where company.deleted_at is null
+      and company.trial_start_date is not null
   ), unknown_reasons as (
     select
       coalesce(
@@ -183,13 +190,13 @@ begin
         'unexplained'
       ) as reason,
       count(*)::bigint as count
-    from public.trial_attributions as attribution
+    from eligible_attributions as attribution
     where attribution.attribution_basis = 'unknown'
     group by 1
   ), reconciliation as (
     select
       (
-        (select count(*) from public.trial_attributions)
+        (select count(*) from eligible_attributions)
         -
         (select count(*) from public.companies
           where deleted_at is null and trial_start_date is not null)
@@ -294,7 +301,7 @@ begin
     ),
     'attribution', jsonb_build_object(
       'unknown_count', (
-        select count(*) from public.trial_attributions as attribution
+        select count(*) from eligible_attributions as attribution
         where attribution.attribution_basis = 'unknown'
       ),
       'reasons', coalesce((

@@ -9,6 +9,21 @@ const sql = readFileSync(
   ),
   "utf8"
 ).toLowerCase();
+const repairSql = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260831063000_fix_analytics_health_trial_cohort.sql"
+  ),
+  "utf8"
+).toLowerCase();
+
+function healthSnapshotDefinition(input: string): string {
+  const start = input.indexOf(
+    "create or replace function public.get_growth_analytics_health_snapshot()"
+  );
+  const end = input.indexOf("$function$;", start);
+  return input.slice(start, end + "$function$;".length);
+}
 
 describe("analytics health and retention migration", () => {
   it("keeps source transitions durable and notification changes atomic", () => {
@@ -39,6 +54,20 @@ describe("analytics health and retention migration", () => {
   it("reconciles activation against the seven-day business milestone", () => {
     expect(sql).toContain("sum(activated_companies)");
     expect(sql).toContain("where activated_at is not null");
+  });
+
+  it("reconciles attribution against the same active trial cohort", () => {
+    expect(sql).toContain("eligible_attributions as (");
+    expect(sql).toMatch(
+      /join public\.companies as company\s+on company\.id = attribution\.company_id/
+    );
+    expect(sql).toContain("company.deleted_at is null");
+    expect(sql).toContain("company.trial_start_date is not null");
+    expect(sql).toContain("select count(*) from eligible_attributions");
+    expect(repairSql).toContain("eligible_attributions as (");
+    expect(healthSnapshotDefinition(repairSql)).toBe(
+      healthSnapshotDefinition(sql)
+    );
   });
 
   it("aggregates raw events before the 12-month deletion boundary", () => {
