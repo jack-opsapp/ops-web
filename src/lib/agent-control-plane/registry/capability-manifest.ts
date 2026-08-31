@@ -189,10 +189,7 @@ function mintImplementationEntry(
       implementation: definition.availability.implementation,
     }),
     authorization: Object.freeze({
-      variants: mintVariants(
-        definition,
-        manifestRevision
-      ),
+      variants: mintVariants(definition, manifestRevision),
     }),
   });
 }

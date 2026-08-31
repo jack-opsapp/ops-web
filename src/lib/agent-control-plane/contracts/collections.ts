@@ -48,9 +48,7 @@ export const COLLECTIONS_AGING_BUCKETS = Object.freeze([
   "61_90",
   "91_plus",
 ] as const);
-export const CollectionsAgingBucketSchema = z.enum(
-  COLLECTIONS_AGING_BUCKETS
-);
+export const CollectionsAgingBucketSchema = z.enum(COLLECTIONS_AGING_BUCKETS);
 
 export function collectionsAgingBucket(daysPastDue: number) {
   if (!Number.isSafeInteger(daysPastDue) || daysPastDue < 0) {
@@ -96,12 +94,7 @@ export const CollectionsInvoiceSchema = z
   .object({
     invoice_ref: InvoiceRefSchema,
     document_number: DisplayTextSchema,
-    status: z.enum([
-      "awaiting_payment",
-      "partially_paid",
-      "past_due",
-      "sent",
-    ]),
+    status: z.enum(["awaiting_payment", "partially_paid", "past_due", "sent"]),
     issue_date: CanonicalDateSchema,
     due_date: CanonicalDateSchema,
     days_past_due: z.number().int().safe().nonnegative(),
@@ -153,18 +146,15 @@ export const CollectionsCurrencyBalanceSchema = z
       .strict(),
   })
   .strict()
-  .refine(
-    (balance) => {
-      const buckets = Object.values(balance.buckets);
-      return (
-        buckets.reduce((sum, bucket) => sum + bucket.amount_minor, 0) ===
-          balance.amount_minor &&
-        buckets.reduce((sum, bucket) => sum + bucket.invoice_count, 0) ===
-          balance.invoice_count
-      );
-    },
-    "COLLECTIONS_CURRENCY_BALANCE_INVALID"
-  );
+  .refine((balance) => {
+    const buckets = Object.values(balance.buckets);
+    return (
+      buckets.reduce((sum, bucket) => sum + bucket.amount_minor, 0) ===
+        balance.amount_minor &&
+      buckets.reduce((sum, bucket) => sum + bucket.invoice_count, 0) ===
+        balance.invoice_count
+    );
+  }, "COLLECTIONS_CURRENCY_BALANCE_INVALID");
 
 const CurrencyBalancesSchema = z
   .array(CollectionsCurrencyBalanceSchema)
@@ -221,9 +211,7 @@ export const CollectionsCorrespondenceSchema = z
     latest_direction: z.enum(["inbound", "outbound"]).nullable(),
     latest_delivered_at: Rfc3339UtcTimestampSchema.nullable(),
     fresh_at: Rfc3339UtcTimestampSchema,
-    normalization_revision: z.literal(
-      "ops.correspondence.normalized-text.v2"
-    ),
+    normalization_revision: z.literal("ops.correspondence.normalized-text.v2"),
     gate_reason: CollectionsBlockReasonSchema.optional(),
   })
   .strict()
@@ -247,14 +235,15 @@ export const CollectionsCorrespondenceSchema = z
 
 const PreviewShape = {
   schema_revision: z.literal(COLLECTIONS_SCHEMA_REVISION),
-  metric_definition_revision: z.literal(
-    COLLECTIONS_METRIC_DEFINITION_REVISION
-  ),
+  metric_definition_revision: z.literal(COLLECTIONS_METRIC_DEFINITION_REVISION),
   as_of_date: CanonicalDateSchema,
   customer_ref: CustomerRefSchema,
   customer_display_name: DisplayTextSchema,
   recipient: ReadyRecipientSchema,
-  invoices: z.array(CollectionsInvoiceSchema).min(1).max(COLLECTIONS_MAX_INVOICES),
+  invoices: z
+    .array(CollectionsInvoiceSchema)
+    .min(1)
+    .max(COLLECTIONS_MAX_INVOICES),
   balances: CurrencyBalancesSchema,
   oldest_due_date: CanonicalDateSchema,
   max_days_past_due: z.number().int().safe().nonnegative(),
@@ -343,7 +332,10 @@ export const CollectionsDebtorSchema = z
   .object({
     customer_ref: CustomerRefSchema,
     display_name: DisplayTextSchema,
-    invoices: z.array(CollectionsInvoiceSchema).min(1).max(COLLECTIONS_MAX_INVOICES),
+    invoices: z
+      .array(CollectionsInvoiceSchema)
+      .min(1)
+      .max(COLLECTIONS_MAX_INVOICES),
     balances: CurrencyBalancesSchema,
     oldest_due_date: CanonicalDateSchema,
     max_days_past_due: z.number().int().safe().nonnegative(),
@@ -364,7 +356,9 @@ export const CollectionsDebtorSchema = z
       );
     });
     const oldestDue = debtor.invoices[0]?.due_date;
-    const maxDays = Math.max(...debtor.invoices.map((item) => item.days_past_due));
+    const maxDays = Math.max(
+      ...debtor.invoices.map((item) => item.days_past_due)
+    );
     const expectedBalances = balanceFacts(debtor.invoices);
     if (
       !invoicesOrdered ||
@@ -431,7 +425,12 @@ const PrepareReceiptSchema = z
     kind: z.literal("prepared"),
     debtor_count: z.number().int().safe().min(0).max(COLLECTIONS_MAX_DEBTORS),
     invoice_count: z.number().int().safe().min(0).max(COLLECTIONS_MAX_INVOICES),
-    approvals_created: z.number().int().safe().min(0).max(COLLECTIONS_MAX_DEBTORS),
+    approvals_created: z
+      .number()
+      .int()
+      .safe()
+      .min(0)
+      .max(COLLECTIONS_MAX_DEBTORS),
     drafts_blocked: z.number().int().safe().min(0).max(COLLECTIONS_MAX_DEBTORS),
     messages_sent: z.literal(0),
     money_moved: z.literal(false),

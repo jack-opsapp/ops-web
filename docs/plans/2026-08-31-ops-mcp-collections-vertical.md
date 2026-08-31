@@ -351,4 +351,3 @@ Review both worktree diffs, ensure only intended files changed, confirm primary 
 **Step 6: Apply `superpowers:finishing-a-development-branch`**
 
 Because pushing/merging/releasing is out of scope, leave both isolated branches committed and ready for the separately authorized integration/release gate.
-

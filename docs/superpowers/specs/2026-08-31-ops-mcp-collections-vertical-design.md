@@ -186,4 +186,3 @@ Rejection uses a narrow database decision RPC so private draft state and public 
 - Queue-service tests proving approval cannot edit or send, rejection is coherent, replay is stable, and bulk/autonomous paths reject the action type.
 - Registry and runtime tests proving v2 and v3 remain unchanged, v4 is inactive, v4 grants only its exact scopes, and dispatch reaches only the collections service for a v4-pinned actor.
 - Type check, focused suite, broader agent-control-plane suite, migration lint/static validation, and final git diff/status audit.
-

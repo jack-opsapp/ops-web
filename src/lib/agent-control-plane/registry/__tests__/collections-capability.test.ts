@@ -33,18 +33,19 @@ describe("collections capability isolation", () => {
         expires: true,
       },
     });
-    expect(capability.authorization.variants[0]!.policy.requiredOAuthScopes).toEqual(
-      [
-        "ops.correspondence.read",
-        "ops.customer_contacts.read",
-        "ops.customers.read",
-        "ops.financial_documents.read",
-        "ops.operations.prepare",
-        "ops.operations.read",
-      ]
-    );
     expect(
-      capability.authorization.variants[0]!.policy.permissionRequirementGroups[0]
+      capability.authorization.variants[0]!.policy.requiredOAuthScopes
+    ).toEqual([
+      "ops.correspondence.read",
+      "ops.customer_contacts.read",
+      "ops.customers.read",
+      "ops.financial_documents.read",
+      "ops.operations.prepare",
+      "ops.operations.read",
+    ]);
+    expect(
+      capability.authorization.variants[0]!.policy
+        .permissionRequirementGroups[0]
     ).toEqual([
       { permission: "clients.view", allowedScopes: ["all"] },
       { permission: "email.view", allowedScopes: ["all"] },
@@ -54,9 +55,7 @@ describe("collections capability isolation", () => {
   });
 
   it("adds an inactive one-tool v4 without changing v2 or v3", () => {
-    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe(
-      "2026-08-29.mcp-exposure.v2"
-    );
+    expect(ACTIVE_MCP_EXPOSURE_REVISION).toBe("2026-08-29.mcp-exposure.v2");
     expect(MCP_EXPOSURE_V2.toolIds).toHaveLength(34);
     expect(MCP_EXPOSURE_V3).toEqual({
       revision: "2026-08-30.mcp-exposure.v3",

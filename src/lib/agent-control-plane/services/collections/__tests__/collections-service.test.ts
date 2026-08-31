@@ -123,9 +123,7 @@ async function fixture(input?: {
       })),
       item_proofs: [],
       collection_proof: {
-        source_revisions: [
-          { domain: "sales_documents", source_revision: 9 },
-        ],
+        source_revisions: [{ domain: "sales_documents", source_revision: 9 }],
         read_at: "2026-08-31T18:00:00.000Z",
         returned_count: pageItems.length,
         has_more: hasMore,
@@ -208,7 +206,9 @@ async function fixture(input?: {
     }
     if (functionName === "persist_agent_collections_as_system") {
       const base = args.p_result_base as {
-        debtors: Array<Record<string, unknown> & { draft: Record<string, unknown> }>;
+        debtors: Array<
+          Record<string, unknown> & { draft: Record<string, unknown> }
+        >;
         receipt: Record<string, unknown>;
       } & Record<string, unknown>;
       return Promise.resolve({
@@ -268,9 +268,18 @@ describe("collections service", () => {
     });
 
     expect(result.debtors).toHaveLength(1);
-    expect(result.debtors[0]!.invoices.map((item) => item.aging_bucket)).toEqual(
-      ["91_plus", "61_90", "61_90", "31_60", "31_60", "1_30", "1_30", "current"]
-    );
+    expect(
+      result.debtors[0]!.invoices.map((item) => item.aging_bucket)
+    ).toEqual([
+      "91_plus",
+      "61_90",
+      "61_90",
+      "31_60",
+      "31_60",
+      "1_30",
+      "1_30",
+      "current",
+    ]);
     expect(result.debtors[0]!.balances).toEqual([
       {
         currency: "CAD",
@@ -299,17 +308,18 @@ describe("collections service", () => {
     expect(result.debtors[0]!.draft.preview.body).not.toMatch(
       /lien|lawyer|legal|collection agency|credit report/i
     );
-    expect(rpc.mock.calls.find(([name]) => name === "persist_agent_collections_as_system")?.[1]).toMatchObject(
-      {
-        p_actor_user_id: USER_ID,
-        p_company_id: COMPANY_ID,
-        p_oauth_grant_id: GRANT_ID,
-        p_oauth_client_id: CLIENT_ID,
-        p_exposure_revision: "2026-08-31.mcp-exposure.v4",
-        p_capability_manifest_revision:
-          COLLECTIONS_CAPABILITY_MANIFEST_REVISION,
-      }
-    );
+    expect(
+      rpc.mock.calls.find(
+        ([name]) => name === "persist_agent_collections_as_system"
+      )?.[1]
+    ).toMatchObject({
+      p_actor_user_id: USER_ID,
+      p_company_id: COMPANY_ID,
+      p_oauth_grant_id: GRANT_ID,
+      p_oauth_client_id: CLIENT_ID,
+      p_exposure_revision: "2026-08-31.mcp-exposure.v4",
+      p_capability_manifest_revision: COLLECTIONS_CAPABILITY_MANIFEST_REVISION,
+    });
   });
 
   it("blocks a debtor instead of guessing when the recipient is ambiguous", async () => {
