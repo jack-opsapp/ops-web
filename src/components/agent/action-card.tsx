@@ -1610,13 +1610,13 @@ export const ActionCard = memo(function ActionCard({
             )}
           </button>
 
-          {/* Approve / Reject — 56dp touch targets */}
+          {/* Approve / Reject — 44px minimum touch targets */}
           {/* Fix 21: Approve button is the ONE accent element per card */}
           {isPending && (
             <div className="flex items-center gap-1">
               <button
                 onClick={handleApproveWithEdits}
-                className="min-h-9 rounded bg-ops-accent/15 px-4 font-mohave text-body-sm uppercase text-ops-accent transition-colors hover:bg-ops-accent/25"
+                className="min-h-11 rounded bg-ops-accent/15 px-4 font-mohave text-body-sm uppercase text-ops-accent transition-colors hover:bg-ops-accent/25"
               >
                 {isDayCloseout
                   ? t("dayCloseout.action.file")
@@ -1628,7 +1628,7 @@ export const ActionCard = memo(function ActionCard({
               </button>
               <button
                 onClick={() => onReject(action.id)}
-                className="min-h-9 rounded bg-brick/10 px-4 font-mohave text-body-sm uppercase text-brick transition-colors hover:bg-brick/20"
+                className="min-h-11 rounded bg-brick/10 px-4 font-mohave text-body-sm uppercase text-brick transition-colors hover:bg-brick/20"
               >
                 {isDayCloseout
                   ? t("dayCloseout.action.leaveOpen")
