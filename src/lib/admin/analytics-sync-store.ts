@@ -71,6 +71,25 @@ export class AnalyticsSyncStore {
     return String(data.id);
   }
 
+  /**
+   * Replace a running run's metadata once preflight has produced the details
+   * worth recording (site url, resolved property, requested dates). Runs open
+   * with a `phase: "preflight"` marker before anything fallible happens, so a
+   * row that never reaches annotate identifies exactly where it died.
+   */
+  async annotate(
+    runId: string,
+    metadata: Record<string, unknown>
+  ): Promise<void> {
+    const { error } = await this.client
+      .from("analytics_sync_runs")
+      .update({ metadata })
+      .eq("id", runId);
+    if (error) {
+      throw new Error(`Analytics sync annotate failed: ${error.message}`);
+    }
+  }
+
   async channelMap(sourceSystem: string): Promise<StoredChannelMapRule[]> {
     const { data, error } = await this.client
       .from("channel_map")

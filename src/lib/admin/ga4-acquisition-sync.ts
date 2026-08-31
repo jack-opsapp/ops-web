@@ -277,15 +277,23 @@ async function syncProperty(input: {
   finalizedThrough: string;
 }> {
   const source = input.propertyKey === "marketing" ? "ga4_marketing" : "ga4_web_app";
-  const latestState = await input.store.latest(source);
-  const plan = planGA4Sync({ today: input.today, latestState });
+  // Open the durable run record before the cursor read and the plan, so a
+  // state-read failure is recorded against this property instead of vanishing
+  // into the route's 500 (bug 6d61591c's defect class, GA4 side).
   const runId = await input.store.begin(source, {
+    phase: "preflight",
     property_key: input.propertyKey,
     property_id: input.propertyId,
-    requested_dates: plan.dates,
   });
   let rowCount = 0;
   try {
+    const latestState = await input.store.latest(source);
+    const plan = planGA4Sync({ today: input.today, latestState });
+    await input.store.annotate(runId, {
+      property_key: input.propertyKey,
+      property_id: input.propertyId,
+      requested_dates: plan.dates,
+    });
     for (const reportingDate of plan.dates) {
       if (input.signal?.aborted) throw new Error("GA4 sync lease lost");
       const rows = await input.fetchDate(input.propertyKey, reportingDate);
@@ -384,12 +392,35 @@ export async function runGA4AcquisitionSync(options: {
   const store = options.store ?? new AnalyticsSyncStore();
   const now = options.now ?? new Date();
   const today = pacificDate(now);
-  const propertyIds = options.propertyIds ?? {
-    marketing: numericPropertyId("marketing"),
-    web_app: numericPropertyId("web_app"),
-    ios_app: numericPropertyId("ios_app"),
-  };
-  const channelRules = options.channelRules ?? (await store.channelMap("ga4"));
+  // Property-id resolution and the channel map are both fallible and both run
+  // before any per-source run record could exist. Recording a failed run for
+  // every source keeps a preflight throw diagnosable in analytics_sync_runs
+  // rather than only in the route's 500 (bug 6d61591c).
+  let propertyIds: Record<"marketing" | "web_app" | "ios_app", string>;
+  let channelRules: ChannelMapRule[];
+  try {
+    propertyIds = options.propertyIds ?? {
+      marketing: numericPropertyId("marketing"),
+      web_app: numericPropertyId("web_app"),
+      ios_app: numericPropertyId("ios_app"),
+    };
+    channelRules = options.channelRules ?? (await store.channelMap("ga4"));
+  } catch (preflightError) {
+    // Best-effort per-source failure records; a bookkeeping write failure must
+    // never mask the preflight error itself.
+    for (const source of ["ga4_marketing", "ga4_web_app", "ga4_ios_qa"] as const) {
+      try {
+        const runId = await store.begin(source, { phase: "preflight" });
+        await store.fail(runId, preflightError);
+      } catch (recordError) {
+        console.error(
+          `[ga4-acquisition-sync] failed to record ${source} preflight failure:`,
+          recordError
+        );
+      }
+    }
+    throw preflightError;
+  }
   const results: Array<Awaited<ReturnType<typeof syncProperty>>> = [];
   const failures: unknown[] = [];
 
