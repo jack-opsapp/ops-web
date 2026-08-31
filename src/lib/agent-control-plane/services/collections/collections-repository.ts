@@ -75,6 +75,7 @@ function binding(actorContext: ActorContext) {
     p_grant_revision: actorContext.auth.grantRevision,
     p_granted_scope_ceiling: [...actorContext.auth.scopeCeiling],
     p_permission_snapshot_revision: actorContext.permissionSnapshotRevision,
+    p_capability_manifest_revision: COLLECTIONS_CAPABILITY_MANIFEST_REVISION,
     p_exposure_revision: COLLECTIONS_EXPOSURE_REVISION,
   } as const;
 }
@@ -173,8 +174,6 @@ export function createCollectionsRepository(
           "persist_agent_collections_as_system",
           {
             ...binding(input.actorContext),
-            p_capability_manifest_revision:
-              COLLECTIONS_CAPABILITY_MANIFEST_REVISION,
             p_as_of_date: input.asOfDate,
             p_timezone: input.timezone,
             p_idempotency_key: input.idempotencyKey,
