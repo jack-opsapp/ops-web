@@ -60,6 +60,10 @@ export interface McpV3CanaryAcceptanceSummary {
     readonly refreshReuseRevoked: true;
     readonly bearerRejectedAfterRevocation: true;
   };
+  readonly operator: {
+    readonly approvalReceipt: true;
+    readonly routineHandoff: true;
+  };
   readonly host: DayCloseoutHostAcceptanceSummary;
   readonly cleanupVerified: true;
 }
@@ -72,11 +76,19 @@ interface TokenPair {
 interface CanaryAcceptanceDependencies {
   readonly fetcher?: Fetcher;
   readonly openAuthorization: (url: URL, signal?: AbortSignal) => Promise<void>;
+  readonly openOperatorSurface?: (
+    url: URL,
+    signal?: AbortSignal
+  ) => Promise<void>;
   readonly createReceiver?: () => Promise<CanaryAuthorizationReceiver>;
   readonly runHostAcceptance?: typeof runDayCloseoutHostAcceptance;
   readonly now?: () => number;
-  readonly onProgress?: (stage: "waiting_for_consent") => void;
+  readonly onProgress?: (
+    stage: "waiting_for_consent" | "waiting_for_filing" | "waiting_for_routine"
+  ) => void;
   readonly signal?: AbortSignal;
+  readonly operatorProofTimeoutMs?: number;
+  readonly operatorProofPollMs?: number;
 }
 
 function failure(stage: string): Error {
@@ -109,6 +121,27 @@ async function waitForAuthorization(
   } finally {
     if (cancel) signal.removeEventListener("abort", cancel);
   }
+}
+
+async function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(failure("cancelled"));
+      return;
+    }
+    const cancel = () => {
+      clearTimeout(timeout);
+      signal?.removeEventListener("abort", cancel);
+      reject(failure("cancelled"));
+    };
+    const finish = () => {
+      signal?.removeEventListener("abort", cancel);
+      resolve();
+    };
+    const timeout = setTimeout(finish, ms);
+    signal?.addEventListener("abort", cancel, { once: true });
+    timeout.unref();
+  });
 }
 
 function base64url(bytes: Uint8Array): string {
@@ -176,6 +209,72 @@ function oneRow(value: unknown, stage: string): Record<string, unknown> {
   const row = jsonObject(value[0]);
   if (!row) throw failure(stage);
   return row;
+}
+
+async function inspectOperatorProof(input: {
+  readonly rpcClient: CanaryAcceptanceRpcClient;
+  readonly clientId: string;
+  readonly userId: string;
+  readonly companyId: string;
+  readonly startedAt: string;
+}): Promise<{
+  readonly preparedWithApproval: boolean;
+  readonly receiptVerified: boolean;
+  readonly routineEnabled: boolean;
+}> {
+  const row = oneRow(
+    await rpc(
+      input.rpcClient,
+      "inspect_mcp_oauth_canary_acceptance_as_system",
+      {
+        p_oauth_client_id: input.clientId,
+        p_user_id: input.userId,
+        p_company_id: input.companyId,
+        p_not_before: input.startedAt,
+      },
+      "operator_proof"
+    ),
+    "operator_proof"
+  );
+  if (
+    typeof row.prepared_with_approval !== "boolean" ||
+    typeof row.receipt_verified !== "boolean" ||
+    typeof row.routine_enabled !== "boolean"
+  ) {
+    throw failure("operator_proof");
+  }
+  return Object.freeze({
+    preparedWithApproval: row.prepared_with_approval,
+    receiptVerified: row.receipt_verified,
+    routineEnabled: row.routine_enabled,
+  });
+}
+
+async function waitForOperatorProof(input: {
+  readonly rpcClient: CanaryAcceptanceRpcClient;
+  readonly clientId: string;
+  readonly userId: string;
+  readonly companyId: string;
+  readonly startedAt: string;
+  readonly requirement: "receipt" | "routine";
+  readonly timeoutMs: number;
+  readonly pollMs: number;
+  readonly signal?: AbortSignal;
+}): Promise<void> {
+  const deadline = Date.now() + input.timeoutMs;
+  for (;;) {
+    ensureNotAborted(input.signal);
+    const proof = await inspectOperatorProof(input);
+    if (!proof.preparedWithApproval) throw failure("operator_proof");
+    if (
+      proof.receiptVerified &&
+      (input.requirement === "receipt" || proof.routineEnabled)
+    ) {
+      return;
+    }
+    if (Date.now() >= deadline) throw failure("operator_proof_timeout");
+    await delay(Math.min(input.pollMs, deadline - Date.now()), input.signal);
+  }
 }
 
 function parseTokenPair(value: unknown): TokenPair {
@@ -423,6 +522,19 @@ export async function runMcpV3CanaryAcceptance(
   ) {
     throw failure("configuration");
   }
+  const operatorProofTimeoutMs = dependencies.operatorProofTimeoutMs ?? 600_000;
+  const operatorProofPollMs = dependencies.operatorProofPollMs ?? 2_000;
+  if (
+    !Number.isSafeInteger(operatorProofTimeoutMs) ||
+    operatorProofTimeoutMs < 1_000 ||
+    operatorProofTimeoutMs > 900_000 ||
+    !Number.isSafeInteger(operatorProofPollMs) ||
+    operatorProofPollMs < 100 ||
+    operatorProofPollMs > 10_000 ||
+    operatorProofPollMs >= operatorProofTimeoutMs
+  ) {
+    throw failure("configuration");
+  }
 
   const fetcher = dependencies.fetcher ?? fetch;
   let receiver: CanaryAuthorizationReceiver;
@@ -439,6 +551,7 @@ export async function runMcpV3CanaryAcceptance(
   const endpoint = new URL("/api/mcp", issuer);
   const tokenEndpoint = new URL("/api/mcp/oauth/token", issuer);
   const now = dependencies.now ?? Date.now;
+  const startedAt = new Date(now()).toISOString();
   const hostAcceptance =
     dependencies.runHostAcceptance ?? runDayCloseoutHostAcceptance;
   let clientId: string | null = null;
@@ -570,6 +683,57 @@ export async function runMcpV3CanaryAcceptance(
     } catch {
       throw failure("host_acceptance");
     }
+    if (host.filingKind !== "approval_required" || host.findingCount < 1) {
+      throw failure("approval_fixture");
+    }
+    if (!dependencies.openOperatorSurface) {
+      throw failure("operator_surface");
+    }
+
+    dependencies.onProgress?.("waiting_for_filing");
+    try {
+      await dependencies.openOperatorSurface(
+        new URL("/agent/queue", issuer),
+        dependencies.signal
+      );
+    } catch {
+      ensureNotAborted(dependencies.signal);
+      throw failure("operator_surface");
+    }
+    await waitForOperatorProof({
+      rpcClient: input.rpcClient,
+      clientId,
+      userId: input.userId,
+      companyId: input.companyId,
+      startedAt,
+      requirement: "receipt",
+      timeoutMs: operatorProofTimeoutMs,
+      pollMs: operatorProofPollMs,
+      signal: dependencies.signal,
+    });
+
+    dependencies.onProgress?.("waiting_for_routine");
+    try {
+      await dependencies.openOperatorSurface(
+        new URL("/settings?tab=integrations", issuer),
+        dependencies.signal
+      );
+    } catch {
+      ensureNotAborted(dependencies.signal);
+      throw failure("operator_surface");
+    }
+    await waitForOperatorProof({
+      rpcClient: input.rpcClient,
+      clientId,
+      userId: input.userId,
+      companyId: input.companyId,
+      startedAt,
+      requirement: "routine",
+      timeoutMs: operatorProofTimeoutMs,
+      pollMs: operatorProofPollMs,
+      signal: dependencies.signal,
+    });
+
     await expectRefreshReuseRevoked(
       fetcher,
       tokenEndpoint,
@@ -593,6 +757,10 @@ export async function runMcpV3CanaryAcceptance(
         refreshRotation: true,
         refreshReuseRevoked: true,
         bearerRejectedAfterRevocation: true,
+      }),
+      operator: Object.freeze({
+        approvalReceipt: true,
+        routineHandoff: true,
       }),
       host,
     });
@@ -646,6 +814,19 @@ export async function runMcpV3CanaryAcceptance(
         { p_actor_user_id: input.userId, p_company_id: input.companyId },
         "cleanup"
       );
+      const cleanup = oneRow(
+        await rpc(
+          input.rpcClient,
+          "verify_mcp_oauth_canary_cleanup_as_system",
+          {
+            p_oauth_client_id: clientId,
+            p_user_id: input.userId,
+            p_company_id: input.companyId,
+          },
+          "cleanup"
+        ),
+        "cleanup"
+      );
       if (
         !Array.isArray(binding) ||
         binding.length !== 0 ||
@@ -653,7 +834,12 @@ export async function runMcpV3CanaryAcceptance(
         !Array.isArray(grants) ||
         grants.length !== 0 ||
         !Array.isArray(routines) ||
-        routines.length !== 0
+        routines.length !== 0 ||
+        cleanup.binding_inactive !== true ||
+        cleanup.client_disabled !== true ||
+        cleanup.grants_inactive !== true ||
+        cleanup.tokens_inactive !== true ||
+        cleanup.routines_safe !== true
       ) {
         throw failure("cleanup");
       }

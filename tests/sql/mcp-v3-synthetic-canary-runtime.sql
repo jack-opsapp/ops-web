@@ -116,6 +116,7 @@ create table private.agent_day_closeout_routines (
   oauth_grant_id uuid not null references private.mcp_oauth_grants(id),
   actor_user_id uuid not null,
   company_id uuid not null,
+  exposure_revision text not null default '2026-08-30.mcp-exposure.v3',
   enabled boolean not null,
   claimed_at timestamptz,
   claim_token uuid,
@@ -125,6 +126,52 @@ create table private.agent_day_closeout_routines (
   last_failure_code text,
   schedule_revision bigint not null default 0,
   updated_at timestamptz not null default statement_timestamp()
+);
+
+create table private.agent_day_closeout_runs (
+  id uuid primary key,
+  company_id uuid not null,
+  actor_user_id uuid not null,
+  oauth_grant_id uuid not null,
+  oauth_client_id uuid not null,
+  exposure_revision text not null,
+  status text not null,
+  result_snapshot jsonb not null,
+  prepared_at timestamptz not null
+);
+
+create table private.agent_day_closeout_change_sets (
+  id uuid primary key,
+  run_id uuid not null,
+  consumed_at timestamptz
+);
+
+create table public.agent_actions (
+  id uuid primary key,
+  status text not null,
+  reviewed_by uuid
+);
+
+create table private.agent_day_closeout_confirmations (
+  id uuid primary key,
+  action_id uuid not null,
+  change_set_id uuid not null,
+  consumed_at timestamptz
+);
+
+create table private.agent_day_closeout_receipts (
+  id uuid primary key,
+  confirmation_id uuid not null,
+  action_id uuid not null,
+  change_set_id uuid not null,
+  run_id uuid not null,
+  company_id uuid not null,
+  actor_user_id uuid not null,
+  oauth_client_id uuid not null,
+  exposure_revision text not null,
+  commit_capability text not null,
+  result jsonb not null,
+  committed_at timestamptz not null
 );
 
 create function private.user_is_active_company_member(
@@ -217,7 +264,9 @@ begin
     grant_record.revision,
     token_record.family_id,
     token_record.issuer,
-    token_record.audience
+    token_record.audience,
+    token_record.used_at,
+    token_record.revoked_at
   into v_token
   from private.mcp_oauth_tokens token_record
   join private.mcp_oauth_grants grant_record
@@ -225,11 +274,31 @@ begin
   where token_record.token_hash = p_presented_hash
     and token_record.kind = 'refresh'
     and grant_record.client_id = p_client_id
-    and grant_record.scopes <@ p_active_grantable_scopes
-    and token_record.used_at is null
-    and token_record.revoked_at is null
-    and grant_record.revoked_at is null;
+    and grant_record.scopes <@ p_active_grantable_scopes;
   if not found then
+    return;
+  end if;
+
+  if v_token.used_at is not null or v_token.revoked_at is not null then
+    update private.mcp_oauth_tokens
+    set revoked_at = coalesce(revoked_at, statement_timestamp())
+    where family_id = v_token.family_id;
+    update private.mcp_oauth_grants
+    set revoked_at = coalesce(revoked_at, statement_timestamp())
+    where id = v_token.grant_id;
+    return query select
+      v_token.grant_id,
+      v_token.client_id,
+      v_token.user_id,
+      v_token.company_id,
+      v_token.scopes,
+      v_token.accepted_labels,
+      v_token.consent_catalog_revision,
+      v_token.exposure_revision,
+      v_token.revision,
+      v_token.issuer,
+      v_token.audience,
+      true;
     return;
   end if;
 
@@ -465,6 +534,184 @@ from public.provision_mcp_oauth_canary_as_system(
   '2026-08-30.mcp-consent-catalog.v2',
   (select expires_at from canary_test_values)
 );
+
+insert into private.mcp_oauth_grants (
+  id, client_id, user_id, company_id, exposure_revision
+) values (
+  'ca000000-0000-4000-8000-000000000034',
+  'ca000000-0000-4000-8000-000000000021',
+  'ca000000-0000-4000-8000-000000000011',
+  'ca000000-0000-4000-8000-000000000001',
+  '2026-08-30.mcp-exposure.v3'
+);
+
+insert into private.mcp_oauth_tokens (
+  token_hash, grant_id, family_id, kind, used_at
+) values (
+  repeat('e', 64),
+  'ca000000-0000-4000-8000-000000000034',
+  'ca000000-0000-4000-8000-000000000054',
+  'refresh',
+  statement_timestamp()
+);
+
+insert into private.agent_day_closeout_routines (
+  id, oauth_client_id, oauth_grant_id, actor_user_id, company_id, enabled,
+  claimed_at, claim_token, claim_expires_at, attempt_count, retry_not_before
+) values (
+  'ca000000-0000-4000-8000-000000000043',
+  'ca000000-0000-4000-8000-000000000021',
+  'ca000000-0000-4000-8000-000000000034',
+  'ca000000-0000-4000-8000-000000000011',
+  'ca000000-0000-4000-8000-000000000001',
+  true,
+  null,
+  null,
+  null,
+  0,
+  null
+);
+
+insert into private.agent_day_closeout_runs (
+  id, company_id, actor_user_id, oauth_grant_id, oauth_client_id,
+  exposure_revision, status, result_snapshot, prepared_at
+) values (
+  'ca000000-0000-4000-8000-000000000061',
+  'ca000000-0000-4000-8000-000000000001',
+  'ca000000-0000-4000-8000-000000000011',
+  'ca000000-0000-4000-8000-000000000034',
+  'ca000000-0000-4000-8000-000000000021',
+  '2026-08-30.mcp-exposure.v3',
+  'filed',
+  '{"filing":{"kind":"approval_required"}}'::jsonb,
+  statement_timestamp()
+);
+
+insert into private.agent_day_closeout_change_sets (
+  id, run_id, consumed_at
+) values (
+  'ca000000-0000-4000-8000-000000000062',
+  'ca000000-0000-4000-8000-000000000061',
+  statement_timestamp()
+);
+
+insert into public.agent_actions (id, status, reviewed_by) values (
+  'ca000000-0000-4000-8000-000000000071',
+  'executed',
+  'ca000000-0000-4000-8000-000000000011'
+);
+
+insert into private.agent_day_closeout_confirmations (
+  id, action_id, change_set_id, consumed_at
+) values (
+  'ca000000-0000-4000-8000-000000000063',
+  'ca000000-0000-4000-8000-000000000071',
+  'ca000000-0000-4000-8000-000000000062',
+  statement_timestamp()
+);
+
+insert into private.agent_day_closeout_receipts (
+  id, confirmation_id, action_id, change_set_id, run_id, company_id,
+  actor_user_id, oauth_client_id, exposure_revision, commit_capability,
+  result, committed_at
+) values (
+  'ca000000-0000-4000-8000-000000000064',
+  'ca000000-0000-4000-8000-000000000063',
+  'ca000000-0000-4000-8000-000000000071',
+  'ca000000-0000-4000-8000-000000000062',
+  'ca000000-0000-4000-8000-000000000061',
+  'ca000000-0000-4000-8000-000000000001',
+  'ca000000-0000-4000-8000-000000000011',
+  'ca000000-0000-4000-8000-000000000021',
+  '2026-08-30.mcp-exposure.v3',
+  'commit_day_closeout',
+  '{"effect":"filed_inside_ops","messages_sent":0,"money_moved":false}'::jsonb,
+  statement_timestamp()
+);
+
+select *
+from public.inspect_mcp_oauth_canary_acceptance_as_system(
+  'ca000000-0000-4000-8000-000000000021',
+  'ca000000-0000-4000-8000-000000000011',
+  'ca000000-0000-4000-8000-000000000001',
+  statement_timestamp() - interval '1 minute'
+);
+
+do $operator_acceptance_contract$
+declare
+  v_status record;
+begin
+  select * into strict v_status
+  from public.inspect_mcp_oauth_canary_acceptance_as_system(
+    'ca000000-0000-4000-8000-000000000021',
+    'ca000000-0000-4000-8000-000000000011',
+    'ca000000-0000-4000-8000-000000000001',
+    statement_timestamp() - interval '1 minute'
+  );
+  if not v_status.prepared_with_approval
+     or not v_status.receipt_verified
+     or not v_status.routine_enabled then
+    raise exception 'operator_acceptance_not_verified';
+  end if;
+end;
+$operator_acceptance_contract$;
+
+update private.agent_day_closeout_routines
+set claimed_at = statement_timestamp(),
+    claim_token = 'ca000000-0000-4000-8000-000000000097',
+    claim_expires_at = statement_timestamp() + interval '5 minutes',
+    attempt_count = 1,
+    retry_not_before = statement_timestamp() + interval '1 minute'
+where id = 'ca000000-0000-4000-8000-000000000043';
+
+do $refresh_reuse_contract$
+begin
+  if not exists (
+    select 1
+    from public.rotate_mcp_oauth_refresh_token_as_system(
+      repeat('e', 64),
+      'ca000000-0000-4000-8000-000000000021',
+      array['ops.jobs.read'],
+      repeat('1', 64),
+      repeat('2', 64),
+      statement_timestamp() + interval '1 hour',
+      statement_timestamp() + interval '2 hours'
+    ) rotated
+    where rotated.reuse_detected
+  ) then
+    raise exception 'refresh_reuse_not_reported';
+  end if;
+  if not exists (
+    select 1
+    from private.agent_day_closeout_routines
+    where id = 'ca000000-0000-4000-8000-000000000043'
+      and not enabled
+      and claim_token is null
+      and last_failure_code = 'OAUTH_GRANT_REVOKED'
+  ) then
+    raise exception 'refresh_reuse_routine_not_disabled';
+  end if;
+end;
+$refresh_reuse_contract$;
+
+do $revoked_authority_cannot_pass_inspection$
+declare
+  v_status record;
+begin
+  select * into strict v_status
+  from public.inspect_mcp_oauth_canary_acceptance_as_system(
+    'ca000000-0000-4000-8000-000000000021',
+    'ca000000-0000-4000-8000-000000000011',
+    'ca000000-0000-4000-8000-000000000001',
+    statement_timestamp() - interval '1 minute'
+  );
+  if v_status.prepared_with_approval
+     or v_status.receipt_verified
+     or v_status.routine_enabled then
+    raise exception 'revoked_authority_passed_operator_inspection';
+  end if;
+end;
+$revoked_authority_cannot_pass_inspection$;
 
 -- Identical provisioning is a one-row replay, never a second binding.
 select *
@@ -784,6 +1031,21 @@ begin
   ) then
     raise exception 'canary_disable_cleanup_incomplete';
   end if;
+  if not exists (
+    select 1
+    from public.verify_mcp_oauth_canary_cleanup_as_system(
+      'ca000000-0000-4000-8000-000000000021',
+      'ca000000-0000-4000-8000-000000000011',
+      'ca000000-0000-4000-8000-000000000001'
+    ) cleanup
+    where cleanup.binding_inactive
+      and cleanup.client_disabled
+      and cleanup.grants_inactive
+      and cleanup.tokens_inactive
+      and cleanup.routines_safe
+  ) then
+    raise exception 'canary_cleanup_verification_failed';
+  end if;
 end;
 $disable_contract$;
 
@@ -835,7 +1097,9 @@ begin
   foreach v_signature in array array[
     'public.provision_mcp_oauth_canary_as_system(uuid,uuid,uuid,text,text,timestamp with time zone)',
     'public.resolve_mcp_oauth_canary_as_system(uuid,uuid,uuid,text,text)',
-    'public.disable_mcp_oauth_canary_as_system(uuid,uuid,uuid)'
+    'public.disable_mcp_oauth_canary_as_system(uuid,uuid,uuid)',
+    'public.inspect_mcp_oauth_canary_acceptance_as_system(uuid,uuid,uuid,timestamp with time zone)',
+    'public.verify_mcp_oauth_canary_cleanup_as_system(uuid,uuid,uuid)'
   ] loop
     if not has_function_privilege('service_role', v_signature, 'execute')
        or has_function_privilege('authenticated', v_signature, 'execute')

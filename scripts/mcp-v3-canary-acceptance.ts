@@ -46,6 +46,12 @@ async function main(): Promise<void> {
       return { data, error };
     },
   };
+  const openPrivately = async (url: URL, signal?: AbortSignal) => {
+    await execFileAsync("/usr/bin/open", [url.toString()], {
+      windowsHide: true,
+      signal,
+    });
+  };
 
   const controller = new AbortController();
   const cancel = () => controller.abort();
@@ -66,14 +72,14 @@ async function main(): Promise<void> {
         onProgress(stage) {
           if (stage === "waiting_for_consent") {
             process.stdout.write("CANARY CONSENT :: APPROVE IN BROWSER\n");
+          } else if (stage === "waiting_for_filing") {
+            process.stdout.write("CANARY REVIEW :: FILE CLOSEOUT IN OPS\n");
+          } else {
+            process.stdout.write("CANARY ROUTINE :: ENABLE IN OPS\n");
           }
         },
-        async openAuthorization(url, signal) {
-          await execFileAsync("/usr/bin/open", [url.toString()], {
-            windowsHide: true,
-            signal,
-          });
-        },
+        openAuthorization: openPrivately,
+        openOperatorSurface: openPrivately,
       }
     );
   } finally {

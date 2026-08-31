@@ -11,6 +11,11 @@ begin
      or pg_catalog.to_regclass('private.mcp_oauth_consent_previews') is null
      or pg_catalog.to_regclass('private.mcp_oauth_authorization_codes') is null
      or pg_catalog.to_regclass('private.agent_day_closeout_routines') is null
+     or pg_catalog.to_regclass('private.agent_day_closeout_runs') is null
+     or pg_catalog.to_regclass('private.agent_day_closeout_change_sets') is null
+     or pg_catalog.to_regclass('private.agent_day_closeout_confirmations') is null
+     or pg_catalog.to_regclass('private.agent_day_closeout_receipts') is null
+     or pg_catalog.to_regclass('public.agent_actions') is null
      or pg_catalog.to_regclass('public.users') is null
      or pg_catalog.to_regclass('public.companies') is null then
     raise exception 'mcp_v3_canary prerequisite table missing';
@@ -371,6 +376,197 @@ grant execute on function public.disable_mcp_oauth_canary_as_system(
   uuid, uuid, uuid
 ) to service_role;
 
+create or replace function public.inspect_mcp_oauth_canary_acceptance_as_system(
+  p_oauth_client_id uuid,
+  p_user_id uuid,
+  p_company_id uuid,
+  p_not_before timestamp with time zone
+) returns table (
+  prepared_with_approval boolean,
+  receipt_verified boolean,
+  routine_enabled boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, public, private, pg_temp
+as $function$
+begin
+  if auth.role() is distinct from 'service_role' then
+    raise exception 'access_denied' using errcode = '42501';
+  end if;
+  if p_not_before is null
+     or p_not_before < statement_timestamp() - interval '24 hours'
+     or p_not_before > statement_timestamp() + interval '1 minute' then
+    raise exception 'mcp_oauth_canary_acceptance_window_invalid'
+      using errcode = '22023';
+  end if;
+  if not private.mcp_oauth_canary_is_current(
+    p_oauth_client_id,
+    p_user_id,
+    p_company_id,
+    '2026-08-30.mcp-exposure.v3',
+    '2026-08-30.mcp-consent-catalog.v2'
+  ) then
+    return query select false, false, false;
+    return;
+  end if;
+
+  return query
+  with eligible_grants as materialized (
+    select grant_record.id
+    from private.mcp_oauth_grants grant_record
+    where grant_record.client_id = p_oauth_client_id
+      and grant_record.user_id = p_user_id
+      and grant_record.company_id = p_company_id
+      and grant_record.exposure_revision =
+        '2026-08-30.mcp-exposure.v3'
+      and grant_record.revoked_at is null
+  ), prepared_runs as materialized (
+    select run.id
+    from private.agent_day_closeout_runs run
+    join eligible_grants eligible on eligible.id = run.oauth_grant_id
+    where run.oauth_client_id = p_oauth_client_id
+      and run.actor_user_id = p_user_id
+      and run.company_id = p_company_id
+      and run.exposure_revision = '2026-08-30.mcp-exposure.v3'
+      and run.prepared_at >= p_not_before
+      and run.result_snapshot #>> '{filing,kind}' = 'approval_required'
+  )
+  select
+    exists (select 1 from prepared_runs),
+    exists (
+      select 1
+      from private.agent_day_closeout_receipts receipt
+      join private.agent_day_closeout_confirmations confirmation
+        on confirmation.id = receipt.confirmation_id
+       and confirmation.action_id = receipt.action_id
+       and confirmation.change_set_id = receipt.change_set_id
+       and confirmation.consumed_at is not null
+      join private.agent_day_closeout_change_sets change_set
+        on change_set.id = receipt.change_set_id
+       and change_set.run_id = receipt.run_id
+       and change_set.consumed_at is not null
+      join private.agent_day_closeout_runs run
+        on run.id = receipt.run_id
+       and run.status = 'filed'
+       and run.id in (select prepared.id from prepared_runs prepared)
+      join public.agent_actions action
+        on action.id = receipt.action_id
+       and action.status = 'executed'
+       and action.reviewed_by = p_user_id
+      where receipt.oauth_client_id = p_oauth_client_id
+        and receipt.actor_user_id = p_user_id
+        and receipt.company_id = p_company_id
+        and receipt.exposure_revision = '2026-08-30.mcp-exposure.v3'
+        and receipt.commit_capability = 'commit_day_closeout'
+        and receipt.committed_at >= p_not_before
+        and receipt.result ->> 'effect' = 'filed_inside_ops'
+        and receipt.result -> 'messages_sent' = '0'::jsonb
+        and receipt.result -> 'money_moved' = 'false'::jsonb
+    ),
+    exists (
+      select 1
+      from private.agent_day_closeout_routines routine
+      join eligible_grants eligible on eligible.id = routine.oauth_grant_id
+      where routine.oauth_client_id = p_oauth_client_id
+        and routine.actor_user_id = p_user_id
+        and routine.company_id = p_company_id
+        and routine.exposure_revision = '2026-08-30.mcp-exposure.v3'
+        and routine.enabled
+        and routine.claimed_at is null
+        and routine.claim_token is null
+        and routine.claim_expires_at is null
+    );
+end;
+$function$;
+
+revoke all on function public.inspect_mcp_oauth_canary_acceptance_as_system(
+  uuid, uuid, uuid, timestamp with time zone
+) from public, anon, authenticated, service_role;
+grant execute on function public.inspect_mcp_oauth_canary_acceptance_as_system(
+  uuid, uuid, uuid, timestamp with time zone
+) to service_role;
+
+create or replace function public.verify_mcp_oauth_canary_cleanup_as_system(
+  p_oauth_client_id uuid,
+  p_user_id uuid,
+  p_company_id uuid
+) returns table (
+  binding_inactive boolean,
+  client_disabled boolean,
+  grants_inactive boolean,
+  tokens_inactive boolean,
+  routines_safe boolean
+)
+language plpgsql
+stable
+security definer
+set search_path = pg_catalog, public, private, pg_temp
+as $function$
+begin
+  if auth.role() is distinct from 'service_role' then
+    raise exception 'access_denied' using errcode = '42501';
+  end if;
+
+  return query select
+    not exists (
+      select 1
+      from private.mcp_oauth_canary_bindings binding
+      where binding.oauth_client_id = p_oauth_client_id
+        and binding.user_id = p_user_id
+        and binding.company_id = p_company_id
+        and binding.disabled_at is null
+        and binding.expires_at > statement_timestamp()
+    ),
+    exists (
+      select 1
+      from private.mcp_oauth_clients client
+      where client.client_id = p_oauth_client_id
+        and client.exposure_revision = '2026-08-30.mcp-exposure.v3'
+        and client.disabled_at is not null
+    ),
+    not exists (
+      select 1
+      from private.mcp_oauth_grants grant_record
+      where grant_record.client_id = p_oauth_client_id
+        and grant_record.user_id = p_user_id
+        and grant_record.company_id = p_company_id
+        and grant_record.revoked_at is null
+    ),
+    not exists (
+      select 1
+      from private.mcp_oauth_tokens token_record
+      join private.mcp_oauth_grants grant_record
+        on grant_record.id = token_record.grant_id
+      where grant_record.client_id = p_oauth_client_id
+        and grant_record.user_id = p_user_id
+        and grant_record.company_id = p_company_id
+        and token_record.revoked_at is null
+    ),
+    not exists (
+      select 1
+      from private.agent_day_closeout_routines routine
+      where routine.oauth_client_id = p_oauth_client_id
+        and routine.actor_user_id = p_user_id
+        and routine.company_id = p_company_id
+        and (
+          routine.enabled
+          or routine.claimed_at is not null
+          or routine.claim_token is not null
+          or routine.claim_expires_at is not null
+        )
+    );
+end;
+$function$;
+
+revoke all on function public.verify_mcp_oauth_canary_cleanup_as_system(
+  uuid, uuid, uuid
+) from public, anon, authenticated, service_role;
+grant execute on function public.verify_mcp_oauth_canary_cleanup_as_system(
+  uuid, uuid, uuid
+) to service_role;
+
 -- Preserve the reviewed historical refresh implementation behind a private
 -- executable boundary, then add the v3 current-authority decision before it.
 alter function public.rotate_mcp_oauth_refresh_token_as_system(
@@ -417,6 +613,7 @@ declare
   v_company_id uuid;
   v_exposure_revision text;
   v_consent_catalog_revision text;
+  v_rotated record;
   v_effective_grantable_scopes text[] := p_active_grantable_scopes;
   v_required_v3_scopes constant text[] := array[
     'ops.correspondence.read',
@@ -498,8 +695,8 @@ begin
     ) combined_scopes;
   end if;
 
-  return query
   select *
+  into v_rotated
   from public.rotate_mcp_oauth_refresh_token_without_v3_canary(
     p_presented_hash,
     p_client_id,
@@ -509,6 +706,41 @@ begin
     p_access_expires_at,
     p_refresh_expires_at
   );
+  if not found then
+    return;
+  end if;
+
+  if v_rotated.reuse_detected then
+    update private.agent_day_closeout_routines routine
+    set enabled = false,
+        claimed_at = null,
+        claim_token = null,
+        claim_expires_at = null,
+        attempt_count = 0,
+        retry_not_before = null,
+        last_failure_code = 'OAUTH_GRANT_REVOKED',
+        schedule_revision = case
+          when routine.schedule_revision = 9007199254740991 then 0
+          else routine.schedule_revision + 1
+        end,
+        updated_at = statement_timestamp()
+    where routine.oauth_grant_id = v_rotated.grant_id
+      and routine.enabled;
+  end if;
+
+  return query select
+    v_rotated.grant_id::uuid,
+    v_rotated.client_id::uuid,
+    v_rotated.user_id::uuid,
+    v_rotated.company_id::uuid,
+    v_rotated.scopes::text[],
+    v_rotated.accepted_labels::text[],
+    v_rotated.consent_catalog_revision::text,
+    v_rotated.exposure_revision::text,
+    v_rotated.revision::text,
+    v_rotated.issuer::text,
+    v_rotated.audience::text,
+    v_rotated.reuse_detected::boolean;
 end;
 $function$;
 
@@ -521,9 +753,9 @@ grant execute on function public.rotate_mcp_oauth_refresh_token_as_system(
   timestamp with time zone
 ) to service_role;
 
--- The legacy one-argument resolver is no longer callable by application
--- roles. The two-argument boundary proves the server still considers v2 the
--- active public exposure and independently rechecks every stored v3 bearer.
+-- The two-argument boundary proves the server still considers v2 the active
+-- public exposure and independently rechecks every stored v3 bearer. A
+-- constrained one-argument compatibility wrapper is restored below.
 revoke all on function public.resolve_mcp_oauth_access_token_as_system(text)
   from public, anon, authenticated, service_role;
 

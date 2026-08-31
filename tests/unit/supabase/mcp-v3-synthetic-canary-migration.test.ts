@@ -122,6 +122,8 @@ describe("MCP v3 synthetic canary migration", () => {
       "provision_mcp_oauth_canary_as_system",
       "resolve_mcp_oauth_canary_as_system",
       "disable_mcp_oauth_canary_as_system",
+      "inspect_mcp_oauth_canary_acceptance_as_system",
+      "verify_mcp_oauth_canary_cleanup_as_system",
     ]) {
       const definition = functionDefinition(migrationSql(), `public.${name}`);
       expect(definition).toContain("security definer");
@@ -157,6 +159,30 @@ describe("MCP v3 synthetic canary migration", () => {
     );
     expect(disable).toContain("routine.company_id = p_company_id");
     expect(disable).toContain("routine.actor_user_id = p_user_id");
+  });
+
+  it("verifies operator proof and cleanup without returning identifiers", () => {
+    const inspection = functionDefinition(
+      migrationSql(),
+      "public.inspect_mcp_oauth_canary_acceptance_as_system"
+    );
+    const cleanup = functionDefinition(
+      migrationSql(),
+      "public.verify_mcp_oauth_canary_cleanup_as_system"
+    );
+
+    expect(inspection).toContain("prepared_with_approval boolean");
+    expect(inspection).toContain("receipt_verified boolean");
+    expect(inspection).toContain("routine_enabled boolean");
+    expect(inspection).toContain("private.mcp_oauth_canary_is_current");
+    expect(inspection).toContain("grant_record.revoked_at is null");
+    expect(inspection).toContain("filed_inside_ops");
+    expect(inspection).toContain("messages_sent");
+    expect(inspection).toContain("money_moved");
+    expect(cleanup).toContain("binding_inactive boolean");
+    expect(cleanup).toContain("grants_inactive boolean");
+    expect(cleanup).toContain("tokens_inactive boolean");
+    expect(cleanup).toContain("routines_safe boolean");
   });
 
   it("rechecks v3 in every durable OAuth write and bearer resolution", () => {
@@ -202,6 +228,8 @@ describe("MCP v3 synthetic canary migration", () => {
     expect(refresh).toContain("update private.mcp_oauth_grants");
     expect(refresh).toContain("update private.agent_day_closeout_routines");
     expect(refresh).toContain("oauth_canary_unavailable");
+    expect(refresh).toContain("if v_rotated.reuse_detected");
+    expect(refresh).toContain("oauth_grant_revoked");
     expect(refresh).toContain("claim_token = null");
   });
 
