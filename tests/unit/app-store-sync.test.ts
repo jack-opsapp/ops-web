@@ -363,6 +363,7 @@ function wireAscWalk(options: {
   reportName: string;
   reportNext?: string;
   segmentUrl?: string;
+  category?: string;
 }) {
   ascGet.mockImplementation((path: string) => {
     if (path.includes("/reports?")) {
@@ -371,7 +372,7 @@ function wireAscWalk(options: {
           {
             id: "asc-report-1",
             attributes: {
-              category: "APP_STORE_ENGAGEMENT",
+              category: options.category ?? "APP_STORE_ENGAGEMENT",
               name: options.reportName,
             },
           },
@@ -413,6 +414,35 @@ function wireAscWalk(options: {
 }
 
 describe("syncOnce report allowlist", () => {
+  it("requests Apple's COMMERCE category while preserving the stored taxonomy", async () => {
+    const harness = makeHarness();
+    harness.setCursor(
+      JSON.stringify({ requestId: "req-1", categoryIndex: 1 })
+    );
+    wireAscWalk({
+      category: "COMMERCE",
+      reportName: "App Store Downloads Standard",
+    });
+    downloadSegment.mockResolvedValue(
+      [
+        "Date\tDownload Type\tSource Type\tCounts\tUnique Counts",
+        "2026-08-20\tFirst-time download\tApp Store browse\t3\t3",
+      ].join("\n")
+    );
+
+    await syncOnce(harness.client, makeLease());
+
+    expect(ascGet.mock.calls[0]?.[0]).toContain(
+      "filter[category]=COMMERCE"
+    );
+    const reportUpsert = harness.queriesFor("asc_reports")[0].ops.find(
+      (operation) => operation.op === "upsert"
+    );
+    expect(reportUpsert?.args[0]).toMatchObject({
+      category: "APP_STORE_COMMERCE",
+    });
+  });
+
   it("skips a non-allowlisted report without touching asc_reports", async () => {
     const harness = makeHarness();
     wireAscWalk({

@@ -15,9 +15,13 @@ import {
   type CronWorkloadLease,
 } from "@/lib/api/services/cron-workload-control-service";
 
-// ─── Apple report categories we ingest in Phase 1 ────────────────────────────
-const CATEGORY_ENGAGEMENT = "APP_STORE_ENGAGEMENT"; // impressions + product page views
-const CATEGORY_COMMERCE = "APP_STORE_COMMERCE"; // downloads
+// Apple's API category vocabulary and OPS's persisted report taxonomy are
+// deliberately separate. Existing asc_reports rows use APP_STORE_COMMERCE,
+// while Apple accepts COMMERCE as the report filter.
+const API_CATEGORY_ENGAGEMENT = "APP_STORE_ENGAGEMENT";
+const API_CATEGORY_COMMERCE = "COMMERCE";
+const STORED_CATEGORY_ENGAGEMENT = "APP_STORE_ENGAGEMENT";
+const STORED_CATEGORY_COMMERCE = "APP_STORE_COMMERCE";
 
 // Header aliases (normalized: lowercase, single-spaced). Alias order IS the
 // resolution priority; the canonical name (with underscores → spaces) is the
@@ -265,8 +269,8 @@ const APP_STORE_WORKLOAD_KEY = "app-store-sync";
  * the same totals at different grains — ingesting them into the same
  * conflict identity double-counts or overwrites. */
 const REPORT_ALLOWLIST: Record<string, string> = {
-  [CATEGORY_ENGAGEMENT]: "App Store Discovery and Engagement Standard",
-  [CATEGORY_COMMERCE]: "App Store Downloads Standard",
+  [API_CATEGORY_ENGAGEMENT]: "App Store Discovery and Engagement Standard",
+  [API_CATEGORY_COMMERCE]: "App Store Downloads Standard",
 };
 const MAX_REQUESTS_PER_RUN = 1;
 const MAX_INSTANCES_PER_RUN = 2;
@@ -430,14 +434,16 @@ export async function syncOnce(
 
   const categories = [
     [
-      CATEGORY_ENGAGEMENT,
+      API_CATEGORY_ENGAGEMENT,
+      STORED_CATEGORY_ENGAGEMENT,
       "discovery_engagement",
       ENGAGEMENT_ALIASES,
       "asc_discovery_engagement",
       ENGAGEMENT_CONFLICT,
     ],
     [
-      CATEGORY_COMMERCE,
+      API_CATEGORY_COMMERCE,
+      STORED_CATEGORY_COMMERCE,
       "downloads",
       DOWNLOAD_ALIASES,
       "asc_downloads",
@@ -447,12 +453,12 @@ export async function syncOnce(
   const categoryIndex = cursor.requestId === req.id
     ? Math.min(Math.max(cursor.categoryIndex ?? 0, 0), 1)
     : 0;
-  const [category, kind, aliases, table, conflict] =
+  const [apiCategory, storedCategory, kind, aliases, table, conflict] =
     categories[categoryIndex];
 
   const initialReportPath =
     `/v1/analyticsReportRequests/${req.asc_request_id}` +
-    `/reports?filter[category]=${category}&limit=1`;
+    `/reports?filter[category]=${apiCategory}&limit=1`;
   let reportId = cursor.requestId === req.id ? cursor.reportId : undefined;
   let reportNext =
     cursor.requestId === req.id ? cursor.reportNext : undefined;
@@ -485,7 +491,7 @@ export async function syncOnce(
         cursorAfter: nextCursor,
       };
     }
-    if (report.attributes.name !== REPORT_ALLOWLIST[category]) {
+    if (report.attributes.name !== REPORT_ALLOWLIST[apiCategory]) {
       // Not the canonical report for this category — walk past it without
       // recording it, so its rows never reach the shared fact identity.
       const nextCursor = serializeSyncCursor(
@@ -515,7 +521,7 @@ export async function syncOnce(
     const detail = await ascGet<{ data: { attributes: { name?: string } } }>(
       `/v1/analyticsReports/${reportId}`
     );
-    if (detail.data.attributes.name !== REPORT_ALLOWLIST[category]) {
+    if (detail.data.attributes.name !== REPORT_ALLOWLIST[apiCategory]) {
       const nextCursor = serializeSyncCursor(
         nextReportOrCategory(req.id, categoryIndex, reportNext)
       );
@@ -539,7 +545,7 @@ export async function syncOnce(
   const reportPayload: Record<string, unknown> = {
     request_id: req.id,
     asc_report_id: reportId,
-    category,
+    category: storedCategory,
   };
   if (reportName !== undefined) {
     reportPayload.report_name = reportName;
