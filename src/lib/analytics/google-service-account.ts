@@ -54,15 +54,34 @@ export function getGoogleAnalyticsReaderCredentials(
     environment.SEARCH_CONSOLE_SERVICE_ACCOUNT_PRIVATE_KEY ??
       environment.GA4_SERVICE_ACCOUNT_PRIVATE_KEY
   );
-  if (!clientEmail || !privateKey) {
-    throw new Error(
-      "Missing dedicated Google analytics reader service-account credentials"
-    );
+  if (clientEmail && privateKey) {
+    if (!clientEmail.endsWith(".iam.gserviceaccount.com")) {
+      throw new Error("Invalid Google analytics reader service-account email");
+    }
+    return { clientEmail, privateKey };
   }
-  if (!clientEmail.endsWith(".iam.gserviceaccount.com")) {
-    throw new Error("Invalid Google analytics reader service-account email");
+
+  if (environment.FIREBASE_ADMIN_SERVICE_ACCOUNT) {
+    return parseJsonCredentials(environment.FIREBASE_ADMIN_SERVICE_ACCOUNT);
   }
-  return { clientEmail, privateKey };
+
+  const firebaseClientEmail = environment.FIREBASE_ADMIN_CLIENT_EMAIL;
+  const firebasePrivateKey = parsePrivateKey(
+    environment.FIREBASE_ADMIN_PRIVATE_KEY
+  );
+  if (firebaseClientEmail && firebasePrivateKey) {
+    if (!firebaseClientEmail.endsWith(".iam.gserviceaccount.com")) {
+      throw new Error("Invalid Google analytics reader service-account email");
+    }
+    return {
+      clientEmail: firebaseClientEmail,
+      privateKey: firebasePrivateKey,
+    };
+  }
+
+  throw new Error(
+    "Missing dedicated Google analytics reader service-account credentials"
+  );
 }
 
 export async function getGoogleServiceAccountAccessToken(
