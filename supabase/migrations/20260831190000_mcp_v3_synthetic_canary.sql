@@ -27,6 +27,7 @@ begin
     'public.resolve_mcp_oauth_access_token_as_system(text)',
     'private.assert_agent_day_closeout_authority(uuid,uuid,uuid,uuid,text,text[],text,text)',
     'public.list_agent_day_closeout_routine_configs_as_system(uuid,uuid)',
+    'public.upsert_agent_day_closeout_routine_config_as_system(uuid,uuid,uuid,boolean,time without time zone)',
     'private.resolve_agent_actor_authority(uuid,uuid,text[])',
     'public.has_permission(uuid,text,text)'
   ] loop
@@ -72,6 +73,34 @@ create index mcp_oauth_canary_bindings_expiry_idx
   where disabled_at is null;
 
 revoke all on table private.mcp_oauth_canary_bindings
+  from public, anon, authenticated, service_role;
+
+-- Every mutation that can create, renew, schedule, or tear down canary
+-- authority takes the same transaction-scoped client lock before touching
+-- table rows. This makes shutdown the final authority decision without
+-- imposing row-lock order across independently evolved OAuth/routine code.
+create or replace function private.lock_mcp_v3_canary_client(
+  p_oauth_client_id uuid
+) returns void
+language plpgsql
+volatile
+security definer
+set search_path = pg_catalog, public, private, pg_temp
+as $function$
+begin
+  if p_oauth_client_id is null then
+    raise exception 'mcp_oauth_canary_client_invalid' using errcode = '22023';
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended(
+      'ops-mcp-v3-canary:' || p_oauth_client_id::text,
+      0
+    )
+  );
+end;
+$function$;
+
+revoke all on function private.lock_mcp_v3_canary_client(uuid)
   from public, anon, authenticated, service_role;
 
 create or replace function private.mcp_oauth_canary_is_current(
@@ -164,6 +193,7 @@ begin
      ) then
     raise exception 'mcp_oauth_canary_invalid' using errcode = '22023';
   end if;
+  perform private.lock_mcp_v3_canary_client(p_oauth_client_id);
   if not private.user_is_active_company_member(p_user_id, p_company_id) then
     raise exception 'mcp_oauth_canary_subject_unavailable'
       using errcode = '22023';
@@ -318,6 +348,7 @@ begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
+  perform private.lock_mcp_v3_canary_client(p_oauth_client_id);
 
   update private.mcp_oauth_canary_bindings binding
   set disabled_at = coalesce(binding.disabled_at, statement_timestamp())
@@ -363,7 +394,12 @@ begin
   where routine.oauth_client_id = p_oauth_client_id
     and routine.company_id = p_company_id
     and routine.actor_user_id = p_user_id
-    and routine.enabled;
+    and (
+      routine.enabled
+      or routine.claimed_at is not null
+      or routine.claim_token is not null
+      or routine.claim_expires_at is not null
+    );
 
   return v_found;
 end;
@@ -380,7 +416,11 @@ create or replace function public.inspect_mcp_oauth_canary_acceptance_as_system(
   p_oauth_client_id uuid,
   p_user_id uuid,
   p_company_id uuid,
-  p_not_before timestamp with time zone
+  p_not_before timestamp with time zone,
+  p_run_id uuid,
+  p_action_id uuid,
+  p_change_set_id uuid,
+  p_preview_sha256 text
 ) returns table (
   prepared_with_approval boolean,
   receipt_verified boolean,
@@ -397,7 +437,11 @@ begin
   end if;
   if p_not_before is null
      or p_not_before < statement_timestamp() - interval '24 hours'
-     or p_not_before > statement_timestamp() + interval '1 minute' then
+     or p_not_before > statement_timestamp() + interval '1 minute'
+     or p_run_id is null
+     or p_action_id is null
+     or p_change_set_id is null
+     or p_preview_sha256 !~ '^sha256:[0-9a-f]{64}$' then
     raise exception 'mcp_oauth_canary_acceptance_window_invalid'
       using errcode = '22023';
   end if;
@@ -426,42 +470,77 @@ begin
     select run.id
     from private.agent_day_closeout_runs run
     join eligible_grants eligible on eligible.id = run.oauth_grant_id
-    where run.oauth_client_id = p_oauth_client_id
+    where run.id = p_run_id
+      and run.oauth_client_id = p_oauth_client_id
       and run.actor_user_id = p_user_id
       and run.company_id = p_company_id
       and run.exposure_revision = '2026-08-30.mcp-exposure.v3'
       and run.prepared_at >= p_not_before
       and run.result_snapshot #>> '{filing,kind}' = 'approval_required'
+      and run.result_snapshot #>> '{filing,action_id}' = p_action_id::text
+      and run.result_snapshot #>> '{filing,change_set_id}' =
+        p_change_set_id::text
+      and run.result_snapshot #>> '{filing,preview,preview_sha256}' =
+        p_preview_sha256
   )
   select
     exists (select 1 from prepared_runs),
     exists (
       select 1
       from private.agent_day_closeout_receipts receipt
+      join eligible_grants eligible
+        on eligible.id = receipt.oauth_grant_id
       join private.agent_day_closeout_confirmations confirmation
         on confirmation.id = receipt.confirmation_id
        and confirmation.action_id = receipt.action_id
        and confirmation.change_set_id = receipt.change_set_id
+       and confirmation.company_id = receipt.company_id
+       and confirmation.actor_user_id = receipt.actor_user_id
+       and confirmation.oauth_grant_id = receipt.oauth_grant_id
+       and confirmation.oauth_client_id = receipt.oauth_client_id
+       and confirmation.exposure_revision = receipt.exposure_revision
+       and confirmation.commit_capability = receipt.commit_capability
+       and confirmation.preview_hash = receipt.preview_hash
        and confirmation.consumed_at is not null
       join private.agent_day_closeout_change_sets change_set
         on change_set.id = receipt.change_set_id
        and change_set.run_id = receipt.run_id
+       and change_set.company_id = receipt.company_id
+       and change_set.actor_user_id = receipt.actor_user_id
+       and change_set.oauth_grant_id = receipt.oauth_grant_id
+       and change_set.oauth_client_id = receipt.oauth_client_id
+       and change_set.exposure_revision = receipt.exposure_revision
+       and change_set.commit_capability = receipt.commit_capability
+       and change_set.preview_hash = receipt.preview_hash
        and change_set.consumed_at is not null
       join private.agent_day_closeout_runs run
         on run.id = receipt.run_id
+       and run.id = p_run_id
        and run.status = 'filed'
        and run.id in (select prepared.id from prepared_runs prepared)
       join public.agent_actions action
         on action.id = receipt.action_id
+       and action.company_id = receipt.company_id
+       and action.user_id = receipt.actor_user_id
+       and action.action_type = 'file_day_closeout'
        and action.status = 'executed'
        and action.reviewed_by = p_user_id
+       and action.execution_result = receipt.result
       where receipt.oauth_client_id = p_oauth_client_id
         and receipt.actor_user_id = p_user_id
         and receipt.company_id = p_company_id
+        and receipt.run_id = p_run_id
+        and receipt.action_id = p_action_id
+        and receipt.change_set_id = p_change_set_id
+        and receipt.preview_hash = substring(p_preview_sha256 from 8)
         and receipt.exposure_revision = '2026-08-30.mcp-exposure.v3'
         and receipt.commit_capability = 'commit_day_closeout'
         and receipt.committed_at >= p_not_before
         and receipt.result ->> 'effect' = 'filed_inside_ops'
+        and receipt.result ->> 'run_id' = p_run_id::text
+        and receipt.result ->> 'action_id' = p_action_id::text
+        and receipt.result ->> 'change_set_id' = p_change_set_id::text
+        and receipt.result ->> 'preview_sha256' = p_preview_sha256
         and receipt.result -> 'messages_sent' = '0'::jsonb
         and receipt.result -> 'money_moved' = 'false'::jsonb
     ),
@@ -482,10 +561,10 @@ end;
 $function$;
 
 revoke all on function public.inspect_mcp_oauth_canary_acceptance_as_system(
-  uuid, uuid, uuid, timestamp with time zone
+  uuid, uuid, uuid, timestamp with time zone, uuid, uuid, uuid, text
 ) from public, anon, authenticated, service_role;
 grant execute on function public.inspect_mcp_oauth_canary_acceptance_as_system(
-  uuid, uuid, uuid, timestamp with time zone
+  uuid, uuid, uuid, timestamp with time zone, uuid, uuid, uuid, text
 ) to service_role;
 
 create or replace function public.verify_mcp_oauth_canary_cleanup_as_system(
@@ -628,6 +707,14 @@ begin
   if auth.role() is distinct from 'service_role' then
     raise exception 'access_denied' using errcode = '42501';
   end if;
+  if exists (
+    select 1
+    from private.mcp_oauth_clients client
+    where client.client_id = p_client_id
+      and client.exposure_revision = '2026-08-30.mcp-exposure.v3'
+  ) then
+    perform private.lock_mcp_v3_canary_client(p_client_id);
+  end if;
 
   select
     grant_record.id,
@@ -682,7 +769,12 @@ begin
           end,
           updated_at = statement_timestamp()
       where routine.oauth_grant_id = v_grant_id
-        and routine.enabled;
+        and (
+          routine.enabled
+          or routine.claimed_at is not null
+          or routine.claim_token is not null
+          or routine.claim_expires_at is not null
+        );
       return;
     end if;
 
@@ -725,7 +817,12 @@ begin
         end,
         updated_at = statement_timestamp()
     where routine.oauth_grant_id = v_rotated.grant_id
-      and routine.enabled;
+      and (
+        routine.enabled
+        or routine.claimed_at is not null
+        or routine.claim_token is not null
+        or routine.claim_expires_at is not null
+      );
   end if;
 
   return query select
@@ -1099,6 +1196,79 @@ grant execute on function public.list_agent_day_closeout_routine_configs_as_syst
   uuid, uuid
 ) to service_role;
 
+-- Routine configuration used to lock its routine row before authority was
+-- revalidated. The wrapper acquires the common client lock first; the renamed
+-- implementation then repeats every grant/client/actor check under that lock.
+alter function public.upsert_agent_day_closeout_routine_config_as_system(
+  uuid, uuid, uuid, boolean, time without time zone
+) rename to upsert_agent_day_closeout_routine_config_without_v3_canary;
+
+revoke all on function public.upsert_agent_day_closeout_routine_config_without_v3_canary(
+  uuid, uuid, uuid, boolean, time without time zone
+) from public, anon, authenticated, service_role;
+
+create or replace function public.upsert_agent_day_closeout_routine_config_as_system(
+  p_actor_user_id uuid,
+  p_company_id uuid,
+  p_oauth_grant_id uuid,
+  p_enabled boolean,
+  p_local_time time without time zone
+) returns table (
+  grant_id uuid,
+  client_id uuid,
+  client_name text,
+  enabled boolean,
+  local_time text,
+  timezone text,
+  next_run_at timestamp with time zone,
+  last_run_at timestamp with time zone,
+  last_success_at timestamp with time zone,
+  last_failure_code text,
+  schedule_revision bigint
+)
+language plpgsql
+volatile
+security definer
+set search_path = pg_catalog, public, private, extensions, pg_temp
+as $function$
+declare
+  v_client_id uuid;
+  v_exposure_revision text;
+begin
+  if auth.role() is distinct from 'service_role' then
+    raise exception 'access_denied' using errcode = '42501';
+  end if;
+
+  select grant_record.client_id, grant_record.exposure_revision
+  into v_client_id, v_exposure_revision
+  from private.mcp_oauth_grants grant_record
+  where grant_record.id = p_oauth_grant_id
+    and grant_record.user_id = p_actor_user_id
+    and grant_record.company_id = p_company_id;
+
+  if v_exposure_revision = '2026-08-30.mcp-exposure.v3' then
+    perform private.lock_mcp_v3_canary_client(v_client_id);
+  end if;
+
+  return query
+  select config.*
+  from public.upsert_agent_day_closeout_routine_config_without_v3_canary(
+    p_actor_user_id,
+    p_company_id,
+    p_oauth_grant_id,
+    p_enabled,
+    p_local_time
+  ) config;
+end;
+$function$;
+
+revoke all on function public.upsert_agent_day_closeout_routine_config_as_system(
+  uuid, uuid, uuid, boolean, time without time zone
+) from public, anon, authenticated, service_role;
+grant execute on function public.upsert_agent_day_closeout_routine_config_as_system(
+  uuid, uuid, uuid, boolean, time without time zone
+) to service_role;
+
 -- Every durable v3 authority write independently rechecks the exact binding.
 -- The application resolver provides the ordinary rejection path; these
 -- triggers close the race between that read and the write transaction.
@@ -1142,9 +1312,9 @@ begin
     v_consent_catalog_revision := new.consent_catalog_revision;
   end if;
 
-  if v_exposure_revision = '2026-08-30.mcp-exposure.v3'
-     and (
-       v_consent_catalog_revision is distinct from
+  if v_exposure_revision = '2026-08-30.mcp-exposure.v3' then
+    perform private.lock_mcp_v3_canary_client(v_client_id);
+    if v_consent_catalog_revision is distinct from
          '2026-08-30.mcp-consent-catalog.v2'
        or not private.mcp_oauth_canary_is_current(
          v_client_id,
@@ -1152,9 +1322,9 @@ begin
          v_company_id,
          '2026-08-30.mcp-exposure.v3',
          '2026-08-30.mcp-consent-catalog.v2'
-       )
-     ) then
-    raise exception 'mcp_oauth_canary_unavailable' using errcode = '42501';
+       ) then
+      raise exception 'mcp_oauth_canary_unavailable' using errcode = '42501';
+    end if;
   end if;
   return new;
 end;

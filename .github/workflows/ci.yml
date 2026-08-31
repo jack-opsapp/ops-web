@@ -57,6 +57,8 @@ jobs:
         run: >-
           sudo -u postgres psql -X -v ON_ERROR_STOP=1
           -f tests/sql/mcp-v3-synthetic-canary-runtime.sql
+      - name: Test MCP v3 canary shutdown serialization
+        run: sudo -u postgres bash tests/sql/mcp-v3-synthetic-canary-concurrency.sh
       - run: npm ci
       - run: npm run lint
       - run: npm run type-check

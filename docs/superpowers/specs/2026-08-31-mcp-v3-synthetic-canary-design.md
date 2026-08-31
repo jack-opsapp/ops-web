@@ -1,6 +1,6 @@
 # MCP v3 Synthetic Canary Gate
 
-**Status:** Approved in chat on 2026-08-31. Design contract for implementation planning.
+**Status:** Implemented and review-hardened on a local release candidate on 2026-08-31. Not pushed, deployed, applied, or customer-live.
 **Parent:** `docs/plans/2026-08-31-ops-mcp-day-closeout-production-readiness.md`
 **Production baseline:** read-only exposure `2026-08-29.mcp-exposure.v2` remains active; inactive exposure `2026-08-30.mcp-exposure.v3` contains only `prepare_day_closeout` and its exact seven-scope ceiling.
 
@@ -113,6 +113,10 @@ The live acceptance sequence is fixed:
 
 The runner output remains aggregate-only. It prints contract revisions and pass/fail stages, never bearer or refresh material, business strings, entity identifiers, redirect codes, or raw transport errors.
 
+The host runner retains the prepared run, action, change set, and preview hash only in process memory. The database inspector must match those exact four values through the run, action, confirmation, change set, receipt, grant, client, actor, and tenant joins. A different qualifying closeout cannot satisfy acceptance. After Jackson files the closeout, the runner replays the exact commit idempotency key and accepts only the original receipt with `replayed: true`, zero messages, and zero money movement.
+
+All service-role acceptance RPCs have hard abort deadlines, including the polling calls. Cleanup uses an independent deadline so operator cancellation cannot skip revocation. If acceptance and cleanup both fail, the runner preserves both safe stage failures in one aggregate error rather than masking the operational cause.
+
 ## Failure behavior
 
 - All externally visible OAuth failures reuse existing opaque errors.
@@ -120,6 +124,7 @@ The runner output remains aggregate-only. It prints contract revisions and pass/
 - A canary mismatch never falls back from requested v3 scopes to v2.
 - Expiry or disablement cannot be extended by refresh.
 - Revocation during a prepare or commit window is caught by the existing current-authority and persistence rechecks.
+- Provision, refresh, routine configuration, durable v3 OAuth writes, and disablement serialize on one transaction-scoped client lock. Disablement therefore makes the final authority decision without relying on incompatible table row-lock order.
 - No failure is represented as a successful or partial closeout result.
 
 ## Verification
@@ -131,6 +136,7 @@ Required automated proof:
 - bearer and grant-pinned server tests proving v1/v2 compatibility and exact one-tool v3 discovery;
 - adversarial tests for request-supplied revision, scope widening, stale preview, code replay, refresh replay, redirect mismatch, and opaque errors;
 - routine tests proving canary loss disables and de-leases before reads;
+- a real two-session PostgreSQL concurrency proof covering concurrent provision, refresh rotation, routine enablement, and durable grant creation against shutdown, with shutdown observed waiting on the common authority lock and final cleanup read back independently;
 - a clean Node 22 typecheck, lint-equivalent check, focused suite, real SQL contracts, and production build; and
 - live post-release readback of zero customer rows, unchanged twenty-scope v2 metadata, protected-route 401s, no runtime errors, and disabled worker state before provisioning.
 

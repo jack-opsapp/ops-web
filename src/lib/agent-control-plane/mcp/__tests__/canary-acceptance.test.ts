@@ -17,6 +17,12 @@ const ACCESS_ONE = `ops_mcp_at_${"a".repeat(43)}`;
 const ACCESS_TWO = `ops_mcp_at_${"b".repeat(43)}`;
 const REFRESH_ONE = `ops_mcp_rt_${"d".repeat(43)}`;
 const REFRESH_TWO = `ops_mcp_rt_${"e".repeat(43)}`;
+const RUN_ID = "ca000000-0000-4000-8000-000000000061";
+const CHANGE_SET_ID = "ca000000-0000-4000-8000-000000000062";
+const ACTION_ID = "ca000000-0000-4000-8000-000000000071";
+const CONFIRMATION_ID = "ca000000-0000-4000-8000-000000000063";
+const PREVIEW_SHA256 = `sha256:${"1".repeat(64)}`;
+const RECEIPT_SHA256 = `sha256:${"2".repeat(64)}`;
 const HOST_SUMMARY = Object.freeze({
   protocolVersion: "2025-03-26",
   toolNames: Object.freeze(["prepare_day_closeout"] as const),
@@ -26,6 +32,13 @@ const HOST_SUMMARY = Object.freeze({
   completeComponents: 7,
   partialComponents: 0,
 });
+const HOST_PROOF = Object.freeze({
+  runId: RUN_ID,
+  actionId: ACTION_ID,
+  changeSetId: CHANGE_SET_ID,
+  previewSha256: PREVIEW_SHA256,
+});
+const HOST_RESULT = Object.freeze({ summary: HOST_SUMMARY, proof: HOST_PROOF });
 
 async function visitLoopback(url: URL): Promise<string> {
   return await new Promise<string>((resolve, reject) => {
@@ -52,14 +65,18 @@ async function visitLoopback(url: URL): Promise<string> {
   });
 }
 
-function rpcFixture(input?: { provisionFails?: boolean }) {
+function rpcFixture(input?: {
+  provisionFails?: boolean;
+  cleanupFails?: boolean;
+  operatorProofStalls?: boolean;
+}) {
   let disabled = false;
   const calls: Array<{
     readonly functionName: string;
     readonly args: Readonly<Record<string, unknown>>;
   }> = [];
   const rpc = vi.fn<CanaryAcceptanceRpcClient["rpc"]>(
-    async (functionName, args) => {
+    async (functionName, args, signal) => {
       calls.push({ functionName, args });
       if (functionName === "register_mcp_oauth_client_as_system") {
         return {
@@ -83,7 +100,7 @@ function rpcFixture(input?: { provisionFails?: boolean }) {
                   exposure_revision: MCP_V3_CANARY_REVISIONS.exposure,
                   consent_catalog_revision:
                     MCP_V3_CANARY_REVISIONS.consentCatalog,
-                  expires_at: "2099-08-31T20:00:00.000Z",
+                  expires_at: args.p_expires_at,
                   enabled: true,
                 },
               ],
@@ -91,6 +108,9 @@ function rpcFixture(input?: { provisionFails?: boolean }) {
             };
       }
       if (functionName === "disable_mcp_oauth_canary_as_system") {
+        if (input?.cleanupFails) {
+          return { data: null, error: { code: "55000" } };
+        }
         disabled = true;
         return { data: true, error: null };
       }
@@ -98,6 +118,15 @@ function rpcFixture(input?: { provisionFails?: boolean }) {
         return { data: disabled ? [] : [{}], error: null };
       }
       if (functionName === "inspect_mcp_oauth_canary_acceptance_as_system") {
+        if (input?.operatorProofStalls) {
+          return await new Promise((resolve) => {
+            signal?.addEventListener(
+              "abort",
+              () => resolve({ data: null, error: { code: "57014" } }),
+              { once: true }
+            );
+          });
+        }
         return {
           data: [
             {
@@ -106,6 +135,24 @@ function rpcFixture(input?: { provisionFails?: boolean }) {
               routine_enabled: true,
             },
           ],
+          error: null,
+        };
+      }
+      if (functionName === "commit_agent_day_closeout_as_actor") {
+        return {
+          data: {
+            ok: true,
+            effect: "filed_inside_ops",
+            run_id: RUN_ID,
+            action_id: ACTION_ID,
+            change_set_id: CHANGE_SET_ID,
+            preview_sha256: PREVIEW_SHA256,
+            messages_sent: 0,
+            money_moved: false,
+            replayed: true,
+            confirmation_receipt_id: CONFIRMATION_ID,
+            receipt_sha256: RECEIPT_SHA256,
+          },
           error: null,
         };
       }
@@ -177,7 +224,7 @@ describe("MCP v3 synthetic canary acceptance", () => {
     let codeChallenge = "";
     const hostAcceptance = vi.fn(async (input) => {
       expect(input.bearer).toBe(ACCESS_TWO);
-      return HOST_SUMMARY;
+      return HOST_RESULT;
     });
 
     const summary = await runMcpV3CanaryAcceptance(
@@ -248,6 +295,7 @@ describe("MCP v3 synthetic canary acceptance", () => {
       },
       operator: {
         approvalReceipt: true,
+        idempotentReplay: true,
         routineHandoff: true,
       },
       host: HOST_SUMMARY,
@@ -273,6 +321,10 @@ describe("MCP v3 synthetic canary acceptance", () => {
       authorizationState,
       codeChallenge,
       verifier,
+      RUN_ID,
+      ACTION_ID,
+      CHANGE_SET_ID,
+      PREVIEW_SHA256,
     ]) {
       expect(serialized).not.toContain(secret);
     }
@@ -286,6 +338,30 @@ describe("MCP v3 synthetic canary acceptance", () => {
         "verify_mcp_oauth_canary_cleanup_as_system",
       ]
     );
+    expect(
+      rpc.calls.find(
+        ({ functionName }) =>
+          functionName === "inspect_mcp_oauth_canary_acceptance_as_system"
+      )?.args
+    ).toMatchObject({
+      p_run_id: RUN_ID,
+      p_action_id: ACTION_ID,
+      p_change_set_id: CHANGE_SET_ID,
+      p_preview_sha256: PREVIEW_SHA256,
+    });
+    expect(
+      rpc.calls.find(
+        ({ functionName }) =>
+          functionName === "commit_agent_day_closeout_as_actor"
+      )?.args
+    ).toEqual({
+      p_actor_user_id: USER_ID,
+      p_company_id: COMPANY_ID,
+      p_action_id: ACTION_ID,
+      p_change_set_id: CHANGE_SET_ID,
+      p_preview_sha256: PREVIEW_SHA256,
+      p_idempotency_key: `file-day-closeout:${ACTION_ID}`,
+    });
   });
 
   it("cleans up the inert client when provisioning conflicts", async () => {
@@ -385,7 +461,7 @@ describe("MCP v3 synthetic canary acceptance", () => {
     ).toBe(true);
   });
 
-  it("refuses a canary without a real approval finding and still proves cleanup", async () => {
+  it("refuses an approval summary without the exact private proof and still proves cleanup", async () => {
     const rpc = rpcFixture();
     const fetcher = tokenFetcher();
     const openOperatorSurface = vi.fn();
@@ -402,10 +478,8 @@ describe("MCP v3 synthetic canary acceptance", () => {
           fetcher,
           openOperatorSurface,
           runHostAcceptance: async () => ({
-            ...HOST_SUMMARY,
-            state: "clear",
-            findingCount: 0,
-            filingKind: "not_required",
+            summary: HOST_SUMMARY,
+            proof: null,
           }),
           openAuthorization: async (authorizationUrl) => {
             const redirect = new URL(
@@ -511,6 +585,79 @@ describe("MCP v3 synthetic canary acceptance", () => {
           functionName === "disable_mcp_oauth_canary_as_system"
       )
     ).toBe(true);
+  });
+
+  it("bounds a stalled operator proof RPC and still proves cleanup", async () => {
+    const rpc = rpcFixture({ operatorProofStalls: true });
+
+    await expect(
+      runMcpV3CanaryAcceptance(
+        {
+          rpcClient: rpc.client,
+          issuer: ISSUER,
+          userId: USER_ID,
+          companyId: COMPANY_ID,
+        },
+        {
+          fetcher: tokenFetcher(),
+          runHostAcceptance: async () => HOST_RESULT,
+          openOperatorSurface: async () => undefined,
+          operatorProofTimeoutMs: 1_000,
+          operatorProofPollMs: 100,
+          openAuthorization: async (authorizationUrl) => {
+            const redirect = new URL(
+              authorizationUrl.searchParams.get("redirect_uri") ?? ""
+            );
+            redirect.search = new URLSearchParams({
+              code: CODE,
+              state: authorizationUrl.searchParams.get("state") ?? "",
+              iss: ISSUER,
+            }).toString();
+            await visitLoopback(redirect);
+          },
+        }
+      )
+    ).rejects.toThrow("MCP canary acceptance failed at operator_proof_timeout");
+    expect(
+      rpc.calls.some(
+        ({ functionName }) =>
+          functionName === "disable_mcp_oauth_canary_as_system"
+      )
+    ).toBe(true);
+  });
+
+  it("preserves both the primary and cleanup failure without leaking details", async () => {
+    const rpc = rpcFixture({ cleanupFails: true });
+    let caught: unknown;
+
+    try {
+      await runMcpV3CanaryAcceptance(
+        {
+          rpcClient: rpc.client,
+          issuer: ISSUER,
+          userId: USER_ID,
+          companyId: COMPANY_ID,
+        },
+        {
+          openAuthorization: async () => {
+            throw new Error("sensitive primary detail");
+          },
+        }
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(AggregateError);
+    const aggregate = caught as AggregateError;
+    expect(aggregate.message).toBe(
+      "MCP canary acceptance failed at acceptance_and_cleanup"
+    );
+    expect(aggregate.errors.map((error) => (error as Error).message)).toEqual([
+      "MCP canary acceptance failed at browser_open",
+      "MCP canary acceptance failed at cleanup",
+    ]);
+    expect(JSON.stringify(aggregate.errors)).not.toContain("sensitive");
   });
 
   it("times out an unused real loopback callback without exposing its URI", async () => {

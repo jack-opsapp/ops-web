@@ -1,20 +1,27 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { runDayCloseoutHostAcceptance } from "../host-acceptance";
+import type { DayCloseoutResult } from "@/lib/agent-control-plane/contracts/day-closeout";
+
+import {
+  runDayCloseoutHostAcceptance,
+  runDayCloseoutHostAcceptanceWithProof,
+} from "../host-acceptance";
 
 const ENDPOINT = "https://app.opsapp.co/api/mcp";
 const BEARER = "ops_mcp_at_never_log_this_value";
 
-function clearResult() {
-  const components = [
-    "tomorrow_readiness",
-    "outstanding_money",
-    "stalled_pipeline",
-    "unresolved_correspondence",
-    "work_due",
-  ].map((component) => ({
+function clearResult(): DayCloseoutResult {
+  const components: DayCloseoutResult["components"] = (
+    [
+      "tomorrow_readiness",
+      "outstanding_money",
+      "stalled_pipeline",
+      "unresolved_correspondence",
+      "work_due",
+    ] as const
+  ).map((component) => ({
     component,
-    state: "clear",
+    state: "clear" as const,
     time_window: {
       start_at: null,
       end_at_exclusive: "2026-09-01T07:00:00.000Z",
@@ -22,7 +29,7 @@ function clearResult() {
     population_count: 0,
     attention_count: 0,
     coverage: {
-      state: "complete",
+      state: "complete" as const,
       inspected_count: 0,
       omitted_count: 0,
       missing_reasons: [],
@@ -186,6 +193,101 @@ describe("day-closeout authenticated host acceptance", () => {
         fetcher,
       })
     ).rejects.toThrow("MCP host acceptance failed at tools/list");
+  });
+
+  it("keeps exact approval identifiers private while exposing them to the canary verifier", async () => {
+    const approval = clearResult();
+    approval.state = "attention";
+    approval.components[0].state = "attention";
+    approval.components[0].population_count = 1;
+    approval.components[0].attention_count = 1;
+    approval.findings = [
+      {
+        finding_ref: "finding:task:1",
+        component: "tomorrow_readiness",
+        reason: "readiness_issue",
+        priority: "attention",
+        title: "One task needs attention",
+        subject_ref: {
+          kind: "task",
+          id: "dc000000-0000-4000-8000-000000000081",
+        },
+        attention_at: "2026-08-31T04:00:00.000Z",
+        content_kind: "untrusted_business_data",
+      },
+    ];
+    approval.filing = {
+      kind: "approval_required",
+      action_id: "dc000000-0000-4000-8000-000000000071",
+      change_set_id: "dc000000-0000-4000-8000-000000000062",
+      approval_url: "/agent/queue",
+      preview: {
+        business_date: approval.business_date,
+        finding_count: 1,
+        filing_statement: "File this day closeout inside OPS.",
+        truth_boundary: "No messages sent. No money moved.",
+        preview_sha256: `sha256:${"1".repeat(64)}`,
+      },
+    };
+    const fetcher = vi.fn(
+      async (_url: string | URL | Request, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        if (body.method === "initialize") {
+          return responseFor({
+            jsonrpc: "2.0",
+            id: body.id,
+            result: { protocolVersion: "2025-03-26" },
+          });
+        }
+        if (body.method === "notifications/initialized") {
+          return new Response(null, { status: 202 });
+        }
+        if (body.method === "tools/list") {
+          return responseFor({
+            jsonrpc: "2.0",
+            id: body.id,
+            result: {
+              tools: [
+                {
+                  name: "prepare_day_closeout",
+                  annotations: {
+                    readOnlyHint: false,
+                    destructiveHint: false,
+                    idempotentHint: true,
+                    openWorldHint: false,
+                  },
+                },
+              ],
+            },
+          });
+        }
+        return responseFor({
+          jsonrpc: "2.0",
+          id: body.id,
+          result: {
+            content: [{ type: "text", text: JSON.stringify(approval) }],
+          },
+        });
+      }
+    );
+
+    const result = await runDayCloseoutHostAcceptanceWithProof({
+      endpoint: ENDPOINT,
+      bearer: BEARER,
+      idempotencyKey: "acceptance-closeout-2026-08-30",
+      fetcher,
+    });
+
+    expect(result.proof).toEqual({
+      runId: approval.run_id,
+      actionId: approval.filing.action_id,
+      changeSetId: approval.filing.change_set_id,
+      previewSha256: approval.filing.preview.preview_sha256,
+    });
+    expect(JSON.stringify(result.summary)).not.toContain(approval.run_id);
+    expect(JSON.stringify(result.summary)).not.toContain(
+      approval.filing.action_id
+    );
   });
 
   it("bounds a stalled host call and exposes no transport detail", async () => {

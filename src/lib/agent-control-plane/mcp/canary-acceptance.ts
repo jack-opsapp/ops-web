@@ -3,7 +3,8 @@ import { createServer, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import {
-  runDayCloseoutHostAcceptance,
+  runDayCloseoutHostAcceptanceWithProof,
+  type DayCloseoutHostAcceptanceProof,
   type DayCloseoutHostAcceptanceSummary,
 } from "./host-acceptance";
 
@@ -33,7 +34,8 @@ type Fetcher = (
 export interface CanaryAcceptanceRpcClient {
   rpc(
     functionName: string,
-    args: Readonly<Record<string, unknown>>
+    args: Readonly<Record<string, unknown>>,
+    signal?: AbortSignal
   ): PromiseLike<{ readonly data: unknown; readonly error: unknown }>;
 }
 
@@ -62,6 +64,7 @@ export interface McpV3CanaryAcceptanceSummary {
   };
   readonly operator: {
     readonly approvalReceipt: true;
+    readonly idempotentReplay: true;
     readonly routineHandoff: true;
   };
   readonly host: DayCloseoutHostAcceptanceSummary;
@@ -81,7 +84,7 @@ interface CanaryAcceptanceDependencies {
     signal?: AbortSignal
   ) => Promise<void>;
   readonly createReceiver?: () => Promise<CanaryAuthorizationReceiver>;
-  readonly runHostAcceptance?: typeof runDayCloseoutHostAcceptance;
+  readonly runHostAcceptance?: typeof runDayCloseoutHostAcceptanceWithProof;
   readonly now?: () => number;
   readonly onProgress?: (
     stage: "waiting_for_consent" | "waiting_for_filing" | "waiting_for_routine"
@@ -101,7 +104,20 @@ function ensureNotAborted(signal?: AbortSignal): void {
 
 function boundedSignal(timeoutMs: number, signal?: AbortSignal): AbortSignal {
   const timeout = AbortSignal.timeout(timeoutMs);
-  return signal ? AbortSignal.any([signal, timeout]) : timeout;
+  if (!signal) return timeout;
+  if (signal.aborted) return AbortSignal.abort(signal.reason);
+
+  const controller = new AbortController();
+  const abortFrom = (source: AbortSignal) => {
+    signal.removeEventListener("abort", abortFromSignal);
+    timeout.removeEventListener("abort", abortFromTimeout);
+    controller.abort(source.reason);
+  };
+  const abortFromSignal = () => abortFrom(signal);
+  const abortFromTimeout = () => abortFrom(timeout);
+  signal.addEventListener("abort", abortFromSignal, { once: true });
+  timeout.addEventListener("abort", abortFromTimeout, { once: true });
+  return controller.signal;
 }
 
 async function waitForAuthorization(
@@ -192,13 +208,27 @@ async function rpc(
   client: CanaryAcceptanceRpcClient,
   functionName: string,
   args: Readonly<Record<string, unknown>>,
-  stage: string
+  stage: string,
+  signal?: AbortSignal
 ): Promise<unknown> {
+  ensureNotAborted(signal);
   let result: { readonly data: unknown; readonly error: unknown };
+  let cancel: (() => void) | null = null;
   try {
-    result = await client.rpc(functionName, args);
+    const request = Promise.resolve(client.rpc(functionName, args, signal));
+    const cancellation = signal
+      ? new Promise<never>((_resolve, reject) => {
+          cancel = () => reject(failure(stage));
+          signal.addEventListener("abort", cancel, { once: true });
+        })
+      : null;
+    result = await (cancellation
+      ? Promise.race([request, cancellation])
+      : request);
   } catch {
     throw failure(stage);
+  } finally {
+    if (cancel && signal) signal.removeEventListener("abort", cancel);
   }
   if (result.error != null) throw failure(stage);
   return result.data;
@@ -217,6 +247,8 @@ async function inspectOperatorProof(input: {
   readonly userId: string;
   readonly companyId: string;
   readonly startedAt: string;
+  readonly hostProof: DayCloseoutHostAcceptanceProof;
+  readonly signal?: AbortSignal;
 }): Promise<{
   readonly preparedWithApproval: boolean;
   readonly receiptVerified: boolean;
@@ -231,8 +263,13 @@ async function inspectOperatorProof(input: {
         p_user_id: input.userId,
         p_company_id: input.companyId,
         p_not_before: input.startedAt,
+        p_run_id: input.hostProof.runId,
+        p_action_id: input.hostProof.actionId,
+        p_change_set_id: input.hostProof.changeSetId,
+        p_preview_sha256: input.hostProof.previewSha256,
       },
-      "operator_proof"
+      "operator_proof",
+      input.signal
     ),
     "operator_proof"
   );
@@ -250,12 +287,56 @@ async function inspectOperatorProof(input: {
   });
 }
 
+async function replayOperatorCommit(input: {
+  readonly rpcClient: CanaryAcceptanceRpcClient;
+  readonly userId: string;
+  readonly companyId: string;
+  readonly hostProof: DayCloseoutHostAcceptanceProof;
+  readonly signal?: AbortSignal;
+}): Promise<void> {
+  const replay = jsonObject(
+    await rpc(
+      input.rpcClient,
+      "commit_agent_day_closeout_as_actor",
+      {
+        p_actor_user_id: input.userId,
+        p_company_id: input.companyId,
+        p_action_id: input.hostProof.actionId,
+        p_change_set_id: input.hostProof.changeSetId,
+        p_preview_sha256: input.hostProof.previewSha256,
+        p_idempotency_key: `file-day-closeout:${input.hostProof.actionId}`,
+      },
+      "operator_replay",
+      input.signal
+    )
+  );
+  if (
+    !replay ||
+    replay.ok !== true ||
+    replay.effect !== "filed_inside_ops" ||
+    replay.run_id !== input.hostProof.runId ||
+    replay.action_id !== input.hostProof.actionId ||
+    replay.change_set_id !== input.hostProof.changeSetId ||
+    replay.preview_sha256 !== input.hostProof.previewSha256 ||
+    replay.messages_sent !== 0 ||
+    replay.money_moved !== false ||
+    replay.replayed !== true ||
+    typeof replay.confirmation_receipt_id !== "string" ||
+    !UUID_PATTERN.test(replay.confirmation_receipt_id) ||
+    typeof replay.receipt_sha256 !== "string" ||
+    !/^sha256:[0-9a-f]{64}$/u.test(replay.receipt_sha256)
+  ) {
+    throw failure("operator_replay");
+  }
+}
+
 async function waitForOperatorProof(input: {
   readonly rpcClient: CanaryAcceptanceRpcClient;
   readonly clientId: string;
   readonly userId: string;
   readonly companyId: string;
   readonly startedAt: string;
+  readonly hostProof: DayCloseoutHostAcceptanceProof;
   readonly requirement: "receipt" | "routine";
   readonly timeoutMs: number;
   readonly pollMs: number;
@@ -264,7 +345,19 @@ async function waitForOperatorProof(input: {
   const deadline = Date.now() + input.timeoutMs;
   for (;;) {
     ensureNotAborted(input.signal);
-    const proof = await inspectOperatorProof(input);
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) throw failure("operator_proof_timeout");
+    let proof: Awaited<ReturnType<typeof inspectOperatorProof>>;
+    try {
+      proof = await inspectOperatorProof({
+        ...input,
+        signal: boundedSignal(remainingMs, input.signal),
+      });
+    } catch {
+      ensureNotAborted(input.signal);
+      if (Date.now() >= deadline) throw failure("operator_proof_timeout");
+      throw failure("operator_proof");
+    }
     if (!proof.preparedWithApproval) throw failure("operator_proof");
     if (
       proof.receiptVerified &&
@@ -553,7 +646,7 @@ export async function runMcpV3CanaryAcceptance(
   const now = dependencies.now ?? Date.now;
   const startedAt = new Date(now()).toISOString();
   const hostAcceptance =
-    dependencies.runHostAcceptance ?? runDayCloseoutHostAcceptance;
+    dependencies.runHostAcceptance ?? runDayCloseoutHostAcceptanceWithProof;
   let clientId: string | null = null;
   let result: Omit<McpV3CanaryAcceptanceSummary, "cleanupVerified"> | null =
     null;
@@ -575,7 +668,8 @@ export async function runMcpV3CanaryAcceptance(
           p_software_id: "ops-mcp-synthetic-canary",
           p_software_version: "1",
         },
-        "client_registration"
+        "client_registration",
+        boundedSignal(30_000, dependencies.signal)
       ),
       "client_registration"
     );
@@ -591,7 +685,10 @@ export async function runMcpV3CanaryAcceptance(
     clientId = registered.client_id;
     ensureNotAborted(dependencies.signal);
 
-    oneRow(
+    const canaryExpiresAt = new Date(
+      now() + expiresInMinutes * 60_000
+    ).toISOString();
+    const provisioned = oneRow(
       await rpc(
         input.rpcClient,
         "provision_mcp_oauth_canary_as_system",
@@ -601,14 +698,22 @@ export async function runMcpV3CanaryAcceptance(
           p_company_id: input.companyId,
           p_exposure_revision: EXPOSURE_REVISION,
           p_consent_catalog_revision: CONSENT_CATALOG_REVISION,
-          p_expires_at: new Date(
-            now() + expiresInMinutes * 60_000
-          ).toISOString(),
+          p_expires_at: canaryExpiresAt,
         },
-        "canary_provision"
+        "canary_provision",
+        boundedSignal(30_000, dependencies.signal)
       ),
       "canary_provision"
     );
+    if (
+      provisioned.exposure_revision !== EXPOSURE_REVISION ||
+      provisioned.consent_catalog_revision !== CONSENT_CATALOG_REVISION ||
+      provisioned.enabled !== true ||
+      typeof provisioned.expires_at !== "string" ||
+      Date.parse(provisioned.expires_at) !== Date.parse(canaryExpiresAt)
+    ) {
+      throw failure("canary_provision");
+    }
     ensureNotAborted(dependencies.signal);
 
     const authorizationUrl = new URL("/oauth/authorize", issuer);
@@ -671,9 +776,9 @@ export async function runMcpV3CanaryAcceptance(
       }),
       dependencies.signal
     );
-    let host: DayCloseoutHostAcceptanceSummary;
+    let hostResult: Awaited<ReturnType<typeof hostAcceptance>>;
     try {
-      host = await hostAcceptance({
+      hostResult = await hostAcceptance({
         endpoint: endpoint.toString(),
         bearer: rotated.accessToken,
         idempotencyKey: `canary:${base64url(randomBytes(18))}`,
@@ -683,7 +788,13 @@ export async function runMcpV3CanaryAcceptance(
     } catch {
       throw failure("host_acceptance");
     }
-    if (host.filingKind !== "approval_required" || host.findingCount < 1) {
+    const host = hostResult.summary;
+    const hostProof = hostResult.proof;
+    if (
+      host.filingKind !== "approval_required" ||
+      host.findingCount < 1 ||
+      hostProof === null
+    ) {
       throw failure("approval_fixture");
     }
     if (!dependencies.openOperatorSurface) {
@@ -706,10 +817,18 @@ export async function runMcpV3CanaryAcceptance(
       userId: input.userId,
       companyId: input.companyId,
       startedAt,
+      hostProof,
       requirement: "receipt",
       timeoutMs: operatorProofTimeoutMs,
       pollMs: operatorProofPollMs,
       signal: dependencies.signal,
+    });
+    await replayOperatorCommit({
+      rpcClient: input.rpcClient,
+      userId: input.userId,
+      companyId: input.companyId,
+      hostProof,
+      signal: boundedSignal(30_000, dependencies.signal),
     });
 
     dependencies.onProgress?.("waiting_for_routine");
@@ -728,6 +847,7 @@ export async function runMcpV3CanaryAcceptance(
       userId: input.userId,
       companyId: input.companyId,
       startedAt,
+      hostProof,
       requirement: "routine",
       timeoutMs: operatorProofTimeoutMs,
       pollMs: operatorProofPollMs,
@@ -760,6 +880,7 @@ export async function runMcpV3CanaryAcceptance(
       }),
       operator: Object.freeze({
         approvalReceipt: true,
+        idempotentReplay: true,
         routineHandoff: true,
       }),
       host,
@@ -771,6 +892,7 @@ export async function runMcpV3CanaryAcceptance(
   let cleanupFailure: Error | null = null;
   try {
     if (clientId !== null) {
+      const cleanupSignal = AbortSignal.timeout(30_000);
       await rpc(
         input.rpcClient,
         "disable_mcp_oauth_canary_as_system",
@@ -779,7 +901,8 @@ export async function runMcpV3CanaryAcceptance(
           p_user_id: input.userId,
           p_company_id: input.companyId,
         },
-        "cleanup"
+        "cleanup",
+        cleanupSignal
       );
       const binding = await rpc(
         input.rpcClient,
@@ -791,14 +914,16 @@ export async function runMcpV3CanaryAcceptance(
           p_exposure_revision: EXPOSURE_REVISION,
           p_consent_catalog_revision: CONSENT_CATALOG_REVISION,
         },
-        "cleanup"
+        "cleanup",
+        cleanupSignal
       );
       const client = oneRow(
         await rpc(
           input.rpcClient,
           "get_mcp_oauth_client_as_system",
           { p_client_id: clientId },
-          "cleanup"
+          "cleanup",
+          cleanupSignal
         ),
         "cleanup"
       );
@@ -806,13 +931,15 @@ export async function runMcpV3CanaryAcceptance(
         input.rpcClient,
         "list_mcp_oauth_grants_for_user_as_system",
         { p_user_id: input.userId, p_company_id: input.companyId },
-        "cleanup"
+        "cleanup",
+        cleanupSignal
       );
       const routines = await rpc(
         input.rpcClient,
         "list_agent_day_closeout_routine_configs_as_system",
         { p_actor_user_id: input.userId, p_company_id: input.companyId },
-        "cleanup"
+        "cleanup",
+        cleanupSignal
       );
       const cleanup = oneRow(
         await rpc(
@@ -823,7 +950,8 @@ export async function runMcpV3CanaryAcceptance(
             p_user_id: input.userId,
             p_company_id: input.companyId,
           },
-          "cleanup"
+          "cleanup",
+          cleanupSignal
         ),
         "cleanup"
       );
@@ -853,6 +981,12 @@ export async function runMcpV3CanaryAcceptance(
     cleanupFailure = failure("cleanup");
   }
 
+  if (primaryFailure && cleanupFailure) {
+    throw new AggregateError(
+      [primaryFailure, cleanupFailure],
+      "MCP canary acceptance failed at acceptance_and_cleanup"
+    );
+  }
   if (cleanupFailure) throw cleanupFailure;
   if (primaryFailure) throw primaryFailure;
   if (!result) throw failure("unknown");

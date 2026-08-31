@@ -38,11 +38,11 @@ async function main(): Promise<void> {
     throw new Error("MCP canary acceptance configuration is incomplete");
   }
   const rpcClient: CanaryAcceptanceRpcClient = {
-    async rpc(functionName, args) {
-      const { data, error } = await supabase.rpc(
-        functionName as never,
-        args as never
-      );
+    async rpc(functionName, args, signal) {
+      const request = supabase.rpc(functionName as never, args as never);
+      const { data, error } = signal
+        ? await request.abortSignal(signal)
+        : await request;
       return { data, error };
     },
   };

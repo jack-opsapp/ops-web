@@ -93,6 +93,7 @@ describe("MCP v3 synthetic canary migration", () => {
     );
     expect(provision).toContain("on conflict (oauth_client_id)");
     expect(provision).toContain("mcp_oauth_canary_conflict");
+    expect(provision).toContain("private.lock_mcp_v3_canary_client");
   });
 
   it("resolves only an enabled, unexpired, exact subject binding", () => {
@@ -159,9 +160,13 @@ describe("MCP v3 synthetic canary migration", () => {
     );
     expect(disable).toContain("routine.company_id = p_company_id");
     expect(disable).toContain("routine.actor_user_id = p_user_id");
+    expect(disable).toContain("private.lock_mcp_v3_canary_client");
+    expect(disable).toMatch(
+      /routine\.enabled\s+or\s+routine\.claimed_at is not null\s+or\s+routine\.claim_token is not null\s+or\s+routine\.claim_expires_at is not null/
+    );
   });
 
-  it("verifies operator proof and cleanup without returning identifiers", () => {
+  it("verifies the exact host-prepared proof and cleanup without returning identifiers", () => {
     const inspection = functionDefinition(
       migrationSql(),
       "public.inspect_mcp_oauth_canary_acceptance_as_system"
@@ -174,8 +179,30 @@ describe("MCP v3 synthetic canary migration", () => {
     expect(inspection).toContain("prepared_with_approval boolean");
     expect(inspection).toContain("receipt_verified boolean");
     expect(inspection).toContain("routine_enabled boolean");
+    for (const exactInput of [
+      "p_run_id uuid",
+      "p_action_id uuid",
+      "p_change_set_id uuid",
+      "p_preview_sha256 text",
+    ]) {
+      expect(inspection).toContain(exactInput);
+    }
     expect(inspection).toContain("private.mcp_oauth_canary_is_current");
     expect(inspection).toContain("grant_record.revoked_at is null");
+    expect(inspection).toContain("run.id = p_run_id");
+    expect(inspection).toContain("receipt.action_id = p_action_id");
+    expect(inspection).toContain("receipt.change_set_id = p_change_set_id");
+    expect(inspection).toContain(
+      "receipt.preview_hash = substring(p_preview_sha256 from 8)"
+    );
+    expect(inspection).toContain("action.action_type = 'file_day_closeout'");
+    expect(inspection).toContain("action.execution_result = receipt.result");
+    expect(inspection).toContain(
+      "confirmation.oauth_grant_id = receipt.oauth_grant_id"
+    );
+    expect(inspection).toContain(
+      "change_set.oauth_grant_id = receipt.oauth_grant_id"
+    );
     expect(inspection).toContain("filed_inside_ops");
     expect(inspection).toContain("messages_sent");
     expect(inspection).toContain("money_moved");
@@ -205,6 +232,7 @@ describe("MCP v3 synthetic canary migration", () => {
       expect(sql).toContain(`before insert on ${table}`);
     }
     expect(trigger).toContain("private.mcp_oauth_canary_is_current");
+    expect(trigger).toContain("private.lock_mcp_v3_canary_client");
     expect(trigger).toContain("mcp_oauth_canary_unavailable");
     expect(bearer).toContain("p_active_exposure_revision text");
     expect(bearer).toContain("2026-08-29.mcp-exposure.v2");
@@ -231,6 +259,10 @@ describe("MCP v3 synthetic canary migration", () => {
     expect(refresh).toContain("if v_rotated.reuse_detected");
     expect(refresh).toContain("oauth_grant_revoked");
     expect(refresh).toContain("claim_token = null");
+    expect(refresh).toContain("private.lock_mcp_v3_canary_client");
+    expect(refresh).toMatch(
+      /routine\.enabled\s+or\s+routine\.claimed_at is not null\s+or\s+routine\.claim_token is not null\s+or\s+routine\.claim_expires_at is not null/
+    );
   });
 
   it("binds routine discovery and every business read to the current canary", () => {
@@ -247,5 +279,27 @@ describe("MCP v3 synthetic canary migration", () => {
     expect(assertion).toContain("agent_day_closeout_canary_stale_or_denied");
     expect(list).toContain("private.mcp_oauth_canary_is_current");
     expect(list).toContain("2026-08-30.mcp-exposure.v3");
+  });
+
+  it("serializes every canary authority mutation on one client lock", () => {
+    const lock = functionDefinition(
+      migrationSql(),
+      "private.lock_mcp_v3_canary_client"
+    );
+    const upsert = functionDefinition(
+      migrationSql(),
+      "public.upsert_agent_day_closeout_routine_config_as_system"
+    );
+
+    expect(lock).toContain("pg_advisory_xact_lock");
+    expect(lock).toContain("ops-mcp-v3-canary:");
+    expect(lock).toContain("p_oauth_client_id::text");
+    expect(upsert).toContain("private.lock_mcp_v3_canary_client");
+    expect(upsert).toContain(
+      "public.upsert_agent_day_closeout_routine_config_without_v3_canary"
+    );
+    expect(compact(migrationSql())).toContain(
+      "rename to upsert_agent_day_closeout_routine_config_without_v3_canary"
+    );
   });
 });
