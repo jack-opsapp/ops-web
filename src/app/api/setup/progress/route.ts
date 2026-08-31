@@ -15,7 +15,7 @@ import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { readServerFirstTouch } from "@/lib/pmf/utm-capture";
-import { recordTrialAttribution } from "@/lib/pmf/record-trial-attribution";
+import { recordTrialAttribution } from "@/lib/pmf/trial-attribution";
 import { isReferralSourceSlug } from "@/lib/data/referral-sources";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
@@ -69,7 +69,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const validSteps = ["identity", "company", "starfield"];
     if (!validSteps.includes(step)) {
       return NextResponse.json(
-        { error: `Invalid step: ${step}. Must be one of: ${validSteps.join(", ")}` },
+        {
+          error: `Invalid step: ${step}. Must be one of: ${validSteps.join(", ")}`,
+        },
         { status: 400 }
       );
     }
@@ -80,13 +82,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const db = getServiceRoleClient();
 
     // Find the user by auth credentials (auth_id → firebase_uid → email)
-    const userRow = await findUserByAuth(verifiedUser.uid, verifiedUser.email, "*");
+    const userRow = await findUserByAuth(
+      verifiedUser.uid,
+      verifiedUser.email,
+      "*"
+    );
 
     if (!userRow) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const userId = userRow.id as string;
@@ -123,10 +126,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           updated_at: new Date().toISOString(),
         };
         if (data.companyName) companyUpdates.name = data.companyName;
-        if (data.industries?.length) companyUpdates.industries = data.industries;
+        if (data.industries?.length)
+          companyUpdates.industries = data.industries;
         if (data.companySize) companyUpdates.company_size = data.companySize;
         if (data.companyAge) companyUpdates.company_age = data.companyAge;
-        if (data.weatherDependent) companyUpdates.weather_dependent = data.weatherDependent === "Yes";
+        if (data.weatherDependent)
+          companyUpdates.weather_dependent = data.weatherDependent === "Yes";
         // Validated against the known slug set — a raw client string must
         // never reach the column.
         if (isReferralSourceSlug(data.referralMethod)) {
@@ -179,7 +184,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           // and ALREADY_IN_COMPANY a stale read — both are retryable by the
           // client, so they must not read as server faults.
           const status =
-            message.includes("NO_USER_ROW") || message.includes("ALREADY_IN_COMPANY")
+            message.includes("NO_USER_ROW") ||
+            message.includes("ALREADY_IN_COMPANY")
               ? 409
               : message.includes("INVALID_NAME")
                 ? 400
@@ -187,7 +193,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                   ? 403
                   : 500;
           return NextResponse.json(
-            { error: `Failed to create company: ${message || "Unknown error"}` },
+            {
+              error: `Failed to create company: ${message || "Unknown error"}`,
+            },
             { status }
           );
         }
@@ -210,17 +218,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         // when the operator email isn't on the internal allowlist.
         // Failure does NOT roll back signup; cron will retry up to 3 times
         // within day_slot_expires_at if the async fails.
-        const operatorEmail = (userRow.email as string | null | undefined) ?? null;
+        const operatorEmail =
+          (userRow.email as string | null | undefined) ?? null;
         const INTERNAL_DOMAINS = ["@opsapp.co", "@anthropic.com"];
-        const isInternal =
-          operatorEmail
-            ? INTERNAL_DOMAINS.some((d) => operatorEmail.toLowerCase().endsWith(d))
-            : true;
+        const isInternal = operatorEmail
+          ? INTERNAL_DOMAINS.some((d) =>
+              operatorEmail.toLowerCase().endsWith(d)
+            )
+          : true;
 
         if (!isInternal && operatorEmail) {
           void (async () => {
             try {
-              const expires = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+              const expires = new Date(
+                Date.now() + 24 * 60 * 60_000
+              ).toISOString();
               const { data: logRow, error: insertError } = await db
                 .from("onboarding_email_log")
                 .insert({
@@ -239,15 +251,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               if (insertError || !logRow) {
                 // Unique-violation = sibling already claimed; not an error.
                 if (insertError && insertError.code !== "23505") {
-                  console.error("[onboarding-day0] claim INSERT failed:", insertError);
+                  console.error(
+                    "[onboarding-day0] claim INSERT failed:",
+                    insertError
+                  );
                 }
                 return;
               }
 
-              const { sendOnboardingDay0Welcome } = await import("@/lib/email/sendgrid");
+              const { sendOnboardingDay0Welcome } =
+                await import("@/lib/email/sendgrid");
               const result = await sendOnboardingDay0Welcome({
                 email: operatorEmail,
-                firstName: (userRow.first_name as string | null | undefined) ?? null,
+                firstName:
+                  (userRow.first_name as string | null | undefined) ?? null,
                 onboardingEmailLogId: logRow.id as string,
                 userId,
               });
@@ -262,7 +279,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                   : result.status === "suppression_skipped"
                     ? { status: "skipped" }
                     : { status: "pending" };
-              await db.from("onboarding_email_log").update(update).eq("id", logRow.id);
+              await db
+                .from("onboarding_email_log")
+                .update(update)
+                .eq("id", logRow.id);
             } catch (err) {
               console.error("[onboarding-day0] async dispatch failed:", err);
             }
@@ -277,10 +297,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // platform. This upgrades that row with the real first-touch payload.
       //
       // Read server-side from the request's Cookie header rather than a client
-      // body field: the value is already travelling with the request, so there
-      // is nothing extra to send and nothing to forge independently of the
-      // cookie itself. Runs for both branches above (new company and resumed
-      // setup) and never throws.
+      // body field: the allowlisted cookie travels with the request and is
+      // validated again by the database RPC. Runs for both branches above
+      // (new company and resumed setup) and never blocks company creation.
       if (companyId) {
         await recordTrialAttribution(
           db,
@@ -322,8 +341,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Internal server error",
+        error: error instanceof Error ? error.message : "Internal server error",
       },
       { status: 500 }
     );

@@ -25719,6 +25719,10 @@ export type Database = {
         }[]
       }
       expense_envelope_sweep: { Args: never; Returns: number }
+      expire_attribution_click_ids: {
+        Args: { p_now?: string }
+        Returns: Json
+      }
       expire_agent_actions_batch_as_system: {
         Args: { p_batch_size?: number; p_now?: string }
         Returns: number
@@ -27792,6 +27796,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: boolean
+      }
+      record_first_touch_attribution: {
+        Args: { p_company_id: string; p_touch: Json }
+        Returns: Json
       }
       record_opportunity_correspondence_event: {
         Args: {
