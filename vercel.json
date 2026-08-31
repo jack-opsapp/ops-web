@@ -78,7 +78,7 @@
     },
     {
       "path": "/api/cron/search-console-sync",
-      "schedule": "24 9 * * *"
+      "schedule": "26 9 * * *"
     },
     {
       "path": "/api/cron/ga4-acquisition-sync",
@@ -86,7 +86,7 @@
     },
     {
       "path": "/api/cron/analytics-health",
-      "schedule": "49 10 * * *"
+      "schedule": "46 10 * * *"
     },
     {
       "path": "/api/cron/duplicate-scan",

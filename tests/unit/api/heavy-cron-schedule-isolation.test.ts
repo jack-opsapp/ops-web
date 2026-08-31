@@ -33,6 +33,9 @@ const guardedProductionRoutes = new Map<string, string>([
   ["/api/cron/ads-briefing", "34 12 * * 1"],
   ["/api/cron/ads-sync", "4 8 * * *"],
   ["/api/cron/app-store-sync", "4 9 * * *"],
+  ["/api/cron/search-console-sync", "26 9 * * *"],
+  ["/api/cron/ga4-acquisition-sync", "44 9 * * *"],
+  ["/api/cron/analytics-health", "46 10 * * *"],
   ["/api/cron/duplicate-scan", "4 5 * * *"],
   ["/api/cron/memory-decay", "59 3 * * *"],
   ["/api/cron/expire-actions", "34 5 * * *"],
@@ -64,7 +67,7 @@ const guardedProductionRoutes = new Map<string, string>([
   ["/api/cron/email/projection-stuck-check", "9-59/20 * * * *"],
   ["/api/cron/onboarding-drip", "19 * * * *"],
   ["/api/cron/lead-lifecycle", "14 11 * * *"],
-  ["/api/cron/lead-summary-refresh", "18 13-23,0-4 * * *"],
+  ["/api/cron/lead-summary-refresh", "18-59/15 13-23,0-4 * * *"],
   ["/api/cron/accounting/quickbooks/push-queue", "14-59/20 13-23,0-4 * * *"],
   // Full-day on purpose: booked-visit prompts are appointment-time-critical
   // and cannot live in the overnight email window. Shares the */5 grid with
