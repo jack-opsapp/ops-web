@@ -5,6 +5,10 @@ import {
   type DayCloseoutService,
 } from "./day-closeout/day-closeout-service";
 import {
+  isTrustedCollectionsService,
+  type CollectionsService,
+} from "./collections/collections-service";
+import {
   isTrustedOpsAgentReadCatalogueService,
   type OpsAgentReadCatalogueService,
 } from "./read-catalogue-service";
@@ -12,11 +16,13 @@ import {
 const TRUSTED_CAPABILITY_SERVICES = new WeakSet<object>();
 
 export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
-  DayCloseoutService;
+  DayCloseoutService &
+  CollectionsService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
   readonly dayCloseout: DayCloseoutService;
+  readonly collections: CollectionsService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
     throw new TypeError("A trusted OPS read catalogue is required");
@@ -24,7 +30,14 @@ export function createOpsAgentCapabilityService(input: {
   if (!isTrustedDayCloseoutService(input.dayCloseout)) {
     throw new TypeError("A trusted day-closeout service is required");
   }
-  const service = Object.freeze({ ...input.reads, ...input.dayCloseout });
+  if (!isTrustedCollectionsService(input.collections)) {
+    throw new TypeError("A trusted collections service is required");
+  }
+  const service = Object.freeze({
+    ...input.reads,
+    ...input.dayCloseout,
+    ...input.collections,
+  });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;
 }

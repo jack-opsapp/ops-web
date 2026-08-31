@@ -70,6 +70,15 @@ export const PrepareCollectionsInputSchema = z
   })
   .strict();
 
+export const CommitCollectionsDraftInputSchema = z
+  .object({
+    action_id: P2CanonicalUuidSchema,
+    change_set_id: P2CanonicalUuidSchema,
+    preview_sha256: Sha256Schema,
+    idempotency_key: IdempotencyKeySchema,
+  })
+  .strict();
+
 const CustomerRefSchema = z
   .object({ kind: z.literal("client"), id: P2CanonicalUuidSchema })
   .strict();
