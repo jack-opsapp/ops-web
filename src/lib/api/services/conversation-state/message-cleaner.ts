@@ -559,7 +559,32 @@ export function sanitizeSummaryEvidenceBody(body: string): string {
   const normalized = normalizeBodyLines(
     stripOutlookReplyHeaderBlock(normalizeBodyLines(body))
   );
-  return stripSignatureBlock(normalized).trim();
+  const stripped = stripSignatureBlock(normalized).trim();
+  // `stripSignatureBlock` refuses to blank a message: when the "signature" IS
+  // the whole message it hands the body back untouched. That rule protects the
+  // conversation layer, where an empty body would lose the fact that anything
+  // was said at all. Summary evidence is the opposite case — a body that is
+  // nothing but a contact card carries no deal fact, and handing it to the
+  // model is how a phone extension became a job scope (bug 7ca126d2). The
+  // malformed 17:21Z Vitrum send was ~90% signature card.
+  if (stripped === normalized.trim() && isContactCardOnlyBody(normalized)) {
+    return "";
+  }
+  return stripped;
+}
+
+/** Every non-blank line is card-shaped and at least one opens a pipe card. */
+function isContactCardOnlyBody(body: string): boolean {
+  const lines = body.split("\n").filter((line) => !isBlank(line));
+  return (
+    lines.length > 0 &&
+    lines.length <= MAX_CONTACT_CARD_TAIL_LINES &&
+    lines.some((line) => PIPE_CONTACT_CARD_ANCHOR_RE.test(line)) &&
+    lines.every(
+      (line) =>
+        line.trim().length <= MAX_SIG_LINE_LEN && isContactCardShapedLine(line)
+    )
+  );
 }
 
 /**

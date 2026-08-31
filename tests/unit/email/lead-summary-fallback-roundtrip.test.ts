@@ -264,3 +264,85 @@ describe("deterministic fallback property: structured bundles always converge", 
     });
   }
 });
+
+/**
+ * Bug 7ca126d2 — the summary output guard.
+ *
+ * Lead b444e6fc was rendered as: "Customer at 3934 Jean Pl remains in the
+ * quoted stage. Scope: 8723 | 9785 201 St Langley Twp, BC V1M 3E7 | From:
+ * Jackson Sweet Sent: Thursday… Next action: â€چ â€چ …". The "scope" was a
+ * sliced signature card and the "next action" was a mojibake-quoted copy of
+ * the operator's own message. A contact card is never a deal fact.
+ */
+describe("deterministic fallback rejects contact-card facts (7ca126d2)", () => {
+  const CARD_SCOPE =
+    "8723 | 9785 201 St Sample Twp, BC V1M 3E7 | From: Jackson Sweet Sent: Thursday";
+  const MOJIBAKE_NEXT_ACTION = "â€چ â€چ Please confirm the delivery date";
+
+  it("drops a scope clause that is a sliced contact card", () => {
+    const summary = renderDeterministicLeadSummaryFallback(
+      makeBundle({
+        current: currentFactContext({
+          current_scope: CARD_SCOPE,
+          next_action: "Send the revised drawings to Rose",
+        }),
+      })
+    );
+
+    expect(summary).not.toMatch(/Scope:/);
+    expect(summary).not.toContain("9785 201 St");
+    expect(summary).not.toContain("From:");
+    expect(summary).not.toContain("Sent:");
+    expect(summary).toContain("revised drawings");
+  });
+
+  it("emits a next action clean of double-encoded formatting marks", () => {
+    const summary = renderDeterministicLeadSummaryFallback(
+      makeBundle({
+        current: currentFactContext({
+          current_scope: "install glass railing",
+          next_action: MOJIBAKE_NEXT_ACTION,
+        }),
+      })
+    );
+
+    expect(summary).not.toContain("â€");
+    expect(summary).toContain("confirm the delivery date");
+    expect(summary).toContain("glass railing");
+  });
+
+  it("drops a card that reaches the renderer only through commercial_context", () => {
+    const summary = renderDeterministicLeadSummaryFallback(
+      makeBundle({
+        current: currentFactContext({ current_price: 8450 }),
+        commercial: {
+          outcome: "won",
+          reason: "customer_committed",
+          current_price: 8450,
+          current_scope: CARD_SCOPE,
+          excluded_scope: null,
+          schedule: null,
+          objection: null,
+          next_action: null,
+          superseded_prices: [],
+        } as NonNullable<CommercialContext>,
+      })
+    );
+
+    expect(summary).not.toMatch(/Scope:/);
+    expect(summary).not.toContain("9785 201 St");
+    expect(summary).toMatch(/\$[\d,]/);
+  });
+
+  it("keeps a legitimate scope that merely contains a single pipe", () => {
+    const summary = renderDeterministicLeadSummaryFallback(
+      makeBundle({
+        current: currentFactContext({
+          current_scope: "rebuild the cedar deck | glass railing upgrade",
+        }),
+      })
+    );
+
+    expect(summary).toContain("glass railing upgrade");
+  });
+});
