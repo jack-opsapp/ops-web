@@ -240,13 +240,21 @@ function formatMoney(amountMinor: number, currency: string): string {
   }).format(amountMinor / 100)} ${currency}`;
 }
 
-function invoiceLabel(invoices: readonly CollectionsDebtor["invoices"][number][]) {
-  const visible = invoices.slice(0, 5).map((invoice) => invoice.document_number);
+function invoiceLabel(
+  invoices: readonly CollectionsDebtor["invoices"][number][]
+) {
+  const visible = invoices
+    .slice(0, 5)
+    .map((invoice) => invoice.document_number);
   const omitted = invoices.length - visible.length;
-  return omitted > 0 ? `${visible.join(", ")} + ${omitted} more` : visible.join(", ");
+  return omitted > 0
+    ? `${visible.join(", ")} + ${omitted} more`
+    : visible.join(", ");
 }
 
-function draftCopy(seed: DebtorSeed): Pick<CollectionsDraftPreview, "subject" | "body"> {
+function draftCopy(
+  seed: DebtorSeed
+): Pick<CollectionsDraftPreview, "subject" | "body"> {
   const numbers = invoiceLabel(seed.invoices);
   const balanceText = seed.balances
     .map((balance) => formatMoney(balance.amount_minor, balance.currency))
@@ -311,9 +319,11 @@ async function readAllInvoices(
       signal ? { signal } : undefined
     );
     result.items.forEach((document, index) => {
-      if (document.document_ref.kind !== "invoice") return;
+      if (!("due_date" in document) || document.document_ref.kind !== "invoice")
+        return;
       const evidence = result.evidence[index];
-      if (!evidence) throw new TypeError("COLLECTIONS_INVOICE_EVIDENCE_MISSING");
+      if (!evidence)
+        throw new TypeError("COLLECTIONS_INVOICE_EVIDENCE_MISSING");
       collected.push({ invoice: document, evidenceRef: evidence.evidence_ref });
     });
     cursor = result.next_cursor ?? undefined;
@@ -429,8 +439,8 @@ export function createCollectionsService(input: {
         throw new RangeError("COLLECTIONS_DEBTOR_SOURCE_BOUND");
       }
 
-      const customerEntries = [...byCustomer.entries()].sort(([left], [right]) =>
-        left.localeCompare(right)
+      const customerEntries = [...byCustomer.entries()].sort(
+        ([left], [right]) => left.localeCompare(right)
       );
       const seeds = await mapWithConcurrency(
         customerEntries,
@@ -454,7 +464,8 @@ export function createCollectionsService(input: {
               return {
                 invoice_ref: invoice.document_ref,
                 document_number: invoice.document_number,
-                status: invoice.status as CollectionsDebtor["invoices"][number]["status"],
+                status:
+                  invoice.status as CollectionsDebtor["invoices"][number]["status"],
                 issue_date: invoice.issue_date,
                 due_date: invoice.due_date,
                 days_past_due: exactDaysPastDue,

@@ -4,6 +4,7 @@ import {
   CollectionsApprovalReceiptSchema,
   CollectionsResultSchema,
   PrepareCollectionsInputSchema,
+  type CollectionsResult,
 } from "../collections";
 
 const RUN_ID = "11111111-1111-4111-8111-111111111111";
@@ -90,7 +91,8 @@ function resultFixture() {
           latest_direction: "outbound" as const,
           latest_delivered_at: "2026-08-10T18:00:00.000Z",
           fresh_at: "2026-08-31T18:00:00.000Z",
-          normalization_revision: "ops.correspondence.normalized-text.v2" as const,
+          normalization_revision:
+            "ops.correspondence.normalized-text.v2" as const,
         },
         draft: {
           kind: "approval_required" as const,
@@ -148,7 +150,9 @@ describe("collections contracts", () => {
   });
 
   it("rejects a bucket label that disagrees with exact days past due", () => {
-    const result = resultFixture();
+    const result = JSON.parse(
+      JSON.stringify(resultFixture())
+    ) as CollectionsResult;
     result.debtors[0]!.invoices[0]!.aging_bucket = "1_30";
     expect(() => CollectionsResultSchema.parse(result)).toThrow(
       "COLLECTIONS_AGING_BUCKET_INVALID"
@@ -167,8 +171,7 @@ describe("collections contracts", () => {
     const result = JSON.parse(JSON.stringify(resultFixture())) as ReturnType<
       typeof resultFixture
     >;
-    result.debtors[0]!.draft.preview.invoices[0]!.balance_due.amount_minor =
-      124_999;
+    result.debtors[0]!.draft.preview.invoices[0]!.balance_due.amount_minor = 124_999;
     expect(() => CollectionsResultSchema.parse(result)).toThrow(
       "COLLECTIONS_PREVIEW_BINDING_INVALID"
     );

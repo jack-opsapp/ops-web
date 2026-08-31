@@ -32,6 +32,7 @@ function runtime(exposureRevision = EXPOSURE_REVISION): McpServerRuntime {
   return {
     domainService: {} as McpServerRuntime["domainService"],
     dayCloseout: {} as McpServerRuntime["dayCloseout"],
+    collections: {} as McpServerRuntime["collections"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName) {

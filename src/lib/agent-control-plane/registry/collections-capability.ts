@@ -13,7 +13,7 @@ function permission(
 ): CapabilityPermissionRequirement {
   return Object.freeze({
     permission: name,
-    allowedScopes: Object.freeze(["all"]),
+    allowedScopes: Object.freeze(["all"] as const),
   });
 }
 
