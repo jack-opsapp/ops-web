@@ -36,9 +36,75 @@ as $function$
   );
 $function$;
 
+-- Column-faithful composite shells for every `%rowtype` declared by the first
+-- migration. PostgreSQL resolves those composite types when CREATE FUNCTION
+-- runs, not on first execution. Keeping the fixtures ahead of the migration
+-- makes this contract match production compilation while still avoiding the
+-- unrelated lead and mail schemas the function is never asked to execute on.
+create table public.opportunities (
+  id uuid primary key,
+  company_id uuid not null,
+  assigned_to uuid,
+  assignment_version bigint not null default 1,
+  deleted_at timestamptz,
+  archived_at timestamptz,
+  stage text,
+  source text,
+  source_thread_key text,
+  client_ref uuid,
+  client_id uuid,
+  contact_name text
+);
+
+create table public.opportunity_assignment_events (
+  id uuid primary key,
+  opportunity_id uuid not null,
+  company_id uuid not null,
+  assignment_version bigint not null,
+  new_assignee_id uuid
+);
+
+create table public.activities (
+  id uuid primary key,
+  company_id uuid,
+  opportunity_id uuid,
+  email_connection_id uuid,
+  email_message_id text,
+  type text,
+  direction text,
+  match_needs_review boolean,
+  email_thread_id text,
+  from_email text,
+  body_text text,
+  created_at timestamptz,
+  subject text
+);
+
+create table public.email_connections (
+  id uuid primary key,
+  company_id text,
+  provider text,
+  status text,
+  sync_enabled boolean,
+  type text,
+  user_id text
+);
+
+create table public.clients (
+  id uuid primary key,
+  company_id uuid,
+  deleted_at timestamptz,
+  name text
+);
+
+create table public.users (
+  id uuid primary key,
+  company_id uuid,
+  deleted_at timestamptz,
+  is_active boolean
+);
+
 -- ── Migration 1: marker mirror + gated enqueue ────────────────────────────
--- The enqueue function's table references resolve at first execution, so the
--- marker helper can be exercised without the full lead schema.
 \ir ../../supabase/migrations/20260830113100_contact_form_enqueue_provenance_gate.sql
 
 do $contract$
@@ -67,31 +133,31 @@ do $contract$
 declare
   v_ordinary_forward_subject text := 'Fwd: Deck rebuild';
   v_ordinary_forward_body text :=
-    E'Passing this along.\n'
-    E'\n'
-    E'---------- Forwarded message ---------\n'
-    E'From: Jane Doe <jane.doe@example.com>\n'
-    E'Date: Wed, 20 Aug 2026 at 09:12\n'
-    E'Subject: Deck rebuild\n'
-    E'To: Victoria <victoria@canprodeckandrail.com>\n'
-    E'\n'
-    E'Hi, we are hoping to rebuild our back deck this fall. Are you taking new\n'
+    E'Passing this along.\n' ||
+    E'\n' ||
+    E'---------- Forwarded message ---------\n' ||
+    E'From: Jane Doe <jane.doe@example.com>\n' ||
+    E'Date: Wed, 20 Aug 2026 at 09:12\n' ||
+    E'Subject: Deck rebuild\n' ||
+    E'To: Victoria <victoria@canprodeckandrail.com>\n' ||
+    E'\n' ||
+    E'Hi, we are hoping to rebuild our back deck this fall. Are you taking new\n' ||
     E'work in Langley? Thanks, Jane';
   v_platform_form_subject text := 'New contact form submission';
   v_platform_form_body text :=
-    E'A site visitor just submitted your form.\n'
-    E'\n'
-    E'Submission Summary\n'
-    E'Name: Jane Doe\n'
-    E'Email: jane.doe@example.com\n'
-    E'Phone: 604-555-0134\n'
-    E'Message: Looking for a deck rebuild in Langley this fall.\n'
-    E'\n'
+    E'A site visitor just submitted your form.\n' ||
+    E'\n' ||
+    E'Submission Summary\n' ||
+    E'Name: Jane Doe\n' ||
+    E'Email: jane.doe@example.com\n' ||
+    E'Phone: 604-555-0134\n' ||
+    E'Message: Looking for a deck rebuild in Langley this fall.\n' ||
+    E'\n' ||
     E'View Submissions';
   v_labeled_form_subject text := 'Quote request';
   v_labeled_form_body text :=
-    E'Name: Bob Marsh\n'
-    E'Email: bob.marsh@example.com\n'
+    E'Name: Bob Marsh\n' ||
+    E'Email: bob.marsh@example.com\n' ||
     E'Message: Need a railing quote for a 24ft deck.';
 begin
   -- The production defect: an ordinary forward carries no form marker at all.
@@ -151,22 +217,6 @@ $contract$;
 
 -- ── Migration 2: deterministic source-invalid skip ────────────────────────
 -- Column-faithful shells for exactly the relations the failure RPC touches.
-create table public.opportunities (
-  id uuid primary key,
-  company_id uuid not null,
-  assigned_to uuid,
-  assignment_version bigint not null default 1,
-  deleted_at timestamptz
-);
-
-create table public.opportunity_assignment_events (
-  id uuid primary key,
-  opportunity_id uuid not null,
-  company_id uuid not null,
-  assignment_version bigint not null,
-  new_assignee_id uuid
-);
-
 create table public.email_assignment_contact_form_draft_queue (
   id uuid primary key default gen_random_uuid(),
   assignment_event_id uuid not null,
