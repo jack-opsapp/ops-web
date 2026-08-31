@@ -3,10 +3,7 @@ import "server-only";
 import type { CapabilityRateLimitBucket } from "@/lib/agent-control-plane/registry/capability-types";
 import { rateLimit } from "@/lib/utils/ratelimit";
 
-import type {
-  DurableMcpRateLimitBucket,
-  DurableMcpRateLimiter,
-} from "./durable-rate-limit";
+import type { DurableMcpRateLimiter } from "./durable-rate-limit";
 
 /**
  * Foundation-spec 13.3 ceilings for the P1 read surface. Sliding windows via
@@ -17,7 +14,7 @@ import type {
  */
 const BUCKET_LIMITS: Readonly<
   Record<
-    "lightweight_read" | "evidence_search",
+    "lightweight_read" | "evidence_search" | "prepare",
     {
       readonly actorPerMinute: number;
       readonly grantPerMinute: number;
@@ -34,6 +31,11 @@ const BUCKET_LIMITS: Readonly<
     actorPerMinute: 30,
     grantPerMinute: 30,
     companyPerMinute: 120,
+  }),
+  prepare: Object.freeze({
+    actorPerMinute: 6,
+    grantPerMinute: 6,
+    companyPerMinute: 30,
   }),
 });
 
@@ -70,7 +72,8 @@ export async function checkCapabilityRate(input: {
 }): Promise<McpRateDecision> {
   if (
     input.bucket !== "lightweight_read" &&
-    input.bucket !== "evidence_search"
+    input.bucket !== "evidence_search" &&
+    input.bucket !== "prepare"
   ) {
     throw new TypeError("MCP read capability has an invalid rate policy");
   }
@@ -81,7 +84,7 @@ export async function checkCapabilityRate(input: {
     companyId: input.companyId,
     capabilityId: input.capabilityId,
     protocolEra: input.protocolEra,
-    bucket: input.bucket as DurableMcpRateLimitBucket,
+    bucket: input.bucket,
   });
   if (!durable.allowed) {
     const resetAtMs = Date.parse(durable.resetAt);
@@ -95,10 +98,7 @@ export async function checkCapabilityRate(input: {
     };
   }
 
-  const limits =
-    input.bucket === "evidence_search"
-      ? BUCKET_LIMITS.evidence_search
-      : BUCKET_LIMITS.lightweight_read;
+  const limits = BUCKET_LIMITS[input.bucket];
 
   const actorResult = await rateLimit({
     key: `mcp:${input.bucket}:actor:${input.actorUserId}`,

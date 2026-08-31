@@ -28,6 +28,7 @@
   "type.reassign_task": "Reassign Task",
   "type.archive_project": "Archive Project",
   "type.close_project": "Close Project",
+  "type.file_day_closeout": "Day closeout",
 
   "priority.low": "Low",
   "priority.normal": "Normal",
@@ -66,6 +67,18 @@
   "source.project_completion": "Project completion",
   "source.milestone_billing": "Milestone billing",
   "source.invoice_created": "Invoice created",
+  "source.day_closeout": "Day closeout",
+
+  "dayCloseout.action.file": "File closeout",
+  "dayCloseout.action.leaveOpen": "Leave open",
+  "dayCloseout.businessDate": "Business date",
+  "dayCloseout.preparedThrough": "Prepared through {{host}}",
+  "dayCloseout.findingCount": "{{count}} items to file",
+  "dayCloseout.reviewHeading": "Closeout record",
+  "dayCloseout.moreFindings": "+{{count}} more items",
+  "dayCloseout.outstanding": "outstanding",
+  "dayCloseout.correspondenceChecked": "Correspondence checked · {{count}} briefs prepared",
+  "dayCloseout.correspondenceNotEvaluated": "Correspondence not evaluated · dependent findings and briefs suppressed",
 
   "time.justNow": "just now",
   "time.minutes": "{{count}}m",

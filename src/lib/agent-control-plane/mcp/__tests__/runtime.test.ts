@@ -9,7 +9,7 @@ afterEach(() => {
 });
 
 describe("MCP production runtime", () => {
-  it("constructs and caches all thirty-four read methods without reading", async () => {
+  it("constructs and caches the read catalogue plus inactive closeout prepare without reading", async () => {
     vi.resetModules();
     vi.stubEnv(CURSOR_KEY_ENV, "ab".repeat(32));
     const rpc = vi.fn(async () => ({ data: null, error: null }));
@@ -58,6 +58,7 @@ describe("MCP production runtime", () => {
       "listTeamAvailability",
       "getIntegrationHealth",
       "getOperationalOverview",
+      "prepareDayCloseout",
     ]);
     expect(rpc).not.toHaveBeenCalled();
   });

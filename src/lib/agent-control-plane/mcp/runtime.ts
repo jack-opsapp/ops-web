@@ -12,6 +12,12 @@ import {
   createOpsAgentReadCatalogueService,
   type OpsAgentReadCatalogueService,
 } from "@/lib/agent-control-plane/services/read-catalogue-service";
+import {
+  createOpsAgentCapabilityService,
+  type OpsAgentCapabilityService,
+} from "@/lib/agent-control-plane/services/capability-service";
+import { createDayCloseoutRepository } from "@/lib/agent-control-plane/services/day-closeout/day-closeout-repository";
+import { createDayCloseoutService } from "@/lib/agent-control-plane/services/day-closeout/day-closeout-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -41,7 +47,7 @@ interface McpRpcClient {
 }
 
 export interface McpServerRuntime {
-  readonly domainService: OpsAgentReadCatalogueService;
+  readonly domainService: OpsAgentCapabilityService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -154,12 +160,24 @@ export function getMcpServerRuntime(): McpServerRuntime {
     cursorKey: { keyId: "mcp-p2-read", key: cursorKey },
   });
 
-  cachedRuntime = Object.freeze({
-    domainService: createOpsAgentReadCatalogueService({
+  const readService: OpsAgentReadCatalogueService =
+    createOpsAgentReadCatalogueService({
       currentProduction,
       p2,
+    });
+  const authorityRepository = createSupabaseActorAuthorityRepository(rpcClient);
+  const dayCloseout = createDayCloseoutService({
+    readService,
+    repository: createDayCloseoutRepository(rpcClient),
+    authorityRepository,
+  });
+
+  cachedRuntime = Object.freeze({
+    domainService: createOpsAgentCapabilityService({
+      reads: readService,
+      dayCloseout,
     }),
-    authorityRepository: createSupabaseActorAuthorityRepository(rpcClient),
+    authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),
   });

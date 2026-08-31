@@ -2,9 +2,11 @@ import "server-only";
 
 import {
   MCP_EXPOSURE_V1,
+  MCP_EXPOSURE_V3,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
+  INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_CONSENT_LABELS,
   type LabelledMcpScope,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
@@ -16,10 +18,10 @@ import {
  * exports keeps historical v1 grants and callers byte-compatible.
  */
 
-export const SUPPORTED_READ_SCOPES =
-  MCP_EXPOSURE_V1.grantableScopes as readonly LabelledMcpScope[];
+export type SupportedReadScope = keyof typeof MCP_SCOPE_CONSENT_LABELS;
 
-export type SupportedReadScope = (typeof SUPPORTED_READ_SCOPES)[number];
+export const SUPPORTED_READ_SCOPES =
+  MCP_EXPOSURE_V1.grantableScopes as readonly SupportedReadScope[];
 
 const SUPPORTED_READ_SCOPE_SET: ReadonlySet<string> = new Set(
   SUPPORTED_READ_SCOPES
@@ -48,12 +50,21 @@ export function isSupportedReadScope(
  * scope); unknown scopes are rejected rather than silently dropped so a
  * client asking for authority we do not issue hears "no" explicitly.
  */
-export function resolveRequestedScopes(
+export function resolveRequestedScopes<const Exposure extends McpExposure>(
   rawScope: string | null | undefined,
-  exposure: McpExposure
-): readonly LabelledMcpScope[] | null {
+  exposure: Exposure
+):
+  | readonly Extract<Exposure["grantableScopes"][number], LabelledMcpScope>[]
+  | null {
+  const consentLabels =
+    exposure.revision === MCP_EXPOSURE_V3.revision
+      ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
+      : MCP_SCOPE_CONSENT_LABELS;
   if (rawScope == null || rawScope.trim() === "") {
-    return exposure.grantableScopes as readonly LabelledMcpScope[];
+    return exposure.grantableScopes as readonly Extract<
+      Exposure["grantableScopes"][number],
+      LabelledMcpScope
+    >[];
   }
   const requested = rawScope.trim().split(/\s+/);
   if (requested.length > 32) return null;
@@ -62,7 +73,7 @@ export function resolveRequestedScopes(
   for (const scope of requested) {
     if (
       !grantable.has(scope) ||
-      !Object.prototype.hasOwnProperty.call(MCP_SCOPE_CONSENT_LABELS, scope)
+      !Object.prototype.hasOwnProperty.call(consentLabels, scope)
     ) {
       return null;
     }
@@ -72,7 +83,7 @@ export function resolveRequestedScopes(
   return Object.freeze(
     exposure.grantableScopes.filter((scope) =>
       resolved.has(scope as LabelledMcpScope)
-    ) as LabelledMcpScope[]
+    ) as Extract<Exposure["grantableScopes"][number], LabelledMcpScope>[]
   );
 }
 

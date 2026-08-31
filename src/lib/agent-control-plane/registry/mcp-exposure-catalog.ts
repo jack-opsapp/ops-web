@@ -6,11 +6,17 @@ import {
 } from "@/lib/agent-control-plane/mcp/domain-dispatch";
 import {
   MCP_SCOPE_CONSENT_LABELS,
+  INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_OPERATION_BY_ID,
   REGISTERED_MCP_SCOPES,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 import type { CapabilityManifestEntry } from "@/lib/agent-control-plane/registry/capability-types";
-import { CAPABILITY_MANIFEST } from "@/lib/agent-control-plane/registry/capability-manifest";
+import {
+  CAPABILITY_MANIFEST,
+  CAPABILITY_MANIFEST_REVISION,
+  INVISIBLE_OFFICE_CAPABILITY_MANIFEST,
+  INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION,
+} from "@/lib/agent-control-plane/registry/capability-manifest";
 
 export interface McpExposure {
   readonly revision: string;
@@ -25,6 +31,7 @@ export interface McpExposureInvariantInput {
   readonly registeredScopes: readonly string[];
   readonly scopeOperations: Readonly<Record<string, string>>;
   readonly consentLabels: Readonly<Record<string, string>>;
+  readonly allowedOperations?: readonly ("read" | "prepare")[];
 }
 
 export const MCP_EXPOSURE_V1 = Object.freeze({
@@ -115,12 +122,27 @@ export const MCP_EXPOSURE_V2 = Object.freeze({
   ] as const),
 } as const satisfies McpExposure);
 
+export const MCP_EXPOSURE_V3 = Object.freeze({
+  revision: "2026-08-30.mcp-exposure.v3",
+  toolIds: Object.freeze(["prepare_day_closeout"] as const),
+  grantableScopes: Object.freeze([
+    "ops.correspondence.read",
+    "ops.financial_documents.read",
+    "ops.jobs.read",
+    "ops.operations.prepare",
+    "ops.operations.read",
+    "ops.schedule.read",
+    "ops.tasks.read",
+  ] as const),
+} as const satisfies McpExposure);
+
 export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V2.revision;
 
 export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
   Object.freeze({
     [MCP_EXPOSURE_V1.revision]: MCP_EXPOSURE_V1,
     [MCP_EXPOSURE_V2.revision]: MCP_EXPOSURE_V2,
+    [MCP_EXPOSURE_V3.revision]: MCP_EXPOSURE_V3,
   });
 
 function requiredNonBlank(value: unknown, field: string): string {
@@ -166,23 +188,38 @@ export function assertMcpExposureInvariants(
     input.manifestEntries.map((entry) => [entry.name, entry] as const)
   );
   const requiredScopes = new Set<string>();
+  const allowedOperations = new Set(input.allowedOperations ?? ["read"]);
+  const readOnly =
+    allowedOperations.size === 1 && allowedOperations.has("read");
 
   for (const toolId of toolIds) {
     const entry = manifestByName.get(toolId);
     if (
       !entry ||
-      entry.operation !== "read" ||
+      !allowedOperations.has(entry.operation as "read" | "prepare") ||
       entry.availability.implementation !== "available"
     ) {
-      throw new TypeError("MCP exposure contains a non-callable read");
+      throw new TypeError(
+        readOnly
+          ? "MCP exposure contains a non-callable read"
+          : "MCP exposure contains a non-callable capability"
+      );
     }
     if (!Object.prototype.hasOwnProperty.call(input.domainMethods, toolId)) {
       throw new TypeError("MCP exposure is missing a domain method");
     }
     for (const variant of entry.authorization.variants) {
       for (const scope of variant.policy.requiredOAuthScopes) {
-        if (input.scopeOperations[scope] !== "read") {
-          throw new TypeError("MCP exposure requires a non-read scope");
+        if (
+          !allowedOperations.has(
+            input.scopeOperations[scope] as "read" | "prepare"
+          )
+        ) {
+          throw new TypeError(
+            readOnly
+              ? "MCP exposure requires a non-read scope"
+              : "MCP exposure requires a disallowed scope"
+          );
         }
         requiredScopes.add(scope);
       }
@@ -193,8 +230,14 @@ export function assertMcpExposureInvariants(
     if (!registeredScopes.has(scope)) {
       throw new TypeError("MCP exposure contains an unregistered scope");
     }
-    if (input.scopeOperations[scope] !== "read") {
-      throw new TypeError("MCP exposure grants a non-read scope");
+    if (
+      !allowedOperations.has(input.scopeOperations[scope] as "read" | "prepare")
+    ) {
+      throw new TypeError(
+        readOnly
+          ? "MCP exposure grants a non-read scope"
+          : "MCP exposure grants a disallowed scope"
+      );
     }
     if (
       !Object.prototype.hasOwnProperty.call(input.consentLabels, scope) ||
@@ -224,16 +267,35 @@ function validateExposure(exposure: McpExposure): void {
   }
   assertMcpExposureInvariants({
     exposure,
-    manifestEntries: CAPABILITY_MANIFEST,
+    manifestEntries:
+      exposure.revision === MCP_EXPOSURE_V3.revision
+        ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST
+        : CAPABILITY_MANIFEST,
     domainMethods: DOMAIN_METHOD_BY_CAPABILITY,
     registeredScopes: REGISTERED_MCP_SCOPES,
     scopeOperations: MCP_SCOPE_OPERATION_BY_ID,
-    consentLabels: MCP_SCOPE_CONSENT_LABELS,
+    consentLabels:
+      exposure.revision === MCP_EXPOSURE_V3.revision
+        ? INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
+        : MCP_SCOPE_CONSENT_LABELS,
+    allowedOperations:
+      exposure.revision === MCP_EXPOSURE_V3.revision
+        ? ["read", "prepare"]
+        : ["read"],
   });
 }
 
 validateExposure(MCP_EXPOSURE_V1);
 validateExposure(MCP_EXPOSURE_V2);
+validateExposure(MCP_EXPOSURE_V3);
+
+export function capabilityManifestRevisionForExposure(
+  exposureRevision: string
+): string {
+  return exposureRevision === MCP_EXPOSURE_V3.revision
+    ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
+    : CAPABILITY_MANIFEST_REVISION;
+}
 
 /** Pure exact-revision seam for catalogue invariants and adversarial tests. */
 export function resolveMcpExposureRevision(

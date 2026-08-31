@@ -3,6 +3,7 @@ import "server-only";
 import type { McpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   MCP_SCOPE_CONSENT_LABELS,
+  INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_OPERATION_BY_ID,
   REGISTERED_MCP_SCOPES,
   type LabelledMcpScope,
@@ -13,7 +14,8 @@ export interface McpConsentCatalog {
   readonly revision: string;
   readonly registeredScopes: readonly RegisteredMcpScope[];
   readonly operations: Readonly<Record<RegisteredMcpScope, string>>;
-  readonly consentLabels: Readonly<Record<LabelledMcpScope, string>>;
+  readonly consentLabels: Readonly<Partial<Record<LabelledMcpScope, string>>>;
+  readonly allowedOperations?: readonly ("read" | "prepare")[];
 }
 
 export interface McpConsentSnapshot {
@@ -30,12 +32,21 @@ export const MCP_CONSENT_CATALOG_V1 = Object.freeze({
   consentLabels: MCP_SCOPE_CONSENT_LABELS,
 } as const satisfies McpConsentCatalog);
 
+export const MCP_CONSENT_CATALOG_V2 = Object.freeze({
+  revision: "2026-08-30.mcp-consent-catalog.v2",
+  registeredScopes: REGISTERED_MCP_SCOPES,
+  operations: MCP_SCOPE_OPERATION_BY_ID,
+  consentLabels: INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
+  allowedOperations: Object.freeze(["read", "prepare"] as const),
+} as const satisfies McpConsentCatalog);
+
 export const ACTIVE_MCP_CONSENT_CATALOG_REVISION =
   MCP_CONSENT_CATALOG_V1.revision;
 
 export const MCP_CONSENT_CATALOG: Readonly<Record<string, McpConsentCatalog>> =
   Object.freeze({
     [MCP_CONSENT_CATALOG_V1.revision]: MCP_CONSENT_CATALOG_V1,
+    [MCP_CONSENT_CATALOG_V2.revision]: MCP_CONSENT_CATALOG_V2,
   });
 
 function assertConsentCatalog(catalog: McpConsentCatalog): void {
@@ -43,7 +54,9 @@ function assertConsentCatalog(catalog: McpConsentCatalog): void {
     !Object.isFrozen(catalog) ||
     !Object.isFrozen(catalog.registeredScopes) ||
     !Object.isFrozen(catalog.operations) ||
-    !Object.isFrozen(catalog.consentLabels)
+    !Object.isFrozen(catalog.consentLabels) ||
+    (catalog.allowedOperations !== undefined &&
+      !Object.isFrozen(catalog.allowedOperations))
   ) {
     throw new TypeError("MCP consent catalogue must be deeply frozen");
   }
@@ -51,6 +64,7 @@ function assertConsentCatalog(catalog: McpConsentCatalog): void {
     throw new TypeError("MCP consent catalogue revision must be non-blank");
   }
   const registered = new Set<string>(catalog.registeredScopes);
+  const allowedOperations = new Set(catalog.allowedOperations ?? ["read"]);
   if (registered.size !== catalog.registeredScopes.length) {
     throw new TypeError("MCP consent catalogue contains duplicate scopes");
   }
@@ -64,7 +78,9 @@ function assertConsentCatalog(catalog: McpConsentCatalog): void {
   for (const [scope, label] of Object.entries(catalog.consentLabels)) {
     if (
       !registered.has(scope) ||
-      catalog.operations[scope as RegisteredMcpScope] !== "read" ||
+      !allowedOperations.has(
+        catalog.operations[scope as RegisteredMcpScope] as "read" | "prepare"
+      ) ||
       label.trim() !== label ||
       label === ""
     ) {
@@ -74,6 +90,7 @@ function assertConsentCatalog(catalog: McpConsentCatalog): void {
 }
 
 assertConsentCatalog(MCP_CONSENT_CATALOG_V1);
+assertConsentCatalog(MCP_CONSENT_CATALOG_V2);
 
 export function resolveMcpConsentCatalogRevision(
   revision: string
@@ -97,18 +114,21 @@ export function consentSnapshotForExposure(
   catalog: McpConsentCatalog
 ): McpConsentSnapshot {
   const registered = new Set<string>(catalog.registeredScopes);
+  const allowedOperations = new Set(catalog.allowedOperations ?? ["read"]);
   const ceiling: LabelledMcpScope[] = [];
   const labels: string[] = [];
   for (const scope of exposure.grantableScopes) {
     if (
       !registered.has(scope) ||
-      catalog.operations[scope as RegisteredMcpScope] !== "read" ||
+      !allowedOperations.has(
+        catalog.operations[scope as RegisteredMcpScope] as "read" | "prepare"
+      ) ||
       !Object.prototype.hasOwnProperty.call(catalog.consentLabels, scope)
     ) {
       throw new TypeError("MCP exposure scope is not consentable");
     }
     ceiling.push(scope as LabelledMcpScope);
-    labels.push(catalog.consentLabels[scope as LabelledMcpScope]);
+    labels.push(catalog.consentLabels[scope as LabelledMcpScope]!);
   }
   if (ceiling.length === 0 || new Set(ceiling).size !== ceiling.length) {
     throw new TypeError("MCP exposure scope ceiling is invalid");
@@ -136,7 +156,7 @@ export function consentLabelsForScopes(
       return null;
     }
     seen.add(scope);
-    labels.push(catalog.consentLabels[scope as LabelledMcpScope]);
+    labels.push(catalog.consentLabels[scope as LabelledMcpScope]!);
   }
   return Object.freeze(labels);
 }

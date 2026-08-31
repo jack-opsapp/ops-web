@@ -8,8 +8,10 @@ import {
   resolveActorContext,
   type ActorContext,
 } from "@/lib/agent-control-plane/actor/resolve-actor-context";
-import { CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
-import { resolveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  capabilityManifestRevisionForExposure,
+  resolveMcpExposure,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   ACCESS_TOKEN_PREFIX,
   credentialDigest,
@@ -136,7 +138,9 @@ export async function resolveMcpBearer(
       authorityRepository: runtime.authorityRepository,
       requestId,
       policyRevision: ACTOR_POLICY_REVISION,
-      capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
+      capabilityManifestRevision: capabilityManifestRevisionForExposure(
+        row.exposure_revision
+      ),
     });
   } catch (error) {
     if (error instanceof ActorAccessError) {

@@ -28,6 +28,7 @@
   "type.reassign_task": "Reasignar tarea",
   "type.archive_project": "Archivar proyecto",
   "type.close_project": "Cerrar proyecto",
+  "type.file_day_closeout": "Cierre del día",
 
   "priority.low": "Baja",
   "priority.normal": "Normal",
@@ -66,6 +67,18 @@
   "source.project_completion": "Finalización de proyecto",
   "source.milestone_billing": "Facturación por hito",
   "source.invoice_created": "Factura creada",
+  "source.day_closeout": "Cierre del día",
+
+  "dayCloseout.action.file": "Archivar cierre",
+  "dayCloseout.action.leaveOpen": "Dejar abierto",
+  "dayCloseout.businessDate": "Fecha de trabajo",
+  "dayCloseout.preparedThrough": "Preparado mediante {{host}}",
+  "dayCloseout.findingCount": "{{count}} elementos para archivar",
+  "dayCloseout.reviewHeading": "Registro del cierre",
+  "dayCloseout.moreFindings": "+{{count}} elementos más",
+  "dayCloseout.outstanding": "pendiente",
+  "dayCloseout.correspondenceChecked": "Correspondencia revisada · {{count}} borradores preparados",
+  "dayCloseout.correspondenceNotEvaluated": "Correspondencia no evaluada · hallazgos y borradores dependientes omitidos",
 
   "time.justNow": "ahora",
   "time.minutes": "{{count}}m",

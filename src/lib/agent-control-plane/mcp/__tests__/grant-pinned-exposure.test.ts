@@ -8,6 +8,7 @@ import type { OpsAgentDomainService } from "@/lib/agent-control-plane/services/d
 
 const V1_REVISION = "2026-08-22.mcp-exposure.v1";
 const V2_REVISION = "2026-08-29.mcp-exposure.v2";
+const V3_REVISION = "2026-08-30.mcp-exposure.v3";
 const V1_TOOLS = [
   "list_scheduled_jobs",
   "list_job_readiness_issues",
@@ -137,6 +138,15 @@ describe("grant-pinned MCP exposure", () => {
 
   it("gives a newly consented v2 grant exactly all thirty-four reads", async () => {
     await expect(listTools(V2_REVISION)).resolves.toEqual(V2_TOOLS);
+  });
+
+  it("keeps inactive v3 narrow to prepare-only closeout and never exposes commit", async () => {
+    await expect(listTools(V3_REVISION)).resolves.toEqual([
+      "prepare_day_closeout",
+    ]);
+    await expect(listTools(V3_REVISION)).resolves.not.toContain(
+      "commit_day_closeout"
+    );
   });
 
   it("fails closed before tool registration for an unknown stored revision", () => {

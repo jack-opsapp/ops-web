@@ -12,6 +12,7 @@ import {
   type CapabilityAuthorizationVariant,
   type CapabilityDefinition,
   type CapabilityManifestEntry,
+  type ImplementationOnlyCapabilityDefinition,
   type LegacyCapabilityManifestEntry,
 } from "./capability-types";
 import {
@@ -23,10 +24,16 @@ import {
   RESERVED_P2_MANIFEST_REVISION,
 } from "./read-capabilities/p2";
 import { WRITE_CAPABILITY_DEFINITIONS } from "./write-tools";
+import {
+  COMMIT_DAY_CLOSEOUT_CAPABILITY_DEFINITION,
+  DAY_CLOSEOUT_CAPABILITY_DEFINITION,
+} from "./day-closeout-capability";
 
 export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
 export const CAPABILITY_MANIFEST_REVISION = RESERVED_P2_MANIFEST_REVISION;
+export const INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION =
+  "2026-08-30.capability-manifest.v9" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -45,7 +52,10 @@ function freezeSelector(
 }
 
 function mintPolicy(
-  capability: CapabilityDefinition,
+  capability: Pick<
+    CapabilityDefinition,
+    "name" | "schemaRevision" | "authorization"
+  >,
   variant: CapabilityDefinition["authorization"]["variants"][number],
   manifestRevision: string
 ): ManifestCapabilityPolicy {
@@ -60,7 +70,10 @@ function mintPolicy(
 }
 
 function mintVariants(
-  definition: CapabilityDefinition,
+  definition: Pick<
+    CapabilityDefinition,
+    "name" | "schemaRevision" | "authorization"
+  >,
   manifestRevision: string
 ): readonly CapabilityAuthorizationVariant[] {
   return Object.freeze(
@@ -122,6 +135,61 @@ function mintV8Entry(
   });
 }
 
+function remintEntry(
+  entry: CapabilityManifestEntry,
+  manifestRevision: string
+): CapabilityManifestEntry {
+  return Object.freeze({
+    ...entry,
+    bounds: Object.freeze({ ...entry.bounds }),
+    evidencePolicy: Object.freeze({ ...entry.evidencePolicy }),
+    annotations: Object.freeze({ ...entry.annotations }),
+    confirmationPolicy: Object.freeze({ ...entry.confirmationPolicy }),
+    idempotencyPolicy: Object.freeze({ ...entry.idempotencyPolicy }),
+    availability: Object.freeze({ ...entry.availability }),
+    authorization: Object.freeze({
+      variants: Object.freeze(
+        entry.authorization.variants.map((variant) =>
+          Object.freeze({
+            key: variant.key,
+            selector: freezeSelector(variant.selector),
+            policy: defineCapabilityPolicyForManifest({
+              capabilityId: entry.name,
+              capabilityRevision: `${entry.name}:${entry.schemaRevision}`,
+              capabilityManifestRevision: manifestRevision,
+              requiredOAuthScopes: variant.policy.requiredOAuthScopes,
+              permissionRequirementGroups:
+                variant.policy.permissionRequirementGroups,
+            }),
+          })
+        )
+      ),
+    }),
+  });
+}
+
+function mintInvisibleOfficeEntry(
+  definition: ImplementationOnlyCapabilityDefinition
+): CapabilityManifestEntry {
+  return Object.freeze({
+    ...definition,
+    bounds: Object.freeze({ ...definition.bounds }),
+    evidencePolicy: Object.freeze({ ...definition.evidencePolicy }),
+    annotations: Object.freeze({ ...definition.annotations }),
+    confirmationPolicy: Object.freeze({ ...definition.confirmationPolicy }),
+    idempotencyPolicy: Object.freeze({ ...definition.idempotencyPolicy }),
+    availability: Object.freeze({
+      implementation: definition.availability.implementation,
+    }),
+    authorization: Object.freeze({
+      variants: mintVariants(
+        definition,
+        INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
+      ),
+    }),
+  });
+}
+
 const v7Definitions: readonly CapabilityDefinition[] = [
   ...V7_READ_CAPABILITY_DEFINITIONS,
   ...WRITE_CAPABILITY_DEFINITIONS,
@@ -158,10 +226,40 @@ const CAPABILITY_BY_NAME = new Map(
   CAPABILITY_MANIFEST.map((entry) => [entry.name, entry] as const)
 );
 
+const invisibleOfficeManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintInvisibleOfficeEntry(DAY_CLOSEOUT_CAPABILITY_DEFINITION),
+  mintInvisibleOfficeEntry(COMMIT_DAY_CLOSEOUT_CAPABILITY_DEFINITION),
+];
+assertCapabilityManifestInvariants(
+  invisibleOfficeManifestEntries,
+  INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(invisibleOfficeManifestEntries);
+
+export const INVISIBLE_OFFICE_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(invisibleOfficeManifestEntries);
+
+const INVISIBLE_OFFICE_CAPABILITY_BY_NAME = new Map(
+  INVISIBLE_OFFICE_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
   const entry = CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getInvisibleOfficeCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = INVISIBLE_OFFICE_CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
 }
@@ -432,6 +530,16 @@ export function resolveCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveInvisibleOfficeCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getInvisibleOfficeCapabilityManifestEntry(capabilityName),
     rawInput
   );
 }

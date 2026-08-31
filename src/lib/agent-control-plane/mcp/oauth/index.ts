@@ -27,6 +27,7 @@ export {
   ACTIVE_MCP_CONSENT_CATALOG_REVISION,
   MCP_CONSENT_CATALOG,
   MCP_CONSENT_CATALOG_V1,
+  MCP_CONSENT_CATALOG_V2,
   consentLabelsForScopes,
   consentSnapshotForExposure,
   resolveActiveMcpConsentCatalog,

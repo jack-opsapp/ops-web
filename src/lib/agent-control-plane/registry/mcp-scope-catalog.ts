@@ -27,6 +27,7 @@ export const REGISTERED_MCP_SCOPES = Object.freeze([
   "ops.jobs.read",
   "ops.jobs.write",
   "ops.operations.read",
+  "ops.operations.prepare",
   "ops.payments.read",
   "ops.photos.read",
   "ops.purchasing.read",
@@ -67,6 +68,7 @@ export const MCP_SCOPE_OPERATION_BY_ID = Object.freeze({
   "ops.jobs.read": "read",
   "ops.jobs.write": "write",
   "ops.operations.read": "read",
+  "ops.operations.prepare": "prepare",
   "ops.payments.read": "read",
   "ops.photos.read": "read",
   "ops.purchasing.read": "read",
@@ -102,7 +104,14 @@ export const MCP_SCOPE_CONSENT_LABELS = Object.freeze({
   "ops.operations.read": "See authorized work queues and operational summaries",
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
-export type LabelledMcpScope = keyof typeof MCP_SCOPE_CONSENT_LABELS;
+export const INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...MCP_SCOPE_CONSENT_LABELS,
+  "ops.operations.prepare":
+    "Prepare end-of-day closeouts and exact OPS filing previews",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
+export type LabelledMcpScope =
+  keyof typeof INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS;
 
 export const MCP_SCOPE_CATALOG = Object.freeze({
   scopeIds: REGISTERED_MCP_SCOPES,
@@ -118,6 +127,6 @@ export function isRegisteredMcpScope(
 
 export function mcpScopeConsentLabel(scope: string): string | null {
   return Object.prototype.hasOwnProperty.call(MCP_SCOPE_CONSENT_LABELS, scope)
-    ? MCP_SCOPE_CONSENT_LABELS[scope as LabelledMcpScope]
+    ? MCP_SCOPE_CONSENT_LABELS[scope as keyof typeof MCP_SCOPE_CONSENT_LABELS]
     : null;
 }

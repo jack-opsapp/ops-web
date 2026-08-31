@@ -8,6 +8,7 @@ import type { McpOAuthRpcClient } from "./oauth";
 export const DURABLE_MCP_RATE_LIMIT_POLICIES = Object.freeze({
   lightweight_read: "mcp-lightweight-read:2026-08-23.v1",
   evidence_search: "mcp-evidence-search:2026-08-23.v1",
+  prepare: "mcp-day-closeout-prepare:2026-08-30.v1",
 } as const);
 
 export type DurableMcpRateLimitBucket =
@@ -51,7 +52,7 @@ const InputSchema = z
     companyId: PostgresUuidSchema,
     capabilityId: z.string().regex(/^[a-z][a-z0-9_]{0,127}$/),
     protocolEra: z.enum(["legacy", "modern"]),
-    bucket: z.enum(["lightweight_read", "evidence_search"]),
+    bucket: z.enum(["lightweight_read", "evidence_search", "prepare"]),
   })
   .strict();
 
@@ -108,7 +109,9 @@ async function consumeWithDeadline(
 
   try {
     const rawRequest = client.rpc(
-      "consume_agent_mcp_rate_limit_as_system",
+      args.p_policy_id === DURABLE_MCP_RATE_LIMIT_POLICIES.prepare
+        ? "consume_agent_day_closeout_prepare_rate_limit_as_system"
+        : "consume_agent_mcp_rate_limit_as_system",
       args
     );
     const request = supportsAbortSignal(rawRequest)

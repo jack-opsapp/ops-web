@@ -3,16 +3,19 @@ import { describe, expect, it } from "vitest";
 import {
   ACTIVE_MCP_CONSENT_CATALOG_REVISION,
   MCP_CONSENT_CATALOG_V1,
+  MCP_CONSENT_CATALOG_V2,
   consentSnapshotForExposure,
   resolveActiveMcpConsentCatalog,
   resolveMcpConsentCatalogRevision,
 } from "@/lib/agent-control-plane/mcp/oauth/scope-catalog";
 import {
   MCP_EXPOSURE_V1,
+  MCP_EXPOSURE_V3,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   MCP_SCOPE_CONSENT_LABELS,
+  INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_OPERATION_BY_ID,
   REGISTERED_MCP_SCOPES,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
@@ -76,6 +79,7 @@ const EXPECTED_REGISTERED_SCOPES = [
   "ops.jobs.read",
   "ops.jobs.write",
   "ops.operations.read",
+  "ops.operations.prepare",
   "ops.payments.read",
   "ops.photos.read",
   "ops.purchasing.read",
@@ -99,9 +103,9 @@ const EXISTING_READ_LABELS = {
 } as const;
 
 describe("registered MCP scope vocabulary", () => {
-  it("pins the reviewed 30-scope union while preserving all 18 existing scope IDs", () => {
+  it("pins the reviewed 31-scope union while preserving all 18 existing scope IDs", () => {
     expect([...REGISTERED_MCP_SCOPES]).toEqual(EXPECTED_REGISTERED_SCOPES);
-    expect(REGISTERED_MCP_SCOPES).toHaveLength(30);
+    expect(REGISTERED_MCP_SCOPES).toHaveLength(31);
     expect(
       EXISTING_SCOPE_VOCABULARY.every((scope) =>
         REGISTERED_MCP_SCOPES.includes(scope)
@@ -154,6 +158,30 @@ describe("versioned MCP consent catalogue", () => {
     expect(MCP_CONSENT_CATALOG_V1.operations).toBe(MCP_SCOPE_OPERATION_BY_ID);
     expect(MCP_CONSENT_CATALOG_V1.consentLabels).toBe(MCP_SCOPE_CONSENT_LABELS);
     expect(Object.isFrozen(MCP_CONSENT_CATALOG_V1)).toBe(true);
+    expect(
+      resolveMcpConsentCatalogRevision(MCP_CONSENT_CATALOG_V2.revision)
+    ).toBe(MCP_CONSENT_CATALOG_V2);
+    expect(resolveActiveMcpConsentCatalog()).not.toBe(MCP_CONSENT_CATALOG_V2);
+    expect(MCP_CONSENT_CATALOG_V2.consentLabels).toBe(
+      INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS
+    );
+    expect(MCP_CONSENT_CATALOG_V2.allowedOperations).toEqual([
+      "read",
+      "prepare",
+    ]);
+  });
+
+  it("makes the inactive v3 prepare scope consentable only through catalogue v2", () => {
+    expect(() =>
+      consentSnapshotForExposure(MCP_EXPOSURE_V3, MCP_CONSENT_CATALOG_V1)
+    ).toThrow("MCP exposure scope is not consentable");
+    expect(
+      consentSnapshotForExposure(MCP_EXPOSURE_V3, MCP_CONSENT_CATALOG_V2)
+    ).toMatchObject({
+      consentCatalogRevision: "2026-08-30.mcp-consent-catalog.v2",
+      exposureRevision: MCP_EXPOSURE_V3.revision,
+      scopeCeiling: MCP_EXPOSURE_V3.grantableScopes,
+    });
   });
 
   it("keeps every newly registered read and every non-read scope dark under exposure v1", () => {

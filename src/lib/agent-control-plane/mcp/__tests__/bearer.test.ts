@@ -111,4 +111,24 @@ describe("MCP bearer grant boundary", () => {
 
     expect(resolution).toEqual({ kind: "invalid_token" });
   });
+
+  it("binds an inactive v3 grant to v9 authority without changing active v2", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.opsapp.co");
+
+    const resolution = await resolveMcpBearer(
+      new Request("https://app.opsapp.co/api/mcp", {
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      }),
+      runtime("2026-08-30.mcp-exposure.v3")
+    );
+
+    expect(resolution.kind).toBe("authenticated");
+    if (resolution.kind !== "authenticated") return;
+    expect(resolution.actorContext.capabilityManifestRevision).toBe(
+      "2026-08-30.capability-manifest.v9"
+    );
+    expect(resolution.grantFacts.exposureRevision).toBe(
+      "2026-08-30.mcp-exposure.v3"
+    );
+  });
 });

@@ -8,6 +8,8 @@
 
 import "server-only";
 
+import { z } from "zod-v4";
+
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import { getCompanyManagerUserIds } from "./company-managers";
 import { ProjectService } from "./project-service";
@@ -91,7 +93,28 @@ const EXPIRY_DAYS: Record<string, number> = {
   send_schedule_changed: 2,
   send_subcontractor_coordination: 5,
   process_reschedule_request: 2,
+  file_day_closeout: 1,
 };
+
+const DayCloseoutCommitResultSchema = z
+  .object({
+    ok: z.literal(true),
+    effect: z.literal("filed_inside_ops"),
+    run_id: z.uuid(),
+    action_id: z.uuid(),
+    change_set_id: z.uuid(),
+    confirmation_receipt_id: z.uuid(),
+    preview_sha256: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+    messages_sent: z.literal(0),
+    money_moved: z.literal(false),
+    committed_at: z.iso.datetime({ offset: true }),
+    replayed: z.boolean(),
+    receipt_sha256: z
+      .string()
+      .regex(/^sha256:[0-9a-f]{64}$/)
+      .optional(),
+  })
+  .strict();
 
 function defaultExpiry(actionType: string): Date {
   const days = EXPIRY_DAYS[actionType] ?? 7;
@@ -1252,6 +1275,61 @@ export const ApprovalQueueService = {
       return mapFromDb(final);
     }
 
+    if (actionIdentity.action_type === "file_day_closeout") {
+      if (learningAuthority !== "operator_approved") {
+        throw new Error("Day closeout filing requires operator approval");
+      }
+      if (editedActionData && Object.keys(editedActionData).length > 0) {
+        throw new Error("Day closeout filing previews cannot be edited");
+      }
+      const actionData =
+        (actionIdentity.action_data as Record<string, unknown>) ?? {};
+      const previewSha256 = actionData.preview_sha256;
+      const changeSetId = actionData.change_set_id;
+      if (
+        typeof previewSha256 !== "string" ||
+        !/^sha256:[0-9a-f]{64}$/.test(previewSha256) ||
+        typeof changeSetId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          changeSetId
+        )
+      ) {
+        throw new Error("Day closeout filing preview is invalid");
+      }
+      const rpcArgs = {
+        p_actor_user_id: userId,
+        p_company_id: companyId,
+        p_action_id: actionId,
+        p_change_set_id: changeSetId,
+        p_preview_sha256: previewSha256,
+        p_idempotency_key: `file-day-closeout:${actionId}`,
+      };
+      let execution = await supabase.rpc(
+        "commit_agent_day_closeout_as_actor" as never,
+        rpcArgs as never
+      );
+      if (execution.error || !execution.data) {
+        execution = await supabase.rpc(
+          "commit_agent_day_closeout_as_actor" as never,
+          rpcArgs as never
+        );
+      }
+      if (execution.error || !execution.data) {
+        throw new Error("Day closeout filing could not be reconciled");
+      }
+      DayCloseoutCommitResultSchema.parse(execution.data);
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .single();
+      if (finalError || !final) {
+        throw new Error("Action not found after day closeout filing");
+      }
+      return mapFromDb(final);
+    }
+
     const existingPurposeScheduleAction =
       isPurposeScheduleEmailAction(actionIdentity);
     if (
@@ -1448,6 +1526,9 @@ export const ApprovalQueueService = {
     if (actionIdentityError || !actionIdentity) {
       throw new Error("Action not found or already handled");
     }
+    if (actionIdentity.action_type === "file_day_closeout") {
+      throw new Error("Day closeouts require operator approval");
+    }
     const purposeScheduleAction = isPurposeScheduleEmailAction(actionIdentity);
     try {
       const outcome =
@@ -1614,6 +1695,19 @@ export const ApprovalQueueService = {
     userId: string
   ): Promise<{ approved: number; failed: number; errors: string[] }> {
     const result = { approved: 0, failed: 0, errors: [] as string[] };
+
+    const supabase = requireSupabase();
+    const { data: exactConfirmations, error: lookupError } = await supabase
+      .from("agent_actions")
+      .select("id")
+      .eq("company_id", companyId)
+      .eq("action_type", "file_day_closeout")
+      .in("id", actionIds)
+      .limit(1);
+    if (lookupError) throw new Error("Bulk approval could not be validated");
+    if (exactConfirmations && exactConfirmations.length > 0) {
+      throw new Error("Day closeouts must be filed one at a time");
+    }
 
     for (const actionId of actionIds) {
       try {

@@ -43,12 +43,13 @@ const EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD = [
   ["list_team_availability", "listTeamAvailability"],
   ["get_integration_health", "getIntegrationHealth"],
   ["get_operational_overview", "getOperationalOverview"],
+  ["prepare_day_closeout", "prepareDayCloseout"],
 ] as const;
 
 describe("typed MCP domain dispatch", () => {
-  it("pins all thirty-four implemented reads in canonical manifest order", () => {
+  it("pins all thirty-four reads and the inactive closeout prepare in canonical order", () => {
     expectTypeOf<keyof typeof DOMAIN_METHOD_BY_CAPABILITY>().toEqualTypeOf<
-      CurrentProductionMcpToolId | P2ReadCapabilityId
+      CurrentProductionMcpToolId | P2ReadCapabilityId | "prepare_day_closeout"
     >();
     expect(Object.entries(DOMAIN_METHOD_BY_CAPABILITY)).toEqual(
       EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD

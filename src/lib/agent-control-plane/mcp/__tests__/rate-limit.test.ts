@@ -142,6 +142,23 @@ describe("MCP per-capability rate ceilings", () => {
     expect(limiterCalls.map((call) => call.limit)).toEqual([120, 120, 600]);
   });
 
+  it("uses exact closeout prepare ceilings after the durable prepare decision", async () => {
+    await checkCapabilityRate({
+      durableLimiter,
+      bucket: "prepare",
+      ...RATE_IDENTITY,
+      capabilityId: "prepare_day_closeout",
+    });
+    expect(durableCalls).toEqual([
+      {
+        bucket: "prepare",
+        ...RATE_IDENTITY,
+        capabilityId: "prepare_day_closeout",
+      },
+    ]);
+    expect(limiterCalls.map((call) => call.limit)).toEqual([6, 6, 30]);
+  });
+
   it("returns a durable denial before touching the process/KV burst guard", async () => {
     durableResults.push({
       allowed: false,

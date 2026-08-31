@@ -8,12 +8,15 @@ import {
 } from "@/lib/agent-control-plane/mcp/oauth/scopes";
 import {
   CAPABILITY_MANIFEST,
+  INVISIBLE_OFFICE_CAPABILITY_MANIFEST,
   getCapabilityManifestEntry,
+  getInvisibleOfficeCapabilityManifestEntry,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import {
   MCP_EXPOSURE_CATALOG,
   MCP_EXPOSURE_V1,
   MCP_EXPOSURE_V2,
+  MCP_EXPOSURE_V3,
   assertMcpExposureInvariants,
   resolveActiveMcpExposure,
   resolveMcpExposureRevision,
@@ -22,6 +25,7 @@ import {
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   MCP_SCOPE_CONSENT_LABELS,
+  INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_OPERATION_BY_ID,
   REGISTERED_MCP_SCOPES,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
@@ -114,6 +118,20 @@ const EXPECTED_EXPOSURE_V2 = {
   ],
 } as const;
 
+const EXPECTED_EXPOSURE_V3 = {
+  revision: "2026-08-30.mcp-exposure.v3",
+  toolIds: ["prepare_day_closeout"],
+  grantableScopes: [
+    "ops.correspondence.read",
+    "ops.financial_documents.read",
+    "ops.jobs.read",
+    "ops.operations.prepare",
+    "ops.operations.read",
+    "ops.schedule.read",
+    "ops.tasks.read",
+  ],
+} as const;
+
 type MutableInvariantInput = {
   exposure: {
     revision: string;
@@ -163,7 +181,7 @@ describe("immutable MCP exposure catalogue", () => {
     );
   });
 
-  it("keeps v1 and v2 deeply frozen while referentially reusing active v2", () => {
+  it("keeps every revision deeply frozen while referentially reusing active v2", () => {
     const first = resolveActiveMcpExposure();
     const second = resolveActiveMcpExposure();
 
@@ -176,15 +194,49 @@ describe("immutable MCP exposure catalogue", () => {
     expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V2.revision]).toBe(
       MCP_EXPOSURE_V2
     );
+    expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V3.revision]).toBe(
+      MCP_EXPOSURE_V3
+    );
     expect(Object.keys(MCP_EXPOSURE_CATALOG)).toEqual([
       MCP_EXPOSURE_V1.revision,
       MCP_EXPOSURE_V2.revision,
+      MCP_EXPOSURE_V3.revision,
     ]);
-    for (const exposure of [MCP_EXPOSURE_V1, MCP_EXPOSURE_V2]) {
+    for (const exposure of [
+      MCP_EXPOSURE_V1,
+      MCP_EXPOSURE_V2,
+      MCP_EXPOSURE_V3,
+    ]) {
       expect(Object.isFrozen(exposure)).toBe(true);
       expect(Object.isFrozen(exposure.toolIds)).toBe(true);
       expect(Object.isFrozen(exposure.grantableScopes)).toBe(true);
     }
+  });
+
+  it("pins inactive v3 to the single prepare-only closeout vertical", () => {
+    expect(MCP_EXPOSURE_V3).toEqual(EXPECTED_EXPOSURE_V3);
+    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V2);
+    const entry = getInvisibleOfficeCapabilityManifestEntry(
+      "prepare_day_closeout"
+    );
+    expect(entry.operation).toBe("prepare");
+    expect(entry.annotations).toEqual({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    });
+    expect(() =>
+      assertMcpExposureInvariants({
+        exposure: MCP_EXPOSURE_V3,
+        manifestEntries: INVISIBLE_OFFICE_CAPABILITY_MANIFEST,
+        domainMethods: DOMAIN_METHOD_BY_CAPABILITY,
+        registeredScopes: REGISTERED_MCP_SCOPES,
+        scopeOperations: MCP_SCOPE_OPERATION_BY_ID,
+        consentLabels: INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
+        allowedOperations: ["read", "prepare"],
+      })
+    ).not.toThrow();
   });
 
   it("makes OAuth compatibility views use the v1 scope array and only its neutral labels", () => {

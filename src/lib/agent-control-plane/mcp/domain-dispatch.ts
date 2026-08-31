@@ -1,16 +1,16 @@
 import "server-only";
 
-import type { OpsAgentReadCatalogueService } from "@/lib/agent-control-plane/services/read-catalogue-service";
+import type { OpsAgentCapabilityService } from "@/lib/agent-control-plane/services/capability-service";
 import type { CurrentProductionMcpToolId } from "@/lib/agent-control-plane/registry/read-capabilities/current-production";
 import type { P2ReadCapabilityId } from "@/lib/agent-control-plane/registry/read-capabilities/p2";
 
 type AsyncDomainMethodName = {
-  [Name in keyof OpsAgentReadCatalogueService]: OpsAgentReadCatalogueService[Name] extends (
+  [Name in keyof OpsAgentCapabilityService]: OpsAgentCapabilityService[Name] extends (
     ...args: never[]
   ) => Promise<unknown>
     ? Name
     : never;
-}[keyof OpsAgentReadCatalogueService];
+}[keyof OpsAgentCapabilityService];
 
 export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   list_scheduled_jobs: "listScheduledJobs",
@@ -47,13 +47,18 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   list_team_availability: "listTeamAvailability",
   get_integration_health: "getIntegrationHealth",
   get_operational_overview: "getOperationalOverview",
+  prepare_day_closeout: "prepareDayCloseout",
 } as const satisfies Readonly<
-  Record<CurrentProductionMcpToolId | P2ReadCapabilityId, AsyncDomainMethodName>
+  Record<
+    CurrentProductionMcpToolId | P2ReadCapabilityId | "prepare_day_closeout",
+    AsyncDomainMethodName
+  >
 >);
 
 export type McpDomainCapabilityId =
   | CurrentProductionMcpToolId
-  | P2ReadCapabilityId;
+  | P2ReadCapabilityId
+  | "prepare_day_closeout";
 export type McpDomainMethodName =
   (typeof DOMAIN_METHOD_BY_CAPABILITY)[McpDomainCapabilityId];
 

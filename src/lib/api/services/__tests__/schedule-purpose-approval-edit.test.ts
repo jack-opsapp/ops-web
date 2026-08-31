@@ -61,6 +61,110 @@ describe("purpose schedule approval edits", () => {
     executeAutonomousMock.mockReset();
   });
 
+  it("files one exact day closeout through the Firebase-authenticated approval seam", async () => {
+    const actionId = "33333333-3333-4333-8333-333333333333";
+    const companyId = "44444444-4444-4444-8444-444444444444";
+    const userId = "55555555-5555-4555-8555-555555555555";
+    const changeSetId = "66666666-6666-4666-8666-666666666666";
+    const previewSha256 = `sha256:${"a".repeat(64)}`;
+    const fixture = fakeSupabase({
+      id: actionId,
+      company_id: companyId,
+      user_id: userId,
+      action_type: "file_day_closeout",
+      action_data: {
+        change_set_id: changeSetId,
+        preview_sha256: previewSha256,
+      },
+      context_summary: "Day closeout ready for review",
+      context_source: "day_closeout",
+      source_id: "agent-day-closeout:test",
+      confidence: 1,
+      priority: "normal",
+      status: "executed",
+      created_at: "2026-08-31T03:00:00.000Z",
+      updated_at: "2026-08-31T03:00:00.000Z",
+    });
+    fixture.rpc.mockResolvedValue({
+      data: {
+        ok: true,
+        effect: "filed_inside_ops",
+        run_id: "77777777-7777-4777-8777-777777777777",
+        action_id: actionId,
+        change_set_id: changeSetId,
+        confirmation_receipt_id: "88888888-8888-4888-8888-888888888888",
+        preview_sha256: previewSha256,
+        messages_sent: 0,
+        money_moved: false,
+        committed_at: "2026-08-31T03:01:00.000Z",
+        replayed: false,
+        receipt_sha256: `sha256:${"b".repeat(64)}`,
+      },
+      error: null,
+    });
+    requireSupabaseMock.mockReturnValue(fixture.client);
+
+    const result = await ApprovalQueueService.approveAction(
+      actionId,
+      companyId,
+      userId
+    );
+
+    expect(result.status).toBe("executed");
+    expect(fixture.rpc).toHaveBeenCalledOnce();
+    expect(fixture.rpc).toHaveBeenCalledWith(
+      "commit_agent_day_closeout_as_actor",
+      {
+        p_actor_user_id: userId,
+        p_company_id: companyId,
+        p_action_id: actionId,
+        p_change_set_id: changeSetId,
+        p_preview_sha256: previewSha256,
+        p_idempotency_key: `file-day-closeout:${actionId}`,
+      }
+    );
+    expect(executeManualMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects day-closeout edits before confirmation", async () => {
+    const fixture = fakeSupabase({
+      action_type: "file_day_closeout",
+      action_data: {
+        change_set_id: "66666666-6666-4666-8666-666666666666",
+        preview_sha256: `sha256:${"a".repeat(64)}`,
+      },
+      status: "pending",
+    });
+    requireSupabaseMock.mockReturnValue(fixture.client);
+
+    await expect(
+      ApprovalQueueService.approveAction(
+        "33333333-3333-4333-8333-333333333333",
+        "44444444-4444-4444-8444-444444444444",
+        "55555555-5555-4555-8555-555555555555",
+        { finding_count: 0 }
+      )
+    ).rejects.toThrow("Day closeout filing previews cannot be edited");
+    expect(fixture.rpc).not.toHaveBeenCalled();
+  });
+
+  it("never lets the autonomous executor file a day closeout", async () => {
+    const fixture = fakeSupabase({
+      action_type: "file_day_closeout",
+      action_data: {},
+      source_id: "agent-day-closeout:test",
+      status: "pending",
+    });
+    requireSupabaseMock.mockReturnValue(fixture.client);
+
+    await expect(
+      ApprovalQueueService.executeAutonomousAction(
+        "33333333-3333-4333-8333-333333333333"
+      )
+    ).rejects.toThrow("Day closeouts require operator approval");
+    expect(executeAutonomousMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     {
       action_type: "send_appointment_confirmation",

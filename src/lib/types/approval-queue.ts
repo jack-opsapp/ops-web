@@ -26,7 +26,8 @@ export type AgentActionType =
   | "send_appointment_reminder"
   | "send_schedule_changed"
   | "send_subcontractor_coordination"
-  | "process_reschedule_request";
+  | "process_reschedule_request"
+  | "file_day_closeout";
 
 export type AgentActionStatus =
   | "pending"
@@ -62,7 +63,36 @@ export type AgentActionContextSource =
   | "day_before_reminder_cron"
   | "appointment_reminder_cron"
   | "inbound_email"
-  | "subcontractor_coordination";
+  | "subcontractor_coordination"
+  | "day_closeout";
+
+export interface FileDayCloseoutActionData {
+  schema_revision: "2026-08-30.v1";
+  run_id: string;
+  change_set_id: string;
+  host_client_name: string;
+  business_date: string;
+  finding_count: number;
+  findings: Array<{
+    finding_ref: string;
+    component: string;
+    reason: string;
+    priority: string;
+    title: string;
+  }>;
+  outstanding_balances: Array<{
+    currency: string;
+    amount_minor: number;
+    invoice_count: number;
+  }>;
+  correspondence_state: "clear" | "attention" | "not_evaluated";
+  correspondence_coverage_state: "complete" | "partial" | "unavailable";
+  communication_brief_count: number;
+  filing_statement: "File this day closeout inside OPS.";
+  truth_boundary: "No messages sent. No money moved.";
+  preview_sha256: string;
+  expires_at: string;
+}
 
 // ─── Create Project Payload ───────────────────────────────────────────────────
 
@@ -799,25 +829,39 @@ export interface ProcessRescheduleRequestActionData {
  *   full_auto           → draft + auto-send the moment a task gets a date (gated)
  */
 export type AppointmentConfirmationLevel =
-  "off" | "manual" | "draft_on_confirm" | "auto_send_on_confirm" | "full_auto";
+  | "off"
+  | "manual"
+  | "draft_on_confirm"
+  | "auto_send_on_confirm"
+  | "full_auto";
 
 /** How tasks become "schedule confirmed" */
 export type ConfirmMode = "explicit" | "automatic";
 
 /** Behavior when a confirmed task gets rescheduled */
 export type RescheduleBehavior =
-  "do_nothing" | "notify" | "draft" | "auto_send";
+  | "do_nothing"
+  | "notify"
+  | "draft"
+  | "auto_send";
 
 /** Simple three-level autonomy used by reminders, status updates, etc. */
 export type SimpleAutonomy = "off" | "draft_to_queue" | "auto_send";
 
 /** Cadence presets for project status update emails */
 export type StatusUpdateCadence =
-  "off" | "weekly" | "biweekly" | "monthly" | "on_stage_change";
+  | "off"
+  | "weekly"
+  | "biweekly"
+  | "monthly"
+  | "on_stage_change";
 
 /** Payment reminder escalation presets */
 export type PaymentReminderPreset =
-  "standard" | "gentle" | "aggressive" | "custom";
+  | "standard"
+  | "gentle"
+  | "aggressive"
+  | "custom";
 
 /** How reschedule request detection responds */
 export type RescheduleRequestBehavior = "detect_only" | "detect_and_draft";
