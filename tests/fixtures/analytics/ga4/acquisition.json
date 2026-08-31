@@ -1,0 +1,22 @@
+{
+  "rows": [
+    {
+      "dimensionValues": [
+        { "value": "20260828" },
+        { "value": "Organic Search" },
+        { "value": "google" },
+        { "value": "organic" },
+        { "value": "(organic)" },
+        { "value": "/projects/11111111-1111-4111-8111-111111111111?private=1" }
+      ],
+      "metricValues": [
+        { "value": "12" },
+        { "value": "8" },
+        { "value": "6" },
+        { "value": "10" },
+        { "value": "2" }
+      ]
+    }
+  ],
+  "rowCount": 1
+}

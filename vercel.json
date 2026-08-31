@@ -81,6 +81,10 @@
       "schedule": "24 9 * * *"
     },
     {
+      "path": "/api/cron/ga4-acquisition-sync",
+      "schedule": "44 9 * * *"
+    },
+    {
       "path": "/api/cron/duplicate-scan",
       "schedule": "4 5 * * *"
     },
