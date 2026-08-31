@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod-v4";
 
 import type { ActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
+import { actorForbidden } from "@/lib/agent-control-plane/actor/errors";
 import {
   DayCloseoutResultSchema,
   type DayCloseoutResult,
@@ -83,14 +84,35 @@ async function call(
   client: DayCloseoutRpcClient,
   functionName: string,
   args: Readonly<Record<string, unknown>>,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  authorityRequestId?: string
 ): Promise<unknown> {
   const request = client.rpc(functionName, args);
   const response =
     signal && request.abortSignal
       ? await request.abortSignal(signal)
       : await request;
-  if (response.error) throw new Error("Day closeout storage is unavailable");
+  if (response.error) {
+    const error =
+      typeof response.error === "object" && response.error !== null
+        ? (response.error as Record<string, unknown>)
+        : null;
+    const code = typeof error?.code === "string" ? error.code : "";
+    const message = typeof error?.message === "string" ? error.message : "";
+    if (
+      authorityRequestId &&
+      (code === "42501" ||
+        message.startsWith("AGENT_DAY_CLOSEOUT_AUTHORITY") ||
+        message.startsWith("AGENT_DAY_CLOSEOUT_GRANT") ||
+        message.startsWith("AGENT_DAY_CLOSEOUT_ROUTINE_AUTHORITY"))
+    ) {
+      throw actorForbidden(
+        authorityRequestId,
+        "day_closeout_routine_authority_stale"
+      );
+    }
+    throw new Error("Day closeout storage is unavailable");
+  }
   return response.data;
 }
 
@@ -112,6 +134,19 @@ export interface DayCloseoutRepository {
     idempotencyKey: string;
     inputHash: string;
     resultBase: Readonly<Record<string, unknown>>;
+    signal?: AbortSignal;
+  }): Promise<Readonly<{ result: DayCloseoutResult; replayed: boolean }>>;
+  persistRoutine(input: {
+    actorContext: ActorContext;
+    businessDate: string;
+    timezone: string;
+    idempotencyKey: string;
+    inputHash: string;
+    resultBase: Readonly<Record<string, unknown>>;
+    routineId: string;
+    claimToken: string;
+    scheduledFor: string;
+    scheduleRevision: number;
     signal?: AbortSignal;
   }): Promise<Readonly<{ result: DayCloseoutResult; replayed: boolean }>>;
 }
@@ -163,6 +198,34 @@ export function createDayCloseoutRepository(
             p_result_base: input.resultBase,
           },
           input.signal
+        )
+      );
+      return Object.freeze({
+        result: parsed.result,
+        replayed: parsed.replayed,
+      });
+    },
+    async persistRoutine(input) {
+      const parsed = PersistedSchema.parse(
+        await call(
+          client,
+          "persist_agent_day_closeout_routine_as_system",
+          {
+            ...mcpBinding(input.actorContext),
+            p_capability_manifest_revision:
+              INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION,
+            p_business_date: input.businessDate,
+            p_timezone: input.timezone,
+            p_idempotency_key: input.idempotencyKey,
+            p_input_hash: input.inputHash,
+            p_result_base: input.resultBase,
+            p_routine_id: input.routineId,
+            p_claim_token: input.claimToken,
+            p_scheduled_for: input.scheduledFor,
+            p_schedule_revision: input.scheduleRevision,
+          },
+          input.signal,
+          input.actorContext.requestId
         )
       );
       return Object.freeze({

@@ -115,6 +115,12 @@ export interface AgentAuthoritySupabaseRpcResult {
   readonly error: unknown;
 }
 
+export interface AgentAuthoritySupabaseRpcRequest extends PromiseLike<AgentAuthoritySupabaseRpcResult> {
+  abortSignal?: (
+    signal: AbortSignal
+  ) => PromiseLike<AgentAuthoritySupabaseRpcResult>;
+}
+
 /** Minimal thenable RPC surface implemented by a server Supabase client. */
 export interface AgentAuthoritySupabaseRpcClient {
   rpc(
@@ -122,7 +128,7 @@ export interface AgentAuthoritySupabaseRpcClient {
       | "resolve_agent_actor_authority_as_system"
       | "resolve_agent_actor_authority_for_subject_as_system",
     args: Readonly<Record<string, unknown>>
-  ): PromiseLike<AgentAuthoritySupabaseRpcResult>;
+  ): AgentAuthoritySupabaseRpcRequest;
 }
 
 /**
@@ -137,7 +143,8 @@ export interface ActorAuthorityRepository extends TrustedActorAuthorityRepositor
    * into separate reads.
    */
   resolveInternalAuthority(
-    lookup: InternalAuthorityLookup
+    lookup: InternalAuthorityLookup,
+    signal?: AbortSignal
   ): Promise<ActorAuthoritySnapshot | null>;
   /**
    * One direct call to
@@ -145,8 +152,22 @@ export interface ActorAuthorityRepository extends TrustedActorAuthorityRepositor
    * grant or the canonical Phase C route has validated actor and company IDs.
    */
   resolveActorAuthority(
-    lookup: ActorAuthorityLookup
+    lookup: ActorAuthorityLookup,
+    signal?: AbortSignal
   ): Promise<ActorAuthoritySnapshot | null>;
+}
+
+async function awaitAuthorityRequest(
+  request: AgentAuthoritySupabaseRpcRequest,
+  signal?: AbortSignal
+): Promise<AgentAuthoritySupabaseRpcResult> {
+  if (!signal) return await request;
+  if (typeof request.abortSignal !== "function") {
+    throw new TypeError(
+      "Actor authority RPC cannot honor the requested deadline"
+    );
+  }
+  return await request.abortSignal(signal);
 }
 
 function snapshotExactDenseDataArray(
@@ -374,17 +395,21 @@ export function createSupabaseActorAuthorityRepository(
 
   const repository = {
     async resolveInternalAuthority(
-      lookup: InternalAuthorityLookup
+      lookup: InternalAuthorityLookup,
+      signal?: AbortSignal
     ): Promise<ActorAuthoritySnapshot | null> {
-      const rawResult = await rpc.call(
-        client,
-        "resolve_agent_actor_authority_for_subject_as_system",
-        Object.freeze({
-          p_firebase_subject: lookup.firebaseSubject,
-          p_registered_permission_keys: Object.freeze([
-            ...lookup.registeredPermissionKeys,
-          ]),
-        })
+      const rawResult = await awaitAuthorityRequest(
+        rpc.call(
+          client,
+          "resolve_agent_actor_authority_for_subject_as_system",
+          Object.freeze({
+            p_firebase_subject: lookup.firebaseSubject,
+            p_registered_permission_keys: Object.freeze([
+              ...lookup.registeredPermissionKeys,
+            ]),
+          })
+        ),
+        signal
       );
       if (!authorityDecoderIntrinsicsAreCurrent()) {
         throw new TypeError("Actor authority decoder intrinsics changed");
@@ -395,18 +420,22 @@ export function createSupabaseActorAuthorityRepository(
     },
 
     async resolveActorAuthority(
-      lookup: ActorAuthorityLookup
+      lookup: ActorAuthorityLookup,
+      signal?: AbortSignal
     ): Promise<ActorAuthoritySnapshot | null> {
-      const rawResult = await rpc.call(
-        client,
-        "resolve_agent_actor_authority_as_system",
-        Object.freeze({
-          p_actor_user_id: lookup.actorUserId,
-          p_company_id: lookup.companyId,
-          p_registered_permission_keys: Object.freeze([
-            ...lookup.registeredPermissionKeys,
-          ]),
-        })
+      const rawResult = await awaitAuthorityRequest(
+        rpc.call(
+          client,
+          "resolve_agent_actor_authority_as_system",
+          Object.freeze({
+            p_actor_user_id: lookup.actorUserId,
+            p_company_id: lookup.companyId,
+            p_registered_permission_keys: Object.freeze([
+              ...lookup.registeredPermissionKeys,
+            ]),
+          })
+        ),
+        signal
       );
       if (!authorityDecoderIntrinsicsAreCurrent()) {
         throw new TypeError("Actor authority decoder intrinsics changed");

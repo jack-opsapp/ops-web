@@ -9,6 +9,55 @@ afterEach(() => {
 });
 
 describe("MCP production runtime", () => {
+  it("preserves Supabase cancellation through the composed authority adapter", async () => {
+    vi.resetModules();
+    vi.stubEnv(CURSOR_KEY_ENV, "ab".repeat(32));
+    const signal = new AbortController().signal;
+    const result = {
+      data: [
+        {
+          actor_user_id: "11111111-1111-4111-8111-111111111111",
+          company_id: "22222222-2222-4222-8222-222222222222",
+          is_active: true,
+          is_admin: false,
+          role_ids: [],
+          configured_permissions: ["projects.view"],
+          effective_permissions: [
+            { permission: "projects.view", scope: "all" },
+          ],
+          permission_snapshot_revision: "sha256:runtime-authority",
+        },
+      ],
+      error: null,
+    };
+    const rawRequest = Promise.resolve(result);
+    const abortSignal = vi.fn((receivedSignal: AbortSignal) => {
+      expect(receivedSignal).toBe(signal);
+      return rawRequest;
+    });
+    const rpc = vi.fn(() => Object.assign(rawRequest, { abortSignal }));
+    vi.doMock("@/lib/supabase/server-client", () => ({
+      getServiceRoleClient: () => ({ rpc }),
+    }));
+    const runtimeModule = await import("../runtime");
+    const runtime = runtimeModule.getMcpServerRuntime();
+
+    await expect(
+      runtime.authorityRepository.resolveActorAuthority(
+        {
+          actorUserId: "11111111-1111-4111-8111-111111111111",
+          companyId: "22222222-2222-4222-8222-222222222222",
+          registeredPermissionKeys: ["projects.view"],
+        },
+        signal
+      )
+    ).resolves.toMatchObject({
+      actorUserId: "11111111-1111-4111-8111-111111111111",
+      companyId: "22222222-2222-4222-8222-222222222222",
+    });
+    expect(abortSignal).toHaveBeenCalledOnce();
+  });
+
   it("constructs and caches the read catalogue plus inactive closeout prepare without reading", async () => {
     vi.resetModules();
     vi.stubEnv(CURSOR_KEY_ENV, "ab".repeat(32));

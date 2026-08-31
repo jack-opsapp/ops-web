@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ActorAuthoritySnapshot } from "@/lib/agent-control-plane/actor/authority-repository";
 import { StubAuthoritySupabaseRpcClient } from "@/lib/agent-control-plane/actor/__tests__/fixtures/trusted-repository-fixtures";
+import { ActorAccessError } from "@/lib/agent-control-plane/actor/errors";
 import { validatedMcpPrincipalFixture } from "@/lib/agent-control-plane/actor/__tests__/fixtures/verified-principal-fixtures";
 import { resolveActorContext } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import { INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
@@ -96,7 +97,10 @@ async function fixture(permissions: readonly string[] = PERMISSIONS) {
         error: null,
       });
     }
-    if (functionName === "persist_agent_day_closeout_as_system") {
+    if (
+      functionName === "persist_agent_day_closeout_as_system" ||
+      functionName === "persist_agent_day_closeout_routine_as_system"
+    ) {
       return Promise.resolve({
         data: {
           run_id: RUN_ID,
@@ -131,6 +135,7 @@ async function fixture(permissions: readonly string[] = PERMISSIONS) {
   });
   return {
     actor,
+    authorityClient,
     authorityRepository: authorityClient.repository,
     rpc,
     readFailure,
@@ -139,6 +144,22 @@ async function fixture(permissions: readonly string[] = PERMISSIONS) {
 }
 
 describe("day-closeout service", () => {
+  it("threads its work deadline through current-authority reauthorization", async () => {
+    const { actor, authorityClient, service } = await fixture();
+    const signal = new AbortController().signal;
+
+    await service.prepareDayCloseout(
+      actor,
+      {
+        business_date: "2026-08-30",
+        idempotency_key: "closeout-authority-deadline",
+      },
+      { signal }
+    );
+
+    expect(authorityClient.actorSignals).toEqual([signal]);
+  });
+
   it("reports source failure as partial without inventing clear findings", async () => {
     const { actor, rpc, service } = await fixture();
     const result = await service.prepareDayCloseout(actor, {
@@ -175,6 +196,78 @@ describe("day-closeout service", () => {
       p_capability_manifest_revision:
         INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION,
     });
+  });
+
+  it("binds routine persistence to the exact claim and schedule occurrence", async () => {
+    const { actor, rpc, service } = await fixture();
+
+    await service.prepareDayCloseout(
+      actor,
+      {
+        business_date: "2026-08-30",
+        display_timezone: "America/Vancouver",
+        idempotency_key:
+          "routine:55555555-5555-4555-8555-555555555555:12:2026-08-31T03:00:00.000Z",
+      },
+      {
+        routine: {
+          routineId: "55555555-5555-4555-8555-555555555555",
+          claimToken: "66666666-6666-4666-8666-666666666666",
+          scheduledFor: "2026-08-31T03:00:00.000Z",
+          scheduleRevision: 12,
+        },
+      }
+    );
+
+    expect(
+      rpc.mock.calls.some(
+        ([name]) => name === "persist_agent_day_closeout_as_system"
+      )
+    ).toBe(false);
+    expect(
+      rpc.mock.calls.find(
+        ([name]) => name === "persist_agent_day_closeout_routine_as_system"
+      )?.[1]
+    ).toMatchObject({
+      p_routine_id: "55555555-5555-4555-8555-555555555555",
+      p_claim_token: "66666666-6666-4666-8666-666666666666",
+      p_scheduled_for: "2026-08-31T03:00:00.000Z",
+      p_schedule_revision: 12,
+      p_actor_user_id: USER_ID,
+      p_company_id: COMPANY_ID,
+      p_oauth_grant_id: GRANT_ID,
+      p_oauth_client_id: CLIENT_ID,
+    });
+  });
+
+  it("preserves a database authority denial during routine persistence", async () => {
+    const { actor } = await fixture();
+    const repository = createDayCloseoutRepository({
+      rpc: () =>
+        Promise.resolve({
+          data: null,
+          error: {
+            code: "42501",
+            message: "AGENT_DAY_CLOSEOUT_GRANT_STALE_OR_DENIED",
+          },
+        }),
+    });
+
+    await expect(
+      repository.persistRoutine({
+        actorContext: actor,
+        businessDate: "2026-08-30",
+        timezone: "America/Vancouver",
+        idempotencyKey:
+          "routine:55555555-5555-4555-8555-555555555555:12:2026-08-31T03:00:00.000Z",
+        inputHash: "a".repeat(64),
+        resultBase: {},
+        routineId: "55555555-5555-4555-8555-555555555555",
+        claimToken: "66666666-6666-4666-8666-666666666666",
+        scheduledFor: "2026-08-31T03:00:00.000Z",
+        scheduleRevision: 12,
+      })
+    ).rejects.toBeInstanceOf(ActorAccessError);
   });
 
   it("rejects before any day-closeout RPC when one current owner permission is missing", async () => {

@@ -31,6 +31,7 @@ function runtime(exposureRevision = EXPOSURE_REVISION): McpServerRuntime {
   const authorityClient = new StubAuthoritySupabaseRpcClient(authority());
   return {
     domainService: {} as McpServerRuntime["domainService"],
+    dayCloseout: {} as McpServerRuntime["dayCloseout"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName) {

@@ -20,6 +20,7 @@ const ACTOR_ROOT = path.join(
 );
 const TYPES_PATH = path.join(ACTOR_ROOT, "types.ts");
 const PRINCIPAL_BOUNDARY_IMPORT = ["actor", "principal-boundary"].join("/");
+const MCP_REAUTHORIZATION_IMPORT = ["mcp", "actor-reauthorization"].join("/");
 const PHASE_C_ROUTE = {
   assignmentVersion: 7,
   connectionId: "33333333-3333-4333-8333-333333333333",
@@ -148,7 +149,10 @@ describe("verified principal source boundary", () => {
         relative.startsWith("src/lib/agent-control-plane/oauth/") ||
         // The MCP transport's bearer gate: resolves a validated OAuth grant
         // row to the branded principal. Exactly one file, not the mcp/ tree.
-        relative === "src/lib/agent-control-plane/mcp/bearer.ts";
+        relative === "src/lib/agent-control-plane/mcp/bearer.ts" ||
+        // Exact reauthorization adapter for an already resolved MCP actor or
+        // a database-authorized OPS routine claim. Domain services cannot mint.
+        relative === "src/lib/agent-control-plane/mcp/actor-reauthorization.ts";
       const isBoundaryItself = relative.endsWith(
         "src/lib/agent-control-plane/actor/principal-boundary.ts"
       );
@@ -166,6 +170,30 @@ describe("verified principal source boundary", () => {
 
       const contents = await readFile(file, "utf8");
       if (contents.includes(PRINCIPAL_BOUNDARY_IMPORT)) {
+        violations.push(relative);
+      }
+    }
+
+    expect(violations).toEqual([]);
+  }, 20_000);
+
+  it("allows the MCP reauthorization adapter only at exact composition and domain seams", async () => {
+    const files = await sourceFiles(path.join(process.cwd(), "src"));
+    const approvedConsumers = new Set([
+      "src/app/api/cron/day-closeout-routines/route.ts",
+      "src/lib/agent-control-plane/services/day-closeout/day-closeout-routine-service.ts",
+      "src/lib/agent-control-plane/services/day-closeout/day-closeout-service.ts",
+    ]);
+    const violations: string[] = [];
+
+    for (const file of files) {
+      const relative = path.relative(process.cwd(), file);
+      if (/(?:__tests__|\.test\.|\.spec\.)/.test(relative)) continue;
+      const contents = await readFile(file, "utf8");
+      if (
+        contents.includes(MCP_REAUTHORIZATION_IMPORT) &&
+        !approvedConsumers.has(relative)
+      ) {
         violations.push(relative);
       }
     }

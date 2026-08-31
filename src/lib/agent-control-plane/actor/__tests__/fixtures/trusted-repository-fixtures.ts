@@ -34,6 +34,8 @@ export class StubAuthoritySupabaseRpcClient implements AgentAuthoritySupabaseRpc
   failure: unknown | null = null;
   readonly internalLookups: InternalAuthorityLookup[] = [];
   readonly actorLookups: ActorAuthorityLookup[] = [];
+  readonly internalSignals: AbortSignal[] = [];
+  readonly actorSignals: AbortSignal[] = [];
   readonly repository: ActorAuthorityRepository;
 
   constructor(snapshot: ActorAuthoritySnapshot) {
@@ -42,12 +44,14 @@ export class StubAuthoritySupabaseRpcClient implements AgentAuthoritySupabaseRpc
     this.repository = createSupabaseActorAuthorityRepository(this);
   }
 
-  async rpc(
+  rpc(
     functionName:
       | "resolve_agent_actor_authority_as_system"
       | "resolve_agent_actor_authority_for_subject_as_system",
     args: Readonly<Record<string, unknown>>
-  ): Promise<AgentAuthoritySupabaseRpcResult> {
+  ): Promise<AgentAuthoritySupabaseRpcResult> & {
+    abortSignal(signal: AbortSignal): Promise<AgentAuthoritySupabaseRpcResult>;
+  } {
     if (
       functionName === "resolve_agent_actor_authority_for_subject_as_system"
     ) {
@@ -56,10 +60,17 @@ export class StubAuthoritySupabaseRpcClient implements AgentAuthoritySupabaseRpc
         registeredPermissionKeys:
           args.p_registered_permission_keys as InternalAuthorityLookup["registeredPermissionKeys"],
       });
-      return {
+      const result = {
         data: this.internalResult ? [authorityRpcRow(this.internalResult)] : [],
         error: this.failure,
       };
+      const request = Promise.resolve(result);
+      return Object.assign(request, {
+        abortSignal: async (signal: AbortSignal) => {
+          this.internalSignals.push(signal);
+          return await request;
+        },
+      });
     }
 
     this.actorLookups.push({
@@ -68,10 +79,17 @@ export class StubAuthoritySupabaseRpcClient implements AgentAuthoritySupabaseRpc
       registeredPermissionKeys:
         args.p_registered_permission_keys as ActorAuthorityLookup["registeredPermissionKeys"],
     });
-    return {
+    const result = {
       data: this.mcpResult ? [authorityRpcRow(this.mcpResult)] : [],
       error: this.failure,
     };
+    const request = Promise.resolve(result);
+    return Object.assign(request, {
+      abortSignal: async (signal: AbortSignal) => {
+        this.actorSignals.push(signal);
+        return await request;
+      },
+    });
   }
 }
 

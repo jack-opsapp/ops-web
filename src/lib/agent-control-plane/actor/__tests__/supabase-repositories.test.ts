@@ -28,6 +28,48 @@ const AUTHORITY_ROW = {
 };
 
 describe("Supabase actor authority repository", () => {
+  it("attaches the caller's deadline signal to the authority RPC", async () => {
+    const signal = new AbortController().signal;
+    const result = { data: [AUTHORITY_ROW], error: null };
+    const request = Promise.resolve(result);
+    const abortSignal = vi.fn(async (receivedSignal: AbortSignal) => {
+      expect(receivedSignal).toBe(signal);
+      return await request;
+    });
+    const rpc = vi.fn(() => Object.assign(request, { abortSignal }));
+    const repository = createSupabaseActorAuthorityRepository({ rpc });
+
+    await repository.resolveActorAuthority(
+      {
+        actorUserId: ACTOR_ID,
+        companyId: COMPANY_ID,
+        registeredPermissionKeys: ["projects.view"],
+      },
+      signal
+    );
+
+    expect(abortSignal).toHaveBeenCalledOnce();
+  });
+
+  it("fails closed when a deadline-bound authority client cannot cancel", async () => {
+    const repository = createSupabaseActorAuthorityRepository({
+      rpc: () => Promise.resolve({ data: [AUTHORITY_ROW], error: null }),
+    });
+
+    await expect(
+      repository.resolveActorAuthority(
+        {
+          actorUserId: ACTOR_ID,
+          companyId: COMPANY_ID,
+          registeredPermissionKeys: ["projects.view"],
+        },
+        new AbortController().signal
+      )
+    ).rejects.toThrow(
+      "Actor authority RPC cannot honor the requested deadline"
+    );
+  });
+
   it("translates both trusted lookup forms to their exact service RPC contracts", async () => {
     const rpc = vi.fn(async () => ({ data: [AUTHORITY_ROW], error: null }));
     const repository = createSupabaseActorAuthorityRepository({ rpc });

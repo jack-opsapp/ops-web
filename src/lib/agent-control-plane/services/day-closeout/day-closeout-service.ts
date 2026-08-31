@@ -6,10 +6,8 @@ import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import type { ActorAuthorityRepository } from "@/lib/agent-control-plane/actor/authority-repository";
 import { authorizeCapability } from "@/lib/agent-control-plane/actor/authorize-capability";
 import { authorizationInternal } from "@/lib/agent-control-plane/actor/errors";
-import { createMcpPrincipalFromValidatedGrant } from "@/lib/agent-control-plane/actor/principal-boundary";
 import {
   isActorContext,
-  resolveActorContext,
   type ActorContext,
 } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import {
@@ -24,6 +22,7 @@ import {
   type PrepareDayCloseoutInput,
 } from "@/lib/agent-control-plane/contracts/day-closeout";
 import { CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts/version";
+import { reauthorizeResolvedMcpActor } from "@/lib/agent-control-plane/mcp/actor-reauthorization";
 import {
   CAPABILITY_MANIFEST_REVISION,
   resolveInvisibleOfficeCapabilityAuthorization,
@@ -187,34 +186,13 @@ function toFinding(input: {
 async function resolveProductionReadActor(input: {
   actorContext: ActorContext;
   authorityRepository: ActorAuthorityRepository;
+  signal?: AbortSignal;
 }): Promise<ActorContext> {
-  const actor = input.actorContext;
-  if (actor.auth.channel !== "mcp") {
-    throw authorizationInternal(
-      actor.requestId,
-      "day_closeout_requires_mcp_actor"
-    );
-  }
-  const principal = createMcpPrincipalFromValidatedGrant({
-    actorUserId: actor.actorUserId,
-    companyId: actor.companyId,
-    oauthGrantId: actor.auth.oauthGrantId,
-    oauthClientId: actor.auth.oauthClientId,
-    validatedScopes: actor.auth.scopeCeiling,
-    tokenId: actor.auth.tokenId,
-    issuer: actor.auth.issuer,
-    audience: actor.auth.audience,
-    grantRevision: actor.auth.grantRevision,
-    applicationId: actor.auditClient.applicationId,
-    protocolEra: actor.auditClient.protocolEra,
-  });
-  return await resolveActorContext({
-    principal,
+  return await reauthorizeResolvedMcpActor({
+    actorContext: input.actorContext,
     authorityRepository: input.authorityRepository,
-    requestId: actor.requestId,
-    causationId: actor.causationId,
-    policyRevision: actor.policyRevision,
     capabilityManifestRevision: CAPABILITY_MANIFEST_REVISION,
+    signal: input.signal,
   });
 }
 
@@ -323,7 +301,15 @@ export interface DayCloseoutService {
   prepareDayCloseout(
     actorContext: ActorContext,
     input: PrepareDayCloseoutInput,
-    options?: { signal?: AbortSignal }
+    options?: {
+      signal?: AbortSignal;
+      routine?: {
+        routineId: string;
+        claimToken: string;
+        scheduledFor: string;
+        scheduleRevision: number;
+      };
+    }
   ): Promise<DayCloseoutResult>;
 }
 
@@ -376,6 +362,7 @@ export function createDayCloseoutService(input: {
       const productionActor = await resolveProductionReadActor({
         actorContext,
         authorityRepository: input.authorityRepository,
+        signal: options?.signal,
       });
 
       const [
@@ -803,7 +790,7 @@ export function createDayCloseoutService(input: {
           })
         )
         .digest("hex");
-      const persisted = await input.repository.persist({
+      const persistenceInput = {
         actorContext,
         businessDate,
         timezone,
@@ -811,7 +798,16 @@ export function createDayCloseoutService(input: {
         inputHash,
         resultBase,
         signal: options?.signal,
-      });
+      } as const;
+      const persisted = options?.routine
+        ? await input.repository.persistRoutine({
+            ...persistenceInput,
+            routineId: options.routine.routineId,
+            claimToken: options.routine.claimToken,
+            scheduledFor: options.routine.scheduledFor,
+            scheduleRevision: options.routine.scheduleRevision,
+          })
+        : await input.repository.persist(persistenceInput);
       return persisted.result;
     },
   };

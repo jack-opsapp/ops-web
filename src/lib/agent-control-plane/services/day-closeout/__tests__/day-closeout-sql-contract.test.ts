@@ -11,6 +11,14 @@ const migration = readFileSync(
   "utf8"
 );
 const normalized = migration.replace(/\s+/g, " ");
+const routineMigration = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260831004500_agent_day_closeout_routine_worker.sql"
+  ),
+  "utf8"
+);
+const normalizedRoutine = routineMigration.replace(/\s+/g, " ");
 
 describe("day-closeout Foundation Zero SQL contract", () => {
   it("keeps every OPS-owned record private with no direct Supabase-role grants", () => {
@@ -122,6 +130,137 @@ describe("day-closeout Foundation Zero SQL contract", () => {
       "schedule_revision bigint not null",
     ]) {
       expect(normalized).toContain(field);
+    }
+  });
+
+  it("pins dormant routines to the exact inactive manifest and exposure", () => {
+    expect(normalizedRoutine).toContain(
+      "capability_manifest_revision = '2026-08-30.capability-manifest.v9'"
+    );
+    expect(normalizedRoutine).toContain(
+      "exposure_revision = '2026-08-30.mcp-exposure.v3'"
+    );
+  });
+
+  it("claims due routines with bounded leases and skip-locked exclusion", () => {
+    for (const fragment of [
+      "for update skip locked",
+      "claim_expires_at <= statement_timestamp()",
+      "p_limit between 1 and 25",
+      "p_lease_seconds between 60 and 900",
+      "attempt_count = least(routine.attempt_count + 1, 4)",
+      "claim_token = gen_random_uuid()",
+    ]) {
+      expect(normalizedRoutine).toContain(fragment);
+    }
+  });
+
+  it("rechecks and atomically binds the exact current actor, grant, client, schedule, and claim", () => {
+    for (const fragment of [
+      "routine.company_id, routine.actor_user_id, routine.oauth_grant_id",
+      "routine.oauth_client_id, routine.grant_revision",
+      "routine.granted_scope_ceiling, null, routine.exposure_revision",
+      "source.claim_token = p_claim_token",
+      "source.next_run_at = p_scheduled_for",
+      "source.schedule_revision = p_schedule_revision",
+      "trigger_kind = 'routine'",
+      "'actor_user_id', routine.actor_user_id",
+      "'company_id', routine.company_id",
+      "'oauth_grant_id', routine.oauth_grant_id",
+      "'oauth_client_id', routine.oauth_client_id",
+      "'granted_scope_ceiling', routine.granted_scope_ceiling",
+    ]) {
+      expect(normalizedRoutine).toContain(fragment);
+    }
+  });
+
+  it("recovers an already-persisted exact occurrence before retry or failure", () => {
+    for (const fragment of [
+      "Persistence and its network response are not atomic",
+      "run.idempotency_key = p_idempotency_key",
+      "run.trigger_kind = 'routine'",
+      "v_effective_outcome := v_run.state",
+      "v_effective_run_id := v_run.id",
+    ]) {
+      expect(normalizedRoutine).toContain(fragment);
+    }
+  });
+
+  it("calculates the next local wall-clock occurrence in the stored IANA timezone", () => {
+    expect(normalizedRoutine).toContain(
+      "v_candidate := (v_local_date + v_day_offset + p_local_time) at time zone p_timezone;"
+    );
+    expect(normalizedRoutine).toContain(
+      "extract( isodow from (v_local_date + v_day_offset) )::smallint = any(p_weekdays)"
+    );
+    expect(normalizedRoutine).toContain(
+      "private.next_agent_day_closeout_run( routine.local_time, routine.timezone, routine.weekdays, greatest(statement_timestamp(), p_scheduled_for) )"
+    );
+  });
+
+  it("keeps retries bounded and makes partial, blocked, and failed outcomes visible", () => {
+    for (const fragment of [
+      "routine.attempt_count < 3",
+      "interval '5 minutes'",
+      "interval '15 minutes'",
+      "'ROUTINE_EXECUTION_BUDGET_EXPIRED'",
+      "'Day closeout incomplete'",
+      "'Day closeout paused'",
+      "'Day closeout failed'",
+      "false, true, v_action_url, v_action_label",
+    ]) {
+      expect(normalizedRoutine).toContain(fragment);
+    }
+    expect(routineMigration).not.toMatch(
+      /\b(sendgrid|mailgun|resend|stripe|openai|anthropic)\b/i
+    );
+  });
+
+  it("stores terminal failures separately from canonical closeout results", () => {
+    for (const fragment of [
+      "create table private.agent_day_closeout_routine_failures",
+      "outcome text not null check (outcome in ('blocked', 'failed'))",
+      "(outcome = 'blocked' and failure_code = 'AUTHORITY_BLOCKED')",
+      "outcome = 'failed' and failure_code in ( 'ROUTINE_EXECUTION_FAILED', 'ROUTINE_EXECUTION_BUDGET_EXPIRED', 'CLAIM_ATTEMPTS_EXHAUSTED' )",
+      "alter table private.agent_day_closeout_routine_failures enable row level security",
+      "revoke all on table private.agent_day_closeout_routine_failures from public, anon, authenticated, service_role",
+      "insert into private.agent_day_closeout_routine_failures",
+      "'failure_id', v_failure_id",
+    ]) {
+      expect(normalizedRoutine).toContain(fragment);
+    }
+    expect(normalizedRoutine).not.toContain(
+      "insert into private.agent_day_closeout_runs"
+    );
+    expect(normalized).toContain(
+      "status text not null check (status in ('prepared', 'filed'))"
+    );
+  });
+
+  it("uses only real notification destinations and omits links when none are truthful", () => {
+    expect(normalizedRoutine).toContain("v_action_url := '/settings'");
+    expect(normalizedRoutine).toContain("v_action_url := '/agent/queue'");
+    expect(normalizedRoutine).toContain("v_action_label := 'REVIEW'");
+    expect(normalizedRoutine).not.toContain("v_action_url := '/agent';");
+  });
+
+  it("keeps every worker RPC service-role-only and routine creation disabled", () => {
+    expect(normalizedRoutine).toContain(
+      "alter table private.agent_day_closeout_routines alter column enabled set default false;"
+    );
+    for (const functionName of [
+      "claim_agent_day_closeout_routines_as_system",
+      "assert_agent_day_closeout_routine_claim_as_system",
+      "persist_agent_day_closeout_routine_as_system",
+      "finalize_agent_day_closeout_routine_as_system",
+    ]) {
+      expect(normalizedRoutine).toContain(
+        `revoke all on function public.${functionName}`
+      );
+      expect(normalizedRoutine).toContain("from public, anon, authenticated;");
+      expect(normalizedRoutine).toContain(
+        `grant execute on function public.${functionName}`
+      );
     }
   });
 });

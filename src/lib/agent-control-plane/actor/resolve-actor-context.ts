@@ -298,6 +298,7 @@ export interface ResolveActorContextInput {
   readonly authorityRepository: ActorAuthorityRepository;
   readonly requestId: string;
   readonly causationId?: string | null;
+  readonly signal?: AbortSignal;
   readonly policyRevision: string;
   /** Injected until the Task 4 capability manifest owns this revision. */
   readonly capabilityManifestRevision: string;
@@ -310,7 +311,7 @@ const RESOLVE_ACTOR_CONTEXT_REQUIRED_KEYS = [
   "policyRevision",
   "capabilityManifestRevision",
 ] as const;
-const RESOLVE_ACTOR_CONTEXT_OPTIONAL_KEYS = ["causationId"] as const;
+const RESOLVE_ACTOR_CONTEXT_OPTIONAL_KEYS = ["causationId", "signal"] as const;
 const PRINCIPAL_COMMON_KEYS = [
   "kind",
   "channel",
@@ -768,6 +769,7 @@ export async function resolveActorContext(
   const capabilityManifestRevisionValue =
     inputSnapshot.capabilityManifestRevision;
   const causationIdValue = inputSnapshot.causationId;
+  const signalValue = inputSnapshot.signal;
 
   if (!isVerifiedActorPrincipal(principal) || !principalSnapshot) {
     throw actorForbidden(requestId, "principal_source_untrusted");
@@ -794,6 +796,9 @@ export async function resolveActorContext(
     causationIdValue !== null &&
     typeof causationIdValue !== "string"
   ) {
+    throw authorizationInternal(requestId, "actor_context_input_invalid");
+  }
+  if (signalValue !== undefined && !(signalValue instanceof AbortSignal)) {
     throw authorizationInternal(requestId, "actor_context_input_invalid");
   }
 
@@ -837,6 +842,7 @@ export async function resolveActorContext(
               firebaseSubject: principalSnapshot.firebaseSubject as string,
               registeredPermissionKeys: REGISTERED_ACTOR_PERMISSION_KEYS,
             },
+            signalValue,
           ])
         : await reflectApply(resolveActorAuthority, authorityRepository, [
             {
@@ -844,6 +850,7 @@ export async function resolveActorContext(
               companyId: expectedCompanyId as string,
               registeredPermissionKeys: REGISTERED_ACTOR_PERMISSION_KEYS,
             },
+            signalValue,
           ]);
   } catch {
     throw authorizationUnavailable(requestId, "authority_lookup_failed");

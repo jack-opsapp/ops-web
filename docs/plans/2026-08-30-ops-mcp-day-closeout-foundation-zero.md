@@ -53,7 +53,7 @@ Write failing contract tests first for strict input, canonical dates/timezones/i
 - Create through `supabase migration new`: `supabase/migrations/*_agent_day_closeout_foundation_zero.sql`
 - Test: `src/lib/agent-control-plane/services/day-closeout/__tests__/migration-contract.test.ts`
 
-Create private closeout routine, run, change-set, confirmation, and receipt tables plus narrow public service-role RPCs. Revoke public table/function privileges by default; grant only exact service-role RPC entrypoints. Add company/actor/client/grant bindings, immutable preview digest, expiry, single-use confirmation, idempotency uniqueness, leases, retry fields, statuses, and indexes. Commit RPCs must lock, re-resolve current authority, verify current grant/client/scopes, compare exact digest/binding/version, perform the internal filing, write the truthful receipt, and support same-key replay without duplicate effects.
+Create private closeout routine, canonical run, typed routine-failure, change-set, confirmation, and receipt tables plus narrow public service-role RPCs. Revoke public table/function privileges by default; grant only exact service-role RPC entrypoints. Add company/actor/client/grant bindings, immutable preview digest, expiry, single-use confirmation, idempotency uniqueness, leases, retry fields, statuses, and indexes. Commit RPCs must lock, re-resolve current authority, verify current grant/client/scopes, compare exact digest/binding/version, perform the internal filing, write the truthful receipt, and support same-key replay without duplicate effects. Blocked and failed occurrences must never masquerade as partial `DayCloseoutResult` snapshots.
 
 ## Task 3 — Build the server-owned closeout projection
 
@@ -97,19 +97,26 @@ Write failing tests proving v1/v2 tool lists/scopes remain exact, active exposur
 - Test: `src/components/agent/__tests__/day-closeout-action-card.test.tsx`
 - Test: route test beside the queue API tests
 
-Add non-editable `file_day_closeout` and `configure_day_closeout_routine` action types. Hide them from bulk approval. Render the exact immutable preview and the explicit truth boundary before approval. Route approval through the closeout commit RPC and return the stored receipt. Prove cross-company, cross-actor, expired, edited, digest-mismatch, consumed, permission-revoked, and replay cases.
+Add the non-editable `file_day_closeout` action type and hide it from bulk approval. Render the exact immutable preview and the explicit truth boundary before approval. Route approval through the closeout commit RPC and return the stored receipt. Prove cross-company, cross-actor, expired, edited, digest-mismatch, consumed, permission-revoked, and replay cases. Routine configuration is intentionally excluded until its owner-approved product experience exists; this phase adds no `configure_day_closeout_routine` action.
 
 ## Task 6 — OPS-owned routine worker and failure visibility
+
+**Implemented locally, activation intentionally withheld:** the worker service,
+service-role RPC boundary, failure notifications, and guarded route are present.
+Routine rows default disabled and the route requires a separate activation flag.
+The planned `vercel.json` registration was deliberately omitted so merging this
+code cannot silently create a paid scheduled invocation before Jackson approves
+activation and its measured cost. No configuration RPC or UI enables routines.
 
 **Files:**
 
 - Create: `src/lib/agent-control-plane/services/day-closeout/day-closeout-routine-service.ts`
 - Create: `src/app/api/cron/day-closeout-routines/route.ts`
-- Modify: `vercel.json`
+- Deliberately do not modify: `vercel.json`
 - Test: `src/lib/agent-control-plane/services/day-closeout/__tests__/day-closeout-routine-service.test.ts`
 - Test: `src/app/api/cron/day-closeout-routines/__tests__/route.test.ts`
 
-Write failing tests for lease exclusion, named actor/grant/client reauthorization every run, revocation and scope loss, DST-safe next-run calculation, quiet clear runs, persistent blocked/failed notifications, bounded retries, and no model/provider call. Implement a small company-fanout worker using existing cron workload controls. Do not deploy or activate the schedule.
+Write failing tests for one-at-a-time lease exclusion, database-owned actor/grant/client reauthorization every run, revocation and scope loss, committed-response-loss recovery, defensive fourth-claim recovery, hard execution budgeting, DST-safe next-run calculation, quiet clear runs, schema-valid partial results, separate blocked/failed records, truthful persistent notifications, bounded retries, and no model/provider call. The 240-second worker budget admits a new claim only with 60 seconds remaining, cancels work at 210 seconds, and reserves the final 30 seconds for truthful finalization; work-budget expiry uses the bounded retry ladder. Implement a small worker using existing cron workload controls. Do not deploy or activate the schedule.
 
 ## Task 7 — Bible/API documentation and acceptance evidence
 
@@ -117,6 +124,7 @@ Write failing tests for lease exclusion, named actor/grant/client reauthorizatio
 
 - Modify in Bible worktree: `04_API_AND_INTEGRATION.md`
 - Modify in Bible worktree: `07_SPECIALIZED_FEATURES.md`
+- Modify in Bible worktree: `03_DATA_ARCHITECTURE.md`
 - Modify in Bible worktree: this phase spec
 
 Document v2 as the only active read-only exposure, v3 as local/inactive, exact scope and action ladders, routine ownership, correspondence coverage behavior, cost boundary, and the host acceptance matrix. Do not claim live host compatibility.
