@@ -1560,13 +1560,16 @@ export type Database = {
           duration_ms: number | null
           event_name: string
           event_type: string
+          environment: string
           id: string
           os_version: string | null
           plan: string | null
           platform: string
           properties: Json | null
           role: string | null
+          schema_version: number
           session_id: string
+          received_at: string
           user_id: string | null
         }
         Insert: {
@@ -1577,13 +1580,16 @@ export type Database = {
           duration_ms?: number | null
           event_name: string
           event_type: string
+          environment?: string
           id?: string
           os_version?: string | null
           plan?: string | null
           platform: string
           properties?: Json | null
           role?: string | null
+          schema_version?: number
           session_id: string
+          received_at?: string
           user_id?: string | null
         }
         Update: {
@@ -1594,16 +1600,345 @@ export type Database = {
           duration_ms?: number | null
           event_name?: string
           event_type?: string
+          environment?: string
           id?: string
           os_version?: string | null
           plan?: string | null
           platform?: string
           properties?: Json | null
           role?: string | null
+          schema_version?: number
           session_id?: string
+          received_at?: string
           user_id?: string | null
         }
         Relationships: []
+      }
+      analytics_sync_runs: {
+        Row: {
+          created_at: string
+          cursor: string | null
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          metadata: Json
+          row_count: number
+          source: string
+          source_max_date: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          cursor?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          metadata?: Json
+          row_count?: number
+          source: string
+          source_max_date?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          cursor?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          metadata?: Json
+          row_count?: number
+          source?: string
+          source_max_date?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      channel_map: {
+        Row: {
+          active: boolean
+          canonical_channel: string
+          classification_reason: string
+          created_at: string
+          id: string
+          is_paid: boolean
+          priority: number
+          raw_channel: string | null
+          raw_medium: string | null
+          raw_source: string | null
+          source_system: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          canonical_channel: string
+          classification_reason: string
+          created_at?: string
+          id?: string
+          is_paid?: boolean
+          priority?: number
+          raw_channel?: string | null
+          raw_medium?: string | null
+          raw_source?: string | null
+          source_system: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          canonical_channel?: string
+          classification_reason?: string
+          created_at?: string
+          id?: string
+          is_paid?: boolean
+          priority?: number
+          raw_channel?: string | null
+          raw_medium?: string | null
+          raw_source?: string | null
+          source_system?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      channel_metrics: {
+        Row: {
+          as_of: string
+          campaign: string | null
+          canonical_channel: string
+          created_at: string
+          currency: string | null
+          dimensions: Json
+          id: string
+          metric_date: string
+          metric_type: string
+          metric_value: number
+          source_grain: string
+          source_key: string
+          source_system: string
+          sub_channel: string | null
+          territory: string | null
+          updated_at: string
+        }
+        Insert: {
+          as_of: string
+          campaign?: string | null
+          canonical_channel: string
+          created_at?: string
+          currency?: string | null
+          dimensions?: Json
+          id?: string
+          metric_date: string
+          metric_type: string
+          metric_value: number
+          source_grain: string
+          source_key: string
+          source_system: string
+          sub_channel?: string | null
+          territory?: string | null
+          updated_at?: string
+        }
+        Update: {
+          as_of?: string
+          campaign?: string | null
+          canonical_channel?: string
+          created_at?: string
+          currency?: string | null
+          dimensions?: Json
+          id?: string
+          metric_date?: string
+          metric_type?: string
+          metric_value?: number
+          source_grain?: string
+          source_key?: string
+          source_system?: string
+          sub_channel?: string | null
+          territory?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ga4_daily_acquisition: {
+        Row: {
+          campaign: string
+          created_at: string
+          default_channel_group: string
+          engaged_sessions: number
+          id: string
+          key_events: number
+          landing_path: string
+          medium: string
+          new_users: number
+          property_id: string
+          property_key: string
+          reporting_date: string
+          sessions: number
+          source: string
+          source_updated_at: string
+          total_users: number
+          updated_at: string
+        }
+        Insert: {
+          campaign: string
+          created_at?: string
+          default_channel_group: string
+          engaged_sessions?: number
+          id?: string
+          key_events?: number
+          landing_path: string
+          medium: string
+          new_users?: number
+          property_id: string
+          property_key: string
+          reporting_date: string
+          sessions?: number
+          source: string
+          source_updated_at?: string
+          total_users?: number
+          updated_at?: string
+        }
+        Update: {
+          campaign?: string
+          created_at?: string
+          default_channel_group?: string
+          engaged_sessions?: number
+          id?: string
+          key_events?: number
+          landing_path?: string
+          medium?: string
+          new_users?: number
+          property_id?: string
+          property_key?: string
+          reporting_date?: string
+          sessions?: number
+          source?: string
+          source_updated_at?: string
+          total_users?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      search_console_daily: {
+        Row: {
+          clicks: number
+          country: string
+          created_at: string
+          ctr: number
+          device: string
+          id: string
+          impressions: number
+          page: string
+          position: number
+          query: string
+          reporting_date: string
+          site_url: string
+          source_updated_at: string
+          updated_at: string
+        }
+        Insert: {
+          clicks?: number
+          country?: string
+          created_at?: string
+          ctr?: number
+          device?: string
+          id?: string
+          impressions?: number
+          page: string
+          position?: number
+          query?: string
+          reporting_date: string
+          site_url: string
+          source_updated_at?: string
+          updated_at?: string
+        }
+        Update: {
+          clicks?: number
+          country?: string
+          created_at?: string
+          ctr?: number
+          device?: string
+          id?: string
+          impressions?: number
+          page?: string
+          position?: number
+          query?: string
+          reporting_date?: string
+          site_url?: string
+          source_updated_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      touchpoints: {
+        Row: {
+          anonymous_id: string | null
+          attribution_basis: string
+          attribution_confidence: number
+          campaign: string | null
+          canonical_channel: string
+          capture_version: number
+          click_ids: Json
+          company_id: string | null
+          created_at: string
+          dedupe_key: string
+          expires_at: string | null
+          id: string
+          landing_path: string | null
+          occurred_at: string
+          raw_source: Json
+          referrer_domain: string | null
+          sub_channel: string | null
+        }
+        Insert: {
+          anonymous_id?: string | null
+          attribution_basis: string
+          attribution_confidence: number
+          campaign?: string | null
+          canonical_channel: string
+          capture_version: number
+          click_ids?: Json
+          company_id?: string | null
+          created_at?: string
+          dedupe_key: string
+          expires_at?: string | null
+          id?: string
+          landing_path?: string | null
+          occurred_at: string
+          raw_source?: Json
+          referrer_domain?: string | null
+          sub_channel?: string | null
+        }
+        Update: {
+          anonymous_id?: string | null
+          attribution_basis?: string
+          attribution_confidence?: number
+          campaign?: string | null
+          canonical_channel?: string
+          capture_version?: number
+          click_ids?: Json
+          company_id?: string | null
+          created_at?: string
+          dedupe_key?: string
+          expires_at?: string | null
+          id?: string
+          landing_path?: string | null
+          occurred_at?: string
+          raw_source?: Json
+          referrer_domain?: string | null
+          sub_channel?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "touchpoints_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       app_events: {
         Row: {
@@ -20661,14 +20996,21 @@ export type Database = {
       }
       trial_attributions: {
         Row: {
+          attribution_basis: string
+          attribution_confidence: number | null
           attributed_channel: string
+          capture_version: number
+          classification_reason: string | null
           company_id: string
           created_at: string
           fbclid: string | null
           first_paid_at: string | null
+          first_touch_at: string | null
           gclid: string | null
           id: string
           landing_url: string | null
+          referrer: string | null
+          self_reported_source: string | null
           trial_started_at: string
           updated_at: string
           utm_campaign: string | null
@@ -20678,14 +21020,21 @@ export type Database = {
           utm_term: string | null
         }
         Insert: {
+          attribution_basis?: string
+          attribution_confidence?: number | null
           attributed_channel?: string
+          capture_version?: number
+          classification_reason?: string | null
           company_id: string
           created_at?: string
           fbclid?: string | null
           first_paid_at?: string | null
+          first_touch_at?: string | null
           gclid?: string | null
           id?: string
           landing_url?: string | null
+          referrer?: string | null
+          self_reported_source?: string | null
           trial_started_at: string
           updated_at?: string
           utm_campaign?: string | null
@@ -20695,14 +21044,21 @@ export type Database = {
           utm_term?: string | null
         }
         Update: {
+          attribution_basis?: string
+          attribution_confidence?: number | null
           attributed_channel?: string
+          capture_version?: number
+          classification_reason?: string | null
           company_id?: string
           created_at?: string
           fbclid?: string | null
           first_paid_at?: string | null
+          first_touch_at?: string | null
           gclid?: string | null
           id?: string
           landing_url?: string | null
+          referrer?: string | null
+          self_reported_source?: string | null
           trial_started_at?: string
           updated_at?: string
           utm_campaign?: string | null
@@ -21707,6 +22063,56 @@ export type Database = {
           territory: string | null
           total_downloads: number | null
           unique_impressions: number | null
+        }
+        Relationships: []
+      }
+      growth_attribution_coverage: {
+        Row: {
+          coverage_ratio: number | null
+          deterministic_trials: number | null
+          direct_trials: number | null
+          reporting_date: string | null
+          self_reported_trials: number | null
+          total_trials: number | null
+          unknown_trials: number | null
+        }
+        Relationships: []
+      }
+      growth_channel_performance: {
+        Row: {
+          attribution_basis: string | null
+          canonical_channel: string | null
+          first_project_companies: number | null
+          grain: string | null
+          paid_companies: number | null
+          reporting_date: string | null
+          revenue_cents: number | null
+          trials_started: number | null
+        }
+        Relationships: []
+      }
+      growth_data_health: {
+        Row: {
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          metadata: Json | null
+          row_count: number | null
+          source: string | null
+          source_max_date: string | null
+          started_at: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
+      growth_funnel_daily: {
+        Row: {
+          classified_trials: number | null
+          first_project_companies: number | null
+          grain: string | null
+          paid_companies: number | null
+          reporting_date: string | null
+          trials_started: number | null
         }
         Relationships: []
       }
