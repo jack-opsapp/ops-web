@@ -46,6 +46,32 @@ create table public.trial_attributions (
   attribution_confidence numeric
 );
 
+-- Reproduce the production upgrade path: the foundation migration already
+-- owns these view contracts before the canonical milestone migration replaces
+-- their queries. PostgreSQL only permits CREATE OR REPLACE VIEW to append new
+-- columns, so every existing column must retain its ordinal position.
+create view public.growth_funnel_daily as
+select
+  null::date as reporting_date,
+  null::text as grain,
+  null::bigint as trials_started,
+  null::bigint as classified_trials,
+  null::bigint as first_project_companies,
+  null::bigint as paid_companies
+where false;
+
+create view public.growth_channel_performance as
+select
+  null::date as reporting_date,
+  null::text as grain,
+  null::text as canonical_channel,
+  null::text as attribution_basis,
+  null::bigint as trials_started,
+  null::bigint as first_project_companies,
+  null::bigint as paid_companies,
+  null::bigint as revenue_cents
+where false;
+
 \ir ../../supabase/migrations/20260831050000_canonical_growth_milestones.sql
 \ir ../../supabase/migrations/20260831050000_canonical_growth_milestones.sql
 

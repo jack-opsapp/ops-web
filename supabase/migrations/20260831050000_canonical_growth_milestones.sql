@@ -183,11 +183,11 @@ select
     where milestone.first_project_at is not null
   )::bigint as first_project_companies,
   count(*) filter (
-    where milestone.activated_at is not null
-  )::bigint as activated_companies,
-  count(*) filter (
     where milestone.first_paid_at is not null
   )::bigint as paid_companies,
+  count(*) filter (
+    where milestone.activated_at is not null
+  )::bigint as activated_companies,
   count(*) filter (
     where milestone.first_value_at is not null
   )::bigint as first_value_companies,
@@ -207,12 +207,12 @@ select
     where milestone.first_project_at is not null
   )::bigint as first_project_companies,
   count(*) filter (
-    where milestone.activated_at is not null
-  )::bigint as activated_companies,
-  count(*) filter (
     where milestone.first_paid_at is not null
   )::bigint as paid_companies,
   coalesce(sum(milestone.revenue_cents), 0)::bigint as revenue_cents,
+  count(*) filter (
+    where milestone.activated_at is not null
+  )::bigint as activated_companies,
   count(*) filter (
     where milestone.first_value_at is not null
   )::bigint as first_value_companies

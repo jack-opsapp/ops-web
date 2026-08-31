@@ -41,6 +41,24 @@ describe("canonical growth milestone reconciliation", () => {
     expect(migration).toContain("where milestone.activated_at is not null");
   });
 
+  it("preserves the existing founder-view column ordinals during upgrade", () => {
+    const funnelView = migration.slice(
+      migration.indexOf("create or replace view public.growth_funnel_daily"),
+      migration.indexOf("create or replace view public.growth_channel_performance")
+    );
+    expect(funnelView.indexOf("as paid_companies")).toBeLessThan(
+      funnelView.indexOf("as activated_companies")
+    );
+
+    const channelView = migration.slice(
+      migration.indexOf("create or replace view public.growth_channel_performance"),
+      migration.indexOf("create or replace view public.growth_attribution_coverage")
+    );
+    expect(channelView.indexOf("as revenue_cents")).toBeLessThan(
+      channelView.indexOf("as activated_companies")
+    );
+  });
+
   it("uses immediately preceding equal periods", () => {
     expect(
       growthMilestoneComparisonPeriods({
