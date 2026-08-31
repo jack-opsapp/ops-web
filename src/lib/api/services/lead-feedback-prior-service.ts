@@ -351,6 +351,33 @@ export function applyLeadFeedbackPrior(input: {
       evidence,
     };
   }
+  // A sender the operator has already flagged, with nothing positive on record
+  // against that flag, never auto-creates again. Suppression authority is
+  // deliberately hard to earn — an exact source match, repeated independent
+  // sender evidence, or mature domain evidence — but the fallback for a
+  // once-flagged sender was AUTO-CREATION, which is how choward@vitrum.ca
+  // minted a fifth "Email Inquiry" seven days after being discarded as
+  // vendor_sales (bug 7ca126d2). The single -0.16 sender prior simply is not
+  // strong enough to drag a confident model verdict under the threshold.
+  //
+  // This routes the verdict to a person instead. The sender can still become a
+  // lead — after a human says so in the review lane. Auto-suppression rules and
+  // positive-history senders are untouched; nothing here widens autonomy.
+  if (
+    senderNegativeKeys.size >= 1 &&
+    senderPositive.length === 0 &&
+    input.baseline.verdict === "lead" &&
+    adjustedLeadScore >= threshold
+  ) {
+    return {
+      outcome: "defer",
+      adjustedLeadScore,
+      adjustment,
+      reviewReason: "feedback_boundary",
+      appliedFeedbackIds,
+      evidence,
+    };
+  }
   if (adjustedLeadScore >= threshold) {
     return {
       outcome: "lead",
