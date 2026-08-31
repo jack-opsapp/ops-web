@@ -94,7 +94,7 @@ function canonicalVariantKeys(
     values[0] === "accounting" &&
     values[1] === "mailbox"
   ) {
-    return Object.freeze(["accounting", "mailbox"]);
+    return Object.freeze(["accounting", "mailbox"] as const);
   }
   throw new IntegrationHealthAuthorizationError();
 }
