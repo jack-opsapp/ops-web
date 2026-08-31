@@ -19,6 +19,14 @@ const routineMigration = readFileSync(
   "utf8"
 );
 const normalizedRoutine = routineMigration.replace(/\s+/g, " ");
+const configurationMigration = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260831120000_agent_day_closeout_routine_configuration.sql"
+  ),
+  "utf8"
+);
+const normalizedConfiguration = configurationMigration.replace(/\s+/g, " ");
 const normalizedDayCloseoutMigrations = readdirSync(
   join(process.cwd(), "supabase/migrations")
 )
@@ -287,6 +295,69 @@ describe("day-closeout Foundation Zero SQL contract", () => {
     ]) {
       expect(normalizedDayCloseoutMigrations).toContain(
         `on private.${table} (${column});`
+      );
+    }
+  });
+
+  it("configures only the signed-in operator's exact live v3 grant", () => {
+    for (const fragment of [
+      "grant_source.id = p_oauth_grant_id",
+      "grant_source.user_id = p_actor_user_id",
+      "grant_source.company_id = p_company_id",
+      "grant_source.revoked_at is null",
+      "client_source.disabled_at is null",
+      "grant_source.exposure_revision = '2026-08-30.mcp-exposure.v3'",
+      "v_required_scopes <@ grant_source.scopes",
+      "public.has_permission( p_actor_user_id, 'settings.integrations', 'all' )",
+      "private.assert_agent_day_closeout_authority(",
+    ]) {
+      expect(normalizedConfiguration).toContain(fragment);
+    }
+  });
+
+  it("keeps timezone, recurrence, idempotency, and lease invalidation server-owned", () => {
+    for (const fragment of [
+      "select company.timezone into v_timezone",
+      "v_weekdays constant smallint[] := array[1,2,3,4,5,6,7]::smallint[]",
+      "private.next_agent_day_closeout_run( p_local_time, v_timezone, v_weekdays, statement_timestamp() )",
+      "when routine.enabled is not distinct from p_enabled",
+      "and routine.local_time is not distinct from p_local_time",
+      "then routine.schedule_revision",
+      "else routine.schedule_revision + 1",
+      "claim_token = null",
+      "claim_expires_at = null",
+    ]) {
+      expect(normalizedConfiguration).toContain(fragment);
+    }
+  });
+
+  it("disables bound routines atomically on either OAuth revocation path", () => {
+    expect(normalizedConfiguration).toContain(
+      "update private.agent_day_closeout_routines routine set enabled = false"
+    );
+    expect(
+      normalizedConfiguration.match(
+        /update private\.agent_day_closeout_routines routine set enabled = false/g
+      )
+    ).toHaveLength(2);
+    expect(normalizedConfiguration).toContain(
+      "where routine.oauth_grant_id = p_grant_id and routine.enabled"
+    );
+    expect(normalizedConfiguration).toContain(
+      "where routine.oauth_grant_id = v_grant_id and routine.enabled"
+    );
+  });
+
+  it("exposes configuration only through exact service-role RPC ACLs", () => {
+    for (const signature of [
+      "public.list_agent_day_closeout_routine_configs_as_system(uuid, uuid)",
+      "public.upsert_agent_day_closeout_routine_config_as_system(uuid, uuid, uuid, boolean, time without time zone)",
+    ]) {
+      expect(normalizedConfiguration).toContain(
+        `revoke all on function ${signature} from public, anon, authenticated, service_role;`
+      );
+      expect(normalizedConfiguration).toContain(
+        `grant execute on function ${signature} to service_role;`
       );
     }
   });

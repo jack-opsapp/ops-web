@@ -31,8 +31,14 @@ export const CONNECTED_AGENT_SCOPE_LABELS: Readonly<Record<string, string>> =
       "See authorized work queues and operational summaries",
   });
 
-export function connectedAgentScopeLine(scopes: readonly string[]): string {
+export function connectedAgentScopeLine(
+  scopes: readonly string[],
+  overrides?: Readonly<Record<string, string>>
+): string {
   return scopes
-    .map((scope) => CONNECTED_AGENT_SCOPE_LABELS[scope] ?? scope)
+    .map(
+      (scope) =>
+        overrides?.[scope] ?? CONNECTED_AGENT_SCOPE_LABELS[scope] ?? scope
+    )
     .join(" · ");
 }

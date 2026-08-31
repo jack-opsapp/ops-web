@@ -72,10 +72,24 @@ describe("day-closeout routine cron", () => {
     expect(Object.keys(routeModule).sort()).toEqual(["GET", "maxDuration"]);
   });
 
-  it("has no registered Vercel schedule before explicit activation", () => {
-    expect(
+  it("registers the production schedule while runtime activation remains server-gated", () => {
+    const vercelConfig = JSON.parse(
       readFileSync(join(process.cwd(), "vercel.json"), "utf8")
-    ).not.toContain("/api/cron/day-closeout-routines");
+    ) as { crons?: Array<{ path: string; schedule: string }> };
+
+    expect(
+      vercelConfig.crons?.filter(
+        ({ path }) => path === "/api/cron/day-closeout-routines"
+      )
+    ).toEqual([
+      {
+        path: "/api/cron/day-closeout-routines",
+        schedule: "2-59/5 * * * *",
+      },
+    ]);
+    expect(routeModule.GET.toString()).toContain(
+      'process.env.OPS_DAY_CLOSEOUT_ROUTINES_ENABLED === "true"'
+    );
   });
 
   it("fails closed when the server cron secret is absent", async () => {
