@@ -100,6 +100,13 @@ select
   attribution.attribution_confidence,
   first_project.first_project_at,
   case
+    when first_project.first_project_at >= candidate.trial_started_at
+      and first_project.first_project_at
+        < candidate.trial_started_at + interval '7 days'
+      then first_project.first_project_at
+    else null
+  end as activated_at,
+  case
     when candidate.first_task_completed_at >= candidate.trial_started_at
       and candidate.first_task_completed_at
         < candidate.trial_started_at + interval '14 days'
@@ -176,6 +183,9 @@ select
     where milestone.first_project_at is not null
   )::bigint as first_project_companies,
   count(*) filter (
+    where milestone.activated_at is not null
+  )::bigint as activated_companies,
+  count(*) filter (
     where milestone.first_paid_at is not null
   )::bigint as paid_companies,
   count(*) filter (
@@ -196,6 +206,9 @@ select
   count(*) filter (
     where milestone.first_project_at is not null
   )::bigint as first_project_companies,
+  count(*) filter (
+    where milestone.activated_at is not null
+  )::bigint as activated_companies,
   count(*) filter (
     where milestone.first_paid_at is not null
   )::bigint as paid_companies,

@@ -10,6 +10,7 @@ export interface GrowthMilestoneDailyRow {
   trials_started: number;
   classified_trials: number;
   first_project_companies: number;
+  activated_companies: number;
   paid_companies: number;
   first_value_companies: number;
   revenue_cents: number;
@@ -19,6 +20,7 @@ export interface GrowthMilestoneSummary {
   trialsStarted: number;
   classifiedTrials: number;
   firstProjectCompanies: number;
+  activatedCompanies: number;
   firstValueCompanies: number;
   paidCompanies: number;
   revenueCents: number;
@@ -87,6 +89,7 @@ export function summarizeGrowthMilestones(
     trialsStarted: 0,
     classifiedTrials: 0,
     firstProjectCompanies: 0,
+    activatedCompanies: 0,
     firstValueCompanies: 0,
     paidCompanies: 0,
     revenueCents: 0,
@@ -103,6 +106,10 @@ export function summarizeGrowthMilestones(
     summary.firstProjectCompanies += nonNegativeInteger(
       row.first_project_companies,
       "first_project_companies"
+    );
+    summary.activatedCompanies += nonNegativeInteger(
+      row.activated_companies,
+      "activated_companies"
     );
     summary.firstValueCompanies += nonNegativeInteger(
       row.first_value_companies,
@@ -131,7 +138,7 @@ export async function getGrowthMilestoneComparison(
   const { data, error } = await client
     .from("growth_funnel_daily")
     .select(
-      "reporting_date, trials_started, classified_trials, first_project_companies, first_value_companies, paid_companies, revenue_cents"
+      "reporting_date, trials_started, classified_trials, first_project_companies, activated_companies, first_value_companies, paid_companies, revenue_cents"
     )
     .gte("reporting_date", periods.previous.startDate)
     .lte("reporting_date", periods.current.endDate)

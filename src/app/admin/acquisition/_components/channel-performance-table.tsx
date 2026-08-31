@@ -17,7 +17,7 @@ export function ChannelPerformanceTable({
   formatPercent,
   t,
 }: ChannelPerformanceTableProps) {
-  const maximum = Math.max(1, ...rows.map((row) => row.firstValue));
+  const maximum = Math.max(1, ...rows.map((row) => row.activated));
 
   return (
     <section aria-labelledby="channel-performance-heading">
@@ -63,10 +63,10 @@ export function ChannelPerformanceTable({
                       <div className="h-0.5 flex-1 overflow-hidden rounded-bar bg-fill-neutral-dim">
                         <div
                           className="h-full rounded-bar bg-fill-neutral transition-[width] duration-150 ease-smooth motion-reduce:transition-none"
-                          style={{ width: `${(row.firstValue / maximum) * 100}%` }}
+                          style={{ width: `${(row.activated / maximum) * 100}%` }}
                         />
                       </div>
-                      <span className="w-data text-right">{formatNumber(row.firstValue)}</span>
+                      <span className="w-data text-right">{formatNumber(row.activated)}</span>
                     </div>
                   </td>
                   <td className="px-2 py-2 text-right">{formatNumber(row.paid)}</td>

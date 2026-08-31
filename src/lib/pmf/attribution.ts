@@ -85,6 +85,27 @@ export function classifyAttribution(
       "apple_search_ads_source"
     );
   }
+  if (medium === "organic" || medium === "search") {
+    if (
+      source.includes("facebook") ||
+      source.includes("meta") ||
+      source.includes("instagram") ||
+      source.includes("youtube")
+    ) {
+      return decision(
+        "organic_social",
+        "utm_referrer",
+        0.9,
+        "organic_social_utm"
+      );
+    }
+    return decision(
+      "organic_search",
+      "utm_referrer",
+      0.9,
+      "organic_utm_medium"
+    );
+  }
   if (source.includes("google")) {
     return decision("google_ads", "utm_referrer", 0.85, "google_utm_source");
   }
@@ -94,14 +115,6 @@ export function classifyAttribution(
     source.includes("instagram")
   ) {
     return decision("meta_ads", "utm_referrer", 0.85, "meta_utm_source");
-  }
-  if (medium === "organic" || medium === "search") {
-    return decision(
-      "organic_search",
-      "utm_referrer",
-      0.9,
-      "organic_utm_medium"
-    );
   }
   if (
     externalReferrer &&

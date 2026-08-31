@@ -31,6 +31,22 @@ describe("deriveAttributionChannel", () => {
       "organic_search"
     );
   });
+  it("keeps Google organic traffic out of the paid Google channel", () => {
+    expect(
+      deriveAttributionChannel({
+        utm_source: "google",
+        utm_medium: "organic",
+      })
+    ).toBe("organic_search");
+  });
+  it("classifies an organic social UTM separately from paid Meta", () => {
+    expect(
+      deriveAttributionChannel({
+        utm_source: "instagram",
+        utm_medium: "organic",
+      })
+    ).toBe("organic_social");
+  });
   it("direct when nothing set", () => {
     expect(deriveAttributionChannel({})).toBe("direct");
   });

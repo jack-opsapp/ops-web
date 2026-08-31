@@ -231,7 +231,7 @@ async function funnelRows(
       client
         .from("growth_funnel_daily")
         .select(
-          "reporting_date, trials_started, classified_trials, first_project_companies, first_value_companies, paid_companies, revenue_cents"
+          "reporting_date, trials_started, classified_trials, first_project_companies, activated_companies, first_value_companies, paid_companies, revenue_cents"
         )
         .gte("reporting_date", periods.previous.startDate)
         .lte("reporting_date", periods.current.endDate)
@@ -243,7 +243,7 @@ async function funnelRows(
     client
       .from("growth_channel_performance")
       .select(
-        "reporting_date, trials_started, first_project_companies, first_value_companies, paid_companies, revenue_cents"
+        "reporting_date, trials_started, first_project_companies, activated_companies, first_value_companies, paid_companies, revenue_cents"
       )
       .eq("canonical_channel", channel)
       .gte("reporting_date", periods.previous.startDate)
@@ -281,7 +281,7 @@ async function channelPerformance(
       client
         .from("growth_channel_performance")
         .select(
-          "canonical_channel, attribution_basis, trials_started, first_value_companies, paid_companies, revenue_cents"
+          "canonical_channel, attribution_basis, trials_started, activated_companies, first_value_companies, paid_companies, revenue_cents"
         )
         .gte("reporting_date", filters.startDate)
         .lte("reporting_date", filters.endDate),
@@ -304,6 +304,7 @@ async function channelPerformance(
       discovery: null,
       discoveryLabel: "Discovery unavailable",
       trials: 0,
+      activated: 0,
       firstValue: 0,
       paid: 0,
       activationRate: null,
@@ -311,6 +312,7 @@ async function channelPerformance(
       confidence: "unknown" as const,
     };
     existing.trials += integer(row.trials_started);
+    existing.activated += integer(row.activated_companies);
     existing.firstValue += integer(row.first_value_companies);
     existing.paid += integer(row.paid_companies);
     existing.revenueCents += integer(row.revenue_cents);
@@ -341,10 +343,10 @@ async function channelPerformance(
       );
       value.discoveryLabel = selectedType.replaceAll("_", " ");
     }
-    value.activationRate = ratio(value.firstValue, value.trials);
+    value.activationRate = ratio(value.activated, value.trials);
   }
   return [...channels.values()].sort((left, right) =>
-    right.firstValue - left.firstValue || right.trials - left.trials
+    right.activated - left.activated || right.trials - left.trials
   );
 }
 
@@ -710,7 +712,7 @@ export async function getGrowthOverview(
     const trend: GrowthTrendPoint[] = currentRows.map((row) => ({
       date: String(row.reporting_date),
       trials: integer(row.trials_started),
-      firstValue: integer(row.first_value_companies),
+      activated: integer(row.activated_companies),
       paid: integer(row.paid_companies),
     }));
     const sourceLanes: GrowthSourceLane[] = [
@@ -761,7 +763,7 @@ export async function getGrowthOverview(
     const overview: GrowthOverview = {
       period: periods.current,
       previousPeriod: periods.previous,
-      activatedCompanies: comparison(current.firstValueCompanies, previous.firstValueCompanies),
+      activatedCompanies: comparison(current.activatedCompanies, previous.activatedCompanies),
       attributionCoverage: coverage,
       funnel: [
         { key: "trial", value: current.trialsStarted, conversionFromTrial: 1 },

@@ -57,7 +57,7 @@ export function buildGrowthOverviewCsv(
     const metrics: Array<[string, CsvCell]> = [
       [channel.discoveryLabel, channel.discovery],
       ["trials", channel.trials],
-      ["activated", channel.firstValue],
+      ["activated", channel.activated],
       ["paid", channel.paid],
       ["activation_rate", channel.activationRate],
       ["revenue_cents", channel.revenueCents],

@@ -17,12 +17,12 @@ export function GrowthTrendChart({
   t,
 }: GrowthTrendChartProps) {
   const reduceMotion = useReducedMotion();
-  const maximum = Math.max(1, ...points.map((point) => point.firstValue));
+  const maximum = Math.max(1, ...points.map((point) => point.activated));
   const denominator = Math.max(1, points.length - 1);
   const polyline = points
     .map((point, index) => {
       const x = (index / denominator) * 100;
-      const y = 38 - (point.firstValue / maximum) * 34;
+      const y = 38 - (point.activated / maximum) * 34;
       return `${x},${y}`;
     })
     .join(" ");
@@ -82,7 +82,7 @@ export function GrowthTrendChart({
                 <tr key={point.date} className="border-t border-border-subtle">
                   <td className="py-1">{point.date}</td>
                   <td className="py-1 text-right">{formatNumber(point.trials)}</td>
-                  <td className="py-1 text-right">{formatNumber(point.firstValue)}</td>
+                  <td className="py-1 text-right">{formatNumber(point.activated)}</td>
                   <td className="py-1 text-right">{formatNumber(point.paid)}</td>
                 </tr>
               ))}

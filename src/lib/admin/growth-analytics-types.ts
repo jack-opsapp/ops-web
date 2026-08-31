@@ -64,7 +64,7 @@ export interface GrowthFunnelStage {
 export interface GrowthTrendPoint {
   date: string;
   trials: number;
-  firstValue: number;
+  activated: number;
   paid: number;
 }
 
@@ -85,6 +85,7 @@ export interface GrowthChannelPerformanceRow {
   discovery: number | null;
   discoveryLabel: string;
   trials: number;
+  activated: number;
   firstValue: number;
   paid: number;
   activationRate: number | null;

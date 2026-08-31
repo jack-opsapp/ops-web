@@ -43,7 +43,7 @@ function overview(state: string) {
       { key: "first_value", value: empty ? 0 : 4, conversionFromTrial: empty ? null : 0.4 },
       { key: "paid", value: empty ? 0 : 2, conversionFromTrial: empty ? null : 0.2 },
     ],
-    trend: empty ? [] : [{ date: "2026-08-30", trials: 2, firstValue: 1, paid: 1 }],
+    trend: empty ? [] : [{ date: "2026-08-30", trials: 2, activated: 1, paid: 1 }],
     sourceLanes: [
       {
         source: "web_search",
@@ -79,6 +79,7 @@ function overview(state: string) {
             discovery: 16,
             discoveryLabel: "sessions",
             trials: 3,
+            activated: 2,
             firstValue: 2,
             paid: 1,
             activationRate: 2 / 3,

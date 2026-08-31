@@ -38,7 +38,7 @@ const overviewData: GrowthOverview = {
     { key: "first_value", value: 4, conversionFromTrial: 0.4 },
     { key: "paid", value: 2, conversionFromTrial: 0.2 },
   ],
-  trend: [{ date: "2026-08-30", trials: 2, firstValue: 1, paid: 1 }],
+  trend: [{ date: "2026-08-30", trials: 2, activated: 1, paid: 1 }],
   sourceLanes: [
     {
       source: "web_search",
@@ -72,6 +72,7 @@ const overviewData: GrowthOverview = {
       discovery: 16,
       discoveryLabel: "sessions",
       trials: 3,
+      activated: 2,
       firstValue: 2,
       paid: 1,
       activationRate: 2 / 3,

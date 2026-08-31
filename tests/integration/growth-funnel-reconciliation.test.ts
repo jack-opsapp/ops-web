@@ -35,6 +35,12 @@ describe("canonical growth milestone reconciliation", () => {
     expect(migration).toContain("then 'active_project'");
   });
 
+  it("locks activation to a real first project inside seven days", () => {
+    expect(migration).toContain("candidate.trial_started_at + interval '7 days'");
+    expect(migration).toContain("end as activated_at");
+    expect(migration).toContain("where milestone.activated_at is not null");
+  });
+
   it("uses immediately preceding equal periods", () => {
     expect(
       growthMilestoneComparisonPeriods({
@@ -54,6 +60,7 @@ describe("canonical growth milestone reconciliation", () => {
         trials_started: 2,
         classified_trials: 1,
         first_project_companies: 2,
+        activated_companies: 1,
         first_value_companies: 1,
         paid_companies: 1,
         revenue_cents: 4900,
@@ -68,6 +75,7 @@ describe("canonical growth milestone reconciliation", () => {
     );
     expect(afterClientEventChanges).toEqual(withNoClientEvents);
     expect(afterClientEventChanges.paidCompanies).toBe(1);
+    expect(afterClientEventChanges.activatedCompanies).toBe(1);
     expect(afterClientEventChanges.firstValueCompanies).toBe(1);
   });
 });
