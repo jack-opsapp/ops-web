@@ -4,6 +4,8 @@ export type AttributionBasis =
   | "verified_click_id"
   | "deterministic_first_party"
   | "utm_referrer"
+  | "app_store"
+  | "self_reported"
   | "direct"
   | "unknown";
 

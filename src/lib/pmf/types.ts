@@ -37,10 +37,13 @@ export type AttributionChannel =
   | "google_ads"
   | "meta_ads"
   | "apple_search_ads"
-  | "organic"
   | "organic_search"
+  | "organic_social"
+  | "app_store_search"
+  | "app_store_browse"
   | "direct"
   | "referral"
+  | "other"
   | "unknown";
 
 export type MarkerStatus = "green" | "amber" | "red";

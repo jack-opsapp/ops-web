@@ -170,8 +170,11 @@ begin
     return jsonb_build_object('status', 'duplicate_ignored');
   end if;
 
-  if v_trial.attribution_basis <> 'unknown'
-     or v_trial.attributed_channel <> 'unknown' then
+  if v_trial.attribution_basis not in ('unknown', 'self_reported')
+     or (
+       v_trial.attributed_channel <> 'unknown'
+       and v_trial.attribution_basis <> 'self_reported'
+     ) then
     return jsonb_build_object('status', 'stronger_evidence_preserved');
   end if;
 
