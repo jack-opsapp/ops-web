@@ -83,4 +83,7 @@ export {
   type RegisteredClientRow,
   type ResolvedAccessTokenRow,
   type RotatedGrantRow,
+  type CanaryBindingRow,
+  resolveCanaryBinding,
 } from "./grants";
+export { resolveOAuthExposureForSubject } from "./canary";

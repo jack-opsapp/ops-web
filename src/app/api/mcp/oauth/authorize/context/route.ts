@@ -9,17 +9,18 @@ import {
   CONSENT_PREVIEW_TTL_SECONDS,
   canonicalizeResourceUri,
   consentLabelsForScopes,
+  getClient,
   isValidCodeChallenge,
   issueConsentPreview,
   isAllowlistedRedirectUri,
   mintCredential,
   resolveMcpOAuthConfig,
-  resolveActiveMcpConsentCatalog,
+  resolveMcpConsentCatalogRevision,
+  resolveOAuthExposureForSubject,
   resolveRequestedScopes,
   sha256Hex,
   type McpOAuthRpcClient,
 } from "@/lib/agent-control-plane/mcp/oauth";
-import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { rateLimit } from "@/lib/utils/ratelimit";
 
@@ -118,16 +119,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   ) {
     return invalidRequest();
   }
-  const exposure = resolveActiveMcpExposure();
-  const consentCatalog = resolveActiveMcpConsentCatalog();
-  const scopes = resolveRequestedScopes(
-    typeof rawScope === "string" ? rawScope : null,
-    exposure
-  );
-  if (!scopes) return invalidRequest();
-  const acceptedLabels = consentLabelsForScopes(scopes, consentCatalog);
-  if (!acceptedLabels) return invalidRequest();
-
   const rawState = body.state;
   let state: string | null = null;
   if (rawState !== undefined && rawState !== null) {
@@ -168,6 +159,38 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const rpcClient = getServiceRoleClient() as unknown as McpOAuthRpcClient;
+  let client;
+  try {
+    client = await getClient(rpcClient, clientId);
+  } catch {
+    return serverError();
+  }
+  if (!client) return invalidRequest();
+
+  let exposure;
+  try {
+    exposure = await resolveOAuthExposureForSubject({
+      rpcClient,
+      client,
+      userId: auth.id,
+      companyId: auth.companyId,
+    });
+  } catch {
+    return serverError();
+  }
+  if (exposure === null) return invalidRequest();
+
+  const consentCatalog = resolveMcpConsentCatalogRevision(
+    client.consent_catalog_revision
+  );
+  const scopes = resolveRequestedScopes(
+    typeof rawScope === "string" ? rawScope : null,
+    exposure
+  );
+  if (!scopes) return invalidRequest();
+  const acceptedLabels = consentLabelsForScopes(scopes, consentCatalog);
+  if (!acceptedLabels) return invalidRequest();
+
   const consentPreview = mintCredential(CONSENT_PREVIEW_PREFIX);
   const expiresAt = new Date(Date.now() + CONSENT_PREVIEW_TTL_SECONDS * 1000);
 
