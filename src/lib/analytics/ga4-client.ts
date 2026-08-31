@@ -7,6 +7,10 @@
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
 import type { protos } from "@google-analytics/data";
 import { parsePrivateKey } from "@/lib/firebase/parse-private-key";
+import {
+  getGA4PropertyId,
+  type GA4PropertyKey,
+} from "@/lib/analytics/ga4-properties";
 
 type Row = protos.google.analytics.data.v1beta.IRow;
 
@@ -17,7 +21,35 @@ let _ga4Client: BetaAnalyticsDataClient | null = null;
 export function getGA4Client(): BetaAnalyticsDataClient {
   if (_ga4Client) return _ga4Client;
 
-  // Support full JSON or individual env vars
+  const analyticsServiceAccountJson = process.env.GA4_SERVICE_ACCOUNT_JSON;
+  if (analyticsServiceAccountJson) {
+    _ga4Client = new BetaAnalyticsDataClient({
+      credentials: JSON.parse(analyticsServiceAccountJson),
+    });
+    return _ga4Client;
+  }
+
+  const analyticsPrivateKey = parsePrivateKey(
+    process.env.GA4_SERVICE_ACCOUNT_PRIVATE_KEY
+  );
+  const analyticsClientEmail = process.env.GA4_SERVICE_ACCOUNT_CLIENT_EMAIL;
+  if (analyticsPrivateKey || analyticsClientEmail) {
+    if (!analyticsPrivateKey || !analyticsClientEmail) {
+      throw new Error(
+        "GA4_SERVICE_ACCOUNT_CLIENT_EMAIL and GA4_SERVICE_ACCOUNT_PRIVATE_KEY must both be set"
+      );
+    }
+    _ga4Client = new BetaAnalyticsDataClient({
+      credentials: {
+        client_email: analyticsClientEmail,
+        private_key: analyticsPrivateKey,
+      },
+    });
+    return _ga4Client;
+  }
+
+  // Backward-compatible fallback while the dedicated read-only identity is
+  // granted Viewer access across all three properties.
   const serviceAccountJson = process.env.FIREBASE_ADMIN_SERVICE_ACCOUNT;
   if (serviceAccountJson) {
     _ga4Client = new BetaAnalyticsDataClient({
@@ -43,10 +75,8 @@ export function getGA4Client(): BetaAnalyticsDataClient {
   return _ga4Client;
 }
 
-export function getPropertyId(): string {
-  const id = process.env.GA4_PROPERTY_ID;
-  if (!id) throw new Error("Missing GA4_PROPERTY_ID env var");
-  return `properties/${id}`;
+export function getPropertyId(key: GA4PropertyKey): string {
+  return getGA4PropertyId(key);
 }
 
 // ─── Helpers (pure, testable) ─────────────────────────────────────────────────
@@ -67,10 +97,14 @@ export function processEventCountRows(rows: Row[]) {
 /**
  * Get event counts by platform for a specific event name.
  */
-export async function getEventByPlatform(eventName: string, days = 30) {
+export async function getEventByPlatform(
+  propertyKey: GA4PropertyKey,
+  eventName: string,
+  days = 30
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "platform" }],
     metrics: [{ name: "eventCount" }],
     dimensionFilter: {
@@ -87,10 +121,14 @@ export async function getEventByPlatform(eventName: string, days = 30) {
 /**
  * Get event counts by date (YYYY-MM-DD) for a specific event.
  */
-export async function getEventByDate(eventName: string, days = 30) {
+export async function getEventByDate(
+  propertyKey: GA4PropertyKey,
+  eventName: string,
+  days = 30
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "date" }],
     metrics: [{ name: "eventCount" }],
     dimensionFilter: {
@@ -108,7 +146,11 @@ export async function getEventByDate(eventName: string, days = 30) {
 /**
  * Get funnel step counts for the onboarding funnel.
  */
-export async function getOnboardingFunnel(days = 90, platform?: string) {
+export async function getOnboardingFunnel(
+  propertyKey: GA4PropertyKey,
+  days = 90,
+  platform?: string
+) {
   const steps = [
     { step: "Sign Up", eventName: "sign_up" },
     { step: "Begin Trial", eventName: "begin_trial" },
@@ -138,7 +180,7 @@ export async function getOnboardingFunnel(days = 90, platform?: string) {
       }
 
       const [response] = await client.runReport({
-        property: getPropertyId(),
+        property: getPropertyId(propertyKey),
         metrics: [{ name: "eventCount" }],
         dimensionFilter: filters.length > 1 ? { andGroup: { expressions: filters } } : dimensionFilter,
         dateRanges: [buildDateRange(days)],
@@ -155,10 +197,14 @@ export async function getOnboardingFunnel(days = 90, platform?: string) {
 /**
  * Get top screens by view count.
  */
-export async function getTopScreens(days = 30, limit = 10) {
+export async function getTopScreens(
+  propertyKey: GA4PropertyKey,
+  days = 30,
+  limit = 10
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "customEvent:screen_name" }],
     metrics: [{ name: "eventCount" }],
     dimensionFilter: {
@@ -177,10 +223,13 @@ export async function getTopScreens(days = 30, limit = 10) {
 /**
  * Get sign-up counts per week broken down by platform.
  */
-export async function getSignupsByWeek(weeks = 12) {
+export async function getSignupsByWeek(
+  propertyKey: GA4PropertyKey,
+  weeks = 12
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "yearWeek" }, { name: "platform" }],
     metrics: [{ name: "eventCount" }],
     dimensionFilter: {
@@ -198,10 +247,14 @@ export async function getSignupsByWeek(weeks = 12) {
 /**
  * Get total event count for a specific event name (no dimension).
  */
-export async function getEventCountTotal(eventName: string, days = 30): Promise<number> {
+export async function getEventCountTotal(
+  propertyKey: GA4PropertyKey,
+  eventName: string,
+  days = 30
+): Promise<number> {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     metrics: [{ name: "eventCount" }],
     dimensionFilter: {
       filter: {
@@ -217,10 +270,15 @@ export async function getEventCountTotal(eventName: string, days = 30): Promise<
 /**
  * Get event counts by an arbitrary dimension.
  */
-export async function getEventByDimension(eventName: string, dimensionName: string, days = 30) {
+export async function getEventByDimension(
+  propertyKey: GA4PropertyKey,
+  eventName: string,
+  dimensionName: string,
+  days = 30
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: dimensionName }],
     metrics: [{ name: "eventCount" }],
     dimensionFilter: {
@@ -238,10 +296,13 @@ export async function getEventByDimension(eventName: string, dimensionName: stri
 /**
  * Get form abandonment breakdown by form type.
  */
-export async function getFormAbandonment(days = 30) {
+export async function getFormAbandonment(
+  propertyKey: GA4PropertyKey,
+  days = 30
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "customEvent:form_type" }],
     metrics: [{ name: "eventCount" }],
     dimensionFilter: {
@@ -261,10 +322,13 @@ export async function getFormAbandonment(days = 30) {
 /**
  * Get total page views on /blog/* paths.
  */
-export async function getBlogPageViews(days = 30): Promise<number> {
+export async function getBlogPageViews(
+  propertyKey: GA4PropertyKey,
+  days = 30
+): Promise<number> {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     metrics: [{ name: "screenPageViews" }],
     dimensionFilter: {
       filter: {
@@ -281,10 +345,14 @@ export async function getBlogPageViews(days = 30): Promise<number> {
  * Get page views broken down by individual blog post path.
  * Returns [{dimension: "/blog/slug", count: 123}] sorted by count desc.
  */
-export async function getBlogViewsByPost(days = 30, limit = 50) {
+export async function getBlogViewsByPost(
+  propertyKey: GA4PropertyKey,
+  days = 30,
+  limit = 50
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "pagePath" }],
     metrics: [{ name: "screenPageViews" }],
     dimensionFilter: {
@@ -304,10 +372,13 @@ export async function getBlogViewsByPost(days = 30, limit = 50) {
  * Get blog page views by date for trend line chart.
  * Returns [{dimension: "20260215", count: 45}] sorted by date asc.
  */
-export async function getBlogViewsTimeline(days = 30) {
+export async function getBlogViewsTimeline(
+  propertyKey: GA4PropertyKey,
+  days = 30
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "date" }],
     metrics: [{ name: "screenPageViews" }],
     dimensionFilter: {

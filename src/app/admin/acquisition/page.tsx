@@ -2,7 +2,9 @@ import Link from "next/link";
 import {
   getEventCountTotal,
   getEventByDimension,
+  getPropertyId,
 } from "@/lib/analytics/ga4-client";
+import { isGA4PropertyConfigured } from "@/lib/analytics/ga4-properties";
 import {
   isGoogleAdsConfigured,
   getCachedAccountSummary,
@@ -15,7 +17,7 @@ import { safe } from "@/lib/utils/safe";
 import type { ConversionBreakdown } from "@/lib/analytics/google-ads-types";
 
 async function fetchAcquisitionData() {
-  const ga4Available = !!process.env.GA4_PROPERTY_ID;
+  const ga4Available = isGA4PropertyConfigured("marketing");
   if (!ga4Available) {
     return {
       ga4Available: false,
@@ -28,9 +30,11 @@ async function fetchAcquisitionData() {
       tutorialFunnel: [],
       signupFunnel: [],
       megaFunnel: [],
+      ga4PropertyId: null,
     };
   }
 
+  const ga4PropertyId = getPropertyId("marketing").replace("properties/", "");
   const adsConfigured = isGoogleAdsConfigured();
 
   const [
@@ -48,26 +52,46 @@ async function fetchAcquisitionData() {
     adsSummary,
     adsConversions,
   ] = await Promise.all([
-    safe(getEventCountTotal("landing_page_view", 30), 0),
-    safe(getEventCountTotal("landing_cta_click", 30), 0),
-    safe(getEventByDimension("scroll_depth_milestone", "customEvent:depth", 30), []),
-    safe(getEventByDimension("section_view", "customEvent:section", 30), []),
-    safe(getEventByDimension("landing_page_view", "customEvent:variant", 30), []),
-    safe(getEventByDimension("tutorial_step_view", "customEvent:step_id", 30), []),
-    safe(getEventCountTotal("tutorial_complete", 30), 0),
-    safe(getEventCountTotal("tutorial_skip", 30), 0),
-    safe(getEventByDimension("signup_step_view", "customEvent:step_name", 30), []),
-    safe(getEventCountTotal("signup_complete", 30), 0),
-    safe(Promise.all([
-      safe(getEventCountTotal("landing_page_view", 90), 0),
-      safe(getEventCountTotal("landing_cta_click", 90), 0),
-      safe(getEventCountTotal("tutorial_complete", 90), 0),
-      safe(getEventCountTotal("signup_complete", 90), 0),
-      safe(getEventCountTotal("sign_up", 90), 0),
-      safe(getEventCountTotal("begin_trial", 90), 0),
-      safe(getEventCountTotal("complete_onboarding", 90), 0),
-      safe(getEventCountTotal("create_first_project", 90), 0),
-    ]), [0, 0, 0, 0, 0, 0, 0, 0]),
+    getEventCountTotal("marketing", "landing_page_view", 30),
+    getEventCountTotal("marketing", "landing_cta_click", 30),
+    getEventByDimension(
+      "marketing",
+      "scroll_depth_milestone",
+      "customEvent:depth",
+      30
+    ),
+    getEventByDimension("marketing", "section_view", "customEvent:section", 30),
+    getEventByDimension(
+      "marketing",
+      "landing_page_view",
+      "customEvent:variant",
+      30
+    ),
+    getEventByDimension(
+      "marketing",
+      "tutorial_step_view",
+      "customEvent:step_id",
+      30
+    ),
+    getEventCountTotal("marketing", "tutorial_complete", 30),
+    getEventCountTotal("marketing", "tutorial_skip", 30),
+    getEventByDimension(
+      "marketing",
+      "signup_step_view",
+      "customEvent:step_name",
+      30
+    ),
+    getEventCountTotal("marketing", "signup_complete", 30),
+    Promise.all([
+      getEventCountTotal("marketing", "landing_page_view", 90),
+      getEventCountTotal("marketing", "landing_cta_click", 90),
+      getEventCountTotal("marketing", "tutorial_complete", 90),
+      getEventCountTotal("marketing", "signup_complete", 90),
+      getEventCountTotal("marketing", "sign_up", 90),
+      getEventCountTotal("marketing", "begin_trial", 90),
+      getEventCountTotal("marketing", "complete_onboarding", 90),
+      getEventCountTotal("marketing", "create_first_project", 90),
+    ]),
     adsConfigured ? safe(getCachedAccountSummary(30), null) : Promise.resolve(null),
     adsConfigured ? safe(getCachedCostPerConversion(30), [] as ConversionBreakdown[]) : Promise.resolve([] as ConversionBreakdown[]),
   ]);
@@ -121,6 +145,7 @@ async function fetchAcquisitionData() {
     megaFunnel,
     adsSummary,
     adsConversions,
+    ga4PropertyId,
   };
 }
 
@@ -144,8 +169,8 @@ export default async function AcquisitionPage() {
       <AdminPageHeader
         title="Acquisition"
         caption={data.ga4Available
-          ? "GA4 data ~24-48hr delay"
-          : "GA4 not configured (set GA4_PROPERTY_ID)"
+          ? `MARKETING GA4 · PROPERTY ${data.ga4PropertyId} · 24–48H DELAY`
+          : "MARKETING GA4 · NOT CONFIGURED"
         }
       />
 

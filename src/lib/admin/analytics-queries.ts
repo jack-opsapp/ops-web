@@ -5,14 +5,18 @@
  * Data latency: ~24-48 hours.
  */
 import { getGA4Client, getPropertyId, buildDateRange } from "@/lib/analytics/ga4-client";
+import type { GA4PropertyKey } from "@/lib/analytics/ga4-properties";
 import type { WebsiteOverview, ChartDataPoint } from "@/lib/admin/types";
 
 // ─── Website Overview ────────────────────────────────────────────────────────
 
-export async function getWebsiteOverview(days = 30): Promise<WebsiteOverview> {
+export async function getWebsiteOverview(
+  propertyKey: GA4PropertyKey,
+  days = 30
+): Promise<WebsiteOverview> {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     metrics: [
       { name: "sessions" },
       { name: "activeUsers" },
@@ -37,10 +41,13 @@ export async function getWebsiteOverview(days = 30): Promise<WebsiteOverview> {
 
 // ─── Sessions by Date ────────────────────────────────────────────────────────
 
-export async function getSessionsByDate(days = 30): Promise<ChartDataPoint[]> {
+export async function getSessionsByDate(
+  propertyKey: GA4PropertyKey,
+  days = 30
+): Promise<ChartDataPoint[]> {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "date" }],
     metrics: [{ name: "sessions" }],
     dateRanges: [buildDateRange(days)],
@@ -62,10 +69,14 @@ export async function getSessionsByDate(days = 30): Promise<ChartDataPoint[]> {
 
 // ─── Top Pages ───────────────────────────────────────────────────────────────
 
-export async function getTopPages(days = 30, limit = 10) {
+export async function getTopPages(
+  propertyKey: GA4PropertyKey,
+  days = 30,
+  limit = 10
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "pagePath" }],
     metrics: [{ name: "screenPageViews" }],
     dateRanges: [buildDateRange(days)],
@@ -81,10 +92,14 @@ export async function getTopPages(days = 30, limit = 10) {
 
 // ─── Top Referrers ───────────────────────────────────────────────────────────
 
-export async function getTopReferrers(days = 30, limit = 10) {
+export async function getTopReferrers(
+  propertyKey: GA4PropertyKey,
+  days = 30,
+  limit = 10
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "sessionSource" }],
     metrics: [{ name: "sessions" }],
     dateRanges: [buildDateRange(days)],
@@ -100,10 +115,13 @@ export async function getTopReferrers(days = 30, limit = 10) {
 
 // ─── Device Breakdown ────────────────────────────────────────────────────────
 
-export async function getDeviceBreakdown(days = 30) {
+export async function getDeviceBreakdown(
+  propertyKey: GA4PropertyKey,
+  days = 30
+) {
   const client = getGA4Client();
   const [response] = await client.runReport({
-    property: getPropertyId(),
+    property: getPropertyId(propertyKey),
     dimensions: [{ name: "deviceCategory" }],
     metrics: [{ name: "sessions" }],
     dateRanges: [buildDateRange(days)],
