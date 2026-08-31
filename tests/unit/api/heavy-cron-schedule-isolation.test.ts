@@ -64,7 +64,7 @@ const guardedProductionRoutes = new Map<string, string>([
   ["/api/cron/email/projection-stuck-check", "9-59/20 * * * *"],
   ["/api/cron/onboarding-drip", "19 * * * *"],
   ["/api/cron/lead-lifecycle", "14 11 * * *"],
-  ["/api/cron/lead-summary-refresh", "18 13-23,0-4 * * *"],
+  ["/api/cron/lead-summary-refresh", "18-59/15 13-23,0-4 * * *"],
   ["/api/cron/accounting/quickbooks/push-queue", "14-59/20 13-23,0-4 * * *"],
   // Full-day on purpose: booked-visit prompts are appointment-time-critical
   // and cannot live in the overnight email window. Shares the */5 grid with
@@ -75,6 +75,9 @@ const guardedProductionRoutes = new Map<string, string>([
   // site-visit-prompts + fire_due_task_reminders) — exactly at the 3-lane
   // budget; the next full-day cron must pick a different grid.
   ["/api/cron/google-calendar-sync", "*/5 * * * *"],
+  // Full-day on purpose, but offset from the three existing minute-zero
+  // lanes. Runtime activation remains independently server-gated.
+  ["/api/cron/day-closeout-routines", "2-59/5 * * * *"],
 ]);
 
 const migrationDirectory = join(process.cwd(), "supabase/migrations");
@@ -143,7 +146,19 @@ function sourceUsesDurableGuard(apiPath: string): boolean {
   const sourcePath = routeSourcePath(apiPath);
   if (!existsSync(sourcePath)) return false;
   const source = readFileSync(sourcePath, "utf8");
-  return /await\s+runWithCronWorkloadControl\s*\(\s*\{/.test(source);
+  if (/await\s+runWithCronWorkloadControl\s*\(\s*\{/.test(source)) return true;
+
+  // Some routes isolate the pure HTTP handler for unit testing. The production
+  // route must inject the exact shared guard and that handler must await it.
+  if (!/runWithControl:\s*runWithCronWorkloadControl/.test(source))
+    return false;
+  const handlerPath = join(routeSourcePath(apiPath), "..", "handler.ts");
+  return (
+    existsSync(handlerPath) &&
+    /await\s+dependencies\.runWithControl\s*\(\s*\{/.test(
+      readFileSync(handlerPath, "utf8")
+    )
+  );
 }
 
 describe("heavy production cron schedule isolation", () => {
