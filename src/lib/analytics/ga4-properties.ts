@@ -1,4 +1,9 @@
-export type GA4PropertyKey = "marketing" | "web_app" | "ios_app";
+import {
+  ANALYTICS_PROPERTY_REGISTRY,
+  type AnalyticsPropertyKey,
+} from "./property-registry";
+
+export type GA4PropertyKey = AnalyticsPropertyKey;
 
 const PROPERTY_ENV_BY_KEY: Record<GA4PropertyKey, string> = {
   marketing: "GA4_MARKETING_PROPERTY_ID",
@@ -15,6 +20,9 @@ export function getGA4PropertyId(
   if (!value) throw new Error(`Missing ${environmentKey} env var`);
   if (value !== value.trim() || !/^\d+$/.test(value)) {
     throw new Error(`Invalid ${environmentKey} env var`);
+  }
+  if (value !== ANALYTICS_PROPERTY_REGISTRY[key].propertyId) {
+    throw new Error(`${environmentKey} does not match the OPS property registry`);
   }
   return `properties/${value}`;
 }

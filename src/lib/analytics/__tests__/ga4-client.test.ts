@@ -34,6 +34,13 @@ describe("getPropertyId", () => {
       "Invalid GA4_MARKETING_PROPERTY_ID"
     );
   });
+
+  it("rejects a valid numeric ID mapped to the wrong OPS property", () => {
+    process.env.GA4_MARKETING_PROPERTY_ID = "539494652";
+    expect(() => getPropertyId("marketing")).toThrow(
+      "does not match the OPS property registry"
+    );
+  });
 });
 
 describe("buildDateRange", () => {

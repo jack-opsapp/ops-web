@@ -91,6 +91,11 @@ export const NOTIF_TYPE_META: Record<NotificationType, NotificationMeta> = {
     icon: "activity",
     tone: "critical",
   },
+  analytics_source_failed: {
+    label: "ANALYTICS",
+    icon: "activity",
+    tone: "critical",
+  },
   agent_suggestion: { label: "AGENT", icon: "bot", tone: "accent" },
   // AlarmClock in lucide 0.468 — ClockAlert (0.475+) preferred long-term; upgrade when lucide-react is bumped.
   trial_expiry: { label: "TRIAL", icon: "alarm-clock", tone: "critical" },

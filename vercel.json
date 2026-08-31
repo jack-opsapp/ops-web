@@ -85,6 +85,10 @@
       "schedule": "44 9 * * *"
     },
     {
+      "path": "/api/cron/analytics-health",
+      "schedule": "49 10 * * *"
+    },
+    {
       "path": "/api/cron/duplicate-scan",
       "schedule": "4 5 * * *"
     },

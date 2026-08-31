@@ -52,6 +52,10 @@ describe("GA measurement ID parsing", () => {
 
   it("serializes the measurement ID instead of interpolating executable text", () => {
     const script = buildGoogleAnalyticsConfigScript("G-TEST123");
+    expect(script).toContain(`gtag('consent', 'default', {`);
+    expect(script).toContain(`'ad_storage': 'denied'`);
+    expect(script).toContain(`'ad_user_data': 'denied'`);
+    expect(script).toContain(`'ad_personalization': 'denied'`);
     expect(script).toContain(`gtag('config', "G-TEST123", {`);
     expect(script).toContain(
       "page_location: window.location.origin + analyticsPath"
@@ -59,14 +63,14 @@ describe("GA measurement ID parsing", () => {
     expect(script).not.toMatch(/window\.location\.(?:href|search)/);
   });
 
-  it("templates resource UUIDs before the initial logged-in page view", () => {
+  it("templates resource identifiers before the initial logged-in page view", () => {
     const dataLayer: IArguments[] = [];
     const browser = {
       dataLayer,
       location: {
         origin: "https://app.opsapp.co",
         pathname:
-          "/projects/123e4567-e89b-42d3-a456-426614174000/tasks/123e4567-e89b-42d3-a456-426614174001",
+          "/projects/01890f3b-57d2-8a11-9c7f-426614174000/tasks/42",
         search: "?client=private",
       },
     };
@@ -76,7 +80,7 @@ describe("GA measurement ID parsing", () => {
       new Function("window", buildGoogleAnalyticsConfigScript("G-TEST123"))(
         browser
       );
-      const configCall = Array.from(dataLayer[1] ?? []);
+      const configCall = Array.from(dataLayer[2] ?? []);
       expect(configCall).toEqual([
         "config",
         "G-TEST123",

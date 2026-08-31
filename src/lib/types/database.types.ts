@@ -1614,6 +1614,89 @@ export type Database = {
         }
         Relationships: []
       }
+      analytics_events_daily: {
+        Row: {
+          aggregated_at: string
+          app_version: string
+          duration_ms_total: number
+          environment: string
+          event_count: number
+          event_date: string
+          event_name: string
+          event_type: string
+          first_event_at: string
+          last_event_at: string
+          platform: string
+          session_count: number
+        }
+        Insert: {
+          aggregated_at?: string
+          app_version?: string
+          duration_ms_total: number
+          environment: string
+          event_count: number
+          event_date: string
+          event_name: string
+          event_type: string
+          first_event_at: string
+          last_event_at: string
+          platform: string
+          session_count: number
+        }
+        Update: {
+          aggregated_at?: string
+          app_version?: string
+          duration_ms_total?: number
+          environment?: string
+          event_count?: number
+          event_date?: string
+          event_name?: string
+          event_type?: string
+          first_event_at?: string
+          last_event_at?: string
+          platform?: string
+          session_count?: number
+        }
+        Relationships: []
+      }
+      analytics_health_states: {
+        Row: {
+          checked_at: string
+          details: Json
+          last_observed_state: string
+          open_notification_id: string | null
+          source: string
+          state: string | null
+          state_changed_at: string | null
+        }
+        Insert: {
+          checked_at?: string
+          details?: Json
+          last_observed_state: string
+          open_notification_id?: string | null
+          source: string
+          state?: string | null
+          state_changed_at?: string | null
+        }
+        Update: {
+          checked_at?: string
+          details?: Json
+          last_observed_state?: string
+          open_notification_id?: string | null
+          source?: string
+          state?: string | null
+          state_changed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_health_states_open_notification_id_fkey"
+            columns: ["open_notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       analytics_sync_runs: {
         Row: {
           created_at: string
@@ -22080,8 +22163,10 @@ export type Database = {
       }
       growth_channel_performance: {
         Row: {
+          activated_companies: number | null
           attribution_basis: string | null
           canonical_channel: string | null
+          first_value_companies: number | null
           first_project_companies: number | null
           grain: string | null
           paid_companies: number | null
@@ -22105,13 +22190,33 @@ export type Database = {
         }
         Relationships: []
       }
+      growth_company_milestones: {
+        Row: {
+          activated_at: string | null
+          attribution_basis: string | null
+          attribution_confidence: number | null
+          canonical_channel: string | null
+          company_id: string | null
+          first_paid_at: string | null
+          first_project_at: string | null
+          first_value_at: string | null
+          first_value_evidence: string | null
+          first_value_kind: string | null
+          revenue_cents: number | null
+          trial_started_at: string | null
+        }
+        Relationships: []
+      }
       growth_funnel_daily: {
         Row: {
+          activated_companies: number | null
           classified_trials: number | null
+          first_value_companies: number | null
           first_project_companies: number | null
           grain: string | null
           paid_companies: number | null
           reporting_date: string | null
+          revenue_cents: number | null
           trials_started: number | null
         }
         Relationships: []
@@ -22515,6 +22620,20 @@ export type Database = {
       }
       append_analytics_events: {
         Args: { p_events: Json; p_expected_subject: string }
+        Returns: Json
+      }
+      analytics_properties_are_safe: {
+        Args: { p_properties: Json }
+        Returns: boolean
+      }
+      apply_analytics_health_source: {
+        Args: {
+          p_company_id: string
+          p_details: Json
+          p_source: string
+          p_state: string
+          p_user_id: string
+        }
         Returns: Json
       }
       adopt_orphan_email_activity_as_system: {
@@ -25719,6 +25838,10 @@ export type Database = {
         }[]
       }
       expense_envelope_sweep: { Args: never; Returns: number }
+      enforce_analytics_retention: {
+        Args: { p_now?: string }
+        Returns: Json
+      }
       expire_attribution_click_ids: {
         Args: { p_now?: string }
         Returns: Json
@@ -25964,6 +26087,7 @@ export type Database = {
       }
       generate_text_id: { Args: never; Returns: string }
       get_company_join_details: { Args: { p_code: string }; Returns: Json }
+      get_growth_analytics_health_snapshot: { Args: never; Returns: Json }
       get_conversion_preflight: {
         Args: {
           p_actor_user_id?: string
