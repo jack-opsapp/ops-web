@@ -21,6 +21,11 @@ import {
   createDayCloseoutService,
   type DayCloseoutService,
 } from "@/lib/agent-control-plane/services/day-closeout/day-closeout-service";
+import { createCollectionsRepository } from "@/lib/agent-control-plane/services/collections/collections-repository";
+import {
+  createCollectionsService,
+  type CollectionsService,
+} from "@/lib/agent-control-plane/services/collections/collections-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -61,6 +66,7 @@ interface McpRpcClient {
 export interface McpServerRuntime {
   readonly domainService: OpsAgentCapabilityService;
   readonly dayCloseout: DayCloseoutService;
+  readonly collections: CollectionsService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -221,13 +227,20 @@ export function getMcpServerRuntime(): McpServerRuntime {
     repository: createDayCloseoutRepository(rpcClient),
     authorityRepository,
   });
+  const collections = createCollectionsService({
+    readService,
+    repository: createCollectionsRepository(rpcClient),
+    authorityRepository,
+  });
 
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
       reads: readService,
       dayCloseout,
+      collections,
     }),
     dayCloseout,
+    collections,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

@@ -4,6 +4,8 @@
  * Types for agent-proposed actions that require user approval.
  */
 
+import type { CollectionsDraftPreview } from "@/lib/agent-control-plane/contracts/collections";
+
 // ─── Action Types ─────────────────────────────────────────────────────────────
 
 export type AgentActionType =
@@ -27,7 +29,8 @@ export type AgentActionType =
   | "send_schedule_changed"
   | "send_subcontractor_coordination"
   | "process_reschedule_request"
-  | "file_day_closeout";
+  | "file_day_closeout"
+  | "approve_collections_draft";
 
 export type AgentActionStatus =
   | "pending"
@@ -64,7 +67,22 @@ export type AgentActionContextSource =
   | "appointment_reminder_cron"
   | "inbound_email"
   | "subcontractor_coordination"
-  | "day_closeout";
+  | "day_closeout"
+  | "collections";
+
+export interface ApproveCollectionsDraftActionData {
+  schema_revision: "2026-08-31.v1";
+  run_id: string;
+  change_set_id: string;
+  host_client_name: string;
+  context_source: "collections";
+  customer_ref: { kind: "client"; id: string };
+  customer_display_name: string;
+  preview: CollectionsDraftPreview;
+  preview_sha256: string;
+  expires_at: string;
+  delivery_state: "not_sent";
+}
 
 export interface FileDayCloseoutActionData {
   schema_revision: "2026-08-30.v1";

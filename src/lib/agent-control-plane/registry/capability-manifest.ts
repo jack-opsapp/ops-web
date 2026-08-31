@@ -28,12 +28,18 @@ import {
   COMMIT_DAY_CLOSEOUT_CAPABILITY_DEFINITION,
   DAY_CLOSEOUT_CAPABILITY_DEFINITION,
 } from "./day-closeout-capability";
+import {
+  COMMIT_COLLECTIONS_DRAFT_CAPABILITY_DEFINITION,
+  PREPARE_COLLECTIONS_CAPABILITY_DEFINITION,
+} from "./collections-capability";
 
 export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
 export const CAPABILITY_MANIFEST_REVISION = RESERVED_P2_MANIFEST_REVISION;
 export const INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION =
   "2026-08-30.capability-manifest.v9" as const;
+export const COLLECTIONS_CAPABILITY_MANIFEST_REVISION =
+  "2026-08-31.capability-manifest.v10" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -168,8 +174,9 @@ function remintEntry(
   });
 }
 
-function mintInvisibleOfficeEntry(
-  definition: ImplementationOnlyCapabilityDefinition
+function mintImplementationEntry(
+  definition: ImplementationOnlyCapabilityDefinition,
+  manifestRevision: string
 ): CapabilityManifestEntry {
   return Object.freeze({
     ...definition,
@@ -182,10 +189,7 @@ function mintInvisibleOfficeEntry(
       implementation: definition.availability.implementation,
     }),
     authorization: Object.freeze({
-      variants: mintVariants(
-        definition,
-        INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
-      ),
+      variants: mintVariants(definition, manifestRevision),
     }),
   });
 }
@@ -230,8 +234,14 @@ const invisibleOfficeManifestEntries: readonly CapabilityManifestEntry[] = [
   ...CAPABILITY_MANIFEST.map((entry) =>
     remintEntry(entry, INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION)
   ),
-  mintInvisibleOfficeEntry(DAY_CLOSEOUT_CAPABILITY_DEFINITION),
-  mintInvisibleOfficeEntry(COMMIT_DAY_CLOSEOUT_CAPABILITY_DEFINITION),
+  mintImplementationEntry(
+    DAY_CLOSEOUT_CAPABILITY_DEFINITION,
+    INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
+  ),
+  mintImplementationEntry(
+    COMMIT_DAY_CLOSEOUT_CAPABILITY_DEFINITION,
+    INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
+  ),
 ];
 assertCapabilityManifestInvariants(
   invisibleOfficeManifestEntries,
@@ -248,6 +258,32 @@ const INVISIBLE_OFFICE_CAPABILITY_BY_NAME = new Map(
   )
 );
 
+const collectionsManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...INVISIBLE_OFFICE_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, COLLECTIONS_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PREPARE_COLLECTIONS_CAPABILITY_DEFINITION,
+    COLLECTIONS_CAPABILITY_MANIFEST_REVISION
+  ),
+  mintImplementationEntry(
+    COMMIT_COLLECTIONS_DRAFT_CAPABILITY_DEFINITION,
+    COLLECTIONS_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  collectionsManifestEntries,
+  COLLECTIONS_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(collectionsManifestEntries);
+
+export const COLLECTIONS_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(collectionsManifestEntries);
+
+const COLLECTIONS_CAPABILITY_BY_NAME = new Map(
+  COLLECTIONS_CAPABILITY_MANIFEST.map((entry) => [entry.name, entry] as const)
+);
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -260,6 +296,14 @@ export function getInvisibleOfficeCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
   const entry = INVISIBLE_OFFICE_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getCollectionsCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = COLLECTIONS_CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
 }
@@ -540,6 +584,16 @@ export function resolveInvisibleOfficeCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getInvisibleOfficeCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveCollectionsCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getCollectionsCapabilityManifestEntry(capabilityName),
     rawInput
   );
 }
