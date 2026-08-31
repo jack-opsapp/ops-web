@@ -77,6 +77,10 @@
       "schedule": "4 9 * * *"
     },
     {
+      "path": "/api/cron/search-console-sync",
+      "schedule": "24 9 * * *"
+    },
+    {
       "path": "/api/cron/duplicate-scan",
       "schedule": "4 5 * * *"
     },
