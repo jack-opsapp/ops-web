@@ -58,7 +58,7 @@ describe("MCP production runtime", () => {
     expect(abortSignal).toHaveBeenCalledOnce();
   });
 
-  it("constructs and caches the read catalogue plus inactive closeout prepare without reading", async () => {
+  it("constructs and caches the read catalogue plus inactive prepare verticals without reading", async () => {
     vi.resetModules();
     vi.stubEnv(CURSOR_KEY_ENV, "ab".repeat(32));
     const rpc = vi.fn(async () => ({ data: null, error: null }));
@@ -108,6 +108,7 @@ describe("MCP production runtime", () => {
       "getIntegrationHealth",
       "getOperationalOverview",
       "prepareDayCloseout",
+      "prepareCollections",
     ]);
     expect(rpc).not.toHaveBeenCalled();
   });

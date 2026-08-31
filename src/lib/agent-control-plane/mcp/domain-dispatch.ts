@@ -48,9 +48,13 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   get_integration_health: "getIntegrationHealth",
   get_operational_overview: "getOperationalOverview",
   prepare_day_closeout: "prepareDayCloseout",
+  prepare_collections: "prepareCollections",
 } as const satisfies Readonly<
   Record<
-    CurrentProductionMcpToolId | P2ReadCapabilityId | "prepare_day_closeout",
+    | CurrentProductionMcpToolId
+    | P2ReadCapabilityId
+    | "prepare_day_closeout"
+    | "prepare_collections",
     AsyncDomainMethodName
   >
 >);
@@ -58,7 +62,8 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
 export type McpDomainCapabilityId =
   | CurrentProductionMcpToolId
   | P2ReadCapabilityId
-  | "prepare_day_closeout";
+  | "prepare_day_closeout"
+  | "prepare_collections";
 export type McpDomainMethodName =
   (typeof DOMAIN_METHOD_BY_CAPABILITY)[McpDomainCapabilityId];
 

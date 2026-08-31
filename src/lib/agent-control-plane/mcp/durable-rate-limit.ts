@@ -10,6 +10,8 @@ export const DURABLE_MCP_RATE_LIMIT_POLICIES = Object.freeze({
   evidence_search: "mcp-evidence-search:2026-08-23.v1",
   prepare: "mcp-day-closeout-prepare:2026-08-30.v1",
 } as const);
+export const COLLECTIONS_PREPARE_RATE_LIMIT_POLICY =
+  "mcp-collections-prepare:2026-08-31.v1" as const;
 
 export type DurableMcpRateLimitBucket =
   keyof typeof DURABLE_MCP_RATE_LIMIT_POLICIES;
@@ -109,9 +111,11 @@ async function consumeWithDeadline(
 
   try {
     const rawRequest = client.rpc(
-      args.p_policy_id === DURABLE_MCP_RATE_LIMIT_POLICIES.prepare
-        ? "consume_agent_day_closeout_prepare_rate_limit_as_system"
-        : "consume_agent_mcp_rate_limit_as_system",
+      args.p_policy_id === COLLECTIONS_PREPARE_RATE_LIMIT_POLICY
+        ? "consume_agent_collections_prepare_rate_limit_as_system"
+        : args.p_policy_id === DURABLE_MCP_RATE_LIMIT_POLICIES.prepare
+          ? "consume_agent_day_closeout_prepare_rate_limit_as_system"
+          : "consume_agent_mcp_rate_limit_as_system",
       args
     );
     const request = supportsAbortSignal(rawRequest)
@@ -142,13 +146,18 @@ export function createDurableMcpRateLimiter(
       let data: unknown;
       let error: unknown;
       try {
+        const policyId =
+          input.bucket === "prepare" &&
+          input.capabilityId === "prepare_collections"
+            ? COLLECTIONS_PREPARE_RATE_LIMIT_POLICY
+            : DURABLE_MCP_RATE_LIMIT_POLICIES[input.bucket];
         ({ data, error } = await consumeWithDeadline(client, {
           p_request_id: input.requestId,
           p_grant_id: input.grantId,
           p_actor_user_id: input.actorUserId,
           p_company_id: input.companyId,
           p_capability_id: input.capabilityId,
-          p_policy_id: DURABLE_MCP_RATE_LIMIT_POLICIES[input.bucket],
+          p_policy_id: policyId,
           p_requested_units: 1,
           p_protocol_era: input.protocolEra,
         }));

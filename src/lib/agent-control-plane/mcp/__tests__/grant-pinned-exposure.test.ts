@@ -9,6 +9,7 @@ import type { OpsAgentDomainService } from "@/lib/agent-control-plane/services/d
 const V1_REVISION = "2026-08-22.mcp-exposure.v1";
 const V2_REVISION = "2026-08-29.mcp-exposure.v2";
 const V3_REVISION = "2026-08-30.mcp-exposure.v3";
+const V4_REVISION = "2026-08-31.mcp-exposure.v4";
 const V1_TOOLS = [
   "list_scheduled_jobs",
   "list_job_readiness_issues",
@@ -146,6 +147,18 @@ describe("grant-pinned MCP exposure", () => {
     ]);
     await expect(listTools(V3_REVISION)).resolves.not.toContain(
       "commit_day_closeout"
+    );
+  });
+
+  it("keeps inactive v4 narrow to prepare-only collections and never exposes commit or send", async () => {
+    await expect(listTools(V4_REVISION)).resolves.toEqual([
+      "prepare_collections",
+    ]);
+    await expect(listTools(V4_REVISION)).resolves.not.toContain(
+      "commit_collections_draft"
+    );
+    await expect(listTools(V4_REVISION)).resolves.not.toContain(
+      "send_collections_message"
     );
   });
 
