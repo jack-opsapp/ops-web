@@ -188,11 +188,16 @@ describe("company data manifest — PRIMARY guard: the live in-scope snapshot", 
         manifestTables,
         `${table} must be classified before apply`
       ).toContain(table);
-      expect(
-        UNTYPED_TABLE_ALLOWLIST,
-        `${table} must remain explicitly untyped until types are regenerated`
-      ).toContain(table);
-      expect(migrationSql).toContain(`create table public.${table}`);
+      const generated = readGeneratedTypes();
+      if (!generated.tables.has(table)) {
+        expect(
+          UNTYPED_TABLE_ALLOWLIST,
+          `${table} must remain explicitly untyped until types are regenerated`
+        ).toContain(table);
+      }
+      expect(migrationSql).toMatch(
+        new RegExp(`create table(?: if not exists)? public\\.${table}\\b`)
+      );
     }
   });
 

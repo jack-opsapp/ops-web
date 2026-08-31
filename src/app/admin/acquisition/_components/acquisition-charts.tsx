@@ -1,167 +1,95 @@
 "use client";
 
-import { useState } from "react";
-import { FunnelChart } from "../../_components/charts/funnel-chart";
-import { AdminBarChart } from "../../_components/charts/bar-chart";
-import {
-  SortableTableHeader,
-  useSortState,
-} from "../../_components/sortable-table-header";
+import { motion, useReducedMotion } from "framer-motion";
+import type { GrowthTrendPoint } from "@/lib/admin/growth-analytics-types";
+import { EASE_SMOOTH } from "@/lib/utils/motion";
+import type { GrowthTranslate } from "./growth-ui";
 
-interface AcquisitionChartsProps {
-  sectionEngagement: { dimension: string; count: number }[];
-  abVariants: { dimension: string; count: number }[];
-  tutorialFunnel: { step: string; count: number }[];
-  signupFunnel: { step: string; count: number }[];
-  megaFunnel: { step: string; count: number }[];
+interface GrowthTrendChartProps {
+  points: GrowthTrendPoint[];
+  formatNumber: (value: number | null) => string;
+  t: GrowthTranslate;
 }
 
-export function AcquisitionCharts({
-  sectionEngagement,
-  abVariants,
-  tutorialFunnel,
-  signupFunnel,
-  megaFunnel,
-}: AcquisitionChartsProps) {
-  const [selectedStep, setSelectedStep] = useState<{
-    funnel: string;
-    step: string;
-    count: number;
-  } | null>(null);
-
-  const variantSort = useSortState("count");
-  const sortedVariants = variantSort.sorted(abVariants);
+export function GrowthTrendChart({
+  points,
+  formatNumber,
+  t,
+}: GrowthTrendChartProps) {
+  const reduceMotion = useReducedMotion();
+  const maximum = Math.max(1, ...points.map((point) => point.activated));
+  const denominator = Math.max(1, points.length - 1);
+  const polyline = points
+    .map((point, index) => {
+      const x = (index / denominator) * 100;
+      const y = 38 - (point.activated / maximum) * 34;
+      return `${x},${y}`;
+    })
+    .join(" ");
 
   return (
-    <div className="space-y-8">
-      {/* Section Engagement + A/B Variants */}
-      <div className="grid grid-cols-2 gap-6">
-        <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
-          <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
-            Section Engagement
-          </p>
-          <p className="font-mono text-[12px] text-[#6B6B6B] mb-6">
-            [views per landing page section]
-          </p>
-          {sectionEngagement.length > 0 ? (
-            <AdminBarChart
-              data={sectionEngagement.map((d) => ({ label: d.dimension, value: d.count }))}
-              color="#6F94B0"
-              onBarClick={(p) => setSelectedStep({ funnel: "section", step: p.label, count: p.value })}
-            />
-          ) : (
-            <p className="font-mohave text-[14px] uppercase text-[#6B6B6B] text-center pt-8">
-              No section_view events yet
-            </p>
-          )}
-        </div>
-
-        <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
-          <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
-            A/B Variant Comparison
-          </p>
-          <p className="font-mono text-[12px] text-[#6B6B6B] mb-6">
-            [landing page views by variant]
-          </p>
-          {sortedVariants.length > 0 ? (
-            <table className="w-full">
-              <thead>
-                <SortableTableHeader
-                  columns={[
-                    { key: "dimension", label: "Variant" },
-                    { key: "count", label: "Views" },
-                  ]}
-                  sort={variantSort.sort}
-                  onSort={variantSort.toggle}
-                />
-              </thead>
-              <tbody>
-                {sortedVariants.map((v) => (
-                  <tr key={v.dimension} className="border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors">
-                    <td className="py-2.5 font-mohave text-[14px] text-[#EDEDED]">{v.dimension}</td>
-                    <td className="py-2.5 font-mohave text-[14px] text-[#A0A0A0]">{v.count.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <p className="font-mohave text-[14px] uppercase text-[#6B6B6B] text-center pt-8">
-              No variant data yet
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Selected step detail */}
-      {selectedStep && (
-        <div className="border border-[#6F94B0]/30 rounded-lg p-4 bg-ops-accent/5">
-          <div className="flex items-center justify-between">
-            <div>
-              <span className="font-mohave text-[12px] uppercase tracking-widest text-[#6F94B0]">
-                Selected Step
-              </span>
-              <p className="font-mohave text-[16px] text-[#EDEDED] mt-1">
-                {selectedStep.step}: {selectedStep.count.toLocaleString()} events
-              </p>
-            </div>
-            <button
-              onClick={() => setSelectedStep(null)}
-              className="font-mono text-[11px] text-[#6B6B6B] hover:text-[#EDEDED] transition-colors"
-            >
-              Clear &times;
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Tutorial + Signup Funnels */}
-      <div className="grid grid-cols-2 gap-6">
-        <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
-          <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
-            Tutorial Funnel
-          </p>
-          <p className="font-mono text-[12px] text-[#6B6B6B] mb-6">
-            [started → halfway → complete vs skipped]
-          </p>
-          <FunnelChart
-            steps={tutorialFunnel}
-            onStepClick={(step) =>
-              setSelectedStep({ funnel: "tutorial", step: step.step, count: step.count })
-            }
-          />
-        </div>
-
-        <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
-          <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
-            Signup Funnel
-          </p>
-          <p className="font-mono text-[12px] text-[#6B6B6B] mb-6">
-            [step-by-step conversion]
-          </p>
-          <FunnelChart
-            steps={signupFunnel}
-            onStepClick={(step) =>
-              setSelectedStep({ funnel: "signup", step: step.step, count: step.count })
-            }
-          />
-        </div>
-      </div>
-
-      {/* Mega Funnel */}
-      <div className="border border-white/[0.08] rounded-lg p-6 bg-white/[0.02]">
-        <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B] mb-2">
-          Full Journey Funnel
+    <div>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="font-mohave text-caption text-text-3">{t("trend")}</p>
+        <p className="font-mono text-micro text-text-mute">
+          {points.length > 0
+            ? `${points[0].date} — ${points.at(-1)?.date}`
+            : "—"}
         </p>
-        <p className="font-mono text-[12px] text-[#6B6B6B] mb-8">
-          [landing page → first project · last 90 days · all platforms]
-        </p>
-        <FunnelChart
-          steps={megaFunnel}
-          onStepClick={(step) =>
-            setSelectedStep({ funnel: "mega", step: step.step, count: step.count })
-          }
+      </div>
+      <svg
+        aria-label={t("trend")}
+        className="h-5 w-full overflow-visible text-text-2"
+        preserveAspectRatio="none"
+        role="img"
+        viewBox="0 0 100 40"
+      >
+        <line
+          className="stroke-border-subtle"
+          vectorEffect="non-scaling-stroke"
+          x1="0"
+          x2="100"
+          y1="38"
+          y2="38"
         />
-      </div>
+        {points.length > 0 && (
+          <motion.polyline
+            animate={{ opacity: 1 }}
+            className="fill-none stroke-current"
+            initial={reduceMotion ? false : { opacity: 0 }}
+            points={polyline}
+            transition={{ duration: reduceMotion ? 0.15 : 0.35, ease: EASE_SMOOTH }}
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+      </svg>
+      <details className="mt-2 border-t border-border-subtle pt-2 font-mohave text-caption-sm text-text-3">
+        <summary className="cursor-pointer focus-visible:text-text">
+          {t("trendDetails")}
+        </summary>
+        <div className="mt-2 max-h-7 overflow-auto">
+          <table className="w-full text-left">
+            <thead className="font-mono text-micro uppercase text-text-mute">
+              <tr>
+                <th className="pb-1 font-normal">{t("date")}</th>
+                <th className="pb-1 text-right font-normal">{t("trials")}</th>
+                <th className="pb-1 text-right font-normal">{t("activated")}</th>
+                <th className="pb-1 text-right font-normal">{t("paid")}</th>
+              </tr>
+            </thead>
+            <tbody className="font-mono text-data-sm text-text-2">
+              {points.map((point) => (
+                <tr key={point.date} className="border-t border-border-subtle">
+                  <td className="py-1">{point.date}</td>
+                  <td className="py-1 text-right">{formatNumber(point.trials)}</td>
+                  <td className="py-1 text-right">{formatNumber(point.activated)}</td>
+                  <td className="py-1 text-right">{formatNumber(point.paid)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
     </div>
   );
 }

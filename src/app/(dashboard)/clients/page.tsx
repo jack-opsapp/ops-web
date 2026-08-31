@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { Plus } from "lucide-react";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useDictionary } from "@/i18n/client";
-import { trackScreenView } from "@/lib/analytics/analytics";
 import { useClients, useClientOutstandingMap } from "@/lib/hooks";
 import { useScopedProjects } from "@/lib/hooks/use-projects";
 import { usePermissionStore, selectPermissionsReady } from "@/lib/store/permissions-store";
@@ -102,10 +101,6 @@ export default function ClientsPage() {
     }
     openCreate();
   }, [setupComplete, openCreate]);
-
-  useEffect(() => {
-    trackScreenView("clients");
-  }, []);
 
   // Project count + most-recent project per client, from scoped projects.
   const { projectCountByClient, latestProjectByClient } = useMemo(() => {

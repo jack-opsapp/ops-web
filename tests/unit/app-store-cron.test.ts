@@ -183,6 +183,27 @@ describe("app-store-sync cron", () => {
     });
   });
 
+  it("keeps the sync in progress while a bounded walk has more pages", async () => {
+    mocks.runSync.mockResolvedValue({
+      segmentsProcessed: 12,
+      rowsIngested: 48,
+      lastDate: "2026-07-23",
+      cursorAfter: {
+        requestId: "request-2",
+        segment: "commerce",
+      },
+    });
+
+    const res = await GET(req("Bearer s3cret"));
+
+    expect(res.status).toBe(200);
+    expect(mocks.updateAscSyncStatus.mock.calls[1][1]).toEqual({
+      status: "running",
+      error: null,
+      last_synced_date: "2026-07-23",
+    });
+  });
+
   it("omits last_synced_date entirely when nothing is known yet", async () => {
     mocks.getAscSyncStatus.mockResolvedValue(null);
     mocks.runSync.mockResolvedValue({

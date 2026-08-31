@@ -36,6 +36,7 @@ const ALL_TYPES: NotificationType[] = [
   "data_review_resolved",
   "ai_milestone",
   "ai_provider_quota",
+  "analytics_source_failed",
   "agent_suggestion",
   "trial_expiry",
   "payment_review_stack",
@@ -66,11 +67,12 @@ describe("notification-meta", () => {
     });
   });
 
-  it("assigns role_needed, duplicates_found, trial_expiry, accounting_sync to critical tone", () => {
+  it("assigns blocking operational failures to critical tone", () => {
     expect(NOTIF_TYPE_META.role_needed.tone).toBe("critical");
     expect(NOTIF_TYPE_META.duplicates_found.tone).toBe("critical");
     expect(NOTIF_TYPE_META.trial_expiry.tone).toBe("critical");
     expect(NOTIF_TYPE_META.accounting_sync.tone).toBe("critical");
+    expect(NOTIF_TYPE_META.analytics_source_failed.tone).toBe("critical");
   });
 
   it("assigns mention, intel, leads, schedule_change, expense_submitted to attn", () => {

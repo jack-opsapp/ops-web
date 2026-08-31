@@ -141,7 +141,7 @@
  */
 
 /** Bumped whenever the classification changes. Emitted in both route payloads. */
-export const MANIFEST_VERSION = "2026-08-17";
+export const MANIFEST_VERSION = "2026-08-30";
 
 /** The tenant row itself — tombstoned last, scoped by `id` rather than `company_id`. */
 export const TENANT_TABLE = "companies";
@@ -2634,6 +2634,17 @@ export const COMPANY_SCOPED_DATA: readonly CompanyScopedEntry[] = [
     deleteStrategy: "hard",
     export: false,
     reason: "Pending invite tokens.",
+  },
+  {
+    table: "touchpoints",
+    scope: "company",
+    companyColumn: "company_id",
+    companyColumnType: "uuid",
+    softDeletable: false,
+    deleteStrategy: "hard",
+    export: false,
+    reason:
+      "Raw first-touch attribution evidence. The 30-day retention worker removes it sooner; account closure must remove any still-open window immediately.",
   },
   {
     table: "trial_attributions",

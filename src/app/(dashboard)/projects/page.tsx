@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import { OpsLoadingScreen } from "@/components/ops/ops-loading-screen";
 import { useDictionary } from "@/i18n/client";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { trackScreenView } from "@/lib/analytics/analytics";
 import { toast } from "@/components/ui/toast";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useWindowStore } from "@/stores/window-store";
@@ -285,11 +284,6 @@ export default function ProjectsPage() {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
-
-  // ── Track screen view ──
-  useEffect(() => {
-    trackScreenView("projects_canvas");
-  }, []);
 
   // ── Lookup maps ──
   const clientNameMap = useMemo(() => {

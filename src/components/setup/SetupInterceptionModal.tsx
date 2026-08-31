@@ -15,7 +15,7 @@ import {
   trackInterceptionStepCompleted,
   trackInterceptionCompleted,
   trackInterceptionDismissed,
-} from "@/lib/analytics/analytics";
+} from "@/lib/analytics/product-events";
 import {
   Dialog,
   DialogContent,

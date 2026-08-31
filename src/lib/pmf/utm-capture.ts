@@ -1,46 +1,26 @@
-/**
- * OPS Web — PMF First-Touch UTM Capture
- *
- * Pure-function UTM/gclid/fbclid extractor + browser cookie reader/writer.
- * Used by the client-side <UtmCaptureEffect /> mounted in the root layout
- * so any UTM-tagged URL that lands on app.opsapp.co is recorded for the
- * trial_attributions backfill flow.
- *
- * First-touch is preserved: once the cookie is set, captureOnLanding() is a
- * no-op until TTL expiry. SSR-safe — every browser-API access is guarded.
- *
- * Cookie: __ops_first_touch (Path=/, SameSite=Lax, Expires=+30d).
- */
-
-const COOKIE = "__ops_first_touch";
-const TTL_DAYS = 30;
-
-/**
- * Canonical first-touch cookie name. Shared verbatim with ops-site, which is
- * the primary writer (it sets Domain=.opsapp.co so the payload survives the
- * hop from opsapp.co to app.opsapp.co).
- */
-export const FIRST_TOUCH_COOKIE = COOKIE;
-
-/**
- * The marketing site's attribution cookie (`ops-site/src/lib/spec/attribution.ts`).
- *
- * ops-site is where nearly all first touches actually happen, and it writes
- * THIS name — scoped to `.opsapp.co` so it reaches app.opsapp.co. Its payload
- * is the same shape as FirstTouch apart from the timestamp key
- * (`first_touch_at` rather than `captured_at`). Reading only our own cookie
- * name would leave the great majority of signups unattributed.
- */
+export const FIRST_TOUCH_COOKIE = "__ops_first_touch";
 export const SITE_ATTRIBUTION_COOKIE = "ops_attribution";
+export const FIRST_TOUCH_VERSION = 1 as const;
+export const FIRST_TOUCH_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
+export const FIRST_TOUCH_MAX_ENCODED_BYTES = 3500;
 
-/**
- * Per-field cap. A cookie is attacker-controllable, and these values land in
- * Postgres text columns and Stripe metadata (500-char limit), so bound them at
- * the parse boundary rather than trusting the payload.
- */
-const MAX_FIELD_LEN = 512;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const CAMPAIGN_KEYS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+] as const;
+const CLICK_ID_KEYS = ["gclid", "fbclid"] as const;
 
 export interface FirstTouch {
+  version: typeof FIRST_TOUCH_VERSION;
+  anonymous_id: string;
+  captured_at: string;
+  landing_path: string;
+  referrer_domain?: string;
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
@@ -48,195 +28,263 @@ export interface FirstTouch {
   utm_term?: string;
   gclid?: string;
   fbclid?: string;
-  landing_url?: string;
-  referrer?: string;
-  captured_at: string;
 }
 
-/**
- * Pure: extract a FirstTouch from a URL string + referrer string.
- * Returns null only if `url` cannot be parsed by the URL constructor.
- *
- * `landing_url` is always set (the parsed URL.toString()). `captured_at` is
- * always set (ISO timestamp). All other fields are undefined when their
- * matching query param / referrer is missing.
- */
-export function captureFirstTouchFromUrl(
-  url: string,
-  referrer: string
-): FirstTouch | null {
-  let u: URL;
+interface ParseOptions {
+  legacyAnonymousId?: string;
+}
+
+function cleanText(value: unknown, maxLength: number): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const cleaned = value
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[\ud800-\udfff]/g, "")
+    .trim()
+    .slice(0, maxLength);
+  return cleaned || undefined;
+}
+
+function canonicalPath(value: unknown): string | null {
+  const text = cleanText(value, 2048);
+  if (!text) return null;
   try {
-    u = new URL(url);
+    const url = new URL(text, "https://app.opsapp.co");
+    return url.pathname.startsWith("/") ? url.pathname : null;
   } catch {
     return null;
   }
-  const params = u.searchParams;
-  const get = (k: string) => params.get(k) || undefined;
-  return {
-    utm_source: get("utm_source"),
-    utm_medium: get("utm_medium"),
-    utm_campaign: get("utm_campaign"),
-    utm_content: get("utm_content"),
-    utm_term: get("utm_term"),
-    gclid: get("gclid"),
-    fbclid: get("fbclid"),
-    landing_url: u.toString(),
-    referrer: referrer || undefined,
-    captured_at: new Date().toISOString(),
-  };
 }
 
-/**
- * Read the first-touch cookie. Returns null on SSR, missing cookie, or
- * malformed payload.
- *
- * Defends against malicious / corrupt cookies: the parsed JSON must be a
- * non-null, non-array object. Any non-string field is coerced to undefined
- * so downstream consumers never see e.g. `utm_source = 123`.
- */
-export function readCookieFirstTouch(): FirstTouch | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie
-    .split("; ")
-    .find((c) => c.startsWith(`${COOKIE}=`));
-  if (!match) return null;
-  return parseFirstTouchValue(match.substring(COOKIE.length + 1));
+function canonicalTimestamp(value: unknown): string | null {
+  const text = cleanText(value, 64);
+  if (!text) return null;
+  const timestamp = new Date(text);
+  if (!Number.isFinite(timestamp.getTime())) return null;
+  return timestamp.toISOString();
 }
 
-/**
- * Percent-decode a cookie value until it yields a JSON object.
- *
- * The two writers encode to different depths, and this reader sees the RAW
- * `Cookie` header (no framework parser has decoded anything yet):
- *
- *  - `ops_attribution` (ops-site) is **double**-encoded — its helper calls
- *    `encodeURIComponent` and then `NextResponse.cookies.set` encodes again.
- *    ops-site itself round-trips fine because its request parser strips one
- *    layer before its own `decodeURIComponent`. We get neither.
- *  - `__ops_first_touch` (this app's client writer) is **single**-encoded,
- *    because `document.cookie` performs no encoding of its own.
- *
- * Decoding a fixed number of times would therefore break one writer or the
- * other. Instead decode until the payload actually starts like JSON, bounded
- * so a crafted value can't spin. Returns null when it never resolves.
- */
+function isOpsDomain(hostname: string): boolean {
+  return hostname === "opsapp.co" || hostname.endsWith(".opsapp.co");
+}
+
+export function canonicalReferrerDomain(value: unknown): string | undefined {
+  const text = cleanText(value, 2048);
+  if (!text) return undefined;
+  try {
+    const hostname = new URL(text).hostname.toLowerCase().replace(/^www\./, "");
+    if (!hostname || isOpsDomain(hostname)) return undefined;
+    return hostname.slice(0, 253);
+  } catch {
+    return undefined;
+  }
+}
+
 function decodeCookiePayload(rawValue: string): string | null {
   let current = rawValue;
-  for (let i = 0; i < 3; i++) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     const trimmed = current.trim();
     if (trimmed.startsWith("{")) return trimmed;
-    let next: string;
     try {
-      next = decodeURIComponent(current);
+      const decoded = decodeURIComponent(current);
+      if (decoded === current) return null;
+      current = decoded;
     } catch {
-      return null; // malformed percent-escape
+      return null;
     }
-    if (next === current) return null; // fully decoded, still not JSON
-    current = next;
   }
   return null;
 }
 
-/**
- * Pure: parse + sanitize one raw (URI-encoded) cookie value into a FirstTouch.
- * Returns null on malformed JSON or a non-object payload.
- *
- * Shared by the browser reader and the server reader so both apply identical
- * defences: any non-string field becomes undefined (so downstream never sees
- * e.g. `utm_source = 123`), and every value is length-capped.
- */
-export function parseFirstTouchValue(rawValue: string): FirstTouch | null {
+function deterministicLegacyId(value: string): string {
+  const seeds = [2166136261, 2246822519, 3266489917, 668265263];
+  const chunks = seeds.map((seed) => {
+    let hash = seed >>> 0;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619) >>> 0;
+    }
+    return hash.toString(16).padStart(8, "0");
+  });
+  const hex = chunks.join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+}
+
+export function parseFirstTouchValue(
+  rawValue: string,
+  options: ParseOptions = {}
+): FirstTouch | null {
   try {
     const decoded = decodeCookiePayload(rawValue);
-    if (decoded === null) return null;
-    const raw: unknown = JSON.parse(decoded);
-    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-    const obj = raw as Record<string, unknown>;
-    const str = (v: unknown): string | undefined =>
-      typeof v === "string" ? v.slice(0, MAX_FIELD_LEN) : undefined;
-    return {
-      utm_source: str(obj.utm_source),
-      utm_medium: str(obj.utm_medium),
-      utm_campaign: str(obj.utm_campaign),
-      utm_content: str(obj.utm_content),
-      utm_term: str(obj.utm_term),
-      gclid: str(obj.gclid),
-      fbclid: str(obj.fbclid),
-      landing_url: str(obj.landing_url),
-      referrer: str(obj.referrer),
-      // ops-site's cookie names this field first_touch_at; accept either so
-      // one parser serves both cookies.
-      captured_at:
-        str(obj.captured_at) ?? str(obj.first_touch_at) ?? new Date().toISOString(),
+    if (!decoded) return null;
+    const unknownPayload: unknown = JSON.parse(decoded);
+    if (
+      !unknownPayload ||
+      typeof unknownPayload !== "object" ||
+      Array.isArray(unknownPayload)
+    ) {
+      return null;
+    }
+    const payload = unknownPayload as Record<string, unknown>;
+    const anonymousId = cleanText(
+      payload.anonymous_id ?? options.legacyAnonymousId,
+      36
+    );
+    if (!anonymousId || !UUID_PATTERN.test(anonymousId)) return null;
+
+    const capturedAt = canonicalTimestamp(
+      payload.captured_at ?? payload.first_touch_at
+    );
+    const landingPath = canonicalPath(
+      payload.landing_path ?? payload.landing_url
+    );
+    if (!capturedAt || !landingPath) return null;
+
+    const parsed: FirstTouch = {
+      version: FIRST_TOUCH_VERSION,
+      anonymous_id: anonymousId,
+      captured_at: capturedAt,
+      landing_path: landingPath,
     };
+    const rawReferrerDomain = cleanText(payload.referrer_domain, 253)
+      ?.toLowerCase()
+      .replace(/^www\./, "");
+    const referrerDomain =
+      rawReferrerDomain && !isOpsDomain(rawReferrerDomain)
+        ? rawReferrerDomain
+        : canonicalReferrerDomain(payload.referrer);
+    if (referrerDomain) parsed.referrer_domain = referrerDomain;
+
+    for (const key of CAMPAIGN_KEYS) {
+      const value = cleanText(payload[key], 256);
+      if (value) parsed[key] = value;
+    }
+    for (const key of CLICK_ID_KEYS) {
+      const value = cleanText(payload[key], 512);
+      if (value) parsed[key] = value;
+    }
+    return parsed;
   } catch {
     return null;
   }
 }
 
-/**
- * Server-side twin of readCookieFirstTouch, for route handlers.
- *
- * Reads BOTH attribution cookies: `ops_attribution` (written by ops-site,
- * where nearly every real first touch happens) and `__ops_first_touch`
- * (written by this app when a tagged URL hits app.opsapp.co directly).
- *
- * Takes the RAW `Cookie` header rather than a parsed store for two reasons:
- * duplicates of the same name can legitimately coexist (a host-only cookie
- * alongside a `.opsapp.co` one), and a parsed store surfaces only whichever
- * the browser happened to order first. Parsing every occurrence and returning
- * the EARLIEST `captured_at` keeps first-touch deterministic rather than
- * ordering-dependent — the touch that actually brought the customer in wins.
- *
- * Returns null when absent or when no occurrence parses.
- */
-export function readServerFirstTouch(
-  cookieHeader: string | null | undefined
+export function captureFirstTouchFromUrl(
+  url: string,
+  referrer: string,
+  options: { capturedAt?: string; anonymousId?: string } = {}
 ): FirstTouch | null {
-  if (!cookieHeader) return null;
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(url);
+  } catch {
+    return null;
+  }
+  const capturedAt = canonicalTimestamp(
+    options.capturedAt ?? new Date().toISOString()
+  );
+  const anonymousId = options.anonymousId ?? crypto.randomUUID();
+  if (!capturedAt || !UUID_PATTERN.test(anonymousId)) return null;
 
-  const candidates: FirstTouch[] = [];
-  for (const part of cookieHeader.split(";")) {
+  const touch: FirstTouch = {
+    version: FIRST_TOUCH_VERSION,
+    anonymous_id: anonymousId,
+    captured_at: capturedAt,
+    landing_path: parsedUrl.pathname,
+  };
+  const referrerDomain = canonicalReferrerDomain(referrer);
+  if (referrerDomain) touch.referrer_domain = referrerDomain;
+  for (const key of CAMPAIGN_KEYS) {
+    const value = cleanText(parsedUrl.searchParams.get(key), 256);
+    if (value) touch[key] = value;
+  }
+  for (const key of CLICK_ID_KEYS) {
+    const value = cleanText(parsedUrl.searchParams.get(key), 512);
+    if (value) touch[key] = value;
+  }
+  return touch;
+}
+
+function browserCookieValue(name: string): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  for (const part of document.cookie.split(";")) {
     const trimmed = part.trim();
-    const eq = trimmed.indexOf("=");
-    if (eq === -1) continue;
-    // Exact name match — never a suffix match like `not__ops_first_touch`.
-    const name = trimmed.slice(0, eq);
-    if (name !== COOKIE && name !== SITE_ATTRIBUTION_COOKIE) continue;
-    const parsed = parseFirstTouchValue(trimmed.slice(eq + 1));
-    if (parsed) candidates.push(parsed);
+    const equalsAt = trimmed.indexOf("=");
+    if (equalsAt < 0 || trimmed.slice(0, equalsAt) !== name) continue;
+    return trimmed.slice(equalsAt + 1);
+  }
+  return undefined;
+}
+
+export function readCookieFirstTouch(): FirstTouch | null {
+  const canonical = browserCookieValue(FIRST_TOUCH_COOKIE);
+  if (canonical) {
+    const parsed = parseFirstTouchValue(canonical, {
+      legacyAnonymousId: deterministicLegacyId(canonical),
+    });
+    if (parsed) return parsed;
+  }
+  const legacy = browserCookieValue(SITE_ATTRIBUTION_COOKIE);
+  return legacy
+    ? parseFirstTouchValue(legacy, {
+        legacyAnonymousId: deterministicLegacyId(legacy),
+      })
+    : null;
+}
+
+function encodedPayloadLength(touch: FirstTouch): number {
+  return encodeURIComponent(JSON.stringify(touch)).length;
+}
+
+function cookieSafeTouch(touch: FirstTouch): FirstTouch {
+  if (encodedPayloadLength(touch) <= FIRST_TOUCH_MAX_ENCODED_BYTES) {
+    return touch;
   }
 
-  if (candidates.length === 0) return null;
-  return candidates.reduce((earliest, next) =>
-    next.captured_at < earliest.captured_at ? next : earliest
-  );
+  const bounded: FirstTouch = {
+    version: touch.version,
+    anonymous_id: touch.anonymous_id,
+    captured_at: touch.captured_at,
+    landing_path: touch.landing_path.slice(0, 256),
+  };
+  const prioritized = [
+    ["gclid", 256],
+    ["fbclid", 256],
+    ["utm_source", 128],
+    ["utm_medium", 128],
+    ["utm_campaign", 128],
+    ["referrer_domain", 253],
+    ["utm_content", 96],
+    ["utm_term", 96],
+  ] as const;
+
+  for (const [key, maxLength] of prioritized) {
+    const value = touch[key]?.slice(0, maxLength);
+    if (!value) continue;
+    const candidate = { ...bounded, [key]: value };
+    if (encodedPayloadLength(candidate) <= FIRST_TOUCH_MAX_ENCODED_BYTES) {
+      bounded[key] = value;
+    }
+  }
+  return bounded;
 }
 
-/**
- * Write the first-touch cookie. SSR-safe no-op when document is undefined.
- * Path=/, SameSite=Lax, Expires=+30d. Adds Secure when running on HTTPS so
- * the cookie isn't sent over plain HTTP. HttpOnly is intentionally omitted
- * because the JS reader (readCookieFirstTouch) needs access.
- */
+export function encodeFirstTouchPayload(touch: FirstTouch): string {
+  return encodeURIComponent(JSON.stringify(cookieSafeTouch(touch)));
+}
+
 export function writeCookieFirstTouch(touch: FirstTouch): void {
-  if (typeof document === "undefined") return;
-  const expires = new Date(Date.now() + TTL_DAYS * 86_400_000).toUTCString();
-  const value = encodeURIComponent(JSON.stringify(touch));
-  const isHttps =
-    typeof window !== "undefined" && window.location.protocol === "https:";
-  const secure = isHttps ? "; Secure" : "";
-  document.cookie = `${COOKIE}=${value}; Path=/; Expires=${expires}; SameSite=Lax${secure}`;
+  if (typeof document === "undefined" || typeof window === "undefined") return;
+  const value = encodeFirstTouchPayload(touch);
+  const isOpsProductionHost =
+    window.location.hostname === "opsapp.co" ||
+    window.location.hostname.endsWith(".opsapp.co");
+  const domain = isOpsProductionHost ? "; Domain=.opsapp.co" : "";
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie =
+    `${FIRST_TOUCH_COOKIE}=${value}; Path=/; ` +
+    `Max-Age=${FIRST_TOUCH_MAX_AGE_SECONDS}; SameSite=Lax${domain}${secure}`;
 }
 
-/**
- * Capture first-touch from the current `window.location` if no prior touch
- * cookie exists. Idempotent: subsequent calls are no-ops until TTL expiry,
- * preserving the original first-touch attribution.
- *
- * SSR-safe: returns immediately when window is undefined.
- */
 export function captureOnLanding(): void {
   if (typeof window === "undefined") return;
   if (readCookieFirstTouch()) return;
@@ -245,4 +293,33 @@ export function captureOnLanding(): void {
     typeof document !== "undefined" ? document.referrer : ""
   );
   if (touch) writeCookieFirstTouch(touch);
+}
+
+export function readServerFirstTouch(
+  cookieHeader: string | null | undefined
+): FirstTouch | null {
+  if (!cookieHeader) return null;
+  const candidates: FirstTouch[] = [];
+  for (const part of cookieHeader.split(";")) {
+    const trimmed = part.trim();
+    const equalsAt = trimmed.indexOf("=");
+    if (equalsAt < 0) continue;
+    const name = trimmed.slice(0, equalsAt);
+    const value = trimmed.slice(equalsAt + 1);
+    if (name === FIRST_TOUCH_COOKIE) {
+      const parsed = parseFirstTouchValue(value, {
+        legacyAnonymousId: deterministicLegacyId(value),
+      });
+      if (parsed) candidates.push(parsed);
+    } else if (name === SITE_ATTRIBUTION_COOKIE) {
+      const parsed = parseFirstTouchValue(value, {
+        legacyAnonymousId: deterministicLegacyId(value),
+      });
+      if (parsed) candidates.push(parsed);
+    }
+  }
+  if (candidates.length === 0) return null;
+  return candidates.reduce((earliest, candidate) =>
+    candidate.captured_at < earliest.captured_at ? candidate : earliest
+  );
 }

@@ -28,6 +28,7 @@ interface RateLimitOptions {
   key: string;
   limit: number;
   windowSec: number;
+  cost?: number;
 }
 
 interface RateLimitResult {
@@ -40,12 +41,17 @@ const inMemory = new Map<string, { count: number; resetAt: number }>();
 
 function inMemoryCheck(opts: RateLimitOptions): RateLimitResult {
   const now = Date.now();
+  const cost = Math.max(1, Math.floor(opts.cost ?? 1));
   const existing = inMemory.get(opts.key);
   if (!existing || existing.resetAt <= now) {
-    inMemory.set(opts.key, { count: 1, resetAt: now + opts.windowSec * 1000 });
-    return { exceeded: false, count: 1, retryAfterSec: 0 };
+    inMemory.set(opts.key, { count: cost, resetAt: now + opts.windowSec * 1000 });
+    return {
+      exceeded: cost > opts.limit,
+      count: cost,
+      retryAfterSec: cost > opts.limit ? opts.windowSec : 0,
+    };
   }
-  existing.count += 1;
+  existing.count += cost;
   const exceeded = existing.count > opts.limit;
   return {
     exceeded,
@@ -62,16 +68,16 @@ async function kvCheck(opts: RateLimitOptions): Promise<RateLimitResult> {
     // function instance, so a determined attacker spreading requests
     // across cold-started instances could exceed the cap; acceptable at
     // current OPS scale (small SaaS, trusted authenticated users only).
-    // TODO: re-enable strict KV-backed rate limiting when scale warrants
-    // (set KV_REST_API_URL + KV_REST_API_TOKEN and this branch becomes
-    // unreachable).
+    // Setting KV_REST_API_URL + KV_REST_API_TOKEN activates strict shared
+    // enforcement without changing callers.
     return inMemoryCheck(opts);
   }
 
   // Atomic INCR + EXPIRE on first hit. Use the REST API pipeline so we hit
   // KV exactly once per check.
+  const cost = Math.max(1, Math.floor(opts.cost ?? 1));
   const pipeline = [
-    ["INCR", opts.key],
+    ["INCRBY", opts.key, String(cost)],
     ["EXPIRE", opts.key, String(opts.windowSec), "NX"],
     ["TTL", opts.key],
   ];

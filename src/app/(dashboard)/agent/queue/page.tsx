@@ -6,7 +6,6 @@ import { Filter, CheckSquare, Square, Inbox } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { trackScreenView } from "@/lib/analytics/analytics";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { cn } from "@/lib/utils/cn";
 
@@ -62,7 +61,6 @@ export default function AgentQueuePage() {
   const shouldReduceMotion = useReducedMotion();
 
   usePageTitle(t("title"));
-  useEffect(() => trackScreenView("agent_queue"), []);
 
   const [filters, setFilters] = useState<Filters>({
     status: "pending",

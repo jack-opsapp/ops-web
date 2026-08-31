@@ -20,9 +20,9 @@ export default async function BlogPage() {
       safe(getBlogPosts(), []),
       safe(getBlogCategories(), []),
       safe(getUnusedTopicCount(), 0),
-      safe(getBlogPageViews(30), 0),
-      safe(getBlogViewsByPost(30), []),
-      safe(getBlogViewsTimeline(30), []),
+      getBlogPageViews("marketing", 30),
+      getBlogViewsByPost("marketing", 30),
+      getBlogViewsTimeline("marketing", 30),
     ]);
 
   // Map GA4 views onto posts by matching slug

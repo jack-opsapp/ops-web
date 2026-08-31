@@ -11,7 +11,7 @@ import { useClient, type useCreateClient, type useUpdateClient } from "@/lib/hoo
 import { useAuthStore } from "@/lib/store/auth-store";
 import { usePermissionStore } from "@/lib/store/permissions-store";
 import { useGeolocationAddress } from "@/lib/hooks/use-geolocation-address";
-import { trackClientCreated, trackFormAbandoned } from "@/lib/analytics/analytics";
+import { trackClientCreated, trackFormAbandoned } from "@/lib/analytics/product-events";
 import { Stack } from "@/components/ops/projects/workspace/atoms/stack";
 import { Section } from "@/components/ops/projects/workspace/atoms/section";
 import { Field } from "@/components/ops/projects/workspace/atoms/field";

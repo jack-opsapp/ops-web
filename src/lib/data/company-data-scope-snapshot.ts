@@ -317,6 +317,7 @@ export const STAGED_IN_SCOPE_MIGRATION_TABLES: readonly string[] = [
   "job_conversations",
   "job_memory_version_evidence",
   "job_memory_versions",
+  "touchpoints",
 ];
 
 /**

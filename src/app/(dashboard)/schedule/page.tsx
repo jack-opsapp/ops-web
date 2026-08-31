@@ -18,7 +18,6 @@ import {
 import { OpsLoadingScreen } from "@/components/ops/ops-loading-screen";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useDictionary } from "@/i18n/client";
-import { trackScreenView } from "@/lib/analytics/analytics";
 import {
   useScheduledTasks,
   useTeamMembers,
@@ -94,10 +93,6 @@ export default function SchedulePage() {
 
   // Keyboard shortcuts (replaces inline handler)
   useSchedulerShortcuts();
-
-  useEffect(() => {
-    trackScreenView("schedule");
-  }, []);
 
   // Consume notification / cron deep-links: `/schedule?date=YYYY-MM-DD&task=<id>`
   // (the recurrence-generate cron emits these, and stored `/calendar?date=&task=`

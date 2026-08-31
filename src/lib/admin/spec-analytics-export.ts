@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
+import { isGA4PropertyConfigured } from "@/lib/analytics/ga4-properties";
 import { getSpecAnalyticsPayload } from "./spec-analytics-queries";
 
 export type SpecExportMode = "default" | "sensitive";
@@ -243,7 +244,7 @@ export function buildExportManifest(args: {
     },
     configured: {
       google_ads: Boolean(process.env.GOOGLE_ADS_DEVELOPER_TOKEN),
-      ga4: Boolean(process.env.GA4_PROPERTY_ID),
+      ga4: isGA4PropertyConfigured("marketing"),
       conversion_dispatch: Boolean(process.env.GOOGLE_ADS_DEVELOPER_TOKEN),
     },
   };

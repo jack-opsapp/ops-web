@@ -7,18 +7,27 @@ import {
 } from "@/lib/admin/analytics-queries";
 import { AdminPageHeader } from "../_components/admin-page-header";
 import { AnalyticsContent } from "./_components/analytics-content";
+import { getPropertyId } from "@/lib/analytics/ga4-client";
 
 async function fetchAnalyticsData() {
+  const propertyId = getPropertyId("marketing").replace("properties/", "");
   const [overview, sessionsByDate, topPages, topReferrers, deviceBreakdown] =
     await Promise.all([
-      getWebsiteOverview(30),
-      getSessionsByDate(30),
-      getTopPages(30, 10),
-      getTopReferrers(30, 10),
-      getDeviceBreakdown(30),
+      getWebsiteOverview("marketing", 30),
+      getSessionsByDate("marketing", 30),
+      getTopPages("marketing", 30, 10),
+      getTopReferrers("marketing", 30, 10),
+      getDeviceBreakdown("marketing", 30),
     ]);
 
-  return { overview, sessionsByDate, topPages, topReferrers, deviceBreakdown };
+  return {
+    overview,
+    sessionsByDate,
+    topPages,
+    topReferrers,
+    deviceBreakdown,
+    propertyId,
+  };
 }
 
 export default async function AnalyticsPage() {
@@ -40,7 +49,10 @@ export default async function AnalyticsPage() {
 
   return (
     <div>
-      <AdminPageHeader title="Analytics" caption="website traffic & vercel projects" />
+      <AdminPageHeader
+        title="Analytics"
+        caption={`MARKETING GA4 · PROPERTY ${data.propertyId} · 24–48H DELAY`}
+      />
       <div className="p-8">
         <AnalyticsContent
           overview={data.overview}

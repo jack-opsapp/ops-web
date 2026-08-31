@@ -34,13 +34,19 @@ import { NextRequest } from "next/server";
 
 // ─── Hoisted mocks ────────────────────────────────────────────────────────────
 
-const { verifyAuthTokenMock, findUserByAuthMock, getServiceRoleClientMock } = vi.hoisted(
-  () => ({
-    verifyAuthTokenMock: vi.fn(),
-    findUserByAuthMock: vi.fn(),
-    getServiceRoleClientMock: vi.fn(),
-  })
-);
+const {
+  verifyAuthTokenMock,
+  findUserByAuthMock,
+  getServiceRoleClientMock,
+  readServerFirstTouchMock,
+  recordTrialAttributionMock,
+} = vi.hoisted(() => ({
+  verifyAuthTokenMock: vi.fn(),
+  findUserByAuthMock: vi.fn(),
+  getServiceRoleClientMock: vi.fn(),
+  readServerFirstTouchMock: vi.fn(),
+  recordTrialAttributionMock: vi.fn(),
+}));
 
 vi.mock("@/lib/firebase/admin-verify", () => ({
   verifyAuthToken: verifyAuthTokenMock,
@@ -55,11 +61,11 @@ vi.mock("@/lib/supabase/server-client", () => ({
 }));
 
 vi.mock("@/lib/pmf/utm-capture", () => ({
-  readServerFirstTouch: vi.fn().mockResolvedValue(null),
+  readServerFirstTouch: readServerFirstTouchMock,
 }));
 
-vi.mock("@/lib/pmf/record-trial-attribution", () => ({
-  recordTrialAttribution: vi.fn().mockResolvedValue(undefined),
+vi.mock("@/lib/pmf/trial-attribution", () => ({
+  recordTrialAttribution: recordTrialAttributionMock,
 }));
 
 vi.mock("@/lib/email/sendgrid", () => ({
@@ -161,13 +167,18 @@ const companyStep = (data: Record<string, unknown> = {}) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-  verifyAuthTokenMock.mockResolvedValue({ uid: "fb-uid", email: "owner@example.com" });
+  verifyAuthTokenMock.mockResolvedValue({
+    uid: "fb-uid",
+    email: "owner@example.com",
+  });
   findUserByAuthMock.mockResolvedValue({
     id: USER_ID,
     email: "owner@example.com",
     company_id: null,
     setup_progress: {},
   });
+  readServerFirstTouchMock.mockReturnValue(null);
+  recordTrialAttributionMock.mockResolvedValue(undefined);
 });
 
 describe("POST /api/setup/progress — company step", () => {
@@ -195,6 +206,12 @@ describe("POST /api/setup/progress — company step", () => {
       p_company_age: "1-3",
       p_weather_dependent: true,
     });
+    expect(recordTrialAttributionMock).toHaveBeenCalledOnce();
+    expect(recordTrialAttributionMock).toHaveBeenCalledWith(
+      db.client,
+      COMPANY_ID,
+      null
+    );
   });
 
   it("never writes the company, role row, or owner labels itself", async () => {
@@ -294,7 +311,14 @@ describe("POST /api/setup/progress — company step", () => {
 
     expect(res.status).toBe(200);
     expect(db.rpcs.find((r) => r.fn === CREATE_RPC)).toBeUndefined();
-    const update = db.ops.find((o) => o.table === "companies" && o.kind === "update");
+    const update = db.ops.find(
+      (o) => o.table === "companies" && o.kind === "update"
+    );
     expect(update!.payload).toMatchObject({ name: "Brittlewood Appliances" });
+    expect(recordTrialAttributionMock).toHaveBeenCalledWith(
+      db.client,
+      COMPANY_ID,
+      null
+    );
   });
 });

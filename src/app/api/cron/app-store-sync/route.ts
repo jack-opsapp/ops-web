@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
               .sort()
               .pop() ?? null;
           const completePatch: Parameters<typeof updateAscSyncStatus>[1] = {
-            status: "complete",
+            status: result.cursorAfter === null ? "complete" : "running",
             error: null,
           };
           if (newestDate) completePatch.last_synced_date = newestDate;

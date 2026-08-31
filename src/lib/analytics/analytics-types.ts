@@ -1,12 +1,3 @@
-/**
- * OPS Web — Unified Analytics Types
- *
- * Mirrors the analytics_events Supabase table schema.
- * Shared across analytics-service.ts, analytics-actions.ts, and useScreenView.ts.
- */
-
-// ─── Event Types ─────────────────────────────────────────────────────────────
-
 export type AnalyticsEventType =
   | "screen_view"
   | "action"
@@ -14,36 +5,39 @@ export type AnalyticsEventType =
   | "lifecycle"
   | "error";
 
-// ─── Analytics Event (matches analytics_events table columns) ────────────────
+export type AnalyticsEnvironment =
+  | "production"
+  | "preview"
+  | "development"
+  | "test";
 
-export interface AnalyticsEvent {
-  // Identity (auto-attached by AnalyticsService)
-  user_id: string | null;
-  company_id: string | null;
-  role: string | null;
-  plan: string | null;
-  // Event
+export type AnalyticsPropertyValue =
+  | string
+  | number
+  | boolean
+  | null
+  | Array<string | number | boolean | null>;
+
+/** Browser-authored fields. Identity and platform are deliberately absent. */
+export interface AnalyticsClientEvent {
+  id: string;
   event_type: AnalyticsEventType;
   event_name: string;
-  // Context
-  platform: "web";
   app_version: string | null;
   device_type: string | null;
   os_version: string | null;
-  // Session
   session_id: string;
-  // Data
-  properties: Record<string, unknown>;
+  properties: Record<string, AnalyticsPropertyValue>;
   duration_ms: number | null;
-  // Timestamp
+  schema_version: number;
+  environment: AnalyticsEnvironment;
   created_at: string;
 }
 
-// ─── Identity (cached from auth store) ───────────────────────────────────────
-
-export interface AnalyticsIdentity {
-  userId: string | null;
-  companyId: string | null;
+export interface AnalyticsStoredEvent extends AnalyticsClientEvent {
+  user_id: string;
+  company_id: string | null;
   role: string | null;
   plan: string | null;
+  platform: "web";
 }
