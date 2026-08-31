@@ -137,6 +137,23 @@ describe("bootstrapIfNeeded (idempotent)", () => {
       "ONE_TIME_SNAPSHOT"
     );
   });
+
+  it("replaces a snapshot after its monthly cooldown expires", async () => {
+    existingRequests = [
+      { access_type: "ONGOING", created_at: new Date().toISOString() },
+      {
+        access_type: "ONE_TIME_SNAPSHOT",
+        created_at: new Date(Date.now() - 32 * 86_400_000).toISOString(),
+      },
+    ];
+
+    await bootstrapIfNeeded();
+
+    expect(ascPost).toHaveBeenCalledTimes(1);
+    expect((inserts[0].row as { access_type: string }).access_type).toBe(
+      "ONE_TIME_SNAPSHOT"
+    );
+  });
 });
 
 describe("aggregateFactsByConflictIdentity", () => {

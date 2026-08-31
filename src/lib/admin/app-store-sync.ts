@@ -232,7 +232,7 @@ export async function bootstrapIfNeeded(client: AdminClient = db()): Promise<voi
   const snap = rows.find((r) => r.access_type === "ONE_TIME_SNAPSHOT");
   const snapFresh = snap && Date.now() - new Date(snap.created_at).getTime() < SNAPSHOT_COOLDOWN_MS;
   if (!snap || !snapFresh) {
-    if (!snap) await createRequest("ONE_TIME_SNAPSHOT", appId, client);
+    await createRequest("ONE_TIME_SNAPSHOT", appId, client);
   }
 }
 
