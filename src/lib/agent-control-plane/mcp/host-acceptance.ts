@@ -72,6 +72,7 @@ async function rpc(
     readonly bearer: string;
     readonly fetcher: AcceptanceFetcher;
     readonly timeoutMs: number;
+    readonly signal?: AbortSignal;
   },
   stage: string,
   body: Readonly<Record<string, unknown>>
@@ -87,7 +88,9 @@ async function rpc(
         "MCP-Protocol-Version": PROTOCOL_VERSION,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(input.timeoutMs),
+      signal: input.signal
+        ? AbortSignal.any([input.signal, AbortSignal.timeout(input.timeoutMs)])
+        : AbortSignal.timeout(input.timeoutMs),
     });
   } catch {
     throw failure(stage);
@@ -112,6 +115,7 @@ async function notify(
     readonly bearer: string;
     readonly fetcher: AcceptanceFetcher;
     readonly timeoutMs: number;
+    readonly signal?: AbortSignal;
   },
   stage: string,
   body: Readonly<Record<string, unknown>>
@@ -127,7 +131,9 @@ async function notify(
         "MCP-Protocol-Version": PROTOCOL_VERSION,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(input.timeoutMs),
+      signal: input.signal
+        ? AbortSignal.any([input.signal, AbortSignal.timeout(input.timeoutMs)])
+        : AbortSignal.timeout(input.timeoutMs),
     });
   } catch {
     throw failure(stage);
@@ -141,6 +147,7 @@ export async function runDayCloseoutHostAcceptance(input: {
   readonly idempotencyKey: string;
   readonly fetcher?: AcceptanceFetcher;
   readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
 }): Promise<DayCloseoutHostAcceptanceSummary> {
   const endpoint = parseEndpoint(input.endpoint);
   if (
@@ -168,6 +175,7 @@ export async function runDayCloseoutHostAcceptance(input: {
     bearer: input.bearer,
     fetcher: input.fetcher ?? fetch,
     timeoutMs,
+    signal: input.signal,
   };
 
   const initialize = jsonObject(

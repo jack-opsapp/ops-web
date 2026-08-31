@@ -216,6 +216,27 @@ describe("day-closeout authenticated host acceptance", () => {
     ).rejects.toThrow("MCP host acceptance failed at initialize");
   });
 
+  it("honors operator cancellation without exposing transport detail", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetcher = vi.fn(
+      async (_url: string | URL | Request, init?: RequestInit) => {
+        expect(init?.signal?.aborted).toBe(true);
+        throw new Error("sensitive cancelled request");
+      }
+    );
+
+    await expect(
+      runDayCloseoutHostAcceptance({
+        endpoint: ENDPOINT,
+        bearer: BEARER,
+        idempotencyKey: "acceptance-closeout-2026-08-30",
+        fetcher,
+        signal: controller.signal,
+      })
+    ).rejects.toThrow("MCP host acceptance failed at initialize");
+  });
+
   it.each([
     [
       "HTTP rejection",
