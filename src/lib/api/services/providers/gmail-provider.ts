@@ -258,6 +258,44 @@ function encodeGmailIncrementalCursor(
   return encoded;
 }
 
+/**
+ * Re-encode a cycle's next sync token so messages that were DISCOVERED but not
+ * yet PROCESSED are owed again by the provider cursor (deadline checkpointing,
+ * bug 63ff8830). The unprocessed ids join the cursor's pendingMessageIds; the
+ * next pass hydrates them (bounded, ≤ GMAIL_INCREMENTAL_HISTORY_MAX_MESSAGES
+ * per pass) and they re-enter discovery on the normal code path. Returns null
+ * when the remainder cannot be encoded within the cursor's caps — the caller
+ * must then fall back to NOT advancing the cursor at all.
+ */
+export function deferGmailBatchRemainder(
+  nextSyncToken: string,
+  unprocessedMessageIds: string[]
+): string | null {
+  if (unprocessedMessageIds.length === 0) return nextSyncToken;
+  let cursor: GmailIncrementalCursor;
+  try {
+    cursor = decodeGmailIncrementalCursor(nextSyncToken);
+  } catch {
+    return null;
+  }
+  const merged = [
+    ...new Set([...unprocessedMessageIds, ...cursor.pendingMessageIds]),
+  ];
+  if (merged.length > GMAIL_INCREMENTAL_CURSOR_MAX_PENDING_MESSAGES) {
+    return null;
+  }
+  try {
+    return encodeGmailIncrementalCursor({
+      startHistoryId: cursor.startHistoryId,
+      pageToken: cursor.pageToken,
+      finalHistoryId: cursor.finalHistoryId,
+      pendingMessageIds: merged,
+    });
+  } catch {
+    return null;
+  }
+}
+
 function attachmentRequestSignal(): AbortSignal {
   return AbortSignal.timeout(MAX_GMAIL_ATTACHMENT_REQUEST_MS);
 }

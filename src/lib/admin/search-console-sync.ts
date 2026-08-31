@@ -243,19 +243,25 @@ export async function runSearchConsoleSync(options: {
 }> {
   const store = options.store ?? new AnalyticsSyncStore();
   const now = options.now ?? new Date();
-  const siteUrl = options.siteUrl ?? getSearchConsoleSiteUrl();
-  const latestState = await store.latest("search_console");
-  const plan = planSearchConsoleSync({
-    today: pacificDate(now),
-    latestState,
-    backfillStartDate: options.backfillStartDate,
-  });
-  const runId = await store.begin("search_console", {
-    site_url: siteUrl,
-    requested_dates: plan.dates,
-  });
+  // The durable run record opens before ANY fallible preflight so a missing
+  // env var or state-read failure is recorded with its reason instead of
+  // surfacing only as an HTTP 500 with no analytics_sync_runs row
+  // (bug 6d61591c: SEARCH_CONSOLE_SITE_URL was absent on 2026-08-31 and the
+  // throw happened before begin(), leaving the failure undiagnosable).
+  const runId = await store.begin("search_console", { phase: "preflight" });
   let rowCount = 0;
   try {
+    const siteUrl = options.siteUrl ?? getSearchConsoleSiteUrl();
+    const latestState = await store.latest("search_console");
+    const plan = planSearchConsoleSync({
+      today: pacificDate(now),
+      latestState,
+      backfillStartDate: options.backfillStartDate,
+    });
+    await store.annotate(runId, {
+      site_url: siteUrl,
+      requested_dates: plan.dates,
+    });
     for (const reportingDate of plan.dates) {
       if (options.signal?.aborted) throw new Error("Search Console lease lost");
       const rows = await (options.fetchDate ?? fetchSearchConsoleDate)(

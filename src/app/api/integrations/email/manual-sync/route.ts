@@ -12,6 +12,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { SyncEngine } from "@/lib/api/services/sync-engine";
+import {
+  EMAIL_SYNC_DEADLINE_SAFETY_MARGIN_MS,
+  EMAIL_SYNC_MAX_RUNTIME_MS,
+  EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS,
+  createInvocationDeadline,
+} from "@/lib/api/services/invocation-deadline";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import {
   SubscriptionPlan,
@@ -172,18 +178,33 @@ export async function POST(request: NextRequest) {
         connectionIds = (connections || []).map((c) => c.id as string);
       }
 
+      // The manual path runs under the same 300s platform kill as the cron, so
+      // it carries the same budget. A sync stopped by the deadline answers 202
+      // "continuing" below rather than pretending it completed (bug 63ff8830).
+      const deadline = createInvocationDeadline({
+        maxRuntimeMs: EMAIL_SYNC_MAX_RUNTIME_MS,
+        safetyMarginMs: EMAIL_SYNC_DEADLINE_SAFETY_MARGIN_MS,
+      });
       const results = [];
+      const deferredConnections: string[] = [];
       for (const id of connectionIds) {
-        const result = await SyncEngine.runSync(id);
+        if (deadline.expired(EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS)) {
+          // Untouched, not attempted — nothing ran, so there is no result to
+          // report; it is counted as still owing work below.
+          deferredConnections.push(id);
+          continue;
+        }
+        const result = await SyncEngine.runSync(id, { deadline });
         results.push({ connectionId: id, ...result });
       }
 
       const failedConnections = results.filter(
         (result) => result.errors.length > 0
       ).length;
-      const pendingConnections = results.filter(
-        (result) => result.continuationPending
-      ).length;
+      const pendingConnections =
+        results.filter(
+          (result) => result.continuationPending || result.deadlineDeferred
+        ).length + deferredConnections.length;
       const state =
         failedConnections > 0
           ? failedConnections === results.length
@@ -202,6 +223,7 @@ export async function POST(request: NextRequest) {
           connectionsProcessed: results.length,
           failedConnections,
           pendingConnections,
+          deferredConnections,
           results,
         },
         {

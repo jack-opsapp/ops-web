@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AnalyticsSyncStore } from "@/lib/admin/analytics-sync-store";
 import {
   aggregateSearchConsoleFacts,
@@ -11,11 +11,16 @@ function storeMock() {
   return {
     latest: vi.fn().mockResolvedValue(null),
     begin: vi.fn().mockResolvedValue("run-id"),
+    annotate: vi.fn().mockResolvedValue(undefined),
     complete: vi.fn().mockResolvedValue(undefined),
     fail: vi.fn().mockResolvedValue(undefined),
     replaceSearchConsoleDate: vi.fn().mockImplementation(async ({ rows }) => rows.length),
   } as unknown as AnalyticsSyncStore;
 }
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("Search Console sync", () => {
   it("replays D-7 through D-3 and advances a bounded historical cursor", () => {
@@ -153,5 +158,82 @@ describe("Search Console sync", () => {
     expect(store.fail).toHaveBeenCalledWith("run-id", denied);
     expect(store.replaceSearchConsoleDate).not.toHaveBeenCalled();
     expect(store.complete).not.toHaveBeenCalled();
+  });
+
+  it("records a failed run when preflight throws before any fetch (bug 6d61591c)", async () => {
+    const store = storeMock();
+    // An empty SEARCH_CONSOLE_SITE_URL is exactly the 2026-08-31 06:20 UTC
+    // production state: the site-url read threw before the run record existed,
+    // so the failure left no analytics_sync_runs row to diagnose.
+    vi.stubEnv("SEARCH_CONSOLE_SITE_URL", "");
+
+    await expect(
+      runSearchConsoleSync({
+        store,
+        now: new Date("2026-08-31T06:20:05.000Z"),
+        fetchDate: vi.fn(),
+      })
+    ).rejects.toThrow(/SEARCH_CONSOLE_SITE_URL/);
+
+    expect(store.begin).toHaveBeenCalledTimes(1);
+    expect(store.begin).toHaveBeenCalledWith("search_console", {
+      phase: "preflight",
+    });
+    // Nothing fallible ran before the record was open.
+    expect(store.latest).not.toHaveBeenCalled();
+    expect(store.annotate).not.toHaveBeenCalled();
+    expect(store.replaceSearchConsoleDate).not.toHaveBeenCalled();
+    expect(store.complete).not.toHaveBeenCalled();
+    expect(store.fail).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(store.fail).mock.calls[0][0]).toBe("run-id");
+    expect(String(vi.mocked(store.fail).mock.calls[0][1])).toMatch(
+      /SEARCH_CONSOLE_SITE_URL/
+    );
+  });
+
+  it("records a failed run when the cursor read throws after the record opens", async () => {
+    const store = storeMock();
+    const readFailure = new Error("Analytics sync state read failed: timeout");
+    vi.mocked(store.latest).mockRejectedValue(readFailure);
+
+    await expect(
+      runSearchConsoleSync({
+        store,
+        now: new Date("2026-08-31T06:20:05.000Z"),
+        siteUrl: "sc-domain:opsapp.co",
+        fetchDate: vi.fn(),
+      })
+    ).rejects.toThrow(/state read failed/);
+
+    expect(store.begin).toHaveBeenCalledWith("search_console", {
+      phase: "preflight",
+    });
+    expect(store.fail).toHaveBeenCalledWith("run-id", readFailure);
+    expect(store.annotate).not.toHaveBeenCalled();
+  });
+
+  it("annotates the run with site_url and requested dates once preflight passes", async () => {
+    const store = storeMock();
+
+    await runSearchConsoleSync({
+      store,
+      now: new Date("2026-08-30T20:00:00.000Z"),
+      siteUrl: "sc-domain:opsapp.co",
+      backfillStartDate: "2026-08-23",
+      fetchDate: vi.fn().mockResolvedValue([]),
+    });
+
+    expect(store.annotate).toHaveBeenCalledTimes(1);
+    expect(store.annotate).toHaveBeenCalledWith("run-id", {
+      site_url: "sc-domain:opsapp.co",
+      requested_dates: [
+        "2026-08-23",
+        "2026-08-24",
+        "2026-08-25",
+        "2026-08-26",
+        "2026-08-27",
+      ],
+    });
+    expect(store.fail).not.toHaveBeenCalled();
   });
 });

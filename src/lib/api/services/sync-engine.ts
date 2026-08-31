@@ -138,6 +138,13 @@ import {
   type SyncResult,
 } from "./email-provider";
 import { mapGmailReads } from "./providers/gmail-read";
+import { deferGmailBatchRemainder } from "./providers/gmail-provider";
+import {
+  EMAIL_SYNC_AI_STAGE_RESERVE_MS,
+  EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS,
+  EMAIL_SYNC_POST_LOOP_RESERVE_MS,
+  type InvocationDeadline,
+} from "./invocation-deadline";
 import {
   acquireEmailConnectionSyncLock,
   createEmailConnectionSyncLockRenewer,
@@ -191,6 +198,10 @@ export interface SyncCycleResult {
   leadSummariesQuarantined: number;
   /** The durable cursor advanced, but provider or derived work still remains. */
   continuationPending: boolean;
+  /** The invocation deadline stopped this cycle before it finished; durable
+   * progress was checkpointed (or the connection left untouched) and the
+   * remainder resumes next tick. Never set by a completed cycle. */
+  deadlineDeferred: boolean;
   errors: string[];
 }
 
@@ -694,6 +705,7 @@ function emptyResult(): SyncCycleResult {
     leadScansDeferred: 0,
     leadSummariesQuarantined: 0,
     continuationPending: false,
+    deadlineDeferred: false,
     errors: [],
   };
 }
@@ -5915,7 +5927,10 @@ export const SyncEngine = {
    * Run a full sync cycle for a connection.
    * This is the main entry point — called by cron, manual sync, and webhook.
    */
-  async runSync(connectionId: string): Promise<SyncCycleResult> {
+  async runSync(
+    connectionId: string,
+    options: { deadline?: InvocationDeadline } = {}
+  ): Promise<SyncCycleResult> {
     const connection = await EmailService.getConnection(connectionId);
 
     if (!connection || connection.status !== "active") {
@@ -5951,6 +5966,15 @@ export const SyncEngine = {
     });
 
     try {
+      // Deadline SP-A: starting a cycle we cannot finish would burn provider
+      // quota and risk the platform kill landing mid-pipeline. Leaving the
+      // connection untouched is fully safe: cursor and last_synced_at are
+      // unadvanced, so the next cron tick re-runs it first (oldest-first order).
+      if (options.deadline?.expired(EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS)) {
+        result.deadlineDeferred = true;
+        return result;
+      }
+
       const includeSentMail = profile.includeSentMail !== false;
       let mailboxReconciliation: MailboxHistoryReconciliation | null = null;
 
@@ -6289,6 +6313,13 @@ export const SyncEngine = {
           : inboxResult.nextSyncToken;
       const gmailRecoveryCheckpoint =
         mailboxReconciliation?.gmailCheckpoint ?? null;
+      /**
+       * Provider message ids this cycle DISCOVERED but ran out of invocation
+       * budget to PROCESS. They are handed back to the provider cursor below so
+       * the next tick owes them again (bug 63ff8830). Declared here because the
+       * checkpoint closure reads it and the processing loop fills it.
+       */
+      const deferredProviderMessageIds: string[] = [];
       const persistSyncCheckpoint = async () => {
         if (gmailRecoveryCheckpoint?.nextPageToken) {
           result.continuationPending = true;
@@ -6303,20 +6334,42 @@ export const SyncEngine = {
           return;
         }
 
+        // Messages the deadline stopped this cycle from processing must stay
+        // owed by the cursor. Gmail can carry them as pendingMessageIds; any
+        // other provider (or a remainder past the cursor's caps) falls back to
+        // the PRE-FETCH token so the range replays next tick. Replay is
+        // idempotent — every persisted message dedupes on ingest — and strictly
+        // shrinks in cost as persisted messages skip early.
+        let providerTokenForCheckpoint: string | null = newSyncToken;
+        if (deferredProviderMessageIds.length > 0) {
+          const deferredToken =
+            provider.providerType === "gmail"
+              ? deferGmailBatchRemainder(newSyncToken, deferredProviderMessageIds)
+              : null;
+          providerTokenForCheckpoint = deferredToken ?? syncToken ?? null;
+          if (providerTokenForCheckpoint === null) {
+            throw new LifecyclePersistenceError(
+              "[sync-engine] deadline remainder could not be encoded and no pre-fetch cursor exists; holding cursor for full replay"
+            );
+          }
+        }
         const historyId = encodeEmailSyncContinuation({
-          providerToken: newSyncToken,
+          providerToken: providerTokenForCheckpoint,
           pendingLeadSummaryOpportunityIds,
           pendingLeadSummaryAttempts,
         });
         // A pass that ran out of drain budget while still behind the webhook
-        // high-water has NOT caught the mailbox up, whatever its cursor says.
-        // It records a checkpoint rather than a completion: `last_synced_at`
-        // stays where it was, the provider snapshot is not marked current, and
-        // the connection stays visibly behind instead of quietly claiming to be
-        // finished. Derived summary bookkeeping is untouched — with no drain
-        // pending this collapses to exactly the previous expression.
+        // high-water — or out of invocation budget mid-batch — has NOT caught
+        // the mailbox up, whatever its cursor says. It records a checkpoint
+        // rather than a completion: `last_synced_at` stays where it was, the
+        // provider snapshot is not marked current, and the connection stays
+        // visibly behind instead of quietly claiming to be finished. Derived
+        // summary bookkeeping is untouched — with no drain and no deadline
+        // remainder this collapses to exactly the previous expression.
         result.continuationPending =
-          isEmailSyncContinuationPending(historyId) || webhookDrainPending;
+          isEmailSyncContinuationPending(historyId) ||
+          webhookDrainPending ||
+          deferredProviderMessageIds.length > 0;
         if (result.continuationPending) {
           await persistEmailConnectionSyncCheckpoint({
             connectionId,
@@ -6324,7 +6377,8 @@ export const SyncEngine = {
             historyId,
             providerSnapshotComplete:
               !isProviderSyncContinuationPending(historyId) &&
-              !webhookDrainPending,
+              !webhookDrainPending &&
+              deferredProviderMessageIds.length === 0,
             clearRecovery: gmailRecoveryCheckpoint !== null,
             context: SYNC_LOCK_CONTEXT,
           });
@@ -6344,7 +6398,21 @@ export const SyncEngine = {
 
       if (rawInboxEmails.length === 0 && rawSentEmails.length === 0) {
         let deferredSummaryProviderFailure: unknown | null = null;
-        if (pendingLeadSummaryOpportunityIds.length > 0) {
+        // Deadline SP-C (summary refresh): starting a bounded LLM refresh we
+        // cannot finish would risk the platform kill landing between the model
+        // call and the checkpoint. Skipping leaves the ids in the continuation
+        // envelope — the exact path the refresh-budget cap already exercises,
+        // so the checkpoint below reports the mailbox as still owing derived
+        // work and the next tick picks it up.
+        const deadlineStopsSummaryRefresh =
+          options.deadline?.expired(EMAIL_SYNC_AI_STAGE_RESERVE_MS) === true;
+        if (deadlineStopsSummaryRefresh) {
+          result.deadlineDeferred = true;
+        }
+        if (
+          pendingLeadSummaryOpportunityIds.length > 0 &&
+          !deadlineStopsSummaryRefresh
+        ) {
           const summaryOpportunityIds = pendingLeadSummaryOpportunityIds;
           const summaryRefresh = await refreshLeadSummariesForOpportunities({
             supabase: requireSupabase(),
@@ -6463,7 +6531,19 @@ export const SyncEngine = {
           : left.email.id.localeCompare(right.email.id);
       });
 
-      for (const item of processingQueue) {
+      for (const [index, item] of processingQueue.entries()) {
+        // Deadline SP-B: stop admitting messages while enough budget remains
+        // to finish the processed subset's downstream stages and publish the
+        // checkpoint. Unprocessed messages return to the provider cursor via
+        // deferGmailBatchRemainder in persistSyncCheckpoint — nothing is
+        // dropped, nothing waits on a platform kill.
+        if (options.deadline?.expired(EMAIL_SYNC_POST_LOOP_RESERVE_MS)) {
+          for (const remaining of processingQueue.slice(index)) {
+            deferredProviderMessageIds.push(remaining.email.id);
+          }
+          result.deadlineDeferred = true;
+          break;
+        }
         await renewSyncLeaseIfNeeded();
         if (item.direction === "inbound") {
           const unmatchedContext = await processInboundEmail(
@@ -6540,35 +6620,52 @@ export const SyncEngine = {
         // policy and the authorized recovery actor. A provider outage during
         // classification defers the scan (durable marker) and lets the cursor
         // advance; real persistence errors still abort and hold the cursor.
-        try {
-          await persistAIClassifiedUnmatchedInbound({
-            contexts: unmatchedContexts,
-            connection,
-            profile,
-            companyName,
-            companyIndustry,
-            followUpDaysCache,
-            result,
-            providerLockCheckpoint: renewSyncLeaseIfNeeded,
-            executionPolicy: NORMAL_EMAIL_INGESTION_POLICY,
-            recoveryActorUserId: null,
-            syncLockOwner,
-          });
-        } catch (err) {
-          if (isDatabasePressureError(err)) throw err;
-          const providerUnavailable = isAIProviderUnavailableError(err);
-          const modelAnswerDeferred = isDeferredModelAnswerError(err);
-          if (!providerUnavailable && !modelAnswerDeferred) throw err;
-          if (providerUnavailable) aiProviderOutage ??= err;
+        // Deadline SP-C: classification is the most expensive stage in the
+        // cycle. With too little budget left, defer it the same durable way a
+        // provider outage does — mark every unmatched thread pending and let
+        // the existing retryPendingLeadScans cron phase drain the markers. One
+        // marker-write code path, no duplicated SQL, and the mailbox cursor is
+        // free to advance because the follow-up is owned by the markers.
+        const deadlineStopsAIStages =
+          options.deadline?.expired(EMAIL_SYNC_AI_STAGE_RESERVE_MS) === true;
+        if (deadlineStopsAIStages && unmatchedContexts.length > 0) {
           await markUnmatchedThreadsPendingLeadScan(
             unmatchedContexts,
             connection
           );
           result.leadScansDeferred += unmatchedContexts.length;
-          if (modelAnswerDeferred) {
-            console.warn(
-              `[sync-engine] deferred ${unmatchedContexts.length} unmatched lead scan(s) after a model contract/refusal; mailbox cursor will advance`
+          result.deadlineDeferred = true;
+        } else if (!deadlineStopsAIStages) {
+          try {
+            await persistAIClassifiedUnmatchedInbound({
+              contexts: unmatchedContexts,
+              connection,
+              profile,
+              companyName,
+              companyIndustry,
+              followUpDaysCache,
+              result,
+              providerLockCheckpoint: renewSyncLeaseIfNeeded,
+              executionPolicy: NORMAL_EMAIL_INGESTION_POLICY,
+              recoveryActorUserId: null,
+              syncLockOwner,
+            });
+          } catch (err) {
+            if (isDatabasePressureError(err)) throw err;
+            const providerUnavailable = isAIProviderUnavailableError(err);
+            const modelAnswerDeferred = isDeferredModelAnswerError(err);
+            if (!providerUnavailable && !modelAnswerDeferred) throw err;
+            if (providerUnavailable) aiProviderOutage ??= err;
+            await markUnmatchedThreadsPendingLeadScan(
+              unmatchedContexts,
+              connection
             );
+            result.leadScansDeferred += unmatchedContexts.length;
+            if (modelAnswerDeferred) {
+              console.warn(
+                `[sync-engine] deferred ${unmatchedContexts.length} unmatched lead scan(s) after a model contract/refusal; mailbox cursor will advance`
+              );
+            }
           }
         }
 
@@ -6793,8 +6890,14 @@ export const SyncEngine = {
           // let stage/summary enrichment recover on the next inbound message
           // rather than aborting the cursor. Provider-unavailability here is
           // deferred; any non-provider error still aborts and holds the cursor.
+          // Deadline SP-C (stage evaluation): out of budget, this inherits the
+          // provider-outage semantics this block already accepts — evaluation
+          // happens when the thread next receives mail. Skipping it cannot lose
+          // anything, and the deterministic writes above are already durable.
           let stageResults = null;
-          if (!aiProviderOutage) {
+          if (deadlineStopsAIStages) {
+            result.deadlineDeferred = true;
+          } else if (!aiProviderOutage) {
             try {
               stageResults = await AISyncReviewer.evaluateStagesWithSummary(
                 [...activeLeadTargets.values()],

@@ -47,7 +47,9 @@ function storeMock() {
       cursor: null,
       metadata: { backfill_complete: true },
     }),
-    begin: vi.fn().mockResolvedValue("run-id"),
+    begin: vi.fn().mockImplementation(async (source: string) => `run-${source}`),
+    annotate: vi.fn().mockResolvedValue(undefined),
+    channelMap: vi.fn().mockResolvedValue(rules),
     complete: vi.fn().mockResolvedValue(undefined),
     fail: vi.fn().mockResolvedValue(undefined),
     replaceGA4Date: vi.fn().mockImplementation(async ({ rows }) => rows.length),
@@ -190,5 +192,91 @@ describe("GA4 acquisition warehouse", () => {
     ]);
     expect(store.replaceGA4Date).toHaveBeenCalledTimes(14);
     expect(store.complete).toHaveBeenCalledTimes(3);
+  });
+
+  it("records failed runs for every source when top-level preflight throws", async () => {
+    const store = storeMock();
+    const preflightFailure = new Error("Analytics channel map read failed: timeout");
+    vi.mocked(store.channelMap).mockRejectedValue(preflightFailure);
+
+    await expect(
+      runGA4AcquisitionSync({
+        store,
+        now: new Date("2026-08-30T20:00:00.000Z"),
+        propertyIds: {
+          marketing: "475051117",
+          web_app: "539494652",
+          ios_app: "514229717",
+        },
+        fetchDate: vi.fn(),
+        fetchConversionQA: vi.fn(),
+      })
+    ).rejects.toThrow(/channel map read failed/);
+
+    // Every source that this invocation was going to touch carries a durable
+    // failed run naming the preflight cause (bug 6d61591c).
+    expect(store.begin).toHaveBeenCalledTimes(3);
+    for (const source of ["ga4_marketing", "ga4_web_app", "ga4_ios_qa"]) {
+      expect(store.begin).toHaveBeenCalledWith(source, { phase: "preflight" });
+      expect(store.fail).toHaveBeenCalledWith(`run-${source}`, preflightFailure);
+    }
+    expect(store.fail).toHaveBeenCalledTimes(3);
+    expect(store.replaceGA4Date).not.toHaveBeenCalled();
+    expect(store.complete).not.toHaveBeenCalled();
+  });
+
+  it("opens each property's run before reading its cursor state", async () => {
+    const store = storeMock();
+    const cursorFailure = new Error("Analytics sync state read failed: timeout");
+    vi.mocked(store.latest).mockImplementation(async (source) => {
+      if (source === "ga4_marketing") throw cursorFailure;
+      return { cursor: null, metadata: { backfill_complete: true } };
+    });
+
+    await expect(
+      runGA4AcquisitionSync({
+        store,
+        now: new Date("2026-08-30T20:00:00.000Z"),
+        propertyIds: {
+          marketing: "475051117",
+          web_app: "539494652",
+          ios_app: "514229717",
+        },
+        channelRules: rules,
+        fetchDate: vi.fn().mockResolvedValue([]),
+        fetchConversionQA: vi.fn().mockResolvedValue([]),
+      })
+    ).rejects.toThrow(/One or more GA4 properties failed to sync/);
+
+    // The marketing run exists and carries its reason...
+    expect(store.begin).toHaveBeenCalledWith("ga4_marketing", {
+      phase: "preflight",
+      property_key: "marketing",
+      property_id: "475051117",
+    });
+    expect(store.fail).toHaveBeenCalledWith("run-ga4_marketing", cursorFailure);
+    expect(store.annotate).not.toHaveBeenCalledWith(
+      "run-ga4_marketing",
+      expect.anything()
+    );
+
+    // ...and the healthy property still completed.
+    expect(store.annotate).toHaveBeenCalledWith("run-ga4_web_app", {
+      property_key: "web_app",
+      property_id: "539494652",
+      requested_dates: [
+        "2026-08-22",
+        "2026-08-23",
+        "2026-08-24",
+        "2026-08-25",
+        "2026-08-26",
+        "2026-08-27",
+        "2026-08-28",
+      ],
+    });
+    expect(store.complete).toHaveBeenCalledWith(
+      "run-ga4_web_app",
+      expect.objectContaining({ sourceMaxDate: "2026-08-28" })
+    );
   });
 });

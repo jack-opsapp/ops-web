@@ -35,8 +35,22 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ ok: true, ran: true, ...controlled.value });
   } catch (error) {
+    // The runner throws an AggregateError carrying one cause per property, so
+    // expanding it restores the exact per-property message (e.g. the
+    // "7 PERMISSION_DENIED" line) to both the log and the response body
+    // (bugs 6d61591c + f3c0f556).
+    console.error("[cron/ga4-acquisition-sync]", error);
+    const failures =
+      error instanceof AggregateError
+        ? error.errors.map((cause) =>
+            cause instanceof Error ? cause.message : String(cause)
+          )
+        : undefined;
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : String(error) },
+      {
+        error: error instanceof Error ? error.message : String(error),
+        ...(failures ? { failures } : {}),
+      },
       { status: 500 }
     );
   }

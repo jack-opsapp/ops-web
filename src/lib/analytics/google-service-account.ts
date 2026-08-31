@@ -4,6 +4,20 @@ import { parsePrivateKey } from "@/lib/firebase/parse-private-key";
 interface GoogleServiceAccountCredentials {
   clientEmail: string;
   privateKey: string;
+  /**
+   * Which environment variable family supplied these credentials. Logged (name
+   * only, never key material) at every token mint so a PERMISSION_DENIED on a
+   * GA4 property or Search Console site can be traced to the identity actually
+   * in use — the Firebase admin account is the live fallback and needs its own
+   * property grants (bug f3c0f556).
+   */
+  source:
+    | "SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON"
+    | "GA4_SERVICE_ACCOUNT_JSON"
+    | "SEARCH_CONSOLE_SERVICE_ACCOUNT_CLIENT_EMAIL"
+    | "GA4_SERVICE_ACCOUNT_CLIENT_EMAIL"
+    | "FIREBASE_ADMIN_SERVICE_ACCOUNT"
+    | "FIREBASE_ADMIN_CLIENT_EMAIL";
 }
 
 interface CachedToken {
@@ -14,7 +28,10 @@ interface CachedToken {
 
 let cachedToken: CachedToken | null = null;
 
-function parseJsonCredentials(value: string): GoogleServiceAccountCredentials {
+function parseJsonCredentials(
+  value: string,
+  source: GoogleServiceAccountCredentials["source"]
+): GoogleServiceAccountCredentials {
   let parsed: unknown;
   try {
     parsed = JSON.parse(value);
@@ -36,7 +53,7 @@ function parseJsonCredentials(value: string): GoogleServiceAccountCredentials {
   ) {
     throw new Error("Incomplete Google analytics service-account credentials");
   }
-  return { clientEmail, privateKey };
+  return { clientEmail, privateKey, source };
 }
 
 export function getGoogleAnalyticsReaderCredentials(
@@ -45,7 +62,14 @@ export function getGoogleAnalyticsReaderCredentials(
   const json =
     environment.SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON ??
     environment.GA4_SERVICE_ACCOUNT_JSON;
-  if (json) return parseJsonCredentials(json);
+  if (json) {
+    return parseJsonCredentials(
+      json,
+      json === environment.SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON
+        ? "SEARCH_CONSOLE_SERVICE_ACCOUNT_JSON"
+        : "GA4_SERVICE_ACCOUNT_JSON"
+    );
+  }
 
   const clientEmail =
     environment.SEARCH_CONSOLE_SERVICE_ACCOUNT_CLIENT_EMAIL ??
@@ -58,11 +82,21 @@ export function getGoogleAnalyticsReaderCredentials(
     if (!clientEmail.endsWith(".iam.gserviceaccount.com")) {
       throw new Error("Invalid Google analytics reader service-account email");
     }
-    return { clientEmail, privateKey };
+    return {
+      clientEmail,
+      privateKey,
+      source:
+        clientEmail === environment.SEARCH_CONSOLE_SERVICE_ACCOUNT_CLIENT_EMAIL
+          ? "SEARCH_CONSOLE_SERVICE_ACCOUNT_CLIENT_EMAIL"
+          : "GA4_SERVICE_ACCOUNT_CLIENT_EMAIL",
+    };
   }
 
   if (environment.FIREBASE_ADMIN_SERVICE_ACCOUNT) {
-    return parseJsonCredentials(environment.FIREBASE_ADMIN_SERVICE_ACCOUNT);
+    return parseJsonCredentials(
+      environment.FIREBASE_ADMIN_SERVICE_ACCOUNT,
+      "FIREBASE_ADMIN_SERVICE_ACCOUNT"
+    );
   }
 
   const firebaseClientEmail = environment.FIREBASE_ADMIN_CLIENT_EMAIL;
@@ -76,6 +110,7 @@ export function getGoogleAnalyticsReaderCredentials(
     return {
       clientEmail: firebaseClientEmail,
       privateKey: firebasePrivateKey,
+      source: "FIREBASE_ADMIN_CLIENT_EMAIL",
     };
   }
 
@@ -102,6 +137,12 @@ export async function getGoogleServiceAccountAccessToken(
 
   const credentials = getGoogleAnalyticsReaderCredentials(
     options.environment ?? process.env
+  );
+  // Names only — never the email, never key material. One line per token mint
+  // (the cache check above means once per cold start per scope) is what makes
+  // a property-permission failure traceable to an identity (bug f3c0f556).
+  console.log(
+    `[google-analytics-reader] credentials source: ${credentials.source}`
   );
   const issuedAt = Math.floor(nowMs / 1_000);
   const key = await importPKCS8(credentials.privateKey, "RS256");
