@@ -19,10 +19,75 @@
 
 import {
   htmlToPlainText,
+  stripOutlookReplyHeaderBlock,
   stripPriorMessageOverlap,
   stripQuotedContentStrict,
   stripQuotedHtml,
 } from "@/lib/utils/email-parsing";
+
+// ─── Body normalization ────────────────────────────────────────────────────
+//
+// Every heuristic in this module and in `email-parsing.ts` is line-anchored.
+// Outlook's plain-text conversion defeats line anchoring two ways at once
+// (bug 7ca126d2):
+//
+//   1. Separator lines that LOOK blank are a single space ("\n \n \n"), so a
+//      `^…$` anchor expecting an empty line never fires; and
+//   2. invisible formatting marks arrive double-encoded — a UTF-8 zero-width
+//      character read back through a single-byte codepage — landing mid-
+//      sentence as "â€چ" and surviving all the way into a lead summary as if
+//      it were evidence.
+//
+// Normalization therefore runs FIRST, before any stripper gets a turn.
+
+/** Zero-width, bidi-control, and BOM code points. */
+const INVISIBLE_FORMATTING_RE =
+  /[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+
+/**
+ * The same marks after a UTF-8 → single-byte round trip. Every form opens with
+ * "â€" (the E2 80 prefix); the third character depends on the codepage the
+ * mangling client used — Latin-1 leaves a C1 control, CP1252 leaves ‹ Œ Ž,
+ * CP1256 leaves چ ژ, and a dropped third byte leaves the bare pair.
+ *
+ * Matched by EXACT third character, never a wildcard: "â€œ", "â€”" and "â€™"
+ * are a mangled quote, dash and apostrophe that carry real text and must
+ * survive. The bare-pair branch only fires before whitespace or end of input,
+ * which no mangled punctuation ever is.
+ */
+const MOJIBAKE_INVISIBLE_RE =
+  /\u00E2\u20AC(?:[\u008B-\u008F\u0152\u017D\u2039\u0686\u0698]|(?=\s|$))/g;
+
+/**
+ * Remove invisible formatting marks (encoded or double-encoded), right-trim
+ * every line so a space-only line becomes a real blank, and collapse runs of
+ * blank lines. Idempotent.
+ */
+export function normalizeBodyLines(body: string): string {
+  if (!body) return body;
+  return body
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(MOJIBAKE_INVISIBLE_RE, "")
+    .replace(INVISIBLE_FORMATTING_RE, "")
+    .split("\n")
+    .map((line) => line.replace(/[ \t\u00A0]+$/, ""))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+/**
+ * Remove invisible formatting marks from a single text fragment — a resolved
+ * fact clause or a composed summary, where line structure is irrelevant but
+ * mojibake bleed is not. Shared with the lead-summary output guard so the
+ * character list lives in exactly one place.
+ */
+export function stripInvisibleFormatting(value: string): string {
+  if (!value) return value;
+  return value
+    .replace(MOJIBAKE_INVISIBLE_RE, "")
+    .replace(INVISIBLE_FORMATTING_RE, "");
+}
 
 export interface CleanMessageOptions {
   /** Subject line — forwarded to the contact-form-aware quote stripper. */
@@ -32,7 +97,10 @@ export interface CleanMessageOptions {
   /**
    * Provider-native clean body (M365 `uniqueBody` / Gmail HTML-first strip).
    * When present this is the authoritative quote-stripped text and is preferred
-   * over re-deriving from the raw body — but it is still signature-stripped.
+   * over re-deriving from the raw body — but it is still normalized, reply-
+   * header-stripped, and signature-stripped. "Provider-clean" means the quote
+   * chain is gone; it does NOT mean the reply header block, the signature card,
+   * or double-encoded formatting marks are (bug 7ca126d2).
    */
   providerCleanBody?: string | null;
 }
@@ -46,7 +114,9 @@ export interface CleanMessageOptions {
 //   2. A device / client footer line ("Sent from my iPhone", "Get Outlook…").
 //   3. A closing-word sign-off ("Thanks,", "Regards,", "Best,", …) IMMEDIATELY
 //      followed by a short name + contact tail (not a long prose paragraph).
-//   4. A run of trailing labelled footer lines ("Phone:", "Address:", …) at the
+//   4. A pipe-delimited ALL-CAPS contact card ("JANE DOE | INSIDE SALES REP |")
+//      whose tail is entirely card-shaped.
+//   5. A run of trailing labelled footer lines ("Phone:", "Address:", …) at the
 //      very end of the message.
 //
 // Each anchor is conservative: #3 requires the sign-off to sit on its own line
@@ -126,6 +196,39 @@ const COMMERCIAL_VETO_OR_REVERSAL_RE =
 const MAX_SIG_LINE_LEN = 60;
 /** A sign-off tail this many non-blank lines or fewer reads as a signature. */
 const MAX_SIGNOFF_TAIL_LINES = 6;
+
+// ─── Pipe-delimited contact cards ──────────────────────────────────────────
+//
+// The Outlook corporate card that defeated every anchor above (bug 7ca126d2):
+//
+//   JANE DOE | INSIDE SALES REP |
+//   jdoe@supplier.com
+//   T:
+//   604-555-3513 ext. 8723 |
+//   9785 201 St Sample Twp, BC V1M 3E7 |
+//   www.supplier.ca
+//
+// There is no `--` delimiter, no device footer, no sign-off word, and no
+// labelled "Phone:" line — so anchors 1-4 all walked past it and the whole card
+// stayed in `body_text_clean`, later surfacing as a lead summary reading
+// "Scope: 8723 | 9785 201 St …". The card's ALL-CAPS name-then-pipe opening is
+// itself the anchor; the cut only happens when everything below it is card-
+// shaped too, so an authored sentence that merely contains a pipe survives.
+
+/** An ALL-CAPS name (or role) immediately followed by a pipe: "JANE DOE | …". */
+const PIPE_CONTACT_CARD_ANCHOR_RE = /^[ \t]*[A-Z][A-Z .'’-]{2,40}\|/;
+/** A pipe-delimited ALL-CAPS segment anywhere in the line: "… | SALES | …". */
+const PIPE_CONTACT_CARD_SEGMENT_RE = /\|[ \t]*[A-Z][A-Z ]{2,}[ \t]*\|/;
+/** A line that is only a labelled contact fragment, a URL, or a phone number. */
+const CONTACT_FRAGMENT_LINE_RE =
+  /^[ \t]*(?:T:|M:|C:|www\.|https?:|\+?\d[\d ().-]{6,})/;
+
+/**
+ * A positively-identified card runs longer than a bare sign-off tail — six
+ * lines is a short card, not a long one — so it gets its own cap rather than
+ * loosening `MAX_SIGNOFF_TAIL_LINES` for every other anchor.
+ */
+const MAX_CONTACT_CARD_TAIL_LINES = 10;
 
 function isBlank(line: string): boolean {
   return line.trim().length === 0;
@@ -213,6 +316,38 @@ function isExtendedSignatureShapedLine(line: string): boolean {
     SPACED_BRAND_MARK_RE.test(line) ||
     CREDENTIALLED_NAME_LINE_RE.test(line) ||
     SIGNATURE_DATE_RANGE_RE.test(line)
+  );
+}
+
+/**
+ * Card-shaped: everything the existing signature predicates accept, plus the
+ * pipe-card and bare contact-fragment forms an Outlook card is built from.
+ * Deliberately scoped to the contact-card anchor so anchors 1-4 keep their
+ * exact shipped behaviour.
+ */
+function isContactCardShapedLine(line: string): boolean {
+  return (
+    isSignatureShapedLine(line) ||
+    PIPE_CONTACT_CARD_ANCHOR_RE.test(line) ||
+    PIPE_CONTACT_CARD_SEGMENT_RE.test(line) ||
+    CONTACT_FRAGMENT_LINE_RE.test(line)
+  );
+}
+
+/**
+ * True when every line below a card anchor is itself card-shaped. Blank lines
+ * are ignored (Outlook interleaves them freely), so only non-blank lines count
+ * against the cap.
+ */
+function looksLikeContactCardTail(tailLines: string[]): boolean {
+  const nonBlank = tailLines.filter((line) => !isBlank(line));
+  return (
+    nonBlank.length > 0 &&
+    nonBlank.length <= MAX_CONTACT_CARD_TAIL_LINES &&
+    nonBlank.every(
+      (line) =>
+        line.trim().length <= MAX_SIG_LINE_LEN && isContactCardShapedLine(line)
+    )
   );
 }
 
@@ -316,9 +451,25 @@ export function stripSignatureBlock(body: string): string {
         break;
       }
     }
+
+    // 4: a pipe-delimited ALL-CAPS contact card. No sign-off word and no hard
+    // delimiter precede it, so the card's own first line is the anchor — but
+    // only when the whole tail below is card-shaped, or the anchor line is a
+    // self-contained card (it carries the contact data itself and nothing but
+    // blanks follow). "PLEASE NOTE | the gate swing has to change" therefore
+    // never cuts, because the line after it is prose.
+    if (PIPE_CONTACT_CARD_ANCHOR_RE.test(line)) {
+      const tail = lines.slice(i + 1);
+      const selfContainedCard =
+        tail.every(isBlank) && CONTACT_SHAPE_RE.test(line);
+      if (selfContainedCard || looksLikeContactCardTail(tail)) {
+        cutAt = Math.min(cutAt, i);
+        break;
+      }
+    }
   }
 
-  // 4: a run of labelled footer lines at the very end (no other anchor hit).
+  // 5: a run of labelled footer lines at the very end (no other anchor hit).
   if (cutAt === lines.length) {
     let firstFooter = lines.length;
     for (let i = lines.length - 1; i >= 0; i--) {
@@ -372,21 +523,68 @@ function quoteStripRaw(raw: string, subject: string): string {
 }
 
 /**
- * Produce the clean body for one message: quote-stripped + overlap-stripped +
- * signature-stripped. Pure — no DB / network.
+ * Produce the clean body for one message: normalized + quote-stripped +
+ * overlap-stripped + header-stripped + signature-stripped. Pure — no DB /
+ * network.
  *
  * Layer order:
+ *   0. Normalize — invisible/double-encoded formatting marks out, space-only
+ *      lines collapsed to real blanks, so every line anchor below can fire.
  *   1. Quote strip — prefer the provider's pre-computed clean body when given,
  *      else run the shared HTML/plain-text quote pipeline on the raw body.
  *   2. Cross-message overlap strip — subtract any verbatim prior-message body
  *      inlined into this one (safety net the quote pass can miss).
- *   3. Signature strip — remove the trailing sig / footer block.
+ *   3. Outlook reply-header strip — the shapes the strict From/Sent/To quote
+ *      marker misses.
+ *   4. Signature strip — remove the trailing sig / footer / contact-card block.
  */
 export function cleanMessageBody(
   rawBody: string,
   opts: CleanMessageOptions
 ): string {
   return stripSignatureBlock(authoredMessageBody(rawBody, opts)).trim();
+}
+
+/**
+ * Re-clean a body that was persisted as `body_text_clean` before this module's
+ * current boundary shipped. Those rows keep their reply header and signature
+ * card at rest forever, and the lead-summary service prefers the stored value —
+ * so the same normalization, header strip and signature strip have to run again
+ * at read time. No quote-marker pass: the stored body is already the provider's
+ * quote-stripped text, and re-running the markers on it risks nothing but has
+ * nothing to add.
+ */
+export function sanitizeSummaryEvidenceBody(body: string): string {
+  if (!body) return body;
+  const normalized = normalizeBodyLines(
+    stripOutlookReplyHeaderBlock(normalizeBodyLines(body))
+  );
+  const stripped = stripSignatureBlock(normalized).trim();
+  // `stripSignatureBlock` refuses to blank a message: when the "signature" IS
+  // the whole message it hands the body back untouched. That rule protects the
+  // conversation layer, where an empty body would lose the fact that anything
+  // was said at all. Summary evidence is the opposite case — a body that is
+  // nothing but a contact card carries no deal fact, and handing it to the
+  // model is how a phone extension became a job scope (bug 7ca126d2). The
+  // malformed 17:21Z Vitrum send was ~90% signature card.
+  if (stripped === normalized.trim() && isContactCardOnlyBody(normalized)) {
+    return "";
+  }
+  return stripped;
+}
+
+/** Every non-blank line is card-shaped and at least one opens a pipe card. */
+function isContactCardOnlyBody(body: string): boolean {
+  const lines = body.split("\n").filter((line) => !isBlank(line));
+  return (
+    lines.length > 0 &&
+    lines.length <= MAX_CONTACT_CARD_TAIL_LINES &&
+    lines.some((line) => PIPE_CONTACT_CARD_ANCHOR_RE.test(line)) &&
+    lines.every(
+      (line) =>
+        line.trim().length <= MAX_SIG_LINE_LEN && isContactCardShapedLine(line)
+    )
+  );
 }
 
 /**
@@ -403,17 +601,34 @@ export function authoredMessageBody(
 
   const subject = opts.subject ?? "";
 
+  // 0. Normalize FIRST. Everything below is line-anchored, and Outlook's
+  //    space-only "blank" lines plus double-encoded formatting marks defeat
+  //    line anchors before they get a chance to run. Prior bodies are
+  //    normalized on the same terms so the overlap match still lines up.
+  const normalizedRaw = normalizeBodyLines(rawBody);
+  const normalizedProviderClean =
+    opts.providerCleanBody != null
+      ? normalizeBodyLines(opts.providerCleanBody)
+      : null;
+  const normalizedPriors = opts.priorBodies?.map(normalizeBodyLines);
+
   // 1. Quote strip (provider-clean preferred).
   const quoteStripped =
-    opts.providerCleanBody != null
-      ? stripQuotedContentStrict(opts.providerCleanBody, subject)
-      : quoteStripRaw(rawBody, subject);
+    normalizedProviderClean != null
+      ? stripQuotedContentStrict(normalizedProviderClean, subject)
+      : quoteStripRaw(normalizedRaw, subject);
 
   // 2. Cross-message overlap strip.
   const overlapStripped =
-    opts.priorBodies && opts.priorBodies.length > 0
-      ? stripPriorMessageOverlap(quoteStripped, opts.priorBodies)
+    normalizedPriors && normalizedPriors.length > 0
+      ? stripPriorMessageOverlap(quoteStripped, normalizedPriors)
       : quoteStripped;
 
-  return overlapStripped.trim();
+  // 3. Outlook reply-header strip. A quoted header block is never authored
+  //    text, so it leaves this representation too.
+  const headerStripped = stripOutlookReplyHeaderBlock(overlapStripped);
+
+  // 4. Re-normalize: the HTML path re-introduces space-only lines when it
+  //    collapses runs of horizontal whitespace.
+  return normalizeBodyLines(headerStripped).trim();
 }

@@ -1,8 +1,64 @@
 import { describe, it, expect } from "vitest";
 import {
   cleanMessageBody,
+  normalizeBodyLines,
+  sanitizeSummaryEvidenceBody,
   stripSignatureBlock,
 } from "@/lib/api/services/conversation-state/message-cleaner";
+import { stripOutlookReplyHeaderBlock } from "@/lib/utils/email-parsing";
+
+/**
+ * Bug 7ca126d2 — the Vitrum body shape.
+ *
+ * Modelled byte-for-byte on the plain-text Outlook produced for the supplier
+ * replies that poisoned lead b444e6fc (names anonymized, structure identical):
+ * space-only "blank" lines, a pipe-delimited contact card with no sign-off word
+ * above it, and a quoted reply header whose mangled Unicode arrived as literal
+ * "â€چ" sequences. Every existing stripper walked straight past all three.
+ */
+const OUTLOOK_MANGLED = [
+  "Morning Jackson, ",
+  "",
+  " ",
+  " ",
+  " ",
+  "Thank you for the Order, a con",
+  " ",
+  " ",
+  "JANE DOE | INSIDE SALES REP | ",
+  "jdoe@supplier.com",
+  " ",
+  "T: ",
+  "604-555-3513 ext. 8723 | ",
+  "9785 201 St Sample Twp, BC V1M 3E7 | ",
+  "www.supplier.ca",
+  " ",
+  " ",
+  " ",
+  " ",
+  "From: Jackson Sweet <ops@example.com>",
+  "Sent: Thursday, August 27, 2026 10:12 AM",
+  "To: Jane Doe <jdoe@supplier.com>",
+  "Subject: Re: [EXTERNAL] PO Nelson Replacement",
+  " ",
+  "â€چ â€چ â€چ â€چ â€چ Hi Jane, For this job please use PO 3934 Jean Pl.",
+].join("\n");
+
+/** Zero-width, bidi-control, and BOM code points — none may survive cleaning. */
+const INVISIBLE_CHARS_RE =
+  /[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/;
+
+function expectVitrumArtifactsGone(cleaned: string): void {
+  expect(cleaned).toContain("Thank you for the Order");
+  expect(cleaned).not.toContain("From:");
+  expect(cleaned).not.toContain("Sent:");
+  expect(cleaned).not.toContain("INSIDE SALES REP");
+  expect(cleaned).not.toContain("9785 201 St");
+  expect(cleaned).not.toContain("604-555-3513");
+  expect(cleaned).not.toContain("www.supplier.ca");
+  expect(cleaned).not.toContain("â€");
+  expect(INVISIBLE_CHARS_RE.test(cleaned)).toBe(false);
+}
 
 describe("stripSignatureBlock", () => {
   it("strips a `-- ` delimited signature block, keeping only the message", () => {
@@ -442,5 +498,161 @@ describe("cleanMessageBody", () => {
     const raw =
       "Hi, do you install glass railings? I have a deck about 200 sqft. Thanks.";
     expect(cleanMessageBody(raw, {})).toBe(raw);
+  });
+});
+
+describe("normalizeBodyLines", () => {
+  it("collapses space-only lines so line-anchored heuristics can see blanks", () => {
+    expect(normalizeBodyLines("a\n \n \t \nb")).toBe("a\n\nb");
+  });
+
+  it("removes zero-width, bidi, and BOM code points", () => {
+    const body =
+      "Please\u200Bconfirm\u200D the\u202E price\uFEFF today.";
+    const cleaned = normalizeBodyLines(body);
+    expect(INVISIBLE_CHARS_RE.test(cleaned)).toBe(false);
+    expect(cleaned).toBe("Pleaseconfirm the price today.");
+  });
+
+  it("removes double-encoded invisible marks without eating mojibaked punctuation", () => {
+    // "â€چ" / "â€Œ" are zero-width marks read back through a single-byte
+    // codepage. "â€œ" and "â€”" are a mangled QUOTE and DASH — real text.
+    expect(normalizeBodyLines("â€چ â€Œ Hi Jane, use PO 3934")).toBe(
+      "  Hi Jane, use PO 3934"
+    );
+    expect(normalizeBodyLines("He said â€œyesâ€ â€” proceed.")).toBe(
+      "He said â€œyesâ€ â€” proceed."
+    );
+  });
+
+  it("collapses runs of blank lines to a single separator", () => {
+    expect(normalizeBodyLines("a\n\n\n\n\nb")).toBe("a\n\nb");
+  });
+
+  it("returns empty input unchanged", () => {
+    expect(normalizeBodyLines("")).toBe("");
+  });
+});
+
+describe("stripOutlookReplyHeaderBlock", () => {
+  it("drops a From:/Sent: header block and everything after it", () => {
+    const body = [
+      "Confirmed, thanks.",
+      "",
+      "From: Jackson Sweet <ops@example.com>",
+      "Sent: Thursday, August 27, 2026 10:12 AM",
+      "To: Jane Doe <jdoe@supplier.com>",
+      "Subject: Re: PO Nelson Replacement",
+      "",
+      "Hi Jane, please use PO 3934 Jean Pl.",
+    ].join("\n");
+    expect(stripOutlookReplyHeaderBlock(body)).toBe("Confirmed, thanks.");
+  });
+
+  it("still fires when the header block omits To: and carries > prefixes", () => {
+    const body = [
+      "Sounds good.",
+      "> From: Jackson Sweet <ops@example.com>",
+      "> Date: Thu, 27 Aug 2026 10:12:00 -0700",
+      "> Subject: PO Nelson Replacement",
+    ].join("\n");
+    expect(stripOutlookReplyHeaderBlock(body)).toBe("Sounds good.");
+  });
+
+  it("fires when a blank line separates From: from Sent:", () => {
+    const body = [
+      "Approved.",
+      "From: Jackson Sweet <ops@example.com>",
+      "",
+      "Sent: Thursday, August 27, 2026 10:12 AM",
+    ].join("\n");
+    expect(stripOutlookReplyHeaderBlock(body)).toBe("Approved.");
+  });
+
+  it("does NOT truncate authored prose that merely starts with the word From", () => {
+    const body =
+      "From day one we planned to replace the whole railing, and the crew sent measurements last week.";
+    expect(stripOutlookReplyHeaderBlock(body)).toBe(body);
+  });
+
+  it("does NOT truncate an unpaired From: line with no Sent:/Date: below it", () => {
+    const body = [
+      "Here is what we need.",
+      "From: the site super, the gate has to swing inward.",
+      "Please confirm before Friday.",
+    ].join("\n");
+    expect(stripOutlookReplyHeaderBlock(body)).toBe(body);
+  });
+
+  it("returns empty input unchanged", () => {
+    expect(stripOutlookReplyHeaderBlock("")).toBe("");
+  });
+});
+
+describe("Outlook contact-card and header artifacts (bug 7ca126d2)", () => {
+  it("strips the card, the reply header, and the mojibake from a raw body", () => {
+    expectVitrumArtifactsGone(cleanMessageBody(OUTLOOK_MANGLED, {}));
+  });
+
+  it("strips them from a stored provider-clean body too", () => {
+    // `body_text_clean` rows written before this fix keep every artifact at
+    // rest forever, and both the classifier and the summary service read them.
+    expectVitrumArtifactsGone(
+      cleanMessageBody("RAW", { providerCleanBody: OUTLOOK_MANGLED })
+    );
+  });
+
+  it("strips them through the summary-evidence sanitizer", () => {
+    expectVitrumArtifactsGone(sanitizeSummaryEvidenceBody(OUTLOOK_MANGLED));
+  });
+
+  it("strips a pipe-delimited contact card with no sign-off word above it", () => {
+    const body = [
+      "Yes, the order is confirmed.",
+      "",
+      "JANE DOE | INSIDE SALES REP | ",
+      "jdoe@supplier.com",
+      "T: 604-555-3513 ext. 8723 | ",
+      "www.supplier.ca",
+    ].join("\n");
+    expect(stripSignatureBlock(normalizeBodyLines(body))).toBe(
+      "Yes, the order is confirmed."
+    );
+  });
+
+  it("strips a single-line self-contained contact card at the end", () => {
+    const body = [
+      "The glass ships Tuesday.",
+      "JANE DOE | INSIDE SALES REP | jdoe@supplier.com | T: 604-555-3513",
+    ].join("\n");
+    expect(stripSignatureBlock(body)).toBe("The glass ships Tuesday.");
+  });
+
+  it("does NOT cut an authored sentence that contains a pipe and capitals", () => {
+    const body = [
+      "We accept the quote.",
+      "PLEASE NOTE | the gate swing has to change before you order.",
+      "Friday still works for the install.",
+    ].join("\n");
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it("never blanks a message that is nothing but a contact card", () => {
+    const body = [
+      "JANE DOE | INSIDE SALES REP | ",
+      "jdoe@supplier.com",
+      "T: 604-555-3513",
+    ].join("\n");
+    expect(stripSignatureBlock(body)).toBe(body);
+  });
+
+  it("does not let a contact card erase a later commercial veto", () => {
+    const body = [
+      "The order is placed.",
+      "JANE DOE | INSIDE SALES REP | ",
+      "jdoe@supplier.com",
+      "Actually, we changed our minds and cancelled the project.",
+    ].join("\n");
+    expect(stripSignatureBlock(body)).toBe(body);
   });
 });

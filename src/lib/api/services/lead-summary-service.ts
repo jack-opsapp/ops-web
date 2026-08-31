@@ -38,7 +38,11 @@ import {
   CronDatabaseOperationError,
   isDatabasePressureError,
 } from "./cron-workload-control-service";
-import { cleanMessageBody } from "./conversation-state/message-cleaner";
+import {
+  cleanMessageBody,
+  sanitizeSummaryEvidenceBody,
+  stripInvisibleFormatting,
+} from "./conversation-state/message-cleaner";
 import { extractCommercialDealPrices } from "@/lib/email/commercial-price";
 import {
   currentCommercialEpisodeMessages,
@@ -485,18 +489,22 @@ export function trustedLeadEmailMessages(
     }
 
     const storedCleanBody = activity.body_text_clean;
-    const cleanedBody =
+    // Persisted "clean" bodies pre-date the current quote/signature boundary.
+    // Treat them as untrusted input and clean them again — then run the
+    // summary-specific sanitizer, which (unlike the conversation cleaner) is
+    // allowed to return an empty body when the message is nothing but a
+    // contact card. A card is not evidence (bug 7ca126d2).
+    const cleanedBody = sanitizeSummaryEvidenceBody(
       storedCleanBody !== null
         ? cleanMessageBody(storedCleanBody, {
             subject: activity.subject ?? "",
-            // Persisted "clean" bodies pre-date the current quote/signature
-            // boundary. Treat them as untrusted input and clean them again.
             providerCleanBody: null,
           })
         : cleanMessageBody(activity.body_text ?? "", {
             subject: activity.subject ?? "",
             providerCleanBody: null,
-          });
+          })
+    );
     if (
       isRecruitingProviderNoise({
         direction,
@@ -1138,6 +1146,56 @@ function resolveSummarySchedule(
   return resolveFoldedSchedule(fold);
 }
 
+// ─── Fact-field output guard (bug 7ca126d2) ────────────────────────────────
+//
+// Evidence sanitization closes the front door; this closes the back one. Rows
+// written before the message-cleaner hardening keep their signature card at
+// rest forever, and the model can echo one it was handed. A contact card is
+// never a deal fact, so a field that resolves to one is dropped — every
+// resolver here already has a null path, and no scope clause beats a scope
+// clause reading "8723 | 9785 201 St Langley Twp, BC V1M 3E7 | From: …".
+
+/** A quoted reply header: "From: … Sent:" / "From: … Date:". */
+const SUMMARY_REPLY_HEADER_RE = /\bFrom:\s.+\b(?:Sent|Date):/i;
+const SUMMARY_CARD_PHONE_RE = /\d{3}[-. ]\d{3}[-. ]\d{4}/;
+const SUMMARY_CARD_POSTAL_RE = /\b[A-Z]\d[A-Z]\s?\d[A-Z]\d\b/;
+
+/**
+ * True for a quoted reply header, or for a clause carrying two or more pipe
+ * separators together with a phone or postal token — the shape of a contact
+ * card and of nothing a customer ever says about a job.
+ */
+function isContactCardClause(value: string): boolean {
+  if (SUMMARY_REPLY_HEADER_RE.test(value)) return true;
+  const pipeSeparators = value.split(" | ").length - 1;
+  return (
+    pipeSeparators >= 2 &&
+    (SUMMARY_CARD_PHONE_RE.test(value) || SUMMARY_CARD_POSTAL_RE.test(value))
+  );
+}
+
+/**
+ * Guard one resolved fact field: invisible formatting marks out, contact cards
+ * and reply headers rejected outright.
+ */
+function sanitizeSummaryFactText(
+  value: string | null | undefined
+): string | null {
+  if (!value) return null;
+  const cleaned = stripInvisibleFormatting(value).trim();
+  if (!cleaned) return null;
+  return isContactCardClause(cleaned) ? null : cleaned;
+}
+
+/**
+ * Guard a composed summary. A summary cannot be nulled, so only the invisible
+ * marks come out here — card and header clauses are rejected upstream, where
+ * dropping a field is possible and mangling a sentence is not.
+ */
+function sanitizeSummaryOutputText(value: string): string {
+  return stripInvisibleFormatting(value).trim();
+}
+
 function resolveSummaryScope(
   commercialScope: string | null | undefined,
   fold: LeadSummaryContextBundle["conversation_fold"]
@@ -1430,18 +1488,26 @@ function buildCurrentFactContext(input: {
   opportunity: OpportunityRow;
 }): LeadSummaryContextBundle["current_fact_context"] {
   const currentPrice = resolveSummaryCurrentPrice(input);
-  const currentScope = resolveSummaryScope(
-    input.commercialOutcome?.facts.currentScope,
-    input.conversationFold
+  // Every resolved string fact passes the card/header guard before it can
+  // reach the prompt, the validators, or the deterministic fallback.
+  const currentScope = sanitizeSummaryFactText(
+    resolveSummaryScope(
+      input.commercialOutcome?.facts.currentScope,
+      input.conversationFold
+    )
   );
-  const schedule = resolveSummarySchedule(
-    input.commercialOutcome?.facts.schedule,
-    input.conversationFold,
-    input.commercialOutcome !== null
+  const schedule = sanitizeSummaryFactText(
+    resolveSummarySchedule(
+      input.commercialOutcome?.facts.schedule,
+      input.conversationFold,
+      input.commercialOutcome !== null
+    )
   );
-  const objection = input.commercialOutcome
-    ? clip(input.commercialOutcome.facts.objection, ACTIVITY_CONTENT_CAP)
-    : resolveFoldedObjection(input.completeConversationFold);
+  const objection = sanitizeSummaryFactText(
+    input.commercialOutcome
+      ? clip(input.commercialOutcome.facts.objection, ACTIVITY_CONTENT_CAP)
+      : resolveFoldedObjection(input.completeConversationFold)
+  );
   const foldedNextAction = resolveFoldedNextAction(input.conversationFold);
   const completeNextAction = resolveFoldedNextAction(
     input.completeConversationFold
@@ -1465,13 +1531,14 @@ function buildCurrentFactContext(input: {
         ? "Confirm the work schedule."
         : "Prepare for the confirmed work schedule."
       : null;
-  const nextAction =
+  const nextAction = sanitizeSummaryFactText(
     input.commercialOutcome?.outcome === "declined"
       ? null
       : (pendingNextAction ??
         commercialNextAction ??
         scheduleNextAction ??
-        foldedNextAction.postCompletionAction);
+        foldedNextAction.postCompletionAction)
+  );
   const supersededPrices = input.allDiscussedPrices.filter(
     (price) => price !== currentPrice
   );
@@ -1866,18 +1933,18 @@ export function buildLeadSummaryContext(
             currentFactContext?.current_price ??
             commercialOutcome.facts.currentPrice,
           current_scope: currentFactContext?.current_scope ?? null,
-          excluded_scope: clip(
-            commercialOutcome.facts.excludedScope,
-            ACTIVITY_CONTENT_CAP
+          // `excluded_scope` and `next_action` are the two commercial fields
+          // the current-fact context does not already own, so they carry their
+          // own card/header guard (bug 7ca126d2).
+          excluded_scope: sanitizeSummaryFactText(
+            clip(commercialOutcome.facts.excludedScope, ACTIVITY_CONTENT_CAP)
           ),
           schedule: currentFactContext?.schedule ?? null,
-          objection: clip(
-            commercialOutcome.facts.objection,
-            ACTIVITY_CONTENT_CAP
+          objection: sanitizeSummaryFactText(
+            clip(commercialOutcome.facts.objection, ACTIVITY_CONTENT_CAP)
           ),
-          next_action: resolveCommercialNextAction(
-            opportunity,
-            commercialOutcome
+          next_action: sanitizeSummaryFactText(
+            resolveCommercialNextAction(opportunity, commercialOutcome)
           ),
           superseded_prices: commercialSupersededPrices.slice(
             -COMMERCIAL_PRICE_FACT_CAP
@@ -3112,22 +3179,52 @@ function validateCommercialSummary(
   }
 }
 
+/**
+ * Apply the card/header guard to a fact context before it becomes a contract.
+ *
+ * Both validators demand that the summary STATE every current fact they are
+ * given. A bundle built before this guard shipped — or handed in directly by a
+ * caller — can still carry a contact card in `current_scope`, and without this
+ * the validator would insist the summary repeat it, which is exactly the
+ * output the guard exists to prevent (bug 7ca126d2). Superseded entries that
+ * are cards drop out too: a card was never a scope, so "do not repeat it" is a
+ * contract about nothing.
+ */
+function guardedCurrentFactContext(
+  context: LeadSummaryCurrentFactContext
+): LeadSummaryCurrentFactContext {
+  if (!context) return context;
+  const keepsFact = (value: string): boolean =>
+    sanitizeSummaryFactText(value) !== null;
+  return {
+    ...context,
+    current_scope: sanitizeSummaryFactText(context.current_scope),
+    schedule: sanitizeSummaryFactText(context.schedule),
+    objection: sanitizeSummaryFactText(context.objection),
+    next_action: sanitizeSummaryFactText(context.next_action),
+    superseded_scopes: context.superseded_scopes.filter(keepsFact),
+    superseded_schedules: context.superseded_schedules.filter(keepsFact),
+    resolved_objections: context.resolved_objections.filter(keepsFact),
+    superseded_next_actions: context.superseded_next_actions.filter(keepsFact),
+  };
+}
+
 function fullCurrentFactValidationContext(
   bundle: LeadSummaryContextBundle
 ): LeadSummaryCurrentFactContext {
   const promptContext = bundle.current_fact_context;
   const fullContext =
     bundle[FULL_LEAD_SUMMARY_VALIDATION_CONTEXT]?.currentFactContext;
-  if (!fullContext) return promptContext;
-  if (!promptContext) return fullContext;
-  return {
+  if (!fullContext) return guardedCurrentFactContext(promptContext);
+  if (!promptContext) return guardedCurrentFactContext(fullContext);
+  return guardedCurrentFactContext({
     ...promptContext,
     superseded_prices: fullContext.superseded_prices,
     superseded_scopes: fullContext.superseded_scopes,
     superseded_schedules: fullContext.superseded_schedules,
     resolved_objections: fullContext.resolved_objections,
     superseded_next_actions: fullContext.superseded_next_actions,
-  };
+  });
 }
 
 function fullCommercialValidationContext(
@@ -3136,9 +3233,16 @@ function fullCommercialValidationContext(
   if (!bundle.commercial_context) return null;
   const fullPrices =
     bundle[FULL_LEAD_SUMMARY_VALIDATION_CONTEXT]?.commercialSupersededPrices;
-  return fullPrices
-    ? { ...bundle.commercial_context, superseded_prices: fullPrices }
-    : bundle.commercial_context;
+  const commercial = bundle.commercial_context;
+  return {
+    ...commercial,
+    current_scope: sanitizeSummaryFactText(commercial.current_scope),
+    excluded_scope: sanitizeSummaryFactText(commercial.excluded_scope),
+    schedule: sanitizeSummaryFactText(commercial.schedule),
+    objection: sanitizeSummaryFactText(commercial.objection),
+    next_action: sanitizeSummaryFactText(commercial.next_action),
+    superseded_prices: fullPrices ?? commercial.superseded_prices,
+  };
 }
 
 const REPAIRABLE_SUMMARY_OMISSIONS = new Set([
@@ -3428,11 +3532,21 @@ export function renderDeterministicLeadSummaryFallback(
 
   const currentPrice =
     current?.current_price ?? commercial?.current_price ?? null;
-  const currentScope =
-    current?.current_scope ?? commercial?.current_scope ?? null;
-  const schedule = current?.schedule ?? commercial?.schedule ?? null;
-  const objection = current?.objection ?? commercial?.objection ?? null;
-  const nextAction = current?.next_action ?? commercial?.next_action ?? null;
+  // Both fact contexts are guarded at construction; guarding again here costs
+  // nothing and means the fallback renderer cannot emit a card even if a new
+  // fact source is wired in above it later (bug 7ca126d2).
+  const currentScope = sanitizeSummaryFactText(
+    current?.current_scope ?? commercial?.current_scope ?? null
+  );
+  const schedule = sanitizeSummaryFactText(
+    current?.schedule ?? commercial?.schedule ?? null
+  );
+  const objection = sanitizeSummaryFactText(
+    current?.objection ?? commercial?.objection ?? null
+  );
+  const nextAction = sanitizeSummaryFactText(
+    current?.next_action ?? commercial?.next_action ?? null
+  );
   const clauses: string[] = [];
   if (currentPrice !== null) {
     clauses.push(`Current price: ${formattedSummaryAmount(currentPrice)}`);
@@ -3459,7 +3573,9 @@ export function renderDeterministicLeadSummaryFallback(
     );
   }
 
-  const summary = `${statusSentence} ${clauses.join("; ")}.`;
+  const summary = sanitizeSummaryOutputText(
+    `${statusSentence} ${clauses.join("; ")}.`
+  );
   const emitted = {
     price: currentPrice,
     scope,
@@ -3643,7 +3759,14 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
         "model response omitted the summary"
       );
     }
-    const summary = record.summary.trim();
+    // Sanitize BEFORE validation so the text the validators approve is the
+    // exact text that gets persisted (bug 7ca126d2).
+    const summary = sanitizeSummaryOutputText(record.summary);
+    if (!summary) {
+      throw new LeadSummaryModelContractError(
+        "model response omitted the summary"
+      );
+    }
     lastCandidateSummary = summary;
     validateCommercialSummary(
       summary,

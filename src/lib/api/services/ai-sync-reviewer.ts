@@ -38,9 +38,11 @@ import {
 } from "./email-provider-mailbox-operation";
 import {
   evaluateLeadFeedbackPriorBatch,
+  normalizeLeadFeedbackEmail,
   type LeadFeedbackBaseline,
   type LeadFeedbackPriorDecision,
 } from "./lead-feedback-prior-service";
+import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 
 export interface AIClassifiedLead {
   email: NormalizedEmail;
@@ -201,6 +203,239 @@ function threadContextWindow(messages: NormalizedEmail[]): NormalizedEmail[] {
   return [ordered[0], ...ordered.slice(-THREAD_CONTEXT_RECENT_MESSAGES)];
 }
 
+// ─── Stage B sender history (bug 7ca126d2) ─────────────────────────────────
+//
+// Phase C already knew Vitrum was a supplier: 209 threads classified
+// VENDOR/RECEIPT, an operator discard as `vendor_sales`, and five prior
+// opportunities every one of them terminal. None of it reached the lead
+// decision — the knowledge existed and no wire carried it. This loader is that
+// wire: three batched, company-scoped queries per review batch, folded into
+// counts and enum words that Stage B can read as system-verified fact.
+//
+// Nothing here reads message bodies, subjects, or names. A count cannot carry
+// an injection.
+
+/** Distinct senders whose history is loaded for one review batch. */
+const SENDER_HISTORY_MAX_SENDERS = 25;
+const SENDER_HISTORY_THREAD_SCAN_LIMIT = 2_000;
+const SENDER_HISTORY_OPPORTUNITY_SCAN_LIMIT = 500;
+const SENDER_HISTORY_FEEDBACK_SCAN_LIMIT = 200;
+const SENDER_HISTORY_NEGATIVE_REASON_LIMIT = 3;
+const SENDER_HISTORY_FACT_CAP = 400;
+
+/** Thread categories that mean "this counterparty sells to us". */
+const SUPPLIER_THREAD_CATEGORIES = new Set(["VENDOR", "RECEIPT"]);
+/** Opportunity stages that are over, whatever the archive flag says. */
+const TERMINAL_OPPORTUNITY_STAGES = new Set(["won", "lost", "discarded"]);
+
+interface SenderHistoryCounts {
+  supplierThreads: number;
+  customerThreads: number;
+  domainSupplierThreads: number;
+  domainCustomerThreads: number;
+  negativeReasons: string[];
+  negativeCount: number;
+  terminalOpportunities: number;
+  liveOpportunities: number;
+}
+
+function emptySenderHistoryCounts(): SenderHistoryCounts {
+  return {
+    supplierThreads: 0,
+    customerThreads: 0,
+    domainSupplierThreads: 0,
+    domainCustomerThreads: 0,
+    negativeReasons: [],
+    negativeCount: 0,
+    terminalOpportunities: 0,
+    liveOpportunities: 0,
+  };
+}
+
+/**
+ * Render one sender's counts as a single trusted sentence block. Returns null
+ * when there is nothing to say, so the prompt block is omitted entirely rather
+ * than padded with zeroes.
+ */
+function renderSenderHistoryFact(counts: SenderHistoryCounts): string | null {
+  const sentences: string[] = [];
+  if (counts.supplierThreads > 0 || counts.customerThreads > 0) {
+    sentences.push(
+      `${counts.supplierThreads} prior threads from this sender are VENDOR/RECEIPT; ${counts.customerThreads} CUSTOMER.`
+    );
+  }
+  const domainAddsEvidence =
+    counts.domainSupplierThreads > counts.supplierThreads ||
+    counts.domainCustomerThreads > counts.customerThreads;
+  if (
+    domainAddsEvidence &&
+    (counts.domainSupplierThreads > 0 || counts.domainCustomerThreads > 0)
+  ) {
+    sentences.push(
+      `Across this sender's domain: ${counts.domainSupplierThreads} VENDOR/RECEIPT; ${counts.domainCustomerThreads} CUSTOMER.`
+    );
+  }
+  if (counts.negativeCount > 0 && counts.negativeReasons.length > 0) {
+    sentences.push(
+      `Operator discarded ${counts.negativeCount} prior lead${counts.negativeCount === 1 ? "" : "s"} from this sender as ${counts.negativeReasons.join(", ")}.`
+    );
+  }
+  if (counts.terminalOpportunities > 0 || counts.liveOpportunities > 0) {
+    const total = counts.terminalOpportunities + counts.liveOpportunities;
+    sentences.push(
+      counts.liveOpportunities === 0
+        ? `Sender matches an existing CRM contact whose ${total} prior opportunities are all discarded, lost, won, or archived.`
+        : `Sender matches an existing CRM contact with ${counts.liveOpportunities} live and ${counts.terminalOpportunities} closed prior opportunities.`
+    );
+  }
+  if (sentences.length === 0) return null;
+  return sentences.join(" ").slice(0, SENDER_HISTORY_FACT_CAP);
+}
+
+/**
+ * Load system-verified sender history for a whole review batch — three
+ * queries total, never one per candidate. Keyed by lowercased sender email.
+ *
+ * Exported for direct unit testing; the reviewer calls it once per batch.
+ */
+export async function loadSenderHistoryFacts(input: {
+  companyId: string;
+  senderEmails: string[];
+  client: SupabaseClient;
+}): Promise<Map<string, string>> {
+  const identities = new Map<string, { email: string; domain: string }>();
+  for (const raw of input.senderEmails) {
+    const identity = normalizeLeadFeedbackEmail(raw);
+    if (!identity.email || !identity.domain) continue;
+    if (identities.has(identity.email)) continue;
+    if (identities.size >= SENDER_HISTORY_MAX_SENDERS) break;
+    identities.set(identity.email, {
+      email: identity.email,
+      domain: identity.domain,
+    });
+  }
+  if (identities.size === 0) return new Map();
+
+  const emails = [...identities.keys()];
+  const domains = [...new Set([...identities.values()].map((i) => i.domain))];
+  const countsByEmail = new Map<string, SenderHistoryCounts>(
+    emails.map((email): [string, SenderHistoryCounts] => [
+      email,
+      emptySenderHistoryCounts(),
+    ])
+  );
+
+  // 1. Thread category census. One domain-scoped scan covers both the exact
+  //    sender and its domain — an exact sender is a subset of its own domain,
+  //    so a second query would only re-read the same rows.
+  const { data: threadRows, error: threadError } = await input.client
+    .from("email_threads")
+    .select("latest_sender_email, primary_category")
+    .eq("company_id", input.companyId)
+    .or(
+      domains
+        .map(
+          (domain) =>
+            `latest_sender_email.ilike.%@${escapeIlikeLiteral(domain)}`
+        )
+        .join(",")
+    )
+    .limit(SENDER_HISTORY_THREAD_SCAN_LIMIT);
+  if (threadError) {
+    throw new Error(
+      `[ai-sync-reviewer] sender history thread read failed: ${threadError.message}`
+    );
+  }
+  for (const row of (threadRows ?? []) as Array<{
+    latest_sender_email: string | null;
+    primary_category: string | null;
+  }>) {
+    const sender = row.latest_sender_email?.trim().toLowerCase() ?? "";
+    const category = row.primary_category ?? "";
+    const isSupplier = SUPPLIER_THREAD_CATEGORIES.has(category);
+    const isCustomer = category === "CUSTOMER";
+    if (!isSupplier && !isCustomer) continue;
+    const domain = sender.split("@")[1] ?? "";
+    for (const [email, counts] of countsByEmail) {
+      if (identities.get(email)!.domain !== domain) continue;
+      if (isSupplier) counts.domainSupplierThreads += 1;
+      else counts.domainCustomerThreads += 1;
+      if (sender !== email) continue;
+      if (isSupplier) counts.supplierThreads += 1;
+      else counts.customerThreads += 1;
+    }
+  }
+
+  // 2. Active negative lead feedback for these exact senders.
+  const { data: feedbackRows, error: feedbackError } = await input.client
+    .from("lead_disposition_feedback")
+    .select("sender_email, reason_code")
+    .eq("company_id", input.companyId)
+    .eq("learning_state", "active")
+    .eq("phase_c_enabled", true)
+    .eq("learning_polarity", "negative")
+    .in("sender_email", emails)
+    .limit(SENDER_HISTORY_FEEDBACK_SCAN_LIMIT);
+  if (feedbackError) {
+    throw new Error(
+      `[ai-sync-reviewer] sender history feedback read failed: ${feedbackError.message}`
+    );
+  }
+  for (const row of (feedbackRows ?? []) as Array<{
+    sender_email: string | null;
+    reason_code: string | null;
+  }>) {
+    const counts = countsByEmail.get(
+      row.sender_email?.trim().toLowerCase() ?? ""
+    );
+    if (!counts) continue;
+    counts.negativeCount += 1;
+    const reason = row.reason_code?.trim() ?? "";
+    if (
+      reason &&
+      !counts.negativeReasons.includes(reason) &&
+      counts.negativeReasons.length < SENDER_HISTORY_NEGATIVE_REASON_LIMIT
+    ) {
+      counts.negativeReasons.push(reason);
+    }
+  }
+
+  // 3. Opportunity stage census for the matching CRM contact.
+  const { data: opportunityRows, error: opportunityError } = await input.client
+    .from("opportunities")
+    .select("contact_email, stage, archived_at")
+    .eq("company_id", input.companyId)
+    .in("contact_email", emails)
+    .limit(SENDER_HISTORY_OPPORTUNITY_SCAN_LIMIT);
+  if (opportunityError) {
+    throw new Error(
+      `[ai-sync-reviewer] sender history opportunity read failed: ${opportunityError.message}`
+    );
+  }
+  for (const row of (opportunityRows ?? []) as Array<{
+    contact_email: string | null;
+    stage: string | null;
+    archived_at: string | null;
+  }>) {
+    const counts = countsByEmail.get(
+      row.contact_email?.trim().toLowerCase() ?? ""
+    );
+    if (!counts) continue;
+    if (row.archived_at || TERMINAL_OPPORTUNITY_STAGES.has(row.stage ?? "")) {
+      counts.terminalOpportunities += 1;
+    } else {
+      counts.liveOpportunities += 1;
+    }
+  }
+
+  const facts = new Map<string, string>();
+  for (const [email, counts] of countsByEmail) {
+    const fact = renderSenderHistoryFact(counts);
+    if (fact) facts.set(email, fact);
+  }
+  return facts;
+}
+
 async function applyThreadContextReclassification(input: {
   classifications: ClassificationResult[];
   emails: NormalizedEmail[];
@@ -304,6 +539,35 @@ async function applyThreadContextReclassification(input: {
           body: threadContextBody(message),
         })),
       });
+    }
+  }
+
+  // Hand Stage B what Phase C already knows about these senders. One batched
+  // load for the whole review, and a failure here degrades to "no history"
+  // rather than failing the classification — the facts sharpen the verdict,
+  // they are not a precondition for it (bug 7ca126d2).
+  const historyClient = input.mailboxOperation.supabase;
+  if (items.length > 0 && historyClient) {
+    try {
+      const facts = await loadSenderHistoryFacts({
+        companyId: input.connection.companyId,
+        senderEmails: items.map(
+          (item) => input.emails[indexById.get(item.id)!].from
+        ),
+        client: historyClient,
+      });
+      for (const item of items) {
+        const identity = normalizeLeadFeedbackEmail(
+          input.emails[indexById.get(item.id)!].from
+        );
+        const fact = identity.email ? facts.get(identity.email) : undefined;
+        if (fact) item.history = fact;
+      }
+    } catch (err) {
+      console.error(
+        "[ai-sync-reviewer] sender-history load failed; Stage B runs without it:",
+        err instanceof Error ? err.message : err
+      );
     }
   }
 
