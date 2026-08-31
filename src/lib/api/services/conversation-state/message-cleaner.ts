@@ -52,11 +52,13 @@ const INVISIBLE_FORMATTING_RE =
  *
  * Matched by EXACT third character, never a wildcard: "â€œ", "â€”" and "â€™"
  * are a mangled quote, dash and apostrophe that carry real text and must
- * survive. The bare-pair branch only fires before whitespace or end of input,
- * which no mangled punctuation ever is.
+ * survive. No bare-pair fallback: a closing quote whose third byte was
+ * dropped in transit is exactly "â€" before whitespace, and eating it
+ * deletes real punctuation — an invisible mark that lost its third byte is
+ * indistinguishable, and keeping a stray "â€" is the cheaper error.
  */
 const MOJIBAKE_INVISIBLE_RE =
-  /\u00E2\u20AC(?:[\u008B-\u008F\u0152\u017D\u2039\u0686\u0698]|(?=\s|$))/g;
+  /\u00E2\u20AC[\u008B-\u008F\u0152\u017D\u2039\u0686\u0698]/g;
 
 /**
  * Remove invisible formatting marks (encoded or double-encoded), right-trim
