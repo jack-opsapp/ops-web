@@ -392,6 +392,62 @@ export function stripQuotedContentStrict(body: string, subject = ""): string {
   return stripQuotedContentInternal(body, subject, false);
 }
 
+// ─── Outlook reply-header blocks ───────────────────────────────────────────
+// Outlook's plain-text rendering of a reply chain opens with a header block:
+//
+//   From: Jackson Sweet <ops@example.com>
+//   Sent: Thursday, August 27, 2026 10:12 AM
+//   To: Jane Doe <jdoe@supplier.com>
+//   Subject: Re: PO Nelson Replacement
+//
+// `QUOTE_MARKERS` already carries a From/Sent/To triple, but it requires all
+// three on strictly consecutive lines with no quote prefix. Real mail routinely
+// breaks that: a blank (or space-only) line lands between the headers, `To:` is
+// absent on a single-recipient reply, or the whole block arrives `>`-prefixed.
+// When the triple misses, the entire quoted chain — and the signature card
+// sitting above it — survives into `body_text_clean` and every consumer that
+// reads it back (bug 7ca126d2).
+//
+// The colon is load-bearing. Anchoring on a bare `From` would truncate an
+// authored sentence that merely opens "From day one we planned…"; requiring
+// `From:` at line start AND a `Sent:`/`Date:` line within the next few lines
+// makes a false positive effectively impossible.
+
+const OUTLOOK_HEADER_FROM_RE = /^[ \t]*(?:>+[ \t]*)?From:[ \t]?.+$/;
+const OUTLOOK_HEADER_SENT_RE = /^[ \t]*(?:>+[ \t]*)?(?:Sent|Date):[ \t]/;
+/** How far below `From:` a `Sent:`/`Date:` line may sit and still pair with it. */
+const OUTLOOK_HEADER_LOOKAHEAD = 3;
+
+/**
+ * Drop an Outlook reply-header block and everything after it.
+ *
+ * Returns the body unchanged when no `From:` line is paired with a nearby
+ * `Sent:`/`Date:` line. Like `stripQuotedContentStrict`, a body that is nothing
+ * but a quoted header block correctly reduces to an empty string — quoted
+ * history must never inherit authority from the current sender.
+ */
+export function stripOutlookReplyHeaderBlock(body: string): string {
+  if (!body) return body;
+  const normalized = body.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = normalized.split("\n");
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!OUTLOOK_HEADER_FROM_RE.test(lines[i]!)) continue;
+    const limit = Math.min(lines.length, i + 1 + OUTLOOK_HEADER_LOOKAHEAD);
+    let paired = false;
+    for (let j = i + 1; j < limit; j++) {
+      if (OUTLOOK_HEADER_SENT_RE.test(lines[j]!)) {
+        paired = true;
+        break;
+      }
+    }
+    if (!paired) continue;
+    return lines.slice(0, i).join("\n").trimEnd();
+  }
+
+  return normalized;
+}
+
 // ─── Cross-message overlap stripping ───────────────────────────────────────
 // Safety net for cases where HTML + regex passes miss a quoted chain. If a
 // newer message's body contains a chunk of an older message verbatim (modulo
