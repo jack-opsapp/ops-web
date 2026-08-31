@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 const migration = readFileSync(
   join(
     process.cwd(),
-    "supabase/migrations/20260831003057_agent_day_closeout_foundation_zero.sql"
+    "supabase/migrations/20260831042518_agent_day_closeout_foundation_zero.sql"
   ),
   "utf8"
 );
@@ -14,11 +14,21 @@ const normalized = migration.replace(/\s+/g, " ");
 const routineMigration = readFileSync(
   join(
     process.cwd(),
-    "supabase/migrations/20260831004500_agent_day_closeout_routine_worker.sql"
+    "supabase/migrations/20260831042631_agent_day_closeout_routine_worker.sql"
   ),
   "utf8"
 );
 const normalizedRoutine = routineMigration.replace(/\s+/g, " ");
+const normalizedDayCloseoutMigrations = readdirSync(
+  join(process.cwd(), "supabase/migrations")
+)
+  .filter((name) => name.includes("agent_day_closeout"))
+  .sort()
+  .map((name) =>
+    readFileSync(join(process.cwd(), "supabase/migrations", name), "utf8")
+  )
+  .join("\n")
+  .replace(/\s+/g, " ");
 
 describe("day-closeout Foundation Zero SQL contract", () => {
   it("keeps every OPS-owned record private with no direct Supabase-role grants", () => {
@@ -260,6 +270,23 @@ describe("day-closeout Foundation Zero SQL contract", () => {
       expect(normalizedRoutine).toContain("from public, anon, authenticated;");
       expect(normalizedRoutine).toContain(
         `grant execute on function public.${functionName}`
+      );
+    }
+  });
+
+  it("indexes every foreign-key lookup reported by the production advisor", () => {
+    for (const [table, column] of [
+      ["agent_day_closeout_routines", "oauth_grant_id"],
+      ["agent_day_closeout_routines", "oauth_client_id"],
+      ["agent_day_closeout_runs", "routine_id"],
+      ["agent_day_closeout_runs", "oauth_grant_id"],
+      ["agent_day_closeout_runs", "oauth_client_id"],
+      ["agent_day_closeout_routine_failures", "routine_id"],
+      ["agent_day_closeout_routine_failures", "oauth_grant_id"],
+      ["agent_day_closeout_routine_failures", "oauth_client_id"],
+    ]) {
+      expect(normalizedDayCloseoutMigrations).toContain(
+        `on private.${table} (${column});`
       );
     }
   });
