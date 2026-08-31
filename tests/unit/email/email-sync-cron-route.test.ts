@@ -233,6 +233,12 @@ describe("email sync cron HTTP outcome", () => {
     runOutboundLearningWorkerMock.mockReset();
     runLeadIntelligenceWorkerMock.mockReset();
     runWithCronWorkloadControlMock.mockReset();
+    // Draft-recovery spies leak across describe blocks without a file-wide
+    // reset — the nested block re-arms its own defaults on top of this.
+    resolveReconciliationMock.mockReset();
+    recoverStrandedDraftsMock.mockReset();
+    getConnectionMock.mockReset();
+    getConnectionMock.mockResolvedValue(null);
     runWithCronWorkloadControlMock.mockImplementation(
       async ({
         work,
@@ -383,7 +389,10 @@ describe("email sync cron HTTP outcome", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(runSyncMock).toHaveBeenCalledWith("connection-1");
+    expect(runSyncMock).toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ deadline: expect.anything() })
+    );
     expect(body.results[0]).toMatchObject({ continuationPending: true });
   });
 
@@ -402,7 +411,10 @@ describe("email sync cron HTTP outcome", () => {
     const response = await GET(request());
 
     expect(response.status).toBe(200);
-    expect(runSyncMock).toHaveBeenCalledWith("connection-1");
+    expect(runSyncMock).toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ deadline: expect.anything() })
+    );
   });
 
   it("includes a stale-sweep failure and returns non-2xx", async () => {
