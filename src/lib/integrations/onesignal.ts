@@ -26,8 +26,33 @@ export interface SendPushParams {
 }
 
 export type SendPushResult =
-  | { ok: true; recipients: number; onesignalId?: string }
-  | { ok: false; error: unknown; status?: number };
+  | {
+      ok: true;
+      recipients: number;
+      onesignalId?: string;
+      /** Present when SOME aliases were rejected but the notification was still created. */
+      invalidAliases?: string[];
+    }
+  | { ok: false; error: unknown; status?: number; invalidAliases?: string[] };
+
+/**
+ * Defensive parse of OneSignal's `errors.invalid_aliases.external_id`.
+ *
+ * OneSignal answers HTTP 200 with an `errors` body when every alias is
+ * unknown — no notification is created and nothing is delivered. Surfacing the
+ * rejected ids lets callers record WHY a push produced nothing (bug 60480c86),
+ * instead of logging an opaque object and moving on.
+ */
+export function parseOneSignalInvalidAliases(errorBody: unknown): string[] {
+  if (!errorBody || typeof errorBody !== "object") return [];
+  const errors = (errorBody as { errors?: unknown }).errors;
+  if (!errors || typeof errors !== "object" || Array.isArray(errors)) return [];
+  const invalid = (errors as { invalid_aliases?: unknown }).invalid_aliases;
+  if (!invalid || typeof invalid !== "object" || Array.isArray(invalid)) return [];
+  const externalIds = (invalid as { external_id?: unknown }).external_id;
+  if (!Array.isArray(externalIds)) return [];
+  return externalIds.filter((value): value is string => typeof value === "string");
+}
 
 /**
  * Send a push notification to a list of user IDs via OneSignal.
@@ -106,26 +131,44 @@ export async function sendOneSignalPush(
       }, timeoutMs);
     });
     const { response, result } = await Promise.race([request, timeout]);
+    const invalidAliases = parseOneSignalInvalidAliases(result);
 
     if (!response.ok) {
       console.error("[onesignal] API error:", result);
-      return { ok: false, error: result, status: response.status };
+      return {
+        ok: false,
+        error: result,
+        status: response.status,
+        invalidAliases,
+      };
     }
 
     const providerId = typeof result.id === "string" ? result.id.trim() : "";
     if (!providerId) {
+      // HTTP 200 with no id: nothing was created, so nothing was delivered.
       console.error("[onesignal] Message was not created:", result);
-      return { ok: false, error: result, status: response.status };
+      return {
+        ok: false,
+        error: result,
+        status: response.status,
+        invalidAliases,
+      };
     }
 
     console.log(
       `[onesignal] Sent to ${result.recipients ?? 0} recipients — id: ${providerId}`
     );
+    if (invalidAliases.length > 0) {
+      // The notification exists, so the valid subset was delivered; only the
+      // listed aliases were dropped.
+      console.warn("[onesignal] delivered with invalid aliases:", invalidAliases);
+    }
 
     return {
       ok: true,
       recipients: result.recipients ?? 0,
       onesignalId: providerId,
+      ...(invalidAliases.length > 0 ? { invalidAliases } : {}),
     };
   } catch (err) {
     if (timedOut) {
