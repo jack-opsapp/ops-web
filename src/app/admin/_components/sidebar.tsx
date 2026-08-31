@@ -44,7 +44,7 @@ const NAV_ITEMS: NavEntry[] = [
 
 export function AdminSidebar() {
   return (
-    <aside className="w-[220px] min-h-screen flex-shrink-0 border-r border-white/[0.08] flex flex-col">
+    <aside className="hidden min-h-screen flex-shrink-0 flex-col border-r border-border lg:flex lg:w-admin-sidebar">
       <div className="px-6 py-8">
         <p className="font-mohave text-[13px] uppercase tracking-widest text-text-3">
           OPS ADMIN

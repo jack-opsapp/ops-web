@@ -719,8 +719,9 @@ export async function getGrowthOverview(
         metrics: [
           { key: "impressions", label: "Impressions", value: search.data?.totals.impressions ?? null },
           { key: "clicks", label: "Clicks", value: search.data?.totals.clicks ?? null },
+          { key: "ctr", label: "Click-through rate", value: search.data?.totals.ctr ?? null },
           { key: "sessions", label: "Site sessions", value: search.data?.totals.sessions ?? null },
-          { key: "trials", label: "Trials", value: current.trialsStarted },
+          { key: "trials", label: "Trials", value: channels.find((row) => row.channel === "organic_search")?.trials ?? 0 },
         ],
         state: search.state,
         finalizedThrough: search.finalizedThrough,
@@ -736,7 +737,7 @@ export async function getGrowthOverview(
         ],
         state: appStore.state,
         finalizedThrough: appStore.finalizedThrough,
-        note: appStore.data?.paidSplitState === "unavailable" ? "Paid split unavailable" : null,
+        note: appStore.data?.paidSplitState === "unavailable" ? "paid_split_unavailable" : null,
       },
     ];
     const businessStatus: GrowthSourceStatus = {
