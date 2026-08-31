@@ -61,9 +61,11 @@ import type {
   SendSubcontractorCoordinationActionData,
   ProcessRescheduleRequestActionData,
   FileDayCloseoutActionData,
+  ApproveCollectionsDraftActionData,
   StructuredSummary,
 } from "@/lib/types/approval-queue";
 import { FinancialInsightCard } from "./financial-insight-card";
+import { CollectionsDraftPreview } from "./collections-draft-preview";
 
 // ─── Type Icon Map ────────────────────────────────────────────────────────────
 
@@ -92,6 +94,7 @@ const ACTION_TYPE_ICONS: Record<
   process_reschedule_request: MessageSquareReply,
   send_subcontractor_coordination: HardHat,
   file_day_closeout: CalendarCheck,
+  approve_collections_draft: Receipt,
 };
 
 // ─── Priority Left Border Colors ──────────────────────────────────────────────
@@ -445,6 +448,11 @@ export const ActionCard = memo(function ActionCard({
   const isDayCloseout = action.actionType === "file_day_closeout";
   const dayCloseoutData = isDayCloseout
     ? (action.actionData as unknown as FileDayCloseoutActionData)
+    : null;
+
+  const isCollectionsDraft = action.actionType === "approve_collections_draft";
+  const collectionsDraftData = isCollectionsDraft
+    ? (action.actionData as unknown as ApproveCollectionsDraftActionData)
     : null;
 
   // ── Editable state for status email ──
@@ -991,7 +999,7 @@ export const ActionCard = memo(function ActionCard({
       {/* ── Header Row ─────────────────────────────────────────────────── */}
       <div className="flex items-start gap-3 p-4">
         {/* Selection checkbox — 56dp tap area */}
-        {isPending && !isDayCloseout && (
+        {isPending && !isDayCloseout && !isCollectionsDraft && (
           <button
             onClick={() => onSelect(action.id)}
             className="-m-3 mr-0 flex min-h-[56px] min-w-[56px] shrink-0 items-center justify-center"
@@ -1070,6 +1078,20 @@ export const ActionCard = memo(function ActionCard({
               </span>
               <span className="text-text-3">
                 {dayCloseoutData.truth_boundary}
+              </span>
+            </div>
+          )}
+
+          {isCollectionsDraft && collectionsDraftData && (
+            <div className="mt-2 flex flex-wrap items-center gap-3 font-mono text-micro">
+              <span className="text-text-2">
+                {collectionsDraftData.customer_display_name}
+              </span>
+              <span className="text-text-3">
+                {collectionsDraftData.preview.recipient.address}
+              </span>
+              <span className="rounded-bar border border-border-subtle px-2 py-1 uppercase text-text-2">
+                {t("collections.notSent")}
               </span>
             </div>
           )}
@@ -1598,9 +1620,11 @@ export const ActionCard = memo(function ActionCard({
               >
                 {isDayCloseout
                   ? t("dayCloseout.action.file")
-                  : isFinancialInsight
-                    ? t("financial.action.acknowledge")
-                    : t("action.approve")}
+                  : isCollectionsDraft
+                    ? t("collections.action.approve")
+                    : isFinancialInsight
+                      ? t("financial.action.acknowledge")
+                      : t("action.approve")}
               </button>
               <button
                 onClick={() => onReject(action.id)}
@@ -1608,9 +1632,11 @@ export const ActionCard = memo(function ActionCard({
               >
                 {isDayCloseout
                   ? t("dayCloseout.action.leaveOpen")
-                  : isFinancialInsight
-                    ? t("financial.action.dismiss")
-                    : t("action.reject")}
+                  : isCollectionsDraft
+                    ? t("collections.action.leaveOpen")
+                    : isFinancialInsight
+                      ? t("financial.action.dismiss")
+                      : t("action.reject")}
               </button>
             </div>
           )}
@@ -1718,6 +1744,31 @@ export const ActionCard = memo(function ActionCard({
                       {dayCloseoutData.truth_boundary}
                     </p>
                   </div>
+                )}
+
+                {isCollectionsDraft && collectionsDraftData && (
+                  <CollectionsDraftPreview
+                    preview={collectionsDraftData.preview}
+                    previewSha256={collectionsDraftData.preview_sha256}
+                    locale={locale}
+                    labels={{
+                      reviewHeading: t("collections.reviewHeading"),
+                      notSent: t("collections.notSent"),
+                      recipient: t("collections.recipient"),
+                      asOf: t("collections.asOf"),
+                      oldestDue: t("collections.oldestDue"),
+                      daysPastDue: t("collections.daysPastDue"),
+                      balances: t("collections.balances"),
+                      invoices: t("collections.invoices"),
+                      invoice: t("collections.invoice"),
+                      due: t("collections.due"),
+                      aging: t("collections.aging"),
+                      balance: t("collections.balance"),
+                      subject: t("collections.subject"),
+                      body: t("collections.body"),
+                      approvalSeal: t("collections.approvalSeal"),
+                    }}
+                  />
                 )}
 
                 {/* ── Task-specific editable details ── */}
@@ -3685,6 +3736,7 @@ export const ActionCard = memo(function ActionCard({
                   !isRescheduleRequest &&
                   !isSubcontractorCoord &&
                   !isDayCloseout &&
+                  !isCollectionsDraft &&
                   !isPending && (
                     <div>
                       <span className="font-mono text-[11px] uppercase text-text-3">

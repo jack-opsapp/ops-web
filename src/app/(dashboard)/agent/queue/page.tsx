@@ -110,7 +110,9 @@ export default function AgentQueuePage() {
   const bulkEligibleActions = useMemo(
     () =>
       pendingActions.filter(
-        (a: AgentAction) => a.actionType !== "file_day_closeout"
+        (a: AgentAction) =>
+          a.actionType !== "file_day_closeout" &&
+          a.actionType !== "approve_collections_draft"
       ),
     [pendingActions]
   );
