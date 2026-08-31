@@ -8,7 +8,8 @@ import type { CronWorkloadControlClient } from "@/lib/api/services/cron-workload
 import {
   handleDayCloseoutRoutineCron,
   type DayCloseoutRoutineCronDependencies,
-} from "../route";
+} from "../handler";
+import * as routeModule from "../route";
 
 function request(secret = "cron-secret") {
   return new Request("https://app.opsapp.co/api/cron/day-closeout-routines", {
@@ -67,6 +68,10 @@ function fixture(input?: {
 }
 
 describe("day-closeout routine cron", () => {
+  it("exports only fields accepted by the Next.js route contract", () => {
+    expect(Object.keys(routeModule).sort()).toEqual(["GET", "maxDuration"]);
+  });
+
   it("has no registered Vercel schedule before explicit activation", () => {
     expect(
       readFileSync(join(process.cwd(), "vercel.json"), "utf8")
