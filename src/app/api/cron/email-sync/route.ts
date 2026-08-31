@@ -20,6 +20,13 @@ import {
   readCronWorkloadCursor,
 } from "@/lib/api/services/cron-workload-cursor-service";
 import { SyncEngine } from "@/lib/api/services/sync-engine";
+import {
+  EMAIL_SYNC_DEADLINE_SAFETY_MARGIN_MS,
+  EMAIL_SYNC_MAX_RUNTIME_MS,
+  EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS,
+  EMAIL_SYNC_PHASE_FLOOR_MS,
+  createInvocationDeadline,
+} from "@/lib/api/services/invocation-deadline";
 import { EmailService } from "@/lib/api/services/email-service";
 import { EmailThreadService } from "@/lib/api/services/email-thread-service";
 import { EmailOutboundLearningService } from "@/lib/api/services/email-outbound-learning-service";
@@ -92,6 +99,31 @@ export async function GET(request: NextRequest) {
         workloadKey: "email-sync",
         leaseSeconds: 360,
         work: async (lease) => {
+          // One wall-clock budget for the whole invocation. Vercel kills this
+          // function at maxDuration with no signal, so every durable write —
+          // provider checkpoints, lease completion, this response — has to
+          // land before the deadline rather than hoping the platform waits
+          // (bug 63ff8830: four 504s replayed the same Gmail history range).
+          const deadline = createInvocationDeadline({
+            maxRuntimeMs: EMAIL_SYNC_MAX_RUNTIME_MS,
+            safetyMarginMs: EMAIL_SYNC_DEADLINE_SAFETY_MARGIN_MS,
+          });
+          const deferredConnections: string[] = [];
+          const skippedPhasesForDeadline: string[] = [];
+          /**
+           * Every post-sync phase drains a durable queue, so skipping one is
+           * pure backpressure: nothing is lost, and the next tick (20-minute
+           * cadence in the active window) resumes it. Being killed mid-phase,
+           * by contrast, loses the workload lease completion.
+           */
+          const skipPhaseForDeadline = (phase: string): boolean => {
+            if (!deadline.expired(EMAIL_SYNC_PHASE_FLOOR_MS)) return false;
+            if (!skippedPhasesForDeadline.includes(phase)) {
+              skippedPhasesForDeadline.push(phase);
+            }
+            return true;
+          };
+
           const { data: connections, error } = await supabase
             .from("email_connections")
             .select(
@@ -175,6 +207,15 @@ export async function GET(request: NextRequest) {
               ? new Date(conn.last_synced_at as string).getTime()
               : 0;
 
+            // Never start a connection this invocation cannot finish. The
+            // connection is left completely untouched — no cursor moved, no
+            // provider quota spent — and the oldest-first ordering means the
+            // next tick picks it up first.
+            if (deadline.expired(EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS)) {
+              deferredConnections.push(conn.id as string);
+              continue;
+            }
+
             const continuationPending =
               Boolean(conn.history_recovery_page_token) ||
               isEmailSyncContinuationPending(
@@ -183,7 +224,9 @@ export async function GET(request: NextRequest) {
             if (!continuationPending && now - lastSynced < intervalMs) continue;
 
             try {
-              const result = await SyncEngine.runSync(conn.id as string);
+              const result = await SyncEngine.runSync(conn.id as string, {
+                deadline,
+              });
               results.push(
                 buildEmailSyncCronResult(
                   {
@@ -211,32 +254,34 @@ export async function GET(request: NextRequest) {
           let staleSweepChanges = 0;
           let staleSweepScanned = 0;
           let staleSweepError: string | null = null;
-          try {
-            const staleSweepCursor = await readCronWorkloadCursor(
-              supabase,
-              "email-sync",
-              lease
-            );
-            const staleSweep = await SyncEngine.sweepStaleLeads({
-              afterOpportunityId: staleSweepCursor,
-              limit: 25,
-            });
-            staleSweepChanges = staleSweep.stageChanges;
-            staleSweepScanned = staleSweep.scanned;
-            await advanceCronWorkloadCursor(
-              supabase,
-              "email-sync",
-              lease,
-              staleSweepCursor,
-              staleSweep.nextCursor
-            );
-          } catch (sweepErr) {
-            if (isDatabasePressureError(sweepErr)) throw sweepErr;
-            console.error("[email-cron-sync] stale sweep error:", sweepErr);
-            staleSweepError =
-              sweepErr instanceof Error
-                ? sweepErr.message
-                : "Unknown stale sweep error";
+          if (!skipPhaseForDeadline("stale-sweep")) {
+            try {
+              const staleSweepCursor = await readCronWorkloadCursor(
+                supabase,
+                "email-sync",
+                lease
+              );
+              const staleSweep = await SyncEngine.sweepStaleLeads({
+                afterOpportunityId: staleSweepCursor,
+                limit: 25,
+              });
+              staleSweepChanges = staleSweep.stageChanges;
+              staleSweepScanned = staleSweep.scanned;
+              await advanceCronWorkloadCursor(
+                supabase,
+                "email-sync",
+                lease,
+                staleSweepCursor,
+                staleSweep.nextCursor
+              );
+            } catch (sweepErr) {
+              if (isDatabasePressureError(sweepErr)) throw sweepErr;
+              console.error("[email-cron-sync] stale sweep error:", sweepErr);
+              staleSweepError =
+                sweepErr instanceof Error
+                  ? sweepErr.message
+                  : "Unknown stale sweep error";
+            }
           }
 
           // New messages clear category_classified_at and remain in this
@@ -249,23 +294,25 @@ export async function GET(request: NextRequest) {
             errors: 0,
           };
           let threadClassificationRetryError: string | null = null;
-          try {
-            threadClassificationRetry =
-              await EmailThreadService.retryDirtyClassifications({
-                companyIds: [...activeCompanyIds],
-                limit: 5,
-                concurrency: 1,
-              });
-          } catch (retryError) {
-            if (isDatabasePressureError(retryError)) throw retryError;
-            console.error(
-              "[email-cron-sync] thread classification retry error:",
-              retryError
-            );
-            threadClassificationRetryError =
-              retryError instanceof Error
-                ? retryError.message
-                : "Unknown thread classification retry error";
+          if (!skipPhaseForDeadline("thread-classification-retry")) {
+            try {
+              threadClassificationRetry =
+                await EmailThreadService.retryDirtyClassifications({
+                  companyIds: [...activeCompanyIds],
+                  limit: 5,
+                  concurrency: 1,
+                });
+            } catch (retryError) {
+              if (isDatabasePressureError(retryError)) throw retryError;
+              console.error(
+                "[email-cron-sync] thread classification retry error:",
+                retryError
+              );
+              threadClassificationRetryError =
+                retryError instanceof Error
+                  ? retryError.message
+                  : "Unknown thread classification retry error";
+            }
           }
 
           // Mailbox draft recovery. Placement failures used to have no way back:
@@ -292,6 +339,10 @@ export async function GET(request: NextRequest) {
           };
           let mailboxDraftRecoveryError: string | null = null;
           for (const recoverable of recoverableConnections) {
+            // Checked per connection: each recovery takes the mailbox lease and
+            // talks to the provider, so the budget is spent one connection at a
+            // time. The untouched ones are picked up next tick.
+            if (skipPhaseForDeadline("mailbox-draft-recovery")) break;
             try {
               const connection = await EmailService.getConnection(
                 recoverable.id
@@ -367,21 +418,24 @@ export async function GET(request: NextRequest) {
             errors: [] as Array<{ queueId: string; error: string }>,
           };
           let ingestionRecoveryError: string | null = null;
-          try {
-            ingestionRecovery = await SyncEngine.retryPendingIngestionRecovery({
-              companyIds: [...activeCompanyIds],
-              limit: 10,
-            });
-          } catch (recoveryError) {
-            if (isDatabasePressureError(recoveryError)) throw recoveryError;
-            console.error(
-              "[email-cron-sync] ingestion recovery error:",
-              recoveryError
-            );
-            ingestionRecoveryError =
-              recoveryError instanceof Error
-                ? recoveryError.message
-                : "Unknown ingestion recovery error";
+          if (!skipPhaseForDeadline("ingestion-recovery")) {
+            try {
+              ingestionRecovery =
+                await SyncEngine.retryPendingIngestionRecovery({
+                  companyIds: [...activeCompanyIds],
+                  limit: 10,
+                });
+            } catch (recoveryError) {
+              if (isDatabasePressureError(recoveryError)) throw recoveryError;
+              console.error(
+                "[email-cron-sync] ingestion recovery error:",
+                recoveryError
+              );
+              ingestionRecoveryError =
+                recoveryError instanceof Error
+                  ? recoveryError.message
+                  : "Unknown ingestion recovery error";
+            }
           }
 
           // Drain the deferred lead-classification queue. Threads whose Step-5
@@ -396,20 +450,22 @@ export async function GET(request: NextRequest) {
             errors: string[];
           } = { scanned: 0, promoted: 0, cleared: 0, errors: [] };
           let pendingLeadScanSweepError: string | null = null;
-          try {
-            pendingLeadScanSweep = await SyncEngine.retryPendingLeadScans({
-              limit: 10,
-            });
-          } catch (sweepErr) {
-            if (isDatabasePressureError(sweepErr)) throw sweepErr;
-            console.error(
-              "[email-cron-sync] pending lead-scan sweep error:",
-              sweepErr
-            );
-            pendingLeadScanSweepError =
-              sweepErr instanceof Error
-                ? sweepErr.message
-                : "Unknown pending lead-scan sweep error";
+          if (!skipPhaseForDeadline("pending-lead-scan-sweep")) {
+            try {
+              pendingLeadScanSweep = await SyncEngine.retryPendingLeadScans({
+                limit: 10,
+              });
+            } catch (sweepErr) {
+              if (isDatabasePressureError(sweepErr)) throw sweepErr;
+              console.error(
+                "[email-cron-sync] pending lead-scan sweep error:",
+                sweepErr
+              );
+              pendingLeadScanSweepError =
+                sweepErr instanceof Error
+                  ? sweepErr.message
+                  : "Unknown pending lead-scan sweep error";
+            }
           }
 
           // Meaningful opportunity correspondence independently enqueues this
@@ -430,20 +486,22 @@ export async function GET(request: NextRequest) {
             errors: [] as Array<{ opportunityId: string; error: string }>,
           };
           let leadIntelligenceError: string | null = null;
-          try {
-            leadIntelligence = await createPhaseCLeadIntelligenceWorkService({
-              supabase,
-            }).runWorker({ limit: 2, leaseSeconds: 300 });
-          } catch (workError) {
-            if (isDatabasePressureError(workError)) throw workError;
-            console.error(
-              "[email-cron-sync] lead intelligence worker error:",
-              workError
-            );
-            leadIntelligenceError =
-              workError instanceof Error
-                ? workError.message
-                : "Unknown lead intelligence worker error";
+          if (!skipPhaseForDeadline("lead-intelligence")) {
+            try {
+              leadIntelligence = await createPhaseCLeadIntelligenceWorkService({
+                supabase,
+              }).runWorker({ limit: 2, leaseSeconds: 300 });
+            } catch (workError) {
+              if (isDatabasePressureError(workError)) throw workError;
+              console.error(
+                "[email-cron-sync] lead intelligence worker error:",
+                workError
+              );
+              leadIntelligenceError =
+                workError instanceof Error
+                  ? workError.message
+                  : "Unknown lead intelligence worker error";
+            }
           }
 
           // P1-16 only records an immutable bilateral appointment handoff.
@@ -462,23 +520,25 @@ export async function GET(request: NextRequest) {
             errors: [] as Array<{ handoffId: string; error: string }>,
           };
           let bilateralAppointmentsError: string | null = null;
-          try {
-            bilateralAppointments =
-              await createPhaseCBilateralEventConsumerService({
-                supabase,
-              }).runWorker({ limit: 2, leaseSeconds: 180 });
-          } catch (appointmentError) {
-            if (isDatabasePressureError(appointmentError)) {
-              throw appointmentError;
+          if (!skipPhaseForDeadline("bilateral-appointments")) {
+            try {
+              bilateralAppointments =
+                await createPhaseCBilateralEventConsumerService({
+                  supabase,
+                }).runWorker({ limit: 2, leaseSeconds: 180 });
+            } catch (appointmentError) {
+              if (isDatabasePressureError(appointmentError)) {
+                throw appointmentError;
+              }
+              console.error(
+                "[email-cron-sync] bilateral appointment worker error:",
+                appointmentError
+              );
+              bilateralAppointmentsError =
+                appointmentError instanceof Error
+                  ? appointmentError.message
+                  : "Unknown bilateral appointment worker error";
             }
-            console.error(
-              "[email-cron-sync] bilateral appointment worker error:",
-              appointmentError
-            );
-            bilateralAppointmentsError =
-              appointmentError instanceof Error
-                ? appointmentError.message
-                : "Unknown bilateral appointment worker error";
           }
 
           // Drain a small durable outbound-learning batch after mailbox sync. Model
@@ -501,20 +561,22 @@ export async function GET(request: NextRequest) {
             }>,
           };
           let outboundLearningError: string | null = null;
-          try {
-            outboundLearning = await new EmailOutboundLearningService(
-              supabase
-            ).runWorker({ limit: 2, concurrency: 1, leaseSeconds: 900 });
-          } catch (learningError) {
-            if (isDatabasePressureError(learningError)) throw learningError;
-            console.error(
-              "[email-cron-sync] outbound learning worker error:",
-              learningError
-            );
-            outboundLearningError =
-              learningError instanceof Error
-                ? learningError.message
-                : "Unknown outbound learning worker error";
+          if (!skipPhaseForDeadline("outbound-learning")) {
+            try {
+              outboundLearning = await new EmailOutboundLearningService(
+                supabase
+              ).runWorker({ limit: 2, concurrency: 1, leaseSeconds: 900 });
+            } catch (learningError) {
+              if (isDatabasePressureError(learningError)) throw learningError;
+              console.error(
+                "[email-cron-sync] outbound learning worker error:",
+                learningError
+              );
+              outboundLearningError =
+                learningError instanceof Error
+                  ? learningError.message
+                  : "Unknown outbound learning worker error";
+            }
           }
 
           const failedConnections = results.filter(
@@ -588,6 +650,14 @@ export async function GET(request: NextRequest) {
               outboundLearningError,
               mailboxDraftRecovery,
               mailboxDraftRecoveryError,
+              // Deadline backpressure is reported, never counted as failure:
+              // every deferral here is durably resumed on the next tick, which
+              // is precisely what a platform kill could not promise.
+              deferredConnections,
+              skippedPhasesForDeadline,
+              deadlineDeferredConnections: results.filter(
+                (result) => result.deadlineDeferred
+              ).length,
               results,
             },
             { status: failed === 0 ? 200 : 503 }

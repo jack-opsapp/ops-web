@@ -16,6 +16,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { SyncEngine } from "@/lib/api/services/sync-engine";
+import {
+  EMAIL_SYNC_DEADLINE_SAFETY_MARGIN_MS,
+  EMAIL_SYNC_MAX_RUNTIME_MS,
+  EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS,
+  createInvocationDeadline,
+} from "@/lib/api/services/invocation-deadline";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import {
   SubscriptionPlan,
@@ -155,12 +161,37 @@ export async function POST(request: NextRequest) {
         needsReview: number;
         newLeads: number;
         continuationPending: boolean;
+        deadlineDeferred?: boolean;
         error?: string;
       }> = [];
 
+      // Same 300s platform kill as the cron path, so the same budget applies:
+      // a deadline-stopped cycle is reported as continuing, never complete
+      // (bug 63ff8830).
+      const deadline = createInvocationDeadline({
+        maxRuntimeMs: EMAIL_SYNC_MAX_RUNTIME_MS,
+        safetyMarginMs: EMAIL_SYNC_DEADLINE_SAFETY_MARGIN_MS,
+      });
+
       for (const conn of connections ?? []) {
+        if (deadline.expired(EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS)) {
+          // Left completely untouched — no cursor moved, no provider call.
+          results.push({
+            connectionId: conn.id as string,
+            email: conn.email as string,
+            activitiesCreated: 0,
+            matched: 0,
+            needsReview: 0,
+            newLeads: 0,
+            continuationPending: true,
+            deadlineDeferred: true,
+          });
+          continue;
+        }
         try {
-          const result = await SyncEngine.runSync(conn.id as string);
+          const result = await SyncEngine.runSync(conn.id as string, {
+            deadline,
+          });
           results.push({
             connectionId: conn.id as string,
             email: conn.email as string,
@@ -168,7 +199,9 @@ export async function POST(request: NextRequest) {
             matched: result.matched,
             needsReview: result.needsReview,
             newLeads: result.newLeads,
-            continuationPending: result.continuationPending,
+            continuationPending:
+              result.continuationPending || result.deadlineDeferred,
+            ...(result.deadlineDeferred ? { deadlineDeferred: true } : {}),
             ...(result.errors.length > 0
               ? { error: result.errors.join("; ") }
               : {}),

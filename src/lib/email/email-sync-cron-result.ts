@@ -5,6 +5,10 @@ export interface EmailSyncCronResult {
   activitiesCreated: number;
   newLeads: number;
   continuationPending?: boolean;
+  /** The invocation deadline stopped this connection's cycle early. Healthy
+   * backpressure, not a failure: durable progress was checkpointed and the
+   * remainder resumes on the next tick. */
+  deadlineDeferred?: boolean;
   errors?: string[];
 }
 
@@ -18,6 +22,7 @@ interface EmailSyncEngineResult {
   activitiesCreated: number;
   newLeads: number;
   continuationPending?: boolean;
+  deadlineDeferred?: boolean;
   errors: string[];
 }
 
@@ -33,6 +38,7 @@ export function buildEmailSyncCronResult(
     activitiesCreated: result.activitiesCreated,
     newLeads: result.newLeads,
     ...(result.continuationPending ? { continuationPending: true } : {}),
+    ...(result.deadlineDeferred ? { deadlineDeferred: true } : {}),
     ...(result.errors.length > 0 ? { errors: result.errors } : {}),
   };
 }
