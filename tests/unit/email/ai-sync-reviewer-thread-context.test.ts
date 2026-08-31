@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AISyncReviewer } from "@/lib/api/services/ai-sync-reviewer";
+import {
+  AISyncReviewer,
+  loadSenderHistoryFacts,
+} from "@/lib/api/services/ai-sync-reviewer";
 import type { EmailConnection } from "@/lib/types/email-connection";
 import type { NormalizedEmail } from "@/lib/api/services/email-provider";
 
@@ -32,9 +35,18 @@ vi.mock("@/lib/api/services/email-service", () => ({
   EmailService: { getProvider: () => ({ fetchThread: fetchThreadMock }) },
 }));
 
-vi.mock("@/lib/api/services/lead-feedback-prior-service", () => ({
-  evaluateLeadFeedbackPriorBatch: evaluateLeadFeedbackPriorBatchMock,
-}));
+// Only the batch evaluator is faked. `normalizeLeadFeedbackEmail` is real —
+// the sender-history loader parses candidate addresses with it.
+vi.mock("@/lib/api/services/lead-feedback-prior-service", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/lib/api/services/lead-feedback-prior-service")
+    >();
+  return {
+    ...actual,
+    evaluateLeadFeedbackPriorBatch: evaluateLeadFeedbackPriorBatchMock,
+  };
+});
 
 vi.mock("@/lib/api/services/email-ai-classifier", async (importOriginal) => {
   const actual =
@@ -344,5 +356,176 @@ describe("the borderline review band", () => {
 
     expect(result.classifiedLeads).toEqual([]);
     expect(result.deferredClassifications).toEqual([]);
+  });
+});
+
+/**
+ * Bug 7ca126d2 — the wire that was missing.
+ *
+ * Phase C already held every fact needed to keep Vitrum out of the pipeline:
+ * threads classified VENDOR/RECEIPT, an operator discard as vendor_sales, and
+ * five prior opportunities all terminal. Nothing carried it to the Stage B
+ * decision. This loader does, in three batched queries per review — never one
+ * per candidate — and it emits counts and enum words only.
+ */
+describe("loadSenderHistoryFacts", () => {
+  const COMPANY = "company-1";
+  const CHOWARD = "choward@vendor-glass.example";
+  const CEDWARDS = "cedwards@vendor-glass.example";
+
+  function historyClient(
+    rows: Record<string, Array<Record<string, unknown>>> = {}
+  ) {
+    const tables: string[] = [];
+    const orExpressions: string[] = [];
+    const client = {
+      from(table: string) {
+        tables.push(table);
+        const settled = Promise.resolve({
+          data: rows[table] ?? [],
+          error: null,
+        });
+        const builder: Record<string, unknown> = {};
+        for (const method of ["select", "eq", "in"]) {
+          builder[method] = () => builder;
+        }
+        builder.or = (expression: string) => {
+          orExpressions.push(expression);
+          return builder;
+        };
+        builder.limit = () => settled;
+        return builder;
+      },
+    };
+    return { client, tables, orExpressions };
+  }
+
+  it("reads exactly three tables once, however many senders it is given", async () => {
+    const { client, tables } = historyClient();
+
+    await loadSenderHistoryFacts({
+      companyId: COMPANY,
+      senderEmails: [
+        `Cindi Howard <${CHOWARD}>`,
+        `C Edwards <${CEDWARDS}>`,
+        "Dee Yee <dyee@vendor-glass.example>",
+      ],
+      client: client as never,
+    });
+
+    expect(tables).toEqual([
+      "email_threads",
+      "lead_disposition_feedback",
+      "opportunities",
+    ]);
+  });
+
+  it("scans threads by domain with an escaped ilike filter", async () => {
+    const { client, orExpressions } = historyClient();
+
+    await loadSenderHistoryFacts({
+      companyId: COMPANY,
+      senderEmails: [CHOWARD],
+      client: client as never,
+    });
+
+    expect(orExpressions).toEqual([
+      "latest_sender_email.ilike.%@vendor-glass.example",
+    ]);
+  });
+
+  it("folds the Vitrum shape into one system-verified fact keyed by sender", async () => {
+    const { client } = historyClient({
+      email_threads: [
+        { latest_sender_email: CHOWARD, primary_category: "VENDOR" },
+        { latest_sender_email: CHOWARD, primary_category: "RECEIPT" },
+        { latest_sender_email: CHOWARD, primary_category: "VENDOR" },
+        { latest_sender_email: CHOWARD, primary_category: "CUSTOMER" },
+        { latest_sender_email: CEDWARDS, primary_category: "VENDOR" },
+        { latest_sender_email: CEDWARDS, primary_category: "VENDOR" },
+        { latest_sender_email: CHOWARD, primary_category: "MARKETING" },
+      ],
+      lead_disposition_feedback: [
+        { sender_email: CHOWARD, reason_code: "vendor_sales" },
+      ],
+      opportunities: [
+        { contact_email: CHOWARD, stage: "discarded", archived_at: null },
+        { contact_email: CHOWARD, stage: "quoted", archived_at: "2026-07-30" },
+      ],
+    });
+
+    const facts = await loadSenderHistoryFacts({
+      companyId: COMPANY,
+      senderEmails: [`Cindi Howard <${CHOWARD}>`],
+      client: client as never,
+    });
+
+    const fact = facts.get(CHOWARD);
+    expect(fact).toBeDefined();
+    expect(fact).toContain(
+      "3 prior threads from this sender are VENDOR/RECEIPT; 1 CUSTOMER."
+    );
+    expect(fact).toContain(
+      "Across this sender's domain: 5 VENDOR/RECEIPT; 1 CUSTOMER."
+    );
+    expect(fact).toContain(
+      "Operator discarded 1 prior lead from this sender as vendor_sales."
+    );
+    expect(fact).toContain(
+      "whose 2 prior opportunities are all discarded, lost, won, or archived."
+    );
+    expect(fact!.length).toBeLessThanOrEqual(400);
+  });
+
+  it("reports a live opportunity instead of claiming everything is closed", async () => {
+    const { client } = historyClient({
+      email_threads: [
+        { latest_sender_email: CHOWARD, primary_category: "VENDOR" },
+      ],
+      opportunities: [
+        { contact_email: CHOWARD, stage: "quoted", archived_at: null },
+        { contact_email: CHOWARD, stage: "lost", archived_at: null },
+      ],
+    });
+
+    const fact = (
+      await loadSenderHistoryFacts({
+        companyId: COMPANY,
+        senderEmails: [CHOWARD],
+        client: client as never,
+      })
+    ).get(CHOWARD);
+
+    expect(fact).toContain("1 live and 1 closed prior opportunities.");
+    expect(fact).not.toContain("all discarded");
+  });
+
+  it("omits a sender the database says nothing about", async () => {
+    const { client } = historyClient({
+      email_threads: [
+        { latest_sender_email: CEDWARDS, primary_category: "MARKETING" },
+      ],
+    });
+
+    const facts = await loadSenderHistoryFacts({
+      companyId: COMPANY,
+      senderEmails: [CHOWARD],
+      client: client as never,
+    });
+
+    expect(facts.size).toBe(0);
+  });
+
+  it("returns an empty map and reads nothing for unparseable senders", async () => {
+    const { client, tables } = historyClient();
+
+    const facts = await loadSenderHistoryFacts({
+      companyId: COMPANY,
+      senderEmails: ["not an address", ""],
+      client: client as never,
+    });
+
+    expect(facts.size).toBe(0);
+    expect(tables).toEqual([]);
   });
 });
