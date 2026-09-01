@@ -380,6 +380,118 @@ export interface BuildElementReferenceOptions {
   id?: string;
 }
 
+/** Cap the capture at 2x — a 3x retina full-page PNG is megabytes for nothing. */
+const MAX_CAPTURE_SCALE = 2;
+
+function defaultCaptureScale(): number {
+  return Math.min(window.devicePixelRatio || 1, MAX_CAPTURE_SCALE);
+}
+
+export interface CaptureElementCropOptions {
+  /**
+   * Injected page capture. The drawer passes `modern-screenshot`'s
+   * `domToBlob` bound to the same filter/scale the full screenshot uses,
+   * so the two captures cannot drift apart.
+   */
+  capture: (root: HTMLElement, options: { scale: number }) => Promise<Blob>;
+  scale?: number;
+  padding?: number;
+}
+
+export interface ElementCrop {
+  blob: Blob;
+  cropRect: Rect;
+}
+
+type DrawableImage = CanvasImageSource & { close?: () => void };
+
+/** Decode a PNG blob into something `drawImage` accepts. */
+async function decodeImage(blob: Blob): Promise<DrawableImage> {
+  const createBitmap = (globalThis as unknown as {
+    createImageBitmap?: (b: Blob) => Promise<ImageBitmap>;
+  }).createImageBitmap;
+
+  if (typeof createBitmap === "function") {
+    return (await createBitmap(blob)) as DrawableImage;
+  }
+
+  // Safari < 16.4 and any environment without createImageBitmap.
+  const url = URL.createObjectURL(blob);
+  try {
+    return await new Promise<DrawableImage>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img as unknown as DrawableImage);
+      img.onerror = () => reject(new Error("Element crop: image decode failed"));
+      img.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error("Element crop: canvas produced no blob"));
+    }, "image/png");
+  });
+}
+
+/**
+ * A PNG of just the picked element (plus padding), cut out of a fresh
+ * full-page capture.
+ *
+ * Capture happens once, on select — never on hover. A full-body
+ * `domToBlob` costs a few hundred milliseconds on a dense page, which is
+ * why the overlay shows a capturing state around this call.
+ *
+ * Failures propagate. The caller decides whether a missing crop is fatal
+ * (it is not — the reference still lands without one).
+ */
+export async function captureElementCrop(
+  el: HTMLElement,
+  { capture, scale, padding = ELEMENT_CROP_PADDING_PX }: CaptureElementCropOptions
+): Promise<ElementCrop> {
+  const captureScale = scale ?? defaultCaptureScale();
+  const r = el.getBoundingClientRect();
+  const cropRect = computeCropRect(
+    { x: r.x, y: r.y, width: r.width, height: r.height },
+    { width: window.innerWidth, height: window.innerHeight },
+    padding,
+    captureScale
+  );
+
+  const pageBlob = await capture(document.body, { scale: captureScale });
+  const image = await decodeImage(pageBlob);
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = cropRect.width;
+    canvas.height = cropRect.height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Element crop: no 2d canvas context");
+
+    ctx.drawImage(
+      image,
+      cropRect.x,
+      cropRect.y,
+      cropRect.width,
+      cropRect.height,
+      0,
+      0,
+      cropRect.width,
+      cropRect.height
+    );
+
+    const blob = await canvasToPngBlob(canvas);
+    return { blob, cropRect };
+  } finally {
+    image.close?.();
+  }
+}
+
 /**
  * The full payload written to `custom_metadata.elementReferences`.
  * `attachmentIndex` starts null and is assigned by the drawer at submit

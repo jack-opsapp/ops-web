@@ -9,7 +9,7 @@
  *   - `document.elementsFromPoint` does not exist → stubbed per test.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 import {
   describeElement,
@@ -20,6 +20,7 @@ import {
   pickFromPoint,
   computeCropRect,
   buildElementReference,
+  captureElementCrop,
 } from "../element-reference";
 
 // ─── Fixtures ───────────────────────────────────────────────────────────────
@@ -487,5 +488,153 @@ describe("buildElementReference", () => {
     const ref = buildElementReference(el);
     expect(ref.id).toMatch(/\S/);
     expect(() => new Date(ref.capturedAt).toISOString()).not.toThrow();
+  });
+});
+
+// ─── captureElementCrop ─────────────────────────────────────────────────────
+//
+// jsdom ships no canvas implementation and no `createImageBitmap`, so the
+// decode + draw surface is stubbed. The assertions still pin real behavior:
+// which region is read out of the full-page capture, how the canvas is
+// sized, and that a capture failure is surfaced rather than swallowed.
+
+describe("captureElementCrop", () => {
+  const originalGetContext = HTMLCanvasElement.prototype.getContext;
+  const originalToBlob = HTMLCanvasElement.prototype.toBlob;
+  const originalCreateImageBitmap = (
+    globalThis as unknown as { createImageBitmap?: unknown }
+  ).createImageBitmap;
+  const originalImage = globalThis.Image;
+  const originalCreateObjectURL = URL.createObjectURL;
+  const originalRevokeObjectURL = URL.revokeObjectURL;
+
+  let drawImage: ReturnType<typeof vi.fn>;
+  let lastCanvas: HTMLCanvasElement | null = null;
+  let croppedBlob: Blob;
+
+  beforeEach(() => {
+    drawImage = vi.fn();
+    lastCanvas = null;
+    croppedBlob = new Blob(["cropped"], { type: "image/png" });
+
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement
+    ) {
+      lastCanvas = this;
+      return { drawImage } as unknown as CanvasRenderingContext2D;
+    } as unknown as typeof HTMLCanvasElement.prototype.getContext;
+
+    HTMLCanvasElement.prototype.toBlob = function (
+      cb: BlobCallback
+    ) {
+      cb(croppedBlob);
+    } as unknown as typeof HTMLCanvasElement.prototype.toBlob;
+
+    (globalThis as unknown as { createImageBitmap: unknown }).createImageBitmap =
+      vi.fn(async () => ({ width: 2048, height: 1536, close: vi.fn() }));
+  });
+
+  afterEach(() => {
+    HTMLCanvasElement.prototype.getContext = originalGetContext;
+    HTMLCanvasElement.prototype.toBlob = originalToBlob;
+    (globalThis as unknown as { createImageBitmap?: unknown }).createImageBitmap =
+      originalCreateImageBitmap;
+    globalThis.Image = originalImage;
+    URL.createObjectURL = originalCreateObjectURL;
+    URL.revokeObjectURL = originalRevokeObjectURL;
+  });
+
+  function mountTarget(): HTMLElement {
+    mount(`<button data-testid="target">Save</button>`);
+    const el = q("button");
+    stubRect(el, { x: 100, y: 200, width: 50, height: 25 });
+    return el;
+  }
+
+  it("captures the whole page once and resolves with the crop blob and rect", async () => {
+    const el = mountTarget();
+    const fullPage = new Blob(["full"], { type: "image/png" });
+    const capture = vi.fn(async () => fullPage);
+
+    const result = await captureElementCrop(el, { capture, scale: 2 });
+
+    expect(capture).toHaveBeenCalledTimes(1);
+    expect(capture.mock.calls[0][0]).toBe(document.body);
+    expect(result.blob).toBe(croppedBlob);
+    expect(result.cropRect).toEqual(
+      computeCropRect(
+        { x: 100, y: 200, width: 50, height: 25 },
+        { width: window.innerWidth, height: window.innerHeight },
+        24,
+        2
+      )
+    );
+  });
+
+  it("sizes the canvas to the crop rect and draws only that region", async () => {
+    const el = mountTarget();
+    const capture = vi.fn(async () => new Blob(["full"], { type: "image/png" }));
+
+    const { cropRect } = await captureElementCrop(el, { capture, scale: 2 });
+
+    expect(lastCanvas).not.toBeNull();
+    expect(lastCanvas?.width).toBe(cropRect.width);
+    expect(lastCanvas?.height).toBe(cropRect.height);
+    expect(drawImage).toHaveBeenCalledTimes(1);
+    expect(drawImage.mock.calls[0].slice(1)).toEqual([
+      cropRect.x,
+      cropRect.y,
+      cropRect.width,
+      cropRect.height,
+      0,
+      0,
+      cropRect.width,
+      cropRect.height,
+    ]);
+  });
+
+  it("surfaces a capture failure instead of swallowing it", async () => {
+    const el = mountTarget();
+    const capture = vi.fn(async () => {
+      throw new Error("dom-to-blob exploded");
+    });
+
+    await expect(captureElementCrop(el, { capture, scale: 1 })).rejects.toThrow(
+      "dom-to-blob exploded"
+    );
+    expect(drawImage).not.toHaveBeenCalled();
+  });
+
+  it("falls back to an Image element when createImageBitmap is unavailable", async () => {
+    const el = mountTarget();
+    delete (globalThis as unknown as { createImageBitmap?: unknown }).createImageBitmap;
+
+    const revoke = vi.fn();
+    URL.createObjectURL = vi.fn(() => "blob:element-crop") as typeof URL.createObjectURL;
+    URL.revokeObjectURL = revoke as typeof URL.revokeObjectURL;
+
+    class FakeImage {
+      onload: (() => void) | null = null;
+      onerror: ((e: unknown) => void) | null = null;
+      width = 2048;
+      height = 1536;
+      private _src = "";
+      set src(value: string) {
+        this._src = value;
+        queueMicrotask(() => this.onload?.());
+      }
+      get src(): string {
+        return this._src;
+      }
+    }
+    globalThis.Image = FakeImage as unknown as typeof Image;
+
+    const capture = vi.fn(async () => new Blob(["full"], { type: "image/png" }));
+    const result = await captureElementCrop(el, { capture, scale: 1 });
+
+    expect(result.blob).toBe(croppedBlob);
+    expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(revoke).toHaveBeenCalledWith("blob:element-crop");
+    expect(drawImage).toHaveBeenCalledTimes(1);
   });
 });
