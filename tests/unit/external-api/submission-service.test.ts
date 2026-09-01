@@ -205,6 +205,42 @@ describe("external intake submission service", () => {
     });
   });
 
+  it("accepts private source and form identifiers that differ from their public identifiers", async () => {
+    rpc.mockImplementation((name: string) => {
+      if (name === "resolve_external_intake_submission_context_as_system") {
+        return Promise.resolve({
+          data: {
+            ...context,
+            source_id: "20000000-0000-4000-8000-000000000004",
+            form_id: "20000000-0000-4000-8000-000000000005",
+          },
+          error: null,
+        });
+      }
+      if (name === "record_external_intake_object_event_as_system") {
+        return Promise.resolve({ data: { status: "recorded" }, error: null });
+      }
+      if (name === "create_external_intake_submission_as_system") {
+        return Promise.resolve({ data: commandResult, error: null });
+      }
+      throw new Error(`Unexpected RPC ${name}`);
+    });
+
+    const result = await createExternalIntakeSubmission(
+      {
+        actor,
+        auditRequestId: AUDIT_REQUEST_ID,
+        requestReceivedAt: NOW,
+        idempotencyKey: "submission-private-identifiers",
+        requestedOrigin: "https://example.ca",
+        submission,
+      },
+      dependencies()
+    );
+
+    expect(result.result.publicLeadId).toBe(opaque("lead", LEAD_UUID));
+  });
+
   it("passes only active write digests while retaining all lookup candidates", async () => {
     await createExternalIntakeSubmission(
       {

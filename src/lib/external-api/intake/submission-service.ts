@@ -492,11 +492,7 @@ export async function createExternalIntakeSubmission(
     uploadIds,
     requestedOrigin: input.requestedOrigin,
   });
-  if (
-    context.source_id !== sourceId ||
-    context.form_id !== formId ||
-    context.uploads.length !== uploadIds.length
-  ) {
+  if (context.uploads.length !== uploadIds.length) {
     throw new ExternalApiSafeError("temporarily_unavailable");
   }
 
