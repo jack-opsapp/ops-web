@@ -890,17 +890,25 @@ export async function runExternalIntakeMaintenance(
     errors: [],
   };
 
+  let eventIngestionFailed = false;
   try {
     const messages = await receiveExternalIntakeQueueMessages(eventLimit);
     for (const message of messages) {
-      for (const event of message.events) {
-        if (await recordQueueEvent(client, s3, bucket, event)) {
-          result.eventsRecorded += 1;
+      try {
+        for (const event of message.events) {
+          if (await recordQueueEvent(client, s3, bucket, event)) {
+            result.eventsRecorded += 1;
+          }
         }
+        await deleteExternalIntakeQueueMessage(message);
+      } catch {
+        eventIngestionFailed = true;
       }
-      await deleteExternalIntakeQueueMessage(message);
     }
   } catch {
+    eventIngestionFailed = true;
+  }
+  if (eventIngestionFailed) {
     result.errors.push({
       operation: "event_ingestion",
       safeCode: "queue_retry",

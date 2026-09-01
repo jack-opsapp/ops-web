@@ -72,7 +72,7 @@ function occurredAt(value: unknown): string {
   return new Date(milliseconds).toISOString();
 }
 
-function objectKey(value: unknown): string {
+function decodedObjectKey(value: unknown): string {
   const raw = requiredString(value, 1, 1024);
   let decoded: string;
   try {
@@ -80,6 +80,11 @@ function objectKey(value: unknown): string {
   } catch {
     invalid();
   }
+  return decoded;
+}
+
+function objectKey(value: unknown): string {
+  const decoded = decodedObjectKey(value);
   if (!OBJECT_KEY_PATTERN.test(decoded)) invalid();
   return decoded;
 }
@@ -175,12 +180,16 @@ function parseGuardDutyEvent(
   }
   const status = guardDutyStatusSchema.safeParse(scan.scanResultStatus);
   if (!status.success) invalid();
+  const decodedKey = decodedObjectKey(object.objectKey);
+  if (!OBJECT_KEY_PATTERN.test(decodedKey)) {
+    return [];
+  }
 
   return [
     {
       providerEventId: requiredString(payload.id, 1, 512),
       eventType: "guardduty_result",
-      objectKey: objectKey(object.objectKey),
+      objectKey: decodedKey,
       objectVersionId: requiredString(object.versionId),
       providerSequencer: null,
       observedSizeBytes: null,

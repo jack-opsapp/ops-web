@@ -55,6 +55,93 @@ describe("external intake attachment runtime adapter", () => {
     queue.remove.mockReset();
   });
 
+  it("isolates a failed queue message so later scan results still commit", async () => {
+    queue.receive.mockResolvedValue([
+      {
+        queueUrl: "https://sqs.test/upload",
+        messageId: "stale-object-message",
+        receiptHandle: "stale-receipt",
+        events: [
+          {
+            providerEventId: "stale-object-message:0",
+            eventType: "object_created",
+            objectKey: SOURCE_KEY,
+            objectVersionId: "missing-version",
+            providerSequencer: "001",
+            observedSizeBytes: 42,
+            guardDutyStatus: null,
+            occurredAt: "2026-07-26T20:00:00.000Z",
+          },
+        ],
+      },
+      {
+        queueUrl: "https://sqs.test/scan",
+        messageId: "clean-scan-message",
+        receiptHandle: "clean-receipt",
+        events: [
+          {
+            providerEventId: "guardduty-event",
+            eventType: "guardduty_result",
+            objectKey: SOURCE_KEY,
+            objectVersionId: "source-v1",
+            providerSequencer: null,
+            observedSizeBytes: null,
+            guardDutyStatus: "NO_THREATS_FOUND",
+            occurredAt: "2026-07-26T20:01:00.000Z",
+          },
+        ],
+      },
+    ]);
+
+    const s3 = {
+      send: vi.fn(async () => {
+        throw new Error("missing historical object version");
+      }),
+    } as unknown as S3Client;
+    const supabase = {
+      rpc: vi.fn(async (name: string) => {
+        switch (name) {
+          case "record_external_intake_object_event_as_system":
+            return { data: { status: "recorded" }, error: null };
+          case "maintain_external_intake_files_as_system":
+            return {
+              data: {
+                expired: 0,
+                terminalized: 0,
+                cleanup_scheduled: 0,
+                credentials_retired: 0,
+              },
+              error: null,
+            };
+          case "claim_external_intake_inspections_as_system":
+          case "claim_external_intake_cleanups_as_system":
+          case "claim_external_intake_delivery_cleanups_as_system":
+          case "claim_external_intake_project_file_projections_as_system":
+          case "claim_external_intake_erasures_as_system":
+            return { data: [], error: null };
+          default:
+            throw new Error(`unexpected rpc ${name}`);
+        }
+      }),
+    };
+
+    const result = await runExternalIntakeMaintenance(
+      supabase as never,
+      { eventLimit: 2, inspectionLimit: 1, cleanupLimit: 1 },
+      { s3, workerId: () => "test-worker" }
+    );
+
+    expect(result.eventsRecorded).toBe(1);
+    expect(result.errors).toContainEqual({
+      operation: "event_ingestion",
+      safeCode: "queue_retry",
+    });
+    expect(queue.remove).toHaveBeenCalledTimes(1);
+    expect(queue.remove).toHaveBeenCalledWith(
+      expect.objectContaining({ messageId: "clean-scan-message" })
+    );
+  });
+
   it("copies only a clean, sanitized derivative and records exact version evidence", async () => {
     const source = await sharp({
       create: {

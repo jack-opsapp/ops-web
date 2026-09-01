@@ -91,6 +91,35 @@ describe("external intake queue parser", () => {
     expect(JSON.stringify(result)).not.toContain("must-not-survive");
   });
 
+  it("ignores GuardDuty validation-object results outside the quarantine namespace", () => {
+    const result = parseExternalIntakeQueueMessage(
+      JSON.stringify({
+        version: "0",
+        id: "guardduty-validation-event",
+        "detail-type": "GuardDuty Malware Protection Object Scan Result",
+        source: "aws.guardduty",
+        time: "2026-07-26T20:01:00.000Z",
+        detail: {
+          schemaVersion: "1.0",
+          scanStatus: "COMPLETED",
+          resourceType: "S3_OBJECT",
+          s3ObjectDetails: {
+            bucketName: "bucket",
+            objectKey: "malware-protection-resource-validation-object",
+            versionId: "validation-version-1",
+          },
+          scanResultDetails: {
+            scanResultStatus: "NO_THREATS_FOUND",
+          },
+        },
+      }),
+      "message-validation",
+      "bucket"
+    );
+
+    expect(result).toEqual([]);
+  });
+
   it("fails closed on wrong buckets, unversioned objects, test events, and malformed payloads", () => {
     const cases = [
       "{}",

@@ -169,6 +169,8 @@ Resources:
           s3ObjectDetails:
             bucketName:
               - !Ref ExternalIntakeBucket
+            objectKey:
+              - prefix: quarantine/
       Targets:
         - Arn: !GetAtt ScanResultsQueue.Arn
           Id: ExternalIntakeScanResults

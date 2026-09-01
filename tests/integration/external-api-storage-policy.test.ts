@@ -249,6 +249,12 @@ describe("external intake storage infrastructure policy", () => {
     expect(source).toContain("GuardDuty Malware Protection Object Scan Result");
     expect(source).toContain("source:");
     expect(source).toContain("- aws.guardduty");
+
+    const rule =
+      parsedTemplate().Resources.GuardDutyScanResultsRule.Properties;
+    expect(rule.EventPattern?.detail?.s3ObjectDetails?.objectKey).toEqual([
+      { prefix: "quarantine/" },
+    ]);
   });
 
   it("limits GuardDuty to the quarantine prefix and enables managed tagging", () => {
