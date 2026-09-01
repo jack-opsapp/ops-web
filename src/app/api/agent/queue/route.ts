@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest, isErrorResponse, requireAdminOrOwner } from "../_lib/auth";
+import { authenticateRequest, isErrorResponse, requirePermission } from "../_lib/auth";
 import { ApprovalQueueService } from "@/lib/api/services/approval-queue-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
@@ -28,10 +28,10 @@ export async function GET(request: NextRequest) {
     if (isErrorResponse(auth)) return auth;
 
     // The approval queue exposes proposed financial actions (invoices,
-    // payment reminders, etc.) with full context — only admin/owner users
-    // may read it. Crew/operator users have no business inspecting it.
-    const roleGate = requireAdminOrOwner(auth);
-    if (roleGate) return roleGate;
+    // payment reminders, etc.) with full context — reading it requires the
+    // granular `agent.review` grant, not merely manager status.
+    const gate = await requirePermission(auth, "agent.review");
+    if (gate) return gate;
 
     const url = new URL(request.url);
     const statsOnly = url.searchParams.get("statsOnly") === "true";
@@ -76,9 +76,10 @@ export async function POST(request: NextRequest) {
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
 
-    // Only admin/owner users can propose actions via this route
-    const roleGate = requireAdminOrOwner(auth);
-    if (roleGate) return roleGate;
+    // Proposing into the queue is gated by `agent.review` — the same grant
+    // that lets a user work the queue.
+    const gate = await requirePermission(auth, "agent.review");
+    if (gate) return gate;
 
     const body = await request.json();
     const {
