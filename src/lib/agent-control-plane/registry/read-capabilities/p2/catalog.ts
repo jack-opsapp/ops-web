@@ -163,6 +163,6 @@ export function selectedGetCatalogItemVariantKeys(
 ): readonly ["catalog"] | readonly ["catalog", "supplier_costs"] {
   const parsed = GetCatalogItemInputSchema.parse(input);
   return parsed.sections.includes("supplier_costs")
-    ? Object.freeze(["catalog", "supplier_costs"])
-    : Object.freeze(["catalog"]);
+    ? Object.freeze(["catalog", "supplier_costs"] as const)
+    : Object.freeze(["catalog"] as const);
 }

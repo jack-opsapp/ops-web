@@ -18,6 +18,7 @@ import {
   MCP_EXPOSURE_V2,
   MCP_EXPOSURE_V3,
   MCP_EXPOSURE_V4,
+  MCP_EXPOSURE_V5,
   assertMcpExposureInvariants,
   resolveActiveMcpExposure,
   resolveMcpExposureRevision,
@@ -201,17 +202,22 @@ describe("immutable MCP exposure catalogue", () => {
     expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V4.revision]).toBe(
       MCP_EXPOSURE_V4
     );
+    expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V5.revision]).toBe(
+      MCP_EXPOSURE_V5
+    );
     expect(Object.keys(MCP_EXPOSURE_CATALOG)).toEqual([
       MCP_EXPOSURE_V1.revision,
       MCP_EXPOSURE_V2.revision,
       MCP_EXPOSURE_V3.revision,
       MCP_EXPOSURE_V4.revision,
+      MCP_EXPOSURE_V5.revision,
     ]);
     for (const exposure of [
       MCP_EXPOSURE_V1,
       MCP_EXPOSURE_V2,
       MCP_EXPOSURE_V3,
       MCP_EXPOSURE_V4,
+      MCP_EXPOSURE_V5,
     ]) {
       expect(Object.isFrozen(exposure)).toBe(true);
       expect(Object.isFrozen(exposure.toolIds)).toBe(true);
