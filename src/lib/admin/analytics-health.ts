@@ -366,6 +366,12 @@ export function evaluateAnalyticsHealth(
             expected: expectedD2,
           },
       check(
+        "app_store.commerce_report_present",
+        input.snapshot.appStore.commerceReportCount > 0,
+        input.snapshot.appStore.commerceReportCount,
+        1
+      ),
+      check(
         "app_store.downloads_present",
         input.snapshot.appStore.commerceReportCount === 0 ||
           input.snapshot.appStore.downloadRowCount > 0,
