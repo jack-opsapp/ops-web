@@ -33,6 +33,7 @@ import {
   PREPARE_COLLECTIONS_CAPABILITY_DEFINITION,
 } from "./collections-capability";
 import { ANALYZE_HIRING_BREAK_EVEN_CAPABILITY_DEFINITION } from "./hiring-what-if-capability";
+import { PROMISE_RECOVERY_CAPABILITY_DEFINITION } from "./promise-recovery-capability";
 
 export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
@@ -43,6 +44,8 @@ export const COLLECTIONS_CAPABILITY_MANIFEST_REVISION =
   "2026-08-31.capability-manifest.v10" as const;
 export const HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION =
   "2026-08-31.capability-manifest.v11" as const;
+export const PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-01.capability-manifest.v12" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -311,6 +314,30 @@ const HIRING_WHAT_IF_CAPABILITY_BY_NAME = new Map(
   )
 );
 
+const promiseRecoveryManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...HIRING_WHAT_IF_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    PROMISE_RECOVERY_CAPABILITY_DEFINITION,
+    PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  promiseRecoveryManifestEntries,
+  PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(promiseRecoveryManifestEntries);
+
+export const PROMISE_RECOVERY_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(promiseRecoveryManifestEntries);
+
+const PROMISE_RECOVERY_CAPABILITY_BY_NAME = new Map(
+  PROMISE_RECOVERY_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -339,6 +366,14 @@ export function getHiringWhatIfCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
   const entry = HIRING_WHAT_IF_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getPromiseRecoveryCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = PROMISE_RECOVERY_CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
 }
@@ -639,6 +674,16 @@ export function resolveHiringWhatIfCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getHiringWhatIfCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolvePromiseRecoveryCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getPromiseRecoveryCapabilityManifestEntry(capabilityName),
     rawInput
   );
 }

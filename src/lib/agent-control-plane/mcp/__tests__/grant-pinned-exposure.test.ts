@@ -11,6 +11,7 @@ const V2_REVISION = "2026-08-29.mcp-exposure.v2";
 const V3_REVISION = "2026-08-30.mcp-exposure.v3";
 const V4_REVISION = "2026-08-31.mcp-exposure.v4";
 const V5_REVISION = "2026-08-31.mcp-exposure.v5";
+const V6_REVISION = "2026-09-01.mcp-exposure.v6";
 const V1_TOOLS = [
   "list_scheduled_jobs",
   "list_job_readiness_issues",
@@ -170,6 +171,13 @@ describe("grant-pinned MCP exposure", () => {
     await expect(listTools(V5_REVISION)).resolves.not.toContain(
       "prepare_hiring_plan"
     );
+  });
+
+  it("keeps dormant v6 additive to hiring with one customer-reply read", async () => {
+    await expect(listTools(V6_REVISION)).resolves.toEqual([
+      "analyze_hiring_break_even",
+      "check_customer_reply",
+    ]);
   });
 
   it("fails closed before tool registration for an unknown stored revision", () => {

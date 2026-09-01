@@ -38,6 +38,7 @@ function runtime(
     dayCloseout: {} as McpServerRuntime["dayCloseout"],
     collections: {} as McpServerRuntime["collections"],
     hiringWhatIf: {} as McpServerRuntime["hiringWhatIf"],
+    promiseRecovery: {} as McpServerRuntime["promiseRecovery"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName, args) {

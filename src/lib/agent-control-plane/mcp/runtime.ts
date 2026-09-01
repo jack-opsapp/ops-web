@@ -31,6 +31,11 @@ import {
   createHiringWhatIfService,
   type HiringWhatIfService,
 } from "@/lib/agent-control-plane/services/hiring-what-if/hiring-what-if-service";
+import { createPromiseRecoveryRepository } from "@/lib/agent-control-plane/services/promise-recovery/promise-recovery-repository";
+import {
+  createPromiseRecoveryService,
+  type PromiseRecoveryService,
+} from "@/lib/agent-control-plane/services/promise-recovery/promise-recovery-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -73,6 +78,7 @@ export interface McpServerRuntime {
   readonly dayCloseout: DayCloseoutService;
   readonly collections: CollectionsService;
   readonly hiringWhatIf: HiringWhatIfService;
+  readonly promiseRecovery: PromiseRecoveryService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -241,6 +247,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     repository: createHiringWhatIfRepository(rpcClient),
     authorityRepository,
   });
+  const promiseRecovery = createPromiseRecoveryService({
+    repository: createPromiseRecoveryRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
 
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
@@ -248,10 +260,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
       dayCloseout,
       collections,
       hiringWhatIf,
+      promiseRecovery,
     }),
     dayCloseout,
     collections,
     hiringWhatIf,
+    promiseRecovery,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

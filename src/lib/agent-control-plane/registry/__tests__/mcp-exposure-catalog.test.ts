@@ -11,6 +11,7 @@ import {
   INVISIBLE_OFFICE_CAPABILITY_MANIFEST,
   getCapabilityManifestEntry,
   getInvisibleOfficeCapabilityManifestEntry,
+  getPromiseRecoveryCapabilityManifestEntry,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import {
   MCP_EXPOSURE_CATALOG,
@@ -19,6 +20,7 @@ import {
   MCP_EXPOSURE_V3,
   MCP_EXPOSURE_V4,
   MCP_EXPOSURE_V5,
+  MCP_EXPOSURE_V6,
   assertMcpExposureInvariants,
   resolveActiveMcpExposure,
   resolveMcpExposureRevision,
@@ -134,6 +136,43 @@ const EXPECTED_EXPOSURE_V3 = {
   ],
 } as const;
 
+const EXPECTED_EXPOSURE_V5 = {
+  revision: "2026-08-31.mcp-exposure.v5",
+  toolIds: ["analyze_hiring_break_even"],
+  grantableScopes: [
+    "ops.company.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.payments.read",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ],
+} as const;
+
+const EXPECTED_EXPOSURE_V6 = {
+  revision: "2026-09-01.mcp-exposure.v6",
+  toolIds: ["analyze_hiring_break_even", "check_customer_reply"],
+  grantableScopes: [
+    "ops.company.read",
+    "ops.correspondence.read",
+    "ops.customer_contacts.read",
+    "ops.customers.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.payments.read",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ],
+} as const;
+
 type MutableInvariantInput = {
   exposure: {
     revision: string;
@@ -205,12 +244,16 @@ describe("immutable MCP exposure catalogue", () => {
     expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V5.revision]).toBe(
       MCP_EXPOSURE_V5
     );
+    expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V6.revision]).toBe(
+      MCP_EXPOSURE_V6
+    );
     expect(Object.keys(MCP_EXPOSURE_CATALOG)).toEqual([
       MCP_EXPOSURE_V1.revision,
       MCP_EXPOSURE_V2.revision,
       MCP_EXPOSURE_V3.revision,
       MCP_EXPOSURE_V4.revision,
       MCP_EXPOSURE_V5.revision,
+      MCP_EXPOSURE_V6.revision,
     ]);
     for (const exposure of [
       MCP_EXPOSURE_V1,
@@ -218,11 +261,31 @@ describe("immutable MCP exposure catalogue", () => {
       MCP_EXPOSURE_V3,
       MCP_EXPOSURE_V4,
       MCP_EXPOSURE_V5,
+      MCP_EXPOSURE_V6,
     ]) {
       expect(Object.isFrozen(exposure)).toBe(true);
       expect(Object.isFrozen(exposure.toolIds)).toBe(true);
       expect(Object.isFrozen(exposure.grantableScopes)).toBe(true);
     }
+  });
+
+  it("keeps hiring v5 byte-stable and promise recovery additive in inactive read-only v6", () => {
+    expect(MCP_EXPOSURE_V5).toEqual(EXPECTED_EXPOSURE_V5);
+    expect(MCP_EXPOSURE_V6).toEqual(EXPECTED_EXPOSURE_V6);
+    expect(
+      resolveMcpExposureRevision(MCP_EXPOSURE_CATALOG, MCP_EXPOSURE_V6.revision)
+    ).toBe(MCP_EXPOSURE_V6);
+    expect(resolveActiveMcpExposure()).toBe(MCP_EXPOSURE_V2);
+    const entry = getPromiseRecoveryCapabilityManifestEntry(
+      "check_customer_reply"
+    );
+    expect(entry.operation).toBe("read");
+    expect(entry.annotations).toEqual({
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    });
   });
 
   it("pins inactive v3 to the single prepare-only closeout vertical", () => {

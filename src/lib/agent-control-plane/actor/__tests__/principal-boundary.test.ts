@@ -185,6 +185,7 @@ describe("verified principal source boundary", () => {
       "src/lib/agent-control-plane/services/day-closeout/day-closeout-routine-service.ts",
       "src/lib/agent-control-plane/services/day-closeout/day-closeout-service.ts",
       "src/lib/agent-control-plane/services/hiring-what-if/hiring-what-if-service.ts",
+      "src/lib/agent-control-plane/services/promise-recovery/promise-recovery-service.ts",
     ]);
     const violations: string[] = [];
 

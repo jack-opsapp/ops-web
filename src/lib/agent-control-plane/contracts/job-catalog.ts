@@ -1506,7 +1506,7 @@ const EvidenceContentSchema = z.discriminatedUnion("state", [
     .strict(),
 ]);
 
-const SafeAttachmentSchema = z
+const CompleteAttachmentSchema = z
   .object({
     attachment_id: OpaqueIdSchema,
     mime_type: z
@@ -1519,6 +1519,25 @@ const SafeAttachmentSchema = z
     content_hash: Sha256Schema,
   })
   .strict();
+
+const StableAttachmentReferenceSchema = z
+  .object({
+    attachment_id: z
+      .string()
+      .refine(
+        (value) =>
+          value.startsWith("email_attachment:") &&
+          isCanonicalPostgresUuid(value.slice("email_attachment:".length)),
+        "Incomplete attachment metadata requires a stable evidence reference"
+      ),
+    metadata_state: z.literal("incomplete"),
+  })
+  .strict();
+
+const SafeAttachmentSchema = z.union([
+  CompleteAttachmentSchema,
+  StableAttachmentReferenceSchema,
+]);
 
 export const CorrespondenceEvidenceItemSchema = z
   .object({

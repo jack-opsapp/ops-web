@@ -13,6 +13,10 @@ import {
   type HiringWhatIfService,
 } from "./hiring-what-if/hiring-what-if-service";
 import {
+  isTrustedPromiseRecoveryService,
+  type PromiseRecoveryService,
+} from "./promise-recovery/promise-recovery-service";
+import {
   isTrustedOpsAgentReadCatalogueService,
   type OpsAgentReadCatalogueService,
 } from "./read-catalogue-service";
@@ -22,13 +26,15 @@ const TRUSTED_CAPABILITY_SERVICES = new WeakSet<object>();
 export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   DayCloseoutService &
   CollectionsService &
-  HiringWhatIfService;
+  HiringWhatIfService &
+  PromiseRecoveryService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
   readonly dayCloseout: DayCloseoutService;
   readonly collections: CollectionsService;
   readonly hiringWhatIf: HiringWhatIfService;
+  readonly promiseRecovery: PromiseRecoveryService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
     throw new TypeError("A trusted OPS read catalogue is required");
@@ -42,11 +48,15 @@ export function createOpsAgentCapabilityService(input: {
   if (!isTrustedHiringWhatIfService(input.hiringWhatIf)) {
     throw new TypeError("A trusted hiring analysis service is required");
   }
+  if (!isTrustedPromiseRecoveryService(input.promiseRecovery)) {
+    throw new TypeError("A trusted promise-recovery service is required");
+  }
   const service = Object.freeze({
     ...input.reads,
     ...input.dayCloseout,
     ...input.collections,
     ...input.hiringWhatIf,
+    ...input.promiseRecovery,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;

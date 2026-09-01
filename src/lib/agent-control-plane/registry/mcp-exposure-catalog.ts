@@ -20,6 +20,8 @@ import {
   HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION,
   INVISIBLE_OFFICE_CAPABILITY_MANIFEST,
   INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION,
+  PROMISE_RECOVERY_CAPABILITY_MANIFEST,
+  PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 
 export interface McpExposure {
@@ -170,6 +172,29 @@ export const MCP_EXPOSURE_V5 = Object.freeze({
   ] as const),
 } as const satisfies McpExposure);
 
+export const MCP_EXPOSURE_V6 = Object.freeze({
+  revision: "2026-09-01.mcp-exposure.v6",
+  toolIds: Object.freeze([
+    "analyze_hiring_break_even",
+    "check_customer_reply",
+  ] as const satisfies readonly McpDomainCapabilityId[]),
+  grantableScopes: Object.freeze([
+    "ops.company.read",
+    "ops.correspondence.read",
+    "ops.customer_contacts.read",
+    "ops.customers.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.payments.read",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ] as const),
+} as const satisfies McpExposure);
+
 export const ACTIVE_MCP_EXPOSURE_REVISION = MCP_EXPOSURE_V2.revision;
 
 export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
@@ -179,6 +204,7 @@ export const MCP_EXPOSURE_CATALOG: Readonly<Record<string, McpExposure>> =
     [MCP_EXPOSURE_V3.revision]: MCP_EXPOSURE_V3,
     [MCP_EXPOSURE_V4.revision]: MCP_EXPOSURE_V4,
     [MCP_EXPOSURE_V5.revision]: MCP_EXPOSURE_V5,
+    [MCP_EXPOSURE_V6.revision]: MCP_EXPOSURE_V6,
   });
 
 function requiredNonBlank(value: unknown, field: string): string {
@@ -304,13 +330,15 @@ function validateExposure(exposure: McpExposure): void {
   assertMcpExposureInvariants({
     exposure,
     manifestEntries:
-      exposure.revision === MCP_EXPOSURE_V5.revision
-        ? HIRING_WHAT_IF_CAPABILITY_MANIFEST
-        : exposure.revision === MCP_EXPOSURE_V4.revision
-          ? COLLECTIONS_CAPABILITY_MANIFEST
-          : exposure.revision === MCP_EXPOSURE_V3.revision
-            ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST
-            : CAPABILITY_MANIFEST,
+      exposure.revision === MCP_EXPOSURE_V6.revision
+        ? PROMISE_RECOVERY_CAPABILITY_MANIFEST
+        : exposure.revision === MCP_EXPOSURE_V5.revision
+          ? HIRING_WHAT_IF_CAPABILITY_MANIFEST
+          : exposure.revision === MCP_EXPOSURE_V4.revision
+            ? COLLECTIONS_CAPABILITY_MANIFEST
+            : exposure.revision === MCP_EXPOSURE_V3.revision
+              ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST
+              : CAPABILITY_MANIFEST,
     domainMethods: DOMAIN_METHOD_BY_CAPABILITY,
     registeredScopes: REGISTERED_MCP_SCOPES,
     scopeOperations: MCP_SCOPE_OPERATION_BY_ID,
@@ -332,17 +360,20 @@ validateExposure(MCP_EXPOSURE_V2);
 validateExposure(MCP_EXPOSURE_V3);
 validateExposure(MCP_EXPOSURE_V4);
 validateExposure(MCP_EXPOSURE_V5);
+validateExposure(MCP_EXPOSURE_V6);
 
 export function capabilityManifestRevisionForExposure(
   exposureRevision: string
 ): string {
-  return exposureRevision === MCP_EXPOSURE_V4.revision
-    ? COLLECTIONS_CAPABILITY_MANIFEST_REVISION
+  return exposureRevision === MCP_EXPOSURE_V6.revision
+    ? PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
     : exposureRevision === MCP_EXPOSURE_V5.revision
       ? HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
-      : exposureRevision === MCP_EXPOSURE_V3.revision
-        ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
-        : CAPABILITY_MANIFEST_REVISION;
+      : exposureRevision === MCP_EXPOSURE_V4.revision
+        ? COLLECTIONS_CAPABILITY_MANIFEST_REVISION
+        : exposureRevision === MCP_EXPOSURE_V3.revision
+          ? INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION
+          : CAPABILITY_MANIFEST_REVISION;
 }
 
 /** Pure exact-revision seam for catalogue invariants and adversarial tests. */

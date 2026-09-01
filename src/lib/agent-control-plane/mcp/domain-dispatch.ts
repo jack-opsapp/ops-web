@@ -52,13 +52,15 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   prepare_day_closeout: "prepareDayCloseout",
   prepare_collections: "prepareCollections",
   analyze_hiring_break_even: "analyzeHiringBreakEven",
+  check_customer_reply: "checkCustomerReply",
 } as const satisfies Readonly<
   Record<
     | CurrentProductionMcpToolId
     | P2ReadCapabilityId
     | "prepare_day_closeout"
     | "prepare_collections"
-    | "analyze_hiring_break_even",
+    | "analyze_hiring_break_even"
+    | "check_customer_reply",
     AsyncDomainMethodName
   >
 >);
@@ -68,7 +70,8 @@ export type McpDomainCapabilityId =
   | P2ReadCapabilityId
   | "prepare_day_closeout"
   | "prepare_collections"
-  | "analyze_hiring_break_even";
+  | "analyze_hiring_break_even"
+  | "check_customer_reply";
 export type McpDomainMethodName =
   (typeof DOMAIN_METHOD_BY_CAPABILITY)[McpDomainCapabilityId];
 
