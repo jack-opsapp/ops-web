@@ -132,7 +132,8 @@ $contract$;
 select public.move_opportunity_stage(
   'e5000000-0000-4000-8000-000000000301',
   'qualifying',
-  null
+  null,
+  42
 );
 
 do $contract$
@@ -145,6 +146,7 @@ begin
      and event.opportunity_id = opportunity.id
     where opportunity.id = 'e5000000-0000-4000-8000-000000000301'
       and opportunity.stage = 'qualifying'
+      and opportunity.win_probability = 42
       and event.event_kind = 'stage_changed'
       and event.to_stage = 'qualifying'
   ) then
@@ -159,10 +161,31 @@ set handled_at = clock_timestamp(),
     updated_at = clock_timestamp()
 where id = 'e5000000-0000-4000-8000-000000000301';
 
+insert into public.email_connections (
+  id,
+  company_id,
+  type,
+  email,
+  access_token,
+  refresh_token,
+  expires_at,
+  status
+) values (
+  'e5000000-0000-4000-8000-000000000701',
+  'e5000000-0000-4000-8000-000000000001',
+  'company',
+  'lifecycle-mailbox@example.invalid',
+  'rollback-access-token',
+  'rollback-refresh-token',
+  clock_timestamp() + interval '1 day',
+  'active'
+);
+
 insert into public.opportunity_correspondence_events (
   id,
   company_id,
   opportunity_id,
+  connection_id,
   provider_thread_id,
   provider_message_id,
   direction,
@@ -178,6 +201,7 @@ insert into public.opportunity_correspondence_events (
   'e5000000-0000-4000-8000-000000000401',
   'e5000000-0000-4000-8000-000000000001',
   'e5000000-0000-4000-8000-000000000301',
+  'e5000000-0000-4000-8000-000000000701',
   'historical-thread',
   'historical-message',
   'outbound',
@@ -211,6 +235,7 @@ insert into public.opportunity_correspondence_events (
   id,
   company_id,
   opportunity_id,
+  connection_id,
   provider_thread_id,
   provider_message_id,
   direction,
@@ -226,6 +251,7 @@ insert into public.opportunity_correspondence_events (
   'e5000000-0000-4000-8000-000000000402',
   'e5000000-0000-4000-8000-000000000001',
   'e5000000-0000-4000-8000-000000000301',
+  'e5000000-0000-4000-8000-000000000701',
   'operator-thread',
   'operator-message',
   'outbound',

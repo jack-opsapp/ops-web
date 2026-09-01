@@ -15,7 +15,7 @@ begin
       'public.record_opportunity_correspondence_event(uuid,uuid,uuid,uuid,text,text,text,text,boolean,text,timestamp with time zone,text,uuid,text,text,text,text[],text[],boolean)'
     ) is null
     or to_regprocedure(
-      'public.move_opportunity_stage(uuid,text,uuid)'
+      'public.move_opportunity_stage(uuid,text,uuid,integer)'
     ) is null
     or to_regprocedure(
       'public.execute_opportunity_merge_guarded(uuid,uuid,uuid,text,uuid,text,text,jsonb,jsonb,uuid,text)'
@@ -1158,7 +1158,8 @@ grant execute on function public.record_opportunity_correspondence_event(
 create or replace function public.move_opportunity_stage(
   p_opportunity_id uuid,
   p_to_stage text,
-  p_user_id uuid
+  p_user_id uuid,
+  p_win_probability integer default null
 ) returns public.opportunities
 language plpgsql
 security invoker
@@ -1169,7 +1170,6 @@ declare
   v_from_stage text;
   v_prior_entered_at timestamptz;
   v_now timestamptz := clock_timestamp();
-  v_probability integer;
   v_actor_user_id uuid;
   v_updated public.opportunities;
 begin
@@ -1224,13 +1224,6 @@ begin
     return v_updated;
   end if;
 
-  select config.default_win_probability
-  into v_probability
-  from public.pipeline_stage_configs config
-  where config.company_id = v_company_id
-    and config.slug = p_to_stage
-  limit 1;
-
   perform set_config('ops.lifecycle_source', 'manual_stage_change', true);
   perform set_config(
     'ops.lifecycle_actor_user_id',
@@ -1241,7 +1234,10 @@ begin
   update public.opportunities opportunity
   set stage = p_to_stage,
       stage_entered_at = v_now,
-      win_probability = coalesce(v_probability, opportunity.win_probability),
+      win_probability = coalesce(
+        p_win_probability,
+        opportunity.win_probability
+      ),
       stage_manually_set = true,
       updated_at = v_now
   where opportunity.id = p_opportunity_id

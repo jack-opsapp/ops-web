@@ -53,8 +53,9 @@ declare
   v_principal_id uuid := gen_random_uuid();
   v_credential_family_id uuid := gen_random_uuid();
   v_credential_id uuid := gen_random_uuid();
-  v_credential_secret_digest bytea := gen_random_bytes(32);
-  v_visible_prefix text := 'opsx' || encode(gen_random_bytes(6), 'hex');
+  v_credential_secret_digest bytea := extensions.gen_random_bytes(32);
+  v_visible_prefix text :=
+    'opsx' || encode(extensions.gen_random_bytes(6), 'hex');
 begin
   insert into public.companies (
     id,

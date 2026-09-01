@@ -2,11 +2,13 @@
 
 select pg_advisory_lock(2026073021);
 
+begin;
 drop table if exists private.external_api_rate_limit_concurrency_results;
 create table private.external_api_rate_limit_concurrency_results (
   session_name text primary key,
   result jsonb not null
 );
+commit;
 
 -- Start immediately after a ten-second boundary so the overlap cannot
 -- legitimately land in two different fixed windows.

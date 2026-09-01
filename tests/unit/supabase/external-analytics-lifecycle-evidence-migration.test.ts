@@ -80,6 +80,15 @@ describe("external analytics lifecycle evidence migration", () => {
 
   it("preserves canonical commercial commands and attachment projection atomicity", () => {
     expect(source).toContain("move_opportunity_stage");
+    expect(source).toContain(
+      "p_win_probability integer default null"
+    );
+    expect(source).toContain(
+      "'public.move_opportunity_stage(uuid,text,uuid,integer)'"
+    );
+    expect(source).toMatch(
+      /win_probability\s*=\s*coalesce\(\s*p_win_probability,\s*opportunity\.win_probability/
+    );
     expect(source).toMatch(
       /mutate_opportunity_lifecycle[\s\S]*?security definer[\s\S]*?user_can_edit_opportunity/
     );
