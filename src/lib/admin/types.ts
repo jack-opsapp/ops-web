@@ -149,6 +149,8 @@ export interface BugReportRow {
   reporter_name: string | null;
   reporter_email: string | null;
   screenshot_url: string | null;
+  /** Element-picker crops, `s3:`-prefixed, in upload order (bug 1f2bf7e9). */
+  additional_attachments: string[] | null;
   console_logs: unknown[] | null;
   breadcrumbs: unknown[] | null;
   state_snapshot: Record<string, unknown> | null;
