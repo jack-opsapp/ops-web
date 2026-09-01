@@ -295,6 +295,7 @@ Full reference: `ops-software-bible/05_DESIGN_SYSTEM.md` § 15. Use this scale f
 | **window** | 2000+ | Floating windows (dynamic, auto-increments) |
 | **modal** | 3000 | Portaled dialogs/sheets (Radix) |
 | **map-controls** | 5000 | Full-screen map page only |
+| **picker** | 8000 | Bug-report element picker overlay |
 | **emergency** | 9000–9999 | Sign-out, lockout overlays |
 
 **Rules:** Decorative overlays must never exceed 10. Gaps between layers are intentional — use them for future additions. Existing components use the old tight scale (sidebar=45, FAB=95, etc.) — migrate to the new scale as you touch them.
