@@ -41,8 +41,12 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { useLocale, useDictionary } from "@/i18n/client";
+import { Button } from "@/components/ui/button";
+import { Tag } from "@/components/ui/tag";
 import type {
   AgentAction,
+  AgentActionPriority,
+  AgentActionStatus,
   CreateTaskActionData,
   SendStatusEmailActionData,
   CreateInvoiceActionData,
@@ -97,20 +101,33 @@ const ACTION_TYPE_ICONS: Record<
   approve_collections_draft: Receipt,
 };
 
-// ─── Priority Left Border Colors ──────────────────────────────────────────────
+// ─── Priority / Status Tag Variants ───────────────────────────────────────────
 
-const PRIORITY_BORDER: Record<string, string> = {
-  low: "border-l-[rgba(255,255,255,0.08)]",
-  normal: "border-l-[rgba(255,255,255,0.08)]",
-  high: "border-l-[#C4A868]",
-  urgent: "border-l-[#93321A]",
+/**
+ * Priority renders as an earth-tone tag, never as a colored left border
+ * (DESIGN.md §14 bans "cards with rounded corners + colored left-border
+ * accent"). Only the two priorities that demand attention get a tag —
+ * normal and low are the baseline and carry no color, so they stay silent.
+ */
+const PRIORITY_TAG: Partial<Record<AgentActionPriority, "tan" | "rose">> = {
+  high: "tan",
+  urgent: "rose",
 };
 
-const PRIORITY_TEXT: Record<string, string> = {
-  low: "text-text-3",
-  normal: "text-text-2",
-  high: "text-[#C4A868]",
-  urgent: "text-[#93321A]",
+/**
+ * Terminal/in-flight status → tag variant. Olive = the proposal landed,
+ * rose = it did not, dim = it was retired without a verdict.
+ */
+const STATUS_TAG: Record<
+  Exclude<AgentActionStatus, "pending">,
+  "olive" | "rose" | "dim"
+> = {
+  approved: "olive",
+  executed: "olive",
+  rejected: "rose",
+  failed: "rose",
+  expired: "dim",
+  cancelled: "dim",
 };
 
 // ─── Source URL Map ───────────────────────────────────────────────────────────
@@ -987,59 +1004,54 @@ export const ActionCard = memo(function ActionCard({
       layout={!shouldReduceMotion}
       {...motionProps}
       className={cn(
-        "rounded-lg border border-l-[3px] transition-colors duration-150",
-        PRIORITY_BORDER[action.priority] ?? PRIORITY_BORDER.normal,
-        // Fix 21: selected border uses neutral instead of accent
+        "rounded-lg border transition-colors duration-150 ease-smooth",
+        // Selection reads as a brightened hairline over the active surface —
+        // never the accent, which is reserved for the page's single CTA.
         selected
-          ? "border-[rgba(255,255,255,0.20)] bg-[rgba(255,255,255,0.03)]"
-          : "glass-surface border-[rgba(255,255,255,0.08)] bg-glass",
-        "saturate-[1.2] backdrop-blur-[20px]"
+          ? "border-border-medium bg-surface-active"
+          : "glass-surface border-glass-border"
       )}
     >
       {/* ── Header Row ─────────────────────────────────────────────────── */}
-      <div className="flex items-start gap-3 p-4">
-        {/* Selection checkbox — 56dp tap area */}
+      <div data-card-header className="flex items-start gap-3 p-3">
+        {/* Selection checkbox */}
         {isPending && !isDayCloseout && !isCollectionsDraft && (
           <button
             onClick={() => onSelect(action.id)}
-            className="-m-3 mr-0 flex min-h-[56px] min-w-[56px] shrink-0 items-center justify-center"
+            className="flex h-[28px] w-[28px] shrink-0 items-center justify-center"
             aria-label="Select"
           >
             <div
               className={cn(
-                "h-[20px] w-[20px] rounded-bar border transition-colors",
-                // Fix 21: checkbox is the ONE accent element (selection indicator)
+                "flex h-icon-16 w-icon-16 items-center justify-center rounded-bar border transition-colors duration-150 ease-smooth",
                 selected
-                  ? "border-[rgba(255,255,255,0.30)] bg-text-2"
-                  : "border-[rgba(255,255,255,0.12)] hover:border-[rgba(255,255,255,0.24)]"
+                  ? "border-border-medium bg-text-2"
+                  : "border-border hover:border-border-medium"
               )}
             >
               {selected && (
-                <Check className="mx-auto mt-[2px] h-[14px] w-[14px] text-background" />
+                <Check className="h-icon-16 w-icon-16 text-background" />
               )}
             </div>
           </button>
         )}
 
         {/* Type icon */}
-        <div className="mt-3 flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-chip bg-[rgba(255,255,255,0.04)]">
-          <Icon className="h-[16px] w-[16px] text-text-2" />
+        <div className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-chip bg-surface-input">
+          <Icon className="h-icon-16 w-icon-16 text-text-2" />
         </div>
 
         {/* Content */}
-        <div className="min-w-0 flex-1 pt-2">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-mohave text-body-sm uppercase text-text">
               {t(`type.${action.actionType}`)}
             </span>
-            <span
-              className={cn(
-                "font-mono text-[11px]",
-                PRIORITY_TEXT[action.priority]
-              )}
-            >
-              [{t(`priority.${action.priority}`)}]
-            </span>
+            {PRIORITY_TAG[action.priority] && (
+              <Tag variant={PRIORITY_TAG[action.priority]}>
+                {t(`priority.${action.priority}`)}
+              </Tag>
+            )}
           </div>
           <p className="mt-0.5 line-clamp-2 font-mono text-[13px] text-text-2">
             {(() => {
@@ -1571,24 +1583,23 @@ export const ActionCard = memo(function ActionCard({
               className="flex items-center gap-1"
               title={`${t("card.confidence")}: ${Math.round(action.confidence * 100)}%`}
             >
-              <Gauge className="h-[14px] w-[14px] text-text-3" />
-              <span className="font-mono text-[11px] text-text-3">
+              <Gauge className="h-icon-16 w-icon-16 text-text-3" />
+              <span className="font-mono text-micro text-text-3">
                 {Math.round(action.confidence * 100)}%
               </span>
             </div>
             <div className="flex items-center gap-1">
-              <Clock className="h-[14px] w-[14px] text-text-3" />
-              <span className="font-mono text-[11px] text-text-3">
+              <Clock className="h-icon-16 w-icon-16 text-text-3" />
+              <span className="font-mono text-micro text-text-3">
                 {timeAgo(action.createdAt, t)}
               </span>
             </div>
-            {/* Fix 8: source link wrapped in 56dp touch target */}
             {sourceUrl && (
               <a
                 href={sourceUrl}
-                className="-my-4 flex min-h-[56px] items-center gap-1 px-1 font-mono text-[11px] text-text-3 transition-colors hover:text-text-2"
+                className="flex items-center gap-1 font-mono text-micro text-text-3 transition-colors duration-150 ease-smooth hover:text-text-2"
               >
-                <ExternalLink className="h-[12px] w-[12px]" />
+                <ExternalLink className="h-icon-16 w-icon-16" />
                 {t("card.viewSource")}
               </a>
             )}
@@ -1596,27 +1607,29 @@ export const ActionCard = memo(function ActionCard({
         </div>
 
         {/* Right side: expand + action buttons */}
-        <div className="flex shrink-0 flex-col items-end gap-2 pt-1">
-          {/* Expand toggle — 56dp tap area */}
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          {/* Expand toggle — compact 28px workbar tier (DESIGN.md §9) */}
           <button
             onClick={() => setExpanded(!expanded)}
-            className="-m-3 flex min-h-[56px] min-w-[56px] items-center justify-center"
+            className="flex h-[28px] w-[28px] items-center justify-center text-text-3 transition-colors duration-150 ease-smooth hover:text-text-2"
             title={expanded ? t("action.collapse") : t("action.expand")}
           >
             {expanded ? (
-              <ChevronUp className="h-[16px] w-[16px] text-text-3" />
+              <ChevronUp className="h-icon-16 w-icon-16" />
             ) : (
-              <ChevronDown className="h-[16px] w-[16px] text-text-3" />
+              <ChevronDown className="h-icon-16 w-icon-16" />
             )}
           </button>
 
-          {/* Approve / Reject — 44px minimum touch targets */}
-          {/* Fix 21: Approve button is the ONE accent element per card */}
+          {/* Approve / Reject — shared Button primitive. The accent belongs to
+              the page's single bulk-approve CTA, so the per-card approve is the
+              standard default button, not an accent one. */}
           {isPending && (
             <div className="flex items-center gap-1">
-              <button
+              <Button
+                variant="default"
+                size="sm"
                 onClick={handleApproveWithEdits}
-                className="min-h-11 rounded bg-ops-accent/15 px-4 font-mohave text-body-sm uppercase text-ops-accent transition-colors hover:bg-ops-accent/25"
               >
                 {isDayCloseout
                   ? t("dayCloseout.action.file")
@@ -1625,10 +1638,11 @@ export const ActionCard = memo(function ActionCard({
                     : isFinancialInsight
                       ? t("financial.action.acknowledge")
                       : t("action.approve")}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => onReject(action.id)}
-                className="min-h-11 rounded bg-brick/10 px-4 font-mohave text-body-sm uppercase text-brick transition-colors hover:bg-brick/20"
               >
                 {isDayCloseout
                   ? t("dayCloseout.action.leaveOpen")
@@ -1637,31 +1651,15 @@ export const ActionCard = memo(function ActionCard({
                     : isFinancialInsight
                       ? t("financial.action.dismiss")
                       : t("action.reject")}
-              </button>
+              </Button>
             </div>
           )}
 
-          {/* Status badge for non-pending */}
+          {/* Status tag for non-pending */}
           {!isPending && (
-            <span
-              className={cn(
-                "rounded-bar px-2 py-0.5 font-mono text-[11px]",
-                action.status === "executed" &&
-                  "bg-[rgba(165,179,104,0.15)] text-[#A5B368]",
-                action.status === "rejected" &&
-                  "bg-[rgba(147,50,26,0.10)] text-[#93321A]",
-                action.status === "failed" &&
-                  "bg-[rgba(147,50,26,0.10)] text-[#93321A]",
-                action.status === "expired" &&
-                  "bg-[rgba(255,255,255,0.04)] text-text-3",
-                action.status === "cancelled" &&
-                  "bg-[rgba(255,255,255,0.04)] text-text-3",
-                action.status === "approved" &&
-                  "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0]"
-              )}
-            >
-              [{t(`filter.${action.status}`)}]
-            </span>
+            <Tag variant={STATUS_TAG[action.status]}>
+              {t(`filter.${action.status}`)}
+            </Tag>
           )}
         </div>
       </div>
