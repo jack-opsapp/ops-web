@@ -48,7 +48,7 @@ async function authFetch<T>(url: string, init?: RequestInit): Promise<T> {
 export function useApprovalQueue(filters: QueueFilters = {}) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
-  const canView = usePermissionStore((s) => s.can("pipeline.view"));
+  const canView = usePermissionStore((s) => s.can("agent.review"));
 
   return useQuery<AgentAction[]>({
     queryKey: queryKeys.approvalQueue.list(
@@ -58,6 +58,9 @@ export function useApprovalQueue(filters: QueueFilters = {}) {
     queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.status) params.set("status", filters.status);
+      if (filters.statuses && filters.statuses.length > 0) {
+        params.set("statuses", filters.statuses.join(","));
+      }
       if (filters.actionType) params.set("actionType", filters.actionType);
       if (filters.priority) params.set("priority", filters.priority);
 
@@ -81,7 +84,7 @@ export function useApprovalQueue(filters: QueueFilters = {}) {
 export function useApprovalQueueStats() {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
-  const canView = usePermissionStore((s) => s.can("pipeline.view"));
+  const canView = usePermissionStore((s) => s.can("agent.review"));
 
   return useQuery<QueueStats>({
     queryKey: queryKeys.approvalQueue.stats(companyId),
@@ -95,9 +98,9 @@ export function useApprovalQueuePendingCount(
 ) {
   const { company } = useAuthStore();
   const companyId = company?.id ?? "";
-  // Agent queue is a pipeline-level feature — gate by pipeline.view so
-  // crew/operator users don't hit /api/agent/queue and earn 403s in the console.
-  const canView = usePermissionStore((s) => s.can("pipeline.view"));
+  // The badge mirrors the queue's own gate — `agent.review` — so users
+  // without it never poll /api/agent/queue and earn 403s in the console.
+  const canView = usePermissionStore((s) => s.can("agent.review"));
   // Callers can gate further (the sidebar only polls when the company has
   // the phase_c flag — non-Phase-C companies never see the badge, so they
   // should not poll a 60s count for it either).

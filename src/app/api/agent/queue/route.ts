@@ -1,6 +1,9 @@
 /**
- * GET  /api/agent/queue?status=...&actionType=...&priority=...&statsOnly=true&countOnly=true
+ * GET  /api/agent/queue?status=...&statuses=a,b&actionType=...&priority=...&statsOnly=true&countOnly=true
  * POST /api/agent/queue — Propose a new action
+ *
+ * `statuses` is the HISTORY view's multi-status list; an unknown status is a
+ * 400. Both verbs are gated by the `agent.review` permission.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,6 +11,7 @@ import { authenticateRequest, isErrorResponse, requirePermission } from "../_lib
 import { ApprovalQueueService } from "@/lib/api/services/approval-queue-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
+import { parseStatusesParam } from "@/lib/agent-queue/status-filter";
 import type {
   AgentActionStatus,
   AgentActionType,
@@ -51,8 +55,19 @@ export async function GET(request: NextRequest) {
     const actionType = url.searchParams.get("actionType") as AgentActionType | null;
     const priority = url.searchParams.get("priority") as AgentActionPriority | null;
 
+    // `?statuses=a,b` drives the HISTORY view. An unknown status is a client
+    // bug, so it becomes a 400 rather than a silently empty queue.
+    let statuses: AgentActionStatus[] | undefined;
+    try {
+      statuses = parseStatusesParam(url.searchParams.get("statuses"));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Invalid statuses";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
     const actions = await ApprovalQueueService.getQueue(auth.companyId, {
       status: status ?? undefined,
+      statuses,
       actionType: actionType ?? undefined,
       priority: priority ?? undefined,
     });
