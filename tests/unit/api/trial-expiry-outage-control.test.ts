@@ -28,6 +28,9 @@ import {
 
 type DatabaseError = { code?: string; message: string };
 
+const CLAIM_ID = "33333333-3333-3333-3333-333333333333";
+const pushStateWrites: Record<string, unknown>[] = [];
+
 function companyEndingInSevenDays(now: Date) {
   return {
     id: "11111111-1111-1111-1111-111111111111",
@@ -71,18 +74,36 @@ function fakeSupabase(claimError: DatabaseError | null = null) {
 
       if (table === "trial_expiry_notifications") {
         const builder: Record<string, unknown> = {};
+        let mode: "insert" | "update" = "insert";
         builder.insert = () => {
           deliveryOrder.push("claim");
+          mode = "insert";
           return builder;
         };
+        builder.update = (patch: Record<string, unknown>) => {
+          mode = "update";
+          pushStateWrites.push(patch);
+          return builder;
+        };
+        builder.select = () => builder;
+        builder.eq = () => builder;
+        // The claim insert reads its row id back so the push leg can record a
+        // durable outcome against it.
+        builder.single = () =>
+          Promise.resolve(
+            claimError
+              ? { data: null, error: claimError }
+              : { data: { id: CLAIM_ID }, error: null }
+          );
         builder.then = (
           resolve: (value: unknown) => unknown,
           reject?: (error: unknown) => unknown
         ) =>
-          Promise.resolve({ data: null, error: claimError }).then(
-            resolve,
-            reject
-          );
+          Promise.resolve(
+            mode === "update"
+              ? { data: null, error: null }
+              : { data: null, error: claimError }
+          ).then(resolve, reject);
         return builder;
       }
 
@@ -97,6 +118,7 @@ function emptyResult() {
     sent: [],
     skipped: [],
     errors: [],
+    pushRetries: [],
     nextCompanyCursor: null,
   };
 }
@@ -104,6 +126,7 @@ function emptyResult() {
 describe("trial expiry durable pre-send claim", () => {
   beforeEach(() => {
     deliveryOrder.length = 0;
+    pushStateWrites.length = 0;
     sendWarningMock.mockClear();
   });
 
@@ -123,6 +146,14 @@ describe("trial expiry durable pre-send claim", () => {
       {
         companyId: "11111111-1111-1111-1111-111111111111",
         type: "warning_7d",
+      },
+    ]);
+    // warning_7d never pushes, and that is recorded rather than left blank.
+    expect(pushStateWrites).toEqual([
+      {
+        push_status: "not_applicable",
+        push_attempts: 0,
+        push_last_error: null,
       },
     ]);
   });

@@ -16,6 +16,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import { SyncEngine } from "@/lib/api/services/sync-engine";
+import {
+  EMAIL_SYNC_DEADLINE_SAFETY_MARGIN_MS,
+  EMAIL_SYNC_MAX_RUNTIME_MS,
+  EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS,
+  createInvocationDeadline,
+} from "@/lib/api/services/invocation-deadline";
 import { getSubscriptionInfo } from "@/lib/subscription";
 import {
   SubscriptionPlan,
@@ -119,7 +125,11 @@ export async function POST(request: NextRequest) {
       if (activeConnectionIds.length === 0) {
         return NextResponse.json({
           ok: true,
+          state: "complete",
+          retryable: false,
           connectionsProcessed: 0,
+          failedConnections: 0,
+          pendingConnections: 0,
           totalActivitiesCreated: 0,
           results: [],
         });
@@ -150,12 +160,38 @@ export async function POST(request: NextRequest) {
         matched: number;
         needsReview: number;
         newLeads: number;
+        continuationPending: boolean;
+        deadlineDeferred?: boolean;
         error?: string;
       }> = [];
 
+      // Same 300s platform kill as the cron path, so the same budget applies:
+      // a deadline-stopped cycle is reported as continuing, never complete
+      // (bug 63ff8830).
+      const deadline = createInvocationDeadline({
+        maxRuntimeMs: EMAIL_SYNC_MAX_RUNTIME_MS,
+        safetyMarginMs: EMAIL_SYNC_DEADLINE_SAFETY_MARGIN_MS,
+      });
+
       for (const conn of connections ?? []) {
+        if (deadline.expired(EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS)) {
+          // Left completely untouched — no cursor moved, no provider call.
+          results.push({
+            connectionId: conn.id as string,
+            email: conn.email as string,
+            activitiesCreated: 0,
+            matched: 0,
+            needsReview: 0,
+            newLeads: 0,
+            continuationPending: true,
+            deadlineDeferred: true,
+          });
+          continue;
+        }
         try {
-          const result = await SyncEngine.runSync(conn.id as string);
+          const result = await SyncEngine.runSync(conn.id as string, {
+            deadline,
+          });
           results.push({
             connectionId: conn.id as string,
             email: conn.email as string,
@@ -163,6 +199,9 @@ export async function POST(request: NextRequest) {
             matched: result.matched,
             needsReview: result.needsReview,
             newLeads: result.newLeads,
+            continuationPending:
+              result.continuationPending || result.deadlineDeferred,
+            ...(result.deadlineDeferred ? { deadlineDeferred: true } : {}),
             ...(result.errors.length > 0
               ? { error: result.errors.join("; ") }
               : {}),
@@ -175,6 +214,7 @@ export async function POST(request: NextRequest) {
             matched: 0,
             needsReview: 0,
             newLeads: 0,
+            continuationPending: false,
             error: err instanceof Error ? err.message : "Unknown error",
           });
         }
@@ -184,13 +224,37 @@ export async function POST(request: NextRequest) {
         (s, r) => s + r.activitiesCreated,
         0
       );
+      const failedConnections = results.filter(
+        (result) => result.error !== undefined
+      ).length;
+      const pendingConnections = results.filter(
+        (result) => result.continuationPending
+      ).length;
+      const state =
+        failedConnections > 0
+          ? failedConnections === results.length
+            ? "failed"
+            : "partial"
+          : pendingConnections > 0
+            ? "continuing"
+            : "complete";
 
-      return NextResponse.json({
-        ok: true,
-        connectionsProcessed: results.length,
-        totalActivitiesCreated: totalActivities,
-        results,
-      });
+      return NextResponse.json(
+        {
+          ok: failedConnections === 0,
+          state,
+          retryable: failedConnections > 0,
+          connectionsProcessed: results.length,
+          failedConnections,
+          pendingConnections,
+          totalActivitiesCreated: totalActivities,
+          results,
+        },
+        {
+          status:
+            failedConnections > 0 ? 503 : pendingConnections > 0 ? 202 : 200,
+        }
+      );
     } catch (err) {
       console.error("[gmail-manual-sync]", err);
       return NextResponse.json(

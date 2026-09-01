@@ -110,13 +110,6 @@ vi.mock(
   })
 );
 
-// CreateSiteVisitModal is a portaled Radix dialog with its own data deps — stub
-// it to a marker so the Schedule affordance can mount without the real modal.
-vi.mock("@/components/ops/site-visit/create-site-visit-modal", () => ({
-  CreateSiteVisitModal: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="create-site-visit-modal" /> : null,
-}));
-
 // Permission gate for the Linked → New estimate action. Default: allow every
 // permission; per-test overrides reassign `canMock`.
 let canMock: (permission: string) => boolean = () => true;
@@ -258,6 +251,8 @@ function makeSiteVisit(overrides: Partial<SiteVisit> = {}): SiteVisit {
     createdAt: now,
     updatedAt: now,
     deletedAt: null,
+    bookedAt: null,
+    reminderLeadMinutes: null,
     ...overrides,
   };
 }
@@ -557,7 +552,7 @@ describe("PipelineDetailOverviewTab — Linked estimates", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders a Schedule affordance and lists a site visit when present", () => {
+  it("lists site-visit history read-only — booking lives on the next-steps strip", () => {
     useSiteVisitsMock.mockReturnValue({
       data: [makeSiteVisit()],
       isLoading: false,
@@ -566,8 +561,12 @@ describe("PipelineDetailOverviewTab — Linked estimates", () => {
       <PipelineDetailOverviewTab opportunity={makeOpportunity()} canManage />
     );
     const linked = screen.getByTestId("overview-linked");
-    // The site-visit row is present (status label always shown).
+    // The site-visit row is present (status label always shown)…
     expect(within(linked).getByText(/scheduled/i)).toBeInTheDocument();
+    // …and no schedule verb sits on the scan surface (one entry point).
+    expect(
+      within(linked).queryByRole("button", { name: /schedule/i })
+    ).not.toBeInTheDocument();
   });
 });
 

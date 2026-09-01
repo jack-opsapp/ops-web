@@ -67,7 +67,17 @@ describe('AdSpendEntrySchema', () => {
 });
 
 describe('AttributionChannelSchema', () => {
-  it('includes unknown as valid default', () => {
-    expect(AttributionChannelSchema.safeParse('unknown').success).toBe(true);
+  it('accepts the canonical acquisition channel vocabulary', () => {
+    for (const channel of [
+      'google_ads', 'meta_ads', 'apple_search_ads', 'organic_search',
+      'organic_social', 'app_store_search', 'app_store_browse', 'direct',
+      'referral', 'other', 'unknown',
+    ]) {
+      expect(AttributionChannelSchema.safeParse(channel).success).toBe(true);
+    }
+  });
+
+  it('rejects the retired ambiguous organic channel', () => {
+    expect(AttributionChannelSchema.safeParse('organic').success).toBe(false);
   });
 });

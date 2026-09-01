@@ -29,8 +29,36 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 22
+          cache: "npm"
+      - name: Start PostgreSQL for migration contracts
+        run: sudo systemctl start postgresql.service
+      - name: Test email attachment reconciliation migration
+        run: >-
+          sudo -u postgres psql -X -v ON_ERROR_STOP=1
+          -f tests/sql/email-conversion-photo-related-attachment-shadowing-contract.sql
+      - name: Test phase C work claim null-safety migration
+        run: >-
+          sudo -u postgres psql -X -v ON_ERROR_STOP=1
+          -f tests/sql/phase-c-claim-null-safe-contract.sql
+      - name: Test contact-form provenance gate migration
+        run: >-
+          sudo -u postgres psql -X -v ON_ERROR_STOP=1
+          -f tests/sql/contact-form-provenance-gate-contract.sql
+      - name: Test delivery-source normalization re-projection migration
+        run: >-
+          sudo -u postgres psql -X -v ON_ERROR_STOP=1
+          -f tests/sql/delivery-source-reprojection-contract.sql
+      - name: Test day-closeout routine configuration migration
+        run: >-
+          sudo -u postgres psql -X -v ON_ERROR_STOP=1
+          -f tests/sql/agent-day-closeout-routine-configuration-runtime.sql
+      - name: Test MCP v3 synthetic canary migration
+        run: >-
+          sudo -u postgres psql -X -v ON_ERROR_STOP=1
+          -f tests/sql/mcp-v3-synthetic-canary-runtime.sql
+      - name: Test MCP v3 canary shutdown serialization
+        run: sudo -u postgres bash tests/sql/mcp-v3-synthetic-canary-concurrency.sh
       - run: npm ci
       - run: npm run lint
       - run: npm run type-check

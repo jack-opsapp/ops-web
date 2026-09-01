@@ -62,12 +62,20 @@
  *     AND con.confrelid::regclass::text = 'auth.users'
  *   -- minus anything already in IN_SCOPE_SNAPSHOT
  *
- * Verified against prod 2026-08-06: 223 in scope and
+ * Verified against prod 2026-08-14: 226 in scope and
  * 5 auth-identity tables. The live snapshot includes the normalized
  * site-visit packet tables and the company-owned site_visit_types settings table.
  * The tenant row `companies` is deliberately absent — it carries no
  * `company_id` and no foreign key into scope, so no query can derive it; the
  * manifest adds it explicitly as the root.
+ *
+ * STAGED_IN_SCOPE_MIGRATION_TABLES is deliberately separate from that live
+ * readback. It closes the account-export/purge gap for tables introduced by an
+ * unapplied migration in this branch without pretending those tables already
+ * exist in production. Every staged name must be created by a checked-in
+ * migration, classified in the manifest, and absent from the generated types.
+ * After the migration is applied to the authoritative database, regenerate
+ * both snapshots/types and empty this list in the same release proof.
  */
 
 /** Every table the live schema places inside a company's data. */
@@ -96,6 +104,7 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "billing_events",
   "bug_reports",
   "calendar_events",
+  "calendar_feed_tokens",
   "calendar_user_events",
   "catalog_categories",
   "catalog_guided_setup_actions",
@@ -173,6 +182,7 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "forecast_alerts",
   "gmail_import_jobs",
   "gmail_scan_jobs",
+  "google_calendar_sync_queue",
   "graph_entities",
   "inventory_deductions",
   "invoices",
@@ -185,6 +195,7 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "line_item_materials",
   "line_item_questions",
   "line_items",
+  "meeting_proposals",
   "notification_preferences",
   "notifications",
   "onboarding_email_log",
@@ -295,6 +306,18 @@ export const IN_SCOPE_SNAPSHOT: readonly string[] = [
   "users",
   "weather_forecasts",
   "wizard_analytics",
+];
+
+/** Company-scoped tables created by checked-in migrations not yet applied live. */
+export const STAGED_IN_SCOPE_MIGRATION_TABLES: readonly string[] = [
+  "agent_control_plane_tenant_roots",
+  "job_conversation_anchors",
+  "job_conversation_redaction_events",
+  "job_conversation_turns",
+  "job_conversations",
+  "job_memory_version_evidence",
+  "job_memory_versions",
+  "touchpoints",
 ];
 
 /**

@@ -22,7 +22,8 @@ import {
   trackStarfieldEntered,
   trackStarfieldLaunched,
   trackStarfieldExited,
-} from "@/lib/analytics/analytics";
+} from "@/lib/analytics/product-events";
+import { trackCompleteOnboarding } from "@/lib/analytics/analytics";
 import { analyticsService } from "@/lib/analytics/analytics-service";
 import { useSetupStore, STARFIELD_QUESTIONS } from "@/stores/setup-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
@@ -507,6 +508,7 @@ export default function SetupPage() {
     const method = stepsCompleted.length >= 3 ? "full" : "partial";
     const totalDuration = Date.now() - setupStartRef.current;
     trackSetupCompleted(method, stepsCompleted, totalDuration);
+    trackCompleteOnboarding();
     if (readSetupSource() === "spec") {
       analyticsService.track("lifecycle", "spec_default_ops_signup_completed", {
         source: "spec",

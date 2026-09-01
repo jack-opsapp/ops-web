@@ -19,6 +19,7 @@ export type OpportunityCorrespondenceNoiseReason =
   | "provider_noise"
   | "bounce"
   | "internal_system"
+  | "administrative_non_customer"
   | "duplicate_provider_message_id"
   | "marketing_noise"
   | "missing_provider_id"
@@ -106,6 +107,12 @@ const RECRUITING_RELAY_DOMAINS = new Set([
 ]);
 const RECRUITING_TRAFFIC_RE =
   /\b(?:new (?:job )?application|new candidate|candidate (?:application|update)|job application|application updates?|applied to (?:your|the) job|manage (?:your )?application e-?mails?|employer dashboard|job post(?:ing)?|view (?:the )?(?:candidate|application)|resume|résumé)\b/i;
+const PROPERTY_ADMIN_RELATIONSHIP_RE =
+  /\b(?:landlord|property\s+manager|property\s+management|rental\s+manager|tenancy|tenant\s+ledger|lease\s+administrator|strata\s+management)\b/i;
+const PROPERTY_ADMIN_ACTION_RE =
+  /\b(?:rent|lease(?:\s+renewal)?|tenancy\s+agreement|security\s+deposit|notice\s+to\s+enter|rental\s+statement|owner\s+statement|management\s+fee|move[- ](?:in|out)\s+inspection)\b/i;
+const TRADES_PROJECT_INTENT_RE =
+  /\b(?:quote|estimate|proposal|bid|site\s+visit|measure(?:ment)?|deck|railing|fence|repair|replace(?:ment)?|install(?:ation)?|build|construction|renovation|scope\s+of\s+work|project|job)\b/i;
 
 function normalizeEmail(value: string | null | undefined): string | null {
   const normalized = extractEmailAddress(value ?? "")
@@ -268,6 +275,20 @@ function isMarketingNoise(
     return true;
   }
   return MARKETING_SUBJECT_RE.test(subject);
+}
+
+function isAdministrativeNonCustomer(
+  input: OpportunityCorrespondenceClassifierInput,
+  subject: string,
+  bodyText: string
+): boolean {
+  if (input.direction !== "inbound") return false;
+  const content = `${subject}\n${bodyText}`;
+  return (
+    PROPERTY_ADMIN_RELATIONSHIP_RE.test(content) &&
+    PROPERTY_ADMIN_ACTION_RE.test(content) &&
+    !TRADES_PROJECT_INTENT_RE.test(content)
+  );
 }
 
 function externalRecipient(
@@ -456,6 +477,16 @@ export function classifyOpportunityCorrespondence(
         partyRole: "internal",
         isMeaningful: false,
         noiseReason: "internal_system",
+        customerEmail: null,
+      });
+    }
+
+    if (isAdministrativeNonCustomer(input, subject, bodyText)) {
+      return withResponseClassification(input, {
+        direction: "inbound",
+        partyRole: "unknown",
+        isMeaningful: false,
+        noiseReason: "administrative_non_customer",
         customerEmail: null,
       });
     }

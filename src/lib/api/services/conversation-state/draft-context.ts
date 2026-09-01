@@ -13,7 +13,9 @@
 // fragments into its system/user prompts, falling back to its legacy raw-data
 // path when no state is available.
 
-import type { CleanMessage, ConversationState } from "./types";
+import { stripQuotedContentStrict } from "@/lib/utils/email-parsing";
+
+import type { CleanMessage, ConversationState, ResponseMode } from "./types";
 
 export interface DraftStateContext {
   /** Full name of the actual latest inbound sender (who we are replying to). */
@@ -30,6 +32,10 @@ export interface DraftStateContext {
   sentLedgerBlock: string;
   /** "Customer attached — acknowledge" block, or "" when there are none. */
   attachmentBlock: string;
+  responseMode: ResponseMode;
+  isFirstOperatorReply: boolean;
+  operatorMessageCount: number;
+  customerMessageCount: number;
 }
 
 function cmpIso(a: string, b: string): number {
@@ -42,15 +48,71 @@ function firstName(fullName: string | null): string | null {
   return first && first.length > 0 ? first : null;
 }
 
+/**
+ * The words that end an email rather than name its author. Mirrors the sign-off
+ * family in draft-reconciliation; kept local so neither file can silently
+ * change the other's meaning.
+ */
+const CLOSING_LINE =
+  /^(thanks|thank you|thanks so much|many thanks|all the best|best|best regards|kind regards|warm regards|regards|cheers|talk soon|sincerely|yours truly|respectfully|cordially|appreciate it|much appreciated)$/i;
+
+/** One or two capitalized name words — "Mark", "Anne-Marie O'Brien". */
+const NAME_LINE = /^[A-Z][A-Za-z'’-]{0,23}(?: [A-Z][A-Za-z'’-]{0,23})?$/;
+
+const MAX_SIGN_OFF_NAME_LENGTH = 24;
+
+/**
+ * The name the customer signed off with.
+ *
+ * `activities` does not persist a sender display name, so on most real threads
+ * the provider identity yields no name at all and the drafter opens with a bare
+ * "Hi," — to a customer who typed their own name at the bottom of the message.
+ * Read from the RAW body: the clean body has the signature block removed, which
+ * is precisely where the name lives. Quoted history is cut first so the name of
+ * whoever wrote earlier in the chain can never be mistaken for this sender's.
+ *
+ * Returns null on anything short of certainty. A wrong name is worse than none.
+ */
+function signOffName(rawBody: string): string | null {
+  const authored = stripQuotedContentStrict(rawBody ?? "", "");
+  if (!authored.trim()) return null;
+
+  const lines = authored
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0) return null;
+
+  const candidate = lines[lines.length - 1].replace(/[.,;:!?]+$/, "").trim();
+  if (
+    !candidate ||
+    candidate.length > MAX_SIGN_OFF_NAME_LENGTH ||
+    candidate.includes("@") ||
+    /\d/.test(candidate) ||
+    CLOSING_LINE.test(candidate) ||
+    !NAME_LINE.test(candidate)
+  ) {
+    return null;
+  }
+
+  return candidate;
+}
+
 /** Build the Phase-1 drafting fragments from a resolved ConversationState. */
-export function buildDraftStateContext(state: ConversationState): DraftStateContext {
+export function buildDraftStateContext(
+  state: ConversationState
+): DraftStateContext {
   const recipientName = state.recipient.name ?? null;
   const recipientEmail = state.recipient.email ?? null;
 
   // Clean thread — meaningful clean bodies only, oldest first.
   const cleanThread = state.messages
     .filter((m) => m.cleanBody.trim().length > 0)
-    .map((m) => `[${m.direction === "outbound" ? "YOU" : "THEM"}]\n${m.cleanBody.trim()}`)
+    .map(
+      (m) =>
+        `[${m.direction === "outbound" ? "YOU" : "THEM"}]\n${m.cleanBody.trim()}`
+    )
     .join("\n---\n");
 
   // Latest real customer inbound (the message we are replying to).
@@ -78,12 +140,24 @@ export function buildDraftStateContext(state: ConversationState): DraftStateCont
   // nothing to the conversation. The vision verdict stays INTERNAL — it still
   // drives the signed-estimate→Won path and the held-for-review-if-unreadable
   // gate; it just no longer leaks descriptions into customer-facing text.
-  const attachments = state.attachmentsRequiringInspection;
+  const latestCustomerMessage =
+    latestCustomer.length > 0
+      ? latestCustomer[latestCustomer.length - 1]
+      : null;
+  const attachments = state.attachmentsRequiringInspection.filter(
+    (attachment) =>
+      attachment.isNewToConversation !== false &&
+      attachment.isDecorativeInline !== true &&
+      (attachment.sourceMessageId
+        ? attachment.sourceMessageId ===
+          latestCustomerMessage?.providerMessageId
+        : latestCustomerMessage?.attachments.includes(attachment) === true)
+  );
   const hasSignedEstimate = attachments.some(
     (a) => a.inspection?.isSignedEstimate === true
   );
   const attachmentAck = hasSignedEstimate
-    ? "thanks for the signed estimate — I'll get you on the schedule"
+    ? "thanks for the signed estimate — I'll confirm the next step"
     : "thanks for sending those over";
   const attachmentBlock =
     attachments.length === 0
@@ -94,13 +168,29 @@ export function buildDraftStateContext(state: ConversationState): DraftStateCont
           hasSignedEstimate ? " (one is a signed estimate)" : ""
         }. Acknowledge receipt in ONE short, natural phrase (e.g. "${attachmentAck}"). Do NOT describe or itemize what the attachments show — no play-by-play of the images. Never claim you cannot see them.`;
 
+  const operatorMessageCount = state.messages.filter(
+    (message) => message.direction === "outbound"
+  ).length;
+  const customerMessageCount = state.customerMessages.length;
+
+  // The provider display name when there is one; otherwise the name the
+  // customer signed. Never the linked client record — that is how a reply ends
+  // up greeting the account holder instead of the person who wrote.
+  const greetingFirstName =
+    firstName(recipientName) ??
+    (latestCustomerMessage ? signOffName(latestCustomerMessage.rawBody) : null);
+
   return {
     recipientName,
     recipientEmail,
-    greetingFirstName: firstName(recipientName),
+    greetingFirstName,
     cleanThread,
     latestCustomerText,
     sentLedgerBlock,
     attachmentBlock,
+    responseMode: state.responseMode,
+    isFirstOperatorReply: operatorMessageCount === 0,
+    operatorMessageCount,
+    customerMessageCount,
   };
 }

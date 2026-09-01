@@ -56,14 +56,41 @@ function makeSupabase(input: {
 }) {
   const filters: Array<{ table: string; column: string; value: unknown }> = [];
   const selects: Array<{ table: string; columns: string }> = [];
-  const rpc = vi.fn(
-    async (
-      _name: string,
-      _params?: unknown
-    ): Promise<{ data: unknown; error: { message: string } | null }> => ({
-      data: null,
-      error: null,
-    })
+  const lifecycleDecisions = new Map<string, Row>();
+  const lifecycleRpc = async (
+    name: string,
+    params?: Record<string, unknown>
+  ): Promise<{ data: unknown; error: { message: string } | null }> => {
+    if (name === "record_opportunity_lifecycle_decision") {
+      const key = [
+        params?.p_opportunity_id,
+        params?.p_source_event_id,
+        params?.p_decision_kind,
+        params?.p_decision_key,
+      ].join(":");
+      const existing = lifecycleDecisions.get(key);
+      if (existing) return { data: existing, error: null };
+      const decision = {
+        id: `decision-${lifecycleDecisions.size + 1}`,
+        status: params?.p_status,
+        ...params,
+      };
+      lifecycleDecisions.set(key, decision);
+      return { data: decision, error: null };
+    }
+    if (name === "settle_opportunity_lifecycle_decision") {
+      return {
+        data: {
+          id: params?.p_decision_id,
+          status: params?.p_status,
+        },
+        error: null,
+      };
+    }
+    return { data: null, error: null };
+  };
+  const rpc = vi.fn(async (name: string, params?: Record<string, unknown>) =>
+    lifecycleRpc(name, params)
   );
 
   const from = vi.fn((table: string) => {
@@ -207,7 +234,7 @@ function makeSupabase(input: {
     return query;
   });
 
-  return { client: { from, rpc }, filters, selects, rpc };
+  return { client: { from, rpc }, filters, selects, rpc, lifecycleRpc };
 }
 
 const connection = {
@@ -291,7 +318,7 @@ describe("evaluateOpportunityAcceptance", () => {
   ])(
     "converts a trusted message-scoped customer commitment without an email_threads row: $signal",
     async ({ body, signal }) => {
-      const { client } = makeSupabase({
+      const { client, rpc } = makeSupabase({
         opportunity: {
           stage: "quoted",
           stage_manually_set: false,
@@ -351,12 +378,31 @@ describe("evaluateOpportunityAcceptance", () => {
           },
         })
       );
+      const recordCallIndex = rpc.mock.calls.findIndex(
+        ([name]) => name === "record_opportunity_lifecycle_decision"
+      );
+      const settleCallIndex = rpc.mock.calls.findIndex(
+        ([name]) => name === "settle_opportunity_lifecycle_decision"
+      );
+      expect(rpc.mock.calls[recordCallIndex]?.[1]).toMatchObject({
+        p_decision_kind: "commercial_outcome",
+        p_proposed_outcome: "won",
+        p_source_event_id: "event-forwarded-acceptance",
+        p_evidence_message_ids: ["forwarded-acceptance-message"],
+        p_status: "proposed",
+      });
+      expect(rpc.mock.invocationCallOrder[recordCallIndex]).toBeLessThan(
+        mocks.convertOpportunityToProject.mock.invocationCallOrder[0]
+      );
+      expect(rpc.mock.invocationCallOrder[settleCallIndex]).toBeGreaterThan(
+        mocks.convertOpportunityToProject.mock.invocationCallOrder[0]
+      );
       expect(result).toEqual({ stageChanged: true });
     }
   );
 
   it("claims an exact legacy activity before message-scoped conversion", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
         stage_manually_set: false,
@@ -391,10 +437,11 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "claim_legacy_email_activity_connection_as_system"
-        ? { data: true, error: null }
-        : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "claim_legacy_email_activity_connection_as_system"
+          ? { data: true, error: null }
+          : lifecycleRpc(name, params)
     );
 
     const result = await evaluateOpportunityCommercialOutcome({
@@ -489,7 +536,7 @@ describe("evaluateOpportunityAcceptance", () => {
   });
 
   it("claims a validated legacy activity before thread-scoped conversion", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
         stage_manually_set: false,
@@ -526,10 +573,11 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "claim_legacy_email_activity_connection_as_system"
-        ? { data: true, error: null }
-        : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "claim_legacy_email_activity_connection_as_system"
+          ? { data: true, error: null }
+          : lifecycleRpc(name, params)
     );
 
     const result = await evaluateOpportunityCommercialOutcome({
@@ -560,7 +608,7 @@ describe("evaluateOpportunityAcceptance", () => {
   });
 
   it("fails closed when the guarded claim finds a multiply-linked legacy activity", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
         stage_manually_set: false,
@@ -608,13 +656,16 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "claim_legacy_email_activity_connection_as_system"
-        ? {
-            data: null,
-            error: { message: "legacy activity is linked to multiple events" },
-          }
-        : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "claim_legacy_email_activity_connection_as_system"
+          ? {
+              data: null,
+              error: {
+                message: "legacy activity is linked to multiple events",
+              },
+            }
+          : lifecycleRpc(name, params)
     );
 
     await expect(
@@ -762,7 +813,7 @@ describe("evaluateOpportunityAcceptance", () => {
   });
 
   it("holds message-scoped conversion when the guarded legacy claim rejects it", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
         stage_manually_set: false,
@@ -795,13 +846,14 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "claim_legacy_email_activity_connection_as_system"
-        ? {
-            data: null,
-            error: { message: "legacy activity identity is not proven" },
-          }
-        : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "claim_legacy_email_activity_connection_as_system"
+          ? {
+              data: null,
+              error: { message: "legacy activity identity is not proven" },
+            }
+          : lifecycleRpc(name, params)
     );
 
     await expect(
@@ -916,7 +968,7 @@ describe("evaluateOpportunityAcceptance", () => {
   });
 
   it("applies a message-scoped budget/timing deferral without requiring an email_threads row", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "new_lead",
         stage_manually_set: false,
@@ -949,12 +1001,13 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "claim_legacy_email_activity_connection_as_system"
-        ? { data: true, error: null }
-        : name === "apply_email_opportunity_deferred_disposition"
-          ? { data: [{ changed: true }], error: null }
-          : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "claim_legacy_email_activity_connection_as_system"
+          ? { data: true, error: null }
+          : name === "apply_email_opportunity_deferred_disposition"
+            ? { data: [{ changed: true }], error: null }
+            : lifecycleRpc(name, params)
     );
 
     const result = await evaluateOpportunityCommercialOutcome({
@@ -977,7 +1030,7 @@ describe("evaluateOpportunityAcceptance", () => {
   });
 
   it("applies a budget/timing deferral from validated legacy-null mailbox provenance", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "new_lead",
         stage_manually_set: false,
@@ -1012,12 +1065,13 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "claim_legacy_email_activity_connection_as_system"
-        ? { data: true, error: null }
-        : name === "apply_email_opportunity_deferred_disposition"
-          ? { data: [{ changed: true }], error: null }
-          : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "claim_legacy_email_activity_connection_as_system"
+          ? { data: true, error: null }
+          : name === "apply_email_opportunity_deferred_disposition"
+            ? { data: [{ changed: true }], error: null }
+            : lifecycleRpc(name, params)
     );
 
     const result = await evaluateOpportunityCommercialOutcome({
@@ -1049,7 +1103,7 @@ describe("evaluateOpportunityAcceptance", () => {
   });
 
   it("lets newer decisive customer evidence evaluate through a nonterminal manual stage", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
         stage_manually_set: true,
@@ -1086,10 +1140,11 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "apply_email_opportunity_declined_disposition"
-        ? { data: [{ changed: true, guard_reason: null }], error: null }
-        : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "apply_email_opportunity_declined_disposition"
+          ? { data: [{ changed: true, guard_reason: null }], error: null }
+          : lifecycleRpc(name, params)
     );
 
     const result = await evaluateOpportunityCommercialOutcome({
@@ -1218,8 +1273,8 @@ describe("evaluateOpportunityAcceptance", () => {
     );
   });
 
-  it("fails closed before reading conversation state when client mirrors disagree", async () => {
-    const { client } = makeSupabase({
+  it("persists review before reading conversation state when client mirrors disagree", async () => {
+    const { client, rpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
         stage_manually_set: false,
@@ -1237,7 +1292,16 @@ describe("evaluateOpportunityAcceptance", () => {
         opportunityId: "opportunity-1",
         connection,
       })
-    ).rejects.toThrow("Opportunity client mirrors disagree");
+    ).resolves.toEqual({ stageChanged: false });
+    expect(rpc).toHaveBeenCalledWith(
+      "record_opportunity_lifecycle_decision",
+      expect.objectContaining({
+        p_decision_kind: "commercial_outcome",
+        p_status: "review",
+        p_reason: "opportunity_client_identity_conflict",
+        p_review_reason: "opportunity_client_identity_conflict",
+      })
+    );
     expect(mocks.buildConversationState).not.toHaveBeenCalled();
     expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
   });
@@ -1381,7 +1445,7 @@ describe("evaluateOpportunityAcceptance", () => {
   });
 
   it("commits an explicit budget-and-timing deferral through the guarded disposition RPC", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "new_lead",
         stage_manually_set: false,
@@ -1413,10 +1477,11 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "apply_email_opportunity_deferred_disposition"
-        ? { data: [{ changed: true }], error: null }
-        : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "apply_email_opportunity_deferred_disposition"
+          ? { data: [{ changed: true }], error: null }
+          : lifecycleRpc(name, params)
     );
     mocks.buildConversationState.mockResolvedValue({
       accept: { detected: false, confidence: "low", basis: [] },
@@ -1460,7 +1525,7 @@ describe("evaluateOpportunityAcceptance", () => {
   });
 
   it("supersedes an older engine deferral with a newer decisive price rejection", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "lost",
         stage_manually_set: false,
@@ -1517,13 +1582,14 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "apply_email_opportunity_declined_disposition"
-        ? {
-            data: [{ changed: false, guard_reason: "disposition_updated" }],
-            error: null,
-          }
-        : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "apply_email_opportunity_declined_disposition"
+          ? {
+              data: [{ changed: false, guard_reason: "disposition_updated" }],
+              error: null,
+            }
+          : lifecycleRpc(name, params)
     );
 
     const result = await evaluateOpportunityCommercialOutcome({
@@ -1551,7 +1617,7 @@ describe("evaluateOpportunityAcceptance", () => {
   });
 
   it("uses the newest opportunity-wide decision across fragmented threads", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "negotiation",
         stage_manually_set: false,
@@ -1599,13 +1665,14 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "apply_email_opportunity_deferred_disposition"
-        ? {
-            data: [{ changed: false, guard_reason: "follow_up_updated" }],
-            error: null,
-          }
-        : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "apply_email_opportunity_deferred_disposition"
+          ? {
+              data: [{ changed: false, guard_reason: "follow_up_updated" }],
+              error: null,
+            }
+          : lifecycleRpc(name, params)
     );
 
     const result = await evaluateOpportunityAcceptance({
@@ -2125,7 +2192,7 @@ describe("evaluateOpportunityAcceptance", () => {
   });
 
   it("commits a later budget re-deferral without treating lost as permanently inert", async () => {
-    const { client, rpc } = makeSupabase({
+    const { client, rpc, lifecycleRpc } = makeSupabase({
       opportunity: {
         stage: "lost",
         stage_manually_set: false,
@@ -2175,10 +2242,11 @@ describe("evaluateOpportunityAcceptance", () => {
         },
       ],
     });
-    rpc.mockImplementation(async (name: string) =>
-      name === "apply_email_opportunity_deferred_disposition"
-        ? { data: [{ changed: true }], error: null }
-        : { data: null, error: null }
+    rpc.mockImplementation(
+      async (name: string, params?: Record<string, unknown>) =>
+        name === "apply_email_opportunity_deferred_disposition"
+          ? { data: [{ changed: true }], error: null }
+          : lifecycleRpc(name, params)
     );
 
     const result = await evaluateOpportunityAcceptance({
@@ -2241,8 +2309,8 @@ describe("evaluateOpportunityAcceptance", () => {
     expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
   });
 
-  it("does not let an unrelated external participant authorize conversion on a linked thread", async () => {
-    const { client } = makeSupabase({
+  it("routes an unrelated participant's acceptance to durable authority review", async () => {
+    const { client, rpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
         stage_manually_set: false,
@@ -2285,11 +2353,20 @@ describe("evaluateOpportunityAcceptance", () => {
 
     expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
     expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      "record_opportunity_lifecycle_decision",
+      expect.objectContaining({
+        p_source_event_id: "event-vendor-acceptance",
+        p_proposed_outcome: "won",
+        p_status: "review",
+        p_review_reason: "acceptance_authority_unresolved",
+      })
+    );
     expect(result).toEqual({ stageChanged: false });
   });
 
-  it("does not let an unrelated external participant's signed attachment authorize conversion", async () => {
-    const { client } = makeSupabase({
+  it("routes an unrelated participant's signed attachment to durable review", async () => {
+    const { client, rpc } = makeSupabase({
       opportunity: {
         stage: "quoted",
         stage_manually_set: false,
@@ -2349,6 +2426,15 @@ describe("evaluateOpportunityAcceptance", () => {
 
     expect(mocks.convertOpportunityToProject).not.toHaveBeenCalled();
     expect(mocks.linkOpportunityToExistingProject).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      "record_opportunity_lifecycle_decision",
+      expect.objectContaining({
+        p_source_event_id: "event-vendor-signed",
+        p_proposed_outcome: "won",
+        p_status: "review",
+        p_review_reason: "acceptance_ambiguous",
+      })
+    );
     expect(result).toEqual({ stageChanged: false });
   });
 

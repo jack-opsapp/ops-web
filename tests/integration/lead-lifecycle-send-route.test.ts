@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -5,7 +6,16 @@ const mocks = vi.hoisted(() => ({
   dismissAwaitingReply: vi.fn(),
   enqueueIfEnabled: vi.fn(),
   recordCorrespondenceEvent: vi.fn(),
+  persistCapturedProviderDeliveryTurn: vi.fn(),
 }));
+
+vi.mock(
+  "@/lib/agent-control-plane/memory/persist-captured-provider-delivery-turn",
+  () => ({
+    persistCapturedProviderDeliveryTurn:
+      mocks.persistCapturedProviderDeliveryTurn,
+  })
+);
 
 vi.mock("@/lib/api/services/email-thread-service", () => ({
   EmailThreadService: {
@@ -53,9 +63,13 @@ const CONNECTION = {
   },
 };
 
+const INTENT_ID = "33333333-3333-4333-8333-333333333333";
+const DELIVERY_SOURCE_ID = "44444444-4444-4444-8444-444444444444";
+const RENDERED_BODY = "Checking in on the quote.\n\n-- \nJason";
+
 function intent(overrides: Partial<EmailSendIntent> = {}): EmailSendIntent {
   return {
-    id: "intent-1",
+    id: INTENT_ID,
     companyId: "company-1",
     idempotencyKey: "attempt-1",
     requestFingerprint: "f".repeat(64),
@@ -73,7 +87,7 @@ function intent(overrides: Partial<EmailSendIntent> = {}): EmailSendIntent {
     ccEmails: [],
     subject: "Deck quote follow-up",
     authoredBody: "Checking in on the quote.",
-    renderedBody: "Checking in on the quote.\n\n-- \nJason",
+    renderedBody: RENDERED_BODY,
     contentType: "text",
     draftHistoryId: "draft-1",
     followUpDraftId: null,
@@ -88,7 +102,7 @@ function intent(overrides: Partial<EmailSendIntent> = {}): EmailSendIntent {
     clientFromAddressSnapshot: "info@canprodeckandrail.com",
     signatureId: "signature-1",
     signatureContentHash: "a".repeat(64),
-    renderedBodyHash: "b".repeat(64),
+    renderedBodyHash: createHash("sha256").update(RENDERED_BODY).digest("hex"),
     pendingAutoSendId: null,
     pendingAutoSendLeaseToken: null,
     profileTypeSnapshot: "sales_lead",
@@ -194,12 +208,21 @@ function db(state: State) {
     from: (table: string) => new Query(table),
     rpc: vi.fn(
       async (
-        _name: string,
+        name: string,
         _args?: Record<string, unknown>
-      ): Promise<{ data: unknown; error: null }> => ({
-        data: [{ changed: true }],
-        error: null,
-      })
+      ): Promise<{ data: unknown; error: null }> =>
+        name === "capture_agent_provider_delivery_source_as_system"
+          ? {
+              data: [
+                {
+                  source_id: DELIVERY_SOURCE_ID,
+                  source_sha256: `sha256:${"a".repeat(64)}`,
+                  inserted: true,
+                },
+              ],
+              error: null,
+            }
+          : { data: [{ changed: true }], error: null }
     ),
   };
 }
@@ -217,6 +240,11 @@ describe("accepted email reconciliation", () => {
     });
     mocks.dismissAwaitingReply.mockResolvedValue(["CUSTOMER"]);
     mocks.enqueueIfEnabled.mockResolvedValue(null);
+    mocks.persistCapturedProviderDeliveryTurn.mockResolvedValue({
+      conversationId: "conversation-1",
+      turnId: "turn-1",
+      inserted: true,
+    });
   });
 
   it("writes the immutable provider identity with the actual OPS actor", async () => {
@@ -277,12 +305,24 @@ describe("accepted email reconciliation", () => {
       followUpDraftOrigin: "template_follow_up",
     };
     const client = db(state);
-    client.rpc.mockImplementation(async (name: string) =>
-      name === "reconcile_operator_template_follow_up_send_as_system"
+    client.rpc.mockImplementation(async (name: string) => {
+      if (name === "capture_agent_provider_delivery_source_as_system") {
+        return {
+          data: [
+            {
+              source_id: DELIVERY_SOURCE_ID,
+              source_sha256: `sha256:${"a".repeat(64)}`,
+              inserted: true,
+            },
+          ],
+          error: null,
+        };
+      }
+      return name === "reconcile_operator_template_follow_up_send_as_system"
         ? {
             data: [
               {
-                intent_id: "intent-1",
+                intent_id: INTENT_ID,
                 opportunity_id: "opp-1",
                 applied_at: "2026-07-15T18:01:01.000Z",
                 comeback_at: "2026-07-18T18:01:00.000Z",
@@ -291,8 +331,8 @@ describe("accepted email reconciliation", () => {
             ],
             error: null,
           }
-        : { data: [{ changed: true }], error: null }
-    );
+        : { data: [{ changed: true }], error: null };
+    });
 
     const result = await reconcileEmailSend({
       supabase: client as never,
@@ -306,7 +346,7 @@ describe("accepted email reconciliation", () => {
 
     expect(client.rpc).toHaveBeenCalledWith(
       "reconcile_operator_template_follow_up_send_as_system",
-      { p_intent_id: "intent-1" }
+      { p_intent_id: INTENT_ID }
     );
     expect(result.comebackAt).toBe("2026-07-18T18:01:00.000Z");
   });

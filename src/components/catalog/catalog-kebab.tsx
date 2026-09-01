@@ -8,7 +8,7 @@
  * Manage items gate on catalog.manage; import on catalog.import.
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MoreVertical } from "lucide-react";
 import {
@@ -24,6 +24,7 @@ import { usePermissionStore } from "@/lib/store/permissions-store";
 import type { CatalogStockRow } from "@/lib/types/catalog";
 import { ManageModal, type ManageTab } from "./modals/manage-modal";
 import { ImportModal } from "./modals/import-modal";
+import { BulkAddVariantsDialog } from "./modals/bulk-add-variants-dialog";
 
 export function CatalogKebab({
   segment,
@@ -41,17 +42,25 @@ export function CatalogKebab({
 
   const [manageTab, setManageTab] = useState<ManageTab | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [bulkVariantsOpen, setBulkVariantsOpen] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+
+  function closeBulkVariants() {
+    setBulkVariantsOpen(false);
+    window.requestAnimationFrame(() => moreButtonRef.current?.focus());
+  }
 
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
+            ref={moreButtonRef}
             type="button"
             aria-label="More"
-            className="inline-flex h-9 w-9 items-center justify-center rounded border border-border text-text-2 transition-colors hover:bg-surface-hover focus-visible:outline focus-visible:outline-[1.5px] focus-visible:outline-offset-2 focus-visible:outline-ops-accent"
+            className="inline-flex h-control-36 w-control-36 items-center justify-center rounded border border-border text-text-2 transition-colors ease-smooth hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black"
           >
-            <MoreVertical className="h-[16px] w-[16px]" />
+            <MoreVertical className="h-icon-16 w-icon-16" />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[200px]">
@@ -65,7 +74,7 @@ export function CatalogKebab({
           )}
           {canManage && (
             <>
-              <DropdownMenuLabel className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
+              <DropdownMenuLabel className="font-mono text-micro uppercase tracking-widest text-text-3">
                 <span className="text-text-mute">{"// "}</span>
                 {t("kebab.manage", "MANAGE")}
               </DropdownMenuLabel>
@@ -85,15 +94,31 @@ export function CatalogKebab({
               )}
             </>
           )}
+          {segment === "stock" && canManage && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="font-mono text-micro uppercase tracking-widest text-text-3">
+                <span className="text-text-mute">{"// "}</span>
+                {t("kebab.stock", "STOCK")}
+              </DropdownMenuLabel>
+              <DropdownMenuItem onSelect={() => setBulkVariantsOpen(true)}>
+                {t("kebab.bulkAddVariants", "Bulk Add Variants")}
+              </DropdownMenuItem>
+            </>
+          )}
           {segment === "stock" && (
             <>
               {canManage && <DropdownMenuSeparator />}
-              <DropdownMenuLabel className="font-mono text-[11px] uppercase tracking-[0.16em] text-text-3">
+              <DropdownMenuLabel className="font-mono text-micro uppercase tracking-widest text-text-3">
                 <span className="text-text-mute">{"// "}</span>
                 {t("kebab.views", "VIEWS")}
               </DropdownMenuLabel>
               <DropdownMenuItem
-                onSelect={() => router.replace("/catalog?segment=stock&view=counts", { scroll: false })}
+                onSelect={() =>
+                  router.replace("/catalog?segment=stock&view=counts", {
+                    scroll: false,
+                  })
+                }
               >
                 {t("kebab.savedCounts", "Saved counts")}
               </DropdownMenuItem>
@@ -108,9 +133,18 @@ export function CatalogKebab({
       </DropdownMenu>
 
       {manageTab && (
-        <ManageModal tab={manageTab} onTabChange={setManageTab} onClose={() => setManageTab(null)} />
+        <ManageModal
+          tab={manageTab}
+          onTabChange={setManageTab}
+          onClose={() => setManageTab(null)}
+        />
       )}
-      {importOpen && <ImportModal rows={rows} onClose={() => setImportOpen(false)} />}
+      {importOpen && (
+        <ImportModal rows={rows} onClose={() => setImportOpen(false)} />
+      )}
+      {bulkVariantsOpen && (
+        <BulkAddVariantsDialog onClose={closeBulkVariants} />
+      )}
     </>
   );
 }

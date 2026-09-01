@@ -282,7 +282,7 @@ function QuestionInput({
               }
             }}
             rows={1}
-            className="max-h-8 !min-h-control-32 resize-none overflow-y-auto border-0 bg-transparent px-1 py-0.5 text-body-sm focus:border-0"
+            className="max-h-control-32 !min-h-control-32 resize-none overflow-y-auto border-0 bg-transparent px-1 py-0.5 text-body-sm focus:border-0"
             placeholder={t(
               busy
                 ? "guided.followUpPlaceholder"
@@ -360,9 +360,12 @@ function QuickAnswerChoices({
         aria-expanded={expanded}
         aria-label={disclosureLabel}
         onClick={() => onExpandedChange(!expanded)}
-        className="inline-flex h-control-32 items-center gap-0.5 rounded-chip px-1 font-mono text-micro uppercase tracking-wide text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text"
+        className="inline-flex h-control-32 items-center gap-0.5 rounded-chip px-1 font-cakemono text-cake-badge uppercase text-text-3 transition-colors ease-smooth hover:bg-surface-hover hover:text-text"
       >
-        {disclosureLabel} · {options.length}
+        {disclosureLabel}
+        <span className="font-mono text-micro tabular-nums text-text-3">
+          · {options.length}
+        </span>
         {expanded ? (
           <ChevronUp
             aria-hidden

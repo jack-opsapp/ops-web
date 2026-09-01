@@ -35,8 +35,8 @@ interface CompanyData {
   invoiceCount: number;
   usageTimeline: { projects: { label: string; value: number }[]; tasks: { label: string; value: number }[]; clients: { label: string; value: number }[] };
   pipeline: { id: string; stage: string; value: number; created_at: string }[];
-  estimates: { id: string; status: string; total_amount: number; created_at: string }[];
-  invoices: { id: string; status: string; total_amount: number; created_at: string }[];
+  estimates: { id: string; status: string; total: number; created_at: string }[];
+  invoices: { id: string; status: string; total: number; created_at: string }[];
   recentPayments: { id: string; amount: number; created_at: string }[];
 }
 
@@ -332,8 +332,8 @@ function PipelineTab({ data }: { data: CompanyData }) {
     stages[stage].value += p.value ?? 0;
   }
 
-  const estimateTotal = data.estimates.reduce((s, e) => s + (e.total_amount ?? 0), 0);
-  const invoiceTotal = data.invoices.reduce((s, i) => s + (i.total_amount ?? 0), 0);
+  const estimateTotal = data.estimates.reduce((s, e) => s + (e.total ?? 0), 0);
+  const invoiceTotal = data.invoices.reduce((s, i) => s + (i.total ?? 0), 0);
 
   return (
     <div className="space-y-4">

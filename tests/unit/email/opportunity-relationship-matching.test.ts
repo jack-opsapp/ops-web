@@ -504,6 +504,46 @@ describe("opportunity relationship matching", () => {
     });
   });
 
+  it("links a co-owner only through their persisted exact sub-client email", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "Jennifer Vornbrock",
+        contactEmail: "jennifer.coowner@example.com",
+        address: "2745 Fernwood Rd",
+      }),
+      candidates: [
+        candidate({
+          contactEmail: "owen@example.com",
+          subClientEmails: ["jennifer.coowner@example.com"],
+          address: "2745 Fernwood Road, Victoria BC",
+        }),
+      ],
+    });
+
+    expect(decision).toMatchObject({
+      action: "link",
+      opportunityId: "opp-active",
+      confidence: "existing_sub_client",
+    });
+  });
+
+  it("never links a same-name sender without email, phone, address, or thread proof", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "John Carter",
+        contactEmail: "unrelated@example.net",
+        contactPhone: null,
+        address: null,
+        participantEmails: ["unrelated@example.net"],
+        description: "Following up.",
+        subject: "Hello",
+      }),
+      candidates: [candidate({ contactEmail: "john@example.com" })],
+    });
+
+    expect(decision).toMatchObject({ action: "create_new" });
+  });
+
   it("reconciles a fragmented Owen-style thread through an exact CC participant and carries the unlinked accepted project", () => {
     const decision = decideOpportunityRelationshipMatch({
       facts: facts({
@@ -1386,5 +1426,156 @@ describe("opportunity relationship matching", () => {
       opportunityId: "opp-active",
       confidence: "exact_phone",
     });
+  });
+});
+
+describe("decideOpportunityRelationshipMatch — terminal customer relationships", () => {
+  /**
+   * Bug 3799225e. Elaine emailed "the plywood will be on the deck today" about
+   * a job the company had already finished for Mark Vanderwerf. Every exact tier
+   * required an ACTIVE relationship, so his won opportunity with its completed
+   * project was rejected and her note spawned a duplicate lead.
+   */
+  const wonWithCompletedProject = (
+    overrides: Partial<OpportunityRelationshipCandidate> = {}
+  ): OpportunityRelationshipCandidate =>
+    candidate({
+      id: "opp-mark-won",
+      clientId: "client-mark",
+      stage: "won",
+      contactEmail: "mark@example.com",
+      clientEmails: ["mark@example.com"],
+      subClientEmails: ["bruceelainebeattie5@gmail.com"],
+      address: "214 Mount Erskine Drive",
+      clientAddresses: ["214 Mount Erskine Drive"],
+      title: "Mark Vanderwerf - Deck",
+      project: {
+        id: "project-mark",
+        clientId: "client-mark",
+        opportunityId: "opp-mark-won",
+        status: "completed",
+        title: "214 Mount Erskine Drive",
+        description: null,
+        address: "214 Mount Erskine Drive",
+        completedAt: "2026-06-30T17:00:00.000Z",
+        deletedAt: null,
+      },
+      ...overrides,
+    });
+
+  it("attaches post-completion chatter to the won relationship it belongs to", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "Elaine",
+        contactEmail: "bruceelainebeattie5@gmail.com",
+        address: null,
+        subject: "Deck",
+        description: "The plywood will be on the deck today ready for the vinyl.",
+      }),
+      candidates: [wonWithCompletedProject()],
+      providerLinkedOpportunityId: null,
+    });
+
+    expect(decision.action).toBe("link");
+    if (decision.action !== "link") return;
+    expect(decision.opportunityId).toBe("opp-mark-won");
+    expect(decision.clientId).toBe("client-mark");
+    expect(decision.confidence).toBe("existing_sub_client");
+    expect(decision.reason).toContain("terminal customer relationship");
+  });
+
+  it("matches a terminal relationship on the client's own address too", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "Mark Vanderwerf",
+        contactEmail: "mark@example.com",
+        address: null,
+      }),
+      candidates: [wonWithCompletedProject({ subClientEmails: [] })],
+      providerLinkedOpportunityId: null,
+    });
+
+    expect(decision.action).toBe("link");
+    if (decision.action !== "link") return;
+    expect(decision.opportunityId).toBe("opp-mark-won");
+  });
+
+  it("keeps create_new when two terminal relationships are ambiguous", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "Elaine",
+        contactEmail: "bruceelainebeattie5@gmail.com",
+        address: null,
+      }),
+      candidates: [
+        wonWithCompletedProject(),
+        wonWithCompletedProject({
+          id: "opp-mark-won-2",
+          clientId: "client-other",
+          title: "Other - Deck",
+        }),
+      ],
+      providerLinkedOpportunityId: null,
+    });
+
+    expect(decision.action).toBe("create_new");
+  });
+
+  it("refuses a terminal match when the job address conflicts", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "Elaine",
+        contactEmail: "bruceelainebeattie5@gmail.com",
+        address: "9000 Completely Different Road, Sooke BC",
+      }),
+      candidates: [wonWithCompletedProject()],
+      providerLinkedOpportunityId: null,
+    });
+
+    expect(decision.action).toBe("create_new");
+  });
+
+  it("still prefers an ACTIVE relationship over a terminal one", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "Elaine",
+        contactEmail: "bruceelainebeattie5@gmail.com",
+        address: null,
+      }),
+      candidates: [
+        wonWithCompletedProject(),
+        candidate({
+          id: "opp-active-elaine",
+          clientId: "client-mark",
+          stage: "quoting",
+          contactEmail: "mark@example.com",
+          clientEmails: ["mark@example.com"],
+          subClientEmails: ["bruceelainebeattie5@gmail.com"],
+          address: null,
+          clientAddresses: [],
+          project: null,
+        }),
+      ],
+      providerLinkedOpportunityId: null,
+    });
+
+    expect(decision.action).toBe("link");
+    if (decision.action !== "link") return;
+    expect(decision.opportunityId).toBe("opp-active-elaine");
+  });
+
+  it("does not link a terminal relationship on a participant-only email", () => {
+    const decision = decideOpportunityRelationshipMatch({
+      facts: facts({
+        contactName: "Someone Else",
+        contactEmail: "stranger@example.com",
+        address: null,
+        participantEmails: ["bruceelainebeattie5@gmail.com"],
+      }),
+      candidates: [wonWithCompletedProject()],
+      providerLinkedOpportunityId: null,
+    });
+
+    expect(decision.action).toBe("create_new");
   });
 });

@@ -16,6 +16,7 @@ const buttonVariants = cva(
     "disabled:pointer-events-none disabled:opacity-40",
     "no-select cursor-pointer",
     "active:scale-[0.98]",
+    "motion-reduce:transition-none motion-reduce:active:scale-100",
   ],
   {
     variants: {
@@ -69,7 +70,8 @@ const buttonVariants = cva(
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
   loading?: boolean;
@@ -77,7 +79,16 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   (
-    { className, variant, size, asChild = false, loading = false, disabled, children, ...props },
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      loading = false,
+      disabled,
+      children,
+      ...props
+    },
     ref
   ) => {
     const Comp = asChild ? Slot : "button";
@@ -92,7 +103,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading ? (
           <>
-            <Loader2 className="h-[18px] w-[18px] animate-spin motion-reduce:animate-none" aria-hidden="true" />
+            <Loader2
+              className="h-icon-16 w-icon-16 animate-spin motion-reduce:animate-none"
+              aria-hidden="true"
+            />
             <span className="sr-only">Loading</span>
             {children}
           </>

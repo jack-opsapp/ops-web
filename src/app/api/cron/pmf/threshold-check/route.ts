@@ -1,17 +1,30 @@
 /**
  * GET /api/cron/pmf/threshold-check
  *
- * Vercel cron: runs every 15 minutes.
+ * Vercel cron: hourly within the active window ("57 13-14,16-23,0-4 * * *").
+ * The cadence is deliberate database-pressure containment and is authoritative
+ * — this handler is cadence-independent by design.
  *
  * Two-part job:
  *   1. STATE DIFF — compute the current PMF state, compare against the most
  *      recent snapshot in `pmf_threshold_snapshots`, and fire a threshold
  *      alert for every transition that's either (a) newly green or
  *      (b) worsening from its prior status. `diffState` already filters
- *      out transitions we don't care about.
- *   2. EVENT-DRIVEN — scan the last 15 minutes of activity for notable
- *      events (new inbound prospects, refunds processed, first-ever
- *      referral prospect) and fire one alert per event.
+ *      out transitions we don't care about. A diff is never lost when a run
+ *      is skipped, only delayed — the next run diffs against the same prior
+ *      snapshot.
+ *   2. EVENT-DRIVEN — scan the half-open window [eventsThrough, runStart) for
+ *      notable events (new inbound prospects, refunds processed, first-ever
+ *      referral prospect) and fire one alert per event. `eventsThrough` lives
+ *      in the fenced cron workload cursor, so consecutive runs are contiguous:
+ *      no gaps between runs, no double-scanning, and off-hours activity is
+ *      picked up by the next scheduled run. A fixed lookback could not do
+ *      this — at hourly cadence a 15-minute lookback left 84% of each day
+ *      unscanned (bug b71728ed).
+ *
+ * At-least-once: the cursor only advances when no event alert failed on every
+ * channel it attempted. Per-event triggers are unique ids, deduped over a
+ * 7-day horizon, so a re-scan retries exactly the alerts that never landed.
  *
  * The current state snapshot is always written, regardless of whether
  * any transitions fired, so the next run has a baseline to diff against.
@@ -29,7 +42,15 @@ import {
   runWithCronWorkloadControl,
 } from "@/lib/api/services/cron-workload-control-service";
 import { diffState } from "@/lib/pmf/threshold-diff";
-import { sendPmfNotification } from "@/lib/notifications/pmf-send";
+import {
+  sendPmfNotification,
+  type SendOutcome,
+} from "@/lib/notifications/pmf-send";
+import {
+  advanceCronWorkloadCursor,
+  readCronWorkloadCursor,
+} from "@/lib/api/services/cron-workload-cursor-service";
+import type { CronWorkloadLease } from "@/lib/api/services/cron-workload-control-service";
 import { thresholdAlertEmail as ThresholdAlertEmail } from "@/lib/email/pmf-bridge";
 import { fmtTime } from "@/lib/pmf/formatters";
 import type { PmfState } from "@/lib/pmf/types";
@@ -43,6 +64,28 @@ const DASHBOARD_URL = `${process.env.NEXT_PUBLIC_APP_URL ?? "https://app.opsapp.
 const STEM_PREFIX = "OPS ::";
 const UNKNOWN_LABEL = "UNKNOWN";
 const BILLING_EVENT_TYPE_REFUND = "charge.refunded";
+
+const THRESHOLD_WORKLOAD_KEY = "pmf-threshold-check";
+/** Unique-id event triggers send once ever within this horizon; re-scans
+ * after a held cursor retry only what never succeeded. */
+const EVENT_DEDUP_MS = 7 * 24 * 60 * 60 * 1000;
+/** First-run lookback: covers the 9h overnight scheduling gap with slack. */
+const BOOTSTRAP_LOOKBACK_MS = 10 * 60 * 60 * 1000;
+/** Never scan further back than this, even after an outage. */
+const MAX_CATCHUP_MS = 7 * 24 * 60 * 60 * 1000;
+
+function parseEventCursor(raw: string | null): Date | null {
+  if (raw === null) return null;
+  try {
+    const parsed = JSON.parse(raw) as { eventsThrough?: unknown };
+    if (typeof parsed?.eventsThrough !== "string") return null;
+    const at = new Date(parsed.eventsThrough);
+    return Number.isNaN(at.getTime()) ? null : at;
+  } catch {
+    console.warn("[pmf-threshold-check] invalid cursor; re-bootstrapping");
+    return null;
+  }
+}
 
 interface InboundProspectRow {
   id: string;
@@ -95,11 +138,31 @@ async function executeDatabaseOperation<T>(
 }
 
 async function runThresholdCheck(
-  sb: ReturnType<typeof getAdminSupabase>
+  sb: ReturnType<typeof getAdminSupabase>,
+  lease: CronWorkloadLease
 ): Promise<NextResponse> {
+  const runStart = new Date();
   // Compute a single timestamp shared across every alert fired in this run, so
   // a batch of transitions + events all report the same `· HH:MM` suffix.
-  const runTimestamp = fmtTime(new Date());
+  const runTimestamp = fmtTime(runStart);
+
+  // Resolve the event scan window from the fenced cursor before doing any
+  // work, so a mid-run failure re-scans exactly the same window next time.
+  const rawCursor = await readCronWorkloadCursor(
+    sb,
+    THRESHOLD_WORKLOAD_KEY,
+    lease
+  );
+  const cursorAt = parseEventCursor(rawCursor);
+  let truncated = false;
+  let windowStart = cursorAt ?? new Date(runStart.getTime() - BOOTSTRAP_LOOKBACK_MS);
+  if (runStart.getTime() - windowStart.getTime() > MAX_CATCHUP_MS) {
+    windowStart = new Date(runStart.getTime() - MAX_CATCHUP_MS);
+    truncated = true;
+  }
+  if (windowStart > runStart) windowStart = runStart; // clock-skew guard
+  const since = windowStart.toISOString();
+  const until = runStart.toISOString();
 
   // Compute current state (uncached — every 15 min we want fresh values).
   let now: PmfState;
@@ -137,9 +200,6 @@ async function runThresholdCheck(
     throw databaseFailure("PMF snapshot insert", insertErr);
   }
 
-  // Event-driven triggers — last 15 min of activity.
-  const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-
   // `billing_events` has no `created_at` column in the schema; filter on
   // `received_at` (when the event landed in our system) instead — same
   // semantic meaning as the plan's original `created_at`.
@@ -156,6 +216,7 @@ async function runThresholdCheck(
           "id,company,name,source,first_contact_direction,first_contact_at"
         )
         .gte("created_at", since)
+        .lt("created_at", until)
         .or(
           "first_contact_direction.eq.inbound,source.in.(paid_ad,organic_search,referral,direct)"
         )
@@ -167,6 +228,7 @@ async function runThresholdCheck(
         .select("id,amount_cents,company_id,occurred_at")
         .eq("event_type", BILLING_EVENT_TYPE_REFUND)
         .gte("received_at", since)
+        .lt("received_at", until)
     ),
     executeDatabaseOperation(
       "PMF referral event query",
@@ -175,6 +237,7 @@ async function runThresholdCheck(
         .select("id,company,name")
         .eq("source", "referral")
         .gte("created_at", since)
+        .lt("created_at", until)
     ),
   ]);
 
@@ -207,11 +270,10 @@ async function runThresholdCheck(
       ? referralRows[0]
       : null;
 
-  const sends: Promise<void>[] = [];
+  // Transition sends are pushed FIRST so the event sends occupy a known tail
+  // slice of the settled results — only event delivery gates the cursor.
+  const sends: Promise<SendOutcome>[] = [];
 
-  // Note: if two cron runs overlap (retry or slow previous), both would diff against
-  // the same prior snapshot. Safety relies on pmf_notification_log dedup in sendPmfNotification
-  // (4h window keyed by trigger) to prevent duplicate alerts for identical transitions.
   // State transitions
   for (const t of transitions) {
     const stem =
@@ -235,6 +297,8 @@ async function runThresholdCheck(
       })
     );
   }
+
+  const transitionSendCount = sends.length;
 
   // Inbound leads — one alert per new prospect.
   // `pmf_prospects.name` is NOT NULL per schema, so `p.name` is always
@@ -262,6 +326,7 @@ async function runThresholdCheck(
         }),
         inAppTitle: stem,
         inAppBody: `source: ${p.source}`,
+        dedupMs: EVENT_DEDUP_MS,
       })
     );
   }
@@ -283,6 +348,7 @@ async function runThresholdCheck(
           dashboardUrl: DASHBOARD_URL,
         }),
         inAppTitle: stem,
+        dedupMs: EVENT_DEDUP_MS,
       })
     );
   }
@@ -310,11 +376,35 @@ async function runThresholdCheck(
           dashboardUrl: DASHBOARD_URL,
         }),
         inAppTitle: stem,
+        dedupMs: EVENT_DEDUP_MS,
       })
     );
   }
 
-  await Promise.allSettled(sends);
+  const results = await Promise.allSettled(sends);
+
+  // At-least-once: only mark the window scanned once every event alert either
+  // deduped or landed on at least one channel. A total delivery failure holds
+  // the cursor so the next run re-scans and retries exactly those alerts.
+  const eventResults = results.slice(transitionSendCount);
+  const eventDeliveryFailed = eventResults.some(
+    (r) =>
+      r.status === "rejected" ||
+      (!r.value.deduped &&
+        r.value.attempted.length > 0 &&
+        r.value.failed.length === r.value.attempted.length)
+  );
+  let cursorAdvanced = false;
+  if (!eventDeliveryFailed) {
+    await advanceCronWorkloadCursor(
+      sb,
+      THRESHOLD_WORKLOAD_KEY,
+      lease,
+      rawCursor,
+      JSON.stringify({ eventsThrough: until })
+    );
+    cursorAdvanced = true;
+  }
 
   return NextResponse.json({
     ok: true,
@@ -322,6 +412,9 @@ async function runThresholdCheck(
     inbound: inboundRows.length,
     refunds: refundRows.length,
     sent: sends.length,
+    window: { from: since, to: until },
+    cursorAdvanced,
+    truncated,
   });
 }
 
@@ -346,7 +439,7 @@ export async function GET(request: NextRequest) {
       supabase: sb,
       workloadKey: "pmf-threshold-check",
       leaseSeconds: 90,
-      work: () => runThresholdCheck(sb),
+      work: (lease) => runThresholdCheck(sb, lease),
     });
 
     if (controlled.status === "skipped") {

@@ -24,6 +24,44 @@ export interface MatchResultV2 {
   action: "link" | "create_subclient" | "review" | "create_new";
 }
 
+/**
+ * Words that carry no identity. "Bruce And Elaine" must not match every
+ * sub-contact whose name happens to contain "and".
+ */
+const NAME_STOPWORDS = new Set([
+  "and",
+  "the",
+  "mrs",
+  "mr",
+  "ms",
+  "dr",
+  "family",
+]);
+
+/** Shortest token that can identify a person. Below this it is noise. */
+const MIN_NAME_TOKEN_LENGTH = 3;
+
+/**
+ * Split a display name into comparable identity tokens.
+ *
+ * Deliberately deterministic and shared: Tier 3.5 matches with it, and the
+ * confirm-match route backfills a sub-contact's missing email with the SAME
+ * tokenizer, so a human confirmation closes exactly the gap the match opened.
+ */
+export function nameIdentityTokens(value: string | null | undefined): string[] {
+  return [
+    ...new Set(
+      (value ?? "")
+        .toLowerCase()
+        .split(/[^a-z]+/)
+        .filter(
+          (token) =>
+            token.length >= MIN_NAME_TOKEN_LENGTH && !NAME_STOPWORDS.has(token)
+        )
+    ),
+  ];
+}
+
 function assertLookupSucceeded(
   context: string,
   error: { message?: string } | null | undefined
@@ -204,6 +242,70 @@ export const EmailMatchingServiceV2 = {
             needsReview: true,
             suggestedClientId: nameMatches[0].id,
             reason: `Name match: "${options.name}" may be related to "${nameMatches[0].name}"`,
+            action: "review",
+          };
+        }
+      }
+    }
+
+    // --- Tier 3.5: Sub-contact name match ---
+    //
+    // Bug 3799225e. Elaine emailed from a personal address about a deck the
+    // company had already built for Mark Vanderwerf. Mark HAS a sub-contact
+    // ("Bruce And Elaine") — but with no email recorded, so Tier 1 could never
+    // hit it, and Tier 3 only ever scanned `clients`. The result was a brand-new
+    // client and a duplicate opportunity for an existing customer.
+    //
+    // This tier is deterministic: token overlap only, no model. It never links
+    // on its own — a name is suggestive, not proof — so it always returns
+    // `review` with the client it believes is the real owner.
+    if (options?.name) {
+      const senderTokens = nameIdentityTokens(options.name);
+      if (senderTokens.length > 0) {
+        const { data: subContacts, error: subContactsError } = await supabase
+          .from("sub_clients")
+          .select("id, client_id, name, email")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: false });
+        assertLookupSucceeded("sub-contact name lookup", subContactsError);
+
+        const senderTokenSet = new Set(senderTokens);
+        const matches = (
+          (subContacts ?? []) as Array<{
+            id: string;
+            client_id: string;
+            name: string | null;
+            email: string | null;
+          }>
+        ).filter((subContact) => {
+          // A sub-contact that already carries a DIFFERENT email is a different
+          // person — Tier 1 would have matched them exactly. Only an
+          // email-less record, or this very sender, may match on name alone.
+          const recordedEmail = subContact.email?.trim().toLowerCase() ?? "";
+          if (recordedEmail && recordedEmail !== normalizedEmail) return false;
+          return nameIdentityTokens(subContact.name).some((token) =>
+            senderTokenSet.has(token)
+          );
+        });
+
+        if (matches.length > 0) {
+          // Newest first (the query is ordered by created_at desc), so the
+          // suggestion is the most recent relationship when several match.
+          const best = matches[0];
+          const distinctClientIds = new Set(
+            matches.map((match) => match.client_id)
+          );
+          return {
+            clientId: null,
+            subClientId: best.id,
+            confidence: "name",
+            needsReview: true,
+            suggestedClientId: best.client_id,
+            reason:
+              distinctClientIds.size === 1
+                ? `Name matches sub-contact "${best.name ?? ""}" of existing client — needs review`
+                : `Name matches sub-contacts of ${distinctClientIds.size} existing clients — needs review`,
             action: "review",
           };
         }

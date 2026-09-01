@@ -142,13 +142,27 @@ export interface AttachmentActivityRepository {
 
   /**
    * Atomically append and de-duplicate URL strings in activities.attachments.
-   * The intentionally narrow boundary cannot write activities.attachment_ids
-   * or opportunities.images.
+   * The intentionally narrow boundary may also correct the activity's own
+   * attachment rollup (`has_attachments` / `attachment_count`), but still
+   * cannot write activities.attachment_ids or opportunities.images.
    */
   appendCanonicalAttachmentUrls(input: {
     companyId: string;
     activityId: string;
     canonicalUrls: string[];
+  }): Promise<void>;
+
+  /**
+   * Correct the correspondence row's attachment rollup once enumeration has
+   * produced the definitive list. The sync engine writes a provisional 1|0 at
+   * ingest because the provider does not give an exact count up front; every
+   * client that renders "N attachments" or an expand affordance depends on
+   * this being the real number.
+   */
+  updateActivityAttachmentRollup(input: {
+    companyId: string;
+    activityId: string;
+    attachmentCount: number;
   }): Promise<void>;
 }
 
@@ -751,6 +765,25 @@ export class AttachmentIngestionService {
           error
         );
       }
+    }
+
+    // Bug 288f2607. Enumeration is the first moment the real count is known —
+    // the sync engine could only write a provisional 1|0. Everything that shows
+    // an attachment icon or an expand affordance reads this. Best-effort: a
+    // rollup that cannot be written must not fail an otherwise good ingest, and
+    // the next scan of this message corrects it.
+    const attachmentCount = urls.length + result.externalReferences;
+    try {
+      await this.repository.updateActivityAttachmentRollup({
+        companyId: activity.companyId,
+        activityId: activity.id,
+        attachmentCount,
+      });
+    } catch (error) {
+      console.error(
+        "[attachment-ingestion] activity attachment rollup failed (non-fatal):",
+        errorMessage(error)
+      );
     }
 
     for (const canonicalAttachmentId of inspectionIds) {

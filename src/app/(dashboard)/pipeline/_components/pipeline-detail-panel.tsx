@@ -122,7 +122,6 @@ export function PipelineDetailBody({
         <PipelineDetailNextSteps
           opportunity={opportunity}
           followUps={assignedContext?.followUps ?? []}
-          siteVisits={assignedContext?.siteVisits ?? []}
           canManage={leadAccess.canEdit}
         />
       ) : null}

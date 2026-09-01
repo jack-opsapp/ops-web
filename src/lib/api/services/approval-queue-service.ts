@@ -8,6 +8,9 @@
 
 import "server-only";
 
+import { z } from "zod-v4";
+
+import { CollectionsApprovalReceiptSchema } from "@/lib/agent-control-plane/contracts/collections";
 import { requireSupabase, parseDate } from "@/lib/supabase/helpers";
 import { getCompanyManagerUserIds } from "./company-managers";
 import { ProjectService } from "./project-service";
@@ -37,6 +40,8 @@ import { ensureApprovalDraftHistory } from "./approval-draft-provenance";
 import { ApprovedActionEmailTransportService } from "./approved-action-email-transport-service";
 import type { OutboundLearningAuthority } from "./email-outbound-learning-service";
 import { throwCronDatabaseOperationError } from "./cron-company-fanout-service";
+import { isCurrentScheduleConfirmationPersistenceGuard } from "./schedule-confirmation-persistence-guard";
+import { isCurrentScheduleUnconfirmationPersistenceGuard } from "./schedule-unconfirmation-persistence-guard";
 
 // ─── Database ↔ TypeScript Mapping ────────────────────────────────────────────
 
@@ -89,7 +94,42 @@ const EXPIRY_DAYS: Record<string, number> = {
   send_schedule_changed: 2,
   send_subcontractor_coordination: 5,
   process_reschedule_request: 2,
+  file_day_closeout: 1,
+  approve_collections_draft: 3,
 };
+
+const DayCloseoutCommitResultSchema = z
+  .object({
+    ok: z.literal(true),
+    effect: z.literal("filed_inside_ops"),
+    run_id: z.uuid(),
+    action_id: z.uuid(),
+    change_set_id: z.uuid(),
+    confirmation_receipt_id: z.uuid(),
+    preview_sha256: z.string().regex(/^sha256:[0-9a-f]{64}$/),
+    messages_sent: z.literal(0),
+    money_moved: z.literal(false),
+    committed_at: z.iso.datetime({ offset: true }),
+    replayed: z.boolean(),
+    receipt_sha256: z
+      .string()
+      .regex(/^sha256:[0-9a-f]{64}$/)
+      .optional(),
+  })
+  .strict();
+
+const CollectionsRejectionResultSchema = z
+  .object({
+    ok: z.literal(true),
+    effect: z.literal("left_open_inside_ops"),
+    action_id: z.uuid(),
+    change_set_id: z.uuid(),
+    messages_sent: z.literal(0),
+    money_moved: z.literal(false),
+    financial_documents_issued: z.literal(0),
+    rejected_at: z.iso.datetime({ offset: true }),
+  })
+  .strict();
 
 function defaultExpiry(actionType: string): Date {
   const days = EXPIRY_DAYS[actionType] ?? 7;
@@ -123,8 +163,83 @@ const APPROVAL_QUEUE_EMAIL_ACTION_TYPES = new Set<AgentAction["actionType"]>([
   "process_reschedule_request",
 ]);
 
+const CANONICAL_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PURPOSE_SCHEDULE_EMAIL_RETRY_LIMIT = 10;
+
 function isApprovalQueueEmailAction(action: AgentAction): boolean {
   return APPROVAL_QUEUE_EMAIL_ACTION_TYPES.has(action.actionType);
+}
+
+function isPurposeScheduleEmailAction(input: {
+  action_type: unknown;
+  action_data: unknown;
+  source_id: unknown;
+}): boolean {
+  const actionData =
+    input.action_data && typeof input.action_data === "object"
+      ? (input.action_data as Record<string, unknown>)
+      : {};
+  return (
+    (input.action_type === "send_appointment_confirmation" &&
+      typeof input.source_id === "string" &&
+      input.source_id.startsWith("schedule-confirmation:")) ||
+    (input.action_type === "send_schedule_changed" &&
+      typeof input.source_id === "string" &&
+      /^task-automation:[0-9a-f-]+:schedule-unconfirmation$/i.test(
+        input.source_id
+      ) &&
+      actionData.task_automation_guard != null)
+  );
+}
+
+function purposeEmailOutcomeNeedsPreProviderReset(input: {
+  state: string;
+}): boolean {
+  return input.state === "awaiting_signature" || input.state === "pending";
+}
+
+async function resetPurposeScheduleEmailActionForRetry(input: {
+  actionId: string;
+  error: string | null;
+}): Promise<boolean> {
+  const supabase = requireSupabase();
+  const response = await supabase.rpc(
+    "reset_purpose_schedule_email_action_for_retry_as_system",
+    {
+      p_action_id: input.actionId,
+      p_error: input.error,
+    }
+  );
+  if (response.error) {
+    // The database refuses reset after the provider claim. Re-read the durable
+    // boundary so an expected ownership race is left entirely to transport
+    // reconciliation while a genuine pre-provider DB failure stays visible.
+    const boundary =
+      await ApprovedActionEmailTransportService.inspectDeliveryBoundary(
+        input.actionId
+      );
+    if (boundary !== "pre_provider_retryable") return false;
+    throw new Error(
+      `Schedule communication retry reset failed: ${response.error.message}`
+    );
+  }
+
+  const result = response.data as Record<string, unknown> | null;
+  if (
+    !result ||
+    result.action_id !== input.actionId ||
+    typeof result.reset !== "boolean" ||
+    result.status !== "pending" ||
+    !(
+      result.previous_intent_status === null ||
+      result.previous_intent_status === "awaiting_signature" ||
+      result.previous_intent_status === "prepared"
+    )
+  ) {
+    throw new Error("Schedule communication retry reset returned invalid data");
+  }
+  return result.reset;
 }
 
 function mergeApprovedActionEdits(
@@ -499,6 +614,11 @@ async function executeCreateInvoice(
           recipientName: data.client_name,
           userInstruction: `Write a brief cover email for invoice #${invoice.invoiceNumber} totaling ${totalStr} for project "${data.project_title}". Payment terms: ${data.payment_terms ?? "NET-30"}. Due date: ${dueDateStr}. Keep it professional and concise. Write the email in ${locale === "es" ? "Spanish" : "English"}.`,
           profileTypeOverride: "client_active_project",
+          draftPurpose: {
+            kind: "operational_outbound",
+            verifiedContext: { schedule: true },
+          },
+          signatureWillBeAppended: true,
         });
 
         let draftText: string;
@@ -836,24 +956,49 @@ export const ApprovalQueueService = {
         throw new Error("Task automation proposal is missing durable identity");
       }
       const guard = params.taskAutomationGuard;
-      const { data, error } = await supabase.rpc(
-        "persist_task_automation_agent_action",
-        {
-          p_event_id: guard.eventId,
-          p_lease_token: guard.leaseToken,
-          p_task_id: guard.taskId,
-          p_task_schedule_version: guard.scheduleVersion,
-          p_action_type: params.actionType,
-          p_action_data: params.actionData,
-          p_context_summary: params.contextSummary,
-          p_context_source: params.contextSource,
-          p_source_id: params.sourceId,
-          p_confidence: params.confidence ?? 0.5,
-          p_priority: params.priority ?? "normal",
-          p_expires_at: expiresAt.toISOString(),
-          p_auto_execute_at: params.autoExecuteAt?.toISOString() ?? null,
-        }
-      );
+      if (
+        params.sourceId?.includes(":schedule-unconfirmation") &&
+        !isCurrentScheduleUnconfirmationPersistenceGuard(guard)
+      ) {
+        throw new Error("Schedule unconfirmation persistence guard is invalid");
+      }
+      const scheduleUnconfirmation =
+        params.sourceId.includes(":schedule-unconfirmation") &&
+        isCurrentScheduleUnconfirmationPersistenceGuard(guard);
+      const rpcName = scheduleUnconfirmation
+        ? "persist_schedule_unconfirmation_action_as_system"
+        : "persist_task_automation_agent_action";
+      const rpcArguments = scheduleUnconfirmation
+        ? {
+            p_event_id: guard.eventId,
+            p_lease_token: guard.leaseToken,
+            p_actor_user_id: params.userId,
+            p_company_id: params.companyId,
+            p_task_id: guard.taskId,
+            p_expected_schedule_version: guard.scheduleVersion,
+            p_previous_confirmed_at: guard.previousConfirmedAt,
+            p_action_data: params.actionData,
+            p_context_summary: params.contextSummary,
+            p_source_id: params.sourceId,
+            p_confidence: params.confidence ?? 0.5,
+            p_priority: params.priority ?? "normal",
+            p_expires_at: expiresAt.toISOString(),
+          }
+        : {
+            p_event_id: guard.eventId,
+            p_lease_token: guard.leaseToken,
+            p_task_id: guard.taskId,
+            p_task_schedule_version: guard.scheduleVersion,
+            p_action_type: params.actionType,
+            p_action_data: params.actionData,
+            p_context_summary: params.contextSummary,
+            p_context_source: params.contextSource,
+            p_source_id: params.sourceId,
+            p_confidence: params.confidence ?? 0.5,
+            p_priority: params.priority ?? "normal",
+            p_expires_at: expiresAt.toISOString(),
+          };
+      const { data, error } = await supabase.rpc(rpcName, rpcArguments);
       if (error) {
         throwCronDatabaseOperationError(
           "failed to persist guarded task action",
@@ -867,6 +1012,51 @@ export const ApprovalQueueService = {
         typeof result.created !== "boolean"
       ) {
         throw new Error("Task automation proposal returned an invalid result");
+      }
+      actionId = result.action_id;
+      created = result.created;
+    } else if (params.scheduleConfirmationGuard) {
+      if (!params.sourceId || !params.contextSource) {
+        throw new Error("Schedule confirmation proposal is missing identity");
+      }
+      const guard = params.scheduleConfirmationGuard;
+      if (!isCurrentScheduleConfirmationPersistenceGuard(guard)) {
+        throw new Error("Schedule confirmation persistence guard is invalid");
+      }
+      const { data, error } = await supabase.rpc(
+        "persist_schedule_confirmation_action_as_system",
+        {
+          p_event_id: guard.eventId,
+          p_lease_token: guard.leaseToken,
+          p_actor_user_id: params.userId,
+          p_company_id: params.companyId,
+          p_task_id: guard.taskId,
+          p_expected_schedule_version: guard.scheduleVersion,
+          p_expected_confirmed_at: guard.confirmedAt,
+          p_expected_confirmed_by: guard.confirmedBy,
+          p_action_data: params.actionData,
+          p_context_summary: params.contextSummary,
+          p_source_id: params.sourceId,
+          p_confidence: params.confidence ?? 0.5,
+          p_priority: params.priority ?? "normal",
+          p_expires_at: expiresAt.toISOString(),
+        }
+      );
+      if (error) {
+        throwCronDatabaseOperationError(
+          "failed to persist guarded schedule confirmation action",
+          error
+        );
+      }
+      const result = data as Record<string, unknown> | null;
+      if (
+        !result ||
+        typeof result.action_id !== "string" ||
+        typeof result.created !== "boolean"
+      ) {
+        throw new Error(
+          "Schedule confirmation proposal returned an invalid result"
+        );
       }
       actionId = result.action_id;
       created = result.created;
@@ -926,7 +1116,7 @@ export const ApprovalQueueService = {
     }
 
     // Notify admin/owner users — not the triggering user
-    if (created) {
+    if (created && !params.scheduleConfirmationGuard) {
       const adminIds = await getAdminUserIds(params.companyId);
       await Promise.allSettled(
         adminIds.map((adminId) =>
@@ -1038,7 +1228,7 @@ export const ApprovalQueueService = {
 
     const { data: actionIdentity, error: actionIdentityError } = await supabase
       .from("agent_actions")
-      .select("action_type")
+      .select("action_type, action_data, source_id, status")
       .eq("id", actionId)
       .eq("company_id", companyId)
       .single();
@@ -1100,9 +1290,172 @@ export const ApprovalQueueService = {
       return mapFromDb(final);
     }
 
+    if (actionIdentity.action_type === "file_day_closeout") {
+      if (learningAuthority !== "operator_approved") {
+        throw new Error("Day closeout filing requires operator approval");
+      }
+      if (editedActionData && Object.keys(editedActionData).length > 0) {
+        throw new Error("Day closeout filing previews cannot be edited");
+      }
+      const actionData =
+        (actionIdentity.action_data as Record<string, unknown>) ?? {};
+      const previewSha256 = actionData.preview_sha256;
+      const changeSetId = actionData.change_set_id;
+      if (
+        typeof previewSha256 !== "string" ||
+        !/^sha256:[0-9a-f]{64}$/.test(previewSha256) ||
+        typeof changeSetId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          changeSetId
+        )
+      ) {
+        throw new Error("Day closeout filing preview is invalid");
+      }
+      const rpcArgs = {
+        p_actor_user_id: userId,
+        p_company_id: companyId,
+        p_action_id: actionId,
+        p_change_set_id: changeSetId,
+        p_preview_sha256: previewSha256,
+        p_idempotency_key: `file-day-closeout:${actionId}`,
+      };
+      let execution = await supabase.rpc(
+        "commit_agent_day_closeout_as_actor" as never,
+        rpcArgs as never
+      );
+      if (execution.error || !execution.data) {
+        execution = await supabase.rpc(
+          "commit_agent_day_closeout_as_actor" as never,
+          rpcArgs as never
+        );
+      }
+      if (execution.error || !execution.data) {
+        throw new Error("Day closeout filing could not be reconciled");
+      }
+      DayCloseoutCommitResultSchema.parse(execution.data);
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .single();
+      if (finalError || !final) {
+        throw new Error("Action not found after day closeout filing");
+      }
+      return mapFromDb(final);
+    }
+
+    if (actionIdentity.action_type === "approve_collections_draft") {
+      if (learningAuthority !== "operator_approved") {
+        throw new Error("Collection drafts require operator approval");
+      }
+      if (editedActionData && Object.keys(editedActionData).length > 0) {
+        throw new Error("Collection draft previews cannot be edited");
+      }
+      const actionData =
+        (actionIdentity.action_data as Record<string, unknown>) ?? {};
+      const previewSha256 = actionData.preview_sha256;
+      const changeSetId = actionData.change_set_id;
+      if (
+        typeof previewSha256 !== "string" ||
+        !/^sha256:[0-9a-f]{64}$/.test(previewSha256) ||
+        typeof changeSetId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          changeSetId
+        )
+      ) {
+        throw new Error("Collection draft preview is invalid");
+      }
+      const rpcArgs = {
+        p_actor_user_id: userId,
+        p_company_id: companyId,
+        p_action_id: actionId,
+        p_change_set_id: changeSetId,
+        p_preview_sha256: previewSha256,
+        p_idempotency_key: `approve-collections-draft:${actionId}`,
+      };
+      let execution = await supabase.rpc(
+        "commit_agent_collections_draft_as_actor" as never,
+        rpcArgs as never
+      );
+      if (execution.error || !execution.data) {
+        execution = await supabase.rpc(
+          "commit_agent_collections_draft_as_actor" as never,
+          rpcArgs as never
+        );
+      }
+      if (execution.error || !execution.data) {
+        throw new Error("Collection draft approval could not be reconciled");
+      }
+      const receipt = CollectionsApprovalReceiptSchema.parse(execution.data);
+      if (
+        receipt.action_id !== actionId ||
+        receipt.change_set_id !== changeSetId ||
+        receipt.preview_sha256 !== previewSha256
+      ) {
+        throw new Error("Collection draft approval receipt is invalid");
+      }
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .single();
+      if (finalError || !final) {
+        throw new Error("Action not found after collection draft approval");
+      }
+      return mapFromDb(final);
+    }
+
+    const existingPurposeScheduleAction =
+      isPurposeScheduleEmailAction(actionIdentity);
+    if (
+      existingPurposeScheduleAction &&
+      editedActionData &&
+      Object.keys(editedActionData).length > 0
+    ) {
+      throw new Error("Schedule communication proposals cannot be edited");
+    }
+
+    // A purpose-bound send that failed before the durable provider claim stays
+    // approved. Retrying the same action resumes its one intent; it never
+    // creates a new send. Provider-owned states are also idempotent here and
+    // are reconciled without another provider claim.
+    if (existingPurposeScheduleAction && actionIdentity.status === "approved") {
+      try {
+        const outcome =
+          await ApprovedActionEmailTransportService.executeManual(actionId);
+        if (purposeEmailOutcomeNeedsPreProviderReset(outcome)) {
+          await resetPurposeScheduleEmailActionForRetry({
+            actionId,
+            error: outcome.error,
+          });
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        await resetPurposeScheduleEmailActionForRetry({
+          actionId,
+          error: message,
+        });
+        throw new Error(`Action execution failed: ${message}`);
+      }
+
+      const { data: resumed, error: resumedError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .single();
+      if (resumedError || !resumed) {
+        throw new Error("Action not found after email execution");
+      }
+      return mapFromDb(resumed);
+    }
+
     const { data: pendingAction, error: pendingActionError } = await supabase
       .from("agent_actions")
-      .select("action_type, action_data")
+      .select("action_type, action_data, source_id")
       .eq("id", actionId)
       .eq("company_id", companyId)
       .eq("status", "pending")
@@ -1112,6 +1465,17 @@ export const ApprovalQueueService = {
     }
     const originalActionData =
       (pendingAction.action_data as Record<string, unknown>) ?? {};
+    const purposeScheduleAction = isPurposeScheduleEmailAction(pendingAction);
+    if (
+      purposeScheduleAction &&
+      editedActionData &&
+      Object.keys(editedActionData).length > 0
+    ) {
+      // The prepared draft is bound byte-for-byte to the current task, client,
+      // mailbox and confirmation proof. Editing it would invalidate the final
+      // provider guard after approval and strand an approved, unsent action.
+      throw new Error("Schedule communication proposals cannot be edited");
+    }
     if (
       learningAuthority === "autonomous" &&
       pendingAction.action_type === "create_project" &&
@@ -1157,7 +1521,18 @@ export const ApprovalQueueService = {
     // Execute
     try {
       if (isApprovalQueueEmailAction(action)) {
-        await ApprovedActionEmailTransportService.executeManual(action.id);
+        const outcome = await ApprovedActionEmailTransportService.executeManual(
+          action.id
+        );
+        if (
+          purposeScheduleAction &&
+          purposeEmailOutcomeNeedsPreProviderReset(outcome)
+        ) {
+          await resetPurposeScheduleEmailActionForRetry({
+            actionId,
+            error: outcome.error,
+          });
+        }
         const { data: final, error: finalError } = await supabase
           .from("agent_actions")
           .select("*")
@@ -1189,6 +1564,14 @@ export const ApprovalQueueService = {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
 
+      if (purposeScheduleAction) {
+        await resetPurposeScheduleEmailActionForRetry({
+          actionId,
+          error: message,
+        });
+        throw new Error(`Action execution failed: ${message}`);
+      }
+
       await supabase
         .from("agent_actions")
         .update({
@@ -1210,10 +1593,44 @@ export const ApprovalQueueService = {
    */
   async executeAutonomousAction(actionId: string): Promise<AgentAction> {
     const supabase = requireSupabase();
+    const { data: actionIdentity, error: actionIdentityError } = await supabase
+      .from("agent_actions")
+      .select("action_type, action_data, source_id")
+      .eq("id", actionId)
+      .is("reviewed_by", null)
+      .in("status", ["pending", "approved"])
+      .single();
+    if (actionIdentityError || !actionIdentity) {
+      throw new Error("Action not found or already handled");
+    }
+    if (actionIdentity.action_type === "file_day_closeout") {
+      throw new Error("Day closeouts require operator approval");
+    }
+    if (actionIdentity.action_type === "approve_collections_draft") {
+      throw new Error("Collection drafts require operator approval");
+    }
+    const purposeScheduleAction = isPurposeScheduleEmailAction(actionIdentity);
     try {
-      await ApprovedActionEmailTransportService.executeAutonomous(actionId);
+      const outcome =
+        await ApprovedActionEmailTransportService.executeAutonomous(actionId);
+      if (
+        purposeScheduleAction &&
+        purposeEmailOutcomeNeedsPreProviderReset(outcome)
+      ) {
+        await resetPurposeScheduleEmailActionForRetry({
+          actionId,
+          error: outcome.error,
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
+      if (purposeScheduleAction) {
+        await resetPurposeScheduleEmailActionForRetry({
+          actionId,
+          error: message,
+        });
+        throw error;
+      }
       await supabase
         .from("agent_actions")
         .update({ status: "failed", error: message })
@@ -1238,6 +1655,86 @@ export const ApprovalQueueService = {
   },
 
   /**
+   * Resets only DB-selected, wholly pre-provider purpose email actions. The
+   * selector owns identity, timing and the hard batch bound. This method never
+   * executes a selected action: human-reviewed work returns to the queue and
+   * autonomous work is reconsidered by the ordinary pending-action lane.
+   */
+  async recoverPurposeScheduleEmailActionRetries(): Promise<{
+    selected: number;
+    reset: number;
+    skipped: number;
+    failed: number;
+    actionIds: string[];
+    errors: string[];
+  }> {
+    const supabase = requireSupabase();
+    const response = await supabase.rpc(
+      "list_due_purpose_schedule_email_action_retries_as_system"
+    );
+    if (response.error) {
+      throw new Error(
+        `Schedule communication retry lookup failed: ${response.error.message}`
+      );
+    }
+    if (
+      !Array.isArray(response.data) ||
+      response.data.length > PURPOSE_SCHEDULE_EMAIL_RETRY_LIMIT
+    ) {
+      throw new Error(
+        "Schedule communication retry lookup returned invalid data"
+      );
+    }
+
+    const actionIds: string[] = [];
+    const seen = new Set<string>();
+    for (const row of response.data) {
+      const actionId =
+        row && typeof row === "object"
+          ? (row as Record<string, unknown>).action_id
+          : null;
+      if (
+        typeof actionId !== "string" ||
+        !CANONICAL_UUID_PATTERN.test(actionId) ||
+        seen.has(actionId)
+      ) {
+        throw new Error(
+          "Schedule communication retry lookup returned invalid data"
+        );
+      }
+      seen.add(actionId);
+      actionIds.push(actionId);
+    }
+
+    let reset = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+    for (const actionId of actionIds) {
+      try {
+        const didReset = await resetPurposeScheduleEmailActionForRetry({
+          actionId,
+          error: "Recovered stranded pre-provider schedule communication",
+        });
+        if (didReset) reset += 1;
+        else skipped += 1;
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown error";
+        errors.push(`${actionId}: ${message}`);
+      }
+    }
+
+    return {
+      selected: actionIds.length,
+      reset,
+      skipped,
+      failed: errors.length,
+      actionIds,
+      errors,
+    };
+  },
+
+  /**
    * Reject an action with optional notes — atomic conditional update.
    */
   async rejectAction(
@@ -1247,6 +1744,44 @@ export const ApprovalQueueService = {
     notes?: string
   ): Promise<AgentAction> {
     const supabase = requireSupabase();
+
+    const { data: actionIdentity, error: identityError } = await supabase
+      .from("agent_actions")
+      .select("action_type")
+      .eq("id", actionId)
+      .eq("company_id", companyId)
+      .single();
+    if (identityError || !actionIdentity) {
+      throw new Error("Action not found or already handled");
+    }
+    if (actionIdentity.action_type === "approve_collections_draft") {
+      const decision = await supabase.rpc(
+        "reject_agent_collections_draft_as_actor" as never,
+        {
+          p_actor_user_id: userId,
+          p_company_id: companyId,
+          p_action_id: actionId,
+          p_review_notes: notes?.trim() || null,
+        } as never
+      );
+      if (decision.error || !decision.data) {
+        throw new Error("Collection draft rejection could not be recorded");
+      }
+      const rejected = CollectionsRejectionResultSchema.parse(decision.data);
+      if (rejected.action_id !== actionId) {
+        throw new Error("Collection draft rejection receipt is invalid");
+      }
+      const { data: final, error: finalError } = await supabase
+        .from("agent_actions")
+        .select("*")
+        .eq("id", actionId)
+        .eq("company_id", companyId)
+        .single();
+      if (finalError || !final) {
+        throw new Error("Action not found after collection draft rejection");
+      }
+      return mapFromDb(final);
+    }
 
     const { data: updated, error } = await supabase
       .from("agent_actions")
@@ -1278,6 +1813,22 @@ export const ApprovalQueueService = {
     userId: string
   ): Promise<{ approved: number; failed: number; errors: string[] }> {
     const result = { approved: 0, failed: 0, errors: [] as string[] };
+
+    const supabase = requireSupabase();
+    const { data: exactConfirmations, error: lookupError } = await supabase
+      .from("agent_actions")
+      .select("id, action_type")
+      .eq("company_id", companyId)
+      .in("action_type", ["file_day_closeout", "approve_collections_draft"])
+      .in("id", actionIds)
+      .limit(1);
+    if (lookupError) throw new Error("Bulk approval could not be validated");
+    if (exactConfirmations && exactConfirmations.length > 0) {
+      if (exactConfirmations[0]?.action_type === "approve_collections_draft") {
+        throw new Error("Collection drafts must be approved one at a time");
+      }
+      throw new Error("Day closeouts must be filed one at a time");
+    }
 
     for (const actionId of actionIds) {
       try {

@@ -9,6 +9,7 @@ import type { EmailConnection } from "@/lib/types/email-connection";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { htmlToPlainText } from "@/lib/utils/email-parsing";
 import { matchesMicrosoft365ClientState } from "@/lib/email/microsoft365-webhook-security";
+import { PROVIDER_DELIVERY_SELECTION_REVISIONS } from "../provider-delivery-source-types";
 import {
   DEFAULT_EMAIL_ATTACHMENT_DOWNLOAD_LIMIT_BYTES,
   ProviderApiError,
@@ -813,6 +814,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
       "subject",
       "bodyPreview",
       "body",
+      "sentDateTime",
       "receivedDateTime",
       "categories",
       "isDraft",
@@ -953,9 +955,25 @@ export class Microsoft365Provider implements EmailProviderInterface {
       filter += ` and receivedDateTime ge ${options.after.toISOString()}`;
     }
     const top = options?.maxResults || 100;
+    const selectFields = [
+      "id",
+      "conversationId",
+      "from",
+      "toRecipients",
+      "ccRecipients",
+      "subject",
+      "bodyPreview",
+      "body",
+      "sentDateTime",
+      "receivedDateTime",
+      "categories",
+      "isDraft",
+      "isRead",
+      "hasAttachments",
+    ].join(",");
 
     const data = await this.graphFetch(
-      `/me/messages?$filter=${encodeURIComponent(filter)}&$top=${top}&$orderby=receivedDateTime desc`,
+      `/me/messages?$filter=${encodeURIComponent(filter)}&$select=${selectFields}&$top=${top}&$orderby=receivedDateTime desc`,
       undefined,
       "messages search",
       readPolicy
@@ -989,6 +1007,7 @@ export class Microsoft365Provider implements EmailProviderInterface {
       "bodyPreview",
       "body",
       "uniqueBody",
+      "sentDateTime",
       "receivedDateTime",
       "categories",
       "isDraft",
@@ -1952,6 +1971,51 @@ export class Microsoft365Provider implements EmailProviderInterface {
         }
       | undefined;
 
+    const contentType = msgBody?.contentType?.toLowerCase();
+    if (
+      (contentType !== "text" && contentType !== "html") ||
+      typeof msgBody?.content !== "string"
+    ) {
+      throw new ProviderApiError(
+        "M365 message body was not an exact text or HTML Graph body",
+        502,
+        msgBody
+      );
+    }
+    const senderIdentity = from?.emailAddress?.address || "";
+    const connectedMailboxIdentities = new Set(
+      [
+        this.connection.email,
+        ...(this.connection.syncFilters?.userEmailAddresses ?? []),
+      ]
+        .map((identity) => identity.trim().toLowerCase())
+        .filter(Boolean)
+    );
+    const sentByConnectedMailbox = connectedMailboxIdentities.has(
+      senderIdentity.trim().toLowerCase()
+    );
+    const providerSentAt = new Date(msg.sentDateTime as string);
+    const providerReceivedAt = new Date(msg.receivedDateTime as string);
+    const deliveredTimestampField = sentByConnectedMailbox
+      ? "sentDateTime"
+      : "receivedDateTime";
+    const deliveredAt = sentByConnectedMailbox
+      ? providerSentAt
+      : providerReceivedAt;
+    if (!Number.isFinite(deliveredAt.getTime())) {
+      throw new ProviderApiError(
+        `M365 message ${deliveredTimestampField} was invalid`,
+        502,
+        msg[deliveredTimestampField]
+      );
+    }
+    const recipientIdentities = toRecipients
+      .map((r) => r.emailAddress?.address)
+      .filter(Boolean) as string[];
+    const ccRecipientIdentities = ccRecipients
+      .map((r) => r.emailAddress?.address)
+      .filter(Boolean) as string[];
+    const subject = (msg.subject as string) || "";
     const fullText = this.bodyToText(msgBody);
     const cleanText = msgUniqueBody?.content
       ? this.bodyToText(msgUniqueBody)
@@ -1960,19 +2024,35 @@ export class Microsoft365Provider implements EmailProviderInterface {
     return {
       id: msg.id as string,
       threadId: msg.conversationId as string,
-      from: from?.emailAddress?.address || "",
+      from: senderIdentity,
       fromName: from?.emailAddress?.name || "",
-      to: toRecipients
-        .map((r) => r.emailAddress?.address)
-        .filter(Boolean) as string[],
-      cc: ccRecipients
-        .map((r) => r.emailAddress?.address)
-        .filter(Boolean) as string[],
-      subject: (msg.subject as string) || "",
+      to: recipientIdentities,
+      cc: ccRecipientIdentities,
+      subject,
       snippet: ((msg.bodyPreview as string) || "").slice(0, 200),
       bodyText: fullText,
       bodyTextClean: cleanText || undefined,
-      date: new Date(msg.receivedDateTime as string),
+      providerDeliverySource: {
+        mediaType: contentType === "html" ? "text/html" : "text/plain",
+        value: msgBody.content,
+        sourceKind: "microsoft_graph_body",
+        selectionRevision: PROVIDER_DELIVERY_SELECTION_REVISIONS.microsoft365,
+        providerPartId: null,
+        providerBodyAttachmentId: null,
+        contentCharset: null,
+        senderIdentity,
+        recipientIdentities,
+        ccRecipientIdentities,
+        subject,
+        deliveredAt,
+        providerSentAt: Number.isFinite(providerSentAt.getTime())
+          ? providerSentAt
+          : null,
+        providerReceivedAt: Number.isFinite(providerReceivedAt.getTime())
+          ? providerReceivedAt
+          : null,
+      },
+      date: deliveredAt,
       labelIds: (msg.categories as string[]) || [],
       isRead: (msg.isRead as boolean) || false,
       hasAttachments: (msg.hasAttachments as boolean) || false,

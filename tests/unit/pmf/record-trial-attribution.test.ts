@@ -1,54 +1,22 @@
-/**
- * Unit tests for src/lib/pmf/record-trial-attribution.ts
- *
- * recordTrialAttribution upgrades the trial_attributions row that the
- * companies_seed_trial_attribution DB trigger already created. It is invoked
- * from POST /api/setup/progress on the company step.
- *
- * Two contracts matter most and are both pinned here:
- *   1. First-touch is never overwritten — the UPDATE is scoped to rows still
- *      sitting at attributed_channel = 'unknown'.
- *   2. It NEVER throws. Attribution is a side-effect of signup; a failure here
- *      must not fail a company's creation.
- */
-
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { recordTrialAttribution } from "@/lib/pmf/record-trial-attribution";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { recordTrialAttribution } from "@/lib/pmf/trial-attribution";
 import type { FirstTouch } from "@/lib/pmf/utm-capture";
 
-// ─── Mock Supabase client ────────────────────────────────────────────────────
-
-interface UpdateCall {
-  table: string;
-  values: Record<string, unknown>;
-  eq: Array<[string, unknown]>;
+interface RpcCall {
+  fn: string;
+  args: Record<string, unknown>;
 }
 
-let updateCalls: UpdateCall[] = [];
-let updateError: { message: string } | null = null;
-let throwOnFrom = false;
+let rpcCalls: RpcCall[] = [];
+let rpcError: { message: string } | null = null;
+let throwOnRpc = false;
 
 function makeDb() {
   return {
-    from(table: string) {
-      if (throwOnFrom) throw new Error("connection exploded");
-      return {
-        update(values: Record<string, unknown>) {
-          const call: UpdateCall = { table, values, eq: [] };
-          updateCalls.push(call);
-          const chain = {
-            eq(col: string, val: unknown) {
-              call.eq.push([col, val]);
-              // Second .eq() resolves the builder (thenable), matching
-              // supabase-js: the query fires when awaited.
-              return call.eq.length >= 2
-                ? Promise.resolve({ error: updateError })
-                : chain;
-            },
-          };
-          return chain;
-        },
-      };
+    async rpc(fn: string, args: Record<string, unknown>) {
+      if (throwOnRpc) throw new Error("connection exploded");
+      rpcCalls.push({ fn, args });
+      return { data: { status: "recorded" }, error: rpcError };
     },
   };
 }
@@ -56,111 +24,105 @@ function makeDb() {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = () => makeDb() as any;
 
-const touch = (over: Partial<FirstTouch> = {}): FirstTouch => ({
+const touch = (overrides: Partial<FirstTouch> = {}): FirstTouch => ({
+  version: 1,
+  anonymous_id: "11111111-1111-4111-8111-111111111111",
   captured_at: "2026-08-06T00:00:00.000Z",
-  ...over,
+  landing_path: "/plans",
+  ...overrides,
 });
 
+function payload(): Record<string, unknown> {
+  return rpcCalls[0].args.p_touch as Record<string, unknown>;
+}
+
 beforeEach(() => {
-  updateCalls = [];
-  updateError = null;
-  throwOnFrom = false;
+  rpcCalls = [];
+  rpcError = null;
+  throwOnRpc = false;
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
-
 describe("recordTrialAttribution", () => {
-  it("writes UTM values and the derived channel for a gclid touch", async () => {
+  it("uses one atomic RPC for the attribution row and touchpoint", async () => {
     await recordTrialAttribution(
       db(),
-      "company-1",
+      "22222222-2222-4222-8222-222222222222",
       touch({ utm_source: "google", utm_medium: "cpc", gclid: "Cj0KCQ" })
     );
 
-    expect(updateCalls).toHaveLength(1);
-    const call = updateCalls[0];
-    expect(call.table).toBe("trial_attributions");
-    expect(call.values.utm_source).toBe("google");
-    expect(call.values.utm_medium).toBe("cpc");
-    expect(call.values.gclid).toBe("Cj0KCQ");
-    expect(call.values.attributed_channel).toBe("google_ads");
+    expect(rpcCalls).toHaveLength(1);
+    expect(rpcCalls[0]).toMatchObject({
+      fn: "record_first_touch_attribution",
+      args: {
+        p_company_id: "22222222-2222-4222-8222-222222222222",
+      },
+    });
+    expect(payload()).toMatchObject({
+      channel: "google_ads",
+      basis: "verified_click_id",
+      confidence: 1,
+      reason: "gclid_present",
+      landing_path: "/plans",
+    });
   });
 
-  it("scopes the update to the company AND to unknown-channel rows only", async () => {
-    // This is what preserves first-touch: an already-attributed row is skipped.
-    await recordTrialAttribution(db(), "company-1", touch({ fbclid: "IwAR1" }));
-
-    expect(updateCalls[0].eq).toEqual([
-      ["company_id", "company-1"],
-      ["attributed_channel", "unknown"],
-    ]);
+  it("records an untagged landing as direct, not unknown", async () => {
+    await recordTrialAttribution(db(), "company-1", touch());
+    expect(payload()).toMatchObject({
+      channel: "direct",
+      basis: "direct",
+      reason: "no_campaign_or_external_referrer",
+    });
   });
 
-  it("derives meta_ads from fbclid", async () => {
-    await recordTrialAttribution(db(), "company-1", touch({ fbclid: "IwAR1" }));
-    expect(updateCalls[0].values.attributed_channel).toBe("meta_ads");
+  it("classifies a Google referrer as organic search", async () => {
+    await recordTrialAttribution(
+      db(),
+      "company-1",
+      touch({ referrer_domain: "google.ca" })
+    );
+    expect(payload()).toMatchObject({
+      channel: "organic_search",
+      basis: "utm_referrer",
+      reason: "search_engine_referrer",
+    });
   });
 
-  it("nulls absent fields rather than leaving them undefined", async () => {
-    await recordTrialAttribution(db(), "company-1", touch({ gclid: "x" }));
-    const v = updateCalls[0].values;
-    expect(v.utm_content).toBeNull();
-    expect(v.utm_term).toBeNull();
-    expect(v.fbclid).toBeNull();
-    expect(v.landing_url).toBeNull();
+  it("never copies an arbitrary query string or identity field", async () => {
+    await recordTrialAttribution(
+      db(),
+      "company-1",
+      touch({
+        landing_path: "/plans",
+        utm_campaign: "spring",
+      })
+    );
+    const serialized = JSON.stringify(payload());
+    expect(serialized).not.toContain("?");
+    expect(serialized).not.toContain("email");
+    expect(serialized).not.toContain("phone");
+    expect(serialized).not.toContain("name");
   });
 
-  it("does nothing when there is no first-touch cookie", async () => {
+  it("does nothing without a first-touch cookie", async () => {
     await recordTrialAttribution(db(), "company-1", null);
-    expect(updateCalls).toHaveLength(0);
+    expect(rpcCalls).toHaveLength(0);
   });
 
-  it("does not write when the touch carries no signal whatsoever", async () => {
-    // No UTM, no click id, no landing URL — nothing to record.
-    await recordTrialAttribution(db(), "company-1", touch({}));
-    expect(updateCalls).toHaveLength(0);
-  });
-
-  it("records an untagged landing as 'direct' rather than discarding it", async () => {
-    // A visitor who typed the URL is genuinely 'direct'. That is real
-    // information and must not be conflated with 'unknown' (no web session
-    // at all, e.g. an iOS signup).
-    await recordTrialAttribution(
-      db(),
-      "company-1",
-      touch({ landing_url: "https://opsapp.co/" })
-    );
-    expect(updateCalls).toHaveLength(1);
-    expect(updateCalls[0].values.attributed_channel).toBe("direct");
-    expect(updateCalls[0].values.landing_url).toBe("https://opsapp.co/");
-  });
-
-  it("keeps UTM data even when the channel does not classify", async () => {
-    // Regression guard: skipping on channel === 'unknown' would silently throw
-    // away utm_source for every unrecognized source.
-    await recordTrialAttribution(
-      db(),
-      "company-1",
-      touch({ utm_source: "newsletter", utm_campaign: "june-blast" })
-    );
-    expect(updateCalls).toHaveLength(1);
-    expect(updateCalls[0].values.utm_source).toBe("newsletter");
-    expect(updateCalls[0].values.utm_campaign).toBe("june-blast");
-    expect(updateCalls[0].values.attributed_channel).toBe("unknown");
-  });
-
-  it("does not throw when the update returns an error", async () => {
-    updateError = { message: "permission denied" };
+  it("does not throw when the database returns an error", async () => {
+    rpcError = { message: "permission denied" };
     await expect(
       recordTrialAttribution(db(), "company-1", touch({ gclid: "x" }))
     ).resolves.toBeUndefined();
+    expect(console.error).toHaveBeenCalledOnce();
   });
 
-  it("does not throw when the client itself blows up", async () => {
-    throwOnFrom = true;
+  it("does not throw when the client itself fails", async () => {
+    throwOnRpc = true;
     await expect(
       recordTrialAttribution(db(), "company-1", touch({ gclid: "x" }))
     ).resolves.toBeUndefined();
+    expect(console.error).toHaveBeenCalledOnce();
   });
 });

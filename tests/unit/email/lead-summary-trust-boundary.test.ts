@@ -2870,7 +2870,9 @@ type TableName =
   | "opportunity_correspondence_events"
   | "stage_transitions"
   | "site_visits"
-  | "email_threads";
+  | "email_threads"
+  | "projects"
+  | "project_notes";
 
 interface RangeCall {
   table: TableName;
@@ -2890,6 +2892,8 @@ function pagedSupabase(input: {
     stage_transitions: [],
     site_visits: [],
     email_threads: [],
+    projects: [],
+    project_notes: [],
   };
 
   return {
@@ -3072,5 +3076,115 @@ describe("lead-summary customer mirror identity", () => {
         ]
       )
     ).rejects.toThrow("Opportunity client mirrors disagree");
+  });
+});
+
+/**
+ * Bug 7ca126d2 — the summary EVIDENCE boundary.
+ *
+ * `body_text_clean` rows written before the message-cleaner hardening keep the
+ * Outlook reply header, the pipe-delimited contact card, and double-encoded
+ * formatting marks at rest forever — and this service prefers the stored value
+ * over the raw body. The deterministic fact-fold then read that soup as
+ * evidence and dutifully emitted "Scope: 8723 | 9785 201 St …".
+ */
+describe("lead-summary evidence sanitization (7ca126d2)", () => {
+  const OUTLOOK_MANGLED = [
+    "Morning Jackson, ",
+    "",
+    " ",
+    " ",
+    "Thank you for the Order, the glass ships Tuesday.",
+    " ",
+    "JANE DOE | INSIDE SALES REP | ",
+    "jdoe@supplier.com",
+    " ",
+    "T: ",
+    "604-555-3513 ext. 8723 | ",
+    "9785 201 St Sample Twp, BC V1M 3E7 | ",
+    "www.supplier.ca",
+    " ",
+    " ",
+    "From: Jackson Sweet <ops@example.com>",
+    "Sent: Thursday, August 27, 2026 10:12 AM",
+    "To: Jane Doe <jdoe@supplier.com>",
+    "Subject: Re: [EXTERNAL] PO Nelson Replacement",
+    " ",
+    "â€چ â€چ Hi Jane, For this job please use PO 3934 Jean Pl.",
+  ].join("\n");
+
+  const CARD_ONLY = [
+    "JANE DOE | INSIDE SALES REP | ",
+    "jdoe@supplier.com",
+    "T: 604-555-3513 ext. 8723 | ",
+    "9785 201 St Sample Twp, BC V1M 3E7 | ",
+    "www.supplier.ca",
+  ].join("\n");
+
+  it("keeps the authored line and drops header, card, and mojibake", () => {
+    const bundle = buildLeadSummaryContext(
+      opportunity() as never,
+      slices({
+        activity: emailActivity({ body_text_clean: OUTLOOK_MANGLED }),
+      }) as never
+    );
+
+    const body = bundle!.emails[0]!.body ?? "";
+    expect(body).toContain("Thank you for the Order");
+    expect(body).not.toContain("From:");
+    expect(body).not.toContain("Sent:");
+    expect(body).not.toContain("INSIDE SALES REP");
+    expect(body).not.toContain("9785 201 St");
+    expect(body).not.toContain("604-555-3513");
+    expect(body).not.toContain("â€");
+    expect(JSON.stringify(bundle)).not.toContain("9785 201 St");
+    expect(JSON.stringify(bundle)).not.toContain("INSIDE SALES REP");
+  });
+
+  it("treats a message that is nothing but a contact card as no evidence", () => {
+    // The conversation layer refuses to blank a message; summary evidence must,
+    // or a phone extension becomes the job scope. The malformed 17:21Z Vitrum
+    // send was ~90% signature card.
+    const cardOnly = emailActivity({
+      id: "activity-card",
+      email_message_id: "provider-message-card",
+      body_text_clean: CARD_ONLY,
+    });
+    const substantive = emailActivity({
+      id: "activity-real",
+      email_message_id: "provider-message-real",
+      body_text_clean: "We accept the $1,200 installation quote.",
+      created_at: "2026-07-21T14:00:00.000Z",
+    });
+    const context = {
+      activities: [cardOnly, substantive],
+      correspondenceEvents: [
+        correspondenceEvent({
+          id: "event-card",
+          activity_id: "activity-card",
+          provider_message_id: "provider-message-card",
+        }),
+        correspondenceEvent({
+          id: "event-real",
+          activity_id: "activity-real",
+          provider_message_id: "provider-message-real",
+          occurred_at: "2026-07-21T14:00:00.000Z",
+        }),
+      ],
+      stageTransitions: [],
+      siteVisits: [],
+      threadSummaries: [],
+      customerEmails: ["customer@example.com"],
+    };
+
+    const bundle = buildLeadSummaryContext(
+      opportunity() as never,
+      context as never
+    );
+
+    expect(bundle!.emails).toHaveLength(2);
+    expect(bundle!.emails[0]!.body).toBeFalsy();
+    expect(bundle!.emails[1]!.body).toContain("$1,200");
+    expect(JSON.stringify(bundle)).not.toContain("INSIDE SALES REP");
   });
 });

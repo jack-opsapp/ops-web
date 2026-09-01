@@ -27,8 +27,13 @@ import {
   placeNewThreadDraft,
   CONTACT_FORM_OUTREACH_SUBJECT,
 } from "@/lib/api/services/mailbox-draft-push";
-import { extractContactFormSubmission } from "@/lib/utils/email-parsing";
+import {
+  extractContactFormSubmission,
+  extractContactFormSubmissionDisplayText,
+  normalizeEmailAddress,
+} from "@/lib/utils/email-parsing";
 import { normalizeReplySubject } from "@/lib/email/email-subject-policy";
+import { ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION } from "@/lib/api/services/conversation-state/source-bound-autonomous-routing";
 import {
   renderMailboxDraftWithSignature,
   resolveEmailSignatureForMessage,
@@ -45,6 +50,52 @@ interface ReplyThreadRow {
   id: string;
   connection_id: string;
   provider_thread_id: string;
+}
+
+type DraftSourceActivity = Record<string, unknown> & {
+  id?: unknown;
+  created_at?: unknown;
+};
+
+function resolveUnambiguousLatestActivity(
+  rows: unknown,
+  error: { message?: string } | null | undefined
+): DraftSourceActivity | null {
+  if (error || !Array.isArray(rows) || rows.length === 0) return null;
+
+  const latest = rows[0] as DraftSourceActivity;
+  const latestId =
+    typeof latest.id === "string" && latest.id.trim() ? latest.id.trim() : null;
+  const latestOccurredAt =
+    typeof latest.created_at === "string" ? new Date(latest.created_at) : null;
+  if (
+    !latestId ||
+    !latestOccurredAt ||
+    !Number.isFinite(latestOccurredAt.getTime())
+  ) {
+    return null;
+  }
+
+  const runnerUp = rows[1] as DraftSourceActivity | undefined;
+  const runnerUpId =
+    typeof runnerUp?.id === "string" && runnerUp.id.trim()
+      ? runnerUp.id.trim()
+      : null;
+  const runnerUpOccurredAt =
+    typeof runnerUp?.created_at === "string"
+      ? new Date(runnerUp.created_at)
+      : null;
+  if (
+    runnerUpId &&
+    runnerUpId !== latestId &&
+    runnerUpOccurredAt &&
+    Number.isFinite(runnerUpOccurredAt.getTime()) &&
+    runnerUpOccurredAt.getTime() === latestOccurredAt.getTime()
+  ) {
+    return null;
+  }
+
+  return latest;
 }
 
 export async function POST(request: NextRequest) {
@@ -114,31 +165,70 @@ export async function POST(request: NextRequest) {
     // have passed authorization. Activities store provider thread ids (plus a
     // connection id on modern rows), so never treat email_thread_id as the
     // internal email_threads UUID without resolving it first.
-    const [{ data: opp }, { data: lastActivity }] = await Promise.all([
+    const [
+      { data: opp },
+      { data: latestActivityRows, error: latestActivityError },
+    ] = await Promise.all([
       supabase
         .from("opportunities")
-        .select("title, clients!inner(email, name)")
+        .select("title")
         .eq("id", canonicalOpportunityId)
         .eq("company_id", actor.companyId)
         .single(),
       supabase
         .from("activities")
-        .select("id, subject, email_thread_id, email_connection_id, body_text")
+        .select(
+          "id, subject, email_thread_id, email_connection_id, email_message_id, body_text, from_email, to_emails, cc_emails, direction, created_at"
+        )
+        .eq("company_id", actor.companyId)
         .eq("opportunity_id", canonicalOpportunityId)
         .eq("type", "email")
-        .eq("direction", "inbound")
-        .order("created_at", { ascending: false })
-        .limit(1),
+        .order("created_at", { ascending: false, nullsFirst: false })
+        .limit(2),
     ]);
-    const latestInbound = lastActivity?.[0] ?? null;
+    const latestInbound = resolveUnambiguousLatestActivity(
+      latestActivityRows,
+      latestActivityError
+    );
     const durableDraftSourceKey =
-      typeof latestInbound?.id === "string" && latestInbound.id.trim()
-        ? latestInbound.id.trim()
-        : `opportunity-${canonicalOpportunityId}`;
+      typeof latestInbound?.id === "string" ? latestInbound.id.trim() : "";
+    if (!durableDraftSourceKey || latestInbound?.direction !== "inbound") {
+      return NextResponse.json(
+        {
+          error: "The conversation changed before this reply could be drafted.",
+          code: "EMAIL_DRAFT_SOURCE_STALE",
+        },
+        { status: 409 }
+      );
+    }
     const contactFormSubmitter = extractContactFormSubmission(
       (latestInbound?.subject as string) ?? "",
       (latestInbound?.body_text as string) ?? ""
     );
+    const contactFormInquiryText = contactFormSubmitter
+      ? contactFormSubmitter.message?.trim() ||
+        extractContactFormSubmissionDisplayText(
+          (latestInbound?.subject as string) ?? "",
+          (latestInbound?.body_text as string) ?? ""
+        ) ||
+        ""
+      : "";
+    const exactInboundRecipient = normalizeEmailAddress(
+      latestInbound?.from_email as string | null | undefined
+    );
+    if (
+      !contactFormSubmitter &&
+      (!exactInboundRecipient ||
+        !/^[^\s@]+@[^\s@]+$/.test(exactInboundRecipient))
+    ) {
+      return NextResponse.json(
+        {
+          error: "The latest inbound message has no valid reply address.",
+          code: "EMAIL_DRAFT_SOURCE_RECIPIENT_MISSING",
+        },
+        { status: 409 }
+      );
+    }
 
     let replyThread: ReplyThreadRow | null = null;
     const activityThreadId = latestInbound?.email_thread_id as
@@ -256,6 +346,29 @@ export async function POST(request: NextRequest) {
     }
 
     const authorizeDraftProviderMutation = async (): Promise<boolean> => {
+      const { data: currentSourceRows, error: currentSourceError } =
+        await supabase
+          .from("activities")
+          .select("id, direction, from_email, created_at")
+          .eq("company_id", actor.companyId)
+          .eq("opportunity_id", canonicalOpportunityId)
+          .eq("type", "email")
+          .order("created_at", { ascending: false, nullsFirst: false })
+          .limit(2);
+      const currentSource = resolveUnambiguousLatestActivity(
+        currentSourceRows,
+        currentSourceError
+      );
+      if (
+        currentSource?.id !== durableDraftSourceKey ||
+        currentSource?.direction !== "inbound" ||
+        (!contactFormSubmitter &&
+          normalizeEmailAddress(currentSource?.from_email as string) !==
+            exactInboundRecipient)
+      ) {
+        throw new Error("EMAIL_DRAFT_SOURCE_STALE");
+      }
+
       const currentAccess = await resolveEmailOpportunityAccess({
         actor,
         operation: "send",
@@ -308,6 +421,29 @@ export async function POST(request: NextRequest) {
       opportunityId: draftAccess.opportunityId ?? undefined,
       threadId: draftAccess.providerThreadId ?? undefined,
       emailAccess: draftAccess,
+      sourceActivityId: durableDraftSourceKey,
+      draftPurpose: { kind: "conversation_reply" },
+      ...(contactFormSubmitter
+        ? {
+            userInstruction: ASSIGNED_CONTACT_FORM_REVIEW_INSTRUCTION,
+            profileTypeOverride: "client_new_inquiry",
+            // No `configuredSubject`. That rank belongs to the operator's own
+            // per-mailbox outreach setting; handing it the server's constant
+            // puts the constant above everything the profile has learned about
+            // naming a new conversation (4da75e71). The constant is already the
+            // last-resort fallback inside the draft service, and it still backs
+            // the placement below when a draft comes back without a subject.
+            ...(contactFormInquiryText
+              ? {
+                  untrustedMessageContext: {
+                    subject: (latestInbound?.subject as string) ?? "",
+                    body: contactFormInquiryText,
+                  },
+                }
+              : {}),
+          }
+        : {}),
+      signatureWillBeAppended: true,
     });
 
     if (!draftResult.available || !draftResult.draft) {
@@ -350,23 +486,13 @@ export async function POST(request: NextRequest) {
             signature
           );
 
-          const clientRecord = opp?.clients as unknown as
-            | { email: string; name: string }
-            | { email: string; name: string }[]
-            | null
-            | undefined;
-          const clientObj = Array.isArray(clientRecord)
-            ? clientRecord[0]
-            : clientRecord;
-          const clientEmail = clientObj?.email;
-
           // Forwarded contact-form lead → fresh first reply on a NEW thread to the
           // actual client, not a "Re:" glued to the forwarder's thread. Detect from
           // the latest inbound activity body; if matched, ignore the forwarder
           // thread entirely and place a clean new-thread outreach (shared helper
           // also links the thread + tracks thread_id for reconciliation).
           if (contactFormSubmitter && draftResult.draftHistoryId) {
-            const to = contactFormSubmitter.email || clientEmail;
+            const to = normalizeEmailAddress(contactFormSubmitter.email);
             if (!to) {
               return NextResponse.json({
                 draft: draftResult.draft,
@@ -421,7 +547,7 @@ export async function POST(request: NextRequest) {
           const replySubject = normalizeReplySubject(rawSubject);
           const mailboxThreadId = replyThread?.provider_thread_id;
 
-          if (!clientEmail) {
+          if (!exactInboundRecipient) {
             // No recipient — can't push. Return draft without mailbox placement.
             return NextResponse.json({
               draft: draftResult.draft,
@@ -430,7 +556,7 @@ export async function POST(request: NextRequest) {
               available: true,
               draftHistoryId: draftResult.draftHistoryId,
               mailboxSaved: false,
-              reason: "No client email to address draft to",
+              reason: "No source email to address draft to",
             });
           }
 
@@ -477,7 +603,7 @@ export async function POST(request: NextRequest) {
             }
             await provider.updateDraft(
               existingMailboxDraftId,
-              clientEmail,
+              exactInboundRecipient,
               replySubject,
               renderedDraft.body,
               mailboxThreadId,
@@ -501,7 +627,7 @@ export async function POST(request: NextRequest) {
                 opportunityId: canonicalOpportunityId,
                 providerThreadId: mailboxThreadId ?? null,
                 sourceActivityId: durableDraftSourceKey,
-                to: clientEmail.trim().toLowerCase(),
+                to: exactInboundRecipient,
               }),
               assertMailboxLease: () => checkpoint(true),
               executeProvider: async () => {
@@ -510,7 +636,7 @@ export async function POST(request: NextRequest) {
                   throw new Error("EMAIL_DRAFT_AUTHORIZATION_REVOKED");
                 }
                 const providerDraftId = await provider.createDraft(
-                  clientEmail,
+                  exactInboundRecipient,
                   replySubject,
                   renderedDraft.body,
                   mailboxThreadId,
@@ -530,7 +656,7 @@ export async function POST(request: NextRequest) {
                   }
                   await provider.updateDraft(
                     acceptance.resourceId,
-                    clientEmail,
+                    exactInboundRecipient,
                     replySubject,
                     renderedDraft.body,
                     mailboxThreadId,
@@ -562,7 +688,8 @@ export async function POST(request: NextRequest) {
         mailboxErrorCode = pushErr.code;
       } else if (
         pushErr instanceof Error &&
-        pushErr.message === "EMAIL_DRAFT_AUTHORIZATION_REVOKED"
+        (pushErr.message === "EMAIL_DRAFT_AUTHORIZATION_REVOKED" ||
+          pushErr.message === "EMAIL_DRAFT_SOURCE_STALE")
       ) {
         mailboxErrorCode = pushErr.message;
       }

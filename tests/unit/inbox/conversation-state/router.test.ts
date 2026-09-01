@@ -14,7 +14,14 @@ import type {
 // so every test assembles a plain RouteInput inline — no DB, no mocks.
 // ---------------------------------------------------------------------------
 
-type RouteInput = Omit<ConversationState, "routing" | "routingReasons" | "confidence">;
+type RouteInput = Omit<
+  ConversationState,
+  | "routing"
+  | "routingReasons"
+  | "responseDisposition"
+  | "responseMode"
+  | "confidence"
+>;
 
 const operator: OperatorIdentity = {
   emails: new Set(["jack@canpro.example"]),
@@ -106,6 +113,7 @@ function build(over: Partial<RouteInput> = {}): RouteInput {
     accept: noAccept,
     sentLedger: [],
     attachmentsRequiringInspection: [],
+    scheduleFactsAvailable: null,
     ...over,
   };
 }
@@ -242,6 +250,43 @@ describe("route", () => {
       }),
     );
     expect(result.routing).toBe("update_lead_only");
+  });
+
+  it("updates the lead without drafting when the latest customer message closes the loop", () => {
+    const inbound = customerInbound({
+      sentAt: "2026-06-29T16:00:00.000Z",
+      cleanBody: "I appreciate it!",
+      rawBody: "I appreciate it!",
+    });
+    const result = route(
+      build({
+        messages: [operatorOutbound(), inbound],
+        customerMessages: [inbound],
+      })
+    );
+
+    expect(result.routing).toBe("update_lead_only");
+    expect(result.responseDisposition).toBe("no_reply_required");
+    expect(result.responseMode).toBe("no_reply");
+  });
+
+  it("requires operator input rather than drafting unverified availability", () => {
+    const inbound = customerInbound({
+      sentAt: "2026-06-29T16:00:00.000Z",
+      cleanBody: "Are you available August 13 or 14?",
+      rawBody: "Are you available August 13 or 14?",
+    });
+    const result = route(
+      build({
+        messages: [operatorOutbound(), inbound],
+        customerMessages: [inbound],
+      })
+    );
+
+    expect(result.routing).toBe("require_human_review");
+    expect(result.responseDisposition).toBe("operator_input_required");
+    expect(result.responseMode).toBe("schedule");
+    expect(result.routingReasons.join(" ")).toMatch(/schedule|availability/i);
   });
 
   // -- confidence floor ------------------------------------------------------

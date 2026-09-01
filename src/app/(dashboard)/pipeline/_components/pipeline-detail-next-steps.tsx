@@ -20,10 +20,10 @@ import {
   isFollowUpToday,
 } from "@/lib/types/pipeline";
 import { useCompleteFollowUp } from "@/lib/hooks";
-import type {
-  OpportunityAssignedContextFollowUp,
-  OpportunityAssignedContextSiteVisit,
-} from "@/lib/api/services/opportunity-assigned-context-service";
+import { useOpenBooking } from "@/lib/hooks/use-site-visits";
+import type { OpportunityAssignedContextFollowUp } from "@/lib/api/services/opportunity-assigned-context-service";
+import { BookSiteVisitModal } from "@/components/ops/site-visit/book-site-visit-modal";
+import { formatVisitSlot } from "@/components/ops/site-visit/visit-slot";
 
 // ── Signal evaluation ──
 
@@ -66,7 +66,6 @@ function formatDaysUntil(days: number): string {
 function evaluateSignals(
   pendingFollowUps: OpportunityAssignedContextFollowUp[],
   opportunity: Opportunity,
-  upcomingVisitDate: Date | null,
   t: (key: string) => string
 ): Signal[] {
   const signals: Signal[] = [];
@@ -140,15 +139,10 @@ function evaluateSignals(
     });
   }
 
-  // Priority 6: Upcoming site visit
-  if (upcomingVisitDate) {
-    const days = daysBetween(now, upcomingVisitDate);
-    signals.push({
-      icon: MapPin,
-      text: `${t("detail.siteVisitScheduled")} ${formatDaysUntil(days)}`,
-      color: "secondary",
-    });
-  }
+  // Booked site visits are NOT a signal here — the booking slot at the end
+  // of the strip carries the appointment state (exact day + time from the
+  // booked_at-guarded read), replacing the old status-only projection that
+  // could surface legacy junk scheduled_at values.
 
   return signals;
 }
@@ -165,20 +159,24 @@ const COLOR_MAP = {
 interface PipelineDetailNextStepsProps {
   opportunity: Opportunity;
   followUps: OpportunityAssignedContextFollowUp[];
-  siteVisits: OpportunityAssignedContextSiteVisit[];
   canManage: boolean;
 }
 
 export function PipelineDetailNextSteps({
   opportunity,
   followUps,
-  siteVisits,
   canManage,
 }: PipelineDetailNextStepsProps) {
   const { t } = useDictionary("pipeline");
   const [expanded, setExpanded] = useState(false);
+  const [bookingOpen, setBookingOpen] = useState(false);
 
   const completeFollowUp = useCompleteFollowUp();
+
+  // The lead's one open booking (booked_at discriminator — never the
+  // assigned-context rows, which carry no booked_at and would surface
+  // legacy junk scheduled_at values).
+  const { data: openBooking } = useOpenBooking(opportunity.id);
 
   const pendingFollowUps = useMemo(
     () =>
@@ -190,22 +188,9 @@ export function PipelineDetailNextSteps({
     [followUps]
   );
 
-  const upcomingVisitDate = useMemo(() => {
-    const now = new Date();
-    const upcoming = siteVisits
-      .filter(
-        (sv) => sv.status === "scheduled" && new Date(sv.scheduledAt) > now
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
-      );
-    return upcoming[0] ? new Date(upcoming[0].scheduledAt) : null;
-  }, [siteVisits]);
-
   const signals = useMemo(
-    () => evaluateSignals(pendingFollowUps, opportunity, upcomingVisitDate, t),
-    [pendingFollowUps, opportunity, upcomingVisitDate, t]
+    () => evaluateSignals(pendingFollowUps, opportunity, t),
+    [pendingFollowUps, opportunity, t]
   );
 
   const handleComplete = useCallback(
@@ -219,14 +204,69 @@ export function PipelineDetailNextSteps({
   const primary = signals[0];
   const remaining = signals.slice(1);
 
+  // ── Booking slot — the strip's single state-aware visit entry ─────────
+  //   open booking          → BOOKED — THU 10:00 (tan chip; manages behind it)
+  //   free slot + canManage → quiet BOOK VISIT affordance
+  //   free slot, read-only  → nothing
+  const bookedLabel = openBooking
+    ? t("nextSteps.booked", "BOOKED — {slot}").replace(
+        "{slot}",
+        formatVisitSlot(openBooking.scheduledAt)
+      )
+    : null;
+
+  const bookedChipClass = cn(
+    "inline-flex shrink-0 items-center gap-1 rounded-chip border px-1.5 py-[2px]",
+    "border-[var(--tan-line)] bg-[var(--tan-soft)] text-[var(--tan)]",
+    "font-mono text-[11px] uppercase tracking-[0.12em] tabular-nums",
+    "[font-feature-settings:'tnum'_1,'zero'_1]"
+  );
+
+  const bookingSlot = bookedLabel ? (
+    canManage ? (
+      <button
+        type="button"
+        onClick={() => setBookingOpen(true)}
+        className={cn(
+          bookedChipClass,
+          "transition-colors duration-150 hover:border-[var(--tan)]",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+        )}
+      >
+        <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+        {bookedLabel}
+      </button>
+    ) : (
+      <span className={bookedChipClass}>
+        <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
+        {bookedLabel}
+      </span>
+    )
+  ) : canManage ? (
+    <button
+      type="button"
+      onClick={() => setBookingOpen(true)}
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1",
+        "font-mono text-micro uppercase tracking-[0.14em] text-text-3",
+        "transition-colors duration-150 hover:text-text-2",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+      )}
+    >
+      <MapPin className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+      {t("nextSteps.bookVisit", "BOOK VISIT")}
+    </button>
+  ) : null;
+
   return (
     <div className="shrink-0 border-b border-border-subtle px-3 py-1.5">
       {!primary ? (
         <div className="flex items-center gap-1.5">
           <CheckCircle className="h-3 w-3 shrink-0 text-text-mute" />
-          <span className="font-mono text-[11px] text-text-mute">
+          <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-text-mute">
             {t("detail.noPendingActions")}
           </span>
+          {bookingSlot}
         </div>
       ) : (
         <>
@@ -244,7 +284,7 @@ export function PipelineDetailNextSteps({
               {primary.text}
             </span>
 
-            <div className="flex shrink-0 items-center gap-1">
+            <div className="flex shrink-0 items-center gap-1.5">
               {primary.followUpId && canManage && (
                 <button
                   onClick={() => handleComplete(primary.followUpId!)}
@@ -263,6 +303,8 @@ export function PipelineDetailNextSteps({
                   +{remaining.length} {t("detail.moreFollowUps")}
                 </button>
               )}
+
+              {bookingSlot}
             </div>
           </div>
 
@@ -302,6 +344,17 @@ export function PipelineDetailNextSteps({
             </div>
           )}
         </>
+      )}
+
+      {/* One modal, mode derived from the slot state: free → book, open
+          booking → reschedule/cancel. Never a second stacked booking. */}
+      {canManage && (
+        <BookSiteVisitModal
+          opportunityId={opportunity.id}
+          open={bookingOpen}
+          onOpenChange={setBookingOpen}
+          existingBooking={openBooking ?? null}
+        />
       )}
     </div>
   );

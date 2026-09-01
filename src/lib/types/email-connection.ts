@@ -63,6 +63,13 @@ export interface EmailConnection {
    */
   signatureLogoUrl?: string | null;
   status: EmailConnectionStatus;
+  /**
+   * OAuth scopes the stored refresh token was granted, as reported by the
+   * provider's last token response. Null on rows persisted before scope
+   * tracking existed; optional so hand-built fixtures and legacy
+   * constructors stay valid. `mapFromDb` always sets it.
+   */
+  grantedScopes?: string[] | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -91,6 +98,8 @@ export interface EmailConnectionDescriptor {
   aiReviewEnabled: boolean;
   aiMemoryEnabled: boolean;
   status: EmailConnectionStatus;
+  /** True when the stored Google grant can write calendar events. */
+  calendarSyncGranted: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

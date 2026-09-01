@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
+/** Drives the invocation deadline (bug 63ff8830) without waiting 255 seconds. */
+const { deadlineState } = vi.hoisted(() => ({
+  deadlineState: { expired: false },
+}));
+
 const {
   runSyncMock,
   sweepStaleLeadsMock,
@@ -15,6 +20,7 @@ const {
   readCronWorkloadCursorMock,
   advanceCronWorkloadCursorMock,
   runOutboundLearningWorkerMock,
+  runLeadIntelligenceWorkerMock,
   resolveReconciliationMock,
   recoverStrandedDraftsMock,
   getConnectionMock,
@@ -92,6 +98,7 @@ const {
     readCronWorkloadCursorMock: vi.fn(),
     advanceCronWorkloadCursorMock: vi.fn(),
     runOutboundLearningWorkerMock: vi.fn(),
+    runLeadIntelligenceWorkerMock: vi.fn(),
     resolveReconciliationMock: vi.fn(),
     recoverStrandedDraftsMock: vi.fn(),
     getConnectionMock: vi.fn(),
@@ -144,6 +151,12 @@ vi.mock("@/lib/api/services/email-outbound-learning-service", () => ({
   },
 }));
 
+vi.mock("@/lib/api/services/phase-c-lead-intelligence-work-runtime", () => ({
+  createPhaseCLeadIntelligenceWorkService: () => ({
+    runWorker: runLeadIntelligenceWorkerMock,
+  }),
+}));
+
 vi.mock("@/lib/api/services/cron-workload-control-service", () => ({
   runWithCronWorkloadControl: runWithCronWorkloadControlMock,
   isDatabasePressureError: isDatabasePressureErrorMock,
@@ -166,6 +179,23 @@ vi.mock("@/lib/supabase/helpers", () => ({
 vi.mock("@/lib/supabase/server-client", () => ({
   getServiceRoleClient: () => serviceRoleClient,
 }));
+
+// Only the clock is faked — the reserve constants stay real so the route's own
+// thresholds are the ones under test.
+vi.mock("@/lib/api/services/invocation-deadline", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/lib/api/services/invocation-deadline")
+    >();
+  return {
+    ...actual,
+    createInvocationDeadline: () => ({
+      deadlineAt: 0,
+      remainingMs: () => (deadlineState.expired ? 0 : 255_000),
+      expired: () => deadlineState.expired,
+    }),
+  };
+});
 
 import { dynamic, GET, runtime } from "@/app/api/cron/email-sync/route";
 
@@ -192,6 +222,7 @@ const emptyStaleSweep = {
 describe("email sync cron HTTP outcome", () => {
   beforeEach(() => {
     process.env.CRON_SECRET = "cron-test-secret";
+    deadlineState.expired = false;
     runSyncMock.mockReset();
     sweepStaleLeadsMock.mockReset();
     retryDirtyClassificationsMock.mockReset();
@@ -200,7 +231,14 @@ describe("email sync cron HTTP outcome", () => {
     readCronWorkloadCursorMock.mockReset();
     advanceCronWorkloadCursorMock.mockReset();
     runOutboundLearningWorkerMock.mockReset();
+    runLeadIntelligenceWorkerMock.mockReset();
     runWithCronWorkloadControlMock.mockReset();
+    // Draft-recovery spies leak across describe blocks without a file-wide
+    // reset — the nested block re-arms its own defaults on top of this.
+    resolveReconciliationMock.mockReset();
+    recoverStrandedDraftsMock.mockReset();
+    getConnectionMock.mockReset();
+    getConnectionMock.mockResolvedValue(null);
     runWithCronWorkloadControlMock.mockImplementation(
       async ({
         work,
@@ -222,6 +260,17 @@ describe("email sync cron HTTP outcome", () => {
       bookkeepingFailed: 0,
       terminalFailed: 0,
       failed: 0,
+      errors: [],
+    });
+    runLeadIntelligenceWorkerMock.mockResolvedValue({
+      claimed: 0,
+      completed: 0,
+      superseded: 0,
+      retrying: 0,
+      failed: 0,
+      componentsApplied: 0,
+      componentsReviewed: 0,
+      componentsSkippedAsComplete: 0,
       errors: [],
     });
     isDatabasePressureErrorMock.mockReset();
@@ -340,7 +389,10 @@ describe("email sync cron HTTP outcome", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(runSyncMock).toHaveBeenCalledWith("connection-1");
+    expect(runSyncMock).toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ deadline: expect.anything() })
+    );
     expect(body.results[0]).toMatchObject({ continuationPending: true });
   });
 
@@ -359,7 +411,10 @@ describe("email sync cron HTTP outcome", () => {
     const response = await GET(request());
 
     expect(response.status).toBe(200);
-    expect(runSyncMock).toHaveBeenCalledWith("connection-1");
+    expect(runSyncMock).toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ deadline: expect.anything() })
+    );
   });
 
   it("includes a stale-sweep failure and returns non-2xx", async () => {
@@ -469,6 +524,40 @@ describe("email sync cron HTTP outcome", () => {
       errors: [],
     });
     expect(body.pendingLeadScanSweepError).toBeNull();
+  });
+
+  it("drains durable Phase C lead intelligence and surfaces retrying work", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      newLeads: 0,
+      errors: [],
+    });
+    sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+    runLeadIntelligenceWorkerMock.mockResolvedValue({
+      claimed: 1,
+      completed: 0,
+      superseded: 0,
+      retrying: 1,
+      failed: 0,
+      componentsApplied: 1,
+      componentsReviewed: 0,
+      componentsSkippedAsComplete: 0,
+      errors: [{ opportunityId: "opportunity-1", error: "model unavailable" }],
+    });
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(runLeadIntelligenceWorkerMock).toHaveBeenCalledWith({
+      limit: 2,
+      leaseSeconds: 300,
+    });
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      ok: false,
+      leadIntelligence: { claimed: 1, retrying: 1 },
+      leadIntelligenceError: null,
+    });
   });
 
   it("drains exact-message classification and label recovery for active companies", async () => {
@@ -773,6 +862,78 @@ describe("email sync cron HTTP outcome", () => {
       expect(body.mailboxDraftRecoveryError).toContain("recovery exploded");
       // Everything downstream of the recovery lane still ran.
       expect(runOutboundLearningWorkerMock).toHaveBeenCalled();
+    });
+  });
+
+  describe("invocation deadline backpressure", () => {
+    it("stands every phase down and reports it as healthy, not failed", async () => {
+      // Bug 63ff8830: the invocation used to run until Vercel killed it, which
+      // lost the workload lease and the provider checkpoint together.
+      deadlineState.expired = true;
+
+      const response = await GET(request());
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.ok).toBe(true);
+      expect(body.failed).toBe(0);
+      expect(body.synced).toBe(0);
+
+      // The connection is left completely untouched — never started.
+      expect(runSyncMock).not.toHaveBeenCalled();
+      expect(body.deferredConnections).toEqual(["connection-1"]);
+
+      // Every post-sync phase drains a durable queue, so each one is deferred
+      // rather than half-run.
+      expect(body.skippedPhasesForDeadline).toEqual([
+        "stale-sweep",
+        "thread-classification-retry",
+        "mailbox-draft-recovery",
+        "ingestion-recovery",
+        "pending-lead-scan-sweep",
+        "lead-intelligence",
+        "bilateral-appointments",
+        "outbound-learning",
+      ]);
+      expect(sweepStaleLeadsMock).not.toHaveBeenCalled();
+      expect(retryDirtyClassificationsMock).not.toHaveBeenCalled();
+      expect(resolveReconciliationMock).not.toHaveBeenCalled();
+      expect(retryPendingIngestionRecoveryMock).not.toHaveBeenCalled();
+      expect(retryPendingLeadScansMock).not.toHaveBeenCalled();
+      expect(runLeadIntelligenceWorkerMock).not.toHaveBeenCalled();
+      expect(runOutboundLearningWorkerMock).not.toHaveBeenCalled();
+    });
+
+    it("reports no deadline backpressure on a healthy cycle", async () => {
+      runSyncMock.mockResolvedValue({
+        activitiesCreated: 0,
+        matched: 0,
+        needsReview: 0,
+        newLeads: 0,
+        stageChanges: 0,
+        labelsApplied: 0,
+        invalidProviderEmails: 0,
+        aiProviderDeferred: false,
+        leadScansDeferred: 0,
+        leadSummariesQuarantined: 0,
+        continuationPending: false,
+        deadlineDeferred: false,
+        errors: [],
+      });
+      sweepStaleLeadsMock.mockResolvedValue(emptyStaleSweep);
+      getConnectionMock.mockResolvedValue(null);
+
+      const response = await GET(request());
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.deferredConnections).toEqual([]);
+      expect(body.skippedPhasesForDeadline).toEqual([]);
+      expect(body.deadlineDeferredConnections).toBe(0);
+      expect(runSyncMock).toHaveBeenCalledWith(
+        "connection-1",
+        expect.objectContaining({ deadline: expect.anything() })
+      );
     });
   });
 });

@@ -13,11 +13,41 @@ export class CronDatabaseOperationError extends Error {
   }
 }
 
+/**
+ * Preserve the database-specific parts of a Supabase/PostgREST response
+ * without attaching returned row data to an exception. HTTP status lives on
+ * the outer response, while SQL/network detail lives under `error`.
+ */
+export function supabaseDatabaseOperationCause(response: unknown): unknown {
+  if (
+    typeof response !== "object" ||
+    response === null ||
+    Array.isArray(response) ||
+    !("error" in response)
+  ) {
+    return response;
+  }
+  const envelope = response as Record<string, unknown>;
+  if (!("status" in envelope) && !("statusText" in envelope)) {
+    return envelope.error;
+  }
+  return Object.freeze({
+    error: envelope.error,
+    status: envelope.status,
+    statusText: envelope.statusText,
+  });
+}
+
 type PressureEvidence = {
   key: string;
   value: string;
   databaseContext: boolean;
 };
+
+// PGRST2xx contract errors also say "in the schema cache". Match only
+// availability language so a missing function or column cannot open circuits.
+const SCHEMA_CACHE_AVAILABILITY_PATTERN =
+  /schema cache (?:is )?(?:unavailable|unreachable)|schema cache (?:failed to load|load failed)|(?:could not|failed to) load the schema cache/;
 
 function collectPressureEvidence(
   value: unknown,
@@ -96,11 +126,16 @@ export function isDatabasePressureError(error: unknown): boolean {
       (item.databaseContext &&
         (isCode || isStatus) &&
         /^(?:502|503|504|521|522|524|525)$/.test(normalized)) ||
-      /schema cache|could not query the database|cannot connect to the database|remaining connection slots/.test(
+      SCHEMA_CACHE_AVAILABILITY_PATTERN.test(normalized) ||
+      /could not query the database|cannot connect to the database|remaining connection slots/.test(
         normalized
       ) ||
       (item.databaseContext &&
         /statement timeout|out of memory|disk full|database is unavailable|connection (?:terminated|timed out|timeout|refused|failure)|connect (?:etimedout|timeout)|upstream request timeout|gateway timeout|ssl handshake failed|web server is down|cloudflare.*(?:521|522|525)/.test(
+          normalized
+        )) ||
+      (item.databaseContext &&
+        /\b(?:eai_again|econnrefused|econnreset|enotfound|etimedout|und_err_connect_timeout)\b/.test(
           normalized
         ))
     );

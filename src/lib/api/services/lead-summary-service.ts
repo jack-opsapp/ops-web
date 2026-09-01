@@ -38,7 +38,11 @@ import {
   CronDatabaseOperationError,
   isDatabasePressureError,
 } from "./cron-workload-control-service";
-import { cleanMessageBody } from "./conversation-state/message-cleaner";
+import {
+  cleanMessageBody,
+  sanitizeSummaryEvidenceBody,
+  stripInvisibleFormatting,
+} from "./conversation-state/message-cleaner";
 import { extractCommercialDealPrices } from "@/lib/email/commercial-price";
 import {
   currentCommercialEpisodeMessages,
@@ -89,6 +93,9 @@ const EMAILS_IN_PROMPT = 40;
 const CONVERSATION_FOLD_FACTS_PER_KIND = 3;
 const COMMERCIAL_PRICE_FACT_CAP = 12;
 const NON_EMAIL_ACTIVITIES_IN_PROMPT = 15;
+const PROJECT_NOTE_CONTENT_CAP = 300;
+const PROJECT_NOTES_IN_PROMPT = 5;
+const PROJECT_NOTES_PER_OPPORTUNITY = 10;
 const STAGE_MOVES_IN_PROMPT = 5;
 const SITE_VISITS_IN_PROMPT = 3;
 const THREAD_SUMMARIES_IN_PROMPT = 3;
@@ -144,10 +151,13 @@ interface OpportunityRow {
   assignment_version: number;
   correspondence_count: number;
   updated_at: string;
+  /** Legacy-shaped project linkage; both directions are followed (see slices). */
+  project_id: string | null;
+  project_ref: string | null;
 }
 
 const OPPORTUNITY_FIELDS =
-  "id, company_id, client_id, client_ref, title, stage, stage_entered_at, created_at, contact_name, contact_email, address, source, description, estimated_value, detected_value, actual_value, ai_summary, ai_summary_updated_at, assignment_version, correspondence_count, updated_at";
+  "id, company_id, client_id, client_ref, title, stage, stage_entered_at, created_at, contact_name, contact_email, address, source, description, estimated_value, detected_value, actual_value, ai_summary, ai_summary_updated_at, assignment_version, correspondence_count, updated_at, project_id, project_ref";
 
 interface ActivityRow {
   id: string;
@@ -217,12 +227,28 @@ interface CorrespondenceEventRow {
   subject: string | null;
 }
 
+/**
+ * A note on the lead's linked project. `project_notes` is the iOS-canonical
+ * activity timeline: `event_kind` NULL is a person writing, anything else is a
+ * system event. Until now the summary engine never read this table at all, so
+ * work logged from the field was invisible to the lead summary.
+ */
+interface ProjectNoteRow {
+  id: string;
+  project_id: string;
+  content: string | null;
+  event_kind: string | null;
+  created_at: string;
+}
+
 export interface LeadSummaryContextSlices {
   activities: ActivityRow[];
   correspondenceEvents: CorrespondenceEventRow[];
   stageTransitions: StageTransitionRow[];
   siteVisits: SiteVisitRow[];
   threadSummaries: ThreadSummaryRow[];
+  /** Newest-first notes on the lead's linked project(s). */
+  projectNotes?: ProjectNoteRow[];
   /** Persisted opportunity, primary-client, and alternate-contact identities. */
   customerEmails?: string[];
 }
@@ -268,10 +294,28 @@ export interface LeadSummaryRunResult {
   modelCallLimitReached: boolean;
   skippedInsufficientContext: number;
   failed: Array<{ opportunityId: string; error: string }>;
+  /**
+   * Model-only outcomes that exhausted the bounded contract retry and had no
+   * trusted deterministic fallback. They are reported without a write, but do
+   * not hold the durable sweep cursor or starve later opportunities.
+   */
+  deferred: Array<{
+    opportunityId: string;
+    error: string;
+    reason: "model_contract" | "model_refusal";
+  }>;
   /** Written leads (capped at RESULT_LIST_CAP) for observability. */
   written: Array<{ opportunityId: string; title: string }>;
   /** Candidate preview (capped) — populated in dry runs and real runs alike. */
   candidatesPreview: Array<{ opportunityId: string; title: string }>;
+  /**
+   * Stale leads deliberately skipped this run because their summary exhausted
+   * its bounded refresh budget and no newer source evidence has arrived. The
+   * nightly health audit reads this to see non-convergence explicitly instead
+   * of inferring it from a silently missing write.
+   */
+  quarantined: Array<{ opportunityId: string; reason: string }>;
+  quarantinedCount: number;
   opportunityWindow: {
     companyId: string;
     afterOpportunityId: string | null;
@@ -445,18 +489,22 @@ export function trustedLeadEmailMessages(
     }
 
     const storedCleanBody = activity.body_text_clean;
-    const cleanedBody =
+    // Persisted "clean" bodies pre-date the current quote/signature boundary.
+    // Treat them as untrusted input and clean them again — then run the
+    // summary-specific sanitizer, which (unlike the conversation cleaner) is
+    // allowed to return an empty body when the message is nothing but a
+    // contact card. A card is not evidence (bug 7ca126d2).
+    const cleanedBody = sanitizeSummaryEvidenceBody(
       storedCleanBody !== null
         ? cleanMessageBody(storedCleanBody, {
             subject: activity.subject ?? "",
-            // Persisted "clean" bodies pre-date the current quote/signature
-            // boundary. Treat them as untrusted input and clean them again.
             providerCleanBody: null,
           })
         : cleanMessageBody(activity.body_text ?? "", {
             subject: activity.subject ?? "",
             providerCleanBody: null,
-          });
+          })
+    );
     if (
       isRecruitingProviderNoise({
         direction,
@@ -496,6 +544,8 @@ export function trustedLeadEmailMessages(
 export interface LeadContextAggregates {
   activityCount: number;
   siteVisitCount: number;
+  /** Notes on the lead's linked project(s) — work logged from the field. */
+  projectNoteCount: number;
   /** Transitions with a non-null from_stage — real moves, not the creation row. */
   realStageMoveCount: number;
   /** Newest context timestamp across all sources + stage_entered_at (ms). */
@@ -527,9 +577,13 @@ export function computeLeadContextAggregates(
     consider(visit.completed_at);
     consider(visit.created_at);
   }
+  // A note logged on the project makes the summary stale, same as any other
+  // durable event. This is the whole point of reading the table.
+  for (const note of slices.projectNotes ?? []) consider(note.created_at);
   return {
     activityCount: trustedActivities.length,
     siteVisitCount: slices.siteVisits.length,
+    projectNoteCount: (slices.projectNotes ?? []).length,
     realStageMoveCount: slices.stageTransitions.filter(
       (transition) => transition.from_stage !== null
     ).length,
@@ -548,10 +602,12 @@ export function hasSubstantiveLeadContext(
   aggregates: Pick<
     LeadContextAggregates,
     "activityCount" | "siteVisitCount" | "realStageMoveCount"
-  >
+  > &
+    Partial<Pick<LeadContextAggregates, "projectNoteCount">>
 ): boolean {
   if (aggregates.activityCount > 0) return true;
   if (aggregates.siteVisitCount > 0) return true;
+  if ((aggregates.projectNoteCount ?? 0) > 0) return true;
   if (aggregates.realStageMoveCount > 0) return true;
   return (
     typeof opportunity.description === "string" &&
@@ -560,10 +616,7 @@ export function hasSubstantiveLeadContext(
 }
 
 export type LeadStalenessVerdict =
-  | "fresh"
-  | "stale"
-  | "awaiting_event"
-  | "insufficient_context";
+  "fresh" | "stale" | "awaiting_event" | "insufficient_context";
 
 /**
  * Staleness decision for one open lead.
@@ -657,6 +710,8 @@ export interface LeadSummaryContextBundle {
     outcome: string | null;
     duration_min: number | null;
   }>;
+  /** Newest notes/events from the linked project's own timeline. */
+  project_activity: Array<{ at: string; note: string | null; event: string | null }>;
   emails: Array<{
     at: string;
     dir: "inbound" | "outbound";
@@ -684,10 +739,7 @@ export interface LeadSummaryContextBundle {
   commercial_context: {
     outcome: "won" | "deferred" | "declined";
     reason:
-      | "customer_committed"
-      | "budget_timing"
-      | "customer_declined"
-      | "price";
+      "customer_committed" | "budget_timing" | "customer_declined" | "price";
     current_price: number | null;
     current_scope: string | null;
     excluded_scope: string | null;
@@ -699,11 +751,7 @@ export interface LeadSummaryContextBundle {
 }
 
 type ConversationFactKind =
-  | "price"
-  | "scope"
-  | "schedule"
-  | "objection"
-  | "next_action";
+  "price" | "scope" | "schedule" | "objection" | "next_action";
 
 const CONVERSATION_FACT_PATTERNS: Record<ConversationFactKind, RegExp> = {
   price:
@@ -1098,6 +1146,56 @@ function resolveSummarySchedule(
   return resolveFoldedSchedule(fold);
 }
 
+// ─── Fact-field output guard (bug 7ca126d2) ────────────────────────────────
+//
+// Evidence sanitization closes the front door; this closes the back one. Rows
+// written before the message-cleaner hardening keep their signature card at
+// rest forever, and the model can echo one it was handed. A contact card is
+// never a deal fact, so a field that resolves to one is dropped — every
+// resolver here already has a null path, and no scope clause beats a scope
+// clause reading "8723 | 9785 201 St Langley Twp, BC V1M 3E7 | From: …".
+
+/** A quoted reply header: "From: … Sent:" / "From: … Date:". */
+const SUMMARY_REPLY_HEADER_RE = /\bFrom:\s.+\b(?:Sent|Date):/i;
+const SUMMARY_CARD_PHONE_RE = /\d{3}[-. ]\d{3}[-. ]\d{4}/;
+const SUMMARY_CARD_POSTAL_RE = /\b[A-Z]\d[A-Z]\s?\d[A-Z]\d\b/;
+
+/**
+ * True for a quoted reply header, or for a clause carrying two or more pipe
+ * separators together with a phone or postal token — the shape of a contact
+ * card and of nothing a customer ever says about a job.
+ */
+function isContactCardClause(value: string): boolean {
+  if (SUMMARY_REPLY_HEADER_RE.test(value)) return true;
+  const pipeSeparators = value.split(" | ").length - 1;
+  return (
+    pipeSeparators >= 2 &&
+    (SUMMARY_CARD_PHONE_RE.test(value) || SUMMARY_CARD_POSTAL_RE.test(value))
+  );
+}
+
+/**
+ * Guard one resolved fact field: invisible formatting marks out, contact cards
+ * and reply headers rejected outright.
+ */
+function sanitizeSummaryFactText(
+  value: string | null | undefined
+): string | null {
+  if (!value) return null;
+  const cleaned = stripInvisibleFormatting(value).trim();
+  if (!cleaned) return null;
+  return isContactCardClause(cleaned) ? null : cleaned;
+}
+
+/**
+ * Guard a composed summary. A summary cannot be nulled, so only the invisible
+ * marks come out here — card and header clauses are rejected upstream, where
+ * dropping a field is possible and mangling a sentence is not.
+ */
+function sanitizeSummaryOutputText(value: string): string {
+  return stripInvisibleFormatting(value).trim();
+}
+
 function resolveSummaryScope(
   commercialScope: string | null | undefined,
   fold: LeadSummaryContextBundle["conversation_fold"]
@@ -1390,18 +1488,26 @@ function buildCurrentFactContext(input: {
   opportunity: OpportunityRow;
 }): LeadSummaryContextBundle["current_fact_context"] {
   const currentPrice = resolveSummaryCurrentPrice(input);
-  const currentScope = resolveSummaryScope(
-    input.commercialOutcome?.facts.currentScope,
-    input.conversationFold
+  // Every resolved string fact passes the card/header guard before it can
+  // reach the prompt, the validators, or the deterministic fallback.
+  const currentScope = sanitizeSummaryFactText(
+    resolveSummaryScope(
+      input.commercialOutcome?.facts.currentScope,
+      input.conversationFold
+    )
   );
-  const schedule = resolveSummarySchedule(
-    input.commercialOutcome?.facts.schedule,
-    input.conversationFold,
-    input.commercialOutcome !== null
+  const schedule = sanitizeSummaryFactText(
+    resolveSummarySchedule(
+      input.commercialOutcome?.facts.schedule,
+      input.conversationFold,
+      input.commercialOutcome !== null
+    )
   );
-  const objection = input.commercialOutcome
-    ? clip(input.commercialOutcome.facts.objection, ACTIVITY_CONTENT_CAP)
-    : resolveFoldedObjection(input.completeConversationFold);
+  const objection = sanitizeSummaryFactText(
+    input.commercialOutcome
+      ? clip(input.commercialOutcome.facts.objection, ACTIVITY_CONTENT_CAP)
+      : resolveFoldedObjection(input.completeConversationFold)
+  );
   const foldedNextAction = resolveFoldedNextAction(input.conversationFold);
   const completeNextAction = resolveFoldedNextAction(
     input.completeConversationFold
@@ -1425,13 +1531,14 @@ function buildCurrentFactContext(input: {
         ? "Confirm the work schedule."
         : "Prepare for the confirmed work schedule."
       : null;
-  const nextAction =
+  const nextAction = sanitizeSummaryFactText(
     input.commercialOutcome?.outcome === "declined"
       ? null
       : (pendingNextAction ??
         commercialNextAction ??
         scheduleNextAction ??
-        foldedNextAction.postCompletionAction);
+        foldedNextAction.postCompletionAction)
+  );
   const supersededPrices = input.allDiscussedPrices.filter(
     (price) => price !== currentPrice
   );
@@ -1613,6 +1720,7 @@ export function buildLeadSummaryContext(
     completeEmailHistory.length === 0 &&
     nonEmailSourceActivities.length === 0 &&
     slices.siteVisits.length === 0 &&
+    (slices.projectNotes ?? []).length === 0 &&
     !opportunity.description?.trim()
   ) {
     return null;
@@ -1677,6 +1785,23 @@ export function buildLeadSummaryContext(
       ),
       outcome: clip(activity.outcome, 200),
       duration_min: activity.duration_minutes,
+    }));
+
+  // The project's own timeline. A user note (`event_kind` NULL) is somebody
+  // writing; anything else is a system event and is rendered as such, so the
+  // model never mistakes "status_change" for something a person said.
+  const projectActivity = (slices.projectNotes ?? [])
+    .slice()
+    .sort((a, b) => byNewestFirst(a.created_at, b.created_at))
+    .slice(0, PROJECT_NOTES_IN_PROMPT)
+    .reverse()
+    .map((note) => ({
+      at: note.created_at,
+      note:
+        note.event_kind === null
+          ? clip(note.content, PROJECT_NOTE_CONTENT_CAP)
+          : null,
+      event: note.event_kind,
     }));
 
   const stageHistory = slices.stageTransitions
@@ -1795,6 +1920,7 @@ export function buildLeadSummaryContext(
     stage_history: stageHistory,
     site_visits: siteVisits,
     activity: nonEmailActivity,
+    project_activity: projectActivity,
     emails,
     conversation_fold: conversationFold,
     email_thread_summaries: threadSummaries,
@@ -1807,18 +1933,18 @@ export function buildLeadSummaryContext(
             currentFactContext?.current_price ??
             commercialOutcome.facts.currentPrice,
           current_scope: currentFactContext?.current_scope ?? null,
-          excluded_scope: clip(
-            commercialOutcome.facts.excludedScope,
-            ACTIVITY_CONTENT_CAP
+          // `excluded_scope` and `next_action` are the two commercial fields
+          // the current-fact context does not already own, so they carry their
+          // own card/header guard (bug 7ca126d2).
+          excluded_scope: sanitizeSummaryFactText(
+            clip(commercialOutcome.facts.excludedScope, ACTIVITY_CONTENT_CAP)
           ),
           schedule: currentFactContext?.schedule ?? null,
-          objection: clip(
-            commercialOutcome.facts.objection,
-            ACTIVITY_CONTENT_CAP
+          objection: sanitizeSummaryFactText(
+            clip(commercialOutcome.facts.objection, ACTIVITY_CONTENT_CAP)
           ),
-          next_action: resolveCommercialNextAction(
-            opportunity,
-            commercialOutcome
+          next_action: sanitizeSummaryFactText(
+            resolveCommercialNextAction(opportunity, commercialOutcome)
           ),
           superseded_prices: commercialSupersededPrices.slice(
             -COMMERCIAL_PRICE_FACT_CAP
@@ -3053,22 +3179,52 @@ function validateCommercialSummary(
   }
 }
 
+/**
+ * Apply the card/header guard to a fact context before it becomes a contract.
+ *
+ * Both validators demand that the summary STATE every current fact they are
+ * given. A bundle built before this guard shipped — or handed in directly by a
+ * caller — can still carry a contact card in `current_scope`, and without this
+ * the validator would insist the summary repeat it, which is exactly the
+ * output the guard exists to prevent (bug 7ca126d2). Superseded entries that
+ * are cards drop out too: a card was never a scope, so "do not repeat it" is a
+ * contract about nothing.
+ */
+function guardedCurrentFactContext(
+  context: LeadSummaryCurrentFactContext
+): LeadSummaryCurrentFactContext {
+  if (!context) return context;
+  const keepsFact = (value: string): boolean =>
+    sanitizeSummaryFactText(value) !== null;
+  return {
+    ...context,
+    current_scope: sanitizeSummaryFactText(context.current_scope),
+    schedule: sanitizeSummaryFactText(context.schedule),
+    objection: sanitizeSummaryFactText(context.objection),
+    next_action: sanitizeSummaryFactText(context.next_action),
+    superseded_scopes: context.superseded_scopes.filter(keepsFact),
+    superseded_schedules: context.superseded_schedules.filter(keepsFact),
+    resolved_objections: context.resolved_objections.filter(keepsFact),
+    superseded_next_actions: context.superseded_next_actions.filter(keepsFact),
+  };
+}
+
 function fullCurrentFactValidationContext(
   bundle: LeadSummaryContextBundle
 ): LeadSummaryCurrentFactContext {
   const promptContext = bundle.current_fact_context;
   const fullContext =
     bundle[FULL_LEAD_SUMMARY_VALIDATION_CONTEXT]?.currentFactContext;
-  if (!fullContext) return promptContext;
-  if (!promptContext) return fullContext;
-  return {
+  if (!fullContext) return guardedCurrentFactContext(promptContext);
+  if (!promptContext) return guardedCurrentFactContext(fullContext);
+  return guardedCurrentFactContext({
     ...promptContext,
     superseded_prices: fullContext.superseded_prices,
     superseded_scopes: fullContext.superseded_scopes,
     superseded_schedules: fullContext.superseded_schedules,
     resolved_objections: fullContext.resolved_objections,
     superseded_next_actions: fullContext.superseded_next_actions,
-  };
+  });
 }
 
 function fullCommercialValidationContext(
@@ -3077,9 +3233,16 @@ function fullCommercialValidationContext(
   if (!bundle.commercial_context) return null;
   const fullPrices =
     bundle[FULL_LEAD_SUMMARY_VALIDATION_CONTEXT]?.commercialSupersededPrices;
-  return fullPrices
-    ? { ...bundle.commercial_context, superseded_prices: fullPrices }
-    : bundle.commercial_context;
+  const commercial = bundle.commercial_context;
+  return {
+    ...commercial,
+    current_scope: sanitizeSummaryFactText(commercial.current_scope),
+    excluded_scope: sanitizeSummaryFactText(commercial.excluded_scope),
+    schedule: sanitizeSummaryFactText(commercial.schedule),
+    objection: sanitizeSummaryFactText(commercial.objection),
+    next_action: sanitizeSummaryFactText(commercial.next_action),
+    superseded_prices: fullPrices ?? commercial.superseded_prices,
+  };
 }
 
 const REPAIRABLE_SUMMARY_OMISSIONS = new Set([
@@ -3112,9 +3275,11 @@ const SUMMARY_PROMPT_TAIL_RE =
 const SUMMARY_INLINE_SIGNATURE_RE =
   /[?!]\s*(?=[A-Z][A-Za-z.'’-]+(?:\s+[A-Z][A-Za-z.'’-]+){1,3}\s+(?:(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}|[\w.+-]+@))/;
 
+const DETERMINISTIC_FRAGMENT_CAP = 280;
+
 function deterministicSummaryFragment(
   value: string | null | undefined,
-  options: { stripMoney?: boolean } = {}
+  options: { stripMoney?: boolean; cap?: number } = {}
 ): string | null {
   if (!value) return null;
   let source = value.normalize("NFKC");
@@ -3159,7 +3324,155 @@ function deterministicSummaryFragment(
     .replace(/\s+/g, " ")
     .replace(/^[\s,–—:-]+|[\s,–—:-]+$/g, "")
     .trim();
-  return clip(normalized, 280);
+  return clip(normalized, options.cap ?? DETERMINISTIC_FRAGMENT_CAP);
+}
+
+/**
+ * Does this rendered schedule clause satisfy the same anchor check the
+ * validators will run on the finished summary? Mirrors the clause shape
+ * `renderDeterministicLeadSummaryFallback` builds so the two can never
+ * disagree.
+ */
+function scheduleFragmentSatisfiesValidator(
+  fragment: string,
+  schedule: string
+): boolean {
+  return summaryCarriesSchedule(
+    `${
+      scheduleExpectsTentativeAssertion(schedule)
+        ? "Requested schedule"
+        : "Schedule"
+    }: ${fragment}.`,
+    schedule
+  );
+}
+
+/**
+ * Schedule clauses are validated by ANCHOR (calendar date, time, qualifier),
+ * not by token overlap, so the fixed-length head clip can silently delete the
+ * one token `summaryCarriesSchedule` looks for. The validator then reports the
+ * current schedule as omitted and the deterministic fallback throws instead of
+ * converging — one half of the ×681 refresh loop (0700468d).
+ *
+ * Prefer the shortest faithful rendering that actually satisfies the anchor
+ * check: the head clip, else the first anchor-bearing sentence, else the tail
+ * window. Every candidate is a normalized excerpt of the resolved schedule
+ * fact — no anchor is invented, and a schedule with no anchors at all keeps the
+ * historical head-clip behaviour.
+ */
+function deterministicScheduleFragment(schedule: string): string | null {
+  const head = deterministicSummaryFragment(schedule);
+  if (!head || scheduleFragmentSatisfiesValidator(head, schedule)) return head;
+
+  const full = deterministicSummaryFragment(schedule, {
+    cap: Number.MAX_SAFE_INTEGER,
+  });
+  if (!full || full.length <= head.length) return head;
+
+  for (const sentence of full.split(/(?<=\.)\s+/)) {
+    const candidate = clip(sentence.trim(), DETERMINISTIC_FRAGMENT_CAP);
+    if (candidate && scheduleFragmentSatisfiesValidator(candidate, schedule)) {
+      return candidate;
+    }
+  }
+  const tail = clip(
+    full.slice(-DETERMINISTIC_FRAGMENT_CAP).trim(),
+    DETERMINISTIC_FRAGMENT_CAP
+  );
+  return tail && scheduleFragmentSatisfiesValidator(tail, schedule)
+    ? tail
+    : head;
+}
+
+/**
+ * The deterministic fallback states ONLY resolved current facts. A superseded
+ * entry that the emitted current fact itself already carries is therefore not
+ * evidence of repetition — it is an earlier revision of the same fact ("wood
+ * railing" → "glass railing"), and on a long-history lead nearly every
+ * superseded entry overlaps its own successor that way.
+ *
+ * Left in place the contract is unsatisfiable: omit the current fact and
+ * validation reports an omission, state it and validation reports a
+ * repetition. That deadlock — amplified because the validators judge against
+ * the FULL untruncated superseded history while the lead has years of it — is
+ * what looped lead-summary refresh 681 times without ever converging
+ * (0700468d).
+ *
+ * Only self-tripping entries are dropped. A superseded fact genuinely distinct
+ * from the current one still rejects, and this narrowing applies exclusively to
+ * the deterministic renderer's own output — model-authored summaries are still
+ * judged against the unfiltered full context.
+ */
+function fallbackCurrentFactValidationContext(
+  context: LeadSummaryCurrentFactContext,
+  emitted: {
+    price: number | null;
+    scope: string | null;
+    schedule: string | null;
+    scheduleClauseCarriesSchedule: boolean;
+    objection: string | null;
+    nextAction: string | null;
+  }
+): LeadSummaryCurrentFactContext {
+  if (!context) return context;
+  return {
+    ...context,
+    /**
+     * `summaryCarriesSchedule` re-parses the WHOLE summary into clauses and
+     * fails if any of them reads as a contradicting schedule assertion. The
+     * renderer's own scope clause trips that constantly — "install", "start"
+     * and "date" are schedule-assertion vocabulary, and a deck scope says
+     * "install" almost every time — so a schedule the renderer demonstrably
+     * did state was reported as omitted.
+     *
+     * When the emitted schedule clause satisfies the anchor contract on its
+     * own, the whole-summary re-parse can only add false contradictions, so
+     * the clause-level proof stands in for it. If the clause does NOT satisfy
+     * it, the contract is left in place and still throws.
+     */
+    schedule: emitted.scheduleClauseCarriesSchedule ? null : context.schedule,
+    superseded_prices: context.superseded_prices.filter(
+      (price) =>
+        emitted.price === null ||
+        Math.round(price * 100) !== Math.round(emitted.price * 100)
+    ),
+    superseded_scopes: context.superseded_scopes.filter(
+      (scope) =>
+        !emitted.scope || !summaryCarriesSpecificFact(emitted.scope, scope, 2)
+    ),
+    superseded_schedules: context.superseded_schedules.filter(
+      (schedule) =>
+        !emitted.schedule || !summaryCarriesSchedule(emitted.schedule, schedule)
+    ),
+    resolved_objections: context.resolved_objections.filter(
+      (objection) =>
+        !emitted.objection ||
+        !summaryCarriesSpecificFact(emitted.objection, objection, 2)
+    ),
+    superseded_next_actions: context.superseded_next_actions.filter(
+      (action) =>
+        !emitted.nextAction ||
+        !summaryCarriesSpecificFact(emitted.nextAction, action, 2)
+    ),
+  };
+}
+
+/**
+ * Commercial twin of `fallbackCurrentFactValidationContext`: the renderer emits
+ * the resolved current price, so a superseded price equal to it cannot be
+ * evidence that the renderer repeated stale money.
+ */
+function fallbackCommercialValidationContext(
+  context: LeadSummaryContextBundle["commercial_context"],
+  emittedPrice: number | null
+): LeadSummaryContextBundle["commercial_context"] {
+  if (!context || emittedPrice === null) return context;
+  return {
+    ...context,
+    superseded_prices: context.superseded_prices.filter(
+      (price) => Math.round(price * 100) !== Math.round(emittedPrice * 100)
+    ),
+  };
 }
 
 function formattedSummaryAmount(amount: number): string {
@@ -3219,11 +3532,21 @@ export function renderDeterministicLeadSummaryFallback(
 
   const currentPrice =
     current?.current_price ?? commercial?.current_price ?? null;
-  const currentScope =
-    current?.current_scope ?? commercial?.current_scope ?? null;
-  const schedule = current?.schedule ?? commercial?.schedule ?? null;
-  const objection = current?.objection ?? commercial?.objection ?? null;
-  const nextAction = current?.next_action ?? commercial?.next_action ?? null;
+  // Both fact contexts are guarded at construction; guarding again here costs
+  // nothing and means the fallback renderer cannot emit a card even if a new
+  // fact source is wired in above it later (bug 7ca126d2).
+  const currentScope = sanitizeSummaryFactText(
+    current?.current_scope ?? commercial?.current_scope ?? null
+  );
+  const schedule = sanitizeSummaryFactText(
+    current?.schedule ?? commercial?.schedule ?? null
+  );
+  const objection = sanitizeSummaryFactText(
+    current?.objection ?? commercial?.objection ?? null
+  );
+  const nextAction = sanitizeSummaryFactText(
+    current?.next_action ?? commercial?.next_action ?? null
+  );
   const clauses: string[] = [];
   if (currentPrice !== null) {
     clauses.push(`Current price: ${formattedSummaryAmount(currentPrice)}`);
@@ -3234,7 +3557,7 @@ export function renderDeterministicLeadSummaryFallback(
     commercial?.excluded_scope
   );
   if (excludedScope) clauses.push(`Excluded scope: ${excludedScope}`);
-  const scheduleFact = deterministicSummaryFragment(schedule);
+  const scheduleFact = schedule ? deterministicScheduleFragment(schedule) : null;
   if (scheduleFact) {
     clauses.push(
       `${scheduleExpectsTentativeAssertion(schedule ?? "") ? "Requested schedule" : "Schedule"}: ${scheduleFact}`
@@ -3250,9 +3573,35 @@ export function renderDeterministicLeadSummaryFallback(
     );
   }
 
-  const summary = `${statusSentence} ${clauses.join("; ")}.`;
-  validateCommercialSummary(summary, fullCommercialValidationContext(bundle));
-  validateCurrentFactSummary(summary, fullCurrentFactValidationContext(bundle));
+  const summary = sanitizeSummaryOutputText(
+    `${statusSentence} ${clauses.join("; ")}.`
+  );
+  const emitted = {
+    price: currentPrice,
+    scope,
+    schedule: scheduleFact,
+    scheduleClauseCarriesSchedule: Boolean(
+      schedule &&
+        scheduleFact &&
+        scheduleFragmentSatisfiesValidator(scheduleFact, schedule)
+    ),
+    objection: objectionFact,
+    nextAction: nextActionFact,
+  };
+  validateCommercialSummary(
+    summary,
+    fallbackCommercialValidationContext(
+      fullCommercialValidationContext(bundle),
+      currentPrice
+    )
+  );
+  validateCurrentFactSummary(
+    summary,
+    fallbackCurrentFactValidationContext(
+      fullCurrentFactValidationContext(bundle),
+      emitted
+    )
+  );
   return summary;
 }
 
@@ -3410,7 +3759,14 @@ RESPOND WITH JSON: { "results": [...] }. No explanation.`;
         "model response omitted the summary"
       );
     }
-    const summary = record.summary.trim();
+    // Sanitize BEFORE validation so the text the validators approve is the
+    // exact text that gets persisted (bug 7ca126d2).
+    const summary = sanitizeSummaryOutputText(record.summary);
+    if (!summary) {
+      throw new LeadSummaryModelContractError(
+        "model response omitted the summary"
+      );
+    }
     lastCandidateSummary = summary;
     validateCommercialSummary(
       summary,
@@ -3518,7 +3874,8 @@ export async function fetchLeadSummaryContextSlices(
   companyId: string,
   opportunityIds: string[],
   opportunityIdentities: Array<
-    Pick<OpportunityRow, "id" | "client_id" | "client_ref" | "contact_email">
+    Pick<OpportunityRow, "id" | "client_id" | "client_ref" | "contact_email"> &
+      Partial<Pick<OpportunityRow, "project_id" | "project_ref">>
   > = []
 ): Promise<Map<string, LeadSummaryContextSlices>> {
   const slicesByOpportunity = new Map<string, LeadSummaryContextSlices>();
@@ -3529,6 +3886,7 @@ export async function fetchLeadSummaryContextSlices(
       stageTransitions: [],
       siteVisits: [],
       threadSummaries: [],
+      projectNotes: [],
       customerEmails: [],
     });
   }
@@ -3699,6 +4057,96 @@ export async function fetchLeadSummaryContextSlices(
     slicesByOpportunity.get(row.opportunity_id)?.threadSummaries.push(row);
   }
 
+  // ── Project notes ───────────────────────────────────────────────────────
+  //
+  // `project_notes` is the iOS-canonical project timeline and was never read
+  // here, so work logged in the field never reached the lead summary. The
+  // linkage is legacy-shaped in both directions (`opportunities.project_id` /
+  // `project_ref` are uuid; `projects.opportunity_id` is TEXT while
+  // `projects.opportunity_ref` is uuid), so both edges are followed.
+  const opportunityIdsByProject = new Map<string, Set<string>>();
+  const linkProject = (projectId: unknown, opportunityId: string) => {
+    if (typeof projectId !== "string" || !projectId.trim()) return;
+    const linked = opportunityIdsByProject.get(projectId) ?? new Set<string>();
+    linked.add(opportunityId);
+    opportunityIdsByProject.set(projectId, linked);
+  };
+  for (const identity of opportunityIdentities) {
+    if (!slicesByOpportunity.has(identity.id)) continue;
+    linkProject(identity.project_id, identity.id);
+    linkProject(identity.project_ref, identity.id);
+  }
+
+  const linkedProjects = await fetchAllContextPages<{
+    id: string;
+    opportunity_id: string | null;
+    opportunity_ref: string | null;
+  }>({
+    table: "projects",
+    companyId,
+    opportunityIds,
+    buildQuery: (opportunityBatch) =>
+      supabase
+        .from("projects")
+        .select("id, opportunity_id, opportunity_ref")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("opportunity_ref", opportunityBatch)
+        .order("id", { ascending: true }),
+  });
+  const legacyLinkedProjects = await fetchAllContextPages<{
+    id: string;
+    opportunity_id: string | null;
+    opportunity_ref: string | null;
+  }>({
+    table: "projects",
+    companyId,
+    opportunityIds,
+    buildQuery: (opportunityBatch) =>
+      supabase
+        .from("projects")
+        .select("id, opportunity_id, opportunity_ref")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("opportunity_id", opportunityBatch)
+        .order("id", { ascending: true }),
+  });
+  for (const project of [...linkedProjects, ...legacyLinkedProjects]) {
+    const owner = project.opportunity_ref ?? project.opportunity_id;
+    if (typeof owner !== "string" || !slicesByOpportunity.has(owner)) continue;
+    linkProject(project.id, owner);
+  }
+
+  const projectIds = [...opportunityIdsByProject.keys()];
+  if (projectIds.length > 0) {
+    const projectNotes = await fetchAllContextPages<ProjectNoteRow>({
+      table: "project_notes",
+      companyId,
+      opportunityIds: projectIds,
+      buildQuery: (projectBatch) =>
+        supabase
+          .from("project_notes")
+          .select("id, project_id, content, event_kind, created_at")
+          .eq("company_id", companyId)
+          .is("deleted_at", null)
+          .in("project_id", projectBatch)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true }),
+    });
+    for (const note of projectNotes) {
+      for (const owner of opportunityIdsByProject.get(note.project_id) ?? []) {
+        const slice = slicesByOpportunity.get(owner);
+        if (
+          !slice ||
+          slice.projectNotes!.length >= PROJECT_NOTES_PER_OPPORTUNITY
+        ) {
+          continue;
+        }
+        slice.projectNotes!.push(note);
+      }
+    }
+  }
+
   return slicesByOpportunity;
 }
 
@@ -3799,6 +4247,65 @@ async function commitLeadSummarySnapshot(input: {
   }
 }
 
+/**
+ * Read the quarantine ledger for a bounded set of opportunities. A read failure
+ * is fatal on purpose: guessing "not quarantined" would re-admit a lead that
+ * cannot converge and re-open the very loop this ledger exists to close.
+ */
+async function loadLeadSummaryQuarantine(
+  supabase: LeadSummarySupabaseLike,
+  companyId: string,
+  opportunityIds: string[]
+): Promise<Map<string, { reason: string; quarantined_at: string }>> {
+  const byOpportunity = new Map<
+    string,
+    { reason: string; quarantined_at: string }
+  >();
+  if (opportunityIds.length === 0) return byOpportunity;
+  const { data, error } = await supabase
+    .from("lead_summary_refresh_quarantine")
+    .select("opportunity_id, reason, quarantined_at")
+    .eq("company_id", companyId)
+    .in("opportunity_id", opportunityIds);
+  if (error) {
+    throw new CronDatabaseOperationError(
+      `[lead-summary] quarantine read failed for ${companyId}: ${error.message ?? "unknown error"}`,
+      { cause: error }
+    );
+  }
+  for (const row of (data ?? []) as Array<{
+    opportunity_id: string;
+    reason: string;
+    quarantined_at: string;
+  }>) {
+    byOpportunity.set(row.opportunity_id, {
+      reason: row.reason,
+      quarantined_at: row.quarantined_at,
+    });
+  }
+  return byOpportunity;
+}
+
+/**
+ * Free a lead for one more bounded round. Non-fatal: failing to release must
+ * never block the refresh that newer evidence just earned — the worst case is
+ * the lead is admitted anyway and the row is cleared on the next pass.
+ */
+async function releaseLeadSummaryQuarantine(
+  supabase: LeadSummarySupabaseLike,
+  opportunityId: string
+): Promise<void> {
+  const { error } = await supabase.rpc(
+    "release_lead_summary_refresh_quarantine",
+    { p_opportunity_id: opportunityId }
+  );
+  if (error) {
+    console.warn(
+      `[lead-summary] quarantine release failed for ${opportunityId}: ${error.message ?? "unknown error"}`
+    );
+  }
+}
+
 export interface TargetedLeadSummaryRefreshResult {
   requested: number;
   attempted: number;
@@ -3812,9 +4319,10 @@ export interface TargetedLeadSummaryRefreshResult {
   /**
    * Per-opportunity summaries skipped because the AI provider was unavailable
    * (quota / outage / transport) or returned an unusable model-contract answer.
-   * These are deferrable derived-data failures: the summary stays dirty and
-   * recovers on the next inbound message or refresh, while the sync cycle
-   * advances its cursor instead of replaying already-persisted email work.
+   * These are deferrable derived-data failures: the summary stays dirty in the
+   * durable continuation until a canonical summary snapshot commits. The
+   * provider token may advance inside that continuation, but end-to-end sync
+   * completion cannot silently discard the summary work.
    */
   deferred: Array<{
     opportunityId: string;
@@ -3892,6 +4400,19 @@ export async function refreshLeadSummariesForOpportunities(input: {
       : "Unknown company";
 
   const nowIso = (input.now ?? new Date()).toISOString();
+
+  // Every caller of the targeted path is driven by concrete new evidence for
+  // these exact leads — new mail, a new attachment, Phase C work, or an
+  // operator asking. That evidence is precisely what re-arms a quarantined
+  // lead, so release it here and give it one more bounded round.
+  const quarantined = await loadLeadSummaryQuarantine(
+    input.supabase,
+    input.companyId,
+    opportunityIds
+  );
+  for (const opportunityId of quarantined.keys()) {
+    await releaseLeadSummaryQuarantine(input.supabase, opportunityId);
+  }
 
   const batchIds = opportunityIds.slice(0, TARGETED_SUMMARY_MAX_PER_CYCLE);
   result.attempted = batchIds.length;
@@ -4011,11 +4532,13 @@ export async function refreshLeadSummariesForOpportunities(input: {
             ...entry,
             reason: "model_contract",
           });
+          result.remainingOpportunityIds.push(opportunity.id);
         } else if (error instanceof LeadSummaryModelRefusalError) {
           result.deferred.push({
             ...entry,
             reason: "model_refusal",
           });
+          result.remainingOpportunityIds.push(opportunity.id);
         } else {
           result.failed.push(entry);
           result.remainingOpportunityIds.push(opportunity.id);
@@ -4156,6 +4679,7 @@ async function sweepCompany(
     opportunity: OpportunityRow;
     slices: LeadSummaryContextSlices;
     stampMs: number | null;
+    latestContextAtMs: number | null;
   }> = [];
   for (const opportunity of opportunities) {
     const slices = slicesByOpportunity.get(opportunity.id);
@@ -4172,6 +4696,7 @@ async function sweepCompany(
         opportunity,
         slices,
         stampMs: parseMs(opportunity.ai_summary_updated_at),
+        latestContextAtMs: aggregates.latestContextAtMs,
       });
     } catch (error) {
       // Treat a corrupt evidence boundary as a failure for this lead only.
@@ -4183,6 +4708,45 @@ async function sweepCompany(
       });
       continue;
     }
+  }
+
+  // A quarantined lead exhausted its bounded refresh budget. It stays out of
+  // the sweep — burning model budget hourly on a summary that cannot converge
+  // helps nobody — until source evidence NEWER than the quarantine arrives,
+  // which re-arms exactly one more bounded round.
+  const quarantineByOpportunity = await loadLeadSummaryQuarantine(
+    supabase,
+    companyId,
+    candidates.map((candidate) => candidate.opportunity.id)
+  );
+  if (quarantineByOpportunity.size > 0) {
+    const admitted: typeof candidates = [];
+    for (const candidate of candidates) {
+      const quarantine = quarantineByOpportunity.get(candidate.opportunity.id);
+      if (!quarantine) {
+        admitted.push(candidate);
+        continue;
+      }
+      const quarantinedAtMs = parseMs(quarantine.quarantined_at);
+      const hasNewerEvidence =
+        candidate.latestContextAtMs !== null &&
+        quarantinedAtMs !== null &&
+        candidate.latestContextAtMs > quarantinedAtMs;
+      if (!hasNewerEvidence) {
+        result.quarantinedCount += 1;
+        if (result.quarantined.length < RESULT_LIST_CAP) {
+          result.quarantined.push({
+            opportunityId: candidate.opportunity.id,
+            reason: quarantine.reason,
+          });
+        }
+        continue;
+      }
+      await releaseLeadSummaryQuarantine(supabase, candidate.opportunity.id);
+      admitted.push(candidate);
+    }
+    candidates.length = 0;
+    candidates.push(...admitted);
   }
 
   // Stalest first: never-stamped leads lead the queue, then oldest stamps.
@@ -4220,11 +4784,46 @@ async function sweepCompany(
         result.skippedInsufficientContext += 1;
         continue;
       }
-      const summary = await generateLeadSummary({
-        companyName,
-        bundle,
-        modelCallBudget: accumulator.modelCallBudget,
-      });
+      let summary: string;
+      try {
+        summary = await generateLeadSummary({
+          companyName,
+          bundle,
+          modelCallBudget: accumulator.modelCallBudget,
+        });
+      } catch (error) {
+        if (
+          !(error instanceof LeadSummaryModelContractError) &&
+          !(error instanceof LeadSummaryModelRefusalError)
+        ) {
+          throw error;
+        }
+        // The scheduled sweep has already spent its bounded model retry.
+        // Resolve from the same trusted fact bundle so a repeatedly invalid or
+        // refused answer cannot strand current price/scope/schedule facts.
+        try {
+          summary = renderDeterministicLeadSummaryFallback(bundle);
+        } catch (fallbackError) {
+          if (
+            !(fallbackError instanceof LeadSummaryModelContractError) &&
+            !(fallbackError instanceof LeadSummaryModelRefusalError)
+          ) {
+            throw fallbackError;
+          }
+          result.deferred.push({
+            opportunityId: candidate.opportunity.id,
+            error:
+              fallbackError instanceof Error
+                ? fallbackError.message
+                : "unknown error",
+            reason:
+              error instanceof LeadSummaryModelRefusalError
+                ? "model_refusal"
+                : "model_contract",
+          });
+          continue;
+        }
+      }
       await commitLeadSummarySnapshot({
         supabase,
         companyId,
@@ -4314,8 +4913,11 @@ export async function runLeadSummaryRefresh(
     modelCallLimitReached: false,
     skippedInsufficientContext: 0,
     failed: [],
+    deferred: [],
     written: [],
     candidatesPreview: [],
+    quarantined: [],
+    quarantinedCount: 0,
     opportunityWindow: null,
   };
 

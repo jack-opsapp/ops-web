@@ -33,14 +33,37 @@ import { bucketize } from "./date-utils";
 
 const db = () => getAdminSupabase();
 
+export class AdminQueryError extends Error {
+  constructor(operation: string, cause: { message?: string; code?: string }) {
+    super(`Admin query failed [${operation}]: ${cause.message ?? "unknown error"}`);
+    this.name = "AdminQueryError";
+    this.cause = cause;
+  }
+}
+
+/**
+ * Await a Supabase query and throw if it carried an error. Preserves the
+ * result shape so call sites keep destructuring { data } / { count }.
+ * Every admin read goes through this — a dead query can never again
+ * record zeros as success (42703 / PGRST204 / PGRST205 family).
+ */
+async function adminRead<T extends { error: { message?: string; code?: string } | null }>(
+  operation: string,
+  pending: PromiseLike<T>
+): Promise<T> {
+  const result = await pending;
+  if (result.error) throw new AdminQueryError(operation, result.error);
+  return result;
+}
+
 // ─── Admin Access ────────────────────────────────────────────────────────────
 
 const _isAdminEmail = unstable_cache(
   async (email: string): Promise<boolean> => {
-    const { count } = await db()
-      .from("admins")
-      .select("*", { count: "exact", head: true })
-      .eq("email", email);
+    const { count } = await adminRead(
+      "admin email check",
+      db().from("admins").select("*", { count: "exact", head: true }).eq("email", email)
+    );
     return (count ?? 0) > 0;
   },
   ["admin-email-check"],
@@ -53,46 +76,53 @@ export async function isAdminEmail(email: string): Promise<boolean> {
 
 /** Get all admin email addresses (for briefing email delivery). */
 export async function getAdminEmails(): Promise<string[]> {
-  const { data } = await db()
-    .from("admins")
-    .select("email");
+  const { data } = await adminRead("admin emails", db().from("admins").select("email"));
   return (data ?? []).map((row) => row.email).filter(Boolean);
 }
 
 // ─── Overview Queries ─────────────────────────────────────────────────────────
 
 export async function getTotalCompanies(): Promise<number> {
-  const { count } = await db().from("companies").select("*", { count: "exact", head: true }).is("deleted_at", null);
+  const { count } = await adminRead(
+    "companies total",
+    db().from("companies").select("*", { count: "exact", head: true }).is("deleted_at", null)
+  );
   return count ?? 0;
 }
 
 export async function getTrialsExpiringIn(days: number): Promise<number> {
   const cutoff = new Date(Date.now() + days * 86_400_000).toISOString();
-  const { count } = await db()
-    .from("companies").select("*", { count: "exact", head: true })
-    .eq("subscription_status", "trial")
-    .lte("trial_end_date", cutoff)
-    .gte("trial_end_date", new Date().toISOString())
-    .is("deleted_at", null);
+  const { count } = await adminRead(
+    "trials expiring companies",
+    db()
+      .from("companies").select("*", { count: "exact", head: true })
+      .eq("subscription_status", "trial")
+      .lte("trial_end_date", cutoff)
+      .gte("trial_end_date", new Date().toISOString())
+      .is("deleted_at", null)
+  );
   return count ?? 0;
 }
 
 export async function getRecentSignups(limit = 10) {
-  const { data } = await db()
-    .from("companies")
-    .select("id, name, subscription_plan, subscription_status, created_at")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const { data } = await adminRead(
+    "recent signups",
+    db()
+      .from("companies")
+      .select("id, name, subscription_plan, subscription_status, created_at")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(limit)
+  );
   return data ?? [];
 }
 
 export async function getCompanySparkline(weeks = 12): Promise<ChartDataPoint[]> {
   const since = new Date(Date.now() - weeks * 7 * 86_400_000).toISOString();
-  const { data } = await db()
-    .from("companies").select("created_at")
-    .gte("created_at", since)
-    .is("deleted_at", null);
+  const { data } = await adminRead(
+    "company sparkline",
+    db().from("companies").select("created_at").gte("created_at", since).is("deleted_at", null)
+  );
 
   const weekBuckets: Record<string, number> = {};
   for (const row of data ?? []) {
@@ -109,10 +139,10 @@ export async function getCompanySparkline(weeks = 12): Promise<ChartDataPoint[]>
 
 export async function getTasksCreatedSparkline(weeks = 12): Promise<ChartDataPoint[]> {
   const since = new Date(Date.now() - weeks * 7 * 86_400_000).toISOString();
-  const { data } = await db()
-    .from("project_tasks").select("created_at")
-    .gte("created_at", since)
-    .is("deleted_at", null);
+  const { data } = await adminRead(
+    "tasks created sparkline",
+    db().from("project_tasks").select("created_at").gte("created_at", since).is("deleted_at", null)
+  );
 
   const weekBuckets: Record<string, number> = {};
   for (const row of data ?? []) {
@@ -171,11 +201,14 @@ export function getActiveUsersTimeline(
 // ─── Revenue Queries ──────────────────────────────────────────────────────────
 
 export async function computeMRR(): Promise<number> {
-  const { data } = await db()
-    .from("companies")
-    .select("subscription_plan")
-    .in("subscription_status", ["active", "grace"])
-    .is("deleted_at", null);
+  const { data } = await adminRead(
+    "mrr companies",
+    db()
+      .from("companies")
+      .select("subscription_plan")
+      .in("subscription_status", ["active", "grace"])
+      .is("deleted_at", null)
+  );
 
   return (data ?? []).reduce((sum, c) => {
     return sum + (PLAN_PRICES[c.subscription_plan ?? ""] ?? 0);
@@ -183,38 +216,50 @@ export async function computeMRR(): Promise<number> {
 }
 
 export async function getPayingCompanyCount(): Promise<number> {
-  const { count } = await db()
-    .from("companies").select("*", { count: "exact", head: true })
-    .in("subscription_status", ["active", "grace"])
-    .is("deleted_at", null);
+  const { count } = await adminRead(
+    "paying companies",
+    db()
+      .from("companies").select("*", { count: "exact", head: true })
+      .in("subscription_status", ["active", "grace"])
+      .is("deleted_at", null)
+  );
   return count ?? 0;
 }
 
 export async function getTrialCount(): Promise<number> {
-  const { count } = await db()
-    .from("companies").select("*", { count: "exact", head: true })
-    .eq("subscription_status", "trial")
-    .is("deleted_at", null);
+  const { count } = await adminRead(
+    "trial companies",
+    db()
+      .from("companies").select("*", { count: "exact", head: true })
+      .eq("subscription_status", "trial")
+      .is("deleted_at", null)
+  );
   return count ?? 0;
 }
 
 export async function getChurnedCount(days = 30): Promise<number> {
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
-  const { count } = await db()
-    .from("companies").select("*", { count: "exact", head: true })
-    .in("subscription_status", ["expired", "cancelled", "canceled"])
-    .gte("subscription_end", since)
-    .is("deleted_at", null);
+  const { count } = await adminRead(
+    "churned companies",
+    db()
+      .from("companies").select("*", { count: "exact", head: true })
+      .in("subscription_status", ["expired", "cancelled", "canceled"])
+      .gte("subscription_end", since)
+      .is("deleted_at", null)
+  );
   return count ?? 0;
 }
 
 export async function getTrialConversionRate(days = 90): Promise<number> {
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
-  const { data } = await db()
-    .from("companies")
-    .select("subscription_status")
-    .gte("created_at", since)
-    .is("deleted_at", null);
+  const { data } = await adminRead(
+    "trial conversion companies",
+    db()
+      .from("companies")
+      .select("subscription_status")
+      .gte("created_at", since)
+      .is("deleted_at", null)
+  );
 
   const all = data ?? [];
   const started = all.length;
@@ -225,11 +270,14 @@ export async function getTrialConversionRate(days = 90): Promise<number> {
 }
 
 export async function getPlanDistribution(): Promise<PlanDistribution[]> {
-  const { data } = await db()
-    .from("companies")
-    .select("id, subscription_plan, subscription_status, seated_employee_ids")
-    .in("subscription_status", ["active", "grace", "trial"])
-    .is("deleted_at", null);
+  const { data } = await adminRead(
+    "plan distribution companies",
+    db()
+      .from("companies")
+      .select("id, subscription_plan, subscription_status, seated_employee_ids")
+      .in("subscription_status", ["active", "grace", "trial"])
+      .is("deleted_at", null)
+  );
 
   const plans: Record<string, { ids: string[]; seats: number[] }> = {};
   for (const c of data ?? []) {
@@ -241,10 +289,10 @@ export async function getPlanDistribution(): Promise<PlanDistribution[]> {
 
   // Get project counts per company in batch
   const allIds = (data ?? []).map((c) => c.id);
-  const { data: projectRows } = await db()
-    .from("projects").select("company_id")
-    .in("company_id", allIds)
-    .is("deleted_at", null);
+  const { data: projectRows } = await adminRead(
+    "plan distribution projects",
+    db().from("projects").select("company_id").in("company_id", allIds).is("deleted_at", null)
+  );
 
   const projectsByCompany: Record<string, number> = {};
   for (const p of projectRows ?? []) {
@@ -271,10 +319,13 @@ export async function getPlanDistribution(): Promise<PlanDistribution[]> {
 }
 
 export async function getMRRGrowth(months = 12): Promise<ChartDataPoint[]> {
-  const { data } = await db()
-    .from("companies")
-    .select("subscription_plan, subscription_status, created_at")
-    .is("deleted_at", null);
+  const { data } = await adminRead(
+    "mrr growth companies",
+    db()
+      .from("companies")
+      .select("subscription_plan, subscription_status, created_at")
+      .is("deleted_at", null)
+  );
 
   const monthBuckets: Record<string, number> = {};
   const now = new Date();
@@ -300,10 +351,13 @@ export async function getMRRGrowth(months = 12): Promise<ChartDataPoint[]> {
 }
 
 export async function getNewVsChurned(months = 12): Promise<StackedBarDataPoint[]> {
-  const { data } = await db()
-    .from("companies")
-    .select("subscription_status, subscription_end, created_at")
-    .is("deleted_at", null);
+  const { data } = await adminRead(
+    "new vs churned companies",
+    db()
+      .from("companies")
+      .select("subscription_status, subscription_end, created_at")
+      .is("deleted_at", null)
+  );
 
   const now = new Date();
   const result: StackedBarDataPoint[] = [];
@@ -337,13 +391,16 @@ export async function getTrialExpirationTimeline(days = 30): Promise<ChartDataPo
   const now = new Date();
   const cutoff = new Date(Date.now() + days * 86_400_000).toISOString();
 
-  const { data } = await db()
-    .from("companies")
-    .select("trial_end_date")
-    .eq("subscription_status", "trial")
-    .gte("trial_end_date", now.toISOString())
-    .lte("trial_end_date", cutoff)
-    .is("deleted_at", null);
+  const { data } = await adminRead(
+    "trial expiration timeline",
+    db()
+      .from("companies")
+      .select("trial_end_date")
+      .eq("subscription_status", "trial")
+      .gte("trial_end_date", now.toISOString())
+      .lte("trial_end_date", cutoff)
+      .is("deleted_at", null)
+  );
 
   const dayBuckets: Record<string, number> = {};
   for (const c of data ?? []) {
@@ -358,11 +415,14 @@ export async function getTrialExpirationTimeline(days = 30): Promise<ChartDataPo
 }
 
 export async function getSeatUtilization(): Promise<SeatUtilization[]> {
-  const { data } = await db()
-    .from("companies")
-    .select("id, name, subscription_plan, seated_employee_ids, max_seats")
-    .in("subscription_status", ["active", "grace"])
-    .is("deleted_at", null);
+  const { data } = await adminRead(
+    "seat utilization companies",
+    db()
+      .from("companies")
+      .select("id, name, subscription_plan, seated_employee_ids, max_seats")
+      .in("subscription_status", ["active", "grace"])
+      .is("deleted_at", null)
+  );
 
   return (data ?? [])
     .map((c) => {
@@ -391,35 +451,43 @@ export async function getFeatureAdoption(): Promise<FeatureAdoption[]> {
     { feature: "Clients", table: "clients" },
     { feature: "Sub-Clients", table: "sub_clients" },
     { feature: "Calendar Events", table: "calendar_events" },
-    { feature: "Pipeline", table: "pipeline_references" },
+    { feature: "Pipeline", table: "opportunities" },
     { feature: "Estimates", table: "estimates" },
     { feature: "Invoices", table: "invoices" },
     { feature: "Payments", table: "payments" },
     { feature: "Products", table: "products" },
     { feature: "Task Types", table: "task_types" },
     { feature: "Site Visits", table: "site_visits" },
-    { feature: "Photos", table: "photos" },
-    { feature: "Notes", table: "notes" },
+    { feature: "Photos", table: "project_photos" },
+    { feature: "Notes", table: "project_notes" },
   ];
+
+  // Payments are voided, not soft-deleted — every other table carries deleted_at.
+  const NOT_DELETED: Record<string, { column: string }> = {
+    payments: { column: "voided_at" },
+  };
+  const filterColumn = (table: string) => NOT_DELETED[table]?.column ?? "deleted_at";
 
   const results = await Promise.all(
     features.map(async ({ feature, table }) => {
-      try {
-        const [{ count: totalCount }, { data: companyIds }] = await Promise.all([
-          db().from(table).select("*", { count: "exact", head: true }).is("deleted_at", null),
-          db().from(table).select("company_id").is("deleted_at", null),
-        ]);
+      const [{ count: totalCount }, { data: companyIds }] = await Promise.all([
+        adminRead(
+          `feature adoption ${table} count`,
+          db().from(table).select("*", { count: "exact", head: true }).is(filterColumn(table), null)
+        ),
+        adminRead(
+          `feature adoption ${table} companies`,
+          db().from(table).select("company_id").is(filterColumn(table), null)
+        ),
+      ]);
 
-        const uniqueCompanies = new Set((companyIds ?? []).map((r) => r.company_id));
-        const companiesUsing = uniqueCompanies.size;
-        const adoptionRate = totalCompanies > 0
-          ? Math.round((companiesUsing / totalCompanies) * 100)
-          : 0;
+      const uniqueCompanies = new Set((companyIds ?? []).map((r) => r.company_id));
+      const companiesUsing = uniqueCompanies.size;
+      const adoptionRate = totalCompanies > 0
+        ? Math.round((companiesUsing / totalCompanies) * 100)
+        : 0;
 
-        return { feature, table, totalCount: totalCount ?? 0, companiesUsing, adoptionRate };
-      } catch {
-        return { feature, table, totalCount: 0, companiesUsing: 0, adoptionRate: 0 };
-      }
+      return { feature, table, totalCount: totalCount ?? 0, companiesUsing, adoptionRate };
     })
   );
 
@@ -427,23 +495,27 @@ export async function getFeatureAdoption(): Promise<FeatureAdoption[]> {
 }
 
 export async function getEngagementDistribution(): Promise<ChartDataPoint[]> {
-  const { data: companies } = await db()
-    .from("companies").select("id")
-    .is("deleted_at", null);
+  const { data: companies } = await adminRead(
+    "engagement companies",
+    db().from("companies").select("id").is("deleted_at", null)
+  );
 
   if (!companies?.length) return [];
 
-  const { data: projects } = await db()
-    .from("projects").select("company_id")
-    .is("deleted_at", null);
-
-  const { data: tasks } = await db()
-    .from("project_tasks").select("company_id")
-    .is("deleted_at", null);
-
-  const { data: clients } = await db()
-    .from("clients").select("company_id")
-    .is("deleted_at", null);
+  const [{ data: projects }, { data: tasks }, { data: clients }] = await Promise.all([
+    adminRead(
+      "engagement projects",
+      db().from("projects").select("company_id").is("deleted_at", null)
+    ),
+    adminRead(
+      "engagement tasks",
+      db().from("project_tasks").select("company_id").is("deleted_at", null)
+    ),
+    adminRead(
+      "engagement clients",
+      db().from("clients").select("company_id").is("deleted_at", null)
+    ),
+  ]);
 
   const entityCounts: Record<string, number> = {};
   for (const c of companies) entityCounts[c.id] = 0;
@@ -472,16 +544,16 @@ export async function getCohortRetention(): Promise<{
 }[]> {
   // This requires Firebase auth data — pass it in from the caller
   // Placeholder: return company signup cohorts with project activity as proxy
-  const { data: companies } = await db()
-    .from("companies")
-    .select("id, created_at")
-    .is("deleted_at", null)
-    .order("created_at");
-
-  const { data: projects } = await db()
-    .from("projects")
-    .select("company_id, created_at")
-    .is("deleted_at", null);
+  const [{ data: companies }, { data: projects }] = await Promise.all([
+    adminRead(
+      "cohort companies",
+      db().from("companies").select("id, created_at").is("deleted_at", null).order("created_at")
+    ),
+    adminRead(
+      "cohort projects",
+      db().from("projects").select("company_id, created_at").is("deleted_at", null)
+    ),
+  ]);
 
   const projectsByCompany: Record<string, Date[]> = {};
   for (const p of projects ?? []) {
@@ -531,11 +603,14 @@ export async function getCohortRetention(): Promise<{
 // ─── Companies Queries ────────────────────────────────────────────────────────
 
 export async function getCompanyList(): Promise<CompanyListItem[]> {
-  const { data: companies } = await db()
-    .from("companies")
-    .select("id, name, subscription_plan, subscription_status, subscription_end, trial_start_date, trial_end_date, created_at, seated_employee_ids, max_seats, stripe_customer_id, has_priority_support, data_setup_completed, data_setup_purchased")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+  const { data: companies } = await adminRead(
+    "company list",
+    db()
+      .from("companies")
+      .select("id, name, subscription_plan, subscription_status, subscription_end, trial_start_date, trial_end_date, created_at, seated_employee_ids, max_seats, stripe_customer_id, has_priority_support, data_setup_completed, data_setup_purchased")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+  );
 
   if (!companies?.length) return [];
 
@@ -547,9 +622,19 @@ export async function getCompanyList(): Promise<CompanyListItem[]> {
     { data: projects },
     { data: pipeline },
   ] = await Promise.all([
-    db().from("users").select("company_id").in("company_id", ids).is("deleted_at", null),
-    db().from("projects").select("company_id").in("company_id", ids).is("deleted_at", null),
-    db().from("pipeline_references").select("company_id").in("company_id", ids).is("deleted_at", null),
+    adminRead(
+      "company list users",
+      db().from("users").select("company_id").in("company_id", ids).is("deleted_at", null)
+    ),
+    adminRead(
+      "company list projects",
+      db().from("projects").select("company_id").in("company_id", ids).is("deleted_at", null)
+    ),
+    adminRead(
+      "company list opportunities",
+      db().from("opportunities").select("company_id").in("company_id", ids)
+        .is("deleted_at", null).is("archived_at", null)
+    ),
   ]);
 
   const count = (rows: { company_id: string }[] | null, id: string) =>
@@ -575,22 +660,45 @@ export async function getCompanyDetail(id: string) {
     { count: estimateCount },
     { count: invoiceCount },
   ] = await Promise.all([
+    // Not routed through adminRead: .single() reports a missing company as an
+    // error, and the `!company -> null` contract below is what renders the 404.
     db().from("companies").select("*").eq("id", id).is("deleted_at", null).single(),
-    db().from("users").select("id, first_name, last_name, email, role, created_at")
-      .eq("company_id", id).is("deleted_at", null).order("created_at"),
-    db().from("projects").select("id, title, status, created_at")
-      .eq("company_id", id).is("deleted_at", null)
-      .order("created_at", { ascending: false }).limit(20),
-    db().from("project_tasks").select("*", { count: "exact", head: true })
-      .eq("company_id", id).is("deleted_at", null),
-    db().from("clients").select("*", { count: "exact", head: true })
-      .eq("company_id", id).is("deleted_at", null),
-    db().from("pipeline_references").select("*", { count: "exact", head: true })
-      .eq("company_id", id).is("deleted_at", null),
-    db().from("estimates").select("*", { count: "exact", head: true })
-      .eq("company_id", id).is("deleted_at", null),
-    db().from("invoices").select("*", { count: "exact", head: true })
-      .eq("company_id", id).is("deleted_at", null),
+    adminRead(
+      "company detail users",
+      db().from("users").select("id, first_name, last_name, email, role, created_at")
+        .eq("company_id", id).is("deleted_at", null).order("created_at")
+    ),
+    adminRead(
+      "company detail projects",
+      db().from("projects").select("id, title, status, created_at")
+        .eq("company_id", id).is("deleted_at", null)
+        .order("created_at", { ascending: false }).limit(20)
+    ),
+    adminRead(
+      "company detail tasks",
+      db().from("project_tasks").select("*", { count: "exact", head: true })
+        .eq("company_id", id).is("deleted_at", null)
+    ),
+    adminRead(
+      "company detail clients",
+      db().from("clients").select("*", { count: "exact", head: true })
+        .eq("company_id", id).is("deleted_at", null)
+    ),
+    adminRead(
+      "company detail opportunities",
+      db().from("opportunities").select("*", { count: "exact", head: true })
+        .eq("company_id", id).is("deleted_at", null).is("archived_at", null)
+    ),
+    adminRead(
+      "company detail estimates",
+      db().from("estimates").select("*", { count: "exact", head: true })
+        .eq("company_id", id).is("deleted_at", null)
+    ),
+    adminRead(
+      "company detail invoices",
+      db().from("invoices").select("*", { count: "exact", head: true })
+        .eq("company_id", id).is("deleted_at", null)
+    ),
   ]);
 
   if (!company) return null;
@@ -618,9 +726,18 @@ export async function getCompanyUsageTimeline(companyId: string, weeks = 12): Pr
     { data: tasks },
     { data: clients },
   ] = await Promise.all([
-    db().from("projects").select("created_at").eq("company_id", companyId).gte("created_at", since).is("deleted_at", null),
-    db().from("project_tasks").select("created_at").eq("company_id", companyId).gte("created_at", since).is("deleted_at", null),
-    db().from("clients").select("created_at").eq("company_id", companyId).gte("created_at", since).is("deleted_at", null),
+    adminRead(
+      "usage timeline projects",
+      db().from("projects").select("created_at").eq("company_id", companyId).gte("created_at", since).is("deleted_at", null)
+    ),
+    adminRead(
+      "usage timeline tasks",
+      db().from("project_tasks").select("created_at").eq("company_id", companyId).gte("created_at", since).is("deleted_at", null)
+    ),
+    adminRead(
+      "usage timeline clients",
+      db().from("clients").select("created_at").eq("company_id", companyId).gte("created_at", since).is("deleted_at", null)
+    ),
   ]);
 
   const bucketize = (rows: { created_at: string }[] | null): ChartDataPoint[] => {
@@ -647,40 +764,48 @@ export async function getCompanyUsageTimeline(companyId: string, weeks = 12): Pr
 // ─── Platform Health Queries ──────────────────────────────────────────────────
 
 export async function getPipelineStats() {
-  const { data: pipeline } = await db()
-    .from("pipeline_references")
-    .select("id, stage, value, created_at, updated_at")
-    .is("deleted_at", null);
+  const { data: opportunities } = await adminRead(
+    "pipeline opportunities",
+    db()
+      .from("opportunities")
+      .select("id, stage, estimated_value, stage_entered_at, created_at, updated_at")
+      .is("deleted_at", null)
+      .is("archived_at", null)
+  );
 
-  const all = pipeline ?? [];
+  const all = opportunities ?? [];
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Stage vocabulary: src/lib/types/pipeline.ts (won / lost / discarded are terminal;
+  // discarded = junk lead, excluded from pipeline math entirely).
+  const TERMINAL = ["won", "lost", "discarded"];
 
+  const live = all.filter((o) => !TERMINAL.includes((o.stage ?? "").toLowerCase()));
   const stages: Record<string, { count: number; totalValue: number }> = {};
-  for (const p of all) {
-    const stage = p.stage ?? "Unknown";
+  for (const o of all) {
+    const stage = (o.stage ?? "unknown").toLowerCase();
+    if (stage === "discarded") continue;
     if (!stages[stage]) stages[stage] = { count: 0, totalValue: 0 };
     stages[stage].count++;
-    stages[stage].totalValue += p.value ?? 0;
+    stages[stage].totalValue += o.estimated_value ?? 0;
   }
 
   const stageDistribution: PipelineStage[] = Object.entries(stages).map(([stage, s]) => ({
     stage,
     count: s.count,
     totalValue: s.totalValue,
-    avgDays: 0, // would need status change timestamps
+    avgDays: 0, // would need stage transition history
   }));
 
-  const activeDeals = all.filter((p) => !["won", "lost", "closed"].includes((p.stage ?? "").toLowerCase())).length;
-  const pipelineValue = all
-    .filter((p) => !["won", "lost", "closed"].includes((p.stage ?? "").toLowerCase()))
-    .reduce((sum, p) => sum + (p.value ?? 0), 0);
-  const wonThisMonth = all.filter((p) =>
-    (p.stage ?? "").toLowerCase() === "won" && new Date(p.updated_at ?? p.created_at) >= monthStart
+  const activeDeals = live.length;
+  const pipelineValue = live.reduce((sum, o) => sum + (o.estimated_value ?? 0), 0);
+  const wonThisMonth = all.filter((o) =>
+    (o.stage ?? "").toLowerCase() === "won" &&
+    new Date(o.stage_entered_at ?? o.updated_at ?? o.created_at) >= monthStart
   ).length;
-  const totalClosed = all.filter((p) => ["won", "lost"].includes((p.stage ?? "").toLowerCase())).length;
-  const totalWon = all.filter((p) => (p.stage ?? "").toLowerCase() === "won").length;
-  const winRate = totalClosed > 0 ? Math.round((totalWon / totalClosed) * 100) : 0;
+  const totalWon = all.filter((o) => (o.stage ?? "").toLowerCase() === "won").length;
+  const totalLost = all.filter((o) => (o.stage ?? "").toLowerCase() === "lost").length;
+  const winRate = totalWon + totalLost > 0 ? Math.round((totalWon / (totalWon + totalLost)) * 100) : 0;
 
   return { activeDeals, pipelineValue, wonThisMonth, winRate, stageDistribution };
 }
@@ -691,9 +816,18 @@ export async function getFinancialStats() {
     { data: invoices },
     { data: payments },
   ] = await Promise.all([
-    db().from("estimates").select("id, status, total_amount, created_at").is("deleted_at", null),
-    db().from("invoices").select("id, status, total_amount, due_date, created_at").is("deleted_at", null),
-    db().from("payments").select("id, amount, created_at").is("deleted_at", null),
+    adminRead(
+      "financial estimates",
+      db().from("estimates").select("id, status, total, created_at").is("deleted_at", null)
+    ),
+    adminRead(
+      "financial invoices",
+      db().from("invoices").select("id, status, total, balance_due, due_date, created_at").is("deleted_at", null)
+    ),
+    adminRead(
+      "financial payments",
+      db().from("payments").select("id, amount, created_at").is("voided_at", null)
+    ),
   ]);
 
   const allEstimates = estimates ?? [];
@@ -703,21 +837,27 @@ export async function getFinancialStats() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const estimateTotal = allEstimates.reduce((sum, e) => sum + (e.total_amount ?? 0), 0);
-  const approvedEstimates = allEstimates.filter((e) => e.status === "approved").length;
+  const estimateTotal = allEstimates.reduce((sum, e) => sum + (e.total ?? 0), 0);
+  // Live estimate statuses: approved, converted, sent, viewed, changes_requested, declined.
+  // A converted estimate was approved and then became an invoice — both are approvals.
+  const approvedEstimates = allEstimates.filter((e) =>
+    ["approved", "converted"].includes(e.status ?? "")
+  ).length;
   const estimateApprovalRate = allEstimates.length > 0
     ? Math.round((approvedEstimates / allEstimates.length) * 100) : 0;
 
+  // Live invoice statuses: awaiting_payment, paid, partially_paid, past_due, sent, void.
+  // balance_due is what is actually still owed (honest for partially_paid).
   const outstandingInvoices = allInvoices
-    .filter((i) => !["paid", "cancelled"].includes(i.status ?? ""))
-    .reduce((sum, i) => sum + (i.total_amount ?? 0), 0);
+    .filter((i) => !["paid", "void"].includes(i.status ?? ""))
+    .reduce((sum, i) => sum + (i.balance_due ?? i.total ?? 0), 0);
 
   const paymentsThisMonth = allPayments
     .filter((p) => new Date(p.created_at) >= monthStart)
     .reduce((sum, p) => sum + (p.amount ?? 0), 0);
 
   // Invoice aging
-  const openInvoices = allInvoices.filter((i) => !["paid", "cancelled"].includes(i.status ?? ""));
+  const openInvoices = allInvoices.filter((i) => !["paid", "void"].includes(i.status ?? ""));
   const aging: InvoiceAging[] = [
     { bucket: "Current", count: 0, totalAmount: 0 },
     { bucket: "1-30 days", count: 0, totalAmount: 0 },
@@ -729,7 +869,7 @@ export async function getFinancialStats() {
   for (const inv of openInvoices) {
     const dueDate = inv.due_date ? new Date(inv.due_date) : new Date(inv.created_at);
     const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / 86_400_000);
-    const amount = inv.total_amount ?? 0;
+    const amount = inv.balance_due ?? inv.total ?? 0;
     if (daysOverdue <= 0) { aging[0].count++; aging[0].totalAmount += amount; }
     else if (daysOverdue <= 30) { aging[1].count++; aging[1].totalAmount += amount; }
     else if (daysOverdue <= 60) { aging[2].count++; aging[2].totalAmount += amount; }
@@ -756,44 +896,79 @@ export async function getFinancialStats() {
   };
 }
 
+/**
+ * Portal + integration reach. There are no portal flags on `companies` — each
+ * number comes from the table that actually records the state:
+ * portalInUse = a real (non-preview) client portal token was issued,
+ * brandingConfigured = the company has a portal_branding row,
+ * emailConnected = an active email connection of any provider,
+ * accountingConnected = accounting_connections.is_connected.
+ */
 export async function getPortalStats() {
-  // Portal stats from companies table flags
-  const { data: companies } = await db()
-    .from("companies")
-    .select("id, portal_enabled, portal_branding_configured, gmail_connected, accounting_connected")
-    .is("deleted_at", null);
+  const [
+    total,
+    { data: brandingRows },
+    { data: tokenRows },
+    { data: emailRows },
+    { data: accountingRows },
+  ] = await Promise.all([
+    getTotalCompanies(),
+    adminRead("portal branding", db().from("portal_branding").select("company_id")),
+    adminRead(
+      "portal tokens",
+      db().from("portal_tokens").select("company_id").not("is_preview", "is", true)
+    ),
+    adminRead(
+      "email connections",
+      db().from("email_connections").select("company_id").eq("status", "active")
+    ),
+    adminRead(
+      "accounting connections",
+      db().from("accounting_connections").select("company_id").eq("is_connected", true)
+    ),
+  ]);
 
-  const all = companies ?? [];
-  const portalEnabled = all.filter((c) => c.portal_enabled).length;
-  const brandingConfigured = all.filter((c) => c.portal_branding_configured).length;
-  const gmailConnected = all.filter((c) => c.gmail_connected).length;
-  const accountingConnected = all.filter((c) => c.accounting_connected).length;
+  const distinct = (rows: { company_id: string }[] | null) =>
+    new Set((rows ?? []).map((r) => r.company_id)).size;
 
-  return { portalEnabled, brandingConfigured, gmailConnected, accountingConnected, total: all.length };
+  return {
+    portalInUse: distinct(tokenRows),
+    brandingConfigured: distinct(brandingRows),
+    emailConnected: distinct(emailRows),
+    accountingConnected: distinct(accountingRows),
+    total,
+  };
 }
 
 // ─── Feedback Queries ─────────────────────────────────────────────────────────
 
 export async function getFeatureRequests(): Promise<FeatureRequest[]> {
-  const { data } = await db()
-    .from("feature_requests")
-    .select("id, type, title, description, platform, status, user_email, created_at")
-    .order("created_at", { ascending: false });
+  const { data } = await adminRead(
+    "feature requests",
+    db()
+      .from("feature_requests")
+      .select("id, type, title, description, platform, status, user_email, created_at")
+      .order("created_at", { ascending: false })
+  );
   return (data ?? []) as FeatureRequest[];
 }
 
 export async function updateFeatureRequestStatus(id: string, status: string) {
-  await db().from("feature_requests").update({ status }).eq("id", id);
+  const { error } = await db().from("feature_requests").update({ status }).eq("id", id);
+  if (error) throw new AdminQueryError("feature request status update", error);
 }
 
 export async function getBugReports(): Promise<BugReportRow[]> {
-  const { data: reports } = await db()
-    .from("bug_reports")
-    .select(
-      "id, company_id, reporter_id, description, category, platform, status, priority, screen_name, url, browser, browser_version, os_name, os_version, device_model, app_version, viewport_width, viewport_height, network_type, reporter_name, reporter_email, screenshot_url, console_logs, breadcrumbs, state_snapshot, custom_metadata, resolution_notes, resolved_at, created_at"
-    )
-    .order("created_at", { ascending: false })
-    .limit(500);
+  const { data: reports } = await adminRead(
+    "bug reports",
+    db()
+      .from("bug_reports")
+      .select(
+        "id, company_id, reporter_id, description, category, platform, status, priority, screen_name, url, browser, browser_version, os_name, os_version, device_model, app_version, viewport_width, viewport_height, network_type, reporter_name, reporter_email, screenshot_url, console_logs, breadcrumbs, state_snapshot, custom_metadata, resolution_notes, resolved_at, created_at"
+      )
+      .order("created_at", { ascending: false })
+      .limit(500)
+  );
 
   if (!reports || reports.length === 0) return [];
 
@@ -803,10 +978,10 @@ export async function getBugReports(): Promise<BugReportRow[]> {
 
   let nameById = new Map<string, string>();
   if (companyIds.length > 0) {
-    const { data: companies } = await db()
-      .from("companies")
-      .select("id, name")
-      .in("id", companyIds);
+    const { data: companies } = await adminRead(
+      "bug report companies",
+      db().from("companies").select("id, name").in("id", companyIds)
+    );
     nameById = new Map((companies ?? []).map((c) => [c.id as string, c.name as string]));
   }
 
@@ -817,11 +992,19 @@ export async function getBugReports(): Promise<BugReportRow[]> {
 }
 
 export async function updateBugReportStatus(id: string, status: string) {
-  await db().from("bug_reports").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await db()
+    .from("bug_reports")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new AdminQueryError("bug report status update", error);
 }
 
 export async function updateBugReportPriority(id: string, priority: string) {
-  await db().from("bug_reports").update({ priority, updated_at: new Date().toISOString() }).eq("id", id);
+  const { error } = await db()
+    .from("bug_reports")
+    .update({ priority, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw new AdminQueryError("bug report priority update", error);
 }
 
 /**
@@ -863,10 +1046,10 @@ export async function getBugReportScreenshotSignedUrl(path: string | null): Prom
 }
 
 export async function getAppMessages(): Promise<AppMessage[]> {
-  const { data } = await db()
-    .from("app_messages")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const { data } = await adminRead(
+    "app messages",
+    db().from("app_messages").select("*").order("created_at", { ascending: false })
+  );
   return (data ?? []) as AppMessage[];
 }
 
@@ -908,21 +1091,27 @@ export async function deleteAppMessage(id: string): Promise<void> {
 }
 
 export async function getPromoCodes(): Promise<PromoCode[]> {
-  const { data } = await db()
-    .from("promo_codes")
-    .select("id, code, discount_percent, discount_amount, usage_count, max_uses, active, created_at")
-    .order("created_at", { ascending: false });
+  const { data } = await adminRead(
+    "promo codes",
+    db()
+      .from("promo_codes")
+      .select("id, code, discount_type, discount_value, current_uses, max_uses, is_active, created_at")
+      .order("created_at", { ascending: false })
+  );
   return (data ?? []) as PromoCode[];
 }
 
 // ─── System Queries ───────────────────────────────────────────────────────────
 
 export async function getAuditLog(limit = 50): Promise<AuditLogEntry[]> {
-  const { data } = await db()
-    .from("audit_log")
-    .select("id, table_name, record_id, action, old_data, new_data, created_at")
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const { data } = await adminRead(
+    "audit log",
+    db()
+      .from("audit_log")
+      .select("id, table_name, record_id, action, old_data, new_data, changed_at")
+      .order("changed_at", { ascending: false })
+      .limit(limit)
+  );
   return (data ?? []) as AuditLogEntry[];
 }
 
@@ -930,19 +1119,26 @@ export async function getDataQualityChecks(): Promise<DataQualityIssue[]> {
   const issues: DataQualityIssue[] = [];
 
   // Orphaned users (no company)
-  const { count: orphanedUsers } = await db()
-    .from("users").select("*", { count: "exact", head: true })
-    .is("company_id", null)
-    .is("deleted_at", null);
+  const { count: orphanedUsers } = await adminRead(
+    "data quality orphaned users",
+    db()
+      .from("users").select("*", { count: "exact", head: true })
+      .is("company_id", null)
+      .is("deleted_at", null)
+  );
   if ((orphanedUsers ?? 0) > 0) {
     issues.push({ check: "Orphaned users (no company)", severity: "warning", count: orphanedUsers ?? 0 });
   }
 
   // Companies with 0 users
-  const { data: allCompanies } = await db()
-    .from("companies").select("id").is("deleted_at", null);
-  const { data: allUsers } = await db()
-    .from("users").select("company_id").is("deleted_at", null);
+  const { data: allCompanies } = await adminRead(
+    "data quality companies",
+    db().from("companies").select("id").is("deleted_at", null)
+  );
+  const { data: allUsers } = await adminRead(
+    "data quality company users",
+    db().from("users").select("company_id").is("deleted_at", null)
+  );
   const companiesWithUsers = new Set((allUsers ?? []).map((u) => u.company_id));
   const companiesWithoutUsers = (allCompanies ?? []).filter((c) => !companiesWithUsers.has(c.id)).length;
   if (companiesWithoutUsers > 0) {
@@ -950,17 +1146,22 @@ export async function getDataQualityChecks(): Promise<DataQualityIssue[]> {
   }
 
   // Tasks without projects
-  const { count: orphanedTasks } = await db()
-    .from("project_tasks").select("*", { count: "exact", head: true })
-    .is("project_id", null)
-    .is("deleted_at", null);
+  const { count: orphanedTasks } = await adminRead(
+    "data quality orphaned tasks",
+    db()
+      .from("project_tasks").select("*", { count: "exact", head: true })
+      .is("project_id", null)
+      .is("deleted_at", null)
+  );
   if ((orphanedTasks ?? 0) > 0) {
     issues.push({ check: "Tasks without projects", severity: "danger", count: orphanedTasks ?? 0 });
   }
 
   // Duplicate emails
-  const { data: emailUsers } = await db()
-    .from("users").select("email").is("deleted_at", null);
+  const { data: emailUsers } = await adminRead(
+    "data quality user emails",
+    db().from("users").select("email").is("deleted_at", null)
+  );
   const emailCounts: Record<string, number> = {};
   for (const u of emailUsers ?? []) {
     if (u.email) emailCounts[u.email] = (emailCounts[u.email] ?? 0) + 1;
@@ -978,25 +1179,26 @@ export async function getDataQualityChecks(): Promise<DataQualityIssue[]> {
 }
 
 export async function getTableStats(): Promise<TableStats[]> {
+  // Every table here is verified against the live schema — a miss is drift,
+  // not an optional table, so it must fail loudly rather than be filtered out.
   const tables = [
     "companies", "users", "projects", "project_tasks", "calendar_events",
-    "clients", "sub_clients", "task_types", "pipeline_references",
-    "estimates", "invoices", "payments", "products", "photos", "notes",
+    "clients", "sub_clients", "task_types", "opportunities",
+    "estimates", "invoices", "payments", "products", "project_photos", "project_notes",
     "site_visits", "feature_requests", "app_messages", "promo_codes",
   ];
 
   const results = await Promise.all(
     tables.map(async (table) => {
-      try {
-        const { count } = await db().from(table).select("*", { count: "exact", head: true });
-        return { table, rowCount: count ?? 0 };
-      } catch {
-        return { table, rowCount: -1 }; // table doesn't exist
-      }
+      const { count } = await adminRead(
+        `table stats ${table}`,
+        db().from(table).select("*", { count: "exact", head: true })
+      );
+      return { table, rowCount: count ?? 0 };
     })
   );
 
-  return results.filter((r) => r.rowCount >= 0).sort((a, b) => b.rowCount - a.rowCount);
+  return results.sort((a, b) => b.rowCount - a.rowCount);
 }
 
 // ─── Alert Queries ────────────────────────────────────────────────────────────
@@ -1009,19 +1211,24 @@ export async function getAlerts() {
     { data: emptyCompanies },
   ] = await Promise.all([
     getTrialsExpiringIn(3),
-    db().from("companies").select("name")
-      .eq("subscription_status", "grace").is("deleted_at", null),
-    db().from("feature_requests").select("id")
-      .eq("status", "new").limit(10),
-    db().from("companies").select("id").is("deleted_at", null),
+    adminRead(
+      "alerts grace companies",
+      db().from("companies").select("name")
+        .eq("subscription_status", "grace").is("deleted_at", null)
+    ),
+    adminRead(
+      "alerts new feature requests",
+      db().from("feature_requests").select("id").eq("status", "new").limit(10)
+    ),
+    adminRead("alerts companies", db().from("companies").select("id").is("deleted_at", null)),
   ]);
 
   // Check for companies with 0 projects
   const emptyIds = (emptyCompanies ?? []).map((c) => c.id);
-  const { data: projectCompanies } = await db()
-    .from("projects").select("company_id")
-    .in("company_id", emptyIds)
-    .is("deleted_at", null);
+  const { data: projectCompanies } = await adminRead(
+    "alerts company projects",
+    db().from("projects").select("company_id").in("company_id", emptyIds).is("deleted_at", null)
+  );
   const withProjects = new Set((projectCompanies ?? []).map((p) => p.company_id));
   const zeroProjectCount = emptyIds.filter((id) => !withProjects.has(id)).length;
 
@@ -1051,29 +1258,27 @@ export async function getAlerts() {
 // ─── OPS Learn Queries ───────────────────────────────────────────────────────
 
 export async function getLearnCourseList(): Promise<LearnCourseOverview[]> {
-  const { data: courses, error } = await db()
-    .from("courses")
-    .select(`
-      id, title, slug, status, price_cents, sort_order,
-      display_enrollments, display_rating, display_review_count,
-      modules (
-        id,
-        lessons ( id ),
-        assessments ( id )
-      )
-    `)
-    .order("sort_order");
-
-  if (error) {
-    console.error("getLearnCourseList error:", error);
-    return [];
-  }
+  const { data: courses } = await adminRead(
+    "learn courses",
+    db()
+      .from("courses")
+      .select(`
+        id, title, slug, status, price_cents, sort_order,
+        display_enrollments, display_rating, display_review_count,
+        modules (
+          id,
+          lessons ( id ),
+          assessments ( id )
+        )
+      `)
+      .order("sort_order")
+  );
 
   const courseIds = (courses ?? []).map((c) => c.id);
-  const { data: enrollments } = await db()
-    .from("enrollments")
-    .select("course_id, status")
-    .in("course_id", courseIds);
+  const { data: enrollments } = await adminRead(
+    "learn course enrollments",
+    db().from("enrollments").select("course_id, status").in("course_id", courseIds)
+  );
 
   const enrollMap = new Map<string, { enrolled: number; completed: number }>();
   for (const e of enrollments ?? []) {
@@ -1123,25 +1328,30 @@ export async function getLearnCourseDetail(courseId: string): Promise<LearnCours
 
   if (courseErr || !course) return null;
 
-  const { data: modules } = await db()
-    .from("modules")
-    .select("id, title, sort_order")
-    .eq("course_id", courseId)
-    .order("sort_order");
+  const { data: modules } = await adminRead(
+    "learn course modules",
+    db().from("modules").select("id, title, sort_order").eq("course_id", courseId).order("sort_order")
+  );
 
   const moduleIds = (modules ?? []).map((m) => m.id);
 
-  const { data: lessons } = await db()
-    .from("lessons")
-    .select("id, title, slug, duration_minutes, sort_order, module_id, content_blocks ( type )")
-    .in("module_id", moduleIds)
-    .order("sort_order");
+  const { data: lessons } = await adminRead(
+    "learn course lessons",
+    db()
+      .from("lessons")
+      .select("id, title, slug, duration_minutes, sort_order, module_id, content_blocks ( type )")
+      .in("module_id", moduleIds)
+      .order("sort_order")
+  );
 
-  const { data: assessments } = await db()
-    .from("assessments")
-    .select("id, title, slug, type, sort_order, passing_score, questions, module_id")
-    .in("module_id", moduleIds)
-    .order("sort_order");
+  const { data: assessments } = await adminRead(
+    "learn course assessments",
+    db()
+      .from("assessments")
+      .select("id, title, slug, type, sort_order, passing_score, questions, module_id")
+      .in("module_id", moduleIds)
+      .order("sort_order")
+  );
 
   const assembledModules = (modules ?? []).map((m) => ({
     id: m.id,
@@ -1185,36 +1395,38 @@ export async function getLearnCourseDetail(courseId: string): Promise<LearnCours
 
 export async function getLearnCourseAnalytics(courseId: string): Promise<LearnCourseAnalytics> {
   // 1. Enrollment counts
-  const { data: enrollments } = await db()
-    .from("enrollments")
-    .select("status")
-    .eq("course_id", courseId);
+  const { data: enrollments } = await adminRead(
+    "learn analytics enrollments",
+    db().from("enrollments").select("status").eq("course_id", courseId)
+  );
 
   const total = enrollments?.length ?? 0;
   const active = enrollments?.filter((e) => e.status === "active").length ?? 0;
   const completed = enrollments?.filter((e) => e.status === "completed").length ?? 0;
 
   // 2. Lesson-level progress
-  const { data: modules } = await db()
-    .from("modules")
-    .select("id, title, sort_order")
-    .eq("course_id", courseId)
-    .order("sort_order");
+  const { data: modules } = await adminRead(
+    "learn analytics modules",
+    db().from("modules").select("id, title, sort_order").eq("course_id", courseId).order("sort_order")
+  );
 
   const moduleIds = (modules ?? []).map((m) => m.id);
 
-  const { data: lessons } = await db()
-    .from("lessons")
-    .select("id, title, sort_order, module_id")
-    .in("module_id", moduleIds)
-    .order("sort_order");
+  const { data: lessons } = await adminRead(
+    "learn analytics lessons",
+    db()
+      .from("lessons")
+      .select("id, title, sort_order, module_id")
+      .in("module_id", moduleIds)
+      .order("sort_order")
+  );
 
   const lessonIds = (lessons ?? []).map((l) => l.id);
 
-  const { data: progress } = await db()
-    .from("lesson_progress")
-    .select("lesson_id, status")
-    .in("lesson_id", lessonIds);
+  const { data: progress } = await adminRead(
+    "learn analytics lesson progress",
+    db().from("lesson_progress").select("lesson_id, status").in("lesson_id", lessonIds)
+  );
 
   const progressMap = new Map<string, { started: number; completed: number }>();
   for (const p of progress ?? []) {
@@ -1241,18 +1453,21 @@ export async function getLearnCourseAnalytics(courseId: string): Promise<LearnCo
   });
 
   // 3. Assessment stats
-  const { data: assessments } = await db()
-    .from("assessments")
-    .select("id, title, type")
-    .in("module_id", moduleIds);
+  const { data: assessments } = await adminRead(
+    "learn analytics assessments",
+    db().from("assessments").select("id, title, type").in("module_id", moduleIds)
+  );
 
   const assessmentIds = (assessments ?? []).map((a) => a.id);
 
-  const { data: submissions } = await db()
-    .from("assessment_submissions")
-    .select("assessment_id, score, status")
-    .in("assessment_id", assessmentIds)
-    .eq("status", "graded");
+  const { data: submissions } = await adminRead(
+    "learn analytics submissions",
+    db()
+      .from("assessment_submissions")
+      .select("assessment_id, score, status")
+      .in("assessment_id", assessmentIds)
+      .eq("status", "graded")
+  );
 
   const subMap = new Map<string, { scores: number[]; passed: number }>();
   for (const s of submissions ?? []) {

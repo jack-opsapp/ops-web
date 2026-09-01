@@ -7,7 +7,10 @@ import {
   type OutboundMemoryExtraction,
   type OutboundWritingSample,
 } from "@/lib/api/services/email-outbound-learning-service";
-import { CronDatabaseOperationError } from "@/lib/api/services/cron-workload-control-service";
+import {
+  CronDatabaseOperationError,
+  isDatabasePressureError,
+} from "@/lib/api/services/cron-workload-control-service";
 import { outboundLearningEvidenceKey } from "@/lib/email/outbound-learning-evidence";
 
 const WRITING_SAMPLE: OutboundWritingSample = {
@@ -112,6 +115,10 @@ function dbRow(overrides: Record<string, unknown> = {}) {
 
 function clientMock() {
   return { rpc: vi.fn() };
+}
+
+function errorCause(error: unknown): Record<string, unknown> {
+  return (error as { cause: Record<string, unknown> }).cause;
 }
 
 function dependencyMock(
@@ -337,6 +344,84 @@ describe("EmailOutboundLearningService", () => {
         p_draft_delivery_channel: "ops_send",
       })
     );
+  });
+
+  it("preserves the outer Supabase 503 response for mandatory sent-draft enqueue", async () => {
+    const databaseError = {
+      code: "",
+      details: "",
+      hint: "",
+      message: "Service unavailable",
+    };
+    const db = clientMock();
+    db.rpc.mockResolvedValue({
+      data: null,
+      error: databaseError,
+      count: null,
+      status: 503,
+      statusText: "Service Unavailable",
+    });
+    const service = new EmailOutboundLearningService(
+      db as never,
+      dependencyMock({
+        isFeatureEnabled: vi.fn().mockResolvedValue(false),
+      })
+    );
+
+    const failure = await service
+      .enqueueIfEnabled({
+        companyId: "f739fdc2-16b0-434d-9f31-3c58ee795865",
+        connectionId: "22538067-7acc-4799-b912-5edb74e0d3e8",
+        providerMessageId: "provider-message-pressure",
+        userId: "89516663-bb16-4743-aa76-ec68a19d0b3b",
+        bodyText: "I can start Monday.",
+        draftHistoryId: "4d16ed89-5bf5-438c-9388-62c345ab6d55",
+        draftDeliveryChannel: "ops_send",
+      })
+      .catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: databaseError,
+        status: 503,
+        statusText: "Service Unavailable",
+      },
+    });
+    expect(errorCause(failure)).not.toHaveProperty("data");
+    expect(isDatabasePressureError(failure)).toBe(true);
+  });
+
+  it("preserves PostgREST ENOTFOUND details and the outer response while claiming", async () => {
+    const databaseError = {
+      code: "",
+      details:
+        "TypeError: fetch failed\n\nCaused by: Error: getaddrinfo ENOTFOUND db.example.com (ENOTFOUND)",
+      hint: "",
+      message: "TypeError: fetch failed",
+    };
+    const db = clientMock();
+    db.rpc.mockResolvedValue({
+      data: null,
+      error: databaseError,
+      count: null,
+      status: 0,
+      statusText: "",
+    });
+    const service = new EmailOutboundLearningService(db as never);
+
+    const failure = await service.claim().catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: databaseError,
+        status: 0,
+        statusText: "",
+      },
+    });
+    expect(errorCause(failure)).not.toHaveProperty("data");
+    expect(isDatabasePressureError(failure)).toBe(true);
   });
 
   it("claims due and stale-leased jobs through the atomic claim RPC", async () => {
@@ -1347,5 +1432,202 @@ describe("EmailOutboundLearningService", () => {
       terminalFailed: 1,
       failed: 1,
     });
+  });
+});
+
+/**
+ * Subject learning is the last of the twelve voice dimensions to get a writer
+ * (4da75e71). It rides the applied send — the moment the profile has just been
+ * taught this operator's body style — and it is deliberately incapable of
+ * failing that transaction: the apply has already committed when it runs.
+ */
+describe("EmailOutboundLearningService subject learning", () => {
+  const OPPORTUNITY = {
+    title: "Cedar Road deck",
+    address: "18 Cedar Road",
+    contact_name: "Sandra Dunford",
+    contact_email: "sandra@dunfordhomes.example",
+    clients: { name: "Dunford Homes", email: "office@dunfordhomes.example" },
+  };
+
+  function leadClientMock(opportunity: Record<string, unknown> | null) {
+    const reads: Array<{
+      table: string;
+      columns: string;
+      filters: Array<[string, unknown]>;
+    }> = [];
+    const db = {
+      rpc: vi.fn(),
+      from: vi.fn((table: string) => {
+        const read = {
+          table,
+          columns: "",
+          filters: [] as Array<[string, unknown]>,
+        };
+        reads.push(read);
+        const chain: Record<string, unknown> = {};
+        chain.select = (columns: string) => {
+          read.columns = columns;
+          return chain;
+        };
+        chain.eq = (column: string, value: unknown) => {
+          read.filters.push([column, value]);
+          return chain;
+        };
+        chain.maybeSingle = async () => ({ data: opportunity, error: null });
+        return chain;
+      }),
+    };
+    return { db, reads };
+  }
+
+  function applySequence(
+    db: { rpc: ReturnType<typeof vi.fn> },
+    overrides: Record<string, unknown>
+  ) {
+    const claimed = dbRow({
+      status: "leased",
+      attempts: 1,
+      lease_token: "0e8fd9ee-9bc3-4c7a-b273-50802cbcd29f",
+      lease_expires_at: "2026-07-14T18:05:00.000Z",
+      opportunity_id: "b00f706f-249d-4cd4-8680-076c310b87ad",
+      to_emails: ["sandra@dunfordhomes.example"],
+      subject: "Sandra Dunford — 18 Cedar Road deck quote",
+      profile_type: "client_new_inquiry",
+      ...overrides,
+    });
+    const prepared = {
+      ...claimed,
+      writing_sample: WRITING_SAMPLE,
+      memory_extraction: MEMORY_EXTRACTION,
+      draft_outcome: DRAFT_OUTCOME,
+      draft_correction_facts: [],
+      apply_learning: true,
+      preparation_version: "outbound-learning-v1",
+      prepared_at: "2026-07-14T18:01:00.000Z",
+    };
+    db.rpc
+      .mockResolvedValueOnce({ data: [claimed], error: null })
+      .mockResolvedValueOnce({ data: prepared, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          ...prepared,
+          status: "completed",
+          applied_at: "2026-07-14T18:01:01.000Z",
+        },
+        error: null,
+      });
+    return { claimed, prepared };
+  }
+
+  it("learns the applied send's subject against this lead's own values", async () => {
+    const { db, reads } = leadClientMock(OPPORTUNITY);
+    applySequence(db, {
+      learning_authority: "operator_authored",
+      apply_full_body_learning: true,
+    });
+    const learnSubjectPreference = vi.fn().mockResolvedValue(undefined);
+    const service = new EmailOutboundLearningService(
+      db as never,
+      dependencyMock({ learnSubjectPreference })
+    );
+
+    const result = await service.runWorker({ limit: 1, concurrency: 1 });
+
+    expect(result).toMatchObject({ claimed: 1, completed: 1, failed: 0 });
+    expect(learnSubjectPreference).toHaveBeenCalledWith({
+      job: expect.objectContaining({
+        status: "completed",
+        subject: "Sandra Dunford — 18 Cedar Road deck quote",
+        profileType: "client_new_inquiry",
+      }),
+      context: {
+        contact: "Sandra Dunford",
+        company: "Dunford Homes",
+        address: "18 Cedar Road",
+        project: "Cedar Road deck",
+        email: "sandra@dunfordhomes.example",
+      },
+    });
+    expect(reads).toEqual([
+      {
+        table: "opportunities",
+        columns: expect.stringContaining("contact_name"),
+        filters: [
+          ["id", "b00f706f-249d-4cd4-8680-076c310b87ad"],
+          ["company_id", "f739fdc2-16b0-434d-9f31-3c58ee795865"],
+        ],
+      },
+    ]);
+  });
+
+  it("never learns a subject from a send the operator did not author", async () => {
+    const { db, reads } = leadClientMock(OPPORTUNITY);
+    applySequence(db, {
+      learning_authority: "operator_approved",
+      apply_full_body_learning: false,
+    });
+    const learnSubjectPreference = vi.fn().mockResolvedValue(undefined);
+    const service = new EmailOutboundLearningService(
+      db as never,
+      dependencyMock({ learnSubjectPreference })
+    );
+
+    const result = await service.runWorker({ limit: 1, concurrency: 1 });
+
+    expect(result).toMatchObject({ completed: 1 });
+    expect(learnSubjectPreference).not.toHaveBeenCalled();
+    expect(reads).toEqual([]);
+  });
+
+  it("still learns from a lead the send carries no opportunity for", async () => {
+    const { db, reads } = leadClientMock(null);
+    applySequence(db, {
+      learning_authority: "operator_authored",
+      apply_full_body_learning: true,
+      opportunity_id: null,
+    });
+    const learnSubjectPreference = vi.fn().mockResolvedValue(undefined);
+    const service = new EmailOutboundLearningService(
+      db as never,
+      dependencyMock({ learnSubjectPreference })
+    );
+
+    await service.runWorker({ limit: 1, concurrency: 1 });
+
+    expect(reads).toEqual([]);
+    expect(learnSubjectPreference).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: { email: "sandra@dunfordhomes.example" },
+      })
+    );
+  });
+
+  it("completes the send when the subject learner fails", async () => {
+    const { db } = leadClientMock(OPPORTUNITY);
+    applySequence(db, {
+      learning_authority: "operator_authored",
+      apply_full_body_learning: true,
+    });
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const service = new EmailOutboundLearningService(
+      db as never,
+      dependencyMock({
+        learnSubjectPreference: vi
+          .fn()
+          .mockRejectedValue(new Error("merge rpc unavailable")),
+      })
+    );
+
+    const result = await service.runWorker({ limit: 1, concurrency: 1 });
+
+    expect(result).toMatchObject({ completed: 1, failed: 0, retrying: 0 });
+    expect(consoleError).toHaveBeenCalledWith(
+      "[outbound-learning] subject preference learning failed",
+      expect.objectContaining({ error: "merge rpc unavailable" })
+    );
+    consoleError.mockRestore();
   });
 });

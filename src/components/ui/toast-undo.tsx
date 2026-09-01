@@ -40,6 +40,15 @@ export interface UndoToastOptions {
   duration?: number;
   /** Fired on manual dismissal AND auto-close — release undo UI state here. */
   onDismiss?: () => void;
+  /**
+   * Status-rail variant. Omit for the neutral rail (the default every existing
+   * caller renders). Pass `"success"` when this toast replaces what used to be
+   * a `toast.success` call, so the olive rail — the operator's at-a-glance
+   * "the write landed" signal — is preserved rather than silently downgraded
+   * to neutral grey. The rail color itself is owned by the
+   * `[data-sonner-toast][data-type=…]` rules in globals.css.
+   */
+  variant?: "success";
 }
 
 export function showUndoToast({
@@ -50,8 +59,10 @@ export function showUndoToast({
   dismissLabel,
   duration = DEFAULT_UNDO_DURATION_MS,
   onDismiss,
+  variant,
 }: UndoToastOptions): string | number {
-  return toast(title, {
+  const emit = variant === "success" ? toast.success : toast;
+  return emit(title, {
     description,
     duration,
     action: {

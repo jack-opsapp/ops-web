@@ -4,6 +4,9 @@
  * Incrementally saves setup progress for each onboarding step.
  * - Verifies Firebase/Supabase auth token
  * - Persists step-specific data (identity, company, starfield)
+ * - Company creation goes through the `create_company_for_owner_by_id` RPC so
+ *   the company, its join code, the Owner role row, the owner labels, and the
+ *   company defaults all land in ONE transaction (or none of them do)
  * - Tracks which steps have been completed via setup_progress JSONB
  */
 
@@ -12,7 +15,7 @@ import { verifyAuthToken } from "@/lib/firebase/admin-verify";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { findUserByAuth } from "@/lib/supabase/find-user-by-auth";
 import { readServerFirstTouch } from "@/lib/pmf/utm-capture";
-import { recordTrialAttribution } from "@/lib/pmf/record-trial-attribution";
+import { recordTrialAttribution } from "@/lib/pmf/trial-attribution";
 import { isReferralSourceSlug } from "@/lib/data/referral-sources";
 
 // ─── Request Body ────────────────────────────────────────────────────────────
@@ -41,6 +44,13 @@ interface SetupProgress {
   starfield_answers?: Record<string, string | number>;
 }
 
+/** Return contract of public.create_company_for_owner_by_id. */
+interface CreateCompanyForOwnerResult {
+  company_id: string;
+  company_code: string;
+  already_existed: boolean;
+}
+
 // ─── Route Handler ───────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -59,7 +69,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const validSteps = ["identity", "company", "starfield"];
     if (!validSteps.includes(step)) {
       return NextResponse.json(
-        { error: `Invalid step: ${step}. Must be one of: ${validSteps.join(", ")}` },
+        {
+          error: `Invalid step: ${step}. Must be one of: ${validSteps.join(", ")}`,
+        },
         { status: 400 }
       );
     }
@@ -70,13 +82,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const db = getServiceRoleClient();
 
     // Find the user by auth credentials (auth_id → firebase_uid → email)
-    const userRow = await findUserByAuth(verifiedUser.uid, verifiedUser.email, "*");
+    const userRow = await findUserByAuth(
+      verifiedUser.uid,
+      verifiedUser.email,
+      "*"
+    );
 
     if (!userRow) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const userId = userRow.id as string;
@@ -113,10 +126,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           updated_at: new Date().toISOString(),
         };
         if (data.companyName) companyUpdates.name = data.companyName;
-        if (data.industries?.length) companyUpdates.industries = data.industries;
+        if (data.industries?.length)
+          companyUpdates.industries = data.industries;
         if (data.companySize) companyUpdates.company_size = data.companySize;
         if (data.companyAge) companyUpdates.company_age = data.companyAge;
-        if (data.weatherDependent) companyUpdates.weather_dependent = data.weatherDependent === "Yes";
+        if (data.weatherDependent)
+          companyUpdates.weather_dependent = data.weatherDependent === "Yes";
         // Validated against the known slug set — a raw client string must
         // never reach the column.
         if (isReferralSourceSlug(data.referralMethod)) {
@@ -125,70 +140,99 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         await db.from("companies").update(companyUpdates).eq("id", companyId);
       } else {
-        // Create new company
-        const { data: newCompany, error: companyError } = await db
-          .from("companies")
-          .insert({
-            name: data.companyName ?? "Untitled Company",
-            industries: data.industries?.length ? data.industries : [],
-            company_size: data.companySize ?? null,
-            company_age: data.companyAge ?? null,
-            weather_dependent: data.weatherDependent ? data.weatherDependent === "Yes" : null,
-            referral_method: isReferralSourceSlug(data.referralMethod)
+        // One transaction: company row + crew join code + Owner `user_roles`
+        // row + owner labels + `initialize_company_defaults`.
+        //
+        // This replaces four separate autocommit statements. If the role write
+        // or the user link failed, the company was already committed while the
+        // user stayed unlinked — and the retry re-entered this same branch and
+        // minted a SECOND company, orphaning the first. One production account
+        // holder accumulated five orphan companies in 33 seconds that way and
+        // never got into the product at all.
+        //
+        // The RPC also ADOPTS an existing unlinked company held by this owner
+        // rather than inserting another, so a retry after any partial failure
+        // completes the orphan instead of duplicating it.
+        //
+        // `create_company_for_owner` (the iOS/authenticated twin) cannot be
+        // reused here: it resolves its caller via `auth.jwt() ->> 'sub'` and
+        // raises NO_JWT under the service-role client this route uses. This is
+        // its service-role twin — the owner is named explicitly, which is why
+        // EXECUTE on it is granted to service_role alone.
+        const { data: createResult, error: createError } = await db.rpc(
+          "create_company_for_owner_by_id",
+          {
+            p_user_id: userId,
+            p_name: data.companyName?.trim() || "Untitled Company",
+            p_industries: data.industries?.length ? data.industries : [],
+            p_company_size: data.companySize ?? null,
+            p_company_age: data.companyAge ?? null,
+            p_weather_dependent: data.weatherDependent
+              ? data.weatherDependent === "Yes"
+              : null,
+            // Validated against the known slug set — a raw client string must
+            // never reach the column.
+            p_referral_method: isReferralSourceSlug(data.referralMethod)
               ? data.referralMethod
               : null,
-            admin_ids: [userId],
-            account_holder_id: userId,
-          })
-          .select("id")
-          .single();
+          }
+        );
 
-        if (companyError || !newCompany) {
+        if (createError) {
+          const message = createError.message ?? "";
+          // Typed tokens raised by the RPC. NO_USER_ROW is the sync-user race
+          // and ALREADY_IN_COMPANY a stale read — both are retryable by the
+          // client, so they must not read as server faults.
+          const status =
+            message.includes("NO_USER_ROW") ||
+            message.includes("ALREADY_IN_COMPANY")
+              ? 409
+              : message.includes("INVALID_NAME")
+                ? 400
+                : message.includes("USER_INACTIVE")
+                  ? 403
+                  : 500;
           return NextResponse.json(
             {
-              error: `Failed to create company: ${companyError?.message ?? "Unknown error"}`,
+              error: `Failed to create company: ${message || "Unknown error"}`,
             },
+            { status }
+          );
+        }
+
+        const created = createResult as CreateCompanyForOwnerResult | null;
+        if (!created?.company_id) {
+          return NextResponse.json(
+            { error: "Failed to create company: no company id returned." },
             { status: 500 }
           );
         }
 
-        companyId = newCompany.id as string;
-
-        // Seed default task types, inventory units, and company settings
-        const { error: rpcError } = await db.rpc("initialize_company_defaults", {
-          p_company_id: companyId,
-        });
-        if (rpcError) {
-          console.error("[api/setup/progress] Failed to initialize company defaults:", rpcError);
-        }
-
-        // Link user to company
-        await db
-          .from("users")
-          .update({
-            company_id: companyId,
-            is_company_admin: true,
-          })
-          .eq("id", userId);
+        companyId = created.company_id;
 
         // Day 0 founder welcome — fire-and-forget after company creation.
         // Per spec §3 + decision log #25/#26: only fire when the inserting
-        // user IS the new company's account_holder (which is always true here
-        // because we set `account_holder_id: userId` on the INSERT above) and
+        // user IS the new company's account_holder (always true here: the RPC
+        // sets `account_holder_id` to this user, and only ever adopts a
+        // company already held by them) and
         // when the operator email isn't on the internal allowlist.
         // Failure does NOT roll back signup; cron will retry up to 3 times
         // within day_slot_expires_at if the async fails.
-        const operatorEmail = (userRow.email as string | null | undefined) ?? null;
+        const operatorEmail =
+          (userRow.email as string | null | undefined) ?? null;
         const INTERNAL_DOMAINS = ["@opsapp.co", "@anthropic.com"];
-        const isInternal =
-          operatorEmail
-            ? INTERNAL_DOMAINS.some((d) => operatorEmail.toLowerCase().endsWith(d))
-            : true;
+        const isInternal = operatorEmail
+          ? INTERNAL_DOMAINS.some((d) =>
+              operatorEmail.toLowerCase().endsWith(d)
+            )
+          : true;
 
         if (!isInternal && operatorEmail) {
           void (async () => {
             try {
-              const expires = new Date(Date.now() + 24 * 60 * 60_000).toISOString();
+              const expires = new Date(
+                Date.now() + 24 * 60 * 60_000
+              ).toISOString();
               const { data: logRow, error: insertError } = await db
                 .from("onboarding_email_log")
                 .insert({
@@ -207,15 +251,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
               if (insertError || !logRow) {
                 // Unique-violation = sibling already claimed; not an error.
                 if (insertError && insertError.code !== "23505") {
-                  console.error("[onboarding-day0] claim INSERT failed:", insertError);
+                  console.error(
+                    "[onboarding-day0] claim INSERT failed:",
+                    insertError
+                  );
                 }
                 return;
               }
 
-              const { sendOnboardingDay0Welcome } = await import("@/lib/email/sendgrid");
+              const { sendOnboardingDay0Welcome } =
+                await import("@/lib/email/sendgrid");
               const result = await sendOnboardingDay0Welcome({
                 email: operatorEmail,
-                firstName: (userRow.first_name as string | null | undefined) ?? null,
+                firstName:
+                  (userRow.first_name as string | null | undefined) ?? null,
                 onboardingEmailLogId: logRow.id as string,
                 userId,
               });
@@ -230,7 +279,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
                   : result.status === "suppression_skipped"
                     ? { status: "skipped" }
                     : { status: "pending" };
-              await db.from("onboarding_email_log").update(update).eq("id", logRow.id);
+              await db
+                .from("onboarding_email_log")
+                .update(update)
+                .eq("id", logRow.id);
             } catch (err) {
               console.error("[onboarding-day0] async dispatch failed:", err);
             }
@@ -245,10 +297,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // platform. This upgrades that row with the real first-touch payload.
       //
       // Read server-side from the request's Cookie header rather than a client
-      // body field: the value is already travelling with the request, so there
-      // is nothing extra to send and nothing to forge independently of the
-      // cookie itself. Runs for both branches above (new company and resumed
-      // setup) and never throws.
+      // body field: the allowlisted cookie travels with the request and is
+      // validated again by the database RPC. Runs for both branches above
+      // (new company and resumed setup) and never blocks company creation.
       if (companyId) {
         await recordTrialAttribution(
           db,
@@ -290,8 +341,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Internal server error",
+        error: error instanceof Error ? error.message : "Internal server error",
       },
       { status: 500 }
     );

@@ -12,6 +12,7 @@ import {
   type SendPushParams,
   type SendPushResult,
 } from "@/lib/integrations/onesignal";
+import { filterPushRecipientsByQuietHours } from "@/lib/notifications/server-notification-service";
 
 interface UnassignedLeadAssignmentDeliveryClaim {
   delivery_id: string;
@@ -55,11 +56,22 @@ export interface UnassignedLeadAssignmentDeliveryWorkerResult {
 
 export interface UnassignedLeadAssignmentDeliveryDependencies {
   sendPush(params: SendPushParams): Promise<SendPushResult>;
+  /**
+   * Quiet-hours gate. This worker derives its recipient from the RPC claim and
+   * never passes through resolveNotificationPreferences, so without it a crew
+   * member's quiet hours were ignored entirely (bug 42aa787c).
+   */
+  filterQuietHours(params: {
+    companyId: string;
+    recipientUserIds: string[];
+    db?: SupabaseClient;
+  }): Promise<string[]>;
   randomUUID(): string;
 }
 
 const DEFAULT_DEPENDENCIES: UnassignedLeadAssignmentDeliveryDependencies = {
   sendPush: sendOneSignalPush,
+  filterQuietHours: filterPushRecipientsByQuietHours,
   randomUUID,
 };
 
@@ -246,11 +258,22 @@ export const UnassignedLeadAssignmentDeliveryService = {
       const leaseToken = claim.delivery_lease_token as string;
       let pushState: "sent" | "suppressed" = "suppressed";
 
-      if (claim.should_push) {
+      // Quiet hours gate the push only — the rail row this delivery is
+      // completing already exists, and a suppressed push still completes the
+      // delivery rather than requeueing it (bug 42aa787c).
+      const pushTargets = claim.should_push
+        ? await deps.filterQuietHours({
+            companyId: claim.company_id,
+            recipientUserIds: [claim.recipient_user_id],
+            db,
+          })
+        : [];
+
+      if (pushTargets.length > 0) {
         let pushResult: SendPushResult;
         try {
           pushResult = await deps.sendPush({
-            recipientUserIds: [claim.recipient_user_id],
+            recipientUserIds: pushTargets,
             title: "Lead needs an owner",
             body: buildUnassignedLeadAssignmentPushBody(claim.lead_title),
             data: {

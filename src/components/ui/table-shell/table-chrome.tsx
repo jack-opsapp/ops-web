@@ -56,7 +56,11 @@ export function TableChrome({ metrics, toolbar }: TableChromeProps) {
     if (!el) return;
     const scroller = findScrollParent(el);
     if (!scroller) return;
-    const apply = () => scroller.style.setProperty("--shell-header-top", `${el.offsetHeight}px`);
+    const apply = () =>
+      scroller.style.setProperty(
+        "--shell-header-top",
+        `${el.getBoundingClientRect().height}px`
+      );
     apply();
     const ro = new ResizeObserver(apply);
     ro.observe(el);

@@ -1,5 +1,6 @@
 import { getAdminSupabase } from "@/lib/supabase/admin-client";
 import { getGA4Client, getPropertyId } from "@/lib/analytics/ga4-client";
+import { isGA4PropertyConfigured } from "@/lib/analytics/ga4-properties";
 import type {
   SpecAdCampaignRow,
   SpecAnalyticsPayload,
@@ -161,7 +162,7 @@ async function loadGa4SpecMetrics(
     eventCounts: new Map<string, number>(),
   };
 
-  if (!process.env.GA4_PROPERTY_ID) return empty;
+  if (!isGA4PropertyConfigured("marketing")) return empty;
 
   try {
     const client = getGA4Client();
@@ -174,7 +175,7 @@ async function loadGa4SpecMetrics(
 
     const [[webResponse], [eventsResponse]] = await Promise.all([
       client.runReport({
-        property: getPropertyId(),
+        property: getPropertyId("marketing"),
         metrics: [
           { name: "activeUsers" },
           { name: "sessions" },
@@ -184,7 +185,7 @@ async function loadGa4SpecMetrics(
         dateRanges: [{ startDate: from, endDate: to }],
       }),
       client.runReport({
-        property: getPropertyId(),
+        property: getPropertyId("marketing"),
         dimensions: [{ name: "eventName" }],
         metrics: [{ name: "eventCount" }],
         dimensionFilter: {

@@ -12,6 +12,12 @@ import {
 
 function makeRow(id: string, title: string): PipelineTableRow {
   return {
+    siteVisitNextAt: null,
+    siteVisitCompletedAt: null,
+    siteVisitCount: 0,
+    deckDesignCount: 0,
+    deckLatestTitle: null,
+    deckLatestVersion: null,
     id,
     companyId: "co-1",
     title,

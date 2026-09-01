@@ -128,7 +128,14 @@ export function getSubscriptionInfo(company: Pick<
 
   const tier = mapSubscriptionPlan(company.subscriptionPlan);
   const status = mapSubscriptionStatus(company.subscriptionStatus);
-  const currentSeats = (company.seatedEmployeeIds?.length || 0) + (company.adminIds?.length || 0);
+  // Count distinct PEOPLE, not array entries. The owner is both seated and an
+  // admin, so summing the two arrays billed them twice — every iOS-created
+  // company has read one seat over its real usage since seats existed. Only
+  // ever lowers the count, so it can never lock anyone out or block a seat add.
+  const currentSeats = new Set([
+    ...(company.seatedEmployeeIds ?? []),
+    ...(company.adminIds ?? []),
+  ]).size;
   const maxSeats = company.maxSeats || TIER_CONFIG[tier].maxSeats;
 
   let daysRemaining: number | undefined;

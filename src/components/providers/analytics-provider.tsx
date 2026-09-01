@@ -10,28 +10,18 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAuthStore } from "@/lib/store/auth-store";
+import { usePathname } from "next/navigation";
 import { analyticsService } from "@/lib/analytics/analytics-service";
+import { templateAnalyticsPathname } from "@/lib/analytics/event-sanitizer";
 
 export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
-  const currentUser = useAuthStore((s) => s.currentUser);
-  const company = useAuthStore((s) => s.company);
-  const role = useAuthStore((s) => s.role);
+  const pathname = usePathname();
 
   useEffect(() => {
-    if (!analyticsService) return;
-
-    if (currentUser) {
-      analyticsService.setIdentity({
-        userId: currentUser.id,
-        companyId: company?.id ?? null,
-        role: role ?? null,
-        plan: company?.subscriptionPlan ?? null,
-      });
-    } else {
-      analyticsService.clearIdentity();
-    }
-  }, [currentUser, company, role]);
+    analyticsService?.track("screen_view", "route_viewed", {
+      route_template: templateAnalyticsPathname(pathname),
+    });
+  }, [pathname]);
 
   return <>{children}</>;
 }

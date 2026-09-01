@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { sendOneSignalPush } from "@/lib/integrations/onesignal";
+import { filterPushRecipientsByQuietHours } from "@/lib/notifications/server-notification-service";
 import { runWithSupabase } from "@/lib/supabase/helpers";
 import {
   ClientSchedulingCommsService,
@@ -16,6 +17,7 @@ import {
   isDatabasePressureError,
 } from "./cron-workload-control-service";
 import { ScheduleOptimizationService } from "./schedule-optimization-service";
+import { mintScheduleUnconfirmationPersistenceGuard } from "./schedule-unconfirmation-persistence-guard";
 
 type TaskAutomationKind =
   | "full_auto_confirmation"
@@ -23,7 +25,9 @@ type TaskAutomationKind =
   | "confirmed_reschedule"
   | "task_assigned"
   | "task_completed"
-  | "schedule_change";
+  | "schedule_change"
+  | "schedule_confirmation_dispatch"
+  | "schedule_unconfirmation_dispatch";
 
 type TaskNotificationKind = Extract<
   TaskAutomationKind,
@@ -56,7 +60,7 @@ export interface TaskAutomationBatchResult {
 }
 
 const TASK_FIELDS =
-  "id, company_id, project_id, status, start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_version, updated_at, schedule_confirmed_at";
+  "id, company_id, project_id, status, start_date, end_date, start_time, end_time, all_day, duration, team_member_ids, schedule_version, updated_at, schedule_confirmed_at, schedule_confirmed_by, confirmed_schedule_version";
 
 function assertClaim(value: unknown): asserts value is TaskAutomationClaim {
   if (!value || typeof value !== "object") {
@@ -89,6 +93,8 @@ function assertClaim(value: unknown): asserts value is TaskAutomationClaim {
       "task_assigned",
       "task_completed",
       "schedule_change",
+      "schedule_confirmation_dispatch",
+      "schedule_unconfirmation_dispatch",
     ].includes(row.kind as string)
   ) {
     throw new Error("Task automation claim has an invalid kind");
@@ -103,6 +109,10 @@ function assertClaim(value: unknown): asserts value is TaskAutomationClaim {
   }
   if (
     !isTaskNotificationKind(row.kind as TaskAutomationKind) &&
+    ![
+      "schedule_confirmation_dispatch",
+      "schedule_unconfirmation_dispatch",
+    ].includes(row.kind as string) &&
     row.task_schedule_version < 1
   ) {
     throw new Error("Task automation claim has an invalid schedule version");
@@ -145,6 +155,69 @@ async function taskAutomationDatabaseOperation<T>(
 
 function stringOrNull(value: unknown): string | null {
   return typeof value === "string" ? value : null;
+}
+
+function canonicalTimestamp(value: unknown): string | null {
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) {
+    return null;
+  }
+  return new Date(value).toISOString();
+}
+
+type ConfirmationOrigin = "manual" | "automatic_grace" | "full_auto";
+type ScheduleUnconfirmationOrigin = "explicit_admin" | "schedule_edit";
+
+function confirmationOrigin(
+  snapshot: Record<string, unknown>
+): ConfirmationOrigin | null {
+  const value = snapshot.confirmation_origin;
+  return value === "manual" ||
+    value === "automatic_grace" ||
+    value === "full_auto"
+    ? value
+    : null;
+}
+
+function scheduleUnconfirmationOrigin(
+  snapshot: Record<string, unknown>
+): ScheduleUnconfirmationOrigin | null {
+  const value = snapshot.schedule_unconfirmation_origin;
+  return value === "explicit_admin" || value === "schedule_edit" ? value : null;
+}
+
+function purposeDispatchProofIsCurrent(
+  task: Record<string, unknown>,
+  claim: TaskAutomationClaim,
+  change: ConfirmedScheduleChange
+): boolean {
+  if (!taskMatchesScheduleChange(task, change)) return false;
+  if (claim.kind === "schedule_confirmation_dispatch") {
+    const expectedAt = canonicalTimestamp(
+      claim.after_snapshot.schedule_confirmed_at
+    );
+    const currentAt = canonicalTimestamp(task.schedule_confirmed_at);
+    return (
+      expectedAt !== null &&
+      currentAt === expectedAt &&
+      task.schedule_confirmed_by ===
+        (stringOrNull(claim.after_snapshot.schedule_confirmed_by) ?? null) &&
+      task.confirmed_schedule_version === claim.task_schedule_version &&
+      confirmationOrigin(claim.after_snapshot) !== null
+    );
+  }
+  if (claim.kind === "schedule_unconfirmation_dispatch") {
+    return (
+      task.schedule_confirmed_at === null &&
+      task.schedule_confirmed_by === null &&
+      task.confirmed_schedule_version === null &&
+      canonicalTimestamp(claim.before_snapshot.schedule_confirmed_at) !==
+        null &&
+      scheduleUnconfirmationOrigin(claim.after_snapshot) !== null &&
+      scheduleUnconfirmationOrigin(claim.before_snapshot) ===
+        scheduleUnconfirmationOrigin(claim.after_snapshot)
+    );
+  }
+  return true;
 }
 
 function scheduleState(snapshot: Record<string, unknown>): TaskScheduleState {
@@ -312,7 +385,17 @@ async function processTaskNotificationClaim(
     throw new Error("Task notification kind did not match immutable proof");
   }
 
-  if (persisted.pushRecipientIds.length > 0) {
+  // Quiet hours: the RPC computes wants_push + push_enabled only, so a crew
+  // member's window was ignored on every task assignment, completion and
+  // reschedule — the core leak in bug 42aa787c. The rail rows the RPC already
+  // wrote stay put; only the push is dropped.
+  const pushTargets = await filterPushRecipientsByQuietHours({
+    companyId: claim.company_id,
+    recipientUserIds: persisted.pushRecipientIds,
+    db,
+  });
+
+  if (pushTargets.length > 0) {
     const pushType =
       persisted.type === "task_assigned"
         ? "taskAssignment"
@@ -331,7 +414,7 @@ async function processTaskNotificationClaim(
             screen,
           };
     const push = await sendOneSignalPush({
-      recipientUserIds: persisted.pushRecipientIds,
+      recipientUserIds: pushTargets,
       title: persisted.pushTitle!,
       body: persisted.pushBody!,
       data: pushData,
@@ -342,7 +425,7 @@ async function processTaskNotificationClaim(
 
   await complete(db, claim, "processed", {
     notificationType: persisted.type,
-    pushRecipients: persisted.pushRecipientIds.length,
+    pushRecipients: pushTargets.length,
   });
   result.completed += 1;
 }
@@ -411,42 +494,122 @@ async function runEffect(
     return true;
   };
   switch (claim.kind) {
-    case "full_auto_confirmation": {
-      const fullAuto =
-        await ClientSchedulingCommsService.onTaskCreatedMaybeFullAuto(
+    case "schedule_confirmation_dispatch": {
+      const confirmedAt = stringOrNull(
+        claim.after_snapshot.schedule_confirmed_at
+      );
+      const confirmedBy = stringOrNull(
+        claim.after_snapshot.schedule_confirmed_by
+      );
+      if (!confirmedAt) {
+        throw new Error("Confirmation dispatch proof is missing its timestamp");
+      }
+      const origin = confirmationOrigin(claim.after_snapshot);
+      if (!origin) {
+        throw new Error("Confirmation dispatch proof is missing its origin");
+      }
+      const confirmation =
+        await ClientSchedulingCommsService.dispatchConfirmedScheduleProof(
           claim.company_id,
           claim.actor_user_id!,
           claim.task_id,
           {
-            sourceId: `${sourceId}:full-auto`,
-            expectedSchedule: change,
-            prePersistGuard,
-            taskAutomationGuard,
-          }
+            scheduleVersion: claim.task_schedule_version,
+            confirmedAt: new Date(confirmedAt).toISOString(),
+            confirmedBy,
+            confirmationOrigin: origin,
+          },
+          scheduleState(claim.after_snapshot),
+          origin,
+          taskAutomationGuard
         );
-      if (fullAuto.actionTaken === "full_auto" && !fullAuto.actionId) {
-        if (guardDisposition) {
-          return {
-            sourceId: `${sourceId}:full-auto`,
-            fullAuto,
-            disposition: guardDisposition,
-          };
-        }
+      const disposition = confirmation.actionId
+        ? "processed"
+        : confirmation.actionTaken === "phase_c_disabled"
+          ? "phase_disabled"
+          : confirmation.actionTaken === "off" ||
+              confirmation.actionTaken === "manual"
+            ? "no_action"
+            : null;
+      if (!disposition) {
         throw new Error(
-          "Configured full-auto confirmation produced no durable action"
+          `Schedule confirmation dispatch incomplete: ${confirmation.actionTaken}`
         );
       }
       return {
+        sourceId: `schedule-confirmation:${claim.task_id}:v${claim.task_schedule_version}:${new Date(confirmedAt).toISOString()}`,
+        confirmation,
+        disposition,
+      };
+    }
+    case "schedule_unconfirmation_dispatch": {
+      const previousConfirmedAt = stringOrNull(
+        claim.before_snapshot.schedule_confirmed_at
+      );
+      const unconfirmationOrigin = scheduleUnconfirmationOrigin(
+        claim.after_snapshot
+      );
+      if (!previousConfirmedAt) {
+        throw new Error(
+          "Unconfirmation dispatch proof is missing its prior timestamp"
+        );
+      }
+      if (!unconfirmationOrigin) {
+        throw new Error("Unconfirmation dispatch proof is missing its origin");
+      }
+      const unconfirmationGuard = mintScheduleUnconfirmationPersistenceGuard({
+        eventId: claim.event_id,
+        leaseToken: claim.lease_token,
+        taskId: claim.task_id,
+        scheduleVersion: claim.task_schedule_version,
+        companyId: claim.company_id,
+        actorUserId: claim.actor_user_id!,
+        previousConfirmedAt: new Date(previousConfirmedAt).toISOString(),
+        unconfirmationOrigin,
+      });
+      const unconfirmation =
+        await ClientSchedulingCommsService.dispatchUnconfirmedScheduleProof(
+          claim.company_id,
+          claim.actor_user_id!,
+          claim.task_id,
+          claim.task_schedule_version,
+          new Date(previousConfirmedAt).toISOString(),
+          unconfirmationGuard
+        );
+      return {
+        sourceId: `schedule-unconfirmation:${claim.task_id}:v${claim.task_schedule_version}:${new Date(previousConfirmedAt).toISOString()}`,
+        unconfirmation,
+        disposition:
+          unconfirmation.actionTaken === "stale_or_unconfirmed"
+            ? "superseded"
+            : unconfirmation.actionTaken === "phase_c_disabled"
+              ? "phase_disabled"
+              : unconfirmation.actionTaken === "do_nothing"
+                ? "no_action"
+                : unconfirmation.actionTaken === "notify" ||
+                    ((unconfirmation.actionTaken === "draft" ||
+                      unconfirmation.actionTaken === "auto_send") &&
+                      unconfirmation.actionId)
+                  ? "processed"
+                  : (() => {
+                      throw new Error(
+                        `Schedule unconfirmation dispatch incomplete: ${unconfirmation.actionTaken}`
+                      );
+                    })(),
+      };
+    }
+    case "full_auto_confirmation": {
+      const fullAuto =
+        await ClientSchedulingCommsService.confirmFullAutoScheduleFromLease(
+          claim.event_id,
+          claim.lease_token,
+          claim.task_id,
+          claim.task_schedule_version
+        );
+      return {
         sourceId: `${sourceId}:full-auto`,
         fullAuto,
-        disposition:
-          fullAuto.actionTaken === "stale"
-            ? "superseded"
-            : fullAuto.actionTaken === "phase_c_disabled"
-              ? "phase_disabled"
-              : fullAuto.actionTaken === "not_full_auto"
-                ? "no_action"
-                : "processed",
+        disposition: fullAuto.disposition,
       };
     }
     case "schedule_cascade": {
@@ -517,8 +680,38 @@ async function processClaim(
   rawClaim: unknown,
   result: TaskAutomationBatchResult
 ): Promise<void> {
-  assertClaim(rawClaim);
-  const claim = rawClaim;
+  let claim: TaskAutomationClaim;
+  try {
+    assertClaim(rawClaim);
+    claim = rawClaim;
+  } catch (error) {
+    const row =
+      rawClaim && typeof rawClaim === "object" && !Array.isArray(rawClaim)
+        ? (rawClaim as Record<string, unknown>)
+        : null;
+    const eventId = row && stringOrNull(row.event_id);
+    const leaseToken = row && stringOrNull(row.lease_token);
+    if (!eventId || !leaseToken) throw error;
+    const failure = message(error);
+    const { error: persistError } = await db.rpc(
+      "fail_task_schedule_automation_event",
+      {
+        p_event_id: eventId,
+        p_lease_token: leaseToken,
+        p_error: failure,
+        p_retryable: false,
+      }
+    );
+    if (persistError) {
+      throw new CronDatabaseOperationError(
+        `Malformed task automation claim could not be terminalized: ${persistError.message}`,
+        { cause: persistError }
+      );
+    }
+    result.failed += 1;
+    result.errors.push({ eventId, message: failure });
+    return;
+  }
   try {
     if (isTaskNotificationKind(claim.kind)) {
       await processTaskNotificationClaim(db, claim, result);
@@ -537,13 +730,28 @@ async function processClaim(
       return;
     }
     const change = scheduleChange(claim);
-    if (task.status !== "active" || !taskMatchesScheduleChange(task, change)) {
+    const proofDispatch =
+      claim.kind === "schedule_confirmation_dispatch" ||
+      claim.kind === "schedule_unconfirmation_dispatch";
+    if (
+      task.status !== "active" ||
+      (!proofDispatch && !taskMatchesScheduleChange(task, change))
+    ) {
+      await complete(db, claim, "superseded");
+      result.superseded += 1;
+      return;
+    }
+    if (proofDispatch && !purposeDispatchProofIsCurrent(task, claim, change)) {
       await complete(db, claim, "superseded");
       result.superseded += 1;
       return;
     }
     if (
-      claim.kind !== "full_auto_confirmation" &&
+      ![
+        "full_auto_confirmation",
+        "schedule_confirmation_dispatch",
+        "schedule_unconfirmation_dispatch",
+      ].includes(claim.kind) &&
       sameScheduleState(change.before, change.after)
     ) {
       await complete(db, claim, "no_action", {
@@ -553,7 +761,7 @@ async function processClaim(
       result.skipped += 1;
       return;
     }
-    if (!(await actorCanEditTask(db, claim, task))) {
+    if (!proofDispatch && !(await actorCanEditTask(db, claim, task))) {
       await complete(db, claim, "access_lost");
       result.skipped += 1;
       return;
@@ -588,13 +796,14 @@ async function processClaim(
     if (
       !current ||
       current.status !== "active" ||
-      !taskMatchesScheduleChange(current, change)
+      (!proofDispatch && !taskMatchesScheduleChange(current, change)) ||
+      (proofDispatch && !purposeDispatchProofIsCurrent(current, claim, change))
     ) {
       await complete(db, claim, "superseded", effectResult);
       result.superseded += 1;
       return;
     }
-    if (!(await actorCanEditTask(db, claim, current))) {
+    if (!proofDispatch && !(await actorCanEditTask(db, claim, current))) {
       await complete(db, claim, "access_lost", effectResult);
       result.skipped += 1;
       return;

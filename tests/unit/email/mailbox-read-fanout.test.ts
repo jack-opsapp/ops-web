@@ -162,7 +162,7 @@ describe("mailbox-wide provider read fan-out", () => {
     );
 
     const populatedCheckpointPath = source.slice(
-      source.indexOf("for (const item of processingQueue)"),
+      source.indexOf("for (const [index, item] of processingQueue.entries())"),
       source.indexOf("// Step 5: AI classification")
     );
     expect(populatedCheckpointPath).toContain(

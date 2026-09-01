@@ -419,3 +419,137 @@ describe("lead feedback prior policy", () => {
     );
   });
 });
+
+/**
+ * Bug 7ca126d2 — the Vitrum gate.
+ *
+ * Jackson discarded a lead from choward@vitrum.ca as `vendor_sales` on
+ * 2026-08-20. Seven days later the same sender's reply minted "Vitrum — Email
+ * Inquiry" in silence: one sender-negative moves the score by only -0.16, so a
+ * 0.90 baseline landed at 0.74, still clear of the 0.70 threshold, and the
+ * lane auto-created. Suppression authority is deliberately hard to earn — it
+ * takes an exact source match or repeated independent evidence — but AUTO-
+ * CREATION should never have been the fallback for a sender the operator has
+ * already flagged once. A flagged sender can still become a lead; a person
+ * says so first.
+ */
+describe("flagged sender never silently creates a lead (7ca126d2)", () => {
+  const SENDER = "choward@vendor-glass.example";
+  const candidate = {
+    providerThreadId: "thread-new",
+    providerMessageId: "message-new",
+    senderEmail: SENDER,
+  };
+
+  function senderNegative(
+    overrides: Partial<LeadFeedbackEvidence> = {}
+  ): LeadFeedbackEvidence {
+    return feedback({
+      reasonCode: "vendor_sales",
+      senderEmail: SENDER,
+      senderDomain: "vendor-glass.example",
+      ...overrides,
+    });
+  }
+
+  it("routes an above-threshold lead from a once-flagged sender to review", () => {
+    const decision = applyLeadFeedbackPrior({
+      baseline: { verdict: "lead", confidence: 0.9 },
+      threshold: 0.7,
+      candidate,
+      feedback: [senderNegative()],
+      protectedDomains: [],
+    });
+
+    expect(decision.outcome).toBe("defer");
+    expect(decision.reviewReason).toBe("feedback_boundary");
+    expect(decision.adjustedLeadScore).toBe(0.74);
+    expect(decision.adjustment).toBe(-0.16);
+    expect(decision.evidence.senderNegativeIndependentCount).toBe(1);
+    expect(decision.evidence.hasSuppressionAuthority).toBe(false);
+  });
+
+  it("still defers on two independent sender negatives (unchanged path)", () => {
+    const decision = applyLeadFeedbackPrior({
+      baseline: { verdict: "lead", confidence: 0.9 },
+      threshold: 0.7,
+      candidate,
+      feedback: [
+        senderNegative({ id: "f1", sourceThreadKey: "s1" }),
+        senderNegative({ id: "f2", sourceThreadKey: "s2" }),
+      ],
+      protectedDomains: [],
+    });
+
+    expect(decision.outcome).toBe("defer");
+    expect(decision.reviewReason).toBe("feedback_boundary");
+    expect(decision.adjustedLeadScore).toBe(0.66);
+  });
+
+  it("leaves a sender with positive history creating leads as before", () => {
+    const decision = applyLeadFeedbackPrior({
+      baseline: { verdict: "lead", confidence: 0.9 },
+      threshold: 0.7,
+      candidate,
+      feedback: [
+        senderNegative({ id: "neg" }),
+        feedback({
+          id: "pos",
+          reasonCode: "not_a_fit",
+          learningPolarity: "positive",
+          senderEmail: SENDER,
+          senderDomain: "vendor-glass.example",
+        }),
+      ],
+      protectedDomains: [],
+    });
+
+    expect(decision.outcome).toBe("lead");
+    expect(decision.adjustedLeadScore).toBe(0.86);
+  });
+
+  it("leaves an unflagged sender creating leads as before", () => {
+    const decision = applyLeadFeedbackPrior({
+      baseline: { verdict: "lead", confidence: 0.9 },
+      threshold: 0.7,
+      candidate,
+      feedback: [],
+      protectedDomains: [],
+    });
+
+    expect(decision.outcome).toBe("lead");
+    expect(decision.reviewReason).toBeNull();
+    expect(decision.adjustedLeadScore).toBe(0.9);
+  });
+
+  it("leaves a not_lead baseline alone", () => {
+    const decision = applyLeadFeedbackPrior({
+      baseline: { verdict: "not_lead", confidence: 0.9 },
+      threshold: 0.7,
+      candidate,
+      feedback: [senderNegative()],
+      protectedDomains: [],
+    });
+
+    expect(decision.outcome).toBe("not_lead");
+    expect(decision.reviewReason).toBeNull();
+  });
+
+  it("leaves exact-message suppression alone", () => {
+    const decision = applyLeadFeedbackPrior({
+      baseline: { verdict: "lead", confidence: 0.9 },
+      threshold: 0.7,
+      candidate,
+      feedback: [
+        senderNegative({
+          sourceMessageId: "message-new",
+          sourceProviderThreadId: "thread-new",
+        }),
+      ],
+      protectedDomains: [],
+    });
+
+    expect(decision.outcome).toBe("not_lead");
+    expect(decision.evidence.hasSuppressionAuthority).toBe(true);
+  });
+});

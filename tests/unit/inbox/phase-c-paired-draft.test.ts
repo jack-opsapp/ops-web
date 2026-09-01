@@ -94,6 +94,11 @@ interface DbState {
   priorMailboxDraftRows: Array<Record<string, unknown>>; // provider-draft idempotency
   // P4-A cost-guard fixtures.
   latestInboundMessageId: string | null; // activities latest inbound email_message_id
+  latestInboundActivityId: string | null;
+  latestInboundSenderEmail: string | null;
+  latestInboundDirection: "inbound" | "outbound";
+  latestInboundToEmails: string[];
+  latestInboundCcEmails: string[];
   latestInboundFilters: Record<string, unknown> | null;
   matchingHistoryRow: Record<string, unknown> | null; // ai_draft_history match on source_message_id
   rpcCalls: Array<{ name: string; args: Record<string, unknown> }>;
@@ -142,8 +147,26 @@ vi.mock("@/lib/supabase/helpers", async () => {
         db.latestInboundFilters = { ...filters };
         return {
           data: db.latestInboundMessageId
-            ? { email_message_id: db.latestInboundMessageId }
-            : null,
+            ? {
+                id: db.latestInboundActivityId,
+                email_message_id: db.latestInboundMessageId,
+                direction: db.latestInboundDirection,
+                from_email: db.latestInboundSenderEmail,
+                to_emails: db.latestInboundToEmails,
+                cc_emails: db.latestInboundCcEmails,
+                created_at: "2026-08-07T19:00:00.000Z",
+              }
+            : db.latestInboundActivityId
+              ? {
+                  id: db.latestInboundActivityId,
+                  email_message_id: null,
+                  direction: db.latestInboundDirection,
+                  from_email: db.latestInboundSenderEmail,
+                  to_emails: db.latestInboundToEmails,
+                  cc_emails: db.latestInboundCcEmails,
+                  created_at: "2026-08-07T19:00:00.000Z",
+                }
+              : null,
           error: null,
         };
       }
@@ -172,6 +195,26 @@ vi.mock("@/lib/supabase/helpers", async () => {
       }
       if (table === "ai_draft_history" && op === "select") {
         resolve({ data: db.priorMailboxDraftRows, error: null });
+        return;
+      }
+      if (table === "activities" && op === "select") {
+        db.latestInboundFilters = { ...filters };
+        resolve({
+          data: db.latestInboundActivityId
+            ? [
+                {
+                  id: db.latestInboundActivityId,
+                  email_message_id: db.latestInboundMessageId,
+                  direction: db.latestInboundDirection,
+                  from_email: db.latestInboundSenderEmail,
+                  to_emails: db.latestInboundToEmails,
+                  cc_emails: db.latestInboundCcEmails,
+                  created_at: "2026-08-07T19:00:00.000Z",
+                },
+              ]
+            : [],
+          error: null,
+        });
         return;
       }
       resolve({ data: null, error: null });
@@ -223,18 +266,41 @@ function thread(overrides: Partial<EmailThread> = {}): EmailThread {
   } as unknown as EmailThread;
 }
 
+function allowedAccess() {
+  return {
+    allowed: true as const,
+    actor: { userId: "owner-1", companyId: "co-1" },
+    operation: "send" as const,
+    threadId: "thr-1",
+    connectionId: "conn-1",
+    providerThreadId: "pt-1",
+    opportunityId: "opp-1",
+    connectionType: "company" as const,
+    connectionOwnerId: null,
+    pipelineScope: "all" as const,
+    inboxScope: "all" as const,
+    usedLegacyPipelineManage: false,
+    usedLegacyInboxViewCompany: false,
+  };
+}
+
 beforeEach(() => {
   db = {
     inserts: [],
     updates: [],
     priorMailboxDraftRows: [],
     latestInboundMessageId: null,
+    latestInboundActivityId: "activity-latest",
+    latestInboundSenderEmail: "client@acme.com",
+    latestInboundDirection: "inbound",
+    latestInboundToEmails: ["owner@example.com"],
+    latestInboundCcEmails: [],
     latestInboundFilters: null,
     matchingHistoryRow: null,
     rpcCalls: [],
   };
   generateDraftMock.mockReset();
-  accessResolverMock.mockReset().mockResolvedValue({ allowed: true });
+  accessResolverMock.mockReset().mockResolvedValue(allowedAccess());
   createDraftMock.mockReset();
   updateDraftMock.mockReset();
   getConnectionMock.mockReset();
@@ -315,6 +381,12 @@ describe("P4-C — phase_c provider mailbox draft", () => {
       "auto_draft"
     );
     expect(res.outcome).toBe("auto_drafted");
+    expect(generateDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceActivityId: "activity-latest",
+        emailAccess: allowedAccess(),
+      })
+    );
 
     expect(createDraftMock).toHaveBeenCalledTimes(1);
     expect(createDraftMock).toHaveBeenCalledWith(
@@ -359,6 +431,64 @@ describe("P4-C — phase_c provider mailbox draft", () => {
     expect(
       db.updates.filter((update) => update.table === "ai_draft_history")
     ).toHaveLength(0);
+  });
+
+  it("addresses and fences the exact inbound source instead of the cached thread sender", async () => {
+    db.latestInboundMessageId = "message-exact";
+    db.latestInboundSenderEmail = "Current Lead <CURRENT@example.net>";
+    generateDraftMock.mockResolvedValue({
+      available: true,
+      draft: "Generated body",
+      subject: "Re: Quote",
+      draftHistoryId: "adh-exact-source",
+    });
+
+    const result = await PhaseCAutonomyRouter.doAutoDraft(
+      thread({ latestSenderEmail: "historic@example.com" }),
+      "owner-1",
+      "auto_draft"
+    );
+
+    expect(result.outcome).toBe("auto_drafted");
+    expect(generateDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({ sourceActivityId: "activity-latest" })
+    );
+    expect(createDraftMock).toHaveBeenCalledWith(
+      "current@example.net",
+      "Re: Quote",
+      expect.any(String),
+      "pt-1",
+      "text"
+    );
+  });
+
+  it("does not place a draft when the exact source changes during generation", async () => {
+    db.latestInboundMessageId = "message-original";
+    db.latestInboundSenderEmail = "original@example.net";
+    generateDraftMock.mockImplementationOnce(async () => {
+      db.latestInboundActivityId = "activity-new";
+      db.latestInboundMessageId = "message-new";
+      db.latestInboundSenderEmail = "new@example.net";
+      return {
+        available: true,
+        draft: "Generated body",
+        subject: "Re: Quote",
+        draftHistoryId: "adh-stale-source",
+      };
+    });
+
+    const result = await PhaseCAutonomyRouter.doAutoDraft(
+      thread(),
+      "owner-1",
+      "auto_draft"
+    );
+
+    expect(result).toMatchObject({
+      outcome: "draft_placement_pending",
+      detail: "PHASE_C_DRAFT_SOURCE_STALE",
+    });
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
   });
 
   it("preserves the subject provenance already recorded by draft generation", async () => {
@@ -606,6 +736,29 @@ describe("P4-C — phase_c provider mailbox draft", () => {
     expect(updateDraftMock).not.toHaveBeenCalled();
   });
 
+  it("treats a deliberate no-reply decision as a clean no-op", async () => {
+    generateDraftMock.mockResolvedValue({
+      available: false,
+      noReplyWarranted: true,
+      reason: "No reply warranted",
+    });
+
+    const result = await PhaseCAutonomyRouter.doAutoDraft(
+      thread(),
+      "owner-1",
+      "auto_draft"
+    );
+
+    expect(result).toEqual({
+      outcome: "noop_no_reply_warranted",
+      category: "CUSTOMER",
+      effectiveLevel: "auto_draft",
+      detail: "No reply warranted",
+    });
+    expect(createDraftMock).not.toHaveBeenCalled();
+    expect(updateDraftMock).not.toHaveBeenCalled();
+  });
+
   it("places a review-only mailbox draft without blocking on an unconfigured signature", async () => {
     resolveEmailSignatureMock.mockResolvedValue(null);
     generateDraftMock.mockResolvedValue({
@@ -638,7 +791,7 @@ describe("P4-C — phase_c provider mailbox draft", () => {
 
   it("does not write a provider draft after the lead is reassigned during generation", async () => {
     accessResolverMock
-      .mockResolvedValueOnce({ allowed: true })
+      .mockResolvedValueOnce(allowedAccess())
       .mockResolvedValueOnce({
         allowed: false,
         reason: "opportunity_other_assignee",
@@ -689,7 +842,6 @@ describe("P4-A — pre-LLM cost guard (no re-draft per re-sync)", () => {
       email_connection_id: "conn-exact",
       email_thread_id: "pt-1",
       type: "email",
-      direction: "inbound",
     });
   });
 

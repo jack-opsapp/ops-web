@@ -6,7 +6,6 @@ import { Filter, CheckSquare, Square, Inbox } from "lucide-react";
 import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { trackScreenView } from "@/lib/analytics/analytics";
 import { useAuthStore } from "@/lib/store/auth-store";
 import { cn } from "@/lib/utils/cn";
 
@@ -26,6 +25,7 @@ import { ActionCard, type TeamMemberOption } from "@/components/agent/action-car
 import { RejectDialog } from "@/components/agent/reject-dialog";
 
 import type {
+  AgentAction,
   AgentActionStatus,
   AgentActionType,
   AgentActionPriority,
@@ -38,7 +38,7 @@ const STATUS_OPTIONS: Array<AgentActionStatus | "all"> = [
 ];
 
 const TYPE_OPTIONS: Array<AgentActionType | "all"> = [
-  "all", "create_project", "create_task", "create_invoice", "send_email",
+  "all", "create_project", "create_task", "create_invoice", "send_email", "file_day_closeout",
 ];
 
 const PRIORITY_OPTIONS: Array<AgentActionPriority | "all"> = [
@@ -61,7 +61,6 @@ export default function AgentQueuePage() {
   const shouldReduceMotion = useReducedMotion();
 
   usePageTitle(t("title"));
-  useEffect(() => trackScreenView("agent_queue"), []);
 
   const [filters, setFilters] = useState<Filters>({
     status: "pending",
@@ -84,11 +83,18 @@ export default function AgentQueuePage() {
   // Map team members for the action card assignment picker
   const teamMemberOptions: TeamMemberOption[] = useMemo(
     () =>
-      (teamData?.users ?? []).map((m) => ({
-        id: m.id,
-        name: getUserFullName(m),
-        role: m.role ?? "unassigned",
-      })),
+      (teamData?.users ?? []).map(
+        (
+          m: Parameters<typeof getUserFullName>[0] & {
+            id: string;
+            role?: string | null;
+          }
+        ) => ({
+          id: m.id,
+          name: getUserFullName(m),
+          role: m.role ?? "unassigned",
+        })
+      ),
     [teamData?.users]
   );
 
@@ -98,13 +104,22 @@ export default function AgentQueuePage() {
   const bulkRejectMutation = useBulkReject();
 
   const pendingActions = useMemo(
-    () => actions.filter((a) => a.status === "pending"),
+    () => actions.filter((a: AgentAction) => a.status === "pending"),
     [actions]
+  );
+  const bulkEligibleActions = useMemo(
+    () =>
+      pendingActions.filter(
+        (a: AgentAction) =>
+          a.actionType !== "file_day_closeout" &&
+          a.actionType !== "approve_collections_draft"
+      ),
+    [pendingActions]
   );
 
   const allSelected =
-    pendingActions.length > 0 &&
-    pendingActions.every((a) => selectedIds.has(a.id));
+    bulkEligibleActions.length > 0 &&
+    bulkEligibleActions.every((a: AgentAction) => selectedIds.has(a.id));
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -121,9 +136,11 @@ export default function AgentQueuePage() {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(pendingActions.map((a) => a.id)));
+      setSelectedIds(
+        new Set(bulkEligibleActions.map((a: AgentAction) => a.id))
+      );
     }
-  }, [allSelected, pendingActions]);
+  }, [allSelected, bulkEligibleActions]);
 
   const handleApprove = useCallback(
     (id: string, editedData?: Record<string, unknown>) => {
@@ -267,7 +284,7 @@ export default function AgentQueuePage() {
       </div>
 
       {/* ── Select All Toggle ──────────────────────────────────────────── */}
-      {pendingActions.length > 0 && (
+      {bulkEligibleActions.length > 0 && (
         <div className="flex items-center">
           <button
             onClick={handleSelectAll}
@@ -318,7 +335,7 @@ export default function AgentQueuePage() {
         )}
 
         <AnimatePresence mode={shouldReduceMotion ? "sync" : "popLayout"}>
-          {actions.map((action) => (
+          {actions.map((action: AgentAction) => (
             <ActionCard
               key={action.id}
               action={action}

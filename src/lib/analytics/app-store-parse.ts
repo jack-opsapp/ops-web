@@ -14,7 +14,10 @@ export type AscChannel =
  * channel here; the ASA-paid vs organic split happens later, once Apple Ads
  * campaign data is joined.
  */
-export function mapAppStoreSourceToChannel(sourceType: string | null, _info: string | null): AscChannel {
+export function mapAppStoreSourceToChannel(
+  sourceType: string | null,
+  _info: string | null
+): AscChannel {
   const s = (sourceType ?? "").trim().toLowerCase().replace(/\s+/g, " ");
   if (s === "") return "unavailable";
   if (s === "app store search") return "app_store_search";
@@ -47,18 +50,33 @@ export interface ParsedRow {
  * @param text     decompressed `.txt` (tab-delimited, first line = header)
  * @param aliases  canonicalName -> additional normalized header aliases
  */
-export function parseTsv(text: string, aliases: Record<string, string[]>): ParsedRow[] {
+export function parseTsv(
+  text: string,
+  aliases: Record<string, string[]>
+): ParsedRow[] {
   const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
   if (lines.length < 2) return [];
 
   const headers = lines[0].split("\t").map(norm);
 
-  // canonical -> column index
+  // canonical -> column index. Alias order IS the resolution priority; the
+  // canonical header (underscores -> spaces) is the final fallback. Apple's
+  // Standard engagement report carries BOTH `Event` (Impression / Page view /
+  // Tap - the taxonomy the fact table and dashboard consume) and
+  // `Engagement Type` (tap subtype: Get / Open / ...), so priority must be
+  // declared, never inferred from file header order.
   const resolve: Record<string, number> = {};
   for (const [canon, alist] of Object.entries(aliases)) {
-    const candidates = [norm(canon.replace(/_/g, " ")), ...alist.map(norm)];
-    const idx = headers.findIndex((h) => candidates.includes(h));
-    if (idx >= 0) resolve[canon] = idx;
+    const candidates = [...alist.map(norm), norm(canon.replace(/_/g, " "))];
+    const seen = new Set<string>();
+    for (const candidate of candidates) {
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+      const idx = headers.indexOf(candidate);
+      if (idx < 0) continue;
+      resolve[canon] = idx;
+      break;
+    }
   }
 
   return lines.slice(1).map((line) => {

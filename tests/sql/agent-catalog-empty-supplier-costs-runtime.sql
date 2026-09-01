@@ -1,0 +1,3 @@
+\set agent_catalog_empty_supplier_costs_repaired true
+\ir agent-catalog-reads-runtime.sql
+\unset agent_catalog_empty_supplier_costs_repaired

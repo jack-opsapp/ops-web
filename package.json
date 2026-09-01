@@ -24,6 +24,8 @@
     "test:external-api:sql": "node scripts/run-external-api-sql-contracts.mjs",
     "api:openapi": "tsx scripts/generate-external-api-openapi.ts",
     "api:backfill-lead-projections": "node scripts/backfill-external-lead-projections.mjs",
+    "mcp:acceptance:day-closeout": "tsx scripts/mcp-day-closeout-host-acceptance.ts",
+    "mcp:acceptance:v3-canary": "tsx scripts/mcp-v3-canary-acceptance.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -37,6 +39,7 @@
     "@dnd-kit/utilities": "^3.2.0",
     "@google-analytics/data": "^5.2.1",
     "@hookform/resolvers": "^3.9.0",
+    "@modelcontextprotocol/server": "2.0.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.0",
     "@radix-ui/react-avatar": "^1.1.0",
@@ -128,6 +131,7 @@
     "yauzl": "^3.4.0",
     "zod": "^3.24.0",
     "zod-to-json-schema": "^3.25.1",
+    "zod-v4": "npm:zod@4.2.0",
     "zustand": "^5.0.0"
   },
   "devDependencies": {

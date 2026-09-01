@@ -145,8 +145,62 @@ describe("legacy Gmail manual sync route context", () => {
     );
     expect(supabaseContext.seenBySync).toBe(serviceRoleClient);
     expect(setSupabaseOverrideMock).not.toHaveBeenCalled();
-    expect(runSyncMock).toHaveBeenCalledWith("connection-1");
+    expect(runSyncMock).toHaveBeenCalledWith("connection-1", {
+      deadline: expect.objectContaining({
+        deadlineAt: expect.any(Number),
+        expired: expect.any(Function),
+        remainingMs: expect.any(Function),
+      }),
+    });
     expect(runtime).toBe("nodejs");
     expect(dynamic).toBe("force-dynamic");
+  });
+
+  it("returns a retryable non-2xx contract when the engine reports errors", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 0,
+      matched: 0,
+      needsReview: 0,
+      newLeads: 0,
+      continuationPending: false,
+      errors: ["cursor intentionally unchanged"],
+    });
+
+    const response = await POST(manualRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      ok: false,
+      state: "failed",
+      retryable: true,
+      connectionsProcessed: 1,
+      failedConnections: 1,
+      pendingConnections: 0,
+    });
+    expect(body.results[0].error).toBe("cursor intentionally unchanged");
+  });
+
+  it("reports an accepted nonterminal checkpoint without claiming completion", async () => {
+    runSyncMock.mockResolvedValue({
+      activitiesCreated: 25,
+      matched: 1,
+      needsReview: 0,
+      newLeads: 1,
+      continuationPending: true,
+      errors: [],
+    });
+
+    const response = await POST(manualRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(body).toMatchObject({
+      ok: true,
+      state: "continuing",
+      retryable: false,
+      failedConnections: 0,
+      pendingConnections: 1,
+    });
   });
 });

@@ -1581,6 +1581,83 @@ function makeSupabaseDouble(state: SupabaseState) {
         };
       }
       state.rpcCalls?.push({ name, params });
+      if (name === "record_opportunity_lifecycle_decision") {
+        return {
+          data: {
+            id: `phase-c-decision-${
+              (state.rpcCalls ?? []).filter(
+                (call) =>
+                  call.name === "record_opportunity_lifecycle_decision"
+              ).length
+            }`,
+            status: params.p_status,
+          },
+          error: null,
+        };
+      }
+      if (name === "apply_phase_c_opportunity_stage_decision") {
+        if (state.opportunityStageUpdateError) {
+          return {
+            data: null,
+            error: { message: state.opportunityStageUpdateError },
+          };
+        }
+        const opportunity = state.opportunities.find(
+          (row) => row.id === params.p_opportunity_id
+        );
+        const receipt = [...(state.rpcCalls ?? [])]
+          .reverse()
+          .find(
+            (call) =>
+              call.name === "record_opportunity_lifecycle_decision" &&
+              call.params.p_opportunity_id === params.p_opportunity_id
+          );
+        if (!opportunity || !receipt) {
+          return { data: null, error: { message: "decision_not_found" } };
+        }
+        const fromStage = String(opportunity.stage ?? "new_lead");
+        const proposedStage = String(receipt.params.p_proposed_stage);
+        const sourceEvent = (state.correspondenceEvents ?? []).find(
+          (event) => event.id === receipt.params.p_source_event_id
+        );
+        const manualBoundaryAt = opportunity.stage_manual_boundary_at;
+        const evidenceIsNewer =
+          !manualBoundaryAt ||
+          Date.parse(String(sourceEvent?.occurred_at ?? "")) >
+            Date.parse(String(manualBoundaryAt));
+        const changed =
+          fromStage === params.p_expected_stage &&
+          !["won", "lost", "discarded"].includes(fromStage) &&
+          fromStage !== proposedStage &&
+          (!opportunity.stage_manually_set || evidenceIsNewer);
+        if (changed) {
+          opportunity.stage = proposedStage;
+          opportunity.stage_manually_set = false;
+          opportunity.stage_entered_at = "2026-08-20T15:13:01.000Z";
+          state.stageTransitions ??= [];
+          state.stageTransitions.push({
+            company_id: params.p_company_id,
+            opportunity_id: params.p_opportunity_id,
+            from_stage: fromStage,
+            to_stage: proposedStage,
+          });
+        }
+        return {
+          data: [
+            {
+              changed,
+              stage: opportunity.stage,
+              stage_manually_set: Boolean(opportunity.stage_manually_set),
+              guard_reason: changed
+                ? null
+                : opportunity.stage_manually_set && !evidenceIsNewer
+                  ? "manual_correction_is_newer"
+                  : "snapshot_mismatch",
+            },
+          ],
+          error: null,
+        };
+      }
       if (
         name === "apply_email_opportunity_stage_transition" &&
         state.opportunityStageUpdateError
@@ -2813,6 +2890,88 @@ To: Kara Beach <kara.beach@example.com>`,
       outbound_count: 0,
     });
     expect(state.correspondenceProjectionApplications).toBe(1);
+  });
+
+  it("holds a review-verdict classified lead instead of creating a duplicate client", async () => {
+    // Bug 3799225e. A `review` verdict used to fall through to the create
+    // branch and spawn a brand-new client anyway — the path that produced
+    // "ELAINE BEATTIE" beside Mark Vanderwerf's existing won lead.
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      correspondenceEvents: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const reviewEmail = baseEmail({
+      id: "msg-review-subcontact",
+      threadId: "thread-review-subcontact",
+      from: "Elaine <bruceelainebeattie5@gmail.com>",
+      fromName: "Elaine",
+      to: ["jackson@canprodeckandrail.com"],
+      subject: "Deck",
+      bodyText: "The plywood will be on the deck today ready for the vinyl.",
+      snippet: "The plywood will be on the deck today.",
+      labelIds: ["INBOX"],
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [reviewEmail],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+    matchMock.mockResolvedValue({
+      clientId: null,
+      subClientId: "sub-bruce-elaine",
+      confidence: "name",
+      needsReview: true,
+      suggestedClientId: "client-mark",
+      reason:
+        'Name matches sub-contact "Bruce And Elaine" of existing client — needs review',
+      action: "review",
+    });
+    reviewUnmatchedEmailsMock.mockResolvedValue({
+      classifiedLeads: [
+        {
+          email: reviewEmail,
+          clientName: "Elaine",
+          clientEmail: "bruceelainebeattie5@gmail.com",
+          clientPhone: null,
+          address: null,
+          description: "Deck readiness note",
+          stage: "new_lead",
+          terminalFlag: null,
+          estimatedValue: null,
+          confidence: 0.93,
+        },
+      ],
+      newLeadsClassified: 1,
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(state.opportunities).toHaveLength(0);
+    expect(state.clients).toHaveLength(0);
+    expect(result.newLeads).toBe(0);
+    expect(result.needsReview).toBeGreaterThanOrEqual(1);
+    expect(state.activities).toEqual([
+      expect.objectContaining({
+        email_message_id: "msg-review-subcontact",
+        opportunity_id: null,
+        match_needs_review: true,
+        suggested_client_id: "client-mark",
+        match_confidence: "name",
+      }),
+    ]);
   });
 
   it("durably holds a feedback-deferred message without creating a lead", async () => {
@@ -6344,6 +6503,117 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(state.stageTransitions).toEqual([]);
   });
 
+  it("records Crystal's evidence before advancing an older manually pinned quote to negotiation", async () => {
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-crystal",
+          company_id: "company-1",
+          name: "Crystal Elton",
+          email: "crystal.elton@example.com",
+          deleted_at: null,
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-crystal",
+          company_id: "company-1",
+          client_id: "client-crystal",
+          title: "Crystal Elton — Deck quote",
+          contact_email: "crystal.elton@example.com",
+          stage: "quoted",
+          stage_manually_set: true,
+          stage_manual_boundary_at: "2026-08-19T18:00:00.000Z",
+          assignment_version: 4,
+          archived_at: null,
+          deleted_at: null,
+        },
+      ],
+      projects: [],
+      threadLinks: [
+        {
+          opportunity_id: "opp-crystal",
+          thread_id: "19edbe2358597058",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+      stageTransitions: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    const crystalReply = baseEmail({
+      id: "1a01fbc3eba7a4fb",
+      threadId: "19edbe2358597058",
+      from: "Crystal Elton <crystal.elton@example.com>",
+      fromName: "Crystal Elton",
+      to: ["jackson@canprodeckandrail.com"],
+      subject: "Re: Deck quote",
+      bodyText:
+        "I'd like to set up a call to discuss moving forward with your quote.",
+      snippet: "I'd like to set up a call to discuss moving forward.",
+      date: new Date("2026-08-20T15:13:00.000Z"),
+      labelIds: ["INBOX"],
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [crystalReply],
+        nextSyncToken: "sync-token-crystal",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-crystal",
+      })),
+    });
+    evaluateStagesWithSummaryMock.mockResolvedValue([
+      {
+        threadId: "19edbe2358597058",
+        newStage: "negotiation",
+        terminalFlag: null,
+        summary: "Crystal wants to discuss moving forward with the quote.",
+      },
+    ]);
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(state.opportunities[0]).toMatchObject({
+      stage: "negotiation",
+      stage_manually_set: false,
+    });
+    expect(state.projects).toEqual([]);
+    const recordedAt = state.rpcCalls!.findIndex(
+      (call) => call.name === "record_opportunity_lifecycle_decision"
+    );
+    const appliedAt = state.rpcCalls!.findIndex(
+      (call) => call.name === "apply_phase_c_opportunity_stage_decision"
+    );
+    expect(recordedAt).toBeGreaterThan(-1);
+    expect(appliedAt).toBeGreaterThan(recordedAt);
+    expect(state.rpcCalls![recordedAt].params).toMatchObject({
+      p_opportunity_id: "opp-crystal",
+      p_proposed_stage: "negotiation",
+      p_confidence: 0.8,
+      p_evidence_message_ids: ["1a01fbc3eba7a4fb"],
+    });
+    expect(
+      state.rpcCalls!.some(
+        (call) => call.name === "apply_email_opportunity_stage_transition"
+      )
+    ).toBe(false);
+    expect(
+      state.rpcCalls!.some(
+        (call) =>
+          call.name === "record_phase_c_bilateral_event_handoff" ||
+          call.name.includes("site_visit") ||
+          call.name.includes("calendar")
+      )
+    ).toBe(false);
+  });
+
   it("keeps the provider cursor unchanged when the complete lead summary cannot be committed", async () => {
     const state: SupabaseState = {
       clients: [],
@@ -6426,7 +6696,7 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(updateConnectionMock).not.toHaveBeenCalled();
   });
 
-  it("completes the mailbox cursor after bounded model-contract disposition", async () => {
+  it("persists the mailbox continuation after a bounded model-contract disposition", async () => {
     const state: SupabaseState = {
       clients: [],
       opportunities: [
@@ -6499,7 +6769,7 @@ To: Kara Beach <kara.beach@example.com>`,
           reason: "model_contract",
         },
       ],
-      remainingOpportunityIds: [],
+      remainingOpportunityIds: ["opp-summary-model-contract"],
     });
 
     const result = await SyncEngine.runSync("connection-1");
@@ -6508,11 +6778,13 @@ To: Kara Beach <kara.beach@example.com>`,
     expect(result.aiProviderDeferred).toBe(false);
     const persistedHistoryId = updateConnectionMock.mock.calls.at(-1)?.[1]
       ?.historyId as string;
-    expect(persistedHistoryId).toBe("sync-token-2");
+    expect(persistedHistoryId).toContain("sync-token-2");
+    expect(persistedHistoryId).toContain("opp-summary-model-contract");
+    expect(result.continuationPending).toBe(true);
     expect(state.rpcCalls).toContainEqual({
-      name: "persist_email_connection_sync_completion_as_system",
+      name: "persist_email_connection_sync_checkpoint_as_system",
       params: expect.objectContaining({
-        p_history_id: "sync-token-2",
+        p_history_id: expect.stringContaining("opp-summary-model-contract"),
       }),
     });
   });

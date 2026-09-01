@@ -38,10 +38,11 @@ function makeAttachment(overrides: Partial<AttachmentRef> = {}): AttachmentRef {
 }
 
 function makeSignedInspection(
-  overrides: Partial<AttachmentInspection> = {},
+  overrides: Partial<AttachmentInspection> = {}
 ): AttachmentInspection {
   return {
-    summary: "Signed estimate — 40ft cedar fence, total $3,200, customer signature present.",
+    summary:
+      "Signed estimate — 40ft cedar fence, total $3,200, customer signature present.",
     isSignedEstimate: true,
     facts: {},
     model: "gpt-5.4",
@@ -54,7 +55,9 @@ function makeSignedInspection(
  * detector cares about: inbound + customer + isRealCustomerInbound. Tests
  * override `cleanBody` / `attachments` per case.
  */
-function makeCustomerMessage(overrides: Partial<CleanMessage> = {}): CleanMessage {
+function makeCustomerMessage(
+  overrides: Partial<CleanMessage> = {}
+): CleanMessage {
   return {
     providerMessageId: "msg-1",
     direction: "inbound",
@@ -138,7 +141,10 @@ describe("detectAccept — high confidence", () => {
 describe("detectAccept — low confidence (soft / pre-vision)", () => {
   it("treats a bare 'sounds good' as low confidence verbal_soft", () => {
     const signal = detectAccept([
-      makeCustomerMessage({ providerMessageId: "msg-soft", cleanBody: "sounds good" }),
+      makeCustomerMessage({
+        providerMessageId: "msg-soft",
+        cleanBody: "sounds good",
+      }),
     ]);
 
     expect(signal.detected).toBe(true);
@@ -242,14 +248,68 @@ describe("detectAccept — multi-message + precedence", () => {
     expect(signal.basis).not.toContain("verbal_soft");
   });
 
-  it("collects evidence ids across multiple soft messages when no hard accept exists", () => {
+  it("scopes acceptance to the latest customer event instead of retaining an earlier win", () => {
     const signal = detectAccept([
-      makeCustomerMessage({ providerMessageId: "m1", cleanBody: "ok" }),
-      makeCustomerMessage({ providerMessageId: "m2", cleanBody: "great thanks" }),
+      makeCustomerMessage({
+        providerMessageId: "m-accept",
+        sentAt: "2026-06-18T10:00:00.000Z",
+        cleanBody: "Yes, go ahead and book it.",
+      }),
+      makeCustomerMessage({
+        providerMessageId: "m-thanks",
+        sentAt: "2026-06-19T10:00:00.000Z",
+        cleanBody: "Thanks for the quote.",
+      }),
     ]);
+
     expect(signal.confidence).toBe("low");
     expect(signal.basis).toEqual(["verbal_soft"]);
-    expect(signal.evidenceMessageIds).toEqual(["m1", "m2"]);
+    expect(signal.evidenceMessageIds).toEqual(["m-thanks"]);
+  });
+
+  it.each([
+    "We have decided not to go ahead.",
+    "Please hold off for now — we are not ready to proceed.",
+    "We changed our mind and need to cancel the project.",
+  ])(
+    "lets a later decision reversal clear an earlier acceptance: %s",
+    (cleanBody) => {
+      const signal = detectAccept([
+        makeCustomerMessage({
+          providerMessageId: "m-accept",
+          sentAt: "2026-06-18T10:00:00.000Z",
+          cleanBody: "Yes, let's proceed.",
+        }),
+        makeCustomerMessage({
+          providerMessageId: "m-reversal",
+          sentAt: "2026-06-19T10:00:00.000Z",
+          cleanBody,
+        }),
+      ]);
+
+      expect(signal).toEqual({
+        detected: false,
+        confidence: "low",
+        basis: [],
+        evidenceMessageIds: [],
+      });
+    }
+  );
+
+  it("lets a decision reversal outrank accept words in the same latest message", () => {
+    for (const cleanBody of [
+      "I know we said go ahead, but we changed our mind and will not proceed.",
+      "We said go ahead, but need to postpone until September.",
+    ]) {
+      const signal = detectAccept([
+        makeCustomerMessage({
+          providerMessageId: "m-reversal",
+          cleanBody,
+        }),
+      ]);
+
+      expect(signal.detected, cleanBody).toBe(false);
+    }
   });
 });
 

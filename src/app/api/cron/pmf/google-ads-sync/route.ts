@@ -25,6 +25,10 @@ import {
   isGoogleAdsConfigured,
   queryDailyAccountData,
 } from "@/lib/analytics/google-ads-client";
+import {
+  classifyGoogleAdsAccessFailure,
+  reportAdsProviderHealth,
+} from "@/lib/admin/ads-provider-health";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,6 +77,23 @@ export async function GET(request: NextRequest) {
         try {
           rows = await queryDailyAccountData(yesterday, yesterday);
         } catch (error) {
+          // A blocked account/token is a standing operator condition. Degrade
+          // and write NO spend row: a missing day truthfully means "not
+          // synced", where a zero row would claim "checked, no spend".
+          const accessReason = classifyGoogleAdsAccessFailure(error);
+          if (accessReason) {
+            await reportAdsProviderHealth(sb, {
+              blocked: true,
+              reason: accessReason,
+            });
+            return {
+              degraded: accessReason,
+              date: dateStr,
+              spendCents: 0,
+              impressions: 0,
+              clicks: 0,
+            };
+          }
           const message =
             error instanceof Error ? error.message : "google ads query failed";
           console.error("[pmf-google-ads-sync] query failed:", message);
@@ -106,7 +127,10 @@ export async function GET(request: NextRequest) {
           );
         }
 
+        await reportAdsProviderHealth(sb, { blocked: false });
+
         return {
+          degraded: null as string | null,
           date: dateStr,
           spendCents,
           impressions,
@@ -124,6 +148,18 @@ export async function GET(request: NextRequest) {
           reason: alreadyRunning ? "already_running" : controlled.reason,
         },
         { status: alreadyRunning ? 200 : 503 }
+      );
+    }
+
+    if (controlled.value.degraded) {
+      return NextResponse.json(
+        {
+          ok: false,
+          ran: true,
+          degraded: "provider_access",
+          reason: controlled.value.degraded,
+        },
+        { status: 200 }
       );
     }
 

@@ -1560,13 +1560,16 @@ export type Database = {
           duration_ms: number | null
           event_name: string
           event_type: string
+          environment: string
           id: string
           os_version: string | null
           plan: string | null
           platform: string
           properties: Json | null
           role: string | null
+          schema_version: number
           session_id: string
+          received_at: string
           user_id: string | null
         }
         Insert: {
@@ -1577,13 +1580,16 @@ export type Database = {
           duration_ms?: number | null
           event_name: string
           event_type: string
+          environment?: string
           id?: string
           os_version?: string | null
           plan?: string | null
           platform: string
           properties?: Json | null
           role?: string | null
+          schema_version?: number
           session_id: string
+          received_at?: string
           user_id?: string | null
         }
         Update: {
@@ -1594,16 +1600,428 @@ export type Database = {
           duration_ms?: number | null
           event_name?: string
           event_type?: string
+          environment?: string
           id?: string
           os_version?: string | null
           plan?: string | null
           platform?: string
           properties?: Json | null
           role?: string | null
+          schema_version?: number
           session_id?: string
+          received_at?: string
           user_id?: string | null
         }
         Relationships: []
+      }
+      analytics_events_daily: {
+        Row: {
+          aggregated_at: string
+          app_version: string
+          duration_ms_total: number
+          environment: string
+          event_count: number
+          event_date: string
+          event_name: string
+          event_type: string
+          first_event_at: string
+          last_event_at: string
+          platform: string
+          session_count: number
+        }
+        Insert: {
+          aggregated_at?: string
+          app_version?: string
+          duration_ms_total: number
+          environment: string
+          event_count: number
+          event_date: string
+          event_name: string
+          event_type: string
+          first_event_at: string
+          last_event_at: string
+          platform: string
+          session_count: number
+        }
+        Update: {
+          aggregated_at?: string
+          app_version?: string
+          duration_ms_total?: number
+          environment?: string
+          event_count?: number
+          event_date?: string
+          event_name?: string
+          event_type?: string
+          first_event_at?: string
+          last_event_at?: string
+          platform?: string
+          session_count?: number
+        }
+        Relationships: []
+      }
+      analytics_health_states: {
+        Row: {
+          checked_at: string
+          details: Json
+          last_observed_state: string
+          open_notification_id: string | null
+          source: string
+          state: string | null
+          state_changed_at: string | null
+        }
+        Insert: {
+          checked_at?: string
+          details?: Json
+          last_observed_state: string
+          open_notification_id?: string | null
+          source: string
+          state?: string | null
+          state_changed_at?: string | null
+        }
+        Update: {
+          checked_at?: string
+          details?: Json
+          last_observed_state?: string
+          open_notification_id?: string | null
+          source?: string
+          state?: string | null
+          state_changed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_health_states_open_notification_id_fkey"
+            columns: ["open_notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      analytics_sync_runs: {
+        Row: {
+          created_at: string
+          cursor: string | null
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          metadata: Json
+          row_count: number
+          source: string
+          source_max_date: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          cursor?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          metadata?: Json
+          row_count?: number
+          source: string
+          source_max_date?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          cursor?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          metadata?: Json
+          row_count?: number
+          source?: string
+          source_max_date?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      channel_map: {
+        Row: {
+          active: boolean
+          canonical_channel: string
+          classification_reason: string
+          created_at: string
+          id: string
+          is_paid: boolean
+          priority: number
+          raw_channel: string | null
+          raw_medium: string | null
+          raw_source: string | null
+          source_system: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          canonical_channel: string
+          classification_reason: string
+          created_at?: string
+          id?: string
+          is_paid?: boolean
+          priority?: number
+          raw_channel?: string | null
+          raw_medium?: string | null
+          raw_source?: string | null
+          source_system: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          canonical_channel?: string
+          classification_reason?: string
+          created_at?: string
+          id?: string
+          is_paid?: boolean
+          priority?: number
+          raw_channel?: string | null
+          raw_medium?: string | null
+          raw_source?: string | null
+          source_system?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      channel_metrics: {
+        Row: {
+          as_of: string
+          campaign: string | null
+          canonical_channel: string
+          created_at: string
+          currency: string | null
+          dimensions: Json
+          id: string
+          metric_date: string
+          metric_type: string
+          metric_value: number
+          source_grain: string
+          source_key: string
+          source_system: string
+          sub_channel: string | null
+          territory: string | null
+          updated_at: string
+        }
+        Insert: {
+          as_of: string
+          campaign?: string | null
+          canonical_channel: string
+          created_at?: string
+          currency?: string | null
+          dimensions?: Json
+          id?: string
+          metric_date: string
+          metric_type: string
+          metric_value: number
+          source_grain: string
+          source_key: string
+          source_system: string
+          sub_channel?: string | null
+          territory?: string | null
+          updated_at?: string
+        }
+        Update: {
+          as_of?: string
+          campaign?: string | null
+          canonical_channel?: string
+          created_at?: string
+          currency?: string | null
+          dimensions?: Json
+          id?: string
+          metric_date?: string
+          metric_type?: string
+          metric_value?: number
+          source_grain?: string
+          source_key?: string
+          source_system?: string
+          sub_channel?: string | null
+          territory?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ga4_daily_acquisition: {
+        Row: {
+          campaign: string
+          created_at: string
+          default_channel_group: string
+          engaged_sessions: number
+          id: string
+          key_events: number
+          landing_path: string
+          medium: string
+          new_users: number
+          property_id: string
+          property_key: string
+          reporting_date: string
+          sessions: number
+          source: string
+          source_updated_at: string
+          total_users: number
+          updated_at: string
+        }
+        Insert: {
+          campaign: string
+          created_at?: string
+          default_channel_group: string
+          engaged_sessions?: number
+          id?: string
+          key_events?: number
+          landing_path: string
+          medium: string
+          new_users?: number
+          property_id: string
+          property_key: string
+          reporting_date: string
+          sessions?: number
+          source: string
+          source_updated_at?: string
+          total_users?: number
+          updated_at?: string
+        }
+        Update: {
+          campaign?: string
+          created_at?: string
+          default_channel_group?: string
+          engaged_sessions?: number
+          id?: string
+          key_events?: number
+          landing_path?: string
+          medium?: string
+          new_users?: number
+          property_id?: string
+          property_key?: string
+          reporting_date?: string
+          sessions?: number
+          source?: string
+          source_updated_at?: string
+          total_users?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      search_console_daily: {
+        Row: {
+          clicks: number
+          country: string
+          created_at: string
+          ctr: number
+          device: string
+          id: string
+          impressions: number
+          page: string
+          position: number
+          query: string
+          reporting_date: string
+          site_url: string
+          source_updated_at: string
+          updated_at: string
+        }
+        Insert: {
+          clicks?: number
+          country?: string
+          created_at?: string
+          ctr?: number
+          device?: string
+          id?: string
+          impressions?: number
+          page: string
+          position?: number
+          query?: string
+          reporting_date: string
+          site_url: string
+          source_updated_at?: string
+          updated_at?: string
+        }
+        Update: {
+          clicks?: number
+          country?: string
+          created_at?: string
+          ctr?: number
+          device?: string
+          id?: string
+          impressions?: number
+          page?: string
+          position?: number
+          query?: string
+          reporting_date?: string
+          site_url?: string
+          source_updated_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      touchpoints: {
+        Row: {
+          anonymous_id: string | null
+          attribution_basis: string
+          attribution_confidence: number
+          campaign: string | null
+          canonical_channel: string
+          capture_version: number
+          click_ids: Json
+          company_id: string | null
+          created_at: string
+          dedupe_key: string
+          expires_at: string | null
+          id: string
+          landing_path: string | null
+          occurred_at: string
+          raw_source: Json
+          referrer_domain: string | null
+          sub_channel: string | null
+        }
+        Insert: {
+          anonymous_id?: string | null
+          attribution_basis: string
+          attribution_confidence: number
+          campaign?: string | null
+          canonical_channel: string
+          capture_version: number
+          click_ids?: Json
+          company_id?: string | null
+          created_at?: string
+          dedupe_key: string
+          expires_at?: string | null
+          id?: string
+          landing_path?: string | null
+          occurred_at: string
+          raw_source?: Json
+          referrer_domain?: string | null
+          sub_channel?: string | null
+        }
+        Update: {
+          anonymous_id?: string | null
+          attribution_basis?: string
+          attribution_confidence?: number
+          campaign?: string | null
+          canonical_channel?: string
+          capture_version?: number
+          click_ids?: Json
+          company_id?: string | null
+          created_at?: string
+          dedupe_key?: string
+          expires_at?: string | null
+          id?: string
+          landing_path?: string | null
+          occurred_at?: string
+          raw_source?: Json
+          referrer_domain?: string | null
+          sub_channel?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "touchpoints_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       app_events: {
         Row: {
@@ -5270,6 +5688,7 @@ export type Database = {
           id: string
           industries: string[] | null
           industry: string | null
+          invoice_settings: Json
           latitude: number | null
           lifecycle_settings: Json | null
           locale: string
@@ -5283,6 +5702,7 @@ export type Database = {
           precise_scheduling_enabled: boolean | null
           priority_support_period: string | null
           referral_method: string | null
+          schedule_settings: Json
           seat_grace_start_date: string | null
           seated_employee_ids: string[] | null
           skip_weekends_in_auto_schedule: boolean | null
@@ -5327,6 +5747,7 @@ export type Database = {
           id?: string
           industries?: string[] | null
           industry?: string | null
+          invoice_settings?: Json
           latitude?: number | null
           lifecycle_settings?: Json | null
           locale?: string
@@ -5340,6 +5761,7 @@ export type Database = {
           precise_scheduling_enabled?: boolean | null
           priority_support_period?: string | null
           referral_method?: string | null
+          schedule_settings?: Json
           seat_grace_start_date?: string | null
           seated_employee_ids?: string[] | null
           skip_weekends_in_auto_schedule?: boolean | null
@@ -5384,6 +5806,7 @@ export type Database = {
           id?: string
           industries?: string[] | null
           industry?: string | null
+          invoice_settings?: Json
           latitude?: number | null
           lifecycle_settings?: Json | null
           locale?: string
@@ -5397,6 +5820,7 @@ export type Database = {
           precise_scheduling_enabled?: boolean | null
           priority_support_period?: string | null
           referral_method?: string | null
+          schedule_settings?: Json
           seat_grace_start_date?: string | null
           seated_employee_ids?: string[] | null
           skip_weekends_in_auto_schedule?: boolean | null
@@ -11961,6 +12385,7 @@ export type Database = {
           quiet_hours_end: string | null
           quiet_hours_start: string | null
           schedule_changes: boolean | null
+          site_visit_reminder_lead_minutes: number | null
           task_assigned: boolean | null
           task_completed: boolean | null
           team_mentions: boolean | null
@@ -11983,6 +12408,7 @@ export type Database = {
           quiet_hours_end?: string | null
           quiet_hours_start?: string | null
           schedule_changes?: boolean | null
+          site_visit_reminder_lead_minutes?: number | null
           task_assigned?: boolean | null
           task_completed?: boolean | null
           team_mentions?: boolean | null
@@ -12005,6 +12431,7 @@ export type Database = {
           quiet_hours_end?: string | null
           quiet_hours_start?: string | null
           schedule_changes?: boolean | null
+          site_visit_reminder_lead_minutes?: number | null
           task_assigned?: boolean | null
           task_completed?: boolean | null
           team_mentions?: boolean | null
@@ -15988,6 +16415,7 @@ export type Database = {
           project_id: string
           recurrence_id: string | null
           recurrence_origin_date: string | null
+          confirmed_schedule_version: number | null
           schedule_confirmed_at: string | null
           schedule_confirmed_by: string | null
           schedule_locked: boolean
@@ -16022,6 +16450,7 @@ export type Database = {
           project_id: string
           recurrence_id?: string | null
           recurrence_origin_date?: string | null
+          confirmed_schedule_version?: number | null
           schedule_confirmed_at?: string | null
           schedule_confirmed_by?: string | null
           schedule_locked?: boolean
@@ -16056,6 +16485,7 @@ export type Database = {
           project_id?: string
           recurrence_id?: string | null
           recurrence_origin_date?: string | null
+          confirmed_schedule_version?: number | null
           schedule_confirmed_at?: string | null
           schedule_confirmed_by?: string | null
           schedule_locked?: boolean
@@ -18040,7 +18470,13 @@ export type Database = {
       site_visits: {
         Row: {
           activity_id: string | null
+          appointment_attendees: Json | null
+          appointment_handoff_id: string | null
+          appointment_kind: string | null
+          appointment_location: string | null
+          appointment_title: string | null
           assignee_ids: string[] | null
+          booked_at: string | null
           calendar_event_id: string | null
           client_id: string | null
           client_ref: string | null
@@ -18061,13 +18497,20 @@ export type Database = {
           photos: string[] | null
           project_id: string | null
           project_ref: string | null
+          reminder_lead_minutes: number | null
           scheduled_at: string
           status: Database["public"]["Enums"]["site_visit_status"]
           updated_at: string | null
         }
         Insert: {
           activity_id?: string | null
+          appointment_attendees?: Json | null
+          appointment_handoff_id?: string | null
+          appointment_kind?: string | null
+          appointment_location?: string | null
+          appointment_title?: string | null
           assignee_ids?: string[] | null
+          booked_at?: string | null
           calendar_event_id?: string | null
           client_id?: string | null
           client_ref?: string | null
@@ -18088,13 +18531,20 @@ export type Database = {
           photos?: string[] | null
           project_id?: string | null
           project_ref?: string | null
+          reminder_lead_minutes?: number | null
           scheduled_at: string
           status?: Database["public"]["Enums"]["site_visit_status"]
           updated_at?: string | null
         }
         Update: {
           activity_id?: string | null
+          appointment_attendees?: Json | null
+          appointment_handoff_id?: string | null
+          appointment_kind?: string | null
+          appointment_location?: string | null
+          appointment_title?: string | null
           assignee_ids?: string[] | null
+          booked_at?: string | null
           calendar_event_id?: string | null
           client_id?: string | null
           client_ref?: string | null
@@ -18115,11 +18565,19 @@ export type Database = {
           photos?: string[] | null
           project_id?: string | null
           project_ref?: string | null
+          reminder_lead_minutes?: number | null
           scheduled_at?: string
           status?: Database["public"]["Enums"]["site_visit_status"]
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "site_visits_appointment_handoff_id_fkey"
+            columns: ["appointment_handoff_id"]
+            isOneToOne: true
+            referencedRelation: "phase_c_bilateral_event_handoffs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "site_visits_activity_id_fkey"
             columns: ["activity_id"]
@@ -20630,14 +21088,21 @@ export type Database = {
       }
       trial_attributions: {
         Row: {
+          attribution_basis: string
+          attribution_confidence: number | null
           attributed_channel: string
+          capture_version: number
+          classification_reason: string | null
           company_id: string
           created_at: string
           fbclid: string | null
           first_paid_at: string | null
+          first_touch_at: string | null
           gclid: string | null
           id: string
           landing_url: string | null
+          referrer: string | null
+          self_reported_source: string | null
           trial_started_at: string
           updated_at: string
           utm_campaign: string | null
@@ -20647,14 +21112,21 @@ export type Database = {
           utm_term: string | null
         }
         Insert: {
+          attribution_basis?: string
+          attribution_confidence?: number | null
           attributed_channel?: string
+          capture_version?: number
+          classification_reason?: string | null
           company_id: string
           created_at?: string
           fbclid?: string | null
           first_paid_at?: string | null
+          first_touch_at?: string | null
           gclid?: string | null
           id?: string
           landing_url?: string | null
+          referrer?: string | null
+          self_reported_source?: string | null
           trial_started_at: string
           updated_at?: string
           utm_campaign?: string | null
@@ -20664,14 +21136,21 @@ export type Database = {
           utm_term?: string | null
         }
         Update: {
+          attribution_basis?: string
+          attribution_confidence?: number | null
           attributed_channel?: string
+          capture_version?: number
+          classification_reason?: string | null
           company_id?: string
           created_at?: string
           fbclid?: string | null
           first_paid_at?: string | null
+          first_touch_at?: string | null
           gclid?: string | null
           id?: string
           landing_url?: string | null
+          referrer?: string | null
+          self_reported_source?: string | null
           trial_started_at?: string
           updated_at?: string
           utm_campaign?: string | null
@@ -21685,6 +22164,78 @@ export type Database = {
         }
         Relationships: []
       }
+      growth_attribution_coverage: {
+        Row: {
+          coverage_ratio: number | null
+          deterministic_trials: number | null
+          direct_trials: number | null
+          reporting_date: string | null
+          self_reported_trials: number | null
+          total_trials: number | null
+          unknown_trials: number | null
+        }
+        Relationships: []
+      }
+      growth_channel_performance: {
+        Row: {
+          activated_companies: number | null
+          attribution_basis: string | null
+          canonical_channel: string | null
+          first_value_companies: number | null
+          first_project_companies: number | null
+          grain: string | null
+          paid_companies: number | null
+          reporting_date: string | null
+          revenue_cents: number | null
+          trials_started: number | null
+        }
+        Relationships: []
+      }
+      growth_data_health: {
+        Row: {
+          error_code: string | null
+          error_message: string | null
+          finished_at: string | null
+          metadata: Json | null
+          row_count: number | null
+          source: string | null
+          source_max_date: string | null
+          started_at: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
+      growth_company_milestones: {
+        Row: {
+          activated_at: string | null
+          attribution_basis: string | null
+          attribution_confidence: number | null
+          canonical_channel: string | null
+          company_id: string | null
+          first_paid_at: string | null
+          first_project_at: string | null
+          first_value_at: string | null
+          first_value_evidence: string | null
+          first_value_kind: string | null
+          revenue_cents: number | null
+          trial_started_at: string | null
+        }
+        Relationships: []
+      }
+      growth_funnel_daily: {
+        Row: {
+          activated_companies: number | null
+          classified_trials: number | null
+          first_value_companies: number | null
+          first_project_companies: number | null
+          grain: string | null
+          paid_companies: number | null
+          reporting_date: string | null
+          revenue_cents: number | null
+          trials_started: number | null
+        }
+        Relationships: []
+      }
       inventory_item_tags: {
         Row: {
           id: string | null
@@ -22085,6 +22636,24 @@ export type Database = {
       acquire_phase_c_lock: {
         Args: { p_holder: string; p_job_id: string; p_lease_seconds?: number }
         Returns: boolean
+      }
+      append_analytics_events: {
+        Args: { p_events: Json; p_expected_subject: string }
+        Returns: Json
+      }
+      analytics_properties_are_safe: {
+        Args: { p_properties: Json }
+        Returns: boolean
+      }
+      apply_analytics_health_source: {
+        Args: {
+          p_company_id: string
+          p_details: Json
+          p_source: string
+          p_state: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       adopt_orphan_email_activity_as_system: {
         Args: {
@@ -22725,6 +23294,16 @@ export type Database = {
           site_visit_id: string
         }[]
       }
+      book_site_visit: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_duration_minutes?: number
+          p_opportunity_id: string
+          p_reminder_lead_minutes?: number
+          p_scheduled_at: string
+        }
+        Returns: string
+      }
       bulk_update_project_table: { Args: { p_operations: Json }; Returns: Json }
       campaign_engagement_stats: {
         Args: { p_campaign_id: string }
@@ -22794,6 +23373,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      cancel_site_visit_booking: {
+        Args: { p_site_visit_id: string }
+        Returns: string
       }
       catalog_guided_setup_archive_variant: {
         Args: { p_action_key: string; p_session_id: string }
@@ -24816,6 +25399,30 @@ export type Database = {
           notification_id: string
         }[]
       }
+      create_email_anomaly_notification_if_new: {
+        Args: {
+          p_action_label?: string
+          p_action_url?: string
+          p_anomaly_id: string
+          p_body: string
+          p_company_id: string
+          p_persistent?: boolean
+          p_title: string
+          p_user_id: string
+        }
+        Returns: {
+          created: boolean
+          notification_id: string
+        }[]
+      }
+      reconcile_email_pause_notification_fanout: {
+        Args: { p_anomaly_id: string; p_pause_audit_id: string }
+        Returns: number
+      }
+      replace_financial_analysis_memories: {
+        Args: { p_company_id: string; p_memories: Json }
+        Returns: number
+      }
       create_notification_if_new_with_status: {
         Args: {
           p_action_label?: string
@@ -25479,6 +26086,14 @@ export type Database = {
         }[]
       }
       expense_envelope_sweep: { Args: never; Returns: number }
+      enforce_analytics_retention: {
+        Args: { p_now?: string }
+        Returns: Json
+      }
+      expire_attribution_click_ids: {
+        Args: { p_now?: string }
+        Returns: Json
+      }
       expire_agent_actions_batch_as_system: {
         Args: { p_batch_size?: number; p_now?: string }
         Returns: number
@@ -25790,6 +26405,7 @@ export type Database = {
       }
       generate_text_id: { Args: never; Returns: string }
       get_company_join_details: { Args: { p_code: string }; Returns: Json }
+      get_growth_analytics_health_snapshot: { Args: never; Returns: Json }
       get_conversion_preflight: {
         Args: {
           p_actor_user_id?: string
@@ -26757,6 +27373,10 @@ export type Database = {
           similarity: number
           source: string
         }[]
+      }
+      merge_company_invoice_settings: {
+        Args: { p_company_id: string; p_patch: Json }
+        Returns: Json
       }
       merge_task_type: {
         Args: {
@@ -27814,6 +28434,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      record_first_touch_attribution: {
+        Args: { p_company_id: string; p_touch: Json }
+        Returns: Json
+      }
       record_external_api_authorization_denial_as_system: {
         Args: {
           p_company_id: string
@@ -28422,6 +29046,16 @@ export type Database = {
           p_visible_prefix: string
         }
         Returns: Json
+      }
+      reschedule_site_visit: {
+        Args: {
+          p_assignee_ids?: string[]
+          p_duration_minutes?: number
+          p_reminder_lead_minutes?: number
+          p_scheduled_at: string
+          p_site_visit_id: string
+        }
+        Returns: string
       }
       reset_opportunity_table_view: {
         Args: { p_view_id: string }

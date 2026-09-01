@@ -2,10 +2,11 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { format } from "date-fns";
-import { Star, TreePalm } from "lucide-react";
+import { MapPin, Star, TreePalm } from "lucide-react";
 import { type InternalScheduleEvent } from "@/lib/utils/schedule-utils";
 import { useScheduleStore } from "@/stores/schedule-store";
 import { EventHoverPopover } from "../event-hover-popover";
+import { SiteVisitPopover } from "../site-visits/site-visit-event";
 import { useEventWeatherRisk } from "../weather/schedule-weather-context";
 import { WeatherRiskIndicator } from "../weather/weather-risk-indicator";
 
@@ -488,6 +489,94 @@ export function MonthEventBar({
         }}
       />
     ) : null;
+
+  // ── Site visits — appointments, not tasks ──
+  //
+  // Fourth kind, own return path: tan + MapPin (the site-visit signature),
+  // wrapped in the visit popover instead of the hover card / onClick
+  // routing, and never growing drag or resize affordances. One calm 22px
+  // bar at every non-compact level — detail lives in the popover.
+  if (event.kind === "site_visit") {
+    if (displayLevel === "compact") {
+      return (
+        <SiteVisitPopover event={event}>
+          <div
+            role="button"
+            tabIndex={0}
+            className="cursor-pointer shrink-0 flex items-center justify-center"
+            style={{
+              width: 10,
+              height: 10,
+              opacity: dimmedByLegend ? 0.18 : 1,
+              filter: highlightedByLegend ? "brightness(1.25)" : "none",
+              transition:
+                "opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            }}
+          >
+            <MapPin
+              size={10}
+              strokeWidth={1.5}
+              style={{ color: "var(--tan)" }}
+              aria-hidden="true"
+            />
+          </div>
+        </SiteVisitPopover>
+      );
+    }
+
+    return (
+      <SiteVisitPopover event={event}>
+        <div
+          role="button"
+          tabIndex={0}
+          className="cursor-pointer truncate relative"
+          style={{
+            height: 22,
+            background: "rgba(196, 168, 104, 0.06)",
+            border: `1px solid ${isHovered ? "rgba(196, 168, 104, 0.55)" : "var(--tan-line)"}`,
+            borderRadius,
+            color: "var(--tan)",
+            paddingLeft: 6,
+            paddingRight: 5,
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+            overflow: "visible",
+            transition:
+              "border-color 0.15s cubic-bezier(0.22, 1, 0.36, 1), filter 0.15s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.15s cubic-bezier(0.22, 1, 0.36, 1)",
+            filter: highlightedByLegend ? "brightness(1.3)" : "none",
+            opacity: dimmedByLegend ? 0.18 : 1,
+          }}
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <MapPin
+            size={10}
+            strokeWidth={1.5}
+            style={{ color: "var(--tan)", flexShrink: 0 }}
+            aria-hidden="true"
+          />
+          <span
+            className="font-mono shrink-0 tabular-nums"
+            style={{
+              fontSize: 11,
+              lineHeight: "20px",
+              color: "var(--tan)",
+              fontFeatureSettings: '"tnum" 1, "zero" 1',
+            }}
+          >
+            {format(event.startDate, "HH:mm")}
+          </span>
+          <span
+            className="font-mohave truncate flex-1 min-w-0"
+            style={{ fontSize: 12, lineHeight: "20px", color: "var(--tan)" }}
+          >
+            {event.title}
+          </span>
+        </div>
+      </SiteVisitPopover>
+    );
+  }
 
   // ── Level 1: Compact — color dot only (no stripe, no handles) ──
   if (displayLevel === "compact") {

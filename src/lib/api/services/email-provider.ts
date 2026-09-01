@@ -5,6 +5,8 @@
  * Normalizes email operations across providers.
  */
 
+import type { ProviderDeliveredContent } from "./provider-delivery-source-types";
+
 // ─── Typed errors ────────────────────────────────────────────────────────────
 //
 // Sync paths throw these so callers (sync-engine.runSync) can recover or
@@ -66,10 +68,28 @@ export class ProviderApiError extends Error {
   constructor(
     message: string,
     public readonly providerStatus: number,
-    public readonly providerBody?: unknown
+    public readonly providerBody?: unknown,
+    options?: ErrorOptions
   ) {
-    super(message);
+    super(message, options);
     this.name = "ProviderApiError";
+  }
+}
+
+/**
+ * The provider positively confirmed that one requested thread no longer
+ * exists. Callers may omit derived work for that thread without treating a
+ * broader provider, mailbox, credential, or persistence failure as success.
+ */
+export class ProviderThreadTombstoneError extends ProviderApiError {
+  constructor(
+    message: string,
+    providerStatus: 404 | 410,
+    providerBody?: unknown,
+    options?: ErrorOptions
+  ) {
+    super(message, providerStatus, providerBody, options);
+    this.name = "ProviderThreadTombstoneError";
   }
 }
 
@@ -110,6 +130,12 @@ export interface NormalizedEmail {
    *  renderer prefers this over running plain-text regex stripping. Omit or
    *  set null/empty when the provider cannot confidently strip. */
   bodyTextClean?: string;
+  /**
+   * Exact provider-delivered body selection and delivery identities. This is
+   * the only body that may seed immutable conversation evidence. `bodyText`
+   * and `bodyTextClean` remain mutable display/classification projections.
+   */
+  providerDeliverySource?: ProviderDeliveredContent;
   /**
    * Provider-verified visible-sender domains. This must come from the provider
    * transport/authentication result, never from message body/header parsing.

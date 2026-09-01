@@ -125,4 +125,186 @@ describe("buildDraftSystemPrompt — operator identity", () => {
     expect(prompt).toContain("8. GREETING: Hey {name},");
     expect(prompt).toContain("UNTRUSTED DATA");
   });
+
+  it("allows a complete but direct first reply", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      replyContext: {
+        mode: "answer",
+        isFirstOperatorReply: true,
+        customerMessageCount: 1,
+        operatorMessageCount: 0,
+      },
+    });
+
+    expect(prompt).toMatch(/first operator reply/i);
+    expect(prompt).toMatch(/complete.*direct|direct.*complete/i);
+    expect(prompt).not.toMatch(/1-3 short sentences/i);
+  });
+
+  it("compresses an ongoing reply to the new semantic delta", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      replyContext: {
+        mode: "answer",
+        isFirstOperatorReply: false,
+        customerMessageCount: 4,
+        operatorMessageCount: 3,
+      },
+    });
+
+    expect(prompt).toMatch(/ongoing conversation/i);
+    expect(prompt).toMatch(/1-3 short sentences/i);
+    expect(prompt).toMatch(/55 words/i);
+    expect(prompt).toMatch(/new semantic delta/i);
+    expect(prompt).toMatch(/generic call to action/i);
+  });
+
+  it("turns learned more-direct and shorter edits into active overrides", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: {
+        ...PROFILE,
+        tone_traits: {
+          direct: true,
+          learned_edits: {
+            tone_shift: { preference: "more_direct" },
+          },
+        },
+        vocabulary_preferences: {
+          learned_structure_edits: {
+            length: { preference: "shorter" },
+          },
+        },
+      },
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      replyContext: {
+        mode: "answer",
+        isFirstOperatorReply: false,
+        customerMessageCount: 3,
+        operatorMessageCount: 2,
+      },
+    });
+
+    expect(prompt).toMatch(/edit-derived overrides/i);
+    expect(prompt).toMatch(/more direct/i);
+    expect(prompt).toMatch(/shorter/i);
+  });
+
+  it("forbids schedule claims without verified calendar context", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      replyContext: {
+        mode: "schedule",
+        isFirstOperatorReply: false,
+        customerMessageCount: 2,
+        operatorMessageCount: 1,
+      },
+    });
+
+    expect(prompt).toMatch(/never (?:state|claim).*availability/i);
+    expect(prompt).toMatch(/verified calendar context/i);
+  });
+
+  it("lets a verified schedule reply state real bookings, tentatively only", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      verifiedContext: { schedule: true },
+      replyContext: {
+        mode: "schedule",
+        isFirstOperatorReply: false,
+        customerMessageCount: 2,
+        operatorMessageCount: 1,
+      },
+    });
+
+    expect(prompt).toContain(
+      "Answer the scheduling question using ONLY the server-verified schedule facts provided. State existing bookings exactly. New times may be proposed only as tentative options requiring confirmation — never as confirmed."
+    );
+    expect(prompt).not.toContain(
+      "Do not propose or confirm a date until verified schedule context exists."
+    );
+    expect(prompt).not.toContain(
+      "No verified calendar context is present in this request."
+    );
+  });
+
+  it("keeps the schedule ban when no verified context accompanies the reply", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      replyContext: {
+        mode: "schedule",
+        isFirstOperatorReply: false,
+        customerMessageCount: 2,
+        operatorMessageCount: 1,
+      },
+    });
+
+    expect(prompt).toContain(
+      "Do not propose or confirm a date until verified schedule context exists."
+    );
+    expect(prompt).toContain(
+      "No verified calendar context is present in this request."
+    );
+    expect(prompt).not.toMatch(/server-verified schedule facts provided/);
+  });
+
+  it("does not unlock schedule wording for other modes under verified context", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      verifiedContext: { schedule: true },
+      replyContext: {
+        mode: "answer",
+        isFirstOperatorReply: false,
+        customerMessageCount: 2,
+        operatorMessageCount: 1,
+      },
+    });
+
+    expect(prompt).toContain("RESPONSE MODE — answer");
+    expect(prompt).not.toMatch(/server-verified schedule facts provided/);
+  });
+
+  it("treats proactive operational mail as outbound work, not a customer reply", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      messageKind: "operational_outbound",
+    });
+
+    expect(prompt).toMatch(/outbound message contract/i);
+    expect(prompt).toMatch(/trusted operator instruction/i);
+    expect(prompt).not.toMatch(/first operator reply/i);
+    expect(prompt).not.toMatch(/answer the customer/i);
+  });
+
+  it("allows only server-verified schedule facts for operational mail", () => {
+    const prompt = buildDraftSystemPrompt({
+      profile: PROFILE,
+      operator: OPERATOR,
+      signatureWillBeAppended: false,
+      messageKind: "operational_outbound",
+      verifiedContext: { schedule: true },
+    });
+
+    expect(prompt).toMatch(/schedule facts.*server-verified/i);
+    expect(prompt).toMatch(/state them exactly/i);
+    expect(prompt).toMatch(/do not invent.*date|date.*do not invent/i);
+    expect(prompt).not.toContain(
+      "No verified calendar context is present in this request."
+    );
+  });
 });

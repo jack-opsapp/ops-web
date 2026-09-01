@@ -55,7 +55,13 @@ export function PipelineToolbar({
   const { t } = useDictionary("pipeline");
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
+    // 8px between controls below xl, 16px from xl up. These are icon-only
+    // buttons at that width (their labels gate at 2xl), so the tighter gap
+    // reads as one instrument group rather than cramped — and it returns
+    // ~24-32px to the row, the margin that keeps the cluster on one line at
+    // 1000px once REVIEW EMAILS is present. The Workbar's own cluster gap is
+    // shared across surfaces and deliberately untouched.
+    <div className="flex min-w-0 flex-wrap items-center gap-1 xl:gap-2">
       <button
         type="button"
         aria-label={t("table.toolbar.group")}
@@ -70,10 +76,16 @@ export function PipelineToolbar({
           )}
         >
           <Layers className="h-[12px] w-[12px]" strokeWidth={1.5} aria-hidden="true" />
-          {/* xl (not lg) matches the density segments below, so the whole
-              cluster compresses to icons together and stays one line at
-              ~1024-1280px instead of wrapping (WEB OVERHAUL P6-2 workbar). */}
-          <span className="hidden xl:inline">{t("table.toolbar.group")}</span>
+          {/* 2xl, not xl. All three label groups (GROUP, CLOSED, density) pop
+              in together, adding ~330px to row 1. At xl the labeled row ran
+              ~1210px against ~1160px of available width — the 72px icon rail
+              and the workbar's px-3 gutters come off the viewport first — so
+              the cluster wrapped from 1280px until ~1330px. Gating at 2xl
+              (~1416px available) means labels appear only where they are
+              genuinely afforded, with slack for the transient Save affordance.
+              Below that the icon plus aria-label/aria-pressed carries the
+              control; the aria-hidden label spans are decorative. */}
+          <span className="hidden 2xl:inline">{t("table.toolbar.group")}</span>
         </button>
         <button
           type="button"
@@ -89,7 +101,7 @@ export function PipelineToolbar({
           )}
         >
           <CheckCircle className="h-[12px] w-[12px]" strokeWidth={1.5} aria-hidden="true" />
-          <span className="hidden xl:inline">{t("table.toolbar.closed")}</span>
+          <span className="hidden 2xl:inline">{t("table.toolbar.closed")}</span>
         </button>
         {saveAffordance}
         <div
@@ -118,7 +130,7 @@ export function PipelineToolbar({
                 )}
               >
                 <Icon className="h-[11px] w-[11px]" strokeWidth={1.5} aria-hidden="true" />
-                <span aria-hidden="true" className="hidden xl:inline">
+                <span aria-hidden="true" className="hidden 2xl:inline">
                   {t(option.labelKey)}
                 </span>
               </button>

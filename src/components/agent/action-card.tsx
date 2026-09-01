@@ -60,9 +60,12 @@ import type {
   SendDayBeforeReminderActionData,
   SendSubcontractorCoordinationActionData,
   ProcessRescheduleRequestActionData,
+  FileDayCloseoutActionData,
+  ApproveCollectionsDraftActionData,
   StructuredSummary,
 } from "@/lib/types/approval-queue";
 import { FinancialInsightCard } from "./financial-insight-card";
+import { CollectionsDraftPreview } from "./collections-draft-preview";
 
 // ─── Type Icon Map ────────────────────────────────────────────────────────────
 
@@ -90,6 +93,8 @@ const ACTION_TYPE_ICONS: Record<
   send_schedule_changed: CalendarCheck,
   process_reschedule_request: MessageSquareReply,
   send_subcontractor_coordination: HardHat,
+  file_day_closeout: CalendarCheck,
+  approve_collections_draft: Receipt,
 };
 
 // ─── Priority Left Border Colors ──────────────────────────────────────────────
@@ -438,6 +443,16 @@ export const ActionCard = memo(function ActionCard({
     action.actionType === "process_reschedule_request";
   const rescheduleRequestData = isRescheduleRequest
     ? (action.actionData as unknown as ProcessRescheduleRequestActionData)
+    : null;
+
+  const isDayCloseout = action.actionType === "file_day_closeout";
+  const dayCloseoutData = isDayCloseout
+    ? (action.actionData as unknown as FileDayCloseoutActionData)
+    : null;
+
+  const isCollectionsDraft = action.actionType === "approve_collections_draft";
+  const collectionsDraftData = isCollectionsDraft
+    ? (action.actionData as unknown as ApproveCollectionsDraftActionData)
     : null;
 
   // ── Editable state for status email ──
@@ -984,7 +999,7 @@ export const ActionCard = memo(function ActionCard({
       {/* ── Header Row ─────────────────────────────────────────────────── */}
       <div className="flex items-start gap-3 p-4">
         {/* Selection checkbox — 56dp tap area */}
-        {isPending && (
+        {isPending && !isDayCloseout && !isCollectionsDraft && (
           <button
             onClick={() => onSelect(action.id)}
             className="-m-3 mr-0 flex min-h-[56px] min-w-[56px] shrink-0 items-center justify-center"
@@ -1045,6 +1060,41 @@ export const ActionCard = memo(function ActionCard({
               );
             })()}
           </p>
+
+          {isDayCloseout && dayCloseoutData && (
+            <div className="mt-2 flex flex-wrap items-center gap-3 font-mono text-micro">
+              <span className="text-text-2">
+                {t("dayCloseout.businessDate")}: {dayCloseoutData.business_date}
+              </span>
+              <span className="text-text-3">
+                {interpolate(t("dayCloseout.preparedThrough"), {
+                  host: dayCloseoutData.host_client_name,
+                })}
+              </span>
+              <span className="text-text-3">
+                {interpolate(t("dayCloseout.findingCount"), {
+                  count: dayCloseoutData.finding_count,
+                })}
+              </span>
+              <span className="text-text-3">
+                {dayCloseoutData.truth_boundary}
+              </span>
+            </div>
+          )}
+
+          {isCollectionsDraft && collectionsDraftData && (
+            <div className="mt-2 flex flex-wrap items-center gap-3 font-mono text-micro">
+              <span className="text-text-2">
+                {collectionsDraftData.customer_display_name}
+              </span>
+              <span className="text-text-3">
+                {collectionsDraftData.preview.recipient.address}
+              </span>
+              <span className="rounded-bar border border-border-subtle px-2 py-1 uppercase text-text-2">
+                {t("collections.notSent")}
+              </span>
+            </div>
+          )}
 
           {/* ── Task-specific inline details ── */}
           {isTaskAction && taskData && (
@@ -1560,25 +1610,33 @@ export const ActionCard = memo(function ActionCard({
             )}
           </button>
 
-          {/* Approve / Reject — 56dp touch targets */}
+          {/* Approve / Reject — 44px minimum touch targets */}
           {/* Fix 21: Approve button is the ONE accent element per card */}
           {isPending && (
             <div className="flex items-center gap-1">
               <button
                 onClick={handleApproveWithEdits}
-                className="bg-[rgba(111, 148, 176,0.15)] hover:bg-[rgba(111, 148, 176,0.25)] min-h-[36px] rounded px-4 font-mohave text-body-sm uppercase text-[#6F94B0] transition-colors"
+                className="min-h-11 rounded bg-ops-accent/15 px-4 font-mohave text-body-sm uppercase text-ops-accent transition-colors hover:bg-ops-accent/25"
               >
-                {isFinancialInsight
-                  ? t("financial.action.acknowledge")
-                  : t("action.approve")}
+                {isDayCloseout
+                  ? t("dayCloseout.action.file")
+                  : isCollectionsDraft
+                    ? t("collections.action.approve")
+                    : isFinancialInsight
+                      ? t("financial.action.acknowledge")
+                      : t("action.approve")}
               </button>
               <button
                 onClick={() => onReject(action.id)}
-                className="min-h-[36px] rounded bg-[rgba(147,50,26,0.10)] px-4 font-mohave text-body-sm uppercase text-[#93321A] transition-colors hover:bg-[rgba(147,50,26,0.20)]"
+                className="min-h-11 rounded bg-brick/10 px-4 font-mohave text-body-sm uppercase text-brick transition-colors hover:bg-brick/20"
               >
-                {isFinancialInsight
-                  ? t("financial.action.dismiss")
-                  : t("action.reject")}
+                {isDayCloseout
+                  ? t("dayCloseout.action.leaveOpen")
+                  : isCollectionsDraft
+                    ? t("collections.action.leaveOpen")
+                    : isFinancialInsight
+                      ? t("financial.action.dismiss")
+                      : t("action.reject")}
               </button>
             </div>
           )}
@@ -1622,8 +1680,97 @@ export const ActionCard = memo(function ActionCard({
                 : { duration: 0.15, ease: EASE_SMOOTH }
             }
           >
-            <div className="border-t border-[rgba(255,255,255,0.06)] px-4 pb-4">
+            <div className="border-t border-border-subtle px-4 pb-4">
               <div className="space-y-3 pt-3">
+                {isDayCloseout && dayCloseoutData && (
+                  <div className="space-y-3 rounded-chip border border-border-subtle bg-fill-neutral-dim p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-mohave text-body-sm uppercase text-text">
+                        {t("dayCloseout.reviewHeading")}
+                      </span>
+                      <span className="font-mono text-micro text-text-3">
+                        {dayCloseoutData.business_date} ·{" "}
+                        {dayCloseoutData.host_client_name}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {dayCloseoutData.findings.slice(0, 8).map((finding) => (
+                        <div
+                          key={finding.finding_ref}
+                          className="flex items-start justify-between gap-3 border-b border-border-subtle pb-2 last:border-b-0 last:pb-0"
+                        >
+                          <span className="font-mono text-caption text-text-2">
+                            {finding.title}
+                          </span>
+                          <span className="shrink-0 font-mono text-micro uppercase text-text-3">
+                            [{finding.component.replaceAll("_", " ")}]
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {dayCloseoutData.findings.length > 8 && (
+                      <p className="font-mono text-micro text-text-3">
+                        {interpolate(t("dayCloseout.moreFindings"), {
+                          count: dayCloseoutData.findings.length - 8,
+                        })}
+                      </p>
+                    )}
+                    {dayCloseoutData.outstanding_balances.length > 0 && (
+                      <div className="flex flex-wrap gap-3 border-t border-border-subtle pt-3">
+                        {dayCloseoutData.outstanding_balances.map((balance) => (
+                          <span
+                            key={balance.currency}
+                            className="font-mono text-caption text-text-2"
+                          >
+                            {fmtCurrency(
+                              balance.amount_minor / 100,
+                              locale,
+                              balance.currency
+                            )}{" "}
+                            {t("dayCloseout.outstanding")}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="border-t border-border-subtle pt-3 font-mono text-micro text-text-3">
+                      {dayCloseoutData.correspondence_state === "not_evaluated"
+                        ? t("dayCloseout.correspondenceNotEvaluated")
+                        : interpolate(t("dayCloseout.correspondenceChecked"), {
+                            count: dayCloseoutData.communication_brief_count,
+                          })}
+                    </p>
+                    <p className="font-mono text-micro text-text-3">
+                      {dayCloseoutData.filing_statement}{" "}
+                      {dayCloseoutData.truth_boundary}
+                    </p>
+                  </div>
+                )}
+
+                {isCollectionsDraft && collectionsDraftData && (
+                  <CollectionsDraftPreview
+                    preview={collectionsDraftData.preview}
+                    previewSha256={collectionsDraftData.preview_sha256}
+                    locale={locale}
+                    labels={{
+                      reviewHeading: t("collections.reviewHeading"),
+                      notSent: t("collections.notSent"),
+                      recipient: t("collections.recipient"),
+                      asOf: t("collections.asOf"),
+                      oldestDue: t("collections.oldestDue"),
+                      daysPastDue: t("collections.daysPastDue"),
+                      balances: t("collections.balances"),
+                      invoices: t("collections.invoices"),
+                      invoice: t("collections.invoice"),
+                      due: t("collections.due"),
+                      aging: t("collections.aging"),
+                      balance: t("collections.balance"),
+                      subject: t("collections.subject"),
+                      body: t("collections.body"),
+                      approvalSeal: t("collections.approvalSeal"),
+                    }}
+                  />
+                )}
+
                 {/* ── Task-specific editable details ── */}
                 {isTaskAction && taskData && isPending && (
                   <div className="space-y-3">
@@ -3588,6 +3735,8 @@ export const ActionCard = memo(function ActionCard({
                   !isDayBeforeReminder &&
                   !isRescheduleRequest &&
                   !isSubcontractorCoord &&
+                  !isDayCloseout &&
+                  !isCollectionsDraft &&
                   !isPending && (
                     <div>
                       <span className="font-mono text-[11px] uppercase text-text-3">

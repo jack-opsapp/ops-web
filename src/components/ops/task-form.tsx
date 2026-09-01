@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { X, Save, ChevronDown } from "lucide-react";
-import { trackTaskCreated, trackFormAbandoned } from "@/lib/analytics/analytics";
+import { trackTaskCreated, trackFormAbandoned } from "@/lib/analytics/product-events";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { EntityPicker } from "@/components/ui/entity-picker";

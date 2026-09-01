@@ -44,7 +44,13 @@ export type LeadFeedbackReviewReason =
   | "feedback_boundary"
   | "duplicate_feedback"
   | "neutral_feedback"
-  | "positive_feedback_conflict";
+  | "positive_feedback_conflict"
+  /**
+   * The classifier landed between the review floor and the auto-create
+   * threshold. Not confident enough to create a lead, not weak enough to
+   * discard in silence — a person decides.
+   */
+  | "borderline_confidence";
 
 export interface LeadFeedbackPriorDecision {
   outcome: "lead" | "not_lead" | "defer";
@@ -345,6 +351,33 @@ export function applyLeadFeedbackPrior(input: {
       evidence,
     };
   }
+  // A sender the operator has already flagged, with nothing positive on record
+  // against that flag, never auto-creates again. Suppression authority is
+  // deliberately hard to earn — an exact source match, repeated independent
+  // sender evidence, or mature domain evidence — but the fallback for a
+  // once-flagged sender was AUTO-CREATION, which is how choward@vitrum.ca
+  // minted a fifth "Email Inquiry" seven days after being discarded as
+  // vendor_sales (bug 7ca126d2). The single -0.16 sender prior simply is not
+  // strong enough to drag a confident model verdict under the threshold.
+  //
+  // This routes the verdict to a person instead. The sender can still become a
+  // lead — after a human says so in the review lane. Auto-suppression rules and
+  // positive-history senders are untouched; nothing here widens autonomy.
+  if (
+    senderNegativeKeys.size >= 1 &&
+    senderPositive.length === 0 &&
+    input.baseline.verdict === "lead" &&
+    adjustedLeadScore >= threshold
+  ) {
+    return {
+      outcome: "defer",
+      adjustedLeadScore,
+      adjustment,
+      reviewReason: "feedback_boundary",
+      appliedFeedbackIds,
+      evidence,
+    };
+  }
   if (adjustedLeadScore >= threshold) {
     return {
       outcome: "lead",
@@ -522,7 +555,9 @@ export async function persistDeferredLeadClassification(input: {
         ? "A prior correction says this may be a real inquiry."
         : input.decision.reviewReason === "neutral_feedback"
           ? "A prior correction requires a human decision."
-          : "Past lead corrections put this message on hold.";
+          : input.decision.reviewReason === "borderline_confidence"
+            ? "The classifier could not confidently decide whether this is a lead."
+            : "Past lead corrections put this message on hold.";
   const { error } = await client
     .from("email_threads")
     .update({

@@ -305,6 +305,78 @@ describe("GmailProvider read throttling", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { providerStatus: 404, reason: "notFound", status: "NOT_FOUND" },
+    { providerStatus: 410, reason: "gone", status: "GONE" },
+  ] as const)(
+    "emits explicit tombstone provenance for a parsed threads.get $providerStatus response",
+    async ({ providerStatus, reason, status }) => {
+      const fetchMock = vi.fn(async () =>
+        jsonResponse(
+          {
+            error: {
+              code: providerStatus,
+              message: "Requested entity was not found",
+              errors: [{ reason }],
+              status,
+            },
+          },
+          providerStatus
+        )
+      );
+      vi.stubGlobal("fetch", fetchMock);
+
+      const error = await new GmailProvider(makeConnection())
+        .fetchThread("thread-missing")
+        .catch((cause: unknown) => cause);
+      expect(error).toBeInstanceOf(ProviderApiError);
+      expect(error).toMatchObject({
+        name: "ProviderThreadTombstoneError",
+        providerStatus,
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it("keeps a non-JSON threads.get 404 as a generic provider failure", async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response("upstream route missing", {
+          status: 404,
+          headers: { "content-type": "text/plain" },
+        })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new GmailProvider(makeConnection()).fetchThread("thread-missing")
+    ).rejects.toMatchObject({
+      name: ProviderApiError.name,
+      providerStatus: 404,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps an OAuth refresh 404 as a generic provider failure", async () => {
+    vi.stubEnv("GOOGLE_GMAIL_CLIENT_ID", "gmail-client");
+    vi.stubEnv("GOOGLE_GMAIL_CLIENT_SECRET", "gmail-secret");
+    const expiredConnection = makeConnection();
+    expiredConnection.expiresAt = new Date(Date.now() - 1);
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      expect(String(input)).toBe("https://oauth2.googleapis.com/token");
+      return jsonResponse({ error: "endpoint_not_found" }, 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      new GmailProvider(expiredConnection).fetchThread("thread-missing")
+    ).rejects.toMatchObject({
+      name: ProviderApiError.name,
+      providerStatus: 404,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("never shortens a long Retry-After delay", async () => {
     vi.useFakeTimers();
     vi.spyOn(Math, "random").mockReturnValue(0);

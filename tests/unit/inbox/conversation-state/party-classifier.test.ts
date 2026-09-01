@@ -213,6 +213,21 @@ describe("classifyParty", () => {
       expect(result.isMeaningful).toBe(false);
     });
 
+    it("classifies a Jobber transactional quote notification as system noise", () => {
+      const result = classifyParty(
+        {
+          fromEmail: "notification@txn.getjobber.com",
+          toEmails: ["jack@canpro.ca"],
+          subject: "A quote was sent in Jobber",
+          body: "View the quote in your Jobber account.",
+        },
+        operator()
+      );
+
+      expect(result.partyRole).toBe("system");
+      expect(result.isMeaningful).toBe(false);
+    });
+
     it("classifies a mailer-daemon bounce as system / not meaningful", () => {
       const result = classifyParty(
         {

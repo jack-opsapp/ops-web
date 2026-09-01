@@ -6,7 +6,7 @@
  * alert, the missing-operator-env fallback, and incident resolution that
  * re-arms the dedupe key once no stuck rows remain.
  */
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const rpcMock = vi.fn();
@@ -47,6 +47,9 @@ const notificationsUpdate: CapturedNotificationsUpdate = {
   eqs: [],
   isCalls: [],
 };
+// Canonical operator fixture identity — `getOptionalPmfOperatorIdentity`
+// rejects non-UUID operator ids, so both values must be real UUIDs.
+const OPERATOR_USER_ID = "a6ab38dc-9844-4b72-922f-2d2f70f8e617";
 const OPERATOR_COMPANY_ID = "a612edc0-5c18-4c4d-af97-55b9410dd077";
 let stuckRowsResponse: { data: unknown; error: { message: string } | null } = {
   data: [],
@@ -123,9 +126,11 @@ beforeEach(() => {
   notificationsUpdate.eqs.length = 0;
   notificationsUpdate.isCalls.length = 0;
   stuckRowsResponse = { data: [], error: null };
-  process.env.CRON_SECRET = "test-secret";
-  process.env.PMF_OPERATOR_USER_ID = "operator-user";
-  process.env.PMF_OPERATOR_COMPANY_ID = OPERATOR_COMPANY_ID;
+  // Stubbed (not assigned) so `unstubAllEnvs` restores them and this file
+  // never leaks PMF env into other files sharing the worker process.
+  vi.stubEnv("CRON_SECRET", "test-secret");
+  vi.stubEnv("PMF_OPERATOR_USER_ID", OPERATOR_USER_ID);
+  vi.stubEnv("PMF_OPERATOR_COMPANY_ID", OPERATOR_COMPANY_ID);
   workloadControlState.workError = null;
   runWithCronWorkloadControlMock.mockImplementation(
     async ({ work }: { work: () => Promise<unknown> }) => {
@@ -163,6 +168,10 @@ beforeEach(() => {
   );
 });
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("projection-stuck-check cron", () => {
   it("rejects requests without the cron bearer secret", async () => {
     const unauthenticated = await GET(buildRequest());
@@ -175,6 +184,7 @@ describe("projection-stuck-check cron", () => {
   it("scans exactly the outage predicate: meaningful, unprojected, older than 5 minutes", async () => {
     const before = Date.now();
     await GET(buildRequest("Bearer test-secret"));
+    const after = Date.now();
     expect(eventsQuery.eqs).toContainEqual(["is_meaningful", true]);
     expect(eventsQuery.eqs).toContainEqual([
       "opportunity_projection_applied",
@@ -183,9 +193,13 @@ describe("projection-stuck-check cron", () => {
     expect(eventsQuery.lts).toHaveLength(1);
     const [column, thresholdIso] = eventsQuery.lts[0];
     expect(column).toBe("created_at");
+    // The route samples its own clock at some instant inside the awaited call,
+    // so bound the threshold by the measured [before, after] window — never by
+    // a fixed allowance for event-loop latency, which machine load can exceed.
+    const fiveMinutesMs = 5 * 60 * 1000;
     const threshold = Date.parse(thresholdIso as string);
-    expect(before - threshold).toBeGreaterThanOrEqual(5 * 60 * 1000 - 50);
-    expect(before - threshold).toBeLessThan(5 * 60 * 1000 + 5_000);
+    expect(threshold).toBeGreaterThanOrEqual(before - fiveMinutesMs);
+    expect(threshold).toBeLessThanOrEqual(after - fiveMinutesMs);
     expect(eventsQuery.limits).toEqual([50]);
     expect(runWithCronWorkloadControlMock).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -242,7 +256,7 @@ describe("projection-stuck-check cron", () => {
       Record<string, unknown>,
     ];
     expect(rpcName).toBe("create_notification_if_new_with_identity");
-    expect(rpcArgs.p_user_id).toBe("operator-user");
+    expect(rpcArgs.p_user_id).toBe(OPERATOR_USER_ID);
     expect(rpcArgs.p_company_id).toBe(OPERATOR_COMPANY_ID);
     expect(rpcArgs.p_type).toBe("system_alert");
     expect(rpcArgs.p_title).toBe("CRITICAL :: EMAIL PROJECTION STUCK");

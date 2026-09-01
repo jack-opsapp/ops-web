@@ -7,7 +7,9 @@ import { outboundLearningEvidenceKey } from "@/lib/email/outbound-learning-evide
 import {
   CronDatabaseOperationError,
   isDatabasePressureError,
+  supabaseDatabaseOperationCause,
 } from "./cron-workload-control-service";
+import type { SubjectLearningContext } from "./writing-profile-service";
 
 export const OUTBOUND_LEARNING_PREPARATION_VERSION = "outbound-learning-v1";
 
@@ -23,6 +25,23 @@ export type OutboundLearningAuthority =
   | "operator_authored"
   | "operator_approved"
   | "autonomous";
+
+/**
+ * What the send teaches us.
+ *
+ * `standard` — the operator's own outbound, judged on its own terms.
+ * `replacement` — the operator threw an OPS draft away and wrote their own.
+ *   The lesson is the delta, so extraction gets the replaced draft as context.
+ *   The replaced draft is never attached as the sent draft: that would book a
+ *   100% rewrite against edit statistics and poison the writing profile.
+ */
+export type OutboundLearningLessonKind = "standard" | "replacement";
+
+/** Upper bound on replaced-draft context handed to extraction. */
+const REPLACED_DRAFT_CONTEXT_MAX_CHARS = 4_000;
+
+/** Upper bound on correction facts mined from one replacement. */
+const REPLACEMENT_LESSON_FACT_LIMIT = 20;
 
 export interface OutboundWritingSample {
   profileType: string;
@@ -98,6 +117,12 @@ export interface EmailOutboundLearningJob {
   cleanBody: string | null;
   draftHistoryId: string | null;
   followUpDraftId: string | null;
+  /**
+   * The OPS draft this send replaced, when reconciliation recorded one.
+   * Optional on the type because a job shaped before the column existed
+   * carries no value at all; `mapJob` always populates it for live reads.
+   */
+  replacedDraftHistoryId?: string | null;
   draftDeliveryChannel: OutboundDraftDeliveryChannel | null;
   opportunityId: string | null;
   profileType: string;
@@ -140,6 +165,11 @@ export interface EnqueueEmailOutboundLearningInput {
   labelIds?: string[];
   draftHistoryId?: string | null;
   followUpDraftId?: string | null;
+  /**
+   * The OPS draft this send replaced. Recorded as provenance for the
+   * replacement lesson — never as the sent draft.
+   */
+  replacedDraftHistoryId?: string | null;
   draftDeliveryChannel?: OutboundDraftDeliveryChannel | null;
   opportunityId?: string | null;
   profileType?: string | null;
@@ -157,6 +187,9 @@ export interface EmailOutboundLearningDependencies {
     to: string[];
     subject: string;
     bodyText: string;
+    /** Body of the OPS draft this send replaced, when there was one. */
+    replacedDraft: string | null;
+    lessonKind: OutboundLearningLessonKind;
   }): Promise<OutboundMemoryExtraction>;
   prepareDraftOutcome(
     job: EmailOutboundLearningJob,
@@ -165,6 +198,19 @@ export interface EmailOutboundLearningDependencies {
   ): Promise<OutboundDraftOutcome>;
   prepareCorrectionEmbedding(content: string): Promise<number[] | null>;
   afterApplied?(job: EmailOutboundLearningJob): Promise<void>;
+  /**
+   * Teach the profile how this operator titles a NEW conversation, from a send
+   * that just taught it their body style.
+   *
+   * Optional in the same spirit as `afterApplied`: a caller that supplies its
+   * own dependency set is declaring which effects it wants, and an omitted
+   * learner simply means this send teaches no subject. Production constructs
+   * the service with the defaults below, so the live worker always learns.
+   */
+  learnSubjectPreference?(input: {
+    job: EmailOutboundLearningJob;
+    context: SubjectLearningContext;
+  }): Promise<void>;
 }
 
 export interface EmailOutboundLearningWorkerResult {
@@ -242,8 +288,57 @@ const defaultDependencies: EmailOutboundLearningDependencies = {
     );
   },
   prepareMemoryExtraction: async (input) => {
-    const { MemoryService } = await import("./memory-service");
-    return MemoryService.prepareOutboundEmailLearning(input);
+    const { MemoryService, generateEmbedding } =
+      await import("./memory-service");
+    // Facts are extracted from what the operator actually sent, never from the
+    // draft they rejected: only the delivered message is true.
+    const base = await MemoryService.prepareOutboundEmailLearning({
+      from: input.from,
+      to: input.to,
+      subject: input.subject,
+      bodyText: input.bodyText,
+    });
+    const replacedDraft = input.replacedDraft?.trim();
+    if (input.lessonKind !== "replacement" || !replacedDraft) return base;
+
+    // A rewrite is the operator correcting us. Mine the delta — the
+    // qualification we missed, the arithmetic we got wrong, the tone we
+    // over-wrote — and file it as durable correction memory. This is the
+    // memory-only lane: the outcome that carries edit statistics is computed
+    // from the sent draft, which a rewrite deliberately does not have.
+    const { prepareSentDraftOutcome } = await import("./ai-draft-service");
+    const replacement = await prepareSentDraftOutcome({
+      originalDraft: replacedDraft,
+      originalSubject: input.subject,
+      finalVersion: input.bodyText,
+      finalSubject: input.subject,
+      analyzeSignificantEdits: true,
+    });
+
+    const seen = new Set(base.facts.map((fact) => fact.evidenceKey));
+    const facts = [...base.facts];
+    for (const correction of replacement.contentCorrections) {
+      if (facts.length - base.facts.length >= REPLACEMENT_LESSON_FACT_LIMIT) {
+        break;
+      }
+      const content = correction.trim().replace(/\s+/g, " ");
+      if (!content) continue;
+      const evidenceKey = await outboundLearningEvidenceKey(
+        "draft-replacement-correction",
+        [content]
+      );
+      if (!evidenceKey || seen.has(evidenceKey)) continue;
+      seen.add(evidenceKey);
+      facts.push({
+        evidenceKey,
+        type: "fact",
+        category: "correction",
+        content,
+        confidence: 0.9,
+        embedding: await generateEmbedding(`correction: ${content}`),
+      });
+    }
+    return { facts, edges: base.edges };
   },
   prepareDraftOutcome: async (job, supabase, options) => {
     const baseline: OutboundDraftOutcome = {
@@ -259,17 +354,18 @@ const defaultDependencies: EmailOutboundLearningDependencies = {
 
     if (!job.draftHistoryId) return baseline;
 
-    const { data, error } = await supabase
+    const draftHistoryResponse = await supabase
       .from("ai_draft_history")
       .select("original_draft, subject, status")
       .eq("id", job.draftHistoryId)
       .eq("company_id", job.companyId)
       .eq("user_id", job.userId ?? "")
       .maybeSingle();
+    const { data, error } = draftHistoryResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning draft history lookup failed: ${error.message}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(draftHistoryResponse) }
       );
     }
     if (!data) {
@@ -299,6 +395,20 @@ const defaultDependencies: EmailOutboundLearningDependencies = {
   prepareCorrectionEmbedding: async (content) => {
     const { generateEmbedding } = await import("./memory-service");
     return generateEmbedding(`correction: ${content}`);
+  },
+  learnSubjectPreference: async ({ job, context }) => {
+    const { WritingProfileService } = await import("./writing-profile-service");
+    await WritingProfileService.learnNewThreadSubject({
+      companyId: job.companyId,
+      userId: job.userId ?? "",
+      profileType: job.profileType,
+      subject: job.subject,
+      context,
+      // Deliberately unstated. The queue holds one send, not its thread, so it
+      // cannot prove this send opened anything — and asserting that it did
+      // would file every reply as new-thread evidence. The learner reads the
+      // subject's own shape instead, where a `Re:`/`Fwd:` prefix is proof.
+    });
   },
   afterApplied: async (job) => {
     if (!job.userId || job.learningAuthority === "autonomous") return;
@@ -376,6 +486,7 @@ function mapJob(row: QueueDbRow): EmailOutboundLearningJob {
     cleanBody: stringOrNull(row.clean_body),
     draftHistoryId: stringOrNull(row.draft_history_id),
     followUpDraftId: stringOrNull(row.follow_up_draft_id),
+    replacedDraftHistoryId: stringOrNull(row.replaced_draft_history_id),
     draftDeliveryChannel: draftDeliveryChannel(row.draft_delivery_channel),
     opportunityId: stringOrNull(row.opportunity_id),
     profileType: profileType(row.profile_type),
@@ -533,7 +644,7 @@ export class EmailOutboundLearningService {
       throw new Error("Outbound learning clean body is required");
     }
 
-    const { data, error } = await this.supabase.rpc(
+    const enqueueResponse = await this.supabase.rpc(
       "enqueue_email_outbound_learning",
       {
         p_company_id: input.companyId,
@@ -549,17 +660,24 @@ export class EmailOutboundLearningService {
         p_occurred_at: occurredAtIso(input.occurredAt),
         p_draft_history_id: input.draftHistoryId ?? null,
         p_follow_up_draft_id: input.followUpDraftId ?? null,
+        // Sent only when a replaced draft exists. The parameter defaults to
+        // NULL server-side, so an ordinary send keeps the exact pre-existing
+        // call shape and the replacement lane is the only thing that changes.
+        ...(input.replacedDraftHistoryId
+          ? { p_replaced_draft_history_id: input.replacedDraftHistoryId }
+          : {}),
         p_opportunity_id: input.opportunityId ?? null,
         p_draft_delivery_channel: input.draftDeliveryChannel ?? null,
         p_profile_type: profileType(input.profileType),
         p_learning_authority: learningAuthority(input.learningAuthority),
       }
     );
+    const { data, error } = enqueueResponse;
 
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning enqueue failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(enqueueResponse) }
       );
     }
     const row = rowsFromRpc(data)[0];
@@ -598,17 +716,18 @@ export class EmailOutboundLearningService {
     jobs: EmailOutboundLearningJob[];
     terminalized: EmailOutboundLearningJob[];
   }> {
-    const { data, error } = await this.supabase.rpc(
+    const claimResponse = await this.supabase.rpc(
       "claim_email_outbound_learning",
       {
         p_limit: input.limit ?? 25,
         p_lease_seconds: input.leaseSeconds ?? 300,
       }
     );
+    const { data, error } = claimResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning claim failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(claimResponse) }
       );
     }
     const rows = rowsFromRpc(data).map(mapJob);
@@ -643,7 +762,7 @@ export class EmailOutboundLearningService {
     }
   ): Promise<EmailOutboundLearningJob> {
     const leaseToken = requireLease(job);
-    const { data, error } = await this.supabase.rpc(
+    const prepareResponse = await this.supabase.rpc(
       "prepare_email_outbound_learning",
       {
         p_job_id: job.id,
@@ -658,10 +777,11 @@ export class EmailOutboundLearningService {
         p_preparation_version: OUTBOUND_LEARNING_PREPARATION_VERSION,
       }
     );
+    const { data, error } = prepareResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning preparation failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(prepareResponse) }
       );
     }
     const row = rowsFromRpc(data)[0];
@@ -675,14 +795,15 @@ export class EmailOutboundLearningService {
     job: EmailOutboundLearningJob
   ): Promise<EmailOutboundLearningJob> {
     const leaseToken = requireLease(job);
-    const { data, error } = await this.supabase.rpc(
+    const applyResponse = await this.supabase.rpc(
       "apply_email_outbound_learning",
       { p_job_id: job.id, p_lease_token: leaseToken }
     );
+    const { data, error } = applyResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning application failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(applyResponse) }
       );
     }
     const row = rowsFromRpc(data)[0];
@@ -697,7 +818,7 @@ export class EmailOutboundLearningService {
     reason: string
   ): Promise<EmailOutboundLearningJob> {
     const leaseToken = requireLease(job);
-    const { data, error } = await this.supabase.rpc(
+    const deferResponse = await this.supabase.rpc(
       "defer_email_outbound_learning",
       {
         p_job_id: job.id,
@@ -706,10 +827,11 @@ export class EmailOutboundLearningService {
         p_delay_seconds: 900,
       }
     );
+    const { data, error } = deferResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning deferral failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(deferResponse) }
       );
     }
     const row = rowsFromRpc(data)[0];
@@ -723,7 +845,7 @@ export class EmailOutboundLearningService {
     errorValue: unknown
   ): Promise<EmailOutboundLearningJob> {
     const leaseToken = requireLease(job);
-    const { data, error } = await this.supabase.rpc(
+    const retryResponse = await this.supabase.rpc(
       "retry_email_outbound_learning",
       {
         p_job_id: job.id,
@@ -731,10 +853,11 @@ export class EmailOutboundLearningService {
         p_error: errorText(errorValue).slice(0, 4000),
       }
     );
+    const { data, error } = retryResponse;
     if (error) {
       throw new CronDatabaseOperationError(
         `Outbound learning retry failed: ${errorText(error)}`,
-        { cause: error }
+        { cause: supabaseDatabaseOperationCause(retryResponse) }
       );
     }
     const row = rowsFromRpc(data)[0];
@@ -760,7 +883,7 @@ export class EmailOutboundLearningService {
       throw new Error("Outbound learning diagnostic cursor id is required");
     }
 
-    const { data, error } = await this.supabase.rpc(
+    const diagnoseResponse = await this.supabase.rpc(
       "diagnose_email_outbound_learning",
       {
         p_company_id: input.companyId?.trim() || null,
@@ -770,7 +893,13 @@ export class EmailOutboundLearningService {
         p_before_id: input.before?.id ?? null,
       }
     );
-    if (error) throw error;
+    const { data, error } = diagnoseResponse;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning diagnostics failed: ${errorText(error)}`,
+        { cause: supabaseDatabaseOperationCause(diagnoseResponse) }
+      );
+    }
 
     const items = rowsFromRpc(data).map(mapDiagnostic);
     const last = items.at(-1);
@@ -794,17 +923,141 @@ export class EmailOutboundLearningService {
       throw new Error("Outbound learning requeue reason is required");
     }
 
-    const { data, error } = await this.supabase.rpc(
+    const requeueResponse = await this.supabase.rpc(
       "requeue_failed_email_outbound_learning",
       {
         p_job_id: jobId,
         p_reason: normalizedReason.slice(0, 1000),
       }
     );
-    if (error) throw error;
+    const { data, error } = requeueResponse;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning requeue failed: ${errorText(error)}`,
+        { cause: supabaseDatabaseOperationCause(requeueResponse) }
+      );
+    }
     const row = rowsFromRpc(data)[0];
     if (!row) throw new Error("Outbound learning requeue returned no job");
     return mapJob(row);
+  }
+
+  /**
+   * Body of the OPS draft this send replaced, bounded for prompt use.
+   *
+   * Scoped to the job's company so a pointer can never read another tenant's
+   * draft, and absent content is not an error: a replacement whose draft body
+   * is gone simply degrades to a standard lesson.
+   */
+  private async loadReplacedDraftBody(
+    job: EmailOutboundLearningJob
+  ): Promise<string | null> {
+    if (!job.replacedDraftHistoryId) return null;
+    const response = await this.supabase
+      .from("ai_draft_history")
+      .select("original_draft")
+      .eq("id", job.replacedDraftHistoryId)
+      .eq("company_id", job.companyId)
+      .maybeSingle();
+    const { data, error } = response;
+    if (error) {
+      throw new CronDatabaseOperationError(
+        `Outbound learning replaced draft lookup failed: ${errorText(error)}`,
+        { cause: supabaseDatabaseOperationCause(response) }
+      );
+    }
+    const body = stringOrNull(data?.original_draft)?.trim();
+    if (!body) return null;
+    return body.slice(0, REPLACED_DRAFT_CONTEXT_MAX_CHARS);
+  }
+
+  /**
+   * This lead's own values, so the learner stores a shape and never a
+   * customer's identity: the merge substitutes each value it recognizes in the
+   * subject for the matching token.
+   *
+   * The five fields are exactly the ones a draft resolves at send time. A sixth
+   * would be worse than useless — a learned pattern only speaks when every
+   * token in it can be filled for the NEXT lead, so a token draft time never
+   * supplies would silence the pattern forever.
+   *
+   * Scoped to the job's company so a pointer can never read another tenant's
+   * lead, and a missing opportunity is not an error: the send still learns,
+   * from the recipient address alone.
+   */
+  private async loadSubjectLearningContext(
+    job: EmailOutboundLearningJob
+  ): Promise<SubjectLearningContext> {
+    const recipient = stringOrNull(job.toEmails[0]);
+    if (!job.opportunityId) return { email: recipient };
+
+    const response = await this.supabase
+      .from("opportunities")
+      .select(
+        "title, address, contact_name, contact_email, clients(name, email)"
+      )
+      .eq("id", job.opportunityId)
+      .eq("company_id", job.companyId)
+      .maybeSingle();
+    const { data, error } = response;
+    if (error || !data) return { email: recipient };
+
+    const clientValue = data.clients as unknown;
+    const client = (
+      Array.isArray(clientValue) ? clientValue[0] : clientValue
+    ) as Record<string, unknown> | null;
+    return {
+      contact: stringOrNull(data.contact_name),
+      company: stringOrNull(client?.name),
+      address: stringOrNull(data.address),
+      project: stringOrNull(data.title),
+      email:
+        recipient ??
+        stringOrNull(data.contact_email) ??
+        stringOrNull(client?.email),
+    };
+  }
+
+  /**
+   * Learn this send's subject, after its effects have already committed.
+   *
+   * Gated on `applyFullBodyLearning` — the same bar the body sample clears —
+   * because that flag is what proves the operator wrote this message rather
+   * than approving one of ours. Learning an approved OPS subject would teach
+   * the profile our own server constant back to itself, which is the exact loop
+   * that left `subject_preferences` speaking for nobody (4da75e71).
+   *
+   * Nothing here may fail the send: the apply transaction is committed by the
+   * time this runs, and a subject we could not file is not worth replaying
+   * every receipt, profile, and memory effect to retry.
+   */
+  private async learnSubjectPreference(
+    job: EmailOutboundLearningJob
+  ): Promise<void> {
+    const learn = this.dependencies.learnSubjectPreference;
+    if (
+      !learn ||
+      !job.userId ||
+      job.applyFullBodyLearning !== true ||
+      !job.subject?.trim()
+    ) {
+      return;
+    }
+    try {
+      const context = await this.loadSubjectLearningContext(job);
+      // Bind the worker's own service-role client for the learner: the merge is
+      // service-role only, and resolving it from ambient async context would
+      // make subject learning depend on how far away the caller bound a client.
+      // Imported here rather than at module scope so this server-only service
+      // keeps its static graph free of the browser Supabase client.
+      const { runWithSupabase } = await import("@/lib/supabase/helpers");
+      await runWithSupabase(this.supabase, () => learn({ job, context }));
+    } catch (error) {
+      console.error("[outbound-learning] subject preference learning failed", {
+        jobId: job.id,
+        error: errorText(error),
+      });
+    }
   }
 
   async runWorker(
@@ -863,6 +1116,12 @@ export class EmailOutboundLearningService {
               result.deferred++;
               return;
             }
+            // Only a pending full-body extraction can use the replaced draft,
+            // so nothing else pays for the read.
+            const replacedDraft =
+              applyFullBodyLearning && !job.memoryExtraction
+                ? await this.loadReplacedDraftBody(job)
+                : null;
             const [writingSample, rawMemoryExtraction, draftOutcome] =
               await Promise.all([
                 applyFullBodyLearning
@@ -879,6 +1138,8 @@ export class EmailOutboundLearningService {
                       to: job.toEmails,
                       subject: job.subject ?? "",
                       bodyText: job.cleanBody,
+                      replacedDraft,
+                      lessonKind: replacedDraft ? "replacement" : "standard",
                     }))
                   : null,
                 job.draftOutcome ??
@@ -969,6 +1230,7 @@ export class EmailOutboundLearningService {
           }
 
           const appliedJob = await this.apply(preparedJob);
+          await this.learnSubjectPreference(appliedJob);
           if (
             this.dependencies.afterApplied &&
             appliedJob.learningAuthority !== "autonomous"

@@ -363,6 +363,138 @@ describe("GuidedCatalogSetup", () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
+  it("locks the transcript order after an answered question (bug 986009b0)", async () => {
+    // Reduced motion resolves the new-response typewriter immediately (§9),
+    // so the assertion reads the settled transcript.
+    mocks.reducedMotion = true;
+    const PRICING_PROMPT =
+      "What base price, unit, and minimum charge should OPS use for Railings?";
+    const NARROWED_PROMPT = "What base price should OPS use for Railings?";
+    const ANSWER = "we price per linear foot. minimum charge 1500";
+    const pricingSession = {
+      ...baseSession,
+      version: 7,
+      conversation: [
+        {
+          id: "assistant:6:railings-pricing-structure",
+          role: "assistant",
+          kind: "text",
+          content: PRICING_PROMPT,
+          version: 6,
+        },
+      ],
+      unresolvedQuestions: [
+        {
+          id: "railings-pricing-structure",
+          prompt: PRICING_PROMPT,
+          answerKind: "text",
+          factKeys: [
+            "railings.base_price",
+            "railings.pricing_unit",
+            "railings.minimum_charge",
+          ],
+        },
+      ],
+    };
+
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementationOnce(() =>
+        response({ session: pricingSession, agentAvailable: true })
+      )
+      .mockImplementationOnce((input) => {
+        expect(String(input)).toContain("/messages");
+        return response({
+          session: {
+            ...pricingSession,
+            version: 8,
+            inputRevision: 1,
+            conversation: [
+              ...pricingSession.conversation,
+              {
+                id: "operator-input:input-4",
+                inputId: "input-4",
+                state: "queued",
+                role: "operator",
+                kind: "text",
+                content: ANSWER,
+                version: 8,
+              },
+            ],
+          },
+          input: { id: "input-4", state: "queued" },
+        });
+      })
+      .mockImplementationOnce((input) => {
+        expect(String(input)).toContain("/turn");
+        // What the FIXED server persists: the follow-up is the narrowed ask,
+        // never a verbatim repeat of the question the operator just answered.
+        return response({
+          session: {
+            ...pricingSession,
+            version: 9,
+            inputRevision: 1,
+            processedInputRevision: 1,
+            conversation: [
+              ...pricingSession.conversation,
+              {
+                id: "operator-input:input-4",
+                inputId: "input-4",
+                state: "accepted",
+                role: "operator",
+                kind: "text",
+                content: ANSWER,
+                version: 8,
+              },
+              {
+                id: "assistant:9:railings-base-price-per-linear-foot",
+                role: "assistant",
+                kind: "text",
+                content: NARROWED_PROMPT,
+                version: 9,
+              },
+            ],
+            unresolvedQuestions: [
+              {
+                id: "railings-base-price-per-linear-foot",
+                prompt: NARROWED_PROMPT,
+                answerKind: "text",
+                factKeys: ["railings.base_price"],
+              },
+            ],
+          },
+          superseded: false,
+        });
+      });
+
+    renderSetup();
+    await screen.findByText(PRICING_PROMPT);
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: ANSWER },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "SEND" }));
+
+    expect(await screen.findByText(NARROWED_PROMPT)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        document.querySelectorAll("[data-message-role]")
+      ).toHaveLength(3);
+    });
+
+    const bubbles = Array.from(
+      document.querySelectorAll("[data-message-role]")
+    );
+    expect(
+      bubbles.map((bubble) => bubble.getAttribute("data-message-role"))
+    ).toEqual(["assistant", "operator", "assistant"]);
+    expect(bubbles[0].textContent).toContain(PRICING_PROMPT);
+    expect(bubbles[1].textContent).toContain(ANSWER);
+    expect(bubbles[2].textContent).toContain(NARROWED_PROMPT);
+    // The answered question appears once — no verbatim repeat below the reply.
+    expect(screen.getAllByText(PRICING_PROMPT)).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("keeps the compact composer available for a quick follow-up while Phase C works", async () => {
     let finishTurn:
       ((value: Response | PromiseLike<Response>) => void) | undefined;
@@ -972,6 +1104,14 @@ describe("GuidedCatalogSetup", () => {
 
     const toggle = screen.getByRole("button", { name: /options/i });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    // DESIGN.md §9: Cake Mono uppercase is reserved for the compact
+    // disclosure label; §4: the count is a number, so it stays mono.
+    expect(toggle).toHaveClass("font-cakemono", "text-cake-badge", "uppercase");
+    expect(toggle).not.toHaveClass("font-mono", "text-micro");
+    const optionCount = toggle.querySelector(".font-mono");
+    expect(optionCount).not.toBeNull();
+    expect(optionCount).toHaveClass("tabular-nums");
+    expect(optionCount?.textContent).toContain("3");
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     await waitFor(() => {
@@ -1458,6 +1598,11 @@ describe("GuidedCatalogSetup", () => {
       "!min-h-control-32"
     );
     expect(field).not.toHaveClass("bg-glass-fill");
+    // DESIGN.md §9: the entry field is a 32px one-line dock. OPS overrides
+    // Tailwind's numeric spacing scale (8 = 64px), so the height cap must
+    // come from the control token, never a numeric utility.
+    expect(field).toHaveClass("max-h-control-32");
+    expect(field).not.toHaveClass("max-h-8");
     expect(field).toHaveAttribute("placeholder", "Type your answer");
     expect(screen.getByTestId("guided-catalog-composer")).toHaveClass(
       "rounded",

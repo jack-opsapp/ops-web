@@ -235,14 +235,14 @@ Single mode-aware floating window for all project interactions (`src/components/
 
 ## Notification Rail
 
-The header contains a notification rail (left side of TopBar). When building features that produce user-facing events, create notifications:
+The header contains a notification rail (left side of TopBar). When building features that produce user-facing events, create notifications — but the write lane depends on where the code runs. **The 2026-07-15 hardening revoked INSERT on `public.notifications` from the app roles (`anon`/`authenticated`).** A direct `supabase.from("notifications").insert(...)` from browser code fails with `42501`, and supabase-js surfaces that only through the `{ error }` return value — code written that way drops its notifications silently (bug `e302355c`).
+
+**Server-side code (API routes, crons, services running on the service-role client): insert directly.** `service_role` holds INSERT — this is the lane for nearly all notification creation. Prefer the existing helpers (`NotificationService` in `src/lib/api/services/notification-service.ts`, the `notification-dispatch.ts` helpers) before hand-rolling an insert:
 
 ```typescript
-import { NotificationService } from "@/lib/api/services/notification-service";
-
-// Standard dismissible notification
+// Server-side only (service-role client)
 await supabase.from("notifications").insert({
-  user_id: userId,
+  user_id: userId,       // recipient
   company_id: companyId,
   type: "mention",
   title: "Task completed",
@@ -252,22 +252,11 @@ await supabase.from("notifications").insert({
   action_url: "/projects/abc",
   action_label: "View Project",
 });
-
-// Persistent notification (stays until resolved)
-await supabase.from("notifications").insert({
-  user_id: userId,
-  company_id: companyId,
-  type: "role_needed",
-  title: "Email scan complete",
-  body: "12 new leads found from inbox scan",
-  is_read: false,
-  persistent: true,  // Cannot be dismissed by user
-  action_url: "/pipeline",
-  action_label: "View Results",
-});
 ```
 
-**When to use persistent:** Long-running operations the user initiated and is waiting on (scans, imports, AI analysis). Resolve by setting `is_read = true` programmatically when the user acts on it.
+**Browser code: never insert into `notifications` directly** — it fails silently. Route the event through an API route (server lane above) or a narrow SECURITY DEFINER RPC. The RPC archetype is `request_lockout_admin_notification` (`src/components/lockout/request-button.tsx`); the doctrine for new ones — actor from `private.get_current_user_id()`, recipients derived server-side from underlying rows or `users_with_permission` (never caller input), fixed server-side copy, server-literal `type`, internal-path-or-NULL `action_url`, dedupe where persistent — is in `ops-software-bible/07_SPECIALIZED_FEATURES.md` §14.
+
+**When to use persistent:** Long-running operations the user initiated and is waiting on (scans, imports, AI analysis). Resolve by setting `is_read = true` programmatically when the user acts on it. `persistent: true` cannot be dismissed by the user.
 
 **When to use standard:** Informational events (task completed, expense approved, new comment). User can dismiss.
 
@@ -339,17 +328,18 @@ The PMF tracking deck is the operator's primary operating surface during the pre
 ### Cron schedule (registered in `vercel.json`)
 | Path | Schedule (UTC) | Purpose |
 |------|----------------|---------|
-| `/api/cron/pmf/threshold-check` | `*/15 * * * *` | Detect state transitions + event-driven alerts |
-| `/api/cron/pmf/daily-digest` | `0 15 * * *` | 7am PT daily recap email |
-| `/api/cron/pmf/weekly-digest` | `0 15 * * 1` | Mon 7am PT weekly recap + cohorts |
-| `/api/cron/pmf/cleanup-snapshots` | `30 14 * * *` | Prune snapshots older than 30 days |
-| `/api/cron/pmf/google-ads-sync` | `15 14 * * *` | Daily ad spend sync |
+| `/api/cron/pmf/threshold-check` | `57 13-14,16-23,0-4 * * *` | Detect state transitions + event-driven alerts. Hourly within the active window — deliberate database-pressure containment. The handler is cadence-independent: events are scanned over contiguous half-open windows tracked in a durable event cursor, so there are no blind spots between runs. |
+| `/api/cron/pmf/daily-digest` | `59 15 * * *` | Daily recap email |
+| `/api/cron/pmf/weekly-digest` | `14 7 * * 1` | Monday weekly recap + cohorts |
+| `/api/cron/pmf/cleanup-snapshots` | `4 11 * * *` | Prune snapshots older than 30 days |
+| `/api/cron/pmf/google-ads-sync` | `24 10 * * *` | Daily ad spend sync |
 
 ### Source of truth rules
 - **Billing events / MRR:** `billing_events` table, written by the Stripe webhook at `/api/webhooks/stripe/route.ts` (layered — NOT a separate endpoint). Do not compute MRR from `companies.subscription_status` alone.
 - **Retention cohorts:** `pmf_retention_cohorts` RPC (migration `20260422120001_pmf_retention_cohorts_rpc.sql` — must be applied to prod before weekly digest runs)
 - **Attribution:** UTM cookies on `try-ops` landing → `/api/admin/pmf/attributions/seed` → `trial_attributions` table
-- **Threshold snapshots:** `pmf_threshold_snapshots` — written every 15 min by threshold-check cron, consumed by next run's diff
+- **Threshold snapshots:** `pmf_threshold_snapshots` — written on every scheduled run (hourly active window) by threshold-check cron, consumed by next run's diff. A skipped hour delays a transition alert; it never loses one.
+- **Event scan cursor:** the threshold-check cron stores `{"eventsThrough":"<ISO>"}` in the fenced `pmf-threshold-check` workload cursor and scans `[eventsThrough, runStart)`. Consecutive runs are contiguous — no gaps, no double-counting, off-hours activity caught up by the next run. The cursor advances only when every event alert deduped or landed on at least one channel; event triggers are unique ids deduped over 7 days, so a re-scan retries exactly what never delivered.
 
 ### Environment variables
 | Name | Purpose |

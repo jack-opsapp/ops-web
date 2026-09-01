@@ -42,6 +42,7 @@ function parseDescriptor(
     aiReviewEnabled: descriptor.aiReviewEnabled,
     aiMemoryEnabled: descriptor.aiMemoryEnabled,
     status: descriptor.status,
+    calendarSyncGranted: descriptor.calendarSyncGranted === true,
     createdAt: new Date(descriptor.createdAt),
     updatedAt: new Date(descriptor.updatedAt),
   };

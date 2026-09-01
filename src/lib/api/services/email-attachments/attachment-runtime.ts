@@ -391,6 +391,26 @@ export class SupabaseAttachmentRepository implements AttachmentActivityRepositor
     );
     if (error) throw error;
   }
+
+  async updateActivityAttachmentRollup(input: {
+    companyId: string;
+    activityId: string;
+    attachmentCount: number;
+  }): Promise<void> {
+    const attachmentCount = Math.max(
+      0,
+      Math.trunc(input.attachmentCount) || 0
+    );
+    const { error } = await this.supabase
+      .from("activities")
+      .update({
+        has_attachments: attachmentCount > 0,
+        attachment_count: attachmentCount,
+      })
+      .eq("id", input.activityId)
+      .eq("company_id", input.companyId);
+    if (error) throw error;
+  }
 }
 
 export class ProviderAttachmentAdapter implements ExactMessageAttachmentProvider {

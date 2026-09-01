@@ -11,9 +11,9 @@ import { EASE_SMOOTH } from "@/lib/utils/motion";
 import { authedFetch } from "@/lib/utils/authed-fetch";
 import { matchesAllTokens } from "@/lib/utils/search";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { trackScreenView } from "@/lib/analytics/analytics";
 import { useUndoStore } from "@/stores/undo-store";
 import { toast } from "@/components/ui/toast";
+import { showUndoToast } from "@/components/ui/toast-undo";
 import { useAuthStore } from "@/lib/store/auth-store";
 import {
   selectCanCreateOpportunity,
@@ -271,11 +271,7 @@ export default function PipelinePage() {
 
   // ── Undo store ────────────────────────────────────────────────────────
   const pushUndo = useUndoStore((s) => s.pushUndo);
-
-  // ── Track screen view ─────────────────────────────────────────────────
-  useEffect(() => {
-    trackScreenView("pipeline");
-  }, []);
+  const undoEntry = useUndoStore((s) => s.undoEntry);
 
   // ── Handle ?action=new from FAB navigation ────────────────────────────
   const searchParams = useSearchParams();
@@ -670,11 +666,21 @@ export default function PipelinePage() {
         name
       );
       archiveMutation.mutate(opportunityId);
-      pushUndo({
+      // Same contract as a stage move: the entry lands on the global undo
+      // stack (top bar Cmd+Z) AND the toast exposes that same entry, targeted
+      // by id so the two affordances can never both fire for one archive.
+      const entryId = pushUndo({
         label,
         inverseFn: async () => {
           await unarchiveMutation.mutateAsync(opportunityId);
         },
+      });
+      showUndoToast({
+        title: name,
+        description: t("actions.archived", "Lead archived"),
+        undoLabel: t("table.undo.action"),
+        onUndo: () => undoEntry(entryId),
+        variant: "success",
       });
     },
     [
@@ -683,6 +689,7 @@ export default function PipelinePage() {
       activeOpportunities,
       leadAccessById,
       pushUndo,
+      undoEntry,
       t,
     ]
   );
@@ -1243,7 +1250,14 @@ export default function PipelinePage() {
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder={t("search.placeholder")}
                   aria-label={t("search.placeholder")}
-                  wrapperClassName="w-[240px] max-w-full"
+                  // 184px below xl, the canonical 240 from xl up. The filters
+                  // cell floors at two nowrap picker chips (~235px) and the
+                  // right cluster needs ~390px on one line (~440 with REVIEW
+                  // EMAILS), which together overran the 880px this row gets at
+                  // a 1000px viewport. Reclaiming 56px here is what buys the
+                  // single line; 184 stays on the 8px rhythm and still shows
+                  // ~18 mono characters, so search remains genuinely usable.
+                  wrapperClassName="w-[184px] max-w-full xl:w-[240px]"
                 />
               }
               filters={
@@ -1269,13 +1283,23 @@ export default function PipelinePage() {
                       type="button"
                       onClick={() => setReviewPanelOpen(true)}
                       title={t("gmail.reviewEmailsHint")}
-                      className="flex h-[26px] shrink-0 items-center gap-1.5 rounded-chip border border-border px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+                      // The label collapses below xl, so the accessible name
+                      // has to come from aria-label — otherwise the button
+                      // announces as its bare count.
+                      aria-label={t("gmail.reviewEmails")}
+                      className="flex h-[28px] shrink-0 items-center gap-1.5 rounded-chip border border-border px-[10px] font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-2 transition-colors hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                     >
                       <Mail
                         className="h-[11px] w-[11px] shrink-0"
                         strokeWidth={1.5}
                       />
-                      {t("gmail.reviewEmails")}
+                      {/* Row 1's widest optional label. Dropping it below xl
+                          saves ~70px — the margin that keeps the row one line
+                          from ~950px up. Icon + tabular count stay at every
+                          width, so the control is still recognizable. */}
+                      <span className="hidden xl:inline">
+                        {t("gmail.reviewEmails")}
+                      </span>
                       <span className="rounded-bar bg-surface-active px-1 font-mono text-micro tabular-nums text-text">
                         {reviewCount > 99 ? "99+" : reviewCount}
                       </span>

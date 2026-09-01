@@ -1,0 +1,30 @@
+{
+  "rows": [
+    {
+      "keys": [
+        "2026-08-27",
+        "field service app",
+        "https://opsapp.co/blog/field-service?utm_source=private",
+        "can",
+        "MOBILE"
+      ],
+      "clicks": 3,
+      "impressions": 120,
+      "ctr": 0.025,
+      "position": 8.5
+    },
+    {
+      "keys": [
+        "2026-08-27",
+        "trades business software",
+        "https://opsapp.co/",
+        "usa",
+        "DESKTOP"
+      ],
+      "clicks": 1,
+      "impressions": 40,
+      "ctr": 0.025,
+      "position": 12
+    }
+  ]
+}

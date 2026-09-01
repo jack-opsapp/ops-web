@@ -5,10 +5,12 @@
 import { randomUUID } from "node:crypto";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { persistCapturedProviderDeliveryTurn } from "@/lib/agent-control-plane/memory/persist-captured-provider-delivery-turn";
 import { requireSupabase } from "@/lib/supabase/helpers";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 import { EmailService } from "./email-service";
+import { captureProviderDeliveredEmailSource } from "./provider-delivery-source-service";
 import { EmailMatchingServiceV2 } from "./email-matching-service-v2";
 import { EmailFilterService } from "./email-filter-service";
 import {
@@ -41,8 +43,13 @@ import { resolveSyncEngineEmailActor } from "@/lib/email/sync-engine-email-actor
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
 import { createEmailOpportunityNotification } from "@/lib/email/email-opportunity-notification";
 import { createEmailSyncCompleteNotification } from "@/lib/email/email-sync-complete-notification";
+import {
+  loadPhaseCStageDecisionEvidence,
+  recordAndApplyPhaseCStageDecision,
+} from "@/lib/email/phase-c-lifecycle-decision";
 import { markEmailConnectionNeedsReconnect } from "@/lib/email/email-connection-health";
 import {
+  applyLeadSummaryDeferralCap,
   decodeEmailSyncContinuation,
   encodeEmailSyncContinuation,
   isEmailSyncContinuationPending,
@@ -109,6 +116,10 @@ import {
   isRecruitingProviderNoise,
 } from "@/lib/email/opportunity-correspondence-classifier";
 import {
+  buildDeterministicContactFormLead,
+  partitionUnmatchedLeadContexts,
+} from "@/lib/email/contact-form-lead-gate";
+import {
   extractEmailAddress,
   type ContactFormSubmissionIdentity,
 } from "@/lib/utils/email-parsing";
@@ -129,6 +140,13 @@ import {
   type SyncResult,
 } from "./email-provider";
 import { mapGmailReads } from "./providers/gmail-read";
+import { deferGmailBatchRemainder } from "./providers/gmail-provider";
+import {
+  EMAIL_SYNC_AI_STAGE_RESERVE_MS,
+  EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS,
+  EMAIL_SYNC_POST_LOOP_RESERVE_MS,
+  type InvocationDeadline,
+} from "./invocation-deadline";
 import {
   acquireEmailConnectionSyncLock,
   createEmailConnectionSyncLockRenewer,
@@ -176,9 +194,119 @@ export interface SyncCycleResult {
   /** Count of unmatched threads whose lead classification was durably deferred
    * (marked `email_threads.lead_scan_pending_at`) due to a provider outage. */
   leadScansDeferred: number;
+  /** Leads dropped from the continuation envelope after exhausting their
+   * bounded summary-refresh budget for a model reason. Derived data never
+   * holds mailbox liveness hostage; the quarantine row owns the follow-up. */
+  leadSummariesQuarantined: number;
   /** The durable cursor advanced, but provider or derived work still remains. */
   continuationPending: boolean;
+  /** The invocation deadline stopped this cycle before it finished; durable
+   * progress was checkpointed (or the connection left untouched) and the
+   * remainder resumes next tick. Never set by a completed cycle. */
+  deadlineDeferred: boolean;
   errors: string[];
+}
+
+/**
+ * How many extra bounded incremental passes one cycle may spend catching up to
+ * a webhook-advertised position before it hands the remainder back to the
+ * scheduler. In practice one pass suffices — a fresh `history.list` read returns
+ * the mailbox's current historyId, which is by definition at or beyond anything
+ * a prior push advertised — so this budget exists to bound the pathological
+ * case (mail arriving faster than a pass can walk it), never the normal one.
+ */
+const WEBHOOK_HIGH_WATER_MAX_DRAIN_PASSES = 3;
+
+/**
+ * Gmail historyIds are uint64 decimal strings. They routinely outgrow the
+ * exact-integer range of a JS number, and they cross digit-width boundaries
+ * constantly, so neither `Number()` nor a plain string compare is safe.
+ * Anything that is not a bounded run of digits is not a historyId at all.
+ */
+const GMAIL_HISTORY_ID_PATTERN = /^[0-9]{1,32}$/;
+
+function normalizedGmailHistoryId(
+  value: string | null | undefined
+): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!GMAIL_HISTORY_ID_PATTERN.test(trimmed)) return null;
+  // Strip leading zeros so magnitude comparison can go by digit count first.
+  return trimmed.replace(/^0+(?=[0-9])/, "");
+}
+
+function compareGmailHistoryIds(left: string, right: string): number {
+  if (left.length !== right.length) return left.length < right.length ? -1 : 1;
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+export type WebhookHighWaterDrainDecision = {
+  action: "complete" | "drain" | "exhausted";
+};
+
+/**
+ * Decide whether a finished Gmail incremental pass may report the mailbox
+ * complete, owes another bounded drain pass, or has spent its budget while
+ * still behind the last position a provider push advertised (bug 86c758b1).
+ *
+ * Fails open in every ambiguous case. A high-water mark is advisory
+ * observability written by a webhook, never a cursor: reading it can only ever
+ * ADD a bounded fetch, so an absent, malformed, or out-of-range value must
+ * degrade to today's behaviour rather than hold the mailbox open. The one thing
+ * it must never do is let a pass that is knowably behind claim completion.
+ */
+export function decideWebhookHighWaterDrain(input: {
+  /** The plain historyId the pass settled on, or null when it produced a
+   * structured continuation cursor (already continuation-pending on its own). */
+  passHistoryId: string | null;
+  /** The highest historyId any push has advertised for this connection. */
+  highWaterHistoryId: string | null | undefined;
+  /** Extra drain passes already spent this cycle. */
+  passesRun: number;
+  maxPasses?: number;
+}): WebhookHighWaterDrainDecision {
+  const pass = normalizedGmailHistoryId(input.passHistoryId);
+  const highWater = normalizedGmailHistoryId(input.highWaterHistoryId);
+  if (!pass || !highWater) return { action: "complete" };
+  if (compareGmailHistoryIds(highWater, pass) <= 0) {
+    return { action: "complete" };
+  }
+
+  const maxPasses = input.maxPasses ?? WEBHOOK_HIGH_WATER_MAX_DRAIN_PASSES;
+  return input.passesRun < maxPasses
+    ? { action: "drain" }
+    : { action: "exhausted" };
+}
+
+/**
+ * Read the highest historyId a provider push has advertised for this
+ * connection, or null when none has (or the read fails).
+ *
+ * Deliberately non-fatal in every failure mode, including a missing column: the
+ * mark is advisory, so a build running ahead of its migration must degrade to
+ * the pre-existing behaviour rather than fail a mailbox sync. PostgREST reports
+ * an unknown column through `{ error }` rather than by throwing, so this
+ * destructures it explicitly.
+ */
+async function readWebhookHistoryHighWater(
+  connectionId: string
+): Promise<string | null> {
+  const { data, error } = await requireSupabase()
+    .from("email_connections")
+    .select("webhook_history_high_water")
+    .eq("id", connectionId)
+    .maybeSingle();
+  if (error) {
+    console.error(
+      "[sync-engine] webhook high-water read failed (non-fatal):",
+      connectionId,
+      error.message
+    );
+    return null;
+  }
+  const highWater = (data as { webhook_history_high_water?: unknown } | null)
+    ?.webhook_history_high_water;
+  return typeof highWater === "string" ? highWater : null;
 }
 
 /** A semantic opportunity write failed, so the provider cursor must not move. */
@@ -577,7 +705,9 @@ function emptyResult(): SyncCycleResult {
     invalidProviderEmails: 0,
     aiProviderDeferred: false,
     leadScansDeferred: 0,
+    leadSummariesQuarantined: 0,
     continuationPending: false,
+    deadlineDeferred: false,
     errors: [],
   };
 }
@@ -2001,6 +2131,30 @@ async function recordActivityCorrespondenceEvent(
       `[sync-engine] correspondence event rejected: ${result.reason}`
     );
   }
+  if (!activityId) {
+    // No canonical activity row exists for this message (dedupe and
+    // review-hold paths). The delivered-turn shadow record needs one, so
+    // skip it; catch-up memory ingest recovers the turn from the exact
+    // captured source later. Never abort the ingest pipeline for it.
+    console.error(
+      `[sync-engine] delivered turn skipped (non-fatal): no canonical source activity for ${email.id}`
+    );
+    return;
+  }
+  try {
+    await persistCapturedProviderDeliveryTurn({
+      supabase,
+      companyId: connection.companyId,
+      connectionId: connection.id,
+      providerMessageId: email.id,
+      sourceActivityId: activityId,
+    });
+  } catch (error) {
+    console.error(
+      `[sync-engine] delivered turn persistence failed (non-fatal): ${email.id}`,
+      error
+    );
+  }
 }
 
 interface ActivityPersistenceOptions {
@@ -2009,6 +2163,34 @@ interface ActivityPersistenceOptions {
   matchConfidence?: string;
   /** A platform thread may contain unrelated form submitters; do not collapse it. */
   skipThreadState?: boolean;
+}
+
+function withAuthoritativeProviderDeliveryTimestamp(
+  email: NormalizedEmail,
+  direction: "inbound" | "outbound"
+): NormalizedEmail {
+  const source = email.providerDeliverySource;
+  if (!source || source.sourceKind !== "microsoft_graph_body") return email;
+  const deliveredAt =
+    direction === "outbound"
+      ? source.providerSentAt
+      : source.providerReceivedAt;
+  if (
+    !(deliveredAt instanceof Date) ||
+    !Number.isFinite(deliveredAt.getTime())
+  ) {
+    throw new LifecyclePersistenceError(
+      `[sync-engine] M365 ${direction} message is missing its authoritative provider timestamp`
+    );
+  }
+  return {
+    ...email,
+    date: deliveredAt,
+    providerDeliverySource: {
+      ...source,
+      deliveredAt,
+    },
+  };
 }
 
 async function persistDeterministicEmailThreadState(
@@ -2197,7 +2379,10 @@ async function createActivity(
       to_emails: toEmails,
       cc_emails: ccEmails,
       has_attachments: normalizedEmail.hasAttachments,
-      attachment_count: normalizedEmail.hasAttachments ? 1 : 0, // provider doesn't give exact count yet
+      // Provisional: the provider gives no exact count at ingest. Attachment
+      // ingestion corrects this to the real number once it enumerates the
+      // message (see attachment-ingestion-service updateActivityAttachmentRollup).
+      attachment_count: normalizedEmail.hasAttachments ? 1 : 0,
       match_needs_review: extra?.matchNeedsReview || false,
       suggested_client_id: extra?.suggestedClientId || null,
       match_confidence: extra?.matchConfidence || "pattern",
@@ -2236,6 +2421,34 @@ async function createActivity(
     executionPolicy
   );
   return true;
+}
+
+async function captureProviderDeliveryBeforeMutableIngest(input: {
+  email: NormalizedEmail;
+  connection: EmailConnection;
+  direction: "inbound" | "outbound";
+  providerLockCheckpoint: EmailProviderMailboxCheckpoint;
+}): Promise<void> {
+  await input.providerLockCheckpoint();
+  try {
+    await captureProviderDeliveredEmailSource({
+      supabase: requireSupabase(),
+      connection: input.connection,
+      provider: EmailService.getProvider(input.connection),
+      email: input.email,
+      direction: input.direction,
+    });
+  } catch (error) {
+    // The delivered-source capture is a shadow memory layer. A capture
+    // failure means a memory evidence gap (recoverable via catch-up), never
+    // a reason to hold the mailbox cursor or abort lead/activity ingest.
+    // Only the lease checkpoints around it may abort processing.
+    console.error(
+      `[sync-engine] provider delivery capture failed (non-fatal): ${input.email.id}`,
+      error
+    );
+  }
+  await input.providerLockCheckpoint();
 }
 
 interface PersistInboundActivityResult {
@@ -3398,7 +3611,23 @@ async function processInboundEmail(
     result,
     "sync_inbound_email"
   );
-  email = normalizedEmail;
+  email = withAuthoritativeProviderDeliveryTimestamp(
+    normalizedEmail,
+    "inbound"
+  );
+
+  if (!executionPolicy.providerMutationsDisabled) {
+    // Exact-recovery ingestion replays a durably stored message and must not
+    // touch the provider at all; source capture enumerates attachments
+    // through the provider client, so it is skipped here. Catch-up memory
+    // ingest recovers the delivered-source evidence for these messages.
+    await captureProviderDeliveryBeforeMutableIngest({
+      email,
+      connection,
+      direction: "inbound",
+      providerLockCheckpoint,
+    });
+  }
 
   const supabase = requireSupabase();
 
@@ -4061,8 +4290,26 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       context,
     ])
   );
+  // Website contact-form submissions are leads by construction — a human
+  // asked to be contacted. Claim them deterministically so a sub-threshold
+  // model verdict can never discard one: the reviewer keeps only what it
+  // scores as a lead, and the mailbox cursor then advances past the rest.
+  const { deterministicContexts, aiCandidateContexts } =
+    partitionUnmatchedLeadContexts(input.contexts);
+
+  const deterministicLeads = deterministicContexts.flatMap((context) => {
+    const lead = buildDeterministicContactFormLead(context);
+    if (!lead) return [];
+    console.log("[email-ingest] contact-form-lead-claimed", {
+      messageId: context.email.id,
+      threadId: context.email.threadId,
+      contactEmail: lead.clientEmail,
+    });
+    return [lead];
+  });
+
   const aiResult = await AISyncReviewer.reviewUnmatchedEmails(
-    input.contexts.map((context) => context.email),
+    aiCandidateContexts.map((context) => context.email),
     input.connection,
     {
       name: input.companyName,
@@ -4073,8 +4320,33 @@ async function persistAIClassifiedUnmatchedInbound(input: {
       input.connection,
       input.profile,
       await getCachedOperatorIdentity(input.connection)
-    )
+    ),
+    // Stage B reads full provider threads; hand it the lease this sync owns.
+    {
+      supabase: requireSupabase(),
+      providerLockCheckpoint: input.providerLockCheckpoint,
+    }
   );
+
+  // Safety net: an unmatched inbound the reviewer neither promoted nor
+  // deferred is otherwise dropped with no record anywhere, and the cursor
+  // moves past it permanently. Surface the discard so it is auditable and
+  // recoverable instead of silently lost.
+  const promotedOrDeferred = new Set<string>([
+    ...aiResult.classifiedLeads.map((lead) => lead.email.id),
+    ...(aiResult.deferredClassifications ?? []).map(
+      (deferred) => deferred.email.id
+    ),
+  ]);
+  for (const context of aiCandidateContexts) {
+    if (promotedOrDeferred.has(context.email.id)) continue;
+    console.warn("[email-ingest] unmatched-inbound-discarded", {
+      messageId: context.email.id,
+      threadId: context.email.threadId,
+      sender: context.email.from,
+      subject: context.email.subject,
+    });
+  }
 
   for (const deferred of aiResult.deferredClassifications ?? []) {
     await input.providerLockCheckpoint();
@@ -4102,7 +4374,25 @@ async function persistAIClassifiedUnmatchedInbound(input: {
     input.result.needsReview += 1;
   }
 
-  for (const classified of aiResult.classifiedLeads) {
+  // Deterministic submissions persist through the identical path as
+  // model-classified leads — same enrichment, correspondence events and
+  // projections — so there is no second lead-creation path to drift.
+  // A contact-form submission is a lead by construction — a human asked to be
+  // contacted — so it is never diverted to review. Only the MODEL-classified
+  // half is subject to the matcher's review verdict below.
+  const persistenceQueue = [
+    ...deterministicLeads.map((classified) => ({
+      classified,
+      aiClassified: false,
+    })),
+    ...aiResult.classifiedLeads.map((classified) => ({
+      classified,
+      aiClassified: true,
+    })),
+  ];
+  let reviewDiverted = 0;
+
+  for (const { classified, aiClassified } of persistenceQueue) {
     await input.providerLockCheckpoint();
     try {
       const classifiedEmail = normalizeProviderBackedEmailForSync(
@@ -4173,6 +4463,42 @@ async function persistAIClassifiedUnmatchedInbound(input: {
           await getCachedOperatorIdentity(input.connection)
         ),
       });
+
+      // Bug 3799225e. A `review` verdict used to fall straight through to the
+      // `else` branch below and create a brand-new client anyway — the exact
+      // path that spawned "ELAINE BEATTIE" alongside Mark Vanderwerf's won
+      // lead. A medium-confidence match is a QUESTION, not an answer: persist
+      // the correspondence for a human to confirm and create nothing.
+      if (
+        aiClassified &&
+        matchResult.action === "review" &&
+        relationshipDecision.action !== "link"
+      ) {
+        const reviewPersistence = await createOrAdoptInboundActivity({
+          email: effectiveEmail,
+          connection: input.connection,
+          opportunityId: null,
+          extra: {
+            matchNeedsReview: true,
+            suggestedClientId: matchResult.suggestedClientId,
+            matchConfidence: matchResult.confidence,
+            ...(!routingIdentity.mayInheritProviderThread
+              ? { skipThreadState: true }
+              : {}),
+          },
+          executionPolicy: input.executionPolicy,
+          existingOrphanActivity,
+          recoveryActorUserId: input.recoveryActorUserId,
+          syncLockOwner: input.syncLockOwner,
+          contactFormRecipient: contactFormSubmitter?.email ?? null,
+        });
+        reviewDiverted += 1;
+        if (reviewPersistence.persisted) {
+          input.result.needsReview += 1;
+          if (reviewPersistence.created) input.result.activitiesCreated++;
+        }
+        continue;
+      }
 
       let clientId =
         matchResult.action === "link" ||
@@ -4312,7 +4638,11 @@ async function persistAIClassifiedUnmatchedInbound(input: {
     }
   }
 
-  input.result.newLeads += aiResult.newLeadsClassified;
+  // Leads diverted to review created nothing, so they are not new leads.
+  input.result.newLeads += Math.max(
+    0,
+    aiResult.newLeadsClassified - reviewDiverted
+  );
 }
 
 async function processSentEmail(
@@ -4332,7 +4662,10 @@ async function processSentEmail(
     result,
     "sync_sent_email"
   );
-  email = normalizedEmail;
+  email = withAuthoritativeProviderDeliveryTimestamp(
+    normalizedEmail,
+    "outbound"
+  );
   const operatorIdentity = await getCachedOperatorIdentity(connection);
   const routingIdentity = buildLeadRoutingIdentity(
     email,
@@ -4360,6 +4693,13 @@ async function processSentEmail(
   // persistence, relationship matching, or lead projection so an unrelated
   // learning outage can never hold the mailbox cursor on internal mail.
   if (externalRecipients.length === 0) return;
+
+  await captureProviderDeliveryBeforeMutableIngest({
+    email,
+    connection,
+    direction: "outbound",
+    providerLockCheckpoint,
+  });
 
   // Dedup
   const existingActivity =
@@ -5645,7 +5985,10 @@ export const SyncEngine = {
    * Run a full sync cycle for a connection.
    * This is the main entry point — called by cron, manual sync, and webhook.
    */
-  async runSync(connectionId: string): Promise<SyncCycleResult> {
+  async runSync(
+    connectionId: string,
+    options: { deadline?: InvocationDeadline } = {}
+  ): Promise<SyncCycleResult> {
     const connection = await EmailService.getConnection(connectionId);
 
     if (!connection || connection.status !== "active") {
@@ -5681,6 +6024,15 @@ export const SyncEngine = {
     });
 
     try {
+      // Deadline SP-A: starting a cycle we cannot finish would burn provider
+      // quota and risk the platform kill landing mid-pipeline. Leaving the
+      // connection untouched is fully safe: cursor and last_synced_at are
+      // unadvanced, so the next cron tick re-runs it first (oldest-first order).
+      if (options.deadline?.expired(EMAIL_SYNC_MIN_CONNECTION_BUDGET_MS)) {
+        result.deadlineDeferred = true;
+        return result;
+      }
+
       const includeSentMail = profile.includeSentMail !== false;
       let mailboxReconciliation: MailboxHistoryReconciliation | null = null;
 
@@ -5748,6 +6100,55 @@ export const SyncEngine = {
         persistedSyncContinuation?.providerToken ?? connection.historyId;
       let pendingLeadSummaryOpportunityIds =
         persistedSyncContinuation?.pendingLeadSummaryOpportunityIds ?? [];
+      let pendingLeadSummaryAttempts =
+        persistedSyncContinuation?.pendingLeadSummaryAttempts ?? {};
+
+      /**
+       * Fold one refresh cycle's deferrals into the bounded attempt budget and
+       * quarantine anything that exhausted it. Derived summary work must never
+       * hold the mailbox cursor hostage (0700468d): this can only ever REMOVE
+       * ids from the envelope, so the worst case is a completed sync plus an
+       * explicit, owned quarantine row.
+       */
+      const applySummaryDeferralBudget = async (
+        summaryRefresh: Awaited<
+          ReturnType<typeof refreshLeadSummariesForOpportunities>
+        >
+      ): Promise<void> => {
+        const capped = applyLeadSummaryDeferralCap({
+          remainingOpportunityIds: summaryRefresh.remainingOpportunityIds,
+          deferred: summaryRefresh.deferred,
+          attempts: pendingLeadSummaryAttempts,
+        });
+        pendingLeadSummaryOpportunityIds = capped.pendingOpportunityIds;
+        pendingLeadSummaryAttempts = capped.attempts;
+        for (const record of capped.quarantined) {
+          // Quarantine bookkeeping is derived-data hygiene. It must never fail
+          // a sync that has already persisted its mailbox work.
+          try {
+            const { error } = await requireSupabase().rpc(
+              "upsert_lead_summary_refresh_quarantine",
+              {
+                p_opportunity_id: record.opportunityId,
+                p_company_id: connection.companyId,
+                p_reason: record.reason,
+                p_last_error: record.lastError,
+                p_deferral_count: record.deferralCount,
+              }
+            );
+            if (error) throw error;
+            result.leadSummariesQuarantined++;
+          } catch (quarantineError) {
+            console.error(
+              "[sync-engine] lead summary quarantine write failed:",
+              record.opportunityId,
+              quarantineError instanceof Error
+                ? quarantineError.message
+                : quarantineError
+            );
+          }
+        }
+      };
 
       // Step 1: Fetch new emails since last sync (inbox + sent)
       //
@@ -5831,6 +6232,94 @@ export const SyncEngine = {
           }
         }
 
+      // ── Webhook high-water drain (86c758b1) ──────────────────────────────
+      //
+      // A Gmail push advertises the mailbox historyId at the moment mail
+      // landed, and the webhook route now records it as a monotone high-water
+      // mark. When a push arrives while this pass holds the mailbox lease — the
+      // common case during a burst — its manual sync is rejected and that
+      // position exists nowhere else. Finishing the pass at a lower historyId
+      // and declaring the mailbox complete leaves the newer mail invisible
+      // until the next cron interval.
+      //
+      // So: if the mark is ahead of where this pass landed, keep walking. Each
+      // drain pass is the provider's own bounded incremental fetch — the same
+      // pagination, page caps, and continuation cursor the main pass used — and
+      // its mail joins this cycle's discovery below, so nothing is processed
+      // twice or on a second code path. One pass is normally enough (a fresh
+      // history read returns the mailbox's current historyId), so the budget is
+      // purely a bound on the pathological case.
+      //
+      // Every ambiguity fails open to today's behaviour. The one outcome that
+      // is not allowed is a pass that knows it is behind reporting completion:
+      // that is the bug. When the budget runs out the cycle persists a
+      // checkpoint instead, which leaves `last_synced_at` unadvanced and the
+      // provider snapshot marked incomplete, so the remainder is handed back to
+      // the scheduler rather than silently forgotten.
+      let webhookDrainPending = false;
+      if (
+        provider.providerType === "gmail" &&
+        !mailboxReconciliation &&
+        // A structured continuation is already pending on its own terms; the
+        // scheduler re-drives it next tick without any help from the mark.
+        !isProviderSyncContinuationPending(inboxResult.nextSyncToken)
+      ) {
+        const webhookHighWater =
+          await readWebhookHistoryHighWater(connectionId);
+        const drainedEmails: NormalizedEmail[] = [];
+        let drainPassesRun = 0;
+        let drainToken = inboxResult.nextSyncToken;
+
+        for (;;) {
+          const decision = decideWebhookHighWaterDrain({
+            passHistoryId: drainToken,
+            highWaterHistoryId: webhookHighWater,
+            passesRun: drainPassesRun,
+          });
+          if (decision.action === "complete") break;
+          if (decision.action === "exhausted") {
+            webhookDrainPending = true;
+            break;
+          }
+
+          let drainResult: SyncResult;
+          try {
+            drainResult = await provider.fetchNewEmailsSince(drainToken);
+          } catch (drainError) {
+            // The main pass already succeeded and its mail must still land.
+            // Abandon the drain, keep the last token the provider actually
+            // returned (so the cursor never advances past unfetched mail), and
+            // report the mailbox as still owing work. Deliberately no
+            // reconnect marking here: an auth or scope failure is diagnosed and
+            // marked by the main fetch path on the next cycle, and a transient
+            // blip must not be able to disconnect a mailbox from a best-effort
+            // catch-up pass.
+            webhookDrainPending = true;
+            console.error(
+              "[sync-engine] webhook high-water drain pass failed (non-fatal):",
+              connectionId,
+              drainError instanceof Error ? drainError.message : drainError
+            );
+            break;
+          }
+
+          drainPassesRun += 1;
+          drainedEmails.push(...drainResult.emails);
+          drainToken = drainResult.nextSyncToken;
+          await renewSyncLeaseIfNeeded();
+
+          if (isProviderSyncContinuationPending(drainToken)) break;
+        }
+
+        if (drainPassesRun > 0) {
+          inboxResult = {
+            ...inboxResult,
+            emails: [...inboxResult.emails, ...drainedEmails],
+            nextSyncToken: drainToken,
+          };
+        }
+      }
+
       // Discovery buckets are not authoritative direction. Gmail labels can
       // overlap and aliases/forwarding can surface operator-authored messages in
       // an INBOX history result. Dedupe across both provider reads, then retain
@@ -5882,6 +6371,13 @@ export const SyncEngine = {
           : inboxResult.nextSyncToken;
       const gmailRecoveryCheckpoint =
         mailboxReconciliation?.gmailCheckpoint ?? null;
+      /**
+       * Provider message ids this cycle DISCOVERED but ran out of invocation
+       * budget to PROCESS. They are handed back to the provider cursor below so
+       * the next tick owes them again (bug 63ff8830). Declared here because the
+       * checkpoint closure reads it and the processing loop fills it.
+       */
+      const deferredProviderMessageIds: string[] = [];
       const persistSyncCheckpoint = async () => {
         if (gmailRecoveryCheckpoint?.nextPageToken) {
           result.continuationPending = true;
@@ -5896,18 +6392,51 @@ export const SyncEngine = {
           return;
         }
 
+        // Messages the deadline stopped this cycle from processing must stay
+        // owed by the cursor. Gmail can carry them as pendingMessageIds; any
+        // other provider (or a remainder past the cursor's caps) falls back to
+        // the PRE-FETCH token so the range replays next tick. Replay is
+        // idempotent — every persisted message dedupes on ingest — and strictly
+        // shrinks in cost as persisted messages skip early.
+        let providerTokenForCheckpoint: string | null = newSyncToken;
+        if (deferredProviderMessageIds.length > 0) {
+          const deferredToken =
+            provider.providerType === "gmail"
+              ? deferGmailBatchRemainder(newSyncToken, deferredProviderMessageIds)
+              : null;
+          providerTokenForCheckpoint = deferredToken ?? syncToken ?? null;
+          if (providerTokenForCheckpoint === null) {
+            throw new LifecyclePersistenceError(
+              "[sync-engine] deadline remainder could not be encoded and no pre-fetch cursor exists; holding cursor for full replay"
+            );
+          }
+        }
         const historyId = encodeEmailSyncContinuation({
-          providerToken: newSyncToken,
+          providerToken: providerTokenForCheckpoint,
           pendingLeadSummaryOpportunityIds,
+          pendingLeadSummaryAttempts,
         });
-        result.continuationPending = isEmailSyncContinuationPending(historyId);
+        // A pass that ran out of drain budget while still behind the webhook
+        // high-water — or out of invocation budget mid-batch — has NOT caught
+        // the mailbox up, whatever its cursor says. It records a checkpoint
+        // rather than a completion: `last_synced_at` stays where it was, the
+        // provider snapshot is not marked current, and the connection stays
+        // visibly behind instead of quietly claiming to be finished. Derived
+        // summary bookkeeping is untouched — with no drain and no deadline
+        // remainder this collapses to exactly the previous expression.
+        result.continuationPending =
+          isEmailSyncContinuationPending(historyId) ||
+          webhookDrainPending ||
+          deferredProviderMessageIds.length > 0;
         if (result.continuationPending) {
           await persistEmailConnectionSyncCheckpoint({
             connectionId,
             ownerId: syncLockOwner,
             historyId,
             providerSnapshotComplete:
-              !isProviderSyncContinuationPending(historyId),
+              !isProviderSyncContinuationPending(historyId) &&
+              !webhookDrainPending &&
+              deferredProviderMessageIds.length === 0,
             clearRecovery: gmailRecoveryCheckpoint !== null,
             context: SYNC_LOCK_CONTEXT,
           });
@@ -5927,7 +6456,21 @@ export const SyncEngine = {
 
       if (rawInboxEmails.length === 0 && rawSentEmails.length === 0) {
         let deferredSummaryProviderFailure: unknown | null = null;
-        if (pendingLeadSummaryOpportunityIds.length > 0) {
+        // Deadline SP-C (summary refresh): starting a bounded LLM refresh we
+        // cannot finish would risk the platform kill landing between the model
+        // call and the checkpoint. Skipping leaves the ids in the continuation
+        // envelope — the exact path the refresh-budget cap already exercises,
+        // so the checkpoint below reports the mailbox as still owing derived
+        // work and the next tick picks it up.
+        const deadlineStopsSummaryRefresh =
+          options.deadline?.expired(EMAIL_SYNC_AI_STAGE_RESERVE_MS) === true;
+        if (deadlineStopsSummaryRefresh) {
+          result.deadlineDeferred = true;
+        }
+        if (
+          pendingLeadSummaryOpportunityIds.length > 0 &&
+          !deadlineStopsSummaryRefresh
+        ) {
           const summaryOpportunityIds = pendingLeadSummaryOpportunityIds;
           const summaryRefresh = await refreshLeadSummariesForOpportunities({
             supabase: requireSupabase(),
@@ -5941,8 +6484,7 @@ export const SyncEngine = {
                 .join("; ")}`
             );
           }
-          pendingLeadSummaryOpportunityIds =
-            summaryRefresh.remainingOpportunityIds;
+          await applySummaryDeferralBudget(summaryRefresh);
 
           const providerFailure = summaryRefresh.deferred.find(
             (failure) => failure.reason === "provider_unavailable"
@@ -6047,7 +6589,19 @@ export const SyncEngine = {
           : left.email.id.localeCompare(right.email.id);
       });
 
-      for (const item of processingQueue) {
+      for (const [index, item] of processingQueue.entries()) {
+        // Deadline SP-B: stop admitting messages while enough budget remains
+        // to finish the processed subset's downstream stages and publish the
+        // checkpoint. Unprocessed messages return to the provider cursor via
+        // deferGmailBatchRemainder in persistSyncCheckpoint — nothing is
+        // dropped, nothing waits on a platform kill.
+        if (options.deadline?.expired(EMAIL_SYNC_POST_LOOP_RESERVE_MS)) {
+          for (const remaining of processingQueue.slice(index)) {
+            deferredProviderMessageIds.push(remaining.email.id);
+          }
+          result.deadlineDeferred = true;
+          break;
+        }
         await renewSyncLeaseIfNeeded();
         if (item.direction === "inbound") {
           const unmatchedContext = await processInboundEmail(
@@ -6124,35 +6678,52 @@ export const SyncEngine = {
         // policy and the authorized recovery actor. A provider outage during
         // classification defers the scan (durable marker) and lets the cursor
         // advance; real persistence errors still abort and hold the cursor.
-        try {
-          await persistAIClassifiedUnmatchedInbound({
-            contexts: unmatchedContexts,
-            connection,
-            profile,
-            companyName,
-            companyIndustry,
-            followUpDaysCache,
-            result,
-            providerLockCheckpoint: renewSyncLeaseIfNeeded,
-            executionPolicy: NORMAL_EMAIL_INGESTION_POLICY,
-            recoveryActorUserId: null,
-            syncLockOwner,
-          });
-        } catch (err) {
-          if (isDatabasePressureError(err)) throw err;
-          const providerUnavailable = isAIProviderUnavailableError(err);
-          const modelAnswerDeferred = isDeferredModelAnswerError(err);
-          if (!providerUnavailable && !modelAnswerDeferred) throw err;
-          if (providerUnavailable) aiProviderOutage ??= err;
+        // Deadline SP-C: classification is the most expensive stage in the
+        // cycle. With too little budget left, defer it the same durable way a
+        // provider outage does — mark every unmatched thread pending and let
+        // the existing retryPendingLeadScans cron phase drain the markers. One
+        // marker-write code path, no duplicated SQL, and the mailbox cursor is
+        // free to advance because the follow-up is owned by the markers.
+        const deadlineStopsAIStages =
+          options.deadline?.expired(EMAIL_SYNC_AI_STAGE_RESERVE_MS) === true;
+        if (deadlineStopsAIStages && unmatchedContexts.length > 0) {
           await markUnmatchedThreadsPendingLeadScan(
             unmatchedContexts,
             connection
           );
           result.leadScansDeferred += unmatchedContexts.length;
-          if (modelAnswerDeferred) {
-            console.warn(
-              `[sync-engine] deferred ${unmatchedContexts.length} unmatched lead scan(s) after a model contract/refusal; mailbox cursor will advance`
+          result.deadlineDeferred = true;
+        } else if (!deadlineStopsAIStages) {
+          try {
+            await persistAIClassifiedUnmatchedInbound({
+              contexts: unmatchedContexts,
+              connection,
+              profile,
+              companyName,
+              companyIndustry,
+              followUpDaysCache,
+              result,
+              providerLockCheckpoint: renewSyncLeaseIfNeeded,
+              executionPolicy: NORMAL_EMAIL_INGESTION_POLICY,
+              recoveryActorUserId: null,
+              syncLockOwner,
+            });
+          } catch (err) {
+            if (isDatabasePressureError(err)) throw err;
+            const providerUnavailable = isAIProviderUnavailableError(err);
+            const modelAnswerDeferred = isDeferredModelAnswerError(err);
+            if (!providerUnavailable && !modelAnswerDeferred) throw err;
+            if (providerUnavailable) aiProviderOutage ??= err;
+            await markUnmatchedThreadsPendingLeadScan(
+              unmatchedContexts,
+              connection
             );
+            result.leadScansDeferred += unmatchedContexts.length;
+            if (modelAnswerDeferred) {
+              console.warn(
+                `[sync-engine] deferred ${unmatchedContexts.length} unmatched lead scan(s) after a model contract/refusal; mailbox cursor will advance`
+              );
+            }
           }
         }
 
@@ -6377,8 +6948,14 @@ export const SyncEngine = {
           // let stage/summary enrichment recover on the next inbound message
           // rather than aborting the cursor. Provider-unavailability here is
           // deferred; any non-provider error still aborts and holds the cursor.
+          // Deadline SP-C (stage evaluation): out of budget, this inherits the
+          // provider-outage semantics this block already accepts — evaluation
+          // happens when the thread next receives mail. Skipping it cannot lose
+          // anything, and the deterministic writes above are already durable.
           let stageResults = null;
-          if (!aiProviderOutage) {
+          if (deadlineStopsAIStages) {
+            result.deadlineDeferred = true;
+          } else if (!aiProviderOutage) {
             try {
               stageResults = await AISyncReviewer.evaluateStagesWithSummary(
                 [...activeLeadTargets.values()],
@@ -6466,10 +7043,13 @@ export const SyncEngine = {
                 sr.terminalFlag || "ai_evaluated",
               ];
 
-              // Only write stage if it actually changed AND user hasn't manually set it
+              // Stage proposals are recorded even when the lead carries a
+              // historical manual flag. The guarded decision RPC compares the
+              // exact source event against the manual correction boundary, so
+              // newer evidence may advance an active stage while a same/later
+              // operator correction remains authoritative.
               if (
                 sr.newStage &&
-                !oppData?.stage_manually_set &&
                 sr.newStage !== oppData?.stage &&
                 isAllowedAutomatedEmailStageTransition(
                   oppData.stage as string,
@@ -6507,37 +7087,33 @@ export const SyncEngine = {
               }
 
               if (requestedStage) {
-                const { data: transitionRows, error: transitionError } =
-                  await supabase.rpc(
-                    "apply_email_opportunity_stage_transition",
-                    {
-                      p_company_id: connection.companyId,
-                      p_opportunity_id: oppId,
-                      p_to_stage: requestedStage,
-                      p_expected_stage: oppData.stage,
-                      p_expected_assignment_version: oppData.assignment_version,
-                      p_ai_signal: sr.terminalFlag || "ai_evaluated",
-                    }
-                  );
-                if (transitionError) {
-                  throw new CronDatabaseOperationError(
-                    `[sync-engine] AI stage transition failed for opportunity ${oppId}: ${transitionError.message ?? "unknown error"}`,
-                    { cause: transitionError }
-                  );
-                }
-                if (!transitionRows) {
-                  throw new LifecyclePersistenceError(
-                    `[sync-engine] AI stage transition failed for opportunity ${oppId}: RPC returned no rows`
-                  );
-                }
-                const transition = Array.isArray(transitionRows)
-                  ? transitionRows[0]
-                  : transitionRows;
-                if (!transition) {
-                  throw new LifecyclePersistenceError(
-                    `[sync-engine] AI stage transition returned no opportunity for ${oppId}`
-                  );
-                }
+                const providerThreadIds =
+                  typeof evaluationTarget === "string"
+                    ? [evaluationTarget]
+                    : (evaluationTarget?.messages.map(
+                        (message) => message.threadId
+                      ) ?? []);
+                const evidence = await loadPhaseCStageDecisionEvidence({
+                  supabase,
+                  companyId: connection.companyId,
+                  opportunityId: oppId,
+                  connectionId: connection.id,
+                  providerThreadIds,
+                });
+                const transition = await recordAndApplyPhaseCStageDecision({
+                  supabase,
+                  companyId: connection.companyId,
+                  opportunityId: oppId,
+                  sourceEventId: evidence.sourceEventId,
+                  evidenceEventIds: evidence.evidenceEventIds,
+                  evidenceMessageIds: evidence.evidenceMessageIds,
+                  proposedStage: requestedStage,
+                  expectedStage: oppData.stage as string,
+                  expectedAssignmentVersion:
+                    oppData.assignment_version as number,
+                  confidence: 0.8,
+                  reason: "strict_singleton_model_stage_classification",
+                });
                 if (transition.changed) result.stageChanges++;
               }
             }
@@ -6578,8 +7154,7 @@ export const SyncEngine = {
                 );
               }
             }
-            pendingLeadSummaryOpportunityIds =
-              summaryRefresh.remainingOpportunityIds;
+            await applySummaryDeferralBudget(summaryRefresh);
           }
         }
       } catch (aiErr) {

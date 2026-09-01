@@ -7,16 +7,20 @@ import { NextRequest } from "next/server";
 const {
   getServiceRoleClientMock,
   runEmailSendReconciliationRecoveryMock,
+  runApprovedActionEmailReconciliationRecoveryMock,
   runWithCronWorkloadControlMock,
   isDatabasePressureErrorMock,
   runWithSupabaseMock,
+  observedWorkFailures,
   serviceRoleClient,
 } = vi.hoisted(() => ({
   getServiceRoleClientMock: vi.fn(),
   runEmailSendReconciliationRecoveryMock: vi.fn(),
+  runApprovedActionEmailReconciliationRecoveryMock: vi.fn(),
   runWithCronWorkloadControlMock: vi.fn(),
   isDatabasePressureErrorMock: vi.fn(),
   runWithSupabaseMock: vi.fn(),
+  observedWorkFailures: [] as unknown[],
   serviceRoleClient: { kind: "service-role-client" },
 }));
 
@@ -40,6 +44,14 @@ vi.mock(
   })
 );
 
+vi.mock(
+  "@/lib/api/services/approved-action-email-reconciliation-recovery-service",
+  () => ({
+    runApprovedActionEmailReconciliationRecovery:
+      runApprovedActionEmailReconciliationRecoveryMock,
+  })
+);
+
 import { GET } from "@/app/api/cron/email-send-reconciliation/route";
 
 function request(secret = "cron-test-secret"): NextRequest {
@@ -58,12 +70,20 @@ describe("email send reconciliation cron", () => {
     runWithSupabaseMock.mockImplementation(
       async (_client: unknown, work: () => Promise<unknown>) => work()
     );
+    observedWorkFailures.length = 0;
     runWithCronWorkloadControlMock.mockReset();
     runWithCronWorkloadControlMock.mockImplementation(
-      async ({ work }: { work: () => Promise<unknown> }) => ({
-        status: "completed",
-        value: await work(),
-      })
+      async ({ work }: { work: () => Promise<unknown> }) => {
+        try {
+          return {
+            status: "completed",
+            value: await work(),
+          };
+        } catch (error) {
+          observedWorkFailures.push(error);
+          throw error;
+        }
+      }
     );
     isDatabasePressureErrorMock.mockReset();
     isDatabasePressureErrorMock.mockImplementation((error: unknown) =>
@@ -76,6 +96,14 @@ describe("email send reconciliation cron", () => {
       claimed: 0,
       reconciled: 0,
       failed: 0,
+      errors: [],
+    });
+    runApprovedActionEmailReconciliationRecoveryMock.mockReset();
+    runApprovedActionEmailReconciliationRecoveryMock.mockResolvedValue({
+      claimed: 0,
+      reconciled: 0,
+      failed: 0,
+      exhausted: 0,
       errors: [],
     });
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -110,23 +138,44 @@ describe("email send reconciliation cron", () => {
     expect(getServiceRoleClientMock).not.toHaveBeenCalled();
   });
 
-  it("runs the database-only recovery worker in service-role context", async () => {
+  it("runs both accepted-only recovery workers in service-role context and reports truthful totals", async () => {
     runEmailSendReconciliationRecoveryMock.mockResolvedValue({
       claimed: 2,
       reconciled: 2,
       failed: 0,
       errors: [],
     });
+    runApprovedActionEmailReconciliationRecoveryMock.mockResolvedValue({
+      claimed: 3,
+      reconciled: 2,
+      failed: 1,
+      exhausted: 1,
+      errors: ["approved-intent-1: activity insert failed"],
+    });
 
     const response = await GET(request());
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(503);
     expect(await response.json()).toEqual({
-      ok: true,
-      claimed: 2,
-      reconciled: 2,
-      failed: 0,
-      errors: [],
+      ok: false,
+      claimed: 5,
+      reconciled: 4,
+      failed: 1,
+      exhausted: 1,
+      errors: ["approved-intent-1: activity insert failed"],
+      emailSend: {
+        claimed: 2,
+        reconciled: 2,
+        failed: 0,
+        errors: [],
+      },
+      approvedAction: {
+        claimed: 3,
+        reconciled: 2,
+        failed: 1,
+        exhausted: 1,
+        errors: ["approved-intent-1: activity insert failed"],
+      },
     });
     expect(runWithSupabaseMock).toHaveBeenCalledWith(
       serviceRoleClient,
@@ -144,6 +193,67 @@ describe("email send reconciliation cron", () => {
       serviceRoleClient,
       { limit: 5, failureCooldownSeconds: 60, leaseSeconds: 180 }
     );
+    expect(
+      runApprovedActionEmailReconciliationRecoveryMock
+    ).toHaveBeenCalledWith(serviceRoleClient, {
+      limit: 5,
+      failureCooldownSeconds: 60,
+      leaseSeconds: 180,
+    });
+    expect(observedWorkFailures).toHaveLength(1);
+    expect(observedWorkFailures[0]).toBeInstanceOf(Error);
+  });
+
+  it("logs bounded structured details when recovery reports non-throwing failures", async () => {
+    const errors = Array.from(
+      { length: 12 },
+      (_, index) => `intent-${index}: ${"x".repeat(600)}`
+    );
+    runEmailSendReconciliationRecoveryMock.mockResolvedValue({
+      claimed: 12,
+      reconciled: 0,
+      failed: 12,
+      errors,
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(503);
+    expect(observedWorkFailures).toHaveLength(1);
+
+    const structuredLog = vi
+      .mocked(console.error)
+      .mock.calls.find(
+        ([scope]) => scope === "[cron/email-send-reconciliation]"
+      );
+    expect(structuredLog).toBeDefined();
+    expect(structuredLog).toHaveLength(2);
+
+    const details = JSON.parse(String(structuredLog?.[1])) as {
+      event: string;
+      claimed: number;
+      reconciled: number;
+      failed: number;
+      exhausted: number;
+      errors: Array<{ source: string; message: string }>;
+      omittedErrorCount: number;
+    };
+    expect(details).toMatchObject({
+      event: "email_send_reconciliation_failed",
+      claimed: 12,
+      reconciled: 0,
+      failed: 12,
+      exhausted: 0,
+      omittedErrorCount: 2,
+    });
+    expect(details.errors).toHaveLength(10);
+    expect(details.errors[0]).toEqual({
+      source: "email_send",
+      message: `intent-0: ${"x".repeat(490)}`,
+    });
+    expect(details.errors.every(({ message }) => message.length <= 500)).toBe(
+      true
+    );
   });
 
   it("opens the circuit when reconciliation reports database pressure", async () => {
@@ -152,6 +262,23 @@ describe("email send reconciliation cron", () => {
       reconciled: 0,
       failed: 1,
       errors: ["intent-1: PGRST002 schema cache unavailable"],
+    });
+
+    const response = await GET(request());
+
+    expect(response.status).toBe(500);
+    expect(
+      runApprovedActionEmailReconciliationRecoveryMock
+    ).not.toHaveBeenCalled();
+  });
+
+  it("opens the circuit when approved-action reconciliation reports database pressure", async () => {
+    runApprovedActionEmailReconciliationRecoveryMock.mockResolvedValue({
+      claimed: 1,
+      reconciled: 0,
+      failed: 1,
+      exhausted: 0,
+      errors: ["approved-intent-1: PGRST002 schema cache unavailable"],
     });
 
     const response = await GET(request());
@@ -174,12 +301,16 @@ describe("email send reconciliation cron", () => {
       reason: "already_running",
     });
     expect(runEmailSendReconciliationRecoveryMock).not.toHaveBeenCalled();
+    expect(
+      runApprovedActionEmailReconciliationRecoveryMock
+    ).not.toHaveBeenCalled();
   });
 
   it("contains no provider-send execution path", () => {
     const source = [
       "src/app/api/cron/email-send-reconciliation/route.ts",
       "src/lib/api/services/email-send-reconciliation-recovery-service.ts",
+      "src/lib/api/services/approved-action-email-reconciliation-recovery-service.ts",
     ]
       .map((path) => readFileSync(resolve(process.cwd(), path), "utf8"))
       .join("\n");

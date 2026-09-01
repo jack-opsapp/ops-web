@@ -58,6 +58,13 @@ function parsedTemplate() {
       string,
       {
         Properties?: {
+          EventPattern?: {
+            detail?: {
+              s3ObjectDetails?: {
+                objectKey?: Array<{ prefix: string }>;
+              };
+            };
+          };
           PolicyDocument?: {
             Statement?: Array<{
               Action?: string | string[];
@@ -251,8 +258,8 @@ describe("external intake storage infrastructure policy", () => {
     expect(source).toContain("- aws.guardduty");
 
     const rule =
-      parsedTemplate().Resources.GuardDutyScanResultsRule.Properties;
-    expect(rule.EventPattern?.detail?.s3ObjectDetails?.objectKey).toEqual([
+      parsedTemplate().Resources.GuardDutyScanResultsRule?.Properties;
+    expect(rule?.EventPattern?.detail?.s3ObjectDetails?.objectKey).toEqual([
       { prefix: "quarantine/" },
     ]);
   });

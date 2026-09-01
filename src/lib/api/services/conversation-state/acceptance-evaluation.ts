@@ -6,6 +6,10 @@ import {
   ProjectConversionService,
 } from "@/lib/api/services/project-conversion-service";
 import { createEmailOpportunityNotification } from "@/lib/email/email-opportunity-notification";
+import {
+  recordPhaseCLifecycleDecision,
+  settlePhaseCLifecycleDecision,
+} from "@/lib/email/phase-c-lifecycle-decision";
 import { resolveGuardedOpportunityClientId } from "@/lib/email/opportunity-client-identity";
 import { isRecruitingProviderNoise } from "@/lib/email/opportunity-correspondence-classifier";
 import { findUniqueExistingProjectForEmailConversion } from "@/lib/email/opportunity-relationship-matching";
@@ -13,6 +17,7 @@ import {
   detectCommercialOutcome,
   hasUnresolvedCommercialConflict,
 } from "@/lib/email/terminal-stage-decision";
+import type { CommercialOutcomeDecision } from "@/lib/email/terminal-stage-decision";
 import type { EmailConnection } from "@/lib/types/email-connection";
 
 import { decideAcceptStage } from "./accept-stage";
@@ -59,6 +64,12 @@ interface CommercialEvidenceMessage {
   authorRole: "customer" | "operator";
   subject: string;
   body: string;
+}
+
+interface CommercialDecisionEvidence {
+  sourceEventId: string;
+  evidenceEventIds: string[];
+  evidenceMessageIds: string[];
 }
 
 function mailboxMessageKey(connectionId: string, providerMessageId: string) {
@@ -220,6 +231,7 @@ async function loadCompleteCommercialEvidence(input: {
   }
   const activityByEventId = new Map<string, CommercialEvidenceActivity>();
   const messages: CommercialEvidenceMessage[] = [];
+  const untrustedCustomerMessages: CommercialEvidenceMessage[] = [];
   for (const event of events) {
     if (!event.connection_id || !event.provider_message_id) continue;
     const authorRole =
@@ -233,10 +245,73 @@ async function loadCompleteCommercialEvidence(input: {
         : event.direction === "outbound" && event.party_role === "ops"
           ? ("operator" as const)
           : ("untrusted" as const);
-    if (authorRole === "untrusted") continue;
     const fallbackActivities = activitiesByMessage.get(
       mailboxMessageKey(event.connection_id, event.provider_message_id)
     );
+    if (authorRole === "untrusted") {
+      // Unknown external participants may carry real commercial intent, but
+      // never conversion authority. Retain only exact durable activity
+      // evidence so the intent can enter review instead of disappearing.
+      if (event.direction !== "inbound" || event.party_role !== "customer") {
+        continue;
+      }
+      if (!event.activity_id && (fallbackActivities?.length ?? 0) !== 1) {
+        continue;
+      }
+      const activity = event.activity_id
+        ? activityById.get(event.activity_id)
+        : fallbackActivities![0];
+      if (!activity) continue;
+      const eventRecipients = normalizedRecipientSet(
+        event.to_emails,
+        event.cc_emails
+      );
+      const activityRecipients = normalizedRecipientSet(
+        activity.to_emails,
+        activity.cc_emails
+      );
+      if (
+        activity.email_message_id !== event.provider_message_id ||
+        activity.email_thread_id !== event.provider_thread_id ||
+        activity.direction !== event.direction ||
+        !sameStringSet(eventRecipients, activityRecipients) ||
+        (activity.email_connection_id !== null &&
+          activity.email_connection_id !== event.connection_id)
+      ) {
+        continue;
+      }
+      const cleanedBody = cleanMessageBody(
+        activity.body_text_clean ?? activity.body_text ?? "",
+        {
+          subject: activity.subject ?? "",
+          providerCleanBody: null,
+        }
+      );
+      if (
+        isRecruitingProviderNoise({
+          direction: event.direction,
+          fromEmail: event.from_email,
+          toEmails: event.to_emails,
+          ccEmails: event.cc_emails,
+          subject: activity.subject,
+          bodyText: cleanedBody,
+        })
+      ) {
+        continue;
+      }
+      untrustedCustomerMessages.push({
+        evidenceKey: event.id,
+        connectionId: event.connection_id,
+        providerThreadId: event.provider_thread_id,
+        providerMessageId: event.provider_message_id,
+        occurredAt: event.occurred_at,
+        direction: event.direction,
+        authorRole: "customer",
+        subject: activity.subject ?? "",
+        body: cleanedBody,
+      });
+      continue;
+    }
     if (!event.activity_id && (fallbackActivities?.length ?? 0) !== 1) {
       throw new Error(
         `commercial evidence activity is not uniquely proven for event ${event.id}`
@@ -351,9 +426,123 @@ async function loadCompleteCommercialEvidence(input: {
   return {
     events,
     messages,
+    untrustedCustomerMessages,
     activityByEventId,
     latestEventId: events.at(-1)?.id ?? null,
   };
+}
+
+function lifecycleEvidenceForOutcome(input: {
+  outcome: NonNullable<CommercialOutcomeDecision>;
+  events: CommercialEvidenceEvent[];
+  messages: CommercialEvidenceMessage[];
+}): CommercialDecisionEvidence {
+  const evidenceMessageIds = new Set(input.outcome.evidenceMessageIds);
+  evidenceMessageIds.add(input.outcome.decisiveMessageId);
+  const evidenceEvents = input.events.filter(
+    (event) =>
+      event.id === input.outcome.decisiveEvidenceKey ||
+      evidenceMessageIds.has(event.provider_message_id)
+  );
+  const sourceEvent = evidenceEvents.find(
+    (event) => event.id === input.outcome.decisiveEvidenceKey
+  );
+  if (!sourceEvent) {
+    throw new Error("commercial lifecycle decision has no decisive event");
+  }
+  return {
+    sourceEventId: sourceEvent.id,
+    evidenceEventIds: [...new Set(evidenceEvents.map((event) => event.id))],
+    evidenceMessageIds: [
+      ...new Set(
+        input.messages
+          .filter(
+            (message) =>
+              message.evidenceKey === input.outcome.decisiveEvidenceKey ||
+              evidenceMessageIds.has(message.providerMessageId)
+          )
+          .map((message) => message.providerMessageId)
+      ),
+    ],
+  };
+}
+
+async function recordCommercialDecision(input: {
+  supabase: SupabaseClient;
+  companyId: string;
+  opportunityId: string;
+  evidence: CommercialDecisionEvidence;
+  proposedOutcome: string | null;
+  reason: string;
+  status?: "proposed" | "review";
+  reviewReason?: string | null;
+}) {
+  return recordPhaseCLifecycleDecision({
+    supabase: input.supabase,
+    companyId: input.companyId,
+    opportunityId: input.opportunityId,
+    sourceEventId: input.evidence.sourceEventId,
+    decisionKind: "commercial_outcome",
+    decisionKey:
+      input.status === "review"
+        ? "terminal_outcome_review"
+        : "terminal_outcome",
+    proposedOutcome: input.proposedOutcome,
+    confidence: input.status === "review" ? 0.5 : 1,
+    evidenceEventIds: input.evidence.evidenceEventIds,
+    evidenceMessageIds: input.evidence.evidenceMessageIds,
+    reason: input.reason,
+    status: input.status,
+    reviewReason: input.reviewReason,
+  });
+}
+
+async function recordIdentityConflictReview(input: {
+  supabase: SupabaseClient;
+  companyId: string;
+  opportunityId: string;
+  reason: string;
+}): Promise<void> {
+  const events: Array<{ id: string; provider_message_id: string }> = [];
+  for (let from = 0; ; from += COMMERCIAL_EVIDENCE_PAGE_SIZE) {
+    const { data, error } = await input.supabase
+      .from("opportunity_correspondence_events")
+      .select("id, provider_message_id")
+      .eq("company_id", input.companyId)
+      .eq("opportunity_id", input.opportunityId)
+      .eq("is_meaningful", true)
+      .eq("opportunity_projection_applied", true)
+      .order("occurred_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + COMMERCIAL_EVIDENCE_PAGE_SIZE - 1);
+    if (error) {
+      throw new Error(
+        `commercial identity review evidence lookup failed: ${error.message}`
+      );
+    }
+    const page = (data ?? []) as Array<{
+      id: string;
+      provider_message_id: string;
+    }>;
+    events.push(...page);
+    if (page.length < COMMERCIAL_EVIDENCE_PAGE_SIZE) break;
+  }
+  const source = events.at(-1);
+  if (!source) return;
+  await recordCommercialDecision({
+    supabase: input.supabase,
+    companyId: input.companyId,
+    opportunityId: input.opportunityId,
+    evidence: {
+      sourceEventId: source.id,
+      evidenceEventIds: [source.id],
+      evidenceMessageIds: [source.provider_message_id],
+    },
+    proposedOutcome: null,
+    reason: input.reason,
+    status: "review",
+    reviewReason: input.reason,
+  });
 }
 
 export interface OpportunityCommercialOutcomeEvaluationInput {
@@ -455,6 +644,21 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
     now: input.now ?? new Date(),
     messages: completeEvidence.messages,
   });
+  const ambiguousCommercialOutcome = commercialOutcome
+    ? null
+    : detectCommercialOutcome({
+        now: input.now ?? new Date(),
+        messages: [
+          ...completeEvidence.messages.filter(
+            (message) => message.authorRole === "operator"
+          ),
+          ...completeEvidence.untrustedCustomerMessages,
+        ].sort(
+          (left, right) =>
+            Date.parse(left.occurredAt) - Date.parse(right.occurredAt) ||
+            left.evidenceKey.localeCompare(right.evidenceKey)
+        ),
+      });
 
   const decisiveEvent = commercialOutcome
     ? completeEvidence.events.find(
@@ -468,6 +672,41 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
     throw new Error(
       "commercial outcome has no durable evidence high-water mark"
     );
+  }
+  if (ambiguousCommercialOutcome) {
+    const evidence = lifecycleEvidenceForOutcome({
+      outcome: ambiguousCommercialOutcome,
+      events: completeEvidence.events,
+      messages: [
+        ...completeEvidence.messages,
+        ...completeEvidence.untrustedCustomerMessages,
+      ],
+    });
+    await recordCommercialDecision({
+      supabase,
+      companyId: connection.companyId,
+      opportunityId,
+      evidence,
+      proposedOutcome: ambiguousCommercialOutcome.outcome,
+      reason: ambiguousCommercialOutcome.reasonCode,
+      status: "review",
+      reviewReason: "acceptance_authority_unresolved",
+    });
+    if (
+      threadContext &&
+      Number.isSafeInteger(opportunity.assignment_version) &&
+      (opportunity.assignment_version as number) >= 0
+    ) {
+      await createEmailOpportunityNotification({
+        connectionId: connection.id,
+        opportunityId,
+        providerThreadId: threadContext.durableProviderThreadId,
+        expectedAssignmentVersion: opportunity.assignment_version as number,
+        eventType: "accept_review_won",
+        supabase,
+      });
+    }
+    return { stageChanged: false };
   }
 
   const signedAcceptedMessage = threadContext
@@ -531,6 +770,18 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
     ) {
       throw new Error("email decline decision has no assignment snapshot");
     }
+    const decision = await recordCommercialDecision({
+      supabase,
+      companyId: connection.companyId,
+      opportunityId,
+      evidence: lifecycleEvidenceForOutcome({
+        outcome: commercialOutcome,
+        events: completeEvidence.events,
+        messages: completeEvidence.messages,
+      }),
+      proposedOutcome: "declined",
+      reason: commercialOutcome.reasonCode,
+    });
     const { data: rows, error } = await supabase.rpc(
       "apply_email_opportunity_declined_disposition" as never,
       {
@@ -554,7 +805,8 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
       );
     }
     const row = (Array.isArray(rows) ? rows[0] : rows) as
-      { changed?: boolean; guard_reason?: string | null } | undefined;
+      | { changed?: boolean; guard_reason?: string | null }
+      | undefined;
     if (!row) {
       throw new Error("email decline disposition returned no decision row");
     }
@@ -573,6 +825,14 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
         `email decline disposition was not committed: ${row.guard_reason ?? "unknown guard"}`
       );
     }
+    await settlePhaseCLifecycleDecision({
+      supabase,
+      companyId: connection.companyId,
+      opportunityId,
+      decisionId: decision.id,
+      status: row.changed ? "applied" : "skipped",
+      guardReason: row.guard_reason ?? null,
+    });
     return { stageChanged: Boolean(row.changed) };
   }
   if (commercialOutcome?.outcome === "deferred" && !signedAcceptanceIsNewer) {
@@ -582,6 +842,18 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
     ) {
       throw new Error("email deferral decision has no assignment snapshot");
     }
+    const decision = await recordCommercialDecision({
+      supabase,
+      companyId: connection.companyId,
+      opportunityId,
+      evidence: lifecycleEvidenceForOutcome({
+        outcome: commercialOutcome,
+        events: completeEvidence.events,
+        messages: completeEvidence.messages,
+      }),
+      proposedOutcome: "deferred",
+      reason: commercialOutcome.reasonCode,
+    });
     const { data: rows, error } = await supabase.rpc(
       "apply_email_opportunity_deferred_disposition" as never,
       {
@@ -606,7 +878,8 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
       );
     }
     const row = (Array.isArray(rows) ? rows[0] : rows) as
-      { changed?: boolean; guard_reason?: string | null } | undefined;
+      | { changed?: boolean; guard_reason?: string | null }
+      | undefined;
     if (!row) {
       throw new Error("email deferral disposition returned no decision row");
     }
@@ -623,6 +896,14 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
         `email deferral disposition was not committed: ${row.guard_reason ?? "unknown guard"}`
       );
     }
+    await settlePhaseCLifecycleDecision({
+      supabase,
+      companyId: connection.companyId,
+      opportunityId,
+      decisionId: decision.id,
+      status: row.changed ? "applied" : "skipped",
+      guardReason: row.guard_reason ?? null,
+    });
     return { stageChanged: Boolean(row.changed) };
   }
 
@@ -734,6 +1015,27 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
       evidence,
       actualValue: commercialOutcome?.facts.currentPrice ?? null,
     } as const;
+    const lifecycleDecision = await recordCommercialDecision({
+      supabase,
+      companyId: connection.companyId,
+      opportunityId,
+      evidence:
+        commercialOutcome?.outcome === "won" && !signedAcceptanceIsNewer
+          ? lifecycleEvidenceForOutcome({
+              outcome: commercialOutcome,
+              events: completeEvidence.events,
+              messages: completeEvidence.messages,
+            })
+          : {
+              sourceEventId: conversionEvent.id,
+              evidenceEventIds: [conversionEvent.id],
+              evidenceMessageIds: [conversionEvent.provider_message_id],
+            },
+      proposedOutcome: "won",
+      reason: signedAcceptanceIsNewer
+        ? "signed_estimate"
+        : (commercialOutcome?.reasonCode ?? "signed_estimate"),
+    });
     const existingProjectId = await findUniqueExistingProjectForEmailConversion(
       {
         supabase,
@@ -761,6 +1063,14 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
           error.guardReason ?? ""
         )
       ) {
+        await settlePhaseCLifecycleDecision({
+          supabase,
+          companyId: connection.companyId,
+          opportunityId,
+          decisionId: lifecycleDecision.id,
+          status: "skipped",
+          guardReason: error.guardReason,
+        });
         return { stageChanged: false };
       }
       throw error;
@@ -770,6 +1080,13 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
         "canonical email acceptance conversion did not win the opportunity"
       );
     }
+    await settlePhaseCLifecycleDecision({
+      supabase,
+      companyId: connection.companyId,
+      opportunityId,
+      decisionId: lifecycleDecision.id,
+      status: "applied",
+    });
     // The canonical conversion event transactionally enqueues its own durable,
     // retryable notification delivery. A second best-effort email notification
     // here could fail after conversion commits, and the Won/manual guard would
@@ -778,6 +1095,23 @@ async function evaluateLoadedOpportunityCommercialOutcome(input: {
     return { stageChanged: true };
   }
 
+  const reviewEvent = completeEvidence.events.at(-1);
+  if (reviewEvent) {
+    await recordCommercialDecision({
+      supabase,
+      companyId: connection.companyId,
+      opportunityId,
+      evidence: {
+        sourceEventId: reviewEvent.id,
+        evidenceEventIds: [reviewEvent.id],
+        evidenceMessageIds: [reviewEvent.provider_message_id],
+      },
+      proposedOutcome: "won",
+      reason: action.reason,
+      status: "review",
+      reviewReason: "acceptance_ambiguous",
+    });
+  }
   if (
     threadContext &&
     Number.isSafeInteger(assignmentVersion) &&
@@ -814,10 +1148,21 @@ export async function evaluateOpportunityCommercialOutcome(
   ) {
     return { stageChanged: false };
   }
-  const opportunityClientId = resolveGuardedOpportunityClientId({
-    clientId: opportunity.client_id,
-    clientRef: opportunity.client_ref,
-  });
+  let opportunityClientId: string | null;
+  try {
+    opportunityClientId = resolveGuardedOpportunityClientId({
+      clientId: opportunity.client_id,
+      clientRef: opportunity.client_ref,
+    });
+  } catch {
+    await recordIdentityConflictReview({
+      supabase: input.supabase,
+      companyId: input.connection.companyId,
+      opportunityId: input.opportunityId,
+      reason: "opportunity_client_identity_conflict",
+    });
+    return { stageChanged: false };
+  }
   return evaluateLoadedOpportunityCommercialOutcome({
     ...input,
     opportunity,
@@ -849,10 +1194,21 @@ export async function evaluateOpportunityAcceptance(
 
   // Resolve mirrored client identity before any thread state is read. A split
   // identity must fail closed even when the triggering thread is missing.
-  const opportunityClientId = resolveGuardedOpportunityClientId({
-    clientId: opportunity.client_id,
-    clientRef: opportunity.client_ref,
-  });
+  let opportunityClientId: string | null;
+  try {
+    opportunityClientId = resolveGuardedOpportunityClientId({
+      clientId: opportunity.client_id,
+      clientRef: opportunity.client_ref,
+    });
+  } catch {
+    await recordIdentityConflictReview({
+      supabase,
+      companyId: connection.companyId,
+      opportunityId,
+      reason: "opportunity_client_identity_conflict",
+    });
+    return { stageChanged: false };
+  }
   const { data: thread, error: threadError } = await supabase
     .from("email_threads")
     .select("id, provider_thread_id")

@@ -21,11 +21,24 @@ export type LeadStage =
   | "lost"
   | "discarded";
 
-export type PartyRole = "customer" | "operator" | "internal" | "system" | "unknown";
+export type PartyRole =
+  "customer" | "operator" | "internal" | "system" | "unknown";
 
 export type AttachmentKind = "image" | "pdf" | "document" | "other";
 
-export type RoutingDecision = "draft" | "update_lead_only" | "require_human_review";
+export type RoutingDecision =
+  "draft" | "update_lead_only" | "require_human_review";
+
+export type ResponseDisposition =
+  "reply_required" | "no_reply_required" | "operator_input_required";
+
+export type ResponseMode =
+  | "answer"
+  | "clarify"
+  | "schedule"
+  | "acknowledge_and_advance"
+  | "close_loop"
+  | "no_reply";
 
 /**
  * The operator's full identity set, built from authoritative data
@@ -70,6 +83,17 @@ export interface AttachmentRef {
   mimeType: string;
   sizeBytes: number;
   kind: AttachmentKind;
+  /** Provider message that carried this attachment. */
+  sourceMessageId?: string;
+  /** Provider marked this as embedded in the HTML body rather than a file attachment. */
+  isInline?: boolean;
+  /** Durable provider/content identity when available. */
+  contentId?: string | null;
+  contentHash?: string | null;
+  /** False when the same content already appeared earlier in the conversation. */
+  isNewToConversation?: boolean;
+  /** Small inline asset that is overwhelmingly likely to be a signature/logo. */
+  isDecorativeInline?: boolean;
   /** image/diagram/PDF on a customer inbound — the drafter must not ignore it. */
   requiresInspection: boolean;
   /** Populated by the Phase 2 OpenAI vision pass; null until inspected. */
@@ -131,7 +155,9 @@ export interface AcceptSignal {
    * high → signed_estimate_attachment and/or explicit_accept_language.
    * low  → verbal_soft (ambiguous "sounds good", "ok" without commitment).
    */
-  basis: ("signed_estimate_attachment" | "explicit_accept_language" | "verbal_soft")[];
+  basis: (
+    "signed_estimate_attachment" | "explicit_accept_language" | "verbal_soft"
+  )[];
   evidenceMessageIds: string[];
 }
 
@@ -151,8 +177,20 @@ export interface ConversationState {
   /** What the operator has ALREADY sent (prices/quotes/promises) — the drafter must not restate these. */
   sentLedger: SentLedgerEntry[];
   attachmentsRequiringInspection: AttachmentRef[];
+  /**
+   * Whether this lead's schedule could be READ from the database at routing
+   * time. `true` = the calendar is verifiably legible (an empty calendar still
+   * counts — "nothing booked" is a fact); `false`/`null` = unprobed or the read
+   * failed, so a scheduling question stays held for a human.
+   *
+   * Deterministic input, not a model output: the drafter may only state
+   * schedule facts the server actually read.
+   */
+  scheduleFactsAvailable: boolean | null;
   routing: RoutingDecision;
   routingReasons: string[];
+  responseDisposition: ResponseDisposition;
+  responseMode: ResponseMode;
   /** 0..1; below the router threshold → require_human_review. */
   confidence: number;
 }

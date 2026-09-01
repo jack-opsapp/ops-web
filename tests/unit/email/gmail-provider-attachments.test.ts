@@ -112,6 +112,89 @@ function messageFixture() {
   };
 }
 
+function quotedInlineMessageFixture(options?: {
+  referenceQuotedCidOutsideQuote?: boolean;
+  includeQuotedFileAttachment?: boolean;
+}) {
+  const quotedCidOutsideQuote = options?.referenceQuotedCidOutsideQuote
+    ? '<img src="cid:quoted-photo">'
+    : "";
+  const html = [
+    '<div>New photos <img src="cid:new-photo">',
+    quotedCidOutsideQuote,
+    "</div>",
+    '<div class="gmail_quote">',
+    "On Tue, Aug 5, operator@example.com wrote:",
+    '<img src="cid:quoted-photo">',
+    options?.includeQuotedFileAttachment
+      ? '<img src="cid:quoted-file-attachment">'
+      : "",
+    "</div>",
+  ].join("");
+
+  return {
+    id: "message-quoted-inline",
+    threadId: "thread-quoted-inline",
+    internalDate: "1785975176000",
+    labelIds: ["INBOX"],
+    payload: {
+      mimeType: "multipart/related",
+      headers: [
+        { name: "From", value: "Mark <mark@example.com>" },
+        { name: "To", value: "operator@example.com" },
+        { name: "Subject", value: "Re: Photos" },
+      ],
+      parts: [
+        {
+          partId: "0",
+          mimeType: "text/html",
+          body: { data: Buffer.from(html).toString("base64url") },
+        },
+        {
+          partId: "1",
+          mimeType: "image/jpeg",
+          filename: "new-photo.jpg",
+          headers: [
+            { name: "Content-Disposition", value: "inline" },
+            { name: "Content-ID", value: "<new-photo>" },
+          ],
+          body: { attachmentId: "new-photo-attachment", size: 2_048 },
+        },
+        {
+          partId: "2",
+          mimeType: "image/jpeg",
+          filename: "quoted-photo.jpg",
+          headers: [
+            { name: "Content-Disposition", value: "inline" },
+            { name: "Content-ID", value: "<quoted-photo>" },
+          ],
+          body: { attachmentId: "quoted-photo-attachment", size: 2_048 },
+        },
+        ...(options?.includeQuotedFileAttachment
+          ? [
+              {
+                partId: "3",
+                mimeType: "image/jpeg",
+                filename: "quoted-file-attachment.jpg",
+                headers: [
+                  { name: "Content-Disposition", value: "attachment" },
+                  {
+                    name: "Content-ID",
+                    value: "<quoted-file-attachment>",
+                  },
+                ],
+                body: {
+                  attachmentId: "quoted-file-attachment",
+                  size: 2_048,
+                },
+              },
+            ]
+          : []),
+      ],
+    },
+  };
+}
+
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -196,6 +279,76 @@ describe("GmailProvider attachments", () => {
         filename: "estimate.pdf",
         mimeType: "application/octet-stream",
       }),
+    ]);
+  });
+
+  it("omits inline images referenced only inside quoted Gmail HTML", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => response(quotedInlineMessageFixture()))
+    );
+
+    const attachments = await new GmailProvider(
+      connection()
+    ).getAttachmentsFromMessage("message-quoted-inline");
+
+    expect(attachments.map((attachment) => attachment.contentId)).toEqual([
+      "new-photo",
+    ]);
+  });
+
+  it("filters quote-only inline images during whole-thread enumeration", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => response({ messages: [quotedInlineMessageFixture()] }))
+    );
+
+    const attachments = await new GmailProvider(
+      connection()
+    ).getAttachmentsFromThread("thread-quoted-inline");
+
+    expect(attachments.map((attachment) => attachment.contentId)).toEqual([
+      "new-photo",
+    ]);
+  });
+
+  it("keeps an inline image when its CID is also referenced outside the quote", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        response(
+          quotedInlineMessageFixture({ referenceQuotedCidOutsideQuote: true })
+        )
+      )
+    );
+
+    const attachments = await new GmailProvider(
+      connection()
+    ).getAttachmentsFromMessage("message-quoted-inline");
+
+    expect(attachments.map((attachment) => attachment.contentId)).toEqual([
+      "new-photo",
+      "quoted-photo",
+    ]);
+  });
+
+  it("keeps an explicitly attached file even when its CID appears only in a quote", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        response(
+          quotedInlineMessageFixture({ includeQuotedFileAttachment: true })
+        )
+      )
+    );
+
+    const attachments = await new GmailProvider(
+      connection()
+    ).getAttachmentsFromMessage("message-quoted-inline");
+
+    expect(attachments.map((attachment) => attachment.contentId)).toEqual([
+      "new-photo",
+      "quoted-file-attachment",
     ]);
   });
 
@@ -303,11 +456,23 @@ describe("GmailProvider attachments", () => {
     };
     vi.stubGlobal(
       "fetch",
-      vi.fn(async (input: string | URL | Request) =>
-        String(input).includes("/threads/")
-          ? response({ messages: [bodyOnly] })
-          : response(bodyOnly)
-      )
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("/threads/")) {
+          return response({ messages: [bodyOnly] });
+        }
+        if (url.includes("/attachments/large-plain-body")) {
+          return response({
+            data: Buffer.from("Long plain message").toString("base64url"),
+          });
+        }
+        if (url.includes("/attachments/large-html-body")) {
+          return response({
+            data: Buffer.from("<p>Long HTML message</p>").toString("base64url"),
+          });
+        }
+        return response(bodyOnly);
+      })
     );
 
     const provider = new GmailProvider(connection());
@@ -316,6 +481,7 @@ describe("GmailProvider attachments", () => {
     ).resolves.toEqual([]);
     const emails = await provider.fetchThread("thread-1");
     expect(emails[0]?.hasAttachments).toBe(false);
+    expect(emails[0]?.bodyText).toBe("Long plain message");
   });
 
   it("aborts an attachment JSON response before buffering past its encoded limit", async () => {

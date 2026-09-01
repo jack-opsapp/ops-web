@@ -187,9 +187,8 @@ vi.mock("@/stores/undo-store", () => ({
     selector({ pushUndo }),
 }));
 
-const { useStageTransition } = await import(
-  "@/app/(dashboard)/pipeline/_components/use-stage-transition"
-);
+const { useStageTransition } =
+  await import("@/app/(dashboard)/pipeline/_components/use-stage-transition");
 
 function makeOpp(overrides: Partial<Opportunity> = {}): Opportunity {
   return {
@@ -283,13 +282,13 @@ describe("useStageTransition — discard capture (Phase C ON)", () => {
     expect(pushUndo).toHaveBeenCalledTimes(1);
   });
 
-  it("carries the outcome copy when the server routes the lead somewhere else", async () => {
+  it("keeps duplicate discards on the discarded lifecycle", async () => {
     applyMutateAsync.mockResolvedValue({
       feedbackId: "fb-2",
-      outcome: "duplicate_review",
+      outcome: "discarded",
       priorStage: "negotiation",
-      currentStage: "negotiation",
-      lifecycleChanged: false,
+      currentStage: "discarded",
+      lifecycleChanged: true,
       idempotentReplay: false,
     });
     discard(makeOpp());
@@ -299,7 +298,7 @@ describe("useStageTransition — discard capture (Phase C ON)", () => {
     });
 
     expect(confirmCaptureToast.mock.calls[0]![1]).toMatchObject({
-      stateLine: "Duplicate review — stays on board",
+      stateLine: EXPECTED_STAGE_LINE,
       reasonLabel: "duplicate",
     });
   });
@@ -446,9 +445,17 @@ describe("useStageTransition — discard capture (Phase C OFF)", () => {
       idempotencyKey: expect.any(String),
     });
     expect(moveMutate).not.toHaveBeenCalled();
-    expect(toastSuccess).toHaveBeenCalledWith(EXPECTED_TITLE, {
-      description: EXPECTED_STAGE_LINE,
-    });
+    expect(toastSuccess).toHaveBeenCalledWith(
+      EXPECTED_TITLE,
+      expect.objectContaining({
+        description: EXPECTED_STAGE_LINE,
+        duration: 10_000,
+        action: expect.objectContaining({
+          label: "table.undo.action",
+          onClick: expect.any(Function),
+        }),
+      })
+    );
     expect(pushUndo).toHaveBeenCalledTimes(1);
   });
 
@@ -462,9 +469,17 @@ describe("useStageTransition — discard capture (Phase C OFF)", () => {
     expect(moveMutate.mock.calls[0]![0]).toMatchObject({
       stage: OpportunityStage.Discarded,
     });
-    expect(toastSuccess).toHaveBeenCalledWith(EXPECTED_TITLE, {
-      description: EXPECTED_STAGE_LINE,
-    });
+    expect(toastSuccess).toHaveBeenCalledWith(
+      EXPECTED_TITLE,
+      expect.objectContaining({
+        description: EXPECTED_STAGE_LINE,
+        duration: 10_000,
+        action: expect.objectContaining({
+          label: "table.undo.action",
+          onClick: expect.any(Function),
+        }),
+      })
+    );
   });
 
   it("treats uninitialized flags as Phase C off (never fail open)", async () => {

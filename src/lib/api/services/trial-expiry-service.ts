@@ -24,6 +24,7 @@ import {
   sendTrialExpiryReengagement,
 } from "@/lib/email/sendgrid";
 import { sendOneSignalPush } from "@/lib/integrations/onesignal";
+import { filterPushRecipientsByQuietHours } from "@/lib/notifications/server-notification-service";
 import {
   detectCompanyTimezone,
   formatTrialEndDisplay,
@@ -73,7 +74,32 @@ export interface ProcessResult {
   sent: Array<{ companyId: string; type: TrialNotificationType }>;
   skipped: Array<{ companyId: string; reason: string }>;
   errors: Array<{ companyId: string; error: string }>;
+  /**
+   * Companies whose push leg failed on an earlier run and succeeded on this
+   * one. The email and in-app legs were already delivered under the original
+   * claim — only the push was re-attempted (bug 60480c86).
+   */
+  pushRetries: Array<{ companyId: string }>;
   nextCompanyCursor: string | null;
+}
+
+/**
+ * How many times the push leg of one claimed notification may be attempted
+ * before it is written off as `failed`. Trial expiry is a daily cadence, so
+ * the budget spans days, not seconds.
+ */
+export const TRIAL_EXPIRY_PUSH_MAX_ATTEMPTS = 3;
+
+type PushLegStatus =
+  | "not_applicable"
+  | "sent"
+  | "skipped_quiet_hours"
+  | "retry_eligible"
+  | "failed";
+
+interface PushLegOutcome {
+  status: "sent" | "skipped_quiet_hours" | "retry_eligible";
+  error?: string;
 }
 
 // ─── Internal helpers ────────────────────────────────────────────────────────
@@ -255,6 +281,192 @@ async function fetchAdminUsers(
   return (data ?? []) as AdminUserRow[];
 }
 
+/**
+ * Run the push leg for one claimed trial-expiry notification and report what
+ * happened. Never throws on a provider failure — the outcome is the contract,
+ * so the caller can record it durably (bug 60480c86: a OneSignal
+ * `invalid_aliases` response used to be logged and forgotten, which silently
+ * suppressed the push forever because the claim row was already committed).
+ */
+async function deliverTrialExpiryPushLeg(params: {
+  supabase: SupabaseClient;
+  claimId: string;
+  companyId: string;
+  recipientUserIds: string[];
+  type: TrialNotificationType;
+  daysRemaining: number;
+  daysSinceExpiry: number;
+  promoCode50: string;
+}): Promise<PushLegOutcome> {
+  const pushTargets = await filterPushRecipientsByQuietHours({
+    companyId: params.companyId,
+    recipientUserIds: params.recipientUserIds,
+    db: params.supabase,
+  });
+  // Quiet hours suppress the push leg only, by design — the email and the
+  // in-app row already carried this message. Terminal: there is nothing to
+  // retry, the notification was deliberately forgone on this channel.
+  if (pushTargets.length === 0) return { status: "skipped_quiet_hours" };
+
+  const pushCopy = buildPushCopy(
+    params.type,
+    params.daysRemaining,
+    params.daysSinceExpiry
+  );
+  const pushResult = await sendOneSignalPush({
+    recipientUserIds: pushTargets,
+    title: pushCopy.title,
+    body: pushCopy.body,
+    data: {
+      type: "trial_expiry",
+      screen: "subscription",
+      promo_code: params.promoCode50,
+    },
+    // Stable across retries of this one logical push: a timed-out send that
+    // actually delivered is suppressed by OneSignal; a total invalid_aliases
+    // failure created nothing, so the same key retries cleanly.
+    idempotencyKey: params.claimId,
+  });
+
+  if (pushResult.ok) {
+    if (pushResult.invalidAliases?.length) {
+      console.warn(
+        `[trial-expiry] push delivered with invalid aliases for company ${params.companyId}:`,
+        pushResult.invalidAliases
+      );
+    }
+    return { status: "sent" };
+  }
+
+  // invalid_aliases (nothing created), timeouts, 5xx, and missing config are
+  // all retry-eligible here. Unlike the event-notification workers (whose
+  // status-based classifier rightly terminals a semantic alias failure —
+  // a stale event push is worthless), this is a daily lifecycle warning:
+  // tomorrow's delivery still matters, and aliases become valid the moment
+  // the owner's device registers its external_id.
+  const detail = pushResult.invalidAliases?.length
+    ? `invalid_aliases: ${pushResult.invalidAliases.join(",")}`
+    : describePushFailure(pushResult.error);
+  return { status: "retry_eligible", error: detail };
+}
+
+/** Render any provider failure as a bounded, storable string. Never throws. */
+function describePushFailure(error: unknown): string {
+  if (error instanceof Error) return error.message.slice(0, 500);
+  if (typeof error === "string") return error.slice(0, 500);
+  try {
+    return (JSON.stringify(error) ?? String(error)).slice(0, 500);
+  } catch {
+    return String(error).slice(0, 500);
+  }
+}
+
+/**
+ * Write the push leg's outcome onto the claim row. The claim itself is never
+ * released — the email and in-app legs already ran under it.
+ *
+ * `currentAttempts` is always known by the caller (0 on a row this run just
+ * inserted, or the value read back on the retry path), so no read-modify-write
+ * round trip is needed.
+ */
+async function recordPushLegOutcome(params: {
+  supabase: SupabaseClient;
+  claimId: string;
+  outcome: PushLegOutcome | { status: "not_applicable"; error?: string };
+  currentAttempts: number;
+  attemptsDelta: 0 | 1;
+}): Promise<void> {
+  const attempts = params.currentAttempts + params.attemptsDelta;
+  const status: PushLegStatus =
+    params.outcome.status === "retry_eligible" &&
+    attempts >= TRIAL_EXPIRY_PUSH_MAX_ATTEMPTS
+      ? "failed"
+      : params.outcome.status;
+  const { error } = await params.supabase
+    .from("trial_expiry_notifications")
+    .update({
+      push_status: status,
+      push_attempts: attempts,
+      push_last_error: params.outcome.error ?? null,
+      // Only stamped when an attempt actually happened, so a later quiet-hours
+      // skip cannot erase the timestamp of a real prior attempt.
+      ...(params.attemptsDelta
+        ? { push_last_attempt_at: new Date().toISOString() }
+        : {}),
+    })
+    .eq("id", params.claimId);
+  if (error) {
+    throw new CronDatabaseOperationError(
+      "trial expiry push state write failed",
+      { cause: error }
+    );
+  }
+}
+
+/**
+ * The claim already exists: this company's bundle was sent on an earlier run.
+ * The only leg allowed to run again is a push that failed with a
+ * retry-eligible outcome and still has budget left.
+ */
+async function retryClaimedPushLeg(params: {
+  supabase: SupabaseClient;
+  companyId: string;
+  type: TrialNotificationType;
+  recipientUserIds: string[];
+  daysRemaining: number;
+  daysSinceExpiry: number;
+  promoCode50: string;
+  result: ProcessResult;
+}): Promise<void> {
+  const { data: existing, error: readError } = await params.supabase
+    .from("trial_expiry_notifications")
+    .select("id, push_status, push_attempts")
+    .eq("company_id", params.companyId)
+    .eq("notification_type", params.type)
+    .single();
+  if (readError) {
+    throw new CronDatabaseOperationError("trial expiry claim readback failed", {
+      cause: readError,
+    });
+  }
+  const currentAttempts = Number(existing?.push_attempts ?? 0);
+  if (
+    !existing?.id ||
+    existing.push_status !== "retry_eligible" ||
+    currentAttempts >= TRIAL_EXPIRY_PUSH_MAX_ATTEMPTS
+  ) {
+    return;
+  }
+
+  const claimId = String(existing.id);
+  const outcome = await deliverTrialExpiryPushLeg({
+    supabase: params.supabase,
+    claimId,
+    companyId: params.companyId,
+    recipientUserIds: params.recipientUserIds,
+    type: params.type,
+    daysRemaining: params.daysRemaining,
+    daysSinceExpiry: params.daysSinceExpiry,
+    promoCode50: params.promoCode50,
+  });
+  await recordPushLegOutcome({
+    supabase: params.supabase,
+    claimId,
+    outcome,
+    currentAttempts,
+    attemptsDelta: outcome.status === "skipped_quiet_hours" ? 0 : 1,
+  });
+
+  if (outcome.status === "retry_eligible") {
+    params.result.errors.push({
+      companyId: params.companyId,
+      error: `push retry failed: ${outcome.error}`,
+    });
+  } else if (outcome.status === "sent") {
+    params.result.pushRetries.push({ companyId: params.companyId });
+  }
+}
+
 // ─── Main service ────────────────────────────────────────────────────────────
 
 export const TrialExpiryService = {
@@ -276,6 +488,7 @@ export const TrialExpiryService = {
       sent: [],
       skipped: [],
       errors: [],
+      pushRetries: [],
       nextCompanyCursor: null,
     };
 
@@ -404,21 +617,46 @@ export const TrialExpiryService = {
     // retried cron sees 23505 and exits without sending again. If provider
     // acceptance is followed by a database outage, this durable row still
     // prevents an ambiguous resend.
-    const { error: claimError } = await supabase
+    const { data: claimRow, error: claimError } = await supabase
       .from("trial_expiry_notifications")
       .insert({
         company_id: company.id,
         notification_type: type,
         promo_code_50: promoCodes?.code50 ?? null,
         promo_code_30: promoCodes?.code30 ?? null,
-      });
+      })
+      .select("id")
+      .single();
     if (claimError) {
-      if (claimError.code === "23505") return;
+      if (claimError.code === "23505") {
+        // The bundle already went out on an earlier run. Emails and in-app
+        // rows are never re-sent; only a push that failed with a retryable
+        // outcome is given another attempt (bug 60480c86).
+        if (!shouldSendPush(type)) return;
+        await retryClaimedPushLeg({
+          supabase,
+          companyId: company.id,
+          type,
+          recipientUserIds: activeAdmins.map((u) => u.id),
+          daysRemaining: remaining,
+          daysSinceExpiry: sinceExpiry,
+          promoCode50: promoCodes?.code50 ?? "",
+          result,
+        });
+        return;
+      }
       throw new CronDatabaseOperationError(
         "trial expiry notification claim failed",
         { cause: claimError }
       );
     }
+    if (!claimRow?.id) {
+      throw new CronDatabaseOperationError(
+        "trial expiry notification claim returned no row id",
+        { cause: claimRow ?? null }
+      );
+    }
+    const claimId = String(claimRow.id);
 
     // ─── Send email(s) ─────────────────────────────────────────────────────
     await this.sendEmails({
@@ -435,24 +673,47 @@ export const TrialExpiryService = {
     });
 
     // ─── Send push (only for discount_3d per spec) ─────────────────────────
+    // The push leg records its own outcome on the claim row. Quiet hours still
+    // suppress push only (bug 42aa787c) — the email above and the in-app rows
+    // below are unaffected.
     if (shouldSendPush(type)) {
-      const pushCopy = buildPushCopy(type, remaining, sinceExpiry);
-      const pushResult = await sendOneSignalPush({
+      const outcome = await deliverTrialExpiryPushLeg({
+        supabase,
+        claimId,
+        companyId: company.id,
         recipientUserIds: activeAdmins.map((u) => u.id),
-        title: pushCopy.title,
-        body: pushCopy.body,
-        data: {
-          type: "trial_expiry",
-          screen: "subscription",
-          promo_code: promoCodes?.code50 ?? "",
-        },
+        type,
+        daysRemaining: remaining,
+        daysSinceExpiry: sinceExpiry,
+        promoCode50: promoCodes?.code50 ?? "",
       });
-      if (!pushResult.ok) {
+      await recordPushLegOutcome({
+        supabase,
+        claimId,
+        outcome,
+        currentAttempts: 0,
+        attemptsDelta: outcome.status === "skipped_quiet_hours" ? 0 : 1,
+      });
+      if (outcome.status === "retry_eligible") {
         console.error(
           `[trial-expiry] Push failed for company ${company.id}:`,
-          pushResult.error
+          outcome.error
         );
+        // The company still counts as sent (email + in-app landed), but the
+        // push failure is no longer invisible to the route.
+        result.errors.push({
+          companyId: company.id,
+          error: `push failed (will retry): ${outcome.error}`,
+        });
       }
+    } else {
+      await recordPushLegOutcome({
+        supabase,
+        claimId,
+        outcome: { status: "not_applicable" },
+        currentAttempts: 0,
+        attemptsDelta: 0,
+      });
     }
 
     // ─── Create in-app notifications for discount types ────────────────────

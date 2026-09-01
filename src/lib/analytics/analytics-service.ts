@@ -1,77 +1,106 @@
-/**
- * OPS Web — Unified Analytics Service
- *
- * CLIENT SIDE ONLY (browser). Singleton that buffers analytics events in memory
- * and flushes them to Supabase via a server action every 5 seconds.
- *
- * Identity (user_id, company_id, role, plan) is set externally by calling
- * setIdentity() — typically from the auth store after login.
- *
- * Session ID is generated once per browser session (stored in sessionStorage).
- *
- * Usage:
- *   import { analyticsService } from "@/lib/analytics/analytics-service";
- *   analyticsService.track("action", "task_created", { task_type: "maintenance" });
- */
+/** Durable, authenticated browser analytics queue. */
 import type {
-  AnalyticsEvent,
+  AnalyticsClientEvent,
+  AnalyticsEnvironment,
   AnalyticsEventType,
-  AnalyticsIdentity,
 } from "./analytics-types";
-import { flushAnalyticsEvents } from "./analytics-actions";
-
-// ─── Constants ───────────────────────────────────────────────────────────────
+import {
+  analyticsUtf8ByteLength,
+  ANALYTICS_BATCH_SIZE,
+  ANALYTICS_KEEPALIVE_MAX_PAYLOAD_BYTES,
+  ANALYTICS_MAX_PAYLOAD_BYTES,
+  ANALYTICS_QUEUE_CAP,
+  ANALYTICS_SCHEMA_VERSION,
+} from "./event-contract";
+import {
+  isAnalyticsUuid,
+  sanitizeAnalyticsProperties,
+  sanitizeClientAnalyticsEvent,
+} from "./event-sanitizer";
 
 const FLUSH_INTERVAL_MS = 5_000;
-const MAX_BATCH_SIZE = 50;
 const SESSION_KEY = "ops_analytics_session_id";
+export const ANALYTICS_QUEUE_STORAGE_KEY = "ops_analytics_queue_v1";
 
-// ─── Singleton ───────────────────────────────────────────────────────────────
+interface FlushResponse {
+  success: boolean;
+  acceptedIds?: string[];
+  rejectedIds?: string[];
+}
 
-class AnalyticsService {
-  private buffer: AnalyticsEvent[] = [];
-  private identity: AnalyticsIdentity = {
-    userId: null,
-    companyId: null,
-    role: null,
-    plan: null,
-  };
-  private sessionId: string;
+interface AnalyticsServiceOptions {
+  autoStart?: boolean;
+  now?: () => number;
+  randomUUID?: () => string;
+  getIdToken?: (forceRefresh?: boolean) => Promise<string | null>;
+  fetch?: typeof fetch;
+  storage?: Storage | null;
+  sessionStorage?: Storage | null;
+  environment?: AnalyticsEnvironment;
+}
+
+function availableStorage(kind: "localStorage" | "sessionStorage"): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window[kind];
+  } catch {
+    return null;
+  }
+}
+
+function resolveEnvironment(): AnalyticsEnvironment {
+  if (process.env.NODE_ENV === "test") return "test";
+  if (typeof window === "undefined") return "development";
+  const hostname = window.location.hostname.toLowerCase();
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+    return "development";
+  }
+  if (hostname.endsWith(".vercel.app")) return "preview";
+  return process.env.NODE_ENV === "production" ? "production" : "development";
+}
+
+export class AnalyticsService {
+  private queue: AnalyticsClientEvent[] = [];
+  private readonly sessionId: string;
+  private readonly now: () => number;
+  private readonly randomUUID: () => string;
+  private readonly tokenProvider: (forceRefresh?: boolean) => Promise<string | null>;
+  private readonly fetcher: typeof fetch;
+  private readonly storage: Storage | null;
+  private readonly environment: AnalyticsEnvironment;
   private flushTimer: ReturnType<typeof setInterval> | null = null;
   private isFlushing = false;
 
-  constructor() {
-    this.sessionId = this.getOrCreateSessionId();
-    this.startFlushTimer();
-    this.registerBeforeUnload();
+  constructor(options: AnalyticsServiceOptions = {}) {
+    this.now = options.now ?? Date.now;
+    this.randomUUID = options.randomUUID ?? (() => globalThis.crypto.randomUUID());
+    this.tokenProvider =
+      options.getIdToken ??
+      (async (forceRefresh) => {
+        const { getIdToken } = await import("@/lib/firebase/auth");
+        return getIdToken(forceRefresh);
+      });
+    this.fetcher = options.fetch ?? globalThis.fetch.bind(globalThis);
+    this.storage = options.storage === undefined
+      ? availableStorage("localStorage")
+      : options.storage;
+    this.environment = options.environment ?? resolveEnvironment();
+    const sessionStore = options.sessionStorage === undefined
+      ? availableStorage("sessionStorage")
+      : options.sessionStorage;
+    this.sessionId = this.getOrCreateSessionId(sessionStore);
+    this.queue = this.loadQueue();
+    this.persistQueue();
+
+    if (options.autoStart !== false && typeof window !== "undefined") {
+      this.start();
+    }
   }
 
-  // ─── Public API ──────────────────────────────────────────────────────────
-
-  /**
-   * Set the identity context. Call this after login and whenever
-   * role/plan changes. Call with nulls on logout.
-   */
-  setIdentity(identity: AnalyticsIdentity): void {
-    this.identity = identity;
+  get pendingCount(): number {
+    return this.queue.length;
   }
 
-  /**
-   * Clear identity (on logout).
-   */
-  clearIdentity(): void {
-    this.identity = {
-      userId: null,
-      companyId: null,
-      role: null,
-      plan: null,
-    };
-  }
-
-  /**
-   * Track an analytics event. The event is buffered and flushed
-   * asynchronously every 5 seconds (or on page unload).
-   */
   track(
     eventType: AnalyticsEventType,
     eventName: string,
@@ -79,92 +108,175 @@ class AnalyticsService {
     durationMs: number | null = null
   ): void {
     if (typeof window === "undefined") return;
+    if (this.environment === "test" || this.environment === "development") return;
 
-    const event: AnalyticsEvent = {
-      // Identity
-      user_id: this.identity.userId,
-      company_id: this.identity.companyId,
-      role: this.identity.role,
-      plan: this.identity.plan,
-      // Event
-      event_type: eventType,
-      event_name: eventName,
-      // Context
-      platform: "web",
-      app_version: null,
-      device_type: this.getDeviceType(),
-      os_version: this.getOsVersion(),
-      // Session
-      session_id: this.sessionId,
-      // Data
-      properties,
-      duration_ms: durationMs,
-      // Timestamp
-      created_at: new Date().toISOString(),
-    };
+    const event = sanitizeClientAnalyticsEvent(
+      {
+        id: this.randomUUID(),
+        event_type: eventType,
+        event_name: eventName,
+        app_version: process.env.NEXT_PUBLIC_APP_VERSION ?? null,
+        device_type: this.getDeviceType(),
+        os_version: this.getOsVersion(),
+        session_id: this.sessionId,
+        properties: sanitizeAnalyticsProperties(properties),
+        duration_ms: durationMs,
+        schema_version: ANALYTICS_SCHEMA_VERSION,
+        environment: this.environment,
+        created_at: new Date(this.now()).toISOString(),
+      },
+      this.now()
+    );
+    if (!event) return;
 
-    this.buffer.push(event);
+    this.queue.push(event);
+    if (this.queue.length > ANALYTICS_QUEUE_CAP) {
+      this.queue.splice(0, this.queue.length - ANALYTICS_QUEUE_CAP);
+    }
+    this.persistQueue();
   }
 
-  /**
-   * Force an immediate flush (used by useScreenView on unmount
-   * and by beforeunload). Returns only after the flush completes
-   * or fails.
-   */
-  async flush(): Promise<void> {
-    if (this.buffer.length === 0 || this.isFlushing) return;
+  async flush(options: { keepalive?: boolean } = {}): Promise<void> {
+    if (this.queue.length === 0 || this.isFlushing) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
 
     this.isFlushing = true;
     try {
-      // Drain in batches of 50
-      while (this.buffer.length > 0) {
-        const batch = this.buffer.splice(0, MAX_BATCH_SIZE);
-        const result = await flushAnalyticsEvents(batch);
+      while (this.queue.length > 0) {
+        const batch = this.nextBatch(options.keepalive === true);
+        let token = await this.tokenProvider(false);
+        if (!token) return;
 
-        if (!result.success) {
-          // Re-queue failed events at the front so they retry next flush
-          this.buffer.unshift(...batch);
-          break;
+        let response = await this.send(batch, token, options.keepalive === true);
+        if (response.status === 401) {
+          token = await this.tokenProvider(true);
+          if (!token) return;
+          response = await this.send(batch, token, options.keepalive === true);
         }
+
+        let result: FlushResponse | null = null;
+        try {
+          result = (await response.json()) as FlushResponse;
+        } catch {
+          result = null;
+        }
+        const completed = new Set([
+          ...(result?.acceptedIds ?? []),
+          ...(result?.rejectedIds ?? []),
+        ]);
+        if (completed.size > 0) {
+          this.queue = this.queue.filter((event) => !completed.has(event.id));
+          this.persistQueue();
+        }
+        if (!response.ok || completed.size === 0) return;
       }
+    } catch {
+      // Network failure: the durable queue remains intact for the next attempt.
     } finally {
       this.isFlushing = false;
     }
   }
 
-  // ─── Internal ────────────────────────────────────────────────────────────
-
-  private getOrCreateSessionId(): string {
-    if (typeof window === "undefined") return crypto.randomUUID();
-
-    let sessionId = sessionStorage.getItem(SESSION_KEY);
-    if (!sessionId) {
-      sessionId = crypto.randomUUID();
-      sessionStorage.setItem(SESSION_KEY, sessionId);
-    }
-    return sessionId;
-  }
-
-  private startFlushTimer(): void {
-    if (typeof window === "undefined") return;
+  private start(): void {
     this.flushTimer = setInterval(() => {
-      this.flush();
+      void this.flush();
     }, FLUSH_INTERVAL_MS);
+    window.addEventListener("online", this.handleOnline);
+    window.addEventListener("pagehide", this.handlePageHide);
+    document.addEventListener("visibilitychange", this.handleVisibilityChange);
   }
 
-  private registerBeforeUnload(): void {
+  destroy(): void {
+    if (this.flushTimer) clearInterval(this.flushTimer);
+    this.flushTimer = null;
     if (typeof window === "undefined") return;
+    window.removeEventListener("online", this.handleOnline);
+    window.removeEventListener("pagehide", this.handlePageHide);
+    document.removeEventListener("visibilitychange", this.handleVisibilityChange);
+  }
 
-    window.addEventListener("beforeunload", () => {
-      // Use sendBeacon for reliable delivery on page close.
-      // Fall back to synchronous flush if no events buffered.
-      if (this.buffer.length === 0) return;
+  private readonly handleOnline = () => {
+    void this.flush();
+  };
 
-      // We can't call the server action in beforeunload (async),
-      // so we do a best-effort navigator.sendBeacon to an API route.
-      const payload = JSON.stringify(this.buffer.splice(0, MAX_BATCH_SIZE));
-      navigator.sendBeacon("/api/analytics/flush", payload);
+  private readonly handlePageHide = () => {
+    void this.flush({ keepalive: true });
+  };
+
+  private readonly handleVisibilityChange = () => {
+    if (document.visibilityState === "hidden") {
+      void this.flush({ keepalive: true });
+    }
+  };
+
+  private async send(
+    batch: AnalyticsClientEvent[],
+    token: string,
+    keepalive: boolean
+  ): Promise<Response> {
+    return this.fetcher("/api/analytics/flush", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(batch),
+      keepalive,
     });
+  }
+
+  private nextBatch(keepalive: boolean): AnalyticsClientEvent[] {
+    const byteLimit = keepalive
+      ? ANALYTICS_KEEPALIVE_MAX_PAYLOAD_BYTES
+      : ANALYTICS_MAX_PAYLOAD_BYTES;
+    const batch: AnalyticsClientEvent[] = [];
+
+    for (const event of this.queue.slice(0, ANALYTICS_BATCH_SIZE)) {
+      const candidate = [...batch, event];
+      if (analyticsUtf8ByteLength(JSON.stringify(candidate)) > byteLimit) break;
+      batch.push(event);
+    }
+
+    // Each event is independently bounded well below either request limit.
+    return batch.length > 0 ? batch : this.queue.slice(0, 1);
+  }
+
+  private loadQueue(): AnalyticsClientEvent[] {
+    if (!this.storage) return [];
+    try {
+      const parsed = JSON.parse(
+        this.storage.getItem(ANALYTICS_QUEUE_STORAGE_KEY) ?? "[]"
+      );
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .map((event) => sanitizeClientAnalyticsEvent(event, this.now()))
+        .filter((event): event is AnalyticsClientEvent => event !== null)
+        .slice(-ANALYTICS_QUEUE_CAP);
+    } catch {
+      return [];
+    }
+  }
+
+  private persistQueue(): void {
+    if (!this.storage) return;
+    try {
+      this.storage.setItem(ANALYTICS_QUEUE_STORAGE_KEY, JSON.stringify(this.queue));
+    } catch {
+      // Storage denial must not affect product behavior.
+    }
+  }
+
+  private getOrCreateSessionId(storage: Storage | null): string {
+    if (!storage) return this.randomUUID();
+    try {
+      const existing = storage.getItem(SESSION_KEY);
+      if (isAnalyticsUuid(existing)) return existing;
+      const created = this.randomUUID();
+      storage.setItem(SESSION_KEY, created);
+      return created;
+    } catch {
+      return this.randomUUID();
+    }
   }
 
   private getDeviceType(): string {
@@ -176,15 +288,12 @@ class AnalyticsService {
 
   private getOsVersion(): string {
     if (typeof navigator === "undefined") return "unknown";
-    const ua = navigator.userAgent;
-    // Extract OS from UA string
-    const match =
-      ua.match(/\(([^)]+)\)/) ?? [];
-    return match[1]?.split(";")[0]?.trim() ?? "unknown";
+    const match = navigator.userAgent.match(/\(([^)]+)\)/);
+    return match?.[1]?.split(";")[0]?.trim() ?? "unknown";
   }
 }
 
-// ─── Export Singleton ────────────────────────────────────────────────────────
-
-export const analyticsService =
-  typeof window !== "undefined" ? new AnalyticsService() : (null as unknown as AnalyticsService);
+export const analyticsService: AnalyticsService =
+  typeof window !== "undefined"
+    ? new AnalyticsService()
+    : (null as unknown as AnalyticsService);

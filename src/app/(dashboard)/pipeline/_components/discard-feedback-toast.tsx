@@ -79,7 +79,7 @@ export type DiscardFeedbackTranslate = (
 
 /**
  * Chip order is frequency, not the enum: what operators actually discard, most
- * often first. All nine stay visible — an expander would cost a second tap on
+ * often first. All ten stay visible — an expander would cost a second tap on
  * the only interaction this feature has.
  */
 export const DISCARD_REASON_ORDER: readonly LeadDiscardReasonCode[] = [
@@ -91,6 +91,7 @@ export const DISCARD_REASON_ORDER: readonly LeadDiscardReasonCode[] = [
   "test_traffic",
   "duplicate",
   "not_a_fit",
+  "created_by_error",
   "other",
 ];
 
@@ -103,6 +104,7 @@ export const DISCARD_REASON_DICT_KEYS: Record<LeadDiscardReasonCode, string> = {
   test_traffic: "discardFeedback.reason.testTraffic",
   duplicate: "discardFeedback.reason.duplicate",
   not_a_fit: "discardFeedback.reason.notAFit",
+  created_by_error: "discardFeedback.reason.createdByError",
   other: "discardFeedback.reason.other",
 };
 
@@ -119,6 +121,7 @@ export const DISCARD_REASON_FALLBACK_LABELS: Record<
   test_traffic: "Test",
   duplicate: "Duplicate",
   not_a_fit: "Not a fit",
+  created_by_error: "Created by error",
   other: "Other",
 };
 
@@ -169,6 +172,16 @@ export function DiscardFeedbackToastBody({
   return (
     // pl-2 mirrors `[data-sonner-toast].ops-toast [data-content]` so the
     // content column sits on the same rhythm as every other OPS toast.
+    //
+    // HOVER-BRIDGE NOTE: the OPS toast rail claims `[data-sonner-toast]::after`,
+    // so Sonner's stock hover bridge (the invisible strip spanning the --gap
+    // between stacked toasts) is re-homed in globals.css onto
+    // `.ops-toast [data-content]::after`. `toast.custom` bodies render NO
+    // [data-content] wrapper, so this toast has no bridge: the gap above it
+    // stays pointer-dead and crossing it can collapse the stack mid-read.
+    // Re-homing the bridge here would need this div to be statically
+    // positioned so its ::after resolved against the toast <li> — but the
+    // `relative` below anchors the reason-swap layers and is load-bearing.
     <div className="relative w-full min-w-0 pl-2">
       <div className="flex items-start justify-between gap-2">
         <span className="min-w-0 flex-1 truncate font-mohave text-[12px] font-medium uppercase leading-[1.1] tracking-[0.08em] text-text">

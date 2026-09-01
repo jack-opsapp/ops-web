@@ -10,6 +10,7 @@ import {
 export {
   CronDatabaseOperationError,
   isDatabasePressureError,
+  supabaseDatabaseOperationCause,
 } from "./cron-workload-error-contract";
 
 const ACQUISITION_MAX_ATTEMPTS = 2;

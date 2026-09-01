@@ -11,7 +11,11 @@ import {
   coerceAIStageForOpportunityPersistence,
   type AIClassifiedActiveStage,
   type AITerminalReviewFlag,
+  type ClassificationResult,
+  type ThreadContextReclassificationInput,
+  type ThreadContextReclassificationResult,
 } from "./email-ai-classifier";
+import { cleanMessageBody } from "./conversation-state/message-cleaner";
 import { EmailService } from "./email-service";
 import { getSyncOpenAI } from "./openai-clients";
 import { detectTerminalStageFromMessages } from "@/lib/email/terminal-stage-decision";
@@ -19,7 +23,10 @@ import {
   resolvePersistedEmailAuthorship,
   type IngestionOperatorIdentity,
 } from "@/lib/email/email-ingestion-routing";
-import type { NormalizedEmail } from "./email-provider";
+import {
+  ProviderThreadTombstoneError,
+  type NormalizedEmail,
+} from "./email-provider";
 import type {
   EmailConnection,
   SyncProfile,
@@ -31,9 +38,11 @@ import {
 } from "./email-provider-mailbox-operation";
 import {
   evaluateLeadFeedbackPriorBatch,
+  normalizeLeadFeedbackEmail,
   type LeadFeedbackBaseline,
   type LeadFeedbackPriorDecision,
 } from "./lead-feedback-prior-service";
+import { escapeIlikeLiteral } from "@/lib/supabase/ilike-literal";
 
 export interface AIClassifiedLead {
   email: NormalizedEmail;
@@ -148,6 +157,481 @@ function emptyReviewResult(): AIReviewResult {
   };
 }
 
+// ─── Stage B: full-thread-context lead verification ──────────────────────────
+//
+// Bug d1eaebe1. The ongoing-sync lead lane judged each unmatched inbound in
+// isolation — subject plus one capped body. The company's OWN landlord writing
+// "the door was left open today" therefore became a CUSTOMER lead at 1.00
+// confidence: every operator reply that made the relationship obvious was
+// invisible to the model.
+//
+// Stage B re-reads the whole provider thread — including the company's outbound
+// messages — for any Stage-A "lead", and can return `personal_or_admin`: mail
+// about RUNNING the company, not about selling work.
+
+/** Verdicts below this stay a silent non-lead — today's floor, now logged. */
+const BORDERLINE_REVIEW_FLOOR = 0.5;
+
+/**
+ * Confidence ceiling for a Stage-A "lead" whose thread could NOT be verified.
+ * Deliberately below the 0.7 default threshold: an unverified single-message
+ * lead may no longer auto-create a client — it falls into the review band.
+ */
+const UNVERIFIED_LEAD_CONFIDENCE_CEILING = 0.69;
+
+/** Newest-biased context window: the opening message plus the last five. */
+const THREAD_CONTEXT_RECENT_MESSAGES = 5;
+const THREAD_CONTEXT_WINDOW = THREAD_CONTEXT_RECENT_MESSAGES + 1;
+const THREAD_CONTEXT_BODY_CHARS = 700;
+const THREAD_CONTEXT_MAX_PARTICIPANTS = 6;
+
+function threadContextBody(message: NormalizedEmail): string {
+  const raw = message.bodyText || message.snippet || "";
+  const cleaned = cleanMessageBody(raw, {
+    subject: message.subject,
+    providerCleanBody: message.bodyTextClean ?? null,
+  });
+  return (cleaned || raw).slice(0, THREAD_CONTEXT_BODY_CHARS);
+}
+
+/** Newest-biased slice: the first message plus the most recent five. */
+function threadContextWindow(messages: NormalizedEmail[]): NormalizedEmail[] {
+  const ordered = [...messages].sort(
+    (left, right) => left.date.getTime() - right.date.getTime()
+  );
+  if (ordered.length <= THREAD_CONTEXT_WINDOW) return ordered;
+  return [ordered[0], ...ordered.slice(-THREAD_CONTEXT_RECENT_MESSAGES)];
+}
+
+// ─── Stage B sender history (bug 7ca126d2) ─────────────────────────────────
+//
+// Phase C already knew Vitrum was a supplier: 209 threads classified
+// VENDOR/RECEIPT, an operator discard as `vendor_sales`, and five prior
+// opportunities every one of them terminal. None of it reached the lead
+// decision — the knowledge existed and no wire carried it. This loader is that
+// wire: three batched, company-scoped queries per review batch, folded into
+// counts and enum words that Stage B can read as system-verified fact.
+//
+// Nothing here reads message bodies, subjects, or names. A count cannot carry
+// an injection.
+
+/** Distinct senders whose history is loaded for one review batch. */
+const SENDER_HISTORY_MAX_SENDERS = 25;
+const SENDER_HISTORY_THREAD_SCAN_LIMIT = 2_000;
+const SENDER_HISTORY_OPPORTUNITY_SCAN_LIMIT = 500;
+const SENDER_HISTORY_FEEDBACK_SCAN_LIMIT = 200;
+const SENDER_HISTORY_NEGATIVE_REASON_LIMIT = 3;
+const SENDER_HISTORY_FACT_CAP = 400;
+
+/** Thread categories that mean "this counterparty sells to us". */
+const SUPPLIER_THREAD_CATEGORIES = new Set(["VENDOR", "RECEIPT"]);
+/** Opportunity stages that are over, whatever the archive flag says. */
+const TERMINAL_OPPORTUNITY_STAGES = new Set(["won", "lost", "discarded"]);
+
+interface SenderHistoryCounts {
+  supplierThreads: number;
+  customerThreads: number;
+  domainSupplierThreads: number;
+  domainCustomerThreads: number;
+  negativeReasons: string[];
+  negativeCount: number;
+  terminalOpportunities: number;
+  liveOpportunities: number;
+}
+
+function emptySenderHistoryCounts(): SenderHistoryCounts {
+  return {
+    supplierThreads: 0,
+    customerThreads: 0,
+    domainSupplierThreads: 0,
+    domainCustomerThreads: 0,
+    negativeReasons: [],
+    negativeCount: 0,
+    terminalOpportunities: 0,
+    liveOpportunities: 0,
+  };
+}
+
+/**
+ * Render one sender's counts as a single trusted sentence block. Returns null
+ * when there is nothing to say, so the prompt block is omitted entirely rather
+ * than padded with zeroes.
+ */
+function renderSenderHistoryFact(counts: SenderHistoryCounts): string | null {
+  const sentences: string[] = [];
+  if (counts.supplierThreads > 0 || counts.customerThreads > 0) {
+    sentences.push(
+      `${counts.supplierThreads} prior threads from this sender are VENDOR/RECEIPT; ${counts.customerThreads} CUSTOMER.`
+    );
+  }
+  const domainAddsEvidence =
+    counts.domainSupplierThreads > counts.supplierThreads ||
+    counts.domainCustomerThreads > counts.customerThreads;
+  if (
+    domainAddsEvidence &&
+    (counts.domainSupplierThreads > 0 || counts.domainCustomerThreads > 0)
+  ) {
+    sentences.push(
+      `Across this sender's domain: ${counts.domainSupplierThreads} VENDOR/RECEIPT; ${counts.domainCustomerThreads} CUSTOMER.`
+    );
+  }
+  if (counts.negativeCount > 0 && counts.negativeReasons.length > 0) {
+    sentences.push(
+      `Operator discarded ${counts.negativeCount} prior lead${counts.negativeCount === 1 ? "" : "s"} from this sender as ${counts.negativeReasons.join(", ")}.`
+    );
+  }
+  if (counts.terminalOpportunities > 0 || counts.liveOpportunities > 0) {
+    const total = counts.terminalOpportunities + counts.liveOpportunities;
+    sentences.push(
+      counts.liveOpportunities === 0
+        ? `Sender matches an existing CRM contact whose ${total} prior opportunities are all discarded, lost, won, or archived.`
+        : `Sender matches an existing CRM contact with ${counts.liveOpportunities} live and ${counts.terminalOpportunities} closed prior opportunities.`
+    );
+  }
+  if (sentences.length === 0) return null;
+  return sentences.join(" ").slice(0, SENDER_HISTORY_FACT_CAP);
+}
+
+/**
+ * Load system-verified sender history for a whole review batch — three
+ * queries total, never one per candidate. Keyed by lowercased sender email.
+ *
+ * Exported for direct unit testing; the reviewer calls it once per batch.
+ */
+export async function loadSenderHistoryFacts(input: {
+  companyId: string;
+  senderEmails: string[];
+  client: SupabaseClient;
+}): Promise<Map<string, string>> {
+  const identities = new Map<string, { email: string; domain: string }>();
+  for (const raw of input.senderEmails) {
+    const identity = normalizeLeadFeedbackEmail(raw);
+    if (!identity.email || !identity.domain) continue;
+    if (identities.has(identity.email)) continue;
+    if (identities.size >= SENDER_HISTORY_MAX_SENDERS) break;
+    identities.set(identity.email, {
+      email: identity.email,
+      domain: identity.domain,
+    });
+  }
+  if (identities.size === 0) return new Map();
+
+  const emails = [...identities.keys()];
+  const domains = [...new Set([...identities.values()].map((i) => i.domain))];
+  const countsByEmail = new Map<string, SenderHistoryCounts>(
+    emails.map((email): [string, SenderHistoryCounts] => [
+      email,
+      emptySenderHistoryCounts(),
+    ])
+  );
+
+  // 1. Thread category census. One domain-scoped scan covers both the exact
+  //    sender and its domain — an exact sender is a subset of its own domain,
+  //    so a second query would only re-read the same rows.
+  const { data: threadRows, error: threadError } = await input.client
+    .from("email_threads")
+    .select("latest_sender_email, primary_category")
+    .eq("company_id", input.companyId)
+    .or(
+      domains
+        .map(
+          (domain) =>
+            `latest_sender_email.ilike.%@${escapeIlikeLiteral(domain)}`
+        )
+        .join(",")
+    )
+    .limit(SENDER_HISTORY_THREAD_SCAN_LIMIT);
+  if (threadError) {
+    throw new Error(
+      `[ai-sync-reviewer] sender history thread read failed: ${threadError.message}`
+    );
+  }
+  for (const row of (threadRows ?? []) as Array<{
+    latest_sender_email: string | null;
+    primary_category: string | null;
+  }>) {
+    const sender = row.latest_sender_email?.trim().toLowerCase() ?? "";
+    const category = row.primary_category ?? "";
+    const isSupplier = SUPPLIER_THREAD_CATEGORIES.has(category);
+    const isCustomer = category === "CUSTOMER";
+    if (!isSupplier && !isCustomer) continue;
+    const domain = sender.split("@")[1] ?? "";
+    for (const [email, counts] of countsByEmail) {
+      if (identities.get(email)!.domain !== domain) continue;
+      if (isSupplier) counts.domainSupplierThreads += 1;
+      else counts.domainCustomerThreads += 1;
+      if (sender !== email) continue;
+      if (isSupplier) counts.supplierThreads += 1;
+      else counts.customerThreads += 1;
+    }
+  }
+
+  // 2. Active negative lead feedback for these exact senders.
+  const { data: feedbackRows, error: feedbackError } = await input.client
+    .from("lead_disposition_feedback")
+    .select("sender_email, reason_code")
+    .eq("company_id", input.companyId)
+    .eq("learning_state", "active")
+    .eq("phase_c_enabled", true)
+    .eq("learning_polarity", "negative")
+    .in("sender_email", emails)
+    .limit(SENDER_HISTORY_FEEDBACK_SCAN_LIMIT);
+  if (feedbackError) {
+    throw new Error(
+      `[ai-sync-reviewer] sender history feedback read failed: ${feedbackError.message}`
+    );
+  }
+  for (const row of (feedbackRows ?? []) as Array<{
+    sender_email: string | null;
+    reason_code: string | null;
+  }>) {
+    const counts = countsByEmail.get(
+      row.sender_email?.trim().toLowerCase() ?? ""
+    );
+    if (!counts) continue;
+    counts.negativeCount += 1;
+    const reason = row.reason_code?.trim() ?? "";
+    if (
+      reason &&
+      !counts.negativeReasons.includes(reason) &&
+      counts.negativeReasons.length < SENDER_HISTORY_NEGATIVE_REASON_LIMIT
+    ) {
+      counts.negativeReasons.push(reason);
+    }
+  }
+
+  // 3. Opportunity stage census for the matching CRM contact.
+  const { data: opportunityRows, error: opportunityError } = await input.client
+    .from("opportunities")
+    .select("contact_email, stage, archived_at")
+    .eq("company_id", input.companyId)
+    .in("contact_email", emails)
+    .limit(SENDER_HISTORY_OPPORTUNITY_SCAN_LIMIT);
+  if (opportunityError) {
+    throw new Error(
+      `[ai-sync-reviewer] sender history opportunity read failed: ${opportunityError.message}`
+    );
+  }
+  for (const row of (opportunityRows ?? []) as Array<{
+    contact_email: string | null;
+    stage: string | null;
+    archived_at: string | null;
+  }>) {
+    const counts = countsByEmail.get(
+      row.contact_email?.trim().toLowerCase() ?? ""
+    );
+    if (!counts) continue;
+    if (row.archived_at || TERMINAL_OPPORTUNITY_STAGES.has(row.stage ?? "")) {
+      counts.terminalOpportunities += 1;
+    } else {
+      counts.liveOpportunities += 1;
+    }
+  }
+
+  const facts = new Map<string, string>();
+  for (const [email, counts] of countsByEmail) {
+    const fact = renderSenderHistoryFact(counts);
+    if (fact) facts.set(email, fact);
+  }
+  return facts;
+}
+
+async function applyThreadContextReclassification(input: {
+  classifications: ClassificationResult[];
+  emails: NormalizedEmail[];
+  connection: EmailConnection;
+  context: {
+    companyName: string;
+    industry: string;
+    ownerEmail: string;
+    companyDomains: string[];
+  };
+  operator: IngestionOperatorIdentity;
+  openaiClient: import("openai").default;
+  mailboxOperation: {
+    supabase?: SupabaseClient;
+    providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
+  };
+}): Promise<ClassificationResult[]> {
+  const leadIndexes: number[] = [];
+  input.classifications.forEach((classification, index) => {
+    if (classification.verdict === "lead") leadIndexes.push(index);
+  });
+  if (leadIndexes.length === 0) return input.classifications;
+
+  // Reading a provider thread requires the mailbox lease. A caller that owns
+  // neither the lease checkpoint nor a client must never acquire one behind the
+  // running sync's back, so Stage A stands exactly as it did before this pass.
+  if (
+    !input.mailboxOperation.providerLockCheckpoint &&
+    !input.mailboxOperation.supabase
+  ) {
+    return input.classifications;
+  }
+
+  const threadIds = [
+    ...new Set(
+      leadIndexes
+        .map((index) => input.emails[index].threadId)
+        .filter((threadId) => typeof threadId === "string" && threadId.trim())
+    ),
+  ];
+
+  const messagesByThreadId = new Map<string, NormalizedEmail[]>();
+  let providerFailed = false;
+  if (threadIds.length > 0) {
+    try {
+      await runEmailProviderMailboxOperation({
+        supabase: input.mailboxOperation.supabase,
+        connectionId: input.connection.id,
+        context: "ai-sync-lead-thread-context",
+        busyError: "AI_SYNC_REVIEW_MAILBOX_BUSY",
+        providerLockCheckpoint: input.mailboxOperation.providerLockCheckpoint,
+        run: async (checkpoint) => {
+          const provider = EmailService.getProvider(input.connection);
+          for (const threadId of threadIds) {
+            await checkpoint();
+            messagesByThreadId.set(
+              threadId,
+              await provider.fetchThread(threadId)
+            );
+            await checkpoint();
+          }
+        },
+      });
+    } catch (err) {
+      providerFailed = true;
+      console.error(
+        "[ai-sync-reviewer] thread-context fetch failed; unverified leads capped:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
+  // Every lead that Stage B could not verify keeps its verdict but loses the
+  // confidence to auto-create on its own.
+  const capped = new Set<number>(providerFailed ? leadIndexes : []);
+  const items: ThreadContextReclassificationInput[] = [];
+  const indexById = new Map<string, number>();
+
+  if (!providerFailed) {
+    for (const index of leadIndexes) {
+      const email = input.emails[index];
+      const messages = messagesByThreadId.get(email.threadId) ?? [];
+      // A single-message thread carries nothing Stage A did not already see.
+      if (messages.length <= 1) continue;
+      indexById.set(email.id, index);
+      items.push({
+        id: email.id,
+        subj: email.subject,
+        participants: [...new Set([email.from, ...email.to])].slice(
+          0,
+          THREAD_CONTEXT_MAX_PARTICIPANTS
+        ),
+        msgs: threadContextWindow(messages).map((message) => ({
+          dir:
+            resolvePersistedEmailAuthorship(message, input.operator)
+              .direction === "outbound"
+              ? ("YOU" as const)
+              : ("THEM" as const),
+          from: message.from,
+          date: message.date.toISOString(),
+          body: threadContextBody(message),
+        })),
+      });
+    }
+  }
+
+  // Hand Stage B what Phase C already knows about these senders. One batched
+  // load for the whole review, and a failure here degrades to "no history"
+  // rather than failing the classification — the facts sharpen the verdict,
+  // they are not a precondition for it (bug 7ca126d2).
+  const historyClient = input.mailboxOperation.supabase;
+  if (items.length > 0 && historyClient) {
+    try {
+      const facts = await loadSenderHistoryFacts({
+        companyId: input.connection.companyId,
+        senderEmails: items.map(
+          (item) => input.emails[indexById.get(item.id)!].from
+        ),
+        client: historyClient,
+      });
+      for (const item of items) {
+        const identity = normalizeLeadFeedbackEmail(
+          input.emails[indexById.get(item.id)!].from
+        );
+        const fact = identity.email ? facts.get(identity.email) : undefined;
+        if (fact) item.history = fact;
+      }
+    } catch (err) {
+      console.error(
+        "[ai-sync-reviewer] sender-history load failed; Stage B runs without it:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
+  const verified = new Map<number, ThreadContextReclassificationResult>();
+  if (items.length > 0) {
+    try {
+      const results = await EmailAIClassifier.reclassifyWithThreadContext(
+        items,
+        input.context,
+        input.openaiClient
+      );
+      const resultById = new Map(results.map((result) => [result.id, result]));
+      for (const item of items) {
+        const index = indexById.get(item.id);
+        if (index === undefined) continue;
+        const result = resultById.get(item.id);
+        if (!result) {
+          capped.add(index);
+          continue;
+        }
+        verified.set(index, result);
+      }
+    } catch (err) {
+      for (const index of indexById.values()) capped.add(index);
+      console.error(
+        "[ai-sync-reviewer] thread-context reclassification failed; unverified leads capped:",
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
+  return input.classifications.map((classification, index) => {
+    const result = verified.get(index);
+    if (result) {
+      // `personal_or_admin` is not-a-lead downstream, exactly like `skip`.
+      const verdict: ClassificationResult["verdict"] =
+        result.verdict === "lead"
+          ? "lead"
+          : result.verdict === "biz"
+            ? "biz"
+            : "skip";
+      if (verdict !== classification.verdict) {
+        console.log("[ai-sync-reviewer] thread-context-verdict-changed", {
+          messageId: classification.id,
+          from: classification.verdict,
+          to: result.verdict,
+          confidence: result.confidence,
+        });
+      }
+      return { ...classification, verdict, confidence: result.confidence };
+    }
+    if (capped.has(index)) {
+      return {
+        ...classification,
+        confidence: Math.min(
+          classification.confidence,
+          UNVERIFIED_LEAD_CONFIDENCE_CEILING
+        ),
+      };
+    }
+    return classification;
+  });
+}
+
 // ─── Service ────────────────────────────────────────────────────────────────
 
 export const AISyncReviewer = {
@@ -160,7 +644,16 @@ export const AISyncReviewer = {
     unmatchedEmails: NormalizedEmail[],
     connection: EmailConnection,
     companyContext: { name: string; industry: string; domains: string[] },
-    authoritativeOperator?: IngestionOperatorIdentity
+    authoritativeOperator?: IngestionOperatorIdentity,
+    /**
+     * The running sync's mailbox lease. Stage B reads full provider threads,
+     * which requires it; without a lease context Stage B is skipped entirely
+     * rather than acquiring one behind the caller's back.
+     */
+    mailboxOperation: {
+      supabase?: SupabaseClient;
+      providerLockCheckpoint?: EmailProviderMailboxCheckpoint;
+    } = {}
   ): Promise<AIReviewResult> {
     const enabled = await AdminFeatureOverrideService.isAIFeatureEnabled(
       connection.companyId,
@@ -185,6 +678,13 @@ export const AISyncReviewer = {
       sourceEmailById.set(sourceEmail.id, sourceEmail);
     }
 
+    const operatorIdentity: IngestionOperatorIdentity = authoritativeOperator ?? {
+      connectionEmail: connection.email,
+      companyDomains:
+        connection.syncFilters?.companyDomains ?? companyContext.domains,
+      userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
+    };
+
     const classificationInputs = unmatchedEmails.map((e) => ({
       id: e.id,
       threadId: e.threadId,
@@ -196,15 +696,7 @@ export const AISyncReviewer = {
       // it is capped to 1500 chars inside classifySingleBatch.
       body: e.bodyTextClean || e.bodyText || e.snippet,
       date: e.date.toISOString(),
-      direction: resolvePersistedEmailAuthorship(
-        e,
-        authoritativeOperator ?? {
-          connectionEmail: connection.email,
-          companyDomains:
-            connection.syncFilters?.companyDomains ?? companyContext.domains,
-          userEmailAddresses: connection.syncFilters?.userEmailAddresses ?? [],
-        }
-      ).direction,
+      direction: resolvePersistedEmailAuthorship(e, operatorIdentity).direction,
     }));
     const classifications = await EmailAIClassifier.classifyBatch(
       classificationInputs,
@@ -235,7 +727,7 @@ export const AISyncReviewer = {
       classificationById.set(classification.id, classification);
     }
 
-    const orderedClassifications = unmatchedEmails.map((sourceEmail) => {
+    const stageAClassifications = unmatchedEmails.map((sourceEmail) => {
       const classification = classificationById.get(sourceEmail.id);
       if (!classification) {
         throw new Error(
@@ -243,6 +735,24 @@ export const AISyncReviewer = {
         );
       }
       return classification;
+    });
+
+    // Stage B — re-judge every "lead" with the FULL thread, the company's own
+    // replies included. This is what separates a customer from the company's
+    // own landlord, bank, or insurer.
+    const orderedClassifications = await applyThreadContextReclassification({
+      classifications: stageAClassifications,
+      emails: unmatchedEmails,
+      connection,
+      context: {
+        companyName: companyContext.name,
+        industry: companyContext.industry,
+        ownerEmail: connection.email,
+        companyDomains: companyContext.domains,
+      },
+      operator: operatorIdentity,
+      openaiClient: syncClient,
+      mailboxOperation,
     });
 
     const baselines: LeadFeedbackBaseline[] = orderedClassifications.map(
@@ -271,8 +781,42 @@ export const AISyncReviewer = {
       );
     }
 
+    // The borderline band. Jackson's optimistic bias stands: an above-threshold
+    // lead still auto-creates. What used to vanish in silence — a "lead" the
+    // prior scored between the review floor and the threshold — now goes to a
+    // human instead of being discarded with only a log line.
+    const effectiveDecisions = priorDecisions.map((decision, index) => {
+      if (
+        decision.outcome !== "not_lead" ||
+        orderedClassifications[index].verdict !== "lead"
+      ) {
+        return decision;
+      }
+      if (
+        decision.adjustedLeadScore >= BORDERLINE_REVIEW_FLOOR &&
+        decision.adjustedLeadScore < threshold
+      ) {
+        console.log("[ai-sync-reviewer] borderline-lead-deferred", {
+          messageId: orderedClassifications[index].id,
+          adjustedLeadScore: decision.adjustedLeadScore,
+          threshold,
+        });
+        return {
+          ...decision,
+          outcome: "defer" as const,
+          reviewReason: "borderline_confidence" as const,
+        };
+      }
+      console.log("[ai-sync-reviewer] sub-threshold-lead-discarded", {
+        messageId: orderedClassifications[index].id,
+        adjustedLeadScore: decision.adjustedLeadScore,
+        floor: BORDERLINE_REVIEW_FLOOR,
+      });
+      return decision;
+    });
+
     const leads = orderedClassifications.filter(
-      (_, index) => priorDecisions[index].outcome === "lead"
+      (_, index) => effectiveDecisions[index].outcome === "lead"
     );
 
     // Build classified leads with their source emails for persistence
@@ -304,12 +848,12 @@ export const AISyncReviewer = {
         (c) => c.duplicateOf.length > 0
       ).length,
       deferredClassifications: orderedClassifications.flatMap((_, index) =>
-        priorDecisions[index].outcome === "defer"
+        effectiveDecisions[index].outcome === "defer"
           ? [
               {
                 email: unmatchedEmails[index],
                 baseline: baselines[index],
-                decision: priorDecisions[index],
+                decision: effectiveDecisions[index],
               },
             ]
           : []
@@ -368,6 +912,7 @@ export const AISyncReviewer = {
     const threadInputs: StageEvaluationThreadInput[] = [];
 
     const providerMessagesByThreadId = new Map<string, NormalizedEmail[]>();
+    const providerThreadTombstones = new Set<string>();
     const providerThreadIds = activeLeadTargets.filter(
       (target): target is string => typeof target === "string"
     );
@@ -386,6 +931,10 @@ export const AISyncReviewer = {
             try {
               messages = await provider.fetchThread(threadId);
             } catch (err) {
+              if (err instanceof ProviderThreadTombstoneError) {
+                providerThreadTombstones.add(threadId);
+                continue;
+              }
               throw new Error(
                 `[ai-sync-reviewer] failed to fetch thread ${threadId}: ${err instanceof Error ? err.message : "unknown error"}`,
                 { cause: err }
@@ -400,6 +949,12 @@ export const AISyncReviewer = {
 
     for (const target of activeLeadTargets) {
       const threadId = typeof target === "string" ? target : target.threadId;
+      if (
+        typeof target === "string" &&
+        providerThreadTombstones.has(threadId)
+      ) {
+        continue;
+      }
       const messages =
         typeof target === "string"
           ? (providerMessagesByThreadId.get(threadId) ?? [])

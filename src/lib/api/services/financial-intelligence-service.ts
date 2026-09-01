@@ -21,7 +21,6 @@ import type {
   AgentActionPriority,
 } from "@/lib/types/approval-queue";
 import { throwCronDatabaseOperationError } from "./cron-company-fanout-service";
-import { isDatabasePressureError } from "./cron-workload-control-service";
 
 // ─── Return Types ─────────────────────────────────────────────────────────────
 
@@ -109,18 +108,52 @@ async function getFinancialSettings(
   if (!data?.invoice_settings) return DEFAULT_SETTINGS;
 
   const settings = data.invoice_settings as Record<string, unknown>;
-  const fin = settings.financial_intelligence as Record<string, unknown> | undefined;
+  const fin = settings.financial_intelligence as
+    Record<string, unknown> | undefined;
   if (!fin) return DEFAULT_SETTINGS;
 
   return {
     enabled: (fin.enabled as boolean) ?? DEFAULT_SETTINGS.enabled,
-    overdue_pct_threshold: clamp(Number(fin.overdue_pct_threshold) || DEFAULT_SETTINGS.overdue_pct_threshold, 1, 100),
-    concentration_pct_threshold: clamp(Number(fin.concentration_pct_threshold) || DEFAULT_SETTINGS.concentration_pct_threshold, 1, 100),
-    aging_days_threshold: clamp(Number(fin.aging_days_threshold) || DEFAULT_SETTINGS.aging_days_threshold, 1, 365),
-    aging_min_count: clamp(Number(fin.aging_min_count) || DEFAULT_SETTINGS.aging_min_count, 1, 50),
-    win_rate_increase_threshold: clamp(Number(fin.win_rate_increase_threshold) || DEFAULT_SETTINGS.win_rate_increase_threshold, 1, 100),
-    win_rate_decrease_threshold: clamp(Number(fin.win_rate_decrease_threshold) || DEFAULT_SETTINGS.win_rate_decrease_threshold, 1, 100),
-    min_estimates_for_analysis: clamp(Number(fin.min_estimates_for_analysis) || DEFAULT_SETTINGS.min_estimates_for_analysis, 1, 100),
+    overdue_pct_threshold: clamp(
+      Number(fin.overdue_pct_threshold) ||
+        DEFAULT_SETTINGS.overdue_pct_threshold,
+      1,
+      100
+    ),
+    concentration_pct_threshold: clamp(
+      Number(fin.concentration_pct_threshold) ||
+        DEFAULT_SETTINGS.concentration_pct_threshold,
+      1,
+      100
+    ),
+    aging_days_threshold: clamp(
+      Number(fin.aging_days_threshold) || DEFAULT_SETTINGS.aging_days_threshold,
+      1,
+      365
+    ),
+    aging_min_count: clamp(
+      Number(fin.aging_min_count) || DEFAULT_SETTINGS.aging_min_count,
+      1,
+      50
+    ),
+    win_rate_increase_threshold: clamp(
+      Number(fin.win_rate_increase_threshold) ||
+        DEFAULT_SETTINGS.win_rate_increase_threshold,
+      1,
+      100
+    ),
+    win_rate_decrease_threshold: clamp(
+      Number(fin.win_rate_decrease_threshold) ||
+        DEFAULT_SETTINGS.win_rate_decrease_threshold,
+      1,
+      100
+    ),
+    min_estimates_for_analysis: clamp(
+      Number(fin.min_estimates_for_analysis) ||
+        DEFAULT_SETTINGS.min_estimates_for_analysis,
+      1,
+      100
+    ),
   };
 }
 
@@ -136,7 +169,20 @@ function getMonthKey(date: Date): string {
 
 function getMonthLabel(monthKey: string): string {
   const [year, month] = monthKey.split("-");
-  const labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const labels = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   return `${labels[parseInt(month, 10) - 1]} ${year}`;
 }
 
@@ -150,7 +196,9 @@ function monthsAgo(n: number): Date {
 
 // ─── Admin User Lookup ────────────────────────────────────────────────────────
 
-async function getCompanyAdminUserId(companyId: string): Promise<string | null> {
+async function getCompanyAdminUserId(
+  companyId: string
+): Promise<string | null> {
   const supabase = requireSupabase();
 
   const { data: company, error } = await supabase
@@ -168,7 +216,10 @@ async function getCompanyAdminUserId(companyId: string): Promise<string | null> 
   if (!company?.admin_ids) return null;
 
   const adminIdsStr = company.admin_ids as string;
-  const adminIds = adminIdsStr.split(",").map((s: string) => s.trim()).filter(Boolean);
+  const adminIds = adminIdsStr
+    .split(",")
+    .map((s: string) => s.trim())
+    .filter(Boolean);
   return adminIds[0] ?? null;
 }
 
@@ -190,7 +241,14 @@ export const FinancialIntelligenceService = {
     months = 12
   ): Promise<RevenueForecast> {
     const enabled = await requirePhaseC(companyId);
-    if (!enabled) return { monthlyRevenue: [], avgMonthly: 0, pipelineValue: 0, forecast: [], yoyChange: null };
+    if (!enabled)
+      return {
+        monthlyRevenue: [],
+        avgMonthly: 0,
+        pipelineValue: 0,
+        forecast: [],
+        yoyChange: null,
+      };
 
     const supabase = requireSupabase();
 
@@ -250,7 +308,8 @@ export const FinancialIntelligenceService = {
     const nonZeroMonths = monthlyRevenue.filter((m) => m.amount > 0);
     const avgMonthly =
       nonZeroMonths.length > 0
-        ? nonZeroMonths.reduce((sum, m) => sum + m.amount, 0) / nonZeroMonths.length
+        ? nonZeroMonths.reduce((sum, m) => sum + m.amount, 0) /
+          nonZeroMonths.length
         : 0;
 
     // Pipeline weighted value
@@ -273,8 +332,13 @@ export const FinancialIntelligenceService = {
       if (opp.expected_close_date) {
         const closeDate = new Date(opp.expected_close_date as string);
         const key = getMonthKey(closeDate);
-        const weightedValue = Number(opp.estimated_value ?? 0) * (Number(opp.win_probability ?? 50) / 100);
-        pipelineByMonth.set(key, (pipelineByMonth.get(key) ?? 0) + weightedValue);
+        const weightedValue =
+          Number(opp.estimated_value ?? 0) *
+          (Number(opp.win_probability ?? 50) / 100);
+        pipelineByMonth.set(
+          key,
+          (pipelineByMonth.get(key) ?? 0) + weightedValue
+        );
       }
     }
 
@@ -284,10 +348,14 @@ export const FinancialIntelligenceService = {
       const key = getMonthKey(d);
       const pipelineContribution = pipelineByMonth.get(key) ?? 0;
       // Blend: 70% trend-based, 30% pipeline-based (if pipeline exists for that month)
-      const projected = pipelineContribution > 0
-        ? recentAvg * 0.7 + pipelineContribution * 0.3
-        : recentAvg;
-      forecast.push({ month: getMonthLabel(key), projected: Math.round(projected) });
+      const projected =
+        pipelineContribution > 0
+          ? recentAvg * 0.7 + pipelineContribution * 0.3
+          : recentAvg;
+      forecast.push({
+        month: getMonthLabel(key),
+        projected: Math.round(projected),
+      });
     }
 
     // Year-over-year comparison — compare same calendar months across years
@@ -312,16 +380,28 @@ export const FinancialIntelligenceService = {
 
       if (priorYearInvoices && priorYearInvoices.length > 0) {
         const priorTotal = priorYearInvoices.reduce(
-          (sum, inv) => sum + Number(inv.total ?? 0), 0
+          (sum, inv) => sum + Number(inv.total ?? 0),
+          0
         );
-        const currentTotal = monthlyRevenue.reduce((sum, m) => sum + m.amount, 0);
+        const currentTotal = monthlyRevenue.reduce(
+          (sum, m) => sum + m.amount,
+          0
+        );
         if (priorTotal > 0) {
-          yoyChange = Math.round(((currentTotal - priorTotal) / priorTotal) * 100);
+          yoyChange = Math.round(
+            ((currentTotal - priorTotal) / priorTotal) * 100
+          );
         }
       }
     }
 
-    return { monthlyRevenue, avgMonthly: Math.round(avgMonthly), pipelineValue: Math.round(pipelineValue), forecast, yoyChange };
+    return {
+      monthlyRevenue,
+      avgMonthly: Math.round(avgMonthly),
+      pipelineValue: Math.round(pipelineValue),
+      forecast,
+      yoyChange,
+    };
   },
 
   /**
@@ -329,7 +409,13 @@ export const FinancialIntelligenceService = {
    */
   async getSeasonalPatterns(companyId: string): Promise<SeasonalPatterns> {
     const enabled = await requirePhaseC(companyId);
-    if (!enabled) return { monthlyIndex: [], peakMonths: [], slowMonths: [], servicePatterns: [] };
+    if (!enabled)
+      return {
+        monthlyIndex: [],
+        peakMonths: [],
+        slowMonths: [],
+        servicePatterns: [],
+      };
 
     const supabase = requireSupabase();
 
@@ -365,23 +451,44 @@ export const FinancialIntelligenceService = {
 
     for (const inv of invoices) {
       const month = new Date(inv.issue_date as string).getMonth() + 1;
-      monthTotals.set(month, (monthTotals.get(month) ?? 0) + Number(inv.total ?? 0));
+      monthTotals.set(
+        month,
+        (monthTotals.get(month) ?? 0) + Number(inv.total ?? 0)
+      );
       monthCounts.set(month, (monthCounts.get(month) ?? 0) + 1);
     }
 
     // Compute monthly indices (100 = average)
-    const totalRevenue = Array.from(monthTotals.values()).reduce((s, v) => s + v, 0);
+    const totalRevenue = Array.from(monthTotals.values()).reduce(
+      (s, v) => s + v,
+      0
+    );
     const activeMonthCount = monthTotals.size;
-    const avgMonthRevenue = activeMonthCount > 0 ? totalRevenue / activeMonthCount : 0;
+    const avgMonthRevenue =
+      activeMonthCount > 0 ? totalRevenue / activeMonthCount : 0;
 
-    const monthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthLabels = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     const monthlyIndex: Array<{ month: string; index: number }> = [];
     const peakMonths: string[] = [];
     const slowMonths: string[] = [];
 
     for (let m = 1; m <= 12; m++) {
       const revenue = monthTotals.get(m) ?? 0;
-      const index = avgMonthRevenue > 0 ? Math.round((revenue / avgMonthRevenue) * 100) : 0;
+      const index =
+        avgMonthRevenue > 0 ? Math.round((revenue / avgMonthRevenue) * 100) : 0;
       const label = monthLabels[m - 1];
       monthlyIndex.push({ month: label, index });
 
@@ -412,11 +519,18 @@ export const FinancialIntelligenceService = {
     // Map invoice_id → issue month
     const invoiceMonthMap = new Map<string, number>();
     for (const inv of invoices) {
-      invoiceMonthMap.set(inv.id as string, new Date(inv.issue_date as string).getMonth() + 1);
+      invoiceMonthMap.set(
+        inv.id as string,
+        new Date(inv.issue_date as string).getMonth() + 1
+      );
     }
 
     // Fetch task type names for labeling
-    const taskTypeIds = [...new Set(allLineItems.map((li) => li.task_type_id as string).filter(Boolean))];
+    const taskTypeIds = [
+      ...new Set(
+        allLineItems.map((li) => li.task_type_id as string).filter(Boolean)
+      ),
+    ];
     const taskTypeNames = new Map<string, string>();
 
     if (taskTypeIds.length > 0) {
@@ -457,11 +571,15 @@ export const FinancialIntelligenceService = {
         serviceMonthRevenue.set(serviceName, new Map());
       }
       const monthMap = serviceMonthRevenue.get(serviceName)!;
-      monthMap.set(month, (monthMap.get(month) ?? 0) + Number(li.line_total ?? 0));
+      monthMap.set(
+        month,
+        (monthMap.get(month) ?? 0) + Number(li.line_total ?? 0)
+      );
     }
 
     // Identify peak months per service
-    const servicePatterns: Array<{ service: string; peakMonths: string[] }> = [];
+    const servicePatterns: Array<{ service: string; peakMonths: string[] }> =
+      [];
 
     for (const [service, monthMap] of serviceMonthRevenue) {
       const values = Array.from(monthMap.values());
@@ -487,7 +605,9 @@ export const FinancialIntelligenceService = {
   /**
    * Pricing optimization: win/loss rates by service type from estimate outcomes.
    */
-  async getPricingOptimization(companyId: string): Promise<PricingOptimization> {
+  async getPricingOptimization(
+    companyId: string
+  ): Promise<PricingOptimization> {
     const enabled = await requirePhaseC(companyId);
     if (!enabled) return { serviceAnalysis: [] };
 
@@ -534,7 +654,10 @@ export const FinancialIntelligenceService = {
 
     // Map estimate_id → primary service type (most common task_type or first line item name)
     const estimateServiceMap = new Map<string, string>();
-    const estimateServiceGroups = new Map<string, Array<Record<string, unknown>>>();
+    const estimateServiceGroups = new Map<
+      string,
+      Array<Record<string, unknown>>
+    >();
 
     for (const li of allLineItems) {
       const estimateId = li.estimate_id as string;
@@ -545,7 +668,11 @@ export const FinancialIntelligenceService = {
     }
 
     // Resolve task type names
-    const taskTypeIds = [...new Set(allLineItems.map((li) => li.task_type_id as string).filter(Boolean))];
+    const taskTypeIds = [
+      ...new Set(
+        allLineItems.map((li) => li.task_type_id as string).filter(Boolean)
+      ),
+    ];
     const taskTypeNames = new Map<string, string>();
 
     if (taskTypeIds.length > 0) {
@@ -581,18 +708,29 @@ export const FinancialIntelligenceService = {
       }
 
       if (typeCounts.size > 0) {
-        const topTypeId = [...typeCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
-        estimateServiceMap.set(estimateId, taskTypeNames.get(topTypeId) ?? "Unknown");
+        const topTypeId = [...typeCounts.entries()].sort(
+          (a, b) => b[1] - a[1]
+        )[0][0];
+        estimateServiceMap.set(
+          estimateId,
+          taskTypeNames.get(topTypeId) ?? "Unknown"
+        );
       } else if (items.length > 0) {
-        estimateServiceMap.set(estimateId, (items[0].name as string) ?? "General");
+        estimateServiceMap.set(
+          estimateId,
+          (items[0].name as string) ?? "General"
+        );
       }
     }
 
     // Group estimates by service type and compute win/loss rates
-    const serviceGroups = new Map<string, {
-      won: Array<{ total: number }>;
-      lost: Array<{ total: number }>;
-    }>();
+    const serviceGroups = new Map<
+      string,
+      {
+        won: Array<{ total: number }>;
+        lost: Array<{ total: number }>;
+      }
+    >();
 
     for (const est of estimates) {
       const service = estimateServiceMap.get(est.id as string) ?? "General";
@@ -619,18 +757,26 @@ export const FinancialIntelligenceService = {
       if (totalEstimates < settings.min_estimates_for_analysis) continue;
 
       const winRate = Math.round((won.length / totalEstimates) * 100);
-      const avgWinPrice = won.length > 0
-        ? Math.round(won.reduce((s, e) => s + e.total, 0) / won.length)
-        : 0;
-      const avgLossPrice = lost.length > 0
-        ? Math.round(lost.reduce((s, e) => s + e.total, 0) / lost.length)
-        : 0;
+      const avgWinPrice =
+        won.length > 0
+          ? Math.round(won.reduce((s, e) => s + e.total, 0) / won.length)
+          : 0;
+      const avgLossPrice =
+        lost.length > 0
+          ? Math.round(lost.reduce((s, e) => s + e.total, 0) / lost.length)
+          : 0;
 
       let suggestion: ServicePricingAnalysis["suggestion"];
       if (winRate > settings.win_rate_increase_threshold) {
-        suggestion = { type: "increase", params: { winRate, threshold: settings.win_rate_increase_threshold } };
+        suggestion = {
+          type: "increase",
+          params: { winRate, threshold: settings.win_rate_increase_threshold },
+        };
       } else if (winRate < settings.win_rate_decrease_threshold) {
-        suggestion = { type: "decrease", params: { winRate, threshold: settings.win_rate_decrease_threshold } };
+        suggestion = {
+          type: "decrease",
+          params: { winRate, threshold: settings.win_rate_decrease_threshold },
+        };
       } else {
         suggestion = { type: "neutral", params: { winRate } };
       }
@@ -665,7 +811,14 @@ export const FinancialIntelligenceService = {
     days = 90
   ): Promise<CashFlowProjection> {
     const enabled = await requirePhaseC(companyId);
-    if (!enabled) return { outstanding: 0, overdue: 0, receivedThisMonth: 0, projection: [], alerts: [] };
+    if (!enabled)
+      return {
+        outstanding: 0,
+        overdue: 0,
+        receivedThisMonth: 0,
+        projection: [],
+        alerts: [],
+      };
 
     const supabase = requireSupabase();
     const settings = await getFinancialSettings(companyId);
@@ -674,12 +827,17 @@ export const FinancialIntelligenceService = {
     // Current state: outstanding invoices
     const { data: outstandingInvoices, error: outstandingError } =
       await supabase
-      .from("invoices")
-      .select("id, client_id, balance_due, due_date, status, total")
-      .eq("company_id", companyId)
-      .is("deleted_at", null)
-      .in("status", ["sent", "awaiting_payment", "partially_paid", "past_due"])
-      .gt("balance_due", 0);
+        .from("invoices")
+        .select("id, client_id, balance_due, due_date, status, total")
+        .eq("company_id", companyId)
+        .is("deleted_at", null)
+        .in("status", [
+          "sent",
+          "awaiting_payment",
+          "partially_paid",
+          "past_due",
+        ])
+        .gt("balance_due", 0);
     if (outstandingError) {
       throwCronDatabaseOperationError(
         `Failed to load outstanding invoices: ${outstandingError.message}`,
@@ -688,7 +846,8 @@ export const FinancialIntelligenceService = {
     }
 
     const outstanding = (outstandingInvoices ?? []).reduce(
-      (sum, inv) => sum + Number(inv.balance_due ?? 0), 0
+      (sum, inv) => sum + Number(inv.balance_due ?? 0),
+      0
     );
 
     const overdue = (outstandingInvoices ?? []).reduce((sum, inv) => {
@@ -712,11 +871,18 @@ export const FinancialIntelligenceService = {
     }
 
     const receivedThisMonth = (payments ?? []).reduce(
-      (sum, p) => sum + Number(p.amount ?? 0), 0
+      (sum, p) => sum + Number(p.amount ?? 0),
+      0
     );
 
     // Build client payment history map for weighting
-    const clientIds = [...new Set((outstandingInvoices ?? []).map((inv) => inv.client_id as string).filter(Boolean))];
+    const clientIds = [
+      ...new Set(
+        (outstandingInvoices ?? [])
+          .map((inv) => inv.client_id as string)
+          .filter(Boolean)
+      ),
+    ];
     const clientOnTimeRates = new Map<string, number>();
 
     if (clientIds.length > 0) {
@@ -739,7 +905,10 @@ export const FinancialIntelligenceService = {
         }
 
         // Compute on-time rate per client
-        const clientCounts = new Map<string, { onTime: number; total: number }>();
+        const clientCounts = new Map<
+          string,
+          { onTime: number; total: number }
+        >();
         for (const inv of paidInvoices ?? []) {
           const clientId = inv.client_id as string;
           if (!clientCounts.has(clientId)) {
@@ -808,7 +977,9 @@ export const FinancialIntelligenceService = {
         if (opp.expected_close_date) {
           const closeDate = new Date(opp.expected_close_date as string);
           if (closeDate <= periodEnd && closeDate >= today) {
-            pipeline += Number(opp.estimated_value ?? 0) * (Number(opp.win_probability ?? 50) / 100);
+            pipeline +=
+              Number(opp.estimated_value ?? 0) *
+              (Number(opp.win_probability ?? 50) / 100);
           }
         }
       }
@@ -824,7 +995,10 @@ export const FinancialIntelligenceService = {
     const alerts: FinancialAlert[] = [];
 
     // Low cash alert: overdue > threshold% of outstanding
-    if (outstanding > 0 && (overdue / outstanding) * 100 > settings.overdue_pct_threshold) {
+    if (
+      outstanding > 0 &&
+      (overdue / outstanding) * 100 > settings.overdue_pct_threshold
+    ) {
       alerts.push({
         type: "low_cash",
         params: {
@@ -836,7 +1010,10 @@ export const FinancialIntelligenceService = {
 
     // Concentration risk: one client > threshold% of outstanding
     if (outstanding > 0) {
-      const clientOutstanding = new Map<string, { amount: number; name: string }>();
+      const clientOutstanding = new Map<
+        string,
+        { amount: number; name: string }
+      >();
       for (const inv of outstandingInvoices ?? []) {
         const clientId = inv.client_id as string;
         if (!clientOutstanding.has(clientId)) {
@@ -887,13 +1064,16 @@ export const FinancialIntelligenceService = {
     // Aging warning: N+ invoices > threshold days overdue
     const agingInvoices = (outstandingInvoices ?? []).filter((inv) => {
       const dueDate = new Date(inv.due_date as string);
-      const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+      const daysOverdue = Math.floor(
+        (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
       return daysOverdue > settings.aging_days_threshold;
     });
 
     if (agingInvoices.length >= settings.aging_min_count) {
       const agingTotal = agingInvoices.reduce(
-        (sum, inv) => sum + Number(inv.balance_due ?? 0), 0
+        (sum, inv) => sum + Number(inv.balance_due ?? 0),
+        0
       );
       alerts.push({
         type: "aging_warning",
@@ -985,7 +1165,9 @@ export const FinancialIntelligenceService = {
     const weekNumber = isoWeekNumber(now);
     const sourceId = `financial:weekly:${now.getFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
 
-    const priority: AgentActionPriority = allAlerts.some((a) => a.type === "low_cash")
+    const priority: AgentActionPriority = allAlerts.some(
+      (a) => a.type === "low_cash"
+    )
       ? "high"
       : "normal";
 
@@ -1006,9 +1188,16 @@ export const FinancialIntelligenceService = {
     });
 
     // Store key insights as agent memories for AI draft context
-    if (actionId) {
-      await storeFinancialMemories(companyId, revenue, cashflow, pricing, seasonal);
-    }
+    // Reconcile the memory projection even when the weekly action already
+    // exists. A prior run may have committed the deduped action and then lost
+    // its memory write; skipping here would falsely complete every retry.
+    await storeFinancialMemories(
+      companyId,
+      revenue,
+      cashflow,
+      pricing,
+      seasonal
+    );
 
     return actionId;
   },
@@ -1036,7 +1225,8 @@ async function storeFinancialMemories(
 
   // Revenue trend memory
   if (revenue.yoyChange !== null) {
-    const direction = revenue.yoyChange > 0 ? "up" : revenue.yoyChange < 0 ? "down" : "flat";
+    const direction =
+      revenue.yoyChange > 0 ? "up" : revenue.yoyChange < 0 ? "down" : "flat";
     memories.push({
       company_id: companyId,
       memory_type: "fact",
@@ -1073,36 +1263,24 @@ async function storeFinancialMemories(
     });
   }
 
-  // Insert memories (upsert pattern: delete old financial_analysis memories first)
-  if (memories.length > 0) {
-    try {
-      // Remove stale financial analysis memories
-      const { error: deleteError } = await supabase
-        .from("agent_memories")
-        .delete()
-        .eq("company_id", companyId)
-        .eq("source", "financial_analysis");
-      if (deleteError) {
-        throwCronDatabaseOperationError(
-          `Failed to delete stale financial memories: ${deleteError.message}`,
-          deleteError
-        );
-      }
-
-      // Insert fresh ones
-      const { error: insertError } = await supabase
-        .from("agent_memories")
-        .insert(memories);
-      if (insertError) {
-        throwCronDatabaseOperationError(
-          `Failed to insert financial memories: ${insertError.message}`,
-          insertError
-        );
-      }
-    } catch (err) {
-      if (isDatabasePressureError(err)) throw err;
-      // Non-fatal — memories are supplementary
-      console.error("[financial-intelligence] Failed to store memories:", err);
-    }
+  // Replace the full projection in one database transaction. The weekly action
+  // can already exist when a retry reaches this point, so every persistence
+  // failure must propagate and keep the company retryable.
+  const { error } = await supabase.rpc("replace_financial_analysis_memories", {
+    p_company_id: companyId,
+    p_memories: memories.map(
+      ({ memory_type, category, content, confidence }) => ({
+        memory_type,
+        category,
+        content,
+        confidence,
+      })
+    ),
+  });
+  if (error) {
+    throwCronDatabaseOperationError(
+      `Failed to replace financial memories: ${error.message}`,
+      error
+    );
   }
 }

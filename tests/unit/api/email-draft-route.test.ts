@@ -302,6 +302,7 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
       activities: [
         {
           id: "activity-1",
+          company_id: "company-1",
           opportunity_id: "opp-1",
           type: "email",
           direction: "inbound",
@@ -327,6 +328,25 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
     const res = await POST(makeRequest());
     const json = await res.json();
 
+    expect(generateDraftMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftPurpose: { kind: "conversation_reply" },
+        userInstruction: expect.stringContaining(
+          "Address exactly what the customer asked for"
+        ),
+        untrustedMessageContext: {
+          subject: "New contact form",
+          body: "Need a quote for deck resurfacing.",
+        },
+      })
+    );
+    // `configuredSubject` is the OPERATOR's per-mailbox outreach setting, and it
+    // outranks a learned subject. Re-injecting the server's own constant there
+    // would hand the top rank back to the constant and make everything the
+    // profile learned about naming a new conversation unreachable (4da75e71).
+    expect(generateDraftMock.mock.calls[0][0]).not.toHaveProperty(
+      "configuredSubject"
+    );
     expect(placeNewThreadDraftMock).toHaveBeenCalledWith(
       expect.objectContaining({
         connectionId: "conn-1",
@@ -346,6 +366,61 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
     expect(createDraft).not.toHaveBeenCalled();
     expect(json.mailboxSaved).toBe(true);
     expect(json.mailboxDraftId).toBe("pd-new");
+  });
+
+  it("fails closed when two distinct activities share the newest occurrence time", async () => {
+    const createDraft = vi.fn().mockResolvedValue("reply-draft");
+    getProviderMock.mockReturnValue({
+      createNewThreadDraft: vi.fn(),
+      createDraft,
+      updateDraft: vi.fn(),
+    });
+    const state: DbState = {
+      opportunities: [
+        {
+          id: "opp-1",
+          company_id: "company-1",
+          title: "Priya Shah — Email Inquiry",
+        },
+      ],
+      activities: [
+        {
+          id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+          company_id: "company-1",
+          opportunity_id: "opp-1",
+          type: "email",
+          direction: "inbound",
+          subject: "New contact form",
+          email_thread_id: "forwarder-thread",
+          body_text: CONTACT_FORM_BODY,
+          created_at: "2026-06-01T10:00:00.000Z",
+        },
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          company_id: "company-1",
+          opportunity_id: "opp-1",
+          type: "email",
+          direction: "outbound",
+          subject: "Re: New contact form",
+          email_thread_id: "forwarder-thread",
+          body_text: "Already handled",
+          created_at: "2026-06-01T10:00:00.000Z",
+        },
+      ],
+      email_threads: [],
+      ai_draft_history: [],
+    };
+    getServiceRoleClientMock.mockReturnValue(makeSupabaseDouble(state));
+
+    const response = await POST(makeRequest());
+
+    await expect(response.json()).resolves.toMatchObject({
+      code: "EMAIL_DRAFT_SOURCE_STALE",
+    });
+    expect(response.status).toBe(409);
+    expect(generateDraftMock).not.toHaveBeenCalled();
+    expect(placeNewThreadDraftMock).not.toHaveBeenCalled();
+    expect(createDraft).not.toHaveBeenCalled();
   });
 
   it("rechecks canonical lead and inbox access at the final provider boundary", async () => {
@@ -393,12 +468,14 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
       activities: [
         {
           id: "activity-1",
+          company_id: "company-1",
           opportunity_id: "opp-1",
           type: "email",
           direction: "inbound",
           subject: "New contact form",
           email_thread_id: "forwarder-thread",
           body_text: CONTACT_FORM_BODY,
+          created_at: "2026-06-01T10:00:00.000Z",
         },
       ],
       email_threads: [],
@@ -495,9 +572,14 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
       activities: [
         {
           id: "activity-2",
+          company_id: "company-1",
           opportunity_id: "opp-1",
           type: "email",
           direction: "inbound",
+          from_email: "Current Sender <current.sender@example.net>",
+          to_emails: ["office@example.com"],
+          cc_emails: [],
+          email_message_id: "provider-message-current",
           subject: "Question about the deck timeline",
           email_thread_id: "gmail-thread-x",
           email_connection_id: "conn-company",
@@ -551,9 +633,12 @@ describe("POST /api/integrations/email/draft — forwarded contact-form lead", (
       opportunityId: "opp-1",
       threadId: "gmail-thread-x",
       emailAccess: threadAccess,
+      sourceActivityId: "activity-2",
+      draftPurpose: { kind: "conversation_reply" },
+      signatureWillBeAppended: true,
     });
     expect(createDraft).toHaveBeenCalledWith(
-      "bob@acme.com",
+      "current.sender@example.net",
       "Re: Question about the deck timeline",
       expect.any(String),
       "gmail-thread-x",

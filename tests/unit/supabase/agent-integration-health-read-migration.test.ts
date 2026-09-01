@@ -1,0 +1,178 @@
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+
+import { describe, expect, it } from "vitest";
+
+const SUFFIX = "_agent_integration_health_read.sql";
+const migrationNames = readdirSync(
+  join(process.cwd(), "supabase/migrations")
+).filter((name) => name.endsWith(SUFFIX));
+const MIGRATION = readFileSync(
+  join(process.cwd(), "supabase/migrations", migrationNames[0] ?? "MISSING"),
+  "utf8"
+);
+const BODY = readFileSync(
+  join(
+    process.cwd(),
+    "src/lib/agent-control-plane/services/p2/integrations/sql/agent_integration_health_read.body.sql"
+  ),
+  "utf8"
+);
+const SQL = MIGRATION.toLowerCase();
+const COMPACT = SQL.replace(/\s+/g, " ").trim();
+
+function replaceExactly(
+  value: string,
+  oldFragment: string,
+  newFragment: string,
+  expectedCount: number
+) {
+  expect(value.split(oldFragment).length - 1).toBe(expectedCount);
+  return value.split(oldFragment).join(newFragment);
+}
+
+describe("P2 integration-health read migration", () => {
+  it("keeps the historical migration immutable and derives the current body exactly", () => {
+    expect(migrationNames).toHaveLength(1);
+    expect(migrationNames[0]).toMatch(
+      /^\d{14}_agent_integration_health_read\.sql$/
+    );
+    const canonicallyOrdered = replaceExactly(
+      MIGRATION,
+      "scope.value order by scope.value)",
+      'scope.value order by scope.value collate "C")',
+      1
+    );
+    expect(
+      replaceExactly(
+        canonicallyOrdered,
+        "^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+        "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        1
+      )
+    ).toBe(BODY);
+    expect(SQL).toMatch(/(?:^|\n)begin;\s/);
+    expect(SQL.trim().endsWith("commit;")).toBe(true);
+    expect(SQL).toContain("do $prerequisites$");
+    expect(SQL).toContain("do $canonical_acl$");
+    expect(SQL).toContain("do $postflight$");
+  });
+
+  it("keeps projection private and grants only the fixed service RPC", () => {
+    expect(COMPACT).toContain(
+      "create or replace function private.agent_p2_integration_health_summary_v1("
+    );
+    expect(COMPACT).toContain(
+      "create or replace function public.read_agent_integration_health_as_system("
+    );
+    expect(COMPACT).toContain(
+      "language plpgsql stable security definer set search_path = ''"
+    );
+    expect(COMPACT.match(/grant execute on function/g)).toHaveLength(1);
+    expect(COMPACT).toContain(
+      "grant execute on function public.read_agent_integration_health_as_system("
+    );
+    expect(COMPACT).toContain(
+      "revoke all on function private.agent_p2_integration_health_summary_v1("
+    );
+    for (const forbidden of ["grant select", "set role", "current_setting("]) {
+      expect(COMPACT).not.toContain(forbidden);
+    }
+  });
+
+  it("enforces exact OAuth, settings, and independently selected branch authority", () => {
+    for (const expected of [
+      "array['ops.integrations.read']::text[]",
+      "p_settings_integrations_scope is distinct from 'all'",
+      "v_has_accounting and p_accounting_scope is distinct from 'all'",
+      "v_has_mailbox and p_email_scope not in ('all', 'own')",
+      "authority.settings_integrations_scope = p_settings_integrations_scope",
+      "authority.accounting_scope is not distinct from p_accounting_scope",
+      "authority.email_scope is not distinct from p_email_scope",
+      "actor.deleted_at is null",
+      "actor.is_active is true",
+      "grant_row.scopes = p_granted_scope_ceiling",
+      "grant_row.revoked_at is null",
+      "oauth_client.disabled_at is null",
+    ]) {
+      expect(COMPACT).toContain(expected);
+    }
+  });
+
+  it("pins canonical explicit providers, production accounting, 501 bound, and own mailbox isolation", () => {
+    for (const expected of [
+      "pg_catalog.jsonb_array_length(p_selections) not between 1 and 4",
+      "p_source_limit is distinct from 501",
+      "selection.value ->> 'integration_type' = 'accounting'",
+      "selection.value ->> 'provider' in ('quickbooks', 'sage')",
+      "selection.value ->> 'integration_type' = 'mailbox'",
+      "selection.value ->> 'provider' in ('gmail', 'microsoft365')",
+      "connection.provider_environment = 'production'",
+      "connection.type::text = 'individual' and connection.user_id = p_actor_user_id::text",
+      "raise exception 'agent_integration_health_source_query_bound' using errcode = '54000'",
+      "raise exception 'agent_integration_health_source_data_invalid' using errcode = '22000'",
+    ]) {
+      expect(COMPACT).toContain(expected);
+    }
+  });
+
+  it("derives every supported closed reason from authoritative state only", () => {
+    for (const expected of [
+      "source.status = 'needs_reconnect' then 'needs_reconnect'",
+      "source.status = 'error' then 'provider_error'",
+      "interval '24 hours'",
+      "then 'webhook_setup_failed'",
+      "source.webhook_expires_at < context.read_at",
+      "then 'webhook_expired'",
+      "interval '13 hours'",
+      "then 'sync_stale'",
+      "when 'sync_stale' then 'stale'",
+      "private.agent_rfc3339_utc(mailbox.progress_at)",
+      "source.provider_snapshot_at, source.last_synced_at",
+    ]) {
+      expect(COMPACT).toContain(expected);
+    }
+    expect(COMPACT).not.toContain("raw_error");
+    expect(COMPACT).not.toContain("last_error");
+  });
+
+  it("returns only coarse items, exact revisions, and recomputable hashes", () => {
+    for (const expected of [
+      "'domain', 'company'",
+      "'domain', 'integrations'",
+      "'integration_type'",
+      "'provider'",
+      "'connection_state'",
+      "'sync_state'",
+      "'reason_code'",
+      "'last_healthy_progress_at'",
+      "'calendar_consent_granted'",
+      "'proof_kind', 'integration_health_entity'",
+      "'proof_kind', 'integration_health_evidence'",
+      "'proof_kind', 'integration_health_collection'",
+      "private.canonical_agent_projection_json(",
+    ]) {
+      expect(COMPACT).toContain(expected);
+    }
+    for (const forbiddenKey of [
+      "'access_token'",
+      "'refresh_token'",
+      "'realm_id'",
+      "'history_id'",
+      "'webhook_subscription_id'",
+      "'webhook_expires_at'",
+      "'webhook_client_state_hash'",
+      "'sync_filters'",
+      "'sync_direction'",
+      "'auto_send_settings'",
+      "'sync_lock_owner'",
+      "'raw_error'",
+      "'provider_id'",
+      "'connection_id'",
+      "'user_id'",
+      "'email'",
+    ]) {
+      expect(COMPACT).not.toContain(forbiddenKey);
+    }
+  });
+});

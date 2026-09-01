@@ -25,16 +25,34 @@ import {
   OpportunityLifecycleService,
   type RecordCorrespondenceEventInput,
 } from "@/lib/api/services/opportunity-lifecycle-service";
+import { isDatabasePressureError } from "@/lib/api/services/cron-workload-error-contract";
 
-type RpcResult = { data: unknown; error: unknown };
+type SupabaseResult = {
+  data: unknown;
+  error: unknown;
+  count?: number | null;
+  status?: number;
+  statusText?: string;
+};
 
-function makeSupabase(rpcResult: RpcResult) {
+function makeSupabase(
+  rpcResult: SupabaseResult,
+  lifecycle: {
+    readResponse?: SupabaseResult;
+    upsertResponse?: SupabaseResult;
+  } = {}
+) {
   const rpc = vi.fn().mockResolvedValue(rpcResult);
+  const readResponse = lifecycle.readResponse ?? { data: null, error: null };
+  const upsertResponse = lifecycle.upsertResponse ?? {
+    data: null,
+    error: null,
+  };
   const lifecycleBuilder = {
     select: () => lifecycleBuilder,
     eq: () => lifecycleBuilder,
-    maybeSingle: () => Promise.resolve({ data: null, error: null }),
-    upsert: vi.fn().mockResolvedValue({ error: null }),
+    maybeSingle: () => Promise.resolve(readResponse),
+    upsert: vi.fn().mockResolvedValue(upsertResponse),
   };
   const from = vi.fn(() => lifecycleBuilder);
   const supabase = {
@@ -42,6 +60,10 @@ function makeSupabase(rpcResult: RpcResult) {
     rpc,
   } as unknown as RecordCorrespondenceEventInput["supabase"];
   return { supabase, rpc };
+}
+
+function errorCause(error: unknown): Record<string, unknown> {
+  return (error as { cause: Record<string, unknown> }).cause;
 }
 
 function buildInput(
@@ -207,6 +229,123 @@ describe("OpportunityLifecycleService.recordCorrespondenceEvent", () => {
       )
     ).rejects.toThrow(/Correspondence event insert failed/);
     expect(resetStaleMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves the outer Supabase response when correspondence persistence is under pressure", async () => {
+    const databaseError = {
+      code: "",
+      details: "",
+      hint: "",
+      message: "Service unavailable",
+    };
+    const { supabase } = makeSupabase({
+      data: null,
+      error: databaseError,
+      count: null,
+      status: 503,
+      statusText: "Service Unavailable",
+    });
+
+    const failure = await OpportunityLifecycleService.recordCorrespondenceEvent(
+      buildInput(supabase)
+    ).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: databaseError,
+        status: 503,
+        statusText: "Service Unavailable",
+      },
+    });
+    expect(errorCause(failure)).not.toHaveProperty("data");
+    expect(isDatabasePressureError(failure)).toBe(true);
+    expect(resetStaleMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves the outer Supabase response when lifecycle-state readback is under pressure", async () => {
+    const databaseError = {
+      code: "",
+      details: "",
+      hint: "",
+      message: "Service unavailable",
+    };
+    const { supabase } = makeSupabase(
+      {
+        data: [{ created: true, event_id: "evt-pressure" }],
+        error: null,
+      },
+      {
+        readResponse: {
+          data: null,
+          error: databaseError,
+          count: null,
+          status: 503,
+          statusText: "Service Unavailable",
+        },
+      }
+    );
+
+    const failure = await OpportunityLifecycleService.recordCorrespondenceEvent(
+      buildInput(supabase)
+    ).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: databaseError,
+        status: 503,
+        statusText: "Service Unavailable",
+      },
+    });
+    expect(errorCause(failure)).not.toHaveProperty("data");
+    expect(isDatabasePressureError(failure)).toBe(true);
+    expect(resetStaleMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves PostgREST ENOTFOUND details and the outer response during lifecycle projection", async () => {
+    const databaseError = {
+      code: "",
+      details:
+        "TypeError: fetch failed\n\nCaused by: Error: getaddrinfo ENOTFOUND db.example.com (ENOTFOUND)",
+      hint: "",
+      message: "TypeError: fetch failed",
+    };
+    const { supabase } = makeSupabase(
+      {
+        data: [{ created: true, event_id: "evt-pressure" }],
+        error: null,
+      },
+      {
+        upsertResponse: {
+          data: null,
+          error: databaseError,
+          count: null,
+          status: 0,
+          statusText: "",
+        },
+      }
+    );
+
+    const failure = await OpportunityLifecycleService.recordCorrespondenceEvent(
+      buildInput(supabase, {
+        direction: "outbound",
+        source: "approved_action_email_send",
+        fromEmail: "ops@myco.com",
+        toEmails: ["jane@customer.com"],
+      })
+    ).catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({
+      name: "CronDatabaseOperationError",
+      cause: {
+        error: databaseError,
+        status: 0,
+        statusText: "",
+      },
+    });
+    expect(errorCause(failure)).not.toHaveProperty("data");
+    expect(isDatabasePressureError(failure)).toBe(true);
   });
 
   it("short-circuits to invalid_provider_ids before calling the RPC", async () => {

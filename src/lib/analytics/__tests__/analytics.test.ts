@@ -1,65 +1,61 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Force-enable analytics for tests — production default is disabled. See
-// `ANALYTICS_ENABLED` in src/lib/analytics/analytics.ts.
-process.env.NEXT_PUBLIC_ANALYTICS_ENABLED = "true";
-
-const mockLogEvent = vi.fn();
-const mockGetAnalytics = vi.fn(() => ({ name: "analytics" }));
-
-vi.mock("firebase/analytics", () => ({
-  getAnalytics: mockGetAnalytics,
-  logEvent: mockLogEvent,
-  isSupported: vi.fn(() => Promise.resolve(true)),
+const { mockLogEvent, mockTrack } = vi.hoisted(() => ({
+  mockLogEvent: vi.fn(),
+  mockTrack: vi.fn(),
 }));
 
+vi.mock("firebase/analytics", () => ({
+  getAnalytics: vi.fn(() => ({ name: "analytics" })),
+  logEvent: mockLogEvent,
+}));
 vi.mock("@/lib/firebase/config", () => ({
   getFirebaseApp: vi.fn(() => ({ name: "app" })),
 }));
+vi.mock("@/lib/analytics/analytics-service", () => ({
+  analyticsService: { track: mockTrack },
+}));
 
-describe("analytics", () => {
-  it("trackSignUp logs sign_up event with method", async () => {
-    const { trackSignUp } = await import("../analytics");
-    trackSignUp("google");
-    expect(mockLogEvent).toHaveBeenCalledWith(
-      expect.anything(),
-      "sign_up",
-      expect.objectContaining({ method: "google" })
-    );
+let conversions: typeof import("../analytics");
+
+beforeAll(async () => {
+  vi.stubEnv("NEXT_PUBLIC_ANALYTICS_ENABLED", "true");
+  conversions = await import("../analytics");
+});
+
+beforeEach(() => {
+  mockLogEvent.mockClear();
+  mockTrack.mockClear();
+});
+
+describe("Firebase conversion contract", () => {
+  it("exposes only the five deliberate conversion helpers", () => {
+    expect(Object.keys(conversions).sort()).toEqual([
+      "trackBeginTrial",
+      "trackCompleteOnboarding",
+      "trackCreateFirstProject",
+      "trackPurchase",
+      "trackSignUp",
+    ]);
   });
 
-  it("trackSetupStarted logs setup_started event", async () => {
-    const { trackSetupStarted } = await import("../analytics");
-    trackSetupStarted("direct");
+  it.each([
+    ["sign_up", () => conversions.trackSignUp("google")],
+    ["begin_trial", () => conversions.trackBeginTrial()],
+    ["complete_onboarding", () => conversions.trackCompleteOnboarding()],
+    ["create_first_project", () => conversions.trackCreateFirstProject()],
+    ["purchase", () => conversions.trackPurchase("business", 99, "CAD")],
+  ])("dual-writes %s to Firebase and Supabase", (eventName, invoke) => {
+    invoke();
     expect(mockLogEvent).toHaveBeenCalledWith(
       expect.anything(),
-      "setup_started",
-      expect.objectContaining({ source: "direct" })
-    );
-  });
-
-  it("trackCreateProject logs create_project and create_first_project when count=1", async () => {
-    const { trackCreateProject } = await import("../analytics");
-    trackCreateProject(1);
-    expect(mockLogEvent).toHaveBeenCalledWith(
-      expect.anything(),
-      "create_project",
-      expect.objectContaining({ project_count: 1 })
-    );
-    expect(mockLogEvent).toHaveBeenCalledWith(
-      expect.anything(),
-      "create_first_project",
+      eventName,
       expect.any(Object)
     );
-  });
-
-  it("trackFormAbandoned logs form_abandoned with formType and fieldsFilled", async () => {
-    const { trackFormAbandoned } = await import("../analytics");
-    trackFormAbandoned("project", 3);
-    expect(mockLogEvent).toHaveBeenCalledWith(
-      expect.anything(),
-      "form_abandoned",
-      expect.objectContaining({ form_type: "project", fields_filled: 3 })
+    expect(mockTrack).toHaveBeenCalledWith(
+      "lifecycle",
+      eventName,
+      expect.any(Object)
     );
   });
 });

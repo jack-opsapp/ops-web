@@ -23,7 +23,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useClients } from "../use-clients";
 import { useOpportunities } from "../use-opportunities";
+import { useSiteVisits } from "../use-site-visits";
+import { useLeadDeckMarkers } from "../use-opportunity-deck-designs";
 import { useTeamMembers } from "../use-users";
+import { buildSiteVisitGlanceMap } from "@/lib/utils/site-visit-glance";
+import { buildDeckMarkerMap } from "@/lib/api/services/deck-design-service";
 import {
   stageConfigBySlug,
   usePipelineStageConfigs,
@@ -114,6 +118,10 @@ function sortValue(
       return row.lastActivityAt;
     case "next_follow_up":
       return row.nextFollowUpAt;
+    // Sort on what the cell actually shows: an upcoming visit if there is one,
+    // otherwise the last completed one. Leads with neither sort as null (last).
+    case "site_visit":
+      return row.siteVisitNextAt ?? row.siteVisitCompletedAt;
     case "expected_close":
       return row.expectedCloseDate;
     case "assignee":
@@ -252,6 +260,23 @@ export function usePipelineTableData({
     [stageConfigs]
   );
 
+  // ── Scan-level glance layer ─────────────────────────────────────────────
+  // Two company-wide reads, shared through the TanStack cache with the focused
+  // board's cards, so the whole surface costs one request each however many
+  // rows render. RLS (company isolation + assigned-lead scope) already returns
+  // exactly the rows this operator may see — never filter these client-side.
+  const { data: siteVisitsData } = useSiteVisits();
+  const { data: deckMarkers } = useLeadDeckMarkers();
+
+  const siteVisitGlanceByOpportunity = useMemo(
+    () => buildSiteVisitGlanceMap(siteVisitsData ?? [], now),
+    [siteVisitsData, now]
+  );
+  const deckMarkersByOpportunity = useMemo(
+    () => buildDeckMarkerMap(deckMarkers ?? []),
+    [deckMarkers]
+  );
+
   // ── In-scope, mapped rows (pre-search) ───────────────────────────────────
   // Deleted/archived are always excluded. Terminal stages (Won/Lost/Discarded)
   // are excluded unless `closedDeals` opts them in.
@@ -273,6 +298,8 @@ export function usePipelineTableData({
           clientNameMap,
           assigneeNameMap,
           stageConfigBySlug: stageConfigMap,
+          siteVisitGlanceByOpportunity,
+          deckMarkersByOpportunity,
           now,
         })
       );
@@ -288,6 +315,8 @@ export function usePipelineTableData({
     clientNameMap,
     assigneeNameMap,
     stageConfigMap,
+    siteVisitGlanceByOpportunity,
+    deckMarkersByOpportunity,
     now,
   ]);
 

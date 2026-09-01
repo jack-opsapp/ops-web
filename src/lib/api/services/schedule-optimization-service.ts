@@ -24,7 +24,10 @@ import type {
   TaskAutomationPersistenceGuard,
 } from "@/lib/types/approval-queue";
 import { throwCronDatabaseOperationError } from "./cron-company-fanout-service";
-import { isDatabasePressureError } from "./cron-workload-control-service";
+import {
+  isDatabasePressureError,
+  supabaseDatabaseOperationCause,
+} from "./cron-workload-control-service";
 import { DEFAULT_SCHEDULE_SETTINGS } from "@/lib/types/approval-queue";
 
 // ─── Haversine Distance ──────────────────────────────────────────────────────
@@ -228,15 +231,16 @@ async function loadScheduleSettings(
   companyId: string
 ): Promise<ScheduleOptimizationSettings> {
   const supabase = requireSupabase();
-  const { data, error } = await supabase
+  const response = await supabase
     .from("companies")
     .select("schedule_settings")
     .eq("id", companyId)
     .single();
+  const { data, error } = response;
   if (error) {
     throwCronDatabaseOperationError(
       `Failed to load schedule optimization settings: ${error.message}`,
-      error
+      supabaseDatabaseOperationCause(response)
     );
   }
 
@@ -961,7 +965,7 @@ export const ScheduleOptimizationService = {
       const supabase = requireSupabase();
 
       // Fetch the changed task (must not be soft-deleted)
-      const { data: changedTask, error: changedErr } = await supabase
+      const changedTaskResponse = await supabase
         .from("project_tasks")
         .select(
           "id, custom_title, project_id, start_date, end_date, team_member_ids, status, start_time, end_time"
@@ -970,11 +974,20 @@ export const ScheduleOptimizationService = {
         .eq("company_id", companyId)
         .is("deleted_at", null)
         .single();
+      const { data: changedTask, error: changedErr } = changedTaskResponse;
 
       if (changedErr || !changedTask) {
         if (changedErr && changedErr.code !== "PGRST116") {
-          if (options.throwOnError) throw new Error(changedErr.message);
-          console.error("[schedule-optimization] cascade fetch changed task:", changedErr.message);
+          if (options.throwOnError) {
+            throwCronDatabaseOperationError(
+              "Schedule cascade changed-task read failed",
+              supabaseDatabaseOperationCause(changedTaskResponse)
+            );
+          }
+          console.error(
+            "[schedule-optimization] cascade fetch changed task:",
+            changedErr.message
+          );
         }
         return { cascadeProposed: 0 };
       }
@@ -1006,7 +1019,7 @@ export const ScheduleOptimizationService = {
         const dayStart = `${dayStr}T00:00:00.000Z`;
         const dayEnd = `${dayStr}T23:59:59.999Z`;
 
-        const { data: sameDayTasks, error: sameDayErr } = await supabase
+        const sameDayResponse = await supabase
           .from("project_tasks")
           .select(
             "id, custom_title, project_id, start_date, end_date, team_member_ids, start_time, end_time"
@@ -1019,10 +1032,19 @@ export const ScheduleOptimizationService = {
           .lte("start_date", dayEnd)
           .neq("id", taskId)
           .limit(100);
+        const { data: sameDayTasks, error: sameDayErr } = sameDayResponse;
 
         if (sameDayErr) {
-          if (options.throwOnError) throw new Error(sameDayErr.message);
-          console.error("[schedule-optimization] cascade same-day fetch:", sameDayErr.message);
+          if (options.throwOnError) {
+            throwCronDatabaseOperationError(
+              "Schedule cascade same-day read failed",
+              supabaseDatabaseOperationCause(sameDayResponse)
+            );
+          }
+          console.error(
+            "[schedule-optimization] cascade same-day fetch:",
+            sameDayErr.message
+          );
         }
 
         for (const otherTask of sameDayTasks ?? []) {
@@ -1079,7 +1101,7 @@ export const ScheduleOptimizationService = {
 
       // Check 2: Same project has dependent tasks
       if (changedProjectId) {
-        const { data: projectTasks, error: projTasksErr } = await supabase
+        const projectTasksResponse = await supabase
           .from("project_tasks")
           .select(
             "id, custom_title, project_id, start_date, end_date, team_member_ids, display_order"
@@ -1092,10 +1114,20 @@ export const ScheduleOptimizationService = {
           .not("start_date", "is", null)
           .order("display_order", { ascending: true })
           .limit(50);
+        const { data: projectTasks, error: projTasksErr } =
+          projectTasksResponse;
 
         if (projTasksErr) {
-          if (options.throwOnError) throw new Error(projTasksErr.message);
-          console.error("[schedule-optimization] cascade project tasks:", projTasksErr.message);
+          if (options.throwOnError) {
+            throwCronDatabaseOperationError(
+              "Schedule cascade project-task read failed",
+              supabaseDatabaseOperationCause(projectTasksResponse)
+            );
+          }
+          console.error(
+            "[schedule-optimization] cascade project tasks:",
+            projTasksErr.message
+          );
         }
 
         const changedEndDate = changedTask.end_date
@@ -1150,15 +1182,24 @@ export const ScheduleOptimizationService = {
       const projectIds = [...new Set(candidates.map((c) => c.affectedProjectId))];
       const projectTitleMap = new Map<string, string>();
       if (projectIds.length > 0) {
-        const { data: projects, error: projErr } = await supabase
+        const projectsResponse = await supabase
           .from("projects")
           .select("id, title")
           .eq("company_id", companyId)
           .in("id", projectIds)
           .is("deleted_at", null);
+        const { data: projects, error: projErr } = projectsResponse;
         if (projErr) {
-          if (options.throwOnError) throw new Error(projErr.message);
-          console.error("[schedule-optimization] cascade project fetch:", projErr.message);
+          if (options.throwOnError) {
+            throwCronDatabaseOperationError(
+              "Schedule cascade project read failed",
+              supabaseDatabaseOperationCause(projectsResponse)
+            );
+          }
+          console.error(
+            "[schedule-optimization] cascade project fetch:",
+            projErr.message
+          );
         }
         for (const p of projects ?? []) {
           projectTitleMap.set(p.id as string, (p.title as string) ?? "Unknown");

@@ -18,6 +18,7 @@ import {
 } from "./schedule-constants";
 import { TaskStatus } from "@/lib/types/models";
 import type { ProjectTask, CalendarUserEvent } from "@/lib/types/models";
+import type { BookedVisitWithLead } from "@/lib/api/services/site-visit-service";
 
 const UUID_LIKE_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -80,11 +81,20 @@ export interface InternalScheduleEvent {
 
   /**
    * What kind of calendar item this is. Branches the card rendering:
-   *   - 'task'      → ProjectTask (project / client / address etc.)
-   *   - 'personal'  → user-owned personal event (no project)
-   *   - 'time_off'  → time-off request (status reflects approval state)
+   *   - 'task'       → ProjectTask (project / client / address etc.)
+   *   - 'personal'   → user-owned personal event (no project)
+   *   - 'time_off'   → time-off request (status reflects approval state)
+   *   - 'site_visit' → booked lead appointment (third source). Excluded
+   *                    from every task mechanism: drag-reschedule, resize,
+   *                    cascade, auto-schedule, the unscheduled tray, and
+   *                    the crew swimlanes. Click opens the visit popover.
    */
-  kind: "task" | "personal" | "time_off";
+  kind: "task" | "personal" | "time_off" | "site_visit";
+
+  /** Lead the appointment belongs to — site_visit events only. */
+  opportunityId?: string | null;
+  /** The source booking — site_visit events only (feeds the popover/modal). */
+  siteVisit?: BookedVisitWithLead;
 }
 
 // ─── Color Helpers ───────────────────────────────────────────────────────────
@@ -153,7 +163,9 @@ const rgbToString = (rgb: { r: number; g: number; b: number }, alpha = 1) =>
  * so 'Vinyl Install', 'Rail Install', 'Glass Install', 'Renovation', etc.
  * each get their own visual identity instead of being collapsed.
  */
-export function colorTripleFromHex(hex: string | null | undefined): TaskTypeColors {
+export function colorTripleFromHex(
+  hex: string | null | undefined
+): TaskTypeColors {
   if (!hex) return DEFAULT_TASK_TYPE_COLORS;
   const rgb = hexToRgb(hex);
   if (!rgb) return DEFAULT_TASK_TYPE_COLORS;
@@ -240,9 +252,7 @@ export function deriveTaskStatusKey(
   // of bug da108fb6 (1-day tasks rendered as 2-day spans on the month grid).
   if (!end && start && task.duration > 0) {
     const inclusiveOffsetDays = Math.max(task.duration - 1, 0);
-    end = new Date(
-      start.getTime() + inclusiveOffsetDays * 24 * 60 * 60 * 1000,
-    );
+    end = new Date(start.getTime() + inclusiveOffsetDays * 24 * 60 * 60 * 1000);
   }
 
   if (end && end < now) return "overdue";
@@ -254,12 +264,23 @@ export function deriveTaskStatusKey(
 
 export function deriveTaskType(title: string, color: string): string {
   const lower = title.toLowerCase();
-  if (lower.includes("install") || lower.includes("demo")) return "installation";
-  if (lower.includes("material") || lower.includes("pickup") || lower.includes("delivery")) return "material";
+  if (lower.includes("install") || lower.includes("demo"))
+    return "installation";
+  if (
+    lower.includes("material") ||
+    lower.includes("pickup") ||
+    lower.includes("delivery")
+  )
+    return "material";
   if (lower.includes("estimate")) return "estimate";
   if (lower.includes("inspect")) return "inspection";
   if (lower.includes("quote") || lower.includes("survey")) return "quote";
-  if (lower.includes("walkthrough") || lower.includes("completion") || lower.includes("final")) return "completion";
+  if (
+    lower.includes("walkthrough") ||
+    lower.includes("completion") ||
+    lower.includes("final")
+  )
+    return "completion";
 
   const colorMap: Record<string, string> = {
     "#B58289": "installation",
@@ -294,10 +315,13 @@ function normalizeToLocalDate(d: Date): Date {
   return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-export function mapTaskToInternalEvent(task: ProjectTask): InternalScheduleEvent | null {
+export function mapTaskToInternalEvent(
+  task: ProjectTask
+): InternalScheduleEvent | null {
   if (!task.startDate) return null;
 
-  const rawStart = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
+  const rawStart =
+    task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
   // For all-day tasks, normalize UTC midnight to local midnight so display
   // matches the calendar grid. Timed tasks keep the raw timestamp so the
   // applied start_time positions them correctly within the day.
@@ -311,7 +335,10 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalScheduleEvent
 
   let endDate: Date;
   if (task.endDate) {
-    const rawEnd = task.endDate instanceof Date ? new Date(task.endDate) : new Date(task.endDate);
+    const rawEnd =
+      task.endDate instanceof Date
+        ? new Date(task.endDate)
+        : new Date(task.endDate);
     endDate = task.allDay ? normalizeToLocalDate(rawEnd) : rawEnd;
     if (!task.allDay && task.endTime) {
       const [h, m] = task.endTime.split(":").map(Number);
@@ -324,7 +351,7 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalScheduleEvent
     // the month grid. Bug da108fb6.
     const inclusiveOffsetDays = Math.max(task.duration - 1, 0);
     endDate = new Date(
-      startDate.getTime() + inclusiveOffsetDays * 24 * 60 * 60 * 1000,
+      startDate.getTime() + inclusiveOffsetDays * 24 * 60 * 60 * 1000
     );
     // Single-day timed tasks honor endTime to set the closing wall-clock.
     if (!task.allDay && task.endTime && task.duration <= 1) {
@@ -427,7 +454,8 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalScheduleEvent
 export function mapUserEventToInternalEvent(
   evt: CalendarUserEvent
 ): InternalScheduleEvent {
-  const start = evt.startDate instanceof Date ? evt.startDate : new Date(evt.startDate);
+  const start =
+    evt.startDate instanceof Date ? evt.startDate : new Date(evt.startDate);
   const end = evt.endDate instanceof Date ? evt.endDate : new Date(evt.endDate);
 
   // For all-day events, normalize to local-midnight so they line up with the
@@ -482,6 +510,82 @@ export function mapUserEventToInternalEvent(
   };
 }
 
+// ─── BookedVisit → Internal Calendar Event ──────────────────────────────────
+
+/**
+ * Tan is the design system's site-visit hue (DESIGN.md §3). Type triple for
+ * the stripe/chip; the status triple mirrors TASK_STATUS_COLORS.in_progress
+ * (the tan recipe) so any status-driven surface stays in the same family.
+ */
+const SITE_VISIT_TYPE_COLORS: TaskTypeColors = {
+  bg: "rgba(196, 168, 104, 0.18)",
+  border: "#C4A868",
+  text: "#E8D9A8",
+};
+
+const SITE_VISIT_STATUS_COLORS: TaskStatusColors = {
+  bg: "rgba(196, 168, 104, 0.12)",
+  border: "rgba(196, 168, 104, 0.40)",
+  text: "#C4A868",
+};
+
+/**
+ * Map a booked site visit (third calendar source) to the internal event
+ * shape. Visits are always timed (scheduled_at + duration_minutes are real
+ * by the booked_at discriminator), carry their lead context for cards and
+ * the popover, and never carry a projectId — clicking one must never open
+ * the project window.
+ */
+export function mapSiteVisitToInternalEvent(
+  visit: BookedVisitWithLead
+): InternalScheduleEvent {
+  const startDate =
+    visit.scheduledAt instanceof Date
+      ? visit.scheduledAt
+      : new Date(visit.scheduledAt);
+  const endDate = new Date(
+    startDate.getTime() + Math.max(visit.durationMinutes, 15) * 60_000
+  );
+
+  const title = visit.lead?.title?.trim() || "Site visit";
+  const statusKey: TaskStatusKey =
+    visit.status === "in_progress" ? "in_progress" : "scheduled";
+
+  return {
+    id: visit.id,
+    title,
+    startDate,
+    endDate,
+    color: SITE_VISIT_TYPE_COLORS.border,
+    // Legend + type filtering key off typeLabel for tasks, so both fields
+    // carry the same value here.
+    taskType: "SITE VISIT",
+    status: visit.status,
+    teamMember: visit.assigneeIds.length > 0 ? "Team" : undefined,
+    teamMemberIds: visit.assigneeIds,
+    project: undefined,
+    projectId: undefined,
+
+    projectTitle: null,
+    taskTitle: title,
+    typeLabel: "SITE VISIT",
+    typeColors: SITE_VISIT_TYPE_COLORS,
+    statusColors: SITE_VISIT_STATUS_COLORS,
+    statusKey,
+    crewIds: visit.assigneeIds,
+    address: visit.lead?.address ?? null,
+    clientName: visit.lead?.clientName ?? null,
+
+    startTime: formatTime24(startDate),
+    endTime: formatTime24(endDate),
+    allDay: false,
+
+    kind: "site_visit",
+    opportunityId: visit.opportunityId,
+    siteVisit: visit,
+  };
+}
+
 // ─── Formatting ──────────────────────────────────────────────────────────────
 
 export function formatHour(hour: number): string {
@@ -522,7 +626,10 @@ export function isWithinVisibleHours(date: Date): boolean {
 
 // ─── Event Filtering ─────────────────────────────────────────────────────────
 
-export function getEventsForDay(events: InternalScheduleEvent[], day: Date): InternalScheduleEvent[] {
+export function getEventsForDay(
+  events: InternalScheduleEvent[],
+  day: Date
+): InternalScheduleEvent[] {
   return events.filter((e) => isSameDay(e.startDate, day));
 }
 
@@ -538,10 +645,14 @@ export interface ResolvedColumn {
  * Given a list of events for a single day, compute stacking columns for overlapping events.
  * Returns each event annotated with its column index and total columns in its overlap group.
  */
-export function resolveEventColumns(events: InternalScheduleEvent[]): ResolvedColumn[] {
+export function resolveEventColumns(
+  events: InternalScheduleEvent[]
+): ResolvedColumn[] {
   if (events.length === 0) return [];
 
-  const sorted = [...events].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  const sorted = [...events].sort(
+    (a, b) => a.startDate.getTime() - b.startDate.getTime()
+  );
   const result: ResolvedColumn[] = [];
 
   // Group events into overlapping clusters

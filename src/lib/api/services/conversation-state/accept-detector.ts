@@ -15,8 +15,9 @@
 //
 // PURE-CORE: `detectAccept(customerMessages)` takes already-cleaned CleanMessage[]
 // (quote/signature stripped upstream by message-cleaner.ts) and returns an
-// AcceptSignal. No DB, no network, no model. Callers pre-filter to real customer
-// inbound messages (state.customerMessages); this module does not re-derive that.
+// AcceptSignal for the latest customer event. No DB, no network, no model.
+// Callers pre-filter to real customer inbound messages (state.customerMessages);
+// this module does not re-derive that.
 //
 // The keyword/filename pattern lists are exported + commented so the sweet spot can
 // be tuned without spelunking the matching code.
@@ -112,7 +113,9 @@ function isPdfAttachment(mimeType: string, kind: string): boolean {
 
 /** A confirmed (vision-inspected) signed estimate on a customer message. */
 function hasInspectedSignedEstimate(message: CleanMessage): boolean {
-  return message.attachments.some((att) => att.inspection?.isSignedEstimate === true);
+  return message.attachments.some(
+    (att) => att.inspection?.isSignedEstimate === true
+  );
 }
 
 /**
@@ -123,7 +126,9 @@ function hasUninspectedSignedEstimateHint(message: CleanMessage): boolean {
   return message.attachments.some((att) => {
     if (att.inspection != null) return false; // inspected → handled by the HIGH path
     if (!isPdfAttachment(att.mimeType, att.kind)) return false;
-    return SIGNED_ESTIMATE_FILENAME_PATTERNS.some((re) => re.test(att.filename));
+    return SIGNED_ESTIMATE_FILENAME_PATTERNS.some((re) =>
+      re.test(att.filename)
+    );
   });
 }
 
@@ -131,64 +136,76 @@ function matchesAny(patterns: RegExp[], normalized: string): boolean {
   return patterns.some((re) => re.test(normalized));
 }
 
+const MATERIAL_DECISION_REVERSAL_PATTERNS: RegExp[] = [
+  /\bdecided\b.{0,30}\bnot to (?:go ahead|proceed|move forward|continue|start|book|schedule)\b/,
+  /\b(?:do not|dont|will not|wont|cannot|cant|not going to)\b.{0,30}\b(?:go ahead|proceed|move forward|continue|start|book|schedule)\b/,
+  /\bno longer (?:want|need|plan|intend) to (?:go ahead|proceed|move forward|continue|start|book|schedule)\b/,
+  /\bnot ready to (?:go ahead|proceed|move forward|continue|start|book|schedule)\b/,
+  /\b(?:changed|change) (?:our|my) mind\b/,
+  /\b(?:cancel|cancelled|canceled|cancelling|canceling)\b/,
+  /\b(?:hold off|put (?:it|this|the project|the job|the work) on hold)\b/,
+  /\b(?:pause|paused|pausing|postpone|postponed|postponing)\b/,
+  /\brevisit (?:it|this) later\b/,
+  /\b(?:went|go|going) with (?:someone|somebody|someone else|another company|a different company)\b/,
+  /\b(?:decline|declined|reject|rejected) (?:the )?(?:quote|estimate|proposal|bid|offer|job|project)\b/,
+];
+
+/** A current cancellation, postponement, or changed decision cancels stale wins. */
+export function isMaterialDecisionReversal(body: string): boolean {
+  return matchesAny(
+    MATERIAL_DECISION_REVERSAL_PATTERNS,
+    normalizeForMatch(body)
+  );
+}
+
 /**
- * Deterministically detect a won/accept signal from already-cleaned customer
- * inbound messages.
- *
- * Precedence: any HIGH signal (explicit accept language OR an inspected signed
- * estimate) makes the whole result HIGH and the evidence collapses to only the
- * HIGH-carrying messages — a soft "sounds good" from an earlier message is not
- * cited once a clear win exists. With no HIGH signal, soft acks and un-inspected
- * estimate-PDF hints produce a LOW signal. With neither, `detected: false`.
+ * Deterministically detect a won/accept signal from the latest already-cleaned
+ * customer inbound. Historical wins are conversation memory, not a new trigger.
+ * A cancellation, postponement, or changed decision in that latest event wins
+ * even when the same sentence quotes earlier accept language.
  */
 export function detectAccept(customerMessages: CleanMessage[]): AcceptSignal {
-  const highEvidenceIds: string[] = [];
-  const highBasis = new Set<AcceptBasis>();
-
-  const lowEvidenceIds: string[] = [];
-  const lowBasis = new Set<AcceptBasis>();
-
-  for (const message of customerMessages) {
-    const normalized = normalizeForMatch(message.cleanBody);
-
-    const explicitAccept = matchesAny(ACCEPT_LANGUAGE_PATTERNS, normalized);
-    const signedEstimate = hasInspectedSignedEstimate(message);
-
-    if (explicitAccept || signedEstimate) {
-      if (explicitAccept) highBasis.add(ACCEPT_BASIS_EXPLICIT);
-      if (signedEstimate) highBasis.add(ACCEPT_BASIS_SIGNED);
-      highEvidenceIds.push(message.providerMessageId);
-      continue; // a HIGH message is never also counted as a soft hint
-    }
-
-    // No HIGH signal on this message — collect any soft / pre-vision hints.
-    let isLowHit = false;
-    if (matchesAny(SOFT_ACK_PATTERNS, normalized)) {
-      lowBasis.add(ACCEPT_BASIS_SOFT);
-      isLowHit = true;
-    }
-    if (hasUninspectedSignedEstimateHint(message)) {
-      lowBasis.add(ACCEPT_BASIS_SIGNED);
-      isLowHit = true;
-    }
-    if (isLowHit) lowEvidenceIds.push(message.providerMessageId);
+  const latest = [...customerMessages]
+    .sort((left, right) => left.sentAt.localeCompare(right.sentAt))
+    .pop();
+  if (!latest || isMaterialDecisionReversal(latest.cleanBody)) {
+    return {
+      detected: false,
+      confidence: "low",
+      basis: [],
+      evidenceMessageIds: [],
+    };
   }
 
-  if (highEvidenceIds.length > 0) {
+  const highBasis = new Set<AcceptBasis>();
+  const lowBasis = new Set<AcceptBasis>();
+  const normalized = normalizeForMatch(latest.cleanBody);
+  const explicitAccept = matchesAny(ACCEPT_LANGUAGE_PATTERNS, normalized);
+  const signedEstimate = hasInspectedSignedEstimate(latest);
+
+  if (explicitAccept || signedEstimate) {
+    if (explicitAccept) highBasis.add(ACCEPT_BASIS_EXPLICIT);
+    if (signedEstimate) highBasis.add(ACCEPT_BASIS_SIGNED);
     return {
       detected: true,
       confidence: "high",
       basis: orderBasis(highBasis),
-      evidenceMessageIds: highEvidenceIds,
+      evidenceMessageIds: [latest.providerMessageId],
     };
   }
 
-  if (lowEvidenceIds.length > 0) {
+  if (matchesAny(SOFT_ACK_PATTERNS, normalized)) {
+    lowBasis.add(ACCEPT_BASIS_SOFT);
+  }
+  if (hasUninspectedSignedEstimateHint(latest)) {
+    lowBasis.add(ACCEPT_BASIS_SIGNED);
+  }
+  if (lowBasis.size > 0) {
     return {
       detected: true,
       confidence: "low",
       basis: orderBasis(lowBasis),
-      evidenceMessageIds: lowEvidenceIds,
+      evidenceMessageIds: [latest.providerMessageId],
     };
   }
 

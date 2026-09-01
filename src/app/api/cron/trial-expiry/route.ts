@@ -77,19 +77,24 @@ export async function GET(request: NextRequest) {
     const result = controlled.value;
 
     console.log(
-      `[cron/trial-expiry] Scanned ${result.scanned} companies, sent ${result.sent.length}, skipped ${result.skipped.length}, errors ${result.errors.length}`
+      `[cron/trial-expiry] Scanned ${result.scanned} companies, sent ${result.sent.length}, skipped ${result.skipped.length}, push retries ${result.pushRetries.length}, errors ${result.errors.length}`
     );
 
     if (result.errors.length > 0) {
       console.error("[cron/trial-expiry] Errors:", result.errors);
     }
 
+    // The workload itself succeeded (HTTP 200 — every outcome is durably
+    // recorded and eligible failures retry tomorrow), but `ok` must reflect
+    // whether anything failed. It used to be hardcoded true, which is how a
+    // permanently suppressed push reported a clean run (bug 60480c86).
     return NextResponse.json({
-      ok: true,
+      ok: result.errors.length === 0,
       ran: true,
       scanned: result.scanned,
       sent: result.sent,
       skipped: result.skipped,
+      pushRetries: result.pushRetries,
       errors: result.errors.length,
     });
   } catch (err) {

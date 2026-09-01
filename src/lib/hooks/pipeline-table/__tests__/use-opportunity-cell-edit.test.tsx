@@ -23,6 +23,12 @@ import {
 } from "@/lib/hooks/pipeline-table/use-opportunity-cell-edit";
 
 const baseRow: PipelineTableRow = {
+  siteVisitNextAt: null,
+  siteVisitCompletedAt: null,
+  siteVisitCount: 0,
+  deckDesignCount: 0,
+  deckLatestTitle: null,
+  deckLatestVersion: null,
   id: "opp-1",
   companyId: "co-1",
   title: "Deck rebuild",

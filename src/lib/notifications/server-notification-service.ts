@@ -180,6 +180,11 @@ export async function createTrustedNotifications(
   const isSupportedDurableIdentity =
     (notificationType === "data_review_resolved" &&
       dedupeKey.startsWith("data_review_resolution:v1:")) ||
+    ((notificationType === "phase_c_appointment_booked" ||
+      notificationType === "phase_c_appointment_review") &&
+      /^phase-c-bilateral:v1:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}:(?:consumed|review)$/i.test(
+        dedupeKey
+      )) ||
     (notificationType === "mention" &&
       /^mention-edit:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         dedupeKey
@@ -349,6 +354,52 @@ async function applyQuietHoursToPushRecipients(params: {
   return delivered;
 }
 
+/**
+ * Quiet-hours gate for push senders that do not flow through
+ * `resolveNotificationPreferences` (the delivery workers, the task-mutation
+ * outbox, trial expiry, role-needed). Reads each recipient's quiet-hours window
+ * and drops the ones whose window contains "now" in the company's timezone.
+ *
+ * Push only; rail rows are untouched. Zero extra round-trips when nobody has a
+ * window configured — `applyQuietHoursToPushRecipients` skips the company read.
+ *
+ * Callers own recipient derivation (each already knows who should be notified);
+ * this is strictly the last gate before the push channel. Bug 42aa787c.
+ */
+export async function filterPushRecipientsByQuietHours(params: {
+  companyId: string;
+  recipientUserIds: string[];
+  db?: SupabaseClient;
+}): Promise<string[]> {
+  const unique = [...new Set(params.recipientUserIds)].filter(Boolean);
+  if (unique.length === 0) return [];
+  const db = params.db ?? getServiceRoleClient();
+  const { data, error } = await db
+    .from("notification_preferences")
+    .select("user_id, quiet_hours_start, quiet_hours_end")
+    .in("user_id", unique)
+    .eq("company_id", params.companyId);
+  if (error) {
+    throw new Error(`Quiet-hours preference lookup failed: ${error.message}`);
+  }
+  const byUser = new Map(
+    (data ?? []).map((row) => [String(row.user_id), row as Record<string, unknown>])
+  );
+  const candidates: QuietHoursCandidate[] = unique.map((userId) => {
+    const row = byUser.get(userId);
+    return {
+      userId,
+      startSeconds: parseTimeOfDaySeconds(row?.quiet_hours_start),
+      endSeconds: parseTimeOfDaySeconds(row?.quiet_hours_end),
+    };
+  });
+  return applyQuietHoursToPushRecipients({
+    db,
+    companyId: params.companyId,
+    candidates,
+  });
+}
+
 export async function resolveNotificationPreferences(params: {
   companyId: string;
   recipientUserIds: string[];
@@ -404,8 +455,7 @@ export async function resolveNotificationPreferences(params: {
         ? (userPreferences.channel_preferences as Record<string, unknown>)
         : null;
     const eventPreference = channelPreferences?.[params.preferenceKey] as
-      | { push?: boolean; email?: boolean }
-      | undefined;
+      { push?: boolean; email?: boolean } | undefined;
     const wantsPush = eventPreference?.push !== false;
     const wantsEmail = eventPreference?.email === true;
 
@@ -499,10 +549,22 @@ export async function dispatchRoleNeededNotification(
     db
   );
 
-  const pushResult =
+  // Quiet hours: this sender had no preference gate at all — the rail rows
+  // above are the durable surface and always land; the push respects the
+  // admin's window like every other event-driven push (bug 42aa787c).
+  const pushTargets =
     rail.errors === 0 && rail.createdRecipientIds.length > 0
-      ? await sendOneSignalPush({
+      ? await filterPushRecipientsByQuietHours({
+          companyId,
           recipientUserIds: rail.createdRecipientIds,
+          db,
+        })
+      : [];
+
+  const pushResult =
+    pushTargets.length > 0
+      ? await sendOneSignalPush({
+          recipientUserIds: pushTargets,
           title,
           body: "Tap to assign their role.",
           data: {
