@@ -34,6 +34,7 @@ import {
 } from "./collections-capability";
 import { ANALYZE_HIRING_BREAK_EVEN_CAPABILITY_DEFINITION } from "./hiring-what-if-capability";
 import { PROMISE_RECOVERY_CAPABILITY_DEFINITION } from "./promise-recovery-capability";
+import { ANALYZE_SALES_TRUTH_CAPABILITY_DEFINITION } from "./sales-truth-capability";
 
 export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
@@ -46,6 +47,8 @@ export const HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION =
   "2026-08-31.capability-manifest.v11" as const;
 export const PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION =
   "2026-09-01.capability-manifest.v12" as const;
+export const SALES_TRUTH_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-01.capability-manifest.v13" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -338,6 +341,28 @@ const PROMISE_RECOVERY_CAPABILITY_BY_NAME = new Map(
   )
 );
 
+const salesTruthManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...PROMISE_RECOVERY_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, SALES_TRUTH_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    ANALYZE_SALES_TRUTH_CAPABILITY_DEFINITION,
+    SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  salesTruthManifestEntries,
+  SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(salesTruthManifestEntries);
+
+export const SALES_TRUTH_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(salesTruthManifestEntries);
+
+const SALES_TRUTH_CAPABILITY_BY_NAME = new Map(
+  SALES_TRUTH_CAPABILITY_MANIFEST.map((entry) => [entry.name, entry] as const)
+);
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -374,6 +399,14 @@ export function getPromiseRecoveryCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
   const entry = PROMISE_RECOVERY_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getSalesTruthCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = SALES_TRUTH_CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
 }
@@ -684,6 +717,16 @@ export function resolvePromiseRecoveryCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getPromiseRecoveryCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveSalesTruthCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getSalesTruthCapabilityManifestEntry(capabilityName),
     rawInput
   );
 }

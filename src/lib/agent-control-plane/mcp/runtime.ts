@@ -36,6 +36,11 @@ import {
   createPromiseRecoveryService,
   type PromiseRecoveryService,
 } from "@/lib/agent-control-plane/services/promise-recovery/promise-recovery-service";
+import { createSalesTruthRepository } from "@/lib/agent-control-plane/services/sales-truth/sales-truth-repository";
+import {
+  createSalesTruthService,
+  type SalesTruthService,
+} from "@/lib/agent-control-plane/services/sales-truth/sales-truth-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -79,6 +84,7 @@ export interface McpServerRuntime {
   readonly collections: CollectionsService;
   readonly hiringWhatIf: HiringWhatIfService;
   readonly promiseRecovery: PromiseRecoveryService;
+  readonly salesTruth: SalesTruthService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -130,7 +136,8 @@ function preserveMcpRpcCancellation(
   let defaultExecution: Promise<McpRpcResult> | null = null;
   const then = <TResult1 = McpRpcResult, TResult2 = never>(
     onfulfilled?:
-      ((value: McpRpcResult) => TResult1 | PromiseLike<TResult1>) | null,
+      | ((value: McpRpcResult) => TResult1 | PromiseLike<TResult1>)
+      | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ): PromiseLike<TResult1 | TResult2> => {
     defaultExecution ??= settleMcpRpc(functionName, rawRequest);
@@ -253,6 +260,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const salesTruth = createSalesTruthService({
+    repository: createSalesTruthRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
 
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
@@ -261,11 +274,13 @@ export function getMcpServerRuntime(): McpServerRuntime {
       collections,
       hiringWhatIf,
       promiseRecovery,
+      salesTruth,
     }),
     dayCloseout,
     collections,
     hiringWhatIf,
     promiseRecovery,
+    salesTruth,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

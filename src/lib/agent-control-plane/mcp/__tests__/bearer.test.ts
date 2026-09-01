@@ -39,6 +39,7 @@ function runtime(
     collections: {} as McpServerRuntime["collections"],
     hiringWhatIf: {} as McpServerRuntime["hiringWhatIf"],
     promiseRecovery: {} as McpServerRuntime["promiseRecovery"],
+    salesTruth: {} as McpServerRuntime["salesTruth"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName, args) {

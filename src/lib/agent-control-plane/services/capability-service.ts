@@ -17,6 +17,10 @@ import {
   type PromiseRecoveryService,
 } from "./promise-recovery/promise-recovery-service";
 import {
+  isTrustedSalesTruthService,
+  type SalesTruthService,
+} from "./sales-truth/sales-truth-service";
+import {
   isTrustedOpsAgentReadCatalogueService,
   type OpsAgentReadCatalogueService,
 } from "./read-catalogue-service";
@@ -27,7 +31,8 @@ export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   DayCloseoutService &
   CollectionsService &
   HiringWhatIfService &
-  PromiseRecoveryService;
+  PromiseRecoveryService &
+  SalesTruthService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
@@ -35,6 +40,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly collections: CollectionsService;
   readonly hiringWhatIf: HiringWhatIfService;
   readonly promiseRecovery: PromiseRecoveryService;
+  readonly salesTruth: SalesTruthService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
     throw new TypeError("A trusted OPS read catalogue is required");
@@ -51,12 +57,16 @@ export function createOpsAgentCapabilityService(input: {
   if (!isTrustedPromiseRecoveryService(input.promiseRecovery)) {
     throw new TypeError("A trusted promise-recovery service is required");
   }
+  if (!isTrustedSalesTruthService(input.salesTruth)) {
+    throw new TypeError("A trusted sales-truth service is required");
+  }
   const service = Object.freeze({
     ...input.reads,
     ...input.dayCloseout,
     ...input.collections,
     ...input.hiringWhatIf,
     ...input.promiseRecovery,
+    ...input.salesTruth,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;

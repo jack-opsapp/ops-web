@@ -5,9 +5,7 @@ import type { CurrentProductionMcpToolId } from "@/lib/agent-control-plane/regis
 import type { P2ReadCapabilityId } from "@/lib/agent-control-plane/registry/read-capabilities/p2";
 
 type AsyncDomainMethodName = {
-  [
-    Name in keyof OpsAgentCapabilityService
-  ]: OpsAgentCapabilityService[Name] extends (
+  [Name in keyof OpsAgentCapabilityService]: OpsAgentCapabilityService[Name] extends (
     ...args: never[]
   ) => Promise<unknown>
     ? Name
@@ -53,6 +51,7 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
   prepare_collections: "prepareCollections",
   analyze_hiring_break_even: "analyzeHiringBreakEven",
   check_customer_reply: "checkCustomerReply",
+  analyze_sales_truth: "analyzeSalesTruth",
 } as const satisfies Readonly<
   Record<
     | CurrentProductionMcpToolId
@@ -60,7 +59,8 @@ export const DOMAIN_METHOD_BY_CAPABILITY = Object.freeze({
     | "prepare_day_closeout"
     | "prepare_collections"
     | "analyze_hiring_break_even"
-    | "check_customer_reply",
+    | "check_customer_reply"
+    | "analyze_sales_truth",
     AsyncDomainMethodName
   >
 >);
@@ -71,7 +71,8 @@ export type McpDomainCapabilityId =
   | "prepare_day_closeout"
   | "prepare_collections"
   | "analyze_hiring_break_even"
-  | "check_customer_reply";
+  | "check_customer_reply"
+  | "analyze_sales_truth";
 export type McpDomainMethodName =
   (typeof DOMAIN_METHOD_BY_CAPABILITY)[McpDomainCapabilityId];
 
