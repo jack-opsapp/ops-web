@@ -41,6 +41,8 @@
   "action.bulkReject": "Rechazar seleccionadas",
   "action.expand": "Ver detalles",
   "action.collapse": "Ocultar detalles",
+  "action.selectAll": "Seleccionar todas",
+  "action.deselectAll": "Deseleccionar todas",
 
   "card.confidence": "Confianza",
   "card.source": "Fuente",
