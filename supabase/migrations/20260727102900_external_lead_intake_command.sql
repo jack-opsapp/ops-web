@@ -686,7 +686,11 @@ begin
       p_company_id,
       'pipeline.assign'
     ) = 'all'
-  on conflict (opportunity_id, recipient_user_id) do nothing;
+  on conflict (
+    opportunity_id,
+    recipient_user_id,
+    assignment_version
+  ) do nothing;
 
   select count(*)::integer
   into v_prompt_count
@@ -695,6 +699,87 @@ begin
     and delivery.opportunity_id = p_opportunity_id
     and delivery.source_kind = p_source_kind
     and delivery.source_id = p_source_id
+    and delivery.assignment_version = 0
+    and delivery.disposition is distinct from 'assigned';
+
+  return coalesce(v_prompt_count, 0);
+end;
+$function$;
+
+create or replace function private.enqueue_unassigned_lead_assignment_deliveries_at_version(
+  p_company_id uuid,
+  p_opportunity_id uuid,
+  p_connection_id uuid,
+  p_assignment_version bigint
+) returns integer
+language plpgsql
+security definer
+set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
+as $function$
+declare
+  v_prompt_count integer;
+begin
+  if p_company_id is null
+    or p_opportunity_id is null
+    or p_connection_id is null
+    or p_assignment_version is null
+    or p_assignment_version < 0
+  then
+    raise exception 'unassigned_lead_prompt_identity_required'
+      using errcode = '22023';
+  end if;
+
+  insert into public.unassigned_lead_assignment_deliveries (
+    company_id,
+    opportunity_id,
+    connection_id,
+    source_kind,
+    source_id,
+    recipient_user_id,
+    assignment_version
+  )
+  select
+    p_company_id,
+    p_opportunity_id,
+    p_connection_id,
+    'email_connection',
+    p_connection_id,
+    recipient.id,
+    p_assignment_version
+  from public.users recipient
+  where recipient.company_id = p_company_id
+    and recipient.deleted_at is null
+    and coalesce(recipient.is_active, false)
+    and private.permission_user_is_admin(recipient.id, p_company_id)
+    and private.raw_pipeline_scope_for_user(
+      recipient.id,
+      p_company_id,
+      'pipeline.view'
+    ) = 'all'
+    and private.raw_pipeline_scope_for_user(
+      recipient.id,
+      p_company_id,
+      'pipeline.edit'
+    ) = 'all'
+    and private.raw_pipeline_scope_for_user(
+      recipient.id,
+      p_company_id,
+      'pipeline.assign'
+    ) = 'all'
+  on conflict (
+    opportunity_id,
+    recipient_user_id,
+    assignment_version
+  ) do nothing;
+
+  select count(*)::integer
+  into v_prompt_count
+  from public.unassigned_lead_assignment_deliveries delivery
+  where delivery.company_id = p_company_id
+    and delivery.opportunity_id = p_opportunity_id
+    and delivery.source_kind = 'email_connection'
+    and delivery.source_id = p_connection_id
+    and delivery.assignment_version = p_assignment_version
     and delivery.disposition is distinct from 'assigned';
 
   return coalesce(v_prompt_count, 0);
@@ -710,11 +795,11 @@ language sql
 security definer
 set search_path to 'pg_catalog', 'public', 'private', 'pg_temp'
 as $function$
-  select private.enqueue_unassigned_lead_assignment_deliveries(
+  select private.enqueue_unassigned_lead_assignment_deliveries_at_version(
     p_company_id,
     p_opportunity_id,
-    'email_connection',
-    p_connection_id
+    p_connection_id,
+    0
   );
 $function$;
 
@@ -3143,7 +3228,7 @@ begin
         or opportunity.archived_at is not null
         or opportunity.stage in ('won', 'lost', 'discarded')
         or opportunity.assigned_to is not null
-        or opportunity.assignment_version <> 0
+        or opportunity.assignment_version <> delivery.assignment_version
         or not private.unassigned_lead_delivery_source_is_active(
           delivery.company_id,
           delivery.source_kind,
@@ -3417,7 +3502,7 @@ begin
     or opportunity.archived_at is not null
     or opportunity.stage in ('won', 'lost', 'discarded')
     or opportunity.assigned_to is not null
-    or opportunity.assignment_version <> 0
+    or opportunity.assignment_version <> delivery.assignment_version
     or not private.unassigned_lead_delivery_source_is_active(
       delivery.company_id,
       delivery.source_kind,
@@ -3576,6 +3661,9 @@ revoke all on function private.enqueue_unassigned_lead_assignment_deliveries(
 ) from public, anon, authenticated, service_role;
 revoke all on function private.enqueue_unassigned_lead_assignment_deliveries(
   uuid, uuid, uuid
+) from public, anon, authenticated, service_role;
+revoke all on function private.enqueue_unassigned_lead_assignment_deliveries_at_version(
+  uuid, uuid, uuid, bigint
 ) from public, anon, authenticated, service_role;
 revoke all on function private.guard_external_intake_submission_evidence()
   from public, anon, authenticated, service_role;

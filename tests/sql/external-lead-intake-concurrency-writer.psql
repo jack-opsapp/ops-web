@@ -25,6 +25,7 @@ create table private.external_lead_intake_concurrency_fixture (
   owner_user_id uuid not null,
   principal_id uuid not null,
   credential_id uuid not null,
+  credential_secret_digest bytea not null,
   source_internal_id uuid not null,
   source_public_id uuid not null,
   form_internal_id uuid not null,
@@ -52,6 +53,8 @@ declare
   v_principal_id uuid := gen_random_uuid();
   v_credential_family_id uuid := gen_random_uuid();
   v_credential_id uuid := gen_random_uuid();
+  v_credential_secret_digest bytea := gen_random_bytes(32);
+  v_visible_prefix text := 'opsx' || encode(gen_random_bytes(6), 'hex');
 begin
   insert into public.companies (
     id,
@@ -201,8 +204,8 @@ begin
     v_principal_id,
     'Concurrency credential',
     1,
-    decode(repeat('71', 32), 'hex'),
-    'opsxlead',
+    v_credential_secret_digest,
+    v_visible_prefix,
     1,
     'active',
     clock_timestamp() + interval '1 day',
@@ -215,11 +218,12 @@ begin
     v_owner_user_id,
     v_principal_id,
     v_credential_id,
+    v_credential_secret_digest,
     v_source_internal_id,
     v_source_public_id,
     v_form_internal_id,
     v_form_public_id,
-    'opsxlead',
+    v_visible_prefix,
     1
   );
 end;
@@ -280,7 +284,7 @@ begin
     v_fixture.credential_id,
     v_fixture.company_id,
     1::smallint,
-    decode(repeat('71', 32), 'hex'),
+    v_fixture.credential_secret_digest,
     v_fixture.visible_prefix,
     v_fixture.authorization_epoch,
     v_fixture.source_public_id,

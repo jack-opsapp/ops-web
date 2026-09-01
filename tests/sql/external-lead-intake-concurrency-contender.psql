@@ -1,20 +1,25 @@
 \set ON_ERROR_STOP on
 
-do $wait_for_fixture$
+-- Observe Session A owning the setup barrier before waiting to cross it.
+-- Advisory lock state is immediate; a catalog lookup loop inside one DO
+-- statement would retain one statement snapshot and miss the committed table.
+do $wait_for_writer$
 declare
   v_deadline timestamptz := clock_timestamp() + interval '30 seconds';
 begin
   loop
-    exit when to_regclass(
-      'private.external_lead_intake_concurrency_fixture'
-    ) is not null;
+    if pg_try_advisory_lock(2026072611) then
+      perform pg_advisory_unlock(2026072611);
+    else
+      exit;
+    end if;
     if clock_timestamp() >= v_deadline then
-      raise exception 'external_lead_intake_concurrency_fixture_timeout';
+      raise exception 'external_lead_intake_concurrency_writer_timeout';
     end if;
     perform pg_sleep(0.05);
   end loop;
 end;
-$wait_for_fixture$;
+$wait_for_writer$;
 
 select pg_advisory_lock(2026072611);
 select pg_advisory_unlock(2026072611);

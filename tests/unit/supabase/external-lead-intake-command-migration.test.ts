@@ -155,6 +155,18 @@ describe("external lead intake command migration", () => {
     expect(source).toContain("external_intake");
   });
 
+  it("preserves assignment-version delivery fences while generalizing lead sources", () => {
+    expect(source).toMatch(
+      /create or replace function private\.enqueue_unassigned_lead_assignment_deliveries_at_version\([\s\S]*?p_assignment_version bigint[\s\S]*?source_kind[\s\S]*?source_id[\s\S]*?on conflict \([\s\S]*?opportunity_id,[\s\S]*?recipient_user_id,[\s\S]*?assignment_version[\s\S]*?\) do nothing/
+    );
+    expect(
+      source.match(
+        /opportunity\.assignment_version\s*<>\s*delivery\.assignment_version/g
+      )
+    ).toHaveLength(2);
+    expect(source).not.toContain("opportunity.assignment_version <> 0");
+  });
+
   it("keeps every callable boundary service-role-only", () => {
     for (const functionName of [
       "resolve_external_intake_submission_context_as_system",
