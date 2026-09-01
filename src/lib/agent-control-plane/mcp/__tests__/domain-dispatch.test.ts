@@ -48,6 +48,7 @@ const EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD = [
   ["analyze_hiring_break_even", "analyzeHiringBreakEven"],
   ["check_customer_reply", "checkCustomerReply"],
   ["analyze_sales_truth", "analyzeSalesTruth"],
+  ["check_payroll_readiness", "checkPayrollReadiness"],
 ] as const;
 
 describe("typed MCP domain dispatch", () => {
@@ -60,6 +61,7 @@ describe("typed MCP domain dispatch", () => {
       | "analyze_hiring_break_even"
       | "check_customer_reply"
       | "analyze_sales_truth"
+      | "check_payroll_readiness"
     >();
     expect(Object.entries(DOMAIN_METHOD_BY_CAPABILITY)).toEqual(
       EXPECTED_EXTERNAL_ORDER_TO_DOMAIN_METHOD

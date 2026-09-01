@@ -41,6 +41,11 @@ import {
   createSalesTruthService,
   type SalesTruthService,
 } from "@/lib/agent-control-plane/services/sales-truth/sales-truth-service";
+import { createPayrollReadinessRepository } from "@/lib/agent-control-plane/services/payroll-readiness/payroll-readiness-repository";
+import {
+  createPayrollReadinessService,
+  type PayrollReadinessService,
+} from "@/lib/agent-control-plane/services/payroll-readiness/payroll-readiness-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -85,6 +90,7 @@ export interface McpServerRuntime {
   readonly hiringWhatIf: HiringWhatIfService;
   readonly promiseRecovery: PromiseRecoveryService;
   readonly salesTruth: SalesTruthService;
+  readonly payrollReadiness: PayrollReadinessService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -266,6 +272,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const payrollReadiness = createPayrollReadinessService({
+    repository: createPayrollReadinessRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
 
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
@@ -275,12 +287,14 @@ export function getMcpServerRuntime(): McpServerRuntime {
       hiringWhatIf,
       promiseRecovery,
       salesTruth,
+      payrollReadiness,
     }),
     dayCloseout,
     collections,
     hiringWhatIf,
     promiseRecovery,
     salesTruth,
+    payrollReadiness,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

@@ -10262,6 +10262,8 @@ export type Database = {
           forecast_balance_updated_at: string | null
           forecast_current_balance: number | null
           forecast_low_water_threshold: number | null
+          forecast_obligations_confirmed_at: string | null
+          forecast_obligations_confirmed_through: string | null
           id: string
           require_project_assignment: boolean | null
           require_receipt_photo: boolean | null
@@ -10277,6 +10279,8 @@ export type Database = {
           forecast_balance_updated_at?: string | null
           forecast_current_balance?: number | null
           forecast_low_water_threshold?: number | null
+          forecast_obligations_confirmed_at?: string | null
+          forecast_obligations_confirmed_through?: string | null
           id?: string
           require_project_assignment?: boolean | null
           require_receipt_photo?: boolean | null
@@ -10292,6 +10296,8 @@ export type Database = {
           forecast_balance_updated_at?: string | null
           forecast_current_balance?: number | null
           forecast_low_water_threshold?: number | null
+          forecast_obligations_confirmed_at?: string | null
+          forecast_obligations_confirmed_through?: string | null
           id?: string
           require_project_assignment?: boolean | null
           require_receipt_photo?: boolean | null
@@ -17565,11 +17571,13 @@ export type Database = {
           created_by: string | null
           currency: string
           deleted_at: string | null
+          due_time_local: string | null
           end_date: string | null
           id: string
           name: string
           next_due_date: string
           notes: string | null
+          obligation_kind: string | null
           updated_at: string
         }
         Insert: {
@@ -17581,11 +17589,13 @@ export type Database = {
           created_by?: string | null
           currency?: string
           deleted_at?: string | null
+          due_time_local?: string | null
           end_date?: string | null
           id?: string
           name: string
           next_due_date: string
           notes?: string | null
+          obligation_kind?: string | null
           updated_at?: string
         }
         Update: {
@@ -17597,11 +17607,13 @@ export type Database = {
           created_by?: string | null
           currency?: string
           deleted_at?: string | null
+          due_time_local?: string | null
           end_date?: string | null
           id?: string
           name?: string
           next_due_date?: string
           notes?: string | null
+          obligation_kind?: string | null
           updated_at?: string
         }
         Relationships: [

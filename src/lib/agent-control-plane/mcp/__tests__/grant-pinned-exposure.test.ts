@@ -13,6 +13,7 @@ const V4_REVISION = "2026-08-31.mcp-exposure.v4";
 const V5_REVISION = "2026-08-31.mcp-exposure.v5";
 const V6_REVISION = "2026-09-01.mcp-exposure.v6";
 const V7_REVISION = "2026-09-01.mcp-exposure.v7";
+const V8_REVISION = "2026-09-01.mcp-exposure.v8";
 const V1_TOOLS = [
   "list_scheduled_jobs",
   "list_job_readiness_issues",
@@ -186,6 +187,15 @@ describe("grant-pinned MCP exposure", () => {
       "analyze_hiring_break_even",
       "check_customer_reply",
       "analyze_sales_truth",
+    ]);
+  });
+
+  it("keeps dormant v8 additive with one read-only payroll decision", async () => {
+    await expect(listTools(V8_REVISION)).resolves.toEqual([
+      "analyze_hiring_break_even",
+      "check_customer_reply",
+      "analyze_sales_truth",
+      "check_payroll_readiness",
     ]);
   });
 
