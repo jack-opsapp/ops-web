@@ -27,7 +27,11 @@ function authority(): ActorAuthoritySnapshot {
   };
 }
 
-function runtime(exposureRevision = EXPOSURE_REVISION): McpServerRuntime {
+function runtime(
+  exposureRevision = EXPOSURE_REVISION,
+  accessAvailable = true,
+  observeArgs?: (args: Readonly<Record<string, unknown>>) => void
+): McpServerRuntime {
   const authorityClient = new StubAuthoritySupabaseRpcClient(authority());
   return {
     domainService: {} as McpServerRuntime["domainService"],
@@ -35,31 +39,34 @@ function runtime(exposureRevision = EXPOSURE_REVISION): McpServerRuntime {
     collections: {} as McpServerRuntime["collections"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
-      async rpc(functionName) {
+      async rpc(functionName, args) {
         if (functionName !== "resolve_mcp_oauth_access_token_as_system") {
           throw new Error("unexpected RPC");
         }
+        observeArgs?.(args);
         return {
-          data: [
-            {
-              grant_id: GRANT_ID,
-              client_id: CLIENT_ID,
-              client_name: "Codex",
-              user_id: USER_ID,
-              company_id: COMPANY_ID,
-              scopes: ["ops.jobs.read"],
-              accepted_labels: ["See your jobs and their status"],
-              consent_catalog_revision: "2026-08-22.mcp-consent-catalog.v1",
-              exposure_revision: exposureRevision,
-              revision: GRANT_REVISION,
-              issuer: "https://app.opsapp.co",
-              audience: "https://app.opsapp.co/api/mcp",
-              expires_at: "2099-08-29T12:10:00+00:00",
-              token_revoked: false,
-              grant_revoked: false,
-              client_disabled: false,
-            },
-          ],
+          data: accessAvailable
+            ? [
+                {
+                  grant_id: GRANT_ID,
+                  client_id: CLIENT_ID,
+                  client_name: "Codex",
+                  user_id: USER_ID,
+                  company_id: COMPANY_ID,
+                  scopes: ["ops.jobs.read"],
+                  accepted_labels: ["See your jobs and their status"],
+                  consent_catalog_revision: "2026-08-22.mcp-consent-catalog.v1",
+                  exposure_revision: exposureRevision,
+                  revision: GRANT_REVISION,
+                  issuer: "https://app.opsapp.co",
+                  audience: "https://app.opsapp.co/api/mcp",
+                  expires_at: "2099-08-29T12:10:00+00:00",
+                  token_revoked: false,
+                  grant_revoked: false,
+                  client_disabled: false,
+                },
+              ]
+            : [],
           error: null,
         };
       },
@@ -132,5 +139,23 @@ describe("MCP bearer grant boundary", () => {
     expect(resolution.grantFacts.exposureRevision).toBe(
       "2026-08-30.mcp-exposure.v3"
     );
+  });
+
+  it("fails as an invalid bearer when the database loses exact v3 canary authority", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.opsapp.co");
+    const observed = vi.fn();
+
+    const resolution = await resolveMcpBearer(
+      new Request("https://app.opsapp.co/api/mcp", {
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      }),
+      runtime("2026-08-30.mcp-exposure.v3", false, observed)
+    );
+
+    expect(resolution).toEqual({ kind: "invalid_token" });
+    expect(observed).toHaveBeenCalledWith({
+      p_token_hash: credentialDigest(TOKEN, "ops_mcp_at_"),
+      p_active_exposure_revision: "2026-08-29.mcp-exposure.v2",
+    });
   });
 });

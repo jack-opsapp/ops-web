@@ -249,6 +249,12 @@ const GrantListRowSchema = z.object({
   last_used_at: TimestampSchema.nullable(),
 });
 
+const CanaryBindingRowSchema = z.object({
+  exposure_revision: RevisionIdSchema,
+  consent_catalog_revision: RevisionIdSchema,
+  expires_at: TimestampSchema,
+});
+
 export type RegisteredClientRow = z.infer<typeof RegisteredClientRowSchema>;
 export type ClientRow = z.infer<typeof ClientRowSchema>;
 export type IssuedConsentPreviewRow = z.infer<
@@ -264,6 +270,7 @@ export type ResolvedAccessTokenRow = z.infer<
   typeof ResolvedAccessTokenRowSchema
 >;
 export type GrantListRow = z.infer<typeof GrantListRowSchema>;
+export type CanaryBindingRow = z.infer<typeof CanaryBindingRowSchema>;
 
 export class McpOAuthStoreError extends Error {
   constructor(operation: string) {
@@ -353,6 +360,30 @@ export async function getClient(
     p_client_id: clientId,
   });
   return optionalSingleRow(data, ClientRowSchema, "get_mcp_oauth_client");
+}
+
+export async function resolveCanaryBinding(
+  client: McpOAuthRpcClient,
+  input: {
+    clientId: string;
+    userId: string;
+    companyId: string;
+    exposureRevision: string;
+    consentCatalogRevision: string;
+  }
+): Promise<CanaryBindingRow | null> {
+  const data = await callRpc(client, "resolve_mcp_oauth_canary_as_system", {
+    p_oauth_client_id: input.clientId,
+    p_user_id: input.userId,
+    p_company_id: input.companyId,
+    p_exposure_revision: input.exposureRevision,
+    p_consent_catalog_revision: input.consentCatalogRevision,
+  });
+  return optionalSingleRow(
+    data,
+    CanaryBindingRowSchema,
+    "resolve_mcp_oauth_canary"
+  );
 }
 
 export async function issueConsentPreview(
@@ -544,12 +575,16 @@ export async function rotateRefreshToken(
 
 export async function resolveAccessToken(
   client: McpOAuthRpcClient,
-  tokenHash: string
+  tokenHash: string,
+  activeExposureRevision: string
 ): Promise<ResolvedAccessTokenRow | null> {
   const data = await callRpc(
     client,
     "resolve_mcp_oauth_access_token_as_system",
-    { p_token_hash: tokenHash }
+    {
+      p_token_hash: tokenHash,
+      p_active_exposure_revision: activeExposureRevision,
+    }
   );
   return optionalSingleRow(
     data,

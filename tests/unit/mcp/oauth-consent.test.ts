@@ -43,7 +43,10 @@ vi.mock("@/lib/utils/ratelimit", () => ({
 import { POST as contextPOST } from "@/app/api/mcp/oauth/authorize/context/route";
 import { POST as decisionPOST } from "@/app/api/mcp/oauth/authorize/decision/route";
 import { resolveMcpOAuthConfig } from "@/lib/agent-control-plane/mcp/oauth";
-import { MCP_SCOPE_CONSENT_LABELS } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
+import {
+  INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
+  MCP_SCOPE_CONSENT_LABELS,
+} from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -66,6 +69,8 @@ const COMPANY_ID = "ddee107c-33cd-483e-8278-0f8d8a180181";
 const COMPANY_NAME = "MAVERICK PROJECTS LTD";
 const CONSENT_CATALOG_REVISION = "2026-08-22.mcp-consent-catalog.v1";
 const EXPOSURE_REVISION = "2026-08-29.mcp-exposure.v2";
+const CANARY_CONSENT_CATALOG_REVISION = "2026-08-30.mcp-consent-catalog.v2";
+const CANARY_EXPOSURE_REVISION = "2026-08-30.mcp-exposure.v3";
 const ACTIVE_READ_SCOPES = [
   "ops.jobs.read",
   "ops.schedule.read",
@@ -91,6 +96,15 @@ const ACTIVE_READ_SCOPES = [
 const CONSENT_PREVIEW =
   "ops_mcp_cp_dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
 const CONSENT_PREVIEW_EXPIRES_AT = "2026-08-23T07:05:00.000Z";
+const CANARY_SCOPES = [
+  "ops.correspondence.read",
+  "ops.financial_documents.read",
+  "ops.jobs.read",
+  "ops.operations.prepare",
+  "ops.operations.read",
+  "ops.schedule.read",
+  "ops.tasks.read",
+] as const;
 
 const CLIENT_ROW = {
   client_id: CLIENT_ID,
@@ -123,6 +137,26 @@ const CONSUMED_PREVIEW_ROW = {
   code_challenge_method: "S256",
   resource: RESOURCE,
   expires_at: CONSENT_PREVIEW_EXPIRES_AT,
+};
+
+const CANARY_CLIENT_ROW = {
+  ...CLIENT_ROW,
+  client_name: "OPS canary",
+  scope: CANARY_SCOPES.join(" "),
+  scope_ceiling: [...CANARY_SCOPES],
+  consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+  exposure_revision: CANARY_EXPOSURE_REVISION,
+};
+
+const CANARY_CONSUMED_PREVIEW_ROW = {
+  ...CONSUMED_PREVIEW_ROW,
+  client_name: "OPS canary",
+  scopes: [...CANARY_SCOPES],
+  accepted_labels: CANARY_SCOPES.map(
+    (scope) => INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS[scope]
+  ),
+  consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+  exposure_revision: CANARY_EXPOSURE_REVISION,
 };
 
 const CODEX_CLIENT_ROW = {
@@ -271,6 +305,48 @@ function useChatGPTConsentRpc(): void {
     }
     if (fn === "consume_mcp_oauth_consent_preview_as_system") {
       return { data: [CHATGPT_CONSUMED_PREVIEW_ROW], error: null };
+    }
+    if (fn === "create_mcp_oauth_authorization_code_as_system") {
+      return { data: null, error: null };
+    }
+    return { data: null, error: null };
+  });
+}
+
+function useCanaryConsentRpc(bindingAvailable = true): void {
+  mocks.rpc.mockImplementation(async (fn: string) => {
+    if (fn === "get_mcp_oauth_client_as_system") {
+      return { data: [CANARY_CLIENT_ROW], error: null };
+    }
+    if (fn === "resolve_mcp_oauth_canary_as_system") {
+      return {
+        data: bindingAvailable
+          ? [
+              {
+                exposure_revision: CANARY_EXPOSURE_REVISION,
+                consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+                expires_at: "2099-08-31T20:00:00.000Z",
+              },
+            ]
+          : [],
+        error: null,
+      };
+    }
+    if (fn === "issue_mcp_oauth_consent_preview_as_system") {
+      return {
+        data: [
+          {
+            client_name: "OPS canary",
+            company_name: COMPANY_NAME,
+            expires_at: CONSENT_PREVIEW_EXPIRES_AT,
+            rate_limited: false,
+          },
+        ],
+        error: null,
+      };
+    }
+    if (fn === "consume_mcp_oauth_consent_preview_as_system") {
+      return { data: [CANARY_CONSUMED_PREVIEW_ROW], error: null };
     }
     if (fn === "create_mcp_oauth_authorization_code_as_system") {
       return { data: null, error: null };
@@ -1208,6 +1284,9 @@ describe("MCP OAuth consent — rate limiting", () => {
 
   it("returns 429 without a proof when the database cardinality ceiling wins", async () => {
     mocks.rpc.mockImplementation(async (fn: string) => {
+      if (fn === "get_mcp_oauth_client_as_system") {
+        return { data: [CLIENT_ROW], error: null };
+      }
       if (fn === "issue_mcp_oauth_consent_preview_as_system") {
         return {
           data: [
@@ -1258,6 +1337,99 @@ describe("MCP OAuth consent — rate limiting", () => {
 
     expect(response.status).toBe(429);
     expect(response.headers.get("Retry-After")).toBe("120");
+    expect(
+      mocks.rpc.mock.calls.some(
+        ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"
+      )
+    ).toBe(false);
+  });
+});
+
+describe("MCP OAuth consent — exact synthetic v3 canary", () => {
+  it("shows only the seven v3 scopes for the exact bound subject", async () => {
+    useCanaryConsentRpc();
+
+    const response = await contextPOST(
+      post(
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ scope: CANARY_SCOPES.join(" ") })
+      )
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.exposureRevision).toBe(CANARY_EXPOSURE_REVISION);
+    expect(body.consentCatalogRevision).toBe(CANARY_CONSENT_CATALOG_REVISION);
+    expect(body.scopes).toEqual(
+      CANARY_SCOPES.map((scope) => ({
+        scope,
+        label: INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS[scope],
+      }))
+    );
+    const issueCall = mocks.rpc.mock.calls.find(
+      ([fn]) => fn === "issue_mcp_oauth_consent_preview_as_system"
+    );
+    expect(issueCall?.[1]).toMatchObject({
+      p_client_id: CLIENT_ID,
+      p_user_id: USER_ID,
+      p_company_id: COMPANY_ID,
+      p_scopes: [...CANARY_SCOPES],
+      p_consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+      p_exposure_revision: CANARY_EXPOSURE_REVISION,
+    });
+  });
+
+  it("rejects an unavailable binding without falling back or revealing it", async () => {
+    useCanaryConsentRpc(false);
+
+    const response = await contextPOST(
+      post(
+        "/api/mcp/oauth/authorize/context",
+        contextBody({ scope: CANARY_SCOPES.join(" ") })
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_request" });
+    expect(
+      mocks.rpc.mock.calls.some(
+        ([fn]) => fn === "issue_mcp_oauth_consent_preview_as_system"
+      )
+    ).toBe(false);
+  });
+
+  it("rechecks the exact binding at decision before creating a v3 code", async () => {
+    useCanaryConsentRpc();
+
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
+
+    expect(response.status).toBe(200);
+    expect(createCodeArgs()).toMatchObject({
+      p_client_id: CLIENT_ID,
+      p_user_id: USER_ID,
+      p_company_id: COMPANY_ID,
+      p_scopes: [...CANARY_SCOPES],
+      p_consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+      p_exposure_revision: CANARY_EXPOSURE_REVISION,
+    });
+    expect(
+      mocks.rpc.mock.calls.filter(
+        ([fn]) => fn === "resolve_mcp_oauth_canary_as_system"
+      )
+    ).toHaveLength(1);
+  });
+
+  it("blocks code creation when the binding disappears after preview", async () => {
+    useCanaryConsentRpc(false);
+
+    const response = await decisionPOST(
+      post("/api/mcp/oauth/authorize/decision", decisionBody())
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid_request" });
     expect(
       mocks.rpc.mock.calls.some(
         ([fn]) => fn === "create_mcp_oauth_authorization_code_as_system"

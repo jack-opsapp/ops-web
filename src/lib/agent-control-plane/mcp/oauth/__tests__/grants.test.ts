@@ -337,7 +337,8 @@ const OPERATIONS: readonly StoreOperation[] = [
   {
     label: "resolveAccessToken",
     functionName: "resolve_mcp_oauth_access_token_as_system",
-    invoke: (client) => resolveAccessToken(client, TOKEN_HASH),
+    invoke: (client) =>
+      resolveAccessToken(client, TOKEN_HASH, EXPOSURE_REVISION),
   },
   {
     label: "revokeGrant",
@@ -1021,12 +1022,15 @@ describe("resolveAccessToken", () => {
       error: null,
     });
 
-    const row = await resolveAccessToken(client, TOKEN_HASH);
+    const row = await resolveAccessToken(client, TOKEN_HASH, EXPOSURE_REVISION);
 
     expect(calls).toEqual([
       {
         functionName: "resolve_mcp_oauth_access_token_as_system",
-        args: { p_token_hash: TOKEN_HASH },
+        args: {
+          p_token_hash: TOKEN_HASH,
+          p_active_exposure_revision: EXPOSURE_REVISION,
+        },
       },
     ]);
     expect(row).toEqual(RESOLVED_ACCESS_TOKEN_ROW);
@@ -1043,9 +1047,9 @@ describe("resolveAccessToken", () => {
       error: null,
     });
 
-    await expect(resolveAccessToken(client, TOKEN_HASH)).resolves.toEqual(
-      databaseIdentityRow
-    );
+    await expect(
+      resolveAccessToken(client, TOKEN_HASH, EXPOSURE_REVISION)
+    ).resolves.toEqual(databaseIdentityRow);
   });
 
   it("rejects a non-RFC OAuth grant id even when database identities are valid", async () => {
@@ -1059,9 +1063,9 @@ describe("resolveAccessToken", () => {
       error: null,
     });
 
-    await expect(resolveAccessToken(client, TOKEN_HASH)).rejects.toBeInstanceOf(
-      McpOAuthStoreError
-    );
+    await expect(
+      resolveAccessToken(client, TOKEN_HASH, EXPOSURE_REVISION)
+    ).rejects.toBeInstanceOf(McpOAuthStoreError);
   });
 
   it("returns the revocation and disablement flags untouched for the caller to enforce", async () => {
@@ -1077,13 +1081,13 @@ describe("resolveAccessToken", () => {
       error: null,
     });
 
-    await expect(resolveAccessToken(client, TOKEN_HASH)).resolves.toMatchObject(
-      {
-        token_revoked: true,
-        grant_revoked: true,
-        client_disabled: true,
-      }
-    );
+    await expect(
+      resolveAccessToken(client, TOKEN_HASH, EXPOSURE_REVISION)
+    ).resolves.toMatchObject({
+      token_revoked: true,
+      grant_revoked: true,
+      client_disabled: true,
+    });
   });
 
   it.each([
@@ -1092,7 +1096,9 @@ describe("resolveAccessToken", () => {
   ])("returns null for $label", async ({ data }) => {
     const { client } = clientReturning({ data, error: null });
 
-    await expect(resolveAccessToken(client, TOKEN_HASH)).resolves.toBeNull();
+    await expect(
+      resolveAccessToken(client, TOKEN_HASH, EXPOSURE_REVISION)
+    ).resolves.toBeNull();
   });
 
   it.each([
@@ -1130,9 +1136,9 @@ describe("resolveAccessToken", () => {
   ])("rejects $label", async ({ data }) => {
     const { client } = clientReturning({ data, error: null });
 
-    await expect(resolveAccessToken(client, TOKEN_HASH)).rejects.toBeInstanceOf(
-      McpOAuthStoreError
-    );
+    await expect(
+      resolveAccessToken(client, TOKEN_HASH, EXPOSURE_REVISION)
+    ).rejects.toBeInstanceOf(McpOAuthStoreError);
   });
 });
 

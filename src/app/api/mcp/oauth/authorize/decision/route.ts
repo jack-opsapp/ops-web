@@ -18,13 +18,13 @@ import {
   getClient,
   isAllowlistedRedirectUri,
   mintCredential,
-  resolveActiveMcpConsentCatalog,
+  resolveMcpConsentCatalogRevision,
   resolveMcpOAuthConfig,
+  resolveOAuthExposureForSubject,
   resolveRequestedScopes,
   sha256Hex,
   type McpOAuthRpcClient,
 } from "@/lib/agent-control-plane/mcp/oauth";
-import { resolveActiveMcpExposure } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { rateLimit } from "@/lib/utils/ratelimit";
 
@@ -140,8 +140,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return serverError();
   }
 
-  const exposure = resolveActiveMcpExposure();
-  const consentCatalog = resolveActiveMcpConsentCatalog();
+  let client;
+  try {
+    client = preview ? await getClient(rpcClient, preview.client_id) : null;
+  } catch {
+    return serverError();
+  }
+  if (!preview || !client) return invalidRequest();
+
+  let exposure;
+  try {
+    exposure = await resolveOAuthExposureForSubject({
+      rpcClient,
+      client,
+      userId: preview.user_id,
+      companyId: preview.company_id,
+    });
+  } catch {
+    return serverError();
+  }
+  if (exposure === null) return invalidRequest();
+
+  const consentCatalog = resolveMcpConsentCatalogRevision(
+    client.consent_catalog_revision
+  );
   const scopes = preview
     ? resolveRequestedScopes(preview.scopes.join(" "), exposure)
     : null;
@@ -150,7 +172,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     : null;
   const config = resolveMcpOAuthConfig();
   if (
-    !preview ||
     preview.user_id !== auth.id ||
     preview.company_id !== auth.companyId ||
     preview.response_type !== "code" ||
@@ -168,13 +189,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return invalidRequest();
   }
 
-  let client;
-  try {
-    client = await getClient(rpcClient, preview.client_id);
-  } catch {
-    return serverError();
-  }
-  if (!client || client.disabled) return invalidRequest();
+  if (client.disabled) return invalidRequest();
   if (!client.redirect_uris.includes(preview.redirect_uri)) {
     return invalidRequest();
   }
