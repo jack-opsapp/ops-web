@@ -495,6 +495,22 @@ const inboxModule: PermissionModule = {
   ],
 };
 
+// Granular gate for the Agent Queue (/agent/queue + /api/agent/queue*). The
+// queue is the approval desk for every automation proposal, so reviewing it is
+// a distinct grant rather than a by-product of pipeline or inbox access.
+const agentModule: PermissionModule = {
+  id: "agent",
+  label: "Agent",
+  editorMode: "action",
+  actions: [
+    {
+      id: "agent.review",
+      label: "Review agent proposals",
+      scopes: ["all"],
+    },
+  ],
+};
+
 const portalModule: PermissionModule = {
   id: "portal",
   label: "Portal",
@@ -562,6 +578,7 @@ export const PERMISSION_CATEGORIES: PermissionCategory[] = [
       settingsModule,
       emailModule,
       inboxModule,
+      agentModule,
       portalModule,
       reportsModule,
     ],
