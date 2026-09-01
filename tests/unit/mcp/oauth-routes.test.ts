@@ -48,7 +48,10 @@ import {
   s256Challenge,
   sha256Hex,
 } from "@/lib/agent-control-plane/mcp/oauth";
-import { MCP_SCOPE_CONSENT_LABELS } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
+import {
+  INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
+  MCP_SCOPE_CONSENT_LABELS,
+} from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
 
 import { GET as authorizationServerGet } from "@/app/.well-known/oauth-authorization-server/route";
 import {
@@ -105,6 +108,20 @@ const ACCEPTED_LABELS = SCOPES.map((scope) => MCP_SCOPE_CONSENT_LABELS[scope]);
 const CONSENT_CATALOG_REVISION = "2026-08-22.mcp-consent-catalog.v1";
 const EXPOSURE_REVISION = "2026-08-29.mcp-exposure.v2";
 const SCOPE_PARAMETER = SCOPES.join(" ");
+const CANARY_EXPOSURE_REVISION = "2026-08-30.mcp-exposure.v3";
+const CANARY_CONSENT_CATALOG_REVISION = "2026-08-30.mcp-consent-catalog.v2";
+const CANARY_SCOPES = [
+  "ops.correspondence.read",
+  "ops.financial_documents.read",
+  "ops.jobs.read",
+  "ops.operations.prepare",
+  "ops.operations.read",
+  "ops.schedule.read",
+  "ops.tasks.read",
+] as const;
+const CANARY_ACCEPTED_LABELS = CANARY_SCOPES.map(
+  (scope) => INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS[scope]
+);
 
 const config = resolveMcpOAuthConfig();
 const RESOURCE = config.resource;
@@ -158,6 +175,7 @@ const state = {
   clientRow: null as ClientRow | null,
   codeRow: null as CodeRow | null,
   rotatedRow: null as RotatedRow | null,
+  canaryBindingAvailable: false,
 };
 
 function callsTo(fn: string): RpcCall[] {
@@ -215,6 +233,37 @@ function defaultRotatedRow(): RotatedRow {
   };
 }
 
+function canaryClientRow(): ClientRow {
+  return {
+    ...defaultClientRow(),
+    client_name: "OPS canary",
+    scope: CANARY_SCOPES.join(" "),
+    scope_ceiling: [...CANARY_SCOPES],
+    consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+    exposure_revision: CANARY_EXPOSURE_REVISION,
+  };
+}
+
+function canaryCodeRow(): CodeRow {
+  return {
+    ...defaultCodeRow(),
+    scopes: [...CANARY_SCOPES],
+    accepted_labels: CANARY_ACCEPTED_LABELS,
+    consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+    exposure_revision: CANARY_EXPOSURE_REVISION,
+  };
+}
+
+function canaryRotatedRow(): RotatedRow {
+  return {
+    ...defaultRotatedRow(),
+    scopes: [...CANARY_SCOPES],
+    accepted_labels: CANARY_ACCEPTED_LABELS,
+    consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+    exposure_revision: CANARY_EXPOSURE_REVISION,
+  };
+}
+
 function fakeRpc(fn: string, args: Record<string, unknown>) {
   state.calls.push({ fn, args });
   const failure = state.errors.get(fn);
@@ -248,6 +297,19 @@ function fakeRpc(fn: string, args: Record<string, unknown>) {
     case "consume_mcp_oauth_authorization_code_as_system":
       return Promise.resolve({
         data: state.codeRow ? [state.codeRow] : [],
+        error: null,
+      });
+    case "resolve_mcp_oauth_canary_as_system":
+      return Promise.resolve({
+        data: state.canaryBindingAvailable
+          ? [
+              {
+                exposure_revision: CANARY_EXPOSURE_REVISION,
+                consent_catalog_revision: CANARY_CONSENT_CATALOG_REVISION,
+                expires_at: "2099-08-31T20:00:00.000Z",
+              },
+            ]
+          : [],
         error: null,
       });
     case "mint_mcp_oauth_grant_as_system":
@@ -323,6 +385,7 @@ beforeEach(() => {
   state.clientRow = defaultClientRow();
   state.codeRow = defaultCodeRow();
   state.rotatedRow = defaultRotatedRow();
+  state.canaryBindingAvailable = false;
   mocks.rateLimit.mockResolvedValue({
     exceeded: false,
     count: 1,
@@ -601,6 +664,42 @@ describe("POST /api/mcp/oauth/token (authorization_code)", () => {
     // The secrets themselves must never reach the store.
     expect(JSON.stringify(state.calls)).not.toContain(body.access_token);
     expect(JSON.stringify(state.calls)).not.toContain(body.refresh_token);
+  });
+
+  it("exchanges only an exact current v3 canary code", async () => {
+    state.clientRow = canaryClientRow();
+    state.codeRow = canaryCodeRow();
+    state.canaryBindingAvailable = true;
+    const { body: requestBody } = codeExchangeBody();
+
+    const response = await tokenPost(
+      formRequest("/api/mcp/oauth/token", requestBody)
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.scope).toBe(CANARY_SCOPES.join(" "));
+    expect(lastCallTo("mint_mcp_oauth_grant_as_system").args).toMatchObject({
+      p_user_id: USER_ID,
+      p_company_id: COMPANY_ID,
+      p_active_exposure_revision: CANARY_EXPOSURE_REVISION,
+      p_active_grantable_scopes: [...CANARY_SCOPES],
+    });
+  });
+
+  it("consumes no authority when the canary disappears before exchange", async () => {
+    state.clientRow = canaryClientRow();
+    state.codeRow = canaryCodeRow();
+    state.canaryBindingAvailable = false;
+    const { body: requestBody } = codeExchangeBody();
+
+    const response = await tokenPost(
+      formRequest("/api/mcp/oauth/token", requestBody)
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "invalid_grant" });
+    expect(callsTo("mint_mcp_oauth_grant_as_system")).toHaveLength(0);
   });
 
   it("exchanges a Codex code against the exact registered loopback callback", async () => {
@@ -893,6 +992,36 @@ describe("POST /api/mcp/oauth/token (refresh_token)", () => {
     expect(rotate.args.p_new_access_hash).toBe(sha256Hex(body.access_token));
     expect(rotate.args.p_new_refresh_hash).toBe(sha256Hex(body.refresh_token));
     expect(rotate.args.p_new_refresh_hash).not.toBe(body.refresh_token);
+  });
+
+  it("rotates an exact v3 family only while its canary remains current", async () => {
+    state.clientRow = canaryClientRow();
+    state.rotatedRow = canaryRotatedRow();
+    state.canaryBindingAvailable = true;
+    const { body: requestBody } = refreshBody();
+
+    const response = await tokenPost(
+      formRequest("/api/mcp/oauth/token", requestBody)
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.scope).toBe(CANARY_SCOPES.join(" "));
+    expect(callsTo("resolve_mcp_oauth_canary_as_system")).toHaveLength(1);
+  });
+
+  it("returns only invalid_grant when canary authority is lost during refresh", async () => {
+    state.clientRow = canaryClientRow();
+    state.rotatedRow = canaryRotatedRow();
+    state.canaryBindingAvailable = false;
+    const { body: requestBody } = refreshBody();
+
+    const response = await tokenPost(
+      formRequest("/api/mcp/oauth/token", requestBody)
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "invalid_grant" });
   });
 
   it("refreshes a historical v1 grant without widening its seven scopes or revision", async () => {

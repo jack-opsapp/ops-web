@@ -45,14 +45,15 @@ import {
   mintCredential,
   mintGrant,
   resolveMcpOAuthConfig,
-  resolveActiveMcpConsentCatalog,
   resolveMcpConsentCatalogRevision,
+  resolveOAuthExposureForSubject,
   rotateRefreshToken,
   sha256Hex,
   verifyS256Challenge,
 } from "@/lib/agent-control-plane/mcp/oauth";
 import {
   resolveActiveMcpExposure,
+  resolveMcpExposure,
   type McpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import type { McpConsentCatalog } from "@/lib/agent-control-plane/mcp/oauth/scope-catalog";
@@ -164,9 +165,7 @@ type RpcClient = ReturnType<typeof getServiceRoleClient>;
 
 async function exchangeAuthorizationCode(
   rpc: RpcClient,
-  params: URLSearchParams,
-  exposure: McpExposure,
-  consentCatalog: McpConsentCatalog
+  params: URLSearchParams
 ): Promise<NextResponse> {
   const code = present(params, "code");
   const redirectUri = present(params, "redirect_uri");
@@ -208,6 +207,23 @@ async function exchangeAuthorizationCode(
     redirectUri,
   });
   if (!codeRow) {
+    return tokenError(400, "invalid_grant");
+  }
+
+  const exposure = await resolveOAuthExposureForSubject({
+    rpcClient: rpc,
+    client,
+    userId: codeRow.user_id,
+    companyId: codeRow.company_id,
+  });
+  if (exposure === null) return tokenError(400, "invalid_grant");
+
+  let consentCatalog: McpConsentCatalog;
+  try {
+    consentCatalog = resolveMcpConsentCatalogRevision(
+      client.consent_catalog_revision
+    );
+  } catch {
     return tokenError(400, "invalid_grant");
   }
 
@@ -315,6 +331,23 @@ async function exchangeRefreshToken(
     return tokenError(400, "invalid_grant");
   }
 
+  let grantExposure: McpExposure | null;
+  if (rotated.exposure_revision === "2026-08-30.mcp-exposure.v3") {
+    grantExposure = await resolveOAuthExposureForSubject({
+      rpcClient: rpc,
+      client,
+      userId: rotated.user_id,
+      companyId: rotated.company_id,
+    });
+  } else {
+    try {
+      grantExposure = resolveMcpExposure(rotated.exposure_revision);
+    } catch {
+      grantExposure = null;
+    }
+  }
+  if (grantExposure === null) return tokenError(400, "invalid_grant");
+
   let consentCatalog: McpConsentCatalog;
   try {
     consentCatalog = resolveMcpConsentCatalogRevision(
@@ -331,7 +364,7 @@ async function exchangeRefreshToken(
         consentCatalogRevision: rotated.consent_catalog_revision,
         exposureRevision: rotated.exposure_revision,
       },
-      exposure,
+      grantExposure,
       consentCatalog,
       { requireActiveExposureRevision: false }
     )
@@ -389,9 +422,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const rpc = getServiceRoleClient();
     const exposure = resolveActiveMcpExposure();
-    const consentCatalog = resolveActiveMcpConsentCatalog();
     return grantType === "authorization_code"
-      ? await exchangeAuthorizationCode(rpc, params, exposure, consentCatalog)
+      ? await exchangeAuthorizationCode(rpc, params)
       : await exchangeRefreshToken(rpc, params, exposure);
   } catch (error) {
     console.error(

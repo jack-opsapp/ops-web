@@ -185,7 +185,7 @@ describe("analytics health evaluation", () => {
     );
   });
 
-  it("fails an empty App Store download warehouse only when commerce exists", () => {
+  it("fails when Apple exposes no commerce report or its download warehouse is empty", () => {
     const failed = evaluate({}, {
       appStore: {
         status: "complete",
@@ -196,7 +196,7 @@ describe("analytics health evaluation", () => {
     });
     expect(failed.failedChecks).toContain("app_store.downloads_present");
 
-    const notApplicable = evaluate({}, {
+    const missingCommerce = evaluate({}, {
       appStore: {
         status: "complete",
         finalizedThrough: null,
@@ -204,8 +204,8 @@ describe("analytics health evaluation", () => {
         downloadRowCount: 0,
       },
     });
-    expect(notApplicable.failedChecks).not.toContain(
-      "app_store.downloads_present"
+    expect(missingCommerce.failedChecks).toContain(
+      "app_store.commerce_report_present"
     );
   });
 

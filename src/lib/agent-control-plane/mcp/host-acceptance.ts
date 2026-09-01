@@ -22,6 +22,27 @@ export interface DayCloseoutHostAcceptanceSummary {
   readonly partialComponents: number;
 }
 
+export interface DayCloseoutHostAcceptanceProof {
+  readonly runId: string;
+  readonly actionId: string;
+  readonly changeSetId: string;
+  readonly previewSha256: string;
+}
+
+export interface DayCloseoutHostAcceptanceResult {
+  readonly summary: DayCloseoutHostAcceptanceSummary;
+  readonly proof: DayCloseoutHostAcceptanceProof | null;
+}
+
+export interface DayCloseoutHostAcceptanceInput {
+  readonly endpoint: string;
+  readonly bearer: string;
+  readonly idempotencyKey: string;
+  readonly fetcher?: AcceptanceFetcher;
+  readonly timeoutMs?: number;
+  readonly signal?: AbortSignal;
+}
+
 function failure(stage: string): Error {
   return new Error(`MCP host acceptance failed at ${stage}`);
 }
@@ -72,6 +93,7 @@ async function rpc(
     readonly bearer: string;
     readonly fetcher: AcceptanceFetcher;
     readonly timeoutMs: number;
+    readonly signal?: AbortSignal;
   },
   stage: string,
   body: Readonly<Record<string, unknown>>
@@ -87,7 +109,9 @@ async function rpc(
         "MCP-Protocol-Version": PROTOCOL_VERSION,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(input.timeoutMs),
+      signal: input.signal
+        ? AbortSignal.any([input.signal, AbortSignal.timeout(input.timeoutMs)])
+        : AbortSignal.timeout(input.timeoutMs),
     });
   } catch {
     throw failure(stage);
@@ -112,6 +136,7 @@ async function notify(
     readonly bearer: string;
     readonly fetcher: AcceptanceFetcher;
     readonly timeoutMs: number;
+    readonly signal?: AbortSignal;
   },
   stage: string,
   body: Readonly<Record<string, unknown>>
@@ -127,7 +152,9 @@ async function notify(
         "MCP-Protocol-Version": PROTOCOL_VERSION,
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(input.timeoutMs),
+      signal: input.signal
+        ? AbortSignal.any([input.signal, AbortSignal.timeout(input.timeoutMs)])
+        : AbortSignal.timeout(input.timeoutMs),
     });
   } catch {
     throw failure(stage);
@@ -135,13 +162,9 @@ async function notify(
   if (!response.ok) throw failure(stage);
 }
 
-export async function runDayCloseoutHostAcceptance(input: {
-  readonly endpoint: string;
-  readonly bearer: string;
-  readonly idempotencyKey: string;
-  readonly fetcher?: AcceptanceFetcher;
-  readonly timeoutMs?: number;
-}): Promise<DayCloseoutHostAcceptanceSummary> {
+export async function runDayCloseoutHostAcceptanceWithProof(
+  input: DayCloseoutHostAcceptanceInput
+): Promise<DayCloseoutHostAcceptanceResult> {
   const endpoint = parseEndpoint(input.endpoint);
   if (
     typeof input.bearer !== "string" ||
@@ -168,6 +191,7 @@ export async function runDayCloseoutHostAcceptance(input: {
     bearer: input.bearer,
     fetcher: input.fetcher ?? fetch,
     timeoutMs,
+    signal: input.signal,
   };
 
   const initialize = jsonObject(
@@ -256,7 +280,7 @@ export async function runDayCloseoutHostAcceptance(input: {
     ({ coverage }) => coverage.state === "complete"
   ).length;
 
-  return Object.freeze({
+  const summary = Object.freeze({
     protocolVersion: initialize.protocolVersion,
     toolNames: Object.freeze([EXPECTED_TOOL]) as readonly [
       typeof EXPECTED_TOOL,
@@ -267,4 +291,20 @@ export async function runDayCloseoutHostAcceptance(input: {
     completeComponents,
     partialComponents: result.components.length - completeComponents,
   });
+  const proof =
+    result.filing.kind === "approval_required"
+      ? Object.freeze({
+          runId: result.run_id,
+          actionId: result.filing.action_id,
+          changeSetId: result.filing.change_set_id,
+          previewSha256: result.filing.preview.preview_sha256,
+        })
+      : null;
+  return Object.freeze({ summary, proof });
+}
+
+export async function runDayCloseoutHostAcceptance(
+  input: DayCloseoutHostAcceptanceInput
+): Promise<DayCloseoutHostAcceptanceSummary> {
+  return (await runDayCloseoutHostAcceptanceWithProof(input)).summary;
 }

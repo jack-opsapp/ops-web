@@ -10,6 +10,7 @@ import {
 } from "@/lib/agent-control-plane/actor/resolve-actor-context";
 import {
   capabilityManifestRevisionForExposure,
+  resolveActiveMcpExposure,
   resolveMcpExposure,
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
@@ -82,7 +83,11 @@ export async function resolveMcpBearer(
 
   let row: Awaited<ReturnType<typeof resolveAccessToken>>;
   try {
-    row = await resolveAccessToken(runtime.rpcClient, digest);
+    row = await resolveAccessToken(
+      runtime.rpcClient,
+      digest,
+      resolveActiveMcpExposure().revision
+    );
   } catch {
     return { kind: "unavailable", requestId };
   }
