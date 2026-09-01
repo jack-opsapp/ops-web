@@ -32,6 +32,7 @@ import {
   COMMIT_COLLECTIONS_DRAFT_CAPABILITY_DEFINITION,
   PREPARE_COLLECTIONS_CAPABILITY_DEFINITION,
 } from "./collections-capability";
+import { ANALYZE_HIRING_BREAK_EVEN_CAPABILITY_DEFINITION } from "./hiring-what-if-capability";
 
 export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
@@ -40,6 +41,8 @@ export const INVISIBLE_OFFICE_CAPABILITY_MANIFEST_REVISION =
   "2026-08-30.capability-manifest.v9" as const;
 export const COLLECTIONS_CAPABILITY_MANIFEST_REVISION =
   "2026-08-31.capability-manifest.v10" as const;
+export const HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION =
+  "2026-08-31.capability-manifest.v11" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -284,6 +287,30 @@ const COLLECTIONS_CAPABILITY_BY_NAME = new Map(
   COLLECTIONS_CAPABILITY_MANIFEST.map((entry) => [entry.name, entry] as const)
 );
 
+const hiringWhatIfManifestEntries: readonly CapabilityManifestEntry[] = [
+  ...COLLECTIONS_CAPABILITY_MANIFEST.map((entry) =>
+    remintEntry(entry, HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION)
+  ),
+  mintImplementationEntry(
+    ANALYZE_HIRING_BREAK_EVEN_CAPABILITY_DEFINITION,
+    HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
+  ),
+];
+assertCapabilityManifestInvariants(
+  hiringWhatIfManifestEntries,
+  HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(hiringWhatIfManifestEntries);
+
+export const HIRING_WHAT_IF_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(hiringWhatIfManifestEntries);
+
+const HIRING_WHAT_IF_CAPABILITY_BY_NAME = new Map(
+  HIRING_WHAT_IF_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -304,6 +331,14 @@ export function getCollectionsCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
   const entry = COLLECTIONS_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getHiringWhatIfCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = HIRING_WHAT_IF_CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
 }
@@ -594,6 +629,16 @@ export function resolveCollectionsCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getCollectionsCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveHiringWhatIfCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getHiringWhatIfCapabilityManifestEntry(capabilityName),
     rawInput
   );
 }

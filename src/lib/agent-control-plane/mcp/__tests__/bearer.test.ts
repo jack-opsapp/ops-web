@@ -37,6 +37,7 @@ function runtime(
     domainService: {} as McpServerRuntime["domainService"],
     dayCloseout: {} as McpServerRuntime["dayCloseout"],
     collections: {} as McpServerRuntime["collections"],
+    hiringWhatIf: {} as McpServerRuntime["hiringWhatIf"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName, args) {
