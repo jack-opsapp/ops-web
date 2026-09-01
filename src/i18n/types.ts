@@ -40,6 +40,7 @@ export type Namespace =
   | 'project-workspace'
   | 'catalog-setup'
   | 'picker'
+  | 'estimate-calculator'
   | 'admin-growth';
 
 

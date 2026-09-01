@@ -1,0 +1,49 @@
+{
+  "trigger": "CALC",
+  "dialogLabel": "Estimate calculator",
+
+  "mode.label": "Calculator mode",
+  "mode.calc": "CALC",
+  "mode.area": "AREA",
+  "mode.linear": "LINEAR",
+  "mode.convert": "CONVERT",
+
+  "result.label": "// RESULT",
+
+  "insert.qty": "INSERT → QTY · LINE {n}",
+  "insert.price": "INSERT → PRICE · LINE {n}",
+  "insert.noTarget": "[ FOCUS A QTY OR PRICE FIELD ]",
+  "addMath": "[ ADD MATH TO DESCRIPTION ]",
+
+  "field.expression": "EXPRESSION",
+  "field.length": "LENGTH",
+  "field.width": "WIDTH",
+  "field.count": "COUNT",
+  "field.waste": "WASTE %",
+  "field.from": "FROM",
+  "field.to": "TO",
+  "field.lengths": "LENGTHS",
+  "field.addLength": "ADD LENGTH",
+  "field.removeLength": "Remove length {n}",
+
+  "error.empty": "[ ENTER AN EXPRESSION ]",
+  "error.malformed": "[ CHECK THE EXPRESSION ]",
+  "error.divideByZero": "[ CANNOT DIVIDE BY ZERO ]",
+  "error.outOfRange": "[ RESULT TOO LARGE ]",
+
+  "keypad.clear": "Clear",
+  "keypad.backspace": "Backspace",
+  "keypad.equals": "Equals",
+
+  "unit.ft": "ft",
+  "unit.in": "in",
+  "unit.m": "m",
+  "unit.cm": "cm",
+  "unit.yd": "yd",
+  "unit.sqft": "sq ft",
+  "unit.sqyd": "sq yd",
+  "unit.sqm": "sq m",
+  "unit.cuft": "cu ft",
+  "unit.cuyd": "cu yd",
+  "unit.m3": "m³"
+}

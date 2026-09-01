@@ -1,0 +1,49 @@
+{
+  "trigger": "CALC",
+  "dialogLabel": "Calculadora de cotización",
+
+  "mode.label": "Modo de calculadora",
+  "mode.calc": "CALC",
+  "mode.area": "ÁREA",
+  "mode.linear": "LINEAL",
+  "mode.convert": "CONVERTIR",
+
+  "result.label": "// RESULTADO",
+
+  "insert.qty": "INSERTAR → CANT · LÍNEA {n}",
+  "insert.price": "INSERTAR → PRECIO · LÍNEA {n}",
+  "insert.noTarget": "[ SELECCIONA UN CAMPO DE CANTIDAD O PRECIO ]",
+  "addMath": "[ AÑADIR EL CÁLCULO A LA DESCRIPCIÓN ]",
+
+  "field.expression": "EXPRESIÓN",
+  "field.length": "LARGO",
+  "field.width": "ANCHO",
+  "field.count": "REPETICIONES",
+  "field.waste": "DESPERDICIO %",
+  "field.from": "DE",
+  "field.to": "A",
+  "field.lengths": "LARGOS",
+  "field.addLength": "AÑADIR LARGO",
+  "field.removeLength": "Quitar largo {n}",
+
+  "error.empty": "[ INTRODUCE UNA EXPRESIÓN ]",
+  "error.malformed": "[ REVISA LA EXPRESIÓN ]",
+  "error.divideByZero": "[ NO SE PUEDE DIVIDIR ENTRE CERO ]",
+  "error.outOfRange": "[ RESULTADO DEMASIADO GRANDE ]",
+
+  "keypad.clear": "Borrar",
+  "keypad.backspace": "Retroceso",
+  "keypad.equals": "Igual",
+
+  "unit.ft": "ft",
+  "unit.in": "in",
+  "unit.m": "m",
+  "unit.cm": "cm",
+  "unit.yd": "yd",
+  "unit.sqft": "ft²",
+  "unit.sqyd": "yd²",
+  "unit.sqm": "m²",
+  "unit.cuft": "ft³",
+  "unit.cuyd": "yd³",
+  "unit.m3": "m³"
+}
