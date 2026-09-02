@@ -1,11 +1,19 @@
 {
   "title": "Agent Queue",
-
   "segment.needsYou": "Needs you",
   "segment.history": "History",
-
   "filter.all": "All",
   "filter.allTypes": "All",
+  "column.type": "Type",
+  "column.proposal": "Proposal",
+  "column.priority": "Priority",
+  "column.confidence": "Conf.",
+  "column.age": "Age",
+  "column.status": "Status",
+  "search.placeholder": "Search proposals",
+  "filter.allPriorities": "All",
+  "count.rows": "{{count}} rows",
+  "count.rowsOne": "1 row",
   "filter.status": "Status",
   "filter.actionType": "Action type",
   "filter.priority": "Priority",
@@ -16,7 +24,6 @@
   "filter.expired": "Expired",
   "filter.failed": "Failed",
   "filter.cancelled": "Cancelled",
-
   "type.create_project": "Project",
   "type.create_task": "Task",
   "type.create_invoice": "Invoice",
@@ -28,12 +35,10 @@
   "type.close_project": "Close Project",
   "type.file_day_closeout": "Day closeout",
   "type.approve_collections_draft": "Collection draft",
-
   "priority.low": "Low",
   "priority.normal": "Normal",
   "priority.high": "High",
   "priority.urgent": "Urgent",
-
   "action.approve": "Approve",
   "action.reject": "Reject",
   "action.cancel": "Cancel",
@@ -43,7 +48,6 @@
   "action.collapse": "Hide details",
   "action.selectAll": "Select all",
   "action.deselectAll": "Deselect all",
-
   "card.confidence": "Confidence",
   "card.source": "Source",
   "card.suggested": "Suggested",
@@ -51,7 +55,6 @@
   "card.reviewNotes": "Review notes",
   "card.viewSource": "View source",
   "card.error": "Error",
-
   "source.email_thread": "Email thread",
   "source.schedule_gap": "Schedule gap",
   "source.overdue_task": "Overdue task",
@@ -68,7 +71,6 @@
   "source.invoice_created": "Invoice created",
   "source.day_closeout": "Day closeout",
   "source.collections": "Collections",
-
   "dayCloseout.action.file": "File closeout",
   "dayCloseout.action.leaveOpen": "Leave open",
   "dayCloseout.businessDate": "Business date",
@@ -79,7 +81,6 @@
   "dayCloseout.outstanding": "outstanding",
   "dayCloseout.correspondenceChecked": "Correspondence checked · {{count}} briefs prepared",
   "dayCloseout.correspondenceNotEvaluated": "Correspondence not evaluated · dependent findings and briefs suppressed",
-
   "collections.action.approve": "Approve draft",
   "collections.action.leaveOpen": "Leave open",
   "collections.reviewHeading": "Collection draft",
@@ -97,30 +98,24 @@
   "collections.subject": "Subject",
   "collections.body": "Body",
   "collections.approvalSeal": "Immutable approval seal",
-
   "time.justNow": "just now",
   "time.minutes": "{{count}}m",
   "time.hours": "{{count}}h",
   "time.days": "{{count}}d",
-
   "batch.selectedCount": "{{count}} selected",
   "batch.approveCount": "Approve {{count}}",
   "batch.rejectCount": "Reject {{count}}",
   "batch.clear": "Clear",
-
   "empty.pendingNoun": "Awaiting review",
   "empty.pendingHint": "[all clear]",
   "empty.historyNoun": "Reviewed",
-
   "error.title": "Queue unavailable",
   "error.retry": "Retry",
-
   "reject.title": "Reject action",
   "reject.description": "Provide optional feedback on why this was rejected.",
   "reject.placeholder": "Optional notes on why this was rejected...",
   "reject.confirm": "Reject",
   "reject.cancel": "Cancel",
-
   "task.project": "Project",
   "task.assignedTo": "Assigned to",
   "task.schedule": "Schedule",
@@ -139,14 +134,12 @@
   "task.projects": "projects",
   "task.available": "Available",
   "task.busy": "Busy",
-
   "toast.approved": "Action approved and executed",
   "toast.rejected": "Action rejected",
   "toast.cancelled": "Action cancelled",
   "toast.bulkApproved": "actions approved",
   "toast.bulkRejected": "actions rejected",
   "toast.error": "Action failed. Try again.",
-
   "lifecycle.overdue": "overdue",
   "lifecycle.sinceCompletion": "since completion",
   "lifecycle.recipient": "Recipient",
@@ -160,7 +153,6 @@
   "lifecycle.taskSummary": "Tasks",
   "lifecycle.tasksComplete": "complete",
   "lifecycle.invoiced": "Invoiced",
-
   "invoice.lineItems": "Line items",
   "invoice.item": "Item",
   "invoice.qty": "Qty",
@@ -183,7 +175,6 @@
   "invoice.noEmail": "No email — client email not set",
   "invoice.editLineItems": "Edit",
   "invoice.editTerms": "Edit",
-
   "invoice.warning.highValue": "HIGH VALUE — Review line items carefully",
   "invoice.warning.duplicateExact": "Duplicate — invoice already exists from this estimate",
   "invoice.warning.duplicateSimilar": "Similar invoice found for same client and project",
@@ -192,7 +183,6 @@
   "invoice.warning.noPaymentTerms": "No payment terms set — confirm before approving",
   "invoice.warning.zeroTax": "Tax rate is 0% — confirm if intentional",
   "invoice.warning.missingData": "Missing data",
-
   "invoiceEmail.recipient": "Recipient",
   "invoiceEmail.subject": "Subject",
   "invoiceEmail.preview": "Email preview",
@@ -201,7 +191,6 @@
   "invoiceEmail.invoice": "Invoice",
   "invoiceEmail.attachment": "Invoice PDF attached",
   "invoiceEmail.noAttachment": "Text email — no PDF generation available",
-
   "type.send_payment_reminder": "Payment Reminder",
   "type.client_health_alert": "Client Health Alert",
   "type.send_appointment_confirmation": "Appointment Confirmation",
@@ -210,16 +199,13 @@
   "type.send_schedule_changed": "Schedule Change Notification",
   "type.send_subcontractor_coordination": "Subcontractor Coordination",
   "type.process_reschedule_request": "Reschedule Request",
-
   "source.task_scheduled": "Task scheduled",
   "source.appointment_reminder_cron": "Visit reminder cron",
   "source.day_before_reminder_cron": "Visit reminder cron",
   "source.inbound_email": "Inbound email",
   "source.subcontractor_coordination": "Subcontractor coordination",
-
   "source.overdue_invoice": "Overdue invoice",
   "source.payment_analysis": "Payment analysis",
-
   "reminder.level": "Reminder level",
   "reminder.level1": "Friendly reminder",
   "reminder.level2": "Firm notice",
@@ -241,7 +227,6 @@
   "reminder.onTimeRate": "On-time rate",
   "reminder.avgDays": "Avg days to pay",
   "reminder.noConnection": "No email connection — configure before approving",
-
   "health.clientName": "Client",
   "health.lateRate": "Late payment rate",
   "health.overdueCount": "Currently overdue",
@@ -251,7 +236,6 @@
   "health.paidLate": "Paid late",
   "health.overdue": "Overdue",
   "health.open": "Open",
-
   "settings.reminders": "Payment Reminders",
   "settings.remindersDesc": "Automated follow-ups for overdue invoices",
   "settings.enableReminders": "Enable payment reminders",
@@ -266,19 +250,16 @@
   "settings.excludeClientsPlaceholder": "Select clients to exclude...",
   "settings.lateThreshold": "Late payment flag threshold",
   "settings.lateThresholdSuffix": "% of invoices paid late",
-
   "type.financial_insight": "Financial Digest",
   "type.optimize_schedule": "Route Optimization",
   "type.reschedule_tasks": "Schedule Change",
   "source.financial_analysis": "Financial analysis",
   "source.schedule_optimization": "Schedule optimization",
-
   "financial.title": "WEEKLY FINANCIAL DIGEST",
   "financial.revenue": "REVENUE",
   "financial.cashflow": "CASH FLOW",
   "financial.pricing": "PRICING OPTIMIZATION",
   "financial.seasonal": "SEASONAL PATTERNS",
-
   "financial.revenue.monthlyTrend": "Monthly revenue",
   "financial.revenue.avgMonthly": "Avg monthly",
   "financial.revenue.pipelineValue": "Pipeline value",
@@ -290,7 +271,6 @@
   "financial.revenue.up": "Up",
   "financial.revenue.down": "Down",
   "financial.revenue.noChange": "No change",
-
   "financial.cashflow.outstanding": "Outstanding",
   "financial.cashflow.overdue": "Overdue",
   "financial.cashflow.receivedThisMonth": "Received this month",
@@ -299,7 +279,6 @@
   "financial.cashflow.projection90": "90-day",
   "financial.cashflow.expected": "Expected",
   "financial.cashflow.pipeline": "Pipeline",
-
   "financial.pricing.service": "Service",
   "financial.pricing.winRate": "Win rate",
   "financial.pricing.avgPrice": "Avg price",
@@ -308,18 +287,15 @@
   "financial.pricing.decrease": "Review pricing",
   "financial.pricing.neutral": "Pricing aligned",
   "financial.pricing.minEstimates": "Minimum {{count}} estimates needed",
-
   "financial.seasonal.peak": "Peak",
   "financial.seasonal.slow": "Slow",
   "financial.seasonal.neutral": "Neutral",
   "financial.seasonal.peakMonths": "Peak months",
   "financial.seasonal.slowMonths": "Slow months",
   "financial.seasonal.servicePatterns": "Service patterns",
-
   "financial.alert.lowCash": "Cash flow concern — {{overdue}} overdue of {{outstanding}} outstanding",
   "financial.alert.concentrationRisk": "Revenue concentration — {{clientName}} is {{percentage}}% of outstanding",
   "financial.alert.agingWarning": "{{count}} invoices over {{days}} days overdue totaling {{totalAmount}}",
-
   "financial.month.jan": "Jan",
   "financial.month.feb": "Feb",
   "financial.month.mar": "Mar",
@@ -332,7 +308,6 @@
   "financial.month.oct": "Oct",
   "financial.month.nov": "Nov",
   "financial.month.dec": "Dec",
-
   "financial.settings.title": "Financial Intelligence",
   "financial.settings.description": "Weekly financial analysis and insights",
   "financial.settings.enableDigest": "Enable weekly financial digest",
@@ -353,7 +328,6 @@
   "financial.settings.saving": "Saving",
   "financial.settings.saved": "Financial settings saved",
   "financial.settings.error": "Failed to save financial settings",
-
   "financial.action.acknowledge": "Acknowledge",
   "financial.action.dismiss": "Dismiss",
   "financial.digest.acknowledged": "Digest acknowledged",
@@ -363,7 +337,6 @@
   "financial.digest.hidePricing": "Hide pricing analysis",
   "financial.digest.showSeasonal": "Show seasonal patterns",
   "financial.digest.hideSeasonal": "Hide seasonal patterns",
-
   "dashboard.loading": "Loading Phase C status",
   "dashboard.phaseCTitle": "Phase C Agent Status",
   "dashboard.phaseCSubtitle": "Full intelligence across email, projects, invoicing, scheduling, and client communications",
