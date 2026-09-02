@@ -84,7 +84,7 @@ export function SegmentControl<T extends string = string>(
               <label
                 htmlFor={optionId}
                 className={cn(
-                  "inline-flex h-[22px] cursor-pointer items-center gap-1 rounded px-1.5",
+                  "inline-flex h-[22px] cursor-pointer items-center gap-1 whitespace-nowrap rounded px-1.5",
                   "font-mono text-micro font-medium uppercase tracking-[0.12em]",
                   "border transition-colors duration-150 ease-smooth",
                   active
@@ -126,7 +126,7 @@ export function SegmentControl<T extends string = string>(
             disabled={disabled}
             onClick={() => onChange(opt.value)}
             className={cn(
-              "inline-flex h-[22px] items-center gap-1 rounded px-1.5",
+              "inline-flex h-[22px] items-center gap-1 whitespace-nowrap rounded px-1.5",
               // Toggle voice: JetBrains Mono 11px uppercase — Cake Mono has
               // no 12px role (DESIGN.md §4: 14 button / 11 badge only).
               "font-mono text-micro font-medium uppercase tracking-[0.12em]",
