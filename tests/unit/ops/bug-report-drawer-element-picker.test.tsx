@@ -66,16 +66,20 @@ vi.mock("@/lib/store/auth-store", () => ({
   }),
 }));
 
-const createReport = vi.fn(async () => "report-row-id");
+const createReport = vi.fn<(input: unknown) => Promise<string>>(
+  async () => "report-row-id"
+);
 vi.mock("@/lib/api/services/bug-report-service", () => ({
   BugReportService: {
-    createReport: (input: unknown) => createReport(input as never),
+    createReport: (input: unknown) => createReport(input),
   },
 }));
 
-const domToBlob = vi.fn(async () => new Blob(["page"], { type: "image/png" }));
+const domToBlob = vi.fn<(root: unknown, options: unknown) => Promise<Blob>>(
+  async () => new Blob(["page"], { type: "image/png" })
+);
 vi.mock("modern-screenshot", () => ({
-  domToBlob: (root: unknown, opts: unknown) => domToBlob(root as never, opts as never),
+  domToBlob: (root: unknown, opts: unknown) => domToBlob(root, opts),
 }));
 
 const getIdToken = vi.fn(async () => "firebase-id-token");
