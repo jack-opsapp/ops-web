@@ -72,6 +72,7 @@ export const MEMBERSHIP_OUTCOMES = [
   "created_possible_duplicate",
 ] as const;
 export const MEMBERSHIP_EVIDENCE_KINDS = [
+  "none",
   "created_by_identity",
   "on_file_transacted",
   "staff_confirmed",
@@ -153,12 +154,9 @@ const CustomerProfileRowSchema = z.object({
   membership_state: ProfileMembershipStateSchema,
 });
 
-// Pairwise refs are opaque public identifiers; a raw uuid is never one.
-const PairwiseRefSchema = z
-  .string()
-  .min(8)
-  .max(128)
-  .refine((value) => !PostgresUuidSchema.safeParse(value).success);
+// Pairwise refs are opaque public identifiers, shaped exactly as the
+// `customer_pairwise_refs_public_ref_shape` constraint requires.
+const PairwiseRefSchema = z.string().regex(/^cr_[0-9a-f]{32}$/);
 
 export type BeginOtpChallengeRow = z.infer<typeof BeginOtpChallengeRowSchema>;
 export type RecordOtpAttemptRow = z.infer<typeof RecordOtpAttemptRowSchema>;
@@ -495,7 +493,23 @@ export async function readCustomerProfile(
   return singleRow(data, CustomerProfileRowSchema, operation);
 }
 
-// ─── Pairwise refs (design I4) ──────────────────────────────────────────────
+// ─── Integrations + pairwise refs (design I4) ───────────────────────────────
+
+/** The company's hosted-pages integration (`kind = hosted_pages`), created on first use. */
+export async function ensureHostedIntegration(
+  client: CustomerIdentityRpcClient,
+  input: { companyId: string }
+): Promise<string> {
+  const operation = "ensure_customer_hosted_integration";
+  requireUuid(input.companyId, operation);
+  const data = await callRpc(
+    client,
+    "ensure_customer_hosted_integration_as_system",
+    { p_company_id: input.companyId },
+    operation
+  );
+  return scalar(data, PostgresUuidSchema, operation);
+}
 
 export async function ensurePairwiseRef(
   client: CustomerIdentityRpcClient,

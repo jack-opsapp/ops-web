@@ -75,6 +75,7 @@ export {
   SESSION_STATUSES,
   appendIdentityEvent,
   confirmMembership,
+  ensureHostedIntegration,
   ensurePairwiseRef,
   listMembershipsForClient,
   readCustomerProfile,

@@ -4,6 +4,7 @@ import {
   appendIdentityEvent,
   beginOtpChallenge,
   confirmMembership,
+  ensureHostedIntegration,
   ensurePairwiseRef,
   listMembershipsForClient,
   mintSession,
@@ -471,6 +472,23 @@ describe("memberships", () => {
     ).toEqual([]);
   });
 
+  it("accepts a forward-only row with evidence none and a contactless identity masked as ***", async () => {
+    const rows = await listMembershipsForClient(
+      clientReturning([
+        {
+          membership_id: MEMBERSHIP_ID,
+          state: "active_forward_only",
+          evidence_kind: "none",
+          contact_email_masked: "***",
+          last_seen_at: null,
+        },
+      ]),
+      { companyId: COMPANY_ID, clientId: CLIENT_ID }
+    );
+    expect(rows[0].evidence_kind).toBe("none");
+    expect(rows[0].contact_email_masked).toBe("***");
+  });
+
   it("refuses a listing row that carries an unmasked email", async () => {
     await expectStoreError(
       () =>
@@ -556,25 +574,59 @@ describe("readCustomerProfile", () => {
   });
 });
 
+describe("ensureHostedIntegration", () => {
+  it("returns the company's hosted-pages integration id, creating it on first use", async () => {
+    const client = clientReturning(INTEGRATION_ID);
+    expect(await ensureHostedIntegration(client, { companyId: COMPANY_ID })).toBe(
+      INTEGRATION_ID
+    );
+    expect(client.rpc).toHaveBeenCalledWith(
+      "ensure_customer_hosted_integration_as_system",
+      { p_company_id: COMPANY_ID }
+    );
+  });
+
+  it("rejects a non-uuid result and a malformed company id", async () => {
+    await expectStoreError(
+      () => ensureHostedIntegration(clientReturning("nope"), { companyId: COMPANY_ID }),
+      "ensure_customer_hosted_integration"
+    );
+    const client = clientReturning(INTEGRATION_ID);
+    await expectStoreError(
+      () => ensureHostedIntegration(client, { companyId: "nope" }),
+      "ensure_customer_hosted_integration"
+    );
+    expect(client.rpc).not.toHaveBeenCalled();
+  });
+});
+
 describe("ensurePairwiseRef", () => {
+  const PUBLIC_REF = `cr_${"0123456789abcdef".repeat(2)}`;
+
   it("returns the opaque public ref", async () => {
-    const client = clientReturning("cref_abc123");
+    const client = clientReturning(PUBLIC_REF);
     expect(
       await ensurePairwiseRef(client, {
         identityId: IDENTITY_ID,
         integrationId: INTEGRATION_ID,
       })
-    ).toBe("cref_abc123");
+    ).toBe(PUBLIC_REF);
     expect(client.rpc).toHaveBeenCalledWith(
       "ensure_customer_pairwise_ref_as_system",
       { p_identity_id: IDENTITY_ID, p_integration_id: INTEGRATION_ID }
     );
   });
 
-  it("refuses a ref that looks like a raw uuid", async () => {
+  it.each([
+    ["a raw uuid", IDENTITY_ID],
+    ["the wrong prefix", `cref_${"0123456789abcdef".repeat(2)}`],
+    ["uppercase hex", `cr_${"0123456789ABCDEF".repeat(2)}`],
+    ["too few hex digits", `cr_${"0123456789abcdef".repeat(1)}`],
+    ["too many hex digits", `cr_${"0123456789abcdef".repeat(3)}`],
+  ])("refuses a ref that is %s", async (_label, value) => {
     await expectStoreError(
       () =>
-        ensurePairwiseRef(clientReturning(IDENTITY_ID), {
+        ensurePairwiseRef(clientReturning(value), {
           identityId: IDENTITY_ID,
           integrationId: INTEGRATION_ID,
         }),
