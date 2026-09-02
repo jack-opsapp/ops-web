@@ -12,7 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { CustomerIdentityFake } from "../utils/customer-identity-fake";
+import { CustomerIdentityFake, FAKE_KEY_RING } from "../utils/customer-identity-fake";
 
 const mocks = vi.hoisted(() => ({
   rateLimit: vi.fn(),
@@ -71,7 +71,7 @@ async function armedChallenge(email = EMAIL): Promise<string> {
   fake.codes.set(email, CODE);
   fake.calls.length = 0;
   fake.events.length = 0;
-  return encodeChallengeRef(challengeId);
+  return encodeChallengeRef(challengeId, email, FAKE_KEY_RING);
 }
 
 function sessionCookie(res: NextResponse) {
@@ -233,8 +233,60 @@ describe("POST /api/customer/auth/verify — code failures (no cookie ever)", ()
     expect(sessionCookie(replay)).toBeUndefined();
   });
 
+  it("refuses a ref presented with another email exactly like a wrong code, charged and never proxied", async () => {
+    const challengeId = await armedChallenge();
+    const res = await verify({
+      handle: HANDLE,
+      challengeId,
+      code: CODE,
+      email: "someone-else@example.com",
+    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "invalid_code", attemptsRemaining: 4 });
+    expect(sessionCookie(res)).toBeUndefined();
+    expect(fake.otpVerifies).toEqual([]);
+    expect(fake.codes.get(EMAIL)).toBe(CODE);
+    expect(fake.eventTypes()).toEqual(["otp_failed"]);
+    expect(fake.events[0].args.p_metadata).toMatchObject({ binding: "mismatch", attempts: 1 });
+
+    // Mismatches burn the challenge out exactly like wrong codes (I8).
+    for (let attempt = 2; attempt <= 5; attempt += 1) {
+      const again = await verify({
+        handle: HANDLE,
+        challengeId,
+        code: CODE,
+        email: "someone-else@example.com",
+      });
+      expect(await again.json()).toEqual({ error: "invalid_code", attemptsRemaining: 5 - attempt });
+    }
+    const sixth = await verify({ handle: HANDLE, challengeId, code: CODE, email: "someone-else@example.com" });
+    expect(await sixth.json()).toEqual({ error: "challenge_exhausted" });
+    // The rightful email can no longer use the burnt challenge either.
+    const rightful = await verify({ handle: HANDLE, challengeId, code: CODE, email: EMAIL });
+    expect(await rightful.json()).toEqual({ error: "challenge_closed" });
+    expect(fake.otpVerifies).toEqual([]);
+  });
+
+  it("looks identical whether the email is wrong or the code is wrong (I5)", async () => {
+    const wrongEmail = await verify({
+      handle: HANDLE,
+      challengeId: await armedChallenge(),
+      code: CODE,
+      email: "someone-else@example.com",
+    });
+    const wrongCode = await verify({
+      handle: HANDLE,
+      challengeId: await armedChallenge(),
+      code: "000000",
+      email: EMAIL,
+    });
+    expect(wrongEmail.status).toBe(wrongCode.status);
+    expect(await wrongEmail.json()).toEqual(await wrongCode.json());
+    expect([...wrongEmail.headers.keys()].sort()).toEqual([...wrongCode.headers.keys()].sort());
+  });
+
   it("answers the same 400 challenge_closed for a ref that was never issued (decoys included)", async () => {
-    const decoy = encodeChallengeRef("8a2f6b1c-3d4e-4f50-9a6b-7c8d9e0f1a2b");
+    const decoy = encodeChallengeRef("8a2f6b1c-3d4e-4f50-9a6b-7c8d9e0f1a2b", EMAIL, FAKE_KEY_RING);
     const res = await verify({ handle: HANDLE, challengeId: decoy, code: CODE, email: EMAIL });
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "challenge_closed" });
@@ -248,6 +300,7 @@ describe("POST /api/customer/auth/verify — refusals before the broker", () => 
     const cases: Array<Record<string, unknown>> = [
       { handle: HANDLE, challengeId: "11111111-1111-4111-8111-111111111111", code: CODE, email: EMAIL },
       { handle: HANDLE, challengeId: "ch_nope", code: CODE, email: EMAIL },
+      { handle: HANDLE, challengeId: `ch_${"A".repeat(22)}`, code: CODE, email: EMAIL },
       { handle: HANDLE, challengeId: undefined, code: CODE, email: EMAIL },
       { handle: HANDLE, challengeId, code: "12345", email: EMAIL },
       { handle: HANDLE, challengeId, code: "abcdef", email: EMAIL },
