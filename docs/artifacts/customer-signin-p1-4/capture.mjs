@@ -20,9 +20,14 @@ async function newPage(viewport, membership = "active_forward_only") {
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.route("**/api/customer/auth/start", (r) => json(r, 200, { challengeId: "ch_demo", retryAfterSeconds: 60 }));
+  let attemptsRemaining = 5;
   await page.route("**/api/customer/auth/verify", (r) => {
     const b = r.request().postDataJSON();
-    return b.code === "123456" ? json(r, 200, { ok: true, next: `/c/${H}/home` }) : json(r, 400, { error: "invalid_code" });
+    if (typeof b.email !== "string") return json(r, 400, { error: "invalid_request" });
+    if (attemptsRemaining <= 0) return json(r, 400, { error: "challenge_exhausted" });
+    if (b.code === "123456") return json(r, 200, { ok: true, next: `/c/${H}/home` });
+    attemptsRemaining -= 1;
+    return json(r, 400, { error: "invalid_code", attemptsRemaining });
   });
   await page.route("**/api/customer/me**", (r) => json(r, 200, { displayName: "Jordan Lee", maskedEmail: "j•••@example.com", membership: { state: membership } }));
   await page.route("**/api/customer/auth/signout", (r) => json(r, 204, {}));
@@ -58,6 +63,31 @@ async function flow(tag, viewport) {
 
 await flow("desktop", { width: 1440, height: 900 });
 await flow("mobile", { width: 390, height: 844 });
+
+{
+  // Attempts running down, then the dead-challenge state.
+  const { ctx, page } = await newPage({ width: 390, height: 844 });
+  await page.goto(`${base}/c/${H}/signin`, { waitUntil: "networkidle", timeout: 180000 });
+  await page.getByLabel(/^email$/i).fill("jordan@example.com");
+  await page.getByRole("button", { name: /send code/i }).click();
+  const alert = page.locator("main").getByRole("alert");
+  for (const wrong of ["111111", "222222", "333333"]) {
+    for (let i = 0; i < 6; i++) await page.getByLabel(`Digit ${i + 1} of 6`).fill(wrong[i]);
+    await alert.waitFor();
+  }
+  await page.waitForTimeout(300);
+  log.push(`attempts-left copy: ${await alert.innerText()}`);
+  await page.screenshot({ path: `${out}/customer-signin-04-attempts-left-mobile.png` });
+  for (const wrong of ["444444", "555555"]) {
+    for (let i = 0; i < 6; i++) await page.getByLabel(`Digit ${i + 1} of 6`).fill(wrong[i]);
+    await alert.waitFor();
+  }
+  await page.locator("form[data-challenge-dead='true']").waitFor();
+  await page.waitForTimeout(300);
+  log.push(`dead-challenge copy: ${await alert.innerText()}`);
+  await page.screenshot({ path: `${out}/customer-signin-05-challenge-dead-mobile.png` });
+  await ctx.close();
+}
 
 for (const state of ["active_full", "none"]) {
   const { ctx, page } = await newPage({ width: 390, height: 844 }, state);
