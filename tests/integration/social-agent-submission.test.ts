@@ -1,9 +1,6 @@
 import { NextRequest } from "next/server";
 import type { SocialSubmission } from "@/lib/social/contract";
-import {
-  createSocialSubmissionHandler,
-  type SocialSubmissionHandlerDependencies,
-} from "@/app/api/internal/social/posts/route";
+import { createSocialSubmissionHandler } from "@/app/api/internal/social/posts/route";
 import {
   SocialSubmissionError,
   submitSocialPost,
@@ -46,7 +43,7 @@ function postRecord(overrides: Partial<SocialPostRecord> = {}): SocialPostRecord
     contract_version: "2026-09-01",
     source_type: "blog",
     source_id: payload().source.id ?? null,
-    source_url: "https://opsapp.ca/blog/the-two-hour-leak",
+    source_url: "https://opsapp.co/journal/the-two-hour-leak",
     story_type: "blog_signal",
     visual_treatment: "operator_brief",
     post_format: "single",
@@ -63,11 +60,13 @@ function postRecord(overrides: Partial<SocialPostRecord> = {}): SocialPostRecord
     published_at: null,
     cancelled_at: null,
     attempt_count: 0,
-    max_attempts: 3,
+    max_attempts: 4,
     next_attempt_at: null,
     last_attempt_at: null,
     claim_token: null,
     claim_expires_at: null,
+    publish_stage: "idle",
+    publish_attempts: [],
     last_error_code: null,
     last_error_message: null,
     last_error_retryable: null,
@@ -223,7 +222,7 @@ describe("scheduled-agent submission orchestration", () => {
     expect(result.created).toBe(true);
     expect(deps.repository.reserveRenderingPost).toHaveBeenCalledWith(
       expect.objectContaining({
-        source_url: "https://opsapp.ca/blog/the-two-hour-leak",
+        source_url: "https://opsapp.co/journal/the-two-hour-leak",
         content: expect.objectContaining({
           slides: [expect.objectContaining({ image_url: "https://images.opsapp.ca/blog/two-hour-leak.jpg" })],
         }),
@@ -301,6 +300,21 @@ describe("scheduled-agent submission orchestration", () => {
     expect(deps.repository.markReview).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ publish_after: later.publish_at })
+    );
+  });
+
+  it("starts the ten-minute veto only after rendering finishes", async () => {
+    const now = vi
+      .fn()
+      .mockReturnValueOnce(new Date("2026-09-01T20:00:00.000Z"))
+      .mockReturnValueOnce(new Date("2026-09-01T20:04:00.000Z"));
+    const deps = serviceDependencies({ now });
+
+    await submitSocialPost({ idempotencyKey: "slow-render", submission: payload() }, deps);
+
+    expect(deps.repository.markReview).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ publish_after: "2026-09-01T20:14:00.000Z" })
     );
   });
 });

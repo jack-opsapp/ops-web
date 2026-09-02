@@ -15,6 +15,7 @@ interface InstagramClientDependencies {
   sleep: (milliseconds: number) => Promise<void>;
   maxPollAttempts: number;
   pollDelayMs: number;
+  requestTimeoutMs: number;
 }
 
 interface GraphErrorBody {
@@ -38,11 +39,17 @@ export interface InstagramPublishResult {
   quota: InstagramPublishingQuota;
 }
 
+export type InstagramPublishStageEvent =
+  | { stage: "container_ready"; containerId: string }
+  | { stage: "publish_requested"; containerId: string }
+  | { stage: "publish_succeeded"; containerId: string; mediaId: string };
+
 const defaultDependencies: InstagramClientDependencies = {
   fetcher: fetch,
   sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
   maxPollAttempts: 30,
   pollDelayMs: 2_000,
+  requestTimeoutMs: 12_000,
 };
 
 function sanitizedMessage(raw: string | undefined, token: string): string {
@@ -165,6 +172,7 @@ export class InstagramGraphClient {
           Authorization: `Bearer ${this.config.accessToken}`,
         },
         body: form,
+        signal: AbortSignal.timeout(this.dependencies.requestTimeoutMs),
       });
     } catch {
       throw new InstagramGraphError(
@@ -238,6 +246,7 @@ export class InstagramGraphClient {
       method: "POST",
       body: {
         image_url: asset.url,
+        alt_text: asset.alt_text,
         ...(options.carouselItem ? { is_carousel_item: "true" } : {}),
         ...(options.caption ? { caption: options.caption } : {}),
       },
@@ -321,9 +330,9 @@ export class InstagramGraphClient {
     }
     if (!payload.id) {
       throw new InstagramGraphError(
-        "INVALID_PUBLISH_RESPONSE",
-        "Instagram did not return a published media ID",
-        true
+        "PUBLISH_OUTCOME_UNKNOWN",
+        "Instagram publish response omitted the media ID; reconcile the account before retrying",
+        false
       );
     }
     return payload.id;
@@ -347,12 +356,21 @@ export class InstagramGraphClient {
     format,
     assets,
     caption,
+    onStage,
   }: {
     format: SocialPostFormat;
     assets: RenderedSocialAsset[];
     caption: string;
+    onStage: (event: InstagramPublishStageEvent) => Promise<void>;
   }): Promise<InstagramPublishResult> {
     validatePublishInput({ format, assets, caption });
+    if (typeof onStage !== "function") {
+      throw new InstagramGraphError(
+        "PUBLISH_LEDGER_REQUIRED",
+        "Instagram publishing requires a durable stage ledger",
+        false
+      );
+    }
     const quota = await this.getPublishingQuota();
     if (quota.used >= quota.total) {
       throw new InstagramGraphError(
@@ -382,7 +400,27 @@ export class InstagramGraphClient {
       await this.waitForContainer(containerId);
     }
 
+    try {
+      await onStage({ stage: "container_ready", containerId });
+      await onStage({ stage: "publish_requested", containerId });
+    } catch {
+      throw new InstagramGraphError(
+        "PUBLISH_STAGE_NOT_PERSISTED",
+        "OPS could not durably record the publish boundary before contacting Instagram",
+        true
+      );
+    }
+
     const mediaId = await this.publishContainer(containerId);
+    try {
+      await onStage({ stage: "publish_succeeded", containerId, mediaId });
+    } catch {
+      throw new InstagramGraphError(
+        "PUBLISHED_ACK_NOT_PERSISTED",
+        "Instagram accepted the post, but OPS could not persist the acknowledgement; reconcile before retrying",
+        false
+      );
+    }
     const permalink = await this.readPermalink(mediaId);
     return { mediaId, permalink, quota };
   }

@@ -37,6 +37,7 @@ export function createSocialPublishCronHandler(
       return NextResponse.json({
         ok: true,
         claimed: summary.claimed,
+        recovery_notifications: summary.recoveryNotifications,
         published: summary.published,
         retry_scheduled: summary.retryScheduled,
         failed: summary.failed,

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
+import type { InstagramPublishStageEvent } from "./instagram-client";
 import type { SocialAuditEvent, SocialPostRecord } from "./types";
 
 export class SocialClaimLostError extends Error {
@@ -12,7 +13,17 @@ export class SocialClaimLostError extends Error {
 
 export interface PublisherSocialRepository {
   claimDue(claimToken: string, limit: number, ttlSeconds: number): Promise<SocialPostRecord[]>;
+  claimRecoveryNotifications(
+    claimToken: string,
+    limit: number,
+    ttlSeconds: number
+  ): Promise<SocialPostRecord[]>;
   claimById(postId: string, claimToken: string, ttlSeconds: number): Promise<SocialPostRecord | null>;
+  recordPublishStage(
+    postId: string,
+    claimToken: string | null,
+    event: InstagramPublishStageEvent
+  ): Promise<void>;
   markPublished(
     postId: string,
     claimToken: string | null,
@@ -54,6 +65,16 @@ export function createPublisherSocialRepository(): PublisherSocialRepository {
       return mapRows(data);
     },
 
+    async claimRecoveryNotifications(claimToken, limit, ttlSeconds) {
+      const { data, error } = await db.rpc("claim_social_recovery_notifications", {
+        p_claim_token: claimToken,
+        p_limit: limit,
+        p_claim_ttl_seconds: ttlSeconds,
+      });
+      if (error) throw error;
+      return mapRows(data);
+    },
+
     async claimById(postId, claimToken, ttlSeconds) {
       const { data, error } = await db.rpc("claim_social_post_by_id", {
         p_post_id: postId,
@@ -64,12 +85,26 @@ export function createPublisherSocialRepository(): PublisherSocialRepository {
       return mapRows(data)[0] ?? null;
     },
 
+    async recordPublishStage(postId, claimToken, event) {
+      if (!claimToken) throw new SocialClaimLostError();
+      const { data, error } = await db.rpc("record_social_publish_stage", {
+        p_post_id: postId,
+        p_claim_token: claimToken,
+        p_stage: event.stage,
+        p_container_id: event.containerId,
+        p_media_id: event.stage === "publish_succeeded" ? event.mediaId : null,
+      });
+      if (error) throw error;
+      if (data !== true) throw new SocialClaimLostError();
+    },
+
     async markPublished(postId, claimToken, update) {
       if (!claimToken) throw new SocialClaimLostError();
       const { data, error } = await db
         .from("social_posts")
         .update({
           status: "published",
+          publish_stage: "publish_succeeded",
           instagram_media_id: update.mediaId,
           instagram_permalink: update.permalink,
           published_at: update.publishedAt,
@@ -85,6 +120,7 @@ export function createPublisherSocialRepository(): PublisherSocialRepository {
         .eq("id", postId)
         .eq("status", "publishing")
         .eq("claim_token", claimToken)
+        .eq("publish_stage", "publish_succeeded")
         .select("id")
         .maybeSingle();
       if (error) throw error;
@@ -97,12 +133,21 @@ export function createPublisherSocialRepository(): PublisherSocialRepository {
         .from("social_posts")
         .update({
           status: "failed",
+          publish_stage:
+            update.code === "PUBLISH_OUTCOME_UNKNOWN" ||
+            update.code === "PUBLISHED_ACK_NOT_PERSISTED"
+              ? "reconciliation_required"
+              : "idle",
           last_error_code: update.code,
           last_error_message: update.message,
           last_error_retryable: update.retryable,
           next_attempt_at: update.nextAttemptAt,
           claim_token: null,
           claim_expires_at: null,
+          recovery_notification_pending: !update.retryable,
+          recovery_notification_claim_token: null,
+          recovery_notification_claim_expires_at: null,
+          recovery_notified_at: null,
           updated_by: "system:publisher",
           audit_log: update.auditLog,
         })

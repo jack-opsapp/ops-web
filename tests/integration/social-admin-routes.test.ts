@@ -115,7 +115,12 @@ describe("admin social mutation service", () => {
   function serviceDependencies(
     overrides: Partial<AdminSocialServiceDependencies> = {}
   ): AdminSocialServiceDependencies {
-    const review = socialPostFixture({ status: "review", claim_token: null, claim_expires_at: null });
+    const review = socialPostFixture({
+      status: "review",
+      claim_token: null,
+      claim_expires_at: null,
+      publish_stage: "idle",
+    });
     return {
       now: () => new Date("2026-09-01T20:00:00.000Z"),
       repository: {
@@ -179,8 +184,6 @@ describe("admin social mutation service", () => {
     expect(deps.repository.beginEdit).toHaveBeenCalledWith(
       POST_ID,
       expect.objectContaining({
-        content: editedContent(),
-        render_version: expect.stringContaining("edit-"),
         audit_log: expect.arrayContaining([
           expect.objectContaining({
             event: "edit_started",
@@ -192,7 +195,11 @@ describe("admin social mutation service", () => {
     expect(deps.render).toHaveBeenCalledTimes(1);
     expect(deps.repository.completeEdit).toHaveBeenCalledWith(
       POST_ID,
-      expect.objectContaining({ publish_after: "2026-09-01T20:10:00.000Z" })
+      expect.objectContaining({
+        content: editedContent(),
+        render_version: expect.stringContaining("edit-"),
+        publish_after: "2026-09-01T20:10:00.000Z",
+      })
     );
     expect(result.post.status).toBe("review");
     expect(deps.notifyReview).toHaveBeenCalled();
@@ -206,8 +213,9 @@ describe("admin social mutation service", () => {
     });
     expect(deps.repository.failEdit).toHaveBeenCalledWith(
       POST_ID,
-      expect.objectContaining({ priorAssets: socialPostFixture().rendered_assets })
+      expect.not.objectContaining({ priorAssets: expect.anything() })
     );
+    expect(deps.repository.completeEdit).not.toHaveBeenCalled();
   });
 
   it("cancels only reviewable posts and resolves the veto notification", async () => {
@@ -231,7 +239,14 @@ describe("admin social mutation service", () => {
   });
 
   it("resets exhausted attempts before an explicit operator retry", async () => {
-    const failed = socialPostFixture({ status: "failed", attempt_count: 3, max_attempts: 3, claim_token: null });
+    const failed = socialPostFixture({
+      status: "failed",
+      attempt_count: 4,
+      max_attempts: 4,
+      claim_token: null,
+      publish_stage: "idle",
+      last_error_code: "BAD_TOKEN",
+    });
     const deps = serviceDependencies({
       repository: {
         ...serviceDependencies().repository,
@@ -242,9 +257,64 @@ describe("admin social mutation service", () => {
     await retrySocialPostImmediately(POST_ID, USER.email, deps);
     expect(deps.repository.resetForRetry).toHaveBeenCalledWith(
       POST_ID,
-      expect.objectContaining({ attempt_count: 0, max_attempts: 3 })
+      expect.objectContaining({ attempt_count: 0, max_attempts: 4 })
     );
     expect(deps.publishNow).toHaveBeenCalledWith(POST_ID);
+  });
+
+  it("blocks every mutation when a publish outcome needs reconciliation", async () => {
+    const uncertain = socialPostFixture({
+      status: "failed",
+      claim_token: null,
+      claim_expires_at: null,
+      publish_stage: "reconciliation_required",
+      last_error_code: "PUBLISH_OUTCOME_UNKNOWN",
+      last_error_retryable: false,
+    });
+    const deps = serviceDependencies({
+      repository: {
+        ...serviceDependencies().repository,
+        getById: vi.fn().mockResolvedValue(uncertain),
+      },
+    });
+
+    await expect(retrySocialPostImmediately(POST_ID, USER.email, deps)).rejects.toMatchObject({
+      code: "SOCIAL_RECONCILIATION_REQUIRED",
+      status: 409,
+    });
+    await expect(cancelSocialPost(POST_ID, USER.email, deps)).rejects.toMatchObject({
+      code: "SOCIAL_RECONCILIATION_REQUIRED",
+      status: 409,
+    });
+    await expect(editSocialPostCopy(POST_ID, editedContent(), USER.email, deps)).rejects.toMatchObject({
+      code: "SOCIAL_RECONCILIATION_REQUIRED",
+      status: 409,
+    });
+    expect(deps.repository.resetForRetry).not.toHaveBeenCalled();
+    expect(deps.publishNow).not.toHaveBeenCalled();
+  });
+
+  it("requires a fresh edit after rendering fails", async () => {
+    const failedRender = socialPostFixture({
+      status: "failed",
+      claim_token: null,
+      publish_stage: "idle",
+      rendered_assets: [],
+      last_error_code: "RENDER_FAILED",
+      last_error_retryable: false,
+    });
+    const deps = serviceDependencies({
+      repository: {
+        ...serviceDependencies().repository,
+        getById: vi.fn().mockResolvedValue(failedRender),
+      },
+    });
+
+    await expect(retrySocialPostImmediately(POST_ID, USER.email, deps)).rejects.toMatchObject({
+      code: "SOCIAL_POST_NOT_RETRYABLE",
+      status: 409,
+    });
+    expect(deps.repository.resetForRetry).not.toHaveBeenCalled();
   });
 
   it("keeps published and cancelled posts immutable", async () => {

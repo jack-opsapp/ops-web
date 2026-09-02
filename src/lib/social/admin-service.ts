@@ -6,6 +6,10 @@ import {
   type AdminSocialRepository,
 } from "./admin-repository";
 import { createSocialReviewNotification, resolveSocialReviewNotification } from "./notification-service";
+import {
+  canManuallyRetrySocialPost,
+  requiresInstagramReconciliation,
+} from "./publish-policy";
 import { publishSocialPostNow, type SocialPublishOutcome } from "./publisher";
 import { renderSocialPost, SOCIAL_RENDER_VERSION } from "./render/render-social-post";
 import { selectSocialTemplate } from "./template-selector";
@@ -69,6 +73,16 @@ function requireStatus(post: SocialPostRecord, allowed: SocialPostStatus[]): voi
   }
 }
 
+function requireNoReconciliation(post: SocialPostRecord): void {
+  if (requiresInstagramReconciliation(post)) {
+    throw new AdminSocialError(
+      "SOCIAL_RECONCILIATION_REQUIRED",
+      "Instagram may already contain this post. Reconcile the account before taking another action.",
+      409
+    );
+  }
+}
+
 async function bestEffort(operation: () => Promise<void>): Promise<void> {
   try {
     await operation();
@@ -92,6 +106,7 @@ export async function editSocialPostCopy(
 ): Promise<{ post: SocialPostRecord }> {
   const post = await requiredPost(postId, dependencies.repository);
   requireStatus(post, ["review", "failed"]);
+  requireNoReconciliation(post);
   const parsedContent = socialContentSchema.safeParse(contentInput);
   if (!parsedContent.success) {
     throw new AdminSocialError(
@@ -149,16 +164,7 @@ export async function editSocialPostCopy(
       metadata: { previous_assets: post.rendered_assets },
     },
   ];
-  const renderingPost = await dependencies.repository.beginEdit(post.id, {
-    content: parsedContent.data,
-    caption: parsedContent.data.caption,
-    alt_text: parsedContent.data.alt_text,
-    story_type: selection.storyType,
-    visual_treatment: selection.visualTreatment,
-    post_format: selection.postFormat,
-    selection_metadata: selection as unknown as Record<string, unknown>,
-    selector_version: selection.selectorVersion,
-    render_version: renderVersion,
+  await dependencies.repository.beginEdit(post.id, {
     audit_log: editStartedAudit,
     updated_by: adminActor,
   });
@@ -173,6 +179,15 @@ export async function editSocialPostCopy(
     const renderedAt = dependencies.now();
     const reviewAt = new Date(renderedAt.getTime() + REVIEW_MS).toISOString();
     const completed = await dependencies.repository.completeEdit(post.id, {
+      content: parsedContent.data,
+      caption: parsedContent.data.caption,
+      alt_text: parsedContent.data.alt_text,
+      story_type: selection.storyType,
+      visual_treatment: selection.visualTreatment,
+      post_format: selection.postFormat,
+      selection_metadata: selection as unknown as Record<string, unknown>,
+      selector_version: selection.selectorVersion,
+      render_version: renderVersion,
       rendered_assets: assets,
       rendered_at: renderedAt.toISOString(),
       publish_after: reviewAt,
@@ -196,7 +211,6 @@ export async function editSocialPostCopy(
     await dependencies.repository.failEdit(post.id, {
       message,
       actor: adminActor,
-      priorAssets: post.rendered_assets,
       auditLog: [
         ...editStartedAudit,
         {
@@ -219,6 +233,7 @@ export async function cancelSocialPost(
 ): Promise<{ post: SocialPostRecord }> {
   const post = await requiredPost(postId, dependencies.repository);
   requireStatus(post, ["review", "failed"]);
+  requireNoReconciliation(post);
   const at = dependencies.now().toISOString();
   const adminActor = actor(adminEmail);
   const cancelled = await dependencies.repository.cancel(post.id, {
@@ -239,7 +254,8 @@ export async function publishSocialPostImmediately(
   dependencies: AdminSocialServiceDependencies = defaultDependencies()
 ): Promise<SocialPublishOutcome> {
   const post = await requiredPost(postId, dependencies.repository);
-  requireStatus(post, ["review", "failed"]);
+  requireStatus(post, ["review"]);
+  requireNoReconciliation(post);
   const at = dependencies.now().toISOString();
   const adminActor = actor(adminEmail);
   await dependencies.repository.recordPublishRequest(post.id, {
@@ -267,11 +283,22 @@ export async function retrySocialPostImmediately(
 ): Promise<SocialPublishOutcome> {
   const post = await requiredPost(postId, dependencies.repository);
   requireStatus(post, ["failed"]);
+  if (!canManuallyRetrySocialPost(post)) {
+    throw new AdminSocialError(
+      requiresInstagramReconciliation(post)
+        ? "SOCIAL_RECONCILIATION_REQUIRED"
+        : "SOCIAL_POST_NOT_RETRYABLE",
+      requiresInstagramReconciliation(post)
+        ? "Instagram may already contain this post. Reconcile the account before retrying."
+        : "This post must be edited and rendered again before it can publish.",
+      409
+    );
+  }
   const at = dependencies.now().toISOString();
   const adminActor = actor(adminEmail);
   await dependencies.repository.resetForRetry(post.id, {
     attempt_count: 0,
-    max_attempts: 3,
+    max_attempts: 4,
     publish_after: at,
     updated_by: adminActor,
     audit_log: [

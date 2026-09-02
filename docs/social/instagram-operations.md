@@ -28,13 +28,13 @@ All values are server-only. Never prefix them with `NEXT_PUBLIC_`.
 | `INSTAGRAM_USER_ID` | Yes | Instagram professional account ID |
 | `INSTAGRAM_API_VERSION` | Yes | Explicit supported Graph API version, for example the version approved in the Meta app at release time |
 | `INSTAGRAM_API_ORIGIN` | No | Defaults to `https://graph.facebook.com`; exists for testability and controlled API routing |
-| `SOCIAL_OPERATOR_USER_ID` | Recommended | OPS `users.id` receiving review/publication/failure notifications |
-| `SOCIAL_OPERATOR_COMPANY_ID` | Recommended | Company invariant paired with the operator user |
+| `SOCIAL_OPERATOR_USER_ID` | Yes | Active OPS `users.id` receiving review/publication/recovery notifications |
+| `SOCIAL_OPERATOR_COMPANY_ID` | Yes | Exact active company paired with the operator user |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET`, `AWS_REGION` | When `STORAGE_BACKEND=s3` | Public rendered-asset storage |
 | `STORAGE_BACKEND` | No | `s3` by default; set `supabase` for the existing public `social-media` bucket fallback |
 | `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Yes | Queue, blog verification, notifications, and Supabase Storage fallback |
 
-If the two dedicated social operator IDs are absent, notifications fall back to `PMF_OPERATOR_USER_ID` and `PMF_OPERATOR_COMPANY_ID`. If neither complete pair exists, publishing still works but review notifications are skipped with a server warning. Configure the dedicated pair in production.
+If the two dedicated social operator IDs are absent, notifications fall back to `PMF_OPERATOR_USER_ID` and `PMF_OPERATOR_COMPANY_ID`. If neither complete pair exists, review notifications are skipped and any recovery alert remains durably pending; the worker will not acknowledge that outbox row until it can create the persistent notification. Configure the dedicated pair in production.
 
 Generate the two bearer secrets independently with a cryptographically secure generator. Store them only in Vercel’s encrypted environment settings and the scheduled agent’s secret store. Rotate either secret immediately after suspected disclosure.
 
@@ -48,7 +48,9 @@ Generate the two bearer secrets independently with a cryptographically secure ge
 6. An operator may edit and regenerate, stop, or publish immediately. Editing begins a fresh 10-minute window.
 7. Vercel calls `GET /api/cron/social-publish` every two minutes. The worker atomically claims no more than two due rows.
 8. For each claim, OPS checks `content_publishing_limit`, creates and polls Meta containers, publishes once, then stores the media ID and permalink.
-9. Success resolves the veto notification. Exhausted or terminal failure creates a persistent operator notification.
+9. Success resolves the veto notification. Exhausted, stale, or uncertain work enters a leased database outbox; the persistent operator notification and outbox acknowledgement commit atomically.
+
+Every Meta request has a 12-second network deadline. The queue also records `claimed`, `container_ready`, `publish_requested`, and `publish_succeeded` stages under the active claim token. That ledger is the authority for crash recovery.
 
 The table is service-role only. Browser roles have no queue privileges or RLS policy. Admin mutations pass the existing Firebase admin-email gate.
 
@@ -56,6 +58,7 @@ The table is service-role only. Browser roles have no queue privileges or RLS po
 
 - Database claims use `FOR UPDATE SKIP LOCKED`, a unique claim token, and a three-minute expiry.
 - The worker uses bounded retry delays of **5, 15, and 60 minutes**.
+- Four total attempts provide the initial delivery plus all three bounded retries.
 - HTTP 429, HTTP 5xx, and Graph errors marked transient are retryable.
 - Validation, permission, account, media, and terminal container failures remain failed until an operator corrects the cause and chooses `RETRY NOW`.
 - An agent delivery retry must reuse its original `Idempotency-Key`.
@@ -65,11 +68,15 @@ Meta’s `media_publish` response has a uniquely dangerous failure mode: the net
 
 Likewise, `PUBLISHED_ACK_NOT_PERSISTED` means Meta returned success but the durable acknowledgement failed. Do not retry. Reconcile the Instagram media ID/permalink and the row under a controlled database repair.
 
+An expired claim is recoverable only before `media_publish`: `claimed` and `container_ready` may be reclaimed while an attempt remains. If the final pre-publish lease expires, the row becomes terminal `PUBLISH_ATTEMPTS_EXHAUSTED` instead of staying stranded in `publishing`. Expired `publish_requested` or `publish_succeeded` rows are moved to `reconciliation_required` and locked from edit, stop, publish, and retry actions. A `rendering` row older than 15 minutes becomes `STALE_RENDERING`; edit it to build a fresh package. All four transitions create replayable recovery-notification work.
+
+When an operator successfully begins a corrective edit, stops the post, or requests a safe retry, the same database transaction cancels any pending recovery-notification lease and resolves the exact persistent failure alert. A failed replacement render creates a fresh recovery event, so fixing one failure can never hide the next one.
+
 ## Operator actions
 
 ### Edit
 
-Available only in `review` or `failed`. The existing assets stay intact while the replacement is rendered. A failed regeneration restores the prior asset metadata and records `SOCIAL_EDIT_RENDER_FAILED`. A successful regeneration resets attempts and opens a new veto window.
+Available only in `review` or `failed`. The complete existing content, selection, and asset package stays intact while the replacement renders. A failed regeneration records `SOCIAL_EDIT_RENDER_FAILED` without swapping any part of the prior package. A successful regeneration atomically swaps the complete replacement, resets attempts, and opens a new veto window.
 
 ### Stop
 
@@ -81,7 +88,7 @@ Available in `review`. It records the admin identity and requests the same atomi
 
 ### Retry now
 
-Available in `failed`. Use only after the named root cause is corrected. It resets the bounded attempt counter, atomically claims the row, and uses the normal Meta path.
+Available in safely retryable `failed` states. Use only after the named root cause is corrected. It resets the bounded attempt counter, atomically claims the row, and uses the normal Meta path. Reconciliation-required and failed-edit rows never expose this action.
 
 Published and cancelled rows are immutable in the admin API.
 
@@ -125,7 +132,7 @@ Before production approval, re-check the current [Vercel Cron Jobs documentation
 
 Do not combine these gates into one inferred action.
 
-1. Review and apply the Supabase migration; verify schema, RLS, grants, functions, and zero-row claim behavior.
+1. Review and apply the Supabase migration; run `OPS_RUN_SOCIAL_POSTGRES_RUNTIME=1` against an isolated PostgreSQL 17 database to verify exact migration application, RLS/grants, concurrent claims, every expired-stage branch, atomic recovery notifications, and zero-row replay.
 2. Configure Preview environment variables and verify the agent/auth/render/admin paths with Meta publishing disabled.
 3. Configure a Meta test path and verify one deliberate single image and one carousel.
 4. Configure Production environment values.

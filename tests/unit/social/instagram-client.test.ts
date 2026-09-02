@@ -48,6 +48,8 @@ const quota = () =>
     data: [{ quota_usage: 2, config: { quota_total: 50, quota_duration: 86400 } }],
   });
 
+const persistStage = async () => undefined;
+
 describe("Instagram Graph publishing client", () => {
   afterEach(() => vi.unstubAllEnvs());
 
@@ -66,7 +68,12 @@ describe("Instagram Graph publishing client", () => {
       { fetcher, sleep: vi.fn(), maxPollAttempts: 2, pollDelayMs: 1 }
     );
 
-    await client.publish({ format: "single", assets: [asset(1)], caption: "One plan. Fewer repeat calls." });
+    await client.publish({
+      format: "single",
+      assets: [asset(1)],
+      caption: "One plan. Fewer repeat calls.",
+      onStage: persistStage,
+    });
     expect(fetcher.mock.calls[0][0].toString()).toContain(
       "https://graph.instagram.com/v24.0/17841400000000000/content_publishing_limit"
     );
@@ -91,6 +98,7 @@ describe("Instagram Graph publishing client", () => {
       format: "single",
       assets: [asset(1)],
       caption: "One plan. Fewer repeat calls.",
+      onStage: persistStage,
     });
 
     expect(result).toEqual({
@@ -106,6 +114,7 @@ describe("Instagram Graph publishing client", () => {
     const createBody = createCall[1]?.body as URLSearchParams;
     expect(createBody.get("image_url")).toBe(asset(1).url);
     expect(createBody.get("caption")).toBe("One plan. Fewer repeat calls.");
+    expect(createBody.get("alt_text")).toBe(asset(1).alt_text);
     expect(createBody.get("access_token")).toBe(TOKEN);
     expect(createCall[0].toString()).not.toContain(TOKEN);
   });
@@ -133,6 +142,7 @@ describe("Instagram Graph publishing client", () => {
       format: "carousel",
       assets: [asset(1), asset(2)],
       caption: "Two moves. One operating plan.",
+      onStage: persistStage,
     });
 
     expect(result.mediaId).toBe("media-carousel");
@@ -141,6 +151,8 @@ describe("Instagram Graph publishing client", () => {
     const parentBody = fetcher.mock.calls[5][1]?.body as URLSearchParams;
     expect(firstChildBody.get("is_carousel_item")).toBe("true");
     expect(secondChildBody.get("is_carousel_item")).toBe("true");
+    expect(firstChildBody.get("alt_text")).toBe(asset(1).alt_text);
+    expect(secondChildBody.get("alt_text")).toBe(asset(2).alt_text);
     expect(parentBody.get("media_type")).toBe("CAROUSEL");
     expect(parentBody.get("children")).toBe("child-1,child-2");
   });
@@ -150,13 +162,19 @@ describe("Instagram Graph publishing client", () => {
     const client = new InstagramGraphClient(baseConfig, { fetcher, sleep: vi.fn() });
 
     await expect(
-      client.publish({ format: "carousel", assets: [asset(1)], caption: "Invalid" })
+      client.publish({
+        format: "carousel",
+        assets: [asset(1)],
+        caption: "Invalid",
+        onStage: persistStage,
+      })
     ).rejects.toMatchObject({ code: "INVALID_MEDIA" });
     await expect(
       client.publish({
         format: "single",
         assets: [{ ...asset(1), content_type: "image/png" as "image/jpeg" }],
         caption: "Invalid",
+        onStage: persistStage,
       })
     ).rejects.toMatchObject({ code: "INVALID_MEDIA" });
     expect(fetcher).not.toHaveBeenCalled();
@@ -169,7 +187,12 @@ describe("Instagram Graph publishing client", () => {
     const client = new InstagramGraphClient(baseConfig, { fetcher, sleep: vi.fn() });
 
     await expect(
-      client.publish({ format: "single", assets: [asset(1)], caption: "No capacity" })
+      client.publish({
+        format: "single",
+        assets: [asset(1)],
+        caption: "No capacity",
+        onStage: persistStage,
+      })
     ).rejects.toMatchObject({ code: "PUBLISHING_QUOTA_EXHAUSTED", retryable: true });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
@@ -189,7 +212,12 @@ describe("Instagram Graph publishing client", () => {
     });
 
     await expect(
-      client.publish({ format: "single", assets: [asset(1)], caption: "Wait" })
+      client.publish({
+        format: "single",
+        assets: [asset(1)],
+        caption: "Wait",
+        onStage: persistStage,
+      })
     ).rejects.toMatchObject({ code: "CONTAINER_TIMEOUT", retryable: true });
     expect(fetcher).toHaveBeenCalledTimes(4);
   });
@@ -225,5 +253,138 @@ describe("Instagram Graph publishing client", () => {
     expect(caught).toBeInstanceOf(InstagramGraphError);
     expect(caught).toMatchObject({ retryable: false, graphCode: 190 });
     expect((caught as Error).message).not.toContain(TOKEN);
+  });
+
+  it("records the durable boundary around media_publish", async () => {
+    const fetcher = fetchSequence(
+      quota(),
+      jsonResponse({ id: "container-1" }),
+      jsonResponse({ status_code: "FINISHED" }),
+      jsonResponse({ id: "media-1" }),
+      jsonResponse({ id: "media-1" })
+    );
+    const onStage = vi.fn().mockResolvedValue(undefined);
+    const client = new InstagramGraphClient(baseConfig, {
+      fetcher,
+      sleep: vi.fn(),
+      maxPollAttempts: 2,
+      pollDelayMs: 1,
+    });
+
+    await client.publish({
+      format: "single",
+      assets: [asset(1)],
+      caption: "One plan. Fewer repeat calls.",
+      onStage,
+    });
+
+    expect(onStage.mock.calls.map(([event]) => event)).toEqual([
+      { stage: "container_ready", containerId: "container-1" },
+      { stage: "publish_requested", containerId: "container-1" },
+      { stage: "publish_succeeded", containerId: "container-1", mediaId: "media-1" },
+    ]);
+  });
+
+  it("does not call media_publish when the pre-publish boundary cannot be persisted", async () => {
+    const fetcher = fetchSequence(
+      quota(),
+      jsonResponse({ id: "container-1" }),
+      jsonResponse({ status_code: "FINISHED" })
+    );
+    const client = new InstagramGraphClient(baseConfig, {
+      fetcher,
+      sleep: vi.fn(),
+      maxPollAttempts: 2,
+      pollDelayMs: 1,
+    });
+
+    await expect(
+      client.publish({
+        format: "single",
+        assets: [asset(1)],
+        caption: "One plan.",
+        onStage: vi.fn().mockRejectedValue(new Error("database unavailable")),
+      })
+    ).rejects.toMatchObject({ code: "PUBLISH_STAGE_NOT_PERSISTED", retryable: true });
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
+  it("quarantines a successful publish when its media identity cannot be persisted", async () => {
+    const fetcher = fetchSequence(
+      quota(),
+      jsonResponse({ id: "container-1" }),
+      jsonResponse({ status_code: "FINISHED" }),
+      jsonResponse({ id: "media-1" })
+    );
+    const onStage = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("database unavailable"));
+    const client = new InstagramGraphClient(baseConfig, {
+      fetcher,
+      sleep: vi.fn(),
+      maxPollAttempts: 2,
+      pollDelayMs: 1,
+    });
+
+    await expect(
+      client.publish({
+        format: "single",
+        assets: [asset(1)],
+        caption: "One plan.",
+        onStage,
+      })
+    ).rejects.toMatchObject({ code: "PUBLISHED_ACK_NOT_PERSISTED", retryable: false });
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
+  it("treats a successful media_publish response without an id as reconciliation-required", async () => {
+    const client = new InstagramGraphClient(baseConfig, {
+      fetcher: fetchSequence(
+        quota(),
+        jsonResponse({ id: "container-1" }),
+        jsonResponse({ status_code: "FINISHED" }),
+        jsonResponse({})
+      ),
+      sleep: vi.fn(),
+      maxPollAttempts: 2,
+      pollDelayMs: 1,
+    });
+
+    await expect(
+      client.publish({
+        format: "single",
+        assets: [asset(1)],
+        caption: "One plan.",
+        onStage: persistStage,
+      })
+    ).rejects.toMatchObject({ code: "PUBLISH_OUTCOME_UNKNOWN", retryable: false });
+  });
+
+  it("refuses to contact Instagram without a durable publish ledger", async () => {
+    const fetcher = vi.fn();
+    const client = new InstagramGraphClient(baseConfig, { fetcher });
+
+    await expect(
+      client.publish({
+        format: "single",
+        assets: [asset(1)],
+        caption: "One plan.",
+        onStage: undefined as never,
+      })
+    ).rejects.toMatchObject({ code: "PUBLISH_LEDGER_REQUIRED", retryable: false });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it("bounds every Graph request with a timeout signal", async () => {
+    const fetcher = vi.fn(async (_url: URL, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      return quota();
+    });
+    const client = new InstagramGraphClient(baseConfig, { fetcher, requestTimeoutMs: 250 });
+
+    await client.getPublishingQuota();
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });

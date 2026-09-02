@@ -19,6 +19,10 @@ export interface AdminSocialRepository {
   listRecentPosts(limit: number): Promise<RecentSocialPost[]>;
   beginEdit(
     id: string,
+    update: { audit_log: SocialAuditEvent[]; updated_by: string }
+  ): Promise<SocialPostRecord>;
+  completeEdit(
+    id: string,
     update: {
       content: SocialContent;
       caption: string;
@@ -29,13 +33,6 @@ export interface AdminSocialRepository {
       selection_metadata: Record<string, unknown>;
       selector_version: string;
       render_version: string;
-      audit_log: SocialAuditEvent[];
-      updated_by: string;
-    }
-  ): Promise<SocialPostRecord>;
-  completeEdit(
-    id: string,
-    update: {
       rendered_assets: RenderedSocialAsset[];
       rendered_at: string;
       publish_after: string;
@@ -49,7 +46,6 @@ export interface AdminSocialRepository {
       message: string;
       actor: string;
       auditLog: SocialAuditEvent[];
-      priorAssets: RenderedSocialAsset[];
     }
   ): Promise<void>;
   cancel(
@@ -117,6 +113,7 @@ export function createAdminSocialRepository(): AdminSocialRepository {
         .update({ ...update, status: "rendering", claim_token: null, claim_expires_at: null })
         .eq("id", id)
         .in("status", ["review", "failed"])
+        .eq("publish_stage", "idle")
         .is("claim_token", null)
         .select("*")
         .maybeSingle();
@@ -132,7 +129,8 @@ export function createAdminSocialRepository(): AdminSocialRepository {
           ...update,
           status: "review",
           attempt_count: 0,
-          max_attempts: 3,
+          max_attempts: 4,
+          publish_stage: "idle",
           next_attempt_at: null,
           last_error_code: null,
           last_error_message: null,
@@ -151,11 +149,15 @@ export function createAdminSocialRepository(): AdminSocialRepository {
         .from("social_posts")
         .update({
           status: "failed",
-          rendered_assets: update.priorAssets,
+          publish_stage: "idle",
           last_error_code: "SOCIAL_EDIT_RENDER_FAILED",
           last_error_message: update.message,
           last_error_retryable: false,
           next_attempt_at: null,
+          recovery_notification_pending: true,
+          recovery_notification_claim_token: null,
+          recovery_notification_claim_expires_at: null,
+          recovery_notified_at: null,
           audit_log: update.auditLog,
           updated_by: update.actor,
         })
@@ -170,12 +172,14 @@ export function createAdminSocialRepository(): AdminSocialRepository {
         .update({
           ...update,
           status: "cancelled",
+          publish_stage: "idle",
           claim_token: null,
           claim_expires_at: null,
           next_attempt_at: null,
         })
         .eq("id", id)
         .in("status", ["review", "failed"])
+        .eq("publish_stage", "idle")
         .select("*")
         .maybeSingle();
       if (error) throw error;
@@ -188,7 +192,8 @@ export function createAdminSocialRepository(): AdminSocialRepository {
         .from("social_posts")
         .update(update)
         .eq("id", id)
-        .in("status", ["review", "failed"])
+        .eq("status", "review")
+        .eq("publish_stage", "idle")
         .select("id")
         .maybeSingle();
       if (error) throw error;
@@ -201,6 +206,7 @@ export function createAdminSocialRepository(): AdminSocialRepository {
         .update({
           ...update,
           status: "review",
+          publish_stage: "idle",
           next_attempt_at: null,
           last_error_code: null,
           last_error_message: null,
@@ -210,6 +216,7 @@ export function createAdminSocialRepository(): AdminSocialRepository {
         })
         .eq("id", id)
         .eq("status", "failed")
+        .eq("publish_stage", "idle")
         .select("*")
         .maybeSingle();
       if (error) throw error;

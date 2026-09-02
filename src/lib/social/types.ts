@@ -41,11 +41,30 @@ export const SOCIAL_POST_STATUSES = [
   "failed",
 ] as const;
 
+export const SOCIAL_PUBLISH_STAGES = [
+  "idle",
+  "claimed",
+  "container_ready",
+  "publish_requested",
+  "publish_succeeded",
+  "reconciliation_required",
+] as const;
+
 export type SocialSourceType = (typeof SOCIAL_SOURCE_TYPES)[number];
 export type SocialStoryType = (typeof SOCIAL_STORY_TYPES)[number];
 export type SocialVisualTreatment = (typeof SOCIAL_VISUAL_TREATMENTS)[number];
 export type SocialPostFormat = (typeof SOCIAL_POST_FORMATS)[number];
 export type SocialPostStatus = (typeof SOCIAL_POST_STATUSES)[number];
+export type SocialPublishStage = (typeof SOCIAL_PUBLISH_STAGES)[number];
+
+export interface SocialPublishAttemptEvent {
+  at: string;
+  attempt: number;
+  stage: Exclude<SocialPublishStage, "idle">;
+  claim_token: string;
+  container_id?: string;
+  media_id?: string;
+}
 
 export interface SocialVoiceIssue {
   path: string;
@@ -102,6 +121,12 @@ export interface SocialPostRecord {
   last_attempt_at: string | null;
   claim_token: string | null;
   claim_expires_at: string | null;
+  publish_stage: SocialPublishStage;
+  publish_attempts: SocialPublishAttemptEvent[];
+  recovery_notification_pending: boolean;
+  recovery_notification_claim_token: string | null;
+  recovery_notification_claim_expires_at: string | null;
+  recovery_notified_at: string | null;
   last_error_code: string | null;
   last_error_message: string | null;
   last_error_retryable: boolean | null;

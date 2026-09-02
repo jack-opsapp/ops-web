@@ -64,22 +64,32 @@ export async function createSocialPublishedNotification(
   if (error) throw new Error(`Published notification failed: ${error.message}`);
 }
 
-export async function createSocialFailureNotification(
+/**
+ * The database RPC inserts the persistent rail item and acknowledges its
+ * leased outbox row in one transaction. A failed call leaves the lease to
+ * expire so a later publisher run can replay it without losing the alert.
+ */
+export async function createSocialRecoveryNotification(
   post: SocialPostRecord,
-  safeError: string
+  recoveryClaimToken: string | null
 ): Promise<void> {
   const recipient = recipients();
-  if (!recipient) return;
-  const { error } = await getServiceRoleClient().from("notifications").insert({
-    user_id: recipient.userId,
-    company_id: recipient.companyId,
-    type: "social_post_failed",
-    title: `SOCIAL PUBLISH FAILED · ${post.id.slice(0, 8).toUpperCase()}`,
-    body: safeError.slice(0, 300),
-    is_read: false,
-    persistent: true,
-    action_url: `/admin/social?post=${post.id}`,
-    action_label: "OPEN FAILURE",
-  });
-  if (error) throw new Error(`Failure notification failed: ${error.message}`);
+  if (!recipient) {
+    throw new Error("Social recovery notification recipient is not configured");
+  }
+  if (!recoveryClaimToken) {
+    throw new Error("Social recovery notification claim is missing");
+  }
+
+  const { data, error } = await getServiceRoleClient().rpc(
+    "deliver_social_recovery_notification",
+    {
+      p_post_id: post.id,
+      p_claim_token: recoveryClaimToken,
+      p_user_id: recipient.userId,
+      p_company_id: recipient.companyId,
+    }
+  );
+  if (error) throw new Error(`Recovery notification failed: ${error.message}`);
+  if (data !== true) throw new Error("Recovery notification claim is no longer owned");
 }

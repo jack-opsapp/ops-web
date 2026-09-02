@@ -14,7 +14,9 @@ function dependencies(
     createClaimToken: () => "0749af28-5852-4728-a36c-4f222a3e4b92",
     repository: {
       claimDue: vi.fn().mockResolvedValue([socialPostFixture()]),
+      claimRecoveryNotifications: vi.fn().mockResolvedValue([]),
       claimById: vi.fn().mockResolvedValue(socialPostFixture()),
+      recordPublishStage: vi.fn().mockResolvedValue(undefined),
       markPublished: vi.fn().mockResolvedValue(undefined),
       markFailed: vi.fn().mockResolvedValue(undefined),
     },
@@ -27,7 +29,7 @@ function dependencies(
     },
     resolveReviewNotification: vi.fn().mockResolvedValue(undefined),
     notifyPublished: vi.fn().mockResolvedValue(undefined),
-    notifyFailed: vi.fn().mockResolvedValue(undefined),
+    notifyRecovery: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -43,6 +45,7 @@ describe("durable Instagram publisher", () => {
       format: post.post_format,
       assets: post.rendered_assets,
       caption: post.caption,
+      onStage: expect.any(Function),
     });
     expect(deps.repository.markPublished).toHaveBeenCalledWith(
       post.id,
@@ -57,6 +60,37 @@ describe("durable Instagram publisher", () => {
     expect(deps.notifyPublished).toHaveBeenCalledWith(
       expect.objectContaining({ id: post.id }),
       "https://www.instagram.com/p/published/"
+    );
+  });
+
+  it("persists each external publish stage under the active claim", async () => {
+    const deps = dependencies({
+      instagram: {
+        publish: vi.fn().mockImplementation(async ({ onStage }) => {
+          await onStage?.({ stage: "container_ready", containerId: "container-1" });
+          await onStage?.({ stage: "publish_requested", containerId: "container-1" });
+          await onStage?.({
+            stage: "publish_succeeded",
+            containerId: "container-1",
+            mediaId: "media-1",
+          });
+          return {
+            mediaId: "media-1",
+            permalink: null,
+            quota: { used: 3, total: 50, durationSeconds: 86400 },
+          };
+        }),
+      },
+    });
+    const post = socialPostFixture();
+
+    await publishClaimedSocialPost(post, deps);
+
+    expect(deps.repository.recordPublishStage).toHaveBeenCalledTimes(3);
+    expect(deps.repository.recordPublishStage).toHaveBeenLastCalledWith(
+      post.id,
+      post.claim_token,
+      expect.objectContaining({ stage: "publish_succeeded", mediaId: "media-1" })
     );
   });
 
@@ -82,11 +116,10 @@ describe("durable Instagram publisher", () => {
         post.claim_token,
         expect.objectContaining({ retryable: true, nextAttemptAt: expected })
       );
-      expect(deps.notifyFailed).not.toHaveBeenCalled();
     }
   });
 
-  it("turns permanent and exhausted failures into an operator action", async () => {
+  it("turns permanent and exhausted failures into durable outbox state", async () => {
     const permanent = socialPostFixture();
     const exhausted = socialPostFixture({ attempt_count: 3, max_attempts: 3 });
 
@@ -103,7 +136,6 @@ describe("durable Instagram publisher", () => {
         post.claim_token,
         expect.objectContaining({ retryable: false, nextAttemptAt: null })
       );
-      expect(deps.notifyFailed).toHaveBeenCalledWith(post, expect.stringContaining(error.message));
     }
   });
 
@@ -118,7 +150,11 @@ describe("durable Instagram publisher", () => {
     const result = await publishClaimedSocialPost(socialPostFixture(), deps);
 
     expect(result.outcome).toBe("persistence_failed");
-    expect(deps.repository.markFailed).not.toHaveBeenCalled();
+    expect(deps.repository.markFailed).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({ code: "PUBLISHED_ACK_NOT_PERSISTED", retryable: false })
+    );
     expect(deps.instagram.publish).toHaveBeenCalledTimes(1);
   });
 
@@ -149,6 +185,78 @@ describe("durable Instagram publisher", () => {
 
     expect(summary).toMatchObject({ claimed: 2, published: 1, retryScheduled: 1, failed: 0 });
     expect(summary.results).toHaveLength(2);
+  });
+
+  it("delivers database-recovered failures through the durable notification outbox", async () => {
+    const recovered = socialPostFixture({
+      status: "failed",
+      publish_stage: "idle",
+      claim_token: null,
+      claim_expires_at: null,
+      last_error_code: "PUBLISH_ATTEMPTS_EXHAUSTED",
+      last_error_message: "The final publishing lease expired before Instagram was called.",
+      last_error_retryable: false,
+      recovery_notification_pending: true,
+      recovery_notification_claim_token: "0749af28-5852-4728-a36c-4f222a3e4b92",
+      recovery_notification_claim_expires_at: "2026-09-01T20:03:00.000Z",
+    });
+    const deps = dependencies({
+      repository: {
+        ...dependencies().repository,
+        claimDue: vi.fn().mockResolvedValue([]),
+        claimRecoveryNotifications: vi.fn().mockResolvedValue([recovered]),
+      },
+    });
+
+    const summary = await runSocialPublisherBatch(deps, { limit: 2 });
+
+    expect(deps.notifyRecovery).toHaveBeenCalledWith(
+      recovered,
+      recovered.recovery_notification_claim_token
+    );
+    expect(deps.instagram.publish).not.toHaveBeenCalled();
+    expect(summary).toMatchObject({
+      claimed: 0,
+      recoveryNotifications: 1,
+      published: 0,
+      persistenceFailed: 0,
+    });
+    expect(summary.results).toContainEqual({
+      postId: recovered.id,
+      outcome: "recovery_notified",
+      code: "PUBLISH_ATTEMPTS_EXHAUSTED",
+    });
+  });
+
+  it("keeps a recovery notification leased for replay when delivery is not persisted", async () => {
+    const recovered = socialPostFixture({
+      status: "failed",
+      publish_stage: "reconciliation_required",
+      claim_token: null,
+      claim_expires_at: null,
+      last_error_code: "PUBLISH_OUTCOME_UNKNOWN",
+      recovery_notification_pending: true,
+      recovery_notification_claim_token: "0749af28-5852-4728-a36c-4f222a3e4b92",
+      recovery_notification_claim_expires_at: "2026-09-01T20:03:00.000Z",
+    });
+    const deps = dependencies({
+      repository: {
+        ...dependencies().repository,
+        claimDue: vi.fn().mockResolvedValue([]),
+        claimRecoveryNotifications: vi.fn().mockResolvedValue([recovered]),
+      },
+      notifyRecovery: vi.fn().mockRejectedValue(new Error("notification database unavailable")),
+    });
+
+    const summary = await runSocialPublisherBatch(deps, { limit: 2 });
+
+    expect(summary.recoveryNotifications).toBe(0);
+    expect(summary.persistenceFailed).toBe(1);
+    expect(summary.results).toContainEqual({
+      postId: recovered.id,
+      outcome: "persistence_failed",
+      code: "RECOVERY_NOTIFICATION_NOT_PERSISTED",
+    });
   });
 
   it("makes duplicate worker delivery harmless through the atomic claim", async () => {

@@ -3,9 +3,9 @@ import { SocialCommandDeck } from "@/app/admin/social/_components/social-command
 import { socialPostFixture } from "../../helpers/social-fixtures";
 
 const mutateAsync = vi.fn();
-let posts = [socialPostFixture({ status: "review" })];
+let posts = [socialPostFixture({ status: "review", publish_stage: "idle" })];
 
-vi.mock("@/i18n", () => ({
+vi.mock("@/i18n/client", () => ({
   useDictionary: () => ({
     t: (_key: string, fallback?: string | Record<string, unknown>) =>
       typeof fallback === "string" ? fallback : _key,
@@ -25,7 +25,7 @@ describe("SocialCommandDeck", () => {
   beforeEach(() => {
     mutateAsync.mockReset();
     mutateAsync.mockResolvedValue({ post: socialPostFixture({ status: "cancelled" }) });
-    posts = [socialPostFixture({ status: "review" })];
+    posts = [socialPostFixture({ status: "review", publish_stage: "idle" })];
   });
 
   it("presents the launch rail, exact artwork, and operator controls", () => {
@@ -39,6 +39,14 @@ describe("SocialCommandDeck", () => {
     );
     expect(screen.getByRole("button", { name: "PUBLISH NOW" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "STOP" })).toBeInTheDocument();
+    expect(screen.getByText("HOOK")).toBeInTheDocument();
+    expect(screen.getByText("ANGLE")).toBeInTheDocument();
+    expect(screen.getByText("SELECTION RATIONALE")).toBeInTheDocument();
+    expect(screen.getByText("RENDER EVIDENCE")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "ALL" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "ACTIVE" })).toHaveClass("text-text-3");
+    expect(screen.getByText("SELECTED").closest("button")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByText("SELECTED")).toHaveClass("text-text-2");
   });
 
   it("requires a deliberate confirmation before stopping a queued post", async () => {
@@ -79,7 +87,12 @@ describe("SocialCommandDeck", () => {
 
   it("makes a failed post recoverable and a published post immutable", () => {
     posts = [
-      socialPostFixture({ status: "failed", last_error_message: "Meta timed out" }),
+      socialPostFixture({
+        status: "failed",
+        publish_stage: "idle",
+        last_error_code: "META_BUSY",
+        last_error_message: "Meta timed out",
+      }),
       socialPostFixture({
         id: "ffdcf84e-efef-4196-a092-587a7bc51a79",
         status: "published",
@@ -93,6 +106,24 @@ describe("SocialCommandDeck", () => {
     rerender(<SocialCommandDeck />);
     expect(screen.getByText("LOCKED AFTER PUBLISH" )).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "PUBLISH NOW" })).not.toBeInTheDocument();
+  });
+
+  it("locks an uncertain publish for reconciliation instead of offering a retry", () => {
+    posts = [
+      socialPostFixture({
+        status: "failed",
+        publish_stage: "reconciliation_required",
+        last_error_code: "PUBLISH_OUTCOME_UNKNOWN",
+        last_error_message: "The response was uncertain.",
+      }),
+    ];
+
+    render(<SocialCommandDeck />);
+
+    expect(screen.getAllByText("RECONCILIATION REQUIRED")).toHaveLength(2);
+    expect(screen.queryByRole("button", { name: "RETRY NOW" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "EDIT COPY" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "STOP" })).not.toBeInTheDocument();
   });
 
   it("opens the exact notification-linked post and otherwise selects the next due item", () => {

@@ -36,6 +36,7 @@ describe("social publish cron", () => {
     const runBatch = vi.fn().mockResolvedValue({
       claimToken: "claim-1",
       claimed: 0,
+      recoveryNotifications: 0,
       published: 0,
       retryScheduled: 0,
       failed: 0,
@@ -48,6 +49,7 @@ describe("social publish cron", () => {
     await expect(response.json()).resolves.toEqual({
       ok: true,
       claimed: 0,
+      recovery_notifications: 0,
       published: 0,
       retry_scheduled: 0,
       failed: 0,

@@ -60,7 +60,7 @@ For a `blog` source, `source.id` must identify a live `public.blog_posts` row. O
   "source": {
     "type": "blog",
     "id": "9d5fd8b8-83bc-44bf-b846-63c5a1bb9c30",
-    "url": "https://opsapp.co/blog/the-two-hour-leak",
+    "url": "https://opsapp.co/journal/the-two-hour-leak",
     "published_at": "2026-09-01T15:00:00.000Z"
   },
   "content": {
@@ -102,7 +102,7 @@ For a `blog` source, `source.id` must identify a live `public.blog_posts` row. O
 }
 ```
 
-All media URLs must be public HTTPS resources. Do not use signed URLs that expire during the review window. The guarded downloader rejects credentials, custom ports, loopback/private/link-local destinations, redirects to private networks, oversized responses, non-images, and unsafe metadata.
+All media URLs must be public HTTPS resources. Do not use signed URLs that expire during the review window. The guarded downloader resolves and validates the host once, pins that exact public address for the TLS connection, revalidates every redirect, stops streaming at 12 MB, and rejects credentials, custom ports, loopback/private/link-local destinations, non-images, and unsafe metadata.
 
 ## curl example
 

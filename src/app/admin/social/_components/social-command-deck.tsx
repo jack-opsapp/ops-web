@@ -6,8 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Surface } from "@/components/ui/surface";
 import { Textarea } from "@/components/ui/textarea";
-import { useDictionary } from "@/i18n";
+import { useDictionary } from "@/i18n/client";
 import { useSocialPosts } from "@/lib/hooks/use-social-posts";
+import {
+  canManuallyRetrySocialPost,
+  requiresInstagramReconciliation,
+} from "@/lib/social/publish-policy";
 import type { SocialContent, SocialSlide } from "@/lib/social/contract";
 import type { SocialPostRecord, SocialPostStatus } from "@/lib/social/types";
 import { cn } from "@/lib/utils/cn";
@@ -19,8 +23,8 @@ const ACTIVE_STATUSES = new Set<SocialPostStatus>(["rendering", "review", "publi
 
 const STATUS_TONES: Record<SocialPostStatus, string> = {
   rendering: "border-line-hi text-text-2",
-  review: "border-tan/40 text-tan",
-  publishing: "border-ops-accent/40 text-ops-accent",
+  review: "border-line-hi text-text-2",
+  publishing: "border-tan/40 text-tan",
   published: "border-olive/40 text-olive",
   cancelled: "border-line text-text-mute",
   failed: "border-rose/40 text-rose",
@@ -81,6 +85,21 @@ function orderPosts(posts: SocialPostRecord[]): SocialPostRecord[] {
     }
     return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
   });
+}
+
+function selectorRationale(post: SocialPostRecord): string {
+  const breakdown = post.selection_metadata.scoreBreakdown;
+  if (!breakdown || typeof breakdown !== "object" || Array.isArray(breakdown)) {
+    return humanize(post.story_type);
+  }
+  const scores = breakdown as Record<string, unknown>;
+  const value = (key: string) =>
+    typeof scores[key] === "number" ? Math.round(scores[key] as number) : 0;
+  return `FIT ${value("fit")} · CADENCE ${value("cadence")} · PREFERENCE ${value("preference")}`;
+}
+
+function assetEvidence(asset: SocialPostRecord["rendered_assets"][number]): string {
+  return `${asset.width} × ${asset.height} · ${Math.max(1, Math.round(asset.bytes / 1024))} KB · SHA ${asset.sha256.slice(0, 12).toUpperCase()}`;
 }
 
 function StatusPill({ status }: { status: SocialPostStatus }) {
@@ -332,6 +351,11 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
   const activeAsset = assets[Math.min(slideIndex, Math.max(assets.length - 1, 0))];
   const dueCopy = t("state.due", "DUE NOW");
   const unscheduledCopy = t("state.unscheduled", "NO LAUNCH TIME");
+  const reconciliationRequired = selected ? requiresInstagramReconciliation(selected) : false;
+  const canEditOrStop =
+    selected !== null &&
+    (selected.status === "review" || selected.status === "failed") &&
+    !reconciliationRequired;
 
   return (
     <div className="min-h-screen bg-black text-text">
@@ -370,6 +394,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                 <button
                   key={item.id}
                   type="button"
+                  aria-pressed={filter === item.id}
                   onClick={() => {
                     setFilter(item.id);
                     setSelectedId(null);
@@ -378,7 +403,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                     "rounded-chip border px-1.5 py-0.5 font-mono text-micro uppercase tracking-wide transition-colors",
                     filter === item.id
                       ? "border-line-hi bg-surface-active text-text"
-                      : "border-line text-text-mute hover:text-text-2"
+                      : "border-line text-text-3 hover:text-text-2"
                   )}
                 >
                   {item.label}
@@ -404,6 +429,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                 <button
                   key={post.id}
                   type="button"
+                  aria-current={selected?.id === post.id ? "true" : undefined}
                   onClick={() => setSelectedId(post.id)}
                   className={cn(
                     "flex w-full gap-2 border-b border-line p-3 text-left transition-colors last:border-b-0",
@@ -420,6 +446,11 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                       </span>
                       <StatusPill status={post.status} />
                     </span>
+                    {selected?.id === post.id && (
+                      <span className="mt-1 block font-mono text-micro uppercase text-text-2">
+                        {t("rail.selected", "SELECTED")}
+                      </span>
+                    )}
                     <span className="mt-1 flex items-center justify-between gap-1 font-mono text-micro uppercase text-text-mute">
                       <span>{humanize(post.visual_treatment)}</span>
                       <span className="tabular-nums">
@@ -476,13 +507,14 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                       <button
                         key={asset.sha256}
                         type="button"
+                        aria-pressed={index === slideIndex}
                         aria-label={withParams(t, "edit.slide", "SLIDE {number}", {
                           number: index + 1,
                         })}
                         onClick={() => setSlideIndex(index)}
                         className={cn(
                           "h-1.5 w-6 rounded-chip",
-                          index === slideIndex ? "bg-ops-accent" : "bg-line-hi"
+                          index === slideIndex ? "bg-text-2" : "bg-line-hi"
                         )}
                       />
                     ))}
@@ -518,6 +550,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                   <button
                     key={post.id}
                     type="button"
+                    aria-current={selected?.id === post.id ? "true" : undefined}
                     aria-label={post.content.title}
                     onClick={() => {
                       setFilter("all");
@@ -525,7 +558,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                     }}
                     className={cn(
                       "aspect-square overflow-hidden rounded border bg-surface-input",
-                      selected?.id === post.id ? "border-ops-accent" : "border-line"
+                      selected?.id === post.id ? "border-line-hi" : "border-line"
                     )}
                   >
                     {asset && (
@@ -620,7 +653,41 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                     {selected.attempt_count} / {selected.max_attempts}
                   </dd>
                 </div>
+                <div>
+                  <dt className="font-mono text-micro uppercase text-text-mute">
+                    {t("control.publishStage", "PUBLISH STAGE")}
+                  </dt>
+                  <dd className="mt-0.5 font-mono text-caption-sm text-text-2">
+                    {humanize(selected.publish_stage)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-mono text-micro uppercase text-text-mute">
+                    {t("control.selector", "SELECTOR")}
+                  </dt>
+                  <dd className="mt-0.5 truncate font-mono text-caption-sm text-text-2">
+                    {selected.selector_version}
+                  </dd>
+                </div>
               </dl>
+
+              <div>
+                <p className="font-mono text-micro uppercase tracking-wide text-text-mute">
+                  {t("control.hook", "HOOK")}
+                </p>
+                <p className="mt-1 font-mohave text-body-sm leading-relaxed text-text-2">
+                  {selected.content.hook}
+                </p>
+              </div>
+
+              <div>
+                <p className="font-mono text-micro uppercase tracking-wide text-text-mute">
+                  {t("control.angle", "ANGLE")}
+                </p>
+                <p className="mt-1 font-mohave text-body-sm leading-relaxed text-text-2">
+                  {selected.content.angle}
+                </p>
+              </div>
 
               <div>
                 <p className="font-mono text-micro uppercase tracking-wide text-text-mute">
@@ -631,6 +698,28 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                 </p>
               </div>
 
+              <Surface variant="inset" className="p-2">
+                <p className="font-mono text-micro uppercase tracking-wide text-text-mute">
+                  {t("control.selectionRationale", "SELECTION RATIONALE")}
+                </p>
+                <p className="mt-0.5 font-mono text-micro uppercase text-text-2">
+                  {selectorRationale(selected)}
+                </p>
+                <p className="mt-2 font-mono text-micro uppercase tracking-wide text-text-mute">
+                  {t("control.renderEvidence", "RENDER EVIDENCE")}
+                </p>
+                <p className="mt-0.5 font-mono text-micro text-text-2">
+                  {selected.render_version}
+                </p>
+                <ul className="mt-1 flex flex-col gap-1">
+                  {selected.rendered_assets.map((asset) => (
+                    <li key={asset.sha256} className="font-mono text-micro tabular-nums text-text-3">
+                      {withParams(t, "control.asset", "SLIDE {number}", { number: asset.order })} · {assetEvidence(asset)}
+                    </li>
+                  ))}
+                </ul>
+              </Surface>
+
               {selected.last_error_message && (
                 <Surface variant="inset" className="border-rose-line bg-rose-soft p-2">
                   <p className="font-mono text-micro uppercase text-rose">
@@ -638,6 +727,20 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                   </p>
                   <p className="mt-0.5 font-mohave text-body-sm text-rose">
                     {selected.last_error_message}
+                  </p>
+                </Surface>
+              )}
+
+              {reconciliationRequired && (
+                <Surface variant="inset" className="border-rose-line bg-rose-soft p-3" role="alert">
+                  <p className="font-cakemono text-heading font-light uppercase text-rose">
+                    {t("reconciliation.title", "RECONCILIATION REQUIRED")}
+                  </p>
+                  <p className="mt-0.5 font-mohave text-body-sm text-text-2">
+                    {t(
+                      "reconciliation.body",
+                      "Instagram may already contain this post. Verify the account and preserve this record before taking another action."
+                    )}
                   </p>
                 </Surface>
               )}
@@ -682,7 +785,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                       {t("action.publish", "PUBLISH NOW")}
                     </Button>
                   )}
-                  {selected.status === "failed" && (
+                  {canManuallyRetrySocialPost(selected) && (
                     <Button
                       variant="primary"
                       loading={action.isPending}
@@ -696,7 +799,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                       {t("action.retry", "RETRY NOW")}
                     </Button>
                   )}
-                  {(selected.status === "review" || selected.status === "failed") && (
+                  {canEditOrStop && (
                     <>
                       <Button variant="secondary" onClick={() => setEditing(true)}>
                         {t("action.edit", "EDIT COPY")}
@@ -728,7 +831,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
               )}
 
               {feedback && (
-                <p className="font-mono text-micro uppercase text-ops-accent" role="status">
+                <p className="font-mono text-micro uppercase text-olive" role="status">
                   {feedback}
                 </p>
               )}

@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import {
   createInstagramClientFromEnv,
   type InstagramPublishResult,
+  type InstagramPublishStageEvent,
 } from "./instagram-client";
 import { InstagramGraphError } from "./instagram-errors";
 import {
@@ -11,8 +12,8 @@ import {
   type PublisherSocialRepository,
 } from "./publisher-repository";
 import {
-  createSocialFailureNotification,
   createSocialPublishedNotification,
+  createSocialRecoveryNotification,
   resolveSocialReviewNotification,
 } from "./notification-service";
 import type { SocialAuditEvent, SocialPostRecord } from "./types";
@@ -25,6 +26,7 @@ interface InstagramPublisher {
     format: SocialPostRecord["post_format"];
     assets: SocialPostRecord["rendered_assets"];
     caption: string;
+    onStage: (event: InstagramPublishStageEvent) => Promise<void>;
   }): Promise<InstagramPublishResult>;
 }
 
@@ -35,7 +37,7 @@ export interface SocialPublisherDependencies {
   instagram: InstagramPublisher;
   resolveReviewNotification: (postId: string) => Promise<void>;
   notifyPublished: (post: SocialPostRecord, permalink: string | null) => Promise<void>;
-  notifyFailed: (post: SocialPostRecord, safeError: string) => Promise<void>;
+  notifyRecovery: (post: SocialPostRecord, recoveryClaimToken: string | null) => Promise<void>;
 }
 
 function defaultDependencies(): SocialPublisherDependencies {
@@ -46,7 +48,7 @@ function defaultDependencies(): SocialPublisherDependencies {
     instagram: createInstagramClientFromEnv(),
     resolveReviewNotification: resolveSocialReviewNotification,
     notifyPublished: createSocialPublishedNotification,
-    notifyFailed: createSocialFailureNotification,
+    notifyRecovery: createSocialRecoveryNotification,
   };
 }
 
@@ -54,6 +56,7 @@ export type SocialPublishOutcome =
   | { postId: string; outcome: "published"; mediaId: string; permalink: string | null }
   | { postId: string; outcome: "retry_scheduled"; nextAttemptAt: string }
   | { postId: string; outcome: "failed"; code: string }
+  | { postId: string; outcome: "recovery_notified"; code: string }
   | { postId: string; outcome: "persistence_failed"; code: string };
 
 function safeFailure(error: unknown): {
@@ -99,6 +102,8 @@ export async function publishClaimedSocialPost(
       format: post.post_format,
       assets: post.rendered_assets,
       caption: post.caption,
+      onStage: (event) =>
+        dependencies.repository.recordPublishStage(post.id, post.claim_token, event),
     });
   } catch (error) {
     const failure = safeFailure(error);
@@ -146,9 +151,6 @@ export async function publishClaimedSocialPost(
     if (nextAttemptAt) {
       return { postId: post.id, outcome: "retry_scheduled", nextAttemptAt };
     }
-    await bestEffort("Failure notification failed", () =>
-      dependencies.notifyFailed(post, `${failure.code} · ${failure.message}`)
-    );
     return { postId: post.id, outcome: "failed", code: failure.code };
   }
 
@@ -177,11 +179,25 @@ export async function publishClaimedSocialPost(
       auditLog,
     });
   } catch {
-    await bestEffort("Post-publish persistence notification failed", () =>
-      dependencies.notifyFailed(
-        post,
-        "Instagram accepted the post, but OPS could not persist the acknowledgement. Reconcile before retrying."
-      )
+    await bestEffort("Post-publish reconciliation state failed", () =>
+      dependencies.repository.markFailed(post.id, post.claim_token, {
+        code: "PUBLISHED_ACK_NOT_PERSISTED",
+        message:
+          "Instagram accepted the post, but OPS could not persist the acknowledgement. Reconcile before retrying.",
+        retryable: false,
+        nextAttemptAt: null,
+        auditLog: [
+          ...auditLog,
+          {
+            at: dependencies.now().toISOString(),
+            actor: "system:publisher",
+            from: "publishing",
+            to: "failed",
+            event: "publish_reconciliation_required",
+            metadata: { code: "PUBLISHED_ACK_NOT_PERSISTED" },
+          },
+        ],
+      })
     );
     return {
       postId: post.id,
@@ -193,6 +209,7 @@ export async function publishClaimedSocialPost(
   const publishedPost: SocialPostRecord = {
     ...post,
     status: "published",
+    publish_stage: "publish_succeeded",
     instagram_media_id: published.mediaId,
     instagram_permalink: published.permalink,
     published_at: publishedAt,
@@ -215,6 +232,7 @@ export async function publishClaimedSocialPost(
 export interface SocialPublisherBatchSummary {
   claimToken: string;
   claimed: number;
+  recoveryNotifications: number;
   published: number;
   retryScheduled: number;
   failed: number;
@@ -243,9 +261,34 @@ export async function runSocialPublisherBatch(
     }
   }
 
+  const recoveryPosts = await dependencies.repository.claimRecoveryNotifications(
+    claimToken,
+    10,
+    CLAIM_TTL_SECONDS
+  );
+  for (const post of recoveryPosts) {
+    try {
+      await dependencies.notifyRecovery(post, post.recovery_notification_claim_token);
+      results.push({
+        postId: post.id,
+        outcome: "recovery_notified",
+        code: post.last_error_code ?? "SOCIAL_RECOVERY_REQUIRED",
+      });
+    } catch {
+      results.push({
+        postId: post.id,
+        outcome: "persistence_failed",
+        code: "RECOVERY_NOTIFICATION_NOT_PERSISTED",
+      });
+    }
+  }
+
   return {
     claimToken,
     claimed: posts.length,
+    recoveryNotifications: results.filter(
+      (result) => result.outcome === "recovery_notified"
+    ).length,
     published: results.filter((result) => result.outcome === "published").length,
     retryScheduled: results.filter((result) => result.outcome === "retry_scheduled").length,
     failed: results.filter((result) => result.outcome === "failed").length,

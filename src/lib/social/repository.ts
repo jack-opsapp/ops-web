@@ -137,6 +137,7 @@ export function createSubmissionSocialRepository(): SubmissionSocialRepository {
         .update({
           ...updates,
           status: "review",
+          publish_stage: "idle",
           last_error_code: null,
           last_error_message: null,
           last_error_retryable: null,
@@ -164,6 +165,7 @@ export function createSubmissionSocialRepository(): SubmissionSocialRepository {
         .from("social_posts")
         .update({
           status: "failed",
+          publish_stage: "idle",
           last_error_code: failure.code,
           last_error_message: failure.message,
           last_error_retryable: failure.retryable,

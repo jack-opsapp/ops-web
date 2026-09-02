@@ -29,6 +29,8 @@ describe("public social media guard", () => {
     "https://10.0.0.4/image.jpg",
     "https://[::1]/image.jpg",
     "https://[fc00::1]/image.jpg",
+    "https://[::ffff:127.0.0.1]/image.jpg",
+    "https://[::ffff:7f00:1]/image.jpg",
   ])("rejects unsafe URL %s", async (url) => {
     await expect(validatePublicMediaUrl(url, { lookup: publicLookup })).rejects.toBeInstanceOf(
       PublicMediaError
@@ -59,6 +61,23 @@ describe("public social media guard", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it("pins the validated DNS address for the network connection", async () => {
+    const png = await pngFixture();
+    const fetcher: PublicMediaDependencies["fetcher"] = vi.fn(
+      async (_url, _init, pinnedAddress) => {
+        expect(pinnedAddress).toEqual({ address: "93.184.216.34", family: 4 });
+        return new Response(png, { status: 200, headers: { "content-type": "image/png" } });
+      }
+    );
+
+    await downloadPublicImage("https://images.example.com/job.png", {
+      lookup: publicLookup,
+      fetcher,
+    });
+
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects non-image responses and oversized bodies", async () => {
     const textFetcher = vi.fn().mockResolvedValue(
       new Response("not an image", { status: 200, headers: { "content-type": "text/plain" } })
@@ -82,6 +101,33 @@ describe("public social media guard", () => {
         fetcher: largeFetcher,
       })
     ).rejects.toMatchObject({ code: "IMAGE_TOO_LARGE" });
+  });
+
+  it("stops reading a streamed body as soon as it crosses the 12 MB limit", async () => {
+    let pulls = 0;
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls += 1;
+        controller.enqueue(new Uint8Array(1024 * 1024));
+        if (pulls === 20) controller.close();
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(body, { status: 200, headers: { "content-type": "image/jpeg" } })
+    );
+
+    await expect(
+      downloadPublicImage("https://images.example.com/large.jpg", {
+        lookup: publicLookup,
+        fetcher,
+      })
+    ).rejects.toMatchObject({ code: "IMAGE_TOO_LARGE" });
+    expect(pulls).toBeLessThan(20);
+    expect(cancelled).toBe(true);
   });
 
   it("normalizes supported images to metadata-free JPEG", async () => {

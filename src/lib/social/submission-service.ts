@@ -51,7 +51,7 @@ function defaultDependencies(): SocialSubmissionServiceDependencies {
 }
 
 function canonicalBlogUrl(slug: string): string {
-  return `https://opsapp.ca/blog/${slug}`;
+  return `https://opsapp.co/journal/${slug}`;
 }
 
 async function enrichAuthoritativeSource(
@@ -170,11 +170,17 @@ export async function submitSocialPost(
       selection,
       renderVersion: SOCIAL_RENDER_VERSION,
     });
-    const renderedAt = dependencies.now().toISOString();
+    const renderedAtDate = dependencies.now();
+    const renderedAt = renderedAtDate.toISOString();
+    const minimumAfterRender = new Date(renderedAtDate.getTime() + MINIMUM_REVIEW_MS);
+    const finalPublishAt =
+      requestedPublishAt && requestedPublishAt > minimumAfterRender
+        ? requestedPublishAt
+        : minimumAfterRender;
     const reviewPost = await dependencies.repository.markReview(reservation.post.id, {
       rendered_assets: renderedAssets,
       rendered_at: renderedAt,
-      publish_after: publishAt.toISOString(),
+      publish_after: finalPublishAt.toISOString(),
       updated_by: SOCIAL_ACTOR,
       audit_log: [
         ...initialAudit,
