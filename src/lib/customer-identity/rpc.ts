@@ -139,6 +139,20 @@ const MembershipListingRowSchema = z.object({
   last_seen_at: TimestampSchema.nullable(),
 });
 
+// What `GET /api/customer/me` renders for one company. The display name is a
+// customer-facing label (sub-client or client name); a raw uuid is never one.
+const ProfileMembershipStateSchema = z.enum([...MEMBERSHIP_STATES, "none"]);
+const CustomerProfileRowSchema = z.object({
+  display_name: z
+    .string()
+    .min(1)
+    .max(512)
+    .refine((value) => !PostgresUuidSchema.safeParse(value).success)
+    .nullable(),
+  contact_email_masked: MaskedEmailSchema,
+  membership_state: ProfileMembershipStateSchema,
+});
+
 // Pairwise refs are opaque public identifiers; a raw uuid is never one.
 const PairwiseRefSchema = z
   .string()
@@ -152,6 +166,8 @@ export type UpsertIdentityRow = z.infer<typeof UpsertIdentityRowSchema>;
 export type ResolveSessionRow = z.infer<typeof ResolveSessionRowSchema>;
 export type ResolveMembershipRow = z.infer<typeof ResolveMembershipRowSchema>;
 export type MembershipListingRow = z.infer<typeof MembershipListingRowSchema>;
+export type CustomerProfileRow = z.infer<typeof CustomerProfileRowSchema>;
+export type ProfileMembershipState = z.infer<typeof ProfileMembershipStateSchema>;
 
 export const IDENTITY_EVENT_TYPES = [
   "otp_started",
@@ -456,6 +472,27 @@ export async function listMembershipsForClient(
       return parsed.data;
     })
   );
+}
+
+/**
+ * Profile for the hosted surface (`GET /api/customer/me`): display name from
+ * the live membership's sub-client or client, the identity's live verified
+ * email masked in the database, and the membership state or `none`.
+ */
+export async function readCustomerProfile(
+  client: CustomerIdentityRpcClient,
+  input: { identityId: string; companyId: string }
+): Promise<CustomerProfileRow> {
+  const operation = "read_customer_profile";
+  requireUuid(input.identityId, operation);
+  requireUuid(input.companyId, operation);
+  const data = await callRpc(
+    client,
+    "read_customer_profile_as_system",
+    { p_identity_id: input.identityId, p_company_id: input.companyId },
+    operation
+  );
+  return singleRow(data, CustomerProfileRowSchema, operation);
 }
 
 // ─── Pairwise refs (design I4) ──────────────────────────────────────────────

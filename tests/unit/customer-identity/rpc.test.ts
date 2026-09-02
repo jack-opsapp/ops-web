@@ -7,6 +7,7 @@ import {
   ensurePairwiseRef,
   listMembershipsForClient,
   mintSession,
+  readCustomerProfile,
   recordOtpAttempt,
   resolveMembershipRow,
   resolveSession,
@@ -486,6 +487,71 @@ describe("memberships", () => {
           { companyId: COMPANY_ID, clientId: CLIENT_ID }
         ),
       "list_customer_memberships_for_client"
+    );
+  });
+});
+
+describe("readCustomerProfile", () => {
+  it("returns the display name, masked email and live membership state for this company only", async () => {
+    const client = clientReturning([
+      {
+        display_name: "Jane Doe",
+        contact_email_masked: "j***@example.com",
+        membership_state: "active_full",
+      },
+    ]);
+    const row = await readCustomerProfile(client, {
+      identityId: IDENTITY_ID,
+      companyId: COMPANY_ID,
+    });
+    expect(row).toEqual({
+      display_name: "Jane Doe",
+      contact_email_masked: "j***@example.com",
+      membership_state: "active_full",
+    });
+    expect(client.rpc).toHaveBeenCalledWith(
+      "read_customer_profile_as_system",
+      { p_identity_id: IDENTITY_ID, p_company_id: COMPANY_ID }
+    );
+  });
+
+  it("accepts a null display name with membership_state none when there is no live membership", async () => {
+    const row = await readCustomerProfile(
+      clientReturning([
+        {
+          display_name: null,
+          contact_email_masked: "j***@example.com",
+          membership_state: "none",
+        },
+      ]),
+      { identityId: IDENTITY_ID, companyId: COMPANY_ID }
+    );
+    expect(row.display_name).toBeNull();
+    expect(row.membership_state).toBe("none");
+  });
+
+  it.each([
+    ["no rows", []],
+    [
+      "unmasked email",
+      [{ display_name: null, contact_email_masked: "jane@example.com", membership_state: "none" }],
+    ],
+    [
+      "unknown state",
+      [{ display_name: null, contact_email_masked: "j***@example.com", membership_state: "pending" }],
+    ],
+    [
+      "display name that is a raw uuid",
+      [{ display_name: CLIENT_ID, contact_email_masked: "j***@example.com", membership_state: "active_full" }],
+    ],
+  ])("throws a store error for %s", async (_label, data) => {
+    await expectStoreError(
+      () =>
+        readCustomerProfile(clientReturning(data), {
+          identityId: IDENTITY_ID,
+          companyId: COMPANY_ID,
+        }),
+      "read_customer_profile"
     );
   });
 });
