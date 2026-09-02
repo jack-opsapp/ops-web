@@ -4,6 +4,7 @@ import {
   PrepareRecurringServicePriceChangeInputSchema,
   RecurringServicePriceChangeResultSchema,
   RecurringServicePriceChangeSourceSnapshotSchema,
+  type RecurringServicePriceChangeSourceSnapshot,
 } from "../recurring-service-price-change";
 import { CONTRACT_VERSION } from "../version";
 
@@ -20,7 +21,7 @@ const UUID = {
 } as const;
 const HASH = "a".repeat(64);
 
-function sourceSnapshot() {
+function sourceSnapshot(): RecurringServicePriceChangeSourceSnapshot {
   return {
     schema_revision: "2026-09-01.v1",
     observed_at: "2026-09-01T12:00:00.000000Z",
@@ -237,7 +238,9 @@ describe("RecurringServicePriceChangeSourceSnapshotSchema", () => {
   });
 
   it("rejects contradictory and duplicate recurrence exceptions", () => {
-    for (const exceptions of [
+    const invalidExceptions: Array<
+      RecurringServicePriceChangeSourceSnapshot["accounts"][number]["recurrence"]["exceptions"]
+    > = [
       [
         {
           original_date: "2026-11-02",
@@ -264,7 +267,8 @@ describe("RecurringServicePriceChangeSourceSnapshotSchema", () => {
           new_date: null,
         },
       ],
-    ]) {
+    ];
+    for (const exceptions of invalidExceptions) {
       const snapshot = structuredClone(sourceSnapshot());
       snapshot.accounts[0]!.recurrence.exceptions = exceptions;
       expect(() =>

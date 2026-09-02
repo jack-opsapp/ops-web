@@ -536,7 +536,7 @@ function rawSnapshot() {
 }
 
 async function serviceFixture(
-  capabilityManifestRevision = PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
+  capabilityManifestRevision: string = PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
 ) {
   const authorityClient = new StubAuthoritySupabaseRpcClient(authority());
   const actor = await resolveActorContext({

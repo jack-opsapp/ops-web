@@ -38,7 +38,7 @@ export function salesTruthAuthority(
 
 export async function salesTruthActorFixture(
   permissions: readonly string[] = SALES_TRUTH_PERMISSIONS,
-  capabilityManifestRevision = SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
+  capabilityManifestRevision: string = SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
 ) {
   const authorityClient = new StubAuthoritySupabaseRpcClient(
     salesTruthAuthority(permissions)

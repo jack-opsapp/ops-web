@@ -56,7 +56,7 @@ export function hiringAuthority(
 
 export async function hiringActorFixture(
   permissions: readonly string[] = HIRING_PERMISSIONS,
-  capabilityManifestRevision = HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
+  capabilityManifestRevision: string = HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
 ) {
   const authorityClient = new StubAuthoritySupabaseRpcClient(
     hiringAuthority(permissions)
