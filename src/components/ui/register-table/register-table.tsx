@@ -21,7 +21,14 @@
  */
 
 import type { ReactNode } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+
+/** Active sort descriptor for a `RegisterTable` (see `sort` / `onSortChange`). */
+export interface RegisterTableSort {
+  columnId: string;
+  direction: "asc" | "desc";
+}
 
 export interface RegisterTableColumn<Row> {
   /** Stable identity for the column. */
@@ -38,6 +45,12 @@ export interface RegisterTableColumn<Row> {
   align?: "left" | "right";
   /** Classes applied to BOTH the `<th>` and every `<td>` (responsive hide, etc.). */
   className?: string;
+  /**
+   * Opt this column into the sort affordance: the header label becomes a button
+   * and the `<th>` reports `aria-sort`. Omit (the default) and the header renders
+   * exactly as before — plain content, no `aria-sort`, no button.
+   */
+  sortable?: boolean;
 }
 
 export interface RegisterTableProps<Row> {
@@ -67,6 +80,19 @@ export interface RegisterTableProps<Row> {
    * other consumers (Settings tabs, Expenses, Inventory), which are unchanged.
    */
   inShell?: boolean;
+  /**
+   * Active sort. `null`/omitted = unsorted. Ordering the rows themselves stays
+   * the caller's job — the table renders the affordance and the `aria-sort`
+   * state only, leaving the comparator (locale collation, rank orders,
+   * tie-breaks) where the domain knowledge lives.
+   */
+  sort?: RegisterTableSort | null;
+  /**
+   * Fired when a sortable header is activated. The caller owns the toggle
+   * semantics (set → flip direction → clear), so each register can pick the
+   * cycle that fits its data.
+   */
+  onSortChange?: (columnId: string) => void;
 }
 
 export function RegisterTable<Row>({
@@ -80,32 +106,70 @@ export function RegisterTable<Row>({
   ariaLabel,
   className,
   inShell = false,
+  sort,
+  onSortChange,
 }: RegisterTableProps<Row>) {
   const table = (
     <table className="w-full" style={{ minWidth }} aria-label={ariaLabel}>
           <thead>
             <tr className={cn(!inShell && "border-b border-border")}>
-              {columns.map((col) => (
-                <th
-                  key={col.id}
-                  scope="col"
-                  className={cn(
-                    "px-2 py-1.5 text-left align-middle font-mono text-micro font-normal uppercase tracking-[0.16em] text-text-3",
-                    // In a TableShell scroll body the header pins over an opaque
-                    // canvas backing so rows scroll cleanly beneath it — the same
-                    // `bg-background` masking the table-v2 grids use, for one
-                    // consistent sticky-header treatment across all five surfaces.
-                    // It sticks BELOW the (also-sticky) toolbar via the
-                    // `--shell-header-top` var TableChrome publishes; the metrics
-                    // bar above the toolbar scrolls up and out (WEB OVERHAUL P6-2 rework).
-                    inShell && "sticky top-[var(--shell-header-top,0px)] z-[5] border-b border-border bg-background",
-                    col.align === "right" && "text-right",
-                    col.className,
-                  )}
-                >
-                  {col.header}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const sorted =
+                  col.sortable && sort?.columnId === col.id ? sort.direction : null;
+                // `aria-sort` belongs only on a sortable header: a sorted column
+                // reports its direction, an unsorted-but-sortable column reports
+                // "none", and a plain column omits the attribute entirely — the
+                // same grammar the pipeline table header uses.
+                const ariaSort = col.sortable
+                  ? sorted === "asc"
+                    ? "ascending"
+                    : sorted === "desc"
+                      ? "descending"
+                      : "none"
+                  : undefined;
+
+                return (
+                  <th
+                    key={col.id}
+                    scope="col"
+                    aria-sort={ariaSort}
+                    className={cn(
+                      "px-2 py-1.5 text-left align-middle font-mono text-micro font-normal uppercase tracking-[0.16em] text-text-3",
+                      // In a TableShell scroll body the header pins over an opaque
+                      // canvas backing so rows scroll cleanly beneath it — the same
+                      // `bg-background` masking the table-v2 grids use, for one
+                      // consistent sticky-header treatment across all five surfaces.
+                      // It sticks BELOW the (also-sticky) toolbar via the
+                      // `--shell-header-top` var TableChrome publishes; the metrics
+                      // bar above the toolbar scrolls up and out (WEB OVERHAUL P6-2 rework).
+                      inShell && "sticky top-[var(--shell-header-top,0px)] z-[5] border-b border-border bg-background",
+                      col.align === "right" && "text-right",
+                      col.className,
+                    )}
+                  >
+                    {col.sortable ? (
+                      <button
+                        type="button"
+                        onClick={() => onSortChange?.(col.id)}
+                        className={cn(
+                          "inline-flex max-w-full items-center gap-1 font-mono text-micro uppercase tracking-[0.16em] text-text-3 hover:text-text-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+                          sorted && "text-text-2",
+                        )}
+                      >
+                        <span className="truncate">{col.header}</span>
+                        {sorted === "asc" && (
+                          <ChevronUp className="h-[12px] w-[12px] shrink-0" strokeWidth={1.5} />
+                        )}
+                        {sorted === "desc" && (
+                          <ChevronDown className="h-[12px] w-[12px] shrink-0" strokeWidth={1.5} />
+                        )}
+                      </button>
+                    ) : (
+                      col.header
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
