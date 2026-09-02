@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createAdminSocialInstagramHandlers,
   type AdminSocialInstagramRouteDependencies,
-} from "@/app/api/admin/social/instagram/route";
+} from "@/lib/social/admin-instagram-route";
 
 const USER = { uid: "firebase-admin", email: "jackson@opsapp.co", claims: {} };
 
@@ -17,8 +17,9 @@ function dependencies(): AdminSocialInstagramRouteDependencies {
         reason: "not_connected" as const,
         needsReconnect: false,
       })),
-      createAuthorizationUrl: vi.fn(async () =>
-        new URL("https://www.instagram.com/oauth/authorize?state=opaque")
+      createAuthorizationUrl: vi.fn(
+        async () =>
+          new URL("https://www.instagram.com/oauth/authorize?state=opaque")
       ),
       disconnect: vi.fn(async () => undefined),
     },

@@ -15,10 +15,7 @@ import {
   consumeInstagramOAuthState,
   createInstagramOAuthState,
 } from "./instagram-oauth-state";
-import {
-  decryptInstagramToken,
-  encryptInstagramToken,
-} from "./token-cipher";
+import { decryptInstagramToken, encryptInstagramToken } from "./token-cipher";
 import type { InstagramConnectionStatus } from "./instagram-connection-types";
 
 export type { InstagramConnectionStatus } from "./instagram-connection-types";
@@ -27,8 +24,12 @@ const REFRESH_CLAIM_TTL_SECONDS = 180;
 
 interface OAuthClient {
   authorizationUrl(state: string): URL;
-  exchangeAuthorizationCode(code: string): Promise<InstagramOAuthConnectionResult>;
-  refreshLongLivedToken(accessToken: string): Promise<InstagramOAuthRefreshResult>;
+  exchangeAuthorizationCode(
+    code: string
+  ): Promise<InstagramOAuthConnectionResult>;
+  refreshLongLivedToken(
+    accessToken: string
+  ): Promise<InstagramOAuthRefreshResult>;
 }
 
 interface InstagramConnectionDependencies {
@@ -116,12 +117,15 @@ export class InstagramConnectionService {
       );
     }
 
-    const connected = await this.dependencies.oauth.exchangeAuthorizationCode(code);
+    const connected =
+      await this.dependencies.oauth.exchangeAuthorizationCode(code);
     await this.dependencies.repository.upsertConnection({
       instagramUserId: connected.instagramUserId,
       username: connected.username,
       accountType: null,
-      accessTokenCiphertext: this.dependencies.encryptToken(connected.accessToken),
+      accessTokenCiphertext: this.dependencies.encryptToken(
+        connected.accessToken
+      ),
       requiredScopes: connected.scopes,
       tokenIssuedAt: connected.issuedAt,
       tokenExpiresAt: connected.expiresAt,
@@ -147,7 +151,10 @@ export class InstagramConnectionService {
       };
     }
     const expiry = new Date(connection.tokenExpiresAt).getTime();
-    if (!Number.isFinite(expiry) || expiry <= this.dependencies.now().getTime()) {
+    if (
+      !Number.isFinite(expiry) ||
+      expiry <= this.dependencies.now().getTime()
+    ) {
       return {
         connected: false,
         username: connection.username,
@@ -181,9 +188,8 @@ export class InstagramConnectionService {
       const currentToken = this.dependencies.decryptToken(
         claimed.accessTokenCiphertext
       );
-      const refreshed = await this.dependencies.oauth.refreshLongLivedToken(
-        currentToken
-      );
+      const refreshed =
+        await this.dependencies.oauth.refreshLongLivedToken(currentToken);
       const completed = await this.dependencies.repository.completeRefresh({
         claimToken,
         accessTokenCiphertext: this.dependencies.encryptToken(
@@ -231,7 +237,10 @@ export class InstagramConnectionService {
       );
     }
     const expiry = new Date(connection.tokenExpiresAt).getTime();
-    if (!Number.isFinite(expiry) || expiry <= this.dependencies.now().getTime()) {
+    if (
+      !Number.isFinite(expiry) ||
+      expiry <= this.dependencies.now().getTime()
+    ) {
       throw new InstagramConnectionError(
         "INSTAGRAM_CONNECTION_EXPIRED",
         "Instagram must be reconnected",

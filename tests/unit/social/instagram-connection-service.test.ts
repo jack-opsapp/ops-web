@@ -43,7 +43,9 @@ function repository(): InstagramConnectionRepository {
 
 function oauth() {
   return {
-    authorizationUrl: vi.fn((state: string) => new URL(`https://instagram.test/login?state=${state}`)),
+    authorizationUrl: vi.fn(
+      (state: string) => new URL(`https://instagram.test/login?state=${state}`)
+    ),
     exchangeAuthorizationCode: vi.fn(async () => ({
       accessToken: "long-lived-token",
       instagramUserId: connection.instagramUserId,
@@ -60,16 +62,19 @@ function oauth() {
   };
 }
 
-function service(overrides: {
-  repository?: InstagramConnectionRepository;
-  oauth?: ReturnType<typeof oauth>;
-  isAdminEmail?: (email: string) => Promise<boolean>;
-} = {}) {
+function service(
+  overrides: {
+    repository?: InstagramConnectionRepository;
+    oauth?: ReturnType<typeof oauth>;
+    isAdminEmail?: (email: string) => Promise<boolean>;
+  } = {}
+) {
   return new InstagramConnectionService({
     repository: overrides.repository ?? repository(),
     oauth: overrides.oauth ?? oauth(),
     encryptToken: (token) => `enc:${token}`,
-    decryptToken: (token) => token.replace(/^encrypted-token$/, "long-lived-token"),
+    decryptToken: (token) =>
+      token.replace(/^encrypted-token$/, "long-lived-token"),
     isAdminEmail: overrides.isAdminEmail ?? (async () => true),
     createClaimToken: () => "0f41c819-9292-4dd4-9527-55b23af09ba5",
     now: () => NOW,
@@ -99,9 +104,14 @@ describe("Instagram connection service", () => {
     const repo = repository();
     const subject = service({ repository: repo });
 
-    const status = await subject.completeAuthorization("opaque-state", "one-time-code");
+    const status = await subject.completeAuthorization(
+      "opaque-state",
+      "one-time-code"
+    );
 
-    expect(repo.consume).toHaveBeenCalledWith(expect.stringMatching(/^[a-f0-9]{64}$/));
+    expect(repo.consume).toHaveBeenCalledWith(
+      expect.stringMatching(/^[a-f0-9]{64}$/)
+    );
     expect(repo.upsertConnection).toHaveBeenCalledWith({
       instagramUserId: connection.instagramUserId,
       username: connection.username,
@@ -128,10 +138,10 @@ describe("Instagram connection service", () => {
     vi.mocked(replayRepo.consume).mockResolvedValue(null);
     const replayOAuth = oauth();
     await expect(
-      service({ repository: replayRepo, oauth: replayOAuth }).completeAuthorization(
-        "replayed",
-        "code"
-      )
+      service({
+        repository: replayRepo,
+        oauth: replayOAuth,
+      }).completeAuthorization("replayed", "code")
     ).rejects.toMatchObject({ code: "INSTAGRAM_OAUTH_STATE_INVALID" });
     expect(replayOAuth.exchangeAuthorizationCode).not.toHaveBeenCalled();
 
@@ -172,7 +182,9 @@ describe("Instagram connection service", () => {
       tokenExpiresAt: "2026-09-01T20:00:00.000Z",
     });
 
-    await expect(service({ repository: repo }).getPublicStatus()).resolves.toEqual({
+    await expect(
+      service({ repository: repo }).getPublicStatus()
+    ).resolves.toEqual({
       connected: false,
       username: "opsjournal",
       reason: "expired",
@@ -193,7 +205,9 @@ describe("Instagram connection service", () => {
 
     await service({ repository: repo, oauth: oauthClient }).refreshIfDue();
 
-    expect(oauthClient.refreshLongLivedToken).toHaveBeenCalledWith("long-lived-token");
+    expect(oauthClient.refreshLongLivedToken).toHaveBeenCalledWith(
+      "long-lived-token"
+    );
     expect(repo.completeRefresh).toHaveBeenCalledWith({
       claimToken: "0f41c819-9292-4dd4-9527-55b23af09ba5",
       accessTokenCiphertext: "enc:rotated-token",

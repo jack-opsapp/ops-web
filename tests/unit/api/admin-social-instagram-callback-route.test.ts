@@ -4,7 +4,7 @@ import { NextRequest } from "next/server";
 import {
   createInstagramCallbackHandler,
   type InstagramCallbackDependencies,
-} from "@/app/api/admin/social/instagram/callback/route";
+} from "@/lib/social/instagram-callback-handler";
 
 function dependencies(): InstagramCallbackDependencies {
   return {
@@ -46,7 +46,9 @@ describe("Instagram OAuth callback", () => {
 
   it("rejects missing callback context before any exchange", async () => {
     const deps = dependencies();
-    const response = await createInstagramCallbackHandler(deps)(callback("state=only"));
+    const response = await createInstagramCallbackHandler(deps)(
+      callback("state=only")
+    );
 
     expect(deps.completeAuthorization).not.toHaveBeenCalled();
     expect(response.headers.get("location")).toBe(

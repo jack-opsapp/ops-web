@@ -63,11 +63,20 @@ describe("Instagram OAuth client", () => {
           },
         ],
       }),
-      response({ access_token: LONG_TOKEN, token_type: "bearer", expires_in: 5_183_944 }),
-      response({ data: [{ user_id: "17841400000000000", username: "opsjournal" }] })
+      response({
+        access_token: LONG_TOKEN,
+        token_type: "bearer",
+        expires_in: 5_183_944,
+      }),
+      response({
+        data: [{ user_id: "17841400000000000", username: "opsjournal" }],
+      })
     );
     const now = new Date("2026-09-02T20:00:00.000Z");
-    const client = new InstagramOAuthClient(config, { fetcher, now: () => now });
+    const client = new InstagramOAuthClient(config, {
+      fetcher,
+      now: () => now,
+    });
 
     const result = await client.exchangeAuthorizationCode("single-use-code");
 
@@ -75,7 +84,10 @@ describe("Instagram OAuth client", () => {
       accessToken: LONG_TOKEN,
       instagramUserId: "17841400000000000",
       username: "opsjournal",
-      scopes: ["instagram_business_basic", "instagram_business_content_publish"],
+      scopes: [
+        "instagram_business_basic",
+        "instagram_business_content_publish",
+      ],
       issuedAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + 5_183_944_000).toISOString(),
     });
@@ -84,7 +96,9 @@ describe("Instagram OAuth client", () => {
     expect(shortBody.get("client_secret")).toBe(APP_SECRET);
     expect(shortBody.get("code")).toBe("single-use-code");
     const profileUrl = fetcher.mock.calls[2][0] as URL;
-    expect(profileUrl.toString()).toContain("https://graph.instagram.com/v25.0/me");
+    expect(profileUrl.toString()).toContain(
+      "https://graph.instagram.com/v25.0/me"
+    );
     expect(profileUrl.searchParams.get("fields")).toBe("user_id,username");
   });
 
@@ -102,7 +116,9 @@ describe("Instagram OAuth client", () => {
     );
     const client = new InstagramOAuthClient(config, { fetcher });
 
-    await expect(client.exchangeAuthorizationCode("code")).rejects.toMatchObject({
+    await expect(
+      client.exchangeAuthorizationCode("code")
+    ).rejects.toMatchObject({
       code: "INSTAGRAM_SCOPE_MISSING",
       retryable: false,
     });
@@ -112,9 +128,16 @@ describe("Instagram OAuth client", () => {
   it("refreshes a long-lived token for another validated lifetime", async () => {
     const now = new Date("2026-09-02T20:00:00.000Z");
     const fetcher = fetchSequence(
-      response({ access_token: "rotated-token", token_type: "bearer", expires_in: 5_184_000 })
+      response({
+        access_token: "rotated-token",
+        token_type: "bearer",
+        expires_in: 5_184_000,
+      })
     );
-    const client = new InstagramOAuthClient(config, { fetcher, now: () => now });
+    const client = new InstagramOAuthClient(config, {
+      fetcher,
+      now: () => now,
+    });
 
     await expect(client.refreshLongLivedToken(LONG_TOKEN)).resolves.toEqual({
       accessToken: "rotated-token",
@@ -159,6 +182,8 @@ describe("Instagram OAuth client", () => {
     vi.stubEnv("INSTAGRAM_API_VERSION", "");
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://app.opsapp.co");
 
-    expect(() => createInstagramOAuthClientFromEnv()).toThrow(/INSTAGRAM_APP_ID/);
+    expect(() => createInstagramOAuthClientFromEnv()).toThrow(
+      /INSTAGRAM_APP_ID/
+    );
   });
 });

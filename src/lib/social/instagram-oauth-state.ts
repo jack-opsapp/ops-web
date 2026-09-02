@@ -22,7 +22,9 @@ function stateDigest(token: string): string {
 function normalizeAdminEmail(email: string): string {
   const normalized = email.trim().toLowerCase();
   if (!EMAIL_PATTERN.test(normalized)) {
-    throw new Error("A verified admin email is required for Instagram OAuth state");
+    throw new Error(
+      "A verified admin email is required for Instagram OAuth state"
+    );
   }
   return normalized;
 }

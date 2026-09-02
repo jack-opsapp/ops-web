@@ -45,7 +45,9 @@ function fetchSequence(...responses: Response[]) {
 
 const quota = () =>
   jsonResponse({
-    data: [{ quota_usage: 2, config: { quota_total: 50, quota_duration: 86400 } }],
+    data: [
+      { quota_usage: 2, config: { quota_total: 50, quota_duration: 86400 } },
+    ],
   });
 
 const persistStage = async () => undefined;
@@ -76,9 +78,19 @@ describe("Instagram Graph publishing client", () => {
   });
 
   it("uses configurable API origin and version", async () => {
-    const fetcher = fetchSequence(quota(), jsonResponse({ id: "container-1" }), jsonResponse({ status_code: "FINISHED" }), jsonResponse({ id: "media-1" }), jsonResponse({ id: "media-1", permalink: "https://instagram.com/p/one" }));
+    const fetcher = fetchSequence(
+      quota(),
+      jsonResponse({ id: "container-1" }),
+      jsonResponse({ status_code: "FINISHED" }),
+      jsonResponse({ id: "media-1" }),
+      jsonResponse({ id: "media-1", permalink: "https://instagram.com/p/one" })
+    );
     const client = new InstagramGraphClient(
-      { ...baseConfig, origin: "https://graph.instagram.com", apiVersion: "v24.0" },
+      {
+        ...baseConfig,
+        origin: "https://graph.instagram.com",
+        apiVersion: "v24.0",
+      },
       { fetcher, sleep: vi.fn(), maxPollAttempts: 2, pollDelayMs: 1 }
     );
 
@@ -99,7 +111,10 @@ describe("Instagram Graph publishing client", () => {
       jsonResponse({ id: "container-1" }),
       jsonResponse({ status_code: "FINISHED" }),
       jsonResponse({ id: "media-1" }),
-      jsonResponse({ id: "media-1", permalink: "https://www.instagram.com/p/one/" })
+      jsonResponse({
+        id: "media-1",
+        permalink: "https://www.instagram.com/p/one/",
+      })
     );
     const client = new InstagramGraphClient(baseConfig, {
       fetcher,
@@ -143,7 +158,10 @@ describe("Instagram Graph publishing client", () => {
       jsonResponse({ id: "carousel-1" }),
       jsonResponse({ status_code: "FINISHED" }),
       jsonResponse({ id: "media-carousel" }),
-      jsonResponse({ id: "media-carousel", permalink: "https://www.instagram.com/p/carousel/" })
+      jsonResponse({
+        id: "media-carousel",
+        permalink: "https://www.instagram.com/p/carousel/",
+      })
     );
     const client = new InstagramGraphClient(baseConfig, {
       fetcher,
@@ -173,7 +191,10 @@ describe("Instagram Graph publishing client", () => {
 
   it("enforces JPEG assets and carousel size before quota lookup", async () => {
     const fetcher = vi.fn();
-    const client = new InstagramGraphClient(baseConfig, { fetcher, sleep: vi.fn() });
+    const client = new InstagramGraphClient(baseConfig, {
+      fetcher,
+      sleep: vi.fn(),
+    });
 
     await expect(
       client.publish({
@@ -196,9 +217,19 @@ describe("Instagram Graph publishing client", () => {
 
   it("stops before container creation when publishing quota is exhausted", async () => {
     const fetcher = fetchSequence(
-      jsonResponse({ data: [{ quota_usage: 50, config: { quota_total: 50, quota_duration: 86400 } }] })
+      jsonResponse({
+        data: [
+          {
+            quota_usage: 50,
+            config: { quota_total: 50, quota_duration: 86400 },
+          },
+        ],
+      })
     );
-    const client = new InstagramGraphClient(baseConfig, { fetcher, sleep: vi.fn() });
+    const client = new InstagramGraphClient(baseConfig, {
+      fetcher,
+      sleep: vi.fn(),
+    });
 
     await expect(
       client.publish({
@@ -207,7 +238,10 @@ describe("Instagram Graph publishing client", () => {
         caption: "No capacity",
         onStage: persistStage,
       })
-    ).rejects.toMatchObject({ code: "PUBLISHING_QUOTA_EXHAUSTED", retryable: true });
+    ).rejects.toMatchObject({
+      code: "PUBLISHING_QUOTA_EXHAUSTED",
+      retryable: true,
+    });
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
@@ -239,20 +273,30 @@ describe("Instagram Graph publishing client", () => {
   it.each([
     [429, { error: { message: "Rate limited", code: 4 } }],
     [503, { error: { message: "Service unavailable", code: 2 } }],
-    [400, { error: { message: "Temporary Meta fault", code: 1, is_transient: true } }],
+    [
+      400,
+      {
+        error: { message: "Temporary Meta fault", code: 1, is_transient: true },
+      },
+    ],
   ])("classifies retryable Graph failure %s", async (status, body) => {
     const client = new InstagramGraphClient(baseConfig, {
       fetcher: fetchSequence(jsonResponse(body, status)),
       sleep: vi.fn(),
     });
 
-    await expect(client.getPublishingQuota()).rejects.toMatchObject({ retryable: true });
+    await expect(client.getPublishingQuota()).rejects.toMatchObject({
+      retryable: true,
+    });
   });
 
   it("classifies permanent Graph errors without leaking the access token", async () => {
     const client = new InstagramGraphClient(baseConfig, {
       fetcher: fetchSequence(
-        jsonResponse({ error: { message: `Invalid token ${TOKEN}`, code: 190 } }, 400)
+        jsonResponse(
+          { error: { message: `Invalid token ${TOKEN}`, code: 190 } },
+          400
+        )
       ),
       sleep: vi.fn(),
     });
@@ -295,7 +339,11 @@ describe("Instagram Graph publishing client", () => {
     expect(onStage.mock.calls.map(([event]) => event)).toEqual([
       { stage: "container_ready", containerId: "container-1" },
       { stage: "publish_requested", containerId: "container-1" },
-      { stage: "publish_succeeded", containerId: "container-1", mediaId: "media-1" },
+      {
+        stage: "publish_succeeded",
+        containerId: "container-1",
+        mediaId: "media-1",
+      },
     ]);
   });
 
@@ -319,7 +367,10 @@ describe("Instagram Graph publishing client", () => {
         caption: "One plan.",
         onStage: vi.fn().mockRejectedValue(new Error("database unavailable")),
       })
-    ).rejects.toMatchObject({ code: "PUBLISH_STAGE_NOT_PERSISTED", retryable: true });
+    ).rejects.toMatchObject({
+      code: "PUBLISH_STAGE_NOT_PERSISTED",
+      retryable: true,
+    });
     expect(fetcher).toHaveBeenCalledTimes(3);
   });
 
@@ -349,7 +400,10 @@ describe("Instagram Graph publishing client", () => {
         caption: "One plan.",
         onStage,
       })
-    ).rejects.toMatchObject({ code: "PUBLISHED_ACK_NOT_PERSISTED", retryable: false });
+    ).rejects.toMatchObject({
+      code: "PUBLISHED_ACK_NOT_PERSISTED",
+      retryable: false,
+    });
     expect(fetcher).toHaveBeenCalledTimes(4);
   });
 
@@ -373,7 +427,10 @@ describe("Instagram Graph publishing client", () => {
         caption: "One plan.",
         onStage: persistStage,
       })
-    ).rejects.toMatchObject({ code: "PUBLISH_OUTCOME_UNKNOWN", retryable: false });
+    ).rejects.toMatchObject({
+      code: "PUBLISH_OUTCOME_UNKNOWN",
+      retryable: false,
+    });
   });
 
   it("refuses to contact Instagram without a durable publish ledger", async () => {
@@ -387,7 +444,10 @@ describe("Instagram Graph publishing client", () => {
         caption: "One plan.",
         onStage: undefined as never,
       })
-    ).rejects.toMatchObject({ code: "PUBLISH_LEDGER_REQUIRED", retryable: false });
+    ).rejects.toMatchObject({
+      code: "PUBLISH_LEDGER_REQUIRED",
+      retryable: false,
+    });
     expect(fetcher).not.toHaveBeenCalled();
   });
 
@@ -396,7 +456,10 @@ describe("Instagram Graph publishing client", () => {
       expect(init?.signal).toBeInstanceOf(AbortSignal);
       return quota();
     });
-    const client = new InstagramGraphClient(baseConfig, { fetcher, requestTimeoutMs: 250 });
+    const client = new InstagramGraphClient(baseConfig, {
+      fetcher,
+      requestTimeoutMs: 250,
+    });
 
     await client.getPublishingQuota();
     expect(fetcher).toHaveBeenCalledTimes(1);

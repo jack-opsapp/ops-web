@@ -111,7 +111,11 @@ function validatedConfig(config: InstagramOAuthConfig) {
       false
     );
   }
-  if (!['https:', 'http:'].includes(redirect.protocol) || redirect.username || redirect.password) {
+  if (
+    !["https:", "http:"].includes(redirect.protocol) ||
+    redirect.username ||
+    redirect.password
+  ) {
     throw new InstagramOAuthError(
       "INSTAGRAM_OAUTH_NOT_CONFIGURED",
       "Instagram OAuth redirect URI is invalid",
@@ -139,7 +143,10 @@ function validatedConfig(config: InstagramOAuthConfig) {
   };
 }
 
-function tokenLifetime(payload: unknown): { accessToken: string; expiresIn: number } {
+function tokenLifetime(payload: unknown): {
+  accessToken: string;
+  expiresIn: number;
+} {
   if (!payload || typeof payload !== "object") {
     throw new InstagramOAuthError(
       "INSTAGRAM_OAUTH_RESPONSE_INVALID",
@@ -223,7 +230,10 @@ export class InstagramOAuthClient {
         response.status
       );
     }
-    if (!response.ok || (payload && typeof payload === "object" && "error" in payload)) {
+    if (
+      !response.ok ||
+      (payload && typeof payload === "object" && "error" in payload)
+    ) {
       throw new InstagramOAuthError(
         "INSTAGRAM_OAUTH_REJECTED",
         `Meta rejected the Instagram connection request (HTTP ${response.status})`,
@@ -234,7 +244,9 @@ export class InstagramOAuthClient {
     return payload;
   }
 
-  async exchangeAuthorizationCode(code: string): Promise<InstagramOAuthConnectionResult> {
+  async exchangeAuthorizationCode(
+    code: string
+  ): Promise<InstagramOAuthConnectionResult> {
     const normalizedCode = code.trim();
     if (!normalizedCode || normalizedCode.length > 2048) {
       throw new InstagramOAuthError(
@@ -271,9 +283,14 @@ export class InstagramOAuthClient {
     const shortToken = (shortRow as { access_token?: unknown }).access_token;
     const rawPermissions = (shortRow as { permissions?: unknown }).permissions;
     const permissions = Array.isArray(rawPermissions)
-      ? rawPermissions.filter((value): value is string => typeof value === "string")
+      ? rawPermissions.filter(
+          (value): value is string => typeof value === "string"
+        )
       : typeof rawPermissions === "string"
-        ? rawPermissions.split(",").map((value) => value.trim()).filter(Boolean)
+        ? rawPermissions
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean)
         : [];
     if (typeof shortToken !== "string" || !shortToken.trim()) {
       throw new InstagramOAuthError(
@@ -297,7 +314,9 @@ export class InstagramOAuthClient {
     longUrl.searchParams.set("grant_type", "ig_exchange_token");
     longUrl.searchParams.set("client_secret", this.config.appSecret);
     longUrl.searchParams.set("access_token", shortToken.trim());
-    const longPayload = await this.requestJson(longUrl, { method: "GET" }, [shortToken.trim()]);
+    const longPayload = await this.requestJson(longUrl, { method: "GET" }, [
+      shortToken.trim(),
+    ]);
     const longToken = tokenLifetime(longPayload);
 
     const profileUrl = new URL(
@@ -351,7 +370,9 @@ export class InstagramOAuthClient {
     };
   }
 
-  async refreshLongLivedToken(accessToken: string): Promise<InstagramOAuthRefreshResult> {
+  async refreshLongLivedToken(
+    accessToken: string
+  ): Promise<InstagramOAuthRefreshResult> {
     const normalizedToken = accessToken.trim();
     if (!normalizedToken) {
       throw new InstagramOAuthError(
@@ -363,7 +384,9 @@ export class InstagramOAuthClient {
     const url = new URL("/refresh_access_token", this.config.graphOrigin);
     url.searchParams.set("grant_type", "ig_refresh_token");
     url.searchParams.set("access_token", normalizedToken);
-    const payload = await this.requestJson(url, { method: "GET" }, [normalizedToken]);
+    const payload = await this.requestJson(url, { method: "GET" }, [
+      normalizedToken,
+    ]);
     const refreshed = tokenLifetime(payload);
     const issuedAt = this.dependencies.now();
     return {

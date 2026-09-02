@@ -39,7 +39,10 @@ export interface InstagramConnectionRepository extends InstagramOAuthStateStore 
     connectedByEmail: string;
   }): Promise<void>;
   disconnect(): Promise<void>;
-  claimRefresh(claimToken: string, claimTtlSeconds: number): Promise<InstagramRefreshClaim | null>;
+  claimRefresh(
+    claimToken: string,
+    claimTtlSeconds: number
+  ): Promise<InstagramRefreshClaim | null>;
   completeRefresh(input: {
     claimToken: string;
     accessTokenCiphertext: string;
@@ -53,11 +56,18 @@ export interface InstagramConnectionRepository extends InstagramOAuthStateStore 
   }): Promise<boolean>;
 }
 
-function operationFailed(operation: string, error: { message?: string }): Error {
-  return new Error(`${operation} failed: ${error.message ?? "unknown database error"}`);
+function operationFailed(
+  operation: string,
+  error: { message?: string }
+): Error {
+  return new Error(
+    `${operation} failed: ${error.message ?? "unknown database error"}`
+  );
 }
 
-function connectionRecord(row: Record<string, unknown>): InstagramConnectionRecord | null {
+function connectionRecord(
+  row: Record<string, unknown>
+): InstagramConnectionRecord | null {
   if (
     typeof row.instagram_user_id !== "string" ||
     typeof row.username !== "string" ||
@@ -103,11 +113,13 @@ export function createInstagramConnectionRepository(
     },
 
     async insert(input) {
-      const { error } = await supabase.from("social_instagram_oauth_states").insert({
-        nonce_hash: input.nonceHash,
-        admin_email: input.adminEmail,
-        expires_at: input.expiresAt,
-      });
+      const { error } = await supabase
+        .from("social_instagram_oauth_states")
+        .insert({
+          nonce_hash: input.nonceHash,
+          admin_email: input.adminEmail,
+          expires_at: input.expiresAt,
+        });
       if (error) throw operationFailed("Instagram OAuth state creation", error);
     },
 
@@ -116,9 +128,12 @@ export function createInstagramConnectionRepository(
         "consume_social_instagram_oauth_state",
         { p_nonce_hash: nonceHash }
       );
-      if (error) throw operationFailed("Instagram OAuth state consumption", error);
+      if (error)
+        throw operationFailed("Instagram OAuth state consumption", error);
       const row = Array.isArray(data) ? data[0] : null;
-      return row && typeof row.admin_email === "string" ? row.admin_email : null;
+      return row && typeof row.admin_email === "string"
+        ? row.admin_email
+        : null;
     },
 
     async getConnection() {
@@ -137,27 +152,29 @@ export function createInstagramConnectionRepository(
     },
 
     async upsertConnection(input) {
-      const { error } = await supabase.from("social_instagram_connections").upsert(
-        {
-          id: 1,
-          instagram_user_id: input.instagramUserId,
-          username: input.username,
-          account_type: input.accountType,
-          access_token_ciphertext: input.accessTokenCiphertext,
-          required_scopes: input.requiredScopes,
-          token_issued_at: input.tokenIssuedAt,
-          token_expires_at: input.tokenExpiresAt,
-          last_refreshed_at: null,
-          refresh_claim_token: null,
-          refresh_claim_expires_at: null,
-          last_refresh_error_code: null,
-          last_refresh_error_message: null,
-          last_refresh_error_at: null,
-          connected_by_email: input.connectedByEmail,
-          connected_at: input.tokenIssuedAt,
-        },
-        { onConflict: "id" }
-      );
+      const { error } = await supabase
+        .from("social_instagram_connections")
+        .upsert(
+          {
+            id: 1,
+            instagram_user_id: input.instagramUserId,
+            username: input.username,
+            account_type: input.accountType,
+            access_token_ciphertext: input.accessTokenCiphertext,
+            required_scopes: input.requiredScopes,
+            token_issued_at: input.tokenIssuedAt,
+            token_expires_at: input.tokenExpiresAt,
+            last_refreshed_at: null,
+            refresh_claim_token: null,
+            refresh_claim_expires_at: null,
+            last_refresh_error_code: null,
+            last_refresh_error_message: null,
+            last_refresh_error_at: null,
+            connected_by_email: input.connectedByEmail,
+            connected_at: input.tokenIssuedAt,
+          },
+          { onConflict: "id" }
+        );
       if (error) throw operationFailed("Instagram connection storage", error);
     },
 

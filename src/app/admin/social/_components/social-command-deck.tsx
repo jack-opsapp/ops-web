@@ -20,9 +20,16 @@ import type { SocialPostRecord, SocialPostStatus } from "@/lib/social/types";
 import { cn } from "@/lib/utils/cn";
 
 type QueueFilter = "all" | "active" | "published" | "failed";
-type Translate = (key: string, fallbackOrParams?: string | Record<string, unknown>) => string;
+type Translate = (
+  key: string,
+  fallbackOrParams?: string | Record<string, unknown>
+) => string;
 
-const ACTIVE_STATUSES = new Set<SocialPostStatus>(["rendering", "review", "publishing"]);
+const ACTIVE_STATUSES = new Set<SocialPostStatus>([
+  "rendering",
+  "review",
+  "publishing",
+]);
 
 const STATUS_TONES: Record<SocialPostStatus, string> = {
   rendering: "border-line-hi text-text-2",
@@ -62,7 +69,12 @@ function dateTime(value: string | null): string {
   }).format(date);
 }
 
-function countdown(target: string | null, now: number, due: string, unscheduled: string): string {
+function countdown(
+  target: string | null,
+  now: number,
+  due: string,
+  unscheduled: string
+): string {
   if (!target) return unscheduled;
   const remaining = new Date(target).getTime() - now;
   if (remaining <= 0) return due;
@@ -72,9 +84,13 @@ function countdown(target: string | null, now: number, due: string, unscheduled:
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function filterPosts(posts: SocialPostRecord[], filter: QueueFilter): SocialPostRecord[] {
+function filterPosts(
+  posts: SocialPostRecord[],
+  filter: QueueFilter
+): SocialPostRecord[] {
   if (filter === "all") return posts;
-  if (filter === "active") return posts.filter((post) => ACTIVE_STATUSES.has(post.status));
+  if (filter === "active")
+    return posts.filter((post) => ACTIVE_STATUSES.has(post.status));
   return posts.filter((post) => post.status === filter);
 }
 
@@ -84,9 +100,14 @@ function orderPosts(posts: SocialPostRecord[]): SocialPostRecord[] {
     const rightActive = ACTIVE_STATUSES.has(right.status);
     if (leftActive !== rightActive) return leftActive ? -1 : 1;
     if (leftActive && rightActive) {
-      return new Date(left.publish_after).getTime() - new Date(right.publish_after).getTime();
+      return (
+        new Date(left.publish_after).getTime() -
+        new Date(right.publish_after).getTime()
+      );
     }
-    return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+    return (
+      new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime()
+    );
   });
 }
 
@@ -101,7 +122,9 @@ function selectorRationale(post: SocialPostRecord): string {
   return `FIT ${value("fit")} · CADENCE ${value("cadence")} · PREFERENCE ${value("preference")}`;
 }
 
-function assetEvidence(asset: SocialPostRecord["rendered_assets"][number]): string {
+function assetEvidence(
+  asset: SocialPostRecord["rendered_assets"][number]
+): string {
   return `${asset.width} × ${asset.height} · ${Math.max(1, Math.round(asset.bytes / 1024))} KB · SHA ${asset.sha256.slice(0, 12).toUpperCase()}`;
 }
 
@@ -122,7 +145,9 @@ function StatusPill({ status }: { status: SocialPostStatus }) {
 function Metric({ label, value }: { label: string; value: number }) {
   return (
     <div className="border-l border-line pl-2 first:border-l-0 first:pl-0">
-      <p className="font-mono text-micro uppercase tracking-wide text-text-mute">{label}</p>
+      <p className="font-mono text-micro uppercase tracking-wide text-text-mute">
+        {label}
+      </p>
       <p className="font-mono text-heading tabular-nums text-text">{value}</p>
     </div>
   );
@@ -144,7 +169,10 @@ function CopyEditor({
 
   useEffect(() => setDraft(post.content), [post]);
 
-  function update<K extends keyof SocialContent>(key: K, value: SocialContent[K]) {
+  function update<K extends keyof SocialContent>(
+    key: K,
+    value: SocialContent[K]
+  ) {
     setDraft((current) => ({ ...current, [key]: value }));
   }
 
@@ -186,7 +214,9 @@ function CopyEditor({
         label={t("edit.field.subtitle", "SUBTITLE")}
         value={draft.subtitle ?? ""}
         maxLength={160}
-        onChange={(event) => update("subtitle", event.target.value || undefined)}
+        onChange={(event) =>
+          update("subtitle", event.target.value || undefined)
+        }
       />
       <Input
         label={t("edit.field.date", "DATE")}
@@ -229,40 +259,56 @@ function CopyEditor({
         onChange={(event) => update("alt_text", event.target.value)}
       />
       {draft.slides.map((slide, index) => (
-        <Surface key={index} variant="inset" className="flex flex-col gap-2 p-3">
+        <Surface
+          key={index}
+          variant="inset"
+          className="flex flex-col gap-2 p-3"
+        >
           <p className="font-mono text-micro uppercase tracking-wide text-text-3">
-            {withParams(t, "edit.slide", "SLIDE {number}", { number: index + 1 })}
+            {withParams(t, "edit.slide", "SLIDE {number}", {
+              number: index + 1,
+            })}
           </p>
           <Input
             label={t("edit.field.eyebrow", "EYEBROW")}
             value={slide.eyebrow ?? ""}
             maxLength={40}
-            onChange={(event) => updateSlide(index, { eyebrow: event.target.value || undefined })}
+            onChange={(event) =>
+              updateSlide(index, { eyebrow: event.target.value || undefined })
+            }
           />
           <Input
             label={t("edit.field.headline", "HEADLINE")}
             value={slide.headline}
             maxLength={100}
             required
-            onChange={(event) => updateSlide(index, { headline: event.target.value })}
+            onChange={(event) =>
+              updateSlide(index, { headline: event.target.value })
+            }
           />
           <Textarea
             label={t("edit.field.body", "BODY")}
             value={slide.body ?? ""}
             maxLength={350}
-            onChange={(event) => updateSlide(index, { body: event.target.value || undefined })}
+            onChange={(event) =>
+              updateSlide(index, { body: event.target.value || undefined })
+            }
           />
           <Input
             label={t("edit.field.image", "IMAGE URL")}
             type="url"
             value={slide.image_url ?? ""}
-            onChange={(event) => updateSlide(index, { image_url: event.target.value || undefined })}
+            onChange={(event) =>
+              updateSlide(index, { image_url: event.target.value || undefined })
+            }
           />
           <Textarea
             label={t("edit.field.slideAlt", "SLIDE ALT TEXT")}
             value={slide.alt_text ?? ""}
             maxLength={500}
-            onChange={(event) => updateSlide(index, { alt_text: event.target.value || undefined })}
+            onChange={(event) =>
+              updateSlide(index, { alt_text: event.target.value || undefined })
+            }
           />
         </Surface>
       ))}
@@ -278,18 +324,26 @@ function CopyEditor({
   );
 }
 
-export function SocialCommandDeck({ initialPostId }: { initialPostId?: string }) {
+export function SocialCommandDeck({
+  initialPostId,
+}: {
+  initialPostId?: string;
+}) {
   const { t } = useDictionary("admin-social");
   const { posts, isLoading, error, action } = useSocialPosts();
   const instagram = useInstagramConnection();
   const [filter, setFilter] = useState<QueueFilter>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(initialPostId ?? null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialPostId ?? null
+  );
   const [slideIndex, setSlideIndex] = useState(0);
   const [editing, setEditing] = useState(false);
   const [confirmingStop, setConfirmingStop] = useState(false);
   const [managingInstagram, setManagingInstagram] = useState(false);
   const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
-  const [connectionFeedback, setConnectionFeedback] = useState<string | null>(null);
+  const [connectionFeedback, setConnectionFeedback] = useState<string | null>(
+    null
+  );
   const [feedback, setFeedback] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -304,7 +358,9 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
     [filter, orderedPosts]
   );
   const selected =
-    visiblePosts.find((post) => post.id === selectedId) ?? visiblePosts[0] ?? null;
+    visiblePosts.find((post) => post.id === selectedId) ??
+    visiblePosts[0] ??
+    null;
 
   useEffect(() => {
     setSlideIndex(0);
@@ -335,7 +391,10 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
     { id: "failed", label: t("filter.failed", "FAILED") },
   ];
 
-  async function run(body: { action: "cancel" | "publish_now" | "retry" }, success: string) {
+  async function run(
+    body: { action: "cancel" | "publish_now" | "retry" },
+    success: string
+  ) {
     if (!selected) return;
     setFeedback(null);
     try {
@@ -343,7 +402,11 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
       setFeedback(success);
       setConfirmingStop(false);
     } catch (actionError) {
-      setFeedback(actionError instanceof Error ? actionError.message : t("state.error", "SOCIAL QUEUE UNAVAILABLE"));
+      setFeedback(
+        actionError instanceof Error
+          ? actionError.message
+          : t("state.error", "SOCIAL QUEUE UNAVAILABLE")
+      );
     }
   }
 
@@ -351,11 +414,18 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
     if (!selected) return;
     setFeedback(null);
     try {
-      await action.mutateAsync({ id: selected.id, body: { action: "edit", content } });
+      await action.mutateAsync({
+        id: selected.id,
+        body: { action: "edit", content },
+      });
       setEditing(false);
       setFeedback(t("feedback.saved", "COPY SAVED. VETO WINDOW RESTARTED."));
     } catch (actionError) {
-      setFeedback(actionError instanceof Error ? actionError.message : t("state.error", "SOCIAL QUEUE UNAVAILABLE"));
+      setFeedback(
+        actionError instanceof Error
+          ? actionError.message
+          : t("state.error", "SOCIAL QUEUE UNAVAILABLE")
+      );
     }
   }
 
@@ -386,16 +456,22 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
       setConnectionFeedback(
         connectionError instanceof Error
           ? connectionError.message
-          : t("connection.disconnectError", "INSTAGRAM COULD NOT BE DISCONNECTED.")
+          : t(
+              "connection.disconnectError",
+              "INSTAGRAM COULD NOT BE DISCONNECTED."
+            )
       );
     }
   }
 
   const assets = selected?.rendered_assets ?? [];
-  const activeAsset = assets[Math.min(slideIndex, Math.max(assets.length - 1, 0))];
+  const activeAsset =
+    assets[Math.min(slideIndex, Math.max(assets.length - 1, 0))];
   const dueCopy = t("state.due", "DUE NOW");
   const unscheduledCopy = t("state.unscheduled", "NO LAUNCH TIME");
-  const reconciliationRequired = selected ? requiresInstagramReconciliation(selected) : false;
+  const reconciliationRequired = selected
+    ? requiresInstagramReconciliation(selected)
+    : false;
   const instagramReady = instagram.connection?.connected === true;
   const canEditOrStop =
     selected !== null &&
@@ -407,7 +483,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
       <header className="border-b border-line px-6 py-4">
         <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-end">
           <div>
-            <h1 className="font-cakemono text-title font-light uppercase tracking-wide text-text">
+            <h1 className="text-title font-cakemono font-light uppercase tracking-wide text-text">
               {t("header.title", "SOCIAL")}
             </h1>
             <p className="mt-0.5 font-mono text-caption-sm text-text-mute">
@@ -448,9 +524,10 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                   setManagingInstagram((current) => !current);
                   setConfirmingDisconnect(false);
                 }}
-                className="rounded-chip border border-olive/40 px-2 py-1 font-mono text-micro uppercase tracking-wide text-olive transition-colors hover:border-olive motion-reduce:transition-none"
+                className="rounded-chip border border-olive/40 px-2 py-1 font-mono text-micro uppercase tracking-wide text-olive transition-colors hover:border-olive focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black motion-reduce:transition-none"
               >
-                @{instagram.connection.username} · {t("connection.connected", "CONNECTED")}
+                @{instagram.connection.username} ·{" "}
+                {t("connection.connected", "CONNECTED")}
               </button>
               {managingInstagram && (
                 <Surface variant="inset" className="min-w-64 p-2">
@@ -479,7 +556,10 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                           loading={instagram.disconnect.isPending}
                           onClick={disconnectInstagram}
                         >
-                          {t("connection.confirmDisconnect", "CONFIRM DISCONNECT")}
+                          {t(
+                            "connection.confirmDisconnect",
+                            "CONFIRM DISCONNECT"
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -511,7 +591,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                     ? t("connection.expired", "INSTAGRAM LOGIN EXPIRED")
                     : t("connection.notConnected", "INSTAGRAM NOT CONNECTED")}
                 </p>
-                <p className="mt-0.5 font-mono text-micro uppercase text-text-mute">
+                <p className="mt-0.5 font-mono text-micro uppercase text-text-3">
                   {t(
                     "connection.loginOnce",
                     "LOGIN ONCE. OPS KEEPS PUBLISHING ACCESS CURRENT."
@@ -541,17 +621,26 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
       </header>
 
       <div className="grid grid-cols-12 gap-3 p-3 xl:p-4">
-        <Surface variant="dense" className="col-span-12 overflow-hidden xl:col-span-3">
+        <Surface
+          variant="dense"
+          className="col-span-12 overflow-hidden xl:col-span-3"
+        >
           <div className="border-b border-line p-3">
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-cakemono text-heading font-light uppercase text-text">
                 {t("rail.title", "LAUNCH RAIL")}
               </h2>
               <span className="font-mono text-micro tabular-nums text-text-mute">
-                {withParams(t, "rail.count", "{count} POSTS", { count: visiblePosts.length })}
+                {withParams(t, "rail.count", "{count} POSTS", {
+                  count: visiblePosts.length,
+                })}
               </span>
             </div>
-            <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label={t("rail.title", "LAUNCH RAIL")}>
+            <div
+              className="mt-2 flex flex-wrap gap-1"
+              role="group"
+              aria-label={t("rail.title", "LAUNCH RAIL")}
+            >
               {filters.map((item) => (
                 <button
                   key={item.id}
@@ -579,7 +668,10 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                 {t("state.loading", "LOADING LAUNCH RAIL")}
               </p>
             ) : error ? (
-              <p className="p-4 font-mono text-micro uppercase text-rose" role="alert">
+              <p
+                className="p-4 font-mono text-micro uppercase text-rose"
+                role="alert"
+              >
                 {t("state.error", "SOCIAL QUEUE UNAVAILABLE")}
               </p>
             ) : visiblePosts.length === 0 ? (
@@ -595,7 +687,9 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                   onClick={() => setSelectedId(post.id)}
                   className={cn(
                     "flex w-full gap-2 border-b border-line p-3 text-left transition-colors last:border-b-0",
-                    selected?.id === post.id ? "bg-surface-active" : "hover:bg-surface-hover"
+                    selected?.id === post.id
+                      ? "bg-surface-active"
+                      : "hover:bg-surface-hover"
                   )}
                 >
                   <span className="pt-px font-mono text-micro tabular-nums text-text-mute">
@@ -617,7 +711,12 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                       <span>{humanize(post.visual_treatment)}</span>
                       <span className="tabular-nums">
                         {post.status === "review"
-                          ? countdown(post.publish_after, now, dueCopy, unscheduledCopy)
+                          ? countdown(
+                              post.publish_after,
+                              now,
+                              dueCopy,
+                              unscheduledCopy
+                            )
                           : dateTime(post.publish_after)}
                       </span>
                     </span>
@@ -660,9 +759,14 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                     variant="secondary"
                     aria-label={t("preview.previous", "PREVIOUS SLIDE")}
                     disabled={slideIndex === 0}
-                    onClick={() => setSlideIndex((current) => Math.max(0, current - 1))}
+                    onClick={() =>
+                      setSlideIndex((current) => Math.max(0, current - 1))
+                    }
                   >
-                    <ChevronLeft className="h-icon-16 w-icon-16" aria-hidden="true" />
+                    <ChevronLeft
+                      className="h-icon-16 w-icon-16"
+                      aria-hidden="true"
+                    />
                   </Button>
                   <div className="flex gap-1">
                     {assets.map((asset, index) => (
@@ -670,9 +774,14 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                         key={asset.sha256}
                         type="button"
                         aria-pressed={index === slideIndex}
-                        aria-label={withParams(t, "edit.slide", "SLIDE {number}", {
-                          number: index + 1,
-                        })}
+                        aria-label={withParams(
+                          t,
+                          "edit.slide",
+                          "SLIDE {number}",
+                          {
+                            number: index + 1,
+                          }
+                        )}
                         onClick={() => setSlideIndex(index)}
                         className={cn(
                           "h-1.5 w-6 rounded-chip",
@@ -686,9 +795,16 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                     variant="secondary"
                     aria-label={t("preview.next", "NEXT SLIDE")}
                     disabled={slideIndex === assets.length - 1}
-                    onClick={() => setSlideIndex((current) => Math.min(assets.length - 1, current + 1))}
+                    onClick={() =>
+                      setSlideIndex((current) =>
+                        Math.min(assets.length - 1, current + 1)
+                      )
+                    }
                   >
-                    <ChevronRight className="h-icon-16 w-icon-16" aria-hidden="true" />
+                    <ChevronRight
+                      className="h-icon-16 w-icon-16"
+                      aria-hidden="true"
+                    />
                   </Button>
                 </div>
               )}
@@ -720,12 +836,18 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                     }}
                     className={cn(
                       "aspect-square overflow-hidden rounded border bg-surface-input",
-                      selected?.id === post.id ? "border-line-hi" : "border-line"
+                      selected?.id === post.id
+                        ? "border-line-hi"
+                        : "border-line"
                     )}
                   >
                     {asset && (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={asset.url} alt="" className="h-full w-full object-cover" />
+                      <img
+                        src={asset.url}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
                     )}
                   </button>
                 );
@@ -753,7 +875,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                   <p className="font-mono text-micro uppercase tracking-wide text-text-mute">
                     {t("control.title", "CONTROL FILE")}
                   </p>
-                  <h2 className="mt-0.5 font-mohave text-title-sm font-semibold leading-tight text-text">
+                  <h2 className="text-title-sm mt-0.5 font-mohave font-semibold leading-tight text-text">
                     {selected.content.title}
                   </h2>
                 </div>
@@ -773,11 +895,20 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 hover:text-text"
                       >
-                        {t(`source.${selected.source_type}`, humanize(selected.source_type))}
-                        <ExternalLink className="h-icon-16 w-icon-16" aria-hidden="true" />
+                        {t(
+                          `source.${selected.source_type}`,
+                          humanize(selected.source_type)
+                        )}
+                        <ExternalLink
+                          className="h-icon-16 w-icon-16"
+                          aria-hidden="true"
+                        />
                       </a>
                     ) : (
-                      t(`source.${selected.source_type}`, humanize(selected.source_type))
+                      t(
+                        `source.${selected.source_type}`,
+                        humanize(selected.source_type)
+                      )
                     )}
                   </dd>
                 </div>
@@ -794,7 +925,10 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                     {t("control.format", "FORMAT")}
                   </dt>
                   <dd className="mt-0.5 font-mohave text-body-sm text-text-2">
-                    {t(`format.${selected.post_format}`, humanize(selected.post_format))}
+                    {t(
+                      `format.${selected.post_format}`,
+                      humanize(selected.post_format)
+                    )}
                   </dd>
                 </div>
                 <div>
@@ -803,7 +937,12 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                   </dt>
                   <dd className="mt-0.5 font-mono text-caption-sm tabular-nums text-text-2">
                     {selected.status === "review"
-                      ? countdown(selected.publish_after, now, dueCopy, unscheduledCopy)
+                      ? countdown(
+                          selected.publish_after,
+                          now,
+                          dueCopy,
+                          unscheduledCopy
+                        )
                       : dateTime(selected.publish_after)}
                   </dd>
                 </div>
@@ -875,15 +1014,24 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                 </p>
                 <ul className="mt-1 flex flex-col gap-1">
                   {selected.rendered_assets.map((asset) => (
-                    <li key={asset.sha256} className="font-mono text-micro tabular-nums text-text-3">
-                      {withParams(t, "control.asset", "SLIDE {number}", { number: asset.order })} · {assetEvidence(asset)}
+                    <li
+                      key={asset.sha256}
+                      className="font-mono text-micro tabular-nums text-text-3"
+                    >
+                      {withParams(t, "control.asset", "SLIDE {number}", {
+                        number: asset.order,
+                      })}{" "}
+                      · {assetEvidence(asset)}
                     </li>
                   ))}
                 </ul>
               </Surface>
 
               {selected.last_error_message && (
-                <Surface variant="inset" className="border-rose-line bg-rose-soft p-2">
+                <Surface
+                  variant="inset"
+                  className="border-rose-line bg-rose-soft p-2"
+                >
                   <p className="font-mono text-micro uppercase text-rose">
                     {selected.last_error_code ?? humanize(selected.status)}
                   </p>
@@ -894,7 +1042,11 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
               )}
 
               {reconciliationRequired && (
-                <Surface variant="inset" className="border-rose-line bg-rose-soft p-3" role="alert">
+                <Surface
+                  variant="inset"
+                  className="border-rose-line bg-rose-soft p-3"
+                  role="alert"
+                >
                   <p className="font-cakemono text-heading font-light uppercase text-rose">
                     {t("reconciliation.title", "RECONCILIATION REQUIRED")}
                   </p>
@@ -908,7 +1060,10 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
               )}
 
               {confirmingStop ? (
-                <Surface variant="inset" className="border-rose-line bg-rose-soft p-3">
+                <Surface
+                  variant="inset"
+                  className="border-rose-line bg-rose-soft p-3"
+                >
                   <p className="font-cakemono text-heading font-light uppercase text-rose">
                     {t("confirm.title", "STOP THIS POST?")}
                   </p>
@@ -919,13 +1074,21 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                     )}
                   </p>
                   <div className="mt-2 flex justify-end gap-1">
-                    <Button variant="secondary" onClick={() => setConfirmingStop(false)}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => setConfirmingStop(false)}
+                    >
                       {t("action.keep", "KEEP POST")}
                     </Button>
                     <Button
                       variant="destructive"
                       loading={action.isPending}
-                      onClick={() => run({ action: "cancel" }, t("feedback.stopped", "POST STOPPED."))}
+                      onClick={() =>
+                        run(
+                          { action: "cancel" },
+                          t("feedback.stopped", "POST STOPPED.")
+                        )
+                      }
                     >
                       {t("action.confirmStop", "CONFIRM STOP")}
                     </Button>
@@ -963,22 +1126,36 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                   )}
                   {canEditOrStop && (
                     <>
-                      <Button variant="secondary" onClick={() => setEditing(true)}>
+                      <Button
+                        variant="secondary"
+                        onClick={() => setEditing(true)}
+                      >
                         {t("action.edit", "EDIT COPY")}
                       </Button>
-                      <Button variant="destructive" onClick={() => setConfirmingStop(true)}>
+                      <Button
+                        variant="destructive"
+                        onClick={() => setConfirmingStop(true)}
+                      >
                         {t("action.stop", "STOP")}
                       </Button>
                     </>
                   )}
-                  {selected.status === "published" && selected.instagram_permalink && (
-                    <Button asChild variant="secondary">
-                      <a href={selected.instagram_permalink} target="_blank" rel="noreferrer">
-                        {t("action.openInstagram", "OPEN ON INSTAGRAM")}
-                        <ExternalLink className="h-icon-16 w-icon-16" aria-hidden="true" />
-                      </a>
-                    </Button>
-                  )}
+                  {selected.status === "published" &&
+                    selected.instagram_permalink && (
+                      <Button asChild variant="secondary">
+                        <a
+                          href={selected.instagram_permalink}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {t("action.openInstagram", "OPEN ON INSTAGRAM")}
+                          <ExternalLink
+                            className="h-icon-16 w-icon-16"
+                            aria-hidden="true"
+                          />
+                        </a>
+                      </Button>
+                    )}
                   {selected.status === "published" && (
                     <span className="self-center font-mono text-micro uppercase text-olive">
                       {t("control.locked", "LOCKED AFTER PUBLISH")}
@@ -993,7 +1170,10 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
               )}
 
               {feedback && (
-                <p className="font-mono text-micro uppercase text-olive" role="status">
+                <p
+                  className="font-mono text-micro uppercase text-olive"
+                  role="status"
+                >
                   {feedback}
                 </p>
               )}
@@ -1008,16 +1188,22 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                   </p>
                 ) : (
                   <ol className="mt-2 flex flex-col gap-2">
-                    {[...selected.audit_log].reverse().slice(0, 8).map((event, index) => (
-                      <li key={`${event.at}-${event.event}-${index}`} className="border-l border-line-hi pl-2">
-                        <p className="font-mono text-micro uppercase text-text-2">
-                          {humanize(event.event)}
-                        </p>
-                        <p className="mt-px font-mono text-micro tabular-nums text-text-mute">
-                          {dateTime(event.at)} · {event.actor}
-                        </p>
-                      </li>
-                    ))}
+                    {[...selected.audit_log]
+                      .reverse()
+                      .slice(0, 8)
+                      .map((event, index) => (
+                        <li
+                          key={`${event.at}-${event.event}-${index}`}
+                          className="border-l border-line-hi pl-2"
+                        >
+                          <p className="font-mono text-micro uppercase text-text-2">
+                            {humanize(event.event)}
+                          </p>
+                          <p className="mt-px font-mono text-micro tabular-nums text-text-mute">
+                            {dateTime(event.at)} · {event.actor}
+                          </p>
+                        </li>
+                      ))}
                   </ol>
                 )}
               </div>

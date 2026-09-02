@@ -38,8 +38,14 @@ export interface SocialPublisherDependencies {
   ensureInstagramConnection: () => Promise<void>;
   instagram: InstagramPublisher;
   resolveReviewNotification: (postId: string) => Promise<void>;
-  notifyPublished: (post: SocialPostRecord, permalink: string | null) => Promise<void>;
-  notifyRecovery: (post: SocialPostRecord, recoveryClaimToken: string | null) => Promise<void>;
+  notifyPublished: (
+    post: SocialPostRecord,
+    permalink: string | null
+  ) => Promise<void>;
+  notifyRecovery: (
+    post: SocialPostRecord,
+    recoveryClaimToken: string | null
+  ) => Promise<void>;
 }
 
 function defaultDependencies(): SocialPublisherDependencies {
@@ -70,7 +76,12 @@ function defaultDependencies(): SocialPublisherDependencies {
 }
 
 export type SocialPublishOutcome =
-  | { postId: string; outcome: "published"; mediaId: string; permalink: string | null }
+  | {
+      postId: string;
+      outcome: "published";
+      mediaId: string;
+      permalink: string | null;
+    }
   | { postId: string; outcome: "retry_scheduled"; nextAttemptAt: string }
   | { postId: string; outcome: "failed"; code: string }
   | { postId: string; outcome: "recovery_notified"; code: string }
@@ -92,16 +103,25 @@ function safeFailure(error: unknown): {
   }
   return {
     code: "INSTAGRAM_PUBLISH_FAILED",
-    message: error instanceof Error ? error.message.slice(0, 500) : "Instagram publish failed",
+    message:
+      error instanceof Error
+        ? error.message.slice(0, 500)
+        : "Instagram publish failed",
     retryable: true,
   };
 }
 
-async function bestEffort(label: string, operation: () => Promise<void>): Promise<void> {
+async function bestEffort(
+  label: string,
+  operation: () => Promise<void>
+): Promise<void> {
   try {
     await operation();
   } catch (error) {
-    console.error(`[social] ${label}:`, error instanceof Error ? error.message : "unknown error");
+    console.error(
+      `[social] ${label}:`,
+      error instanceof Error ? error.message : "unknown error"
+    );
   }
 }
 
@@ -110,7 +130,11 @@ export async function publishClaimedSocialPost(
   dependencies: SocialPublisherDependencies = defaultDependencies()
 ): Promise<SocialPublishOutcome> {
   if (post.status !== "publishing" || !post.claim_token) {
-    return { postId: post.id, outcome: "persistence_failed", code: "CLAIM_NOT_OWNED" };
+    return {
+      postId: post.id,
+      outcome: "persistence_failed",
+      code: "CLAIM_NOT_OWNED",
+    };
   }
 
   let published: InstagramPublishResult;
@@ -120,14 +144,20 @@ export async function publishClaimedSocialPost(
       assets: post.rendered_assets,
       caption: post.caption,
       onStage: (event) =>
-        dependencies.repository.recordPublishStage(post.id, post.claim_token, event),
+        dependencies.repository.recordPublishStage(
+          post.id,
+          post.claim_token,
+          event
+        ),
     });
   } catch (error) {
     const failure = safeFailure(error);
-    const canRetry = failure.retryable && post.attempt_count < post.max_attempts;
+    const canRetry =
+      failure.retryable && post.attempt_count < post.max_attempts;
     const defaultRetryMs =
-      RETRY_MINUTES[Math.min(Math.max(post.attempt_count - 1, 0), RETRY_MINUTES.length - 1)] *
-      60_000;
+      RETRY_MINUTES[
+        Math.min(Math.max(post.attempt_count - 1, 0), RETRY_MINUTES.length - 1)
+      ] * 60_000;
     const retryMs = failure.retryAfterMs ?? defaultRetryMs;
     const nextAttemptAt = canRetry
       ? new Date(dependencies.now().getTime() + retryMs).toISOString()
@@ -264,7 +294,11 @@ export async function runSocialPublisherBatch(
   await dependencies.ensureInstagramConnection();
   const claimToken = dependencies.createClaimToken();
   const limit = Math.max(1, Math.min(options.limit ?? 2, 5));
-  const posts = await dependencies.repository.claimDue(claimToken, limit, CLAIM_TTL_SECONDS);
+  const posts = await dependencies.repository.claimDue(
+    claimToken,
+    limit,
+    CLAIM_TTL_SECONDS
+  );
   const results: SocialPublishOutcome[] = [];
 
   for (const post of posts) {
@@ -279,14 +313,18 @@ export async function runSocialPublisherBatch(
     }
   }
 
-  const recoveryPosts = await dependencies.repository.claimRecoveryNotifications(
-    claimToken,
-    10,
-    CLAIM_TTL_SECONDS
-  );
+  const recoveryPosts =
+    await dependencies.repository.claimRecoveryNotifications(
+      claimToken,
+      10,
+      CLAIM_TTL_SECONDS
+    );
   for (const post of recoveryPosts) {
     try {
-      await dependencies.notifyRecovery(post, post.recovery_notification_claim_token);
+      await dependencies.notifyRecovery(
+        post,
+        post.recovery_notification_claim_token
+      );
       results.push({
         postId: post.id,
         outcome: "recovery_notified",
@@ -307,10 +345,15 @@ export async function runSocialPublisherBatch(
     recoveryNotifications: results.filter(
       (result) => result.outcome === "recovery_notified"
     ).length,
-    published: results.filter((result) => result.outcome === "published").length,
-    retryScheduled: results.filter((result) => result.outcome === "retry_scheduled").length,
+    published: results.filter((result) => result.outcome === "published")
+      .length,
+    retryScheduled: results.filter(
+      (result) => result.outcome === "retry_scheduled"
+    ).length,
     failed: results.filter((result) => result.outcome === "failed").length,
-    persistenceFailed: results.filter((result) => result.outcome === "persistence_failed").length,
+    persistenceFailed: results.filter(
+      (result) => result.outcome === "persistence_failed"
+    ).length,
     results,
   };
 }
@@ -321,6 +364,10 @@ export async function publishSocialPostNow(
 ): Promise<SocialPublishOutcome | null> {
   await dependencies.ensureInstagramConnection();
   const claimToken = dependencies.createClaimToken();
-  const post = await dependencies.repository.claimById(postId, claimToken, CLAIM_TTL_SECONDS);
+  const post = await dependencies.repository.claimById(
+    postId,
+    claimToken,
+    CLAIM_TTL_SECONDS
+  );
   return post ? publishClaimedSocialPost(post, dependencies) : null;
 }

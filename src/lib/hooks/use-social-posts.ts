@@ -43,7 +43,8 @@ export class SocialAdminApiError extends Error {
 }
 
 async function responseBody<T>(response: Response): Promise<T> {
-  const body = (await response.json().catch(() => ({}))) as T & SocialApiErrorBody;
+  const body = (await response.json().catch(() => ({}))) as T &
+    SocialApiErrorBody;
   if (!response.ok) {
     throw new SocialAdminApiError(
       body.error ?? "Social publishing request failed",
@@ -79,14 +80,18 @@ export function useSocialPosts() {
     queryKey: queryKeys.socialPublishing.list(),
     queryFn: loadPosts,
     refetchInterval: (current) =>
-      current.state.data?.some((post) => ACTIVE_SOCIAL_STATUSES.has(post.status))
+      current.state.data?.some((post) =>
+        ACTIVE_SOCIAL_STATUSES.has(post.status)
+      )
         ? 30_000
         : false,
   });
   const action = useMutation({
     mutationFn: runAction,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.socialPublishing.all });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.socialPublishing.all,
+      });
     },
   });
 

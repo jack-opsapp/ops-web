@@ -57,7 +57,9 @@ describe("SocialCommandDeck", () => {
     mutateAsync.mockReset();
     connectMutateAsync.mockReset();
     disconnectMutateAsync.mockReset();
-    mutateAsync.mockResolvedValue({ post: socialPostFixture({ status: "cancelled" }) });
+    mutateAsync.mockResolvedValue({
+      post: socialPostFixture({ status: "cancelled" }),
+    });
     connectMutateAsync.mockImplementation(() => new Promise(() => undefined));
     disconnectMutateAsync.mockResolvedValue({ ok: true });
     posts = [socialPostFixture({ status: "review", publish_stage: "idle" })];
@@ -96,39 +98,50 @@ describe("SocialCommandDeck", () => {
   it("keeps disconnect behind the compact connected-account control", async () => {
     render(<SocialCommandDeck />);
 
-    expect(screen.queryByRole("button", { name: "DISCONNECT" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "DISCONNECT" })
+    ).not.toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: "@opsjournal · CONNECTED" })
     );
     fireEvent.click(screen.getByRole("button", { name: "DISCONNECT" }));
     expect(screen.getByText("DISCONNECT INSTAGRAM?")).toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: "CONFIRM DISCONNECT" })
-    );
+    fireEvent.click(screen.getByRole("button", { name: "CONFIRM DISCONNECT" }));
 
-    await waitFor(() =>
-      expect(disconnectMutateAsync).toHaveBeenCalledTimes(1)
-    );
+    await waitFor(() => expect(disconnectMutateAsync).toHaveBeenCalledTimes(1));
   });
 
   it("presents the launch rail, exact artwork, and operator controls", () => {
     render(<SocialCommandDeck />);
 
     expect(screen.getByRole("heading", { name: "SOCIAL" })).toBeInTheDocument();
-    expect(screen.getAllByText("The two-hour leak in your week")).toHaveLength(2);
-    expect(screen.getByRole("img", { name: "A field note about repeated crew coordination." })).toHaveAttribute(
-      "src",
-      "https://cdn.opsapp.ca/social/slide-1.jpg"
+    expect(screen.getAllByText("The two-hour leak in your week")).toHaveLength(
+      2
     );
-    expect(screen.getByRole("button", { name: "PUBLISH NOW" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", {
+        name: "A field note about repeated crew coordination.",
+      })
+    ).toHaveAttribute("src", "https://cdn.opsapp.ca/social/slide-1.jpg");
+    expect(
+      screen.getByRole("button", { name: "PUBLISH NOW" })
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "STOP" })).toBeInTheDocument();
     expect(screen.getByText("HOOK")).toBeInTheDocument();
     expect(screen.getByText("ANGLE")).toBeInTheDocument();
     expect(screen.getByText("SELECTION RATIONALE")).toBeInTheDocument();
     expect(screen.getByText("RENDER EVIDENCE")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "ALL" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "ACTIVE" })).toHaveClass("text-text-3");
-    expect(screen.getByText("SELECTED").closest("button")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByRole("button", { name: "ALL" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    expect(screen.getByRole("button", { name: "ACTIVE" })).toHaveClass(
+      "text-text-3"
+    );
+    expect(screen.getByText("SELECTED").closest("button")).toHaveAttribute(
+      "aria-current",
+      "true"
+    );
     expect(screen.getByText("SELECTED")).toHaveClass("text-text-2");
   });
 
@@ -136,7 +149,7 @@ describe("SocialCommandDeck", () => {
     render(<SocialCommandDeck />);
 
     fireEvent.click(screen.getByRole("button", { name: "STOP" }));
-    expect(screen.getByText("STOP THIS POST?" )).toBeInTheDocument();
+    expect(screen.getByText("STOP THIS POST?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "CONFIRM STOP" }));
 
     await waitFor(() => {
@@ -152,7 +165,9 @@ describe("SocialCommandDeck", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "EDIT COPY" }));
     const title = screen.getByLabelText("TITLE");
-    fireEvent.change(title, { target: { value: "Close the loop before Friday" } });
+    fireEvent.change(title, {
+      target: { value: "Close the loop before Friday" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "SAVE + REGENERATE" }));
 
     await waitFor(() => {
@@ -161,7 +176,9 @@ describe("SocialCommandDeck", () => {
           id: socialPostFixture().id,
           body: expect.objectContaining({
             action: "edit",
-            content: expect.objectContaining({ title: "Close the loop before Friday" }),
+            content: expect.objectContaining({
+              title: "Close the loop before Friday",
+            }),
           }),
         })
       );
@@ -184,11 +201,15 @@ describe("SocialCommandDeck", () => {
     ];
     const { rerender } = render(<SocialCommandDeck />);
 
-    expect(screen.getByRole("button", { name: "RETRY NOW" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "RETRY NOW" })
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByText("Published proof"));
     rerender(<SocialCommandDeck />);
-    expect(screen.getByText("LOCKED AFTER PUBLISH" )).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "PUBLISH NOW" })).not.toBeInTheDocument();
+    expect(screen.getByText("LOCKED AFTER PUBLISH")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "PUBLISH NOW" })
+    ).not.toBeInTheDocument();
   });
 
   it("locks an uncertain publish for reconciliation instead of offering a retry", () => {
@@ -204,9 +225,15 @@ describe("SocialCommandDeck", () => {
     render(<SocialCommandDeck />);
 
     expect(screen.getAllByText("RECONCILIATION REQUIRED")).toHaveLength(2);
-    expect(screen.queryByRole("button", { name: "RETRY NOW" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "EDIT COPY" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "STOP" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "RETRY NOW" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "EDIT COPY" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "STOP" })
+    ).not.toBeInTheDocument();
   });
 
   it("opens the exact notification-linked post and otherwise selects the next due item", () => {
@@ -229,11 +256,15 @@ describe("SocialCommandDeck", () => {
     posts = [later, linked, next];
 
     const { unmount } = render(<SocialCommandDeck />);
-    expect(screen.getByRole("heading", { name: "The two-hour leak in your week" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "The two-hour leak in your week" })
+    ).toBeInTheDocument();
     unmount();
 
     render(<SocialCommandDeck initialPostId={linked.id} />);
-    expect(screen.getByRole("heading", { name: "Notification target" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Notification target" })
+    ).toBeInTheDocument();
     expect(screen.getByText("LOCKED AFTER PUBLISH")).toBeInTheDocument();
   });
 });

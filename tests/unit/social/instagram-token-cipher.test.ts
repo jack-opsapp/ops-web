@@ -12,9 +12,8 @@ describe("Instagram token cipher", () => {
   });
 
   it("encrypts with a unique authenticated envelope and round-trips", async () => {
-    const { decryptInstagramToken, encryptInstagramToken } = await import(
-      "@/lib/social/token-cipher"
-    );
+    const { decryptInstagramToken, encryptInstagramToken } =
+      await import("@/lib/social/token-cipher");
     const token = "IGAA-secret-token";
     const first = encryptInstagramToken(token);
     const second = encryptInstagramToken(token);
@@ -27,9 +26,8 @@ describe("Instagram token cipher", () => {
   });
 
   it("rejects plaintext, malformed envelopes, and tampering", async () => {
-    const { decryptInstagramToken, encryptInstagramToken } = await import(
-      "@/lib/social/token-cipher"
-    );
+    const { decryptInstagramToken, encryptInstagramToken } =
+      await import("@/lib/social/token-cipher");
 
     expect(() => decryptInstagramToken("plaintext-token")).toThrow(/envelope/i);
     expect(() => decryptInstagramToken("ig-token:v1:bad")).toThrow(/envelope/i);
@@ -45,9 +43,13 @@ describe("Instagram token cipher", () => {
     const { encryptInstagramToken } = await import("@/lib/social/token-cipher");
 
     delete process.env.INSTAGRAM_TOKEN_ENC_KEY;
-    expect(() => encryptInstagramToken("secret")).toThrow(/INSTAGRAM_TOKEN_ENC_KEY/);
+    expect(() => encryptInstagramToken("secret")).toThrow(
+      /INSTAGRAM_TOKEN_ENC_KEY/
+    );
 
-    process.env.INSTAGRAM_TOKEN_ENC_KEY = Buffer.alloc(16, 1).toString("base64");
+    process.env.INSTAGRAM_TOKEN_ENC_KEY = Buffer.alloc(16, 1).toString(
+      "base64"
+    );
     expect(() => encryptInstagramToken("secret")).toThrow(/32 bytes/);
   });
 });

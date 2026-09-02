@@ -41,7 +41,11 @@ describe("durable Instagram publisher", () => {
     const post = socialPostFixture();
     const result = await publishClaimedSocialPost(post, deps);
 
-    expect(result).toMatchObject({ postId: post.id, outcome: "published", mediaId: "180000000000001" });
+    expect(result).toMatchObject({
+      postId: post.id,
+      outcome: "published",
+      mediaId: "180000000000001",
+    });
     expect(deps.instagram.publish).toHaveBeenCalledWith({
       format: post.post_format,
       assets: post.rendered_assets,
@@ -68,8 +72,14 @@ describe("durable Instagram publisher", () => {
     const deps = dependencies({
       instagram: {
         publish: vi.fn().mockImplementation(async ({ onStage }) => {
-          await onStage?.({ stage: "container_ready", containerId: "container-1" });
-          await onStage?.({ stage: "publish_requested", containerId: "container-1" });
+          await onStage?.({
+            stage: "container_ready",
+            containerId: "container-1",
+          });
+          await onStage?.({
+            stage: "publish_requested",
+            containerId: "container-1",
+          });
           await onStage?.({
             stage: "publish_succeeded",
             containerId: "container-1",
@@ -91,7 +101,10 @@ describe("durable Instagram publisher", () => {
     expect(deps.repository.recordPublishStage).toHaveBeenLastCalledWith(
       post.id,
       post.claim_token,
-      expect.objectContaining({ stage: "publish_succeeded", mediaId: "media-1" })
+      expect.objectContaining({
+        stage: "publish_succeeded",
+        mediaId: "media-1",
+      })
     );
   });
 
@@ -101,12 +114,17 @@ describe("durable Instagram publisher", () => {
       [2, "2026-09-01T20:15:00.000Z"],
       [3, "2026-09-01T21:00:00.000Z"],
     ] as const) {
-      const post = socialPostFixture({ attempt_count: attemptCount, max_attempts: 4 });
+      const post = socialPostFixture({
+        attempt_count: attemptCount,
+        max_attempts: 4,
+      });
       const deps = dependencies({
         instagram: {
           publish: vi
             .fn()
-            .mockRejectedValue(new InstagramGraphError("META_BUSY", "Meta is busy", true)),
+            .mockRejectedValue(
+              new InstagramGraphError("META_BUSY", "Meta is busy", true)
+            ),
         },
       });
 
@@ -128,7 +146,9 @@ describe("durable Instagram publisher", () => {
       [permanent, new InstagramGraphError("BAD_TOKEN", "Token expired", false)],
       [exhausted, new InstagramGraphError("META_BUSY", "Meta is busy", true)],
     ] as const) {
-      const deps = dependencies({ instagram: { publish: vi.fn().mockRejectedValue(error) } });
+      const deps = dependencies({
+        instagram: { publish: vi.fn().mockRejectedValue(error) },
+      });
       const result = await publishClaimedSocialPost(post, deps);
 
       expect(result.outcome).toBe("failed");
@@ -144,7 +164,9 @@ describe("durable Instagram publisher", () => {
     const deps = dependencies({
       repository: {
         ...dependencies().repository,
-        markPublished: vi.fn().mockRejectedValue(new Error("database unavailable")),
+        markPublished: vi
+          .fn()
+          .mockRejectedValue(new Error("database unavailable")),
       },
     });
 
@@ -154,7 +176,10 @@ describe("durable Instagram publisher", () => {
     expect(deps.repository.markFailed).toHaveBeenCalledWith(
       expect.any(String),
       expect.any(String),
-      expect.objectContaining({ code: "PUBLISHED_ACK_NOT_PERSISTED", retryable: false })
+      expect.objectContaining({
+        code: "PUBLISHED_ACK_NOT_PERSISTED",
+        retryable: false,
+      })
     );
     expect(deps.instagram.publish).toHaveBeenCalledTimes(1);
   });
@@ -178,13 +203,20 @@ describe("durable Instagram publisher", () => {
             permalink: "https://instagram.com/p/one",
             quota: { used: 1, total: 50, durationSeconds: 86400 },
           })
-          .mockRejectedValueOnce(new InstagramGraphError("META_BUSY", "Meta is busy", true)),
+          .mockRejectedValueOnce(
+            new InstagramGraphError("META_BUSY", "Meta is busy", true)
+          ),
       },
     });
 
     const summary = await runSocialPublisherBatch(deps, { limit: 2 });
 
-    expect(summary).toMatchObject({ claimed: 2, published: 1, retryScheduled: 1, failed: 0 });
+    expect(summary).toMatchObject({
+      claimed: 2,
+      published: 1,
+      retryScheduled: 1,
+      failed: 0,
+    });
     expect(summary.results).toHaveLength(2);
   });
 
@@ -202,7 +234,9 @@ describe("durable Instagram publisher", () => {
     expect(deps.repository.claimDue).toHaveBeenCalledTimes(1);
     expect(
       vi.mocked(deps.ensureInstagramConnection).mock.invocationCallOrder[0]
-    ).toBeLessThan(vi.mocked(deps.repository.claimDue).mock.invocationCallOrder[0]);
+    ).toBeLessThan(
+      vi.mocked(deps.repository.claimDue).mock.invocationCallOrder[0]
+    );
   });
 
   it("never claims a post when Instagram is disconnected", async () => {
@@ -226,7 +260,8 @@ describe("durable Instagram publisher", () => {
       claim_token: null,
       claim_expires_at: null,
       last_error_code: "PUBLISH_ATTEMPTS_EXHAUSTED",
-      last_error_message: "The final publishing lease expired before Instagram was called.",
+      last_error_message:
+        "The final publishing lease expired before Instagram was called.",
       last_error_retryable: false,
       recovery_notification_pending: true,
       recovery_notification_claim_token: "0749af28-5852-4728-a36c-4f222a3e4b92",
@@ -277,7 +312,9 @@ describe("durable Instagram publisher", () => {
         claimDue: vi.fn().mockResolvedValue([]),
         claimRecoveryNotifications: vi.fn().mockResolvedValue([recovered]),
       },
-      notifyRecovery: vi.fn().mockRejectedValue(new Error("notification database unavailable")),
+      notifyRecovery: vi
+        .fn()
+        .mockRejectedValue(new Error("notification database unavailable")),
     });
 
     const summary = await runSocialPublisherBatch(deps, { limit: 2 });

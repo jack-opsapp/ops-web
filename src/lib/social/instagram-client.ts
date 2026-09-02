@@ -46,7 +46,8 @@ export type InstagramPublishStageEvent =
 
 const defaultDependencies: InstagramClientDependencies = {
   fetcher: fetch,
-  sleep: (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)),
+  sleep: (milliseconds) =>
+    new Promise((resolve) => setTimeout(resolve, milliseconds)),
   maxPollAttempts: 30,
   pollDelayMs: 2_000,
   requestTimeoutMs: 12_000,
@@ -75,7 +76,11 @@ function validateConfig(config: InstagramClientConfig): InstagramClientConfig {
   try {
     origin = new URL(config.origin);
   } catch {
-    throw new InstagramGraphError("INSTAGRAM_NOT_CONFIGURED", "Invalid INSTAGRAM_API_ORIGIN", false);
+    throw new InstagramGraphError(
+      "INSTAGRAM_NOT_CONFIGURED",
+      "Invalid INSTAGRAM_API_ORIGIN",
+      false
+    );
   }
   if (origin.protocol !== "https:" || origin.username || origin.password) {
     throw new InstagramGraphError(
@@ -103,7 +108,10 @@ function validatePublishInput({
   assets: RenderedSocialAsset[];
   caption: string;
 }): void {
-  const expectedCount = format === "single" ? assets.length === 1 : assets.length >= 2 && assets.length <= 10;
+  const expectedCount =
+    format === "single"
+      ? assets.length === 1
+      : assets.length >= 2 && assets.length <= 10;
   const mediaValid = assets.every((asset, index) => {
     try {
       const url = new URL(asset.url);
@@ -119,7 +127,12 @@ function validatePublishInput({
     }
   });
 
-  if (!expectedCount || !mediaValid || caption.trim().length < 1 || caption.length > 2200) {
+  if (
+    !expectedCount ||
+    !mediaValid ||
+    caption.trim().length < 1 ||
+    caption.length > 2200
+  ) {
     throw new InstagramGraphError(
       "INVALID_MEDIA",
       "Instagram package must contain ordered public 1080 × 1350 JPEG assets and a valid caption",
@@ -144,7 +157,8 @@ export class InstagramGraphClient {
     const url = new URL(
       `${this.config.origin}/${this.config.apiVersion}/${path.replace(/^\/+/, "")}`
     );
-    for (const [key, value] of Object.entries(query ?? {})) url.searchParams.set(key, value);
+    for (const [key, value] of Object.entries(query ?? {}))
+      url.searchParams.set(key, value);
     return url;
   }
 
@@ -199,7 +213,9 @@ export class InstagramGraphClient {
     if (!response.ok || payload.error) {
       const graph = payload.error;
       const retryable =
-        response.status === 429 || response.status >= 500 || graph?.is_transient === true;
+        response.status === 429 ||
+        response.status >= 500 ||
+        graph?.is_transient === true;
       throw new InstagramGraphError(
         "INSTAGRAM_GRAPH_ERROR",
         sanitizedMessage(graph?.message, this.config.accessToken),
@@ -262,13 +278,20 @@ export class InstagramGraphClient {
   }
 
   private async waitForContainer(containerId: string): Promise<void> {
-    for (let attempt = 0; attempt < this.dependencies.maxPollAttempts; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < this.dependencies.maxPollAttempts;
+      attempt += 1
+    ) {
       const payload = await this.request<{ status_code?: string }>({
         path: containerId,
         query: { fields: "status_code" },
       });
       if (payload.status_code === "FINISHED") return;
-      if (payload.status_code === "ERROR" || payload.status_code === "EXPIRED") {
+      if (
+        payload.status_code === "ERROR" ||
+        payload.status_code === "EXPIRED"
+      ) {
         throw new InstagramGraphError(
           "CONTAINER_FAILED",
           `Instagram container entered ${payload.status_code.toLowerCase()} state`,
@@ -286,7 +309,10 @@ export class InstagramGraphClient {
     );
   }
 
-  private async createCarouselContainer(children: string[], caption: string): Promise<string> {
+  private async createCarouselContainer(
+    children: string[],
+    caption: string
+  ): Promise<string> {
     const payload = await this.request<{ id?: string }>({
       path: `${this.config.userId}/media`,
       method: "POST",
@@ -393,9 +419,13 @@ export class InstagramGraphClient {
       await this.waitForContainer(containerId);
     } else {
       const childIds = await Promise.all(
-        assets.map((asset) => this.createImageContainer(asset, { carouselItem: true }))
+        assets.map((asset) =>
+          this.createImageContainer(asset, { carouselItem: true })
+        )
       );
-      await Promise.all(childIds.map((childId) => this.waitForContainer(childId)));
+      await Promise.all(
+        childIds.map((childId) => this.waitForContainer(childId))
+      );
       containerId = await this.createCarouselContainer(childIds, caption);
       await this.waitForContainer(containerId);
     }
@@ -430,12 +460,15 @@ export function createInstagramClientFromCredentials(
   credentials: { userId: string; accessToken: string },
   dependencies: Partial<InstagramClientDependencies> = {}
 ): InstagramGraphClient {
-  return new InstagramGraphClient({
-    origin:
-      process.env.INSTAGRAM_GRAPH_ORIGIN?.trim() ||
-      "https://graph.instagram.com",
-    apiVersion: process.env.INSTAGRAM_API_VERSION?.trim() || "v25.0",
-    userId: credentials.userId,
-    accessToken: credentials.accessToken,
-  }, dependencies);
+  return new InstagramGraphClient(
+    {
+      origin:
+        process.env.INSTAGRAM_GRAPH_ORIGIN?.trim() ||
+        "https://graph.instagram.com",
+      apiVersion: process.env.INSTAGRAM_API_VERSION?.trim() || "v25.0",
+      userId: credentials.userId,
+      accessToken: credentials.accessToken,
+    },
+    dependencies
+  );
 }

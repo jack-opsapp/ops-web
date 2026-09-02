@@ -1,10 +1,6 @@
 import "server-only";
 
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-} from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 const ENVELOPE_PREFIX = "ig-token:v1";
 const ALGORITHM = "aes-256-gcm";
