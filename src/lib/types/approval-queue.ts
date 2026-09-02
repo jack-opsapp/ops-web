@@ -373,6 +373,11 @@ export interface ScheduleConfirmationPersistenceGuard {
 
 export interface QueueFilters {
   status?: AgentActionStatus;
+  /**
+   * Multi-status list (the HISTORY view). Takes precedence over `status`
+   * when present. Validated on the API edge by `parseStatusesParam`.
+   */
+  statuses?: AgentActionStatus[];
   actionType?: AgentActionType;
   priority?: AgentActionPriority;
 }

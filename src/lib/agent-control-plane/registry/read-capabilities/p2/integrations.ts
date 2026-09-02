@@ -120,9 +120,8 @@ export function selectedIntegrationHealthVariantKeys(
   const mailbox = parsed.integrations.some(
     (selection) => selection.integration_type === "mailbox"
   );
-  if (accounting && mailbox) {
+  if (accounting && mailbox)
     return Object.freeze(["accounting", "mailbox"] as const);
-  }
   if (accounting) return Object.freeze(["accounting"] as const);
   return Object.freeze(["mailbox"] as const);
 }

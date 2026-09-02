@@ -119,7 +119,13 @@ describe("email manual sync route context", () => {
     );
     expect(supabaseContext.seenBySync).toBe(serviceRoleClient);
     expect(setSupabaseOverrideMock).not.toHaveBeenCalled();
-    expect(runSyncMock).toHaveBeenCalledWith("connection-1");
+    expect(runSyncMock).toHaveBeenCalledWith("connection-1", {
+      deadline: expect.objectContaining({
+        deadlineAt: expect.any(Number),
+        expired: expect.any(Function),
+        remainingMs: expect.any(Function),
+      }),
+    });
     expect(runtime).toBe("nodejs");
     expect(dynamic).toBe("force-dynamic");
   });

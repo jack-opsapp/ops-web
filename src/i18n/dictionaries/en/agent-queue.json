@@ -1,13 +1,11 @@
 {
   "title": "Agent Queue",
-  "subtitle": "Review and manage AI-proposed actions",
 
-  "stats.pending": "Pending",
-  "stats.approvedToday": "Approved today",
-  "stats.rejectedToday": "Rejected today",
-  "stats.avgResponse": "Avg response",
+  "segment.needsYou": "Needs you",
+  "segment.history": "History",
 
   "filter.all": "All",
+  "filter.allTypes": "All",
   "filter.status": "Status",
   "filter.actionType": "Action type",
   "filter.priority": "Priority",
@@ -105,10 +103,17 @@
   "time.hours": "{{count}}h",
   "time.days": "{{count}}d",
 
-  "batch.selected": "selected",
+  "batch.selectedCount": "{{count}} selected",
+  "batch.approveCount": "Approve {{count}}",
+  "batch.rejectCount": "Reject {{count}}",
+  "batch.clear": "Clear",
 
-  "empty.title": "No pending suggestions",
-  "empty.description": "The agent will propose actions as it processes emails and learns your business.",
+  "empty.pendingNoun": "Awaiting review",
+  "empty.pendingHint": "[all clear]",
+  "empty.historyNoun": "Reviewed",
+
+  "error.title": "Queue unavailable",
+  "error.retry": "Retry",
 
   "reject.title": "Reject action",
   "reject.description": "Provide optional feedback on why this was rejected.",
@@ -140,7 +145,7 @@
   "toast.cancelled": "Action cancelled",
   "toast.bulkApproved": "actions approved",
   "toast.bulkRejected": "actions rejected",
-  "toast.error": "Something went wrong",
+  "toast.error": "Action failed. Try again.",
 
   "lifecycle.overdue": "overdue",
   "lifecycle.sinceCompletion": "since completion",

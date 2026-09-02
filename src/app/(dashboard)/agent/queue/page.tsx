@@ -1,86 +1,139 @@
 "use client";
 
-import { useState, useCallback, useMemo, useEffect } from "react";
+/**
+ * Agent Queue — the approval desk.
+ *
+ * Every automation proposal lands here and nothing executes until a human
+ * says so, which makes this a review surface, not a dashboard: one glass
+ * panel, one workbar, one scrolling list. The TopBar already renders the
+ * page title, so the panel carries no heading of its own.
+ *
+ * Two views, because a review desk only ever has two states — NEEDS YOU
+ * (status `pending`) and HISTORY (every other status). Priority is not a
+ * filter: it is low-cardinality, rare, and already legible as a tag on the
+ * card. The type filter is derived from the rows actually loaded, so a chip
+ * never offers a type with nothing behind it, and the row disappears
+ * entirely below two distinct types.
+ *
+ * The batch bar lives inside the panel and only while a selection exists —
+ * a canvas-fixed bar would steal viewport height at rest and float free of
+ * the rows it acts on.
+ */
+
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, useReducedMotion } from "framer-motion";
-import { Filter, CheckSquare, Square, Inbox } from "lucide-react";
+import { Check } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { FilterChips, type FilterChipOption } from "@/components/ui/filter-chip";
+import { RegisterEmpty } from "@/components/ui/register-table";
+import { SegmentControl } from "@/components/ui/segment-control";
 import { toast } from "@/components/ui/toast";
 import { useDictionary } from "@/i18n/client";
-import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { useAuthStore } from "@/lib/store/auth-store";
-import { cn } from "@/lib/utils/cn";
-
+import { HISTORY_STATUSES } from "@/lib/agent-queue/status-filter";
 import {
   useApprovalQueue,
-  useApprovalQueueStats,
   useApproveAction,
-  useRejectAction,
   useBulkApprove,
   useBulkReject,
+  useRejectAction,
 } from "@/lib/hooks";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useTeamMembers } from "@/lib/hooks/use-users";
+import { interpolate } from "@/lib/i18n/interpolate";
 import { getUserFullName } from "@/lib/types/models";
+import { cn } from "@/lib/utils/cn";
 
-import { QueueStatsRibbon } from "@/components/agent/queue-stats";
 import { ActionCard, type TeamMemberOption } from "@/components/agent/action-card";
 import { RejectDialog } from "@/components/agent/reject-dialog";
 
-import type {
-  AgentAction,
-  AgentActionStatus,
-  AgentActionType,
-  AgentActionPriority,
-} from "@/lib/types/approval-queue";
+import type { AgentAction, AgentActionType } from "@/lib/types/approval-queue";
 
-// ─── Filter Options ───────────────────────────────────────────────────────────
+type View = "needsYou" | "history";
+type TypeFilter = "all" | AgentActionType;
+type Translate = (key: string) => string;
 
-const STATUS_OPTIONS: Array<AgentActionStatus | "all"> = [
-  "all", "pending", "approved", "executed", "rejected", "expired", "failed", "cancelled",
-];
+/**
+ * Proposals that carry their own irreversible commit ceremony (a filed day
+ * closeout, a sealed collections draft) are never swept up by a bulk
+ * approve — they are approved one at a time, from the card.
+ */
+const BULK_EXCLUDED: ReadonlySet<AgentActionType> = new Set<AgentActionType>([
+  "file_day_closeout",
+  "approve_collections_draft",
+]);
 
-const TYPE_OPTIONS: Array<AgentActionType | "all"> = [
-  "all", "create_project", "create_task", "create_invoice", "send_email", "file_day_closeout",
-];
+const HISTORY_FILTER = { statuses: [...HISTORY_STATUSES] };
+const PENDING_FILTER = { status: "pending" as const };
 
-const PRIORITY_OPTIONS: Array<AgentActionPriority | "all"> = [
-  "all", "urgent", "high", "normal", "low",
-];
+// ─── Sub-states ───────────────────────────────────────────────────────────────
 
-// ─── Filter State ─────────────────────────────────────────────────────────────
+function QueueSkeleton() {
+  return (
+    <div className="space-y-2" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-[72px] animate-pulse rounded-lg bg-fill-neutral-dim motion-reduce:animate-none"
+        />
+      ))}
+    </div>
+  );
+}
 
-interface Filters {
-  status: AgentActionStatus | undefined;
-  actionType: AgentActionType | undefined;
-  priority: AgentActionPriority | undefined;
+function QueueError({
+  message,
+  onRetry,
+  t,
+}: {
+  message?: string;
+  onRetry: () => void;
+  t: Translate;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-2 px-4 py-10">
+      <span className="font-mono text-micro uppercase tracking-[0.16em] text-rose">
+        <span aria-hidden className="text-text-mute">
+          {"// "}
+        </span>
+        {t("error.title")}
+      </span>
+      {message && (
+        <span className="font-mono text-micro text-text-3">{message}</span>
+      )}
+      <Button variant="secondary" size="sm" onClick={onRetry}>
+        {t("error.retry")}
+      </Button>
+    </div>
+  );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AgentQueuePage() {
   const { t } = useDictionary("agent-queue");
-  const { currentUser } = useAuthStore();
   const shouldReduceMotion = useReducedMotion();
 
   usePageTitle(t("title"));
 
-  const [filters, setFilters] = useState<Filters>({
-    status: "pending",
-    actionType: undefined,
-    priority: undefined,
-  });
-
+  const [view, setView] = useState<View>("needsYou");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
 
-  const { data: actions = [], isLoading } = useApprovalQueue({
-    status: filters.status,
-    actionType: filters.actionType,
-    priority: filters.priority,
-  });
-  const { data: stats, isLoading: statsLoading } = useApprovalQueueStats();
-  const { data: teamData } = useTeamMembers();
+  // `isPending` (no data yet) rather than `isLoading` (no data AND a fetch
+  // in flight): while the permission and company stores are still hydrating
+  // the query is merely disabled, and that must read as loading — never as
+  // an empty queue. A genuinely empty result has data (`[]`) and is not
+  // pending.
+  const { data, isPending, isError, error, refetch } = useApprovalQueue(
+    view === "needsYou" ? PENDING_FILTER : HISTORY_FILTER
+  );
+  const isLoading = isPending;
+  const actions = useMemo<AgentAction[]>(() => data ?? [], [data]);
 
-  // Map team members for the action card assignment picker
+  const { data: teamData } = useTeamMembers();
   const teamMemberOptions: TeamMemberOption[] = useMemo(
     () =>
       (teamData?.users ?? []).map(
@@ -103,25 +156,63 @@ export default function AgentQueuePage() {
   const bulkApproveMutation = useBulkApprove();
   const bulkRejectMutation = useBulkReject();
 
-  const pendingActions = useMemo(
-    () => actions.filter((a: AgentAction) => a.status === "pending"),
-    [actions]
-  );
-  const bulkEligibleActions = useMemo(
+  // ── Derived type filter ─────────────────────────────────────────────────────
+  // Chips come from the rows on screen, never a hardcoded catalogue, so the
+  // filter can only ever offer a cut that returns something.
+
+  const typeCounts = useMemo(() => {
+    const counts = new Map<AgentActionType, number>();
+    for (const a of actions) {
+      counts.set(a.actionType, (counts.get(a.actionType) ?? 0) + 1);
+    }
+    return counts;
+  }, [actions]);
+
+  const typeOptions: FilterChipOption<TypeFilter>[] = useMemo(() => {
+    if (typeCounts.size < 2) return [];
+    return [
+      { value: "all" as const, label: `${t("filter.allTypes")} ${actions.length}` },
+      ...Array.from(typeCounts.entries()).map(([type, count]) => ({
+        value: type,
+        label: `${t(`type.${type}`)} ${count}`,
+      })),
+    ];
+  }, [typeCounts, actions.length, t]);
+
+  // A type that filtered fine a moment ago can vanish when the query
+  // refreshes (the last row of that type got approved). Fall back to ALL
+  // rather than showing an empty list behind an active chip.
+  useEffect(() => {
+    if (typeFilter !== "all" && !typeCounts.has(typeFilter)) {
+      setTypeFilter("all");
+    }
+  }, [typeFilter, typeCounts]);
+
+  const visible = useMemo(
     () =>
-      pendingActions.filter(
-        (a: AgentAction) =>
-          a.actionType !== "file_day_closeout" &&
-          a.actionType !== "approve_collections_draft"
-      ),
-    [pendingActions]
+      typeFilter === "all"
+        ? actions
+        : actions.filter((a) => a.actionType === typeFilter),
+    [actions, typeFilter]
   );
 
+  const bulkEligible = useMemo(
+    () =>
+      visible.filter(
+        (a) => a.status === "pending" && !BULK_EXCLUDED.has(a.actionType)
+      ),
+    [visible]
+  );
   const allSelected =
-    bulkEligibleActions.length > 0 &&
-    bulkEligibleActions.every((a: AgentAction) => selectedIds.has(a.id));
+    bulkEligible.length > 0 && bulkEligible.every((a) => selectedIds.has(a.id));
 
   // ── Handlers ────────────────────────────────────────────────────────────────
+
+  const handleViewChange = useCallback((next: View) => {
+    setView(next);
+    setTypeFilter("all");
+    setSelectedIds(new Set());
+  }, []);
 
   const handleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -133,14 +224,10 @@ export default function AgentQueuePage() {
   }, []);
 
   const handleSelectAll = useCallback(() => {
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(
-        new Set(bulkEligibleActions.map((a: AgentAction) => a.id))
-      );
-    }
-  }, [allSelected, bulkEligibleActions]);
+    setSelectedIds(
+      allSelected ? new Set() : new Set(bulkEligible.map((a) => a.id))
+    );
+  }, [allSelected, bulkEligible]);
 
   const handleApprove = useCallback(
     (id: string, editedData?: Record<string, unknown>) => {
@@ -149,7 +236,11 @@ export default function AgentQueuePage() {
         {
           onSuccess: () => {
             toast.success(t("toast.approved"));
-            setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
+            setSelectedIds((prev) => {
+              const next = new Set(prev);
+              next.delete(id);
+              return next;
+            });
           },
           onError: () => toast.error(t("toast.error")),
         }
@@ -166,7 +257,11 @@ export default function AgentQueuePage() {
           {
             onSuccess: () => {
               toast.success(t("toast.rejected"));
-              setSelectedIds((prev) => { const next = new Set(prev); next.delete(rejectTarget); return next; });
+              setSelectedIds((prev) => {
+                const next = new Set(prev);
+                next.delete(rejectTarget);
+                return next;
+              });
             },
             onError: () => toast.error(t("toast.error")),
           }
@@ -192,192 +287,174 @@ export default function AgentQueuePage() {
   const handleBulkRejectConfirm = useCallback(
     (notes?: string) => {
       const ids = Array.from(selectedIds);
-      if (ids.length === 0) return;
-      bulkRejectMutation.mutate(
-        { actionIds: ids, notes },
-        {
-          onSuccess: (result) => {
-            toast.success(`${result.rejected} ${t("toast.bulkRejected")}`);
-            setSelectedIds(new Set());
-          },
-          onError: () => toast.error(t("toast.error")),
-        }
-      );
+      if (ids.length > 0) {
+        bulkRejectMutation.mutate(
+          { actionIds: ids, notes },
+          {
+            onSuccess: (result) => {
+              toast.success(`${result.rejected} ${t("toast.bulkRejected")}`);
+              setSelectedIds(new Set());
+            },
+            onError: () => toast.error(t("toast.error")),
+          }
+        );
+      }
       setBulkRejectOpen(false);
     },
     [selectedIds, bulkRejectMutation, t]
   );
 
-  // ── Filter Pill (56dp tap area via padding) ─────────────────────────────────
-
-  const FilterPill = ({
-    label,
-    active,
-    onClick,
-  }: {
-    label: string;
-    active: boolean;
-    onClick: () => void;
-  }) => (
-    <button
-      onClick={onClick}
-      className={cn(
-        "min-h-[36px] px-3 rounded font-mohave text-[12px] uppercase transition-colors whitespace-nowrap flex items-center",
-        active
-          ? "bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0]"
-          : "bg-[rgba(255,255,255,0.03)] text-text-3 hover:text-text-2 hover:bg-[rgba(255,255,255,0.06)]"
-      )}
-    >
-      {label}
-    </button>
-  );
+  const selectedCount = selectedIds.size;
+  const showEmpty = !isLoading && !isError && visible.length === 0;
+  const showList = !isLoading && !isError && visible.length > 0;
 
   return (
-    <div className="flex flex-col h-full p-4 gap-4 overflow-hidden">
-      {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div>
-        <h1 className="font-mohave text-[28px] text-text uppercase leading-tight">
-          {t("title")}
-        </h1>
-        <p className="font-mono text-[13px] text-text-3 mt-0.5">
-          [{t("subtitle")}]
-        </p>
-      </div>
-
-      {/* ── Stats Ribbon ───────────────────────────────────────────────── */}
-      <QueueStatsRibbon stats={stats} isLoading={statsLoading} t={t} />
-
-      {/* ── Filter Bar ─────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-1">
-        <Filter className="w-[14px] h-[14px] text-text-3 shrink-0 mx-2" />
-
-        {STATUS_OPTIONS.map((s) => (
-          <FilterPill
-            key={`s-${s}`}
-            label={t(s === "all" ? "filter.all" : `filter.${s}`)}
-            active={s === "all" ? filters.status === undefined : filters.status === s}
-            onClick={() => setFilters((f) => ({ ...f, status: s === "all" ? undefined : s }))}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <section className="glass-surface flex min-h-0 flex-1 flex-col overflow-hidden rounded-panel">
+        {/* ── Workbar ──────────────────────────────────────────────────── */}
+        <header className="flex h-[44px] shrink-0 items-center justify-between gap-3 border-b border-border px-3">
+          <SegmentControl<View>
+            options={[
+              {
+                value: "needsYou",
+                label: t("segment.needsYou"),
+                count:
+                  view === "needsYou" && !isLoading && !isError
+                    ? actions.length
+                    : undefined,
+              },
+              { value: "history", label: t("segment.history") },
+            ]}
+            value={view}
+            onChange={handleViewChange}
           />
-        ))}
 
-        <div className="w-px h-8 bg-[rgba(255,255,255,0.08)] mx-1" />
-
-        {TYPE_OPTIONS.map((s) => (
-          <FilterPill
-            key={`t-${s}`}
-            label={t(s === "all" ? "filter.all" : `type.${s}`)}
-            active={s === "all" ? filters.actionType === undefined : filters.actionType === s}
-            onClick={() => setFilters((f) => ({ ...f, actionType: s === "all" ? undefined : s }))}
-          />
-        ))}
-
-        <div className="w-px h-8 bg-[rgba(255,255,255,0.08)] mx-1" />
-
-        {PRIORITY_OPTIONS.map((s) => (
-          <FilterPill
-            key={`p-${s}`}
-            label={t(s === "all" ? "filter.all" : `priority.${s}`)}
-            active={s === "all" ? filters.priority === undefined : filters.priority === s}
-            onClick={() => setFilters((f) => ({ ...f, priority: s === "all" ? undefined : s }))}
-          />
-        ))}
-      </div>
-
-      {/* ── Select All Toggle ──────────────────────────────────────────── */}
-      {bulkEligibleActions.length > 0 && (
-        <div className="flex items-center">
-          <button
-            onClick={handleSelectAll}
-            className="flex items-center gap-1.5 text-text-3 hover:text-text-2 transition-colors min-h-[36px] px-2"
-          >
-            {allSelected ? (
-              <CheckSquare className="w-[16px] h-[16px]" />
-            ) : (
-              <Square className="w-[16px] h-[16px]" />
-            )}
-            <span className="font-mono text-[12px]">
-              {allSelected ? t("action.deselectAll") : t("action.selectAll")}
-            </span>
-          </button>
-        </div>
-      )}
-
-      {/* ── Action List ────────────────────────────────────────────────── */}
-      <div className={cn(
-        "flex-1 overflow-y-auto scrollbar-hide space-y-2",
-        selectedIds.size > 0 ? "pb-[80px]" : "pb-4"
-      )}>
-        {isLoading && (
-          <div className="space-y-2">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-[72px] rounded-lg bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] animate-pulse"
+          <div className="flex min-w-0 items-center gap-3">
+            {typeOptions.length > 0 && (
+              <FilterChips<TypeFilter>
+                options={typeOptions}
+                value={typeFilter}
+                onChange={setTypeFilter}
+                className="min-w-0 flex-nowrap overflow-x-auto scrollbar-hide"
               />
-            ))}
+            )}
+            {bulkEligible.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                aria-pressed={allSelected}
+                aria-label={t(
+                  allSelected ? "action.deselectAll" : "action.selectAll"
+                )}
+                title={t(
+                  allSelected ? "action.deselectAll" : "action.selectAll"
+                )}
+                className="flex h-[28px] w-[28px] shrink-0 items-center justify-center"
+              >
+                <span
+                  className={cn(
+                    "flex h-icon-16 w-icon-16 items-center justify-center rounded-bar border transition-colors duration-150 ease-smooth",
+                    allSelected
+                      ? "border-border-medium bg-text-2"
+                      : "border-border hover:border-border-medium"
+                  )}
+                >
+                  {allSelected && (
+                    <Check className="h-icon-16 w-icon-16 text-background" />
+                  )}
+                </span>
+              </button>
+            )}
           </div>
-        )}
+        </header>
 
-        {!isLoading && actions.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full min-h-[300px] gap-4">
-            <div className="w-[48px] h-[48px] rounded-lg bg-[rgba(255,255,255,0.04)] flex items-center justify-center">
-              <Inbox className="w-[24px] h-[24px] text-text-mute" />
-            </div>
-            <div className="text-center">
-              <p className="font-mohave text-body text-text-2 uppercase">
-                {t("empty.title")}
-              </p>
-              <p className="font-mono text-[13px] text-text-3 mt-1 max-w-[360px]">
-                [{t("empty.description")}]
-              </p>
-            </div>
-          </div>
-        )}
+        {/* ── List — the only scroll owner ─────────────────────────────── */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+          {isLoading && <QueueSkeleton />}
 
-        <AnimatePresence mode={shouldReduceMotion ? "sync" : "popLayout"}>
-          {actions.map((action: AgentAction) => (
-            <ActionCard
-              key={action.id}
-              action={action}
-              selected={selectedIds.has(action.id)}
-              onSelect={handleSelect}
-              onApprove={handleApprove}
-              onReject={(id) => setRejectTarget(id)}
+          {isError && (
+            <QueueError
+              message={error instanceof Error ? error.message : undefined}
+              onRetry={() => void refetch()}
               t={t}
-              teamMembers={action.actionType === "create_task" ? teamMemberOptions : undefined}
             />
-          ))}
-        </AnimatePresence>
-      </div>
+          )}
 
-      {/* ── Sticky Batch Action Bar (z-1500 floating-ui) ───────────────── */}
-      {selectedIds.size > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-[1500] border-t border-[rgba(255,255,255,0.08)] bg-[var(--surface-glass-dense)] backdrop-blur-[24px] saturate-[1.3]">
-          <div className="flex items-center justify-between gap-4 px-6 py-3 max-w-screen-xl mx-auto">
-            <span className="font-mono text-[13px] text-text-2">
-              [{selectedIds.size} {t("batch.selected")}]
+          {showEmpty &&
+            (view === "needsYou" ? (
+              <RegisterEmpty
+                noun={t("empty.pendingNoun")}
+                hint={t("empty.pendingHint")}
+              />
+            ) : (
+              <RegisterEmpty noun={t("empty.historyNoun")} />
+            ))}
+
+          {showList && (
+            <div className="space-y-2">
+              <AnimatePresence mode={shouldReduceMotion ? "sync" : "popLayout"}>
+                {visible.map((action) => (
+                  <ActionCard
+                    key={action.id}
+                    action={action}
+                    selected={selectedIds.has(action.id)}
+                    onSelect={handleSelect}
+                    onApprove={handleApprove}
+                    onReject={(id) => setRejectTarget(id)}
+                    t={t}
+                    teamMembers={
+                      action.actionType === "create_task"
+                        ? teamMemberOptions
+                        : undefined
+                    }
+                  />
+                ))}
+              </AnimatePresence>
+            </div>
+          )}
+        </div>
+
+        {/* ── Batch bar — inside the panel, only while a selection exists ── */}
+        {selectedCount > 0 && (
+          <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border px-3 py-2">
+            <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-2">
+              <span aria-hidden className="text-text-mute">
+                {"["}
+              </span>
+              {interpolate(t("batch.selectedCount"), { count: selectedCount })}
+              <span aria-hidden className="text-text-mute">
+                {"]"}
+              </span>
             </span>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleBulkApprove}
-                disabled={bulkApproveMutation.isPending}
-                className="min-h-[36px] px-6 rounded bg-[rgba(111, 148, 176,0.15)] text-[#6F94B0] font-mohave text-body-sm uppercase hover:bg-[rgba(111, 148, 176,0.25)] transition-colors disabled:opacity-50"
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
               >
-                {t("action.bulkApprove")}
-              </button>
-              <button
+                {t("batch.clear")}
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
                 onClick={() => setBulkRejectOpen(true)}
                 disabled={bulkRejectMutation.isPending}
-                className="min-h-[36px] px-6 rounded bg-[rgba(147,50,26,0.10)] text-[#93321A] font-mohave text-body-sm uppercase hover:bg-[rgba(147,50,26,0.20)] transition-colors disabled:opacity-50"
               >
-                {t("action.bulkReject")}
-              </button>
+                {interpolate(t("batch.rejectCount"), { count: selectedCount })}
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleBulkApprove}
+                loading={bulkApproveMutation.isPending}
+              >
+                {interpolate(t("batch.approveCount"), { count: selectedCount })}
+              </Button>
             </div>
-          </div>
-        </div>
-      )}
+          </footer>
+        )}
+      </section>
 
-      {/* ── Reject Dialogs ─────────────────────────────────────────────── */}
       <RejectDialog
         open={rejectTarget !== null}
         onClose={() => setRejectTarget(null)}

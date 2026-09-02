@@ -49,6 +49,10 @@
       "schedule": "3-59/20 * * * *"
     },
     {
+      "path": "/api/cron/external-api-maintenance",
+      "schedule": "11-59/20 * * * *"
+    },
+    {
       "path": "/api/cron/lead-assignment-deliveries",
       "schedule": "2-59/10 * * * *"
     },

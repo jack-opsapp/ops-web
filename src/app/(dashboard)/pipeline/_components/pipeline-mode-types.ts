@@ -2,7 +2,12 @@ import type { OpportunityStage } from "@/lib/types/pipeline";
 
 export type PipelineMode = "focused" | "table";
 export type SortOption = "value" | "name" | "date" | "days_in_stage";
-export type DetailTabId = "overview" | "correspondence" | "timeline" | "photos";
+export type DetailTabId =
+  | "overview"
+  | "correspondence"
+  | "timeline"
+  | "photos"
+  | "files";
 
 export type PipelineModeState = {
   mode: PipelineMode;

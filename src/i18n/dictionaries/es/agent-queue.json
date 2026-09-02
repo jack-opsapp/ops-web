@@ -1,13 +1,11 @@
 {
   "title": "Cola del agente",
-  "subtitle": "Revisar y gestionar acciones propuestas por la IA",
 
-  "stats.pending": "Pendientes",
-  "stats.approvedToday": "Aprobadas hoy",
-  "stats.rejectedToday": "Rechazadas hoy",
-  "stats.avgResponse": "Tiempo promedio",
+  "segment.needsYou": "Pendientes de ti",
+  "segment.history": "Historial",
 
   "filter.all": "Todas",
+  "filter.allTypes": "Todos",
   "filter.status": "Estado",
   "filter.actionType": "Tipo de acción",
   "filter.priority": "Prioridad",
@@ -105,10 +103,17 @@
   "time.hours": "{{count}}h",
   "time.days": "{{count}}d",
 
-  "batch.selected": "seleccionadas",
+  "batch.selectedCount": "{{count}} seleccionados",
+  "batch.approveCount": "Aprobar {{count}}",
+  "batch.rejectCount": "Rechazar {{count}}",
+  "batch.clear": "Quitar",
 
-  "empty.title": "Sin sugerencias pendientes",
-  "empty.description": "El agente propondrá acciones a medida que procese correos y aprenda sobre tu negocio.",
+  "empty.pendingNoun": "Pendiente de revisión",
+  "empty.pendingHint": "[todo en orden]",
+  "empty.historyNoun": "Revisados",
+
+  "error.title": "Cola no disponible",
+  "error.retry": "Reintentar",
 
   "reject.title": "Rechazar acción",
   "reject.description": "Proporciona comentarios opcionales sobre por qué se rechazó.",
@@ -140,7 +145,7 @@
   "toast.cancelled": "Acción cancelada",
   "toast.bulkApproved": "acciones aprobadas",
   "toast.bulkRejected": "acciones rechazadas",
-  "toast.error": "Algo salió mal",
+  "toast.error": "La acción falló. Inténtalo de nuevo.",
 
   "lifecycle.overdue": "vencida",
   "lifecycle.sinceCompletion": "desde finalización",

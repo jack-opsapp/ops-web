@@ -3,12 +3,16 @@ import { cn } from "@/lib/utils/cn";
 
 export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
+  labelClassName?: string;
   error?: string;
   helperText?: string;
 }
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, label, error, helperText, id, ...props }, ref) => {
+  (
+    { className, label, labelClassName, error, helperText, id, ...props },
+    ref
+  ) => {
     const generatedId = React.useId();
     const textareaId = id || generatedId;
 
@@ -17,7 +21,10 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {label && (
           <label
             htmlFor={textareaId}
-            className="font-mohave text-caption-sm text-text-3 uppercase tracking-wide"
+            className={cn(
+              "font-mohave text-caption-sm uppercase tracking-wide text-text-3",
+              labelClassName
+            )}
           >
             {label}
           </label>
@@ -25,8 +32,8 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         <textarea
           id={textareaId}
           className={cn(
-            "w-full bg-surface-input text-text font-mohave text-body",
-            "px-1.5 py-1.5 rounded",
+            "w-full bg-surface-input font-mohave text-body text-text",
+            "rounded px-1.5 py-1.5",
             "border border-border",
             "transition-all duration-150",
             "placeholder:text-text-3",
@@ -39,17 +46,28 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           aria-invalid={error ? "true" : undefined}
           aria-describedby={
-            error ? `${textareaId}-error` : helperText ? `${textareaId}-helper` : undefined
+            error
+              ? `${textareaId}-error`
+              : helperText
+                ? `${textareaId}-helper`
+                : undefined
           }
           {...props}
         />
         {error && (
-          <p id={`${textareaId}-error`} className="text-caption-sm text-rose font-mohave" role="alert">
+          <p
+            id={`${textareaId}-error`}
+            className="font-mohave text-caption-sm text-rose"
+            role="alert"
+          >
             {error}
           </p>
         )}
         {helperText && !error && (
-          <p id={`${textareaId}-helper`} className="text-caption-sm text-text-3 font-mohave">
+          <p
+            id={`${textareaId}-helper`}
+            className="font-mohave text-caption-sm text-text-3"
+          >
             {helperText}
           </p>
         )}

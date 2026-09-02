@@ -151,8 +151,8 @@ describe("route permissions (parity with the retired ROUTE_PERMISSIONS map)", ()
     ["/catalog/setup", "catalog.run_setup"],
     ["/inbox", "pipeline.view"],
     ["/calibration", "email.configure_ai"],
-    ["/agent", "pipeline.view"],
-    ["/agent/queue", "pipeline.view"],
+    ["/agent", "agent.review"],
+    ["/agent/queue", "agent.review"],
     ["/agent/auto-send", "inbox.send"],
   ])("%s requires %s", (path, permission) => {
     expect(getPermissionForPath(path)).toBe(permission);

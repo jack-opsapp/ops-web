@@ -1155,6 +1155,9 @@ export const ApprovalQueueService = {
     if (filters.status) {
       query = query.eq("status", filters.status);
     }
+    if (filters.statuses && filters.statuses.length > 0) {
+      query = query.in("status", filters.statuses);
+    }
     if (filters.actionType) {
       query = query.eq("action_type", filters.actionType);
     }
@@ -1162,18 +1165,45 @@ export const ApprovalQueueService = {
       query = query.eq("priority", filters.priority);
     }
 
-    // DB-level sort: priority order then newest first.
-    // Supabase PostgREST doesn't support CASE in order, so we use a
-    // two-column sort: priority text (urgent < high < normal < low
-    // alphabetically doesn't work), so we still sort in-app but AFTER
-    // fetching ALL matching rows sorted by created_at desc.
-    // To fix properly we'd need a DB function or numeric priority column.
-    // For now: fetch sorted by created_at, then stable-sort by priority.
-    query = query.order("created_at", { ascending: false });
+    // The HISTORY view (a statuses list with no `pending` in it) is a
+    // chronological record of what was already decided: newest decision
+    // first, rows never reviewed (expired / cancelled) falling to the end
+    // on updated_at. Ranking settled rows by urgency would be noise.
+    const isHistoryView =
+      !!filters.statuses &&
+      filters.statuses.length > 0 &&
+      !filters.statuses.includes("pending");
+
+    if (isHistoryView) {
+      // updated_at is bumped by every status transition (approve, reject,
+      // expire, cancel, fail), so it is the one column that dates every
+      // decision. reviewed_at is set only by a human verdict; the in-app
+      // sort below prefers it when present.
+      query = query.order("updated_at", { ascending: false });
+    } else {
+      // DB-level sort: priority order then newest first.
+      // Supabase PostgREST doesn't support CASE in order, so we use a
+      // two-column sort: priority text (urgent < high < normal < low
+      // alphabetically doesn't work), so we still sort in-app but AFTER
+      // fetching ALL matching rows sorted by created_at desc.
+      // To fix properly we'd need a DB function or numeric priority column.
+      // For now: fetch sorted by created_at, then stable-sort by priority.
+      query = query.order("created_at", { ascending: false });
+    }
 
     const { data, error } = await query.limit(200);
 
     if (error) throw new Error(`Failed to fetch queue: ${error.message}`);
+
+    const actions = (data ?? []).map(mapFromDb);
+
+    if (isHistoryView) {
+      // Newest decision first: the human verdict time when there is one,
+      // otherwise the status-transition time.
+      const decidedAt = (a: AgentAction) =>
+        (a.reviewedAt ?? a.updatedAt).getTime();
+      return actions.sort((a, b) => decidedAt(b) - decidedAt(a));
+    }
 
     const priorityOrder: Record<string, number> = {
       urgent: 0,
@@ -1182,7 +1212,6 @@ export const ApprovalQueueService = {
       low: 3,
     };
 
-    const actions = (data ?? []).map(mapFromDb);
     actions.sort((a, b) => {
       const pa = priorityOrder[a.priority] ?? 2;
       const pb = priorityOrder[b.priority] ?? 2;

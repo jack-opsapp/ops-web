@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { authenticateRequest, isErrorResponse, requireAdminOrOwner } from "../../_lib/auth";
+import { authenticateRequest, isErrorResponse, requirePermission } from "../../_lib/auth";
 import { ApprovalQueueService } from "@/lib/api/services/approval-queue-service";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
@@ -27,9 +27,10 @@ export async function PATCH(
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
 
-    // Role check: all approval/rejection requires admin/owner
-    const roleErr = requireAdminOrOwner(auth);
-    if (roleErr) return roleErr;
+    // Approving or rejecting a proposal requires the granular
+    // `agent.review` grant.
+    const gate = await requirePermission(auth, "agent.review");
+    if (gate) return gate;
 
     const { actionId } = await params;
     const body = await request.json();
@@ -76,11 +77,11 @@ export async function DELETE(
     const auth = await authenticateRequest(request);
     if (isErrorResponse(auth)) return auth;
 
-    // Only admin/owner may cancel pending actions — crew/operator users
-    // should never be able to reach in and kill a queued financial or
-    // comms action.
-    const roleGate = requireAdminOrOwner(auth);
-    if (roleGate) return roleGate;
+    // Cancelling a pending action requires the granular `agent.review`
+    // grant — nobody without queue access reaches in and kills a queued
+    // financial or comms action.
+    const gate = await requirePermission(auth, "agent.review");
+    if (gate) return gate;
 
     const { actionId } = await params;
     await ApprovalQueueService.cancelAction(actionId, auth.companyId);

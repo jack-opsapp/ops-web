@@ -39,27 +39,28 @@ function renderChips(
 }
 
 describe("<PipelineFilterChips>", () => {
-  it("renders the stage filter as inline chips (all + active stages), no dropdown", () => {
+  it("renders active stages in the compact stage picker", async () => {
+    const user = userEvent.setup();
     renderChips();
 
-    // Stage chips are rendered inline — no listbox to open. "All Stages" is a
-    // chip, not a trigger, and each active stage is directly clickable.
+    await user.click(screen.getByRole("button", { name: "All Stages" }));
+    const panel = await screen.findByRole("dialog", { name: "All Stages" });
     expect(
-      screen.getByRole("button", { name: "All Stages" })
+      within(panel).getByRole("option", { name: "Quoted" })
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Quoted" })).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Negotiation" })
+      within(panel).getByRole("option", { name: "Negotiation" })
     ).toBeInTheDocument();
-    // Terminal stages are excluded from the filter (getActiveStages).
-    expect(screen.queryByRole("button", { name: "Won" })).toBeNull();
+    expect(within(panel).queryByRole("option", { name: "Won" })).toBeNull();
   });
 
-  it("commits a stage selection directly from the chip", async () => {
+  it("commits a stage selection from the stage picker", async () => {
     const user = userEvent.setup();
     const { props } = renderChips();
 
-    await user.click(screen.getByRole("button", { name: "Quoted" }));
+    await user.click(screen.getByRole("button", { name: "All Stages" }));
+    const panel = await screen.findByRole("dialog", { name: "All Stages" });
+    await user.click(within(panel).getByRole("option", { name: "Quoted" }));
     expect(props.onStageFilterChange).toHaveBeenCalledWith("quoted");
   });
 

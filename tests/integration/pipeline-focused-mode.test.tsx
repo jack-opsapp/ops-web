@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
@@ -344,8 +345,13 @@ describe("pipeline focused mode integration", () => {
       screen.getByRole("searchbox", { name: "search pipeline..." }),
       "deck"
     );
-    // Stage is now an inline chip — click it directly (no dropdown to open).
-    await user.click(screen.getByRole("button", { name: "Quoted" }));
+    await user.click(screen.getByRole("button", { name: "All Stages" }));
+    const stagePanel = await screen.findByRole("dialog", {
+      name: "All Stages",
+    });
+    await user.click(
+      within(stagePanel).getByRole("option", { name: "Quoted" })
+    );
 
     fireEvent.keyDown(window, { key: "v" });
 
@@ -365,8 +371,13 @@ describe("pipeline focused mode integration", () => {
     });
     render(<PipelineFocusedModeHarness />);
 
-    // Stage is now an inline chip — click it directly (no dropdown to open).
-    await user.click(screen.getByRole("button", { name: "New Lead" }));
+    await user.click(screen.getByRole("button", { name: "All Stages" }));
+    const stagePanel = await screen.findByRole("dialog", {
+      name: "All Stages",
+    });
+    await user.click(
+      within(stagePanel).getByRole("option", { name: "New Lead" })
+    );
 
     expect(screen.getByText("// NO MATCHES FOR FILTERS")).toBeInTheDocument();
     expect(usePipelineModeStore.getState().focusedStage).toBe(

@@ -163,7 +163,9 @@ const rgbToString = (rgb: { r: number; g: number; b: number }, alpha = 1) =>
  * so 'Vinyl Install', 'Rail Install', 'Glass Install', 'Renovation', etc.
  * each get their own visual identity instead of being collapsed.
  */
-export function colorTripleFromHex(hex: string | null | undefined): TaskTypeColors {
+export function colorTripleFromHex(
+  hex: string | null | undefined
+): TaskTypeColors {
   if (!hex) return DEFAULT_TASK_TYPE_COLORS;
   const rgb = hexToRgb(hex);
   if (!rgb) return DEFAULT_TASK_TYPE_COLORS;
@@ -250,9 +252,7 @@ export function deriveTaskStatusKey(
   // of bug da108fb6 (1-day tasks rendered as 2-day spans on the month grid).
   if (!end && start && task.duration > 0) {
     const inclusiveOffsetDays = Math.max(task.duration - 1, 0);
-    end = new Date(
-      start.getTime() + inclusiveOffsetDays * 24 * 60 * 60 * 1000,
-    );
+    end = new Date(start.getTime() + inclusiveOffsetDays * 24 * 60 * 60 * 1000);
   }
 
   if (end && end < now) return "overdue";
@@ -264,12 +264,23 @@ export function deriveTaskStatusKey(
 
 export function deriveTaskType(title: string, color: string): string {
   const lower = title.toLowerCase();
-  if (lower.includes("install") || lower.includes("demo")) return "installation";
-  if (lower.includes("material") || lower.includes("pickup") || lower.includes("delivery")) return "material";
+  if (lower.includes("install") || lower.includes("demo"))
+    return "installation";
+  if (
+    lower.includes("material") ||
+    lower.includes("pickup") ||
+    lower.includes("delivery")
+  )
+    return "material";
   if (lower.includes("estimate")) return "estimate";
   if (lower.includes("inspect")) return "inspection";
   if (lower.includes("quote") || lower.includes("survey")) return "quote";
-  if (lower.includes("walkthrough") || lower.includes("completion") || lower.includes("final")) return "completion";
+  if (
+    lower.includes("walkthrough") ||
+    lower.includes("completion") ||
+    lower.includes("final")
+  )
+    return "completion";
 
   const colorMap: Record<string, string> = {
     "#B58289": "installation",
@@ -304,10 +315,13 @@ function normalizeToLocalDate(d: Date): Date {
   return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
 }
 
-export function mapTaskToInternalEvent(task: ProjectTask): InternalScheduleEvent | null {
+export function mapTaskToInternalEvent(
+  task: ProjectTask
+): InternalScheduleEvent | null {
   if (!task.startDate) return null;
 
-  const rawStart = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
+  const rawStart =
+    task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
   // For all-day tasks, normalize UTC midnight to local midnight so display
   // matches the calendar grid. Timed tasks keep the raw timestamp so the
   // applied start_time positions them correctly within the day.
@@ -321,7 +335,10 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalScheduleEvent
 
   let endDate: Date;
   if (task.endDate) {
-    const rawEnd = task.endDate instanceof Date ? new Date(task.endDate) : new Date(task.endDate);
+    const rawEnd =
+      task.endDate instanceof Date
+        ? new Date(task.endDate)
+        : new Date(task.endDate);
     endDate = task.allDay ? normalizeToLocalDate(rawEnd) : rawEnd;
     if (!task.allDay && task.endTime) {
       const [h, m] = task.endTime.split(":").map(Number);
@@ -334,7 +351,7 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalScheduleEvent
     // the month grid. Bug da108fb6.
     const inclusiveOffsetDays = Math.max(task.duration - 1, 0);
     endDate = new Date(
-      startDate.getTime() + inclusiveOffsetDays * 24 * 60 * 60 * 1000,
+      startDate.getTime() + inclusiveOffsetDays * 24 * 60 * 60 * 1000
     );
     // Single-day timed tasks honor endTime to set the closing wall-clock.
     if (!task.allDay && task.endTime && task.duration <= 1) {
@@ -437,7 +454,8 @@ export function mapTaskToInternalEvent(task: ProjectTask): InternalScheduleEvent
 export function mapUserEventToInternalEvent(
   evt: CalendarUserEvent
 ): InternalScheduleEvent {
-  const start = evt.startDate instanceof Date ? evt.startDate : new Date(evt.startDate);
+  const start =
+    evt.startDate instanceof Date ? evt.startDate : new Date(evt.startDate);
   const end = evt.endDate instanceof Date ? evt.endDate : new Date(evt.endDate);
 
   // For all-day events, normalize to local-midnight so they line up with the
@@ -608,7 +626,10 @@ export function isWithinVisibleHours(date: Date): boolean {
 
 // ─── Event Filtering ─────────────────────────────────────────────────────────
 
-export function getEventsForDay(events: InternalScheduleEvent[], day: Date): InternalScheduleEvent[] {
+export function getEventsForDay(
+  events: InternalScheduleEvent[],
+  day: Date
+): InternalScheduleEvent[] {
   return events.filter((e) => isSameDay(e.startDate, day));
 }
 
@@ -624,10 +645,14 @@ export interface ResolvedColumn {
  * Given a list of events for a single day, compute stacking columns for overlapping events.
  * Returns each event annotated with its column index and total columns in its overlap group.
  */
-export function resolveEventColumns(events: InternalScheduleEvent[]): ResolvedColumn[] {
+export function resolveEventColumns(
+  events: InternalScheduleEvent[]
+): ResolvedColumn[] {
   if (events.length === 0) return [];
 
-  const sorted = [...events].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  const sorted = [...events].sort(
+    (a, b) => a.startDate.getTime() - b.startDate.getTime()
+  );
   const result: ResolvedColumn[] = [];
 
   // Group events into overlapping clusters

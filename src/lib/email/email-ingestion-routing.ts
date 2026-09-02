@@ -122,6 +122,21 @@ export interface InboundEffectiveSenderIdentity {
   source: EffectiveSenderIdentity["source"];
 }
 
+const EXTERNAL_INTAKE_EMAIL_CORRELATION_MARKER = /emc_[A-Za-z0-9_-]{22,128}/g;
+
+/**
+ * Treat the encrypted intake marker as an exact, single-use routing hint.
+ * Multiple occurrences are ambiguous even when their text is identical, and
+ * public submission/lead handles are intentionally never recognized.
+ */
+export function extractExternalIntakeEmailCorrelationMarker(
+  email: Pick<NormalizedEmail, "bodyText" | "snippet">
+): string | null {
+  const body = email.bodyText || email.snippet || "";
+  const matches = body.match(EXTERNAL_INTAKE_EMAIL_CORRELATION_MARKER) ?? [];
+  return matches.length === 1 ? matches[0] : null;
+}
+
 function normalizedRoutingScope(scope: LeadRoutingScope): LeadRoutingScope {
   const provider = scope.provider.trim().toLowerCase();
   const connectionId = scope.connectionId.trim();

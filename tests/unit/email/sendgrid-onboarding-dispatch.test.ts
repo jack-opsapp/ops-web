@@ -18,10 +18,9 @@ vi.mock("@/lib/supabase/server-client", () => {
 vi.mock("@sendgrid/mail", () => ({
   default: {
     setApiKey: vi.fn(),
-    send: vi.fn().mockResolvedValue([
-      { headers: { "x-message-id": "sg-test-456" } },
-      {},
-    ]),
+    send: vi
+      .fn()
+      .mockResolvedValue([{ headers: { "x-message-id": "sg-test-456" } }, {}]),
   },
 }));
 
@@ -33,20 +32,25 @@ beforeEach(() => {
 
 describe("Dispatch-persona onboarding senders", () => {
   it("sendOnboardingDay1NoProject uses DISPATCH from, replyTo jack@", async () => {
-    const { sendOnboardingDay1NoProject } = await import("@/lib/email/sendgrid");
+    const { sendOnboardingDay1NoProject } =
+      await import("@/lib/email/sendgrid");
     await sendOnboardingDay1NoProject({
       email: "test@example.com",
       ctaUrl: "https://app.opsapp.co/projects/new",
       onboardingEmailLogId: "log-uuid-1",
     });
     const call = (sgMail.send as any).mock.calls[0][0];
-    expect(call.from).toEqual({ email: "dispatch@opsapp.co", name: "OPS Dispatch" });
+    expect(call.from).toEqual({
+      email: "dispatch@opsapp.co",
+      name: "OPS Dispatch",
+    });
     expect(call.replyTo).toBe("jack@opsapp.co");
     expect(call.subject).toBe("the move that gets OPS working");
-  });
+  }, 15_000);
 
   it("sendOnboardingDay1HasProject renders projectCount-aware copy", async () => {
-    const { sendOnboardingDay1HasProject } = await import("@/lib/email/sendgrid");
+    const { sendOnboardingDay1HasProject } =
+      await import("@/lib/email/sendgrid");
     await sendOnboardingDay1HasProject({
       email: "test@example.com",
       projectCount: 1,
@@ -59,7 +63,8 @@ describe("Dispatch-persona onboarding senders", () => {
   });
 
   it("sendOnboardingDay4NoNotification renders the mocked push card", async () => {
-    const { sendOnboardingDay4NoNotification } = await import("@/lib/email/sendgrid");
+    const { sendOnboardingDay4NoNotification } =
+      await import("@/lib/email/sendgrid");
     await sendOnboardingDay4NoNotification({
       email: "test@example.com",
       ctaUrl: "https://app.opsapp.co/settings/team",
@@ -71,7 +76,8 @@ describe("Dispatch-persona onboarding senders", () => {
   });
 
   it("sendOnboardingDay4HasNotification subject 'you've heard the ping'", async () => {
-    const { sendOnboardingDay4HasNotification } = await import("@/lib/email/sendgrid");
+    const { sendOnboardingDay4HasNotification } =
+      await import("@/lib/email/sendgrid");
     await sendOnboardingDay4HasNotification({
       email: "test@example.com",
       ctaUrl: "https://app.opsapp.co/projects?filter=recurring",

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setSupabaseOverride } from "@/lib/supabase/helpers";
 import {
+  ProviderApiError,
   SyncTokenExpiredError,
   type NormalizedEmail,
   type ProviderReadPolicy,
@@ -28,6 +29,7 @@ const {
   enqueueIfEnabledMock,
   phaseCRouteMock,
   createClassifiedEmailThreadNotificationsMock,
+  resolveExternalIntakeEmailCorrelationMock,
   persistDeferredLeadClassificationMock,
 } = vi.hoisted(() => ({
   getConnectionMock: vi.fn(),
@@ -52,6 +54,7 @@ const {
   })),
   phaseCRouteMock: vi.fn(),
   createClassifiedEmailThreadNotificationsMock: vi.fn(),
+  resolveExternalIntakeEmailCorrelationMock: vi.fn(),
   persistDeferredLeadClassificationMock: vi.fn(),
 }));
 
@@ -133,6 +136,11 @@ vi.mock("@/lib/email/email-opportunity-notification", () => ({
     createClassifiedEmailThreadNotificationsMock,
 }));
 
+vi.mock("@/lib/external-api/intake/email-correlation-routing", () => ({
+  resolveExternalIntakeEmailCorrelation:
+    resolveExternalIntakeEmailCorrelationMock,
+}));
+
 vi.mock("next/server", async () => {
   const actual =
     await vi.importActual<typeof import("next/server")>("next/server");
@@ -142,7 +150,24 @@ vi.mock("next/server", async () => {
   };
 });
 
-import { SyncEngine } from "@/lib/api/services/sync-engine";
+import {
+  GMAIL_HISTORY_RECOVERY_MIN_PAGE_READ_MS,
+  SyncEngine,
+  decideGmailRecoveryPageBudget,
+} from "@/lib/api/services/sync-engine";
+
+/**
+ * The exact error `mapGmailReads` raises when a read overruns its deadline.
+ * Reproduced here rather than by burning real wall-clock so the overrun path
+ * is exercised deterministically.
+ */
+function gmailReadDeadlineError(): ProviderApiError {
+  return new ProviderApiError(
+    "Gmail expired Gmail history thread recovery: read deadline exceeded",
+    504,
+    { reason: "gmail_read_deadline_exceeded", deadlineAt: Date.now() }
+  );
+}
 
 interface SupabaseState {
   clients: Array<Record<string, unknown>>;
@@ -1376,6 +1401,18 @@ function makeSupabaseDouble(state: SupabaseState) {
         });
         return { data: true, error: null };
       }
+      if (name === "reconcile_manual_outbound_follow_up_cycle_as_system") {
+        state.rpcCalls?.push({ name, params });
+        return {
+          data: [
+            {
+              correspondence_event_id: params.p_correspondence_event_id,
+              opportunity_id: params.p_opportunity_id,
+            },
+          ],
+          error: null,
+        };
+      }
       if (name === "persist_email_connection_sync_checkpoint_as_system") {
         state.rpcCalls?.push({ name, params });
         await updateConnectionMock(params.p_connection_id, {
@@ -1882,6 +1919,8 @@ describe("SyncEngine email opportunity title generation", () => {
     afterMock.mockReset();
     phaseCRouteMock.mockReset();
     createClassifiedEmailThreadNotificationsMock.mockReset();
+    resolveExternalIntakeEmailCorrelationMock.mockReset();
+    resolveExternalIntakeEmailCorrelationMock.mockResolvedValue(null);
     persistDeferredLeadClassificationMock.mockReset();
     persistDeferredLeadClassificationMock.mockResolvedValue(true);
     enqueueIfEnabledMock.mockClear();
@@ -3993,6 +4032,86 @@ To: Kara Beach <kara.beach@example.com>`,
       opportunity_id: "opp-1",
     });
     expect(upsertFromEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("links the real website notification to its authenticated intake lead before generic matching", async () => {
+    const state: SupabaseState = {
+      clients: [
+        {
+          id: "client-intake",
+          company_id: "company-1",
+          name: "Marcel Mercier",
+          email: "marcel.mercier@example.com",
+        },
+      ],
+      opportunities: [
+        {
+          id: "opp-intake",
+          company_id: "company-1",
+          client_id: "client-intake",
+          client_ref: null,
+          title: "Marcel Mercier — Website Inquiry",
+          stage: "new_lead",
+          deleted_at: null,
+          archived_at: null,
+          correspondence_count: 0,
+          inbound_count: 0,
+          outbound_count: 0,
+          assignment_version: 0,
+        },
+      ],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+    resolveExternalIntakeEmailCorrelationMock.mockResolvedValue({
+      opportunityId: "opp-intake",
+      clientId: "client-intake",
+    });
+    getConnectionMock.mockResolvedValue(baseConnection());
+    getProviderMock.mockReturnValue({
+      fetchNewEmailsSince: vi.fn(async () => ({
+        emails: [
+          baseEmail({
+            id: "msg-intake-notification",
+            threadId: "thread-platform-shared",
+            from: "Canpro Deck and Rail <notifications@wix-forms.com>",
+            fromName: "Canpro Deck and Rail",
+            to: ["jackson@canprodeckandrail.com"],
+            subject: "Contact Us 3 got a new submission",
+            bodyText: `${contactFormBody}\n\nemc_${"A".repeat(95)}`,
+            labelIds: ["INBOX"],
+          }),
+        ],
+        nextSyncToken: "sync-token-2",
+      })),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token-2",
+      })),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(result.matched).toBe(1);
+    expect(matchMock).not.toHaveBeenCalled();
+    expect(state.opportunities).toHaveLength(1);
+    expect(state.activities).toContainEqual(
+      expect.objectContaining({
+        email_message_id: "msg-intake-notification",
+        email_thread_id: "thread-platform-shared",
+        opportunity_id: "opp-intake",
+        match_confidence: "external_intake_marker",
+      })
+    );
+    expect(state.threadLinks).toHaveLength(0);
+    expect(upsertFromEmailMock).not.toHaveBeenCalled();
+    expect(resolveExternalIntakeEmailCorrelationMock).toHaveBeenCalledWith({
+      marker: `emc_${"A".repeat(95)}`,
+      companyId: "company-1",
+      mailboxId: "connection-1",
+    });
   });
 
   it("uses the nested customer identity for a generic office forward", async () => {
@@ -8552,8 +8671,11 @@ describe("SyncEngine Gmail history completeness", () => {
         context: "expired Gmail history thread recovery",
       }),
     ]);
-    expect(recoveryReadPolicies[0]?.deadlineAt).toBe(
-      recoveryReadPolicies[1]?.deadlineAt
+    // Each page carries its own budget slice (86c758b1). The two pages no
+    // longer share one deadline: a slow page must fail alone rather than eat
+    // the time the pages behind it need.
+    expect(recoveryReadPolicies[1]?.deadlineAt).toBeGreaterThanOrEqual(
+      recoveryReadPolicies[0]?.deadlineAt as number
     );
     expect(updateConnectionMock).toHaveBeenLastCalledWith(
       "connection-1",
@@ -8924,6 +9046,437 @@ describe("SyncEngine Gmail history completeness", () => {
       expect.objectContaining({ historyId: "fresh-history-token" })
     );
     expect(state.activities).toHaveLength(0);
+  });
+
+  // ── Bug 86c758b1 — the recovery walk could not make durable progress ──────
+  //
+  // The walk read every listed page's threads under ONE two-minute deadline and
+  // let no partial result escape. A pass that overran persisted nothing, so the
+  // next attempt re-listed the identical first page and overran identically:
+  // six consecutive server attempts moved the mailbox zero pages. The walk now
+  // reads one page at a time under its own budget slice and carries every
+  // fully-read page's mail out of the pass, so the checkpoint written after
+  // ingestion always names a page the mailbox has actually consumed.
+
+  it("gives each recovery page its own read budget instead of one shared cliff", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(
+      baseConnection({ lastSyncedAt: new Date("2026-05-20T17:00:00.000Z") })
+    );
+    const listThreadIds = vi
+      .fn()
+      .mockResolvedValueOnce({
+        threadIds: ["thread-page-1"],
+        nextPageToken: "page-2",
+      })
+      .mockResolvedValueOnce({
+        threadIds: ["thread-page-2"],
+        nextPageToken: null,
+      });
+    const fetchThread = vi.fn(
+      async (_threadId: string, _readPolicy?: ProviderReadPolicy) => []
+    );
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => {
+        throw new SyncTokenExpiredError("history token expired", 404);
+      }),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token",
+      })),
+      getInitialSyncToken: vi.fn(async () => "fresh-history-token"),
+      listThreadIds,
+      fetchThread,
+    });
+
+    const startedAt = Date.now();
+    const result = await SyncEngine.runSync("connection-1");
+    expect(result.errors).toEqual([]);
+
+    const policies = fetchThread.mock.calls.map(
+      (call) => call[1] as ProviderReadPolicy | undefined
+    );
+    expect(policies).toHaveLength(2);
+    // Each page is read under a slice, not the old shared 2-minute deadline.
+    for (const policy of policies) {
+      expect(policy?.context).toBe("expired Gmail history thread recovery");
+      expect(policy?.deadlineAt).toBeLessThanOrEqual(
+        startedAt + GMAIL_HISTORY_RECOVERY_MIN_PAGE_READ_MS + 5_000
+      );
+    }
+    // The second page's slice is measured from when that page starts, so it
+    // never inherits the time the first page already spent.
+    expect(policies[1]?.deadlineAt).toBeGreaterThanOrEqual(
+      policies[0]?.deadlineAt as number
+    );
+  });
+
+  it("keeps every fully read page when a later page overruns its read budget", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [
+        { id: "opp-recovered-1", stage: "new_lead" },
+        { id: "opp-recovered-2", stage: "new_lead" },
+      ],
+      threadLinks: [
+        {
+          opportunity_id: "opp-recovered-1",
+          thread_id: "thread-recovered-1",
+          connection_id: "connection-1",
+        },
+        {
+          opportunity_id: "opp-recovered-2",
+          thread_id: "thread-recovered-2",
+          connection_id: "connection-1",
+        },
+      ],
+      activities: [],
+      correspondenceEvents: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(
+      baseConnection({ lastSyncedAt: new Date("2026-05-20T17:00:00.000Z") })
+    );
+
+    const listThreadIds = vi.fn(
+      async (options: { pageToken?: string | null }) => {
+        if (options.pageToken === "page-2") {
+          return { threadIds: ["thread-recovered-2"], nextPageToken: "page-3" };
+        }
+        if (options.pageToken === "page-3") {
+          return { threadIds: ["thread-slow"], nextPageToken: "page-4" };
+        }
+        return { threadIds: ["thread-recovered-1"], nextPageToken: "page-2" };
+      }
+    );
+    const fetchThread = vi.fn(async (threadId: string) => {
+      if (threadId === "thread-slow") {
+        throw gmailReadDeadlineError();
+      }
+      return [
+        baseEmail({
+          id: `message-${threadId}`,
+          threadId,
+          from: `Customer <${threadId}@example.com>`,
+          fromName: "Customer",
+          to: ["jackson@canprodeckandrail.com"],
+          subject: "Estimate follow-up",
+          bodyText: "Checking on the estimate.",
+          date: new Date("2026-05-20T17:05:00.000Z"),
+          labelIds: ["INBOX"],
+        }),
+      ];
+    });
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => {
+        throw new SyncTokenExpiredError("history token expired", 404);
+      }),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token",
+      })),
+      getInitialSyncToken: vi.fn(async () => "fresh-history-token"),
+      listThreadIds,
+      fetchThread,
+    });
+
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await SyncEngine.runSync("connection-1");
+    consoleWarn.mockRestore();
+
+    // The overrun is a bounded, expected outcome — not a failed sync.
+    expect(result.errors).toEqual([]);
+    expect(result.continuationPending).toBe(true);
+    expect(listThreadIds).toHaveBeenCalledTimes(3);
+    // Pages 1 and 2 were read in full, so their mail is ingested.
+    expect(state.activities.map((row) => row.email_message_id)).toEqual([
+      "message-thread-recovered-1",
+      "message-thread-recovered-2",
+    ]);
+    // The checkpoint names the page that overran, never the page after it:
+    // page 3's threads were not ingested, so the next cycle must re-list it.
+    expect(updateConnectionMock).toHaveBeenLastCalledWith(
+      "connection-1",
+      expect.objectContaining({
+        historyRecoveryPageToken: "page-3",
+        historyRecoveryTargetToken: "fresh-history-token",
+      })
+    );
+    expect(updateConnectionMock).not.toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ historyRecoveryPageToken: "page-4" })
+    );
+    expect(updateConnectionMock).not.toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ historyId: "fresh-history-token" })
+    );
+  });
+
+  it("records a continuation instead of failing when the first page overruns", async () => {
+    // The exact stall: with nothing durable to hand forward, the pass must
+    // still leave the anchor and target committed and report itself pending —
+    // never throw, which is what made six attempts retry page one forever.
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(
+      baseConnection({ lastSyncedAt: new Date("2026-05-20T17:00:00.000Z") })
+    );
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => {
+        throw new SyncTokenExpiredError("history token expired", 404);
+      }),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token",
+      })),
+      getInitialSyncToken: vi.fn(async () => "fresh-history-token"),
+      listThreadIds: vi.fn(async () => ({
+        threadIds: ["thread-slow"],
+        nextPageToken: "page-2",
+      })),
+      fetchThread: vi.fn(async () => {
+        throw gmailReadDeadlineError();
+      }),
+    });
+
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await SyncEngine.runSync("connection-1");
+    consoleWarn.mockRestore();
+
+    expect(result.errors).toEqual([]);
+    expect(result.continuationPending).toBe(true);
+    expect(state.activities).toHaveLength(0);
+    expect(updateConnectionMock).toHaveBeenLastCalledWith(
+      "connection-1",
+      expect.objectContaining({
+        historyRecoveryPageToken: null,
+        historyRecoveryTargetToken: "fresh-history-token",
+      })
+    );
+    // A page that was never ingested must not be checkpointed past.
+    expect(updateConnectionMock).not.toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ historyRecoveryPageToken: "page-2" })
+    );
+    expect(updateConnectionMock).not.toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ historyId: "fresh-history-token" })
+    );
+  });
+
+  it("still fails the cycle when a recovery read fails for a reason other than the budget", async () => {
+    // Only a budget overrun truncates the pass cleanly. A provider fault is
+    // still a fault: it must not be laundered into a shorter, "successful" walk.
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    getConnectionMock.mockResolvedValue(
+      baseConnection({ lastSyncedAt: new Date("2026-05-20T17:00:00.000Z") })
+    );
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(async () => {
+        throw new SyncTokenExpiredError("history token expired", 404);
+      }),
+      fetchSentEmailsSince: vi.fn(async () => ({
+        emails: [],
+        nextSyncToken: "sync-token",
+      })),
+      getInitialSyncToken: vi.fn(async () => "fresh-history-token"),
+      listThreadIds: vi.fn(async () => ({
+        threadIds: ["thread-broken"],
+        nextPageToken: "page-2",
+      })),
+      fetchThread: vi.fn(async () => {
+        throw new ProviderApiError("Gmail threads.get failed", 500);
+      }),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors.join(" ")).toContain("Gmail threads.get failed");
+    expect(updateConnectionMock).not.toHaveBeenCalledWith(
+      "connection-1",
+      expect.objectContaining({ historyId: "fresh-history-token" })
+    );
+  });
+
+  it("commits the fresh cursor and clears all three recovery columns on the terminal page", async () => {
+    const state: SupabaseState = {
+      clients: [],
+      opportunities: [],
+      threadLinks: [],
+      activities: [],
+      rpcCalls: [],
+    };
+    setSupabaseOverride(makeSupabaseDouble(state) as never);
+
+    const recoveryAnchor = new Date("2026-04-30T23:45:00.000Z");
+    getConnectionMock.mockResolvedValue({
+      ...baseConnection({ lastSyncedAt: new Date("2026-05-01T00:00:00.000Z") }),
+      historyRecoveryAnchor: recoveryAnchor,
+      historyRecoveryPageToken: "page-9",
+      historyRecoveryTargetToken: "fresh-history-token",
+    } as EmailConnection);
+    getProviderMock.mockReturnValue({
+      providerType: "gmail",
+      fetchNewEmailsSince: vi.fn(),
+      fetchSentEmailsSince: vi.fn(),
+      getInitialSyncToken: vi.fn(async () => "should-not-be-requested"),
+      listThreadIds: vi.fn(async () => ({
+        threadIds: ["thread-final"],
+        nextPageToken: null,
+      })),
+      fetchThread: vi.fn(async () => []),
+    });
+
+    const result = await SyncEngine.runSync("connection-1");
+
+    expect(result.errors).toEqual([]);
+    expect(result.continuationPending).toBe(false);
+    const completion = (state.rpcCalls ?? []).filter(
+      (call) => call.name === "persist_email_connection_sync_completion_as_system"
+    );
+    expect(completion).toHaveLength(1);
+    expect(completion[0].params).toEqual(
+      expect.objectContaining({
+        p_history_id: "fresh-history-token",
+        p_clear_recovery: true,
+      })
+    );
+    expect(updateConnectionMock).toHaveBeenLastCalledWith(
+      "connection-1",
+      expect.objectContaining({
+        historyId: "fresh-history-token",
+        historyRecoveryAnchor: null,
+        historyRecoveryPageToken: null,
+        historyRecoveryTargetToken: null,
+      })
+    );
+  });
+});
+
+describe("decideGmailRecoveryPageBudget — per-page read slices", () => {
+  const budgetMs = 2 * 60 * 1000;
+  const floorMs = GMAIL_HISTORY_RECOVERY_MIN_PAGE_READ_MS;
+
+  function decide(overrides: Parameters<typeof decideGmailRecoveryPageBudget>[0]) {
+    return decideGmailRecoveryPageBudget(overrides);
+  }
+
+  it("floors the first page's slice rather than splitting the budget thinly", () => {
+    // Five pages of headroom would give each 24s of a 120s budget. A page that
+    // small is what turned a slow mailbox into a stalled one.
+    const decision = decide({
+      now: 1_000,
+      budgetEndsAt: 1_000 + budgetMs,
+      pagesRead: 0,
+      threadsRead: 0,
+    });
+    expect(decision).toEqual({
+      action: "read",
+      sliceMs: floorMs,
+      deadlineAt: 1_000 + floorMs,
+    });
+  });
+
+  it("gives the last allowed page the whole remaining budget", () => {
+    // One page left to read and 90s left to read it in: no reason to hold back.
+    const decision = decide({
+      now: 0,
+      budgetEndsAt: 90_000,
+      pagesRead: 9,
+      threadsRead: 450,
+    });
+    expect(decision).toEqual({
+      action: "read",
+      sliceMs: 90_000,
+      deadlineAt: 90_000,
+    });
+  });
+
+  it("stops rather than starting a page it cannot give a full slice", () => {
+    expect(
+      decide({
+        now: 0,
+        budgetEndsAt: floorMs - 1,
+        pagesRead: 2,
+        threadsRead: 200,
+      })
+    ).toEqual({ action: "stop", reason: "budget" });
+  });
+
+  it("always grants the first page of a pass a full slice", () => {
+    // Otherwise a pass could burn its lease and advance zero pages — the stall.
+    expect(
+      decide({
+        now: 0,
+        budgetEndsAt: 0,
+        pagesRead: 0,
+        threadsRead: 0,
+      })
+    ).toEqual({ action: "read", sliceMs: floorMs, deadlineAt: floorMs });
+  });
+
+  it("stops when the pass page cap is already spent", () => {
+    expect(
+      decide({
+        now: 0,
+        budgetEndsAt: budgetMs,
+        pagesRead: 10,
+        threadsRead: 10,
+      })
+    ).toEqual({ action: "stop", reason: "caps" });
+  });
+
+  it("stops when the pass thread cap is already spent", () => {
+    expect(
+      decide({
+        now: 0,
+        budgetEndsAt: budgetMs,
+        pagesRead: 5,
+        threadsRead: 500,
+      })
+    ).toEqual({ action: "stop", reason: "caps" });
+  });
+
+  it("never lets one slow page consume time the pages behind it still need", () => {
+    // Two pages of headroom (both caps agree) and 200s of budget: an even
+    // split beats the floor, and the page after this one keeps its own 100s.
+    const decision = decide({
+      now: 0,
+      budgetEndsAt: 200_000,
+      pagesRead: 8,
+      threadsRead: 300,
+    });
+    expect(decision).toEqual({
+      action: "read",
+      sliceMs: 100_000,
+      deadlineAt: 100_000,
+    });
   });
 });
 

@@ -136,7 +136,7 @@ export function PreviewStep({
                 <tr
                   key={item._key}
                   className={cn(
-                    "border-b border-border/50 transition-colors",
+                    "border-b border-border-subtle transition-colors",
                     isDuplicate
                       ? "bg-status-warning/10"
                       : "hover:bg-[rgba(255,255,255,0.02)]"

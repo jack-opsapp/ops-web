@@ -21,9 +21,22 @@
  *     write path (no scheme prefix; resolver falls through to Supabase
  *     signing).
  *
+ * Element crops (bug 1f2bf7e9):
+ *   - `kind=element&index=n` uploads one cropped element from the
+ *     bug-report element picker to
+ *     `bug-reports/{companyId}/{reportId}/element-{n}.{ext}` and appends
+ *     the stored reference to `bug_reports.additional_attachments`
+ *     instead of overwriting `screenshot_url`.
+ *   - The response carries `attachmentIndex` — the crop's position in
+ *     that array — which is what `custom_metadata.elementReferences[].
+ *     attachmentIndex` points at. The drawer uploads sequentially, so
+ *     arrival order and index order agree; returning the real position
+ *     lets a caller detect drift rather than assume it.
+ *
  * Security: verifies the caller's auth token (Supabase or Firebase),
  * checks the user actually belongs to the company in the request, and
- * checks the bug report row was created by the same caller.
+ * checks the bug report row was created by the same caller. Element
+ * crops run through exactly the same guard.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -48,6 +61,26 @@ const ALLOWED_TYPES = ["image/png", "image/jpeg"] as const;
  */
 const S3_SCHEME = "s3:";
 
+/**
+ * Upper bound on the element-crop index. The picker caps a report at 3
+ * references; 9 leaves room to raise that cap without touching the route,
+ * while still rejecting an unbounded index that would let a caller scatter
+ * objects across the company's prefix.
+ */
+const MAX_ELEMENT_INDEX = 9;
+
+/**
+ * Parse the element-crop index. Returns null for anything that is not a
+ * whole number inside the allowed range — the caller turns that into a 400.
+ */
+function parseElementIndex(raw: string | null): number | null {
+  if (raw === null || raw.trim() === "") return null;
+  if (!/^\d+$/.test(raw.trim())) return null;
+  const index = Number(raw.trim());
+  if (!Number.isInteger(index) || index < 0 || index > MAX_ELEMENT_INDEX) return null;
+  return index;
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const authHeader = req.headers.get("authorization") ?? "";
@@ -70,12 +103,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const file = formData.get("file") as File | null;
     const reportId = formData.get("reportId") as string | null;
     const companyId = formData.get("companyId") as string | null;
+    const kind = formData.get("kind") as string | null;
 
     if (!file || !reportId || !companyId) {
       return NextResponse.json(
         { error: "Missing file, reportId, or companyId" },
         { status: 400 }
       );
+    }
+
+    const isElementCrop = kind === "element";
+    let elementIndex = 0;
+
+    if (isElementCrop) {
+      const parsed = parseElementIndex(formData.get("index") as string | null);
+      if (parsed === null) {
+        return NextResponse.json(
+          { error: `Invalid element index (expected an integer 0-${MAX_ELEMENT_INDEX})` },
+          { status: 400 }
+        );
+      }
+      elementIndex = parsed;
     }
 
     if (!ALLOWED_TYPES.includes(file.type as (typeof ALLOWED_TYPES)[number])) {
@@ -105,7 +153,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { data: reportRow, error: reportErr } = await supabase
       .from("bug_reports")
-      .select("id, company_id, reporter_id")
+      .select("id, company_id, reporter_id, additional_attachments")
       .eq("id", reportId)
       .maybeSingle();
 
@@ -117,7 +165,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const ext = file.type === "image/jpeg" ? "jpg" : "png";
-    const path = `${companyId}/${reportId}/screenshot.${ext}`;
+    const filename = isElementCrop ? `element-${elementIndex}` : "screenshot";
+    const path = `${companyId}/${reportId}/${filename}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
     let storedValue: string;
@@ -142,7 +191,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           err instanceof Error ? err.message : err
         );
         return NextResponse.json(
-          { error: "Screenshot upload failed" },
+          { error: isElementCrop ? "Element crop upload failed" : "Screenshot upload failed" },
           { status: 500 }
         );
       }
@@ -161,7 +210,38 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     // Persist the storage reference on the row so the admin view can
-    // resolve it later via `BugReportService.getScreenshotUrl`.
+    // resolve it later via `BugReportService.getScreenshotUrl`. An element
+    // crop appends to `additional_attachments`; it must never overwrite the
+    // full-page screenshot.
+    if (isElementCrop) {
+      const existing = Array.isArray(reportRow.additional_attachments)
+        ? (reportRow.additional_attachments as string[])
+        : [];
+      const nextAttachments = [...existing, storedValue];
+
+      const { error: updateErr } = await supabase
+        .from("bug_reports")
+        .update({
+          additional_attachments: nextAttachments,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", reportId);
+
+      if (updateErr) {
+        console.error(
+          "[bug-reports/screenshot] Failed to persist element crop:",
+          updateErr.message
+        );
+        return NextResponse.json({ error: updateErr.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        path: storedValue,
+        attachmentIndex: nextAttachments.length - 1,
+      });
+    }
+
     const { error: updateErr } = await supabase
       .from("bug_reports")
       .update({ screenshot_url: storedValue, updated_at: new Date().toISOString() })

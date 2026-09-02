@@ -17,10 +17,10 @@ import {
   Container,
   Head,
   Html,
-  Preview,
   Section,
   Text,
 } from "@react-email/components";
+import { Preview } from "@/lib/email/react/primitives";
 import type { PmfState } from "@/lib/pmf/types";
 import { DailyDigestBody } from "./daily-digest";
 import { CANVAS, GLASS, MONO11, sanitizeDashboardUrl } from "./_shared";
