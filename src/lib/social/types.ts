@@ -1,3 +1,5 @@
+import type { SocialContent } from "./contract";
+
 export const SOCIAL_SOURCE_TYPES = [
   "blog",
   "feature",

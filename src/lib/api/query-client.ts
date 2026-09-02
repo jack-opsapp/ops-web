@@ -821,6 +821,12 @@ export const queryKeys = {
     all: ["dataReview"] as const,
     queue: () => ["dataReview", "queue"] as const,
   },
+
+  // Internal social publishing command deck
+  socialPublishing: {
+    all: ["socialPublishing"] as const,
+    list: () => [...queryKeys.socialPublishing.all, "list"] as const,
+  },
 } as const;
 
 // ─── Query Client ─────────────────────────────────────────────────────────────

@@ -39,6 +39,7 @@ export type Namespace =
   | 'unsubscribe'
   | 'project-workspace'
   | 'catalog-setup'
+  | 'admin-social'
   | 'picker'
   | 'estimate-calculator'
   | 'admin-growth';
