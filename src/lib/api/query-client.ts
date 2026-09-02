@@ -257,6 +257,8 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.clients.details(), id] as const,
     subClients: (clientId: string) =>
       [...queryKeys.clients.all, "subClients", clientId] as const,
+    portalAccess: (clientId: string) =>
+      [...queryKeys.clients.all, "portalAccess", clientId] as const,
   },
 
   // Users
