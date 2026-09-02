@@ -19,6 +19,9 @@ import {
   decryptInstagramToken,
   encryptInstagramToken,
 } from "./token-cipher";
+import type { InstagramConnectionStatus } from "./instagram-connection-types";
+
+export type { InstagramConnectionStatus } from "./instagram-connection-types";
 
 const REFRESH_CLAIM_TTL_SECONDS = 180;
 
@@ -37,22 +40,6 @@ interface InstagramConnectionDependencies {
   createClaimToken: () => string;
   now: () => Date;
 }
-
-export type InstagramConnectionStatus =
-  | {
-      connected: false;
-      username?: string;
-      reason: "not_connected" | "expired";
-      needsReconnect: boolean;
-    }
-  | {
-      connected: true;
-      username: string;
-      connectedAt: string;
-      tokenExpiresAt: string;
-      lastRefreshedAt: string | null;
-      needsReconnect: false;
-    };
 
 export interface InstagramPublishingCredentials {
   userId: string;
@@ -74,7 +61,14 @@ export class InstagramConnectionError extends Error {
 function defaults(): InstagramConnectionDependencies {
   return {
     repository: createInstagramConnectionRepository(),
-    oauth: createInstagramOAuthClientFromEnv(),
+    oauth: {
+      authorizationUrl: (state) =>
+        createInstagramOAuthClientFromEnv().authorizationUrl(state),
+      exchangeAuthorizationCode: (code) =>
+        createInstagramOAuthClientFromEnv().exchangeAuthorizationCode(code),
+      refreshLongLivedToken: (accessToken) =>
+        createInstagramOAuthClientFromEnv().refreshLongLivedToken(accessToken),
+    },
     encryptToken: encryptInstagramToken,
     decryptToken: decryptInstagramToken,
     isAdminEmail,

@@ -3,7 +3,31 @@ import { SocialCommandDeck } from "@/app/admin/social/_components/social-command
 import { socialPostFixture } from "../../helpers/social-fixtures";
 
 const mutateAsync = vi.fn();
+const connectMutateAsync = vi.fn();
+const disconnectMutateAsync = vi.fn();
 let posts = [socialPostFixture({ status: "review", publish_stage: "idle" })];
+let instagramConnection:
+  | {
+      connected: true;
+      username: string;
+      connectedAt: string;
+      tokenExpiresAt: string;
+      lastRefreshedAt: string | null;
+      needsReconnect: false;
+    }
+  | {
+      connected: false;
+      reason: "not_connected" | "expired";
+      needsReconnect: boolean;
+      username?: string;
+    } = {
+  connected: true,
+  username: "opsjournal",
+  connectedAt: "2026-09-01T20:00:00.000Z",
+  tokenExpiresAt: "2026-11-01T20:00:00.000Z",
+  lastRefreshedAt: null,
+  needsReconnect: false,
+};
 
 vi.mock("@/i18n/client", () => ({
   useDictionary: () => ({
@@ -19,13 +43,72 @@ vi.mock("@/lib/hooks/use-social-posts", () => ({
     error: null,
     action: { mutateAsync, isPending: false },
   }),
+  useInstagramConnection: () => ({
+    connection: instagramConnection,
+    isLoading: false,
+    error: null,
+    connect: { mutateAsync: connectMutateAsync, isPending: false },
+    disconnect: { mutateAsync: disconnectMutateAsync, isPending: false },
+  }),
 }));
 
 describe("SocialCommandDeck", () => {
   beforeEach(() => {
     mutateAsync.mockReset();
+    connectMutateAsync.mockReset();
+    disconnectMutateAsync.mockReset();
     mutateAsync.mockResolvedValue({ post: socialPostFixture({ status: "cancelled" }) });
+    connectMutateAsync.mockImplementation(() => new Promise(() => undefined));
+    disconnectMutateAsync.mockResolvedValue({ ok: true });
     posts = [socialPostFixture({ status: "review", publish_stage: "idle" })];
+    instagramConnection = {
+      connected: true,
+      username: "opsjournal",
+      connectedAt: "2026-09-01T20:00:00.000Z",
+      tokenExpiresAt: "2026-11-01T20:00:00.000Z",
+      lastRefreshedAt: null,
+      needsReconnect: false,
+    };
+  });
+
+  it("makes account login the only primary launch action while disconnected", async () => {
+    instagramConnection = {
+      connected: false,
+      reason: "not_connected",
+      needsReconnect: false,
+    };
+    render(<SocialCommandDeck />);
+
+    expect(
+      screen.getByRole("button", { name: "CONNECT INSTAGRAM" })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "PUBLISH NOW" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("LOGIN ONCE. OPS KEEPS PUBLISHING ACCESS CURRENT.")
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "CONNECT INSTAGRAM" }));
+    await waitFor(() => expect(connectMutateAsync).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps disconnect behind the compact connected-account control", async () => {
+    render(<SocialCommandDeck />);
+
+    expect(screen.queryByRole("button", { name: "DISCONNECT" })).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "@opsjournal · CONNECTED" })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "DISCONNECT" }));
+    expect(screen.getByText("DISCONNECT INSTAGRAM?")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "CONFIRM DISCONNECT" })
+    );
+
+    await waitFor(() =>
+      expect(disconnectMutateAsync).toHaveBeenCalledTimes(1)
+    );
   });
 
   it("presents the launch rail, exact artwork, and operator controls", () => {

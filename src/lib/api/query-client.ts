@@ -826,6 +826,8 @@ export const queryKeys = {
   socialPublishing: {
     all: ["socialPublishing"] as const,
     list: () => [...queryKeys.socialPublishing.all, "list"] as const,
+    instagramConnection: () =>
+      [...queryKeys.socialPublishing.all, "instagramConnection"] as const,
   },
 } as const;
 

@@ -7,7 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Surface } from "@/components/ui/surface";
 import { Textarea } from "@/components/ui/textarea";
 import { useDictionary } from "@/i18n/client";
-import { useSocialPosts } from "@/lib/hooks/use-social-posts";
+import {
+  useInstagramConnection,
+  useSocialPosts,
+} from "@/lib/hooks/use-social-posts";
 import {
   canManuallyRetrySocialPost,
   requiresInstagramReconciliation,
@@ -278,11 +281,15 @@ function CopyEditor({
 export function SocialCommandDeck({ initialPostId }: { initialPostId?: string }) {
   const { t } = useDictionary("admin-social");
   const { posts, isLoading, error, action } = useSocialPosts();
+  const instagram = useInstagramConnection();
   const [filter, setFilter] = useState<QueueFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(initialPostId ?? null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [editing, setEditing] = useState(false);
   const [confirmingStop, setConfirmingStop] = useState(false);
+  const [managingInstagram, setManagingInstagram] = useState(false);
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
+  const [connectionFeedback, setConnectionFeedback] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
 
@@ -305,6 +312,11 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
     setConfirmingStop(false);
     setFeedback(null);
   }, [selected?.id]);
+
+  useEffect(() => {
+    setManagingInstagram(false);
+    setConfirmingDisconnect(false);
+  }, [instagram.connection?.connected]);
 
   const counts = useMemo(
     () => ({
@@ -347,11 +359,44 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
     }
   }
 
+  async function connectInstagram() {
+    setConnectionFeedback(null);
+    try {
+      const result = await instagram.connect.mutateAsync();
+      window.location.assign(result.authorizationUrl);
+    } catch (connectionError) {
+      setConnectionFeedback(
+        connectionError instanceof Error
+          ? connectionError.message
+          : t("connection.error", "INSTAGRAM CONNECTION FAILED. TRY AGAIN.")
+      );
+    }
+  }
+
+  async function disconnectInstagram() {
+    setConnectionFeedback(null);
+    try {
+      await instagram.disconnect.mutateAsync();
+      setConfirmingDisconnect(false);
+      setManagingInstagram(false);
+      setConnectionFeedback(
+        t("connection.disconnected", "INSTAGRAM DISCONNECTED.")
+      );
+    } catch (connectionError) {
+      setConnectionFeedback(
+        connectionError instanceof Error
+          ? connectionError.message
+          : t("connection.disconnectError", "INSTAGRAM COULD NOT BE DISCONNECTED.")
+      );
+    }
+  }
+
   const assets = selected?.rendered_assets ?? [];
   const activeAsset = assets[Math.min(slideIndex, Math.max(assets.length - 1, 0))];
   const dueCopy = t("state.due", "DUE NOW");
   const unscheduledCopy = t("state.unscheduled", "NO LAUNCH TIME");
   const reconciliationRequired = selected ? requiresInstagramReconciliation(selected) : false;
+  const instagramReady = instagram.connection?.connected === true;
   const canEditOrStop =
     selected !== null &&
     (selected.status === "review" || selected.status === "failed") &&
@@ -376,6 +421,123 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
             <Metric label={t("stat.failed", "FAILED")} value={counts.failed} />
           </div>
         </div>
+        <div className="mt-3 flex justify-end">
+          {instagram.isLoading ? (
+            <p className="font-mono text-micro uppercase text-text-mute">
+              {t("connection.loading", "CHECKING INSTAGRAM")}
+            </p>
+          ) : instagram.error ? (
+            <Surface
+              variant="inset"
+              className="w-full border-rose-line bg-rose-soft p-2 lg:w-auto"
+              role="alert"
+            >
+              <p className="font-mono text-micro uppercase text-rose">
+                {t(
+                  "connection.unavailable",
+                  "INSTAGRAM STATUS UNAVAILABLE. LAUNCH IS LOCKED."
+                )}
+              </p>
+            </Surface>
+          ) : instagram.connection?.connected ? (
+            <div className="flex flex-col items-end gap-2">
+              <button
+                type="button"
+                aria-expanded={managingInstagram}
+                onClick={() => {
+                  setManagingInstagram((current) => !current);
+                  setConfirmingDisconnect(false);
+                }}
+                className="rounded-chip border border-olive/40 px-2 py-1 font-mono text-micro uppercase tracking-wide text-olive transition-colors hover:border-olive motion-reduce:transition-none"
+              >
+                @{instagram.connection.username} · {t("connection.connected", "CONNECTED")}
+              </button>
+              {managingInstagram && (
+                <Surface variant="inset" className="min-w-64 p-2">
+                  {confirmingDisconnect ? (
+                    <div>
+                      <p className="font-cakemono text-heading font-light uppercase text-rose">
+                        {t("connection.confirmTitle", "DISCONNECT INSTAGRAM?")}
+                      </p>
+                      <p className="mt-0.5 font-mohave text-body-sm text-text-2">
+                        {t(
+                          "connection.confirmBody",
+                          "Scheduled posts stay in the queue until Instagram is reconnected."
+                        )}
+                      </p>
+                      <div className="mt-2 flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setConfirmingDisconnect(false)}
+                        >
+                          {t("connection.keep", "KEEP CONNECTED")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          loading={instagram.disconnect.isPending}
+                          onClick={disconnectInstagram}
+                        >
+                          {t("connection.confirmDisconnect", "CONFIRM DISCONNECT")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-mono text-micro uppercase text-text-3">
+                        {t("connection.current", "PUBLISHING ACCESS CURRENT")}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setConfirmingDisconnect(true)}
+                      >
+                        {t("connection.disconnect", "DISCONNECT")}
+                      </Button>
+                    </div>
+                  )}
+                </Surface>
+              )}
+            </div>
+          ) : (
+            <Surface
+              variant="inset"
+              className="flex w-full flex-col gap-2 p-2 sm:flex-row sm:items-center sm:justify-between lg:w-auto"
+            >
+              <div>
+                <p className="font-mono text-micro uppercase text-text-2">
+                  {instagram.connection?.needsReconnect
+                    ? t("connection.expired", "INSTAGRAM LOGIN EXPIRED")
+                    : t("connection.notConnected", "INSTAGRAM NOT CONNECTED")}
+                </p>
+                <p className="mt-0.5 font-mono text-micro uppercase text-text-mute">
+                  {t(
+                    "connection.loginOnce",
+                    "LOGIN ONCE. OPS KEEPS PUBLISHING ACCESS CURRENT."
+                  )}
+                </p>
+              </div>
+              <Button
+                variant="primary"
+                loading={instagram.connect.isPending}
+                onClick={connectInstagram}
+              >
+                {instagram.connection?.needsReconnect
+                  ? t("connection.reconnect", "RECONNECT INSTAGRAM")
+                  : t("connection.connect", "CONNECT INSTAGRAM")}
+              </Button>
+            </Surface>
+          )}
+        </div>
+        {connectionFeedback && (
+          <p
+            className="mt-2 text-right font-mono text-micro uppercase text-text-2"
+            role="status"
+          >
+            {connectionFeedback}
+          </p>
+        )}
       </header>
 
       <div className="grid grid-cols-12 gap-3 p-3 xl:p-4">
@@ -771,7 +933,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                 </Surface>
               ) : (
                 <div className="flex flex-wrap gap-1">
-                  {selected.status === "review" && (
+                  {selected.status === "review" && instagramReady && (
                     <Button
                       variant="primary"
                       loading={action.isPending}
@@ -785,7 +947,7 @@ export function SocialCommandDeck({ initialPostId }: { initialPostId?: string })
                       {t("action.publish", "PUBLISH NOW")}
                     </Button>
                   )}
-                  {canManuallyRetrySocialPost(selected) && (
+                  {canManuallyRetrySocialPost(selected) && instagramReady && (
                     <Button
                       variant="primary"
                       loading={action.isPending}
