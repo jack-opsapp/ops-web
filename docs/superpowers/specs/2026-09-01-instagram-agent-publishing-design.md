@@ -16,7 +16,10 @@ The default path is deliberately quiet:
 4. The Social command deck shows the exact post, countdown, copy, source, and publishing state.
 5. If an operator does nothing, the post publishes automatically. If stopped or edited, publishing is cancelled or the review clock restarts.
 
-Instagram credentials remain server-only in Vercel and are never given to the agent.
+The Meta app credentials remain server-only in Vercel. An admin connects the
+OPS Instagram professional account once through Meta's Instagram Login flow;
+the resulting renewable publishing credential is encrypted before database
+storage and is never given to the agent or browser.
 
 ## Product principles
 
@@ -135,9 +138,34 @@ Alternate terminal or recovery states are `cancelled` and `failed`.
 
 The worker uses an atomic database claim with `FOR UPDATE SKIP LOCKED`, a claim token, and an expiry. This makes duplicate Vercel cron delivery safe and prevents two workers from publishing the same row.
 
-## Instagram publishing
+## Instagram connection and publishing
 
-The Meta client uses an environment-configurable Graph API origin and version, with Vercel-held `INSTAGRAM_ACCESS_TOKEN` and `INSTAGRAM_USER_ID`.
+`/admin/social` owns the one-time account connection. When disconnected, the
+screen presents one primary `CONNECT INSTAGRAM` action. That authenticated
+admin action creates a short-lived, opaque, single-use OAuth state record and
+redirects to Meta's Instagram Login authorization screen. The callback consumes
+the state atomically, exchanges the one-hour token for a long-lived token,
+verifies the professional account identity and required scopes, encrypts the
+token, and stores only safe account metadata for the admin status response.
+
+The connection is global to the OPS publishing channel, not per admin. Connected
+state collapses to a compact `@username · CONNECTED` control; disconnect lives
+behind that control. Publishing actions remain unavailable while disconnected,
+but agents may continue rendering posts into the review queue.
+
+The Meta app ID and secret remain Vercel environment variables. OPS generates
+and configures the encryption and automation secrets. The renewable Instagram
+access token and user ID are resolved server-side from the encrypted connection
+record rather than static Vercel values. The two-minute publisher heartbeat also
+checks whether the credential is safely refreshable; an atomic database lease
+ensures only one worker refreshes it. Refresh begins seven days before expiry,
+well after Meta's 24-hour minimum token age, and persists the replacement before
+publishing resumes. Expired, revoked, scope-deficient, or missing connections
+fail closed and surface one reconnect action.
+
+OAuth uses Meta's Instagram API with Instagram Login permissions
+`instagram_business_basic` and `instagram_business_content_publish`. The Meta
+client uses an environment-configurable Graph API origin and pinned version.
 
 Before publishing, the worker:
 
@@ -174,7 +202,12 @@ Every material transition records timestamp, actor (`agent`, `system`, or admin 
 
 ## Security and database exposure
 
-The queue lives in `public.social_posts` for Supabase API compatibility, but Row Level Security is enabled with no browser policies and privileges are revoked from `anon` and `authenticated`. Only server-side service-role code can read or mutate it.
+The queue and Instagram connection/state records live in the public schema for
+Supabase API compatibility, but Row Level Security is enabled with no browser
+policies and privileges are revoked from `anon` and `authenticated`. Only
+server-side service-role code can read or mutate them. OAuth state stores only a
+SHA-256 nonce digest and its verified admin identity. The access token is stored
+as an AES-256-GCM envelope; its key remains outside the database in Vercel.
 
 The atomic claim function is `SECURITY DEFINER`, fixes its `search_path`, fully qualifies referenced objects, and grants execution only to `service_role`.
 
@@ -191,7 +224,7 @@ This cadence produces at most about 21,600 cron invocations in a 30-day month, p
 This build creates code, tests, a local migration, reference files, and the Vercel environment contract. It does not:
 
 - apply the database migration to production;
-- create or rotate Meta credentials;
+- create or rotate Meta app credentials;
 - add Vercel production environment values;
 - deploy OPS Web;
 - publish a real Instagram post.
@@ -209,4 +242,8 @@ Those are explicit production gates after local verification.
 - Single-image and carousel Meta flows enforce quota and readiness before publishing.
 - Retryable failures back off; terminal failures become persistent operator actions.
 - All new user-facing copy is dictionary-backed and all new interface styling uses OPS tokens.
+- OAuth state is admin-minted, opaque, expiring, one-time, and replay-safe.
+- The browser and admin status endpoint never receive an access token or app secret.
+- The long-lived token refreshes under a single-worker lease before expiry.
+- Disconnected state blocks launch without blocking agent rendering or review.
 - The full feature is documented in the OPS Software Bible and has a current scheduled-agent contract.
