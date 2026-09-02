@@ -53,11 +53,16 @@ const buttonVariants = cva(
       },
       size: {
         // DESIGN.md spec: buttons are min-height 36px / padding 9px 16px / radius 5px.
-        // `default` is the spec value (h-9 = 36px, px-4 = 16px). `sm`/`lg` are
+        // `default` is the spec value (h-9 = 36px). `sm`/`lg` are
         // unspecified-but-coherent derivations on a 32/36/40 ladder — never the
         // 44px touch-target value (OPS-Web is mouse-driven; there is no touch here).
+        //
+        // `sm` carries an EXPLICIT 32px: `tailwind.config.ts` overrides the
+        // numeric spacing scale on an 8px unit, so `h-8` resolves to 64px, not
+        // the 32px this ladder means. `h-9`/`h-10` are past the override's last
+        // key (8) and still resolve to Tailwind's own 36/40px.
         default: "h-9 px-4",
-        sm: "h-8 px-3",
+        sm: "h-[32px] px-3",
         lg: "h-10 px-5",
         icon: "h-9 w-9 p-0",
       },

@@ -22,7 +22,7 @@
  * values.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { ActionDetail } from "@/components/agent/action-detail";
 import { RejectDialog } from "@/components/agent/reject-dialog";
@@ -159,6 +159,40 @@ function QueueError({
         {t("error.retry")}
       </Button>
     </div>
+  );
+}
+
+/**
+ * Row action — the 28px compact control tier (DESIGN.md §9 workbar tier), which
+ * is what a dense register row can carry. Explicit pixel sizing: the numeric
+ * Tailwind spacing scale is overridden on an 8px unit here, so `h-7` would be
+ * 56px, not 28.
+ */
+function RowAction({
+  children,
+  onClick,
+  tone = "neutral",
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  tone?: "neutral" | "quiet";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "inline-flex h-[28px] shrink-0 items-center rounded-chip border px-[10px]",
+        "font-mono text-micro uppercase leading-none tracking-[0.12em]",
+        "transition-colors duration-150 ease-smooth",
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent",
+        tone === "neutral"
+          ? "border-border bg-surface-input text-text-2 hover:border-border-medium hover:text-text"
+          : "border-transparent text-text-3 hover:bg-surface-hover hover:text-text-2"
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -607,20 +641,12 @@ export default function AgentQueuePage() {
               // Acting on a row must not also open its detail.
               onClick={(e) => e.stopPropagation()}
             >
-              <Button
-                variant="default"
-                size="sm"
-                onClick={() => handleApprove(row.id)}
-              >
+              <RowAction onClick={() => handleApprove(row.id)}>
                 {t("action.approve")}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setRejectTarget(row.id)}
-              >
+              </RowAction>
+              <RowAction tone="quiet" onClick={() => setRejectTarget(row.id)}>
                 {t("action.reject")}
-              </Button>
+              </RowAction>
             </span>
           ) : null,
       });
