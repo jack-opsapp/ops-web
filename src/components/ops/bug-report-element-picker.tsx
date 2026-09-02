@@ -406,15 +406,23 @@ export function BugReportElementPicker({
 
           <div
             data-element-picker-chrome=""
-            className="absolute flex items-center gap-1.5"
-            style={{ left: HINT_INSET, bottom: HINT_INSET }}
+            className="absolute flex flex-wrap items-center gap-1.5"
+            style={{ left: HINT_INSET, right: HINT_INSET, bottom: HINT_INSET }}
           >
             {capturing ? (
               <span className={PILL}>{t("bugReport.picker.capturing")}</span>
             ) : (
               <>
-                <span className={PILL}>{t("bugReport.picker.hint")}</span>
-                <span className={cn(PILL, "text-text-mute")}>
+                {/* Touch has no pointer to hover and no Esc key: below `sm`
+                    the bar collapses to the tap hint + CANCEL so it never
+                    overflows a phone viewport. */}
+                <span className={cn(PILL, "sm:hidden")}>
+                  {t("bugReport.picker.hintTouch")}
+                </span>
+                <span className={cn(PILL, "hidden sm:inline-block")}>
+                  {t("bugReport.picker.hint")}
+                </span>
+                <span className={cn(PILL, "hidden text-text-mute sm:inline-block")}>
                   {t("bugReport.picker.keys")}
                 </span>
                 <button

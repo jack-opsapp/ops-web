@@ -77,6 +77,7 @@
   "bugReport.picker.select": "SELECT ELEMENT",
   "bugReport.picker.max": "[ MAX 3 ELEMENTS ]",
   "bugReport.picker.hint": "// CLICK AN ELEMENT · ESC CANCELS",
+  "bugReport.picker.hintTouch": "// TAP AN ELEMENT",
   "bugReport.picker.keys": "[ TAB MOVES · ENTER SELECTS ]",
   "bugReport.picker.cancel": "[ CANCEL ]",
   "bugReport.picker.capturing": "[ CAPTURING ELEMENT… ]",
