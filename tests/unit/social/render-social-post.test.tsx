@@ -102,6 +102,44 @@ async function dependencies(): Promise<{
 }
 
 describe("OPS social renderer", () => {
+  it("fades editorial artwork smoothly into the headline area", async () => {
+    const deps = await dependencies();
+    await renderSocialPost(
+      {
+        postId: POST_ID,
+        submission: submission(),
+        selection: selection("editorial_cover"),
+      },
+      deps.value
+    );
+
+    const { data, info } = await sharp(deps.captured[0])
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const averageLuminance = (y: number) => {
+      let total = 0;
+      let samples = 0;
+      for (let x = 970; x < 990; x += 1) {
+        const offset = (y * info.width + x) * info.channels;
+        total += (data[offset] + data[offset + 1] + data[offset + 2]) / 3;
+        samples += 1;
+      }
+      return total / samples;
+    };
+    const gradientReadings = Array.from(
+      { length: 81 },
+      (_, index) => averageLuminance(300 + index * 10)
+    );
+    const largestStep = Math.max(
+      ...gradientReadings.slice(1).map((value, index) =>
+        Math.abs(value - gradientReadings[index])
+      )
+    );
+
+    expect(largestStep).toBeLessThan(18);
+    expect(gradientReadings[0] - gradientReadings.at(-1)!).toBeGreaterThan(35);
+  }, 30_000);
+
   it.each(TREATMENTS)("renders %s as a 1080 by 1350 JPEG", async (treatment) => {
     const deps = await dependencies();
     const assets = await renderSocialPost(

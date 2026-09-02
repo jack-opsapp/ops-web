@@ -1,20 +1,50 @@
-import { BodyCopy, Eyebrow, Headline, ImagePanel, SocialFrame, type TreatmentProps } from "../frame";
+import { BodyCopy, Eyebrow, Headline, SocialFrame, type TreatmentProps } from "../frame";
 import { SOCIAL_THEME } from "../theme";
 
 export function EditorialCover(props: TreatmentProps) {
   return (
     <SocialFrame treatmentLabel="EDITORIAL COVER" index={props.index} total={props.total} date={props.content.date}>
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "38px 0 34px" }}>
-        {props.imageDataUrl ? <ImagePanel src={props.imageDataUrl} style={{ flex: 1 }} /> : null}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {props.imageDataUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={props.imageDataUrl}
+            alt=""
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+            }}
+          />
+        ) : null}
         <div
           style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            width: "100%",
+            height: "100%",
+            backgroundImage: SOCIAL_THEME.editorialFade,
+          }}
+        />
+        <div
+          style={{
+            position: "relative",
             display: "flex",
             flexDirection: "column",
-            marginTop: -260,
-            padding: "120px 42px 38px",
-            background: SOCIAL_THEME.glass,
-            border: `1px solid ${SOCIAL_THEME.line}`,
-            borderRadius: 10,
+            flex: 1,
+            justifyContent: "flex-end",
+            padding: "0 40px 56px",
           }}
         >
           <Eyebrow>{props.slide.eyebrow ?? "NEW FIELD NOTE"}</Eyebrow>

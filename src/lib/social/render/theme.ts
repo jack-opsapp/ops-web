@@ -12,6 +12,8 @@ export const SOCIAL_THEME = {
   line: "rgba(255,255,255,0.10)",
   glass: "rgba(18,18,20,0.78)",
   input: "rgba(255,255,255,0.04)",
+  editorialFade:
+    "linear-gradient(180deg, rgba(0,0,0,0) 28%, rgba(0,0,0,0.18) 44%, rgba(0,0,0,0.72) 68%, rgba(0,0,0,0.96) 86%, #000000 100%)",
   olive: "#9DB582",
   tan: "#C4A868",
   rose: "#B58289",
