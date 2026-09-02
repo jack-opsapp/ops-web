@@ -28,10 +28,15 @@ describe("social publishing documentation contract", () => {
     const runbook = read("docs/social/instagram-operations.md");
     for (const required of [
       "CRON_SECRET",
-      "INSTAGRAM_API_ORIGIN",
+      "INSTAGRAM_APP_ID",
+      "INSTAGRAM_APP_SECRET",
+      "INSTAGRAM_TOKEN_ENC_KEY",
+      "INSTAGRAM_GRAPH_ORIGIN",
       "INSTAGRAM_API_VERSION",
-      "INSTAGRAM_USER_ID",
-      "INSTAGRAM_ACCESS_TOKEN",
+      "CONNECT INSTAGRAM",
+      "/api/admin/social/instagram/callback",
+      "60 days",
+      "seven days before expiry",
       "SOCIAL_OPERATOR_USER_ID",
       "SOCIAL_OPERATOR_COMPANY_ID",
       "S3",
@@ -53,13 +58,16 @@ describe("social publishing documentation contract", () => {
       "SOCIAL_AUTOMATION_SECRET=",
       "SOCIAL_OPERATOR_USER_ID=",
       "SOCIAL_OPERATOR_COMPANY_ID=",
-      "INSTAGRAM_API_ORIGIN=",
+      "INSTAGRAM_APP_ID=",
+      "INSTAGRAM_APP_SECRET=",
+      "INSTAGRAM_TOKEN_ENC_KEY=",
+      "INSTAGRAM_GRAPH_ORIGIN=",
       "INSTAGRAM_API_VERSION=",
-      "INSTAGRAM_USER_ID=",
-      "INSTAGRAM_ACCESS_TOKEN=",
       "CRON_SECRET=",
     ]) {
       expect(environment).toContain(variable);
     }
+    expect(environment).not.toContain("INSTAGRAM_USER_ID=");
+    expect(environment).not.toContain("INSTAGRAM_ACCESS_TOKEN=");
   });
 });

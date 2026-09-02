@@ -6,8 +6,10 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 const ROOT = resolve(__dirname, "../..");
 const RUN_POSTGRES = process.env.OPS_RUN_SOCIAL_POSTGRES_RUNTIME === "1";
-const PSQL = process.env.OPS_PSQL_BIN ?? "/opt/homebrew/opt/postgresql@17/bin/psql";
-const CREATEDB = process.env.OPS_CREATEDB_BIN ?? join(dirname(PSQL), "createdb");
+const PSQL =
+  process.env.OPS_PSQL_BIN ?? "/opt/homebrew/opt/postgresql@17/bin/psql";
+const CREATEDB =
+  process.env.OPS_CREATEDB_BIN ?? join(dirname(PSQL), "createdb");
 const DROPDB = process.env.OPS_DROPDB_BIN ?? join(dirname(PSQL), "dropdb");
 const PG_HOST = process.env.OPS_PGHOST ?? "/tmp";
 const PG_PORT = process.env.OPS_PGPORT ?? "55432";
@@ -22,8 +24,16 @@ function assertSafeTarget(): void {
       PG_HOST === "/private/tmp" ||
       PG_HOST.startsWith("/private/tmp/"));
   const port = Number(PG_PORT);
-  if (!localSocket || !Number.isInteger(port) || port < 1 || port > 65_535 || port === 5_432) {
-    throw new Error("Social PostgreSQL runtime requires a local socket and non-default port");
+  if (
+    !localSocket ||
+    !Number.isInteger(port) ||
+    port < 1 ||
+    port > 65_535 ||
+    port === 5_432
+  ) {
+    throw new Error(
+      "Social PostgreSQL runtime requires a local socket and non-default port"
+    );
   }
 }
 
@@ -44,7 +54,14 @@ async function runFile(database: string, file: string): Promise<void> {
 async function query(database: string, sql: string): Promise<string> {
   const { stdout } = await execFileAsync(
     PSQL,
-    databaseArgs(database).concat("-X", "-Atq", "-v", "ON_ERROR_STOP=1", "-c", sql),
+    databaseArgs(database).concat(
+      "-X",
+      "-Atq",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      sql
+    ),
     { cwd: ROOT, timeout: TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 }
   );
   return stdout.trim();
@@ -66,10 +83,23 @@ describe.runIf(RUN_POSTGRES)("social publishing PostgreSQL 17 runtime", () => {
         databaseArgs().concat("-T", "template0", "-E", "UTF8", database),
         { cwd: ROOT, timeout: TIMEOUT_MS }
       );
-      await runFile(database, join(ROOT, "tests/sql/social-publishing-postgres17-baseline.sql"));
       await runFile(
         database,
-        join(ROOT, "supabase/migrations/20260901235149_create_social_publishing.sql")
+        join(ROOT, "tests/sql/social-publishing-postgres17-baseline.sql")
+      );
+      await runFile(
+        database,
+        join(
+          ROOT,
+          "supabase/migrations/20260901235149_create_social_publishing.sql"
+        )
+      );
+      await runFile(
+        database,
+        join(
+          ROOT,
+          "supabase/migrations/20260902195639_create_instagram_connection.sql"
+        )
       );
 
       await query(
@@ -107,7 +137,14 @@ describe.runIf(RUN_POSTGRES)("social publishing PostgreSQL 17 runtime", () => {
         )
       ).resolves.toBe("0");
 
-      await runFile(database, join(ROOT, "tests/sql/social-publishing-postgres17-runtime.sql"));
+      await runFile(
+        database,
+        join(ROOT, "tests/sql/social-publishing-postgres17-runtime.sql")
+      );
+      await runFile(
+        database,
+        join(ROOT, "tests/sql/instagram-connection-postgres17-runtime.sql")
+      );
     } finally {
       if (created) {
         if (!/^social_publish_[0-9]+_[0-9a-f]{12}$/.test(database)) {

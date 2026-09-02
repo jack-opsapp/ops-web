@@ -8,47 +8,64 @@ The feature code and migration are local only. It is **not deployed**, the datab
 
 ## Production prerequisites
 
-- An Instagram professional account connected to the correct Facebook Page and Meta app.
-- A Meta access token with the publishing permissions required by the account setup.
-- A verified Instagram professional account ID.
+- An Instagram professional account added to the OPS Meta app's Instagram API setup.
+- Instagram business login configured with the exact production redirect URI:
+  `https://app.opsapp.co/api/admin/social/instagram/callback`.
+- Meta permissions `instagram_business_basic` and
+  `instagram_business_content_publish` approved for the account setup.
 - A currently supported Graph API version selected deliberately from the Meta app configuration.
 - Public HTTPS JPEG URLs that Meta can fetch without cookies, headers, or expiring signatures.
 - A Vercel plan that supports the configured two-minute cron schedule.
-- The `20260901235149_create_social_publishing.sql` migration applied and independently read back.
+- The `20260901235149_create_social_publishing.sql` and
+  `20260902195639_create_instagram_connection.sql` migrations applied and independently read back.
 
 ## Vercel environment contract
 
 All values are server-only. Never prefix them with `NEXT_PUBLIC_`.
 
-| Variable | Required | Purpose |
-|---|---:|---|
-| `SOCIAL_AUTOMATION_SECRET` | Yes | 32+ character bearer secret for scheduled-agent submissions |
-| `CRON_SECRET` | Yes | Vercel cron bearer secret; the route fails closed when missing or shorter than 32 characters |
-| `INSTAGRAM_ACCESS_TOKEN` | Yes | Meta token used only by the server-side Graph client |
-| `INSTAGRAM_USER_ID` | Yes | Instagram professional account ID |
-| `INSTAGRAM_API_VERSION` | Yes | Explicit supported Graph API version, for example the version approved in the Meta app at release time |
-| `INSTAGRAM_API_ORIGIN` | No | Defaults to `https://graph.facebook.com`; exists for testability and controlled API routing |
-| `SOCIAL_OPERATOR_USER_ID` | Yes | Active OPS `users.id` receiving review/publication/recovery notifications |
-| `SOCIAL_OPERATOR_COMPANY_ID` | Yes | Exact active company paired with the operator user |
-| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET`, `AWS_REGION` | When `STORAGE_BACKEND=s3` | Public rendered-asset storage |
-| `STORAGE_BACKEND` | No | `s3` by default; set `supabase` for the existing public `social-media` bucket fallback |
-| `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Yes | Queue, blog verification, notifications, and Supabase Storage fallback |
+| Variable                                                                    |                  Required | Purpose                                                                                      |
+| --------------------------------------------------------------------------- | ------------------------: | -------------------------------------------------------------------------------------------- |
+| `SOCIAL_AUTOMATION_SECRET`                                                  |                       Yes | 32+ character bearer secret for scheduled-agent submissions                                  |
+| `CRON_SECRET`                                                               |                       Yes | Vercel cron bearer secret; the route fails closed when missing or shorter than 32 characters |
+| `INSTAGRAM_APP_ID`                                                          |                       Yes | Instagram App ID from Meta business login settings                                           |
+| `INSTAGRAM_APP_SECRET`                                                      |                       Yes | Instagram App Secret from Meta business login settings                                       |
+| `INSTAGRAM_TOKEN_ENC_KEY`                                                   |                       Yes | OPS-generated base64 32-byte AES-256-GCM key; never stored in Supabase                       |
+| `INSTAGRAM_API_VERSION`                                                     |                       Yes | Pinned supported version; the build defaults to `v25.0`                                      |
+| `INSTAGRAM_GRAPH_ORIGIN`                                                    |                        No | Defaults to the official `https://graph.instagram.com` host                                  |
+| `SOCIAL_OPERATOR_USER_ID`                                                   |                       Yes | Active OPS `users.id` receiving review/publication/recovery notifications                    |
+| `SOCIAL_OPERATOR_COMPANY_ID`                                                |                       Yes | Exact active company paired with the operator user                                           |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET`, `AWS_REGION` | When `STORAGE_BACKEND=s3` | Public rendered-asset storage                                                                |
+| `STORAGE_BACKEND`                                                           |                        No | `s3` by default; set `supabase` for the existing public `social-media` bucket fallback       |
+| `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`                     |                       Yes | Queue, blog verification, notifications, and Supabase Storage fallback                       |
 
 If the two dedicated social operator IDs are absent, notifications fall back to `PMF_OPERATOR_USER_ID` and `PMF_OPERATOR_COMPANY_ID`. If neither complete pair exists, review notifications are skipped and any recovery alert remains durably pending; the worker will not acknowledge that outbox row until it can create the persistent notification. Configure the dedicated pair in production.
 
-Generate the two bearer secrets independently with a cryptographically secure generator. Store them only in Vercel’s encrypted environment settings and the scheduled agent’s secret store. Rotate either secret immediately after suspected disclosure.
+OPS generates `SOCIAL_AUTOMATION_SECRET`, `CRON_SECRET`, and
+`INSTAGRAM_TOKEN_ENC_KEY` independently with a cryptographically secure
+generator. Store them only in Vercel's encrypted environment settings; only the
+automation bearer also belongs in the scheduled agent's secret store. Jackson
+supplies the Meta App ID and App Secret. Rotate a value immediately after
+suspected disclosure.
+
+The Instagram user ID and access token are not Vercel variables. An admin opens
+`/admin/social`, chooses `CONNECT INSTAGRAM`, and completes Meta login. OPS
+exchanges the one-hour grant for a long-lived credential valid for roughly 60
+days, encrypts it before database storage, and records only safe account
+metadata in the admin response. The browser and scheduled agent never receive
+the token or app secret.
 
 ## Runtime flow
 
-1. The agent calls `POST /api/internal/social/posts` with bearer auth and `Idempotency-Key`.
-2. OPS Web validates the live blog source and versioned content contract.
-3. The selector chooses one of seven treatments using fit, title length, media, recent repetition, and feed balance.
-4. The renderer produces public 1080 × 1350 JPEGs. S3 is the default; Supabase Storage is the fallback.
-5. The post enters `review` and opens a 10-minute veto window in `/admin/social`.
-6. An operator may edit and regenerate, stop, or publish immediately. Editing begins a fresh 10-minute window.
-7. Vercel calls `GET /api/cron/social-publish` every two minutes. The worker atomically claims no more than two due rows.
-8. For each claim, OPS checks `content_publishing_limit`, creates and polls Meta containers, publishes once, then stores the media ID and permalink.
-9. Success resolves the veto notification. Exhausted, stale, or uncertain work enters a leased database outbox; the persistent operator notification and outbox acknowledgement commit atomically.
+1. An admin connects the professional account once from `/admin/social`.
+2. The agent calls `POST /api/internal/social/posts` with bearer auth and `Idempotency-Key`.
+3. OPS Web validates the live blog source and versioned content contract.
+4. The selector chooses one of seven treatments using fit, title length, media, recent repetition, and feed balance.
+5. The renderer produces public 1080 × 1350 JPEGs. S3 is the default; Supabase Storage is the fallback.
+6. The post enters `review` and opens a 10-minute veto window in `/admin/social`.
+7. An operator may edit and regenerate, stop, or publish immediately. Editing begins a fresh 10-minute window.
+8. Vercel calls `GET /api/cron/social-publish` every two minutes. Before claiming work, the worker verifies the connection and takes the single-worker token-refresh lease when needed.
+9. For each claim, OPS checks `content_publishing_limit`, creates and polls Meta containers, publishes once, then stores the media ID and permalink.
+10. Success resolves the veto notification. Exhausted, stale, or uncertain work enters a leased database outbox; the persistent operator notification and outbox acknowledgement commit atomically.
 
 Every Meta request has a 12-second network deadline. The queue also records `claimed`, `container_ready`, `publish_requested`, and `publish_succeeded` stages under the active claim token. That ledger is the authority for crash recovery.
 
@@ -97,20 +114,25 @@ Published and cancelled rows are immutable in the admin API.
 1. Open `/admin/social` and record the post ID, error code, attempt count, and latest audit event.
 2. For `PUBLISH_OUTCOME_UNKNOWN` or `PUBLISHED_ACK_NOT_PERSISTED`, stop. Do not retry. Reconcile Instagram first.
 3. For quota exhaustion, wait for the `content_publishing_limit` window to recover.
-4. For token or permission failures, rotate/re-authorize the Meta token, update Vercel Production and Preview values deliberately, then retry one row.
+4. For token or permission failures, use `RECONNECT INSTAGRAM` in `/admin/social`, verify the connected username, then retry one row.
 5. For media fetch or container failures, verify each stored JPEG is public, returns `image/jpeg`, and is exactly 1080 × 1350. Regenerate through `EDIT COPY` if needed.
 6. For worker/auth failures, verify `CRON_SECRET` matches Vercel’s bearer header and inspect function logs without printing secrets.
 7. After repair, read back the row and Instagram profile. Never infer publication from one HTTP response.
 
-## Token rotation
+## Token renewal and reconnection
 
-1. Create or refresh the token through the approved Meta account flow.
-2. Verify the token belongs to the intended Instagram professional account and exposes the required publishing permissions.
-3. Update `INSTAGRAM_ACCESS_TOKEN` in Vercel Preview first.
-4. Run a mocked or dedicated non-publishing configuration check; never use a customer-facing post as a credential probe.
-5. Update Production only with explicit deployment approval.
-6. Revoke the previous token after the new value is verified.
-7. Record the rotation date and owner outside the repository. Never commit tokens.
+Meta long-lived Instagram user tokens are valid for about 60 days. The existing
+two-minute worker checks the encrypted connection before claiming posts. Once a
+token reaches seven days before expiry and is at least 24 hours old, one worker
+claims the database refresh lease, asks Meta for a replacement, encrypts it, and
+atomically swaps it into the connection row. Other workers continue without
+refreshing the same credential.
+
+If proactive refresh fails while the current token remains valid, publishing may
+continue with the current credential and the safe refresh failure is retained
+for operations. Expired, revoked, malformed, or scope-deficient credentials fail
+closed before a post claim. Use `RECONNECT INSTAGRAM`; do not paste a token into
+Vercel or the database.
 
 ## Storage operations
 
@@ -132,11 +154,11 @@ Before production approval, re-check the current [Vercel Cron Jobs documentation
 
 Do not combine these gates into one inferred action.
 
-1. Review and apply the Supabase migration; run `OPS_RUN_SOCIAL_POSTGRES_RUNTIME=1` against an isolated PostgreSQL 17 database to verify exact migration application, RLS/grants, concurrent claims, every expired-stage branch, atomic recovery notifications, and zero-row replay.
+1. Review and apply both Supabase migrations; run `OPS_RUN_SOCIAL_POSTGRES_RUNTIME=1` against an isolated PostgreSQL 17 database to verify exact migration application, RLS/grants, concurrent claims, refresh leases, every expired-stage branch, atomic recovery notifications, and zero-row replay.
 2. Configure Preview environment variables and verify the agent/auth/render/admin paths with Meta publishing disabled.
-3. Configure a Meta test path and verify one deliberate single image and one carousel.
+3. Add the exact callback URI to Meta business login settings, open `/admin/social`, choose `CONNECT INSTAGRAM`, and verify the expected `@username` compact state.
 4. Configure Production environment values.
 5. Deploy OPS Web with explicit approval.
 6. Verify the Vercel cron registration and one zero-work invocation.
 7. Submit a controlled post, inspect the exact artifact in `/admin/social`, and stop it during the veto window.
-8. Submit a second controlled post and explicitly authorize the first real Instagram publication.
+8. Submit a second controlled post and explicitly authorize the first real Instagram publication, then verify one deliberate carousel.
