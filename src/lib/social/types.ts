@@ -116,4 +116,3 @@ export interface SocialPostRecord {
   created_at: string;
   updated_at: string;
 }
-import type { SocialContent } from "./contract";
