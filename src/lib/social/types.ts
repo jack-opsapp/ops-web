@@ -82,7 +82,7 @@ export interface SocialPostRecord {
   story_type: SocialStoryType;
   visual_treatment: SocialVisualTreatment;
   post_format: SocialPostFormat;
-  content: Record<string, unknown>;
+  content: SocialContent;
   caption: string;
   alt_text: string;
   agent_preferences: Record<string, unknown>;
@@ -114,3 +114,4 @@ export interface SocialPostRecord {
   created_at: string;
   updated_at: string;
 }
+import type { SocialContent } from "./contract";
