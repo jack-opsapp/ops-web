@@ -14,7 +14,15 @@
  */
 
 import { NextRequest } from "next/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from "vitest";
 
 const mocks = vi.hoisted(() => {
   process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID = "ops-guardrail-test";
@@ -136,8 +144,8 @@ const STAFF_ROUTES: readonly StaffRoute[] = [
 ];
 
 let credential: string;
-let consoleError: ReturnType<typeof vi.spyOn>;
-let fetchSpy: ReturnType<typeof vi.spyOn>;
+let consoleError: MockInstance<typeof console.error>;
+let fetchSpy: MockInstance<typeof globalThis.fetch>;
 
 beforeEach(() => {
   credential = mintSessionCredential();

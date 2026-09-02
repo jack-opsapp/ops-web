@@ -9,13 +9,14 @@
  * replaces it; the portal tables are dropped in P3.
  */
 
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 export const PORTAL_SHARE_RETIRED = Object.freeze({
   error: "portal_link_sharing_retired",
 });
 
-export async function POST(): Promise<NextResponse> {
+// The request is deliberately never read: no token, no body, no branding.
+export async function POST(_request: NextRequest): Promise<NextResponse> {
   return NextResponse.json(PORTAL_SHARE_RETIRED, {
     status: 410,
     headers: { "Cache-Control": "no-store" },
