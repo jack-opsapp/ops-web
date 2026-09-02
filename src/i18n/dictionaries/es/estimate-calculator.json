@@ -16,6 +16,9 @@
   "addMath": "[ AÑADIR EL CÁLCULO A LA DESCRIPCIÓN ]",
 
   "field.expression": "EXPRESIÓN",
+  "field.value": "VALOR",
+  "field.unit": "UNIDAD",
+  "field.output": "RESULTADO EN",
   "field.length": "LARGO",
   "field.width": "ANCHO",
   "field.count": "REPETICIONES",

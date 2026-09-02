@@ -16,6 +16,9 @@
   "addMath": "[ ADD MATH TO DESCRIPTION ]",
 
   "field.expression": "EXPRESSION",
+  "field.value": "VALUE",
+  "field.unit": "UNIT",
+  "field.output": "RESULT IN",
   "field.length": "LENGTH",
   "field.width": "WIDTH",
   "field.count": "COUNT",
