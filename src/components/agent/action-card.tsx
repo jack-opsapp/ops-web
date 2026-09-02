@@ -1656,7 +1656,7 @@ export const ActionCard = memo(function ActionCard({
           )}
 
           {/* Status tag for non-pending */}
-          {!isPending && (
+          {action.status !== "pending" && (
             <Tag variant={STATUS_TAG[action.status]}>
               {t(`filter.${action.status}`)}
             </Tag>
