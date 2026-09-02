@@ -136,7 +136,7 @@ export function ThreadPicker({
         className="w-[340px] p-2"
       >
         {/* Header */}
-        <div className="border-b border-line/50 px-2 py-2">
+        <div className="border-b border-border-subtle px-2 py-2">
           <SlashLabel label={headerLabel} tone="text-mute" size="sm" />
         </div>
 

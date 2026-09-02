@@ -134,9 +134,9 @@ function DocumentSection({
   return (
     <section data-testid={testId}>
       <SectionHeader label={label} count={docs.length} />
-      <ul className="mt-1.5 border-y border-line/70">
+      <ul className="mt-1.5 border-y border-border-subtle">
         {docs.map((doc) => (
-          <li key={doc.id} className="border-b border-line/60 last:border-b-0">
+          <li key={doc.id} className="border-b border-border-subtle last:border-b-0">
             <DocumentRow
               doc={doc}
               kindLabel={kindLabel}

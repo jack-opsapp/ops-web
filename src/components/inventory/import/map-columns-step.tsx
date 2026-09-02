@@ -115,7 +115,7 @@ export function MapColumnsStep({
               <tr
                 key={rowIndex}
                 className={cn(
-                  "border-b border-border/50",
+                  "border-b border-border-subtle",
                   rowIndex % 2 === 0
                     ? "bg-transparent"
                     : "bg-[rgba(255,255,255,0.02)]"

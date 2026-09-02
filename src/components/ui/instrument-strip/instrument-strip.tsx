@@ -145,7 +145,7 @@ export function GlanceTileSkeleton() {
     <div className="glass-surface min-h-[132px] animate-pulse px-[18px] pb-[12px] pt-[14px] motion-reduce:animate-none">
       <div className="mb-2 h-[11px] w-[72px] rounded bg-fill-neutral-dim" />
       <div className="mb-2 h-[24px] w-[120px] rounded bg-fill-neutral-dim" />
-      <div className="mb-2 h-[16px] w-full rounded bg-fill-neutral-dim/60" />
+      <div className="mb-2 h-[16px] w-full rounded bg-fill-neutral-dim" />
       <div className="h-[11px] w-[140px] rounded bg-fill-neutral-dim" />
     </div>
   );

@@ -206,7 +206,7 @@ describe("<PipelineOppCard>", () => {
     expect(card.getAttribute("data-current")).toBe("false");
     expect(within(card).getByText(/^WON$/)).toBeInTheDocument();
     expect(card).toHaveClass("bg-transparent");
-    expect(card).toHaveClass("border-line/60");
+    expect(card).toHaveClass("border-border-subtle");
     expect(within(card).getByTestId("pipeline-opp-title-won-1")).toHaveClass(
       "text-text-3"
     );

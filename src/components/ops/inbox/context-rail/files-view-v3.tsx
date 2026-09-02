@@ -172,9 +172,9 @@ function FilesSubView({ files, onFileOpen }: FilesSubViewProps) {
   }
 
   return (
-    <ul data-testid="files-list" className="border-y border-line/70">
+    <ul data-testid="files-list" className="border-y border-border-subtle">
       {files.map((file) => (
-        <li key={file.id} className="border-b border-line/60 last:border-b-0">
+        <li key={file.id} className="border-b border-border-subtle last:border-b-0">
           <FileRow file={file} onFileOpen={onFileOpen} t={t} />
         </li>
       ))}
