@@ -1,0 +1,175 @@
+/*
+ * Hosted customer surface (/c/<handle>/…).
+ *
+ * Color comes from the company's portal_branding row through
+ * generatePortalTheme (the --portal-* custom properties set on .customer-shell
+ * by the layout). Type, spacing, radii and motion are OPS design-system tokens
+ * (tailwind.config.ts + globals.css). Nothing here introduces a new color; the
+ * two --cs-on-accent poles are the OPS canvas and OPS primary-text tokens.
+ */
+
+.customer-shell {
+  /* The two text poles for a filled accent surface (DESIGN.md §3): the
+     OPS canvas (--background, pure black) and --text. hosted-theme.ts picks
+     one per accent by WCAG contrast. */
+  --cs-on-accent-dark: hsl(var(--background));
+  --cs-on-accent-light: var(--text);
+
+  background-color: var(--portal-bg);
+  color: var(--portal-text);
+}
+
+/* Focus ring follows the company accent (DESIGN.md §15: 1.5px, 2px offset). */
+.customer-shell :focus-visible {
+  outline: 1.5px solid var(--portal-accent);
+  outline-offset: 2px;
+}
+
+/* ── Text ladder ──────────────────────────────────────────────────────── */
+.cs-text { color: var(--portal-text); }
+.cs-text-2 { color: var(--portal-text-secondary); }
+
+/* ── Hairlines ────────────────────────────────────────────────────────── */
+.cs-line { border-color: var(--portal-border); }
+.cs-line-strong { border-color: var(--portal-border-strong); }
+
+/* ── Inputs (DESIGN.md §9: inset surface, hairline, focus brightens the
+      border — never the accent) ─────────────────────────────────────── */
+.cs-input {
+  background-color: var(--portal-card);
+  border: 1px solid var(--portal-border);
+  color: var(--portal-text);
+  transition:
+    border-color var(--d-hover) var(--ease-smooth),
+    background-color var(--d-hover) var(--ease-smooth);
+}
+.cs-input::placeholder {
+  color: var(--portal-text-tertiary);
+  opacity: 1;
+}
+.cs-input:hover:not(:disabled) {
+  border-color: var(--portal-border-strong);
+}
+.cs-input:focus,
+.cs-input:focus-visible {
+  border-color: var(--portal-border-strong);
+  outline: none;
+}
+.cs-input[aria-invalid="true"] {
+  border-color: var(--portal-error);
+}
+.cs-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Code cell: same surface as an input, digit centered in its own box. */
+.cs-cell {
+  text-align: center;
+  caret-color: var(--portal-text);
+}
+.cs-cell[data-filled="true"] {
+  border-color: var(--portal-border-strong);
+}
+
+/* ── Primary CTA (DESIGN.md §9: outlined accent at rest, fills on hover;
+      the one accent element on the screen) ────────────────────────────── */
+.cs-cta {
+  background-color: transparent;
+  border: 1px solid var(--portal-accent);
+  color: var(--portal-accent);
+  transition:
+    background-color var(--d-hover) var(--ease-smooth),
+    color var(--d-hover) var(--ease-smooth),
+    border-color var(--d-hover) var(--ease-smooth),
+    opacity var(--d-hover) var(--ease-smooth);
+}
+.cs-cta:hover:not(:disabled),
+.cs-cta:focus-visible:not(:disabled) {
+  background-color: var(--portal-accent);
+  color: var(--portal-accent-text);
+}
+.cs-cta:active:not(:disabled) {
+  background-color: var(--portal-accent-hover);
+  border-color: var(--portal-accent-hover);
+  color: var(--portal-accent-text);
+}
+.cs-cta:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Quiet secondary action (no accent — DESIGN.md §9 links/ghost) ───── */
+.cs-ghost {
+  background-color: transparent;
+  color: var(--portal-text-secondary);
+  transition:
+    color var(--d-hover) var(--ease-smooth),
+    opacity var(--d-hover) var(--ease-smooth);
+}
+.cs-ghost:hover:not(:disabled),
+.cs-ghost:focus-visible:not(:disabled) {
+  color: var(--portal-text);
+}
+.cs-ghost:disabled {
+  cursor: default;
+}
+
+/* Bordered secondary (sign out): transparent fill, hairline, text-2. */
+.cs-secondary {
+  background-color: transparent;
+  border: 1px solid var(--portal-border);
+  color: var(--portal-text-secondary);
+  transition:
+    color var(--d-hover) var(--ease-smooth),
+    border-color var(--d-hover) var(--ease-smooth),
+    background-color var(--d-hover) var(--ease-smooth);
+}
+.cs-secondary:hover:not(:disabled),
+.cs-secondary:focus-visible:not(:disabled) {
+  border-color: var(--portal-border-strong);
+  color: var(--portal-text);
+}
+.cs-secondary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Semantic text ────────────────────────────────────────────────────── */
+.cs-error { color: var(--portal-error); }
+.cs-success { color: var(--portal-success); }
+
+/* ── Step progress (the signature: two segments, filled in --portal-text) */
+.cs-track { background-color: var(--portal-border); }
+.cs-track-fill { background-color: var(--portal-text); }
+
+/* ── Skeleton (home placeholder while /me loads) ─────────────────────── */
+.cs-skeleton { background-color: var(--portal-border); }
+
+/* ── Motion (DESIGN.md §8: one curve; reduced motion → opacity only) ─── */
+@keyframes cs-step-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes cs-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.cs-step-enter {
+  animation: cs-step-in var(--d-panel) var(--ease-smooth) both;
+}
+.cs-fade-enter {
+  animation: cs-fade-in var(--d-hover) var(--ease-smooth) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-step-enter {
+    animation: cs-fade-in var(--d-hover) var(--ease-smooth) both;
+  }
+  .cs-input,
+  .cs-cta,
+  .cs-ghost,
+  .cs-secondary {
+    transition: none;
+  }
+}
