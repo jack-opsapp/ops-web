@@ -133,4 +133,3 @@ Do not combine these gates into one inferred action.
 6. Verify the Vercel cron registration and one zero-work invocation.
 7. Submit a controlled post, inspect the exact artifact in `/admin/social`, and stop it during the veto window.
 8. Submit a second controlled post and explicitly authorize the first real Instagram publication.
-

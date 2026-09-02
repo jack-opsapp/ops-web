@@ -157,4 +157,3 @@ Before submission, confirm:
 - `contractor` is not used as public audience language;
 - the package contains no unsupported emoji or invented proof;
 - the idempotency key is stable for this exact editorial intention.
-

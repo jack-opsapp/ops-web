@@ -1,7 +1,7 @@
 # Instagram Agent Publishing — Design Specification
 
-**Date:** 2026-09-01  
-**Status:** Approved for implementation  
+**Date:** 2026-09-01
+**Status:** Approved for implementation
 **Surface:** OPS Web admin, scheduled content agents, Instagram professional account
 
 ## Outcome
