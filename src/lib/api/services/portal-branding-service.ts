@@ -13,6 +13,7 @@ import type {
   PortalTemplate,
   PortalThemeMode,
 } from "@/lib/types/portal";
+import { PORTAL_DEFAULT_ACCENT, defaultPortalBranding } from "@/lib/portal/defaults";
 
 // ─── Database Mapping ────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ function mapBrandingFromDb(row: Record<string, unknown>): PortalBranding {
     id: row.id as string,
     companyId: row.company_id as string,
     logoUrl: (row.logo_url as string) ?? null,
-    accentColor: (row.accent_color as string) ?? "#417394",
+    accentColor: (row.accent_color as string) ?? PORTAL_DEFAULT_ACCENT,
     template: (row.template as PortalTemplate) ?? "modern",
     themeMode: (row.theme_mode as PortalThemeMode) ?? "dark",
     fontCombo: (row.font_combo as PortalTemplate) ?? "modern",
@@ -60,6 +61,26 @@ function mapBrandingToDb(data: Partial<CreatePortalBranding>): Record<string, un
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export const PortalBrandingService = {
+  /**
+   * Read branding for a company WITHOUT creating a row. Public, unauthenticated
+   * surfaces (the hosted customer pages under /c/) use this so anonymous
+   * traffic never writes on a company's behalf. A company with no row gets
+   * the same defaults the database would have created.
+   */
+  async readBranding(companyId: string): Promise<PortalBranding> {
+    const supabase = getServiceRoleClient();
+
+    const { data, error } = await supabase
+      .from("portal_branding")
+      .select("*")
+      .eq("company_id", companyId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Failed to read branding: ${error.message}`);
+
+    return data ? mapBrandingFromDb(data) : defaultPortalBranding(companyId);
+  },
+
   /**
    * Get branding for a company, creating a default if none exists.
    */
