@@ -182,3 +182,53 @@ $$;
 
 revoke all on function public.claim_due_social_posts(uuid, integer, integer) from public, anon, authenticated;
 grant execute on function public.claim_due_social_posts(uuid, integer, integer) to service_role;
+
+create or replace function public.claim_social_post_by_id(
+  p_post_id uuid,
+  p_claim_token uuid,
+  p_claim_ttl_seconds integer default 180
+)
+returns setof public.social_posts
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_post_id is null or p_claim_token is null then
+    raise exception 'post id and claim token are required' using errcode = '22023';
+  end if;
+
+  if p_claim_ttl_seconds < 30 or p_claim_ttl_seconds > 900 then
+    raise exception 'claim ttl must be between 30 and 900 seconds' using errcode = '22023';
+  end if;
+
+  return query
+  update public.social_posts as social_post
+  set
+    status = 'publishing',
+    claim_token = p_claim_token,
+    claim_expires_at = now() + make_interval(secs => p_claim_ttl_seconds),
+    attempt_count = social_post.attempt_count + 1,
+    last_attempt_at = now(),
+    next_attempt_at = null,
+    updated_by = 'admin:publish-now',
+    audit_log = social_post.audit_log || jsonb_build_array(
+      jsonb_build_object(
+        'at', now(),
+        'actor', 'admin:publish-now',
+        'from', social_post.status,
+        'to', 'publishing',
+        'event', 'claimed_manual',
+        'claim_token', p_claim_token
+      )
+    )
+  where social_post.id = p_post_id
+    and social_post.status in ('review', 'failed')
+    and social_post.attempt_count < social_post.max_attempts
+    and (social_post.claim_expires_at is null or social_post.claim_expires_at <= now())
+  returning social_post.*;
+end;
+$$;
+
+revoke all on function public.claim_social_post_by_id(uuid, uuid, integer) from public, anon, authenticated;
+grant execute on function public.claim_social_post_by_id(uuid, uuid, integer) to service_role;

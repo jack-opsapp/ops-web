@@ -294,11 +294,31 @@ export class InstagramGraphClient {
   }
 
   private async publishContainer(containerId: string): Promise<string> {
-    const payload = await this.request<{ id?: string }>({
-      path: `${this.config.userId}/media_publish`,
-      method: "POST",
-      body: { creation_id: containerId },
-    });
+    let payload: { id?: string };
+    try {
+      payload = await this.request<{ id?: string }>({
+        path: `${this.config.userId}/media_publish`,
+        method: "POST",
+        body: { creation_id: containerId },
+      });
+    } catch (error) {
+      if (
+        error instanceof InstagramGraphError &&
+        (error.code === "INSTAGRAM_UNREACHABLE" ||
+          error.code === "INVALID_GRAPH_RESPONSE" ||
+          (error.httpStatus !== undefined && error.httpStatus >= 500))
+      ) {
+        throw new InstagramGraphError(
+          "PUBLISH_OUTCOME_UNKNOWN",
+          "Instagram publish response was uncertain; reconcile the account before retrying",
+          false,
+          error.graphCode,
+          error.graphSubcode,
+          error.httpStatus
+        );
+      }
+      throw error;
+    }
     if (!payload.id) {
       throw new InstagramGraphError(
         "INVALID_PUBLISH_RESPONSE",
@@ -338,7 +358,11 @@ export class InstagramGraphClient {
       throw new InstagramGraphError(
         "PUBLISHING_QUOTA_EXHAUSTED",
         "Instagram publishing quota is exhausted for the current window",
-        true
+        true,
+        undefined,
+        undefined,
+        undefined,
+        Math.min(quota.durationSeconds * 1000, 60 * 60 * 1000)
       );
     }
 

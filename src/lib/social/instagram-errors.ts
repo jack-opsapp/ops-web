@@ -5,7 +5,8 @@ export class InstagramGraphError extends Error {
     public readonly retryable: boolean,
     public readonly graphCode?: number,
     public readonly graphSubcode?: number,
-    public readonly httpStatus?: number
+    public readonly httpStatus?: number,
+    public readonly retryAfterMs?: number
   ) {
     super(message);
     this.name = "InstagramGraphError";

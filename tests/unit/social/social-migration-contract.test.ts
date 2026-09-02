@@ -59,6 +59,8 @@ describe("social publishing migration contract", () => {
     expect(sql).toContain("revoke all on function public.claim_due_social_posts");
     expect(sql).toContain("grant execute on function public.claim_due_social_posts");
     expect(sql).toContain("to service_role");
+    expect(sql).toContain("create or replace function public.claim_social_post_by_id");
+    expect(sql).toContain("revoke all on function public.claim_social_post_by_id");
   });
 
   it("keeps updated_at server-owned", () => {
