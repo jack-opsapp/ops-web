@@ -15,19 +15,10 @@ import { cache } from "react";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { PortalBrandingService } from "@/lib/api/services/portal-branding-service";
 import type { PortalBranding } from "@/lib/types/portal";
+import { parsePublicHandle } from "./handle";
 
-/** Mirrors the CHECK constraint on `companies.public_handle` (P1 migration). */
-export const PUBLIC_HANDLE_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-export const PUBLIC_HANDLE_MIN = 3;
-export const PUBLIC_HANDLE_MAX = 48;
-
-export function isValidPublicHandle(handle: string): boolean {
-  return (
-    handle.length >= PUBLIC_HANDLE_MIN &&
-    handle.length <= PUBLIC_HANDLE_MAX &&
-    PUBLIC_HANDLE_PATTERN.test(handle)
-  );
-}
+/** The handle grammar is shared with the broker routes: one definition (./handle.ts). */
+export { isValidPublicHandle, parsePublicHandle } from "./handle";
 
 export interface HostedCompany {
   id: string;
@@ -124,7 +115,7 @@ async function loadCompanyRow(handle: string): Promise<CompanyRow | null> {
  */
 export const resolveHostedCompany = cache(
   async (handle: string): Promise<HostedCompany | null> => {
-    if (!isValidPublicHandle(handle)) return null;
+    if (parsePublicHandle(handle) === null) return null;
 
     const row = await loadCompanyRow(handle);
     if (!row || row.deleted_at) return null;

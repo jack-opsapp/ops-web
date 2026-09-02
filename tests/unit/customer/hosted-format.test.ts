@@ -7,7 +7,8 @@ import {
   isPlausibleEmail,
   safeCustomerNext,
 } from "@/lib/customer-identity/hosted-format";
-import { isValidPublicHandle, normalizeLogoUrl } from "@/lib/customer-identity/hosted-company";
+import { normalizeLogoUrl } from "@/lib/customer-identity/hosted-company";
+import { isValidPublicHandle, parsePublicHandle } from "@/lib/customer-identity/handle";
 import en from "@/i18n/dictionaries/en/customer.json";
 import es from "@/i18n/dictionaries/es/customer.json";
 
@@ -101,6 +102,13 @@ describe("isValidPublicHandle", () => {
     expect(isValidPublicHandle("a".repeat(49))).toBe(false);
     expect(isValidPublicHandle("a".repeat(48))).toBe(true);
     expect(isValidPublicHandle("../etc")).toBe(false);
+  });
+
+  it("refuses a uuid-shaped string even though it fits the grammar (I4)", () => {
+    expect(parsePublicHandle("ddee107c-33cd-483e-8278-0f8d8a180181")).toBeNull();
+    expect(parsePublicHandle(" maverick")).toBeNull();
+    expect(parsePublicHandle(42)).toBeNull();
+    expect(parsePublicHandle("maverick-projects-ltd")).toBe("maverick-projects-ltd");
   });
 });
 
