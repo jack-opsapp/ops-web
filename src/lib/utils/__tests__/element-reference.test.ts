@@ -516,11 +516,14 @@ describe("captureElementCrop", () => {
     drawImage = vi.fn();
     lastCanvas = null;
     croppedBlob = new Blob(["cropped"], { type: "image/png" });
+    const rememberCanvas = (canvas: HTMLCanvasElement) => {
+      lastCanvas = canvas;
+    };
 
     HTMLCanvasElement.prototype.getContext = function (
       this: HTMLCanvasElement
     ) {
-      lastCanvas = this;
+      rememberCanvas(this);
       return { drawImage } as unknown as CanvasRenderingContext2D;
     } as unknown as typeof HTMLCanvasElement.prototype.getContext;
 
