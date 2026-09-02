@@ -7,6 +7,10 @@ const migrationPath = path.join(
   process.cwd(),
   "supabase/migrations/20260902010000_agent_recurring_service_price_change.sql"
 );
+const indexDedupeMigrationPath = path.join(
+  process.cwd(),
+  "supabase/migrations/20260902195000_agent_recurring_service_price_index_dedupe.sql"
+);
 
 function migration(): string {
   return fs.readFileSync(migrationPath, "utf8");
@@ -276,5 +280,19 @@ describe("recurring-service price-change SQL contract", () => {
     expect(body!.split("revoke all on function")[0]).not.toMatch(
       /\b(?:insert\s+into|update\s+public\.|update\s+private\.|delete\s+from|merge\s+into|pg_notify)\b/i
     );
+  });
+
+  it("removes only the exact redundant provider-delivery index", () => {
+    const sql = fs.readFileSync(indexDedupeMigrationPath, "utf8");
+    expect(sql).toContain("begin;");
+    expect(sql).toContain("commit;");
+    expect(sql).toContain(
+      "agent_provider_delivery_sources_company_delivered_idx"
+    );
+    expect(sql).toContain(
+      "drop index if exists private.agent_provider_delivery_sources_tenant_delivered_idx"
+    );
+    expect(sql).toContain("agent_recurring_service_price_index_shape_invalid");
+    expect(sql.match(/drop\s+index/gi)).toHaveLength(1);
   });
 });
