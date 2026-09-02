@@ -1,7 +1,9 @@
 import sharp from "sharp";
+import { renderToStaticMarkup } from "react-dom/server";
 import type { SocialSubmission } from "@/lib/social/contract";
 import type { SocialTemplateSelection } from "@/lib/social/template-selector";
 import type { RenderedSocialAsset, SocialVisualTreatment } from "@/lib/social/types";
+import { SocialFrame } from "@/lib/social/render/frame";
 import {
   SOCIAL_RENDER_VERSION,
   renderSocialPost,
@@ -102,6 +104,17 @@ async function dependencies(): Promise<{
 }
 
 describe("OPS social renderer", () => {
+  it("uses OPS JOURNAL as the social masthead", () => {
+    const markup = renderToStaticMarkup(
+      <SocialFrame treatmentLabel="EDITORIAL COVER" index={0} total={1} date="SEP 02 · 2026">
+        <div>Preview</div>
+      </SocialFrame>
+    );
+
+    expect(markup).toContain("// OPS JOURNAL");
+    expect(markup).not.toContain("OPS FIELD INTELLIGENCE");
+  });
+
   it("fades editorial artwork smoothly into the headline area", async () => {
     const deps = await dependencies();
     await renderSocialPost(

@@ -55,7 +55,7 @@ export function SocialFrame({
           paddingBottom: 20,
         }}
       >
-        <div style={{ ...monoLabel, display: "flex" }}>// OPS FIELD INTELLIGENCE</div>
+        <div style={{ ...monoLabel, display: "flex" }}>// OPS JOURNAL</div>
         <div style={{ ...monoLabel, display: "flex", color: SOCIAL_THEME.textMute }}>
           {date ?? "OPS // SOCIAL"}
         </div>
