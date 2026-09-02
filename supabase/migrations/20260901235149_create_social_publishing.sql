@@ -79,7 +79,6 @@ create table public.social_posts (
       status <> 'published'
       or (
         instagram_media_id is not null
-        and instagram_permalink is not null
         and published_at is not null
       )
     ),

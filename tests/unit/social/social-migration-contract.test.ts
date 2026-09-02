@@ -26,6 +26,8 @@ describe("social publishing migration contract", () => {
     expect(sql).toContain("claim_expires_at timestamptz");
     expect(sql).toContain("instagram_media_id text");
     expect(sql).toContain("instagram_permalink text");
+    expect(sql).toContain("instagram_media_id is not null");
+    expect(sql).not.toContain("instagram_permalink is not null");
     expect(sql).toMatch(/check\s*\(status\s+in\s*\(/);
     expect(sql).toMatch(/check\s*\(story_type\s+in\s*\(/);
     expect(sql).toMatch(/check\s*\(visual_treatment\s+in\s*\(/);
