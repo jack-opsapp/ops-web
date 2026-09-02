@@ -1,21 +1,17 @@
 {
   "meta.signIn": "Sign in",
   "meta.home": "Your account",
-
   "brand.poweredBy": "powered by",
   "brand.ops": "OPS",
-
   "step.counter": "STEP {step} / {total}",
   "step.email": "EMAIL",
   "step.code": "CODE",
-
   "signin.title": "SIGN IN",
   "signin.lead": "Enter your email to get a six-digit code.",
   "signin.emailLabel": "EMAIL",
   "signin.emailPlaceholder": "name@example.com",
   "signin.sendCode": "SEND CODE",
   "signin.sending": "SENDING",
-
   "code.title": "ENTER CODE",
   "code.lead": "Sent to {email}. Codes expire in 10 minutes.",
   "code.label": "SIX-DIGIT CODE",
@@ -23,10 +19,10 @@
   "code.verify": "VERIFY",
   "code.verifying": "VERIFYING",
   "code.resend": "RESEND CODE",
+  "code.sendNew": "SEND A NEW CODE",
   "code.resendIn": "RESEND IN {time}",
   "code.resent": "New code sent.",
   "code.changeEmail": "Use a different email",
-
   "error.emailInvalid": "Enter a valid email.",
   "error.offline": "No connection. Check your network and try again.",
   "error.rateLimited": "Too many requests. Try again in {time}.",
@@ -34,10 +30,11 @@
   "error.unavailable": "Sign-in is unavailable right now. Try again shortly.",
   "error.startFailed": "Couldn't send the code. Try again.",
   "error.codeInvalid": "That code didn't work. Check it and try again.",
+  "error.codeInvalidAttemptsOne": "That code didn't work. 1 attempt left.",
+  "error.codeInvalidAttemptsMany": "That code didn't work. {n} attempts left.",
   "error.codeExpired": "That code expired. Send a new one.",
   "error.codeExhausted": "Too many attempts. Send a new code.",
   "error.verifyFailed": "Couldn't verify the code. Try again.",
-
   "home.signedInAs": "SIGNED IN AS",
   "home.full.title": "You're in.",
   "home.full.body": "Bookings, estimates and invoices from {company} will appear here.",
@@ -50,10 +47,8 @@
   "home.signOutFailed": "Couldn't sign out. Try again.",
   "home.loadError": "Couldn't load your account. Refresh to try again.",
   "home.retry": "REFRESH",
-
   "notFound.title": "PAGE NOT AVAILABLE",
   "notFound.body": "This link isn't active. Check the address or ask the business that sent it.",
-
   "error.title": "PAGE FAILED TO LOAD",
   "error.body": "Refresh to try again. If it keeps happening, contact the business that sent this link.",
   "error.retry": "REFRESH"

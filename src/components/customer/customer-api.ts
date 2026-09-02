@@ -15,7 +15,12 @@ export interface StartSuccess {
   challengeId: string;
   retryAfterSeconds: number;
 }
-export type StartFailureKind = "rate_limited" | "unavailable" | "offline" | "failed";
+export type StartFailureKind =
+  | "rate_limited"
+  | "unknown_handle"
+  | "unavailable"
+  | "offline"
+  | "failed";
 export interface StartFailure {
   ok: false;
   kind: StartFailureKind;
@@ -28,12 +33,18 @@ export type VerifyFailureKind =
   | "invalid"
   | "expired"
   | "exhausted"
+  | "unknown_handle"
   | "unavailable"
   | "offline"
   | "failed";
 export type VerifyOutcome =
   | { ok: true; next: unknown }
-  | { ok: false; kind: VerifyFailureKind };
+  | {
+      ok: false;
+      kind: VerifyFailureKind;
+      /** Broker-reported attempts left on this challenge (invalid_code only). */
+      attemptsRemaining: number | null;
+    };
 
 export interface CustomerMe {
   displayName: string | null;
@@ -42,7 +53,7 @@ export interface CustomerMe {
 }
 export type MeOutcome =
   | { ok: true; me: CustomerMe }
-  | { ok: false; kind: "unauthenticated" | "offline" | "failed" };
+  | { ok: false; kind: "unauthenticated" | "unknown_handle" | "offline" | "failed" };
 
 export type SignOutOutcome = { ok: true } | { ok: false; kind: "offline" | "failed" };
 
@@ -150,6 +161,9 @@ export async function startCustomerAuth(
   if (res.status === 429) {
     return { ok: false, kind: "rate_limited", retryAfterSeconds: retryAfterFrom(res) };
   }
+  if (res.status === 404) {
+    return { ok: false, kind: "unknown_handle", retryAfterSeconds: null };
+  }
   if (isUnavailable(res)) {
     return { ok: false, kind: "unavailable", retryAfterSeconds: null };
   }
@@ -171,10 +185,15 @@ export async function startCustomerAuth(
 
 // ─── Verify (code → session cookie) ──────────────────────────────────────────
 
+/**
+ * Broker contract (src/app/api/customer/auth/verify/route.ts): 400 with
+ * error ∈ invalid_code {attemptsRemaining} | challenge_exhausted |
+ * challenge_closed (consumed or expired); 404 unknown handle; 503
+ * unavailable. Anything else is a generic failure.
+ */
 export function classifyVerifyFailure(status: number, code: string): VerifyFailureKind {
   if (status === 503 || code.includes("unavailable")) return "unavailable";
-  // Broker reasons (src/lib/customer-identity/otp.ts): invalid_code,
-  // challenge_exhausted, challenge_closed (consumed or expired).
+  if (status === 404) return "unknown_handle";
   if (code.includes("expired") || code.includes("closed")) return "expired";
   if (code.includes("exhaust") || code.includes("attempt") || status === 429) return "exhausted";
   if (code.includes("invalid") || code.includes("mismatch") || code.includes("code")) {
@@ -188,19 +207,28 @@ export async function verifyCustomerAuth(
   handle: string,
   challengeId: string,
   code: string,
+  email: string,
   fetchImpl: FetchLike = fetch
 ): Promise<VerifyOutcome> {
+  // The code is bound to the email at the provider and the broker holds only
+  // a keyed digest, so the email travels with the code.
   const res = await postJson(fetchImpl, "/api/customer/auth/verify", {
     handle,
     challengeId,
     code,
+    email,
   });
-  if ("offline" in res) return { ok: false, kind: "offline" };
+  if ("offline" in res) return { ok: false, kind: "offline", attemptsRemaining: null };
 
   if (res.status >= 200 && res.status < 300 && res.body?.ok === true) {
     return { ok: true, next: res.body.next };
   }
-  return { ok: false, kind: classifyVerifyFailure(res.status, errorCodeOf(res.body)) };
+  const kind = classifyVerifyFailure(res.status, errorCodeOf(res.body));
+  return {
+    ok: false,
+    kind,
+    attemptsRemaining: kind === "invalid" ? readNonNegativeInt(res.body?.attemptsRemaining) : null,
+  };
 }
 
 // ─── Me (who am I, for this company) ─────────────────────────────────────────
@@ -217,6 +245,7 @@ export async function fetchCustomerMe(
   if ("offline" in res) return { ok: false, kind: "offline" };
 
   if (res.status === 401 || res.status === 403) return { ok: false, kind: "unauthenticated" };
+  if (res.status === 404) return { ok: false, kind: "unknown_handle" };
   if (res.status < 200 || res.status >= 300 || !res.body) return { ok: false, kind: "failed" };
 
   const maskedEmail = res.body.maskedEmail;

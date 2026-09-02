@@ -1,21 +1,17 @@
 {
   "meta.signIn": "Iniciar sesión",
   "meta.home": "Tu cuenta",
-
   "brand.poweredBy": "powered by",
   "brand.ops": "OPS",
-
   "step.counter": "PASO {step} / {total}",
   "step.email": "CORREO",
   "step.code": "CÓDIGO",
-
   "signin.title": "INICIAR SESIÓN",
   "signin.lead": "Ingresa tu correo para recibir un código de seis dígitos.",
   "signin.emailLabel": "CORREO",
   "signin.emailPlaceholder": "nombre@ejemplo.com",
   "signin.sendCode": "ENVIAR CÓDIGO",
   "signin.sending": "ENVIANDO",
-
   "code.title": "INGRESA EL CÓDIGO",
   "code.lead": "Enviado a {email}. Los códigos expiran en 10 minutos.",
   "code.label": "CÓDIGO DE SEIS DÍGITOS",
@@ -23,10 +19,10 @@
   "code.verify": "VERIFICAR",
   "code.verifying": "VERIFICANDO",
   "code.resend": "REENVIAR CÓDIGO",
+  "code.sendNew": "ENVIAR UN CÓDIGO NUEVO",
   "code.resendIn": "REENVIAR EN {time}",
   "code.resent": "Nuevo código enviado.",
   "code.changeEmail": "Usar otro correo",
-
   "error.emailInvalid": "Ingresa un correo válido.",
   "error.offline": "Sin conexión. Revisa tu red e inténtalo de nuevo.",
   "error.rateLimited": "Demasiadas solicitudes. Inténtalo de nuevo en {time}.",
@@ -34,10 +30,11 @@
   "error.unavailable": "El inicio de sesión no está disponible ahora. Inténtalo en unos minutos.",
   "error.startFailed": "No se pudo enviar el código. Inténtalo de nuevo.",
   "error.codeInvalid": "Ese código no funcionó. Revísalo e inténtalo de nuevo.",
+  "error.codeInvalidAttemptsOne": "Ese código no funcionó. Queda 1 intento.",
+  "error.codeInvalidAttemptsMany": "Ese código no funcionó. Quedan {n} intentos.",
   "error.codeExpired": "Ese código expiró. Envía uno nuevo.",
   "error.codeExhausted": "Demasiados intentos. Envía un código nuevo.",
   "error.verifyFailed": "No se pudo verificar el código. Inténtalo de nuevo.",
-
   "home.signedInAs": "SESIÓN INICIADA COMO",
   "home.full.title": "Ya estás dentro.",
   "home.full.body": "Las reservas, presupuestos y facturas de {company} aparecerán aquí.",
@@ -50,10 +47,8 @@
   "home.signOutFailed": "No se pudo cerrar la sesión. Inténtalo de nuevo.",
   "home.loadError": "No se pudo cargar tu cuenta. Actualiza para intentarlo de nuevo.",
   "home.retry": "ACTUALIZAR",
-
   "notFound.title": "PÁGINA NO DISPONIBLE",
   "notFound.body": "Este enlace no está activo. Revisa la dirección o consulta con la empresa que lo envió.",
-
   "error.title": "LA PÁGINA NO CARGÓ",
   "error.body": "Actualiza para intentarlo de nuevo. Si sigue pasando, contacta a la empresa que envió este enlace.",
   "error.retry": "ACTUALIZAR"

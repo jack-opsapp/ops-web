@@ -15,6 +15,8 @@ import { fillCopy } from "@/lib/customer-identity/hosted-format";
 type State =
   | { kind: "loading" }
   | { kind: "ready"; me: CustomerMe; view: MembershipView }
+  /** The broker no longer knows this business (404): same page as an unknown link. */
+  | { kind: "gone" }
   | { kind: "error" };
 
 /**
@@ -45,6 +47,10 @@ export function HomePlaceholder() {
     }
     if (outcome.kind === "unauthenticated") {
       router.replace(signInPath);
+      return;
+    }
+    if (outcome.kind === "unknown_handle") {
+      setState({ kind: "gone" });
       return;
     }
     setState({ kind: "error" });
@@ -81,6 +87,17 @@ export function HomePlaceholder() {
           <span className="cs-skeleton h-2 w-full rounded-chip animate-pulse" />
           <span className="cs-skeleton h-2 w-2/3 rounded-chip animate-pulse" />
         </div>
+      </div>
+    );
+  }
+
+  if (state.kind === "gone") {
+    return (
+      <div className="cs-fade-enter flex flex-col gap-1" data-membership-view="gone">
+        <h1 className="font-cakemono font-light text-cake-display uppercase tracking-widest cs-text leading-none">
+          {copy["notFound.title"]}
+        </h1>
+        <p className="font-mohave text-body cs-text-2">{copy["notFound.body"]}</p>
       </div>
     );
   }

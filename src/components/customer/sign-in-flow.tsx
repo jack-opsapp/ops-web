@@ -16,7 +16,7 @@ import {
   verifyCustomerAuth,
   DEFAULT_RETRY_AFTER_SECONDS,
   type StartFailure,
-  type VerifyFailureKind,
+  type VerifyOutcome,
 } from "./customer-api";
 import {
   fillCopy,
@@ -31,6 +31,9 @@ type Step = "email" | "code";
 type Phase = "idle" | "sending" | "verifying";
 
 const TOTAL_STEPS = 2;
+
+/** Remaining attempts are surfaced only once they are scarce (contract: ≤ 2). */
+const ATTEMPTS_WARNING_THRESHOLD = 2;
 
 function StepMark({
   step,
@@ -72,6 +75,8 @@ function startFailureCopy(failure: StartFailure, copy: CustomerCopy): string {
             time: formatCountdown(failure.retryAfterSeconds),
           })
         : copy["error.rateLimitedNoTime"];
+    case "unknown_handle":
+      return copy["notFound.body"];
     case "unavailable":
       return copy["error.unavailable"];
     case "offline":
@@ -81,14 +86,25 @@ function startFailureCopy(failure: StartFailure, copy: CustomerCopy): string {
   }
 }
 
-function verifyFailureCopy(kind: VerifyFailureKind, copy: CustomerCopy): string {
-  switch (kind) {
-    case "invalid":
-      return copy["error.codeInvalid"];
+function verifyFailureCopy(
+  failure: Extract<VerifyOutcome, { ok: false }>,
+  copy: CustomerCopy
+): string {
+  switch (failure.kind) {
+    case "invalid": {
+      const left = failure.attemptsRemaining;
+      if (left === null || left > ATTEMPTS_WARNING_THRESHOLD) return copy["error.codeInvalid"];
+      // The broker reports 0 on the failure that exhausts the challenge.
+      if (left === 0) return copy["error.codeExhausted"];
+      if (left === 1) return copy["error.codeInvalidAttemptsOne"];
+      return fillCopy(copy["error.codeInvalidAttemptsMany"], { n: left });
+    }
     case "expired":
       return copy["error.codeExpired"];
     case "exhausted":
       return copy["error.codeExhausted"];
+    case "unknown_handle":
+      return copy["notFound.body"];
     case "unavailable":
       return copy["error.unavailable"];
     case "offline":
@@ -96,6 +112,12 @@ function verifyFailureCopy(kind: VerifyFailureKind, copy: CustomerCopy): string 
     default:
       return copy["error.verifyFailed"];
   }
+}
+
+/** A challenge the broker will never accept again: only a fresh code helps. */
+function challengeIsDead(failure: Extract<VerifyOutcome, { ok: false }>): boolean {
+  if (failure.kind === "exhausted" || failure.kind === "expired") return true;
+  return failure.kind === "invalid" && failure.attemptsRemaining === 0;
 }
 
 /**
@@ -114,6 +136,8 @@ export function SignInFlow() {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [challengeId, setChallengeId] = useState<string | null>(null);
+  /** Set when the broker has closed the challenge for good; the only way on is a new code. */
+  const [challengeDead, setChallengeDead] = useState(false);
   const [code, setCode] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -133,7 +157,7 @@ export function SignInFlow() {
 
   const busy = phase !== "idle";
   const secondsLeft = resendAt === null ? 0 : Math.max(0, Math.ceil((resendAt - now) / 1000));
-  const canResend = step === "code" && !busy && secondsLeft === 0;
+  const canResend = step === "code" && !busy && !challengeDead && secondsLeft === 0;
 
   useEffect(() => {
     if (resendAt === null) return;
@@ -173,6 +197,7 @@ export function SignInFlow() {
         return false;
       }
       setChallengeId(outcome.challengeId);
+      setChallengeDead(false);
       armResend(outcome.retryAfterSeconds);
       return true;
     },
@@ -203,11 +228,11 @@ export function SignInFlow() {
 
   const verify = useCallback(
     async (candidate: string) => {
-      if (!challengeId || candidate.length !== CODE_LENGTH) return;
+      if (!challengeId || challengeDead || candidate.length !== CODE_LENGTH) return;
       setPhase("verifying");
       setCodeError(null);
       setNotice(null);
-      const outcome = await verifyCustomerAuth(handle, challengeId, candidate);
+      const outcome = await verifyCustomerAuth(handle, challengeId, candidate, email);
       if (outcome.ok) {
         // Stay disabled while the router moves; the page unmounts on arrival.
         router.replace(safeCustomerNext(outcome.next, handle));
@@ -215,10 +240,14 @@ export function SignInFlow() {
       }
       setPhase("idle");
       setCode("");
-      setCodeError(verifyFailureCopy(outcome.kind, copy));
+      setCodeError(verifyFailureCopy(outcome, copy));
+      if (challengeIsDead(outcome)) {
+        setChallengeDead(true);
+        return;
+      }
       codeInput.current?.focusFirst();
     },
-    [challengeId, handle, copy, router]
+    [challengeId, challengeDead, handle, email, copy, router]
   );
 
   function handleCodeSubmit(event: FormEvent<HTMLFormElement>) {
@@ -239,10 +268,12 @@ export function SignInFlow() {
     }
   }
 
-  function handleChangeEmail() {
+  /** Back to step one with the email kept, so one tap on SEND CODE issues a fresh challenge. */
+  function returnToEmail() {
     if (busy) return;
     setStep("email");
     setChallengeId(null);
+    setChallengeDead(false);
     setCode("");
     setCodeError(null);
     setNotice(null);
@@ -330,6 +361,7 @@ export function SignInFlow() {
       noValidate
       className="cs-step-enter flex flex-col gap-3"
       aria-busy={busy || undefined}
+      data-challenge-dead={challengeDead ? "true" : undefined}
     >
       <StepMark step={2} label={copy["step.code"]} copy={copy} />
 
@@ -354,7 +386,7 @@ export function SignInFlow() {
             if (codeError) setCodeError(null);
           }}
           onComplete={(complete) => void verify(complete)}
-          disabled={busy}
+          disabled={busy || challengeDead}
           invalid={codeError !== null}
           label={copy["code.label"]}
           digitLabel={(n) => fillCopy(copy["code.digit"], { n })}
@@ -380,29 +412,45 @@ export function SignInFlow() {
         ) : null}
       </div>
 
-      <button
-        type="submit"
-        disabled={busy || code.length !== CODE_LENGTH}
-        className="cs-cta h-control-40 w-full rounded font-cakemono font-light text-cake-button uppercase tracking-widest"
-      >
-        {phase === "verifying" ? copy["code.verifying"] : copy["code.verify"]}
-      </button>
+      {challengeDead ? (
+        // The challenge is closed for good: the one way forward takes the CTA slot.
+        <button
+          type="button"
+          onClick={returnToEmail}
+          disabled={busy}
+          className="cs-cta h-control-40 w-full rounded font-cakemono font-light text-cake-button uppercase tracking-widest"
+        >
+          {copy["code.sendNew"]}
+        </button>
+      ) : (
+        <button
+          type="submit"
+          disabled={busy || code.length !== CODE_LENGTH}
+          className="cs-cta h-control-40 w-full rounded font-cakemono font-light text-cake-button uppercase tracking-widest"
+        >
+          {phase === "verifying" ? copy["code.verifying"] : copy["code.verify"]}
+        </button>
+      )}
 
       <div className="flex items-center justify-between gap-2">
+        {challengeDead ? (
+          <span aria-hidden="true" />
+        ) : (
+          <button
+            type="button"
+            onClick={() => void handleResend()}
+            disabled={!canResend}
+            aria-live="polite"
+            className="cs-ghost font-mono text-micro uppercase tracking-widest tabular-nums"
+          >
+            {secondsLeft > 0
+              ? fillCopy(copy["code.resendIn"], { time: formatCountdown(secondsLeft) })
+              : copy["code.resend"]}
+          </button>
+        )}
         <button
           type="button"
-          onClick={() => void handleResend()}
-          disabled={!canResend}
-          aria-live="polite"
-          className="cs-ghost font-mono text-micro uppercase tracking-widest tabular-nums"
-        >
-          {secondsLeft > 0
-            ? fillCopy(copy["code.resendIn"], { time: formatCountdown(secondsLeft) })
-            : copy["code.resend"]}
-        </button>
-        <button
-          type="button"
-          onClick={handleChangeEmail}
+          onClick={returnToEmail}
           disabled={busy}
           className="cs-ghost font-mohave text-body-sm"
         >

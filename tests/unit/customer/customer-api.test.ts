@@ -56,7 +56,7 @@ describe("startCustomerAuth", () => {
 
   it("maps 503 / unavailable, other failures, and network errors", async () => {
     expect(await startCustomerAuth("acme", "a@b.co", fetchReturning(jsonResponse(503, { error: "customer_identity_unavailable" })))).toMatchObject({ ok: false, kind: "unavailable" });
-    expect(await startCustomerAuth("acme", "a@b.co", fetchReturning(jsonResponse(404, { error: "not_found" })))).toMatchObject({ ok: false, kind: "failed" });
+    expect(await startCustomerAuth("acme", "a@b.co", fetchReturning(jsonResponse(404, { error: "not_found" })))).toMatchObject({ ok: false, kind: "unknown_handle" });
     expect(await startCustomerAuth("acme", "a@b.co", fetchReturning(jsonResponse(200, { nope: true })))).toMatchObject({ ok: false, kind: "failed" });
     expect(await startCustomerAuth("acme", "a@b.co", fetchReturning(new TypeError("Failed to fetch")))).toMatchObject({ ok: false, kind: "offline" });
   });
@@ -71,25 +71,44 @@ describe("classifyVerifyFailure", () => {
     expect(classifyVerifyFailure(400, "challenge_exhausted")).toBe("exhausted");
     expect(classifyVerifyFailure(400, "too_many_attempts")).toBe("exhausted");
     expect(classifyVerifyFailure(503, "")).toBe("unavailable");
-    expect(classifyVerifyFailure(404, "")).toBe("invalid");
+    expect(classifyVerifyFailure(404, "not_found")).toBe("unknown_handle");
     expect(classifyVerifyFailure(500, "")).toBe("failed");
   });
 });
 
 describe("verifyCustomerAuth", () => {
+  it("sends handle, challengeId, code AND email — the code is bound to the email at the provider", async () => {
+    const f = fetchReturning(jsonResponse(200, { ok: true, next: "/c/acme/home" }));
+    await verifyCustomerAuth("acme", "ch_1", "123456", "a@b.co", f);
+    const [url, init] = (f as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/customer/auth/verify");
+    expect(JSON.parse(init.body as string)).toEqual({ handle: "acme", challengeId: "ch_1", code: "123456", email: "a@b.co" });
+  });
+
   it("returns next on success without leaking anything else", async () => {
-    const out = await verifyCustomerAuth("acme", "ch_1", "123456", fetchReturning(jsonResponse(200, { ok: true, next: "/c/acme/home", identityId: "should-not-matter" })));
+    const out = await verifyCustomerAuth("acme", "ch_1", "123456", "a@b.co", fetchReturning(jsonResponse(200, { ok: true, next: "/c/acme/home", identityId: "should-not-matter" })));
     expect(out).toEqual({ ok: true, next: "/c/acme/home" });
   });
 
+  it("carries attemptsRemaining only for invalid_code", async () => {
+    const invalid = await verifyCustomerAuth("acme", "ch_1", "123456", "a@b.co", fetchReturning(jsonResponse(400, { error: "invalid_code", attemptsRemaining: 2 })));
+    expect(invalid).toEqual({ ok: false, kind: "invalid", attemptsRemaining: 2 });
+    const exhausted = await verifyCustomerAuth("acme", "ch_1", "123456", "a@b.co", fetchReturning(jsonResponse(400, { error: "challenge_exhausted" })));
+    expect(exhausted).toEqual({ ok: false, kind: "exhausted", attemptsRemaining: null });
+    const closed = await verifyCustomerAuth("acme", "ch_1", "123456", "a@b.co", fetchReturning(jsonResponse(400, { error: "challenge_closed" })));
+    expect(closed).toEqual({ ok: false, kind: "expired", attemptsRemaining: null });
+    const gone = await verifyCustomerAuth("acme", "ch_1", "123456", "a@b.co", fetchReturning(jsonResponse(404, { error: "not_found" })));
+    expect(gone).toEqual({ ok: false, kind: "unknown_handle", attemptsRemaining: null });
+  });
+
   it("treats a 200 without ok:true as a failure", async () => {
-    const out = await verifyCustomerAuth("acme", "ch_1", "123456", fetchReturning(jsonResponse(200, { ok: false, error: "invalid_code" })));
-    expect(out).toEqual({ ok: false, kind: "invalid" });
+    const out = await verifyCustomerAuth("acme", "ch_1", "123456", "a@b.co", fetchReturning(jsonResponse(200, { ok: false, error: "invalid_code" })));
+    expect(out).toEqual({ ok: false, kind: "invalid", attemptsRemaining: null });
   });
 
   it("maps network errors to offline", async () => {
-    const out = await verifyCustomerAuth("acme", "ch_1", "123456", fetchReturning(new TypeError("Failed to fetch")));
-    expect(out).toEqual({ ok: false, kind: "offline" });
+    const out = await verifyCustomerAuth("acme", "ch_1", "123456", "a@b.co", fetchReturning(new TypeError("Failed to fetch")));
+    expect(out).toEqual({ ok: false, kind: "offline", attemptsRemaining: null });
   });
 });
 
@@ -101,8 +120,9 @@ describe("fetchCustomerMe", () => {
     expect(sparse).toEqual({ ok: true, me: { displayName: null, maskedEmail: "j•••@x.co", membership: { state: null } } });
   });
 
-  it("maps 401/403 to unauthenticated and everything else to failed/offline", async () => {
+  it("maps 401/403 to unauthenticated, 404 to unknown_handle, and everything else to failed/offline", async () => {
     expect(await fetchCustomerMe("acme", fetchReturning(jsonResponse(401, { error: "unauthenticated" })))).toEqual({ ok: false, kind: "unauthenticated" });
+    expect(await fetchCustomerMe("acme", fetchReturning(jsonResponse(404, { error: "not_found" })))).toEqual({ ok: false, kind: "unknown_handle" });
     expect(await fetchCustomerMe("acme", fetchReturning(jsonResponse(500, undefined)))).toEqual({ ok: false, kind: "failed" });
     expect(await fetchCustomerMe("acme", fetchReturning(new TypeError("x")))).toEqual({ ok: false, kind: "offline" });
   });

@@ -26,7 +26,9 @@ interface BrokerStub {
   retryAfterSeconds?: number;
   startStatus?: number;
   membership?: MembershipState;
-  me?: "ok" | "unauthenticated";
+  me?: "ok" | "unauthenticated" | "gone";
+  /** "count": five attempts per challenge, then exhausted. "closed": the challenge is already dead. */
+  verify?: "count" | "closed";
 }
 
 async function json(route: Route, status: number, body: unknown) {
@@ -43,7 +45,9 @@ async function stubBroker(page: Page, stub: BrokerStub = {}) {
   const startStatus = stub.startStatus ?? 200;
   const membership = stub.membership ?? "active_forward_only";
   const meMode = stub.me ?? "ok";
+  const verifyMode = stub.verify ?? "count";
   const calls = { start: [] as unknown[], verify: [] as unknown[], signout: 0 };
+  let attemptsRemaining = 5;
 
   await page.route("**/api/customer/auth/start", async (route) => {
     calls.start.push(route.request().postDataJSON());
@@ -60,18 +64,36 @@ async function stubBroker(page: Page, stub: BrokerStub = {}) {
   });
 
   await page.route("**/api/customer/auth/verify", async (route) => {
-    const body = route.request().postDataJSON() as { code?: string };
+    const body = route.request().postDataJSON() as { code?: string; email?: string };
     calls.verify.push(body);
+    // Contract: the code is bound to the email at the provider — no email, no verify.
+    if (typeof body.email !== "string" || body.email.length === 0) {
+      await json(route, 400, { error: "invalid_request" });
+      return;
+    }
+    if (verifyMode === "closed") {
+      await json(route, 400, { error: "challenge_closed" });
+      return;
+    }
+    if (attemptsRemaining <= 0) {
+      await json(route, 400, { error: "challenge_exhausted" });
+      return;
+    }
     if (body.code === GOOD_CODE) {
       await json(route, 200, { ok: true, next: HOME });
-    } else {
-      await json(route, 400, { error: "invalid_code" });
+      return;
     }
+    attemptsRemaining -= 1;
+    await json(route, 400, { error: "invalid_code", attemptsRemaining });
   });
 
   await page.route("**/api/customer/me**", async (route) => {
     if (meMode === "unauthenticated") {
       await json(route, 401, { error: "unauthenticated" });
+      return;
+    }
+    if (meMode === "gone") {
+      await json(route, 404, { error: "not_found" });
       return;
     }
     await json(route, 200, {
@@ -141,8 +163,8 @@ test.describe("hosted customer sign-in", () => {
     await typeCode(page, GOOD_CODE);
     await page.waitForURL(`**${HOME}`);
     expect(calls.verify).toEqual([
-      { handle: HANDLE, challengeId: "ch_e2e", code: "111111" },
-      { handle: HANDLE, challengeId: "ch_e2e", code: GOOD_CODE },
+      { handle: HANDLE, challengeId: "ch_e2e", code: "111111", email: "jordan@example.com" },
+      { handle: HANDLE, challengeId: "ch_e2e", code: GOOD_CODE, email: "jordan@example.com" },
     ]);
 
     // Forward-only membership copy.
@@ -238,6 +260,57 @@ test.describe("hosted customer sign-in", () => {
     await stubBroker(page, { me: "unauthenticated" });
     await page.goto(HOME);
     await page.waitForURL(`**${SIGNIN}`);
+  });
+
+  test("remaining attempts surface only when scarce, and a dead challenge offers a new code", async ({ page }) => {
+    await stubBroker(page);
+    await page.goto(SIGNIN);
+    await page.getByLabel(/^email$/i).fill("jordan@example.com");
+    await page.getByRole("button", { name: /send code/i }).click();
+    const alert = page.locator("main").getByRole("alert");
+
+    // 5 → 4 → 3 attempts left: neutral copy, no number.
+    await typeCode(page, "111111");
+    await expect(alert).toHaveText("That code didn't work. Check it and try again.");
+    await typeCode(page, "222222");
+    await expect(alert).toHaveText("That code didn't work. Check it and try again.");
+
+    // 2 left, then 1 left: the number appears.
+    await typeCode(page, "333333");
+    await expect(alert).toHaveText("That code didn't work. 2 attempts left.");
+    await typeCode(page, "444444");
+    await expect(alert).toHaveText("That code didn't work. 1 attempt left.");
+
+    // 0 left: the challenge is dead — cells lock, VERIFY is replaced by SEND A NEW CODE.
+    await typeCode(page, "555555");
+    await expect(alert).toHaveText(/too many attempts/i);
+    await expect(page.locator("form[data-challenge-dead='true']")).toBeVisible();
+    await expect(page.getByLabel("Digit 1 of 6")).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^verify$/i })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /resend/i })).toHaveCount(0);
+
+    // Back to step one with the email kept.
+    await page.getByRole("button", { name: /send a new code/i }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/sign in/i);
+    await expect(page.getByLabel(/^email$/i)).toHaveValue("jordan@example.com");
+    await expect(page.getByText("STEP 01 / 02")).toBeVisible();
+  });
+
+  test("a closed challenge (expired or consumed) reads as expired and offers a new code", async ({ page }) => {
+    await stubBroker(page, { verify: "closed" });
+    await page.goto(SIGNIN);
+    await page.getByLabel(/^email$/i).fill("jordan@example.com");
+    await page.getByRole("button", { name: /send code/i }).click();
+    await typeCode(page, GOOD_CODE);
+    await expect(page.locator("main").getByRole("alert")).toHaveText(/that code expired/i);
+    await expect(page.getByRole("button", { name: /send a new code/i })).toBeVisible();
+  });
+
+  test("home shows the unknown-business page when the broker answers 404", async ({ page }) => {
+    await stubBroker(page, { me: "gone" });
+    await page.goto(HOME);
+    await expect(page.locator("[data-membership-view='gone']")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/page not available/i);
   });
 
   test("an unknown handle renders the neutral not-found page", async ({ page }) => {
