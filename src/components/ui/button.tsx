@@ -22,20 +22,24 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: [
-          "bg-[rgba(255,255,255,0.07)] text-text-2 border border-[rgba(255,255,255,0.10)]",
+          "bg-[rgba(255,255,255,0.07)] text-text-2 border border-line",
           "hover:bg-[rgba(255,255,255,0.12)] hover:text-text",
         ],
+        // DESIGN.md §9 / spec v2: the primary CTA is OUTLINED at rest —
+        // accent text + accent hairline on a transparent fill — and fills to
+        // solid accent with black text on hover. Accent is a quiet promise,
+        // not a shout; the fill is the reward for reaching for it.
         primary: [
-          "bg-ops-accent text-black border border-ops-accent",
-          "hover:bg-ops-accent-hover",
+          "bg-transparent text-ops-accent border border-ops-accent",
+          "hover:bg-ops-accent hover:text-black",
         ],
         accent: [
           "bg-ops-amber text-text-inverse border border-ops-amber",
           "hover:bg-ops-amber-hover",
         ],
         secondary: [
-          "bg-transparent text-text-2 border border-[rgba(255,255,255,0.10)]",
-          "hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.18)] hover:text-text",
+          "bg-transparent text-text-2 border border-line",
+          "hover:bg-surface-hover hover:border-line-hi hover:text-text",
         ],
         destructive: [
           "bg-rose-soft text-rose border border-rose-line",
@@ -43,7 +47,7 @@ const buttonVariants = cva(
         ],
         ghost: [
           "bg-transparent text-text-2",
-          "hover:bg-[rgba(255,255,255,0.05)] hover:text-text",
+          "hover:bg-surface-hover hover:text-text",
         ],
         link: [
           "bg-transparent text-text-2 underline-offset-4",
