@@ -611,6 +611,20 @@
   box-sizing: content-box;
 }
 
+/* Mapbox requires visible attribution. Keep Leaflet's legal links available
+ * without introducing its default bright panel into the dashboard command deck. */
+.ops-dashboard-map .leaflet-control-attribution {
+  @apply px-1 py-0.5 font-mono text-micro-sm;
+  background: var(--surface-glass-dense) !important;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  color: var(--text-3);
+  pointer-events: auto;
+}
+.ops-dashboard-map .leaflet-control-attribution a {
+  color: var(--text-2);
+}
+
 @layer utilities {
   /* Prevent text selection on interactive elements */
   .no-select {
@@ -777,4 +791,3 @@
 @media (prefers-reduced-motion: reduce) {
   .animate-pin-pulse { animation: none; }
 }
-
