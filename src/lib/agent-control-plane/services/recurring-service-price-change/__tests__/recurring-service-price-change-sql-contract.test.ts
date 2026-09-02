@@ -11,6 +11,10 @@ const indexDedupeMigrationPath = path.join(
   process.cwd(),
   "supabase/migrations/20260902195000_agent_recurring_service_price_index_dedupe.sql"
 );
+const foreignKeyIndexMigrationPath = path.join(
+  process.cwd(),
+  "supabase/migrations/20260902195500_agent_recurring_service_price_fk_indexes.sql"
+);
 
 function migration(): string {
   return fs.readFileSync(migrationPath, "utf8");
@@ -294,5 +298,19 @@ describe("recurring-service price-change SQL contract", () => {
     );
     expect(sql).toContain("agent_recurring_service_price_index_shape_invalid");
     expect(sql.match(/drop\s+index/gi)).toHaveLength(1);
+  });
+
+  it("covers every recurring-service policy foreign key", () => {
+    const sql = fs.readFileSync(foreignKeyIndexMigrationPath, "utf8");
+    for (const indexName of [
+      "agent_recurring_service_price_policies_client_fk_idx",
+      "agent_recurring_service_price_policies_created_by_fk_idx",
+      "agent_recurring_service_price_policies_task_type_fk_idx",
+      "agent_recurring_service_price_policies_price_source_line_item_fk_idx",
+    ]) {
+      expect(sql).toContain(indexName);
+    }
+    expect(sql).toContain("agent_recurring_service_price_fk_index_shape_invalid");
+    expect(sql.match(/create\s+index\s+if\s+not\s+exists/gi)).toHaveLength(4);
   });
 });
