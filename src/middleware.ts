@@ -44,6 +44,26 @@ const portalProtectedPrefixes = [
 const portalPublicPrefixes = ["/portal/verify", "/portal/auth"];
 
 /**
+ * Hosted customer surface (design D3, I3, I9): `/c/<handle>/…` pages and the
+ * `/api/customer/…` broker. Public at the middleware layer — no staff cookie
+ * is required and none is read. Authority is resolved per request by the
+ * route itself (session row + membership state), never here. The customer
+ * session cookie (`ops-customer-session`) is never consulted by this
+ * middleware on any path: a customer credential must never read as a staff
+ * login, and a staff login must never read as a customer.
+ *
+ * Matching is exact-segment (`/c` or `/c/…`) so `/clients`, `/catalog` and
+ * `/calibration` stay staff-protected.
+ */
+export const CUSTOMER_PUBLIC_PREFIXES = ["/c", "/api/customer"] as const;
+
+function isCustomerPublicPath(pathname: string): boolean {
+  return CUSTOMER_PUBLIC_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+/**
  * CALIBRATION 308 redirects from retired AI surfaces. Exact-match only —
  * keeps sub-routes of /settings / /agent intact while the legacy hub
  * pages hard-redirect.
@@ -176,6 +196,13 @@ export function middleware(request: NextRequest) {
     url.pathname = "/projects";
     url.searchParams.set("view", "map");
     return NextResponse.redirect(url, 308);
+  }
+
+  // ─── Hosted customer surface ─────────────────────────────────────────────
+  // Before any cookie is read: these paths carry no staff identity and the
+  // customer credential is the route's business, not the middleware's.
+  if (isCustomerPublicPath(pathname)) {
+    return NextResponse.next();
   }
 
   // ─── Portal Routes ───────────────────────────────────────────────────────
