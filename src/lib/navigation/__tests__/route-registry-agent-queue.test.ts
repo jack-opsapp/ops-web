@@ -6,8 +6,8 @@ import {
 } from "../route-registry";
 
 describe("route registry — agent queue", () => {
-  it("renders the queue in the padded full-height frame", () => {
-    expect(getFullHeightMode("/agent/queue")).toBe("padded");
+  it("renders the queue full-bleed, like every other register surface", () => {
+    expect(getFullHeightMode("/agent/queue")).toBe("bleed");
   });
 
   it("gates the queue and its umbrella on agent.review", () => {
