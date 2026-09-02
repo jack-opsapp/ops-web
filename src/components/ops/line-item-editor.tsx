@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { Plus, Trash2, HelpCircle, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useDictionary } from "@/i18n/client";
+import {
+  EstimateCalculatorPopover,
+  type CalculatorInsertResult,
+} from "./estimate-calculator/estimate-calculator-popover";
 import {
   Tooltip,
   TooltipContent,
@@ -289,6 +294,54 @@ export function LineItemEditor({
     return map;
   }, [stockStatuses]);
 
+  // ─── Calculator wiring ────────────────────────────────────────────────────
+  // The insertion target is captured on FOCUS and never cleared on blur:
+  // clicking the CALC chip blurs the field the operator was just in, so a
+  // blur-clearing tracker would forget the target before the panel even opens.
+  const { t: calculatorCopy } = useDictionary("estimate-calculator");
+  const [calcTarget, setCalcTarget] = useState<{
+    lineItemId: string;
+    field: "quantity" | "unitPrice";
+  } | null>(null);
+  const numericRefs = useRef(new Map<string, HTMLInputElement>());
+
+  const registerNumericRef = useCallback(
+    (id: string, field: "quantity" | "unitPrice") => (node: HTMLInputElement | null) => {
+      const key = `${id}:${field}`;
+      if (node) numericRefs.current.set(key, node);
+      else numericRefs.current.delete(key);
+    },
+    [],
+  );
+
+  // Derived, not stored: a target whose line has been deleted (or reordered)
+  // resolves itself, so no cleanup effect has to chase the items array.
+  const targetIndex = calcTarget
+    ? items.findIndex((item) => item.id === calcTarget.lineItemId)
+    : -1;
+  const calculatorTarget =
+    calcTarget && targetIndex >= 0
+      ? { ...calcTarget, lineNumber: targetIndex + 1 }
+      : null;
+
+  const handleCalculatorInsert = useCallback(
+    (result: CalculatorInsertResult) => {
+      if (!calcTarget) return;
+      const { lineItemId, field } = calcTarget;
+      if (!items.some((item) => item.id === lineItemId)) return;
+      // Always through updateItem — the numeric inputs re-parse on every
+      // keystroke, so a DOM write would be discarded on the next render.
+      // `result.working` is dropped: LineItemRow exposes no description field,
+      // which is why this editor declares descriptionSupported={false}.
+      updateItem(lineItemId, field, result.value);
+      const node = numericRefs.current.get(`${lineItemId}:${field}`);
+      // The popover hands focus back to its trigger as it closes; this lands
+      // one macrotask later so the operator ends up in the field they filled.
+      if (node) window.setTimeout(() => node.focus(), 0);
+    },
+    [calcTarget, items, updateItem],
+  );
+
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const toggleExpand = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -326,7 +379,8 @@ export function LineItemEditor({
 
       {/* Items */}
       <div className="space-y-1">
-        {items.map((item) => {
+        {items.map((item, index) => {
+          const lineNumber = index + 1;
           const computed = computeAmount(item, taxRate);
           const stock = item.productId ? stockByLine.get(item.id) : undefined;
           const product = item.productId
@@ -388,6 +442,9 @@ export function LineItemEditor({
                 step={0.01}
                 value={item.quantity}
                 onChange={(e) => updateItem(item.id, "quantity", parseFloat(e.target.value) || 0)}
+                onFocus={() => setCalcTarget({ lineItemId: item.id, field: "quantity" })}
+                ref={registerNumericRef(item.id, "quantity")}
+                aria-label={`Quantity, line ${lineNumber}`}
                 className="text-right text-sm"
               />
 
@@ -398,6 +455,9 @@ export function LineItemEditor({
                 step={0.01}
                 value={item.unitPrice}
                 onChange={(e) => updateItem(item.id, "unitPrice", parseFloat(e.target.value) || 0)}
+                onFocus={() => setCalcTarget({ lineItemId: item.id, field: "unitPrice" })}
+                ref={registerNumericRef(item.id, "unitPrice")}
+                aria-label={`Unit price, line ${lineNumber}`}
                 className="text-right text-sm"
               />
 
@@ -483,6 +543,7 @@ export function LineItemEditor({
                 <button
                   onClick={() => removeItem(item.id)}
                   disabled={items.length <= 1}
+                  aria-label={`Remove line ${lineNumber}`}
                   className={cn(
                     "p-[4px] rounded text-text-mute hover:text-ops-error hover:bg-ops-error-muted transition-colors",
                     items.length <= 1 && "opacity-30 cursor-not-allowed"
@@ -528,16 +589,40 @@ export function LineItemEditor({
         })}
       </div>
 
-      {/* Add Line Item */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={addItem}
-        className="gap-1 text-text-3"
-      >
-        <Plus className="w-[14px] h-[14px]" />
-        Add Line Item
-      </Button>
+      {/* Action row */}
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={addItem}
+          className="gap-1 text-text-3"
+        >
+          <Plus className="w-[14px] h-[14px]" />
+          Add Line Item
+        </Button>
+        <EstimateCalculatorPopover
+          target={calculatorTarget}
+          // LineItemRow has no description/notes field and the editor exposes
+          // none, so the shown work has nowhere to be written.
+          descriptionSupported={false}
+          onInsert={handleCalculatorInsert}
+          trigger={
+            <button
+              type="button"
+              className={cn(
+                "flex h-[28px] shrink-0 items-center rounded-chip border border-line px-[10px]",
+                "font-mono text-micro uppercase leading-none tracking-[0.12em] text-text-3",
+                "transition-colors duration-150 motion-reduce:transition-none",
+                "hover:border-line-hi hover:text-text-2",
+                "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
+                "data-[state=open]:border-line-hi data-[state=open]:bg-surface-active data-[state=open]:text-text",
+              )}
+            >
+              {calculatorCopy("trigger")}
+            </button>
+          }
+        />
+      </div>
 
       {/* Totals */}
       <div className="border-t border-border pt-1.5 space-y-0.5">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
@@ -74,6 +74,8 @@ export function EstimateCalculatorPopover({
 }: EstimateCalculatorPopoverProps) {
   const { t } = useDictionary("estimate-calculator");
   const [open, setOpen] = useState(false);
+  // Set for exactly one close: the one caused by an insert.
+  const insertedRef = useRef(false);
   const state = useCalculatorState();
   const { mode, setMode, outcome, addToDescription, setAddToDescription, reset } = state;
 
@@ -99,6 +101,7 @@ export function EstimateCalculatorPopover({
 
   const handleInsert = useCallback(() => {
     if (target === null || outcome.value === null) return;
+    insertedRef.current = true;
     onInsert({
       value: roundForInsert(outcome.value),
       working: offersWorking ? outcome.working : null,
@@ -128,6 +131,15 @@ export function EstimateCalculatorPopover({
         // Panels are menus: global single-key shortcuts must ignore keys while
         // one is open, and the keypad's buttons are not inputs.
         data-keyboard-scope="modal-or-menu"
+        onCloseAutoFocus={(event) => {
+          // After an insert the consumer puts focus in the field that received
+          // the number; Radix restoring focus to the trigger would fight it.
+          // Escape and outside-click keep the default restore.
+          if (insertedRef.current) {
+            insertedRef.current = false;
+            event.preventDefault();
+          }
+        }}
         onKeyDown={(event) => {
           if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
             event.preventDefault();
