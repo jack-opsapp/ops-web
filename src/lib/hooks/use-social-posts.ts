@@ -5,6 +5,8 @@ import { queryKeys } from "@/lib/api/query-client";
 import type { SocialContent } from "@/lib/social/contract";
 import type { SocialPostRecord } from "@/lib/social/types";
 
+const ACTIVE_SOCIAL_STATUSES = new Set(["rendering", "review", "publishing"]);
+
 export type SocialAdminActionBody =
   | { action: "edit"; content: SocialContent }
   | { action: "cancel" }
@@ -67,7 +69,10 @@ export function useSocialPosts() {
   const query = useQuery({
     queryKey: queryKeys.socialPublishing.list(),
     queryFn: loadPosts,
-    refetchInterval: 30_000,
+    refetchInterval: (current) =>
+      current.state.data?.some((post) => ACTIVE_SOCIAL_STATUSES.has(post.status))
+        ? 30_000
+        : false,
   });
   const action = useMutation({
     mutationFn: runAction,

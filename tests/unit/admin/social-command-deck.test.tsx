@@ -94,4 +94,32 @@ describe("SocialCommandDeck", () => {
     expect(screen.getByText("LOCKED AFTER PUBLISH" )).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "PUBLISH NOW" })).not.toBeInTheDocument();
   });
+
+  it("opens the exact notification-linked post and otherwise selects the next due item", () => {
+    const linked = socialPostFixture({
+      id: "ffdcf84e-efef-4196-a092-587a7bc51a79",
+      status: "published",
+      content: { ...socialPostFixture().content, title: "Notification target" },
+      updated_at: "2026-09-01T20:05:00.000Z",
+    });
+    const later = socialPostFixture({
+      id: "108b7764-20f5-4e67-a0bf-3098a472feac",
+      status: "review",
+      content: { ...socialPostFixture().content, title: "Later launch" },
+      publish_after: "2026-09-01T21:00:00.000Z",
+    });
+    const next = socialPostFixture({
+      status: "review",
+      publish_after: "2026-09-01T20:10:00.000Z",
+    });
+    posts = [later, linked, next];
+
+    const { unmount } = render(<SocialCommandDeck />);
+    expect(screen.getByRole("heading", { name: "The two-hour leak in your week" })).toBeInTheDocument();
+    unmount();
+
+    render(<SocialCommandDeck initialPostId={linked.id} />);
+    expect(screen.getByRole("heading", { name: "Notification target" })).toBeInTheDocument();
+    expect(screen.getByText("LOCKED AFTER PUBLISH")).toBeInTheDocument();
+  });
 });

@@ -71,6 +71,18 @@ function filterPosts(posts: SocialPostRecord[], filter: QueueFilter): SocialPost
   return posts.filter((post) => post.status === filter);
 }
 
+function orderPosts(posts: SocialPostRecord[]): SocialPostRecord[] {
+  return [...posts].sort((left, right) => {
+    const leftActive = ACTIVE_STATUSES.has(left.status);
+    const rightActive = ACTIVE_STATUSES.has(right.status);
+    if (leftActive !== rightActive) return leftActive ? -1 : 1;
+    if (leftActive && rightActive) {
+      return new Date(left.publish_after).getTime() - new Date(right.publish_after).getTime();
+    }
+    return new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime();
+  });
+}
+
 function StatusPill({ status }: { status: SocialPostStatus }) {
   const { t } = useDictionary("admin-social");
   return (
@@ -244,11 +256,11 @@ function CopyEditor({
   );
 }
 
-export function SocialCommandDeck() {
+export function SocialCommandDeck({ initialPostId }: { initialPostId?: string }) {
   const { t } = useDictionary("admin-social");
   const { posts, isLoading, error, action } = useSocialPosts();
   const [filter, setFilter] = useState<QueueFilter>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialPostId ?? null);
   const [slideIndex, setSlideIndex] = useState(0);
   const [editing, setEditing] = useState(false);
   const [confirmingStop, setConfirmingStop] = useState(false);
@@ -260,7 +272,11 @@ export function SocialCommandDeck() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const visiblePosts = useMemo(() => filterPosts(posts, filter), [filter, posts]);
+  const orderedPosts = useMemo(() => orderPosts(posts), [posts]);
+  const visiblePosts = useMemo(
+    () => filterPosts(orderedPosts, filter),
+    [filter, orderedPosts]
+  );
   const selected =
     visiblePosts.find((post) => post.id === selectedId) ?? visiblePosts[0] ?? null;
 
@@ -496,7 +512,7 @@ export function SocialCommandDeck() {
               {t("preview.feed", "FEED RHYTHM")}
             </p>
             <div className="grid grid-cols-6 gap-1">
-              {posts.slice(0, 6).map((post) => {
+              {orderedPosts.slice(0, 6).map((post) => {
                 const asset = post.rendered_assets[0];
                 return (
                   <button
