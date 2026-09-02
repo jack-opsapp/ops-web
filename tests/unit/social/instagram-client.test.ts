@@ -58,7 +58,7 @@ describe("Instagram Graph publishing client", () => {
   it("fails before a request when connected-account credentials are missing", () => {
     expect(() =>
       createInstagramClientFromCredentials({ userId: "", accessToken: "" })
-    ).toThrow(/instagram_access_token/i);
+    ).toThrow(/publishing credentials are incomplete/i);
   });
 
   it("uses the Instagram Login graph host and a pinned version by default", async () => {

@@ -59,15 +59,14 @@ function sanitizedMessage(raw: string | undefined, token: string): string {
 }
 
 function validateConfig(config: InstagramClientConfig): InstagramClientConfig {
-  const missing = [
-    ["INSTAGRAM_ACCESS_TOKEN", config.accessToken],
-    ["INSTAGRAM_USER_ID", config.userId],
-    ["INSTAGRAM_API_VERSION", config.apiVersion],
-  ].filter(([, value]) => !value?.trim());
-  if (missing.length > 0) {
+  if (
+    !config.accessToken.trim() ||
+    !config.userId.trim() ||
+    !config.apiVersion.trim()
+  ) {
     throw new InstagramGraphError(
       "INSTAGRAM_NOT_CONFIGURED",
-      `Missing ${missing.map(([name]) => name).join(", ")}`,
+      "Instagram publishing credentials are incomplete",
       false
     );
   }
@@ -78,14 +77,14 @@ function validateConfig(config: InstagramClientConfig): InstagramClientConfig {
   } catch {
     throw new InstagramGraphError(
       "INSTAGRAM_NOT_CONFIGURED",
-      "Invalid INSTAGRAM_API_ORIGIN",
+      "Invalid Instagram Graph origin",
       false
     );
   }
   if (origin.protocol !== "https:" || origin.username || origin.password) {
     throw new InstagramGraphError(
       "INSTAGRAM_NOT_CONFIGURED",
-      "INSTAGRAM_API_ORIGIN must be a public HTTPS origin",
+      "Instagram Graph origin must be a public HTTPS origin",
       false
     );
   }
