@@ -261,8 +261,8 @@ export function ProductPricingModifierFormDialog({
                     "px-2 py-1.5 font-mono text-caption-sm uppercase tracking-widest transition-colors",
                     "border rounded",
                     modifierKind === k
-                      ? "bg-ops-accent text-black border-ops-accent"
-                      : "border-border text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]"
+                      ? "bg-surface-active border-line-hi text-text"
+                      : "border-border text-text-3 hover:text-text hover:bg-surface-input"
                   )}
                 >
                   {MODIFIER_KIND_LABEL[k]}
