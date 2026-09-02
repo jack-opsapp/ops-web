@@ -15,6 +15,7 @@ import {
   normalizeEmail,
   type CustomerIdentityHmacKeyRing,
 } from "@/lib/customer-identity";
+import { parsePublicHandle } from "@/lib/customer-identity/handle";
 import { getServiceRoleClient } from "@/lib/supabase/server-client";
 import { rateLimit } from "@/lib/utils/ratelimit";
 
