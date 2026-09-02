@@ -123,10 +123,18 @@ export function EstimateCalculatorPopover({
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
         align="start"
+        // Keep a 16px inset from every viewport edge rather than riding one.
+        collisionPadding={16}
         // `z-modal` clears the floating window and the Books dialog. The panel
         // surface itself (dense glass, hairline, 12px radius) comes from the
         // primitive's own `glass-dense` — restating it here would only fight it.
-        className="z-modal w-72 p-1.5"
+        className="z-modal w-72 overflow-y-auto p-1.5"
+        // The panel is ~492px tall. Opened from a chip mid-dialog there is room
+        // on neither side, and Radix then leaves the content overflowing — off
+        // the top at 1300x900, off the bottom at 390x844. Bounding it by the
+        // space Radix actually measured makes it scroll INSIDE the panel. The
+        // keypad keeps its 36px control tier; the panel scrolls instead.
+        style={{ maxHeight: "var(--radix-popover-content-available-height)" }}
         aria-label={t("dialogLabel")}
         // Panels are menus: global single-key shortcuts must ignore keys while
         // one is open, and the keypad's buttons are not inputs.

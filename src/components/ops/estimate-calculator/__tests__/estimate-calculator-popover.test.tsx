@@ -94,6 +94,18 @@ describe("<EstimateCalculatorPopover> — shell", () => {
     expect(panel).toHaveClass("z-modal");
   });
 
+  it("bounds its height to the space Radix measured, and scrolls inside", async () => {
+    // The panel is taller than the gap between a mid-dialog chip and the
+    // viewport edge. Without this it overflowed off-screen — clipped at the
+    // top on desktop, past the bottom on mobile — because Radix leaves content
+    // overflowing when neither side has room.
+    const { panel } = await openCalculator();
+    expect(panel.style.maxHeight).toBe(
+      "var(--radix-popover-content-available-height)",
+    );
+    expect(panel).toHaveClass("overflow-y-auto");
+  });
+
   it("closes on Escape and returns focus to the trigger", async () => {
     const { user, trigger, panel } = await openCalculator();
     await user.keyboard("{Escape}");
