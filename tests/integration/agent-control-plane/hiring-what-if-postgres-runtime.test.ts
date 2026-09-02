@@ -14,11 +14,11 @@ const ROOT = resolve(dirname(RUNNER_FILE), "../../..");
 const FILES = [
   [
     "tests/sql/agent-hiring-what-if-setup.sql",
-    "01a58265d642bf08655e29fb11c49ef5df51dcfa969c442110ee9fe1cb07b7d7",
+    "c761f7ca5d4174b60fb37ec3493275d51394d5a9750788ca5d0015674a6232ec",
   ],
   [
     "supabase/migrations/20260901045000_agent_hiring_what_if_read.sql",
-    "13221b2d68d6d7a73dd426c8a3a6b8badaf2010af16e539ce8bc4a3a0b0be4b5",
+    "7577174090a66ccfac3279b578740bc7cb2239efcb1c4266c206a20eb06d65a5",
   ],
   [
     "tests/sql/agent-hiring-what-if-runtime.sql",

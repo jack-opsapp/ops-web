@@ -36,6 +36,8 @@ describe("hiring what-if SQL contract", () => {
       expect(migration).toContain(`'${relation}'`);
     }
     expect(normalized).toContain("('site_visits', 'status', 'USER-DEFINED')");
+    expect(normalized).toContain("('companies', 'currency_code', 'text')");
+    expect(normalized).not.toContain("('companies', 'currency', 'text')");
     expect(normalized).toContain(
       "('function', 'private.agent_currency_minor_exponent(text)')"
     );
@@ -113,6 +115,7 @@ describe("hiring what-if SQL contract", () => {
       "least(range_source.ends_at, range_source.work_ends_at)",
       "sum(merged_range.ends_at - merged_range.starts_at)",
       "source.project_role_minutes / source.project_all_minutes",
+      "upper(pg_catalog.btrim(company.currency_code))",
     ]) {
       expect(normalized).toContain(fragment);
     }

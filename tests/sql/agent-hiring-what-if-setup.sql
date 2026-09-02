@@ -154,7 +154,7 @@ create table public.companies (
   id uuid primary key,
   deleted_at timestamptz,
   timezone text,
-  currency text,
+  currency_code text,
   default_work_start time without time zone,
   default_work_end time without time zone,
   skip_weekends_in_auto_schedule boolean

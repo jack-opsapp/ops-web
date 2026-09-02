@@ -59,7 +59,7 @@ begin
       ('companies', 'id', 'uuid'),
       ('companies', 'deleted_at', 'timestamp with time zone'),
       ('companies', 'timezone', 'text'),
-      ('companies', 'currency', 'text'),
+      ('companies', 'currency_code', 'text'),
       ('companies', 'default_work_start', 'time without time zone'),
       ('companies', 'default_work_end', 'time without time zone'),
       ('companies', 'skip_weekends_in_auto_schedule', 'boolean'),
@@ -496,7 +496,7 @@ begin
   );
 
   select company.timezone,
-         pg_catalog.upper(pg_catalog.btrim(company.currency)),
+         pg_catalog.upper(pg_catalog.btrim(company.currency_code)),
          company.default_work_start,
          company.default_work_end,
          coalesce(company.skip_weekends_in_auto_schedule, true)
