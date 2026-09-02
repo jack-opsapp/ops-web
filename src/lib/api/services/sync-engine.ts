@@ -139,7 +139,10 @@ import {
   type NormalizedEmail,
   type SyncResult,
 } from "./email-provider";
-import { mapGmailReads } from "./providers/gmail-read";
+import {
+  isGmailReadDeadlineError,
+  mapGmailReads,
+} from "./providers/gmail-read";
 import { deferGmailBatchRemainder } from "./providers/gmail-provider";
 import {
   EMAIL_SYNC_AI_STAGE_RESERVE_MS,
@@ -924,11 +927,85 @@ const GMAIL_HISTORY_RECONCILIATION_OVERLAP_MS = 15 * 60 * 1000;
 const GMAIL_HISTORY_RECONCILIATION_PAGE_SIZE = 100;
 const GMAIL_HISTORY_RECONCILIATION_MAX_PAGES = 10;
 const GMAIL_HISTORY_RECONCILIATION_MAX_THREADS = 500;
+/** Total thread-read budget for one recovery pass. */
+const GMAIL_HISTORY_RECOVERY_READ_BUDGET_MS = 2 * 60 * 1000;
+/**
+ * No page is started unless it can be given at least this much read time, and
+ * no page is given less. Matches the module default read deadline in
+ * `gmail-read`, which is sized for one bounded batch of thread reads.
+ */
+export const GMAIL_HISTORY_RECOVERY_MIN_PAGE_READ_MS = 45 * 1000;
+
+export type GmailRecoveryPageBudget =
+  | { action: "read"; sliceMs: number; deadlineAt: number }
+  | { action: "stop"; reason: "budget" | "caps" };
+
+/**
+ * Size the read deadline for the next page of a Gmail expired-history recovery
+ * pass (bug 86c758b1).
+ *
+ * The walk used to read every listed page under one shared two-minute cliff.
+ * At the thread ceiling the inter-batch pacing alone spent a quarter of that
+ * budget, the pass overran, `mapGmailReads` let no partial result escape, and
+ * so nothing at all was persisted — the next attempt then re-listed the
+ * identical first page and overran identically, forever.
+ *
+ * Each page now gets its own slice of the remaining budget, floored so that a
+ * slice is always large enough to be worth attempting. Two consequences carry
+ * the fix: a slow page fails alone instead of poisoning the pages behind it,
+ * and a pass never starts a page it has no time to finish. The first page of a
+ * pass is always granted its slice — a pass that can advance zero pages is the
+ * stall itself, so a spent budget must never be the reason a walk does nothing.
+ */
+export function decideGmailRecoveryPageBudget(input: {
+  now: number;
+  budgetEndsAt: number;
+  pagesRead: number;
+  threadsRead: number;
+  maxPages?: number;
+  maxThreads?: number;
+  pageSize?: number;
+  minPageReadMs?: number;
+}): GmailRecoveryPageBudget {
+  const maxPages = input.maxPages ?? GMAIL_HISTORY_RECONCILIATION_MAX_PAGES;
+  const maxThreads =
+    input.maxThreads ?? GMAIL_HISTORY_RECONCILIATION_MAX_THREADS;
+  const pageSize = input.pageSize ?? GMAIL_HISTORY_RECONCILIATION_PAGE_SIZE;
+  const minPageReadMs =
+    input.minPageReadMs ?? GMAIL_HISTORY_RECOVERY_MIN_PAGE_READ_MS;
+
+  // How many more pages this pass is still allowed to read, taking the tighter
+  // of the two per-pass safety valves. The thread estimate is optimistic (a
+  // Gmail page can dedupe to far fewer threads than it lists messages), which
+  // only ever makes slices smaller — and the floor catches that.
+  const pagesLeft = Math.min(
+    maxPages - input.pagesRead,
+    Math.ceil((maxThreads - input.threadsRead) / pageSize)
+  );
+  if (pagesLeft <= 0) return { action: "stop", reason: "caps" };
+
+  const remaining = input.budgetEndsAt - input.now;
+  if (input.pagesRead > 0 && remaining < minPageReadMs) {
+    return { action: "stop", reason: "budget" };
+  }
+
+  const sliceMs = Math.max(minPageReadMs, Math.floor(remaining / pagesLeft));
+  return { action: "read", sliceMs, deadlineAt: input.now + sliceMs };
+}
 
 interface GmailHistoryRecoveryCheckpoint {
   anchor: Date;
+  /**
+   * Where the next pass resumes. Null means page one — which is a resume
+   * position, not a completion; read `complete` for that.
+   */
   nextPageToken: string | null;
   targetToken: string;
+  /**
+   * True only when this pass consumed the provider's LAST page. Only then may
+   * the fresh cursor be committed and the recovery columns cleared.
+   */
+  complete: boolean;
 }
 
 interface MailboxHistoryReconciliation {
@@ -1045,12 +1122,33 @@ async function reconcileExpiredMailboxHistory(
     });
   }
 
-  const threadIds = new Set<string>();
+  // List and read one page at a time. Interleaving them is what makes progress
+  // durable: every page this pass reports has been read in full, so the token
+  // the cycle checkpoints after ingestion always names a page the mailbox has
+  // actually consumed. Reading every listed page under one shared deadline —
+  // the previous shape — meant an overrun discarded the entire pass, including
+  // pages that had already been read, and persisted nothing (86c758b1).
+  const recoveredByMessageId = new Map<string, NormalizedEmail>();
+  const seenThreadIds = new Set<string>();
   let pageToken = hasPersistedGmailRecovery ? persistedRecoveryPageToken : null;
-  let nextPageToken: string | null = pageToken;
+  // The furthest position this pass may hand forward. It only ever advances
+  // past a page whose every thread is already in `recoveredByMessageId`, so it
+  // is never ahead of the mail this pass is about to return for ingestion.
+  let resumePageToken: string | null = pageToken;
+  let walkComplete = false;
   let pagesRead = 0;
+  let threadsRead = 0;
+  const budgetEndsAt = Date.now() + GMAIL_HISTORY_RECOVERY_READ_BUDGET_MS;
 
-  do {
+  for (;;) {
+    const budget = decideGmailRecoveryPageBudget({
+      now: Date.now(),
+      budgetEndsAt,
+      pagesRead,
+      threadsRead,
+    });
+    if (budget.action === "stop") break;
+
     const page = await provider.listThreadIds({
       pageSize: GMAIL_HISTORY_RECONCILIATION_PAGE_SIZE,
       after,
@@ -1058,40 +1156,64 @@ async function reconcileExpiredMailboxHistory(
     });
     pagesRead += 1;
 
+    const pageThreadIds: string[] = [];
     for (const threadId of page.threadIds) {
       const normalized = threadId.trim();
-      if (normalized) threadIds.add(normalized);
+      if (!normalized || seenThreadIds.has(normalized)) continue;
+      seenThreadIds.add(normalized);
+      pageThreadIds.push(normalized);
     }
 
-    nextPageToken = page.nextPageToken?.trim() || null;
-    if (
-      !nextPageToken ||
-      pagesRead >= GMAIL_HISTORY_RECONCILIATION_MAX_PAGES ||
-      threadIds.size >= GMAIL_HISTORY_RECONCILIATION_MAX_THREADS
-    ) {
+    let pageThreads: NormalizedEmail[][];
+    try {
+      pageThreads = await mapGmailReads(
+        pageThreadIds,
+        (threadId, _index, readPolicy) =>
+          provider.fetchThread(threadId, readPolicy),
+        {
+          deadlineAt: budget.deadlineAt,
+          context: "expired Gmail history thread recovery",
+        }
+      );
+    } catch (readError) {
+      // Only a budget overrun truncates the pass. Every other failure — auth,
+      // scope, a provider fault — is still a failure and must reach the caller
+      // that diagnoses and marks it.
+      if (!isGmailReadDeadlineError(readError)) throw readError;
+      // This page alone ran out of time. Everything read before it is in hand
+      // and will be ingested; `resumePageToken` still points at THIS page, so
+      // the next cycle re-lists it. Nothing is skipped, nothing double-commits.
+      console.warn(
+        `[sync-engine] Gmail recovery page overran its read budget for ${connection.id}; resuming from this page next cycle`,
+        { pagesRead: pagesRead - 1, threadsRead }
+      );
       break;
     }
-    pageToken = nextPageToken;
-  } while (pageToken);
 
-  const recoveredByMessageId = new Map<string, NormalizedEmail>();
-  const ids = [...threadIds];
-  const threads = await mapGmailReads(
-    ids,
-    (threadId, _index, readPolicy) =>
-      provider.fetchThread(threadId, readPolicy),
-    {
-      deadlineAt: Date.now() + 2 * 60 * 1000,
-      context: "expired Gmail history thread recovery",
+    for (const emails of pageThreads) {
+      for (const email of emails) {
+        // fetchThread returns the whole conversation. Only replay the bounded
+        // overlap; older messages are outside the lost incremental interval.
+        if (email.date.getTime() < after.getTime()) continue;
+        recoveredByMessageId.set(email.id, email);
+      }
     }
-  );
+    threadsRead += pageThreadIds.length;
 
-  for (const emails of threads) {
-    for (const email of emails) {
-      // fetchThread returns the whole conversation. Only replay the bounded
-      // overlap; older messages are outside the lost incremental interval.
-      if (email.date.getTime() < after.getTime()) continue;
-      recoveredByMessageId.set(email.id, email);
+    // Only now — the page read in full, its mail carried in this pass's
+    // result — may the next page token become the durable resume point.
+    resumePageToken = page.nextPageToken?.trim() || null;
+    if (!resumePageToken) {
+      walkComplete = true;
+      break;
+    }
+    pageToken = resumePageToken;
+
+    if (
+      pagesRead >= GMAIL_HISTORY_RECONCILIATION_MAX_PAGES ||
+      seenThreadIds.size >= GMAIL_HISTORY_RECONCILIATION_MAX_THREADS
+    ) {
+      break;
     }
   }
 
@@ -1105,8 +1227,9 @@ async function reconcileExpiredMailboxHistory(
     sentResult: { emails: [], nextSyncToken: targetToken },
     gmailCheckpoint: {
       anchor: after,
-      nextPageToken,
+      nextPageToken: resumePageToken,
       targetToken,
+      complete: walkComplete,
     },
   };
 }
@@ -6379,7 +6502,12 @@ export const SyncEngine = {
        */
       const deferredProviderMessageIds: string[] = [];
       const persistSyncCheckpoint = async () => {
-        if (gmailRecoveryCheckpoint?.nextPageToken) {
+        // A recovery walk may commit the fresh cursor only when it consumed the
+        // provider's last page. A pass that stopped anywhere earlier records
+        // its resume position instead — including the case where that position
+        // is page one, which is a walk that made no progress this cycle, never
+        // a walk that finished.
+        if (gmailRecoveryCheckpoint && !gmailRecoveryCheckpoint.complete) {
           result.continuationPending = true;
           await persistEmailConnectionRecoveryCheckpoint({
             connectionId,
