@@ -322,24 +322,24 @@ export function ReviewTasksModal({
           })}
         </div>
 
-        <div className="flex items-center gap-3 pt-4 border-t border-[#2A2A2A] mt-2">
+        <div className="flex items-center gap-3 pt-4 border-t border-line mt-2">
           <Button
+            type="button"
             variant="ghost"
             onClick={() => onOpenChange(false)}
-            className="flex-1 text-[#9CA3AF] hover:text-[#EDEDED]"
+            className="flex-1"
           >
             Generate tasks later
           </Button>
           <Button
+            type="button"
+            variant="primary"
             onClick={handleCreate}
-            disabled={creating || selectedCount === 0}
-            className="flex-1 bg-ops-accent hover:bg-[#4f8aae] text-white"
+            loading={creating}
+            disabled={selectedCount === 0}
+            className="flex-1"
           >
-            {creating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              `Create ${selectedCount} Task${selectedCount !== 1 ? "s" : ""} →`
-            )}
+            {`Create ${selectedCount} Task${selectedCount !== 1 ? "s" : ""} →`}
           </Button>
         </div>
       </DialogContent>

@@ -11,8 +11,8 @@ import {
 import { MarkupCanvas, type MarkupCanvasRef } from "./markup-canvas";
 import { MarkupToolbar } from "./markup-toolbar";
 import { uploadImage } from "@/lib/api/services/image-service";
-import { Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/toast";
+import { Button } from "@/components/ui/button";
 
 interface PhotoMarkupDialogProps {
   open: boolean;
@@ -92,23 +92,18 @@ export function PhotoMarkupDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <button
-            onClick={() => onOpenChange(false)}
-            className="rounded-md px-3 py-1.5 text-sm text-[#999] hover:text-[#EDEDED]"
-          >
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
             onClick={handleSave}
-            disabled={isSaving}
-            className="flex items-center gap-1.5 rounded-md bg-ops-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-[#4d8ab0] disabled:opacity-50"
+            loading={isSaving}
           >
-            {isSaving && (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            )}
             Save Markup
-          </button>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
