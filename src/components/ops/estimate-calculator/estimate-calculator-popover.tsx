@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useRef, useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils/cn";
 import { useDictionary } from "@/i18n/client";
 import {
   formatResult,
@@ -126,7 +126,7 @@ export function EstimateCalculatorPopover({
         // `z-modal` clears the floating window and the Books dialog. The panel
         // surface itself (dense glass, hairline, 12px radius) comes from the
         // primitive's own `glass-dense` — restating it here would only fight it.
-        className="z-modal w-[296px] p-1.5"
+        className="z-modal w-72 p-1.5"
         aria-label={t("dialogLabel")}
         // Panels are menus: global single-key shortcuts must ignore keys while
         // one is open, and the keypad's buttons are not inputs.
@@ -196,24 +196,17 @@ export function EstimateCalculatorPopover({
             </label>
           )}
 
-          <button
-            type="button"
+          {/* The shared primary button — the one accent element in the panel.
+              Sizing, disabled treatment and focus ring all come from the
+              primitive so INSERT stays identical to every other primary CTA. */}
+          <Button
+            variant="primary"
             onClick={handleInsert}
             disabled={!canInsert}
-            className={cn(
-              "h-9 w-full rounded border",
-              // DESIGN.md §9 primary: outlined accent at rest, fills on hover.
-              // The one accent element in the panel.
-              "border-ops-accent bg-transparent text-ops-accent",
-              "font-cakemono font-light text-cake-button uppercase",
-              "transition-all duration-150 motion-reduce:transition-none",
-              "hover:bg-ops-accent hover:text-black",
-              "focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ops-accent focus-visible:ring-offset-2 focus-visible:ring-offset-black",
-              "disabled:pointer-events-none disabled:border-line disabled:bg-transparent disabled:text-text-mute",
-            )}
+            className="w-full"
           >
             {insertLabel}
-          </button>
+          </Button>
         </div>
       </PopoverContent>
     </Popover>

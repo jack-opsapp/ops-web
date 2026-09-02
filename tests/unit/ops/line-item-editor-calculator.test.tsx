@@ -100,6 +100,15 @@ describe("LineItemEditor — calculator chip", () => {
     expect(chip).toHaveClass("rounded-chip");
     expect(chip).not.toHaveClass("h-8");
   });
+
+  it("puts Add Line Item on the same compact ladder as the chip", () => {
+    renderEditor();
+    const addButton = screen.getByRole("button", { name: /Add Line Item/ });
+    // One height ladder per toolbar row (DESIGN.md §9). The button's own
+    // `size="sm"` is `h-8` — 64px on this project's doubled scale.
+    expect(addButton).toHaveClass("h-[28px]");
+    expect(addButton).not.toHaveClass("h-8");
+  });
 });
 
 describe("LineItemEditor — insertion target", () => {

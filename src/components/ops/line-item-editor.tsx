@@ -595,7 +595,10 @@ export function LineItemEditor({
           variant="ghost"
           size="sm"
           onClick={addItem}
-          className="gap-1 text-text-3"
+          // The size ladder is overridden onto the 28px compact tier so the
+          // action row holds one ladder with the CALC chip. `size="sm"` is
+          // `h-8`, which this project's doubled spacing scale renders at 64px.
+          className="h-[28px] gap-1 px-[10px] text-text-3"
         >
           <Plus className="w-[14px] h-[14px]" />
           Add Line Item
