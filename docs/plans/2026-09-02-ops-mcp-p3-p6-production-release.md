@@ -4,7 +4,7 @@
 
 **Goal:** Publish the verified Phase 3–7 read-only and prepare-only MCP verticals and their database functions to production while leaving every new exposure dormant.
 
-**Architecture:** Reconcile the authoritative Phase 7 lineage with current `origin/main` in an isolated release worktree. Apply the five additive migrations before deploying the application, verify every database and authorization boundary independently, then push the matching Bible record.
+**Architecture:** Reconcile the authoritative Phase 7 lineage with current `origin/main` in an isolated release worktree. Apply the five feature migrations plus two Phase 7 index-hygiene migrations before deploying the application, verify every database and authorization boundary independently, then push the matching Bible record.
 
 **Tech Stack:** Next.js, TypeScript, Vitest, PostgreSQL 17, Supabase, Vercel.
 
@@ -37,6 +37,8 @@
 - `supabase/migrations/20260901153000_agent_sales_truth_read.sql`
 - `supabase/migrations/20260901190000_agent_payroll_readiness.sql`
 - `supabase/migrations/20260902010000_agent_recurring_service_price_change.sql`
+- `supabase/migrations/20260902195000_agent_recurring_service_price_index_dedupe.sql`
+- `supabase/migrations/20260902195500_agent_recurring_service_price_fk_indexes.sql`
 
 1. Verify Web/Bible migration hashes are byte-identical.
 2. Run all focused Phase 3–7 contract, service, SQL, runtime, and exposure tests.
@@ -47,7 +49,7 @@
 ### Task 3: Preflight production
 
 1. Verify Supabase project identity and health.
-2. Read the live migration ledger and confirm all five migrations are absent.
+2. Read the live migration ledger and confirm all seven migrations are absent.
 3. Read the live schema and function definitions required by the migrations.
 4. Confirm v5–v9 have zero clients and zero grants; confirm active production remains v2.
 5. Confirm no Phase 3–7 RPC or schema addition already exists unexpectedly.
@@ -55,7 +57,7 @@
 
 ### Task 4: Apply and prove the database release
 
-1. Apply the five migrations in chronological order using their exact committed SQL.
+1. Apply the seven migrations in chronological order using their exact committed SQL.
 2. After each migration, read back its ledger row, function definition, ACL, search path, and expected schema additions.
 3. Confirm no anonymous or authenticated execution privilege was introduced.
 4. Confirm v5–v9 still have zero clients and grants and no synthetic/customer records were created.
