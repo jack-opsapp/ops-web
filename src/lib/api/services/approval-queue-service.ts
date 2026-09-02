@@ -1175,9 +1175,11 @@ export const ApprovalQueueService = {
       !filters.statuses.includes("pending");
 
     if (isHistoryView) {
-      query = query
-        .order("reviewed_at", { ascending: false, nullsFirst: false })
-        .order("updated_at", { ascending: false });
+      // updated_at is bumped by every status transition (approve, reject,
+      // expire, cancel, fail), so it is the one column that dates every
+      // decision. reviewed_at is set only by a human verdict; the in-app
+      // sort below prefers it when present.
+      query = query.order("updated_at", { ascending: false });
     } else {
       // DB-level sort: priority order then newest first.
       // Supabase PostgREST doesn't support CASE in order, so we use a
@@ -1195,7 +1197,13 @@ export const ApprovalQueueService = {
 
     const actions = (data ?? []).map(mapFromDb);
 
-    if (isHistoryView) return actions;
+    if (isHistoryView) {
+      // Newest decision first: the human verdict time when there is one,
+      // otherwise the status-transition time.
+      const decidedAt = (a: AgentAction) =>
+        (a.reviewedAt ?? a.updatedAt).getTime();
+      return actions.sort((a, b) => decidedAt(b) - decidedAt(a));
+    }
 
     const priorityOrder: Record<string, number> = {
       urgent: 0,
