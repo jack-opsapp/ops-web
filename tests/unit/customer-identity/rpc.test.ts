@@ -15,6 +15,7 @@ import {
   revokeSession,
   upsertIdentity,
   type CustomerIdentityRpcClient,
+  type IdentityEventMetadata,
 } from "@/lib/customer-identity/rpc";
 import {
   CustomerContactConflictError,
@@ -542,7 +543,7 @@ describe("appendIdentityEvent", () => {
 
   it("refuses metadata that could carry a secret, before the database sees it", async () => {
     const client = clientReturning(null);
-    for (const metadata of [
+    const unsafe: IdentityEventMetadata[] = [
       { code: "123456" },
       { token: "x" },
       { credential: "ops_cs_x" },
@@ -551,7 +552,8 @@ describe("appendIdentityEvent", () => {
       { nested: { access_token: "x" } },
       { note: "ops_cs_dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk" },
       { note: "jane@example.com" },
-    ]) {
+    ];
+    for (const metadata of unsafe) {
       await expectStoreError(
         () =>
           appendIdentityEvent(client, {
