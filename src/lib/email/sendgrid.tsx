@@ -47,7 +47,6 @@ import {
   FieldNotesNewsletter,
   type NewsletterItem,
 } from "./react/templates/FieldNotesNewsletter";
-import { PortalMagicLink } from "./react/templates/PortalMagicLink";
 import { PortalEstimateReady } from "./react/templates/PortalEstimateReady";
 import { PortalInvoiceReady } from "./react/templates/PortalInvoiceReady";
 import { PortalQuestionsReminder } from "./react/templates/PortalQuestionsReminder";
@@ -318,45 +317,6 @@ async function logEmail(params: {
 }
 
 // ─── Portal whitelabel ─────────────────────────────────────────────────────
-
-export async function sendMagicLink(params: {
-  email: string;
-  token: string;
-  companyName: string;
-  accentColor: string;
-  logoUrl?: string | null;
-  /** Customer's CASL/CAN-SPAM postal address (Settings → Company). */
-  companyPhysicalAddress?: string | null;
-}): Promise<void> {
-  const portalUrl = `${process.env.NEXT_PUBLIC_APP_URL}/portal/${params.token}`;
-  const compliance = buildComplianceHeaders({
-    email: params.email,
-    kind: "portal_magic_link",
-  });
-  const html = await render(
-    <PortalMagicLink
-      companyName={params.companyName}
-      portalUrl={portalUrl}
-      accentColor={params.accentColor}
-      logoUrl={params.logoUrl ?? null}
-      unsubscribeUrl={compliance.unsubscribeUrl}
-      list={compliance.list}
-      companyPhysicalAddress={params.companyPhysicalAddress ?? null}
-    />,
-  );
-
-  await gatedSend({
-    to: params.email,
-    from: portalSender(params.companyName),
-    replyTo: getPortalFromEmail(),
-    subject: `Access your ${params.companyName} portal`,
-    html,
-    emailType: "portal_magic_link",
-    list: compliance.list,
-    headers: compliance.headers,
-    metadata: { companyName: params.companyName },
-  });
-}
 
 export async function sendEstimateReady(params: {
   email: string;
