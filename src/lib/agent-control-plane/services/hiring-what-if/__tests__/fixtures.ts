@@ -55,7 +55,8 @@ export function hiringAuthority(
 }
 
 export async function hiringActorFixture(
-  permissions: readonly string[] = HIRING_PERMISSIONS
+  permissions: readonly string[] = HIRING_PERMISSIONS,
+  capabilityManifestRevision = HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
 ) {
   const authorityClient = new StubAuthoritySupabaseRpcClient(
     hiringAuthority(permissions)
@@ -77,7 +78,7 @@ export async function hiringActorFixture(
     authorityRepository: authorityClient.repository,
     requestId: "request-hiring-what-if",
     policyRevision: "actor-policy:v1",
-    capabilityManifestRevision: HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION,
+    capabilityManifestRevision,
   });
   return { actor, authorityClient };
 }

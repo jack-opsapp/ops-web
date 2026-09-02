@@ -9,6 +9,7 @@ import {
   HIRING_CLIENT_ID,
   HIRING_COMPANY_ID,
   HIRING_GRANT_ID,
+  HIRING_PERMISSIONS,
   HIRING_SCOPES,
   HIRING_USER_ID,
   hiringActorFixture,
@@ -58,6 +59,28 @@ describe("hiring what-if repository", () => {
     expect(abortSignal).toHaveBeenCalledWith(signal);
   });
 
+  it("binds a v15 actor to the exact dormant v9 exposure", async () => {
+    const { actor } = await hiringActorFixture(
+      HIRING_PERMISSIONS,
+      "2026-09-01.capability-manifest.v15"
+    );
+    const source = hiringSourceFixture();
+    const rpc = vi.fn<HiringWhatIfRpcClient["rpc"]>(() =>
+      Promise.resolve({ data: source, error: null })
+    );
+
+    await createHiringWhatIfRepository({ rpc }).readSourceSnapshot({
+      actorContext: actor,
+      role: "Installer",
+      observedAt: source.observed_at,
+    });
+
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_capability_manifest_revision: "2026-09-01.capability-manifest.v15",
+      p_exposure_revision: "2026-09-01.mcp-exposure.v9",
+    });
+  });
+
   it("rejects non-v11 actors, storage errors, and malformed source rows", async () => {
     const { actor } = await hiringActorFixture();
     const failing = createHiringWhatIfRepository({
@@ -105,6 +128,6 @@ describe("hiring what-if repository", () => {
         role: "Installer",
         observedAt: "2026-09-01T04:00:00.000Z",
       })
-    ).rejects.toThrow("Hiring analysis requires a v11 MCP actor");
+    ).rejects.toThrow("Hiring analysis requires a supported MCP actor");
   });
 });

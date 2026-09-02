@@ -11,7 +11,11 @@ import {
   PROMISE_RECOVERY_MAX_TOTAL_BODY_CHARACTERS,
 } from "@/lib/agent-control-plane/contracts/promise-recovery";
 import { P2CanonicalUuidSchema } from "@/lib/agent-control-plane/contracts/p2-common";
-import { PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
+import {
+  PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION,
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+} from "@/lib/agent-control-plane/registry/capability-manifest";
+import { MCP_EXPOSURE_V9 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 export const PROMISE_RECOVERY_EXPOSURE_REVISION =
   "2026-09-01.mcp-exposure.v6" as const;
@@ -228,12 +232,19 @@ export interface PromiseRecoveryRepository {
 }
 
 function actorBinding(actorContext: ActorContext) {
-  if (
-    actorContext.auth.channel !== "mcp" ||
-    actorContext.capabilityManifestRevision !==
-      PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
-  ) {
-    throw new TypeError("Promise recovery requires a v12 MCP actor");
+  if (actorContext.auth.channel !== "mcp") {
+    throw new TypeError("Promise recovery requires a supported MCP actor");
+  }
+  const exposureRevision =
+    actorContext.capabilityManifestRevision ===
+    PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
+      ? PROMISE_RECOVERY_EXPOSURE_REVISION
+      : actorContext.capabilityManifestRevision ===
+          RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+        ? MCP_EXPOSURE_V9.revision
+        : null;
+  if (exposureRevision === null) {
+    throw new TypeError("Promise recovery requires a supported MCP actor");
   }
   return {
     p_actor_user_id: actorContext.actorUserId,
@@ -243,9 +254,8 @@ function actorBinding(actorContext: ActorContext) {
     p_grant_revision: actorContext.auth.grantRevision,
     p_granted_scope_ceiling: [...actorContext.auth.scopeCeiling],
     p_permission_snapshot_revision: actorContext.permissionSnapshotRevision,
-    p_capability_manifest_revision:
-      PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION,
-    p_exposure_revision: PROMISE_RECOVERY_EXPOSURE_REVISION,
+    p_capability_manifest_revision: actorContext.capabilityManifestRevision,
+    p_exposure_revision: exposureRevision,
     p_capability_id: PROMISE_RECOVERY_CAPABILITY_ID,
     p_capability_revision: PROMISE_RECOVERY_CAPABILITY_REVISION,
   } as const;

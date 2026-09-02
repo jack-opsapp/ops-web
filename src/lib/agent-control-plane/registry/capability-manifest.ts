@@ -36,6 +36,7 @@ import { ANALYZE_HIRING_BREAK_EVEN_CAPABILITY_DEFINITION } from "./hiring-what-i
 import { PROMISE_RECOVERY_CAPABILITY_DEFINITION } from "./promise-recovery-capability";
 import { ANALYZE_SALES_TRUTH_CAPABILITY_DEFINITION } from "./sales-truth-capability";
 import { CHECK_PAYROLL_READINESS_CAPABILITY_DEFINITION } from "./payroll-readiness-capability";
+import { PREPARE_RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_DEFINITION } from "./recurring-service-price-change-capability";
 
 export const V7_CAPABILITY_MANIFEST_REVISION =
   "2026-08-20.capability-manifest.v7" as const;
@@ -52,6 +53,8 @@ export const SALES_TRUTH_CAPABILITY_MANIFEST_REVISION =
   "2026-09-01.capability-manifest.v13" as const;
 export const PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION =
   "2026-09-01.capability-manifest.v14" as const;
+export const RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION =
+  "2026-09-01.capability-manifest.v15" as const;
 
 function activateManifestPolicies(
   entries: readonly CapabilityManifestEntry[]
@@ -390,6 +393,34 @@ const PAYROLL_READINESS_CAPABILITY_BY_NAME = new Map(
   )
 );
 
+const recurringServicePriceChangeManifestEntries: readonly CapabilityManifestEntry[] =
+  [
+    ...PAYROLL_READINESS_CAPABILITY_MANIFEST.map((entry) =>
+      remintEntry(
+        entry,
+        RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+      )
+    ),
+    mintImplementationEntry(
+      PREPARE_RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_DEFINITION,
+      RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+    ),
+  ];
+assertCapabilityManifestInvariants(
+  recurringServicePriceChangeManifestEntries,
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+);
+activateManifestPolicies(recurringServicePriceChangeManifestEntries);
+
+export const RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST: readonly CapabilityManifestEntry[] =
+  Object.freeze(recurringServicePriceChangeManifestEntries);
+
+const RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_BY_NAME = new Map(
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST.map(
+    (entry) => [entry.name, entry] as const
+  )
+);
+
 export function getCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
@@ -442,6 +473,14 @@ export function getPayrollReadinessCapabilityManifestEntry(
   name: string
 ): CapabilityManifestEntry {
   const entry = PAYROLL_READINESS_CAPABILITY_BY_NAME.get(name);
+  if (!entry) throw new TypeError("Unknown capability");
+  return entry;
+}
+
+export function getRecurringServicePriceChangeCapabilityManifestEntry(
+  name: string
+): CapabilityManifestEntry {
+  const entry = RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_BY_NAME.get(name);
   if (!entry) throw new TypeError("Unknown capability");
   return entry;
 }
@@ -772,6 +811,16 @@ export function resolvePayrollReadinessCapabilityAuthorization(
 ): ResolvedCapabilityAuthorization {
   return resolveAuthorizationFromEntry(
     getPayrollReadinessCapabilityManifestEntry(capabilityName),
+    rawInput
+  );
+}
+
+export function resolveRecurringServicePriceChangeCapabilityAuthorization(
+  capabilityName: string,
+  rawInput: unknown
+): ResolvedCapabilityAuthorization {
+  return resolveAuthorizationFromEntry(
+    getRecurringServicePriceChangeCapabilityManifestEntry(capabilityName),
     rawInput
   );
 }

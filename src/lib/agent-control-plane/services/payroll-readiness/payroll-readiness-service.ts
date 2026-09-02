@@ -37,6 +37,8 @@ import {
 import { reauthorizeResolvedMcpActor } from "@/lib/agent-control-plane/mcp/actor-reauthorization";
 import {
   PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION,
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+  resolveRecurringServicePriceChangeCapabilityAuthorization,
   resolvePayrollReadinessCapabilityAuthorization,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
 import { toP2ReadAgentError } from "@/lib/agent-control-plane/services/p2/shared/read-error-transport";
@@ -1150,10 +1152,16 @@ export function createPayrollReadinessService(input: {
         throw error;
       }
 
-      const initial = resolvePayrollReadinessCapabilityAuthorization(
-        CAPABILITY_ID,
-        parsedInput
-      );
+      const usesAdditiveV9Manifest =
+        actorContext.capabilityManifestRevision ===
+        RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION;
+      const resolveAuthorization = usesAdditiveV9Manifest
+        ? resolveRecurringServicePriceChangeCapabilityAuthorization
+        : resolvePayrollReadinessCapabilityAuthorization;
+      const authorizationManifestRevision = usesAdditiveV9Manifest
+        ? RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+        : PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION;
+      const initial = resolveAuthorization(CAPABILITY_ID, parsedInput);
       if (initial.variants.length !== 1) {
         throw authorizationInternal(
           actorContext.requestId,
@@ -1167,14 +1175,10 @@ export function createPayrollReadinessService(input: {
       const currentActor = await reauthorizeResolvedMcpActor({
         actorContext,
         authorityRepository: input.authorityRepository,
-        capabilityManifestRevision:
-          PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION,
+        capabilityManifestRevision: authorizationManifestRevision,
         signal: options?.signal,
       });
-      const current = resolvePayrollReadinessCapabilityAuthorization(
-        CAPABILITY_ID,
-        parsedInput
-      );
+      const current = resolveAuthorization(CAPABILITY_ID, parsedInput);
       if (current.variants.length !== 1) {
         throw authorizationInternal(
           currentActor.requestId,

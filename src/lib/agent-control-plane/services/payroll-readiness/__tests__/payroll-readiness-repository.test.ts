@@ -10,6 +10,7 @@ import {
   COMPANY_ID,
   PAYROLL_CLIENT_ID,
   PAYROLL_GRANT_ID,
+  PAYROLL_PERMISSIONS,
   PAYROLL_SCOPES,
   PAYROLL_USER_ID,
   payrollReadinessActorFixture,
@@ -59,6 +60,28 @@ describe("payroll readiness repository", () => {
     expect(abortSignal).toHaveBeenCalledWith(signal);
   });
 
+  it("binds a v15 actor to the exact dormant v9 exposure", async () => {
+    const { actor } = await payrollReadinessActorFixture(
+      PAYROLL_PERMISSIONS,
+      "2026-09-01.capability-manifest.v15"
+    );
+    const source = payrollReadinessSourceFixture();
+    const rpc = vi.fn<PayrollReadinessRpcClient["rpc"]>(() =>
+      Promise.resolve({ data: source, error: null })
+    );
+
+    await createPayrollReadinessRepository({ rpc }).readSourceSnapshot({
+      actorContext: actor,
+      observedAt: source.observed_at,
+      targetDate: source.target_date,
+    });
+
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_capability_manifest_revision: "2026-09-01.capability-manifest.v15",
+      p_exposure_revision: "2026-09-01.mcp-exposure.v9",
+    });
+  });
+
   it("binds the same instant across JavaScript millisecond and PostgreSQL microsecond formatting", async () => {
     const { actor } = await payrollReadinessActorFixture();
     const source = payrollReadinessSourceFixture();
@@ -89,7 +112,7 @@ describe("payroll readiness repository", () => {
         observedAt: source.observed_at,
         targetDate: source.target_date,
       })
-    ).rejects.toThrow("Payroll readiness requires a v14 MCP actor");
+    ).rejects.toThrow("Payroll readiness requires a supported MCP actor");
     expect(rpc).not.toHaveBeenCalled();
 
     const failing = createPayrollReadinessRepository({

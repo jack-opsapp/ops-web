@@ -749,11 +749,16 @@ function assertConfirmation(entry: CapabilityManifestEntry): void {
   }
 
   requiredNonBlank(entry.writeFamily, `${entry.name}.writeFamily`);
-  if (
-    entry.idempotencyPolicy.kind !== "required" ||
-    entry.idempotencyPolicy.keyField !== "idempotency_key" ||
-    entry.idempotencyPolicy.conflictOnArgumentsHashMismatch !== true
-  ) {
+  const exactDurableIdempotency =
+    entry.idempotencyPolicy.kind === "required" &&
+    entry.idempotencyPolicy.keyField === "idempotency_key" &&
+    entry.idempotencyPolicy.conflictOnArgumentsHashMismatch === true;
+  const inherentEphemeralPreview =
+    entry.operation === "prepare" &&
+    entry.confirmationPolicy.kind === "change_set_preview" &&
+    entry.idempotencyPolicy.kind === "inherent" &&
+    entry.annotations.idempotentHint === true;
+  if (!exactDurableIdempotency && !inherentEphemeralPreview) {
     throw new TypeError(`${entry.name} requires exact idempotency policy`);
   }
 
@@ -909,8 +914,14 @@ export function assertCapabilityManifestInvariants(
         candidate.operation === "commit" &&
         candidate.writeFamily === entry.writeFamily
     );
-    if (commits.length !== 1) {
-      throw new TypeError(`${entry.name} must have exactly one commit sibling`);
+    const expectedCommitSiblings =
+      entry.idempotencyPolicy.kind === "inherent" ? 0 : 1;
+    if (commits.length !== expectedCommitSiblings) {
+      throw new TypeError(
+        expectedCommitSiblings === 0
+          ? `${entry.name} ephemeral preview cannot have a commit sibling`
+          : `${entry.name} must have exactly one commit sibling`
+      );
     }
   }
 }

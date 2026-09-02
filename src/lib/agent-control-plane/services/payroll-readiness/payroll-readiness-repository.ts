@@ -12,8 +12,14 @@ import {
   PayrollReadinessTargetDateError,
   type PayrollReadinessSourceSnapshot,
 } from "@/lib/agent-control-plane/contracts/payroll-readiness";
-import { PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
-import { MCP_EXPOSURE_V8 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION,
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+} from "@/lib/agent-control-plane/registry/capability-manifest";
+import {
+  MCP_EXPOSURE_V8,
+  MCP_EXPOSURE_V9,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const TRUSTED_REPOSITORIES = new WeakSet<object>();
 
@@ -51,12 +57,19 @@ function isTargetDateRpcError(error: unknown): boolean {
 }
 
 function binding(actorContext: ActorContext) {
-  if (
-    actorContext.auth.channel !== "mcp" ||
-    actorContext.capabilityManifestRevision !==
-      PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION
-  ) {
-    throw new TypeError("Payroll readiness requires a v14 MCP actor");
+  if (actorContext.auth.channel !== "mcp") {
+    throw new TypeError("Payroll readiness requires a supported MCP actor");
+  }
+  const exposureRevision =
+    actorContext.capabilityManifestRevision ===
+    PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION
+      ? MCP_EXPOSURE_V8.revision
+      : actorContext.capabilityManifestRevision ===
+          RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+        ? MCP_EXPOSURE_V9.revision
+        : null;
+  if (exposureRevision === null) {
+    throw new TypeError("Payroll readiness requires a supported MCP actor");
   }
   return {
     p_actor_user_id: actorContext.actorUserId,
@@ -66,9 +79,8 @@ function binding(actorContext: ActorContext) {
     p_grant_revision: actorContext.auth.grantRevision,
     p_granted_scope_ceiling: [...actorContext.auth.scopeCeiling],
     p_permission_snapshot_revision: actorContext.permissionSnapshotRevision,
-    p_capability_manifest_revision:
-      PAYROLL_READINESS_CAPABILITY_MANIFEST_REVISION,
-    p_exposure_revision: MCP_EXPOSURE_V8.revision,
+    p_capability_manifest_revision: actorContext.capabilityManifestRevision,
+    p_exposure_revision: exposureRevision,
     p_capability_id: "check_payroll_readiness",
     p_capability_revision: `check_payroll_readiness:${PAYROLL_READINESS_SCHEMA_REVISION}`,
   } as const;

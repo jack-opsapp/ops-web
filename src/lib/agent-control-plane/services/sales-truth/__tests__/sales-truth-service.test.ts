@@ -577,6 +577,30 @@ describe("sales-truth service", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
+  it("executes the inherited tool under a real v15 actor and v9 binding", async () => {
+    const { actor, authorityClient } = await salesTruthActorFixture(
+      SALES_TRUTH_PERMISSIONS,
+      "2026-09-01.capability-manifest.v15"
+    );
+    const source = salesTruthSourceFixture();
+    const rpc = vi.fn<SalesTruthRpcClient["rpc"]>(() =>
+      Promise.resolve({ data: source, error: null })
+    );
+    const service = createSalesTruthService({
+      repository: createSalesTruthRepository({ rpc }),
+      authorityRepository: authorityClient.repository,
+      now: () => new Date(source.observed_at),
+    });
+
+    await expect(service.analyzeSalesTruth(actor, {})).resolves.toMatchObject({
+      observed_at: source.observed_at,
+    });
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_capability_manifest_revision: "2026-09-01.capability-manifest.v15",
+      p_exposure_revision: "2026-09-01.mcp-exposure.v9",
+    });
+  });
+
   it("fails before source access when current pipeline authority is gone", async () => {
     const { actor, authorityClient } = await salesTruthActorFixture();
     authorityClient.mcpResult = salesTruthAuthority(

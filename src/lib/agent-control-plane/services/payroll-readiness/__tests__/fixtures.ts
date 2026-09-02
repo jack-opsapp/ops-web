@@ -149,7 +149,8 @@ export function payrollReadinessAuthority(
 }
 
 export async function payrollReadinessActorFixture(
-  permissions: readonly string[] = PAYROLL_PERMISSIONS
+  permissions: readonly string[] = PAYROLL_PERMISSIONS,
+  capabilityManifestRevision = "2026-09-01.capability-manifest.v14"
 ) {
   const authorityClient = new StubAuthoritySupabaseRpcClient(
     payrollReadinessAuthority(permissions)
@@ -171,7 +172,7 @@ export async function payrollReadinessActorFixture(
     authorityRepository: authorityClient.repository,
     requestId: "request-payroll-readiness",
     policyRevision: "actor-policy:v1",
-    capabilityManifestRevision: "2026-09-01.capability-manifest.v14",
+    capabilityManifestRevision,
   });
   return { actor, authorityClient };
 }

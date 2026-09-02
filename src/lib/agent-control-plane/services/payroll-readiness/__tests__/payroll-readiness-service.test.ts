@@ -1259,6 +1259,32 @@ describe("payroll readiness service", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
+  it("executes the inherited tool under a real v15 actor and v9 binding", async () => {
+    const { actor, authorityClient } = await payrollReadinessActorFixture(
+      PAYROLL_PERMISSIONS,
+      "2026-09-01.capability-manifest.v15"
+    );
+    const source = payrollReadinessSourceFixture();
+    const rpc = vi.fn<PayrollReadinessRpcClient["rpc"]>(() =>
+      Promise.resolve({ data: source, error: null })
+    );
+    const service = createPayrollReadinessService({
+      repository: createPayrollReadinessRepository({ rpc }),
+      authorityRepository: authorityClient.repository,
+      now: () => new Date(source.observed_at),
+    });
+
+    await expect(
+      service.checkPayrollReadiness(actor, {
+        target_date: source.target_date,
+      })
+    ).resolves.toMatchObject({ decision: "yes" });
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_capability_manifest_revision: "2026-09-01.capability-manifest.v15",
+      p_exposure_revision: "2026-09-01.mcp-exposure.v9",
+    });
+  });
+
   it("fails before source access when current finance authority is gone", async () => {
     const { actor, authorityClient } = await payrollReadinessActorFixture();
     authorityClient.mcpResult = payrollReadinessAuthority(

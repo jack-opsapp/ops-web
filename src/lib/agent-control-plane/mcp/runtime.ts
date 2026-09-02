@@ -46,6 +46,11 @@ import {
   createPayrollReadinessService,
   type PayrollReadinessService,
 } from "@/lib/agent-control-plane/services/payroll-readiness/payroll-readiness-service";
+import { createRecurringServicePriceChangeRepository } from "@/lib/agent-control-plane/services/recurring-service-price-change/recurring-service-price-change-repository";
+import {
+  createRecurringServicePriceChangeService,
+  type RecurringServicePriceChangeService,
+} from "@/lib/agent-control-plane/services/recurring-service-price-change/recurring-service-price-change-service";
 import { createSupabaseJobCommunicationContextRepository } from "@/lib/agent-control-plane/services/job-communication-context-repository";
 import { createSupabaseJobConversationContextRepository } from "@/lib/agent-control-plane/services/job-conversation-context-repository";
 import { createSupabaseJobHistoryRepository } from "@/lib/agent-control-plane/services/job-history-repository";
@@ -91,6 +96,7 @@ export interface McpServerRuntime {
   readonly promiseRecovery: PromiseRecoveryService;
   readonly salesTruth: SalesTruthService;
   readonly payrollReadiness: PayrollReadinessService;
+  readonly recurringServicePriceChange: RecurringServicePriceChangeService;
   readonly authorityRepository: ActorAuthorityRepository;
   readonly rpcClient: McpOAuthRpcClient;
   readonly durableRateLimiter: DurableMcpRateLimiter;
@@ -278,6 +284,12 @@ export function getMcpServerRuntime(): McpServerRuntime {
     }),
     authorityRepository,
   });
+  const recurringServicePriceChange = createRecurringServicePriceChangeService({
+    repository: createRecurringServicePriceChangeRepository({
+      rpc: rpcClient.rpc.bind(rpcClient),
+    }),
+    authorityRepository,
+  });
 
   cachedRuntime = Object.freeze({
     domainService: createOpsAgentCapabilityService({
@@ -288,6 +300,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
       promiseRecovery,
       salesTruth,
       payrollReadiness,
+      recurringServicePriceChange,
     }),
     dayCloseout,
     collections,
@@ -295,6 +308,7 @@ export function getMcpServerRuntime(): McpServerRuntime {
     promiseRecovery,
     salesTruth,
     payrollReadiness,
+    recurringServicePriceChange,
     authorityRepository,
     rpcClient,
     durableRateLimiter: createDurableMcpRateLimiter(rpcClient),

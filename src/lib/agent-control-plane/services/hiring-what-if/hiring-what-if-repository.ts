@@ -7,7 +7,11 @@ import {
   HiringWhatIfSourceSnapshotSchema,
   type HiringWhatIfSourceSnapshot,
 } from "@/lib/agent-control-plane/contracts/hiring-what-if";
-import { HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
+import {
+  HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION,
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+} from "@/lib/agent-control-plane/registry/capability-manifest";
+import { MCP_EXPOSURE_V9 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const HIRING_WHAT_IF_EXPOSURE_REVISION = "2026-08-31.mcp-exposure.v5" as const;
 const HIRING_WHAT_IF_MEMBER_LIMIT = 25;
@@ -40,12 +44,19 @@ export class HiringWhatIfRepositoryUnavailableError extends Error {
 }
 
 function binding(actorContext: ActorContext) {
-  if (
-    actorContext.auth.channel !== "mcp" ||
-    actorContext.capabilityManifestRevision !==
-      HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
-  ) {
-    throw new TypeError("Hiring analysis requires a v11 MCP actor");
+  if (actorContext.auth.channel !== "mcp") {
+    throw new TypeError("Hiring analysis requires a supported MCP actor");
+  }
+  const exposureRevision =
+    actorContext.capabilityManifestRevision ===
+    HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION
+      ? HIRING_WHAT_IF_EXPOSURE_REVISION
+      : actorContext.capabilityManifestRevision ===
+          RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+        ? MCP_EXPOSURE_V9.revision
+        : null;
+  if (exposureRevision === null) {
+    throw new TypeError("Hiring analysis requires a supported MCP actor");
   }
   return {
     p_actor_user_id: actorContext.actorUserId,
@@ -55,8 +66,8 @@ function binding(actorContext: ActorContext) {
     p_grant_revision: actorContext.auth.grantRevision,
     p_granted_scope_ceiling: [...actorContext.auth.scopeCeiling],
     p_permission_snapshot_revision: actorContext.permissionSnapshotRevision,
-    p_capability_manifest_revision: HIRING_WHAT_IF_CAPABILITY_MANIFEST_REVISION,
-    p_exposure_revision: HIRING_WHAT_IF_EXPOSURE_REVISION,
+    p_capability_manifest_revision: actorContext.capabilityManifestRevision,
+    p_exposure_revision: exposureRevision,
   } as const;
 }
 

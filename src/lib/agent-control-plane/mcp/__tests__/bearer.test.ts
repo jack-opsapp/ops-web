@@ -41,6 +41,8 @@ function runtime(
     promiseRecovery: {} as McpServerRuntime["promiseRecovery"],
     salesTruth: {} as McpServerRuntime["salesTruth"],
     payrollReadiness: {} as McpServerRuntime["payrollReadiness"],
+    recurringServicePriceChange:
+      {} as McpServerRuntime["recurringServicePriceChange"],
     authorityRepository: authorityClient.repository,
     rpcClient: {
       async rpc(functionName, args) {

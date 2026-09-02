@@ -9,6 +9,7 @@ import {
   SALES_TRUTH_CLIENT_ID,
   SALES_TRUTH_COMPANY_ID,
   SALES_TRUTH_GRANT_ID,
+  SALES_TRUTH_PERMISSIONS,
   SALES_TRUTH_SCOPES,
   SALES_TRUTH_USER_ID,
   salesTruthActorFixture,
@@ -57,6 +58,27 @@ describe("sales-truth repository", () => {
     expect(abortSignal).toHaveBeenCalledWith(signal);
   });
 
+  it("binds a v15 actor to the exact dormant v9 exposure", async () => {
+    const { actor } = await salesTruthActorFixture(
+      SALES_TRUTH_PERMISSIONS,
+      "2026-09-01.capability-manifest.v15"
+    );
+    const source = salesTruthSourceFixture();
+    const rpc = vi.fn<SalesTruthRpcClient["rpc"]>(() =>
+      Promise.resolve({ data: source, error: null })
+    );
+
+    await createSalesTruthRepository({ rpc }).readSourceSnapshot({
+      actorContext: actor,
+      observedAt: source.observed_at,
+    });
+
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_capability_manifest_revision: "2026-09-01.capability-manifest.v15",
+      p_exposure_revision: "2026-09-01.mcp-exposure.v9",
+    });
+  });
+
   it("rejects wrong manifest actors, storage errors, clock drift, and malformed snapshots", async () => {
     const { actor } = await salesTruthActorFixture();
     const source = salesTruthSourceFixture();
@@ -69,7 +91,7 @@ describe("sales-truth repository", () => {
         actorContext: wrongManifest,
         observedAt: source.observed_at,
       })
-    ).rejects.toThrow("Sales-truth analysis requires a v13 MCP actor");
+    ).rejects.toThrow("Sales-truth analysis requires a supported MCP actor");
     expect(rpc).not.toHaveBeenCalled();
 
     const failing = createSalesTruthRepository({

@@ -56,6 +56,30 @@ describe("hiring what-if service", () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
+  it("executes the inherited tool under a real v15 actor and v9 binding", async () => {
+    const { actor, authorityClient } = await hiringActorFixture(
+      HIRING_PERMISSIONS,
+      "2026-09-01.capability-manifest.v15"
+    );
+    const { repository, rpc } = serviceFixture();
+    const service = createHiringWhatIfService({
+      repository,
+      authorityRepository: authorityClient.repository,
+      now: () => HIRING_OBSERVED_AT,
+    });
+
+    await expect(
+      service.analyzeHiringBreakEven(actor, {
+        role: "Installer",
+        hourly_cost: 42.5,
+      })
+    ).resolves.toMatchObject({ state: "ready" });
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_capability_manifest_revision: "2026-09-01.capability-manifest.v15",
+      p_exposure_revision: "2026-09-01.mcp-exposure.v9",
+    });
+  });
+
   it("fails before source access when current permission is gone", async () => {
     const { actor, authorityClient } = await hiringActorFixture();
     const { repository, rpc } = serviceFixture();

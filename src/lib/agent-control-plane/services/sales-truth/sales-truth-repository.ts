@@ -11,8 +11,14 @@ import {
   SalesTruthSourceSnapshotSchema,
   type SalesTruthSourceSnapshot,
 } from "@/lib/agent-control-plane/contracts/sales-truth";
-import { SALES_TRUTH_CAPABILITY_MANIFEST_REVISION } from "@/lib/agent-control-plane/registry/capability-manifest";
-import { MCP_EXPOSURE_V7 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
+import {
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION,
+  SALES_TRUTH_CAPABILITY_MANIFEST_REVISION,
+} from "@/lib/agent-control-plane/registry/capability-manifest";
+import {
+  MCP_EXPOSURE_V7,
+  MCP_EXPOSURE_V9,
+} from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 
 const TRUSTED_REPOSITORIES = new WeakSet<object>();
 
@@ -40,12 +46,19 @@ export class SalesTruthRepositoryUnavailableError extends Error {
 }
 
 function binding(actorContext: ActorContext) {
-  if (
-    actorContext.auth.channel !== "mcp" ||
-    actorContext.capabilityManifestRevision !==
-      SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
-  ) {
-    throw new TypeError("Sales-truth analysis requires a v13 MCP actor");
+  if (actorContext.auth.channel !== "mcp") {
+    throw new TypeError("Sales-truth analysis requires a supported MCP actor");
+  }
+  const exposureRevision =
+    actorContext.capabilityManifestRevision ===
+    SALES_TRUTH_CAPABILITY_MANIFEST_REVISION
+      ? MCP_EXPOSURE_V7.revision
+      : actorContext.capabilityManifestRevision ===
+          RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST_REVISION
+        ? MCP_EXPOSURE_V9.revision
+        : null;
+  if (exposureRevision === null) {
+    throw new TypeError("Sales-truth analysis requires a supported MCP actor");
   }
   return {
     p_actor_user_id: actorContext.actorUserId,
@@ -55,8 +68,8 @@ function binding(actorContext: ActorContext) {
     p_grant_revision: actorContext.auth.grantRevision,
     p_granted_scope_ceiling: [...actorContext.auth.scopeCeiling],
     p_permission_snapshot_revision: actorContext.permissionSnapshotRevision,
-    p_capability_manifest_revision: SALES_TRUTH_CAPABILITY_MANIFEST_REVISION,
-    p_exposure_revision: MCP_EXPOSURE_V7.revision,
+    p_capability_manifest_revision: actorContext.capabilityManifestRevision,
+    p_exposure_revision: exposureRevision,
     p_capability_id: "analyze_sales_truth",
     p_capability_revision: `analyze_sales_truth:${SALES_TRUTH_SCHEMA_REVISION}`,
   } as const;

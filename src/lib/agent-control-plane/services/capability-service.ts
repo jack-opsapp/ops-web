@@ -25,6 +25,10 @@ import {
   type PayrollReadinessService,
 } from "./payroll-readiness/payroll-readiness-service";
 import {
+  isTrustedRecurringServicePriceChangeService,
+  type RecurringServicePriceChangeService,
+} from "./recurring-service-price-change/recurring-service-price-change-service";
+import {
   isTrustedOpsAgentReadCatalogueService,
   type OpsAgentReadCatalogueService,
 } from "./read-catalogue-service";
@@ -37,7 +41,8 @@ export type OpsAgentCapabilityService = OpsAgentReadCatalogueService &
   HiringWhatIfService &
   PromiseRecoveryService &
   SalesTruthService &
-  PayrollReadinessService;
+  PayrollReadinessService &
+  RecurringServicePriceChangeService;
 
 export function createOpsAgentCapabilityService(input: {
   readonly reads: OpsAgentReadCatalogueService;
@@ -47,6 +52,7 @@ export function createOpsAgentCapabilityService(input: {
   readonly promiseRecovery: PromiseRecoveryService;
   readonly salesTruth: SalesTruthService;
   readonly payrollReadiness: PayrollReadinessService;
+  readonly recurringServicePriceChange: RecurringServicePriceChangeService;
 }): OpsAgentCapabilityService {
   if (!isTrustedOpsAgentReadCatalogueService(input.reads)) {
     throw new TypeError("A trusted OPS read catalogue is required");
@@ -69,6 +75,15 @@ export function createOpsAgentCapabilityService(input: {
   if (!isTrustedPayrollReadinessService(input.payrollReadiness)) {
     throw new TypeError("A trusted payroll readiness service is required");
   }
+  if (
+    !isTrustedRecurringServicePriceChangeService(
+      input.recurringServicePriceChange
+    )
+  ) {
+    throw new TypeError(
+      "A trusted recurring-service price-change service is required"
+    );
+  }
   const service = Object.freeze({
     ...input.reads,
     ...input.dayCloseout,
@@ -77,6 +92,7 @@ export function createOpsAgentCapabilityService(input: {
     ...input.promiseRecovery,
     ...input.salesTruth,
     ...input.payrollReadiness,
+    ...input.recurringServicePriceChange,
   });
   TRUSTED_CAPABILITY_SERVICES.add(service);
   return service;

@@ -535,7 +535,9 @@ function rawSnapshot() {
   };
 }
 
-async function serviceFixture() {
+async function serviceFixture(
+  capabilityManifestRevision = PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION
+) {
   const authorityClient = new StubAuthoritySupabaseRpcClient(authority());
   const actor = await resolveActorContext({
     principal: validatedMcpPrincipalFixture({
@@ -554,7 +556,7 @@ async function serviceFixture() {
     authorityRepository: authorityClient.repository,
     requestId: "request-promise-recovery",
     policyRevision: "actor-policy:v1",
-    capabilityManifestRevision: PROMISE_RECOVERY_CAPABILITY_MANIFEST_REVISION,
+    capabilityManifestRevision,
   });
   const abortSignal = vi.fn(() =>
     Promise.resolve({ data: rawSnapshot(), error: null })
@@ -590,6 +592,23 @@ describe("promise-recovery service authority", () => {
     expect(result.answer.state).toBe("replied");
     expect(authorityClient.actorSignals).toEqual([signal]);
     expect(abortSignal).toHaveBeenCalledWith(signal);
+  });
+
+  it("executes the inherited tool under a real v15 actor and v9 binding", async () => {
+    const { actor, rpc, service } = await serviceFixture(
+      "2026-09-01.capability-manifest.v15"
+    );
+
+    await expect(
+      service.checkCustomerReply(actor, {
+        customer_query: "Baxter Homes",
+        topic: "revised quote",
+      })
+    ).resolves.toMatchObject({ answer: { state: "replied" } });
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_capability_manifest_revision: "2026-09-01.capability-manifest.v15",
+      p_exposure_revision: "2026-09-01.mcp-exposure.v9",
+    });
   });
 
   it("fails before correspondence access when current email authority was revoked", async () => {

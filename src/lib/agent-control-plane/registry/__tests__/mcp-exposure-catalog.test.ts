@@ -8,10 +8,13 @@ import {
 } from "@/lib/agent-control-plane/mcp/oauth/scopes";
 import {
   CAPABILITY_MANIFEST,
+  COLLECTIONS_CAPABILITY_MANIFEST,
   INVISIBLE_OFFICE_CAPABILITY_MANIFEST,
   getCapabilityManifestEntry,
   getInvisibleOfficeCapabilityManifestEntry,
   getPayrollReadinessCapabilityManifestEntry,
+  getRecurringServicePriceChangeCapabilityManifestEntry,
+  RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST,
   getPromiseRecoveryCapabilityManifestEntry,
   getSalesTruthCapabilityManifestEntry,
 } from "@/lib/agent-control-plane/registry/capability-manifest";
@@ -25,6 +28,7 @@ import {
   MCP_EXPOSURE_V6,
   MCP_EXPOSURE_V7,
   MCP_EXPOSURE_V8,
+  MCP_EXPOSURE_V9,
   assertMcpExposureInvariants,
   resolveActiveMcpExposure,
   resolveMcpExposureRevision,
@@ -33,7 +37,9 @@ import {
 } from "@/lib/agent-control-plane/registry/mcp-exposure-catalog";
 import {
   MCP_SCOPE_CONSENT_LABELS,
+  COLLECTIONS_MCP_SCOPE_CONSENT_LABELS,
   INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS,
+  PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS,
   MCP_SCOPE_OPERATION_BY_ID,
   REGISTERED_MCP_SCOPES,
 } from "@/lib/agent-control-plane/registry/mcp-scope-catalog";
@@ -213,6 +219,32 @@ const EXPECTED_EXPOSURE_V8 = {
   grantableScopes: EXPECTED_EXPOSURE_V7.grantableScopes,
 } as const;
 
+const EXPECTED_EXPOSURE_V9 = {
+  revision: "2026-09-01.mcp-exposure.v9",
+  toolIds: [
+    ...EXPECTED_EXPOSURE_V8.toolIds,
+    "prepare_recurring_service_price_change",
+  ],
+  grantableScopes: [
+    "ops.catalog.read",
+    "ops.company.read",
+    "ops.correspondence.read",
+    "ops.customer_contacts.read",
+    "ops.customers.read",
+    "ops.expenses.read",
+    "ops.financial_documents.read",
+    "ops.financials.read",
+    "ops.jobs.read",
+    "ops.operations.prepare",
+    "ops.operations.read",
+    "ops.payments.read",
+    "ops.schedule.read",
+    "ops.site_visits.read",
+    "ops.tasks.read",
+    "ops.team.read",
+  ],
+} as const;
+
 type MutableInvariantInput = {
   exposure: {
     revision: string;
@@ -293,6 +325,9 @@ describe("immutable MCP exposure catalogue", () => {
     expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V8.revision]).toBe(
       MCP_EXPOSURE_V8
     );
+    expect(MCP_EXPOSURE_CATALOG[MCP_EXPOSURE_V9.revision]).toBe(
+      MCP_EXPOSURE_V9
+    );
     expect(Object.keys(MCP_EXPOSURE_CATALOG)).toEqual([
       MCP_EXPOSURE_V1.revision,
       MCP_EXPOSURE_V2.revision,
@@ -302,6 +337,7 @@ describe("immutable MCP exposure catalogue", () => {
       MCP_EXPOSURE_V6.revision,
       MCP_EXPOSURE_V7.revision,
       MCP_EXPOSURE_V8.revision,
+      MCP_EXPOSURE_V9.revision,
     ]);
     for (const exposure of [
       MCP_EXPOSURE_V1,
@@ -312,6 +348,7 @@ describe("immutable MCP exposure catalogue", () => {
       MCP_EXPOSURE_V6,
       MCP_EXPOSURE_V7,
       MCP_EXPOSURE_V8,
+      MCP_EXPOSURE_V9,
     ]) {
       expect(Object.isFrozen(exposure)).toBe(true);
       expect(Object.isFrozen(exposure.toolIds)).toBe(true);
@@ -319,11 +356,12 @@ describe("immutable MCP exposure catalogue", () => {
     }
   });
 
-  it("keeps v5-v7 stable while adding payroll readiness in inactive read-only v8", () => {
+  it("keeps v5-v8 stable while adding one inactive ephemeral preview in v9", () => {
     expect(MCP_EXPOSURE_V5).toEqual(EXPECTED_EXPOSURE_V5);
     expect(MCP_EXPOSURE_V6).toEqual(EXPECTED_EXPOSURE_V6);
     expect(MCP_EXPOSURE_V7).toEqual(EXPECTED_EXPOSURE_V7);
     expect(MCP_EXPOSURE_V8).toEqual(EXPECTED_EXPOSURE_V8);
+    expect(MCP_EXPOSURE_V9).toEqual(EXPECTED_EXPOSURE_V9);
     expect(
       resolveMcpExposureRevision(MCP_EXPOSURE_CATALOG, MCP_EXPOSURE_V6.revision)
     ).toBe(MCP_EXPOSURE_V6);
@@ -358,6 +396,27 @@ describe("immutable MCP exposure catalogue", () => {
       idempotentHint: true,
       openWorldHint: false,
     });
+    const priceEntry = getRecurringServicePriceChangeCapabilityManifestEntry(
+      "prepare_recurring_service_price_change"
+    );
+    expect(priceEntry.operation).toBe("prepare");
+    expect(priceEntry.annotations).toEqual({
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    });
+    expect(() =>
+      assertMcpExposureInvariants({
+        exposure: MCP_EXPOSURE_V9,
+        manifestEntries: RECURRING_SERVICE_PRICE_CHANGE_CAPABILITY_MANIFEST,
+        domainMethods: DOMAIN_METHOD_BY_CAPABILITY,
+        registeredScopes: REGISTERED_MCP_SCOPES,
+        scopeOperations: MCP_SCOPE_OPERATION_BY_ID,
+        consentLabels: PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS,
+        allowedOperations: ["read", "prepare"],
+      })
+    ).not.toThrow();
   });
 
   it("pins inactive v3 to the single prepare-only closeout vertical", () => {
@@ -384,6 +443,23 @@ describe("immutable MCP exposure catalogue", () => {
         allowedOperations: ["read", "prepare"],
       })
     ).not.toThrow();
+  });
+
+  it("pins collections prepare consent to its exact customer-draft label", () => {
+    expect(() =>
+      assertMcpExposureInvariants({
+        exposure: MCP_EXPOSURE_V4,
+        manifestEntries: COLLECTIONS_CAPABILITY_MANIFEST,
+        domainMethods: DOMAIN_METHOD_BY_CAPABILITY,
+        registeredScopes: REGISTERED_MCP_SCOPES,
+        scopeOperations: MCP_SCOPE_OPERATION_BY_ID,
+        consentLabels: COLLECTIONS_MCP_SCOPE_CONSENT_LABELS,
+        allowedOperations: ["read", "prepare"],
+      })
+    ).not.toThrow();
+    expect(COLLECTIONS_MCP_SCOPE_CONSENT_LABELS["ops.operations.prepare"]).toBe(
+      "Prepare collections aging and customer drafts for approval"
+    );
   });
 
   it("makes OAuth compatibility views use the v1 scope array and only its neutral labels", () => {

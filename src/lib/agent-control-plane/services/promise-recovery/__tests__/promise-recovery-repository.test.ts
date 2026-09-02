@@ -142,6 +142,23 @@ describe("promise-recovery repository", () => {
     });
   });
 
+  it("binds a v15 actor to the exact dormant v9 exposure", async () => {
+    const rpc = vi.fn<PromiseRecoveryRpcClient["rpc"]>(() =>
+      Promise.resolve({ data: rawSnapshot(), error: null })
+    );
+
+    await createPromiseRecoveryRepository({ rpc }).read({
+      actorContext: actor("2026-09-01.capability-manifest.v15"),
+      customerQuery: "Baxter Homes",
+      asOf: "2026-08-31T20:00:00.000Z",
+    });
+
+    expect(rpc.mock.calls[0]?.[1]).toMatchObject({
+      p_capability_manifest_revision: "2026-09-01.capability-manifest.v15",
+      p_exposure_revision: "2026-09-01.mcp-exposure.v9",
+    });
+  });
+
   it("preserves cancellation at the RPC boundary", async () => {
     const abortSignal = vi.fn(() =>
       Promise.resolve({ data: rawSnapshot(), error: null })
@@ -172,7 +189,7 @@ describe("promise-recovery repository", () => {
         customerQuery: "Baxter Homes",
         asOf: "2026-08-31T20:00:00.000Z",
       })
-    ).rejects.toThrow("Promise recovery requires a v12 MCP actor");
+    ).rejects.toThrow("Promise recovery requires a supported MCP actor");
     expect(rpc).not.toHaveBeenCalled();
   });
 
