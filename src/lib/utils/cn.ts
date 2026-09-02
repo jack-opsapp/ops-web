@@ -34,6 +34,13 @@ const FONT_SIZE_TOKENS = [
   "data-lg",
   "data",
   "data-sm",
+  // Cake Mono display roles. Every `<Button>` pairs `text-cake-button` with a
+  // variant text colour, so without these four the shared button label
+  // silently rendered at the 16px browser default instead of the 14px spec.
+  "cake-display",
+  "cake-section",
+  "cake-button",
+  "cake-badge",
 ];
 
 const twMerge = extendTailwindMerge({

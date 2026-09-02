@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface PhotoCaptionDialogProps {
   open: boolean;
@@ -59,19 +60,13 @@ export function PhotoCaptionDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2">
-          <button
-            onClick={() => onOpenChange(false)}
-            className="rounded-md px-3 py-1.5 text-sm text-[#999] hover:text-[#EDEDED]"
-          >
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="rounded-md bg-ops-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-[#4d8ab0]"
-          >
+          </Button>
+          <Button type="button" variant="primary" onClick={handleSave}>
             Save Caption
-          </button>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

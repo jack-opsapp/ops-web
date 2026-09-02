@@ -22,20 +22,24 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: [
-          "bg-[rgba(255,255,255,0.07)] text-text-2 border border-[rgba(255,255,255,0.10)]",
+          "bg-[rgba(255,255,255,0.07)] text-text-2 border border-line",
           "hover:bg-[rgba(255,255,255,0.12)] hover:text-text",
         ],
+        // DESIGN.md §9 / spec v2: the primary CTA is OUTLINED at rest —
+        // accent text + accent hairline on a transparent fill — and fills to
+        // solid accent with black text on hover. Accent is a quiet promise,
+        // not a shout; the fill is the reward for reaching for it.
         primary: [
-          "bg-ops-accent text-black border border-ops-accent",
-          "hover:bg-ops-accent-hover",
+          "bg-transparent text-ops-accent border border-ops-accent",
+          "hover:bg-ops-accent hover:text-black",
         ],
         accent: [
           "bg-ops-amber text-text-inverse border border-ops-amber",
           "hover:bg-ops-amber-hover",
         ],
         secondary: [
-          "bg-transparent text-text-2 border border-[rgba(255,255,255,0.10)]",
-          "hover:bg-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.18)] hover:text-text",
+          "bg-transparent text-text-2 border border-line",
+          "hover:bg-surface-hover hover:border-line-hi hover:text-text",
         ],
         destructive: [
           "bg-rose-soft text-rose border border-rose-line",
@@ -43,7 +47,7 @@ const buttonVariants = cva(
         ],
         ghost: [
           "bg-transparent text-text-2",
-          "hover:bg-[rgba(255,255,255,0.05)] hover:text-text",
+          "hover:bg-surface-hover hover:text-text",
         ],
         link: [
           "bg-transparent text-text-2 underline-offset-4",
@@ -52,14 +56,17 @@ const buttonVariants = cva(
         ],
       },
       size: {
-        // DESIGN.md spec: buttons are min-height 36px / padding 9px 16px / radius 5px.
-        // `default` is the spec value (h-9 = 36px, px-4 = 16px). `sm`/`lg` are
-        // unspecified-but-coherent derivations on a 32/36/40 ladder — never the
-        // 44px touch-target value (OPS-Web is mouse-driven; there is no touch here).
-        default: "h-9 px-4",
-        sm: "h-8 px-3",
-        lg: "h-10 px-5",
-        icon: "h-9 w-9 p-0",
+        // DESIGN.md §9: the standard button is min-height 36px / padding 9px 16px
+        // / radius 5px. OPS overrides Tailwind's numeric spacing scale
+        // (tailwind.config.ts `spacing`: `h-8` is 64px here and `px-4` is 32px),
+        // so the ladder is spelled with the explicit control tokens — 32 / 36 /
+        // 40px tall with 12 / 16 / 24px side padding. `sm`/`lg` are
+        // unspecified-but-coherent derivations; never the 44px touch-target
+        // value (OPS-Web is mouse-driven; there is no touch here).
+        default: "h-control-36 px-2",
+        sm: "h-control-32 px-1.5",
+        lg: "h-control-40 px-3",
+        icon: "h-control-36 w-control-36 p-0",
       },
     },
     defaultVariants: {

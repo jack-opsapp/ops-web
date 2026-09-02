@@ -189,8 +189,8 @@ export function ProductOptionFormDialog({
                     "flex-1 px-2 py-1.5 font-mono text-caption-sm uppercase tracking-widest transition-colors",
                     "border-r border-border last:border-r-0",
                     kind === k
-                      ? "bg-ops-accent text-black"
-                      : "text-text-3 hover:text-text hover:bg-[rgba(255,255,255,0.04)]"
+                      ? "bg-surface-active border-line-hi text-text"
+                      : "text-text-3 hover:text-text hover:bg-surface-input"
                   )}
                 >
                   {OPTION_KIND_LABEL[k]}

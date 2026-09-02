@@ -9,6 +9,7 @@ import { StockBadge } from "./stock-badge";
 import { Switch } from "@/components/ui/switch";
 import { formatCents } from "./format-cents";
 import type { ShopProductListItem } from "@/lib/admin/shop-types";
+import { Button } from "@/components/ui/button";
 
 type SortKey = "name" | "categoryName" | "priceCents" | "variantCount" | "totalStock" | "createdAt";
 type SortDir = "asc" | "desc";
@@ -147,13 +148,12 @@ export function ProductsTable({ products, categories, lowStockCount }: ProductsT
           ))}
         </div>
         <div className="flex-1" />
-        <Link
-          href="/admin/shop/products/new"
-          className="flex items-center gap-2 bg-ops-accent text-white font-mono text-[11px] uppercase tracking-widest px-4 py-2 rounded-sm hover:bg-ops-accent/80 transition-colors"
-        >
-          <Plus size={14} />
-          Add Product
-        </Link>
+        <Button variant="primary" size="sm" asChild>
+          <Link href="/admin/shop/products/new">
+            <Plus className="h-icon-16 w-icon-16" aria-hidden="true" />
+            Add Product
+          </Link>
+        </Button>
       </div>
 
       {/* Bulk action bar */}

@@ -15,6 +15,7 @@ import type {
   ShopProductOption,
   ShopVariant,
 } from "@/lib/admin/shop-types";
+import { Button } from "@/components/ui/button";
 
 interface ProductEditorProps {
   product: ShopProduct | null;
@@ -186,13 +187,17 @@ export function ProductEditor({ product, categories, options: initialOptions, va
               </button>
             </>
           )}
-          <button
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
             onClick={handleSave}
-            disabled={saving || !name || !slug || !categoryId}
-            className="flex items-center gap-1.5 px-4 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            loading={saving}
+            disabled={!name || !slug || !categoryId}
           >
-            <Save size={12} /> {saving ? "Saving..." : "Save"}
-          </button>
+            {!saving && <Save className="h-icon-16 w-icon-16" aria-hidden="true" />}
+            {saving ? "Saving..." : "Save"}
+          </Button>
         </div>
       </div>
 

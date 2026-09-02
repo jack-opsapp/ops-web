@@ -637,7 +637,7 @@ export function BugReportDrawer() {
               <span
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 10,
+                  fontSize: 11,
                   color: "var(--text-mute)",
                   letterSpacing: "0.16em",
                 }}
@@ -662,7 +662,8 @@ export function BugReportDrawer() {
                 aria-hidden
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: 9,
+                  fontSize: 11,
+                  lineHeight: 1,
                   color: "var(--text-2)",
                   letterSpacing: 0,
                   padding: "2px 6px",
@@ -728,10 +729,10 @@ export function BugReportDrawer() {
                               onClick={() => setCategory(opt.value)}
                               className={cn(
                                 "px-2 py-1 rounded-chip border transition-colors duration-150",
-                                "font-mono text-[10px] uppercase tracking-wider",
+                                "font-mono text-micro uppercase tracking-wider",
                                 isActive
-                                  ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
-                                  : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
+                                  ? "border-line-hi bg-surface-active text-text"
+                                  : "border-line bg-transparent text-text-mute hover:text-text-2 hover:bg-surface-hover-subtle"
                               )}
                             >
                               {t(opt.labelKey)}
@@ -758,7 +759,7 @@ export function BugReportDrawer() {
                           placeholder={t("bugReport.titlePlaceholder")}
                           className={cn(
                             "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text",
-                            "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                            "bg-surface-input border border-line",
                             "placeholder:text-text-mute",
                             "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
                             "transition-colors duration-150"
@@ -784,7 +785,7 @@ export function BugReportDrawer() {
                           rows={3}
                           className={cn(
                             "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
-                            "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                            "bg-surface-input border border-line",
                             "placeholder:text-text-mute",
                             "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
                             "transition-colors duration-150"
@@ -804,7 +805,7 @@ export function BugReportDrawer() {
                         rows={5}
                         className={cn(
                           "w-full px-2.5 py-2 rounded-sm font-mohave text-body-sm text-text resize-none",
-                          "bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]",
+                          "bg-surface-input border border-line",
                           "placeholder:text-text-mute",
                           "focus:outline-none focus:border-[rgba(255,255,255,0.20)]/40",
                           "transition-colors duration-150"
@@ -834,10 +835,10 @@ export function BugReportDrawer() {
                               onClick={() => setSeverity(isActive ? null : opt.value)}
                               className={cn(
                                 "flex-1 px-2 py-1.5 rounded-chip border transition-colors duration-150",
-                                "font-mono text-[10px] uppercase tracking-wider",
+                                "font-mono text-micro uppercase tracking-wider",
                                 isActive
-                                  ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.08)] text-text"
-                                  : "border-[rgba(255,255,255,0.08)] bg-transparent text-text-mute hover:text-text-2 hover:bg-[rgba(255,255,255,0.03)]"
+                                  ? "border-line-hi bg-surface-active text-text"
+                                  : "border-line bg-transparent text-text-mute hover:text-text-2 hover:bg-surface-hover-subtle"
                               )}
                             >
                               {t(opt.labelKey)}
@@ -855,13 +856,13 @@ export function BugReportDrawer() {
                       className={cn(
                         "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-chip border transition-colors cursor-pointer",
                         requiresMyInput
-                          ? "border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)]"
-                          : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
+                          ? "border-line-hi bg-[rgba(255,255,255,0.06)]"
+                          : "border-line bg-[rgba(255,255,255,0.02)] hover:border-[rgba(255,255,255,0.14)]"
                       )}
                     >
                       <span
                         className={cn(
-                          "font-mono text-[10px] uppercase tracking-wider text-left",
+                          "font-mono text-micro uppercase tracking-wider text-left",
                           requiresMyInput ? "text-text-2" : "text-text-mute"
                         )}
                       >
@@ -890,7 +891,7 @@ export function BugReportDrawer() {
                           "w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm border transition-colors cursor-pointer",
                           includeScreenshot
                             ? "border-[rgba(255,255,255,0.15)] bg-[rgba(255,255,255,0.05)]"
-                            : "border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.02)]"
+                            : "border-line bg-[rgba(255,255,255,0.02)]"
                         )}
                       >
                         <span
@@ -983,8 +984,8 @@ export function BugReportDrawer() {
                       "font-mono text-micro uppercase tracking-wider",
                       "transition-all duration-150",
                       title.trim() && formState !== "submitting"
-                        ? "bg-[rgba(255,255,255,0.08)] text-ops-accent border border-[rgba(255,255,255,0.15)] hover:bg-ops-accent/30"
-                        : "bg-[rgba(255,255,255,0.04)] text-text-mute border border-[rgba(255,255,255,0.06)] cursor-not-allowed"
+                        ? "bg-surface-active text-ops-accent border border-[rgba(255,255,255,0.15)] hover:bg-ops-accent/30"
+                        : "bg-surface-input text-text-mute border border-[rgba(255,255,255,0.06)] cursor-not-allowed"
                     )}
                   >
                     {formState === "submitting" ? (

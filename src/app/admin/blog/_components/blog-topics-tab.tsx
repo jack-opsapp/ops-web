@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { Button } from "@/components/ui/button";
 
 interface Topic {
   id: string;
@@ -109,13 +110,9 @@ export function BlogTopicsTab() {
           onChange={(e) => setNewAuthor(e.target.value)}
           className="w-[200px] bg-white/[0.05] border border-white/[0.1] rounded px-3 py-2 font-mohave text-[14px] text-[#EDEDED] placeholder:text-[#6B6B6B] focus:outline-none focus:border-white/[0.2]"
         />
-        <button
-          type="button"
-          onClick={handleCreate}
-          className="px-4 py-2 bg-ops-accent hover:bg-[#6B8AA6] rounded font-mohave text-[13px] uppercase tracking-wider text-white transition-colors"
-        >
+        <Button type="button" variant="primary" size="sm" onClick={handleCreate}>
           Add
-        </button>
+        </Button>
       </div>
 
       {/* Table */}

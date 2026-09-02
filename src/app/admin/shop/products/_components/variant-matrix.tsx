@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import type { EditorOption } from "./option-manager";
 import { Switch } from "@/components/ui/switch";
 import { centsToDecimal } from "../../_components/format-cents";
+import { Button } from "@/components/ui/button";
 
 export interface EditorVariant {
   id?: string;
@@ -233,16 +234,18 @@ function BulkSetButton({
         autoFocus
         className="w-20 bg-white/[0.04] border border-white/[0.08] rounded-sm px-2 py-1 font-mohave text-[11px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
       />
-      <button
+      <Button
+        type="button"
+        variant="primary"
+        size="sm"
         onClick={() => {
           if (value) onSet(isInteger ? parseInt(value) : parseFloat(value));
           setOpen(false);
           setValue("");
         }}
-        className="px-2 py-1 bg-ops-accent rounded-sm font-mono text-micro uppercase text-white"
       >
         Set
-      </button>
+      </Button>
     </div>
   ) : (
     <button

@@ -9,8 +9,10 @@ import {
   Edit3,
   MoreVertical,
   CheckCircle2,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 import { StatusBadge, type TaskStatus as StatusBadgeTaskStatus } from "@/components/ops/status-badge";
 import { OnboardingHint } from "@/components/ops/onboarding-hint";
 import { ConfirmDialog } from "@/components/ops/confirm-dialog";
@@ -583,12 +585,14 @@ function TaskList({ projectId, companyId, className }: TaskListProps) {
             }}
           >
             <PopoverTrigger asChild>
-              <button
+              <Button
+                type="button"
+                variant="primary"
                 onClick={() => setShowCreateForm(true)}
-                className="bg-ops-accent text-white font-mohave text-body-sm rounded-panel px-4 py-1.5 hover:opacity-90 transition-opacity"
               >
-                + {t("taskList.addTask")}
-              </button>
+                <Plus className="h-icon-16 w-icon-16" aria-hidden="true" />
+                {t("taskList.addTask")}
+              </Button>
             </PopoverTrigger>
             <PopoverContent
               side="bottom"
