@@ -110,6 +110,18 @@ export const INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
     "Prepare end-of-day closeouts and exact OPS filing previews",
 } as const satisfies Partial<Record<RegisteredMcpScope, string>>);
 
+export const COLLECTIONS_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...MCP_SCOPE_CONSENT_LABELS,
+  "ops.operations.prepare":
+    "Prepare collections aging and customer drafts for approval",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
+export const PRICE_CHANGE_MCP_SCOPE_CONSENT_LABELS = Object.freeze({
+  ...MCP_SCOPE_CONSENT_LABELS,
+  "ops.operations.prepare":
+    "Prepare recurring-service price-change previews and customer notice drafts",
+} as const satisfies Partial<Record<RegisteredMcpScope, string>>);
+
 export type LabelledMcpScope =
   keyof typeof INVISIBLE_OFFICE_MCP_SCOPE_CONSENT_LABELS;
 

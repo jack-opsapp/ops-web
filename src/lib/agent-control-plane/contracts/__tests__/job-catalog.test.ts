@@ -2235,6 +2235,37 @@ describe("Task 13 correspondence-evidence result contract", () => {
     ).toBe(false);
   });
 
+  it("keeps a stable attachment reference when content metadata is incomplete", () => {
+    const referenceOnly = {
+      attachment_id: "email_attachment:55555555-5555-4555-8555-555555555555",
+      metadata_state: "incomplete" as const,
+    };
+    expect(
+      CorrespondenceEvidenceDataSchema.safeParse({
+        ...correspondenceEvidenceData(),
+        items: [
+          { ...correspondenceEvidenceItem(), attachments: [referenceOnly] },
+        ],
+      }).success
+    ).toBe(true);
+    expect(
+      CorrespondenceEvidenceDataSchema.safeParse({
+        ...correspondenceEvidenceData(),
+        items: [
+          {
+            ...correspondenceEvidenceItem(),
+            attachments: [
+              {
+                attachment_id: "attachment:unstable",
+                metadata_state: "incomplete",
+              },
+            ],
+          },
+        ],
+      }).success
+    ).toBe(false);
+  });
+
   it("requires evidence coupling, exact count, and a 60k prompt envelope", () => {
     const evidence = evidenceRef(TURN_EVIDENCE_ID, "delivered_correspondence");
     const valid = envelope(correspondenceEvidenceData(), [evidence]);
