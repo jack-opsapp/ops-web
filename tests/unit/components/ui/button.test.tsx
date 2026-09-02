@@ -49,11 +49,34 @@ describe("<Button>", () => {
     }
   });
 
-  it("uses the 5px brand btn radius (bare `rounded`) and the 36px standard height", () => {
+  it("uses the 5px brand btn radius (bare `rounded`), the 36px standard height and 16px side padding", () => {
     render(<Button variant="primary">Save</Button>);
     const el = screen.getByRole("button", { name: "Save" });
     expect(el).toHaveClass("rounded");
-    expect(el).toHaveClass("h-9");
+    // OPS overrides Tailwind's numeric spacing scale (`h-9`/`px-4` do not mean
+    // 36px/16px here), so the ladder must use the explicit control tokens.
+    expect(el).toHaveClass("h-control-36");
+    expect(el).toHaveClass("px-2");
+    expect(el.className).not.toMatch(/(^|\s)h-(8|9|10)(\s|$)/);
+  });
+
+  it("compact and large sizes sit on the 32 / 40px control ladder (never the 64px `h-8`)", () => {
+    render(
+      <>
+        <Button variant="primary" size="sm">
+          Small
+        </Button>
+        <Button variant="primary" size="lg">
+          Large
+        </Button>
+        <Button variant="primary" size="icon" aria-label="Icon" />
+      </>,
+    );
+    expect(screen.getByRole("button", { name: "Small" })).toHaveClass("h-control-32");
+    expect(screen.getByRole("button", { name: "Large" })).toHaveClass("h-control-40");
+    const icon = screen.getByRole("button", { name: "Icon" });
+    expect(icon).toHaveClass("h-control-36");
+    expect(icon).toHaveClass("w-control-36");
   });
 
   it("default variant stays neutral glass (no accent)", () => {
