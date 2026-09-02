@@ -9,6 +9,7 @@ interface ReferenceNavigationProps {
 
 const GUIDE_LINKS = [
   ["overview", "overviewNav"],
+  ["get-a-credential", "credentialNav"],
   ["authentication", "authenticationNav"],
   ["quick-start", "quickStartNav"],
 ] as const;
