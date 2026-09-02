@@ -103,7 +103,7 @@ function queueResult(over: Partial<ReturnType<typeof baseResult>> = {}) {
 function baseResult() {
   return {
     data: [] as AgentAction[],
-    isLoading: false,
+    isPending: false,
     isError: false,
     error: null as Error | null,
     refetch: vi.fn(),
@@ -141,6 +141,15 @@ describe("AgentQueuePage", () => {
     render(<AgentQueuePage />);
     expect(screen.getByText("empty.pendingNoun")).toBeInTheDocument();
     expect(screen.getByText("empty.pendingHint")).toBeInTheDocument();
+  });
+
+  it("shows the skeleton, not the empty state, while the query is disabled or pending", () => {
+    useApprovalQueue.mockReturnValue(
+      queueResult({ data: undefined, isPending: true })
+    );
+    const { container } = render(<AgentQueuePage />);
+    expect(container.querySelectorAll(".animate-pulse")).toHaveLength(3);
+    expect(screen.queryByText("empty.pendingNoun")).toBeNull();
   });
 
   it("derives type chips from loaded rows and filters locally", () => {

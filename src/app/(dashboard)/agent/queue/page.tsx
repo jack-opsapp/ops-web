@@ -122,9 +122,15 @@ export default function AgentQueuePage() {
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
 
-  const { data, isLoading, isError, error, refetch } = useApprovalQueue(
+  // `isPending` (no data yet) rather than `isLoading` (no data AND a fetch
+  // in flight): while the permission and company stores are still hydrating
+  // the query is merely disabled, and that must read as loading — never as
+  // an empty queue. A genuinely empty result has data (`[]`) and is not
+  // pending.
+  const { data, isPending, isError, error, refetch } = useApprovalQueue(
     view === "needsYou" ? PENDING_FILTER : HISTORY_FILTER
   );
+  const isLoading = isPending;
   const actions = useMemo<AgentAction[]>(() => data ?? [], [data]);
 
   const { data: teamData } = useTeamMembers();
