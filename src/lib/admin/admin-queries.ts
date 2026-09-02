@@ -964,7 +964,7 @@ export async function getBugReports(): Promise<BugReportRow[]> {
     db()
       .from("bug_reports")
       .select(
-        "id, company_id, reporter_id, description, category, platform, status, priority, screen_name, url, browser, browser_version, os_name, os_version, device_model, app_version, viewport_width, viewport_height, network_type, reporter_name, reporter_email, screenshot_url, console_logs, breadcrumbs, state_snapshot, custom_metadata, resolution_notes, resolved_at, created_at"
+        "id, company_id, reporter_id, description, category, platform, status, priority, screen_name, url, browser, browser_version, os_name, os_version, device_model, app_version, viewport_width, viewport_height, network_type, reporter_name, reporter_email, screenshot_url, additional_attachments, console_logs, breadcrumbs, state_snapshot, custom_metadata, resolution_notes, resolved_at, created_at"
       )
       .order("created_at", { ascending: false })
       .limit(500)
