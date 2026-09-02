@@ -88,12 +88,13 @@ const okResolver =
 describe("session cookie contract", () => {
   it("pins the cookie name, path and lifetimes from the plan", () => {
     expect(SESSION_COOKIE_NAME).toBe("ops-customer-session");
-    expect(SESSION_COOKIE_PATH).toBe("/c");
+    // Ruled 2026-09-02: Path=/ so the broker API under /api/customer receives it.
+    expect(SESSION_COOKIE_PATH).toBe("/");
     expect(SESSION_ABSOLUTE_TTL_SECONDS).toBe(30 * 24 * 60 * 60);
     expect(SESSION_IDLE_TTL_SECONDS).toBe(7 * 24 * 60 * 60);
   });
 
-  it("sets the session cookie httpOnly, Secure, SameSite=Lax, Path=/c, 30-day max age", () => {
+  it("sets the session cookie httpOnly, Secure, SameSite=Lax, Path=/, 30-day max age", () => {
     const credential = mintSessionCredential();
     const response = NextResponse.json({ ok: true });
     setSessionCookie(response, credential);
@@ -104,12 +105,12 @@ describe("session cookie contract", () => {
     expect(cookie?.httpOnly).toBe(true);
     expect(cookie?.secure).toBe(true);
     expect(cookie?.sameSite).toBe("lax");
-    expect(cookie?.path).toBe("/c");
+    expect(cookie?.path).toBe("/");
     expect(cookie?.maxAge).toBe(SESSION_ABSOLUTE_TTL_SECONDS);
 
     const header = response.headers.get("set-cookie") ?? "";
     expect(header).toContain(`${SESSION_COOKIE_NAME}=${credential}`);
-    expect(header).toContain("Path=/c");
+    expect(header).toMatch(/Path=\/(;|$)/);
     expect(header).toContain("HttpOnly");
     expect(header).toContain("Secure");
     expect(header).toMatch(/SameSite=lax/i);
@@ -129,7 +130,7 @@ describe("session cookie contract", () => {
     clearSessionCookie(response);
     const cookie = response.cookies.get(SESSION_COOKIE_NAME);
     expect(cookie?.value).toBe("");
-    expect(cookie?.path).toBe("/c");
+    expect(cookie?.path).toBe("/");
     expect(cookie?.httpOnly).toBe(true);
     expect(cookie?.secure).toBe(true);
     expect(cookie?.sameSite).toBe("lax");

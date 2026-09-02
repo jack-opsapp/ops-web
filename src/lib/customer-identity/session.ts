@@ -18,12 +18,12 @@ import {
 
 export const SESSION_COOKIE_NAME = "ops-customer-session" as const;
 /**
- * Cookie scope from the P1 plan. Browsers only attach a `Path=/c` cookie to
- * requests under `/c`; the broker API under `/api/customer` will not receive
- * it. Flagged to the PM as a contract question; a single constant so the
- * decision lands in one place.
+ * Cookie scope (P1 plan, ruled 2026-09-02): `/`, because browsers only attach
+ * a path-scoped cookie to requests under that path and the broker API lives
+ * under `/api/customer`. Safe because no staff route or middleware prefix
+ * ever consults this cookie (guardrail test in Task 5).
  */
-export const SESSION_COOKIE_PATH = "/c" as const;
+export const SESSION_COOKIE_PATH = "/" as const;
 /** 30 days. */
 export const SESSION_ABSOLUTE_TTL_SECONDS = 2_592_000 as const;
 /** 7 days (slid by the resolve RPC on every request). */
