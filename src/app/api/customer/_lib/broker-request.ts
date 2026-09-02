@@ -31,29 +31,14 @@ import { rateLimit } from "@/lib/utils/ratelimit";
 
 // ─── Public handle ──────────────────────────────────────────────────────────
 
-/** Mirrors the CHECK constraint on `companies.public_handle` (P1 migration). */
-const PUBLIC_HANDLE_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-const PUBLIC_HANDLE_MIN_LENGTH = 3;
-const PUBLIC_HANDLE_MAX_LENGTH = 48;
+/**
+ * The handle grammar lives once, in a page-safe module the hosted pages share
+ * (`src/lib/customer-identity/handle.ts`): exact or nothing, uuid refused (I4).
+ */
+export { parsePublicHandle } from "@/lib/customer-identity/handle";
+
 const CANONICAL_UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
-/**
- * Exact or nothing: no trimming, no case folding. A uuid-shaped string is
- * refused even though it fits the grammar — a company is addressed by its
- * handle, never by its id (I4), and the backfill can never mint one.
- */
-export function parsePublicHandle(input: unknown): string | null {
-  if (typeof input !== "string") return null;
-  if (
-    input.length < PUBLIC_HANDLE_MIN_LENGTH ||
-    input.length > PUBLIC_HANDLE_MAX_LENGTH
-  ) {
-    return null;
-  }
-  if (CANONICAL_UUID_PATTERN.test(input)) return null;
-  return PUBLIC_HANDLE_PATTERN.test(input) ? input : null;
-}
 
 export function customerHomePath(handle: string): string {
   return `/c/${handle}/home`;
