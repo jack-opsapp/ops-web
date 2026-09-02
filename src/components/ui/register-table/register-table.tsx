@@ -20,7 +20,7 @@
  * Row anatomy + cell atoms live in `./register-table-cells`.
  */
 
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -93,6 +93,14 @@ export interface RegisterTableProps<Row> {
    * cycle that fits its data.
    */
   onSortChange?: (columnId: string) => void;
+  /**
+   * Detail renderer for an expanded row. Its node is hosted by a second,
+   * non-interactive `<tr>` spanning every column, directly beneath the record
+   * it belongs to. Omit for a non-expandable table.
+   */
+  renderExpanded?: (row: Row) => ReactNode;
+  /** Ids currently expanded. The caller owns the open/closed set. */
+  expandedRowIds?: ReadonlySet<string>;
 }
 
 export function RegisterTable<Row>({
@@ -108,6 +116,8 @@ export function RegisterTable<Row>({
   inShell = false,
   sort,
   onSortChange,
+  renderExpanded,
+  expandedRowIds,
 }: RegisterTableProps<Row>) {
   const table = (
     <table className="w-full" style={{ minWidth }} aria-label={ariaLabel}>
@@ -177,9 +187,12 @@ export function RegisterTable<Row>({
               const interactive = Boolean(
                 onRowClick && (isRowInteractive ? isRowInteractive(row) : true),
               );
+              const rowId = getRowId(row);
+              const expanded = Boolean(renderExpanded && expandedRowIds?.has(rowId));
               return (
+                <Fragment key={rowId}>
                 <tr
-                  key={getRowId(row)}
+                  aria-expanded={expandedRowIds ? expanded : undefined}
                   tabIndex={interactive ? 0 : undefined}
                   onClick={interactive ? () => onRowClick?.(row) : undefined}
                   onKeyDown={
@@ -212,6 +225,18 @@ export function RegisterTable<Row>({
                     </td>
                   ))}
                 </tr>
+                {expanded && (
+                  // The detail row is chrome, not a record: no click target, no
+                  // hover, no focus stop — the row above it owns the toggle. Its
+                  // dim neutral fill reads as a surface nested inside the
+                  // register rather than another row in it.
+                  <tr className="border-b border-border-subtle bg-fill-neutral-dim last:border-b-0">
+                    <td colSpan={columns.length} className="p-0">
+                      {renderExpanded?.(row)}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>
