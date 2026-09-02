@@ -3,7 +3,7 @@
  *
  * The queue table and the expanded `ActionDetail` both need the same type
  * icons, tag variants, source deep-links, and relative-age formatting.
- * Lifted verbatim out of the old `ActionCard` so there is exactly one copy.
+ * Lifted verbatim out of the retired `ActionCard` so there is exactly one copy.
  */
 
 import {

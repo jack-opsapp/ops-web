@@ -2,6 +2,8 @@
 
 import { useState, useEffect, memo, useCallback } from "react";
 import {
+  BellPlus,
+  ExternalLink,
   Mail,
   Check,
   Gauge,
@@ -17,6 +19,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { useLocale, useDictionary } from "@/i18n/client";
 import { Button } from "@/components/ui/button";
+import { getSourceUrl } from "./queue-row";
 import type {
   AgentAction,
   CreateTaskActionData,
@@ -38,7 +41,6 @@ import type {
   ProcessRescheduleRequestActionData,
   FileDayCloseoutActionData,
   ApproveCollectionsDraftActionData,
-  StructuredSummary,
 } from "@/lib/types/approval-queue";
 import { FinancialInsightCard } from "./financial-insight-card";
 import { CollectionsDraftPreview } from "./collections-draft-preview";
@@ -102,18 +104,6 @@ function interpolate(
   });
 }
 
-/** Render a structured summary via a dictionary lookup. */
-function renderStructured(
-  s: StructuredSummary | null | undefined,
-  tFn: (key: string) => string,
-  fallback: string
-): string {
-  if (!s) return fallback;
-  const template = tFn(`summary.${s.type}`);
-  // If the key is missing, tFn returns the raw key — fall back to the DB string
-  if (template === `summary.${s.type}`) return fallback;
-  return interpolate(template, s.params);
-}
 
 /** Format a date-time string (ISO or date-only) in the current locale. */
 function formatDateTime(
@@ -833,9 +823,36 @@ export const ActionDetail = memo(function ActionDetail({
     onApprove,
   ]);
 
+  const sourceUrl = getSourceUrl(action.contextSource, action.sourceId);
+
   return (
     <div className="px-3 pb-3 pt-3">
       <div className="space-y-3">
+        {/* Provenance — what proposed this and where it came from. The row
+            above already carries type, priority, confidence and age, so the
+            detail only restores the part a row cannot hold: the deep link
+            back to the originating thread, task, or project. */}
+        {(action.contextSource || sourceUrl) && (
+          <div className="flex flex-wrap items-center gap-3">
+            {action.contextSource && (
+              <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+                <span aria-hidden className="text-text-mute">
+                  {"// "}
+                </span>
+                {t(`source.${action.contextSource}`)}
+              </span>
+            )}
+            {sourceUrl && (
+              <a
+                href={sourceUrl}
+                className="flex items-center gap-1 font-mono text-micro text-text-3 transition-colors duration-150 ease-smooth hover:text-text-2"
+              >
+                <ExternalLink className="h-icon-16 w-icon-16" aria-hidden />
+                {t("card.viewSource")}
+              </a>
+            )}
+          </div>
+        )}
         {isDayCloseout && dayCloseoutData && (
           <div className="space-y-3 rounded-chip border border-border-subtle bg-fill-neutral-dim p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
