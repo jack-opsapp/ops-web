@@ -206,7 +206,7 @@ function metadataIsSafe(metadata: IdentityEventMetadata): boolean {
   return true;
 }
 
-async function callRpc(
+export async function callSystemRpc(
   client: CustomerIdentityRpcClient,
   functionName: string,
   args: Readonly<Record<string, unknown>>,
@@ -236,7 +236,7 @@ function isContactConflict(error: unknown): boolean {
   );
 }
 
-function singleRow<T>(data: unknown, schema: z.ZodType<T>, operation: string): T {
+export function singleRow<T>(data: unknown, schema: z.ZodType<T>, operation: string): T {
   if (!Array.isArray(data) || data.length !== 1) {
     throw new CustomerIdentityStoreError(operation);
   }
@@ -245,7 +245,7 @@ function singleRow<T>(data: unknown, schema: z.ZodType<T>, operation: string): T
   return parsed.data;
 }
 
-function optionalSingleRow<T>(
+export function optionalSingleRow<T>(
   data: unknown,
   schema: z.ZodType<T>,
   operation: string
@@ -259,7 +259,7 @@ function optionalSingleRow<T>(
   return parsed.data;
 }
 
-function scalar<T>(data: unknown, schema: z.ZodType<T>, operation: string): T {
+export function scalar<T>(data: unknown, schema: z.ZodType<T>, operation: string): T {
   const parsed = schema.safeParse(data);
   if (!parsed.success) throw new CustomerIdentityStoreError(operation);
   return parsed.data;
@@ -278,7 +278,7 @@ export async function beginOtpChallenge(
   const operation = "begin_customer_otp_challenge";
   scalar(input.emailDigest, EmailDigestSchema, operation);
   scalar(input.networkFingerprint, Sha256HexSchema, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "begin_customer_otp_challenge_as_system",
     {
@@ -297,7 +297,7 @@ export async function recordOtpAttempt(
 ): Promise<RecordOtpAttemptRow | null> {
   const operation = "record_customer_otp_attempt";
   requireUuid(input.challengeId, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "record_customer_otp_attempt_as_system",
     { p_challenge_id: input.challengeId, p_success: input.success },
@@ -313,7 +313,7 @@ export async function upsertIdentity(
   input: { authSubject: string; email: string }
 ): Promise<UpsertIdentityRow> {
   const operation = "upsert_customer_identity";
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "upsert_customer_identity_as_system",
     { p_auth_subject: input.authSubject, p_email: input.email },
@@ -332,7 +332,7 @@ export async function mintSession(
   requireUuid(input.identityId, operation);
   scalar(input.sessionHash, Sha256HexSchema, operation);
   scalar(input.networkFingerprint, Sha256HexSchema, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "mint_customer_session_as_system",
     {
@@ -351,7 +351,7 @@ export async function resolveSession(
 ): Promise<ResolveSessionRow> {
   const operation = "resolve_customer_session";
   scalar(sessionHash, Sha256HexSchema, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "resolve_customer_session_as_system",
     { p_session_hash: sessionHash },
@@ -366,7 +366,7 @@ export async function revokeSession(
 ): Promise<boolean> {
   const operation = "revoke_customer_session";
   scalar(input.sessionHash, Sha256HexSchema, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "revoke_customer_session_as_system",
     { p_session_hash: input.sessionHash, p_reason: input.reason },
@@ -381,7 +381,7 @@ export async function revokeAllSessions(
 ): Promise<number> {
   const operation = "revoke_all_customer_sessions";
   requireUuid(input.identityId, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "revoke_all_customer_sessions_as_system",
     { p_identity_id: input.identityId, p_reason: input.reason },
@@ -403,7 +403,7 @@ export async function resolveMembershipRow(
   const operation = "resolve_customer_membership";
   requireUuid(input.identityId, operation);
   requireUuid(input.companyId, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "resolve_customer_membership_as_system",
     { p_identity_id: input.identityId, p_company_id: input.companyId },
@@ -419,7 +419,7 @@ export async function confirmMembership(
   const operation = "confirm_customer_membership";
   requireUuid(input.membershipId, operation);
   requireUuid(input.staffUserId, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "confirm_customer_membership_as_system",
     { p_membership_id: input.membershipId, p_staff_user_id: input.staffUserId },
@@ -435,7 +435,7 @@ export async function revokeMembership(
   const operation = "revoke_customer_membership";
   requireUuid(input.membershipId, operation);
   requireUuid(input.staffUserId, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "revoke_customer_membership_as_system",
     {
@@ -455,7 +455,7 @@ export async function listMembershipsForClient(
   const operation = "list_customer_memberships_for_client";
   requireUuid(input.companyId, operation);
   requireUuid(input.clientId, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "list_customer_memberships_for_client_as_system",
     { p_company_id: input.companyId, p_client_id: input.clientId },
@@ -484,7 +484,7 @@ export async function readCustomerProfile(
   const operation = "read_customer_profile";
   requireUuid(input.identityId, operation);
   requireUuid(input.companyId, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "read_customer_profile_as_system",
     { p_identity_id: input.identityId, p_company_id: input.companyId },
@@ -502,7 +502,7 @@ export async function ensureHostedIntegration(
 ): Promise<string> {
   const operation = "ensure_customer_hosted_integration";
   requireUuid(input.companyId, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "ensure_customer_hosted_integration_as_system",
     { p_company_id: input.companyId },
@@ -518,7 +518,7 @@ export async function ensurePairwiseRef(
   const operation = "ensure_customer_pairwise_ref";
   requireUuid(input.identityId, operation);
   requireUuid(input.integrationId, operation);
-  const data = await callRpc(
+  const data = await callSystemRpc(
     client,
     "ensure_customer_pairwise_ref_as_system",
     { p_identity_id: input.identityId, p_integration_id: input.integrationId },
@@ -550,7 +550,7 @@ export async function appendIdentityEvent(
   if (input.networkFingerprint !== null) {
     scalar(input.networkFingerprint, Sha256HexSchema, operation);
   }
-  await callRpc(
+  await callSystemRpc(
     client,
     "append_customer_identity_event_as_system",
     {
