@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { Button } from "@/components/ui/button";
 
 interface FaqItem {
   question: string;
@@ -54,13 +55,9 @@ export function FaqEditor({ faqs, onChange }: FaqEditorProps) {
         <p className="font-mohave text-[13px] uppercase tracking-widest text-[#6B6B6B]">
           Q&A Section (FAQ Schema)
         </p>
-        <button
-          type="button"
-          onClick={addItem}
-          className="px-3 py-1.5 rounded text-[13px] font-mohave text-white bg-ops-accent hover:bg-[#6B8AA6] transition-colors"
-        >
+        <Button type="button" variant="primary" size="sm" onClick={addItem}>
           Add Q&A
-        </button>
+        </Button>
       </div>
 
       {/* Empty state */}

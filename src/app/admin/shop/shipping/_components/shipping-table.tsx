@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { centsToDecimal } from "../../_components/format-cents";
 import type { ShopShippingMethod } from "@/lib/admin/shop-types";
+import { Button } from "@/components/ui/button";
 
 interface ShippingTableProps {
   methods: ShopShippingMethod[];
@@ -226,13 +227,15 @@ export function ShippingTable({ methods }: ShippingTableProps) {
             </div>
           </div>
           <div className="flex gap-2">
-            <button
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
               onClick={addMethod}
               disabled={!newName.trim()}
-              className="px-4 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
             >
               Add
-            </button>
+            </Button>
             <button
               onClick={() => setAdding(false)}
               className="px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]"

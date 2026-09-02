@@ -17,6 +17,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Button } from "@/components/ui/button";
 
 export interface EditorOption {
   id?: string;
@@ -195,12 +196,9 @@ export function OptionManager({ options, onChange }: OptionManagerProps) {
             autoFocus
             className="bg-white/[0.04] border border-white/[0.08] rounded-sm px-3 py-1.5 font-mohave text-[13px] text-[#EDEDED] focus:border-[#6F94B0] focus:outline-none"
           />
-          <button
-            onClick={addOption}
-            className="px-3 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white"
-          >
+          <Button type="button" variant="primary" size="sm" onClick={addOption}>
             Add
-          </button>
+          </Button>
           <button
             onClick={() => { setAddingOption(false); setNewOptionName(""); }}
             className="px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]"

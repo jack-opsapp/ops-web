@@ -8,6 +8,7 @@ import { ArrowLeft, Truck, CheckCircle, XCircle, RotateCcw, ExternalLink } from 
 import { OrderStatusBadge } from "./order-status-badge";
 import { formatCents } from "../../_components/format-cents";
 import type { ShopOrderWithItems } from "@/lib/admin/shop-types";
+import { Button } from "@/components/ui/button";
 
 interface OrderDetailProps {
   order: ShopOrderWithItems;
@@ -176,13 +177,16 @@ export function OrderDetail({ order }: OrderDetailProps) {
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           {order.status === "paid" && (
-            <button
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
               onClick={() => setShowShipForm(true)}
               disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
             >
-              <Truck size={12} /> Mark Shipped
-            </button>
+              <Truck className="h-icon-16 w-icon-16" aria-hidden="true" />
+              Mark Shipped
+            </Button>
           )}
           {order.status === "shipped" && (
             <button
@@ -245,13 +249,16 @@ export function OrderDetail({ order }: OrderDetailProps) {
             </div>
           </div>
           <div className="flex gap-2">
-            <button
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
               onClick={handleShip}
-              disabled={!trackingNumber || saving}
-              className="px-4 py-1.5 bg-ops-accent rounded-sm font-mono text-[11px] uppercase tracking-widest text-white hover:bg-ops-accent/80 transition-colors disabled:opacity-50"
+              loading={saving}
+              disabled={!trackingNumber}
             >
               Confirm Ship
-            </button>
+            </Button>
             <button
               onClick={() => setShowShipForm(false)}
               className="px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-[#6B6B6B]"
