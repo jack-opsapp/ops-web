@@ -40,7 +40,8 @@ export type Namespace =
   | 'project-workspace'
   | 'catalog-setup'
   | 'picker'
-  | 'admin-growth';
+  | 'admin-growth'
+  | 'customer';
 
 
 export type Dictionary = Record<string, string | string[] | Record<string, unknown>>;
