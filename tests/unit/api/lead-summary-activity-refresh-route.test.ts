@@ -43,6 +43,14 @@ const context = (id = OPPORTUNITY_ID) => ({
 });
 beforeEach(() => {
   vi.clearAllMocks();
+  const query = {
+    select: vi.fn(),
+    eq: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  serviceRoleClientMock.from.mockReturnValue(query);
   verifyTokenMock.mockResolvedValue({ uid: "firebase-user" });
   accessTokenClientMock.mockReturnValue({ rpc: actorRpcMock });
   actorRpcMock.mockResolvedValue({ data: COMPANY_ID, error: null });
@@ -123,12 +131,20 @@ describe("POST /api/opportunities/[id]/summary-refresh", () => {
       written: 0,
       skippedFeatureDisabled: false,
       failed: [],
-      deferred: [{ opportunityId: OPPORTUNITY_ID, error: "provider", reason: "provider_unavailable" }],
+      deferred: [
+        {
+          opportunityId: OPPORTUNITY_ID,
+          error: "provider",
+          reason: "provider_unavailable",
+        },
+      ],
       remainingOpportunityIds: [OPPORTUNITY_ID],
     });
     const deferred = await POST(request(), context());
     expect(deferred.status).toBe(503);
-    expect(await deferred.json()).toEqual({ error: "Summary refresh deferred" });
+    expect(await deferred.json()).toEqual({
+      error: "Summary refresh deferred",
+    });
   });
 
   it("rejects missing auth and malformed ids before database work", async () => {

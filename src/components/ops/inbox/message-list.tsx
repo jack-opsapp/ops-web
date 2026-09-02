@@ -365,7 +365,7 @@ function DraftBubble({
           <p className="whitespace-pre-wrap break-words">{selectedDraft.body}</p>
 
           {(onEditDraft || onSendDraft) && (
-            <div className="mt-2 flex items-center justify-end gap-1.5 border-t border-line/70 pt-2">
+            <div className="mt-2 flex items-center justify-end gap-1.5 border-t border-border-subtle pt-2">
               {onEditDraft && (
                 <button
                   type="button"

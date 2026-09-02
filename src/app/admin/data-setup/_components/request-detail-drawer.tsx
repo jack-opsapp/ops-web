@@ -340,7 +340,7 @@ export function RequestDetailDrawer({
           {row.status !== "cancelled" && row.status !== "completed" && (
             <Section label="// Cancel">
               {confirmCancel ? (
-                <div className="space-y-2 border border-rose-line bg-rose-soft/30 rounded-panel p-3">
+                <div className="space-y-2 border border-rose-line bg-rose-soft rounded-panel p-3">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="w-[14px] h-[14px] text-rose mt-0.5 shrink-0" />
                     <div>
@@ -381,7 +381,7 @@ export function RequestDetailDrawer({
                   className={
                     "w-full font-cakemono font-light uppercase text-[12px] tracking-wider " +
                     "px-2 py-2 rounded border border-rose-line text-rose " +
-                    "hover:bg-rose-soft/20 transition-colors"
+                    "hover:bg-rose-soft transition-colors"
                   }
                 >
                   Cancel request
@@ -541,8 +541,8 @@ function DestructiveAction({
       className={
         "inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded " +
         "font-cakemono font-light uppercase text-[12px] tracking-wider " +
-        "border border-rose-line text-rose bg-rose-soft/20 " +
-        "hover:bg-rose-soft/40 " +
+        "border border-rose-line text-rose " +
+        "hover:bg-rose-soft " +
         "disabled:opacity-50 transition-colors"
       }
     >

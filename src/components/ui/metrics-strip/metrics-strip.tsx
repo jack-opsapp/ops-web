@@ -214,7 +214,7 @@ function Skeleton() {
     <div className="flex min-w-[136px] flex-1 flex-col gap-2 border-r border-border-subtle px-[18px] first:pl-0 last:border-r-0 last:pr-0">
       <div className="h-[11px] w-[56px] animate-pulse rounded-bar bg-fill-neutral-dim motion-reduce:animate-none" />
       <div className="h-[28px] w-[84px] animate-pulse rounded-bar bg-fill-neutral-dim motion-reduce:animate-none" />
-      <div className="mt-1 h-[8px] w-full animate-pulse rounded-bar bg-fill-neutral-dim/60 motion-reduce:animate-none" />
+      <div className="mt-1 h-[8px] w-full animate-pulse rounded-bar bg-fill-neutral-dim motion-reduce:animate-none" />
     </div>
   );
 }

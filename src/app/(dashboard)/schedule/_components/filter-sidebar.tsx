@@ -36,14 +36,14 @@ function FilterSection({
     <div className="border-b border-border-subtle">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between px-3 py-2 hover:bg-fill-neutral-dim/30 transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 hover:bg-surface-hover-subtle transition-colors"
       >
         <span className="font-mono text-micro text-text-3 uppercase tracking-[0.12em]">
           {title}
         </span>
         <div className="flex items-center gap-1.5">
           {count > 0 && (
-            <span className="font-mono text-micro text-text bg-[rgba(255,255,255,0.08)] px-[6px] py-[1px] rounded-chip">
+            <span className="font-mono text-micro text-text bg-surface-active px-[6px] py-[1px] rounded-chip">
               {count}
             </span>
           )}
@@ -224,7 +224,7 @@ export function FilterSidebar() {
           )}
           <button
             onClick={toggleFilterSidebar}
-            className="p-0.5 hover:bg-fill-neutral-dim/50 rounded transition-colors"
+            className="p-0.5 hover:bg-surface-hover-subtle rounded transition-colors"
           >
             <X className="w-3.5 h-3.5 text-text-mute" />
           </button>

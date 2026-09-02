@@ -4,7 +4,6 @@ import {
   Head,
   Body,
   Container,
-  Preview,
   Font,
 } from "@react-email/components";
 import {
@@ -12,6 +11,7 @@ import {
   BodyBand,
   Footer,
   ComplianceFooter,
+  Preview,
   emailTokens as T,
 } from "../primitives";
 

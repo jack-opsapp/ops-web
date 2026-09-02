@@ -157,4 +157,3 @@ export function trackFormAbandoned(formType: string, fieldsFilled: number) {
     fields_filled: fieldsFilled,
   });
 }
-

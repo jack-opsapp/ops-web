@@ -272,6 +272,7 @@ async function reconcileOpportunity(input: {
         direction: "outbound",
         occurredAt: new Date(sentAt),
         source: "approved_action_email_send",
+        responseKindHint: "configured_automation",
         applyOpportunityProjection: true,
         fromEmail: intent.clientFromAddressSnapshot,
         fromName: intent.actorNameSnapshot,

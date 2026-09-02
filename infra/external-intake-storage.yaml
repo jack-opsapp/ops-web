@@ -1,0 +1,598 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  REVIEW ONLY. Private external lead-intake quarantine, malware scanning,
+  durable queues, and cookieless signed delivery. Do not provision until the
+  external API cost and service gate is approved.
+
+Parameters:
+  CloudFrontPublicKeyEncoded:
+    Type: CommaDelimitedList
+    NoEcho: true
+    Description: Comma-delimited PEM lines for an RSA public key. Retain the private key outside CloudFormation.
+
+Resources:
+  ExternalIntakeBucket:
+    Type: AWS::S3::Bucket
+    DependsOn:
+      - UploadEventsQueuePolicy
+    Properties:
+      BucketName: !Sub "ops-external-intake-${AWS::AccountId}-${AWS::Region}"
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+      CorsConfiguration:
+        CorsRules:
+          - Id: CredentiallessCreateOnlyUpload
+            AllowedOrigins:
+              - "*"
+            AllowedMethods:
+              - PUT
+              - HEAD
+            AllowedHeaders:
+              - content-length
+              - content-type
+              - if-none-match
+              - x-amz-checksum-sha256
+              - x-amz-content-sha256
+              - x-amz-date
+              - authorization
+              - x-amz-security-token
+            ExposedHeaders:
+              - ETag
+              - x-amz-version-id
+              - x-amz-checksum-sha256
+            MaxAge: 300
+      LifecycleConfiguration:
+        Rules:
+          # application cleanup is authoritative: it may add cleanup=eligible
+          # only after upload-capability-delete-not-before has passed. This
+          # one-day rule is the durable fallback, never the eligibility clock.
+          - Id: DeleteEligibleQuarantineObjects
+            Status: Enabled
+            Prefix: quarantine/
+            TagFilters:
+              - Key: cleanup
+                Value: eligible
+            ExpirationInDays: 1
+            NoncurrentVersionExpiration:
+              NoncurrentDays: 1
+      NotificationConfiguration:
+        EventBridgeConfiguration:
+          EventBridgeEnabled: true
+        QueueConfigurations:
+          - Event: "s3:ObjectCreated:*"
+            Queue: !GetAtt UploadEventsQueue.Arn
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: quarantine/
+      Tags:
+        - Key: ops-data-class
+          Value: external-lead-intake
+        - Key: ops-prefix-contract
+          Value: quarantine/ accepted-original/ safe-derivative/
+
+  UploadEventsDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  UploadEventsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      SqsManagedSseEnabled: true
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 345600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt UploadEventsDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  ScanResultsDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  ScanResultsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      SqsManagedSseEnabled: true
+      VisibilityTimeout: 300
+      MessageRetentionPeriod: 345600
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ScanResultsDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  UploadEventsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref UploadEventsQueue
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowIntakeBucketNotifications
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt UploadEventsQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:s3:::ops-external-intake-${AWS::AccountId}-${AWS::Region}"
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+
+  ScanResultsQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref ScanResultsQueue
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowGuardDutyEventBridgeDelivery
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt ScanResultsQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt GuardDutyScanResultsRule.Arn
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+
+  GuardDutyScanResultsRule:
+    Type: AWS::Events::Rule
+    Properties:
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.guardduty
+        detail-type:
+          - GuardDuty Malware Protection Object Scan Result
+        detail:
+          s3ObjectDetails:
+            bucketName:
+              - !Ref ExternalIntakeBucket
+            objectKey:
+              - prefix: quarantine/
+      Targets:
+        - Arn: !GetAtt ScanResultsQueue.Arn
+          Id: ExternalIntakeScanResults
+          RetryPolicy:
+            MaximumEventAgeInSeconds: 3600
+            MaximumRetryAttempts: 10
+
+  ExternalIntakeUploadSignerUser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: /ops/external-intake/
+      Tags:
+        - Key: purpose
+          Value: external-intake-upload-signing
+
+  ExternalIntakeUploadSignerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: external-intake-create-only-upload
+      Users:
+        - !Ref ExternalIntakeUploadSignerUser
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: CreateOnlyQuarantineObject
+            Effect: Allow
+            Action:
+              - s3:PutObject
+            Resource: !Sub "${ExternalIntakeBucket.Arn}/quarantine/*"
+            Condition:
+              StringEquals:
+                s3:if-none-match: "*"
+
+  ExternalIntakeWorkerUser:
+    Type: AWS::IAM::User
+    Properties:
+      Path: /ops/external-intake/
+      Tags:
+        - Key: purpose
+          Value: external-intake-inspection-worker
+
+  ExternalIntakeWorkerPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: external-intake-inspection-worker
+      Users:
+        - !Ref ExternalIntakeWorkerUser
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ConsumeDurableIntakeQueues
+            Effect: Allow
+            Action:
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:ChangeMessageVisibility
+              - sqs:GetQueueAttributes
+            Resource:
+              - !GetAtt UploadEventsQueue.Arn
+              - !GetAtt ScanResultsQueue.Arn
+          - Sid: InspectAndClassifyQuarantineObjects
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:GetObjectTagging
+              - s3:GetObjectVersion
+              - s3:PutObject
+              - s3:PutObjectTagging
+              - s3:DeleteObjectVersion
+            Resource:
+              - !Sub "${ExternalIntakeBucket.Arn}/quarantine/*"
+              - !Sub "${ExternalIntakeBucket.Arn}/accepted-original/*"
+              - !Sub "${ExternalIntakeBucket.Arn}/safe-derivative/*"
+          - Sid: InvalidateExactErasedPaths
+            Effect: Allow
+            Action:
+              - cloudfront:CreateInvalidation
+            Resource: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${ExternalIntakeDistribution}"
+
+  ExternalIntakeBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ExternalIntakeBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: s3:*
+            Resource:
+              - !GetAtt ExternalIntakeBucket.Arn
+              - !Sub "${ExternalIntakeBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: "false"
+          - Sid: DenyMissingConditionalWrite
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource: !Sub "${ExternalIntakeBucket.Arn}/quarantine/*"
+            Condition:
+              "Null":
+                s3:if-none-match: "true"
+          - Sid: DenyWrongConditionalWrite
+            Effect: Deny
+            Principal: "*"
+            Action: s3:PutObject
+            Resource: !Sub "${ExternalIntakeBucket.Arn}/quarantine/*"
+            Condition:
+              StringNotEquals:
+                s3:if-none-match: "*"
+          - Sid: AllowCloudFrontAcceptedObjects
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource:
+              - !Sub "${ExternalIntakeBucket.Arn}/accepted-original/*"
+              - !Sub "${ExternalIntakeBucket.Arn}/safe-derivative/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${ExternalIntakeDistribution}"
+                s3:ExistingObjectTag/GuardDutyMalwareScanStatus: NO_THREATS_FOUND
+                s3:ExistingObjectTag/ops-disposition: accepted
+          - Sid: DenyCloudFrontUnscannedObjects
+            Effect: Deny
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource:
+              - !Sub "${ExternalIntakeBucket.Arn}/accepted-original/*"
+              - !Sub "${ExternalIntakeBucket.Arn}/safe-derivative/*"
+            Condition:
+              StringNotEquals:
+                s3:ExistingObjectTag/GuardDutyMalwareScanStatus: NO_THREATS_FOUND
+          - Sid: DenyCloudFrontUnacceptedObjects
+            Effect: Deny
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource:
+              - !Sub "${ExternalIntakeBucket.Arn}/accepted-original/*"
+              - !Sub "${ExternalIntakeBucket.Arn}/safe-derivative/*"
+            Condition:
+              StringNotEquals:
+                s3:ExistingObjectTag/ops-disposition: accepted
+
+  GuardDutyMalwareProtectionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /ops/external-intake/
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: malware-protection-plan.guardduty.amazonaws.com
+            Action: sts:AssumeRole
+      Tags:
+        - Key: purpose
+          Value: external-intake-malware-protection
+
+  GuardDutyMalwareProtectionRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: external-intake-guardduty-malware-protection
+      Roles:
+        - !Ref GuardDutyMalwareProtectionRole
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ManageGuardDutyBucketNotification
+            Effect: Allow
+            Action:
+              - s3:GetBucketNotification
+              - s3:PutBucketNotification
+            Resource: !GetAtt ExternalIntakeBucket.Arn
+          - Sid: AllowCheckBucketOwnership
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:GetBucketLocation
+            Resource: !GetAtt ExternalIntakeBucket.Arn
+          - Sid: ScanAndTagQuarantineObjects
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:GetObjectTagging
+              - s3:GetObjectVersion
+              - s3:GetObjectVersionTagging
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+            Resource: !Sub "${ExternalIntakeBucket.Arn}/quarantine/*"
+          - Sid: PutGuardDutyValidationObject
+            Effect: Allow
+            Action: s3:PutObject
+            Resource: !Sub "${ExternalIntakeBucket.Arn}/malware-protection-resource-validation-object"
+          - Sid: ValidateAndManageGuardDutyEventRule
+            Effect: Allow
+            Action:
+              - events:PutRule
+              - events:DeleteRule
+              - events:PutTargets
+              - events:RemoveTargets
+            Resource: !Sub "arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*"
+            Condition:
+              StringLike:
+                events:ManagedBy: malware-protection-plan.guardduty.amazonaws.com
+          - Sid: ReadGuardDutyManagedRule
+            Effect: Allow
+            Action:
+              - events:DescribeRule
+              - events:ListTargetsByRule
+            Resource: !Sub "arn:${AWS::Partition}:events:${AWS::Region}:${AWS::AccountId}:rule/DO-NOT-DELETE-AmazonGuardDutyMalwareProtectionS3*"
+
+  ExternalIntakeMalwareProtectionPlan:
+    Type: AWS::GuardDuty::MalwareProtectionPlan
+    DependsOn:
+      - GuardDutyMalwareProtectionRolePolicy
+    Properties:
+      Role: !GetAtt GuardDutyMalwareProtectionRole.Arn
+      ProtectedResource:
+        S3Bucket:
+          BucketName: !Ref ExternalIntakeBucket
+          ObjectPrefixes:
+            - quarantine/
+      Actions:
+        Tagging:
+          Status: ENABLED
+      Tags:
+        - Key: purpose
+          Value: external-intake-quarantine
+
+  ExternalIntakeSigningPublicKey:
+    Type: AWS::CloudFront::PublicKey
+    Properties:
+      PublicKeyConfig:
+        CallerReference: !Sub "${AWS::StackName}-${AWS::AccountId}"
+        Comment: External intake attachment signed URL key
+        EncodedKey: !Join ["\n", !Ref CloudFrontPublicKeyEncoded]
+        Name: !Sub "${AWS::StackName}-external-intake"
+
+  ExternalIntakeSigningKeyGroup:
+    Type: AWS::CloudFront::KeyGroup
+    Properties:
+      KeyGroupConfig:
+        Comment: Trusted key group for cookieless attachment delivery
+        Items:
+          - !Ref ExternalIntakeSigningPublicKey
+        Name: !Sub "${AWS::StackName}-external-intake"
+
+  ExternalIntakeOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Description: Private S3 access for external intake attachments
+        Name: !Sub "${AWS::StackName}-external-intake"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  ExternalIntakeNoCachePolicy:
+    Type: AWS::CloudFront::CachePolicy
+    Properties:
+      CachePolicyConfig:
+        Comment: Privacy-first zero-cache policy for signed attachments
+        DefaultTTL: 0
+        MaxTTL: 0
+        MinTTL: 0
+        Name: !Sub "${AWS::StackName}-external-intake-no-cache"
+        ParametersInCacheKeyAndForwardedToOrigin:
+          CookiesConfig:
+            CookieBehavior: none
+          EnableAcceptEncodingBrotli: false
+          EnableAcceptEncodingGzip: false
+          HeadersConfig:
+            HeaderBehavior: none
+          QueryStringsConfig:
+            QueryStringBehavior: none
+
+  ExternalIntakeInlineResponseHeaders:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Comment: Restrictive inline policy for metadata-stripped images only
+        Name: !Sub "${AWS::StackName}-external-intake-inline"
+        CustomHeadersConfig:
+          Items:
+            - Header: Cache-Control
+              Override: true
+              Value: private, no-store, max-age=0
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: "default-src 'none'; img-src 'self'; sandbox"
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            Override: true
+            ReferrerPolicy: no-referrer
+
+  ExternalIntakeAttachmentResponseHeaders:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Comment: Forced-download policy for accepted original files
+        Name: !Sub "${AWS::StackName}-external-intake-attachment"
+        CustomHeadersConfig:
+          Items:
+            - Header: Cache-Control
+              Override: true
+              Value: private, no-store, max-age=0
+            - Header: Content-Disposition
+              Override: true
+              Value: attachment
+            - Header: Content-Type
+              Override: true
+              Value: application/octet-stream
+        SecurityHeadersConfig:
+          ContentSecurityPolicy:
+            ContentSecurityPolicy: "default-src 'none'; sandbox"
+            Override: true
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            Override: true
+            ReferrerPolicy: no-referrer
+
+  ExternalIntakeDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Comment: Cookieless signed delivery for accepted external intake files
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: !Ref ExternalIntakeNoCachePolicy
+          Compress: false
+          ResponseHeadersPolicyId: !Ref ExternalIntakeAttachmentResponseHeaders
+          TargetOriginId: ExternalIntakeS3Origin
+          TrustedKeyGroups:
+            - !Ref ExternalIntakeSigningKeyGroup
+          ViewerProtocolPolicy: https-only
+        CacheBehaviors:
+          - PathPattern: safe-derivative/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: !Ref ExternalIntakeNoCachePolicy
+            Compress: false
+            ResponseHeadersPolicyId: !Ref ExternalIntakeInlineResponseHeaders
+            TargetOriginId: ExternalIntakeS3Origin
+            TrustedKeyGroups:
+              - !Ref ExternalIntakeSigningKeyGroup
+            ViewerProtocolPolicy: https-only
+          - PathPattern: accepted-original/*
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            CachePolicyId: !Ref ExternalIntakeNoCachePolicy
+            Compress: false
+            ResponseHeadersPolicyId: !Ref ExternalIntakeAttachmentResponseHeaders
+            TargetOriginId: ExternalIntakeS3Origin
+            TrustedKeyGroups:
+              - !Ref ExternalIntakeSigningKeyGroup
+            ViewerProtocolPolicy: https-only
+        Enabled: true
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        Origins:
+          - DomainName: !GetAtt ExternalIntakeBucket.RegionalDomainName
+            Id: ExternalIntakeS3Origin
+            OriginAccessControlId: !Ref ExternalIntakeOriginAccessControl
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+        PriceClass: PriceClass_100
+
+Outputs:
+  ExternalIntakeAwsRegion:
+    Description: EXTERNAL_INTAKE_AWS_REGION
+    Value: !Ref AWS::Region
+  ExternalIntakeS3Bucket:
+    Description: EXTERNAL_INTAKE_S3_BUCKET
+    Value: !Ref ExternalIntakeBucket
+  ExternalIntakeUploadQueueUrl:
+    Description: EXTERNAL_INTAKE_UPLOAD_QUEUE_URL
+    Value: !Ref UploadEventsQueue
+  ExternalIntakeScanQueueUrl:
+    Description: EXTERNAL_INTAKE_SCAN_QUEUE_URL
+    Value: !Ref ScanResultsQueue
+  ExternalIntakeCloudFrontDomain:
+    Description: EXTERNAL_INTAKE_CLOUDFRONT_DOMAIN
+    Value: !GetAtt ExternalIntakeDistribution.DomainName
+  ExternalIntakeCloudFrontDistributionId:
+    Description: EXTERNAL_INTAKE_CLOUDFRONT_DISTRIBUTION_ID
+    Value: !Ref ExternalIntakeDistribution
+  ExternalIntakeCloudFrontKeyPairId:
+    Description: EXTERNAL_INTAKE_CLOUDFRONT_KEY_PAIR_ID
+    Value: !Ref ExternalIntakeSigningPublicKey
+  ExternalIntakeUploadSignerUserName:
+    Description: IAM user for the create-only upload-signing credential
+    Value: !Ref ExternalIntakeUploadSignerUser
+  ExternalIntakeWorkerUserName:
+    Description: IAM user for the private inspection and erasure credential
+    Value: !Ref ExternalIntakeWorkerUser
+  ExternalIntakeCloudFrontPrivateKeyEnvironmentName:
+    Description: EXTERNAL_INTAKE_CLOUDFRONT_PRIVATE_KEY is supplied separately and never stored in this stack
+    Value: EXTERNAL_INTAKE_CLOUDFRONT_PRIVATE_KEY

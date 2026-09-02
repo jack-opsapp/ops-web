@@ -58,6 +58,7 @@ export const GET = withAdmin(async (req) => {
       enabled: false,
       enabledAt: null,
     },
+    externalApi: overrideMap[c.id]?.external_api || { enabled: false, enabledAt: null },
   }));
 
   return NextResponse.json(result);

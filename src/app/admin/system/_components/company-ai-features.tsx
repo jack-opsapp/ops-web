@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Company-level AI feature toggles used inside the System → Feature Flags tab.
+ * Company-level feature toggles used inside the System → Feature Flags tab.
  *
  * Post-2026-04-24 flag collapse (migration 20260424000000):
  *   ai_email_review has been merged into phase_c. Only phase_c is writable
@@ -29,14 +29,16 @@ interface CompanyFeatureRow {
   name: string;
   phaseC: { enabled: boolean; enabledAt: string | null };
   inboxUi: { enabled: boolean; enabledAt: string | null };
+  externalApi: { enabled: boolean; enabledAt: string | null };
 }
 
-type FilterKey = "ALL" | "PHASE_C" | "INBOX_UI" | "NONE";
+type FilterKey = "ALL" | "PHASE_C" | "INBOX_UI" | "EXTERNAL_API" | "NONE";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "ALL", label: "ALL" },
   { key: "PHASE_C", label: "PHASE C ON" },
   { key: "INBOX_UI", label: "INBOX UI ON" },
+  { key: "EXTERNAL_API", label: "WEBSITE API ON" },
   { key: "NONE", label: "OFF" },
 ];
 
@@ -56,6 +58,7 @@ interface ApiCompanyRow {
   name: string;
   phaseC: { enabled: boolean; enabledAt: string | null };
   inboxUi: { enabled: boolean; enabledAt: string | null };
+  externalApi: { enabled: boolean; enabledAt: string | null };
 }
 
 export function CompanyAiFeatures() {
@@ -85,6 +88,10 @@ export function CompanyAiFeatures() {
               name: c.name,
               phaseC: c.phaseC,
               inboxUi: c.inboxUi ?? { enabled: false, enabledAt: null },
+              externalApi: c.externalApi ?? {
+                enabled: false,
+                enabledAt: null,
+              },
             }))
           );
         }
@@ -109,7 +116,12 @@ export function CompanyAiFeatures() {
       }
       if (filter === "PHASE_C") return c.phaseC.enabled;
       if (filter === "INBOX_UI") return c.inboxUi.enabled;
-      if (filter === "NONE") return !c.phaseC.enabled && !c.inboxUi.enabled;
+      if (filter === "EXTERNAL_API") return c.externalApi.enabled;
+      if (filter === "NONE") {
+        return (
+          !c.phaseC.enabled && !c.inboxUi.enabled && !c.externalApi.enabled
+        );
+      }
       return true;
     });
   }, [companies, search, filter]);
@@ -229,14 +241,77 @@ export function CompanyAiFeatures() {
     [router]
   );
 
+  const toggleExternalApi = useCallback(
+    async (companyId: string, nextEnabled: boolean) => {
+      if (nextEnabled) {
+        const company = companies.find((c) => c.id === companyId);
+        const confirmed = window.confirm(
+          `Enable Website API for "${company?.name}"?\n\n` +
+            `Authorized company users can issue credentials for website ` +
+            `lead intake and approved analytics. Access remains off until ` +
+            `they create a credential.`
+        );
+        if (!confirmed) return;
+      }
+
+      setPendingIds(
+        (current) => new Set([...current, `${companyId}:external_api`])
+      );
+      setError(null);
+
+      try {
+        const response = await fetch(`/api/admin/ai-features/${companyId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ external_api: nextEnabled }),
+        });
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          throw new Error(body.error ?? `HTTP ${response.status}`);
+        }
+
+        setCompanies((current) =>
+          current.map((company) =>
+            company.id === companyId
+              ? {
+                  ...company,
+                  externalApi: {
+                    enabled: nextEnabled,
+                    enabledAt: nextEnabled ? new Date().toISOString() : null,
+                  },
+                }
+              : company
+          )
+        );
+        startTransition(() => router.refresh());
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        setError(`Failed to toggle Website API: ${message}`);
+      } finally {
+        setPendingIds((current) => {
+          const next = new Set(current);
+          next.delete(`${companyId}:external_api`);
+          return next;
+        });
+      }
+    },
+    [companies, router]
+  );
+
   const phaseCCount = companies.filter((c) => c.phaseC.enabled).length;
   const inboxUiCount = companies.filter((c) => c.inboxUi.enabled).length;
+  const externalApiCount = companies.filter(
+    (c) => c.externalApi.enabled
+  ).length;
 
   if (loading) {
     return (
       <div className="border border-white/[0.08] rounded-lg p-6">
         <p className="font-mohave text-[12px] uppercase text-[#6B6B6B]">
-          Loading company AI features...
+          Loading company features...
         </p>
       </div>
     );
@@ -248,10 +323,11 @@ export function CompanyAiFeatures() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-mohave text-[16px] uppercase tracking-wider text-[#EDEDED]">
-            Company AI Features
+            Company Features
           </h2>
           <p className="font-mono text-[12px] text-[#6B6B6B] mt-1">
-            [{companies.length} companies · phase_c: {phaseCCount} on · inbox_ui: {inboxUiCount} on]
+            [{companies.length} companies · phase_c: {phaseCCount} on ·
+            inbox_ui: {inboxUiCount} on · website_api: {externalApiCount} on]
           </p>
         </div>
       </div>
@@ -293,7 +369,7 @@ export function CompanyAiFeatures() {
 
       {/* Table */}
       <div className="border border-white/[0.08] rounded-lg overflow-hidden">
-        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] px-6 py-3 border-b border-white/[0.08]">
+        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr] px-6 py-3 border-b border-white/[0.08]">
           <span className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">
             Company
           </span>
@@ -309,6 +385,12 @@ export function CompanyAiFeatures() {
           <span className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">
             Since
           </span>
+          <span className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">
+            Website API
+          </span>
+          <span className="font-mohave text-[11px] uppercase tracking-widest text-[#6B6B6B]">
+            Since
+          </span>
         </div>
 
         {filtered.map((c) => {
@@ -316,11 +398,13 @@ export function CompanyAiFeatures() {
           const phaseCPending = pendingIds.has(phaseCKey);
           const inboxUiKey = `${c.id}:inbox_ui`;
           const inboxUiPending = pendingIds.has(inboxUiKey);
+          const externalApiKey = `${c.id}:external_api`;
+          const externalApiPending = pendingIds.has(externalApiKey);
 
           return (
             <div
               key={c.id}
-              className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] px-6 items-center h-14 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
+              className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1fr_1fr] px-6 items-center h-14 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] transition-colors"
             >
               <span className="font-mohave text-[14px] text-[#EDEDED] truncate pr-4">
                 {c.name}
@@ -344,6 +428,16 @@ export function CompanyAiFeatures() {
               />
               <span className="font-mono text-[12px] text-[#6B6B6B]">
                 [{formatEnabledAt(c.inboxUi.enabledAt)}]
+              </span>
+
+              <Toggle
+                enabled={c.externalApi.enabled}
+                disabled={externalApiPending}
+                onClick={() => toggleExternalApi(c.id, !c.externalApi.enabled)}
+                label="Website API"
+              />
+              <span className="font-mono text-[12px] text-[#6B6B6B]">
+                [{formatEnabledAt(c.externalApi.enabledAt)}]
               </span>
             </div>
           );

@@ -481,10 +481,111 @@ function FilterPill({
   );
 }
 
+/**
+ * A picked element as it survives the round-trip through `custom_metadata`
+ * (bug 1f2bf7e9). Only the fields this view renders are required — the shape
+ * is client-written JSON, so it is validated rather than trusted.
+ */
+interface AdminElementReference {
+  id: string;
+  label: string;
+  role: string;
+  selector: string;
+  classes: string;
+  text: string;
+  rect: { x: number; y: number; width: number; height: number };
+  page: { x: number; y: number };
+  componentChain: string[];
+  attachmentIndex: number | null;
+}
+
+function isNumeric(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function readElementReferences(
+  metadata: Record<string, unknown> | null
+): AdminElementReference[] {
+  const raw = metadata?.elementReferences;
+  if (!Array.isArray(raw)) return [];
+
+  const parsed: AdminElementReference[] = [];
+  raw.forEach((entry, i) => {
+    if (!entry || typeof entry !== "object") return;
+    const e = entry as Record<string, unknown>;
+    const rect = e.rect as Record<string, unknown> | undefined;
+    const page = e.page as Record<string, unknown> | undefined;
+    if (typeof e.selector !== "string" || typeof e.label !== "string") return;
+
+    parsed.push({
+      id: typeof e.id === "string" ? e.id : `element-${i}`,
+      label: e.label,
+      role: typeof e.role === "string" ? e.role : "generic",
+      selector: e.selector,
+      classes: typeof e.classes === "string" ? e.classes : "",
+      text: typeof e.text === "string" ? e.text : "",
+      rect: {
+        x: isNumeric(rect?.x) ? rect.x : 0,
+        y: isNumeric(rect?.y) ? rect.y : 0,
+        width: isNumeric(rect?.width) ? rect.width : 0,
+        height: isNumeric(rect?.height) ? rect.height : 0,
+      },
+      page: {
+        x: isNumeric(page?.x) ? page.x : 0,
+        y: isNumeric(page?.y) ? page.y : 0,
+      },
+      componentChain: Array.isArray(e.componentChain)
+        ? e.componentChain.filter((c): c is string => typeof c === "string")
+        : [],
+      attachmentIndex: isNumeric(e.attachmentIndex) ? e.attachmentIndex : null,
+    });
+  });
+  return parsed;
+}
+
 function BugReportDetail({ report }: { report: BugReportRow }) {
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [screenshotLoading, setScreenshotLoading] = useState(false);
   const [screenshotError, setScreenshotError] = useState<string | null>(null);
+  const [cropUrls, setCropUrls] = useState<Record<number, string>>({});
+
+  const elementReferences = readElementReferences(report.custom_metadata);
+
+  // Presign each element crop the same way the full screenshot is presigned.
+  useEffect(() => {
+    const attachments = report.additional_attachments ?? [];
+    const wanted = readElementReferences(report.custom_metadata)
+      .map((r) => r.attachmentIndex)
+      .filter(
+        (i): i is number =>
+          typeof i === "number" && i >= 0 && i < attachments.length
+      );
+    if (wanted.length === 0) return;
+
+    let cancelled = false;
+    Promise.all(
+      wanted.map(async (index) => {
+        const path = attachments[index];
+        const res = await fetch(
+          `/api/admin/bug-reports/screenshot?path=${encodeURIComponent(path)}`
+        );
+        if (!res.ok) throw new Error(`${res.status}`);
+        const data = (await res.json()) as { url: string };
+        return [index, data.url] as const;
+      })
+    )
+      .then((pairs) => {
+        if (!cancelled) setCropUrls(Object.fromEntries(pairs));
+      })
+      .catch(() => {
+        // A crop that will not presign is not worth breaking the detail over;
+        // the reference itself still carries the identity.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [report.additional_attachments, report.custom_metadata]);
 
   useEffect(() => {
     if (!report.screenshot_url) return;
@@ -592,7 +693,92 @@ function BugReportDetail({ report }: { report: BugReportRow }) {
             </a>
           ) : null}
         </DetailSection>
+
+        {elementReferences.length > 0 && (
+          <div className="mt-4">
+            <DetailSection label={`ELEMENTS (${elementReferences.length})`}>
+              <div className="space-y-3">
+                {elementReferences.map((ref) => (
+                  <ElementReferenceCard
+                    key={ref.id}
+                    reference={ref}
+                    cropUrl={
+                      ref.attachmentIndex !== null
+                        ? cropUrls[ref.attachmentIndex] ?? null
+                        : null
+                    }
+                  />
+                ))}
+              </div>
+            </DetailSection>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * One picked element: what it is, where it was, and a crop of it. Reads
+ * top-down — the crop and name first (recognition), then the selector the
+ * engineer will grep for, then the supporting geometry.
+ */
+function ElementReferenceCard({
+  reference,
+  cropUrl,
+}: {
+  reference: AdminElementReference;
+  cropUrl: string | null;
+}) {
+  const { rect } = reference;
+  const geometry = `${Math.round(rect.x)},${Math.round(rect.y)} · ${Math.round(
+    rect.width
+  )}×${Math.round(rect.height)}`;
+
+  function copySelector() {
+    void navigator.clipboard?.writeText?.(reference.selector);
+  }
+
+  return (
+    <div className="border-t border-white/[0.05] pt-3 first:border-0 first:pt-0 space-y-1.5">
+      <div className="flex gap-3 items-start">
+        {cropUrl ? (
+          <a href={cropUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              data-element-crop-thumb=""
+              src={cropUrl}
+              alt={`${reference.role} ${reference.label}`}
+              className="w-24 border border-white/[0.08] rounded"
+            />
+          </a>
+        ) : reference.attachmentIndex === null ? (
+          <p className="font-mono text-[11px] text-[#6B6B6B] shrink-0">[NO CROP]</p>
+        ) : (
+          <p className="font-mono text-[11px] text-[#6B6B6B] shrink-0">[LOADING...]</p>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <p className="font-mohave text-[13px] text-[#EDEDED] truncate">
+            {`${reference.role} · ${reference.label}`}
+          </p>
+          <p className="font-mono text-[11px] text-[#A0A0A0] break-all">
+            {reference.selector}
+          </p>
+          <button
+            onClick={copySelector}
+            className="font-mono text-micro uppercase tracking-wider text-[#6B6B6B] hover:text-[#A0A0A0] transition-colors mt-0.5"
+          >
+            COPY
+          </button>
+        </div>
+      </div>
+
+      <DetailRow k="Classes" v={reference.classes} mono />
+      <DetailRow k="Text" v={reference.text} />
+      <DetailRow k="Rect" v={geometry} mono />
+      <DetailRow k="Page" v={`${Math.round(reference.page.x)},${Math.round(reference.page.y)}`} mono />
+      <DetailRow k="Component" v={reference.componentChain.join(" › ")} />
     </div>
   );
 }

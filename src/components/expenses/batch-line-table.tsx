@@ -129,7 +129,7 @@ export function BatchLineTable({
                 grid,
                 "w-full border-b border-line px-3 py-2 text-left transition-colors duration-150 ease-smooth",
                 isFlagged
-                  ? "border-l-2 border-l-tan bg-tan-soft/40"
+                  ? "border-l-2 border-l-tan bg-tan-soft"
                   : "hover:bg-surface-hover"
               )}
             >

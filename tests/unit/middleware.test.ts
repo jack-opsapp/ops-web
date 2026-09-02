@@ -72,3 +72,21 @@ describe("middleware — authenticated user on /login (post-login redirect)", ()
     expect(new URL(res.headers.get("location")!).pathname).toBe("/dashboard");
   });
 });
+
+describe("middleware — public developer reference", () => {
+  it("serves the API reference without an OPS session", () => {
+    const res = middleware(req("/developers/api"));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("does not change the reference response when dashboard cookies exist", () => {
+    const res = middleware(req("/developers/api", { authed: true }));
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+});

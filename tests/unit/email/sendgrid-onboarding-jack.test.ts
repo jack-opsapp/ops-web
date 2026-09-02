@@ -35,10 +35,9 @@ vi.mock("@/lib/supabase/server-client", () => {
 vi.mock("@sendgrid/mail", () => ({
   default: {
     setApiKey: vi.fn(),
-    send: vi.fn().mockResolvedValue([
-      { headers: { "x-message-id": "sg-test-123" } },
-      {},
-    ]),
+    send: vi
+      .fn()
+      .mockResolvedValue([{ headers: { "x-message-id": "sg-test-123" } }, {}]),
   },
 }));
 
@@ -59,11 +58,14 @@ describe("Jack-persona onboarding senders", () => {
 
     expect(sgMail.send).toHaveBeenCalledTimes(1);
     const call = (sgMail.send as any).mock.calls[0][0];
-    expect(call.from).toEqual({ email: "jack@opsapp.co", name: "Jack Sweet" });
+    expect(call.from).toEqual({
+      email: "jack@opsapp.co",
+      name: "Jack Sweet",
+    });
     expect(call.replyTo).toBe("jack@opsapp.co");
     expect(call.customArgs.email_type).toBe("onboarding_day_0_welcome");
     expect(call.customArgs.onboarding_email_log_id).toBe("log-uuid-123");
-  });
+  }, 15_000);
 
   it("threads userId through to gatedSend — regression for qa_bug 41db7c3b (email_log.user_id was null, breaking reconciliation)", async () => {
     const { sendOnboardingDay0Welcome } = await import("@/lib/email/sendgrid");

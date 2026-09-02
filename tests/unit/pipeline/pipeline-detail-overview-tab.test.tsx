@@ -311,6 +311,7 @@ function makeAssignedContext(
     deckDesigns: [],
     lifecycle: null,
     correspondence: [],
+    intakeAttachments: [],
     ...overrides,
   };
 }

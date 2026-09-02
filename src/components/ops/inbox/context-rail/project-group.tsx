@@ -191,7 +191,7 @@ export function ProjectGroup({
       {open && (
         <ul
           data-testid={`project-group-${project.id}-tasks`}
-          className="border-t border-line/50 bg-transparent py-1"
+          className="border-t border-border-subtle bg-transparent py-1"
         >
           {tasks.length === 0 ? (
             <li className="pl-8 pr-3.5 py-1.5 font-mono text-[11px] text-text-3">

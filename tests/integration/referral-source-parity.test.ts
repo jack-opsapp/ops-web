@@ -16,6 +16,10 @@ const swiftCandidates = [
     process.cwd(),
     "../../ops-ios/OPS/Onboarding/Models/ReferralSource.swift"
   ),
+  resolve(
+    process.cwd(),
+    "../../../ops-ios/OPS/Onboarding/Models/ReferralSource.swift"
+  ),
 ];
 const swiftPath = swiftCandidates.find(existsSync);
 

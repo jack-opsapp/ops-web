@@ -29,6 +29,9 @@ export const FEATURE_FLAG_ROUTES: Record<string, string[]> = {
   // Per-company dark-launch flag (admin_feature_overrides, not feature_flags).
   // Gated here so fail-closed fallback suppresses it when the API call fails.
   inbox_ui: ["/inbox"],
+  // Per-company Website API pilot. The settings section checks this slug
+  // directly; no unrelated /settings route is commercially gated.
+  external_api: [],
 };
 
 // ─── Permission Mapping ──────────────────────────────────────────────────────
@@ -82,6 +85,9 @@ export const FEATURE_FLAG_PERMISSIONS: Record<string, string[]> = {
   pipeline_table_view: [],
   // inbox_ui: per-company dark-launch (no RBAC permissions beyond nav visibility)
   inbox_ui: [],
+  // external_api: company pilot gate; management still requires
+  // settings.integrations at all scope.
+  external_api: [],
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -21,6 +21,7 @@ const ALL_TYPES: NotificationType[] = [
   "lead_assigned",
   "lead_assignment_required",
   "lead_follow_up_sent",
+  "external_api_security",
   "system",
   "project_assigned",
   "lead_converted",
@@ -63,6 +64,14 @@ describe("notification-meta", () => {
     expect(NOTIF_TYPE_META.lead_assignment_required).toEqual({
       label: "OWNER",
       icon: "user-plus",
+      tone: "critical",
+    });
+  });
+
+  it("marks external API security events as critical", () => {
+    expect(NOTIF_TYPE_META.external_api_security).toEqual({
+      label: "SECURITY",
+      icon: "settings-2",
       tone: "critical",
     });
   });

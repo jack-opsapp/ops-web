@@ -26,6 +26,7 @@ const guardedProductionRoutes = new Map<string, string>([
   ["/api/cron/email-sync", "4-59/20 13-23,0-4 * * *"],
   ["/api/cron/email-ingest-heartbeat", "37 * * * *"],
   ["/api/cron/email-attachment-worker", "3-59/20 * * * *"],
+  ["/api/cron/external-api-maintenance", "11-59/20 * * * *"],
   ["/api/cron/lead-assignment-deliveries", "2-59/10 * * * *"],
   ["/api/cron/webhook-renewal", "4 6 * * *"],
   ["/api/cron/auto-send", "16-59/20 13-23,0-4 * * *"],

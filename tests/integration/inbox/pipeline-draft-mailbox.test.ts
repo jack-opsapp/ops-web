@@ -381,6 +381,28 @@ function makeSignatureRow(): Record<string, unknown> {
   };
 }
 
+function makeInboundActivity(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    id: "act-1",
+    company_id: "company-1",
+    opportunity_id: "opp-1",
+    type: "email",
+    direction: "inbound",
+    subject: "Need a quote",
+    body_text: "Please send a quote.",
+    from_email: "client@example.com",
+    to_emails: ["ops@example.com"],
+    cc_emails: [],
+    email_thread_id: null,
+    email_connection_id: "conn-1",
+    email_message_id: "message-1",
+    created_at: "2026-01-02T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest("http://localhost/api/integrations/email/draft", {
     method: "POST",
@@ -494,15 +516,7 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
         },
       ],
       activities: [
-        {
-          id: "act-1",
-          opportunity_id: "opp-1",
-          type: "email",
-          direction: "inbound",
-          subject: "Need a quote",
-          email_thread_id: "thread-provider-1",
-          email_connection_id: "conn-1",
-        },
+        makeInboundActivity({ email_thread_id: "thread-provider-1" }),
       ],
       emailThreads: [
         {
@@ -591,15 +605,10 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
         },
       ],
       activities: [
-        {
-          id: "act-1",
-          opportunity_id: "opp-1",
-          type: "email",
-          direction: "inbound",
+        makeInboundActivity({
           subject: "Re: Need a quote",
           email_thread_id: "thread-provider-1",
-          email_connection_id: "conn-1",
-        },
+        }),
       ],
       emailThreads: [
         {
@@ -679,7 +688,12 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
           clients: { email: "jane@example.com", name: "Jane Doe" },
         },
       ],
-      activities: [],
+      activities: [
+        makeInboundActivity({
+          subject: "Fence install",
+          from_email: "jane@example.com",
+        }),
+      ],
       emailThreads: [],
     };
 
@@ -738,7 +752,12 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
           clients: { email: "bob@example.com", name: "Bob" },
         },
       ],
-      activities: [],
+      activities: [
+        makeInboundActivity({
+          subject: "Roofing",
+          from_email: "bob@example.com",
+        }),
+      ],
       emailThreads: [],
     };
 
@@ -796,7 +815,12 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
           clients: { email: "bob@example.com", name: "Bob" },
         },
       ],
-      activities: [],
+      activities: [
+        makeInboundActivity({
+          subject: "Roofing",
+          from_email: "bob@example.com",
+        }),
+      ],
       emailThreads: [],
     };
     capturedSupabaseDouble = makeSupabaseDouble(state);
@@ -834,7 +858,7 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       opportunities: [
         { id: "opp-1", company_id: "company-1", deleted_at: null },
       ],
-      activities: [],
+      activities: [makeInboundActivity()],
       emailThreads: [],
     });
 
@@ -863,7 +887,12 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
       opportunities: [
         { id: "opp-1", company_id: "company-1", deleted_at: null },
       ],
-      activities: [],
+      activities: [
+        makeInboundActivity({
+          subject: "Paving",
+          from_email: "mary@co.com",
+        }),
+      ],
       emailThreads: [],
     });
 
@@ -907,7 +936,12 @@ describe("POST /api/integrations/email/draft — mailbox push (T10)", () => {
           clients: { email: "mary@co.com", name: "Mary" },
         },
       ],
-      activities: [],
+      activities: [
+        makeInboundActivity({
+          subject: "Paving",
+          from_email: "mary@co.com",
+        }),
+      ],
       emailThreads: [],
     };
 

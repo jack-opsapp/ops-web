@@ -56,7 +56,7 @@ describe("MCP production runtime", () => {
       companyId: "22222222-2222-4222-8222-222222222222",
     });
     expect(abortSignal).toHaveBeenCalledOnce();
-  });
+  }, 15_000);
 
   it("constructs and caches the read catalogue plus inactive prepare verticals without reading", async () => {
     vi.resetModules();

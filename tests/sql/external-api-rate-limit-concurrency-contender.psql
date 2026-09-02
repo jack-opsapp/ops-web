@@ -1,0 +1,33 @@
+\set ON_ERROR_STOP on
+
+select pg_advisory_lock(2026073022);
+select pg_advisory_lock(2026073021);
+select pg_advisory_unlock(2026073021);
+
+begin;
+set local lock_timeout = '10s';
+set local statement_timeout = '60s';
+select set_config('request.jwt.claim.role', 'service_role', true);
+
+insert into private.external_api_rate_limit_concurrency_results (
+  session_name,
+  result
+) values (
+  'contender',
+  public.consume_external_api_rate_limits_as_system(
+    jsonb_build_array(
+      jsonb_build_object(
+        'scope', 'preauth_network',
+        'identity', repeat('R', 43)
+      ),
+      jsonb_build_object(
+        'scope', 'preauth_prefix',
+        'identity', repeat('R', 43) || '.missing'
+      )
+    )
+  )
+);
+
+commit;
+
+select pg_advisory_unlock(2026073022);

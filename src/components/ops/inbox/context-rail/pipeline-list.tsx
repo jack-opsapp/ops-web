@@ -259,7 +259,7 @@ export function PipelineOppCard({
       data-variant={variant}
       className={cn(
         "rounded-chip border px-2.5 py-1.5",
-        isWon ? "border-line/60 bg-transparent" : "border-line bg-transparent",
+        isWon ? "border-border-subtle bg-transparent" : "border-line bg-transparent",
         isLinked && "border-line-hi bg-transparent"
       )}
     >

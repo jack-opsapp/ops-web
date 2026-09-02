@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
@@ -13402,6 +13402,7 @@ export type Database = {
           cc_emails: string[]
           company_id: string
           connection_id: string | null
+          counts_as_first_response: boolean
           created_at: string
           direction: string
           from_email: string | null
@@ -13416,6 +13417,8 @@ export type Database = {
           party_role: string
           provider_message_id: string | null
           provider_thread_id: string
+          response_definition_version: number
+          response_kind: string
           source: string
           subject: string | null
           to_emails: string[]
@@ -13425,6 +13428,7 @@ export type Database = {
           cc_emails?: string[]
           company_id: string
           connection_id?: string | null
+          counts_as_first_response?: boolean
           created_at?: string
           direction: string
           from_email?: string | null
@@ -13439,6 +13443,8 @@ export type Database = {
           party_role: string
           provider_message_id?: string | null
           provider_thread_id: string
+          response_definition_version?: number
+          response_kind?: string
           source: string
           subject?: string | null
           to_emails?: string[]
@@ -13448,6 +13454,7 @@ export type Database = {
           cc_emails?: string[]
           company_id?: string
           connection_id?: string | null
+          counts_as_first_response?: boolean
           created_at?: string
           direction?: string
           from_email?: string | null
@@ -13462,6 +13469,8 @@ export type Database = {
           party_role?: string
           provider_message_id?: string | null
           provider_thread_id?: string
+          response_definition_version?: number
+          response_kind?: string
           source?: string
           subject?: string | null
           to_emails?: string[]
@@ -21377,7 +21386,7 @@ export type Database = {
           claimed_at: string | null
           claimed_by: string | null
           company_id: string
-          connection_id: string
+          connection_id: string | null
           created_at: string
           delivered_at: string | null
           disposition: string | null
@@ -21390,6 +21399,8 @@ export type Database = {
           opportunity_id: string
           push_state: string
           recipient_user_id: string
+          source_id: string
+          source_kind: string
           state: string
           terminal_at: string | null
           updated_at: string
@@ -21401,7 +21412,7 @@ export type Database = {
           claimed_at?: string | null
           claimed_by?: string | null
           company_id: string
-          connection_id: string
+          connection_id?: string | null
           created_at?: string
           delivered_at?: string | null
           disposition?: string | null
@@ -21414,6 +21425,8 @@ export type Database = {
           opportunity_id: string
           push_state?: string
           recipient_user_id: string
+          source_id: string
+          source_kind: string
           state?: string
           terminal_at?: string | null
           updated_at?: string
@@ -21425,7 +21438,7 @@ export type Database = {
           claimed_at?: string | null
           claimed_by?: string | null
           company_id?: string
-          connection_id?: string
+          connection_id?: string | null
           created_at?: string
           delivered_at?: string | null
           disposition?: string | null
@@ -21438,6 +21451,8 @@ export type Database = {
           opportunity_id?: string
           push_state?: string
           recipient_user_id?: string
+          source_id?: string
+          source_kind?: string
           state?: string
           terminal_at?: string | null
           updated_at?: string
@@ -22588,6 +22603,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      abandon_external_intake_delivery_as_system: {
+        Args: { p_delivery_id: string; p_safe_code: string }
+        Returns: boolean
+      }
       accept_estimate_to_job: {
         Args: { p_estimate_id: string; p_idempotency_key: string }
         Returns: Json
@@ -23137,6 +23156,24 @@ export type Database = {
         }
         Returns: boolean
       }
+      authenticate_external_api_credential_as_system: {
+        Args: {
+          p_digest_version: number
+          p_secret_digest: string
+          p_visible_prefix: string
+        }
+        Returns: {
+          allowed_source_ids: string[]
+          authenticated: boolean
+          authorization_epoch: number
+          company_id: string
+          credential_class: string
+          credential_id: string
+          denial_code: string
+          principal_id: string
+          scopes: string[]
+        }[]
+      }
       authorize_email_exact_message_ingest_as_system: {
         Args: {
           p_actor_user_id: string
@@ -23176,6 +23213,46 @@ export type Database = {
           p_provider_thread_id: string
         }
         Returns: boolean
+      }
+      authorize_external_lead_feed_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_method: string
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_require_financial: boolean
+          p_route: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      authorize_external_lead_metrics_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_campaign_handle: string
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_definition_version: string
+          p_digest_version: number
+          p_form_id: string
+          p_from: string
+          p_preset: string
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_require_date_alignment: boolean
+          p_require_financial: boolean
+          p_source_id: string
+          p_to: string
+          p_visible_prefix: string
+        }
+        Returns: Json
       }
       authorize_opportunity_action_as_system: {
         Args: {
@@ -24300,6 +24377,107 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      claim_external_intake_cleanups_as_system: {
+        Args: { p_lease_seconds: number; p_limit: number; p_worker_id: string }
+        Returns: {
+          attempt_count: number
+          company_id: string
+          intent_id: string
+          lease_generation: number
+          lease_token: string
+          object_version_id: string
+          storage_object_key: string
+        }[]
+      }
+      claim_external_intake_delivery_cleanups_as_system: {
+        Args: { p_lease_seconds: number; p_limit: number; p_worker_id: string }
+        Returns: {
+          attempt_count: number
+          delivery_id: string
+          lease_generation: number
+          lease_token: string
+          object_version_id: string
+          storage_object_key: string
+        }[]
+      }
+      claim_external_intake_erasures_as_system: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          company_id: string
+          id: string
+          invalidation_paths: Json
+          invalidation_reference: string
+          lease_generation: number
+          lease_token: string
+          opportunity_id: string
+          storage_objects: Json
+          submission_id: string
+        }[]
+      }
+      claim_external_intake_inspections_as_system: {
+        Args: { p_lease_seconds: number; p_limit: number; p_worker_id: string }
+        Returns: {
+          attempts: number
+          company_id: string
+          deadline_at: string
+          declared_content_type: string
+          delete_not_before: string
+          expected_checksum_sha256: string
+          expected_size_bytes: number
+          filename: string
+          first_queued_at: string
+          generation: number
+          guardduty_status: string
+          id: string
+          intent_id: string
+          lease_token: string
+          object_key: string
+          object_version_id: string
+          observed_checksum_sha256: string
+          observed_size_bytes: number
+        }[]
+      }
+      claim_external_intake_post_commit_outbox_as_system: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          company_id: string
+          lease_token: string
+          opportunity_id: string
+          original_context: Json
+          outbox_id: string
+        }[]
+      }
+      claim_external_intake_project_file_projections_as_system: {
+        Args: {
+          p_lease_seconds?: number
+          p_limit?: number
+          p_worker_id: string
+        }
+        Returns: {
+          attempt_count: number
+          company_id: string
+          id: string
+          intent_id: string
+          lease_generation: number
+          lease_token: string
+          opportunity_id: string
+          project_id: string
+          submission_id: string
+        }[]
+      }
+      claim_external_lead_projection_backfill_as_system: {
+        Args: { p_lease_seconds?: number; p_run_id: string }
+        Returns: Json
+      }
       claim_legacy_email_activity_connection_as_system: {
         Args: {
           p_activity_id: string
@@ -24593,6 +24771,8 @@ export type Database = {
           recipient_user_id: string
           requires_notification: boolean
           should_push: boolean
+          source_id: string
+          source_kind: string
         }[]
       }
       cleanup_pmf_threshold_snapshots_batch_as_system: {
@@ -24856,6 +25036,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      complete_external_intake_post_commit_outbox_as_system: {
+        Args: { p_lease_token: string; p_outbox_id: string }
+        Returns: boolean
+      }
       complete_gmail_import_job_as_system: {
         Args: {
           p_clients_created: number
@@ -25030,6 +25214,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      consume_external_api_rate_limits_as_system: {
+        Args: { p_checks: Json }
+        Returns: Json
+      }
       convert_estimate_to_invoice: {
         Args: { p_due_date?: string; p_estimate_id: string }
         Returns: string
@@ -25114,6 +25302,66 @@ export type Database = {
           p_new_leads: number
         }
         Returns: boolean
+      }
+      create_external_api_credential_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_credential_class: string
+          p_digest_version: number
+          p_expires_at: string
+          p_name: string
+          p_scopes: string[]
+          p_secret_digest: string
+          p_source_ids: string[]
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      create_external_intake_submission_as_system: {
+        Args: {
+          p_attribution_candidates: Json
+          p_authorization_epoch: number
+          p_canonical_request_hash: string
+          p_canonical_submission: Json
+          p_canonicalization_version: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_evidence_schema_version: number
+          p_external_submission_candidates: Json
+          p_external_submission_digest: string
+          p_external_submission_digest_version: number
+          p_form_public_id: string
+          p_idempotency_candidates: Json
+          p_idempotency_digest: string
+          p_idempotency_digest_version: number
+          p_method: string
+          p_normalized_contact: Json
+          p_original_evidence: Json
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_requested_origin: string
+          p_route: string
+          p_source_public_id: string
+          p_upload_ids: string[]
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      create_lead_intake_source_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_allowed_browser_origins: string[]
+          p_canonical_host: string
+          p_default_coarse_source: string
+          p_default_intake_owner_id: string
+          p_default_phone_region: string
+          p_forms: Json
+          p_site_label: string
+        }
+        Returns: Json
       }
       create_notification_if_new: {
         Args: {
@@ -26080,6 +26328,76 @@ export type Database = {
         }
         Returns: boolean
       }
+      finish_external_intake_cleanup_as_system: {
+        Args: {
+          p_available_at: string
+          p_generation: number
+          p_intent_id: string
+          p_lease_token: string
+          p_object_version_id: string
+          p_outcome: string
+          p_safe_code: string
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
+      finish_external_intake_delivery_cleanup_as_system: {
+        Args: {
+          p_available_at: string
+          p_delivery_id: string
+          p_generation: number
+          p_lease_token: string
+          p_observed_object_version_id: string
+          p_outcome: string
+          p_safe_code: string
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
+      finish_external_intake_erasure_as_system: {
+        Args: {
+          p_available_at?: string
+          p_erasure_id: string
+          p_generation: number
+          p_invalidation_reference?: string
+          p_lease_token: string
+          p_outcome: string
+          p_safe_code?: string
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
+      finish_external_intake_inspection_as_system: {
+        Args: {
+          p_accepted_checksum_sha256: string
+          p_accepted_object_key: string
+          p_accepted_object_version_id: string
+          p_accepted_size_bytes: number
+          p_available_at: string
+          p_delivery_mode: string
+          p_delivery_object_id: string
+          p_detected_content_type: string
+          p_generation: number
+          p_inspection_id: string
+          p_lease_token: string
+          p_outcome: string
+          p_safe_code: string
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
+      finish_external_intake_project_file_projection_as_system: {
+        Args: {
+          p_available_at?: string
+          p_generation: number
+          p_job_id: string
+          p_lease_token: string
+          p_outcome: string
+          p_safe_code?: string
+          p_worker_id: string
+        }
+        Returns: Json
+      }
       fire_due_task_reminders: { Args: never; Returns: number }
       generate_product_sku: {
         Args: { p_category: string; p_company_id: string; p_kind: string }
@@ -26106,6 +26424,39 @@ export type Database = {
       }
       get_email_import_source_as_system: {
         Args: { p_actor_user_id: string; p_connection_id: string }
+        Returns: Json
+      }
+      get_external_intake_config_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_method: string
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_route: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      get_external_intake_submission_status_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_method: string
+          p_principal_id: string
+          p_public_submission_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_route: string
+          p_visible_prefix: string
+        }
         Returns: Json
       }
       get_human_draft_accuracy_as_system:
@@ -26340,6 +26691,10 @@ export type Database = {
         }
         Returns: Json
       }
+      inspect_external_lead_projection_backfill_as_system: {
+        Args: { p_company_id?: string }
+        Returns: Json
+      }
       is_company_admin: { Args: never; Returns: boolean }
       join_user_to_company: {
         Args: {
@@ -26393,6 +26748,14 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      list_external_api_settings_as_system: {
+        Args: { p_actor_user_id: string }
+        Returns: Json
+      }
+      list_external_intake_email_correlation_sources_as_system: {
+        Args: { p_company_id: string; p_mailbox_id: string }
+        Returns: string[]
+      }
       list_opportunity_assignment_candidates: {
         Args: { p_opportunity_id: string }
         Returns: Json
@@ -26404,6 +26767,10 @@ export type Database = {
           company_id: string
           connection_id: string
         }[]
+      }
+      list_project_intake_files: {
+        Args: { p_project_id: string }
+        Returns: Json
       }
       log_opportunity_quick_touch: {
         Args: {
@@ -26429,6 +26796,14 @@ export type Database = {
           phone: string
           seated_employee_ids: string[]
         }[]
+      }
+      maintain_external_api_operations_as_system: {
+        Args: { p_idempotency_kids: number[]; p_limit?: number; p_now?: string }
+        Returns: Json
+      }
+      maintain_external_intake_files_as_system: {
+        Args: { p_limit: number }
+        Returns: Json
       }
       mark_approved_action_email_delivery_unknown: {
         Args: {
@@ -27082,6 +27457,77 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      mutate_opportunity_lifecycle: {
+        Args: {
+          p_action: string
+          p_actor_user_id?: string
+          p_company_id?: string
+          p_opportunity_id: string
+        }
+        Returns: {
+          actual_close_date: string | null
+          actual_value: number | null
+          address: string | null
+          ai_stage_confidence: number | null
+          ai_stage_signals: string[] | null
+          ai_summary: string | null
+          ai_summary_updated_at: string | null
+          archived_at: string | null
+          assigned_to: string | null
+          assignment_version: number
+          client_id: string | null
+          client_ref: string | null
+          company_id: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          correspondence_count: number
+          created_at: string
+          deleted_at: string | null
+          description: string | null
+          detected_value: number | null
+          estimated_value: number | null
+          expected_close_date: string | null
+          handled_at: string | null
+          id: string
+          images: string[] | null
+          inbound_count: number
+          last_activity_at: string | null
+          last_inbound_at: string | null
+          last_message_direction: string | null
+          last_outbound_at: string | null
+          latitude: number | null
+          longitude: number | null
+          lost_notes: string | null
+          lost_reason: string | null
+          merged_into_opportunity_id: string | null
+          next_follow_up_at: string | null
+          operator_action_required_at: string | null
+          outbound_count: number
+          priority: string | null
+          project_id: string | null
+          project_ref: string | null
+          quote_delivery_method: string | null
+          source: string | null
+          source_email_id: string | null
+          source_message_id: string | null
+          source_metadata: Json | null
+          source_thread_key: string | null
+          stage: string
+          stage_entered_at: string
+          stage_manually_set: boolean
+          tags: string[] | null
+          title: string
+          updated_at: string
+          win_probability: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "opportunities"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       mutate_task_from_unassigned_review: {
         Args: {
           p_action: string
@@ -27666,6 +28112,15 @@ export type Database = {
             }
             Returns: boolean
           }
+      process_external_lead_projection_backfill_as_system: {
+        Args: {
+          p_batch_size?: number
+          p_lease_generation: number
+          p_lease_token: string
+          p_run_id: string
+        }
+        Returns: Json
+      }
       process_personal_mailbox_lifecycle_event: {
         Args: { p_connection_id: string }
         Returns: {
@@ -27732,12 +28187,24 @@ export type Database = {
         }
         Returns: Json
       }
+      prune_external_lead_projection_versions_as_system: {
+        Args: { p_now?: string }
+        Returns: number
+      }
       purge_company_data: {
         Args: { p_company_id: string; p_plan: Json }
         Returns: Json
       }
       purge_company_rows: {
         Args: { p_company_id: string; p_table: string }
+        Returns: number
+      }
+      purge_external_api_network_fingerprints_as_system: {
+        Args: { p_cutoff: string }
+        Returns: number
+      }
+      purge_external_api_rate_limit_windows_as_system: {
+        Args: { p_limit?: number }
         Returns: number
       }
       qbo_match_customer_candidates: {
@@ -27780,6 +28247,52 @@ export type Database = {
           p_workload_key: string
         }
         Returns: string
+      }
+      read_external_lead_feed_page_as_system: {
+        Args: {
+          p_after_public_lead_id: string
+          p_after_sequence: number
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_filters: Json
+          p_high_water_sequence: number
+          p_include_financial: boolean
+          p_mode: string
+          p_page_size: number
+          p_principal_id: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      read_external_lead_metrics_v1_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_campaign_handle: string
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_currency: string
+          p_data_through: string
+          p_digest_version: number
+          p_form_id: string
+          p_from: string
+          p_from_local_date: string
+          p_generated_at: string
+          p_groupings: string[]
+          p_high_water_sequence: number
+          p_include_financial: boolean
+          p_metric_ids: string[]
+          p_principal_id: string
+          p_source_id: string
+          p_timezone: string
+          p_to: string
+          p_to_local_date: string
+          p_visible_prefix: string
+        }
+        Returns: Json
       }
       reassign_opportunity_email_thread_guarded:
         | {
@@ -27925,42 +28438,161 @@ export type Database = {
         Args: { p_company_id: string; p_touch: Json }
         Returns: Json
       }
-      record_opportunity_correspondence_event: {
+      record_external_api_authorization_denial_as_system: {
         Args: {
-          p_activity_id: string
-          p_apply_opportunity_projection: boolean
-          p_cc_emails: string[]
           p_company_id: string
-          p_connection_id: string
-          p_direction: string
-          p_from_email: string
-          p_is_meaningful: boolean
-          p_linked_contact_id: string
-          p_linked_contact_kind: string
-          p_noise_reason: string
-          p_occurred_at: string
-          p_opportunity_id: string
-          p_party_role: string
-          p_provider_message_id: string
-          p_provider_thread_id: string
-          p_source: string
-          p_subject: string
-          p_to_emails: string[]
+          p_credential_id: string
+          p_failure_code: string
+          p_principal_id: string
         }
-        Returns: {
-          assignment_version: number
-          correspondence_count: number
-          created: boolean
-          event_id: string
-          inbound_count: number
-          last_inbound_at: string
-          last_message_direction: string
-          last_outbound_at: string
-          outbound_count: number
-          stage: string
-          stage_manually_set: boolean
-        }[]
+        Returns: boolean
       }
+      record_external_api_request_audit_as_system: {
+        Args: {
+          p_cache_result: string
+          p_duration_ms: number
+          p_error_code: string
+          p_fingerprint_digest: string
+          p_fingerprint_version: number
+          p_grouping: string[]
+          p_idempotency_result: string
+          p_method: string
+          p_metric_set: string[]
+          p_outcome: string
+          p_phase: string
+          p_presented_prefix: string
+          p_rate_limit_result: string
+          p_request_id: string
+          p_request_received_at: string
+          p_response_class: number
+          p_result_size: number
+          p_route: string
+        }
+        Returns: undefined
+      }
+      record_external_intake_delivery_as_system: {
+        Args: {
+          p_checksum_sha256: string
+          p_delivery_id: string
+          p_generation: number
+          p_inspection_id: string
+          p_lease_token: string
+          p_object_version_id: string
+          p_size_bytes: number
+          p_worker_id: string
+        }
+        Returns: boolean
+      }
+      record_external_intake_object_event_as_system: {
+        Args: {
+          p_event_type: string
+          p_guardduty_status: string
+          p_object_version_id: string
+          p_observed_checksum_sha256: string
+          p_observed_size_bytes: number
+          p_occurred_at: string
+          p_provider_event_id: string
+          p_provider_sequencer: string
+          p_storage_object_key: string
+        }
+        Returns: Json
+      }
+      record_external_intake_uploaded_object_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_form_public_id: string
+          p_object_version_id: string
+          p_observed_checksum_sha256: string
+          p_observed_size_bytes: number
+          p_principal_id: string
+          p_public_upload_id: string
+          p_source_public_id: string
+          p_storage_object_key: string
+          p_uploaded_at: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      record_opportunity_correspondence_event:
+        | {
+            Args: {
+              p_activity_id: string
+              p_apply_opportunity_projection: boolean
+              p_cc_emails: string[]
+              p_company_id: string
+              p_connection_id: string
+              p_direction: string
+              p_from_email: string
+              p_is_meaningful: boolean
+              p_linked_contact_id: string
+              p_linked_contact_kind: string
+              p_noise_reason: string
+              p_occurred_at: string
+              p_opportunity_id: string
+              p_party_role: string
+              p_provider_message_id: string
+              p_provider_thread_id: string
+              p_source: string
+              p_subject: string
+              p_to_emails: string[]
+            }
+            Returns: {
+              assignment_version: number
+              correspondence_count: number
+              created: boolean
+              event_id: string
+              inbound_count: number
+              last_inbound_at: string
+              last_message_direction: string
+              last_outbound_at: string
+              outbound_count: number
+              stage: string
+              stage_manually_set: boolean
+            }[]
+          }
+        | {
+            Args: {
+              p_activity_id: string
+              p_apply_opportunity_projection: boolean
+              p_cc_emails: string[]
+              p_company_id: string
+              p_connection_id: string
+              p_counts_as_first_response: boolean
+              p_direction: string
+              p_from_email: string
+              p_is_meaningful: boolean
+              p_linked_contact_id: string
+              p_linked_contact_kind: string
+              p_noise_reason: string
+              p_occurred_at: string
+              p_opportunity_id: string
+              p_party_role: string
+              p_provider_message_id: string
+              p_provider_thread_id: string
+              p_response_definition_version: number
+              p_response_kind: string
+              p_source: string
+              p_subject: string
+              p_to_emails: string[]
+            }
+            Returns: {
+              assignment_version: number
+              correspondence_count: number
+              created: boolean
+              event_id: string
+              inbound_count: number
+              last_inbound_at: string
+              last_message_direction: string
+              last_outbound_at: string
+              outbound_count: number
+              stage: string
+              stage_manually_set: boolean
+            }[]
+          }
       record_phase_c_graduation_prompt_as_system: {
         Args: {
           p_action_label: string
@@ -27990,6 +28622,18 @@ export type Database = {
         Args: { p_activity_id: string }
         Returns: undefined
       }
+      refresh_external_lead_projection_as_system: {
+        Args: {
+          p_company_id: string
+          p_opportunity_id: string
+          p_reason: string
+        }
+        Returns: {
+          change_sequence: number
+          operation: string
+          public_lead_id: string
+        }[]
+      }
       refresh_spec_board_snapshot: { Args: never; Returns: undefined }
       register_exact_message_recovery_work_as_system: {
         Args: {
@@ -28018,6 +28662,19 @@ export type Database = {
       release_email_connection_sync_lock_as_system: {
         Args: { p_connection_id: string; p_owner_id: string }
         Returns: boolean
+      }
+      release_external_intake_upload_batch_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_batch_id: string
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_principal_id: string
+          p_visible_prefix: string
+        }
+        Returns: Json
       }
       release_payment_reminder_generation: {
         Args: {
@@ -28265,6 +28922,15 @@ export type Database = {
         }
         Returns: Json
       }
+      request_external_intake_erasure_as_system: {
+        Args: {
+          p_authority: string
+          p_reason: string
+          p_requested_by_user_id: string
+          p_submission_id: string
+        }
+        Returns: Json
+      }
       request_lockout_admin_notification: { Args: never; Returns: number }
       requeue_failed_email_outbound_learning: {
         Args: { p_job_id: string; p_reason: string }
@@ -28325,6 +28991,61 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      reserve_external_intake_upload_batch_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_batch_expires_at: string
+          p_capability_expires_at: string
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_delete_not_before: string
+          p_digest_version: number
+          p_files: Json
+          p_form_public_id: string
+          p_idempotency_digest: string
+          p_idempotency_digest_version: number
+          p_manifest_hash: string
+          p_manifest_hash_version: number
+          p_method: string
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_requested_origin: string
+          p_route: string
+          p_source_public_id: string
+          p_visible_prefix: string
+        }
+        Returns: Json
+      }
+      reserve_external_intake_upload_batch_rotating_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_batch_expires_at: string
+          p_capability_expires_at: string
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_delete_not_before: string
+          p_digest_version: number
+          p_files: Json
+          p_form_public_id: string
+          p_idempotency_candidates: Json
+          p_idempotency_digest: string
+          p_idempotency_digest_version: number
+          p_manifest_hash: string
+          p_manifest_hash_version: number
+          p_method: string
+          p_principal_id: string
+          p_request_id: string
+          p_request_received_at: string
+          p_requested_origin: string
+          p_route: string
+          p_source_public_id: string
+          p_visible_prefix: string
+        }
+        Returns: Json
       }
       reschedule_site_visit: {
         Args: {
@@ -28456,6 +29177,41 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      resolve_external_intake_attachment_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_mode: string
+          p_opportunity_id: string
+          p_public_upload_id: string
+        }
+        Returns: Json
+      }
+      resolve_external_intake_email_correlation_as_system: {
+        Args: {
+          p_company_id: string
+          p_mailbox_id: string
+          p_opportunity_id: string
+          p_source_id: string
+          p_submission_id: string
+        }
+        Returns: Json
+      }
+      resolve_external_intake_submission_context_as_system: {
+        Args: {
+          p_authorization_epoch: number
+          p_company_id: string
+          p_credential_digest: string
+          p_credential_id: string
+          p_digest_version: number
+          p_form_public_id: string
+          p_principal_id: string
+          p_public_upload_ids: string[]
+          p_requested_origin: string
+          p_source_public_id: string
+          p_visible_prefix: string
+        }
+        Returns: Json
       }
       resolve_openai_quota_notification_as_system: {
         Args: {
@@ -28590,6 +29346,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      retry_external_intake_post_commit_outbox_as_system: {
+        Args: {
+          p_error_code: string
+          p_lease_token: string
+          p_outbox_id: string
+        }
+        Returns: boolean
+      }
       retry_phase_c_auto_send: {
         Args: {
           p_company_id: string
@@ -28673,6 +29437,27 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      revoke_external_api_credential_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_credential_id: string
+          p_reason_code: string
+        }
+        Returns: Json
+      }
+      rotate_external_api_credential_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_credential_id: string
+          p_digest_version: number
+          p_expected_updated_at: string
+          p_expires_at: string
+          p_overlap_seconds: number
+          p_secret_digest: string
+          p_visible_prefix: string
+        }
+        Returns: Json
       }
       save_expense_atomic: { Args: { p_command: Json }; Returns: Json }
       schedule_phase_c_auto_send: {
@@ -28909,6 +29694,21 @@ export type Database = {
         }
         Returns: boolean
       }
+      stage_external_intake_delivery_as_system: {
+        Args: {
+          p_delivery_mode: string
+          p_generation: number
+          p_inspection_id: string
+          p_lease_token: string
+          p_storage_object_key: string
+          p_worker_id: string
+        }
+        Returns: Json
+      }
+      start_external_lead_projection_backfill_as_system: {
+        Args: { p_company_id?: string }
+        Returns: Json
+      }
       submit_feature_request: {
         Args: {
           p_app_version?: string
@@ -29134,6 +29934,32 @@ export type Database = {
         }
         Returns: string
       }
+      update_external_api_credential_as_system: {
+        Args: {
+          p_actor_user_id: string
+          p_credential_id: string
+          p_expected_updated_at: string
+          p_expires_at: string
+          p_name: string
+        }
+        Returns: Json
+      }
+      update_lead_intake_source_as_system: {
+        Args: {
+          p_active: boolean
+          p_actor_user_id: string
+          p_allowed_browser_origins: string[]
+          p_canonical_host: string
+          p_default_coarse_source: string
+          p_default_intake_owner_id: string
+          p_default_phone_region: string
+          p_expected_updated_at: string
+          p_forms: Json
+          p_site_label: string
+          p_source_id: string
+        }
+        Returns: Json
+      }
       update_opportunity_table_view_definition: {
         Args: { p_definition: Json; p_view_id: string }
         Returns: {
@@ -29269,6 +30095,10 @@ export type Database = {
           p_required_scope?: string
         }
         Returns: string[]
+      }
+      verify_external_lead_projection_backfill_as_system: {
+        Args: { p_run_id: string }
+        Returns: Json
       }
       write_off_project_from_payment_review: {
         Args: { p_idempotency_key: string; p_project_id: string }
