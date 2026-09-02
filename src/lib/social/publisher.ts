@@ -2,10 +2,11 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import {
-  createInstagramClientFromEnv,
+  createInstagramClientFromCredentials,
   type InstagramPublishResult,
   type InstagramPublishStageEvent,
 } from "./instagram-client";
+import { createInstagramConnectionService } from "./instagram-connection-service";
 import { InstagramGraphError } from "./instagram-errors";
 import {
   createPublisherSocialRepository,
@@ -34,6 +35,7 @@ export interface SocialPublisherDependencies {
   now: () => Date;
   createClaimToken: () => string;
   repository: PublisherSocialRepository;
+  ensureInstagramConnection: () => Promise<void>;
   instagram: InstagramPublisher;
   resolveReviewNotification: (postId: string) => Promise<void>;
   notifyPublished: (post: SocialPostRecord, permalink: string | null) => Promise<void>;
@@ -41,11 +43,26 @@ export interface SocialPublisherDependencies {
 }
 
 function defaultDependencies(): SocialPublisherDependencies {
+  const connection = createInstagramConnectionService();
+  let instagram: InstagramPublisher | null = null;
+  const ensureInstagramConnection = async () => {
+    const credentials = await connection.getPublishingCredentials();
+    instagram = createInstagramClientFromCredentials({
+      userId: credentials.userId,
+      accessToken: credentials.accessToken,
+    });
+  };
   return {
     now: () => new Date(),
     createClaimToken: randomUUID,
     repository: createPublisherSocialRepository(),
-    instagram: createInstagramClientFromEnv(),
+    ensureInstagramConnection,
+    instagram: {
+      publish: async (input) => {
+        if (!instagram) await ensureInstagramConnection();
+        return instagram!.publish(input);
+      },
+    },
     resolveReviewNotification: resolveSocialReviewNotification,
     notifyPublished: createSocialPublishedNotification,
     notifyRecovery: createSocialRecoveryNotification,
@@ -244,6 +261,7 @@ export async function runSocialPublisherBatch(
   dependencies: SocialPublisherDependencies = defaultDependencies(),
   options: { limit?: number } = {}
 ): Promise<SocialPublisherBatchSummary> {
+  await dependencies.ensureInstagramConnection();
   const claimToken = dependencies.createClaimToken();
   const limit = Math.max(1, Math.min(options.limit ?? 2, 5));
   const posts = await dependencies.repository.claimDue(claimToken, limit, CLAIM_TTL_SECONDS);
@@ -301,6 +319,7 @@ export async function publishSocialPostNow(
   postId: string,
   dependencies: SocialPublisherDependencies = defaultDependencies()
 ): Promise<SocialPublishOutcome | null> {
+  await dependencies.ensureInstagramConnection();
   const claimToken = dependencies.createClaimToken();
   const post = await dependencies.repository.claimById(postId, claimToken, CLAIM_TTL_SECONDS);
   return post ? publishClaimedSocialPost(post, dependencies) : null;

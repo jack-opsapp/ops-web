@@ -20,6 +20,7 @@ function dependencies(
       markPublished: vi.fn().mockResolvedValue(undefined),
       markFailed: vi.fn().mockResolvedValue(undefined),
     },
+    ensureInstagramConnection: vi.fn().mockResolvedValue(undefined),
     instagram: {
       publish: vi.fn().mockResolvedValue({
         mediaId: "180000000000001",
@@ -185,6 +186,37 @@ describe("durable Instagram publisher", () => {
 
     expect(summary).toMatchObject({ claimed: 2, published: 1, retryScheduled: 1, failed: 0 });
     expect(summary.results).toHaveLength(2);
+  });
+
+  it("validates and refreshes the connection before claiming any launch", async () => {
+    const deps = dependencies({
+      repository: {
+        ...dependencies().repository,
+        claimDue: vi.fn().mockResolvedValue([]),
+      },
+    });
+
+    await runSocialPublisherBatch(deps, { limit: 2 });
+
+    expect(deps.ensureInstagramConnection).toHaveBeenCalledTimes(1);
+    expect(deps.repository.claimDue).toHaveBeenCalledTimes(1);
+    expect(
+      vi.mocked(deps.ensureInstagramConnection).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(deps.repository.claimDue).mock.invocationCallOrder[0]);
+  });
+
+  it("never claims a post when Instagram is disconnected", async () => {
+    const deps = dependencies({
+      ensureInstagramConnection: vi
+        .fn()
+        .mockRejectedValue(new Error("Instagram is not connected")),
+    });
+
+    await expect(runSocialPublisherBatch(deps, { limit: 2 })).rejects.toThrow(
+      /not connected/i
+    );
+    expect(deps.repository.claimDue).not.toHaveBeenCalled();
+    expect(deps.instagram.publish).not.toHaveBeenCalled();
   });
 
   it("delivers database-recovered failures through the durable notification outbox", async () => {

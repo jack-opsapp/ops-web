@@ -1,6 +1,6 @@
 import {
   InstagramGraphClient,
-  createInstagramClientFromEnv,
+  createInstagramClientFromCredentials,
 } from "@/lib/social/instagram-client";
 import { InstagramGraphError } from "@/lib/social/instagram-errors";
 import type { RenderedSocialAsset } from "@/lib/social/types";
@@ -53,12 +53,26 @@ const persistStage = async () => undefined;
 describe("Instagram Graph publishing client", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("fails before a request when required credentials or version are missing", () => {
-    vi.stubEnv("INSTAGRAM_ACCESS_TOKEN", "");
-    vi.stubEnv("INSTAGRAM_USER_ID", "");
-    vi.stubEnv("INSTAGRAM_API_VERSION", "");
+  it("fails before a request when connected-account credentials are missing", () => {
+    expect(() =>
+      createInstagramClientFromCredentials({ userId: "", accessToken: "" })
+    ).toThrow(/instagram_access_token/i);
+  });
 
-    expect(() => createInstagramClientFromEnv()).toThrow(/instagram_access_token/i);
+  it("uses the Instagram Login graph host and a pinned version by default", async () => {
+    vi.stubEnv("INSTAGRAM_GRAPH_ORIGIN", "");
+    vi.stubEnv("INSTAGRAM_API_VERSION", "");
+    const fetcher = fetchSequence(quota());
+    const client = createInstagramClientFromCredentials(
+      { userId: baseConfig.userId, accessToken: TOKEN },
+      { fetcher }
+    );
+
+    await client.getPublishingQuota();
+
+    expect(fetcher.mock.calls[0][0].toString()).toContain(
+      "https://graph.instagram.com/v25.0/17841400000000000/content_publishing_limit"
+    );
   });
 
   it("uses configurable API origin and version", async () => {

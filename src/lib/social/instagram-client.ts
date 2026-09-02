@@ -426,11 +426,16 @@ export class InstagramGraphClient {
   }
 }
 
-export function createInstagramClientFromEnv(): InstagramGraphClient {
+export function createInstagramClientFromCredentials(
+  credentials: { userId: string; accessToken: string },
+  dependencies: Partial<InstagramClientDependencies> = {}
+): InstagramGraphClient {
   return new InstagramGraphClient({
-    origin: process.env.INSTAGRAM_API_ORIGIN ?? "https://graph.facebook.com",
-    apiVersion: process.env.INSTAGRAM_API_VERSION ?? "",
-    userId: process.env.INSTAGRAM_USER_ID ?? "",
-    accessToken: process.env.INSTAGRAM_ACCESS_TOKEN ?? "",
-  });
+    origin:
+      process.env.INSTAGRAM_GRAPH_ORIGIN?.trim() ||
+      "https://graph.instagram.com",
+    apiVersion: process.env.INSTAGRAM_API_VERSION?.trim() || "v25.0",
+    userId: credentials.userId,
+    accessToken: credentials.accessToken,
+  }, dependencies);
 }
