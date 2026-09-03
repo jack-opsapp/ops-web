@@ -2,11 +2,15 @@
  * GET /api/customer/me?handle=<public_handle>
  *
  * Who the signed-in customer is for the company addressed by `handle`:
- * { displayName, maskedEmail, membership: { state } }. Authority is
- * re-resolved on every request from the session row and the live
- * membership state for that company (design I3); the cookie is trusted
- * for nothing beyond its digest lookup. The body carries no id and no
- * clear email (I4).
+ * { displayName, maskedEmail, membership: { state } }. Authority is re-read on
+ * every request from the session row and the live membership state for that
+ * company (design I3); the cookie is trusted for nothing beyond its digest
+ * lookup. The body carries no id and no clear email (I4).
+ *
+ * Every store call on this path is read-only. Naming a company's public handle
+ * is not an act of intent, and a read may never cause a row to appear in that
+ * company's data (I17) — which is exactly what this route did before the
+ * membership RPCs were split.
  */
 
 import type { NextRequest, NextResponse } from "next/server";
@@ -16,8 +20,8 @@ import {
   clearSessionCookie,
   getCustomerIdentityDeps,
   readCustomerProfile,
+  readMembership,
   readSession,
-  resolveMembership,
 } from "@/lib/customer-identity";
 
 import {
@@ -55,7 +59,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return response;
     }
 
-    const membership = await resolveMembership(deps, session.identityId, companyId);
+    const membership = await readMembership(deps, session.identityId, companyId);
     const profile = await readCustomerProfile(deps.rpc, {
       identityId: session.identityId,
       companyId,

@@ -125,6 +125,13 @@ export class CustomerIdentityFake {
   readonly identities = new Map<string, { authSubject: string; email: string }>();
   readonly sessions = new Map<string, FakeSession>();
   readonly memberships = new Map<string, FakeMembershipRow | null>();
+  readonly linkTargets = new Map<string, FakeMembershipRow | null>();
+  /**
+   * Every client the create-capable RPC minted. The read and sign-in paths
+   * must never add to this: it is the fake's stand-in for a row appearing in
+   * a live company's data (I17, I18).
+   */
+  readonly createdClients: Array<{ identityId: string; companyId: string; clientId: string }> = [];
   readonly profiles = new Map<string, FakeProfile>();
   readonly companies = new Map<string, FakeCompany>();
   readonly companyQueries: Array<{ columns: string; handle: string }> = [];
@@ -180,13 +187,28 @@ export class CustomerIdentityFake {
     return this;
   }
 
-  /** Preset the membership the resolution RPC returns; `null` = no membership. */
+  /** Preset the membership the read and link RPCs report; `null` = none. */
   setMembership(
     identityId: string,
     companyId: string,
     row: FakeMembershipRow | null
   ): this {
     this.memberships.set(`${identityId}:${companyId}`, row);
+    return this;
+  }
+
+  /**
+   * What sign-in finds on file. Preset a row to stand for a verified email
+   * that matches exactly one live client; leave it unset and the link RPC
+   * establishes nothing, exactly as the database does when nothing matches
+   * (I18).
+   */
+  setLinkTarget(
+    identityId: string,
+    companyId: string,
+    row: FakeMembershipRow | null
+  ): this {
+    this.linkTargets.set(`${identityId}:${companyId}`, row);
     return this;
   }
 
@@ -315,17 +337,40 @@ export class CustomerIdentityFake {
     return this.challenges.get(intent.challengeId)?.consumed === true;
   }
 
+  /** What the read RPC reports: the stored membership, or nothing. */
   private membershipFor(identityId: string, companyId: string): FakeMembershipRow | null {
+    return this.memberships.get(`${identityId}:${companyId}`) ?? null;
+  }
+
+  /**
+   * Sign-in: an existing membership is reported as it stands, a preset link
+   * target is established forward-only, and anything else establishes nothing.
+   * No client is ever created here.
+   */
+  private linkFor(identityId: string, companyId: string): FakeMembershipRow | null {
     const key = `${identityId}:${companyId}`;
-    if (this.memberships.has(key)) return this.memberships.get(key) ?? null;
+    const existing = this.memberships.get(key) ?? null;
+    if (existing) return { ...existing, outcome: "existing" };
+    const target = this.linkTargets.get(key) ?? null;
+    if (target === null) return null;
+    this.memberships.set(key, target);
+    return target;
+  }
+
+  /** The intent paths only: creates the customer's own client when nothing matched. */
+  private resolveOrCreateFor(identityId: string, companyId: string): FakeMembershipRow {
+    const linked = this.linkFor(identityId, companyId);
+    if (linked !== null) return linked;
+    const clientId = randomUUID();
     const created: FakeMembershipRow = {
       membership_id: randomUUID(),
-      client_id: randomUUID(),
+      client_id: clientId,
       sub_client_id: null,
       state: "active_full",
       outcome: "created",
     };
-    this.memberships.set(key, created);
+    this.memberships.set(`${identityId}:${companyId}`, created);
+    this.createdClients.push({ identityId, companyId, clientId });
     return created;
   }
 
@@ -462,9 +507,20 @@ export class CustomerIdentityFake {
         }
         return { data: count, error: null };
       }
-      case "resolve_customer_membership_as_system": {
+      case "read_customer_membership_as_system": {
         const row = this.membershipFor(String(args.p_identity_id), String(args.p_company_id));
         return { data: row === null ? [] : [row], error: null };
+      }
+      case "link_customer_membership_as_system": {
+        const row = this.linkFor(String(args.p_identity_id), String(args.p_company_id));
+        return { data: row === null ? [] : [row], error: null };
+      }
+      case "resolve_or_create_customer_membership_as_system": {
+        const row = this.resolveOrCreateFor(
+          String(args.p_identity_id),
+          String(args.p_company_id)
+        );
+        return { data: [row], error: null };
       }
       case "read_customer_profile_as_system": {
         return {

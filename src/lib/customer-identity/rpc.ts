@@ -393,23 +393,76 @@ export async function revokeAllSessions(
 // ─── Memberships (design §5.3) ──────────────────────────────────────────────
 
 /**
- * Raw contract row. Carries the company-owned client ids and must never be
- * returned from a route; `membership.ts` projects it to the route-safe shape.
+ * Raw contract rows. They carry the company-owned client ids and must never be
+ * returned from a route; `membership.ts` projects them to the route-safe
+ * shape.
+ *
+ * Three RPCs, three intents (design I17, I18). The database enforces the
+ * difference — the read RPC is STABLE, so PostgreSQL refuses any write inside
+ * it — and this module keeps the three reachable only through the wrapper that
+ * names what it is for.
  */
-export async function resolveMembershipRow(
+async function membershipRow(
   client: CustomerIdentityRpcClient,
+  functionName: string,
+  operation: string,
   input: { identityId: string; companyId: string }
 ): Promise<ResolveMembershipRow | null> {
-  const operation = "resolve_customer_membership";
   requireUuid(input.identityId, operation);
   requireUuid(input.companyId, operation);
   const data = await callSystemRpc(
     client,
-    "resolve_customer_membership_as_system",
+    functionName,
     { p_identity_id: input.identityId, p_company_id: input.companyId },
     operation
   );
   return optionalSingleRow(data, ResolveMembershipRowSchema, operation);
+}
+
+/** Reports the stored membership. Creates nothing, promotes nothing (I17). */
+export async function readMembershipRow(
+  client: CustomerIdentityRpcClient,
+  input: { identityId: string; companyId: string }
+): Promise<ResolveMembershipRow | null> {
+  return membershipRow(
+    client,
+    "read_customer_membership_as_system",
+    "read_customer_membership",
+    input
+  );
+}
+
+/**
+ * Sign-in. Establishes a membership only against a client already on file in
+ * that company, and never creates one (I18).
+ */
+export async function linkMembershipRow(
+  client: CustomerIdentityRpcClient,
+  input: { identityId: string; companyId: string }
+): Promise<ResolveMembershipRow | null> {
+  return membershipRow(
+    client,
+    "link_customer_membership_as_system",
+    "link_customer_membership",
+    input
+  );
+}
+
+/**
+ * The create-capable path. Permitted callers, and only these: the P2 guest
+ * booking confirm, the P2 booking claim, and the P4 lead intake — moments that
+ * carry real customer intent. Never a read, never sign-in.
+ */
+export async function resolveOrCreateMembershipRow(
+  client: CustomerIdentityRpcClient,
+  input: { identityId: string; companyId: string }
+): Promise<ResolveMembershipRow | null> {
+  return membershipRow(
+    client,
+    "resolve_or_create_customer_membership_as_system",
+    "resolve_or_create_customer_membership",
+    input
+  );
 }
 
 export async function confirmMembership(

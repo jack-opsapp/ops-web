@@ -10,7 +10,9 @@ import {
   mintSession,
   readCustomerProfile,
   recordOtpAttempt,
-  resolveMembershipRow,
+  linkMembershipRow,
+  readMembershipRow,
+  resolveOrCreateMembershipRow,
   resolveSession,
   revokeAllSessions,
   revokeMembership,
@@ -372,42 +374,56 @@ describe("memberships", () => {
     outcome: "matched_forward_only",
   };
 
-  it("resolves a membership row with every contract field", async () => {
-    const client = clientReturning([ROW]);
-    expect(
-      await resolveMembershipRow(client, {
-        identityId: IDENTITY_ID,
-        companyId: COMPANY_ID,
-      })
-    ).toEqual(ROW);
-    expect(client.rpc).toHaveBeenCalledWith(
-      "resolve_customer_membership_as_system",
-      { p_identity_id: IDENTITY_ID, p_company_id: COMPANY_ID }
-    );
-  });
+  // Three intents, three RPCs (design I17, I18): reporting a membership,
+  // establishing one against a client already on file, and the create-capable
+  // path reserved for genuine intent. Each wrapper reaches exactly one of them.
+  const WRAPPERS = [
+    ["readMembershipRow", readMembershipRow, "read_customer_membership_as_system", "read_customer_membership"],
+    ["linkMembershipRow", linkMembershipRow, "link_customer_membership_as_system", "link_customer_membership"],
+    [
+      "resolveOrCreateMembershipRow",
+      resolveOrCreateMembershipRow,
+      "resolve_or_create_customer_membership_as_system",
+      "resolve_or_create_customer_membership",
+    ],
+  ] as const;
 
-  it("returns null when the database resolves nothing", async () => {
-    expect(
-      await resolveMembershipRow(clientReturning([]), {
-        identityId: IDENTITY_ID,
-        companyId: COMPANY_ID,
-      })
-    ).toBeNull();
-  });
+  describe.each(WRAPPERS)("%s", (_label, wrapper, rpcName, operation) => {
+    it("returns a membership row with every contract field, from its own RPC", async () => {
+      const client = clientReturning([ROW]);
+      expect(
+        await wrapper(client, { identityId: IDENTITY_ID, companyId: COMPANY_ID })
+      ).toEqual(ROW);
+      expect(client.rpc).toHaveBeenCalledTimes(1);
+      expect(client.rpc).toHaveBeenCalledWith(rpcName, {
+        p_identity_id: IDENTITY_ID,
+        p_company_id: COMPANY_ID,
+      });
+    });
 
-  it.each([
-    ["unknown state", { ...ROW, state: "pending" }],
-    ["unknown outcome", { ...ROW, outcome: "maybe" }],
-    ["missing client", { ...ROW, client_id: null }],
-  ])("throws a store error for %s", async (_label, row) => {
-    await expectStoreError(
-      () =>
-        resolveMembershipRow(clientReturning([row]), {
+    it("returns null when the database resolves nothing", async () => {
+      expect(
+        await wrapper(clientReturning([]), {
           identityId: IDENTITY_ID,
           companyId: COMPANY_ID,
-        }),
-      "resolve_customer_membership"
-    );
+        })
+      ).toBeNull();
+    });
+
+    it.each([
+      ["unknown state", { ...ROW, state: "pending" }],
+      ["unknown outcome", { ...ROW, outcome: "maybe" }],
+      ["missing client", { ...ROW, client_id: null }],
+    ])("throws a store error for %s", async (_case, row) => {
+      await expectStoreError(
+        () =>
+          wrapper(clientReturning([row]), {
+            identityId: IDENTITY_ID,
+            companyId: COMPANY_ID,
+          }),
+        operation
+      );
+    });
   });
 
   it("confirms a membership as staff and returns the resulting state", async () => {

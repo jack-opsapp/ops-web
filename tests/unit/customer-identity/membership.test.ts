@@ -7,8 +7,10 @@ import {
   CustomerIdentityStoreError,
 } from "@/lib/customer-identity/errors";
 import {
+  linkMembership,
+  readMembership,
   requireMembership,
-  resolveMembership,
+  resolveOrCreateMembership,
 } from "@/lib/customer-identity/membership";
 
 const IDENTITY_ID = "22222222-2222-4222-8222-222222222222";
@@ -19,8 +21,21 @@ const SUB_CLIENT_ID = "55555555-5555-4555-8555-555555555555";
 const MEMBERSHIP_ID = "66666666-6666-4666-8666-666666666666";
 const SESSION = { identityId: IDENTITY_ID, sessionId: SESSION_ID };
 
+/** Any RPC name a read may never reach. */
+const WRITE_RPCS = [
+  "link_customer_membership_as_system",
+  "resolve_or_create_customer_membership_as_system",
+];
+
 function makeDeps(row: unknown, error: unknown = null) {
-  const rpc = vi.fn(async () => ({ data: row, error }));
+  // Typed arguments so a test can assert which RPC the library reached — the
+  // whole point of the read/link/create split.
+  const rpc = vi.fn(
+    async (_functionName: string, _args: Readonly<Record<string, unknown>>) => ({
+      data: row,
+      error,
+    })
+  );
   const deps: CustomerIdentityDeps = {
     rpc: { rpc },
     auth: {
@@ -47,16 +62,111 @@ function row(state: string, outcome: string) {
   ];
 }
 
-describe("resolveMembership", () => {
-  it("calls the resolution RPC for exactly this identity and company", async () => {
-    const { deps, rpc } = makeDeps(row("active_full", "created"));
-    await resolveMembership(deps, IDENTITY_ID, COMPANY_ID);
-    expect(rpc).toHaveBeenCalledWith("resolve_customer_membership_as_system", {
+const RESOLVERS = [
+  ["readMembership", readMembership, "read_customer_membership_as_system"],
+  ["linkMembership", linkMembership, "link_customer_membership_as_system"],
+  [
+    "resolveOrCreateMembership",
+    resolveOrCreateMembership,
+    "resolve_or_create_customer_membership_as_system",
+  ],
+] as const;
+
+describe.each(RESOLVERS)("%s", (_name, resolver, rpcName) => {
+  it("calls its own RPC for exactly this identity and company", async () => {
+    const { deps, rpc } = makeDeps(row("active_full", "existing"));
+    await resolver(deps, IDENTITY_ID, COMPANY_ID);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith(rpcName, {
       p_identity_id: IDENTITY_ID,
       p_company_id: COMPANY_ID,
     });
   });
 
+  it("never exposes the company-owned client ids to its caller", async () => {
+    const { deps } = makeDeps(row("active_full", "existing"));
+    const membership = await resolver(deps, IDENTITY_ID, COMPANY_ID);
+    const serialized = JSON.stringify(membership);
+    expect(serialized).not.toContain(CLIENT_ID);
+    expect(serialized).not.toContain(SUB_CLIENT_ID);
+    expect(serialized).not.toContain(COMPANY_ID);
+    expect(Object.keys(membership ?? {}).sort()).toEqual([
+      "membershipId",
+      "outcome",
+      "state",
+    ]);
+  });
+
+  it("returns null when the database resolves nothing", async () => {
+    const { deps } = makeDeps([]);
+    expect(await resolver(deps, IDENTITY_ID, COMPANY_ID)).toBeNull();
+  });
+
+  it("refuses malformed ids before calling the database", async () => {
+    const { deps, rpc } = makeDeps(row("active_full", "existing"));
+    await expect(resolver(deps, "nope", COMPANY_ID)).rejects.toBeInstanceOf(
+      CustomerIdentityInputError
+    );
+    await expect(resolver(deps, IDENTITY_ID, "nope")).rejects.toBeInstanceOf(
+      CustomerIdentityInputError
+    );
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("propagates store failures", async () => {
+    const { deps } = makeDeps(null, { message: "down" });
+    await expect(resolver(deps, IDENTITY_ID, COMPANY_ID)).rejects.toBeInstanceOf(
+      CustomerIdentityStoreError
+    );
+  });
+});
+
+describe("readMembership", () => {
+  it("reaches only the read-only RPC — a read never establishes anything (I17)", async () => {
+    const { deps, rpc } = makeDeps(row("active_forward_only", "existing"));
+    await readMembership(deps, IDENTITY_ID, COMPANY_ID);
+    const called = rpc.mock.calls.map((call) => call[0]);
+    expect(called).toEqual(["read_customer_membership_as_system"]);
+    for (const write of WRITE_RPCS) expect(called).not.toContain(write);
+  });
+
+  it.each([
+    "active_full",
+    "active_forward_only",
+    "revoked",
+    "merged",
+  ] as const)("reports the %s state the database holds", async (state) => {
+    const { deps } = makeDeps(row(state, "existing"));
+    const membership = await readMembership(deps, IDENTITY_ID, COMPANY_ID);
+    expect(membership).toEqual({
+      membershipId: MEMBERSHIP_ID,
+      state,
+      outcome: "existing",
+    });
+  });
+});
+
+describe("linkMembership", () => {
+  it.each([
+    ["existing", "active_full"],
+    ["matched_forward_only", "active_forward_only"],
+    ["matched_full", "active_full"],
+  ] as const)("maps the %s outcome with its state", async (outcome, state) => {
+    const { deps } = makeDeps(row(state, outcome));
+    const membership = await linkMembership(deps, IDENTITY_ID, COMPANY_ID);
+    expect(membership).toEqual({ membershipId: MEMBERSHIP_ID, state, outcome });
+  });
+
+  it("reports no membership when the verified email matches nothing (I18)", async () => {
+    const { deps, rpc } = makeDeps([]);
+    expect(await linkMembership(deps, IDENTITY_ID, COMPANY_ID)).toBeNull();
+    expect(rpc.mock.calls.map((call) => call[0])).toEqual([
+      "link_customer_membership_as_system",
+    ]);
+  });
+});
+
+describe("resolveOrCreateMembership", () => {
   it.each([
     ["existing", "active_full"],
     ["matched_forward_only", "active_forward_only"],
@@ -65,41 +175,8 @@ describe("resolveMembership", () => {
     ["created_possible_duplicate", "active_full"],
   ] as const)("maps the %s outcome with its state", async (outcome, state) => {
     const { deps } = makeDeps(row(state, outcome));
-    const membership = await resolveMembership(deps, IDENTITY_ID, COMPANY_ID);
+    const membership = await resolveOrCreateMembership(deps, IDENTITY_ID, COMPANY_ID);
     expect(membership).toEqual({ membershipId: MEMBERSHIP_ID, state, outcome });
-  });
-
-  it("never exposes the company-owned client ids to its caller", async () => {
-    const { deps } = makeDeps(row("active_full", "existing"));
-    const membership = await resolveMembership(deps, IDENTITY_ID, COMPANY_ID);
-    const serialized = JSON.stringify(membership);
-    expect(serialized).not.toContain(CLIENT_ID);
-    expect(serialized).not.toContain(SUB_CLIENT_ID);
-    expect(serialized).not.toContain(COMPANY_ID);
-    expect(Object.keys(membership ?? {}).sort()).toEqual(["membershipId", "outcome", "state"]);
-  });
-
-  it("returns null when the database resolves nothing", async () => {
-    const { deps } = makeDeps([]);
-    expect(await resolveMembership(deps, IDENTITY_ID, COMPANY_ID)).toBeNull();
-  });
-
-  it("refuses malformed ids before calling the database", async () => {
-    const { deps, rpc } = makeDeps(row("active_full", "existing"));
-    await expect(resolveMembership(deps, "nope", COMPANY_ID)).rejects.toBeInstanceOf(
-      CustomerIdentityInputError
-    );
-    await expect(resolveMembership(deps, IDENTITY_ID, "nope")).rejects.toBeInstanceOf(
-      CustomerIdentityInputError
-    );
-    expect(rpc).not.toHaveBeenCalled();
-  });
-
-  it("propagates store failures", async () => {
-    const { deps } = makeDeps(null, { message: "down" });
-    await expect(resolveMembership(deps, IDENTITY_ID, COMPANY_ID)).rejects.toBeInstanceOf(
-      CustomerIdentityStoreError
-    );
   });
 });
 
@@ -117,6 +194,14 @@ describe("requireMembership", () => {
     throw new Error("expected a denial");
   }
 
+  it("gates on the read-only resolver — authority is never established by asking for it", async () => {
+    const { deps, rpc } = makeDeps(row("active_full", "existing"));
+    await requireMembership(deps, SESSION, COMPANY_ID, { needFullHistory: true });
+    const called = rpc.mock.calls.map((call) => call[0]);
+    expect(called).toEqual(["read_customer_membership_as_system"]);
+    for (const write of WRITE_RPCS) expect(called).not.toContain(write);
+  });
+
   it("grants a full membership whether or not history is needed", async () => {
     const { deps } = makeDeps(row("active_full", "existing"));
     for (const needFullHistory of [true, false]) {
@@ -126,7 +211,7 @@ describe("requireMembership", () => {
   });
 
   it("grants a forward-only membership for forward-only surfaces and denies FORWARD_ONLY when history is needed", async () => {
-    const { deps } = makeDeps(row("active_forward_only", "matched_forward_only"));
+    const { deps } = makeDeps(row("active_forward_only", "existing"));
     const membership = await requireMembership(deps, SESSION, COMPANY_ID, { needFullHistory: false });
     expect(membership.state).toBe("active_forward_only");
     expect(await denial(deps, { needFullHistory: true })).toBe("FORWARD_ONLY");
@@ -145,7 +230,7 @@ describe("requireMembership", () => {
     expect(await denial(makeDeps([]).deps, { needFullHistory: false })).toBe("NOT_FOUND");
   });
 
-  it("re-resolves on every call so a revocation binds on the next request (I3)", async () => {
+  it("re-reads on every call so a revocation binds on the next request (I3)", async () => {
     const rpc = vi
       .fn()
       .mockResolvedValueOnce({ data: row("active_full", "existing"), error: null })

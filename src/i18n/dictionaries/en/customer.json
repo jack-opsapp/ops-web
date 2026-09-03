@@ -41,7 +41,7 @@
   "home.forward.title": "You're in.",
   "home.forward.body": "You'll see new bookings and documents here. Past history appears once {company} confirms your account.",
   "home.none.title": "Nothing here yet.",
-  "home.none.body": "{company} hasn't linked any records to this email. New bookings you make will appear here.",
+  "home.none.body": "{company} has no record of this email. Anything you book here shows up on this page.",
   "home.signOut": "SIGN OUT",
   "home.signingOut": "SIGNING OUT",
   "home.signOutFailed": "Couldn't sign out. Try again.",

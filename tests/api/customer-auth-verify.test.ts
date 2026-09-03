@@ -47,6 +47,9 @@ const EMAIL = "jordan@example.com";
 const CODE = "482913";
 const IP = "203.0.113.7";
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+/** A returning identity whose email a company already has on file. */
+const IDENTITY_ON_FILE = "22222222-2222-4222-8222-222222222222";
+const AUTH_SUBJECT_ON_FILE = "88888888-8888-4888-8888-888888888888";
 
 function verify(body: unknown, init: { ip?: string } = {}): Promise<NextResponse> {
   return POST(
@@ -124,15 +127,52 @@ describe("POST /api/customer/auth/verify — success", () => {
     }
   });
 
-  it("resolves membership for the handle's company on sign-in (§5.1 step 3)", async () => {
+  it("links membership for the handle's company on sign-in (§5.1 step 3)", async () => {
     const challengeId = await armedChallenge();
     const res = await verify({ handle: HANDLE, challengeId, code: CODE, email: EMAIL });
     expect(res.status).toBe(200);
-    const [resolve] = fake.callsTo("resolve_customer_membership_as_system");
-    expect(resolve).toBeDefined();
-    expect(resolve.args.p_company_id).toBe(COMPANY_ID);
+    const [link] = fake.callsTo("link_customer_membership_as_system");
+    expect(link).toBeDefined();
+    expect(link.args.p_company_id).toBe(COMPANY_ID);
     const stored = fake.sessions.get(sessionDigest(sessionCookie(res)!.value)!)!;
-    expect(resolve.args.p_identity_id).toBe(stored.identityId);
+    expect(link.args.p_identity_id).toBe(stored.identityId);
+  });
+
+  /**
+   * I18: signing in proves identity, not a relationship. A verified email that
+   * matches nothing on file leaves the company's data exactly as it was — the
+   * identity and its verified contact are the only records sign-in may write.
+   */
+  it("creates no client and no membership when the email matches nothing (I18)", async () => {
+    const challengeId = await armedChallenge();
+    const res = await verify({ handle: HANDLE, challengeId, code: CODE, email: EMAIL });
+    expect(res.status).toBe(200);
+
+    expect(fake.createdClients).toEqual([]);
+    expect(fake.callsTo("resolve_or_create_customer_membership_as_system")).toEqual([]);
+    const stored = fake.sessions.get(sessionDigest(sessionCookie(res)!.value)!)!;
+    expect(fake.memberships.get(`${stored.identityId}:${COMPANY_ID}`)).toBeUndefined();
+    // What sign-in IS allowed to record.
+    expect(fake.identities.has(stored.identityId)).toBe(true);
+    expect(fake.identities.get(stored.identityId)!.email).toBe(EMAIL);
+  });
+
+  it("still establishes the membership when the email is already on file (I2)", async () => {
+    fake.seedIdentity(IDENTITY_ON_FILE, AUTH_SUBJECT_ON_FILE, EMAIL);
+    fake.setLinkTarget(IDENTITY_ON_FILE, COMPANY_ID, {
+      membership_id: "77777777-7777-4777-8777-777777777777",
+      client_id: "99999999-9999-4999-8999-999999999999",
+      sub_client_id: null,
+      state: "active_forward_only",
+      outcome: "matched_forward_only",
+    });
+    const challengeId = await armedChallenge();
+    const res = await verify({ handle: HANDLE, challengeId, code: CODE, email: EMAIL });
+    expect(res.status).toBe(200);
+    expect(fake.memberships.get(`${IDENTITY_ON_FILE}:${COMPANY_ID}`)?.state).toBe(
+      "active_forward_only"
+    );
+    expect(fake.createdClients).toEqual([]);
   });
 
   it("marks a newly created identity as a customer principal and logs the chain", async () => {
@@ -175,8 +215,8 @@ describe("POST /api/customer/auth/verify — success", () => {
     expect(res.status).toBe(200);
   });
 
-  it("still signs in when membership resolution fails — /me re-resolves every request (I3)", async () => {
-    fake.failOn("resolve_customer_membership_as_system", {
+  it("still signs in when membership resolution fails — /me re-reads every request (I3)", async () => {
+    fake.failOn("link_customer_membership_as_system", {
       code: "40001",
       message: "serialization failure",
     });

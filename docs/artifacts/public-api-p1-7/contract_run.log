@@ -1,0 +1,49 @@
+ set_config 
+------------
+ 2min
+(1 row)
+
+=== applying migration under test (uncommitted) ===
+=== migration applied ===
+       set_config        
+-------------------------
+ {"role":"service_role"}
+(1 row)
+
+--- R1 function shape, volatility and grants
+psql:contract_tests.sql:87: NOTICE:  R1 read volatility = s (expect s)
+psql:contract_tests.sql:87: NOTICE:  R1 grants to public/anon/authenticated = 0 (expect 0)
+psql:contract_tests.sql:87: NOTICE:  R1 read gate ok: 42501
+psql:contract_tests.sql:87: NOTICE:  R1 link gate ok: 42501
+--- R2 read against a stranger company creates nothing
+psql:contract_tests.sql:143: NOTICE:  R2 read rows = 0 (expect 0)
+psql:contract_tests.sql:143: NOTICE:  R2 clients 0/0, memberships 0/0, sub_clients 0/0, duplicate_reviews 0/0 (before/after)
+--- R3 sign-in with no matching client creates no client and no membership
+psql:contract_tests.sql:189: NOTICE:  R3 link rows = 0 (expect 0)
+psql:contract_tests.sql:189: NOTICE:  R3 clients 74/74, memberships 0/0 (before/after)
+psql:contract_tests.sql:189: NOTICE:  R3 verified contacts = 1 (expect 1)
+--- R4 sign-in matching an existing client links without altering it
+psql:contract_tests.sql:245: NOTICE:  R4 outcome=matched_forward_only state=active_forward_only matched=t
+psql:contract_tests.sql:245: NOTICE:  R4 clients 75/75 ; client row unchanged = t
+psql:contract_tests.sql:245: NOTICE:  R4 after sent invoice: outcome=existing state=active_full
+--- R5 sign-in with on-file evidence links at active_full
+psql:contract_tests.sql:273: NOTICE:  R5 outcome=matched_full state=active_full
+--- R6 sub-client match, revocation, and what the read reports
+psql:contract_tests.sql:325: NOTICE:  R6 outcome=matched_forward_only parent=t sub=t
+psql:contract_tests.sql:325: NOTICE:  R6 read after revoke: outcome=existing state=revoked
+--- R7 a read leaves a forward-only membership exactly as it found it
+psql:contract_tests.sql:356: NOTICE:  R7 read state=active_forward_only ; membership row unchanged = t
+--- R8 an ambiguous match at sign-in creates nothing
+psql:contract_tests.sql:403: NOTICE:  R8 link rows = 0 (expect 0)
+psql:contract_tests.sql:403: NOTICE:  R8 clients 80/80, memberships 4/4, reviews 78/78 (before/after)
+psql:contract_tests.sql:403: NOTICE:  R8 ambiguity events = 1 (expect 1)
+--- R9 resolve_or_create still creates for the intent paths
+psql:contract_tests.sql:457: NOTICE:  R9 zero: outcome=created state=active_full
+psql:contract_tests.sql:457: NOTICE:  R9 created client: intent-zero-51798303@example.invalid / intent-zero-51798303@example.invalid
+psql:contract_tests.sql:457: NOTICE:  R9 many: outcome=created_possible_duplicate fresh=t
+psql:contract_tests.sql:457: NOTICE:  R9 duplicate reviews = 2 (expect 2)
+psql:contract_tests.sql:457: NOTICE:  R9 notifications = 2 (expect >= 1)
+psql:contract_tests.sql:457: NOTICE:  R9 identity without a verified email -> 0 rows (expect 0)
+--- R10 input handling
+psql:contract_tests.sql:498: NOTICE:  R10 input handling ok
+=== all assertions passed; rolling back ===
