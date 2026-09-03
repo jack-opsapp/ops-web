@@ -45,7 +45,8 @@ const RUN_POSTGRES =
   process.env.OPS_RUN_WEATHER_RESCHEDULE_POSTGRES_RUNTIME === "1";
 const PSQL =
   process.env.OPS_PSQL_BIN ?? "/opt/homebrew/opt/postgresql@17/bin/psql";
-const CREATEDB = process.env.OPS_CREATEDB_BIN ?? join(dirname(PSQL), "createdb");
+const CREATEDB =
+  process.env.OPS_CREATEDB_BIN ?? join(dirname(PSQL), "createdb");
 const DROPDB = process.env.OPS_DROPDB_BIN ?? join(dirname(PSQL), "dropdb");
 const PG_HOST = process.env.OPS_PGHOST ?? "/tmp";
 const PG_PORT = process.env.OPS_PGPORT ?? "55442";
@@ -74,7 +75,9 @@ function assertSafeTarget(host: string, port: string): void {
     numericPort > 65_535 ||
     numericPort === 5_432
   ) {
-    throw new Error("weather reschedule runtime requires an isolated local target");
+    throw new Error(
+      "weather reschedule runtime requires an isolated local target"
+    );
   }
 }
 
@@ -125,7 +128,12 @@ describe("weather reschedule PostgreSQL 17 proof", () => {
   it("pins every SQL input and rejects unsafe lifecycle targets", async () => {
     expect(FILES).toHaveLength(7);
     for (const [path, hash] of FILES) {
-      expect(createHash("sha256").update(await readFile(join(ROOT, path))).digest("hex"), path).toBe(hash);
+      expect(
+        createHash("sha256")
+          .update(await readFile(join(ROOT, path)))
+          .digest("hex"),
+        path
+      ).toBe(hash);
     }
     expect(() => assertSafeTarget("/tmp", "55442")).not.toThrow();
     expect(() => assertSafeTarget("db.ops.test", "55442")).toThrow();

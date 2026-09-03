@@ -214,7 +214,9 @@ export function createWeatherRescheduleRepository(input: {
       } catch {
         throw new WeatherRescheduleRepositoryUnavailableError();
       }
-      const parsed = WeatherRescheduleSourceSnapshotSchema.safeParse(response.data);
+      const parsed = WeatherRescheduleSourceSnapshotSchema.safeParse(
+        response.data
+      );
       if (
         serialized === undefined ||
         serialized.length > WEATHER_RESCHEDULE_MAX_SOURCE_SNAPSHOT_CHARACTERS ||

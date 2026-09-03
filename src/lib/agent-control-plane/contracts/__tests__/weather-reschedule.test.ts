@@ -156,9 +156,9 @@ describe("weather reschedule contract", () => {
     expect(classifyRainForecast({ probability: 0, millimetres: "10" })).toBe(
       "rain_risk"
     );
-    expect(classifyRainForecast({ probability: 59, millimetres: "9.999" })).toBe(
-      "clear"
-    );
+    expect(
+      classifyRainForecast({ probability: 59, millimetres: "9.999" })
+    ).toBe("clear");
   });
 
   it("prepares the golden task without changing the indoor job", () => {
@@ -188,16 +188,14 @@ describe("weather reschedule contract", () => {
       expect.objectContaining({
         recipient: expect.objectContaining({ id: OUTDOOR_CLIENT_ID }),
         subject: "Schedule update — Exterior flashing",
-        body:
-          "Hi Avery Hart,\n\nRain is forecast for Thursday, September 3, 2026. We're proposing to move Exterior flashing to Saturday, September 5, 2026. Nothing has changed yet. Reply if the proposed timing does not work for you.",
+        body: "Hi Avery Hart,\n\nRain is forecast for Thursday, September 3, 2026. We're proposing to move Exterior flashing to Saturday, September 5, 2026. Nothing has changed yet. Reply if the proposed timing does not work for you.",
       })
     );
     expect(result.drafts[1]).toEqual(
       expect.objectContaining({
         recipient: expect.objectContaining({ id: INDOOR_CLIENT_ID }),
         subject: "Schedule confirmed — Indoor fabrication",
-        body:
-          "Hi Morgan Lee,\n\nRain is forecast for Thursday, September 3, 2026. Indoor fabrication is indoor work and remains on the current schedule. Nothing has changed.",
+        body: "Hi Morgan Lee,\n\nRain is forecast for Thursday, September 3, 2026. Indoor fabrication is indoor work and remains on the current schedule. Nothing has changed.",
       })
     );
     expect(result.effects).toEqual({
@@ -270,24 +268,40 @@ describe("weather reschedule contract", () => {
   });
 
   it.each([
-    ["stale forecast", (value: WeatherRescheduleSourceSnapshot) => {
-      value.forecasts[0]!.retrieved_at = "2026-09-02T00:00:00Z";
-    }, "STALE_CONTEXT"],
-    ["unsupported dependency", (value: WeatherRescheduleSourceSnapshot) => {
-      value.tasks[0]!.task_type_dependency_count = 1;
-    }, "AMBIGUOUS"],
-    ["missing crew", (value: WeatherRescheduleSourceSnapshot) => {
-      value.tasks[0]!.assignee_ids = [];
-    }, "AMBIGUOUS"],
-    ["incomplete forecast", (value: WeatherRescheduleSourceSnapshot) => {
-      value.forecasts = value.forecasts.filter(
-        (row) =>
-          !(
-            row.project_id === OUTDOOR_PROJECT_ID &&
-            row.forecast_date === "2026-09-05"
-          )
-      );
-    }, "STALE_CONTEXT"],
+    [
+      "stale forecast",
+      (value: WeatherRescheduleSourceSnapshot) => {
+        value.forecasts[0]!.retrieved_at = "2026-09-02T00:00:00Z";
+      },
+      "STALE_CONTEXT",
+    ],
+    [
+      "unsupported dependency",
+      (value: WeatherRescheduleSourceSnapshot) => {
+        value.tasks[0]!.task_type_dependency_count = 1;
+      },
+      "AMBIGUOUS",
+    ],
+    [
+      "missing crew",
+      (value: WeatherRescheduleSourceSnapshot) => {
+        value.tasks[0]!.assignee_ids = [];
+      },
+      "AMBIGUOUS",
+    ],
+    [
+      "incomplete forecast",
+      (value: WeatherRescheduleSourceSnapshot) => {
+        value.forecasts = value.forecasts.filter(
+          (row) =>
+            !(
+              row.project_id === OUTDOOR_PROJECT_ID &&
+              row.forecast_date === "2026-09-05"
+            )
+        );
+      },
+      "STALE_CONTEXT",
+    ],
   ])("fails closed for %s", (_label, mutate, code) => {
     const value = snapshot();
     mutate(value);

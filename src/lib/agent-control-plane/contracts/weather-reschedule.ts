@@ -94,7 +94,9 @@ const SourceTaskSchema = z
       .refine(
         (values) =>
           new Set(values).size === values.length &&
-          values.every((value, index) => index === 0 || values[index - 1]! < value),
+          values.every(
+            (value, index) => index === 0 || values[index - 1]! < value
+          ),
         "Task assignees must be unique and ordered"
       ),
     recipient: RecipientSchema,
@@ -131,7 +133,9 @@ const SourceConflictSchema = z
       .refine(
         (values) =>
           new Set(values).size === values.length &&
-          values.every((value, index) => index === 0 || values[index - 1]! < value),
+          values.every(
+            (value, index) => index === 0 || values[index - 1]! < value
+          ),
         "Conflict assignees must be unique and ordered"
       ),
     source_sha256: Sha256Schema,
@@ -178,7 +182,9 @@ export const WeatherRescheduleSourceSnapshotSchema = z
       .array(SourceForecastSchema)
       .min(1)
       .max(WEATHER_RESCHEDULE_MAX_FORECASTS),
-    conflicts: z.array(SourceConflictSchema).max(WEATHER_RESCHEDULE_MAX_CONFLICTS),
+    conflicts: z
+      .array(SourceConflictSchema)
+      .max(WEATHER_RESCHEDULE_MAX_CONFLICTS),
   })
   .strict()
   .superRefine((value, context) => {
@@ -190,7 +196,10 @@ export const WeatherRescheduleSourceSnapshotSchema = z
       (forecast) => `${forecast.project_id}:${forecast.forecast_date}`
     );
     if (new Set(forecastKeys).size !== forecastKeys.length) {
-      context.addIssue({ code: "custom", message: "Duplicate project forecast" });
+      context.addIssue({
+        code: "custom",
+        message: "Duplicate project forecast",
+      });
     }
     const conflictIds = value.conflicts.map((task) => task.task_id);
     if (new Set(conflictIds).size !== conflictIds.length) {
@@ -239,7 +248,9 @@ const ResultRecipientSchema = RecipientSchema.pick({
   email: true,
   revision: true,
   source_sha256: true,
-}).extend({ display_name: MarkedBusinessTextSchema }).strict();
+})
+  .extend({ display_name: MarkedBusinessTextSchema })
+  .strict();
 
 export const WeatherRescheduleResultSchema = z
   .object({
@@ -323,9 +334,20 @@ export const WeatherRescheduleResultSchema = z
     proposal: z
       .object({
         state: z.literal("preview_only"),
-        items: z.array(ProposalItemSchema).min(1).max(WEATHER_RESCHEDULE_MAX_TASKS),
-        moved_task_count: z.number().int().min(1).max(WEATHER_RESCHEDULE_MAX_TASKS),
-        unchanged_task_count: z.number().int().min(0).max(WEATHER_RESCHEDULE_MAX_TASKS),
+        items: z
+          .array(ProposalItemSchema)
+          .min(1)
+          .max(WEATHER_RESCHEDULE_MAX_TASKS),
+        moved_task_count: z
+          .number()
+          .int()
+          .min(1)
+          .max(WEATHER_RESCHEDULE_MAX_TASKS),
+        unchanged_task_count: z
+          .number()
+          .int()
+          .min(0)
+          .max(WEATHER_RESCHEDULE_MAX_TASKS),
         proposal_sha256: Sha256Schema,
       })
       .strict(),
@@ -339,7 +361,10 @@ export const WeatherRescheduleResultSchema = z
             state: z.literal("draft_preview"),
             subject: z.string().trim().min(1).max(200),
             body: z.string().trim().min(1).max(4_000),
-            task_ids: z.array(UUIDSchema).min(1).max(WEATHER_RESCHEDULE_MAX_TASKS),
+            task_ids: z
+              .array(UUIDSchema)
+              .min(1)
+              .max(WEATHER_RESCHEDULE_MAX_TASKS),
             proposal_sha256: Sha256Schema,
             draft_sha256: Sha256Schema,
           })
@@ -349,7 +374,9 @@ export const WeatherRescheduleResultSchema = z
       .max(WEATHER_RESCHEDULE_MAX_PROJECTS),
     preview_sha256: Sha256Schema,
     prompt_safety: z
-      .object({ directive: z.literal(WEATHER_RESCHEDULE_PROMPT_SAFETY_DIRECTIVE) })
+      .object({
+        directive: z.literal(WEATHER_RESCHEDULE_PROMPT_SAFETY_DIRECTIVE),
+      })
       .strict(),
     effects: z
       .object({
@@ -390,7 +417,10 @@ export class WeatherRescheduleContractError extends Error {
 
 function canonicalDate(value: string): boolean {
   const parsed = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 10) === value
+  );
 }
 
 function dateNumber(value: string): number {
@@ -485,7 +515,10 @@ function overlaps(left: LocalInterval, right: LocalInterval): boolean {
   return left.start < right.end && right.start < left.end;
 }
 
-function intersects(left: readonly string[], right: readonly string[]): boolean {
+function intersects(
+  left: readonly string[],
+  right: readonly string[]
+): boolean {
   const rightSet = new Set(right);
   return left.some((value) => rightSet.has(value));
 }
@@ -562,10 +595,18 @@ function draftForProject(input: {
   const moved = input.items.filter((item) => item.decision === "move_for_rain");
   const indoor = input.items.filter((item) => item.decision === "keep_indoor");
   const clear = input.items.filter((item) => item.decision === "keep_no_rain");
-  const taskById = new Map(input.tasks.map((task) => [task.task_id, task] as const));
-  const movedNames = moved.map((item) => taskById.get(item.task_id)!.task_title);
-  const indoorNames = indoor.map((item) => taskById.get(item.task_id)!.task_title);
-  const clearNames = clear.map((item) => taskById.get(item.task_id)!.task_title);
+  const taskById = new Map(
+    input.tasks.map((task) => [task.task_id, task] as const)
+  );
+  const movedNames = moved.map(
+    (item) => taskById.get(item.task_id)!.task_title
+  );
+  const indoorNames = indoor.map(
+    (item) => taskById.get(item.task_id)!.task_title
+  );
+  const clearNames = clear.map(
+    (item) => taskById.get(item.task_id)!.task_title
+  );
   const greeting = `Hi ${draftText(recipient.display_name)},`;
   let subject: string;
   let body: string;
@@ -629,11 +670,18 @@ export function prepareWeatherReschedulePreview(input: {
   readonly snapshot: unknown;
 }): WeatherRescheduleResult {
   const request = PrepareWeatherRescheduleInputSchema.safeParse(input.input);
-  if (!request.success || typeof input.requestId !== "string" || !input.requestId.trim()) {
+  if (
+    !request.success ||
+    typeof input.requestId !== "string" ||
+    !input.requestId.trim()
+  ) {
     throw new WeatherRescheduleContractError("INVALID_ARGUMENT");
   }
-  const source = WeatherRescheduleSourceSnapshotSchema.safeParse(input.snapshot);
-  if (!source.success) throw new WeatherRescheduleContractError("STALE_CONTEXT");
+  const source = WeatherRescheduleSourceSnapshotSchema.safeParse(
+    input.snapshot
+  );
+  if (!source.success)
+    throw new WeatherRescheduleContractError("STALE_CONTEXT");
   const snapshot = source.data;
   if (
     snapshot.target_date !== request.data.target_date ||
@@ -662,13 +710,17 @@ export function prepareWeatherReschedulePreview(input: {
   }
 
   for (const task of tasks) {
-    if (task.start_date !== snapshot.target_date || task.end_date !== snapshot.target_date) {
+    if (
+      task.start_date !== snapshot.target_date ||
+      task.end_date !== snapshot.target_date
+    ) {
       throw new WeatherRescheduleContractError("AMBIGUOUS");
     }
     if (!interval(task)) throw new WeatherRescheduleContractError("AMBIGUOUS");
   }
   for (const conflict of conflicts) {
-    if (!interval(conflict)) throw new WeatherRescheduleContractError("AMBIGUOUS");
+    if (!interval(conflict))
+      throw new WeatherRescheduleContractError("AMBIGUOUS");
   }
 
   const forecastByKey = new Map<string, (typeof forecasts)[number]>();
@@ -686,7 +738,11 @@ export function prepareWeatherReschedulePreview(input: {
       offset <= snapshot.context.settings.optimization_window_days;
       offset += 1
     ) {
-      if (!forecastByKey.has(`${projectId}:${addDays(snapshot.target_date, offset)}`)) {
+      if (
+        !forecastByKey.has(
+          `${projectId}:${addDays(snapshot.target_date, offset)}`
+        )
+      ) {
         throw new WeatherRescheduleContractError("STALE_CONTEXT");
       }
     }
@@ -701,8 +757,12 @@ export function prepareWeatherReschedulePreview(input: {
 
   for (const projectId of projects) {
     const projectTasks = tasks.filter((task) => task.project_id === projectId);
-    const outdoor = projectTasks.filter((task) => outdoorTypes.has(task.task_type_id));
-    const targetForecast = forecastByKey.get(`${projectId}:${snapshot.target_date}`)!;
+    const outdoor = projectTasks.filter((task) =>
+      outdoorTypes.has(task.task_type_id)
+    );
+    const targetForecast = forecastByKey.get(
+      `${projectId}:${snapshot.target_date}`
+    )!;
     const targetClassification = classifyRainForecast({
       probability: targetForecast.precipitation_probability,
       millimetres: targetForecast.precipitation_mm,
@@ -728,7 +788,9 @@ export function prepareWeatherReschedulePreview(input: {
         offset += 1
       ) {
         const candidate = addDays(snapshot.target_date, offset);
-        const candidateForecast = forecastByKey.get(`${projectId}:${candidate}`)!;
+        const candidateForecast = forecastByKey.get(
+          `${projectId}:${candidate}`
+        )!;
         if (
           classifyRainForecast({
             probability: candidateForecast.precipitation_probability,
@@ -786,8 +848,10 @@ export function prepareWeatherReschedulePreview(input: {
         decision,
         current_start_date: task.start_date,
         current_end_date: task.end_date,
-        proposed_start_date: decision === "move_for_rain" ? destination! : task.start_date,
-        proposed_end_date: decision === "move_for_rain" ? destination! : task.end_date,
+        proposed_start_date:
+          decision === "move_for_rain" ? destination! : task.start_date,
+        proposed_end_date:
+          decision === "move_for_rain" ? destination! : task.end_date,
         start_time: task.start_time,
         end_time: task.end_time,
         all_day: task.all_day,
@@ -799,11 +863,14 @@ export function prepareWeatherReschedulePreview(input: {
     }
   }
 
-  proposalItems.sort((left, right) => left.task_id.localeCompare(right.task_id));
+  proposalItems.sort((left, right) =>
+    left.task_id.localeCompare(right.task_id)
+  );
   const movedTaskCount = proposalItems.filter(
     (item) => item.decision === "move_for_rain"
   ).length;
-  if (movedTaskCount === 0) throw new WeatherRescheduleContractError("AMBIGUOUS");
+  if (movedTaskCount === 0)
+    throw new WeatherRescheduleContractError("AMBIGUOUS");
   const proposalBase = {
     state: "preview_only" as const,
     items: proposalItems,
@@ -815,7 +882,9 @@ export function prepareWeatherReschedulePreview(input: {
   const drafts = projects.map((projectId) => {
     const projectTasks = tasks.filter((task) => task.project_id === projectId);
     const items = proposalItems.filter((item) => item.project_id === projectId);
-    const targetForecast = forecastByKey.get(`${projectId}:${snapshot.target_date}`)!;
+    const targetForecast = forecastByKey.get(
+      `${projectId}:${snapshot.target_date}`
+    )!;
     return draftForProject({
       projectId,
       tasks: projectTasks,
@@ -835,7 +904,9 @@ export function prepareWeatherReschedulePreview(input: {
   const coveredTaskIds = drafts.flatMap((draft) => draft.task_ids).sort();
   if (
     coveredTaskIds.length !== proposalItems.length ||
-    coveredTaskIds.some((taskId, index) => taskId !== proposalItems[index]!.task_id)
+    coveredTaskIds.some(
+      (taskId, index) => taskId !== proposalItems[index]!.task_id
+    )
   ) {
     throw new WeatherRescheduleContractError("AMBIGUOUS");
   }
@@ -929,7 +1000,8 @@ export function prepareWeatherReschedulePreview(input: {
     },
   };
   const parsed = WeatherRescheduleResultSchema.safeParse(result);
-  if (!parsed.success) throw new WeatherRescheduleContractError("RESULT_TOO_LARGE");
+  if (!parsed.success)
+    throw new WeatherRescheduleContractError("RESULT_TOO_LARGE");
   const serialized = JSON.stringify(parsed.data);
   if (serialized.length > WEATHER_RESCHEDULE_MAX_OUTPUT_CHARACTERS) {
     throw new WeatherRescheduleContractError("RESULT_TOO_LARGE");

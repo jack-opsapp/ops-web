@@ -19,6 +19,7 @@
 **Skills:** Use `superpowers:test-driven-development`; use `ops-copywriter:ops-copywriter` for every returned draft and explanation.
 
 **Files:**
+
 - Create: `src/lib/agent-control-plane/contracts/weather-reschedule.ts`
 - Create: `src/lib/agent-control-plane/contracts/__tests__/weather-reschedule.test.ts`
 
@@ -35,6 +36,7 @@
 **Skills:** Use `superpowers:test-driven-development`; use `ops-copywriter:ops-copywriter` for consent labels, descriptions, and server instructions.
 
 **Files:**
+
 - Create: `src/lib/agent-control-plane/registry/weather-reschedule-capability.ts`
 - Create: `src/lib/agent-control-plane/registry/__tests__/weather-reschedule-capability.test.ts`
 - Modify: `src/lib/agent-control-plane/registry/capability-manifest.ts`
@@ -60,6 +62,7 @@
 **Skills:** Use `supabase:supabase` and `superpowers:test-driven-development`.
 
 **Files:**
+
 - Create: `src/lib/agent-control-plane/services/weather-reschedule/weather-reschedule-repository.ts`
 - Create: `src/lib/agent-control-plane/services/weather-reschedule/__tests__/weather-reschedule-repository.test.ts`
 
@@ -76,6 +79,7 @@
 **Skills:** Use `superpowers:test-driven-development`; use `ops-copywriter:ops-copywriter` for exact deterministic email drafts and error explanations.
 
 **Files:**
+
 - Create: `src/lib/agent-control-plane/services/weather-reschedule/weather-reschedule-service.ts`
 - Create: `src/lib/agent-control-plane/services/weather-reschedule/__tests__/fixtures.ts`
 - Create: `src/lib/agent-control-plane/services/weather-reschedule/__tests__/weather-reschedule-service.test.ts`
@@ -96,6 +100,7 @@
 **Skills:** Use `supabase:supabase` and `superpowers:test-driven-development`.
 
 **Files:**
+
 - Create via `supabase migration new agent_weather_reschedule_preview`: `supabase/migrations/<generated>_agent_weather_reschedule_preview.sql`
 - Create: `src/lib/agent-control-plane/services/weather-reschedule/__tests__/weather-reschedule-sql-contract.test.ts`
 - Create: `tests/integration/agent-control-plane/weather-reschedule-postgres-runtime.test.ts`
@@ -117,6 +122,7 @@
 **Skills:** Use `custom-skills:executing-plans`; use `ops-copywriter:ops-copywriter` only for quoted user-facing copy.
 
 **Files:**
+
 - Create in Bible: `specs/2026-09-03-ops-mcp-weather-reschedule-vertical.md`
 - Modify in Bible: `04_API_AND_INTEGRATION.md`
 - Modify in Bible: `07_SPECIALIZED_FEATURES.md`
@@ -135,6 +141,7 @@
 **Skills:** Use `superpowers:verification-before-completion`, `superpowers:requesting-code-review`, and `superpowers:finishing-a-development-branch`.
 
 **Files:**
+
 - Verify all Phase 9 files and untouched active v2 contract.
 
 **Design tokens:** N/A — backend-only.

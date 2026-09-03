@@ -27,7 +27,9 @@ describe("weather reschedule repository", () => {
     const signal = new AbortController().signal;
     const abortSignal = vi.fn(async () => ({ data: source, error: null }));
     const rpc = vi.fn<WeatherRescheduleRpcClient["rpc"]>(() =>
-      Object.assign(Promise.resolve({ data: source, error: null }), { abortSignal })
+      Object.assign(Promise.resolve({ data: source, error: null }), {
+        abortSignal,
+      })
     );
 
     await expect(
@@ -39,24 +41,27 @@ describe("weather reschedule repository", () => {
       })
     ).resolves.toEqual(source);
 
-    expect(rpc).toHaveBeenCalledWith("read_agent_weather_reschedule_as_system", {
-      p_actor_user_id: ACTOR_USER_ID,
-      p_company_id: COMPANY_ID,
-      p_oauth_grant_id: OAUTH_GRANT_ID,
-      p_oauth_client_id: OAUTH_CLIENT_ID,
-      p_grant_revision: "b".repeat(32),
-      p_granted_scope_ceiling: WEATHER_RESCHEDULE_SCOPES,
-      p_permission_snapshot_revision: `sha256:${"a".repeat(64)}`,
-      p_capability_manifest_revision: "2026-09-03.capability-manifest.v17",
-      p_exposure_revision: "2026-09-03.mcp-exposure.v11",
-      p_capability_id: "prepare_weather_reschedule",
-      p_capability_revision: "prepare_weather_reschedule:2026-09-03.v1",
-      p_observed_at: source.observed_at,
-      p_target_date: WEATHER_RESCHEDULE_INPUT.target_date,
-      p_task_limit: 101,
-      p_project_limit: 26,
-      p_conflict_limit: 501,
-    });
+    expect(rpc).toHaveBeenCalledWith(
+      "read_agent_weather_reschedule_as_system",
+      {
+        p_actor_user_id: ACTOR_USER_ID,
+        p_company_id: COMPANY_ID,
+        p_oauth_grant_id: OAUTH_GRANT_ID,
+        p_oauth_client_id: OAUTH_CLIENT_ID,
+        p_grant_revision: "b".repeat(32),
+        p_granted_scope_ceiling: WEATHER_RESCHEDULE_SCOPES,
+        p_permission_snapshot_revision: `sha256:${"a".repeat(64)}`,
+        p_capability_manifest_revision: "2026-09-03.capability-manifest.v17",
+        p_exposure_revision: "2026-09-03.mcp-exposure.v11",
+        p_capability_id: "prepare_weather_reschedule",
+        p_capability_revision: "prepare_weather_reschedule:2026-09-03.v1",
+        p_observed_at: source.observed_at,
+        p_target_date: WEATHER_RESCHEDULE_INPUT.target_date,
+        p_task_limit: 101,
+        p_project_limit: 26,
+        p_conflict_limit: 501,
+      }
+    );
     expect(abortSignal).toHaveBeenCalledWith(signal);
   });
 
@@ -78,8 +83,14 @@ describe("weather reschedule repository", () => {
       { ...source, observed_at: "2026-09-03T12:00:01Z" },
       { ...source, target_date: "2026-09-04" },
       { ...source, source_revision: "invalid" },
-      { ...source, context: { ...source.context, company_id: OAUTH_CLIENT_ID } },
-      { ...source, context: { ...source.context, company_name: "x".repeat(1_000_001) } },
+      {
+        ...source,
+        context: { ...source.context, company_id: OAUTH_CLIENT_ID },
+      },
+      {
+        ...source,
+        context: { ...source.context, company_name: "x".repeat(1_000_001) },
+      },
     ]) {
       await expect(
         createWeatherRescheduleRepository({
@@ -97,7 +108,10 @@ describe("weather reschedule repository", () => {
     const { actor } = await weatherRescheduleActorFixture();
     const source = weatherRescheduleSourceFixture();
     const cases = [
-      [{ code: "42501", message: "denied" }, WeatherRescheduleRepositoryAuthorityError],
+      [
+        { code: "42501", message: "denied" },
+        WeatherRescheduleRepositoryAuthorityError,
+      ],
       [
         { code: "22023", message: "AGENT_WEATHER_RESCHEDULE_INPUT_INVALID" },
         WeatherRescheduleRepositoryInputError,
@@ -110,7 +124,10 @@ describe("weather reschedule repository", () => {
         { code: "54000", message: "AGENT_WEATHER_RESCHEDULE_SOURCE_BOUND" },
         WeatherRescheduleRepositoryBoundError,
       ],
-      [{ code: "XX000", message: "storage" }, WeatherRescheduleRepositoryUnavailableError],
+      [
+        { code: "XX000", message: "storage" },
+        WeatherRescheduleRepositoryUnavailableError,
+      ],
     ] as const;
     for (const [error, ErrorType] of cases) {
       await expect(

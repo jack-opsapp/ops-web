@@ -5,9 +5,7 @@ import type { CurrentProductionMcpToolId } from "@/lib/agent-control-plane/regis
 import type { P2ReadCapabilityId } from "@/lib/agent-control-plane/registry/read-capabilities/p2";
 
 type AsyncDomainMethodName = {
-  [
-    Name in keyof OpsAgentCapabilityService
-  ]: OpsAgentCapabilityService[Name] extends (
+  [Name in keyof OpsAgentCapabilityService]: OpsAgentCapabilityService[Name] extends (
     ...args: never[]
   ) => Promise<unknown>
     ? Name

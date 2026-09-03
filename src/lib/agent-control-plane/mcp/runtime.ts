@@ -160,7 +160,8 @@ function preserveMcpRpcCancellation(
   let defaultExecution: Promise<McpRpcResult> | null = null;
   const then = <TResult1 = McpRpcResult, TResult2 = never>(
     onfulfilled?:
-      ((value: McpRpcResult) => TResult1 | PromiseLike<TResult1>) | null,
+      | ((value: McpRpcResult) => TResult1 | PromiseLike<TResult1>)
+      | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
   ): PromiseLike<TResult1 | TResult2> => {
     defaultExecution ??= settleMcpRpc(functionName, rawRequest);

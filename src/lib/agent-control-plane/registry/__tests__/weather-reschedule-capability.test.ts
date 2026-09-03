@@ -59,7 +59,8 @@ describe("weather reschedule dormant capability", () => {
     expect(resolved.parsedInput).toEqual({ target_date: "2026-09-03" });
     expect(resolved.variants).toHaveLength(1);
     expect(resolved.variants[0]!.policy).toMatchObject({
-      capabilityManifestRevision: WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION,
+      capabilityManifestRevision:
+        WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION,
       requiredOAuthScopes: [
         "ops.communications.prepare",
         "ops.company.read",
@@ -112,14 +113,14 @@ describe("weather reschedule dormant capability", () => {
       "ops.tasks.read",
       "ops.team.read",
     ]);
-    expect(resolveMcpExposure(MCP_EXPOSURE_V11.revision)).toBe(MCP_EXPOSURE_V11);
-    expect(capabilityManifestRevisionForExposure(MCP_EXPOSURE_V11.revision)).toBe(
-      WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION
+    expect(resolveMcpExposure(MCP_EXPOSURE_V11.revision)).toBe(
+      MCP_EXPOSURE_V11
     );
     expect(
-      WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS[
-        "ops.communications.prepare"
-      ]
+      capabilityManifestRevisionForExposure(MCP_EXPOSURE_V11.revision)
+    ).toBe(WEATHER_RESCHEDULE_CAPABILITY_MANIFEST_REVISION);
+    expect(
+      WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS["ops.communications.prepare"]
     ).toBe("Prepare exact client schedule-update drafts for approval");
     expect(
       WEATHER_RESCHEDULE_MCP_SCOPE_CONSENT_LABELS["ops.schedule.prepare"]
@@ -132,7 +133,9 @@ describe("weather reschedule dormant capability", () => {
       ESTIMATE_DRAFT_CAPABILITY_MANIFEST.length + 1
     );
     for (const previous of ESTIMATE_DRAFT_CAPABILITY_MANIFEST) {
-      const reminted = getWeatherRescheduleCapabilityManifestEntry(previous.name);
+      const reminted = getWeatherRescheduleCapabilityManifestEntry(
+        previous.name
+      );
       expect(reminted).not.toBe(previous);
       expect(
         reminted.authorization.variants.every(

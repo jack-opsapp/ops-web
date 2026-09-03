@@ -12,7 +12,10 @@ import {
   isActorContext,
   type ActorContext,
 } from "@/lib/agent-control-plane/actor/resolve-actor-context";
-import { AgentErrorSchema, CONTRACT_VERSION } from "@/lib/agent-control-plane/contracts";
+import {
+  AgentErrorSchema,
+  CONTRACT_VERSION,
+} from "@/lib/agent-control-plane/contracts";
 import {
   PrepareWeatherRescheduleInputSchema,
   WEATHER_RESCHEDULE_MAX_OUTPUT_CHARACTERS,
@@ -156,7 +159,9 @@ export function createWeatherRescheduleService(input: {
     throw new TypeError("A trusted weather reschedule repository is required");
   }
   if (!input.authorityRepository) {
-    throw new TypeError("A weather reschedule authority repository is required");
+    throw new TypeError(
+      "A weather reschedule authority repository is required"
+    );
   }
   const now = input.now ?? (() => new Date());
   const maxOutputCharacters =

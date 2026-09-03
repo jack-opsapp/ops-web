@@ -89,12 +89,16 @@ describe("weather reschedule service", () => {
     });
     const source = weatherRescheduleSourceFixture();
     const firstService = createWeatherRescheduleService({
-      repository: createWeatherRescheduleRepository({ rpc: successfulRpc(source) }),
+      repository: createWeatherRescheduleRepository({
+        rpc: successfulRpc(source),
+      }),
       authorityRepository: first.authorityClient.repository,
       now: () => new Date(source.observed_at),
     });
     const secondService = createWeatherRescheduleService({
-      repository: createWeatherRescheduleRepository({ rpc: successfulRpc(source) }),
+      repository: createWeatherRescheduleRepository({
+        rpc: successfulRpc(source),
+      }),
       authorityRepository: second.authorityClient.repository,
       now: () => new Date(source.observed_at),
     });
@@ -127,7 +131,10 @@ describe("weather reschedule service", () => {
         authorityRepository: fixture.authorityClient.repository,
       });
       await expect(
-        service.prepareWeatherReschedule(fixture.actor, WEATHER_RESCHEDULE_INPUT)
+        service.prepareWeatherReschedule(
+          fixture.actor,
+          WEATHER_RESCHEDULE_INPUT
+        )
       ).rejects.toBeInstanceOf(ActorAccessError);
       expect(rpc).not.toHaveBeenCalled();
     }
