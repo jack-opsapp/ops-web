@@ -319,7 +319,9 @@ function ModeRow({
       <span
         aria-hidden
         className={cn(
-          "mt-1 h-1 w-1 shrink-0 rounded-bar border transition-colors duration-150 ease-smooth",
+          // Explicit: OPS replaces Tailwind's numeric scale, so `h-1` would read as
+          // 4px to anyone who does not know the override.
+          "mt-1 h-[8px] w-[8px] shrink-0 rounded-bar border transition-colors duration-150 ease-smooth",
           selected ? "border-text bg-text" : "border-line-hi bg-transparent"
         )}
       />

@@ -186,7 +186,7 @@ export function BookingWeekGrid({ windows, onChange, timezone }: BookingWeekGrid
                             "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
                           )}
                         >
-                          <X className="h-[16px] w-[16px]" strokeWidth={1.75} />
+                          <X className="h-icon-16 w-icon-16" strokeWidth={1.75} />
                         </button>
                       </div>
                     );
@@ -206,7 +206,7 @@ export function BookingWeekGrid({ windows, onChange, timezone }: BookingWeekGrid
                   "disabled:cursor-not-allowed disabled:text-text-mute disabled:hover:text-text-mute"
                 )}
               >
-                <Plus className="h-[16px] w-[16px]" strokeWidth={1.75} />
+                <Plus className="h-icon-16 w-icon-16" strokeWidth={1.75} />
               </button>
             </li>
           );

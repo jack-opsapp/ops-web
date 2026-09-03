@@ -181,7 +181,7 @@ export function BookingRequestDecision({
               <dt className="font-mono text-micro uppercase tracking-[0.14em] text-text-3">
                 {t("request.asked")}
               </dt>
-              <dd className="font-mono text-micro tabular-nums text-text-2">
+              <dd className="font-mono text-micro tabular-nums text-text-2 [font-feature-settings:'tnum'_1,'zero'_1]">
                 {formatTimeAgo(new Date(request.requestedAt))}
               </dd>
             </div>
@@ -220,7 +220,7 @@ export function BookingRequestDecision({
               prefixIcon={<CalendarDays />}
               value={dateValue}
               onChange={(event) => setDateValue(event.target.value)}
-              className="font-mono text-[13px] tabular-nums [font-feature-settings:'tnum'_1,'zero'_1] [color-scheme:dark]"
+              className="font-mono text-data-sm tabular-nums [font-feature-settings:'tnum'_1,'zero'_1] [color-scheme:dark]"
             />
             <Input
               label={t("request.time")}
@@ -228,7 +228,7 @@ export function BookingRequestDecision({
               prefixIcon={<Clock />}
               value={timeValue}
               onChange={(event) => setTimeValue(event.target.value)}
-              className="font-mono text-[13px] tabular-nums [font-feature-settings:'tnum'_1,'zero'_1] [color-scheme:dark]"
+              className="font-mono text-data-sm tabular-nums [font-feature-settings:'tnum'_1,'zero'_1] [color-scheme:dark]"
             />
           </div>
           {isPast ? (
