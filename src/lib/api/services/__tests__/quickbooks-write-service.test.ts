@@ -19,7 +19,9 @@ function failResponse(status: number, body: string) {
   } as Response;
 }
 
-async function rejectedMessage(action: () => Promise<unknown>): Promise<string> {
+async function rejectedMessage(
+  action: () => Promise<unknown>
+): Promise<string> {
   try {
     await action();
   } catch (error) {
@@ -30,8 +32,29 @@ async function rejectedMessage(action: () => Promise<unknown>): Promise<string> 
 }
 
 describe("QuickBooksWriteService", () => {
+  it("adds a stable request id to consequential creates", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(okResponse({ Bill: { Id: "88", SyncToken: "0" } }));
+    const service = new QuickBooksWriteService({
+      realmId: "462081636529",
+      accessToken: "token",
+      environment: "sandbox",
+      fetchImpl,
+    });
+
+    await service.create("Bill", { VendorRef: { value: "1" } }, "queue-id");
+
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "https://sandbox-quickbooks.api.intuit.com/v3/company/462081636529/bill?minorversion=75&requestid=queue-id",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+
   it("posts Customer create to the sandbox host and increments write count", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(okResponse(customerCreateResponse));
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(okResponse(customerCreateResponse));
     const service = new QuickBooksWriteService({
       realmId: "462081636529",
       accessToken: "token",
@@ -53,14 +76,14 @@ describe("QuickBooksWriteService", () => {
           "Content-Type": "application/json",
         }),
         body: JSON.stringify({ DisplayName: "Maverick Projects" }),
-      }),
+      })
     );
     expect(result).toEqual(
       expect.objectContaining({
         qbId: "123",
         syncToken: "0",
         metaUpdatedAt: "2026-06-05T10:00:00Z",
-      }),
+      })
     );
     expect(service.writeCalls).toBe(1);
   });
@@ -75,7 +98,7 @@ describe("QuickBooksWriteService", () => {
     });
 
     await expect(service.fetchCurrent("Invoice", "1 or 1=1")).rejects.toThrow(
-      "Invalid QuickBooks id",
+      "Invalid QuickBooks id"
     );
     expect(fetchImpl).not.toHaveBeenCalled();
   });
@@ -88,7 +111,7 @@ describe("QuickBooksWriteService", () => {
           SyncToken: "2",
           MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" },
         },
-      }),
+      })
     );
     const service = new QuickBooksWriteService({
       realmId: "462081636529",
@@ -107,7 +130,7 @@ describe("QuickBooksWriteService", () => {
           Authorization: "Bearer token",
           Accept: "application/json",
         }),
-      }),
+      })
     );
     expect(service.writeCalls).toBe(0);
   });
@@ -116,7 +139,7 @@ describe("QuickBooksWriteService", () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       okResponse({
         Payment: { Id: "77", SyncToken: "0" },
-      }),
+      })
     );
     const service = new QuickBooksWriteService({
       realmId: "462081636529",
@@ -129,7 +152,7 @@ describe("QuickBooksWriteService", () => {
 
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://quickbooks.api.intuit.com/v3/company/462081636529/payment?minorversion=75",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({ method: "POST" })
     );
   });
 
@@ -142,9 +165,9 @@ describe("QuickBooksWriteService", () => {
       fetchImpl,
     });
 
-    await expect(service.update("Customer", { SyncToken: "1" })).rejects.toThrow(
-      "QuickBooks update Id required",
-    );
+    await expect(
+      service.update("Customer", { SyncToken: "1" })
+    ).rejects.toThrow("QuickBooks update Id required");
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(service.writeCalls).toBe(0);
   });
@@ -159,14 +182,16 @@ describe("QuickBooksWriteService", () => {
     });
 
     await expect(service.update("Invoice", { Id: "90" })).rejects.toThrow(
-      "QuickBooks update SyncToken required",
+      "QuickBooks update SyncToken required"
     );
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(service.writeCalls).toBe(0);
   });
 
   it("posts Customer updates only when Id and SyncToken are present", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(okResponse(customerCreateResponse));
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValue(okResponse(customerCreateResponse));
     const service = new QuickBooksWriteService({
       realmId: "462081636529",
       accessToken: "token",
@@ -189,7 +214,7 @@ describe("QuickBooksWriteService", () => {
           SyncToken: "0",
           DisplayName: "Maverick Projects",
         }),
-      }),
+      })
     );
     expect(service.writeCalls).toBe(1);
   });
@@ -202,7 +227,7 @@ describe("QuickBooksWriteService", () => {
           SyncToken: "6",
           MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" },
         },
-      }),
+      })
     );
     const service = new QuickBooksWriteService({
       realmId: "462081636529",
@@ -211,14 +236,18 @@ describe("QuickBooksWriteService", () => {
       fetchImpl,
     });
 
-    await service.update("Invoice", { Id: "90", SyncToken: "5", TotalAmt: 125 });
+    await service.update("Invoice", {
+      Id: "90",
+      SyncToken: "5",
+      TotalAmt: 125,
+    });
 
     expect(fetchImpl).toHaveBeenCalledWith(
       "https://sandbox-quickbooks.api.intuit.com/v3/company/462081636529/invoice?minorversion=75",
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ Id: "90", SyncToken: "5", TotalAmt: 125 }),
-      }),
+      })
     );
     expect(service.writeCalls).toBe(1);
   });
@@ -231,7 +260,7 @@ describe("QuickBooksWriteService", () => {
           SyncToken: "6",
           MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" },
         },
-      }),
+      })
     );
     const service = new QuickBooksWriteService({
       realmId: "462081636529",
@@ -247,7 +276,7 @@ describe("QuickBooksWriteService", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ Id: "90", SyncToken: "5" }),
-      }),
+      })
     );
   });
 
@@ -259,7 +288,7 @@ describe("QuickBooksWriteService", () => {
           SyncToken: "2",
           MetaData: { LastUpdatedTime: "2026-06-05T10:00:00Z" },
         },
-      }),
+      })
     );
     const service = new QuickBooksWriteService({
       realmId: "462081636529",
@@ -275,7 +304,7 @@ describe("QuickBooksWriteService", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ Id: "77", SyncToken: "1", sparse: true }),
-      }),
+      })
     );
   });
 
@@ -287,7 +316,7 @@ describe("QuickBooksWriteService", () => {
           SyncToken: "4",
           MetaData: { LastUpdatedTime: "2026-06-05T10:02:00Z" },
         },
-      }),
+      })
     );
     const service = new QuickBooksWriteService({
       realmId: "462081636529",
@@ -303,7 +332,7 @@ describe("QuickBooksWriteService", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ Id: "99", SyncToken: "3" }),
-      }),
+      })
     );
     expect(service.writeCalls).toBe(1);
   });
@@ -317,9 +346,9 @@ describe("QuickBooksWriteService", () => {
       fetchImpl,
     });
 
-    await expect(service.void("Payment", { Id: "77", SyncToken: "1" })).rejects.toThrow(
-      "QuickBooks Payment void sparse=true required",
-    );
+    await expect(
+      service.void("Payment", { Id: "77", SyncToken: "1" })
+    ).rejects.toThrow("QuickBooks Payment void sparse=true required");
     expect(fetchImpl).not.toHaveBeenCalled();
     expect(service.writeCalls).toBe(0);
   });
@@ -333,7 +362,7 @@ describe("QuickBooksWriteService", () => {
     });
 
     const message = await rejectedMessage(() =>
-      service.create("Customer", { DisplayName: "Bad" }),
+      service.create("Customer", { DisplayName: "Bad" })
     );
 
     expect(message).toBe("QuickBooks response missing Customer.Id");
@@ -349,7 +378,7 @@ describe("QuickBooksWriteService", () => {
     });
 
     const message = await rejectedMessage(() =>
-      service.create("Customer", { DisplayName: "Bad" }),
+      service.create("Customer", { DisplayName: "Bad" })
     );
 
     expect(message).toBe("QuickBooks response missing Customer body");
@@ -377,18 +406,20 @@ describe("QuickBooksWriteService", () => {
                 },
               ],
             },
-          }),
-        ),
+          })
+        )
       ),
     });
 
     const message = await rejectedMessage(() =>
-      service.create("Customer", { DisplayName: "Bad" }),
+      service.create("Customer", { DisplayName: "Bad" })
     );
 
     expect(message).toContain("QuickBooks write failed: 400");
     expect(message).toContain("[2500] Invalid Reference Id");
-    expect(message).toContain("Something you're trying to use has been made inactive");
+    expect(message).toContain(
+      "Something you're trying to use has been made inactive"
+    );
     expect(message).not.toContain("sensitive-token");
   });
 
@@ -399,11 +430,13 @@ describe("QuickBooksWriteService", () => {
       environment: "sandbox",
       fetchImpl: vi
         .fn()
-        .mockResolvedValue(failResponse(400, "provider body with sensitive detail")),
+        .mockResolvedValue(
+          failResponse(400, "provider body with sensitive detail")
+        ),
     });
 
     const message = await rejectedMessage(() =>
-      service.create("Customer", { DisplayName: "Bad" }),
+      service.create("Customer", { DisplayName: "Bad" })
     );
 
     expect(message).toBe("QuickBooks write failed: 400");

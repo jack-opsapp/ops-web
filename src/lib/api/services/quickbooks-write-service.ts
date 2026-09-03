@@ -1,6 +1,13 @@
 import type { QuickBooksEnvironment } from "./quickbooks-config";
 
-export type QboWriteEntity = "Customer" | "Invoice" | "Estimate" | "Payment";
+export type QboWriteEntity =
+  | "Customer"
+  | "Invoice"
+  | "Estimate"
+  | "Payment"
+  | "Vendor"
+  | "Bill"
+  | "BillPayment";
 
 export interface QuickBooksWriteServiceInput {
   realmId: string;
@@ -21,6 +28,9 @@ const ENTITY_PATH: Record<QboWriteEntity, string> = {
   Invoice: "invoice",
   Estimate: "estimate",
   Payment: "payment",
+  Vendor: "vendor",
+  Bill: "bill",
+  BillPayment: "billpayment",
 };
 
 function hostFor(environment: QuickBooksEnvironment): string {
@@ -51,7 +61,7 @@ function entityUrl(input: QuickBooksWriteServiceInput, entity: QboWriteEntity) {
 }
 
 function voidUrl(input: QuickBooksWriteServiceInput, entity: QboWriteEntity) {
-  if (entity === "Invoice") {
+  if (entity === "Invoice" || entity === "Bill") {
     return `${hostFor(input.environment)}/v3/company/${input.realmId}/${ENTITY_PATH[entity]}?operation=void&minorversion=75`;
   }
   if (entity === "Payment") {
@@ -70,14 +80,14 @@ function deleteUrl(input: QuickBooksWriteServiceInput, entity: QboWriteEntity) {
 function currentUrl(
   input: QuickBooksWriteServiceInput,
   entity: QboWriteEntity,
-  id: string,
+  id: string
 ) {
   return `${hostFor(input.environment)}/v3/company/${input.realmId}/${ENTITY_PATH[entity]}/${id}?minorversion=75`;
 }
 
 function entityBody(
   raw: Record<string, unknown>,
-  entity: QboWriteEntity,
+  entity: QboWriteEntity
 ): Record<string, unknown> {
   const body = raw[entity];
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -115,14 +125,19 @@ function structuredProviderErrorSuffix(bodyText: string): string {
         const code = cleanProviderText(error.code);
         const message = cleanProviderText(error.Message);
         const detail = cleanProviderText(error.Detail);
-        const headline = code && message ? `[${code}] ${message}` : (message ?? (code ? `[${code}]` : null));
+        const headline =
+          code && message
+            ? `[${code}] ${message}`
+            : (message ?? (code ? `[${code}]` : null));
         if (!headline && !detail) return null;
         if (!detail || detail === message) return headline ?? detail;
         return headline ? `${headline}: ${detail}` : detail;
       })
       .filter((detail): detail is string => Boolean(detail));
 
-    return details.length > 0 ? `: ${truncateProviderText(details.join("; "))}` : "";
+    return details.length > 0
+      ? `: ${truncateProviderText(details.join("; "))}`
+      : "";
   } catch {
     return "";
   }
@@ -130,7 +145,7 @@ function structuredProviderErrorSuffix(bodyText: string): string {
 
 function normalizeWriteResult(
   raw: Record<string, unknown>,
-  entity: QboWriteEntity,
+  entity: QboWriteEntity
 ): QuickBooksWriteResult {
   const body = entityBody(raw, entity);
   const id = body.Id;
@@ -170,32 +185,35 @@ export class QuickBooksWriteService {
   async create(
     entity: QboWriteEntity,
     payload: Record<string, unknown>,
+    requestId?: string
   ): Promise<QuickBooksWriteResult> {
-    return this.post(entity, payload);
+    return this.post(entity, payload, entityUrl(this.input, entity), requestId);
   }
 
   async update(
     entity: QboWriteEntity,
     payload: Record<string, unknown>,
+    requestId?: string
   ): Promise<QuickBooksWriteResult> {
     requireUpdatePayload(payload);
-    return this.post(entity, payload);
+    return this.post(entity, payload, entityUrl(this.input, entity), requestId);
   }
 
   async void(
     entity: QboWriteEntity,
     payload: Record<string, unknown>,
+    requestId?: string
   ): Promise<QuickBooksWriteResult> {
     requireUpdatePayload(payload);
     if (entity === "Payment" && payload.sparse !== true) {
       throw new Error("QuickBooks Payment void sparse=true required");
     }
-    return this.post(entity, payload, voidUrl(this.input, entity));
+    return this.post(entity, payload, voidUrl(this.input, entity), requestId);
   }
 
   async deleteEntity(
     entity: QboWriteEntity,
-    payload: Record<string, unknown>,
+    payload: Record<string, unknown>
   ): Promise<QuickBooksWriteResult> {
     requireUpdatePayload(payload);
     return this.post(entity, payload, deleteUrl(this.input, entity));
@@ -203,7 +221,7 @@ export class QuickBooksWriteService {
 
   async fetchCurrent(
     entity: QboWriteEntity,
-    id: string,
+    id: string
   ): Promise<Record<string, unknown>> {
     assertQboId(id);
     const fetchImpl = this.input.fetchImpl ?? fetch;
@@ -217,7 +235,9 @@ export class QuickBooksWriteService {
 
     if (!response.ok) {
       const bodyText = await response.text();
-      throw new Error(`QuickBooks fetch failed: ${response.status}${structuredProviderErrorSuffix(bodyText)}`);
+      throw new Error(
+        `QuickBooks fetch failed: ${response.status}${structuredProviderErrorSuffix(bodyText)}`
+      );
     }
 
     return (await response.json()) as Record<string, unknown>;
@@ -227,10 +247,14 @@ export class QuickBooksWriteService {
     entity: QboWriteEntity,
     payload: Record<string, unknown>,
     url = entityUrl(this.input, entity),
+    requestId?: string
   ): Promise<QuickBooksWriteResult> {
     const fetchImpl = this.input.fetchImpl ?? fetch;
     this.writeCalls += 1;
-    const response = await fetchImpl(url, {
+    const requestUrl = requestId
+      ? `${url}${url.includes("?") ? "&" : "?"}requestid=${encodeURIComponent(requestId)}`
+      : url;
+    const response = await fetchImpl(requestUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.input.accessToken}`,
@@ -242,7 +266,9 @@ export class QuickBooksWriteService {
 
     if (!response.ok) {
       const bodyText = await response.text();
-      throw new Error(`QuickBooks write failed: ${response.status}${structuredProviderErrorSuffix(bodyText)}`);
+      throw new Error(
+        `QuickBooks write failed: ${response.status}${structuredProviderErrorSuffix(bodyText)}`
+      );
     }
 
     const raw = (await response.json()) as Record<string, unknown>;
