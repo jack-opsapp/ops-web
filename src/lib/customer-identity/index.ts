@@ -63,8 +63,10 @@ export {
   type SessionCookieSource,
 } from "./session";
 export {
+  linkMembership,
+  readMembership,
   requireMembership,
-  resolveMembership,
+  resolveOrCreateMembership,
   type CustomerMembership,
 } from "./membership";
 export {

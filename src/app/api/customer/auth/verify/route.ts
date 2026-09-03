@@ -4,7 +4,7 @@
  * Body: { handle, challengeId, code, email }. Checks the six-digit code
  * against the customer auth project (the broker owns attempt accounting,
  * I8), mints the broker's opaque session and sets it as the only credential
- * that ever leaves (I6, I9), resolves membership for the handle's company
+ * that ever leaves (I6, I9), links membership for the handle's company
  * (design §5.1 step 3), and answers { ok: true, next } — never an id (I4).
  *
  * The email is required because the code is bound to it at the provider;
@@ -22,8 +22,8 @@ import {
   OTP_MAX_ATTEMPTS,
   appendIdentityEvent,
   getCustomerIdentityDeps,
+  linkMembership,
   normalizeEmail,
-  resolveMembership,
   setSessionCookie,
   verifyOtp,
   type CustomerIdentityDeps,
@@ -131,14 +131,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }
     }
 
-    // Identity and session are real at this point. Membership resolution is
-    // idempotent and re-run by every hosted request (I3), so a transient
-    // store failure here defers to the next request instead of stranding a
-    // customer whose code was already consumed.
+    // Identity and session are real at this point. Linking is idempotent and
+    // re-attempted on the next sign-in, so a transient store failure here
+    // defers instead of stranding a customer whose code was already consumed.
+    //
+    // Linking establishes a membership only against a client this company
+    // already has on file (I18). An email the company has never seen leaves it
+    // with nothing to link, and the hosted home says so plainly — signing in
+    // is not the moment a business gains a customer record.
     try {
-      await resolveMembership(deps, result.identityId, companyId);
+      await linkMembership(deps, result.identityId, companyId);
     } catch (error) {
-      console.error("[customer-api] membership resolution deferred to next request", {
+      console.error("[customer-api] membership link deferred to the next sign-in", {
         route: ROUTE,
         code: error instanceof CustomerIdentityError ? error.code : "unknown",
       });

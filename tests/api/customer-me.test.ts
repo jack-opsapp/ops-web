@@ -129,11 +129,11 @@ describe("GET /api/customer/me — signed in", () => {
     });
   });
 
-  it("re-resolves membership on every request — nothing is cached from the session (I3)", async () => {
+  it("re-reads membership on every request — nothing is cached from the session (I3)", async () => {
     const credential = liveCredential();
     await me(`handle=${HANDLE}`, { cookie: credential });
     await me(`handle=${HANDLE}`, { cookie: credential });
-    const resolves = fake.callsTo("resolve_customer_membership_as_system");
+    const resolves = fake.callsTo("read_customer_membership_as_system");
     expect(resolves).toHaveLength(2);
     for (const call of resolves) {
       expect(call.args).toEqual({ p_identity_id: IDENTITY_ID, p_company_id: COMPANY_ID });
@@ -186,6 +186,39 @@ describe("GET /api/customer/me — signed in", () => {
     ]);
   });
 
+  /**
+   * The 2026-09-03 live end-to-end run: a customer signed in with one business,
+   * whose browser then asked about a different business's public handle. The
+   * resolve-or-create RPC behind this route minted a client and a full-access
+   * membership inside that second, live company. A read may not do that (I17).
+   */
+  it("creates nothing in a company the customer has no relationship with (I17)", async () => {
+    fake.setMembership(IDENTITY_ID, COMPANY_ID, {
+      membership_id: "33333333-3333-4333-8333-333333333333",
+      client_id: "44444444-4444-4444-8444-444444444444",
+      sub_client_id: null,
+      state: "active_full",
+      outcome: "existing",
+    });
+    const credential = liveCredential();
+    await me(`handle=${HANDLE}`, { cookie: credential });
+
+    const res = await me(`handle=${OTHER_HANDLE}`, { cookie: credential });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      displayName: null,
+      maskedEmail: "j*****@example.com",
+      membership: { state: null },
+    });
+
+    expect(fake.createdClients).toEqual([]);
+    expect(fake.memberships.get(`${IDENTITY_ID}:${OTHER_COMPANY_ID}`)).toBeUndefined();
+    expect(fake.callsTo("link_customer_membership_as_system")).toEqual([]);
+    expect(fake.callsTo("resolve_or_create_customer_membership_as_system")).toEqual([]);
+    // The membership this identity really holds is untouched by the detour.
+    expect(fake.memberships.get(`${IDENTITY_ID}:${COMPANY_ID}`)?.state).toBe("active_full");
+  });
+
   it("reports every membership state as the broker holds it", async () => {
     const credential = liveCredential();
     for (const state of ["active_forward_only", "active_full", "revoked", "merged"] as const) {
@@ -225,7 +258,7 @@ describe("GET /api/customer/me — not signed in", () => {
     expect(cookie!.value).toBe("");
     expect(cookie!.maxAge).toBe(0);
     expect(cookie!.path).toBe(SESSION_COOKIE_PATH);
-    expect(fake.callsTo("resolve_customer_membership_as_system")).toEqual([]);
+    expect(fake.callsTo("read_customer_membership_as_system")).toEqual([]);
   });
 
   it("answers 401 for an unknown or malformed credential", async () => {
@@ -234,7 +267,7 @@ describe("GET /api/customer/me — not signed in", () => {
       expect(res.status).toBe(401);
       expect(await res.json()).toEqual({ error: "unauthenticated" });
     }
-    expect(fake.callsTo("resolve_customer_membership_as_system")).toEqual([]);
+    expect(fake.callsTo("read_customer_membership_as_system")).toEqual([]);
   });
 
   it("answers 401 for a revoked session on the very next request (I6)", async () => {
