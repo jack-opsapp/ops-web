@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import type { SocialSubmission } from "@/lib/social/contract";
-import { createSocialSubmissionHandler } from "@/app/api/internal/social/posts/route";
+import { createSocialSubmissionHandler } from "@/lib/social/agent-submission-handler";
 import {
   SocialSubmissionError,
   submitSocialPost,
@@ -23,7 +23,8 @@ function payload(): SocialSubmission {
       title: "The two-hour leak in your week",
       hook: "Your crew is waiting on an answer you already gave once.",
       angle: "Show the cost of repeated coordination and the practical fix.",
-      caption: "Every repeated answer costs attention. Put the plan where the crew works.",
+      caption:
+        "Every repeated answer costs attention. Put the plan where the crew works.",
       alt_text: "A field note about repeated crew coordination.",
       slides: [
         {
@@ -35,7 +36,9 @@ function payload(): SocialSubmission {
   };
 }
 
-function postRecord(overrides: Partial<SocialPostRecord> = {}): SocialPostRecord {
+function postRecord(
+  overrides: Partial<SocialPostRecord> = {}
+): SocialPostRecord {
   const now = new Date("2026-09-01T20:00:00.000Z").toISOString();
   return {
     id: "d88f06bd-985a-4c66-a609-1e85f9dc6803",
@@ -84,7 +87,10 @@ function postRecord(overrides: Partial<SocialPostRecord> = {}): SocialPostRecord
   };
 }
 
-function request(body: unknown, headers: Record<string, string> = {}): NextRequest {
+function request(
+  body: unknown,
+  headers: Record<string, string> = {}
+): NextRequest {
   return new NextRequest("http://localhost/api/internal/social/posts", {
     method: "POST",
     headers: { "content-type": "application/json", ...headers },
@@ -101,16 +107,23 @@ describe("scheduled-agent route boundary", () => {
     const response = await handler(request(payload()));
 
     expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toMatchObject({ code: "SOCIAL_AUTH_NOT_CONFIGURED" });
+    await expect(response.json()).resolves.toMatchObject({
+      code: "SOCIAL_AUTH_NOT_CONFIGURED",
+    });
   });
 
   it("rejects invalid bearer tokens and missing idempotency keys", async () => {
     vi.stubEnv("SOCIAL_AUTOMATION_SECRET", SECRET);
     const handler = createSocialSubmissionHandler({ submit: vi.fn() });
     const unauthorized = await handler(
-      request(payload(), { authorization: "Bearer wrong-token", "idempotency-key": "blog-1-v1" })
+      request(payload(), {
+        authorization: "Bearer wrong-token",
+        "idempotency-key": "blog-1-v1",
+      })
     );
-    const missingKey = await handler(request(payload(), { authorization: `Bearer ${SECRET}` }));
+    const missingKey = await handler(
+      request(payload(), { authorization: `Bearer ${SECRET}` })
+    );
 
     expect(unauthorized.status).toBe(401);
     expect(missingKey.status).toBe(400);
@@ -131,30 +144,40 @@ describe("scheduled-agent route boundary", () => {
 
     expect(response.status).toBe(400);
     expect(submit).not.toHaveBeenCalled();
-    await expect(response.json()).resolves.toMatchObject({ code: "INVALID_SOCIAL_PACKAGE" });
+    await expect(response.json()).resolves.toMatchObject({
+      code: "INVALID_SOCIAL_PACKAGE",
+    });
   });
 
   it("returns 201 for creation and 200 for an idempotent replay", async () => {
     vi.stubEnv("SOCIAL_AUTOMATION_SECRET", SECRET);
-    const createdPost = postRecord({ status: "review", rendered_assets: [
-      {
-        order: 1,
-        url: "https://cdn.opsapp.ca/social/slide-1.jpg",
-        alt_text: payload().content.alt_text,
-        sha256: "abc",
-        width: 1080,
-        height: 1350,
-        bytes: 123,
-        content_type: "image/jpeg",
-        storage_key: "social-media/post/render/slide-01.jpg",
-      },
-    ] });
+    const createdPost = postRecord({
+      status: "review",
+      rendered_assets: [
+        {
+          order: 1,
+          url: "https://cdn.opsapp.ca/social/slide-1.jpg",
+          alt_text: payload().content.alt_text,
+          sha256: "abc",
+          width: 1080,
+          height: 1350,
+          bytes: 123,
+          content_type: "image/jpeg",
+          storage_key: "social-media/post/render/slide-01.jpg",
+        },
+      ],
+    });
     const results = [
       { created: true, post: createdPost },
       { created: false, post: createdPost },
     ];
-    const handler = createSocialSubmissionHandler({ submit: vi.fn().mockImplementation(async () => results.shift()!) });
-    const headers = { authorization: `Bearer ${SECRET}`, "idempotency-key": "blog-1-v1" };
+    const handler = createSocialSubmissionHandler({
+      submit: vi.fn().mockImplementation(async () => results.shift()!),
+    });
+    const headers = {
+      authorization: `Bearer ${SECRET}`,
+      "idempotency-key": "blog-1-v1",
+    };
     const created = await handler(request(payload(), headers));
     const replayed = await handler(request(payload(), headers));
 
@@ -188,10 +211,14 @@ describe("scheduled-agent submission orchestration", () => {
           is_live: true,
         }),
         listRecentPosts: vi.fn().mockResolvedValue([]),
-        reserveRenderingPost: vi.fn().mockResolvedValue({ created: true, post: reserved }),
-        markReview: vi.fn().mockImplementation(async (_id, updates) =>
-          postRecord({ ...updates, status: "review" })
-        ),
+        reserveRenderingPost: vi
+          .fn()
+          .mockResolvedValue({ created: true, post: reserved }),
+        markReview: vi
+          .fn()
+          .mockImplementation(async (_id, updates) =>
+            postRecord({ ...updates, status: "review" })
+          ),
         markFailed: vi.fn().mockResolvedValue(undefined),
       },
       render: vi.fn().mockResolvedValue([
@@ -224,7 +251,11 @@ describe("scheduled-agent submission orchestration", () => {
       expect.objectContaining({
         source_url: "https://opsapp.co/journal/the-two-hour-leak",
         content: expect.objectContaining({
-          slides: [expect.objectContaining({ image_url: "https://images.opsapp.ca/blog/two-hour-leak.jpg" })],
+          slides: [
+            expect.objectContaining({
+              image_url: "https://images.opsapp.ca/blog/two-hour-leak.jpg",
+            }),
+          ],
         }),
         voice_reference_version: "ops-social-parr-2026-09-01",
       })
@@ -237,7 +268,9 @@ describe("scheduled-agent submission orchestration", () => {
         rendered_at: "2026-09-01T20:00:00.000Z",
       })
     );
-    expect(deps.notifyReview).toHaveBeenCalledWith(expect.objectContaining({ status: "review" }));
+    expect(deps.notifyReview).toHaveBeenCalledWith(
+      expect.objectContaining({ status: "review" })
+    );
   });
 
   it("returns the original post before source lookup or rendering on replay", async () => {
@@ -264,7 +297,10 @@ describe("scheduled-agent submission orchestration", () => {
     vi.mocked(deps.repository.findLiveBlogSource).mockResolvedValue(null);
 
     await expect(
-      submitSocialPost({ idempotencyKey: "missing-blog", submission: payload() }, deps)
+      submitSocialPost(
+        { idempotencyKey: "missing-blog", submission: payload() },
+        deps
+      )
     ).rejects.toMatchObject({ code: "BLOG_SOURCE_NOT_LIVE", status: 422 });
   });
 
@@ -280,10 +316,15 @@ describe("scheduled-agent submission orchestration", () => {
   });
 
   it("marks a reserved row failed when rendering fails", async () => {
-    const deps = serviceDependencies({ render: vi.fn().mockRejectedValue(new Error("render exploded")) });
+    const deps = serviceDependencies({
+      render: vi.fn().mockRejectedValue(new Error("render exploded")),
+    });
 
     await expect(
-      submitSocialPost({ idempotencyKey: "render-failure", submission: payload() }, deps)
+      submitSocialPost(
+        { idempotencyKey: "render-failure", submission: payload() },
+        deps
+      )
     ).rejects.toBeInstanceOf(SocialSubmissionError);
     expect(deps.repository.markFailed).toHaveBeenCalledWith(
       expect.any(String),
@@ -296,7 +337,10 @@ describe("scheduled-agent submission orchestration", () => {
     const later = payload();
     later.publish_at = "2026-09-01T23:00:00.000Z";
 
-    await submitSocialPost({ idempotencyKey: "later", submission: later }, deps);
+    await submitSocialPost(
+      { idempotencyKey: "later", submission: later },
+      deps
+    );
     expect(deps.repository.markReview).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({ publish_after: later.publish_at })
@@ -310,7 +354,10 @@ describe("scheduled-agent submission orchestration", () => {
       .mockReturnValueOnce(new Date("2026-09-01T20:04:00.000Z"));
     const deps = serviceDependencies({ now });
 
-    await submitSocialPost({ idempotencyKey: "slow-render", submission: payload() }, deps);
+    await submitSocialPost(
+      { idempotencyKey: "slow-render", submission: payload() },
+      deps
+    );
 
     expect(deps.repository.markReview).toHaveBeenCalledWith(
       expect.any(String),

@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { createSocialPublishCronHandler } from "@/app/api/cron/social-publish/route";
+import { createSocialPublishCronHandler } from "@/lib/social/publish-cron-handler";
 
 const CRON_SECRET = "cron-secret-with-at-least-32-characters";
 
@@ -16,7 +16,9 @@ describe("social publish cron", () => {
   it("fails closed when CRON_SECRET is absent", async () => {
     vi.stubEnv("CRON_SECRET", "");
     const runBatch = vi.fn();
-    const response = await createSocialPublishCronHandler({ runBatch })(request());
+    const response = await createSocialPublishCronHandler({ runBatch })(
+      request()
+    );
 
     expect(response.status).toBe(503);
     expect(runBatch).not.toHaveBeenCalled();
@@ -25,7 +27,9 @@ describe("social publish cron", () => {
   it("rejects an invalid bearer token", async () => {
     vi.stubEnv("CRON_SECRET", CRON_SECRET);
     const runBatch = vi.fn();
-    const response = await createSocialPublishCronHandler({ runBatch })(request("wrong"));
+    const response = await createSocialPublishCronHandler({ runBatch })(
+      request("wrong")
+    );
 
     expect(response.status).toBe(401);
     expect(runBatch).not.toHaveBeenCalled();
@@ -43,7 +47,9 @@ describe("social publish cron", () => {
       persistenceFailed: 0,
       results: [],
     });
-    const response = await createSocialPublishCronHandler({ runBatch })(request(CRON_SECRET));
+    const response = await createSocialPublishCronHandler({ runBatch })(
+      request(CRON_SECRET)
+    );
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
@@ -62,7 +68,9 @@ describe("social publish cron", () => {
   it("returns 500 without exposing an internal worker error", async () => {
     vi.stubEnv("CRON_SECRET", CRON_SECRET);
     const response = await createSocialPublishCronHandler({
-      runBatch: vi.fn().mockRejectedValue(new Error("database password was visible here")),
+      runBatch: vi
+        .fn()
+        .mockRejectedValue(new Error("database password was visible here")),
     })(request(CRON_SECRET));
 
     expect(response.status).toBe(500);

@@ -3,11 +3,9 @@ import type { SocialContent } from "@/lib/social/contract";
 import {
   createAdminSocialPostActionHandler,
   type AdminSocialPostActionHandlerDependencies,
-} from "@/app/api/admin/social/posts/[id]/route";
-import {
   createAdminSocialPostsListHandler,
   type AdminSocialPostsListHandlerDependencies,
-} from "@/app/api/admin/social/posts/route";
+} from "@/lib/social/admin-post-route-handlers";
 import {
   cancelSocialPost,
   editSocialPostCopy,
@@ -31,7 +29,11 @@ function request(method: string, url: string, body?: unknown): NextRequest {
 describe("admin social route boundary", () => {
   it("runs the admin gate before listing queue rows", async () => {
     const dependencies: AdminSocialPostsListHandlerDependencies = {
-      authenticate: vi.fn().mockRejectedValue(NextResponse.json({ error: "Unauthorized" }, { status: 401 })),
+      authenticate: vi
+        .fn()
+        .mockRejectedValue(
+          NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        ),
       list: vi.fn(),
     };
     const response = await createAdminSocialPostsListHandler(dependencies)(
@@ -49,11 +51,17 @@ describe("admin social route boundary", () => {
       list: vi.fn().mockResolvedValue(posts),
     };
     const response = await createAdminSocialPostsListHandler(dependencies)(
-      request("GET", "http://localhost/api/admin/social/posts?status=review,failed&limit=25")
+      request(
+        "GET",
+        "http://localhost/api/admin/social/posts?status=review,failed&limit=25"
+      )
     );
 
     expect(response.status).toBe(200);
-    expect(dependencies.list).toHaveBeenCalledWith({ statuses: ["review", "failed"], limit: 25 });
+    expect(dependencies.list).toHaveBeenCalledWith({
+      statuses: ["review", "failed"],
+      limit: 25,
+    });
     await expect(response.json()).resolves.toEqual({ posts });
   });
 
@@ -68,7 +76,9 @@ describe("admin social route boundary", () => {
     const handler = createAdminSocialPostActionHandler(dependencies);
     const context = { params: Promise.resolve({ id: POST_ID }) };
     const unknown = await handler(
-      request("PATCH", `http://localhost/api/admin/social/posts/${POST_ID}`, { action: "explode" }),
+      request("PATCH", `http://localhost/api/admin/social/posts/${POST_ID}`, {
+        action: "explode",
+      }),
       context
     );
     const invalidEdit = await handler(
@@ -90,12 +100,31 @@ describe("admin social route boundary", () => {
       const dependencies: AdminSocialPostActionHandlerDependencies = {
         authenticate: vi.fn().mockResolvedValue(USER),
         edit: vi.fn(),
-        cancel: vi.fn().mockResolvedValue({ post: socialPostFixture({ status: "cancelled" }) }),
-        publishNow: vi.fn().mockResolvedValue({ outcome: "published", postId: POST_ID, mediaId: "m1", permalink: null }),
-        retryNow: vi.fn().mockResolvedValue({ outcome: "retry_scheduled", postId: POST_ID, nextAttemptAt: "later" }),
+        cancel: vi
+          .fn()
+          .mockResolvedValue({
+            post: socialPostFixture({ status: "cancelled" }),
+          }),
+        publishNow: vi
+          .fn()
+          .mockResolvedValue({
+            outcome: "published",
+            postId: POST_ID,
+            mediaId: "m1",
+            permalink: null,
+          }),
+        retryNow: vi
+          .fn()
+          .mockResolvedValue({
+            outcome: "retry_scheduled",
+            postId: POST_ID,
+            nextAttemptAt: "later",
+          }),
       };
       const response = await createAdminSocialPostActionHandler(dependencies)(
-        request("PATCH", `http://localhost/api/admin/social/posts/${POST_ID}`, { action }),
+        request("PATCH", `http://localhost/api/admin/social/posts/${POST_ID}`, {
+          action,
+        }),
         { params: Promise.resolve({ id: POST_ID }) }
       );
 
@@ -179,7 +208,12 @@ describe("admin social mutation service", () => {
 
   it("reselects, re-renders, preserves prior asset evidence, and restarts ten minutes", async () => {
     const deps = serviceDependencies();
-    const result = await editSocialPostCopy(POST_ID, editedContent(), USER.email, deps);
+    const result = await editSocialPostCopy(
+      POST_ID,
+      editedContent(),
+      USER.email,
+      deps
+    );
 
     expect(deps.repository.beginEdit).toHaveBeenCalledWith(
       POST_ID,
@@ -187,7 +221,9 @@ describe("admin social mutation service", () => {
         audit_log: expect.arrayContaining([
           expect.objectContaining({
             event: "edit_started",
-            metadata: expect.objectContaining({ previous_assets: socialPostFixture().rendered_assets }),
+            metadata: expect.objectContaining({
+              previous_assets: socialPostFixture().rendered_assets,
+            }),
           }),
         ]),
       })
@@ -206,9 +242,13 @@ describe("admin social mutation service", () => {
   });
 
   it("marks an edit failed without discarding the prior rendered assets", async () => {
-    const deps = serviceDependencies({ render: vi.fn().mockRejectedValue(new Error("render failed")) });
+    const deps = serviceDependencies({
+      render: vi.fn().mockRejectedValue(new Error("render failed")),
+    });
 
-    await expect(editSocialPostCopy(POST_ID, editedContent(), USER.email, deps)).rejects.toMatchObject({
+    await expect(
+      editSocialPostCopy(POST_ID, editedContent(), USER.email, deps)
+    ).rejects.toMatchObject({
       code: "SOCIAL_EDIT_RENDER_FAILED",
     });
     expect(deps.repository.failEdit).toHaveBeenCalledWith(
@@ -232,7 +272,11 @@ describe("admin social mutation service", () => {
 
   it("uses the shared atomic publisher for publish-now", async () => {
     const deps = serviceDependencies();
-    const result = await publishSocialPostImmediately(POST_ID, USER.email, deps);
+    const result = await publishSocialPostImmediately(
+      POST_ID,
+      USER.email,
+      deps
+    );
 
     expect(result.outcome).toBe("published");
     expect(deps.publishNow).toHaveBeenCalledWith(POST_ID);
@@ -278,15 +322,21 @@ describe("admin social mutation service", () => {
       },
     });
 
-    await expect(retrySocialPostImmediately(POST_ID, USER.email, deps)).rejects.toMatchObject({
+    await expect(
+      retrySocialPostImmediately(POST_ID, USER.email, deps)
+    ).rejects.toMatchObject({
       code: "SOCIAL_RECONCILIATION_REQUIRED",
       status: 409,
     });
-    await expect(cancelSocialPost(POST_ID, USER.email, deps)).rejects.toMatchObject({
+    await expect(
+      cancelSocialPost(POST_ID, USER.email, deps)
+    ).rejects.toMatchObject({
       code: "SOCIAL_RECONCILIATION_REQUIRED",
       status: 409,
     });
-    await expect(editSocialPostCopy(POST_ID, editedContent(), USER.email, deps)).rejects.toMatchObject({
+    await expect(
+      editSocialPostCopy(POST_ID, editedContent(), USER.email, deps)
+    ).rejects.toMatchObject({
       code: "SOCIAL_RECONCILIATION_REQUIRED",
       status: 409,
     });
@@ -310,7 +360,9 @@ describe("admin social mutation service", () => {
       },
     });
 
-    await expect(retrySocialPostImmediately(POST_ID, USER.email, deps)).rejects.toMatchObject({
+    await expect(
+      retrySocialPostImmediately(POST_ID, USER.email, deps)
+    ).rejects.toMatchObject({
       code: "SOCIAL_POST_NOT_RETRYABLE",
       status: 409,
     });
@@ -325,7 +377,9 @@ describe("admin social mutation service", () => {
           getById: vi.fn().mockResolvedValue(socialPostFixture({ status })),
         },
       });
-      await expect(editSocialPostCopy(POST_ID, editedContent(), USER.email, deps)).rejects.toMatchObject({
+      await expect(
+        editSocialPostCopy(POST_ID, editedContent(), USER.email, deps)
+      ).rejects.toMatchObject({
         code: "SOCIAL_POST_IMMUTABLE",
         status: 409,
       });
