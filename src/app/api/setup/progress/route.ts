@@ -114,7 +114,28 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       if (data.lastName) identityUpdates.last_name = data.lastName;
       if (data.phone) identityUpdates.phone = data.phone;
 
-      await db.from("users").update(identityUpdates).eq("id", userId);
+      // The error was previously discarded entirely, so the route reported the
+      // step complete for a write that never landed. first_name/last_name are
+      // both covered by public.idx_users_agent_team_directory_v1's key
+      // expression, which makes this write permanently non-HOT — during the
+      // 2026-09-03 expression-index privilege outage it was rejected every
+      // time, and the operator's name was silently lost mid-onboarding.
+      const { error: identityError } = await db
+        .from("users")
+        .update(identityUpdates)
+        .eq("id", userId);
+
+      if (identityError) {
+        console.error(
+          "[setup/progress] identity update failed:",
+          identityError.message,
+          { userId }
+        );
+        return NextResponse.json(
+          { error: "Your details didn't save. Try that step again." },
+          { status: 500 }
+        );
+      }
     }
 
     if (step === "company" && data) {
@@ -138,7 +159,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           companyUpdates.referral_method = data.referralMethod;
         }
 
-        await db.from("companies").update(companyUpdates).eq("id", companyId);
+        // Same contract as the identity write above: a discarded error here
+        // reported the company step complete for data that was never stored.
+        const { error: companyError } = await db
+          .from("companies")
+          .update(companyUpdates)
+          .eq("id", companyId);
+
+        if (companyError) {
+          console.error(
+            "[setup/progress] company update failed:",
+            companyError.message,
+            { companyId }
+          );
+          return NextResponse.json(
+            { error: "Your company details didn't save. Try that step again." },
+            { status: 500 }
+          );
+        }
       } else {
         // One transaction: company row + crew join code + Owner `user_roles`
         // row + owner labels + `initialize_company_defaults`.
@@ -316,14 +354,29 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       };
     }
 
-    // Write updated setup_progress back to users table
-    await db
+    // Write updated setup_progress back to users table. `success: true` below
+    // is a claim about the database, so it may only be made once this write is
+    // known to have landed — the checkpoint is what lets the operator resume
+    // setup, and losing it silently strands them on a step they already did.
+    const { error: progressError } = await db
       .from("users")
       .update({
         setup_progress: updatedProgress,
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId);
+
+    if (progressError) {
+      console.error(
+        "[setup/progress] setup_progress write failed:",
+        progressError.message,
+        { userId, step }
+      );
+      return NextResponse.json(
+        { error: "That step didn't save. Try it again." },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
