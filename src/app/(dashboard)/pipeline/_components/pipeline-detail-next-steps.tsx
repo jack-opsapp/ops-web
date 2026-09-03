@@ -6,6 +6,7 @@ import {
   Mail,
   Phone,
   Calendar,
+  CalendarClock,
   CheckCircle,
   Check,
   MapPin,
@@ -21,8 +22,10 @@ import {
 } from "@/lib/types/pipeline";
 import { useCompleteFollowUp } from "@/lib/hooks";
 import { useOpenBooking } from "@/lib/hooks/use-site-visits";
+import { useBookingRequest } from "@/lib/hooks/use-booking-request";
 import type { OpportunityAssignedContextFollowUp } from "@/lib/api/services/opportunity-assigned-context-service";
 import { BookSiteVisitModal } from "@/components/ops/site-visit/book-site-visit-modal";
+import { BookingRequestDecision } from "@/components/ops/site-visit/booking-request-decision";
 import { formatVisitSlot } from "@/components/ops/site-visit/visit-slot";
 
 // ── Signal evaluation ──
@@ -142,7 +145,9 @@ function evaluateSignals(
   // Booked site visits are NOT a signal here — the booking slot at the end
   // of the strip carries the appointment state (exact day + time from the
   // booked_at-guarded read), replacing the old status-only projection that
-  // could surface legacy junk scheduled_at values.
+  // could surface legacy junk scheduled_at values. A public booking request
+  // rides the same slot for the same reason: one visit entry, whatever state
+  // it is in.
 
   return signals;
 }
@@ -170,6 +175,7 @@ export function PipelineDetailNextSteps({
   const { t } = useDictionary("pipeline");
   const [expanded, setExpanded] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
+  const [decisionOpen, setDecisionOpen] = useState(false);
 
   const completeFollowUp = useCompleteFollowUp();
 
@@ -177,6 +183,10 @@ export function PipelineDetailNextSteps({
   // assigned-context rows, which carry no booked_at and would surface
   // legacy junk scheduled_at values).
   const { data: openBooking } = useOpenBooking(opportunity.id);
+
+  // A public booking request in `request` mode put nothing on any calendar
+  // (I14) — until somebody decides, it IS this lead's visit state.
+  const { data: bookingRequest } = useBookingRequest(opportunity.id);
 
   const pendingFollowUps = useMemo(
     () =>
@@ -205,9 +215,15 @@ export function PipelineDetailNextSteps({
   const remaining = signals.slice(1);
 
   // ── Booking slot — the strip's single state-aware visit entry ─────────
-  //   open booking          → BOOKED — THU 10:00 (tan chip; manages behind it)
+  //   open booking          → BOOKED — THU 10:00 (filled tan; manages behind it)
+  //   pending request       → REQUESTED — THU 10:00 (outlined tan; decide behind it)
   //   free slot + canManage → quiet BOOK VISIT affordance
   //   free slot, read-only  → nothing
+  //
+  // `request` mode creates no visit, so a booking and a request should never
+  // both be true. If they are, what is really on the calendar is the truth.
+  const pendingRequest = openBooking ? null : (bookingRequest ?? null);
+
   const bookedLabel = openBooking
     ? t("nextSteps.booked", "BOOKED — {slot}").replace(
         "{slot}",
@@ -215,11 +231,28 @@ export function PipelineDetailNextSteps({
       )
     : null;
 
-  const bookedChipClass = cn(
+  const requestedLabel = pendingRequest
+    ? t("nextSteps.requested", "REQUESTED — {slot}").replace(
+        "{slot}",
+        formatVisitSlot(new Date(pendingRequest.slotStartAt))
+      )
+    : null;
+
+  const chipClass = cn(
     "inline-flex shrink-0 items-center gap-1 rounded-chip border px-1.5 py-[2px]",
-    "border-[var(--tan-line)] bg-[var(--tan-soft)] text-[var(--tan)]",
     "font-mono text-[11px] uppercase tracking-[0.12em] tabular-nums",
     "[font-feature-settings:'tnum'_1,'zero'_1]"
+  );
+
+  // Filled = committed; outlined = proposed. The fill is what separates a
+  // visit that exists from one that has only been asked for.
+  const bookedChipClass = cn(
+    chipClass,
+    "border-[var(--tan-line)] bg-[var(--tan-soft)] text-[var(--tan)]"
+  );
+  const requestedChipClass = cn(
+    chipClass,
+    "border-[var(--tan-line)] bg-transparent text-[var(--tan)]"
   );
 
   const bookingSlot = bookedLabel ? (
@@ -240,6 +273,26 @@ export function PipelineDetailNextSteps({
       <span className={bookedChipClass}>
         <MapPin className="h-3 w-3 shrink-0" aria-hidden="true" />
         {bookedLabel}
+      </span>
+    )
+  ) : requestedLabel ? (
+    canManage ? (
+      <button
+        type="button"
+        onClick={() => setDecisionOpen(true)}
+        className={cn(
+          requestedChipClass,
+          "transition-colors duration-150 hover:border-[var(--tan)]",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ops-accent"
+        )}
+      >
+        <CalendarClock className="h-3 w-3 shrink-0" aria-hidden="true" />
+        {requestedLabel}
+      </button>
+    ) : (
+      <span className={requestedChipClass}>
+        <CalendarClock className="h-3 w-3 shrink-0" aria-hidden="true" />
+        {requestedLabel}
       </span>
     )
   ) : canManage ? (
@@ -354,6 +407,17 @@ export function PipelineDetailNextSteps({
           open={bookingOpen}
           onOpenChange={setBookingOpen}
           existingBooking={openBooking ?? null}
+        />
+      )}
+
+      {/* Accepting here is what books the visit — nothing was on a calendar
+          before it (I14). Declining books nothing and sends nothing. */}
+      {canManage && pendingRequest && (
+        <BookingRequestDecision
+          opportunityId={opportunity.id}
+          request={pendingRequest}
+          open={decisionOpen}
+          onOpenChange={setDecisionOpen}
         />
       )}
     </div>
