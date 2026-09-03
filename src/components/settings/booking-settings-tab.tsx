@@ -127,37 +127,15 @@ export function BookingSettingsTab() {
 
   return (
     <div className="max-w-[720px] space-y-5">
-      {/* ── Header + commit ────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
-            <span className="text-text-mute">{"// "}</span>
-            {t("booking.title")}
-          </span>
-          <p className="mt-0.5 font-mono text-micro text-text-3">
-            [{t("booking.subtitle")}]
-          </p>
-        </div>
-        {dirty ? (
-          <div className="flex flex-wrap items-center justify-end gap-1">
-            {problems.length > 0 ? (
-              <span className="font-mono text-micro uppercase tracking-[0.14em] text-rose">
-                {`// ${t(`booking.problem.${problems[0]}`)}`}
-              </span>
-            ) : null}
-            <Button variant="ghost" size="default" onClick={() => setDraft(stored)}>
-              {t("booking.discard")}
-            </Button>
-            <Button
-              variant="primary"
-              size="default"
-              onClick={handleSave}
-              loading={save.isPending}
-            >
-              {t("booking.save")}
-            </Button>
-          </div>
-        ) : null}
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div>
+        <span className="font-mono text-micro uppercase tracking-[0.16em] text-text-3">
+          <span className="text-text-mute">{"// "}</span>
+          {t("booking.title")}
+        </span>
+        <p className="mt-0.5 font-mono text-micro text-text-3">
+          [{t("booking.subtitle")}]
+        </p>
       </div>
 
       {/* ── The one control (D9) ───────────────────────────────────────── */}
@@ -192,7 +170,25 @@ export function BookingSettingsTab() {
             className="glass-surface space-y-3 rounded-panel p-4"
           >
             <BlockHeader label={t("booking.limits")} />
-            <div className="grid gap-3 md:grid-cols-2">
+            {/* The visit length defines the slot, so it leads and owns its own
+                line — the ladder reads as one row of choices, never wrapped. */}
+            <label className="block rounded border border-border p-3">
+              <span className="block font-mohave text-body-sm uppercase text-text">
+                {t("booking.duration")}
+              </span>
+              <span className="mt-1 block font-mono text-micro leading-relaxed text-text-3">
+                [{t("booking.durationHelp")}]
+              </span>
+              <SegmentControl
+                mode="choice"
+                ariaLabel={t("booking.duration")}
+                options={durationOptions}
+                value={String(draft.visitDurationMinutes)}
+                onChange={(value) => update({ visitDurationMinutes: Number(value) })}
+                className="mt-1"
+              />
+            </label>
+            <div className="grid gap-3 md:grid-cols-3">
               <CountField
                 label={t("booking.notice")}
                 help={t("booking.noticeHelp")}
@@ -209,22 +205,6 @@ export function BookingSettingsTab() {
                 value={String(draft.horizonDays)}
                 onChange={(raw) => update({ horizonDays: parseCount(raw, draft.horizonDays) })}
               />
-              <label className="block rounded border border-border p-3">
-                <span className="block font-mohave text-body-sm uppercase text-text">
-                  {t("booking.duration")}
-                </span>
-                <span className="mt-1 block font-mono text-micro leading-relaxed text-text-3">
-                  [{t("booking.durationHelp")}]
-                </span>
-                <SegmentControl
-                  mode="choice"
-                  ariaLabel={t("booking.duration")}
-                  options={durationOptions}
-                  value={String(draft.visitDurationMinutes)}
-                  onChange={(value) => update({ visitDurationMinutes: Number(value) })}
-                  className="mt-1 h-auto min-h-[28px] flex-wrap"
-                />
-              </label>
               <CountField
                 label={t("booking.cap")}
                 help={t("booking.capHelp")}
@@ -274,6 +254,32 @@ export function BookingSettingsTab() {
             </label>
           </section>
         </>
+      ) : null}
+
+      {/* The commit bar exists only while there is something to commit, and
+          stays reachable however far down the week the operator is working —
+          a refusal a thousand pixels above the change is no refusal at all. */}
+      {dirty ? (
+        <div className="sticky bottom-0 z-[5] pt-2">
+          <div className="glass-dense flex flex-wrap items-center justify-end gap-1 rounded-panel border border-glass-border p-2">
+            {problems.length > 0 ? (
+              <span className="mr-auto font-mono text-micro uppercase tracking-[0.14em] text-rose">
+                {`// ${t(`booking.problem.${problems[0]}`)}`}
+              </span>
+            ) : null}
+            <Button variant="ghost" size="default" onClick={() => setDraft(stored)}>
+              {t("booking.discard")}
+            </Button>
+            <Button
+              variant="primary"
+              size="default"
+              onClick={handleSave}
+              loading={save.isPending}
+            >
+              {t("booking.save")}
+            </Button>
+          </div>
+        </div>
       ) : null}
     </div>
   );
