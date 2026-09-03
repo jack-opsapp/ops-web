@@ -196,6 +196,36 @@ export async function recordPhaseCLifecycleDecision(input: {
   };
 }
 
+export const LIFECYCLE_DECISION_REPLAY_CONFLICT =
+  "lifecycle_decision_replay_conflict";
+
+/**
+ * A settled receipt refused a replay of the same decisive source event.
+ * The decision it already carries is durable — the caller is not being told to
+ * retry, it is being told there is nothing to write. Callers isolate this to
+ * the one lead: failing a whole sync run over it holds the provider cursor and
+ * starves every other message in the mailbox (bug 2db2e0d0 froze Gmail
+ * ingestion for 44 hours). Walks `cause` because the sync engine rewraps.
+ */
+export function isLifecycleDecisionReplayConflict(error: unknown): boolean {
+  const seen = new Set<unknown>();
+  let current: unknown = error;
+  for (let depth = 0; depth < 8; depth += 1) {
+    if (
+      current instanceof Error &&
+      current.message.includes(LIFECYCLE_DECISION_REPLAY_CONFLICT)
+    ) {
+      return true;
+    }
+    if (!current || typeof current !== "object" || seen.has(current)) {
+      return false;
+    }
+    seen.add(current);
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
+}
+
 export async function settlePhaseCLifecycleDecision(input: {
   supabase: PhaseCLifecycleRpcSupabaseLike;
   companyId: string;
