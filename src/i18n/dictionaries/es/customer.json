@@ -41,7 +41,7 @@
   "home.forward.title": "Ya estás dentro.",
   "home.forward.body": "Aquí verás las nuevas reservas y documentos. El historial anterior aparecerá cuando {company} confirme tu cuenta.",
   "home.none.title": "Aún no hay nada aquí.",
-  "home.none.body": "{company} no ha vinculado registros a este correo. Las reservas que hagas aparecerán aquí.",
+  "home.none.body": "{company} no tiene registros con este correo. Lo que reserves aquí aparecerá en esta página.",
   "home.signOut": "CERRAR SESIÓN",
   "home.signingOut": "CERRANDO SESIÓN",
   "home.signOutFailed": "No se pudo cerrar la sesión. Inténtalo de nuevo.",
