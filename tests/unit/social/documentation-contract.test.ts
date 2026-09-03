@@ -24,7 +24,7 @@ describe("social publishing documentation contract", () => {
     }
   });
 
-  it("documents credentials, storage, veto lifecycle, retries, quota, and production gates", () => {
+  it("documents credentials, storage, veto lifecycle, retries, quota, and the remaining live-post gate", () => {
     const runbook = read("docs/social/instagram-operations.md");
     for (const required of [
       "CRON_SECRET",
@@ -46,7 +46,7 @@ describe("social publishing documentation contract", () => {
       "content_publishing_limit",
       "PUBLISH_OUTCOME_UNKNOWN",
       "Do not retry",
-      "not deployed",
+      "first live post remains a separate explicit release gate",
     ]) {
       expect(runbook).toContain(required);
     }

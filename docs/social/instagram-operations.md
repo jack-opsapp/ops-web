@@ -4,7 +4,15 @@ This runbook covers the OPS Web queue, renderer, operator veto, Vercel worker, a
 
 ## Current release state
 
-The feature code and migration are local only. It is **not deployed**, the database migration has not been applied, Vercel environment values have not been added, and no real Instagram post has been sent. Each production step requires explicit approval.
+Production code and both social migrations were deployed and independently
+verified on 2026-09-03. The required Vercel values are configured, including a
+rotated sensitive `CRON_SECRET` and pinned `INSTAGRAM_API_VERSION=v25.0`. The
+admin route and fail-closed agent and cron boundaries were verified against the
+production domain.
+
+No Instagram account is connected and no real Instagram post has been sent.
+An admin must complete `CONNECT INSTAGRAM` before the worker can publish, and
+the first live post remains a separate explicit release gate.
 
 ## Production prerequisites
 
